@@ -1,0 +1,126 @@
+\documentclass[a4paper]{article}   	% use "amsart" instead of "article" for AMSLaTeX format
+
+\usepackage{geometry}                	
+\geometry{a4paper,margin=1.1in}           % ... or a4paper or a5paper or ... 
+
+%\usepackage{graphicx}			
+
+\usepackage{amsmath}
+
+\usepackage{hyperref}
+\hypersetup{colorlinks=true,
+    citecolor=blue,    filecolor=blue,
+    linkcolor=blue,     urlcolor=blue
+}
+%\usepackage[pdftex]{tulhypref}
+
+\newcommand{\ir}{\frac{1}{r}}
+\newcommand{\Integ}[1]{\int_{-\infty}^{\infty} \!\!\!\!\! \mathrm{d}#1}
+
+% Reference automatique aux equations, sections, figures
+\usepackage{cleveref}
+
+\title{A spectral, cylindrical, dispersion-free Particle-In-Cell code}
+\date{}
+%\pagestyle{empty}
+\author{R\'emi \textsc{Lehe}}
+
+
+\begin{document}
+
+\maketitle
+
+
+\section*{Introduction}
+
+\paragraph{Importance of PIC codes } Used in many fields : astro, laser-plasma interaction. However, 3D codes are expensive, and their limited resolution leads to many numerical effects (Cherenkov, dispersion).
+
+\paragraph{Cylindrical PIC codes} A range of physical situations have close-to cylindrical symmetry (e.g. electron beam propagation, laser-wakefield acceleration), and they can be simulated with very significant speedup using a cylindrically symmetric algorithm (Lischitz, Davidson). This typically reduces the cost of the simulation to a few times that of a 2D simulation, instead of that of a full 3D simulation.
+
+\paragraph{Spectral PIC codes} In parallel, 3D spectral PIC codes have been developped, and can mitigate numerical instability (articles Warren and Brendan Godfrey). In spectral space, some algorithms have no numerical dispersion whatsoever (article PSATD). This is important in laser-wakefield acceleration since even a very small amount of numerical dispersion can introduce spurious injection. Typically, this imposes to strongly overresolve the wavelength of the laser (thereby increasing computational requirements), and to use very asymetric cell aspect ratio. Although the spectral algorithms reduce the requirements on the longitudinal resolution, they still require a 3D grid, and therefore a large computational load.
+
+\paragraph{Spectral, cylindrical PIC codes } In this document, we combine the two approaches. Advantages:
+\begin{itemize}
+\item Significant speedup due to the cylindrical geometry.
+\item Ideal dispersion relation in PSATD, independent on azimuthal mode (with a finite difference algorithm, the different modes go at different speeds)
+\item Fields are colocated in space and time in PSATD and not staggered, which simplifies interpolation, and prevents time-interpolation errors in compensation of E and B (article plasma lens)
+\item Ability to apply filters in k space and thereby limit numerical instabilities
+\item Prevent on-axis noise that appear in finite-difference cylindrical algorithms.
+\end{itemize}
+
+
+\section{Representation of the fields and continuous equations}
+
+\subsection{Reminder on Cartesian spectral codes}
+
+It is well-known that the Maxwell equations in Cartesian coordinates 
+\begin{align}
+\partial_t E_x = \partial_y B_z - \partial_z B_y - \mu_0  J_x \qquad&   
+\partial_t B_x = -\partial_y E_z + \partial_z E_y \label{eq:CartMaxwellx} \\
+\partial_t E_y = \partial_z B_x - \partial_x B_z - \mu_0  J_y \qquad &   
+\partial_t B_y = -\partial_z E_x + \partial_x E_z \label{eq:CartMaxwelly}  \\
+\partial_t E_z = \partial_x B_y - \partial_y B_x - \mu_0  J_z \qquad &   
+\partial_t B_z = -\partial_x E_y + \partial_y E_x \label{eq:CartMaxwellz} 
+\end{align}
+can be solved by representing the fields as a sum of Fourier modes.
+\begin{equation}
+\label{eq:CartBwTrans}
+F(x,y,z) = \frac{1}{(2\pi)^{3/2}}\Integ{k_x} \,\Integ{k_y}\, \Integ{k_z} \; \hat{F}(k_x,k_y,k_z) e^{i(k_x x + k_y y + k_z z)} 
+\end{equation}
+with 
+\begin{equation}
+\label{eq:CartFwTrans}
+\hat{F}(k_x,k_y,k_z)  = \frac{1}{(2\pi)^{3/2}}\Integ{x} \,\Integ{y}\, \Integ{z} \; F(x,y,z) e^{-i(k_x x + k_y y + k_z z)} 
+\end{equation}
+where $F$ is any of the fields $E_x$, $E_y$, $E_z$, $B_x$, $B_y$, $B_z$. In this case, the different Fourier modes decouple and the equations \cref{eq:CartMaxwellx,eq:CartMaxwelly,eq:CartMaxwellz} become 
+\begin{align}
+\partial_t \hat{E}_x = ik_y \hat{B}_z - ik_z \hat{B}_y - \mu_0 \hat{J}_x \qquad &   
+\partial_t \hat{B}_x = -ik_y \hat{E}_z + ik_z \hat{E}_y \\
+\partial_t \hat{E}_y = ik_z \hat{B}_x - ik_x \hat{B}_z - \mu_0  \hat{J}_y \qquad &   
+\partial_t \hat{B}_y = -ik_z \hat{E}_x + ik_x \hat{E}_z \\
+\partial_t \hat{E}_z = ik_x \hat{B}_y - ik_y \hat{B}_x - \mu_0 \hat{J}_z  \qquad &   
+\partial_t \hat{B}_z = -ik_x \hat{E}_y + ik_y \hat{E}_x 
+\end{align}
+The Fourier coefficients can then be integrated in time, and
+transformed back into real space using \cref{eq:CartBwTrans}. This is
+the core principle of Cartesian pseudo-spectral codes.
+
+\subsection{Cylindrical spectral codes}
+
+The Fourier representation \cref{eq:CartBwTrans} is no longer the appropriate representation in the case of the Maxwell equations written in cylindrical coordinates.
+\begin{align}
+\partial_t E_r = \ir \partial_\theta B_z - \partial_z B_\theta - \mu_0  J_r \qquad&   
+\partial_t B_r = -\ir \partial_\theta E_z + \partial_z E_\theta \label{eq:CircMaxwellr} \\
+\partial_t E_\theta = \partial_z B_r - \partial_r B_z - \mu_0  J_\theta \qquad &   
+\partial_t B_\theta = -\partial_z E_r + \partial_r E_z \label{eq:CircMaxwellt}  \\
+\partial_t E_z = \ir\partial_r r B_\theta - \ir\partial_\theta B_r - \mu_0  J_z \qquad &   
+\partial_t B_z = -\ir\partial_r r E_\theta + \ir\partial_\theta E_r \label{eq:CircMaxwellz} 
+\end{align}
+In this case, the Fourier modes do not decouple when injected into the \cref{eq:CircMaxwellr,eq:CircMaxwellt,eq:CircMaxwellz}. Instead one has to use the Fourier-Bessel representation.
+\begin{equation}
+\end{equation}
+ (See \cref{sec:CircTrans} for a derivation of this
+ representation)
+
+\section{Discrete implementation}
+
+Grand scheme :
+3 grids, interpolation, deposition 
+
+\subsection{Field integration}
+
+Could be integrated by finite difference, but we choose PSATD (for numerical dispersion).
+
+\subsection{Current deposition}
+
+\subsection{} 
+
+\appendix
+
+\section{Derivation of the Fourier-Bessel representation}
+\label{sec:CircTrans}
+
+\section{Derivation of the Maxwell equations in the Fourier-Bessel representation}
+
+
+\end{document}  

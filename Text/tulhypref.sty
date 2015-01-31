@@ -1,0 +1,170 @@
+%
+% This package complements the thesul class and is aimed to replace
+% the hyperref package in this context. The hyperref package does not
+% address the intricacies of thesul and this is what we are doing here.
+% This package load hyperref and passes its options so that one can write
+% \usepackage[pdftex]{tulhypref} or whatever.
+%
+% Versions:
+\def\fileversion{0.11}
+\def\filedate{2013/10/06}
+\NeedsTeXFormat{LaTeX2e}
+\ProvidesPackage{tulhypref}[\filedate\space\fileversion\space
+thesul wrapper for hyperref package (D. Roegel)]
+\DeclareOption*{\PassOptionsToPackage{\CurrentOption}{hyperref}}
+\ProcessOptions
+\RequirePackage{hyperref}
+
+% We cancel modifications from hyperref (in hpdftex.def and pdftex.def).
+
+\let\@sect\H@old@sect
+\let\@schapter\H@old@schapter
+\let\@spart\H@old@spart   
+
+\let\refstepcounter\H@refstepcounter
+
+% Now, \@part, \@chapter, \@sect and \refstepcounter have the good values
+% of thesul.
+
+% Addition of \TULtopbookmark in front of \tableofcontents
+% in order to make sure that the bookmark entry for the table of contents
+% is at the top level. Works with the chapter hook.
+\let\@old@tableofcontents\tableofcontents
+\def\tableofcontents{\TULtopbookmark\@old@tableofcontents}
+
+% These definitions are for the purpose of comparisons in \refstepcounter:
+\def\@partcountername{part}
+\def\@chaptercountername{chapter}
+\def\@annexcountername{annex}
+
+% \refstepcounter is redefined so that \@currentHref is uptodate
+% in each chapter, section, etc.
+\def\refstepcounter#1{%
+  \H@refstepcounter{#1}%
+  \edef\This@name{#1}%
+  \ifx\This@name\name@of@slide
+  \else
+    \if@skiphyperref
+    \else
+      \if@hyper@item
+        \stepcounter{Item}%
+        \hyper@refstepcounter{Item}%
+      \else
+        % \hyper@refstepcounter is only performed when it is neither a part,
+        % nor a chapter/annex; the \hyper@refstepcounter is done
+        % in the hook of thesul with \hyper@refstepcounter{division}.
+        \def\@countername{#1}%
+        \ifx\@countername\@partcountername
+        \else
+          \ifx\@countername\@chaptercountername
+          \else
+            \ifx\@countername\@annexcountername
+            \else
+              \hyper@refstepcounter{#1}%
+            \fi
+          \fi
+        \fi
+      \fi
+    \fi
+  \fi
+}
+
+
+% We add \hyper@refstepcounter{division} to the division counter hook
+
+\let\@old@division@inc@hook\@division@inc@hook
+\renewcommand{\@division@inc@hook}{%
+  \@old@division@inc@hook
+  \hyper@refstepcounter{division}
+  }
+
+\newcommand\theHdivision  {\arabic{division}}
+\renewcommand\theHfigure  {\theHdivision.\arabic{figure}}
+\renewcommand\theHtable   {\theHdivision.\arabic{table}}
+\renewcommand\theHsection {\theHdivision.\arabic{section}}
+
+% This boolean forces a bookmark to be at the topmost level;
+% it is only taken into account at the level of chapters (\chapter & \chapter*)
+% and it will thus act on the next \chapter(*).
+
+\newif\if@top@bookm@rk
+\@top@bookm@rkfalse
+\newcommand{\TULtopbookmark}{\@top@bookm@rktrue}
+
+% We input the file \jobname.flg in order to get the value of
+% `@there@were@p@rts':
+\InputIfFileExists{\jobname.flg}{}{}%
+
+% Numerical equivalent of `@there@were@p@rts':
+
+\if@there@were@p@rts
+  \newcommand{\TUL@topbookmarkpos}{-1}
+\else
+  \newcommand{\TUL@topbookmarkpos}{0}
+\fi
+
+\newcommand{\TUL@bookmarkpos}{0}
+
+% needed by \addcontentsline :
+\newcommand{\toclevel@tulstarchapter}{0}
+\newcommand{\toclevel@starpart}{-1}
+\newcommand{\toclevel@spsection}{\TUL@topbookmarkpos}
+
+% Changes of various hooks in thesul:
+
+\renewcommand{\@tulann@hook}[1]{%
+  \@division@inc@hook
+  \if@top@bookm@rk
+    \renewcommand{\toclevel@tulstarchapter}{\TUL@topbookmarkpos}
+  \fi
+  }
+
+\renewcommand{\@tulann@lasthook}[1]{\renewcommand{\toclevel@tulstarchapter}{0}}
+
+\renewcommand\@generic@schapter@hook[2]{%
+  \if@top@bookm@rk
+    \renewcommand{\toclevel@tulstarchapter}{\TUL@topbookmarkpos}%
+  \fi
+  }
+
+\renewcommand\@generic@schapter@lasthook[2]{%
+  \renewcommand{\toclevel@tulstarchapter}{0}%
+  }
+
+\renewcommand\@generic@chapter@hook[3]{%
+    \@generic@schapter@hook{#1}{#2}%
+  }
+
+\renewcommand\@generic@chapter@lasthook[3]{%
+    \@generic@schapter@lasthook{#1}{#2}%
+  }
+
+\renewcommand{\@acknowledgment@hook}{%
+     \@division@inc@hook
+     \pdfbookmark[\TUL@topbookmarkpos]{\AcknowledgmentName}%
+              {acknowledgment.\theHdivision}%
+  }
+\newcommand{\DedicationName}{D\'edicace}
+\renewcommand{\@dedication@hook}{%
+   \@division@inc@hook
+   \pdfbookmark[\TUL@topbookmarkpos]{\DedicationName}{dedication.\theHdivision}%
+  }
+
+\renewcommand{\@abstract@hook}[1]{%
+   \@division@inc@hook
+   \pdfbookmark[\TUL@topbookmarkpos]{#1}{abstract.\theHdivision}%
+  }
+
+\newcommand{\CoverName}{Couverture}
+\renewcommand{\@cover@hook}{%
+   \@division@inc@hook
+   \pdfbookmark[\TUL@topbookmarkpos]{\CoverName}{cover.\theHdivision}%
+  }
+
+\renewcommand{\@toc@hook}{%
+   \pdfbookmark[\TUL@topbookmarkpos]{\contentsname}{}%
+  }
+
+\endinput
+% end of file tulhypref.sty
+
