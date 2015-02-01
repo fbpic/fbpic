@@ -13,41 +13,41 @@ Let $F_u$ be a field that is well-defined everywhere in space
 (typically $F$ is $E$, $B$ or $J$ and $u$ is $x$, $y$ or $z$). Its Fourier representation
 is thus given by \cref{eq:CartBwTrans,eq:CartFwTrans}:
 \begin{align*}
-F_u(x,y,z) = \frac{1}{(2\pi)^{3/2}}\Integ{k_x} \,\Integ{k_y}\,
-\Integ{k_z} \; \hat{F_u}(k_x,k_y,k_z) e^{i(k_x x + k_y y + k_z z)} \\
-\hat{F_u}(k_x,k_y,k_z)  = \frac{1}{(2\pi)^{3/2}}\Integ{x} \,\Integ{y}\,
-\Integ{z} \; F_u(x,y,z) e^{-i(k_x x + k_y y + k_z z)} 
+F_u(\vec{r}) = \frac{1}{(2\pi)^{3/2}}\Integ{k_x} \,\Integ{k_y}\,
+\Integ{k_z} \; \hat{F_u}(\vec{k}) e^{i(k_x x + k_y y + k_z z)} \\
+\hat{F_u}(\vec{k})  = \frac{1}{(2\pi)^{3/2}}\Integ{x} \,\Integ{y}\,
+\Integ{z} \; F_u(\vec{r}) e^{-i(k_x x + k_y y + k_z z)} 
 \end{align*}
 Using the change of variable $k_x=k\cos(\phi)$, $k_y = k\sin(\phi)$,
 $x=r\cos(\theta)$, $y=r\sin(\theta)$, this becomes
  \begin{align*}
-F_u = \frac{1}{(2\pi)^{3/2}}\Integ{k_z} \,\RInteg{k}\,
-\TInteg{\phi} \; \hat{F_u}(k\cos(\phi),k\sin(\phi),k_z)
+F_u(\vec{r}) = \frac{1}{(2\pi)^{3/2}}\Integ{k_z} \,\RInteg{k}\,
+\TInteg{\phi} \; \hat{F_u}(\vec{k})
 e^{i(k r \cos(\theta-\phi) + k_z z)} \\
-\hat{F_u}  = \frac{1}{(2\pi)^{3/2}}\Integ{z} \,\RInteg{r}\,
-\Integ{\theta} \; F_u(r\cos(\theta),r\sin(\theta),z) e^{-i(k r \cos(\theta-\phi) + k_z z)} 
+\hat{F_u}(\vec{k})   = \frac{1}{(2\pi)^{3/2}}\Integ{z} \,\RInteg{r}\,
+\Integ{\theta} \; F_u(\vec{r}) e^{-i(k r \cos(\theta-\phi) + k_z z)} 
 \end{align*}
 We now use the relation $e^{ikr\cos(\theta-\phi)} =
 \sum_{m=-\infty}^{\infty} i^m J_m(kr) e^{im(\phi-\theta)}$ in these equations, to obtain
 \begin{align*}
-F_u = \sum_{m=-\infty}^{\infty} \frac{1}{(2\pi)^{3/2}}\Integ{k_z} \,\RInteg{k}
-\TInteg{\phi} \; i^m \hat{F_u}(k\cos(\phi),k\sin(\phi),k_z) \;
+F_u (\vec{r})  = \sum_{m=-\infty}^{\infty} \frac{1}{(2\pi)^{3/2}}\Integ{k_z} \,\RInteg{k}
+\TInteg{\phi} \; i^m \hat{F_u}(\vec{k}) \;
 J_m(kr) e^{-im(\theta-\phi) + ik_z z} \\
-\hat{F_u}  =  \sum_{m=-\infty}^{\infty} \frac{1}{(2\pi)^{3/2}}\Integ{z} \,\RInteg{r}
-\TInteg{\theta} \;\; (-i)^m F_u(r\cos(\theta),r\sin(\theta),z) \; J_m(kr) e^{-im(\phi-\theta) -ik_z z} 
+\hat{F_u}(\vec{k})   =  \sum_{m=-\infty}^{\infty} \frac{1}{(2\pi)^{3/2}}\Integ{z} \,\RInteg{r}
+\TInteg{\theta} \;\; (-i)^m F_u(\vec{r}) \; J_m(kr) e^{-im(\phi-\theta) -ik_z z} 
 \end{align*}
 We now define $\tilde{F}_{u,m}(k_z,k) = \frac{1}{(2\pi)^{3/2}}\int_0^{2\pi}
-\mathrm{d}\phi \; i^m \hat{F_u}(k\cos(\phi),k\sin(\phi),k_z)
+\mathrm{d}\phi \; i^m \hat{F_u}(\vec{k})
 e^{im\phi}$. This results in the following equations :
 \begin{align*}
-F_u = \sum_{m=-\infty}^{\infty} \Integ{k_z}
+F_u(\vec{r}) = \sum_{m=-\infty}^{\infty} \Integ{k_z}
 \RInteg{k}\; \tilde{F}_{u,m}(k_z,k) \; J_m(kr) e^{-im\theta + ik_z z} 
 \\
-\tilde{F}_{u,m} = \frac{1}{(2\pi)^2} \Integ{z} \RInteg{r}
-\TInteg{\theta} \;F_u(r\cos(\theta), r\sin(\theta),z)\; J_m(kr) e^{-im\theta
+\tilde{F}_{u,m}(k_z,k) = \frac{1}{(2\pi)^2} \Integ{z} \RInteg{r}
+\TInteg{\theta} \;F_u(\vec{r})\; J_m(kr) e^{-im\theta
  - i k_z z}
 \end{align*}
-These equations correspond to \cref{eq:CircBwTransz,eq:CircFwTransz}.
+These equations correspond to \cref{eq:CircBwTransu,eq:CircFwTransu}.
 
 \subsection{Fields that are ill-defined at $r=0$}
 
@@ -70,13 +70,20 @@ F_r =  \sum_{m=-\infty}^{\infty} \Integ{k_z}\,\RInteg{k}\;
     ik_z z} \right) 
 \end{align}
 where we relabeled the dummy variable $m$ in the above sums. Let us
-thus define $\tilde{F}_{+,m} = \frac{\tilde{F}_{x,m+1} -
-    i\tilde{F}_{y,m+1}}{2}$ and $\tilde{F}_{-,m} = \frac{\tilde{F}_{x,m-1} +
-    i\tilde{F}_{y,m-1}}{2}$. This results in:
-\begin{align} 
-F_r = \sum_{m=-\infty}^{\infty} \Integ{k_z}\,\RInteg{k}\;
-\left(  J_{m+1}(kr)\tilde{F}_{+,m} + J_{m-1}(kr)\tilde{F}_{-,m}
-  \right) e^{-im\theta +ik_z z}
-\end{align}
+thus define $\tilde{F}_{-,m} = \frac{\tilde{F}_{x,m-1} +
+    i\tilde{F}_{y,m-1}}{2}$ and $\tilde{F}_{+,m} = \frac{\tilde{F}_{x,m+1} -
+    i\tilde{F}_{y,m+1}}{2}$. This results in:
+\begin{equation} 
+F_r(\vec{r}) = \sum_{m=-\infty}^{\infty} \Integ{k_z}\,\RInteg{k}\;
+\left( \tilde{F}_{+,m}\; J_{m+1}(kr) +\tilde{F}_{-,m}\; J_{m-1}(kr)
+\right)  e^{-im\theta +ik_z z}
+\end{equation}
 
-\section{Derivation of the Maxwell equations in the Fourier-Bessel representation}
+With the same definitions and the same method, it is also easy to show that:
+\begin{equation} 
+F_\theta(\vec{r}) = \sum_{m=-\infty}^{\infty} \Integ{k_z}\,\RInteg{k}\;
+i\left( \tilde{F}_{+,m}\; J_{m+1}(kr) - \tilde{F}_{-,m}\; J_{m-1}(kr)
+\right)  e^{-im\theta +ik_z z}
+\end{equation}
+
+\section{Maxwell equations for the spectral coefficients}
