@@ -1,3 +1,6 @@
+*~
+*.bbl
+*.blg
 *.DS_Store
 *.aux
 *.log

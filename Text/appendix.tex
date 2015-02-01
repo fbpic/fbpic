@@ -87,3 +87,62 @@ i\left( \tilde{F}_{+,m}\; J_{m+1}(kr) - \tilde{F}_{-,m}\; J_{m-1}(kr)
 \end{equation}
 
 \section{Maxwell equations for the spectral coefficients}
+\label{sec:SpectMaxwell}
+
+In this section, let us derive the Maxwell equations for the spectral
+coefficients \cref{eq:CircMaxwellp,eq:CircMaxwellm,eq:CircMaxwellz}
+from the Maxwell equations written in cylindrical coordinates \cref{eq:CircMaxwellr,eq:CircMaxwellt,eq:CircMaxwellzz}.
+
+When replacing the Fourier-Bessel decomposition
+(\cref{eq:CircBwTransu,eq:CircBwTransr,eq:CircBwTranst}) in the
+Maxwell equations \cref{eq:CircMaxwellr,eq:CircMaxwellt,eq:CircMaxwellzz}, we
+first notice that the modes proportional to $e^{-im\theta +ik_z z}$ for different
+values of $m$ and $k_z$ are not coupled. These different modes can
+thus be treated separately. The same cannot be said of the modes
+corresponding to different values of $k$, since they may be coupled
+through the Bessel functions $J_m(kr)$ and their derivatives. 
+In the following, we write only the equations corresponding to $\partial_t \vec{B} =
+-\vec{\nabla}\times \vec{E}$, since the equation $\partial_t \vec{E} =
+\vec{\nabla}\times\vec{B} - \mu_0 \vec{j}$ can be treated very
+similarly. These equations become
+\begin{align*}
+\RInteg{k} \left[ \; \partial_t \tilde{B}_{+,m}  J_{m+1}(kr)
+  + \partial_t \tilde{B}_{-,m}  J_{m-1}(kr) \; \right] =
+\RInteg{k} \left[ \; \tilde{E}_{z,m} \frac{im}{r} J_m(kr) -
+  k_z\tilde{E}_{+,m}J_{m+1}(kr) + k_z\tilde{E}_{-,m}J_{m-1}(kr) \;
+\right] \\
+\RInteg{k} \left[ \; \partial_t \tilde{B}_{+,m}  J_{m+1}(kr)
+  - \partial_t \tilde{B}_{-,m}  J_{m-1}(kr) \; \right] =
+\RInteg{k} \left[ \; -k_z\tilde{E}_{+,m}J_{m+1}(kr) -
+  k_z\tilde{E}_{-,m}J_{m-1}(kr) - ik\tilde{E}_{z,m} J_m'(kr) \;
+\right] \\
+\RInteg{k}\; \partial_t \tilde{B}_{z,m}  J_{m}(kr) =
+\RInteg{k} \left[ \; -ik\tilde{E}_{+,m}\left(\frac{J_{m+1}(kr)}{kr} +
+    J_{m+1}'(kr) \right) + ik\tilde{E}_{-,m}\left(\frac{J_{m-1}(kr)}{kr} +
+    J_{m-1}'(kr) \right) \right. \\
+\qquad \left.- \frac{im}{r} \left( E_{+,m} J_{m+1}(kr) +
+    E_{-,m} J_{m-1}(kr) \right) \;\right]
+\end{align*}
+By taking the sum and difference of the first two equations, and by
+rearranging the third equation, we obtain:
+\begin{align*}
+\RInteg{k} \; 2 \,\partial_t \tilde{B}_{+,m}  J_{m+1}(kr) =
+\RInteg{k} \left[ \; ik\tilde{E}_{z,m} \left( \frac{m}{kr} J_m(kr) -
+    J_m'(kr) \right) -2 k_z\tilde{E}_{+,m}J_{m+1}(kr) \;
+\right] \\
+\RInteg{k} \; 2\, \partial_t \tilde{B}_{-,m}  J_{m-1}(kr) \; =
+\RInteg{k} \left[ \;
+   ik\tilde{E}_{z,m} \left( \frac{m}{kr} J_m(kr) +
+    J_m'(kr) \right)  + 2k_z\tilde{E}_{-,m}J_{m-1}(kr) \;
+\right] \\
+\RInteg{k}\; \partial_t \tilde{B}_{z,m}  J_{m}(kr) =
+\RInteg{k} \left[ \; -ik\tilde{E}_{+,m}\left(\frac{m+1}{kr}J_{m+1}(kr) +
+    J_{m+1}'(kr) \right) - ik\tilde{E}_{-,m}\left(\frac{m-1}{kr}J_{m-1}(kr) -
+    J_{m-1}'(kr) \right) \right] 
+\end{align*}
+We can now use the relations $\frac{m}{kr} J_m(kr) +
+    J_m'(kr) = J_{m-1}(kr)$ and $\frac{m}{kr} J_m(kr) -
+    J_m'(kr) = J_{m+1}(kr)$ (see relation 9.1.27 in
+    \cite{Abramowitz}).
+
+

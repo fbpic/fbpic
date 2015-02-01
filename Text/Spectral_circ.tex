@@ -1,6 +1,6 @@
 \documentclass[a4paper]{article}   	% use "amsart" instead of "article" for AMSLaTeX format
 
-\usepackage{geometry}                	
+\usepackage{geometry}               	
 \geometry{a4paper,margin=1.1in}           % ... or a4paper or a5paper or ... 
 
 %\usepackage{graphicx}			
@@ -12,7 +12,7 @@
     citecolor=blue,    filecolor=blue,
     linkcolor=blue,     urlcolor=blue
 }
-%\usepackage[pdftex]{tulhypref}
+\usepackage{cite}
 
 \newcommand{\ir}{\frac{1}{r}}
 \newcommand{\Integ}[1]{\int_{-\infty}^{\infty} \!\!\!\!\!
@@ -24,11 +24,12 @@
 % Reference automatique aux equations, sections, figures
 \usepackage{cleveref}
 
-\title{A spectral, cylindrical, dispersion-free Particle-In-Cell algorithm}
+\title{A pseudo-spectral, cylindrical and dispersion-free Particle-In-Cell algorithm}
 \date{}
 %\pagestyle{empty}
 \author{R\'emi \textsc{Lehe}}
 
+% Mettre les c2 partout
 
 \begin{document}
 
@@ -47,7 +48,12 @@
 \begin{itemize}
 \item Significant speedup due to the cylindrical geometry.
 \item Ideal dispersion relation in PSATD, independent on azimuthal mode (with a finite difference algorithm, the different modes go at different speeds)
-\item Fields are colocated in space and time in PSATD and not staggered, which simplifies interpolation, and prevents time-interpolation errors in compensation of E and B (article plasma lens)
+\item Fields are colocated in space and time in PSATD and not
+  staggered, which simplifies interpolation, and prevents
+  time-interpolation errors in compensation of E and B (article plasma
+  lens)
+\item Time step can be bigger (but still need to resolve the
+  oscillations of the particles in time).
 \item Ability to apply filters in k space and thereby limit numerical instabilities
 \item Prevent on-axis noise that appear in finite-difference cylindrical algorithms.
 \end{itemize}
@@ -100,10 +106,10 @@ appropriate representation when the Maxwell equations are written in cylindrical
 \partial_t E_\theta = \partial_z B_r - \partial_r B_z - \mu_0  j_\theta \qquad &   
 \partial_t B_\theta = -\partial_z E_r + \partial_r E_z \label{eq:CircMaxwellt}  \\
 \partial_t E_z = \ir\partial_r r B_\theta - \ir\partial_\theta B_r - \mu_0  j_z \qquad &   
-\partial_t B_z = -\ir\partial_r r E_\theta + \ir\partial_\theta E_r \label{eq:CircMaxwellz} 
+\partial_t B_z = -\ir\partial_r r E_\theta + \ir\partial_\theta E_r \label{eq:CircMaxwellzz} 
 \end{align}
-In this case, the Fourier modes do not decouple, when injecting
-\cref{eq:CartBwTrans} into the \cref{eq:CircMaxwellr,eq:CircMaxwellt,eq:CircMaxwellz}. Instead one has to use the Fourier-Bessel representation.
+When replacing
+\cref{eq:CartBwTrans} into the \cref{eq:CircMaxwellr,eq:CircMaxwellt,eq:CircMaxwellzz}, the Fourier modes do not decouple. Instead one has to use the Fourier-Bessel representation.
 \begin{align}
 & F_u(\vec{r}) = \sum_{m=-\infty}^{\infty} \Integ{k_z}
 \RInteg{k}\; \tilde{F}_{u,m}(k_z,k) \; J_m(kr)\, e^{-im\theta + ik_z z} 
@@ -117,8 +123,8 @@ i\left( \tilde{F}_{+,m}(k_z,k)\; J_{m+1}(kr) - \tilde{F}_{-,m}(k_z,k)\; J_{m-1}(
 \right)  e^{-im\theta +ik_z z} 
 \label{eq:CircBwTranst}
 \end{align}
-where $F$ is either $E$, $B$ or $j$ and $u$ is either $x$, $y$ or $z$,
-and where
+where $F$ is either $E$, $B$ or $j$ and $u$ is any of the
+Cartesian components $x$, $y$ or $z$. In addition
 \begin{align}
 \tilde{F}_{u,m}(k_z,k) = \frac{1}{(2\pi)^2} \Integ{z} \RInteg{r}
 \TInteg{\theta} \;F_u(\vec{r})\; J_m(kr) e^{-im\theta
@@ -131,22 +137,36 @@ and where
 \noindent (See \cref{sec:CircTrans} for a derivation of this representation and
  for its relation to the Fourier transform.)
 
-When injecting \cref{eq:CircBwTransr,eq:CircBwTranst,eq:CircBwTransu}
+When replacing \cref{eq:CircBwTransr,eq:CircBwTranst,eq:CircBwTransu}
 (for $u=z$) into the Maxwell equations in cylindrical
-coordinates \label{eq:CircMaxwellr,eq:CircMaxwellt,eq:CircMaxwellz},
+coordinates \cref{eq:CircMaxwellr,eq:CircMaxwellt,eq:CircMaxwellzz},
 the different modes decouple, and the equations for the spectral
 coefficients become:
 \begin{align}
 \partial_t \tilde{E}_{+,m} = - \frac{ik}{2}\tilde{B}_{z,m} + k_z\tilde{B}_{+,m} - \mu_0\tilde{j}_{+,m} \qquad &   
-\partial_t \tilde{B}_{+,m} = \frac{ik}{2} \tilde{E}_{z,m} - k_z \tilde{E}_{+,m} \\
+\partial_t \tilde{B}_{+,m} = \frac{ik}{2} \tilde{E}_{z,m} - k_z
+\tilde{E}_{+,m} 
+\label{eq:CircMaxwellp} \\
 \partial_t \tilde{E}_{-,m} = -\frac{ik}{2} \tilde{B}_{z,m} - k_z \tilde{B}_{-,m} - \mu_0  \tilde{j}_{-,m} \qquad &   
-\partial_t \tilde{B}_{-,m} = \frac{ik}{2} \tilde{E}_{z,m} + k_z \tilde{E}_{-,m} \\
+\partial_t \tilde{B}_{-,m} = \frac{ik}{2} \tilde{E}_{z,m} + k_z
+\tilde{E}_{-,m} \label{eq:CircMaxwellm} \\
 \partial_t \tilde{E}_{z,m} = ik ( \tilde{B}_{+,m} + \tilde{B}_{-,m} ) - \mu_0 \tilde{j}_{z,m}  \qquad & 
-\partial_t \tilde{B}_{z,m} = -ik ( \tilde{E}_{+,m} + \tilde{E}_{-,m} )
+\partial_t \tilde{B}_{z,m} = -ik ( \tilde{E}_{+,m} + \tilde{E}_{-,m} ) \label{eq:CircMaxwellz} 
 \end{align}
-(See \cref{sec:} for a derivation of these equations.)
- 
+(See \cref{sec:SpectMaxwell} for a derivation of these equations.) In addition, the conservation equations
+\begin{equation}
+\vec{\nabla}\cdot\vec{E} \equiv \ir \partial_r rE_r + \ir\partial_\theta E_\theta + \partial_z E_z
+= \frac{\rho}{\epsilon_0} \qquad  \vec{\nabla}\cdot\vec{B} \equiv \ir \partial_r rB_r + \ir\partial_\theta B_\theta + \partial_z B_z
+= 0 
+\end{equation}
+become
+\begin{equation}
+k(\tilde{E}_{+,m} -\tilde{E}_{-,m}) + ik_z \tilde{E}_{z,m} =
+\frac{\tilde{\rho}}{\epsilon_0} \qquad
+ k(\tilde{B}_{+,m} -\tilde{B}_{-,m}) + ik_z \tilde{B}_{z,m} =
+0 \end{equation}
 
+Again, the equations ... can be integrated in time
 Typically one needs only a few modes in $m$, therefore the fields are reduced to
 a few 2D tables $\tilde{F}_m(k_z,k)$ instead of the 3D tables
 $\hat{F}(k_x,k_y,k_z)$. (For instance, in a purely symmetric case, there is only one
@@ -158,7 +178,7 @@ mode: $m=0$.)
 \section{Numerical implementation}
 
 Grand scheme :
-Explain intermediate grid
+Explain intermediate grid (x,y,z)
 3 grids, interpolation, deposition 
 Explain shape of the particle
 
@@ -166,13 +186,17 @@ Explain shape of the particle
 
 Could be integrated by finite difference, but we choose PSATD (for numerical dispersion).
 
+\subsection{Interpolation} 
+
 \subsection{Current deposition}
 
-\subsection{} 
 
 \newpage
 \appendix
 
 \input{appendix.tex}
+
+\bibliography{Bibliography}
+\bibliographystyle{plain}
 
 \end{document}  
