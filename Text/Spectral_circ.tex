@@ -150,8 +150,8 @@ coefficients become:
 \partial_t \tilde{E}_{-,m} = -\frac{ik}{2} \tilde{B}_{z,m} - k_z \tilde{B}_{-,m} - \mu_0  \tilde{j}_{-,m} \qquad &   
 \partial_t \tilde{B}_{-,m} = \frac{ik}{2} \tilde{E}_{z,m} + k_z
 \tilde{E}_{-,m} \label{eq:CircMaxwellm} \\
-\partial_t \tilde{E}_{z,m} = ik ( \tilde{B}_{+,m} + \tilde{B}_{-,m} ) - \mu_0 \tilde{j}_{z,m}  \qquad & 
-\partial_t \tilde{B}_{z,m} = -ik ( \tilde{E}_{+,m} + \tilde{E}_{-,m} ) \label{eq:CircMaxwellz} 
+\partial_t \tilde{E}_{z,m} = ik \tilde{B}_{+,m} + ik\tilde{B}_{-,m}  - \mu_0 \tilde{j}_{z,m}  \qquad & 
+\partial_t \tilde{B}_{z,m} = -ik \tilde{E}_{+,m} - ik\tilde{E}_{-,m}  \label{eq:CircMaxwellz} 
 \end{align}
 (See \cref{sec:SpectMaxwell} for a derivation of these equations.) In addition, the conservation equations
 \begin{equation}
@@ -166,13 +166,14 @@ k(\tilde{E}_{+,m} -\tilde{E}_{-,m}) + ik_z \tilde{E}_{z,m} =
  k(\tilde{B}_{+,m} -\tilde{B}_{-,m}) + ik_z \tilde{B}_{z,m} =
 0 \end{equation}
 
-Again, the equations ... can be integrated in time
-Typically one needs only a few modes in $m$, therefore the fields are reduced to
-a few 2D tables $\tilde{F}_m(k_z,k)$ instead of the 3D tables
+Again, the equations \cref{eq:CircMaxwellr,eq:CircMaxwellt,eq:CircMaxwellz}  can be
+integrated in time, and the fields can then be transformed back into
+real space, using \cref{eq:CircBwTransu,eq:CircBwTransr,eq:CircBwTranst}. Typically one needs only a few modes in $m$, therefore the
+fields are reduced to a few 2D tables $\tilde{F}_m(k_z,k)$ instead of the 3D tables
 $\hat{F}(k_x,k_y,k_z)$. (For instance, in a purely symmetric case, there is only one
 mode: $m=0$.)
 
-
++ Mention the complex conjugates : only $m \geq 0$.
 
 
 \section{Numerical implementation}

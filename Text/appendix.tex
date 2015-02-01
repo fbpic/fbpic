@@ -137,12 +137,36 @@ rearranging the third equation, we obtain:
 \right] \\
 \RInteg{k}\; \partial_t \tilde{B}_{z,m}  J_{m}(kr) =
 \RInteg{k} \left[ \; -ik\tilde{E}_{+,m}\left(\frac{m+1}{kr}J_{m+1}(kr) +
-    J_{m+1}'(kr) \right) - ik\tilde{E}_{-,m}\left(\frac{m-1}{kr}J_{m-1}(kr) -
+    J_{m+1}'(kr) \right) \right.\\
+\qquad \left. - ik\tilde{E}_{-,m}\left(\frac{m-1}{kr}J_{m-1}(kr) -
     J_{m-1}'(kr) \right) \right] 
 \end{align*}
 We can now use the relations $\frac{m}{kr} J_m(kr) +
     J_m'(kr) = J_{m-1}(kr)$ and $\frac{m}{kr} J_m(kr) -
     J_m'(kr) = J_{m+1}(kr)$ (see relation 9.1.27 in
-    \cite{Abramowitz}).
-
+    \cite{Abramowitz}), and obtain :
+\begin{align*}
+\RInteg{k} \; 2 \,\partial_t \tilde{B}_{+,m}  J_{m+1}(kr) =
+\RInteg{k} \left[ \; ik\tilde{E}_{z,m}\,
+    J_{m+1}(kr) -2 k_z\tilde{E}_{+,m}J_{m+1}(kr) \;
+\right] \\
+\RInteg{k} \; 2\, \partial_t \tilde{B}_{-,m}  J_{m-1}(kr) \; =
+\RInteg{k} \left[ \;
+   ik\tilde{E}_{z,m} \,
+    J_{m-1}(kr) + 2k_z\tilde{E}_{-,m}J_{m-1}(kr) \;
+\right] \\
+\RInteg{k}\; \partial_t \tilde{B}_{z,m}  J_{m}(kr) =
+\RInteg{k} \left[ \; -ik\tilde{E}_{+,m} J_{m}(kr) - ik\tilde{E}_{-,m}\,J_{m}(kr) \right] 
+\end{align*}
+Each equation of the above system contains Bessel functions of only one
+given order (either $m+1$, $m-1$ or $m$). This allows to separate the
+different $k$ components, since it the the functions $J_n(kr)$, for a
+fixed $n$ different values of $k$, form a basis of the set of real functions:
+\begin{align*}
+2 \,\partial_t \tilde{B}_{+,m} =
+ik\tilde{E}_{z,m} -2 k_z\tilde{E}_{+,m} \\
+2\, \partial_t \tilde{B}_{-,m} = ik\tilde{E}_{z,m} \,
+    + 2k_z\tilde{E}_{-,m} \\
+ \partial_t \tilde{B}_{z,m} = -ik\tilde{E}_{+,m}  - ik\tilde{E}_{-,m}
+\end{align*}
 
