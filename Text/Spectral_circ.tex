@@ -15,7 +15,11 @@
 %\usepackage[pdftex]{tulhypref}
 
 \newcommand{\ir}{\frac{1}{r}}
-\newcommand{\Integ}[1]{\int_{-\infty}^{\infty} \!\!\!\!\! \mathrm{d}#1}
+\newcommand{\Integ}[1]{\int_{-\infty}^{\infty} \!\!\!\!\!
+  \mathrm{d}#1}
+\newcommand{\RInteg}[1]{\int_{0}^{\infty} \!\!\!\!\! #1\mathrm{d}#1}
+\newcommand{\TInteg}[1]{\int_{0}^{2\pi} \!\!\!\!\! \mathrm{d}#1}
+
 
 % Reference automatique aux equations, sections, figures
 \usepackage{cleveref}
@@ -55,11 +59,11 @@
 
 It is well-known that the Maxwell equations in Cartesian coordinates 
 \begin{align}
-\partial_t E_x = \partial_y B_z - \partial_z B_y - \mu_0  J_x \qquad&   
+\partial_t E_x = \partial_y B_z - \partial_z B_y - \mu_0  j_x \qquad&   
 \partial_t B_x = -\partial_y E_z + \partial_z E_y \label{eq:CartMaxwellx} \\
-\partial_t E_y = \partial_z B_x - \partial_x B_z - \mu_0  J_y \qquad &   
+\partial_t E_y = \partial_z B_x - \partial_x B_z - \mu_0  j_y \qquad &   
 \partial_t B_y = -\partial_z E_x + \partial_x E_z \label{eq:CartMaxwelly}  \\
-\partial_t E_z = \partial_x B_y - \partial_y B_x - \mu_0  J_z \qquad &   
+\partial_t E_z = \partial_x B_y - \partial_y B_x - \mu_0  j_z \qquad &   
 \partial_t B_z = -\partial_x E_y + \partial_y E_x \label{eq:CartMaxwellz} 
 \end{align}
 can be solved by representing the fields as a sum of Fourier modes.
@@ -74,38 +78,57 @@ with
 \end{equation}
 where $F$ is any of the fields $E_x$, $E_y$, $E_z$, $B_x$, $B_y$, $B_z$. In this case, the different Fourier modes decouple and the equations \cref{eq:CartMaxwellx,eq:CartMaxwelly,eq:CartMaxwellz} become 
 \begin{align}
-\partial_t \hat{E}_x = ik_y \hat{B}_z - ik_z \hat{B}_y - \mu_0 \hat{J}_x \qquad &   
+\partial_t \hat{E}_x = ik_y \hat{B}_z - ik_z \hat{B}_y - \mu_0 \hat{j}_x \qquad &   
 \partial_t \hat{B}_x = -ik_y \hat{E}_z + ik_z \hat{E}_y \\
-\partial_t \hat{E}_y = ik_z \hat{B}_x - ik_x \hat{B}_z - \mu_0  \hat{J}_y \qquad &   
+\partial_t \hat{E}_y = ik_z \hat{B}_x - ik_x \hat{B}_z - \mu_0  \hat{j}_y \qquad &   
 \partial_t \hat{B}_y = -ik_z \hat{E}_x + ik_x \hat{E}_z \\
-\partial_t \hat{E}_z = ik_x \hat{B}_y - ik_y \hat{B}_x - \mu_0 \hat{J}_z  \qquad &   
+\partial_t \hat{E}_z = ik_x \hat{B}_y - ik_y \hat{B}_x - \mu_0 \hat{j}_z  \qquad &   
 \partial_t \hat{B}_z = -ik_x \hat{E}_y + ik_y \hat{E}_x 
 \end{align}
 The Fourier coefficients can then be integrated in time, and
 transformed back into real space using \cref{eq:CartBwTrans}. This is
 the core principle of Cartesian pseudo-spectral codes.
 
-\subsection{Cylindrical spectral codes}
+\subsection{Cylindrical spectral decomposition}
 
-The Fourier representation \cref{eq:CartBwTrans} is no longer the appropriate representation in the case of the Maxwell equations written in cylindrical coordinates.
+The Fourier representation \cref{eq:CartBwTrans} is no longer the
+appropriate representation when the Maxwell equations are written in cylindrical coordinates.
 \begin{align}
-\partial_t E_r = \ir \partial_\theta B_z - \partial_z B_\theta - \mu_0  J_r \qquad&   
+\partial_t E_r = \ir \partial_\theta B_z - \partial_z B_\theta - \mu_0  j_r \qquad&   
 \partial_t B_r = -\ir \partial_\theta E_z + \partial_z E_\theta \label{eq:CircMaxwellr} \\
-\partial_t E_\theta = \partial_z B_r - \partial_r B_z - \mu_0  J_\theta \qquad &   
+\partial_t E_\theta = \partial_z B_r - \partial_r B_z - \mu_0  j_\theta \qquad &   
 \partial_t B_\theta = -\partial_z E_r + \partial_r E_z \label{eq:CircMaxwellt}  \\
-\partial_t E_z = \ir\partial_r r B_\theta - \ir\partial_\theta B_r - \mu_0  J_z \qquad &   
+\partial_t E_z = \ir\partial_r r B_\theta - \ir\partial_\theta B_r - \mu_0  j_z \qquad &   
 \partial_t B_z = -\ir\partial_r r E_\theta + \ir\partial_\theta E_r \label{eq:CircMaxwellz} 
 \end{align}
 In this case, the Fourier modes do not decouple when injected into the \cref{eq:CircMaxwellr,eq:CircMaxwellt,eq:CircMaxwellz}. Instead one has to use the Fourier-Bessel representation.
-\begin{equation}
-\end{equation}
- (See \cref{sec:CircTrans} for a derivation of this
- representation)
+\begin{align}
+F_u = \sum_{m=-\infty}^{\infty} \Integ{k_z}
+\RInteg{k}\; \tilde{F}_{u,m}(k_z,k) \; J_m(kr) e^{-im\theta + ik_z z} 
+\label{eq:CircBwTransu} \\
+\tilde{F}_{u,m} = \frac{1}{(2\pi)^2} \Integ{z} \RInteg{r}
+\TInteg{\theta} \;F_u(r\cos(\theta), r\sin(\theta),z)\; J_m(kr) e^{-im\theta
+ - i k_z z}
+\label{eq:CircFwTransu} 
+\end{align}
+where $F$ is either $E$, $B$ or $j$ and $u$ is either $x$, $y$ or $z$.
+ (See \cref{sec:CircTrans} for a derivation of this representation and
+ for its relation to the Fourier transform.)
+
+Typically one needs only a few modes in $m$, therefore the fields are reduced to
+a few 2D tables $\tilde{F}_m(k_z,k)$ instead of the 3D tables
+$\hat{F}(k_x,k_y,k_z)$. (For instance, in a purely symmetric case, there is only one
+mode: $m=0$.)
+
+
+
 
 \section{Discrete implementation}
 
 Grand scheme :
+Explain intermediate grid
 3 grids, interpolation, deposition 
+Explain shape of the particle
 
 \subsection{Field integration}
 
@@ -117,10 +140,6 @@ Could be integrated by finite difference, but we choose PSATD (for numerical dis
 
 \appendix
 
-\section{Derivation of the Fourier-Bessel representation}
-\label{sec:CircTrans}
-
-\section{Derivation of the Maxwell equations in the Fourier-Bessel representation}
-
+\input{appendix.tex}
 
 \end{document}  
