@@ -18,33 +18,33 @@ F_u(\vec{r}) = \frac{1}{(2\pi)^{3/2}}\Integ{k_x} \,\Integ{k_y}\,
 \hat{F_u}(\vec{k})  = \frac{1}{(2\pi)^{3/2}}\Integ{x} \,\Integ{y}\,
 \Integ{z} \; F_u(\vec{r}) e^{-i(k_x x + k_y y + k_z z)} 
 \end{align*}
-Using the change of variable $k_x=k\cos(\phi)$, $k_y = k\sin(\phi)$,
+Using the change of variable $k_x=k_\perp\cos(\phi)$, $k_y = k_\perp\sin(\phi)$,
 $x=r\cos(\theta)$, $y=r\sin(\theta)$, this becomes
  \begin{align*}
-F_u(\vec{r}) = \frac{1}{(2\pi)^{3/2}}\Integ{k_z} \,\RInteg{k}\,
+F_u(\vec{r}) = \frac{1}{(2\pi)^{3/2}}\Integ{k_z} \,\RInteg{k_\perp}\,
 \TInteg{\phi} \; \hat{F_u}(\vec{k})
-e^{i(k r \cos(\theta-\phi) + k_z z)} \\
+e^{i(k_\perp r \cos(\theta-\phi) + k_z z)} \\
 \hat{F_u}(\vec{k})   = \frac{1}{(2\pi)^{3/2}}\Integ{z} \,\RInteg{r}\,
-\Integ{\theta} \; F_u(\vec{r}) e^{-i(k r \cos(\theta-\phi) + k_z z)} 
+\Integ{\theta} \; F_u(\vec{r}) e^{-i(k_\perp r \cos(\theta-\phi) + k_z z)} 
 \end{align*}
-We now use the relation $e^{ikr\cos(\theta-\phi)} =
-\sum_{m=-\infty}^{\infty} i^m J_m(kr) e^{im(\phi-\theta)}$ in these equations, to obtain
+We now use the relation $e^{ik_\perp r\cos(\theta-\phi)} =
+\sum_{m=-\infty}^{\infty} i^m J_m(k_\perp r) e^{im(\phi-\theta)}$ in these equations, to obtain
 \begin{align*}
-F_u (\vec{r})  = \sum_{m=-\infty}^{\infty} \frac{1}{(2\pi)^{3/2}}\Integ{k_z} \,\RInteg{k}
+F_u (\vec{r})  = \sum_{m=-\infty}^{\infty} \frac{1}{(2\pi)^{3/2}}\Integ{k_z} \,\RInteg{k_\perp }
 \TInteg{\phi} \; i^m \hat{F_u}(\vec{k}) \;
-J_m(kr) e^{-im(\theta-\phi) + ik_z z} \\
+J_m(k_\perp r) e^{-im(\theta-\phi) + ik_z z} \\
 \hat{F_u}(\vec{k})   =  \sum_{m=-\infty}^{\infty} \frac{1}{(2\pi)^{3/2}}\Integ{z} \,\RInteg{r}
-\TInteg{\theta} \;\; (-i)^m F_u(\vec{r}) \; J_m(kr) e^{-im(\phi-\theta) -ik_z z} 
+\TInteg{\theta} \;\; (-i)^m F_u(\vec{r}) \; J_m(k_\perp r) e^{-im(\phi-\theta) -ik_z z} 
 \end{align*}
-We now define $\tilde{F}_{u,m}(k_z,k) = \frac{1}{(2\pi)^{3/2}}\int_0^{2\pi}
+We now define $\tilde{F}_{u,m}(k_z,k_\perp ) = \frac{1}{(2\pi)^{3/2}}\int_0^{2\pi}
 \mathrm{d}\phi \; i^m \hat{F_u}(\vec{k})
 e^{im\phi}$. This results in the following equations :
 \begin{align*}
 F_u(\vec{r}) = \sum_{m=-\infty}^{\infty} \Integ{k_z}
-\RInteg{k}\; \tilde{F}_{u,m}(k_z,k) \; J_m(kr) e^{-im\theta + ik_z z} 
+\RInteg{k_\perp }\; \tilde{F}_{u,m}(k_z,k_\perp ) \; J_m(k_\perp r) e^{-im\theta + ik_z z} 
 \\
-\tilde{F}_{u,m}(k_z,k) = \frac{1}{(2\pi)^2} \Integ{z} \RInteg{r}
-\TInteg{\theta} \;F_u(\vec{r})\; J_m(kr) e^{-im\theta
+\tilde{F}_{u,m}(k_z,k_\perp ) = \frac{1}{(2\pi)^2} \Integ{z} \RInteg{r}
+\TInteg{\theta} \;F_u(\vec{r})\; J_m(k_\perp r) e^{-im\theta
  - i k_z z}
 \end{align*}
 These equations correspond to \cref{eq:CircBwTransu,eq:CircFwTransu}.
@@ -58,14 +58,14 @@ denote generally by $F_r$. We have :
   iF_y}{2}e^{-i\theta} \] 
 Using \cref{eq:CircBwTransu,eq:CircFwTransu}, this leads to
 \begin{align} 
-F_r =  \sum_{m=-\infty}^{\infty} \Integ{k_z}\,\RInteg{k}\;
-\left(  J_m(kr) \frac{\tilde{F}_{x,m} -
-    i\tilde{F}_{y,m}}{2}e^{-i(m-1)\theta +ik_z z} + J_m(kr)
+F_r =  \sum_{m=-\infty}^{\infty} \Integ{k_z}\,\RInteg{k_\perp }\;
+\left(  J_m(k_\perp r) \frac{\tilde{F}_{x,m} -
+    i\tilde{F}_{y,m}}{2}e^{-i(m-1)\theta +ik_z z} + J_m(k_\perp r)
   \frac{\tilde{F}_{x,m} +   i\tilde{F}_{y,m}}{2}e^{-i(m+1)\theta +
     ik_z z} \right) \\
-= \sum_{m=-\infty}^{\infty} \Integ{k_z}\,\RInteg{k}\;
-\left(  J_{m+1}(kr) \frac{\tilde{F}_{x,m+1} -
-    i\tilde{F}_{y,m+1}}{2}e^{-im\theta +ik_z z} + J_{m-1}(kr)
+= \sum_{m=-\infty}^{\infty} \Integ{k_z}\,\RInteg{k_\perp }\;
+\left(  J_{m+1}(k_\perp r) \frac{\tilde{F}_{x,m+1} -
+    i\tilde{F}_{y,m+1}}{2}e^{-im\theta +ik_z z} + J_{m-1}(k_\perp r)
   \frac{\tilde{F}_{x,m-1} +   i\tilde{F}_{y,m-1}}{2}e^{-im\theta +
     ik_z z} \right) 
 \end{align}
@@ -74,15 +74,15 @@ thus define $\tilde{F}_{-,m} = \frac{\tilde{F}_{x,m-1} +
     i\tilde{F}_{y,m-1}}{2}$ and $\tilde{F}_{+,m} = \frac{\tilde{F}_{x,m+1} -
     i\tilde{F}_{y,m+1}}{2}$. This results in:
 \begin{equation} 
-F_r(\vec{r}) = \sum_{m=-\infty}^{\infty} \Integ{k_z}\,\RInteg{k}\;
-\left( \tilde{F}_{+,m}\; J_{m+1}(kr) +\tilde{F}_{-,m}\; J_{m-1}(kr)
+F_r(\vec{r}) = \sum_{m=-\infty}^{\infty} \Integ{k_z}\,\RInteg{k_\perp }\;
+\left( \tilde{F}_{+,m}\; J_{m+1}(k_\perp r) +\tilde{F}_{-,m}\; J_{m-1}(k_\perp r)
 \right)  e^{-im\theta +ik_z z}
 \end{equation}
 
 With the same definitions and the same method, it is also easy to show that:
 \begin{equation} 
-F_\theta(\vec{r}) = \sum_{m=-\infty}^{\infty} \Integ{k_z}\,\RInteg{k}\;
-i\left( \tilde{F}_{+,m}\; J_{m+1}(kr) - \tilde{F}_{-,m}\; J_{m-1}(kr)
+F_\theta(\vec{r}) = \sum_{m=-\infty}^{\infty} \Integ{k_z}\,\RInteg{k_\perp }\;
+i\left( \tilde{F}_{+,m}\; J_{m+1}(k_\perp r) - \tilde{F}_{-,m}\; J_{m-1}(k_\perp r)
 \right)  e^{-im\theta +ik_z z}
 \end{equation}
 
@@ -99,74 +99,179 @@ Maxwell equations \cref{eq:CircMaxwellr,eq:CircMaxwellt,eq:CircMaxwellzz}, we
 first notice that the modes proportional to $e^{-im\theta +ik_z z}$ for different
 values of $m$ and $k_z$ are not coupled. These different modes can
 thus be treated separately. The same cannot be said of the modes
-corresponding to different values of $k$, since they may be coupled
-through the Bessel functions $J_m(kr)$ and their derivatives. 
+corresponding to different values of $k_\perp $, since they may be coupled
+through the Bessel functions $J_m(k_\perp r)$ and their derivatives. 
 In the following, we write only the equations corresponding to $\partial_t \vec{B} =
--\vec{\nabla}\times \vec{E}$, since the equation $\partial_t \vec{E} =
+-\vec{\nabla}\times \vec{E}$, since the equation $c^{-2}\partial_t \vec{E} =
 \vec{\nabla}\times\vec{B} - \mu_0 \vec{j}$ can be treated very
 similarly. These equations become
 \begin{align*}
-\RInteg{k} \left[ \; \partial_t \tilde{B}_{+,m}  J_{m+1}(kr)
-  + \partial_t \tilde{B}_{-,m}  J_{m-1}(kr) \; \right] =
-\RInteg{k} \left[ \; \tilde{E}_{z,m} \frac{im}{r} J_m(kr) -
-  k_z\tilde{E}_{+,m}J_{m+1}(kr) + k_z\tilde{E}_{-,m}J_{m-1}(kr) \;
-\right] \\
-\RInteg{k} \left[ \; \partial_t \tilde{B}_{+,m}  J_{m+1}(kr)
-  - \partial_t \tilde{B}_{-,m}  J_{m-1}(kr) \; \right] =
-\RInteg{k} \left[ \; -k_z\tilde{E}_{+,m}J_{m+1}(kr) -
-  k_z\tilde{E}_{-,m}J_{m-1}(kr) - ik\tilde{E}_{z,m} J_m'(kr) \;
-\right] \\
-\RInteg{k}\; \partial_t \tilde{B}_{z,m}  J_{m}(kr) =
-\RInteg{k} \left[ \; -ik\tilde{E}_{+,m}\left(\frac{J_{m+1}(kr)}{kr} +
-    J_{m+1}'(kr) \right) + ik\tilde{E}_{-,m}\left(\frac{J_{m-1}(kr)}{kr} +
-    J_{m-1}'(kr) \right) \right. \\
-\qquad \left.- \frac{im}{r} \left( E_{+,m} J_{m+1}(kr) +
-    E_{-,m} J_{m-1}(kr) \right) \;\right]
+\RInteg{k_\perp } \left[ \; \partial_t \tilde{B}_{+,m}  J_{m+1}(k_\perp r)
+  + \partial_t \tilde{B}_{-,m}  J_{m-1}(k_\perp r) \; \right] =&& \\ 
+\qquad \RInteg{k_\perp } \left[ \; \tilde{E}_{z,m} \frac{im}{r}
+  J_m(k_\perp r) \right.-&\left.
+  k_z\tilde{E}_{+,m}J_{m+1}(k_\perp r) + k_z\tilde{E}_{-,m}J_{m-1}(k_\perp r) \;
+\right] & \\
+\RInteg{k_\perp } \left[ \; \partial_t \tilde{B}_{+,m}  J_{m+1}(k_\perp r)
+  - \partial_t \tilde{B}_{-,m}  J_{m-1}(k_\perp r) \; \right] =&& \\
+ \RInteg{k_\perp } \left[ \; -k_z\tilde{E}_{+,m}J_{m+1}(k_\perp r)
+ \right.-&\left.  k_z\tilde{E}_{-,m}J_{m-1}(k_\perp r) - ik_\perp \tilde{E}_{z,m} J_m'(k_\perp r) \;\right] \\
+\RInteg{k_\perp }\; \partial_t \tilde{B}_{z,m}  J_{m}(k_\perp r) =
+\RInteg{k_\perp } \left[ \; -ik_\perp
+  \tilde{E}_{+,m}\right.&\left(\frac{J_{m+1}(k_\perp r)}{k_\perp r} +
+    J_{m+1}'(k_\perp r) \right) + &\\
+\left. ik_\perp \tilde{E}_{-,m}\left(\frac{J_{m-1}(k_\perp r)}{k_\perp r} +
+    J_{m-1}'(k_\perp r) \right) \right.-&\left. \frac{im}{r} \left( E_{+,m} J_{m+1}(k_\perp r) +
+    E_{-,m} J_{m-1}(k_\perp r) \right) \;\right] 
 \end{align*}
 By taking the sum and difference of the first two equations, and by
 rearranging the third equation, we obtain:
 \begin{align*}
-\RInteg{k} \; 2 \,\partial_t \tilde{B}_{+,m}  J_{m+1}(kr) =
-\RInteg{k} \left[ \; ik\tilde{E}_{z,m} \left( \frac{m}{kr} J_m(kr) -
-    J_m'(kr) \right) -2 k_z\tilde{E}_{+,m}J_{m+1}(kr) \;
+\RInteg{k_\perp } \; 2 \,\partial_t \tilde{B}_{+,m}  J_{m+1}(k_\perp r) =
+\RInteg{k_\perp } \left[ \; ik_\perp \tilde{E}_{z,m} \left( \frac{m}{k_\perp r} J_m(k_\perp r) -
+    J_m'(k_\perp r) \right) -2 k_z\tilde{E}_{+,m}J_{m+1}(k_\perp r) \;
 \right] \\
-\RInteg{k} \; 2\, \partial_t \tilde{B}_{-,m}  J_{m-1}(kr) \; =
-\RInteg{k} \left[ \;
-   ik\tilde{E}_{z,m} \left( \frac{m}{kr} J_m(kr) +
-    J_m'(kr) \right)  + 2k_z\tilde{E}_{-,m}J_{m-1}(kr) \;
+\RInteg{k_\perp } \; 2\, \partial_t \tilde{B}_{-,m}  J_{m-1}(k_\perp r) \; =
+\RInteg{k_\perp } \left[ \;
+   ik_\perp \tilde{E}_{z,m} \left( \frac{m}{k_\perp r} J_m(k_\perp r) +
+    J_m'(k_\perp r) \right)  + 2k_z\tilde{E}_{-,m}J_{m-1}(k_\perp r) \;
 \right] \\
-\RInteg{k}\; \partial_t \tilde{B}_{z,m}  J_{m}(kr) =
-\RInteg{k} \left[ \; -ik\tilde{E}_{+,m}\left(\frac{m+1}{kr}J_{m+1}(kr) +
-    J_{m+1}'(kr) \right) \right.\\
-\qquad \left. - ik\tilde{E}_{-,m}\left(\frac{m-1}{kr}J_{m-1}(kr) -
-    J_{m-1}'(kr) \right) \right] 
+\RInteg{k_\perp }\; \partial_t \tilde{B}_{z,m}  J_{m}(k_\perp r) =
+\RInteg{k_\perp } \left[ \; -ik_\perp \tilde{E}_{+,m}\left(\frac{m+1}{k_\perp r}J_{m+1}(k_\perp r) +
+    J_{m+1}'(k_\perp r) \right) \right.\\
+\qquad \left. - ik_\perp \tilde{E}_{-,m}\left(\frac{m-1}{k_\perp r}J_{m-1}(k_\perp r) -
+    J_{m-1}'(k_\perp r) \right) \right] 
 \end{align*}
-We can now use the relations $\frac{m}{kr} J_m(kr) +
-    J_m'(kr) = J_{m-1}(kr)$ and $\frac{m}{kr} J_m(kr) -
-    J_m'(kr) = J_{m+1}(kr)$ (see relation 9.1.27 in
+We can now use the relations $\frac{m}{k_\perp r} J_m(k_\perp r) +
+    J_m'(k_\perp r) = J_{m-1}(k_\perp r)$ and $\frac{m}{k_\perp r} J_m(k_\perp r) -
+    J_m'(k_\perp r) = J_{m+1}(k_\perp r)$ (see relation 9.1.27 in
     \cite{Abramowitz}), and obtain :
 \begin{align*}
-\RInteg{k} \; 2 \,\partial_t \tilde{B}_{+,m}  J_{m+1}(kr) =
-\RInteg{k} \left[ \; ik\tilde{E}_{z,m}\,
-    J_{m+1}(kr) -2 k_z\tilde{E}_{+,m}J_{m+1}(kr) \;
+\RInteg{k_\perp } \; 2 \,\partial_t \tilde{B}_{+,m}  J_{m+1}(k_\perp r) =
+\RInteg{k_\perp } \left[ \; ik_\perp \tilde{E}_{z,m}\,
+    J_{m+1}(k_\perp r) -2 k_z\tilde{E}_{+,m}J_{m+1}(k_\perp r) \;
 \right] \\
-\RInteg{k} \; 2\, \partial_t \tilde{B}_{-,m}  J_{m-1}(kr) \; =
-\RInteg{k} \left[ \;
-   ik\tilde{E}_{z,m} \,
-    J_{m-1}(kr) + 2k_z\tilde{E}_{-,m}J_{m-1}(kr) \;
+\RInteg{k_\perp } \; 2\, \partial_t \tilde{B}_{-,m}  J_{m-1}(k_\perp r) \; =
+\RInteg{k_\perp } \left[ \;
+   ik_\perp \tilde{E}_{z,m} \,
+    J_{m-1}(k_\perp r) + 2k_z\tilde{E}_{-,m}J_{m-1}(k_\perp r) \;
 \right] \\
-\RInteg{k}\; \partial_t \tilde{B}_{z,m}  J_{m}(kr) =
-\RInteg{k} \left[ \; -ik\tilde{E}_{+,m} J_{m}(kr) - ik\tilde{E}_{-,m}\,J_{m}(kr) \right] 
+\RInteg{k_\perp }\; \partial_t \tilde{B}_{z,m}  J_{m}(k_\perp r) =
+\RInteg{k_\perp } \left[ \; -ik_\perp \tilde{E}_{+,m} J_{m}(k_\perp r) - ik_\perp \tilde{E}_{-,m}\,J_{m}(k_\perp r) \right] 
 \end{align*}
 Each equation of the above system contains Bessel functions of only one
 given order (either $m+1$, $m-1$ or $m$). This allows to separate the
-different $k$ components, since it the the functions $J_n(kr)$, for a
-fixed $n$ different values of $k$, form a basis of the set of real functions:
+different $k_\perp $ components, since it the the functions $J_n(k_\perp r)$, for a
+fixed $n$ and different values of $k_\perp $, form a basis of the set of real functions:
 \begin{align*}
 2 \,\partial_t \tilde{B}_{+,m} =
-ik\tilde{E}_{z,m} -2 k_z\tilde{E}_{+,m} \\
-2\, \partial_t \tilde{B}_{-,m} = ik\tilde{E}_{z,m} \,
+ik_\perp \tilde{E}_{z,m} -2 k_z\tilde{E}_{+,m} \\
+2\, \partial_t \tilde{B}_{-,m} = ik_\perp \tilde{E}_{z,m} \,
     + 2k_z\tilde{E}_{-,m} \\
- \partial_t \tilde{B}_{z,m} = -ik\tilde{E}_{+,m}  - ik\tilde{E}_{-,m}
+ \partial_t \tilde{B}_{z,m} = -ik_\perp \tilde{E}_{+,m}  - ik_\perp \tilde{E}_{-,m}
 \end{align*}
 
+\section{PSATD scheme, in the Fourier-Bessel
+  representation}
+
+Intro on the analytical approach. Say very similar to Haber. Ensures
+no numerical dispersion in vacuum.
+Say that the fields rho and j are linear and constant respectively
+
+\subsection{Expressions for $\tilde{B}_m$}
+
+By combining \cref{eq:CircMaxwellp,eq:CircMaxwellm,eq:CircMaxwellz}
+and \cref{eq:SpectCons}, one can find the propagation equations for $B$.
+\begin{align*}
+\partial_t^2 \tilde{B}_{+,m} + c^2(k_\perp ^2+k_z^2) \tilde{B}_{+,m} = 
+\mu_0 c^2 \left( - \frac{ik_\perp }{2} \tilde{j}_{z,m} + k_z \tilde{j}_{+,m}
+\right) \\
+\partial_t^2 \tilde{B}_{-,m} + c^2(k_\perp ^2+k_z^2) \tilde{B}_{-,m} = 
+\mu_0 c^2 \left( - \frac{ik_\perp }{2} \tilde{j}_{z,m} - k_z \tilde{j}_{+,m}
+\right) \\
+\partial_t^2 \tilde{B}_{z,m} + c^2(k_\perp ^2+k_z^2) \tilde{B}_{z,m} =
+\mu_0c^2  (ik_\perp  \tilde{j}_{+,m} + ik_\perp \tilde{j}_{-,m} ) 
+\end{align*}
+Let us integrate these equations for $t\in [n\Delta t, (n+1)\Delta
+t]$. In this interval, $\tilde{j}_m(t)$ is constant
+and equal to $\tj_m{n+1/2}$, and thus the right-hand side of the above
+equations is constant. Using Green functions, the
+general solution of a differential equation of the form 
+$\partial_t^2 f + \omega^2 f = g_0$, where $g_0$ is a constant, is 
+\[ f(t) = f(t_0) \cos[\,\omega (t-t_0)\,] + \partial_t f (t_0) \frac{
+  \sin[\,\omega (t-t_0)\,]  }{\omega} + \frac{g_0}{\omega^2} (1-
+\cos[\,\omega (t-t_0)\,] ) \]  
+We thus use the above expression, with $\omega^2 =c^2(k_\perp^2 +
+k_z^2)$, to integrate the fields from $t_0 = n\Delta t$ to $t=(n+1)\Delta t$. In
+particular, we use again the Maxwell equations
+\cref{eq:CircMaxwellp,eq:CircMaxwellm,eq:CircMaxwellz} to obtain the
+expression of $\partial_t \tilde{B}_{m} (t_0)$. This yields:
+\begin{align*}
+\tB{+}{n+1} = \; & C \tB{+}{n} - 
+\frac{S}{\omega}\left(-\frac{ik_\perp }{2} \tE{z}{n} + k_z\tE{+}{n}
+\right) + \mu_0 c^2\frac{1-C}{\omega^2} \left( -\frac{ik_\perp }{2}
+  \tj{z}{n+1/2} + k_z \tj{+}{n+1/2} \right)& \\
+\tB{-}{n+1} =\; & C \tB{-}{n} - 
+\frac{S}{\omega}\left(- \frac{ik_\perp }{2} \tE{z}{n} - k_z\tE{-}{n}
+\right) + \mu_0 c^2\frac{1-C}{\omega^2} \left( - \frac{ik_\perp }{2}
+  \tj{z}{n+1/2} - k_z \tj{-}{n+1/2} \right) &\\
+\tB{z}{n+1} =\; & C \tB{z}{n} - 
+\frac{S}{\omega}\left(ik_\perp \tE{+}{n} + ik_\perp \tE{-}{n}
+\right) + \mu_0 c^2\frac{1-C}{\omega^2} \left( ik_\perp
+  \tj{+}{n+1/2} + ik_\perp \tj{-}{n+1/2} \right)&
+\end{align*}
+where $C = \cos(\omega \Delta t)$ and $S = \sin(\omega \Delta t) $.
+
+\subsection{Expressions for $\tilde{E}_m$}
+
+Similarly, when combining \cref{eq:CircMaxwellp,eq:CircMaxwellm,eq:CircMaxwellz}
+and \cref{eq:SpectCons}, the propagation equations for $E$ are:
+\begin{align*}
+\partial_t^2 \tilde{E}_{+,m} + c^2(k_\perp^2 + k_z^2) \tilde{E}_{+,m}
+= \frac{c^2}{\epsilon_0} \frac{k_\perp}{2} \tilde{\rho}_m -
+\mu_0c^2 \partial_t\tilde{j}_{+,m} \\
+\partial_t^2 \tilde{E}_{-,m} + c^2(k_\perp^2 + k_z^2) \tilde{E}_{-,m}
+= - \frac{c^2}{\epsilon_0} \frac{k_\perp}{2} \tilde{\rho}_m -
+\mu_0c^2 \partial_t\tilde{j}_{-,m} \\
+\partial_t^2 \tilde{E}_{z,m} + c^2(k_\perp^2 + k_z^2) \tilde{E}_{z,m}
+= - \frac{c^2}{\epsilon_0} i k_z \tilde{\rho}_m -
+\mu_0c^2 \partial_t\tilde{j}_{z,m} 
+\end{align*}
+Let us again integrate these equations for $t\in [n\Delta t, (n+1)\Delta
+t]$. In this interval, $\tilde{j}_m(t)$ is constant (thus its time
+derivatives drop), and $\tilde{\rho}_m$ is linear in time. As a
+consequence the right hand side is proportional to $\trho{n} +
+(\trho{n+1}-\trho{n})(t-t_0)/\Delta t$. Using Green functions, the solution of 
+$ \partial_t^2 f + \omega^2 f = \trho{n} + (\trho{n+1}-\trho{n})(t-t_0)/\Delta t $ is
+\[ f(t) = f(t_0) \cos[\,\omega(t-t_0)\,] + \partial_tf (t_0)
+\frac{\sin[\,\omega(t-t_0)\,]}{\omega} + \trho{n}\frac{1-
+  \cos[\,\omega(t-t_0)\,]}{\omega^2} + \frac{\trho{n+1}-\trho{n}}{\omega^2}\left(
+  \frac{t-t_0}{\Delta t} - \frac{\sin[\,\omega(t-t_0)\,]}{\omega
+    \Delta t}
+\right) \]
+which, for $t=t_0 +\Delta t$, reduces to
+\[ f(t_0 +\Delta t) = f(t_0) C + \partial_tf (t_0)
+\frac{S}{\omega} + \trho{n}\frac{S-\omega\Delta t
+  C}{\omega^3\Delta t} + \frac{\trho{n+1}}{\omega^2}\left(
+  1 - \frac{S}{\omega\Delta t}\right) \]
+Using the above expression, we obtain
+\begin{align*}
+\tE{+}{n+1} = \; & C \tE{+}{n} + 
+\frac{S}{\omega}\left(-\frac{ik_\perp }{2} \tB{z}{n} + k_z\tB{+}{n}
+- \mu_0 \tj{+}{n+1/2} \right) + \frac{c^2}{\epsilon_0}
+\frac{k_\perp}{2}\left[ \trho{n}\frac{S-\omega\Delta t
+  C}{\omega^3\Delta t} + \frac{\trho{n+1}}{\omega^2}\left(
+  1 - \frac{S}{\omega\Delta t}\right) \right]  & \\
+\tE{-}{n+1} =\; & C \tE{-}{n} +
+\frac{S}{\omega}\left(- \frac{ik_\perp }{2} \tB{z}{n} - k_z\tB{-}{n}
+- \mu_0 \tj{-}{n+1/2} \right) - \frac{c^2}{\epsilon_0}
+\frac{k_\perp}{2}\left[ \trho{n}\frac{S-\omega\Delta t
+  C}{\omega^3\Delta t} + \frac{\trho{n+1}}{\omega^2}\left(
+  1 - \frac{S}{\omega\Delta t}\right) \right]  &\\
+\tE{z}{n+1} =\; & C \tE{z}{n} + 
+\frac{S}{\omega}\left(ik_\perp \tB{+}{n} + ik_\perp \tB{-}{n}
+- \mu_0 \tj{z}{n+1/2} \right) - \frac{c^2}{\epsilon_0}
+ik_z\left[ \trho{n}\frac{S-\omega\Delta t
+  C}{\omega^3\Delta t} + \frac{\trho{n+1}}{\omega^2}\left(
+  1 - \frac{S}{\omega\Delta t}\right) \right]  &
+\end{align*}

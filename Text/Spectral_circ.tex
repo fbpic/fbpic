@@ -6,6 +6,7 @@
 %\usepackage{graphicx}			
 
 \usepackage{amsmath}
+\usepackage{tikz}
 
 \usepackage{hyperref}
 \hypersetup{colorlinks=true,
@@ -20,6 +21,11 @@
 \newcommand{\RInteg}[1]{\int_{0}^{\infty} \!\!\!\!\! #1\mathrm{d}#1}
 \newcommand{\TInteg}[1]{\int_{0}^{2\pi} \!\!\!\!\! \mathrm{d}#1}
 
+\newcommand{\tB}[2]{\tilde{B}_{#1,m}^{#2}}
+\newcommand{\tE}[2]{\tilde{E}_{#1,m}^{#2}}
+\newcommand{\tj}[2]{\tilde{j}_{#1,m}^{#2}}
+
+\newcommand{\trho}[1]{\tilde{\rho}_{m}^{#1}}
 
 % Reference automatique aux equations, sections, figures
 \usepackage{cleveref}
@@ -42,11 +48,12 @@
 
 \paragraph{Cylindrical PIC codes} A range of physical situations have close-to cylindrical symmetry (e.g. electron beam propagation, laser-wakefield acceleration), and they can be simulated with very significant speedup using a cylindrically symmetric algorithm (Lischitz, Davidson). This typically reduces the cost of the simulation to a few times that of a 2D simulation, instead of that of a full 3D simulation.
 
-\paragraph{Spectral PIC codes} In parallel, 3D spectral PIC codes have been developped, and can mitigate numerical instability (articles Warren and Brendan Godfrey). In spectral space, some algorithms have no numerical dispersion whatsoever (article PSATD). This is important in laser-wakefield acceleration since even a very small amount of numerical dispersion can introduce spurious injection. Typically, this imposes to strongly overresolve the wavelength of the laser (thereby increasing computational requirements), and to use very asymetric cell aspect ratio. Although the spectral algorithms reduce the requirements on the longitudinal resolution, they still require a 3D grid, and therefore a large computational load.
+\paragraph{Spectral PIC codes} In parallel, 3D spectral PIC codes have been developped, and can mitigate numerical instability (articles Warren and Brendan Godfrey). In spectral space, some algorithms have no numerical dispersion whatsoever (article PSATD). This is important in laser-wakefield acceleration since even a very small amount of numerical dispersion can introduce spurious injection. Dispersion is also important well simulating beam physics, where lower-than-c propagation leads to Cherenkov effect and faster-than-c leads to fields unphysically traveling ahead of the beam. Typically, this imposes to strongly overresolve the wavelength of the laser (thereby increasing computational requirements), and to use very asymetric cell aspect ratio. Although the spectral algorithms reduce the requirements on the longitudinal resolution, they still require a 3D grid, and therefore a large computational load.
 
 \paragraph{Spectral, cylindrical PIC codes } In this document, we combine the two approaches. Advantages:
 \begin{itemize}
-\item Significant speedup due to the cylindrical geometry.
+\item Significant speedup due to the cylindrical geometry, and the
+  lower number of particles.
 \item Ideal dispersion relation in PSATD, independent on azimuthal mode (with a finite difference algorithm, the different modes go at different speeds)
 \item Fields are colocated in space and time in PSATD and not
   staggered, which simplifies interpolation, and prevents
@@ -65,11 +72,11 @@
 
 It is well-known that the Maxwell equations in Cartesian coordinates 
 \begin{align}
-\partial_t E_x = \partial_y B_z - \partial_z B_y - \mu_0  j_x \qquad&   
+c^{-2}\partial_t E_x = \partial_y B_z - \partial_z B_y - \mu_0  j_x \qquad&   
 \partial_t B_x = -\partial_y E_z + \partial_z E_y \label{eq:CartMaxwellx} \\
-\partial_t E_y = \partial_z B_x - \partial_x B_z - \mu_0  j_y \qquad &   
+c^{-2}\partial_t E_y = \partial_z B_x - \partial_x B_z - \mu_0  j_y \qquad &   
 \partial_t B_y = -\partial_z E_x + \partial_x E_z \label{eq:CartMaxwelly}  \\
-\partial_t E_z = \partial_x B_y - \partial_y B_x - \mu_0  j_z \qquad &   
+c^{-2}\partial_t E_z = \partial_x B_y - \partial_y B_x - \mu_0  j_z \qquad &   
 \partial_t B_z = -\partial_x E_y + \partial_y E_x \label{eq:CartMaxwellz} 
 \end{align}
 can be solved by representing the fields as a sum of Fourier modes.
@@ -85,49 +92,50 @@ with
 where $F$ is any of the fields $E$, $B$ or $j$, and where $u$ is
 either $x$, $y$ or $z$. In this case, the different Fourier modes decouple and the equations \cref{eq:CartMaxwellx,eq:CartMaxwelly,eq:CartMaxwellz} become 
 \begin{align}
-\partial_t \hat{E}_x = ik_y \hat{B}_z - ik_z \hat{B}_y - \mu_0 \hat{j}_x \qquad &   
+c^{-2}\partial_t \hat{E}_x = ik_y \hat{B}_z - ik_z \hat{B}_y - \mu_0 \hat{j}_x \qquad &   
 \partial_t \hat{B}_x = -ik_y \hat{E}_z + ik_z \hat{E}_y \\
-\partial_t \hat{E}_y = ik_z \hat{B}_x - ik_x \hat{B}_z - \mu_0  \hat{j}_y \qquad &   
+c^{-2}\partial_t \hat{E}_y = ik_z \hat{B}_x - ik_x \hat{B}_z - \mu_0  \hat{j}_y \qquad &   
 \partial_t \hat{B}_y = -ik_z \hat{E}_x + ik_x \hat{E}_z \\
-\partial_t \hat{E}_z = ik_x \hat{B}_y - ik_y \hat{B}_x - \mu_0 \hat{j}_z  \qquad &   
+c^{-2}\partial_t \hat{E}_z = ik_x \hat{B}_y - ik_y \hat{B}_x - \mu_0 \hat{j}_z  \qquad &   
 \partial_t \hat{B}_z = -ik_x \hat{E}_y + ik_y \hat{E}_x 
 \end{align}
 The Fourier coefficients can then be integrated in time, and
 transformed back into real space using \cref{eq:CartBwTrans}. This is
-the core principle of Cartesian pseudo-spectral codes.
+the core principle of Cartesian pseudo-spectral time-domain (PSTD)
+codes and pseudo-spectral analytical time-domain (PSATD) codes.
 
 \subsection{Cylindrical spectral decomposition}
 
 The Fourier representation \cref{eq:CartBwTrans} is no longer the
 appropriate representation when the Maxwell equations are written in cylindrical coordinates.
 \begin{align}
-\partial_t E_r = \ir \partial_\theta B_z - \partial_z B_\theta - \mu_0  j_r \qquad&   
+c^{-2}\partial_t E_r = \ir \partial_\theta B_z - \partial_z B_\theta - \mu_0  j_r \qquad&   
 \partial_t B_r = -\ir \partial_\theta E_z + \partial_z E_\theta \label{eq:CircMaxwellr} \\
-\partial_t E_\theta = \partial_z B_r - \partial_r B_z - \mu_0  j_\theta \qquad &   
+c^{-2}\partial_t E_\theta = \partial_z B_r - \partial_r B_z - \mu_0  j_\theta \qquad &   
 \partial_t B_\theta = -\partial_z E_r + \partial_r E_z \label{eq:CircMaxwellt}  \\
-\partial_t E_z = \ir\partial_r r B_\theta - \ir\partial_\theta B_r - \mu_0  j_z \qquad &   
+c^{-2}\partial_t E_z = \ir\partial_r r B_\theta - \ir\partial_\theta B_r - \mu_0  j_z \qquad & 
 \partial_t B_z = -\ir\partial_r r E_\theta + \ir\partial_\theta E_r \label{eq:CircMaxwellzz} 
 \end{align}
 When replacing
 \cref{eq:CartBwTrans} into the \cref{eq:CircMaxwellr,eq:CircMaxwellt,eq:CircMaxwellzz}, the Fourier modes do not decouple. Instead one has to use the Fourier-Bessel representation.
 \begin{align}
 & F_u(\vec{r}) = \sum_{m=-\infty}^{\infty} \Integ{k_z}
-\RInteg{k}\; \tilde{F}_{u,m}(k_z,k) \; J_m(kr)\, e^{-im\theta + ik_z z} 
+\RInteg{k_\perp }\; \tilde{F}_{u,m}(k_z,k_\perp ) \; J_m(k_\perp r)\, e^{-im\theta + ik_z z} 
 \label{eq:CircBwTransu} \\
-& F_r(\vec{r}) = \sum_{m=-\infty}^{\infty} \Integ{k_z}\,\RInteg{k}\;
-\left( \tilde{F}_{+,m}(k_z,k)\; J_{m+1}(kr) +\tilde{F}_{-,m}(k_z,k)\; J_{m-1}(kr)
+& F_r(\vec{r}) = \sum_{m=-\infty}^{\infty} \Integ{k_z}\,\RInteg{k_\perp }\;
+\left( \tilde{F}_{+,m}(k_z,k_\perp )\; J_{m+1}(k_\perp r) +\tilde{F}_{-,m}(k_z,k_\perp )\; J_{m-1}(k_\perp r)
 \right)  e^{-im\theta +ik_z z}
 \label{eq:CircBwTransr} \\
-& F_\theta(\vec{r}) = \sum_{m=-\infty}^{\infty} \Integ{k_z}\,\RInteg{k}\;
-i\left( \tilde{F}_{+,m}(k_z,k)\; J_{m+1}(kr) - \tilde{F}_{-,m}(k_z,k)\; J_{m-1}(kr)
+& F_\theta(\vec{r}) = \sum_{m=-\infty}^{\infty} \Integ{k_z}\,\RInteg{k_\perp }\;
+i\left( \tilde{F}_{+,m}(k_z,k_\perp )\; J_{m+1}(k_\perp r) - \tilde{F}_{-,m}(k_z,k_\perp )\; J_{m-1}(k_\perp r)
 \right)  e^{-im\theta +ik_z z} 
 \label{eq:CircBwTranst}
 \end{align}
 where $F$ is either $E$, $B$ or $j$ and $u$ is any of the
 Cartesian components $x$, $y$ or $z$. In addition
 \begin{align}
-\tilde{F}_{u,m}(k_z,k) = \frac{1}{(2\pi)^2} \Integ{z} \RInteg{r}
-\TInteg{\theta} \;F_u(\vec{r})\; J_m(kr) e^{-im\theta
+\tilde{F}_{u,m}(k_z,k_\perp ) = \frac{1}{(2\pi)^2} \Integ{z} \RInteg{r}
+\TInteg{\theta} \;F_u(\vec{r})\; J_m(k_\perp r) e^{-im\theta
  - i k_z z} \label{eq:CircFwTransu} \\
 \tilde{F}_{+,m} = \frac{\tilde{F}_{x,m+1} -
     i\tilde{F}_{y,m+1}}{2} \qquad \tilde{F}_{-,m} = \frac{\tilde{F}_{x,m-1} +
@@ -135,7 +143,8 @@ Cartesian components $x$, $y$ or $z$. In addition
 \label{eq:CircFwTranspm} 
 \end{align}
 \noindent (See \cref{sec:CircTrans} for a derivation of this representation and
- for its relation to the Fourier transform.)
+ for its relation to the Fourier transform.) Notice that scalar fields
+ (like $\rho$) transform in the same way as the Cartesian components $F_u$.
 
 When replacing \cref{eq:CircBwTransr,eq:CircBwTranst,eq:CircBwTransu}
 (for $u=z$) into the Maxwell equations in cylindrical
@@ -143,53 +152,109 @@ coordinates \cref{eq:CircMaxwellr,eq:CircMaxwellt,eq:CircMaxwellzz},
 the different modes decouple, and the equations for the spectral
 coefficients become:
 \begin{align}
-\partial_t \tilde{E}_{+,m} = - \frac{ik}{2}\tilde{B}_{z,m} + k_z\tilde{B}_{+,m} - \mu_0\tilde{j}_{+,m} \qquad &   
-\partial_t \tilde{B}_{+,m} = \frac{ik}{2} \tilde{E}_{z,m} - k_z
+c^{-2}\partial_t \tilde{E}_{+,m} = - \frac{ik_\perp }{2}\tilde{B}_{z,m} + k_z\tilde{B}_{+,m} - \mu_0\tilde{j}_{+,m} \qquad &   
+\partial_t \tilde{B}_{+,m} = \frac{ik_\perp }{2} \tilde{E}_{z,m} - k_z
 \tilde{E}_{+,m} 
 \label{eq:CircMaxwellp} \\
-\partial_t \tilde{E}_{-,m} = -\frac{ik}{2} \tilde{B}_{z,m} - k_z \tilde{B}_{-,m} - \mu_0  \tilde{j}_{-,m} \qquad &   
-\partial_t \tilde{B}_{-,m} = \frac{ik}{2} \tilde{E}_{z,m} + k_z
+c^{-2}\partial_t \tilde{E}_{-,m} = -\frac{ik_\perp }{2} \tilde{B}_{z,m} - k_z \tilde{B}_{-,m} - \mu_0  \tilde{j}_{-,m} \qquad &   
+\partial_t \tilde{B}_{-,m} = \frac{ik_\perp }{2} \tilde{E}_{z,m} + k_z
 \tilde{E}_{-,m} \label{eq:CircMaxwellm} \\
-\partial_t \tilde{E}_{z,m} = ik \tilde{B}_{+,m} + ik\tilde{B}_{-,m}  - \mu_0 \tilde{j}_{z,m}  \qquad & 
-\partial_t \tilde{B}_{z,m} = -ik \tilde{E}_{+,m} - ik\tilde{E}_{-,m}  \label{eq:CircMaxwellz} 
+c^{-2}\partial_t \tilde{E}_{z,m} = ik_\perp  \tilde{B}_{+,m} + ik_\perp \tilde{B}_{-,m}  - \mu_0 \tilde{j}_{z,m}  \qquad & 
+\partial_t \tilde{B}_{z,m} = -ik_\perp  \tilde{E}_{+,m} - ik_\perp \tilde{E}_{-,m}  \label{eq:CircMaxwellz} 
 \end{align}
-(See \cref{sec:SpectMaxwell} for a derivation of these equations.) In addition, the conservation equations
-\begin{equation}
-\vec{\nabla}\cdot\vec{E} \equiv \ir \partial_r rE_r + \ir\partial_\theta E_\theta + \partial_z E_z
-= \frac{\rho}{\epsilon_0} \qquad  \vec{\nabla}\cdot\vec{B} \equiv \ir \partial_r rB_r + \ir\partial_\theta B_\theta + \partial_z B_z
-= 0 
-\end{equation}
+(See \cref{sec:SpectMaxwell} for a derivation of these equations.) In
+addition, the conservation equations
+$\vec{\nabla}\cdot\vec{E}=\rho/\epsilon_0$ and
+$\vec{\nabla}\cdot\vec{B} = 0$
 become
 \begin{equation}
-k(\tilde{E}_{+,m} -\tilde{E}_{-,m}) + ik_z \tilde{E}_{z,m} =
-\frac{\tilde{\rho}}{\epsilon_0} \qquad
- k(\tilde{B}_{+,m} -\tilde{B}_{-,m}) + ik_z \tilde{B}_{z,m} =
+\label{eq:SpectCons}
+k_\perp (\tilde{E}_{+,m} -\tilde{E}_{-,m}) + ik_z \tilde{E}_{z,m} =
+\frac{\tilde{\rho}_m}{\epsilon_0} \qquad
+ k_\perp (\tilde{B}_{+,m} -\tilde{B}_{-,m}) + ik_z \tilde{B}_{z,m} =
 0 \end{equation}
+As expected, the above conservation equations are
+preserved by the Maxwell equations
+\cref{eq:CircMaxwellp,eq:CircMaxwellm,eq:CircMaxwellz}, provided
+that the current satisfies $\partial_t
+\rho + \vec{\nabla} \cdot \vec{j} = 0$, i.e. in spectral space:
+\begin{equation}
+\partial_t \tilde{\rho}_m + k_\perp (\tilde{j}_{+,m} -\tilde{j}_{-,m}) + ik_z
+\tilde{j}_{z,m} = 0
+\end{equation}  
 
-Again, the equations \cref{eq:CircMaxwellr,eq:CircMaxwellt,eq:CircMaxwellz}  can be
+Notice equations are structurally similar to 
+
+Again, the equations \cref{eq:CircMaxwellp,eq:CircMaxwellm,eq:CircMaxwellz}  can be
 integrated in time, and the fields can then be transformed back into
 real space, using \cref{eq:CircBwTransu,eq:CircBwTransr,eq:CircBwTranst}. Typically one needs only a few modes in $m$, therefore the
-fields are reduced to a few 2D tables $\tilde{F}_m(k_z,k)$ instead of the 3D tables
+fields are reduced to a few 2D tables $\tilde{F}_m(k_z,k_\perp )$ instead of the 3D tables
 $\hat{F}(k_x,k_y,k_z)$. (For instance, in a purely symmetric case, there is only one
 mode: $m=0$.)
 
 + Mention the complex conjugates : only $m \geq 0$.
 
+Emphasize these equations can be integrated with an equivalent of the
+PSATD algorithm, which ensures dispersion-free in vaccum.
 
 \section{Numerical implementation}
 
+\subsection{Overview of the algorithm}
+
 Grand scheme :
+Integrate the equations in spectral space with the PSATD scheme. In
+this scheme, the fields $E$, $B$, $\rho$ and $J$ are defined at the
+same points in space and time.
+
+Interpolation at each time step would require the calculation of
+Bessel function at each time step, very expensive
+
+Instead project charge and current on an intermediate spatial grid, much in
+the same way as it is done in Calder Circ. We then perform a
+tranformation from that spatial grid to the spectral grid.
+
+Fields representation + relation with the spectral fields.
+
 Explain intermediate grid (x,y,z)
 3 grids, interpolation, deposition 
 Explain shape of the particle
 
-\subsection{Field integration}
+Translation between the 2 grids
 
-Could be integrated by finite difference, but we choose PSATD (for numerical dispersion).
+Say the precision of the back and forth DHT transform is very
+dependent on the spatial discretization. Ideal is ... + cite.
 
-\subsection{Interpolation} 
+\begin{figure}
+\input{PIC-cycle.tex}
+\caption{Description of the PIC cycle}
+\end{figure}
+
+\subsection{Interpolation}
+
+\subsection{Equations of motion}
 
 \subsection{Current deposition}
+
+Deposition on non-uniform grid
+
+Current correction
+
+\subsection{Field integration}
+
+
+
+Assumptions, the 
+Could be integrated by finite difference, but we choose PSATD (for
+numerical dispersion)
+
+
+
+
+
+Needs to preserve conservation equation.
+
+
+
 
 
 \newpage
