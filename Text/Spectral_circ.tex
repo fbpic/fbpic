@@ -31,7 +31,6 @@
 \usepackage{cleveref}
 
 \title{A pseudo-spectral, cylindrical and dispersion-free Particle-In-Cell algorithm}
-\date{}
 %\pagestyle{empty}
 \author{R\'emi \textsc{Lehe}}
 
@@ -72,11 +71,11 @@
 
 It is well-known that the Maxwell equations in Cartesian coordinates 
 \begin{align}
-c^{-2}\partial_t E_x = \partial_y B_z - \partial_z B_y - \mu_0  j_x \qquad&   
+\frac{1}{c^2}\partial_t E_x = \partial_y B_z - \partial_z B_y - \mu_0  j_x \qquad&   
 \partial_t B_x = -\partial_y E_z + \partial_z E_y \label{eq:CartMaxwellx} \\
-c^{-2}\partial_t E_y = \partial_z B_x - \partial_x B_z - \mu_0  j_y \qquad &   
+\frac{1}{c^2}\partial_t E_y = \partial_z B_x - \partial_x B_z - \mu_0  j_y \qquad &   
 \partial_t B_y = -\partial_z E_x + \partial_x E_z \label{eq:CartMaxwelly}  \\
-c^{-2}\partial_t E_z = \partial_x B_y - \partial_y B_x - \mu_0  j_z \qquad &   
+\frac{1}{c^2}\partial_t E_z = \partial_x B_y - \partial_y B_x - \mu_0  j_z \qquad &   
 \partial_t B_z = -\partial_x E_y + \partial_y E_x \label{eq:CartMaxwellz} 
 \end{align}
 can be solved by representing the fields as a sum of Fourier modes.
@@ -92,11 +91,11 @@ with
 where $F$ is any of the fields $E$, $B$ or $j$, and where $u$ is
 either $x$, $y$ or $z$. In this case, the different Fourier modes decouple and the equations \cref{eq:CartMaxwellx,eq:CartMaxwelly,eq:CartMaxwellz} become 
 \begin{align}
-c^{-2}\partial_t \hat{E}_x = ik_y \hat{B}_z - ik_z \hat{B}_y - \mu_0 \hat{j}_x \qquad &   
+\frac{1}{c^2}\partial_t \hat{E}_x = ik_y \hat{B}_z - ik_z \hat{B}_y - \mu_0 \hat{j}_x \qquad &   
 \partial_t \hat{B}_x = -ik_y \hat{E}_z + ik_z \hat{E}_y \\
-c^{-2}\partial_t \hat{E}_y = ik_z \hat{B}_x - ik_x \hat{B}_z - \mu_0  \hat{j}_y \qquad &   
+\frac{1}{c^2}\partial_t \hat{E}_y = ik_z \hat{B}_x - ik_x \hat{B}_z - \mu_0  \hat{j}_y \qquad &   
 \partial_t \hat{B}_y = -ik_z \hat{E}_x + ik_x \hat{E}_z \\
-c^{-2}\partial_t \hat{E}_z = ik_x \hat{B}_y - ik_y \hat{B}_x - \mu_0 \hat{j}_z  \qquad &   
+\frac{1}{c^2}\partial_t \hat{E}_z = ik_x \hat{B}_y - ik_y \hat{B}_x - \mu_0 \hat{j}_z  \qquad &   
 \partial_t \hat{B}_z = -ik_x \hat{E}_y + ik_y \hat{E}_x 
 \end{align}
 The Fourier coefficients can then be integrated in time, and
@@ -109,11 +108,11 @@ codes and pseudo-spectral analytical time-domain (PSATD) codes.
 The Fourier representation \cref{eq:CartBwTrans} is no longer the
 appropriate representation when the Maxwell equations are written in cylindrical coordinates.
 \begin{align}
-c^{-2}\partial_t E_r = \ir \partial_\theta B_z - \partial_z B_\theta - \mu_0  j_r \qquad&   
+\frac{1}{c^2}\partial_t E_r = \ir \partial_\theta B_z - \partial_z B_\theta - \mu_0  j_r \qquad&   
 \partial_t B_r = -\ir \partial_\theta E_z + \partial_z E_\theta \label{eq:CircMaxwellr} \\
-c^{-2}\partial_t E_\theta = \partial_z B_r - \partial_r B_z - \mu_0  j_\theta \qquad &   
+\frac{1}{c^2}\partial_t E_\theta = \partial_z B_r - \partial_r B_z - \mu_0  j_\theta \qquad &   
 \partial_t B_\theta = -\partial_z E_r + \partial_r E_z \label{eq:CircMaxwellt}  \\
-c^{-2}\partial_t E_z = \ir\partial_r r B_\theta - \ir\partial_\theta B_r - \mu_0  j_z \qquad & 
+\frac{1}{c^2}\partial_t E_z = \ir\partial_r r B_\theta - \ir\partial_\theta B_r - \mu_0  j_z \qquad & 
 \partial_t B_z = -\ir\partial_r r E_\theta + \ir\partial_\theta E_r \label{eq:CircMaxwellzz} 
 \end{align}
 When replacing
@@ -152,14 +151,14 @@ coordinates \cref{eq:CircMaxwellr,eq:CircMaxwellt,eq:CircMaxwellzz},
 the different modes decouple, and the equations for the spectral
 coefficients become:
 \begin{align}
-c^{-2}\partial_t \tilde{E}_{+,m} = - \frac{ik_\perp }{2}\tilde{B}_{z,m} + k_z\tilde{B}_{+,m} - \mu_0\tilde{j}_{+,m} \qquad &   
+\frac{1}{c^2}\partial_t \tilde{E}_{+,m} = - \frac{ik_\perp }{2}\tilde{B}_{z,m} + k_z\tilde{B}_{+,m} - \mu_0\tilde{j}_{+,m} \qquad &   
 \partial_t \tilde{B}_{+,m} = \frac{ik_\perp }{2} \tilde{E}_{z,m} - k_z
 \tilde{E}_{+,m} 
 \label{eq:CircMaxwellp} \\
-c^{-2}\partial_t \tilde{E}_{-,m} = -\frac{ik_\perp }{2} \tilde{B}_{z,m} - k_z \tilde{B}_{-,m} - \mu_0  \tilde{j}_{-,m} \qquad &   
+\frac{1}{c^2}\partial_t \tilde{E}_{-,m} = -\frac{ik_\perp }{2} \tilde{B}_{z,m} - k_z \tilde{B}_{-,m} - \mu_0  \tilde{j}_{-,m} \qquad &   
 \partial_t \tilde{B}_{-,m} = \frac{ik_\perp }{2} \tilde{E}_{z,m} + k_z
 \tilde{E}_{-,m} \label{eq:CircMaxwellm} \\
-c^{-2}\partial_t \tilde{E}_{z,m} = ik_\perp  \tilde{B}_{+,m} + ik_\perp \tilde{B}_{-,m}  - \mu_0 \tilde{j}_{z,m}  \qquad & 
+\frac{1}{c^2}\partial_t \tilde{E}_{z,m} = ik_\perp  \tilde{B}_{+,m} + ik_\perp \tilde{B}_{-,m}  - \mu_0 \tilde{j}_{z,m}  \qquad & 
 \partial_t \tilde{B}_{z,m} = -ik_\perp  \tilde{E}_{+,m} - ik_\perp \tilde{E}_{-,m}  \label{eq:CircMaxwellz} 
 \end{align}
 (See \cref{sec:SpectMaxwell} for a derivation of these equations.) In
@@ -179,6 +178,7 @@ preserved by the Maxwell equations
 that the current satisfies $\partial_t
 \rho + \vec{\nabla} \cdot \vec{j} = 0$, i.e. in spectral space:
 \begin{equation}
+\label{eq:SpectCharge}
 \partial_t \tilde{\rho}_m + k_\perp (\tilde{j}_{+,m} -\tilde{j}_{-,m}) + ik_z
 \tilde{j}_{z,m} = 0
 \end{equation}  
@@ -206,23 +206,22 @@ Integrate the equations in spectral space with the PSATD scheme. In
 this scheme, the fields $E$, $B$, $\rho$ and $J$ are defined at the
 same points in space and time.
 
+Although the fields are represented by 2D arrays, the particle are
+distributed in 3D motion is integrated in 3D. However, due to the
+lower number of cells in a 2D array, one can drastically reduce the
+total number of particles and still have significative statistics.
+
 Interpolation at each time step would require the calculation of
-Bessel function at each time step, very expensive
+Bessel function at each time step, very expensive. Say we keep
+azimuthal transversely, since cheap to calculate $e^i\phi$
 
 Instead project charge and current on an intermediate spatial grid, much in
-the same way as it is done in Calder Circ. We then perform a
+the same way as it is done in Calder Circ (except don't use the same components). We then perform a
 tranformation from that spatial grid to the spectral grid.
 
-Fields representation + relation with the spectral fields.
+Identify as a Hankel transform. Say the precision of the back and
+forth DHT transform is very dependent on the spatial discretization. Ideal is ... + cite.
 
-Explain intermediate grid (x,y,z)
-3 grids, interpolation, deposition 
-Explain shape of the particle
-
-Translation between the 2 grids
-
-Say the precision of the back and forth DHT transform is very
-dependent on the spatial discretization. Ideal is ... + cite.
 
 \begin{figure}
 \input{PIC-cycle.tex}
@@ -237,25 +236,36 @@ dependent on the spatial discretization. Ideal is ... + cite.
 
 Deposition on non-uniform grid
 
-Current correction
+
+It is well-known that the current deposition does not necessarily
+preserve the relation $\partial_t\rho + \vec{\nabla}\cdot\vec{j} =
+0$. (Notice that we do not use the Esirkepov scheme here, as it is not well
+adapted in the case of a non-uniform grid.)
+
+When $\partial_t\rho + \vec{\nabla}\cdot\vec{j}$ is different than 0,
+one can correct for that error, by slightly modifying the currents, in
+a way that does not modify the value of their curl:
+\[ \vec{j}' = \vec{j} - \vec{\nabla} F \]
+where $F$ satisfies the Poisson-like equation
+\[ \vec{\nabla}^2 F = \partial_t\rho + \vec{\nabla}\cdot\vec{j} \]
+The above equation is typically expensive to solve on a spatial grid, but
+very easy to solve in spectral space. In our scheme and in spectral
+space, these equations become
+\[ \tilde{j}'^{n+1/2}_{+,m} = \tilde{j}^{n+1/2}_{+,m} +
+\frac{k_\perp}{2} \tilde{F}^{n+1/2}_m
+\qquad
+\tilde{j}'^{n+1/2}_{-,m} = \tilde{j}^{n+1/2}_{-,m} - \frac{k_\perp}{2} \tilde{F}^{n+1/2}_m
+\qquad \tilde{j}'^{n+1/2}_{z,m} = \tilde{j}^{n+1/2}_{z,m} - ik_z
+\tilde{F}^{n+1/2}_m\]
+with
+\[ \tilde{F}^{n+1/2}_m = - \frac{1}{k_\perp^2 + k_z^2}\left(
+  \frac{\tilde{\rho}^{n+1}_m -\tilde{\rho}^{n}_m}{\Delta t} + k_\perp
+  (\tilde{j}^{n+1/2}_{+,m} -\tilde{j}^{n+1/2}_{-,m}) + ik_z\tilde{j}^{n+1/2}_{z,m}  \right) \]
+With this correction, the new currents $\tilde{j}'^{n+1/2}$ do satisfy
+the charge conservation equation \cref{eq:SpectCharge}. Therefore we apply this
+correction at the end of the current deposition, at each timestep.
 
 \subsection{Field integration}
-
-
-
-Assumptions, the 
-Could be integrated by finite difference, but we choose PSATD (for
-numerical dispersion)
-
-
-
-
-
-Needs to preserve conservation equation.
-
-
-
-
 
 \newpage
 \appendix
