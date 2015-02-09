@@ -134,7 +134,7 @@ where $F$ is either $E$, $B$ or $j$ and $u$ is any of the
 Cartesian components $x$, $y$ or $z$. In addition
 \begin{align}
 \tilde{F}_{u,m}(k_z,k_\perp ) = \frac{1}{(2\pi)^2} \Integ{z} \RInteg{r}
-\TInteg{\theta} \;F_u(\vec{r})\; J_m(k_\perp r) e^{-im\theta
+\TInteg{\theta} \;F_u(\vec{r})\; J_m(k_\perp r) e^{im\theta
  - i k_z z} \label{eq:CircFwTransu} \\
 \tilde{F}_{+,m} = \frac{\tilde{F}_{x,m+1} -
     i\tilde{F}_{y,m+1}}{2} \qquad \tilde{F}_{-,m} = \frac{\tilde{F}_{x,m-1} +
@@ -192,7 +192,11 @@ fields are reduced to a few 2D tables $\tilde{F}_m(k_z,k_\perp )$ instead of the
 $\hat{F}(k_x,k_y,k_z)$. (For instance, in a purely symmetric case, there is only one
 mode: $m=0$.)
 
-+ Mention the complex conjugates : only $m \geq 0$.
+Since the fields $F_u$ are real, one has $\tilde{F}_{u,-m}(k_z, k_\perp)
+= \tilde{F}_{u,m}(-k_z, k_\perp)^{*}$ and $F_{+,-m}(k_z, k_\perp) =
+F_{-,m}(-k_z, k_\perp)$. This means that one only needs to study the
+evolution of the modes having $m\geq 0$, and the modes with $m<0$ can
+be directly deduced.
 
 Emphasize these equations can be integrated with an equivalent of the
 PSATD algorithm, which ensures dispersion-free in vaccum.

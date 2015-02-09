@@ -6,3 +6,5 @@
 *.log
 *.out
 *.pdf
+*.pyc
+*.gz
