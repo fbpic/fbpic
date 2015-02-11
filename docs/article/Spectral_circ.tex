@@ -41,13 +41,13 @@
 \maketitle
 
 
-\section*{Introduction}
+\section*{Introduction (rough ideas)}
 
 \paragraph{Importance of PIC codes } Used in many fields : astro, laser-plasma interaction. However, 3D codes are expensive, and their limited resolution leads to many numerical effects (Cherenkov, dispersion).
 
-\paragraph{Cylindrical PIC codes} A range of physical situations have close-to cylindrical symmetry (e.g. electron beam propagation, laser-wakefield acceleration), and they can be simulated with very significant speedup using a cylindrically symmetric algorithm (Lischitz, Davidson). This typically reduces the cost of the simulation to a few times that of a 2D simulation, instead of that of a full 3D simulation.
+\paragraph{Cylindrical PIC codes} A range of physical situations have close-to cylindrical symmetry (e.g. electron beam propagation, laser-wakefield acceleration), and they can be simulated with very significant speedup using a cylindrically symmetric algorithm \cite{Lifschitz, Davidson}. This typically reduces the cost of the simulation to a few times that of a 2D simulation, instead of that of a full 3D simulation.
 
-\paragraph{Spectral PIC codes} In parallel, 3D spectral PIC codes have been developped, and can mitigate numerical instability (articles Warren and Brendan Godfrey). In spectral space, some algorithms have no numerical dispersion whatsoever (article PSATD). This is important in laser-wakefield acceleration since even a very small amount of numerical dispersion can introduce spurious injection. Dispersion is also important well simulating beam physics, where lower-than-c propagation leads to Cherenkov effect and faster-than-c leads to fields unphysically traveling ahead of the beam. Typically, this imposes to strongly overresolve the wavelength of the laser (thereby increasing computational requirements), and to use very asymetric cell aspect ratio. Although the spectral algorithms reduce the requirements on the longitudinal resolution, they still require a 3D grid, and therefore a large computational load.
+\paragraph{Spectral PIC codes} In parallel, 3D spectral PIC codes have been developped, and can mitigate numerical instability (articles Warren and Brendan Godfrey). In spectral space, some algorithms have no numerical dispersion whatsoever \cite{Haber}. This is important in laser-wakefield acceleration since even a very small amount of numerical dispersion can introduce spurious injection. Dispersion is also important when simulating beam physics, where lower-than-c propagation leads to Cherenkov effect and faster-than-c leads to fields unphysically traveling ahead of the beam. Typically, this imposes to strongly overresolve the wavelength of the laser (thereby increasing computational requirements), and to use very asymetric cell aspect ratio. Although the spectral algorithms reduce the requirements on the longitudinal resolution, they still require a 3D grid, and therefore a large computational load.
 
 \paragraph{Spectral, cylindrical PIC codes } In this document, we combine the two approaches. Advantages:
 \begin{itemize}
@@ -131,7 +131,13 @@ i\left( \tilde{F}_{+,m}(k_z,k_\perp )\; J_{m+1}(k_\perp r) - \tilde{F}_{-,m}(k_z
 \label{eq:CircBwTranst}
 \end{align}
 where $F$ is either $E$, $B$ or $j$ and $u$ is any of the
-Cartesian components $x$, $y$ or $z$. In addition
+Cartesian components $x$, $y$ or $z$. Notice that the Cartesian
+components ($F_u$ with $u$ = $x,y,z$) and cylindrical components
+($F_r$, $F_\theta$) do not transform in the same manner, which is due
+to their different behavior close to the axis. (See
+\cref{sec:CircTrans} for a derivation of this representation and for
+its relation to the Fourier transform.) In addition, the coefficients $\tilde{F}_u$, $\tilde{F}_+$ and
+ $\tilde{F}_{-}$ are given by:
 \begin{align}
 \tilde{F}_{u,m}(k_z,k_\perp ) = \frac{1}{(2\pi)^2} \Integ{z} \RInteg{r}
 \TInteg{\theta} \;F_u(\vec{r})\; J_m(k_\perp r) e^{im\theta
@@ -141,9 +147,7 @@ Cartesian components $x$, $y$ or $z$. In addition
     i\tilde{F}_{y,m-1}}{2}
 \label{eq:CircFwTranspm} 
 \end{align}
-\noindent (See \cref{sec:CircTrans} for a derivation of this representation and
- for its relation to the Fourier transform.) Notice that scalar fields
- (like $\rho$) transform in the same way as the Cartesian components $F_u$.
+\noindent Note also that scalar fields (like $\rho$) transform in the same way as the Cartesian components $F_u$.
 
 When replacing \cref{eq:CircBwTransr,eq:CircBwTranst,eq:CircBwTransu}
 (for $u=z$) into the Maxwell equations in cylindrical
@@ -183,70 +187,180 @@ that the current satisfies $\partial_t
 \tilde{j}_{z,m} = 0
 \end{equation}  
 
-Notice equations are structurally similar to 
-
 Again, the equations \cref{eq:CircMaxwellp,eq:CircMaxwellm,eq:CircMaxwellz}  can be
 integrated in time, and the fields can then be transformed back into
-real space, using \cref{eq:CircBwTransu,eq:CircBwTransr,eq:CircBwTranst}. Typically one needs only a few modes in $m$, therefore the
-fields are reduced to a few 2D tables $\tilde{F}_m(k_z,k_\perp )$ instead of the 3D tables
-$\hat{F}(k_x,k_y,k_z)$. (For instance, in a purely symmetric case, there is only one
-mode: $m=0$.)
+real space, using \cref{eq:CircBwTransu,eq:CircBwTransr,eq:CircBwTranst}. Notice that
+the structure of \cref{eq:CircMaxwellp,eq:CircMaxwellm,eq:CircMaxwellz} is similar to
+the structure of the corresponding equations in a Cartesian PIC code. Therefore,
+the methods used to integrate the fields in time in a Cartesian
+spectral code (e.g. PSATD) should be transposable to the cylindrical case.
 
-Since the fields $F_u$ are real, one has $\tilde{F}_{u,-m}(k_z, k_\perp)
-= \tilde{F}_{u,m}(-k_z, k_\perp)^{*}$ and $F_{+,-m}(k_z, k_\perp) =
-F_{-,m}(-k_z, k_\perp)$. This means that one only needs to study the
-evolution of the modes having $m\geq 0$, and the modes with $m<0$ can
-be directly deduced.
-
-Emphasize these equations can be integrated with an equivalent of the
-PSATD algorithm, which ensures dispersion-free in vaccum.
+Typically one needs only a few modes in $m$, therefore the fields are
+reduced to a few 2D tables $\tilde{F}_m(k_z,k_\perp )$ instead of the
+3D tables $\hat{F}(k_x,k_y,k_z)$. (For instance, in a purely symmetric
+case, there is only one mode: $m=0$.) In addition, since the fields
+$F_u$ are real, one has $\tilde{F}_{u,-m}(k_z, k_\perp) =
+\tilde{F}_{u,m}(-k_z, k_\perp)^{*}$ and $\tilde{F}_{+,-m}(k_z, k_\perp) =
+\tilde{F}_{-,m}(-k_z, k_\perp)^{*}$. This means that one only needs to study the evolution of the modes having $m\geq 0$, as the modes with $m<0$ can
+be directly deduced from these fields.
 
 \section{Numerical implementation}
 
 \subsection{Overview of the algorithm}
 
-Grand scheme :
-Integrate the equations in spectral space with the PSATD scheme. In
-this scheme, the fields $E$, $B$, $\rho$ and $J$ are defined at the
-same points in space and time.
-
-Although the fields are represented by 2D arrays, the particle are
-distributed in 3D motion is integrated in 3D. However, due to the
+The algorithm presented here uses the above-mentioned representation
+of the fields. However, although the fields are represented by a few
+2D arrays, the particles are still distributed in 3D and their motion
+is integrated in 3D. However, due to the
 lower number of cells in a 2D array, one can drastically reduce the
 total number of particles and still have significative statistics.
 
-Interpolation at each time step would require the calculation of
-Bessel function at each time step, very expensive. Say we keep
-azimuthal transversely, since cheap to calculate $e^i\phi$
+Similarly to a Cartesian pseudo-spectral code, we do not perform the
+current deposition and field gathering directly from the
+macroparticles to the spectral space. (This is inefficient since the
+deposition and gathering are local operations in real space -- i.e. affect
+only the few cells next to the macroparticle -- but global operations
+in spectral space -- i.e. they affect all the spectral modes
+simultaneously.) Instead we use an intermediate grid where these
+operations can be performed locally, and where the fields
+are defined by
+\begin{equation} 
+\label{eq:IntermBwTrans}
+F_u(\vec{r}) = \sum_{m=-\infty}^{\infty} \mathcal{F}_{u,m}(r,z)
+e^{-im\theta} 
+\end{equation}
+\begin{equation}
+\label{eq:IntermFwTrans}
+\mathcal{F}_{u,m}(r,z) = \frac{1}{2\pi} \TInteg{\theta} \;
+F_u(\vec{r})e^{im\theta}
+\end{equation}
+where $\mathcal{F}$ is either $\mathcal{E}$, $\mathcal{B}$ or
+$\mathcal{J}$ and $u$ is either one of the Cartesian components $x$,
+$y$ and $z$. (Notice that this representation is very similar to that
+of \cite{Lifschitz, Davidson}, except that, instead of the $r$ and
+$\theta$ components, we use the Cartesian components $x$ and $y$ at
+this point, which is easier for current deposition, since the
+particles motion is studied in 3D. Notice also that, in this
+representation, we kept the spectral decomposition in the azimuthal
+direction, since factors $e^{im\theta}$ are easily computed from the
+particle positions (see \cite{Lifschitz})).
 
-Instead project charge and current on an intermediate spatial grid, much in
-the same way as it is done in Calder Circ (except don't use the same components). We then perform a
-tranformation from that spatial grid to the spectral grid.
+After the particles deposit their charge and current onto this grid,
+the fields of the intermediate grid are transformed into spectral
+space where the Maxwell equations can be easily integrated. From
+\cref{eq:IntermFwTrans,eq:IntermBwTrans} and
+\cref{eq:CircFwTransu,eq:CircBwTransu}, the transformation between these
+representations is:
+\[ \tilde{F}_{u,m}(k_z,k_\perp) =  \frac{1}{2\pi} \Integ{z} \RInteg{r} \;
+\mathcal{F}_{u,m}(r,z) \, J_m(k_\perp r) e^{- ik_z z} \]
+\[ \mathcal{F}_{u,m}(r,z) = \Integ{k_z}
+\RInteg{k_\perp }\; \tilde{F}_{u,m}(k_z,k_\perp ) \; J_m(k_\perp r)\, e^{ik_z z}   \]
+The above equations show that the transformation from the intermediate
+grid ($\mathcal{F}_{u,m}$) to the spectral grid ($\tilde{F}_{u,m}$) is
+the combination of a Fourier transform (in $z$) and a Hankel transform
+(in $r$). The Fourier transform in $z$ can be implemented through a Fast Fourier
+Transform (FFT) algorithm, which requires the intermediate and spectral grid to
+have regular spacing in $z$ and $k_z$ respectively. On the other hand,
+there are a variety of algorithms for implementing the Hankel Transform
+(e.g. \cite{Cree,Siegman,Guizar}). Here, we choose the
+implementation described in \cite{Guizar}, since -- unlike several other
+implementations -- that particular implementation ensures that the
+successive application of a Discrete Hankel Transform (DHT) and inverse Hankel Transform (iDHT)
+retrieves the original function. However, this method imposes to use a
+slightly non-uniform grid in $r$ and $k_\perp$ (corresponding to the
+zeros of the function $J_m$), and moreover to use a
+different grid for each azimuthal mode, since the position of the
+gridpoints depends on $m$:
+\[ r^m_j = r_{max} \frac{\alpha^m_j }{\alpha^m_{N_r+1}} \qquad
+k_{\perp,j}^{m}  = \frac{1}{r_{max}} \alpha^{m}_j \qquad j \in \{1, ..., N_r \} \]
+where $\alpha^{m}_j$ is the $j^{th}$ zero of the Bessel function of
+order $m$ ($J_m$), and where $r_{max}$ is the outer boundary of the
+simulation box. Notice that using a different grid for each azimuthal mode does
+not pose any problem in principle since each mode evolves
+independently in spectral space. It is also important to notice that
+in a PSTD scheme (or PSATD scheme), the fields are not staggered, and
+can thus all be defined at the same $k^{m}_{\perp,j}$ (in spectral
+space) and $r^m_j$ (in real space).
 
-Identify as a Hankel transform. Say the precision of the back and
-forth DHT transform is very dependent on the spatial discretization. Ideal is ... + cite.
+Once this grid has been set up, this implementation of the DHT amounts
+to a simple matrix multiplication, where the mutliplying matrix can be
+computed only once, at initialization \cite{Guizar}:
+\[ \mathrm{DHT :}\qquad  \tilde{f}(k^m_{\perp,j}) =
+\sum_{\ell=1}^{N_r}
+\frac{ J_{m}\left(\alpha^m_j \alpha^m_\ell /
+      \alpha^m_{N_r+1}  \right) }{ \pi (\alpha^m_{N_r + 1})^2
+    J_{m+1}(\alpha^m_{N_r + 1})^2 } f(r^m_\ell)\]
+The computational time for this matrix multiplication is proportional
+to $N_r^2$, which is slow compared to an FFT ($N_r \log(N_r)$), but
+still faster than the 2D FFT ($N_x N_y \log(N_x) + N_x N_y \log(N_y) $)
+which is used in a Cartesian spectral code. Moreover, the impact of
+this relatively slow transform is mitigated by the fact that, in a PIC
+code, the computational time is often dominated by the current deposition onto
+the interpolation grid, which is independent of the above transform.
 
+
+\Cref{fig:GlobalScheme} sums up the steps of the PIC cycle, including the
+respective role of the intermediate and spectral grid. Note that, in the PSATD
+scheme that we chose (and which is described in more details in
+\cref{sec:FieldIntegration}), all the fields are defined at integer
+timesteps, except for the currents, which are defined at half
+timesteps. The following section describe the successive steps of the cycle in more details.
 
 \begin{figure}
 \input{PIC-cycle.tex}
-\caption{Description of the PIC cycle}
+\caption{Description of the PIC cycle \label{fig:GlobalScheme}}
 \end{figure}
 
-\subsection{Interpolation}
+\subsection{Field gathering}
+
+When gathering the fields from the intermediate grid to the macroparticles,
+we use standard linear shape factors :
+\[ F_u(\vec{r}_k) = \sum_{m=-N_m}^{N_m} \sum_{p,q} S_{z,p}(z_k)
+S^m_{r,q}(r_k) \mathcal{F}_{u,m}(z_p, r_q) e^{-im\theta_k} \]
+where $k$ is the index of the macroparticle, and $p$ and $q$ are the
+indices of the neighboring cells, in $z$ and $r$ respectively. $N_m$ is the total number
+of azimuthal modes used, and $S_{z,p}$ and $S^m_{r,q}$ are the linear
+shape factors in $z$ and $r$ (where $S^m_r$ has to be adapted to the
+non-uniform grid for the $m^{th}$ mode) :
+\[ S_{z,p_0}(z) = \frac{(p_0+1)\Delta z - z}{\Delta z}  \qquad 
+S_{z, p_0 +1}(z) = \frac{ z - p_0 \Delta z}{\Delta z} \qquad
+\mathrm{with} \quad p_0 \Delta z \leq z < (p_0 +1) \Delta z \]
+\[ S^m_{r,q_0}(r) = \frac{ r^m_{q_0+1} - r }{  r^m_{q_0+1} - r^m_{q_0} }
+\qquad S^m_{r,q_0+1}(r) = \frac{ r - r^m_{q_0} }{  r^m_{q_0+1} - r^m_{q_0} }
+\qquad \mathrm{with} \quad r^m_{q_0} \leq r < r^m_{q_0+1} \]
 
 \subsection{Equations of motion}
 
+Since the particle motion is studied in 3D, we use the standard Boris pusher.
+
 \subsection{Current deposition}
 
-Deposition on non-uniform grid
+In order to deposit the charge onto the non-uniform
+transverse grid, we use the method described in \cite{Verboncoeur},
+which uses corrected cells volumes $V_{m,q}$ in order to have a
+uniform density on the grid, when the macroparticles are uniformly distributed. :
+\[ \mathcal{\rho}_m(z_p,r_q) = \sum_k  \frac{S_{z,p}(z_k) S^m_{r,q}(r_k) Q_k e^{im\theta_k}}{V_{m,q}} \]
+where $Q_k$ is the charge of the macroparticle with index $k$.
+\[ V_{m,q} = \frac{4}{3} \frac{ r_{q-1} + r_q + r_{q+1} }{ r_{q-1}
+  + 2r_q + r_{q+1} } \pi (r_{q+1/2}^2 - r_{q-1/2}^2) \Delta z  \qquad
+V_{m,1} = \frac{4}{3} \frac{r_2^2 + r_2r_1 + r_1^2}{r_2^2 + 2r_2 r_1 +
+  r_1^2 }\pi r_{3/2}^2 \Delta z \]
+\[ \mathrm{with} \qquad r_{q+1/2} = \frac{r_{q+1} + r_q}{2}\]
+(The volume $V_{m,1}$ differs from the expression in
+\cite{Verboncoeur}, since is our case $r_0=0$ is not part of the grid.) Similarly, the current deposition is given by
+\[ \mathcal{J}_{u,m}(z_p,r_q) = \sum_k  \frac{S_{z,p}(z_k) S^m_{r,q}(r_k)
+Q_k v_{u,k} e^{im\theta_k}}{V_{m,q}} \]
+where $u = x,y,z$ and the $v_{u,k}$ are Cartesian components of the
+velocity of the macroparticle $k$. Notice that we do not attempt to
+reproduce the Esirkepov current deposition here, and instead use a
+much simpler current deposition. As mentioned previously, once the
+macroparticles have deposited their charge and current on the
+intermediate grid, we transform them to the spectral grid, using an
+FFT and a DHT.
 
-
-It is well-known that the current deposition does not necessarily
+The above simple deposition does not necessarily
 preserve the relation $\partial_t\rho + \vec{\nabla}\cdot\vec{j} =
-0$. (Notice that we do not use the Esirkepov scheme here, as it is not well
-adapted in the case of a non-uniform grid.)
-
-When $\partial_t\rho + \vec{\nabla}\cdot\vec{j}$ is different than 0,
+0$. When $\partial_t\rho + \vec{\nabla}\cdot\vec{j}$ is different than 0,
 one can correct for that error, by slightly modifying the currents, in
 a way that does not modify the value of their curl:
 \[ \vec{j}' = \vec{j} - \vec{\nabla} F \]
@@ -270,6 +384,50 @@ the charge conservation equation \cref{eq:SpectCharge}. Therefore we apply this
 correction at the end of the current deposition, at each timestep.
 
 \subsection{Field integration}
+\label{sec:FieldIntegration}
+
+We use an adaptation of the PSATD scheme \cite{Haber} for the
+Fourier-Bessel spectral space. Similarly to the case of the standard
+PSATD, we assume that the currents are constant over one timestep and
+the charge is linear in time over the same timestep. Under these
+assumptions, the Maxwell equations \cref{eq:CircMaxwellp,eq:CircMaxwellm,eq:CircMaxwellz} can be integrated
+analytically over that timestep, and they lead to:
+\begin{align*}
+\tB{+}{n+1} = \; & C \tB{+}{n} - 
+\frac{S}{\omega}\left(-\frac{ik_\perp }{2} \tE{z}{n} + k_z\tE{+}{n}
+\right) + \mu_0 c^2\frac{1-C}{\omega^2} \left( -\frac{ik_\perp }{2}
+  \tj{z}{n+1/2} + k_z \tj{+}{n+1/2} \right)& \\
+\tB{-}{n+1} =\; & C \tB{-}{n} - 
+\frac{S}{\omega}\left(- \frac{ik_\perp }{2} \tE{z}{n} - k_z\tE{-}{n}
+\right) + \mu_0 c^2\frac{1-C}{\omega^2} \left( - \frac{ik_\perp }{2}
+  \tj{z}{n+1/2} - k_z \tj{-}{n+1/2} \right) &\\
+\tB{z}{n+1} =\; & C \tB{z}{n} - 
+\frac{S}{\omega}\left(ik_\perp \tE{+}{n} + ik_\perp \tE{-}{n}
+\right) + \mu_0 c^2\frac{1-C}{\omega^2} \left( ik_\perp
+  \tj{+}{n+1/2} + ik_\perp \tj{-}{n+1/2} \right)&
+\end{align*}
+
+\begin{align*}
+\tE{+}{n+1} = \; & C \tE{+}{n} + 
+\frac{S}{\omega}\left(-\frac{ik_\perp }{2} \tB{z}{n} + k_z\tB{+}{n}
+- \mu_0 \tj{+}{n+1/2} \right) + \frac{c^2}{\epsilon_0}
+\frac{k_\perp}{2}\left[ \trho{n}\frac{S-\omega\Delta t
+  C}{\omega^3\Delta t} + \frac{\trho{n+1}}{\omega^2}\left(
+  1 - \frac{S}{\omega\Delta t}\right) \right]  & \\
+\tE{-}{n+1} =\; & C \tE{-}{n} +
+\frac{S}{\omega}\left(- \frac{ik_\perp }{2} \tB{z}{n} - k_z\tB{-}{n}
+- \mu_0 \tj{-}{n+1/2} \right) - \frac{c^2}{\epsilon_0}
+\frac{k_\perp}{2}\left[ \trho{n}\frac{S-\omega\Delta t
+  C}{\omega^3\Delta t} + \frac{\trho{n+1}}{\omega^2}\left(
+  1 - \frac{S}{\omega\Delta t}\right) \right]  &\\
+\tE{z}{n+1} =\; & C \tE{z}{n} + 
+\frac{S}{\omega}\left(ik_\perp \tB{+}{n} + ik_\perp \tB{-}{n}
+- \mu_0 \tj{z}{n+1/2} \right) - \frac{c^2}{\epsilon_0}
+ik_z\left[ \trho{n}\frac{S-\omega\Delta t
+  C}{\omega^3\Delta t} + \frac{\trho{n+1}}{\omega^2}\left(
+  1 - \frac{S}{\omega\Delta t}\right) \right]  &
+\end{align*}
+(See \cref{sec:PSTADderiv} for a derivation.)
 
 \newpage
 \appendix
