@@ -328,6 +328,9 @@ S_{z, p_0 +1}(z) = \frac{ z - p_0 \Delta z}{\Delta z} \qquad
 \[ S^m_{r,q_0}(r) = \frac{ r^m_{q_0+1} - r }{  r^m_{q_0+1} - r^m_{q_0} }
 \qquad S^m_{r,q_0+1}(r) = \frac{ r - r^m_{q_0} }{  r^m_{q_0+1} - r^m_{q_0} }
 \qquad \mathrm{with} \quad r^m_{q_0} \leq r < r^m_{q_0+1} \]
+In addition, $S^m_{r,1}(r) = 1$ for $r<r^m_1$ i.e. any macroparticle
+located below the first node of the grid deposits depends only on that
+first node. (This is because $r^m_0=0$ is technically not part of the grid.)
 
 \subsection{Equations of motion}
 
@@ -343,7 +346,7 @@ uniform density on the grid, when the macroparticles are uniformly distributed. 
 where $Q_k$ is the charge of the macroparticle with index $k$.
 \[ V_{m,q} = \frac{4}{3} \frac{ r_{q-1} + r_q + r_{q+1} }{ r_{q-1}
   + 2r_q + r_{q+1} } \pi (r_{q+1/2}^2 - r_{q-1/2}^2) \Delta z  \qquad
-V_{m,1} = \frac{4}{3} \frac{r_2^2 + r_2r_1 + r_1^2}{r_2^2 + 2r_2 r_1 +
+V_{m,1} = \frac{4}{3} \frac{2r_2^2 - r_2r_1 + 2r_1^2}{r_2^2 + 2r_2 r_1 +
   r_1^2 }\pi r_{3/2}^2 \Delta z \]
 \[ \mathrm{with} \qquad r_{q+1/2} = \frac{r_{q+1} + r_q}{2}\]
 (The volume $V_{m,1}$ differs from the expression in
@@ -427,7 +430,7 @@ ik_z\left[ \trho{n}\frac{S-\omega\Delta t
   C}{\omega^3\Delta t} + \frac{\trho{n+1}}{\omega^2}\left(
   1 - \frac{S}{\omega\Delta t}\right) \right]  &
 \end{align*}
-(See \cref{sec:PSTADderiv} for a derivation.)
+where $\omega= c\sqrt{k_z^2 + k_\perp^2}$, $C = \cos(\omega \Delta t)$ and $S = \sin(\omega \Delta t) $. (See \cref{sec:PSTADderiv} for a derivation.)
 
 \newpage
 \appendix
