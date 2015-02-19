@@ -126,8 +126,7 @@ def compare_laguerre_gauss( p, n, N, rmax ) :
                 eval_genlaguerre( n, p, (2*np.pi*x)**2 ) * \
                 np.exp(-(2*np.pi*x)**2/2) )
     
-    compare_Hankel_methods( laguerre_n_p, laguerre_n_p_trans, 
-                            p, 1, N, -1, rmax )
+    compare_Hankel_methods( laguerre_n_p, laguerre_n_p_trans, p,1,N,-1,rmax )
     
 if __name__ == '__main__' :
 
@@ -136,4 +135,4 @@ if __name__ == '__main__' :
 
     for p in range(2) :
         for n in range(2) :
-            compare_laguerre_gauss( p, n, 100, 20 )
+            compare_laguerre_gauss( p, n, 200, 4 )

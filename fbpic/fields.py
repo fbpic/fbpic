@@ -1,7 +1,7 @@
 """
 This file is part of the Fourier-Hankel Particle-In-Cell code (FB-PIC)
 
-This file defines the fields structure and methods
+This file defines the structure and methods associated with the fields,
 that are used during a PIC cycle.
 """
 
@@ -10,7 +10,7 @@ import matplotlib.pyplot as plt
 from scipy.constants import c, mu_0, epsilon_0
 from fbpic.hankel_dt import DHT
 
-class Fields :
+class Fields(object) :
     """
     Top-level class, which contains :
     - the spatial and spectral grids
@@ -35,7 +35,7 @@ class Fields :
             The number of gridpoints in r
 
         rmax : float
-            The size of the simulation box along z
+            The size of the simulation box along r
 
         Nm : int
             The number of azimuthal modes
@@ -55,6 +55,7 @@ class Fields :
         self.Nr = Nr
         self.rmax = rmax
         self.Nm = Nm
+        self.dt = dt
 
         # Infer the values of the z and kz grid
         dz = zmax/Nz
@@ -63,16 +64,19 @@ class Fields :
         # (According to FFT conventions, the kz array starts with
         # positive frequencies and ends with negative frequency.)
         
-        # Create the list of discrete hankel transform objects
+        # Create the list of the transformers, which convert the fields
+        # back and forth between the spatial and spectral grid
         # (one object per azimuthal mode)
-        self.dht = [ DHT(m,Nr,rmax,'QDHT') for m in range(Nm) ]
+        self.trans = []
+        for m in range(Nm) :
+            self.trans.append( SpectralTransformer(Nz, Nr, m, rmax) )
 
         # Create the interpolation grid for each modes
         # (one grid per azimuthal mode)
         self.interp = [ ]
         for m in range(Nm) :
             # Extract the inhomogeneous radial grid for mode m
-            r = self.dht[m].get_r()
+            r = self.trans[m].dht.get_r()
             # Create the object
             self.interp.append( InterpolationGrid( z, r, m ) )
 
@@ -83,7 +87,7 @@ class Fields :
         self.psatd = [ ]
         for m in range(Nm) :
             # Extract the inhomogeneous spectral grid for mode m
-            kr = 2*np.pi * self.dht[m].get_nu()
+            kr = 2*np.pi * self.trans[m].dht.get_nu()
             # Create the object
             self.spect.append( SpectralGrid( kz, kr, m ) )
             self.psatd.append( PsatdCoeffs( self.spect.kz,
@@ -91,16 +95,41 @@ class Fields :
 
     def push(self) :
         """
-        Push the different azimuthal modes over one timestep.
+        Push the different azimuthal modes over one timestep,
+        in spectral space.
         """
         # Push each azimuthal grid individually, by passing the
         # corresponding psatd coefficients
         for m in range(self.Nm) :
-            self.spect[m].push_with( self.psatd[m] )
+            self.spect[m].push_eb_with( self.psatd[m] )
+            self.spect[m].push_rho()
 
-class InterpolationGrid :
+    def correct_currents(self) :
+        """
+        Correct the currents so that they satisfy the
+        charge conservation equation
+        """
+        # Correct each azimuthal grid individually
+        for m in range(self.Nm) :
+            self.spect[m].correct_currents( self.dt )
+
+    def interp2spect(self, fieldtype) :
+        """
+        Transform the fields `fieldtype` from the interpolation grid to the spectral grid
+        """
+
+        # Check the validity of fieldtype
+        if (fieldtype in ['E', 'B', 'J', 'rho']) == False :
+            raise ValueError( 'Invalid string for fieldtype: %s' %fieldtype )
+        
+class InterpolationGrid(object) :
     """
     Contains the fields and coordinates of the spatial grid.
+
+    Main attributes :
+    - z,r : 1darrays containing the positions of the grid
+    - Ex, Ey, Ez, Bx, By, Bz, Jx, Jy, Jz, rho :
+      2darrays containing the fields.
     """
 
     def __init__(self, z, r, m ) :
@@ -140,13 +169,15 @@ class InterpolationGrid :
         self.Jz = np.zeros( (Nz, Nr), dtype='complex' )
         self.rho = np.zeros( (Nz, Nr), dtype='complex' )
 
-    def project_on_grid() :
+    def project_on_grid(self, theta) :
         # Use griddata
         pass
 
-class SpectralGrid :
+class SpectralGrid(object) :
     """
     Contains the fields and coordinates of the spectral grid.
+
+    Main attributes :
     """
 
     def __init__(self, kz, kr, m ) :
@@ -188,7 +219,7 @@ class SpectralGrid :
 
     def correct_currents(self, dt) :
         """
-        Corrects the currents so that it satisfies the
+        Correct the currents so that they satisfies the
         charge conservation equation
 
         Parameters
@@ -204,12 +235,12 @@ class SpectralGrid :
             ( (self.rho_next - self.rho_prev)*inv_dt \
             + i*self.kz*self.Jz + self.kr*( self.Jp - self.Jm ) ) 
             
-        # Correct the current correspondingly
+        # Correct the current accordingly
         self.jp += 0.5*self.kr*self.
         self.jp += -0.5*self.kr*self.F
         self.jp += -i*self.kz*self.F
 
-    def push_with(self, ps ) :
+    def push_eb_with(self, ps ) :
         """
         Pushes the fields over one timestep, using the psatd coefficients.
 
@@ -219,6 +250,7 @@ class SpectralGrid :
             psatd object corresponding to the same m mode
         """
         # Check that psatd object passed as argument is the right one
+        # (i.e. corresponds to the right mode)
         assert( self.m == ps.m )
 
         # Define the complex number i (i**2 = -1)
@@ -259,15 +291,25 @@ class SpectralGrid :
         self.Bz[:,:] = ps.C*self.Bz \
             - ps.S_w*( i*self.kr*ps.Ep + i*self.kr*ps.Em ) \
             + ps.j_coef*( i*self.kr*self.Jp + i*self.kr*self.Jm )
-                
-    def project_on_grid() :
+
+
+    def push_rho(self) :
+        """
+        Transfer the values of rho_next to rho_prev,
+        and set rho_next to zero
+        """
+        self.rho_prev[:,:] = self.rho_next[:,:]
+        self.rho_next[:,:] = 0.
+            
+    def project_on_grid(self, theta) :
         """
         Project on a regular grid, for plotting purposes, at a given theta
         """
         # Do FFT shift ?
         pass
-        
-class PsatdCoeffs :
+
+
+class PsatdCoeffs(object) :
     """
     Contains the coefficients of the PSATD scheme for a given mode.
     """
@@ -309,3 +351,96 @@ class PsatdCoeffs :
         self.Em = np.zeros( (Nz, Nr), dtype='complex' )
         self.Ez = np.zeros( (Nz, Nr), dtype='complex' )
         
+
+class SpectralTransformer(object) :
+    """
+    Object that allows to transform the fields back and forth between the
+    spectral and interpolation grid.
+
+    Attributes :
+    - dht : the discrete Hankel transform object that operates along r
+
+    Main methods :
+    - spect2interp_scal :
+        converts a scalar field from the spectral to the interpolation grid
+    - spect2interp_vect :
+        converts a vector field from the spectral to the interpolation grid
+    - interp2spect_scal :
+        converts a scalar field from the interpolation to the spectral grid
+    - interp2spect_vect :
+        converts a vector field from the interpolation to the spectral grid
+    """
+
+    def __init__(self, Nz, Nr, m, rmax ) :
+        """
+        Initializes the dht attributes, which contain auxiliary
+        matrices allowing to transform the fields quickly
+
+        Parameters
+        ----------
+        Nz, Nr : int
+            Number of points along z and r respectively
+
+        m : int
+            Index of the mode (needed for the Hankel transform)
+
+        rmax : float
+            The size of the simulation box along r.
+        """
+        # Initialize the DHT (local implementation, see hankel_dt.py)
+        print('Preparing the Discrete Hankel Transform for mode %d' %m)
+        self.dht = DHT( m, Nr, rmax, 'QDHT' )
+        
+    def spect2interp_scal( self, spect_array, interp_array ) :
+        """
+        Convert a scalar field from the spectral grid
+        to the interpolation grid.
+
+        Parameters
+        ----------
+        spect_array : 2darray
+           A complex array representing the fields in spectral space, from 
+           which to compute the values of the interpolation grid
+           The first axis should correspond to z and the second axis to r.
+
+        interp_array : 2darray
+           A complex array representing the fields on the interpolation
+           which is overwritten by this function.
+        """
+
+        # Perform the FFT first (along axis 0, which corresponds to z)
+        interp_array = np.fft.ifft( spect_array, axis=0 )
+
+        # Then perform the DHT (along axis -1, which corresponds to r)
+        interp_array = self.dht.inverse_transform( interp_array, axis=-1 )
+
+    def spect2interp_vect( self, spect_array_p, spect_array_m,
+                          interp_array_x, interp_array_y ) :
+      """
+        Convert a transverse vector field in the spectral space (e.g. Ep, Em)
+        to the interpolation grid (e.g. Ex, Ey)
+
+        Parameters
+        ----------
+        spect_array_p, spect_array_m : 2darray
+           A complex array representing the fields in spectral space, from 
+           which to compute the values of the interpolation grid
+           The first axis should correspond to z and the second axis to r.
+
+        interp_array_x, interp_array_y : 2darray
+           A complex array representing the fields on the interpolation
+           which is overwritten by this function.
+        """
+        
+        # Recover spect_array_x, spect_array_y (Cartesian components)
+        # from spect_array_p, spect_array_m (combination of Cartesian components
+        # that separate in the Maxwell equations)
+        spect_array_x = 
+        
+        
+
+    def interp2spect_scal( self interp_array, spect_array ) :
+    
+    def interp2spect_vect( self, interp_array, spect_array ) :
+        pass
+
