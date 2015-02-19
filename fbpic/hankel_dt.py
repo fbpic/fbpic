@@ -107,7 +107,7 @@ class DHT(object) :
         return( self.nu )
             
             
-    def transform( self, f, axis=0, r=None, nu=None) :
+    def transform( self, f, axis=-1, r=None, nu=None) :
         """
         Perform the Hankel transform of f, according to the method
         chosen at initialization.
@@ -120,7 +120,7 @@ class DHT(object) :
 
         axis : int, optional
         The axis of the array f along which the Hankel transform is performed.
-        If axis not given, the first axis is used.
+        If axis not given, the last axis is used.
 
         r : 1darray, optional
         The r grid on which f has been sampled
@@ -164,7 +164,7 @@ class DHT(object) :
         return( g )
         
 
-    def inverse_transform( self, g, axis=0, nu=None, r=None) :
+    def inverse_transform( self, g, axis=-1, nu=None, r=None) :
         """
         Perform the Hankel inverse transform of g, according to the method
         chosen at initialization.
@@ -177,7 +177,7 @@ class DHT(object) :
 
         axis : int, optional
         The axis of the array f along which the inverse transform is performed.
-        If axis not given, the first axis is used.
+        If axis not given, the last axis is used.
 
         nu: 1darray, optional
         The nu grid on which g has been sampled
@@ -270,13 +270,18 @@ class DHT(object) :
         """
 
         # Multiply the input function by the vector J_inv
-        F = F * self.J_inv * self.rmax 
+        F = array_multiply( F, self.J_inv*self.rmax, axis )
 
         # Perform the matrix product with T
         G = np.tensordot( F, self.T, axes = (axis,-1) )
 
+        # By default, the axis of the transform becomes the last
+        # axis after tensordot. Change this if needed.
+        if axis != -1 :
+            G = G.swapaxes(-1, axis)
+
         # Multiply the result by the vector J
-        G = G * self.J / self.numax
+        G = array_multiply( G, self.J / self.numax, axis )
 
         return( G )
 
@@ -293,13 +298,18 @@ class DHT(object) :
         """
 
         # Multiply the input function by the vector J_inv
-        G = G * self.J_inv * self.numax 
+        G =  array_multiply( G, self.J_inv*self.numax, axis ) 
 
         # Perform the matrix product with T
         F = np.tensordot( G, self.T, axes = (axis,-1) )
+        
+        # By default, the axis of the transform becomes the last
+        # axis after tensordot. Change this if needed.
+        if axis != -1 :
+            F = F.swapaxes(-1, axis)
 
         # Multiply the result by the vector J
-        F = F * self.J / self.rmax
+        F = array_multiply( F, self.J / self.rmax, axis )
 
         return( F )
         
@@ -353,18 +363,18 @@ class DHT(object) :
         # by multiplying their fourier transform
         
         # Multiply F by self.r, along axis
-        rF = F*self.r
+        rF = array_multiply( F, self.r, axis )
         # Perform the FFT of rF with 0 padding from N to 2N along axis
         fft_rF = np.fft.fft( rF, axis=axis, n=2*self.N )
 
         # Mutliply fft_rF and fft_j_convol, along axis
-        fft_nuG = fft_rF*self.fft_j_convol
+        fft_nuG = array_multiply( fft_rF, self.fft_j_convol, axis )
 
         # Perform the FFT again
         nuG_large = np.fft.fft( fft_nuG, axis=axis )
         # Discard the N last values along axis, and divide by nu
         nuG = np.split( nuG_large, 2, axis=axis )[0]
-        G  = nuG/self.nu
+        G  = array_multiply( nuG, 1./self.nu, axis )
 
         return( G )
         
@@ -383,18 +393,18 @@ class DHT(object) :
         # by multiplying their fourier transform
         
         # Multiply G by self.nu, along axis
-        nuG =G * self.nu
+        nuG = array_multiply( G, self.nu, axis )
         # Perform the FFT of nuG with 0 padding from N to 2N along axis
         fft_nuG = np.fft.fft( nuG, axis=axis, n=2*self.N )
 
         # Mutliply fft_nuG and fft_j_convol, along axis
-        fft_rF = fft_nuG*self.fft_j_convol
+        fft_rF = array_multiply( fft_nuG, self.fft_j_convol, axis )
 
         # Perform the FFT again
         rF_large = np.fft.fft( fft_rF, axis=axis )
         # Discard the N last values along axis, and divide by r
         rF = np.split( rF_large, 2, axis=axis )[0]
-        F  = rF/self.r
+        F  = array_multiply( rF, 1./self.r, axis )
 
         return( F )
 
