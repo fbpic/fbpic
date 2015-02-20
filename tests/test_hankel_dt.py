@@ -130,8 +130,8 @@ def compare_laguerre_gauss( p, n, N, rmax ) :
     
 if __name__ == '__main__' :
 
-    for p in range(2) :
-        compare_power_p( p, 1, 200, 4 )
+#    for p in range(2) :
+#        compare_power_p( p, 1, 200, 4 )
 
     for p in range(2) :
         for n in range(2) :

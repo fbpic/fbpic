@@ -81,12 +81,12 @@ It is well-known that the Maxwell equations in Cartesian coordinates
 can be solved by representing the fields as a sum of Fourier modes.
 \begin{equation}
 \label{eq:CartBwTrans}
-F_u(\vec{r}) = \frac{1}{(2\pi)^{3/2}}\Integ{k_x} \,\Integ{k_y}\, \Integ{k_z} \; \hat{F}_u(\vec{k}) e^{i(k_x x + k_y y + k_z z)} 
+F_u(\vec{r}) = \frac{1}{(2\pi)^{3}}\Integ{k_x} \,\Integ{k_y}\, \Integ{k_z} \; \hat{F}_u(\vec{k}) e^{i(k_x x + k_y y + k_z z)} 
 \end{equation}
 with 
 \begin{equation}
 \label{eq:CartFwTrans}
-\hat{F}_u(\vec{k})  = \frac{1}{(2\pi)^{3/2}}\Integ{x} \,\Integ{y}\, \Integ{z} \; F_u(\vec{r}) e^{-i(k_x x + k_y y + k_z z)} 
+\hat{F}_u(\vec{k})  = \Integ{x} \,\Integ{y}\, \Integ{z} \; F_u(\vec{r}) e^{-i(k_x x + k_y y + k_z z)} 
 \end{equation}
 where $F$ is any of the fields $E$, $B$ or $j$, and where $u$ is
 either $x$, $y$ or $z$. In this case, the different Fourier modes decouple and the equations \cref{eq:CartMaxwellx,eq:CartMaxwelly,eq:CartMaxwellz} become 
@@ -118,39 +118,39 @@ appropriate representation when the Maxwell equations are written in cylindrical
 When replacing
 \cref{eq:CartBwTrans} into the \cref{eq:CircMaxwellr,eq:CircMaxwellt,eq:CircMaxwellzz}, the Fourier modes do not decouple. Instead one has to use the Fourier-Bessel representation.
 \begin{align}
-& F_u(\vec{r}) = \sum_{m=-\infty}^{\infty} \Integ{k_z}
-\RInteg{k_\perp }\; \tilde{F}_{u,m}(k_z,k_\perp ) \; J_m(k_\perp r)\, e^{-im\theta + ik_z z} 
-\label{eq:CircBwTransu} \\
-& F_r(\vec{r}) = \sum_{m=-\infty}^{\infty} \Integ{k_z}\,\RInteg{k_\perp }\;
+& F_z(\vec{r}) = \frac{1}{(2\pi)^2}\sum_{m=-\infty}^{\infty} \Integ{k_z}
+\RInteg{k_\perp }\; \tilde{F}_{z,m}(k_z,k_\perp ) \; J_m(k_\perp r)\, e^{-im\theta + ik_z z} 
+\label{eq:CircBwTransz} \\
+& F_r(\vec{r}) = \frac{1}{(2\pi)^2}\sum_{m=-\infty}^{\infty} \Integ{k_z}\,\RInteg{k_\perp }\;
 \left( \tilde{F}_{+,m}(k_z,k_\perp )\; J_{m+1}(k_\perp r) +\tilde{F}_{-,m}(k_z,k_\perp )\; J_{m-1}(k_\perp r)
 \right)  e^{-im\theta +ik_z z}
 \label{eq:CircBwTransr} \\
-& F_\theta(\vec{r}) = \sum_{m=-\infty}^{\infty} \Integ{k_z}\,\RInteg{k_\perp }\;
+& F_\theta(\vec{r}) = \frac{1}{(2\pi)^2}\sum_{m=-\infty}^{\infty} \Integ{k_z}\,\RInteg{k_\perp }\;
 i\left( \tilde{F}_{+,m}(k_z,k_\perp )\; J_{m+1}(k_\perp r) - \tilde{F}_{-,m}(k_z,k_\perp )\; J_{m-1}(k_\perp r)
 \right)  e^{-im\theta +ik_z z} 
 \label{eq:CircBwTranst}
 \end{align}
-where $F$ is either $E$, $B$ or $j$ and $u$ is any of the
-Cartesian components $x$, $y$ or $z$. Notice that the Cartesian
-components ($F_u$ with $u$ = $x,y,z$) and cylindrical components
+where $F$ is either $E$, $B$ or $j$. Notice that the Cartesian
+component ($F_z$) and cylindrical components
 ($F_r$, $F_\theta$) do not transform in the same manner, which is due
 to their different behavior close to the axis. (See
 \cref{sec:CircTrans} for a derivation of this representation and for
-its relation to the Fourier transform.) In addition, the coefficients $\tilde{F}_u$, $\tilde{F}_+$ and
+its relation to the Fourier transform.) In addition, the coefficients $\tilde{F}_z$, $\tilde{F}_+$ and
  $\tilde{F}_{-}$ are given by:
 \begin{align}
-\tilde{F}_{u,m}(k_z,k_\perp ) = \frac{1}{(2\pi)^2} \Integ{z} \RInteg{r}
-\TInteg{\theta} \;F_u(\vec{r})\; J_m(k_\perp r) e^{im\theta
- - i k_z z} \label{eq:CircFwTransu} \\
-\tilde{F}_{+,m} = \frac{\tilde{F}_{x,m+1} -
-    i\tilde{F}_{y,m+1}}{2} \qquad \tilde{F}_{-,m} = \frac{\tilde{F}_{x,m-1} +
-    i\tilde{F}_{y,m-1}}{2}
-\label{eq:CircFwTranspm} 
+\tilde{F}_{z,m}(k_z,k_\perp ) &= \Integ{z} \RInteg{r}
+\TInteg{\theta} \;F_z(\vec{r})\; J_m(k_\perp r) e^{im\theta
+ - i k_z z} \label{eq:CircFwTransz} \\
+\tilde{F}_{+,m}(k_z,k_\perp ) &= \Integ{z} \RInteg{r}
+\TInteg{\theta} \;\frac{F_r (\vec{r})-iF_\theta (\vec{r})}{2}\; J_{m+1}(k_\perp r) e^{im\theta
+ - i k_z z} \label{eq:CircFwTransp} \\
+\tilde{F}_{-,m}(k_z,k_\perp ) &= \Integ{z} \RInteg{r}
+\TInteg{\theta} \;\frac{F_r (\vec{r})+iF_\theta(\vec{r})}{2}\; J_{m-1}(k_\perp r) e^{im\theta
+ - i k_z z} \label{eq:CircFwTransm} 
 \end{align}
-\noindent Note also that scalar fields (like $\rho$) transform in the same way as the Cartesian components $F_u$.
+\noindent Note also that scalar fields (like $\rho$) transform in the same way as the Cartesian component $F_z$.
 
-When replacing \cref{eq:CircBwTransr,eq:CircBwTranst,eq:CircBwTransu}
-(for $u=z$) into the Maxwell equations in cylindrical
+When replacing \cref{eq:CircBwTransr,eq:CircBwTranst,eq:CircBwTransz} into the Maxwell equations in cylindrical
 coordinates \cref{eq:CircMaxwellr,eq:CircMaxwellt,eq:CircMaxwellzz},
 the different modes decouple, and the equations for the spectral
 coefficients become:
@@ -189,7 +189,7 @@ that the current satisfies $\partial_t
 
 Again, the equations \cref{eq:CircMaxwellp,eq:CircMaxwellm,eq:CircMaxwellz}  can be
 integrated in time, and the fields can then be transformed back into
-real space, using \cref{eq:CircBwTransu,eq:CircBwTransr,eq:CircBwTranst}. Notice that
+real space, using \cref{eq:CircBwTransz,eq:CircBwTransr,eq:CircBwTranst}. Notice that
 the structure of \cref{eq:CircMaxwellp,eq:CircMaxwellm,eq:CircMaxwellz} is similar to
 the structure of the corresponding equations in a Cartesian PIC code. Therefore,
 the methods used to integrate the fields in time in a Cartesian
@@ -199,9 +199,12 @@ Typically one needs only a few modes in $m$, therefore the fields are
 reduced to a few 2D tables $\tilde{F}_m(k_z,k_\perp )$ instead of the
 3D tables $\hat{F}(k_x,k_y,k_z)$. (For instance, in a purely symmetric
 case, there is only one mode: $m=0$.) In addition, since the fields
-$F_u$ are real, one has $\tilde{F}_{u,-m}(k_z, k_\perp) =
-\tilde{F}_{u,m}(-k_z, k_\perp)^{*}$ and $\tilde{F}_{+,-m}(k_z, k_\perp) =
-\tilde{F}_{-,m}(-k_z, k_\perp)^{*}$. This means that one only needs to study the evolution of the modes having $m\geq 0$, as the modes with $m<0$ can
+$F_z, F_r, F_\theta$ are real, and since $J_m(x) =(-1)^mJ_{-m}(x)$ \cite{Abramowitz},
+one has
+\[ \tilde{F}_{z,-m}(k_z, k_\perp) = (-1)^m\tilde{F}_{z,m}^{*} (-k_z,
+k_\perp) \qquad \tilde{F}_{+,-m}(k_z, k_\perp) =
+(-1)^{m+1} \tilde{F}_{-,m}^{*} (-k_z, k_\perp) \]
+This means that one only needs to study the evolution of the modes having $m\geq 0$, as the modes with $m<0$ can
 be directly deduced from these fields.
 
 \section{Numerical implementation}
@@ -222,7 +225,7 @@ deposition and gathering are local operations in real space -- i.e. affect
 only the few cells next to the macroparticle -- but global operations
 in spectral space -- i.e. they affect all the spectral modes
 simultaneously.) Instead we use an intermediate grid where these
-operations can be performed locally, and where the fields
+operations can be performed locally, and where the fields $\mathcal{F}_{u,m}$
 are defined by
 \begin{equation} 
 \label{eq:IntermBwTrans}
@@ -234,38 +237,58 @@ e^{-im\theta}
 \mathcal{F}_{u,m}(r,z) = \frac{1}{2\pi} \TInteg{\theta} \;
 F_u(\vec{r})e^{im\theta}
 \end{equation}
-where $\mathcal{F}$ is either $\mathcal{E}$, $\mathcal{B}$ or
-$\mathcal{J}$ and $u$ is either one of the Cartesian components $x$,
-$y$ and $z$. (Notice that this representation is very similar to that
-of \cite{Lifschitz, Davidson}, except that, instead of the $r$ and
-$\theta$ components, we use the Cartesian components $x$ and $y$ at
-this point, which is easier for current deposition, since the
-particles motion is studied in 3D. Notice also that, in this
+where ${F}$ is either ${E}$, ${B}$ or
+${j}$ and $u$ is either $z$, $r$ or $\theta$. Notice that this representation is the
+same as that of \cite{Lifschitz, Davidson}. Notice also that, in this
 representation, we kept the spectral decomposition in the azimuthal
-direction, since factors $e^{im\theta}$ are easily computed from the
-particle positions (see \cite{Lifschitz})).
+direction, since the factors $e^{im\theta}$ can be efficiently computed from the
+particle positions by using the relation $e^{im\theta} = (x+iy)^m/r^m$
+\cite{Lifschitz}.
 
 After the particles deposit their charge and current onto this grid,
 the fields of the intermediate grid are transformed into spectral
 space where the Maxwell equations can be easily integrated. From
 \cref{eq:IntermFwTrans,eq:IntermBwTrans} and
-\cref{eq:CircFwTransu,eq:CircBwTransu}, the transformation between these
+\cref{eq:CircFwTransz,eq:CircFwTransp,eq:CircFwTransm,eq:CircBwTransz,eq:CircBwTransr,eq:CircBwTranst}, the transformation between these
 representations is:
-\[ \tilde{F}_{u,m}(k_z,k_\perp) =  \frac{1}{2\pi} \Integ{z} \RInteg{r} \;
-\mathcal{F}_{u,m}(r,z) \, J_m(k_\perp r) e^{- ik_z z} \]
-\[ \mathcal{F}_{u,m}(r,z) = \Integ{k_z}
-\RInteg{k_\perp }\; \tilde{F}_{u,m}(k_z,k_\perp ) \; J_m(k_\perp r)\, e^{ik_z z}   \]
+\begin{align*}
+\tilde{F}_{z,m}(k_z,k_\perp) & = \mathrm{FT}_z ( \; \mathrm{HT}_{m,r} ( \mathcal{F}_{z,m} ) \; ) \\
+\tilde{F}_{+,m}(k_z,k_\perp) &= \mathrm{FT}_z \left( \; \mathrm{HT}_{m+1,r} \left( \frac{
+  \mathcal{F}_{r,m} -i  \mathcal{F}_{\theta,m} }{2}  \right) \;\right) \\
+\tilde{F}_{-,m}(k_z,k_\perp) &= \mathrm{FT}_z \left( \; \mathrm{HT}_{m-1,r} \left( \frac{
+  \mathcal{F}_{r,m} +i  \mathcal{F}_{\theta,m} }{2}  \right) \;\right) 
+\end{align*}
+and
+\begin{align*}
+\mathcal{F}_{z,m}(r,z) &= \mathrm{IFT}_z ( \; \mathrm{IHT}_{m,r} ( \tilde{F}_{z,m} ) \; ) \\
+\mathcal{F}_{r,m}(r,z) & = \mathrm{FT}_z \left( \; \mathrm{IHT}_{m+1,r}
+                         ( \tilde{F}_{+,m} ) + \mathrm{IHT}_{m-1,r} (
+                         \tilde{F}_{-,m} ) \; \right) \\
+\mathcal{F}_{\theta,m}(r,z) & = i\;\mathrm{IFT}_z \left( \; \mathrm{IHT}_{m+1,r}
+                         ( \tilde{F}_{+,m} ) - \mathrm{IHT}_{m-1,r} ( \tilde{F}_{-,m} ) \; \right)
+\end{align*}
+where $\mathrm{FT}_z$ represents a Fourier Transform along the $z$
+axis and $\mathrm{HT}_{m,r}$ represents a Hankel Transform of order
+$m$ along the $r$ axis, and where $\mathrm{IFT}_z$ and
+$\mathrm{IHT}_{m,r}$ represent the corresponding inverse
+transformations:
+\[ \mathrm{FT}_z (f) \equiv \Integ{z} \, e^{-ik_zz} \; f \qquad 
+\mathrm{IFT}_z (f) \equiv \frac{1}{2\pi}\Integ{k_z} \, e^{ik_zz} \; f \]
+\[ \mathrm{HT}_{m,r} (f) \equiv 2\pi \RInteg{r} \, J_{m}(k_\perp r) \; f \qquad 
+\mathrm{IHT}_{m,r} (f) \equiv \frac{1}{2\pi}\RInteg{k_\perp} \,  J_{m}(k_\perp r)  \; f \]
+
 The above equations show that the transformation from the intermediate
 grid ($\mathcal{F}_{u,m}$) to the spectral grid ($\tilde{F}_{u,m}$) is
 the combination of a Fourier transform (in $z$) and a Hankel transform
 (in $r$). The Fourier transform in $z$ can be implemented through a Fast Fourier
 Transform (FFT) algorithm, which requires the intermediate and spectral grid to
 have regular spacing in $z$ and $k_z$ respectively. On the other hand,
-there are a variety of algorithms for implementing the Hankel Transform
-(e.g. \cite{Cree,Siegman,Guizar}). Here, we choose the
+there are a variety of algorithms for implementing the Discrete Hankel Transform
+(DHT) \cite{Cree,Siegman,Guizar}. Here, we choose the
 implementation described in \cite{Guizar}, since -- unlike several other
 implementations -- that particular implementation ensures that the
-successive application of a Discrete Hankel Transform (DHT) and inverse Hankel Transform (iDHT)
+successive application of a Hankel Transform (HT) and
+Inverse Hankel Transform (IHT)
 retrieves the original function. However, this method imposes to use a
 slightly non-uniform grid in $r$ and $k_\perp$ (corresponding to the
 zeros of the function $J_m$), and moreover to use a
