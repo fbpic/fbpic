@@ -221,6 +221,17 @@ class DHT(object) :
 
         return(f)
 
+
+    def MDHT_init(self,p,N,rmax) :
+        """
+        Calculate r and nu for the QDHT.
+        Reference : Guizar-Sicairos et al., J. Opt. Soc. Am. A 21 (2004)
+
+        Also store the auxilary matrix T and vectors J and J_inv required for
+        the transform.
+        """
+
+        
     def QDHT_init(self,p,N,rmax) :
         """
         Calculate r and nu for the QDHT.

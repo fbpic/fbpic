@@ -19,6 +19,7 @@
 \newcommand{\Integ}[1]{\int_{-\infty}^{\infty} \!\!\!\!\!
   \mathrm{d}#1}
 \newcommand{\RInteg}[1]{\int_{0}^{\infty} \!\!\!\!\! #1\mathrm{d}#1}
+\newcommand{\rInteg}{\int_{0}^{r_{max}} \!\!\!\!\! r\mathrm{d}r}
 \newcommand{\TInteg}[1]{\int_{0}^{2\pi} \!\!\!\!\! \mathrm{d}#1}
 
 \newcommand{\tB}[2]{\tilde{B}_{#1,m}^{#2}}
@@ -33,8 +34,6 @@
 \title{A pseudo-spectral, cylindrical and dispersion-free Particle-In-Cell algorithm}
 %\pagestyle{empty}
 \author{R\'emi \textsc{Lehe}}
-
-% Mettre les c2 partout
 
 \begin{document}
 
@@ -252,30 +251,33 @@ space where the Maxwell equations can be easily integrated. From
 \cref{eq:CircFwTransz,eq:CircFwTransp,eq:CircFwTransm,eq:CircBwTransz,eq:CircBwTransr,eq:CircBwTranst}, the transformation between these
 representations is:
 \begin{align*}
-\tilde{F}_{z,m}(k_z,k_\perp) & = \mathrm{FT}_z ( \; \mathrm{HT}_{m,r} ( \mathcal{F}_{z,m} ) \; ) \\
-\tilde{F}_{+,m}(k_z,k_\perp) &= \mathrm{FT}_z \left( \; \mathrm{HT}_{m+1,r} \left( \frac{
-  \mathcal{F}_{r,m} -i  \mathcal{F}_{\theta,m} }{2}  \right) \;\right) \\
-\tilde{F}_{-,m}(k_z,k_\perp) &= \mathrm{FT}_z \left( \; \mathrm{HT}_{m-1,r} \left( \frac{
-  \mathcal{F}_{r,m} +i  \mathcal{F}_{\theta,m} }{2}  \right) \;\right) 
+\tilde{F}_{z,m}(k_z,k_\perp) & = \mathrm{FT} [ \; \mathrm{HT}_{m}
+                               [ \; \mathcal{F}_{z,m}(r,z) \; ] \;]\\
+\tilde{F}_{+,m}(k_z,k_\perp) &= \mathrm{FT} \left[ \; \mathrm{HT}_{m+1} \left[ \frac{
+  \mathcal{F}_{r,m} -i  \mathcal{F}_{\theta,m} }{2}  \right] \;\right] \\
+\tilde{F}_{-,m}(k_z,k_\perp) &= \mathrm{FT} \left[ \; \mathrm{HT}_{m-1} \left[ \frac{
+  \mathcal{F}_{r,m} +i  \mathcal{F}_{\theta,m} }{2}  \right] \;\right] 
 \end{align*}
 and
 \begin{align*}
-\mathcal{F}_{z,m}(r,z) &= \mathrm{IFT}_z ( \; \mathrm{IHT}_{m,r} ( \tilde{F}_{z,m} ) \; ) \\
-\mathcal{F}_{r,m}(r,z) & = \mathrm{FT}_z \left( \; \mathrm{IHT}_{m+1,r}
-                         ( \tilde{F}_{+,m} ) + \mathrm{IHT}_{m-1,r} (
-                         \tilde{F}_{-,m} ) \; \right) \\
-\mathcal{F}_{\theta,m}(r,z) & = i\;\mathrm{IFT}_z \left( \; \mathrm{IHT}_{m+1,r}
-                         ( \tilde{F}_{+,m} ) - \mathrm{IHT}_{m-1,r} ( \tilde{F}_{-,m} ) \; \right)
+\mathcal{F}_{z,m}(r,z) &= \mathrm{IFT} [\; \mathrm{IHT}_{m} [
+                         \tilde{F}_{z,m}(k_z,k_\perp) ] \; ] \\
+\mathcal{F}_{r,m}(r,z) & = \mathrm{IFT} \left[ \; \mathrm{IHT}_{m+1}
+                         [ \tilde{F}_{+,m}(k_z,k_\perp) ] + \mathrm{IHT}_{m-1} [
+                         \tilde{F}_{-,m}(k_z,k_\perp) ] \; \right] \\
+\mathcal{F}_{\theta,m}(r,z) & = i\;\mathrm{IFT} \left[ \; \mathrm{IHT}_{m+1}
+                         [ \tilde{F}_{+,m}(k_z,k_\perp) ] - \mathrm{IHT}_{m-1} [ \tilde{F}_{-,m}(k_z,k_\perp) ] \; \right]
 \end{align*}
-where $\mathrm{FT}_z$ represents a Fourier Transform along the $z$
-axis and $\mathrm{HT}_{m,r}$ represents a Hankel Transform of order
-$m$ along the $r$ axis, and where $\mathrm{IFT}_z$ and
-$\mathrm{IHT}_{m,r}$ represent the corresponding inverse
+where $\mathrm{FT}$ represents a Fourier Transform along the $z$
+axis and $\mathrm{HT}_{m}$ represents a Hankel Transform of order
+$m$ along the $r$ axis, and where $\mathrm{IFT}$ and
+$\mathrm{IHT}_{m}$ represent the corresponding inverse
 transformations:
-\[ \mathrm{FT}_z (f) \equiv \Integ{z} \, e^{-ik_zz} \; f \qquad 
-\mathrm{IFT}_z (f) \equiv \frac{1}{2\pi}\Integ{k_z} \, e^{ik_zz} \; f \]
-\[ \mathrm{HT}_{m,r} (f) \equiv 2\pi \RInteg{r} \, J_{m}(k_\perp r) \; f \qquad 
-\mathrm{IHT}_{m,r} (f) \equiv \frac{1}{2\pi}\RInteg{k_\perp} \,  J_{m}(k_\perp r)  \; f \]
+\[ \mathrm{FT} [f]\, (k_z) \equiv \Integ{z} \, e^{-ik_zz} \; f(z) \qquad 
+\mathrm{IFT} [g] \,(z)\equiv \frac{1}{2\pi}\Integ{k_z} \, e^{ik_zz} \;  g(k_z)\]
+\[ \mathrm{HT}_{n} [f]\,(k_\perp) \equiv 2\pi \RInteg{r} \,
+J_{n}(k_\perp r) \; f(r) \qquad 
+\mathrm{IHT}_{n} [g]\,(r) \equiv \frac{1}{2\pi}\RInteg{k_\perp} \,  J_{n}(k_\perp r)  \;  g(k_\perp) \]
 
 The above equations show that the transformation from the intermediate
 grid ($\mathcal{F}_{u,m}$) to the spectral grid ($\tilde{F}_{u,m}$) is
@@ -283,38 +285,55 @@ the combination of a Fourier transform (in $z$) and a Hankel transform
 (in $r$). The Fourier transform in $z$ can be implemented through a Fast Fourier
 Transform (FFT) algorithm, which requires the intermediate and spectral grid to
 have regular spacing in $z$ and $k_z$ respectively. On the other hand,
-there are a variety of algorithms for implementing the Discrete Hankel Transform
-(DHT) \cite{Cree,Siegman,Guizar}. Here, we choose the
-implementation described in \cite{Guizar}, since -- unlike several other
-implementations -- that particular implementation ensures that the
-successive application of a Hankel Transform (HT) and
-Inverse Hankel Transform (IHT)
-retrieves the original function. However, this method imposes to use a
-slightly non-uniform grid in $r$ and $k_\perp$ (corresponding to the
-zeros of the function $J_m$), and moreover to use a
-different grid for each azimuthal mode, since the position of the
-gridpoints depends on $m$:
-\[ r^m_j = r_{max} \frac{\alpha^m_j }{\alpha^m_{N_r+1}} \qquad
-k_{\perp,j}^{m}  = \frac{1}{r_{max}} \alpha^{m}_j \qquad j \in \{1, ..., N_r \} \]
-where $\alpha^{m}_j$ is the $j^{th}$ zero of the Bessel function of
-order $m$ ($J_m$), and where $r_{max}$ is the outer boundary of the
-simulation box. Notice that using a different grid for each azimuthal mode does
-not pose any problem in principle since each mode evolves
-independently in spectral space. It is also important to notice that
-in a PSTD scheme (or PSATD scheme), the fields are not staggered, and
-can thus all be defined at the same $k^{m}_{\perp,j}$ (in spectral
-space) and $r^m_j$ (in real space).
+there are a variety of existing algorithms (that are not mathematically
+equivalent) to discretize the Hankel
+transform (e.g. \cite{Cree,Siegman,Guizar}), and the use of one or the other
+is very dependent of the particular application pursued. Broadly
+speaking, most Discrete Hankel Transform (DHT) algorithms consists in 
+\begin{enumerate}
+\item Choosing a discrete grid in $r$ and $k_\perp$ space, on which to
+  sample the functions to be transformed. In some algorithms, these
+  grids may not be regularly spaced, and can be for instance
+  logarithmically spaced \cite{Siegman} or correspond to the zeros of
+  Bessel functions \cite{Guizar}.
+\item Once a grid is chosen, the DHT amouts to a linear operation on a
+  finite set of points (the points of the grid) and can thus be
+  represented by a matrix. Thus the second choice is that of a matrix
+  that represents (as closely as possible), the exact Hankel Transform.
+\end{enumerate}
+Here, we choose to discretize the algorithm on a regular grid in
+space
+\[ r_j = r_{max} \frac{j+1/2}{N_r} \qquad  j \in \{0, ..., N_r-1 \} \]
+(Notice that neither $r=0$, nor $r=r_{max}$ are part of the grid.)
+but on a non-regular grid in $k$ space. (This is because the authorized
+$k$ are determined by the boundary conditions, in the same way that
+the periodic boundaries in a Cartesian code impose the use of
+regularly-space $k$.) If, for simplicity, we impose a perfectly conducting boundary at $r_{max}$
+(i.e. $E_z(r_{max}, z) = 0$), it turns out that the set of authorized
+$k_\perp$ depend on the mode $m$ and reads
+\[  k^m_{\perp,j} = \frac{\alpha_j^m}{r_{max}} \qquad j \in \{0, ..., N_r-1 \}\]
+where $\alpha^m_j$ is the $j$th strictly positive zero of the Bessel function of order
+$m$ ($J_m$). These values are represented \textbf{Do a plot}. Notice
+that the fact that the $k$s depend on the mode number $m$ is not a problem since each mode evolves separately in \cref{eq:CircMaxwellp,eq:CircMaxwellm,eq:CircMaxwellz}.
 
-Once this grid has been set up, this implementation of the DHT amounts
-to a simple matrix multiplication, where the mutliplying matrix can be
-computed only once, at initialization \cite{Guizar}:
-\[ \mathrm{DHT :}\qquad  \tilde{f}(k^m_{\perp,j}) =
-\sum_{\ell=1}^{N_r}
-\frac{ J_{m}\left(\alpha^m_j \alpha^m_\ell /
-      \alpha^m_{N_r+1}  \right) }{ \pi (\alpha^m_{N_r + 1})^2
-    J_{m+1}(\alpha^m_{N_r + 1})^2 } f(r^m_\ell)\]
-The computational time for this matrix multiplication is proportional
-to $N_r^2$, which is slow compared to an FFT ($N_r \log(N_r)$), but
+Once this grid is set up, the discrete hankel transform is simply a
+linear operation on a finite set of points, and can thus be
+represented by a matrix operation
+\[ \mathrm{DHT^m_n}[f] \,(k^m_j) = \sum_{\ell=0}^{N_r-1} M_{j,\ell}(n,m)
+\,f(r_\ell) \qquad \mathrm{IDHT^m_n}[g] \, (r_j) = \sum_{\ell=0}^{N_r-1}
+M^{-1}_{j,\ell}(n,m) \,g(k^m_\ell) \]
+\textbf{Explain that $n$ is different than $m$.}
+
+Notice that the transformation matrix $M(n,m)$ depends on $n$ (order of the Hankel transform) and $m$ (index
+of the mode that is being transform). The expression of these matrices,
+for the DHT algorithm that we chose, is given in
+\cref{sec:HTMatrix}. This particular choice is very specific and
+dependent on the imposed boundary conditions at $r_{max}$ ; in future
+work, different implementations of the DHT could be used depending on
+the boundary conditions. In practice, $M(n,m)$ and $M^{-1}(n,m)$ need to be
+computed only once (at initialization), and can then be used at each
+iteration. Notice also that the computational time for this
+matrix multiplication is proportional to $N_r^2$, which is slow compared to an FFT ($N_r \log(N_r)$), but
 still faster than the 2D FFT ($N_x N_y \log(N_x) + N_x N_y \log(N_y) $)
 which is used in a Cartesian spectral code. Moreover, the impact of
 this relatively slow transform is mitigated by the fact that, in a PIC
@@ -373,7 +392,7 @@ V_{m,1} = \frac{4}{3} \frac{2r_2^2 - r_2r_1 + 2r_1^2}{r_2^2 + 2r_2 r_1 +
   r_1^2 }\pi r_{3/2}^2 \Delta z \]
 \[ \mathrm{with} \qquad r_{q+1/2} = \frac{r_{q+1} + r_q}{2}\]
 (The volume $V_{m,1}$ differs from the expression in
-\cite{Verboncoeur}, since is our case $r_0=0$ is not part of the grid.) Similarly, the current deposition is given by
+\cite{Verboncoeur}, since is our case $r_{max}=0$ is not part of the grid.) Similarly, the current deposition is given by
 \[ \mathcal{J}_{u,m}(z_p,r_q) = \sum_k  \frac{S_{z,p}(z_k) S^m_{r,q}(r_k)
 Q_k v_{u,k} e^{im\theta_k}}{V_{m,q}} \]
 where $u = x,y,z$ and the $v_{u,k}$ are Cartesian components of the
