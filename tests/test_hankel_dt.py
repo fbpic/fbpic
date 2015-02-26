@@ -5,7 +5,7 @@ This file tests the Discrete Hankel Transform which is implemented in hankel_dt
 import numpy as np
 import matplotlib.pyplot as plt
 from fbpic.hankel_dt import DHT, available_methods
-from scipy.special import jn
+from scipy.special import jn, jn_zeros
 from scipy.special import eval_genlaguerre
 import time
 
@@ -72,6 +72,7 @@ def compare_Hankel_methods( f_analytic, g_analytic, p, Nz, Nr, axis, rmax, npts=
 
         # Finalization of the plots
         plt.legend(loc=0)
+        plt.suptitle('Hankel transform of order %d' %p)
             
         # Diagnostic
         print('')
@@ -127,11 +128,28 @@ def compare_laguerre_gauss( p, n, N, rmax ) :
                 np.exp(-(2*np.pi*x)**2/2) )
     
     compare_Hankel_methods( laguerre_n_p, laguerre_n_p_trans, p,1,N,-1,rmax )
+
+def compare_bessel( p, m, n, N, rmax ) :
+    """
+    Test the Hankel transforms for the test function :
+    x -> J_p( k_n^{m} x )
+    """
+
+    k = jn_zeros( m, n+1 )[-1]/rmax
+    
+    def bessel_n_p( x ) :
+        return( jn(p, k*x) )
+
+    def delta( x ) :
+        return( np.where( abs(x - k/(2*np.pi)) < 0.1,
+                          np.pi*rmax**2*jn(p, k*rmax)**2 , 0.) )
+    
+    compare_Hankel_methods( bessel_n_p, delta, p,1,N,-1,rmax )
     
 if __name__ == '__main__' :
 
-#    for p in range(2) :
-#        compare_power_p( p, 1, 200, 4 )
+    for p in range(4) :
+        compare_power_p( p, 1, 200, 4 )
 
     for p in range(2) :
         for n in range(2) :

@@ -35,7 +35,8 @@ from scipy.optimize import fsolve
 from utils import array_multiply
 
 # The list of available methods
-available_methods = ['FHT','QDHT']
+available_methods = [ 'FHT','QDHT',
+                     'MDHT(m+1,m)', 'MDHT(m-1,m)', 'MDHT(m,m)']
 
 class DHT(object) :
     """
@@ -83,6 +84,12 @@ class DHT(object) :
             self.FHT_init(p,N,rmax)
         elif self.method == 'QDHT' :
             self.QDHT_init(p,N,rmax)
+        elif self.method == 'MDHT(m,m)' :
+            self.MDHT_init(p,N,rmax,m=p)
+        elif self.method == 'MDHT(m-1,m)' :
+            self.MDHT_init(p,N,rmax,m=p+1)
+        elif self.method == 'MDHT(m+1,m)' :
+            self.MDHT_init(p,N,rmax,m=p-1)
 
         
     def get_r(self) :
@@ -152,6 +159,8 @@ class DHT(object) :
             G = self.FHT_transform(F, axis)
         elif self.method == 'QDHT' :
             G = self.QDHT_transform(F, axis)
+        elif self.method in [ 'MDHT(m,m)', 'MDHT(m-1,m)', 'MDHT(m+1,m)' ] :
+            G = self.MDHT_transform(F, axis)
         
         # Interpolate back G from self.nu to nu, if needed
         if nu is not None :
@@ -210,6 +219,8 @@ class DHT(object) :
             F = self.FHT_inverse_transform( G, axis)
         elif self.method == 'QDHT' :
             F = self.QDHT_inverse_transform( G, axis)
+        elif self.method in [ 'MDHT(m,m)', 'MDHT(m-1,m)', 'MDHT(m+1,m)' ] :
+            F = self.MDHT_inverse_transform( G, axis)
         
         # Interpolate F from self.r to r if needed
         if nu is not None :
@@ -222,14 +233,92 @@ class DHT(object) :
         return(f)
 
 
-    def MDHT_init(self,p,N,rmax) :
+    def MDHT_init(self,p,N,rmax,m) :
         """
-        Calculate r and nu for the QDHT.
-        Reference : Guizar-Sicairos et al., J. Opt. Soc. Am. A 21 (2004)
+        Calculate r and nu for the MDHT.
+        Custom Hankel Transform, see the paper associated with FBPIC
 
-        Also store the auxilary matrix T and vectors J and J_inv required for
-        the transform.
+        Grid :
+        r_n = n*rmax/N
+        nu_n = alpha_{m,n}
+        where alpha_{m,n} is the n^th zero of the m^th Bessel function
+        
+        m : int
+           Index of the nu grid on which to evaluate the Hankel
+           transform. This can only be p-1, p or p+1 for the
+           algorithm to work.
+        
+        Also store the auxilary matrices M and invM.
         """
+        # Check that m has a valid value
+        if (m in [p-1, p, p+1]) == False :
+            raise ValueError('m must be either %d, %d or %d, but is %d' \
+                             %(p-1,p,p+1,m))
+
+        # Calculate the zeros of the Bessel function
+        zeros = jn_zeros(m,N+1)
+
+        # Calculate the grid
+        last_alpha = zeros[-1] # The N+1^{th} zero
+        alphas = zeros[:-1]    # The N first zeros
+        self.N = N
+        self.rmax = rmax
+        self.r = (rmax*1./N) * ( np.arange(N) + 0.3 )
+        self.nu = ( 1./(2*np.pi*rmax) ) * alphas
+
+        # Calculate and store the inverse matrix invM
+        denom = 1./( np.pi * rmax**2 * jn(m+1,alphas)**2 )
+        num = jn( p, 2*np.pi* self.r[:, np.newaxis]*self.nu[np.newaxis,:] )
+        self.invM = num * denom[np.newaxis, :]
+
+        # Calculate the matrix M
+        self.M = np.linalg.inv( self.invM )
+
+
+    def MDHT_transform( self, F, axis ) :
+        """
+        Performs the MDHT of F and returns the results.
+        Reference: see the paper associated with FBPIC
+
+        F : ndarray of real or complex values
+        Array containing the values from which to compute the DHT.
+
+        axis : int
+        The axis of the array F along which the DHT is performed.
+        """
+
+        # Perform the matrix product with M
+        G = np.tensordot( F, self.M, axes = (axis,-1) )
+
+        # By default, the axis of the transform becomes the last
+        # axis after tensordot. Change this if needed.
+        if axis != -1 :
+            G = G.swapaxes(-1, axis)
+
+        return( G )
+
+        
+    def MDHT_inverse_transform( self, G, axis ) :
+        """
+        Performs the MDHT of G and returns the results.
+        Reference: see the paper associated with FBPIC
+
+        G : ndarray of real or complex values
+        Array containing the values from which to compute the DHT.
+
+        axis : int
+        The axis of the array F along which the DHT is performed.
+        """
+
+        # Perform the matrix product with invM
+        F = np.tensordot( G, self.invM, axes = (axis,-1) )
+        
+        # By default, the axis of the transform becomes the last
+        # axis after tensordot. Change this if needed.
+        if axis != -1 :
+            F = F.swapaxes(-1, axis)
+
+        return( F )
 
         
     def QDHT_init(self,p,N,rmax) :
@@ -266,8 +355,7 @@ class DHT(object) :
         denom = J[:,np.newaxis]*J[np.newaxis,:]*last_alpha
         num = 2*jn( p, alphas[:,np.newaxis]*alphas[np.newaxis,:]/last_alpha )
         self.T = num/denom
-
-
+        
     def QDHT_transform( self, F, axis ) :
         """
         Performs the QDHT of F and returns the results.
@@ -302,10 +390,10 @@ class DHT(object) :
         Reference : Guizar-Sicairos et al., J. Opt. Soc. Am. A 21 (2004)
 
         G : ndarray of real or complex values
-        Array containing the values from which to compute the FHT.
+        Array containing the values from which to compute the DHT.
 
         axis : int
-        The axis of the array F along which the FHT is performed.
+        The axis of the array F along which the DHT is performed.
         """
 
         # Multiply the input function by the vector J_inv
