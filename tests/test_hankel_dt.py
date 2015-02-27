@@ -105,9 +105,12 @@ def compare_power_p( p, rcut, N, rmax, **kw ) :
         return( np.where( x<rcut, (x/rcut)**p, 0. ) )
 
     def power_p_trans(x) :
-        ans = np.where( x == 0.,
-                        2*np.pi*rcut**2*jn(p,0)/(p+2),
-                        rcut*jn( p+1, 2*np.pi*rcut*x) /x )
+        if x[0] == 0 :
+            ans = np.hstack( (
+                np.array([ 2*np.pi*rcut**2*jn(p,0)/(p+2) ]),
+                rcut*jn( p+1, 2*np.pi*rcut*x[1:]) /x[1:] ) )
+        else :
+           ans =  rcut*jn( p+1, 2*np.pi*rcut*x) / x
         return( ans )  
     
     compare_Hankel_methods( power_p, power_p_trans, p, 1, N, -1, rmax, **kw )
@@ -168,20 +171,21 @@ def compare_bessel( p, m, n, N, rmax, **kw ) :
 if __name__ == '__main__' :
 
     N = 200
+    pmax = 1
     rmax = 4
     kw = { 'd' : 0.5, 'Fw' : 'inverse' }
     
-    for p in range(2) :
+    for p in range(pmax+1) :
         compare_power_p( p, 1, N, rmax, **kw )
 
-    for p in range(2) :
+    for p in range(pmax+1) :
         for n in range(2) :
             compare_laguerre_gauss( p, n, N, rmax )
 
-    for p in range(1) :
+    for p in range(pmax+1) :
         compare_bessel( p, p, int(N*0.3), N, rmax, **kw )
         compare_bessel( p, p, int(N*0.9), N, rmax, **kw )
 
-    for p in range(1) :
+    for p in range(pmax+1) :
         compare_bessel( p, p+1, int(N*0.3), N, rmax, **kw )
         compare_bessel( p, p+1, int(N*0.9), N, rmax, **kw )
