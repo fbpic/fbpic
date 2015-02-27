@@ -35,8 +35,8 @@ from scipy.optimize import fsolve
 from utils import array_multiply
 
 # The list of available methods
-available_methods = [ 'FHT','QDHT',
-                     'MDHT(m+1,m)', 'MDHT(m-1,m)', 'MDHT(m,m)']
+available_methods = [ # 'FHT',
+                      'QDHT', 'MDHT(m+1,m)', 'MDHT(m-1,m)', 'MDHT(m,m)']
 
 class DHT(object) :
     """
@@ -50,7 +50,7 @@ class DHT(object) :
     >>> G = trans.transform(F)
     """
 
-    def __init__(self,p,N,rmax,method) :
+    def __init__(self, p, N, rmax, method, **kw ) :
         """
         Calculate the r (position) and nu (frequency) grid
         on which the transform will operate.
@@ -70,7 +70,9 @@ class DHT(object) :
         (The function is assumed to be zero at that point.)
 
         method : string
-        One of the available numerical implementations of the Hankel transform
+        The method used to calculate the Hankel transform
+        
+        kw : optional arguments to be passed in the case of the MDHT
         """
         
         # Check that the method is valid
@@ -81,15 +83,15 @@ class DHT(object) :
 
         # Call the corresponding initialization routine
         if self.method == 'FHT' :
-            self.FHT_init(p,N,rmax)
+            self.FHT_init(p, N, rmax)
         elif self.method == 'QDHT' :
-            self.QDHT_init(p,N,rmax)
+            self.QDHT_init(p, N, rmax)
         elif self.method == 'MDHT(m,m)' :
-            self.MDHT_init(p,N,rmax,m=p)
+            self.MDHT_init(p, N, rmax, m=p, **kw)
         elif self.method == 'MDHT(m-1,m)' :
-            self.MDHT_init(p,N,rmax,m=p+1)
+            self.MDHT_init(p, N, rmax, m=p+1, **kw)
         elif self.method == 'MDHT(m+1,m)' :
-            self.MDHT_init(p,N,rmax,m=p-1)
+            self.MDHT_init(p, N, rmax, m=p-1, **kw)
 
         
     def get_r(self) :
@@ -233,7 +235,7 @@ class DHT(object) :
         return(f)
 
 
-    def MDHT_init(self,p,N,rmax,m) :
+    def MDHT_init(self, p, N, rmax, m, d=None, Fw='symmetric') :
         """
         Calculate r and nu for the MDHT.
         Custom Hankel Transform, see the paper associated with FBPIC
@@ -247,32 +249,77 @@ class DHT(object) :
            Index of the nu grid on which to evaluate the Hankel
            transform. This can only be p-1, p or p+1 for the
            algorithm to work.
+
+        d : float, optional
+           Offset of the regularly-spaced radial grid, within one cell
+           If None, this uses the zeros of the Bessel function.
+           (nu_n = alpha_n/(2*pi*rmax), r_n = alpha_n*rmax/S
+
+        Fw : string, optional
+           Method to calculate the forward transformation
+           If 'symmetric', uses a symmetric formula for the inverse matrix
+           If 'inverse', inverses the forward matrix to find the inverse matrix
         
         Also store the auxilary matrices M and invM.
         """
         # Check that m has a valid value
         if (m in [p-1, p, p+1]) == False :
-            raise ValueError('m must be either %d, %d or %d, but is %d' \
-                             %(p-1,p,p+1,m))
-
+            raise ValueError(
+                'm must be either %d, %d or %d, but is %d'  %(p-1,p,p+1,m))
+        
+        # Register values
+        self.d = d
+        self.Fw =Fw
+        self.p = p
+        self.m = m
+        
         # Calculate the zeros of the Bessel function
-        zeros = jn_zeros(m,N+1)
-
-        # Calculate the grid
+        if m == 0 : # 0 is not a zero of the Bessel function
+            zeros = jn_zeros(m, N+1)
+        else : # 0 is a zero of the Bessel function
+            zeros = np.hstack( (np.array([0.]), jn_zeros(m, N)) )
         last_alpha = zeros[-1] # The N+1^{th} zero
         alphas = zeros[:-1]    # The N first zeros
+
+        # Calculate the grid
         self.N = N
         self.rmax = rmax
-        self.r = (rmax*1./N) * ( np.arange(N) + 0.3 )
         self.nu = ( 1./(2*np.pi*rmax) ) * alphas
+        if d is not None :
+            print ('Using uniform grid')
+            self.r = (rmax*1./N) * ( np.arange(N) + d )
+        else :
+            if m != p :
+                print('')
+                print('Using special formula')
+                k = int(N/4) 
+                A = alphas[k]
+                J = jn_zeros(m,N)[-1]
+                S = abs(2./jn( m-1, alphas[k]))*np.sqrt(
+                1 + ( jn( m-1, A*alphas[1:]/J )**2 / \
+                    jn( m-1, alphas[1:] )**2 ).sum() 
+                )
+                print('S = %f' %S)
+                print('Instead of S = %f' %last_alpha )
+            else :
+                S = last_alpha
+            self.r = rmax*alphas/S
 
         # Calculate and store the inverse matrix invM
-        denom = 1./( np.pi * rmax**2 * jn(m+1,alphas)**2 )
+        # (imposed by the condition that the modes give delta functions)
+        if p == m :
+            denom = 1./( np.pi * rmax**2 * jn(m+1,alphas)**2 )
+        else :
+            denom = 1./( np.pi * rmax**2 * jn(p, alphas)**2 )
         num = jn( p, 2*np.pi* self.r[:, np.newaxis]*self.nu[np.newaxis,:] )
         self.invM = num * denom[np.newaxis, :]
 
         # Calculate the matrix M
-        self.M = np.linalg.inv( self.invM )
+        if Fw == 'inverse' :
+            self.M = np.linalg.inv( self.invM )
+        if Fw == 'symmetric' :
+            num = jn( p, 2*np.pi* self.nu[:, np.newaxis]*self.r[np.newaxis,:] )
+            self.M = (2*np.pi*rmax**2/S)**2 * num * denom[ np.newaxis, :]
 
 
     def MDHT_transform( self, F, axis ) :
