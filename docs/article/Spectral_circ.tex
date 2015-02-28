@@ -392,20 +392,17 @@ Since the particle motion is studied in 3D, we use the standard Boris pusher.
 
 \subsection{Current deposition}
 
-In order to deposit the charge onto the non-uniform
-transverse grid, we use a method similar to that described in \cite{Verboncoeur},
-and which uses corrected cells volumes $V_{q}$ in order to have a
-uniform density on the grid, when the macroparticles are uniformly distributed:
+The charge density is calculated on the interpolation grid in the
+following way:
 \[ \mathcal{\rho}_m(z_p,r_q) = \frac{ \sum_k  S_{z,p}(z_k)S_{r,q}(r_k) Q_k e^{im\theta_k}}{V_{q}} \]
-where $Q_k$ is the charge of the macroparticle with index $k$.
+where $Q_k$ is the charge of the macroparticle with index $k$, and
+where $V_q$ is the volume of a cell
 \[ V_{q} = \pi [\, (q+1)^2- q^2\,] \Delta r^2 \Delta z  \qquad
-V_{0} = \frac{17}{12} \pi r_{3/2}^2 \Delta z \]
-\[ \mathrm{with} \qquad r_{q+1/2} = \frac{r_{q+1} + r_q}{2}\]
-(The volume $V_{m,1}$ differs from the expression in
-\cite{Verboncoeur}, since is our case $r_{max}=0$ is not part of the grid.) Similarly, the current deposition is given by
-\[ \mathcal{J}_{u,m}(z_p,r_q) = \sum_k  \frac{S_{z,p}(z_k) S^m_{r,q}(r_k)
-Q_k v_{u,k} e^{im\theta_k}}{V_{m,q}} \]
-where $u = z,r,\theta$ and the $v_{u,k}$ are cylindrical components of the
+V_{0} = \pi \Delta r^2 \Delta z \]
+Similarly, the current deposition is given by
+\[ \mathcal{J}_{u,m}(z_p,r_q) = \sum_k  \frac{S_{z,p}(z_k) S_{r,q}(r_k)
+Q_k v_{u,k} e^{im\theta_k}}{V_{q}} \]
+where $u = z,r,\theta$ and the $v_{u,k}$ are the cylindrical components of the
 velocity of the macroparticle $k$. Notice that we do not attempt to
 reproduce the Esirkepov current deposition here, and instead use a
 much simpler current deposition. As mentioned previously, once the

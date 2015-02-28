@@ -2,7 +2,7 @@
 \section{Derivation of the Fourier-Bessel representation}
 \label{sec:CircTrans}
 
-In order to derive the representation \cref{eq:CircBwTrans} we have to
+In order to derive the representation \cref{eq:CircBwTransz,eq:CircBwTransr,eq:CircBwTranst} we have to
 distinguish the fields that are well-defined everywhere in space (like
 $E_x$, $E_y$, $E_z$, $B_x$, $B_y$, $B_z$) and thus have a regular
 Fourier representation, from those that are ill-defined at $r=0$ (like $E_r$, $E_\theta$, $B_r$, $B_\theta$).
@@ -13,40 +13,40 @@ Let $F_u$ be a field that is well-defined everywhere in space
 (typically $F$ is $E$, $B$ or $J$ and $u$ is $x$, $y$ or $z$). Its Fourier representation
 is thus given by \cref{eq:CartBwTrans,eq:CartFwTrans}:
 \begin{align*}
-F_u(\vec{r}) = \frac{1}{(2\pi)^{3/2}}\Integ{k_x} \,\Integ{k_y}\,
+F_u(\vec{r}) = \frac{1}{(2\pi)^{3}}\Integ{k_x} \,\Integ{k_y}\,
 \Integ{k_z} \; \hat{F_u}(\vec{k}) e^{i(k_x x + k_y y + k_z z)} \\
-\hat{F_u}(\vec{k})  = \frac{1}{(2\pi)^{3/2}}\Integ{x} \,\Integ{y}\,
+\hat{F_u}(\vec{k})  = \Integ{x} \,\Integ{y}\,
 \Integ{z} \; F_u(\vec{r}) e^{-i(k_x x + k_y y + k_z z)} 
 \end{align*}
 Using the change of variable $k_x=k_\perp\cos(\phi)$, $k_y = k_\perp\sin(\phi)$,
 $x=r\cos(\theta)$, $y=r\sin(\theta)$, this becomes
  \begin{align*}
-F_u(\vec{r}) = \frac{1}{(2\pi)^{3/2}}\Integ{k_z} \,\RInteg{k_\perp}\,
+F_u(\vec{r}) = \frac{1}{(2\pi)^{3}}\Integ{k_z} \,\RInteg{k_\perp}\,
 \TInteg{\phi} \; \hat{F_u}(\vec{k})
 e^{i(k_\perp r \cos(\theta-\phi) + k_z z)} \\
-\hat{F_u}(\vec{k})   = \frac{1}{(2\pi)^{3/2}}\Integ{z} \,\RInteg{r}\,
+\hat{F_u}(\vec{k})   = \Integ{z} \,\RInteg{r}\,
 \Integ{\theta} \; F_u(\vec{r}) e^{-i(k_\perp r \cos(\theta-\phi) + k_z z)} 
 \end{align*}
 We now use the relation $e^{ik_\perp r\cos(\theta-\phi)} =
 \sum_{m=-\infty}^{\infty} i^m J_m(k_\perp r) e^{im(\phi-\theta)}$ in these equations, to obtain
 \begin{align*}
-F_u (\vec{r})  = \sum_{m=-\infty}^{\infty} \frac{1}{(2\pi)^{3/2}}\Integ{k_z} \,\RInteg{k_\perp }
+F_u (\vec{r})  = \sum_{m=-\infty}^{\infty} \frac{1}{(2\pi)^{3}}\Integ{k_z} \,\RInteg{k_\perp }
 \TInteg{\phi} \; i^m \hat{F_u}(\vec{k}) \;
 J_m(k_\perp r) e^{-im(\theta-\phi) + ik_z z} \\
-\hat{F_u}(\vec{k})   =  \sum_{m=-\infty}^{\infty} \frac{1}{(2\pi)^{3/2}}\Integ{z} \,\RInteg{r}
+\hat{F_u}(\vec{k})   =  \sum_{m=-\infty}^{\infty} \Integ{z} \,\RInteg{r}
 \TInteg{\theta} \;\; (-i)^m F_u(\vec{r}) \; J_m(k_\perp r) e^{-im(\phi-\theta) -ik_z z} 
 \end{align*}
-We now define $\tilde{F}_{u,m}(k_z,k_\perp ) = \frac{1}{(2\pi)^{3/2}}\int_0^{2\pi}
+We now define $\tilde{F}_{u,m}(k_z,k_\perp ) = \frac{1}{2\pi}\int_0^{2\pi}
 \mathrm{d}\phi \; i^m \hat{F_u}(\vec{k})
 e^{im\phi}$. This results in the following equations :
-\begin{align*}
-F_u(\vec{r}) = \sum_{m=-\infty}^{\infty} \Integ{k_z}
+\begin{align}
+F_u(\vec{r}) =  \frac{1}{(2\pi)^2}\sum_{m=-\infty}^{\infty} \Integ{k_z}
 \RInteg{k_\perp }\; \tilde{F}_{u,m}(k_z,k_\perp ) \; J_m(k_\perp r) e^{-im\theta + ik_z z} 
 \\
-\tilde{F}_{u,m}(k_z,k_\perp ) = \frac{1}{(2\pi)^2} \Integ{z} \RInteg{r}
+\tilde{F}_{u,m}(k_z,k_\perp ) = \Integ{z} \RInteg{r}
 \TInteg{\theta} \;F_u(\vec{r})\; J_m(k_\perp r) e^{-im\theta
- - i k_z z}
-\end{align*}
+ - i k_z z} \label{eq:CircBwTransu}
+\end{align}
 These equations correspond to \cref{eq:CircBwTransz,eq:CircFwTransz}.
 
 \subsection{Fields that are ill-defined at $r=0$}
@@ -56,14 +56,14 @@ denote generally by $F_r$. We have :
 \[ F_r = \cos(\theta) F_x + \sin(\theta) F_y 
 = \frac{F_x - iF_y}{2}e^{i\theta} + \frac{F_x +
   iF_y}{2}e^{-i\theta} \] 
-Using \cref{eq:CircBwTransu,eq:CircFwTransu}, this leads to
+Using \cref{eq:CircBwTransu}, this leads to
 \begin{align} 
-F_r =  \sum_{m=-\infty}^{\infty} \Integ{k_z}\,\RInteg{k_\perp }\;
+F_r =   \frac{1}{(2\pi)^2}\sum_{m=-\infty}^{\infty} \Integ{k_z}\,\RInteg{k_\perp }\;
 \left(  J_m(k_\perp r) \frac{\tilde{F}_{x,m} -
     i\tilde{F}_{y,m}}{2}e^{-i(m-1)\theta +ik_z z} + J_m(k_\perp r)
   \frac{\tilde{F}_{x,m} +   i\tilde{F}_{y,m}}{2}e^{-i(m+1)\theta +
     ik_z z} \right) \\
-= \sum_{m=-\infty}^{\infty} \Integ{k_z}\,\RInteg{k_\perp }\;
+=  \frac{1}{(2\pi)^2}\sum_{m=-\infty}^{\infty} \Integ{k_z}\,\RInteg{k_\perp }\;
 \left(  J_{m+1}(k_\perp r) \frac{\tilde{F}_{x,m+1} -
     i\tilde{F}_{y,m+1}}{2}e^{-im\theta +ik_z z} + J_{m-1}(k_\perp r)
   \frac{\tilde{F}_{x,m-1} +   i\tilde{F}_{y,m-1}}{2}e^{-im\theta +
@@ -74,7 +74,7 @@ thus define $\tilde{F}_{-,m} = \frac{\tilde{F}_{x,m-1} +
     i\tilde{F}_{y,m-1}}{2}$ and $\tilde{F}_{+,m} = \frac{\tilde{F}_{x,m+1} -
     i\tilde{F}_{y,m+1}}{2}$. This results in:
 \begin{equation} 
-F_r(\vec{r}) = \sum_{m=-\infty}^{\infty} \Integ{k_z}\,\RInteg{k_\perp }\;
+F_r(\vec{r}) =  \frac{1}{(2\pi)^2}\sum_{m=-\infty}^{\infty} \Integ{k_z}\,\RInteg{k_\perp }\;
 \left( \tilde{F}_{+,m}\; J_{m+1}(k_\perp r) +\tilde{F}_{-,m}\; J_{m-1}(k_\perp r)
 \right)  e^{-im\theta +ik_z z}
 \end{equation}
@@ -278,19 +278,20 @@ ik_z\left[ \trho{n}\frac{S-\omega\Delta t
 \section{Discrete Hankel Transform}
 \label{sec:HTMatrix}
 
-Say we extend the formulas \cite{Guizar} to the case of a regular
-grid in space, and to the case where the order of the transform and
-that of the $k$ grid are not the same.
+Here we use a transformation similar to that of \cite{Yu,Guizar,KaiMing}, but
+extend it to the case of a regular grid in space (as opposed to one
+that is distributed according to the zeros of the Bessel function).
 
-Reminder:
-\[ \mathrm{DHT_n}[f] \,(k^m_{\perp,j}) = \sum_{p=0}^{N_r-1} M_{j,p}(n,m)
-\,f(r_p) \qquad \mathrm{IDHT_n}[g] \, (r_j) = \sum_{p=0}^{N_r-1}
-M^{-1}_{j,p}(n,m) \,g(k^m_{\perp,p}) \]
+As explained in the text of the article, we use a matrix formalism for
+the discrete Hankel transform
+\[ \mathrm{DHT^m_n}[f] \,(k^m_{\perp,j}) = \sum_{p=0}^{N_r-1} (M_{n,m})_{j,p}
+\,f(r_p) \qquad \mathrm{IDHT^m_n}[g] \, (r_j) = \sum_{p=0}^{N_r-1}
+(M^{-1}_{n,m})_{j,p} \,g(k^m_{\perp,p}) \]
 These matrices can be determined by a set of $N_r^2$ conditions. These
 conditions can be found by imposing the value of the DHT for a set of  $N_r$ functions.
 
 In our case, we impose that the DHT be equal to the exact HT for the eigenmodes of a cavity with
-perfectly conducting boundary at $r_{max}$ ($E_z(r_{m},z) =
+perfectly conducting boundary at $r_{max}$ ($E_z(r_{max},z) =
 0$), since these physical eigenmodes should also be eigenmodes of our
 PIC cycle. These eigenmodes have the following form:
 \begin{align*}
@@ -299,56 +300,38 @@ E_r -i E_\theta \;& \; \propto  J_{m+1}(k^m_{\perp,\ell} \,r) \,e^{ik_z z -im\th
 E_r +i E_\theta \;& \; \propto  J_{m-1}(k^m_{\perp,\ell} \,r)
                     \,e^{ik_z z -im\theta} \Theta(r_{max}-r) 
 \end{align*}
-
 where $\Theta$ is the Heaviside function and where $k^m_{\perp,\ell} =
 \alpha^m_\ell / r_{max}$, with $\alpha^m_j$ the $j$th strictly positive zero of
 the Bessel function of order $m$. They form an othogonal basis of
 functions for this chosen boundary condition. The exact Hankel transform of these modes, evaluated on the discrete set $\{
 k^m_{\perp,j} \}$ reads (see relation 11.4.5 in \cite{Abramowitz}).
-\begin{align*} 
-\mathrm{HT}_{m}[ \; J_m(k^m_{\perp,\ell} \,r) \;] \,(k^m_{\perp,j} )
-&\quad \equiv 2\pi \rInteg \; J_m (k^m_{\perp,\ell} r) J_m (k^m_{\perp,j} r)
-&\quad = \pi\, r_{max}^2\,[ J_{m+1}(\alpha_\ell^m)]^2 \; \delta_{j,\ell} \\
-\mathrm{HT}_{m+1}[ \; J_{m+1}(k^m_{\perp,\ell} \,r) \;] \,(k^m_{\perp,j} )
-&\quad \equiv 2\pi \rInteg \; J_{m+1} (k^m_{\perp,\ell} r)
-  J_{m+1}(k^m_{\perp,j} r) 
-&\quad = \pi\, r_{max}^2\,[ J_{m+1}(\alpha_\ell^m)]^2 \; \delta_{j,\ell} \\
-\mathrm{HT}_{m-1}[ \; J_{m-1}(k^m_{\perp,\ell} \,r) \;] \,(k^m_{\perp,j} )
-& \quad \equiv 2\pi \rInteg \; J_{m-1} (k^m_{\perp,\ell} r) J_{m-1} (k^m_{\perp,j}
-  r) 
-&\quad = \pi\, r_{max}^2\,[ J_{m+1}(\alpha_\ell^m)]^2 \; \delta_{j,\ell}
-\end{align*}
-\textbf{Explain more why we want these functions to be
-  preserved. Explain why we take (m+1) and (m-1)}
+\[
+\mathrm{HT}_{n}[ \; J_n(k^m_{\perp,\ell} \,r)  \Theta(r_{max}-r)  \;] \,(k^m_{\perp,j} )
+\quad \equiv 2\pi \rInteg \; J_n (k^m_{\perp,\ell} r) J_n (k^m_{\perp,j} r)
+\quad = \pi\, r_{max}^2\,[ J_{m-1}(\alpha_\ell^m)]^2 \; \delta_{j,\ell} \]
+where $n$ is either $m-1$, $m$ or $m+1$. (Notice that the final
+result actually does not depend on $n$.) Here we impose that the DHT of these functions has the same value for $(j,\ell) \in \{ 0,..., N_r - 1\}$.
+\[
+\mathrm{DHT}^m_{n}[ \; J_n(k^m_{\perp,\ell} \,r) \Theta(r_{max}-r)  \;] \,(k^m_{\perp,j}) 
+\quad \equiv \sum_{p=0}^{N_r-1} (M_{n,m})_{j,p}
+  J_n(k^m_{\perp,\ell}\,r_p) 
+\quad = \pi\, r_{max}^2\,[ J_{m-1}(\alpha_j^m)]^2 \; \delta_{j,\ell} 
+\]
+(In fact, in the case $m>0, n>0$, the above equation for $j=0$ does not
+constraint the matrix $M_{n,m}$ sufficiently, and thus we impose the additional
+condition $\sum_{p=0}^{N_r-1} (M_{n,m})_{0,p}  J_n(k^m_{\perp,\ell}\,r_p) = \pi\, r_{max}^2\,[ J_{m-1}(\alpha_{N_r}^m)]^2 \; \delta_{0,N_r}$.)
 
-Here we impose that the DHT of these functions has the same value for $(j,\ell) \in \{ 0,
-..., N_r - 1\}$
-\begin{align*}
-\mathrm{DHT}_{m}[ \; J_m(k^m_{\perp,\ell} \,r) \;] \,(k^m_{\perp,j}) 
-&\quad \equiv \sum_{p=0}^{N_r-1} M_{j,p}(m,m)
-  J_m(k^m_{\perp,\ell}\,r_p) 
-&\quad = \pi\, r_{max}^2\,[ J_{m+1}(\alpha_\ell^m)]^2 \; \delta_{j,\ell} \\
-\mathrm{DHT}_{m+1}[ \; J_{m+1}(k^m_{\perp,\ell} \,r) \;]\,(k^m_{\perp,j})
-&\quad \equiv \sum_{p=0}^{N_r-1} M_{j,p}(m+1,m)
-  J_{m+1}(k^m_{\perp,\ell}\,r_p) 
-&\quad = \pi\, r_{max}^2\,[ J_{m+1}(\alpha_\ell^m)]^2 \; \delta_{j,\ell} \\
-\mathrm{DHT}_{m-1}[ \; J_{m-1}(k^m_{\perp,\ell} \,r) \;] \,(k^m_{\perp,j})
-& \quad \equiv \sum_{p=0}^{N_r-1} M_{j,p}(m-1,m)
- J_{m-1}(k^m_{\perp,\ell}\,r_p) 
-&\quad = \pi\, r_{max}^2\,[ J_{m+1}(\alpha_\ell^m)]^2 \; \delta_{j,\ell}
-\end{align*}
-The above relations impose $N_r^2$ conditions on the matrices
-$M(m,m)$, $M(m+1,m)$, $M(m-1,m)$ and thus allows one to completely
-determine them. In fact, a closer look at the above relations shows
-that the inverse matrices $M^{-1}(m,m)$, $M^{-1}(m+1,m)$,
-$M^{-1}(m-1,m)$ can be directly extracted from the above relations,
-since these inverse matrices are defined by the relation $\sum_p M_{j,p}(n,m)
-M^{-1}_{p,\ell}(n,m) = \delta_{j,\ell}$. Indeed, from the above
+The above relations impose $N_r^2$ conditions on the matrix
+$M_{n,m}$ and thus allows one to completely
+determine it. In fact, a closer look at the above relations shows
+that the inverse matrix $M^{-1}_{n,m}$ can be directly extracted from the above relations,
+since these inverse matrices are defined by the relation $\sum_p (M_{n,m})_{j,p}
+(M^{-1}_{n,m})_{p,\ell} = \delta_{j,\ell}$. Indeed, from the above
 relations, one can directly infer:
-\[ M^{-1}_{p,\ell}(m,m) = \frac{ J_m(k^m_{\perp,\ell}\,r_p) } { \pi\,
-  r_{max}^2\,[ J_{m+1}(\alpha_\ell^m)]^2  } \]
-\[ M^{-1}_{p,\ell}(m \pm 1,m) = \frac{ J_{m\pm 1}(k^m_{\perp,\ell}\,r_p) } { \pi\,
-  r_{max}^2\,[ J_{m+1}(\alpha_\ell^m)]^2  } \]
-The matrices $M(m,m)$, $M(m+1,m)$, $M(m-1,m)$ can then be extracted,
-by numerically inverting the matrices  $M^{-1}(m,m)$, $M^{-1}(m+1,m)$,
-$M^{-1}(m-1,m)$ given by the above expressions.
+\[ (M_{n,m}^{-1})_{p,\ell} = \frac{ J_m(k^m_{\perp,\ell}\,r_p) } { \pi\,
+  r_{max}^2\,[ J_{m-1}(\alpha_\ell^m)]^2  } \]
+(In the case $m>0,n>0$, the above expression is modified for $\ell=0$ and
+is replaced by $ (M_{n,m}^{-1})_{p,0} = \frac{ J_m(k^m_{\perp,N_r}\,r_p) } { \pi\,
+  r_{max}^2\,[ J_{m-1}(\alpha_{N_r}^m)]^2  }$.)
+
+The matrix $M_{n,m}$ can then be extracted, by numerically inverting the matrices  $M^{-1}_{n,m}$ given by the above expressions.
