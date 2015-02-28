@@ -130,8 +130,8 @@ i\left( \tilde{F}_{+,m}(k_z,k_\perp )\; J_{m+1}(k_\perp r) - \tilde{F}_{-,m}(k_z
 \label{eq:CircBwTranst}
 \end{align}
 where $F$ is either $E$, $B$ or $j$. Notice that the Cartesian
-component ($F_z$) and cylindrical components
-($F_r$, $F_\theta$) do not transform in the same manner, which is due
+component $F_z$ and cylindrical components
+$F_r$, $F_\theta$ do not transform in the same manner, which is due
 to their different behavior close to the axis. (See
 \cref{sec:CircTrans} for a derivation of this representation and for
 its relation to the Fourier transform.) In addition, the coefficients $\tilde{F}_z$, $\tilde{F}_+$ and
@@ -211,7 +211,7 @@ be directly deduced from these fields.
 \subsection{Overview of the algorithm}
 
 The algorithm presented here uses the above-mentioned representation
-of the fields. However, although the fields are represented by a few
+of the fields. Although the fields are represented by a few
 2D arrays, the particles are still distributed in 3D and their motion
 is integrated in 3D. However, due to the
 lower number of cells in a 2D array, one can drastically reduce the
@@ -269,9 +269,9 @@ and
                          [ \tilde{F}_{+,m}(k_z,k_\perp) ] - \mathrm{IHT}_{m-1} [ \tilde{F}_{-,m}(k_z,k_\perp) ] \; \right]
 \end{align*}
 where $\mathrm{FT}$ represents a Fourier Transform along the $z$
-axis and $\mathrm{HT}_{m}$ represents a Hankel Transform of order
-$m$ along the $r$ axis, and where $\mathrm{IFT}$ and
-$\mathrm{IHT}_{m}$ represent the corresponding inverse
+axis and $\mathrm{HT}_{n}$ represents a Hankel Transform of order
+$n$ along the $r$ axis, and where $\mathrm{IFT}$ and
+$\mathrm{IHT}_{n}$ represent the corresponding inverse
 transformations:
 \[ \mathrm{FT} [f]\, (k_z) \equiv \Integ{z} \, e^{-ik_zz} \; f(z) \qquad 
 \mathrm{IFT} [g] \,(z)\equiv \frac{1}{2\pi}\Integ{k_z} \, e^{ik_zz} \;  g(k_z)\]
@@ -287,7 +287,7 @@ Transform (FFT) algorithm, which requires the intermediate and spectral grid to
 have regular spacing in $z$ and $k_z$ respectively. On the other hand,
 there are a variety of existing algorithms (that are not mathematically
 equivalent) to discretize the Hankel
-transform (e.g. \cite{Cree,Siegman,Guizar}), and the use of one or the other
+transform (e.g. \cite{Cree,Yu,Siegman,Guizar,KaiMing}), and the use of one or the other
 is very dependent of the particular application pursued. Broadly
 speaking, most Discrete Hankel Transform (DHT) algorithms consists in 
 \begin{enumerate}
@@ -295,7 +295,7 @@ speaking, most Discrete Hankel Transform (DHT) algorithms consists in
   sample the functions to be transformed. In some algorithms, these
   grids may not be regularly spaced, and can be for instance
   logarithmically spaced \cite{Siegman} or correspond to the zeros of
-  Bessel functions \cite{Guizar}.
+  Bessel functions \cite{Yu,Guizar,KaiMing}.
 \item Once a grid is chosen, the DHT amouts to a linear operation on a
   finite set of points (the points of the grid) and can thus be
   represented by a matrix. Thus the second choice is that of a matrix
@@ -303,43 +303,55 @@ speaking, most Discrete Hankel Transform (DHT) algorithms consists in
 \end{enumerate}
 Here, we choose to discretize the algorithm on a regular grid in
 space
-\[ r_j = r_{max} \frac{j+1/2}{N_r} \qquad  j \in \{0, ..., N_r-1 \} \]
+\[ r_j = \Delta r \left( j+\frac{1}{2} \right) \qquad  j \in \{0, ...,
+N_r-1 \} \qquad \mathrm{where} \quad \Delta r = \frac{r_{max}}{N_r} \]
 (Notice that neither $r=0$, nor $r=r_{max}$ are part of the grid.)
-but on a non-regular grid in $k$ space. (This is because the authorized
+but on a non-regular grid in $k$ space. This is because the authorized
 $k$ are determined by the boundary conditions, in the same way that
 the periodic boundaries in a Cartesian code impose the use of
-regularly-space $k$.) If, for simplicity, we impose a perfectly conducting boundary at $r_{max}$
-(i.e. $E_z(r_{max}, z) = 0$), it turns out that the set of authorized
+regularly-space $k$. Here, for simplicity, we impose that the
+longitudinal fields be $0$ at $r_{max}$ (i.e. $E_z(r_{max}, z) = 0$,
+$B_z(r_{max}, z) = 0$). In this case, it turns out that the set of authorized
 $k_\perp$ depend on the mode $m$ and reads
 \[  k^m_{\perp,j} = \frac{\alpha_j^m}{r_{max}} \qquad j \in \{0, ..., N_r-1 \}\]
-where $\alpha^m_j$ is the $j$th strictly positive zero of the Bessel function of order
-$m$ ($J_m$). These values are represented \textbf{Do a plot}. Notice
-that the fact that the $k$s depend on the mode number $m$ is not a problem since each mode evolves separately in \cref{eq:CircMaxwellp,eq:CircMaxwellm,eq:CircMaxwellz}.
+where $\alpha^m_j$ is the $j$th positive zero of the Bessel function of order
+$m$ $J_m$ (including the trivial value $\alpha_0^m=0$ for
+$m>0$). These values are represented in figure \ref{fig:Kgrid}. Notice
+that the fact that the $k$s depend on the mode number $m$ is not a
+problem since each mode evolves separately in
+\cref{eq:CircMaxwellp,eq:CircMaxwellm,eq:CircMaxwellz}.
+
+\begin{figure}[!h]
+\includegraphics[width=\textwidth]{KGrid.pdf}
+\caption{\label{fig:Kgrid}Position of the grid points in $k$ space
+  (blue dots) for the azimuthal modes $m=0$, $m=1$ and $m=2$ for $N_r
+  = 10$ and $r_{max}=1$. These values are compared with those of a
+  regularly-spaced grid used in Cartesian spectral codes (grey dots, $k_j = j\pi/r_{max}$)}
+\end{figure}
 
 Once this grid is set up, the discrete hankel transform is simply a
 linear operation on a finite set of points, and can thus be
 represented by a matrix operation
-\[ \mathrm{DHT^m_n}[f] \,(k^m_j) = \sum_{\ell=0}^{N_r-1} M_{j,\ell}(n,m)
-\,f(r_\ell) \qquad \mathrm{IDHT^m_n}[g] \, (r_j) = \sum_{\ell=0}^{N_r-1}
-M^{-1}_{j,\ell}(n,m) \,g(k^m_\ell) \]
-\textbf{Explain that $n$ is different than $m$.}
+\[ \mathrm{DHT^m_n}[f] \,(k^m_j) = \sum_{p=0}^{N_r-1} (M_{n,m})_{j,p}
+\,f(r_p) \qquad \mathrm{IDHT^m_n}[g] \, (r_j) = \sum_{p=0}^{N_r-1}
+(M^{-1}_{n,m})_{j,p} \,g(k^m_p) \]
 
-Notice that the transformation matrix $M(n,m)$ depends on $n$ (order of the Hankel transform) and $m$ (index
-of the mode that is being transform). The expression of these matrices,
+Notice that the $N_r\times N_r$ transformation matrices $M_{n,m}$ and
+$M_{n,m}^{-1}$ depend on $n$ (order of the Hankel transform) and $m$
+(index of the spectral grid $k^m_j$ on which the Hankel transform is calculated). The expression of these matrices,
 for the DHT algorithm that we chose, is given in
-\cref{sec:HTMatrix}. This particular choice is very specific and
-dependent on the imposed boundary conditions at $r_{max}$ ; in future
-work, different implementations of the DHT could be used depending on
-the boundary conditions. In practice, $M(n,m)$ and $M^{-1}(n,m)$ need to be
+\cref{sec:HTMatrix}. %This particular choice is very specific and
+%dependent on the imposed boundary conditions at $r_{max}$ ; in future
+%work, different implementations of the DHT could be used depending on
+%the boundary conditions. 
+In practice, $M_{n,m}$ and $M^{-1}_{n,m}$ need to be
 computed only once (at initialization), and can then be used at each
 iteration. Notice also that the computational time for this
-matrix multiplication is proportional to $N_r^2$, which is slow compared to an FFT ($N_r \log(N_r)$), but
-still faster than the 2D FFT ($N_x N_y \log(N_x) + N_x N_y \log(N_y) $)
-which is used in a Cartesian spectral code. Moreover, the impact of
-this relatively slow transform is mitigated by the fact that, in a PIC
-code, the computational time is often dominated by the current deposition onto
-the interpolation grid, which is independent of the above transform.
-
+matrix multiplication is proportional to $N_r^2$, which is slow
+compared to an FFT ($\propto N_r \log(N_r)$), but
+still faster than the 2D FFT ($\propto N_x N_y \log(N_x) + N_x N_y \log(N_y) $)
+which is used in a Cartesian spectral code. In practice, for $N_x = N_y =
+N_r = 1000$ for instance, the DHT can be 50 times faster than a 2D FFT \cite{Norfolk}.
 
 \Cref{fig:GlobalScheme} sums up the steps of the PIC cycle, including the
 respective role of the intermediate and spectral grid. Note that, in the PSATD
@@ -357,22 +369,22 @@ timesteps. The following section describe the successive steps of the cycle in m
 
 When gathering the fields from the intermediate grid to the macroparticles,
 we use standard linear shape factors :
-\[ F_u(\vec{r}_k) = \sum_{m=-N_m}^{N_m} \sum_{p,q} S_{z,p}(z_k)
-S^m_{r,q}(r_k) \mathcal{F}_{u,m}(z_p, r_q) e^{-im\theta_k} \]
+\[ F_u(\vec{r}_k) =  \sum_{p,q} S_{z,p}(z_k)
+S_{r,q}(r_k) \sum_{m=-N_m}^{N_m} \mathcal{F}_{u,m}(z_p, r_q) e^{-im\theta_k} \]
 where $k$ is the index of the macroparticle, and $p$ and $q$ are the
 indices of the neighboring cells, in $z$ and $r$ respectively. $N_m$ is the total number
-of azimuthal modes used, and $S_{z,p}$ and $S^m_{r,q}$ are the linear
-shape factors in $z$ and $r$ (where $S^m_r$ has to be adapted to the
-non-uniform grid for the $m^{th}$ mode) :
-\[ S_{z,p_0}(z) = \frac{(p_0+1)\Delta z - z}{\Delta z}  \qquad 
-S_{z, p_0 +1}(z) = \frac{ z - p_0 \Delta z}{\Delta z} \qquad
-\mathrm{with} \quad p_0 \Delta z \leq z < (p_0 +1) \Delta z \]
-\[ S^m_{r,q_0}(r) = \frac{ r^m_{q_0+1} - r }{  r^m_{q_0+1} - r^m_{q_0} }
-\qquad S^m_{r,q_0+1}(r) = \frac{ r - r^m_{q_0} }{  r^m_{q_0+1} - r^m_{q_0} }
-\qquad \mathrm{with} \quad r^m_{q_0} \leq r < r^m_{q_0+1} \]
-In addition, $S^m_{r,1}(r) = 1$ for $r<r^m_1$ i.e. any macroparticle
-located below the first node of the grid deposits depends only on that
-first node. (This is because $r^m_0=0$ is technically not part of the grid.)
+of azimuthal modes used, and $S_{z,p}$ and $S_{z,q}$ are the linear
+shape factors in $z$ and $r$ :
+\[ S_{z,p_0}(z) = \frac{z_{p_0+1}- z}{\Delta z}  \qquad 
+S_{z,p_0 +1}(z) = \frac{ z - z_{p_0} }{\Delta z} \qquad
+\mathrm{with} \quad z_{p_0} \leq z < z_{p_0 +1} \Delta z \]
+\[ S_{r,q_0}(r) = \frac{ r_{q_0+1} - r }{  \Delta r }
+\qquad S^m_{r,q_0+1}(r) = \frac{ r - r_{q_0} }{  \Delta r }
+\qquad \mathrm{with} \quad r_{q_0} \leq r < r_{q_0+1}
+\Delta r \]
+In addition, $S_{r,0}(r) = 1$ for $r< r_0 = \Delta r/2$ i.e. any macroparticle
+located below the first node of the spatial grid deposits all its charge on
+this first node.
 
 \subsection{Equations of motion}
 
@@ -381,21 +393,19 @@ Since the particle motion is studied in 3D, we use the standard Boris pusher.
 \subsection{Current deposition}
 
 In order to deposit the charge onto the non-uniform
-transverse grid, we use the method described in \cite{Verboncoeur},
-which uses corrected cells volumes $V_{m,q}$ in order to have a
-uniform density on the grid, when the macroparticles are uniformly distributed. :
-\[ \mathcal{\rho}_m(z_p,r_q) = \sum_k  \frac{S_{z,p}(z_k) S^m_{r,q}(r_k) Q_k e^{im\theta_k}}{V_{m,q}} \]
+transverse grid, we use a method similar to that described in \cite{Verboncoeur},
+and which uses corrected cells volumes $V_{q}$ in order to have a
+uniform density on the grid, when the macroparticles are uniformly distributed:
+\[ \mathcal{\rho}_m(z_p,r_q) = \frac{ \sum_k  S_{z,p}(z_k)S_{r,q}(r_k) Q_k e^{im\theta_k}}{V_{q}} \]
 where $Q_k$ is the charge of the macroparticle with index $k$.
-\[ V_{m,q} = \frac{4}{3} \frac{ r_{q-1} + r_q + r_{q+1} }{ r_{q-1}
-  + 2r_q + r_{q+1} } \pi (r_{q+1/2}^2 - r_{q-1/2}^2) \Delta z  \qquad
-V_{m,1} = \frac{4}{3} \frac{2r_2^2 - r_2r_1 + 2r_1^2}{r_2^2 + 2r_2 r_1 +
-  r_1^2 }\pi r_{3/2}^2 \Delta z \]
+\[ V_{q} = \pi [\, (q+1)^2- q^2\,] \Delta r^2 \Delta z  \qquad
+V_{0} = \frac{17}{12} \pi r_{3/2}^2 \Delta z \]
 \[ \mathrm{with} \qquad r_{q+1/2} = \frac{r_{q+1} + r_q}{2}\]
 (The volume $V_{m,1}$ differs from the expression in
 \cite{Verboncoeur}, since is our case $r_{max}=0$ is not part of the grid.) Similarly, the current deposition is given by
 \[ \mathcal{J}_{u,m}(z_p,r_q) = \sum_k  \frac{S_{z,p}(z_k) S^m_{r,q}(r_k)
 Q_k v_{u,k} e^{im\theta_k}}{V_{m,q}} \]
-where $u = x,y,z$ and the $v_{u,k}$ are Cartesian components of the
+where $u = z,r,\theta$ and the $v_{u,k}$ are cylindrical components of the
 velocity of the macroparticle $k$. Notice that we do not attempt to
 reproduce the Esirkepov current deposition here, and instead use a
 much simpler current deposition. As mentioned previously, once the

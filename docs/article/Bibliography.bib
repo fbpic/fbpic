@@ -1,12 +1,43 @@
+@article{Yu, 
+author = {Li Yu and Meichun Huang and Mouzhi Chen and Wenzhong Chen and Wenda Huang and Zhizhong Zhu}, 
+journal = {Opt. Lett.}, 
+keywords = {Physics literature and publications; ABCD transforms},
+number = {6}, 
+pages = {409--411}, 
+publisher = {OSA},
+title = {Quasi-discrete Hankel transform}, 
+volume = {23}, 
+month = {Mar},
+year = {1998},
+url = {http://ol.osa.org/abstract.cfm?URI=ol-23-6-409},
+doi = {10.1364/OL.23.000409},
+abstract = {A quasi-discrete Hankel transform (QDHT) is presented as a new and efficient framework for numerical evaluation of the zero-order Hankel transform. A discrete form of Parseval's theorem is obtained for the first time to the authors' knowledge, and the transform matrix is discussed. It is shown that the S factor, defined as the products of a truncated radius, is critical to building the QDHT.},
+}
+
+  	
+@article{KaiMing,
+  author={You Kai-Ming and Wen Shuang-Chun and Chen Lie-Zun and Wang You-Wen and Hu Yong-Hua},
+  title={A quasi-discrete Hankel transform for nonlinear beam propagation},
+  journal={Chinese Physics B},
+  volume={18},
+  number={9},
+  pages={3893},
+  url={http://stacks.iop.org/1674-1056/18/i=9/a=046},
+  year={2009},
+  abstract={We propose and implement a quasi-discrete Hankel transform algorithm based on Dini series expansion (DQDHT) in this paper. By making use of the property that the zero-order Bessel function derivative J ' 0 (0) = 0, the DQDHT can be used to calculate the values on the symmetry axis directly. In addition, except for the truncated treatment of the input function, no other approximation is made, thus the DQDHT satisfies the discrete Parseval theorem for energy conservation, implying that it has a high numerical accuracy. Further, we have performed several numerical tests. The test results show that the DQDHT has a very high numerical accuracy and keeps energy conservation even after thousands of times of repeating the transform either in a spatial domain or in a frequency domain. Finally, as an example, we have applied the DQDHT to the nonlinear propagation of a Gaussian beam through a Kerr medium system with cylindrical symmetry. The calculated results are found to be in excellent agreement with those based on the conventional 2D-FFT algorithm, while the simulation based on the proposed DQDHT takes much less computing time.}
+}
+	
+
+
 @book{Abramowitz,
 author = "Abramowitz, M. and Stegun, I.",
 title  = "Handbook of Mathematical Functions",
 publisher = {Dover Publications},
 year = "1965" }
 
-@PROCEEDINGS{Haber, 
+@book{Haber, 
   title = {Advances in electromagnetic simulation techniques},
-  booktitle = {Proc. Sixth Conf. on Num. Sim. Plasmas, Berkeley, CA},
+  title = {Proc. Sixth Conf. on Num. Sim. Plasmas, Berkeley, CA},
   year = {1973},
   author = {Haber, I. and Lee, R. and Klein, H. and Boris, J.}
 }
@@ -105,6 +136,22 @@ year = {1977},
 url = {http://ol.osa.org/abstract.cfm?URI=ol-1-1-13},
 doi = {10.1364/OL.1.000013},
 abstract = {We outline here a new algorithm for evaluating Hankel (Fourier--Bessel) transforms numerically with enhanced speed, accuracy, and efficiency. A nonlinear change of variables is used to convert the one-sided Hankel transform integral into a two-sided cross-correlation integral. This correlation integral is then evaluated on a discrete sampled basis using fast Fourier transforms. The new algorithm offers advantages in speed and substantial advantages in storage requirements over conventional methods for evaluating Hankel transforms with large numbers of points.},
+}
+
+@article{Norfolk, 
+author = {Andrew W. Norfolk and Edward J. Grace}, 
+journal = {Opt. Express}, 
+keywords = {Numerical approximation and analysis; Mathematical methods (general); Propagation},
+number = {10}, 
+pages = {10551--10556}, 
+publisher = {OSA},
+title = {Reconstruction of optical fields with the Quasi-discrete Hankel transform}, 
+volume = {18}, 
+month = {May},
+year = {2010},
+url = {http://www.opticsexpress.org/abstract.cfm?URI=oe-18-10-10551},
+doi = {10.1364/OE.18.010551},
+abstract = {Unlike the FFT, the Quasi Discrete Hankel Transform (QDHT) is not sampled on a uniform grid; in particular the field may no longer be sampled on axis. We demonstrate how the generalised sampling theorem may be applied to optical problems, evaluated with the QDHT, to efficiently and accurately reconstruct the optical field at any point. Without sacrificing numerical accuracy this is demonstrated to be typically 50{\texttimes} faster than using an equivalent 2D FFT.},
 }
 
 
