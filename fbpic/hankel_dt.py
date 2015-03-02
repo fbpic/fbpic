@@ -23,7 +23,13 @@ Available methods :
   of a forward and backward transformation retrieves the original function
   (with a very good accuracy).
   The discretization r grid corresponds to the zeros of the Bessel function
-  of order p. 
+  of order p.
+
+- MDHT (Matrix Discrete Hankel Transform) :
+  Calculates the transform in N^2 time. Ensures that the succession
+  of a forward and backward transformation retrieves the original function
+  (to machine precision).
+  The discretization r grid is regularly spaced.
   
 See the docstring of the DHT object for usage instructions.
 """

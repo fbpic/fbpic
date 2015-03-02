@@ -75,8 +75,8 @@ class Fields(object) :
         # (one grid per azimuthal mode)
         self.interp = [ ]
         for m in range(Nm) :
-            # Extract the inhomogeneous radial grid for mode m
-            r = self.trans[m].dht.get_r()
+            # Extract the radial grid for mode m
+            r = self.trans[m].dht0.get_r()
             # Create the object
             self.interp.append( InterpolationGrid( z, r, m ) )
 
@@ -87,7 +87,7 @@ class Fields(object) :
         self.psatd = [ ]
         for m in range(Nm) :
             # Extract the inhomogeneous spectral grid for mode m
-            kr = 2*np.pi * self.trans[m].dht.get_nu()
+            kr = 2*np.pi * self.trans[m].dht0.get_nu()
             # Create the object
             self.spect.append( SpectralGrid( kz, kr, m ) )
             self.psatd.append( PsatdCoeffs( self.spect.kz,
@@ -115,20 +115,85 @@ class Fields(object) :
 
     def interp2spect(self, fieldtype) :
         """
-        Transform the fields `fieldtype` from the interpolation grid to the spectral grid
-        """
+        Transform the fields `fieldtype` from the interpolation
+        grid to the spectral grid
 
-        # Check the validity of fieldtype
-        if (fieldtype in ['E', 'B', 'J', 'rho']) == False :
+        Parameter
+        ---------
+        fieldtype :
+            A string which represents the kind of field to transform
+            (either 'E', 'B', 'J', 'rho')
+        """
+        # Use the appropriate transformation depending on the fieldtype.
+        if fieldtype == 'E' :
+            # Transform each azimuthal grid individually
+            for m in range(self.Nm) :
+                self.trans[m].interp2spect_scal(self.interp.Ez, self.spect.Ez )
+                self.trans[m].interp2spect_vect(self.interp.Er, self.interp.Et,
+                                                self.spect.Ep, self.spect.Em )
+        elif fieldtype == 'B' :
+            # Transform each azimuthal grid individually
+            for m in range(self.Nm) :
+                self.trans[m].interp2spect_scal(self.interp.Bz, self.spect.Bz )
+                self.trans[m].interp2spect_vect(self.interp.Br, self.interp.Bt,
+                                                self.spect.Bp, self.spect.Bm )
+        elif fieldtype == 'J' :
+            # Transform each azimuthal grid individually
+            for m in range(self.Nm) :
+                self.trans[m].interp2spect_scal(self.interp.Jz, self.spect.Jz )
+                self.trans[m].interp2spect_vect(self.interp.Jr, self.interp.Jt,
+                                                self.spect.Jp, self.spect.Jm )
+        elif fielddtype == 'rho' :
+            # Transform each azimuthal grid individually
+            for m in range(self.Nm) :
+                self.trans[m].interp2spect_scal(self.interp.rho,
+                                                self.spect.rho_next )
+        else :
             raise ValueError( 'Invalid string for fieldtype: %s' %fieldtype )
-        
+
+    def spect2interp(self, fieldtype) :
+        """
+        Transform the fields `fieldtype` from the spectral grid
+        to the spectral grid
+
+        Parameter
+        ---------
+        fieldtype :
+            A string which represents the kind of field to transform
+            (either 'E', 'B', 'J', 'rho')
+        """
+        # Use the appropriate transformation depending on the fieldtype.
+        if fieldtype == 'E' :
+            # Transform each azimuthal grid individually
+            for m in range(self.Nm) :
+                self.trans[m].spect2interp_scal(self.spect.Ez, self.interp.Ez )
+                self.trans[m].spect2interp_vect(self.spect.Ep, self.spect.Em,
+                                                self.interp.Er, self.interp.Et )
+        if fieldtype == 'B' :
+            # Transform each azimuthal grid individually
+            for m in range(self.Nm) :
+                self.trans[m].spect2interp_scal(self.spect.Bz, self.interp.Bz )
+                self.trans[m].spect2interp_vect(self.spect.Bp, self.spect.Bm,
+                                                self.interp.Br, self.interp.Bt )
+        if fieldtype == 'J' :
+            # Transform each azimuthal grid individually
+            for m in range(self.Nm) :
+                self.trans[m].spect2interp_scal(self.spect.Jz, self.interp.Jz )
+                self.trans[m].spect2interp_vect(self.spect.Jp, self.spect.Jm,
+                                                self.interp.Jr, self.interp.Jt )
+        if fieldtype == 'rho' :
+            # Transform each azimuthal grid individually
+            for m in range(self.Nm) :
+                self.trans[m].interp2spect_scal(self.spect.rho_next,
+                                                self.interp.rho )
+                
 class InterpolationGrid(object) :
     """
     Contains the fields and coordinates of the spatial grid.
 
     Main attributes :
     - z,r : 1darrays containing the positions of the grid
-    - Ex, Ey, Ez, Bx, By, Bz, Jx, Jy, Jz, rho :
+    - Er, Et, Ez, Br, Bt, Bz, Jr, Jt, Jz, rho :
       2darrays containing the fields.
     """
 
@@ -158,14 +223,14 @@ class InterpolationGrid(object) :
         self.m = m
 
         # Allocate the fields arrays
-        self.Ex = np.zeros( (Nz, Nr), dtype='complex' )
-        self.Ey = np.zeros( (Nz, Nr), dtype='complex' )
+        self.Er = np.zeros( (Nz, Nr), dtype='complex' )
+        self.Et = np.zeros( (Nz, Nr), dtype='complex' )
         self.Ez = np.zeros( (Nz, Nr), dtype='complex' )
-        self.Bx = np.zeros( (Nz, Nr), dtype='complex' )
-        self.By = np.zeros( (Nz, Nr), dtype='complex' )
+        self.Br = np.zeros( (Nz, Nr), dtype='complex' )
+        self.Bt = np.zeros( (Nz, Nr), dtype='complex' )
         self.Bz = np.zeros( (Nz, Nr), dtype='complex' )
-        self.Jx = np.zeros( (Nz, Nr), dtype='complex' )
-        self.Jy = np.zeros( (Nz, Nr), dtype='complex' )
+        self.Jr = np.zeros( (Nz, Nr), dtype='complex' )
+        self.Jt = np.zeros( (Nz, Nr), dtype='complex' )
         self.Jz = np.zeros( (Nz, Nr), dtype='complex' )
         self.rho = np.zeros( (Nz, Nr), dtype='complex' )
 
@@ -388,8 +453,10 @@ class SpectralTransformer(object) :
             The size of the simulation box along r.
         """
         # Initialize the DHT (local implementation, see hankel_dt.py)
-        print('Preparing the Discrete Hankel Transform for mode %d' %m)
-        self.dht = DHT( m, Nr, rmax, 'QDHT' )
+        print('Preparing the Discrete Hankel Transforms for mode %d' %m)
+        self.dht0 = DHT(   m, Nr, rmax, 'MDHT(m,m)', d=0.5, Fw='inverse' )
+        self.dhtp = DHT( m+1, Nr, rmax, 'MDHT(m+1,m)', d=0.5, Fw='inverse' )
+        self.dhtm = DHT( m-1, Nr, rmax, 'MDHT(m-1,m)', d=0.5, Fw='inverse' )
         
     def spect2interp_scal( self, spect_array, interp_array ) :
         """
@@ -405,42 +472,96 @@ class SpectralTransformer(object) :
 
         interp_array : 2darray
            A complex array representing the fields on the interpolation
-           which is overwritten by this function.
+           grid, and which is overwritten by this function.
         """
+        # Perform the inverse DHT first (along axis -1, which corresponds to r)
+        interp_array = self.dht0.inverse_transform( spect_array, axis=-1 )
 
-        # Perform the FFT first (along axis 0, which corresponds to z)
-        interp_array = np.fft.ifft( spect_array, axis=0 )
-
-        # Then perform the DHT (along axis -1, which corresponds to r)
-        interp_array = self.dht.inverse_transform( interp_array, axis=-1 )
+        # Then perform the FFT then (along axis 0, which corresponds to z)
+        # (This could be done in-place, with FFTW later)
+        interp_array = np.fft.ifft( interp_array, axis=0 )        
+        
 
     def spect2interp_vect( self, spect_array_p, spect_array_m,
-                          interp_array_x, interp_array_y ) :
-      """
+                          interp_array_r, interp_array_t ) :
+        """
         Convert a transverse vector field in the spectral space (e.g. Ep, Em)
-        to the interpolation grid (e.g. Ex, Ey)
+        to the interpolation grid (e.g. Er, Et)
 
         Parameters
         ----------
         spect_array_p, spect_array_m : 2darray
-           A complex array representing the fields in spectral space, from 
+           Complex arrays representing the fields in spectral space, from 
            which to compute the values of the interpolation grid
            The first axis should correspond to z and the second axis to r.
 
-        interp_array_x, interp_array_y : 2darray
-           A complex array representing the fields on the interpolation
-           which is overwritten by this function.
+        interp_array_r, interp_array_t : 2darray
+           Complex arrays representing the fields on the interpolation
+           grid, and which are overwritten by this function.
         """
-        
-        # Recover spect_array_x, spect_array_y (Cartesian components)
-        # from spect_array_p, spect_array_m (combination of Cartesian components
-        # that separate in the Maxwell equations)
-        spect_array_x = 
-        
-        
+        # Perform the inverse DHT first (along axis -1, which corresponds to r)
+        interp_array_p = self.dhtp.inverse_transform( spect_array_p, axis=-1 )
+        interp_array_m = self.dhtm.inverse_transform( spect_array_m, axis=-1 )
+
+        # Combine them to obtain the r and t components
+        interp_array_r = interp_array_p + interp_array_m
+        interp_array_t = 1.j*( interp_array_p - interp_array_m )
+
+        # Finally perform the FFT (along axis 0, which corresponds to z)
+        # (This could be done in-place, with FFTW later)
+        interp_array_r = np.fft.ifft( interp_array_r, axis=0 )
+        interp_array_t = np.fft.ifft( interp_array_t, axis=0 )
 
     def interp2spect_scal( self interp_array, spect_array ) :
-    
-    def interp2spect_vect( self, interp_array, spect_array ) :
-        pass
+        """
+        Convert a scalar field from the interpolation grid
+        to the spectral grid.
+
+        Parameters
+        ----------
+        interp_array : 2darray
+           A complex array representing the fields on the interpolation
+           grid, from which to compute the values of the interpolation grid
+           The first axis should correspond to z and the second axis to r.
+        
+        spect_array : 2darray
+           A complex array representing the fields in spectral space,
+           and which is overwritten by this function.
+        """
+        # Perform the FFT first (along axis 0, which corresponds to z)
+        # (This could be done in-place, with FFTW later)
+        interp_array = np.fft.fft( interp_array, axis=0 )
+        
+        # Then perform the DHT (along axis -1, which corresponds to r)
+        spect_array = self.dht0.transform( interp_array, axis=-1 )
+
+    def interp2spect_vect( self, interp_array_r, interp_array_t,
+                           spect_array_r, spect_array_t ) :
+        """
+        Convert a transverse vector field from the interpolation grid
+        (e.g. Er, Et) to the spectral space (e.g. Ep, Em)
+
+        Parameters
+        ----------
+        interp_array_r, interp_array_t : 2darray
+           Complex arrays representing the fields on the interpolation
+           grid, from which to compute the values in spectral space
+           The first axis should correspond to z and the second axis to r.
+        
+        spect_array_p, spect_array_m : 2darray
+           Complex arrays representing the fields in spectral space,
+           and which are overwritten by this function.
+        """
+        # Perform the FFT first (along axis 0, which corresponds to z)
+        # (This could be done in-place, with FFTW later)
+        interp_array_r = np.fft.fft( interp_array_r, axis=0 )
+        interp_array_t = np.fft.fft( interp_array_t, axis=0 )
+
+       # Combine them to obtain the p and m components
+        interp_array_p = 0.5*( interp_array_r - 1.j*interp_array_t )
+        interp_array_m = 0.5*( interp_array_r + 1.j*interp_array_t )
+        
+        # Perform the inverse DHT first (along axis -1, which corresponds to r)
+        spect_array_p = self.dhtp.transform( interp_array_p, axis=-1 )
+        spect_array_m = self.dhtm.transform( interp_array_m, axis=-1 )
 
