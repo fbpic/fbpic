@@ -264,29 +264,31 @@ class InterpolationGrid(object) :
         """
         # Select the field to plot
         plotted_field = getattr( self, fieldtype)
-        # Show the field also below the axis for a more
-        # realistic picture
+        # Show the field also below the axis for a more realistic picture
         if below_axis == True :
             plotted_field = np.hstack( (plotted_field[:,::-1],plotted_field) )
             extent = [self.z.min(), self.z.max(), -self.r.max(), self.r.max() ]
         else :
             extent = [self.z.min(), self.z.max(), self.r.min(), self.r.max() ]
-
+        plt.suptitle('%s on the interpolation grid' %fieldtype )
+            
         # Plot the real part
         plt.subplot(211)
         plt.imshow( plotted_field.real.T[::-1], aspect='auto',
                     interpolation='nearest', extent = extent, **kw )
-        plt.xlabel('z')
-        plt.ylabel('r')
-        plt.colorbar()
+        plt.xlabel('kz')
+        plt.ylabel('kr')
+        cb = plt.colorbar()
+        cb.set_label('Real part')
 
         # Plot the imaginary part
         plt.subplot(212)
         plt.imshow( plotted_field.imag.T[::-1], aspect='auto',
                     interpolation='nearest', extent = extent, **kw )
-        plt.xlabel('z')
-        plt.ylabel('r')
-        plt.colorbar()
+        plt.xlabel('kz')
+        plt.ylabel('kr')
+        cb = plt.colorbar()
+        cb.set_label('Imaginary part')
         
 class SpectralGrid(object) :
     """
@@ -435,22 +437,25 @@ class SpectralGrid(object) :
         plotted_field = getattr( self, fieldtype)
         extent = [self.kz[:,0].min(), self.kz[:,0].max(),
                   self.kr[0,:].min(), self.kr[0,:].max() ]
-
+        plt.suptitle('%s on the spectral grid' %fieldtype )
+            
         # Plot the real part
         plt.subplot(211)
         plt.imshow( plotted_field.real.T[::-1], aspect='auto',
                     interpolation='nearest', extent = extent, **kw )
         plt.xlabel('z')
         plt.ylabel('r')
-        plt.colorbar()
-
+        cb = plt.colorbar()
+        cb.set_label('Real part')
+        
         # Plot the imaginary part
         plt.subplot(212)
         plt.imshow( plotted_field.imag.T[::-1], aspect='auto',
                     interpolation='nearest', extent = extent, **kw )
         plt.xlabel('z')
         plt.ylabel('r')
-        plt.colorbar()
+        cb = plt.colorbar()
+        cb.set_label('Real part')
 
 class PsatdCoeffs(object) :
     """
