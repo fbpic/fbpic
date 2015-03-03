@@ -336,7 +336,7 @@ class SpectralGrid(object) :
 
     def correct_currents (self, dt) :
         """
-        Correct the currents so that they satisfies the
+        Correct the currents so that they satisfy the
         charge conservation equation
 
         Parameters
@@ -348,9 +348,10 @@ class SpectralGrid(object) :
         # Get the corrective field F
         inv_dt = 1./dt
         i = 1.j   # Imaginary number i**2 = -1
-        inv_k2 = 1./np.where( ( self.kz == 0 ) & (self.kr == 0),
-                1., self.kz**2 + self.kr**2 )  # Avoid division by 0
-        inv_k2[ ( self.kz == 0 ) & (self.kr == 0) ] = 0 # No correction for k=0
+        # Avoid division by 0
+        inv_k2 = 1./np.where(
+            ( self.kz == 0 ) & (self.kr == 0), 1., self.kz**2 + self.kr**2 )  
+        inv_k2[ ( self.kz == 0 ) & (self.kr == 0) ] = 0. # No correction for k=0
         
         self.F[:,:] = - inv_k2 * ( (self.rho_next - self.rho_prev)*inv_dt \
             + i*self.kz*self.Jz + self.kr*( self.Jp - self.Jm ) ) 
