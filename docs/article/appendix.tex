@@ -250,29 +250,29 @@ $ \partial_t^2 f + \omega^2 f = \trho{n} + (\trho{n+1}-\trho{n})(t-t_0)/\Delta t
 \right) \]
 which, for $t=t_0 +\Delta t$, reduces to
 \[ f(t_0 +\Delta t) = f(t_0) C + \partial_tf (t_0)
-\frac{S}{\omega} + \trho{n}\frac{S-\omega\Delta t
-  C}{\omega^3\Delta t} + \frac{\trho{n+1}}{\omega^2}\left(
-  1 - \frac{S}{\omega\Delta t}\right) \]
+\frac{S}{\omega} 
++ \frac{\trho{n+1}}{\omega^2}\left( 1 - \frac{S}{\omega\Delta t}\right) 
+- \frac{\trho{n}}{\omega^2}\left( C - \frac{S}{\omega\Delta t}\right) \]
 Using the above expression, we obtain
 \begin{align*}
 \tE{+}{n+1} = \; & C \tE{+}{n} + 
-\frac{S}{\omega}\left(-\frac{ik_\perp }{2} \tB{z}{n} + k_z\tB{+}{n}
+c^2\frac{S}{\omega}\left(-\frac{ik_\perp }{2} \tB{z}{n} + k_z\tB{+}{n}
 - \mu_0 \tj{+}{n+1/2} \right) + \frac{c^2}{\epsilon_0}
-\frac{k_\perp}{2}\left[ \trho{n}\frac{S-\omega\Delta t
-  C}{\omega^3\Delta t} + \frac{\trho{n+1}}{\omega^2}\left(
-  1 - \frac{S}{\omega\Delta t}\right) \right]  & \\
+\frac{k_\perp}{2}\left[ \frac{\trho{n+1}}{\omega^2}\left(
+  1 - \frac{S}{\omega\Delta t}\right) -
+\frac{\trho{n}}{\omega^2}\left( C -\frac{S}{\omega\Delta t}\right)\right]  & \\
 \tE{-}{n+1} =\; & C \tE{-}{n} +
-\frac{S}{\omega}\left(- \frac{ik_\perp }{2} \tB{z}{n} - k_z\tB{-}{n}
+c^2\frac{S}{\omega}\left(- \frac{ik_\perp }{2} \tB{z}{n} - k_z\tB{-}{n}
 - \mu_0 \tj{-}{n+1/2} \right) - \frac{c^2}{\epsilon_0}
-\frac{k_\perp}{2}\left[ \trho{n}\frac{S-\omega\Delta t
-  C}{\omega^3\Delta t} + \frac{\trho{n+1}}{\omega^2}\left(
-  1 - \frac{S}{\omega\Delta t}\right) \right]  &\\
+\frac{k_\perp}{2}\left[ \frac{\trho{n+1}}{\omega^2}\left(
+  1 - \frac{S}{\omega\Delta t}\right) - \frac{\trho{n}}{\omega^2}
+\left( C - \frac{S}{\omega\Delta t}\right)\right]  &\\
 \tE{z}{n+1} =\; & C \tE{z}{n} + 
-\frac{S}{\omega}\left(ik_\perp \tB{+}{n} + ik_\perp \tB{-}{n}
+c^2\frac{S}{\omega}\left(ik_\perp \tB{+}{n} + ik_\perp \tB{-}{n}
 - \mu_0 \tj{z}{n+1/2} \right) - \frac{c^2}{\epsilon_0}
-ik_z\left[ \trho{n}\frac{S-\omega\Delta t
-  C}{\omega^3\Delta t} + \frac{\trho{n+1}}{\omega^2}\left(
-  1 - \frac{S}{\omega\Delta t}\right) \right]  &
+ik_z\left[ \frac{\trho{n+1}}{\omega^2}\left(
+  1 - \frac{S}{\omega\Delta t}\right) - \frac{\trho{n}}{\omega^2}
+\left( C - \frac{S}{\omega\Delta t}\right)\right]  &
 \end{align*}
 
 \section{Discrete Hankel Transform}

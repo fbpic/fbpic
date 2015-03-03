@@ -19,7 +19,7 @@ class Fields(object) :
     - the methods to transform the fields back and forth
     """
 
-    def __init__( Nz, zmax, Nr, rmax, Nm, dt ) :
+    def __init__( self, Nz, zmax, Nr, rmax, Nm, dt ) :
         """
         Initialize the components of the Fields object
 
@@ -90,8 +90,8 @@ class Fields(object) :
             kr = 2*np.pi * self.trans[m].dht0.get_nu()
             # Create the object
             self.spect.append( SpectralGrid( kz, kr, m ) )
-            self.psatd.append( PsatdCoeffs( self.spect.kz,
-                                            self.spect.kr, m, dt ) )
+            self.psatd.append( PsatdCoeffs( self.spect[m].kz,
+                                self.spect[m].kr, m, dt, Nz, Nr ) )
 
     def push(self) :
         """
@@ -128,26 +128,32 @@ class Fields(object) :
         if fieldtype == 'E' :
             # Transform each azimuthal grid individually
             for m in range(self.Nm) :
-                self.trans[m].interp2spect_scal(self.interp.Ez, self.spect.Ez )
-                self.trans[m].interp2spect_vect(self.interp.Er, self.interp.Et,
-                                                self.spect.Ep, self.spect.Em )
+                self.trans[m].interp2spect_scal(
+                    self.interp[m].Ez, self.spect[m].Ez )
+                self.trans[m].interp2spect_vect(
+                    self.interp[m].Er, self.interp[m].Et,
+                    self.spect[m].Ep, self.spect[m].Em )
         elif fieldtype == 'B' :
             # Transform each azimuthal grid individually
             for m in range(self.Nm) :
-                self.trans[m].interp2spect_scal(self.interp.Bz, self.spect.Bz )
-                self.trans[m].interp2spect_vect(self.interp.Br, self.interp.Bt,
-                                                self.spect.Bp, self.spect.Bm )
+                self.trans[m].interp2spect_scal(
+                    self.interp[m].Bz, self.spect[m].Bz )
+                self.trans[m].interp2spect_vect(
+                    self.interp[m].Br, self.interp[m].Bt,
+                    self.spect[m].Bp, self.spect[m].Bm )
         elif fieldtype == 'J' :
             # Transform each azimuthal grid individually
             for m in range(self.Nm) :
-                self.trans[m].interp2spect_scal(self.interp.Jz, self.spect.Jz )
-                self.trans[m].interp2spect_vect(self.interp.Jr, self.interp.Jt,
-                                                self.spect.Jp, self.spect.Jm )
-        elif fielddtype == 'rho' :
+                self.trans[m].interp2spect_scal(
+                    self.interp[m].Jz, self.spect[m].Jz )
+                self.trans[m].interp2spect_vect(
+                    self.interp[m].Jr, self.interp[m].Jt,
+                    self.spect[m].Jp, self.spect[m].Jm )
+        elif fieldtype == 'rho' :
             # Transform each azimuthal grid individually
             for m in range(self.Nm) :
-                self.trans[m].interp2spect_scal(self.interp.rho,
-                                                self.spect.rho_next )
+                self.trans[m].interp2spect_scal(
+                    self.interp[m].rho, self.spect[m].rho_next )
         else :
             raise ValueError( 'Invalid string for fieldtype: %s' %fieldtype )
 
@@ -166,26 +172,34 @@ class Fields(object) :
         if fieldtype == 'E' :
             # Transform each azimuthal grid individually
             for m in range(self.Nm) :
-                self.trans[m].spect2interp_scal(self.spect.Ez, self.interp.Ez )
-                self.trans[m].spect2interp_vect(self.spect.Ep, self.spect.Em,
-                                                self.interp.Er, self.interp.Et )
-        if fieldtype == 'B' :
+                self.trans[m].spect2interp_scal(
+                    self.spect[m].Ez, self.interp[m].Ez )
+                self.trans[m].spect2interp_vect(
+                    self.spect[m].Ep,  self.spect[m].Em,
+                    self.interp[m].Er, self.interp[m].Et )
+        elif fieldtype == 'B' :
             # Transform each azimuthal grid individually
             for m in range(self.Nm) :
-                self.trans[m].spect2interp_scal(self.spect.Bz, self.interp.Bz )
-                self.trans[m].spect2interp_vect(self.spect.Bp, self.spect.Bm,
-                                                self.interp.Br, self.interp.Bt )
-        if fieldtype == 'J' :
+                self.trans[m].spect2interp_scal(
+                    self.spect[m].Bz, self.interp[m].Bz )
+                self.trans[m].spect2interp_vect(
+                    self.spect[m].Bp, self.spect[m].Bm,
+                    self.interp[m].Br, self.interp[m].Bt )
+        elif fieldtype == 'J' :
             # Transform each azimuthal grid individually
             for m in range(self.Nm) :
-                self.trans[m].spect2interp_scal(self.spect.Jz, self.interp.Jz )
-                self.trans[m].spect2interp_vect(self.spect.Jp, self.spect.Jm,
-                                                self.interp.Jr, self.interp.Jt )
-        if fieldtype == 'rho' :
+                self.trans[m].spect2interp_scal(
+                    self.spect[m].Jz, self.interp[m].Jz )
+                self.trans[m].spect2interp_vect(
+                    self.spect[m].Jp,  self.spect[m].Jm,
+                    self.interp[m].Jr, self.interp[m].Jt )
+        elif fieldtype == 'rho' :
             # Transform each azimuthal grid individually
             for m in range(self.Nm) :
-                self.trans[m].interp2spect_scal(self.spect.rho_next,
-                                                self.interp.rho )
+                self.trans[m].interp2spect_scal(
+                    self.spect[m].rho_next, self.interp[m].rho )
+        else :
+            raise ValueError( 'Invalid string for fieldtype: %s' %fieldtype )
                 
 class InterpolationGrid(object) :
     """
@@ -234,10 +248,46 @@ class InterpolationGrid(object) :
         self.Jz = np.zeros( (Nz, Nr), dtype='complex' )
         self.rho = np.zeros( (Nz, Nr), dtype='complex' )
 
-    def project_on_grid(self, theta) :
-        # Use griddata
-        pass
+    def show(self, fieldtype, below_axis=True, **kw) :
+        """
+        Show the field `fieldtype` on the spectral grid
 
+        Parameters
+        ----------
+        fieldtype : string
+            Name of the field to be plotted.
+            (either 'Er', 'Et', 'Ez', 'Br', 'Bt', 'Bz',
+            'Jr', 'Jt', 'Jz', 'rho')
+
+        kw : dictionary
+            Options to be passed to matplotlib's imshow
+        """
+        # Select the field to plot
+        plotted_field = getattr( self, fieldtype)
+        # Show the field also below the axis for a more
+        # realistic picture
+        if below_axis == True :
+            plotted_field = np.hstack( (plotted_field[:,::-1],plotted_field) )
+            extent = [self.z.min(), self.z.max(), -self.r.max(), self.r.max() ]
+        else :
+            extent = [self.z.min(), self.z.max(), self.r.min(), self.r.max() ]
+
+        # Plot the real part
+        plt.subplot(211)
+        plt.imshow( plotted_field.real.T[::-1], aspect='auto',
+                    interpolation='nearest', extent = extent, **kw )
+        plt.xlabel('z')
+        plt.ylabel('r')
+        plt.colorbar()
+
+        # Plot the imaginary part
+        plt.subplot(212)
+        plt.imshow( plotted_field.imag.T[::-1], aspect='auto',
+                    interpolation='nearest', extent = extent, **kw )
+        plt.xlabel('z')
+        plt.ylabel('r')
+        plt.colorbar()
+        
 class SpectralGrid(object) :
     """
     Contains the fields and coordinates of the spectral grid.
@@ -282,7 +332,7 @@ class SpectralGrid(object) :
         self.rho_next = np.zeros( (Nz, Nr), dtype='complex' )
         self.F = np.zeros( (Nz, Nr), dtype='complex' )
 
-    def correct_currents(self, dt) :
+    def correct_currents (self, dt) :
         """
         Correct the currents so that they satisfies the
         charge conservation equation
@@ -296,14 +346,17 @@ class SpectralGrid(object) :
         # Get the corrective field F
         inv_dt = 1./dt
         i = 1.j   # Imaginary number i**2 = -1
-        self.F[:,:] = -1./( self.kz**2 + self.kr**2 ) * \
-            ( (self.rho_next - self.rho_prev)*inv_dt \
+        inv_k2 = 1./np.where( ( self.kz == 0 ) & (self.kr == 0),
+                1., self.kz**2 + self.kr**2 )  # Avoid division by 0
+        inv_k2[ ( self.kz == 0 ) & (self.kr == 0) ] = 0 # No correction for k=0
+        
+        self.F[:,:] = - inv_k2 * ( (self.rho_next - self.rho_prev)*inv_dt \
             + i*self.kz*self.Jz + self.kr*( self.Jp - self.Jm ) ) 
             
         # Correct the current accordingly
-        self.jp += 0.5*self.kr*self.
-        self.jp += -0.5*self.kr*self.F
-        self.jp += -i*self.kz*self.F
+        self.Jp += 0.5*self.kr*self.F
+        self.Jm += -0.5*self.kr*self.F
+        self.Jz += -i*self.kz*self.F
 
     def push_eb_with(self, ps ) :
         """
@@ -327,21 +380,19 @@ class SpectralGrid(object) :
         ps.Ez[:,:] = self.Ez[:,:]
 
         # Calculate useful auxiliary matrices
-        ps.j_coef[:,:] = mu_0*c**2*ps.inv_w2*( 1 - ps.C )
-        ps.rho_diff[:,:] = c**2/epsilon_0*ps.inv_w2*(     \
-                    self.rho_next*(    1   - ps.S_wdt) \
-                  - self.rho_prev*(  ps.C  - ps.S_wdt) )
-    
+        rho_diff = ps.rho_next_coef*self.rho_next \
+            - ps.rho_prev_coef*self.rho_prev
+        c2 = c**2
+
         # Push the E field
-        
-        self.Ep[:,:] = ps.C*self.Ep + 0.5*self.kr*ps.rho_diff \
-            + ps.S_w*( -i*0.5*self.kr*self.Bz + self.kz*self.Bp - mu_0*self.jp )
+        self.Ep[:,:] = ps.C*self.Ep + 0.5*self.kr*rho_diff \
+        + c2*ps.S_w*( -i*0.5*self.kr*self.Bz + self.kz*self.Bp - mu_0*self.Jp )
 
-        self.Em[:,:] = ps.C*self.Em - 0.5*self.kr*ps.rho_diff \
-            + ps.S_w*( -i*0.5*self.kr*self.Bz - self.kz*self.Bm - mu_0*self.jm )
+        self.Em[:,:] = ps.C*self.Em - 0.5*self.kr*rho_diff \
+        + c2*ps.S_w*( -i*0.5*self.kr*self.Bz - self.kz*self.Bm - mu_0*self.Jm )
 
-        self.Ez[:,:] = ps.C*self.Ez - i*self.kz*ps.rho_diff \
-            + ps.S_z*( i*self.kr*self.Bp + i*self.kr*self.Bm - mu_0*self.jz )
+        self.Ez[:,:] = ps.C*self.Ez - i*self.kz*rho_diff \
+        + c2*ps.S_w*( i*self.kr*self.Bp + i*self.kr*self.Bm - mu_0*self.Jz )
 
         # Push the B field
         
@@ -366,20 +417,47 @@ class SpectralGrid(object) :
         self.rho_prev[:,:] = self.rho_next[:,:]
         self.rho_next[:,:] = 0.
             
-    def project_on_grid(self, theta) :
+    def show(self, fieldtype, **kw) :
         """
-        Project on a regular grid, for plotting purposes, at a given theta
-        """
-        # Do FFT shift ?
-        pass
+        Show the field `fieldtype` on the spectral grid
 
+        Parameters
+        ----------
+        fieldtype : string
+            Name of the field to be plotted.
+            (either 'Ep', 'Em', 'Ez', 'Bp', 'Bm', 'Bz',
+            'Jp', 'Jm', 'Jz', 'rho_prev', 'rho_next')
+
+        kw : dictionary
+            Options to be passed to matplotlib's imshow
+        """
+        # Select the field to plot
+        plotted_field = getattr( self, fieldtype)
+        extent = [self.kz[:,0].min(), self.kz[:,0].max(),
+                  self.kr[0,:].min(), self.kr[0,:].max() ]
+
+        # Plot the real part
+        plt.subplot(211)
+        plt.imshow( plotted_field.real.T[::-1], aspect='auto',
+                    interpolation='nearest', extent = extent, **kw )
+        plt.xlabel('z')
+        plt.ylabel('r')
+        plt.colorbar()
+
+        # Plot the imaginary part
+        plt.subplot(212)
+        plt.imshow( plotted_field.imag.T[::-1], aspect='auto',
+                    interpolation='nearest', extent = extent, **kw )
+        plt.xlabel('z')
+        plt.ylabel('r')
+        plt.colorbar()
 
 class PsatdCoeffs(object) :
     """
     Contains the coefficients of the PSATD scheme for a given mode.
     """
     
-    def __init__( self, kz, kr, m, dt ) :
+    def __init__( self, kz, kr, m, dt, Nz, Nr ) :
         """
         Allocates the coefficients matrices for the psatd scheme.
         
@@ -397,25 +475,42 @@ class PsatdCoeffs(object) :
         dt : float
             The timestep of the simulation
         """
-
+        
         # Register m
         self.m = m
     
-        # Construct the omega array
+        # Construct the omega and inverse omega array
         w = c*np.sqrt( kz**2 + kr**2 )
+        inv_w = 1./np.where( w == 0, 1., w ) # Avoid division by 0 
 
-        # Construct the coefficient array
+        # Construct the C coefficient arrays
         self.C = np.cos( w*dt )
-        self.S_wdt = np.sin( w*dt )/(w*dt)
-        self.inv_w2 = 1./w**2
+        
+        # Construct the S/w coefficient arrays
+        self.S_w = np.sin( w*dt )*inv_w
+        # Enforce the right value for w==0
+        self.S_w[ w==0 ] = dt
+        
+        # Construct the mu0 c2 (1-C)/w2 array
+        self.j_coef =  mu_0*c**2*(1.-self.C)*inv_w**2
+        # Enforce the right value for w==0
+        self.j_coef[ w==0 ] = mu_0*c**2*(0.5*dt**2)
 
+        # Construct rho_prev coefficient array
+        inv_dt = 1./dt
+        self.rho_prev_coef = c**2/epsilon_0*(self.C - inv_dt*self.S_w)*inv_w**2
+        # Enforce the right value for w==0
+        self.rho_prev_coef[ w==0 ] = c**2/epsilon_0*(-1./3*dt**2)
+
+        # Construct rho_next coefficient array
+        self.rho_next_coef = c**2/epsilon_0*(1 - inv_dt*self.S_w)*inv_w**2
+        # Enforce the right value for w==0
+        self.rho_next_coef[ w==0 ] = c**2/epsilon_0*(1./6*dt**2)
+        
         # Allocate useful auxiliary matrices
-        self.rho_diff = np.zeros( (Nz, Nr), dtype='complex' )
-        self.j_coef = np.zeros( (Nz, Nr), dtype='complex' )
         self.Ep = np.zeros( (Nz, Nr), dtype='complex' )
         self.Em = np.zeros( (Nz, Nr), dtype='complex' )
         self.Ez = np.zeros( (Nz, Nr), dtype='complex' )
-        
 
 class SpectralTransformer(object) :
     """
@@ -475,11 +570,11 @@ class SpectralTransformer(object) :
            grid, and which is overwritten by this function.
         """
         # Perform the inverse DHT first (along axis -1, which corresponds to r)
-        interp_array = self.dht0.inverse_transform( spect_array, axis=-1 )
+        interp_array[:,:] = self.dht0.inverse_transform( spect_array, axis=-1 )
 
         # Then perform the FFT then (along axis 0, which corresponds to z)
         # (This could be done in-place, with FFTW later)
-        interp_array = np.fft.ifft( interp_array, axis=0 )        
+        interp_array[:,:] = np.fft.ifft( interp_array, axis=0 )
         
 
     def spect2interp_vect( self, spect_array_p, spect_array_m,
@@ -504,15 +599,15 @@ class SpectralTransformer(object) :
         interp_array_m = self.dhtm.inverse_transform( spect_array_m, axis=-1 )
 
         # Combine them to obtain the r and t components
-        interp_array_r = interp_array_p + interp_array_m
-        interp_array_t = 1.j*( interp_array_p - interp_array_m )
+        interp_array_r[:,:] = interp_array_p + interp_array_m
+        interp_array_t[:,:] = 1.j*( interp_array_p - interp_array_m )
 
         # Finally perform the FFT (along axis 0, which corresponds to z)
         # (This could be done in-place, with FFTW later)
-        interp_array_r = np.fft.ifft( interp_array_r, axis=0 )
-        interp_array_t = np.fft.ifft( interp_array_t, axis=0 )
+        interp_array_r[:,:] = np.fft.ifft( interp_array_r, axis=0 )
+        interp_array_t[:,:] = np.fft.ifft( interp_array_t, axis=0 )
 
-    def interp2spect_scal( self interp_array, spect_array ) :
+    def interp2spect_scal( self, interp_array, spect_array ) :
         """
         Convert a scalar field from the interpolation grid
         to the spectral grid.
@@ -533,10 +628,10 @@ class SpectralTransformer(object) :
         interp_array = np.fft.fft( interp_array, axis=0 )
         
         # Then perform the DHT (along axis -1, which corresponds to r)
-        spect_array = self.dht0.transform( interp_array, axis=-1 )
+        spect_array[:,:] = self.dht0.transform( interp_array, axis=-1 )
 
     def interp2spect_vect( self, interp_array_r, interp_array_t,
-                           spect_array_r, spect_array_t ) :
+                           spect_array_p, spect_array_m ) :
         """
         Convert a transverse vector field from the interpolation grid
         (e.g. Er, Et) to the spectral space (e.g. Ep, Em)
@@ -562,6 +657,6 @@ class SpectralTransformer(object) :
         interp_array_m = 0.5*( interp_array_r + 1.j*interp_array_t )
         
         # Perform the inverse DHT first (along axis -1, which corresponds to r)
-        spect_array_p = self.dhtp.transform( interp_array_p, axis=-1 )
-        spect_array_m = self.dhtm.transform( interp_array_m, axis=-1 )
+        spect_array_p[:,:] = self.dhtp.transform( interp_array_p, axis=-1 )
+        spect_array_m[:,:] = self.dhtm.transform( interp_array_m, axis=-1 )
 

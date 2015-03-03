@@ -438,12 +438,60 @@ correction at the end of the current deposition, at each timestep.
 \subsection{Field integration}
 \label{sec:FieldIntegration}
 
-We use an adaptation of the PSATD scheme \cite{Haber} for the
+The Maxwell equations
+\cref{eq:CircMaxwellp,eq:CircMaxwellm,eq:CircMaxwellz} could in
+principle be integrated in time by using a finite difference scheme:
+\begin{align*}
+\tE{+}{n+1} = \; & \tE{+}{n} + 
+c^2\Delta t\left(-\frac{ik_\perp }{2} \tB{z}{n} + k_z\tB{+}{n}
+- \mu_0 \tj{+}{n+1/2} \right) & \\
+\tE{-}{n+1} =\; & \tE{-}{n} +
+c^2\Delta t\left(- \frac{ik_\perp }{2} \tB{z}{n} - k_z\tB{-}{n}
+- \mu_0 \tj{-}{n+1/2} \right) &\\
+\tE{z}{n+1} =\; & \tE{z}{n} + 
+c^2\Delta t\left(ik_\perp \tB{+}{n} + ik_\perp \tB{-}{n}
+- \mu_0 \tj{z}{n+1/2} \right)  &
+\end{align*}
+\begin{align*}
+\tB{+}{n+1} = \; & \tB{+}{n} - 
+\Delta t\left(-\frac{ik_\perp }{2} \tE{z}{n} + k_z\tE{+}{n}
+\right) & \\
+\tB{-}{n+1} =\; & \tB{-}{n} - 
+\Delta t\left(- \frac{ik_\perp }{2} \tE{z}{n} - k_z\tE{-}{n}
+\right) &\\
+\tB{z}{n+1} =\; & \tB{z}{n} - 
+\Delta t\left(ik_\perp \tE{+}{n} + ik_\perp \tE{-}{n}
+\right) &
+\end{align*}
+However, this type of scheme retains some amount of numerical dispersion, and can
+thus affect the simulated physics.
+
+Instead, here we use an adaptation of the PSATD scheme \cite{Haber} for the
 Fourier-Bessel spectral space. Similarly to the case of the standard
 PSATD, we assume that the currents are constant over one timestep and
 the charge is linear in time over the same timestep. Under these
 assumptions, the Maxwell equations \cref{eq:CircMaxwellp,eq:CircMaxwellm,eq:CircMaxwellz} can be integrated
 analytically over that timestep, and they lead to:
+\begin{align*}
+\tE{+}{n+1} = \; & C \tE{+}{n} + 
+c^2\frac{S}{\omega}\left(-\frac{ik_\perp }{2} \tB{z}{n} + k_z\tB{+}{n}
+- \mu_0 \tj{+}{n+1/2} \right) + \frac{c^2}{\epsilon_0}
+\frac{k_\perp}{2}\left[ \frac{\trho{n+1}}{\omega^2}\left(
+  1 - \frac{S}{\omega\Delta t}\right) -
+\frac{\trho{n}}{\omega^2}\left( C -\frac{S}{\omega\Delta t}\right)\right]  & \\
+\tE{-}{n+1} =\; & C \tE{-}{n} +
+c^2\frac{S}{\omega}\left(- \frac{ik_\perp }{2} \tB{z}{n} - k_z\tB{-}{n}
+- \mu_0 \tj{-}{n+1/2} \right) - \frac{c^2}{\epsilon_0}
+\frac{k_\perp}{2}\left[ \frac{\trho{n+1}}{\omega^2}\left(
+  1 - \frac{S}{\omega\Delta t}\right) - \frac{\trho{n}}{\omega^2}
+\left( C - \frac{S}{\omega\Delta t}\right)\right]  &\\
+\tE{z}{n+1} =\; & C \tE{z}{n} + 
+c^2\frac{S}{\omega}\left(ik_\perp \tB{+}{n} + ik_\perp \tB{-}{n}
+- \mu_0 \tj{z}{n+1/2} \right) - \frac{c^2}{\epsilon_0}
+ik_z\left[ \frac{\trho{n+1}}{\omega^2}\left(
+  1 - \frac{S}{\omega\Delta t}\right) - \frac{\trho{n}}{\omega^2}
+\left( C - \frac{S}{\omega\Delta t}\right)\right]  &
+\end{align*}
 \begin{align*}
 \tB{+}{n+1} = \; & C \tB{+}{n} - 
 \frac{S}{\omega}\left(-\frac{ik_\perp }{2} \tE{z}{n} + k_z\tE{+}{n}
@@ -459,26 +507,7 @@ analytically over that timestep, and they lead to:
   \tj{+}{n+1/2} + ik_\perp \tj{-}{n+1/2} \right)&
 \end{align*}
 
-\begin{align*}
-\tE{+}{n+1} = \; & C \tE{+}{n} + 
-\frac{S}{\omega}\left(-\frac{ik_\perp }{2} \tB{z}{n} + k_z\tB{+}{n}
-- \mu_0 \tj{+}{n+1/2} \right) + \frac{c^2}{\epsilon_0}
-\frac{k_\perp}{2}\left[ \trho{n}\frac{S-\omega\Delta t
-  C}{\omega^3\Delta t} + \frac{\trho{n+1}}{\omega^2}\left(
-  1 - \frac{S}{\omega\Delta t}\right) \right]  & \\
-\tE{-}{n+1} =\; & C \tE{-}{n} +
-\frac{S}{\omega}\left(- \frac{ik_\perp }{2} \tB{z}{n} - k_z\tB{-}{n}
-- \mu_0 \tj{-}{n+1/2} \right) - \frac{c^2}{\epsilon_0}
-\frac{k_\perp}{2}\left[ \trho{n}\frac{S-\omega\Delta t
-  C}{\omega^3\Delta t} + \frac{\trho{n+1}}{\omega^2}\left(
-  1 - \frac{S}{\omega\Delta t}\right) \right]  &\\
-\tE{z}{n+1} =\; & C \tE{z}{n} + 
-\frac{S}{\omega}\left(ik_\perp \tB{+}{n} + ik_\perp \tB{-}{n}
-- \mu_0 \tj{z}{n+1/2} \right) - \frac{c^2}{\epsilon_0}
-ik_z\left[ \trho{n}\frac{S-\omega\Delta t
-  C}{\omega^3\Delta t} + \frac{\trho{n+1}}{\omega^2}\left(
-  1 - \frac{S}{\omega\Delta t}\right) \right]  &
-\end{align*}
+
 where $\omega= c\sqrt{k_z^2 + k_\perp^2}$, $C = \cos(\omega \Delta t)$ and $S = \sin(\omega \Delta t) $. (See \cref{sec:PSTADderiv} for a derivation.)
 
 \newpage
