@@ -77,6 +77,8 @@ def test_pulse( Nz, Nr, Nm, Lz, Lr, L_prop, Nt, w0, ctau, k0, a0 ) :
         fld.spect2interp('B')
         # Fit the fields to find the waist and a0
         w[it], a[it] = fit_fields( fld )
+        # Since the fit returns the RMS of a, renormalize it
+        a[it] = a[it]*2**(3./4)/np.pi**(1./4)*np.sqrt(Lz/ctau)
         # Show the progression bar
         progression_bar(it, Nt)
 
@@ -90,9 +92,15 @@ def test_pulse( Nz, Nr, Nm, Lz, Lr, L_prop, Nt, w0, ctau, k0, a0 ) :
     plt.subplot(121)
     plt.plot( z_prop, w, 'o' )
     plt.plot( z_prop, w_analytic, '--' )
+    plt.xlabel('z (microns)')
+    plt.ylabel('w (microns)')
+    plt.title('Waist')
     plt.subplot(122)
-    plt.plot( z_prop, a*w, 'o' )
-    plt.plot( z_prop, a_analytic*w_analytic, '--' )
+    plt.plot( z_prop, a, 'o' )
+    plt.plot( z_prop, a_analytic, '--' )
+    plt.xlabel('z (microns)')
+    plt.ylabel('a')
+    plt.title('Amplitude')
     
     # Return a dictionary of the results
     return( { 'a' : a, 'w' : w, 'fld' : fld } )
@@ -212,7 +220,7 @@ def fit_fields( fld, m=1 ) :
     # Average the laser oscillations longitudinally
     laser_profile = np.sqrt( (abs( fld.interp[1].Er )**2).mean(axis=0) )
     # Compensate the lower amplitude
-    laser_profile = np.sqrt(2)*laser_profile
+    laser_profile = laser_profile
 
     # Do the fit
     r = fld.interp[m].r
@@ -242,8 +250,12 @@ if __name__ == '__main__' :
     k0 = 2*np.pi/0.8
     a0 = 1.
     # Propagation
-    L_prop = 200.
+    L_prop = 400.
+
     N_step = 100
-    
-    fld = test_pulse( Nz, Nr, Nm, Lz, Lr, L_prop, N_step, w0, ctau, k0, a0 )
-    
+    test_pulse( Nz, Nr, Nm, Lz, Lr, L_prop, N_step, w0, ctau, k0, a0 )
+
+    N_step = 10
+    test_pulse( Nz, Nr, Nm, Lz, Lr, L_prop, N_step, w0, ctau, k0, a0 )
+
+    plt.show()
