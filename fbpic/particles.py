@@ -12,6 +12,14 @@ from scipy.constants import c
 class Particles(object) :
     """
     Class that contains the particles data of the simulation
+
+    Main attributes
+    ---------------
+    - x, y, z : 1darrays containing the Cartesian positions
+                of the macroparticles (in meters)
+    - uz, uy, uz : 1darrays containing the normalized momenta
+                of the macroparticles (unitless)
+    
     """
 
     def __init__(self, q, m, rho, Npz, zmin, zmax,
@@ -96,10 +104,8 @@ class Particles(object) :
         Reference : Vay, Physics of Plasmas 15, 056701 (2008)
         """
         # Set a few constants
-        const = self.q*self.dt/self.m
-        bconst = 0.5*const
-        invc = 1./c
-        invc2 = 1./c**2
+        econst = self.q*self.dt/(self.m*c)
+        bconst = 0.5*self.q*self.dt/self.m
         
         # Get the magnetic rotation vector
         taux = bconst*self.Bx
@@ -108,11 +114,14 @@ class Particles(object) :
         tau2 = taux**2 + tauy**2 + tauz**2
 
         # Get the momenta at the half timestep
-        ux = self.ux + const*self.Ex + self.invgamma*( self.uy*tauz - self.uz*tauy )
-        uy = self.uy + const*self.Ey + self.invgamma*( self.uz*taux - self.ux*tauz )
-        uz = self.uz + const*self.Ez + self.invgamma*( self.ux*tauy - self.uy*taux )
-        sigma = 1 + ( ux**2 + uy**2 + uz**2 )*invc2 - tau2
-        utau = ( ux*taux + uy*tauy + uz*tauz )*invc
+        ux = self.ux + econst*self.Ex \
+          + self.invgamma*( self.uy*tauz - self.uz*tauy )
+        uy = self.uy + econst*self.Ey \
+          + self.invgamma*( self.uz*taux - self.ux*tauz )
+        uz = self.uz + econst*self.Ez \
+          + self.invgamma*( self.ux*tauy - self.uy*taux )
+        sigma = 1 + ux**2 + uy**2 + uz**2 - tau2
+        utau = ux*taux + uy*tauy + uz*tauz
 
         # Get the new 1./gamma
         self.invgamma = np.sqrt(
@@ -136,11 +145,11 @@ class Particles(object) :
         """
         Advance the particles' positions over one half-timestep
         """
-        # Half timestep
-        hdt = 0.5*self.dt
+        # Half timestep, multiplied by c
+        chdt = c*0.5*self.dt
 
         # Particle push
-        self.x = self.x + hdt*self.invgamma*self.ux
-        self.y = self.y + hdt*self.invgamma*self.uy
-        self.z = self.z + hdt*self.invgamma*self.uz
+        self.x = self.x + chdt*self.invgamma*self.ux
+        self.y = self.y + chdt*self.invgamma*self.uy
+        self.z = self.z + chdt*self.invgamma*self.uz
         

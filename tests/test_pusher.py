@@ -29,7 +29,7 @@ def test_constant_B( Bz, q, m, rmin, rmax, gammamin, gammamax,
 
     # Initialize the right momenta for the particles
     gamma = np.linspace( gammamin, gammamax, Npart )
-    utheta = c*np.sqrt( gamma**2 - 1 )
+    utheta = np.sqrt( gamma**2 - 1 )
     invr = 1./np.sqrt( ptcl.x**2 + ptcl.y**2 )
     ptcl.ux = utheta * ptcl.y * invr * np.sign(q)
     ptcl.uy = - utheta * ptcl.x * invr * np.sign(q)
@@ -45,12 +45,12 @@ def test_constant_B( Bz, q, m, rmin, rmax, gammamin, gammamax,
     # Compute the analytical solution
     phi = np.angle( ptcl.uy + 1.j*ptcl.ux )
     w = w_larmor/gamma
-    xc = ptcl.x + ptcl.uy/(gamma*w)
-    yc = ptcl.y - ptcl.ux/(gamma*w)
+    xc = ptcl.x + c*ptcl.uy/(gamma*w)
+    yc = ptcl.y - c*ptcl.ux/(gamma*w)
     ux_analytic = utheta[np.newaxis,:] * np.sin( w*t + phi[np.newaxis,:] )
     uy_analytic = utheta[np.newaxis,:] * np.cos( w*t + phi[np.newaxis,:] )
-    x_analytic = xc[np.newaxis,:] - uy_analytic/((gamma*w)[np.newaxis,:])
-    y_analytic = yc[np.newaxis,:] + ux_analytic/((gamma*w)[np.newaxis,:])
+    x_analytic = xc[np.newaxis,:] - c*uy_analytic/((gamma*w)[np.newaxis,:])
+    y_analytic = yc[np.newaxis,:] + c*ux_analytic/((gamma*w)[np.newaxis,:])
     # Prepare the arrays for the time history of the pusher
     x = np.zeros( (Nstep, Npart) )
     y = np.zeros( (Nstep, Npart) )
@@ -83,6 +83,7 @@ def test_constant_B( Bz, q, m, rmin, rmax, gammamin, gammamax,
     plt.ylabel('y')
     
     plt.figure()
+    plt.subplot(aspect='equal')
     plt.plot( x_analytic, y_analytic, '--' )
     plt.plot( x, y, 'o' )
     plt.xlabel('x')
@@ -98,8 +99,8 @@ if __name__ == '__main__' :
     gammamin = 200.
     gammamax = 400.
     Npart = 4
-    Npts_per_gyr = 40
-    N_gyr = 20
+    Npts_per_gyr = 20
+    N_gyr = 5
     
     test_constant_B( Bz, q, m, rmin, rmax, gammamin, gammamax,
             Npart, Npts_per_gyr, N_gyr )
