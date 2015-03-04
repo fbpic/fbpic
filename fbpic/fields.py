@@ -1,8 +1,6 @@
 """
-This file is part of the Fourier-Hankel Particle-In-Cell code (FB-PIC)
-
-This file defines the structure and methods associated with the fields,
-that are used during a PIC cycle.
+This file is part of the Fourier-Bessel Particle-In-Cell code (FB-PIC)
+It defines the structure and methods associated with the fields.
 """
 
 import numpy as np
@@ -12,11 +10,29 @@ from fbpic.hankel_dt import DHT
 
 class Fields(object) :
     """
-    Top-level class, which contains :
-    - the spatial and spectral grids
-    - the Hankel transform objects
-    - the method to push the fields in time
-    - the methods to transform the fields back and forth
+    Class that contains the fields data of the simulation
+
+    Main attributes
+    ----------
+    All the following attributes are lists,
+    with one element per azimuthal mode
+    - interp : a list of InterpolationGrid objects
+        Contains the field data on the interpolation grid
+    - spect : a list of SpectralGrid objects
+        Contains the field data on the spectral grid
+    - trans : a list of SpectralTransformer objects
+        Allows to transform back and forth between the
+        interpolation and spectral grid
+    - psatd : a list of PsatdCoeffs
+        Contains the coefficients to solve the Maxwell equations
+
+    Methods
+    -------
+    - push : Advances the fields over one timestep
+    - interp2spect : Transforms the fields from the
+           interpolation grid to the spectral grid
+    - spect2interp : Transforms the fields from the
+           spectral grid to the interpolation grid
     """
 
     def __init__( self, Nz, zmax, Nr, rmax, Nm, dt ) :

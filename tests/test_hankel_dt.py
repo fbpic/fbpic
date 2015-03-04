@@ -1,5 +1,11 @@
 """
-This file tests the Discrete Hankel Transform which is implemented in hankel_dt
+This file tests the Discrete Hankel Transform which is implemented
+in hankel_dt, by performing the forward and backward Hankel Transform
+of a set of known Hankel couples.
+
+Usage :
+from the top-level directory of FBPIC run
+$ python tests/test_hankel_dt.py
 """
 
 import numpy as np

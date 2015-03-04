@@ -4,6 +4,9 @@ Fourier-Hankel Particle-In-Cell (FB-PIC) main file
 This file steers and controls the simulation.
 """
 
+from fbpic.fields import Fields
+from fbpic.particles import Particles
+
 class Simulation(object) :
     """
     Simulation class that contains all the simulation data,
@@ -19,7 +22,8 @@ class Simulation(object) :
     - step : perform n PIC cycles
     """
 
-    def __init__(self, Nz, zmax, Nr, rmax, Nm, dt) :
+    def __init__(self, Nz, zmax, Nr, rmax, Nm, dt,
+                 p_zmin, p_zmax, p_rmax, p_nz, p_nr, p_q, p_m ) :
         """
         Initializes the simulation structures
 
@@ -45,7 +49,7 @@ class Simulation(object) :
         """
     
         # Initialize the field structure
-        self.fld = Fields(...)
+        self.fld = Fields(Nz, zmax, Nr, rmax, Nm, dt)
         # Fill the values of the interpolation grid
         # ...
         # Convert to spectral space
@@ -54,7 +58,7 @@ class Simulation(object) :
         
         # Initialize the particle structure
         self.ptcl = [
-            Particles(...),  # Electrons
+            Particles(..., dt ),  # Electrons
             Particles(...)   # Ions
             ]
         
