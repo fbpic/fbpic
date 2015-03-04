@@ -17,8 +17,8 @@ class Particles(object) :
     ---------------
     - x, y, z : 1darrays containing the Cartesian positions
                 of the macroparticles (in meters)
-    - uz, uy, uz : 1darrays containing the normalized momenta
-                of the macroparticles (unitless)
+    - uz, uy, uz : 1darrays containing the unitless momenta
+                (i.e. px/mc, py/mc, pz/mc)
     
     """
 
@@ -153,3 +153,296 @@ class Particles(object) :
         self.y = self.y + chdt*self.invgamma*self.uy
         self.z = self.z + chdt*self.invgamma*self.uz
         
+        
+    def gather(self, grid) :
+        """
+        Gather the fields onto the macroparticles using numpy
+        
+        Parameter
+        ----------
+        grid : a list of InterpolationGrid objects (one per azimuthal mode)
+             Contains the field values on the interpolation grid
+        """
+
+        # Preliminary arrays for the cylindrical conversion
+        r = np.sqrt( self.x**2 + self.y**2 )
+        invr = 1./r
+        c = self.x*invr  # Cosine
+        s = self.y*invr  # Sine
+
+        # Indices and weights
+        iz_lower, iz_upper, Sz_lower = linear_weights( z, 1./dz, 0. )
+        ir_lower, ir_upper, Sr_lower = linear_weights( r, 1./dr, 0.5*dr )
+
+        # -------------------------------
+        # Gather the E field mode by mode
+        # -------------------------------
+        # Zero the previous fields
+        self.Ex[:] = 0.
+        self.Ey[:] = 0.
+        self.Ez[:] = 0.
+        # Prepare auxiliary matrices
+        Ft = np.zeros(self.Ntot)
+        Fr = np.zeros(self.Ntot)
+        exptheta = np.ones(self.Ntot, dtype='complex')
+        # exptheta takes the value exp(-im theta) throughout the loop
+        for m in range(Nm) :
+            gather_field( exptheta, m, grid[m].Ez, self.Ez, 
+                iz_lower, iz_upper, Sz_lower,
+                ir_lower, ir_upper, Sr_lower )
+            gather_field( exptheta, m, grid[m].Er, Fr, 
+                iz_lower, iz_upper, Sz_lower,
+                ir_lower, ir_upper, Sr_lower )
+            gather_field( exptheta, m, grid[m].Et, Ft, 
+                iz_lower, iz_upper, Sz_lower,
+                ir_lower, ir_upper, Sr_lower )
+            # Increment exptheta (notice the - : backward Fourier transform)
+            exptheta = exptheta*( c - 1.j*s )
+        # Convert to Cartesian coordinates
+        self.Ex[:] = c*Fr - s*Ft
+        self.Ey[:] = s*Fr + c*Ft
+
+        # -------------------------------
+        # Gather the B field mode by mode
+        # -------------------------------
+        # Zero the previous fields
+        self.Bx[:] = 0.
+        self.By[:] = 0.
+        self.Bz[:] = 0.
+        # Prepare auxiliary matrices
+        Ft[:] = 0.
+        Fr[:] = 0.
+        exptheta[:] = 1.
+        # exptheta takes the value exp(-im theta) throughout the loop
+        for m in range(Nm) :
+            gather_field( exptheta, m, grid[m].Bz, self.Bz, 
+                iz_lower, iz_upper, Sz_lower,
+                ir_lower, ir_upper, Sr_lower )
+            gather_field( exptheta, m, grid[m].Br, Fr, 
+                iz_lower, iz_upper, Sz_lower,
+                ir_lower, ir_upper, Sr_lower )
+            gather_field( exptheta, m, grid[m].Bt, Ft, 
+                iz_lower, iz_upper, Sz_lower,
+                ir_lower, ir_upper, Sr_lower )
+            # Increment exptheta (notice the - : backward Fourier transform)
+            exptheta = exptheta*( c - 1.j*s )
+        # Convert to Cartesian coordinates
+        self.Bx[:] = c*Fr - s*Ft
+        self.By[:] = s*Fr + c*Ft
+
+        
+    def deposit(self, grid, fieldtype) :
+        """
+        Deposit the particles charge or current onto the grid, using numpy
+        
+        Parameter
+        ----------
+        grid : a list of InterpolationGrid objects
+             Contains the field values on the interpolation grid
+
+        fieldtype : string
+             Indicates which field to deposit
+             Either 'J' or 'rho'
+        """
+        # Check the validity of fieldtype
+        if ( fieldtype in ['J', 'rho'] ) == False :
+            raise ValueError(
+                "`fieldtype` should be either 'J' or 'rho', but is `%s`" \
+                           %fieldtype )
+        
+        # Preliminary arrays for the cylindrical conversion
+        r = np.sqrt( self.x**2 + self.y**2 )
+        invr = 1./r
+        c = self.x*invr  # Cosine
+        s = self.y*invr  # Sine
+
+        # Indices and weights
+        iz_lower, iz_upper, Sz_lower = linear_weights( z, 1./dz, 0. )
+        ir_lower, ir_upper, Sr_lower = linear_weights( r, 1./dr, 0.5*dr )
+
+        if fieldtype == 'rho' :
+            # ---------------------------------------
+            # Deposit the charge density mode by mode
+            # ---------------------------------------
+            # Prepare auxiliary matrix
+            exptheta = np.ones( self.Ntot, dtype='complex')
+            # exptheta takes the value exp(im theta) throughout the loop
+            for m in range(Nm) :
+                deposit_field( self.w*exptheta, grid[m].rho, 
+                    iz_lower, iz_upper, Sz_lower,
+                    ir_lower, ir_upper, Sr_lower )
+                # Increment exptheta (notice the + : forward Fourier transform)
+                exptheta = exptheta*( c + 1.j*s )
+            
+        elif fieldtype == 'J' :
+            # ----------------------------------------
+            # Deposit the current density mode by mode
+            # ----------------------------------------
+            # Calculate the currents
+            Jr = self.w*self.invgamma * ( c*self.ux + s*self.uy )
+            Jt = self.w*self.invgamma * ( c*self.uy - s*self.ux )
+            Jz = self.w*self.invgamma * self.uz
+            # Prepare auxiliary matrix
+            exptheta[:] = np.ones( self.Ntot, dtype='complex')
+            # exptheta takes the value exp(-im theta) throughout the loop
+            for m in range(Nm) :
+                deposit_field( Jr*exptheta, grid[m].Jr, 
+                    iz_lower, iz_upper, Sz_lower,
+                    ir_lower, ir_upper, Sr_lower )
+                deposit_field( Jt*exptheta, grid[m].Jt, 
+                    iz_lower, iz_upper, Sz_lower,
+                    ir_lower, ir_upper, Sr_lower )
+                deposit_field( Jz*exptheta, grid[m].Jz, 
+                    iz_lower, iz_upper, Sz_lower,
+                    ir_lower, ir_upper, Sr_lower )
+                # Increment exptheta (notice the + : forward Fourier transform)
+                exptheta = exptheta*( c + 1.j*s )
+
+
+def linear_weights(x, invdx, offset, Nx) :
+    """
+    Return the matrix indices and the shape factors, for linear shapes.
+
+    Parameters
+    ----------
+    x : 1darray of floats (in meters)
+        Array of particle positions along a given direction
+        (one element per macroparticle)
+
+    invdx : float (in meters^-1)
+        Inverse of the grid step along the considered direction
+
+    offset : float (in meters)
+        Position of the first node of the grid along the considered direction
+
+    Nx : int
+        Number of gridpoints along the considered direction
+
+    Returns
+    -------
+    A tuple containing :
+    
+    i_lower : 1darray of integers
+        (one element per macroparticle)
+        Contains the index of the cell immediately below each
+        macroparticle, along the considered axis
+    i_upper : 1darray of integers
+        (one element per macroparticle)
+        Contains the index of the cell immediately above each
+        macroparticle, along the considered axis
+    S_lower : 1darray of floats
+        (one element per macroparticle)
+        Contains the weight for the lower cell, for each macroparticle.
+        The weight for the upper cell is just 1-S_lower.
+    """
+    
+    # Index of the uppper and lower cell
+    i_lower = np.floor( invdx*(x - offset) ).astype('int')  
+    i_upper = i_lower + 1
+    
+    # Avoid out-of-bounds indices
+    i_lower = np.where( i_lower < 0, 0, i_lower )
+    i_lower = np.where( i_lower > Nx-1, Nx-1, i_lower )
+    i_upper = np.where( i_upper < 0, 0, i_upper )
+    i_upper = np.where( i_upper > Nx-1, Nx-1, i_upper )
+
+    # Linear weight
+    S_lower = 1. - ( invdx*(x - offset) - i_lower )
+
+    return( i_lower, i_upper, S_lower )
+
+
+
+def gather_field( exptheta, m, Fgrid, Fptcl, 
+        iz_lower, iz_upper, Sz_lower, ir_lower, ir_upper, Sr_lower ) :
+    """
+    Perform the weighted sum from the 4 points that surround each particle,
+    for one given field and one given azimuthal mode
+
+    Parameters
+    ----------
+    exptheta : 1darray of complexs
+        (one element per macroparticle)
+        Contains exp(-im theta) for each macroparticle
+
+    m : int
+        Index of the mode.
+        Determines wether a factor 2 should be applied
+    
+    Fgrid : 2darray of complexs
+        Contains the fields on the interpolation grid,
+        from which to do the gathering
+
+    Fptcl : 1darray of floats
+        (one element per macroparticle)
+        Contains the fields for each macroparticle
+        Is modified by this function
+
+    iz_lower, iz_upper, ir_lower, ir_upper : 1darrays of integers
+        (one element per macroparticle)
+        Contains the index of the cells immediately below and
+        immediately above each macroparticle, in z and r
+        
+    Sz_lower, Sr_lower : 1darrays of floats
+        (one element per macroparticle)
+        Contains the weight for the lower cell, for each macroparticle.
+        The weight for the upper cell is just 1-S_lower.
+    """
+    # Temporary matrix that contains the complex fields
+    F = np.zeros_like(exptheta)
+    
+    # Sum the fields from the 4 points
+    # NB : These operations could be made maybe
+    # twice faster with flattened indices and np.take
+    # Lower cell in z, Lower cell in r
+    F += Sz_lower*Sr_lower*Fgrid[ iz_lower, ir_lower ]
+    # Lower cell in z, Upper cell in r
+    F += Sz_lower*(1-Sr_lower)*Fgrid[ iz_lower, ir_upper ]
+    # Upper cell in z, Lower cell in r
+    F += (1-Sz_lower)*Sr_lower*Fgrid[ iz_upper, ir_lower ]
+    # Upper cell in z, Upper cell in r
+    F += (1-Sz_lower)*(1-Sr_lower)*Fgrid[ iz_upper, ir_upper ]
+
+    # Add the complex phase
+    if m == 0 :
+        Fptcl += (F*exptheta).real
+    if m > 0 :
+        Fptcl += 2*(F*exptheta).real
+
+
+def deposit_field( Fptcl, Fgrid, 
+        iz_lower, iz_upper, Sz_lower, ir_lower, ir_upper, Sr_lower ) :
+    """
+    Perform the deposition on the 4 points that surround each particle,
+    for one given field and one given azimuthal mode
+
+    Parameters
+    ----------
+    Fptcl : 1darray of complexs
+        (one element per macroparticle)
+        Contains the charge or current for each macroparticle (already
+        multiplied by exp(im theta), from which to do the deposition
+    
+    Fgrid : 2darray of complexs
+        Contains the fields on the interpolation grid.
+        Is modified by this function
+
+    iz_lower, iz_upper, ir_lower, ir_upper : 1darrays of integers
+        (one element per macroparticle)
+        Contains the index of the cells immediately below and
+        immediately above each macroparticle, in z and r
+        
+    Sz_lower, Sr_lower : 1darrays of floats
+        (one element per macroparticle)
+        Contains the weight for the lower cell, for each macroparticle.
+        The weight for the upper cell is just 1-S_lower. 
+    """
+    # Deposit the particle quantity onto the grid
+    # Lower cell in z, Lower cell in r
+    np.add.at( Fgrid, (iz_lower, ir_lower), Sz_lower*Sr_lower*Fptcl ) 
+    # Lower cell in z, Upper cell in r
+    np.add.at( Fgrid, (iz_lower, ir_upper), Sz_lower*(1-Sr_lower)*Fptcl )
+    # Upper cell in z, Lower cell in r
+    np.add.at( Fgrid, (iz_upper, ir_lower), (1-Sz_lower)*Sr_lower*Fptcl )
+    # Upper cell in z, Upper cell in r
+    np.add.at( Fgrid, (iz_upper, ir_lower), (1-Sz_lower)*(1-Sr_lower)*Fptcl )

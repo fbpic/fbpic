@@ -47,7 +47,6 @@ class Simulation(object) :
         dt : float
             The timestep of the simulation
         """
-    
         # Initialize the field structure
         self.fld = Fields(Nz, zmax, Nr, rmax, Nm, dt)
         # Fill the values of the interpolation grid
@@ -75,7 +74,6 @@ class Simulation(object) :
         N : int, optional
             The number of timesteps to take
         """
-
         # Shortcuts
         ptcl = self.ptcl
         fld = self.fld
@@ -91,19 +89,23 @@ class Simulation(object) :
             for species in ptcl :
                 species.push_p()
                 species.halfpush_x()
-            # Get the current on the interpolation grid,
-            # and then on the spectral grid
+            # Get the current on the interpolation grid
+            fld.erase('J')
             for species in ptcl :
                 species.deposit( fld.interp, 'J' )
+            fld.divide_by_volume('J')
+            # Get the current on the spectral grid
             fld.interp2spect('J')
 
             # Push the particles' position to t = (n+1) dt
             for species in ptcl :
                 species.halfpush_x()
-            # Get the charge density on the interpolation grid,
-            # and then on the spectral grid
+            # Get the charge density on the interpolation grid
+            fld.erase('rho')
             for species in ptcl :
                 species.deposit( fld.interp, 'rho' )
+            fld.divide_by_volume('J')
+            # Get the charge density on the spectral grid
             fld.interp2spect('rho')
     
             # Push the fields in time

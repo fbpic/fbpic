@@ -11,6 +11,12 @@ import matplotlib.pyplot as plt
 from scipy.constants import e, m_e, c
 from fbpic.particles import Particles
 
+# To be done :
+# - Abstraction with general field function (x,y,z,t) -> (E,B)
+#   and analytical solution
+# - Add a function for a laser (linearly polarized : figure of eight,
+#   circularly polarized : constant motion)
+
 def test_constant_B( Bz, q, m, rmin, rmax, gammamin, gammamax,
                      Npart, Npts_per_gyr, N_gyr ) :
     """
