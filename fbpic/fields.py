@@ -216,7 +216,68 @@ class Fields(object) :
                     self.spect[m].rho_next, self.interp[m].rho )
         else :
             raise ValueError( 'Invalid string for fieldtype: %s' %fieldtype )
-                
+
+    def erase(self, fieldtype ) :
+        """
+        Put the field `fieldtype` to 0 on the interpolation grid
+
+        Parameter
+        ---------
+        fieldtype :
+            A string which represents the kind of field to be erased
+            (either 'E', 'B', 'J', 'rho')
+        """
+        if fieldtype == 'rho' :
+            for m in range(self.Nm) :
+                self.interp[m].rho[:,:] = 0.
+        elif fieldtype == 'J' :
+            for m in range(self.Nm) :
+                self.interp[m].Jr[:,:] = 0.
+                self.interp[m].Jt[:,:] = 0.
+                self.interp[m].Jz[:,:] = 0.
+        elif fieldtype == 'E' :
+            for m in range(self.Nm) :
+                self.interp[m].Er[:,:] = 0.
+                self.interp[m].Et[:,:] = 0.
+                self.interp[m].Ez[:,:] = 0.
+        elif fieldtype == 'B' :
+            for m in range(self.Nm) :
+                self.interp[m].Br[:,:] = 0.
+                self.interp[m].Bt[:,:] = 0.
+                self.interp[m].Bz[:,:] = 0.
+        else :
+            raise ValueError( 'Invalid string for fieldtype: %s' %fieldtype )
+
+    def divide_by_volume( self, fieldtype ) :
+        """
+        Divide the field `fieldtype` in each cell by the cell volume,
+        on the interpolation grid.
+
+        This is typically done for rho and J, after the charge and
+        current deposition.
+
+        Parameter
+        ---------
+        fieldtype :
+            A string which represents the kind of field to be erased
+            (either 'rho' or 'J')
+        """
+        if fieldtype == 'rho' :
+            for m in range(self.Nm) :
+                self.interp[m].rho = \
+                   self.interp[m].rho * self.interp[m].invvol[np.newaxis,:]
+        elif fieldtype == 'J' :
+            for m in range(self.Nm) :
+                self.interp[m].Jr = \
+                  self.interp[m].Jr * self.interp[m].invvol[np.newaxis,:]
+                self.interp[m].Jt = \
+                  self.interp[m].Jt * self.interp[m].invvol[np.newaxis,:]
+                self.interp[m].Jz = \
+                  self.interp[m].Jz * self.interp[m].invvol[np.newaxis,:]
+        else :
+            raise ValueError( 'Invalid string for fieldtype: %s' %fieldtype )
+
+
 class InterpolationGrid(object) :
     """
     Contains the fields and coordinates of the spatial grid.
@@ -252,6 +313,17 @@ class InterpolationGrid(object) :
         self.r = r
         self.m = m
 
+        # Register a few grid properties
+        dr = r[1] - r[0]
+        dz = z[1] - z[0]
+        self.dr = dr
+        self.dz = dz
+        self.invdr = 1./dr
+        self.invdz = 1./dz
+        # Cell volume (assuming an evenly-spaced grid)
+        vol = np.pi*dz*( (r+0.5*dr)**2 - (r-0.5*dr)**2 )
+        self.invvol = 1./vol
+        
         # Allocate the fields arrays
         self.Er = np.zeros( (Nz, Nr), dtype='complex' )
         self.Et = np.zeros( (Nz, Nr), dtype='complex' )

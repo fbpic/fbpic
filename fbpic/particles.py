@@ -5,9 +5,9 @@ It defines the structure and methods associated with the particles.
 
 import numpy as np
 import matplotlib.pyplot as plt
-from numba import double
-from numba.decorators import jit, autojit
 from scipy.constants import c
+#from numba import double
+#from numba.decorators import jit, autojit
 
 class Particles(object) :
     """
@@ -171,8 +171,10 @@ class Particles(object) :
         s = self.y*invr  # Sine
 
         # Indices and weights
-        iz_lower, iz_upper, Sz_lower = linear_weights( z, 1./dz, 0. )
-        ir_lower, ir_upper, Sr_lower = linear_weights( r, 1./dr, 0.5*dr )
+        iz_lower, iz_upper, Sz_lower = \
+          linear_weights( z, grid[0].invdz, 0. )
+        ir_lower, ir_upper, Sr_lower = \
+          linear_weights( r, grid[0].invdr, 0.5*grid[0].dr )
 
         # -------------------------------
         # Gather the E field mode by mode

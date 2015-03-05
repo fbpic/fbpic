@@ -369,8 +369,13 @@ timesteps. The following section describe the successive steps of the cycle in m
 
 When gathering the fields from the intermediate grid to the macroparticles,
 we use standard linear shape factors :
-\[ F_u(\vec{r}_k) =  \sum_{p,q} S_{z,p}(z_k)
-S_{r,q}(r_k) \sum_{m=-N_m}^{N_m} \mathcal{F}_{u,m}(z_p, r_q) e^{-im\theta_k} \]
+\begin{align} 
+F_u(\vec{r}_k) &=  \sum_{p,q} S_{z,p}(z_k)S_{r,q}(r_k) \left[ \sum_{m=-N_m}^{N_m} \mathcal{F}_{u,m}(z_p, r_q)
+  e^{-im\theta_k} \right] \\
+& = \sum_{p,q} S_{z,p}(z_k)S_{r,q}(r_k) \left[ \mathcal{F}_{u,0}(z_p,
+  r_q) + 2\,\Re \left( \sum_{m=1}^{N_m} \mathcal{F}_{u,m}(z_p, r_q)
+  e^{-im\theta_k} \right) \right]
+\end{align}
 where $k$ is the index of the macroparticle, and $p$ and $q$ are the
 indices of the neighboring cells, in $z$ and $r$ respectively. $N_m$ is the total number
 of azimuthal modes used, and $S_{z,p}$ and $S_{z,q}$ are the linear
@@ -383,8 +388,8 @@ S_{z,p_0 +1}(z) = \frac{ z - z_{p_0} }{\Delta z} \qquad
 \qquad \mathrm{with} \quad r_{q_0} \leq r < r_{q_0+1}
 \Delta r \]
 In addition, $S_{r,0}(r) = 1$ for $r< r_0 = \Delta r/2$ i.e. any macroparticle
-located below the first node of the spatial grid deposits all its charge on
-this first node.
+located below the first node of the spatial grid gathers all its
+fields from this first node.
 
 \subsection{Equations of motion}
 
@@ -400,7 +405,7 @@ where $V_q$ is the volume of a cell
 \[ V_{q} = \pi [\, (q+1)^2- q^2\,] \Delta r^2 \Delta z  \qquad
 V_{0} = \pi \Delta r^2 \Delta z \]
 Similarly, the current deposition is given by
-\[ \mathcal{J}_{u,m}(z_p,r_q) = \sum_k  \frac{S_{z,p}(z_k) S_{r,q}(r_k)
+\[ \mathcal{J}_{u,m}(z_p,r_q) = \frac{\sum_k S_{z,p}(z_k) S_{r,q}(r_k)
 Q_k v_{u,k} e^{im\theta_k}}{V_{q}} \]
 where $u = z,r,\theta$ and the $v_{u,k}$ are the cylindrical components of the
 velocity of the macroparticle $k$. Notice that we do not attempt to
