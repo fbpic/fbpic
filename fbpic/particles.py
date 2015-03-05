@@ -160,7 +160,8 @@ class Particles(object) :
         
         Parameter
         ----------
-        grid : a list of InterpolationGrid objects (one per azimuthal mode)
+        grid : a list of InterpolationGrid objects
+             (one InterpolationGrid object per azimuthal mode)
              Contains the field values on the interpolation grid
         """
 
@@ -171,11 +172,15 @@ class Particles(object) :
         s = self.y*invr  # Sine
 
         # Indices and weights
-        iz_lower, iz_upper, Sz_lower = \
-          linear_weights( z, grid[0].invdz, 0. )
-        ir_lower, ir_upper, Sr_lower = \
-          linear_weights( r, grid[0].invdr, 0.5*grid[0].dr )
+        iz_lower, iz_upper, Sz_lower = linear_weights(
+           self.z, grid[0].invdz, 0., grid[0].Nz )
+        ir_lower, ir_upper, Sr_lower = linear_weights(
+            r, grid[0].invdr, 0.5*grid[0].dr, grid[0].Nr )
 
+        # Number of modes considered :
+        # number of elements in the grid list
+        Nm = len(grid)
+        
         # -------------------------------
         # Gather the E field mode by mode
         # -------------------------------
@@ -240,18 +245,13 @@ class Particles(object) :
         Parameter
         ----------
         grid : a list of InterpolationGrid objects
+             (one InterpolationGrid object per azimuthal mode)
              Contains the field values on the interpolation grid
 
         fieldtype : string
              Indicates which field to deposit
              Either 'J' or 'rho'
-        """
-        # Check the validity of fieldtype
-        if ( fieldtype in ['J', 'rho'] ) == False :
-            raise ValueError(
-                "`fieldtype` should be either 'J' or 'rho', but is `%s`" \
-                           %fieldtype )
-        
+        """        
         # Preliminary arrays for the cylindrical conversion
         r = np.sqrt( self.x**2 + self.y**2 )
         invr = 1./r
@@ -259,8 +259,14 @@ class Particles(object) :
         s = self.y*invr  # Sine
 
         # Indices and weights
-        iz_lower, iz_upper, Sz_lower = linear_weights( z, 1./dz, 0. )
-        ir_lower, ir_upper, Sr_lower = linear_weights( r, 1./dr, 0.5*dr )
+        iz_lower, iz_upper, Sz_lower = linear_weights( 
+            self.z, grid[0].invdz, 0., grid[0].Nz )
+        ir_lower, ir_upper, Sr_lower = linear_weights(
+            r, grid[0].invdr, 0.5*grid[0].dr, grid[0].Nr )
+
+        # Number of modes considered :
+        # number of elements in the grid list
+        Nm = len(grid)
 
         if fieldtype == 'rho' :
             # ---------------------------------------
@@ -299,6 +305,10 @@ class Particles(object) :
                     ir_lower, ir_upper, Sr_lower )
                 # Increment exptheta (notice the + : forward Fourier transform)
                 exptheta = exptheta*( c + 1.j*s )
+
+        else :
+            raise ValueError(
+        "`fieldtype` should be either 'J' or 'rho', but is `%s`" %fieldtype )
 
 
 def linear_weights(x, invdx, offset, Nx) :
