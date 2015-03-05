@@ -115,25 +115,25 @@ class Particles(object) :
 
         # Get the momenta at the half timestep
         ux = self.ux + econst*self.Ex \
-          + self.invgamma*( self.uy*tauz - self.uz*tauy )
+          + self.inv_gamma*( self.uy*tauz - self.uz*tauy )
         uy = self.uy + econst*self.Ey \
-          + self.invgamma*( self.uz*taux - self.ux*tauz )
+          + self.inv_gamma*( self.uz*taux - self.ux*tauz )
         uz = self.uz + econst*self.Ez \
-          + self.invgamma*( self.ux*tauy - self.uy*taux )
+          + self.inv_gamma*( self.ux*tauy - self.uy*taux )
         sigma = 1 + ux**2 + uy**2 + uz**2 - tau2
         utau = ux*taux + uy*tauy + uz*tauz
 
         # Get the new 1./gamma
-        self.invgamma = np.sqrt(
+        self.inv_gamma = np.sqrt(
         2./( sigma + np.sqrt( sigma**2 + 4*(tau2 + utau**2 ) ) )
         )
 
         # Reuse the tau and utau arrays to save memory
-        taux[:] = self.invgamma*taux
-        tauy[:] = self.invgamma*tauy
-        tauz[:] = self.invgamma*tauz
-        utau[:] = self.invgamma*utau
-        s = 1./( 1 + tau2*self.invgamma**2 )
+        taux[:] = self.inv_gamma*taux
+        tauy[:] = self.inv_gamma*tauy
+        tauz[:] = self.inv_gamma*tauz
+        utau[:] = self.inv_gamma*utau
+        s = 1./( 1 + tau2*self.inv_gamma**2 )
 
         # Get the new u
         self.ux = s*( ux + taux*utau + uy*tauz - uz*tauy )
@@ -149,9 +149,9 @@ class Particles(object) :
         chdt = c*0.5*self.dt
 
         # Particle push
-        self.x = self.x + chdt*self.invgamma*self.ux
-        self.y = self.y + chdt*self.invgamma*self.uy
-        self.z = self.z + chdt*self.invgamma*self.uz
+        self.x = self.x + chdt*self.inv_gamma*self.ux
+        self.y = self.y + chdt*self.inv_gamma*self.uy
+        self.z = self.z + chdt*self.inv_gamma*self.uz
         
         
     def gather(self, grid) :
@@ -287,11 +287,11 @@ class Particles(object) :
             # Deposit the current density mode by mode
             # ----------------------------------------
             # Calculate the currents
-            Jr = self.w*self.invgamma * ( c*self.ux + s*self.uy )
-            Jt = self.w*self.invgamma * ( c*self.uy - s*self.ux )
-            Jz = self.w*self.invgamma * self.uz
+            Jr = self.w*self.inv_gamma * ( c*self.ux + s*self.uy )
+            Jt = self.w*self.inv_gamma * ( c*self.uy - s*self.ux )
+            Jz = self.w*self.inv_gamma * self.uz
             # Prepare auxiliary matrix
-            exptheta[:] = np.ones( self.Ntot, dtype='complex')
+            exptheta = np.ones( self.Ntot, dtype='complex')
             # exptheta takes the value exp(-im theta) throughout the loop
             for m in range(Nm) :
                 deposit_field( Jr*exptheta, grid[m].Jr, 

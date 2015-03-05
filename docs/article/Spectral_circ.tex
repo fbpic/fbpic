@@ -403,7 +403,12 @@ following way:
 where $Q_k$ is the charge of the macroparticle with index $k$, and
 where $V_q$ is the volume of a cell
 \[ V_{q} = \pi [\, (q+1)^2- q^2\,] \Delta r^2 \Delta z  \qquad
-V_{0} = \pi \Delta r^2 \Delta z \]
+V_{0} = \frac{13}{12}\pi \Delta r^2 \Delta z \]
+where the corrective factor 13/12 (which differs from 1 by only 8\%)
+is obtained from a similar reasoning as that of \cite{Verboncoeur},
+and ensures that the density on the grid is homogeneous, when 
+the macroparticles are evenly loaded.
+
 Similarly, the current deposition is given by
 \[ \mathcal{J}_{u,m}(z_p,r_q) = \frac{\sum_k S_{z,p}(z_k) S_{r,q}(r_k)
 Q_k v_{u,k} e^{im\theta_k}}{V_{q}} \]
