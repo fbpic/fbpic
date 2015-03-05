@@ -322,6 +322,7 @@ class InterpolationGrid(object) :
         self.invdz = 1./dz
         # Cell volume (assuming an evenly-spaced grid)
         vol = np.pi*dz*( (r+0.5*dr)**2 - (r-0.5*dr)**2 )
+        vol[0] = 13./12*vol[0] # Verboncoeur-type correction
         self.invvol = 1./vol
         
         # Allocate the fields arrays

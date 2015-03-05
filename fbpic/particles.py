@@ -78,7 +78,7 @@ class Particles(object) :
         self.Bx = np.zeros( self.Ntot )
         self.By = np.zeros( self.Ntot )
         
-        # Get the 1d arrays of regularly-spaced positions for the particles
+        # Get the 1d arrays of evenly-spaced positions for the particles
         dz = (zmax-zmin)*1./Npz
         z_reg =  zmin + dz*( np.arange(Npz) + 0.5 )
         dr = (rmax-rmin)*1./Npr
@@ -457,4 +457,4 @@ def deposit_field( Fptcl, Fgrid,
     # Upper cell in z, Lower cell in r
     np.add.at( Fgrid, (iz_upper, ir_lower), (1-Sz_lower)*Sr_lower*Fptcl )
     # Upper cell in z, Upper cell in r
-    np.add.at( Fgrid, (iz_upper, ir_lower), (1-Sz_lower)*(1-Sr_lower)*Fptcl )
+    np.add.at( Fgrid, (iz_upper, ir_upper), (1-Sz_lower)*(1-Sr_lower)*Fptcl )

@@ -29,7 +29,7 @@ Available methods :
   Calculates the transform in N^2 time. Ensures that the succession
   of a forward and backward transformation retrieves the original function
   (to machine precision).
-  The discretization r grid is regularly spaced.
+  The discretization r grid is evenly spaced.
   
 See the docstring of the DHT object for usage instructions.
 """
@@ -258,7 +258,7 @@ class DHT(object) :
            algorithm to work.
 
         d : float, optional
-           Offset of the regularly-spaced radial grid, within one cell
+           Offset of the evenly-spaced radial grid, within one cell
            If None, this uses the zeros of the Bessel function.
 
         Fw : string, optional
