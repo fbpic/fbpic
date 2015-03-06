@@ -1,5 +1,5 @@
-Installation of numba on MacOS
-====================
+Installation of numba on MacOSX
+======================
 
 Overview
 -------

@@ -40,8 +40,8 @@ Installation
 Standard installation with `setup.py` (i.e. `python setup.py install`).
 
 Numba is not required for the code to run, since it is somewhat
-difficult to install on MacOS. However, if it is installed, the code
+difficult to install on MacOSX. However, if it is installed, the code
 will automatically detect it and use it. This can result in up to an order
 of magnitude speedup.
 
-Instructions for installing Numba on MacOS can be found in `docs/install`
+Instructions for installing Numba on MacOSX can be found in `docs/install`
