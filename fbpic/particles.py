@@ -24,7 +24,8 @@ class Particles(object) :
                 of the macroparticles (in meters)
     - uz, uy, uz : 1darrays containing the unitless momenta
                 (i.e. px/mc, py/mc, pz/mc)
-    
+    At the end or start of any PIC cycle, the momenta should be
+    one half-timestep *behind* the position.
     """
 
     def __init__(self, q, m, rho, Npz, zmin, zmax,
@@ -107,6 +108,10 @@ class Particles(object) :
         """
         Advance the particles' momenta over one timestep, using the Vay pusher
         Reference : Vay, Physics of Plasmas 15, 056701 (2008)
+
+        This assumes that the momenta (ux, uy, uz) are initially one
+        half-timestep *behind* the positions (x, y, z), and it brings
+        them one half-timestep *ahead* of the positions.
         """
         # Set a few constants
         econst = self.q*self.dt/(self.m*c)
@@ -149,6 +154,10 @@ class Particles(object) :
     def halfpush_x(self) :
         """
         Advance the particles' positions over one half-timestep
+        
+        This assumes that the positions (x, y, z) are initially either
+        one half-timestep *behind* the momenta (ux, uy, uz), or at the
+        same timestep as the momenta.
         """
         # Half timestep, multiplied by c
         chdt = c*0.5*self.dt
@@ -162,6 +171,9 @@ class Particles(object) :
     def gather(self, grid, use_numba = numba_installed) :
         """
         Gather the fields onto the macroparticles using numpy
+
+        This assumes that the particle positions are currently at
+        the same timestep as the field that is to be gathered.
         
         Parameter
         ----------
@@ -250,6 +262,9 @@ class Particles(object) :
     def deposit(self, grid, fieldtype, use_numba = numba_installed ) :
         """
         Deposit the particles charge or current onto the grid, using numpy
+        
+        This assumes that the particle positions (and momenta in the case of J)
+        are currently at the same timestep as the field that is to be deposited.
         
         Parameter
         ----------
