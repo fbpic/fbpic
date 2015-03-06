@@ -7,11 +7,12 @@ Overview
 This program is a proof-of-principle Particle-In-Cell (PIC) code,
 whose distinctive feature is to use a **spectral decomposition in
 cylindrical geometry** for the fields (Fourier-Bessel
-decomposition). This decomposition allows to combine the advantages of
+decomposition). 
+
+This decomposition allows to combine the advantages of
 **spectral 3D Cartesian** PIC codes (high accuracy and stability) and
 those of **finite-difference cylindrical** PIC codes with azimuthal
 decomposition (orders-of-magnitude speedup when compared to 3D simulations).
-
 Here are some of the specific features of this code :  
 
 * The Maxwell solver uses a Pseudo-Spectral Analytical Time-Domain
@@ -27,7 +28,8 @@ For more details on the algorithm, see the `docs/article` folder.
 Since this is only a proof of principle, the implementation has
 important shortcomings :
 
-* Unoptimized code written entirely in Python. (However, the code does
+* Unoptimized code written entirely in Python.   
+(However, the code does
   call BLAS and FFTW for computationally intensive parts. If
   available, it will also use Numba)
 * Single-processor only
