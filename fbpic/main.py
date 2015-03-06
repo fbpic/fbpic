@@ -96,7 +96,6 @@ class Simulation(object) :
             fld.divide_by_volume('J')
             # Get the current on the spectral grid at t = (n+1/2) dt
             fld.interp2spect('J')
-            fld.correct_currents()
 
             # Push the particles' position to t = (n+1) dt
             for species in ptcl :
@@ -108,7 +107,9 @@ class Simulation(object) :
             fld.divide_by_volume('J')
             # Get the charge density on the spectral grid at t = (n+1) dt
             fld.interp2spect('rho')
-    
+            # Correct the currents (requires rho at t = (n+1) dt )
+            fld.correct_currents()
+            
             # Get the fields E and B on the spectral grid at t = (n+1) dt
             fld.push()
             # Get the fields E and B on the interpolation grid at t = (n+1) dt
