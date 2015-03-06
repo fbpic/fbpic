@@ -12,6 +12,18 @@ class Fields(object) :
     """
     Class that contains the fields data of the simulation
 
+    Methods
+    -------
+    - push : Advances the fields over one timestep
+    - interp2spect : Transforms the fields from the
+           interpolation grid to the spectral grid
+    - spect2interp : Transforms the fields from the
+           spectral grid to the interpolation grid
+    - correct_currents : Corrects the currents so that
+           they satisfy the conservation equation
+    - erase : sets the fields to zero on the interpolation grid
+    - divide_by_volume : divide the fields by the cell volume
+    
     Main attributes
     ----------
     All the following attributes are lists,
@@ -26,13 +38,7 @@ class Fields(object) :
     - psatd : a list of PsatdCoeffs
         Contains the coefficients to solve the Maxwell equations
 
-    Methods
-    -------
-    - push : Advances the fields over one timestep
-    - interp2spect : Transforms the fields from the
-           interpolation grid to the spectral grid
-    - spect2interp : Transforms the fields from the
-           spectral grid to the interpolation grid
+
     """
 
     def __init__( self, Nz, zmax, Nr, rmax, Nm, dt ) :
@@ -219,7 +225,7 @@ class Fields(object) :
 
     def erase(self, fieldtype ) :
         """
-        Put the field `fieldtype` to 0 on the interpolation grid
+        Sets the field `fieldtype` to zero on the interpolation grid
 
         Parameter
         ---------
@@ -356,17 +362,20 @@ class InterpolationGrid(object) :
         # Show the field also below the axis for a more realistic picture
         if below_axis == True :
             plotted_field = np.hstack( (plotted_field[:,::-1],plotted_field) )
-            extent = [self.z.min(), self.z.max(), -self.r.max(), self.r.max() ]
+            extent = [ self.z.min() - 0.5*self.dz, self.z.max() + 0.5*self.dz,
+                      -self.r.max() - 0.5*self.dr, self.r.max() + 0.5*self.dr ]
         else :
-            extent = [self.z.min(), self.z.max(), self.r.min(), self.r.max() ]
-        plt.suptitle('%s on the interpolation grid' %fieldtype )
+            extent = [self.z.min() - 0.5*self.dz, self.z.max() + 0.5*self.dz,
+                      self.r.min() - 0.5*self.dr, self.r.max() + 0.5*self.dr]
+        plt.suptitle(
+            '%s on the interpolation grid, for mode %d' %(fieldtype, self.m) )
             
         # Plot the real part
         plt.subplot(211)
         plt.imshow( plotted_field.real.T[::-1], aspect='auto',
                     interpolation='nearest', extent = extent, **kw )
-        plt.xlabel('kz')
-        plt.ylabel('kr')
+        plt.xlabel('z')
+        plt.ylabel('r')
         cb = plt.colorbar()
         cb.set_label('Real part')
 
@@ -374,8 +383,8 @@ class InterpolationGrid(object) :
         plt.subplot(212)
         plt.imshow( plotted_field.imag.T[::-1], aspect='auto',
                     interpolation='nearest', extent = extent, **kw )
-        plt.xlabel('kz')
-        plt.ylabel('kr')
+        plt.xlabel('z')
+        plt.ylabel('r')
         cb = plt.colorbar()
         cb.set_label('Imaginary part')
         
