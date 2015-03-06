@@ -9,11 +9,13 @@ $ python tests/test_fields.py
 import sys
 import numpy as np
 import matplotlib.pyplot as plt
-from scipy.constants import c
+from scipy.constants import c, m_e, e
 from scipy.optimize import curve_fit
 from fbpic.fields import Fields
+from fbpic.lpa_utils import add_laser
 
-def test_pulse( Nz, Nr, Nm, Lz, Lr, L_prop, Nt, w0, ctau, k0, a0, m ) :
+def test_pulse( Nz, Nr, Nm, Lz, Lr, L_prop, Nt, w0, ctau,
+                k0, E0, m, show=False ) :
     """
     Propagate the beam over a distance L_prop in N_step,
     and extracts the waist and a0 at each step
@@ -46,19 +48,22 @@ def test_pulse( Nz, Nr, Nm, Lz, Lr, L_prop, Nt, w0, ctau, k0, a0, m ) :
     k0 : flat
        The central wavevector of the laser (in microns^-1)
 
-    a0 : float
-       The initial a0 of the pulse
+    E0 : float
+       The initial E0 of the pulse
 
     m : int
        Index of the mode to be tested
        For m = 1 : test with a gaussian, linearly polarized beam
        For m = 0 : test with an annular beam, polarized in E_theta
+
+    show : bool
+       Wether to show the fields at each timestep
            
     Returns
     -------
     A dictionary containing :
-    - 'a' : 1d array containing the values of a0
-    - 'w' : 1d array containing the values of w0
+    - 'E' : 1d array containing the values of the amplitude
+    - 'w' : 1d array containing the values of waist
     - 'fld' : the Fields object at the end of the simulation.
     """
 
@@ -66,11 +71,11 @@ def test_pulse( Nz, Nr, Nm, Lz, Lr, L_prop, Nt, w0, ctau, k0, a0, m ) :
     dt = L_prop/c * 1./Nt
     fld = Fields( Nz, Lz, Nr, Lr, Nm, dt )
     z0 = Lz/2
-    init_fields( fld, w0, ctau, k0, z0, a0, m )
+    init_fields( fld, w0, ctau, k0, z0, E0, m )
 
-    # Create the arrays to get the waist and a0
+    # Create the arrays to get the waist and amplitude
     w = np.zeros(Nt)
-    a = np.zeros(Nt)
+    E = np.zeros(Nt)
         
     # Get the fields in spectral space
     fld.interp2spect('E')
@@ -85,41 +90,51 @@ def test_pulse( Nz, Nr, Nm, Lz, Lr, L_prop, Nt, w0, ctau, k0, a0, m ) :
         fld.spect2interp('E')
         fld.spect2interp('B')
         # Fit the fields to find the waist and a0
-        w[it], a[it] = fit_fields( fld, m )
-        # Since the fit returns the RMS of a, renormalize it
-        a[it] = a[it]*2**(3./4)/np.pi**(1./4)*np.sqrt(Lz/ctau)
+        w[it], E[it] = fit_fields( fld, m )
+        # Since the fit returns the RMS of E, renormalize it
+        E[it] = E[it]*2**(3./4)/np.pi**(1./4)*np.sqrt(Lz/ctau)
         # Show the progression bar
         progression_bar(it, Nt-1)
         # Plot the fields during the simulation
-      #  plt.clf()
-      #  fld.interp[m].show('Et')
-      #  plt.show()
-
+        if show==True :
+            plt.clf()
+            fld.interp[m].show('Et')
+            plt.show()
+        # Bring the fields back again onto the spectral grid
+        # (This is not needed in principle, as the fields
+        # were not modified in the real space, but it allows
+        # additional checking on the reversibility of the transform)
+        fld.interp2spect('E')
+        fld.interp2spect('B')
+                            
     # Get the analytical solution
     z_prop = c*dt*np.arange(1, Nt+1)
     ZR = 0.5*k0*w0**2
     w_analytic = w0*np.sqrt( 1 + z_prop**2/ZR**2 )
-    a_analytic = a0/( 1 + z_prop**2/ZR**2 )**(1./2)
+    E_analytic = E0/( 1 + z_prop**2/ZR**2 )**(1./2)
         
     # Plot the results
+    plt.suptitle('Diffraction of a pulse in the mode %d' %m)
     plt.subplot(121)
-    plt.plot( z_prop, w, 'o' )
-    plt.plot( z_prop, w_analytic, '--' )
+    plt.plot( z_prop, w, 'o', label='Simulation' )
+    plt.plot( z_prop, w_analytic, '--', label='Theory' )
     plt.xlabel('z (microns)')
     plt.ylabel('w (microns)')
     plt.title('Waist')
+    plt.legend(loc=0)
     plt.subplot(122)
-    plt.plot( z_prop, a, 'o' )
-    plt.plot( z_prop, a_analytic, '--' )
+    plt.plot( z_prop, E, 'o', label='Simulation' )
+    plt.plot( z_prop, E_analytic, '--', label='Theory' )
     plt.xlabel('z (microns)')
-    plt.ylabel('a')
+    plt.ylabel('E')
+    plt.legend(loc=0)
     plt.title('Amplitude')
     
     # Return a dictionary of the results
-    return( { 'a' : a, 'w' : w, 'fld' : fld } )
+    return( { 'E' : E, 'w' : w, 'fld' : fld } )
 
     
-def init_fields( fld, w, ctau, k0, z0, a0, m=1 ) :
+def init_fields( fld, w, ctau, k0, z0, E0, m=1 ) :
     """
     Imprints the appropriate profile on the fields of the simulation.
 
@@ -139,32 +154,28 @@ def init_fields( fld, w, ctau, k0, z0, a0, m=1 ) :
     z0 : float
        The position of the centroid on the z axis
 
-    a0 : float
-       The initial a0 of the pulse
+    E0 : float
+       The initial E0 of the pulse
 
     m: int, optional
         The mode on which to imprint the profile
         For m = 1 : gaussian profile, linearly polarized beam
         For m = 0 : annular profile, polarized in E_theta
     """
-    # Extract the coordinates of the grid
-    z = fld.interp[m].z
-    r = fld.interp[m].r
-
+    
     # Initialize the fields with the right value and phase
     if m == 1 :
-        profile = gaussian_pulse( z, r, w, ctau, k0, z0, a0 ) 
-        fld.interp[m].Er[:,:] = profile
-        fld.interp[m].Et[:,:] = -1.j*profile
-        fld.interp[m].Br[:,:] = 1.j*1./c*profile
-        fld.interp[m].Bt[:,:] = 1./c*profile
+        add_laser( fld, E0*e/(m_e*c**2*k0), w, ctau, z0,
+                   lambda0 = 2*np.pi/k0, fw_propagating=False )
     if m == 0 :
-        profile = annular_pulse( z, r, w, ctau, k0, z0, a0 ) 
+        z = fld.interp[m].z
+        r = fld.interp[m].r
+        profile = annular_pulse( z, r, w, ctau, k0, z0, E0 ) 
         fld.interp[m].Et[:,:] = profile
         fld.interp[m].Br[:,:] = -1./c*profile
 
         
-def gaussian_transverse_profile( r, w, a ) :
+def gaussian_transverse_profile( r, w, E ) :
     """
     Calculte the Gaussian transverse profile.
 
@@ -179,12 +190,12 @@ def gaussian_transverse_profile( r, w, a ) :
     w : float
        The initial waist of the laser (in microns)
 
-    a : float
+    E : float
        The a0 of the pulse
     """
-    return( a*np.exp( -r**2/w**2 ) )
+    return( E*np.exp( -r**2/w**2 ) )
     
-def gaussian_pulse( z, r, w0, ctau, k0, z0, a0 ) :
+def gaussian_pulse( z, r, w0, ctau, k0, z0, E0 ) :
     """
     Calculate the profile of a Gaussian beam.
     This is used to initialize the beam
@@ -209,8 +220,8 @@ def gaussian_pulse( z, r, w0, ctau, k0, z0, a0 ) :
     z0 : float
        The position of the centroid on the z axis
 
-    a0 : float
-       The initial a0 of the pulse
+    E0 : float
+       The initial E0 of the pulse
        
     Return
     ------
@@ -219,12 +230,12 @@ def gaussian_pulse( z, r, w0, ctau, k0, z0, a0 ) :
     
     """
     longitudinal = np.exp( -(z-z0)**2/ctau**2 )*np.cos(k0*(z-z0))
-    transverse = gaussian_transverse_profile( r, w0, a0 )
+    transverse = gaussian_transverse_profile( r, w0, E0 )
     profile = longitudinal[:,np.newaxis]*transverse[np.newaxis,:]
-    
-    return(profile)
+   
+    return( profile )
 
-def annular_transverse_profile( r, w, a ) :
+def annular_transverse_profile( r, w, E ) :
     """
     Calculte the annular transverse profile.
 
@@ -239,12 +250,12 @@ def annular_transverse_profile( r, w, a ) :
     w : float
        The initial waist of the laser (in microns)
 
-    a : float
-       The a0 of the pulse
+    E : float
+       The E0 of the pulse
     """
-    return( a*(r/w)*np.exp( -r**2/w**2 ) )
+    return( E*(r/w)*np.exp( -r**2/w**2 ) )
     
-def annular_pulse( z, r, w0, ctau, k0, z0, a0 ) :
+def annular_pulse( z, r, w0, ctau, k0, z0, E0 ) :
     """
     Calculate the profile of an annular beam.
     This is used to initialize the beam
@@ -269,8 +280,8 @@ def annular_pulse( z, r, w0, ctau, k0, z0, a0 ) :
     z0 : float
        The position of the centroid on the z axis
 
-    a0 : float
-       The initial a0 of the pulse
+    E0 : float
+       The initial E0 of the pulse
        
     Return
     ------
@@ -279,7 +290,7 @@ def annular_pulse( z, r, w0, ctau, k0, z0, a0 ) :
     
     """
     longitudinal = np.exp( -(z-z0)**2/ctau**2 )*np.cos(k0*(z-z0))
-    transverse = annular_transverse_profile( r, w0, a0 )
+    transverse = annular_transverse_profile( r, w0, E0 )
     profile = longitudinal[:,np.newaxis]*transverse[np.newaxis,:]
     
     return(profile)
@@ -306,6 +317,9 @@ def fit_fields( fld, m ) :
     if m==1 :  # Gaussian profile
         fit_result = curve_fit(gaussian_transverse_profile, r,
                             laser_profile, p0=np.array([1,1]) )
+        # Factor 2 on the amplitude, related to the factor 2
+        # in the particle gather for the modes m > 0
+        fit_result[0][1] = 2*fit_result[0][1]
     elif m==0 : # Annular profile
         fit_result = curve_fit(annular_transverse_profile, r,
                             laser_profile, p0=np.array([1,1]) )
@@ -331,25 +345,25 @@ if __name__ == '__main__' :
     w0 = 2.
     ctau = 10.
     k0 = 2*np.pi/0.8
-    a0 = 1.
+    E0 = 1.
     # Propagation
-    L_prop = 200.
-    N_step = 20
+    L_prop = 30.
+    N_step = 10
+
+    show=False
 
     print('')
     print('Testing mode m=0 with an annular beam')
     plt.figure()
-    res = test_pulse( Nz, Nr, Nm, Lz, Lr, L_prop, N_step, w0, ctau, k0, a0, 0 )
-    plt.show()
-    res['fld'].interp[0].show('Et')
+    res = test_pulse( Nz, Nr, Nm, Lz, Lr, L_prop, N_step, w0, ctau,
+                      k0, E0, 0, show=show )
     plt.show()
     
     print('')
     print('Testing mode m=1 with an gaussian beam')
     plt.figure()
-    res = test_pulse(Nz, Nr, Nm, Lz, Lr, L_prop, N_step, w0, ctau, k0, a0, 1 )
-    plt.show()
-    res['fld'].interp[1].show('Et')
+    res = test_pulse(Nz, Nr, Nm, Lz, Lr, L_prop, N_step, w0, ctau,
+                     k0, E0, 1, show=show )
     plt.show()
 
     print('')
