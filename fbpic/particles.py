@@ -544,18 +544,18 @@ def deposit_field_numba( Fptcl, Fgrid,
     # Deposit the particle quantity onto the grid
     # Lower cell in z, Lower cell in r
     for ip in xrange(Ntot) :
-        Fgrid[ iz_lower[ip], ir_lower[ip] ] = \
+        Fgrid[ iz_lower[ip], ir_lower[ip] ] += \
           Sz_lower[ip] * Sr_lower[ip] * Fptcl[ip]
     # Lower cell in z, Upper cell in r
     for ip in xrange(Ntot) :
-        Fgrid[ iz_lower[ip], ir_upper[ip] ] = \
-          Sz_lower[ip] * (1 - Sr_lower[ip])* Fptcl[ip]
+        Fgrid[ iz_lower[ip], ir_upper[ip] ] += \
+          Sz_lower[ip] * (1 - Sr_lower[ip]) * Fptcl[ip]
     # Upper cell in z, Lower cell in r
     for ip in xrange(Ntot) :
-        Fgrid[ iz_upper[ip], ir_lower[ip] ] = \
+        Fgrid[ iz_upper[ip], ir_lower[ip] ] += \
           (1 - Sz_lower[ip]) * Sr_lower[ip] * Fptcl[ip]
     # Upper cell in z, Upper cell in r
     for ip in xrange(Ntot) :
-        Fgrid[ iz_upper[ip], ir_upper[ip] ] = \
-          (1 - Sz_lower[ip]) * (1 - Sr_lower[ip])* Fptcl[ip]
+        Fgrid[ iz_upper[ip], ir_upper[ip] ] += \
+          (1 - Sz_lower[ip]) * (1 - Sr_lower[ip]) * Fptcl[ip]
     
