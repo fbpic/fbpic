@@ -8,5 +8,5 @@
 *.pdf
 *.pyc
 *.gz
-trials/*
+notebooks/*
 references/*
