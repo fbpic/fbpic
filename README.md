@@ -22,16 +22,24 @@ Here are some of the specific features of this code :
   interpolation errors.
 * The particle pusher uses the Vay algorithm.  
 
-For more details on the algorithm, see the `docs` folder.
+For more details on the algorithm, see the `docs/article` folder.
 
 Since this is only a proof of principle, the implementation has
 important shortcomings :
 
-* Unoptimized code written entirely in Python (using Numpy for matrix
-operations)
-* Single-processor only   
+* Unoptimized code written entirely in Python. (However, the code does
+  call BLAS and FFTW for computationally intensive parts. If
+  available, it will also use Numba)
+* Single-processor only
 
 Installation
 ---------
 
 Standard installation with `setup.py` (i.e. `python setup.py install`).
+
+Numba is not required for the code to run, since it is somewhat
+difficult to install on MacOS. However, if it is installed, the code
+will automatically detect it and use it. This can result in up to an order
+of magnitude speedup.
+
+Instructions for installing Numba on MacOS can be found in `docs/install`

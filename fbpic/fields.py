@@ -6,6 +6,7 @@ It defines the structure and methods associated with the fields.
 import numpy as np
 import matplotlib.pyplot as plt
 from scipy.constants import c, mu_0, epsilon_0
+import pyfftw
 from fbpic.hankel_dt import DHT
 
 class Fields(object) :
@@ -656,6 +657,29 @@ class SpectralTransformer(object) :
         self.dht0 = DHT(   m, Nr, rmax, 'MDHT(m,m)', d=0.5, Fw='inverse' )
         self.dhtp = DHT( m+1, Nr, rmax, 'MDHT(m+1,m)', d=0.5, Fw='inverse' )
         self.dhtm = DHT( m-1, Nr, rmax, 'MDHT(m-1,m)', d=0.5, Fw='inverse' )
+
+        # Initialize the FFTW
+        print('Preparing FFTW for mode %d' %m)
+        # Two buffers and FFTW objects are initialized, since spect2interp_vect
+        # and interp2spect_vect require two separate FFTs.
+        # First buffer and FFTW transform
+        self.interp_buffer_r = \
+            pyfftw.n_byte_align_empty( (Nz,Nr), 16, 'complex128' )
+        self.spect_buffer_r = \
+            pyfftw.n_byte_align_empty( (Nz,Nr), 16, 'complex128' )
+        self.fft_r = pyfftw.FFTW( self.interp_buffer_r, self.spect_buffer_r,
+                                axes=(0,), direction='FFTW_FORWARD' )
+        self.ifft_r = pyfftw.FFTW( self.spect_buffer_r, self.interp_buffer_r,
+                                axes=(0,), direction='FFTW_BACKWARD' )
+        # Second buffer and FFTW transform
+        self.interp_buffer_t = \
+            pyfftw.n_byte_align_empty( (Nz,Nr), 16, 'complex128' )
+        self.spect_buffer_t = \
+            pyfftw.n_byte_align_empty( (Nz,Nr), 16, 'complex128' )
+        self.fft_t = pyfftw.FFTW( self.interp_buffer_t, self.spect_buffer_t,
+                                axes=(0,), direction='FFTW_FORWARD' )
+        self.ifft_t = pyfftw.FFTW( self.spect_buffer_t, self.interp_buffer_t,
+                                axes=(0,), direction='FFTW_BACKWARD' )
         
     def spect2interp_scal( self, spect_array, interp_array ) :
         """
@@ -664,22 +688,22 @@ class SpectralTransformer(object) :
 
         Parameters
         ----------
-        spect_array : 2darray
+        spect_array : 2darray of complexs
            A complex array representing the fields in spectral space, from 
            which to compute the values of the interpolation grid
            The first axis should correspond to z and the second axis to r.
 
-        interp_array : 2darray
+        interp_array : 2darray of complexs
            A complex array representing the fields on the interpolation
            grid, and which is overwritten by this function.
         """
         # Perform the inverse DHT first (along axis -1, which corresponds to r)
-        interp_array[:,:] = self.dht0.inverse_transform( spect_array, axis=-1 )
+        self.spect_buffer_r[:,:] = \
+          self.dht0.inverse_transform( spect_array, axis=-1 )
 
-        # Then perform the FFT then (along axis 0, which corresponds to z)
-        # (This could be done in-place, with FFTW later)
-        interp_array[:,:] = np.fft.ifft( interp_array, axis=0 )
-        
+        # Then perform the inverse FFT (along axis 0, which corresponds to z)
+        self.interp_buffer_r= self.ifft_r()
+        interp_array[:,:] = self.interp_buffer_r[:,:]  #Copy to the output array
 
     def spect2interp_vect( self, spect_array_p, spect_array_m,
                           interp_array_r, interp_array_t ) :
@@ -703,13 +727,14 @@ class SpectralTransformer(object) :
         interp_array_m = self.dhtm.inverse_transform( spect_array_m, axis=-1 )
 
         # Combine them to obtain the r and t components
-        interp_array_r[:,:] = interp_array_p + interp_array_m
-        interp_array_t[:,:] = 1.j*( interp_array_p - interp_array_m )
+        self.spect_buffer_r[:,:] = interp_array_p + interp_array_m
+        self.spect_buffer_t[:,:] = 1.j*( interp_array_p - interp_array_m )
 
         # Finally perform the FFT (along axis 0, which corresponds to z)
-        # (This could be done in-place, with FFTW later)
-        interp_array_r[:,:] = np.fft.ifft( interp_array_r, axis=0 )
-        interp_array_t[:,:] = np.fft.ifft( interp_array_t, axis=0 )
+        self.interp_buffer_r = self.ifft_r()
+        interp_array_r[:,:] = self.interp_buffer_r[:,:] #Copy to the output array
+        self.interp_buffer_t = self.ifft_t()
+        interp_array_r[:,:] = self.interp_buffer_t[:,:] #Copy to the output array
 
     def interp2spect_scal( self, interp_array, spect_array ) :
         """
@@ -728,11 +753,11 @@ class SpectralTransformer(object) :
            and which is overwritten by this function.
         """
         # Perform the FFT first (along axis 0, which corresponds to z)
-        # (This could be done in-place, with FFTW later)
-        interp_array = np.fft.fft( interp_array, axis=0 )
+        self.interp_buffer_r[:,:] = interp_array #Copy the input array
+        self.spect_buffer_r = self.fft_r()
         
         # Then perform the DHT (along axis -1, which corresponds to r)
-        spect_array[:,:] = self.dht0.transform( interp_array, axis=-1 )
+        spect_array[:,:] = self.dht0.transform( self.spect_buffer_r, axis=-1 )
 
     def interp2spect_vect( self, interp_array_r, interp_array_t,
                            spect_array_p, spect_array_m ) :
@@ -752,15 +777,16 @@ class SpectralTransformer(object) :
            and which are overwritten by this function.
         """
         # Perform the FFT first (along axis 0, which corresponds to z)
-        # (This could be done in-place, with FFTW later)
-        interp_array_r = np.fft.fft( interp_array_r, axis=0 )
-        interp_array_t = np.fft.fft( interp_array_t, axis=0 )
+        self.interp_buffer_r[:,:] = interp_array_r #Copy the input array
+        self.spect_buffer_r = self.fft_r()
+        self.interp_buffer_t[:,:] = interp_array_t #Copy the input array
+        self.spect_buffer_t = self.fft_t()
 
-       # Combine them to obtain the p and m components
-        interp_array_p = 0.5*( interp_array_r - 1.j*interp_array_t )
-        interp_array_m = 0.5*( interp_array_r + 1.j*interp_array_t )
+        # Combine the r and t components to obtain the p and m components
+        spect_buffer_p = 0.5*( self.spect_buffer_r - 1.j*self.spect_buffer_t )
+        spect_buffer_m = 0.5*( self.spect_buffer_r + 1.j*self.spect_buffer_t )
         
         # Perform the inverse DHT first (along axis -1, which corresponds to r)
-        spect_array_p[:,:] = self.dhtp.transform( interp_array_p, axis=-1 )
-        spect_array_m[:,:] = self.dhtm.transform( interp_array_m, axis=-1 )
+        spect_array_p[:,:] = self.dhtp.transform( spect_buffer_p, axis=-1 )
+        spect_array_m[:,:] = self.dhtm.transform( spect_buffer_m, axis=-1 )
 
