@@ -702,7 +702,7 @@ class SpectralTransformer(object) :
           self.dht0.inverse_transform( spect_array, axis=-1 )
 
         # Then perform the inverse FFT (along axis 0, which corresponds to z)
-        self.interp_buffer_r= self.ifft_r()
+        self.interp_buffer_r = self.ifft_r()
         interp_array[:,:] = self.interp_buffer_r[:,:]  #Copy to the output array
 
     def spect2interp_vect( self, spect_array_p, spect_array_m,
@@ -734,7 +734,7 @@ class SpectralTransformer(object) :
         self.interp_buffer_r = self.ifft_r()
         interp_array_r[:,:] = self.interp_buffer_r[:,:] #Copy to the output array
         self.interp_buffer_t = self.ifft_t()
-        interp_array_r[:,:] = self.interp_buffer_t[:,:] #Copy to the output array
+        interp_array_t[:,:] = self.interp_buffer_t[:,:] #Copy to the output array
 
     def interp2spect_scal( self, interp_array, spect_array ) :
         """
