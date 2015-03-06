@@ -159,7 +159,7 @@ class Particles(object) :
         self.z = self.z + chdt*self.inv_gamma*self.uz
         
         
-    def gather(self, grid) :
+    def gather(self, grid, use_numba = numba_installed) :
         """
         Gather the fields onto the macroparticles using numpy
         
@@ -168,6 +168,10 @@ class Particles(object) :
         grid : a list of InterpolationGrid objects
              (one InterpolationGrid object per azimuthal mode)
              Contains the field values on the interpolation grid
+
+        use_numba : bool, optional
+             Whether to use numba or numpy in the core deposition function
+             Default : Use if numba is installed, use it
         """
 
         # Preliminary arrays for the cylindrical conversion
@@ -201,13 +205,13 @@ class Particles(object) :
         for m in range(Nm) :
             gather_field( exptheta, m, grid[m].Ez, self.Ez, 
                 iz_lower, iz_upper, Sz_lower,
-                ir_lower, ir_upper, Sr_lower )
+                ir_lower, ir_upper, Sr_lower, use_numba )
             gather_field( exptheta, m, grid[m].Er, Fr, 
                 iz_lower, iz_upper, Sz_lower,
-                ir_lower, ir_upper, Sr_lower )
+                ir_lower, ir_upper, Sr_lower, use_numba )
             gather_field( exptheta, m, grid[m].Et, Ft, 
                 iz_lower, iz_upper, Sz_lower,
-                ir_lower, ir_upper, Sr_lower )
+                ir_lower, ir_upper, Sr_lower, use_numba )
             # Increment exptheta (notice the - : backward Fourier transform)
             exptheta = exptheta*( c - 1.j*s )
         # Convert to Cartesian coordinates
@@ -229,13 +233,13 @@ class Particles(object) :
         for m in range(Nm) :
             gather_field( exptheta, m, grid[m].Bz, self.Bz, 
                 iz_lower, iz_upper, Sz_lower,
-                ir_lower, ir_upper, Sr_lower )
+                ir_lower, ir_upper, Sr_lower, use_numba )
             gather_field( exptheta, m, grid[m].Br, Fr, 
                 iz_lower, iz_upper, Sz_lower,
-                ir_lower, ir_upper, Sr_lower )
+                ir_lower, ir_upper, Sr_lower, use_numba )
             gather_field( exptheta, m, grid[m].Bt, Ft, 
                 iz_lower, iz_upper, Sz_lower,
-                ir_lower, ir_upper, Sr_lower )
+                ir_lower, ir_upper, Sr_lower, use_numba )
             # Increment exptheta (notice the - : backward Fourier transform)
             exptheta = exptheta*( c - 1.j*s )
         # Convert to Cartesian coordinates
@@ -257,9 +261,9 @@ class Particles(object) :
              Indicates which field to deposit
              Either 'J' or 'rho'
 
-        use_numba : bool, option
+        use_numba : bool, optional
              Whether to use numba or numpy in the core deposition function
-             Default : Use if numba is installed
+             Default : Use if numba is installed, use it
         """        
         # Preliminary arrays for the cylindrical conversion
         r = np.sqrt( self.x**2 + self.y**2 )
@@ -373,11 +377,57 @@ def linear_weights(x, invdx, offset, Nx) :
     return( i_lower, i_upper, S_lower )
 
 
-# -------------------------------
-# Utility functions for gathering
-# -------------------------------
+# -----------------------------------------
+# Utility functions for the field gathering
+# -----------------------------------------
 
 def gather_field( exptheta, m, Fgrid, Fptcl, 
+    iz_lower, iz_upper, Sz_lower, ir_lower, ir_upper, Sr_lower, use_numba ) :
+    """
+    Perform the weighted sum from the 4 points that surround each particle,
+    for one given field and one given azimuthal mode
+
+    Parameters
+    ----------
+    exptheta : 1darray of complexs
+        (one element per macroparticle)
+        Contains exp(-im theta) for each macroparticle
+
+    m : int
+        Index of the mode.
+        Determines wether a factor 2 should be applied
+    
+    Fgrid : 2darray of complexs
+        Contains the fields on the interpolation grid,
+        from which to do the gathering
+
+    Fptcl : 1darray of floats
+        (one element per macroparticle)
+        Contains the fields for each macroparticle
+        Is modified by this function
+
+    iz_lower, iz_upper, ir_lower, ir_upper : 1darrays of integers
+        (one element per macroparticle)
+        Contains the index of the cells immediately below and
+        immediately above each macroparticle, in z and r
+        
+    Sz_lower, Sr_lower : 1darrays of floats
+        (one element per macroparticle)
+        Contains the weight for the lower cell, for each macroparticle.
+        The weight for the upper cell is just 1-S_lower.
+
+    use_numba : bool
+        Whether to use numba rather than numpy for the gathering
+    """
+    if use_numba == True :
+        gather_field_numba( exptheta, m, Fgrid, Fptcl, 
+            iz_lower, iz_upper, Sz_lower, ir_lower, ir_upper, Sr_lower )        
+    else :
+        gather_field_numpy( exptheta, m, Fgrid, Fptcl, 
+            iz_lower, iz_upper, Sz_lower, ir_lower, ir_upper, Sr_lower )
+
+    
+def gather_field_numpy( exptheta, m, Fgrid, Fptcl, 
         iz_lower, iz_upper, Sz_lower, ir_lower, ir_upper, Sr_lower ) :
     """
     Perform the weighted sum from the 4 points that surround each particle,
@@ -433,9 +483,70 @@ def gather_field( exptheta, m, Fgrid, Fptcl,
     if m > 0 :
         Fptcl += 2*(F*exptheta).real
 
-# --------------------------------
-# Utility functions for deposition
-# --------------------------------
+@numba.jit(nopython=True)
+def gather_field_numba( exptheta, m, Fgrid, Fptcl, 
+        iz_lower, iz_upper, Sz_lower, ir_lower, ir_upper, Sr_lower ) :
+    """
+    Perform the weighted sum using numba
+
+    Parameters
+    ----------
+    exptheta : 1darray of complexs
+        (one element per macroparticle)
+        Contains exp(-im theta) for each macroparticle
+
+    m : int
+        Index of the mode.
+        Determines wether a factor 2 should be applied
+    
+    Fgrid : 2darray of complexs
+        Contains the fields on the interpolation grid,
+        from which to do the gathering
+
+    Fptcl : 1darray of floats
+        (one element per macroparticle)
+        Contains the fields for each macroparticle
+        Is modified by this function
+
+    iz_lower, iz_upper, ir_lower, ir_upper : 1darrays of integers
+        (one element per macroparticle)
+        Contains the index of the cells immediately below and
+        immediately above each macroparticle, in z and r
+        
+    Sz_lower, Sr_lower : 1darrays of floats
+        (one element per macroparticle)
+        Contains the weight for the lower cell, for each macroparticle.
+        The weight for the upper cell is just 1-S_lower.
+    """
+    # Get the total number of particles
+    Ntot = len(Fptcl)
+
+    # Loop over the particles
+    for ip in xrange(Ntot) :
+        # Erase the temporary variable
+        F = 0.
+        # Sum the fields from the 4 points
+        # Lower cell in z, Lower cell in r
+        F += Sz_lower[ip]*Sr_lower[ip]*Fgrid[ iz_lower[ip], ir_lower[ip] ]
+        # Lower cell in z, Upper cell in r
+        F += Sz_lower[ip]*(1-Sr_lower[ip])*Fgrid[ iz_lower[ip], ir_upper[ip] ]
+        # Upper cell in z, Lower cell in r
+        F += (1-Sz_lower[ip])*Sr_lower[ip]*Fgrid[ iz_upper[ip], ir_lower[ip] ]
+        # Upper cell in z, Upper cell in r
+        F += (1-Sz_lower[ip])*(1-Sr_lower[ip])*Fgrid[iz_upper[ip],ir_upper[ip]]
+
+    # Add the complex phase
+    if m == 0 :
+        for ip in xrange(Ntot) :
+            Fptcl[ip] += (F*exptheta[ip]).real
+    if m > 0 :
+        for ip in xrange(Ntot) :
+            Fptcl[ip] += 2*(F*exptheta[ip]).real
+
+
+# -----------------------------------------------
+# Utility functions for charge/current deposition
+# -----------------------------------------------
         
 def deposit_field( Fptcl, Fgrid, 
     iz_lower, iz_upper, Sz_lower, ir_lower, ir_upper, Sr_lower, use_numba ) :
@@ -473,6 +584,7 @@ def deposit_field( Fptcl, Fgrid,
     else :
         deposit_field_numpy( Fptcl, Fgrid, 
             iz_lower, iz_upper, Sz_lower, ir_lower, ir_upper, Sr_lower )
+
 
 def deposit_field_numpy( Fptcl, Fgrid, 
         iz_lower, iz_upper, Sz_lower, ir_lower, ir_upper, Sr_lower ) :
