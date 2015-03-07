@@ -330,6 +330,7 @@ class InterpolationGrid(object) :
         self.m = m
 
         # Register a few grid properties
+        self.zmin = self.z.min()
         dr = r[1] - r[0]
         dz = z[1] - z[0]
         self.dr = dr
@@ -737,7 +738,8 @@ class SpectralTransformer(object) :
 
         # Then perform the inverse FFT (along axis 0, which corresponds to z)
         self.interp_buffer_r = self.ifft_r()
-        interp_array[:,:] = self.interp_buffer_r[:,:]  #Copy to the output array
+        #Copy to the output array
+        interp_array[:,:] = self.interp_buffer_r[:,:]  
 
     def spect2interp_vect( self, spect_array_p, spect_array_m,
                           interp_array_r, interp_array_t ) :
@@ -766,9 +768,11 @@ class SpectralTransformer(object) :
 
         # Finally perform the FFT (along axis 0, which corresponds to z)
         self.interp_buffer_r = self.ifft_r()
-        interp_array_r[:,:] = self.interp_buffer_r[:,:] #Copy to the output array
+        #Copy to the output array
+        interp_array_r[:,:] = self.interp_buffer_r[:,:] 
         self.interp_buffer_t = self.ifft_t()
-        interp_array_t[:,:] = self.interp_buffer_t[:,:] #Copy to the output array
+        #Copy to the output array
+        interp_array_t[:,:] = self.interp_buffer_t[:,:] 
 
     def interp2spect_scal( self, interp_array, spect_array ) :
         """
