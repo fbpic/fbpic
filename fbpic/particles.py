@@ -235,6 +235,13 @@ class Particles(object) :
         exptheta = np.ones(self.Ntot, dtype='complex')
         # exptheta takes the value exp(-im theta) throughout the loop
         for m in range(Nm) :
+            # Increment exptheta (notice the - : backward transform)
+            if m==1 :
+                exptheta[:].real = c
+                exptheta[:].imag = -s
+            elif m>1 :
+                exptheta[:] = exptheta*( c - 1.j*s )
+            # Gather the fields    
             gather_field( exptheta, m, grid[m].Ez, self.Ez, 
                 iz_lower, iz_upper, Sz_lower,
                 ir_lower, ir_upper, Sr_lower, use_numba )
@@ -244,8 +251,6 @@ class Particles(object) :
             gather_field( exptheta, m, grid[m].Et, Ft, 
                 iz_lower, iz_upper, Sz_lower,
                 ir_lower, ir_upper, Sr_lower, use_numba )
-            # Increment exptheta (notice the - : backward Fourier transform)
-            exptheta = exptheta*( c - 1.j*s )
         # Convert to Cartesian coordinates
         self.Ex[:] = c*Fr - s*Ft
         self.Ey[:] = s*Fr + c*Ft
@@ -263,6 +268,13 @@ class Particles(object) :
         exptheta[:] = 1.
         # exptheta takes the value exp(-im theta) throughout the loop
         for m in range(Nm) :
+            # Increment exptheta (notice the - : backward transform)
+            if m==1 :
+                exptheta[:].real = c
+                exptheta[:].imag = -s
+            elif m>1 :
+                exptheta[:] = exptheta*( c - 1.j*s )
+            # Gather the fields
             gather_field( exptheta, m, grid[m].Bz, self.Bz, 
                 iz_lower, iz_upper, Sz_lower,
                 ir_lower, ir_upper, Sr_lower, use_numba )
@@ -272,8 +284,6 @@ class Particles(object) :
             gather_field( exptheta, m, grid[m].Bt, Ft, 
                 iz_lower, iz_upper, Sz_lower,
                 ir_lower, ir_upper, Sr_lower, use_numba )
-            # Increment exptheta (notice the - : backward Fourier transform)
-            exptheta = exptheta*( c - 1.j*s )
         # Convert to Cartesian coordinates
         self.Bx[:] = c*Fr - s*Ft
         self.By[:] = s*Fr + c*Ft
@@ -324,11 +334,16 @@ class Particles(object) :
             exptheta = np.ones( self.Ntot, dtype='complex')
             # exptheta takes the value exp(im theta) throughout the loop
             for m in range(Nm) :
+                # Increment exptheta (notice the + : forward transform)
+                if m==1 :
+                    exptheta[:].real = c
+                    exptheta[:].imag = s
+                elif m>1 :
+                    exptheta[:] = exptheta*( c + 1.j*s )
+                # Deposit the fields
                 deposit_field( self.w*exptheta, grid[m].rho, 
                     iz_lower, iz_upper, Sz_lower,
                     ir_lower, ir_upper, Sr_lower, use_numba )
-                # Increment exptheta (notice the + : forward Fourier transform)
-                exptheta = exptheta*( c + 1.j*s )
             
         elif fieldtype == 'J' :
             # ----------------------------------------
@@ -340,8 +355,15 @@ class Particles(object) :
             Jz = self.w*self.inv_gamma * self.uz
             # Prepare auxiliary matrix
             exptheta = np.ones( self.Ntot, dtype='complex')
-            # exptheta takes the value exp(-im theta) throughout the loop
+            # exptheta takes the value exp(im theta) throughout the loop
             for m in range(Nm) :
+                # Increment exptheta (notice the + : forward transform)
+                if m==1 :
+                    exptheta[:].real = c
+                    exptheta[:].imag = s
+                elif m>1 :
+                    exptheta[:] = exptheta*( c + 1.j*s )
+                # Deposit the fields
                 deposit_field( Jr*exptheta, grid[m].Jr, 
                     iz_lower, iz_upper, Sz_lower,
                     ir_lower, ir_upper, Sr_lower, use_numba )
@@ -351,9 +373,6 @@ class Particles(object) :
                 deposit_field( Jz*exptheta, grid[m].Jz, 
                     iz_lower, iz_upper, Sz_lower,
                     ir_lower, ir_upper, Sr_lower, use_numba )
-                # Increment exptheta (notice the + : forward Fourier transform)
-                exptheta = exptheta*( c + 1.j*s )
-
         else :
             raise ValueError(
         "`fieldtype` should be either 'J' or 'rho', but is `%s`" %fieldtype )
