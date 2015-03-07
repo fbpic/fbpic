@@ -12,7 +12,7 @@ try :
 except ImportError :
     numba_installed = False
 else :
-    numba_installed = True
+    numba_installed = False
 
 class Particles(object) :
     """
