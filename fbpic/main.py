@@ -75,8 +75,7 @@ class Simulation(object) :
             species.deposit( self.fld.interp, 'rho' )
         self.fld.divide_by_volume('rho')
         # Bring it to the spectral space
-        self.fld.interp2spect('rho')
-
+        self.fld.interp2spect('rho_prev')
 
     def step(self, N=1) :
         """
@@ -125,7 +124,7 @@ class Simulation(object) :
                 species.deposit( fld.interp, 'rho' )
             fld.divide_by_volume('rho')
             # Get the charge density on the spectral grid at t = (n+1) dt
-            fld.interp2spect('rho')
+            fld.interp2spect('rho_next')
             # Correct the currents (requires rho at t = (n+1) dt )
             fld.correct_currents()
             
