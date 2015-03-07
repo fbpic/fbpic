@@ -2,6 +2,7 @@
 This file is part of the Fourier-Bessel Particle-In-Cell code (FB-PIC)
 It defines the structure and methods associated with the particles.
 """
+import pdb
 import math
 import numpy as np
 import matplotlib.pyplot as plt
@@ -12,7 +13,7 @@ try :
 except ImportError :
     numba_installed = False
 else :
-    numba_installed = False
+    numba_installed = True
 
 class Particles(object) :
     """
@@ -92,8 +93,13 @@ class Particles(object) :
         dtheta = 2*np.pi/Nptheta
         theta_reg = dtheta * np.arange(Nptheta)
 
-        # Get the corresponding particles positions (with no memory copy)
-        zp, rp, thetap = np.meshgrid( z_reg, r_reg, theta_reg, copy=False)
+        # Get the corresponding particles positions
+        # (copy=True is important here, since it allows to
+        # change the angles individually)
+        zp, rp, thetap = np.meshgrid( z_reg, r_reg, theta_reg, copy=True)
+        # Avoid the fact that the particles are all aligned along
+        # the arms of a star, transversely
+        unalign_angles( thetap, Npr,Npz, method='irrational' ) 
         # Flatten them (This performs a memory copy)
         self.z = zp.flatten()
         self.x = rp.flatten()*np.cos( thetap.flatten() )
@@ -102,7 +108,6 @@ class Particles(object) :
         # Get the weights (i.e. charge of each macroparticle), which are equal
         # to the density times the elementary volume r d\theta dr dz
         self.w = q * n * rp.flatten() * dtheta*dr*dz
-    
         
     def push_p(self, use_numba=numba_installed ) :
         """
@@ -183,7 +188,7 @@ class Particles(object) :
         self.z = self.z + chdt*self.inv_gamma*self.uz
         
         
-    def gather(self, grid, use_numba = numba_installed) :
+    def gather(self, grid, use_numba=numba_installed) :
         """
         Gather the fields onto the macroparticles using numpy
 
@@ -491,7 +496,7 @@ def gather_field_numpy( exptheta, m, Fgrid, Fptcl,
         (one element per macroparticle)
         Contains the weight for the lower cell, for each macroparticle.
         The weight for the upper cell is just 1-S_lower.
-    """
+    """    
     # Temporary matrix that contains the complex fields
     F = np.zeros_like(exptheta)
     
@@ -512,6 +517,7 @@ def gather_field_numpy( exptheta, m, Fgrid, Fptcl,
         Fptcl += (F*exptheta).real
     if m > 0 :
         Fptcl += 2*(F*exptheta).real
+
 
 @numba.jit(nopython=True)
 def gather_field_numba( exptheta, m, Fgrid, Fptcl, 
@@ -550,11 +556,11 @@ def gather_field_numba( exptheta, m, Fgrid, Fptcl,
     """
     # Get the total number of particles
     Ntot = len(Fptcl)
-
+    
     # Loop over the particles
     for ip in xrange(Ntot) :
         # Erase the temporary variable
-        F = 0.
+        F = 0.j
         # Sum the fields from the 4 points
         # Lower cell in z, Lower cell in r
         F += Sz_lower[ip]*Sr_lower[ip]*Fgrid[ iz_lower[ip], ir_lower[ip] ]
@@ -565,12 +571,10 @@ def gather_field_numba( exptheta, m, Fgrid, Fptcl,
         # Upper cell in z, Upper cell in r
         F += (1-Sz_lower[ip])*(1-Sr_lower[ip])*Fgrid[iz_upper[ip],ir_upper[ip]]
 
-    # Add the complex phase
-    if m == 0 :
-        for ip in xrange(Ntot) :
+        # Add the complex phase
+        if m == 0 :
             Fptcl[ip] += (F*exptheta[ip]).real
-    if m > 0 :
-        for ip in xrange(Ntot) :
+        if m > 0 :
             Fptcl[ip] += 2*(F*exptheta[ip]).real
 
 
@@ -755,3 +759,56 @@ def push_p_numba( ux, uy, uz, inv_gamma,
         ux[ip] = s*( uxp + tx*ut + uyp*tz - uzp*ty )
         uy[ip] = s*( uyp + ty*ut + uzp*tx - uxp*tz )
         uz[ip] = s*( uzp + tz*ut + uxp*ty - uyp*tx )
+
+# ----------------------------
+# Angle initialization utility
+# ----------------------------
+
+def unalign_angles( thetap, Npz, Npr, method='irrational' ) :
+    """
+    Shift the angles so that the particles are
+    not all aligned along the arms of a star transversely
+
+    The fact that the particles are all aligned can produce
+    numerical artefacts, especially if the polarization of the laser
+    is aligned with this direction.
+
+    Here, for each position in r and z, we add the *same*
+    shift for all the Nptheta particles that are at this position.
+    (This preserves the fact that certain modes are 0 initially.)
+    How this shift varies from one position to another depends on
+    the method chosen.
+
+    Parameters
+    ----------
+    thetap : 3darray of floats
+        An array of shape (Npr, Npz, Nptheta) containing the angular
+        positions of the particles, and which is modified by this function.
+
+    Npz, Npr : ints
+        The number of macroparticles along the z and r directions
+    
+    method : string
+        Either 'random' or 'irrational'
+    """
+    # Determine the angle shift
+    if method == 'random' :
+        angle_shift = 2*np.pi*np.random.rand((Npr, Nprz))
+    elif method == 'irrational' :
+        # Subrandom sequence, by adding irrational number (sqrt(2) and sqrt(3))
+        # This ensures that the sequence does not wrap around and induce
+        # correlations
+        shiftr = np.sqrt(2)*np.arange(Npr)
+        shiftz = np.sqrt(3)*np.arange(Npz)
+        angle_shift = 2*np.pi*( shiftz[:,np.newaxis] + shiftr[np.newaxis,:] )
+        angle_shift = np.mod( angle_shift, 2*np.pi )
+    else :
+        raise ValueError(
+      "method must be either 'random' or 'irrational' but is %s" %method )
+
+    # Add the angle shift to thetap
+    # np.newaxis ensures that the angles that are at the same positions
+    # in r and z have the same shift
+    thetap[:,:,:] = thetap[:,:,:] + angle_shift[:,:, np.newaxis]
+    
+    

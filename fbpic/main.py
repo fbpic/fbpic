@@ -24,7 +24,7 @@ class Simulation(object) :
     """
 
     def __init__(self, Nz, zmax, Nr, rmax, Nm, dt,
-                 p_zmin, p_zmax, p_rmin, p_rmax, p_nz, p_nr, n_e ) :
+                 p_zmin, p_zmax, p_rmin, p_rmax, p_nz, p_nr, p_nt, n_e ) :
         """
         Initializes a simulation, by creating the following structures :
         - the Fields object, which contains the EM fields
@@ -52,6 +52,9 @@ class Simulation(object) :
 
         p_nz, p_nr : ints
             Number of macroparticles per cell along the z and r directions
+
+        p_nt : int
+            Number of macroparticles along the theta direction
 
         n_e : float (in particles per m^3)
            Density of the electrons
