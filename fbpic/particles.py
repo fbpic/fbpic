@@ -12,7 +12,7 @@ try :
 except ImportError :
     numba_installed = False
 else :
-    numba_installed = False
+    numba_installed = True
 
 class Particles(object) :
     """
@@ -119,59 +119,11 @@ class Particles(object) :
             Whether to use numba rather than numpy
         """
         if use_numba :
-            self.push_p_numba()
+            push_p_numba(self.ux, self.uy, self.uz, self.inv_gamma, 
+                self.Ex, self.Ey, self.Ez, self.Bx, self.By, self.Bz,
+                self.q, self.m, self.Ntot, self.dt )
         else :
             self.push_p_numpy()
-    
-#    @numba.jit(nopython=True)
-    def push_p_numba(self) :
-        """
-        Advance the particles' momenta, using numba
-        """
-        # Set a few constants
-        econst = self.q*self.dt/(self.m*c)
-        bconst = 0.5*self.q*self.dt/self.m
-        
-        # Loop over the particles
-        for ip in xrange(self.Ntot) :
-
-            # Shortcut for initial 1./gamma
-            inv_gamma_i = self.inv_gamma[ip]
-            
-            # Get the magnetic rotation vector
-            taux = bconst*self.Bx[ip]
-            tauy = bconst*self.By[ip]
-            tauz = bconst*self.Bz[ip]
-            tau2 = taux**2 + tauy**2 + tauz**2
-            
-            # Get the momenta at the half timestep
-            ux = self.ux[ip] + econst*self.Ex[ip] \
-            + inv_gamma_i*( self.uy[ip]*tauz - self.uz[ip]*tauy )
-            uy = self.uy[ip] + econst*self.Ey[ip] \
-            + inv_gamma_i*( self.uz[ip]*taux - self.ux[ip]*tauz )
-            uz = self.uz[ip] + econst*self.Ez[ip] \
-            + inv_gamma_i*( self.ux[ip]*tauy - self.uy[ip]*taux )
-            sigma = 1 + ux**2 + uy**2 + uz**2 - tau2
-            utau = ux*taux + uy*tauy + uz*tauz
-
-            # Get the new 1./gamma
-            inv_gamma_f = math.sqrt(
-                2./( sigma + np.sqrt( sigma**2 + 4*(tau2 + utau**2 ) ) )
-            )
-            self.inv_gamma[ip] = inv_gamma_f
-
-            # Reuse the tau and utau arrays to save memory
-            tx = inv_gamma_f*taux
-            ty = inv_gamma_f*tauy
-            tz = inv_gamma_f*tauz
-            ut = inv_gamma_f*utau
-            s = 1./( 1 + tau2*inv_gamma_f**2 )
-
-            # Get the new u
-            self.ux[ip] = s*( ux + tx*ut + uy*tz - uz*ty )
-            self.uy[ip] = s*( uy + ty*ut + uz*tx - ux*tz )
-            self.uz[ip] = s*( uz + tz*ut + ux*ty - uy*tx )
-        
 
     def push_p_numpy(self, use_numba=numba_installed ) :
         """
@@ -748,4 +700,58 @@ def deposit_field_numba( Fptcl, Fgrid,
     for ip in xrange(Ntot) :
         Fgrid[ iz_upper[ip], ir_upper[ip] ] += \
           (1 - Sz_lower[ip]) * (1 - Sr_lower[ip]) * Fptcl[ip]
-    
+
+
+# -----------------------
+# Particle pusher utility
+# -----------------------
+          
+@numba.jit(nopython=True)
+def push_p_numba( ux, uy, uz, inv_gamma, 
+                Ex, Ey, Ez, Bx, By, Bz, q, m, Ntot, dt ) :
+    """
+    Advance the particles' momenta, using numba
+    """
+    # Set a few constants
+    econst = q*dt/(m*c)
+    bconst = 0.5*q*dt/m
+        
+    # Loop over the particles
+    for ip in xrange(Ntot) :
+
+        # Shortcut for initial 1./gamma
+        inv_gamma_i = inv_gamma[ip]
+            
+        # Get the magnetic rotation vector
+        taux = bconst*Bx[ip]
+        tauy = bconst*By[ip]
+        tauz = bconst*Bz[ip]
+        tau2 = taux**2 + tauy**2 + tauz**2
+            
+        # Get the momenta at the half timestep
+        uxp = ux[ip] + econst*Ex[ip] \
+        + inv_gamma_i*( uy[ip]*tauz - uz[ip]*tauy )
+        uyp = uy[ip] + econst*Ey[ip] \
+        + inv_gamma_i*( uz[ip]*taux - ux[ip]*tauz )
+        uzp = uz[ip] + econst*Ez[ip] \
+        + inv_gamma_i*( ux[ip]*tauy - uy[ip]*taux )
+        sigma = 1 + uxp**2 + uyp**2 + uzp**2 - tau2
+        utau = uxp*taux + uyp*tauy + uzp*tauz
+
+        # Get the new 1./gamma
+        inv_gamma_f = math.sqrt(
+            2./( sigma + np.sqrt( sigma**2 + 4*(tau2 + utau**2 ) ) )
+        )
+        inv_gamma[ip] = inv_gamma_f
+
+        # Reuse the tau and utau arrays to save memory
+        tx = inv_gamma_f*taux
+        ty = inv_gamma_f*tauy
+        tz = inv_gamma_f*tauz
+        ut = inv_gamma_f*utau
+        s = 1./( 1 + tau2*inv_gamma_f**2 )
+
+        # Get the new u
+        ux[ip] = s*( uxp + tx*ut + uyp*tz - uzp*ty )
+        uy[ip] = s*( uyp + ty*ut + uzp*tx - uxp*tz )
+        uz[ip] = s*( uzp + tz*ut + uxp*ty - uyp*tx )

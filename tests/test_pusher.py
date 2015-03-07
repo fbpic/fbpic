@@ -39,7 +39,7 @@ def test_constant_B( Bz, q, m, rmin, rmax, gammamin, gammamax,
     invr = 1./np.sqrt( ptcl.x**2 + ptcl.y**2 )
     ptcl.ux = utheta * ptcl.y * invr * np.sign(q)
     ptcl.uy = - utheta * ptcl.x * invr * np.sign(q)
-    ptcl.invgamma = 1./gamma
+    ptcl.inv_gamma = 1./gamma
     # NB : the particles positions and momenta are considered
     # to be at t=0 initially
     
