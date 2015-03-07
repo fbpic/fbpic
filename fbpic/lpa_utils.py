@@ -15,6 +15,9 @@ def add_laser( fld, a0, w0, ctau, z0, lambda0=0.8e-6,
     
     Parameters
     ----------
+    fld : a Fields object
+       The structure that contains the fields of the simulation
+    
     a0 : float (unitless)
        The a0 of the pulse at focus
     

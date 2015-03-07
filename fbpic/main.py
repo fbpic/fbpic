@@ -3,7 +3,8 @@ Fourier-Bessel Particle-In-Cell (FB-PIC) main file
 
 This file steers and controls the simulation.
 """
-
+import sys
+from scipy.constants import m_e, e
 from fbpic.fields import Fields
 from fbpic.particles import Particles
 
@@ -23,44 +24,59 @@ class Simulation(object) :
     """
 
     def __init__(self, Nz, zmax, Nr, rmax, Nm, dt,
-                 p_zmin, p_zmax, p_rmax, p_nz, p_nr, p_q, p_m ) :
+                 p_zmin, p_zmax, p_rmin, p_rmax, p_nz, p_nr, n_e ) :
         """
-        Initializes the simulation structures
+        Initializes a simulation, by creating the following structures :
+        - the Fields object, which contains the EM fields
+        - a set of electrons (if no electric field is initialized, this is as if 
 
         Parameters
         ----------
-        Nz : int
-            The number of gridpoints in z
+        Nz, Nr : ints
+            The number of gridpoints in z and r
 
-        zmax : float
-            The size of the simulation box along z
-            
-        Nr : int
-            The number of gridpoints in r
-
-        rmax : float
-            The size of the simulation box along r
+        zmax, rmax : floats
+            The size of the simulation box along z and r
 
         Nm : int
-            The number of azimuthal modes
+            The number of azimuthal modes taken into account
 
         dt : float
             The timestep of the simulation
+
+        p_zmin, p_zmax : floats
+            z positions between which the particles are initialized
+
+        p_rmin, p_rmax : floats
+            r positions between which the fields are initialized
+
+        p_nz, p_nr : ints
+            Number of macroparticles per cell along the z and r directions
+
+        n_e : float (in particles per m^3)
+           Density of the electrons
         """
         # Initialize the field structure
         self.fld = Fields(Nz, zmax, Nr, rmax, Nm, dt)
-        # Fill their values
-        # ....
-        # Convert to spectral space
-        self.fld.interp2spec('E')
-        self.fld.interp2spec('B')
+
+        # Determine the total number of particles along the z and r direction
+        Npz = int( (p_zmax - p_zmin)*p_nz*Nz * 1./zmax )
+        Npr = int( (p_rmax - p_rmin)*p_nr*Nz * 1./rmax )
         
-        # Initialize the particle structure
+        # Initialize the electrons
+        # (using 4 macroparticles per cell along the azimuthal direction)
         self.ptcl = [
-            Particles(..., dt ),  # Electrons
-            Particles(...)   # Ions
+            Particles( q=-e, m=m_e, n=n_e, Npz=Npz, zmin=p_zmin, zmax=p_zmax,
+                       Npr=Npr, rmin=p_rmin, rmax=p_rmax, Nptheta=4, dt=dt )
             ]
         
+        # Do the initial charge deposition (at t=0) now
+        for species in self.ptcl :
+            species.deposit( self.fld.interp, 'rho' )
+        self.fld.divide_by_volume('rho')
+        # Bring it to the spectral space
+        self.fld.interp2spect('rho')
+
 
     def step(self, N=1) :
         """
@@ -79,7 +95,10 @@ class Simulation(object) :
         fld = self.fld
         
         # Loop over timesteps
-        for _ in xrange(N) :
+        for i_step in xrange(N) :
+
+            # Show a progression bar
+            progression_bar( i_step, N )
             
             # Gather the fields at t = n dt
             for species in ptcl :
@@ -104,7 +123,7 @@ class Simulation(object) :
             fld.erase('rho')
             for species in ptcl :
                 species.deposit( fld.interp, 'rho' )
-            fld.divide_by_volume('J')
+            fld.divide_by_volume('rho')
             # Get the charge density on the spectral grid at t = (n+1) dt
             fld.interp2spect('rho')
             # Correct the currents (requires rho at t = (n+1) dt )
@@ -119,3 +138,13 @@ class Simulation(object) :
             # Boundary conditions could potentially be implemented here, 
             # on the interpolation grid. This would impose
             # to then convert the fields back to the spectral space.
+
+
+
+
+def progression_bar(i, Ntot, Nbars=60, char='-') :
+    "Shows a progression bar with Nbars"
+    nbars = int( i*1./Ntot*Nbars )
+    sys.stdout.write('\r[' + nbars*char )
+    sys.stdout.write((Nbars-nbars)*' ' + ']')
+    sys.stdout.flush()
