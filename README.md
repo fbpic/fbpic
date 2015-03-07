@@ -21,7 +21,8 @@ Here are some of the specific features of this code :
 * The fields *E* and *B* are defined at the **same points in space** and at
   the **same time** (i.e. they are not staggered). This avoids some
   interpolation errors.
-* The particle pusher uses the Vay algorithm.  
+* The particle pusher uses the Vay algorithm.
+* Moving window is supported.
 
 For more details on the algorithm, see the `docs/article` folder.
 
