@@ -145,7 +145,7 @@ class Fields(object) :
         ---------
         fieldtype :
             A string which represents the kind of field to transform
-            (either 'E', 'B', 'J', 'rho')
+            (either 'E', 'B', 'J', 'rho_next', 'rho_prev')
         """
         # Use the appropriate transformation depending on the fieldtype.
         if fieldtype == 'E' :
@@ -172,11 +172,16 @@ class Fields(object) :
                 self.trans[m].interp2spect_vect(
                     self.interp[m].Jr, self.interp[m].Jt,
                     self.spect[m].Jp, self.spect[m].Jm )
-        elif fieldtype == 'rho' :
+        elif fieldtype == 'rho_next' :
             # Transform each azimuthal grid individually
             for m in range(self.Nm) :
                 self.trans[m].interp2spect_scal(
                     self.interp[m].rho, self.spect[m].rho_next )
+        elif fieldtype == 'rho_prev' :
+            # Transform each azimuthal grid individually
+            for m in range(self.Nm) :
+                self.trans[m].interp2spect_scal(
+                    self.interp[m].rho, self.spect[m].rho_prev )
         else :
             raise ValueError( 'Invalid string for fieldtype: %s' %fieldtype )
 
