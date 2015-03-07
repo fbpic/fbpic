@@ -61,7 +61,7 @@ class Simulation(object) :
 
         # Determine the total number of particles along the z and r direction
         Npz = int( (p_zmax - p_zmin)*p_nz*Nz * 1./zmax )
-        Npr = int( (p_rmax - p_rmin)*p_nr*Nz * 1./rmax )
+        Npr = int( (p_rmax - p_rmin)*p_nr*Nr * 1./rmax )
         
         # Initialize the electrons
         # (using 4 macroparticles per cell along the azimuthal direction)
