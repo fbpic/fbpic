@@ -2,7 +2,7 @@
 This file is part of the Fourier-Bessel Particle-In-Cell code (FB-PIC)
 It defines the structure and methods associated with the particles.
 """
-
+import math
 import numpy as np
 import matplotlib.pyplot as plt
 from scipy.constants import c
@@ -12,7 +12,7 @@ try :
 except ImportError :
     numba_installed = False
 else :
-    numba_installed = True
+    numba_installed = False
 
 class Particles(object) :
     """
@@ -28,7 +28,7 @@ class Particles(object) :
     one half-timestep *behind* the position.
     """
 
-    def __init__(self, q, m, rho, Npz, zmin, zmax,
+    def __init__(self, q, m, n, Npz, zmin, zmax,
                     Npr, rmin, rmax, Nptheta, dt ) :
         """
         Initialize a uniform set of particles
@@ -41,8 +41,8 @@ class Particles(object) :
         m : float (in kg)
            Mass of the particle species 
 
-        rho : float (in Coulombs per m^3)
-           Uniform charge density of the macroparticles
+        n : float (in particles per m^3)
+           Uniform density of particles
            
         Npz : int
            Number of macroparticles along the z axis
@@ -101,10 +101,10 @@ class Particles(object) :
 
         # Get the weights (i.e. charge of each macroparticle), which are equal
         # to the density times the elementary volume r d\theta dr dz
-        self.w = rho * rp.flatten() * dtheta*dr*dz
+        self.w = q * n * rp.flatten() * dtheta*dr*dz
     
         
-    def push_p(self) :
+    def push_p(self, use_numba=numba_installed ) :
         """
         Advance the particles' momenta over one timestep, using the Vay pusher
         Reference : Vay, Physics of Plasmas 15, 056701 (2008)
@@ -112,6 +112,70 @@ class Particles(object) :
         This assumes that the momenta (ux, uy, uz) are initially one
         half-timestep *behind* the positions (x, y, z), and it brings
         them one half-timestep *ahead* of the positions.
+
+        Parameter
+        ---------
+        use_numba : bool, optional
+            Whether to use numba rather than numpy
+        """
+        if use_numba :
+            self.push_p_numba()
+        else :
+            self.push_p_numpy()
+    
+#    @numba.jit(nopython=True)
+    def push_p_numba(self) :
+        """
+        Advance the particles' momenta, using numba
+        """
+        # Set a few constants
+        econst = self.q*self.dt/(self.m*c)
+        bconst = 0.5*self.q*self.dt/self.m
+        
+        # Loop over the particles
+        for ip in xrange(self.Ntot) :
+
+            # Shortcut for initial 1./gamma
+            inv_gamma_i = self.inv_gamma[ip]
+            
+            # Get the magnetic rotation vector
+            taux = bconst*self.Bx[ip]
+            tauy = bconst*self.By[ip]
+            tauz = bconst*self.Bz[ip]
+            tau2 = taux**2 + tauy**2 + tauz**2
+            
+            # Get the momenta at the half timestep
+            ux = self.ux[ip] + econst*self.Ex[ip] \
+            + inv_gamma_i*( self.uy[ip]*tauz - self.uz[ip]*tauy )
+            uy = self.uy[ip] + econst*self.Ey[ip] \
+            + inv_gamma_i*( self.uz[ip]*taux - self.ux[ip]*tauz )
+            uz = self.uz[ip] + econst*self.Ez[ip] \
+            + inv_gamma_i*( self.ux[ip]*tauy - self.uy[ip]*taux )
+            sigma = 1 + ux**2 + uy**2 + uz**2 - tau2
+            utau = ux*taux + uy*tauy + uz*tauz
+
+            # Get the new 1./gamma
+            inv_gamma_f = math.sqrt(
+                2./( sigma + np.sqrt( sigma**2 + 4*(tau2 + utau**2 ) ) )
+            )
+            self.inv_gamma[ip] = inv_gamma_f
+
+            # Reuse the tau and utau arrays to save memory
+            tx = inv_gamma_f*taux
+            ty = inv_gamma_f*tauy
+            tz = inv_gamma_f*tauz
+            ut = inv_gamma_f*utau
+            s = 1./( 1 + tau2*inv_gamma_f**2 )
+
+            # Get the new u
+            self.ux[ip] = s*( ux + tx*ut + uy*tz - uz*ty )
+            self.uy[ip] = s*( uy + ty*ut + uz*tx - ux*tz )
+            self.uz[ip] = s*( uz + tz*ut + ux*ty - uy*tx )
+        
+
+    def push_p_numpy(self, use_numba=numba_installed ) :
+        """
+        Advance the particles' momenta, using numba
         """
         # Set a few constants
         econst = self.q*self.dt/(self.m*c)
@@ -150,7 +214,6 @@ class Particles(object) :
         self.uy = s*( uy + tauy*utau + uz*taux - ux*tauz )
         self.uz = s*( uz + tauz*utau + ux*tauy - uy*taux )
         
-
     def halfpush_x(self) :
         """
         Advance the particles' positions over one half-timestep
