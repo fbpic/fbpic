@@ -116,15 +116,19 @@ class Fields(object) :
             self.psatd.append( PsatdCoeffs( self.spect[m].kz,
                                 self.spect[m].kr, m, dt, Nz, Nr ) )
 
-    def push(self) :
+    def push(self, ptcl_feedback=True) :
         """
         Push the different azimuthal modes over one timestep,
         in spectral space.
+
+        ptcl_feedback : bool, optional
+            Whether to use the particles' densities and currents
+            when pushing the fields
         """
         # Push each azimuthal grid individually, by passing the
         # corresponding psatd coefficients
         for m in range(self.Nm) :
-            self.spect[m].push_eb_with( self.psatd[m] )
+            self.spect[m].push_eb_with( self.psatd[m], ptcl_feedback )
             self.spect[m].push_rho()
 
     def correct_currents(self) :
@@ -465,7 +469,7 @@ class SpectralGrid(object) :
         self.Jm += -0.5*self.kr*self.F
         self.Jz += -i*self.kz*self.F
 
-    def push_eb_with(self, ps ) :
+    def push_eb_with(self, ps, ptcl_feedback=True ) :
         """
         Pushes the fields over one timestep, using the psatd coefficients.
 
@@ -473,6 +477,10 @@ class SpectralGrid(object) :
         ----------
         ps : PsatdCoeffs object
             psatd object corresponding to the same m mode
+
+        ptcl_feedback : bool, optional
+            Whether to take into the densities and currents when
+            pushing the fields
         """
         # Check that psatd object passed as argument is the right one
         # (i.e. corresponds to the right mode)
@@ -492,29 +500,50 @@ class SpectralGrid(object) :
         c2 = c**2
 
         # Push the E field
-        self.Ep[:,:] = ps.C*self.Ep + 0.5*self.kr*rho_diff \
+        if ptcl_feedback :
+            self.Ep[:,:] = ps.C*self.Ep + 0.5*self.kr*rho_diff \
         + c2*ps.S_w*( -i*0.5*self.kr*self.Bz + self.kz*self.Bp - mu_0*self.Jp )
 
-        self.Em[:,:] = ps.C*self.Em - 0.5*self.kr*rho_diff \
+            self.Em[:,:] = ps.C*self.Em - 0.5*self.kr*rho_diff \
         + c2*ps.S_w*( -i*0.5*self.kr*self.Bz - self.kz*self.Bm - mu_0*self.Jm )
 
-        self.Ez[:,:] = ps.C*self.Ez - i*self.kz*rho_diff \
-        + c2*ps.S_w*( i*self.kr*self.Bp + i*self.kr*self.Bm - mu_0*self.Jz )
-
-        # Push the B field
+            self.Ez[:,:] = ps.C*self.Ez \
+        + c2*ps.S_w*( i*self.kr*self.Bp + i*self.kr*self.Bm )
         
-        self.Bp[:,:] = ps.C*self.Bp \
-            - ps.S_w*( -i*0.5*self.kr*ps.Ez + self.kz*ps.Ep ) \
-            + ps.j_coef*( -i*0.5*self.kr*self.Jz + self.kz*self.Jp )
+        else :
+            self.Ep[:,:] = ps.C*self.Ep \
+        + c2*ps.S_w*( -i*0.5*self.kr*self.Bz + self.kz*self.Bp )
 
-        self.Bm[:,:] = ps.C*self.Bm \
-            - ps.S_w*( -i*0.5*self.kr*ps.Ez - self.kz*ps.Em ) \
-            + ps.j_coef*( -i*0.5*self.kr*self.Jz - self.kz*self.Jm )
+            self.Em[:,:] = ps.C*self.Em \
+        + c2*ps.S_w*( -i*0.5*self.kr*self.Bz - self.kz*self.Bm )
 
-        self.Bz[:,:] = ps.C*self.Bz \
-            - ps.S_w*( i*self.kr*ps.Ep + i*self.kr*ps.Em ) \
-            + ps.j_coef*( i*self.kr*self.Jp + i*self.kr*self.Jm )
+            self.Ez[:,:] = ps.C*self.Ez \
+        + c2*ps.S_w*( i*self.kr*self.Bp + i*self.kr*self.Bm )            
+        
+        # Push the B field
 
+        if ptcl_feedback :
+            self.Bp[:,:] = ps.C*self.Bp \
+                - ps.S_w*( -i*0.5*self.kr*ps.Ez + self.kz*ps.Ep ) \
+                + ps.j_coef*( -i*0.5*self.kr*self.Jz + self.kz*self.Jp )
+
+            self.Bm[:,:] = ps.C*self.Bm \
+                - ps.S_w*( -i*0.5*self.kr*ps.Ez - self.kz*ps.Em ) \
+                + ps.j_coef*( -i*0.5*self.kr*self.Jz - self.kz*self.Jm )
+
+            self.Bz[:,:] = ps.C*self.Bz \
+                - ps.S_w*( i*self.kr*ps.Ep + i*self.kr*ps.Em ) \
+                + ps.j_coef*( i*self.kr*self.Jp + i*self.kr*self.Jm )
+        else :
+            self.Bp[:,:] = ps.C*self.Bp \
+                - ps.S_w*( -i*0.5*self.kr*ps.Ez + self.kz*ps.Ep ) 
+
+            self.Bm[:,:] = ps.C*self.Bm \
+                - ps.S_w*( -i*0.5*self.kr*ps.Ez - self.kz*ps.Em ) 
+
+            self.Bz[:,:] = ps.C*self.Bz \
+                - ps.S_w*( i*self.kr*ps.Ep + i*self.kr*ps.Em ) 
+                
 
     def push_rho(self) :
         """

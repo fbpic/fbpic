@@ -77,17 +77,28 @@ class Simulation(object) :
         # Bring it to the spectral space
         self.fld.interp2spect('rho_prev')
 
-    def step(self, N=1) :
+    def step(self, N=1, ptcl_feedback=True, correct_currents=True,
+             move_positions=True, move_momenta=True ) :
         """
         Takes N timesteps in the PIC cycle
-    
-        The structures fld (Fields object) and ptcl (Particles object)
-        have to be defined at that point
     
         Parameter
         ---------
         N : int, optional
             The number of timesteps to take
+
+        ptcl_feedback : bool, optional
+            Whether to take into account the particle density and
+            currents when pushing the fields
+
+        correct_currents : bool, optional
+            Whether to correct the currents in spectral space
+
+        move_positions : bool, optional
+            Whether to move or freeze the particles' positions
+
+        move_momenta : bool, optional
+            Whether to move or freeze the particles' momenta
         """
         # Shortcuts
         ptcl = self.ptcl
@@ -104,9 +115,12 @@ class Simulation(object) :
                 species.gather( fld.interp )
     
             # Push the particles' positions and velocities to t = (n+1/2) dt
-            for species in ptcl :
-                species.push_p()
-                species.halfpush_x()
+            if move_momenta :
+                for species in ptcl :
+                    species.push_p()
+            if move_positions :
+                for species in ptcl :
+                    species.halfpush_x()
             # Get the current on the interpolation grid at t = (n+1/2) dt
             fld.erase('J')
             for species in ptcl :
@@ -115,9 +129,10 @@ class Simulation(object) :
             # Get the current on the spectral grid at t = (n+1/2) dt
             fld.interp2spect('J')
 
-            # Push the particles' position to t = (n+1) dt
-            for species in ptcl :
-                species.halfpush_x()
+            # Push the particles' positions to t = (n+1) dt
+            if move_positions :
+                for species in ptcl :
+                    species.halfpush_x()
             # Get the charge density on the interpolation grid at t = (n+1) dt
             fld.erase('rho')
             for species in ptcl :
@@ -126,10 +141,11 @@ class Simulation(object) :
             # Get the charge density on the spectral grid at t = (n+1) dt
             fld.interp2spect('rho_next')
             # Correct the currents (requires rho at t = (n+1) dt )
-            fld.correct_currents()
+            if correct_currents :
+                fld.correct_currents()
             
             # Get the fields E and B on the spectral grid at t = (n+1) dt
-            fld.push()
+            fld.push( ptcl_feedback )
             # Get the fields E and B on the interpolation grid at t = (n+1) dt
             fld.spect2interp('E')
             fld.spect2interp('B')
@@ -143,7 +159,7 @@ class Simulation(object) :
 
 def progression_bar(i, Ntot, Nbars=60, char='-') :
     "Shows a progression bar with Nbars"
-    nbars = int( i*1./Ntot*Nbars )
+    nbars = int( (i+1)*1./Ntot*Nbars )
     sys.stdout.write('\r[' + nbars*char )
     sys.stdout.write((Nbars-nbars)*' ' + ']')
     sys.stdout.flush()
