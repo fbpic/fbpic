@@ -5,10 +5,14 @@ It defines the structure necessary to implement the moving window.
 
 def shift_window(sim) :
     # Check if it is the right time to shift the window
-
+    pass
     # Shift the fields
 
     # Shift the particles
+
+    # NB: modify the shift_fields ?
+    # in principle, it is not needed to shift the fields.
+    # However, it is very cheap to do it, so why not ?
 
     
 def shift_fields(fld) :
@@ -29,7 +33,7 @@ def shift_fields(fld) :
 
     # Shift the fields on the spectral grid
     for m in range(fld.Nm) :
-        shift_interp_grid( fld.spect[m] )
+        shift_spect_grid( fld.spect[m], fld.trans[m] )
     
 
 def shift_interp_grid( grid, shift_currents=False ) :

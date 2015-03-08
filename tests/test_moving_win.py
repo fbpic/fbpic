@@ -1,10 +1,10 @@
 """
-This file tests the structures implemented in fields.py,
-by studying the propagation of a Gaussian beam in vacuum.
+This file tests the effect of the moving window on the fields, by
+letting a laser propagate (with the moving window on and no macroparticles).
 
 Usage :
 from the top-level directory of FBPIC run
-$ python tests/test_fields.py
+$ python tests/test_moving_win.py
 """
 import sys
 import numpy as np
@@ -13,8 +13,9 @@ from scipy.constants import c, m_e, e
 from scipy.optimize import curve_fit
 from fbpic.fields import Fields
 from fbpic.lpa_utils import add_laser
+from fbpic.moving_window import shift_fields
 
-def test_pulse( Nz, Nr, Nm, Lz, Lr, L_prop, Nt, w0, ctau,
+def test_pulse( Nz, Nr, Nm, Lz, Lr, Nt, w0, ctau,
                 k0, E0, m, N_show, show=False ) :
     """
     Propagate the beam over a distance L_prop in N_step,
@@ -32,12 +33,9 @@ def test_pulse( Nz, Nr, Nm, Lz, Lr, L_prop, Nt, w0, ctau,
        The size of the box in z and r respectively (in microns)
        (In the case of Lr, this is the distance from the *axis*
        to the outer boundary)
-
-    L_prop : float
-       The total propagation distance (in microns)
-
+       
     Nt : int
-       The number of timesteps to take, to reach that distance
+       The number of timesteps to take
 
     w0 : float
        The initial waist of the laser (in microns)
@@ -55,23 +53,27 @@ def test_pulse( Nz, Nr, Nm, Lz, Lr, L_prop, Nt, w0, ctau,
        Index of the mode to be tested
        For m = 1 : test with a gaussian, linearly polarized beam
        For m = 0 : test with an annular beam, polarized in E_theta
-
+       
     show : bool
        Wether to show the fields
 
     N_show : int
        Number of timesteps between two consecutive plots of the fields
-                  
+           
     Returns
     -------
     A dictionary containing :
     - 'E' : 1d array containing the values of the amplitude
     - 'w' : 1d array containing the values of waist
     - 'fld' : the Fields object at the end of the simulation.
+    - 'z_centroid' : 1d array containing the values of the centroid position
     """
 
+    # Choose the timestep, so that the simulation advances by
+    # one cell at every timestep
+    dt = Lz*1./Nz * 1./c
+    
     # Initialize the fields object
-    dt = L_prop/c * 1./Nt
     fld = Fields( Nz, Lz, Nr, Lr, Nm, dt )
     z0 = Lz/2
     init_fields( fld, w0, ctau, k0, z0, E0, m )
@@ -79,6 +81,7 @@ def test_pulse( Nz, Nr, Nm, Lz, Lr, L_prop, Nt, w0, ctau,
     # Create the arrays to get the waist and amplitude
     w = np.zeros(Nt)
     E = np.zeros(Nt)
+    z_center = np.zeros(Nt)
         
     # Get the fields in spectral space
     fld.interp2spect('E')
@@ -87,6 +90,9 @@ def test_pulse( Nz, Nr, Nm, Lz, Lr, L_prop, Nt, w0, ctau,
     # Loop over the iterations
     print('Running the simulation...')
     for it in range(Nt) :
+        # Shift the fields using the moving window
+        shift_fields(fld)
+        
         # Advance the Maxwell equations
         fld.push()
         # Bring the fields back onto the interpolation grid
@@ -96,6 +102,8 @@ def test_pulse( Nz, Nr, Nm, Lz, Lr, L_prop, Nt, w0, ctau,
         w[it], E[it] = fit_fields( fld, m )
         # Since the fit returns the RMS of E, renormalize it
         E[it] = E[it]*2**(3./4)/np.pi**(1./4)*np.sqrt(Lz/ctau)
+        # Get the average position of the laser
+        z_center[it] = average_position( fld, m )
         # Show the progression bar
         progression_bar(it, Nt-1)
         # Plot the fields during the simulation
@@ -118,23 +126,29 @@ def test_pulse( Nz, Nr, Nm, Lz, Lr, L_prop, Nt, w0, ctau,
         
     # Plot the results
     plt.suptitle('Diffraction of a pulse in the mode %d' %m)
-    plt.subplot(121)
+    plt.subplot(131)
     plt.plot( z_prop, w, 'o', label='Simulation' )
     plt.plot( z_prop, w_analytic, '--', label='Theory' )
     plt.xlabel('z (microns)')
     plt.ylabel('w (microns)')
     plt.title('Waist')
     plt.legend(loc=0)
-    plt.subplot(122)
+    plt.subplot(132)
     plt.plot( z_prop, E, 'o', label='Simulation' )
     plt.plot( z_prop, E_analytic, '--', label='Theory' )
     plt.xlabel('z (microns)')
     plt.ylabel('E')
     plt.legend(loc=0)
     plt.title('Amplitude')
+    plt.subplot(133)
+    plt.plot( z_prop, z_center, 'o', label='Simulation' )
+    plt.xlabel('z (microns)')
+    plt.ylabel('z_center')
+    plt.legend(loc=0)
+    plt.title('Centroid position')
     
     # Return a dictionary of the results
-    return( { 'E' : E, 'w' : w, 'fld' : fld } )
+    return( { 'E' : E, 'w' : w, 'fld' : fld, 'z_center' : z_center } )
 
     
 def init_fields( fld, w, ctau, k0, z0, E0, m=1 ) :
@@ -169,7 +183,7 @@ def init_fields( fld, w, ctau, k0, z0, E0, m=1 ) :
     # Initialize the fields with the right value and phase
     if m == 1 :
         add_laser( fld, E0*e/(m_e*c**2*k0), w, ctau, z0,
-                   lambda0 = 2*np.pi/k0, fw_propagating=False )
+                   lambda0 = 2*np.pi/k0, fw_propagating=True )
     if m == 0 :
         z = fld.interp[m].z
         r = fld.interp[m].r
@@ -177,6 +191,31 @@ def init_fields( fld, w, ctau, k0, z0, E0, m=1 ) :
         fld.interp[m].Et[:,:] = profile
         fld.interp[m].Br[:,:] = -1./c*profile
 
+def average_position( fld, m ) :
+    """
+    Calculates the position of the centroid of the laser.
+    
+    If the moving window does not work, this wraps around between 0 and Lz.
+
+    Parameters
+    ----------
+    fld : a Fields object
+        Contains the field data of the simulation
+
+    m : int
+        The index of the azimuthal mode considered
+
+    Returns
+    -------
+    A float indicating the position of the centroid
+    """
+    # Average the positions with the amplitude of the laser *off-axis*
+    # (since the amplitude may be 0 on axis for m=0)
+    z_center = np.average( fld.interp[m].z,
+                           weights = abs(fld.interp[m].Et[:,4]) )
+
+    return(z_center)    
+    
         
 def gaussian_transverse_profile( r, w, E ) :
     """
@@ -290,7 +329,6 @@ def annular_pulse( z, r, w0, ctau, k0, z0, E0 ) :
     ------
        A 2d array with z as the first axis and r as the second axis,
        which contains the values of the 
-    
     """
     longitudinal = np.exp( -(z-z0)**2/ctau**2 )*np.cos(k0*(z-z0))
     transverse = annular_transverse_profile( r, w0, E0 )
@@ -339,34 +377,33 @@ def progression_bar(i, Ntot, Nbars=60, char='-') :
 if __name__ == '__main__' :
     
     # Simulation box
-    Nz = 300
-    Lz = 30.
-    Nr = 300
-    Lr = 40.
+    Nz = 150
+    Lz = 15.
+    Nr = 100
+    Lr = 10.
     Nm = 2
     # Laser pulse
     w0 = 2.
-    ctau = 10.
+    ctau = 5.
     k0 = 2*np.pi/0.8
     E0 = 1.
     # Propagation
-    L_prop = 30.
-    N_step = 10
-    N_show = 2 # interval between two plots (in number of timestep)
+    N_step = 200
+    N_show = 20 # interval between two plots (in number of timestep)
 
     show=False
 
     print('')
     print('Testing mode m=0 with an annular beam')
     plt.figure()
-    res = test_pulse( Nz, Nr, Nm, Lz, Lr, L_prop, N_step, w0, ctau,
+    res = test_pulse( Nz, Nr, Nm, Lz, Lr, N_step, w0, ctau,
                       k0, E0, 0, N_show, show=show )
     plt.show()
     
     print('')
     print('Testing mode m=1 with an gaussian beam')
     plt.figure()
-    res = test_pulse(Nz, Nr, Nm, Lz, Lr, L_prop, N_step, w0, ctau,
+    res = test_pulse(Nz, Nr, Nm, Lz, Lr, N_step, w0, ctau,
                      k0, E0, 1, N_show, show=show )
     plt.show()
 

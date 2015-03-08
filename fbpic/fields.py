@@ -324,9 +324,9 @@ class InterpolationGrid(object) :
         Nz = len(z)
         Nr = len(r)
         self.Nz = Nz
-        self.z = z
+        self.z = z.copy()
         self.Nr = Nr
-        self.r = r
+        self.r = r.copy()
         self.m = m
 
         # Register a few grid properties
