@@ -135,7 +135,7 @@ def shift_spect_field( field_array, trans ) :
     field_array[:,:] = trans.spect_buffer_r[:,:]
      
     
-def shift_interp_field( field_array, n_cells_zero=1 ) :
+def shift_interp_field( field_array, n_cells_zero=5 ) :
     """
     Shift the field 'field_array' by one cell (backwards)
     
@@ -150,4 +150,4 @@ def shift_interp_field( field_array, n_cells_zero=1 ) :
     # Transfer the values to one cell before
     field_array[:-1,:] = field_array[1:,:]
     # Zero out the new fields
-    field_array[-n_cells_zero,:] = 0.
+    field_array[-n_cells_zero:,:] = 0.
