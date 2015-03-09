@@ -74,7 +74,6 @@ class Fields(object) :
         
         # Register the arguments inside the object
         self.Nz = Nz
-        self.zmax = zmax
         self.Nr = Nr
         self.rmax = rmax
         self.Nm = Nm
@@ -330,13 +329,16 @@ class InterpolationGrid(object) :
         self.m = m
 
         # Register a few grid properties
-        self.zmin = self.z.min()
         dr = r[1] - r[0]
         dz = z[1] - z[0]
         self.dr = dr
         self.dz = dz
         self.invdr = 1./dr
         self.invdz = 1./dz
+        self.rmin = self.r.min()
+        self.rmax = self.r.max()
+        self.zmin = self.z.min()
+        self.zmax = self.z.max()
         # Cell volume (assuming an evenly-spaced grid)
         vol = np.pi*dz*( (r+0.5*dr)**2 - (r-0.5*dr)**2 )
         vol[0] = 13./12*vol[0] # Verboncoeur-type correction
@@ -373,8 +375,8 @@ class InterpolationGrid(object) :
         # Show the field also below the axis for a more realistic picture
         if below_axis == True :
             plotted_field = np.hstack( (plotted_field[:,::-1],plotted_field) )
-            extent = [ self.z.min() - 0.5*self.dz, self.z.max() + 0.5*self.dz,
-                      -self.r.max() - 0.5*self.dr, self.r.max() + 0.5*self.dr ]
+            extent = [ self.zmin - 0.5*self.dz, self.zmax + 0.5*self.dz,
+                      -self.rmax - 0.5*self.dr, self.rmax + 0.5*self.dr ]
         else :
             extent = [self.z.min() - 0.5*self.dz, self.z.max() + 0.5*self.dz,
                       self.r.min() - 0.5*self.dr, self.r.max() + 0.5*self.dr]

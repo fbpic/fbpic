@@ -3,18 +3,47 @@ This file is part of the Fourier-Bessel Particle-In-Cell code (FB-PIC)
 It defines the structure necessary to implement the moving window.
 """
 
-def shift_window(sim) :
-    # Check if it is the right time to shift the window
-    pass
-    # Shift the fields
+import numpy as np
+from scipy.constants import c
 
-    # Shift the particles
+def move_window( fld, ptcl, npz, time ) :
+    """
+    Check if the window should be moved, and if yes shift the fields,
+    and add new particles
 
-    # NB: modify the shift_fields ?
-    # in principle, it is not needed to shift the fields.
-    # However, it is very cheap to do it, so why not ?
+    Parameters
+    ----------
+    fld : a Fields object
+        Contains the fields data of the simulation
 
+    ptcl : a list of Particles objects
+        Contains the particles data for each species
+
+    npz : int
+        Number of macroparticles per cell along the z direction
+
+    time : float (in seconds)
+        The global time of the simulation
+    """
     
+    # Move the window as long as zmin < ct
+    while fld.interp[0].zmin < c*time :
+    
+        # Shift the fields
+        shift_fields( fld )
+
+        # Extract a few quantities of the new (shifted) grid
+        zmin = fld.interp[0].zmin
+        zmax = fld.interp[0].zmax
+        dz = fld.interp[0].dz
+    
+        # Now that the grid has moved, remove the particles that are
+        # outside of it, and add new particles in the next-to-last cell
+        for species in ptcl :
+            clean_outside_particles( species, zmin )
+            add_particles( species, zmax-2*dz, zmax-dz, npz )
+
+
 def shift_fields(fld) :
     """
     Shift all the fields in the object 'fld'
@@ -54,6 +83,7 @@ def shift_interp_grid( grid, shift_currents=False ) :
     # Modify the values of the corresponding z's 
     grid.z += grid.dz
     grid.zmin += grid.dz
+    grid.zmax += grid.zmax
 
     # Shift all the fields
     shift_interp_field( grid.Er )
@@ -151,3 +181,76 @@ def shift_interp_field( field_array, n_cells_zero=5 ) :
     field_array[:-1,:] = field_array[1:,:]
     # Zero out the new fields
     field_array[-n_cells_zero:,:] = 0.
+
+
+def clean_outside_particles( species, zmin ) :
+    """
+    Removes the particles that are below `zmin`.
+
+    Parameters
+    ----------
+    species : a Particles object
+        Contains the data of this species
+
+    zmin : float
+        The lower bound under which particles are removed
+    """
+
+    # Select the particles that are still inside the box
+    selec = ( species.z > zmin )
+
+    # Keep only this selection, in the different arrays that contains the
+    # particle properties (x, y, z, ux, uy, uz, etc...)
+    # Instead of hard-coding x = x[selec], y=y[selec], etc... here we loop
+    # over the particles attributes, and resize the attributes that are
+    # arrays with one element per particles.
+    # The advantage is that nothing needs to be added to this piece of code,
+    # if a new particle attribute is later added in particles.py.
+
+    # Loop over the attributes
+    for key, attribute in vars(species).items() :
+        # Detect if it is an array
+        if type(attribute) is np.ndarray :
+            # Detect if it has one element per particle
+            if attribute.shape == ( species.Ntot ,) :
+                # Affect the resized array to the object
+                setattr( species, key, attribute[selec] )
+
+def add_particles( species, zmin, zmax, Npz ) :
+    """
+    Create new particles between zmin and zmax, and add them to `species`
+
+    Parameters
+    ----------
+    species : a Particles object
+       Contains the particle data of that species
+
+    zmin, zmax : floats (meters)
+       The positions between which the new particles are created
+
+    Npz : int
+       The total number of particles to be added along the z axis
+       (The number of particles along r and theta is the same as that of
+       `species`)
+    """
+
+    # Create the particles that will be added
+    new_ptcl = Particles( species.q, species.m, species.n, Npz, zmin, zmax,
+        species.Npr, species.rmin, species.rmax, species.Nptheta, species.dt )
+
+    # Add the properties of these new particles to species object
+    # Loop over the attributes of the species
+    for key, attribute in vars(species).items() :
+        # Detect if it is an array
+        if type(attribute) is np.ndarray :
+            # Detect if it has one element per particle
+            if attribute.shape == ( species.Ntot ,) :
+                # Concatenate the attribute of species and of new_ptcl
+                new_attribute = np.hstack(
+                    ( getattr(species, key), getattr(new_ptcl, key) )  )
+                # Affect the resized array to the species object
+                setattr( species, key, new_attribute )
+
+    # Add the number of new particles to the global count of particles
+    species.Ntot += new_ptcl.Ntot
+    

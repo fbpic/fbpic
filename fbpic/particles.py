@@ -67,9 +67,15 @@ class Particles(object) :
         self.dt = dt
         
         # Register the properties of the particles
+        # (Necessary for the pusher, and when adding more particles later, )
         self.Ntot = Npz*Npr*Nptheta
         self.q = q
         self.m = m
+        self.n = n
+        self.rmin = rmin
+        self.rmax = rmax
+        self.Npr = Npr
+        self.Nptheta = Nptheta
 
         # Initialize the (normalized) momenta
         self.uz = np.zeros( self.Ntot )

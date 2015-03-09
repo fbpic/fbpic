@@ -73,6 +73,11 @@ class Simulation(object) :
                        Npr=Npr, rmin=p_rmin, rmax=p_rmax, Nptheta=4, dt=dt )
             ]
         
+        # Register the number of particles per cell along z, and the time
+        # (Necessary for the moving window)
+        self.time = 0.
+        self.npz = npz
+        
         # Do the initial charge deposition (at t=0) now
         for species in self.ptcl :
             species.deposit( self.fld.interp, 'rho' )
@@ -80,15 +85,18 @@ class Simulation(object) :
         # Bring it to the spectral space
         self.fld.interp2spect('rho_prev')
 
+
+        
     def step(self, N=1, ptcl_feedback=True, correct_currents=True,
-             move_positions=True, move_momenta=True ) :
+             move_positions=True, move_momenta=True, moving_window=True ) :
         """
-        Takes N timesteps in the PIC cycle
-    
+        Perform N PIC cycles
+        
         Parameter
         ---------
         N : int, optional
             The number of timesteps to take
+            Default : N=1
 
         ptcl_feedback : bool, optional
             Whether to take into account the particle density and
@@ -102,6 +110,9 @@ class Simulation(object) :
 
         move_momenta : bool, optional
             Whether to move or freeze the particles' momenta
+
+        moving_window : bool, optional
+            Whether to move the window at c
         """
         # Shortcuts
         ptcl = self.ptcl
@@ -112,6 +123,10 @@ class Simulation(object) :
 
             # Show a progression bar
             progression_bar( i_step, N )
+
+            # Move the window if needed
+            if moving_window :
+                move_window( fld, ptcl, self.npz, self.time )
             
             # Gather the fields at t = n dt
             for species in ptcl :
@@ -153,12 +168,8 @@ class Simulation(object) :
             fld.spect2interp('E')
             fld.spect2interp('B')
     
-            # Boundary conditions could potentially be implemented here, 
-            # on the interpolation grid. This would impose
-            # to then convert the fields back to the spectral space.
-
-
-
+            # Increment the global time
+            self.time += fld.interp[0].dt
 
 def progression_bar(i, Ntot, Nbars=60, char='-') :
     "Shows a progression bar with Nbars"
