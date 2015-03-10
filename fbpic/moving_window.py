@@ -5,8 +5,9 @@ It defines the structure necessary to implement the moving window.
 
 import numpy as np
 from scipy.constants import c
+from particles import Particles
 
-def move_window( fld, ptcl, npz, time ) :
+def move_window( fld, ptcl, p_nz, time ) :
     """
     Check if the window should be moved, and if yes shift the fields,
     and add new particles
@@ -19,7 +20,7 @@ def move_window( fld, ptcl, npz, time ) :
     ptcl : a list of Particles objects
         Contains the particles data for each species
 
-    npz : int
+    p_nz : int
         Number of macroparticles per cell along the z direction
 
     time : float (in seconds)
@@ -28,7 +29,7 @@ def move_window( fld, ptcl, npz, time ) :
     
     # Move the window as long as zmin < ct
     while fld.interp[0].zmin < c*time :
-    
+        
         # Shift the fields
         shift_fields( fld )
 
@@ -40,9 +41,8 @@ def move_window( fld, ptcl, npz, time ) :
         # Now that the grid has moved, remove the particles that are
         # outside of it, and add new particles in the next-to-last cell
         for species in ptcl :
-            clean_outside_particles( species, zmin )
-            add_particles( species, zmax-2*dz, zmax-dz, npz )
-
+            clean_outside_particles( species, zmin-0.5*dz )
+            add_particles( species, zmax-1.5*dz, zmax-0.5*dz, p_nz )
 
 def shift_fields(fld) :
     """
@@ -83,7 +83,7 @@ def shift_interp_grid( grid, shift_currents=False ) :
     # Modify the values of the corresponding z's 
     grid.z += grid.dz
     grid.zmin += grid.dz
-    grid.zmax += grid.zmax
+    grid.zmax += grid.dz
 
     # Shift all the fields
     shift_interp_field( grid.Er )
@@ -198,6 +198,7 @@ def clean_outside_particles( species, zmin ) :
 
     # Select the particles that are still inside the box
     selec = ( species.z > zmin )
+    print len(selec[selec==False])
 
     # Keep only this selection, in the different arrays that contains the
     # particle properties (x, y, z, ux, uy, uz, etc...)

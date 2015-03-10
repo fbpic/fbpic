@@ -52,13 +52,13 @@ class Fields(object) :
             The number of gridpoints in z
 
         zmax : float
-            The size of the simulation box along z
+            The size of the box along z
             
         Nr : int
             The number of gridpoints in r
 
         rmax : float
-            The size of the simulation box along r
+            The size of the box along r
 
         Nm : int
             The number of azimuthal modes
@@ -378,8 +378,8 @@ class InterpolationGrid(object) :
             extent = [ self.zmin - 0.5*self.dz, self.zmax + 0.5*self.dz,
                       -self.rmax - 0.5*self.dr, self.rmax + 0.5*self.dr ]
         else :
-            extent = [self.z.min() - 0.5*self.dz, self.z.max() + 0.5*self.dz,
-                      self.r.min() - 0.5*self.dr, self.r.max() + 0.5*self.dr]
+            extent = [self.zmin - 0.5*self.dz, self.zmax + 0.5*self.dz,
+                      self.rmin - 0.5*self.dr, self.rmax + 0.5*self.dr]
         plt.suptitle(
             '%s on the interpolation grid, for mode %d' %(fieldtype, self.m) )
             

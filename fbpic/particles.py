@@ -324,9 +324,9 @@ class Particles(object) :
 
         # Indices and weights
         iz_lower, iz_upper, Sz_lower = linear_weights( 
-            self.z, grid[0].invdz, 0., grid[0].Nz )
+            self.z, grid[0].invdz, grid[0].zmin, grid[0].Nz )
         ir_lower, ir_upper, Sr_lower = linear_weights(
-            r, grid[0].invdr, 0.5*grid[0].dr, grid[0].Nr )
+            r, grid[0].invdr, grid[0].rmin, grid[0].Nr )
 
         # Number of modes considered :
         # number of elements in the grid list
