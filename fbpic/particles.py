@@ -424,9 +424,12 @@ def linear_weights(x, invdx, offset, Nx) :
         Contains the weight for the lower cell, for each macroparticle.
         The weight for the upper cell is just 1-S_lower.
     """
+
+    # Positions of the particles, in the cell unit
+    x_cell =  invdx*(x - offset)
     
     # Index of the uppper and lower cell
-    i_lower = np.floor( invdx*(x - offset) ).astype('int')  
+    i_lower = np.floor( x_cell ).astype('int')  
     i_upper = i_lower + 1
     
     # Avoid out-of-bounds indices
@@ -436,7 +439,7 @@ def linear_weights(x, invdx, offset, Nx) :
     i_upper = np.where( i_upper > Nx-1, Nx-1, i_upper )
 
     # Linear weight
-    S_lower = 1. - ( invdx*(x - offset) - i_lower )
+    S_lower = i_upper - x_cell
 
     return( i_lower, i_upper, S_lower )
 
