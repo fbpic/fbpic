@@ -2,7 +2,6 @@
 This file is part of the Fourier-Bessel Particle-In-Cell code (FB-PIC)
 It defines the structure and methods associated with the particles.
 """
-import pdb
 import math
 import numpy as np
 import matplotlib.pyplot as plt
@@ -30,7 +29,7 @@ class Particles(object) :
     """
 
     def __init__(self, q, m, n, Npz, zmin, zmax,
-                    Npr, rmin, rmax, Nptheta, dt ) :
+                    Npr, rmin, rmax, Nptheta, dt, global_theta=0. ) :
         """
         Initialize a uniform set of particles
 
@@ -62,6 +61,12 @@ class Particles(object) :
 
         dt : float (in seconds)
            The timestep for the particle pusher
+
+        global_theta : float (in rad)
+           A global shift on all the theta of the particles
+           This is useful when repetitively adding new particles
+           (e.g. with the moving window), in order to avoid that
+           the successively-added particles are aligned.
         """
         # Register the timestep
         self.dt = dt
@@ -103,9 +108,9 @@ class Particles(object) :
         # (copy=True is important here, since it allows to
         # change the angles individually)
         zp, rp, thetap = np.meshgrid( z_reg, r_reg, theta_reg, copy=True)
-        # Avoid the fact that the particles are all aligned along
-        # the arms of a star, transversely
-        unalign_angles( thetap, Npr,Npz, method='irrational' ) 
+        # Prevent the particles from being aligned along any direction
+        unalign_angles( thetap, Npr,Npz, method='irrational' )
+        thetap += global_theta
         # Flatten them (This performs a memory copy)
         self.z = zp.flatten()
         self.x = rp.flatten()*np.cos( thetap.flatten() )
@@ -210,8 +215,7 @@ class Particles(object) :
         use_numba : bool, optional
              Whether to use numba or numpy in the core deposition function
              Default : Use if numba is installed, use it
-        """
-
+        """        
         # Preliminary arrays for the cylindrical conversion
         r = np.sqrt( self.x**2 + self.y**2 )
         invr = 1./r
@@ -220,9 +224,9 @@ class Particles(object) :
 
         # Indices and weights
         iz_lower, iz_upper, Sz_lower = linear_weights(
-           self.z, grid[0].invdz, 0., grid[0].Nz )
+           self.z, grid[0].invdz, grid[0].zmin, grid[0].Nz )
         ir_lower, ir_upper, Sr_lower = linear_weights(
-            r, grid[0].invdr, 0.5*grid[0].dr, grid[0].Nr )
+            r, grid[0].invdr, grid[0].rmin, grid[0].Nr )
 
         # Number of modes considered :
         # number of elements in the grid list

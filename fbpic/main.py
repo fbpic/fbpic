@@ -4,7 +4,7 @@ Fourier-Bessel Particle-In-Cell (FB-PIC) main file
 This file steers and controls the simulation.
 """
 import sys
-from scipy.constants import m_e, e
+from scipy.constants import m_e, m_p, e
 from fields import Fields
 from particles import Particles
 from moving_window import move_window
@@ -29,7 +29,8 @@ class Simulation(object) :
         """
         Initializes a simulation, by creating the following structures :
         - the Fields object, which contains the EM fields
-        - a set of electrons (if no electric field is initialized, this is as if 
+        - a set of electrons
+        - a set of ions
 
         Parameters
         ----------
@@ -70,11 +71,13 @@ class Simulation(object) :
         p_rmin, p_rmax, Npr = adapt_to_grid( self.fld.interp[0].r,
                                 p_rmin, p_rmax, p_nr )
         
-        # Initialize the electrons
+        # Initialize the electrons and the ions
         # (using 4 macroparticles per cell along the azimuthal direction)
         self.ptcl = [
             Particles( q=-e, m=m_e, n=n_e, Npz=Npz, zmin=p_zmin, zmax=p_zmax,
-                       Npr=Npr, rmin=p_rmin, rmax=p_rmax, Nptheta=4, dt=dt )
+                       Npr=Npr, rmin=p_rmin, rmax=p_rmax, Nptheta=4, dt=dt ),
+            Particles( q=e, m=m_p, n=n_e, Npz=Npz, zmin=p_zmin, zmax=p_zmax,
+                        Npr=Npr, rmin=p_rmin, rmax=p_rmax, Nptheta=4, dt=dt )
             ]
         
         # Register the number of particles per cell along z, and the time
@@ -132,7 +135,7 @@ class Simulation(object) :
             # Move the window if needed
             if moving_window :
                 move_window( fld, ptcl, self.p_nz, self.time )
-            
+                
             # Gather the fields at t = n dt
             for species in ptcl :
                 species.gather( fld.interp )

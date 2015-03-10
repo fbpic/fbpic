@@ -198,7 +198,6 @@ def clean_outside_particles( species, zmin ) :
 
     # Select the particles that are still inside the box
     selec = ( species.z > zmin )
-    print len(selec[selec==False])
 
     # Keep only this selection, in the different arrays that contains the
     # particle properties (x, y, z, ux, uy, uz, etc...)
@@ -235,9 +234,13 @@ def add_particles( species, zmin, zmax, Npz ) :
        `species`)
     """
 
+    # Take the angle of the last particle as a global shift in theta,
+    # in order to prevent the successively-added particles from being aligned
+    global_theta = np.angle( species.x[-1] + 1.j*species.y[-1] )
     # Create the particles that will be added
-    new_ptcl = Particles( species.q, species.m, species.n, Npz, zmin, zmax,
-        species.Npr, species.rmin, species.rmax, species.Nptheta, species.dt )
+    new_ptcl = Particles( species.q, species.m, species.n,
+        Npz, zmin, zmax, species.Npr, species.rmin, species.rmax,
+        species.Nptheta, species.dt, global_theta )
 
     # Add the properties of these new particles to species object
     # Loop over the attributes of the species
