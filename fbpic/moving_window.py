@@ -2,7 +2,6 @@
 This file is part of the Fourier-Bessel Particle-In-Cell code (FB-PIC)
 It defines the structure necessary to implement the moving window.
 """
-
 import numpy as np
 from scipy.constants import c
 from particles import Particles
@@ -165,7 +164,7 @@ def shift_spect_field( field_array, trans ) :
     field_array[:,:] = trans.spect_buffer_r[:,:]
      
     
-def shift_interp_field( field_array, n_cells_zero=5 ) :
+def shift_interp_field( field_array, n_cells_zero=10 ) :
     """
     Shift the field 'field_array' by one cell (backwards)
     
@@ -215,6 +214,9 @@ def clean_outside_particles( species, zmin ) :
             if attribute.shape == ( species.Ntot ,) :
                 # Affect the resized array to the object
                 setattr( species, key, attribute[selec] )
+
+    # Adapt the number of particles accordingly
+    species.Ntot = len( species.w )
 
 def add_particles( species, zmin, zmax, Npz ) :
     """
