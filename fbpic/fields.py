@@ -356,7 +356,7 @@ class InterpolationGrid(object) :
         self.Jz = np.zeros( (Nz, Nr), dtype='complex' )
         self.rho = np.zeros( (Nz, Nr), dtype='complex' )
 
-    def show(self, fieldtype, below_axis=True, **kw) :
+    def show(self, fieldtype, below_axis=True, scale=1, **kw) :
         """
         Show the field `fieldtype` on the spectral grid
 
@@ -367,6 +367,9 @@ class InterpolationGrid(object) :
             (either 'Er', 'Et', 'Ez', 'Br', 'Bt', 'Bz',
             'Jr', 'Jt', 'Jz', 'rho')
 
+        scale : float
+            Value by which the field should be divide before plotting
+            
         kw : dictionary
             Options to be passed to matplotlib's imshow
         """
@@ -385,7 +388,7 @@ class InterpolationGrid(object) :
             
         # Plot the real part
         plt.subplot(211)
-        plt.imshow( plotted_field.real.T[::-1], aspect='auto',
+        plt.imshow( plotted_field.real.T[::-1]/scale, aspect='auto',
                     interpolation='nearest', extent = extent, **kw )
         plt.xlabel('z')
         plt.ylabel('r')
@@ -394,7 +397,7 @@ class InterpolationGrid(object) :
 
         # Plot the imaginary part
         plt.subplot(212)
-        plt.imshow( plotted_field.imag.T[::-1], aspect='auto',
+        plt.imshow( plotted_field.imag.T[::-1]/scale, aspect='auto',
                     interpolation='nearest', extent = extent, **kw )
         plt.xlabel('z')
         plt.ylabel('r')
@@ -556,7 +559,7 @@ class SpectralGrid(object) :
         self.rho_prev[:,:] = self.rho_next[:,:]
         self.rho_next[:,:] = 0.
             
-    def show(self, fieldtype, **kw) :
+    def show(self, fieldtype, scale=1, **kw) :
         """
         Show the field `fieldtype` on the spectral grid
 
@@ -567,6 +570,9 @@ class SpectralGrid(object) :
             (either 'Ep', 'Em', 'Ez', 'Bp', 'Bm', 'Bz',
             'Jp', 'Jm', 'Jz', 'rho_prev', 'rho_next')
 
+        scale : float
+            Value by which the field should be divide before plotting
+            
         kw : dictionary
             Options to be passed to matplotlib's imshow
         """
@@ -578,7 +584,7 @@ class SpectralGrid(object) :
             
         # Plot the real part
         plt.subplot(211)
-        plt.imshow( plotted_field.real.T[::-1], aspect='auto',
+        plt.imshow( plotted_field.real.T[::-1]/scale, aspect='auto',
                     interpolation='nearest', extent = extent, **kw )
         plt.xlabel('z')
         plt.ylabel('r')
@@ -587,7 +593,7 @@ class SpectralGrid(object) :
         
         # Plot the imaginary part
         plt.subplot(212)
-        plt.imshow( plotted_field.imag.T[::-1], aspect='auto',
+        plt.imshow( plotted_field.imag.T[::-1]/scale, aspect='auto',
                     interpolation='nearest', extent = extent, **kw )
         plt.xlabel('z')
         plt.ylabel('r')
