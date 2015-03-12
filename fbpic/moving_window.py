@@ -28,7 +28,7 @@ class MovingWindow(object) :
     """
     
     def __init__( self, zmin=0, v=c, ncells_zero=1,
-                 ncells_damp=1, damp_shape='None' ) :
+                 ncells_damp=1, damp_shape='None', gradual_damp_EB=True ) :
         """
         Initializes a moving window object.
 
@@ -51,6 +51,10 @@ class MovingWindow(object) :
         damp_shape : string, optional
             How to damp the fields
             Either 'None', 'linear', 'sin', 'cos'
+
+        gradual_damp_EB : bool, optional
+            Whether to gradually damp the fields EB
+            If False, no damping at all will be applied to the fields E and B
         """
         # Attach position and speed
         self.zmin = zmin
@@ -75,7 +79,16 @@ class MovingWindow(object) :
             raise ValueError("Invalid string for damp_shape : %s" %damp_shape)
 
         # Create the damping array for the E and B fields
-        self.damp_array_EB = self.damp_array_J.copy()
+        self.damp_array_EB = np.ones(ncells_damp)
+        if gradual_damp_EB :
+            # Contrary to the fields rho and J which are recalculated
+            # at each timestep, the fields E and B accumulate damping
+            # over the successive timesteps. Therefore, the damping on
+            # E and B should be lighter. The following formula ensures
+            # (for a static field) that the successive applications of
+            # damping result in the same damping shape as for J.
+            self.damp_array_EB[:-1] = \
+              self.damp_array_J[:-1]/self.damp_array_J[1:]
         
     def move( self, fld, ptcl, p_nz, dt ) :
         """
