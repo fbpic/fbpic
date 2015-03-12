@@ -19,14 +19,12 @@ class MovingWindow(object) :
     ----------
     - v : speed of the moving window
     - ncells_zero : number of cells in which the fields are set to zero
-    - ncells_damp : number of cells in which the currents are damped
-    - damp_array : 1darray by which the density and currents get multiplied
+    - ncells_damp : number of cells in which the fields are damped
 
     Methods
     -------
     - move : shift the moving window by v*dt
-    - damp : set the density and current progressively to zero at the
-             left end of the box
+    - damp : set the fields progressively to zero at the left end of the box
     """
     
     def __init__( self, zmin=0, v=c, ncells_zero=1,
@@ -65,16 +63,19 @@ class MovingWindow(object) :
 
         # Create the damping array for the density and currents
         if damp_shape == 'None' :
-            self.damp_array = np.ones(ncells_damp)
+            self.damp_array_J = np.ones(ncells_damp)
         elif damp_shape == 'linear' :
-            self.damp_array = np.linspace(0, 1, ncells_damp)
+            self.damp_array_J = np.linspace(0, 1, ncells_damp)
         elif damp_shape == 'sin' :
-            self.damp_array = np.sin( np.linspace(0, np.pi/2, ncells_damp) )
+            self.damp_array_J = np.sin( np.linspace(0, np.pi/2, ncells_damp) )
         elif damp_shape == 'cos' :
-            self.damp_array = 0.5-0.5*np.cos(
+            self.damp_array_J = 0.5-0.5*np.cos(
                 np.linspace(0, np.pi, ncells_damp) )
         else :
             raise ValueError("Invalid string for damp_shape : %s" %damp_shape)
+
+        # Create the damping array for the E and B fields
+        self.damp_array_EB = self.damp_array_J.copy()
         
     def move( self, fld, ptcl, p_nz, dt ) :
         """
@@ -104,7 +105,7 @@ class MovingWindow(object) :
         while fld.interp[0].zmin < self.zmin :
             
             # Shift the fields
-            shift_fields( fld, self.ncells_zero )
+            self.shift_fields( fld )
     
             # Extract a few quantities of the new (shifted) grid
             zmin = fld.interp[0].zmin
@@ -119,11 +120,14 @@ class MovingWindow(object) :
 
     def damp( self, grid, fieldtype ) :
         """
-        Set the fields progressively to zero, at the right
+        Set the currents progressively to zero, at the right
         end of the moving window.
 
         This is done by multiplying the self.ncells_damp first cells
-        of the field array (along z) by self.damp_array
+        of the field array (along z) by self.damp_array_J
+
+        NB : The fields E and B are not damped with this function but
+        are damped by shift_interp_field in the function move.
 
         Parameters
         ----------
@@ -132,7 +136,7 @@ class MovingWindow(object) :
             Contains the field data on the interpolation grid
 
         fieldtype : string
-            A string indicating which field to smooth
+            A string indicating which field to damp
         """
         # Extract the length of the grid
         Nm = len(grid)
@@ -141,13 +145,161 @@ class MovingWindow(object) :
         for m in range( Nm ) :
             # Choose the right field to damp
             if fieldtype == 'J' :
-                damp_field( grid[m].Jr, self.damp_array, self.ncells_damp )
-                damp_field( grid[m].Jt, self.damp_array, self.ncells_damp )
-                damp_field( grid[m].Jz, self.damp_array, self.ncells_damp )
+                damp_field( grid[m].Jr, self.damp_array_J, self.ncells_damp )
+                damp_field( grid[m].Jt, self.damp_array_J, self.ncells_damp )
+                damp_field( grid[m].Jz, self.damp_array_J, self.ncells_damp )
             elif fieldtype == 'rho' :
-                damp_field( grid[m].rho, self.damp_array, self.ncells_damp )
+                damp_field( grid[m].rho, self.damp_array_J, self.ncells_damp )
+            else :
+                raise ValueError("Invalid string for fieldtype : %s" %fieldtype)
+
+            
+    def shift_fields( self, fld ) :
+        """
+        Shift all the fields in the object 'fld'
+        
+        The fields on the interpolation grid are shifted by one cell in z
+        The corresponding fields on the spectral grid are calculated through FFTs
+    
+        Parameter
+        ---------
+        fld : a Fields object
+            Contains the fields to be shifted 
+        """
+        # Shift the fields on the interpolation grid
+        for m in range(fld.Nm) :
+            self.shift_interp_grid( fld.interp[m] )
+    
+        # Shift the fields on the spectral grid
+        for m in range(fld.Nm) :
+            self.shift_spect_grid( fld.spect[m], fld.trans[m] )
+
+            
+    def shift_interp_grid( self, grid, shift_currents=False ) :
+        """
+        Shift the interpolation grid by one cell
+
+        Parameter
+        ---------
+        
+        shift_currents : bool, optional
+            Whether to also shift the currents
+            Default : False, since the currents are recalculated from
+            scratch at each PIC cycle 
+    
+        Parameters
+        ----------
+        grid : an InterpolationGrid corresponding to one given azimuthal mode 
+            Contains the values of the fields on the interpolation grid,
+            and is modified by this function.
+
+        shift_currents : bool, optional
+            Whether to also shift the currents
+            Default : False, since the currents are recalculated from
+            scratch at each PIC cycle
+        """
+        # Modify the values of the corresponding z's 
+        grid.z += grid.dz
+        grid.zmin += grid.dz
+        grid.zmax += grid.dz
+    
+        # Shift all the fields
+        self.shift_interp_field( grid.Er )
+        self.shift_interp_field( grid.Et )
+        self.shift_interp_field( grid.Ez )
+        self.shift_interp_field( grid.Br )
+        self.shift_interp_field( grid.Bt )
+        self.shift_interp_field( grid.Bz )
+        if shift_currents :
+            self.shift_interp_field( grid.Jr )
+            self.shift_interp_field( grid.Jt )
+            self.shift_interp_field( grid.Jz )
+            self.shift_interp_field( grid.rho )
 
 
+    def shift_spect_grid( self, grid, trans, shift_currents=False ) :
+        """
+        Calculate the spectral grid corresponding to a shifted
+        interpolation grid
+    
+        Parameters
+        ----------
+        grid : a SpectralGrid object corresponding to one given azimuthal mode
+            Contains the values of the fields on the spectral grid,
+            and is modified by this function.
+
+        trans : a SpectralTransform object
+            Needed to perform the FFT transforms
+        
+        shift_currents : bool, optional
+            Whether to also shift the currents
+            Default : False, since the currents are recalculated from
+            scratch at each PIC cycle 
+        """
+        # Shift all the fields
+        self.shift_spect_field( grid.Ep, trans )
+        self.shift_spect_field( grid.Em, trans )
+        self.shift_spect_field( grid.Ez, trans )
+        self.shift_spect_field( grid.Bp, trans )
+        self.shift_spect_field( grid.Bm, trans )
+        self.shift_spect_field( grid.Bz, trans )
+        # Also shift rho_prev since it is not recalculated at each PIC cycle
+        self.shift_spect_field( grid.rho_prev, trans )
+        if shift_currents :
+            self.shift_spect_field( grid.rho_next, trans ) 
+            self.shift_spect_field( grid.Jp, trans )
+            self.shift_spect_field( grid.Jm, trans )
+            self.shift_spect_field( grid.Jz, trans )
+
+        
+    def shift_spect_field( self, field_array, trans ) :
+        """
+        Calculate the field in spectral space that corresponds to
+        a shifted field on the interpolation grid
+        
+        This is done through the succession of an IFFT,
+        a shift along z and an FFT
+        (no Hankel transform needed since only the z direction
+        is concerned by the moving window )
+        
+        Parameters
+        ----------
+        field_array : 2darray of complexs
+            Contains the value of the fields, and is modified by this function 
+    
+        trans : a SpectralTransform object
+            Needed to perform the FFT transforms
+        """
+        # Copy the array into the FFTW buffer
+        trans.spect_buffer_r[:,:] = field_array[:,:]
+        # Perform the inverse FFT
+        trans.ifft_r()
+    
+        # Shift the the values in the buffer
+        self.shift_interp_field( trans.interp_buffer_r )
+    
+        # Perform the FFT (back to spectral space)
+        trans.fft_r()
+        # Copy the buffer into the fields
+        field_array[:,:] = trans.spect_buffer_r[:,:]
+
+    def shift_interp_field( self, field_array ) :
+        """
+        Shift the field 'field_array' by one cell (backwards)
+        
+        Parameters
+        ----------
+        field_array : 2darray of complexs
+            Contains the value of the fields, and is modified by this function
+        """
+        # Transfer the values to one cell before
+        field_array[:-1,:] = field_array[1:,:]
+        # Apply damping, using the EB array
+        damp_field( field_array, self.damp_array_EB, self.ncells_damp )
+        # Zero out the new fields
+        field_array[-self.ncells_zero:,:] = 0.
+        
+        
 # ---------------------------------------
 # Utility functions for the moving window
 # ---------------------------------------
@@ -163,157 +315,7 @@ def damp_field( field_array, damp_array, n ) :
     damp_array : 2darray of reals
     n : int
     """
-    field_array[:n,:] = damp_array[:,np.newaxis] * field_array[:n,:] 
-
-                
-def shift_fields(fld, ncells_zero ) :
-    """
-    Shift all the fields in the object 'fld'
-    
-    The fields on the interpolation grid are shifted by one cell in z
-    The corresponding fields on the spectral grid are calculated through FFTs
-
-    Parameter
-    ---------
-    fld : a Fields object
-        Contains the fields to be shifted
-
-    ncells_zero : int
-        The number of cells to set to zero at the right end of the box    
-    """
-    # Shift the fields on the interpolation grid
-    for m in range(fld.Nm) :
-        shift_interp_grid( fld.interp[m], ncells_zero )
-
-    # Shift the fields on the spectral grid
-    for m in range(fld.Nm) :
-        shift_spect_grid( fld.spect[m], fld.trans[m], ncells_zero )    
-
-def shift_interp_grid( grid, ncells_zero, shift_currents=False ) :
-    """
-    Shift the interpolation grid by one cell
-
-    shift_currents : bool, optional
-        Whether to also shift the currents
-        Default : False, since the currents are recalculated from
-        scratch at each PIC cycle 
-    
-    Parameters
-    ----------
-    grid : an InterpolationGrid corresponding to one given azimuthal mode 
-        Contains the values of the fields on the interpolation grid,
-        and is modified by this function.
-        
-    ncells_zero : int
-        The number of cells to set to zero at the right end of the box
-    """
-    # Modify the values of the corresponding z's 
-    grid.z += grid.dz
-    grid.zmin += grid.dz
-    grid.zmax += grid.dz
-
-    # Shift all the fields
-    shift_interp_field( grid.Er, ncells_zero )
-    shift_interp_field( grid.Et, ncells_zero )
-    shift_interp_field( grid.Ez, ncells_zero )
-    shift_interp_field( grid.Br, ncells_zero )
-    shift_interp_field( grid.Bt, ncells_zero )
-    shift_interp_field( grid.Bz, ncells_zero )
-    if shift_currents :
-        shift_interp_field( grid.Jr, ncells_zero )
-        shift_interp_field( grid.Jt, ncells_zero )
-        shift_interp_field( grid.Jz, ncells_zero )
-        shift_interp_field( grid.rho, ncells_zero )
-
-def shift_spect_grid( grid, trans, ncells_zero, shift_currents=False ) :
-    """
-    Calculate the spectral grid corresponding to a shifted
-    interpolation grid
-
-    Parameters
-    ----------
-    grid : a SpectralGrid object corresponding to one given azimuthal mode
-        Contains the values of the fields on the spectral grid,
-        and is modified by this function.
-
-    trans : a SpectralTransform object
-        Needed to perform the FFT transforms
-
-    ncells_zero : int
-        The number of cells to set to zero at the right end of the box
-        
-    shift_currents : bool, optional
-        Whether to also shift the currents
-        Default : False, since the currents are recalculated from
-        scratch at each PIC cycle 
-    """
-    # Shift all the fields
-    shift_spect_field( grid.Ep, trans, ncells_zero )
-    shift_spect_field( grid.Em, trans, ncells_zero )
-    shift_spect_field( grid.Ez, trans, ncells_zero )
-    shift_spect_field( grid.Bp, trans, ncells_zero )
-    shift_spect_field( grid.Bm, trans, ncells_zero )
-    shift_spect_field( grid.Bz, trans, ncells_zero )
-    # Also shift rho_prev since it is not recalculated at each PIC cycle
-    shift_spect_field( grid.rho_prev, trans, ncells_zero )
-    if shift_currents :
-        shift_spect_field( grid.rho_next, trans, ncells_zero ) 
-        shift_spect_field( grid.Jp, trans, ncells_zero )
-        shift_spect_field( grid.Jm, trans, ncells_zero )
-        shift_spect_field( grid.Jz, trans, ncells_zero )
-    
-        
-def shift_spect_field( field_array, trans, ncells_zero=1 ) :
-    """
-    Calculate the field in spectral space that corresponds to
-    a shifted field on the interpolation grid
-    
-    This is done through the succession of an IFFT,
-    a shift along z and an FFT
-    (no Hankel transform needed since only the z direction
-    is concerned by the moving window )
-    
-    Parameters
-    ----------
-    field_array : 2darray of complexs
-        Contains the value of the fields, and is modified by this function 
-
-    trans : a SpectralTransform object
-        Needed to perform the FFT transforms
-        
-    n_cells_zero : int, optional
-        The number of cells to set to zero at the right end of the box
-    """
-    # Copy the array into the FFTW buffer
-    trans.spect_buffer_r[:,:] = field_array[:,:]
-    # Perform the inverse FFT
-    trans.ifft_r()
-
-    # Shift the the values in the buffer
-    shift_interp_field( trans.interp_buffer_r, ncells_zero )
-
-    # Perform the FFT (back to spectral space)
-    trans.fft_r()
-    # Copy the buffer into the fields
-    field_array[:,:] = trans.spect_buffer_r[:,:]
-     
-    
-def shift_interp_field( field_array, n_cells_zero=1 ) :
-    """
-    Shift the field 'field_array' by one cell (backwards)
-    
-    Parameters
-    ----------
-    field_array : 2darray of complexs
-        Contains the value of the fields, and is modified by this function
-        
-    n_cells_zero : int, optional
-        The number of cells to set to zero at the right end of the box
-    """
-    # Transfer the values to one cell before
-    field_array[:-1,:] = field_array[1:,:]
-    # Zero out the new fields
-    field_array[-n_cells_zero:,:] = 0.
+    field_array[:n,:] = damp_array[:,np.newaxis] * field_array[:n,:]
 
 
 def clean_outside_particles( species, zmin ) :
