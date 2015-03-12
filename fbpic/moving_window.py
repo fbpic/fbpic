@@ -52,7 +52,7 @@ class MovingWindow(object) :
 
         damp_shape : string, optional
             How to damp the fields
-            Either 'None', 'linear', 'sin'
+            Either 'None', 'linear', 'sin', 'cos'
         """
         # Attach position and speed
         self.zmin = zmin
@@ -70,6 +70,9 @@ class MovingWindow(object) :
             self.damp_array = np.linspace(0, 1, ncells_damp)
         elif damp_shape == 'sin' :
             self.damp_array = np.sin( np.linspace(0, np.pi/2, ncells_damp) )
+        elif damp_shape == 'cos' :
+            self.damp_array = 0.5-0.5*np.cos(
+                np.linspace(0, np.pi, ncells_damp) )
         else :
             raise ValueError("Invalid string for damp_shape : %s" %damp_shape)
         
