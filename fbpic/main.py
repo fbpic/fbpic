@@ -7,7 +7,6 @@ import sys
 from scipy.constants import m_e, m_p, e
 from fields import Fields
 from particles import Particles
-from moving_window import move_window
 
 class Simulation(object) :
     """
@@ -80,11 +79,13 @@ class Simulation(object) :
                         Npr=Npr, rmin=p_rmin, rmax=p_rmax, Nptheta=4, dt=dt )
             ]
         
-        # Register the number of particles per cell along z, and the time
+        # Register the number of particles per cell along z, and dt
         # (Necessary for the moving window)
-        self.time = 0.
         self.dt = dt
         self.p_nz = p_nz
+        # Register the time and the iteration
+        self.time = 0.
+        self.iteration = 0
         
         # Do the initial charge deposition (at t=0) now
         for species in self.ptcl :
@@ -120,12 +121,21 @@ class Simulation(object) :
             Whether to move or freeze the particles' momenta
 
         moving_window : bool, optional
-            Whether to move the window at c
+            Whether to move using a moving window. In this case,
+            a MovingWindow object has to be attached to the simulation
+            beforehand. e.g : sim.moving_win = MovingWindow(v=c)
         """
         # Shortcuts
         ptcl = self.ptcl
         fld = self.fld
-        
+
+        # Check if a moving window is attached, in the case
+        # moving_window == True
+        if moving_window :
+            if hasattr(self, 'moving_win')==False :
+                raise AttributeError(
+        "Please attach a MovingWindow to this object, as `self.moving_win`")
+            
         # Loop over timesteps
         for i_step in xrange(N) :
 
@@ -134,7 +144,7 @@ class Simulation(object) :
 
             # Move the window if needed
             if moving_window :
-                move_window( fld, ptcl, self.p_nz, self.time )
+                self.moving_win.move( fld, ptcl, self.p_nz, self.dt )
                 
             # Gather the fields at t = n dt
             for species in ptcl :
@@ -152,6 +162,8 @@ class Simulation(object) :
             for species in ptcl :
                 species.deposit( fld.interp, 'J' )
             fld.divide_by_volume('J')
+            if moving_window :
+                self.moving_win.damp( fld.interp, 'J' )
             # Get the current on the spectral grid at t = (n+1/2) dt
             fld.interp2spect('J')
 
@@ -163,6 +175,8 @@ class Simulation(object) :
             fld.erase('rho')
             for species in ptcl :
                 species.deposit( fld.interp, 'rho' )
+            if moving_window :
+                self.moving_win.damp( fld.interp, 'rho' )
             fld.divide_by_volume('rho')
             # Get the charge density on the spectral grid at t = (n+1) dt
             fld.interp2spect('rho_next')
@@ -176,8 +190,9 @@ class Simulation(object) :
             fld.spect2interp('E')
             fld.spect2interp('B')
     
-            # Increment the global time
+            # Increment the global time and iteration
             self.time += self.dt
+            self.iteration += 1
 
 def progression_bar(i, Ntot, Nbars=60, char='-') :
     "Shows a progression bar with Nbars"
