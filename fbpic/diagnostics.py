@@ -11,10 +11,15 @@ import datetime
 class FieldDiagnostic(object) :
     """
     Class that defines the field diagnostics to be done.
+
+    Usage
+    -----
+    After initialization, the diagnostic is called by using the write method.
     """
 
     def __init__(self, period, fldobject, fieldtypes=["rho", "E", "B", "J"],
-                 write_dir=None, output_hdf5=True, output_png=True ) :
+                    write_dir=None, output_hdf5=True,
+                    output_png_spectral=False, output_png_spatial=False ) :
         """
         Initialize the field diagnostics.
 
@@ -41,28 +46,64 @@ class FieldDiagnostic(object) :
         output_hdf5 : bool, optional
             Whether to output an HDF5 file, every `period` timestep
 
-        output_png : bool, optional
-            Whether to output PNG images, every `period` timestep
+        output_png_spectral : bool, optional
+            Whether to output PNG images of the spectral fields,
+            every `period` timestep
+            Default : deactivated, since it is very slow
+
+        output_png_spatial : bool, optional
+            Whether to output PNG images of the spatial fields,
+            every `period` timestep
+            Default : deactivated, since it is very slow
         """
         # Register the arguments
-        self.period = self.period
+        self.period = period
         self.fld = fldobject
+        self.fieldtypes = fieldtypes
         self.output_hdf5 = output_hdf5
-        self.output_png = output_png
+        self.output_png_spatial = output_png_spatial
+        self.output_png_spectral = output_png_spectral
         
         # Get the directory in which to write the data
-        if type(write_dir) is not string :
+        if write_dir is None :
             self.write_dir = os.getcwd()
         else :
             self.write_dir = write_dir
         
         # Create a few addiditional directories within this
         self.create_dir("diags")
-        if output_pickle :
-            self.create_dir("diags/pickle")
-        if output_png : 
-            self.create_dir("diags/png")
+        
+        # Directory for HDF5 files
+        if output_hdf5 :
+            self.create_dir("diags/hdf5")
+            
+        # Directory for PNG files
+        if output_png_spatial or output_png_spectral :
+            
+            # Fields on the spatial grid
+            if output_png_spatial :
+                self.create_dir("diags/png_spatial")
+                # Loop over fieldtypes
+                for fieldtype in self.fieldtypes :
+                    if fieldtype == "rho" :
+                        self.create_dir("diags/png_spatial/rho")
+                    elif fieldtype in ["E", "B", "J"] :
+                        for coord in ["r", "t", "z"] :
+                            path = "diags/png_spatial/%s%s" %(fieldtype, coord)
+                            self.create_dir(path)
 
+            # Fields on the spectral grid
+            if output_png_spectral :
+                self.create_dir("diags/png_spectral")
+                # Loop over fieldtypes
+                for fieldtype in self.fieldtypes :
+                    if fieldtype == "rho" :
+                        self.create_dir("diags/png_spectral/rho_next")
+                    elif fieldtype in ["E", "B", "J"] :
+                        for coord in ["p", "m", "z"] :
+                            path = "diags/png_spectral/%s%s" %(fieldtype, coord)
+                            self.create_dir(path)
+                
     def write( self, iteration ) :
         """
         Check if the fields should be written at this iteration
@@ -78,14 +119,59 @@ class FieldDiagnostic(object) :
         if iteration % self.period == 0 :
             
             # Write the png files if needed
-            if self.output_png == True :
-                for fieldtype in fieldtypes :
-                    self.write_png( fieldtype, iteration )
+            if self.output_png_spectral or self.output_png_spatial :
+                for fieldtype in self.fieldtypes :
+                    self.write_png( iteration )
 
             # Write the hdf5 file if needed
-            if self.output_hdf5 == True :
+            if self.output_hdf5 :
                 self.write_hdf5( iteration )
 
+
+    def write_png( self, iteration ) :
+        """
+        Write the PNG files for the different required fields
+
+        Parameter
+        ---------
+        iteration : int
+             The current iteration number of the simulation.
+        """
+        
+
+        # Spatial fields
+        if self.output_png_spatial :
+            fullpath = os.path.join( self.write_dir, "diags/png_spatial" )
+            
+            # Loop through the different fields
+            for fieldtype in self.fieldtypes :
+                # Scalar field
+                if fieldtype == "rho" :
+                    write_png_file( fullpath, iteration, "rho",
+                                self.fld.interp[0], self.fld.interp[1] )
+                # Vector field
+                elif fieldtype in ["E", "B", "J"] :
+                    for coord in ["r", "t", "z"] :
+                        quantity = "%s%s" %(fieldtype, coord)
+                        write_png_file( fullpath, iteration, quantity,
+                            self.fld.interp[0], self.fld.interp[1] )
+
+        # Spectral fields
+        if self.output_png_spectral :
+            fullpath = os.path.join( self.write_dir, "diags/png_spectral" )
+
+            # Loop through the different fields
+            for fieldtype in self.fieldtypes :
+                if fieldtype == "rho" :                
+                    write_png_file( fullpath, iteration, "rho_next",
+                            self.fld.spect[0], self.fld.spect[1] )
+                # Vector field
+                elif fieldtype in ["E", "B", "J"] :
+                    for coord in ["p", "m", "z"] :
+                        quantity = "%s%s" %(fieldtype, coord)
+                        write_png_file( fullpath, iteration, quantity,
+                            self.fld.spect[0], self.fld.spect[1] )
+                
     def write_hdf5( self, iteration ) :
         """
         Write an HDF5 file that complies with the OpenPMD standard
@@ -97,7 +183,7 @@ class FieldDiagnostic(object) :
         """
         # Create the filename and open hdf5 file
         filename = "fields%08d.h5" %iteration
-        fullpath = os.path.join( self.write_dir, "hdf5", filename )
+        fullpath = os.path.join( self.write_dir, "diags/hdf5", filename )
         f = h5py.File( fullpath, mode="w" )
         
         # Set up its attributes            
@@ -127,6 +213,23 @@ class FieldDiagnostic(object) :
         # Close the file
         f.close()
 
+    def create_dir( self, dir_path) :
+        """
+        Check whether the directory exists, and if not create it.
+    
+        Parameter
+        ---------
+        dir_path : string
+           Relative path from the directory where the diagnostics
+           are written
+        """
+        # Get the full path
+        full_path = os.path.join( self.write_dir, dir_path )
+        
+        # Check wether it exists, and create it if needed
+        if os.path.exists(full_path) == False :
+            os.makedirs(full_path)
+        
 # ------------------
 # Utility functions
 # ------------------
@@ -164,23 +267,6 @@ def write_dataset( f, path, mode0, mode1, dz, dr ) :
     # Lifschitz et al., which is also the convention adopted in Warp Circ
     dset[1,:,:] = 2*mode1[:,:].real
     dset[2,:,:] = 2*mode1[:,:].imag
-
-                    
-def create_dir(dir_path) :
-    """
-    Check whether the directory exists, and if not create it.
-
-    Parameter
-    ---------
-    dir_path : string
-        Relative path from self.write_dir
-    """
-    # Get the full path
-    full_path = os.path.join( self.write_dir, dir_path )
-    
-    # Check wether it exists, and create it if needed
-    if os.path.exists(full_path) == False :
-        os.makedirs(full_path)
 
 
 def setup_openpmd_file( f, time_interval ) :
@@ -233,5 +319,34 @@ def setup_openpmd_dataset( dset, dz, dr ) :
     dset.attrs["fieldSolverOrder"] = -1.0
     dset.attrs["fieldSmoothing"] = "None"
 
+def write_png_file( path, iteration, quantity, mode0, mode1 ) :
+    """
+    Write the modes 0 and 1 of the field `quantity` to a PNG file.
+
+    Parameters
+    ----------
+    path : string
+        Path to the directory where the PNG files of the different
+        fields are stored
+
+    quantity : string
+        The actual field that is to be plotted
+
+    mode0, mode1 : InterpolationGrid objects or SpectralGrid objects
+        Objects having the method `show`, that allows to plot the fields
+    """
+
+    # Plot the mode 0
+    filename = os.path.join( path, quantity, "mode0_%08d.png" %iteration)
+    plt.clf()
+    mode0.show( quantity )
+    plt.savefig( filename )
+
+    # Plot the mode 1
+    filename = os.path.join( path, quantity, "mode1_%08d.png" %iteration)
+    plt.clf()
+    mode1.show( quantity )
+    plt.savefig( filename )
+    
 
     
