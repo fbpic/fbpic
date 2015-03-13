@@ -15,6 +15,6 @@ setup(
     packages=['fbpic'],
     description='Fourier-Bessel Particle-In-Cell code',
     long_description = long_description,
-    platforms='any',
+    platforms='Linux, MacOSX',
     url='http://bitbucket.org/remilehe/fbpic'
 )
