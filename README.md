@@ -45,4 +45,9 @@ difficult to install on MacOSX. However, if it is installed, the code
 will automatically detect it and use it. This can result in up to an order
 of magnitude speedup.
 
-Instructions for installing Numba on MacOSX can be found in `docs/install`
+Instructions for installing Numba on MacOSX can be found in
+`docs/install`
+
+This code complies with the
+[OpenPMD standard](https://github.com/ComputationalRadiationPhysics/openPMD),
+and thus the output files can be read as such.

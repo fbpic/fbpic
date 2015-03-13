@@ -7,7 +7,8 @@ with open('README.md') as f :
 
 setup(
     name='fbpic',
-    install_requires=['numpy', 'scipy', 'matplotlib', 'pyfftw'],
+    install_requires=['numpy', 'scipy', 'matplotlib',
+                      'pyfftw', 'h5py', 'datetime' ],
     version=fbpic.__version__,
     author='Remi Lehe',
     author_email='remi.lehe@normalesup.org',
