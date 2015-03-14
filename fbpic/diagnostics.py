@@ -68,7 +68,9 @@ class FieldDiagnostic(object) :
         if write_dir is None :
             self.write_dir = os.getcwd()
         else :
-            self.write_dir = write_dir
+            self.write_dir = os.path.abspath(write_dir)
+        if os.path.exists(self.write_dir) == False :
+            os.makedirs(self.write_dir)
         
         # Create a few addiditional directories within this
         self.create_dir("diags")
