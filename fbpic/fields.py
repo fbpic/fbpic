@@ -38,8 +38,6 @@ class Fields(object) :
         interpolation and spectral grid
     - psatd : a list of PsatdCoeffs
         Contains the coefficients to solve the Maxwell equations
-
-
     """
 
     def __init__( self, Nz, zmax, Nr, rmax, Nm, dt ) :
@@ -356,9 +354,10 @@ class InterpolationGrid(object) :
         self.Jz = np.zeros( (Nz, Nr), dtype='complex' )
         self.rho = np.zeros( (Nz, Nr), dtype='complex' )
 
-    def show(self, fieldtype, below_axis=True, scale=1, **kw) :
+    def show(self, fieldtype, below_axis=True, scale=1,
+             gridscale=1.e-6, **kw) :
         """
-        Show the field `fieldtype` on the spectral grid
+        Show the field `fieldtype` on the interpolation grid
 
         Parameters
         ----------
@@ -367,8 +366,12 @@ class InterpolationGrid(object) :
             (either 'Er', 'Et', 'Ez', 'Br', 'Bt', 'Bz',
             'Jr', 'Jt', 'Jz', 'rho')
 
-        scale : float
-            Value by which the field should be divide before plotting
+        scale : float, optional
+            Value by which the field should be divided before plotting
+
+        gridscale : float, optional
+            Value by which to scale the z and r axis
+            Default : scale it in microns
             
         kw : dictionary
             Options to be passed to matplotlib's imshow
@@ -378,11 +381,13 @@ class InterpolationGrid(object) :
         # Show the field also below the axis for a more realistic picture
         if below_axis == True :
             plotted_field = np.hstack( (plotted_field[:,::-1],plotted_field) )
-            extent = [ self.zmin - 0.5*self.dz, self.zmax + 0.5*self.dz,
-                      -self.rmax - 0.5*self.dr, self.rmax + 0.5*self.dr ]
+            extent = np.array([ self.zmin - 0.5*self.dz, self.zmax + 0.5*self.dz,
+                      -self.rmax - 0.5*self.dr, self.rmax + 0.5*self.dr ])
         else :
-            extent = [self.zmin - 0.5*self.dz, self.zmax + 0.5*self.dz,
-                      self.rmin - 0.5*self.dr, self.rmax + 0.5*self.dr]
+            extent = np.array([self.zmin - 0.5*self.dz, self.zmax + 0.5*self.dz,
+                      self.rmin - 0.5*self.dr, self.rmax + 0.5*self.dr])
+        extent = extent/gridscale
+        # Title
         plt.suptitle(
             '%s on the interpolation grid, for mode %d' %(fieldtype, self.m) )
             
@@ -559,7 +564,7 @@ class SpectralGrid(object) :
         self.rho_prev[:,:] = self.rho_next[:,:]
         self.rho_next[:,:] = 0.
             
-    def show(self, fieldtype, scale=1, **kw) :
+    def show(self, fieldtype, below_axis=True, scale=1, **kw) :
         """
         Show the field `fieldtype` on the spectral grid
 
@@ -578,16 +583,25 @@ class SpectralGrid(object) :
         """
         # Select the field to plot
         plotted_field = getattr( self, fieldtype)
-        extent = [self.kz[:,0].min(), self.kz[:,0].max(),
-                  self.kr[0,:].min(), self.kr[0,:].max() ]
-        plt.suptitle('%s on the spectral grid' %fieldtype )
-            
+        # Fold it so as to center the 0 frequency
+        plotted_field = np.fft.fftshift( plotted_field, axes=0 )
+        if below_axis == True :
+            plotted_field = np.hstack( (plotted_field[:,::-1], plotted_field) )
+            extent = [ self.kz[:,0].min(), self.kz[:,0].max(),
+                    -self.kr[0,:].max(), self.kr[0,:].max() ]
+        else :
+            extent = [ self.kz[:,0].min(), self.kz[:,0].max(),
+                    self.kr[0,:].min(), self.kr[0,:].max() ]
+        # Title
+        plt.suptitle(
+            '%s on the spectral grid, for mode %d' %(fieldtype, self.m) )
+        
         # Plot the real part
         plt.subplot(211)
         plt.imshow( plotted_field.real.T[::-1]/scale, aspect='auto',
                     interpolation='nearest', extent = extent, **kw )
-        plt.xlabel('z')
-        plt.ylabel('r')
+        plt.xlabel('kz')
+        plt.ylabel('kr')
         cb = plt.colorbar()
         cb.set_label('Real part')
         
@@ -595,10 +609,10 @@ class SpectralGrid(object) :
         plt.subplot(212)
         plt.imshow( plotted_field.imag.T[::-1]/scale, aspect='auto',
                     interpolation='nearest', extent = extent, **kw )
-        plt.xlabel('z')
-        plt.ylabel('r')
+        plt.xlabel('kz')
+        plt.ylabel('kr')
         cb = plt.colorbar()
-        cb.set_label('Real part')
+        cb.set_label('Imaginary part')
 
 class PsatdCoeffs(object) :
     """
