@@ -223,10 +223,10 @@ class Particles(object) :
         s = self.y*invr  # Sine
 
         # Indices and weights
-        iz_lower, iz_upper, Sz_lower = linear_weights(
-           self.z, grid[0].invdz, grid[0].zmin, grid[0].Nz )
-        ir_lower, ir_upper, Sr_lower = linear_weights(
-            r, grid[0].invdr, grid[0].rmin, grid[0].Nr )
+        iz_lower, iz_upper, Sz_lower, Sz_upper = linear_weights(
+           self.z, grid[0].invdz, grid[0].zmin, grid[0].Nz, guards=False )
+        ir_lower, ir_upper, Sr_lower, Sr_upper, Sr_guard = linear_weights(
+            r, grid[0].invdr, grid[0].rmin, grid[0].Nr, guards=True )
 
         # Number of modes considered :
         # number of elements in the grid list
@@ -251,16 +251,22 @@ class Particles(object) :
                 exptheta[:].imag = -s
             elif m>1 :
                 exptheta[:] = exptheta*( c - 1.j*s )
-            # Gather the fields    
-            gather_field( exptheta, m, grid[m].Ez, self.Ez, 
-                iz_lower, iz_upper, Sz_lower,
-                ir_lower, ir_upper, Sr_lower, use_numba )
+            # Gather the fields
+            # (The sign with which the guards are added
+            # depends on whether the fields should be zero on axis)
             gather_field( exptheta, m, grid[m].Er, Fr, 
-                iz_lower, iz_upper, Sz_lower,
-                ir_lower, ir_upper, Sr_lower, use_numba )
+                iz_lower, iz_upper, Sz_lower, Sz_upper,
+                ir_lower, ir_upper, Sr_lower, Sr_upper,
+                -(-1.)**m, Sr_guard, use_numba )
             gather_field( exptheta, m, grid[m].Et, Ft, 
-                iz_lower, iz_upper, Sz_lower,
-                ir_lower, ir_upper, Sr_lower, use_numba )
+                iz_lower, iz_upper, Sz_lower, Sz_upper,
+                ir_lower, ir_upper, Sr_lower, Sr_upper,
+                -(-1.)**m, Sr_guard, use_numba )
+            gather_field( exptheta, m, grid[m].Ez, self.Ez, 
+                iz_lower, iz_upper, Sz_lower, Sr_upper,
+                ir_lower, ir_upper, Sr_lower, Sr_upper,
+                (-1.)**m, Sr_guard, use_numba )
+
         # Convert to Cartesian coordinates
         self.Ex[:] = c*Fr - s*Ft
         self.Ey[:] = s*Fr + c*Ft
@@ -285,21 +291,27 @@ class Particles(object) :
             elif m>1 :
                 exptheta[:] = exptheta*( c - 1.j*s )
             # Gather the fields
-            gather_field( exptheta, m, grid[m].Bz, self.Bz, 
-                iz_lower, iz_upper, Sz_lower,
-                ir_lower, ir_upper, Sr_lower, use_numba )
+            # (The sign with which the guards are added
+            # depends on whether the fields should be zero on axis)
             gather_field( exptheta, m, grid[m].Br, Fr, 
-                iz_lower, iz_upper, Sz_lower,
-                ir_lower, ir_upper, Sr_lower, use_numba )
+                iz_lower, iz_upper, Sz_lower, Sz_upper,
+                ir_lower, ir_upper, Sr_lower, Sr_upper,
+                -(-1.)**m, Sr_guard, use_numba )
             gather_field( exptheta, m, grid[m].Bt, Ft, 
-                iz_lower, iz_upper, Sz_lower,
-                ir_lower, ir_upper, Sr_lower, use_numba )
+                iz_lower, iz_upper, Sz_lower, Sz_upper,
+                ir_lower, ir_upper, Sr_lower, Sr_upper,
+                -(-1.)**m, Sr_guard, use_numba )
+            gather_field( exptheta, m, grid[m].Bz, self.Bz, 
+                iz_lower, iz_upper, Sz_lower, Sz_upper,
+                ir_lower, ir_upper, Sr_lower, Sr_upper,
+                (-1.)**m, Sr_guard, use_numba )
+
         # Convert to Cartesian coordinates
         self.Bx[:] = c*Fr - s*Ft
         self.By[:] = s*Fr + c*Ft
 
         
-    def deposit(self, grid, fieldtype, use_numba = numba_installed ) :
+    def deposit(self, grid, fieldtype, use_numba=numba_installed ) :
         """
         Deposit the particles charge or current onto the grid, using numpy
         
@@ -327,10 +339,10 @@ class Particles(object) :
         s = self.y*invr  # Sine
 
         # Indices and weights
-        iz_lower, iz_upper, Sz_lower = linear_weights( 
-            self.z, grid[0].invdz, grid[0].zmin, grid[0].Nz )
-        ir_lower, ir_upper, Sr_lower = linear_weights(
-            r, grid[0].invdr, grid[0].rmin, grid[0].Nr )
+        iz_lower, iz_upper, Sz_lower, Sz_upper = linear_weights( 
+            self.z, grid[0].invdz, grid[0].zmin, grid[0].Nz, guards=False )
+        ir_lower, ir_upper, Sr_lower, Sr_upper, Sr_guard = linear_weights(
+            r, grid[0].invdr, grid[0].rmin, grid[0].Nr, guards=True )
 
         # Number of modes considered :
         # number of elements in the grid list
@@ -352,8 +364,9 @@ class Particles(object) :
                     exptheta[:] = exptheta*( c + 1.j*s )
                 # Deposit the fields
                 deposit_field( self.w*exptheta, grid[m].rho, 
-                    iz_lower, iz_upper, Sz_lower,
-                    ir_lower, ir_upper, Sr_lower, use_numba )
+                    iz_lower, iz_upper, Sz_lower, Sz_upper,
+                    ir_lower, ir_upper, Sr_lower, Sr_upper,
+                    (-1.)**m, Sr_guard, use_numba )
             
         elif fieldtype == 'J' :
             # ----------------------------------------
@@ -375,20 +388,23 @@ class Particles(object) :
                     exptheta[:] = exptheta*( c + 1.j*s )
                 # Deposit the fields
                 deposit_field( Jr*exptheta, grid[m].Jr, 
-                    iz_lower, iz_upper, Sz_lower,
-                    ir_lower, ir_upper, Sr_lower, use_numba )
+                    iz_lower, iz_upper, Sz_lower, Sz_upper,
+                    ir_lower, ir_upper, Sr_lower, Sr_upper,
+                    -(-1.)**m, Sr_guard, use_numba )
                 deposit_field( Jt*exptheta, grid[m].Jt, 
-                    iz_lower, iz_upper, Sz_lower,
-                    ir_lower, ir_upper, Sr_lower, use_numba )
+                    iz_lower, iz_upper, Sz_lower, Sz_upper,
+                    ir_lower, ir_upper, Sr_lower, Sr_upper,
+                    -(-1.)**m, Sr_guard, use_numba )
                 deposit_field( Jz*exptheta, grid[m].Jz, 
-                    iz_lower, iz_upper, Sz_lower,
-                    ir_lower, ir_upper, Sr_lower, use_numba )
+                    iz_lower, iz_upper, Sz_lower, Sz_upper,
+                    ir_lower, ir_upper, Sr_lower, Sr_upper,
+                    (-1.)**m, Sr_guard, use_numba )
         else :
             raise ValueError(
         "`fieldtype` should be either 'J' or 'rho', but is `%s`" %fieldtype )
 
 
-def linear_weights(x, invdx, offset, Nx) :
+def linear_weights(x, invdx, offset, Nx, guards) :
     """
     Return the matrix indices and the shape factors, for linear shapes.
 
@@ -407,11 +423,16 @@ def linear_weights(x, invdx, offset, Nx) :
     Nx : int
         Number of gridpoints along the considered direction
 
+    guards : bool
+        Whether to also return an array containing the weights in
+        the lower guard cells. (Typically these guard cells represent
+        the cells below the axis.)
+
     Returns
     -------
     A tuple containing :
     
-    i_lower : 1darray of integers
+    i_lower, i_upper : 1darray of integers
         (one element per macroparticle)
         Contains the index of the cell immediately below each
         macroparticle, along the considered axis
@@ -423,6 +444,7 @@ def linear_weights(x, invdx, offset, Nx) :
         (one element per macroparticle)
         Contains the weight for the lower cell, for each macroparticle.
         The weight for the upper cell is just 1-S_lower.
+    S_upper : 1darray of floats
     """
 
     # Positions of the particles, in the cell unit
@@ -431,17 +453,33 @@ def linear_weights(x, invdx, offset, Nx) :
     # Index of the uppper and lower cell
     i_lower = np.floor( x_cell ).astype('int')  
     i_upper = i_lower + 1
-    
-    # Avoid out-of-bounds indices
-    i_lower = np.where( i_lower < 0, 0, i_lower )
-    i_lower = np.where( i_lower > Nx-1, Nx-1, i_lower )
-    i_upper = np.where( i_upper < 0, 0, i_upper )
-    i_upper = np.where( i_upper > Nx-1, Nx-1, i_upper )
 
     # Linear weight
     S_lower = i_upper - x_cell
+    S_upper = x_cell - i_lower
+    
+    # Avoid out-of-bounds indices at the lower boundary
+    # (potentially using guard cells)
+    if guards==True :
+        # Place the lower weight of these particles in the guard cells
+        out_of_bounds =  (i_lower < 0)
+        S_guard = np.where( out_of_bounds, S_lower, 0. )
+        S_lower = np.where( out_of_bounds, 0., S_lower )
+        i_lower = np.where( out_of_bounds, 0, i_lower )
+    else :
+        # Add the lower weight of these particles to the 0th cell
+        i_lower = np.where(i_lower < 0, 0, i_lower )
+    i_upper = np.where( i_upper < 0, 0, i_upper )
+    
+    # Avoid out-of-bounds indices at the upper boundary
+    i_lower = np.where( i_lower > Nx-1, Nx-1, i_lower )
+    i_upper = np.where( i_upper > Nx-1, Nx-1, i_upper )
 
-    return( i_lower, i_upper, S_lower )
+    # Return the result
+    if guards==True :
+        return( i_lower, i_upper, S_lower, S_upper, S_guard )
+    else :
+        return( i_lower, i_upper, S_lower, S_upper )
 
 
 # -----------------------------------------
@@ -449,7 +487,9 @@ def linear_weights(x, invdx, offset, Nx) :
 # -----------------------------------------
 
 def gather_field( exptheta, m, Fgrid, Fptcl, 
-    iz_lower, iz_upper, Sz_lower, ir_lower, ir_upper, Sr_lower, use_numba ) :
+    iz_lower, iz_upper, Sz_lower, Sz_upper,
+    ir_lower, ir_upper, Sr_lower, Sr_upper,
+    sign_guards, Sr_guard, use_numba ) :
     """
     Perform the weighted sum from the 4 points that surround each particle,
     for one given field and one given azimuthal mode
@@ -478,24 +518,37 @@ def gather_field( exptheta, m, Fgrid, Fptcl,
         Contains the index of the cells immediately below and
         immediately above each macroparticle, in z and r
         
-    Sz_lower, Sr_lower : 1darrays of floats
+    Sz_lower, Sz_upper, Sr_lower, Sr_upper : 1darrays of floats
         (one element per macroparticle)
-        Contains the weight for the lower cell, for each macroparticle.
-        The weight for the upper cell is just 1-S_lower.
+        Contains the weight for the lower and upper cells.
 
+    sign_guards : float
+       The sign (+1 or -1) with which the weight of the guard cells should
+       be added to the 0th cell.
+
+    Sr_guard : 1darray of float
+        (one element per macroparticle)
+        Contains the weight in the guard cells
+        
     use_numba : bool
         Whether to use numba rather than numpy for the gathering
     """
     if use_numba == True :
         gather_field_numba( exptheta, m, Fgrid, Fptcl, 
-            iz_lower, iz_upper, Sz_lower, ir_lower, ir_upper, Sr_lower )        
+            iz_lower, iz_upper, Sz_lower, Sz_upper,
+            ir_lower, ir_upper, Sr_lower, Sr_upper,
+            sign_guards, Sr_guard )        
     else :
         gather_field_numpy( exptheta, m, Fgrid, Fptcl, 
-            iz_lower, iz_upper, Sz_lower, ir_lower, ir_upper, Sr_lower )
+            iz_lower, iz_upper, Sz_lower, Sz_upper,
+            ir_lower, ir_upper, Sr_lower, Sr_upper,
+            sign_guards, Sr_guard )
 
     
 def gather_field_numpy( exptheta, m, Fgrid, Fptcl, 
-        iz_lower, iz_upper, Sz_lower, ir_lower, ir_upper, Sr_lower ) :
+        iz_lower, iz_upper, Sz_lower, Sz_upper,
+        ir_lower, ir_upper, Sr_lower, Sr_upper,
+        sign_guards, Sr_guard ) :
     """
     Perform the weighted sum from the 4 points that surround each particle,
     for one given field and one given azimuthal mode
@@ -524,25 +577,34 @@ def gather_field_numpy( exptheta, m, Fgrid, Fptcl,
         Contains the index of the cells immediately below and
         immediately above each macroparticle, in z and r
         
-    Sz_lower, Sr_lower : 1darrays of floats
+    Sz_lower, Sz_upper, Sr_lower, Sr_upper : 1darrays of floats
         (one element per macroparticle)
-        Contains the weight for the lower cell, for each macroparticle.
-        The weight for the upper cell is just 1-S_lower.
+        Contains the weight for the lower and upper cells.
+        
+    sign_guards : float
+       The sign (+1 or -1) with which the weight of the guard cells should
+       be added to the 0th cell.
+
+    Sr_guard : 1darray of float
+        (one element per macroparticle)
+        Contains the weight in the guard cells
     """    
     # Temporary matrix that contains the complex fields
     F = np.zeros_like(exptheta)
     
     # Sum the fields from the 4 points
-    # NB : These operations could be made maybe
-    # twice faster with flattened indices and np.take
     # Lower cell in z, Lower cell in r
     F += Sz_lower*Sr_lower*Fgrid[ iz_lower, ir_lower ]
     # Lower cell in z, Upper cell in r
-    F += Sz_lower*(1-Sr_lower)*Fgrid[ iz_lower, ir_upper ]
+    F += Sz_lower*Sr_upper*Fgrid[ iz_lower, ir_upper ]
     # Upper cell in z, Lower cell in r
-    F += (1-Sz_lower)*Sr_lower*Fgrid[ iz_upper, ir_lower ]
+    F += Sz_upper*Sr_lower*Fgrid[ iz_upper, ir_lower ]
     # Upper cell in z, Upper cell in r
-    F += (1-Sz_lower)*(1-Sr_lower)*Fgrid[ iz_upper, ir_upper ]
+    F += Sz_upper*Sr_upper*Fgrid[ iz_upper, ir_upper ]
+    
+    # Add the fields from the guard cells
+    F += sign_guards * Sz_lower*Sr_guard * Fgrid[ iz_lower, 0]
+    F += sign_guards * Sz_upper*Sr_guard * Fgrid[ iz_upper, 0]
 
     # Add the complex phase
     if m == 0 :
@@ -553,7 +615,9 @@ def gather_field_numpy( exptheta, m, Fgrid, Fptcl,
 
 @numba.jit(nopython=True)
 def gather_field_numba( exptheta, m, Fgrid, Fptcl, 
-        iz_lower, iz_upper, Sz_lower, ir_lower, ir_upper, Sr_lower ) :
+        iz_lower, iz_upper, Sz_lower, Sz_upper,
+        ir_lower, ir_upper, Sr_lower, Sr_upper,
+        sign_guards, Sr_guard ) :
     """
     Perform the weighted sum using numba
 
@@ -581,10 +645,17 @@ def gather_field_numba( exptheta, m, Fgrid, Fptcl,
         Contains the index of the cells immediately below and
         immediately above each macroparticle, in z and r
         
-    Sz_lower, Sr_lower : 1darrays of floats
+    Sz_lower, Sz_upper, Sr_lower, Sr_upper : 1darrays of floats
         (one element per macroparticle)
-        Contains the weight for the lower cell, for each macroparticle.
-        The weight for the upper cell is just 1-S_lower.
+        Contains the weight for the lower and upper cells.
+        
+    sign_guards : float
+       The sign (+1 or -1) with which the weight of the guard cells should
+       be added to the 0th cell.
+
+    Sr_guard : 1darray of float
+        (one element per macroparticle)
+        Contains the weight in the guard cells
     """
     # Get the total number of particles
     Ntot = len(Fptcl)
@@ -595,14 +666,18 @@ def gather_field_numba( exptheta, m, Fgrid, Fptcl,
         F = 0.j
         # Sum the fields from the 4 points
         # Lower cell in z, Lower cell in r
-        F += Sz_lower[ip]*Sr_lower[ip]*Fgrid[ iz_lower[ip], ir_lower[ip] ]
+        F += Sz_lower[ip]*Sr_lower[ip] * Fgrid[ iz_lower[ip], ir_lower[ip] ]
         # Lower cell in z, Upper cell in r
-        F += Sz_lower[ip]*(1-Sr_lower[ip])*Fgrid[ iz_lower[ip], ir_upper[ip] ]
+        F += Sz_lower[ip]*Sr_upper[ip] * Fgrid[ iz_lower[ip], ir_upper[ip] ]
         # Upper cell in z, Lower cell in r
-        F += (1-Sz_lower[ip])*Sr_lower[ip]*Fgrid[ iz_upper[ip], ir_lower[ip] ]
+        F += Sz_upper[ip]*Sr_lower[ip] * Fgrid[ iz_upper[ip], ir_lower[ip] ]
         # Upper cell in z, Upper cell in r
-        F += (1-Sz_lower[ip])*(1-Sr_lower[ip])*Fgrid[iz_upper[ip],ir_upper[ip]]
+        F += Sz_upper[ip]*Sr_upper[ip] * Fgrid[ iz_upper[ip], ir_upper[ip] ]
 
+        # Add the fields from the guard cells
+        F += sign_guards * Sz_lower[ip]*Sr_guard[ip] * Fgrid[ iz_lower[ip], 0]
+        F += sign_guards * Sz_upper[ip]*Sr_guard[ip] * Fgrid[ iz_upper[ip], 0]
+        
         # Add the complex phase
         if m == 0 :
             Fptcl[ip] += (F*exptheta[ip]).real
@@ -615,7 +690,9 @@ def gather_field_numba( exptheta, m, Fgrid, Fptcl,
 # -----------------------------------------------
         
 def deposit_field( Fptcl, Fgrid, 
-    iz_lower, iz_upper, Sz_lower, ir_lower, ir_upper, Sr_lower, use_numba ) :
+    iz_lower, iz_upper, Sz_lower, Sz_upper,
+    ir_lower, ir_upper, Sr_lower, Sr_upper,
+    sign_guards, Sr_guard, use_numba ) :
     """
     Perform the deposition on the 4 points that surround each particle,
     for one given field and one given azimuthal mode
@@ -636,24 +713,37 @@ def deposit_field( Fptcl, Fgrid,
         Contains the index of the cells immediately below and
         immediately above each macroparticle, in z and r
         
-    Sz_lower, Sr_lower : 1darrays of floats
+    Sz_lower, Sz_upper, Sr_lower, Sr_upper : 1darrays of floats
         (one element per macroparticle)
-        Contains the weight for the lower cell, for each macroparticle.
-        The weight for the upper cell is just 1-S_lower.
+        Contains the weight for the lower and upper cells.
+        
+    sign_guards : float
+       The sign (+1 or -1) with which the weight of the guard cells should
+       be added to the 0th cell.
+
+    Sr_guard : 1darray of float
+        (one element per macroparticle)
+        Contains the weight in the guard cells
         
     use_numba : bool
         Whether to use numba or numpy.add.at for the deposition
     """
     if use_numba == True :
         deposit_field_numba( Fptcl, Fgrid, 
-            iz_lower, iz_upper, Sz_lower, ir_lower, ir_upper, Sr_lower )        
+            iz_lower, iz_upper, Sz_lower, Sz_upper,
+            ir_lower, ir_upper, Sr_lower, Sr_upper,
+            sign_guards, Sr_guard )
     else :
         deposit_field_numpy( Fptcl, Fgrid, 
-            iz_lower, iz_upper, Sz_lower, ir_lower, ir_upper, Sr_lower )
+            iz_lower, iz_upper, Sz_lower, Sz_upper,
+            ir_lower, ir_upper, Sr_lower, Sr_upper,
+            sign_guards, Sr_guard )
 
 
 def deposit_field_numpy( Fptcl, Fgrid, 
-        iz_lower, iz_upper, Sz_lower, ir_lower, ir_upper, Sr_lower ) :
+        iz_lower, iz_upper, Sz_lower, Sz_upper,
+        ir_lower, ir_upper, Sr_lower, Sr_upper,
+        sign_guards, Sr_guard ) :
     """
     Perform the deposition using numpy.add.at
 
@@ -673,25 +763,38 @@ def deposit_field_numpy( Fptcl, Fgrid,
         Contains the index of the cells immediately below and
         immediately above each macroparticle, in z and r
         
-    Sz_lower, Sr_lower : 1darrays of floats
+    Sz_lower, Sz_upper, Sr_lower, Sr_upper : 1darrays of floats
         (one element per macroparticle)
-        Contains the weight for the lower cell, for each macroparticle.
-        The weight for the upper cell is just 1-S_lower. 
+        Contains the weight for the lower and upper cells.
+        
+    sign_guards : float
+       The sign (+1 or -1) with which the weight of the guard cells should
+       be added to the 0th cell.
+
+    Sr_guard : 1darray of float
+        (one element per macroparticle)
+        Contains the weight in the guard cells
     """
     # Deposit the particle quantity onto the grid
     # Lower cell in z, Lower cell in r
     np.add.at( Fgrid, (iz_lower, ir_lower), Sz_lower*Sr_lower*Fptcl ) 
     # Lower cell in z, Upper cell in r
-    np.add.at( Fgrid, (iz_lower, ir_upper), Sz_lower*(1-Sr_lower)*Fptcl )
+    np.add.at( Fgrid, (iz_lower, ir_upper), Sz_lower*Sr_upper*Fptcl )
     # Upper cell in z, Lower cell in r
-    np.add.at( Fgrid, (iz_upper, ir_lower), (1-Sz_lower)*Sr_lower*Fptcl )
+    np.add.at( Fgrid, (iz_upper, ir_lower), Sz_upper*Sr_lower*Fptcl )
     # Upper cell in z, Upper cell in r
-    np.add.at( Fgrid, (iz_upper, ir_upper), (1-Sz_lower)*(1-Sr_lower)*Fptcl )
+    np.add.at( Fgrid, (iz_upper, ir_upper), Sz_upper*Sr_upper*Fptcl )
+
+    # Add the fields from the guard cells
+    np.add.at( Fgrid, (iz_lower, 0), sign_guards*Sz_lower*Sr_guard*Fptcl )
+    np.add.at( Fgrid, (iz_upper, 0), sign_guards*Sz_upper*Sr_guard*Fptcl )
 
 
 @numba.jit(nopython=True)
 def deposit_field_numba( Fptcl, Fgrid, 
-        iz_lower, iz_upper, Sz_lower, ir_lower, ir_upper, Sr_lower ) :
+        iz_lower, iz_upper, Sz_lower, Sz_upper,
+        ir_lower, ir_upper, Sr_lower, Sr_upper,
+        sign_guards, Sr_guard ) :
     """
     Perform the deposition using numba
 
@@ -711,10 +814,17 @@ def deposit_field_numba( Fptcl, Fgrid,
         Contains the index of the cells immediately below and
         immediately above each macroparticle, in z and r
         
-    Sz_lower, Sr_lower : 1darrays of floats
+    Sz_lower, Sz_upper, Sr_lower, Sr_upper : 1darrays of floats
         (one element per macroparticle)
-        Contains the weight for the lower cell, for each macroparticle.
-        The weight for the upper cell is just 1-S_lower. 
+        Contains the weight for the lower and upper cells.
+        
+    sign_guards : float
+       The sign (+1 or -1) with which the weight of the guard cells should
+       be added to the 0th cell.
+
+    Sr_guard : 1darray of float
+        (one element per macroparticle)
+        Contains the weight in the guard cells
     """
     # Get the total number of particles
     Ntot = len(Fptcl)
@@ -727,17 +837,25 @@ def deposit_field_numba( Fptcl, Fgrid,
     # Lower cell in z, Upper cell in r
     for ip in xrange(Ntot) :
         Fgrid[ iz_lower[ip], ir_upper[ip] ] += \
-          Sz_lower[ip] * (1 - Sr_lower[ip]) * Fptcl[ip]
+          Sz_lower[ip] * Sr_upper[ip] * Fptcl[ip]
     # Upper cell in z, Lower cell in r
     for ip in xrange(Ntot) :
         Fgrid[ iz_upper[ip], ir_lower[ip] ] += \
-          (1 - Sz_lower[ip]) * Sr_lower[ip] * Fptcl[ip]
+          Sz_upper[ip] * Sr_lower[ip] * Fptcl[ip]
     # Upper cell in z, Upper cell in r
     for ip in xrange(Ntot) :
         Fgrid[ iz_upper[ip], ir_upper[ip] ] += \
-          (1 - Sz_lower[ip]) * (1 - Sr_lower[ip]) * Fptcl[ip]
+          Sz_upper[ip] * Sr_upper[ip] * Fptcl[ip]
 
+    # Add the fields from the guard cells in r
+    for ip in xrange(Ntot) :
+        Fgrid[ iz_lower[ip], 0 ] += \
+            sign_guards * Sz_lower[ip]*Sr_guard[ip] * Fptcl[ip]
+    for ip in xrange(Ntot) :
+        Fgrid[ iz_upper[ip], 0 ] += \
+            sign_guards * Sz_upper[ip]*Sr_guard[ip] * Fptcl[ip]
 
+          
 # -----------------------
 # Particle pusher utility
 # -----------------------
