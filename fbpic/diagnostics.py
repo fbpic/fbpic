@@ -199,7 +199,8 @@ class FieldDiagnostic(object) :
                 write_dataset( f, "/fields/rho",
                     getattr( self.fld.interp[0], "rho"),
                     getattr( self.fld.interp[1], "rho" ),
-                    self.fld.interp[0].dz, self.fld.interp[0].dr )
+                    self.fld.interp[0].dz, self.fld.interp[0].dr,
+                    self.fld.interp[0].zmin )
             # Vector field
             elif fieldtype in ["E", "B", "J"] :
                 for coord in ["r", "t", "z"] :
@@ -208,7 +209,8 @@ class FieldDiagnostic(object) :
                     write_dataset( f, path,
                         getattr( self.fld.interp[0], quantity ),
                         getattr( self.fld.interp[1], quantity ),
-                        self.fld.interp[0].dz, self.fld.interp[0].dr )
+                        self.fld.interp[0].dz, self.fld.interp[0].dr,
+                        self.fld.interp[0].zmin )
             else :
                 raise ValueError("Invalid string in fieldtypes: %s" %fieldtype)
         
@@ -236,7 +238,7 @@ class FieldDiagnostic(object) :
 # Utility functions
 # ------------------
 
-def write_dataset( f, path, mode0, mode1, dz, dr ) :
+def write_dataset( f, path, mode0, mode1, dz, dr, zmin ) :
     """
     Write 
 
@@ -252,6 +254,9 @@ def write_dataset( f, path, mode0, mode1, dz, dr ) :
 
     dz, dr : floats (meters)
         The size of the steps on the grid
+
+    zmin : float (meter)
+        The position of the first cell of the grid
     """
     # Shape of the data : first write the real part mode 0
     # and then the imaginary part of the mode 1
@@ -259,7 +264,7 @@ def write_dataset( f, path, mode0, mode1, dz, dr ) :
         
     # Create the dataset and setup its attributes
     dset = f.create_dataset( path, datashape, dtype='f')
-    setup_openpmd_dataset( dset, dz, dr )
+    setup_openpmd_dataset( dset, dz, dr, zmin )
     
     # Write the mode 0 : only the real part is non-zero
     dset[0,:,:] = mode0[:,:].real
@@ -298,9 +303,9 @@ def setup_openpmd_file( f, time_interval ) :
     f.attrs["timeStepUnitSI"] = time_interval
 
 
-def setup_openpmd_dataset( dset, dz, dr ) :
+def setup_openpmd_dataset( dset, dz, dr, zmin ) :
     """
-     Sets the attributes of the dataset, that comply with OpenPMD
+    Sets the attributes of the dataset, that comply with OpenPMD
 
     Parameters
     ----------
@@ -308,11 +313,15 @@ def setup_openpmd_dataset( dset, dz, dr ) :
 
     dz, dr : float (meters)
         The size of the steps on the grid
+
+    zmin : float (meters)
+        The position of the first cell along the longitudinal direction
     """
     dset.attrs["unitSI"] = 1.
     dset.attrs["gridUnitSI"] = 1.
     dset.attrs["dx"] = dz
     dset.attrs["dy"] = dr
+    dset.attrs["xlim"] = zmin
     dset.attrs["posX"] = 0.5  # All data is node-centered
     dset.attrs["posY"] = 0.5  # All data is node-centered
     dset.attrs["coordSystem"] = "right-handed"
