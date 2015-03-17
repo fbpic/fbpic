@@ -94,6 +94,9 @@ class Simulation(object) :
         # Bring it to the spectral space
         self.fld.interp2spect('rho_prev')
 
+        # Initialize an empty list of diagnostics
+        self.diags = []
+
 
         
     def step(self, N=1, ptcl_feedback=True, correct_currents=True,
@@ -193,6 +196,10 @@ class Simulation(object) :
             # Increment the global time and iteration
             self.time += self.dt
             self.iteration += 1
+
+            # Run the diagnostics
+            for diag in self.diags :
+                diag.write( self.iteration )
 
 def progression_bar(i, Ntot, Nbars=60, char='-') :
     "Shows a progression bar with Nbars"

@@ -28,7 +28,7 @@ class MovingWindow(object) :
     """
     
     def __init__( self, zmin=0, v=c, ncells_zero=1,
-                 ncells_damp=1, damp_shape='None', gradual_damp_EB=True ) :
+                 ncells_damp=1, damp_shape='cos', gradual_damp_EB=True ) :
         """
         Initializes a moving window object.
 
@@ -319,8 +319,8 @@ class MovingWindow(object) :
 
 def damp_field( field_array, damp_array, n ) :
     """
-    Multiply the n first cells of field_array by damp_array,
-    along the first axis.
+    Multiply the n first cells and last n cells of field_array
+    by damp_array, along the first axis.
 
     Parameters
     ----------
@@ -329,6 +329,7 @@ def damp_field( field_array, damp_array, n ) :
     n : int
     """
     field_array[:n,:] = damp_array[:,np.newaxis] * field_array[:n,:]
+    field_array[-n:,:] = damp_array[::-1,np.newaxis] * field_array[-n:,:]
 
 
 def clean_outside_particles( species, zmin ) :
