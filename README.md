@@ -46,8 +46,16 @@ will automatically detect it and use it. This can result in up to an order
 of magnitude speedup.
 
 Instructions for installing Numba on MacOSX can be found in
-`docs/install`
+`docs/install`.
 
-This code complies with the
+Running simulations
+----------------
+
+Simulations are run with a user-written python script, which calls the
+FBPIC structures. An example script (called `lpa_sim.py`) can be found in
+`docs/example_input`. The simulation can be run simply by entering
+`python -i lpa_sim.py`.
+
+The code outputs HDF5 files, that comply with the
 [OpenPMD standard](https://github.com/ComputationalRadiationPhysics/openPMD),
-and thus the output files can be read as such.
+ and which can thus be read as such.

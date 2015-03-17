@@ -12,8 +12,8 @@ Usage
 Help
 ----
 All the structures implemented in FBPIC are internally documented.
-Enter "fbpic_object.__doc__" to have access to this documentation
-(where fbpic_object is   
+Enter "print(fbpic_object.__doc__)" to have access to this documentation,
+where fbpic_object is any of the objects or function of FBPIC.
 """
 
 # -------
@@ -40,7 +40,7 @@ rmax = 20.e-6    # Length of the box along r (meters)
 Nm = 2           # Number of modes used
 # The simulation timestep
 dt = zmax/Nz/c   # Timestep (seconds)
-N_step = 500     # Number of iterations to perform
+N_step = 100     # Number of iterations to perform
 
 # The particles
 p_zmin = 35.e-6  # Position of the beginning of the plasma (meters)
@@ -64,7 +64,7 @@ ncells_damp = 30   # Number of cells over which the field is damped,
                    # in order to prevent it from wrapping around.
 
 # The diagnostics
-period = 50        # Period of the diagnostics in number of timesteps
+diag_period = 50        # Period of the diagnostics in number of timesteps
 fieldtypes = [ "E", "rho", "B", "J" ]  # The fields that will be written
 
 # ---------------------------
@@ -82,9 +82,11 @@ add_laser( sim.fld, a0, w0, ctau, z0 )
 sim.moving_win = MovingWindow( ncells_damp=ncells_damp )
 
 # Add a field diagnostic
-sim.diags = [ FieldDiagnostic( period, sim.fld, fieldtypes=fieldtypes ) ]
+sim.diags = [ FieldDiagnostic( diag_period, sim.fld, fieldtypes=fieldtypes ) ]
 
 ### Run the simulation
+print('\n Performing %d PIC cycles' % N_step) 
 sim.step( N_step )
+print('')
 
 
