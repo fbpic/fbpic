@@ -219,8 +219,8 @@ class Particles(object) :
         # Preliminary arrays for the cylindrical conversion
         r = np.sqrt( self.x**2 + self.y**2 )
         invr = 1./r
-        c = self.x*invr  # Cosine
-        s = self.y*invr  # Sine
+        cos = self.x*invr  # Cosine
+        sin = self.y*invr  # Sine
 
         # Indices and weights
         iz_lower, iz_upper, Sz_lower, Sz_upper = linear_weights(
@@ -247,10 +247,10 @@ class Particles(object) :
         for m in range(Nm) :
             # Increment exptheta (notice the - : backward transform)
             if m==1 :
-                exptheta[:].real = c
-                exptheta[:].imag = -s
+                exptheta[:].real = cos
+                exptheta[:].imag = -sin
             elif m>1 :
-                exptheta[:] = exptheta*( c - 1.j*s )
+                exptheta[:] = exptheta*( cos - 1.j*sin )
             # Gather the fields
             # (The sign with which the guards are added
             # depends on whether the fields should be zero on axis)
@@ -268,8 +268,8 @@ class Particles(object) :
                 (-1.)**m, Sr_guard, use_numba )
 
         # Convert to Cartesian coordinates
-        self.Ex[:] = c*Fr - s*Ft
-        self.Ey[:] = s*Fr + c*Ft
+        self.Ex[:] = cos*Fr - sin*Ft
+        self.Ey[:] = sin*Fr + cos*Ft
 
         # -------------------------------
         # Gather the B field mode by mode
@@ -286,10 +286,10 @@ class Particles(object) :
         for m in range(Nm) :
             # Increment exptheta (notice the - : backward transform)
             if m==1 :
-                exptheta[:].real = c
-                exptheta[:].imag = -s
+                exptheta[:].real = cos
+                exptheta[:].imag = -sin
             elif m>1 :
-                exptheta[:] = exptheta*( c - 1.j*s )
+                exptheta[:] = exptheta*( cos - 1.j*sin )
             # Gather the fields
             # (The sign with which the guards are added
             # depends on whether the fields should be zero on axis)
@@ -307,8 +307,8 @@ class Particles(object) :
                 (-1.)**m, Sr_guard, use_numba )
 
         # Convert to Cartesian coordinates
-        self.Bx[:] = c*Fr - s*Ft
-        self.By[:] = s*Fr + c*Ft
+        self.Bx[:] = cos*Fr - sin*Ft
+        self.By[:] = sin*Fr + cos*Ft
 
         
     def deposit(self, grid, fieldtype, use_numba=numba_installed ) :
@@ -335,8 +335,8 @@ class Particles(object) :
         # Preliminary arrays for the cylindrical conversion
         r = np.sqrt( self.x**2 + self.y**2 )
         invr = 1./r
-        c = self.x*invr  # Cosine
-        s = self.y*invr  # Sine
+        cos = self.x*invr  # Cosine
+        sin = self.y*invr  # Sine
 
         # Indices and weights
         iz_lower, iz_upper, Sz_lower, Sz_upper = linear_weights( 
@@ -358,10 +358,10 @@ class Particles(object) :
             for m in range(Nm) :
                 # Increment exptheta (notice the + : forward transform)
                 if m==1 :
-                    exptheta[:].real = c
-                    exptheta[:].imag = s
+                    exptheta[:].real = cos
+                    exptheta[:].imag = sin
                 elif m>1 :
-                    exptheta[:] = exptheta*( c + 1.j*s )
+                    exptheta[:] = exptheta*( cos + 1.j*sin )
                 # Deposit the fields
                 deposit_field( self.w*exptheta, grid[m].rho, 
                     iz_lower, iz_upper, Sz_lower, Sz_upper,
@@ -373,19 +373,19 @@ class Particles(object) :
             # Deposit the current density mode by mode
             # ----------------------------------------
             # Calculate the currents
-            Jr = self.w*self.inv_gamma * ( c*self.ux + s*self.uy )
-            Jt = self.w*self.inv_gamma * ( c*self.uy - s*self.ux )
-            Jz = self.w*self.inv_gamma * self.uz
+            Jr = self.w * c * self.inv_gamma*( cos*self.ux + sin*self.uy )
+            Jt = self.w * c * self.inv_gamma*( cos*self.uy - sin*self.ux )
+            Jz = self.w * c * self.inv_gamma*self.uz
             # Prepare auxiliary matrix
             exptheta = np.ones( self.Ntot, dtype='complex')
             # exptheta takes the value exp(im theta) throughout the loop
             for m in range(Nm) :
                 # Increment exptheta (notice the + : forward transform)
                 if m==1 :
-                    exptheta[:].real = c
-                    exptheta[:].imag = s
+                    exptheta[:].real = cos
+                    exptheta[:].imag = sin
                 elif m>1 :
-                    exptheta[:] = exptheta*( c + 1.j*s )
+                    exptheta[:] = exptheta*( cos + 1.j*sin )
                 # Deposit the fields
                 deposit_field( Jr*exptheta, grid[m].Jr, 
                     iz_lower, iz_upper, Sz_lower, Sz_upper,
