@@ -321,7 +321,7 @@ def setup_openpmd_dataset( dset, dz, dr, zmin ) :
     dset.attrs["gridUnitSI"] = 1.
     dset.attrs["dx"] = dz
     dset.attrs["dy"] = dr
-    dset.attrs["xlim"] = zmin
+    dset.attrs["xmin"] = zmin
     dset.attrs["posX"] = 0.5  # All data is node-centered
     dset.attrs["posY"] = 0.5  # All data is node-centered
     dset.attrs["coordSystem"] = "right-handed"
