@@ -189,7 +189,7 @@ class FieldDiagnostic(object) :
         f = h5py.File( fullpath, mode="w" )
         
         # Set up its attributes            
-        setup_openpmd_file( f, self.period*self.fld.dt )
+        setup_openpmd_file( f, self.fld.dt )
 
         # Create the datasets
         # Loop over the different quantities that should be written
@@ -276,7 +276,7 @@ def write_dataset( f, path, mode0, mode1, dz, dr, zmin ) :
     dset[2,:,:] = 2*mode1[:,:].imag
 
 
-def setup_openpmd_file( f, time_interval ) :
+def setup_openpmd_file( f, dt ) :
     """
     Sets the attributes of the hdf5 file, that comply with OpenPMD
     
@@ -284,8 +284,8 @@ def setup_openpmd_file( f, time_interval ) :
     ---------
     f : an h5py.File object
 
-    time_interval : float (seconds)
-        The interval between successive timesteps
+    dt : float (seconds)
+        The timestep of the simulation
     """
     # Set the attributes of the HDF5 file
 
@@ -300,7 +300,7 @@ def setup_openpmd_file( f, time_interval ) :
     # TimeSeries attributes
     f.attrs["timeStepEncoding"] = "fileBased"
     f.attrs["timeStepFormat"] = "fields%T.h5"
-    f.attrs["timeStepUnitSI"] = time_interval
+    f.attrs["timeStepUnitSI"] = dt
 
 
 def setup_openpmd_dataset( dset, dz, dr, zmin ) :
