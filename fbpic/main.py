@@ -142,6 +142,10 @@ class Simulation(object) :
         # Loop over timesteps
         for i_step in xrange(N) :
 
+            # Run the diagnostics
+            for diag in self.diags :
+                diag.write( self.iteration )
+            
             # Show a progression bar
             progression_bar( i_step, N )
 
@@ -197,10 +201,6 @@ class Simulation(object) :
             self.time += self.dt
             self.iteration += 1
 
-            # Run the diagnostics
-            for diag in self.diags :
-                diag.write( self.iteration )
-
 def progression_bar(i, Ntot, Nbars=60, char='-') :
     "Shows a progression bar with Nbars"
     nbars = int( (i+1)*1./Ntot*Nbars )
@@ -233,16 +233,17 @@ def adapt_to_grid( x, p_xmin, p_xmax, p_nx ) :
        - Npx : the total number of particles
     """
     
-    # Leave the last cell empy
+    # Find the max and the step of the array
+    xmin = x.min()
     xmax = x.max()
     dx = x[1] - x[0]
-    if p_xmax > xmax - 0.5*dx :
-        p_xmax = xmax - 0.5*dx
     # Do not load particles below the lower bound of the box
-    xmin = x.min()
     if p_xmin < xmin - 0.5*dx :
         p_xmin = xmin - 0.5*dx
-        
+    # Do not load particles above the upper bound of the box
+    if p_xmax < xmax + 0.5*dx :
+        p_xmax = xmax + 0.5*dx
+            
     # Find the gridpoints on which the particles should be loaded
     x_load = x[ ( x>p_xmin ) & ( x < p_xmax ) ]
     p_xmin = x_load.min() - 0.5*dx
