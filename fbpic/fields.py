@@ -79,7 +79,7 @@ class Fields(object) :
 
         # Infer the values of the z and kz grid
         dz = zmax/Nz
-        z = dz * np.arange( 0, Nz )
+        z = dz * ( np.arange( 0, Nz ) + 0.5 )
         kz = 2*np.pi* np.fft.fftfreq( Nz, dz ) 
         # (According to FFT conventions, the kz array starts with
         # positive frequencies and ends with negative frequency.)
@@ -518,8 +518,8 @@ class SpectralGrid(object) :
             self.Em[:,:] = ps.C*self.Em - 0.5*self.kr*rho_diff \
         + c2*ps.S_w*( -i*0.5*self.kr*self.Bz - self.kz*self.Bm - mu_0*self.Jm )
 
-            self.Ez[:,:] = ps.C*self.Ez \
-        + c2*ps.S_w*( i*self.kr*self.Bp + i*self.kr*self.Bm )
+            self.Ez[:,:] = ps.C*self.Ez - i*self.kz*rho_diff \
+        + c2*ps.S_w*( i*self.kr*self.Bp + i*self.kr*self.Bm - mu_0*self.Jz )
         
         else :
             self.Ep[:,:] = ps.C*self.Ep \
