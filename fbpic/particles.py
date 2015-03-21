@@ -466,14 +466,16 @@ def linear_weights(x, invdx, offset, Nx, guards) :
         S_guard = np.where( out_of_bounds, S_lower, 0. )
         S_lower = np.where( out_of_bounds, 0., S_lower )
         i_lower = np.where( out_of_bounds, 0, i_lower )
+        # Upper bound
+        i_lower = np.where( i_lower > Nx-1, Nx-1, i_lower )
+        i_upper = np.where( i_upper > Nx-1, Nx-1, i_upper )
     else :
-        # Add the lower weight of these particles to the 0th cell
-        i_lower = np.where(i_lower < 0, 0, i_lower )
-    i_upper = np.where( i_upper < 0, 0, i_upper )
-    
-    # Avoid out-of-bounds indices at the upper boundary
-    i_lower = np.where( i_lower > Nx-1, Nx-1, i_lower )
-    i_upper = np.where( i_upper > Nx-1, Nx-1, i_upper )
+        # Avoid out-of-bounds indices at the lower boundary
+        i_lower = np.where( i_lower < 0, i_lower+Nx, i_lower )
+        i_upper = np.where( i_upper < 0, i_upper+Nx, i_upper )
+        # Avoid out-of-bounds indices at the upper boundary
+        i_lower = np.where( i_lower > Nx-1, i_lower-Nx, i_lower )
+        i_upper = np.where( i_upper > Nx-1, i_upper-Nx, i_upper )
 
     # Return the result
     if guards==True :
