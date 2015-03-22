@@ -263,7 +263,7 @@ class Particles(object) :
                 ir_lower, ir_upper, Sr_lower, Sr_upper,
                 -(-1.)**m, Sr_guard, use_numba )
             gather_field( exptheta, m, grid[m].Ez, self.Ez, 
-                iz_lower, iz_upper, Sz_lower, Sr_upper,
+                iz_lower, iz_upper, Sz_lower, Sz_upper,
                 ir_lower, ir_upper, Sr_lower, Sr_upper,
                 (-1.)**m, Sr_guard, use_numba )
 
@@ -469,6 +469,9 @@ def linear_weights(x, invdx, offset, Nx, guards) :
         # Upper bound
         i_lower = np.where( i_lower > Nx-1, Nx-1, i_lower )
         i_upper = np.where( i_upper > Nx-1, Nx-1, i_upper )
+        # Return the result
+        return( i_lower, i_upper, S_lower, S_upper, S_guard )
+        
     else :
         # Avoid out-of-bounds indices at the lower boundary
         i_lower = np.where( i_lower < 0, i_lower+Nx, i_lower )
@@ -476,11 +479,7 @@ def linear_weights(x, invdx, offset, Nx, guards) :
         # Avoid out-of-bounds indices at the upper boundary
         i_lower = np.where( i_lower > Nx-1, i_lower-Nx, i_lower )
         i_upper = np.where( i_upper > Nx-1, i_upper-Nx, i_upper )
-
-    # Return the result
-    if guards==True :
-        return( i_lower, i_upper, S_lower, S_upper, S_guard )
-    else :
+        # Return the result
         return( i_lower, i_upper, S_lower, S_upper )
 
 
