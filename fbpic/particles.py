@@ -224,9 +224,9 @@ class Particles(object) :
 
         # Indices and weights
         iz_lower, iz_upper, Sz_lower, Sz_upper = linear_weights(
-           self.z, grid[0].invdz, grid[0].zmin, grid[0].Nz, guards=False )
+           self.z, grid[0].invdz, grid[0].zmin, grid[0].Nz, direction='z' )
         ir_lower, ir_upper, Sr_lower, Sr_upper, Sr_guard = linear_weights(
-            r, grid[0].invdr, grid[0].rmin, grid[0].Nr, guards=True )
+            r, grid[0].invdr, grid[0].rmin, grid[0].Nr, direction='r' )
 
         # Number of modes considered :
         # number of elements in the grid list
@@ -340,9 +340,9 @@ class Particles(object) :
 
         # Indices and weights
         iz_lower, iz_upper, Sz_lower, Sz_upper = linear_weights( 
-            self.z, grid[0].invdz, grid[0].zmin, grid[0].Nz, guards=False )
+            self.z, grid[0].invdz, grid[0].zmin, grid[0].Nz, direction='z' )
         ir_lower, ir_upper, Sr_lower, Sr_upper, Sr_guard = linear_weights(
-            r, grid[0].invdr, grid[0].rmin, grid[0].Nr, guards=True )
+            r, grid[0].invdr, grid[0].rmin, grid[0].Nr, direction='r' )
 
         # Number of modes considered :
         # number of elements in the grid list
@@ -404,9 +404,18 @@ class Particles(object) :
         "`fieldtype` should be either 'J' or 'rho', but is `%s`" %fieldtype )
 
 
-def linear_weights(x, invdx, offset, Nx, guards) :
+def linear_weights(x, invdx, offset, Nx, direction) :
     """
     Return the matrix indices and the shape factors, for linear shapes.
+
+    The boundary conditions are determined by direction :
+    - direction='z' : periodic conditions
+    - direction='r' : absorbing at the upper bound,
+                      using guard cells at the lower bounds
+    NB : the guard cells are not technically part of the field arrays 
+    The weight deposited in the guard cells are added positively or
+    negatively to the lower cell of the field array, depending on the
+    exact field considered.
 
     Parameters
     ----------
@@ -423,10 +432,8 @@ def linear_weights(x, invdx, offset, Nx, guards) :
     Nx : int
         Number of gridpoints along the considered direction
 
-    guards : bool
-        Whether to also return an array containing the weights in
-        the lower guard cells. (Typically these guard cells represent
-        the cells below the axis.)
+    direction : string
+        Determines the boundary conditions. Either 'r' or 'z'
 
     Returns
     -------
@@ -458,31 +465,32 @@ def linear_weights(x, invdx, offset, Nx, guards) :
     S_lower = i_upper - x_cell
     S_upper = x_cell - i_lower
     
-    # Avoid out-of-bounds indices at the lower boundary
-    # (potentially using guard cells)
-    if guards==True :
-        # Place the lower weight of these particles in the guard cells
+    # Treat the boundary conditions
+    if direction=='r' :   # Radial boundary condition
+        # Lower bound : place the weight in the guard cells
         out_of_bounds =  (i_lower < 0)
         S_guard = np.where( out_of_bounds, S_lower, 0. )
         S_lower = np.where( out_of_bounds, 0., S_lower )
         i_lower = np.where( out_of_bounds, 0, i_lower )
-        # Upper bound
+        # Upper bound : absorbing
         i_lower = np.where( i_lower > Nx-1, Nx-1, i_lower )
         i_upper = np.where( i_upper > Nx-1, Nx-1, i_upper )
         # Return the result
         return( i_lower, i_upper, S_lower, S_upper, S_guard )
         
-    else :
-        # Avoid out-of-bounds indices at the lower boundary
+    elif direction=='z' :  # Longitudinal boundary condition
+        # Lower bound : periodic
         i_lower = np.where( i_lower < 0, i_lower+Nx, i_lower )
         i_upper = np.where( i_upper < 0, i_upper+Nx, i_upper )
-        # Avoid out-of-bounds indices at the upper boundary
+        # Upper bound : periodic
         i_lower = np.where( i_lower > Nx-1, i_lower-Nx, i_lower )
         i_upper = np.where( i_upper > Nx-1, i_upper-Nx, i_upper )
         # Return the result
         return( i_lower, i_upper, S_lower, S_upper )
 
-
+    else :
+        raise ValueError("Unrecognized `direction` : %s" %direction)
+        
 # -----------------------------------------
 # Utility functions for the field gathering
 # -----------------------------------------
