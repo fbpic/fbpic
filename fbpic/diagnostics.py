@@ -189,7 +189,7 @@ class FieldDiagnostic(object) :
         f = h5py.File( fullpath, mode="w" )
         
         # Set up its attributes            
-        setup_openpmd_file( f, self.fld.dt )
+        setup_openpmd_file( f, self.fld.dt, iteration*self.fld.dt )
 
         # Create the datasets
         # Loop over the different quantities that should be written
@@ -276,7 +276,7 @@ def write_dataset( f, path, mode0, mode1, dz, dr, zmin ) :
     dset[2,:,:] = 2*mode1[:,:].imag
 
 
-def setup_openpmd_file( f, dt ) :
+def setup_openpmd_file( f, dt, t ) :
     """
     Sets the attributes of the hdf5 file, that comply with OpenPMD
     
@@ -284,6 +284,9 @@ def setup_openpmd_file( f, dt ) :
     ---------
     f : an h5py.File object
 
+    t : float (seconds)
+        The absolute time at this point in the simulation
+    
     dt : float (seconds)
         The timestep of the simulation
     """
@@ -298,9 +301,11 @@ def setup_openpmd_file( f, dt ) :
     f.attrs["fieldsPath"] = "fields/"
     f.attrs["particlesPath"] = "particles/"
     # TimeSeries attributes
-    f.attrs["timeStepEncoding"] = "fileBased"
-    f.attrs["timeStepFormat"] = "fields%T.h5"
-    f.attrs["timeStepUnitSI"] = dt
+    f.attrs["iterationEncoding"] = "fileBased"
+    f.attrs["iterationFormat"] = "fields%T.h5"
+    f.attrs["time"] = t
+    f.attrs["timeStep"] = dt
+    f.attrs["timeUnitSI"] = 1.
 
 
 def setup_openpmd_dataset( dset, dz, dr, zmin ) :
@@ -319,12 +324,9 @@ def setup_openpmd_dataset( dset, dz, dr, zmin ) :
     """
     dset.attrs["unitSI"] = 1.
     dset.attrs["gridUnitSI"] = 1.
-    dset.attrs["dx"] = dz
-    dset.attrs["dy"] = dr
-    dset.attrs["xmin"] = zmin
-    dset.attrs["posX"] = 0.5  # All data is node-centered
-    dset.attrs["posY"] = 0.5  # All data is node-centered
-    dset.attrs["coordSystem"] = "right-handed"
+    dset.attrs["gridSpacing"] = np.array([dr, dz])
+    dset.attrs["gridGlobalOffset"] = np.array([ 0., zmin-0.5*dz])
+    dset.attrs["position"] = np.array([ 0.5, 0.5])
     dset.attrs["dataOrder"] = "kji"  # column-major order due to numpy
     dset.attrs["fieldSolver"] = "PSATD"
     dset.attrs["fieldSolverOrder"] = -1.0
