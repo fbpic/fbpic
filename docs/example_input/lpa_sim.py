@@ -51,6 +51,7 @@ n_e = 4.e18*1.e6 # Density (electrons.meters^-3)
 p_nz = 2         # Number of particles per cell along z
 p_nr = 2         # Number of particles per cell along r
 p_nt = 4         # Number of particles per cell along theta
+
 # The laser
 a0 = 4.          # Laser amplitude
 w0 = 5.e-6       # Laser waist
@@ -66,6 +67,13 @@ ncells_damp = 30   # Number of cells over which the field is damped,
 # The diagnostics
 diag_period = 50        # Period of the diagnostics in number of timesteps
 fieldtypes = [ "E", "rho", "B", "J" ]  # The fields that will be written
+
+# -----------------------
+# Checking the parameters
+# -----------------------
+if p_nr%2 == 1 :
+    raise UserWarning("Running the simulation with an odd number of macroparticles \n" + \
+                      "may result in a very noisy simulation.")
 
 # ---------------------------
 # Carrying out the simulation
