@@ -236,7 +236,7 @@ class Fields(object) :
 
         Parameter
         ---------
-        fieldtype :
+        fieldtype : string
             A string which represents the kind of field to be erased
             (either 'E', 'B', 'J', 'rho')
         """
@@ -261,6 +261,43 @@ class Fields(object) :
         else :
             raise ValueError( 'Invalid string for fieldtype: %s' %fieldtype )
 
+    def filter(self, fieldtype, direction='r' ) :
+        """
+        Filter the field `fieldtype` on the interpolation grid
+
+        This uses a binomial filter, and (optionally) a compensator
+
+        Parameter
+        ---------
+        fieldtype : string
+            A string which represents the kind of field to be filtered
+            (either 'E', 'B', 'J' or 'rho')
+
+        direction : string, optional
+           The direction in which to filter
+           (either 'r' or 'z')
+        """
+        if fieldtype == 'rho' :
+            for m in range(self.Nm) :
+                binomial_filter( self.interp[m].rho, direction, (-1)**m )
+        elif fieldtype == 'J' :
+            for m in range(self.Nm) :
+                binomial_filter( self.interp[m].Jr, direction, -(-1)**m )
+                binomial_filter( self.interp[m].Jt, direction, -(-1)**m )
+                binomial_filter( self.interp[m].Jz, direction, (-1)**m )
+        elif fieldtype == 'E' :
+            for m in range(self.Nm) :
+                binomial_filter( self.interp[m].Er, direction, -(-1)**m )
+                binomial_filter( self.interp[m].Et, direction, -(-1)**m )
+                binomial_filter( self.interp[m].Ez, direction, (-1)**m )
+        elif fieldtype == 'B' :
+            for m in range(self.Nm) :
+                binomial_filter( self.interp[m].Br, direction, -(-1)**m )
+                binomial_filter( self.interp[m].Bt, direction, -(-1)**m )
+                binomial_filter( self.interp[m].Bz, direction, (-1)**m )
+        else :
+            raise ValueError( 'Invalid string for fieldtype: %s' %fieldtype )
+        
     def divide_by_volume( self, fieldtype ) :
         """
         Divide the field `fieldtype` in each cell by the cell volume,
@@ -408,6 +445,11 @@ class InterpolationGrid(object) :
         plt.ylabel('r')
         cb = plt.colorbar()
         cb.set_label('Imaginary part')
+
+    def filter_r( self, fieldtype, compensator ) :
+
+        
+        
         
 class SpectralGrid(object) :
     """
@@ -850,3 +892,57 @@ class SpectralTransformer(object) :
         spect_array_p[:,:] = self.dhtp.transform( spect_buffer_p, axis=-1 )
         spect_array_m[:,:] = self.dhtm.transform( spect_buffer_m, axis=-1 )
 
+
+# -----------------
+# Utility function
+# -----------------
+
+def binomial_filter( F, direction, sign_guard ) :
+    """
+    Apply a binomial filter to the array F
+
+    Parameters
+    ----------
+    F : 2darray
+        An array whose first axis corresponds to z and
+        second axis corresponds to r
+
+    direction : string
+        Indicates in which direction to perform the filter
+        (Either 'r' or 'z')
+
+    sign_guard : int
+        Indicates with what is the sign of the values below
+        the axis, as compared to the value above the axis.
+        (Only used in the case direction='r')
+    """
+    F_unfiltered = F.copy()
+    
+    if direction == 'z' : # Periodic boundaries
+        F[1:-1,:] = 0.25*F_unfiltered[:-2,:] \
+                   + 0.5*F_unfiltered[1:-1,:] \
+                   + 0.25*F_unfiltered[2:,:]
+        F[0,:] =  0.25*F_unfiltered[-1,:] \
+                   + 0.5*F_unfiltered[0,:] \
+                   + 0.25*F_unfiltered[1,:]
+        F[-1,:] =  0.25*F_unfiltered[-2,:] \
+                   + 0.5*F_unfiltered[-1,:] \
+                   + 0.25*F_unfiltered[0,:]
+
+    elif direction == 'z' : # Non-periodic boundaries
+        F[:,1:-1] = 0.25*F_unfiltered[:,:-2] \
+                   + 0.5*F_unfiltered[:,1:-1] \
+                   + 0.25*F_unfiltered[:,2:]
+        # Assume that the guard cell below the axis has
+        # the same value as the cell above the axis, up
+        # to the sign `sign_guard`
+        F[:,0] =  0.25*sign_guard*F_unfiltered[:,0] \
+                 + 0.5*F_unfiltered[:,0] \
+                 + 0.5*F_unfiltered[:,1]
+        # Assume that the guard cell above the boundary has
+        # the same value as the cell below it
+        F[:,-1] =  0.25*F_unfiltered[:,-1] \
+                   + 0.5*F_unfiltered[:,-1] \
+                   + 0.25*F_unfiltered[:,-2]
+    else :
+        raise ValueError("Unrecognized `direction` : %s" %direction)
