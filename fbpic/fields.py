@@ -445,11 +445,6 @@ class InterpolationGrid(object) :
         plt.ylabel('r')
         cb = plt.colorbar()
         cb.set_label('Imaginary part')
-
-    def filter_r( self, fieldtype, compensator ) :
-
-        
-        
         
 class SpectralGrid(object) :
     """
@@ -929,7 +924,7 @@ def binomial_filter( F, direction, sign_guard ) :
                    + 0.5*F_unfiltered[-1,:] \
                    + 0.25*F_unfiltered[0,:]
 
-    elif direction == 'z' : # Non-periodic boundaries
+    elif direction == 'r' : # Non-periodic boundaries
         F[:,1:-1] = 0.25*F_unfiltered[:,:-2] \
                    + 0.5*F_unfiltered[:,1:-1] \
                    + 0.25*F_unfiltered[:,2:]
