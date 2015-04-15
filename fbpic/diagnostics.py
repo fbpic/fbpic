@@ -5,6 +5,7 @@ It defines a set of classes for the output of the code.
 import os
 import numpy as np
 import matplotlib.pyplot as plt
+from mpi4py import MPI
 import h5py
 import datetime
 
