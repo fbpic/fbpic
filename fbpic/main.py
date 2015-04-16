@@ -100,7 +100,7 @@ class Simulation(object) :
 
         
     def step(self, N=1, ptcl_feedback=True, correct_currents=True,
-             filter_currents=False, move_positions=True,
+             filter_currents=True, move_positions=True,
              move_momenta=True, moving_window=True ) :
         """
         Perform N PIC cycles
@@ -119,8 +119,7 @@ class Simulation(object) :
             Whether to correct the currents in spectral space
 
         filter_currents : bool, optional
-            Whether to filter the currents by applying a
-            binomial filter radially
+            Whether to filter the currents (in k space by default)
 
         move_positions : bool, optional
             Whether to move or freeze the particles' positions
@@ -174,12 +173,12 @@ class Simulation(object) :
             for species in ptcl :
                 species.deposit( fld.interp, 'J' )
             fld.divide_by_volume('J')
-            if filter_currents :
-                fld.filter_interp('J', direction='r')
             if moving_window :
                 self.moving_win.damp( fld.interp, 'J' )
             # Get the current on the spectral grid at t = (n+1/2) dt
             fld.interp2spect('J')
+            if filter_currents :
+                fld.filter_spect('J')
 
             # Push the particles' positions to t = (n+1) dt
             if move_positions :
@@ -190,12 +189,12 @@ class Simulation(object) :
             for species in ptcl :
                 species.deposit( fld.interp, 'rho' )
             fld.divide_by_volume('rho')
-            if filter_currents :
-                fld.filter_interp('rho', direction='r')
             if moving_window :
                 self.moving_win.damp( fld.interp, 'rho' )
             # Get the charge density on the spectral grid at t = (n+1) dt
             fld.interp2spect('rho_next')
+            if filter_currents :
+                fld.filter_spect('rho_next')
             # Correct the currents (requires rho at t = (n+1) dt )
             if correct_currents :
                 fld.correct_currents()

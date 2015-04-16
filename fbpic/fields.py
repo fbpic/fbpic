@@ -280,7 +280,7 @@ class Fields(object) :
         for m in range(self.Nm) :
             self.interp[m].filter( fieldtype, direction )
 
-    def filter_spectral( self, fieldtype ) :
+    def filter_spect( self, fieldtype ) :
         """
         Filter the field `fieldtype` on the spectral grid
 
@@ -288,7 +288,7 @@ class Fields(object) :
         ---------
         fieldtype : string
             A string which represents the kind of field to be filtered
-            (either 'E', 'B', 'J' or 'rho')
+            (either 'E', 'B', 'J', 'rho_next' or 'rho_prev')
         """
         for m in range(self.Nm) :
             self.spect[m].filter( fieldtype )
@@ -489,10 +489,10 @@ class SpectralGrid(object) :
         Parameters
         ----------
         kz : 1darray of float
-            The positions of the longitudinal, spectral grid
+            The wavevectors of the longitudinal, spectral grid
         
         kr : 1darray of float
-            The positions of the radial, spectral grid
+            The wavevectors of the radial, spectral grid
 
         m : int
             The index of the mode
@@ -517,7 +517,12 @@ class SpectralGrid(object) :
         self.Jz = np.zeros( (Nz, Nr), dtype='complex' )
         self.rho_prev = np.zeros( (Nz, Nr), dtype='complex' )
         self.rho_next = np.zeros( (Nz, Nr), dtype='complex' )
+
+        # Auxiliary arrays
+        # - for current correction
         self.F = np.zeros( (Nz, Nr), dtype='complex' )
+        # - for filtering
+        self.filter_array = get_filter_array( kz, kr )
 
     def correct_currents (self, dt) :
         """
@@ -629,7 +634,36 @@ class SpectralGrid(object) :
         """
         self.rho_prev[:,:] = self.rho_next[:,:]
         self.rho_next[:,:] = 0.
-            
+
+    def filter(self, fieldtype) :
+        """
+        Filter the field `fieldtype`
+
+        Parameter
+        ---------
+        fieldtype : string
+            A string which represents the kind of field to be filtered
+            (either 'E', 'B', 'J', 'rho_next' or 'rho_prev')
+        """
+        if fieldtype == 'rho_prev' :
+            self.rho_prev = self.rho_prev * self.filter_array
+        elif fieldtype == 'rho_next' :
+            self.rho_next = self.rho_next * self.filter_array
+        elif fieldtype == 'J' :
+            self.Jp = self.Jp * self.filter_array
+            self.Jm = self.Jm * self.filter_array
+            self.Jz = self.Jz * self.filter_array
+        elif fieldtype == 'E' :
+            self.Ep = self.Ep * self.filter_array
+            self.Em = self.Em * self.filter_array
+            self.Ez = self.Ez * self.filter_array
+        elif fieldtype == 'B' :
+            self.Bp = self.Bp * self.filter_array
+            self.Bm = self.Bm * self.filter_array
+            self.Bz = self.Bz * self.filter_array
+        else :
+            raise ValueError( 'Invalid string for fieldtype: %s' %fieldtype )
+        
     def show(self, fieldtype, below_axis=True, scale=1, **kw) :
         """
         Show the field `fieldtype` on the spectral grid
@@ -679,6 +713,8 @@ class SpectralGrid(object) :
         plt.ylabel('kr')
         cb = plt.colorbar()
         cb.set_label('Imaginary part')
+
+
 
 class PsatdCoeffs(object) :
     """
@@ -970,3 +1006,34 @@ def binomial_filter( F, direction, sign_guard ) :
                    + 0.25*F_unfiltered[:,-2]
     else :
         raise ValueError("Unrecognized `direction` : %s" %direction)
+
+
+def get_filter_array( kz, kr ) :
+    """
+    Return the array that multiplies the fields in k space
+
+    The filtering function is 1-sin( k/kmax * pi/2 )**2.
+    (equivalent to a one-pass binomial filter in real space,
+    for the longitudinal direction)
+
+    Parameters
+    ----------
+    kz, kr : 1darrays
+       The longitudinal and transverse wavevectors on the spectral grid
+
+    Returns
+    -------
+    A 2darray of shape ( len(kz), len(kr) )
+    """
+    # Find the 1D filter in z
+    coef_z = 1./kz.max() * np.pi/2
+    filt_z = 1. - np.sin( kz * coef_z )**2
+
+    # Find the 1D filter in r
+    coef_r = 1./kr.max() * np.pi/2
+    filt_r = 1. - np.sin( kr * coef_r )**2
+
+    # Build the 2D filter by takin the product
+    filter_array = filt_z[:, np.newaxis] * filt_r[np.newaxis, :]
+
+    return( filter_array )
