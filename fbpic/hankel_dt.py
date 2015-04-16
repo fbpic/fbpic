@@ -323,20 +323,27 @@ class DHT(object) :
         if p == m : p_denom = m+1
         denom = np.pi * rmax**2 * jn( p_denom, alphas)**2
         num = jn( p, 2*np.pi* self.r[:, np.newaxis]*self.nu[np.newaxis,:] )
-        # Avoid singular matrix in the case where 0 is included in the alphas
-        if m in include_0 and p != 0 :
-            # In this case the first column of num is 0
-            # Replace it by imposing that an additional Bessel mode
-            # gives a delta function
-            nu_additional = 1./(2*np.pi*rmax) * last_alpha
-            denom[0] = np.pi * rmax**2 * jn( p_denom, last_alpha )**2
-            num[:,0] = jn( p, 2*np.pi* self.r[:]*nu_additional )
         # Get the inverse matrix
         self.invM = num / denom[np.newaxis, :]
 
         # Calculate the matrix M
         if Fw == 'inverse' :
-            self.M = np.linalg.inv( self.invM )
+            if m in include_0 and p != 0 :
+                # In this case, and the matrix is singular,
+                # since self.invM[:,0] = 0.
+                # Change this by imposing that an additional Bessel mode
+                # gives a delta function
+                nu_additional = 1./(2*np.pi*rmax) * last_alpha
+                denom[0] = np.pi * rmax**2 * jn( p_denom, last_alpha )**2
+                num[:,0] = jn( p, 2*np.pi* self.r[:]*nu_additional )
+                self.invM = num / denom[np.newaxis, :]
+                # Inverse the matrix
+                self.M = np.linalg.inv(self.invM)
+                # Put the modified row back to 0
+                self.invM[:,0] = 0.
+            else :
+                self.M = np.linalg.inv( self.invM )
+                
         if Fw == 'symmetric' :
             self.M = (2*np.pi*rmax**2/S)**2 * self.invM.T
 
