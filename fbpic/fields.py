@@ -261,11 +261,11 @@ class Fields(object) :
         else :
             raise ValueError( 'Invalid string for fieldtype: %s' %fieldtype )
 
-    def filter(self, fieldtype, direction='r' ) :
+    def filter_interp( self, fieldtype, direction='r' ) :
         """
         Filter the field `fieldtype` on the interpolation grid
 
-        This uses a binomial filter, and (optionally) a compensator
+        This uses a binomial filter
 
         Parameter
         ---------
@@ -277,27 +277,22 @@ class Fields(object) :
            The direction in which to filter
            (either 'r' or 'z')
         """
-        if fieldtype == 'rho' :
-            for m in range(self.Nm) :
-                binomial_filter( self.interp[m].rho, direction, (-1)**m )
-        elif fieldtype == 'J' :
-            for m in range(self.Nm) :
-                binomial_filter( self.interp[m].Jr, direction, -(-1)**m )
-                binomial_filter( self.interp[m].Jt, direction, -(-1)**m )
-                binomial_filter( self.interp[m].Jz, direction, (-1)**m )
-        elif fieldtype == 'E' :
-            for m in range(self.Nm) :
-                binomial_filter( self.interp[m].Er, direction, -(-1)**m )
-                binomial_filter( self.interp[m].Et, direction, -(-1)**m )
-                binomial_filter( self.interp[m].Ez, direction, (-1)**m )
-        elif fieldtype == 'B' :
-            for m in range(self.Nm) :
-                binomial_filter( self.interp[m].Br, direction, -(-1)**m )
-                binomial_filter( self.interp[m].Bt, direction, -(-1)**m )
-                binomial_filter( self.interp[m].Bz, direction, (-1)**m )
-        else :
-            raise ValueError( 'Invalid string for fieldtype: %s' %fieldtype )
-        
+        for m in range(self.Nm) :
+            self.interp[m].filter( fieldtype, direction )
+
+    def filter_spectral( self, fieldtype ) :
+        """
+        Filter the field `fieldtype` on the spectral grid
+
+        Parameter
+        ---------
+        fieldtype : string
+            A string which represents the kind of field to be filtered
+            (either 'E', 'B', 'J' or 'rho')
+        """
+        for m in range(self.Nm) :
+            self.spect[m].filter( fieldtype )
+
     def divide_by_volume( self, fieldtype ) :
         """
         Divide the field `fieldtype` in each cell by the cell volume,
@@ -390,7 +385,41 @@ class InterpolationGrid(object) :
         self.Jt = np.zeros( (Nz, Nr), dtype='complex' )
         self.Jz = np.zeros( (Nz, Nr), dtype='complex' )
         self.rho = np.zeros( (Nz, Nr), dtype='complex' )
+        
+        
+    def filter(self, fieldtype, direction ) :
+        """
+        Filter the field `fieldtype`
 
+        This uses a binomial filter
+
+        Parameter
+        ---------
+        fieldtype : string
+            A string which represents the kind of field to be filtered
+            (either 'E', 'B', 'J' or 'rho')
+
+        direction : string, optional
+           The direction in which to filter
+           (either 'r' or 'z')
+        """
+        if fieldtype == 'rho' :
+            binomial_filter( self.rho, direction, (-1)**self.m )
+        elif fieldtype == 'J' :
+            binomial_filter( self.Jr, direction, -(-1)**self.m )
+            binomial_filter( self.Jt, direction, -(-1)**self.m )
+            binomial_filter( self.Jz, direction, (-1)**self.m )
+        elif fieldtype == 'E' :
+            binomial_filter( self.Er, direction, -(-1)**self.m )
+            binomial_filter( self.Et, direction, -(-1)**self.m )
+            binomial_filter( self.Ez, direction, (-1)**self.m )
+        elif fieldtype == 'B' :
+            binomial_filter( self.Br, direction, -(-1)**self.m )
+            binomial_filter( self.Bt, direction, -(-1)**self.m )
+            binomial_filter( self.Bz, direction, (-1)**self.m )
+        else :
+            raise ValueError( 'Invalid string for fieldtype: %s' %fieldtype )
+        
     def show(self, fieldtype, below_axis=True, scale=1,
              gridscale=1.e-6, **kw) :
         """

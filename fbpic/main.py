@@ -175,7 +175,7 @@ class Simulation(object) :
                 species.deposit( fld.interp, 'J' )
             fld.divide_by_volume('J')
             if filter_currents :
-                fld.filter('J', direction='r')
+                fld.filter_interp('J', direction='r')
             if moving_window :
                 self.moving_win.damp( fld.interp, 'J' )
             # Get the current on the spectral grid at t = (n+1/2) dt
@@ -191,7 +191,7 @@ class Simulation(object) :
                 species.deposit( fld.interp, 'rho' )
             fld.divide_by_volume('rho')
             if filter_currents :
-                fld.filter('rho', direction='r')
+                fld.filter_interp('rho', direction='r')
             if moving_window :
                 self.moving_win.damp( fld.interp, 'rho' )
             # Get the charge density on the spectral grid at t = (n+1) dt
