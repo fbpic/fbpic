@@ -3,7 +3,7 @@ This file is part of the Fourier-Bessel Particle-In-Cell code (FB-PIC)
 It defines a set of utilities for laser-plasma acceleration.
 """
 import numpy as np
-from scipy.constants import m_e, c, e
+from scipy.constants import m_e, c, e, epsilon_0, mu_0
 
 def add_laser( fld, a0, w0, ctau, z0, lambda0=0.8e-6,
                theta_pol=0., fw_propagating=True, update_spectral=True ) :
@@ -90,3 +90,94 @@ def add_laser( fld, a0, w0, ctau, z0, lambda0=0.8e-6,
     if update_spectral :
         fld.interp2spect('E')
         fld.interp2spect('B')
+
+
+def get_space_charge_fields( fld, ptcl, gamma ) :
+    """
+    Calculate the space charge field on the grid
+
+    This assumes that all the particles being passed have
+    the same gamma factor.
+
+    Parameters
+    ----------
+    fld : a Fields object
+        Contains the values of the fields
+
+    ptcl : a list of Particles object
+        (one element per species)
+        The list of the species which are relativistic and
+        will produce a space charge field. (Do not pass the
+        particles which are at rest.) 
+
+    gamma : float
+        The Lorentz factor of the particles
+    """
+    # Check that all the particles have the right gamma
+    for species in ptcl :
+        if np.allclose( species.inv_gamma, 1./gamma ) == False :
+            raise ValueError("The particles in ptcl do not have "
+                            "a Lorentz factor matching gamma. Please check "
+                            "that they have been properly initialized.")
+
+    # Project the charge and currents onto the grid
+    fld.erase('rho')
+    fld.erase('J')
+    for species in ptcl :
+        species.deposit( fld.interp, 'rho' )
+        species.deposit( fld.interp, 'J' )
+    fld.divide_by_volume('rho')
+    fld.divide_by_volume('J')
+    # Convert to the spectral grid
+    fld.interp2spect('rho_next')
+    fld.interp2spect('J')        
+
+    # Get the space charge field in spectral space
+    for m in range(fld.Nm) :
+        get_space_charge_spect( fld.spect[m], gamma )
+
+    # Convert to the interpolation grid
+    fld.spect2interp( 'E' )
+    fld.spect2interp( 'B' )
+
+def get_space_charge_spect( spect, gamma ) :
+    """
+    Determine the space charge field in spectral space
+
+    It is assumed that the charge density and current
+    have been already deposited on the grid, and converted
+    to spectral space.
+
+    Parameters
+    ----------
+    spect : a SpectralGrid object
+        Contains the values of the fields in spectral space
+
+    gamma : float
+        The Lorentz factor of the particles which produce the
+        space charge field
+    """
+    # Speed of the beam
+    beta = np.sqrt(1.-1./gamma**2)
+    
+    # Get the denominator
+    K2 = spect.kr**2 + spect.kz**2 * 1./gamma**2
+    inv_K2 = np.where( K2 != 0, 1./K2, 0. )
+    
+    # Get the potentials
+    phi = spect.rho_next[:,:]*inv_K2[:,:]/epsilon_0
+    Ap = spect.Jp[:,:]*inv_K2[:,:]*mu_0
+    Am = spect.Jm[:,:]*inv_K2[:,:]*mu_0
+    Az = spect.Jz[:,:]*inv_K2[:,:]*mu_0
+
+    # Deduce the E field
+    spect.Ep[:,:] = 0.5*spect.kr * phi + 1.j*beta*c*spect.kz * Ap
+    spect.Em[:,:] = -0.5*spect.kr * phi + 1.j*beta*c*spect.kz * Am
+    spect.Ez[:,:] = -1.j*spect.kz * phi + 1.j*beta*c*spect.kz * Az
+
+    # Deduce the B field
+    spect.Bp[:,:] = -0.5j*spect.kr * Az + spect.kz * Ap
+    spect.Bm[:,:] = -0.5j*spect.kr * Az - spect.kz * Am
+    spect.Bz[:,:] = 1.j*spect.kr * Ap + 1.j*spect.kr * Am    
+    
+    
