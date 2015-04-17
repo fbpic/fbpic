@@ -324,6 +324,8 @@ class DHT(object) :
         denom = np.pi * rmax**2 * jn( p_denom, alphas)**2
         num = jn( p, 2*np.pi* self.r[:, np.newaxis]*self.nu[np.newaxis,:] )
         # Get the inverse matrix
+        if denom[0] == 0 and np.all(num[:,0] == 0) :
+            denom[0] = 1 # Avoid division by 0
         self.invM = num / denom[np.newaxis, :]
 
         # Calculate the matrix M
