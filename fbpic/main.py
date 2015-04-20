@@ -214,6 +214,7 @@ def progression_bar(i, Ntot, Nbars=60, char='-') :
     nbars = int( (i+1)*1./Ntot*Nbars )
     sys.stdout.write('\r[' + nbars*char )
     sys.stdout.write((Nbars-nbars)*' ' + ']')
+    sys.stdout.write(' %d/%d' %(i,Ntot))
     sys.stdout.flush()
 
 def adapt_to_grid( x, p_xmin, p_xmax, p_nx ) :
