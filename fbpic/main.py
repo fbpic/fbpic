@@ -139,7 +139,8 @@ class Simulation(object) :
         # Check if a moving window is attached, in the case
         # moving_window == True
         if moving_window :
-            if hasattr(self, 'moving_win')==False :
+            if hasattr(self, 'moving_win')==False or \
+              self.moving_win is None :
                 raise AttributeError(
         "Please attach a MovingWindow to this object, as `self.moving_win`")
             
