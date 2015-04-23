@@ -29,7 +29,8 @@ class Particles(object) :
     """
 
     def __init__(self, q, m, n, Npz, zmin, zmax,
-                    Npr, rmin, rmax, Nptheta, dt, global_theta=0. ) :
+                    Npr, rmin, rmax, Nptheta, dt,
+                    dens_func=None, global_theta=0. ) :
         """
         Initialize a uniform set of particles
 
@@ -42,7 +43,7 @@ class Particles(object) :
            Mass of the particle species 
 
         n : float (in particles per m^3)
-           Uniform density of particles
+           Peak density of particles
            
         Npz : int
            Number of macroparticles along the z axis
@@ -62,7 +63,14 @@ class Particles(object) :
         dt : float (in seconds)
            The timestep for the particle pusher
 
-        global_theta : float (in rad)
+        dens_func : callable, optional
+           A function of the form :
+           def dens_func( z, r ) ...
+           where z and r are 1d arrays, and which returns
+           a 1d array containing the density *relative to n*
+           (i.e. a number between 0 and 1) at the given positions
+
+        global_theta : float (in rad), optional
            A global shift on all the theta of the particles
            This is useful when repetitively adding new particles
            (e.g. with the moving window), in order to avoid that
@@ -81,6 +89,7 @@ class Particles(object) :
         self.rmax = rmax
         self.Npr = Npr
         self.Nptheta = Nptheta
+        self.dens_func = dens_func
 
         # Initialize the (normalized) momenta
         self.uz = np.zeros( self.Ntot )
@@ -112,13 +121,17 @@ class Particles(object) :
         unalign_angles( thetap, Npr,Npz, method='irrational' )
         thetap += global_theta
         # Flatten them (This performs a memory copy)
+        r = rp.flatten()
+        self.x = r * np.cos( thetap.flatten() )
+        self.y = r * np.sin( thetap.flatten() )
         self.z = zp.flatten()
-        self.x = rp.flatten()*np.cos( thetap.flatten() )
-        self.y = rp.flatten()*np.sin( thetap.flatten() )
 
         # Get the weights (i.e. charge of each macroparticle), which are equal
         # to the density times the elementary volume r d\theta dr dz
-        self.w = q * n * rp.flatten() * dtheta*dr*dz
+        self.w = q * n * r * dtheta*dr*dz
+        # Modulate it by the density profile
+        if dens_func is not None :
+            self.w = self.w * dens_func( self.z, r )
         
     def push_p(self, use_numba=numba_installed ) :
         """

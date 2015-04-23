@@ -35,7 +35,7 @@ from fbpic.diagnostics import FieldDiagnostic
 # The simulation box
 Nz = 400         # Number of gridpoints along z
 zmax = 40.e-6    # Length of the box along z (meters)
-Nr = 200         # Number of gridpoints along r
+Nr = 50         # Number of gridpoints along r
 rmax = 20.e-6    # Length of the box along r (meters)
 Nm = 2           # Number of modes used
 # The simulation timestep
@@ -67,8 +67,23 @@ ncells_damp = 30   # Number of cells over which the field is damped,
                    # in order to prevent it from wrapping around.
 
 # The diagnostics
-diag_period = 50        # Period of the diagnostics in number of timesteps
+diag_period = 10        # Period of the diagnostics in number of timesteps
 fieldtypes = [ "E", "rho", "B", "J" ]  # The fields that will be written
+
+
+# The density profile
+ramp_start = 40.e-6
+ramp_length = 50.e-6
+
+def dens_func( z, r ) :
+    """Returns relative density at position z and r"""    
+    # Allocate relative density
+    n = np.ones_like(z)
+    # Make linear ramp
+    n = np.where( z<ramp_start+ramp_length, (z-ramp_start)/ramp_length, n )
+    # Supress density before the ramp
+    n = np.where( z<ramp_start, 0., n )
+    return(n)
 
 # -----------------------
 # Checking the parameters
@@ -84,7 +99,8 @@ if p_nr%2 == 1 :
 
 # Initialize the simulation object
 sim = Simulation( Nz, zmax, Nr, rmax, Nm, dt,
-    p_zmin, p_zmax, p_rmin, p_rmax, p_nz, p_nr, p_nt, n_e ) 
+    p_zmin, p_zmax, p_rmin, p_rmax, p_nz, p_nr, p_nt, n_e,
+    dens_func=dens_func ) 
 
 # Add a laser to the fields of the simulation
 add_laser( sim.fld, a0, w0, ctau, z0 )

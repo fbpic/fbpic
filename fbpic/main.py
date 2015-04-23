@@ -24,7 +24,8 @@ class Simulation(object) :
     """
 
     def __init__(self, Nz, zmax, Nr, rmax, Nm, dt,
-                 p_zmin, p_zmax, p_rmin, p_rmax, p_nz, p_nr, p_nt, n_e ) :
+                 p_zmin, p_zmax, p_rmin, p_rmax,
+                 p_nz, p_nr, p_nt, n_e, dens_func=None ) :
         """
         Initializes a simulation, by creating the following structures :
         - the Fields object, which contains the EM fields
@@ -58,7 +59,14 @@ class Simulation(object) :
             Number of macroparticles along the theta direction
 
         n_e : float (in particles per m^3)
-           Density of the electrons
+           Peak density of the electrons
+           
+        dens_func : callable, optional
+           A function of the form :
+           def dens_func( z, r ) ...
+           where z and r are 1d arrays, and which returns
+           a 1d array containing the density *relative to n*
+           (i.e. a number between 0 and 1) at the given positions
         """
         # Initialize the field structure
         self.fld = Fields(Nz, zmax, Nr, rmax, Nm, dt)
@@ -74,9 +82,11 @@ class Simulation(object) :
         # (using 4 macroparticles per cell along the azimuthal direction)
         self.ptcl = [
             Particles( q=-e, m=m_e, n=n_e, Npz=Npz, zmin=p_zmin, zmax=p_zmax,
-                       Npr=Npr, rmin=p_rmin, rmax=p_rmax, Nptheta=4, dt=dt ),
+                       Npr=Npr, rmin=p_rmin, rmax=p_rmax, Nptheta=4, dt=dt,
+                       dens_func=dens_func ),
             Particles( q=e, m=m_p, n=n_e, Npz=Npz, zmin=p_zmin, zmax=p_zmax,
-                        Npr=Npr, rmin=p_rmin, rmax=p_rmax, Nptheta=4, dt=dt )
+                        Npr=Npr, rmin=p_rmin, rmax=p_rmax, Nptheta=4, dt=dt,
+                        dens_func=dens_func )
             ]
         
         # Register the number of particles per cell along z, and dt

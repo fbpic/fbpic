@@ -411,7 +411,8 @@ def add_particles( species, zmin, zmax, Npz ) :
     # Create the particles that will be added
     new_ptcl = Particles( species.q, species.m, species.n,
         Npz, zmin, zmax, species.Npr, species.rmin, species.rmax,
-        species.Nptheta, species.dt, global_theta )
+        species.Nptheta, species.dt, species.dens_func,
+        global_theta=global_theta )
 
     # Add the properties of these new particles to species object
     # Loop over the attributes of the species
