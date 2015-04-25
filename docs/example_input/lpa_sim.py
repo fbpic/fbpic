@@ -26,7 +26,7 @@ from scipy.constants import c
 from fbpic.main import Simulation
 from fbpic.lpa_utils import add_laser
 from fbpic.moving_window import MovingWindow
-from fbpic.diagnostics import FieldDiagnostic
+from fbpic.diagnostics import FieldDiagnostic, ParticleDiagnostic
 
 # ----------
 # Parameters
@@ -110,7 +110,9 @@ sim.moving_win = MovingWindow( ncells_damp=ncells_damp,
                                ncells_zero=ncells_zero )
 
 # Add a field diagnostic
-sim.diags = [ FieldDiagnostic( diag_period, sim.fld, fieldtypes=fieldtypes ) ]
+sim.diags = [ FieldDiagnostic( diag_period, sim.fld, fieldtypes=fieldtypes ),
+              ParticleDiagnostic( diag_period, {"electrons" : sim.ptcl[0]},
+                                  select={"uz" : [1., None ]} ) ]
 
 ### Run the simulation
 print('\n Performing %d PIC cycles' % N_step) 
