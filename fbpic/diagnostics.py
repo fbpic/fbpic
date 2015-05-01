@@ -79,7 +79,7 @@ class OpenPMDDiagnostic(object) :
         f.attrs["particlesPath"] = "particles/"
         # TimeSeries attributes
         f.attrs["iterationEncoding"] = "fileBased"
-        f.attrs["iterationFormat"] = "fields%T.h5"
+        f.attrs["iterationFormat"] = "data%T.h5"
         f.attrs["time"] = t
         f.attrs["timeStep"] = dt
         f.attrs["timeUnitSI"] = 1.
@@ -276,9 +276,9 @@ class FieldDiagnostic(OpenPMDDiagnostic) :
              The current iteration number of the simulation.
         """
         # Create the filename and open hdf5 file
-        filename = "fields%08d.h5" %iteration
+        filename = "data%08d.h5" %iteration
         fullpath = os.path.join( self.write_dir, "diags/hdf5", filename )
-        f = h5py.File( fullpath, mode="w" )
+        f = h5py.File( fullpath, mode="a" )
         
         # Set up its attributes            
         self.setup_openpmd_file( f, self.fld.dt, iteration*self.fld.dt )
@@ -329,7 +329,7 @@ class FieldDiagnostic(OpenPMDDiagnostic) :
         datashape = (3, mode0.shape[0], mode0.shape[1])
         
         # Create the dataset and setup its attributes
-        dset = f.create_dataset( path, datashape, dtype='f')
+        dset = f.require_dataset( path, datashape, dtype='f')
         self.setup_openpmd_dataset( dset, dz, dr, zmin )
         
         # Write the mode 0 : only the real part is non-zero
@@ -454,11 +454,11 @@ class ParticleDiagnostic(OpenPMDDiagnostic) :
              The current iteration number of the simulation.
         """
         # Create the file
-        filename = "particles%08d.h5" %iteration
+        filename = "data%08d.h5" %iteration
         fullpath = os.path.join( self.write_dir, "diags/hdf5", filename )
         
         # Create the filename and open hdf5 file
-        f = h5py.File( fullpath, mode="w" )
+        f = h5py.File( fullpath, mode="a" )
         # Set up its attributes            
         self.setup_openpmd_file( f, self.dt, iteration*self.dt )
         
@@ -558,7 +558,7 @@ class ParticleDiagnostic(OpenPMDDiagnostic) :
         """
         # Create the dataset and setup its attributes
         datashape = (N, )
-        dset = f.create_dataset( path, datashape, dtype='f')
+        dset = f.require_dataset( path, datashape, dtype='f')
         #self.setup_openpmd_dataset( dset, dz, dr, zmin, quantity )
 
         # Extract the select particle quantity
