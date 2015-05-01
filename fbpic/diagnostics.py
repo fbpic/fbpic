@@ -20,7 +20,7 @@ class OpenPMDDiagnostic(object) :
         General setup of the diagnostic
 
         Parameters
-        ----------                
+        ----------
         write_dir : string, optional
             The POSIX path to the directory where the results are
             to be written. If none is provided, this will be the path
@@ -476,16 +476,15 @@ class ParticleDiagnostic(OpenPMDDiagnostic) :
             	# Write the datasets for each particle datatype
                 if particle_var in [ "position", "momentum" ] :
                     for coord in ["x", "y", "z"] :
-                        quantity = "%s" %(coord)
-                        path = "/particles/%s/%s/%s" %(species_name, 
-                        						particle_var, coord)
-                        self.write_dataset( f, path, species, N,
-                                            quantity, select_array )
+                        quantity = "%s/%s" %(particle_var, coord)
+                        path = "/particles/%s/%s" %(species_name, quantity)
+                        self.write_dataset( f, path, species, quantity,
+                                            N, select_array )
                 elif particle_var == "weighting" :
-                    quantity = "w"
-                    path = "/particles/%s/%s" % (species_name, particle_var)
-                    self.write_dataset( f, path, species, N,
-                                        quantity, select_array )
+                    quantity = "weighting"
+                    path = "/particles/%s/%s" % (species_name, quantity )
+                    self.write_dataset( f, path, species, quantity,
+                                        N, select_array )
                 else :
                     raise ValueError("Invalid string in %s of species %s" 
                     				 %(particle_var, particle_name))
@@ -530,7 +529,7 @@ class ParticleDiagnostic(OpenPMDDiagnostic) :
 
         return( select_array )
 
-    def write_dataset( self, f, path, species, N, quantity, select_array ) :
+    def write_dataset( self, f, path, species, quantity, N, select_array ) :
         """
         Write a given dataset
     
@@ -541,15 +540,15 @@ class ParticleDiagnostic(OpenPMDDiagnostic) :
         path : string
             The path where to write the dataset, inside the file f
 
+        quantity : string
+            The quantity to be written, in the openPMD convention
+            (e.g. 'position/x', 'momentum/z', 'weighting')
+            
         N : int
         	Contains the global number of particles
             
         species : a Particles object
         	The species object to get the particle data from 
-
-        quantity : string
-            Describes which quantity is written
-            Either x, y, z, px, py, pz or w
 
         select_array : 1darray of bool
             An array of the same shape as that particle array
@@ -575,23 +574,25 @@ class ParticleDiagnostic(OpenPMDDiagnostic) :
         	The species object to get the particle data from 
 
         quantity : string
-            Describes which quantity is written
-            Either x, y, z, px, py, pz or w
-
+            The quantity to be written, in the openPMD convention
+            (e.g. 'position/x', 'momentum/z', 'weighting')
+            
         select_array : 1darray of bool
             An array of the same shape as that particle array
             containing True for the particles that satify all
             the rules of self.select
         """
-        # Extract the quantity required
-        if quantity in [ "x", "y", "z", "w" ] :
-            quantity_array = getattr( species, quantity )
-        elif quantity == "px" :
-            quantity_array = getattr( species, "ux" )
-        elif quantity == "py" :
-            quantity_array = getattr( species, "uy" )
-        elif quantity == "pz" :
-            quantity_array = getattr( species, "uz" )
+        # Find the right name of the quantity in fbpic
+        fbpic_dict = { 'position/x' : 'x',
+                       'position/y' : 'y',
+                       'position/z' : 'z',
+                       'momentum/x' : 'ux',
+                       'momentum/y' : 'uy',
+                       'momentum/z' : 'uz',
+                       'weighting' : 'w'}
+
+        # Extract the quantity
+        quantity_array = getattr( species, fbpic_dict[quantity] )
 
         # Apply the selection
         quantity_array = quantity_array[ select_array ]
