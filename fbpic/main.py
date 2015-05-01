@@ -261,11 +261,11 @@ def adapt_to_grid( x, p_xmin, p_xmax, p_nx ) :
     if p_xmin < xmin - 0.5*dx :
         p_xmin = xmin - 0.5*dx
     # Do not load particles above the upper bound of the box
-    if p_xmax < xmax + 0.5*dx :
+    if p_xmax > xmax + 0.5*dx :
         p_xmax = xmax + 0.5*dx
             
     # Find the gridpoints on which the particles should be loaded
-    x_load = x[ ( x>p_xmin ) & ( x < p_xmax ) ]
+    x_load = x[ ( x > p_xmin ) & ( x < p_xmax ) ]
     p_xmin = x_load.min() - 0.5*dx
     p_xmax = x_load.max() + 0.5*dx
     

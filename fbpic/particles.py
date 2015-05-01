@@ -30,7 +30,8 @@ class Particles(object) :
 
     def __init__(self, q, m, n, Npz, zmin, zmax,
                     Npr, rmin, rmax, Nptheta, dt,
-                    dens_func=None, global_theta=0. ) :
+                    dens_func=None, global_theta=0.,
+                    continuous_injection=True ) :
         """
         Initialize a uniform set of particles
 
@@ -75,6 +76,10 @@ class Particles(object) :
            This is useful when repetitively adding new particles
            (e.g. with the moving window), in order to avoid that
            the successively-added particles are aligned.
+
+        continuous_injection : bool, optional
+           Whether to continuously inject the particles,
+           in the case of a moving window
         """
         # Register the timestep
         self.dt = dt
@@ -90,6 +95,7 @@ class Particles(object) :
         self.Npr = Npr
         self.Nptheta = Nptheta
         self.dens_func = dens_func
+        self.continuous_injection = continuous_injection
 
         # Initialize the (normalized) momenta
         self.uz = np.zeros( self.Ntot )

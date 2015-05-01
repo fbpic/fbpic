@@ -135,7 +135,8 @@ class MovingWindow(object) :
             # outside of it, and add new particles in the next-to-last cell
             for species in ptcl :
                 clean_outside_particles( species, z_zero-0.5*dz )
-                add_particles( species, zmax-1.5*dz, zmax-0.5*dz, p_nz )
+                if species.continuous_injection == True :
+                    add_particles( species, zmax-1.5*dz, zmax-0.5*dz, p_nz )
 
     def damp( self, grid, fieldtype ) :
         """
