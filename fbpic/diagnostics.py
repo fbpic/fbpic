@@ -5,6 +5,7 @@ It defines a set of classes for the output of the code.
 import os
 import numpy as np
 import matplotlib.pyplot as plt
+from scipy import constants
 from mpi4py import MPI
 import h5py
 import datetime
@@ -596,6 +597,10 @@ class ParticleDiagnostic(OpenPMDDiagnostic) :
 
         # Apply the selection
         quantity_array = quantity_array[ select_array ]
-            
+
+        # Apply a conversion factor for the momenta
+        if quantity in [ 'momentum/x', 'momentum/y', 'momentum/z'] :
+            quantity_array = species.m * constants.c * quantity_array
+        
         return( quantity_array )
     
