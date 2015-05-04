@@ -88,13 +88,13 @@ def test_pulse( Nz, Nr, Nm, Lz, Lr, Nt, w0, ctau,
     fld.interp2spect('B')
     
     #Create moving window object
-    MovWin = MovingWindow()
+    mov_win = MovingWindow()
     
     # Loop over the iterations
     print('Running the simulation...')
     for it in range(Nt) :
         # Shift the fields using the moving window
-        MovWin.shift_fields(fld)
+        mov_win.shift_fields(fld)
         # Advance the Maxwell equations
         fld.push()
         # Bring the fields back onto the interpolation grid
