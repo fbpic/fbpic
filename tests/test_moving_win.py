@@ -13,7 +13,7 @@ from scipy.constants import c, m_e, e
 from scipy.optimize import curve_fit
 from fbpic.fields import Fields
 from fbpic.lpa_utils import add_laser
-from fbpic.moving_window import shift_fields
+from fbpic.moving_window import MovingWindow
 
 def test_pulse( Nz, Nr, Nm, Lz, Lr, Nt, w0, ctau,
                 k0, E0, m, N_show, show=False ) :
@@ -86,13 +86,15 @@ def test_pulse( Nz, Nr, Nm, Lz, Lr, Nt, w0, ctau,
     # Get the fields in spectral space
     fld.interp2spect('E')
     fld.interp2spect('B')
-
+    
+    #Create moving window object
+    MovWin = MovingWindow()
+    
     # Loop over the iterations
     print('Running the simulation...')
     for it in range(Nt) :
         # Shift the fields using the moving window
-        shift_fields(fld)
-        
+        MovWin.shift_fields(fld)
         # Advance the Maxwell equations
         fld.push()
         # Bring the fields back onto the interpolation grid
