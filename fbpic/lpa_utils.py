@@ -92,7 +92,7 @@ def add_laser( fld, a0, w0, ctau, z0, lambda0=0.8e-6,
         fld.interp2spect('B')
 
 
-def get_space_charge_fields( fld, ptcl, gamma ) :
+def get_space_charge_fields( fld, ptcl, gamma, filter_currents=True ) :
     """
     Calculate the space charge field on the grid
 
@@ -112,6 +112,10 @@ def get_space_charge_fields( fld, ptcl, gamma ) :
 
     gamma : float
         The Lorentz factor of the particles
+
+    filter_currents : bool, optional
+       Whether to filter the currents (in k space by default)
+        
     """
     # Check that all the particles have the right gamma
     for species in ptcl :
@@ -130,7 +134,11 @@ def get_space_charge_fields( fld, ptcl, gamma ) :
     fld.divide_by_volume('J')
     # Convert to the spectral grid
     fld.interp2spect('rho_next')
-    fld.interp2spect('J')        
+    fld.interp2spect('J')
+    # Filter the currents
+    if filter_currents :
+        fld.filter_spect('rho_next')      
+        fld.filter_spect('J')      
 
     # Get the space charge field in spectral space
     for m in range(fld.Nm) :
@@ -139,6 +147,10 @@ def get_space_charge_fields( fld, ptcl, gamma ) :
     # Convert to the interpolation grid
     fld.spect2interp( 'E' )
     fld.spect2interp( 'B' )
+
+    # Move the charge density to rho_prev    
+    for m in range(fld.Nm) :
+        fld.spect[m].push_rho()
 
 def get_space_charge_spect( spect, gamma ) :
     """
