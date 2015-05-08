@@ -236,7 +236,7 @@ class Fields(object) :
 
         Parameter
         ---------
-        fieldtype :
+        fieldtype : string
             A string which represents the kind of field to be erased
             (either 'E', 'B', 'J', 'rho')
         """
@@ -260,6 +260,38 @@ class Fields(object) :
                 self.interp[m].Bz[:,:] = 0.
         else :
             raise ValueError( 'Invalid string for fieldtype: %s' %fieldtype )
+
+    def filter_interp( self, fieldtype, direction='r' ) :
+        """
+        Filter the field `fieldtype` on the interpolation grid
+
+        This uses a binomial filter
+
+        Parameter
+        ---------
+        fieldtype : string
+            A string which represents the kind of field to be filtered
+            (either 'E', 'B', 'J' or 'rho')
+
+        direction : string, optional
+           The direction in which to filter
+           (either 'r' or 'z')
+        """
+        for m in range(self.Nm) :
+            self.interp[m].filter( fieldtype, direction )
+
+    def filter_spect( self, fieldtype ) :
+        """
+        Filter the field `fieldtype` on the spectral grid
+
+        Parameter
+        ---------
+        fieldtype : string
+            A string which represents the kind of field to be filtered
+            (either 'E', 'B', 'J', 'rho_next' or 'rho_prev')
+        """
+        for m in range(self.Nm) :
+            self.spect[m].filter( fieldtype )
 
     def divide_by_volume( self, fieldtype ) :
         """
@@ -353,7 +385,41 @@ class InterpolationGrid(object) :
         self.Jt = np.zeros( (Nz, Nr), dtype='complex' )
         self.Jz = np.zeros( (Nz, Nr), dtype='complex' )
         self.rho = np.zeros( (Nz, Nr), dtype='complex' )
+        
+        
+    def filter(self, fieldtype, direction ) :
+        """
+        Filter the field `fieldtype`
 
+        This uses a binomial filter
+
+        Parameter
+        ---------
+        fieldtype : string
+            A string which represents the kind of field to be filtered
+            (either 'E', 'B', 'J' or 'rho')
+
+        direction : string, optional
+           The direction in which to filter
+           (either 'r' or 'z')
+        """
+        if fieldtype == 'rho' :
+            binomial_filter( self.rho, direction, (-1)**self.m )
+        elif fieldtype == 'J' :
+            binomial_filter( self.Jr, direction, -(-1)**self.m )
+            binomial_filter( self.Jt, direction, -(-1)**self.m )
+            binomial_filter( self.Jz, direction, (-1)**self.m )
+        elif fieldtype == 'E' :
+            binomial_filter( self.Er, direction, -(-1)**self.m )
+            binomial_filter( self.Et, direction, -(-1)**self.m )
+            binomial_filter( self.Ez, direction, (-1)**self.m )
+        elif fieldtype == 'B' :
+            binomial_filter( self.Br, direction, -(-1)**self.m )
+            binomial_filter( self.Bt, direction, -(-1)**self.m )
+            binomial_filter( self.Bz, direction, (-1)**self.m )
+        else :
+            raise ValueError( 'Invalid string for fieldtype: %s' %fieldtype )
+        
     def show(self, fieldtype, below_axis=True, scale=1,
              gridscale=1.e-6, **kw) :
         """
@@ -423,10 +489,10 @@ class SpectralGrid(object) :
         Parameters
         ----------
         kz : 1darray of float
-            The positions of the longitudinal, spectral grid
+            The wavevectors of the longitudinal, spectral grid
         
         kr : 1darray of float
-            The positions of the radial, spectral grid
+            The wavevectors of the radial, spectral grid
 
         m : int
             The index of the mode
@@ -451,7 +517,12 @@ class SpectralGrid(object) :
         self.Jz = np.zeros( (Nz, Nr), dtype='complex' )
         self.rho_prev = np.zeros( (Nz, Nr), dtype='complex' )
         self.rho_next = np.zeros( (Nz, Nr), dtype='complex' )
+
+        # Auxiliary arrays
+        # - for current correction
         self.F = np.zeros( (Nz, Nr), dtype='complex' )
+        # - for filtering
+        self.filter_array = get_filter_array( kz, kr )
 
     def correct_currents (self, dt) :
         """
@@ -563,7 +634,36 @@ class SpectralGrid(object) :
         """
         self.rho_prev[:,:] = self.rho_next[:,:]
         self.rho_next[:,:] = 0.
-            
+
+    def filter(self, fieldtype) :
+        """
+        Filter the field `fieldtype`
+
+        Parameter
+        ---------
+        fieldtype : string
+            A string which represents the kind of field to be filtered
+            (either 'E', 'B', 'J', 'rho_next' or 'rho_prev')
+        """
+        if fieldtype == 'rho_prev' :
+            self.rho_prev = self.rho_prev * self.filter_array
+        elif fieldtype == 'rho_next' :
+            self.rho_next = self.rho_next * self.filter_array
+        elif fieldtype == 'J' :
+            self.Jp = self.Jp * self.filter_array
+            self.Jm = self.Jm * self.filter_array
+            self.Jz = self.Jz * self.filter_array
+        elif fieldtype == 'E' :
+            self.Ep = self.Ep * self.filter_array
+            self.Em = self.Em * self.filter_array
+            self.Ez = self.Ez * self.filter_array
+        elif fieldtype == 'B' :
+            self.Bp = self.Bp * self.filter_array
+            self.Bm = self.Bm * self.filter_array
+            self.Bz = self.Bz * self.filter_array
+        else :
+            raise ValueError( 'Invalid string for fieldtype: %s' %fieldtype )
+        
     def show(self, fieldtype, below_axis=True, scale=1, **kw) :
         """
         Show the field `fieldtype` on the spectral grid
@@ -613,6 +713,8 @@ class SpectralGrid(object) :
         plt.ylabel('kr')
         cb = plt.colorbar()
         cb.set_label('Imaginary part')
+
+
 
 class PsatdCoeffs(object) :
     """
@@ -850,3 +952,88 @@ class SpectralTransformer(object) :
         spect_array_p[:,:] = self.dhtp.transform( spect_buffer_p, axis=-1 )
         spect_array_m[:,:] = self.dhtm.transform( spect_buffer_m, axis=-1 )
 
+
+# -----------------
+# Utility function
+# -----------------
+
+def binomial_filter( F, direction, sign_guard ) :
+    """
+    Apply a binomial filter to the array F
+
+    Parameters
+    ----------
+    F : 2darray
+        An array whose first axis corresponds to z and
+        second axis corresponds to r
+
+    direction : string
+        Indicates in which direction to perform the filter
+        (Either 'r' or 'z')
+
+    sign_guard : int
+        Indicates with what is the sign of the values below
+        the axis, as compared to the value above the axis.
+        (Only used in the case direction='r')
+    """
+    F_unfiltered = F.copy()
+    
+    if direction == 'z' : # Periodic boundaries
+        F[1:-1,:] = 0.25*F_unfiltered[:-2,:] \
+                   + 0.5*F_unfiltered[1:-1,:] \
+                   + 0.25*F_unfiltered[2:,:]
+        F[0,:] =  0.25*F_unfiltered[-1,:] \
+                   + 0.5*F_unfiltered[0,:] \
+                   + 0.25*F_unfiltered[1,:]
+        F[-1,:] =  0.25*F_unfiltered[-2,:] \
+                   + 0.5*F_unfiltered[-1,:] \
+                   + 0.25*F_unfiltered[0,:]
+
+    elif direction == 'r' : # Non-periodic boundaries
+        F[:,1:-1] = 0.25*F_unfiltered[:,:-2] \
+                   + 0.5*F_unfiltered[:,1:-1] \
+                   + 0.25*F_unfiltered[:,2:]
+        # Assume that the guard cell below the axis has
+        # the same value as the cell above the axis, up
+        # to the sign `sign_guard`
+        F[:,0] =  0.25*sign_guard*F_unfiltered[:,0] \
+                 + 0.5*F_unfiltered[:,0] \
+                 + 0.5*F_unfiltered[:,1]
+        # Assume that the guard cell above the boundary has
+        # the same value as the cell below it
+        F[:,-1] =  0.25*F_unfiltered[:,-1] \
+                   + 0.5*F_unfiltered[:,-1] \
+                   + 0.25*F_unfiltered[:,-2]
+    else :
+        raise ValueError("Unrecognized `direction` : %s" %direction)
+
+
+def get_filter_array( kz, kr ) :
+    """
+    Return the array that multiplies the fields in k space
+
+    The filtering function is 1-sin( k/kmax * pi/2 )**2.
+    (equivalent to a one-pass binomial filter in real space,
+    for the longitudinal direction)
+
+    Parameters
+    ----------
+    kz, kr : 1darrays
+       The longitudinal and transverse wavevectors on the spectral grid
+
+    Returns
+    -------
+    A 2darray of shape ( len(kz), len(kr) )
+    """
+    # Find the 1D filter in z
+    coef_z = 1./kz.max() * np.pi/2
+    filt_z = 1. - np.sin( kz * coef_z )**2
+
+    # Find the 1D filter in r
+    coef_r = 1./kr.max() * np.pi/2
+    filt_r = 1. - np.sin( kr * coef_r )**2
+
+    # Build the 2D filter by takin the product
+    filter_array = filt_z[:, np.newaxis] * filt_r[np.newaxis, :]
+
+    return( filter_array )

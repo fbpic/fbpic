@@ -26,7 +26,7 @@ from scipy.constants import c
 from fbpic.main import Simulation
 from fbpic.lpa_utils import add_laser
 from fbpic.moving_window import MovingWindow
-from fbpic.diagnostics import FieldDiagnostic
+from fbpic.diagnostics import FieldDiagnostic, ParticleDiagnostic
 
 # ----------
 # Parameters
@@ -35,7 +35,7 @@ from fbpic.diagnostics import FieldDiagnostic
 # The simulation box
 Nz = 400         # Number of gridpoints along z
 zmax = 40.e-6    # Length of the box along z (meters)
-Nr = 200         # Number of gridpoints along r
+Nr = 50         # Number of gridpoints along r
 rmax = 20.e-6    # Length of the box along r (meters)
 Nm = 2           # Number of modes used
 # The simulation timestep
@@ -51,6 +51,7 @@ n_e = 4.e18*1.e6 # Density (electrons.meters^-3)
 p_nz = 2         # Number of particles per cell along z
 p_nr = 2         # Number of particles per cell along r
 p_nt = 4         # Number of particles per cell along theta
+
 # The laser
 a0 = 4.          # Laser amplitude
 w0 = 5.e-6       # Laser waist
@@ -59,13 +60,38 @@ z0 = 25.e-6      # Laser centroid
 
 # The moving window
 v_window = c       # Speed of the window
+ncells_zero = 50    # Number of cells over which the field is set to 0
+                   # at the left end of the simulation box
 ncells_damp = 30   # Number of cells over which the field is damped,
-                   # at the longitudinal boundaries of the simulation box
+                   # at the left of the simulation box, after ncells_zero
                    # in order to prevent it from wrapping around.
 
 # The diagnostics
-diag_period = 50        # Period of the diagnostics in number of timesteps
+diag_period = 10        # Period of the diagnostics in number of timesteps
 fieldtypes = [ "E", "rho", "B", "J" ]  # The fields that will be written
+
+
+# The density profile
+ramp_start = 40.e-6
+ramp_length = 50.e-6
+
+def dens_func( z, r ) :
+    """Returns relative density at position z and r"""    
+    # Allocate relative density
+    n = np.ones_like(z)
+    # Make linear ramp
+    n = np.where( z<ramp_start+ramp_length, (z-ramp_start)/ramp_length, n )
+    # Supress density before the ramp
+    n = np.where( z<ramp_start, 0., n )
+    return(n)
+
+# -----------------------
+# Checking the parameters
+# -----------------------
+if p_nr%2 == 1 :
+    raise UserWarning("Running the simulation with an odd number \n"
+                      "of macroparticles may result in a very \n"
+                      "noisy simulation.")
 
 # ---------------------------
 # Carrying out the simulation
@@ -73,16 +99,20 @@ fieldtypes = [ "E", "rho", "B", "J" ]  # The fields that will be written
 
 # Initialize the simulation object
 sim = Simulation( Nz, zmax, Nr, rmax, Nm, dt,
-    p_zmin, p_zmax, p_rmin, p_rmax, p_nz, p_nr, p_nt, n_e ) 
+    p_zmin, p_zmax, p_rmin, p_rmax, p_nz, p_nr, p_nt, n_e,
+    dens_func=dens_func ) 
 
 # Add a laser to the fields of the simulation
 add_laser( sim.fld, a0, w0, ctau, z0 )
 
 # Configure the moving window
-sim.moving_win = MovingWindow( ncells_damp=ncells_damp )
+sim.moving_win = MovingWindow( ncells_damp=ncells_damp,
+                               ncells_zero=ncells_zero )
 
 # Add a field diagnostic
-sim.diags = [ FieldDiagnostic( diag_period, sim.fld, fieldtypes=fieldtypes ) ]
+sim.diags = [ FieldDiagnostic( diag_period, sim.fld, fieldtypes=fieldtypes ),
+              ParticleDiagnostic( diag_period, {"electrons" : sim.ptcl[0]},
+                                  select={"uz" : [1., None ]} ) ]
 
 ### Run the simulation
 print('\n Performing %d PIC cycles' % N_step) 

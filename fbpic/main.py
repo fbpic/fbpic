@@ -24,7 +24,8 @@ class Simulation(object) :
     """
 
     def __init__(self, Nz, zmax, Nr, rmax, Nm, dt,
-                 p_zmin, p_zmax, p_rmin, p_rmax, p_nz, p_nr, p_nt, n_e ) :
+                 p_zmin, p_zmax, p_rmin, p_rmax,
+                 p_nz, p_nr, p_nt, n_e, dens_func=None ) :
         """
         Initializes a simulation, by creating the following structures :
         - the Fields object, which contains the EM fields
@@ -58,7 +59,14 @@ class Simulation(object) :
             Number of macroparticles along the theta direction
 
         n_e : float (in particles per m^3)
-           Density of the electrons
+           Peak density of the electrons
+           
+        dens_func : callable, optional
+           A function of the form :
+           def dens_func( z, r ) ...
+           where z and r are 1d arrays, and which returns
+           a 1d array containing the density *relative to n*
+           (i.e. a number between 0 and 1) at the given positions
         """
         # Initialize the field structure
         self.fld = Fields(Nz, zmax, Nr, rmax, Nm, dt)
@@ -74,9 +82,11 @@ class Simulation(object) :
         # (using 4 macroparticles per cell along the azimuthal direction)
         self.ptcl = [
             Particles( q=-e, m=m_e, n=n_e, Npz=Npz, zmin=p_zmin, zmax=p_zmax,
-                       Npr=Npr, rmin=p_rmin, rmax=p_rmax, Nptheta=4, dt=dt ),
+                       Npr=Npr, rmin=p_rmin, rmax=p_rmax, Nptheta=4, dt=dt,
+                       dens_func=dens_func ),
             Particles( q=e, m=m_p, n=n_e, Npz=Npz, zmin=p_zmin, zmax=p_zmax,
-                        Npr=Npr, rmin=p_rmin, rmax=p_rmax, Nptheta=4, dt=dt )
+                        Npr=Npr, rmin=p_rmin, rmax=p_rmax, Nptheta=4, dt=dt,
+                        dens_func=dens_func )
             ]
         
         # Register the number of particles per cell along z, and dt
@@ -100,7 +110,8 @@ class Simulation(object) :
 
         
     def step(self, N=1, ptcl_feedback=True, correct_currents=True,
-             move_positions=True, move_momenta=True, moving_window=True ) :
+             filter_currents=True, move_positions=True,
+             move_momenta=True, moving_window=True ) :
         """
         Perform N PIC cycles
         
@@ -116,6 +127,9 @@ class Simulation(object) :
 
         correct_currents : bool, optional
             Whether to correct the currents in spectral space
+
+        filter_currents : bool, optional
+            Whether to filter the currents (in k space by default)
 
         move_positions : bool, optional
             Whether to move or freeze the particles' positions
@@ -135,7 +149,8 @@ class Simulation(object) :
         # Check if a moving window is attached, in the case
         # moving_window == True
         if moving_window :
-            if hasattr(self, 'moving_win')==False :
+            if hasattr(self, 'moving_win')==False or \
+              self.moving_win is None :
                 raise AttributeError(
         "Please attach a MovingWindow to this object, as `self.moving_win`")
             
@@ -173,6 +188,8 @@ class Simulation(object) :
                 self.moving_win.damp( fld.interp, 'J' )
             # Get the current on the spectral grid at t = (n+1/2) dt
             fld.interp2spect('J')
+            if filter_currents :
+                fld.filter_spect('J')
 
             # Push the particles' positions to t = (n+1) dt
             if move_positions :
@@ -182,11 +199,13 @@ class Simulation(object) :
             fld.erase('rho')
             for species in ptcl :
                 species.deposit( fld.interp, 'rho' )
+            fld.divide_by_volume('rho')
             if moving_window :
                 self.moving_win.damp( fld.interp, 'rho' )
-            fld.divide_by_volume('rho')
             # Get the charge density on the spectral grid at t = (n+1) dt
             fld.interp2spect('rho_next')
+            if filter_currents :
+                fld.filter_spect('rho_next')
             # Correct the currents (requires rho at t = (n+1) dt )
             if correct_currents :
                 fld.correct_currents()
@@ -206,6 +225,7 @@ def progression_bar(i, Ntot, Nbars=60, char='-') :
     nbars = int( (i+1)*1./Ntot*Nbars )
     sys.stdout.write('\r[' + nbars*char )
     sys.stdout.write((Nbars-nbars)*' ' + ']')
+    sys.stdout.write(' %d/%d' %(i,Ntot))
     sys.stdout.flush()
 
 def adapt_to_grid( x, p_xmin, p_xmax, p_nx ) :
@@ -241,11 +261,11 @@ def adapt_to_grid( x, p_xmin, p_xmax, p_nx ) :
     if p_xmin < xmin - 0.5*dx :
         p_xmin = xmin - 0.5*dx
     # Do not load particles above the upper bound of the box
-    if p_xmax < xmax + 0.5*dx :
+    if p_xmax > xmax + 0.5*dx :
         p_xmax = xmax + 0.5*dx
             
     # Find the gridpoints on which the particles should be loaded
-    x_load = x[ ( x>p_xmin ) & ( x < p_xmax ) ]
+    x_load = x[ ( x > p_xmin ) & ( x < p_xmax ) ]
     p_xmin = x_load.min() - 0.5*dx
     p_xmax = x_load.max() + 0.5*dx
     

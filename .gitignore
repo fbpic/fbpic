@@ -10,3 +10,7 @@
 *.gz
 notebooks/*
 references/*
+
+build/
+dist/
+fbpic.egg-info/

@@ -27,8 +27,8 @@ class MovingWindow(object) :
     - damp : set the fields progressively to zero at the left end of the box
     """
     
-    def __init__( self, zmin=0, v=c, ncells_zero=1,
-                 ncells_damp=1, damp_shape='cos', gradual_damp_EB=True ) :
+    def __init__( self, zmin=0, v=c, ncells_zero=1, ncells_damp=1,
+                  damp_shape='cos', gradual_damp_EB=True ) :
         """
         Initializes a moving window object.
 
@@ -42,11 +42,13 @@ class MovingWindow(object) :
         
         ncells_zero : int, optional
             Number of cells in which the fields are set to zero,
-            at the right end of the box
+            at the left end of the box, and in which particles are
+            suppressed
 
         ncells_damp : int, optional
             Number of cells over which the currents and density are
-            progressively set to 0, at the left end of the box
+            progressively set to 0, at the left end of the box, after
+            n_cells_zero.
 
         damp_shape : string, optional
             How to damp the fields
@@ -124,12 +126,17 @@ class MovingWindow(object) :
             zmin = fld.interp[0].zmin
             zmax = fld.interp[0].zmax
             dz = fld.interp[0].dz
+
+            # Determine the position below which the particles
+            # should be removed
+            z_zero = zmin + self.ncells_zero*dz
     
             # Now that the grid has moved, remove the particles that are
             # outside of it, and add new particles in the next-to-last cell
             for species in ptcl :
-                clean_outside_particles( species, zmin-0.5*dz )
-                add_particles( species, zmax-1.5*dz, zmax-0.5*dz, p_nz )
+                clean_outside_particles( species, z_zero-0.5*dz )
+                if species.continuous_injection == True :
+                    add_particles( species, zmax-1.5*dz, zmax-0.5*dz, p_nz )
 
     def damp( self, grid, fieldtype ) :
         """
@@ -158,11 +165,15 @@ class MovingWindow(object) :
         for m in range( Nm ) :
             # Choose the right field to damp
             if fieldtype == 'J' :
-                damp_field( grid[m].Jr, self.damp_array_J, self.ncells_damp )
-                damp_field( grid[m].Jt, self.damp_array_J, self.ncells_damp )
-                damp_field( grid[m].Jz, self.damp_array_J, self.ncells_damp )
+                damp_field( grid[m].Jr, self.damp_array_J,
+                            self.ncells_damp, self.ncells_zero )
+                damp_field( grid[m].Jt, self.damp_array_J,
+                            self.ncells_damp, self.ncells_zero )
+                damp_field( grid[m].Jz, self.damp_array_J,
+                            self.ncells_damp, self.ncells_zero )
             elif fieldtype == 'rho' :
-                damp_field( grid[m].rho, self.damp_array_J, self.ncells_damp )
+                damp_field( grid[m].rho, self.damp_array_J,
+                            self.ncells_damp, self.ncells_zero )
             else :
                 raise ValueError("Invalid string for fieldtype : %s" %fieldtype)
 
@@ -172,7 +183,7 @@ class MovingWindow(object) :
         Shift all the fields in the object 'fld'
         
         The fields on the interpolation grid are shifted by one cell in z
-        The corresponding fields on the spectral grid are calculated through FFTs
+        The corresponding fields on the spectral grid are calculated through FFT
     
         Parameter
         ---------
@@ -257,7 +268,8 @@ class MovingWindow(object) :
         self.shift_spect_field( grid.Bm, trans )
         self.shift_spect_field( grid.Bz, trans )
         # Also shift rho_prev since it is not recalculated at each PIC cycle
-        self.shift_spect_field( grid.rho_prev, trans )
+        # Yet, do not damp it, since it was already damped previously
+        self.shift_spect_field( grid.rho_prev, trans, damping=False )
         if shift_currents :
             self.shift_spect_field( grid.rho_next, trans ) 
             self.shift_spect_field( grid.Jp, trans )
@@ -265,7 +277,7 @@ class MovingWindow(object) :
             self.shift_spect_field( grid.Jz, trans )
 
         
-    def shift_spect_field( self, field_array, trans ) :
+    def shift_spect_field( self, field_array, trans, damping=True ) :
         """
         Calculate the field in spectral space that corresponds to
         a shifted field on the interpolation grid
@@ -282,6 +294,9 @@ class MovingWindow(object) :
     
         trans : a SpectralTransform object
             Needed to perform the FFT transforms
+    
+        damping : bool
+            Whether to apply damping
         """
         # Copy the array into the FFTW buffer
         trans.spect_buffer_r[:,:] = field_array[:,:]
@@ -289,14 +304,14 @@ class MovingWindow(object) :
         trans.ifft_r()
     
         # Shift the the values in the buffer
-        self.shift_interp_field( trans.interp_buffer_r )
+        self.shift_interp_field( trans.interp_buffer_r, damping )
     
         # Perform the FFT (back to spectral space)
         trans.fft_r()
         # Copy the buffer into the fields
         field_array[:,:] = trans.spect_buffer_r[:,:]
 
-    def shift_interp_field( self, field_array ) :
+    def shift_interp_field( self, field_array, damping=True ) :
         """
         Shift the field 'field_array' by one cell (backwards)
         
@@ -304,20 +319,25 @@ class MovingWindow(object) :
         ----------
         field_array : 2darray of complexs
             Contains the value of the fields, and is modified by this function
+
+        damping : bool
+            Whether to apply damping
         """
         # Transfer the values to one cell before
         field_array[:-1,:] = field_array[1:,:]
+        # Put the last cell to 0
+        field_array[-1,:] = 0
         # Apply damping, using the EB array
-        damp_field( field_array, self.damp_array_EB, self.ncells_damp )
-        # Zero out the new fields
-        field_array[-self.ncells_zero:,:] = 0.
+        if damping :
+            damp_field( field_array, self.damp_array_EB,
+                    self.ncells_damp, self.ncells_zero )
         
         
 # ---------------------------------------
 # Utility functions for the moving window
 # ---------------------------------------
 
-def damp_field( field_array, damp_array, n ) :
+def damp_field( field_array, damp_array, n_damp, n_zero ) :
     """
     Multiply the n first cells and last n cells of field_array
     by damp_array, along the first axis.
@@ -326,11 +346,11 @@ def damp_field( field_array, damp_array, n ) :
     ----------
     field_array : 2darray of complexs
     damp_array : 2darray of reals
-    n : int
+    n_damp, n_zero : int
     """
-    field_array[:n,:] = damp_array[:,np.newaxis] * field_array[:n,:]
-    field_array[-n:,:] = damp_array[::-1,np.newaxis] * field_array[-n:,:]
-
+    field_array[:n_zero,:] = 0
+    field_array[n_zero:n_zero+n_damp,:] = \
+        damp_array[:,np.newaxis] * field_array[n_zero:n_zero+n_damp,:]
 
 def clean_outside_particles( species, zmin ) :
     """
@@ -392,7 +412,8 @@ def add_particles( species, zmin, zmax, Npz ) :
     # Create the particles that will be added
     new_ptcl = Particles( species.q, species.m, species.n,
         Npz, zmin, zmax, species.Npr, species.rmin, species.rmax,
-        species.Nptheta, species.dt, global_theta )
+        species.Nptheta, species.dt, species.dens_func,
+        global_theta=global_theta )
 
     # Add the properties of these new particles to species object
     # Loop over the attributes of the species
