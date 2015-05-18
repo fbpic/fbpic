@@ -225,7 +225,7 @@ class Fields(object) :
         elif fieldtype == 'rho' :
             # Transform each azimuthal grid individually
             for m in range(self.Nm) :
-                self.trans[m].interp2spect_scal(
+                self.trans[m].spect2interp_scal(
                     self.spect[m].rho_next, self.interp[m].rho )
         else :
             raise ValueError( 'Invalid string for fieldtype: %s' %fieldtype )
