@@ -79,13 +79,12 @@ class Simulation(object) :
                                 p_rmin, p_rmax, p_nr )
         
         # Initialize the electrons and the ions
-        # (using 4 macroparticles per cell along the azimuthal direction)
         self.ptcl = [
             Particles( q=-e, m=m_e, n=n_e, Npz=Npz, zmin=p_zmin, zmax=p_zmax,
-                       Npr=Npr, rmin=p_rmin, rmax=p_rmax, Nptheta=4, dt=dt,
+                       Npr=Npr, rmin=p_rmin, rmax=p_rmax, Nptheta=p_nt, dt=dt,
                        dens_func=dens_func ),
             Particles( q=e, m=m_p, n=n_e, Npz=Npz, zmin=p_zmin, zmax=p_zmax,
-                        Npr=Npr, rmin=p_rmin, rmax=p_rmax, Nptheta=4, dt=dt,
+                        Npr=Npr, rmin=p_rmin, rmax=p_rmax, Nptheta=p_nt, dt=dt,
                         dens_func=dens_func )
             ]
         

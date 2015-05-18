@@ -22,7 +22,9 @@ Here are some of the specific features of this code :
   the **same time** (i.e. they are not staggered). This avoids some
   interpolation errors.
 * The particle pusher uses the Vay algorithm.
-* Moving window is supported.
+* The moving window is supported.
+* The initialization of charged bunch (with its space-charge fields)
+  is supported.
 
 For more details on the algorithm, see the `docs/article` folder.
 
