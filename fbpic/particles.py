@@ -385,7 +385,7 @@ class Particles(object) :
                 deposit_field( self.w*exptheta, grid[m].rho, 
                     iz_lower, iz_upper, Sz_lower, Sz_upper,
                     ir_lower, ir_upper, Sr_lower, Sr_upper,
-                    (-1.)**m, Sr_guard, use_numba )
+                    -1., Sr_guard, use_numba )
             
         elif fieldtype == 'J' :
             # ----------------------------------------
@@ -409,15 +409,15 @@ class Particles(object) :
                 deposit_field( Jr*exptheta, grid[m].Jr, 
                     iz_lower, iz_upper, Sz_lower, Sz_upper,
                     ir_lower, ir_upper, Sr_lower, Sr_upper,
-                    -(-1.)**m, Sr_guard, use_numba )
+                    -1., Sr_guard, use_numba )
                 deposit_field( Jt*exptheta, grid[m].Jt, 
                     iz_lower, iz_upper, Sz_lower, Sz_upper,
                     ir_lower, ir_upper, Sr_lower, Sr_upper,
-                    -(-1.)**m, Sr_guard, use_numba )
+                    -1., Sr_guard, use_numba )
                 deposit_field( Jz*exptheta, grid[m].Jz, 
                     iz_lower, iz_upper, Sz_lower, Sz_upper,
                     ir_lower, ir_upper, Sr_lower, Sr_upper,
-                    (-1.)**m, Sr_guard, use_numba )
+                    -1., Sr_guard, use_numba )
         else :
             raise ValueError(
         "`fieldtype` should be either 'J' or 'rho', but is `%s`" %fieldtype )

@@ -371,7 +371,7 @@ class InterpolationGrid(object) :
         self.zmax = self.z.max()
         # Cell volume (assuming an evenly-spaced grid)
         vol = np.pi*dz*( (r+0.5*dr)**2 - (r-0.5*dr)**2 )
-        vol[0] = 13./12*vol[0] # Verboncoeur-type correction
+        # NB : No Verboncoeur-type correction required
         self.invvol = 1./vol
         
         # Allocate the fields arrays
