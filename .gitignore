@@ -5,11 +5,11 @@
 *.aux
 *.log
 *.out
-*.pdf
 *.pyc
 *.gz
 notebooks/*
 references/*
+docs/article/Spectral_circ.pdf
 
 build/
 dist/

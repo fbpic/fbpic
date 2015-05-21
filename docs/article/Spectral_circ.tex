@@ -33,7 +33,7 @@
 
 \title{A pseudo-spectral, cylindrical and dispersion-free Particle-In-Cell algorithm}
 %\pagestyle{empty}
-\author{R\'emi \textsc{Lehe}}
+\author{R\'emi \textsc{Lehe}, Jean-Luc \textsc{Vay}}
 
 \begin{document}
 
@@ -322,7 +322,7 @@ problem since each mode evolves separately in
 \cref{eq:CircMaxwellp,eq:CircMaxwellm,eq:CircMaxwellz}.
 
 \begin{figure}[!h]
-\includegraphics[width=\textwidth]{KGrid.pdf}
+\includegraphics[width=\textwidth]{figures/KGrid.pdf}
 \caption{\label{fig:Kgrid}Position of the grid points in $k$ space
   (blue dots) for the azimuthal modes $m=0$, $m=1$ and $m=2$ for $N_r
   = 10$ and $r_{max}=1$. These values are compared with those of a
@@ -361,7 +361,7 @@ timesteps, except for the currents, which are defined at half
 timesteps. The following section describe the successive steps of the cycle in more details.
 
 \begin{figure}
-\input{PIC-cycle.tex}
+\input{figures/PIC-cycle.tex}
 \caption{Description of the PIC cycle \label{fig:GlobalScheme}}
 \end{figure}
 
