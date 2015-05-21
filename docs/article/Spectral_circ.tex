@@ -382,18 +382,15 @@ of azimuthal modes used, and $S_{z,p}$ and $S_{z,q}$ are the linear
 shape factors in $z$ and $r$ :
 \[ S_{z,p_0}(z) = \frac{z_{p_0+1}- z}{\Delta z}  \qquad 
 S_{z,p_0 +1}(z) = \frac{ z - z_{p_0} }{\Delta z} \qquad
-\mathrm{with} \quad z_{p_0} \leq z < z_{p_0 +1} \Delta z \]
+\mathrm{with} \quad z_{p_0} \leq z < z_{p_0 +1}  \]
 \[ S_{r,q_0}(r) = \frac{ r_{q_0+1} - r }{  \Delta r }
-\qquad S^m_{r,q_0+1}(r) = \frac{ r - r_{q_0} }{  \Delta r }
+\qquad S_{r,q_0+1}(r) = \frac{ r - r_{q_0} }{  \Delta r }
 \qquad \mathrm{with} \quad r_{q_0} \leq r < r_{q_0+1}
-\Delta r \]
-In addition, $S_{r,0}(r) = 1$ for $r< r_0 = \Delta r/2$ i.e. any macroparticle
-located below the first node of the spatial grid gathers all its
-fields from this first node.
+ \]
 
 \subsection{Equations of motion}
 
-Since the particle motion is studied in 3D, we use the standard Boris pusher.
+Since the particle motion is studied in 3D, we use the standard Vay pusher (citation).
 
 \subsection{Current deposition}
 
@@ -402,12 +399,7 @@ following way:
 \[ \mathcal{\rho}_m(z_p,r_q) = \frac{ \sum_k  S_{z,p}(z_k)S_{r,q}(r_k) Q_k e^{im\theta_k}}{V_{q}} \]
 where $Q_k$ is the charge of the macroparticle with index $k$, and
 where $V_q$ is the volume of a cell
-\[ V_{q} = \pi [\, (q+1)^2- q^2\,] \Delta r^2 \Delta z  \qquad
-V_{0} = \frac{13}{12}\pi \Delta r^2 \Delta z \]
-where the corrective factor 13/12 (which differs from 1 by only 8\%)
-is obtained from a similar reasoning as that of \cite{Verboncoeur},
-and ensures that the density on the grid is homogeneous, when 
-the macroparticles are evenly loaded.
+\[ V_{q} = \pi [\, (q+1)^2- q^2\,] \Delta r^2 \Delta z \]
 
 Similarly, the current deposition is given by
 \[ \mathcal{J}_{u,m}(z_p,r_q) = \frac{\sum_k S_{z,p}(z_k) S_{r,q}(r_k)

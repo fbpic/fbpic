@@ -382,6 +382,8 @@ class Particles(object) :
                 elif m>1 :
                     exptheta[:] = exptheta*( cos + 1.j*sin )
                 # Deposit the fields
+                # (The sign -1 with which the guards are added
+                # is not trivial to derive but avoids artifacts on the axis)
                 deposit_field( self.w*exptheta, grid[m].rho, 
                     iz_lower, iz_upper, Sz_lower, Sz_upper,
                     ir_lower, ir_upper, Sr_lower, Sr_upper,
@@ -406,6 +408,8 @@ class Particles(object) :
                 elif m>1 :
                     exptheta[:] = exptheta*( cos + 1.j*sin )
                 # Deposit the fields
+                # (The sign -1 with which the guards are added
+                # is not trivial to derive but avoids artifacts on the axis)
                 deposit_field( Jr*exptheta, grid[m].Jr, 
                     iz_lower, iz_upper, Sz_lower, Sz_upper,
                     ir_lower, ir_upper, Sr_lower, Sr_upper,
