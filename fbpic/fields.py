@@ -795,7 +795,7 @@ class SpectralTransformer(object) :
         converts a vector field from the interpolation to the spectral grid
     """
 
-    def __init__(self, Nz, Nr, m, rmax ) :
+    def __init__(self, Nz, Nr, m, rmax, nthreads=4 ) :
         """
         Initializes the dht attributes, which contain auxiliary
         matrices allowing to transform the fields quickly
@@ -810,6 +810,9 @@ class SpectralTransformer(object) :
 
         rmax : float
             The size of the simulation box along r.
+
+        nthreads : int, optional
+            Number of threads for the FFTW transform
         """
         # Initialize the DHT (local implementation, see hankel_dt.py)
         print('Preparing the Discrete Hankel Transforms for mode %d' %m)
@@ -827,18 +830,18 @@ class SpectralTransformer(object) :
         self.spect_buffer_r = \
             pyfftw.n_byte_align_empty( (Nz,Nr), 16, 'complex128' )
         self.fft_r = pyfftw.FFTW( self.interp_buffer_r, self.spect_buffer_r,
-                                axes=(0,), direction='FFTW_FORWARD' )
+                    axes=(0,), direction='FFTW_FORWARD', threads=nthreads )
         self.ifft_r = pyfftw.FFTW( self.spect_buffer_r, self.interp_buffer_r,
-                                axes=(0,), direction='FFTW_BACKWARD' )
+                    axes=(0,), direction='FFTW_BACKWARD', threads=nthreads )
         # Second buffer and FFTW transform
         self.interp_buffer_t = \
             pyfftw.n_byte_align_empty( (Nz,Nr), 16, 'complex128' )
         self.spect_buffer_t = \
             pyfftw.n_byte_align_empty( (Nz,Nr), 16, 'complex128' )
         self.fft_t = pyfftw.FFTW( self.interp_buffer_t, self.spect_buffer_t,
-                                axes=(0,), direction='FFTW_FORWARD' )
+                    axes=(0,), direction='FFTW_FORWARD', threads=nthreads )
         self.ifft_t = pyfftw.FFTW( self.spect_buffer_t, self.interp_buffer_t,
-                                axes=(0,), direction='FFTW_BACKWARD' )
+                    axes=(0,), direction='FFTW_BACKWARD', threads=nthreads )
         
     def spect2interp_scal( self, spect_array, interp_array ) :
         """
