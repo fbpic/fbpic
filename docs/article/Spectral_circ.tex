@@ -13,7 +13,8 @@
     citecolor=blue,    filecolor=blue,
     linkcolor=blue,     urlcolor=blue
 }
-\usepackage{cite}
+%\usepackage{cite}
+\usepackage{natbib}
 
 \newcommand{\ir}{\frac{1}{r}}
 \newcommand{\Integ}[1]{\int_{-\infty}^{\infty} \!\!\!\!\!
@@ -40,29 +41,107 @@
 \maketitle
 
 
-\section*{Introduction (rough ideas)}
+\section*{Introduction}
 
-\paragraph{Importance of PIC codes } Used in many fields : astro, laser-plasma interaction. However, 3D codes are expensive, and their limited resolution leads to many numerical effects (Cherenkov, dispersion).
+% Articles Brendan on spectral boosted frame
+% Introduce finite difference.
 
-\paragraph{Cylindrical PIC codes} A range of physical situations have close-to cylindrical symmetry (e.g. electron beam propagation, laser-wakefield acceleration), and they can be simulated with very significant speedup using a cylindrically symmetric algorithm \cite{Lifschitz, Davidson}. This typically reduces the cost of the simulation to a few times that of a 2D simulation, instead of that of a full 3D simulation.
-
-\paragraph{Spectral PIC codes} In parallel, 3D spectral PIC codes have been developped, and can mitigate numerical instability (articles Warren and Brendan Godfrey). In spectral space, some algorithms have no numerical dispersion whatsoever \cite{Haber}. This is important in laser-wakefield acceleration since even a very small amount of numerical dispersion can introduce spurious injection. Dispersion is also important when simulating beam physics, where lower-than-c propagation leads to Cherenkov effect and faster-than-c leads to fields unphysically traveling ahead of the beam. Typically, this imposes to strongly overresolve the wavelength of the laser (thereby increasing computational requirements), and to use very asymetric cell aspect ratio. Although the spectral algorithms reduce the requirements on the longitudinal resolution, they still require a 3D grid, and therefore a large computational load.
-
-\paragraph{Spectral, cylindrical PIC codes } In this document, we combine the two approaches. Advantages:
+Particle-In-Cell (PIC) algorithms\citep{Birdsall2004,Hockney1988} 
+are extensively used in several areas of physics, including the study
+of astrophysical plasmas and usion plasmas,
+as well as for laser-plasma interactions and accelerator physics. Yet,
+despite their wide use, PIC algorithms remain very computationally
+demanding and are still subject to a range of numerical artifacts. 
+These shortcomings can be particularly significant for
+simulations of accelerated particle beams and of 
+laser-plasma interactions (such as laser-wakefield acceleration). 
+This is mainly for two reasons:
 \begin{itemize}
-\item Significant speedup due to the cylindrical geometry, and the
-  lower number of particles.
-\item Ideal dispersion relation in PSATD, independent on azimuthal mode (with a finite difference algorithm, the different modes go at different speeds)
-\item Fields are colocated in space and time in PSATD and not
-  staggered, which simplifies interpolation, and prevents
-  time-interpolation errors in compensation of E and B (article plasma
-  lens)
-\item Time step can be bigger (but still need to resolve the
-  oscillations of the particles in time).
-\item Ability to apply filters in k space and thereby limit numerical instabilities
-\item Prevent on-axis noise that appear in finite-difference cylindrical algorithms.
+\item In these cases, the system often has close-to-cylindrical
+  symmetry (e.g. particle beams and laser pulses are often
+  cylindrically symmetric). This prevents the use of 2D Cartesian 
+PIC algorithms (which are only well-suited for slab-like symmetry),
+and is instead often dealt with by using
+  3D Cartesian PIC algorithms. However, 3D PIC algorithms are extremely
+  computationally intensive.
+\item The physical objects of interest (e.g. the laser, or the
+  accelerated particle beam) often propagate close to the speed of
+  light. This makes them very sensitive to \emph{numerical
+    dispersion}, i.e. the fact that the electromagnetic waves do not
+  propagate exactly at the physical speed of light in a standard PIC
+  code, but propagate instead at an spuriously-altered,
+  resolution-dependent speed. In the above-mentioned cases, 
+numerical dispersion can lead to substantial numerical artifacts
+which can mask or disrupt the physics at stake in the simulation. This
+includes for instance numerical Cherenkov effect in general
+\citep{GodfreyJCP1974}, but also more specific artifacts, such as
+e.g. the erroneous prediction of the dephasing length in
+laser-wakefield acceleration \citep{CowanPRSTAB2013}.
+
+\end{itemize}
+Yet several improvements can be made to the PIC algorithm, in order
+to mitigate these difficulties and increase the speed and
+accuracy of PIC algorithms in these situations. 
+\begin{itemize}
+\item One of these improvements was introduced by the recent
+  development of cylindrically-symmetric
+PIC algorithms with azimuthal decomposition \citep{Lifschitz,Davidson} (also
+refered to as \emph{quasi-3D} algorithms). By taking
+into account the symmetry of the system, these algorithms can typically reduce
+the cost of the simulation to a few times that of a 2D Cartesian simulation,
+instead of that of a full 3D Cartesian simulation. Moreover, unlike 2D Cartesian algorithms, these algorithms are well adapted to close-to-cylindrical
+physical systems and can accurately capture physical effects that are intrisically
+3D (such as e.g. the non-linear self-focusing of an intense laser in a
+plasma \citep{EsareyRMP2009}).
+
+\item A second, separate improvement was introduced by spectral
+Cartesian PIC algorithms \citep{BunemanJCP1980,DawsonRMP1983},
+i.e. algorithms that solve the Maxwell equations in Fourier
+space. There is indeed a class of spectral algorithms -- often refered to
+as \emph{Pseudo-Spectral Analytical Time Domain} (PSATD) algorithms 
+\citep{Haber} -- which exhibits no numerical dispersion whatsoever. As a
+consequence, these algorithms are free from the numerical artifacts
+associated with the spurious speed of the electromagnetic waves in PIC
+codes. Moreover, it was shown recently
+\citep{XuJCP2013,YuJCP2014,YuCPC2015,
+GodfreyIEEE2014,GodfreyJCP2014} 
+that spectral PIC algorithms have better stability properties when 
+performing PIC simulations in
+a Lorentz-boosted frame \citep{VayPRL2007,MartinsNatPhys2010}. 
+These stability properties are very
+promising since boosted-frame simulations can be faster than 
+their laboratory-frame counterparts by several orders of magnitude \citep{VayPRL2007}.
 \end{itemize}
 
+Even though these two improvements are both very valuable, they cannot be
+combined with one another in their present
+formulation. This is because the \emph{quasi-3D} algorithm uses a
+cylindrical system of coordinates, whereas the spectral PIC algorithms
+(and in particular the \emph{PSTAD} algorithms)
+were developped in a Cartesian system of coordinates. This
+incompatibility is however not definitive, and the aim of this article
+is to overcome these differences by developping a \emph{spectral
+  cylindrical} formalism. In this document, we derive this formalism,
+and we show that it can be used to build a PIC algorithm that combines 
+the speed of \emph{quasi-3D} algorithms with
+the accuracy and lack of numerical dispersion of the \emph{PSATD} algorithms.
+
+Although the algorithm described here is, to our knowledge, unique in
+its capabilities, there are several other PIC algorithms that have
+taken a similar -- yet not equivalent -- approach. One such example is the
+hybrid, cylindrical version of \textsc{OSIRIS} \citep{Yuarxiv2015}. This algorithm
+involves a Fourier transform in the longitudinal direction, but
+retains a finite-difference formulation in the transverse (radial)
+direction. As a consequence, this algorithm is not fully spectral, nor
+is it dispersion-free. Another such example is the PIC code \textsc{PlaRes} 
+\citep{AndriyashJCP2015}, which also uses a spectral cylindrical
+formalism but relies on the scalar and vector potentials
+$\phi$ and $\vec{a}$ instead of the standard PIC formulation in terms
+of $\vec{E}$ and $\vec{B}$. As a result, \textsc{PlaRes} largely differs from the
+algorithm described here, both in the equations that it simulates and
+in their numerical implementation.
+
+In the present article, we start by deriving 
 
 \section{Representation of the fields and continuous equations}
 
@@ -198,7 +277,7 @@ Typically one needs only a few modes in $m$, therefore the fields are
 reduced to a few 2D tables $\tilde{F}_m(k_z,k_\perp )$ instead of the
 3D tables $\hat{F}(k_x,k_y,k_z)$. (For instance, in a purely symmetric
 case, there is only one mode: $m=0$.) In addition, since the fields
-$F_z, F_r, F_\theta$ are real, and since $J_m(x) =(-1)^mJ_{-m}(x)$ \cite{Abramowitz},
+$F_z, F_r, F_\theta$ are real, and since $J_m(x) =(-1)^mJ_{-m}(x)$ \citep{Abramowitz},
 one has
 \[ \tilde{F}_{z,-m}(k_z, k_\perp) = (-1)^m\tilde{F}_{z,m}^{*} (-k_z,
 k_\perp) \qquad \tilde{F}_{+,-m}(k_z, k_\perp) =
@@ -238,11 +317,11 @@ F_u(\vec{r})e^{im\theta}
 \end{equation}
 where ${F}$ is either ${E}$, ${B}$ or
 ${j}$ and $u$ is either $z$, $r$ or $\theta$. Notice that this representation is the
-same as that of \cite{Lifschitz, Davidson}. Notice also that, in this
+same as that of \citep{Lifschitz, Davidson}. Notice also that, in this
 representation, we kept the spectral decomposition in the azimuthal
 direction, since the factors $e^{im\theta}$ can be efficiently computed from the
 particle positions by using the relation $e^{im\theta} = (x+iy)^m/r^m$
-\cite{Lifschitz}.
+\citep{Lifschitz}.
 
 After the particles deposit their charge and current onto this grid,
 the fields of the intermediate grid are transformed into spectral
@@ -287,15 +366,15 @@ Transform (FFT) algorithm, which requires the intermediate and spectral grid to
 have regular spacing in $z$ and $k_z$ respectively. On the other hand,
 there are a variety of existing algorithms (that are not mathematically
 equivalent) to discretize the Hankel
-transform (e.g. \cite{Cree,Yu,Siegman,Guizar,KaiMing}), and the use of one or the other
+transform (e.g. \citep{Cree,Yu,Siegman,Guizar,KaiMing}), and the use of one or the other
 is very dependent of the particular application pursued. Broadly
 speaking, most Discrete Hankel Transform (DHT) algorithms consists in 
 \begin{enumerate}
 \item Choosing a discrete grid in $r$ and $k_\perp$ space, on which to
   sample the functions to be transformed. In some algorithms, these
   grids may not be regularly spaced, and can be for instance
-  logarithmically spaced \cite{Siegman} or correspond to the zeros of
-  Bessel functions \cite{Yu,Guizar,KaiMing}.
+  logarithmically spaced \citep{Siegman} or correspond to the zeros of
+  Bessel functions \citep{Yu,Guizar,KaiMing}.
 \item Once a grid is chosen, the DHT amouts to a linear operation on a
   finite set of points (the points of the grid) and can thus be
   represented by a matrix. Thus the second choice is that of a matrix
@@ -351,7 +430,7 @@ matrix multiplication is proportional to $N_r^2$, which is slow
 compared to an FFT ($\propto N_r \log(N_r)$), but
 still faster than the 2D FFT ($\propto N_x N_y \log(N_x) + N_x N_y \log(N_y) $)
 which is used in a Cartesian spectral code. In practice, for $N_x = N_y =
-N_r = 1000$ for instance, the DHT can be 50 times faster than a 2D FFT \cite{Norfolk}.
+N_r = 1000$ for instance, the DHT can be 50 times faster than a 2D FFT \citep{Norfolk}.
 
 \Cref{fig:GlobalScheme} sums up the steps of the PIC cycle, including the
 respective role of the intermediate and spectral grid. Note that, in the PSATD
@@ -468,7 +547,7 @@ c^2\Delta t\left(ik_\perp \tB{+}{n} + ik_\perp \tB{-}{n}
 However, this type of scheme retains some amount of numerical dispersion, and can
 thus affect the simulated physics.
 
-Instead, here we use an adaptation of the PSATD scheme \cite{Haber} for the
+Instead, here we use an adaptation of the PSATD scheme \citep{Haber} for the
 Fourier-Bessel spectral space. Similarly to the case of the standard
 PSATD, we assume that the currents are constant over one timestep and
 the charge is linear in time over the same timestep. Under these
@@ -510,7 +589,42 @@ ik_z\left[ \frac{\trho{n+1}}{\omega^2}\left(
 \end{align*}
 
 
-where $\omega= c\sqrt{k_z^2 + k_\perp^2}$, $C = \cos(\omega \Delta t)$ and $S = \sin(\omega \Delta t) $. (See \cref{sec:PSTADderiv} for a derivation.)
+where $\omega= c\sqrt{k_z^2 + k_\perp^2}$, $C = \cos(\omega \Delta t)$
+and $S = \sin(\omega \Delta t) $. (See \cref{sec:PSTADderiv} for a
+derivation.)
+
+\section{Benchmarks}
+
+\subsection{Propagation in vacuum}
+
+\subsection{Propagation in a plasma}
+
+\subsection{Linear plasma wave}
+
+\section{Advantages over finite-difference codes}
+
+Mention obvious advantage with better numerical dispersion : dephasing
+length will be better predicted (cite Cowan). 
+
+Mention suffer from parallelization problems.
+
+
+\subsection{Absence of numerical Cherenkov radiation}
+
+\subsection{Accurate force of a laser on a relativistic electron}
+
+
+\section*{Conclusion}
+
+Few published codes have the above advantages in Cartesian geometry (aside
+from spectral codes, directional splitting may have similar
+advantages). Here on top of it, we have it in Circ.
+
+\paragraph{Acknowledgements}
+
+We thank Brendan Godfrey for very valuable comments and
+suggestions. We also acknowledge Igor A. Andriyash for fruitful
+discussions.
 
 \newpage
 \appendix
@@ -518,6 +632,6 @@ where $\omega= c\sqrt{k_z^2 + k_\perp^2}$, $C = \cos(\omega \Delta t)$ and $S = 
 \input{appendix.tex}
 
 \bibliography{Bibliography}
-\bibliographystyle{plain}
+\bibliographystyle{plainnat}
 
 \end{document}  

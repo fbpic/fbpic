@@ -26,8 +26,224 @@ abstract = {A quasi-discrete Hankel transform (QDHT) is presented as a new and e
   year={2009},
   abstract={We propose and implement a quasi-discrete Hankel transform algorithm based on Dini series expansion (DQDHT) in this paper. By making use of the property that the zero-order Bessel function derivative J ' 0 (0) = 0, the DQDHT can be used to calculate the values on the symmetry axis directly. In addition, except for the truncated treatment of the input function, no other approximation is made, thus the DQDHT satisfies the discrete Parseval theorem for energy conservation, implying that it has a high numerical accuracy. Further, we have performed several numerical tests. The test results show that the DQDHT has a very high numerical accuracy and keeps energy conservation even after thousands of times of repeating the transform either in a spatial domain or in a frequency domain. Finally, as an example, we have applied the DQDHT to the nonlinear propagation of a Gaussian beam through a Kerr medium system with cylindrical symmetry. The calculated results are found to be in excellent agreement with those based on the conventional 2D-FFT algorithm, while the simulation based on the proposed DQDHT takes much less computing time.}
 }
-	
 
+@article{BunemanJCP1980, place={United States}, title={Principles and capabilities of 3-D, E-M particle simulations}, volume={38:1}, abstractNote={Presently available computing power is just sufficient for carrying out some meaningful three-dimensional, fully electro-magnetic particle simulations. The background for building the appropriate codes is reviewed in this article, and the modest achievments of one such code, SPLASH, (operating on a CDC 7600) are presented. A more ambitious code for the CRAY-1, still under construction, is based on similar principles and algorithms. Data management emerges as a crucial element, in addition to the physics and numerics, for determining code structure.}, journal={J. Comput. Phys.; (United States)}, author={Buneman, O. and Barnes, C.W. and Green, J.C. and Nielsen, D.E.}, year={1980}, month={Nov}}
+
+@article{CowanPRSTAB2013,
+  title = {Generalized algorithm for control of numerical dispersion in explicit time-domain electromagnetic simulations},
+  author = {Cowan, Benjamin M. and Bruhwiler, David L. and Cary, John R. and Cormier-Michel, Estelle and Geddes, Cameron G. R.},
+  journal = {Phys. Rev. ST Accel. Beams},
+  volume = {16},
+  issue = {4},
+  pages = {041303},
+  numpages = {10},
+  year = {2013},
+  month = {Apr},
+  doi = {10.1103/PhysRevSTAB.16.041303},
+  url = {http://link.aps.org/doi/10.1103/PhysRevSTAB.16.041303},
+  publisher = {American Physical Society}
+}
+
+@article{XuJCP2013,
+title = "Numerical instability due to relativistic plasma drift in EM-PIC simulations ",
+journal = "Computer Physics Communications ",
+volume = "184",
+number = "11",
+pages = "2503 - 2514",
+year = "2013",
+note = "",
+issn = "0010-4655",
+doi = "http://dx.doi.org/10.1016/j.cpc.2013.07.003",
+url = "http://www.sciencedirect.com/science/article/pii/S0010465513002312",
+author = "Xinlu Xu and Peicheng Yu and Samual F. Martins and Frank S. Tsung and Viktor K. Decyk and Jorge Vieira and Ricardo A. Fonseca and Wei Lu and Luis O. Silva and Warren B. Mori",
+keywords = "Particle in cell",
+keywords = "Plasma simulation",
+keywords = "Relativistic plasma drift",
+keywords = "Numerical dispersion relation",
+keywords = "Numerical instability",
+keywords = "Numerical Cherenkov radiation ",
+abstract = "Abstract The numerical instability observed in electromagnetic particle-in-cell (EM-PIC) simulations with a plasma drifting with relativistic velocities is studied using both theory and computer simulations. We derive the numerical dispersion relation for a cold plasma drifting with a relativistic velocity, and find an instability attributed to the intersection between beam resonances and the electromagnetic modes in the drifting plasma. The intersection can occur in the fundamental Brillouin zones when \{EM\} waves with phase velocities less than the speed of light exist, and from aliasing beam resonances and aliasing \{EM\} modes. The unstable modes are neither purely transverse nor longitudinal. The characteristic patterns of the instability in Fourier space for various simulation setups and Maxwell equation solvers are explored by solving the corresponding numerical dispersion relations. Furthermore, based upon these characteristic patterns, we derive an asymptotic expression for the instability growth rate. The asymptotic expression greatly speeds up the calculation of the instability growth rate and makes the parameter scans for minimal growth rate feasible even for full three dimensions. The results are compared against simulation results, and good agreements are found. These results can be used as a guide to develop possible approaches to mitigate the instability. We examine the use of a spectral solver and show that such a solver when combined with a low pass filter with a cutoff value of | k → | essentially eliminates the instability while not modifying modes of physical interest. The use of a spectral solver also provides minimal errors to electromagnetic modes in the lowest Brillouin zones. "
+}
+
+@article{AndriyashJCP2015,
+title = "A spectral unaveraged algorithm for free electron laser simulations ",
+journal = "Journal of Computational Physics ",
+volume = "282",
+number = "0",
+pages = "397 - 409",
+year = "2015",
+note = "",
+issn = "0021-9991",
+doi = "http://dx.doi.org/10.1016/j.jcp.2014.11.026",
+url = "http://www.sciencedirect.com/science/article/pii/S0021999114007888",
+author = "I.A. Andriyash and R. Lehe and V. Malka",
+keywords = "Spectral time domain method",
+keywords = "Free electron laser",
+keywords = "Synchrotron radiation source ",
+abstract = "Abstract We propose and discuss a numerical method to model electromagnetic emission from the oscillating relativistic charged particles and its coherent amplification. The developed technique is well suited for free electron laser simulations, but it may also be useful for a wider range of physical problems involving resonant field–particles interactions. The algorithm integrates the unaveraged coupled equations for the particles and the electromagnetic fields in a discrete spectral domain. Using this algorithm, it is possible to perform full three-dimensional or axisymmetric simulations of short-wavelength amplification. In this paper we describe the method, its implementation, and we present examples of free electron laser simulations comparing the results with the ones provided by commonly known free electron laser codes. "
+}
+
+    
+@ARTICLE{Yuarxiv2015,
+   author = {{Yu}, P. and {Xu}, X. and {Tableman}, A. and {Decyk}, V.~K. and 
+	{Tsung}, F.~S. and {Fiuza}, F. and {Davidson}, A. and {Vieira}, J. and 
+	{Fonseca}, R.~A. and {Lu}, W. and {Silva}, L.~O. and {Mori}, W.~B.
+	},
+    title = "{Mitigation of numerical Cerenkov radiation and instability using a hybrid finite difference-FFT Maxwell solver and a local charge conserving current deposit}",
+  journal = {ArXiv e-prints},
+archivePrefix = "arXiv",
+   eprint = {1502.01376},
+ primaryClass = "physics.comp-ph",
+ keywords = {Physics - Computational Physics},
+     year = 2015,
+    month = feb,
+   adsurl = {http://adsabs.harvard.edu/abs/2015arXiv150201376Y},
+  adsnote = {Provided by the SAO/NASA Astrophysics Data System}
+}
+    
+@article{YuCPC2015,
+title = "Elimination of the numerical Cerenkov instability for spectral EM-PIC codes ",
+journal = "Computer Physics Communications ",
+volume = "192",
+number = "0",
+pages = "32 - 47",
+year = "2015",
+note = "",
+issn = "0010-4655",
+doi = "http://dx.doi.org/10.1016/j.cpc.2015.02.018",
+url = "http://www.sciencedirect.com/science/article/pii/S0010465515000752",
+author = "Peicheng Yu and Xinlu Xu and Viktor K. Decyk and Frederico Fiuza and Jorge Vieira and Frank S. Tsung and Ricardo A. Fonseca and Wei Lu and Luis O. Silva and Warren B. Mori",
+keywords = "Particle-in-cell",
+keywords = "Plasma simulation",
+keywords = "Relativistic drifting plasma",
+keywords = "Numerical Cerenkov instability",
+keywords = "Numerical dispersion relation",
+keywords = "Spectral solver ",
+abstract = "Abstract When using an electromagnetic particle-in-cell (EM-PIC) code to simulate a relativistically drifting plasma, a violent numerical instability known as the numerical Cerenkov instability (NCI) occurs. The \{NCI\} is due to the unphysical coupling of electromagnetic waves on a grid to wave–particle resonances, including aliased resonances, i.e., ω + 2 π μ / Δ t = ( k 1 + 2 π ν 1 / Δ x 1 ) v 0 , where μ and ν 1 refer to the time and space aliases and the plasma is drifting relativistically at velocity v 0 in the 1 ˆ -direction. We extend our previous work Xu et al. (2013) by recasting the numerical dispersion relation of a relativistically drifting plasma into a form which shows explicitly how the instability results from the coupling modes which are purely transverse electromagnetic (EM) modes and purely longitudinal modes in the rest frame of the plasma for each time and space aliasing. The dispersion relation for each μ and ν 1 is the product of the dispersion relation of these two modes set equal to a coupling term that vanishes in the continuous limit. The new form of the numerical dispersion relation provides an accurate method of systematically calculating the growth rate and location of the mode in the fundamental Brillouin zone for any Maxwell solver for each μ and ν 1 . We then focus on the spectral Maxwell solver and systematically discuss its \{NCI\} modes. We show that the second fastest growing \{NCI\} mode for the spectral solver corresponds to μ = ν 1 = 0 , that it has a growth rate approximately one order of magnitude smaller than the fastest growing μ = 0 and ν 1 = 1 mode, and that its location in the k space fundamental Brillouin zone is sensitive to the grid size and time step. Based on these studies, strategies to systematically eliminate the \{NCI\} modes for a spectral solver are developed. We apply these strategies to both relativistic collisionless shock and \{LWFA\} simulations, and demonstrate that high-fidelity multi-dimensional simulations of drifting plasmas can be carried out with a spectral Maxwell solver with no evidence of numerical Cerenkov instability. "
+}
+
+@article{YuJCP2014,
+title = "Modeling of laser wakefield acceleration in Lorentz boosted frame using EM-PIC code with spectral solver ",
+journal = "Journal of Computational Physics ",
+volume = "266",
+number = "0",
+pages = "124 - 138",
+year = "2014",
+note = "",
+issn = "0021-9991",
+doi = "http://dx.doi.org/10.1016/j.jcp.2014.02.016",
+url = "http://www.sciencedirect.com/science/article/pii/S0021999114001363",
+author = "Peicheng Yu and Xinlu Xu and Viktor K. Decyk and Weiming An and Jorge Vieira and Frank S. Tsung and Ricardo A. Fonseca and Wei Lu and Luis O. Silva and Warren B. Mori",
+keywords = "Particle-in-cell",
+keywords = "Plasma simulation",
+keywords = "Laser wakefield accelerator",
+keywords = "Boosted frame simulation",
+keywords = "Spectral solver",
+keywords = "Numerical Cerenkov instability ",
+abstract = "Abstract Simulating laser wakefield acceleration (LWFA) in a Lorentz boosted frame in which the plasma drifts towards the laser with v b can speed up the simulation by factors of γ b 2 = ( 1 − v b 2 / c 2 ) − 1 . In these simulations the relativistic drifting plasma inevitably induces a high frequency numerical instability that contaminates the interesting physics. Various approaches have been proposed to mitigate this instability. One approach is to solve Maxwell equations in Fourier space (a spectral solver) as this has been shown to suppress the fastest growing modes of this instability in simple test problems using a simple low pass or “ring” or “shell” like filters in Fourier space. We describe the development of a fully parallelized, multi-dimensional, particle-in-cell code that uses a spectral solver to solve Maxwell's equations and that includes the ability to launch a laser using a moving antenna. This new EM-PIC code is called UPIC-EMMA and it is based on the components of the \{UCLA\} \{PIC\} framework (UPIC). We show that by using UPIC-EMMA, \{LWFA\} simulations in the boosted frames with arbitrary γ b can be conducted without the presence of the numerical instability. We also compare the results of a few \{LWFA\} cases for several values of γ b , including lab frame simulations using OSIRIS, an EM-PIC code with a finite-difference time domain (FDTD) Maxwell solver. These comparisons include cases in both linear and nonlinear regimes. We also investigate some issues associated with numerical dispersion in lab and boosted frame simulations and between \{FDTD\} and spectral solvers. "
+}
+
+
+@article{VayPRL2007,
+  title = {Noninvariance of Space- and Time-Scale Ranges under a Lorentz Transformation and the Implications for the Study of Relativistic Interactions},
+  author = {Vay, J.-L.},
+  journal = {Phys. Rev. Lett.},
+  volume = {98},
+  issue = {13},
+  pages = {130405},
+  numpages = {4},
+  year = {2007},
+  month = {Mar},
+  publisher = {American Physical Society},
+  doi = {10.1103/PhysRevLett.98.130405},
+  url = {http://link.aps.org/doi/10.1103/PhysRevLett.98.130405}
+}
+
+@article{MartinsNatPhys2010,
+    Annote = {10.1038/nphys1538},
+    Author = {Martins, S. F. and Fonseca, R. A. and Lu, W. and Mori, W. B. and Silva, L. O.},
+    Date = {2010/04//print},
+    Date-Added = {2014-03-28 08:33:06 +0000},
+    Date-Modified = {2014-03-28 08:33:06 +0000},
+    Isbn = {1745-2473},
+    Journal = {Nat Phys},
+    M3 = {10.1038/nphys1538},
+    Month = {04},
+    Number = {4},
+    Pages = {311--316},
+    Publisher = {Nature Publishing Group},
+    Title = {Exploring laser-wakefield-accelerator regimes for near-term lasers using particle-in-cell simulation in Lorentz-boosted frames},
+    Ty = {JOUR},
+    Url = {http://dx.doi.org/10.1038/nphys1538},
+    Volume = {6},
+    Year = {2010},
+    Bdsk-Url-1 = {http://dx.doi.org/10.1038/nphys1538}}
+
+
+@article{DawsonRMP1983,
+  title = {Particle simulation of plasmas},
+  author = {Dawson, John M.},
+  journal = {Rev. Mod. Phys.},
+  volume = {55},
+  issue = {2},
+  pages = {403--447},
+  numpages = {0},
+  year = {1983},
+  month = {Apr},
+  publisher = {American Physical Society},
+  doi = {10.1103/RevModPhys.55.403},
+  url = {http://link.aps.org/doi/10.1103/RevModPhys.55.403}
+}
+
+
+@book{Birdsall2004,
+  title={Plasma Physics via Computer Simulation},
+  author={Birdsall, C.K. and Langdon, A.B.},
+  isbn={9780750310253},
+  series={Series in Plasma Physics},
+  url={http://books.google.fr/books?id=S2lqgDTm6a4C},
+  year={2004},
+  publisher={Taylor \& Francis}
+}
+
+@article{GodfreyJCP1974,
+title = "Numerical Cherenkov instabilities in electromagnetic particle codes",
+journal = "Journal of Computational Physics",
+volume = "15",
+number = "4",
+pages = "504 - 521",
+year = "1974",
+note = "",
+issn = "0021-9991",
+doi = "10.1016/0021-9991(74)90076-X",
+url = "http://www.sciencedirect.com/science/article/pii/002199917490076X",
+author = "Brendan B Godfrey"
+}
+
+@book{Hockney1988,
+  title={Computer Simulation Using Particles},
+  author={Hockney, R.W. and Eastwood, J.W.},
+  isbn={9780852743928},
+  lccn={lc87028779},
+  url={http://books.google.fr/books?id=nTOFkmnCQuIC},
+  year={1988},
+  publisher={Taylor \& Francis}
+}
+
+@article{EsareyRMP2009,
+  title = {Physics of laser-driven plasma-based electron accelerators},
+  author = {Esarey, E. and Schroeder, C. B. and Leemans, W. P.},
+  journal = {Rev. Mod. Phys.},
+  volume = {81},
+  issue = {3},
+  pages = {1229--1285},
+  numpages = {0},
+  year = {2009},
+  month = {Aug},
+  publisher = {American Physical Society},
+  doi = {10.1103/RevModPhys.81.1229},
+  url = {http://link.aps.org/doi/10.1103/RevModPhys.81.1229}
+}
 
 @book{Abramowitz,
 author = "Abramowitz, M. and Stegun, I.",
@@ -171,6 +387,38 @@ year = {2004},
 url = {http://josaa.osa.org/abstract.cfm?URI=josaa-21-1-53},
 doi = {10.1364/JOSAA.21.000053},
 abstract = {The method originally proposed by {\textless}author order$=$"1"{\textgreater}  {\textless}name{\textgreater}    {\textless}last{\textgreater}Yu{\textless}/last{\textgreater}  {\textless}/name{\textgreater}{\textless}/author{\textgreater} \[Opt. Lett.23, 409 (1998)\] for evaluating the zero-order Hankel transform is generalized to high-order Hankel transforms. Since the method preserves the discrete form of the Parseval theorem, it is particularly suitable for field propagation. A general algorithm for propagating an input field through axially symmetric systems using the generalized method is given. The advantages and the disadvantages of the method with respect to other typical methods are discussed.},
+}
+
+@ARTICLE{GodfreyIEEE2014,
+author={Godfrey, B.B. and Vay, J.-L. and Haber, I.},
+journal={Plasma Science, IEEE Transactions on},
+title={Numerical Stability Improvements for the Pseudospectral EM PIC Algorithm},
+year={2014},
+month={May},
+volume={42},
+number={5},
+pages={1339-1344},
+keywords={numerical stability;plasma simulation;numerical Cherenkov instability;numerical stability;particle beam simulations;pseudospectral EM PIC algorithm;pseudospectral analytical time-domain particle-in-cell algorithm;vacuum Maxwell equations;Computational modeling;Dispersion;Interpolation;Numerical models;Numerical stability;Particle beams;Plasmas;Accelerators;numerical stability;particle beams;particle-in-cell (PIC);relativistic effects;simulation;spectral methods;spectral methods.},
+doi={10.1109/TPS.2014.2310654},
+ISSN={0093-3813},}
+    
+@article{GodfreyJCP2014,
+title = "Numerical stability analysis of the pseudo-spectral analytical time-domain \{PIC\} algorithm ",
+journal = "Journal of Computational Physics ",
+volume = "258",
+number = "0",
+pages = "689 - 704",
+year = "2014",
+note = "",
+issn = "0021-9991",
+doi = "http://dx.doi.org/10.1016/j.jcp.2013.10.053",
+url = "http://www.sciencedirect.com/science/article/pii/S0021999113007298",
+author = "Brendan B. Godfrey and Jean-Luc Vay and Irving Haber",
+keywords = "Particle-in-cell",
+keywords = "Pseudo-spectral",
+keywords = "Relativistic beam",
+keywords = "Numerical stability ",
+abstract = "Abstract The pseudo-spectral analytical time-domain (PSATD) particle-in-cell (PIC) algorithm solves the vacuum Maxwellʼs equations exactly, has no Courant time-step limit (as conventionally defined), and offers substantial flexibility in plasma and particle beam simulations. It is, however, not free of the usual numerical instabilities, including the numerical Cherenkov instability, when applied to relativistic beam simulations. This paper derives and solves the numerical dispersion relation for the \{PSATD\} algorithm and compares the results with corresponding behavior of the more conventional pseudo-spectral time-domain (PSTD) and finite difference time-domain (FDTD) algorithms. In general, \{PSATD\} offers superior stability properties over a reasonable range of time steps. More importantly, one version of the \{PSATD\} algorithm, when combined with digital filtering, is almost completely free of the numerical Cherenkov instability for time steps (scaled to the speed of light) comparable to or smaller than the axial cell size. "
 }
 
 
