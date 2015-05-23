@@ -31,6 +31,8 @@
 
 \renewcommand{\vec}[1]{\boldsymbol{#1}}
 
+\newcommand{\comment}[1]{\textcolor{red}{#1}}
+
 \newcommand{\spectral}[1]{\hat{\mathcal{#1}}}
 
 % Reference automatique aux equations, sections, figures
@@ -47,8 +49,7 @@
 
 \section*{Introduction}
 
-% Introduce finite difference.
-%Comment that these equations are similar to the ones in Cartesian spectral
+\comment{ Introduce finite difference in the intro.}
 
 Particle-In-Cell (PIC) algorithms\citep{Birdsall2004,Hockney1988} 
 are extensively used in several areas of physics, including the study
@@ -198,10 +199,9 @@ different Fourier modes decouple and the equations
 \end{align}
 The Fourier coefficients can then be integrated in time, and
 transformed back into real space using \cref{eq:CartBwTrans}. This is
-the core principle of Cartesian pseudo-spectral time-domain (PSTD)
-algorithms and pseudo-spectral analytical time-domain (PSATD) algorithms.
+the core principle of Cartesian spectral algorithms, including the PSATD algorithms.
 
-\subsection{Spectral cylindrical decomposition}
+\subsection{Spectral cylindrical representation}
 
 The Fourier representation \cref{eq:CartBwTrans} is no longer the
 appropriate representation when the Maxwell equations are written in cylindrical coordinates.
@@ -228,7 +228,8 @@ i\left( \spectral{F}_{+,m}(k_z,k_\perp )\; J_{m+1}(k_\perp r) - \spectral{F}_{-,
 \right)  e^{-im\theta +ik_z z} 
 \label{eq:CircBwTranst}
 \end{align}
-where $F$ is either $E$, $B$ or $j$. Notice that the Cartesian
+where $F$ is either $E$, $B$ or $j$ \comment{Introduce notation for
+  Bessel functions.}. Notice that the Cartesian
 component $F_z$ and cylindrical components
 $F_r$, $F_\theta$ do not transform in the same manner, which is due
 to their different behavior close to the axis. (See
@@ -246,9 +247,8 @@ its relation to the Fourier transform.) In addition, the coefficients $\spectral
 \TInteg{\theta} \;\frac{F_r (\vec{r})+iF_\theta(\vec{r})}{2}\; J_{m-1}(k_\perp r) e^{im\theta
  - i k_z z} \label{eq:CircFwTransm} 
 \end{align}
-\noindent Note also that scalar fields (like $\rho$) transform in the same way as the Cartesian component $F_z$.
-
-When replacing \cref{eq:CircBwTransr,eq:CircBwTranst,eq:CircBwTransz} into the Maxwell equations in cylindrical
+\noindent Note also that scalar fields (like $\rho$) transform in the
+same way as the Cartesian component $F_z$. When replacing \cref{eq:CircBwTransr,eq:CircBwTranst,eq:CircBwTransz} into the Maxwell equations in cylindrical
 coordinates \cref{eq:CircMaxwellr,eq:CircMaxwellt,eq:CircMaxwellzz},
 the different modes decouple, and the equations for the spectral
 coefficients become:
@@ -263,7 +263,7 @@ coefficients become:
 \frac{1}{c^2}\partial_t \spectral{E}_{z,m} = ik_\perp  \spectral{B}_{+,m} + ik_\perp \spectral{B}_{-,m}  - \mu_0 \spectral{J}_{z,m}  \qquad & 
 \partial_t \spectral{B}_{z,m} = -ik_\perp  \spectral{E}_{+,m} - ik_\perp \spectral{E}_{-,m}  \label{eq:CircMaxwellz} 
 \end{align}
-(See \cref{sec:SpectMaxwell} for a derivation of these equations.) In
+(See \cref{sec:SpectMaxwell} for a derivation of these equations.) \comment{Comment that these equations are similar to the ones in Cartesian spectral.} In
 addition, the conservation equations
 $\vec{\nabla}\cdot\vec{E}=\rho/\epsilon_0$ and
 $\vec{\nabla}\cdot\vec{B} = 0$
@@ -412,7 +412,7 @@ the periodic boundaries in a Cartesian code impose the use of
 regularly-space $k$. Here, for simplicity, we impose that the
 longitudinal fields be $0$ at $r_{max}$ (i.e. $E_z(r_{max}, z) = 0$,
 $B_z(r_{max}, z) = 0$). In this case, it turns out that the set of authorized
-$k_\perp$ depend on the mode $m$ and reads
+$k_\perp$ depends on the azimuthal mode $m$ and reads
 \[  k^m_{\perp,j} = \frac{\alpha_j^m}{r_{max}} \qquad j \in \{0, ..., N_r-1 \}\]
 where $\alpha^m_j$ is the $j$th positive zero of the Bessel function of order
 $m$ $J_m$ (including the trivial value $\alpha_0^m=0$ for
