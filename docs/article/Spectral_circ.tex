@@ -17,17 +17,21 @@
 \usepackage{natbib}
 
 \newcommand{\ir}{\frac{1}{r}}
-\newcommand{\Integ}[1]{\int_{-\infty}^{\infty} \!\!\!\!\!
+\newcommand{\Integ}[1]{\int_{-\infty}^{\infty} \!\!\!\!\!\!\!\!
   \mathrm{d}#1}
-\newcommand{\RInteg}[1]{\int_{0}^{\infty} \!\!\!\!\! #1\mathrm{d}#1}
-\newcommand{\rInteg}{\int_{0}^{r_{max}} \!\!\!\!\! r\mathrm{d}r}
-\newcommand{\TInteg}[1]{\int_{0}^{2\pi} \!\!\!\!\! \mathrm{d}#1}
+\newcommand{\RInteg}[1]{\int_{0}^{\infty} \!\!\!\!\!\!\! #1\mathrm{d}#1}
+\newcommand{\rInteg}{\int_{0}^{r_{max}} \!\!\!\!\!\!\! r\mathrm{d}r}
+\newcommand{\TInteg}[1]{\int_{0}^{2\pi} \!\!\!\!\!\!\!\! \mathrm{d}#1}
 
 \newcommand{\tB}[2]{\tilde{B}_{#1,m}^{#2}}
 \newcommand{\tE}[2]{\tilde{E}_{#1,m}^{#2}}
 \newcommand{\tj}[2]{\tilde{j}_{#1,m}^{#2}}
 
 \newcommand{\trho}[1]{\tilde{\rho}_{m}^{#1}}
+
+\renewcommand{\vec}[1]{\boldsymbol{#1}}
+
+\newcommand{\spectral}[1]{\hat{\mathcal{#1}}}
 
 % Reference automatique aux equations, sections, figures
 \usepackage{cleveref}
@@ -43,8 +47,8 @@
 
 \section*{Introduction}
 
-% Articles Brendan on spectral boosted frame
 % Introduce finite difference.
+%Comment that these equations are similar to the ones in Cartesian spectral
 
 Particle-In-Cell (PIC) algorithms\citep{Birdsall2004,Hockney1988} 
 are extensively used in several areas of physics, including the study
@@ -89,7 +93,8 @@ PIC algorithms with azimuthal decomposition \citep{Lifschitz,Davidson} (also
 refered to as \emph{quasi-3D} algorithms). By taking
 into account the symmetry of the system, these algorithms can typically reduce
 the cost of the simulation to a few times that of a 2D Cartesian simulation,
-instead of that of a full 3D Cartesian simulation. Moreover, unlike 2D Cartesian algorithms, these algorithms are well adapted to close-to-cylindrical
+instead of that of a full 3D Cartesian simulation. Moreover, unlike 2D
+Cartesian algorithms, these algorithms are well adapted to close-to-cylindrical
 physical systems and can accurately capture physical effects that are intrisically
 3D (such as e.g. the non-linear self-focusing of an intense laser in a
 plasma \citep{EsareyRMP2009}).
@@ -127,25 +132,33 @@ the speed of \emph{quasi-3D} algorithms with
 the accuracy and lack of numerical dispersion of the \emph{PSATD} algorithms.
 
 Although the algorithm described here is, to our knowledge, unique in
-its capabilities, there are several other PIC algorithms that have
-taken a similar -- yet not equivalent -- approach. One such example is the
+its capabilities, there are several other PIC algorithms that use 
+a similar -- yet not equivalent -- approach. One such example is the
 hybrid, cylindrical version of \textsc{OSIRIS} \citep{Yuarxiv2015}. This algorithm
 involves a Fourier transform in the longitudinal direction, but
 retains a finite-difference formulation in the transverse (radial)
 direction. As a consequence, this algorithm is not fully spectral, nor
-is it dispersion-free. Another such example is the PIC code \textsc{PlaRes} 
+fully dispersion-free. Another such example is the PIC code \textsc{PlaRes} 
 \citep{AndriyashJCP2015}, which also uses a spectral cylindrical
 formalism but relies on the scalar and vector potentials
-$\phi$ and $\vec{a}$ instead of the standard PIC formulation in terms
+$\phi$ and $\vec{A}$ instead of the standard PIC formulation in terms
 of $\vec{E}$ and $\vec{B}$. As a result, \textsc{PlaRes} largely differs from the
 algorithm described here, both in the equations that it simulates and
 in their numerical implementation.
 
-In the present article, we start by deriving 
+In the present article, we start by deriving the equations of our
+spectral cylindrical formalism (\cref{sec:theory}). We then explain
+how these equations were discretized and implemented in a fully
+working PIC code (\cref{sec:implementation}). We then report on the
+results of a number of benchmarks that were performed with this PIC
+code (\cref{sec:benchmarks}), and describe two typical physical situations in
+which our spectral algorithm performs better than standard,
+finite-difference algorithms (\cref{sec:advantages}).
 
 \section{Representation of the fields and continuous equations}
+\label{sec:theory}
 
-\subsection{Reminder on Cartesian spectral codes}
+\subsection{A reminder on Cartesian spectral codes}
 
 It is well-known that the Maxwell equations in Cartesian coordinates 
 \begin{align}
@@ -159,29 +172,36 @@ It is well-known that the Maxwell equations in Cartesian coordinates
 can be solved by representing the fields as a sum of Fourier modes.
 \begin{equation}
 \label{eq:CartBwTrans}
-F_u(\vec{r}) = \frac{1}{(2\pi)^{3}}\Integ{k_x} \,\Integ{k_y}\, \Integ{k_z} \; \hat{F}_u(\vec{k}) e^{i(k_x x + k_y y + k_z z)} 
+F_u(\vec{r}) = \frac{1}{(2\pi)^{3}}\Integ{k_x} \,\Integ{k_y}\,
+\Integ{k_z} \; \mathcal{F}_u(\vec{k}) \, e^{i(k_x x + k_y y + k_z z)} 
 \end{equation}
 with 
 \begin{equation}
 \label{eq:CartFwTrans}
-\hat{F}_u(\vec{k})  = \Integ{x} \,\Integ{y}\, \Integ{z} \; F_u(\vec{r}) e^{-i(k_x x + k_y y + k_z z)} 
+\mathcal{F}_u(\vec{k})  = \Integ{x} \,\Integ{y}\, \Integ{z} \;
+F_u(\vec{r}) \, e^{-i(k_x x + k_y y + k_z z)} 
 \end{equation}
 where $F$ is any of the fields $E$, $B$ or $j$, and where $u$ is
-either $x$, $y$ or $z$. In this case, the different Fourier modes decouple and the equations \cref{eq:CartMaxwellx,eq:CartMaxwelly,eq:CartMaxwellz} become 
+either $x$, $y$ or $z$. $\mathcal{F}$ represents the Fourier
+components of $F$, which will be denoted
+$\mathcal{E}$, $\mathcal{B}$ or $\mathcal{J}$ depending on whether
+$F$ represents $E$, $B$ or $j$. With this representation, the
+different Fourier modes decouple and the equations 
+\cref{eq:CartMaxwellx,eq:CartMaxwelly,eq:CartMaxwellz} become 
 \begin{align}
-\frac{1}{c^2}\partial_t \hat{E}_x = ik_y \hat{B}_z - ik_z \hat{B}_y - \mu_0 \hat{j}_x \qquad &   
-\partial_t \hat{B}_x = -ik_y \hat{E}_z + ik_z \hat{E}_y \\
-\frac{1}{c^2}\partial_t \hat{E}_y = ik_z \hat{B}_x - ik_x \hat{B}_z - \mu_0  \hat{j}_y \qquad &   
-\partial_t \hat{B}_y = -ik_z \hat{E}_x + ik_x \hat{E}_z \\
-\frac{1}{c^2}\partial_t \hat{E}_z = ik_x \hat{B}_y - ik_y \hat{B}_x - \mu_0 \hat{j}_z  \qquad &   
-\partial_t \hat{B}_z = -ik_x \hat{E}_y + ik_y \hat{E}_x 
+\frac{1}{c^2}\partial_t \mathcal{E}_x = ik_y \mathcal{B}_z - ik_z \mathcal{B}_y - \mu_0 \mathcal{J}_x \qquad &   
+\partial_t \mathcal{B}_x = -ik_y \mathcal{E}_z + ik_z \mathcal{E}_y \\
+\frac{1}{c^2}\partial_t \mathcal{E}_y = ik_z \mathcal{B}_x - ik_x \mathcal{B}_z - \mu_0  \mathcal{J}_y \qquad &   
+\partial_t \mathcal{B}_y = -ik_z \mathcal{E}_x + ik_x \mathcal{E}_z \\
+\frac{1}{c^2}\partial_t \mathcal{E}_z = ik_x \mathcal{B}_y - ik_y \mathcal{B}_x - \mu_0 \mathcal{J}_z  \qquad &   
+\partial_t \mathcal{B}_z = -ik_x \mathcal{E}_y + ik_y \mathcal{E}_x 
 \end{align}
 The Fourier coefficients can then be integrated in time, and
 transformed back into real space using \cref{eq:CartBwTrans}. This is
 the core principle of Cartesian pseudo-spectral time-domain (PSTD)
-codes and pseudo-spectral analytical time-domain (PSATD) codes.
+algorithms and pseudo-spectral analytical time-domain (PSATD) algorithms.
 
-\subsection{Cylindrical spectral decomposition}
+\subsection{Spectral cylindrical decomposition}
 
 The Fourier representation \cref{eq:CartBwTrans} is no longer the
 appropriate representation when the Maxwell equations are written in cylindrical coordinates.
@@ -196,15 +216,15 @@ appropriate representation when the Maxwell equations are written in cylindrical
 When replacing
 \cref{eq:CartBwTrans} into the \cref{eq:CircMaxwellr,eq:CircMaxwellt,eq:CircMaxwellzz}, the Fourier modes do not decouple. Instead one has to use the Fourier-Bessel representation.
 \begin{align}
-& F_z(\vec{r}) = \frac{1}{(2\pi)^2}\sum_{m=-\infty}^{\infty} \Integ{k_z}
-\RInteg{k_\perp }\; \tilde{F}_{z,m}(k_z,k_\perp ) \; J_m(k_\perp r)\, e^{-im\theta + ik_z z} 
+& F_z(\vec{r}) = \frac{1}{(2\pi)^2}\!\!\!\sum_{m=-\infty}^{\infty} \Integ{k_z}
+\RInteg{k_\perp }\; \spectral{F}_{z,m}(k_z,k_\perp ) \; J_m(k_\perp r)\, e^{-im\theta + ik_z z} 
 \label{eq:CircBwTransz} \\
-& F_r(\vec{r}) = \frac{1}{(2\pi)^2}\sum_{m=-\infty}^{\infty} \Integ{k_z}\,\RInteg{k_\perp }\;
-\left( \tilde{F}_{+,m}(k_z,k_\perp )\; J_{m+1}(k_\perp r) +\tilde{F}_{-,m}(k_z,k_\perp )\; J_{m-1}(k_\perp r)
+& F_r(\vec{r}) = \frac{1}{(2\pi)^2}\!\!\!\sum_{m=-\infty}^{\infty} \Integ{k_z}\,\RInteg{k_\perp }\;
+\left( \spectral{F}_{+,m}(k_z,k_\perp )\; J_{m+1}(k_\perp r) +\spectral{F}_{-,m}(k_z,k_\perp )\; J_{m-1}(k_\perp r)
 \right)  e^{-im\theta +ik_z z}
 \label{eq:CircBwTransr} \\
-& F_\theta(\vec{r}) = \frac{1}{(2\pi)^2}\sum_{m=-\infty}^{\infty} \Integ{k_z}\,\RInteg{k_\perp }\;
-i\left( \tilde{F}_{+,m}(k_z,k_\perp )\; J_{m+1}(k_\perp r) - \tilde{F}_{-,m}(k_z,k_\perp )\; J_{m-1}(k_\perp r)
+& F_\theta(\vec{r}) = \frac{1}{(2\pi)^2}\!\!\!\sum_{m=-\infty}^{\infty} \Integ{k_z}\,\RInteg{k_\perp }\;
+i\left( \spectral{F}_{+,m}(k_z,k_\perp )\; J_{m+1}(k_\perp r) - \spectral{F}_{-,m}(k_z,k_\perp )\; J_{m-1}(k_\perp r)
 \right)  e^{-im\theta +ik_z z} 
 \label{eq:CircBwTranst}
 \end{align}
@@ -213,16 +233,16 @@ component $F_z$ and cylindrical components
 $F_r$, $F_\theta$ do not transform in the same manner, which is due
 to their different behavior close to the axis. (See
 \cref{sec:CircTrans} for a derivation of this representation and for
-its relation to the Fourier transform.) In addition, the coefficients $\tilde{F}_z$, $\tilde{F}_+$ and
- $\tilde{F}_{-}$ are given by:
+its relation to the Fourier transform.) In addition, the coefficients $\spectral{F}_z$, $\spectral{F}_+$ and
+ $\spectral{F}_{-}$ are given by:
 \begin{align}
-\tilde{F}_{z,m}(k_z,k_\perp ) &= \Integ{z} \RInteg{r}
+\spectral{F}_{z,m}(k_z,k_\perp ) &= \Integ{z} \RInteg{r}
 \TInteg{\theta} \;F_z(\vec{r})\; J_m(k_\perp r) e^{im\theta
  - i k_z z} \label{eq:CircFwTransz} \\
-\tilde{F}_{+,m}(k_z,k_\perp ) &= \Integ{z} \RInteg{r}
+\spectral{F}_{+,m}(k_z,k_\perp ) &= \Integ{z} \RInteg{r}
 \TInteg{\theta} \;\frac{F_r (\vec{r})-iF_\theta (\vec{r})}{2}\; J_{m+1}(k_\perp r) e^{im\theta
  - i k_z z} \label{eq:CircFwTransp} \\
-\tilde{F}_{-,m}(k_z,k_\perp ) &= \Integ{z} \RInteg{r}
+\spectral{F}_{-,m}(k_z,k_\perp ) &= \Integ{z} \RInteg{r}
 \TInteg{\theta} \;\frac{F_r (\vec{r})+iF_\theta(\vec{r})}{2}\; J_{m-1}(k_\perp r) e^{im\theta
  - i k_z z} \label{eq:CircFwTransm} 
 \end{align}
@@ -233,15 +253,15 @@ coordinates \cref{eq:CircMaxwellr,eq:CircMaxwellt,eq:CircMaxwellzz},
 the different modes decouple, and the equations for the spectral
 coefficients become:
 \begin{align}
-\frac{1}{c^2}\partial_t \tilde{E}_{+,m} = - \frac{ik_\perp }{2}\tilde{B}_{z,m} + k_z\tilde{B}_{+,m} - \mu_0\tilde{j}_{+,m} \qquad &   
-\partial_t \tilde{B}_{+,m} = \frac{ik_\perp }{2} \tilde{E}_{z,m} - k_z
-\tilde{E}_{+,m} 
+\frac{1}{c^2}\partial_t \spectral{E}_{+,m} = - \frac{ik_\perp }{2}\spectral{B}_{z,m} + k_z\spectral{B}_{+,m} - \mu_0\spectral{J}_{+,m} \qquad &   
+\partial_t \spectral{B}_{+,m} = \frac{ik_\perp }{2} \spectral{E}_{z,m} - k_z
+\spectral{E}_{+,m} 
 \label{eq:CircMaxwellp} \\
-\frac{1}{c^2}\partial_t \tilde{E}_{-,m} = -\frac{ik_\perp }{2} \tilde{B}_{z,m} - k_z \tilde{B}_{-,m} - \mu_0  \tilde{j}_{-,m} \qquad &   
-\partial_t \tilde{B}_{-,m} = \frac{ik_\perp }{2} \tilde{E}_{z,m} + k_z
-\tilde{E}_{-,m} \label{eq:CircMaxwellm} \\
-\frac{1}{c^2}\partial_t \tilde{E}_{z,m} = ik_\perp  \tilde{B}_{+,m} + ik_\perp \tilde{B}_{-,m}  - \mu_0 \tilde{j}_{z,m}  \qquad & 
-\partial_t \tilde{B}_{z,m} = -ik_\perp  \tilde{E}_{+,m} - ik_\perp \tilde{E}_{-,m}  \label{eq:CircMaxwellz} 
+\frac{1}{c^2}\partial_t \spectral{E}_{-,m} = -\frac{ik_\perp }{2} \spectral{B}_{z,m} - k_z \spectral{B}_{-,m} - \mu_0  \spectral{J}_{-,m} \qquad &   
+\partial_t \spectral{B}_{-,m} = \frac{ik_\perp }{2} \spectral{E}_{z,m} + k_z
+\spectral{E}_{-,m} \label{eq:CircMaxwellm} \\
+\frac{1}{c^2}\partial_t \spectral{E}_{z,m} = ik_\perp  \spectral{B}_{+,m} + ik_\perp \spectral{B}_{-,m}  - \mu_0 \spectral{J}_{z,m}  \qquad & 
+\partial_t \spectral{B}_{z,m} = -ik_\perp  \spectral{E}_{+,m} - ik_\perp \spectral{E}_{-,m}  \label{eq:CircMaxwellz} 
 \end{align}
 (See \cref{sec:SpectMaxwell} for a derivation of these equations.) In
 addition, the conservation equations
@@ -250,9 +270,9 @@ $\vec{\nabla}\cdot\vec{B} = 0$
 become
 \begin{equation}
 \label{eq:SpectCons}
-k_\perp (\tilde{E}_{+,m} -\tilde{E}_{-,m}) + ik_z \tilde{E}_{z,m} =
-\frac{\tilde{\rho}_m}{\epsilon_0} \qquad
- k_\perp (\tilde{B}_{+,m} -\tilde{B}_{-,m}) + ik_z \tilde{B}_{z,m} =
+k_\perp (\spectral{E}_{+,m} -\spectral{E}_{-,m}) + ik_z \spectral{E}_{z,m} =
+\frac{\spectral{\rho}_m}{\epsilon_0} \qquad
+ k_\perp (\spectral{B}_{+,m} -\spectral{B}_{-,m}) + ik_z \spectral{B}_{z,m} =
 0 \end{equation}
 As expected, the above conservation equations are
 preserved by the Maxwell equations
@@ -261,8 +281,8 @@ that the current satisfies $\partial_t
 \rho + \vec{\nabla} \cdot \vec{j} = 0$, i.e. in spectral space:
 \begin{equation}
 \label{eq:SpectCharge}
-\partial_t \tilde{\rho}_m + k_\perp (\tilde{j}_{+,m} -\tilde{j}_{-,m}) + ik_z
-\tilde{j}_{z,m} = 0
+\partial_t \spectral{\rho}_m + k_\perp (\spectral{J}_{+,m} -\spectral{J}_{-,m}) + ik_z
+\spectral{J}_{z,m} = 0
 \end{equation}  
 
 Again, the equations \cref{eq:CircMaxwellp,eq:CircMaxwellm,eq:CircMaxwellz}  can be
@@ -274,18 +294,19 @@ the methods used to integrate the fields in time in a Cartesian
 spectral code (e.g. PSATD) should be transposable to the cylindrical case.
 
 Typically one needs only a few modes in $m$, therefore the fields are
-reduced to a few 2D tables $\tilde{F}_m(k_z,k_\perp )$ instead of the
+reduced to a few 2D tables $\spectral{F}_m(k_z,k_\perp )$ instead of the
 3D tables $\hat{F}(k_x,k_y,k_z)$. (For instance, in a purely symmetric
 case, there is only one mode: $m=0$.) In addition, since the fields
 $F_z, F_r, F_\theta$ are real, and since $J_m(x) =(-1)^mJ_{-m}(x)$ \citep{Abramowitz},
 one has
-\[ \tilde{F}_{z,-m}(k_z, k_\perp) = (-1)^m\tilde{F}_{z,m}^{*} (-k_z,
-k_\perp) \qquad \tilde{F}_{+,-m}(k_z, k_\perp) =
-(-1)^{m+1} \tilde{F}_{-,m}^{*} (-k_z, k_\perp) \]
+\[ \spectral{F}_{z,-m}(k_z, k_\perp) = (-1)^m\spectral{F}_{z,m}^{*} (-k_z,
+k_\perp) \qquad \spectral{F}_{+,-m}(k_z, k_\perp) =
+(-1)^{m+1} \spectral{F}_{-,m}^{*} (-k_z, k_\perp) \]
 This means that one only needs to study the evolution of the modes having $m\geq 0$, as the modes with $m<0$ can
 be directly deduced from these fields.
 
 \section{Numerical implementation}
+\label{sec:implementation}
 
 \subsection{Overview of the algorithm}
 
@@ -594,6 +615,7 @@ and $S = \sin(\omega \Delta t) $. (See \cref{sec:PSTADderiv} for a
 derivation.)
 
 \section{Benchmarks}
+\label{sec:benchmarks}
 
 \subsection{Propagation in vacuum}
 
@@ -602,6 +624,7 @@ derivation.)
 \subsection{Linear plasma wave}
 
 \section{Advantages over finite-difference codes}
+\label{sec:advantages}
 
 Mention obvious advantage with better numerical dispersion : dephasing
 length will be better predicted (cite Cowan). 
