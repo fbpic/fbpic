@@ -31,11 +31,11 @@ For more details on the algorithm, see the `docs/article` folder.
 Since this is only a proof of principle, the implementation has
 important shortcomings :
 
-* Unoptimized code written entirely in Python.   
-(However, the code does
-  call BLAS and FFTW for computationally intensive parts. If
-  available, it will also use Numba)
-* Single-processor only
+* Sub-optimized code written in Python.   
+(However, the code does call BLAS and FFTW for computationally intensive parts. 
+If available, it will also use Numba.)
+* Single-CPU only  
+(However, the code does take advantage of multi-threading on a given CPU.)
 
 Installation
 ---------
