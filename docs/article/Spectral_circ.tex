@@ -191,11 +191,11 @@ different Fourier modes decouple and the equations
 \cref{eq:CartMaxwellx,eq:CartMaxwelly,eq:CartMaxwellz} become 
 \begin{align}
 \frac{1}{c^2}\partial_t \mathcal{E}_x = ik_y \mathcal{B}_z - ik_z \mathcal{B}_y - \mu_0 \mathcal{J}_x \qquad &   
-\partial_t \mathcal{B}_x = -ik_y \mathcal{E}_z + ik_z \mathcal{E}_y \\
+\partial_t \mathcal{B}_x = -ik_y \mathcal{E}_z + ik_z \mathcal{E}_y \label{eq:CartSpectMaxwellx}\\
 \frac{1}{c^2}\partial_t \mathcal{E}_y = ik_z \mathcal{B}_x - ik_x \mathcal{B}_z - \mu_0  \mathcal{J}_y \qquad &   
-\partial_t \mathcal{B}_y = -ik_z \mathcal{E}_x + ik_x \mathcal{E}_z \\
+\partial_t \mathcal{B}_y = -ik_z \mathcal{E}_x + ik_x \mathcal{E}_z \label{eq:CartSpectMaxwelly}\\
 \frac{1}{c^2}\partial_t \mathcal{E}_z = ik_x \mathcal{B}_y - ik_y \mathcal{B}_x - \mu_0 \mathcal{J}_z  \qquad &   
-\partial_t \mathcal{B}_z = -ik_x \mathcal{E}_y + ik_y \mathcal{E}_x 
+\partial_t \mathcal{B}_z = -ik_x \mathcal{E}_y + ik_y \mathcal{E}_x \label{eq:CartSpectMaxwellz}
 \end{align}
 The Fourier coefficients can then be integrated in time, and
 transformed back into real space using \cref{eq:CartBwTrans}. This is
@@ -228,14 +228,9 @@ i\left( \spectral{F}_{+,m}(k_z,k_\perp )\; J_{m+1}(k_\perp r) - \spectral{F}_{-,
 \right)  e^{-im\theta +ik_z z} 
 \label{eq:CircBwTranst}
 \end{align}
-where $F$ is either $E$, $B$ or $j$ \comment{Introduce notation for
-  Bessel functions.}. Notice that the Cartesian
-component $F_z$ and cylindrical components
-$F_r$, $F_\theta$ do not transform in the same manner, which is due
-to their different behavior close to the axis. (See
-\cref{sec:CircTrans} for a derivation of this representation and for
-its relation to the Fourier transform.) In addition, the coefficients $\spectral{F}_z$, $\spectral{F}_+$ and
- $\spectral{F}_{-}$ are given by:
+where $F$ is either $E$, $B$ or $j$, where $J_m$ denotes the Bessel
+function of order $m$, and where $\spectral{F}_{z,m}$, $\spectral{F}_{+,m}$ and
+ $\spectral{F}_{-,m}$ represent the spectral components of $F$. These spectral components are given by:
 \begin{align}
 \spectral{F}_{z,m}(k_z,k_\perp ) &= \Integ{z} \RInteg{r}
 \TInteg{\theta} \;F_z(\vec{r})\; J_m(k_\perp r) e^{im\theta
@@ -247,8 +242,15 @@ its relation to the Fourier transform.) In addition, the coefficients $\spectral
 \TInteg{\theta} \;\frac{F_r (\vec{r})+iF_\theta(\vec{r})}{2}\; J_{m-1}(k_\perp r) e^{im\theta
  - i k_z z} \label{eq:CircFwTransm} 
 \end{align}
-\noindent Note also that scalar fields (like $\rho$) transform in the
-same way as the Cartesian component $F_z$. When replacing \cref{eq:CircBwTransr,eq:CircBwTranst,eq:CircBwTransz} into the Maxwell equations in cylindrical
+\noindent Notice here that the Cartesian
+component $F_z$ and cylindrical components
+$F_r$, $F_\theta$ do not transform in the same manner, which is due
+to their different behavior close to the axis. (See
+\cref{sec:CircTrans} for a derivation of the above equations.) 
+Note also that scalar fields (like $\rho$) transform in the
+same way as the Cartesian component $F_z$. 
+
+When replacing \cref{eq:CircBwTransr,eq:CircBwTranst,eq:CircBwTransz} into the Maxwell equations in cylindrical
 coordinates \cref{eq:CircMaxwellr,eq:CircMaxwellt,eq:CircMaxwellzz},
 the different modes decouple, and the equations for the spectral
 coefficients become:
@@ -263,8 +265,15 @@ coefficients become:
 \frac{1}{c^2}\partial_t \spectral{E}_{z,m} = ik_\perp  \spectral{B}_{+,m} + ik_\perp \spectral{B}_{-,m}  - \mu_0 \spectral{J}_{z,m}  \qquad & 
 \partial_t \spectral{B}_{z,m} = -ik_\perp  \spectral{E}_{+,m} - ik_\perp \spectral{E}_{-,m}  \label{eq:CircMaxwellz} 
 \end{align}
-(See \cref{sec:SpectMaxwell} for a derivation of these equations.) \comment{Comment that these equations are similar to the ones in Cartesian spectral.} In
-addition, the conservation equations
+(See \cref{sec:SpectMaxwell} for a derivation of these equations.)
+Notice that these equations have a similar structure as 
+\cref{eq:CartSpectMaxwellx,eq:CartSpectMaxwelly,eq:CartSpectMaxwellz}, as 
+they also involve the product of the fields with the components of
+$\vec{k}$, in their right-hand side. They do differ however in their
+details, as evidenced by the signs, the factors 1/2 and the
+presence or absence of the complex number $i$ in some terms.
+
+Similarly, in this formalism, the conservation equations
 $\vec{\nabla}\cdot\vec{E}=\rho/\epsilon_0$ and
 $\vec{\nabla}\cdot\vec{B} = 0$
 become
@@ -285,92 +294,94 @@ that the current satisfies $\partial_t
 \spectral{J}_{z,m} = 0
 \end{equation}  
 
-Again, the equations \cref{eq:CircMaxwellp,eq:CircMaxwellm,eq:CircMaxwellz}  can be
-integrated in time, and the fields can then be transformed back into
-real space, using \cref{eq:CircBwTransz,eq:CircBwTransr,eq:CircBwTranst}. Notice that
-the structure of \cref{eq:CircMaxwellp,eq:CircMaxwellm,eq:CircMaxwellz} is similar to
-the structure of the corresponding equations in a Cartesian PIC code. Therefore,
-the methods used to integrate the fields in time in a Cartesian
-spectral code (e.g. PSATD) should be transposable to the cylindrical case.
+As in a spectral Cartesian PIC codes, the equations
+\cref{eq:CircMaxwellp,eq:CircMaxwellm,eq:CircMaxwellz}  
+can be integrated in time, and the fields can then be transformed back into
+real space, using \cref{eq:CircBwTransz,eq:CircBwTransr,eq:CircBwTranst}. Therefore,
+the methods used to integrate the fields in time in a spectral Cartesian
+code (e.g. PSATD) should be transposable to this spectral cylindrical formalism.
 
-Typically one needs only a few modes in $m$, therefore the fields are
-reduced to a few 2D tables $\spectral{F}_m(k_z,k_\perp )$ instead of the
-3D tables $\hat{F}(k_x,k_y,k_z)$. (For instance, in a purely symmetric
-case, there is only one mode: $m=0$.) In addition, since the fields
-$F_z, F_r, F_\theta$ are real, and since $J_m(x) =(-1)^mJ_{-m}(x)$ \citep{Abramowitz},
-one has
-\[ \spectral{F}_{z,-m}(k_z, k_\perp) = (-1)^m\spectral{F}_{z,m}^{*} (-k_z,
-k_\perp) \qquad \spectral{F}_{+,-m}(k_z, k_\perp) =
-(-1)^{m+1} \spectral{F}_{-,m}^{*} (-k_z, k_\perp) \]
-This means that one only needs to study the evolution of the modes having $m\geq 0$, as the modes with $m<0$ can
-be directly deduced from these fields.
+However, the advantage of this formalism over its Cartesian
+counterpart is that the sum over $m$ in
+\cref{eq:CircBwTransz,eq:CircBwTransr,eq:CircBwTranst} can generally
+be truncated to only a few terms, for physical situations that have
+close-to-cylindrical symmetry \citep{Lifschitz}. This is because the
+different values of $m$ correspond to different azimuthal modes of the
+form $e^{-im\theta}$, and because these modes are typically zero for
+large values of $|m|$, in situations with close-to-cylindrical symmetry.
+As a result, the representation of the fields is
+reduced to a few 2D arrays $\spectral{F}_m(k_z,k_\perp )$ instead of the
+Cartesian 3D arrays $\mathcal{F}(k_x,k_y,k_z)$. This reduction makes
+the manipulation of the fields much more computationally efficient.
 
 \section{Numerical implementation}
 \label{sec:implementation}
 
 \subsection{Overview of the algorithm}
 
-The algorithm presented here uses the above-mentioned representation
+The PIC algorithm described here uses the above-mentioned representation
 of the fields. Although the fields are represented by a few
 2D arrays, the particles are still distributed in 3D and their motion
-is integrated in 3D. However, due to the
+is integrated in 3D Cartesian coordinates. However, due to the
 lower number of cells in a 2D array, one can drastically reduce the
-total number of particles and still have significative statistics.
+total number of particles and still have significative statistics for
+each cell.
 
-Similarly to a Cartesian pseudo-spectral code, we do not perform the
+Similarly to a spectral Cartesian code, we do not perform the
 current deposition and field gathering directly from the
 macroparticles to the spectral space. (This is inefficient since the
 deposition and gathering are local operations in real space -- i.e. affect
 only the few cells next to the macroparticle -- but global operations
 in spectral space -- i.e. they affect all the spectral modes
 simultaneously.) Instead we use an intermediate grid where these
-operations can be performed locally, and where the fields $\mathcal{F}_{u,m}$
+operations can be performed locally, and where the fields $\hat{F}_{u,m}$
 are defined by
 \begin{equation} 
 \label{eq:IntermBwTrans}
-F_u(\vec{r}) = \sum_{m=-\infty}^{\infty} \mathcal{F}_{u,m}(r,z)
+F_u(\vec{r}) = \sum_{m=-\infty}^{\infty} \hat{F}_{u,m}(r,z)
 e^{-im\theta} 
 \end{equation}
 \begin{equation}
 \label{eq:IntermFwTrans}
-\mathcal{F}_{u,m}(r,z) = \frac{1}{2\pi} \TInteg{\theta} \;
+\hat{F}_{u,m}(r,z) = \frac{1}{2\pi} \TInteg{\theta} \;
 F_u(\vec{r})e^{im\theta}
 \end{equation}
 where ${F}$ is either ${E}$, ${B}$ or
 ${j}$ and $u$ is either $z$, $r$ or $\theta$. Notice that this representation is the
-same as that of \citep{Lifschitz, Davidson}. Notice also that, in this
-representation, we kept the spectral decomposition in the azimuthal
-direction, since the factors $e^{im\theta}$ can be efficiently computed from the
-particle positions by using the relation $e^{im\theta} = (x+iy)^m/r^m$
+same as that of \citep{Lifschitz, Davidson}. In this
+representation, the spectral decomposition in the azimuthal
+direction is preserved, since the factors $e^{im\theta}$ can be efficiently computed from the
+particle Cartesian positions $x,y,z$ by using the relation $e^{im\theta} = (x+iy)^m/r^m$
 \citep{Lifschitz}.
 
-After the particles deposit their charge and current onto this grid,
-the fields of the intermediate grid are transformed into spectral
+After the particles deposit their charge and current onto this
+intermediate grid, the fields of the grid are transformed into spectral
 space where the Maxwell equations can be easily integrated. From
 \cref{eq:IntermFwTrans,eq:IntermBwTrans} and
-\cref{eq:CircFwTransz,eq:CircFwTransp,eq:CircFwTransm,eq:CircBwTransz,eq:CircBwTransr,eq:CircBwTranst}, the transformation between these
-representations is:
+\cref{eq:CircFwTransz,eq:CircFwTransp,eq:CircFwTransm,eq:CircBwTransz,eq:CircBwTransr,eq:CircBwTranst}, 
+the transformation between the intermediate grid $\hat{F}_{m}(r,z)$
+and the spectral grid $\spectral{F}_m(k_\perp, k_z)$ is:
 \begin{align*}
-\tilde{F}_{z,m}(k_z,k_\perp) & = \mathrm{HT}_{m} [ \; \mathrm{FT}
-                               [ \; \mathcal{F}_{z,m}(r,z) \; ] \;]\\
-\tilde{F}_{+,m}(k_z,k_\perp) &= \mathrm{HT}_{m+1}\left[ \; \mathrm{FT} \left[ \frac{
-  \mathcal{F}_{r,m} -i  \mathcal{F}_{\theta,m} }{2}  \right] \;\right] \\
-\tilde{F}_{-,m}(k_z,k_\perp) &= \mathrm{HT}_{m-1} \left[ \;\mathrm{FT} \left[ \frac{
-  \mathcal{F}_{r,m} +i  \mathcal{F}_{\theta,m} }{2}  \right] \;\right] 
+\spectral{F}_{z,m}(k_\perp,k_z) & = \mathrm{HT}_{m} [ \; \mathrm{FT}
+                               [ \; \hat{F}_{z,m}(r,z) \; ] \;]\\
+\spectral{F}_{+,m}(k_\perp,k_z) &= \mathrm{HT}_{m+1}\left[ \; \mathrm{FT} \left[ \frac{
+  \hat{F}_{r,m} -i  \hat{F}_{\theta,m} }{2}  \right] \;\right] \\
+\spectral{F}_{-,m}(k_\perp,k_z) &= \mathrm{HT}_{m-1} \left[ \;\mathrm{FT} \left[ \frac{
+  \hat{F}_{r,m} +i  \hat{F}_{\theta,m} }{2}  \right] \;\right] 
 \end{align*}
 and
 \begin{align*}
-\mathcal{F}_{z,m}(r,z) &= \mathrm{IFT} [\; \mathrm{IHT}_{m} [
-                         \tilde{F}_{z,m}(k_z,k_\perp) ] \; ] \\
-\mathcal{F}_{r,m}(r,z) & = \mathrm{IFT} \left[ \; \mathrm{IHT}_{m+1}
-                         [ \tilde{F}_{+,m}(k_z,k_\perp) ] + \mathrm{IHT}_{m-1} [
-                         \tilde{F}_{-,m}(k_z,k_\perp) ] \; \right] \\
-\mathcal{F}_{\theta,m}(r,z) & = i\;\mathrm{IFT} \left[ \; \mathrm{IHT}_{m+1}
-                         [ \tilde{F}_{+,m}(k_z,k_\perp) ] - \mathrm{IHT}_{m-1} [ \tilde{F}_{-,m}(k_z,k_\perp) ] \; \right]
+\hat{F}_{z,m}(r,z) &= \mathrm{IFT} [\; \mathrm{IHT}_{m} [
+                         \spectral{F}_{z,m}(k_\perp,k_z) ] \; ] \\
+\hat{F}_{r,m}(r,z) & = \mathrm{IFT} \left[ \; \mathrm{IHT}_{m+1}
+                         [ \spectral{F}_{+,m}(k_\perp,k_z) ] + \mathrm{IHT}_{m-1} [
+                         \spectral{F}_{-,m}(k_\perp,k_z) ] \; \right] \\
+\hat{F}_{\theta,m}(r,z) & = i\;\mathrm{IFT} \left[ \; \mathrm{IHT}_{m+1}
+                         [ \spectral{F}_{+,m}(k_\perp,k_z) ] - \mathrm{IHT}_{m-1} [ \spectral{F}_{-,m}(k_\perp,k_z) ] \; \right]
 \end{align*}
 where $\mathrm{FT}$ represents a Fourier Transform along the $z$
 axis and $\mathrm{HT}_{n}$ represents a Hankel Transform of order
-$n$ along the $r$ axis, and where $\mathrm{IFT}$ and
+$n$ along the transverse $r$ axis, and where $\mathrm{IFT}$ and
 $\mathrm{IHT}_{n}$ represent the corresponding inverse
 transformations:
 \[ \mathrm{FT} [f]\, (k_z) \equiv \Integ{z} \, e^{-ik_zz} \; f(z) \qquad 
@@ -380,36 +391,59 @@ J_{n}(k_\perp r) \; f(r) \qquad
 \mathrm{IHT}_{n} [g]\,(r) \equiv \frac{1}{2\pi}\RInteg{k_\perp} \,  J_{n}(k_\perp r)  \;  g(k_\perp) \]
 
 The above equations show that the transformation from the intermediate
-grid ($\mathcal{F}_{u,m}$) to the spectral grid ($\tilde{F}_{u,m}$) is
+grid ($\hat{F}_{u,m}$) to the spectral grid ($\spectral{F}_{u,m}$) is
 the combination of a Fourier transform (in $z$) and a Hankel transform
 (in $r$). The Fourier transform in $z$ can be implemented through a Fast Fourier
-Transform (FFT) algorithm, which requires the intermediate and spectral grid to
-have regular spacing in $z$ and $k_z$ respectively. On the other hand,
+Transform (FFT) algorithm. The implementation we chose for the
+Discrete Hankel Transform (DHT) is described in the next section
+(\cref{sec:discretization}) and in the appendix \ref{sec:HTMatrix}.
+
+\Cref{fig:GlobalScheme} gives an overview of the successive steps
+involved in one PIC cycle, including the
+respective role of the intermediate and spectral grid. Note that, in the PSATD
+scheme that we chose (and which is described in more details in
+\cref{sec:FieldIntegration}), all the fields are defined at integer
+timesteps, except for the currents, which are defined at half
+timesteps. The following subsections describe the successive steps of
+the PIC cycle in more details.
+
+\begin{figure}
+\input{figures/PIC-cycle.tex}
+\caption{Description of the PIC cycle \label{fig:GlobalScheme}
+  \comment{More information in caption}}
+\end{figure}
+
+
+\subsection{Trasnverse discretization of the intermediate grid, of the spectral grid
+  and of the Hankel Transform}
+\label{sec:discretization}
+
+FFT imposes evenly spaced grid both in z and kz. On the other hand,
 there are a variety of existing algorithms (that are not mathematically
 equivalent) to discretize the Hankel
 transform (e.g. \citep{Cree,Yu,Siegman,Guizar,KaiMing}), and the use of one or the other
 is very dependent of the particular application pursued. Broadly
 speaking, most Discrete Hankel Transform (DHT) algorithms consists in 
-\begin{enumerate}
+\begin{itemize}
 \item Choosing a discrete grid in $r$ and $k_\perp$ space, on which to
   sample the functions to be transformed. In some algorithms, these
-  grids may not be regularly spaced, and can be for instance
+  grids may not be evenly spaced, and can be for instance
   logarithmically spaced \citep{Siegman} or correspond to the zeros of
   Bessel functions \citep{Yu,Guizar,KaiMing}.
 \item Once a grid is chosen, the DHT amouts to a linear operation on a
   finite set of points (the points of the grid) and can thus be
   represented by a matrix. Thus the second choice is that of a matrix
   that represents (as closely as possible), the exact Hankel Transform.
-\end{enumerate}
-Here, we choose to discretize the algorithm on a regular grid in
+\end{itemize}
+Here, we choose to discretize the algorithm on a even grid in
 space
 \[ r_j = \Delta r \left( j+\frac{1}{2} \right) \qquad  j \in \{0, ...,
 N_r-1 \} \qquad \mathrm{where} \quad \Delta r = \frac{r_{max}}{N_r} \]
 (Notice that neither $r=0$, nor $r=r_{max}$ are part of the grid.)
-but on a non-regular grid in $k$ space. This is because the authorized
+but on a non-even grid in $k$ space. This is because the authorized
 $k$ are determined by the boundary conditions, in the same way that
 the periodic boundaries in a Cartesian code impose the use of
-regularly-space $k$. Here, for simplicity, we impose that the
+evenly-space $k$. Here, for simplicity, we impose that the
 longitudinal fields be $0$ at $r_{max}$ (i.e. $E_z(r_{max}, z) = 0$,
 $B_z(r_{max}, z) = 0$). In this case, it turns out that the set of authorized
 $k_\perp$ depends on the azimuthal mode $m$ and reads
@@ -426,7 +460,7 @@ problem since each mode evolves separately in
 \caption{\label{fig:Kgrid}Position of the grid points in $k$ space
   (blue dots) for the azimuthal modes $m=0$, $m=1$ and $m=2$ for $N_r
   = 10$ and $r_{max}=1$. These values are compared with those of a
-  regularly-spaced grid used in Cartesian spectral codes (grey dots, $k_j = j\pi/r_{max}$)}
+  evenly-spaced grid used in Cartesian spectral codes (grey dots, $k_j = j\pi/r_{max}$)}
 \end{figure}
 
 Once this grid is set up, the discrete hankel transform is simply a
@@ -453,17 +487,6 @@ still faster than the 2D FFT ($\propto N_x N_y \log(N_x) + N_x N_y \log(N_y) $)
 which is used in a Cartesian spectral code. In practice, for $N_x = N_y =
 N_r = 1000$ for instance, the DHT can be 50 times faster than a 2D FFT \citep{Norfolk}.
 
-\Cref{fig:GlobalScheme} sums up the steps of the PIC cycle, including the
-respective role of the intermediate and spectral grid. Note that, in the PSATD
-scheme that we chose (and which is described in more details in
-\cref{sec:FieldIntegration}), all the fields are defined at integer
-timesteps, except for the currents, which are defined at half
-timesteps. The following section describe the successive steps of the cycle in more details.
-
-\begin{figure}
-\input{figures/PIC-cycle.tex}
-\caption{Description of the PIC cycle \label{fig:GlobalScheme}}
-\end{figure}
 
 \subsection{Field gathering}
 
@@ -523,17 +546,17 @@ where $F$ satisfies the Poisson-like equation
 The above equation is typically expensive to solve on a spatial grid, but
 very easy to solve in spectral space. In our scheme and in spectral
 space, these equations become
-\[ \tilde{j}'^{n+1/2}_{+,m} = \tilde{j}^{n+1/2}_{+,m} +
-\frac{k_\perp}{2} \tilde{F}^{n+1/2}_m
+\[ \spectral{j}'^{n+1/2}_{+,m} = \spectral{j}^{n+1/2}_{+,m} +
+\frac{k_\perp}{2} \spectral{F}^{n+1/2}_m
 \qquad
-\tilde{j}'^{n+1/2}_{-,m} = \tilde{j}^{n+1/2}_{-,m} - \frac{k_\perp}{2} \tilde{F}^{n+1/2}_m
-\qquad \tilde{j}'^{n+1/2}_{z,m} = \tilde{j}^{n+1/2}_{z,m} - ik_z
-\tilde{F}^{n+1/2}_m\]
+\spectral{j}'^{n+1/2}_{-,m} = \spectral{j}^{n+1/2}_{-,m} - \frac{k_\perp}{2} \spectral{F}^{n+1/2}_m
+\qquad \spectral{j}'^{n+1/2}_{z,m} = \spectral{j}^{n+1/2}_{z,m} - ik_z
+\spectral{F}^{n+1/2}_m\]
 with
-\[ \tilde{F}^{n+1/2}_m = - \frac{1}{k_\perp^2 + k_z^2}\left(
-  \frac{\tilde{\rho}^{n+1}_m -\tilde{\rho}^{n}_m}{\Delta t} + k_\perp
-  (\tilde{j}^{n+1/2}_{+,m} -\tilde{j}^{n+1/2}_{-,m}) + ik_z\tilde{j}^{n+1/2}_{z,m}  \right) \]
-With this correction, the new currents $\tilde{j}'^{n+1/2}$ do satisfy
+\[ \spectral{F}^{n+1/2}_m = - \frac{1}{k_\perp^2 + k_z^2}\left(
+  \frac{\spectral{\rho}^{n+1}_m -\spectral{\rho}^{n}_m}{\Delta t} + k_\perp
+  (\spectral{j}^{n+1/2}_{+,m} -\spectral{j}^{n+1/2}_{-,m}) + ik_z\spectral{j}^{n+1/2}_{z,m}  \right) \]
+With this correction, the new currents $\spectral{j}'^{n+1/2}$ do satisfy
 the charge conservation equation \cref{eq:SpectCharge}. Therefore we apply this
 correction at the end of the current deposition, at each timestep.
 
