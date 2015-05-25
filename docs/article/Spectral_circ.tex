@@ -23,11 +23,11 @@
 \newcommand{\rInteg}{\int_{0}^{r_{max}} \!\!\!\!\!\!\! r\mathrm{d}r}
 \newcommand{\TInteg}[1]{\int_{0}^{2\pi} \!\!\!\!\!\!\!\! \mathrm{d}#1}
 
-\newcommand{\tB}[2]{\tilde{B}_{#1,m}^{#2}}
-\newcommand{\tE}[2]{\tilde{E}_{#1,m}^{#2}}
-\newcommand{\tj}[2]{\tilde{j}_{#1,m}^{#2}}
+\newcommand{\tB}[2]{\spectral{B}_{#1,m}^{#2}}
+\newcommand{\tE}[2]{\spectral{E}_{#1,m}^{#2}}
+\newcommand{\tj}[2]{\spectral{J}_{#1,m}^{#2}}
 
-\newcommand{\trho}[1]{\tilde{\rho}_{m}^{#1}}
+\newcommand{\trho}[1]{\spectral{\rho}_{m}^{#1}}
 
 \renewcommand{\vec}[1]{\boldsymbol{#1}}
 
@@ -159,7 +159,7 @@ finite-difference algorithms (\cref{sec:advantages}).
 \section{Representation of the fields and continuous equations}
 \label{sec:theory}
 
-\subsection{A reminder on Cartesian spectral codes}
+\subsection{A reminder on spectral Cartesian codes}
 
 It is well-known that the Maxwell equations in Cartesian coordinates 
 \begin{align}
@@ -199,7 +199,7 @@ different Fourier modes decouple and the equations
 \end{align}
 The Fourier coefficients can then be integrated in time, and
 transformed back into real space using \cref{eq:CartBwTrans}. This is
-the core principle of Cartesian spectral algorithms, including the PSATD algorithms.
+the core principle of spectral Cartesian algorithms, including the PSATD algorithms.
 
 \subsection{Spectral cylindrical representation}
 
@@ -361,24 +361,27 @@ space where the Maxwell equations can be easily integrated. From
 \cref{eq:CircFwTransz,eq:CircFwTransp,eq:CircFwTransm,eq:CircBwTransz,eq:CircBwTransr,eq:CircBwTranst}, 
 the transformation between the intermediate grid $\hat{F}_{m}(r,z)$
 and the spectral grid $\spectral{F}_m(k_\perp, k_z)$ is:
-\begin{align*}
+\begin{align}
 \spectral{F}_{z,m}(k_\perp,k_z) & = \mathrm{HT}_{m} [ \; \mathrm{FT}
-                               [ \; \hat{F}_{z,m}(r,z) \; ] \;]\\
+                               [ \; \hat{F}_{z,m}(r,z) \; ] \;] \\
 \spectral{F}_{+,m}(k_\perp,k_z) &= \mathrm{HT}_{m+1}\left[ \; \mathrm{FT} \left[ \frac{
   \hat{F}_{r,m} -i  \hat{F}_{\theta,m} }{2}  \right] \;\right] \\
 \spectral{F}_{-,m}(k_\perp,k_z) &= \mathrm{HT}_{m-1} \left[ \;\mathrm{FT} \left[ \frac{
   \hat{F}_{r,m} +i  \hat{F}_{\theta,m} }{2}  \right] \;\right] 
-\end{align*}
+\end{align}
 and
-\begin{align*}
+\begin{align}
 \hat{F}_{z,m}(r,z) &= \mathrm{IFT} [\; \mathrm{IHT}_{m} [
                          \spectral{F}_{z,m}(k_\perp,k_z) ] \; ] \\
 \hat{F}_{r,m}(r,z) & = \mathrm{IFT} \left[ \; \mathrm{IHT}_{m+1}
                          [ \spectral{F}_{+,m}(k_\perp,k_z) ] + \mathrm{IHT}_{m-1} [
-                         \spectral{F}_{-,m}(k_\perp,k_z) ] \; \right] \\
+                         \spectral{F}_{-,m}(k_\perp,k_z) ] \; \right] \label{eq:FTHTr}\\
 \hat{F}_{\theta,m}(r,z) & = i\;\mathrm{IFT} \left[ \; \mathrm{IHT}_{m+1}
-                         [ \spectral{F}_{+,m}(k_\perp,k_z) ] - \mathrm{IHT}_{m-1} [ \spectral{F}_{-,m}(k_\perp,k_z) ] \; \right]
-\end{align*}
+                         [ \spectral{F}_{+,m}(k_\perp,k_z) ] -
+                          \mathrm{IHT}_{m-1} [
+                          \spectral{F}_{-,m}(k_\perp,k_z) ] \; \right]
+\label{eq:FTHTt}
+\end{align}
 where $\mathrm{FT}$ represents a Fourier Transform along the $z$
 axis and $\mathrm{HT}_{n}$ represents a Hankel Transform of order
 $n$ along the transverse $r$ axis, and where $\mathrm{IFT}$ and
@@ -394,8 +397,10 @@ The above equations show that the transformation from the intermediate
 grid ($\hat{F}_{u,m}$) to the spectral grid ($\spectral{F}_{u,m}$) is
 the combination of a Fourier transform (in $z$) and a Hankel transform
 (in $r$). The Fourier transform in $z$ can be implemented through a Fast Fourier
-Transform (FFT) algorithm. The implementation we chose for the
-Discrete Hankel Transform (DHT) is described in the next section
+Transform (FFT) algorithm, which imposes to use an evenly-spaced grid
+in $z$ and in $k_z$. On the other hand, there is more freedom of
+choice for the Discrete Hankel Transform (DHT), and the implementation that
+we chose is described in the next section
 (\cref{sec:discretization}) and in the appendix \ref{sec:HTMatrix}.
 
 \Cref{fig:GlobalScheme} gives an overview of the successive steps
@@ -414,36 +419,37 @@ the PIC cycle in more details.
 \end{figure}
 
 
-\subsection{Trasnverse discretization of the intermediate grid, of the spectral grid
+\subsection{Transverse discretization of the intermediate grid, of the spectral grid
   and of the Hankel Transform}
 \label{sec:discretization}
 
-FFT imposes evenly spaced grid both in z and kz. On the other hand,
-there are a variety of existing algorithms (that are not mathematically
+When transforming from the intermediate to the spectral grid, the FFT
+algorithm is the natural way to discretize the Fourier transform along $z$, due to its
+favorable computational scaling ($\propto N_z\log(N_z)$).
+On the other hand, there are a variety of existing algorithms (that are not mathematically
 equivalent) to discretize the Hankel
 transform (e.g. \citep{Cree,Yu,Siegman,Guizar,KaiMing}), and the use of one or the other
-is very dependent of the particular application pursued. Broadly
+is very dependent on the pursued application. Broadly
 speaking, most Discrete Hankel Transform (DHT) algorithms consists in 
 \begin{itemize}
 \item Choosing a discrete grid in $r$ and $k_\perp$ space, on which to
   sample the functions to be transformed. In some algorithms, these
-  grids may not be evenly spaced, and can be for instance
+  grids may not be evenly-spaced, and can be for instance
   logarithmically spaced \citep{Siegman} or correspond to the zeros of
   Bessel functions \citep{Yu,Guizar,KaiMing}.
-\item Once a grid is chosen, the DHT amouts to a linear operation on a
+\item Once a grid is chosen, the DHT amounts to a linear operation on a
   finite set of points (the points of the grid) and can thus be
   represented by a matrix. Thus the second choice is that of a matrix
-  that represents (as closely as possible), the exact Hankel Transform.
+  that represents, as closely as possible, the exact Hankel Transform.
 \end{itemize}
-Here, we choose to discretize the algorithm on a even grid in
-space
+Here, we choose to discretize the algorithm on an evenly-spaced grid in $r$
+(for the intermediate grid) :
 \[ r_j = \Delta r \left( j+\frac{1}{2} \right) \qquad  j \in \{0, ...,
 N_r-1 \} \qquad \mathrm{where} \quad \Delta r = \frac{r_{max}}{N_r} \]
-(Notice that neither $r=0$, nor $r=r_{max}$ are part of the grid.)
-but on a non-even grid in $k$ space. This is because the authorized
-$k$ are determined by the boundary conditions, in the same way that
+but on an irregular grid in $k_\perp$ (for the spectral grid). This is because the authorized
+$k_\perp$ are determined by the boundary conditions, in the same way that
 the periodic boundaries in a Cartesian code impose the use of
-evenly-space $k$. Here, for simplicity, we impose that the
+evenly-spaced $k$. Here, for simplicity, we impose that the
 longitudinal fields be $0$ at $r_{max}$ (i.e. $E_z(r_{max}, z) = 0$,
 $B_z(r_{max}, z) = 0$). In this case, it turns out that the set of authorized
 $k_\perp$ depends on the azimuthal mode $m$ and reads
@@ -451,57 +457,71 @@ $k_\perp$ depends on the azimuthal mode $m$ and reads
 where $\alpha^m_j$ is the $j$th positive zero of the Bessel function of order
 $m$ $J_m$ (including the trivial value $\alpha_0^m=0$ for
 $m>0$). These values are represented in figure \ref{fig:Kgrid}. Notice
-that the fact that the $k$s depend on the mode number $m$ is not a
-problem since each mode evolves separately in
+that it is not an issue that the spectral components $\spectral{F}_m$
+for different azimuthal modes $m$ are discretized on different
+$k_\perp$ grids, since each azimuthal mode $m$ evolves separately in
 \cref{eq:CircMaxwellp,eq:CircMaxwellm,eq:CircMaxwellz}.
 
 \begin{figure}[!h]
 \includegraphics[width=\textwidth]{figures/KGrid.pdf}
-\caption{\label{fig:Kgrid}Position of the grid points in $k$ space
+\caption{\label{fig:Kgrid}Position of the grid points in $k_\perp$ space
   (blue dots) for the azimuthal modes $m=0$, $m=1$ and $m=2$ for $N_r
-  = 10$ and $r_{max}=1$. These values are compared with those of a
-  evenly-spaced grid used in Cartesian spectral codes (grey dots, $k_j = j\pi/r_{max}$)}
+  = 10$ and $r_{max}=1$. These values are compared with those of an
+  evenly-spaced grid used in spectral Cartesian codes (grey dots, $k_j = j\pi/r_{max}$).}
 \end{figure}
 
 Once this grid is set up, the discrete hankel transform is simply a
 linear operation on a finite set of points, and can thus be
 represented by a matrix operation
-\[ \mathrm{DHT^m_n}[f] \,(k^m_j) = \sum_{p=0}^{N_r-1} (M_{n,m})_{j,p}
-\,f(r_p) \qquad \mathrm{IDHT^m_n}[g] \, (r_j) = \sum_{p=0}^{N_r-1}
-(M^{-1}_{n,m})_{j,p} \,g(k^m_p) \]
+\[ \mathrm{DHT^m_n}[f] \,(k^m_{\perp,j}) = \sum_{p=0}^{N_r-1} (M_{n,m})_{j,p}
+\;f(r_p) \qquad \mathrm{IDHT^m_n}[g] \, (r_j) = \sum_{p=0}^{N_r-1}
+(M'_{n,m})_{j,p} \; g(k^m_{\perp,p}) \]
 
 Notice that the $N_r\times N_r$ transformation matrices $M_{n,m}$ and
-$M_{n,m}^{-1}$ depend on $n$ (order of the Hankel transform) and $m$
-(index of the spectral grid $k^m_j$ on which the Hankel transform is calculated). The expression of these matrices,
-for the DHT algorithm that we chose, is given in
+$M_{n,m}'$ depend on $n$ (order of the Hankel transform) and $m$
+(index of the azimuthal mode, and thus index of the spectral grid
+$k^m_{\perp,j}$ on which the Hankel transform is performed). 
+In practice, $n$ and $m$ are either equal or they differ by
+$\pm 1$ (e.g. in \cref{eq:FTHTr,eq:FTHTt}, when the azimuthal mode $m$ is
+transformed using the Hankel transform of order $m+1$ or $m-1$.)
+
+The expressions of $M_{n,m}$ and $M'_{n,m}$, for the DHT algorithm that we chose, are given in
 \cref{sec:HTMatrix}. %This particular choice is very specific and
 %dependent on the imposed boundary conditions at $r_{max}$ ; in future
 %work, different implementations of the DHT could be used depending on
 %the boundary conditions. 
-In practice, $M_{n,m}$ and $M^{-1}_{n,m}$ need to be
-computed only once (at initialization), and can then be used at each
+In practice,  these matrices need to be
+computed only once (at the beginning of the simulation) and can then be used at each
 iteration. Notice also that the computational time for this
 matrix multiplication is proportional to $N_r^2$, which is slow
-compared to an FFT ($\propto N_r \log(N_r)$), but
+compared to a 1D FFT ($\propto N_r \log(N_r)$), but
 still faster than the 2D FFT ($\propto N_x N_y \log(N_x) + N_x N_y \log(N_y) $)
-which is used in a Cartesian spectral code. In practice, for $N_x = N_y =
+which is typically used in a spectral Cartesian code. In practice, for $N_x = N_y =
 N_r = 1000$ for instance, the DHT can be 50 times faster than a 2D FFT \citep{Norfolk}.
 
 
 \subsection{Field gathering}
 
-When gathering the fields from the intermediate grid to the macroparticles,
-we use standard linear shape factors :
+When gathering the fields from the intermediate grid to the
+macroparticles (see \cref{fig:GlobalScheme}),
+we use the standard linear shape factors :
 \begin{align} 
-F_u(\vec{r}_k) &=  \sum_{p,q} S_{z,p}(z_k)S_{r,q}(r_k) \left[ \sum_{m=-N_m}^{N_m} \mathcal{F}_{u,m}(z_p, r_q)
+F_u(\vec{r}_k) &=  \sum_{p,q} S_{z,p}(z_k)S_{r,q}(r_k) \left[ \sum_{m=-N_m}^{N_m} \hat{F}_{u,m}(z_p, r_q)
   e^{-im\theta_k} \right] \\
-& = \sum_{p,q} S_{z,p}(z_k)S_{r,q}(r_k) \left[ \mathcal{F}_{u,0}(z_p,
-  r_q) + 2\,\Re \left( \sum_{m=1}^{N_m} \mathcal{F}_{u,m}(z_p, r_q)
-  e^{-im\theta_k} \right) \right]
+& = \sum_{p,q} S_{z,p}(z_k)S_{r,q}(r_k) \left[ \hat{F}_{u,0}(z_p,
+  r_q) + 2\,\Re \left( \sum_{m=1}^{N_m} \hat{F}_{u,m}(z_p, r_q)
+  e^{-im\theta_k} \right) \right] \label{eq:gathering}
 \end{align}
-where $k$ is the index of the macroparticle, and $p$ and $q$ are the
-indices of the neighboring cells, in $z$ and $r$ respectively. $N_m$ is the total number
-of azimuthal modes used, and $S_{z,p}$ and $S_{z,q}$ are the linear
+where $F$ is either $E$ or $B$, $u$ is either $r$, $\theta$ or $z$, $k$ is the index of the macroparticle,
+and $p$ and $q$ are the indices of the two nearest cells in $z$ and
+$r$ respectively. $N_m$ is the total number
+of azimuthal modes used. Notice that, in \cref{eq:gathering}, we used the fact that
+$\hat{F}_{u,-m}(z,r) = \hat{F}^*_{u,m}(z,r) $, which can be
+inferred from \cref{eq:IntermFwTrans}. Incidentally, \cref{eq:gathering} shows that only the modes
+with $m\geq 0$ need to be taken into account in the code, as they are 
+sufficient to retrieve the force on the macroparticles.
+
+Finally, in \cref{eq:gathering}, $S_{z,p}$ and $S_{z,q}$ are the linear
 shape factors in $z$ and $r$ :
 \[ S_{z,p_0}(z) = \frac{z_{p_0+1}- z}{\Delta z}  \qquad 
 S_{z,p_0 +1}(z) = \frac{ z - z_{p_0} }{\Delta z} \qquad
@@ -513,54 +533,61 @@ S_{z,p_0 +1}(z) = \frac{ z - z_{p_0} }{\Delta z} \qquad
 
 \subsection{Equations of motion}
 
-Since the particle motion is studied in 3D, we use the standard Vay pusher (citation).
+Since the macroparticles are evolved in 3D, we compute
+the Cartesian components $E_x$, $E_y$, $E_z$, $B_x$, $B_y$ and
+$B_z$, from the fields $E_r$, $E_\theta$, $E_z$, $B_r$, $B_\theta$ and
+$B_z$ that were gathered at the positions of each macroparticle. 
+We then advance the equations of motion
+\[ \frac{d\vec{p}}{dt} = q\vec{E} + q\vec{v}\times \vec{B} \qquad
+\frac{d\vec{x}}{dt} = \frac{\vec{p}}{\gamma \,m} \]
+\noindent  in standard 3D Cartesian coordinates, by using the leap-frog pusher described in \citep{VayPoP2008}.
 
 \subsection{Current deposition}
 
-The charge density is calculated on the interpolation grid in the
+As in \citep{Lifschitz}, the charge density is calculated on the intermediate grid in the
 following way:
-\[ \mathcal{\rho}_m(z_p,r_q) = \frac{ \sum_k  S_{z,p}(z_k)S_{r,q}(r_k) Q_k e^{im\theta_k}}{V_{q}} \]
+\[ \hat{\rho}_m(z_p,r_q) = \frac{ \sum_k  S_{z,p}(z_k)S_{r,q}(r_k) Q_k e^{im\theta_k}}{V_{q}} \]
 where $Q_k$ is the charge of the macroparticle with index $k$, and
-where $V_q$ is the volume of a cell
+where $V_q$ is the volume of a cell, which is for our grid
 \[ V_{q} = \pi [\, (q+1)^2- q^2\,] \Delta r^2 \Delta z \]
 
-Similarly, the current deposition is given by
-\[ \mathcal{J}_{u,m}(z_p,r_q) = \frac{\sum_k S_{z,p}(z_k) S_{r,q}(r_k)
+\noindent Similarly, the current deposition is given by
+\[ \hat{j}_{u,m}(z_p,r_q) = \frac{\sum_k S_{z,p}(z_k) S_{r,q}(r_k)
 Q_k v_{u,k} e^{im\theta_k}}{V_{q}} \]
 where $u = z,r,\theta$ and the $v_{u,k}$ are the cylindrical components of the
-velocity of the macroparticle $k$. Notice that we do not attempt to
-reproduce the Esirkepov current deposition here, and instead use a
-much simpler current deposition. As mentioned previously, once the
+velocity of the macroparticle $k$. As mentioned previously, once the
 macroparticles have deposited their charge and current on the
 intermediate grid, we transform them to the spectral grid, using an
-FFT and a DHT.
+FFT and a DHT (see \cref{fig:GlobalScheme}).
 
-The above simple deposition does not necessarily
-preserve the relation $\partial_t\rho + \vec{\nabla}\cdot\vec{j} =
-0$. When $\partial_t\rho + \vec{\nabla}\cdot\vec{j}$ is different than 0,
-one can correct for that error, by slightly modifying the currents, in
-a way that does not modify the value of their curl:
-\[ \vec{j}' = \vec{j} - \vec{\nabla} F \]
-where $F$ satisfies the Poisson-like equation
-\[ \vec{\nabla}^2 F = \partial_t\rho + \vec{\nabla}\cdot\vec{j} \]
+Notice that we do not attempt to
+reproduce the Esirkepov current deposition here \citep{Esirkepov}, and instead use a
+simple direct current deposition. It is well-known that his simple deposition does not necessarily
+satisfy the relation $\partial_t\rho + \vec{\nabla}\cdot\vec{j} =
+0$, but that this can be corrected for, by slightly modifying the
+currents without modifying their curl:
+\[ \vec{j}' = \vec{j} - \vec{\nabla} G \]
+where $G$ satisfies the Poisson-like equation
+\[ \vec{\nabla}^2 G = \partial_t\rho + \vec{\nabla}\cdot\vec{j} \]
+
 The above equation is typically expensive to solve on a spatial grid, but
-very easy to solve in spectral space. In our scheme and in spectral
-space, these equations become
-\[ \spectral{j}'^{n+1/2}_{+,m} = \spectral{j}^{n+1/2}_{+,m} +
-\frac{k_\perp}{2} \spectral{F}^{n+1/2}_m
+very easy to solve in spectral space. In spectral space and with the
+notations of \cref{fig:GlobalScheme}, these equations become
+\[ \spectral{J}'^{n+1/2}_{+,m} = \spectral{J}^{n+1/2}_{+,m} +
+\frac{k_\perp}{2} \spectral{G}^{n+1/2}_m
 \qquad
-\spectral{j}'^{n+1/2}_{-,m} = \spectral{j}^{n+1/2}_{-,m} - \frac{k_\perp}{2} \spectral{F}^{n+1/2}_m
-\qquad \spectral{j}'^{n+1/2}_{z,m} = \spectral{j}^{n+1/2}_{z,m} - ik_z
-\spectral{F}^{n+1/2}_m\]
+\spectral{J}'^{n+1/2}_{-,m} = \spectral{J}^{n+1/2}_{-,m} - \frac{k_\perp}{2} \spectral{G}^{n+1/2}_m
+\qquad \spectral{J}'^{n+1/2}_{z,m} = \spectral{J}^{n+1/2}_{z,m} - ik_z
+\spectral{G}^{n+1/2}_m\]
 with
-\[ \spectral{F}^{n+1/2}_m = - \frac{1}{k_\perp^2 + k_z^2}\left(
+\[ \spectral{G}^{n+1/2}_m = - \frac{1}{k_\perp^2 + k_z^2}\left(
   \frac{\spectral{\rho}^{n+1}_m -\spectral{\rho}^{n}_m}{\Delta t} + k_\perp
-  (\spectral{j}^{n+1/2}_{+,m} -\spectral{j}^{n+1/2}_{-,m}) + ik_z\spectral{j}^{n+1/2}_{z,m}  \right) \]
-With this correction, the new currents $\spectral{j}'^{n+1/2}$ do satisfy
+  (\spectral{J}^{n+1/2}_{+,m} -\spectral{J}^{n+1/2}_{-,m}) + ik_z\spectral{J}^{n+1/2}_{z,m}  \right) \]
+With this correction, the new currents $\spectral{J}'^{n+1/2}$ do satisfy
 the charge conservation equation \cref{eq:SpectCharge}. Therefore we apply this
-correction at the end of the current deposition, at each timestep.
+correction in spectral space, at the end of the current deposition at each timestep.
 
-\subsection{Field integration}
+\subsection{Integration of the Maxwell equation using the PSATD scheme}
 \label{sec:FieldIntegration}
 
 The Maxwell equations
@@ -592,7 +619,7 @@ However, this type of scheme retains some amount of numerical dispersion, and ca
 thus affect the simulated physics.
 
 Instead, here we use an adaptation of the PSATD scheme \citep{Haber} for the
-Fourier-Bessel spectral space. Similarly to the case of the standard
+Fourier-Bessel spectral space. As in the case of the standard
 PSATD, we assume that the currents are constant over one timestep and
 the charge is linear in time over the same timestep. Under these
 assumptions, the Maxwell equations \cref{eq:CircMaxwellp,eq:CircMaxwellm,eq:CircMaxwellz} can be integrated
@@ -632,10 +659,9 @@ ik_z\left[ \frac{\trho{n+1}}{\omega^2}\left(
   \tj{+}{n+1/2} + ik_\perp \tj{-}{n+1/2} \right)&
 \end{align*}
 
-
-where $\omega= c\sqrt{k_z^2 + k_\perp^2}$, $C = \cos(\omega \Delta t)$
-and $S = \sin(\omega \Delta t) $. (See \cref{sec:PSTADderiv} for a
-derivation.)
+\noindent where $\omega \equiv c\sqrt{k_z^2 + k_\perp^2}$, $C \equiv \cos(\omega \Delta t)$
+and $S \equiv \sin(\omega \Delta t) $. (See \cref{sec:PSTADderiv} for a
+derivation of these equations.)
 
 \section{Benchmarks}
 \label{sec:benchmarks}

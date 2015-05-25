@@ -128,16 +128,22 @@
 \draw (\Dt,1*\yspac) node[gray,fill=white,draw=white,rounded corners]{$ \hat{j}^{n-1/2}_m$};
 \draw (\Dt,-\yspac) node[gray,fill=white,draw=white,rounded corners]{$\vec{p}_k^{n-1/2}$};
 % -- n
-\draw (1.8*\Dt,3*\yspac) node[red,fill=white,draw=white,rounded corners]{$\spectral{\rho}^n_m$};
+\draw[->,>=stealth,thick] (1.8*\Dt,3.2*\yspac) .. controls
+(2.3*\Dt,4*\yspac) .. (2.8*\Dt,3.5*\yspac);
+\draw (1.8*\Dt,3*\yspac) node[red,fill=white,draw=red,rounded
+corners]{$\spectral{\rho}^n_m$};
 \draw (2.2*\Dt,3*\yspac) node[gray,fill=white,draw=white,rounded corners]{$  \spectral{B}^{n}_m, \spectral{E}^{n}_m$};
 \draw (1.8*\Dt,\yspac) node[gray,fill=white,draw=white,rounded corners]{$\hat{\rho}^n_m$};
 \draw (2.2*\Dt,\yspac) node[red,fill=white,draw=white,rounded corners]{$\hat{B}^n_m, \hat{E}^{n}_m$};
 \draw (2*\Dt,-\yspac) node[blue,fill=white,draw=blue,rounded corners]{$\vec{x}_k^{n}$};
 % -- n+1/2
+\draw (3*\Dt,4*\yspac) node[above]{Current correction};
 \draw (3*\Dt,3*\yspac) node[red,fill=white!75!red,draw=red,rounded corners]{$ \spectral{J}^{n+1/2}_m$};
 \draw (3*\Dt,1*\yspac) node[red,fill=white!75!red,draw=red,rounded corners]{$ \hat{j}^{n+1/2}_m$};
 \draw (3*\Dt,-\yspac) node[blue,fill=white,draw=blue,rounded corners]{$\vec{p}_k^{n+1/2}$};
 % -- n+1
+\draw[->,>=stealth,thick] (3.8*\Dt,3.2*\yspac) .. controls
+(3.5*\Dt,4*\yspac) .. (3.2*\Dt,3.5*\yspac);
 \draw (3.8*\Dt,3*\yspac) node[red,fill=white!75!red,draw=red,rounded corners]{$\spectral{\rho}^{n+1}_m$};
 \draw (4.4*\Dt,3*\yspac) node[gray,fill=white,draw=white,rounded corners]{$  \spectral{B}^{n+1}_m, \spectral{E}^{n+1}_m$};
 \draw (3.8*\Dt,\yspac) node[red,fill=white!75!red,draw=red,rounded corners]{$\hat{\rho}^{n+1}_m$};
