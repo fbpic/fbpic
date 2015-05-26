@@ -8,7 +8,8 @@ from main import adapt_to_grid
 from particles import Particles
 
 def add_laser( fld, a0, w0, ctau, z0, lambda0=0.8e-6,
-               theta_pol=0., fw_propagating=True, update_spectral=True ) :
+               theta_pol=0., fw_propagating=True,
+               update_spectral=True ) :
     """
     Add a linearly-polarized, Gaussian laser pulse in the Fields object
 
@@ -95,7 +96,7 @@ def add_laser( fld, a0, w0, ctau, z0, lambda0=0.8e-6,
 
 
 def add_elec_bunch( sim, gamma0, n_e, p_zmin, p_zmax, p_rmin, p_rmax,
-                    p_nr=2, p_nz=2, p_nt=4, filter_currents=True ) :
+                    p_nr=2, p_nz=2, p_nt=4, filter_currents=True, dens_func=None ) :
     """
     Introduce a relativistic electron bunch in the simulation,
     along with its space charge field.
@@ -120,6 +121,13 @@ def add_elec_bunch( sim, gamma0, n_e, p_zmin, p_zmax, p_rmin, p_rmax,
     p_nt : int
         Number of macroparticles along the theta direction
 
+    dens_func : callable, optional
+        A function of the form :
+        def dens_func( z, r ) ...
+        where z and r are 1d arrays, and which returns
+        a 1d array containing the density *relative to n*
+        (i.e. a number between 0 and 1) at the given positions
+
     filter_currents : bool, optional
         Whether to filter the currents (in k space by default)
     """
@@ -135,7 +143,8 @@ def add_elec_bunch( sim, gamma0, n_e, p_zmin, p_zmax, p_rmin, p_rmax,
                             Npz=Npz, zmin=p_zmin, zmax=p_zmax,
                             Npr=Npr, rmin=p_rmin, rmax=p_rmax,
                             Nptheta=p_nt, dt=sim.dt,
-                            continuous_injection=False )
+                            continuous_injection=False,
+                            dens_func=dens_func )
 
     # Give them the right velocity
     relat_elec.inv_gamma[:] = 1./gamma0
