@@ -14,36 +14,36 @@ Let $F_u$ be a field that is well-defined everywhere in space
 is thus given by \cref{eq:CartBwTrans,eq:CartFwTrans}:
 \begin{align*}
 F_u(\vec{r}) = \frac{1}{(2\pi)^{3}}\Integ{k_x} \,\Integ{k_y}\,
-\Integ{k_z} \; \hat{F_u}(\vec{k}) e^{i(k_x x + k_y y + k_z z)} \\
-\hat{F_u}(\vec{k})  = \Integ{x} \,\Integ{y}\,
+\Integ{k_z} \; \mathcal{F}_u(\vec{k}) e^{i(k_x x + k_y y + k_z z)} \\
+\mathcal{F}_u(\vec{k})  = \Integ{x} \,\Integ{y}\,
 \Integ{z} \; F_u(\vec{r}) e^{-i(k_x x + k_y y + k_z z)} 
 \end{align*}
 Using the change of variable $k_x=k_\perp\cos(\phi)$, $k_y = k_\perp\sin(\phi)$,
 $x=r\cos(\theta)$, $y=r\sin(\theta)$, this becomes
  \begin{align*}
 F_u(\vec{r}) = \frac{1}{(2\pi)^{3}}\Integ{k_z} \,\RInteg{k_\perp}\,
-\TInteg{\phi} \; \hat{F_u}(\vec{k})
+\TInteg{\phi} \; \mathcal{F}_u(\vec{k})
 e^{i(k_\perp r \cos(\theta-\phi) + k_z z)} \\
-\hat{F_u}(\vec{k})   = \Integ{z} \,\RInteg{r}\,
+\mathcal{F}_u(\vec{k})   = \Integ{z} \,\RInteg{r}\,
 \Integ{\theta} \; F_u(\vec{r}) e^{-i(k_\perp r \cos(\theta-\phi) + k_z z)} 
 \end{align*}
 We now use the relation $e^{ik_\perp r\cos(\theta-\phi)} =
 \sum_{m=-\infty}^{\infty} i^m J_m(k_\perp r) e^{im(\phi-\theta)}$ in these equations, to obtain
 \begin{align*}
 F_u (\vec{r})  = \sum_{m=-\infty}^{\infty} \frac{1}{(2\pi)^{3}}\Integ{k_z} \,\RInteg{k_\perp }
-\TInteg{\phi} \; i^m \hat{F_u}(\vec{k}) \;
+\TInteg{\phi} \; i^m \mathcal{F}_u(\vec{k}) \;
 J_m(k_\perp r) e^{-im(\theta-\phi) + ik_z z} \\
-\hat{F_u}(\vec{k})   =  \sum_{m=-\infty}^{\infty} \Integ{z} \,\RInteg{r}
+\mathcal{F}_u(\vec{k})   =  \sum_{m=-\infty}^{\infty} \Integ{z} \,\RInteg{r}
 \TInteg{\theta} \;\; (-i)^m F_u(\vec{r}) \; J_m(k_\perp r) e^{-im(\phi-\theta) -ik_z z} 
 \end{align*}
-We now define $\tilde{F}_{u,m}(k_z,k_\perp ) = \frac{1}{2\pi}\int_0^{2\pi}
-\mathrm{d}\phi \; i^m \hat{F_u}(\vec{k})
+We now define $\spectral{F}_{u,m}(k_z,k_\perp ) = \frac{1}{2\pi}\int_0^{2\pi}
+\mathrm{d}\phi \; i^m \mathcal{F}_u(\vec{k})
 e^{im\phi}$. This results in the following equations :
 \begin{align}
 F_u(\vec{r}) =  \frac{1}{(2\pi)^2}\sum_{m=-\infty}^{\infty} \Integ{k_z}
-\RInteg{k_\perp }\; \tilde{F}_{u,m}(k_z,k_\perp ) \; J_m(k_\perp r) e^{-im\theta + ik_z z} 
+\RInteg{k_\perp }\; \spectral{F}_{u,m}(k_z,k_\perp ) \; J_m(k_\perp r) e^{-im\theta + ik_z z} 
 \\
-\tilde{F}_{u,m}(k_z,k_\perp ) = \Integ{z} \RInteg{r}
+\spectral{F}_{u,m}(k_z,k_\perp ) = \Integ{z} \RInteg{r}
 \TInteg{\theta} \;F_u(\vec{r})\; J_m(k_\perp r) e^{-im\theta
  - i k_z z} \label{eq:CircBwTransu}
 \end{align}
@@ -59,30 +59,30 @@ denote generally by $F_r$. We have :
 Using \cref{eq:CircBwTransu}, this leads to
 \begin{align} 
 F_r =   \frac{1}{(2\pi)^2}\sum_{m=-\infty}^{\infty} \Integ{k_z}\,\RInteg{k_\perp }\;
-\left(  J_m(k_\perp r) \frac{\tilde{F}_{x,m} -
-    i\tilde{F}_{y,m}}{2}e^{-i(m-1)\theta +ik_z z} + J_m(k_\perp r)
-  \frac{\tilde{F}_{x,m} +   i\tilde{F}_{y,m}}{2}e^{-i(m+1)\theta +
+\left(  J_m(k_\perp r) \frac{\spectral{F}_{x,m} -
+    i\spectral{F}_{y,m}}{2}e^{-i(m-1)\theta +ik_z z} + J_m(k_\perp r)
+  \frac{\spectral{F}_{x,m} +   i\spectral{F}_{y,m}}{2}e^{-i(m+1)\theta +
     ik_z z} \right) \\
 =  \frac{1}{(2\pi)^2}\sum_{m=-\infty}^{\infty} \Integ{k_z}\,\RInteg{k_\perp }\;
-\left(  J_{m+1}(k_\perp r) \frac{\tilde{F}_{x,m+1} -
-    i\tilde{F}_{y,m+1}}{2}e^{-im\theta +ik_z z} + J_{m-1}(k_\perp r)
-  \frac{\tilde{F}_{x,m-1} +   i\tilde{F}_{y,m-1}}{2}e^{-im\theta +
+\left(  J_{m+1}(k_\perp r) \frac{\spectral{F}_{x,m+1} -
+    i\spectral{F}_{y,m+1}}{2}e^{-im\theta +ik_z z} + J_{m-1}(k_\perp r)
+  \frac{\spectral{F}_{x,m-1} +   i\spectral{F}_{y,m-1}}{2}e^{-im\theta +
     ik_z z} \right) 
 \end{align}
 where we relabeled the dummy variable $m$ in the above sums. Let us
-thus define $\tilde{F}_{-,m} = \frac{\tilde{F}_{x,m-1} +
-    i\tilde{F}_{y,m-1}}{2}$ and $\tilde{F}_{+,m} = \frac{\tilde{F}_{x,m+1} -
-    i\tilde{F}_{y,m+1}}{2}$. This results in:
+thus define $\spectral{F}_{-,m} = \frac{\spectral{F}_{x,m-1} +
+    i\spectral{F}_{y,m-1}}{2}$ and $\spectral{F}_{+,m} = \frac{\spectral{F}_{x,m+1} -
+    i\spectral{F}_{y,m+1}}{2}$. This results in:
 \begin{equation} 
 F_r(\vec{r}) =  \frac{1}{(2\pi)^2}\sum_{m=-\infty}^{\infty} \Integ{k_z}\,\RInteg{k_\perp }\;
-\left( \tilde{F}_{+,m}\; J_{m+1}(k_\perp r) +\tilde{F}_{-,m}\; J_{m-1}(k_\perp r)
+\left( \spectral{F}_{+,m}\; J_{m+1}(k_\perp r) +\spectral{F}_{-,m}\; J_{m-1}(k_\perp r)
 \right)  e^{-im\theta +ik_z z}
 \end{equation}
 
 With the same definitions and the same method, it is also easy to show that:
 \begin{equation} 
 F_\theta(\vec{r}) = \sum_{m=-\infty}^{\infty} \Integ{k_z}\,\RInteg{k_\perp }\;
-i\left( \tilde{F}_{+,m}\; J_{m+1}(k_\perp r) - \tilde{F}_{-,m}\; J_{m-1}(k_\perp r)
+i\left( \spectral{F}_{+,m}\; J_{m+1}(k_\perp r) - \spectral{F}_{-,m}\; J_{m-1}(k_\perp r)
 \right)  e^{-im\theta +ik_z z}
 \end{equation}
 
@@ -106,40 +106,40 @@ In the following, we write only the equations corresponding to $\partial_t \vec{
 \vec{\nabla}\times\vec{B} - \mu_0 \vec{j}$ can be treated very
 similarly. These equations become
 \begin{align*}
-\RInteg{k_\perp } \left[ \; \partial_t \tilde{B}_{+,m}  J_{m+1}(k_\perp r)
-  + \partial_t \tilde{B}_{-,m}  J_{m-1}(k_\perp r) \; \right] =&& \\ 
-\qquad \RInteg{k_\perp } \left[ \; \tilde{E}_{z,m} \frac{im}{r}
+\RInteg{k_\perp } \left[ \; \partial_t \spectral{B}_{+,m}  J_{m+1}(k_\perp r)
+  + \partial_t \spectral{B}_{-,m}  J_{m-1}(k_\perp r) \; \right] =&& \\ 
+\qquad \RInteg{k_\perp } \left[ \; \spectral{E}_{z,m} \frac{im}{r}
   J_m(k_\perp r) \right.-&\left.
-  k_z\tilde{E}_{+,m}J_{m+1}(k_\perp r) + k_z\tilde{E}_{-,m}J_{m-1}(k_\perp r) \;
+  k_z\spectral{E}_{+,m}J_{m+1}(k_\perp r) + k_z\spectral{E}_{-,m}J_{m-1}(k_\perp r) \;
 \right] & \\
-\RInteg{k_\perp } \left[ \; \partial_t \tilde{B}_{+,m}  J_{m+1}(k_\perp r)
-  - \partial_t \tilde{B}_{-,m}  J_{m-1}(k_\perp r) \; \right] =&& \\
- \RInteg{k_\perp } \left[ \; -k_z\tilde{E}_{+,m}J_{m+1}(k_\perp r)
- \right.-&\left.  k_z\tilde{E}_{-,m}J_{m-1}(k_\perp r) - ik_\perp \tilde{E}_{z,m} J_m'(k_\perp r) \;\right] \\
-\RInteg{k_\perp }\; \partial_t \tilde{B}_{z,m}  J_{m}(k_\perp r) =
+\RInteg{k_\perp } \left[ \; \partial_t \spectral{B}_{+,m}  J_{m+1}(k_\perp r)
+  - \partial_t \spectral{B}_{-,m}  J_{m-1}(k_\perp r) \; \right] =&& \\
+ \RInteg{k_\perp } \left[ \; -k_z\spectral{E}_{+,m}J_{m+1}(k_\perp r)
+ \right.-&\left.  k_z\spectral{E}_{-,m}J_{m-1}(k_\perp r) - ik_\perp \spectral{E}_{z,m} J_m'(k_\perp r) \;\right] \\
+\RInteg{k_\perp }\; \partial_t \spectral{B}_{z,m}  J_{m}(k_\perp r) =
 \RInteg{k_\perp } \left[ \; -ik_\perp
-  \tilde{E}_{+,m}\right.&\left(\frac{J_{m+1}(k_\perp r)}{k_\perp r} +
+  \spectral{E}_{+,m}\right.&\left(\frac{J_{m+1}(k_\perp r)}{k_\perp r} +
     J_{m+1}'(k_\perp r) \right) + &\\
-\left. ik_\perp \tilde{E}_{-,m}\left(\frac{J_{m-1}(k_\perp r)}{k_\perp r} +
+\left. ik_\perp \spectral{E}_{-,m}\left(\frac{J_{m-1}(k_\perp r)}{k_\perp r} +
     J_{m-1}'(k_\perp r) \right) \right.-&\left. \frac{im}{r} \left( E_{+,m} J_{m+1}(k_\perp r) +
     E_{-,m} J_{m-1}(k_\perp r) \right) \;\right] 
 \end{align*}
 By taking the sum and difference of the first two equations, and by
 rearranging the third equation, we obtain:
 \begin{align*}
-\RInteg{k_\perp } \; 2 \,\partial_t \tilde{B}_{+,m}  J_{m+1}(k_\perp r) =
-\RInteg{k_\perp } \left[ \; ik_\perp \tilde{E}_{z,m} \left( \frac{m}{k_\perp r} J_m(k_\perp r) -
-    J_m'(k_\perp r) \right) -2 k_z\tilde{E}_{+,m}J_{m+1}(k_\perp r) \;
+\RInteg{k_\perp } \; 2 \,\partial_t \spectral{B}_{+,m}  J_{m+1}(k_\perp r) =
+\RInteg{k_\perp } \left[ \; ik_\perp \spectral{E}_{z,m} \left( \frac{m}{k_\perp r} J_m(k_\perp r) -
+    J_m'(k_\perp r) \right) -2 k_z\spectral{E}_{+,m}J_{m+1}(k_\perp r) \;
 \right] \\
-\RInteg{k_\perp } \; 2\, \partial_t \tilde{B}_{-,m}  J_{m-1}(k_\perp r) \; =
+\RInteg{k_\perp } \; 2\, \partial_t \spectral{B}_{-,m}  J_{m-1}(k_\perp r) \; =
 \RInteg{k_\perp } \left[ \;
-   ik_\perp \tilde{E}_{z,m} \left( \frac{m}{k_\perp r} J_m(k_\perp r) +
-    J_m'(k_\perp r) \right)  + 2k_z\tilde{E}_{-,m}J_{m-1}(k_\perp r) \;
+   ik_\perp \spectral{E}_{z,m} \left( \frac{m}{k_\perp r} J_m(k_\perp r) +
+    J_m'(k_\perp r) \right)  + 2k_z\spectral{E}_{-,m}J_{m-1}(k_\perp r) \;
 \right] \\
-\RInteg{k_\perp }\; \partial_t \tilde{B}_{z,m}  J_{m}(k_\perp r) =
-\RInteg{k_\perp } \left[ \; -ik_\perp \tilde{E}_{+,m}\left(\frac{m+1}{k_\perp r}J_{m+1}(k_\perp r) +
+\RInteg{k_\perp }\; \partial_t \spectral{B}_{z,m}  J_{m}(k_\perp r) =
+\RInteg{k_\perp } \left[ \; -ik_\perp \spectral{E}_{+,m}\left(\frac{m+1}{k_\perp r}J_{m+1}(k_\perp r) +
     J_{m+1}'(k_\perp r) \right) \right.\\
-\qquad \left. - ik_\perp \tilde{E}_{-,m}\left(\frac{m-1}{k_\perp r}J_{m-1}(k_\perp r) -
+\qquad \left. - ik_\perp \spectral{E}_{-,m}\left(\frac{m-1}{k_\perp r}J_{m-1}(k_\perp r) -
     J_{m-1}'(k_\perp r) \right) \right] 
 \end{align*}
 We can now use the relations $\frac{m}{k_\perp r} J_m(k_\perp r) +
@@ -147,28 +147,28 @@ We can now use the relations $\frac{m}{k_\perp r} J_m(k_\perp r) +
     J_m'(k_\perp r) = J_{m+1}(k_\perp r)$ (see relation 9.1.27 in
     \cite{Abramowitz}), and obtain :
 \begin{align*}
-\RInteg{k_\perp } \; 2 \,\partial_t \tilde{B}_{+,m}  J_{m+1}(k_\perp r) =
-\RInteg{k_\perp } \left[ \; ik_\perp \tilde{E}_{z,m}\,
-    J_{m+1}(k_\perp r) -2 k_z\tilde{E}_{+,m}J_{m+1}(k_\perp r) \;
+\RInteg{k_\perp } \; 2 \,\partial_t \spectral{B}_{+,m}  J_{m+1}(k_\perp r) =
+\RInteg{k_\perp } \left[ \; ik_\perp \spectral{E}_{z,m}\,
+    J_{m+1}(k_\perp r) -2 k_z\spectral{E}_{+,m}J_{m+1}(k_\perp r) \;
 \right] \\
-\RInteg{k_\perp } \; 2\, \partial_t \tilde{B}_{-,m}  J_{m-1}(k_\perp r) \; =
+\RInteg{k_\perp } \; 2\, \partial_t \spectral{B}_{-,m}  J_{m-1}(k_\perp r) \; =
 \RInteg{k_\perp } \left[ \;
-   ik_\perp \tilde{E}_{z,m} \,
-    J_{m-1}(k_\perp r) + 2k_z\tilde{E}_{-,m}J_{m-1}(k_\perp r) \;
+   ik_\perp \spectral{E}_{z,m} \,
+    J_{m-1}(k_\perp r) + 2k_z\spectral{E}_{-,m}J_{m-1}(k_\perp r) \;
 \right] \\
-\RInteg{k_\perp }\; \partial_t \tilde{B}_{z,m}  J_{m}(k_\perp r) =
-\RInteg{k_\perp } \left[ \; -ik_\perp \tilde{E}_{+,m} J_{m}(k_\perp r) - ik_\perp \tilde{E}_{-,m}\,J_{m}(k_\perp r) \right] 
+\RInteg{k_\perp }\; \partial_t \spectral{B}_{z,m}  J_{m}(k_\perp r) =
+\RInteg{k_\perp } \left[ \; -ik_\perp \spectral{E}_{+,m} J_{m}(k_\perp r) - ik_\perp \spectral{E}_{-,m}\,J_{m}(k_\perp r) \right] 
 \end{align*}
 Each equation of the above system contains Bessel functions of only one
 given order (either $m+1$, $m-1$ or $m$). This allows to separate the
 different $k_\perp $ components, since it the the functions $J_n(k_\perp r)$, for a
 fixed $n$ and different values of $k_\perp $, form a basis of the set of real functions:
 \begin{align*}
-2 \,\partial_t \tilde{B}_{+,m} =
-ik_\perp \tilde{E}_{z,m} -2 k_z\tilde{E}_{+,m} \\
-2\, \partial_t \tilde{B}_{-,m} = ik_\perp \tilde{E}_{z,m} \,
-    + 2k_z\tilde{E}_{-,m} \\
- \partial_t \tilde{B}_{z,m} = -ik_\perp \tilde{E}_{+,m}  - ik_\perp \tilde{E}_{-,m}
+2 \,\partial_t \spectral{B}_{+,m} =
+ik_\perp \spectral{E}_{z,m} -2 k_z\spectral{E}_{+,m} \\
+2\, \partial_t \spectral{B}_{-,m} = ik_\perp \spectral{E}_{z,m} \,
+    + 2k_z\spectral{E}_{-,m} \\
+ \partial_t \spectral{B}_{z,m} = -ik_\perp \spectral{E}_{+,m}  - ik_\perp \spectral{E}_{-,m}
 \end{align*}
 
 \section{PSATD scheme, in the Fourier-Bessel
@@ -177,22 +177,22 @@ ik_\perp \tilde{E}_{z,m} -2 k_z\tilde{E}_{+,m} \\
 
 We use a scheme very similar to that of \cite{Haber}. In this scheme the currents are considered constant over one timestep, and the charge density is considered linear in time.
 
-\subsection{Expressions for $\tilde{B}_m$}
+\subsection{Expressions for $\spectral{B}_m$}
 
 By combining \cref{eq:CircMaxwellp,eq:CircMaxwellm,eq:CircMaxwellz}
 and \cref{eq:SpectCons}, one can find the propagation equations for $B$.
 \begin{align*}
-\partial_t^2 \tilde{B}_{+,m} + c^2(k_\perp ^2+k_z^2) \tilde{B}_{+,m} = 
-\mu_0 c^2 \left( - \frac{ik_\perp }{2} \tilde{j}_{z,m} + k_z \tilde{j}_{+,m}
+\partial_t^2 \spectral{B}_{+,m} + c^2(k_\perp ^2+k_z^2) \spectral{B}_{+,m} = 
+\mu_0 c^2 \left( - \frac{ik_\perp }{2} \spectral{j}_{z,m} + k_z \spectral{j}_{+,m}
 \right) \\
-\partial_t^2 \tilde{B}_{-,m} + c^2(k_\perp ^2+k_z^2) \tilde{B}_{-,m} = 
-\mu_0 c^2 \left( - \frac{ik_\perp }{2} \tilde{j}_{z,m} - k_z \tilde{j}_{+,m}
+\partial_t^2 \spectral{B}_{-,m} + c^2(k_\perp ^2+k_z^2) \spectral{B}_{-,m} = 
+\mu_0 c^2 \left( - \frac{ik_\perp }{2} \spectral{j}_{z,m} - k_z \spectral{j}_{+,m}
 \right) \\
-\partial_t^2 \tilde{B}_{z,m} + c^2(k_\perp ^2+k_z^2) \tilde{B}_{z,m} =
-\mu_0c^2  (ik_\perp  \tilde{j}_{+,m} + ik_\perp \tilde{j}_{-,m} ) 
+\partial_t^2 \spectral{B}_{z,m} + c^2(k_\perp ^2+k_z^2) \spectral{B}_{z,m} =
+\mu_0c^2  (ik_\perp  \spectral{j}_{+,m} + ik_\perp \spectral{j}_{-,m} ) 
 \end{align*}
 Let us integrate these equations for $t\in [n\Delta t, (n+1)\Delta
-t]$. In this interval, $\tilde{j}_m(t)$ is constant
+t]$. In this interval, $\spectral{j}_m(t)$ is constant
 and equal to $\tj_m{n+1/2}$, and thus the right-hand side of the above
 equations is constant. Using Green functions, the
 general solution of a differential equation of the form 
@@ -204,7 +204,7 @@ We thus use the above expression, with $\omega^2 =c^2(k_\perp^2 +
 k_z^2)$, to integrate the fields from $t_0 = n\Delta t$ to $t=(n+1)\Delta t$. In
 particular, we use again the Maxwell equations
 \cref{eq:CircMaxwellp,eq:CircMaxwellm,eq:CircMaxwellz} to obtain the
-expression of $\partial_t \tilde{B}_{m} (t_0)$. This yields:
+expression of $\partial_t \spectral{B}_{m} (t_0)$. This yields:
 \begin{align*}
 \tB{+}{n+1} = \; & C \tB{+}{n} - 
 \frac{S}{\omega}\left(-\frac{ik_\perp }{2} \tE{z}{n} + k_z\tE{+}{n}
@@ -221,24 +221,24 @@ expression of $\partial_t \tilde{B}_{m} (t_0)$. This yields:
 \end{align*}
 where $C = \cos(\omega \Delta t)$ and $S = \sin(\omega \Delta t) $.
 
-\subsection{Expressions for $\tilde{E}_m$}
+\subsection{Expressions for $\spectral{E}_m$}
 
 Similarly, when combining \cref{eq:CircMaxwellp,eq:CircMaxwellm,eq:CircMaxwellz}
 and \cref{eq:SpectCons}, the propagation equations for $E$ are:
 \begin{align*}
-\partial_t^2 \tilde{E}_{+,m} + c^2(k_\perp^2 + k_z^2) \tilde{E}_{+,m}
-= \frac{c^2}{\epsilon_0} \frac{k_\perp}{2} \tilde{\rho}_m -
-\mu_0c^2 \partial_t\tilde{j}_{+,m} \\
-\partial_t^2 \tilde{E}_{-,m} + c^2(k_\perp^2 + k_z^2) \tilde{E}_{-,m}
-= - \frac{c^2}{\epsilon_0} \frac{k_\perp}{2} \tilde{\rho}_m -
-\mu_0c^2 \partial_t\tilde{j}_{-,m} \\
-\partial_t^2 \tilde{E}_{z,m} + c^2(k_\perp^2 + k_z^2) \tilde{E}_{z,m}
-= - \frac{c^2}{\epsilon_0} i k_z \tilde{\rho}_m -
-\mu_0c^2 \partial_t\tilde{j}_{z,m} 
+\partial_t^2 \spectral{E}_{+,m} + c^2(k_\perp^2 + k_z^2) \spectral{E}_{+,m}
+= \frac{c^2}{\epsilon_0} \frac{k_\perp}{2} \spectral{\rho}_m -
+\mu_0c^2 \partial_t\spectral{j}_{+,m} \\
+\partial_t^2 \spectral{E}_{-,m} + c^2(k_\perp^2 + k_z^2) \spectral{E}_{-,m}
+= - \frac{c^2}{\epsilon_0} \frac{k_\perp}{2} \spectral{\rho}_m -
+\mu_0c^2 \partial_t\spectral{j}_{-,m} \\
+\partial_t^2 \spectral{E}_{z,m} + c^2(k_\perp^2 + k_z^2) \spectral{E}_{z,m}
+= - \frac{c^2}{\epsilon_0} i k_z \spectral{\rho}_m -
+\mu_0c^2 \partial_t\spectral{j}_{z,m} 
 \end{align*}
 Let us again integrate these equations for $t\in [n\Delta t, (n+1)\Delta
-t]$. In this interval, $\tilde{j}_m(t)$ is constant (thus its time
-derivatives drop), and $\tilde{\rho}_m$ is linear in time. As a
+t]$. In this interval, $\spectral{j}_m(t)$ is constant (thus its time
+derivatives drop), and $\spectral{\rho}_m$ is linear in time. As a
 consequence the right hand side is proportional to $\trho{n} +
 (\trho{n+1}-\trho{n})(t-t_0)/\Delta t$. Using Green functions, the solution of 
 $ \partial_t^2 f + \omega^2 f = \trho{n} + (\trho{n+1}-\trho{n})(t-t_0)/\Delta t $ is
