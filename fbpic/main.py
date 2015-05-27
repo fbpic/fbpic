@@ -265,9 +265,13 @@ def adapt_to_grid( x, p_xmin, p_xmax, p_nx ) :
     # Do not load particles below the lower bound of the box
     if p_xmin < xmin - 0.5*dx :
         p_xmin = xmin - 0.5*dx
-    # Do not load particles above the upper bound of the box
-    if p_xmax > xmax + 0.5*dx :
-        p_xmax = xmax + 0.5*dx
+    # Do not load particles in the two last upper cells
+    # (This is because the charge density may extend over these cells
+    # when it is smoothed. If particles are loaded closer to the right
+    # boundary, this extended charge density can wrap around and appear
+    # at the left boundary.)
+    if p_xmax > xmax - 1.5*dx :
+        p_xmax = xmax - 1.5*dx
             
     # Find the gridpoints on which the particles should be loaded
     x_load = x[ ( x > p_xmin ) & ( x < p_xmax ) ]

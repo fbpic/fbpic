@@ -136,11 +136,14 @@ class MovingWindow(object) :
             for species in ptcl :
                 clean_outside_particles( species, z_zero-0.5*dz )
                 if species.continuous_injection == True :
-                    add_particles( species, zmax-1.5*dz, zmax-0.5*dz, p_nz )
+                    # Remember that particles are not loaded in the
+                    # last two upper cells, in order to prevent
+                    # wrapping around of the charge density, when it is smoothed
+                    add_particles( species, zmax-2.5*dz, zmax-1.5*dz, p_nz )
 
     def damp( self, grid, fieldtype ) :
         """
-        Set the currents progressively to zero, at the right
+        Set the currents progressively to zero, at the left
         end of the moving window.
 
         This is done by multiplying the self.ncells_damp first cells
