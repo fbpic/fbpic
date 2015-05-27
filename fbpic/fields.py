@@ -541,7 +541,7 @@ class SpectralGrid(object) :
         # Avoid division by 0
         inv_k2 = 1./np.where(
             ( self.kz == 0 ) & (self.kr == 0), 1., self.kz**2 + self.kr**2 )  
-        inv_k2[ ( self.kz == 0 ) & (self.kr == 0) ] = 0. # No correction for k=0
+        inv_k2[ ( self.kz == 0 ) & (self.kr == 0) ] =0. # No correction for k=0
         
         self.F[:,:] = - inv_k2 * ( (self.rho_next - self.rho_prev)*inv_dt \
             + i*self.kz*self.Jz + self.kr*( self.Jp - self.Jm ) ) 
@@ -551,7 +551,7 @@ class SpectralGrid(object) :
         self.Jm += -0.5*self.kr*self.F
         self.Jz += -i*self.kz*self.F
 
-    def push_eb_with(self, ps, ptcl_feedback=True ) :
+    def push_eb_with(self, ps, ptcl_feedback=True, use_true_rho=False ) :
         """
         Pushes the fields over one timestep, using the psatd coefficients.
 
@@ -563,6 +563,14 @@ class SpectralGrid(object) :
         ptcl_feedback : bool, optional
             Whether to take into the densities and currents when
             pushing the fields
+
+        use_true_rho : bool, optional
+            Whether to use the rho projected on the grid.
+            If set to False, this will use div(E) and div(J)
+            to evaluate rho and its time evolution.
+            In the case use_true_rho==False, the rho projected
+            on the grid is used only to correct the currents, and
+            the simulation can be run without the neutralizing ions.
         """
         # Check that psatd object passed as argument is the right one
         # (i.e. corresponds to the right mode)
@@ -577,8 +585,17 @@ class SpectralGrid(object) :
         ps.Ez[:,:] = self.Ez[:,:]
 
         # Calculate useful auxiliary matrices
-        rho_diff = ps.rho_next_coef*self.rho_next \
-            - ps.rho_prev_coef*self.rho_prev
+        if ptcl_feedback :
+            if use_true_rho :
+                # Evaluation using the rho projected on the grid
+                rho_diff = ps.rho_next_coef*self.rho_next \
+                    - ps.rho_prev_coef*self.rho_prev
+            else :
+                # Evaluation using div(E) and div(J)
+                rho_diff = (ps.rho_next_coef-ps.rho_prev_coef) * epsilon_0 * \
+                  ( self.kr*self.Ep - self.kr*self.Em + i*self.kz*self.Ez ) \
+                  - ps.rho_next_coef * ps.dt * \
+                  ( self.kr*self.Jp - self.kr*self.Jm + i*self.kz*self.Jz )
         c2 = c**2
 
         # Push the E field
@@ -740,8 +757,9 @@ class PsatdCoeffs(object) :
             The timestep of the simulation
         """
         
-        # Register m
+        # Register m and dt
         self.m = m
+        self.dt = dt
     
         # Construct the omega and inverse omega array
         w = c*np.sqrt( kz**2 + kr**2 )
