@@ -621,7 +621,7 @@ thus affect the simulated physics.
 Instead, here we use an adaptation of the PSATD scheme \citep{Haber} for the
 Fourier-Bessel spectral space. As in the case of the standard
 PSATD, we assume that the currents are constant over one timestep and
-the charge is linear in time over the same timestep. Under these
+that the charge density is linear in time over the same timestep. Under these
 assumptions, the Maxwell equations \cref{eq:CircMaxwellp,eq:CircMaxwellm,eq:CircMaxwellz} can be integrated
 analytically over that timestep, and they lead to:
 \begin{align*}
@@ -666,9 +666,42 @@ derivation of these equations.)
 \section{Benchmarks}
 \label{sec:benchmarks}
 
+We developped a single-processor, proof-of-principle implementation of
+the PIC algorithm described in the previous section (\cref{sec:implementation}), and tested
+it in a number of physical situations. In particular, we focused on
+tests of the dispersion relation, since the absence of
+spurious numerical dispersion was one of the original goals of this algorithm.
+
 \subsection{Propagation in vacuum}
 
+A first test consisted in letting a laser pulse propagate and in
+measuring its group velocity in the simulation. The simulations were
+run with the spectral cylindrical algorithm presented in
+\cref{sec:implementation}. For comparison, the same simulations 
+were also run with a finite-difference cylindrical
+algorithm equivalent to that of \cite{Lifschitz,Davidson} and which had
+been previously implemented in the PIC code \textsc{Warp}.
+
+The simulations were run with a moving window, in a box 
+The resolution was varied while keeping the same cell aspect ratio ($\Delta r = 5\Delta z$). The
+timestep is set to $\Delta t = \Delta z/c$ in the case of the spectral
+cylindrical algorithm and to $\Delta t = 1/\sqrt{}$ in the case of the finite-difference
+algorithm (due to the existence of a Courant
+limit for this algorithm). 
+
+was The laser properties were
+
+Figure : represent box and group velocity.
+
+Due to the finite waist, the group velocity of the laser on axis. 
+
 \subsection{Propagation in a plasma}
+
+Mention moving window. (In the case of our
+spectral cylindrical algorithm, the fields were progressively set to zero at the
+left boundary of the moving window, in order to prevent them from
+wrapping around at the right boundary, as a consequence of the
+periodicity of the Fourier transform.) 
 
 \subsection{Linear plasma wave}
 
@@ -678,7 +711,7 @@ derivation of these equations.)
 Mention obvious advantage with better numerical dispersion : dephasing
 length will be better predicted (cite Cowan). 
 
-Mention suffer from parallelization problems.
+Mention suffer from parallelization problems. + Moving window problems
 
 
 \subsection{Absence of numerical Cherenkov radiation}

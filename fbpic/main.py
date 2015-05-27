@@ -171,8 +171,20 @@ class Simulation(object) :
 
             # Move the window if needed
             if moving_window :
+                # Shift the fields and add new particles
                 self.moving_win.move( fld, ptcl, self.p_nz, self.dt )
-                
+                # Reprojected the charge on the interpolation grid
+                # (Particles have been added/removed.)
+                fld.erase('rho')
+                for species in ptcl :
+                    species.deposit( fld.interp, 'rho' )
+                fld.divide_by_volume('rho')
+                self.moving_win.damp( fld.interp, 'rho' )
+                # Get the new charge on the spectral grid
+                fld.interp2spect('rho_prev')
+                if filter_currents :
+                    fld.filter_spect('rho_prev')
+
             # Gather the fields at t = n dt
             for species in ptcl :
                 species.gather( fld.interp )
