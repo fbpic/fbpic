@@ -25,12 +25,13 @@ class Simulation(object) :
 
     def __init__(self, Nz, zmax, Nr, rmax, Nm, dt,
                  p_zmin, p_zmax, p_rmin, p_rmax,
-                 p_nz, p_nr, p_nt, n_e, dens_func=None ) :
+                 p_nz, p_nr, p_nt, n_e, dens_func=None,
+                 initialize_ions=False ) :
         """
         Initializes a simulation, by creating the following structures :
         - the Fields object, which contains the EM fields
         - a set of electrons
-        - a set of ions
+        - a set of ions (if initialize_ions is True)
 
         Parameters
         ----------
@@ -67,6 +68,9 @@ class Simulation(object) :
            where z and r are 1d arrays, and which returns
            a 1d array containing the density *relative to n*
            (i.e. a number between 0 and 1) at the given positions
+
+        initialize_ions : bool, optional
+           Whether to initialize the neutralizing ions
         """
         # Initialize the field structure
         self.fld = Fields(Nz, zmax, Nr, rmax, Nm, dt)
@@ -82,11 +86,12 @@ class Simulation(object) :
         self.ptcl = [
             Particles( q=-e, m=m_e, n=n_e, Npz=Npz, zmin=p_zmin, zmax=p_zmax,
                        Npr=Npr, rmin=p_rmin, rmax=p_rmax, Nptheta=p_nt, dt=dt,
-                       dens_func=dens_func ),
-            Particles( q=e, m=m_p, n=n_e, Npz=Npz, zmin=p_zmin, zmax=p_zmax,
+                       dens_func=dens_func )    ]
+        if initialize_ions :
+            self.ptcl.append(
+                Particles( q=e, m=m_p, n=n_e, Npz=Npz, zmin=p_zmin, zmax=p_zmax,
                         Npr=Npr, rmin=p_rmin, rmax=p_rmax, Nptheta=p_nt, dt=dt,
-                        dens_func=dens_func )
-            ]
+                        dens_func=dens_func )   )
         
         # Register the number of particles per cell along z, and dt
         # (Necessary for the moving window)
@@ -102,6 +107,7 @@ class Simulation(object) :
         self.fld.divide_by_volume('rho')
         # Bring it to the spectral space
         self.fld.interp2spect('rho_prev')
+        self.fld.filter_spect('rho_prev')
 
         # Initialize an empty list of diagnostics
         self.diags = []
