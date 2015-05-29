@@ -16,14 +16,14 @@ from scipy.special import eval_genlaguerre
 import time
 
 def compare_Hankel_methods( f_analytic, g_analytic, p, Nz, Nr,
-                            axis, rmax, npts=1000, **kw ) :
+                            rmax, npts=1000, **kw ) :
     """
     Compare the discrete Hankel transform of f_analytic to the
     analytical result g_analytic.
 
     This function allows to see the effect of the Hankel transform on a
-    *2d array*, where the Hankel transform is taken only along the axis
-    `axis`, with length Nr. Nothing happens along the other axis, which
+    *2d array*, where the Hankel transform is taken only along the last axis,
+    with length Nr. Nothing happens along the other axis, which
     has length Nz.
     """
 
@@ -43,35 +43,23 @@ def compare_Hankel_methods( f_analytic, g_analytic, p, Nz, Nr,
         dht = DHT( p, Nr, rmax, method, **kw )
 
         # Calculate f and g on the natural grid
-        if axis != 0 :
-            f = np.empty((Nz,Nr))
-            f[:,:] = f_analytic( dht.get_r() )[np.newaxis,:]
-            g = np.empty((Nz,Nr))
-            g = g_analytic( dht.get_nu() )[np.newaxis,:]
-        else :
-            f = np.empty((Nr,Nz))
-            f[:,:] = f_analytic( dht.get_r() )[:,np.newaxis]
-            g = np.empty((Nr,Nz))
-            g = g_analytic( dht.get_nu() )[:,np.newaxis]
+        f = np.empty((Nz,Nr))
+        f[:,:] = f_analytic( dht.get_r() )[np.newaxis,:]
+        g = np.empty((Nz,Nr))
+        g = g_analytic( dht.get_nu() )[np.newaxis,:]
             
         # Apply the forward and backward transform
         t1 = time.time()
-        g_dht = dht.transform( f, axis=axis )        
-        f_dht = dht.inverse_transform( g_dht, axis=axis )
+        g_dht = dht.transform( f )        
+        f_dht = dht.inverse_transform( g_dht )
         t2 = time.time()
         
         # Plot the results
         for iz in range(Nz) :
-            if axis !=0 :
-                plt.subplot(121)
-                plt.plot( dht.r, f_dht[iz], 'o', label=method )
-                plt.subplot(122)
-                plt.plot( dht.nu, g_dht[iz], 'o', label=method )
-            else :
-                plt.subplot(121)
-                plt.plot( dht.r, f_dht[:,iz], 'o', label=method )
-                plt.subplot(122)
-                plt.plot( dht.nu, g_dht[:,iz], 'o', label=method )
+            plt.subplot(121)
+            plt.plot( dht.r, f_dht[iz], 'o', label=method )
+            plt.subplot(122)
+            plt.plot( dht.nu, g_dht[iz], 'o', label=method )
         
         # Calculate the maximum error
         error_f = np.max( abs(f_dht-f) )
@@ -119,7 +107,7 @@ def compare_power_p( p, rcut, N, rmax, **kw ) :
            ans =  rcut*jn( p+1, 2*np.pi*rcut*x) / x
         return( ans )  
     
-    compare_Hankel_methods( power_p, power_p_trans, p, 1, N, -1, rmax, **kw )
+    compare_Hankel_methods( power_p, power_p_trans, p, 1, N, rmax, **kw )
 
 def compare_laguerre_gauss( p, n, N, rmax ) :
     """
@@ -146,7 +134,7 @@ def compare_laguerre_gauss( p, n, N, rmax ) :
                 np.exp(-(2*np.pi*x)**2/2) )
     
     compare_Hankel_methods( laguerre_n_p, laguerre_n_p_trans, p,
-                            1, N, -1, rmax, **kw )
+                            1, N, rmax, **kw )
 
 def compare_bessel( p, m, n, N, rmax, **kw ) :
     """
@@ -172,7 +160,7 @@ def compare_bessel( p, m, n, N, rmax, **kw ) :
             return( np.where( abs(x - k/(2*np.pi)) < 0.1,
                           np.pi*rmax**2*jn(p, k*rmax)**2 , 0.) )
     
-    compare_Hankel_methods( bessel_n_p, delta, p, 1, N, -1, rmax, **kw )
+    compare_Hankel_methods( bessel_n_p, delta, p, 1, N, rmax, **kw )
     
 if __name__ == '__main__' :
 
