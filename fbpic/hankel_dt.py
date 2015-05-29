@@ -39,9 +39,18 @@ from scipy.special import jn, jn_zeros
 from scipy.interpolate import interp1d
 from scipy.optimize import fsolve
 
+# Try to import cublas
+try :
+    from numbapro.cudalib import cudablas
+except ImportError :
+    cuda_installed = False
+    print 'Numba pro is not available ; GPU mode not supported'
+else :
+    cuda_installed = True
+
+    
 # The list of available methods
-available_methods = [ # 'FHT',
-                      'QDHT', 'MDHT(m+1,m)', 'MDHT(m-1,m)', 'MDHT(m,m)']
+available_methods = [ 'QDHT', 'MDHT(m+1,m)', 'MDHT(m-1,m)', 'MDHT(m,m)']
 
 class DHT(object) :
     """
@@ -55,7 +64,7 @@ class DHT(object) :
     >>> G = trans.transform(F)
     """
 
-    def __init__(self, p, N, rmax, method, **kw ) :
+    def __init__(self, p, N, rmax, method, use_cuda=False, **kw ) :
         """
         Calculate the r (position) and nu (frequency) grid
         on which the transform will operate.
@@ -76,6 +85,10 @@ class DHT(object) :
 
         method : string
         The method used to calculate the Hankel transform
+
+        use_cuda : bool, optional
+        Whether to use the GPU for the Hankel transform
+        (Only available for the MDHT method)
         
         kw : optional arguments to be passed in the case of the MDHT
         """
@@ -86,6 +99,14 @@ class DHT(object) :
         else :
             self.method = method
 
+        # Register whether to use the GPU.
+        # If yes, initialize the corresponding cuda stream
+        self.use_cuda = use_cuda
+        if (self.use_cuda==True) and (cuda_installed==False) :
+            self.use_cuda = False
+        if self.use_cuda :
+            self.cuda_stream = cudablas.Blas()
+        
         # Call the corresponding initialization routine
         if self.method == 'FHT' :
             self.FHT_init(p, N, rmax)
@@ -121,43 +142,24 @@ class DHT(object) :
         return( self.nu )
             
             
-    def transform( self, f, r=None, nu=None) :
+    def transform( self, F ) :
         """
-        Perform the Hankel transform of f, according to the method
+        Perform the Hankel transform of F, according to the method
         chosen at initialization.
 
         Parameters :
         ------------
-        f : ndarray of real or complex values
+        F : ndarray of real or complex values
         Array containing the discrete values of the function for which
         the discrete Hankel transform is to be calculated.
 
-        r : 1darray, optional
-        The r grid on which f has been sampled
-        If r is not given, it is assumed that f has been sampled on the
-        natural grid for this transform, i.e. self.r.
-
-        nu : 1darray, optional
-        The nu grid on which the Hankel transform is to be evaluated.
-        If nu is not given, it is assumed that the transform should be
-        evaluated on the natural grid, i.e. self.nu.
-
         Returns :
         ---------
-        A ndarray of the same shape as f, containing the value of the transform
+        A ndarray of the same shape as F, containing the value of the transform
         """
-        
-        # Interpolate f from r to self.r, if needed
-        if r is not None :
-            f_interp = interp1d( r, f,
-                          copy=False, assume_sorted=True, bounds_error=False )
-            F = f_interp( self.r )
-        else :
-            assert ( f.shape[-1] == self.N) , \
-            'The last axis of f should have the same length as self.r.'
-            F = f
            
-        # Perform the transform
+        # Perform the appropriate transform, depending on the method
+        
         if self.method == 'FHT' :
             G = self.FHT_transform(F)
         elif self.method == 'QDHT' :
@@ -165,20 +167,11 @@ class DHT(object) :
         elif self.method in [ 'MDHT(m,m)', 'MDHT(m-1,m)', 'MDHT(m+1,m)' ] :
             G = self.MDHT_transform(F)
         
-        # Interpolate back G from self.nu to nu, if needed
-        if nu is not None :
-            G_interp = interp1d( self.nu, G,
-                          copy=False, assume_sorted=True, bounds_error=False )
-            g = G_interp( nu )
-        else :
-            g = G
+        return( G )
 
-        return( g )
-        
-
-    def inverse_transform( self, g, nu=None, r=None) :
+    def inverse_transform( self, G ) :
         """
-        Perform the Hankel inverse transform of g, according to the method
+        Perform the Hankel inverse transform of G, according to the method
         chosen at initialization.
 
         Parameters :
@@ -187,50 +180,22 @@ class DHT(object) :
         Array containing the values of the function for which
         the discrete inverse Hankel transform is to be calculated.
 
-        nu: 1darray, optional
-        The nu grid on which g has been sampled
-        If nu is not given, it is assumed that g has been sampled on the
-        natural grid for this transform, i.e. self.nu.
-
-        r : 1darray, optional
-        The r grid on which the Hankel inverse transform is to be evaluated.
-        If r is not given, it is assumed that the transform should be
-        evaluated on the natural grid, i.e. self.r.
-
         Returns :
         ---------
-        A ndarray of the same shape as g, containing the value of the inverse
+        A ndarray of the same shape as G, containing the value of the inverse
         transform
         """
+        # Perform the appropriate transform, depending on the method
         
-        # Interpolate g from nu to self.nu if needed
-        if nu is not None :
-            g_interp = interp1d( nu, g, 
-                          copy=False, assume_sorted=True, bounds_error=False )
-            G = g_interp( self.nu )
-        else :
-            assert ( g.shape[-1] == self.N), \
-              'The last axis of g should have the same length as self.nu.'
-            G = g
-           
-        # Perform the transform
         if self.method == 'FHT' :
-            F = self.FHT_inverse_transform( G )
+            F = self.FHT_inverse_transform(G)
         elif self.method == 'QDHT' :
-            F = self.QDHT_inverse_transform( G )
+            F = self.QDHT_inverse_transform(G)
         elif self.method in [ 'MDHT(m,m)', 'MDHT(m-1,m)', 'MDHT(m+1,m)' ] :
-            F = self.MDHT_inverse_transform( G )
+            F = self.MDHT_inverse_transform(G)
+                
+        return(F)
         
-        # Interpolate F from self.r to r if needed
-        if nu is not None :
-            F_interp = interp1d( self.r, G, 
-                          copy=False, assume_sorted=True, bounds_error=False )
-            f = F_interp( r )
-        else :
-            f = F
-
-        return(f)
-
 
     def MDHT_init(self, p, N, rmax, m, d=0.5, Fw='inverse') :
         """
@@ -351,7 +316,11 @@ class DHT(object) :
         """
 
         # Perform the matrix product with M
-        G = np.dot( F, self.M )
+        if self.use_cuda :
+            G = self.cuda_stream.dot( F, self.M )
+            self.cuda_stream.synchronize()
+        else :
+            G = np.dot( F, self.M )
 
         return( G )
         
@@ -366,7 +335,11 @@ class DHT(object) :
         """
 
         # Perform the matrix product with invM
-        F = np.dot( G, self.invM )
+        if self.use_cuda :
+            F = self.cuda_stream.dot( G, self.invM )
+            self.cuda_stream.synchronize()
+        else :
+            F = np.dot( G, self.invM )
 
         return( F )
 
