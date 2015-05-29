@@ -6,7 +6,6 @@ import os
 import numpy as np
 import matplotlib.pyplot as plt
 from scipy import constants
-from mpi4py import MPI
 import h5py
 import datetime
 
