@@ -31,7 +31,7 @@ class Particles(object) :
     def __init__(self, q, m, n, Npz, zmin, zmax,
                     Npr, rmin, rmax, Nptheta, dt,
                     dens_func=None, global_theta=0.,
-                    continuous_injection=True, self.l_gpu = False) :
+                    continuous_injection=True, use_gpu=False) :
         """
         Initialize a uniform set of particles
 
@@ -81,14 +81,14 @@ class Particles(object) :
            Whether to continuously inject the particles,
            in the case of a moving window
 
-        l_gpu : bool, optional
+        use_gpu : bool, optional
             Wether to use the GPU or not.
         """
         # Register the timestep
         self.dt = dt
 
         # Define wether or not to use the GPU
-        self.l_gpu = self.l_gpu
+        self.use_gpu = use_gpu
         
         # Register the properties of the particles
         # (Necessary for the pusher, and when adding more particles later, )
@@ -160,7 +160,7 @@ class Particles(object) :
             Whether to use numba rather than numpy
         """
         if use_numba :
-            if self.l_gpu == False:
+            if self.use_gpu == False:
                 push_p_numba(self.ux, self.uy, self.uz, self.inv_gamma, 
                     self.Ex, self.Ey, self.Ez, self.Bx, self.By, self.Bz,
                     self.q, self.m, self.Ntot, self.dt )
@@ -580,7 +580,7 @@ def gather_field( exptheta, m, Fgrid, Fptcl,
         Whether to use numba rather than numpy for the gathering
     """
     if use_numba == True :
-        if self.l_gpu == False:
+        if self.use_gpu == False:
             gather_field_numba( exptheta, m, Fgrid, Fptcl, 
                 iz_lower, iz_upper, Sz_lower, Sz_upper,
                 ir_lower, ir_upper, Sr_lower, Sr_upper,
@@ -857,7 +857,7 @@ def deposit_field( Fptcl, Fgrid,
         Whether to use numba or numpy.add.at for the deposition
     """
     if use_numba == True :
-        if l_gpu == False:
+        if use_gpu == False:
             deposit_field_numba_cpu( Fptcl, Fgrid, 
                 iz_lower, iz_upper, Sz_lower, Sz_upper,
                 ir_lower, ir_upper, Sr_lower, Sr_upper,
@@ -977,7 +977,7 @@ def deposit_field_sorting( Fptcl, Fgrid,
         Whether to use numba or numpy.add.at for the deposition
     """
     if use_numba == True:
-        if l_gpu == False:
+        if use_gpu == False:
             deposit_field_numba_cpu( Fptcl, Fgrid, 
                 iz_lower, iz_upper, Sz_lower, Sz_upper,
                 ir_lower, ir_upper, Sr_lower, Sr_upper,
