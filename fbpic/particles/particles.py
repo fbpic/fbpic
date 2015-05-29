@@ -21,7 +21,6 @@ except :
     cuda_installed = False
 else :
     cuda_installed = True
-    tbp = 256 # Threads per block
 
 class Particles(object) :
     """
@@ -94,7 +93,7 @@ class Particles(object) :
         use_numba : bool, optional
             Whether to use numba-compiled code on the CPU
            
-        use_gpu : bool, optional
+        use_cuda : bool, optional
             Wether to use the GPU or not. Overrides use_numba.
         """
         # Register the timestep
@@ -181,6 +180,7 @@ class Particles(object) :
                     self.Ex, self.Ey, self.Ez, self.Bx, self.By, self.Bz,
                     self.q, self.m, self.Ntot, self.dt )
         elif self.use_cuda :
+            tpb = 256
             bpg = int(self.Ntot/tpb + 1)
             push_p_cuda[bpg, tpb](self.ux, self.uy, self.uz,
                     self.inv_gamma, self.Ex, self.Ey, self.Ez,
@@ -595,6 +595,7 @@ def gather_field( exptheta, m, Fgrid, Fptcl,
                 sign_guards, Sr_guard )
     elif use_cuda :
         Ntot = len(Fptcl)
+        tpb = 256
         bpg = int(Ntot/tpb + 1)
         gather_field_cuda[bpg, tpb](exptheta, m, Fgrid, Fptcl, 
                 iz_lower, iz_upper, Sz_lower, Sz_upper,
