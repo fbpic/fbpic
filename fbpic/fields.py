@@ -879,7 +879,7 @@ class SpectralTransformer(object) :
         """
         # Perform the inverse DHT first (along axis -1, which corresponds to r)
         self.spect_buffer_r[:,:] = \
-          self.dht0.inverse_transform( spect_array, axis=-1 )
+          self.dht0.inverse_transform( spect_array )
 
         # Then perform the inverse FFT (along axis 0, which corresponds to z)
         self.interp_buffer_r = self.ifft_r()
@@ -904,8 +904,8 @@ class SpectralTransformer(object) :
            grid, and which are overwritten by this function.
         """
         # Perform the inverse DHT first (along axis -1, which corresponds to r)
-        interp_array_p = self.dhtp.inverse_transform( spect_array_p, axis=-1 )
-        interp_array_m = self.dhtm.inverse_transform( spect_array_m, axis=-1 )
+        interp_array_p = self.dhtp.inverse_transform( spect_array_p )
+        interp_array_m = self.dhtm.inverse_transform( spect_array_m )
 
         # Combine them to obtain the r and t components
         self.spect_buffer_r[:,:] = interp_array_p + interp_array_m
@@ -940,7 +940,7 @@ class SpectralTransformer(object) :
         self.spect_buffer_r = self.fft_r()
         
         # Then perform the DHT (along axis -1, which corresponds to r)
-        spect_array[:,:] = self.dht0.transform( self.spect_buffer_r, axis=-1 )
+        spect_array[:,:] = self.dht0.transform( self.spect_buffer_r )
 
     def interp2spect_vect( self, interp_array_r, interp_array_t,
                            spect_array_p, spect_array_m ) :
@@ -970,8 +970,8 @@ class SpectralTransformer(object) :
         spect_buffer_m = 0.5*( self.spect_buffer_r + 1.j*self.spect_buffer_t )
         
         # Perform the inverse DHT first (along axis -1, which corresponds to r)
-        spect_array_p[:,:] = self.dhtp.transform( spect_buffer_p, axis=-1 )
-        spect_array_m[:,:] = self.dhtm.transform( spect_buffer_m, axis=-1 )
+        spect_array_p[:,:] = self.dhtp.transform( spect_buffer_p )
+        spect_array_m[:,:] = self.dhtm.transform( spect_buffer_m )
 
 
 # -----------------
