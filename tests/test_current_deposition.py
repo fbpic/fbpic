@@ -162,7 +162,6 @@ def compare( Jr_analytic, Jr_simulation ) :
     plt.title('On-axis Jr (imaginary part)')
     plt.legend(loc=0)
     
-    plt.tight_layout()
     plt.show()
     
     
