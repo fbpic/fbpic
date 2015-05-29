@@ -926,7 +926,7 @@ def push_p_numba( ux, uy, uz, inv_gamma,
 
         # Get the new 1./gamma
         inv_gamma_f = math.sqrt(
-            2./( sigma + np.sqrt( sigma**2 + 4*(tau2 + utau**2 ) ) )
+            2./( sigma + math.sqrt( sigma**2 + 4*(tau2 + utau**2 ) ) )
         )
         inv_gamma[ip] = inv_gamma_f
 
