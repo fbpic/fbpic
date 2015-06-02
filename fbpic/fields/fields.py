@@ -9,6 +9,17 @@ from scipy.constants import c, mu_0, epsilon_0
 import pyfftw
 from fbpic.hankel_dt import DHT
 
+# If numbapro is installed, it potentially allows to use the GPU
+try :
+    from cuda_methods import *
+except :
+    cuda_installed = False
+else :
+    cuda_installed = True
+    # Define number of threads per block as global variables
+    tpbz = 256
+    tpbr = 256
+
 class Fields(object) :
     """
     Class that contains the fields data of the simulation
@@ -40,7 +51,7 @@ class Fields(object) :
         Contains the coefficients to solve the Maxwell equations
     """
 
-    def __init__( self, Nz, zmax, Nr, rmax, Nm, dt ) :
+    def __init__( self, Nz, zmax, Nr, rmax, Nm, dt, use_cuda=False ) :
         """
         Initialize the components of the Fields object
 
@@ -64,6 +75,9 @@ class Fields(object) :
         dt : float
             The timestep of the simulation, required for the
             coefficients of the psatd scheme
+
+        use_cuda : bool, optional
+            Wether to use the GPU or not
         """
 
         # Convert Nz to the nearest odd integer
@@ -77,6 +91,14 @@ class Fields(object) :
         self.Nm = Nm
         self.dt = dt
 
+        # Define wether or not to use the GPU
+        self.use_cuda = use_cuda
+        if (self.use_cuda==True) and (cuda_installed==False) :
+            print 'Cuda for numba is not installed ; running on the CPU.'
+            self.use_cuda = False
+        else :
+            print 'Using the GPU for the fields.'
+
         # Infer the values of the z and kz grid
         dz = zmax/Nz
         z = dz * ( np.arange( 0, Nz ) + 0.5 )
@@ -89,7 +111,8 @@ class Fields(object) :
         # (one object per azimuthal mode)
         self.trans = []
         for m in range(Nm) :
-            self.trans.append( SpectralTransformer(Nz, Nr, m, rmax) )
+            self.trans.append( SpectralTransformer(Nz, Nr, m, rmax,
+                                        use_cuda=self.use_cuda ) )
 
         # Create the interpolation grid for each modes
         # (one grid per azimuthal mode)
@@ -98,7 +121,8 @@ class Fields(object) :
             # Extract the radial grid for mode m
             r = self.trans[m].dht0.get_r()
             # Create the object
-            self.interp.append( InterpolationGrid( z, r, m ) )
+            self.interp.append( InterpolationGrid( z, r, m,
+                                        use_cuda=self.use_cuda ) )
 
         # Create the spectral grid for each mode, as well as
         # the psatd coefficients
@@ -109,9 +133,11 @@ class Fields(object) :
             # Extract the inhomogeneous spectral grid for mode m
             kr = 2*np.pi * self.trans[m].dht0.get_nu()
             # Create the object
-            self.spect.append( SpectralGrid( kz, kr, m ) )
+            self.spect.append( SpectralGrid( kz, kr, m,
+                                        use_cuda=self.use_cuda ) )
             self.psatd.append( PsatdCoeffs( self.spect[m].kz,
-                                self.spect[m].kr, m, dt, Nz, Nr ) )
+                                self.spect[m].kr, m, dt, Nz, Nr,
+                                use_cuda = self.use_cuda ) )
 
     def push(self, ptcl_feedback=True) :
         """
@@ -240,26 +266,59 @@ class Fields(object) :
             A string which represents the kind of field to be erased
             (either 'E', 'B', 'J', 'rho')
         """
-        if fieldtype == 'rho' :
-            for m in range(self.Nm) :
-                self.interp[m].rho[:,:] = 0.
-        elif fieldtype == 'J' :
-            for m in range(self.Nm) :
-                self.interp[m].Jr[:,:] = 0.
-                self.interp[m].Jt[:,:] = 0.
-                self.interp[m].Jz[:,:] = 0.
-        elif fieldtype == 'E' :
-            for m in range(self.Nm) :
-                self.interp[m].Er[:,:] = 0.
-                self.interp[m].Et[:,:] = 0.
-                self.interp[m].Ez[:,:] = 0.
-        elif fieldtype == 'B' :
-            for m in range(self.Nm) :
-                self.interp[m].Br[:,:] = 0.
-                self.interp[m].Bt[:,:] = 0.
-                self.interp[m].Bz[:,:] = 0.
+        if self.use_cuda :
+            # Erase the arrays on the GPU
+            bpgz = int( self.Nz/tpz + 1 )
+            bpgr = int( self.Nr/tpr + 1 )
+            
+            if fieldtype == 'rho' :
+                cuda_erase[(bpgz, tpbz), (bpgr, tpbr)](
+                    self.interp[0].rho, self.interp[1].rho, self.Nz, self.Nr )
+            elif fieldtype == 'J' :
+                cuda_erase[(bpgz, bpgr), (tpbz, tpbr)](
+                    self.interp[0].Jr, self.interp[1].Jr, self.Nz, self.Nr )
+                cuda_erase[(bpgz, bpgr), (tpbz, tpbr)](
+                    self.interp[0].Jt, self.interp[1].Jt, self.Nz, self.Nr )
+                cuda_erase[(bpgz, bpgr), (tpbz, tpbr)](
+                    self.interp[0].Jz, self.interp[1].Jz, self.Nz, self.Nr )
+            elif fieldtype == 'E' :
+                cuda_erase[(bpgz, bpgr), (tpbz, tpbr)](
+                    self.interp[0].Er, self.interp[1].Er, self.Nz, self.Nr )
+                cuda_erase[(bpgz, bpgr), (tpbz, tpbr)](
+                    self.interp[0].Et, self.interp[1].Et, self.Nz, self.Nr )
+                cuda_erase[(bpgz, bpgr), (tpbz, tpbr)](
+                    self.interp[0].Ez, self.interp[1].Ez, self.Nz, self.Nr )
+            elif fieldtype == 'B' :
+                cuda_erase[(bpgz, bpgr), (tpbz, tpbr)](
+                    self.interp[0].Br, self.interp[1].Br, self.Nz, self.Nr )
+                cuda_erase[(bpgz, bpgr), (tpbz, tpbr)](
+                    self.interp[0].Bt, self.interp[1].Bt, self.Nz, self.Nr )
+                cuda_erase[(bpgz, bpgr), (tpbz, tpbr)](
+                    self.interp[0].Bz, self.interp[1].Bz, self.Nz, self.Nr )
+            else :
+                raise ValueError('Invalid string for fieldtype: %s' %fieldtype)
         else :
-            raise ValueError( 'Invalid string for fieldtype: %s' %fieldtype )
+            # Erase the arrays on the CPU
+            if fieldtype == 'rho' :
+                for m in range(self.Nm) :
+                    self.interp[m].rho[:,:] = 0.
+            elif fieldtype == 'J' :
+                for m in range(self.Nm) :
+                    self.interp[m].Jr[:,:] = 0.
+                    self.interp[m].Jt[:,:] = 0.
+                    self.interp[m].Jz[:,:] = 0.
+            elif fieldtype == 'E' :
+                for m in range(self.Nm) :
+                    self.interp[m].Er[:,:] = 0.
+                    self.interp[m].Et[:,:] = 0.
+                    self.interp[m].Ez[:,:] = 0.
+            elif fieldtype == 'B' :
+                for m in range(self.Nm) :
+                    self.interp[m].Br[:,:] = 0.
+                    self.interp[m].Bt[:,:] = 0.
+                    self.interp[m].Bz[:,:] = 0.
+            else :
+                raise ValueError('Invalid string for fieldtype: %s' %fieldtype)
 
     def filter_interp( self, fieldtype, direction='r' ) :
         """

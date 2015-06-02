@@ -14,7 +14,7 @@ except ImportError :
 else :
     numba_installed = True
 
-# If numbapro is installed, it can
+# If numbapro is installed, it potentially allows to use a GPU
 try :
     from cuda_methods import *
 except :
@@ -104,6 +104,8 @@ class Particles(object) :
         if (self.use_cuda==True) and (cuda_installed==False) :
             print 'Cuda for numba is not installed ; running on the CPU.'
             self.use_cuda = False
+        else :
+            print 'Using the GPU for the particles.'
         # Define whether or not to use numba on a CPU
         self.use_numba = use_numba
         if self.use_cuda == True :
