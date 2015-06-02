@@ -272,28 +272,22 @@ class Fields(object) :
             bpgr = int( self.Nr/tpr + 1 )
             
             if fieldtype == 'rho' :
-                cuda_erase[(bpgz, tpbz), (bpgr, tpbr)](
+                cuda_erase_scalar[(bpgz, tpbz), (bpgr, tpbr)](
                     self.interp[0].rho, self.interp[1].rho, self.Nz, self.Nr )
             elif fieldtype == 'J' :
-                cuda_erase[(bpgz, bpgr), (tpbz, tpbr)](
-                    self.interp[0].Jr, self.interp[1].Jr, self.Nz, self.Nr )
-                cuda_erase[(bpgz, bpgr), (tpbz, tpbr)](
-                    self.interp[0].Jt, self.interp[1].Jt, self.Nz, self.Nr )
-                cuda_erase[(bpgz, bpgr), (tpbz, tpbr)](
+                cuda_erase_vector[(bpgz, bpgr), (tpbz, tpbr)](
+                    self.interp[0].Jr, self.interp[1].Jr,
+                    self.interp[0].Jt, self.interp[1].Jt,
                     self.interp[0].Jz, self.interp[1].Jz, self.Nz, self.Nr )
             elif fieldtype == 'E' :
-                cuda_erase[(bpgz, bpgr), (tpbz, tpbr)](
-                    self.interp[0].Er, self.interp[1].Er, self.Nz, self.Nr )
-                cuda_erase[(bpgz, bpgr), (tpbz, tpbr)](
-                    self.interp[0].Et, self.interp[1].Et, self.Nz, self.Nr )
-                cuda_erase[(bpgz, bpgr), (tpbz, tpbr)](
+                cuda_erase_vector[(bpgz, bpgr), (tpbz, tpbr)](
+                    self.interp[0].Er, self.interp[1].Er,
+                    self.interp[0].Et, self.interp[1].Et,
                     self.interp[0].Ez, self.interp[1].Ez, self.Nz, self.Nr )
             elif fieldtype == 'B' :
-                cuda_erase[(bpgz, bpgr), (tpbz, tpbr)](
-                    self.interp[0].Br, self.interp[1].Br, self.Nz, self.Nr )
-                cuda_erase[(bpgz, bpgr), (tpbz, tpbr)](
-                    self.interp[0].Bt, self.interp[1].Bt, self.Nz, self.Nr )
-                cuda_erase[(bpgz, bpgr), (tpbz, tpbr)](
+                cuda_erase_vector[(bpgz, bpgr), (tpbz, tpbr)](
+                    self.interp[0].Br, self.interp[1].Br,
+                    self.interp[0].Bt, self.interp[1].Bt,
                     self.interp[0].Bz, self.interp[1].Bz, self.Nz, self.Nr )
             else :
                 raise ValueError('Invalid string for fieldtype: %s' %fieldtype)
@@ -336,6 +330,7 @@ class Fields(object) :
            The direction in which to filter
            (either 'r' or 'z')
         """
+        # Filter fields on the GPU
         for m in range(self.Nm) :
             self.interp[m].filter( fieldtype, direction )
 
@@ -366,20 +361,41 @@ class Fields(object) :
             A string which represents the kind of field to be erased
             (either 'rho' or 'J')
         """
-        if fieldtype == 'rho' :
-            for m in range(self.Nm) :
-                self.interp[m].rho = \
-                   self.interp[m].rho * self.interp[m].invvol[np.newaxis,:]
-        elif fieldtype == 'J' :
-            for m in range(self.Nm) :
-                self.interp[m].Jr = \
-                  self.interp[m].Jr * self.interp[m].invvol[np.newaxis,:]
-                self.interp[m].Jt = \
-                  self.interp[m].Jt * self.interp[m].invvol[np.newaxis,:]
-                self.interp[m].Jz = \
-                  self.interp[m].Jz * self.interp[m].invvol[np.newaxis,:]
+        if self.use_cuda :
+            # Perform division on the GPU
+            bpgz = int( self.Nz/tpz + 1 )
+            bpgr = int( self.Nr/tpr + 1 )
+
+            if fieldtype == 'rho' :
+                cuda_divide_scalar_by_volume[(bpgz, bpgr),(tpbz, tpbr)](
+                    self.interp[0].rho, self.interp[1].rho,
+                    self.interp[0].invvol, self.interp[1].invvol,
+                    self.Nz, self.Nr )
+            elif fieldtype == 'J' :
+                cuda_divide_vector_by_volume[(bpgz, bpgr),(tpbz, tpbr)](
+                    self.interp[0].Jr, self.interp[1].Jr,
+                    self.interp[0].Jt, self.interp[1].Jt,
+                    self.interp[0].Jz, self.interp[1].Jz,
+                    self.interp[0].invvol, self.interp[1].invvol,
+                    self.Nz, self.Nr )
+            else :
+                raise ValueError( 'Invalid string for fieldtype: %s' %fieldtype )
         else :
-            raise ValueError( 'Invalid string for fieldtype: %s' %fieldtype )
+            # Perform division on the CPU
+            if fieldtype == 'rho' :
+                for m in range(self.Nm) :
+                    self.interp[m].rho = \
+                    self.interp[m].rho * self.interp[m].invvol[np.newaxis,:]
+            elif fieldtype == 'J' :
+                for m in range(self.Nm) :
+                    self.interp[m].Jr = \
+                    self.interp[m].Jr * self.interp[m].invvol[np.newaxis,:]
+                    self.interp[m].Jt = \
+                    self.interp[m].Jt * self.interp[m].invvol[np.newaxis,:]
+                    self.interp[m].Jz = \
+                    self.interp[m].Jz * self.interp[m].invvol[np.newaxis,:]
+            else :
+                raise ValueError( 'Invalid string for fieldtype: %s' %fieldtype )
 
 
 class InterpolationGrid(object) :
@@ -392,7 +408,7 @@ class InterpolationGrid(object) :
       2darrays containing the fields.
     """
 
-    def __init__(self, z, r, m ) :
+    def __init__(self, z, r, m, use_cuda=False ) :
         """
         Allocates the matrices corresponding to the spatial grid
         
@@ -406,6 +422,9 @@ class InterpolationGrid(object) :
 
         m : int
             The index of the mode
+
+        use_cuda : bool, optional
+            Wether to use the GPU or not
         """
 
         # Register the arrays and their length
@@ -417,6 +436,9 @@ class InterpolationGrid(object) :
         self.r = r.copy()
         self.m = m
 
+        # Check whether the GPU should be used
+        self.use_cuda = use_cuda
+        
         # Register a few grid properties
         dr = r[1] - r[0]
         dz = z[1] - z[0]
@@ -506,7 +528,7 @@ class InterpolationGrid(object) :
         # Show the field also below the axis for a more realistic picture
         if below_axis == True :
             plotted_field = np.hstack( (plotted_field[:,::-1],plotted_field) )
-            extent = np.array([ self.zmin - 0.5*self.dz, self.zmax + 0.5*self.dz,
+            extent = np.array([ self.zmin-0.5*self.dz, self.zmax+0.5*self.dz,
                       -self.rmax - 0.5*self.dr, self.rmax + 0.5*self.dr ])
         else :
             extent = np.array([self.zmin - 0.5*self.dz, self.zmax + 0.5*self.dz,
@@ -537,11 +559,9 @@ class InterpolationGrid(object) :
 class SpectralGrid(object) :
     """
     Contains the fields and coordinates of the spectral grid.
-
-    Main attributes :
     """
 
-    def __init__(self, kz, kr, m ) :
+    def __init__(self, kz, kr, m, use_cuda=False ) :
         """
         Allocates the matrices corresponding to the spectral grid
         
@@ -555,6 +575,9 @@ class SpectralGrid(object) :
 
         m : int
             The index of the mode
+
+        use_cuda : bool, optional
+            Wether to use the GPU or not
         """
         # Register the arrays and their length
         Nz = len(kz)
@@ -563,6 +586,9 @@ class SpectralGrid(object) :
         self.Nz = Nz
         self.m = m
         self.kz, self.kr = np.meshgrid( kz, kr, indexing='ij' )
+
+        # Check whether to use the GPU
+        self.use_cuda = use_cuda
         
         # Allocate the fields arrays
         self.Ep = np.zeros( (Nz, Nr), dtype='complex' )
@@ -580,6 +606,11 @@ class SpectralGrid(object) :
         # Auxiliary arrays
         # - for current correction
         self.F = np.zeros( (Nz, Nr), dtype='complex' )
+        # Note : F is not needed on the GPU (on-the-fly variable)
+        self.inv_k2 = 1./np.where( ( self.kz == 0 ) & (self.kr == 0),
+                                   1., self.kz**2 + self.kr**2 )
+        # No correction for k=0
+        self.inv_k2[ ( self.kz == 0 ) & (self.kr == 0) ] = 0.
         # - for filtering
         self.filter_array = get_filter_array( kz, kr )
 
@@ -593,26 +624,33 @@ class SpectralGrid(object) :
         dt : float
             Timestep of the simulation
         """
-
-        # Get the corrective field F
+        # Precalculate useful coefficient
         inv_dt = 1./dt
-        i = 1.j   # Imaginary number i**2 = -1
-        # Avoid division by 0
-        inv_k2 = 1./np.where(
-            ( self.kz == 0 ) & (self.kr == 0), 1., self.kz**2 + self.kr**2 )  
-        inv_k2[ ( self.kz == 0 ) & (self.kr == 0) ] =0. # No correction for k=0
         
-        self.F[:,:] = - inv_k2 * ( (self.rho_next - self.rho_prev)*inv_dt \
-            + i*self.kz*self.Jz + self.kr*( self.Jp - self.Jm ) ) 
+        if self.use_cuda :
+            # Correct the currents on the GPU
+            bpgz = int( self.Nz/tpz + 1 )
+            bpgr = int( self.Nr/tpr + 1 )
+                        
+            cuda_correct_currents[(bpgz, bpgr), (tpbz, tpbr)](
+                self.rho_prev, self.rho_next, self.Jp, self.Jm, self.Jz,
+                self.kz, self.kr, self.inv_k2, inv_dt, self.Nz, self.Nr)
+        else :
+            # Correct the currents on the CPU
+
+            # Calculate the intermediate variable F
+            self.F[:,:] = - self.inv_k2 * (
+                (self.rho_next - self.rho_prev)*inv_dt \
+                + 1.j*self.kz*self.Jz + self.kr*( self.Jp - self.Jm ) ) 
             
-        # Correct the current accordingly
-        self.Jp += 0.5*self.kr*self.F
-        self.Jm += -0.5*self.kr*self.F
-        self.Jz += -i*self.kz*self.F
+            # Correct the current accordingly
+            self.Jp += 0.5*self.kr*self.F
+            self.Jm += -0.5*self.kr*self.F
+            self.Jz += -1.j*self.kz*self.F
 
     def push_eb_with(self, ps, ptcl_feedback=True, use_true_rho=False ) :
         """
-        Pushes the fields over one timestep, using the psatd coefficients.
+        Push the fields over one timestep, using the psatd coefficients.
 
         Parameters
         ----------
@@ -635,73 +673,92 @@ class SpectralGrid(object) :
         # (i.e. corresponds to the right mode)
         assert( self.m == ps.m )
 
-        # Define the complex number i (i**2 = -1)
-        i = 1.j
+        if self.use_cuda :
+            # Push the fields on the GPU
+            bpgz = int( self.Nz/tpz + 1 )
+            bpgr = int( self.Nr/tpr + 1 )
+            
+            cuda_push_eb_with[(bpgz, tpbz), (bpgr, tpbr)](
+                self.Ep, self.Em, self.Ez, self.Bp, self.Bm, self.Bz,
+                self.Jp, self.Jm, self.Jz, self.rho_prev, self.rho_next,
+                ps.rho_prev_coef, ps.rho_next_coef, ps.j_coef, ps.dt,
+                ptcl_feedback, use_true_rho, Nz, Nr )
 
-        # Save the electric fields, since it is needed for the B push
-        ps.Ep[:,:] = self.Ep[:,:]
-        ps.Em[:,:] = self.Em[:,:]
-        ps.Ez[:,:] = self.Ez[:,:]
+        else :
+            # Push the fields on the CPU
+            
+            # Define a few constants
+            i = 1.j
+            c2 = c**2
 
-        # Calculate useful auxiliary matrices
-        if ptcl_feedback :
-            if use_true_rho :
-                # Evaluation using the rho projected on the grid
-                rho_diff = ps.rho_next_coef*self.rho_next \
-                    - ps.rho_prev_coef*self.rho_prev
+            # Save the electric fields, since it is needed for the B push
+            ps.Ep[:,:] = self.Ep[:,:]
+            ps.Em[:,:] = self.Em[:,:]
+            ps.Ez[:,:] = self.Ez[:,:]
+
+            # With particle feedback
+            if ptcl_feedback :
+
+                # Calculate useful auxiliary arrays
+                if use_true_rho :
+                    # Evaluation using the rho projected on the grid
+                    rho_diff = ps.rho_next_coef*self.rho_next \
+                        - ps.rho_prev_coef*self.rho_prev
+                else :
+                    # Evaluation using div(E) and div(J)
+                    rho_diff = (ps.rho_next_coef-ps.rho_prev_coef) *epsilon_0* \
+                    ( self.kr*self.Ep - self.kr*self.Em + i*self.kz*self.Ez ) \
+                    - ps.rho_next_coef * ps.dt * \
+                    ( self.kr*self.Jp - self.kr*self.Jm + i*self.kz*self.Jz )
+
+                # Push the E field
+                self.Ep[:,:] = ps.C*self.Ep + 0.5*self.kr*rho_diff \
+                    + c2*ps.S_w*( -i*0.5*self.kr*self.Bz + self.kz*self.Bp \
+                              - mu_0*self.Jp )
+
+                self.Em[:,:] = ps.C*self.Em - 0.5*self.kr*rho_diff \
+                    + c2*ps.S_w*( -i*0.5*self.kr*self.Bz - self.kz*self.Bm \
+                              - mu_0*self.Jm )
+
+                self.Ez[:,:] = ps.C*self.Ez - i*self.kz*rho_diff \
+                    + c2*ps.S_w*( i*self.kr*self.Bp + i*self.kr*self.Bm \
+                      - mu_0*self.Jz )
+
+                # Push the B field
+                self.Bp[:,:] = ps.C*self.Bp \
+                    - ps.S_w*( -i*0.5*self.kr*ps.Ez + self.kz*ps.Ep ) \
+                    + ps.j_coef*( -i*0.5*self.kr*self.Jz + self.kz*self.Jp )
+
+                self.Bm[:,:] = ps.C*self.Bm \
+                    - ps.S_w*( -i*0.5*self.kr*ps.Ez - self.kz*ps.Em ) \
+                    + ps.j_coef*( -i*0.5*self.kr*self.Jz - self.kz*self.Jm )
+
+                self.Bz[:,:] = ps.C*self.Bz \
+                    - ps.S_w*( i*self.kr*ps.Ep + i*self.kr*ps.Em ) \
+                    + ps.j_coef*( i*self.kr*self.Jp + i*self.kr*self.Jm )
+
+            # Without particle feedback
             else :
-                # Evaluation using div(E) and div(J)
-                rho_diff = (ps.rho_next_coef-ps.rho_prev_coef) * epsilon_0 * \
-                  ( self.kr*self.Ep - self.kr*self.Em + i*self.kz*self.Ez ) \
-                  - ps.rho_next_coef * ps.dt * \
-                  ( self.kr*self.Jp - self.kr*self.Jm + i*self.kz*self.Jz )
-        c2 = c**2
 
-        # Push the E field
-        if ptcl_feedback :
-            self.Ep[:,:] = ps.C*self.Ep + 0.5*self.kr*rho_diff \
-        + c2*ps.S_w*( -i*0.5*self.kr*self.Bz + self.kz*self.Bp - mu_0*self.Jp )
-
-            self.Em[:,:] = ps.C*self.Em - 0.5*self.kr*rho_diff \
-        + c2*ps.S_w*( -i*0.5*self.kr*self.Bz - self.kz*self.Bm - mu_0*self.Jm )
-
-            self.Ez[:,:] = ps.C*self.Ez - i*self.kz*rho_diff \
-        + c2*ps.S_w*( i*self.kr*self.Bp + i*self.kr*self.Bm - mu_0*self.Jz )
+                # Push the E field
+                self.Ep[:,:] = ps.C*self.Ep \
+                + c2*ps.S_w*( -i*0.5*self.kr*self.Bz + self.kz*self.Bp )
         
-        else :
-            self.Ep[:,:] = ps.C*self.Ep \
-        + c2*ps.S_w*( -i*0.5*self.kr*self.Bz + self.kz*self.Bp )
-
-            self.Em[:,:] = ps.C*self.Em \
-        + c2*ps.S_w*( -i*0.5*self.kr*self.Bz - self.kz*self.Bm )
-
-            self.Ez[:,:] = ps.C*self.Ez \
-        + c2*ps.S_w*( i*self.kr*self.Bp + i*self.kr*self.Bm )            
+                self.Em[:,:] = ps.C*self.Em \
+                + c2*ps.S_w*( -i*0.5*self.kr*self.Bz - self.kz*self.Bm )
+    
+                self.Ez[:,:] = ps.C*self.Ez \
+                + c2*ps.S_w*( i*self.kr*self.Bp + i*self.kr*self.Bm )            
         
-        # Push the B field
+                # Push the B field
+                self.Bp[:,:] = ps.C*self.Bp \
+                    - ps.S_w*( -i*0.5*self.kr*ps.Ez + self.kz*ps.Ep ) 
+    
+                self.Bm[:,:] = ps.C*self.Bm \
+                    - ps.S_w*( -i*0.5*self.kr*ps.Ez - self.kz*ps.Em ) 
 
-        if ptcl_feedback :
-            self.Bp[:,:] = ps.C*self.Bp \
-                - ps.S_w*( -i*0.5*self.kr*ps.Ez + self.kz*ps.Ep ) \
-                + ps.j_coef*( -i*0.5*self.kr*self.Jz + self.kz*self.Jp )
-
-            self.Bm[:,:] = ps.C*self.Bm \
-                - ps.S_w*( -i*0.5*self.kr*ps.Ez - self.kz*ps.Em ) \
-                + ps.j_coef*( -i*0.5*self.kr*self.Jz - self.kz*self.Jm )
-
-            self.Bz[:,:] = ps.C*self.Bz \
-                - ps.S_w*( i*self.kr*ps.Ep + i*self.kr*ps.Em ) \
-                + ps.j_coef*( i*self.kr*self.Jp + i*self.kr*self.Jm )
-        else :
-            self.Bp[:,:] = ps.C*self.Bp \
-                - ps.S_w*( -i*0.5*self.kr*ps.Ez + self.kz*ps.Ep ) 
-
-            self.Bm[:,:] = ps.C*self.Bm \
-                - ps.S_w*( -i*0.5*self.kr*ps.Ez - self.kz*ps.Em ) 
-
-            self.Bz[:,:] = ps.C*self.Bz \
-                - ps.S_w*( i*self.kr*ps.Ep + i*self.kr*ps.Em ) 
-                
+                self.Bz[:,:] = ps.C*self.Bz \
+                    - ps.S_w*( i*self.kr*ps.Ep + i*self.kr*ps.Em )
 
     def push_rho(self) :
         """
@@ -797,7 +854,7 @@ class PsatdCoeffs(object) :
     Contains the coefficients of the PSATD scheme for a given mode.
     """
     
-    def __init__( self, kz, kr, m, dt, Nz, Nr ) :
+    def __init__( self, kz, kr, m, dt, Nz, Nr, use_cuda=False ) :
         """
         Allocates the coefficients matrices for the psatd scheme.
         
@@ -852,6 +909,8 @@ class PsatdCoeffs(object) :
         self.Ep = np.zeros( (Nz, Nr), dtype='complex' )
         self.Em = np.zeros( (Nz, Nr), dtype='complex' )
         self.Ez = np.zeros( (Nz, Nr), dtype='complex' )
+        # Note : no need to copy these variables to the GPU
+        # (on-the-fly variables)
 
 class SpectralTransformer(object) :
     """
@@ -872,7 +931,7 @@ class SpectralTransformer(object) :
         converts a vector field from the interpolation to the spectral grid
     """
 
-    def __init__(self, Nz, Nr, m, rmax, nthreads=4 ) :
+    def __init__(self, Nz, Nr, m, rmax, nthreads=4, use_cuda=False ) :
         """
         Initializes the dht attributes, which contain auxiliary
         matrices allowing to transform the fields quickly
