@@ -237,6 +237,9 @@ class Simulation(object) :
             self.time += self.dt
             self.iteration += 1
 
+        # Print a space at the end of the loop, for esthetical reasons
+        print('')
+
 def progression_bar(i, Ntot, Nbars=60, char='-') :
     "Shows a progression bar with Nbars"
     nbars = int( (i+1)*1./Ntot*Nbars )
