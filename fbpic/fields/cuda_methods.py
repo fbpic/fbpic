@@ -138,9 +138,9 @@ def cuda_divide_vector_by_volume( mode0r, mode1r, mode0t, mode1t,
         mode1t[iz, ir] = mode1t[iz, ir] * invvol1[ir]
         mode1z[iz, ir] = mode1z[iz, ir] * invvol1[ir]
 
-# ----------------------------
-# Current correction function
-# ----------------------------
+# -----------------------------------
+# Methods of the SpectralGrid object
+# -----------------------------------
 
 @cuda.jit('complex128[:,:], complex128[:,:], \
            complex128[:,:], complex128[:,:], complex128[:,:], \
@@ -198,7 +198,6 @@ def cuda_push_eb_with( Ep, Em, Ez, Bp, Bm, Bz, Jp, Jm, Jz,
 
     See the documentation of SpectralGrid.push_eb_with
     """
-
     
     # Cuda 2D grid
     iz, ir = cuda.grid(2)
@@ -291,5 +290,79 @@ def cuda_push_eb_with( Ep, Em, Ez, Bp, Bm, Bz, Jp, Jm, Jz,
                             + 1.j*kr[iz, ir]*Em_old[iz, ir] )
 
 
+@cuda.jit('complex128[:,:], complex128[:,:], int32, int32)')
+def cuda_push_rho( rho_prev, rho_next, Nz, Nr) :
+    """
+    Transfer the values of rho_next to rho_prev,
+    and set rho_next to zero
 
+    Parameters :
+    ------------
+    rho_prev, rho_next : 2darrays
+        Arrays that represent rho in spectral space
+
+    Nz, Nr : ints
+        Dimensions of the arrays
+    """
     
+    # Cuda 2D grid
+    iz, ir = cuda.grid(2)
+
+    # Push the fields
+    if (iz < Nz) and (ir < Nr) :
+
+        rho_prev[iz, ir] = rho_next[iz, ir]
+        rho_next[iz, ir] = 0.
+
+@cuda.jit('complex128[:,:], float64[:,:], int32, int32)')
+def cuda_filter_scalar( field, filter_array, Nz, Nr) :
+    """
+    Multiply the input field by the filter_array
+
+    Parameters :
+    ------------
+    field : 2darray of complexs
+        An array that represent the fields in spectral space
+
+    filter_array : 2darray of reals
+        An array that damps the fields at high k
+
+    Nz, Nr : ints
+        Dimensions of the arrays
+    """
+    
+    # Cuda 2D grid
+    iz, ir = cuda.grid(2)
+
+    # Filter the field
+    if (iz < Nz) and (ir < Nr) :
+
+        field[iz, ir] = filter_array[iz, ir]*field[iz, ir]
+
+@cuda.jit('complex128[:,:], complex128[:,:], complex128[:,:], \
+           float64[:,:], int32, int32)')
+def cuda_filter_scalar( fieldr, fieldt, fieldz, filter_array, Nz, Nr) :
+    """
+    Multiply the input field by the filter_array
+
+    Parameters :
+    ------------
+    field : 2darray of complexs
+        An array that represent the fields in spectral space
+
+    filter_array : 2darray of reals
+        An array that damps the fields at high k
+
+    Nz, Nr : ints
+        Dimensions of the arrays
+    """
+    
+    # Cuda 2D grid
+    iz, ir = cuda.grid(2)
+
+    # Filter the field
+    if (iz < Nz) and (ir < Nr) :
+
+        fieldr[iz, ir] = filter_array[iz, ir]*fieldr[iz, ir]
+        fieldt[iz, ir] = filter_array[iz, ir]*fieldt[iz, ir]
+        fieldz[iz, ir] = filter_array[iz, ir]*fieldz[iz, ir]

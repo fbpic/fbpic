@@ -378,7 +378,7 @@ class Fields(object) :
                     self.interp[0].invvol, self.interp[1].invvol,
                     self.Nz, self.Nr )
             else :
-                raise ValueError( 'Invalid string for fieldtype: %s' %fieldtype )
+                raise ValueError('Invalid string for fieldtype: %s' %fieldtype)
         else :
             # Perform division on the CPU
             if fieldtype == 'rho' :
@@ -394,7 +394,7 @@ class Fields(object) :
                     self.interp[m].Jz = \
                     self.interp[m].Jz * self.interp[m].invvol[np.newaxis,:]
             else :
-                raise ValueError( 'Invalid string for fieldtype: %s' %fieldtype )
+                raise ValueError('Invalid string for fieldtype: %s' %fieldtype)
 
 
 class InterpolationGrid(object) :
@@ -530,7 +530,7 @@ class InterpolationGrid(object) :
             extent = np.array([ self.zmin-0.5*self.dz, self.zmax+0.5*self.dz,
                       -self.rmax - 0.5*self.dr, self.rmax + 0.5*self.dr ])
         else :
-            extent = np.array([self.zmin - 0.5*self.dz, self.zmax + 0.5*self.dz,
+            extent = np.array([self.zmin-0.5*self.dz, self.zmax+0.5*self.dz,
                       self.rmin - 0.5*self.dr, self.rmax + 0.5*self.dr])
         extent = extent/gridscale
         # Title
@@ -705,7 +705,7 @@ class SpectralGrid(object) :
                         - ps.rho_prev_coef*self.rho_prev
                 else :
                     # Evaluation using div(E) and div(J)
-                    rho_diff = (ps.rho_next_coef-ps.rho_prev_coef) *epsilon_0* \
+                    rho_diff = (ps.rho_next_coef-ps.rho_prev_coef)*epsilon_0* \
                     ( self.kr*self.Ep - self.kr*self.Em + i*self.kz*self.Ez ) \
                     - ps.rho_next_coef * ps.dt * \
                     ( self.kr*self.Jp - self.kr*self.Jm + i*self.kz*self.Jz )
@@ -764,8 +764,17 @@ class SpectralGrid(object) :
         Transfer the values of rho_next to rho_prev,
         and set rho_next to zero
         """
-        self.rho_prev[:,:] = self.rho_next[:,:]
-        self.rho_next[:,:] = 0.
+        if self.use_cuda :
+            # Push the fields on the GPU
+            bpgz = int( self.Nz/tpz + 1 )
+            bpgr = int( self.Nr/tpr + 1 )
+
+            cuda_push_rho[(bpgz, bpgr), (tpbz, tpbr)](
+                self.rho_prev, self.rho_next )
+        else :
+            # Push the fields on the CPU
+            self.rho_prev[:,:] = self.rho_next[:,:]
+            self.rho_next[:,:] = 0.
 
     def filter(self, fieldtype) :
         """
@@ -777,24 +786,49 @@ class SpectralGrid(object) :
             A string which represents the kind of field to be filtered
             (either 'E', 'B', 'J', 'rho_next' or 'rho_prev')
         """
-        if fieldtype == 'rho_prev' :
-            self.rho_prev = self.rho_prev * self.filter_array
-        elif fieldtype == 'rho_next' :
-            self.rho_next = self.rho_next * self.filter_array
-        elif fieldtype == 'J' :
-            self.Jp = self.Jp * self.filter_array
-            self.Jm = self.Jm * self.filter_array
-            self.Jz = self.Jz * self.filter_array
-        elif fieldtype == 'E' :
-            self.Ep = self.Ep * self.filter_array
-            self.Em = self.Em * self.filter_array
-            self.Ez = self.Ez * self.filter_array
-        elif fieldtype == 'B' :
-            self.Bp = self.Bp * self.filter_array
-            self.Bm = self.Bm * self.filter_array
-            self.Bz = self.Bz * self.filter_array
+        if self.use_cuda :
+            # Filter fields on the GPU
+            bpgz = int( self.Nz/tpz + 1 )
+            bpgr = int( self.Nr/tpr + 1 )
+            
+            if fieldtype == 'rho_prev' :
+                cuda_filter_scalar[(bpgz, bpgr), (tpbz, tpbr)](
+                    self.rho_prev, self.filter_array, self.Nz, self.Nr )
+            elif fieldtype == 'rho_next' :
+                cuda_filter_scalar[(bpgz, bpgr), (tpbz, tpbr)](
+                    self.rho_next, self.filter_array, self.Nz, self.Nr )
+            elif fieldtype == 'J' :
+                cuda_filter_vector[(bpgz, bpgr), (tpbz, tpbr)](
+                self.Jp, self.Jm, self.Jz, self.filter_array, self.Nz, self.Nr)
+            elif fieldtype == 'E' :
+                cuda_filter_vector[(bpgz, bpgr), (tpbz, tpbr)](
+                self.Ep, self.Em, self.Ez, self.filter_array, self.Nz, self.Nr)
+            elif fieldtype == 'B' :
+                cuda_filter_vector[(bpgz, bpgr), (tpbz, tpbr)](
+                self.Bp, self.Bm, self.Bz, self.filter_array, self.Nz, self.Nr)
+            else :
+                raise ValueError('Invalid string for fieldtype: %s' %fieldtype)
         else :
-            raise ValueError( 'Invalid string for fieldtype: %s' %fieldtype )
+            # Filter fields on the CPU
+            
+            if fieldtype == 'rho_prev' :
+                self.rho_prev = self.rho_prev * self.filter_array
+            elif fieldtype == 'rho_next' :
+                self.rho_next = self.rho_next * self.filter_array
+            elif fieldtype == 'J' :
+                self.Jp = self.Jp * self.filter_array
+                self.Jm = self.Jm * self.filter_array
+                self.Jz = self.Jz * self.filter_array
+            elif fieldtype == 'E' :
+                self.Ep = self.Ep * self.filter_array
+                self.Em = self.Em * self.filter_array
+                self.Ez = self.Ez * self.filter_array
+            elif fieldtype == 'B' :
+                self.Bp = self.Bp * self.filter_array
+                self.Bm = self.Bm * self.filter_array
+                self.Bz = self.Bz * self.filter_array
+            else :
+                raise ValueError('Invalid string for fieldtype: %s' %fieldtype)
         
     def show(self, fieldtype, below_axis=True, scale=1, **kw) :
         """
