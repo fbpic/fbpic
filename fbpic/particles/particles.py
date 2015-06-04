@@ -44,6 +44,7 @@ class Particles(object) :
     def __init__(self, q, m, n, Npz, zmin, zmax,
                     Npr, rmin, rmax, Nptheta, dt,
                     dens_func=None, global_theta=0.,
+                    fld = None,
                     continuous_injection=True,
                     use_cuda=False, use_numba=True ) :
         """
@@ -90,6 +91,12 @@ class Particles(object) :
            This is useful when repetitively adding new particles
            (e.g. with the moving window), in order to avoid that
            the successively-added particles are aligned.
+
+        fld : Fields object, optional (required for cuda)
+           The Fields object of the simulation, that contains
+           the information about the grid. (This is needed
+           allocate the prefix_sum array for sorting the 
+           particles when using CUDA.)
 
         continuous_injection : bool, optional
            Whether to continuously inject the particles,
@@ -158,7 +165,7 @@ class Particles(object) :
         # change the angles individually)
         zp, rp, thetap = np.meshgrid( z_reg, r_reg, theta_reg, copy=True)
         # Prevent the particles from being aligned along any direction
-        unalign_angles( thetap, Npr,Npz, method='irrational' )
+        unalign_angles( thetap, Npr, Npz, method='irrational' )
         thetap += global_theta
         # Flatten them (This performs a memory copy)
         r = rp.flatten()
@@ -172,7 +179,64 @@ class Particles(object) :
         # Modulate it by the density profile
         if dens_func is not None :
             self.w = self.w * dens_func( self.z, r )
-        
+        # Initialize the Fields object
+        self.fld = fld
+        # Create arrays for particle sorting when using CUDA
+        if self.use_cuda:
+            if self.fld != None:
+                # Create empty arrays to store the cell index, the sorted
+                # index of the particles and the prefix sum (indicates at wich
+                # position a new value occurs in the cell index array)
+                self.cell_idx = np.zeros(self.Ntot, dtype = np.int32)
+                self.sorted_idx = np.arange(self.Ntot, dtype = np.uint32)
+                self.prefix_sum = np.zeros(self.fld.Nz*self.fld.Nr, dtype = np.int32)
+            else:
+                raise ValueError( "Field object is None. CUDA mode will exit now!" )
+                self.use_cuda == False
+        # Define the number of threads per block and blocks per grid when using CUDA
+        if self.use_cuda:
+            # ------------------------------
+            # NOTE: Hardcoded at the moment!
+            # ------------------------------
+            # Define threads per block and blocks per grid
+            # for iterating over particles in 1D
+            self.tpb1d = 256
+            self.bpg1d = int(self.Ntot/tpb1d + 1)
+            # Define the blocks per grid 
+            #for iterating over the cells in 1 D
+            self.bpg1d_grid = int((self.fld.Nz*self.fld.Nr)/tpb1d + 10)
+            # Define threads per block and blocks per grid
+            # for iterating over cells in 2D
+            self.tpb2dr = 8
+            self.tpb2dz = 8
+            self.bpg2dz = int(self.fld.Nz/tpb2dz + 1)
+            self.bpg2dr = int(self.fld.Nr/tpb2dr + 1)
+        # When using CUDA, we need additional arrays for the field deposition,
+        # that are not included in the fld.grid object
+        if self.use_cuda:
+            # Create empty arrays to store the four different possible
+            # cell directions a particle can deposit to.
+            # Rho - third dimension represents 2 modes
+            self.rho0 = np.zeros((self.fld.Nz, self.fld.Nr, 2),
+                                 dtype = np.complex128)
+            self.rho1 = np.zeros((self.fld.Nz, self.fld.Nr, 2),
+                                 dtype = np.complex128)
+            self.rho2 = np.zeros((self.fld.Nz, self.fld.Nr, 2), 
+                                 dtype = np.complex128)
+            self.rho3 = np.zeros((self.fld.Nz, self.fld.Nr, 2), 
+                                 dtype = np.complex128)
+            # J - third dimension represents 2 modes 
+            # times 3 dimensions (r, t, z)
+            self.J0 = np.zeros((self.fld.Nz, self.fld.Nr, 6), 
+                               dtype = np.complex128)
+            self.J1 = np.zeros((self.fld.Nz, self.fld.Nr, 6), 
+                               dtype = np.complex128)
+            self.J2 = np.zeros((self.fld.Nz, self.fld.Nr, 6), 
+                               dtype = np.complex128)
+            self.J3 = np.zeros((self.fld.Nz, self.fld.Nr, 6),
+                               dtype = np.complex128)
+
+
     def push_p( self ) :
         """
         Advance the particles' momenta over one timestep, using the Vay pusher
@@ -187,9 +251,8 @@ class Particles(object) :
                     self.Ex, self.Ey, self.Ez, self.Bx, self.By, self.Bz,
                     self.q, self.m, self.Ntot, self.dt )
         elif self.use_cuda :
-            tpb = 256
-            bpg = int(self.Ntot/tpb + 1)
-            push_p_cuda[bpg, tpb](self.ux, self.uy, self.uz,
+            # Call the CUDA Kernel for the particle push
+            push_p_gpu[self.bpg1d, self.tpb1d](self.ux, self.uy, self.uz,
                     self.inv_gamma, self.Ex, self.Ey, self.Ez,
                     self.Bx, self.By, self.Bz,
                     self.q, self.m, self.Ntot, self.dt )
@@ -223,131 +286,144 @@ class Particles(object) :
         grid : a list of InterpolationGrid objects
              (one InterpolationGrid object per azimuthal mode)
              Contains the field values on the interpolation grid
-        """        
-        # Preliminary arrays for the cylindrical conversion
-        r = np.sqrt( self.x**2 + self.y**2 )
-        invr = 1./r
-        cos = self.x*invr  # Cosine
-        sin = self.y*invr  # Sine
+        """
+        if self.use_cuda == True:
+            # Call the CUDA Kernel for the gathering of E and B Fields
+            # for Mode 0 and 1 only.
+            gather_field_gpu[self.bpg1d, self.tpb1d](self.x, self.y, self.z,
+                 grid[0].invdz, grid[0].zmin, grid[0].Nz,
+                 grid[0].invdr, grid[0].rmin, grid[0].Nr,
+                 grid[0].Er, grid[0].Et, grid[0].Ez,
+                 grid[1].Er, grid[1].Et, grid[1].Ez,
+                 grid[0].Br, grid[0].Bt, grid[0].Bz,
+                 grid[1].Br, grid[1].Bt, grid[1].Bz,
+                 self.Ex, self.Ey, self.Ez,
+                 self.Bx, self.By, self.Bz)
+        else:
+            # Preliminary arrays for the cylindrical conversion
+            r = np.sqrt( self.x**2 + self.y**2 )
+            invr = 1./r
+            cos = self.x*invr  # Cosine
+            sin = self.y*invr  # Sine
 
-        # Indices and weights
-        iz_lower, iz_upper, Sz_lower, Sz_upper = linear_weights(
-           self.z, grid[0].invdz, grid[0].zmin, grid[0].Nz, direction='z' )
-        ir_lower, ir_upper, Sr_lower, Sr_upper, Sr_guard = linear_weights(
-            r, grid[0].invdr, grid[0].rmin, grid[0].Nr, direction='r' )
+            # Indices and weights
+            iz_lower, iz_upper, Sz_lower, Sz_upper = linear_weights(
+               self.z, grid[0].invdz, grid[0].zmin, grid[0].Nz, direction='z' )
+            ir_lower, ir_upper, Sr_lower, Sr_upper, Sr_guard = linear_weights(
+                r, grid[0].invdr, grid[0].rmin, grid[0].Nr, direction='r' )
 
-        # Number of modes considered :
-        # number of elements in the grid list
-        Nm = len(grid)
-        
-        # -------------------------------
-        # Gather the E field mode by mode
-        # -------------------------------
-        # Zero the previous fields
-        self.Ex[:] = 0.
-        self.Ey[:] = 0.
-        self.Ez[:] = 0.
-        # Prepare auxiliary matrices
-        Ft = np.zeros(self.Ntot)
-        Fr = np.zeros(self.Ntot)
-        exptheta = np.ones(self.Ntot, dtype='complex')
-        # exptheta takes the value exp(-im theta) throughout the loop
-        for m in range(Nm) :
-            # Increment exptheta (notice the - : backward transform)
-            if m==1 :
-                exptheta[:].real = cos
-                exptheta[:].imag = -sin
-            elif m>1 :
-                exptheta[:] = exptheta*( cos - 1.j*sin )
-            # Gather the fields
-            # (The sign with which the guards are added
-            # depends on whether the fields should be zero on axis)
-            if self.use_numba:
-                # Use numba
-                gather_field_numba( exptheta, m, grid[m].Er, Fr, 
-                    iz_lower, iz_upper, Sz_lower, Sz_upper,
-                    ir_lower, ir_upper, Sr_lower, Sr_upper,
-                    -(-1.)**m, Sr_guard )
-                gather_field_numba( exptheta, m, grid[m].Et, Ft, 
-                    iz_lower, iz_upper, Sz_lower, Sz_upper,
-                    ir_lower, ir_upper, Sr_lower, Sr_upper,
-                    -(-1.)**m, Sr_guard )
-                gather_field_numba( exptheta, m, grid[m].Ez, self.Ez, 
-                    iz_lower, iz_upper, Sz_lower, Sz_upper,
-                    ir_lower, ir_upper, Sr_lower, Sr_upper,
-                    (-1.)**m, Sr_guard )
-            else:
-                # Use numpy (slower)
-                gather_field_numpy( exptheta, m, grid[m].Er, Fr, 
-                    iz_lower, iz_upper, Sz_lower, Sz_upper,
-                    ir_lower, ir_upper, Sr_lower, Sr_upper,
-                    -(-1.)**m, Sr_guard )
-                gather_field_numpy( exptheta, m, grid[m].Et, Ft, 
-                    iz_lower, iz_upper, Sz_lower, Sz_upper,
-                    ir_lower, ir_upper, Sr_lower, Sr_upper,
-                    -(-1.)**m, Sr_guard )
-                gather_field_numpy( exptheta, m, grid[m].Ez, self.Ez, 
-                    iz_lower, iz_upper, Sz_lower, Sz_upper,
-                    ir_lower, ir_upper, Sr_lower, Sr_upper,
-                    (-1.)**m, Sr_guard )
+            # Number of modes considered :
+            # number of elements in the grid list
+            Nm = len(grid)
+            
+            # -------------------------------
+            # Gather the E field mode by mode
+            # -------------------------------
+            # Zero the previous fields
+            self.Ex[:] = 0.
+            self.Ey[:] = 0.
+            self.Ez[:] = 0.
+            # Prepare auxiliary matrices
+            Ft = np.zeros(self.Ntot)
+            Fr = np.zeros(self.Ntot)
+            exptheta = np.ones(self.Ntot, dtype='complex')
+            # exptheta takes the value exp(-im theta) throughout the loop
+            for m in range(Nm) :
+                # Increment exptheta (notice the - : backward transform)
+                if m==1 :
+                    exptheta[:].real = cos
+                    exptheta[:].imag = -sin
+                elif m>1 :
+                    exptheta[:] = exptheta*( cos - 1.j*sin )
+                # Gather the fields
+                # (The sign with which the guards are added
+                # depends on whether the fields should be zero on axis)
+                if self.use_numba:
+                    # Use numba
+                    gather_field_numba( exptheta, m, grid[m].Er, Fr, 
+                        iz_lower, iz_upper, Sz_lower, Sz_upper,
+                        ir_lower, ir_upper, Sr_lower, Sr_upper,
+                        -(-1.)**m, Sr_guard )
+                    gather_field_numba( exptheta, m, grid[m].Et, Ft, 
+                        iz_lower, iz_upper, Sz_lower, Sz_upper,
+                        ir_lower, ir_upper, Sr_lower, Sr_upper,
+                        -(-1.)**m, Sr_guard )
+                    gather_field_numba( exptheta, m, grid[m].Ez, self.Ez, 
+                        iz_lower, iz_upper, Sz_lower, Sz_upper,
+                        ir_lower, ir_upper, Sr_lower, Sr_upper,
+                        (-1.)**m, Sr_guard )
+                else:
+                    # Use numpy (slower)
+                    gather_field_numpy( exptheta, m, grid[m].Er, Fr, 
+                        iz_lower, iz_upper, Sz_lower, Sz_upper,
+                        ir_lower, ir_upper, Sr_lower, Sr_upper,
+                        -(-1.)**m, Sr_guard )
+                    gather_field_numpy( exptheta, m, grid[m].Et, Ft, 
+                        iz_lower, iz_upper, Sz_lower, Sz_upper,
+                        ir_lower, ir_upper, Sr_lower, Sr_upper,
+                        -(-1.)**m, Sr_guard )
+                    gather_field_numpy( exptheta, m, grid[m].Ez, self.Ez, 
+                        iz_lower, iz_upper, Sz_lower, Sz_upper,
+                        ir_lower, ir_upper, Sr_lower, Sr_upper,
+                        (-1.)**m, Sr_guard )
 
-        # Convert to Cartesian coordinates
-        self.Ex[:] = cos*Fr - sin*Ft
-        self.Ey[:] = sin*Fr + cos*Ft
+            # Convert to Cartesian coordinates
+            self.Ex[:] = cos*Fr - sin*Ft
+            self.Ey[:] = sin*Fr + cos*Ft
 
-        # -------------------------------
-        # Gather the B field mode by mode
-        # -------------------------------
-        # Zero the previous fields
-        self.Bx[:] = 0.
-        self.By[:] = 0.
-        self.Bz[:] = 0.
-        # Prepare auxiliary matrices
-        Ft[:] = 0.
-        Fr[:] = 0.
-        exptheta[:] = 1.
-        # exptheta takes the value exp(-im theta) throughout the loop
-        for m in range(Nm) :
-            # Increment exptheta (notice the - : backward transform)
-            if m==1 :
-                exptheta[:].real = cos
-                exptheta[:].imag = -sin
-            elif m>1 :
-                exptheta[:] = exptheta*( cos - 1.j*sin )
-            # Gather the fields
-            # (The sign with which the guards are added
-            # depends on whether the fields should be zero on axis)
-            if self.use_numba:
-                # Use numba
-                gather_field_numba( exptheta, m, grid[m].Br, Fr, 
-                    iz_lower, iz_upper, Sz_lower, Sz_upper,
-                    ir_lower, ir_upper, Sr_lower, Sr_upper,
-                    -(-1.)**m, Sr_guard )
-                gather_field_numba( exptheta, m, grid[m].Bt, Ft, 
-                    iz_lower, iz_upper, Sz_lower, Sz_upper,
-                    ir_lower, ir_upper, Sr_lower, Sr_upper,
-                    -(-1.)**m, Sr_guard )
-                gather_field_numba( exptheta, m, grid[m].Bz, self.Bz, 
-                    iz_lower, iz_upper, Sz_lower, Sz_upper,
-                    ir_lower, ir_upper, Sr_lower, Sr_upper,
-                    (-1.)**m, Sr_guard )
-            else:
-                # Use numpy (slower)
-                gather_field_numpy( exptheta, m, grid[m].Br, Fr, 
-                    iz_lower, iz_upper, Sz_lower, Sz_upper,
-                    ir_lower, ir_upper, Sr_lower, Sr_upper,
-                    -(-1.)**m, Sr_guard )
-                gather_field_numpy( exptheta, m, grid[m].Bt, Ft, 
-                    iz_lower, iz_upper, Sz_lower, Sz_upper,
-                    ir_lower, ir_upper, Sr_lower, Sr_upper,
-                    -(-1.)**m, Sr_guard )
-                gather_field_numpy( exptheta, m, grid[m].Bz, self.Bz, 
-                    iz_lower, iz_upper, Sz_lower, Sz_upper,
-                    ir_lower, ir_upper, Sr_lower, Sr_upper,
-                    (-1.)**m, Sr_guard )
-        # Convert to Cartesian coordinates
-        self.Bx[:] = cos*Fr - sin*Ft
-        self.By[:] = sin*Fr + cos*Ft
+            # -------------------------------
+            # Gather the B field mode by mode
+            # -------------------------------
+            # Zero the previous fields
+            self.Bx[:] = 0.
+            self.By[:] = 0.
+            self.Bz[:] = 0.
+            # Prepare auxiliary matrices
+            Ft[:] = 0.
+            Fr[:] = 0.
+            exptheta[:] = 1.
+            # exptheta takes the value exp(-im theta) throughout the loop
+            for m in range(Nm) :
+                # Increment exptheta (notice the - : backward transform)
+                if m==1 :
+                    exptheta[:].real = cos
+                    exptheta[:].imag = -sin
+                elif m>1 :
+                    exptheta[:] = exptheta*( cos - 1.j*sin )
+                # Gather the fields
+                # (The sign with which the guards are added
+                # depends on whether the fields should be zero on axis)
+                if self.use_numba:
+                    # Use numba
+                    gather_field_numba( exptheta, m, grid[m].Br, Fr, 
+                        iz_lower, iz_upper, Sz_lower, Sz_upper,
+                        ir_lower, ir_upper, Sr_lower, Sr_upper,
+                        -(-1.)**m, Sr_guard )
+                    gather_field_numba( exptheta, m, grid[m].Bt, Ft, 
+                        iz_lower, iz_upper, Sz_lower, Sz_upper,
+                        ir_lower, ir_upper, Sr_lower, Sr_upper,
+                        -(-1.)**m, Sr_guard )
+                    gather_field_numba( exptheta, m, grid[m].Bz, self.Bz, 
+                        iz_lower, iz_upper, Sz_lower, Sz_upper,
+                        ir_lower, ir_upper, Sr_lower, Sr_upper,
+                        (-1.)**m, Sr_guard )
+                else:
+                    # Use numpy (slower)
+                    gather_field_numpy( exptheta, m, grid[m].Br, Fr, 
+                        iz_lower, iz_upper, Sz_lower, Sz_upper,
+                        ir_lower, ir_upper, Sr_lower, Sr_upper,
+                        -(-1.)**m, Sr_guard )
+                    gather_field_numpy( exptheta, m, grid[m].Bt, Ft, 
+                        iz_lower, iz_upper, Sz_lower, Sz_upper,
+                        ir_lower, ir_upper, Sr_lower, Sr_upper,
+                        -(-1.)**m, Sr_guard )
+                    gather_field_numpy( exptheta, m, grid[m].Bz, self.Bz, 
+                        iz_lower, iz_upper, Sz_lower, Sz_upper,
+                        ir_lower, ir_upper, Sr_lower, Sr_upper,
+                        (-1.)**m, Sr_guard )
+            # Convert to Cartesian coordinates
+            self.Bx[:] = cos*Fr - sin*Ft
+            self.By[:] = sin*Fr + cos*Ft
 
         
     def deposit(self, grid, fieldtype ) :
@@ -355,7 +431,7 @@ class Particles(object) :
         Deposit the particles charge or current onto the grid, using numpy
         
         This assumes that the particle positions (and momenta in the case of J)
-        are currently at the same timestep as the field that is to be deposited.
+        are currently at the same timestep as the field that is to be deposited
         
         Parameter
         ----------
@@ -366,102 +442,159 @@ class Particles(object) :
         fieldtype : string
              Indicates which field to deposit
              Either 'J' or 'rho'
-        """        
-        # Preliminary arrays for the cylindrical conversion
-        r = np.sqrt( self.x**2 + self.y**2 )
-        invr = 1./r
-        cos = self.x*invr  # Cosine
-        sin = self.y*invr  # Sine
+        """
+        if self.use_cuda == True:
+            # ------------------------
+            # Sorting of the particles
+            # ------------------------
+            # Get the cell index of each particle 
+            # (defined by iz_lower and ir_lower)
+            get_cell_idx_per_particle[self.bpg1d, self.tpb1d](
+                self.cell_idx, 
+                self.x, self.y, self.z, 
+                grid[0].invdz, grid[0].zmin, grid[0].Nz, 
+                grid[0].invdr, grid[0].rmin, grid[0].Nr)
+            # Sort the cell index array and modify the sorted_idx array
+            # accordingly. The value of the sorted_idx array corresponds 
+            # to the index of the sorted particle in the other particle 
+            # arrays.
+            sort_particles_per_cell(self.cell_idx, self.sorted_idx)
+            # Perform the inclusive parallel prefix sum
+            incl_prefix_sum[self.bpg1d, self.tpb1d](
+                self.cell_idx, self.prefix_sum)
 
-        # Indices and weights
-        iz_lower, iz_upper, Sz_lower, Sz_upper = linear_weights( 
-            self.z, grid[0].invdz, grid[0].zmin, grid[0].Nz, direction='z' )
-        ir_lower, ir_upper, Sr_lower, Sr_upper, Sr_guard = linear_weights(
-            r, grid[0].invdr, grid[0].rmin, grid[0].Nr, direction='r' )
+            # Call the CUDA Kernel for the deposition of rho or J
+            # for Mode 0 and 1 only.
+            # Rho
+            if fieldtype == 'rho':
+                # Deposit rho in each of four directions
+                deposit_rho_gpu[self.bpg1d_grid, self.tpb1d](
+                    self.x, self.y, self.z, self.w, 
+                    grid[0].invdz, grid[0].zmin, grid[0].Nz, 
+                    grid[0].invdr, grid[0].rmin, grid[0].Nr,
+                    self.rho0, self.rho1, self.rho2, self.rho3,
+                    self.cell_idx, self.sorted_idx, self.prefix_sum)
+                # Add the four directions together
+                add_rho[(self.bpg2dz, self.bpg2dr),
+                    (self.tpb2dz, self.tpb2dr)](
+                    grid[0].rho, grid[1].rho,
+                    self.rho0, self.rho1, self.rho2, self.rho3)
+            # J
+            if fieldtype == 'J':
+                # Deposit J in each of four directions
+                deposit_J_gpu[self.bpg1d_grid, self.tpb1d](
+                    self.x, self.y, self.z, self.w,
+                    self.ux, self.uy, self.uz, self.inv_gamma,
+                    grid[0].invdz, grid[0].zmin, grid[0].Nz, 
+                    grid[0].invdr, grid[0].rmin, grid[0].Nr,
+                    self.J0, self.J1, self.J2, self.J3,
+                    self.cell_idx, self.sorted_idx, self.prefix_sum)
+                # Add the four directions together
+                add_J[(self.bpg2dz, self.bpg2dr),
+                    (self.tpb2dz, self.tpb2dr)](
+                    grid[0].Jr, grid[1].Jr,
+                    grid[0].Jt, grid[1].Jt,
+                    grid[0].Jz, grid[1].Jz,
+                    self.J0, self.J1, self.J2, self.J3)
+            else :
+                raise ValueError(
+            "`fieldtype` should be either 'J' or 'rho', but is `%s`" %fieldtype )
+        else:       
+            # Preliminary arrays for the cylindrical conversion
+            r = np.sqrt( self.x**2 + self.y**2 )
+            invr = 1./r
+            cos = self.x*invr  # Cosine
+            sin = self.y*invr  # Sine
 
-        # Number of modes considered :
-        # number of elements in the grid list
-        Nm = len(grid)
+            # Indices and weights
+            iz_lower, iz_upper, Sz_lower, Sz_upper = linear_weights( 
+                self.z, grid[0].invdz, grid[0].zmin, grid[0].Nz, direction='z')
+            ir_lower, ir_upper, Sr_lower, Sr_upper, Sr_guard = linear_weights(
+                r, grid[0].invdr, grid[0].rmin, grid[0].Nr, direction='r')
 
-        if fieldtype == 'rho' :
-            # ---------------------------------------
-            # Deposit the charge density mode by mode
-            # ---------------------------------------
-            # Prepare auxiliary matrix
-            exptheta = np.ones( self.Ntot, dtype='complex')
-            # exptheta takes the value exp(im theta) throughout the loop
-            for m in range(Nm) :
-                # Increment exptheta (notice the + : forward transform)
-                if m==1 :
-                    exptheta[:].real = cos
-                    exptheta[:].imag = sin
-                elif m>1 :
-                    exptheta[:] = exptheta*( cos + 1.j*sin )
-                # Deposit the fields
-                # (The sign -1 with which the guards are added
-                # is not trivial to derive but avoids artifacts on the axis)
-                if self.use_numba :
-                    # Use numba
-                    deposit_field_numba( self.w*exptheta, grid[m].rho, 
-                        iz_lower, iz_upper, Sz_lower, Sz_upper,
-                        ir_lower, ir_upper, Sr_lower, Sr_upper,
-                        -1., Sr_guard )
-                else:
-                    # Use numpy (slower)
-                    deposit_field_numpy( self.w*exptheta, grid[m].rho, 
-                        iz_lower, iz_upper, Sz_lower, Sz_upper,
-                        ir_lower, ir_upper, Sr_lower, Sr_upper,
-                        -1., Sr_guard )
+            # Number of modes considered :
+            # number of elements in the grid list
+            Nm = len(grid)
 
-        elif fieldtype == 'J' :
-            # ----------------------------------------
-            # Deposit the current density mode by mode
-            # ----------------------------------------
-            # Calculate the currents
-            Jr = self.w * c * self.inv_gamma*( cos*self.ux + sin*self.uy )
-            Jt = self.w * c * self.inv_gamma*( cos*self.uy - sin*self.ux )
-            Jz = self.w * c * self.inv_gamma*self.uz
-            # Prepare auxiliary matrix
-            exptheta = np.ones( self.Ntot, dtype='complex')
-            # exptheta takes the value exp(im theta) throughout the loop
-            for m in range(Nm) :
-                # Increment exptheta (notice the + : forward transform)
-                if m==1 :
-                    exptheta[:].real = cos
-                    exptheta[:].imag = sin
-                elif m>1 :
-                    exptheta[:] = exptheta*( cos + 1.j*sin )
-                # Deposit the fields
-                # (The sign -1 with which the guards are added
-                # is not trivial to derive but avoids artifacts on the axis)
-                if self.use_numba:
-                    # Use numba
-                    deposit_field_numba( Jr*exptheta, grid[m].Jr, 
-                        iz_lower, iz_upper, Sz_lower, Sz_upper,
-                        ir_lower, ir_upper, Sr_lower, Sr_upper,
-                        -1., Sr_guard )
-                    deposit_field_numba( Jt*exptheta, grid[m].Jt, 
-                        iz_lower, iz_upper, Sz_lower, Sz_upper,
-                        ir_lower, ir_upper, Sr_lower, Sr_upper,
-                        -1., Sr_guard )
-                    deposit_field_numba( Jz*exptheta, grid[m].Jz, 
-                        iz_lower, iz_upper, Sz_lower, Sz_upper,
-                        ir_lower, ir_upper, Sr_lower, Sr_upper,
-                        -1., Sr_guard )
-                else:
-                    # Use numpy (slower)
-                    deposit_field_numpy( Jr*exptheta, grid[m].Jr, 
-                        iz_lower, iz_upper, Sz_lower, Sz_upper,
-                        ir_lower, ir_upper, Sr_lower, Sr_upper,
-                        -1., Sr_guard )
-                    deposit_field_numpy( Jt*exptheta, grid[m].Jt, 
-                        iz_lower, iz_upper, Sz_lower, Sz_upper,
-                        ir_lower, ir_upper, Sr_lower, Sr_upper,
-                        -1., Sr_guard )
-                    deposit_field_numpy( Jz*exptheta, grid[m].Jz, 
-                        iz_lower, iz_upper, Sz_lower, Sz_upper,
-                        ir_lower, ir_upper, Sr_lower, Sr_upper,
-                        -1., Sr_guard )
-        else :
-            raise ValueError(
-        "`fieldtype` should be either 'J' or 'rho', but is `%s`" %fieldtype )
+            if fieldtype == 'rho' :
+                # ---------------------------------------
+                # Deposit the charge density mode by mode
+                # ---------------------------------------
+                # Prepare auxiliary matrix
+                exptheta = np.ones( self.Ntot, dtype='complex')
+                # exptheta takes the value exp(im theta) throughout the loop
+                for m in range(Nm) :
+                    # Increment exptheta (notice the + : forward transform)
+                    if m==1 :
+                        exptheta[:].real = cos
+                        exptheta[:].imag = sin
+                    elif m>1 :
+                        exptheta[:] = exptheta*( cos + 1.j*sin )
+                    # Deposit the fields
+                    # (The sign -1 with which the guards are added
+                    # is not trivial to derive but avoids artifacts on the axis)
+                    if self.use_numba :
+                        # Use numba
+                        deposit_field_numba( self.w*exptheta, grid[m].rho, 
+                            iz_lower, iz_upper, Sz_lower, Sz_upper,
+                            ir_lower, ir_upper, Sr_lower, Sr_upper,
+                            -1., Sr_guard )
+                    else:
+                        # Use numpy (slower)
+                        deposit_field_numpy( self.w*exptheta, grid[m].rho, 
+                            iz_lower, iz_upper, Sz_lower, Sz_upper,
+                            ir_lower, ir_upper, Sr_lower, Sr_upper,
+                            -1., Sr_guard )
+
+            elif fieldtype == 'J' :
+                # ----------------------------------------
+                # Deposit the current density mode by mode
+                # ----------------------------------------
+                # Calculate the currents
+                Jr = self.w * c * self.inv_gamma*( cos*self.ux + sin*self.uy )
+                Jt = self.w * c * self.inv_gamma*( cos*self.uy - sin*self.ux )
+                Jz = self.w * c * self.inv_gamma*self.uz
+                # Prepare auxiliary matrix
+                exptheta = np.ones( self.Ntot, dtype='complex')
+                # exptheta takes the value exp(im theta) throughout the loop
+                for m in range(Nm) :
+                    # Increment exptheta (notice the + : forward transform)
+                    if m==1 :
+                        exptheta[:].real = cos
+                        exptheta[:].imag = sin
+                    elif m>1 :
+                        exptheta[:] = exptheta*( cos + 1.j*sin )
+                    # Deposit the fields
+                    # (The sign -1 with which the guards are added
+                    # is not trivial to derive but avoids artifacts on the axis)
+                    if self.use_numba:
+                        # Use numba
+                        deposit_field_numba( Jr*exptheta, grid[m].Jr, 
+                            iz_lower, iz_upper, Sz_lower, Sz_upper,
+                            ir_lower, ir_upper, Sr_lower, Sr_upper,
+                            -1., Sr_guard )
+                        deposit_field_numba( Jt*exptheta, grid[m].Jt, 
+                            iz_lower, iz_upper, Sz_lower, Sz_upper,
+                            ir_lower, ir_upper, Sr_lower, Sr_upper,
+                            -1., Sr_guard )
+                        deposit_field_numba( Jz*exptheta, grid[m].Jz, 
+                            iz_lower, iz_upper, Sz_lower, Sz_upper,
+                            ir_lower, ir_upper, Sr_lower, Sr_upper,
+                            -1., Sr_guard )
+                    else:
+                        # Use numpy (slower)
+                        deposit_field_numpy( Jr*exptheta, grid[m].Jr, 
+                            iz_lower, iz_upper, Sz_lower, Sz_upper,
+                            ir_lower, ir_upper, Sr_lower, Sr_upper,
+                            -1., Sr_guard )
+                        deposit_field_numpy( Jt*exptheta, grid[m].Jt, 
+                            iz_lower, iz_upper, Sz_lower, Sz_upper,
+                            ir_lower, ir_upper, Sr_lower, Sr_upper,
+                            -1., Sr_guard )
+                        deposit_field_numpy( Jz*exptheta, grid[m].Jz, 
+                            iz_lower, iz_upper, Sz_lower, Sz_upper,
+                            ir_lower, ir_upper, Sr_lower, Sr_upper,
+                            -1., Sr_guard )
+            else :
+                raise ValueError(
+            "`fieldtype` should be either 'J' or 'rho', but is `%s`" %fieldtype )

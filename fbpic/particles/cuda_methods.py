@@ -13,7 +13,7 @@ import math
             float64[:], float64[:], float64[:], \
             float64[:], float64[:], float64[:], \
             float64, float64, int32, float64)')
-def push_p_numba_gpu( ux, uy, uz, inv_gamma, 
+def push_p_gpu( ux, uy, uz, inv_gamma, 
                       Ex, Ey, Ez, Bx, By, Bz,
                       q, m, Ntot, dt ) :
     """

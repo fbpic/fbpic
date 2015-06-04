@@ -26,7 +26,7 @@ class Simulation(object) :
     def __init__(self, Nz, zmax, Nr, rmax, Nm, dt,
                  p_zmin, p_zmax, p_rmin, p_rmax,
                  p_nz, p_nr, p_nt, n_e, dens_func=None,
-                 initialize_ions=False ) :
+                 initialize_ions=False, use_cuda = False) :
         """
         Initializes a simulation, by creating the following structures :
         - the Fields object, which contains the EM fields
@@ -71,7 +71,11 @@ class Simulation(object) :
 
         initialize_ions : bool, optional
            Whether to initialize the neutralizing ions
+
+        use_cuda : bool, optional
+            Wether to use CUDA (GPU) acceleration
         """
+        self.use_cuda = use_cuda
         # Initialize the field structure
         self.fld = Fields(Nz, zmax, Nr, rmax, Nm, dt)
 
@@ -86,12 +90,14 @@ class Simulation(object) :
         self.ptcl = [
             Particles( q=-e, m=m_e, n=n_e, Npz=Npz, zmin=p_zmin, zmax=p_zmax,
                        Npr=Npr, rmin=p_rmin, rmax=p_rmax, Nptheta=p_nt, dt=dt,
-                       dens_func=dens_func )    ]
+                       dens_func=dens_func, fld = self.fld, 
+                       use_cuda = use_cuda) ]
         if initialize_ions :
             self.ptcl.append(
                 Particles( q=e, m=m_p, n=n_e, Npz=Npz, zmin=p_zmin, zmax=p_zmax,
                         Npr=Npr, rmin=p_rmin, rmax=p_rmax, Nptheta=p_nt, dt=dt,
-                        dens_func=dens_func )   )
+                        dens_func=dens_func, fld = self.fld,
+                        use_cuda = use_cuda ) )
         
         # Register the number of particles per cell along z, and dt
         # (Necessary for the moving window)
