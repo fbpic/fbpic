@@ -9,11 +9,13 @@ import math
 # Particle pusher utility
 # -----------------------
 
-@cuda.jit('void(float64[:], float64[:], float64[:], float64[:], float64[:], \
-                float64[:], float64[:], float64[:], float64[:], float64[:], \
-                float64, float64, int64, float64)')
-def push_p_cuda( ux, uy, uz, inv_gamma, 
-                Ex, Ey, Ez, Bx, By, Bz, q, m, Ntot, dt ) :
+@cuda.jit('void(float64[:], float64[:], float64[:], float64[:], \
+            float64[:], float64[:], float64[:], \
+            float64[:], float64[:], float64[:], \
+            float64, float64, int32, float64)')
+def push_p_numba_gpu( ux, uy, uz, inv_gamma, 
+                      Ex, Ey, Ez, Bx, By, Bz,
+                      q, m, Ntot, dt ) :
     """
     Advance the particles' momenta, using numba on the GPU
     """
@@ -52,7 +54,7 @@ def push_p_cuda( ux, uy, uz, inv_gamma,
         )
         inv_gamma[ip] = inv_gamma_f
 
-        # Reuse the tau and utau variables to save memory
+        # Reuse the tau and utau arrays to save memory
         tx = inv_gamma_f*taux
         ty = inv_gamma_f*tauy
         tz = inv_gamma_f*tauz
@@ -68,174 +70,890 @@ def push_p_cuda( ux, uy, uz, inv_gamma,
 # Field gathering utility
 # -----------------------
 
-@cuda.jit('void(complex128[:], int32, complex128[:,:], float64[:], \
-           int32[:], int32[:], float64[:], float64[:], \
-           int32[:], int32[:], float64[:], float64[:], \
-           float64, float64[:])')
-def gather_field_cuda( exptheta, m, Fgrid, Fptcl, 
-        iz_lower, iz_upper, Sz_lower, Sz_upper,
-        ir_lower, ir_upper, Sr_lower, Sr_upper,
-        sign_guards, Sr_guard ) :
+@cuda.jit('void(float64[:], float64[:], float64[:], \
+            float64, float64, int32, \
+            float64, float64, int32, \
+            complex128[:,:], complex128[:,:], complex128[:,:], \
+            complex128[:,:], complex128[:,:], complex128[:,:], \
+            complex128[:,:], complex128[:,:], complex128[:,:], \
+            complex128[:,:], complex128[:,:], complex128[:,:], \
+            float64[:], float64[:], float64[:], \
+            float64[:], float64[:], float64[:])')
+def gather_field_gpu(x, y, z,
+                    invdz, zmin, Nz,
+                    invdr, rmin, Nr,
+                    Er_m0, Et_m0, Ez_m0,
+                    Er_m1, Et_m1, Ez_m1,
+                    Br_m0, Bt_m0, Bz_m0,
+                    Br_m1, Bt_m1, Bz_m1,
+                    Ex, Ey, Ez,
+                    Bx, By, Bz):
     """
-    Perform the weighted sum using numba on gpu
-
-    Parameters
-    ----------
-    exptheta : 1darray of complexs
-        (one element per macroparticle)
-        Contains exp(-im theta) for each macroparticle
-
-    m : int
-        Index of the mode.
-        Determines wether a factor 2 should be applied
-    
-    Fgrid : 2darray of complexs
-        Contains the fields on the interpolation grid,
-        from which to do the gathering
-
-    Fptcl : 1darray of floats
-        (one element per macroparticle)
-        Contains the fields for each macroparticle
-        Is modified by this function
-
-    iz_lower, iz_upper, ir_lower, ir_upper : 1darrays of integers
-        (one element per macroparticle)
-        Contains the index of the cells immediately below and
-        immediately above each macroparticle, in z and r
-        
-    Sz_lower, Sz_upper, Sr_lower, Sr_upper : 1darrays of floats
-        (one element per macroparticle)
-        Contains the weight for the lower and upper cells.
-        
-    sign_guards : float
-       The sign (+1 or -1) with which the weight of the guard cells should
-       be added to the 0th cell.
-
-    Sr_guard : 1darray of float
-        (one element per macroparticle)
-        Contains the weight in the guard cells
+    # To-do: Add documentation.
     """
-    # Get the CUDA Grid iterator
-    ip = cuda.grid(1)
-    # Calculate in parallel (only threads < total number of particles)
-    if ip < Fptcl.shape[0]:
-        # Erase the temporary variable
-        F = 0.j
-        # Sum the fields from the 4 points
+    # Get the 1D CUDA grid
+    i = cuda.grid(1)
+    # Deposit the field per cell in parallel (for threads < number of particles)
+    if i < x.shape[0]:
+        # Preliminary arrays for the cylindrical conversion
+        # --------------------------------------------
+        # Position
+        xj = x[i]
+        yj = y[i]
+        zj = z[i]
+
+        # Cylindrical conversion
+        rj = math.sqrt( xj**2 + yj**2 )
+        invr = 1./rj
+        cos = xj*invr  # Cosine
+        sin = yj*invr  # Sine
+        exptheta_m0 = 1.
+        exptheta_m1 = cos - 1.j*sin
+
+        # Get linear weights for the deposition
+        # --------------------------------------------
+        # Positions of the particles, in the cell unit
+        r_cell =  invdr*(rj - rmin)
+        z_cell =  invdz*(zj - zmin)
+        # Original index of the uppper and lower cell
+        ir_lower = int(math.floor( r_cell ))
+        ir_upper = ir_lower + 1
+        iz_lower = int(math.floor( z_cell ))
+        iz_upper = iz_lower + 1
+        # Linear weight
+        Sr_lower = ir_upper - r_cell
+        Sr_upper = r_cell - ir_lower
+        Sz_lower = iz_upper - z_cell
+        Sz_upper = z_cell - iz_lower
+        # Set guard weights to zero
+        Sr_guard = 0.
+
+        # Treat the boundary conditions
+        # --------------------------------------------
+        # guard cells in lower r
+        if ir_lower < 0:
+            Sr_guard = Sr_lower
+            Sr_lower = 0.
+            ir_lower = 0          
+        # absorbing in upper r
+        if ir_lower > Nr-1:
+            ir_lower = Nr-1
+        if ir_upper > Nr-1:
+            ir_upper = Nr-1
+        # periodic boundaries in z
+        # lower z boundaries
+        if iz_lower < 0:
+            iz_lower += Nz
+        if iz_upper < 0:
+            iz_upper += Nz
+        # upper z boundaries
+        if iz_lower > Nz-1:
+            iz_lower -= Nz
+        if iz_upper > Nz-1:
+            iz_upper -= Nz
+
+        #Precalculate Shapes
+        S_ll = Sz_lower*Sr_lower
+        S_lu = Sz_lower*Sr_upper
+        S_ul = Sz_upper*Sr_lower
+        S_uu = Sz_upper*Sr_upper
+        S_lg = Sz_lower*Sr_guard
+        S_ug = Sz_upper*Sr_guard
+
+        # E-Field
+        # ----------------------------
+        # Define the initial placeholders for the 
+        # gathered field for each coordinate
+        Fr = 0.
+        Ft = 0.
+        Fz = 0.
+        # Clear the particle fields
+        Ex[i] = 0.
+        Ey[i] = 0.
+        Ez[i] = 0.
+
+        # Mode 0
+        # ----------------------------
+        # Create temporary variables 
+        # for the "per mode" gathering
+        Fr_m = 0.j
+        Ft_m = 0.j
+        Fz_m = 0.j
+        # Add the fields for mode 0
         # Lower cell in z, Lower cell in r
-        F += Sz_lower[ip]*Sr_lower[ip] * Fgrid[ iz_lower[ip], ir_lower[ip] ]
+        Fr_m += S_ll * Er_m0[ iz_lower, ir_lower ]
+        Ft_m += S_ll * Et_m0[ iz_lower, ir_lower ]
+        Fz_m += S_ll * Ez_m0[ iz_lower, ir_lower ]
         # Lower cell in z, Upper cell in r
-        F += Sz_lower[ip]*Sr_upper[ip] * Fgrid[ iz_lower[ip], ir_upper[ip] ]
+        Fr_m += S_lu * Er_m0[ iz_lower, ir_upper ]
+        Ft_m += S_lu * Et_m0[ iz_lower, ir_upper ]
+        Fz_m += S_lu * Ez_m0[ iz_lower, ir_upper ]
         # Upper cell in z, Lower cell in r
-        F += Sz_upper[ip]*Sr_lower[ip] * Fgrid[ iz_upper[ip], ir_lower[ip] ]
+        Fr_m += S_ul * Er_m0[ iz_upper, ir_lower ]
+        Ft_m += S_ul * Et_m0[ iz_upper, ir_lower ]
+        Fz_m += S_ul * Ez_m0[ iz_upper, ir_lower ]
         # Upper cell in z, Upper cell in r
-        F += Sz_upper[ip]*Sr_upper[ip] * Fgrid[ iz_upper[ip], ir_upper[ip] ]
+        Fr_m += S_uu * Er_m0[ iz_upper, ir_upper ]
+        Ft_m += S_uu * Et_m0[ iz_upper, ir_upper ]
+        Fz_m += S_uu * Ez_m0[ iz_upper, ir_upper ]
+        # Add the fields from the guard cells
+        if ir_lower == ir_upper == 0:
+            # Lower cell in z
+            Fr_m += -1. * S_lg * Er_m0[ iz_lower, 0]
+            Ft_m += -1. * S_lg * Et_m0[ iz_lower, 0]
+            Fz_m +=  1. * S_lg * Ez_m0[ iz_lower, 0]
+            # Upper cell in z
+            Fr_m += -1. * S_ug * Er_m0[ iz_upper, 0]
+            Ft_m += -1. * S_ug * Et_m0[ iz_upper, 0]
+            Fz_m +=  1. * S_ug * Ez_m0[ iz_upper, 0]
+        # Add the fields from the mode 0
+        Fr += (Fr_m*exptheta_m0).real
+        Ft += (Ft_m*exptheta_m0).real
+        Fz += (Fz_m*exptheta_m0).real
+
+        # Mode 1
+        # ----------------------------
+        # Clear the temporary variables 
+        # for the "per mode" gathering
+        Fr_m = 0.j
+        Ft_m = 0.j
+        Fz_m = 0.j
+        # Add the fields for mode 1
+        # Lower cell in z, Lower cell in r
+        Fr_m += S_ll * Er_m1[ iz_lower, ir_lower ]
+        Ft_m += S_ll * Et_m1[ iz_lower, ir_lower ]
+        Fz_m += S_ll * Ez_m1[ iz_lower, ir_lower ]
+        # Lower cell in z, Upper cell in r
+        Fr_m += S_lu * Er_m1[ iz_lower, ir_upper ]
+        Ft_m += S_lu * Et_m1[ iz_lower, ir_upper ]
+        Fz_m += S_lu * Ez_m1[ iz_lower, ir_upper ]
+        # Upper cell in z, Lower cell in r
+        Fr_m += S_ul * Er_m1[ iz_upper, ir_lower ]
+        Ft_m += S_ul * Et_m1[ iz_upper, ir_lower ]
+        Fz_m += S_ul * Ez_m1[ iz_upper, ir_lower ]
+        # Upper cell in z, Upper cell in r
+        Fr_m += S_uu * Er_m1[ iz_upper, ir_upper ]
+        Ft_m += S_uu * Et_m1[ iz_upper, ir_upper ]
+        Fz_m += S_uu * Ez_m1[ iz_upper, ir_upper ]
+        # Add the fields from the guard cells
+        if ir_lower == ir_upper == 0:
+            # Lower cell in z
+            Fr_m +=  1. * S_lg * Er_m1[ iz_lower, 0]
+            Ft_m +=  1. * S_lg * Et_m1[ iz_lower, 0]
+            Fz_m += -1. * S_lg * Ez_m1[ iz_lower, 0]
+            # Upper cell in z
+            Fr_m +=  1. * S_ug * Er_m1[ iz_upper, 0]
+            Ft_m +=  1. * S_ug * Et_m1[ iz_upper, 0]
+            Fz_m += -1. * S_ug * Ez_m1[ iz_upper, 0]
+        # Add the fields from the mode 1
+        Fr += 2*(Fr_m*exptheta_m1).real
+        Ft += 2*(Ft_m*exptheta_m1).real
+        Fz += 2*(Fz_m*exptheta_m1).real
+
+        # Convert to Cartesian coordinates
+        # and write to particle field arrays
+        Ex[i] = cos*Fr - sin*Ft
+        Ey[i] = sin*Fr + cos*Ft
+        Ez[i] = Fz
+
+        # B-Field
+        # ----------------------------
+        # Clear the placeholders for the 
+        # gathered field for each coordinate
+        Fr = 0.
+        Ft = 0.
+        Fz = 0.
+        # Clear the particle fields
+        Bx[i] = 0.
+        By[i] = 0.
+        Bz[i] = 0.
+
+        # Mode 0
+        # ----------------------------
+        # Create temporary variables 
+        # for the "per mode" gathering
+        Fr_m = 0.j
+        Ft_m = 0.j
+        Fz_m = 0.j
+        # Add the fields for mode 0
+        # Lower cell in z, Lower cell in r
+        Fr_m += S_ll * Br_m0[ iz_lower, ir_lower ]
+        Ft_m += S_ll * Bt_m0[ iz_lower, ir_lower ]
+        Fz_m += S_ll * Bz_m0[ iz_lower, ir_lower ]
+        # Lower cell in z, Upper cell in r
+        Fr_m += S_lu * Br_m0[ iz_lower, ir_upper ]
+        Ft_m += S_lu * Bt_m0[ iz_lower, ir_upper ]
+        Fz_m += S_lu * Bz_m0[ iz_lower, ir_upper ]
+        # Upper cell in z, Lower cell in r
+        Fr_m += S_ul * Br_m0[ iz_upper, ir_lower ]
+        Ft_m += S_ul * Bt_m0[ iz_upper, ir_lower ]
+        Fz_m += S_ul * Bz_m0[ iz_upper, ir_lower ]
+        # Upper cell in z, Upper cell in r
+        Fr_m += S_uu * Br_m0[ iz_upper, ir_upper ]
+        Ft_m += S_uu * Bt_m0[ iz_upper, ir_upper ]
+        Fz_m += S_uu * Bz_m0[ iz_upper, ir_upper ]
+        # Add the fields from the guard cells
+        if ir_lower == ir_upper == 0:
+            # Lower cell in z
+            Fr_m += -1. * S_lg * Br_m0[ iz_lower, 0]
+            Ft_m += -1. * S_lg * Bt_m0[ iz_lower, 0]
+            Fz_m +=  1. * S_lg * Bz_m0[ iz_lower, 0]
+            # Upper cell in z
+            Fr_m += -1. * S_ug * Br_m0[ iz_upper, 0]
+            Ft_m += -1. * S_ug * Bt_m0[ iz_upper, 0]
+            Fz_m +=  1. * S_ug * Bz_m0[ iz_upper, 0]
+        # Add the fields from the mode 0
+        Fr += (Fr_m*exptheta_m0).real
+        Ft += (Ft_m*exptheta_m0).real
+        Fz += (Fz_m*exptheta_m0).real
+
+        # Mode 1
+        # ----------------------------
+        # Clear the temporary variables 
+        # for the "per mode" gathering
+        Fr_m = 0.j
+        Ft_m = 0.j
+        Fz_m = 0.j
+        # Add the fields for mode 1
+        # Lower cell in z, Lower cell in r
+        Fr_m += S_ll * Br_m1[ iz_lower, ir_lower ]
+        Ft_m += S_ll * Bt_m1[ iz_lower, ir_lower ]
+        Fz_m += S_ll * Bz_m1[ iz_lower, ir_lower ]
+        # Lower cell in z, Upper cell in r
+        Fr_m += S_lu * Br_m1[ iz_lower, ir_upper ]
+        Ft_m += S_lu * Bt_m1[ iz_lower, ir_upper ]
+        Fz_m += S_lu * Bz_m1[ iz_lower, ir_upper ]
+        # Upper cell in z, Lower cell in r
+        Fr_m += S_ul * Br_m1[ iz_upper, ir_lower ]
+        Ft_m += S_ul * Bt_m1[ iz_upper, ir_lower ]
+        Fz_m += S_ul * Bz_m1[ iz_upper, ir_lower ]
+        # Upper cell in z, Upper cell in r
+        Fr_m += S_uu * Br_m1[ iz_upper, ir_upper ]
+        Ft_m += S_uu * Bt_m1[ iz_upper, ir_upper ]
+        Fz_m += S_uu * Bz_m1[ iz_upper, ir_upper ]
 
         # Add the fields from the guard cells
-        F += sign_guards * Sz_lower[ip]*Sr_guard[ip] * Fgrid[ iz_lower[ip], 0]
-        F += sign_guards * Sz_upper[ip]*Sr_guard[ip] * Fgrid[ iz_upper[ip], 0]
-        # Add the complex phase
-        #if m == 0 :
-        Fptcl[ip] += (F*exptheta[ip]).real
-        #if m > 0 :
-        Fptcl[ip] += 2*(F*exptheta[ip]).real
+        if ir_lower == ir_upper == 0:
+            # Lower cell in z
+            Fr_m +=  1. * S_lg * Br_m1[ iz_lower, 0]
+            Ft_m +=  1. * S_lg * Bt_m1[ iz_lower, 0]
+            Fz_m += -1. * S_lg * Bz_m1[ iz_lower, 0]
+            # Upper cell in z
+            Fr_m +=  1. * S_ug * Br_m1[ iz_upper, 0]
+            Ft_m +=  1. * S_ug * Bt_m1[ iz_upper, 0]
+            Fz_m += -1. * S_ug * Bz_m1[ iz_upper, 0]
+        # Add the fields from the mode 1
+        Fr += 2*(Fr_m*exptheta_m1).real
+        Ft += 2*(Ft_m*exptheta_m1).real
+        Fz += 2*(Fz_m*exptheta_m1).real
+
+        # Convert to Cartesian coordinates
+        # and write to particle field arrays
+        Bx[i] = cos*Fr - sin*Ft
+        By[i] = sin*Fr + cos*Ft
+        Bz[i] = Fz
         
-@cuda.jit('void(complex128[:], float64[:], float64[:])')
-def split_complex1d(a, b, c):
-    """
-    Split a 1D complex128 array into two float64 arrays
-    on the GPU.
+# -------------------------------
+# Field deposition utility - rho
+# -------------------------------
 
-    Parameters
-    ----------
-    a : 1darray of complexs
-    
-    b, c : 1darrays of floats
+@cuda.jit('void(float64[:], float64[:], float64[:], float64[:], \
+                float64, float64, int32, \
+                float64, float64, int32, \
+                complex128[:,:,:], complex128[:,:,:], \
+                complex128[:,:,:], complex128[:,:,:],\
+                int32[:], uint32[:], int32[:])')
+def deposit_rho_gpu(x, y, z, w, 
+                    invdz, zmin, Nz, 
+                    invdr, rmin, Nr,
+                    rho0, rho1, 
+                    rho2, rho3,
+                    cell_idx, sorted_idx, prefix_sum):
     """
+    # To-do: Add documentation.
+    """
+    # Get the 1D CUDA grid
     i = cuda.grid(1)
-    if i < len(a):
-        b[i] = complex(a[i]).real
-        c[i] = complex(a[i]).imag
-    cuda.syncthreads()
+    # Deposit the field per cell in parallel (for threads < number of cells)
+    if i < prefix_sum.shape[0]:
+        # Calculate the cell index in 2D from the 1D threadIdx
+        ir = int(i/Nz)
+        iz = int(i - ir * Nz)
+        # Calculate the inclusive offset for the current cell
+        # It represents the number of particles contained in all other cells
+        # with an index smaller than i + the total number of particles in the 
+        # current cell (inclusive).
+        incl_offset = np.int32(prefix_sum[i])
+        # Calculate the frequency per cell from the offset and the previous
+        # offset (prefix_sum[i-1]). For cell 0, you need to add +1 for the correct
+        # frequency in the case its not zero.
+        if i > 0:
+            frequency_per_cell = np.int32(incl_offset - prefix_sum[i-1])
+        if i == 0:
+            frequency_per_cell = np.int32(incl_offset + 1)
+            if frequency_per_cell == 1:
+                frequency_per_cell = 0
+        # Initialize the local field value for 
+        # all four possible deposition directions
+        # Mode 0, 1 for r, t, z
+        # 1 : lower in r, lower in z
+        # 2 : lower in r, upper in z
+        # 3 : upper in r, lower in z
+        # 4 : upper in r, upper in z
+        R1_m0 = 0.+0.j
+        R2_m0 = 0.+0.j
+        R3_m0 = 0.+0.j
+        R4_m0 = 0.+0.j
+        # ------------
+        R1_m1 = 0.+0.j
+        R2_m1 = 0.+0.j
+        R3_m1 = 0.+0.j
+        R4_m1 = 0.+0.j
+        # Loop over the number of particles per cell
+        for j in range(frequency_per_cell):
+            # Get the particle index before the sorting
+            # --------------------------------------------
+            ptcl_idx = sorted_idx[incl_offset-j]
 
-@cuda.jit('void(complex128[:, :], float64[:, :], float64[:, :])')
-def split_complex2d(a, b, c):
-    """
-    Split a 2D complex128 array into two float64 arrays
-    on the GPU.
+            # Preliminary arrays for the cylindrical conversion
+            # --------------------------------------------
+            # Position
+            xj = x[ptcl_idx]
+            yj = y[ptcl_idx]
+            zj = z[ptcl_idx]
+            # Weights
+            wj = w[ptcl_idx]
 
-    Parameters
-    ----------
-    a : 2darray of complexs
-    
-    b, c : 2darrays of floats
+            # Cylindrical conversion
+            rj = math.sqrt( xj**2 + yj**2 )
+            invr = 1./rj
+            cos = xj*invr  # Cosine
+            sin = yj*invr  # Sine
+            exptheta_m0 = 1.
+            exptheta_m1 = cos + 1.j*sin
+
+            # Get linear weights for the deposition
+            # --------------------------------------------
+            # Positions of the particles, in the cell unit
+            r_cell =  invdr*(rj - rmin)
+            z_cell =  invdz*(zj - zmin)
+            # Original index of the uppper and lower cell
+            ir_lower = int(math.floor( r_cell ))
+            ir_upper = ir_lower + 1
+            iz_lower = int(math.floor( z_cell ))
+            iz_upper = iz_lower + 1
+            # Linear weight
+            Sr_lower = ir_upper - r_cell
+            Sr_upper = r_cell - ir_lower
+            Sz_lower = iz_upper - z_cell
+            Sz_upper = z_cell - iz_lower
+            # Set guard weights to zero
+            Sr_guard = 0.
+
+            # Treat the boundary conditions
+            # --------------------------------------------
+            # guard cells in lower r
+            if ir_lower < 0:
+                Sr_guard = Sr_lower
+                Sr_lower = 0.
+                ir_lower = 0          
+            # absorbing in upper r
+            if ir_lower > Nr-1:
+                ir_lower = Nr-1
+            if ir_upper > Nr-1:
+                ir_upper = Nr-1
+            # periodic boundaries in z
+            # lower z boundaries
+            if iz_lower < 0:
+                iz_lower += Nz
+            if iz_upper < 0:
+                iz_upper += Nz
+            # upper z boundaries
+            if iz_lower > Nz-1:
+                iz_lower -= Nz
+            if iz_upper > Nz-1:
+                iz_upper -= Nz
+
+            # Calculate rho
+            # --------------------------------------------
+            # Mode 0
+            R_m0 = wj * exptheta_m0
+            # Mode 1
+            R_m1 = wj * exptheta_m1
+
+            # Caculate the weighted currents for each
+            # of the four possible direction
+            # --------------------------------------------
+            if ir_lower == ir_upper:
+                # In the case that ir_lower and ir_upper are equal,
+                # the current is added only to the array corresponding
+                # to ir_lower. 
+                # (This is the case for the boundaries in r)
+                R1_m0 += Sz_lower*Sr_lower*R_m0
+                R1_m0 += Sz_lower*Sr_upper*R_m0
+                R3_m0 += Sz_upper*Sr_lower*R_m0
+                R3_m0 += Sz_upper*Sr_upper*R_m0
+                # -----------------------------
+                R1_m1 += Sz_lower*Sr_lower*R_m1
+                R1_m1 += Sz_lower*Sr_upper*R_m1
+                R3_m1 += Sz_upper*Sr_lower*R_m1
+                R3_m1 += Sz_upper*Sr_upper*R_m1
+                # -----------------------------
+            if ir_lower != ir_upper:
+                # In the case that ir_lower and ir_upper are different,
+                # add the current to the four arrays according to
+                # the direction.
+                R1_m0 += Sz_lower*Sr_lower*R_m0
+                R2_m0 += Sz_lower*Sr_upper*R_m0
+                R3_m0 += Sz_upper*Sr_lower*R_m0
+                R4_m0 += Sz_upper*Sr_upper*R_m0
+                # -----------------------------
+                R1_m1 += Sz_lower*Sr_lower*R_m1
+                R2_m1 += Sz_lower*Sr_upper*R_m1
+                R3_m1 += Sz_upper*Sr_lower*R_m1
+                R4_m1 += Sz_upper*Sr_upper*R_m1
+                # -----------------------------
+            if ir_lower == ir_upper == 0:
+                # Treat the guard cells.
+                # Add the current to the guard cells
+                # for particles that had an original 
+                # cell index < 0.
+                R1_m0 += -1.*Sz_lower*Sr_guard*R_m0
+                R3_m0 += -1.*Sz_upper*Sr_guard*R_m0
+                # ---------------------------------
+                R1_m1 += -1.*Sz_lower*Sr_guard*R_m1
+                R3_m1 += -1.*Sz_upper*Sr_guard*R_m1
+        # Write the calculated field values to 
+        # the field arrays defined on the interpolation grid
+        rho0[iz, ir, 0] = R1_m0
+        rho0[iz, ir, 1] = R1_m1
+        rho1[iz, ir, 0] = R2_m0
+        rho1[iz, ir, 1] = R2_m1
+        rho2[iz, ir, 0] = R3_m0
+        rho2[iz, ir, 1] = R3_m1
+        rho3[iz, ir, 0] = R4_m0
+        rho3[iz, ir, 1] = R4_m1
+
+@cuda.jit('void(complex128[:,:], complex128[:,:], \
+                complex128[:,:,:], complex128[:,:,:], \
+                complex128[:,:,:], complex128[:,:,:])')
+def add_rho(rho_m0, rho_m1, 
+            rho0, rho1, 
+            rho2, rho3):
     """
+    # To-do: Add documentation.
+    """
+    # Get the CUDA Grid in 2D
     i, j = cuda.grid(2)
-    if (i < a.shape[0] and j < a.shape[1]):
-        b[i, j] = complex(a[i, j]).real
-        c[i, j] = complex(a[i, j]).imag
-    cuda.syncthreads()
+    # Only for threads within (nz, nr)
+    if (i < rho_m0.shape[0] and j < rho_m0.shape[1]):
+        # Sum the four field arrays for the different deposition 
+        # directions and write them to the global field array
+        rho_m0[i, j] += rho0[i, j, 0] + \
+                        rho1[i, j-1, 0] + \
+                        rho2[i-1, j, 0] + \
+                        rho3[i-1, j-1, 0]
 
-@cuda.jit('void(float64[:], float64[:], complex128[:])')
-def merge_complex1d(a, b, c):
-    """
-    Merge two 1D float64 arrays to one complex128 array
-    on the GPU.
+        rho_m1[i, j] += rho0[i, j, 1] + \
+                        rho1[i, j-1, 1] + \
+                        rho2[i-1, j, 1] + \
+                        rho3[i-1, j-1, 1]
 
-    Parameters
-    ----------
-    a, b : 1darrays of complexs
-    
-    c : 1darray of floats
+# -------------------------------
+# Field deposition utility - J
+# -------------------------------
+
+@cuda.jit('void(float64[:], float64[:], float64[:], float64[:], \
+                float64[:], float64[:], float64[:], float64[:], \
+                float64, float64, int32, \
+                float64, float64, int32, \
+                complex128[:,:,:], complex128[:,:,:], \
+                complex128[:,:,:], complex128[:,:,:],\
+                int32[:], uint32[:], int32[:])')
+def deposit_J_gpu(x, y, z, w,
+                  ux, uy, uz, inv_gamma,
+                  invdz, zmin, Nz, 
+                  invdr, rmin, Nr,
+                  J0, J1, 
+                  J2, J3,
+                  cell_idx, sorted_idx, prefix_sum):
     """
+    # To-do: Add documentation.
+    """
+    # Get the 1D CUDA grid
     i = cuda.grid(1)
-    if i < len(a):
-        c[i] = complex(a[i], b[i])
-    cuda.syncthreads()
+    # Deposit the field per cell in parallel (for threads < number of cells)
+    if i < prefix_sum.shape[0]:
+        # Calculate the cell index in 2D from the 1D threadIdx
+        ir = int(i/Nz)
+        iz = int(i - ir * Nz)
+        # Calculate the inclusive offset for the current cell
+        # It represents the number of particles contained in all other cells
+        # with an index smaller than i + the total number of particles in the 
+        # current cell (inclusive).
+        incl_offset = np.int32(prefix_sum[i])
+        # Calculate the frequency per cell from the offset and the previous
+        # offset (prefix_sum[i-1]). For cell 0, you need to add +1 for the correct
+        # frequency in the case its not zero.
+        if i > 0:
+            frequency_per_cell = np.int32(incl_offset - prefix_sum[i-1])
+        if i == 0:
+            frequency_per_cell = np.int32(incl_offset + 1)
+            if frequency_per_cell == 1:
+                frequency_per_cell = 0
+        # Initialize the local field value for 
+        # all four possible deposition directions
+        # Mode 0, 1 for r, t, z
+        # 1 : lower in r, lower in z
+        # 2 : lower in r, upper in z
+        # 3 : upper in r, lower in z
+        # 4 : upper in r, upper in z
+        Jr1_m0 = 0.+0.j
+        Jr2_m0 = 0.+0.j
+        Jr3_m0 = 0.+0.j
+        Jr4_m0 = 0.+0.j
+        # -------------
+        Jr1_m1 = 0.+0.j
+        Jr2_m1 = 0.+0.j
+        Jr3_m1 = 0.+0.j
+        Jr4_m1 = 0.+0.j
+        # -------------
+        Jt1_m0 = 0.+0.j
+        Jt2_m0 = 0.+0.j
+        Jt3_m0 = 0.+0.j
+        Jt4_m0 = 0.+0.j
+        # -------------
+        Jt1_m1 = 0.+0.j
+        Jt2_m1 = 0.+0.j
+        Jt3_m1 = 0.+0.j
+        Jt4_m1 = 0.+0.j
+        # -------------
+        Jz1_m0 = 0.+0.j
+        Jz2_m0 = 0.+0.j
+        Jz3_m0 = 0.+0.j
+        Jz4_m0 = 0.+0.j
+        # -------------
+        Jz1_m1 = 0.+0.j
+        Jz2_m1 = 0.+0.j
+        Jz3_m1 = 0.+0.j
+        Jz4_m1 = 0.+0.j
+        # Loop over the number of particles per cell
+        for j in range(frequency_per_cell):
+            # Get the particle index before the sorting
+            # --------------------------------------------
+            ptcl_idx = sorted_idx[incl_offset-j]
 
-@cuda.jit('void(float64[:, :], float64[:, :], complex128[:, :])')
-def merge_complex2d(a, b, c):
-    """
-    Merge two 2D float64 arrays to one complex128 array
-    on the GPU.
+            # Preliminary arrays for the cylindrical conversion
+            # --------------------------------------------
+            # Position
+            xj = x[ptcl_idx]
+            yj = y[ptcl_idx]
+            zj = z[ptcl_idx]
+            # Velocity
+            uxj = ux[ptcl_idx]
+            uyj = uy[ptcl_idx]
+            uzj = uz[ptcl_idx]
+            # Inverse gamma
+            inv_gammaj = inv_gamma[ptcl_idx]
+            # Weights
+            wj = w[ptcl_idx]
 
-    Parameters
-    ----------
-    a, b : 2darrays of complexs
-    
-    c : 2darray of floats
+            # Cylindrical conversion
+            rj = math.sqrt( xj**2 + yj**2 )
+            invr = 1./rj
+            cos = xj*invr  # Cosine
+            sin = yj*invr  # Sine
+            exptheta_m0 = 1.
+            exptheta_m1 = cos + 1.j*sin
+
+            # Get linear weights for the deposition
+            # --------------------------------------------
+            # Positions of the particles, in the cell unit
+            r_cell =  invdr*(rj - rmin)
+            z_cell =  invdz*(zj - zmin)
+            # Original index of the uppper and lower cell
+            # in r and z
+            ir_lower = int(math.floor( r_cell ))
+            ir_upper = ir_lower + 1
+            iz_lower = int(math.floor( z_cell ))
+            iz_upper = iz_lower + 1
+            # Linear weight
+            Sr_lower = ir_upper - r_cell
+            Sr_upper = r_cell - ir_lower
+            Sz_lower = iz_upper - z_cell
+            Sz_upper = z_cell - iz_lower
+            # Set guard weights to zero
+            Sr_guard = 0.
+
+            # Treat the boundary conditions
+            # --------------------------------------------
+            # guard cells in lower r
+            if ir_lower < 0:
+                Sr_guard = Sr_lower
+                Sr_lower = 0.
+                ir_lower = 0          
+            # absorbing in upper r
+            if ir_lower > Nr-1:
+                ir_lower = Nr-1
+            if ir_upper > Nr-1:
+                ir_upper = Nr-1
+            # periodic boundaries in z
+            # lower z boundaries
+            if iz_lower < 0:
+                iz_lower += Nz
+            if iz_upper < 0:
+                iz_upper += Nz
+            # upper z boundaries
+            if iz_lower > Nz-1:
+                iz_lower -= Nz
+            if iz_upper > Nz-1:
+                iz_upper -= Nz
+            
+            # Calculate the currents
+            # --------------------------------------------
+            # Mode 0
+            Jr_m0 = wj * c * inv_gammaj*( cos*uxj + sin*uyj ) * exptheta_m0
+            Jt_m0 = wj * c * inv_gammaj*( cos*uyj - sin*uxj ) * exptheta_m0
+            Jz_m0 = wj * c * inv_gammaj*uzj * exptheta_m0
+            # Mode 1
+            Jr_m1 = wj * c * inv_gammaj*( cos*uxj + sin*uyj ) * exptheta_m1
+            Jt_m1 = wj * c * inv_gammaj*( cos*uyj - sin*uxj ) * exptheta_m1
+            Jz_m1 = wj * c * inv_gammaj*uzj * exptheta_m1
+
+            # Caculate the weighted currents for each
+            # of the four possible direction
+            # --------------------------------------------
+            if ir_lower == ir_upper:
+                # In the case that ir_lower and ir_upper are equal,
+                # the current is added only to the array corresponding
+                # to ir_lower. 
+                # (This is the case for the boundaries in r)
+                Jr1_m0 += Sz_lower*Sr_lower*Jr_m0
+                Jr1_m0 += Sz_lower*Sr_upper*Jr_m0
+                Jr3_m0 += Sz_upper*Sr_lower*Jr_m0
+                Jr3_m0 += Sz_upper*Sr_upper*Jr_m0
+                # -------------------------------
+                Jr1_m1 += Sz_lower*Sr_lower*Jr_m1
+                Jr1_m1 += Sz_lower*Sr_upper*Jr_m1
+                Jr3_m1 += Sz_upper*Sr_lower*Jr_m1
+                Jr3_m1 += Sz_upper*Sr_upper*Jr_m1
+                # -------------------------------
+                Jt1_m0 += Sz_lower*Sr_lower*Jt_m0
+                Jt1_m0 += Sz_lower*Sr_upper*Jt_m0
+                Jt3_m0 += Sz_upper*Sr_lower*Jt_m0
+                Jt3_m0 += Sz_upper*Sr_upper*Jt_m0
+                # -------------------------------
+                Jt1_m1 += Sz_lower*Sr_lower*Jt_m1
+                Jt1_m1 += Sz_lower*Sr_upper*Jt_m1
+                Jt3_m1 += Sz_upper*Sr_lower*Jt_m1
+                Jt3_m1 += Sz_upper*Sr_upper*Jt_m1
+                # -------------------------------
+                Jz1_m0 += Sz_lower*Sr_lower*Jz_m0
+                Jz1_m0 += Sz_lower*Sr_upper*Jz_m0
+                Jz3_m0 += Sz_upper*Sr_lower*Jz_m0
+                Jz3_m0 += Sz_upper*Sr_upper*Jz_m0
+                # -------------------------------
+                Jz1_m1 += Sz_lower*Sr_lower*Jz_m1
+                Jz1_m1 += Sz_lower*Sr_upper*Jz_m1
+                Jz3_m1 += Sz_upper*Sr_lower*Jz_m1
+                Jz3_m1 += Sz_upper*Sr_upper*Jz_m1
+                # -------------------------------
+            if ir_lower != ir_upper:
+                # In the case that ir_lower and ir_upper are different,
+                # add the current to the four arrays according to
+                # the direction.
+                Jr1_m0 += Sz_lower*Sr_lower*Jr_m0
+                Jr2_m0 += Sz_lower*Sr_upper*Jr_m0
+                Jr3_m0 += Sz_upper*Sr_lower*Jr_m0
+                Jr4_m0 += Sz_upper*Sr_upper*Jr_m0
+                # -------------------------------
+                Jr1_m1 += Sz_lower*Sr_lower*Jr_m1
+                Jr2_m1 += Sz_lower*Sr_upper*Jr_m1
+                Jr3_m1 += Sz_upper*Sr_lower*Jr_m1
+                Jr4_m1 += Sz_upper*Sr_upper*Jr_m1
+                # -------------------------------
+                Jt1_m0 += Sz_lower*Sr_lower*Jt_m0
+                Jt2_m0 += Sz_lower*Sr_upper*Jt_m0
+                Jt3_m0 += Sz_upper*Sr_lower*Jt_m0
+                Jt4_m0 += Sz_upper*Sr_upper*Jt_m0
+                # -------------------------------
+                Jt1_m1 += Sz_lower*Sr_lower*Jt_m1
+                Jt2_m1 += Sz_lower*Sr_upper*Jt_m1
+                Jt3_m1 += Sz_upper*Sr_lower*Jt_m1
+                Jt4_m1 += Sz_upper*Sr_upper*Jt_m1
+                # -------------------------------
+                Jz1_m0 += Sz_lower*Sr_lower*Jz_m0
+                Jz2_m0 += Sz_lower*Sr_upper*Jz_m0
+                Jz3_m0 += Sz_upper*Sr_lower*Jz_m0
+                Jz4_m0 += Sz_upper*Sr_upper*Jz_m0
+                # -------------------------------
+                Jz1_m1 += Sz_lower*Sr_lower*Jz_m1
+                Jz2_m1 += Sz_lower*Sr_upper*Jz_m1
+                Jz3_m1 += Sz_upper*Sr_lower*Jz_m1
+                Jz4_m1 += Sz_upper*Sr_upper*Jz_m1
+                # -------------------------------
+            if ir_lower == ir_upper == 0:
+                # Treat the guard cells.
+                # Add the current to the guard cells
+                # for particles that had an original 
+                # cell index < 0.
+                Jr1_m0 += -1.*Sz_lower*Sr_guard*Jr_m0
+                Jr3_m0 += -1.*Sz_upper*Sr_guard*Jr_m0
+                # -----------------------------------
+                Jr1_m1 += -1.*Sz_lower*Sr_guard*Jr_m1
+                Jr3_m1 += -1.*Sz_upper*Sr_guard*Jr_m1
+                # -----------------------------------
+                Jt1_m0 += -1.*Sz_lower*Sr_guard*Jt_m0
+                Jt3_m0 += -1.*Sz_upper*Sr_guard*Jt_m0
+                # -----------------------------------
+                Jt1_m1 += -1.*Sz_lower*Sr_guard*Jt_m1
+                Jt3_m1 += -1.*Sz_upper*Sr_guard*Jt_m1
+                # -----------------------------------
+                Jz1_m0 += -1.*Sz_lower*Sr_guard*Jz_m0
+                Jz3_m0 += -1.*Sz_upper*Sr_guard*Jz_m0
+                # -----------------------------------
+                Jz1_m1 += -1.*Sz_lower*Sr_guard*Jz_m1
+                Jz3_m1 += -1.*Sz_upper*Sr_guard*Jz_m1
+        # Write the calculated field values to 
+        # the field arrays defined on the interpolation grid
+        J0[iz, ir, 0] = Jr1_m0
+        J0[iz, ir, 1] = Jr1_m1
+        J0[iz, ir, 2] = Jt1_m0
+        J0[iz, ir, 3] = Jt1_m1
+        J0[iz, ir, 4] = Jz1_m0
+        J0[iz, ir, 5] = Jz1_m1
+        # --------------------
+        J1[iz, ir, 0] = Jr2_m0
+        J1[iz, ir, 1] = Jr2_m1
+        J1[iz, ir, 2] = Jt2_m0
+        J1[iz, ir, 3] = Jt2_m1
+        J1[iz, ir, 4] = Jz2_m0
+        J1[iz, ir, 5] = Jz2_m1
+        # --------------------
+        J2[iz, ir, 0] = Jr3_m0
+        J2[iz, ir, 1] = Jr3_m1
+        J2[iz, ir, 2] = Jt3_m0
+        J2[iz, ir, 3] = Jt3_m1
+        J2[iz, ir, 4] = Jz3_m0
+        J2[iz, ir, 5] = Jz3_m1
+        # --------------------
+        J3[iz, ir, 0] = Jr4_m0
+        J3[iz, ir, 1] = Jr4_m1
+        J3[iz, ir, 2] = Jt4_m0
+        J3[iz, ir, 3] = Jt4_m1
+        J3[iz, ir, 4] = Jz4_m0
+        J3[iz, ir, 5] = Jz4_m1
+
+@cuda.jit('void(complex128[:,:], complex128[:,:], \
+                complex128[:,:], complex128[:,:], \
+                complex128[:,:], complex128[:,:], \
+                complex128[:,:,:], complex128[:,:,:], \
+                complex128[:,:,:], complex128[:,:,:])')
+def add_J(Jr_m0, Jr_m1,
+          Jt_m0, Jt_m1,
+          Jz_m0, Jz_m1,
+          J0, J1,     
+          J2, J3):
     """
+    # To-do: Add documentation.
+    """
+    # Get the CUDA Grid in 2D
     i, j = cuda.grid(2)
-    if (i < a.shape[0] and j < a.shape[1]):
-        c[i, j] = complex(a[i, j], b[i, j])
-    cuda.syncthreads()
+    # Only for threads within (nz, nr)
+    if (i < Jr_m0.shape[0] and j < Jr_m0.shape[1]):
+        # Sum the four field arrays for the different deposition 
+        # directions and write them to the global field array
+            Jr_m0[i, j] +=  J0[i, j, 0] + \
+                            J1[i, j-1, 0] + \
+                            J2[i-1, j, 0] + \
+                            J3[i-1, j-1, 0]
 
-@cuda.jit('void(int32[:], int32[:], int32[:], int32, int32)')
-def get_cell_idx_per_particle(cell_idx, iz_lower, ir_lower, nz, nr):
+            Jr_m1[i, j] +=  J0[i, j, 1] + \
+                            J1[i, j-1, 1] + \
+                            J2[i-1, j, 1] + \
+                            J3[i-1, j-1, 1]
+
+            Jt_m0[i, j] +=  J0[i, j, 2] + \
+                            J1[i, j-1, 2] + \
+                            J2[i-1, j, 2] + \
+                            J3[i-1, j-1, 2]
+
+            Jt_m1[i, j] +=  J0[i, j, 3] + \
+                            J1[i, j-1, 3] + \
+                            J2[i-1, j, 3] + \
+                            J3[i-1, j-1, 3]
+
+            Jz_m0[i, j] +=  J0[i, j, 4] + \
+                            J1[i, j-1, 4] + \
+                            J2[i-1, j, 4] + \
+                            J3[i-1, j-1, 4]
+
+            Jz_m1[i, j] +=  J0[i, j, 5] + \
+                            J1[i, j-1, 5] + \
+                            J2[i-1, j, 5] + \
+                            J3[i-1, j-1, 5]
+
+# -----------------------------------------------------
+# Sorting utilities - get_cell_idx / sort / prefix_sum
+# -----------------------------------------------------
+
+@cuda.jit('void(int32[:], float64[:], float64[:], float64[:], \
+                float64, float64, int32, \
+                float64, float64, int32)')
+def get_cell_idx_per_particle(cell_idx, x, y, z,
+                              invdz, zmin, Nz, 
+                              invdr, rmin, Nr):
     """
     Get the cell index of each particle.
     The cell index is 1d and calculated by:
-    cell index in z + cell index in r * number of cells in z
+    cell index in z + cell index in r * number of cells in z.
+    The cell_idx of a particle is defined by 
+    the lower cell in r and z, that it deposits its field to.
 
     Parameters
     ----------
     cell_idx : 1darray of integers
         The cell index of the particle
     
-    iz_lower : 1darray of integers
-        The lower cell in z of the particle
+    invdx : float (in meters^-1)
+        Inverse of the grid step along the considered direction
 
-    ir_lower : 1darray of integers
-        The lower cell in r of the particle
+    xmin : float (in meters)
+        Position of the first node of the grid along the considered direction
 
-    nz : int
-        The number of cells in z
-    nr : int
-        The number of cells in r
+    Nx : int
+        Number of gridpoints along the considered direction
     """
     i = cuda.grid(1)
     if i < cell_idx.shape[0]:
-        cell_idx[i] = iz_lower[i] + ir_lower[i] * nz
+            # Preliminary arrays for the cylindrical conversion
+            xj = x[i]
+            yj = y[i]
+            zj = z[i]
+            rj = math.sqrt( xj**2 + yj**2 )
+    
+            # Positions of the particles, in the cell unit
+            r_cell =  invdr*(rj - rmin)
+            z_cell =  invdz*(zj - zmin)
+
+            # Original index of the uppper and lower cell
+            ir_lower = int(math.floor( r_cell ))
+            iz_lower = int(math.floor( z_cell ))
+
+            # Treat the boundary conditions
+            # guard cells in lower r
+            if ir_lower < 0:
+                ir_lower = 0          
+            # absorbing in upper r
+            if ir_lower > Nr-1:
+                ir_lower = Nr-1
+            # periodic boundaries in z
+            if iz_lower < 0:
+                iz_lower += Nz
+            if iz_lower > Nz-1:
+                iz_lower -= Nz
+            # Calculate the 1D cell_idx by cell_idx_iz + cell_idx_ir * Nz
+            cell_idx[i] = iz_lower + ir_lower * Nz
 
 def sort_particles_per_cell(cell_idx, sorted_idx):
     """
@@ -256,23 +974,6 @@ def sort_particles_per_cell(cell_idx, sorted_idx):
     sorter.sort(cell_idx, vals = sorted_idx)
 
 @cuda.jit('void(int32[:], int32[:])')
-def count_particles_per_cell(cell_idx, frequency_per_cell):
-    """
-    Count the particle frequency per cell.
-
-    Parameters
-    ----------
-    cell_idx : 1darray of integers
-        The cell index of the particle
-    
-    frequency_per_cell : 1darray of integers
-        Represents the number of particles per cell
-    """
-    i = cuda.grid(1)
-    if i < cell_idx.shape[0]:
-        cuda.atomic.add(frequency_per_cell, cell_idx[i], 1)
-
-@cuda.jit('void(int32[:], float64[:])')
 def incl_prefix_sum(cell_idx, prefix_sum):
     """
     Perform an inclusive parallel prefix sum on the sorted 
@@ -290,201 +991,12 @@ def incl_prefix_sum(cell_idx, prefix_sum):
         the particles per cell
     """
     i = cuda.grid(1)
-    if i < cell_idx.shape[0]:
-        cuda.atomic.max(prefix_sum, cell_idx[i], i)
-
-@cuda.jit('void(complex128[:], complex128[:,:], complex128[:,:], \
-                    complex128[:,:],complex128[:,:], \
-                    float64[:], float64[:], \
-                    float64[:], float64[:], \
-                    float64[:], float64[:], int32[:], \
-                    int32[:], int32[:], uint32[:])')
-def deposit_per_cell(Fptcl, Fgrid_per_node0, Fgrid_per_node1, 
-                     Fgrid_per_node2, Fgrid_per_node3, 
-                     Sz_lower, Sz_upper, Sr_lower, Sr_upper, 
-                     sign_guards, Sr_guard, cell_idx, 
-                     frequency_per_cell, prefix_sum, sorted_idx):
-    """
-    Deposit the field to the four field arrays per cell in parallel.
-    Each thread corresponds to a cell and loops over all particles 
-    within that cell. The deposited field is written to the 
-    four separate arrays for each possible deposition direction.
-    (for linear weights)
-
-    Parameters
-    ----------
-    Fptcl : 1darray of complexs
-        (one element per macroparticle)
-        Contains the charge or current for each macroparticle (already
-        multiplied by exp(im theta), from which to do the deposition
-    
-    Fgrid_per_node0, Fgrid_per_node1, 
-    Fgrid_per_node2, Fgrid_per_node3 : 2darrays of complexs
-        Contains the fields on the interpolation grid for the four
-        possible deposition directions.
-        Is modified by this function
-
-    Sz_lower, Sz_upper, Sr_lower, Sr_upper : 1darrays of floats
-        (one element per macroparticle)
-        Contains the weight for the lower and upper cells.
-
-    sign_guards : float
-       The sign (+1 or -1) with which the weight of the guard cells should
-       be added to the 0th cell.
-
-    Sr_guard : 1darray of float
-        (one element per macroparticle)
-        Contains the weight in the guard cells
-
-    cell_idx : 1darray of integers
-        The sorted cell index of the particles
-
-    frequency_per_cell : 1darray of integers
-        The number of particles per cell
-
-    prefix_sum : 1darray of integers
-        The cummulative sum of the number of particles
-        per cell for each cell.
-
-    sorted_idx : 1darray of integers
-        A sorted array containing the index of the particle
-        before the sorting.
-    """
-    # Get the 1D CUDA grid
-    i = cuda.grid(1)
-    # Number of cells in each direction
-    nz, nr = Fgrid_per_node0.shape
-
-    # Deposit the field per cell in parallel (for threads < number of cells)
-    if i < frequency_per_cell.shape[0]:
-        # Calculate the cell index in 2D from the 1D cell index
-        ir = int(i/nz)
-        iz = int(i - ir*nz)
-        # Calculate the inclusive offset for the current cell
-        # It represents the number of particles contained in all other cells
-        # with an index smaller than i + the total number of particles in the 
-        # current cell (inclusive).
-        incl_offset = int(prefix_sum[i])
-
-        sgn_grds = sign_guards[0]
-        # Initialize the local field value for all four possible deposition
-        # directions
-        F1 = 0.+0.j
-        F2 = 0.+0.j
-        F3 = 0.+0.j
-        F4 = 0.+0.j
-        # Loop over the number of particles per cell
-        for j in range(frequency_per_cell[i]):
-            # Get the particle index before the sorting
-            ptcl_idx = sorted_idx[incl_offset-j]
-            # Load the data of the particle field and the weights into 
-            # the memory
-            F = Fptcl[ptcl_idx]
-            Szl = Sz_lower[ptcl_idx]
-            Szu = Sz_upper[ptcl_idx]
-            Srl = Sr_lower[ptcl_idx]
-            Sru = Sr_upper[ptcl_idx]
-            Srg = Sr_guard[ptcl_idx]
-            # Caculate the weighted field values
-            F1 += Szl*Srl*F
-            F2 += Szl*Sru*F
-            F3 += Szu*Srl*F
-            F4 += Szu*Sru*F
-            # Treat the guard cells
-            if ir == 0:
-                F1 += sgn_grds*Szl*Srg*F
-                F3 += sgn_grds*Szu*Srg*F
-        # Write the calculated field values to 
-        # the field arrays defined on the interpolation grid
-        if (iz < nz and ir < nr):
-            Fgrid_per_node0[iz, ir] = F1
-            Fgrid_per_node1[iz, ir] = F2 
-            Fgrid_per_node2[iz, ir] = F3
-            Fgrid_per_node3[iz, ir] = F4
-
-@cuda.jit('void(complex128[:,:], complex128[:,:], \
-                complex128[:,:], complex128[:,:], complex128[:,:])')
-def add_field(Fgrid, Fgrid_per_node0, Fgrid_per_node1, 
-              Fgrid_per_node2, Fgrid_per_node3):
-    """
-    Deposit the field to the four field arrays per cell in parallel.
-    Each thread corresponds to a cell and loops over all particles 
-    within that cell. The deposited field is written to the 
-    four separate arrays for each possible deposition direction.
-    (for linear weights)
-
-    Parameters
-    ----------
-    Fgrid : 2darray of complexs
-        Contains the fields on the interpolation grid
-        Is modified by this function
-
-    Fgrid_per_node0, Fgrid_per_node1, 
-    Fgrid_per_node2, Fgrid_per_node3 : 2darrays of complexs
-        Contains the fields on the interpolation grid for the four
-        possible deposition directions.
-    """
-    i, j = cuda.grid(2)
-    if (i < Fgrid.shape[0] and j < Fgrid.shape[1]):
-        # Sum the four field arrays for the different deposition 
-        # directions and write them to the global field array
-        Fgrid[i, j] += Fgrid_per_node0[i, j] + \
-                       Fgrid_per_node1[i, j-1] + \
-                       Fgrid_per_node2[i-1, j] + \
-                       Fgrid_per_node3[i-1, j-1]
-
-@cuda.jit('void(float64[:], float64[:,:], \
-                    int32[:], int32[:], float64[:], float64[:], \
-                    int32[:], int32[:], float64[:], float64[:], \
-                    float64[:], float64[:])')
-def deposit_field_cuda( Fptcl, Fgrid, 
-         iz_lower, iz_upper, Sz_lower, Sz_upper,
-         ir_lower, ir_upper, Sr_lower, Sr_upper,
-         sign_guards, Sr_guard ) :
-    """
-    Perform the deposition on the GPU using cuda.atomic.add
-
-    Parameters
-    ----------
-    Fptcl : 1darray of complexs
-        (one element per macroparticle)
-        Contains the charge or current for each macroparticle (already
-        multiplied by exp(im theta), from which to do the deposition
-    
-    Fgrid : 2darray of complexs
-        Contains the fields on the interpolation grid.
-        Is modified by this function
-
-    iz_lower, iz_upper, ir_lower, ir_upper : 1darrays of integers
-        (one element per macroparticle)
-        Contains the index of the cells immediately below and
-        immediately above each macroparticle, in z and r
-        
-    Sz_lower, Sz_upper, Sr_lower, Sr_upper : 1darrays of floats
-        (one element per macroparticle)
-        Contains the weight for the lower and upper cells.
-        
-    sign_guards : float
-       The sign (+1 or -1) with which the weight of the guard cells should
-       be added to the 0th cell.
-
-    Sr_guard : 1darray of float
-        (one element per macroparticle)
-        Contains the weight in the guard cells
-    """
-    ip = cuda.grid(1)
-
-    if ip < Fptcl.shape[0]:
-        # Deposit the particle quantity onto the grid
-        # Lower cell in z, Lower cell in r
-        cuda.atomic.add( Fgrid, (iz_lower[ip], ir_lower[ip]), Sz_lower[ip]*Sr_lower[ip]*Fptcl[ip] )
-        # Lower cell in z, Upper cell in r
-        cuda.atomic.add( Fgrid, (iz_lower[ip], ir_upper[ip]), Sz_lower[ip]*Sr_upper[ip]*Fptcl[ip] )
-        # Upper cell in z, Lower cell in r
-        cuda.atomic.add( Fgrid, (iz_upper[ip], ir_lower[ip]), Sz_upper[ip]*Sr_lower[ip]*Fptcl[ip])
-        # Upper cell in z, Upper cell in r
-        cuda.atomic.add( Fgrid, (iz_upper[ip], ir_upper[ip]), Sz_upper[ip]*Sr_upper[ip]*Fptcl[ip] )
-        # Add the fields from the guard cells
-        cuda.atomic.add( Fgrid, (iz_lower[ip], 0), sign_guards[0]*Sz_lower[ip]*Sr_guard[ip]*Fptcl[ip])
-        cuda.atomic.add( Fgrid, (iz_upper[ip], 0), sign_guards[0]*Sz_upper[ip]*Sr_guard[ip]*Fptcl[ip])
-
+    if i < cell_idx.shape[0]-1:
+        ci = cell_idx[i]
+        ci_next = cell_idx[i+1]
+        while ci < ci_next:
+            prefix_sum[ci] = i
+            ci += 1
+    if i == cell_idx.shape[0]-1:
+        ci = cell_idx[i]
+        prefix_sum[ci] = i
