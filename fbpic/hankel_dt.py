@@ -44,7 +44,7 @@ try :
     from numbapro.cudalib import cudablas
 except ImportError :
     cuda_installed = False
-    print 'Numba pro is not available ; GPU mode not supported'
+    print 'Cuda is not available ; GPU mode not supported'
 else :
     cuda_installed = True
 
