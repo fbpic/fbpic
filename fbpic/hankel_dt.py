@@ -46,7 +46,7 @@ try :
 except ImportError :
     cuda_installed = False
     print ''
-    print 'Numba pro is not available ; GPU mode not supported'
+    print 'Cuda is not available ; GPU mode not supported'
     print ''
 else :
     cuda_installed = True

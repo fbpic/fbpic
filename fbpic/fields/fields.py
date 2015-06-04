@@ -95,7 +95,7 @@ class Fields(object) :
         if (self.use_cuda==True) and (cuda_installed==False) :
             print 'Cuda for numba is not installed ; running on the CPU.'
             self.use_cuda = False
-        else :
+        if self.use_cuda == True:
             print 'Using the GPU for the fields.'
 
         # Infer the values of the z and kz grid
