@@ -17,8 +17,7 @@ except :
 else :
     cuda_installed = True
     # Define number of threads per block as global variables
-    tpbz = 256
-    tpbr = 256
+    tpb = 32
 
 class Fields(object) :
     """
@@ -272,20 +271,20 @@ class Fields(object) :
             bpgr = int( self.Nr/tpr + 1 )
             
             if fieldtype == 'rho' :
-                cuda_erase_scalar[(bpgz, tpbz), (bpgr, tpbr)](
+                cuda_erase_scalar[(bpgz, tpb), (bpgr, tbp)](
                     self.interp[0].rho, self.interp[1].rho, self.Nz, self.Nr )
             elif fieldtype == 'J' :
-                cuda_erase_vector[(bpgz, bpgr), (tpbz, tpbr)](
+                cuda_erase_vector[(bpgz, bpgr), (tpb, tbp)](
                     self.interp[0].Jr, self.interp[1].Jr,
                     self.interp[0].Jt, self.interp[1].Jt,
                     self.interp[0].Jz, self.interp[1].Jz, self.Nz, self.Nr )
             elif fieldtype == 'E' :
-                cuda_erase_vector[(bpgz, bpgr), (tpbz, tpbr)](
+                cuda_erase_vector[(bpgz, bpgr), (tpb, tbp)](
                     self.interp[0].Er, self.interp[1].Er,
                     self.interp[0].Et, self.interp[1].Et,
                     self.interp[0].Ez, self.interp[1].Ez, self.Nz, self.Nr )
             elif fieldtype == 'B' :
-                cuda_erase_vector[(bpgz, bpgr), (tpbz, tpbr)](
+                cuda_erase_vector[(bpgz, bpgr), (tpb, tbp)](
                     self.interp[0].Br, self.interp[1].Br,
                     self.interp[0].Bt, self.interp[1].Bt,
                     self.interp[0].Bz, self.interp[1].Bz, self.Nz, self.Nr )
@@ -367,12 +366,12 @@ class Fields(object) :
             bpgr = int( self.Nr/tpr + 1 )
 
             if fieldtype == 'rho' :
-                cuda_divide_scalar_by_volume[(bpgz, bpgr),(tpbz, tpbr)](
+                cuda_divide_scalar_by_volume[(bpgz, bpgr),(tpb, tbp)](
                     self.interp[0].rho, self.interp[1].rho,
                     self.interp[0].invvol, self.interp[1].invvol,
                     self.Nz, self.Nr )
             elif fieldtype == 'J' :
-                cuda_divide_vector_by_volume[(bpgz, bpgr),(tpbz, tpbr)](
+                cuda_divide_vector_by_volume[(bpgz, bpgr),(tpb, tbp)](
                     self.interp[0].Jr, self.interp[1].Jr,
                     self.interp[0].Jt, self.interp[1].Jt,
                     self.interp[0].Jz, self.interp[1].Jz,
@@ -632,7 +631,7 @@ class SpectralGrid(object) :
             bpgz = int( self.Nz/tpz + 1 )
             bpgr = int( self.Nr/tpr + 1 )
                         
-            cuda_correct_currents[(bpgz, bpgr), (tpbz, tpbr)](
+            cuda_correct_currents[(bpgz, bpgr), (tpb, tbp)](
                 self.rho_prev, self.rho_next, self.Jp, self.Jm, self.Jz,
                 self.kz, self.kr, self.inv_k2, inv_dt, self.Nz, self.Nr)
         else :
@@ -678,7 +677,7 @@ class SpectralGrid(object) :
             bpgz = int( self.Nz/tpz + 1 )
             bpgr = int( self.Nr/tpr + 1 )
             
-            cuda_push_eb_with[(bpgz, tpbz), (bpgr, tpbr)](
+            cuda_push_eb_with[(bpgz, tpb), (bpgr, tbp)](
                 self.Ep, self.Em, self.Ez, self.Bp, self.Bm, self.Bz,
                 self.Jp, self.Jm, self.Jz, self.rho_prev, self.rho_next,
                 ps.rho_prev_coef, ps.rho_next_coef, ps.j_coef, ps.dt,
@@ -950,11 +949,17 @@ class SpectralTransformer(object) :
         nthreads : int, optional
             Number of threads for the FFTW transform
         """
+        # Check whether to use the GPU
+        self.use_cuda = use_cuda
+        
         # Initialize the DHT (local implementation, see hankel_dt.py)
         print('Preparing the Discrete Hankel Transforms for mode %d' %m)
-        self.dht0 = DHT(   m, Nr, rmax, 'MDHT(m,m)', d=0.5, Fw='inverse' )
-        self.dhtp = DHT( m+1, Nr, rmax, 'MDHT(m+1,m)', d=0.5, Fw='inverse' )
-        self.dhtm = DHT( m-1, Nr, rmax, 'MDHT(m-1,m)', d=0.5, Fw='inverse' )
+        self.dht0 = DHT(   m, Nr, Nz, rmax, 'MDHT(m,m)', d=0.5, Fw='inverse',
+                           use_cuda=self.use_cuda )
+        self.dhtp = DHT( m+1, Nr, Nz, rmax, 'MDHT(m+1,m)', d=0.5, Fw='inverse',
+                           use_cuda=self.use_cuda )
+        self.dhtm = DHT( m-1, Nr, Nz, rmax, 'MDHT(m-1,m)', d=0.5, Fw='inverse',
+                           use_cuda=self.use_cuda )
 
         # Initialize the FFTW
         print('Preparing FFTW for mode %d' %m)
@@ -965,6 +970,7 @@ class SpectralTransformer(object) :
             pyfftw.n_byte_align_empty( (Nz,Nr), 16, 'complex128' )
         self.spect_buffer_r = \
             pyfftw.n_byte_align_empty( (Nz,Nr), 16, 'complex128' )
+        self.spect_buffer_p = self.spect_buffer_r # Two names for the same array
         self.fft_r = pyfftw.FFTW( self.interp_buffer_r, self.spect_buffer_r,
                     axes=(0,), direction='FFTW_FORWARD', threads=nthreads )
         self.ifft_r = pyfftw.FFTW( self.spect_buffer_r, self.interp_buffer_r,
@@ -974,6 +980,7 @@ class SpectralTransformer(object) :
             pyfftw.n_byte_align_empty( (Nz,Nr), 16, 'complex128' )
         self.spect_buffer_t = \
             pyfftw.n_byte_align_empty( (Nz,Nr), 16, 'complex128' )
+        self.spect_buffer_m = self.spect_buffer_t # Two names for the same array
         self.fft_t = pyfftw.FFTW( self.interp_buffer_t, self.spect_buffer_t,
                     axes=(0,), direction='FFTW_FORWARD', threads=nthreads )
         self.ifft_t = pyfftw.FFTW( self.spect_buffer_t, self.interp_buffer_t,
@@ -996,8 +1003,7 @@ class SpectralTransformer(object) :
            grid, and which is overwritten by this function.
         """
         # Perform the inverse DHT first (along axis -1, which corresponds to r)
-        self.spect_buffer_r[:,:] = \
-          self.dht0.inverse_transform( spect_array )
+        self.dht0.inverse_transform( spect_array, self.spect_buffer_r )
 
         # Then perform the inverse FFT (along axis 0, which corresponds to z)
         self.interp_buffer_r = self.ifft_r()
@@ -1022,19 +1028,23 @@ class SpectralTransformer(object) :
            grid, and which are overwritten by this function.
         """
         # Perform the inverse DHT first (along axis -1, which corresponds to r)
-        interp_array_p = self.dhtp.inverse_transform( spect_array_p )
-        interp_array_m = self.dhtm.inverse_transform( spect_array_m )
-
-        # Combine them to obtain the r and t components
-        self.spect_buffer_r[:,:] = interp_array_p + interp_array_m
-        self.spect_buffer_t[:,:] = 1.j*( interp_array_p - interp_array_m )
+        self.dhtp.inverse_transform( spect_array_p, self.spect_buffer_p )
+        self.dhtm.inverse_transform( spect_array_m, self.spect_buffer_m )
+    
+        # Combine them to obtain the actual r and t components
+        # (It is important to write the affectation in the following way, since
+        # self.spect_buffer_p and self.spect_buffer_r actually point to the same
+        # object, for memory economy)
+        self.spect_buffer_p[:,:], self.spect_buffer_m[:,:] = \
+            self.spect_buffer_r + self.spect_buffer_t, \
+            1.j*( self.spect_buffer_r - self.spect_buffer_t)
 
         # Finally perform the FFT (along axis 0, which corresponds to z)
         self.interp_buffer_r = self.ifft_r()
-        #Copy to the output array
+        # Copy to the output array
         interp_array_r[:,:] = self.interp_buffer_r[:,:] 
         self.interp_buffer_t = self.ifft_t()
-        #Copy to the output array
+        # Copy to the output array
         interp_array_t[:,:] = self.interp_buffer_t[:,:] 
 
     def interp2spect_scal( self, interp_array, spect_array ) :
@@ -1058,7 +1068,7 @@ class SpectralTransformer(object) :
         self.spect_buffer_r = self.fft_r()
         
         # Then perform the DHT (along axis -1, which corresponds to r)
-        spect_array[:,:] = self.dht0.transform( self.spect_buffer_r )
+        self.dht0.transform( self.spect_buffer_r, spect_array )
 
     def interp2spect_vect( self, interp_array_r, interp_array_t,
                            spect_array_p, spect_array_m ) :
@@ -1084,12 +1094,16 @@ class SpectralTransformer(object) :
         self.spect_buffer_t = self.fft_t()
 
         # Combine the r and t components to obtain the p and m components
-        spect_buffer_p = 0.5*( self.spect_buffer_r - 1.j*self.spect_buffer_t )
-        spect_buffer_m = 0.5*( self.spect_buffer_r + 1.j*self.spect_buffer_t )
+        # (It is important to write the affectation in the following way, since
+        # self.spect_buffer_p and self.spect_buffer_r actually point to the same
+        # object, for memory economy.)
+        self.spect_buffer_p[:,:], self.spect_buffer_m[:,:] = \
+          0.5*( self.spect_buffer_r - 1.j*self.spect_buffer_t ), \
+          0.5*( self.spect_buffer_r + 1.j*self.spect_buffer_t )
         
         # Perform the inverse DHT first (along axis -1, which corresponds to r)
-        spect_array_p[:,:] = self.dhtp.transform( spect_buffer_p )
-        spect_array_m[:,:] = self.dhtm.transform( spect_buffer_m )
+        self.dhtp.transform( self.spect_buffer_p, spect_array_p )
+        self.dhtm.transform( self.spect_buffer_m, spect_array_m )
 
 
 # -----------------

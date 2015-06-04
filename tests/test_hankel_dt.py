@@ -40,18 +40,22 @@ def compare_Hankel_methods( f_analytic, g_analytic, p, Nz, Nr,
     for method in available_methods :
 
         # Initialize transform
-        dht = DHT( p, Nr, rmax, method, **kw )
+        dht = DHT( p, Nr, Nz, rmax, method, **kw )
 
         # Calculate f and g on the natural grid
         f = np.empty((Nz,Nr))
         f[:,:] = f_analytic( dht.get_r() )[np.newaxis,:]
         g = np.empty((Nz,Nr))
         g = g_analytic( dht.get_nu() )[np.newaxis,:]
-            
+
+        # Initialize empty matrices
+        f_dht = np.empty((Nz, Nr))
+        g_dht = np.empty((Nz, Nr))
+        
         # Apply the forward and backward transform
         t1 = time.time()
-        g_dht = dht.transform( f )        
-        f_dht = dht.inverse_transform( g_dht )
+        dht.transform( f, g_dht )        
+        dht.inverse_transform( g_dht, f_dht )
         t2 = time.time()
         
         # Plot the results

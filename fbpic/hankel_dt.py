@@ -41,12 +41,18 @@ from scipy.optimize import fsolve
 
 # Try to import cublas
 try :
-    from numbapro.cudalib import cudablas
+    from numbapro.cudalib import cublas
+    from numba import cuda
 except ImportError :
     cuda_installed = False
+    print ''
     print 'Numba pro is not available ; GPU mode not supported'
+    print ''
 else :
     cuda_installed = True
+    print ''
+    print 'Numba pro available'
+    print ''
 
     
 # The list of available methods
@@ -64,7 +70,7 @@ class DHT(object) :
     >>> G = trans.transform(F)
     """
 
-    def __init__(self, p, N, rmax, method, use_cuda=False, **kw ) :
+    def __init__(self, p, Nr, Nz, rmax, method, use_cuda=False, tpb=32, **kw ) :
         """
         Calculate the r (position) and nu (frequency) grid
         on which the transform will operate.
@@ -76,8 +82,8 @@ class DHT(object) :
         p : int
         Order of the Hankel transform
 
-        N : float
-        Number of points of the r grid
+        Nr, Nz : float
+        Number of points in the r direction and z direction
 
         rmax : float
         Maximal radius of the r grid.
@@ -89,6 +95,9 @@ class DHT(object) :
         use_cuda : bool, optional
         Whether to use the GPU for the Hankel transform
         (Only available for the MDHT method)
+
+        tpb : int, optional
+        Number of threads per block, in the case where cuda is used
         
         kw : optional arguments to be passed in the case of the MDHT
         """
@@ -105,19 +114,28 @@ class DHT(object) :
         if (self.use_cuda==True) and (cuda_installed==False) :
             self.use_cuda = False
         if self.use_cuda :
-            self.cuda_stream = cudablas.Blas()
-        
+            # Initialize a cuda stream (required by cublas)
+            self.cuda_stream = cublas.Blas()
+            # Initialize two buffer arrays on the GPU
+            # The cuBlas API requires that these arrays be in Fortran order
+            zero_array = np.zeros((Nz, Nr), dtype=np.complex128, order='F')
+            self.d_in = cuda.to_device( zero_array )
+            self.d_out = cuda.to_device( zero_array )
+            # Initialize the threads per block and block per grid
+            self.dim_block = ( tpb, tpb )
+            self.dim_grid = ( int(Nz/tpb)+1, int(Nr/tpb)+1 )
+
         # Call the corresponding initialization routine
         if self.method == 'FHT' :
-            self.FHT_init(p, N, rmax)
+            self.FHT_init(p, Nr, rmax)
         elif self.method == 'QDHT' :
-            self.QDHT_init(p, N, rmax)
+            self.QDHT_init(p, Nr, rmax)
         elif self.method == 'MDHT(m,m)' :
-            self.MDHT_init(p, N, rmax, m=p, **kw)
+            self.MDHT_init(p, Nr, rmax, m=p, **kw)
         elif self.method == 'MDHT(m-1,m)' :
-            self.MDHT_init(p, N, rmax, m=p+1, **kw)
+            self.MDHT_init(p, Nr, rmax, m=p+1, **kw)
         elif self.method == 'MDHT(m+1,m)' :
-            self.MDHT_init(p, N, rmax, m=p-1, **kw)
+            self.MDHT_init(p, Nr, rmax, m=p-1, **kw)
 
         
     def get_r(self) :
@@ -142,16 +160,19 @@ class DHT(object) :
         return( self.nu )
             
             
-    def transform( self, F ) :
+    def transform( self, F, G ) :
         """
         Perform the Hankel transform of F, according to the method
         chosen at initialization.
 
         Parameters :
         ------------
-        F : ndarray of real or complex values
+        F : 2darray of real or complex values
         Array containing the discrete values of the function for which
         the discrete Hankel transform is to be calculated.
+
+        G : 2darray of real or complex values
+        Array where the result will be stored
 
         Returns :
         ---------
@@ -161,24 +182,25 @@ class DHT(object) :
         # Perform the appropriate transform, depending on the method
         
         if self.method == 'FHT' :
-            G = self.FHT_transform(F)
+            G[:,:] = self.FHT_transform(F)
         elif self.method == 'QDHT' :
-            G = self.QDHT_transform(F)
+            G[:,:] = self.QDHT_transform(F)
         elif self.method in [ 'MDHT(m,m)', 'MDHT(m-1,m)', 'MDHT(m+1,m)' ] :
-            G = self.MDHT_transform(F)
-        
-        return( G )
+            self.MDHT_transform(F, G)
 
-    def inverse_transform( self, G ) :
+    def inverse_transform( self, G, F ) :
         """
         Perform the Hankel inverse transform of G, according to the method
         chosen at initialization.
 
         Parameters :
         ------------
-        g : ndarray of real or complex values
+        G : 2darray of real or complex values
         Array containing the values of the function for which
         the discrete inverse Hankel transform is to be calculated.
+
+        F : 2darray of real or complex values
+        Array where the result will be stored
 
         Returns :
         ---------
@@ -188,13 +210,11 @@ class DHT(object) :
         # Perform the appropriate transform, depending on the method
         
         if self.method == 'FHT' :
-            F = self.FHT_inverse_transform(G)
+            F[:,:] = self.FHT_inverse_transform(G)
         elif self.method == 'QDHT' :
-            F = self.QDHT_inverse_transform(G)
+            F[:,:] = self.QDHT_inverse_transform(G)
         elif self.method in [ 'MDHT(m,m)', 'MDHT(m-1,m)', 'MDHT(m+1,m)' ] :
-            F = self.MDHT_inverse_transform(G)
-                
-        return(F)
+            self.MDHT_inverse_transform(G, F)
         
 
     def MDHT_init(self, p, N, rmax, m, d=0.5, Fw='inverse') :
@@ -306,42 +326,77 @@ class DHT(object) :
         if Fw == 'symmetric' :
             self.M = (2*np.pi*rmax**2/S)**2 * self.invM.T
 
-    def MDHT_transform( self, F ) :
+        # Copy the arrays to the GPU if needed
+        if self.use_cuda :
+            # Conversion to complex is needed for the cuBlas API
+            self.d_M = cuda.to_device( self.M.astype(np.complex128) )
+            self.d_invM = cuda.to_device( self.invM.astype(np.complex128) )
+
+
+    def MDHT_transform( self, F, G ) :
         """
-        Performs the MDHT of F and returns the results.
+        Performs the MDHT of F and stores the result in G
         Reference: see the paper associated with FBPIC
 
-        F : ndarray of real or complex values
-        Array containing the values from which to compute the DHT.
+        F : 2darray of real or complex values
+        Array containing the values from which to compute the DHT
+
+        G : 2darray of real or complex values
+        Array where the result will be stored
         """
 
         # Perform the matrix product with M
         if self.use_cuda :
-            G = self.cuda_stream.dot( F, self.M )
-            self.cuda_stream.synchronize()
+            # Check that the shapes agree
+            if (F.shape!=self.d_in) or (G.shape!=self.d_out) :
+                raise ValueError('The shape of F or G is different from '
+                                 'the shape chosen at initialization.')
+            # Convert the C-order F array to the Fortran-order d_in array
+            cuda_to_buffer_in[self.dim_grid, self.dim_block](
+                F, self.d_in, F.shape[0], F.shape[1] )
+            # Perform the matrix product using cuBlas
+            self.cuda_stream.gemm( 'N', 'T', F.shape[0], F.shape[1], F.shape[1], 1.0,
+                                   self.d_in, self.d_M, self.d_out )
+            # Convert the Fortran-order d_out array to the C-order G array
+            cuda_from_buffer_out[self.dim_grid, self.dim_block](
+                G, self.d_out, G.shape[0], G.shape[1] )
+            cuda.synchronize()
+            
         else :
-            G = np.dot( F, self.M )
-
-        return( G )
+            np.dot( F, self.M, out=G )
         
         
-    def MDHT_inverse_transform( self, G ) :
+    def MDHT_inverse_transform( self, G, F ) :
         """
-        Performs the MDHT of G and returns the results.
+        Performs the MDHT of G and stores the result in F
         Reference: see the paper associated with FBPIC
 
-        G : ndarray of real or complex values
-        Array containing the values from which to compute the DHT.
+        G : 2darray of real or complex values
+        Array containing the values from which to compute the DHT
+
+        F : 2darray of real or complex values
+        Array where the result will be stored
         """
 
         # Perform the matrix product with invM
         if self.use_cuda :
-            F = self.cuda_stream.dot( G, self.invM )
-            self.cuda_stream.synchronize()
+            # Check that the shapes agree
+            if (G.shape!=self.d_in) or (F.shape!=self.d_out) :
+                raise ValueError('The shape of F or G is different from '
+                                 'the shape chosen at initialization.')
+            # Convert the C-order G array to the Fortran-order d_in array
+            cuda_to_buffer_in[self.dim_grid, self.dim_block](
+                G, self.d_in, G.shape[0], G.shape[1] )
+            # Perform the matrix product using cuBlas
+            self.cuda_stream.gemm( 'N', 'T', G.shape[0], G.shape[1], G.shape[1], 1.0,
+                                   self.d_in, self.d_M, self.d_out )
+            # Convert the Fortran-order d_out array to the C-order G array
+            cuda_from_buffer_out[self.dim_grid, self.dim_block](
+                F, self.d_out, F.shape[0], F.shape[1] )
+            cuda.synchronize()
+        
         else :
-            F = np.dot( G, self.invM )
-
-        return( F )
+            np.dot( G, self.invM, out=F )
 
         
     def QDHT_init(self,p,N,rmax) :
