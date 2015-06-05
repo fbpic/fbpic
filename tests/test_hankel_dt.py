@@ -43,14 +43,14 @@ def compare_Hankel_methods( f_analytic, g_analytic, p, Nz, Nr,
         dht = DHT( p, Nr, Nz, rmax, method, **kw )
 
         # Calculate f and g on the natural grid
-        f = np.empty((Nz,Nr))
+        f = np.empty((Nz,Nr), dtype=np.complex128)
         f[:,:] = f_analytic( dht.get_r() )[np.newaxis,:]
-        g = np.empty((Nz,Nr))
-        g = g_analytic( dht.get_nu() )[np.newaxis,:]
+        g = np.empty((Nz,Nr), dtype=np.complex128)
+        g[:,:] = g_analytic( dht.get_nu() )[np.newaxis,:]
 
         # Initialize empty matrices
-        f_dht = np.empty((Nz, Nr))
-        g_dht = np.empty((Nz, Nr))
+        f_dht = np.empty((Nz, Nr), dtype=np.complex128)
+        g_dht = np.empty((Nz, Nr), dtype=np.complex128)
         
         # Apply the forward and backward transform
         t1 = time.time()
@@ -59,16 +59,15 @@ def compare_Hankel_methods( f_analytic, g_analytic, p, Nz, Nr,
         t2 = time.time()
         
         # Plot the results
-        for iz in range(Nz) :
-            plt.subplot(121)
-            plt.plot( dht.r, f_dht[iz], 'o', label=method )
-            plt.subplot(122)
-            plt.plot( dht.nu, g_dht[iz], 'o', label=method )
+        plt.subplot(121)
+        plt.plot( dht.r, f_dht[Nz/2].real, 'o', label=method )
+        plt.subplot(122)
+        plt.plot( dht.nu, g_dht[Nz/2].real, 'o', label=method )
         
         # Calculate the maximum error
         error_f = np.max( abs(f_dht-f) )
         error_g = np.max( abs(g_dht-g) )
-        Dt_ms = (t2-t1)/(2*Nz)*1.e3
+        Dt_ms = (t2-t1)/(2)*1.e3
 
         # Finalization of the plots
         plt.legend(loc=0)
@@ -85,7 +84,7 @@ def compare_Hankel_methods( f_analytic, g_analytic, p, Nz, Nr,
 
     plt.show()
         
-def compare_power_p( p, rcut, N, rmax, **kw ) :
+def compare_power_p( p, rcut, N, rmax, Nz=1, **kw ) :
     """
     Test the Hankel transforms for the test function :
     x -> (x/rcut)^p for x < rcut
@@ -110,10 +109,10 @@ def compare_power_p( p, rcut, N, rmax, **kw ) :
         else :
            ans =  rcut*jn( p+1, 2*np.pi*rcut*x) / x
         return( ans )  
-    
-    compare_Hankel_methods( power_p, power_p_trans, p, 1, N, rmax, **kw )
 
-def compare_laguerre_gauss( p, n, N, rmax ) :
+    compare_Hankel_methods( power_p, power_p_trans, p, Nz, N, rmax, **kw )
+
+def compare_laguerre_gauss( p, n, N, rmax, Nz=1 ) :
     """
     Test the Hankel transforms for the test function :
     x -> x^p L_n^p(x^2) exp(-x^2/2)
@@ -138,9 +137,9 @@ def compare_laguerre_gauss( p, n, N, rmax ) :
                 np.exp(-(2*np.pi*x)**2/2) )
     
     compare_Hankel_methods( laguerre_n_p, laguerre_n_p_trans, p,
-                            1, N, rmax, **kw )
+                            Nz, N, rmax, **kw )
 
-def compare_bessel( p, m, n, N, rmax, **kw ) :
+def compare_bessel( p, m, n, N, rmax, Nz=1, **kw ) :
     """
     Test the Hankel transforms for the test function :
     x -> J_p( k_n^{m} x )
@@ -164,26 +163,27 @@ def compare_bessel( p, m, n, N, rmax, **kw ) :
             return( np.where( abs(x - k/(2*np.pi)) < 0.1,
                           np.pi*rmax**2*jn(p, k*rmax)**2 , 0.) )
     
-    compare_Hankel_methods( bessel_n_p, delta, p, 1, N, rmax, **kw )
+    compare_Hankel_methods( bessel_n_p, delta, p, Nz, N, rmax, **kw )
     
 if __name__ == '__main__' :
 
-    N = 200
+    Nr = 200
+    Nz = 1000
     pmax = 1
     rmax = 4
-    kw = { 'd' : 0.5, 'Fw' : 'inverse' }
+    kw = { 'use_cuda' : True,  'd' : 0.5, 'Fw' : 'inverse' }
     
     for p in range(pmax+1) :
-        compare_power_p( p, 1, N, rmax, **kw )
+        compare_power_p( p, 1, Nr, rmax, Nz=Nz, **kw )
 
     for p in range(pmax+1) :
         for n in range(2) :
-            compare_laguerre_gauss( p, n, N, rmax )
+            compare_laguerre_gauss( p, n, Nr, rmax, Nz=Nz )
 
     for p in range(pmax+1) :
-        compare_bessel( p, p, int(N*0.3), N, rmax, **kw )
-        compare_bessel( p, p, int(N*0.9), N, rmax, **kw )
+        compare_bessel( p, p, int(Nr*0.3), Nr, rmax, Nz=Nz, **kw )
+        compare_bessel( p, p, int(Nr*0.9), Nr, rmax, Nz=Nz, **kw )
 
     for p in range(pmax+1) :
-        compare_bessel( p, p+1, int(N*0.3), N, rmax, **kw )
-        compare_bessel( p, p+1, int(N*0.9), N, rmax, **kw )
+        compare_bessel( p, p+1, int(Nr*0.3), Nr, rmax, Nz=Nz, **kw )
+        compare_bessel( p, p+1, int(Nr*0.9), Nr, rmax, Nz=Nz, **kw )

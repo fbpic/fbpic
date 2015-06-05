@@ -39,20 +39,17 @@ from scipy.special import jn, jn_zeros
 from scipy.interpolate import interp1d
 from scipy.optimize import fsolve
 
-# Try to import cublas
+# Try to import cuda and cublas
 try :
     from numbapro.cudalib import cublas
-    from numba import cuda
+    from cuda_utils import cuda, cuda_copy
 except ImportError :
     cuda_installed = False
-    print ''
-    print 'Cuda is not available ; GPU mode not supported'
+    print '\n Cuda not installed or GPU not available \n'
     print ''
 else :
     cuda_installed = True
-    print ''
-    print 'Numba pro available'
-    print ''
+    print '\n Cuda available for the Hankel transform \n'
 
     
 # The list of available methods
@@ -115,7 +112,7 @@ class DHT(object) :
             self.use_cuda = False
         if self.use_cuda :
             # Initialize a cuda stream (required by cublas)
-            self.cuda_stream = cublas.Blas()
+            self.blas = cublas.Blas()
             # Initialize two buffer arrays on the GPU
             # The cuBlas API requires that these arrays be in Fortran order
             zero_array = np.zeros((Nz, Nr), dtype=np.complex128, order='F')
@@ -328,9 +325,12 @@ class DHT(object) :
 
         # Copy the arrays to the GPU if needed
         if self.use_cuda :
-            # Conversion to complex is needed for the cuBlas API
-            self.d_M = cuda.to_device( self.M.astype(np.complex128) )
-            self.d_invM = cuda.to_device( self.invM.astype(np.complex128) )
+            # Conversion to complex and Fortran order
+            # is needed for the cuBlas API
+            self.d_M = cuda.to_device(
+                np.asfortranarray( self.M, dtype=np.complex128 ) )
+            self.d_invM = cuda.to_device(
+                np.asfortranarray( self.invM, dtype=np.complex128 ) )
 
 
     def MDHT_transform( self, F, G ) :
@@ -348,18 +348,18 @@ class DHT(object) :
         # Perform the matrix product with M
         if self.use_cuda :
             # Check that the shapes agree
-            if (F.shape!=self.d_in) or (G.shape!=self.d_out) :
+            if (F.shape!=self.d_in.shape) or (G.shape!=self.d_out.shape) :
                 raise ValueError('The shape of F or G is different from '
                                  'the shape chosen at initialization.')
             # Convert the C-order F array to the Fortran-order d_in array
-            cuda_to_buffer_in[self.dim_grid, self.dim_block](
+            cuda_copy[self.dim_grid, self.dim_block](
                 F, self.d_in, F.shape[0], F.shape[1] )
             # Perform the matrix product using cuBlas
-            self.cuda_stream.gemm( 'N', 'T', F.shape[0], F.shape[1], F.shape[1], 1.0,
-                                   self.d_in, self.d_M, self.d_out )
+            self.blas.gemm( 'N', 'N', F.shape[0], F.shape[1], 
+                   F.shape[1], 1.0, self.d_in, self.d_M, 0., self.d_out )
             # Convert the Fortran-order d_out array to the C-order G array
-            cuda_from_buffer_out[self.dim_grid, self.dim_block](
-                G, self.d_out, G.shape[0], G.shape[1] )
+            cuda_copy[self.dim_grid, self.dim_block](
+                self.d_out, G, G.shape[0], G.shape[1] )
             cuda.synchronize()
             
         else :
@@ -381,18 +381,18 @@ class DHT(object) :
         # Perform the matrix product with invM
         if self.use_cuda :
             # Check that the shapes agree
-            if (G.shape!=self.d_in) or (F.shape!=self.d_out) :
+            if (G.shape!=self.d_in.shape) or (F.shape!=self.d_out.shape) :
                 raise ValueError('The shape of F or G is different from '
                                  'the shape chosen at initialization.')
             # Convert the C-order G array to the Fortran-order d_in array
-            cuda_to_buffer_in[self.dim_grid, self.dim_block](
+            cuda_copy[self.dim_grid, self.dim_block](
                 G, self.d_in, G.shape[0], G.shape[1] )
             # Perform the matrix product using cuBlas
-            self.cuda_stream.gemm( 'N', 'T', G.shape[0], G.shape[1], G.shape[1], 1.0,
-                                   self.d_in, self.d_M, self.d_out )
+            self.blas.gemm( 'N', 'N', G.shape[0], G.shape[1], 
+                   G.shape[1], 1.0, self.d_in, self.d_invM, 0., self.d_out )
             # Convert the Fortran-order d_out array to the C-order G array
-            cuda_from_buffer_out[self.dim_grid, self.dim_block](
-                F, self.d_out, F.shape[0], F.shape[1] )
+            cuda_copy[self.dim_grid, self.dim_block](
+                self.d_out, F, F.shape[0], F.shape[1] )
             cuda.synchronize()
         
         else :
@@ -563,6 +563,9 @@ class DHT(object) :
 
         return( F )
 
+# ------------------
+# Utility functions
+# ------------------
         
 def array_multiply( a, v, axis ) :
     """
@@ -602,3 +605,5 @@ def array_multiply( a, v, axis ) :
         r = r.swapaxes(-1,axis)
 
     return(r)
+
+
