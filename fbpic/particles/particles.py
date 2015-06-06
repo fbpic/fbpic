@@ -44,9 +44,9 @@ class Particles(object) :
     def __init__(self, q, m, n, Npz, zmin, zmax,
                     Npr, rmin, rmax, Nptheta, dt,
                     dens_func=None, global_theta=0.,
-                    fld = None,
                     continuous_injection=True,
-                    use_cuda=False, use_numba=True ) :
+                    use_numba=True, use_cuda=False,
+                    use_cuda_memory = True ) :
         """
         Initialize a uniform set of particles
 
@@ -92,12 +92,6 @@ class Particles(object) :
            (e.g. with the moving window), in order to avoid that
            the successively-added particles are aligned.
 
-        fld : Fields object, optional (required for cuda)
-           The Fields object of the simulation, that contains
-           the information about the grid. (This is needed
-           allocate the prefix_sum array for sorting the 
-           particles when using CUDA.)
-
         continuous_injection : bool, optional
            Whether to continuously inject the particles,
            in the case of a moving window
@@ -107,17 +101,24 @@ class Particles(object) :
            
         use_cuda : bool, optional
             Wether to use the GPU or not. Overrides use_numba.
+
+        use_cuda_memory : bool, optional
+            Wether to use manual memory management. Recommended.
         """
         # Register the timestep
         self.dt = dt
 
         # Define wether or not to use the GPU
         self.use_cuda = use_cuda
+        self.use_cuda_memory = use_cuda_memory
         if (self.use_cuda==True) and (cuda_installed==False) :
             print 'Cuda for numba is not installed ; running on the CPU.'
             self.use_cuda = False
+        if self.use_cuda == False:
+            self.use_cuda_memory == False
         if self.use_cuda == True:
             print 'Using the GPU for the particles.'
+
         # Define whether or not to use numba on a CPU
         self.use_numba = use_numba
         if self.use_cuda == True :
@@ -179,63 +180,66 @@ class Particles(object) :
         # Modulate it by the density profile
         if dens_func is not None :
             self.w = self.w * dens_func( self.z, r )
-        # Initialize the Fields object
-        self.fld = fld
-        # Create arrays for particle sorting when using CUDA
-        if self.use_cuda:
-            if self.fld != None:
-                # Create empty arrays to store the cell index, the sorted
-                # index of the particles and the prefix sum (indicates at wich
-                # position a new value occurs in the cell index array)
-                self.cell_idx = np.zeros(self.Ntot, dtype = np.int32)
-                self.sorted_idx = np.arange(self.Ntot, dtype = np.uint32)
-                self.prefix_sum = np.zeros(self.fld.Nz*self.fld.Nr, dtype = np.int32)
-            else:
-                raise ValueError( "Field object is None. CUDA mode will exit now!" )
-                self.use_cuda == False
-        # Define the number of threads per block and blocks per grid when using CUDA
-        if self.use_cuda:
-            # ------------------------------
-            # NOTE: Hardcoded at the moment!
-            # ------------------------------
-            # Define threads per block and blocks per grid
-            # for iterating over particles in 1D
-            self.tpb1d = 256
-            self.bpg1d = int(self.Ntot/tpb1d + 1)
-            # Define the blocks per grid 
-            #for iterating over the cells in 1 D
-            self.bpg1d_grid = int((self.fld.Nz*self.fld.Nr)/tpb1d + 10)
-            # Define threads per block and blocks per grid
-            # for iterating over cells in 2D
-            self.tpb2dr = 8
-            self.tpb2dz = 8
-            self.bpg2dz = int(self.fld.Nz/tpb2dz + 1)
-            self.bpg2dr = int(self.fld.Nr/tpb2dr + 1)
-        # When using CUDA, we need additional arrays for the field deposition,
-        # that are not included in the fld.grid object
-        if self.use_cuda:
-            # Create empty arrays to store the four different possible
-            # cell directions a particle can deposit to.
-            # Rho - third dimension represents 2 modes
-            self.rho0 = np.zeros((self.fld.Nz, self.fld.Nr, 2),
-                                 dtype = np.complex128)
-            self.rho1 = np.zeros((self.fld.Nz, self.fld.Nr, 2),
-                                 dtype = np.complex128)
-            self.rho2 = np.zeros((self.fld.Nz, self.fld.Nr, 2), 
-                                 dtype = np.complex128)
-            self.rho3 = np.zeros((self.fld.Nz, self.fld.Nr, 2), 
-                                 dtype = np.complex128)
-            # J - third dimension represents 2 modes 
-            # times 3 dimensions (r, t, z)
-            self.J0 = np.zeros((self.fld.Nz, self.fld.Nr, 6), 
-                               dtype = np.complex128)
-            self.J1 = np.zeros((self.fld.Nz, self.fld.Nr, 6), 
-                               dtype = np.complex128)
-            self.J2 = np.zeros((self.fld.Nz, self.fld.Nr, 6), 
-                               dtype = np.complex128)
-            self.J3 = np.zeros((self.fld.Nz, self.fld.Nr, 6),
-                               dtype = np.complex128)
 
+        # Allocate arrays for the particles sorting when using CUDA
+        self.cell_idx = np.empty(self.Ntot, dtype = np.int32)
+        self.sorted_idx = np.arange(self.Ntot, dtype = np.uint32)
+
+    def send_particles_to_gpu( self ):
+        """
+        Copy the particles to the GPU
+        """
+        if self.use_cuda_memory:
+            # Send positions, velocities, inverse gamma and weights
+            # to the GPU (CUDA)
+            self.x = cuda.to_device(self.x)
+            self.y = cuda.to_device(self.y)
+            self.z = cuda.to_device(self.z)
+            self.ux = cuda.to_device(self.ux)
+            self.uy = cuda.to_device(self.uy)
+            self.uz = cuda.to_device(self.uz)
+            self.inv_gamma = cuda.to_device(self.inv_gamma)
+            self.w = cuda.to_device(self.w)
+
+            # Initialize empty arrays on the GPU for the field
+            # gathering and the particle push
+            self.Ex = cuda.device_array_like(self.Ex)
+            self.Ey = cuda.device_array_like(self.Ey)
+            self.Ez = cuda.device_array_like(self.Ez)
+            self.Bx = cuda.device_array_like(self.Bx)
+            self.By = cuda.device_array_like(self.By)
+            self.Bz = cuda.device_array_like(self.Bz)
+
+            # Initialize empty arrays on the GPU for the sorting
+            self.cell_idx = cuda.device_array_like(self.cell_idx)
+            self.sorted_idx = cuda.device_array_like(self.sorted_idx)
+
+    def receive_particles_from_gpu( self ):
+        if self.use_cuda_memory:
+            # Copy the positions, velocities, inverse gamma and weights
+            # to the GPU (CUDA)
+            self.x = self.x.copy_to_host()
+            self.y = self.y.copy_to_host()
+            self.z = self.z.copy_to_host()
+            self.ux = self.ux.copy_to_host()
+            self.uy = self.uy.copy_to_host()
+            self.uz = self.uz.copy_to_host()
+            self.inv_gamma = self.inv_gamma.copy_to_host()
+            self.w = self.w.copy_to_host()
+
+            # Initialize empty arrays on the CPU for the field
+            # gathering and the particle push
+            self.Ex = np.zeros_like(self.Ntot, dtype = np.float64)
+            self.Ey = np.zeros_like(self.Ntot, dtype = np.float64)
+            self.Ez = np.zeros_like(self.Ntot, dtype = np.float64)
+            self.Bx = np.zeros_like(self.Ntot, dtype = np.float64)
+            self.By = np.zeros_like(self.Ntot, dtype = np.float64)
+            self.Bz = np.zeros_like(self.Ntot, dtype = np.float64)
+
+            # Initialize empty arrays on the CPU
+            # that represent the sorting arrays
+            self.cell_idx = np.empty(self.Ntot, dtype = np.int32)
+            self.sorted_idx = np.arange(self.Ntot, dtype = np.uint32)
 
     def push_p( self ) :
         """
@@ -251,9 +255,12 @@ class Particles(object) :
                     self.Ex, self.Ey, self.Ez, self.Bx, self.By, self.Bz,
                     self.q, self.m, self.Ntot, self.dt )
         elif self.use_cuda :
+            # Get the threads per block and the blocks per grid
+            dim_grid_1d, dim_block_1d = cuda_tpb_bpg_1d( self.Ntot )
             # Call the CUDA Kernel for the particle push
-            push_p_gpu[self.bpg1d, self.tpb1d](self.ux, self.uy, self.uz,
-                    self.inv_gamma, self.Ex, self.Ey, self.Ez,
+            push_p_gpu[dim_grid_1d, dim_block_1d](
+                    self.ux, self.uy, self.uz, self.inv_gamma,
+                    self.Ex, self.Ey, self.Ez,
                     self.Bx, self.By, self.Bz,
                     self.q, self.m, self.Ntot, self.dt )
         else :
@@ -269,10 +276,18 @@ class Particles(object) :
         one half-timestep *behind* the momenta (ux, uy, uz), or at the
         same timestep as the momenta.
         """
-
-        push_x_numpy(self.x, self.y, self.z,
-            self.ux, self.uy, self.uz,
-            self.inv_gamma, self.dt )
+        if self.use_cuda :
+            # Get the threads per block and the blocks per grid
+            dim_grid_1d, dim_block_1d = cuda_tpb_bpg_1d( self.Ntot )
+            # Call the CUDA Kernel for halfpush in x
+            push_x_gpu[dim_grid_1d, dim_block_1d](
+                self.x, self.y, self.z,
+                self.ux, self.uy, self.uz,
+                self.inv_gamma, self.dt )
+        else :
+            push_x_numpy(self.x, self.y, self.z,
+                self.ux, self.uy, self.uz,
+                self.inv_gamma, self.dt )
         
     def gather( self, grid ) :
         """
@@ -288,9 +303,12 @@ class Particles(object) :
              Contains the field values on the interpolation grid
         """
         if self.use_cuda == True:
+            # Get the threads per block and the blocks per grid
+            dim_grid_1d, dim_block_1d = cuda_tpb_bpg_1d( self.Ntot )
             # Call the CUDA Kernel for the gathering of E and B Fields
             # for Mode 0 and 1 only.
-            gather_field_gpu[self.bpg1d, self.tpb1d](self.x, self.y, self.z,
+            gather_field_gpu[dim_grid_1d, dim_block_1d](
+                 self.x, self.y, self.z,
                  grid[0].invdz, grid[0].zmin, grid[0].Nz,
                  grid[0].invdr, grid[0].rmin, grid[0].Nr,
                  grid[0].Er, grid[0].Et, grid[0].Ez,
@@ -444,13 +462,26 @@ class Particles(object) :
              Either 'J' or 'rho'
         """
         if self.use_cuda == True:
+            # Get the threads per block and the blocks per grid
+            dim_grid_1d, dim_block_1d = cuda_tpb_bpg_1d( self.Ntot )
+            dim_grid_2d_flat, dim_block_2d_flat = cuda_tpb_bpg_1d(
+                                                    grid[0].Nz*grid[0].Nr )
+            dim_grid_2d, dim_block_2d = cuda_tpb_bpg_2d( 
+                                          grid[0].Nz, grid[0].Nr )
+            # Create the needed prefix sum array for sorting
+            d_prefix_sum = cuda.device_array(
+                             shape = grid[0].Nz*grid[0].Nr, dtype = np.int32 )
+            # Create the helper arrays for deposition
+            d_F0, d_F1, d_F2, d_F3 = cuda_deposition_arrays( grid[0].Nz,
+                                       grid[0].Nr, fieldtype = fieldtype )
             # ------------------------
             # Sorting of the particles
             # ------------------------
             # Get the cell index of each particle 
             # (defined by iz_lower and ir_lower)
-            get_cell_idx_per_particle[self.bpg1d, self.tpb1d](
-                self.cell_idx, 
+            get_cell_idx_per_particle[dim_grid_1d, dim_block_1d](
+                self.cell_idx,
+                self.sorted_idx, 
                 self.x, self.y, self.z, 
                 grid[0].invdz, grid[0].zmin, grid[0].Nz, 
                 grid[0].invdr, grid[0].rmin, grid[0].Nr)
@@ -459,43 +490,44 @@ class Particles(object) :
             # to the index of the sorted particle in the other particle 
             # arrays.
             sort_particles_per_cell(self.cell_idx, self.sorted_idx)
+            # Reset the old prefix sum
+            reset_prefix_sum[dim_grid_2d_flat, dim_block_2d_flat](
+                d_prefix_sum)
             # Perform the inclusive parallel prefix sum
-            incl_prefix_sum[self.bpg1d, self.tpb1d](
-                self.cell_idx, self.prefix_sum)
+            incl_prefix_sum[dim_grid_1d, dim_block_1d](
+                self.cell_idx, d_prefix_sum)
 
             # Call the CUDA Kernel for the deposition of rho or J
             # for Mode 0 and 1 only.
             # Rho
             if fieldtype == 'rho':
                 # Deposit rho in each of four directions
-                deposit_rho_gpu[self.bpg1d_grid, self.tpb1d](
+                deposit_rho_gpu[dim_grid_2d_flat, dim_block_2d_flat](
                     self.x, self.y, self.z, self.w, 
                     grid[0].invdz, grid[0].zmin, grid[0].Nz, 
                     grid[0].invdr, grid[0].rmin, grid[0].Nr,
-                    self.rho0, self.rho1, self.rho2, self.rho3,
-                    self.cell_idx, self.sorted_idx, self.prefix_sum)
+                    d_F0, d_F1, d_F2, d_F3,
+                    self.cell_idx, self.sorted_idx, d_prefix_sum)
                 # Add the four directions together
-                add_rho[(self.bpg2dz, self.bpg2dr),
-                    (self.tpb2dz, self.tpb2dr)](
+                add_rho[dim_grid_2d, dim_block_2d](
                     grid[0].rho, grid[1].rho,
-                    self.rho0, self.rho1, self.rho2, self.rho3)
+                    d_F0, d_F1, d_F2, d_F3)
             # J
-            if fieldtype == 'J':
+            elif fieldtype == 'J':
                 # Deposit J in each of four directions
-                deposit_J_gpu[self.bpg1d_grid, self.tpb1d](
+                deposit_J_gpu[dim_grid_2d_flat, dim_block_2d_flat](
                     self.x, self.y, self.z, self.w,
                     self.ux, self.uy, self.uz, self.inv_gamma,
                     grid[0].invdz, grid[0].zmin, grid[0].Nz, 
                     grid[0].invdr, grid[0].rmin, grid[0].Nr,
-                    self.J0, self.J1, self.J2, self.J3,
-                    self.cell_idx, self.sorted_idx, self.prefix_sum)
+                    d_F0, d_F1, d_F2, d_F3,
+                    self.cell_idx, self.sorted_idx, d_prefix_sum)
                 # Add the four directions together
-                add_J[(self.bpg2dz, self.bpg2dr),
-                    (self.tpb2dz, self.tpb2dr)](
+                add_J[dim_grid_2d, dim_block_2d](
                     grid[0].Jr, grid[1].Jr,
                     grid[0].Jt, grid[1].Jt,
                     grid[0].Jz, grid[1].Jz,
-                    self.J0, self.J1, self.J2, self.J3)
+                    d_F0, d_F1, d_F2, d_F3)
             else :
                 raise ValueError(
             "`fieldtype` should be either 'J' or 'rho', but is `%s`" %fieldtype )
