@@ -1069,25 +1069,4 @@ def cuda_deposition_arrays(Nz = None, Nr = None, fieldtype = None):
         J2 = cuda.device_array(shape = (Nz, Nr, 6), dtype = np.complex128)
         J3 = cuda.device_array(shape = (Nz, Nr, 6), dtype = np.complex128)
         return J0, J1, J2, J3
-
-# -----------------------------------------------------
-# CUDA grid utilities (will be moved to cuda utilities)
-# -----------------------------------------------------
-
-def cuda_tpb_bpg_1d(x, TPB = 256):
-    """
-    # To-do: Add documentation.
-    """
-    # Calculates the needed blocks per grid
-    BPG = int(x/TPB + 1)
-    return BPG, TPB
-
-def cuda_tpb_bpg_2d(x, y, TPBx = 8, TPBy = 8):
-    """
-    # To-do: Add documentation.
-    """
-    # Calculates the needed blocks per grid
-    BPGx = int(x/TPBx + 1)
-    BPGy = int(y/TPBy + 1)
-    return (BPGx, BPGy), (TPBx, TPBy)
         

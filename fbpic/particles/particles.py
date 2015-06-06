@@ -22,6 +22,7 @@ else :
 # If numbapro is installed, it potentially allows to use a GPU
 try :
     from cuda_methods import *
+    from cuda_utils import *
 except :
     cuda_installed = False
 else :

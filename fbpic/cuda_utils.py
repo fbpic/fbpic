@@ -29,3 +29,24 @@ def cuda_copy( array_in, array_out, Nz, Nr ) :
     # Copy from array_in to buffer_in
     if (iz < Nz) and (ir < Nr) :
         array_out[iz, ir] = array_in[iz, ir]
+
+# -----------------------------------------------------
+# CUDA grid utilities
+# -----------------------------------------------------
+
+def cuda_tpb_bpg_1d(x, TPB = 256):
+    """
+    # To-do: Add documentation.
+    """
+    # Calculates the needed blocks per grid
+    BPG = int(x/TPB + 1)
+    return BPG, TPB
+
+def cuda_tpb_bpg_2d(x, y, TPBx = 8, TPBy = 8):
+    """
+    # To-do: Add documentation.
+    """
+    # Calculates the needed blocks per grid
+    BPGx = int(x/TPBx + 1)
+    BPGy = int(y/TPBy + 1)
+    return (BPGx, BPGy), (TPBx, TPBy)
