@@ -90,14 +90,12 @@ class Simulation(object) :
         self.ptcl = [
             Particles( q=-e, m=m_e, n=n_e, Npz=Npz, zmin=p_zmin, zmax=p_zmax,
                        Npr=Npr, rmin=p_rmin, rmax=p_rmax, Nptheta=p_nt, dt=dt,
-                       dens_func=dens_func, fld = self.fld, 
-                       use_cuda = use_cuda) ]
+                       dens_func=dens_func, use_cuda = use_cuda) ]
         if initialize_ions :
             self.ptcl.append(
                 Particles( q=e, m=m_p, n=n_e, Npz=Npz, zmin=p_zmin, zmax=p_zmax,
                         Npr=Npr, rmin=p_rmin, rmax=p_rmax, Nptheta=p_nt, dt=dt,
-                        dens_func=dens_func, fld = self.fld,
-                        use_cuda = use_cuda ) )
+                        dens_func=dens_func, use_cuda = use_cuda ) )
         
         # Register the number of particles per cell along z, and dt
         # (Necessary for the moving window)
@@ -179,6 +177,10 @@ class Simulation(object) :
             if moving_window :
                 # Shift the fields and add new particles
                 self.moving_win.move( fld, ptcl, self.p_nz, self.dt )
+                # Send particles to the GPU (if Cuda is used)
+                for species in ptcl :
+                    if species.use_cuda:
+                        species.send_particles_to_gpu()
                 # Reprojected the charge on the interpolation grid
                 # (Particles have been added/removed.)
                 fld.erase('rho')
@@ -190,6 +192,11 @@ class Simulation(object) :
                 fld.interp2spect('rho_prev')
                 if filter_currents :
                     fld.filter_spect('rho_prev')
+            else:
+                # Send particles to the GPU (if Cuda is used)
+                for species in ptcl :
+                    if species.use_cuda:
+                        species.send_particles_to_gpu()
 
             # Gather the fields at t = n dt
             for species in ptcl :
@@ -242,6 +249,11 @@ class Simulation(object) :
             # Increment the global time and iteration
             self.time += self.dt
             self.iteration += 1
+
+            # Receive the particles from the GPU (if Cuda is used)
+            for species in ptcl :
+                if species.use_cuda:
+                    species.receive_particles_from_gpu()
 
         # Print a space at the end of the loop, for esthetical reasons
         print('')

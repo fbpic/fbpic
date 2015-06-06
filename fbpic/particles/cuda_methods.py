@@ -3,7 +3,10 @@ This file is part of the Fourier-Bessel Particle-In-Cell code (FB-PIC)
 It defines the optimized particles methods that use cuda on a GPU
 """
 from numbapro import cuda
+from numbapro.cudalib import sorting
 import math
+from scipy.constants import c
+import numpy as np
 
 # -----------------------
 # Particle pusher utility
@@ -14,8 +17,8 @@ import math
             float64[:], float64[:], float64[:], \
             float64, float64, int32, float64)')
 def push_p_gpu( ux, uy, uz, inv_gamma, 
-                      Ex, Ey, Ez, Bx, By, Bz,
-                      q, m, Ntot, dt ) :
+                Ex, Ey, Ez, Bx, By, Bz,
+                q, m, Ntot, dt ) :
     """
     Advance the particles' momenta, using numba on the GPU
     """
@@ -65,6 +68,28 @@ def push_p_gpu( ux, uy, uz, inv_gamma,
         ux[ip] = s*( uxp + tx*ut + uyp*tz - uzp*ty )
         uy[ip] = s*( uyp + ty*ut + uzp*tx - uxp*tz )
         uz[ip] = s*( uzp + tz*ut + uxp*ty - uyp*tx )
+
+@cuda.jit('void(float64[:], float64[:], float64[:], \
+            float64[:], float64[:], float64[:], \
+            float64[:], float64)')
+def push_x_gpu( x, y, z, ux, uy, uz, inv_gamma, dt ) :
+    """
+    Advance the particles' positions over one half-timestep
+    
+    This assumes that the positions (x, y, z) are initially either
+    one half-timestep *behind* the momenta (ux, uy, uz), or at the
+    same timestep as the momenta.
+    """
+    # Half timestep, multiplied by c
+    chdt = c*0.5*dt
+
+    i = cuda.grid(1)
+    if i < x.shape[0]:
+        # Particle push
+        inv_g = inv_gamma[i]
+        x[i] += chdt*inv_g*ux[i]
+        y[i] += chdt*inv_g*uy[i]
+        z[i] += chdt*inv_g*uz[i]
 
 # -----------------------
 # Field gathering utility
@@ -167,10 +192,6 @@ def gather_field_gpu(x, y, z,
         Fr = 0.
         Ft = 0.
         Fz = 0.
-        # Clear the particle fields
-        Ex[i] = 0.
-        Ey[i] = 0.
-        Ez[i] = 0.
 
         # Mode 0
         # ----------------------------
@@ -263,10 +284,6 @@ def gather_field_gpu(x, y, z,
         Fr = 0.
         Ft = 0.
         Fz = 0.
-        # Clear the particle fields
-        Bx[i] = 0.
-        By[i] = 0.
-        Bz[i] = 0.
 
         # Mode 0
         # ----------------------------
@@ -897,10 +914,12 @@ def add_J(Jr_m0, Jr_m1,
 # Sorting utilities - get_cell_idx / sort / prefix_sum
 # -----------------------------------------------------
 
-@cuda.jit('void(int32[:], float64[:], float64[:], float64[:], \
+@cuda.jit('void(int32[:], uint32[:], \
+                float64[:], float64[:], float64[:], \
                 float64, float64, int32, \
                 float64, float64, int32)')
-def get_cell_idx_per_particle(cell_idx, x, y, z,
+def get_cell_idx_per_particle(cell_idx, sorted_idx,
+                              x, y, z,
                               invdz, zmin, Nz, 
                               invdr, rmin, Nr):
     """
@@ -914,6 +933,10 @@ def get_cell_idx_per_particle(cell_idx, x, y, z,
     ----------
     cell_idx : 1darray of integers
         The cell index of the particle
+
+    sorted_idx : 1darray of integers
+        The sorted index array needs to be reset
+        before doing the sort
     
     invdx : float (in meters^-1)
         Inverse of the grid step along the considered direction
@@ -952,6 +975,9 @@ def get_cell_idx_per_particle(cell_idx, x, y, z,
                 iz_lower += Nz
             if iz_lower > Nz-1:
                 iz_lower -= Nz
+                
+            # Reset sorted_idx array
+            sorted_idx[i] = i
             # Calculate the 1D cell_idx by cell_idx_iz + cell_idx_ir * Nz
             cell_idx[i] = iz_lower + ir_lower * Nz
 
@@ -1000,3 +1026,68 @@ def incl_prefix_sum(cell_idx, prefix_sum):
     if i == cell_idx.shape[0]-1:
         ci = cell_idx[i]
         prefix_sum[ci] = i
+
+@cuda.jit('void(int32[:])')
+def reset_prefix_sum(prefix_sum):
+    """
+    Resets the prefix sum. Sets all the values
+    to zero.
+
+    Parameters
+    ----------    
+    prefix_sum : 1darray of integers
+        Represents the cumulative sum of 
+        the particles per cell
+    """
+    i = cuda.grid(1)
+    if i < prefix_sum.shape[0]:
+        prefix_sum[i] = 0
+
+# -----------------------------------------------------
+# Device array creation utility (will be removed later)
+# -----------------------------------------------------
+
+def cuda_deposition_arrays(Nz = None, Nr = None, fieldtype = None):
+    """
+    # To-do: Add documentation.
+    """
+    # Create empty arrays to store the four different possible
+    # cell directions a particle can deposit to.
+    if fieldtype == 'rho':
+        # Rho - third dimension represents 2 modes
+        rho0 = cuda.device_array(shape = (Nz, Nr, 2), dtype = np.complex128)
+        rho1 = cuda.device_array(shape = (Nz, Nr, 2), dtype = np.complex128)
+        rho2 = cuda.device_array(shape = (Nz, Nr, 2), dtype = np.complex128)
+        rho3 = cuda.device_array(shape = (Nz, Nr, 2), dtype = np.complex128)
+        return rho0, rho1, rho2, rho3
+
+    if fieldtype == 'J':
+        # J - third dimension represents 2 modes 
+        # times 3 dimensions (r, t, z)
+        J0 = cuda.device_array(shape = (Nz, Nr, 6), dtype = np.complex128)
+        J1 = cuda.device_array(shape = (Nz, Nr, 6), dtype = np.complex128)
+        J2 = cuda.device_array(shape = (Nz, Nr, 6), dtype = np.complex128)
+        J3 = cuda.device_array(shape = (Nz, Nr, 6), dtype = np.complex128)
+        return J0, J1, J2, J3
+
+# -----------------------------------------------------
+# CUDA grid utilities (will be moved to cuda utilities)
+# -----------------------------------------------------
+
+def cuda_tpb_bpg_1d(x, TPB = 256):
+    """
+    # To-do: Add documentation.
+    """
+    # Calculates the needed blocks per grid
+    BPG = int(x/TPB + 1)
+    return BPG, TPB
+
+def cuda_tpb_bpg_2d(x, y, TPBx = 8, TPBy = 8):
+    """
+    # To-do: Add documentation.
+    """
+    # Calculates the needed blocks per grid
+    BPGx = int(x/TPBx + 1)
+    BPGy = int(y/TPBy + 1)
+    return (BPGx, BPGy), (TPBx, TPBy)
+        

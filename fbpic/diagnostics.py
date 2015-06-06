@@ -211,13 +211,13 @@ class FieldDiagnostic(OpenPMDDiagnostic) :
             for fieldtype in self.fieldtypes :
                 # Scalar field
                 if fieldtype == "rho" :
-                    write_png_file( fullpath, iteration, "rho",
+                    self.write_png_file( fullpath, iteration, "rho",
                                 self.fld.interp[0], self.fld.interp[1] )
                 # Vector field
                 elif fieldtype in ["E", "B", "J"] :
                     for coord in ["r", "t", "z"] :
                         quantity = "%s%s" %(fieldtype, coord)
-                        write_png_file( fullpath, iteration, quantity,
+                        self.write_png_file( fullpath, iteration, quantity,
                             self.fld.interp[0], self.fld.interp[1] )
 
         # Spectral fields

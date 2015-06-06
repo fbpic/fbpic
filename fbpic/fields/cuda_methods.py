@@ -144,7 +144,7 @@ def cuda_divide_vector_by_volume( mode0r, mode1r, mode0t, mode1t,
 
 @cuda.jit('complex128[:,:], complex128[:,:], \
            complex128[:,:], complex128[:,:], complex128[:,:], \
-           float64[:,:], float64[:,:], float64[:,:],
+           float64[:,:], float64[:,:], float64[:,:], \
            float64, int32, int32)')
 def cuda_correct_currents( rho_prev, rho_next, Jp, Jm, Jz,
                             kz, kr, inv_k2, inv_dt, Nz, Nr ) :
