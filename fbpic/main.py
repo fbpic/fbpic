@@ -120,7 +120,7 @@ class Simulation(object) :
         
     def step(self, N=1, ptcl_feedback=True, correct_currents=True,
              filter_currents=True, move_positions=True,
-             move_momenta=True, moving_window=True ) :
+             move_momenta=True, moving_window=True, move_window_nsteps = 1) :
         """
         Perform N PIC cycles
         
@@ -150,6 +150,12 @@ class Simulation(object) :
             Whether to move using a moving window. In this case,
             a MovingWindow object has to be attached to the simulation
             beforehand. e.g : sim.moving_win = MovingWindow(v=c)
+
+        move_window_nsteps : int, optional
+            Advance the moving window every n steps for n steps. 
+            This ensures higher performance on GPU version of the code,
+            as the particle and field arrays only need to be copied 
+            to and from the device every move_window_nsteps. 
         """
         # Shortcuts
         ptcl = self.ptcl
@@ -162,25 +168,50 @@ class Simulation(object) :
               self.moving_win is None :
                 raise AttributeError(
         "Please attach a MovingWindow to this object, as `self.moving_win`")
-            
+        
+        # Send Particles to the GPU (if CUDA is used)
+        for species in ptcl :
+            if species.use_cuda:
+                species.send_particles_to_gpu()
+
         # Loop over timesteps
         for i_step in xrange(N) :
 
             # Run the diagnostics
             for diag in self.diags :
-                diag.write( self.iteration )
+                # Check if the fields should 
+                # be written at this iteration
+                if self.iteration % diag.period == 0 :
+                    # Receive the particles from the GPU (if Cuda is used)
+                    for species in ptcl :
+                        if species.use_cuda:
+                            species.receive_particles_from_gpu()
+                    # Write the diagnostics
+                    diag.write( self.iteration )
+                    # Send Particles to the GPU (if CUDA is used)
+                    for species in ptcl :
+                        if species.use_cuda:
+                            species.send_particles_to_gpu()
             
             # Show a progression bar
             progression_bar( i_step, N )
 
             # Move the window if needed
-            if moving_window :
+            if moving_window and self.iteration % move_window_nsteps == 0:
+                # Receive the Particles from the GPU (if CUDA is used)
+                # for the advance of the moving window
+                for species in ptcl :
+                    if species.use_cuda:
+                        species.receive_particles_from_gpu() 
                 # Shift the fields and add new particles
-                self.moving_win.move( fld, ptcl, self.p_nz, self.dt )
-                # Send particles to the GPU (if Cuda is used)
+                self.moving_win.move( 
+                    fld, ptcl, self.p_nz, move_window_nsteps*self.dt )
+                # Send the particles to the GPU (if Cuda is used)
                 for species in ptcl :
                     if species.use_cuda:
                         species.send_particles_to_gpu()
+                        
+
                 # Reprojected the charge on the interpolation grid
                 # (Particles have been added/removed.)
                 fld.erase('rho')
@@ -192,11 +223,6 @@ class Simulation(object) :
                 fld.interp2spect('rho_prev')
                 if filter_currents :
                     fld.filter_spect('rho_prev')
-            else:
-                # Send particles to the GPU (if Cuda is used)
-                for species in ptcl :
-                    if species.use_cuda:
-                        species.send_particles_to_gpu()
 
             # Gather the fields at t = n dt
             for species in ptcl :
@@ -250,10 +276,10 @@ class Simulation(object) :
             self.time += self.dt
             self.iteration += 1
 
-            # Receive the particles from the GPU (if Cuda is used)
-            for species in ptcl :
-                if species.use_cuda:
-                    species.receive_particles_from_gpu()
+        # Receive the particles from the GPU (if Cuda is used)
+        for species in ptcl :
+            if species.use_cuda:
+                species.receive_particles_from_gpu() 
 
         # Print a space at the end of the loop, for esthetical reasons
         print('')
