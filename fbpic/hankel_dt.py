@@ -42,7 +42,8 @@ from scipy.optimize import fsolve
 # Try to import cuda and cublas
 try :
     from numbapro.cudalib import cublas
-    from cuda_utils import cuda, cuda_copy
+    from fbpic.cuda_utils import cuda_tpb_bpg_2d
+    from cuda_utils import cuda, cuda_copy_2d_to_2d
 except ImportError :
     cuda_installed = False
     print '\n Cuda not installed or GPU not available \n'
@@ -67,7 +68,7 @@ class DHT(object) :
     >>> G = trans.transform(F)
     """
 
-    def __init__(self, p, Nr, Nz, rmax, method, use_cuda=False, tpb=32, **kw ) :
+    def __init__(self, p, Nr, Nz, rmax, method, use_cuda=False, **kw ) :
         """
         Calculate the r (position) and nu (frequency) grid
         on which the transform will operate.
@@ -119,8 +120,7 @@ class DHT(object) :
             self.d_in = cuda.to_device( zero_array )
             self.d_out = cuda.to_device( zero_array )
             # Initialize the threads per block and block per grid
-            self.dim_block = ( tpb, tpb )
-            self.dim_grid = ( int(Nz/tpb)+1, int(Nr/tpb)+1 )
+            self.dim_block, self.dim_block = cuda_tpb_bpg_2d(Nz, Nr)
 
         # Call the corresponding initialization routine
         if self.method == 'FHT' :
@@ -352,14 +352,12 @@ class DHT(object) :
                 raise ValueError('The shape of F or G is different from '
                                  'the shape chosen at initialization.')
             # Convert the C-order F array to the Fortran-order d_in array
-            cuda_copy[self.dim_grid, self.dim_block](
-                F, self.d_in, F.shape[0], F.shape[1] )
+            cuda_copy_2d_to_2d[self.dim_grid, self.dim_block]( F, self.d_in )
             # Perform the matrix product using cuBlas
             self.blas.gemm( 'N', 'N', F.shape[0], F.shape[1], 
                    F.shape[1], 1.0, self.d_in, self.d_M, 0., self.d_out )
             # Convert the Fortran-order d_out array to the C-order G array
-            cuda_copy[self.dim_grid, self.dim_block](
-                self.d_out, G, G.shape[0], G.shape[1] )
+            cuda_copy_2d_to_2d[self.dim_grid, self.dim_block]( self.d_out, G )
             cuda.synchronize()
             
         else :
@@ -385,14 +383,12 @@ class DHT(object) :
                 raise ValueError('The shape of F or G is different from '
                                  'the shape chosen at initialization.')
             # Convert the C-order G array to the Fortran-order d_in array
-            cuda_copy[self.dim_grid, self.dim_block](
-                G, self.d_in, G.shape[0], G.shape[1] )
+            cuda_copy_2d_to_2d[self.dim_grid, self.dim_block](G, self.d_in )
             # Perform the matrix product using cuBlas
             self.blas.gemm( 'N', 'N', G.shape[0], G.shape[1], 
                    G.shape[1], 1.0, self.d_in, self.d_invM, 0., self.d_out )
             # Convert the Fortran-order d_out array to the C-order G array
-            cuda_copy[self.dim_grid, self.dim_block](
-                self.d_out, F, F.shape[0], F.shape[1] )
+            cuda_copy_2d_to_2d[self.dim_grid, self.dim_block]( self.d_out, F )
             cuda.synchronize()
         
         else :
