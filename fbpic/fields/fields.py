@@ -12,12 +12,12 @@ from fbpic.hankel_dt import DHT
 # If numbapro is installed, it potentially allows to use the GPU
 try :
     from cuda_methods import *
+    from fbpic.cuda_utilse import cuda_tpb_bpg_2d
+    from numbapro.cudalib import cufft, cublas
 except :
     cuda_installed = False
 else :
     cuda_installed = True
-    # Define number of threads per block as global variables
-    tpb = 32
 
 class Fields(object) :
     """
@@ -266,25 +266,23 @@ class Fields(object) :
             (either 'E', 'B', 'J', 'rho')
         """
         if self.use_cuda :
-            # Erase the arrays on the GPU
-            bpgz = int( self.Nz/tpz + 1 )
-            bpgr = int( self.Nr/tpr + 1 )
+            dim_grid, dim_block = cuda_tpb_bpg_2d( self.Nz, self.Nr)
             
             if fieldtype == 'rho' :
-                cuda_erase_scalar[(bpgz, tpb), (bpgr, tbp)](
+                cuda_erase_scalar[dim_grid, dim_block](
                     self.interp[0].rho, self.interp[1].rho, self.Nz, self.Nr )
             elif fieldtype == 'J' :
-                cuda_erase_vector[(bpgz, bpgr), (tpb, tbp)](
+                cuda_erase_vector[dim_grid, dim_block](
                     self.interp[0].Jr, self.interp[1].Jr,
                     self.interp[0].Jt, self.interp[1].Jt,
                     self.interp[0].Jz, self.interp[1].Jz, self.Nz, self.Nr )
             elif fieldtype == 'E' :
-                cuda_erase_vector[(bpgz, bpgr), (tpb, tbp)](
+                cuda_erase_vector[dim_grid, dim_block](
                     self.interp[0].Er, self.interp[1].Er,
                     self.interp[0].Et, self.interp[1].Et,
                     self.interp[0].Ez, self.interp[1].Ez, self.Nz, self.Nr )
             elif fieldtype == 'B' :
-                cuda_erase_vector[(bpgz, bpgr), (tpb, tbp)](
+                cuda_erase_vector[dim_grid, dim_block](
                     self.interp[0].Br, self.interp[1].Br,
                     self.interp[0].Bt, self.interp[1].Bt,
                     self.interp[0].Bz, self.interp[1].Bz, self.Nz, self.Nr )
@@ -362,16 +360,15 @@ class Fields(object) :
         """
         if self.use_cuda :
             # Perform division on the GPU
-            bpgz = int( self.Nz/tpz + 1 )
-            bpgr = int( self.Nr/tpr + 1 )
+            dim_grid, dim_block = cuda_tpb_bpg_2d( self.Nz, self.Nr )
 
             if fieldtype == 'rho' :
-                cuda_divide_scalar_by_volume[(bpgz, bpgr),(tpb, tbp)](
+                cuda_divide_scalar_by_volume[dim_grid, dim_block](
                     self.interp[0].rho, self.interp[1].rho,
                     self.interp[0].invvol, self.interp[1].invvol,
                     self.Nz, self.Nr )
             elif fieldtype == 'J' :
-                cuda_divide_vector_by_volume[(bpgz, bpgr),(tpb, tbp)](
+                cuda_divide_vector_by_volume[dim_grid, dim_block](
                     self.interp[0].Jr, self.interp[1].Jr,
                     self.interp[0].Jt, self.interp[1].Jt,
                     self.interp[0].Jz, self.interp[1].Jz,
@@ -628,10 +625,9 @@ class SpectralGrid(object) :
         
         if self.use_cuda :
             # Correct the currents on the GPU
-            bpgz = int( self.Nz/tpz + 1 )
-            bpgr = int( self.Nr/tpr + 1 )
-                        
-            cuda_correct_currents[(bpgz, bpgr), (tpb, tbp)](
+            dim_grid, dim_block = cuda_tpb_bpg_2d( self.Nz, self.Nr)
+
+            cuda_correct_currents[dim_grid, dim_block](
                 self.rho_prev, self.rho_next, self.Jp, self.Jm, self.Jz,
                 self.kz, self.kr, self.inv_k2, inv_dt, self.Nz, self.Nr)
         else :
@@ -674,10 +670,9 @@ class SpectralGrid(object) :
 
         if self.use_cuda :
             # Push the fields on the GPU
-            bpgz = int( self.Nz/tpz + 1 )
-            bpgr = int( self.Nr/tpr + 1 )
+            dim_grid, dim_block = cuda_tpb_bpg_2d( self.Nz, self.Nr)
             
-            cuda_push_eb_with[(bpgz, tpb), (bpgr, tbp)](
+            cuda_push_eb_with[dim_grid, dim_block](
                 self.Ep, self.Em, self.Ez, self.Bp, self.Bm, self.Bz,
                 self.Jp, self.Jm, self.Jz, self.rho_prev, self.rho_next,
                 ps.rho_prev_coef, ps.rho_next_coef, ps.j_coef, ps.dt,
@@ -766,10 +761,9 @@ class SpectralGrid(object) :
         """
         if self.use_cuda :
             # Push the fields on the GPU
-            bpgz = int( self.Nz/tpz + 1 )
-            bpgr = int( self.Nr/tpr + 1 )
+            dim_grid, dim_block = cuda_tpb_bpg_2d( self.Nz, self.Nr)
 
-            cuda_push_rho[(bpgz, bpgr), (tpbz, tpbr)](
+            cuda_push_rho[dim_grid, dim_block](
                 self.rho_prev, self.rho_next )
         else :
             # Push the fields on the CPU
@@ -788,23 +782,22 @@ class SpectralGrid(object) :
         """
         if self.use_cuda :
             # Filter fields on the GPU
-            bpgz = int( self.Nz/tpz + 1 )
-            bpgr = int( self.Nr/tpr + 1 )
+            dim_grid, dim_block = cuda_tpb_bpg_2d( self.Nz, self.Nr)
             
             if fieldtype == 'rho_prev' :
-                cuda_filter_scalar[(bpgz, bpgr), (tpbz, tpbr)](
+                cuda_filter_scalar[dim_grid, dim_block](
                     self.rho_prev, self.filter_array, self.Nz, self.Nr )
             elif fieldtype == 'rho_next' :
-                cuda_filter_scalar[(bpgz, bpgr), (tpbz, tpbr)](
+                cuda_filter_scalar[dim_grid, dim_block](
                     self.rho_next, self.filter_array, self.Nz, self.Nr )
             elif fieldtype == 'J' :
-                cuda_filter_vector[(bpgz, bpgr), (tpbz, tpbr)](
+                cuda_filter_vector[dim_grid, dim_block](
                 self.Jp, self.Jm, self.Jz, self.filter_array, self.Nz, self.Nr)
             elif fieldtype == 'E' :
-                cuda_filter_vector[(bpgz, bpgr), (tpbz, tpbr)](
+                cuda_filter_vector[dim_grid, dim_block](
                 self.Ep, self.Em, self.Ez, self.filter_array, self.Nz, self.Nr)
             elif fieldtype == 'B' :
-                cuda_filter_vector[(bpgz, bpgr), (tpbz, tpbr)](
+                cuda_filter_vector[dim_grid, dim_block](
                 self.Bp, self.Bm, self.Bz, self.filter_array, self.Nz, self.Nr)
             else :
                 raise ValueError('Invalid string for fieldtype: %s' %fieldtype)
@@ -995,31 +988,58 @@ class SpectralTransformer(object) :
         self.dhtm = DHT( m-1, Nr, Nz, rmax, 'MDHT(m-1,m)', d=0.5, Fw='inverse',
                            use_cuda=self.use_cuda )
 
-        # Initialize the FFTW
-        print('Preparing FFTW for mode %d' %m)
-        # Two buffers and FFTW objects are initialized, since spect2interp_vect
-        # and interp2spect_vect require two separate FFTs.
-        # First buffer and FFTW transform
-        self.interp_buffer_r = \
-            pyfftw.n_byte_align_empty( (Nz,Nr), 16, 'complex128' )
-        self.spect_buffer_r = \
-            pyfftw.n_byte_align_empty( (Nz,Nr), 16, 'complex128' )
-        self.spect_buffer_p = self.spect_buffer_r # Two names for the same array
-        self.fft_r = pyfftw.FFTW( self.interp_buffer_r, self.spect_buffer_r,
-                    axes=(0,), direction='FFTW_FORWARD', threads=nthreads )
-        self.ifft_r = pyfftw.FFTW( self.spect_buffer_r, self.interp_buffer_r,
-                    axes=(0,), direction='FFTW_BACKWARD', threads=nthreads )
-        # Second buffer and FFTW transform
-        self.interp_buffer_t = \
-            pyfftw.n_byte_align_empty( (Nz,Nr), 16, 'complex128' )
-        self.spect_buffer_t = \
-            pyfftw.n_byte_align_empty( (Nz,Nr), 16, 'complex128' )
-        self.spect_buffer_m = self.spect_buffer_t # Two names for the same array
-        self.fft_t = pyfftw.FFTW( self.interp_buffer_t, self.spect_buffer_t,
-                    axes=(0,), direction='FFTW_FORWARD', threads=nthreads )
-        self.ifft_t = pyfftw.FFTW( self.spect_buffer_t, self.interp_buffer_t,
-                    axes=(0,), direction='FFTW_BACKWARD', threads=nthreads )
-        
+        if self.use_cuda :
+            # Initialize the FFTW on the GPU
+            print('Preparing FFTW for mode %d on the GPU' %m)
+
+            # Initialize the dimension of the grid and blocks
+            self.dim_grid, self.dim_block = cuda_tpb_bpg_2d( self.Nz, self.Nr)
+            
+            # Initialize the spectral buffers
+            self.spect_buffer_r = cuda.device_array((Nz, Nr), dtype=np.complex128)
+            self.spect_buffer_t = cuda.device_array((Nz, Nr), dtype=np.complex128)
+            # Different names for same object (for economy of memory)
+            self.spect_buffer_p = self.spect_buffer_r
+            self.spect_buffer_p = self.spect_buffer_r
+            # Initialize 1d buffer for cufft
+            self.buffer1d_in = cuda.device_array( (Nz*Nr,), dtype=np.complex128)
+            self.buffer1d_out = cuda.device_array( (Nz*Nr,), dtype=np.complex128)
+
+            # Initialize the cuda libraries object
+            self.fft = cufft.FFTPlan( shape=(Nz,), itype=np.complex128,
+                                      otype=np.complex128, batch=Nr )
+            self.blas = cublas.Blas()   # For normalization of the iFFT
+        else :
+            # Initialize the FFTW on the CPU
+            print('Preparing FFTW for mode %d on the CPU' %m)
+            
+            # Two buffers and FFTW objects are initialized, since
+            # spect2interp_vect and interp2spect_vect require two separate FFTs.
+            
+            # First buffer and FFTW transform
+            self.interp_buffer_r = \
+                pyfftw.n_byte_align_empty( (Nz,Nr), 16, 'complex128' )
+            self.spect_buffer_r = \
+                pyfftw.n_byte_align_empty( (Nz,Nr), 16, 'complex128' )
+            self.fft_r = pyfftw.FFTW( self.interp_buffer_r, self.spect_buffer_r,
+                        axes=(0,), direction='FFTW_FORWARD', threads=nthreads )
+            self.ifft_r = pyfftw.FFTW( self.spect_buffer_r, self.interp_buffer_r,
+                        axes=(0,), direction='FFTW_BACKWARD', threads=nthreads )
+            # Use different name for same object (for economy of memory)
+            self.spect_buffer_p = self.spect_buffer_r 
+            
+            # Second buffer and FFTW transform
+            self.interp_buffer_t = \
+                pyfftw.n_byte_align_empty( (Nz,Nr), 16, 'complex128' )
+            self.spect_buffer_t = \
+                pyfftw.n_byte_align_empty( (Nz,Nr), 16, 'complex128' )
+            self.fft_t = pyfftw.FFTW( self.interp_buffer_t, self.spect_buffer_t,
+                        axes=(0,), direction='FFTW_FORWARD', threads=nthreads )
+            self.ifft_t = pyfftw.FFTW( self.spect_buffer_t, self.interp_buffer_t,
+                        axes=(0,), direction='FFTW_BACKWARD', threads=nthreads )
+            # Use different name for same object (for economy of memory)    
+            self.spect_buffer_m = self.spect_buffer_t
+
     def spect2interp_scal( self, spect_array, interp_array ) :
         """
         Convert a scalar field from the spectral grid
@@ -1040,9 +1060,20 @@ class SpectralTransformer(object) :
         self.dht0.inverse_transform( spect_array, self.spect_buffer_r )
 
         # Then perform the inverse FFT (along axis 0, which corresponds to z)
-        self.interp_buffer_r = self.ifft_r()
-        #Copy to the output array
-        interp_array[:,:] = self.interp_buffer_r[:,:]  
+        if self.use_cuda :
+            # Perform the inverse FFT on the GPU
+            # (The cuFFT API requires 1D arrays)            
+            cuda_copy_2d_to_1d[self.dim_grid, self.dim_block](
+                self.spect_buffer_r, self.buffer1d_in )
+            self.fft.inverse( self.buffer1d_in, out=self.buffer1d_out )
+            self.blas.scal( 1./Nz, self.buffer1d_out ) # Normalization
+            cuda_copy_1d_to_2d[self.dim_grid, self.dim_block](
+                self.buffer1d_out, out=interp_array )
+        else :
+            # Perform the inverse FFT on the CPU, using the preallocated buffers
+            self.interp_buffer_r = self.ifft_r()
+            #Copy to the output array
+            interp_array[:,:] = self.interp_buffer_r[:,:]  
 
     def spect2interp_vect( self, spect_array_p, spect_array_m,
                           interp_array_r, interp_array_t ) :
@@ -1065,21 +1096,53 @@ class SpectralTransformer(object) :
         self.dhtp.inverse_transform( spect_array_p, self.spect_buffer_p )
         self.dhtm.inverse_transform( spect_array_m, self.spect_buffer_m )
     
-        # Combine them to obtain the actual r and t components
-        # (It is important to write the affectation in the following way, since
-        # self.spect_buffer_p and self.spect_buffer_r actually point to the same
-        # object, for memory economy)
-        self.spect_buffer_p[:,:], self.spect_buffer_m[:,:] = \
-            self.spect_buffer_r + self.spect_buffer_t, \
-            1.j*( self.spect_buffer_r - self.spect_buffer_t)
+        # Combine the p and m components to obtain the r and t components
+        if self.use_cuda :
+            # Combine them on the GPU
+            # (self.spect_buffer_r and self.spect_buffer_t are
+            # passed in the following line, in order to make things
+            # explicit, but they actually point to the same object
+            # as self.spect_buffer_p, self.spect_buffer_m,
+            # for economy of memory)
+            cuda_pm_to_rt[self.dim_grid, self.dim_block](
+                self.spect_buffer_p, self.spect_buffer_m,
+                self.spect_buffer_r, self.spect_buffer_t )
+        else :
+            # Combine them on the CPU
+            # (It is important to write the affectation in the following way,
+            # since self.spect_buffer_p and self.spect_buffer_r actually point
+            # to the same object, for memory economy)
+            self.spect_buffer_r[:,:], self.spect_buffer_t[:,:] = \
+                    ( self.spect_buffer_p + self.spect_buffer_m), \
+                1.j*( self.spect_buffer_p - self.spect_buffer_m)
 
         # Finally perform the FFT (along axis 0, which corresponds to z)
-        self.interp_buffer_r = self.ifft_r()
-        # Copy to the output array
-        interp_array_r[:,:] = self.interp_buffer_r[:,:] 
-        self.interp_buffer_t = self.ifft_t()
-        # Copy to the output array
-        interp_array_t[:,:] = self.interp_buffer_t[:,:] 
+        if self.use_cuda :
+            # Perform the inverse FFT on spect_buffer_r
+            # (The cuFFT API requires 1D arrays)
+            cuda_copy_2d_to_1d[self.dim_grid, self.dim_block](
+                self.spect_buffer_r, self.buffer1d_in )
+            self.fft.inverse( self.buffer1d_in, out=self.buffer1d_out )
+            self.blas.scal( 1./Nz, self.buffer1d_out ) # Normalization
+            cuda_copy_1d_to_2d[self.dim_grid, self.dim_block](
+                self.buffer1d_out, out=interp_array_r )
+            
+            # Perform the inverse FFT on spect_buffer_t
+            # (The cuFFT API requires 1D arrays)
+            cuda_copy_2d_to_1d[self.dim_grid, self.dim_block](
+                self.spect_buffer_t, self.buffer1d_in )
+            self.fft.inverse( self.buffer1d_in, out=self.buffer1d_out )
+            self.blas.scal( 1./Nz, self.buffer1d_out ) # Normalization
+            cuda_copy_1d_to_2d[self.dim_grid, self.dim_block](
+                self.buffer1d_out, out=interp_array_t )
+        else :
+            # Perform the FFT on the CPU, using the preallocated buffers
+            self.interp_buffer_r = self.ifft_r()
+            self.interp_buffer_t = self.ifft_t()
+            # Copy to the output array
+            interp_array_r[:,:] = self.interp_buffer_r[:,:]
+            interp_array_t[:,:] = self.interp_buffer_t[:,:]
+        
 
     def interp2spect_scal( self, interp_array, spect_array ) :
         """
@@ -1098,8 +1161,18 @@ class SpectralTransformer(object) :
            and which is overwritten by this function.
         """
         # Perform the FFT first (along axis 0, which corresponds to z)
-        self.interp_buffer_r[:,:] = interp_array #Copy the input array
-        self.spect_buffer_r = self.fft_r()
+        if self.use_cuda :
+            # Perform the FFT on the GPU
+            # (The cuFFT API requires 1D arrays)
+            cuda_copy_2d_to_1d[self.dim_grid, self.dim_block](
+                interp_array, self.buffer1d_in )
+            self.fft.forward( self.buffer1d_in, out=self.buffer1d_out )
+            cuda_copy_1d_to_2d[self.dim_grid, self.dim_block](
+                self.buffer1d_out, out=self.spect_buffer_r )
+        else :
+            # Perform the FFT on the CPU
+            self.interp_buffer_r[:,:] = interp_array #Copy the input array
+            self.spect_buffer_r = self.fft_r()
         
         # Then perform the DHT (along axis -1, which corresponds to r)
         self.dht0.transform( self.spect_buffer_r, spect_array )
@@ -1122,18 +1195,51 @@ class SpectralTransformer(object) :
            and which are overwritten by this function.
         """
         # Perform the FFT first (along axis 0, which corresponds to z)
-        self.interp_buffer_r[:,:] = interp_array_r #Copy the input array
-        self.spect_buffer_r = self.fft_r()
-        self.interp_buffer_t[:,:] = interp_array_t #Copy the input array
-        self.spect_buffer_t = self.fft_t()
+        if self.use_cuda :
+            # Perform the FFT on the GPU for interp_array_r
+            # (The cuFFT API requires 1D arrays)
+            cuda_copy_2d_to_1d[self.dim_grid, self.dim_block](
+                interp_array_r, self.buffer1d_in )
+            self.fft.forward( self.buffer1d_in, out=self.buffer1d_out )
+            cuda_copy_1d_to_2d[self.dim_grid, self.dim_block](
+                self.buffer1d_out, out=self.spect_buffer_r )
+
+            # Perform the FFT on the GPU for interp_array_t
+            # (The cuFFT API requires 1D arrays)
+            cuda_copy_2d_to_1d[self.dim_grid, self.dim_block](
+                interp_array_t, self.buffer1d_in )
+            self.fft.forward( self.buffer1d_in, out=self.buffer1d_out )
+            cuda_copy_1d_to_2d[self.dim_grid, self.dim_block](
+                self.buffer1d_out, out=self.spect_buffer_t )
+        else :
+            # Perform the FFT on the CPU
+            
+            # First copy the input array to the preallocated buffers
+            self.interp_buffer_r[:,:] = interp_array_r
+            self.interp_buffer_t[:,:] = interp_array_t
+            # Then perform the FFT
+            self.spect_buffer_r = self.fft_r()
+            self.spect_buffer_t = self.fft_t()
 
         # Combine the r and t components to obtain the p and m components
-        # (It is important to write the affectation in the following way, since
-        # self.spect_buffer_p and self.spect_buffer_r actually point to the same
-        # object, for memory economy.)
-        self.spect_buffer_p[:,:], self.spect_buffer_m[:,:] = \
-          0.5*( self.spect_buffer_r - 1.j*self.spect_buffer_t ), \
-          0.5*( self.spect_buffer_r + 1.j*self.spect_buffer_t )
+        if self.use_cuda :
+            # Combine them on the GPU
+            # (self.spect_buffer_p and self.spect_buffer_m are
+            # passed in the following line, in order to make things
+            # explicit, but they actually point to the same object
+            # as self.spect_buffer_r, self.spect_buffer_t,
+            # for economy of memory)
+            cuda_rt_to_pm[self.dim_grid, self.dim_block](
+                self.spect_buffer_r, self.spect_buffer_t,
+                self.spect_buffer_p, self.spect_buffer_m )
+        else :
+            # Combine them on the CPU
+            # (It is important to write the affectation in the following way,
+            # since self.spect_buffer_p and self.spect_buffer_r actually point
+            # to the same object, for memory economy.)
+            self.spect_buffer_p[:,:], self.spect_buffer_m[:,:] = \
+                0.5*( self.spect_buffer_r - 1.j*self.spect_buffer_t ), \
+                0.5*( self.spect_buffer_r + 1.j*self.spect_buffer_t )
         
         # Perform the inverse DHT first (along axis -1, which corresponds to r)
         self.dhtp.transform( self.spect_buffer_p, spect_array_p )
