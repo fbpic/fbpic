@@ -22,7 +22,7 @@ else :
 # If numbapro is installed, it potentially allows to use a GPU
 try :
     from cuda_methods import *
-    from cuda_utils import *
+    from fbpic.cuda_utils import *
 except :
     cuda_installed = False
 else :
@@ -230,12 +230,12 @@ class Particles(object) :
 
             # Initialize empty arrays on the CPU for the field
             # gathering and the particle push
-            self.Ex = np.zeros_like(self.Ntot, dtype = np.float64)
-            self.Ey = np.zeros_like(self.Ntot, dtype = np.float64)
-            self.Ez = np.zeros_like(self.Ntot, dtype = np.float64)
-            self.Bx = np.zeros_like(self.Ntot, dtype = np.float64)
-            self.By = np.zeros_like(self.Ntot, dtype = np.float64)
-            self.Bz = np.zeros_like(self.Ntot, dtype = np.float64)
+            self.Ex = np.zeros(self.Ntot, dtype = np.float64)
+            self.Ey = np.zeros(self.Ntot, dtype = np.float64)
+            self.Ez = np.zeros(self.Ntot, dtype = np.float64)
+            self.Bx = np.zeros(self.Ntot, dtype = np.float64)
+            self.By = np.zeros(self.Ntot, dtype = np.float64)
+            self.Bz = np.zeros(self.Ntot, dtype = np.float64)
 
             # Initialize empty arrays on the CPU
             # that represent the sorting arrays
