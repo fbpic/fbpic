@@ -184,7 +184,7 @@ class FieldDiagnostic(OpenPMDDiagnostic) :
         
         # Check if the fields should be written at this iteration
         if iteration % self.period == 0 :
-            
+
             # Write the png files if needed
             if self.output_png_spectral or self.output_png_spatial :
                 for fieldtype in self.fieldtypes :
@@ -441,8 +441,18 @@ class ParticleDiagnostic(OpenPMDDiagnostic) :
         # Check if the fields should be written at this iteration
         if iteration % self.period == 0 :
             
+            # Check wether CUDA is used and receive particle data
+            # from the GPU
+            if self.species.use_cuda:
+                self.species.receive_particles_from_gpu()
+
             # Write the hdf5 files
             self.write_hdf5( iteration )
+
+            # Send the particle data back to GPU after the
+            # diagnostic step
+            if self.species.use_cuda:
+                self.species.send_particles_to_gpu()
 
     def write_hdf5( self, iteration ) :
         """

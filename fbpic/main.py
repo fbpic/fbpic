@@ -7,6 +7,10 @@ import sys
 from scipy.constants import m_e, m_p, e
 from fields import Fields
 from particles import Particles
+try:
+    from cuda_utils import *
+except ImportError:
+    print '\n Cuda not installed or GPU not available \n'
 
 class Simulation(object) :
     """
@@ -169,10 +173,8 @@ class Simulation(object) :
                 raise AttributeError(
         "Please attach a MovingWindow to this object, as `self.moving_win`")
         
-        # Send Particles to the GPU (if CUDA is used)
-        for species in ptcl :
-            if species.use_cuda:
-                species.send_particles_to_gpu()
+        # Send simulation data to GPU (if CUDA is used)
+        send_data_to_gpu(self)
 
         # Loop over timesteps
         for i_step in xrange(N) :
@@ -182,36 +184,22 @@ class Simulation(object) :
                 # Check if the fields should 
                 # be written at this iteration
                 if self.iteration % diag.period == 0 :
-                    # Receive the particles from the GPU (if Cuda is used)
-                    for species in ptcl :
-                        if species.use_cuda:
-                            species.receive_particles_from_gpu()
                     # Write the diagnostics
                     diag.write( self.iteration )
-                    # Send Particles to the GPU (if CUDA is used)
-                    for species in ptcl :
-                        if species.use_cuda:
-                            species.send_particles_to_gpu()
             
             # Show a progression bar
             progression_bar( i_step, N )
 
             # Move the window if needed
             if moving_window and self.iteration % move_window_nsteps == 0:
-                # Receive the Particles from the GPU (if CUDA is used)
+                # Receive the data from the GPU (if CUDA is used)
                 # for the advance of the moving window
-                for species in ptcl :
-                    if species.use_cuda:
-                        species.receive_particles_from_gpu() 
+                receive_data_from_gpu(self)
                 # Shift the fields and add new particles
                 self.moving_win.move( 
                     fld, ptcl, self.p_nz, move_window_nsteps*self.dt )
-                # Send the particles to the GPU (if Cuda is used)
-                for species in ptcl :
-                    if species.use_cuda:
-                        species.send_particles_to_gpu()
-                        
-
+                # Send the data to the GPU (if Cuda is used)
+                send_data_to_gpu(self)
                 # Reprojected the charge on the interpolation grid
                 # (Particles have been added/removed.)
                 fld.erase('rho')
@@ -276,10 +264,8 @@ class Simulation(object) :
             self.time += self.dt
             self.iteration += 1
 
-        # Receive the particles from the GPU (if Cuda is used)
-        for species in ptcl :
-            if species.use_cuda:
-                species.receive_particles_from_gpu() 
+        # Receive simulation data from GPU (if CUDA is used)
+        receive_data_from_gpu(self)
 
         # Print a space at the end of the loop, for esthetical reasons
         print('')
@@ -340,5 +326,4 @@ def adapt_to_grid( x, p_xmin, p_xmax, p_nx ) :
     # Deduce the total number of particles
     Npx = len(x_load) * p_nx
 
-    return( p_xmin, p_xmax, Npx )
-    
+    return( p_xmin, p_xmax, Npx )    
