@@ -150,3 +150,26 @@ def cuda_tpb_bpg_2d(x, y, TPBx = 8, TPBy = 8):
     BPGx = int(x/TPBx + 1)
     BPGy = int(y/TPBy + 1)
     return (BPGx, BPGy), (TPBx, TPBy)
+
+# -----------------------------------------------------
+# CUDA memory management
+# -----------------------------------------------------
+
+def send_data_to_gpu(simulation):
+    """
+    # To-do: Add documentation.
+    """
+    # Send Particles to the GPU (if CUDA is used)
+    for species in simulation.ptcl :
+        if species.use_cuda:
+            species.send_particles_to_gpu()
+
+def receive_data_from_gpu(simulation):
+    """
+    # To-do: Add documentation.
+    """
+    # Receive the particles from the GPU (if CUDA is used)
+    for species in simulation.ptcl :
+        if species.use_cuda:
+            species.receive_particles_from_gpu() 
+
