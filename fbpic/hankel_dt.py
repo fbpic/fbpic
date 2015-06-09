@@ -120,7 +120,7 @@ class DHT(object) :
             self.d_in = cuda.to_device( zero_array )
             self.d_out = cuda.to_device( zero_array )
             # Initialize the threads per block and block per grid
-            self.dim_block, self.dim_block = cuda_tpb_bpg_2d(Nz, Nr)
+            self.dim_grid, self.dim_block = cuda_tpb_bpg_2d(Nz, Nr)
 
         # Call the corresponding initialization routine
         if self.method == 'FHT' :

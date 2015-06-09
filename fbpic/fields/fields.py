@@ -12,7 +12,7 @@ from fbpic.hankel_dt import DHT
 # If numbapro is installed, it potentially allows to use the GPU
 try :
     from cuda_methods import *
-    from fbpic.cuda_utilse import cuda_tpb_bpg_2d
+    from fbpic.cuda_utils import *
     from numbapro.cudalib import cufft, cublas
 except :
     cuda_installed = False
@@ -993,38 +993,43 @@ class SpectralTransformer(object) :
             print('Preparing FFTW for mode %d on the GPU' %m)
 
             # Initialize the dimension of the grid and blocks
-            self.dim_grid, self.dim_block = cuda_tpb_bpg_2d( self.Nz, self.Nr)
+            self.dim_grid, self.dim_block = cuda_tpb_bpg_2d( Nz, Nr)
             
             # Initialize the spectral buffers
-            self.spect_buffer_r = cuda.device_array((Nz, Nr), dtype=np.complex128)
-            self.spect_buffer_t = cuda.device_array((Nz, Nr), dtype=np.complex128)
+            self.spect_buffer_r = cuda.device_array((Nz, Nr), 
+                                                    dtype=np.complex128)
+            self.spect_buffer_t = cuda.device_array((Nz, Nr), 
+                                                    dtype=np.complex128)
             # Different names for same object (for economy of memory)
             self.spect_buffer_p = self.spect_buffer_r
             self.spect_buffer_p = self.spect_buffer_r
             # Initialize 1d buffer for cufft
-            self.buffer1d_in = cuda.device_array( (Nz*Nr,), dtype=np.complex128)
-            self.buffer1d_out = cuda.device_array( (Nz*Nr,), dtype=np.complex128)
+            self.buffer1d_in = cuda.device_array((Nz*Nr,), 
+                                                 dtype=np.complex128)
+            self.buffer1d_out = cuda.device_array((Nz*Nr,), 
+                                                  dtype=np.complex128)
 
             # Initialize the cuda libraries object
             self.fft = cufft.FFTPlan( shape=(Nz,), itype=np.complex128,
                                       otype=np.complex128, batch=Nr )
             self.blas = cublas.Blas()   # For normalization of the iFFT
+            self.inv_Nz = 1./Nz         # For normalization of the iFFT
         else :
             # Initialize the FFTW on the CPU
             print('Preparing FFTW for mode %d on the CPU' %m)
             
             # Two buffers and FFTW objects are initialized, since
-            # spect2interp_vect and interp2spect_vect require two separate FFTs.
+            # spect2interp_vect and interp2spect_vect require two separate FFTs
             
             # First buffer and FFTW transform
             self.interp_buffer_r = \
                 pyfftw.n_byte_align_empty( (Nz,Nr), 16, 'complex128' )
             self.spect_buffer_r = \
                 pyfftw.n_byte_align_empty( (Nz,Nr), 16, 'complex128' )
-            self.fft_r = pyfftw.FFTW( self.interp_buffer_r, self.spect_buffer_r,
-                        axes=(0,), direction='FFTW_FORWARD', threads=nthreads )
-            self.ifft_r = pyfftw.FFTW( self.spect_buffer_r, self.interp_buffer_r,
-                        axes=(0,), direction='FFTW_BACKWARD', threads=nthreads )
+            self.fft_r = pyfftw.FFTW(self.interp_buffer_r, self.spect_buffer_r,
+                        axes=(0,), direction='FFTW_FORWARD', threads=nthreads)
+            self.ifft_r =pyfftw.FFTW(self.spect_buffer_r, self.interp_buffer_r,
+                        axes=(0,), direction='FFTW_BACKWARD', threads=nthreads)
             # Use different name for same object (for economy of memory)
             self.spect_buffer_p = self.spect_buffer_r 
             
@@ -1033,10 +1038,10 @@ class SpectralTransformer(object) :
                 pyfftw.n_byte_align_empty( (Nz,Nr), 16, 'complex128' )
             self.spect_buffer_t = \
                 pyfftw.n_byte_align_empty( (Nz,Nr), 16, 'complex128' )
-            self.fft_t = pyfftw.FFTW( self.interp_buffer_t, self.spect_buffer_t,
+            self.fft_t = pyfftw.FFTW(self.interp_buffer_t, self.spect_buffer_t,
                         axes=(0,), direction='FFTW_FORWARD', threads=nthreads )
-            self.ifft_t = pyfftw.FFTW( self.spect_buffer_t, self.interp_buffer_t,
-                        axes=(0,), direction='FFTW_BACKWARD', threads=nthreads )
+            self.ifft_t =pyfftw.FFTW(self.spect_buffer_t, self.interp_buffer_t,
+                        axes=(0,), direction='FFTW_BACKWARD', threads=nthreads)
             # Use different name for same object (for economy of memory)    
             self.spect_buffer_m = self.spect_buffer_t
 
@@ -1066,11 +1071,11 @@ class SpectralTransformer(object) :
             cuda_copy_2d_to_1d[self.dim_grid, self.dim_block](
                 self.spect_buffer_r, self.buffer1d_in )
             self.fft.inverse( self.buffer1d_in, out=self.buffer1d_out )
-            self.blas.scal( 1./Nz, self.buffer1d_out ) # Normalization
+            self.blas.scal( self.inv_Nz, self.buffer1d_out ) # Normalization
             cuda_copy_1d_to_2d[self.dim_grid, self.dim_block](
-                self.buffer1d_out, out=interp_array )
+                self.buffer1d_out, interp_array )
         else :
-            # Perform the inverse FFT on the CPU, using the preallocated buffers
+            # Perform the inverse FFT on the CPU, using preallocated buffers
             self.interp_buffer_r = self.ifft_r()
             #Copy to the output array
             interp_array[:,:] = self.interp_buffer_r[:,:]  
@@ -1123,18 +1128,18 @@ class SpectralTransformer(object) :
             cuda_copy_2d_to_1d[self.dim_grid, self.dim_block](
                 self.spect_buffer_r, self.buffer1d_in )
             self.fft.inverse( self.buffer1d_in, out=self.buffer1d_out )
-            self.blas.scal( 1./Nz, self.buffer1d_out ) # Normalization
+            self.blas.scal( self.inv_Nz, self.buffer1d_out ) # Normalization
             cuda_copy_1d_to_2d[self.dim_grid, self.dim_block](
-                self.buffer1d_out, out=interp_array_r )
+                self.buffer1d_out, interp_array_r )
             
             # Perform the inverse FFT on spect_buffer_t
             # (The cuFFT API requires 1D arrays)
             cuda_copy_2d_to_1d[self.dim_grid, self.dim_block](
                 self.spect_buffer_t, self.buffer1d_in )
             self.fft.inverse( self.buffer1d_in, out=self.buffer1d_out )
-            self.blas.scal( 1./Nz, self.buffer1d_out ) # Normalization
+            self.blas.scal( self.inv_Nz, self.buffer1d_out ) # Normalization
             cuda_copy_1d_to_2d[self.dim_grid, self.dim_block](
-                self.buffer1d_out, out=interp_array_t )
+                self.buffer1d_out, interp_array_t )
         else :
             # Perform the FFT on the CPU, using the preallocated buffers
             self.interp_buffer_r = self.ifft_r()
@@ -1168,7 +1173,7 @@ class SpectralTransformer(object) :
                 interp_array, self.buffer1d_in )
             self.fft.forward( self.buffer1d_in, out=self.buffer1d_out )
             cuda_copy_1d_to_2d[self.dim_grid, self.dim_block](
-                self.buffer1d_out, out=self.spect_buffer_r )
+                self.buffer1d_out, self.spect_buffer_r )
         else :
             # Perform the FFT on the CPU
             self.interp_buffer_r[:,:] = interp_array #Copy the input array
@@ -1202,7 +1207,7 @@ class SpectralTransformer(object) :
                 interp_array_r, self.buffer1d_in )
             self.fft.forward( self.buffer1d_in, out=self.buffer1d_out )
             cuda_copy_1d_to_2d[self.dim_grid, self.dim_block](
-                self.buffer1d_out, out=self.spect_buffer_r )
+                self.buffer1d_out, self.spect_buffer_r )
 
             # Perform the FFT on the GPU for interp_array_t
             # (The cuFFT API requires 1D arrays)
@@ -1210,7 +1215,7 @@ class SpectralTransformer(object) :
                 interp_array_t, self.buffer1d_in )
             self.fft.forward( self.buffer1d_in, out=self.buffer1d_out )
             cuda_copy_1d_to_2d[self.dim_grid, self.dim_block](
-                self.buffer1d_out, out=self.spect_buffer_t )
+                self.buffer1d_out, self.spect_buffer_t )
         else :
             # Perform the FFT on the CPU
             

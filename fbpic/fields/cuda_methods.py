@@ -142,7 +142,7 @@ def cuda_divide_vector_by_volume( mode0r, mode1r, mode0t, mode1t,
 # Methods of the SpectralGrid object
 # -----------------------------------
 
-@cuda.jit('complex128[:,:], complex128[:,:], \
+@cuda.jit('void(complex128[:,:], complex128[:,:], \
            complex128[:,:], complex128[:,:], complex128[:,:], \
            float64[:,:], float64[:,:], float64[:,:], \
            float64, int32, int32)')
@@ -179,20 +179,23 @@ def cuda_correct_currents( rho_prev, rho_next, Jp, Jm, Jz,
             + kr[iz, ir]*( Jp[iz, ir] - Jm[iz, ir] ) )
 
         # Correct the currents accordingly
-        Jp[iz, ir] +=  0.5 * kr[iz, ir] * F[iz, ir]
-        Jm[iz, ir] += -0.5 * kr[iz, ir] * F[iz, ir]
-        Jz[iz, ir] += -1.j * kz[iz, ir] * F[iz, ir]
+        Jp[iz, ir] +=  0.5 * kr[iz, ir] * F
+        Jm[iz, ir] += -0.5 * kr[iz, ir] * F
+        Jz[iz, ir] += -1.j * kz[iz, ir] * F
 
 
-@cuda.jit('complex128[:,:], complex128[:,:], complex128[:,:], \
+@cuda.jit('void(complex128[:,:], complex128[:,:], complex128[:,:], \
            complex128[:,:], complex128[:,:], complex128[:,:], \
            complex128[:,:], complex128[:,:], complex128[:,:], \
            complex128[:,:], complex128[:,:], \
            float64[:,:], float64[:,:], float64[:,:], \
-           float64, bool, bool, int32, int32)')
+           float64[:,:], float64[:,:], float64[:,:], float64[:,:], float64, \
+           int8, int8, int32, int32)')
 def cuda_push_eb_with( Ep, Em, Ez, Bp, Bm, Bz, Jp, Jm, Jz,
-                       rho_prev, rho_next, rho_prev_coef, rho_next_coef,
-                       j_coef, dt, ptcl_feedback, use_true_rho, Nz, Nr) :
+                       rho_prev, rho_next, 
+                       rho_prev_coef, rho_next_coef, j_coef, 
+                       C, S_w, kr, kz, dt, 
+                       ptcl_feedback, use_true_rho, Nz, Nr) :
     """
     Push the fields over one timestep, using the psatd algorithm
 
@@ -243,20 +246,20 @@ def cuda_push_eb_with( Ep, Em, Ez, Bp, Bm, Bz, Jp, Jm, Jz,
 
             # Push the B field
             Bp[iz, ir] = C[iz, ir]*Bp[iz, ir] \
-                - S_w[iz, ir]*( -1.j*0.5*kr[iz, ir]*Ez_old[iz, ir] \
-                            + kz[iz, ir]*Ep_old[iz, ir] ) \
+                - S_w[iz, ir]*( -1.j*0.5*kr[iz, ir]*Ez_old \
+                            + kz[iz, ir]*Ep_old ) \
                 + j_coef[iz, ir]*( -1.j*0.5*kr[iz, ir]*Jz[iz, ir] \
                             + kz[iz, ir]*Jp[iz, ir] )
 
             Bm[iz, ir] = C[iz, ir]*Bm[iz, ir] \
-                - S_w[iz, ir]*( -1.j*0.5*kr[iz, ir]*Ez_old[iz, ir] \
-                            - kz[iz, ir]*Em_old[iz, ir] ) \
+                - S_w[iz, ir]*( -1.j*0.5*kr[iz, ir]*Ez_old \
+                            - kz[iz, ir]*Em_old ) \
                 + j_coef[iz, ir]*( -1.j*0.5*kr[iz, ir]*Jz[iz, ir] \
                             - kz[iz, ir]*Jm[iz, ir] )
 
             Bz[iz, ir] = C[iz, ir]*Bz[iz, ir] \
-                - S_w[iz, ir]*( 1.j*kr[iz, ir]*Ep_old[iz, ir] \
-                            + 1.j*kr[iz, ir]*Em_old[iz, ir] ) \
+                - S_w[iz, ir]*( 1.j*kr[iz, ir]*Ep_old \
+                            + 1.j*kr[iz, ir]*Em_old ) \
                 + j_coef[iz, ir]*( 1.j*kr[iz, ir]*Jp[iz, ir] \
                             + 1.j*kr[iz, ir]*Jm[iz, ir] )
 
@@ -278,19 +281,19 @@ def cuda_push_eb_with( Ep, Em, Ez, Bp, Bm, Bz, Jp, Jm, Jz,
 
             # Push the B field
             Bp[iz, ir] = C[iz, ir]*Bp[iz, ir] \
-                - S_w[iz, ir]*( -1.j*0.5*kr[iz, ir]*Ez_old[iz, ir] \
-                            + kz[iz, ir]*Ep_old[iz, ir] ) 
+                - S_w[iz, ir]*( -1.j*0.5*kr[iz, ir]*Ez_old \
+                            + kz[iz, ir]*Ep_old ) 
 
             Bm[iz, ir] = C[iz, ir]*Bm[iz, ir] \
-                - S_w[iz, ir]*( -1.j*0.5*kr[iz, ir]*Ez_old[iz, ir] \
-                            - kz[iz, ir]*Em_old[iz, ir] ) 
+                - S_w[iz, ir]*( -1.j*0.5*kr[iz, ir]*Ez_old \
+                            - kz[iz, ir]*Em_old ) 
 
             Bz[iz, ir] = C[iz, ir]*Bz[iz, ir] \
-                - S_w[iz, ir]*( 1.j*kr[iz, ir]*Ep_old[iz, ir] \
-                            + 1.j*kr[iz, ir]*Em_old[iz, ir] )
+                - S_w[iz, ir]*( 1.j*kr[iz, ir]*Ep_old \
+                            + 1.j*kr[iz, ir]*Em_old )
 
 
-@cuda.jit('complex128[:,:], complex128[:,:], int32, int32)')
+@cuda.jit('void(complex128[:,:], complex128[:,:], int32, int32)')
 def cuda_push_rho( rho_prev, rho_next, Nz, Nr) :
     """
     Transfer the values of rho_next to rho_prev,
@@ -314,7 +317,7 @@ def cuda_push_rho( rho_prev, rho_next, Nz, Nr) :
         rho_prev[iz, ir] = rho_next[iz, ir]
         rho_next[iz, ir] = 0.
 
-@cuda.jit('complex128[:,:], float64[:,:], int32, int32)')
+@cuda.jit('void(complex128[:,:], float64[:,:], int32, int32)')
 def cuda_filter_scalar( field, filter_array, Nz, Nr) :
     """
     Multiply the input field by the filter_array
@@ -339,7 +342,7 @@ def cuda_filter_scalar( field, filter_array, Nz, Nr) :
 
         field[iz, ir] = filter_array[iz, ir]*field[iz, ir]
 
-@cuda.jit('complex128[:,:], complex128[:,:], complex128[:,:], \
+@cuda.jit('void(complex128[:,:], complex128[:,:], complex128[:,:], \
            float64[:,:], int32, int32)')
 def cuda_filter_scalar( fieldr, fieldt, fieldz, filter_array, Nz, Nr) :
     """

@@ -9,6 +9,7 @@ $ python tests/test_cuda_transform.py
 """
 import numpy as np
 from fbpic.fields.fields import SpectralTransformer
+from fbpic.cuda_utils import *
 from numba import cuda
 import time
 
@@ -57,6 +58,8 @@ if __name__ == '__main__' :
     print '\n Time taken on the GPU : %.3f ms\n' %(tmin*1e3)
     
     # Check accuracy
+    d_spect_field = d_spect_field.copy_to_host()
+    d_back_field = d_back_field.copy_to_host()
     print 'Max error on forward transform : %e' \
       % abs(spect_field - d_spect_field).max()
     print 'Max error on backward transform : %e\n' \
