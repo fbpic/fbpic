@@ -21,6 +21,33 @@ def push_p_gpu( ux, uy, uz, inv_gamma,
                 q, m, Ntot, dt ) :
     """
     Advance the particles' momenta, using numba on the GPU
+
+    Parameters
+    ----------
+    ux, uy, uz : 1darray of floats
+        The velocity of the particles
+        (is modified by this function)
+
+    inv_gamma : 1darray of floats
+        The inverse of the relativistic gamma factor
+
+    Ex, Ey, Ez : 1darray of floats
+        The electric fields acting on the particles
+
+    Bx, By, Bz : 1darray of floats
+        The magnetic fields acting on the particles
+
+    q : float
+        The charge of the particle species
+
+    m : float
+        The mass of the particle species
+
+    Ntot : int
+        The total number of particles
+
+    dt : float
+        The time by which the momenta is advanced
     """
     # Set a few constants
     econst = q*dt/(m*c)
@@ -79,6 +106,21 @@ def push_x_gpu( x, y, z, ux, uy, uz, inv_gamma, dt ) :
     This assumes that the positions (x, y, z) are initially either
     one half-timestep *behind* the momenta (ux, uy, uz), or at the
     same timestep as the momenta.
+
+    Parameters
+    ----------
+    x, y, z : 1darray of floats (in meters)
+        The position of the particles
+        (is modified by this function)
+
+    ux, uy, uz : 1darray of floats (in meters * second^-1)
+        The velocity of the particles
+
+    inv_gamma : 1darray of floats
+        The inverse of the relativistic gamma factor
+
+    dt : float (seconds)
+        The time by which the position is advanced
     """
     # Half timestep, multiplied by c
     chdt = c*0.5*dt
@@ -114,7 +156,46 @@ def gather_field_gpu(x, y, z,
                     Ex, Ey, Ez,
                     Bx, By, Bz):
     """
-    # To-do: Add documentation.
+    Gathering of the fields (E and B) using numba on the GPU.
+    Iterates over the particles, calculates the weighted amount
+    of fields acting on each particle based on its shape (linear).
+    Fields are gathered in cylindrical coordinates and then
+    transformed to cartesian coordinates. 
+    Supports only mode 0 and 1.
+
+    Parameters
+    ----------
+    x, y, z : 1darray of floats (in meters)
+        The position of the particles
+
+    invdz, invdr : float (in meters^-1)
+        Inverse of the grid step along the considered direction
+
+    zmin, rmin : float (in meters)
+        Position of the first node of the grid along the considered direction
+
+    Nz, Nr : int
+        Number of gridpoints along the considered direction
+
+    Er_m0, Et_m0, Ez_m0 : 2darray of complexs
+        The electric fields on the interpolation grid for the mode 0
+
+    Er_m1, Et_m1, Ez_m1 : 2darray of complexs
+        The electric fields on the interpolation grid for the mode 1
+
+    Br_m0, Bt_m0, Bz_m0 : 2darray of complexs
+        The magnetic fields on the interpolation grid for the mode 0 
+
+    Br_m1, Bt_m1, Bz_m1 : 2darray of complexs
+        The magnetic fields on the interpolation grid for the mode 1
+
+    Ex, Ey, Ez : 1darray of floats
+        The electric fields acting on the particles
+        (is modified by this function)
+
+    Bx, By, Bz : 1darray of floats
+        The magnetic fields acting on the particles
+        (is modified by this function)
     """
     # Get the 1D CUDA grid
     i = cuda.grid(1)
@@ -387,7 +468,49 @@ def deposit_rho_gpu(x, y, z, w,
                     rho2, rho3,
                     cell_idx, sorted_idx, prefix_sum):
     """
-    # To-do: Add documentation.
+    Deposition of the charge density rho using numba on the GPU.
+    Iterates over the cells and over the particles per cell.
+    Calculates the weighted amount of rho that is deposited to the 
+    4 cells surounding the particle based on its shape (linear).
+
+    The particles are sorted by their cell index (the lower cell
+    in r and z that they deposit to) and the deposited field
+    is split into 4 arrays (one for each possible direction,
+    e.g. upper in z, lower in r) to maintain parallelism while
+    avoiding any race conditions.
+
+    Parameters
+    ----------
+    x, y, z : 1darray of floats (in meters)
+        The position of the particles
+
+    w : 1d array of floats
+        The weights of the particles
+
+    rho0, rho1, rho2, rho3 : 3darray of complexs
+        2d field arrays, one for each of the deposition directions
+        The third dimension contains the two possible modes.
+        (is mofidied by this function)
+
+    invdz, invdr : float (in meters^-1)
+        Inverse of the grid step along the considered direction
+
+    zmin, rmin : float (in meters)
+        Position of the first node of the grid along the considered direction
+
+    Nz, Nr : int
+        Number of gridpoints along the considered direction
+
+    cell_idx : 1darray of integers
+        The cell index of the particle
+
+    sorted_idx : 1darray of integers
+        The sorted index array needs to be reset
+        before doing the sort
+
+    prefix_sum : 1darray of integers
+        Represents the cumulative sum of 
+        the particles per cell
     """
     # Get the 1D CUDA grid
     i = cuda.grid(1)
@@ -558,7 +681,19 @@ def add_rho(rho_m0, rho_m1,
             rho0, rho1, 
             rho2, rho3):
     """
-    # To-do: Add documentation.
+    Merges the 4 separate field arrays that contain rho for 
+    each deposition direction and adds them to the global
+    interpolation grid arrays for mode 0 and 1.
+
+    Parameters
+    ----------
+    rho_m0, rho_m1 : 2darrays of complexs
+        The charge density on the interpolation grid for
+        mode 0 and 1. (is modified by this function)
+
+    rho0, rho1, rho2, rho3 : 3darrays of complexs
+        2d field arrays, one for each of the deposition directions
+        The third dimension contains the two possible modes.
     """
     # Get the CUDA Grid in 2D
     i, j = cuda.grid(2)
@@ -595,7 +730,56 @@ def deposit_J_gpu(x, y, z, w,
                   J2, J3,
                   cell_idx, sorted_idx, prefix_sum):
     """
-    # To-do: Add documentation.
+    Deposition of the current J using numba on the GPU.
+    Iterates over the cells and over the particles per cell.
+    Calculates the weighted amount of J that is deposited to the 
+    4 cells surounding the particle based on its shape (linear).
+
+    The particles are sorted by their cell index (the lower cell
+    in r and z that they deposit to) and the deposited field
+    is split into 4 arrays (one for each possible direction,
+    e.g. upper in z, lower in r) to maintain parallelism while
+    avoiding any race conditions.
+
+    Parameters
+    ----------
+    x, y, z : 1darray of floats (in meters)
+        The position of the particles
+
+    w : 1d array of floats
+        The weights of the particles
+
+    ux, uy, uz : 1darray of floats (in meters * second^-1)
+        The velocity of the particles
+
+    inv_gamma : 1darray of floats
+        The inverse of the relativistic gamma factor
+
+    J0, J1, J2, J3 : 3darray of complexs
+        2d field arrays, one for each of the deposition directions
+        The third dimension contains the two possible modes and the
+        3 directions of J in cylindrical coordinates (r, t, z).
+        (is mofidied by this function)
+
+    invdz, invdr : float (in meters^-1)
+        Inverse of the grid step along the considered direction
+
+    zmin, rmin : float (in meters)
+        Position of the first node of the grid along the considered direction
+
+    Nz, Nr : int
+        Number of gridpoints along the considered direction
+
+    cell_idx : 1darray of integers
+        The cell index of the particle
+
+    sorted_idx : 1darray of integers
+        The sorted index array needs to be reset
+        before doing the sort
+
+    prefix_sum : 1darray of integers
+        Represents the cumulative sum of 
+        the particles per cell
     """
     # Get the 1D CUDA grid
     i = cuda.grid(1)
@@ -872,7 +1056,21 @@ def add_J(Jr_m0, Jr_m1,
           J0, J1,     
           J2, J3):
     """
-    # To-do: Add documentation.
+    Merges the 4 separate field arrays that contain J for 
+    each deposition direction and adds them to the global
+    interpolation grid arrays for mode 0 and 1.
+
+    Parameters
+    ----------
+    Jr_m0, Jr_m1, Jt_m0, Jt_m1, Jz_m0, Jz_m1,: 2darrays of complexs
+        The current component in each direction (r, t, z)
+        on the interpolation grid for mode 0 and 1. 
+        (is modified by this function)
+
+    J0, J1, J2, J3 : 3darrays of complexs
+        2d field arrays, one for each of the deposition directions
+        The third dimension contains the two possible modes and
+        the 3 different components of J (r, t, z).
     """
     # Get the CUDA Grid in 2D
     i, j = cuda.grid(2)
@@ -937,14 +1135,18 @@ def get_cell_idx_per_particle(cell_idx, sorted_idx,
     sorted_idx : 1darray of integers
         The sorted index array needs to be reset
         before doing the sort
+
+    x, y, z : 1darray of floats (in meters)
+        The position of the particles
+        (is modified by this function)
     
-    invdx : float (in meters^-1)
+    invdz, invdr : float (in meters^-1)
         Inverse of the grid step along the considered direction
 
-    xmin : float (in meters)
+    zmin, rmin : float (in meters)
         Position of the first node of the grid along the considered direction
 
-    Nx : int
+    Nz, Nr : int
         Number of gridpoints along the considered direction
     """
     i = cuda.grid(1)
@@ -1049,7 +1251,22 @@ def reset_prefix_sum(prefix_sum):
 
 def cuda_deposition_arrays(Nz = None, Nr = None, fieldtype = None):
     """
-    # To-do: Add documentation.
+    Create empty arrays on the GPU for the charge and 
+    current deposition in each of the 4 possible direction.
+
+    ###########################################
+    # Needs to be moved to the fields package!
+    ###########################################
+
+    Parameters
+    ----------    
+    Nz : int
+        Number of cells in z.
+    Nr : int
+        Number of cells in r.
+
+    fieldtype : string 
+        Either 'rho' or 'J'.
     """
     # Create empty arrays to store the four different possible
     # cell directions a particle can deposit to.

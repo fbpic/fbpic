@@ -188,7 +188,8 @@ class Particles(object) :
 
     def send_particles_to_gpu( self ):
         """
-        Copy the particles to the GPU
+        Copy the particles to the GPU.
+        Particle arrays of self now point to the GPU arrays.
         """
         if self.use_cuda_memory:
             # Send positions, velocities, inverse gamma and weights
@@ -216,6 +217,10 @@ class Particles(object) :
             self.sorted_idx = cuda.device_array_like(self.sorted_idx)
 
     def receive_particles_from_gpu( self ):
+        """
+        Receive the particles from the GPU.
+        Particle arrays are accessible by the CPU again.
+        """
         if self.use_cuda_memory:
             # Copy the positions, velocities, inverse gamma and weights
             # to the GPU (CUDA)
@@ -469,12 +474,18 @@ class Particles(object) :
                                                     grid[0].Nz*grid[0].Nr )
             dim_grid_2d, dim_block_2d = cuda_tpb_bpg_2d( 
                                           grid[0].Nz, grid[0].Nr )
+
+            ###################################################################
+            # Needs to be moved to the fields package
+
             # Create the needed prefix sum array for sorting
             d_prefix_sum = cuda.device_array(
                              shape = grid[0].Nz*grid[0].Nr, dtype = np.int32 )
             # Create the helper arrays for deposition
             d_F0, d_F1, d_F2, d_F3 = cuda_deposition_arrays( grid[0].Nz,
                                        grid[0].Nr, fieldtype = fieldtype )
+            ###################################################################
+
             # ------------------------
             # Sorting of the particles
             # ------------------------

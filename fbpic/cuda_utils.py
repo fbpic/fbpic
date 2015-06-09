@@ -136,7 +136,23 @@ def cuda_pm_to_rt( buffer_p, buffer_m, buffer_r, buffer_t ) :
 
 def cuda_tpb_bpg_1d(x, TPB = 256):
     """
-    # To-do: Add documentation.
+    Get the needed blocks per grid for a 1D CUDA grid.
+
+    Parameters :
+    ------------
+    x : int
+        Total number of threads
+
+    TPB : int
+        Threads per block
+
+    Returns :
+    ------------
+    BPG : int
+        Number of blocks per grid
+
+    TPB : int
+        Threads per block
     """
     # Calculates the needed blocks per grid
     BPG = int(x/TPB + 1)
@@ -144,7 +160,23 @@ def cuda_tpb_bpg_1d(x, TPB = 256):
 
 def cuda_tpb_bpg_2d(x, y, TPBx = 8, TPBy = 8):
     """
-    # To-do: Add documentation.
+    Get the needed blocks per grid for a 2D CUDA grid.
+
+    Parameters :
+    ------------
+    x, y  : int
+        Total number of threads in first and second dimension
+
+    TPBx, TPBy : int
+        Threads per block in x and y
+
+    Returns :
+    ------------
+    (BPGx, BPGy) : tuple of ints
+        Number of blocks per grid in x and y
+
+    (TPBx, TPBy) : tuple of ints
+        Threads per block in x and y
     """
     # Calculates the needed blocks per grid
     BPGx = int(x/TPBx + 1)
@@ -157,7 +189,15 @@ def cuda_tpb_bpg_2d(x, y, TPBx = 8, TPBy = 8):
 
 def send_data_to_gpu(simulation):
     """
-    # To-do: Add documentation.
+    Send the simulation data to the GPU.
+    Calls the functions of the particle and field package
+    that send the data to the GPU.
+
+    Parameters :
+    ------------
+    simulation : object
+        A simulation object that contains the particle
+        (ptcl) and field object (fld)
     """
     # Send Particles to the GPU (if CUDA is used)
     for species in simulation.ptcl :
@@ -166,7 +206,15 @@ def send_data_to_gpu(simulation):
 
 def receive_data_from_gpu(simulation):
     """
-    # To-do: Add documentation.
+    Receive the simulation data from the GPU.
+    Calls the functions of the particle and field package
+    that receive the data from the GPU.
+
+    Parameters :
+    ------------
+    simulation : object
+        A simulation object that contains the particle
+        (ptcl) and field object (fld)
     """
     # Receive the particles from the GPU (if CUDA is used)
     for species in simulation.ptcl :
