@@ -542,7 +542,7 @@ class Particles(object) :
                     d_F0, d_F1, d_F2, d_F3)
             else :
                 raise ValueError(
-            "`fieldtype` should be either 'J' or 'rho', but is `%s`" %fieldtype )
+        "`fieldtype` should be either 'J' or 'rho', but is `%s`" %fieldtype )
         else:       
             # Preliminary arrays for the cylindrical conversion
             r = np.sqrt( self.x**2 + self.y**2 )
@@ -575,8 +575,8 @@ class Particles(object) :
                     elif m>1 :
                         exptheta[:] = exptheta*( cos + 1.j*sin )
                     # Deposit the fields
-                    # (The sign -1 with which the guards are added
-                    # is not trivial to derive but avoids artifacts on the axis)
+                    # (The sign -1 with which the guards are added is not
+                    # trivial to derive but avoids artifacts on the axis)
                     if self.use_numba :
                         # Use numba
                         deposit_field_numba( self.w*exptheta, grid[m].rho, 
@@ -609,8 +609,8 @@ class Particles(object) :
                     elif m>1 :
                         exptheta[:] = exptheta*( cos + 1.j*sin )
                     # Deposit the fields
-                    # (The sign -1 with which the guards are added
-                    # is not trivial to derive but avoids artifacts on the axis)
+                    # (The sign -1 with which the guards are added is not
+                    # trivial to derive but avoids artifacts on the axis)
                     if self.use_numba:
                         # Use numba
                         deposit_field_numba( Jr*exptheta, grid[m].Jr, 
@@ -641,4 +641,4 @@ class Particles(object) :
                             -1., Sr_guard )
             else :
                 raise ValueError(
-            "`fieldtype` should be either 'J' or 'rho', but is `%s`" %fieldtype )
+        "`fieldtype` should be either 'J' or 'rho', but is `%s`" %fieldtype )
