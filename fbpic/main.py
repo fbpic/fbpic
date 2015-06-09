@@ -174,7 +174,8 @@ class Simulation(object) :
         "Please attach a MovingWindow to this object, as `self.moving_win`")
         
         # Send simulation data to GPU (if CUDA is used)
-        send_data_to_gpu(self)
+        if self.use_cuda:
+            send_data_to_gpu(self)
 
         # Loop over timesteps
         for i_step in xrange(N) :
@@ -194,12 +195,14 @@ class Simulation(object) :
             if moving_window and self.iteration % move_window_nsteps == 0:
                 # Receive the data from the GPU (if CUDA is used)
                 # for the advance of the moving window
-                receive_data_from_gpu(self)
+                if self.use_cuda:
+                    receive_data_from_gpu(self)
                 # Shift the fields and add new particles
                 self.moving_win.move( 
                     fld, ptcl, self.p_nz, move_window_nsteps*self.dt )
                 # Send the data to the GPU (if Cuda is used)
-                send_data_to_gpu(self)
+                if self.use_cuda:
+                    send_data_to_gpu(self)
                 # Reprojected the charge on the interpolation grid
                 # (Particles have been added/removed.)
                 fld.erase('rho')
@@ -265,7 +268,8 @@ class Simulation(object) :
             self.iteration += 1
 
         # Receive simulation data from GPU (if CUDA is used)
-        receive_data_from_gpu(self)
+        if self.use_cuda:
+            receive_data_from_gpu(self)
 
         # Print a space at the end of the loop, for esthetical reasons
         print('')
