@@ -1002,7 +1002,7 @@ class SpectralTransformer(object) :
                                                     dtype=np.complex128)
             # Different names for same object (for economy of memory)
             self.spect_buffer_p = self.spect_buffer_r
-            self.spect_buffer_p = self.spect_buffer_r
+            self.spect_buffer_m = self.spect_buffer_t
             # Initialize 1d buffer for cufft
             self.buffer1d_in = cuda.device_array((Nz*Nr,), 
                                                  dtype=np.complex128)
