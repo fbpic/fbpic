@@ -675,8 +675,8 @@ class SpectralGrid(object) :
             cuda_push_eb_with[dim_grid, dim_block](
                 self.Ep, self.Em, self.Ez, self.Bp, self.Bm, self.Bz,
                 self.Jp, self.Jm, self.Jz, self.rho_prev, self.rho_next,
-                ps.rho_prev_coef, ps.rho_next_coef, ps.j_coef, ps.dt,
-                ptcl_feedback, use_true_rho, Nz, Nr )
+                ps.rho_prev_coef, ps.rho_next_coef, ps.j_coef, ps.C, ps.S_w,
+                self.kr, self.kz, ps.dt, ptcl_feedback, use_true_rho, Nz, Nr )
 
         else :
             # Push the fields on the CPU

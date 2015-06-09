@@ -344,7 +344,7 @@ def cuda_filter_scalar( field, filter_array, Nz, Nr) :
 
 @cuda.jit('void(complex128[:,:], complex128[:,:], complex128[:,:], \
            float64[:,:], int32, int32)')
-def cuda_filter_scalar( fieldr, fieldt, fieldz, filter_array, Nz, Nr) :
+def cuda_filter_vector( fieldr, fieldt, fieldz, filter_array, Nz, Nr) :
     """
     Multiply the input field by the filter_array
 
