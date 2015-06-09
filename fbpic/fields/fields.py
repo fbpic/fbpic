@@ -676,7 +676,8 @@ class SpectralGrid(object) :
                 self.Ep, self.Em, self.Ez, self.Bp, self.Bm, self.Bz,
                 self.Jp, self.Jm, self.Jz, self.rho_prev, self.rho_next,
                 ps.rho_prev_coef, ps.rho_next_coef, ps.j_coef, ps.C, ps.S_w,
-                self.kr, self.kz, ps.dt, ptcl_feedback, use_true_rho, Nz, Nr )
+                self.kr, self.kz, ps.dt, ptcl_feedback, use_true_rho, 
+                self.Nz, self.Nr )
 
         else :
             # Push the fields on the CPU
@@ -764,7 +765,7 @@ class SpectralGrid(object) :
             dim_grid, dim_block = cuda_tpb_bpg_2d( self.Nz, self.Nr)
 
             cuda_push_rho[dim_grid, dim_block](
-                self.rho_prev, self.rho_next )
+                self.rho_prev, self.rho_next, self.Nz, self.Nr )
         else :
             # Push the fields on the CPU
             self.rho_prev[:,:] = self.rho_next[:,:]

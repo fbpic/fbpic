@@ -294,7 +294,7 @@ def cuda_push_eb_with( Ep, Em, Ez, Bp, Bm, Bz, Jp, Jm, Jz,
 
 
 @cuda.jit('void(complex128[:,:], complex128[:,:], int32, int32)')
-def cuda_push_rho( rho_prev, rho_next, Nz, Nr) :
+def cuda_push_rho( rho_prev, rho_next, Nz, Nr ) :
     """
     Transfer the values of rho_next to rho_prev,
     and set rho_next to zero
