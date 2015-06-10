@@ -14,10 +14,9 @@ try :
     from cuda_methods import *
     from fbpic.cuda_utils import *
     from numbapro.cudalib import cufft, cublas
-except :
-    cuda_installed = False
-else :
     cuda_installed = True
+except ImportError :
+    cuda_installed = False
 
 class Fields(object) :
     """
@@ -50,7 +49,8 @@ class Fields(object) :
         Contains the coefficients to solve the Maxwell equations
     """
 
-    def __init__( self, Nz, zmax, Nr, rmax, Nm, dt, use_cuda=False ) :
+    def __init__( self, Nz, zmax, Nr, rmax, Nm, dt,
+                  use_cuda=False, use_cuda_memory=True ) :
         """
         Initialize the components of the Fields object
 
@@ -77,8 +77,10 @@ class Fields(object) :
 
         use_cuda : bool, optional
             Wether to use the GPU or not
-        """
 
+        use_cuda_memory : bool, optional
+            Wether to use manual memory management. Recommended.
+        """
         # Convert Nz to the nearest odd integer
         # (easier for the interpretation of the FFT)
         Nz = 2*int(Nz/2) + 1
@@ -92,10 +94,13 @@ class Fields(object) :
 
         # Define wether or not to use the GPU
         self.use_cuda = use_cuda
+        self.use_cuda_memory = use_cuda_memory
         if (self.use_cuda==True) and (cuda_installed==False) :
             print '*** Cuda not available for the fields.'
             print '*** Performing the field operations on the CPU.'
             self.use_cuda = False
+        if self.use_cuda == False:
+            self.use_cuda_memory == False
         if self.use_cuda == True:
             print 'Using the GPU for the field.'
 
@@ -111,8 +116,8 @@ class Fields(object) :
         # (one object per azimuthal mode)
         self.trans = []
         for m in range(Nm) :
-            self.trans.append( SpectralTransformer(Nz, Nr, m, rmax,
-                                        use_cuda=self.use_cuda ) )
+            self.trans.append( SpectralTransformer(
+                Nz, Nr, m, rmax, use_cuda=self.use_cuda ) )
 
         # Create the interpolation grid for each modes
         # (one grid per azimuthal mode)
@@ -288,7 +293,7 @@ class Fields(object) :
                     self.interp[0].Bt, self.interp[1].Bt,
                     self.interp[0].Bz, self.interp[1].Bz, self.Nz, self.Nr )
             else :
-                raise ValueError('Invalid string for fieldtype: %s' %fieldtype)
+                raise ValueError('Invalid string for fieldtype: %s'%fieldtype)
         else :
             # Erase the arrays on the CPU
             if fieldtype == 'rho' :
@@ -310,27 +315,7 @@ class Fields(object) :
                     self.interp[m].Bt[:,:] = 0.
                     self.interp[m].Bz[:,:] = 0.
             else :
-                raise ValueError('Invalid string for fieldtype: %s' %fieldtype)
-
-    def filter_interp( self, fieldtype, direction='r' ) :
-        """
-        Filter the field `fieldtype` on the interpolation grid
-
-        This uses a binomial filter
-
-        Parameter
-        ---------
-        fieldtype : string
-            A string which represents the kind of field to be filtered
-            (either 'E', 'B', 'J' or 'rho')
-
-        direction : string, optional
-           The direction in which to filter
-           (either 'r' or 'z')
-        """
-        # Filter fields on the GPU
-        for m in range(self.Nm) :
-            self.interp[m].filter( fieldtype, direction )
+                raise ValueError('Invalid string for fieldtype: %s'%fieldtype)
 
     def filter_spect( self, fieldtype ) :
         """
@@ -376,7 +361,7 @@ class Fields(object) :
                     self.interp[0].invvol, self.interp[1].invvol,
                     self.Nz, self.Nr )
             else :
-                raise ValueError('Invalid string for fieldtype: %s' %fieldtype)
+                raise ValueError('Invalid string for fieldtype: %s'%fieldtype)
         else :
             # Perform division on the CPU
             if fieldtype == 'rho' :
@@ -392,7 +377,7 @@ class Fields(object) :
                     self.interp[m].Jz = \
                     self.interp[m].Jz * self.interp[m].invvol[np.newaxis,:]
             else :
-                raise ValueError('Invalid string for fieldtype: %s' %fieldtype)
+                raise ValueError('Invalid string for fieldtype: %s'%fieldtype)
 
 
 class InterpolationGrid(object) :
@@ -463,40 +448,6 @@ class InterpolationGrid(object) :
         self.Jt = np.zeros( (Nz, Nr), dtype='complex' )
         self.Jz = np.zeros( (Nz, Nr), dtype='complex' )
         self.rho = np.zeros( (Nz, Nr), dtype='complex' )
-        
-        
-    def filter(self, fieldtype, direction ) :
-        """
-        Filter the field `fieldtype`
-
-        This uses a binomial filter
-
-        Parameter
-        ---------
-        fieldtype : string
-            A string which represents the kind of field to be filtered
-            (either 'E', 'B', 'J' or 'rho')
-
-        direction : string, optional
-           The direction in which to filter
-           (either 'r' or 'z')
-        """
-        if fieldtype == 'rho' :
-            binomial_filter( self.rho, direction, (-1)**self.m )
-        elif fieldtype == 'J' :
-            binomial_filter( self.Jr, direction, -(-1)**self.m )
-            binomial_filter( self.Jt, direction, -(-1)**self.m )
-            binomial_filter( self.Jz, direction, (-1)**self.m )
-        elif fieldtype == 'E' :
-            binomial_filter( self.Er, direction, -(-1)**self.m )
-            binomial_filter( self.Et, direction, -(-1)**self.m )
-            binomial_filter( self.Ez, direction, (-1)**self.m )
-        elif fieldtype == 'B' :
-            binomial_filter( self.Br, direction, -(-1)**self.m )
-            binomial_filter( self.Bt, direction, -(-1)**self.m )
-            binomial_filter( self.Bz, direction, (-1)**self.m )
-        else :
-            raise ValueError( 'Invalid string for fieldtype: %s' %fieldtype )
         
     def show(self, fieldtype, below_axis=True, scale=1,
              gridscale=1.e-6, **kw) :
@@ -702,10 +653,10 @@ class SpectralGrid(object) :
                         - ps.rho_prev_coef*self.rho_prev
                 else :
                     # Evaluation using div(E) and div(J)
-                    rho_diff = (ps.rho_next_coef-ps.rho_prev_coef)*epsilon_0* \
-                    ( self.kr*self.Ep - self.kr*self.Em + i*self.kz*self.Ez ) \
+                    rho_diff= (ps.rho_next_coef-ps.rho_prev_coef)*epsilon_0* \
+                    (self.kr*self.Ep - self.kr*self.Em + i*self.kz*self.Ez) \
                     - ps.rho_next_coef * ps.dt * \
-                    ( self.kr*self.Jp - self.kr*self.Jm + i*self.kz*self.Jz )
+                    (self.kr*self.Jp - self.kr*self.Jm + i*self.kz*self.Jz)
 
                 # Push the E field
                 self.Ep[:,:] = ps.C*self.Ep + 0.5*self.kr*rho_diff \
@@ -744,7 +695,7 @@ class SpectralGrid(object) :
                 + c2*ps.S_w*( -i*0.5*self.kr*self.Bz - self.kz*self.Bm )
     
                 self.Ez[:,:] = ps.C*self.Ez \
-                + c2*ps.S_w*( i*self.kr*self.Bp + i*self.kr*self.Bm )            
+                + c2*ps.S_w*( i*self.kr*self.Bp + i*self.kr*self.Bm )
         
                 # Push the B field
                 self.Bp[:,:] = ps.C*self.Bp \
@@ -793,16 +744,16 @@ class SpectralGrid(object) :
                 cuda_filter_scalar[dim_grid, dim_block](
                     self.rho_next, self.filter_array, self.Nz, self.Nr )
             elif fieldtype == 'J' :
-                cuda_filter_vector[dim_grid, dim_block](
-                self.Jp, self.Jm, self.Jz, self.filter_array, self.Nz, self.Nr)
+                cuda_filter_vector[dim_grid, dim_block]( self.Jp, self.Jm,
+                        self.Jz, self.filter_array, self.Nz, self.Nr)
             elif fieldtype == 'E' :
-                cuda_filter_vector[dim_grid, dim_block](
-                self.Ep, self.Em, self.Ez, self.filter_array, self.Nz, self.Nr)
+                cuda_filter_vector[dim_grid, dim_block]( self.Ep, self.Em,
+                        self.Ez, self.filter_array, self.Nz, self.Nr)
             elif fieldtype == 'B' :
-                cuda_filter_vector[dim_grid, dim_block](
-                self.Bp, self.Bm, self.Bz, self.filter_array, self.Nz, self.Nr)
+                cuda_filter_vector[dim_grid, dim_block]( self.Bp, self.Bm,
+                        self.Bz, self.filter_array, self.Nz, self.Nr)
             else :
-                raise ValueError('Invalid string for fieldtype: %s' %fieldtype)
+                raise ValueError('Invalid string for fieldtype: %s'%fieldtype)
         else :
             # Filter fields on the CPU
             
@@ -823,7 +774,7 @@ class SpectralGrid(object) :
                 self.Bm = self.Bm * self.filter_array
                 self.Bz = self.Bz * self.filter_array
             else :
-                raise ValueError('Invalid string for fieldtype: %s' %fieldtype)
+                raise ValueError('Invalid string for fieldtype: %s'%fieldtype)
         
     def show(self, fieldtype, below_axis=True, scale=1, **kw) :
         """
@@ -847,7 +798,7 @@ class SpectralGrid(object) :
         # Fold it so as to center the 0 frequency
         plotted_field = np.fft.fftshift( plotted_field, axes=0 )
         if below_axis == True :
-            plotted_field = np.hstack( (plotted_field[:,::-1], plotted_field) )
+            plotted_field = np.hstack((plotted_field[:,::-1], plotted_field))
             extent = [ self.kz[:,0].min(), self.kz[:,0].max(),
                     -self.kr[0,:].max(), self.kr[0,:].max() ]
         else :
@@ -924,7 +875,7 @@ class PsatdCoeffs(object) :
 
         # Construct rho_prev coefficient array
         inv_dt = 1./dt
-        self.rho_prev_coef = c**2/epsilon_0*(self.C - inv_dt*self.S_w)*inv_w**2
+        self.rho_prev_coef= c**2/epsilon_0*(self.C - inv_dt*self.S_w)*inv_w**2
         # Enforce the right value for w==0
         self.rho_prev_coef[ w==0 ] = c**2/epsilon_0*(-1./3*dt**2)
 
@@ -987,11 +938,11 @@ class SpectralTransformer(object) :
         else :
             print('Preparing the Hankel Transforms for mode %d on the CPU' %m)
 
-        self.dht0 = DHT(   m, Nr, Nz, rmax, 'MDHT(m,m)', d=0.5, Fw='inverse',
+        self.dht0 = DHT(  m, Nr, Nz, rmax, 'MDHT(m,m)', d=0.5, Fw='inverse',
                            use_cuda=self.use_cuda )
-        self.dhtp = DHT( m+1, Nr, Nz, rmax, 'MDHT(m+1,m)', d=0.5, Fw='inverse',
+        self.dhtp = DHT(m+1, Nr, Nz, rmax, 'MDHT(m+1,m)', d=0.5, Fw='inverse',
                            use_cuda=self.use_cuda )
-        self.dhtm = DHT( m-1, Nr, Nz, rmax, 'MDHT(m-1,m)', d=0.5, Fw='inverse',
+        self.dhtm = DHT(m-1, Nr, Nz, rmax, 'MDHT(m-1,m)', d=0.5, Fw='inverse',
                            use_cuda=self.use_cuda )
 
         if self.use_cuda :
@@ -1025,17 +976,17 @@ class SpectralTransformer(object) :
             print('Preparing FFTW for mode %d on the CPU' %m)
             
             # Two buffers and FFTW objects are initialized, since
-            # spect2interp_vect and interp2spect_vect require two separate FFTs
+            # spect2interp_vect and interp2spect_vect require two separate FFT
             
             # First buffer and FFTW transform
             self.interp_buffer_r = \
                 pyfftw.n_byte_align_empty( (Nz,Nr), 16, 'complex128' )
             self.spect_buffer_r = \
                 pyfftw.n_byte_align_empty( (Nz,Nr), 16, 'complex128' )
-            self.fft_r = pyfftw.FFTW(self.interp_buffer_r, self.spect_buffer_r,
-                        axes=(0,), direction='FFTW_FORWARD', threads=nthreads)
-            self.ifft_r =pyfftw.FFTW(self.spect_buffer_r, self.interp_buffer_r,
-                        axes=(0,), direction='FFTW_BACKWARD', threads=nthreads)
+            self.fft_r= pyfftw.FFTW(self.interp_buffer_r, self.spect_buffer_r,
+                    axes=(0,), direction='FFTW_FORWARD', threads=nthreads)
+            self.ifft_r=pyfftw.FFTW(self.spect_buffer_r, self.interp_buffer_r,
+                    axes=(0,), direction='FFTW_BACKWARD', threads=nthreads)
             # Use different name for same object (for economy of memory)
             self.spect_buffer_p = self.spect_buffer_r 
             
@@ -1044,10 +995,10 @@ class SpectralTransformer(object) :
                 pyfftw.n_byte_align_empty( (Nz,Nr), 16, 'complex128' )
             self.spect_buffer_t = \
                 pyfftw.n_byte_align_empty( (Nz,Nr), 16, 'complex128' )
-            self.fft_t = pyfftw.FFTW(self.interp_buffer_t, self.spect_buffer_t,
-                        axes=(0,), direction='FFTW_FORWARD', threads=nthreads )
-            self.ifft_t =pyfftw.FFTW(self.spect_buffer_t, self.interp_buffer_t,
-                        axes=(0,), direction='FFTW_BACKWARD', threads=nthreads)
+            self.fft_t= pyfftw.FFTW(self.interp_buffer_t, self.spect_buffer_t,
+                    axes=(0,), direction='FFTW_FORWARD', threads=nthreads )
+            self.ifft_t=pyfftw.FFTW(self.spect_buffer_t, self.interp_buffer_t,
+                    axes=(0,), direction='FFTW_BACKWARD', threads=nthreads)
             # Use different name for same object (for economy of memory)    
             self.spect_buffer_m = self.spect_buffer_t
 
@@ -1067,7 +1018,7 @@ class SpectralTransformer(object) :
            A complex array representing the fields on the interpolation
            grid, and which is overwritten by this function.
         """
-        # Perform the inverse DHT first (along axis -1, which corresponds to r)
+        # Perform the inverse DHT (along axis -1, which corresponds to r)
         self.dht0.inverse_transform( spect_array, self.spect_buffer_r )
 
         # Then perform the inverse FFT (along axis 0, which corresponds to z)
@@ -1083,7 +1034,7 @@ class SpectralTransformer(object) :
         else :
             # Perform the inverse FFT on the CPU, using preallocated buffers
             self.interp_buffer_r = self.ifft_r()
-            #Copy to the output array
+            # Copy to the output array
             interp_array[:,:] = self.interp_buffer_r[:,:]  
 
     def spect2interp_vect( self, spect_array_p, spect_array_m,
@@ -1103,7 +1054,7 @@ class SpectralTransformer(object) :
            Complex arrays representing the fields on the interpolation
            grid, and which are overwritten by this function.
         """
-        # Perform the inverse DHT first (along axis -1, which corresponds to r)
+        # Perform the inverse DHT (along axis -1, which corresponds to r)
         self.dhtp.inverse_transform( spect_array_p, self.spect_buffer_p )
         self.dhtm.inverse_transform( spect_array_m, self.spect_buffer_m )
     
@@ -1252,7 +1203,7 @@ class SpectralTransformer(object) :
                 0.5*( self.spect_buffer_r - 1.j*self.spect_buffer_t ), \
                 0.5*( self.spect_buffer_r + 1.j*self.spect_buffer_t )
         
-        # Perform the inverse DHT first (along axis -1, which corresponds to r)
+        # Perform the inverse DHT (along axis -1, which corresponds to r)
         self.dhtp.transform( self.spect_buffer_p, spect_array_p )
         self.dhtm.transform( self.spect_buffer_m, spect_array_m )
 
@@ -1260,57 +1211,6 @@ class SpectralTransformer(object) :
 # -----------------
 # Utility function
 # -----------------
-
-def binomial_filter( F, direction, sign_guard ) :
-    """
-    Apply a binomial filter to the array F
-
-    Parameters
-    ----------
-    F : 2darray
-        An array whose first axis corresponds to z and
-        second axis corresponds to r
-
-    direction : string
-        Indicates in which direction to perform the filter
-        (Either 'r' or 'z')
-
-    sign_guard : int
-        Indicates with what is the sign of the values below
-        the axis, as compared to the value above the axis.
-        (Only used in the case direction='r')
-    """
-    F_unfiltered = F.copy()
-    
-    if direction == 'z' : # Periodic boundaries
-        F[1:-1,:] = 0.25*F_unfiltered[:-2,:] \
-                   + 0.5*F_unfiltered[1:-1,:] \
-                   + 0.25*F_unfiltered[2:,:]
-        F[0,:] =  0.25*F_unfiltered[-1,:] \
-                   + 0.5*F_unfiltered[0,:] \
-                   + 0.25*F_unfiltered[1,:]
-        F[-1,:] =  0.25*F_unfiltered[-2,:] \
-                   + 0.5*F_unfiltered[-1,:] \
-                   + 0.25*F_unfiltered[0,:]
-
-    elif direction == 'r' : # Non-periodic boundaries
-        F[:,1:-1] = 0.25*F_unfiltered[:,:-2] \
-                   + 0.5*F_unfiltered[:,1:-1] \
-                   + 0.25*F_unfiltered[:,2:]
-        # Assume that the guard cell below the axis has
-        # the same value as the cell above the axis, up
-        # to the sign `sign_guard`
-        F[:,0] =  0.25*sign_guard*F_unfiltered[:,0] \
-                 + 0.5*F_unfiltered[:,0] \
-                 + 0.5*F_unfiltered[:,1]
-        # Assume that the guard cell above the boundary has
-        # the same value as the cell below it
-        F[:,-1] =  0.25*F_unfiltered[:,-1] \
-                   + 0.5*F_unfiltered[:,-1] \
-                   + 0.25*F_unfiltered[:,-2]
-    else :
-        raise ValueError("Unrecognized `direction` : %s" %direction)
-
 
 def get_filter_array( kz, kr ) :
     """

@@ -14,19 +14,18 @@ from utility_methods import *
 # If numba is installed, it can make the code much faster
 try :
     from numba_methods import *
+    numba_installed = True
 except ImportError :
     numba_installed = False
-else :
-    numba_installed = True
 
 # If numbapro is installed, it potentially allows to use a GPU
 try :
     from cuda_methods import *
     from fbpic.cuda_utils import *
+    cuda_installed = True
 except :
     cuda_installed = False
-else :
-    cuda_installed = True
+
 
 class Particles(object) :
     """
