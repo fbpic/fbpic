@@ -14,19 +14,18 @@ from utility_methods import *
 # If numba is installed, it can make the code much faster
 try :
     from numba_methods import *
+    numba_installed = True
 except ImportError :
     numba_installed = False
-else :
-    numba_installed = True
 
 # If numbapro is installed, it potentially allows to use a GPU
 try :
     from cuda_methods import *
     from fbpic.cuda_utils import *
+    cuda_installed = True
 except :
     cuda_installed = False
-else :
-    cuda_installed = True
+
 
 class Particles(object) :
     """
@@ -113,7 +112,8 @@ class Particles(object) :
         self.use_cuda = use_cuda
         self.use_cuda_memory = use_cuda_memory
         if (self.use_cuda==True) and (cuda_installed==False) :
-            print 'Cuda for numba is not installed ; running on the CPU.'
+            print '*** Cuda not available for the particles.'
+            print '*** Performing the particle operations on the CPU.'
             self.use_cuda = False
         if self.use_cuda == False:
             self.use_cuda_memory == False
@@ -542,7 +542,7 @@ class Particles(object) :
                     d_F0, d_F1, d_F2, d_F3)
             else :
                 raise ValueError(
-            "`fieldtype` should be either 'J' or 'rho', but is `%s`" %fieldtype )
+        "`fieldtype` should be either 'J' or 'rho', but is `%s`" %fieldtype )
         else:       
             # Preliminary arrays for the cylindrical conversion
             r = np.sqrt( self.x**2 + self.y**2 )
@@ -575,8 +575,8 @@ class Particles(object) :
                     elif m>1 :
                         exptheta[:] = exptheta*( cos + 1.j*sin )
                     # Deposit the fields
-                    # (The sign -1 with which the guards are added
-                    # is not trivial to derive but avoids artifacts on the axis)
+                    # (The sign -1 with which the guards are added is not
+                    # trivial to derive but avoids artifacts on the axis)
                     if self.use_numba :
                         # Use numba
                         deposit_field_numba( self.w*exptheta, grid[m].rho, 
@@ -609,8 +609,8 @@ class Particles(object) :
                     elif m>1 :
                         exptheta[:] = exptheta*( cos + 1.j*sin )
                     # Deposit the fields
-                    # (The sign -1 with which the guards are added
-                    # is not trivial to derive but avoids artifacts on the axis)
+                    # (The sign -1 with which the guards are added is not
+                    # trivial to derive but avoids artifacts on the axis)
                     if self.use_numba:
                         # Use numba
                         deposit_field_numba( Jr*exptheta, grid[m].Jr, 
@@ -641,4 +641,4 @@ class Particles(object) :
                             -1., Sr_guard )
             else :
                 raise ValueError(
-            "`fieldtype` should be either 'J' or 'rho', but is `%s`" %fieldtype )
+        "`fieldtype` should be either 'J' or 'rho', but is `%s`" %fieldtype )

@@ -2,7 +2,6 @@
 This file is part of the Fourier-Bessel Particle-In-Cell code (FB-PIC)
 It defines the structure and methods associated with the fields.
 """
-
 import numpy as np
 import matplotlib.pyplot as plt
 from scipy.constants import c, mu_0, epsilon_0
@@ -14,10 +13,9 @@ try :
     from cuda_methods import *
     from fbpic.cuda_utils import *
     from numbapro.cudalib import cufft, cublas
-except :
-    cuda_installed = False
-else :
     cuda_installed = True
+except ImportError :
+    cuda_installed = False
 
 class Fields(object) :
     """
@@ -50,7 +48,8 @@ class Fields(object) :
         Contains the coefficients to solve the Maxwell equations
     """
 
-    def __init__( self, Nz, zmax, Nr, rmax, Nm, dt, use_cuda=False ) :
+    def __init__( self, Nz, zmax, Nr, rmax, Nm, dt,
+                  use_cuda=False, use_cuda_memory=True ) :
         """
         Initialize the components of the Fields object
 
@@ -77,8 +76,10 @@ class Fields(object) :
 
         use_cuda : bool, optional
             Wether to use the GPU or not
-        """
 
+        use_cuda_memory : bool, optional
+            Wether to use manual memory management. Recommended.
+        """
         # Convert Nz to the nearest odd integer
         # (easier for the interpretation of the FFT)
         Nz = 2*int(Nz/2) + 1
@@ -92,11 +93,15 @@ class Fields(object) :
 
         # Define wether or not to use the GPU
         self.use_cuda = use_cuda
+        self.use_cuda_memory = use_cuda_memory
         if (self.use_cuda==True) and (cuda_installed==False) :
-            print 'Cuda for numba is not installed ; running on the CPU.'
+            print '*** Cuda not available for the fields.'
+            print '*** Performing the field operations on the CPU.'
             self.use_cuda = False
+        if self.use_cuda == False:
+            self.use_cuda_memory == False
         if self.use_cuda == True:
-            print 'Using the GPU for the fields.'
+            print 'Using the GPU for the field.'
 
         # Infer the values of the z and kz grid
         dz = zmax/Nz
@@ -110,8 +115,8 @@ class Fields(object) :
         # (one object per azimuthal mode)
         self.trans = []
         for m in range(Nm) :
-            self.trans.append( SpectralTransformer(Nz, Nr, m, rmax,
-                                        use_cuda=self.use_cuda ) )
+            self.trans.append( SpectralTransformer(
+                Nz, Nr, m, rmax, use_cuda=self.use_cuda ) )
 
         # Create the interpolation grid for each modes
         # (one grid per azimuthal mode)
@@ -138,6 +143,30 @@ class Fields(object) :
                                 self.spect[m].kr, m, dt, Nz, Nr,
                                 use_cuda = self.use_cuda ) )
 
+    def send_fields_to_gpu( self ):
+        """
+        Copy the fields to the GPU.
+        
+        After this function is called, the array attributes of the
+        interpolation and spectral grids point to GPU arrays
+        """
+        if self.use_cuda_memory:
+            for m in range(self.Nm) :
+                self.interp[m].send_fields_to_gpu()
+                self.spect[m].send_fields_to_gpu()
+
+    def receive_fields_from_gpu( self ):
+        """
+        Receive the fields from the GPU.
+        
+        After this function is called, the array attributes of the
+        interpolation and spectral grids are accessible by the CPU again.
+        """
+        if self.use_cuda_memory:
+            for m in range(self.Nm) :
+                self.interp[m].receive_fields_from_gpu()
+                self.spect[m].receive_fields_from_gpu()
+            
     def push(self, ptcl_feedback=True) :
         """
         Push the different azimuthal modes over one timestep,
@@ -175,8 +204,8 @@ class Fields(object) :
         """
         # Use the appropriate transformation depending on the fieldtype.
         if fieldtype == 'E' :
-            # Transform each azimuthal grid individually
             for m in range(self.Nm) :
+            # Transform each azimuthal grid individually
                 self.trans[m].interp2spect_scal(
                     self.interp[m].Ez, self.spect[m].Ez )
                 self.trans[m].interp2spect_vect(
@@ -266,28 +295,30 @@ class Fields(object) :
             (either 'E', 'B', 'J', 'rho')
         """
         if self.use_cuda :
-            dim_grid, dim_block = cuda_tpb_bpg_2d( self.Nz, self.Nr)
-            
+            # Obtain the cuda grid
+            dim_grid, dim_block = cuda_tpb_bpg_2d( self.Nz, self.Nr )
+
+            # Erase the arrays on the GPU
             if fieldtype == 'rho' :
                 cuda_erase_scalar[dim_grid, dim_block](
-                    self.interp[0].rho, self.interp[1].rho, self.Nz, self.Nr )
+                    self.interp[0].rho, self.interp[1].rho )
             elif fieldtype == 'J' :
                 cuda_erase_vector[dim_grid, dim_block](
                     self.interp[0].Jr, self.interp[1].Jr,
                     self.interp[0].Jt, self.interp[1].Jt,
-                    self.interp[0].Jz, self.interp[1].Jz, self.Nz, self.Nr )
+                    self.interp[0].Jz, self.interp[1].Jz )
             elif fieldtype == 'E' :
                 cuda_erase_vector[dim_grid, dim_block](
                     self.interp[0].Er, self.interp[1].Er,
                     self.interp[0].Et, self.interp[1].Et,
-                    self.interp[0].Ez, self.interp[1].Ez, self.Nz, self.Nr )
+                    self.interp[0].Ez, self.interp[1].Ez )
             elif fieldtype == 'B' :
                 cuda_erase_vector[dim_grid, dim_block](
                     self.interp[0].Br, self.interp[1].Br,
                     self.interp[0].Bt, self.interp[1].Bt,
-                    self.interp[0].Bz, self.interp[1].Bz, self.Nz, self.Nr )
+                    self.interp[0].Bz, self.interp[1].Bz )
             else :
-                raise ValueError('Invalid string for fieldtype: %s' %fieldtype)
+                raise ValueError('Invalid string for fieldtype: %s'%fieldtype)
         else :
             # Erase the arrays on the CPU
             if fieldtype == 'rho' :
@@ -309,27 +340,7 @@ class Fields(object) :
                     self.interp[m].Bt[:,:] = 0.
                     self.interp[m].Bz[:,:] = 0.
             else :
-                raise ValueError('Invalid string for fieldtype: %s' %fieldtype)
-
-    def filter_interp( self, fieldtype, direction='r' ) :
-        """
-        Filter the field `fieldtype` on the interpolation grid
-
-        This uses a binomial filter
-
-        Parameter
-        ---------
-        fieldtype : string
-            A string which represents the kind of field to be filtered
-            (either 'E', 'B', 'J' or 'rho')
-
-        direction : string, optional
-           The direction in which to filter
-           (either 'r' or 'z')
-        """
-        # Filter fields on the GPU
-        for m in range(self.Nm) :
-            self.interp[m].filter( fieldtype, direction )
+                raise ValueError('Invalid string for fieldtype: %s'%fieldtype)
 
     def filter_spect( self, fieldtype ) :
         """
@@ -365,17 +376,15 @@ class Fields(object) :
             if fieldtype == 'rho' :
                 cuda_divide_scalar_by_volume[dim_grid, dim_block](
                     self.interp[0].rho, self.interp[1].rho,
-                    self.interp[0].invvol, self.interp[1].invvol,
-                    self.Nz, self.Nr )
+                    self.interp[0].d_invvol, self.interp[1].d_invvol )
             elif fieldtype == 'J' :
                 cuda_divide_vector_by_volume[dim_grid, dim_block](
                     self.interp[0].Jr, self.interp[1].Jr,
                     self.interp[0].Jt, self.interp[1].Jt,
                     self.interp[0].Jz, self.interp[1].Jz,
-                    self.interp[0].invvol, self.interp[1].invvol,
-                    self.Nz, self.Nr )
+                    self.interp[0].d_invvol, self.interp[1].d_invvol )
             else :
-                raise ValueError('Invalid string for fieldtype: %s' %fieldtype)
+                raise ValueError('Invalid string for fieldtype: %s'%fieldtype)
         else :
             # Perform division on the CPU
             if fieldtype == 'rho' :
@@ -391,7 +400,7 @@ class Fields(object) :
                     self.interp[m].Jz = \
                     self.interp[m].Jz * self.interp[m].invvol[np.newaxis,:]
             else :
-                raise ValueError('Invalid string for fieldtype: %s' %fieldtype)
+                raise ValueError('Invalid string for fieldtype: %s'%fieldtype)
 
 
 class InterpolationGrid(object) :
@@ -431,9 +440,6 @@ class InterpolationGrid(object) :
         self.Nr = Nr
         self.r = r.copy()
         self.m = m
-
-        # Check whether the GPU should be used
-        self.use_cuda = use_cuda
         
         # Register a few grid properties
         dr = r[1] - r[0]
@@ -462,40 +468,49 @@ class InterpolationGrid(object) :
         self.Jt = np.zeros( (Nz, Nr), dtype='complex' )
         self.Jz = np.zeros( (Nz, Nr), dtype='complex' )
         self.rho = np.zeros( (Nz, Nr), dtype='complex' )
+
+        # Check whether the GPU should be used
+        self.use_cuda = use_cuda
         
+        # Replace the invvol array by an array on the GPU, when using cuda
+        if self.use_cuda :
+            self.d_invvol = cuda.to_device( self.invvol )
+
+    def send_fields_to_gpu( self ):
+        """
+        Copy the fields to the GPU.
         
-    def filter(self, fieldtype, direction ) :
+        After this function is called, the array attributes
+        point to GPU arrays.
         """
-        Filter the field `fieldtype`
+        self.Er = cuda.to_device( self.Er )
+        self.Et = cuda.to_device( self.Et )
+        self.Ez = cuda.to_device( self.Ez )
+        self.Br = cuda.to_device( self.Br )
+        self.Bt = cuda.to_device( self.Bt )
+        self.Bz = cuda.to_device( self.Bz )
+        self.Jr = cuda.to_device( self.Jr )
+        self.Jt = cuda.to_device( self.Jt )
+        self.Jz = cuda.to_device( self.Jz )
+        self.rho = cuda.to_device( self.rho )
 
-        This uses a binomial filter
-
-        Parameter
-        ---------
-        fieldtype : string
-            A string which represents the kind of field to be filtered
-            (either 'E', 'B', 'J' or 'rho')
-
-        direction : string, optional
-           The direction in which to filter
-           (either 'r' or 'z')
+    def receive_fields_from_gpu( self ):
         """
-        if fieldtype == 'rho' :
-            binomial_filter( self.rho, direction, (-1)**self.m )
-        elif fieldtype == 'J' :
-            binomial_filter( self.Jr, direction, -(-1)**self.m )
-            binomial_filter( self.Jt, direction, -(-1)**self.m )
-            binomial_filter( self.Jz, direction, (-1)**self.m )
-        elif fieldtype == 'E' :
-            binomial_filter( self.Er, direction, -(-1)**self.m )
-            binomial_filter( self.Et, direction, -(-1)**self.m )
-            binomial_filter( self.Ez, direction, (-1)**self.m )
-        elif fieldtype == 'B' :
-            binomial_filter( self.Br, direction, -(-1)**self.m )
-            binomial_filter( self.Bt, direction, -(-1)**self.m )
-            binomial_filter( self.Bz, direction, (-1)**self.m )
-        else :
-            raise ValueError( 'Invalid string for fieldtype: %s' %fieldtype )
+        Receive the fields from the GPU.
+        
+        After this function is called, the array attributes
+        are accessible by the CPU again.
+        """
+        self.Er = self.Er.copy_to_host()
+        self.Et = self.Et.copy_to_host()
+        self.Ez = self.Ez.copy_to_host()
+        self.Br = self.Br.copy_to_host()
+        self.Bt = self.Bt.copy_to_host()
+        self.Bz = self.Bz.copy_to_host()
+        self.Jr = self.Jr.copy_to_host()
+        self.Jt = self.Jt.copy_to_host()
+        self.Jz = self.Jz.copy_to_host()
+        self.rho = self.rho.copy_to_host()
         
     def show(self, fieldtype, below_axis=True, scale=1,
              gridscale=1.e-6, **kw) :
@@ -581,10 +596,6 @@ class SpectralGrid(object) :
         self.Nr = Nr
         self.Nz = Nz
         self.m = m
-        self.kz, self.kr = np.meshgrid( kz, kr, indexing='ij' )
-
-        # Check whether to use the GPU
-        self.use_cuda = use_cuda
         
         # Allocate the fields arrays
         self.Ep = np.zeros( (Nz, Nr), dtype='complex' )
@@ -600,15 +611,63 @@ class SpectralGrid(object) :
         self.rho_next = np.zeros( (Nz, Nr), dtype='complex' )
 
         # Auxiliary arrays
-        # - for current correction
-        self.F = np.zeros( (Nz, Nr), dtype='complex' )
-        # Note : F is not needed on the GPU (on-the-fly variable)
-        self.inv_k2 = 1./np.where( ( self.kz == 0 ) & (self.kr == 0),
-                                   1., self.kz**2 + self.kr**2 )
-        # No correction for k=0
-        self.inv_k2[ ( self.kz == 0 ) & (self.kr == 0) ] = 0.
+        self.kz, self.kr = np.meshgrid( kz, kr, indexing='ij' )
         # - for filtering
         self.filter_array = get_filter_array( kz, kr )
+        # - for current correction
+        self.F = np.zeros( (Nz, Nr), dtype='complex' )
+        self.inv_k2 = 1./np.where( ( self.kz == 0 ) & (self.kr == 0),
+                                   1., self.kz**2 + self.kr**2 )
+        self.inv_k2[ ( self.kz == 0 ) & (self.kr == 0) ] = 0.
+
+        # Check whether to use the GPU
+        self.use_cuda = use_cuda
+        
+        # Transfer the auxiliary arrays on the GPU
+        if self.use_cuda :
+            self.d_filter_array = cuda.to_device( self.filter_array )
+            self.d_inv_k2 = cuda.to_device( self.inv_k2 )
+            self.d_kz = cuda.to_device( self.kz )
+            self.d_kr = cuda.to_device( self.kr )
+            # NB: F is not needed on the GPU (on-the-fly variables)
+
+    def send_fields_to_gpu( self ):
+        """
+        Copy the fields to the GPU.
+        
+        After this function is called, the array attributes
+        point to GPU arrays.
+        """
+        self.Ep = cuda.to_device( self.Ep )
+        self.Em = cuda.to_device( self.Em )
+        self.Ez = cuda.to_device( self.Ez )
+        self.Bp = cuda.to_device( self.Bp )
+        self.Bm = cuda.to_device( self.Bm )
+        self.Bz = cuda.to_device( self.Bz )
+        self.Jp = cuda.to_device( self.Jp )
+        self.Jm = cuda.to_device( self.Jm )
+        self.Jz = cuda.to_device( self.Jz )
+        self.rho_prev = cuda.to_device( self.rho_prev )
+        self.rho_next = cuda.to_device( self.rho_next )
+
+    def receive_fields_from_gpu( self ):
+        """
+        Receive the fields from the GPU.
+        
+        After this function is called, the array attributes
+        are accessible by the CPU again.
+        """
+        self.Ep = self.Ep.copy_to_host()
+        self.Em = self.Em.copy_to_host()
+        self.Ez = self.Ez.copy_to_host()
+        self.Bp = self.Bp.copy_to_host()
+        self.Bm = self.Bm.copy_to_host()
+        self.Bz = self.Bz.copy_to_host()
+        self.Jp = self.Jp.copy_to_host()
+        self.Jm = self.Jm.copy_to_host()
+        self.Jz = self.Jz.copy_to_host()
+        self.rho_prev = self.rho_prev.copy_to_host()
+        self.rho_next = self.rho_next.copy_to_host()
 
     def correct_currents (self, dt) :
         """
@@ -624,12 +683,12 @@ class SpectralGrid(object) :
         inv_dt = 1./dt
         
         if self.use_cuda :
-            # Correct the currents on the GPU
+            # Obtain the cuda grid
             dim_grid, dim_block = cuda_tpb_bpg_2d( self.Nz, self.Nr)
-
+            # Correct the currents on the GPU
             cuda_correct_currents[dim_grid, dim_block](
                 self.rho_prev, self.rho_next, self.Jp, self.Jm, self.Jz,
-                self.kz, self.kr, self.inv_k2, inv_dt, self.Nz, self.Nr)
+                self.d_kz, self.d_kr, self.d_inv_k2, inv_dt, self.Nz, self.Nr)
         else :
             # Correct the currents on the CPU
 
@@ -669,14 +728,15 @@ class SpectralGrid(object) :
         assert( self.m == ps.m )
 
         if self.use_cuda :
-            # Push the fields on the GPU
+            # Obtain the cuda grid
             dim_grid, dim_block = cuda_tpb_bpg_2d( self.Nz, self.Nr)
-            
+            # Push the fields on the GPU            
             cuda_push_eb_with[dim_grid, dim_block](
                 self.Ep, self.Em, self.Ez, self.Bp, self.Bm, self.Bz,
                 self.Jp, self.Jm, self.Jz, self.rho_prev, self.rho_next,
-                ps.rho_prev_coef, ps.rho_next_coef, ps.j_coef, ps.dt,
-                ptcl_feedback, use_true_rho, Nz, Nr )
+                ps.d_rho_prev_coef, ps.d_rho_next_coef, ps.d_j_coef,
+                ps.d_C, ps.d_S_w, self.d_kr, self.d_kz, ps.dt,
+                ptcl_feedback, use_true_rho, self.Nz, self.Nr )
 
         else :
             # Push the fields on the CPU
@@ -700,10 +760,10 @@ class SpectralGrid(object) :
                         - ps.rho_prev_coef*self.rho_prev
                 else :
                     # Evaluation using div(E) and div(J)
-                    rho_diff = (ps.rho_next_coef-ps.rho_prev_coef)*epsilon_0* \
-                    ( self.kr*self.Ep - self.kr*self.Em + i*self.kz*self.Ez ) \
+                    rho_diff= (ps.rho_next_coef-ps.rho_prev_coef)*epsilon_0* \
+                    (self.kr*self.Ep - self.kr*self.Em + i*self.kz*self.Ez) \
                     - ps.rho_next_coef * ps.dt * \
-                    ( self.kr*self.Jp - self.kr*self.Jm + i*self.kz*self.Jz )
+                    (self.kr*self.Jp - self.kr*self.Jm + i*self.kz*self.Jz)
 
                 # Push the E field
                 self.Ep[:,:] = ps.C*self.Ep + 0.5*self.kr*rho_diff \
@@ -742,7 +802,7 @@ class SpectralGrid(object) :
                 + c2*ps.S_w*( -i*0.5*self.kr*self.Bz - self.kz*self.Bm )
     
                 self.Ez[:,:] = ps.C*self.Ez \
-                + c2*ps.S_w*( i*self.kr*self.Bp + i*self.kr*self.Bm )            
+                + c2*ps.S_w*( i*self.kr*self.Bp + i*self.kr*self.Bm )
         
                 # Push the B field
                 self.Bp[:,:] = ps.C*self.Bp \
@@ -760,11 +820,11 @@ class SpectralGrid(object) :
         and set rho_next to zero
         """
         if self.use_cuda :
-            # Push the fields on the GPU
+            # Obtain the cuda grid
             dim_grid, dim_block = cuda_tpb_bpg_2d( self.Nz, self.Nr)
-
+            # Push the fields on the GPU
             cuda_push_rho[dim_grid, dim_block](
-                self.rho_prev, self.rho_next )
+                self.rho_prev, self.rho_next, self.Nz, self.Nr )
         else :
             # Push the fields on the CPU
             self.rho_prev[:,:] = self.rho_next[:,:]
@@ -781,26 +841,26 @@ class SpectralGrid(object) :
             (either 'E', 'B', 'J', 'rho_next' or 'rho_prev')
         """
         if self.use_cuda :
-            # Filter fields on the GPU
+            # Obtain the cuda grid
             dim_grid, dim_block = cuda_tpb_bpg_2d( self.Nz, self.Nr)
-            
+            # Filter fields on the GPU            
             if fieldtype == 'rho_prev' :
                 cuda_filter_scalar[dim_grid, dim_block](
-                    self.rho_prev, self.filter_array, self.Nz, self.Nr )
+                    self.rho_prev, self.d_filter_array, self.Nz, self.Nr )
             elif fieldtype == 'rho_next' :
                 cuda_filter_scalar[dim_grid, dim_block](
-                    self.rho_next, self.filter_array, self.Nz, self.Nr )
+                    self.rho_next, self.d_filter_array, self.Nz, self.Nr )
             elif fieldtype == 'J' :
-                cuda_filter_vector[dim_grid, dim_block](
-                self.Jp, self.Jm, self.Jz, self.filter_array, self.Nz, self.Nr)
+                cuda_filter_vector[dim_grid, dim_block]( self.Jp, self.Jm,
+                        self.Jz, self.d_filter_array, self.Nz, self.Nr)
             elif fieldtype == 'E' :
-                cuda_filter_vector[dim_grid, dim_block](
-                self.Ep, self.Em, self.Ez, self.filter_array, self.Nz, self.Nr)
+                cuda_filter_vector[dim_grid, dim_block]( self.Ep, self.Em,
+                        self.Ez, self.d_filter_array, self.Nz, self.Nr)
             elif fieldtype == 'B' :
-                cuda_filter_vector[dim_grid, dim_block](
-                self.Bp, self.Bm, self.Bz, self.filter_array, self.Nz, self.Nr)
+                cuda_filter_vector[dim_grid, dim_block]( self.Bp, self.Bm,
+                        self.Bz, self.d_filter_array, self.Nz, self.Nr)
             else :
-                raise ValueError('Invalid string for fieldtype: %s' %fieldtype)
+                raise ValueError('Invalid string for fieldtype: %s'%fieldtype)
         else :
             # Filter fields on the CPU
             
@@ -821,7 +881,7 @@ class SpectralGrid(object) :
                 self.Bm = self.Bm * self.filter_array
                 self.Bz = self.Bz * self.filter_array
             else :
-                raise ValueError('Invalid string for fieldtype: %s' %fieldtype)
+                raise ValueError('Invalid string for fieldtype: %s'%fieldtype)
         
     def show(self, fieldtype, below_axis=True, scale=1, **kw) :
         """
@@ -845,7 +905,7 @@ class SpectralGrid(object) :
         # Fold it so as to center the 0 frequency
         plotted_field = np.fft.fftshift( plotted_field, axes=0 )
         if below_axis == True :
-            plotted_field = np.hstack( (plotted_field[:,::-1], plotted_field) )
+            plotted_field = np.hstack((plotted_field[:,::-1], plotted_field))
             extent = [ self.kz[:,0].min(), self.kz[:,0].max(),
                     -self.kr[0,:].max(), self.kr[0,:].max() ]
         else :
@@ -897,6 +957,9 @@ class PsatdCoeffs(object) :
             
         dt : float
             The timestep of the simulation
+
+        use_cuda : bool, optional
+            Wether to use the GPU or not
         """
         
         # Register m and dt
@@ -922,7 +985,7 @@ class PsatdCoeffs(object) :
 
         # Construct rho_prev coefficient array
         inv_dt = 1./dt
-        self.rho_prev_coef = c**2/epsilon_0*(self.C - inv_dt*self.S_w)*inv_w**2
+        self.rho_prev_coef= c**2/epsilon_0*(self.C - inv_dt*self.S_w)*inv_w**2
         # Enforce the right value for w==0
         self.rho_prev_coef[ w==0 ] = c**2/epsilon_0*(-1./3*dt**2)
 
@@ -935,9 +998,17 @@ class PsatdCoeffs(object) :
         self.Ep = np.zeros( (Nz, Nr), dtype='complex' )
         self.Em = np.zeros( (Nz, Nr), dtype='complex' )
         self.Ez = np.zeros( (Nz, Nr), dtype='complex' )
-        # Note : no need to copy these variables to the GPU
-        # (on-the-fly variables)
 
+        # Replace these array by arrays on the GPU, when using cuda
+        if use_cuda :
+            self.d_C = cuda.to_device(self.C)
+            self.d_S_w = cuda.to_device(self.S_w)
+            self.d_j_coef = cuda.to_device(self.j_coef)
+            self.d_rho_prev_coef = cuda.to_device(self.rho_prev_coef)
+            self.d_rho_next_coef = cuda.to_device(self.rho_next_coef)
+            # NB : Ep, Em, Ez are not needed on the GPU (on-the-fly variables)
+
+        
 class SpectralTransformer(object) :
     """
     Object that allows to transform the fields back and forth between the
@@ -980,12 +1051,16 @@ class SpectralTransformer(object) :
         self.use_cuda = use_cuda
         
         # Initialize the DHT (local implementation, see hankel_dt.py)
-        print('Preparing the Discrete Hankel Transforms for mode %d' %m)
-        self.dht0 = DHT(   m, Nr, Nz, rmax, 'MDHT(m,m)', d=0.5, Fw='inverse',
+        if use_cuda :
+            print('Preparing the Hankel Transforms for mode %d on the GPU' %m)
+        else :
+            print('Preparing the Hankel Transforms for mode %d on the CPU' %m)
+
+        self.dht0 = DHT(  m, Nr, Nz, rmax, 'MDHT(m,m)', d=0.5, Fw='inverse',
                            use_cuda=self.use_cuda )
-        self.dhtp = DHT( m+1, Nr, Nz, rmax, 'MDHT(m+1,m)', d=0.5, Fw='inverse',
+        self.dhtp = DHT(m+1, Nr, Nz, rmax, 'MDHT(m+1,m)', d=0.5, Fw='inverse',
                            use_cuda=self.use_cuda )
-        self.dhtm = DHT( m-1, Nr, Nz, rmax, 'MDHT(m-1,m)', d=0.5, Fw='inverse',
+        self.dhtm = DHT(m-1, Nr, Nz, rmax, 'MDHT(m-1,m)', d=0.5, Fw='inverse',
                            use_cuda=self.use_cuda )
 
         if self.use_cuda :
@@ -1019,17 +1094,17 @@ class SpectralTransformer(object) :
             print('Preparing FFTW for mode %d on the CPU' %m)
             
             # Two buffers and FFTW objects are initialized, since
-            # spect2interp_vect and interp2spect_vect require two separate FFTs
+            # spect2interp_vect and interp2spect_vect require two separate FFT
             
             # First buffer and FFTW transform
             self.interp_buffer_r = \
                 pyfftw.n_byte_align_empty( (Nz,Nr), 16, 'complex128' )
             self.spect_buffer_r = \
                 pyfftw.n_byte_align_empty( (Nz,Nr), 16, 'complex128' )
-            self.fft_r = pyfftw.FFTW(self.interp_buffer_r, self.spect_buffer_r,
-                        axes=(0,), direction='FFTW_FORWARD', threads=nthreads)
-            self.ifft_r =pyfftw.FFTW(self.spect_buffer_r, self.interp_buffer_r,
-                        axes=(0,), direction='FFTW_BACKWARD', threads=nthreads)
+            self.fft_r= pyfftw.FFTW(self.interp_buffer_r, self.spect_buffer_r,
+                    axes=(0,), direction='FFTW_FORWARD', threads=nthreads)
+            self.ifft_r=pyfftw.FFTW(self.spect_buffer_r, self.interp_buffer_r,
+                    axes=(0,), direction='FFTW_BACKWARD', threads=nthreads)
             # Use different name for same object (for economy of memory)
             self.spect_buffer_p = self.spect_buffer_r 
             
@@ -1038,10 +1113,10 @@ class SpectralTransformer(object) :
                 pyfftw.n_byte_align_empty( (Nz,Nr), 16, 'complex128' )
             self.spect_buffer_t = \
                 pyfftw.n_byte_align_empty( (Nz,Nr), 16, 'complex128' )
-            self.fft_t = pyfftw.FFTW(self.interp_buffer_t, self.spect_buffer_t,
-                        axes=(0,), direction='FFTW_FORWARD', threads=nthreads )
-            self.ifft_t =pyfftw.FFTW(self.spect_buffer_t, self.interp_buffer_t,
-                        axes=(0,), direction='FFTW_BACKWARD', threads=nthreads)
+            self.fft_t= pyfftw.FFTW(self.interp_buffer_t, self.spect_buffer_t,
+                    axes=(0,), direction='FFTW_FORWARD', threads=nthreads )
+            self.ifft_t=pyfftw.FFTW(self.spect_buffer_t, self.interp_buffer_t,
+                    axes=(0,), direction='FFTW_BACKWARD', threads=nthreads)
             # Use different name for same object (for economy of memory)    
             self.spect_buffer_m = self.spect_buffer_t
 
@@ -1061,7 +1136,7 @@ class SpectralTransformer(object) :
            A complex array representing the fields on the interpolation
            grid, and which is overwritten by this function.
         """
-        # Perform the inverse DHT first (along axis -1, which corresponds to r)
+        # Perform the inverse DHT (along axis -1, which corresponds to r)
         self.dht0.inverse_transform( spect_array, self.spect_buffer_r )
 
         # Then perform the inverse FFT (along axis 0, which corresponds to z)
@@ -1077,7 +1152,7 @@ class SpectralTransformer(object) :
         else :
             # Perform the inverse FFT on the CPU, using preallocated buffers
             self.interp_buffer_r = self.ifft_r()
-            #Copy to the output array
+            # Copy to the output array
             interp_array[:,:] = self.interp_buffer_r[:,:]  
 
     def spect2interp_vect( self, spect_array_p, spect_array_m,
@@ -1097,7 +1172,7 @@ class SpectralTransformer(object) :
            Complex arrays representing the fields on the interpolation
            grid, and which are overwritten by this function.
         """
-        # Perform the inverse DHT first (along axis -1, which corresponds to r)
+        # Perform the inverse DHT (along axis -1, which corresponds to r)
         self.dhtp.inverse_transform( spect_array_p, self.spect_buffer_p )
         self.dhtm.inverse_transform( spect_array_m, self.spect_buffer_m )
     
@@ -1246,7 +1321,7 @@ class SpectralTransformer(object) :
                 0.5*( self.spect_buffer_r - 1.j*self.spect_buffer_t ), \
                 0.5*( self.spect_buffer_r + 1.j*self.spect_buffer_t )
         
-        # Perform the inverse DHT first (along axis -1, which corresponds to r)
+        # Perform the inverse DHT (along axis -1, which corresponds to r)
         self.dhtp.transform( self.spect_buffer_p, spect_array_p )
         self.dhtm.transform( self.spect_buffer_m, spect_array_m )
 
@@ -1254,57 +1329,6 @@ class SpectralTransformer(object) :
 # -----------------
 # Utility function
 # -----------------
-
-def binomial_filter( F, direction, sign_guard ) :
-    """
-    Apply a binomial filter to the array F
-
-    Parameters
-    ----------
-    F : 2darray
-        An array whose first axis corresponds to z and
-        second axis corresponds to r
-
-    direction : string
-        Indicates in which direction to perform the filter
-        (Either 'r' or 'z')
-
-    sign_guard : int
-        Indicates with what is the sign of the values below
-        the axis, as compared to the value above the axis.
-        (Only used in the case direction='r')
-    """
-    F_unfiltered = F.copy()
-    
-    if direction == 'z' : # Periodic boundaries
-        F[1:-1,:] = 0.25*F_unfiltered[:-2,:] \
-                   + 0.5*F_unfiltered[1:-1,:] \
-                   + 0.25*F_unfiltered[2:,:]
-        F[0,:] =  0.25*F_unfiltered[-1,:] \
-                   + 0.5*F_unfiltered[0,:] \
-                   + 0.25*F_unfiltered[1,:]
-        F[-1,:] =  0.25*F_unfiltered[-2,:] \
-                   + 0.5*F_unfiltered[-1,:] \
-                   + 0.25*F_unfiltered[0,:]
-
-    elif direction == 'r' : # Non-periodic boundaries
-        F[:,1:-1] = 0.25*F_unfiltered[:,:-2] \
-                   + 0.5*F_unfiltered[:,1:-1] \
-                   + 0.25*F_unfiltered[:,2:]
-        # Assume that the guard cell below the axis has
-        # the same value as the cell above the axis, up
-        # to the sign `sign_guard`
-        F[:,0] =  0.25*sign_guard*F_unfiltered[:,0] \
-                 + 0.5*F_unfiltered[:,0] \
-                 + 0.5*F_unfiltered[:,1]
-        # Assume that the guard cell above the boundary has
-        # the same value as the cell below it
-        F[:,-1] =  0.25*F_unfiltered[:,-1] \
-                   + 0.5*F_unfiltered[:,-1] \
-                   + 0.25*F_unfiltered[:,-2]
-    else :
-        raise ValueError("Unrecognized `direction` : %s" %direction)
-
 
 def get_filter_array( kz, kr ) :
     """

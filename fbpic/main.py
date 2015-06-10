@@ -10,8 +10,10 @@ from particles import Particles
 try:
     from cuda_utils import *
 except ImportError:
-    print '\n Cuda not installed or GPU not available \n'
-
+    cuda_installed = False
+else :
+    cuda_installed = True
+    
 class Simulation(object) :
     """
     Top-level simulation class that contains all the simulation
@@ -79,9 +81,13 @@ class Simulation(object) :
         use_cuda : bool, optional
             Wether to use CUDA (GPU) acceleration
         """
+        # Check whether to use cuda
         self.use_cuda = use_cuda
+        if (use_cuda==True) and (cuda_installed==False) :
+            self.use_cuda = False
+
         # Initialize the field structure
-        self.fld = Fields(Nz, zmax, Nr, rmax, Nm, dt)
+        self.fld = Fields(Nz, zmax, Nr, rmax, Nm, dt, use_cuda=self.use_cuda)
 
         # Modify the input parameters p_zmin, p_zmax, r_zmin, r_zmax, so that
         # they fall exactly on the grid, and infer the number of particles
@@ -94,12 +100,12 @@ class Simulation(object) :
         self.ptcl = [
             Particles( q=-e, m=m_e, n=n_e, Npz=Npz, zmin=p_zmin, zmax=p_zmax,
                        Npr=Npr, rmin=p_rmin, rmax=p_rmax, Nptheta=p_nt, dt=dt,
-                       dens_func=dens_func, use_cuda = use_cuda) ]
+                       dens_func=dens_func, use_cuda=self.use_cuda) ]
         if initialize_ions :
             self.ptcl.append(
-                Particles( q=e, m=m_p, n=n_e, Npz=Npz, zmin=p_zmin, zmax=p_zmax,
+                Particles(q=e, m=m_p, n=n_e, Npz=Npz, zmin=p_zmin, zmax=p_zmax,
                         Npr=Npr, rmin=p_rmin, rmax=p_rmax, Nptheta=p_nt, dt=dt,
-                        dens_func=dens_func, use_cuda = use_cuda ) )
+                        dens_func=dens_func, use_cuda=self.use_cuda ) )
         
         # Register the number of particles per cell along z, and dt
         # (Necessary for the moving window)
@@ -282,7 +288,7 @@ def progression_bar(i, Ntot, Nbars=60, char='-') :
     sys.stdout.write(' %d/%d' %(i,Ntot))
     sys.stdout.flush()
 
-def adapt_to_grid( x, p_xmin, p_xmax, p_nx ) :
+def adapt_to_grid( x, p_xmin, p_xmax, p_nx, ncells_empty=2 ) :
     """
     Adapt p_xmin and p_xmax, so that they fall exactly on the grid x
     Return the total number of particles, assuming p_nx particles per gridpoint
@@ -298,7 +304,11 @@ def adapt_to_grid( x, p_xmin, p_xmax, p_nx ) :
 
     p_nx : int
         Number of particle per gridpoint
-    
+
+    ncells_empty : int
+        Number of empty cells at the righthand side of the box
+        (Typically used when using a moving window)
+        
     Returns
     -------
     A tuple with :
@@ -319,8 +329,8 @@ def adapt_to_grid( x, p_xmin, p_xmax, p_nx ) :
     # when it is smoothed. If particles are loaded closer to the right
     # boundary, this extended charge density can wrap around and appear
     # at the left boundary.)
-    if p_xmax > xmax - 1.5*dx :
-        p_xmax = xmax - 1.5*dx
+    if p_xmax > xmax + (0.5-ncells_empty)*dx :
+        p_xmax = xmax + (0.5-ncells_empty)*dx
             
     # Find the gridpoints on which the particles should be loaded
     x_load = x[ ( x > p_xmin ) & ( x < p_xmax ) ]
