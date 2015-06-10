@@ -113,7 +113,8 @@ class Particles(object) :
         self.use_cuda = use_cuda
         self.use_cuda_memory = use_cuda_memory
         if (self.use_cuda==True) and (cuda_installed==False) :
-            print 'Cuda for numba is not installed ; running on the CPU.'
+            print '*** Cuda not available for the particles.'
+            print '*** Performing the particle operations on the CPU.'
             self.use_cuda = False
         if self.use_cuda == False:
             self.use_cuda_memory == False

@@ -93,10 +93,11 @@ class Fields(object) :
         # Define wether or not to use the GPU
         self.use_cuda = use_cuda
         if (self.use_cuda==True) and (cuda_installed==False) :
-            print 'Cuda for numba is not installed ; running on the CPU.'
+            print '*** Cuda not available for the fields.'
+            print '*** Performing the field operations on the CPU.'
             self.use_cuda = False
         if self.use_cuda == True:
-            print 'Using the GPU for the fields.'
+            print 'Using the GPU for the field.'
 
         # Infer the values of the z and kz grid
         dz = zmax/Nz
@@ -981,7 +982,11 @@ class SpectralTransformer(object) :
         self.use_cuda = use_cuda
         
         # Initialize the DHT (local implementation, see hankel_dt.py)
-        print('Preparing the Discrete Hankel Transforms for mode %d' %m)
+        if use_cuda :
+            print('Preparing the Hankel Transforms for mode %d on the GPU' %m)
+        else :
+            print('Preparing the Hankel Transforms for mode %d on the CPU' %m)
+
         self.dht0 = DHT(   m, Nr, Nz, rmax, 'MDHT(m,m)', d=0.5, Fw='inverse',
                            use_cuda=self.use_cuda )
         self.dhtp = DHT( m+1, Nr, Nz, rmax, 'MDHT(m+1,m)', d=0.5, Fw='inverse',

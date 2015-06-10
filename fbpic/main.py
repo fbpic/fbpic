@@ -10,8 +10,10 @@ from particles import Particles
 try:
     from cuda_utils import *
 except ImportError:
-    print '\n Cuda not installed or GPU not available \n'
-
+    cuda_installed = False
+else :
+    cuda_installed = True
+    
 class Simulation(object) :
     """
     Top-level simulation class that contains all the simulation
@@ -79,9 +81,13 @@ class Simulation(object) :
         use_cuda : bool, optional
             Wether to use CUDA (GPU) acceleration
         """
+        # Check whether to use cuda
         self.use_cuda = use_cuda
+        if (use_cuda==True) and (cuda_installed==False) :
+            self.use_cuda = False
+
         # Initialize the field structure
-        self.fld = Fields(Nz, zmax, Nr, rmax, Nm, dt)
+        self.fld = Fields(Nz, zmax, Nr, rmax, Nm, dt, use_cuda=self.use_cuda)
 
         # Modify the input parameters p_zmin, p_zmax, r_zmin, r_zmax, so that
         # they fall exactly on the grid, and infer the number of particles
@@ -94,12 +100,12 @@ class Simulation(object) :
         self.ptcl = [
             Particles( q=-e, m=m_e, n=n_e, Npz=Npz, zmin=p_zmin, zmax=p_zmax,
                        Npr=Npr, rmin=p_rmin, rmax=p_rmax, Nptheta=p_nt, dt=dt,
-                       dens_func=dens_func, use_cuda = use_cuda) ]
+                       dens_func=dens_func, use_cuda=self.use_cuda) ]
         if initialize_ions :
             self.ptcl.append(
                 Particles(q=e, m=m_p, n=n_e, Npz=Npz, zmin=p_zmin, zmax=p_zmax,
                         Npr=Npr, rmin=p_rmin, rmax=p_rmax, Nptheta=p_nt, dt=dt,
-                        dens_func=dens_func, use_cuda = use_cuda ) )
+                        dens_func=dens_func, use_cuda=self.use_cuda ) )
         
         # Register the number of particles per cell along z, and dt
         # (Necessary for the moving window)
