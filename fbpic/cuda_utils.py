@@ -199,10 +199,12 @@ def send_data_to_gpu(simulation):
         A simulation object that contains the particle
         (ptcl) and field object (fld)
     """
-    # Send Particles to the GPU (if CUDA is used)
+    # Send particles to the GPU (if CUDA is used)
     for species in simulation.ptcl :
         if species.use_cuda:
             species.send_particles_to_gpu()
+    # Send fields to the GPU (if CUDA is used)
+    simulation.fld.send_fields_to_gpu()
 
 def receive_data_from_gpu(simulation):
     """
@@ -220,4 +222,6 @@ def receive_data_from_gpu(simulation):
     for species in simulation.ptcl :
         if species.use_cuda:
             species.receive_particles_from_gpu() 
+    # Receive fields from the GPU (if CUDA is used)
+    simulation.fld.receive_fields_from_gpu()
 
