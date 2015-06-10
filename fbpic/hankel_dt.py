@@ -44,10 +44,9 @@ try :
     from numbapro.cudalib import cublas
     from fbpic.cuda_utils import cuda_tpb_bpg_2d
     from cuda_utils import cuda, cuda_copy_2d_to_2d
+    cuda_installed = True
 except ImportError :
     cuda_installed = False
-else :
-    cuda_installed = True
     
 # The list of available methods
 available_methods = [ 'QDHT', 'MDHT(m+1,m)', 'MDHT(m-1,m)', 'MDHT(m,m)']
@@ -356,7 +355,6 @@ class DHT(object) :
                    F.shape[1], 1.0, self.d_in, self.d_M, 0., self.d_out )
             # Convert the Fortran-order d_out array to the C-order G array
             cuda_copy_2d_to_2d[self.dim_grid, self.dim_block]( self.d_out, G )
-            cuda.synchronize()
             
         else :
             np.dot( F, self.M, out=G )
@@ -387,7 +385,6 @@ class DHT(object) :
                    G.shape[1], 1.0, self.d_in, self.d_invM, 0., self.d_out )
             # Convert the Fortran-order d_out array to the C-order G array
             cuda_copy_2d_to_2d[self.dim_grid, self.dim_block]( self.d_out, F )
-            cuda.synchronize()
         
         else :
             np.dot( G, self.invM, out=F )

@@ -12,8 +12,8 @@ c2 = c**2
 # Erasing functions
 # ------------------
 
-@cuda.jit('void(complex128[:,:], complex128[:,:], int32, int32)')
-def cuda_erase_scalar( mode0, mode1, Nz, Nr ) :
+@cuda.jit('void(complex128[:,:], complex128[:,:])')
+def cuda_erase_scalar( mode0, mode1 ) :
     """
     Set the two input arrays to 0
 
@@ -24,24 +24,21 @@ def cuda_erase_scalar( mode0, mode1, Nz, Nr ) :
     ------------
     mode0, mode1 : 2darrays of complexs
        Arrays that represent the fields on the grid
-       (The first axis corresponds to z and the second axis to r)
-
-    Nz, Nr : ints
-       The dimensions of the arrays
+       (The first axis corresponds to z and the second axis to r) d
     """
     
     # Cuda 2D grid
     iz, ir = cuda.grid(2)
 
     # Set the elements of the array to 0
-    if (iz < Nz) and (ir < Nr) :
+    if (iz < mode0.shape[0]) and (ir < mode0.shape[1]) :
         mode0[iz, ir] = 0
         mode1[iz, ir] = 0
 
 @cuda.jit('void(complex128[:,:], complex128[:,:], \
                 complex128[:,:], complex128[:,:], \
-                complex128[:,:], complex128[:,:], int32, int32)')
-def cuda_erase_vector(mode0r, mode1r, mode0t, mode1t, mode0z, mode1z, Nz, Nr) :
+                complex128[:,:], complex128[:,:])')
+def cuda_erase_vector(mode0r, mode1r, mode0t, mode1t, mode0z, mode1z) :
     """
     Set the two input arrays to 0
 
@@ -53,16 +50,13 @@ def cuda_erase_vector(mode0r, mode1r, mode0t, mode1t, mode0z, mode1z, Nz, Nr) :
     mode0r, mode1r, mode0t, mode1t, mode0z, mode1z : 2darrays of complexs
        Arrays that represent the fields on the grid
        (The first axis corresponds to z and the second axis to r)
-
-    Nz, Nr : ints
-       The dimensions of the arrays
     """
     
     # Cuda 2D grid
     iz, ir = cuda.grid(2)
 
     # Set the elements of the array to 0
-    if (iz < Nz) and (ir < Nr) :
+    if (iz < mode0r.shape[0]) and (ir < mode0r.shape[1]) :
         mode0r[iz, ir] = 0
         mode0t[iz, ir] = 0
         mode0z[iz, ir] = 0
@@ -75,8 +69,8 @@ def cuda_erase_vector(mode0r, mode1r, mode0t, mode1t, mode0z, mode1z, Nz, Nr) :
 # ---------------------------
         
 @cuda.jit('void(complex128[:,:], complex128[:,:], \
-           float64[:], float64[:], int32, int32)')
-def cuda_divide_scalar_by_volume( mode0, mode1, invvol0, invvol1, Nz, Nr ) :
+           float64[:], float64[:] )')
+def cuda_divide_scalar_by_volume( mode0, mode1, invvol0, invvol1 ) :
     """
     Multiply the input arrays by the corresponding invvol
 
@@ -98,7 +92,7 @@ def cuda_divide_scalar_by_volume( mode0, mode1, invvol0, invvol1, Nz, Nr ) :
     iz, ir = cuda.grid(2)
 
     # Multiply by inverse volume
-    if (iz < Nz) and (ir < Nr) :
+    if (iz < mode0.shape[0]) and (ir < mode0.shape[1]) :
         mode0[iz, ir] = mode0[iz, ir] * invvol0[ir]
         mode1[iz, ir] = mode1[iz, ir] * invvol1[ir]
 
@@ -106,9 +100,9 @@ def cuda_divide_scalar_by_volume( mode0, mode1, invvol0, invvol1, Nz, Nr ) :
 @cuda.jit('void(complex128[:,:], complex128[:,:], \
            complex128[:,:], complex128[:,:], \
            complex128[:,:], complex128[:,:], \
-           float64[:], float64[:], int32, int32)')
+           float64[:], float64[:])')
 def cuda_divide_vector_by_volume( mode0r, mode1r, mode0t, mode1t,
-                    mode0z, mode1z, invvol0, invvol1, Nz, Nr ) :
+                    mode0z, mode1z, invvol0, invvol1 ) :
     """
     Multiply the input arrays by the corresponding invvol
 
@@ -130,7 +124,7 @@ def cuda_divide_vector_by_volume( mode0r, mode1r, mode0t, mode1t,
     iz, ir = cuda.grid(2)
 
     # Multiply by inverse volume
-    if (iz < Nz) and (ir < Nr) :
+    if (iz < mode0r.shape[0]) and (ir < mode0r.shape[1]) :
         mode0r[iz, ir] = mode0r[iz, ir] * invvol0[ir]
         mode0t[iz, ir] = mode0t[iz, ir] * invvol0[ir]
         mode0z[iz, ir] = mode0z[iz, ir] * invvol0[ir]

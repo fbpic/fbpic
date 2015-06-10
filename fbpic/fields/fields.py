@@ -2,7 +2,6 @@
 This file is part of the Fourier-Bessel Particle-In-Cell code (FB-PIC)
 It defines the structure and methods associated with the fields.
 """
-
 import numpy as np
 import matplotlib.pyplot as plt
 from scipy.constants import c, mu_0, epsilon_0
@@ -144,6 +143,30 @@ class Fields(object) :
                                 self.spect[m].kr, m, dt, Nz, Nr,
                                 use_cuda = self.use_cuda ) )
 
+    def send_fields_to_gpu( self ):
+        """
+        Copy the fields to the GPU.
+        
+        After this function is called, the array attributes of the
+        interpolation and spectral grids point to GPU arrays
+        """
+        if self.use_cuda_memory:
+            for m in range(self.Nm) :
+                self.interp[m].send_fields_to_gpu()
+                self.spect[m].send_fields_to_gpu()
+
+    def receive_fields_from_gpu( self ):
+        """
+        Receive the fields from the GPU.
+        
+        After this function is called, the array attributes of the
+        interpolation and spectral grids are accessible by the CPU again.
+        """
+        if self.use_cuda_memory:
+            for m in range(self.Nm) :
+                self.interp[m].receive_fields_from_gpu()
+                self.spect[m].receive_fields_from_gpu()
+            
     def push(self, ptcl_feedback=True) :
         """
         Push the different azimuthal modes over one timestep,
@@ -181,8 +204,8 @@ class Fields(object) :
         """
         # Use the appropriate transformation depending on the fieldtype.
         if fieldtype == 'E' :
-            # Transform each azimuthal grid individually
             for m in range(self.Nm) :
+            # Transform each azimuthal grid individually
                 self.trans[m].interp2spect_scal(
                     self.interp[m].Ez, self.spect[m].Ez )
                 self.trans[m].interp2spect_vect(
@@ -272,26 +295,28 @@ class Fields(object) :
             (either 'E', 'B', 'J', 'rho')
         """
         if self.use_cuda :
-            dim_grid, dim_block = cuda_tpb_bpg_2d( self.Nz, self.Nr)
-            
+            # Obtain the cuda grid
+            dim_grid, dim_block = cuda_tpb_bpg_2d( self.Nz, self.Nr )
+
+            # Erase the arrays on the GPU
             if fieldtype == 'rho' :
                 cuda_erase_scalar[dim_grid, dim_block](
-                    self.interp[0].rho, self.interp[1].rho, self.Nz, self.Nr )
+                    self.interp[0].rho, self.interp[1].rho )
             elif fieldtype == 'J' :
                 cuda_erase_vector[dim_grid, dim_block](
                     self.interp[0].Jr, self.interp[1].Jr,
                     self.interp[0].Jt, self.interp[1].Jt,
-                    self.interp[0].Jz, self.interp[1].Jz, self.Nz, self.Nr )
+                    self.interp[0].Jz, self.interp[1].Jz )
             elif fieldtype == 'E' :
                 cuda_erase_vector[dim_grid, dim_block](
                     self.interp[0].Er, self.interp[1].Er,
                     self.interp[0].Et, self.interp[1].Et,
-                    self.interp[0].Ez, self.interp[1].Ez, self.Nz, self.Nr )
+                    self.interp[0].Ez, self.interp[1].Ez )
             elif fieldtype == 'B' :
                 cuda_erase_vector[dim_grid, dim_block](
                     self.interp[0].Br, self.interp[1].Br,
                     self.interp[0].Bt, self.interp[1].Bt,
-                    self.interp[0].Bz, self.interp[1].Bz, self.Nz, self.Nr )
+                    self.interp[0].Bz, self.interp[1].Bz )
             else :
                 raise ValueError('Invalid string for fieldtype: %s'%fieldtype)
         else :
@@ -351,15 +376,13 @@ class Fields(object) :
             if fieldtype == 'rho' :
                 cuda_divide_scalar_by_volume[dim_grid, dim_block](
                     self.interp[0].rho, self.interp[1].rho,
-                    self.interp[0].invvol, self.interp[1].invvol,
-                    self.Nz, self.Nr )
+                    self.interp[0].d_invvol, self.interp[1].d_invvol )
             elif fieldtype == 'J' :
                 cuda_divide_vector_by_volume[dim_grid, dim_block](
                     self.interp[0].Jr, self.interp[1].Jr,
                     self.interp[0].Jt, self.interp[1].Jt,
                     self.interp[0].Jz, self.interp[1].Jz,
-                    self.interp[0].invvol, self.interp[1].invvol,
-                    self.Nz, self.Nr )
+                    self.interp[0].d_invvol, self.interp[1].d_invvol )
             else :
                 raise ValueError('Invalid string for fieldtype: %s'%fieldtype)
         else :
@@ -417,9 +440,6 @@ class InterpolationGrid(object) :
         self.Nr = Nr
         self.r = r.copy()
         self.m = m
-
-        # Check whether the GPU should be used
-        self.use_cuda = use_cuda
         
         # Register a few grid properties
         dr = r[1] - r[0]
@@ -448,6 +468,49 @@ class InterpolationGrid(object) :
         self.Jt = np.zeros( (Nz, Nr), dtype='complex' )
         self.Jz = np.zeros( (Nz, Nr), dtype='complex' )
         self.rho = np.zeros( (Nz, Nr), dtype='complex' )
+
+        # Check whether the GPU should be used
+        self.use_cuda = use_cuda
+        
+        # Replace the invvol array by an array on the GPU, when using cuda
+        if self.use_cuda :
+            self.d_invvol = cuda.to_device( self.invvol )
+
+    def send_fields_to_gpu( self ):
+        """
+        Copy the fields to the GPU.
+        
+        After this function is called, the array attributes
+        point to GPU arrays.
+        """
+        self.Er = cuda.to_device( self.Er )
+        self.Et = cuda.to_device( self.Et )
+        self.Ez = cuda.to_device( self.Ez )
+        self.Br = cuda.to_device( self.Br )
+        self.Bt = cuda.to_device( self.Bt )
+        self.Bz = cuda.to_device( self.Bz )
+        self.Jr = cuda.to_device( self.Jr )
+        self.Jt = cuda.to_device( self.Jt )
+        self.Jz = cuda.to_device( self.Jz )
+        self.rho = cuda.to_device( self.rho )
+
+    def receive_fields_from_gpu( self ):
+        """
+        Receive the fields from the GPU.
+        
+        After this function is called, the array attributes
+        are accessible by the CPU again.
+        """
+        self.Er = self.Er.copy_to_host()
+        self.Et = self.Et.copy_to_host()
+        self.Ez = self.Ez.copy_to_host()
+        self.Br = self.Br.copy_to_host()
+        self.Bt = self.Bt.copy_to_host()
+        self.Bz = self.Bz.copy_to_host()
+        self.Jr = self.Jr.copy_to_host()
+        self.Jt = self.Jt.copy_to_host()
+        self.Jz = self.Jz.copy_to_host()
+        self.rho = self.rho.copy_to_host()
         
     def show(self, fieldtype, below_axis=True, scale=1,
              gridscale=1.e-6, **kw) :
@@ -533,10 +596,6 @@ class SpectralGrid(object) :
         self.Nr = Nr
         self.Nz = Nz
         self.m = m
-        self.kz, self.kr = np.meshgrid( kz, kr, indexing='ij' )
-
-        # Check whether to use the GPU
-        self.use_cuda = use_cuda
         
         # Allocate the fields arrays
         self.Ep = np.zeros( (Nz, Nr), dtype='complex' )
@@ -552,15 +611,63 @@ class SpectralGrid(object) :
         self.rho_next = np.zeros( (Nz, Nr), dtype='complex' )
 
         # Auxiliary arrays
-        # - for current correction
-        self.F = np.zeros( (Nz, Nr), dtype='complex' )
-        # Note : F is not needed on the GPU (on-the-fly variable)
-        self.inv_k2 = 1./np.where( ( self.kz == 0 ) & (self.kr == 0),
-                                   1., self.kz**2 + self.kr**2 )
-        # No correction for k=0
-        self.inv_k2[ ( self.kz == 0 ) & (self.kr == 0) ] = 0.
+        self.kz, self.kr = np.meshgrid( kz, kr, indexing='ij' )
         # - for filtering
         self.filter_array = get_filter_array( kz, kr )
+        # - for current correction
+        self.F = np.zeros( (Nz, Nr), dtype='complex' )
+        self.inv_k2 = 1./np.where( ( self.kz == 0 ) & (self.kr == 0),
+                                   1., self.kz**2 + self.kr**2 )
+        self.inv_k2[ ( self.kz == 0 ) & (self.kr == 0) ] = 0.
+
+        # Check whether to use the GPU
+        self.use_cuda = use_cuda
+        
+        # Transfer the auxiliary arrays on the GPU
+        if self.use_cuda :
+            self.d_filter_array = cuda.to_device( self.filter_array )
+            self.d_inv_k2 = cuda.to_device( self.inv_k2 )
+            self.d_kz = cuda.to_device( self.kz )
+            self.d_kr = cuda.to_device( self.kr )
+            # NB: F is not needed on the GPU (on-the-fly variables)
+
+    def send_fields_to_gpu( self ):
+        """
+        Copy the fields to the GPU.
+        
+        After this function is called, the array attributes
+        point to GPU arrays.
+        """
+        self.Ep = cuda.to_device( self.Ep )
+        self.Em = cuda.to_device( self.Em )
+        self.Ez = cuda.to_device( self.Ez )
+        self.Bp = cuda.to_device( self.Bp )
+        self.Bm = cuda.to_device( self.Bm )
+        self.Bz = cuda.to_device( self.Bz )
+        self.Jp = cuda.to_device( self.Jp )
+        self.Jm = cuda.to_device( self.Jm )
+        self.Jz = cuda.to_device( self.Jz )
+        self.rho_prev = cuda.to_device( self.rho_prev )
+        self.rho_next = cuda.to_device( self.rho_next )
+
+    def receive_fields_from_gpu( self ):
+        """
+        Receive the fields from the GPU.
+        
+        After this function is called, the array attributes
+        are accessible by the CPU again.
+        """
+        self.Ep = self.Ep.copy_to_host()
+        self.Em = self.Em.copy_to_host()
+        self.Ez = self.Ez.copy_to_host()
+        self.Bp = self.Bp.copy_to_host()
+        self.Bm = self.Bm.copy_to_host()
+        self.Bz = self.Bz.copy_to_host()
+        self.Jp = self.Jp.copy_to_host()
+        self.Jm = self.Jm.copy_to_host()
+        self.Jz = self.Jz.copy_to_host()
+        self.rho_prev = self.rho_prev.copy_to_host()
+        self.rho_next = self.rho_next.copy_to_host()
 
     def correct_currents (self, dt) :
         """
@@ -576,12 +683,12 @@ class SpectralGrid(object) :
         inv_dt = 1./dt
         
         if self.use_cuda :
-            # Correct the currents on the GPU
+            # Obtain the cuda grid
             dim_grid, dim_block = cuda_tpb_bpg_2d( self.Nz, self.Nr)
-
+            # Correct the currents on the GPU
             cuda_correct_currents[dim_grid, dim_block](
                 self.rho_prev, self.rho_next, self.Jp, self.Jm, self.Jz,
-                self.kz, self.kr, self.inv_k2, inv_dt, self.Nz, self.Nr)
+                self.d_kz, self.d_kr, self.d_inv_k2, inv_dt, self.Nz, self.Nr)
         else :
             # Correct the currents on the CPU
 
@@ -621,15 +728,15 @@ class SpectralGrid(object) :
         assert( self.m == ps.m )
 
         if self.use_cuda :
-            # Push the fields on the GPU
+            # Obtain the cuda grid
             dim_grid, dim_block = cuda_tpb_bpg_2d( self.Nz, self.Nr)
-            
+            # Push the fields on the GPU            
             cuda_push_eb_with[dim_grid, dim_block](
                 self.Ep, self.Em, self.Ez, self.Bp, self.Bm, self.Bz,
                 self.Jp, self.Jm, self.Jz, self.rho_prev, self.rho_next,
-                ps.rho_prev_coef, ps.rho_next_coef, ps.j_coef, ps.C, ps.S_w,
-                self.kr, self.kz, ps.dt, ptcl_feedback, use_true_rho, 
-                self.Nz, self.Nr )
+                ps.d_rho_prev_coef, ps.d_rho_next_coef, ps.d_j_coef,
+                ps.d_C, ps.d_S_w, self.d_kr, self.d_kz, ps.dt,
+                ptcl_feedback, use_true_rho, self.Nz, self.Nr )
 
         else :
             # Push the fields on the CPU
@@ -713,9 +820,9 @@ class SpectralGrid(object) :
         and set rho_next to zero
         """
         if self.use_cuda :
-            # Push the fields on the GPU
+            # Obtain the cuda grid
             dim_grid, dim_block = cuda_tpb_bpg_2d( self.Nz, self.Nr)
-
+            # Push the fields on the GPU
             cuda_push_rho[dim_grid, dim_block](
                 self.rho_prev, self.rho_next, self.Nz, self.Nr )
         else :
@@ -734,24 +841,24 @@ class SpectralGrid(object) :
             (either 'E', 'B', 'J', 'rho_next' or 'rho_prev')
         """
         if self.use_cuda :
-            # Filter fields on the GPU
+            # Obtain the cuda grid
             dim_grid, dim_block = cuda_tpb_bpg_2d( self.Nz, self.Nr)
-            
+            # Filter fields on the GPU            
             if fieldtype == 'rho_prev' :
                 cuda_filter_scalar[dim_grid, dim_block](
-                    self.rho_prev, self.filter_array, self.Nz, self.Nr )
+                    self.rho_prev, self.d_filter_array, self.Nz, self.Nr )
             elif fieldtype == 'rho_next' :
                 cuda_filter_scalar[dim_grid, dim_block](
-                    self.rho_next, self.filter_array, self.Nz, self.Nr )
+                    self.rho_next, self.d_filter_array, self.Nz, self.Nr )
             elif fieldtype == 'J' :
                 cuda_filter_vector[dim_grid, dim_block]( self.Jp, self.Jm,
-                        self.Jz, self.filter_array, self.Nz, self.Nr)
+                        self.Jz, self.d_filter_array, self.Nz, self.Nr)
             elif fieldtype == 'E' :
                 cuda_filter_vector[dim_grid, dim_block]( self.Ep, self.Em,
-                        self.Ez, self.filter_array, self.Nz, self.Nr)
+                        self.Ez, self.d_filter_array, self.Nz, self.Nr)
             elif fieldtype == 'B' :
                 cuda_filter_vector[dim_grid, dim_block]( self.Bp, self.Bm,
-                        self.Bz, self.filter_array, self.Nz, self.Nr)
+                        self.Bz, self.d_filter_array, self.Nz, self.Nr)
             else :
                 raise ValueError('Invalid string for fieldtype: %s'%fieldtype)
         else :
@@ -850,6 +957,9 @@ class PsatdCoeffs(object) :
             
         dt : float
             The timestep of the simulation
+
+        use_cuda : bool, optional
+            Wether to use the GPU or not
         """
         
         # Register m and dt
@@ -888,9 +998,17 @@ class PsatdCoeffs(object) :
         self.Ep = np.zeros( (Nz, Nr), dtype='complex' )
         self.Em = np.zeros( (Nz, Nr), dtype='complex' )
         self.Ez = np.zeros( (Nz, Nr), dtype='complex' )
-        # Note : no need to copy these variables to the GPU
-        # (on-the-fly variables)
 
+        # Replace these array by arrays on the GPU, when using cuda
+        if use_cuda :
+            self.d_C = cuda.to_device(self.C)
+            self.d_S_w = cuda.to_device(self.S_w)
+            self.d_j_coef = cuda.to_device(self.j_coef)
+            self.d_rho_prev_coef = cuda.to_device(self.rho_prev_coef)
+            self.d_rho_next_coef = cuda.to_device(self.rho_next_coef)
+            # NB : Ep, Em, Ez are not needed on the GPU (on-the-fly variables)
+
+        
 class SpectralTransformer(object) :
     """
     Object that allows to transform the fields back and forth between the
