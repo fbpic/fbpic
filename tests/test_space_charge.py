@@ -43,8 +43,8 @@ sim = Simulation( Nz, zmax, Nr, rmax, Nm, dt,
     p_zmin, p_zmax, p_rmin, p_rmax, p_nz, p_nr, p_nt, n_e )
 
 # Configure the moving window
-sim.moving_win = MovingWindow( ncells_damp=1,
-                               ncells_zero=1 )
+sim.moving_win = MovingWindow( ncells_damp=2,
+                               ncells_zero=2 )
 
 # Suppress the particles that were intialized by default and add the bunch
 sim.ptcl = [ ]

@@ -100,14 +100,16 @@ class Simulation(object) :
         
         # Initialize the electrons and the ions
         self.ptcl = [
-            Particles( q=-e, m=m_e, n=n_e, Npz=Npz, zmin=p_zmin, zmax=p_zmax,
-                       Npr=Npr, rmin=p_rmin, rmax=p_rmax, Nptheta=p_nt, dt=dt,
-                       dens_func=dens_func, use_cuda=self.use_cuda) ]
+            Particles( q=-e, m=m_e, n=n_e, Npz=Npz, zmin=p_zmin,
+                       zmax=p_zmax, Npr=Npr, rmin=p_rmin, rmax=p_rmax,
+                       Nptheta=p_nt, dt=dt, dens_func=dens_func,
+                       use_cuda=self.use_cuda) ]
         if initialize_ions :
             self.ptcl.append(
-                Particles(q=e, m=m_p, n=n_e, Npz=Npz, zmin=p_zmin, zmax=p_zmax,
-                        Npr=Npr, rmin=p_rmin, rmax=p_rmax, Nptheta=p_nt, dt=dt,
-                        dens_func=dens_func, use_cuda=self.use_cuda ) )
+                Particles(q=e, m=m_p, n=n_e, Npz=Npz, zmin=p_zmin,
+                          zmax=p_zmax, Npr=Npr, rmin=p_rmin, rmax=p_rmax,
+                          Nptheta=p_nt, dt=dt, dens_func=dens_func,
+                          use_cuda=self.use_cuda ) )
         
         # Register the number of particles per cell along z, and dt
         # (Necessary for the moving window)
@@ -125,8 +127,6 @@ class Simulation(object) :
         # Initialize an empty list of diagnostics
         self.diags = []
 
-
-        
     def step(self, N=1, ptcl_feedback=True, correct_currents=True,
              move_positions=True, move_momenta=True, moving_window=True ) :
         """
@@ -180,23 +180,24 @@ class Simulation(object) :
             if moving_window :
                 
                 # Move the window if needed
-                if self.iteration % self.moving_window.n_steps == 0 :
+                if self.iteration % self.moving_win.period == 0 :
                     # Receive the data from the GPU (if CUDA is used)
                     if self.use_cuda:
                         receive_data_from_gpu(self)
                     # Shift the fields and add new particles
                     self.moving_win.move( 
-                        fld, ptcl, self.p_nz, move_window_nsteps*self.dt )
+                        fld.interp, ptcl, self.p_nz, self.dt )
                     # Send the data to the GPU (if Cuda is used)
                     if self.use_cuda:
                         send_data_to_gpu(self)
                     # Reproject the charge on the interpolation grid
-                    # (Particles have been added/suppressed)
+                    # (Since particles have been added/suppressed)
                     self.deposit('rho_prev')
                     
                 # Damp the fields (at the left boundary) at every time step
-                self.moving_window.damp('E')
-                self.moving_window.damp('B')
+                self.moving_win.damp_EB( fld.interp )
+                fld.interp2spect('E')
+                fld.interp2spect('B')
 
             # Gather the fields at t = n dt
             for species in ptcl :
@@ -287,7 +288,8 @@ def progression_bar(i, Ntot, Nbars=60, char='-') :
 def adapt_to_grid( x, p_xmin, p_xmax, p_nx, ncells_empty=2 ) :
     """
     Adapt p_xmin and p_xmax, so that they fall exactly on the grid x
-    Return the total number of particles, assuming p_nx particles per gridpoint
+    Return the total number of particles, assuming p_nx particles
+    per gridpoint
     
     Parameters
     ----------
