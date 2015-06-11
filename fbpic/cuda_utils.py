@@ -225,3 +225,50 @@ def receive_data_from_gpu(simulation):
     # Receive fields from the GPU (if CUDA is used)
     simulation.fld.receive_fields_from_gpu()
 
+# -----------------------------------------------------
+# CUDA information
+# -----------------------------------------------------
+
+def print_gpu_meminfo(gpu):
+    """
+    Prints memory information about the GPU.
+
+    Parameters :
+    ------------
+    gpu : object
+        A numba cuda gpu context object.
+    """
+    with gpu:
+        meminfo = cuda.current_context().get_memory_info()
+        print("GPU: %s, free: %s Mbytes, total: %s Mbytes \
+              " % (gpu, meminfo[0]*1e-6, meminfo[1]*1e-6))
+
+def print_available_gpus():
+    """
+    Lists all available CUDA GPUs.
+    """
+    cuda.detect()
+
+def print_gpu_meminfo_all():
+    """
+    Prints memory information about all available CUDA GPUs.
+    """
+    gpus = cuda.gpus.lst
+    for gpu in gpus:
+        print_gpu_meminfo(gpu)
+
+def print_current_gpu():
+    """
+    Prints information about the currently selected GPU.
+    """
+    gpu = cuda.gpus.current
+
+    print "CUDA Device info of"
+    print "currently selected device:"
+    print "------------------------------"
+    print "ID: %s" %(gpu.id)
+    print "Name: %s" %(gpu.name)
+    print "Compute capability: %s.%s" %(gpu.compute_capability[0], 
+                                        gpu.compute_capability[1])
+    print_gpu_meminfo(gpu)
+

@@ -163,10 +163,10 @@ if __name__ == '__main__' :
     use_cuda = True
     
     # The simulation box
-    Nz = 401         # Number of gridpoints along z
+    Nz = 801         # Number of gridpoints along z
     zmax = 40.e-6    # Length of the box along z (meters)
-    Nr = 60          # Number of gridpoints along r
-    rmax = 15.e-6    # Length of the box along r (meters)
+    Nr = 120          # Number of gridpoints along r
+    rmax = 60.e-6    # Length of the box along r (meters)
     Nm = 2           # Number of modes used
     # The simulation timestep
     dt = zmax/Nz/c   # Timestep (seconds)
@@ -175,7 +175,7 @@ if __name__ == '__main__' :
     p_zmin = 39.e-6  # Position of the beginning of the plasma (meters)
     p_zmax = 41.e-6  # Position of the end of the plasma (meters)
     p_rmin = 0.      # Minimal radial position of the plasma (meters)
-    p_rmax = 14.e-6  # Maximal radial position of the plasma (meters)
+    p_rmax = 50.e-6  # Maximal radial position of the plasma (meters)
     n_e = 8.e18*1.e6 # Density (electrons.meters^-3)
     p_nz = 2         # Number of particles per cell along z
     p_nr = 2         # Number of particles per cell along r
@@ -183,9 +183,9 @@ if __name__ == '__main__' :
 
     # The laser
     a0 = 0.01        # Laser amplitude
-    w0 = 5.e-6       # Laser waist
-    ctau = 3.e-6     # Laser duration
-    z0 = 30.e-6      # Laser centroid
+    w0 = 20.e-6       # Laser waist
+    ctau = 6.e-6     # Laser duration
+    z0 = 27.e-6      # Laser centroid
 
     # Plasma and laser wavenumber
     kp = 1./c * np.sqrt( n_e * e**2 / (m_e * epsilon_0) )
@@ -210,7 +210,7 @@ if __name__ == '__main__' :
 
     # Configure the moving window
     sim.moving_win = MovingWindow( ncells_damp=ncells_damp,
-                                   ncells_zero=ncells_zero
+                                   ncells_zero=ncells_zero,
                                    period=mw_period )
 
     # ---------------------------
@@ -237,7 +237,7 @@ if __name__ == '__main__' :
 
     # Carry out 300 PIC steps
     print 'Calculate PIC solution for the wakefield'
-    sim.step(500)
+    sim.step(1500)
     print 'Done...'
     print ''
 
