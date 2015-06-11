@@ -111,7 +111,6 @@ class MovingWindow(object) :
         dt : float (in seconds)
             Timestep of the simulation
         """
-    
         # Move the position of the moving window object
         self.zmin = self.zmin + self.v*dt
         
@@ -137,8 +136,8 @@ class MovingWindow(object) :
                 clean_outside_particles( species, z_zero-0.5*dz )
                 if species.continuous_injection == True :
                     # Remember that particles are not loaded in the
-                    # last two upper cells, in order to prevent
-                    # wrapping around of the charge density, when it is smoothed
+                    # last two upper cells, in order to prevent wrapping
+                    # around of the charge density, when it is smoothed
                     add_particles( species, zmax-2.5*dz, zmax-1.5*dz, p_nz )
 
     def damp( self, grid, fieldtype ) :

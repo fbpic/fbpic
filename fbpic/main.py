@@ -9,10 +9,9 @@ from fields import Fields
 from particles import Particles
 try:
     from cuda_utils import *
+    cuda_installed = True
 except ImportError:
     cuda_installed = False
-else :
-    cuda_installed = True
     
 class Simulation(object) :
     """
@@ -30,8 +29,8 @@ class Simulation(object) :
     """
 
     def __init__(self, Nz, zmax, Nr, rmax, Nm, dt,
-                 p_zmin, p_zmax, p_rmin, p_rmax,
-                 p_nz, p_nr, p_nt, n_e, dens_func=None,
+                 p_zmin, p_zmax, p_rmin, p_rmax, p_nz, p_nr, p_nt,
+                 n_e, dens_func=None, filter_currents=True,
                  initialize_ions=False, use_cuda = False) :
         """
         Initializes a simulation, by creating the following structures :
@@ -78,6 +77,9 @@ class Simulation(object) :
         initialize_ions : bool, optional
            Whether to initialize the neutralizing ions
 
+        filter_currents : bool, optional
+            Whether to filter the currents and charge in k space
+           
         use_cuda : bool, optional
             Wether to use CUDA (GPU) acceleration
         """
@@ -114,14 +116,11 @@ class Simulation(object) :
         # Register the time and the iteration
         self.time = 0.
         self.iteration = 0
+        # Register the filtering flag
+        self.filter_currents = filter_currents
         
         # Do the initial charge deposition (at t=0) now
-        for species in self.ptcl :
-            species.deposit( self.fld.interp, 'rho' )
-        self.fld.divide_by_volume('rho')
-        # Bring it to the spectral space
-        self.fld.interp2spect('rho_prev')
-        self.fld.filter_spect('rho_prev')
+        self.deposit('rho_prev')
 
         # Initialize an empty list of diagnostics
         self.diags = []
@@ -129,8 +128,7 @@ class Simulation(object) :
 
         
     def step(self, N=1, ptcl_feedback=True, correct_currents=True,
-             filter_currents=True, move_positions=True,
-             move_momenta=True, moving_window=True, move_window_nsteps = 1) :
+             move_positions=True, move_momenta=True, moving_window=True ) :
         """
         Perform N PIC cycles
         
@@ -147,9 +145,6 @@ class Simulation(object) :
         correct_currents : bool, optional
             Whether to correct the currents in spectral space
 
-        filter_currents : bool, optional
-            Whether to filter the currents (in k space by default)
-
         move_positions : bool, optional
             Whether to move or freeze the particles' positions
 
@@ -160,24 +155,10 @@ class Simulation(object) :
             Whether to move using a moving window. In this case,
             a MovingWindow object has to be attached to the simulation
             beforehand. e.g : sim.moving_win = MovingWindow(v=c)
-
-        move_window_nsteps : int, optional
-            Advance the moving window every n steps for n steps. 
-            This ensures higher performance on GPU version of the code,
-            as the particle and field arrays only need to be copied 
-            to and from the device every move_window_nsteps. 
         """
         # Shortcuts
         ptcl = self.ptcl
         fld = self.fld
-
-        # Check if a moving window is attached, in the case
-        # moving_window == True
-        if moving_window :
-            if hasattr(self, 'moving_win')==False or \
-              self.moving_win is None :
-                raise AttributeError(
-        "Please attach a MovingWindow to this object, as `self.moving_win`")
         
         # Send simulation data to GPU (if CUDA is used)
         if self.use_cuda:
@@ -188,43 +169,39 @@ class Simulation(object) :
 
             # Run the diagnostics
             for diag in self.diags :
-                # Check if the fields should 
-                # be written at this iteration
-                if self.iteration % diag.period == 0 :
-                    # Write the diagnostics
-                    diag.write( self.iteration )
+                # Check if the fields should be written at
+                # this iteration and do it if needed.
+                diag.write( self.iteration )
             
             # Show a progression bar
             progression_bar( i_step, N )
 
-            # Move the window if needed
-            if moving_window and self.iteration % move_window_nsteps == 0:
-                # Receive the data from the GPU (if CUDA is used)
-                # for the advance of the moving window
-                if self.use_cuda:
-                    receive_data_from_gpu(self)
-                # Shift the fields and add new particles
-                self.moving_win.move( 
-                    fld, ptcl, self.p_nz, move_window_nsteps*self.dt )
-                # Send the data to the GPU (if Cuda is used)
-                if self.use_cuda:
-                    send_data_to_gpu(self)
-                # Reprojected the charge on the interpolation grid
-                # (Particles have been added/removed.)
-                fld.erase('rho')
-                for species in ptcl :
-                    species.deposit( fld.interp, 'rho' )
-                fld.divide_by_volume('rho')
-                self.moving_win.damp( fld.interp, 'rho' )
-                # Get the new charge on the spectral grid
-                fld.interp2spect('rho_prev')
-                if filter_currents :
-                    fld.filter_spect('rho_prev')
+            # Handle the moving window
+            if moving_window :
+                
+                # Move the window if needed
+                if self.iteration % self.moving_window.n_steps == 0 :
+                    # Receive the data from the GPU (if CUDA is used)
+                    if self.use_cuda:
+                        receive_data_from_gpu(self)
+                    # Shift the fields and add new particles
+                    self.moving_win.move( 
+                        fld, ptcl, self.p_nz, move_window_nsteps*self.dt )
+                    # Send the data to the GPU (if Cuda is used)
+                    if self.use_cuda:
+                        send_data_to_gpu(self)
+                    # Reproject the charge on the interpolation grid
+                    # (Particles have been added/suppressed)
+                    self.deposit('rho_prev')
+                    
+                # Damp the fields (at the left boundary) at every time step
+                self.moving_window.damp('E')
+                self.moving_window.damp('B')
 
             # Gather the fields at t = n dt
             for species in ptcl :
                 species.gather( fld.interp )
-    
+
             # Push the particles' positions and velocities to t = (n+1/2) dt
             if move_momenta :
                 for species in ptcl :
@@ -232,33 +209,15 @@ class Simulation(object) :
             if move_positions :
                 for species in ptcl :
                     species.halfpush_x()
-            # Get the current on the interpolation grid at t = (n+1/2) dt
-            fld.erase('J')
-            for species in ptcl :
-                species.deposit( fld.interp, 'J' )
-            fld.divide_by_volume('J')
-            if moving_window :
-                self.moving_win.damp( fld.interp, 'J' )
-            # Get the current on the spectral grid at t = (n+1/2) dt
-            fld.interp2spect('J')
-            if filter_currents :
-                fld.filter_spect('J')
+            # Get the current at t = (n+1/2) dt
+            self.deposit('J')
 
             # Push the particles' positions to t = (n+1) dt
             if move_positions :
                 for species in ptcl :
                     species.halfpush_x()
-            # Get the charge density on the interpolation grid at t = (n+1) dt
-            fld.erase('rho')
-            for species in ptcl :
-                species.deposit( fld.interp, 'rho' )
-            fld.divide_by_volume('rho')
-            if moving_window :
-                self.moving_win.damp( fld.interp, 'rho' )
-            # Get the charge density on the spectral grid at t = (n+1) dt
-            fld.interp2spect('rho_next')
-            if filter_currents :
-                fld.filter_spect('rho_next')
+            # Get the charge density at t = (n+1) dt
+            self.deposit('rho_next')
             # Correct the currents (requires rho at t = (n+1) dt )
             if correct_currents :
                 fld.correct_currents()
@@ -279,6 +238,43 @@ class Simulation(object) :
 
         # Print a space at the end of the loop, for esthetical reasons
         print('')
+
+    def deposit( self, fieldtype ) :
+        """
+        Deposit the charge or the currents to the interpolation
+        grid and then to the spectral grid.
+    
+        Parameters :
+        ------------
+        fieldtype : str
+            The designation of the spectral field that
+            should be changed by the deposition
+            Either 'rho_prev', 'rho_next' or 'J'
+        """
+        # Shortcut
+        fld = self.fld
+
+        # Deposit charge or currents on the interpolation grid
+        # Charge
+        if fieldtype in ['rho_prev', 'rho_next'] :
+            fld.erase('rho')
+            for species in self.ptcl :
+                species.deposit( fld.interp, 'rho' )
+            fld.divide_by_volume('rho')
+        # Currents
+        elif fieldtype == 'J' :
+            fld.erase('J')
+            for species in self.ptcl :
+                species.deposit( fld.interp, 'J' )
+            fld.divide_by_volume('J')
+        else :
+            raise ValueError('Unknown fieldtype : %s' %fieldtype)
+            
+        # Get the charge or currents on the spectral grid
+        fld.interp2spect( fieldtype )
+        if self.filter_currents :
+            fld.filter_spect( fieldtype )
+
 
 def progression_bar(i, Ntot, Nbars=60, char='-') :
     "Shows a progression bar with Nbars"
