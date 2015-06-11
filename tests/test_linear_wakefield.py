@@ -160,6 +160,8 @@ if __name__ == '__main__' :
     # Setup simulation & parameters
     # ---------------------------
 
+    use_cuda = True
+    
     # The simulation box
     Nz = 401         # Number of gridpoints along z
     zmax = 40.e-6    # Length of the box along z (meters)
@@ -181,7 +183,7 @@ if __name__ == '__main__' :
 
     # The laser
     a0 = 0.01        # Laser amplitude
-    w0 = 5.e-6      # Laser waist
+    w0 = 5.e-6       # Laser waist
     ctau = 3.e-6     # Laser duration
     z0 = 30.e-6      # Laser centroid
 
@@ -196,17 +198,20 @@ if __name__ == '__main__' :
     ncells_damp = 30   # Number of cells over which the field is damped,
                        # at the left of the simulation box, after ncells_zero
                        # in order to prevent it from wrapping around.
+    mw_period = 1      # How many steps to wait until moving the window 
 
     # Initialize the simulation object
     sim = Simulation( Nz, zmax, Nr, rmax, Nm, dt,
-        p_zmin, p_zmax, p_rmin, p_rmax, p_nz, p_nr, p_nt, n_e) 
+        p_zmin, p_zmax, p_rmin, p_rmax, p_nz, p_nr, p_nt, n_e,
+        use_cuda=True ) 
 
     # Add a laser to the fields of the simulation
     add_laser( sim.fld, a0, w0, ctau, z0 )
 
     # Configure the moving window
     sim.moving_win = MovingWindow( ncells_damp=ncells_damp,
-                                   ncells_zero=ncells_zero )
+                                   ncells_zero=ncells_zero
+                                   period=mw_period )
 
     # ---------------------------
     # Calculate analytical solution
