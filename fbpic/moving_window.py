@@ -73,8 +73,8 @@ class MovingWindow(object) :
         self.v = v
 
         # Verify parameters, to prevent wrapping around of the particles
-        if ncells_zero < 2*period :
-            raise ValueError('`ncells_zero` should be more than 2*`period`')
+        if ncells_zero < period :
+            raise ValueError('`ncells_zero` should be more than `period`')
         
         # Attach numerical parameters
         self.ncells_zero = ncells_zero
@@ -134,7 +134,8 @@ class MovingWindow(object) :
         self.zmin = self.zmin + self.v*dt*self.period
         
         # Find the number of cells by which the window should move
-        n_move = int( (self.zmin-interp[0].zmin)/(self.v*dt) )
+        dz = interp[0].dz
+        n_move = int( (self.zmin-interp[0].zmin)/dz )
         if n_move > 0 :
             
             # Shift the fields
@@ -145,7 +146,6 @@ class MovingWindow(object) :
             # Extract a few quantities of the new (shifted) grid
             zmin = interp[0].zmin
             zmax = interp[0].zmax
-            dz = interp[0].dz
 
             # Determine the position below which the particles
             # should be removed
