@@ -186,10 +186,10 @@ class MPI_Communicator(object) :
             for m in range(self.Nm):
                 offset = 6*m
                 # Buffer for receiving from left
-                interp[m].Er[:ng,:] = self.EB_recv_l[0+offset,:,:] 
+                interp[m].Er[:ng,:] = self.EB_recv_l[0+offset,:,:]
                 interp[m].Et[:ng,:] = self.EB_recv_l[1+offset,:,:]
-                interp[m].Ez[:ng,:] = self.EB_recv_l[2+offset,:,:]
-                interp[m].Br[:ng,:] = self.EB_recv_l[3+offset,:,:]
+                interp[m].Ez[:ng,:] = self.EB_recv_l[2+offset,:,:] 
+                interp[m].Br[:ng,:] = self.EB_recv_l[3+offset,:,:] 
                 interp[m].Bt[:ng,:] = self.EB_recv_l[4+offset,:,:] 
                 interp[m].Bz[:ng,:] = self.EB_recv_l[5+offset,:,:]
                 # Buffer for receiving from right
