@@ -16,7 +16,7 @@ except ImportError:
 
 try:
     from parallel import MPI_Communicator
-    mpi_install = True
+    mpi_installed = True
 except ImportError:
     mpi_installed = False
 
