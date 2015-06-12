@@ -48,8 +48,8 @@ class Fields(object) :
         Contains the coefficients to solve the Maxwell equations
     """
 
-    def __init__( self, Nz, zmin, zmax, Nr, rmax, Nm, dt,
-                  use_cuda=False, use_cuda_memory=True ) :
+    def __init__( self, Nz, zmax, Nr, rmax, Nm, dt,
+                  zmin=0., use_cuda=False, use_cuda_memory=True ) :
         """
         Initialize the components of the Fields object
 
@@ -58,7 +58,7 @@ class Fields(object) :
         Nz : int
             The number of gridpoints in z
 
-        zmin, zmax : float
+        zmin, zmax : float (zmin, optional)
             The initial position of the left and right
             edge of the box along z
             

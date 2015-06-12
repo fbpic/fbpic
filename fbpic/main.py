@@ -36,9 +36,9 @@ class Simulation(object) :
     - step : perform n PIC cycles
     """
 
-    def __init__(self, Nz, zmin, zmax, Nr, rmax, Nm, dt,
+    def __init__(self, Nz, zmax, Nr, rmax, Nm, dt,
                  p_zmin, p_zmax, p_rmin, p_rmax, p_nz, p_nr, p_nt,
-                 n_e, dens_func=None, filter_currents=True,
+                 n_e, zmin = 0., dens_func=None, filter_currents=True,
                  initialize_ions=False, use_cuda = False,
                  use_mpi = False, n_guard = 50) :
         """
@@ -111,15 +111,16 @@ class Simulation(object) :
             self.use_mpi = False
         else:
             # Initialize the MPI communicator
-            self.comm = MPI_Communicator(Nz, Nr, zmin, zmax, n_guard)
+            self.comm = MPI_Communicator(Nz, Nr, zmin, zmax, n_guard, Nm)
             # Modify domain region
-            zmin, zmax, p_zmin, p_zmax = comm.divide_into_domain(
+            zmin, zmax, p_zmin, p_zmax = self.comm.divide_into_domain(
                                             zmin, zmax, p_zmin, p_zmax)
-            Nz = comm.Nz_local
-            Nr = comm.Nr_local
+            Nz = self.comm.Nz_local
+            Nr = self.comm.Nr
 
         # Initialize the field structure
-        self.fld = Fields(Nz, zmax, Nr, rmax, Nm, dt, use_cuda=self.use_cuda)
+        self.fld = Fields(Nz, zmax, Nr, rmax, Nm, dt, 
+                    zmin = zmin, use_cuda=self.use_cuda)
 
         # Modify the input parameters p_zmin, p_zmax, r_zmin, r_zmax, so that
         # they fall exactly on the grid, and infer the number of particles
@@ -242,8 +243,8 @@ class Simulation(object) :
             self.deposit('J')
 
             # Exchange the current of the guard cells between domains
-            if use_mpi:
-                self.comm.exchange_fields('J')
+            if self.use_mpi:
+                self.comm.exchange_fields(self.fld.interp, 'J')
 
             # Push the particles' positions to t = (n+1) dt
             if move_positions :
@@ -253,15 +254,15 @@ class Simulation(object) :
             self.deposit('rho_next')
 
             # Exchange the charge density of the guard cells between domains
-            if use_mpi:
-                self.comm.exchange_fields('rho')
+            if self.use_mpi:
+                self.comm.exchange_fields(self.fld.interp, 'rho')
 
             # Correct the currents (requires rho at t = (n+1) dt )
             if correct_currents :
                 fld.correct_currents()
 
 
-            if moving_window or use_mpi :
+            if moving_window or self.use_mpi :
                 # Get the exchanged and/or damped fields 
                 # E and B on the spectral grid
                 fld.interp2spect('E')
@@ -273,8 +274,8 @@ class Simulation(object) :
             fld.spect2interp('B')
 
             # Exchange the fields of the guard cells between domains
-            if use_mpi:
-                self.comm.exchange_fields('EB')
+            if self.use_mpi:
+                self.comm.exchange_fields(self.fld.interp, 'EB')
 
             # Increment the global time and iteration
             self.time += self.dt

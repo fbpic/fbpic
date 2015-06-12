@@ -25,7 +25,7 @@ class MPI_Communicator(object) :
     - 
     """
     
-    def __init__( self, Nz, Nr, zmin, zmax, n_guard, m) :
+    def __init__( self, Nz, Nr, zmin, zmax, n_guard, Nm) :
         """
         Initializes a communicator object.
 
@@ -49,6 +49,9 @@ class MPI_Communicator(object) :
         self.Nz = Nz
         self.Nr = Nr
 
+        # Initialize number of modes
+        self.Nm = Nm
+
         # Initialize global box size
         self.zmin = zmin
         self.zmax = zmax
@@ -61,15 +64,15 @@ class MPI_Communicator(object) :
 
         # Initialize the rank and the total
         # number of mpi threads
-        self.rank = mpi_comm.rank
-        self.size = mpi_comm.size
+        self.rank = self.mpi_comm.rank
+        self.size = self.mpi_comm.size
 
         # Initialize local number of cells
         if self.rank == (self.size-1):
             # Last domain gets extra cells in case Nz/self.size returns float
             # Last domain = domain at the right edge of the Simulation
             self.Nz_add_last = Nz % self.size
-            self.Nz_local = int(Nz/self.size + self.Nz_add_last) + 2*n_guard
+            self.Nz_local = int(Nz/self.size) + self.Nz_add_last + 2*n_guard
         else:
             # Other domains get all the same domain size
             self.Nz_local = int(Nz/self.size) + 2*n_guard
@@ -80,27 +83,36 @@ class MPI_Communicator(object) :
 
         # Er, Et, Ez, Br, Bt, Bz for all modes m
         # Send right and left
-        self.EB_send_r = np.empty((6*Nm, Nz_local, Nr), dtype = np.complex128)
-        self.EB_send_l = np.empty((6*Nm, Nz_local, Nr), dtype = np.complex128)
+        self.EB_send_r = np.empty((6*Nm, n_guard, Nr), 
+                            dtype = np.complex128)
+        self.EB_send_l = np.empty((6*Nm, n_guard, Nr), 
+                            dtype = np.complex128)
         # Receive right and left
-        self.EB_recv_r = np.empty((6*Nm, Nz_local, Nr), dtype = np.complex128)
-        self.EB_recv_l = np.empty((6*Nm, Nz_local, Nr), dtype = np.complex128)
+        self.EB_recv_r = np.empty((6*Nm, n_guard, Nr), 
+                            dtype = np.complex128)
+        self.EB_recv_l = np.empty((6*Nm, n_guard, Nr), 
+                            dtype = np.complex128)
 
         # Jr, Jt, Jz for all modes m
         # Send right and left
-        self.J_send_r = np.empty((3*Nm, Nz_local, Nr), dtype = np.complex128)
-        self.J_send_l = np.empty((3*Nm, Nz_local, Nr), dtype = np.complex128)
+        self.J_send_r = np.empty((3*Nm, n_guard, Nr), 
+                            dtype = np.complex128)
+        self.J_send_l = np.empty((3*Nm, n_guard, Nr), 
+                            dtype = np.complex128)
         # Receive right and left
-        self.J_recv_r = np.empty((3*Nm, Nz_local, Nr), dtype = np.complex128)
-        self.J_recv_l = np.empty((3*Nm, Nz_local, Nr), dtype = np.complex128)
+        self.J_recv_r = np.empty((3*Nm, n_guard, Nr), 
+                            dtype = np.complex128)
+        self.J_recv_l = np.empty((3*Nm, n_guard, Nr), 
+                            dtype = np.complex128)
 
         # rho for all modes m
         # Send right and left
-        self.rho_send_r = np.empty((Nm, Nz_local, Nr), dtype = np.complex128)
-        self.rho_send_l = np.empty((Nm, Nz_local, Nr), dtype = np.complex128)
+        self.rho_send_r = np.empty((Nm, n_guard, Nr), 
+                            dtype = np.complex128)
+        self.rho_send_l = np.empty((Nm, n_guard, Nr), dtype = np.complex128)
         # Receive right and left
-        self.rho_recv_r = np.empty((Nm, Nz_local, Nr), dtype = np.complex128)
-        self.rho_recv_l = np.empty((Nm, Nz_local, Nr), dtype = np.complex128)
+        self.rho_recv_r = np.empty((Nm, n_guard, Nr), dtype = np.complex128)
+        self.rho_recv_l = np.empty((Nm, n_guard, Nr), dtype = np.complex128)
 
     def divide_into_domain( self, zmin, zmax, p_zmin, p_zmax ):
         """
@@ -113,7 +125,7 @@ class MPI_Communicator(object) :
         Nz_delta = int(self.Nz/self.size)
 
         zmin += ((self.rank)*Nz_delta - self.n_guard)*dz
-        zmax = zmin + (Nz_delta + self.Nz_add_last + self.n_guard)*dz
+        zmax = zmin + (Nz_delta + self.Nz_add_last + 2*self.n_guard)*dz
 
         p_zmin = max(zmin+self.n_guard*dz-0.5*dz, p_zmin)
         p_zmax = min(zmax-self.n_guard*dz-0.5*dz, p_zmax)
@@ -149,9 +161,9 @@ class MPI_Communicator(object) :
     def exchange_fields( self, interp, fieldtype ):
         ng = self.n_guard
         # Check for fieldtype
-        if fieldtype = 'EB':
+        if fieldtype == 'EB':
             # Copy to buffer
-            for m in self.Nm:
+            for m in range(self.Nm):
                 offset = 6*m
                 # Buffer for sending to left
                 self.EB_send_l[0+offset,:,:] = interp[m].Er[:ng,:]
@@ -168,10 +180,10 @@ class MPI_Communicator(object) :
                 self.EB_send_r[4+offset,:,:] = interp[m].Bt[-ng:,:]
                 self.EB_send_r[5+offset,:,:] = interp[m].Bz[-ng:,:]
             # Exchange the guard regions between the domains (MPI)
-            self.exchange_domain(self.EB_send_l, self.EB_send_r,
+            self.exchange_domains(self.EB_send_l, self.EB_send_r,
                                  self.EB_recv_l, self.EB_recv_r)
             # Copy from buffer
-            for m in self.Nm:
+            for m in range(self.Nm):
                 offset = 6*m
                 # Buffer for receiving from left
                 interp[m].Er[:ng,:] = self.EB_recv_l[0+offset,:,:] 
@@ -188,9 +200,9 @@ class MPI_Communicator(object) :
                 interp[m].Bt[-ng:,:] = self.EB_recv_r[4+offset,:,:] 
                 interp[m].Bz[-ng:,:] = self.EB_recv_r[5+offset,:,:]
 
-        if fieldtype = 'J':
+        if fieldtype == 'J':
             # Copy to buffer
-            for m in self.Nm:
+            for m in range(self.Nm):
                 offset = 3*m
                 # Buffer for sending to left
                 self.J_send_l[0+offset,:,:] = interp[m].Jr[:ng,:]
@@ -201,10 +213,10 @@ class MPI_Communicator(object) :
                 self.J_send_r[1+offset,:,:] = interp[m].Jt[-ng:,:]
                 self.J_send_r[2+offset,:,:] = interp[m].Jz[-ng:,:]
             # Exchange the guard regions between the domains (MPI)
-            self.exchange_domain(self.J_send_l, self.J_send_r,
+            self.exchange_domains(self.J_send_l, self.J_send_r,
                                  self.J_recv_l, self.J_recv_r)
             # Copy from buffer
-            for m in self.Nm:
+            for m in range(self.Nm):
                 offset = 3*m
                 # Buffer for receiving from left
                 interp[m].Jr[:ng,:] += self.J_recv_l[0+offset,:,:]
@@ -215,19 +227,19 @@ class MPI_Communicator(object) :
                 interp[m].Jt[-ng:,:] += self.J_recv_r[1+offset,:,:] 
                 interp[m].Jz[-ng:,:] += self.J_recv_r[2+offset,:,:]
 
-        if fieldtype = 'rho':
+        if fieldtype == 'rho':
             # Copy to buffer
-            for m in self.Nm:
+            for m in range(self.Nm):
                 offset = 1*m
                 # Buffer for sending to left
                 self.rho_send_l[0+offset,:,:] = interp[m].rho[:ng,:]
                 # Buffer for sending to right
                 self.rho_send_r[0+offset,:,:] = interp[m].rho[-ng:,:]
             # Exchange the guard regions between the domains (MPI)
-            self.exchange_domain(self.rho_send_l, self.rho_send_r,
+            self.exchange_domains(self.rho_send_l, self.rho_send_r,
                                  self.rho_recv_l, self.rho_recv_r)
             # Copy from buffer
-            for m in self.Nm:
+            for m in range(self.Nm):
                 offset = 1*m
                 # Buffer for receiving from left
                 interp[m].rho[:ng,:] += self.rho_recv_l[0+offset,:,:]
@@ -239,38 +251,42 @@ class MPI_Communicator(object) :
         if self.rank == root:
             z = np.linspace(self.zmin+0.5, self.zmax+0.5, self.Nz)
             gathered_grid = InterpolationGrid(z = z, r = grid.r, m = grid.m )
+        else:
+            gathered_grid = None
 
         for field in ['Er', 'Et', 'Ez', 'Br', 'Bt', 'Bz']:
             array = getattr(grid, field)
-            gathered_array = gather_grid_array_2D(array, root = root)
-            setattr(gathered_grid, field, array)
+            gathered_array = self.gather_grid_array_2D(array, root)
+            if self.rank == root:
+                setattr(gathered_grid, field, gathered_array)
 
         return gathered_grid
 
-    def gather_grid_array_2D(array, root = 0):
+    def gather_grid_array_2D(self, array, root = 0):
 
-        if self.rank == root:
+        if self.rank == 0:
             gathered_array = np.zeros((self.Nz, self.Nr), dtype = array.dtype)
+        else:
+            gathered_array = None
 
         ng = self.n_guard
 
         Nz_d = int(self.Nz/self.size)
+        Nz_last = self.Nz % self.size
 
         domain_sizes = ()
-        domain_displacements = ()
 
-        for domain in (self.size-1):
+        for domain in range(self.size-1):
             domain_sizes += (Nz_d*self.Nr, )
-            domain_displacements += (Nz_d*self.Nr*domain, )
 
-        domain_size += ((self.Nz_add_last - 2*ng)*self.Nr, )
+        domain_sizes += ((Nz_d + Nz_last)*self.Nr, )
 
-        mpi_comm.Gatherv(
+        self.mpi_comm.Gatherv(
             sendbuf = array[ng:-ng,:], 
-            recvbuf = (gathered_array,    
+            recvbuf = [gathered_array,    
                        domain_sizes, 
-                       domain_displacements), 
-            root = root )
+                       None],
+            root = root)
 
         if self.rank == root:
             return gathered_array
@@ -282,7 +298,7 @@ class MPI_Communicator(object) :
         mpi.Finalize()
 
     def barrier( self ) :
-        mpi_comm.Barrier()
+        self.mpi_comm.Barrier()
 
 
 
