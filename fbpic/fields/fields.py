@@ -48,7 +48,7 @@ class Fields(object) :
         Contains the coefficients to solve the Maxwell equations
     """
 
-    def __init__( self, Nz, zmax, Nr, rmax, Nm, dt,
+    def __init__( self, Nz, zmin, zmax, Nr, rmax, Nm, dt,
                   use_cuda=False, use_cuda_memory=True ) :
         """
         Initialize the components of the Fields object
@@ -58,8 +58,9 @@ class Fields(object) :
         Nz : int
             The number of gridpoints in z
 
-        zmax : float
-            The size of the box along z
+        zmin, zmax : float
+            The initial position of the left and right
+            edge of the box along z
             
         Nr : int
             The number of gridpoints in r
@@ -104,8 +105,8 @@ class Fields(object) :
             print 'Using the GPU for the field.'
 
         # Infer the values of the z and kz grid
-        dz = zmax/Nz
-        z = dz * ( np.arange( 0, Nz ) + 0.5 )
+        dz = (zmax-zmin)/Nz
+        z = dz * ( np.arange( 0, Nz ) + 0.5 ) + zmin
         kz = 2*np.pi* np.fft.fftfreq( Nz, dz ) 
         # (According to FFT conventions, the kz array starts with
         # positive frequencies and ends with negative frequency.)

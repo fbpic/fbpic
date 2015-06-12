@@ -7,11 +7,19 @@ import sys
 from scipy.constants import m_e, m_p, e
 from fields import Fields
 from particles import Particles
+
 try:
     from cuda_utils import *
     cuda_installed = True
 except ImportError:
     cuda_installed = False
+
+try:
+    from parallel import MPI_Communicator
+    mpi_install = True
+except ImportError:
+    mpi_installed = False
+
     
 class Simulation(object) :
     """
@@ -28,10 +36,11 @@ class Simulation(object) :
     - step : perform n PIC cycles
     """
 
-    def __init__(self, Nz, zmax, Nr, rmax, Nm, dt,
+    def __init__(self, Nz, zmin, zmax, Nr, rmax, Nm, dt,
                  p_zmin, p_zmax, p_rmin, p_rmax, p_nz, p_nr, p_nt,
                  n_e, dens_func=None, filter_currents=True,
-                 initialize_ions=False, use_cuda = False) :
+                 initialize_ions=False, use_cuda = False,
+                 use_mpi = False, n_guard = 50) :
         """
         Initializes a simulation, by creating the following structures :
         - the Fields object, which contains the EM fields
@@ -43,7 +52,7 @@ class Simulation(object) :
         Nz, Nr : ints
             The number of gridpoints in z and r
 
-        zmax, rmax : floats
+        zmin, zmax, rmax : floats
             The size of the simulation box along z and r
 
         Nm : int
@@ -82,11 +91,32 @@ class Simulation(object) :
            
         use_cuda : bool, optional
             Wether to use CUDA (GPU) acceleration
+
+        use_mpi : bool, optional
+            Wether to decompose the simulation longitudinally
+            and use multiple MPI threads to calculate in parallel
+
+        n_guard : int, optional
+            Number of guard cells to use at the left and right of
+            a domain, when using MPI.
         """
         # Check whether to use cuda
         self.use_cuda = use_cuda
         if (use_cuda==True) and (cuda_installed==False) :
             self.use_cuda = False
+
+        # Check wether to use MPI
+        self.use_mpi = use_mpi
+        if (self.use_mpi) and (mpi_installed == False):
+            self.use_mpi = False
+        else:
+            # Initialize the MPI communicator
+            self.comm = MPI_Communicator(Nz, Nr, zmin, zmax, n_guard)
+            # Modify domain region
+            zmin, zmax, p_zmin, p_zmax = comm.divide_into_domain(
+                                            zmin, zmax, p_zmin, p_zmax)
+            Nz = comm.Nz_local
+            Nr = comm.Nr_local
 
         # Initialize the field structure
         self.fld = Fields(Nz, zmax, Nr, rmax, Nm, dt, use_cuda=self.use_cuda)
@@ -196,8 +226,6 @@ class Simulation(object) :
                     
                 # Damp the fields (at the left boundary) at every time step
                 self.moving_win.damp_EB( fld.interp )
-                fld.interp2spect('E')
-                fld.interp2spect('B')
 
             # Gather the fields at t = n dt
             for species in ptcl :
@@ -213,22 +241,41 @@ class Simulation(object) :
             # Get the current at t = (n+1/2) dt
             self.deposit('J')
 
+            # Exchange the current of the guard cells between domains
+            if use_mpi:
+                self.comm.exchange_fields('J')
+
             # Push the particles' positions to t = (n+1) dt
             if move_positions :
                 for species in ptcl :
                     species.halfpush_x()
             # Get the charge density at t = (n+1) dt
             self.deposit('rho_next')
+
+            # Exchange the charge density of the guard cells between domains
+            if use_mpi:
+                self.comm.exchange_fields('rho')
+
             # Correct the currents (requires rho at t = (n+1) dt )
             if correct_currents :
                 fld.correct_currents()
-            
+
+
+            if moving_window or use_mpi :
+                # Get the exchanged and/or damped fields 
+                # E and B on the spectral grid
+                fld.interp2spect('E')
+                fld.interp2spect('B')  
             # Get the fields E and B on the spectral grid at t = (n+1) dt
             fld.push( ptcl_feedback )
             # Get the fields E and B on the interpolation grid at t = (n+1) dt
             fld.spect2interp('E')
             fld.spect2interp('B')
-    
+
+            # Exchange the fields of the guard cells between domains
+            if use_mpi:
+                self.comm.exchange_fields('EB')
+
             # Increment the global time and iteration
             self.time += self.dt
             self.iteration += 1
