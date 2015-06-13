@@ -80,10 +80,10 @@ if __name__ == '__main__' :
     # ---------------------------
     # Setup simulation & parameters
     # ---------------------------
-    
+    use_mpi = True
     # The simulation box
-    Nz = 804         # Number of gridpoints along z
-    zmax = 60.e-6    # Length of the box along z (meters)
+    Nz = 1604         # Number of gridpoints along z
+    zmax = 70.e-6    # Length of the box along z (meters)
     Nr = 40          # Number of gridpoints along r
     rmax = 20.e-6    # Length of the box along r (meters)
     Nm = 2           # Number of modes used
@@ -104,12 +104,12 @@ if __name__ == '__main__' :
     a0 = 1.0        # Laser amplitude
     w0 = 5.e-6       # Laser waist
     ctau = 7.e-6     # Laser duration
-    z0 = 30.e-6      # Laser centroid
+    z0 = 35.e-6      # Laser centroid
 
     # Initialize the simulation object
     sim = Simulation( Nz, zmax, Nr, rmax, Nm, dt,
         p_zmin, p_zmax, p_rmin, p_rmax, p_nz, p_nr, p_nt, n_e,
-        use_mpi = True, n_guard = 5)
+        use_mpi = use_mpi, n_guard = 100)
 
     # Remove Plasma
     sim.ptcl = []
@@ -124,13 +124,18 @@ if __name__ == '__main__' :
 
     # Carry out 300 PIC steps
     print 'Calculate PIC solution for the wakefield'
-    sim.step(10, moving_window = False)
+    sim.step(1000, moving_window = False)
     print 'Done...'
     print ''
 
     # Gather grid
-    gathered_grid = sim.comm.gather_grid(sim.fld.interp[1])
+    if use_mpi:
+        gathered_grid = sim.comm.gather_grid(sim.fld.interp[1])
 
     # Plot the wakefields
-    if rank == 0:
-        plot_gathered_fields(gathered_grid)
+    if use_mpi:
+        if rank == 0:
+            plot_gathered_fields(gathered_grid)
+    else:
+        plot_gathered_fields(sim.fld.interp[1])
+

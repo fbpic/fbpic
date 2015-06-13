@@ -109,7 +109,7 @@ class Simulation(object) :
         self.use_mpi = use_mpi
         if (self.use_mpi) and (mpi_installed == False):
             self.use_mpi = False
-        else:
+        if self.use_mpi:
             # Initialize the MPI communicator
             self.comm = MPI_Communicator(Nz, Nr, zmin, zmax, n_guard, Nm)
             # Modify domain region
