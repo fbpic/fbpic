@@ -145,6 +145,38 @@ class MPI_Communicator(object) :
             right_domain = 0
 
         # Send to left domain and receive from right domain
+        if self.rank % 2 == 0:
+            self.mpi_comm.Send(send_left, 
+                        dest=left_domain, tag=1)
+            self.mpi_comm.Recv(recv_right,
+                        source=right_domain, tag=2)
+        else:
+            self.mpi_comm.Recv(recv_right,
+                        source=right_domain, tag=1)
+            self.mpi_comm.Send(send_left, 
+                        dest=left_domain, tag=2)
+
+        # Send to left domain and receive from right domain
+        if self.rank % 2 == 0:
+            self.mpi_comm.Send(send_right,
+                        dest=right_domain, tag=3)
+
+            self.mpi_comm.Recv(recv_left,
+                        source=left_domain, tag=2)
+        else:
+            self.mpi_comm.Recv(recv_left,
+                        source=left_domain, tag=3)
+
+            self.mpi_comm.Send(send_right,
+                        dest=right_domain, tag=2)
+
+
+        # Wait for the non-blocking sends to be received
+        #re_1 = mpi.Request.Wait(req_1)
+        #re_2 = mpi.Request.Wait(req_2)
+
+        """
+        # Send to left domain and receive from right domain
         self.mpi_comm.Isend(send_left, 
                     dest=left_domain, tag=1)
         req_1 = self.mpi_comm.Irecv(recv_right,
@@ -157,7 +189,7 @@ class MPI_Communicator(object) :
         # Wait for the non-blocking sends to be received
         re_1 = mpi.Request.Wait(req_1)
         re_2 = mpi.Request.Wait(req_2)
-
+        """
     def exchange_fields( self, interp, fieldtype ):
         ng = self.n_guard
         # Check for fieldtype
