@@ -82,7 +82,7 @@ if __name__ == '__main__' :
     # ---------------------------
     
     # The simulation box
-    Nz = 802         # Number of gridpoints along z
+    Nz = 804         # Number of gridpoints along z
     zmax = 60.e-6    # Length of the box along z (meters)
     Nr = 40          # Number of gridpoints along r
     rmax = 20.e-6    # Length of the box along r (meters)
@@ -92,7 +92,7 @@ if __name__ == '__main__' :
 
     # The particles
     p_zmin = 1.e-6  # Position of the beginning of the plasma (meters)
-    p_zmax = 41.e-6  # Position of the end of the plasma (meters)
+    p_zmax = 61.e-6  # Position of the end of the plasma (meters)
     p_rmin = 0.      # Minimal radial position of the plasma (meters)
     p_rmax = 20.e-6  # Maximal radial position of the plasma (meters)
     n_e = 4.e18*1.e6 # Density (electrons.meters^-3)
@@ -109,7 +109,7 @@ if __name__ == '__main__' :
     # Initialize the simulation object
     sim = Simulation( Nz, zmax, Nr, rmax, Nm, dt,
         p_zmin, p_zmax, p_rmin, p_rmax, p_nz, p_nr, p_nt, n_e,
-        use_mpi = True, n_guard = 50)
+        use_mpi = True, n_guard = 5)
 
     # Remove Plasma
     sim.ptcl = []
@@ -124,7 +124,7 @@ if __name__ == '__main__' :
 
     # Carry out 300 PIC steps
     print 'Calculate PIC solution for the wakefield'
-    sim.step(100, moving_window = False)
+    sim.step(10, moving_window = False)
     print 'Done...'
     print ''
 

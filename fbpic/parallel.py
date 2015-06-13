@@ -311,18 +311,18 @@ class MPI_Communicator(object) :
         Nz_d = int(self.Nz/self.size)
         Nz_last = self.Nz % self.size
 
+        """
         domain_sizes = ()
 
         for domain in range(self.size-1):
             domain_sizes += (Nz_d*self.Nr, )
 
         domain_sizes += ((Nz_d + Nz_last)*self.Nr, )
-
+        """
+        
         self.mpi_comm.Gatherv(
             sendbuf = array[ng:-ng,:], 
-            recvbuf = [gathered_array,    
-                       domain_sizes, 
-                       None],
+            recvbuf = gathered_array,
             root = root)
 
         if self.rank == root:
