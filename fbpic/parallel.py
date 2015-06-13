@@ -156,19 +156,23 @@ class MPI_Communicator(object) :
             self.mpi_comm.Send(send_left, 
                         dest=left_domain, tag=2)
 
+        self.barrier()
+
         # Send to left domain and receive from right domain
         if self.rank % 2 == 0:
             self.mpi_comm.Send(send_right,
                         dest=right_domain, tag=3)
 
             self.mpi_comm.Recv(recv_left,
-                        source=left_domain, tag=2)
+                        source=left_domain, tag=4)
         else:
             self.mpi_comm.Recv(recv_left,
                         source=left_domain, tag=3)
 
             self.mpi_comm.Send(send_right,
-                        dest=right_domain, tag=2)
+                        dest=right_domain, tag=4)
+
+        self.barrier()
 
 
         # Wait for the non-blocking sends to be received
@@ -190,6 +194,7 @@ class MPI_Communicator(object) :
         re_1 = mpi.Request.Wait(req_1)
         re_2 = mpi.Request.Wait(req_2)
         """
+
     def exchange_fields( self, interp, fieldtype ):
         ng = self.n_guard
         # Check for fieldtype
@@ -198,19 +203,19 @@ class MPI_Communicator(object) :
             for m in range(self.Nm):
                 offset = 6*m
                 # Buffer for sending to left
-                self.EB_send_l[0+offset,:,:] = interp[m].Er[:ng,:]
-                self.EB_send_l[1+offset,:,:] = interp[m].Et[:ng,:]
-                self.EB_send_l[2+offset,:,:] = interp[m].Ez[:ng,:]
-                self.EB_send_l[3+offset,:,:] = interp[m].Br[:ng,:]
-                self.EB_send_l[4+offset,:,:] = interp[m].Bt[:ng,:]
-                self.EB_send_l[5+offset,:,:] = interp[m].Bz[:ng,:]
+                self.EB_send_l[0+offset,:,:] = interp[m].Er[ng:2*ng,:]
+                self.EB_send_l[1+offset,:,:] = interp[m].Et[ng:2*ng,:]
+                self.EB_send_l[2+offset,:,:] = interp[m].Ez[ng:2*ng,:]
+                self.EB_send_l[3+offset,:,:] = interp[m].Br[ng:2*ng,:]
+                self.EB_send_l[4+offset,:,:] = interp[m].Bt[ng:2*ng,:]
+                self.EB_send_l[5+offset,:,:] = interp[m].Bz[ng:2*ng,:]
                 # Buffer for sending to right
-                self.EB_send_r[0+offset,:,:] = interp[m].Er[-ng:,:]
-                self.EB_send_r[1+offset,:,:] = interp[m].Et[-ng:,:]
-                self.EB_send_r[2+offset,:,:] = interp[m].Ez[-ng:,:]
-                self.EB_send_r[3+offset,:,:] = interp[m].Br[-ng:,:]
-                self.EB_send_r[4+offset,:,:] = interp[m].Bt[-ng:,:]
-                self.EB_send_r[5+offset,:,:] = interp[m].Bz[-ng:,:]
+                self.EB_send_r[0+offset,:,:] = interp[m].Er[-2*ng:-ng,:]
+                self.EB_send_r[1+offset,:,:] = interp[m].Et[-2*ng:-ng,:]
+                self.EB_send_r[2+offset,:,:] = interp[m].Ez[-2*ng:-ng,:]
+                self.EB_send_r[3+offset,:,:] = interp[m].Br[-2*ng:-ng,:]
+                self.EB_send_r[4+offset,:,:] = interp[m].Bt[-2*ng:-ng,:]
+                self.EB_send_r[5+offset,:,:] = interp[m].Bz[-2*ng:-ng,:]
             # Exchange the guard regions between the domains (MPI)
             self.exchange_domains(self.EB_send_l, self.EB_send_r,
                                  self.EB_recv_l, self.EB_recv_r)
@@ -237,13 +242,13 @@ class MPI_Communicator(object) :
             for m in range(self.Nm):
                 offset = 3*m
                 # Buffer for sending to left
-                self.J_send_l[0+offset,:,:] = interp[m].Jr[:ng,:]
-                self.J_send_l[1+offset,:,:] = interp[m].Jt[:ng,:]
-                self.J_send_l[2+offset,:,:] = interp[m].Jz[:ng,:]
+                self.J_send_l[0+offset,:,:] = interp[m].Jr[ng:2*ng,:]
+                self.J_send_l[1+offset,:,:] = interp[m].Jt[ng:2*ng,:]
+                self.J_send_l[2+offset,:,:] = interp[m].Jz[ng:2*ng,:]
                 # Buffer for sending to right
-                self.J_send_r[0+offset,:,:] = interp[m].Jr[-ng:,:]
-                self.J_send_r[1+offset,:,:] = interp[m].Jt[-ng:,:]
-                self.J_send_r[2+offset,:,:] = interp[m].Jz[-ng:,:]
+                self.J_send_r[0+offset,:,:] = interp[m].Jr[-2*ng:-ng,:]
+                self.J_send_r[1+offset,:,:] = interp[m].Jt[-2*ng:-ng,:]
+                self.J_send_r[2+offset,:,:] = interp[m].Jz[-2*ng:-ng,:]
             # Exchange the guard regions between the domains (MPI)
             self.exchange_domains(self.J_send_l, self.J_send_r,
                                  self.J_recv_l, self.J_recv_r)
@@ -264,9 +269,9 @@ class MPI_Communicator(object) :
             for m in range(self.Nm):
                 offset = 1*m
                 # Buffer for sending to left
-                self.rho_send_l[0+offset,:,:] = interp[m].rho[:ng,:]
+                self.rho_send_l[0+offset,:,:] = interp[m].rho[ng:2*ng,:]
                 # Buffer for sending to right
-                self.rho_send_r[0+offset,:,:] = interp[m].rho[-ng:,:]
+                self.rho_send_r[0+offset,:,:] = interp[m].rho[-2*ng:ng,:]
             # Exchange the guard regions between the domains (MPI)
             self.exchange_domains(self.rho_send_l, self.rho_send_r,
                                  self.rho_recv_l, self.rho_recv_r)
