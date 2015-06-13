@@ -271,7 +271,7 @@ class MPI_Communicator(object) :
                 # Buffer for sending to left
                 self.rho_send_l[0+offset,:,:] = interp[m].rho[ng:2*ng,:]
                 # Buffer for sending to right
-                self.rho_send_r[0+offset,:,:] = interp[m].rho[-2*ng:ng,:]
+                self.rho_send_r[0+offset,:,:] = interp[m].rho[-2*ng:-ng,:]
             # Exchange the guard regions between the domains (MPI)
             self.exchange_domains(self.rho_send_l, self.rho_send_r,
                                  self.rho_recv_l, self.rho_recv_r)
