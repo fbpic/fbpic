@@ -83,7 +83,7 @@ class Fields(object) :
         """
         # Convert Nz to the nearest odd integer
         # (easier for the interpretation of the FFT)
-        Nz = 2*int(Nz/2) + 1
+        # Nz = 2*int(Nz/2) + 1
         
         # Register the arguments inside the object
         self.Nz = Nz

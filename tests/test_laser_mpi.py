@@ -68,6 +68,59 @@ def plot_gathered_fields(grid):
     # Show plots
     plt.show()
 
+def plot_field_error(grid_mpi, grid):
+
+    # Get extent from grid object
+    extent = np.array([ grid_mpi.zmin-0.5*grid_mpi.dz, grid_mpi.zmax+0.5*grid_mpi.dz,
+                        -0.5*grid_mpi.dr, grid_mpi.rmax + 0.5*grid_mpi.dr ])
+    # Rescale extent to microns
+    extent = extent/1.e-6
+
+    # Plot simulated Ez in 2D
+    plt.subplot(221)
+    plt.imshow((grid.Ez[:,::-1].real.T - grid_mpi.Ez[:,::-1].real.T), extent = extent, 
+        aspect='auto', interpolation='nearest')
+    plt.xlabel('z')
+    plt.ylabel('r')
+    cb = plt.colorbar()
+    cb.set_label('Ez')
+    plt.title('2D Ez - mode 1 - real part')
+
+    # Plot simulated Er in 2D
+    plt.subplot(222)
+    plt.imshow(grid.Er[:,::-1].real.T-grid_mpi.Er[:,::-1].real.T, extent = extent, 
+        aspect='auto', interpolation='nearest')
+    plt.xlabel('z')
+    plt.ylabel('r')
+    cb = plt.colorbar()
+    cb.set_label('Er')
+    plt.title('2D Er - mode 1 - real part')
+
+    # Plot lineouts of Ez (simulation and analytical solution)
+    plt.subplot(223)
+    plt.plot(1.e6*grid_mpi.z, grid.Ez[:,0].real-grid_mpi.Ez[:,0].real, 
+        color = 'b', label = 'Simulation')
+    plt.xlabel('z')
+    plt.ylabel('Ez')
+    plt.title('On-axis lineout of Ez')
+
+    # Plot lineouts of Er (simulation and analytical solution)
+    plt.subplot(224)
+    plt.plot(1.e6*grid_mpi.z, grid.Er[:,5].real-grid_mpi.Er[:,5].real, 
+        color = 'b', label = 'Simulation')
+    plt.xlabel('z')
+    plt.ylabel('Er')
+    plt.title('Off-axis lineout of Er')
+
+
+    print 'Maximum error Ez in percent:'
+    print 100*np.amax(grid.Ez[:,::-1].real.T - grid_mpi.Ez[:,::-1].real.T)/np.amax(grid.Ez[:,::-1].real.T)
+    print 'Maximum error Er in percent:'
+    print 100*np.amax(grid.Er[:,::-1].real.T - grid_mpi.Er[:,::-1].real.T)/np.amax(grid.Er[:,::-1].real.T)
+
+    # Show plots
+    plt.show()
+
 if __name__ == '__main__' :
 
     # Setup MPI
@@ -104,18 +157,27 @@ if __name__ == '__main__' :
     a0 = 1.0        # Laser amplitude
     w0 = 5.e-6       # Laser waist
     ctau = 7.e-6     # Laser duration
-    z0 = 35.e-6      # Laser centroid
+    z0 = zmax/2     # Laser centroid
 
     # Initialize the simulation object
-    sim = Simulation( Nz, zmax, Nr, rmax, Nm, dt,
+    if rank == 0:
+        sim = Simulation( Nz, zmax, Nr, rmax, Nm, dt,
+            p_zmin, p_zmax, p_rmin, p_rmax, p_nz, p_nr, p_nt, n_e,
+            use_mpi = False)
+
+    sim_mpi = Simulation( Nz, zmax, Nr, rmax, Nm, dt,
         p_zmin, p_zmax, p_rmin, p_rmax, p_nz, p_nr, p_nt, n_e,
         use_mpi = use_mpi, n_guard = 100)
 
     # Remove Plasma
-    sim.ptcl = []
+    if rank == 0:
+        sim.ptcl = []
+    sim_mpi.ptcl = []
 
     # Add a laser to the fields of the simulation
-    add_laser( sim.fld, a0, w0, ctau, z0 )
+    if rank == 0:
+        add_laser( sim.fld, a0, w0, ctau, z0 )
+    add_laser( sim_mpi.fld, a0, w0, ctau, z0 )
 
 
     # ---------------------------
@@ -124,18 +186,28 @@ if __name__ == '__main__' :
 
     # Carry out 300 PIC steps
     print 'Calculate PIC solution for the wakefield'
-    sim.step(1000, moving_window = False)
+    if rank == 0:
+        sim.step(10, moving_window = False)
+
+    mpi_comm.Barrier()
+    sim_mpi.step(10, moving_window = False)
     print 'Done...'
     print ''
 
     # Gather grid
     if use_mpi:
-        gathered_grid = sim.comm.gather_grid(sim.fld.interp[1])
+        gathered_grid = sim_mpi.comm.gather_grid(sim_mpi.fld.interp[1])
 
     # Plot the wakefields
     if use_mpi:
         if rank == 0:
             plot_gathered_fields(gathered_grid)
-    else:
+    
+    if rank == 0:
         plot_gathered_fields(sim.fld.interp[1])
+
+    if use_mpi and rank == 0:
+        print 'plotting now..'
+        plot_field_error(gathered_grid, sim.fld.interp[1])
+
 
