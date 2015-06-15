@@ -183,16 +183,16 @@ By combining \cref{eq:CircMaxwellp,eq:CircMaxwellm,eq:CircMaxwellz}
 and \cref{eq:SpectCons}, one can find the propagation equations for $B$.
 \begin{align*}
 \partial_t^2 \spectral{B}_{+,m} + c^2(k_\perp ^2+k_z^2) \spectral{B}_{+,m} = 
-\mu_0 c^2 \left( - \frac{ik_\perp }{2} \spectral{j}_{z,m} + k_z \spectral{j}_{+,m}
+\mu_0 c^2 \left( - \frac{ik_\perp }{2} \spectral{J}_{z,m} + k_z \spectral{J}_{+,m}
 \right) \\
 \partial_t^2 \spectral{B}_{-,m} + c^2(k_\perp ^2+k_z^2) \spectral{B}_{-,m} = 
-\mu_0 c^2 \left( - \frac{ik_\perp }{2} \spectral{j}_{z,m} - k_z \spectral{j}_{+,m}
+\mu_0 c^2 \left( - \frac{ik_\perp }{2} \spectral{J}_{z,m} - k_z \spectral{J}_{-,m}
 \right) \\
 \partial_t^2 \spectral{B}_{z,m} + c^2(k_\perp ^2+k_z^2) \spectral{B}_{z,m} =
-\mu_0c^2  (ik_\perp  \spectral{j}_{+,m} + ik_\perp \spectral{j}_{-,m} ) 
+\mu_0c^2  (ik_\perp  \spectral{J}_{+,m} + ik_\perp \spectral{J}_{-,m} ) 
 \end{align*}
 Let us integrate these equations for $t\in [n\Delta t, (n+1)\Delta
-t]$. In this interval, $\spectral{j}_m(t)$ is constant
+t]$. In this interval, $\spectral{J}_m(t)$ is constant
 and equal to $\tj_m{n+1/2}$, and thus the right-hand side of the above
 equations is constant. Using Green functions, the
 general solution of a differential equation of the form 
@@ -228,13 +228,13 @@ and \cref{eq:SpectCons}, the propagation equations for $E$ are:
 \begin{align*}
 \partial_t^2 \spectral{E}_{+,m} + c^2(k_\perp^2 + k_z^2) \spectral{E}_{+,m}
 = \frac{c^2}{\epsilon_0} \frac{k_\perp}{2} \spectral{\rho}_m -
-\mu_0c^2 \partial_t\spectral{j}_{+,m} \\
+\mu_0c^2 \partial_t\spectral{J}_{+,m} \\
 \partial_t^2 \spectral{E}_{-,m} + c^2(k_\perp^2 + k_z^2) \spectral{E}_{-,m}
 = - \frac{c^2}{\epsilon_0} \frac{k_\perp}{2} \spectral{\rho}_m -
-\mu_0c^2 \partial_t\spectral{j}_{-,m} \\
+\mu_0c^2 \partial_t\spectral{J}_{-,m} \\
 \partial_t^2 \spectral{E}_{z,m} + c^2(k_\perp^2 + k_z^2) \spectral{E}_{z,m}
 = - \frac{c^2}{\epsilon_0} i k_z \spectral{\rho}_m -
-\mu_0c^2 \partial_t\spectral{j}_{z,m} 
+\mu_0c^2 \partial_t\spectral{J}_{z,m} 
 \end{align*}
 Let us again integrate these equations for $t\in [n\Delta t, (n+1)\Delta
 t]$. In this interval, $\spectral{j}_m(t)$ is constant (thus its time
