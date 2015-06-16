@@ -744,6 +744,8 @@ class SpectralGrid(object) :
             # Define a few constants
             i = 1.j
             c2 = c**2
+            c2_eps0 = c2 / epsilon_0
+            mu0_c2 = mu_0 * c2
 
             # Save the electric fields, since it is needed for the B push
             ps.Ep[:,:] = self.Ep[:,:]
@@ -756,40 +758,40 @@ class SpectralGrid(object) :
                 # Calculate useful auxiliary arrays
                 if use_true_rho :
                     # Evaluation using the rho projected on the grid
-                    rho_diff = ps.rho_next_coef*self.rho_next \
-                        - ps.rho_prev_coef*self.rho_prev
+                    rho_contrib = c2_eps0*( ps.coef1*self.rho_prev \
+                        + ps.coef2*( self.rho_next - self.rho_prev ) )
                 else :
                     # Evaluation using div(E) and div(J)
-                    rho_diff= (ps.rho_next_coef-ps.rho_prev_coef)*epsilon_0* \
+                    rho_contrib = c2_eps0*( ps.coef1*epsilon_0* \
                     (self.kr*self.Ep - self.kr*self.Em + i*self.kz*self.Ez) \
-                    - ps.rho_next_coef * ps.dt * \
-                    (self.kr*self.Jp - self.kr*self.Jm + i*self.kz*self.Jz)
+                    + ps.coef2*ps.dt* \
+                    (self.kr*self.Jp - self.kr*self.Jm + i*self.kz*self.Jz) )
 
                 # Push the E field
-                self.Ep[:,:] = ps.C*self.Ep + 0.5*self.kr*rho_diff \
+                self.Ep[:,:] = ps.C*self.Ep + 0.5*self.kr*rho_contrib \
                     + c2*ps.S_w*( -i*0.5*self.kr*self.Bz + self.kz*self.Bp \
                               - mu_0*self.Jp )
 
-                self.Em[:,:] = ps.C*self.Em - 0.5*self.kr*rho_diff \
+                self.Em[:,:] = ps.C*self.Em - 0.5*self.kr*rho_contrib \
                     + c2*ps.S_w*( -i*0.5*self.kr*self.Bz - self.kz*self.Bm \
                               - mu_0*self.Jm )
 
-                self.Ez[:,:] = ps.C*self.Ez - i*self.kz*rho_diff \
+                self.Ez[:,:] = ps.C*self.Ez - i*self.kz*rho_contrib \
                     + c2*ps.S_w*( i*self.kr*self.Bp + i*self.kr*self.Bm \
                       - mu_0*self.Jz )
 
                 # Push the B field
                 self.Bp[:,:] = ps.C*self.Bp \
                     - ps.S_w*( -i*0.5*self.kr*ps.Ez + self.kz*ps.Ep ) \
-                    + ps.j_coef*( -i*0.5*self.kr*self.Jz + self.kz*self.Jp )
+                + ps.coef1*mu0_c2*( -i*0.5*self.kr*self.Jz + self.kz*self.Jp )
 
                 self.Bm[:,:] = ps.C*self.Bm \
                     - ps.S_w*( -i*0.5*self.kr*ps.Ez - self.kz*ps.Em ) \
-                    + ps.j_coef*( -i*0.5*self.kr*self.Jz - self.kz*self.Jm )
+                + ps.coef1*mu0_c2*( -i*0.5*self.kr*self.Jz - self.kz*self.Jm )
 
                 self.Bz[:,:] = ps.C*self.Bz \
                     - ps.S_w*( i*self.kr*ps.Ep + i*self.kr*ps.Em ) \
-                    + ps.j_coef*( i*self.kr*self.Jp + i*self.kr*self.Jm )
+                + ps.coef1*mu0_c2*( i*self.kr*self.Jp + i*self.kr*self.Jm )
 
             # Without particle feedback
             else :

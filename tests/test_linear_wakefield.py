@@ -237,7 +237,7 @@ if __name__ == '__main__' :
 
     # Carry out 300 PIC steps
     print 'Calculate PIC solution for the wakefield'
-    sim.step(1500)
+    sim.step(750)
     print 'Done...'
     print ''
 
