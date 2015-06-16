@@ -710,7 +710,7 @@ class SpectralGrid(object) :
         ----------
         ps : PsatdCoeffs object
             psatd object corresponding to the same m mode
-
+            
         ptcl_feedback : bool, optional
             Whether to take into the densities and currents when
             pushing the fields
@@ -766,17 +766,20 @@ class SpectralGrid(object) :
                     (self.kr*self.Ep - self.kr*self.Em + i*self.kz*self.Ez) \
                     + ps.coef2*ps.dt* \
                     (self.kr*self.Jp - self.kr*self.Jm + i*self.kz*self.Jz) )
-
+                    
                 # Push the E field
                 self.Ep[:,:] = ps.C*self.Ep + 0.5*self.kr*rho_contrib \
+                    + ps.coef1 * mu0_c2*ps.V * 1.j*self.kz*self.Jp \
                     + c2*ps.S_w*( -i*0.5*self.kr*self.Bz + self.kz*self.Bp \
                               - mu_0*self.Jp )
 
                 self.Em[:,:] = ps.C*self.Em - 0.5*self.kr*rho_contrib \
+                    + ps.coef1 * mu0_c2*ps.V * 1.j*self.kz*self.Jm \
                     + c2*ps.S_w*( -i*0.5*self.kr*self.Bz - self.kz*self.Bm \
                               - mu_0*self.Jm )
 
                 self.Ez[:,:] = ps.C*self.Ez - i*self.kz*rho_contrib \
+                    + ps.coef1 * mu0_c2*ps.V * 1.j*self.kz*self.Jz \
                     + c2*ps.S_w*( i*self.kr*self.Bp + i*self.kr*self.Bm \
                       - mu_0*self.Jz )
 
@@ -942,7 +945,7 @@ class PsatdCoeffs(object) :
     Contains the coefficients of the PSATD scheme for a given mode.
     """
     
-    def __init__( self, kz, kr, m, dt, Nz, Nr, use_cuda=False ) :
+    def __init__( self, kz, kr, m, dt, Nz, Nr, V=0, use_cuda=False ) :
         """
         Allocates the coefficients matrices for the psatd scheme.
         
@@ -960,42 +963,42 @@ class PsatdCoeffs(object) :
         dt : float
             The timestep of the simulation
 
+        V : float
+            Velocity of the Galilean transformation
+            
         use_cuda : bool, optional
             Wether to use the GPU or not
         """
         
-        # Register m and dt
+        # Register parameters
         self.m = m
         self.dt = dt
+        self.V = V
     
         # Construct the omega and inverse omega array
         w = c*np.sqrt( kz**2 + kr**2 )
-        inv_w = 1./np.where( w == 0, 1., w ) # Avoid division by 0 
+        inv_w = 1./np.where( w == 0, 1., w ) # Avoid singularity
+        inv_w_p_kzV = 1./np.where( w+kz*V==0, 1., w+kz*V ) # Avoid singularity
+        inv_w_m_kzV = 1./np.where( w-kz*V==0, 1., w-kz*V ) # Avoid singularity
 
         # Construct the C coefficient arrays
-        self.C = np.cos( w*dt )
+        self.C = np.cos( w*dt ) * np.exp( 1.j*V*kz*dt )
         
         # Construct the S/w coefficient arrays
-        self.S_w = np.sin( w*dt )*inv_w
+        self.S_w = np.sin( w*dt ) * inv_w * np.exp( 1.j*V*kz*dt )
         # Enforce the right value for w==0
         self.S_w[ w==0 ] = dt
         
-        # Construct the mu0 c2 (1-C)/w2 array
-        self.j_coef =  mu_0*c**2*(1.-self.C)*inv_w**2
-        # Enforce the right value for w==0
-        self.j_coef[ w==0 ] = mu_0*c**2*(0.5*dt**2)
+        # Construct the array corresponding to constant term
+        self.coef1 = 0.5*( 1.-np.exp(1.j*(kz*V+w)*dt) ) *inv_w *inv_w_p_kzV \
+            + 0.5*( 1.-np.exp(1.j*(kz*V-w)*dt) ) *inv_w *inv_w_m_kzV
 
-        # Construct rho_prev coefficient array
+        # Construct the array corresponding to linear term
         inv_dt = 1./dt
-        self.rho_prev_coef= c**2/epsilon_0*(self.C - inv_dt*self.S_w)*inv_w**2
-        # Enforce the right value for w==0
-        self.rho_prev_coef[ w==0 ] = c**2/epsilon_0*(-1./3*dt**2)
+        self.coef2 = inv_w_p_kzV * inv_w_m_kzV \
+          + 0.5*( 1.-np.exp(1.j*(kz*V+w)*dt) )*inv_w * inv_w_p_kzV**2 *inv_dt \
+          - 0.5*( 1.-np.exp(1.j*(kz*V-w)*dt) )*inv_w * inv_w_m_kzV**2 *inv_dt 
 
-        # Construct rho_next coefficient array
-        self.rho_next_coef = c**2/epsilon_0*(1 - inv_dt*self.S_w)*inv_w**2
-        # Enforce the right value for w==0
-        self.rho_next_coef[ w==0 ] = c**2/epsilon_0*(1./6*dt**2)
-        
         # Allocate useful auxiliary matrices
         self.Ep = np.zeros( (Nz, Nr), dtype='complex' )
         self.Em = np.zeros( (Nz, Nr), dtype='complex' )
@@ -1005,9 +1008,8 @@ class PsatdCoeffs(object) :
         if use_cuda :
             self.d_C = cuda.to_device(self.C)
             self.d_S_w = cuda.to_device(self.S_w)
-            self.d_j_coef = cuda.to_device(self.j_coef)
-            self.d_rho_prev_coef = cuda.to_device(self.rho_prev_coef)
-            self.d_rho_next_coef = cuda.to_device(self.rho_next_coef)
+            self.d_coef1 = cuda.to_device(self.coef1)
+            self.d_coef2 = cuda.to_device(self.coef2)
             # NB : Ep, Em, Ez are not needed on the GPU (on-the-fly variables)
 
         
