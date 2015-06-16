@@ -30,7 +30,7 @@ class Simulation(object) :
 
     def __init__(self, Nz, zmax, Nr, rmax, Nm, dt,
                  p_zmin, p_zmax, p_rmin, p_rmax, p_nz, p_nr, p_nt,
-                 n_e, dens_func=None, filter_currents=True,
+                 n_e, zmin = 0., dens_func=None, filter_currents=True,
                  initialize_ions=False, use_cuda = False) :
         """
         Initializes a simulation, by creating the following structures :
@@ -44,7 +44,8 @@ class Simulation(object) :
             The number of gridpoints in z and r
 
         zmax, rmax : floats
-            The size of the simulation box along z and r
+            The position of the edge of the simulation in z and r
+            (More precisely, the position of the edge of the last cell)
 
         Nm : int
             The number of azimuthal modes taken into account
@@ -66,6 +67,10 @@ class Simulation(object) :
 
         n_e : float (in particles per m^3)
            Peak density of the electrons
+
+        zmin : float, optional
+           The position of the edge of the simulation box
+           (More precisely, the position of the edge of the first cell)
            
         dens_func : callable, optional
            A function of the form :
@@ -89,7 +94,8 @@ class Simulation(object) :
             self.use_cuda = False
 
         # Initialize the field structure
-        self.fld = Fields(Nz, zmax, Nr, rmax, Nm, dt, use_cuda=self.use_cuda)
+        self.fld = Fields(Nz, zmax, Nr, rmax, Nm, dt,
+                          zmin=zmin, use_cuda=self.use_cuda)
 
         # Modify the input parameters p_zmin, p_zmax, r_zmin, r_zmax, so that
         # they fall exactly on the grid, and infer the number of particles
@@ -319,6 +325,7 @@ def adapt_to_grid( x, p_xmin, p_xmax, p_nx, ncells_empty=2 ) :
     xmin = x.min()
     xmax = x.max()
     dx = x[1] - x[0]
+    
     # Do not load particles below the lower bound of the box
     if p_xmin < xmin - 0.5*dx :
         p_xmin = xmin - 0.5*dx
@@ -329,6 +336,9 @@ def adapt_to_grid( x, p_xmin, p_xmax, p_nx, ncells_empty=2 ) :
     # at the left boundary.)
     if p_xmax > xmax + (0.5-ncells_empty)*dx :
         p_xmax = xmax + (0.5-ncells_empty)*dx
+    # Prevent situation where p_xmin is larger than p_xmax
+    if p_xmin > p_xmax :
+        p_xmin = p_xmax
             
     # Find the gridpoints on which the particles should be loaded
     x_load = x[ ( x > p_xmin ) & ( x < p_xmax ) ]

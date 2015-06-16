@@ -354,12 +354,12 @@ class FieldDiagnostic(OpenPMDDiagnostic) :
         The size of the steps on the grid
     
         zmin : float (meters)
-        The position of the first cell along the longitudinal direction
+        The position of the edge of the simulation box ablong the z direction
         """
         dset.attrs["unitSI"] = 1.
         dset.attrs["gridUnitSI"] = 1.
         dset.attrs["gridSpacing"] = np.array([dr, dz])
-        dset.attrs["gridGlobalOffset"] = np.array([ 0., zmin-0.5*dz])
+        dset.attrs["gridGlobalOffset"] = np.array([ 0., zmin])
         dset.attrs["position"] = np.array([ 0.5, 0.5])
         dset.attrs["dataOrder"] = "kji"  # column-major order due to numpy
         dset.attrs["fieldSolver"] = "PSATD"

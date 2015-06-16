@@ -49,7 +49,7 @@ class Fields(object) :
     """
 
     def __init__( self, Nz, zmax, Nr, rmax, Nm, dt,
-                  use_cuda=False, use_cuda_memory=True ) :
+                  zmin=0., use_cuda=False, use_cuda_memory=True ) :
         """
         Initialize the components of the Fields object
 
@@ -58,14 +58,15 @@ class Fields(object) :
         Nz : int
             The number of gridpoints in z
 
-        zmax : float
-            The size of the box along z
+        zmin, zmax : float (zmin, optional)
+            The initial position of the left and right
+            edge of the box along z
             
         Nr : int
             The number of gridpoints in r
 
         rmax : float
-            The size of the box along r
+            The position of the edge of the box along r
 
         Nm : int
             The number of azimuthal modes
@@ -104,8 +105,8 @@ class Fields(object) :
             print 'Using the GPU for the field.'
 
         # Infer the values of the z and kz grid
-        dz = zmax/Nz
-        z = dz * ( np.arange( 0, Nz ) + 0.5 )
+        dz = (zmax-zmin)/Nz
+        z = dz * ( np.arange( 0, Nz ) + 0.5 ) + zmin
         kz = 2*np.pi* np.fft.fftfreq( Nz, dz ) 
         # (According to FFT conventions, the kz array starts with
         # positive frequencies and ends with negative frequency.)
@@ -448,10 +449,11 @@ class InterpolationGrid(object) :
         self.dz = dz
         self.invdr = 1./dr
         self.invdz = 1./dz
-        self.rmin = self.r.min()
-        self.rmax = self.r.max()
-        self.zmin = self.z.min()
-        self.zmax = self.z.max()
+        # rmin, rmax, zmin, zmax correspond to the edge of cells
+        self.rmin = self.r.min() - 0.5*dr
+        self.rmax = self.r.max() + 0.5*dr
+        self.zmin = self.z.min() - 0.5*dz
+        self.zmax = self.z.max() + 0.5*dz
         # Cell volume (assuming an evenly-spaced grid)
         vol = np.pi*dz*( (r+0.5*dr)**2 - (r-0.5*dr)**2 )
         # NB : No Verboncoeur-type correction required
@@ -539,11 +541,9 @@ class InterpolationGrid(object) :
         # Show the field also below the axis for a more realistic picture
         if below_axis == True :
             plotted_field = np.hstack( (plotted_field[:,::-1],plotted_field) )
-            extent = np.array([ self.zmin-0.5*self.dz, self.zmax+0.5*self.dz,
-                      -self.rmax - 0.5*self.dr, self.rmax + 0.5*self.dr ])
+            extent = np.array([self.zmin, self.zmax, -self.rmax, self.rmax])
         else :
-            extent = np.array([self.zmin-0.5*self.dz, self.zmax+0.5*self.dz,
-                      self.rmin - 0.5*self.dr, self.rmax + 0.5*self.dr])
+            extent = np.array([self.zmin, self.zmax, self.rmin, self.rmax])
         extent = extent/gridscale
         # Title
         plt.suptitle(
