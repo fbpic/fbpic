@@ -172,7 +172,8 @@ def gather_field_gpu(x, y, z,
         Inverse of the grid step along the considered direction
 
     zmin, rmin : float (in meters)
-        Position of the first node of the grid along the considered direction
+        Position of the edge of the simulation box along the
+        direction considered
 
     Nz, Nr : int
         Number of gridpoints along the considered direction
@@ -219,8 +220,8 @@ def gather_field_gpu(x, y, z,
         # Get linear weights for the deposition
         # --------------------------------------------
         # Positions of the particles, in the cell unit
-        r_cell =  invdr*(rj - rmin)
-        z_cell =  invdz*(zj - zmin)
+        r_cell =  invdr*(rj - rmin) - 0.5
+        z_cell =  invdz*(zj - zmin) - 0.5
         # Original index of the uppper and lower cell
         ir_lower = int(math.floor( r_cell ))
         ir_upper = ir_lower + 1
@@ -496,7 +497,8 @@ def deposit_rho_gpu(x, y, z, w,
         Inverse of the grid step along the considered direction
 
     zmin, rmin : float (in meters)
-        Position of the first node of the grid along the considered direction
+        Position of the edge of the simulation box,
+        along the considered direction
 
     Nz, Nr : int
         Number of gridpoints along the considered direction
@@ -575,8 +577,8 @@ def deposit_rho_gpu(x, y, z, w,
             # Get linear weights for the deposition
             # --------------------------------------------
             # Positions of the particles, in the cell unit
-            r_cell =  invdr*(rj - rmin)
-            z_cell =  invdz*(zj - zmin)
+            r_cell =  invdr*(rj - rmin) - 0.5
+            z_cell =  invdz*(zj - zmin) - 0.5
             # Original index of the uppper and lower cell
             ir_lower = int(math.floor( r_cell ))
             ir_upper = ir_lower + 1
@@ -765,7 +767,8 @@ def deposit_J_gpu(x, y, z, w,
         Inverse of the grid step along the considered direction
 
     zmin, rmin : float (in meters)
-        Position of the first node of the grid along the considered direction
+        Position of the edge of the simulation box,
+        along the direction considered
 
     Nz, Nr : int
         Number of gridpoints along the considered direction
@@ -870,8 +873,8 @@ def deposit_J_gpu(x, y, z, w,
             # Get linear weights for the deposition
             # --------------------------------------------
             # Positions of the particles, in the cell unit
-            r_cell =  invdr*(rj - rmin)
-            z_cell =  invdz*(zj - zmin)
+            r_cell =  invdr*(rj - rmin) - 0.5
+            z_cell =  invdz*(zj - zmin) - 0.5
             # Original index of the uppper and lower cell
             # in r and z
             ir_lower = int(math.floor( r_cell ))
@@ -1144,7 +1147,7 @@ def get_cell_idx_per_particle(cell_idx, sorted_idx,
         Inverse of the grid step along the considered direction
 
     zmin, rmin : float (in meters)
-        Position of the first node of the grid along the considered direction
+        Position of the edge of the simulation box, in each direction
 
     Nz, Nr : int
         Number of gridpoints along the considered direction
@@ -1158,8 +1161,8 @@ def get_cell_idx_per_particle(cell_idx, sorted_idx,
             rj = math.sqrt( xj**2 + yj**2 )
     
             # Positions of the particles, in the cell unit
-            r_cell =  invdr*(rj - rmin)
-            z_cell =  invdz*(zj - zmin)
+            r_cell =  invdr*(rj - rmin) - 0.5
+            z_cell =  invdz*(zj - zmin) - 0.5
 
             # Original index of the uppper and lower cell
             ir_lower = int(math.floor( r_cell ))

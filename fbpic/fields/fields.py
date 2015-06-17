@@ -66,7 +66,7 @@ class Fields(object) :
             The number of gridpoints in r
 
         rmax : float
-            The size of the box along r
+            The position of the edge of the box along r
 
         Nm : int
             The number of azimuthal modes
@@ -81,15 +81,7 @@ class Fields(object) :
         use_cuda_memory : bool, optional
             Wether to use manual memory management. Recommended.
         """
-        # Convert Nz to the nearest odd integer
-        # (easier for the interpretation of the FFT)
-        ########################################
-        # This is deactivated, as it currently
-        # causes bugs with the mpi version
-        #
-        # Nz = 2*int(Nz/2) + 1
-        ########################################
-        
+
         # Register the arguments inside the object
         self.Nz = Nz
         self.Nr = Nr
@@ -454,10 +446,11 @@ class InterpolationGrid(object) :
         self.dz = dz
         self.invdr = 1./dr
         self.invdz = 1./dz
-        self.rmin = self.r.min()
-        self.rmax = self.r.max()
-        self.zmin = self.z.min()
-        self.zmax = self.z.max()
+        # rmin, rmax, zmin, zmax correspond to the edge of cells
+        self.rmin = self.r.min() - 0.5*dr
+        self.rmax = self.r.max() + 0.5*dr
+        self.zmin = self.z.min() - 0.5*dz
+        self.zmax = self.z.max() + 0.5*dz
         # Cell volume (assuming an evenly-spaced grid)
         vol = np.pi*dz*( (r+0.5*dr)**2 - (r-0.5*dr)**2 )
         # NB : No Verboncoeur-type correction required
@@ -545,11 +538,9 @@ class InterpolationGrid(object) :
         # Show the field also below the axis for a more realistic picture
         if below_axis == True :
             plotted_field = np.hstack( (plotted_field[:,::-1],plotted_field) )
-            extent = np.array([ self.zmin-0.5*self.dz, self.zmax+0.5*self.dz,
-                      -self.rmax - 0.5*self.dr, self.rmax + 0.5*self.dr ])
+            extent = np.array([self.zmin, self.zmax, -self.rmax, self.rmax])
         else :
-            extent = np.array([self.zmin-0.5*self.dz, self.zmax+0.5*self.dz,
-                      self.rmin - 0.5*self.dr, self.rmax + 0.5*self.dr])
+            extent = np.array([self.zmin, self.zmax, self.rmin, self.rmax])
         extent = extent/gridscale
         # Title
         plt.suptitle(

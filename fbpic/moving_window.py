@@ -154,13 +154,13 @@ class MovingWindow(object) :
             # Now that the grid has moved, remove the particles that are
             # outside of it, and add new particles in the next-to-last cell
             for species in ptcl :
-                clean_outside_particles( species, z_zero-0.5*dz )
+                clean_outside_particles( species, z_zero )
                 if species.continuous_injection == True :
                     # Remember that particles are not loaded in the
                     # last two upper cells, in order to prevent wrapping
                     # around of the charge density, when it is smoothed
-                    add_particles( species, zmax-(n_move+1.5)*dz,
-                                   zmax-1.5*dz, n_move*p_nz )
+                    add_particles( species, zmax-(n_move+2)*dz,
+                                   zmax-2*dz, n_move*p_nz )
             
     def shift_interp_grid( self, grid, n_move, shift_currents=False ) :
         """

@@ -79,7 +79,7 @@ class DHT(object) :
         Number of points in the r direction and z direction
 
         rmax : float
-        Maximal radius of the r grid.
+        Edge of the box in which the Hankel transform is taken
         (The function is assumed to be zero at that point.)
 
         method : string
@@ -218,7 +218,7 @@ class DHT(object) :
         Reference : see the paper associated with FBPIC
 
         Grid :
-        r_n = n*rmax/N        (if d is not None)
+        r_n = (n+d)*rmax/N        (if d is not None)
         r_n = alpha_{m,n}/S   (if d is None)
         nu_n = alpha_{m,n}/(2*pi*rmax)
         where alpha_{m,n} is the n^th zero of the m^th Bessel function

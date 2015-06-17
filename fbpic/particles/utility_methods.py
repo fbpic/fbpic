@@ -31,7 +31,8 @@ def linear_weights(x, invdx, offset, Nx, direction) :
         Inverse of the grid step along the considered direction
 
     offset : float (in meters)
-        Position of the first node of the grid along the considered direction
+        Position of the edge of the simulation box,
+        along the direction considered
 
     Nx : int
         Number of gridpoints along the considered direction
@@ -59,7 +60,7 @@ def linear_weights(x, invdx, offset, Nx, direction) :
     """
 
     # Positions of the particles, in the cell unit
-    x_cell =  invdx*(x - offset)
+    x_cell =  invdx*(x - offset) - 0.5
     
     # Index of the uppper and lower cell
     i_lower = np.floor( x_cell ).astype('int')  

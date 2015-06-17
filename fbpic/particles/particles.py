@@ -331,8 +331,8 @@ class Particles(object) :
             sin = self.y*invr  # Sine
 
             # Indices and weights
-            iz_lower, iz_upper, Sz_lower, Sz_upper = linear_weights(
-               self.z, grid[0].invdz, grid[0].zmin, grid[0].Nz, direction='z' )
+            iz_lower, iz_upper, Sz_lower, Sz_upper = linear_weights( self.z,
+                grid[0].invdz, grid[0].zmin, grid[0].Nz, direction='z')
             ir_lower, ir_upper, Sr_lower, Sr_upper, Sr_guard = linear_weights(
                 r, grid[0].invdr, grid[0].rmin, grid[0].Nr, direction='r' )
 
