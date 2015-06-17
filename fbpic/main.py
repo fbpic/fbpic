@@ -115,6 +115,7 @@ class Simulation(object) :
             # Modify domain region
             zmin, zmax, p_zmin, p_zmax = self.comm.divide_into_domain(
                                             zmin, zmax, p_zmin, p_zmax)
+            # Register new number of cells for local domain
             Nz = self.comm.Nz_local
             Nr = self.comm.Nr
 
@@ -128,7 +129,7 @@ class Simulation(object) :
                                 p_zmin, p_zmax, p_nz )
         p_rmin, p_rmax, Npr = adapt_to_grid( self.fld.interp[0].r,
                                 p_rmin, p_rmax, p_nr )
-        
+
         # Initialize the electrons and the ions
         self.ptcl = [
             Particles( q=-e, m=m_e, n=n_e, Npz=Npz, zmin=p_zmin,
@@ -190,7 +191,7 @@ class Simulation(object) :
         # Shortcuts
         ptcl = self.ptcl
         fld = self.fld
-        
+
         # Send simulation data to GPU (if CUDA is used)
         if self.use_cuda:
             send_data_to_gpu(self)
@@ -236,15 +237,13 @@ class Simulation(object) :
             if move_momenta :
                 for species in ptcl :
                     species.push_p()
+ 
             if move_positions :
                 for species in ptcl :
                     species.halfpush_x()
+
             # Get the current at t = (n+1/2) dt
             self.deposit('J')
-
-            # Exchange the current of the guard cells between domains
-            if self.use_mpi:
-                self.comm.exchange_fields(self.fld.interp, 'J')
 
             # Push the particles' positions to t = (n+1) dt
             if move_positions :
@@ -253,20 +252,18 @@ class Simulation(object) :
             # Get the charge density at t = (n+1) dt
             self.deposit('rho_next')
 
-            # Exchange the charge density of the guard cells between domains
-            if self.use_mpi:
-                self.comm.exchange_fields(self.fld.interp, 'rho')
-
             # Correct the currents (requires rho at t = (n+1) dt )
             if correct_currents :
                 fld.correct_currents()
 
-
             if moving_window or self.use_mpi :
+                if self.use_mpi:
+                    # Damp the fields in the guard cells
+                    self.comm.damp_guard_fields(self.fld.interp)
                 # Get the exchanged and/or damped fields 
                 # E and B on the spectral grid
                 fld.interp2spect('E')
-                fld.interp2spect('B')  
+                fld.interp2spect('B')
             # Get the fields E and B on the spectral grid at t = (n+1) dt
             fld.push( ptcl_feedback )
             # Get the fields E and B on the interpolation grid at t = (n+1) dt
@@ -276,6 +273,9 @@ class Simulation(object) :
             # Exchange the fields of the guard cells between domains
             if self.use_mpi:
                 self.comm.exchange_fields(self.fld.interp, 'EB')
+                if self.iteration % self.comm.exchange_part_period == 0:
+                    for species in self.ptcl:
+                        self.comm.exchange_particles(species)
 
             # Increment the global time and iteration
             self.time += self.dt
@@ -310,12 +310,18 @@ class Simulation(object) :
             for species in self.ptcl :
                 species.deposit( fld.interp, 'rho' )
             fld.divide_by_volume('rho')
+            # Exchange the charge density of the guard cells between domains
+            if self.use_mpi:
+                self.comm.exchange_fields(self.fld.interp, 'rho')
         # Currents
         elif fieldtype == 'J' :
             fld.erase('J')
             for species in self.ptcl :
                 species.deposit( fld.interp, 'J' )
             fld.divide_by_volume('J')
+            # Exchange the current of the guard cells between domains
+            if self.use_mpi:
+                self.comm.exchange_fields(self.fld.interp, 'J')
         else :
             raise ValueError('Unknown fieldtype : %s' %fieldtype)
             
@@ -333,7 +339,7 @@ def progression_bar(i, Ntot, Nbars=60, char='-') :
     sys.stdout.write(' %d/%d' %(i,Ntot))
     sys.stdout.flush()
 
-def adapt_to_grid( x, p_xmin, p_xmax, p_nx, ncells_empty=2 ) :
+def adapt_to_grid( x, p_xmin, p_xmax, p_nx, ncells_empty=0 ) :
     """
     Adapt p_xmin and p_xmax, so that they fall exactly on the grid x
     Return the total number of particles, assuming p_nx particles

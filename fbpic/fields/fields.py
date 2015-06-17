@@ -83,7 +83,12 @@ class Fields(object) :
         """
         # Convert Nz to the nearest odd integer
         # (easier for the interpretation of the FFT)
+        ########################################
+        # This is deactivated, as it currently
+        # causes bugs with the mpi version
+        #
         # Nz = 2*int(Nz/2) + 1
+        ########################################
         
         # Register the arguments inside the object
         self.Nz = Nz

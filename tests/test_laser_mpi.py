@@ -113,10 +113,10 @@ def plot_field_error(grid_mpi, grid):
     plt.title('Off-axis lineout of Er')
 
 
-    print 'Maximum error Ez in percent:'
-    print 100*np.amax(grid.Ez[:,::-1].real.T - grid_mpi.Ez[:,::-1].real.T)/np.amax(grid.Ez[:,::-1].real.T)
-    print 'Maximum error Er in percent:'
-    print 100*np.amax(grid.Er[:,::-1].real.T - grid_mpi.Er[:,::-1].real.T)/np.amax(grid.Er[:,::-1].real.T)
+    print 'Maximum relative error Ez:'
+    print np.amax((grid.Ez[:,::-1].real.T - grid_mpi.Ez[:,::-1].real.T))/np.amax(grid.Ez[:,::-1].real.T)
+    print 'Maximum relative error Er:'
+    print np.amax((grid.Er[:,::-1].real.T - grid_mpi.Er[:,::-1].real.T))/np.amax(grid.Er[:,::-1].real.T)
 
     # Show plots
     plt.show()
@@ -135,13 +135,13 @@ if __name__ == '__main__' :
     # ---------------------------
     use_mpi = True
     # The simulation box
-    Nz = 1604         # Number of gridpoints along z
+    Nz = 3208         # Number of gridpoints along z
     zmax = 70.e-6    # Length of the box along z (meters)
-    Nr = 40          # Number of gridpoints along r
+    Nr = 80          # Number of gridpoints along r
     rmax = 20.e-6    # Length of the box along r (meters)
     Nm = 2           # Number of modes used
     # The simulation timestep
-    dt = zmax/Nz/c   # Timestep (seconds)
+    dt = (zmax/Nz/c)   # Timestep (seconds)
 
     # The particles
     p_zmin = 1.e-6  # Position of the beginning of the plasma (meters)
@@ -187,10 +187,10 @@ if __name__ == '__main__' :
     # Carry out 300 PIC steps
     print 'Calculate PIC solution for the wakefield'
     if rank == 0:
-        sim.step(10, moving_window = False)
+        sim.step(1000, moving_window = False)
 
     mpi_comm.Barrier()
-    sim_mpi.step(10, moving_window = False)
+    sim_mpi.step(1000, moving_window = False)
     print 'Done...'
     print ''
 
