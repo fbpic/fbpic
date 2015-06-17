@@ -116,7 +116,7 @@ class Simulation(object) :
             self.use_mpi = False
         if self.use_mpi:
             # Initialize the MPI communicator
-            self.comm = MPI_Communicator(Nz, Nr, zmin, zmax, n_guard, Nm)
+            self.comm = MPI_Communicator(Nz, Nr, n_guard, Nm)
             # Modify domain region
             zmin, zmax, p_zmin, p_zmax = self.comm.divide_into_domain(
                                             zmin, zmax, p_zmin, p_zmax)
@@ -280,7 +280,8 @@ class Simulation(object) :
                 self.comm.exchange_fields(self.fld.interp, 'EB')
                 if self.iteration % self.comm.exchange_part_period == 0:
                     for species in self.ptcl:
-                        self.comm.exchange_particles(species)
+                        self.comm.exchange_particles(species,
+                            fld.interp[0].zmin, fld.interp[0].zmax )
 
             # Increment the global time and iteration
             self.time += self.dt

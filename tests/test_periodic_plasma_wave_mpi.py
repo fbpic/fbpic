@@ -194,7 +194,7 @@ if __name__ == '__main__' :
     wp = np.sqrt( n_e*e**2/(m_e*epsilon_0) )
 
     # Run the simulation for 0.75 plasma period
-    N_step = int( 2*np.pi/(wp*dt)*0.75 )
+    N_step = int( 2*np.pi/(wp*dt)*0.75/4 )
     
     # -------------------------
     # Launching the simulation

@@ -25,16 +25,37 @@ class MPI_Communicator(object) :
 
     - Nz_local : int
         The local number of cells on the MPI process (with guard cells)
-        
-    - zmin, zmax : float
-        The positions of the edges of the initial simulation box
+    
+    - Nz_domain : int
+        The local number of cells without the guard regions
+
+    - Nz_add_last : int 
+        The additional number of cells in the last (right) domain, that
+        need to be added if the grid cannot be divided by n domains evenly.
+
+    - Ltot : float
+        The global size (length) of the simulation box in z
+    
+    - exchange_part_period : int
+        The period for exchanging the particles between domains.
+        Needs to be smaller than the number of guard cells, when
+        advancing the simulation with a timestep dt = dz/c.
 
     - n_guard : int
         The number of guard cells that are added on the left and 
         the right side of each local (one MPI process) domain.
+
+    - rank : int
+        Identifier of MPI thread
+
+    - size : int 
+        Total number of MPI threads
+
+    - mpi_comm : object
+        The mpi4py communicator object (defaults to COMM_WORLD)
     """
 
-    def __init__( self, Nz, Nr, zmin, zmax, n_guard, Nm) :
+    def __init__( self, Nz, Nr, n_guard, Nm) :
         """
         Initializes a communicator object.
 
@@ -43,11 +64,6 @@ class MPI_Communicator(object) :
 
         Nz, Nr : int
             The initial global number of cells
-
-        zmin, zmax : float
-            The positions of the edges of the initial simulation box
-            (More precisely, the positions of the left edge of the
-            first cell and of the right edge of the last cell)
 
         n_guard : int
             The number of guard cells at the 
@@ -61,15 +77,12 @@ class MPI_Communicator(object) :
         self.Nr = Nr
         # Initialize number of modes
         self.Nm = Nm
-        # Initialize global box size
-        self.zmin = zmin
-        self.zmax = zmax
         # Initialize number of guard cells
         self.n_guard = n_guard
         # Initialize the period of the particle exchange
         # Particles are only exchanged every exchange_part_period timesteps.
         # (Cannot be higer than the number of guard cells)
-        self.exchange_part_period = n_guard
+        self.exchange_part_period = int(n_guard/2)
 
         # MPI Setup
         # Initialize the mpi communicator
@@ -91,6 +104,12 @@ class MPI_Communicator(object) :
             self.Nz_local = int(Nz/self.size) + 2*n_guard
             self.Nz_add_last = 0
 
+        # Check if the local domain size is large enough
+        if self.Nz_local < 4*self.n_guard:
+            raise ValueError( 'Number of local cells in z is smaller \
+                               than 4 times n_guard. Use fewer domains or \
+                               a smaller number of guard cells.')
+            
         # Initialize the guard cell buffers for the fields 
         # for both sides of the domain. These buffers are used 
         # to exchange the fields between the neighboring domains.
@@ -125,69 +144,6 @@ class MPI_Communicator(object) :
         # domain are damped by default.
         self.create_damp_array(ncells_damp = int(n_guard/2))
 
-    def create_damp_array( self, ncells_damp = 0, damp_shape = 'cos'):
-        """
-        Create the damping array for the density and currents
-        The damping array has a length of self.n_guard cells, yet
-        only the ncells_damp first cells are modified by the damping.
-
-        Parameters :
-        ------------
-        ncells_damp : int
-            The number of cells over which the field is damped,
-            in the guard cells
-
-        damp_shape : str
-            An identifier of the damping function
-            Either 'cos', 'None', 'linear' or 'sin'
-        """
-        if damp_shape == 'None' :
-            self.damp_array = np.ones(self.n_guard)
-        elif damp_shape == 'linear' :
-            self.damp_array = np.concatenate( ( 
-                np.linspace(0, 1, ncells_damp ), 
-                np.ones(self.n_guard - ncells_damp) ) )
-        elif damp_shape == 'sin' :
-            self.damp_array = np.concatenate( ( np.sin(
-                np.linspace(0, np.pi/2, ncells_damp) ),
-                np.ones(self.n_guard - ncells_damp) ) )
-        elif damp_shape == 'cos' :
-            self.damp_array = np.concatenate( (0.5-0.5*np.cos(
-                np.linspace(0, np.pi, ncells_damp) ), 
-                np.ones(self.n_guard - ncells_damp) ) ) 
-        else :
-            raise ValueError("Invalid string for damp_shape : %s"%damp_shape)
-
-    def damp_guard_fields( self, interp ):
-        """
-        Apply the damping shape in the right and left guard cells
-
-        Parameter :
-        -----------
-        interp : list
-            A list of InterpolationGrid objects (one per azimuthal mode)
-        """
-
-        ng = self.n_guard
-        # Damping of the fields in the guard cells.
-        # Shape and length defined by self.damp_array
-        # (create_damp_array needs to be called before this function)
-        for m in range(self.Nm):
-            # Damp the fields in left guard cells
-            interp[m].Er[:ng,:] *= self.damp_array[:,np.newaxis]
-            interp[m].Et[:ng,:] *= self.damp_array[:,np.newaxis]
-            interp[m].Ez[:ng,:] *= self.damp_array[:,np.newaxis]
-            interp[m].Br[:ng,:] *= self.damp_array[:,np.newaxis]
-            interp[m].Bt[:ng,:] *= self.damp_array[:,np.newaxis]
-            interp[m].Bz[:ng,:] *= self.damp_array[:,np.newaxis]
-            # Damp the fields in right guard cells
-            interp[m].Er[-ng:,:] *= self.damp_array[::-1,np.newaxis]
-            interp[m].Et[-ng:,:] *= self.damp_array[::-1,np.newaxis]
-            interp[m].Ez[-ng:,:] *= self.damp_array[::-1,np.newaxis]
-            interp[m].Br[-ng:,:] *= self.damp_array[::-1,np.newaxis]
-            interp[m].Bt[-ng:,:] *= self.damp_array[::-1,np.newaxis]
-            interp[m].Bz[-ng:,:] *= self.damp_array[::-1,np.newaxis]
-
     def divide_into_domain( self, zmin, zmax, p_zmin, p_zmax ):
         """
         Divide the global simulation into domain and add local guard cells.
@@ -217,6 +173,8 @@ class MPI_Communicator(object) :
            the local simulation box.
            (NB : no plasma will be initialized in the guard cells)
         """
+        # Initilize global box size
+        self.Ltot = (zmax-zmin)
         # Get the distance dz between the cells
         # (longitudinal spacing of the grid)
         dz = (zmax - zmin)/self.Nz
@@ -233,8 +191,6 @@ class MPI_Communicator(object) :
         p_zmax = min( zmax_local - self.n_guard*dz, p_zmax)
         # Initilaize domain specific parameters
         self.dz = dz
-        self.zmin_local = zmin_local
-        self.zmax_local = zmax_local
         self.Nz_domain = Nz_domain
         # Return the new boundaries to the simulation object
         return( zmin_local, zmax_local, p_zmin, p_zmax )
@@ -273,10 +229,6 @@ class MPI_Communicator(object) :
         # Wait for the non-blocking sends to be received (synchronization)
         re_1 = mpi.Request.Wait(req_1)
         re_2 = mpi.Request.Wait(req_2)
-        # An MPI barrier is needed here so that a single rank 
-        # does not perform two sends and receives before all 
-        # the other MPI connections within this exchange are completed.
-        self.barrier()
 
     def exchange_fields( self, interp, fieldtype ):
         """
@@ -322,6 +274,11 @@ class MPI_Communicator(object) :
             # the neigboring domains. (for E and B fields)
             self.exchange_domains(self.EB_send_l, self.EB_send_r,
                                   self.EB_recv_l, self.EB_recv_r)
+            # An MPI barrier is needed here so that a single rank 
+            # does not perform two sends and receives before all 
+            # the other MPI connections within this exchange are completed.
+            self.mpi_comm.Barrier()
+
             # Copy the received buffer (from the neighbors) to the 
             # local guard cell region
             for m in range(self.Nm):
@@ -360,6 +317,11 @@ class MPI_Communicator(object) :
             # at the same time received from the neigboring domains. (for J)
             self.exchange_domains(self.J_send_l, self.J_send_r,
                                   self.J_recv_l, self.J_recv_r)
+            # An MPI barrier is needed here so that a single rank 
+            # does not perform two sends and receives before all 
+            # the other MPI connections within this exchange are completed.
+            self.mpi_comm.Barrier()
+
             # Add from buffer
             for m in range(self.Nm):
                 offset = 3*m
@@ -389,6 +351,11 @@ class MPI_Communicator(object) :
             # at the same time received from the neigboring domains. (for rho)
             self.exchange_domains(self.rho_send_l, self.rho_send_r,
                                   self.rho_recv_l, self.rho_recv_r)
+            # An MPI barrier is needed here so that a single rank 
+            # does not perform two sends and receives before all 
+            # the other MPI connections within this exchange are completed.
+            self.mpi_comm.Barrier()
+
             # Copy from buffer
             for m in range(self.Nm):
                 offset = 1*m
@@ -402,7 +369,7 @@ class MPI_Communicator(object) :
         else :
             raise ValueError('Unknown fieldtype : %s' %fieldtype)
             
-    def exchange_particles(self, ptcl) :
+    def exchange_particles(self, ptcl, zmin, zmax) :
         """
         Look for particles that are located inside the guard cells
         and exchange them with the corresponding neighboring processor
@@ -418,25 +385,31 @@ class MPI_Communicator(object) :
         
         # Periodic boundary conditions for exchanging particles
         if self.rank == 0:
-            periodic_offset_left = (self.zmax - self.zmin)
+            periodic_offset_left = self.Ltot
             periodic_offset_right = 0.
         elif self.rank == (self.size-1):
             periodic_offset_left = 0.
-            periodic_offset_right = -(self.zmax - self.zmin)
+            periodic_offset_right = -self.Ltot
         else:
             periodic_offset_left = 0.
             periodic_offset_right = 0.
 
         # Select the particles that are in the left or right guard cells,
         # and those that stay on the local process
-        selec_left = ( ptcl.z < (self.zmin_local + ng*dz) )
-        selec_right = ( ptcl.z > (self.zmax_local - ng*dz) )
+        selec_left = ( ptcl.z < (zmin + ng*dz) )
+        selec_right = ( ptcl.z > (zmax - ng*dz) )
         selec_stay = (np.logical_not(selec_left) & np.logical_not(selec_right))
         # Count them, and convert the result into an array
         # so as to send them easily.
         N_send_l = np.array( sum(selec_left), dtype=np.int32)
         N_send_r = np.array( sum(selec_right), dtype=np.int32)
         N_stay = sum(selec_stay)
+
+
+        # Receive the number of particles sent
+        N_recv_l = np.array(0, dtype = np.int32)
+        N_recv_r = np.array(0, dtype = np.int32)
+        self.exchange_domains(N_send_l, N_send_r, N_recv_l, N_recv_r)
 
         # Allocate sending buffers
         send_left = np.empty((8, N_send_l), dtype = np.float64)
@@ -462,15 +435,22 @@ class MPI_Communicator(object) :
         send_right[6,:] = ptcl.inv_gamma[selec_right]
         send_right[7,:] = ptcl.w[selec_right]
 
-        # Receive the number of particles sent
-        N_recv_l = np.array(0, dtype = np.int32)
-        N_recv_r = np.array(0, dtype = np.int32)
-        self.exchange_domains(N_send_l, N_send_r, N_recv_l, N_recv_r)
+        # An MPI barrier is needed here so that a single rank 
+        # does not perform two sends and receives before all 
+        # the other MPI connections within this exchange are completed.
+        # Barrier is not directly after the exchange call to hide
+        # allocation of buffer data
+        self.mpi_comm.Barrier()
 
         # Allocate the receiving buffers and exchange particles
         recv_left = np.zeros((8, N_recv_l), dtype = np.float64)
         recv_right = np.zeros((8, N_recv_r), dtype = np.float64)
         self.exchange_domains(send_left, send_right, recv_left, recv_right)
+
+        # An MPI barrier is needed here so that a single rank 
+        # does not perform two sends and receives before all 
+        # the other MPI connections within this exchange are completed.
+        self.mpi_comm.Barrier()
 
         # Form the new particle arrays
         ptcl.Ntot = N_stay + int(N_recv_l) + int(N_recv_r)
@@ -484,7 +464,7 @@ class MPI_Communicator(object) :
           np.hstack((recv_left[6], ptcl.inv_gamma[selec_stay], recv_right[6]))
         ptcl.w = np.hstack((recv_left[7], ptcl.w[selec_stay], recv_right[7]))
 
-        # Allocate the particles' field arrays
+        # Allocate the particles field arrays
         ptcl.Ex = np.empty(ptcl.Ntot, dtype = np.float64)
         ptcl.Ey = np.empty(ptcl.Ntot, dtype = np.float64)
         ptcl.Ez = np.empty(ptcl.Ntot, dtype = np.float64)
@@ -495,10 +475,71 @@ class MPI_Communicator(object) :
         ptcl.cell_idx = np.empty(ptcl.Ntot, dtype = np.int32)
         ptcl.sorted_idx = np.arange(ptcl.Ntot, dtype = np.uint32)
 
+    def create_damp_array( self, ncells_damp = 0, damp_shape = 'cos'):
+        """
+        Create the damping array for the density and currents
+        The damping array has a length of self.n_guard cells, yet
+        only the ncells_damp first cells are modified by the damping.
+
+        Parameters :
+        ------------
+        ncells_damp : int
+            The number of cells over which the field is damped,
+            in the guard cells
+
+        damp_shape : str
+            An identifier of the damping function
+            Either 'cos', 'None', 'linear' or 'sin'
+        """
+        if damp_shape == 'None' :
+            self.damp_array = np.ones(ncells_damp)
+        elif damp_shape == 'linear' :
+            self.damp_array = np.linspace(0, 1, ncells_damp)
+        elif damp_shape == 'sin' :
+            self.damp_array = np.sin(np.linspace(0, np.pi/2, ncells_damp) )
+        elif damp_shape == 'cos' :
+            self.damp_array = 0.5-0.5*np.cos(
+                np.linspace(0, np.pi, ncells_damp) )
+        else :
+            raise ValueError("Invalid string for damp_shape : %s"%damp_shape)
+
+    def damp_guard_fields( self, interp ):
+        """
+        Apply the damping shape in the right and left guard cells
+
+        Parameter :
+        -----------
+        interp : list
+            A list of InterpolationGrid objects (one per azimuthal mode)
+        """
+        # Number of cells that are damped
+        dc = len(self.damp_array) 
+        # Damping of the fields in the guard cells.
+        # Shape and length defined by self.damp_array
+        # (create_damp_array needs to be called before this function)
+        for m in range(self.Nm):
+            # Damp the fields in left guard cells
+            interp[m].Er[:dc,:] *= self.damp_array[:,np.newaxis]
+            interp[m].Et[:dc,:] *= self.damp_array[:,np.newaxis]
+            interp[m].Ez[:dc,:] *= self.damp_array[:,np.newaxis]
+            interp[m].Br[:dc,:] *= self.damp_array[:,np.newaxis]
+            interp[m].Bt[:dc,:] *= self.damp_array[:,np.newaxis]
+            interp[m].Bz[:dc,:] *= self.damp_array[:,np.newaxis]
+            # Damp the fields in right guard cells
+            interp[m].Er[-dc:,:] *= self.damp_array[::-1,np.newaxis]
+            interp[m].Et[-dc:,:] *= self.damp_array[::-1,np.newaxis]
+            interp[m].Ez[-dc:,:] *= self.damp_array[::-1,np.newaxis]
+            interp[m].Br[-dc:,:] *= self.damp_array[::-1,np.newaxis]
+            interp[m].Bt[-dc:,:] *= self.damp_array[::-1,np.newaxis]
+            interp[m].Bz[-dc:,:] *= self.damp_array[::-1,np.newaxis]
+
     def gather_grid( self, grid, root = 0):
 
         if self.rank == root:
-            z = np.linspace(self.zmin, self.zmax, self.Nz) + 0.5*self.dz
+            zmin_global = grid.zmin + self.dz * \
+                            (self.n_guard - self.rank*self.Nz_domain)
+            zmax_global = zmin_global + self.Ltot
+            z = np.linspace(zmin_global, zmax_global, self.Nz) + 0.5*self.dz
             gathered_grid = InterpolationGrid(z = z, r = grid.r, m = grid.m )
         else:
             gathered_grid = None
@@ -566,10 +607,4 @@ class MPI_Communicator(object) :
 
         if self.rank == root:
             return(gathered_array)
-
-    def mpi_finalize( self ) :
-        mpi.Finalize()
-
-    def barrier( self ) :
-        self.mpi_comm.Barrier()
 
