@@ -34,8 +34,7 @@ important shortcomings :
 * Sub-optimized code written in Python.   
 (However, the code does call BLAS and FFTW for computationally intensive parts. 
 If available, it will also use Numba.)
-* Single-CPU only  
-(However, the code does take advantage of multi-threading on a given CPU.)
+* Single-CPU (with partial use of multi-threading) or single-GPU only  
 
 Installation
 ---------
