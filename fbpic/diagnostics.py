@@ -185,6 +185,10 @@ class FieldDiagnostic(OpenPMDDiagnostic) :
         # Check if the fields should be written at this iteration
         if iteration % self.period == 0 :
 
+            # Send data from the GPU if needed
+            if self.fld.use_cuda :
+                self.fld.receive_fields_from_gpu()
+            
             # Write the png files if needed
             if self.output_png_spectral or self.output_png_spatial :
                 for fieldtype in self.fieldtypes :
@@ -192,7 +196,10 @@ class FieldDiagnostic(OpenPMDDiagnostic) :
 
             # Write the hdf5 files
             self.write_hdf5( iteration )
-                
+
+            # Send data to the GPU if needed
+            if self.fld.use_cuda :
+                self.fld.send_fields_to_gpu()
 
     def write_png( self, iteration ) :
         """

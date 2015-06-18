@@ -177,6 +177,7 @@ class Simulation(object) :
             for diag in self.diags :
                 # Check if the fields should be written at
                 # this iteration and do it if needed.
+                # (Send the data to the GPU if needed.)
                 diag.write( self.iteration )
             
             # Show a progression bar
