@@ -194,7 +194,7 @@ if __name__ == '__main__' :
     wp = np.sqrt( n_e*e**2/(m_e*epsilon_0) )
 
     # Run the simulation for 0.75 plasma period
-    N_step = int( 2*np.pi/(wp*dt)*0.75/4 )
+    N_step = int( 2*np.pi/(wp*dt)*0.75 )
     
     # -------------------------
     # Launching the simulation
@@ -204,15 +204,6 @@ if __name__ == '__main__' :
     sim = Simulation( Nz, zmax, Nr, rmax, Nm, dt,
         p_zmin, p_zmax, p_rmin, p_rmax, p_nz, p_nr, p_nt, n_e,
         use_mpi = use_mpi, n_guard = 50 )
-
-    # Do the initial charge deposition (at t=0) now
-    sim.fld.erase('rho')
-    for species in sim.ptcl :
-        species.deposit( sim.fld.interp, 'rho' )
-    sim.fld.divide_by_volume('rho')
-    # Bring it to the spectral space
-    sim.fld.interp2spect('rho_prev')
-    sim.fld.filter_spect('rho_prev')
     
     # Impart velocities to the electrons
     # (The electrons are initially homogeneous, but have an
@@ -220,7 +211,7 @@ if __name__ == '__main__' :
     impart_momenta( sim.ptcl[0], epsilon, k0, w0, wp )
 
     # Launch the simulation
-    sim.step( N_step, moving_window=False, correct_currents = False )
+    sim.step( N_step, moving_window=False, correct_currents = False)
 
     if use_mpi:
         gathered_grid = sim.comm.gather_grid(sim.fld.interp[0])
