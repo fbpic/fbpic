@@ -233,7 +233,31 @@ class MPI_Communicator(object) :
     def exchange_fields( self, interp, fieldtype ):
         """
         Send and receive the proper fields, depending on fieldtype
-        Copy/add them consistently to the local grid
+        Copy/add them consistently to the local grid.
+
+        The layout of the local domain and a neighboring domain 
+        can be visualised like this:
+                      ---------------------
+                      |ng|nc|       |nc|ng|    <- Local domain (rank)
+                      ---------------------
+        ---------------------
+        |ng|nc|       |nc|ng|                  <- Neighboring domain (rank-1)
+        ---------------------
+        The area "ng" defines the region of the guard cells with length n_guard
+        The area "nc" defines a region within the domain, that contains the 
+        correct simulation data and has also a length of n_guard cells. 
+        This region overlaps with the guard cells of the neighboring domain.
+
+        Exchange of E and B fields:
+
+        - Copy the correct part "nc" of the local domain to the guard cells
+          of the neighboring domain.
+        - [The fields in the guard cells are then damped (separate method)]
+
+        Exchange of the currents J and the charge density rho:
+
+        - Copy the guard cell region "ng" and the correct part "nc" and 
+          add it to the same region (ng + nc) of the neighboring domain.
 
         Parameters :
         ------------
@@ -244,7 +268,6 @@ class MPI_Communicator(object) :
         fieldtype : str
             An identifier for the field to send
             (Either 'EB', 'J' or 'rho')
-            
         """
         # Shortcut for number of guard cells
         ng = self.n_guard
@@ -372,7 +395,7 @@ class MPI_Communicator(object) :
     def exchange_particles(self, ptcl, zmin, zmax) :
         """
         Look for particles that are located inside the guard cells
-        and exchange them with the corresponding neighboring processor
+        and exchange them with the corresponding neighboring processor.
 
         Parameters :
         ------------
@@ -384,6 +407,8 @@ class MPI_Communicator(object) :
         dz = self.dz
         
         # Periodic boundary conditions for exchanging particles
+        # Particles leaving at the right (left) side of the simulation box
+        # are shifted by Ltot (zmax-zmin) to the left (right).
         if self.rank == 0:
             periodic_offset_left = self.Ltot
             periodic_offset_right = 0.
@@ -405,10 +430,11 @@ class MPI_Communicator(object) :
         N_send_r = np.array( sum(selec_right), dtype=np.int32)
         N_stay = sum(selec_stay)
 
-
-        # Receive the number of particles sent
+        # Initialize empty arrays to receive the number of particles that
+        # will be send to this domain.
         N_recv_l = np.array(0, dtype = np.int32)
         N_recv_r = np.array(0, dtype = np.int32)
+        # Send and receive the number of particles that are exchanged 
         self.exchange_domains(N_send_l, N_send_r, N_recv_l, N_recv_r)
 
         # Allocate sending buffers
@@ -416,7 +442,7 @@ class MPI_Communicator(object) :
         send_right = np.empty((8, N_send_r), dtype = np.float64)
 
         # Fill the sending buffers
-        # Left
+        # Left guard region
         send_left[0,:] = ptcl.x[selec_left]
         send_left[1,:] = ptcl.y[selec_left]
         send_left[2,:] = ptcl.z[selec_left]+periodic_offset_left
@@ -425,7 +451,7 @@ class MPI_Communicator(object) :
         send_left[5,:] = ptcl.uz[selec_left]
         send_left[6,:] = ptcl.inv_gamma[selec_left]
         send_left[7,:] = ptcl.w[selec_left]
-        # Right
+        # Right guard region
         send_right[0,:] = ptcl.x[selec_right]
         send_right[1,:] = ptcl.y[selec_right]
         send_right[2,:] = ptcl.z[selec_right]+periodic_offset_right
@@ -438,8 +464,8 @@ class MPI_Communicator(object) :
         # An MPI barrier is needed here so that a single rank 
         # does not perform two sends and receives before all 
         # the other MPI connections within this exchange are completed.
-        # Barrier is not directly after the exchange call to hide
-        # allocation of buffer data
+        # Barrier is not called directly after the exchange
+        # to hide the allocation of buffer data
         self.mpi_comm.Barrier()
 
         # Allocate the receiving buffers and exchange particles
@@ -452,7 +478,8 @@ class MPI_Communicator(object) :
         # the other MPI connections within this exchange are completed.
         self.mpi_comm.Barrier()
 
-        # Form the new particle arrays
+        # Form the new particle arrays by adding the received particles
+        # from the left and the right to the particles that stay in the domain
         ptcl.Ntot = N_stay + int(N_recv_l) + int(N_recv_r)
         ptcl.x = np.hstack((recv_left[0], ptcl.x[selec_stay], recv_right[0]))
         ptcl.y = np.hstack((recv_left[1], ptcl.y[selec_stay], recv_right[1]))
@@ -464,22 +491,22 @@ class MPI_Communicator(object) :
           np.hstack((recv_left[6], ptcl.inv_gamma[selec_stay], recv_right[6]))
         ptcl.w = np.hstack((recv_left[7], ptcl.w[selec_stay], recv_right[7]))
 
-        # Allocate the particles field arrays
+        # Reallocate the particles field arrays. This needs to be done,
+        # as the total number of particles in this domain has changed.
         ptcl.Ex = np.empty(ptcl.Ntot, dtype = np.float64)
         ptcl.Ey = np.empty(ptcl.Ntot, dtype = np.float64)
         ptcl.Ez = np.empty(ptcl.Ntot, dtype = np.float64)
         ptcl.Bx = np.empty(ptcl.Ntot, dtype = np.float64)
         ptcl.By = np.empty(ptcl.Ntot, dtype = np.float64)
         ptcl.Bz = np.empty(ptcl.Ntot, dtype = np.float64)
-
+        # Reallocate the cell index and sorted index arrays
         ptcl.cell_idx = np.empty(ptcl.Ntot, dtype = np.int32)
         ptcl.sorted_idx = np.arange(ptcl.Ntot, dtype = np.uint32)
 
     def create_damp_array( self, ncells_damp = 0, damp_shape = 'cos'):
         """
-        Create the damping array for the density and currents
-        The damping array has a length of self.n_guard cells, yet
-        only the ncells_damp first cells are modified by the damping.
+        Create the damping array for the fields in the guard cells.
+        The ncells_damp first cells are modified by the damping.
 
         Parameters :
         ------------
@@ -505,7 +532,9 @@ class MPI_Communicator(object) :
 
     def damp_guard_fields( self, interp ):
         """
-        Apply the damping shape in the right and left guard cells
+        Apply the damping shape in the right and left guard cells.
+        create_damp_array() needs to be called before this function
+        is called, in order to initialize the damping array.
 
         Parameter :
         -----------
@@ -534,77 +563,173 @@ class MPI_Communicator(object) :
             interp[m].Bz[-dc:,:] *= self.damp_array[::-1,np.newaxis]
 
     def gather_grid( self, grid, root = 0):
+        """
+        Gather a grid object by combining the local domains
+        without the guard regions to a new global grid object.
 
+        Parameter :
+        -----------
+        grid : Grid object (InterpolationGrid)
+            A grid object that is gathered on the root process
+
+        root : int, optional
+            Process that gathers the data
+
+        Returns :
+        ---------
+        gathered_grid : Grid object (InterpolationGrid)
+            A gathered grid that contains the global simulation data
+        """
         if self.rank == root:
+            # Calculate global edges of the simulation box on root process
             zmin_global = grid.zmin + self.dz * \
                             (self.n_guard - self.rank*self.Nz_domain)
             zmax_global = zmin_global + self.Ltot
+            # Create new grid array that contains cell positions in z
             z = np.linspace(zmin_global, zmax_global, self.Nz) + 0.5*self.dz
+            # Initialize new InterpolationGrid object that 
+            # is used to gather the global grid data
             gathered_grid = InterpolationGrid(z = z, r = grid.r, m = grid.m )
         else:
+            # Other processes do not need to initialize new InterpolationGrid
             gathered_grid = None
-
+        # Loop over fields that need to be gathered
         for field in ['Er', 'Et', 'Ez',
                       'Br', 'Bt', 'Bz',
                       'Jr', 'Jt', 'Jz', 'rho']:
+            # Get array of field attribute
             array = getattr(grid, field)
+            # Gather array on process root
             gathered_array = self.gather_grid_array(array, root)
             if self.rank == root:
+                # Write array to field attribute in the gathered grid object
                 setattr(gathered_grid, field, gathered_array)
-
+        # Return the gathered grid
         return(gathered_grid)
 
     def gather_grid_array(self, array, root = 0):
+        """
+        Gather a grid array on the root process by using the
+        mpi4py routine Gatherv, that gathers arbitrary shape arrays
+        by combining the first dimension in ascending order.
 
+        Parameter :
+        -----------
+        array : array (grid array)
+            A grid array of the local domain
+
+        root : int, optional
+            Process that gathers the data
+
+        Returns :
+        ---------
+        gathered_array : array (global grid array)
+            A gathered array that contains the global simulation data
+        """
         if self.rank == root:
+            # Root process creates empty numpy array of the shape 
+            # (Nz, Nr), that is used to gather the data
             gathered_array = np.zeros((self.Nz, self.Nr), dtype = array.dtype)
         else:
+            # Other processes do not need to initialize a new array
             gathered_array = None
-
+        # Shortcut for the guard cells
         ng = self.n_guard
-
+        # Call the mpi4py routine Gartherv and pass the local grid array
+        # as sending buffer without the guard region. The receiving buffer
+        # on process root (0) is used to gather the data.
         self.mpi_comm.Gatherv(
             sendbuf = array[ng:-ng,:], 
             recvbuf = gathered_array,
             root = root)
-
+        # return the gathered_array only on process root
         if self.rank == root:
             return(gathered_array)
 
     def gather_ptcl( self, ptcl, root = 0):
+        """
+        Gather a particle object by receiving the total number of particles
+        Ntot (uses parallel sum reduction) in order to gather (mpi4py Gatherv) 
+        the local particle arrays to global particle arrays with a length Ntot.
 
+        Parameter :
+        -----------
+        ptcl : Particle object
+            A particle object that is gathered on the root process
+
+        root : int, optional
+            Process that gathers the data
+
+        Returns :
+        ---------
+        gathered_ptcl : Particle object
+            A gathered particle object that contains the global simulation data
+        """
         if self.rank == root:
+            # Initialize new Particle object that 
+            # is used to gather the global grid data
             gathered_ptcl = Particles(ptcl.q, ptcl.m, ptcl.n, 0, self.zmin,
                 self.zmax, 0, ptcl.rmin, ptcl.rmax, ptcl.dt)
         else:
+            # Other processes do not need to initialize new Particle object
             gathered_ptcl = None
-
+        # Create a new array that contains the local number of particles
         Ntot_local = np.array(ptcl.Ntot, dtype = np.int32)
+        # Create a new array that gathers the total number of particles
         Ntot = np.array([0], dtype = np.int32)
+        # Use the mpi4py routine Reduce to perform a parallel sum reduction
+        # in order to gather the total number of particles.
         self.mpi_comm.Reduce(Ntot_local, Ntot, op=SUM, root = root)
-
+        # Loop over particle attributes that need to be gathered
         for particle_attr in ['x', 'y', 'z',
                               'ux', 'uy', 'uz',
                               'inv_gamma', 'w']:
+            # Get array of particle attribute
             array = getattr(ptcl, particle_attr)
+            # Gather array on process root
             gathered_array = self.gather_ptcl_array(array, Ntot, root)
             if self.rank == root:
+                # Write array to particle attribute in the gathered object
                 setattr(gathered_ptcl, particle_attr, gathered_array)
-
+        # Return the gathered particle object
         return(gathered_ptcl)
 
     def gather_ptcl_array(self, array, length, root = 0):
+        """
+        Gather a particle array on the root process by using the
+        mpi4py routine Gatherv, that gathers arbitrary shape arrays
+        by combining the first dimension in ascending order.
 
+        Parameter :
+        -----------
+        array : array (ptcl array)
+            A particle array of the local domain
+
+        length : int
+            The length of the gathered array (total number of particles)
+
+        root : int, optional
+            Process that gathers the data
+
+        Returns :
+        ---------
+        gathered_array : array (global ptcl array)
+            A gathered array that contains the global simulation data
+        """
         if self.rank == root:
+            # Root process creates empty numpy array of the shape 
+            # (length), that is used to gather the data.
             gathered_array = np.empty(length, dtype = array.dtype)
         else:
+            # Other processes do not need to initialize a new array
             gathered_array = None
-        
+        # Call the mpi4py routine Gartherv and pass the local particle array.
+        # The receiving buffer on process root (0) is used to gather the data.
         self.mpi_comm.Gatherv(
             sendbuf = array, 
             recvbuf = gathered_array,
             root = root)
-
+        # return the gathered_array only on process root
         if self.rank == root:
             return(gathered_array)
 
