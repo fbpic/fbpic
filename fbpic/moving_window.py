@@ -106,6 +106,9 @@ class MovingWindow(object) :
             # damping result in the same damping shape as for J.
             self.damp_array_EB[:-1] = \
               self.damp_array_J[:-1]/self.damp_array_J[1:]
+        # Copy the array to the GPU if possible
+        if cuda_installed :
+            self.d_damp_array_EB = cuda.to_device(self.damp_array_EB)
         
     def move( self, interp, ptcl, p_nz, dt ) :
         """
@@ -242,7 +245,7 @@ class MovingWindow(object) :
                 interp[0].Br, interp[0].Bt, interp[0].Bz,
                 interp[1].Er, interp[1].Et, interp[1].Ez,
                 interp[1].Er, interp[1].Et, interp[1].Ez,
-                self.damp_array_EB, self.ncells_zero, self.ncells_damp, Nr )
+                self.d_damp_array_EB, self.ncells_zero, self.ncells_damp, Nr )
         else :
             # Damp the fields on the CPU
             
