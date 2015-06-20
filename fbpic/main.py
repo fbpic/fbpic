@@ -391,16 +391,14 @@ def adapt_to_grid( x, p_xmin, p_xmax, p_nx, ncells_empty=0 ) :
     # at the left boundary.)
     if p_xmax > xmax + (0.5-ncells_empty)*dx :
         p_xmax = xmax + (0.5-ncells_empty)*dx
-    # Prevent situation where p_xmin is larger than p_xmax
-    if p_xmin > p_xmax :
-        p_xmin = p_xmax
-            
+    
     # Find the gridpoints on which the particles should be loaded
     x_load = x[ ( x > p_xmin ) & ( x < p_xmax ) ]
-    p_xmin = x_load.min() - 0.5*dx
-    p_xmax = x_load.max() + 0.5*dx
-    
     # Deduce the total number of particles
     Npx = len(x_load) * p_nx
+    # Reajust p_xmin and p_xmanx so that they match the grid
+    if Npx > 0 :
+        p_xmin = x_load.min() - 0.5*dx
+        p_xmax = x_load.max() + 0.5*dx
 
     return( p_xmin, p_xmax, Npx )    

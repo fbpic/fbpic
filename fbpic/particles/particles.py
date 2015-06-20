@@ -139,8 +139,8 @@ class Particles(object) :
         self.Nptheta = Nptheta
         self.dens_func = dens_func
         self.continuous_injection = continuous_injection
-
-        # Initialize the (normalized) momenta
+        
+        # Initialize the and momenta
         self.uz = np.zeros( self.Ntot )
         self.ux = np.zeros( self.Ntot )
         self.uy = np.zeros( self.Ntot )
@@ -153,38 +153,46 @@ class Particles(object) :
         self.Bz = np.zeros( self.Ntot )
         self.Bx = np.zeros( self.Ntot )
         self.By = np.zeros( self.Ntot )
+
+        # Allocate the positions and weights of the particles,
+        # and fill them with values if the array is not empty
+        self.x = np.empty( self.Ntot )
+        self.y = np.empty( self.Ntot )
+        self.z = np.empty( self.Ntot )
+        self.w = np.empty( self.Ntot )
         
-        # Get the 1d arrays of evenly-spaced positions for the particles
-        dz = (zmax-zmin)*1./Npz
-        z_reg =  zmin + dz*( np.arange(Npz) + 0.5 )
-        dr = (rmax-rmin)*1./Npr
-        r_reg =  rmin + dr*( np.arange(Npr) + 0.5 )
-        dtheta = 2*np.pi/Nptheta
-        theta_reg = dtheta * np.arange(Nptheta)
+        if self.Ntot > 0 :
+            # Get the 1d arrays of evenly-spaced positions for the particles
+            dz = (zmax-zmin)*1./Npz
+            z_reg =  zmin + dz*( np.arange(Npz) + 0.5 )
+            dr = (rmax-rmin)*1./Npr
+            r_reg =  rmin + dr*( np.arange(Npr) + 0.5 )
+            dtheta = 2*np.pi/Nptheta
+            theta_reg = dtheta * np.arange(Nptheta)
 
-        # Get the corresponding particles positions
-        # (copy=True is important here, since it allows to
-        # change the angles individually)
-        zp, rp, thetap = np.meshgrid( z_reg, r_reg, theta_reg, copy=True)
-        # Prevent the particles from being aligned along any direction
-        unalign_angles( thetap, Npr, Npz, method='irrational' )
-        thetap += global_theta
-        # Flatten them (This performs a memory copy)
-        r = rp.flatten()
-        self.x = r * np.cos( thetap.flatten() )
-        self.y = r * np.sin( thetap.flatten() )
-        self.z = zp.flatten()
+            # Get the corresponding particles positions
+            # (copy=True is important here, since it allows to
+            # change the angles individually)
+            zp, rp, thetap = np.meshgrid( z_reg, r_reg, theta_reg, copy=True)
+            # Prevent the particles from being aligned along any direction
+            unalign_angles( thetap, Npr, Npz, method='irrational' )
+            thetap += global_theta
+            # Flatten them (This performs a memory copy)
+            r = rp.flatten()
+            self.x[:] = r * np.cos( thetap.flatten() )
+            self.y[:] = r * np.sin( thetap.flatten() )
+            self.z[:] = zp.flatten()
 
-        # Get the weights (i.e. charge of each macroparticle), which are equal
-        # to the density times the elementary volume r d\theta dr dz
-        self.w = q * n * r * dtheta*dr*dz
-        # Modulate it by the density profile
-        if dens_func is not None :
-            self.w = self.w * dens_func( self.z, r )
+            # Get the weights (i.e. charge of each macroparticle), which
+            # are equal to the density times the volume r d\theta dr dz
+            self.w[:] = q * n * r * dtheta*dr*dz
+            # Modulate it by the density profile
+            if dens_func is not None :
+                self.w[:] = self.w * dens_func( self.z, r )
 
         # Allocate arrays for the particles sorting when using CUDA
-        self.cell_idx = np.empty(self.Ntot, dtype = np.int32)
-        self.sorted_idx = np.arange(self.Ntot, dtype = np.uint32)
+        self.cell_idx = np.empty(self.Ntot, dtype=np.int32)
+        self.sorted_idx = np.arange(self.Ntot, dtype=np.uint32)
 
     def send_particles_to_gpu( self ):
         """
