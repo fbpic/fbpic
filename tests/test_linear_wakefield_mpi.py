@@ -17,6 +17,7 @@ from fbpic.main import Simulation
 from fbpic.lpa_utils import add_laser
 from fbpic.moving_window import MovingWindow
 from fbpic.diagnostics import FieldDiagnostic, ParticleDiagnostic
+from mpi4py import MPI as mpi
 
 # ---------------------------
 # Analytical solution
@@ -91,7 +92,7 @@ def compare_wakefields(Ez_analytic, Er_analytic, grid):
     plt.figure(figsize=(20,20))
 
     plt.suptitle('Analytical vs. PIC Simulation for Ez and Er')
-
+    """
     # Plot analytic Ez in 2D
     plt.subplot(321)
     plt.imshow(Ez_analytic[:,::-1].T, extent = extent, 
@@ -110,7 +111,7 @@ def compare_wakefields(Ez_analytic, Er_analytic, grid):
     plt.ylabel('r')
     cb = plt.colorbar()
     plt.title('Analytical Er')
-
+    """
     # Plot simulated Ez in 2D
     plt.subplot(323)
     plt.imshow(grid.Ez[:,::-1].real.T, extent = extent, 
@@ -135,7 +136,7 @@ def compare_wakefields(Ez_analytic, Er_analytic, grid):
     plt.subplot(325)
     plt.plot(1.e6*z, grid.Ez[:,0].real, 
         color = 'b', label = 'Simulation')
-    plt.plot(1.e6*z, Ez_analytic[:,0], color = 'r', label = 'Analytical')
+    #plt.plot(1.e6*z, Ez_analytic[:,0], color = 'r', label = 'Analytical')
     plt.xlabel('z')
     plt.ylabel('Ez')
     plt.legend(loc=0)
@@ -145,7 +146,7 @@ def compare_wakefields(Ez_analytic, Er_analytic, grid):
     plt.subplot(326)
     plt.plot(1.e6*z, grid.Er[:,5].real, 
         color = 'b', label = 'Simulation')
-    plt.plot(1.e6*z, Er_analytic[:,5], color = 'r', label = 'Analytical')
+    #plt.plot(1.e6*z, Er_analytic[:,5], color = 'r', label = 'Analytical')
     plt.xlabel('z')
     plt.ylabel('Er')
     plt.legend(loc=0)
@@ -160,32 +161,39 @@ if __name__ == '__main__' :
     # Setup simulation & parameters
     # ---------------------------
 
-    use_cuda = True
+    use_cuda = False
+    use_mpi = True
+    n_guard = 50
+
+    # Setup MPI
+    mpi_comm = mpi.COMM_WORLD
+    rank = mpi_comm.rank
+    size = mpi_comm.size
     
     # The simulation box
-    Nz = 801         # Number of gridpoints along z
-    zmax = 40.e-6    # Length of the box along z (meters)
-    Nr = 120          # Number of gridpoints along r
-    rmax = 60.e-6    # Length of the box along r (meters)
+    Nz = 601         # Number of gridpoints along z
+    zmax = 25.e-6    # Length of the box along z (meters)
+    Nr = 30          # Number of gridpoints along r
+    rmax = 15.e-6    # Length of the box along r (meters)
     Nm = 2           # Number of modes used
     # The simulation timestep
     dt = zmax/Nz/c   # Timestep (seconds)
 
     # The particles
-    p_zmin = 39.e-6  # Position of the beginning of the plasma (meters)
-    p_zmax = 41.e-6  # Position of the end of the plasma (meters)
+    p_zmin = 24.e-6  # Position of the beginning of the plasma (meters)
+    p_zmax = 26.e-6  # Position of the end of the plasma (meters)
     p_rmin = 0.      # Minimal radial position of the plasma (meters)
-    p_rmax = 50.e-6  # Maximal radial position of the plasma (meters)
-    n_e = 8.e18*1.e6 # Density (electrons.meters^-3)
+    p_rmax = 12.e-6  # Maximal radial position of the plasma (meters)
+    n_e = 16.e18*1.e6 # Density (electrons.meters^-3)
     p_nz = 2         # Number of particles per cell along z
     p_nr = 2         # Number of particles per cell along r
     p_nt = 4         # Number of particles per cell along theta
 
     # The laser
     a0 = 0.01        # Laser amplitude
-    w0 = 20.e-6       # Laser waist
-    ctau = 6.e-6     # Laser duration
-    z0 = 27.e-6      # Laser centroid
+    w0 = 5.e-6       # Laser waist
+    ctau = 3.e-6     # Laser duration
+    z0 = 14.e-6      # Laser centroid
 
     # Plasma and laser wavenumber
     kp = 1./c * np.sqrt( n_e * e**2 / (m_e * epsilon_0) )
@@ -193,17 +201,17 @@ if __name__ == '__main__' :
 
     # The moving window
     v_window = c       # Speed of the window
-    ncells_zero = 30   # Number of cells over which the field is set to 0
+    ncells_zero = 100   # Number of cells over which the field is set to 0
                        # at the left end of the simulation box
-    ncells_damp = 30   # Number of cells over which the field is damped,
+    ncells_damp = 50   # Number of cells over which the field is damped,
                        # at the left of the simulation box, after ncells_zero
                        # in order to prevent it from wrapping around.
-    mw_period = 1      # How many steps to wait until moving the window 
+    mw_period = 50     # How many steps to wait until moving the window 
 
     # Initialize the simulation object
     sim = Simulation( Nz, zmax, Nr, rmax, Nm, dt,
         p_zmin, p_zmax, p_rmin, p_rmax, p_nz, p_nr, p_nt, n_e,
-        use_cuda=use_cuda ) 
+        use_cuda=use_cuda, use_mpi = use_mpi, n_guard = n_guard ) 
 
     # Add a laser to the fields of the simulation
     add_laser( sim.fld, a0, w0, ctau, z0 )
@@ -221,15 +229,16 @@ if __name__ == '__main__' :
     z = sim.fld.interp[0].z
     r = sim.fld.interp[0].r
 
-    print 'Calculate analytical solution for Ez'
-    ez = Ez(z, r, 0.)
-    print 'Done...'
-    print ''
+    #if rank == 0:
+    #    print 'Calculate analytical solution for Ez'
+    #    ez = Ez(z, r, 0.)
+    #    print 'Done...'
+    #    print ''
 
-    print 'Calculate analytical solution for Er'
-    er = Er(z, r, 0.)
-    print 'Done...'
-    print ''
+    #   print 'Calculate analytical solution for Er'
+    #    er = Er(z, r, 0.)
+    #    print 'Done...'
+    #    print ''
 
     # ---------------------------
     # Carry out simulation
@@ -237,10 +246,22 @@ if __name__ == '__main__' :
 
     # Carry out 300 PIC steps
     print 'Calculate PIC solution for the wakefield'
-    sim.step(1500)
+    sim.step(401, moving_window = True, correct_currents = False)
     print 'Done...'
     print ''
 
     # Plot the wakefields
+
+    #if use_mpi:
+    #    gathered_grid = sim.comm.gather_grid(sim.fld.interp[0])
+
+    #if use_mpi:
+    #    if rank == 0:
+    #        compare_wakefields(ez, er, gathered_grid)
+
+    #else:
+    #    compare_wakefields(ez, er, sim.fld.interp[0])
+    ez = None
+    er = None
     compare_wakefields(ez, er, sim.fld.interp[0])
 
