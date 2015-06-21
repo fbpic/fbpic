@@ -89,10 +89,10 @@ def compare_wakefields(Ez_analytic, Er_analytic, grid):
     extent = extent/1.e-6
 
     # Create figure
-    plt.figure(figsize=(20,20))
+    plt.figure(figsize=(8,7))
 
     plt.suptitle('Analytical vs. PIC Simulation for Ez and Er')
-    """
+
     # Plot analytic Ez in 2D
     plt.subplot(321)
     plt.imshow(Ez_analytic[:,::-1].T, extent = extent, 
@@ -111,7 +111,7 @@ def compare_wakefields(Ez_analytic, Er_analytic, grid):
     plt.ylabel('r')
     cb = plt.colorbar()
     plt.title('Analytical Er')
-    """
+
     # Plot simulated Ez in 2D
     plt.subplot(323)
     plt.imshow(grid.Ez[:,::-1].real.T, extent = extent, 
@@ -136,7 +136,7 @@ def compare_wakefields(Ez_analytic, Er_analytic, grid):
     plt.subplot(325)
     plt.plot(1.e6*z, grid.Ez[:,0].real, 
         color = 'b', label = 'Simulation')
-    #plt.plot(1.e6*z, Ez_analytic[:,0], color = 'r', label = 'Analytical')
+    plt.plot(1.e6*z, Ez_analytic[:,0], color = 'r', label = 'Analytical')
     plt.xlabel('z')
     plt.ylabel('Ez')
     plt.legend(loc=0)
@@ -146,7 +146,7 @@ def compare_wakefields(Ez_analytic, Er_analytic, grid):
     plt.subplot(326)
     plt.plot(1.e6*z, grid.Er[:,5].real, 
         color = 'b', label = 'Simulation')
-    #plt.plot(1.e6*z, Er_analytic[:,5], color = 'r', label = 'Analytical')
+    plt.plot(1.e6*z, Er_analytic[:,5], color = 'r', label = 'Analytical')
     plt.xlabel('z')
     plt.ylabel('Er')
     plt.legend(loc=0)
@@ -178,6 +178,8 @@ if __name__ == '__main__' :
     Nm = 2           # Number of modes used
     # The simulation timestep
     dt = zmax/Nz/c   # Timestep (seconds)
+    # The number of steps
+    N_step = 800
 
     # The particles
     p_zmin = 24.e-6  # Position of the beginning of the plasma (meters)
@@ -201,17 +203,17 @@ if __name__ == '__main__' :
 
     # The moving window
     v_window = c       # Speed of the window
-    ncells_zero = 100   # Number of cells over which the field is set to 0
+    ncells_zero = 50   # Number of cells over which the field is set to 0
                        # at the left end of the simulation box
     ncells_damp = 50   # Number of cells over which the field is damped,
                        # at the left of the simulation box, after ncells_zero
                        # in order to prevent it from wrapping around.
-    mw_period = 50     # How many steps to wait until moving the window 
+    mw_period = 25     # How many steps to wait until moving the window 
 
     # Initialize the simulation object
     sim = Simulation( Nz, zmax, Nr, rmax, Nm, dt,
         p_zmin, p_zmax, p_rmin, p_rmax, p_nz, p_nr, p_nt, n_e,
-        use_cuda=use_cuda, use_mpi = use_mpi, n_guard = n_guard ) 
+        use_cuda=use_cuda, use_mpi=use_mpi, n_guard=n_guard ) 
 
     # Add a laser to the fields of the simulation
     add_laser( sim.fld, a0, w0, ctau, z0 )
@@ -222,46 +224,38 @@ if __name__ == '__main__' :
                                    period=mw_period )
 
     # ---------------------------
-    # Calculate analytical solution
-    # ---------------------------
-
-    # Get arrays that span the grid
-    z = sim.fld.interp[0].z
-    r = sim.fld.interp[0].r
-
-    #if rank == 0:
-    #    print 'Calculate analytical solution for Ez'
-    #    ez = Ez(z, r, 0.)
-    #    print 'Done...'
-    #    print ''
-
-    #   print 'Calculate analytical solution for Er'
-    #    er = Er(z, r, 0.)
-    #    print 'Done...'
-    #    print ''
-
-    # ---------------------------
     # Carry out simulation
     # ---------------------------
 
-    # Carry out 300 PIC steps
     print 'Calculate PIC solution for the wakefield'
-    sim.step(401, moving_window = True, correct_currents = False)
+    sim.step(N_step, moving_window=True, correct_currents=False)
     print 'Done...'
     print ''
 
-    # Plot the wakefields
+    # Gather the results
+    if use_mpi:
+        gathered_grid = sim.comm.gather_grid(sim.fld.interp[0])
+        z = gathered_grid.z
+        r = gathered_grid.r
+    else :
+        z = sim.fld.interp[0].z
+        r = sim.fld.interp[0].r
 
-    #if use_mpi:
-    #    gathered_grid = sim.comm.gather_grid(sim.fld.interp[0])
+    # Analytical solution
+    if (use_mpi==False) or (rank==0):
+        print 'Calculate analytical solution for Ez'
+        ez = Ez(z-z.min(), r, 0.)
+        print 'Done...'
+        print ''
 
-    #if use_mpi:
-    #    if rank == 0:
-    #        compare_wakefields(ez, er, gathered_grid)
+        print 'Calculate analytical solution for Er'
+        er = Er(z-z.min(), r, 0.)
+        print 'Done...'
+        print ''
 
-    #else:
-    #    compare_wakefields(ez, er, sim.fld.interp[0])
-    ez = None
-    er = None
-    compare_wakefields(ez, er, sim.fld.interp[0])
+    # Plot the results
+    if use_mpi:
+        compare_wakefields(ez, er, gathered_grid)
+    else :
+        compare_wakefields(ez, er, sim.fld.interp[0])
 

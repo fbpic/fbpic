@@ -110,7 +110,7 @@ class MovingWindow(object) :
         if cuda_installed :
             self.d_damp_array_EB = cuda.to_device(self.damp_array_EB)
         
-    def move( self, interp, ptcl, p_nz, dt ) :
+    def move( self, interp, ptcl, p_nz, dt, comm=None ) :
         """
         Calculate by how many cells the moving window should be moved.
         If this is non-zero, shift the fields on the interpolation grid,
@@ -121,7 +121,7 @@ class MovingWindow(object) :
         
         Parameters
         ----------
-        interp : a Fields object
+        interp : a list of InterpolationGrid objects
             Contains the fields data of the simulation
     
         ptcl : a list of Particles objects
@@ -132,14 +132,30 @@ class MovingWindow(object) :
     
         dt : float (in seconds)
             Timestep of the simulation
+
+        comm : a Communicator object
+            Defines how to send fields and particles with MPI
+            When not using MPI, this object is None
         """
         # Move the position of the moving window object
         self.zmin = self.zmin + self.v*dt*self.period
         
         # Find the number of cells by which the window should move
         dz = interp[0].dz
-        n_move = int( (self.zmin-interp[0].zmin)/dz )
+        zmin_global = interp[0].zmin \
+          + dz*(comm.n_guard - comm.rank*comm.Nz_domain)
+        n_move = int( (self.zmin-zmin_global)/dz )
+
+        # Move the window
         if n_move > 0 :
+            
+            # Exchange the paticles, when using MPI
+            if comm is not None :
+                # Exchange only if this was not done previously in main.py
+                if self.period % comm.exchange_part_period != 0 :
+                    for species in ptcl:
+                        comm.exchange_particles( species,
+                            interp[0].zmin, interp[0].zmax )
             
             # Shift the fields
             Nm = len(interp)
@@ -150,20 +166,38 @@ class MovingWindow(object) :
             zmin = interp[0].zmin
             zmax = interp[0].zmax
 
-            # Determine the position below which the particles
-            # should be removed
-            z_zero = zmin + self.ncells_zero*dz
-    
-            # Now that the grid has moved, remove the particles that are
-            # outside of it, and add new particles in the next-to-last cell
-            for species in ptcl :
-                clean_outside_particles( species, z_zero )
-                if species.continuous_injection == True :
-                    # Remember that particles are not loaded in the
-                    # last two upper cells, in order to prevent wrapping
-                    # around of the charge density, when it is smoothed
-                    add_particles( species, zmax-(n_move+2)*dz,
-                                   zmax-2*dz, n_move*p_nz )
+            # The first proc removes the particles that are outside of the box
+            if (comm is None) or (comm.rank == 0) :
+                # Determine the position below which the particles are removed
+                z_zero = zmin + self.ncells_zero*dz
+                if comm is not None :
+                    z_zero = z_zero + comm.n_guard*dz
+                # Remove the outside particles
+                for species in ptcl :
+                    clean_outside_particles( species, z_zero )
+                    
+            # The last proc adds new particles
+            if (comm is None) or (comm.rank == comm.size-1) :
+                # Determine the position below which particles are added
+                # (Leave the last two cells empty.)
+                p_zmax = zmax - 2*dz
+                if comm is not None :
+                    p_zmax = p_zmax - comm.n_guard*dz
+                # Add the new particles
+                for species in ptcl :
+                    if species.continuous_injection == True :
+                        add_particles( species, p_zmax-n_move*dz,
+                                        p_zmax, n_move*p_nz )
+
+            # Exchange the fields and the particles 
+            # in the guard cells between domains when using MPI
+            if comm is not None :
+                # NB : rho and J are not exchanged since they are
+                # recalculated at each time step
+                comm.exchange_fields( interp, 'EB')
+                for species in ptcl:
+                    comm.exchange_particles( species,
+                            interp[0].zmin, interp[0].zmax )
             
     def shift_interp_grid( self, grid, n_move, shift_currents=False ) :
         """

@@ -122,7 +122,8 @@ class Simulation(object) :
                                             zmin, zmax, p_zmin, p_zmax)
             # Register new number of cells for local domain
             Nz = self.comm.Nz_local
-            Nr = self.comm.Nr
+        else :
+            self.comm = None
 
         # Initialize the field structure
         self.fld = Fields(Nz, zmax, Nr, rmax, Nm, dt,
@@ -208,6 +209,7 @@ class Simulation(object) :
             # in the guard cells between domains
             if self.use_mpi:
                 self.comm.exchange_fields(self.fld.interp, 'EB')
+                # Particle exchange every exchange_part_period
                 if self.iteration % self.comm.exchange_part_period == 0:
                     for species in self.ptcl:
                         self.comm.exchange_particles(species,
@@ -228,34 +230,15 @@ class Simulation(object) :
 
                 # Move the window if needed
                 if self.iteration % self.moving_win.period == 0 :
-                    # When using MPI, raise Error if period of moving window
-                    # is greater than the number of guard cells.
-                    if self.use_mpi and \
-                        (self.moving_win.period > self.comm.n_guard):
-                        raise ValueError('Moving Window period: %d needs \
-                             to be smaller than number of guard cells: %d') \
-                             %(self.moving_win.period, self.comm.n_guard)
+                    
                     # Receive the data from the GPU (if CUDA is used)
                     if self.use_cuda:
                         receive_data_from_gpu(self)
-                    # In the case particles have not been exchanged during
-                    # this timestep, exchange them. (only in MPI mode)
-                    if self.use_mpi and not self.iteration % \
-                        self.comm.exchange_part_period == 0:
-                        for species in self.ptcl:
-                            self.comm.exchange_particles( species,
-                                fld.interp[0].zmin, fld.interp[0].zmax )
                     # Shift the fields and add new particles
-                    self.moving_win.move( fld.interp, ptcl, self.p_nz, self.dt )
-                    # Exchange the the fields and the particles 
-                    # in the guard cells between domains
-                    if self.use_mpi:
-                        self.comm.exchange_fields(self.fld.interp, 'EB')
-                        self.comm.exchange_fields(self.fld.interp, 'J')
-                        self.comm.exchange_fields(self.fld.interp, 'rho')
-                        for species in self.ptcl:
-                            self.comm.exchange_particles( species,
-                                fld.interp[0].zmin, fld.interp[0].zmax )
+                    # (Exchange fields and particles between
+                    # processors when using MPI)
+                    self.moving_win.move( fld.interp, ptcl, self.p_nz,
+                                          self.dt, self.comm )
                     # Send the data to the GPU (if Cuda is used)
                     if self.use_cuda:
                         send_data_to_gpu(self)
@@ -264,11 +247,8 @@ class Simulation(object) :
                     self.deposit('rho_prev')
 
                 # Damp the fields (at the left boundary) at every time step
-                if self.use_mpi:
-                    # When using MPI, only the left domain damps its fields
-                    if self.comm.rank == 0:
-                        self.moving_win.damp_EB( fld.interp )
-                else:
+                # (Only the last processor does this, when using MPI)
+                if (self.use_mpi==False) or (self.comm.rank==0) :
                     self.moving_win.damp_EB( fld.interp )
 
             # Gather the fields at t = n dt
