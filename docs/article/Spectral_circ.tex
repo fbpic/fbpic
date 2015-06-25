@@ -672,11 +672,12 @@ derivation of these equations.)
 
 We developped a single-processor, proof-of-principle implementation of
 the PIC algorithm described in the previous section (\cref{sec:implementation}), and tested
-it in a number of physical situations. In particular, we focused on
-tests of the dispersion relation, since the absence of
+it in a number of physical situations. In particular, we emphasize
+here the tests of the dispersion relation, since the absence of
 spurious numerical dispersion was one of the original goals of this algorithm.
 
 \subsection{Propagation in vacuum}
+\label{sec:vacuum_vg}
 
 A first test consisted in letting a laser pulse propagate in vacuum and in
 measuring its group velocity in the simulation. These simulations were
@@ -686,7 +687,10 @@ algorithm equivalent to that of \cite{Lifschitz,Davidson} and which had
 been previously implemented in the PIC code \textsc{Warp}.
 
 The simulations were run with a moving window, in a box with a
-longitudinal size of 40 $\mu$m and a transverse size of 48 $\mu$m. 
+longitudinal size of 40 $\mu$m and a transverse size of 48 $\mu$m. (In
+the case of the spectral algorithm, the fields were damped at the back
+of the moving window, in a similar way as in \citep{YuIPAC2015}.)
+\comment{See if plares also uses that}
 The laser pulse itself was initialized at focus, with a waist 
 $w_0 = 16 \;\mathrm{\mu m}$, a length $L = 10 \; \mathrm{\mu m}$,
 a wavelength $\lambda = 0.8 \; \mathrm{\mu m}$ and a 
@@ -721,14 +725,14 @@ dispersion.
 Moreover, this group velocity is considerably different than the analytical
 prediction, even for a relatively high resolution (40 gridpoints per
 wavelength). On the other hand, with the spectral algorithm described
-here, the group velocity is independent of the resolution, and
+here, the group velocity is practically independent of the resolution, and
 displays very good agreement with the analytical prediction. 
 This corroborates the fact that the spectral cylindrical algorithm
 described here has no numerical dispersion in vacuum.
 
 \begin{figure}[!h]
 \centering
-\includegraphics[width=0.7\textwidth]{figures/Vacuum_vg.pdf}
+\includegraphics[width=0.6\textwidth]{figures/Vacuum_vg.pdf}
 \caption{\label{fig:Vacuum_vg}Relative difference between $c$ and the
 group velocity of a laser pulse in vacuum, for different resolutions. The dashed line represents
 the analytical prediction given by \cref{eq:vacuum_vg}, while the blue
@@ -739,18 +743,51 @@ spectral and finite-difference algorithm.}
 
 \subsection{Linear propagation in a plasma}
 
+In order to confirm that the spectral algorithm also performs well in
+the presence of a plasma, we ran the same type of simulations with a
+uniform, pre-ionized plasma. The numerical parameters of the
+simulations, as well as the physical parameters of the laser, 
+were the same as in the previous subsection
+(\cref{sec:vacuum_vg}). The plasma density was $n_e = 1.75\times
+10^{18}\;\mathrm{cm}^{-3} = 10^{-3}\,n_c$, where $n_c$ is the critical
+density for $\lambda=0.8\mathrm{\mu m}$.
+
+Since the intensity of the laser is very low here ($a_0 = 10^{-2}$),
+the propagation is linear, and the on-axis group velocity is given by
+(e.g. \citep{Esarey1999})
+\begin{equation} 
+\label{eq:plasma_vg}
+\frac{c-v_g}{c} = \frac{n_e}{2n_c} + 2\left( \frac{\lambda}{2\pi w_0} \right)^2
+\end{equation}
+
+In \cref{fig:Plasma_vg}, we compare this analytical prediction with the group velocity in the
+finite-difference and spectral simulations. Again, the
+group velocity is resolution-dependent in the finite-difference
+algorithm, and it is substantial different than the analytical
+prediction even at high resolution. In the spectral code, the group
+velocity velocity exhibits an very weak dependence on resolution
+(which is likely due to the errors of current deposition and field
+gathering on the finite grid). However, its value remains always very
+close to the analytical prediction at all resolutions.
 
 \begin{figure}[!h]
 \centering
-\includegraphics[width=0.7\textwidth]{figures/Plasma_vg.pdf}
-\caption{\label{fig:Plasma_vg}\comment{Finish this caption}.}
+\includegraphics[width=0.6\textwidth]{figures/Plasma_vg.pdf}
+\caption{\label{fig:Plasma_vg}Relative difference between $c$ and the
+group velocity of a laser pulse in a plasma at $10^{-3}\,n_c$, for different
+resolutions. The dashed line represents
+the analytical prediction given by \cref{eq:plasma_vg}, while the blue
+and red points represent the results of PIC simulation.}
 \end{figure}
 
-Mention moving window. (In the case of our
-spectral cylindrical algorithm, the fields were progressively set to zero at the
-left boundary of the moving window, in order to prevent them from
-wrapping around at the right boundary, as a consequence of the
-periodicity of the Fourier transform.) 
+We emphasize that, although the difference between $c$ and $v_g$ is
+small here and may thus seem unimportant, this difference determines
+the dephasing length in a laser-wakefield simulation, and it is thus
+paramount to obtain its correct value in the simulation codes. This
+problem is well-known in the case of standard finite-difference
+codes, and is often dealt with by either using an even finer grid in $z$ or
+a \emph{coarser} grid in $r$. \comment{Say no need to compromise in
+  this code.}
 
 \subsection{Linear plasma wave}
 
@@ -776,8 +813,8 @@ advantages). Here on top of it, we have it in Circ.
 
 \paragraph{Acknowledgements}
 
-We thank Brendan Godfrey for very valuable comments and
-suggestions. We also acknowledge Igor A. Andriyash for fruitful
+We thank Brendan Godfrey for valuable comments and
+suggestions. We also acknowledge Igor A. Andriyash for interesting
 discussions.
 
 \newpage
@@ -788,4 +825,4 @@ discussions.
 \bibliography{Bibliography}
 \bibliographystyle{plainnat}
 
-\end{document}  
+\end{document}
