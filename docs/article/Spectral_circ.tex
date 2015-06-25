@@ -40,7 +40,7 @@
 
 \title{A pseudo-spectral, cylindrical and dispersion-free Particle-In-Cell algorithm}
 %\pagestyle{empty}
-\author{R\'emi \textsc{Lehe}, Jean-Luc \textsc{Vay}}
+\author{R\'emi \textsc{Lehe}, \comment{Igor \textsc{Andriyash} ?}, Jean-Luc \textsc{Vay}}
 
 \begin{document}
 
@@ -430,7 +430,8 @@ On the other hand, there are a variety of existing algorithms (that are not math
 equivalent) to discretize the Hankel
 transform (e.g. \citep{Cree,Yu,Siegman,Guizar,KaiMing}), and the use of one or the other
 is very dependent on the pursued application. Broadly
-speaking, most Discrete Hankel Transform (DHT) algorithms consists in 
+speaking, chosing an algorithm for the Discrete Hankel Transform (DHT)
+algorithms consists in 
 \begin{itemize}
 \item Choosing a discrete grid in $r$ and $k_\perp$ space, on which to
   sample the functions to be transformed. In some algorithms, these
@@ -470,7 +471,7 @@ $k_\perp$ grids, since each azimuthal mode $m$ evolves separately in
   evenly-spaced grid used in spectral Cartesian codes (grey dots, $k_j = j\pi/r_{max}$).}
 \end{figure}
 
-Once this grid is set up, the discrete hankel transform is simply a
+As mentioned above, once this grid is set up, the Discrete Hankel Transform is simply a
 linear operation on a finite set of points, and can thus be
 represented by a matrix operation
 \comment{Change the notations for the matrices in the appendix}
@@ -690,7 +691,6 @@ The simulations were run with a moving window, in a box with a
 longitudinal size of 40 $\mu$m and a transverse size of 48 $\mu$m. (In
 the case of the spectral algorithm, the fields were damped at the back
 of the moving window, in a similar way as in \citep{YuIPAC2015}.)
-\comment{See if plares also uses that}
 The laser pulse itself was initialized at focus, with a waist 
 $w_0 = 16 \;\mathrm{\mu m}$, a length $L = 10 \; \mathrm{\mu m}$,
 a wavelength $\lambda = 0.8 \; \mathrm{\mu m}$ and a 
@@ -748,7 +748,8 @@ the presence of a plasma, we ran the same type of simulations with a
 uniform, pre-ionized plasma. The numerical parameters of the
 simulations, as well as the physical parameters of the laser, 
 were the same as in the previous subsection
-(\cref{sec:vacuum_vg}). The plasma density was $n_e = 1.75\times
+(\cref{sec:vacuum_vg}). The plasma was represented by 16
+macroparticles per cell, and had a density $n_e = 1.75\times
 10^{18}\;\mathrm{cm}^{-3} = 10^{-3}\,n_c$, where $n_c$ is the critical
 density for $\lambda=0.8\mathrm{\mu m}$.
 
@@ -765,7 +766,7 @@ finite-difference and spectral simulations. Again, the
 group velocity is resolution-dependent in the finite-difference
 algorithm, and it is substantial different than the analytical
 prediction even at high resolution. In the spectral code, the group
-velocity velocity exhibits an very weak dependence on resolution
+velocity velocity exhibits a very weak dependence on resolution
 (which is likely due to the errors of current deposition and field
 gathering on the finite grid). However, its value remains always very
 close to the analytical prediction at all resolutions.
@@ -781,18 +782,39 @@ and red points represent the results of PIC simulation.}
 \end{figure}
 
 We emphasize that, although the difference between $c$ and $v_g$ is
-small here and may thus seem unimportant, this difference determines
-the dephasing length in a laser-wakefield simulation, and it is thus
+small here and may thus seem unimportant, it is this difference which determines
+the dephasing length and thus the
+maximum beam energy, in a laser-wakefield simulation. It is therefore
 paramount to obtain its correct value in the simulation codes. This
 problem is well-known in the case of standard finite-difference
-codes, and is often dealt with by either using an even finer grid in $z$ or
-a \emph{coarser} grid in $r$. \comment{Say no need to compromise in
-  this code.}
+codes. For Cartesian finite-difference codes, a common solution is to
+use a scheme which is dispersion-free along the $z$ axis 
+(e.g. \citep{Karkkainen,Pukhov,Nuter}), but no such scheme has been
+developped for cylindrical codes. Alternatively, numerical dispersion is often 
+dealt with in finite-difference codes by either using an even finer grid in
+$z$ (which is very computationally expensive) or
+a \emph{coarser} grid in $r$. (Recall that, in the simulations shown here, $\Delta r = 5\Delta
+z$. A coarser resolution in $r$ allows to
+use a larger timestep $\Delta t$, which improves numerical
+dispersion.) However, a coarser resolution in $r$ may not always be
+adapted to resolve the physics of interest. It is therefore remarkable 
+that, with the spectral cylindrical algorithm, the correct group
+velocity is obtained, even for a fine resolution in $r$. 
 
-\subsection{Linear plasma wave}
+\subsection{Linear laser-wakefield}
+
+In order to further ascertain that the spectral algorithm described here gives
+appropriate results, we compared the laser-wakefield in the simulation with the
+analytical predictions. 
+
+Physically, ...
+
+
 
 \section{Advantages over finite-difference codes}
 \label{sec:advantages}
+
+
 
 Mention obvious advantage with better numerical dispersion : dephasing
 length will be better predicted (cite Cowan). 
