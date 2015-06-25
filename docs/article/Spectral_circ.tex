@@ -53,7 +53,7 @@
 
 Particle-In-Cell (PIC) algorithms\citep{Birdsall2004,Hockney1988} 
 are extensively used in several areas of physics, including the study
-of astrophysical plasmas and usion plasmas,
+of astrophysical plasmas and fusion plasmas,
 as well as for laser-plasma interactions and accelerator physics. Yet,
 despite their wide use, PIC algorithms remain very computationally
 demanding and are still subject to a range of numerical artifacts. 
@@ -143,7 +143,7 @@ fully dispersion-free. Another such example is the PIC code \textsc{PlaRes}
 \citep{AndriyashJCP2015}, which also uses a spectral cylindrical
 formalism but relies on the scalar and vector potentials
 $\phi$ and $\vec{A}$ instead of the standard PIC formulation in terms
-of $\vec{E}$ and $\vec{B}$. As a result, \textsc{PlaRes} largely differs from the
+of $\vec{E}$ and $\vec{B}$. As a result, \textsc{PlaRes} differs from the
 algorithm described here, both in the equations that it simulates and
 in their numerical implementation.
 
@@ -473,6 +473,7 @@ $k_\perp$ grids, since each azimuthal mode $m$ evolves separately in
 Once this grid is set up, the discrete hankel transform is simply a
 linear operation on a finite set of points, and can thus be
 represented by a matrix operation
+\comment{Change the notations for the matrices in the appendix}
 \[ \mathrm{DHT^m_n}[f] \,(k^m_{\perp,j}) = \sum_{p=0}^{N_r-1} (M_{n,m})_{j,p}
 \;f(r_p) \qquad \mathrm{IDHT^m_n}[g] \, (r_j) = \sum_{p=0}^{N_r-1}
 (M'_{n,m})_{j,p} \; g(k^m_{\perp,p}) \]
@@ -496,8 +497,7 @@ iteration. Notice also that the computational time for this
 matrix multiplication is proportional to $N_r^2$, which is slow
 compared to a 1D FFT ($\propto N_r \log(N_r)$), but
 still faster than the 2D FFT ($\propto N_x N_y \log(N_x) + N_x N_y \log(N_y) $)
-which is typically used in a spectral Cartesian code. In practice, for $N_x = N_y =
-N_r = 1000$ for instance, the DHT can be 50 times faster than a 2D FFT \citep{Norfolk}.
+which is typically used in a spectral 3D Cartesian code. 
 
 
 \subsection{Field gathering}
@@ -530,6 +530,8 @@ S_{z,p_0 +1}(z) = \frac{ z - z_{p_0} }{\Delta z} \qquad
 \qquad S_{r,q_0+1}(r) = \frac{ r - r_{q_0} }{  \Delta r }
 \qquad \mathrm{with} \quad r_{q_0} \leq r < r_{q_0+1}
  \]
+
+\comment{Add shape factor close to the axis}
 
 \subsection{Equations of motion}
 
@@ -586,6 +588,8 @@ with
 With this correction, the new currents $\spectral{J}'^{n+1/2}$ do satisfy
 the charge conservation equation \cref{eq:SpectCharge}. Therefore we apply this
 correction in spectral space, at the end of the current deposition at each timestep.
+
+\comment{Mention smoothing in k space}
 
 \subsection{Integration of the Maxwell equation using the PSATD scheme}
 \label{sec:FieldIntegration}
@@ -674,28 +678,73 @@ spurious numerical dispersion was one of the original goals of this algorithm.
 
 \subsection{Propagation in vacuum}
 
-A first test consisted in letting a laser pulse propagate and in
-measuring its group velocity in the simulation. The simulations were
+A first test consisted in letting a laser pulse propagate in vacuum and in
+measuring its group velocity in the simulation. These simulations were
 run with the spectral cylindrical algorithm presented in
-\cref{sec:implementation}. For comparison, the same simulations 
-were also run with a finite-difference cylindrical
+\cref{sec:implementation}, but also, for comparison, with a finite-difference cylindrical
 algorithm equivalent to that of \cite{Lifschitz,Davidson} and which had
 been previously implemented in the PIC code \textsc{Warp}.
 
-The simulations were run with a moving window, in a box 
+The simulations were run with a moving window, in a box with a
+longitudinal size of 40 $\mu$m and a transverse size of 48 $\mu$m. 
+The laser pulse itself was initialized at focus, with a waist 
+$w_0 = 16 \;\mathrm{\mu m}$, a length $L = 10 \; \mathrm{\mu m}$,
+a wavelength $\lambda = 0.8 \; \mathrm{\mu m}$ and a 
+dimensionless potential vector $a_0 = 10^{-2}$.
 The resolution was varied while keeping the same cell aspect ratio ($\Delta r = 5\Delta z$). The
-timestep is set to $\Delta t = \Delta z/c$ in the case of the spectral
-cylindrical algorithm and to $\Delta t = 1/\sqrt{}$ in the case of the finite-difference
-algorithm (due to the existence of a Courant
+timestep was set to $c\Delta t = \Delta z$ in the case of the spectral
+cylindrical algorithm and to $c\Delta t = 1/\sqrt{1/\Delta z^2 +
+  2/\Delta r^2}$ in the case of the finite-difference
+cylindrical algorithm (due to the existence of a Courant
 limit for this algorithm). 
 
-was The laser properties were
+Physically, the on-axis group velocity of the pulse should be slightly lower than $c$ due
+to the finite waist of the pulse (see e.g. \citet{Esarey1999}). The
+analytical expression for the corresponding relative
+difference in on-axis group velocity is
+\begin{equation} 
+\label{eq:vacuum_vg}
+\frac{c-v_g}{c} = 2\left( \frac{\lambda}{2\pi w_0} \right)^2
+\end{equation}
+\noindent In the case at hand ($w_0=16\;\mathrm{\mu m}$,
+$\lambda=0.8\;\mathrm{\mu m}$), this relative difference is extremely
+small ($(c-v_g)/c = 1.27 \times 10^{-4}$), and it may be difficult for
+PIC codes to capture this small physical difference. 
 
-Figure : represent box and group velocity.
+To assess the capacities of the finite-difference and
+spectral cylindrical code in this regard, \cref{fig:Vacuum_vg} displays the relative
+difference in group velocity, as measured in the
+simulations. As can be expected, in the
+finite-difference simulations, the
+group velocity of the laser depends on the resolution, due to numerical
+dispersion. 
+Moreover, this group velocity is considerably different than the analytical
+prediction, even for a relatively high resolution (40 gridpoints per
+wavelength). On the other hand, with the spectral algorithm described
+here, the group velocity is independent of the resolution, and
+displays very good agreement with the analytical prediction. 
+This corroborates the fact that the spectral cylindrical algorithm
+described here has no numerical dispersion in vacuum.
 
-Due to the finite waist, the group velocity of the laser on axis. 
+\begin{figure}[!h]
+\centering
+\includegraphics[width=0.7\textwidth]{figures/Vacuum_vg.pdf}
+\caption{\label{fig:Vacuum_vg}Relative difference between $c$ and the
+group velocity of a laser pulse in vacuum, for different resolutions. The dashed line represents
+the analytical prediction given by \cref{eq:vacuum_vg}, while the blue
+and red points represent the results of PIC simulation, with the
+spectral and finite-difference algorithm.}
+\end{figure}
 
-\subsection{Propagation in a plasma}
+
+\subsection{Linear propagation in a plasma}
+
+
+\begin{figure}[!h]
+\centering
+\includegraphics[width=0.7\textwidth]{figures/Plasma_vg.pdf}
+\caption{\label{fig:Plasma_vg}\comment{Finish this caption}.}
+\end{figure}
 
 Mention moving window. (In the case of our
 spectral cylindrical algorithm, the fields were progressively set to zero at the

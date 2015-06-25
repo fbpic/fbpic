@@ -1,4 +1,7 @@
-all : 
+single : 
+	pdflatex Spectral_circ.tex
+
+full :
 	pdflatex Spectral_circ.tex
 	bibtex Spectral_circ.aux
 	pdflatex Spectral_circ.tex
