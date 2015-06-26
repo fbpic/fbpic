@@ -57,22 +57,24 @@ denote generally by $F_r$. We have :
 = \frac{F_x - iF_y}{2}e^{i\theta} + \frac{F_x +
   iF_y}{2}e^{-i\theta} \] 
 Using \cref{eq:CircBwTransu}, this leads to
-\begin{align} 
+\begin{align*} 
 F_r =   \frac{1}{(2\pi)^2}\sum_{m=-\infty}^{\infty} \Integ{k_z}\,\RInteg{k_\perp }\;
 \left(  J_m(k_\perp r) \frac{\spectral{F}_{x,m} -
-    i\spectral{F}_{y,m}}{2}e^{-i(m-1)\theta +ik_z z} + J_m(k_\perp r)
-  \frac{\spectral{F}_{x,m} +   i\spectral{F}_{y,m}}{2}e^{-i(m+1)\theta +
-    ik_z z} \right) \\
-=  \frac{1}{(2\pi)^2}\sum_{m=-\infty}^{\infty} \Integ{k_z}\,\RInteg{k_\perp }\;
-\left(  J_{m+1}(k_\perp r) \frac{\spectral{F}_{x,m+1} -
-    i\spectral{F}_{y,m+1}}{2}e^{-im\theta +ik_z z} + J_{m-1}(k_\perp r)
-  \frac{\spectral{F}_{x,m-1} +   i\spectral{F}_{y,m-1}}{2}e^{-im\theta +
+    i\spectral{F}_{y,m}}{2}e^{-i(m-1)\theta +ik_z z} \right. \\
+\left. + J_m(k_\perp r) \frac{\spectral{F}_{x,m} +   i\spectral{F}_{y,m}}{2}e^{-i(m+1)\theta +
     ik_z z} \right) 
-\end{align}
+\end{align*}
+\begin{align*}
+F_r =  \frac{1}{(2\pi)^2}\sum_{m=-\infty}^{\infty} \Integ{k_z}\,\RInteg{k_\perp }\;
+\left(  J_{m+1}(k_\perp r) \frac{\spectral{F}_{x,m+1} -
+    i\spectral{F}_{y,m+1}}{2}e^{-im\theta +ik_z z} \right. \\
+\left. + J_{m-1}(k_\perp r) \frac{\spectral{F}_{x,m-1} +   i\spectral{F}_{y,m-1}}{2}e^{-im\theta +
+    ik_z z} \right) 
+\end{align*}
 where we relabeled the dummy variable $m$ in the above sums. Let us
-thus define $\spectral{F}_{-,m} = \frac{\spectral{F}_{x,m-1} +
-    i\spectral{F}_{y,m-1}}{2}$ and $\spectral{F}_{+,m} = \frac{\spectral{F}_{x,m+1} -
-    i\spectral{F}_{y,m+1}}{2}$. This results in:
+thus define $\spectral{F}_{-,m} = (\spectral{F}_{x,m-1} +
+    i\spectral{F}_{y,m-1})/2$ and $\spectral{F}_{+,m} = (\spectral{F}_{x,m+1} -
+    i\spectral{F}_{y,m+1})/2$. This results in:
 \begin{equation} 
 F_r(\vec{r}) =  \frac{1}{(2\pi)^2}\sum_{m=-\infty}^{\infty} \Integ{k_z}\,\RInteg{k_\perp }\;
 \left( \spectral{F}_{+,m}\; J_{m+1}(k_\perp r) +\spectral{F}_{-,m}\; J_{m-1}(k_\perp r)
