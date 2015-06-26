@@ -741,6 +741,7 @@ spectral and finite-difference algorithm.}
 
 
 \subsection{Linear propagation in a plasma}
+\label{sec:linear_plasma}
 
 In order to confirm that the spectral algorithm also performs well in
 the presence of a plasma, we ran the same type of simulations with a
@@ -802,11 +803,18 @@ velocity is obtained, even for a fine resolution in $r$.
 
 \subsection{Linear laser-wakefield}
 
-In order to further ascertain that the spectral algorithm described here gives
-appropriate results, we compared the laser-wakefield in the simulation with the
-analytical predictions. 
+\comment{NOt the same parameters}
 
-Physically, ...
+In order to further ascertain that the spectral algorithm described here gives
+appropriate results, we compared the laser-wakefield in simulations
+of the previous subsection (\cref{sec:linear_plasma}) with the corresponding analytical predictions. 
+
+Since here $a_0 = 10^{-2}$, the wakefield is given by
+linear, quasistatic theory \citep{EsareyRMP2009}:
+\[ E_z(z, r, t) = \frac{mc^2}{e} \frac{k_p^2}{2}\int_{z}^{\infty} \langle
+\vec{a}^2(z', r, t)\rangle \cos[k_p(z-z')]dz' \] 
+\[ E_y(z, r, t) = -\frac{mc^2}{e} \frac{2 k_p y}{w_0^2}\int_{z}^{\infty} \langle
+\vec{a}^2(z', r, t)\rangle \sin[k_p(z-z')]d\xi' \]
 
 
 
