@@ -803,19 +803,37 @@ velocity is obtained, even for a fine resolution in $r$.
 
 \subsection{Linear laser-wakefield}
 
-\comment{NOt the same parameters}
+\comment{Not the same parameters : waist is 20 microns}
 
 In order to further ascertain that the spectral algorithm described here gives
 appropriate results, we compared the laser-wakefield in simulations
 of the previous subsection (\cref{sec:linear_plasma}) with the corresponding analytical predictions. 
 
-Since here $a_0 = 10^{-2}$, the wakefield is given by
-linear, quasistatic theory \citep{EsareyRMP2009}:
-\[ E_z(z, r, t) = \frac{mc^2}{e} \frac{k_p^2}{2}\int_{z}^{\infty} \langle
-\vec{a}^2(z', r, t)\rangle \cos[k_p(z-z')]dz' \] 
-\[ E_y(z, r, t) = -\frac{mc^2}{e} \frac{2 k_p y}{w_0^2}\int_{z}^{\infty} \langle
-\vec{a}^2(z', r, t)\rangle \sin[k_p(z-z')]d\xi' \]
+Since here $a_0 = 10^{-2}$, the analytical wakefield is given by
+the linear and quasistatic theory. For a laser of the
+form $a(z, r, t)= a_\ell(z, t) e^{-r^2/w_0^2} \cos(k_0z-\omega_0 t)$,
+where $a_\ell(z, t)$ is the longitudinal envelope of the laser, this yields \citep{EsareyRMP2009}
+\begin{equation} 
+E_z(z, r, t) = \frac{mc^2}{e} \frac{k_p^2}{4}\int_{z}^{\infty} 
+a_\ell^2(z', t) e^{-r^2/w_0^2} \cos[k_p(z-z')]dz' 
+\end{equation}
+\begin{equation}
+E_y(z, r, t) = -\frac{mc^2}{e} \frac{k_p y}{w_0^2}\int_{z}^{\infty} 
+a_\ell^2(z', t) e^{-r^2/w_0^2} \sin[k_p(z-z')]dz' 
+\end{equation}
+\noindent where $k_p$ is the plasma wavevector.
 
+Here, the longitudinal profile $a_\ell$ was extracted directly from the
+simulation, and the above analytical integrals where carried out
+numerically. The resulting predicted $E_z$ and $E_y$ are plotted in dashed lines
+on \cref{fig:Linear_wkfld}. These predicted curves are compared with
+the $E_z$ and $E_y$ field from the simulation (red lines).
+
+\begin{figure}[!h]
+\centering
+\includegraphics[width=\textwidth]{figures/Linear_wkfld.png}
+\caption{\label{fig:Linear_wkfld} \comment{Add description}.}
+\end{figure}
 
 
 \section{Advantages over finite-difference codes}
