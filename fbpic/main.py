@@ -246,10 +246,10 @@ class Simulation(object) :
                     # (Since particles have been added/suppressed)
                     self.deposit('rho_prev')
 
-                # Damp the fields (at the left boundary) at every time step
-                # (Only the last processor does this, when using MPI)
-                if (self.use_mpi==False) or (self.comm.rank==0) :
-                    self.moving_win.damp_EB( fld.interp )
+                # Damp the fields at every time step (at the left
+                # and right boundary). When using MPI, only the last
+                # and first processors damp the fields.
+                self.moving_win.damp_EB( fld.interp, self.comm )
 
             # Gather the fields at t = n dt
             for species in ptcl :

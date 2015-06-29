@@ -253,7 +253,7 @@ class MovingWindow(object) :
         # Put the last cells to 0
         field_array[-n_move,:] = 0        
 
-    def damp_EB( self, interp ) :
+    def damp_EB( self, interp, comm ) :
         """
         Set the fields E and B progressively to zero, at the left
         end and right end of the moving window.
@@ -266,40 +266,56 @@ class MovingWindow(object) :
         interp : a list of InterpolationGrid objects
             (one element per azimuthal mode)
             Contains the field data on the interpolation grid
+
+        comm : a Communicator object
+            Contains the information about the domain decomposition
         """
+        # Determine which boundary should be damped
+        damp_left = True
+        damp_right = True
+        # In MPI : restrict that operation to the fist and last proc
+        if comm is not None :
+            if comm.rank != 0 :
+                damp_left = False
+            if comm.rank != comm.size-1 :
+                damp_right = False
+        
+        # Get the number of cells that should be set to 0
+        ncells_zero = self.ncells_zero
+        # The guard cells should be set to zero in MPI
+        if comm is not None :
+            ncells_zero = self.ncells_zero + comm.n_guard
+
+        # Damp the fields on the CPU or the GPU
         if interp[0].use_cuda :
-            # Obtain cuda grid (the points beyond Nzeff are not modified)
+            # Damp the fields on the GPU
+            
             Nz_eff = self.ncells_zero + self.ncells_damp
             Nr = interp[0].Nr
             dim_grid, dim_block = cuda_tpb_bpg_2d( Nz_eff, Nr )
-            
-            # Damp the fields on the GPU
+                        
             cuda_damp_EB[dim_grid, dim_block](
                 interp[0].Er, interp[0].Et, interp[0].Ez,
                 interp[0].Br, interp[0].Bt, interp[0].Bz,
                 interp[1].Er, interp[1].Et, interp[1].Ez,
                 interp[1].Er, interp[1].Et, interp[1].Ez,
-                self.d_damp_array_EB, self.ncells_zero, self.ncells_damp )
+                self.d_damp_array_EB, ncells_zero,
+                self.ncells_damp, damp_left, damp_right )
+
         else :
             # Damp the fields on the CPU
             
-            # Extract the length of the grid
             Nm = len(interp)
 
             # Loop over the azimuthal modes
             for m in range( Nm ) :
-                damp_field( interp[m].Er, self.damp_array_EB,
-                            self.ncells_damp, self.ncells_zero )
-                damp_field( interp[m].Et, self.damp_array_EB,
-                            self.ncells_damp, self.ncells_zero )
-                damp_field( interp[m].Ez, self.damp_array_EB,
-                            self.ncells_damp, self.ncells_zero )
-                damp_field( interp[m].Br, self.damp_array_EB,
-                            self.ncells_damp, self.ncells_zero )
-                damp_field( interp[m].Bt, self.damp_array_EB,
-                            self.ncells_damp, self.ncells_zero )
-                damp_field( interp[m].Bz, self.damp_array_EB,
-                            self.ncells_damp, self.ncells_zero )
+                # Loop over the different fields
+                for fieldtype in ['Er', 'Er', 'Ez', 'Br', 'Bt', 'Bz' ] :
+                    
+                    field = getattr( interp[m], fieldtype )
+                    damp_field( field, self.damp_array_EB,
+                            self.ncells_damp, self.ncells_zero,
+                            damp_left, damp_right )
             
 # ---------------------------------------
 # Utility functions for the moving window
@@ -384,24 +400,40 @@ def add_particles( species, zmin, zmax, Npz ) :
     # Add the number of new particles to the global count of particles
     species.Ntot += new_ptcl.Ntot
     
-def damp_field( field_array, damp_array, n_damp, n_zero ) :
+def damp_field( field_array, damp_array, n_damp, n_zero,
+                damp_left=True, damp_right=True ) :
     """
     Put the fields to 0 in the n_zero first cells
-    Multiply the fields by damp_array_EB in the n_damp next cells
-    (at the left and right boundary)
+    Multiply the fields by damp_array in the n_damp next cells
+    (at the left and right boundary, depending on damp_left and damp_right)
 
     Parameters
     ----------
     field_array : 2darray of complexs
-    damp_array : 2darray of reals
+        The field to be damped
+        
+    damp_array : 1darray of reals
+        An array of length n_damp, containing values between 0 and 1,
+        for damping
+        
     n_damp, n_zero : int
+        Number of cells over which the fields are damped and set to 0
+        respectively
+        
+    damp_left, damp_right : bool
+        Whether to damp the fields at the left and right boundary respectively
     """
-    field_array[:n_zero,:] = 0
-    field_array[-n_zero:,:] = 0
-    field_array[n_zero:n_zero+n_damp,:] = \
-        damp_array[:,np.newaxis] * field_array[n_zero:n_zero+n_damp,:]
-    field_array[-n_zero-n_damp:-n_zero,:] = \
-        damp_array[::-1,np.newaxis] * field_array[-n_zero-n_damp:-n_zero,:]
+    # Damp the fields at the left boundary
+    if damp_left :
+        field_array[:n_zero,:] = 0
+        field_array[n_zero:n_zero+n_damp,:] = \
+            damp_array[:,np.newaxis]*field_array[n_zero:n_zero+n_damp,:]
+
+    # Damp the fields at the right boundary
+    if damp_right :
+        field_array[-n_zero:,:] = 0
+        field_array[-n_zero-n_damp:-n_zero,:] = \
+            damp_array[::-1,np.newaxis]*field_array[-n_zero-n_damp:-n_zero,:]
 
 if cuda_installed :
 
@@ -409,10 +441,11 @@ if cuda_installed :
                     complex128[:,:], complex128[:,:], complex128[:,:], \
                     complex128[:,:], complex128[:,:], complex128[:,:], \
                     complex128[:,:], complex128[:,:], complex128[:,:], \
-                    float64[:], int32, int32)')
+                    float64[:], int32, int32, int32, int32)')
     def cuda_damp_EB( Er0, Et0, Ez0, Br0, Bt0, Bz0,
                       Er1, Et1, Ez1, Br1, Bt1, Bz1,
-                      damp_array_EB, ncells_zero, ncells_damp ) :
+                      damp_array, ncells_zero, ncells_damp,
+                      damp_left, damp_right ) :
         """
         Put the fields to 0 in the ncells_zero first cells
         Multiply the fields by damp_array_EB in the next cells
@@ -425,9 +458,13 @@ if cuda_installed :
             Contain the fields to be damped
             The first axis corresponds to z and the second to r
 
-        damp_array_EB : 1darray of floats
+        damp_array : 1darray of floats
             An array of length ncells_damp
             Contains the values of the damping factor
+
+        damp_left, damp_right : bool
+            Whether to damp the fields at the left and
+            right boundary respectively
         """
         # Obtain Cuda grid
         iz, ir = cuda.grid(2)
@@ -437,60 +474,68 @@ if cuda_installed :
         
         # Modify the fields
         if ir < Nr :
+            # Set the first cells to 0
             if iz < ncells_zero :
                 # At the left end
-                Er0[iz, ir] = 0.
-                Et0[iz, ir] = 0.
-                Ez0[iz, ir] = 0.
-                Br0[iz, ir] = 0.
-                Bt0[iz, ir] = 0.
-                Bz0[iz, ir] = 0.
-                Er1[iz, ir] = 0.
-                Et1[iz, ir] = 0.
-                Ez1[iz, ir] = 0.
-                Br1[iz, ir] = 0.
-                Bt1[iz, ir] = 0.
-                Bz1[iz, ir] = 0.
+                if damp_left :
+                    Er0[iz, ir] = 0.
+                    Et0[iz, ir] = 0.
+                    Ez0[iz, ir] = 0.
+                    Br0[iz, ir] = 0.
+                    Bt0[iz, ir] = 0.
+                    Bz0[iz, ir] = 0.
+                    Er1[iz, ir] = 0.
+                    Et1[iz, ir] = 0.
+                    Ez1[iz, ir] = 0.
+                    Br1[iz, ir] = 0.
+                    Bt1[iz, ir] = 0.
+                    Bz1[iz, ir] = 0.
                 # At the right end
-                iz_right = Nz - iz - 1
-                Er0[iz_right, ir] = 0.
-                Et0[iz_right, ir] = 0.
-                Ez0[iz_right, ir] = 0.
-                Br0[iz_right, ir] = 0.
-                Bt0[iz_right, ir] = 0.
-                Bz0[iz_right, ir] = 0.
-                Er1[iz_right, ir] = 0.
-                Et1[iz_right, ir] = 0.
-                Ez1[iz_right, ir] = 0.
-                Br1[iz_right, ir] = 0.
-                Bt1[iz_right, ir] = 0.
-                Bz1[iz_right, ir] = 0.
+                if damp_right :
+                    iz_right = Nz - iz - 1
+                    Er0[iz_right, ir] = 0.
+                    Et0[iz_right, ir] = 0.
+                    Ez0[iz_right, ir] = 0.
+                    Br0[iz_right, ir] = 0.
+                    Bt0[iz_right, ir] = 0.
+                    Bz0[iz_right, ir] = 0.
+                    Er1[iz_right, ir] = 0.
+                    Et1[iz_right, ir] = 0.
+                    Ez1[iz_right, ir] = 0.
+                    Br1[iz_right, ir] = 0.
+                    Bt1[iz_right, ir] = 0.
+                    Bz1[iz_right, ir] = 0.
+                    
+            # Apply the damping array to the next cells
             elif iz < ncells_zero + ncells_damp :
-                damp_factor = damp_array_EB[iz - ncells_zero]
+                damp_factor = damp_array[iz - ncells_zero]
+                
                 # At the left end
-                Er0[iz, ir] *= damp_factor
-                Et0[iz, ir] *= damp_factor
-                Ez0[iz, ir] *= damp_factor
-                Br0[iz, ir] *= damp_factor
-                Bt0[iz, ir] *= damp_factor
-                Bz0[iz, ir] *= damp_factor
-                Er1[iz, ir] *= damp_factor
-                Et1[iz, ir] *= damp_factor
-                Ez1[iz, ir] *= damp_factor
-                Br1[iz, ir] *= damp_factor
-                Bt1[iz, ir] *= damp_factor
-                Bz1[iz, ir] *= damp_factor
+                if damp_left :
+                    Er0[iz, ir] *= damp_factor
+                    Et0[iz, ir] *= damp_factor
+                    Ez0[iz, ir] *= damp_factor
+                    Br0[iz, ir] *= damp_factor
+                    Bt0[iz, ir] *= damp_factor
+                    Bz0[iz, ir] *= damp_factor
+                    Er1[iz, ir] *= damp_factor
+                    Et1[iz, ir] *= damp_factor
+                    Ez1[iz, ir] *= damp_factor
+                    Br1[iz, ir] *= damp_factor
+                    Bt1[iz, ir] *= damp_factor
+                    Bz1[iz, ir] *= damp_factor
                 # At the right end
-                iz_right = Nz - iz - 1
-                Er0[iz_right, ir] *= damp_factor
-                Et0[iz_right, ir] *= damp_factor
-                Ez0[iz_right, ir] *= damp_factor
-                Br0[iz_right, ir] *= damp_factor
-                Bt0[iz_right, ir] *= damp_factor
-                Bz0[iz_right, ir] *= damp_factor
-                Er1[iz_right, ir] *= damp_factor
-                Et1[iz_right, ir] *= damp_factor
-                Ez1[iz_right, ir] *= damp_factor
-                Br1[iz_right, ir] *= damp_factor
-                Bt1[iz_right, ir] *= damp_factor
-                Bz1[iz_right, ir] *= damp_factor
+                if damp_right :
+                    iz_right = Nz - iz - 1
+                    Er0[iz_right, ir] *= damp_factor
+                    Et0[iz_right, ir] *= damp_factor
+                    Ez0[iz_right, ir] *= damp_factor
+                    Br0[iz_right, ir] *= damp_factor
+                    Bt0[iz_right, ir] *= damp_factor
+                    Bz0[iz_right, ir] *= damp_factor
+                    Er1[iz_right, ir] *= damp_factor
+                    Et1[iz_right, ir] *= damp_factor
+                    Ez1[iz_right, ir] *= damp_factor
+                    Br1[iz_right, ir] *= damp_factor
+                    Bt1[iz_right, ir] *= damp_factor
+                    Bz1[iz_right, ir] *= damp_factor
