@@ -40,7 +40,7 @@
 
 \title{A pseudo-spectral, cylindrical and dispersion-free Particle-In-Cell algorithm}
 %\pagestyle{empty}
-\author{R\'emi \textsc{Lehe}, \comment{Igor \textsc{Andriyash} ?}, Jean-Luc \textsc{Vay}}
+\author{R\'emi \textsc{Lehe}, Manuel \textsc{Kirchen}, Igor \textsc{Andriyash}, Jean-Luc \textsc{Vay}}
 
 \begin{document}
 
@@ -803,16 +803,23 @@ velocity is obtained, even for a fine resolution in $r$.
 
 \subsection{Linear laser-wakefield}
 
-\comment{Not the same parameters : waist is 20 microns}
+In order further to ascertain that the spectral algorithm described here gives
+appropriate results, we ran a simulation of a laser-wakefield, and
+compared the amplitude of the wakefield with the corresponding analytical predictions.
 
-In order to further ascertain that the spectral algorithm described here gives
-appropriate results, we compared the laser-wakefield in simulations
-of the previous subsection (\cref{sec:linear_plasma}) with the corresponding analytical predictions. 
-
-Since here $a_0 = 10^{-2}$, the analytical wakefield is given by
+In these simulations, the laser was linearly polarized along the
+transverse $x$ direction, and had an amplitude $a_0 = 10^{-2}$, a
+wavelength $\lambda=0.8 \;\mathrm{\mu m}$, a length $L=10\;\mathrm{\mu
+m}$ and a waist $w_0 = 20\;\mathrm{\mu m}$. The simulation was run in
+a moving window whose longitudinal and transverse sizes were $80 \;
+\mathrm{\mu m}$ and $60 \; \mathrm{\mu m}$. The spatial and temporal
+resolutions were $\Delta z = 0.05 \; \mathrm{\mu m}$, $\Delta r = 0.5
+\;\mathrm{\mu m}$ and $\Delta t = \Delta z/c$. Since here $a_0 =
+10^{-2}$, the analytical wakefield is given by
 the linear and quasistatic theory. For a laser of the
-form $a(z, r, t)= a_\ell(z, t) e^{-r^2/w_0^2} \cos(k_0z-\omega_0 t)$,
-where $a_\ell(z, t)$ is the longitudinal envelope of the laser, this yields \citep{EsareyRMP2009}
+form $a(z, r, t)= a_\ell(z, t) e^{-r^2/w_0^2} \cos(k_0z-\omega_0 t)$ --
+where $a_\ell(z, t)$ is the longitudinal envelope of the laser -- the
+longitudinal and transverse fields $E_z$ and $E_y$ are given by (e.g. \citep{EsareyRMP2009})
 \begin{equation} 
 E_z(z, r, t) = \frac{mc^2}{e} \frac{k_p^2}{4}\int_{z}^{\infty} 
 a_\ell^2(z', t) e^{-r^2/w_0^2} \cos[k_p(z-z')]dz' 
@@ -823,11 +830,20 @@ a_\ell^2(z', t) e^{-r^2/w_0^2} \sin[k_p(z-z')]dz'
 \end{equation}
 \noindent where $k_p$ is the plasma wavevector.
 
-Here, the longitudinal profile $a_\ell$ was extracted directly from the
+Here, the longitudinal laser envelope $a_\ell$ was extracted directly from the
 simulation, and the above analytical integrals where carried out
 numerically. The resulting predicted $E_z$ and $E_y$ are plotted in dashed lines
-on \cref{fig:Linear_wkfld}. These predicted curves are compared with
-the $E_z$ and $E_y$ field from the simulation (red lines).
+in the left and right lower panels on \cref{fig:Linear_wkfld}
+respectively. These predicted curves are compared with
+the fields $E_z$ and $E_y$ extracted directly from the simulation (red
+lines in the lower panels). The upper panels also show the fields $E_z$ and
+$E_y$ from the simulation (red-blue colormaps), as well as the line
+along which the fields in the lower panels are plotted (dashed line).
+
+As can be seen on the lower panels of \cref{fig:Linear_wkfld}, the analytical and simulated
+curves overlap very precisely. 
+
+
 
 \begin{figure}[!h]
 \centering
@@ -845,15 +861,17 @@ Mention obvious advantage with better numerical dispersion : dephasing
 length will be better predicted (cite Cowan). 
 
 Mention suffer from parallelization problems. + Moving window problems
-
+\comment{Continue}
 
 \subsection{Absence of numerical Cherenkov radiation for
   lab-frame simulations}
 
+\comment{Fill the parameters}
+
 \begin{figure}[!h]
 \centering
 \includegraphics[width=\textwidth]{figures/Cherenkov.png}
-\caption{\label{fig:Cherenkov} \comment{Add description}.}
+\caption{\label{fig:Cherenkov} At a similar time. \comment{Add description}.}
 \end{figure}
 
 \subsection{Accurate force of a laser on a relativistic electron}
