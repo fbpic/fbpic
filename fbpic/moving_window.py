@@ -6,6 +6,13 @@ import numpy as np
 from scipy.constants import c
 from particles import Particles
 
+try :
+    from numba import cuda
+    from fbpic.cuda_utils import cuda_tpb_bpg_2d
+    cuda_installed = True
+except ImportError :
+    cuda_installed = False
+
 class MovingWindow(object) :
     """
     Class that contains the moving window's variables and methods
@@ -28,7 +35,7 @@ class MovingWindow(object) :
     """
     
     def __init__( self, zmin=0, v=c, ncells_zero=1, ncells_damp=1,
-                  damp_shape='cos', gradual_damp_EB=True ) :
+                  period=1, damp_shape='cos', gradual_damp_EB=True ) :
         """
         Initializes a moving window object.
 
@@ -50,6 +57,9 @@ class MovingWindow(object) :
             progressively set to 0, at the left end of the box, after
             n_cells_zero.
 
+        period : int, optional
+            Number of iterations after which the moving window is moved
+
         damp_shape : string, optional
             How to damp the fields
             Either 'None', 'linear', 'sin', 'cos'
@@ -62,23 +72,28 @@ class MovingWindow(object) :
         self.zmin = zmin
         self.v = v
 
+        # Verify parameters, to prevent wrapping around of the particles
+        if ncells_zero < period :
+            raise ValueError('`ncells_zero` should be more than `period`')
+        
         # Attach numerical parameters
         self.ncells_zero = ncells_zero
         self.ncells_damp = ncells_damp
         self.damp_shape = damp_shape
-
+        self.period = period
+        
         # Create the damping array for the density and currents
         if damp_shape == 'None' :
             self.damp_array_J = np.ones(ncells_damp)
         elif damp_shape == 'linear' :
             self.damp_array_J = np.linspace(0, 1, ncells_damp)
         elif damp_shape == 'sin' :
-            self.damp_array_J = np.sin( np.linspace(0, np.pi/2, ncells_damp) )
+            self.damp_array_J = np.sin(np.linspace(0, np.pi/2, ncells_damp) )
         elif damp_shape == 'cos' :
             self.damp_array_J = 0.5-0.5*np.cos(
                 np.linspace(0, np.pi, ncells_damp) )
         else :
-            raise ValueError("Invalid string for damp_shape : %s" %damp_shape)
+            raise ValueError("Invalid string for damp_shape : %s"%damp_shape)
 
         # Create the damping array for the E and B fields
         self.damp_array_EB = np.ones(ncells_damp)
@@ -91,15 +106,22 @@ class MovingWindow(object) :
             # damping result in the same damping shape as for J.
             self.damp_array_EB[:-1] = \
               self.damp_array_J[:-1]/self.damp_array_J[1:]
+        # Copy the array to the GPU if possible
+        if cuda_installed :
+            self.d_damp_array_EB = cuda.to_device(self.damp_array_EB)
         
-    def move( self, fld, ptcl, p_nz, dt ) :
+    def move( self, interp, ptcl, p_nz, dt ) :
         """
-        Check whether the grid should be moved.
-        If yes shift the fields, and add new particles
-    
+        Calculate by how many cells the moving window should be moved.
+        If this is non-zero, shift the fields on the interpolation grid,
+        and add new particles.
+
+        NB : the spectral grid is not modified, as it is automatically
+        updated after damping the fields (see main.py)
+        
         Parameters
         ----------
-        fld : a Fields object
+        interp : a Fields object
             Contains the fields data of the simulation
     
         ptcl : a list of Particles objects
@@ -111,21 +133,22 @@ class MovingWindow(object) :
         dt : float (in seconds)
             Timestep of the simulation
         """
-    
         # Move the position of the moving window object
-        self.zmin = self.zmin + self.v*dt
+        self.zmin = self.zmin + self.v*dt*self.period
         
-        # As long as the window is ahead of the grid,
-        # shift the grid and the particles
-        while fld.interp[0].zmin < self.zmin :
+        # Find the number of cells by which the window should move
+        dz = interp[0].dz
+        n_move = int( (self.zmin-interp[0].zmin)/dz )
+        if n_move > 0 :
             
             # Shift the fields
-            self.shift_fields( fld )
-    
+            Nm = len(interp)
+            for m in range(Nm) :
+                self.shift_interp_grid( interp[m], n_move )
+        
             # Extract a few quantities of the new (shifted) grid
-            zmin = fld.interp[0].zmin
-            zmax = fld.interp[0].zmax
-            dz = fld.interp[0].dz
+            zmin = interp[0].zmin
+            zmax = interp[0].zmax
 
             # Determine the position below which the particles
             # should be removed
@@ -134,85 +157,17 @@ class MovingWindow(object) :
             # Now that the grid has moved, remove the particles that are
             # outside of it, and add new particles in the next-to-last cell
             for species in ptcl :
-                clean_outside_particles( species, z_zero-0.5*dz )
+                clean_outside_particles( species, z_zero )
                 if species.continuous_injection == True :
                     # Remember that particles are not loaded in the
-                    # last two upper cells, in order to prevent
-                    # wrapping around of the charge density, when it is smoothed
-                    add_particles( species, zmax-2.5*dz, zmax-1.5*dz, p_nz )
-
-    def damp( self, grid, fieldtype ) :
-        """
-        Set the currents progressively to zero, at the left
-        end of the moving window.
-
-        This is done by multiplying the self.ncells_damp first cells
-        of the field array (along z) by self.damp_array_J
-
-        NB : The fields E and B are not damped with this function but
-        are damped by shift_interp_field in the function move.
-
-        Parameters
-        ----------
-        grid : a list of InterpolationGrid objects
-            (one element per azimuthal mode)
-            Contains the field data on the interpolation grid
-
-        fieldtype : string
-            A string indicating which field to damp
-        """
-        # Extract the length of the grid
-        Nm = len(grid)
-
-        # Loop over the azimuthal modes
-        for m in range( Nm ) :
-            # Choose the right field to damp
-            if fieldtype == 'J' :
-                damp_field( grid[m].Jr, self.damp_array_J,
-                            self.ncells_damp, self.ncells_zero )
-                damp_field( grid[m].Jt, self.damp_array_J,
-                            self.ncells_damp, self.ncells_zero )
-                damp_field( grid[m].Jz, self.damp_array_J,
-                            self.ncells_damp, self.ncells_zero )
-            elif fieldtype == 'rho' :
-                damp_field( grid[m].rho, self.damp_array_J,
-                            self.ncells_damp, self.ncells_zero )
-            else :
-                raise ValueError("Invalid string for fieldtype : %s" %fieldtype)
-
+                    # last two upper cells, in order to prevent wrapping
+                    # around of the charge density, when it is smoothed
+                    add_particles( species, zmax-(n_move+2)*dz,
+                                   zmax-2*dz, n_move*p_nz )
             
-    def shift_fields( self, fld ) :
-        """
-        Shift all the fields in the object 'fld'
-        
-        The fields on the interpolation grid are shifted by one cell in z
-        The corresponding fields on the spectral grid are calculated through FFT
-    
-        Parameter
-        ---------
-        fld : a Fields object
-            Contains the fields to be shifted 
-        """
-        # Shift the fields on the interpolation grid
-        for m in range(fld.Nm) :
-            self.shift_interp_grid( fld.interp[m] )
-    
-        # Shift the fields on the spectral grid
-        for m in range(fld.Nm) :
-            self.shift_spect_grid( fld.spect[m], fld.trans[m] )
-
-            
-    def shift_interp_grid( self, grid, shift_currents=False ) :
+    def shift_interp_grid( self, grid, n_move, shift_currents=False ) :
         """
         Shift the interpolation grid by one cell
-
-        Parameter
-        ---------
-        
-        shift_currents : bool, optional
-            Whether to also shift the currents
-            Default : False, since the currents are recalculated from
-            scratch at each PIC cycle 
     
         Parameters
         ----------
@@ -220,140 +175,101 @@ class MovingWindow(object) :
             Contains the values of the fields on the interpolation grid,
             and is modified by this function.
 
+        n_move : int
+            The number of cells by which the grid should be shifted
+
         shift_currents : bool, optional
             Whether to also shift the currents
             Default : False, since the currents are recalculated from
             scratch at each PIC cycle
         """
         # Modify the values of the corresponding z's 
-        grid.z += grid.dz
-        grid.zmin += grid.dz
-        grid.zmax += grid.dz
+        grid.z += n_move*grid.dz
+        grid.zmin += n_move*grid.dz
+        grid.zmax += n_move*grid.dz
     
         # Shift all the fields
-        self.shift_interp_field( grid.Er )
-        self.shift_interp_field( grid.Et )
-        self.shift_interp_field( grid.Ez )
-        self.shift_interp_field( grid.Br )
-        self.shift_interp_field( grid.Bt )
-        self.shift_interp_field( grid.Bz )
+        self.shift_interp_field( grid.Er, n_move )
+        self.shift_interp_field( grid.Et, n_move )
+        self.shift_interp_field( grid.Ez, n_move )
+        self.shift_interp_field( grid.Br, n_move )
+        self.shift_interp_field( grid.Bt, n_move )
+        self.shift_interp_field( grid.Bz, n_move )
         if shift_currents :
-            self.shift_interp_field( grid.Jr )
-            self.shift_interp_field( grid.Jt )
-            self.shift_interp_field( grid.Jz )
-            self.shift_interp_field( grid.rho )
+            self.shift_interp_field( grid.Jr, n_move )
+            self.shift_interp_field( grid.Jt, n_move )
+            self.shift_interp_field( grid.Jz, n_move )
+            self.shift_interp_field( grid.rho, n_move )
 
-
-    def shift_spect_grid( self, grid, trans, shift_currents=False ) :
-        """
-        Calculate the spectral grid corresponding to a shifted
-        interpolation grid
-    
-        Parameters
-        ----------
-        grid : a SpectralGrid object corresponding to one given azimuthal mode
-            Contains the values of the fields on the spectral grid,
-            and is modified by this function.
-
-        trans : a SpectralTransform object
-            Needed to perform the FFT transforms
-        
-        shift_currents : bool, optional
-            Whether to also shift the currents
-            Default : False, since the currents are recalculated from
-            scratch at each PIC cycle 
-        """
-        # Shift all the fields
-        self.shift_spect_field( grid.Ep, trans )
-        self.shift_spect_field( grid.Em, trans )
-        self.shift_spect_field( grid.Ez, trans )
-        self.shift_spect_field( grid.Bp, trans )
-        self.shift_spect_field( grid.Bm, trans )
-        self.shift_spect_field( grid.Bz, trans )
-        # Also shift rho_prev since it is not recalculated at each PIC cycle
-        # Yet, do not damp it, since it was already damped previously
-        self.shift_spect_field( grid.rho_prev, trans, damping=False )
-        if shift_currents :
-            self.shift_spect_field( grid.rho_next, trans ) 
-            self.shift_spect_field( grid.Jp, trans )
-            self.shift_spect_field( grid.Jm, trans )
-            self.shift_spect_field( grid.Jz, trans )
-
-        
-    def shift_spect_field( self, field_array, trans, damping=True ) :
-        """
-        Calculate the field in spectral space that corresponds to
-        a shifted field on the interpolation grid
-        
-        This is done through the succession of an IFFT,
-        a shift along z and an FFT
-        (no Hankel transform needed since only the z direction
-        is concerned by the moving window )
-        
-        Parameters
-        ----------
-        field_array : 2darray of complexs
-            Contains the value of the fields, and is modified by this function 
-    
-        trans : a SpectralTransform object
-            Needed to perform the FFT transforms
-    
-        damping : bool
-            Whether to apply damping
-        """
-        # Copy the array into the FFTW buffer
-        trans.spect_buffer_r[:,:] = field_array[:,:]
-        # Perform the inverse FFT
-        trans.ifft_r()
-    
-        # Shift the the values in the buffer
-        self.shift_interp_field( trans.interp_buffer_r, damping )
-    
-        # Perform the FFT (back to spectral space)
-        trans.fft_r()
-        # Copy the buffer into the fields
-        field_array[:,:] = trans.spect_buffer_r[:,:]
-
-    def shift_interp_field( self, field_array, damping=True ) :
+    def shift_interp_field( self, field_array, n_move ) :
         """
         Shift the field 'field_array' by one cell (backwards)
         
         Parameters
         ----------
         field_array : 2darray of complexs
-            Contains the value of the fields, and is modified by this function
+            Contains the value of the fields, and is modified by
+            this function
 
-        damping : bool
-            Whether to apply damping
+        n_move : int
+            The number of cells by which the grid should be shifted
         """
-        # Transfer the values to one cell before
-        field_array[:-1,:] = field_array[1:,:]
-        # Put the last cell to 0
-        field_array[-1,:] = 0
-        # Apply damping, using the EB array
-        if damping :
-            damp_field( field_array, self.damp_array_EB,
-                    self.ncells_damp, self.ncells_zero )
-        
-        
+        # Transfer the values to n_move cell before
+        field_array[:-n_move,:] = field_array[n_move:,:]
+        # Put the last cells to 0
+        field_array[-n_move,:] = 0        
+
+    def damp_EB( self, interp ) :
+        """
+        Set the fields E and B progressively to zero, at the left
+        end and right end of the moving window.
+
+        This is done by multiplying the first and last cells
+        of the field array (along z) by self.damp_array_EB
+
+        Parameters
+        ----------
+        interp : a list of InterpolationGrid objects
+            (one element per azimuthal mode)
+            Contains the field data on the interpolation grid
+        """
+        if interp[0].use_cuda :
+            # Obtain cuda grid (the points beyond Nzeff are not modified)
+            Nz_eff = self.ncells_zero + self.ncells_damp
+            Nr = interp[0].Nr
+            dim_grid, dim_block = cuda_tpb_bpg_2d( Nz_eff, Nr )
+            
+            # Damp the fields on the GPU
+            cuda_damp_EB[dim_grid, dim_block](
+                interp[0].Er, interp[0].Et, interp[0].Ez,
+                interp[0].Br, interp[0].Bt, interp[0].Bz,
+                interp[1].Er, interp[1].Et, interp[1].Ez,
+                interp[1].Er, interp[1].Et, interp[1].Ez,
+                self.d_damp_array_EB, self.ncells_zero, self.ncells_damp )
+        else :
+            # Damp the fields on the CPU
+            
+            # Extract the length of the grid
+            Nm = len(interp)
+
+            # Loop over the azimuthal modes
+            for m in range( Nm ) :
+                damp_field( interp[m].Er, self.damp_array_EB,
+                            self.ncells_damp, self.ncells_zero )
+                damp_field( interp[m].Et, self.damp_array_EB,
+                            self.ncells_damp, self.ncells_zero )
+                damp_field( interp[m].Ez, self.damp_array_EB,
+                            self.ncells_damp, self.ncells_zero )
+                damp_field( interp[m].Br, self.damp_array_EB,
+                            self.ncells_damp, self.ncells_zero )
+                damp_field( interp[m].Bt, self.damp_array_EB,
+                            self.ncells_damp, self.ncells_zero )
+                damp_field( interp[m].Bz, self.damp_array_EB,
+                            self.ncells_damp, self.ncells_zero )
+            
 # ---------------------------------------
 # Utility functions for the moving window
 # ---------------------------------------
-
-def damp_field( field_array, damp_array, n_damp, n_zero ) :
-    """
-    Multiply the n first cells and last n cells of field_array
-    by damp_array, along the first axis.
-
-    Parameters
-    ----------
-    field_array : 2darray of complexs
-    damp_array : 2darray of reals
-    n_damp, n_zero : int
-    """
-    field_array[:n_zero,:] = 0
-    field_array[n_zero:n_zero+n_damp,:] = \
-        damp_array[:,np.newaxis] * field_array[n_zero:n_zero+n_damp,:]
 
 def clean_outside_particles( species, zmin ) :
     """
@@ -434,3 +350,113 @@ def add_particles( species, zmin, zmax, Npz ) :
     # Add the number of new particles to the global count of particles
     species.Ntot += new_ptcl.Ntot
     
+def damp_field( field_array, damp_array, n_damp, n_zero ) :
+    """
+    Put the fields to 0 in the n_zero first cells
+    Multiply the fields by damp_array_EB in the n_damp next cells
+    (at the left and right boundary)
+
+    Parameters
+    ----------
+    field_array : 2darray of complexs
+    damp_array : 2darray of reals
+    n_damp, n_zero : int
+    """
+    field_array[:n_zero,:] = 0
+    field_array[-n_zero:,:] = 0
+    field_array[n_zero:n_zero+n_damp,:] = \
+        damp_array[:,np.newaxis] * field_array[n_zero:n_zero+n_damp,:]
+    field_array[-n_zero-n_damp:-n_zero,:] = \
+        damp_array[::-1,np.newaxis] * field_array[-n_zero-n_damp:-n_zero,:]
+
+if cuda_installed :
+
+    @cuda.jit('void(complex128[:,:], complex128[:,:], complex128[:,:], \
+                    complex128[:,:], complex128[:,:], complex128[:,:], \
+                    complex128[:,:], complex128[:,:], complex128[:,:], \
+                    complex128[:,:], complex128[:,:], complex128[:,:], \
+                    float64[:], int32, int32)')
+    def cuda_damp_EB( Er0, Et0, Ez0, Br0, Bt0, Bz0,
+                      Er1, Et1, Ez1, Br1, Bt1, Bz1,
+                      damp_array_EB, ncells_zero, ncells_damp ) :
+        """
+        Put the fields to 0 in the ncells_zero first cells
+        Multiply the fields by damp_array_EB in the next cells
+        (at the left and right boundary)
+
+        Parameters :
+        ------------
+        Er0, Et0, Ez0, Br0, Bt0, Bz0, 
+        Er1, Et1, Ez1, Br1, Bt1, Bz1 : 2darrays of complexs
+            Contain the fields to be damped
+            The first axis corresponds to z and the second to r
+
+        damp_array_EB : 1darray of floats
+            An array of length ncells_damp
+            Contains the values of the damping factor
+        """
+        # Obtain Cuda grid
+        iz, ir = cuda.grid(2)
+
+        # Obtain the size of the array along z and r
+        Nz, Nr = Er0.shape
+        
+        # Modify the fields
+        if ir < Nr :
+            if iz < ncells_zero :
+                # At the left end
+                Er0[iz, ir] = 0.
+                Et0[iz, ir] = 0.
+                Ez0[iz, ir] = 0.
+                Br0[iz, ir] = 0.
+                Bt0[iz, ir] = 0.
+                Bz0[iz, ir] = 0.
+                Er1[iz, ir] = 0.
+                Et1[iz, ir] = 0.
+                Ez1[iz, ir] = 0.
+                Br1[iz, ir] = 0.
+                Bt1[iz, ir] = 0.
+                Bz1[iz, ir] = 0.
+                # At the right end
+                iz_right = Nz - iz - 1
+                Er0[iz_right, ir] = 0.
+                Et0[iz_right, ir] = 0.
+                Ez0[iz_right, ir] = 0.
+                Br0[iz_right, ir] = 0.
+                Bt0[iz_right, ir] = 0.
+                Bz0[iz_right, ir] = 0.
+                Er1[iz_right, ir] = 0.
+                Et1[iz_right, ir] = 0.
+                Ez1[iz_right, ir] = 0.
+                Br1[iz_right, ir] = 0.
+                Bt1[iz_right, ir] = 0.
+                Bz1[iz_right, ir] = 0.
+            elif iz < ncells_zero + ncells_damp :
+                damp_factor = damp_array_EB[iz - ncells_zero]
+                # At the left end
+                Er0[iz, ir] *= damp_factor
+                Et0[iz, ir] *= damp_factor
+                Ez0[iz, ir] *= damp_factor
+                Br0[iz, ir] *= damp_factor
+                Bt0[iz, ir] *= damp_factor
+                Bz0[iz, ir] *= damp_factor
+                Er1[iz, ir] *= damp_factor
+                Et1[iz, ir] *= damp_factor
+                Ez1[iz, ir] *= damp_factor
+                Br1[iz, ir] *= damp_factor
+                Bt1[iz, ir] *= damp_factor
+                Bz1[iz, ir] *= damp_factor
+                # At the right end
+                iz_right = Nz - iz - 1
+                Er0[iz_right, ir] *= damp_factor
+                Et0[iz_right, ir] *= damp_factor
+                Ez0[iz_right, ir] *= damp_factor
+                Br0[iz_right, ir] *= damp_factor
+                Bt0[iz_right, ir] *= damp_factor
+                Bz0[iz_right, ir] *= damp_factor
+                Er1[iz_right, ir] *= damp_factor
+                Et1[iz_right, ir] *= damp_factor
+                Ez1[iz_right, ir] *= damp_factor
+                Br1[iz_right, ir] *= damp_factor
+                Bt1[iz_right, ir] *= damp_factor
+                Bz1[iz_right, ir] *= damp_factor

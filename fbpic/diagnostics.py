@@ -6,7 +6,6 @@ import os
 import numpy as np
 import matplotlib.pyplot as plt
 from scipy import constants
-from mpi4py import MPI
 import h5py
 import datetime
 
@@ -185,6 +184,10 @@ class FieldDiagnostic(OpenPMDDiagnostic) :
         
         # Check if the fields should be written at this iteration
         if iteration % self.period == 0 :
+
+            # Receive data from the GPU if needed
+            if self.fld.use_cuda :
+                self.fld.receive_fields_from_gpu()
             
             # Write the png files if needed
             if self.output_png_spectral or self.output_png_spatial :
@@ -193,7 +196,10 @@ class FieldDiagnostic(OpenPMDDiagnostic) :
 
             # Write the hdf5 files
             self.write_hdf5( iteration )
-                
+
+            # Send data to the GPU if needed
+            if self.fld.use_cuda :
+                self.fld.send_fields_to_gpu()
 
     def write_png( self, iteration ) :
         """
@@ -212,13 +218,13 @@ class FieldDiagnostic(OpenPMDDiagnostic) :
             for fieldtype in self.fieldtypes :
                 # Scalar field
                 if fieldtype == "rho" :
-                    write_png_file( fullpath, iteration, "rho",
+                    self.write_png_file( fullpath, iteration, "rho",
                                 self.fld.interp[0], self.fld.interp[1] )
                 # Vector field
                 elif fieldtype in ["E", "B", "J"] :
                     for coord in ["r", "t", "z"] :
                         quantity = "%s%s" %(fieldtype, coord)
-                        write_png_file( fullpath, iteration, quantity,
+                        self.write_png_file( fullpath, iteration, quantity,
                             self.fld.interp[0], self.fld.interp[1] )
 
         # Spectral fields
@@ -355,12 +361,12 @@ class FieldDiagnostic(OpenPMDDiagnostic) :
         The size of the steps on the grid
     
         zmin : float (meters)
-        The position of the first cell along the longitudinal direction
+        The position of the edge of the simulation box ablong the z direction
         """
         dset.attrs["unitSI"] = 1.
         dset.attrs["gridUnitSI"] = 1.
         dset.attrs["gridSpacing"] = np.array([dr, dz])
-        dset.attrs["gridGlobalOffset"] = np.array([ 0., zmin-0.5*dz])
+        dset.attrs["gridGlobalOffset"] = np.array([ 0., zmin])
         dset.attrs["position"] = np.array([ 0.5, 0.5])
         dset.attrs["dataOrder"] = "kji"  # column-major order due to numpy
         dset.attrs["fieldSolver"] = "PSATD"
@@ -442,8 +448,18 @@ class ParticleDiagnostic(OpenPMDDiagnostic) :
         # Check if the fields should be written at this iteration
         if iteration % self.period == 0 :
             
+            # Receive data from the GPU if needed
+            for ptcl_object in self.species.values() :
+                if ptcl_object.use_cuda :
+                    ptcl_object.receive_particles_from_gpu()
+
             # Write the hdf5 files
             self.write_hdf5( iteration )
+
+            # Send data to the GPU if needed
+            for ptcl_object in self.species.values() :
+                if ptcl_object.use_cuda :
+                    ptcl_object.send_particles_to_gpu()
 
     def write_hdf5( self, iteration ) :
         """
