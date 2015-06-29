@@ -256,9 +256,9 @@ class MovingWindow(object) :
     def damp_EB( self, interp ) :
         """
         Set the fields E and B progressively to zero, at the left
-        end of the moving window.
+        end and right end of the moving window.
 
-        This is done by multiplying the self.ncells_damp first cells
+        This is done by multiplying the first and last cells
         of the field array (along z) by self.damp_array_EB
 
         Parameters
@@ -279,7 +279,7 @@ class MovingWindow(object) :
                 interp[0].Br, interp[0].Bt, interp[0].Bz,
                 interp[1].Er, interp[1].Et, interp[1].Ez,
                 interp[1].Er, interp[1].Et, interp[1].Ez,
-                self.d_damp_array_EB, self.ncells_zero, self.ncells_damp, Nr )
+                self.d_damp_array_EB, self.ncells_zero, self.ncells_damp )
         else :
             # Damp the fields on the CPU
             
@@ -386,8 +386,9 @@ def add_particles( species, zmin, zmax, Npz ) :
     
 def damp_field( field_array, damp_array, n_damp, n_zero ) :
     """
-    Multiply the n first cells and last n cells of field_array
-    by damp_array, along the first axis.
+    Put the fields to 0 in the n_zero first cells
+    Multiply the fields by damp_array_EB in the n_damp next cells
+    (at the left and right boundary)
 
     Parameters
     ----------
@@ -396,8 +397,11 @@ def damp_field( field_array, damp_array, n_damp, n_zero ) :
     n_damp, n_zero : int
     """
     field_array[:n_zero,:] = 0
+    field_array[-n_zero:,:] = 0
     field_array[n_zero:n_zero+n_damp,:] = \
         damp_array[:,np.newaxis] * field_array[n_zero:n_zero+n_damp,:]
+    field_array[-n_zero-n_damp:-n_zero,:] = \
+        damp_array[::-1,np.newaxis] * field_array[-n_zero-n_damp:-n_zero,:]
 
 if cuda_installed :
 
@@ -405,13 +409,14 @@ if cuda_installed :
                     complex128[:,:], complex128[:,:], complex128[:,:], \
                     complex128[:,:], complex128[:,:], complex128[:,:], \
                     complex128[:,:], complex128[:,:], complex128[:,:], \
-                    float64[:], int32, int32, int32)')
+                    float64[:], int32, int32)')
     def cuda_damp_EB( Er0, Et0, Ez0, Br0, Bt0, Bz0,
                       Er1, Et1, Ez1, Br1, Bt1, Bz1,
-                      damp_array_EB, ncells_zero, ncells_damp, Nr ) :
+                      damp_array_EB, ncells_zero, ncells_damp ) :
         """
         Put the fields to 0 in the ncells_zero first cells
         Multiply the fields by damp_array_EB in the next cells
+        (at the left and right boundary)
 
         Parameters :
         ------------
@@ -427,9 +432,13 @@ if cuda_installed :
         # Obtain Cuda grid
         iz, ir = cuda.grid(2)
 
+        # Obtain the size of the array along z and r
+        Nz, Nr = Er0.shape
+        
         # Modify the fields
         if ir < Nr :
             if iz < ncells_zero :
+                # At the left end
                 Er0[iz, ir] = 0.
                 Et0[iz, ir] = 0.
                 Ez0[iz, ir] = 0.
@@ -441,9 +450,24 @@ if cuda_installed :
                 Ez1[iz, ir] = 0.
                 Br1[iz, ir] = 0.
                 Bt1[iz, ir] = 0.
-                Bz1[iz, ir] = 0.                
+                Bz1[iz, ir] = 0.
+                # At the right end
+                iz_right = Nz - iz - 1
+                Er0[iz_right, ir] = 0.
+                Et0[iz_right, ir] = 0.
+                Ez0[iz_right, ir] = 0.
+                Br0[iz_right, ir] = 0.
+                Bt0[iz_right, ir] = 0.
+                Bz0[iz_right, ir] = 0.
+                Er1[iz_right, ir] = 0.
+                Et1[iz_right, ir] = 0.
+                Ez1[iz_right, ir] = 0.
+                Br1[iz_right, ir] = 0.
+                Bt1[iz_right, ir] = 0.
+                Bz1[iz_right, ir] = 0.
             elif iz < ncells_zero + ncells_damp :
                 damp_factor = damp_array_EB[iz - ncells_zero]
+                # At the left end
                 Er0[iz, ir] *= damp_factor
                 Et0[iz, ir] *= damp_factor
                 Ez0[iz, ir] *= damp_factor
@@ -456,3 +480,17 @@ if cuda_installed :
                 Br1[iz, ir] *= damp_factor
                 Bt1[iz, ir] *= damp_factor
                 Bz1[iz, ir] *= damp_factor
+                # At the right end
+                iz_right = Nz - iz - 1
+                Er0[iz_right, ir] *= damp_factor
+                Et0[iz_right, ir] *= damp_factor
+                Ez0[iz_right, ir] *= damp_factor
+                Br0[iz_right, ir] *= damp_factor
+                Bt0[iz_right, ir] *= damp_factor
+                Bz0[iz_right, ir] *= damp_factor
+                Er1[iz_right, ir] *= damp_factor
+                Et1[iz_right, ir] *= damp_factor
+                Ez1[iz_right, ir] *= damp_factor
+                Br1[iz_right, ir] *= damp_factor
+                Bt1[iz_right, ir] *= damp_factor
+                Bz1[iz_right, ir] *= damp_factor
