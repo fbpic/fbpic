@@ -163,20 +163,22 @@ if __name__ == '__main__' :
     use_cuda = True
     
     # The simulation box
-    Nz = 801         # Number of gridpoints along z
+    Nz = 800         # Number of gridpoints along z
     zmax = 40.e-6    # Length of the box along z (meters)
     Nr = 120          # Number of gridpoints along r
     rmax = 60.e-6    # Length of the box along r (meters)
     Nm = 2           # Number of modes used
     # The simulation timestep
     dt = zmax/Nz/c   # Timestep (seconds)
+    # The number of steps
+    Nstep = 1200
 
     # The particles
     p_zmin = 39.e-6  # Position of the beginning of the plasma (meters)
     p_zmax = 41.e-6  # Position of the end of the plasma (meters)
     p_rmin = 0.      # Minimal radial position of the plasma (meters)
     p_rmax = 50.e-6  # Maximal radial position of the plasma (meters)
-    n_e = 8.e18*1.e6 # Density (electrons.meters^-3)
+    n_e = 8.e24      # Density (electrons.meters^-3)
     p_nz = 2         # Number of particles per cell along z
     p_nr = 2         # Number of particles per cell along r
     p_nt = 4         # Number of particles per cell along theta
@@ -198,7 +200,7 @@ if __name__ == '__main__' :
     ncells_damp = 30   # Number of cells over which the field is damped,
                        # at the left of the simulation box, after ncells_zero
                        # in order to prevent it from wrapping around.
-    mw_period = 1      # How many steps to wait until moving the window 
+    mw_period = 10     # How many steps to wait until moving the window 
 
     # Initialize the simulation object
     sim = Simulation( Nz, zmax, Nr, rmax, Nm, dt,
@@ -237,7 +239,7 @@ if __name__ == '__main__' :
 
     # Carry out 300 PIC steps
     print 'Calculate PIC solution for the wakefield'
-    sim.step(1500)
+    sim.step(N_step)
     print 'Done...'
     print ''
 

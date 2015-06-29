@@ -171,10 +171,10 @@ if __name__ == '__main__' :
     size = mpi_comm.size
     
     # The simulation box
-    Nz = 601         # Number of gridpoints along z
-    zmax = 25.e-6    # Length of the box along z (meters)
-    Nr = 30          # Number of gridpoints along r
-    rmax = 15.e-6    # Length of the box along r (meters)
+    Nz = 800         # Number of gridpoints along z
+    zmax = 40.e-6    # Length of the box along z (meters)
+    Nr = 120         # Number of gridpoints along r
+    rmax = 60.e-6    # Length of the box along r (meters)
     Nm = 2           # Number of modes used
     # The simulation timestep
     dt = zmax/Nz/c   # Timestep (seconds)
@@ -182,20 +182,20 @@ if __name__ == '__main__' :
     N_step = 800
 
     # The particles
-    p_zmin = 24.e-6  # Position of the beginning of the plasma (meters)
-    p_zmax = 26.e-6  # Position of the end of the plasma (meters)
+    p_zmin = 39.e-6  # Position of the beginning of the plasma (meters)
+    p_zmax = 41.e-6  # Position of the end of the plasma (meters)
     p_rmin = 0.      # Minimal radial position of the plasma (meters)
-    p_rmax = 12.e-6  # Maximal radial position of the plasma (meters)
-    n_e = 16.e18*1.e6 # Density (electrons.meters^-3)
+    p_rmax = 50.e-6  # Maximal radial position of the plasma (meters)
+    n_e = 8.e24      # Density (electrons.meters^-3)
     p_nz = 2         # Number of particles per cell along z
     p_nr = 2         # Number of particles per cell along r
     p_nt = 4         # Number of particles per cell along theta
 
     # The laser
     a0 = 0.01        # Laser amplitude
-    w0 = 5.e-6       # Laser waist
-    ctau = 3.e-6     # Laser duration
-    z0 = 14.e-6      # Laser centroid
+    w0 = 20.e-6       # Laser waist
+    ctau = 6.e-6     # Laser duration
+    z0 = 27.e-6      # Laser centroid
 
     # Plasma and laser wavenumber
     kp = 1./c * np.sqrt( n_e * e**2 / (m_e * epsilon_0) )
@@ -203,12 +203,12 @@ if __name__ == '__main__' :
 
     # The moving window
     v_window = c       # Speed of the window
-    ncells_zero = 50   # Number of cells over which the field is set to 0
+    ncells_zero = 30   # Number of cells over which the field is set to 0
                        # at the left end of the simulation box
-    ncells_damp = 50   # Number of cells over which the field is damped,
+    ncells_damp = 30   # Number of cells over which the field is damped,
                        # at the left of the simulation box, after ncells_zero
                        # in order to prevent it from wrapping around.
-    mw_period = 25     # How many steps to wait until moving the window 
+    mw_period = 10     # How many steps to wait until moving the window 
 
     # Initialize the simulation object
     sim = Simulation( Nz, zmax, Nr, rmax, Nm, dt,
@@ -235,8 +235,9 @@ if __name__ == '__main__' :
     # Gather the results
     if use_mpi:
         gathered_grid = sim.comm.gather_grid(sim.fld.interp[0])
-        z = gathered_grid.z
-        r = gathered_grid.r
+        if rank==0 :
+            z = gathered_grid.z
+            r = gathered_grid.r
     else :
         z = sim.fld.interp[0].z
         r = sim.fld.interp[0].r
@@ -254,8 +255,9 @@ if __name__ == '__main__' :
         print ''
 
     # Plot the results
-    if use_mpi:
-        compare_wakefields(ez, er, gathered_grid)
+    if use_mpi :
+        if rank == 0 :
+            compare_wakefields(ez, er, gathered_grid)
     else :
         compare_wakefields(ez, er, sim.fld.interp[0])
 
