@@ -171,7 +171,7 @@ if __name__ == '__main__' :
     # The simulation timestep
     dt = zmax/Nz/c   # Timestep (seconds)
     # The number of steps
-    Nstep = 1200
+    N_step = 1200
 
     # The particles
     p_zmin = 39.e-6  # Position of the beginning of the plasma (meters)

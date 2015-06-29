@@ -142,8 +142,10 @@ class MovingWindow(object) :
         
         # Find the number of cells by which the window should move
         dz = interp[0].dz
-        zmin_global = interp[0].zmin \
-          + dz*(comm.n_guard - comm.rank*comm.Nz_domain)
+        zmin_global = interp[0].zmin
+        if comm is not None :
+            zmin_global = interp[0].zmin \
+            + dz*(comm.n_guard - comm.rank*comm.Nz_domain)
         n_move = int( (self.zmin-zmin_global)/dz )
 
         # Move the window
