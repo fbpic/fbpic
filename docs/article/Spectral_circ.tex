@@ -415,13 +415,19 @@ the PIC cycle in more details.
 
 \begin{figure}
 \input{figures/PIC-cycle.tex}
-\caption{Description of the PIC cycle \label{fig:GlobalScheme}
-  \comment{More information in caption}}
+\caption{\label{fig:GlobalScheme}Schematic description of the 4 steps
+  of a PIC
+  cycle. At any given time, the quantities that
+  are known are shown in color (red and blue), 
+while the quantities that are unknown or have been erased from memory 
+are shown in gray. The quantities that are being calculated at a given step are
+  displayed with a colored background, and arrows indicate which
+  quantities are used for this calculation.}
 \end{figure}
 
 
-\subsection{Transverse discretization of the intermediate grid, of the spectral grid
-  and of the Hankel Transform}
+\subsection{Transverse discretization of the intermediate grid, 
+of the spectral grid and of the Hankel Transform}
 \label{sec:discretization}
 
 When transforming from the intermediate to the spectral grid, the FFT
@@ -474,8 +480,7 @@ $k_\perp$ grids, since each azimuthal mode $m$ evolves separately in
 
 As mentioned above, once this grid is set up, the Discrete Hankel Transform is simply a
 linear operation on a finite set of points, and can thus be
-represented by a matrix operation
-\comment{Change the notations for the matrices in the appendix}
+represented by a matrix operation.
 \[ \mathrm{DHT^m_n}[f] \,(k^m_{\perp,j}) = \sum_{p=0}^{N_r-1} (M_{n,m})_{j,p}
 \;f(r_p) \qquad \mathrm{IDHT^m_n}[g] \, (r_j) = \sum_{p=0}^{N_r-1}
 (M'_{n,m})_{j,p} \; g(k^m_{\perp,p}) \]
@@ -532,8 +537,13 @@ S_{z,p_0 +1}(z) = \frac{ z - z_{p_0} }{\Delta z} \qquad
 \qquad S_{r,q_0+1}(r) = \frac{ r - r_{q_0} }{  \Delta r }
 \qquad \mathrm{with} \quad r_{q_0} \leq r < r_{q_0+1}
  \]
-
-\comment{Add shape factor close to the axis}
+%\noindent Additionally, for particles that are located in the first half of the first
+%cell ($0< r < \Delta r/2$), the shape $S_{r,0}$ is modified and reads
+%\[ S_{r,0}(r) = \frac{2r}{\Delta r} \]
+%\noindent This expression is chosen so as to ensure that a uniform particle
+%distribution yields a uniform charge density, even on the axis. (This
+%is a common issue for cylindrical algorithms, and is discussed e.g. in
+%\citep{Verboncoeur}).
 
 \subsection{Equations of motion}
 
@@ -564,9 +574,23 @@ macroparticles have deposited their charge and current on the
 intermediate grid, we transform them to the spectral grid, using an
 FFT and a DHT (see \cref{fig:GlobalScheme}).
 
-Notice that we do not attempt to
-reproduce the Esirkepov current deposition here \citep{Esirkepov}, and instead use a
-simple direct current deposition. It is well-known that his simple deposition does not necessarily
+Smoothing is then typically applied on the charge and currents, after they
+have been deposited to the grid (but no smoothing is applied on the
+fields $E$ and $B$ directly). This is done so as to avoid the accumulation
+of noise at high frequency, in the simulations. This smoothing
+is performed directly in spectral space, by multiplying the charge
+and currents by a transfer function $\spectral{T}(k_z, k_\perp)$ which, 
+in a 2D Cartesian algorithm, 
+would be equivalent to a single-pass binomial filter \citep{Birdsall2004}.
+\[ \spectral{T}(k_z, k_r) = \cos^2 \left( \frac{k_z}{k_{z,max}}\frac{\pi}{2} \right)
+\cos^2\left( \frac{k_\perp}{k_{\perp,max}}\frac{\pi}{2} \right) \]
+\noindent where $k_{z, max}$ and $k_{\perp,max}$ are the highest
+wavevectors that the discrete spectral grid supports, in the
+longitudinal and transverse direction.
+
+Notice also that, in the above deposition scheme, we do not attempt to
+reproduce the Esirkepov current deposition \citep{Esirkepov}, and instead use a
+simple direct current deposition. It is well-known that this simple deposition does not necessarily
 satisfy the relation $\partial_t\rho + \vec{\nabla}\cdot\vec{j} =
 0$, but that this can be corrected for, by slightly modifying the
 currents without modifying their curl:
@@ -590,8 +614,6 @@ with
 With this correction, the new currents $\spectral{J}'^{n+1/2}$ do satisfy
 the charge conservation equation \cref{eq:SpectCharge}. Therefore we apply this
 correction in spectral space, at the end of the current deposition at each timestep.
-
-\comment{Mention smoothing in k space}
 
 \subsection{Integration of the Maxwell equation using the PSATD scheme}
 \label{sec:FieldIntegration}
@@ -824,34 +846,45 @@ where $a_\ell(z, t)$ is the longitudinal envelope of the laser -- the
 longitudinal and transverse fields $E_z$ and $E_y$ are given by (e.g. \citep{EsareyRMP2009})
 \begin{equation} 
 E_z(z, r, t) = \frac{mc^2}{e} \frac{k_p^2}{4}\int_{z}^{\infty} 
-a_\ell^2(z', t) e^{-r^2/w_0^2} \cos[k_p(z-z')]dz' 
+a_\ell^2(z', t) e^{-r^2/w_0^2} \cos[k_p(z-z')]dz' \label{eq:analytical-Ez}
 \end{equation}
 \begin{equation}
 E_y(z, r, t) = -\frac{mc^2}{e} \frac{k_p y}{w_0^2}\int_{z}^{\infty} 
-a_\ell^2(z', t) e^{-r^2/w_0^2} \sin[k_p(z-z')]dz' 
+a_\ell^2(z', t) e^{-r^2/w_0^2} \sin[k_p(z-z')]dz' \label{eq:analytical-Ey}
 \end{equation}
 \noindent where $k_p$ is the plasma wavevector.
 
 Here, the longitudinal laser envelope $a_\ell$ was extracted directly from the
 simulation, and the above analytical integrals where carried out
-numerically. The resulting predicted $E_z$ and $E_y$ are plotted in dashed lines
-in the left and right lower panels on \cref{fig:Linear_wkfld}
+numerically. The resulting predicted fields $E_z$ and $E_y$ are plotted in dashed lines
+in the left and right lower panels of \cref{fig:Linear_wkfld}
 respectively. These predicted curves are compared with
 the fields $E_z$ and $E_y$ extracted directly from the simulation (red
-lines in the lower panels). The upper panels also show the fields $E_z$ and
-$E_y$ from the simulation (red-blue colormaps), as well as the line
-along which the fields in the lower panels are plotted (dashed line).
-
-As can be seen on the lower panels of \cref{fig:Linear_wkfld}, the analytical and simulated
-curves overlap very precisely. 
-
-
+lines in the lower panels). These fields from the simulation are also
+displayed as colormaps in the upper panels of \cref{fig:Linear_wkfld},
+and these colormaps include the line along which the quantities in the
+lower panels are plotted (dashed line).
 
 \begin{figure}[!h]
 \centering
 \includegraphics[width=\textwidth]{figures/Linear_wkfld.png}
-\caption{\label{fig:Linear_wkfld} \comment{Add description}.}
+\caption{\label{fig:Linear_wkfld}Upper panels: Colormaps of the fields $E_z$ and
+  $E_y$ as extracted from the simulation (blue and red), along with
+  the laser enveloppe (orange hues). (The laser propagates to the
+  right and is polarized along $x$.) The dashed lines indicate the
+  position where the curves of the lower panels have been extracted. 
+Lower panels: profile of the fields at a given radial
+position, as given by \cref{eq:analytical-Ez,eq:analytical-Ey} (dashed
+line) and extracted from the simulation (red line). \comment{Check
+  transverse grid}}
 \end{figure}
+
+As can be seen on the lower panels of \cref{fig:Linear_wkfld}, the
+analytical and simulated curves overlap very precisely, which confirms
+the validity of our PIC algorithm. This agreement is all
+the more remarkable as the $E_z$ field has been extracted from the cells
+that are closest to the axis, a region where cylindrical algorithms
+are typically very noisy.
 
 
 \section{Advantages over finite-difference codes}
@@ -873,7 +906,9 @@ Mention suffer from parallelization problems. + Moving window problems
 \begin{figure}[!h]
 \centering
 \includegraphics[width=\textwidth]{figures/Cherenkov.png}
-\caption{\label{fig:Cherenkov} At a similar time. \comment{Add description}.}
+\caption{\label{fig:Cherenkov} At a similar time. \comment{Add
+    description}. \comment{Put absolute value of the fields and reduce
+  number of numerical labels}}
 \end{figure}
 
 \subsection{Accurate force of a laser on a relativistic electron}
