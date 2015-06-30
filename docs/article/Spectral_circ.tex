@@ -54,7 +54,6 @@
 
 \maketitle
 
-\comment{Fix notation : cylindrical, quasi-cylindrical, quasi-3D}
 \comment{Read over again}
 \comment{Add abstract}
 
@@ -962,10 +961,11 @@ suppressed. (We note that, in the case of boosted frame simulations,
 more complicated secondary numerical Cherenkov effects can develop, 
 which are not as easily suppressed \citep{XuJCP2013,YuJCP2014,YuCPC2015,
 GodfreyIEEE2014,GodfreyJCP2014}. However, these secondary effects seem not to
-have enough time to develop in the case of lab-frame simulations.) 
+have enough time to develop in the case of typical lab-frame simulations.) 
+
 Since the spectral quasi-cylindrical algorithm described here is
-dispersion-free, it should not exhibit any numerical Cherenkov
-radiation. In order to confirm this prediction, we ran a simulation of
+dispersion-free, it should not exhibit numerical Cherenkov
+radiation in the lab-frame. In order to confirm this prediction, we ran a simulation of
 laser-wakefield acceleration with our spectral quasi-cylindrical
 algorithm, and compared it with an equivalent simulation that uses 
 the finite-difference quasi-cylindrical algorithm of \textsc{Warp}.
@@ -984,7 +984,7 @@ plateau at $n_e = 0.5 \times 10^{18}\;\mathrm{cm^{-3}}$.
 Both the spectral and the finite-difference simulations were run in a moving
 window whose longitudinal and transverse dimensions were 160 $\mathrm{\mu
   m}$ and 48 $\mathrm{\mu m}$, and both simulations used a resolution
-$\Delta z = 0.05 \; \mathrm{\mu m}$ and $\Delta r = 0.5 \; \mathrm{\mu
+$\Delta z = 0.04 \; \mathrm{\mu m}$ and $\Delta r = 0.2 \; \mathrm{\mu
   m}$. Again, the finite-difference simulation was run with a timestep
 $c\Delta t = 1/\sqrt{1/\Delta z^2 + 2/\Delta r^2}$ while the spectral
 simulation was run with $c\Delta t = \Delta z$. Importantly, the
@@ -994,9 +994,9 @@ space as described in \cref{sec:current-deposition}, while the finite-difference
 algorithm applies a single-pass binomial filter on the spatial grid,
 in both the $z$ and $r$ directions.
 
+\comment{Comment figure}
 
-
-\comment{Fill the parameters}
+\comment{Check the charge}
 
 \begin{figure}[!h]
 \centering
@@ -1005,6 +1005,9 @@ in both the $z$ and $r$ directions.
     description}. \comment{Put absolute value of the fields and reduce
   number of numerical labels}}
 \end{figure}
+
+Say it is the same thing with the Cherenkov-free algorithm, but it is
+not dispersion-free. 
 
 \subsection{Accurate force of a laser on a relativistic electron}
 
@@ -1018,7 +1021,7 @@ advantages). Here on top of it, we have it in Circ.
 \paragraph{Acknowledgements}
 
 We thank Brendan Godfrey for very valuable comments and suggestions. We
-thank Axel Huebl for insightful discussions on the GPU implementation.
+also acknowledge Axel Huebl for insightful discussions on the GPU implementation.
 
 This work was supported by the Director, Office of Science, Office of High Energy Physics, U.S. Dept. of Energy under Contract No. DE-AC02-05CH11231, including from the Laboratory Directed Research and Development (LDRD) funding from Berkeley Lab.
 
