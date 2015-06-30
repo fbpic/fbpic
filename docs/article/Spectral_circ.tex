@@ -48,20 +48,18 @@
 
 \section*{Introduction}
 
-\comment{ Introduce finite difference in the intro.}
-
-Particle-In-Cell (PIC) algorithms\citep{Birdsall2004,Hockney1988} 
+Particle-In-Cell (PIC) algorithms \citep{Birdsall2004,Hockney1988} 
 are extensively used in several areas of physics, including the study
-of astrophysical plasmas and fusion plasmas,
-as well as for laser-plasma interactions and accelerator physics. Yet,
+of astrophysical plasmas, fusion plasmas, laser-plasma
+interactions and accelerator physics. Yet,
 despite their wide use, PIC algorithms remain very computationally
 demanding and are still subject to a range of numerical artifacts. 
-These shortcomings can be particularly significant for
-simulations of accelerated particle beams and of 
+These shortcomings can be particularly significant when simulating 
+accelerated particle beams, or 
 laser-plasma interactions (such as laser-wakefield acceleration). 
 This is mainly for two reasons:
 \begin{itemize}
-\item In these cases, the system often has close-to-cylindrical
+\item In these particular cases, the system often has close-to-cylindrical
   symmetry (e.g. particle beams and laser pulses are often
   cylindrically symmetric). This prevents the use of 2D Cartesian 
 PIC algorithms (which are only well-suited for slab-like symmetry),
@@ -73,7 +71,7 @@ and is instead often dealt with by using
   light. This makes them very sensitive to \emph{numerical
     dispersion}, i.e. the fact that the electromagnetic waves do not
   propagate exactly at the physical speed of light in a standard PIC
-  code, but propagate instead at an spuriously-altered,
+  code, but propagate instead at a spuriously-altered,
   resolution-dependent speed. In the above-mentioned cases, 
 numerical dispersion can lead to substantial numerical artifacts
 which can mask or disrupt the physics at stake in the simulation. This
@@ -85,9 +83,9 @@ laser-wakefield acceleration \citep{CowanPRSTAB2013}.
 \end{itemize}
 Yet several improvements can be made to the PIC algorithm, in order
 to mitigate these difficulties and increase the speed and
-accuracy of PIC algorithms in these situations. 
+accuracy of the simulations in these situations. 
 \begin{itemize}
-\item One of these improvements was introduced by the recent
+\item One of these improvements is the recent
   development of cylindrically-symmetric
 PIC algorithms with azimuthal decomposition \citep{Lifschitz,Davidson} (also
 refered to as \emph{quasi-3D} algorithms). By taking
@@ -99,10 +97,14 @@ physical systems and can accurately capture physical effects that are intrisical
 3D (such as e.g. the non-linear self-focusing of an intense laser in a
 plasma \citep{EsareyRMP2009}).
 
-\item A second, separate improvement was introduced by spectral
-Cartesian PIC algorithms \citep{BunemanJCP1980,DawsonRMP1983},
-i.e. algorithms that solve the Maxwell equations in Fourier
-space. There is indeed a class of spectral algorithms -- often refered to
+\item A second, separate improvement was introduced by the development
+  of \emph{spectral} Cartesian PIC algorithms
+  \citep{BunemanJCP1980,DawsonRMP1983} i.e. algorithms that solve the
+  Maxwell equations in Fourier space. These algorithms contrast with
+  \emph{finite-difference} algorithms, which solve the Maxwell equations
+  by approximating the derivatives as finite differences on a discrete spatial grid.
+Importantly, while finite-difference algorithm often strongly suffer from
+numerical dispersion, there is a class of spectral algorithms -- often refered to
 as \emph{Pseudo-Spectral Analytical Time Domain} (PSATD) algorithms 
 \citep{Haber} -- which exhibits no numerical dispersion whatsoever. As a
 consequence, these algorithms are free from the numerical artifacts
