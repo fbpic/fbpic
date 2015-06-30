@@ -39,9 +39,17 @@ from scipy.special import jn, jn_zeros
 from scipy.interpolate import interp1d
 from scipy.optimize import fsolve
 
+# Try to import cuda and cublas
+try :
+    from numbapro.cudalib import cublas
+    from fbpic.cuda_utils import cuda_tpb_bpg_2d
+    from cuda_utils import cuda, cuda_copy_2d_to_2d
+    cuda_installed = True
+except ImportError :
+    cuda_installed = False
+    
 # The list of available methods
-available_methods = [ # 'FHT',
-                      'QDHT', 'MDHT(m+1,m)', 'MDHT(m-1,m)', 'MDHT(m,m)']
+available_methods = [ 'QDHT', 'MDHT(m+1,m)', 'MDHT(m-1,m)', 'MDHT(m,m)']
 
 class DHT(object) :
     """
@@ -55,7 +63,7 @@ class DHT(object) :
     >>> G = trans.transform(F)
     """
 
-    def __init__(self, p, N, rmax, method, **kw ) :
+    def __init__(self, p, Nr, Nz, rmax, method, use_cuda=False, **kw ) :
         """
         Calculate the r (position) and nu (frequency) grid
         on which the transform will operate.
@@ -67,15 +75,22 @@ class DHT(object) :
         p : int
         Order of the Hankel transform
 
-        N : float
-        Number of points of the r grid
+        Nr, Nz : float
+        Number of points in the r direction and z direction
 
         rmax : float
-        Maximal radius of the r grid.
+        Edge of the box in which the Hankel transform is taken
         (The function is assumed to be zero at that point.)
 
         method : string
         The method used to calculate the Hankel transform
+
+        use_cuda : bool, optional
+        Whether to use the GPU for the Hankel transform
+        (Only available for the MDHT method)
+
+        tpb : int, optional
+        Number of threads per block, in the case where cuda is used
         
         kw : optional arguments to be passed in the case of the MDHT
         """
@@ -86,17 +101,35 @@ class DHT(object) :
         else :
             self.method = method
 
+        # Register whether to use the GPU.
+        # If yes, initialize the corresponding cuda stream
+        self.use_cuda = use_cuda
+        if (self.use_cuda==True) and (cuda_installed==False) :
+            self.use_cuda = False
+            print '** Cuda not available for Hankel transform.'
+            print '** Performing the Hankel transform on the CPU.'
+        if self.use_cuda :
+            # Initialize a cuda stream (required by cublas)
+            self.blas = cublas.Blas()
+            # Initialize two buffer arrays on the GPU
+            # The cuBlas API requires that these arrays be in Fortran order
+            zero_array = np.zeros((Nz, Nr), dtype=np.complex128, order='F')
+            self.d_in = cuda.to_device( zero_array )
+            self.d_out = cuda.to_device( zero_array )
+            # Initialize the threads per block and block per grid
+            self.dim_grid, self.dim_block = cuda_tpb_bpg_2d(Nz, Nr)
+
         # Call the corresponding initialization routine
         if self.method == 'FHT' :
-            self.FHT_init(p, N, rmax)
+            self.FHT_init(p, Nr, rmax)
         elif self.method == 'QDHT' :
-            self.QDHT_init(p, N, rmax)
+            self.QDHT_init(p, Nr, rmax)
         elif self.method == 'MDHT(m,m)' :
-            self.MDHT_init(p, N, rmax, m=p, **kw)
+            self.MDHT_init(p, Nr, rmax, m=p, **kw)
         elif self.method == 'MDHT(m-1,m)' :
-            self.MDHT_init(p, N, rmax, m=p+1, **kw)
+            self.MDHT_init(p, Nr, rmax, m=p+1, **kw)
         elif self.method == 'MDHT(m+1,m)' :
-            self.MDHT_init(p, N, rmax, m=p-1, **kw)
+            self.MDHT_init(p, Nr, rmax, m=p-1, **kw)
 
         
     def get_r(self) :
@@ -121,124 +154,62 @@ class DHT(object) :
         return( self.nu )
             
             
-    def transform( self, f, axis=-1, r=None, nu=None) :
+    def transform( self, F, G ) :
         """
-        Perform the Hankel transform of f, according to the method
+        Perform the Hankel transform of F, according to the method
         chosen at initialization.
 
         Parameters :
         ------------
-        f : ndarray of real or complex values
+        F : 2darray of real or complex values
         Array containing the discrete values of the function for which
         the discrete Hankel transform is to be calculated.
 
-        axis : int, optional
-        The axis of the array f along which the Hankel transform is performed.
-        If axis not given, the last axis is used.
-
-        r : 1darray, optional
-        The r grid on which f has been sampled
-        If r is not given, it is assumed that f has been sampled on the
-        natural grid for this transform, i.e. self.r.
-
-        nu : 1darray, optional
-        The nu grid on which the Hankel transform is to be evaluated.
-        If nu is not given, it is assumed that the transform should be
-        evaluated on the natural grid, i.e. self.nu.
+        G : 2darray of real or complex values
+        Array where the result will be stored
 
         Returns :
         ---------
-        A ndarray of the same shape as f, containing the value of the transform
+        A ndarray of the same shape as F, containing the value of the transform
         """
-        
-        # Interpolate f from r to self.r, if needed
-        if r is not None :
-            f_interp = interp1d( r, f, axis=axis,
-                          copy=False, assume_sorted=True, bounds_error=False )
-            F = f_interp( self.r )
-        else :
-            assert ( f.shape[axis] == self.N) , \
-            'The axis %d of f should have the same length as self.r.' %axis
-            F = f
            
-        # Perform the transform
+        # Perform the appropriate transform, depending on the method
+        
         if self.method == 'FHT' :
-            G = self.FHT_transform(F, axis)
+            G[:,:] = self.FHT_transform(F)
         elif self.method == 'QDHT' :
-            G = self.QDHT_transform(F, axis)
+            G[:,:] = self.QDHT_transform(F)
         elif self.method in [ 'MDHT(m,m)', 'MDHT(m-1,m)', 'MDHT(m+1,m)' ] :
-            G = self.MDHT_transform(F, axis)
-        
-        # Interpolate back G from self.nu to nu, if needed
-        if nu is not None :
-            G_interp = interp1d( self.nu, G, axis=axis,
-                          copy=False, assume_sorted=True, bounds_error=False )
-            g = G_interp( nu )
-        else :
-            g = G
+            self.MDHT_transform(F, G)
 
-        return( g )
-        
-
-    def inverse_transform( self, g, axis=-1, nu=None, r=None) :
+    def inverse_transform( self, G, F ) :
         """
-        Perform the Hankel inverse transform of g, according to the method
+        Perform the Hankel inverse transform of G, according to the method
         chosen at initialization.
 
         Parameters :
         ------------
-        g : ndarray of real or complex values
+        G : 2darray of real or complex values
         Array containing the values of the function for which
         the discrete inverse Hankel transform is to be calculated.
 
-        axis : int, optional
-        The axis of the array f along which the inverse transform is performed.
-        If axis not given, the last axis is used.
-
-        nu: 1darray, optional
-        The nu grid on which g has been sampled
-        If nu is not given, it is assumed that g has been sampled on the
-        natural grid for this transform, i.e. self.nu.
-
-        r : 1darray, optional
-        The r grid on which the Hankel inverse transform is to be evaluated.
-        If r is not given, it is assumed that the transform should be
-        evaluated on the natural grid, i.e. self.r.
+        F : 2darray of real or complex values
+        Array where the result will be stored
 
         Returns :
         ---------
-        A ndarray of the same shape as g, containing the value of the inverse
+        A ndarray of the same shape as G, containing the value of the inverse
         transform
         """
+        # Perform the appropriate transform, depending on the method
         
-        # Interpolate g from nu to self.nu if needed
-        if nu is not None :
-            g_interp = interp1d( nu, g, axis=axis,
-                          copy=False, assume_sorted=True, bounds_error=False )
-            G = g_interp( self.nu )
-        else :
-            assert ( g.shape[axis] == self.N), \
-              'The axis %d of g should have the same length as self.nu.' %axis
-            G = g
-           
-        # Perform the transform
         if self.method == 'FHT' :
-            F = self.FHT_inverse_transform( G, axis)
+            F[:,:] = self.FHT_inverse_transform(G)
         elif self.method == 'QDHT' :
-            F = self.QDHT_inverse_transform( G, axis)
+            F[:,:] = self.QDHT_inverse_transform(G)
         elif self.method in [ 'MDHT(m,m)', 'MDHT(m-1,m)', 'MDHT(m+1,m)' ] :
-            F = self.MDHT_inverse_transform( G, axis)
+            self.MDHT_inverse_transform(G, F)
         
-        # Interpolate F from self.r to r if needed
-        if nu is not None :
-            F_interp = interp1d( self.r, G, axis=axis,
-                          copy=False, assume_sorted=True, bounds_error=False )
-            f = F_interp( r )
-        else :
-            f = F
-
-        return(f)
-
 
     def MDHT_init(self, p, N, rmax, m, d=0.5, Fw='inverse') :
         """
@@ -247,7 +218,7 @@ class DHT(object) :
         Reference : see the paper associated with FBPIC
 
         Grid :
-        r_n = n*rmax/N        (if d is not None)
+        r_n = (n+d)*rmax/N        (if d is not None)
         r_n = alpha_{m,n}/S   (if d is None)
         nu_n = alpha_{m,n}/(2*pi*rmax)
         where alpha_{m,n} is the n^th zero of the m^th Bessel function
@@ -322,11 +293,11 @@ class DHT(object) :
         p_denom = p
         if p == m : p_denom = m+1
         denom = np.pi * rmax**2 * jn( p_denom, alphas)**2
-        num = jn( p, 2*np.pi* self.r[:, np.newaxis]*self.nu[np.newaxis,:] )
+        num = jn( p, 2*np.pi* self.r[np.newaxis,:]*self.nu[:,np.newaxis] )
         # Get the inverse matrix
-        if denom[0] == 0 and np.all(num[:,0] == 0) :
+        if denom[0] == 0 and np.all(num[0,:] == 0) :
             denom[0] = 1 # Avoid division by 0
-        self.invM = num / denom[np.newaxis, :]
+        self.invM = num / denom[ :, np.newaxis ]
 
         # Calculate the matrix M
         if Fw == 'inverse' :
@@ -337,63 +308,86 @@ class DHT(object) :
                 # gives a delta function
                 nu_additional = 1./(2*np.pi*rmax) * last_alpha
                 denom[0] = np.pi * rmax**2 * jn( p_denom, last_alpha )**2
-                num[:,0] = jn( p, 2*np.pi* self.r[:]*nu_additional )
-                self.invM = num / denom[np.newaxis, :]
+                num[0,:] = jn( p, 2*np.pi* self.r[:]*nu_additional )
+                self.invM = num / denom[:,np.newaxis]
                 # Inverse the matrix
                 self.M = np.linalg.inv(self.invM)
                 # Put the modified row back to 0
-                self.invM[:,0] = 0.
+                self.invM[0,:] = 0.
             else :
                 self.M = np.linalg.inv( self.invM )
                 
         if Fw == 'symmetric' :
             self.M = (2*np.pi*rmax**2/S)**2 * self.invM.T
 
+        # Copy the arrays to the GPU if needed
+        if self.use_cuda :
+            # Conversion to complex and Fortran order
+            # is needed for the cuBlas API
+            self.d_M = cuda.to_device(
+                np.asfortranarray( self.M, dtype=np.complex128 ) )
+            self.d_invM = cuda.to_device(
+                np.asfortranarray( self.invM, dtype=np.complex128 ) )
 
-    def MDHT_transform( self, F, axis ) :
+
+    def MDHT_transform( self, F, G ) :
         """
-        Performs the MDHT of F and returns the results.
+        Performs the MDHT of F and stores the result in G
         Reference: see the paper associated with FBPIC
 
-        F : ndarray of real or complex values
-        Array containing the values from which to compute the DHT.
+        F : 2darray of real or complex values
+        Array containing the values from which to compute the DHT
 
-        axis : int
-        The axis of the array F along which the DHT is performed.
+        G : 2darray of real or complex values
+        Array where the result will be stored
         """
 
         # Perform the matrix product with M
-        G = np.tensordot( F, self.M, axes = (axis,-1) )
-
-        # By default, the axis of the transform becomes the last
-        # axis after tensordot. Change this if needed.
-        if axis != -1 :
-            G = G.swapaxes(-1, axis)
-
-        return( G )
-
+        if self.use_cuda :
+            # Check that the shapes agree
+            if (F.shape!=self.d_in.shape) or (G.shape!=self.d_out.shape) :
+                raise ValueError('The shape of F or G is different from '
+                                 'the shape chosen at initialization.')
+            # Convert the C-order F array to the Fortran-order d_in array
+            cuda_copy_2d_to_2d[self.dim_grid, self.dim_block]( F, self.d_in )
+            # Perform the matrix product using cuBlas
+            self.blas.gemm( 'N', 'N', F.shape[0], F.shape[1], 
+                   F.shape[1], 1.0, self.d_in, self.d_M, 0., self.d_out )
+            # Convert the Fortran-order d_out array to the C-order G array
+            cuda_copy_2d_to_2d[self.dim_grid, self.dim_block]( self.d_out, G )
+            
+        else :
+            np.dot( F, self.M, out=G )
         
-    def MDHT_inverse_transform( self, G, axis ) :
+        
+    def MDHT_inverse_transform( self, G, F ) :
         """
-        Performs the MDHT of G and returns the results.
+        Performs the MDHT of G and stores the result in F
         Reference: see the paper associated with FBPIC
 
-        G : ndarray of real or complex values
-        Array containing the values from which to compute the DHT.
+        G : 2darray of real or complex values
+        Array containing the values from which to compute the DHT
 
-        axis : int
-        The axis of the array F along which the DHT is performed.
+        F : 2darray of real or complex values
+        Array where the result will be stored
         """
 
         # Perform the matrix product with invM
-        F = np.tensordot( G, self.invM, axes = (axis,-1) )
+        if self.use_cuda :
+            # Check that the shapes agree
+            if (G.shape!=self.d_in.shape) or (F.shape!=self.d_out.shape) :
+                raise ValueError('The shape of F or G is different from '
+                                 'the shape chosen at initialization.')
+            # Convert the C-order G array to the Fortran-order d_in array
+            cuda_copy_2d_to_2d[self.dim_grid, self.dim_block](G, self.d_in )
+            # Perform the matrix product using cuBlas
+            self.blas.gemm( 'N', 'N', G.shape[0], G.shape[1], 
+                   G.shape[1], 1.0, self.d_in, self.d_invM, 0., self.d_out )
+            # Convert the Fortran-order d_out array to the C-order G array
+            cuda_copy_2d_to_2d[self.dim_grid, self.dim_block]( self.d_out, F )
         
-        # By default, the axis of the transform becomes the last
-        # axis after tensordot. Change this if needed.
-        if axis != -1 :
-            F = F.swapaxes(-1, axis)
-
-        return( F )
+        else :
+            np.dot( G, self.invM, out=F )
 
         
     def QDHT_init(self,p,N,rmax) :
@@ -431,63 +425,47 @@ class DHT(object) :
         num = 2*jn( p, alphas[:,np.newaxis]*alphas[np.newaxis,:]/last_alpha )
         self.T = num/denom
         
-    def QDHT_transform( self, F, axis ) :
+    def QDHT_transform( self, F ) :
         """
         Performs the QDHT of F and returns the results.
         Reference : Guizar-Sicairos et al., J. Opt. Soc. Am. A 21 (2004)
 
         F : ndarray of real or complex values
         Array containing the values from which to compute the FHT.
-
-        axis : int
-        The axis of the array F along which the FHT is performed.
         """
 
         # Multiply the input function by the vector J_inv
-        F = array_multiply( F, self.J_inv*self.rmax, axis )
+        F = array_multiply( F, self.J_inv*self.rmax, -1 )
 
         # Perform the matrix product with T
-        G = np.tensordot( F, self.T, axes = (axis,-1) )
-
-        # By default, the axis of the transform becomes the last
-        # axis after tensordot. Change this if needed.
-        if axis != -1 :
-            G = G.swapaxes(-1, axis)
+        G = np.dot( F, self.T )
 
         # Multiply the result by the vector J
-        G = array_multiply( G, self.J / self.numax, axis )
+        G = array_multiply( G, self.J / self.numax, -1 )
 
         return( G )
 
-    def QDHT_inverse_transform( self, G, axis ) :
+    def QDHT_inverse_transform( self, G ) :
         """
         Performs the QDHT of G and returns the results.
         Reference : Guizar-Sicairos et al., J. Opt. Soc. Am. A 21 (2004)
 
         G : ndarray of real or complex values
         Array containing the values from which to compute the DHT.
-
-        axis : int
-        The axis of the array F along which the DHT is performed.
         """
 
         # Multiply the input function by the vector J_inv
-        G =  array_multiply( G, self.J_inv*self.numax, axis ) 
+        G =  array_multiply( G, self.J_inv*self.numax, -1 ) 
 
         # Perform the matrix product with T
-        F = np.tensordot( G, self.T, axes = (axis,-1) )
-        
-        # By default, the axis of the transform becomes the last
-        # axis after tensordot. Change this if needed.
-        if axis != -1 :
-            F = F.swapaxes(-1, axis)
+        F = np.dot( G, self.T )
 
         # Multiply the result by the vector J
-        F = array_multiply( F, self.J / self.rmax, axis )
+        F = array_multiply( F, self.J / self.rmax, -1 )
 
         return( F )
         
-    def FHT_init(self,p,N,rmax) :
+    def FHT_init(self, p, N, rmax) :
         """
         Calculate r and nu for the FHT.
         Reference : A. Siegman, Optics Letters 1 (1977) 
@@ -522,66 +500,63 @@ class DHT(object) :
         self.fft_j_convol = np.fft.ifft( j_convol )
 
         
-    def FHT_transform( self, F, axis ) :
+    def FHT_transform( self, F ) :
         """
         Performs the FHT of F and returns the results.
         Reference : A. Siegman, Optics Letters 1 (1977)
 
         F : ndarray of real or complex values
         Array containing the values from which to compute the FHT.
-
-        axis : int
-        The axis of the array F along which the FHT is performed.
         """
         # This function calculates the convolution of j_convol and F
         # by multiplying their fourier transform
         
-        # Multiply F by self.r, along axis
-        rF = array_multiply( F, self.r, axis )
+        # Multiply F by self.r
+        rF = array_multiply( F, self.r, -1 )
         # Perform the FFT of rF with 0 padding from N to 2N along axis
-        fft_rF = np.fft.fft( rF, axis=axis, n=2*self.N )
+        fft_rF = np.fft.fft( rF, axis=-1, n=2*self.N )
 
         # Mutliply fft_rF and fft_j_convol, along axis
-        fft_nuG = array_multiply( fft_rF, self.fft_j_convol, axis )
+        fft_nuG = array_multiply( fft_rF, self.fft_j_convol, -1 )
 
         # Perform the FFT again
-        nuG_large = np.fft.fft( fft_nuG, axis=axis )
+        nuG_large = np.fft.fft( fft_nuG, axis=-1 )
         # Discard the N last values along axis, and divide by nu
-        nuG = np.split( nuG_large, 2, axis=axis )[0]
-        G  = array_multiply( nuG, 1./self.nu, axis )
+        nuG = np.split( nuG_large, 2, axis=-1 )[0]
+        G  = array_multiply( nuG, 1./self.nu, -1 )
 
         return( G )
         
-    def FHT_inverse_transform( self, G, axis ) :
+    def FHT_inverse_transform( self, G ) :
         """
         Performs the inverse FHT of G and returns the results.
         Reference : A. Siegman, Optics Letters 1 (1977)
 
         G : ndarray of real or complex values
         Array containing the values from which to compute the inverse FHT.
-
-        axis : int
-        The axis of the array G along which the inverse FHT is performed.
         """
         # This function calculates the convolution of j_convol and G
         # by multiplying their fourier transform
         
         # Multiply G by self.nu, along axis
-        nuG = array_multiply( G, self.nu, axis )
+        nuG = array_multiply( G, self.nu, -1 )
         # Perform the FFT of nuG with 0 padding from N to 2N along axis
-        fft_nuG = np.fft.fft( nuG, axis=axis, n=2*self.N )
+        fft_nuG = np.fft.fft( nuG, axis=-1, n=2*self.N )
 
         # Mutliply fft_nuG and fft_j_convol, along axis
-        fft_rF = array_multiply( fft_nuG, self.fft_j_convol, axis )
+        fft_rF = array_multiply( fft_nuG, self.fft_j_convol, -1 )
 
         # Perform the FFT again
-        rF_large = np.fft.fft( fft_rF, axis=axis )
+        rF_large = np.fft.fft( fft_rF, axis=-1 )
         # Discard the N last values along axis, and divide by r
-        rF = np.split( rF_large, 2, axis=axis )[0]
-        F  = array_multiply( rF, 1./self.r, axis )
+        rF = np.split( rF_large, 2, axis=-1 )[0]
+        F  = array_multiply( rF, 1./self.r, -1 )
 
         return( F )
 
+# ------------------
+# Utility functions
+# ------------------
         
 def array_multiply( a, v, axis ) :
     """
@@ -621,3 +596,5 @@ def array_multiply( a, v, axis ) :
         r = r.swapaxes(-1,axis)
 
     return(r)
+
+

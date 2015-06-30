@@ -7,7 +7,12 @@ import sys
 from scipy.constants import m_e, m_p, e
 from fields import Fields
 from particles import Particles
-
+try:
+    from cuda_utils import *
+    cuda_installed = True
+except ImportError:
+    cuda_installed = False
+    
 class Simulation(object) :
     """
     Top-level simulation class that contains all the simulation
@@ -24,9 +29,9 @@ class Simulation(object) :
     """
 
     def __init__(self, Nz, zmax, Nr, rmax, Nm, dt,
-                 p_zmin, p_zmax, p_rmin, p_rmax,
-                 p_nz, p_nr, p_nt, n_e, dens_func=None,
-                 initialize_ions=False ) :
+                 p_zmin, p_zmax, p_rmin, p_rmax, p_nz, p_nr, p_nt,
+                 n_e, zmin = 0., dens_func=None, filter_currents=True,
+                 initialize_ions=False, use_cuda = False) :
         """
         Initializes a simulation, by creating the following structures :
         - the Fields object, which contains the EM fields
@@ -39,7 +44,8 @@ class Simulation(object) :
             The number of gridpoints in z and r
 
         zmax, rmax : floats
-            The size of the simulation box along z and r
+            The position of the edge of the simulation in z and r
+            (More precisely, the position of the edge of the last cell)
 
         Nm : int
             The number of azimuthal modes taken into account
@@ -61,6 +67,10 @@ class Simulation(object) :
 
         n_e : float (in particles per m^3)
            Peak density of the electrons
+
+        zmin : float, optional
+           The position of the edge of the simulation box
+           (More precisely, the position of the edge of the first cell)
            
         dens_func : callable, optional
            A function of the form :
@@ -71,9 +81,21 @@ class Simulation(object) :
 
         initialize_ions : bool, optional
            Whether to initialize the neutralizing ions
+
+        filter_currents : bool, optional
+            Whether to filter the currents and charge in k space
+           
+        use_cuda : bool, optional
+            Wether to use CUDA (GPU) acceleration
         """
+        # Check whether to use cuda
+        self.use_cuda = use_cuda
+        if (use_cuda==True) and (cuda_installed==False) :
+            self.use_cuda = False
+
         # Initialize the field structure
-        self.fld = Fields(Nz, zmax, Nr, rmax, Nm, dt)
+        self.fld = Fields(Nz, zmax, Nr, rmax, Nm, dt,
+                          zmin=zmin, use_cuda=self.use_cuda)
 
         # Modify the input parameters p_zmin, p_zmax, r_zmin, r_zmax, so that
         # they fall exactly on the grid, and infer the number of particles
@@ -84,14 +106,16 @@ class Simulation(object) :
         
         # Initialize the electrons and the ions
         self.ptcl = [
-            Particles( q=-e, m=m_e, n=n_e, Npz=Npz, zmin=p_zmin, zmax=p_zmax,
-                       Npr=Npr, rmin=p_rmin, rmax=p_rmax, Nptheta=p_nt, dt=dt,
-                       dens_func=dens_func )    ]
+            Particles( q=-e, m=m_e, n=n_e, Npz=Npz, zmin=p_zmin,
+                       zmax=p_zmax, Npr=Npr, rmin=p_rmin, rmax=p_rmax,
+                       Nptheta=p_nt, dt=dt, dens_func=dens_func,
+                       use_cuda=self.use_cuda) ]
         if initialize_ions :
             self.ptcl.append(
-                Particles( q=e, m=m_p, n=n_e, Npz=Npz, zmin=p_zmin, zmax=p_zmax,
-                        Npr=Npr, rmin=p_rmin, rmax=p_rmax, Nptheta=p_nt, dt=dt,
-                        dens_func=dens_func )   )
+                Particles(q=e, m=m_p, n=n_e, Npz=Npz, zmin=p_zmin,
+                          zmax=p_zmax, Npr=Npr, rmin=p_rmin, rmax=p_rmax,
+                          Nptheta=p_nt, dt=dt, dens_func=dens_func,
+                          use_cuda=self.use_cuda ) )
         
         # Register the number of particles per cell along z, and dt
         # (Necessary for the moving window)
@@ -100,23 +124,17 @@ class Simulation(object) :
         # Register the time and the iteration
         self.time = 0.
         self.iteration = 0
+        # Register the filtering flag
+        self.filter_currents = filter_currents
         
         # Do the initial charge deposition (at t=0) now
-        for species in self.ptcl :
-            species.deposit( self.fld.interp, 'rho' )
-        self.fld.divide_by_volume('rho')
-        # Bring it to the spectral space
-        self.fld.interp2spect('rho_prev')
-        self.fld.filter_spect('rho_prev')
+        self.deposit('rho_prev')
 
         # Initialize an empty list of diagnostics
         self.diags = []
 
-
-        
     def step(self, N=1, ptcl_feedback=True, correct_currents=True,
-             filter_currents=True, move_positions=True,
-             move_momenta=True, moving_window=True ) :
+             move_positions=True, move_momenta=True, moving_window=True ) :
         """
         Perform N PIC cycles
         
@@ -133,9 +151,6 @@ class Simulation(object) :
         correct_currents : bool, optional
             Whether to correct the currents in spectral space
 
-        filter_currents : bool, optional
-            Whether to filter the currents (in k space by default)
-
         move_positions : bool, optional
             Whether to move or freeze the particles' positions
 
@@ -150,45 +165,51 @@ class Simulation(object) :
         # Shortcuts
         ptcl = self.ptcl
         fld = self.fld
+        
+        # Send simulation data to GPU (if CUDA is used)
+        if self.use_cuda:
+            send_data_to_gpu(self)
 
-        # Check if a moving window is attached, in the case
-        # moving_window == True
-        if moving_window :
-            if hasattr(self, 'moving_win')==False or \
-              self.moving_win is None :
-                raise AttributeError(
-        "Please attach a MovingWindow to this object, as `self.moving_win`")
-            
         # Loop over timesteps
         for i_step in xrange(N) :
 
             # Run the diagnostics
             for diag in self.diags :
+                # Check if the fields should be written at
+                # this iteration and do it if needed.
+                # (Send the data to the GPU if needed.)
                 diag.write( self.iteration )
             
             # Show a progression bar
             progression_bar( i_step, N )
 
-            # Move the window if needed
+            # Handle the moving window
             if moving_window :
-                # Shift the fields and add new particles
-                self.moving_win.move( fld, ptcl, self.p_nz, self.dt )
-                # Reprojected the charge on the interpolation grid
-                # (Particles have been added/removed.)
-                fld.erase('rho')
-                for species in ptcl :
-                    species.deposit( fld.interp, 'rho' )
-                fld.divide_by_volume('rho')
-                self.moving_win.damp( fld.interp, 'rho' )
-                # Get the new charge on the spectral grid
-                fld.interp2spect('rho_prev')
-                if filter_currents :
-                    fld.filter_spect('rho_prev')
+                
+                # Move the window if needed
+                if self.iteration % self.moving_win.period == 0 :
+                    # Receive the data from the GPU (if CUDA is used)
+                    if self.use_cuda:
+                        receive_data_from_gpu(self)
+                    # Shift the fields and add new particles
+                    self.moving_win.move( 
+                        fld.interp, ptcl, self.p_nz, self.dt )
+                    # Send the data to the GPU (if Cuda is used)
+                    if self.use_cuda:
+                        send_data_to_gpu(self)
+                    # Reproject the charge on the interpolation grid
+                    # (Since particles have been added/suppressed)
+                    self.deposit('rho_prev')
+                    
+                # Damp the fields (at the left boundary) at every time step
+                self.moving_win.damp_EB( fld.interp )
+                fld.interp2spect('E')
+                fld.interp2spect('B')
 
             # Gather the fields at t = n dt
             for species in ptcl :
                 species.gather( fld.interp )
-    
+
             # Push the particles' positions and velocities to t = (n+1/2) dt
             if move_momenta :
                 for species in ptcl :
@@ -196,33 +217,15 @@ class Simulation(object) :
             if move_positions :
                 for species in ptcl :
                     species.halfpush_x()
-            # Get the current on the interpolation grid at t = (n+1/2) dt
-            fld.erase('J')
-            for species in ptcl :
-                species.deposit( fld.interp, 'J' )
-            fld.divide_by_volume('J')
-            if moving_window :
-                self.moving_win.damp( fld.interp, 'J' )
-            # Get the current on the spectral grid at t = (n+1/2) dt
-            fld.interp2spect('J')
-            if filter_currents :
-                fld.filter_spect('J')
+            # Get the current at t = (n+1/2) dt
+            self.deposit('J')
 
             # Push the particles' positions to t = (n+1) dt
             if move_positions :
                 for species in ptcl :
                     species.halfpush_x()
-            # Get the charge density on the interpolation grid at t = (n+1) dt
-            fld.erase('rho')
-            for species in ptcl :
-                species.deposit( fld.interp, 'rho' )
-            fld.divide_by_volume('rho')
-            if moving_window :
-                self.moving_win.damp( fld.interp, 'rho' )
-            # Get the charge density on the spectral grid at t = (n+1) dt
-            fld.interp2spect('rho_next')
-            if filter_currents :
-                fld.filter_spect('rho_next')
+            # Get the charge density at t = (n+1) dt
+            self.deposit('rho_next')
             # Correct the currents (requires rho at t = (n+1) dt )
             if correct_currents :
                 fld.correct_currents()
@@ -237,6 +240,50 @@ class Simulation(object) :
             self.time += self.dt
             self.iteration += 1
 
+        # Receive simulation data from GPU (if CUDA is used)
+        if self.use_cuda:
+            receive_data_from_gpu(self)
+
+        # Print a space at the end of the loop, for esthetical reasons
+        print('')
+
+    def deposit( self, fieldtype ) :
+        """
+        Deposit the charge or the currents to the interpolation
+        grid and then to the spectral grid.
+    
+        Parameters :
+        ------------
+        fieldtype : str
+            The designation of the spectral field that
+            should be changed by the deposition
+            Either 'rho_prev', 'rho_next' or 'J'
+        """
+        # Shortcut
+        fld = self.fld
+
+        # Deposit charge or currents on the interpolation grid
+        # Charge
+        if fieldtype in ['rho_prev', 'rho_next'] :
+            fld.erase('rho')
+            for species in self.ptcl :
+                species.deposit( fld.interp, 'rho' )
+            fld.divide_by_volume('rho')
+        # Currents
+        elif fieldtype == 'J' :
+            fld.erase('J')
+            for species in self.ptcl :
+                species.deposit( fld.interp, 'J' )
+            fld.divide_by_volume('J')
+        else :
+            raise ValueError('Unknown fieldtype : %s' %fieldtype)
+            
+        # Get the charge or currents on the spectral grid
+        fld.interp2spect( fieldtype )
+        if self.filter_currents :
+            fld.filter_spect( fieldtype )
+
+
 def progression_bar(i, Ntot, Nbars=60, char='-') :
     "Shows a progression bar with Nbars"
     nbars = int( (i+1)*1./Ntot*Nbars )
@@ -245,10 +292,11 @@ def progression_bar(i, Ntot, Nbars=60, char='-') :
     sys.stdout.write(' %d/%d' %(i,Ntot))
     sys.stdout.flush()
 
-def adapt_to_grid( x, p_xmin, p_xmax, p_nx ) :
+def adapt_to_grid( x, p_xmin, p_xmax, p_nx, ncells_empty=2 ) :
     """
     Adapt p_xmin and p_xmax, so that they fall exactly on the grid x
-    Return the total number of particles, assuming p_nx particles per gridpoint
+    Return the total number of particles, assuming p_nx particles
+    per gridpoint
     
     Parameters
     ----------
@@ -261,7 +309,11 @@ def adapt_to_grid( x, p_xmin, p_xmax, p_nx ) :
 
     p_nx : int
         Number of particle per gridpoint
-    
+
+    ncells_empty : int
+        Number of empty cells at the righthand side of the box
+        (Typically used when using a moving window)
+        
     Returns
     -------
     A tuple with :
@@ -274,6 +326,7 @@ def adapt_to_grid( x, p_xmin, p_xmax, p_nx ) :
     xmin = x.min()
     xmax = x.max()
     dx = x[1] - x[0]
+    
     # Do not load particles below the lower bound of the box
     if p_xmin < xmin - 0.5*dx :
         p_xmin = xmin - 0.5*dx
@@ -282,16 +335,16 @@ def adapt_to_grid( x, p_xmin, p_xmax, p_nx ) :
     # when it is smoothed. If particles are loaded closer to the right
     # boundary, this extended charge density can wrap around and appear
     # at the left boundary.)
-    if p_xmax > xmax - 1.5*dx :
-        p_xmax = xmax - 1.5*dx
-            
+    if p_xmax > xmax + (0.5-ncells_empty)*dx :
+        p_xmax = xmax + (0.5-ncells_empty)*dx
+    
     # Find the gridpoints on which the particles should be loaded
     x_load = x[ ( x > p_xmin ) & ( x < p_xmax ) ]
-    p_xmin = x_load.min() - 0.5*dx
-    p_xmax = x_load.max() + 0.5*dx
-    
     # Deduce the total number of particles
     Npx = len(x_load) * p_nx
+    # Reajust p_xmin and p_xmanx so that they match the grid
+    if Npx > 0 :
+        p_xmin = x_load.min() - 0.5*dx
+        p_xmax = x_load.max() + 0.5*dx
 
-    return( p_xmin, p_xmax, Npx )
-    
+    return( p_xmin, p_xmax, Npx )    

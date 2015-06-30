@@ -6,6 +6,8 @@ Overview
 
 Due to an incompatibility between llvmlite-0.3.0 and numba-0.17.0, installation through macports will fail. This file explains how to install numba in this case.
 
+If you are using numba-0.18 or a more recent version, the installation note below is irrelevant. Please visit [the numba installation page](https://pypi.python.org/pypi/numba/).
+
 Installation
 ---------
 

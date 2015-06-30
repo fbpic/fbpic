@@ -11,6 +11,8 @@ notebooks/*
 references/*
 docs/article/Spectral_circ.pdf
 
+fbpic/Makefile
+
 build/
 dist/
 fbpic.egg-info/
