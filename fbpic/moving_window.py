@@ -300,10 +300,9 @@ class MovingWindow(object) :
                 interp[0].Er, interp[0].Et, interp[0].Ez,
                 interp[0].Br, interp[0].Bt, interp[0].Bz,
                 interp[1].Er, interp[1].Et, interp[1].Ez,
-                interp[1].Er, interp[1].Et, interp[1].Ez,
+                interp[1].Br, interp[1].Bt, interp[1].Bz,
                 self.d_damp_array_EB, ncells_zero,
                 self.ncells_damp, damp_left, damp_right )
-
         else :
             # Damp the fields on the CPU
             
