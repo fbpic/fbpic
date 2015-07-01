@@ -389,7 +389,7 @@ class ParticleDiagnostic(OpenPMDDiagnostic) :
 
     def __init__(self, period, species,
                  particle_data=["position", "momentum", "weighting"],
-                 select={"uz" : [0.5, None]}, write_dir=None ) :
+                 select=None, write_dir=None ) :
         """
         Initialize the field diagnostics.
 
@@ -412,7 +412,8 @@ class ParticleDiagnostic(OpenPMDDiagnostic) :
             Default : electron particle data is written
 
         select : dict, optional
-            A set of rules to select the particles, of the form
+            Either None (no selection) or a dictionary of rules
+            to select the particles, of the form
             'x' : [-4., 10.]   (Particles having x between -4 and 10 microns)
             'ux' : [-0.1, 0.1] (Particles having ux between -0.1 and 0.1 mc)
             'uz' : [5., None]  (Particles with uz above 5 mc)
@@ -491,20 +492,28 @@ class ParticleDiagnostic(OpenPMDDiagnostic) :
 
             for particle_var in self.particle_data :
             	# Write the datasets for each particle datatype
-                if particle_var in [ "position", "momentum" ] :
+                if particle_var == "position" :
                     for coord in ["x", "y", "z"] :
-                        quantity = "%s/%s" %(particle_var, coord)
-                        path = "/particles/%s/%s" %(species_name, quantity)
+                        quantity = "%s" %(coord)
+                        path = "/particles/%s/%s/%s" %(species_name, 
+                        							   particle_var, coord)
+                        self.write_dataset( f, path, species, quantity,
+                                            N, select_array )
+                elif particle_var == "momentum" :
+                    for coord in ["x", "y", "z"] :
+                        quantity = "u%s" %(coord)
+                        path = "/particles/%s/%s/%s" %(species_name, 
+                        							   particle_var, coord)
                         self.write_dataset( f, path, species, quantity,
                                             N, select_array )
                 elif particle_var == "weighting" :
-                    quantity = "weighting"
-                    path = "/particles/%s/%s" % (species_name, quantity )
+                    quantity = "w"
+                    path = "/particles/%s/%s" %(species_name, particle_var)
                     self.write_dataset( f, path, species, quantity,
                                         N, select_array )
                 else :
                     raise ValueError("Invalid string in %s of species %s" 
-                    				 %(particle_var, particle_name))
+                    				 %(particle_var, species_name))
         
         # Close the file   
         f.close()
@@ -557,15 +566,15 @@ class ParticleDiagnostic(OpenPMDDiagnostic) :
         path : string
             The path where to write the dataset, inside the file f
 
+        species : a Particles object
+        	The species object to get the particle data from 
+            
         quantity : string
             The quantity to be written, in the openPMD convention
             (e.g. 'position/x', 'momentum/z', 'weighting')
             
         N : int
         	Contains the global number of particles
-            
-        species : a Particles object
-        	The species object to get the particle data from 
 
         select_array : 1darray of bool
             An array of the same shape as that particle array
@@ -591,32 +600,18 @@ class ParticleDiagnostic(OpenPMDDiagnostic) :
         	The species object to get the particle data from 
 
         quantity : string
-            The quantity to be written, in the openPMD convention
-            (e.g. 'position/x', 'momentum/z', 'weighting')
+            The quantity to be extracted (e.g. 'x', 'uz', 'w')
             
         select_array : 1darray of bool
             An array of the same shape as that particle array
             containing True for the particles that satify all
             the rules of self.select
         """
-        # Find the right name of the quantity in fbpic
-        fbpic_dict = { 'position/x' : 'x',
-                       'position/y' : 'y',
-                       'position/z' : 'z',
-                       'momentum/x' : 'ux',
-                       'momentum/y' : 'uy',
-                       'momentum/z' : 'uz',
-                       'weighting' : 'w'}
-
         # Extract the quantity
-        quantity_array = getattr( species, fbpic_dict[quantity] )
+        quantity_array = getattr( species, quantity )
 
         # Apply the selection
         quantity_array = quantity_array[ select_array ]
-
-        # Apply a conversion factor for the momenta
-        if quantity in [ 'momentum/x', 'momentum/y', 'momentum/z'] :
-            quantity_array = species.m * constants.c * quantity_array
         
         return( quantity_array )
     
