@@ -984,7 +984,7 @@ plateau at $n_e = 0.5 \times 10^{18}\;\mathrm{cm^{-3}}$.
 Both the spectral and the finite-difference simulations were run in a moving
 window whose longitudinal and transverse dimensions were 160 $\mathrm{\mu
   m}$ and 48 $\mathrm{\mu m}$, and both simulations used a resolution
-$\Delta z = 0.04 \; \mathrm{\mu m}$ and $\Delta r = 0.2 \; \mathrm{\mu
+$\Delta z = 0.032 \; \mathrm{\mu m}$ and $\Delta r = 0.19 \; \mathrm{\mu
   m}$. Again, the finite-difference simulation was run with a timestep
 $c\Delta t = 1/\sqrt{1/\Delta z^2 + 2/\Delta r^2}$ while the spectral
 simulation was run with $c\Delta t = \Delta z$. Importantly, the
@@ -994,20 +994,51 @@ space as described in \cref{sec:current-deposition}, while the finite-difference
 algorithm applies a single-pass binomial filter on the spatial grid,
 in both the $z$ and $r$ directions.
 
-\comment{Comment figure}
-
-\comment{Check the charge}
+\Cref{fig:Cherenkov} shows a snapshot of the two
+simulations, at a similar physical time. The red colormap represents the quantity
+$|E_y+cB_x|$, while the superimposed shades of blue represent the electron density. (The
+quantity $E_y+cB_x$ is chosen because it corresponds to the $y$ component of
+the Lorentz force $\vec{F} = q\vec{E} + q\vec{v}\times\vec{B}$ felt by
+a relativistic electron having $\vec{v} = c\vec{e_z}$.) As can be seen
+in the top panels, the global aspect of the bubble and of the injected
+bunch is similar in both simulations. In particular, the injected
+charge was found to be almost the same (\comment{XXX pC} with the
+finite-difference algorithm and \comment{XXX pC} with the spectral
+algorithm). However, when having a closer look at the bunch in the
+finite-difference algorithm (see the lower left panel in
+\cref{fig:Cherenkov}), it appears that the bunch emits a
+high-frequency radiation. This radiation is characteristic of the
+numerical Cherenkov effect \citep{LehePRSTAB2013}, and is
+unphysical. Importantly, the amplitude of this unphysical field
+happens to be comparable to the focusing
+fields inside the bubble, and it can thus potentially affect the bunch
+in a substantial manner. On the other hand, the spectral algorithm does not
+exhibit this unphysical radiation (see the lower right panel in
+\cref{fig:Cherenkov}), as expected from its dispersion-free property. 
+This confirms the fact that, in the lab frame, our spectral
+quasi-cylindrical algorithm is free of
+the unphysical artifacts associated with numerical Cherenkov radiation.
 
 \begin{figure}[!h]
 \centering
 \includegraphics[width=\textwidth]{figures/Cherenkov.png}
-\caption{\label{fig:Cherenkov} At a similar time. \comment{Add
-    description}. \comment{Put absolute value of the fields and reduce
-  number of numerical labels}}
+\caption{\label{fig:Cherenkov}Snapshot of a finite-difference
+  simulation (left) and of a spectral simulation (right), at a similar
+  physical time. The superimposed blue shades represent the electron
+  density. The lower panels show the region surrounding the
+  bunch in more details. \comment{Update figures + Put more
+    transparency on the bunch in the lower plots ?}}
 \end{figure}
 
-Say it is the same thing with the Cherenkov-free algorithm, but it is
-not dispersion-free. 
+For completeness, we remark that a similar suppression of the
+numerical Cherenkov radiation was 
+obtained in \citep{LehePRSTAB2013,CowanPRSTAB2013}, by using 
+modified finite-difference algorithms. However, it is important to
+note that these algorithms were applicable to a Cartesian PIC code,
+but not to a quasi-cylindrical code. An adaptation to
+cylindrical geometry is proposed in \citep{LeheThesis}, and was 
+shown to efficiently suppress numerical Cherenkov. However, this
+adaptation is not, strictly speaking, dispersion-free. 
 
 \subsection{Accurate force of a laser on a relativistic electron}
 
