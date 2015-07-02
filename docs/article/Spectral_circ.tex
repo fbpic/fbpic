@@ -41,14 +41,16 @@
 
 \title{A spectral, quasi-cylindrical and dispersion-free \\ Particle-In-Cell algorithm}
 %\pagestyle{empty}
-\author[*]{R\'emi \textsc{Lehe}}
-\author[**]{Manuel \textsc{Kirchen}}
-\author[***]{Igor A. \textsc{Andriyash}}
-\author[*]{Jean-Luc \textsc{Vay}}
+\author[1]{R\'emi \textsc{Lehe}}
+\author[2]{Manuel \textsc{Kirchen}}
+\author[3]{Igor A. \textsc{Andriyash}}
+\author[4]{Brendan B. \textsc{Godfrey}}
+\author[1]{Jean-Luc \textsc{Vay}}
 
-\affil[*]{Lawrence Berkeley National Laboratory, Berkeley, California 94720, USA}
-\affil[**]{DESY, 22607 Hamburg, Germany}
-\affil[***]{Laboratoire d'Optique Appliqu\'ee, 91761 Palaiseau, France}
+\affil[1]{Lawrence Berkeley National Laboratory, Berkeley, California 94720, USA}
+\affil[2]{DESY, 22607 Hamburg, Germany}
+\affil[3]{LOA, 91761 Palaiseau, France}
+\affil[3]{University of Maryland, College Park, MD 20742, USA}
 
 \begin{document}
 
@@ -943,6 +945,8 @@ arise in a finite-difference code.
 \subsection{Absence of numerical Cherenkov radiation 
 for lab-frame simulations}
 
+\comment{Look at spectrum + mitigate claims}
+
 A first artifact which is avoided, in the case of lab-frame
 simulations, is numerical Cherenkov radiation. Numerical
 Cherenkov radiation is a consequence of numerical dispersion
@@ -1002,8 +1006,8 @@ the Lorentz force $\vec{F} = q\vec{E} + q\vec{v}\times\vec{B}$ felt by
 a relativistic electron having $\vec{v} = c\vec{e_z}$.) As can be seen
 in the top panels, the global aspect of the bubble and of the injected
 bunch is similar in both simulations. In particular, the injected
-charge was found to be almost the same (\comment{XXX pC} with the
-finite-difference algorithm and \comment{XXX pC} with the spectral
+charge was found to be almost the same (766 pC with the
+finite-difference algorithm and 750 pC with the spectral
 algorithm). However, when having a closer look at the bunch in the
 finite-difference algorithm (see the lower left panel in
 \cref{fig:Cherenkov}), it appears that the bunch emits a
@@ -1026,8 +1030,7 @@ the unphysical artifacts associated with numerical Cherenkov radiation.
   simulation (left) and of a spectral simulation (right), at a similar
   physical time. The superimposed blue shades represent the electron
   density. The lower panels show the region surrounding the
-  bunch in more details. \comment{Update figures + Put more
-    transparency on the bunch in the lower plots ?}}
+  bunch in more details.}
 \end{figure}
 
 For completeness, we remark that a similar suppression of the
@@ -1048,26 +1051,59 @@ finite-difference algorithms is whenever a relativistic electron bunch
 overlaps with a copropagating laser. This situation occurs for
 instance in laser-wakefield acceleration, when the accelerated electron bunch
 progressively catches up with the laser pulse and may eventually
-overlap with it \citep{Cipiccia,Nemeth}. It is also the typical
+overlap with it (e.g. \citep{CipicciaNatPhys2011,NemethPRL2008}). It is also the typical
 configuration for simulations of free-electron lasers, where the
 overlap of the electron bunch and the copropagating laser radiation, inside an
 undulator, leads to a growing instability.
 
-However, in the appendix of \citep{LehePRSTAB2014}, it was shown that
-finite-difference PIC codes tend 
+Despite the practical importance of this physical configuration, it
+was recently shown that standard finite-difference PIC codes tend 
+to largely overestimate the force felt by the electrons inside a
+copropagating laser (see the appendix of \citep{LehePRSTAB2014}). This
+overestimation was shown to be mainly due to the staggering in time 
+of the $\vec{E}$ and $\vec{B}$ fields in a standard finite-difference
+code. This staggering indeed results in an improper numerical compensation of 
+the two terms of the Lorentz force $\vec{F} = q\vec{E} +
+q\vec{v}\times\vec{B}$. However, in our spectral quasi-cylindrical
+algorithm, the fields $\vec{E}$ and $\vec{B}$ are not staggered in
+time, and thus the force on a co-propagating electron bunch should be
+correct.
+
+In order to confirm this prediction, we ran a test simulation in which a single
+relativistic macroparticle copropagates with a laser pulse. The initial configuration of
+the simulation is represented in \cref{fig:Schematic_laser}. The laser
+pulse is characterized by a waist $w_0 = 25\;\mathrm{\mu m}$,
+a length $L=7\;\mathrm{\mu m}$, an amplitude $a_0 = 0.2$ and a
+wavelength $\lambda = 0.8\;\mathrm{\mu m}$, while the macroparticle
+represents a relativistic electron having an initial Lorentz factor
+$\gamma_e = 25$. The simulation was run, again, with both our spectral
+quasi-cylindrical algorithm and the finite-difference
+quasi-cylindrical algorithm of \textsc{Warp}. In order to study
+numerical convergence, the simulations were run with a varying
+longitudinal resolution $\Delta z$, but with fixed cell aspect ratio
+$\Delta r = 10\Delta z$. The timestep was again $c\Delta t=
+1/\sqrt{1/\Delta z^2 + 2/\Delta r^2}$ for the finite-difference
+simulation and $c\Delta t = \Delta z$ for the spectral
+simulation. Finally, the simulations were run in a moving window with a
+longitudinal and transverse size of 40 and 60 $\mathrm{\mu m}$ respectively.
+
+\begin{figure}[!h]
+\centering
+\includegraphics[width=0.5\textwidth]{figures/Schematic_laser.pdf}
+\caption{\label{fig:Schematic_laser}Representation of the situation
+  which is simulated in \cref{sec:accurate-laser}. The red and blue
+  colormap corresponds to the electric field of the laser pulse, while
+  the black dot corresponds to the electron considered. 
+The laser propagates to the right, and is polarized along $x$.}
+\end{figure}
+
+To evaluate 
 
 Spurious force. To evaluate it, we look at the conservation (say order
 of magnitude of error)
 
 
 
-\begin{figure}[!h]
-\centering
-\includegraphics[width=0.5\textwidth]{figures/Schematic_laser.pdf}
-\caption{\label{fig:Schematic_laser}Representation of the situation
-  which is simulated in \cref{sec:accurate-laser}. The laser
-  propagates to the right, and is polarized along $x$.}
-\end{figure}
 
 \begin{figure}[!h]
 \centering
@@ -1075,11 +1111,11 @@ of magnitude of error)
 \includegraphics[width=0.45\textwidth]{figures/Laser_spectral.pdf}
 \caption{\label{fig:Laser}Evolution of the transverse normalized
   momentum of a macroparticle $p_x/m_e c$, as it copropagates with a
-  laser pulse having $a_0=0.2$ (see \cref{fig:Schematic_laser} for a
+  laser pulse (see \cref{fig:Schematic_laser} for a
   schematic representation of the situation simulated). The left and
   right plots correspond to the finite-difference and spectral
   algorithm respectively, while the different curves correspond to
-  different resolutions. \comment{Update figure}}
+  different resolutions in the simulation.}
 \end{figure}
 
 
@@ -1091,8 +1127,7 @@ advantages). Here on top of it, we have it in Circ.
 
 \paragraph{Acknowledgements}
 
-We thank Brendan Godfrey for very valuable comments and suggestions. We
-also acknowledge Axel Huebl for insightful discussions on the GPU implementation.
+We acknowledge Axel Huebl for insightful discussions on the GPU implementation.
 
 This work was supported by the Director, Office of Science, Office of High Energy Physics, U.S. Dept. of Energy under Contract No. DE-AC02-05CH11231, including from the Laboratory Directed Research and Development (LDRD) funding from Berkeley Lab.
 
