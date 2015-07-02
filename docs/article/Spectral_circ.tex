@@ -1043,13 +1043,30 @@ adaptation is not, strictly speaking, dispersion-free.
 \subsection{Accurate force of a laser on a co-propagating electron}
 \label{sec:accurate-laser}
 
+Another case in which our spectral algorithm performs better than
+finite-difference algorithms is whenever a relativistic electron bunch
+overlaps with a copropagating laser. This situation occurs for
+instance in laser-wakefield acceleration, when the accelerated electron bunch
+progressively catches up with the laser pulse and may eventually
+overlap with it \citep{Cipiccia,Nemeth}. It is also the typical
+configuration for simulations of free-electron lasers, where the
+overlap of the electron bunch and the copropagating laser radiation, inside an
+undulator, leads to a growing instability.
+
+However, in the appendix of \citep{LehePRSTAB2014}, it was shown that
+finite-difference PIC codes tend 
+
+Spurious force. To evaluate it, we look at the conservation (say order
+of magnitude of error)
+
 
 
 \begin{figure}[!h]
 \centering
 \includegraphics[width=0.5\textwidth]{figures/Schematic_laser.pdf}
 \caption{\label{fig:Schematic_laser}Representation of the situation
-  which is simulated in \cref{sec:accurate-laser}}
+  which is simulated in \cref{sec:accurate-laser}. The laser
+  propagates to the right, and is polarized along $x$.}
 \end{figure}
 
 \begin{figure}[!h]
