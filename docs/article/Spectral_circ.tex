@@ -1,28 +1,36 @@
-\documentclass[a4paper]{article}   	% use "amsart" instead of "article" for AMSLaTeX format
-
-\usepackage{geometry}               	
-\geometry{a4paper,margin=1.1in}           % ... or a4paper or a5paper or ... 
-
-%\usepackage{graphicx}			
-
+\documentclass[1p,times]{elsarticle}
+\usepackage[usenames,dvipsnames]{xcolor}
+\usepackage{wrapfig}
+\usepackage{amssymb}
 \usepackage{amsmath}
-\usepackage{tikz}
-\usepackage{authblk}
-
+\usepackage{amssymb}
+\usepackage{amsfonts}
+\usepackage{amsthm}
+\usepackage{float}
+\usepackage{bm}
+\usepackage{latexsym}
 \usepackage{hyperref}
-\hypersetup{colorlinks=true,
-    citecolor=blue,    filecolor=blue,
+\usepackage[capitalize]{cleveref}
+\usepackage{graphicx}
+\usepackage{caption}
+\usepackage{subcaption}
+\usepackage{tikz}
+\hypersetup{
+    colorlinks,
+    citecolor=blue,%    filecolor=black,%
     linkcolor=blue,     urlcolor=blue
 }
-%\usepackage{cite}
-\usepackage{natbib}
+
+% Use smaller margins
+\usepackage{geometry}               	
+\geometry{a4paper,margin=1.0in} 
 
 \newcommand{\ir}{\frac{1}{r}}
-\newcommand{\Integ}[1]{\int_{-\infty}^{\infty} \!\!\!\!\!\!\!\!
+\newcommand{\Integ}[1]{\int_{-\infty}^{\infty} \!\!\!\!\!\!
   \mathrm{d}#1}
-\newcommand{\RInteg}[1]{\int_{0}^{\infty} \!\!\!\!\!\!\! #1\mathrm{d}#1}
-\newcommand{\rInteg}{\int_{0}^{r_{max}} \!\!\!\!\!\!\! r\mathrm{d}r}
-\newcommand{\TInteg}[1]{\int_{0}^{2\pi} \!\!\!\!\!\!\!\! \mathrm{d}#1}
+\newcommand{\RInteg}[1]{\int_{0}^{\infty} \!\!\!\!\! #1\mathrm{d}#1}
+\newcommand{\rInteg}{\int_{0}^{r_{max}} \!\!\!\!\! r\mathrm{d}r}
+\newcommand{\TInteg}[1]{\int_{0}^{2\pi} \!\!\!\!\!\! \mathrm{d}#1}
 
 \newcommand{\tB}[2]{\spectral{B}_{#1,m}^{#2}}
 \newcommand{\tE}[2]{\spectral{E}_{#1,m}^{#2}}
@@ -39,25 +47,30 @@
 % Reference automatique aux equations, sections, figures
 \usepackage{cleveref}
 
-\title{A spectral, quasi-cylindrical and dispersion-free \\ Particle-In-Cell algorithm}
+\title{A spectral, quasi-cylindrical and dispersion-free Particle-In-Cell algorithm}
 %\pagestyle{empty}
-\author[1]{R\'emi \textsc{Lehe}}
-\author[2]{Manuel \textsc{Kirchen}}
-\author[3]{Igor A. \textsc{Andriyash}}
-\author[4]{Brendan B. \textsc{Godfrey}}
-\author[1]{Jean-Luc \textsc{Vay}}
+\author[label1]{R\'emi {Lehe}}
+\ead{rlehe@lbl.gov}
+\author[label2]{Manuel {Kirchen}}
+\author[label3]{Igor A. {Andriyash}}
+\author[label4]{Brendan B. {Godfrey}}
+\author[label1]{Jean-Luc {Vay}}
 
-\affil[1]{Lawrence Berkeley National Laboratory, Berkeley, California 94720, USA}
-\affil[2]{DESY, 22607 Hamburg, Germany}
-\affil[3]{LOA, 91761 Palaiseau, France}
-\affil[3]{University of Maryland, College Park, MD 20742, USA}
+\address[label1]{Lawrence Berkeley National Laboratory, Berkeley, California 94720, USA}
+\address[label2]{DESY, 22607 Hamburg, Germany}
+\address[label3]{LOA, 91761 Palaiseau, France}
+\address[label4]{University of Maryland, College Park, MD 20742, USA}
 
 \begin{document}
 
-\maketitle
+\begin{abstract}
 
-\comment{Read over again}
-\comment{Add abstract}
+A nice abstract with a sum up 
+\comment{Read over again}\comment{Add abstract}
+
+\end{abstract}
+
+\maketitle
 
 \section*{Introduction}
 
