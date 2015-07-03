@@ -1,4 +1,4 @@
-\documentclass[1p,times]{elsarticle}
+\documentclass[1p,times,authoryear]{elsarticle}
 \usepackage[usenames,dvipsnames]{xcolor}
 \usepackage{wrapfig}
 \usepackage{amssymb}
@@ -56,7 +56,7 @@
 \author[label4]{Brendan B. {Godfrey}}
 \author[label1]{Jean-Luc {Vay}}
 
-\address[label1]{Lawrence Berkeley National Laboratory, Berkeley, California 94720, USA}
+\address[label1]{Lawrence Berkeley National Laboratory, Berkeley, CA 94720, USA}
 \address[label2]{DESY, 22607 Hamburg, Germany}
 \address[label3]{LOA, 91761 Palaiseau, France}
 \address[label4]{University of Maryland, College Park, MD 20742, USA}
@@ -64,10 +64,17 @@
 \begin{document}
 
 \begin{abstract}
-
-A nice abstract with a sum up 
-\comment{Read over again}\comment{Add abstract}
-
+We propose a spectral Particle-In-Cell (PIC) algorithm which is based 
+on the combination of a Hankel transform and a Fourier transform. 
+For physical problems that have close-to-cylindrical symmetry, this
+algorithm can be much faster than full 3D PIC algorithms. In addition,
+unlike standard PIC algorithms, the proposed algorithm is free of numerical
+dispersion. Morevover, this algorithm is benchmarked in several situations that
+are of interest for the study of laser-plasma interactions. These
+benchmarks show that the proposed algorithm 
+avoids a number of numerical artifacts, that
+would otherwise affect the physics in a standard PIC algorithm -- 
+including the lowest-order numerical Cherenkov effect.
 \end{abstract}
 
 \maketitle
@@ -171,7 +178,7 @@ fully dispersion-free. Another such example is the PIC code \textsc{PlaRes}
 \citep{AndriyashJCP2015}, which also uses a spectral quasi-cylindrical
 formalism but relies on the scalar and vector potentials
 $\phi$ and $\vec{A}$ instead of the standard PIC formulation in terms
-of $\vec{E}$ and $\vec{B}$. As a result, \textsc{PlaRes} differs from the
+of $\vec{E}$ and $\vec{B}$. As a result, \textsc{PlaRes} largely differs from the
 algorithm described here, both in the equations that it simulates and
 in their numerical implementation.
 
@@ -181,7 +188,7 @@ how these equations were discretized and implemented in a fully
 working PIC code (\cref{sec:implementation}). We then report on the
 results of a number of benchmarks that were performed with this PIC
 code (\cref{sec:benchmarks}), and describe two typical physical situations in
-which our spectral algorithm performs better than standard,
+which our spectral algorithm performs better than standard 
 finite-difference algorithms (\cref{sec:advantages}).
 
 \section{Representation of the fields and continuous equations}
@@ -274,7 +281,7 @@ function of order $m$, and where $\spectral{F}_{z,m}$, $\spectral{F}_{+,m}$ and
 component $F_z$ and cylindrical components
 $F_r$, $F_\theta$ do not transform in the same manner, which is due
 to their different behavior close to the axis. (See
-\cref{sec:CircTrans} for a derivation of the above equations.) 
+\ref{sec:CircTrans} for a derivation of the above equations.) 
 Note also that scalar fields (like $\rho$) transform in the
 same way as the Cartesian component $F_z$. 
 
@@ -293,7 +300,7 @@ coefficients become:
 \frac{1}{c^2}\partial_t \spectral{E}_{z,m} = ik_\perp  \spectral{B}_{+,m} + ik_\perp \spectral{B}_{-,m}  - \mu_0 \spectral{J}_{z,m}  \qquad & 
 \partial_t \spectral{B}_{z,m} = -ik_\perp  \spectral{E}_{+,m} - ik_\perp \spectral{E}_{-,m}  \label{eq:CircMaxwellz} 
 \end{align}
-(See \cref{sec:SpectMaxwell} for a derivation of these equations.)
+(See \ref{sec:SpectMaxwell} for a derivation of these equations.)
 Notice that these equations have a similar structure as 
 \cref{eq:CartSpectMaxwellx,eq:CartSpectMaxwelly,eq:CartSpectMaxwellz}, as 
 they also involve the product of the fields with the components of
@@ -429,7 +436,7 @@ Transform (FFT) algorithm, which imposes to use an evenly-spaced grid
 in $z$ and in $k_z$. On the other hand, there is more freedom of
 choice for the Discrete Hankel Transform (DHT), and the implementation that
 we chose is described in the next section
-(\cref{sec:discretization}) and in the appendix \ref{sec:HTMatrix}.
+(\cref{sec:discretization}) and in the \ref{sec:HTMatrix}.
 
 \Cref{fig:GlobalScheme} gives an overview of the successive steps
 involved in one PIC cycle, including the
@@ -520,8 +527,9 @@ In practice, $n$ and $m$ are either equal or they differ by
 $\pm 1$ (e.g. in \cref{eq:FTHTr,eq:FTHTt}, when the azimuthal mode $m$ is
 transformed using the Hankel transform of order $m+1$ or $m-1$.)
 
-The expressions of $M_{n,m}$ and $M'_{n,m}$, for the DHT algorithm that we chose, are given in
-\cref{sec:HTMatrix}. %This particular choice is very specific and
+The expressions of $M_{n,m}$ and $M'_{n,m}$, for the DHT algorithm
+that we chose, are given in \ref{sec:HTMatrix}. 
+%This particular choice is very specific and
 %dependent on the imposed boundary conditions at $r_{max}$ ; in future
 %work, different implementations of the DHT could be used depending on
 %the boundary conditions. 
@@ -716,7 +724,7 @@ ik_z\left[ \frac{\trho{n+1}}{\omega^2}\left(
 \end{align*}
 
 \noindent where $\omega \equiv c\sqrt{k_z^2 + k_\perp^2}$, $C \equiv \cos(\omega \Delta t)$
-and $S \equiv \sin(\omega \Delta t) $. (See \cref{sec:PSTADderiv} for a
+and $S \equiv \sin(\omega \Delta t) $. (See \ref{sec:PSTADderiv} for a
 derivation of these equations.)
 
 \subsection{Practical implementation}
@@ -764,7 +772,7 @@ quasi-cylindrical algorithm (due to the existence of a Courant
 limit for this algorithm). 
 
 Physically, the on-axis group velocity of the pulse should be slightly lower than $c$ due
-to the finite waist of the pulse (see e.g. \citet{Esarey1999}). The
+to the finite waist of the pulse (see e.g. \citep{Esarey1999}). The
 analytical expression for the corresponding relative
 difference in on-axis group velocity is
 \begin{equation} 
@@ -1019,8 +1027,8 @@ the Lorentz force $\vec{F} = q\vec{E} + q\vec{v}\times\vec{B}$ felt by
 a relativistic electron having $\vec{v} = c\vec{e_z}$.) As can be seen
 in the top panels, the global aspect of the bubble and of the injected
 bunch is similar in both simulations. In particular, the injected
-charge was found to be almost the same (766 pC with the
-finite-difference algorithm and 750 pC with the spectral
+charge was found to be almost the same (766~pC with the
+finite-difference algorithm and 750~pC with the spectral
 algorithm). However, when having a closer look at the bunch in the
 finite-difference algorithm (see the lower left panel in
 \cref{fig:Cherenkov}), it appears that the bunch emits a
@@ -1056,7 +1064,7 @@ cylindrical geometry is proposed in \citep{LeheThesis}, and was
 shown to efficiently suppress numerical Cherenkov. However, this
 adaptation is not, strictly speaking, dispersion-free. 
 
-\subsection{Accurate force of a laser on a co-propagating electron}
+\subsection{Accurate force of a laser on a copropagating electron}
 \label{sec:accurate-laser}
 
 Another case in which our spectral algorithm performs better than
@@ -1079,17 +1087,17 @@ code. This staggering indeed results in an improper numerical compensation of
 the two terms of the Lorentz force $\vec{F} = q\vec{E} +
 q\vec{v}\times\vec{B}$. However, in our spectral quasi-cylindrical
 algorithm, the fields $\vec{E}$ and $\vec{B}$ are not staggered in
-time, and thus the force on a co-propagating electron bunch should be
+time, and thus the force on a copropagating electron bunch should be
 correct.
 
-In order to confirm this prediction, we ran a test simulation in which a single
+To confirm this prediction, we ran a test simulation in which a single
 relativistic macroparticle copropagates with a laser pulse. The initial configuration of
 the simulation is represented in \cref{fig:Schematic_laser}. The laser
-pulse is characterized by a waist $w_0 = 25\;\mathrm{\mu m}$,
+pulse is polarized along $x$ and is characterized by a waist $w_0 = 25\;\mathrm{\mu m}$,
 a length $L=7\;\mathrm{\mu m}$, an amplitude $a_0 = 0.2$ and a
 wavelength $\lambda = 0.8\;\mathrm{\mu m}$, while the macroparticle
 represents a relativistic electron having an initial Lorentz factor
-$\gamma_e = 25$. The simulation was run, again, with both our spectral
+$\gamma_e = 25$. For comparison, the simulation was run, again, with both our spectral
 quasi-cylindrical algorithm and the finite-difference
 quasi-cylindrical algorithm of \textsc{Warp}. In order to study
 numerical convergence, the simulations were run with a varying
@@ -1098,7 +1106,8 @@ $\Delta r = 10\Delta z$. The timestep was again $c\Delta t=
 1/\sqrt{1/\Delta z^2 + 2/\Delta r^2}$ for the finite-difference
 simulation and $c\Delta t = \Delta z$ for the spectral
 simulation. Finally, the simulations were run in a moving window with a
-longitudinal and transverse size of 40 and 60 $\mathrm{\mu m}$ respectively.
+longitudinal and transverse size of 40 $\mathrm{\mu m}$ and 60 
+$\mathrm{\mu m}$ respectively.
 
 \begin{figure}[!h]
 \centering
@@ -1110,37 +1119,87 @@ longitudinal and transverse size of 40 and 60 $\mathrm{\mu m}$ respectively.
 The laser propagates to the right, and is polarized along $x$.}
 \end{figure}
 
-To evaluate 
+In order to assess the correctness of the force felt by the electron,
+we analyzed the evolution of its transverse momentum in
+time. Analytically, it can be shown from the Lagrangian 
+$\mathcal{L} = - \sqrt{1-\vec{\beta}^2} \,mc^2 - e \vec{v} \cdot
+\vec{A}$ that the equation of motion along the $x$ axis (i.e. the axis of laser polarization) is 
+\[ \frac{1}{c}\frac{d \,}{dt} \left( \frac{p_x}{m_e c} - a_x \right) =
+ - \frac{p_x}{\gamma m_e c}\frac{\partial a_x}{\partial x} \qquad \sim
+\frac{a_0^2}{\gamma w_0} \]
+\noindent where $a_x$ is the normalized vector potential of the laser
+pulse. The right-hand side corresponds to the ponderomotive force, and,
+for the parameters and timescale considered here, it is in fact
+negligible. The canonical momentum of the
+electron is thus approximately conserved.
+\[ \frac{p_x}{m_e c} - a_x  = const. \]
+\noindent Since, inside the laser pulse, $a_x$ oscillates between the values $-a_0$ and $a_0$,
+the quantity $p_x/m_e c$ is predicted to also also oscillate
+between $-a_0$ and $a_0$, as the electron progressively
+dephases with the laser. 
 
-Spurious force. To evaluate it, we look at the conservation (say order
-of magnitude of error)
-
-
-
+Keeping in mind that here initially $a_0=0.2$, one can observe on
+\cref{fig:Laser} that the oscillation amplitude of $p_x/m_e c$
+is much higher than analytically predicted, in the finite-difference
+simulation. In addition, these oscillations strongly depend on the
+resolution of the simulation, which confirms their spurious nature. These
+observations are consistent with those of \citep{LehePRSTAB2014}, and
+they are due to the above-mentioned erroneous calculation of the
+Lorentz force. On the other hand, in the spectral simulations, the
+evolution of $p_x/m_e c$ exhibits virtually no dependence on the
+resolution. In addition, the oscillations of $p_x/m_e c$ have a realistic
+amplitude. (The fact that these oscillations do not reach exactly the
+value 0.2 may be due to the fact that $a_0$ decreases as the laser
+propagates, as a consequence of diffraction.) These observations
+confirm that the spectral quasi-cylindrical algorithm properly calculates
+the Lorentz force on the electron. This is also consistent with our
+expectations, which were based on the fact that $\vec{E}$ and $\vec{B}$ are not
+staggered in time.
 
 \begin{figure}[!h]
 \centering
 \includegraphics[width=0.45\textwidth]{figures/Laser_finite-difference.pdf}
 \includegraphics[width=0.45\textwidth]{figures/Laser_spectral.pdf}
 \caption{\label{fig:Laser}Evolution of the transverse normalized
-  momentum of a macroparticle $p_x/m_e c$, as it copropagates with a
-  laser pulse (see \cref{fig:Schematic_laser} for a
+  momentum of a macroparticle, as it copropagates with a
+  laser pulse having $a_0 = 0.2$ (see \cref{fig:Schematic_laser} for a
   schematic representation of the situation simulated). The left and
   right plots correspond to the finite-difference and spectral
-  algorithm respectively, while the different curves correspond to
-  different resolutions in the simulation.}
+  algorithm respectively (note the different vertical scales on the two
+  plots). The colored curves correspond to different resolutions for the simulations.}
 \end{figure}
 
 
 \section*{Conclusion}
 
-Few published codes have the above advantages in Cartesian geometry (aside
-from spectral codes, directional splitting may have similar
-advantages). Here on top of it, we have it in Circ.
+In this article, we derived the equations of a spectral
+quasi-cylindrical PIC algorithm, and discussed its numerical
+implementation. As explained in the text, because this algorithm is
+quasi-cylindrical, it require much less computational
+time and memory than a full 3D algorithm. In addition, the fact
+that it is spectral (and uses the PSATD algorithm) prevents a certain number of
+artifacts, that are usually present in a finite-difference algorithm.
+
+This second aspect was tested in details in this article, through
+several benchmarks. By comparing simulations with analytical results, 
+we showed that our spectral quasi-cylindrical code is free of
+numerical dispersion, that it does not exhibit numerical Cherenkov radiation in typical lab-frame
+simulations, and that it can accurately calculate the force of a
+laser on a copropagating electron. By running the
+same benchmarks with a finite-difference quasi-cylindrical algorithm, we showed that
+these numerical artifacts could, on the contrary, be present in
+finite-difference PIC algorithms. 
+
+However, it must not be forgotten that
+finite-difference algorithms have advantages of their own, including
+easier parallelization and application of boundary conditions. In the
+case of our spectral quasi-cylindrical algorithm, parallelization to
+several nodes could nonetheless be achieved by following for instance the
+method of \citep{VayJCP2013}. This will be the subject of future work. 
 
 \paragraph{Acknowledgements}
 
-We acknowledge Axel Huebl for insightful discussions on the GPU implementation.
+We thank Axel Huebl for interesting discussions on the GPU implementation.
 
 This work was supported by the Director, Office of Science, Office of High Energy Physics, U.S. Dept. of Energy under Contract No. DE-AC02-05CH11231, including from the Laboratory Directed Research and Development (LDRD) funding from Berkeley Lab.
 
@@ -1152,6 +1211,6 @@ This document was prepared as an account of work sponsored in part by the United
 \input{appendix.tex}
 
 \bibliography{Bibliography}
-\bibliographystyle{plainnat}
+\bibliographystyle{elsarticle-harv}
 
 \end{document}

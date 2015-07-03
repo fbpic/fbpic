@@ -246,6 +246,29 @@ author = "Brendan B Godfrey"
   publisher={Taylor \& Francis}
 }
 
+@article{VayJCP2013,
+title = "A domain decomposition method for pseudo-spectral electromagnetic simulations of plasmas ",
+journal = "Journal of Computational Physics ",
+volume = "243",
+number = "0",
+pages = "260 - 268",
+year = "2013",
+note = "",
+issn = "0021-9991",
+doi = "http://dx.doi.org/10.1016/j.jcp.2013.03.010",
+url = "http://www.sciencedirect.com/science/article/pii/S0021999113001873",
+author = "Jean-Luc Vay and Irving Haber and Brendan B. Godfrey",
+keywords = "Particle-In-Cell",
+keywords = "Spectral",
+keywords = "Electromagnetic",
+keywords = "Fast fourier transform",
+keywords = "\{FFT\}",
+keywords = "Domain decomposition",
+keywords = "Parallel ",
+abstract = "Abstract Pseudo-spectral electromagnetic solvers (i.e. representing the fields in Fourier space) have extraordinary precision. In particular, Haber et al. presented in 1973 a pseudo-spectral solver that integrates analytically the solution over a finite time step, under the usual assumption that the source is constant over that time step. Yet, pseudo-spectral solvers have not been widely used, due in part to the difficulty for efficient parallelization owing to global communications associated with global \{FFTs\} on the entire computational domains. A method for the parallelization of electromagnetic pseudo-spectral solvers is proposed and tested on single electromagnetic pulses, and on Particle-In-Cell simulations of the wakefield formation in a laser plasma accelerator. The method takes advantage of the properties of the Discrete Fourier Transform, the linearity of Maxwell’s equations and the finite speed of light for limiting the communications of data within guard regions between neighboring computational domains. Although this requires a small approximation, test results show that no significant error is made on the test cases that have been presented. The proposed method opens the way to solvers combining the favorable parallel scaling of standard finite-difference methods with the accuracy advantages of pseudo-spectral methods. "
+}
+
+
 @article{CipicciaNatPhys2011,
         Annote = {10.1038/nphys2090},
         Author = {Cipiccia, Silvia and Islam, Mohammad R. and Ersfeld, Bernhard and Shanks, Richard P. and Brunetti, Enrico and Vieux, Gregory and Yang, Xue and Issac, Riju C. and Wiggins, Samuel M. and Welsh, Gregor H. and Anania, Maria-Pia and Maneuski, Dzmitry and Montgomery, Rachel and Smith, Gary and Hoek, Matthias and Hamilton, David J. and Lemos, Nuno R. C. and Symes, Dan and Rajeev, Pattathil P. and Shea, Val O. and Dias, Joao M. and Jaroszynski, Dino A.},
@@ -376,7 +399,7 @@ year = "1965" }
 
 @book{Haber, 
   title = {Advances in electromagnetic simulation techniques},
-  title = {Proc. Sixth Conf. on Num. Sim. Plasmas, Berkeley, CA},
+  booktitle = {Proc. Sixth Conf. on Num. Sim. Plasmas, Berkeley, CA},
   year = {1973},
   author = {Haber, I. and Lee, R. and Klein, H. and Boris, J.}
 }
