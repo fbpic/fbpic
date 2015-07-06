@@ -266,7 +266,7 @@ where $F$ is either $E$, $B$ or $j$, where $J_m$ denotes the Bessel
 function of order $m$, and where $\spectral{F}_{z,m}$, $\spectral{F}_{+,m}$ and
  $\spectral{F}_{-,m}$ represent the spectral components of $F$. (See
 \ref{sec:CircTrans} for a derivation of the above equations.)
-Conversally, the spectral components $\spectral{F}_{z,m}$, $\spectral{F}_{+,m}$ and
+Conversely, the spectral components $\spectral{F}_{z,m}$, $\spectral{F}_{+,m}$ and
  $\spectral{F}_{-,m}$ are related to the real-space fields $F_r$,
  $F_\theta$ and $F_z$ by:
 \begin{align}
@@ -1054,9 +1054,11 @@ finite-difference algorithm and 750~pC with the spectral
 algorithm). However, when having a closer look at the bunch in the
 finite-difference algorithm (see the lower left panel in
 \cref{fig:Cherenkov}), it appears that the bunch emits a
-high-frequency radiation. This radiation is characteristic of the
-zero-order numerical Cherenkov effect \citep{LehePRSTAB2013}, and is
-unphysical. Importantly, the amplitude of this unphysical field
+high-frequency radiation. This radiation is due to the
+zero-order numerical Cherenkov effect, a fact which is confirmed by
+the observation of the corresponding characteristic parabola in
+$\vec{k}$ space \citep{LehePRSTAB2013,XuJCP2013}, on \cref{fig:Cherenkov-spectrum}. 
+Importantly, the amplitude of this unphysical field
 happens to be comparable to the focusing
 fields inside the bubble, and it can thus potentially affect the bunch
 in a substantial manner. On the other hand, the spectral algorithm does not
@@ -1076,6 +1078,18 @@ Cherenkov effect.
   density. The lower panels show the region surrounding the
   bunch in more details.}
 \end{figure}
+
+\begin{figure}[!h]
+\centering
+\includegraphics[width=0.9\textwidth]{figures/Cherenkov-spectrum.png}
+\caption{\label{fig:Cherenkov-spectrum}Spectrum of the electric field in the
+  finite-difference simulation. This spectrum corresponds to the
+  fields plotted in the left panels of \cref{fig:Cherenkov}. We used
+  \cref{eq:CircFwTransp} to calculate the spectral component $\mathcal{E}_{+,1}$
+  from the electric field $E$ in real-space. The spectrum displays the
+characteristic parabola of the zero-order Cherenkov effect.}
+\end{figure}
+
 
 For completeness, we remark that a similar suppression of the
 numerical Cherenkov radiation was 

@@ -1,19 +1,20 @@
 
 \section{Derivation of the spectral quasi-cylindrical representation}
 \label{sec:CircTrans}
-\comment{Change the expression well-defined everywhere ; replace by
-  Cartesian and cylindrical components}
 
 In order to derive the representation
 \cref{eq:CircBwTransz,eq:CircBwTransr,eq:CircBwTranst} we have to
-distinguish the fields that are well-defined everywhere in space (like
-$E_x$, $E_y$, $E_z$, $B_x$, $B_y$, $B_z$) and thus have a regular
-Fourier representation, from those that are ill-defined at $r=0$ 
-(like $E_r$, $E_\theta$, $B_r$, $B_\theta$).
+distinguish the Cartesian components (e.g. $E_x$, $E_y$, $E_z$, $B_x$,
+$B_y$, $B_z$) which are well-defined everywhere in space and thus have a regular
+Fourier representation, from the cylindrical components (e.g. $E_r$,
+$E_\theta$, $B_r$, $B_\theta$) which are ill-defined at $r=0$. (For instance, for a
+field of the form $\vec{E} = E_0 \vec{e}_x$, the expression of $E_r$
+is $E_r = E_0 \cos(\theta)$, which ill-defined at $r=0$, as $\theta$
+itself is ill-defined at this position.)
 
-\subsection{Fields that are well-defined everywhere}
+\subsection{Cartesian components}
 
-Let $F_u$ be a field that is well-defined everywhere in space
+Let $F_u$ be the Cartesian component of a field $F$ 
 (typically $F$ is $E$, $B$ or $J$ and $u$ is $x$, $y$ or $z$). Its Fourier representation
 is thus given by \cref{eq:CartBwTrans,eq:CartFwTrans}:
 \begin{align*}
@@ -31,8 +32,10 @@ e^{i(k_\perp r \cos(\theta-\phi) + k_z z)} \\
 \mathcal{F}_u(\vec{k})   = \Integ{z} \,\RInteg{r}\,
 \Integ{\theta} \; F_u(\vec{r}) e^{-i(k_\perp r \cos(\theta-\phi) + k_z z)} 
 \end{align*}
-We now use the relation $e^{ik_\perp r\cos(\theta-\phi)} =
-\sum_{m=-\infty}^{\infty} i^m J_m(k_\perp r) e^{im(\phi-\theta)}$ in these equations, to obtain
+Let us now use the relation $e^{ik_\perp r\cos(\theta-\phi)} =
+\sum_{m=-\infty}^{\infty} i^m J_m(k_\perp r) e^{im(\phi-\theta)}$
+(which is simply another way of writing the well-known relation
+$e^{i \alpha \sin \psi} =\sum_{m=-\infty}^{\infty}J_m(\alpha)e^{im\psi}$). The above equations become:
 \begin{align*}
 F_u (\vec{r})  = \sum_{m=-\infty}^{\infty} \frac{1}{(2\pi)^{3}}\Integ{k_z} \,\RInteg{k_\perp }
 \TInteg{\phi} \; i^m \mathcal{F}_u(\vec{k}) \;
@@ -53,7 +56,7 @@ F_u(\vec{r}) =  \frac{1}{(2\pi)^2}\sum_{m=-\infty}^{\infty} \Integ{k_z}
 \end{align}
 These equations correspond to \cref{eq:CircBwTransz,eq:CircFwTransz}.
 
-\subsection{Fields that are ill-defined at $r=0$}
+\subsection{Cylindrical components}
 
 Let us now consider fields of the type $E_r$, $B_r$ or $J_r$, which we
 denote generally by $F_r$. We have :
@@ -64,15 +67,13 @@ Using \cref{eq:CircBwTransu}, this leads to
 \begin{align*} 
 F_r =   \frac{1}{(2\pi)^2}\sum_{m=-\infty}^{\infty} \Integ{k_z}\,\RInteg{k_\perp }\;
 \left(  J_m(k_\perp r) \frac{\spectral{F}_{x,m} -
-    i\spectral{F}_{y,m}}{2}e^{-i(m-1)\theta +ik_z z} \right. \\
-\left. + J_m(k_\perp r) \frac{\spectral{F}_{x,m} +   i\spectral{F}_{y,m}}{2}e^{-i(m+1)\theta +
+    i\spectral{F}_{y,m}}{2}e^{-i(m-1)\theta +ik_z z} + J_m(k_\perp r) \frac{\spectral{F}_{x,m} +   i\spectral{F}_{y,m}}{2}e^{-i(m+1)\theta +
     ik_z z} \right) 
 \end{align*}
 \begin{align*}
 F_r =  \frac{1}{(2\pi)^2}\sum_{m=-\infty}^{\infty} \Integ{k_z}\,\RInteg{k_\perp }\;
 \left(  J_{m+1}(k_\perp r) \frac{\spectral{F}_{x,m+1} -
-    i\spectral{F}_{y,m+1}}{2}e^{-im\theta +ik_z z} \right. \\
-\left. + J_{m-1}(k_\perp r) \frac{\spectral{F}_{x,m-1} +   i\spectral{F}_{y,m-1}}{2}e^{-im\theta +
+    i\spectral{F}_{y,m+1}}{2}e^{-im\theta +ik_z z} + J_{m-1}(k_\perp r) \frac{\spectral{F}_{x,m-1} +   i\spectral{F}_{y,m-1}}{2}e^{-im\theta +
     ik_z z} \right) 
 \end{align*}
 where we relabeled the dummy variable $m$ in the above sums. Let us
@@ -99,7 +100,7 @@ In this section, let us derive the Maxwell equations for the spectral
 coefficients \cref{eq:CircMaxwellp,eq:CircMaxwellm,eq:CircMaxwellz}
 from the Maxwell equations written in cylindrical coordinates \cref{eq:CircMaxwellr,eq:CircMaxwellt,eq:CircMaxwellzz}.
 
-When replacing the Fourier-Bessel decomposition
+When replacing the Fourier-Hankel decomposition
 (\cref{eq:CircBwTransu,eq:CircBwTransr,eq:CircBwTranst}) in the
 Maxwell equations \cref{eq:CircMaxwellr,eq:CircMaxwellt,eq:CircMaxwellzz}, we
 first notice that the modes proportional to $e^{-im\theta +ik_z z}$ for different
@@ -167,7 +168,7 @@ We can now use the relations $\frac{m}{k_\perp r} J_m(k_\perp r) +
 \end{align*}
 Each equation of the above system contains Bessel functions of only one
 given order (either $m+1$, $m-1$ or $m$). This allows to separate the
-different $k_\perp $ components, since it the the functions $J_n(k_\perp r)$, for a
+different $k_\perp $ components, since the functions $J_n(k_\perp r)$, for a
 fixed $n$ and different values of $k_\perp $, form a basis of the set of real functions:
 \begin{align*}
 2 \,\partial_t \spectral{B}_{+,m} =
@@ -198,8 +199,8 @@ and \cref{eq:SpectCons}, one can find the propagation equations for $B$.
 \mu_0c^2  (ik_\perp  \spectral{J}_{+,m} + ik_\perp \spectral{J}_{-,m} ) 
 \end{align*}
 Let us integrate these equations for $t\in [n\Delta t, (n+1)\Delta
-t]$. In this interval, $\spectral{J}_m(t)$ is constant
-and equal to $\tj_m{n+1/2}$, and thus the right-hand side of the above
+t]$. In this interval, $\vec{\spectral{J}}_m(t)$ is constant
+and equal to $\vec{\spectral{J}}_m^{n+1/2}$, and thus the right-hand side of the above
 equations is constant. Using Green functions, the
 general solution of a differential equation of the form 
 $\partial_t^2 f + \omega^2 f = g_0$, where $g_0$ is a constant, is 
@@ -243,7 +244,7 @@ and \cref{eq:SpectCons}, the propagation equations for $E$ are:
 \mu_0c^2 \partial_t\spectral{J}_{z,m} 
 \end{align*}
 Let us again integrate these equations for $t\in [n\Delta t, (n+1)\Delta
-t]$. In this interval, $\spectral{j}_m(t)$ is constant (thus its time
+t]$. In this interval, $\vec{\spectral{J}}_m(t)$ is constant (thus its time
 derivatives drop), and $\spectral{\rho}_m$ is linear in time. As a
 consequence the right hand side is proportional to $\trho{n} +
 (\trho{n+1}-\trho{n})(t-t_0)/\Delta t$. Using Green functions, the solution of 
@@ -283,21 +284,30 @@ ik_z\left[ \frac{\trho{n+1}}{\omega^2}\left(
 
 \section{Discrete Hankel Transform}
 \label{sec:HTMatrix}
-\comment{Change the notations and the text}
 
 Here we use a transformation similar to that of \cite{Yu,Guizar,KaiMing}, but
-extend it to the case of an even grid in space (as opposed to one
-that is distributed according to the zeros of the Bessel function).
+extend it to the case of an evenly-spaced grid in real space (as opposed to one
+that is distributed according to the zeros of the Bessel
+function). Moreover, we impose, as much as possible, that the
+succession of a Discrete Hankel Transform (DHT) and an Inverse Discrete
+Hankel Transform (IDHT) retrieve the initial function.
 
 As explained in the text of the article, we use a matrix formalism for
 the discrete Hankel transform
 \[ \mathrm{DHT^m_n}[f] \,(k^m_{\perp,j}) = \sum_{p=0}^{N_r-1} (M_{n,m})_{j,p}
 \,f(r_p) \qquad \mathrm{IDHT^m_n}[g] \, (r_j) = \sum_{p=0}^{N_r-1}
-(M^{-1}_{n,m})_{j,p} \,g(k^m_{\perp,p}) \]
-These matrices can be determined by a set of $N_r^2$ conditions. These
-conditions can be found by imposing the value of the DHT for a set of  $N_r$ functions.
+(M'_{n,m})_{j,p} \,g(k^m_{\perp,p}) \]
+\noindent where $n$ is the order of the Hankel transform, and where
+$m$ is the index of the spectral grid
+$k^m_{\perp,j}$ on which the Hankel transform is evaluated. 
+In practice, as mentioned in the text, these
+transforms are only used in the cases $n=m-1$, $n=m$ or $n=m+1$.
 
-In our case, we impose that the DHT be equal to the exact HT for the eigenmodes of a cavity with
+The matrices $M_{n,m}$ and $M'_{n,m}$ can be determined by a set of $N_r^2$ conditions. These
+conditions can be found, for instance, by imposing the value of the
+DHT for a set of $N_r$ different functions, whose exact analytical Hankel
+transforms are known. In our case, we impose that the DHT be equal to the exact analytical
+Hankel transform for the eigenmodes of a cavity with
 perfectly conducting boundary at $r_{max}$ ($E_z(r_{max},z) =
 0$), since these physical eigenmodes should also be eigenmodes of our
 PIC cycle. These eigenmodes have the following form:
@@ -308,37 +318,61 @@ E_r +i E_\theta \;& \; \propto  J_{m-1}(k^m_{\perp,\ell} \,r)
                     \,e^{ik_z z -im\theta} \Theta(r_{max}-r) 
 \end{align*}
 where $\Theta$ is the Heaviside function and where $k^m_{\perp,\ell} =
-\alpha^m_\ell / r_{max}$, with $\alpha^m_j$ the $j$th strictly positive zero of
-the Bessel function of order $m$. They form an othogonal basis of
-functions for this chosen boundary condition. The exact Hankel transform of these modes, evaluated on the discrete set $\{
-k^m_{\perp,j} \}$ reads (see relation 11.4.5 in \cite{Abramowitz}).
-\[
-\mathrm{HT}_{n}[ \; J_n(k^m_{\perp,\ell} \,r)  \Theta(r_{max}-r)  \;] \,(k^m_{\perp,j} )
+\alpha^m_\ell / r_{max}$, with $\alpha^m_\ell$ the $\ell$th positive zero of
+the Bessel function of order $m$. These eigenmodes form an othogonal basis of
+functions for the chosen boundary condition. The exact Hankel
+transform of these modes, evaluated on the discrete set
+$\{k^m_{\perp,j} \}$ reads (see relation 11.4.5 in \cite{Abramowitz}).
+\[ \mathrm{HT}_{n}[ \; J_n(k^m_{\perp,\ell} \,r)  \Theta(r_{max}-r)  \;] \,(k^m_{\perp,j} )
 \quad \equiv 2\pi \rInteg \; J_n (k^m_{\perp,\ell} r) J_n (k^m_{\perp,j} r)
 \quad = \pi\, r_{max}^2\,[ J_{m-1}(\alpha_\ell^m)]^2 \; \delta_{j,\ell} \]
 where $n$ is either $m-1$, $m$ or $m+1$. (Notice that the final
 result actually does not depend on $n$.) Here we impose that the DHT of these functions has the same value for $(j,\ell) \in \{ 0,..., N_r - 1\}$.
-\[
+\begin{equation}
+\label{eq:DHT-matrix}
 \mathrm{DHT}^m_{n}[ \; J_n(k^m_{\perp,\ell} \,r) \Theta(r_{max}-r)  \;] \,(k^m_{\perp,j}) 
 \quad \equiv \sum_{p=0}^{N_r-1} (M_{n,m})_{j,p}
   J_n(k^m_{\perp,\ell}\,r_p) 
 \quad = \pi\, r_{max}^2\,[ J_{m-1}(\alpha_j^m)]^2 \; \delta_{j,\ell} 
-\]
-(In fact, in the case $m>0, n>0$, the above equation for $j=0$ does not
-constraint the matrix $M_{n,m}$ sufficiently, and thus we impose the additional
-condition $\sum_{p=0}^{N_r-1} (M_{n,m})_{0,p}  J_n(k^m_{\perp,\ell}\,r_p) = \pi\, r_{max}^2\,[ J_{m-1}(\alpha_{N_r}^m)]^2 \; \delta_{0,N_r}$.)
+\end{equation}
 
-The above relations impose $N_r^2$ conditions on the matrix
-$M_{n,m}$ and thus allows one to completely
-determine it. In fact, a closer look at the above relations shows
+\paragraph{Case in which $n=0$ or $m=0$:}
+In this case, \cref{eq:DHT-matrix} imposes $N_r^2$ conditions on the matrix
+$M_{n,m}$ and thus allows one to completely determine it. 
+In fact, a closer look at the above relations shows
 that the inverse matrix $M^{-1}_{n,m}$ can be directly extracted from the above relations,
 since these inverse matrices are defined by the relation $\sum_p (M_{n,m})_{j,p}
 (M^{-1}_{n,m})_{p,\ell} = \delta_{j,\ell}$. Indeed, from the above
 relations, one can directly infer:
-\[ (M_{n,m}^{-1})_{p,\ell} = \frac{ J_m(k^m_{\perp,\ell}\,r_p) } { \pi\,
+\[ (M_{n,m}^{-1})_{p,\ell} = \frac{ J_n(k^m_{\perp,\ell}\,r_p) } { \pi\,
   r_{max}^2\,[ J_{m-1}(\alpha_\ell^m)]^2  } \]
-(In the case $m>0,n>0$, the above expression is modified for $\ell=0$ and
-is replaced by $ (M_{n,m}^{-1})_{p,0} = \frac{ J_m(k^m_{\perp,N_r}\,r_p) } { \pi\,
-  r_{max}^2\,[ J_{m-1}(\alpha_{N_r}^m)]^2  }$.)
 
-The matrix $M_{n,m}$ can then be extracted, by numerically inverting the matrices  $M^{-1}_{n,m}$ given by the above expressions.
+\noindent The matrix $M_{n,m}$ can then be extracted, by numerically inverting
+the matrices  $M^{-1}_{n,m}$ given by the above expression. In
+addition, we impose that $M'_{n,m}$ be equal to
+$M^{-1}_{n,m}$, so that the succession of a DHT and IDHT retrieves
+exactly the initial function.
+
+
+\comment{This last paragraph is still to be modified}
+\paragraph{Case in which $n \neq 0$ and $m \neq 0$} In this case, the
+equation \cref{eq:DHT-matrix} is not valid for $\ell=0$, and should be
+replaced by
+\[ \mathrm{DHT}^m_{n}[ \; J_n(k^m_{\perp,0} \,r) \Theta(r_{max}-r)  \;] \,(k^m_{\perp,j}) 
+\quad \equiv \sum_{p=0}^{N_r-1} (M_{n,m})_{j,p}
+  J_n(k^m_{\perp,0}\,r_p) \quad = 0 \]
+\noindent This implies that $M_{n,m}$ is not invertible, and that the
+method used in the case $n=0$ or $m=0$ is not applicable. To obtain
+$M_{n,m}$ in this case, we use an empirical method in which replace
+the above relation by 
+\[\sum_{p=0}^{N_r-1} (M_{n,m})_{0,p}J_n(k^m_{\perp,\ell}\,r_p) = \pi\,
+r_{max}^2\,[ J_{m-1}(\alpha_{N_r}^m)]^2 \; \delta_{0,N_r} \]
+does not constraint the matrix $M_{n,m}$
+sufficiently, and thus we impose the additional condition 
+
+We note works for $m=0$ and $m=1$ but not $m=2$. Futher work will be
+done towards better Hankel transform representation.
+
+%(In the case $m>0,n>0$, the above expression is modified for $\ell=0$ and
+%is replaced by $ (M_{n,m}^{-1})_{p,0} = \frac{ J_m(k^m_{\perp,N_r}\,r_p) } { \pi\,
+ % r_{max}^2\,[ J_{m-1}(\alpha_{N_r}^m)]^2  }$.)
