@@ -68,13 +68,12 @@ We propose a spectral Particle-In-Cell (PIC) algorithm which is based
 on the combination of a Hankel transform and a Fourier transform. 
 For physical problems that have close-to-cylindrical symmetry, this
 algorithm can be much faster than full 3D PIC algorithms. In addition,
-unlike standard PIC algorithms, the proposed algorithm is free of numerical
-dispersion. Morevover, this algorithm is benchmarked in several situations that
-are of interest for the study of laser-plasma interactions. These
-benchmarks show that the proposed algorithm 
-avoids a number of numerical artifacts, that
+unlike standard finite-difference PIC codes, the proposed algorithm is free of numerical
+dispersion. This algorithm is benchmarked here in several situations that
+are of interest for laser-plasma interactions. These
+benchmarks show that it avoids a number of numerical artifacts, that
 would otherwise affect the physics in a standard PIC algorithm -- 
-including the lowest-order numerical Cherenkov effect.
+including the zero-order numerical Cherenkov effect.
 \end{abstract}
 
 \maketitle
@@ -97,15 +96,15 @@ This is mainly for two reasons:
   cylindrically symmetric). This prevents the use of 2D Cartesian 
 PIC algorithms (which are only well-suited for slab-like symmetry),
 and is instead often dealt with by using
-  3D Cartesian PIC algorithms. However, 3D PIC algorithms are extremely
-  computationally intensive.
+  3D Cartesian PIC algorithms. However, 3D PIC algorithms are very 
+computationally expensive.
 \item The physical objects of interest (e.g. the laser, or the
   accelerated particle beam) often propagate close to the speed of
   light. This makes them very sensitive to \emph{numerical
     dispersion}, i.e. the fact that the electromagnetic waves do not
   propagate exactly at the physical speed of light in a standard PIC
-  code, but propagate instead at a spuriously-altered,
-  resolution-dependent speed. In the above-mentioned cases, 
+  code, but travel instead at a spuriously-altered,
+  resolution-dependent velocity. In the above-mentioned cases, 
 numerical dispersion can lead to substantial numerical artifacts
 which can mask or disrupt the physics at stake in the simulation. This
 includes for instance numerical Cherenkov effect in general
@@ -116,12 +115,12 @@ laser-wakefield acceleration \citep{CowanPRSTAB2013}.
 \end{itemize}
 Yet several improvements can be made to the PIC algorithm, in order
 to mitigate these difficulties and increase the speed and
-accuracy of the simulations in these situations. 
+accuracy of the simulations in these physical situations. 
 \begin{itemize}
 \item One of these improvements is the recent
   development of cylindrically-symmetric
 PIC algorithms with azimuthal Fourier decomposition \citep{Lifschitz,Davidson} 
-(sometimes refered to as \emph{quasi-3D} algorithms, or
+(sometimes refered to as \emph{quasi-3D} algorithms, or as
 \emph{quasi-cylindrical} algorithms as we do here). By taking
 into account the symmetry of the system, these algorithms can typically reduce
 the cost of the simulation to a few times that of a 2D Cartesian simulation,
@@ -137,13 +136,12 @@ plasma \citep{EsareyRMP2009}).
   Maxwell equations in Fourier space. These algorithms contrast with
   \emph{finite-difference} algorithms, which solve the Maxwell equations
   by approximating the derivatives as finite differences on a discrete spatial grid.
-Importantly, while finite-difference algorithm often strongly suffer from
+Importantly, while finite-difference algorithm often suffer from
 numerical dispersion, there is a class of spectral algorithms -- often refered to
 as \emph{Pseudo-Spectral Analytical Time Domain} (PSATD) algorithms 
 \citep{Haber} -- which exhibits no numerical dispersion whatsoever. As a
-consequence, these algorithms are free from the numerical artifacts
-associated with the spurious speed of the electromagnetic waves in PIC
-codes. Moreover, it was shown recently
+consequence, these algorithms are free from the associated numerical
+artifacts. Moreover, it was shown recently
 \citep{XuJCP2013,YuJCP2014,YuCPC2015,
 GodfreyIEEE2014,GodfreyJCP2014} 
 that spectral PIC algorithms have better stability properties when 
@@ -156,8 +154,8 @@ their laboratory-frame counterparts by several orders of magnitude \citep{VayPRL
 
 Even though these two improvements are both very valuable, they cannot be
 combined with one another in their present
-formulation. This is because the \emph{quasi-cylindrical} algorithm uses a
-cylindrical system of coordinates, whereas the spectral PIC algorithms
+formulation. Fundamentally, this is because the \emph{quasi-cylindrical} algorithm uses a
+cylindrical system of coordinates, whereas most spectral algorithms
 (and in particular the \emph{PSTAD} algorithms)
 were developped in a Cartesian system of coordinates. This
 incompatibility is however not definitive, and the aim of this article
@@ -185,9 +183,9 @@ in their numerical implementation.
 In the present article, we start by deriving the equations of our
 spectral quasi-cylindrical formalism (\cref{sec:theory}). We then explain
 how these equations were discretized and implemented in a fully
-working PIC code (\cref{sec:implementation}). We then report on the
-results of a number of benchmarks that were performed with this PIC
-code (\cref{sec:benchmarks}), and describe two typical physical situations in
+working PIC code (\cref{sec:implementation}), and we report on the
+results of a number of benchmarks that were performed with this code 
+(\cref{sec:benchmarks}). Finally, we describe two typical physical situations in
 which our spectral algorithm performs better than standard 
 finite-difference algorithms (\cref{sec:advantages}).
 
@@ -232,7 +230,7 @@ different Fourier modes decouple and the equations
 \frac{1}{c^2}\partial_t \mathcal{E}_z = ik_x \mathcal{B}_y - ik_y \mathcal{B}_x - \mu_0 \mathcal{J}_z  \qquad &   
 \partial_t \mathcal{B}_z = -ik_x \mathcal{E}_y + ik_y \mathcal{E}_x \label{eq:CartSpectMaxwellz}
 \end{align}
-The Fourier coefficients can then be integrated in time, and
+The Fourier coefficients $\mathcal{E}$ and $\mathcal{B}$ can be then integrated in time, and
 transformed back into real space using \cref{eq:CartBwTrans}. This is
 the core principle of spectral Cartesian algorithms, including the PSATD algorithms.
 
@@ -248,8 +246,9 @@ appropriate representation when the Maxwell equations are written in cylindrical
 \frac{1}{c^2}\partial_t E_z = \ir\partial_r r B_\theta - \ir\partial_\theta B_r - \mu_0  j_z \qquad & 
 \partial_t B_z = -\ir\partial_r r E_\theta + \ir\partial_\theta E_r \label{eq:CircMaxwellzz} 
 \end{align}
-When replacing
-\cref{eq:CartBwTrans} into the \cref{eq:CircMaxwellr,eq:CircMaxwellt,eq:CircMaxwellzz}, the Fourier modes do not decouple. Instead one has to use the Fourier-Bessel representation.
+When replacing the representation \cref{eq:CartBwTrans} into the 
+\cref{eq:CircMaxwellr,eq:CircMaxwellt,eq:CircMaxwellzz}, the Fourier
+modes do not decouple. Instead one has to use the Fourier-Hankel representation:
 \begin{align}
 & F_z(\vec{r}) = \frac{1}{(2\pi)^2}\!\!\!\sum_{m=-\infty}^{\infty} \Integ{k_z}
 \RInteg{k_\perp }\; \spectral{F}_{z,m}(k_z,k_\perp ) \; J_m(k_\perp r)\, e^{-im\theta + ik_z z} 
@@ -265,7 +264,11 @@ i\left( \spectral{F}_{+,m}(k_z,k_\perp )\; J_{m+1}(k_\perp r) - \spectral{F}_{-,
 \end{align}
 where $F$ is either $E$, $B$ or $j$, where $J_m$ denotes the Bessel
 function of order $m$, and where $\spectral{F}_{z,m}$, $\spectral{F}_{+,m}$ and
- $\spectral{F}_{-,m}$ represent the spectral components of $F$. These spectral components are given by:
+ $\spectral{F}_{-,m}$ represent the spectral components of $F$. (See
+\ref{sec:CircTrans} for a derivation of the above equations.)
+Conversally, the spectral components $\spectral{F}_{z,m}$, $\spectral{F}_{+,m}$ and
+ $\spectral{F}_{-,m}$ are related to the real-space fields $F_r$,
+ $F_\theta$ and $F_z$ by:
 \begin{align}
 \spectral{F}_{z,m}(k_z,k_\perp ) &= \Integ{z} \RInteg{r}
 \TInteg{\theta} \;F_z(\vec{r})\; J_m(k_\perp r) e^{im\theta
@@ -277,11 +280,11 @@ function of order $m$, and where $\spectral{F}_{z,m}$, $\spectral{F}_{+,m}$ and
 \TInteg{\theta} \;\frac{F_r (\vec{r})+iF_\theta(\vec{r})}{2}\; J_{m-1}(k_\perp r) e^{im\theta
  - i k_z z} \label{eq:CircFwTransm} 
 \end{align}
-\noindent Notice here that the Cartesian
+\noindent In the above equations, notice here that the Cartesian
 component $F_z$ and cylindrical components
 $F_r$, $F_\theta$ do not transform in the same manner, which is due
-to their different behavior close to the axis. (See
-\ref{sec:CircTrans} for a derivation of the above equations.) 
+to their different behavior close to the axis. (Again, see
+\ref{sec:CircTrans} for a more detailed explanation.)
 Note also that scalar fields (like $\rho$) transform in the
 same way as the Cartesian component $F_z$. 
 
@@ -301,8 +304,8 @@ coefficients become:
 \partial_t \spectral{B}_{z,m} = -ik_\perp  \spectral{E}_{+,m} - ik_\perp \spectral{E}_{-,m}  \label{eq:CircMaxwellz} 
 \end{align}
 (See \ref{sec:SpectMaxwell} for a derivation of these equations.)
-Notice that these equations have a similar structure as 
-\cref{eq:CartSpectMaxwellx,eq:CartSpectMaxwelly,eq:CartSpectMaxwellz}, as 
+Notice that these equations have a similar structure as the spectral
+Cartesian equations \cref{eq:CartSpectMaxwellx,eq:CartSpectMaxwelly,eq:CartSpectMaxwellz}, as 
 they also involve the product of the fields with the components of
 $\vec{k}$, in their right-hand side. They do differ however in their
 details, as evidenced by the signs, the factors 1/2 and the
@@ -318,7 +321,7 @@ k_\perp (\spectral{E}_{+,m} -\spectral{E}_{-,m}) + ik_z \spectral{E}_{z,m} =
 \frac{\spectral{\rho}_m}{\epsilon_0} \qquad
  k_\perp (\spectral{B}_{+,m} -\spectral{B}_{-,m}) + ik_z \spectral{B}_{z,m} =
 0 \end{equation}
-As expected, the above conservation equations are
+As expected, the above conservation equations \cref{eq:SpectCons} are
 preserved by the Maxwell equations
 \cref{eq:CircMaxwellp,eq:CircMaxwellm,eq:CircMaxwellz}, provided
 that the current satisfies $\partial_t
@@ -340,7 +343,7 @@ However, the advantage of this formalism over its Cartesian
 counterpart is that the sum over $m$ in
 \cref{eq:CircBwTransz,eq:CircBwTransr,eq:CircBwTranst} can generally
 be truncated to only a few terms, for physical situations that have
-close-to-cylindrical symmetry \citep{Lifschitz}. This is because the
+close-to-cylindrical symmetry. (A similar truncation is done in \citep{Lifschitz}.) This is because the
 different values of $m$ correspond to different azimuthal modes of the
 form $e^{-im\theta}$, and because these modes are typically zero for
 large values of $|m|$, in situations with close-to-cylindrical symmetry.
@@ -357,12 +360,13 @@ the manipulation of the fields much more computationally efficient.
 The PIC algorithm described here uses the above-mentioned representation
 of the fields. Although the fields are represented by a few
 2D arrays, the particles are still distributed in 3D and their motion
-is integrated in 3D Cartesian coordinates. However, due to the
-lower number of cells in a 2D array, one can drastically reduce the
-total number of particles and still have significative statistics for
-each cell.
+is integrated in 3D Cartesian coordinates. 
+%However, due to the
+%lower number of cells in a 2D array, as compared to a 3D array, one can drastically reduce the
+%total number of particles and still have significative statistics for
+%each cell.
 
-Similarly to a spectral Cartesian code, we do not perform the
+As in a spectral Cartesian code, we do not perform the
 current deposition and field gathering directly from the
 macroparticles to the spectral space. (This is inefficient since the
 deposition and gathering are local operations in real space -- i.e. affect
@@ -391,8 +395,8 @@ particle Cartesian positions $x,y,z$ by using the relation $e^{im\theta} = (x+iy
 
 After the particles deposit their charge and current onto this
 intermediate grid, the fields of the grid are transformed into spectral
-space where the Maxwell equations can be easily integrated. From
-\cref{eq:IntermFwTrans,eq:IntermBwTrans} and
+space where, as mentioned in \cref{sec:theory}, the Maxwell equations 
+can be easily integrated. From \cref{eq:IntermFwTrans,eq:IntermBwTrans} and
 \cref{eq:CircFwTransz,eq:CircFwTransp,eq:CircFwTransm,eq:CircBwTransz,eq:CircBwTransr,eq:CircBwTranst}, 
 the transformation between the intermediate grid $\hat{F}_{m}(r,z)$
 and the spectral grid $\spectral{F}_m(k_\perp, k_z)$ is:
@@ -422,16 +426,23 @@ axis and $\mathrm{HT}_{n}$ represents a Hankel Transform of order
 $n$ along the transverse $r$ axis, and where $\mathrm{IFT}$ and
 $\mathrm{IHT}_{n}$ represent the corresponding inverse
 transformations:
-\[ \mathrm{FT} [f]\, (k_z) \equiv \Integ{z} \, e^{-ik_zz} \; f(z) \qquad 
-\mathrm{IFT} [g] \,(z)\equiv \frac{1}{2\pi}\Integ{k_z} \, e^{ik_zz} \;  g(k_z)\]
-\[ \mathrm{HT}_{n} [f]\,(k_\perp) \equiv 2\pi \RInteg{r} \,
+\begin{equation} 
+\mathrm{FT} [f]\, (k_z) \equiv \Integ{z} \, e^{-ik_zz} \; f(z) \qquad 
+\mathrm{IFT} [g] \,(z)\equiv \frac{1}{2\pi}\Integ{k_z} \, e^{ik_zz} \;
+g(k_z)
+\end{equation}
+\begin{equation}
+\label{eq:def-Hankel} 
+\mathrm{HT}_{n} [f]\,(k_\perp) \equiv 2\pi \RInteg{r} \,
 J_{n}(k_\perp r) \; f(r) \qquad 
-\mathrm{IHT}_{n} [g]\,(r) \equiv \frac{1}{2\pi}\RInteg{k_\perp} \,  J_{n}(k_\perp r)  \;  g(k_\perp) \]
+\mathrm{IHT}_{n} [g]\,(r) \equiv \frac{1}{2\pi}\RInteg{k_\perp} \,
+J_{n}(k_\perp r)  \;  g(k_\perp) 
+\end{equation}
 
 The above equations show that the transformation from the intermediate
 grid ($\hat{F}_{u,m}$) to the spectral grid ($\spectral{F}_{u,m}$) is
 the combination of a Fourier transform (in $z$) and a Hankel transform
-(in $r$). The Fourier transform in $z$ can be implemented through a Fast Fourier
+(in $r$). The Fourier transform in $z$ can be discretized through a Fast Fourier
 Transform (FFT) algorithm, which imposes to use an evenly-spaced grid
 in $z$ and in $k_z$. On the other hand, there is more freedom of
 choice for the Discrete Hankel Transform (DHT), and the implementation that
@@ -440,12 +451,14 @@ we chose is described in the next section
 
 \Cref{fig:GlobalScheme} gives an overview of the successive steps
 involved in one PIC cycle, including the
-respective role of the intermediate and spectral grid. Note that, in the PSATD
+respective role of the intermediate grid ($\hat{F}_{u,m}$) and
+spectral grid ($\spectral{F}_{u,m}$). Note that, in the PSATD
 scheme that we chose (and which is described in more details in
 \cref{sec:FieldIntegration}), all the fields are defined at integer
 timesteps, except for the currents, which are defined at half
-timesteps. The following subsections describe the successive steps of
-the PIC cycle in more details.
+timesteps. The subsections 
+\cref{sec:sec:gathering,sec:eq-motion,sec:current-deposition,sec:FieldIntegration} 
+describe the successive steps of the PIC cycle in more details.
 
 \begin{figure}
 \input{figures/PIC-cycle.tex}
@@ -470,14 +483,14 @@ favorable computational scaling ($\propto N_z\log(N_z)$).
 On the other hand, there are a variety of existing algorithms (that are not mathematically
 equivalent) to discretize the Hankel
 transform (e.g. \citep{Cree,Yu,Siegman,Guizar,KaiMing}), and the use of one or the other
-is very dependent on the pursued application. Broadly
+is very dependent on the application pursued. Broadly
 speaking, chosing an algorithm for the Discrete Hankel Transform (DHT)
 algorithms consists in 
 \begin{itemize}
 \item Choosing a discrete grid in $r$ and $k_\perp$ space, on which to
   sample the functions to be transformed. In some algorithms, these
   grids may not be evenly-spaced, and can be for instance
-  logarithmically spaced \citep{Siegman} or correspond to the zeros of
+  logarithmically spaced \citep{Siegman} or can correspond to the zeros of
   Bessel functions \citep{Yu,Guizar,KaiMing}.
 \item Once a grid is chosen, the DHT amounts to a linear operation on a
   finite set of points (the points of the grid) and can thus be
@@ -489,7 +502,7 @@ Here, we choose to discretize the algorithm on an evenly-spaced grid in $r$
 \[ r_j = \Delta r \left( j+\frac{1}{2} \right) \qquad  j \in \{0, ...,
 N_r-1 \} \qquad \mathrm{where} \quad \Delta r = \frac{r_{max}}{N_r} \]
 but on an irregular grid in $k_\perp$ (for the spectral grid). This is because the authorized
-$k_\perp$ are determined by the boundary conditions, in the same way that
+values of $k_\perp$ are determined by the boundary conditions, in the same way that
 the periodic boundaries in a Cartesian code impose the use of
 evenly-spaced $k$. Here, for simplicity, we impose that the
 longitudinal fields be $0$ at $r_{max}$ (i.e. $E_z(r_{max}, z) = 0$,
@@ -515,12 +528,13 @@ $k_\perp$ grids, since each azimuthal mode $m$ evolves separately in
 As mentioned above, once this grid is set up, the Discrete Hankel Transform is simply a
 linear operation on a finite set of points, and can thus be
 represented by a matrix operation.
-\[ \mathrm{DHT^m_n}[f] \,(k^m_{\perp,j}) = \sum_{p=0}^{N_r-1} (M_{n,m})_{j,p}
+\[\mathrm{DHT^m_n}[f] \,(k^m_{\perp,j}) = \sum_{p=0}^{N_r-1} (M_{n,m})_{j,p}
 \;f(r_p) \qquad \mathrm{IDHT^m_n}[g] \, (r_j) = \sum_{p=0}^{N_r-1}
 (M'_{n,m})_{j,p} \; g(k^m_{\perp,p}) \]
 
 Notice that the $N_r\times N_r$ transformation matrices $M_{n,m}$ and
-$M_{n,m}'$ depend on $n$ (order of the Hankel transform) and $m$
+$M_{n,m}'$ depend on $n$ (order of the Hankel transform, i.e. order of
+the Bessel function $J_n$ in the integrand of \cref{eq:def-Hankel}) and $m$
 (index of the azimuthal mode, and thus index of the spectral grid
 $k^m_{\perp,j}$ on which the Hankel transform is performed). 
 In practice, $n$ and $m$ are either equal or they differ by
@@ -543,7 +557,10 @@ which is typically used in a spectral 3D Cartesian code.
 
 
 \subsection{Field gathering}
+\label{sec:gathering}
 
+Let us now describe in details the 4 sucessive steps of a PIC cycle
+with our algorithm, and let us start with field gathering.
 When gathering the fields from the intermediate grid to the
 macroparticles (see \cref{fig:GlobalScheme}),
 we use the standard linear shape factors :
@@ -565,12 +582,12 @@ sufficient to retrieve the force on the macroparticles.
 
 Finally, in \cref{eq:gathering}, $S_{z,p}$ and $S_{z,q}$ are the linear
 shape factors in $z$ and $r$ :
-\[ S_{z,p_0}(z) = \frac{z_{p_0+1}- z}{\Delta z}  \qquad 
-S_{z,p_0 +1}(z) = \frac{ z - z_{p_0} }{\Delta z} \qquad
-\mathrm{with} \quad z_{p_0} \leq z < z_{p_0 +1}  \]
-\[ S_{r,q_0}(r) = \frac{ r_{q_0+1} - r }{  \Delta r }
-\qquad S_{r,q_0+1}(r) = \frac{ r - r_{q_0} }{  \Delta r }
-\qquad \mathrm{with} \quad r_{q_0} \leq r < r_{q_0+1}
+\[ S_{z,p}(z) = \frac{z_{p+1}- z}{\Delta z}  \qquad 
+S_{z,p +1}(z) = \frac{ z - z_{p} }{\Delta z} \qquad
+\mathrm{with} \quad z_{p} \leq z < z_{p +1}  \]
+\[ S_{r,q}(r) = \frac{ r_{q+1} - r }{  \Delta r }
+\qquad S_{r,q+1}(r) = \frac{ r - r_{q} }{  \Delta r }
+\qquad \mathrm{with} \quad r_{q} \leq r < r_{q+1}
  \]
 %\noindent Additionally, for particles that are located in the first half of the first
 %cell ($0< r < \Delta r/2$), the shape $S_{r,0}$ is modified and reads
@@ -581,8 +598,9 @@ S_{z,p_0 +1}(z) = \frac{ z - z_{p_0} }{\Delta z} \qquad
 %\citep{Verboncoeur}).
 
 \subsection{Equations of motion}
+\label{sec:eq-motion}
 
-Since the macroparticles are evolved in 3D, we compute
+Since the macroparticles evolve in 3D, we first compute
 the Cartesian components $E_x$, $E_y$, $E_z$, $B_x$, $B_y$ and
 $B_z$, from the fields $E_r$, $E_\theta$, $E_z$, $B_r$, $B_\theta$ and
 $B_z$ that were gathered at the positions of each macroparticle. 
@@ -611,13 +629,14 @@ intermediate grid, we transform them to the spectral grid, using an
 FFT and a DHT (see \cref{fig:GlobalScheme}).
 
 Smoothing is then typically applied on the charge and currents, after they
-have been deposited to the grid (but no smoothing is applied on the
-fields $E$ and $B$ directly). This is done so as to avoid the accumulation
+have been deposited (but no smoothing is applied on the
+fields $E$ and $B$ directly). This is done in order to avoid the accumulation
 of noise at high frequency, in the simulations. This smoothing
 is performed directly in spectral space, by multiplying the charge
-and currents by a transfer function $\spectral{T}(k_z, k_\perp)$ which, 
-in a 2D Cartesian algorithm, 
-would be equivalent to a single-pass binomial filter \citep{Birdsall2004}.
+and currents by a transfer function $\spectral{T}(k_z, k_\perp)$ which
+damps the high frequencies $\vec{k}$, and whose mathematical form is
+identical to the spectral Cartesian representation of a single-pass
+binomial filter \citep{Birdsall2004}.
 \[ \spectral{T}(k_z, k_r) = \cos^2 \left( \frac{k_z}{k_{z,max}}\frac{\pi}{2} \right)
 \cos^2\left( \frac{k_\perp}{k_{\perp,max}}\frac{\pi}{2} \right) \]
 \noindent where $k_{z, max}$ and $k_{\perp,max}$ are the highest
@@ -637,11 +656,11 @@ where $G$ satisfies the Poisson-like equation
 The above equation is typically expensive to solve on a spatial grid, but
 very easy to solve in spectral space. In spectral space and with the
 notations of \cref{fig:GlobalScheme}, these equations become
-\[ \spectral{J}'^{n+1/2}_{+,m} = \spectral{J}^{n+1/2}_{+,m} +
+\[ \spectral{J}'^{\,n+1/2}_{+,m} = \spectral{J}^{n+1/2}_{+,m} +
 \frac{k_\perp}{2} \spectral{G}^{n+1/2}_m
 \qquad
-\spectral{J}'^{n+1/2}_{-,m} = \spectral{J}^{n+1/2}_{-,m} - \frac{k_\perp}{2} \spectral{G}^{n+1/2}_m
-\qquad \spectral{J}'^{n+1/2}_{z,m} = \spectral{J}^{n+1/2}_{z,m} - ik_z
+\spectral{J}'^{\,n+1/2}_{-,m} = \spectral{J}^{n+1/2}_{-,m} - \frac{k_\perp}{2} \spectral{G}^{n+1/2}_m
+\qquad \spectral{J}'^{\,n+1/2}_{z,m} = \spectral{J}^{n+1/2}_{z,m} - ik_z
 \spectral{G}^{n+1/2}_m\]
 with
 \[ \spectral{G}^{n+1/2}_m = - \frac{1}{k_\perp^2 + k_z^2}\left(
@@ -656,7 +675,7 @@ correction in spectral space, at the end of the current deposition at each times
 
 The Maxwell equations
 \cref{eq:CircMaxwellp,eq:CircMaxwellm,eq:CircMaxwellz} could in
-principle be integrated in time by using a finite difference scheme:
+principle be integrated by using a finite difference scheme in time:
 \begin{align*}
 \tE{+}{n+1} = \; & \tE{+}{n} + 
 c^2\Delta t\left(-\frac{ik_\perp }{2} \tB{z}{n} + k_z\tB{+}{n}
@@ -682,8 +701,8 @@ c^2\Delta t\left(ik_\perp \tB{+}{n} + ik_\perp \tB{-}{n}
 However, this type of scheme retains some amount of numerical dispersion, and can
 thus affect the simulated physics.
 
-Instead, here we use an adaptation of the PSATD scheme \citep{Haber} for the
-Fourier-Bessel spectral space. As in the case of the standard
+Instead, here we use an adaptation of the PSATD scheme \citep{Haber}
+for our spectral quasi-cylindrical representation. As in the case of the standard
 PSATD, we assume that the currents are constant over one timestep and
 that the charge density is linear in time over the same timestep. Under these
 assumptions, the Maxwell equations \cref{eq:CircMaxwellp,eq:CircMaxwellm,eq:CircMaxwellz} can be integrated
@@ -733,7 +752,8 @@ The full PIC algorithm described in this section was implemented in a
 code written in Python. For performance, this implementation makes use of the
 pre-compiled libraries FFTW and BLAS (for the matrix multiplication
   in the DHT), and utilizes the Numba just-in-time compiler for the
-  computationally-intensive parts of the code. In addition, the code
+  computationally-intensive parts of the code (current deposition and
+  field gathering). In addition, the code
   was developed for both single-CPU and single-GPU architectures (with the GPU runs
   being typically more than 40 times faster than the equivalent CPU runs, on
   modern hardware). A multi-CPU/multi-GPU version will be developed in
@@ -759,7 +779,8 @@ been previously implemented in the PIC code \textsc{Warp}.
 The simulations were run with a moving window, in a box with a
 longitudinal size of 40 $\mu$m and a transverse size of 48 $\mu$m. (In
 the case of the spectral algorithm, the fields were damped at the back
-of the moving window, in a similar way as in \citep{YuIPAC2015}.)
+of the moving window, in a similar way as in \citep{YuIPAC2015}, in
+order to prevent periodic wrapping of the fields)
 The laser pulse itself was initialized at focus, with a waist 
 $w_0 = 16 \;\mathrm{\mu m}$, a length $L = 10 \; \mathrm{\mu m}$,
 a wavelength $\lambda = 0.8 \; \mathrm{\mu m}$ and a 
@@ -769,7 +790,7 @@ timestep was set to $c\Delta t = \Delta z$ in the case of the spectral
 quasi-cylindrical algorithm and to $c\Delta t = 1/\sqrt{1/\Delta z^2 +
   2/\Delta r^2}$ in the case of the finite-difference
 quasi-cylindrical algorithm (due to the existence of a Courant
-limit for this algorithm). 
+limit for this latter algorithm). 
 
 Physically, the on-axis group velocity of the pulse should be slightly lower than $c$ due
 to the finite waist of the pulse (see e.g. \citep{Esarey1999}). The
@@ -821,7 +842,7 @@ were the same as in the previous subsection
 (\cref{sec:vacuum_vg}). The plasma was represented by 16
 macroparticles per cell, and had a density $n_e = 1.75\times
 10^{18}\;\mathrm{cm}^{-3} = 10^{-3}\,n_c$, where $n_c$ is the critical
-density for $\lambda=0.8\mathrm{\mu m}$.
+density for $\lambda=0.8\;\mathrm{\mu m}$.
 
 Since the intensity of the laser is very low here ($a_0 = 10^{-2}$),
 the propagation is linear, and the on-axis group velocity is given by
@@ -834,7 +855,7 @@ the propagation is linear, and the on-axis group velocity is given by
 In \cref{fig:Plasma_vg}, we compare this analytical prediction with the group velocity in the
 finite-difference and spectral simulations. Again, the
 group velocity is resolution-dependent in the finite-difference
-algorithm, and it is substantial different than the analytical
+algorithm, and it is substantially different than the analytical
 prediction even at high resolution. In the spectral code, the group
 velocity velocity exhibits a very weak dependence on resolution
 (which is likely due to the errors of current deposition and field
@@ -869,12 +890,13 @@ use a larger timestep $\Delta t$, which improves numerical
 dispersion.) However, a coarser resolution in $r$ may not always be
 adapted to resolve the physics of interest. It is therefore remarkable 
 that, with the spectral quasi-cylindrical algorithm, the correct group
-velocity is obtained, even for a fine resolution in $r$. 
+velocity is obtained, without having to specifically adapt the
+resolution in $r$.
 
 \subsection{Linear laser-wakefield}
 
 In order to further ascertain that the spectral algorithm described here gives
-appropriate results, we ran a simulation of a laser-wakefield, and
+appropriate results beyond simple dispersion tests, we ran a simulation of a laser-wakefield, and
 compared the amplitude of the wakefield with the corresponding analytical predictions.
 
 In these simulations, the laser was linearly polarized along the
@@ -921,7 +943,7 @@ lower panels are plotted (dashed line).
   position where the curves of the lower panels have been extracted. 
 Lower panels: profile of the fields at a given radial
 position, as given by \cref{eq:analytical-Ez,eq:analytical-Ey} (dashed
-line) and extracted from the simulation (red line).}
+line) or as given by the simulation (red line).}
 \end{figure}
 
 As can be seen on the lower panels of \cref{fig:Linear_wkfld}, the
@@ -943,7 +965,7 @@ For instance, spectral algorithms -- including the one described here
 -- are generally more difficult to parallelize than finite-difference
 codes. Similarly, the implementation of specific boundary
 conditions, and of a moving window, is usually more challenging in a
-spectral algorithm. On the other hand, due to their high precision,
+spectral algorithm. On the other hand, due to their high accuracy,
 spectral algorithms can avoid a
 number of numerical artifacts that are typically present in
 finite-difference algorithms. This is quite important as, in a
@@ -963,34 +985,34 @@ this section, we describe two other typical situations in which our spectral
 quasi-cylindrical algorithm avoids important artifacts, that would otherwise
 arise in a finite-difference code. 
 
-\subsection{Absence of numerical Cherenkov radiation 
-for lab-frame simulations}
+\subsection{Absence of zero-order numerical Cherenkov effect}
 
-\comment{Look at spectrum + mitigate claims}
-
-A first artifact which is avoided, in the case of lab-frame
-simulations, is numerical Cherenkov radiation. Numerical
-Cherenkov radiation is a consequence of numerical dispersion
-\citep{GodfreyJCP1974}, and arises because some relativistic particles can
-travel faster than the numerically-altered speed of the
+A first artifact which is avoided is the zero-order numerical
+Cherenkov effect. To zero order, the numerical Cherenkov effect is a 
+consequence of numerical dispersion \citep{GodfreyJCP1974}, and arises 
+because some relativistic particles can
+travel faster than the numerically-altered velocity of the
 electromagnetic waves, in the simulations. This typically causes these
 relativistic particles to emit a characteristic spurious
 radiation. Recently, it was shown that this spurious radiation
 can have a very substantial impact in
 lab-frame simulations of laser-wakefield acceleration, 
-in particular by increasing the
-emittance of the simulated accelerated beam \citep{LehePRSTAB2013}. It
+in particular by spuriously increasing the
+emittance of the accelerated beam \citep{LehePRSTAB2013}. It
 was also shown that, by modifying the PIC algorithm and its
-numerical dispersion relation, Cherenkov radiation could be
-suppressed. (We note that, in the case of boosted frame simulations,
-more complicated secondary numerical Cherenkov effects can develop, 
-which are not as easily suppressed \citep{XuJCP2013,YuJCP2014,YuCPC2015,
-GodfreyIEEE2014,GodfreyJCP2014}. However, these secondary effects seem not to
-have enough time to develop in the case of typical lab-frame simulations.) 
+numerical dispersion relation, the zero-order Cherenkov radiation can be
+suppressed. (Notice that there exists also a set of higher-order,
+\emph{aliased} numerical Cherenkov effects, which are not as easily
+suppressed \citep{XuJCP2013,YuJCP2014,YuCPC2015,
+GodfreyIEEE2014,GodfreyJCP2014}. These high-order effects can lead to
+disruptive instabilities in boosted-frame simulations, but on the
+other hand no such instability was observed in typical lab-frame
+simulations. It is in fact likely that these instabilities may not have enough time to
+develop in the case of typical lab-frame simulations.) 
 
 Since the spectral quasi-cylindrical algorithm described here is
-dispersion-free, it should not exhibit numerical Cherenkov
-radiation in the lab-frame. In order to confirm this prediction, we ran a simulation of
+dispersion-free, it should not exhibit the zero-order numerical Cherenkov
+effect. In order to confirm this prediction, we ran a simulation of
 laser-wakefield acceleration with our spectral quasi-cylindrical
 algorithm, and compared it with an equivalent simulation that uses 
 the finite-difference quasi-cylindrical algorithm of \textsc{Warp}.
@@ -1021,8 +1043,8 @@ in both the $z$ and $r$ directions.
 
 \Cref{fig:Cherenkov} shows a snapshot of the two
 simulations, at a similar physical time. The red colormap represents the quantity
-$|E_y+cB_x|$, while the superimposed shades of blue represent the electron density. (The
-quantity $E_y+cB_x$ is chosen because it corresponds to the $y$ component of
+$|E_y+cB_x|$, while the superimposed shades of blue represent the
+electron density. (The quantity $E_y+cB_x$ is chosen because it corresponds to the $y$ component of
 the Lorentz force $\vec{F} = q\vec{E} + q\vec{v}\times\vec{B}$ felt by
 a relativistic electron having $\vec{v} = c\vec{e_z}$.) As can be seen
 in the top panels, the global aspect of the bubble and of the injected
@@ -1033,16 +1055,17 @@ algorithm). However, when having a closer look at the bunch in the
 finite-difference algorithm (see the lower left panel in
 \cref{fig:Cherenkov}), it appears that the bunch emits a
 high-frequency radiation. This radiation is characteristic of the
-numerical Cherenkov effect \citep{LehePRSTAB2013}, and is
+zero-order numerical Cherenkov effect \citep{LehePRSTAB2013}, and is
 unphysical. Importantly, the amplitude of this unphysical field
 happens to be comparable to the focusing
 fields inside the bubble, and it can thus potentially affect the bunch
 in a substantial manner. On the other hand, the spectral algorithm does not
 exhibit this unphysical radiation (see the lower right panel in
 \cref{fig:Cherenkov}), as expected from its dispersion-free property. 
-This confirms the fact that, in the lab frame, our spectral
+This confirms the fact that our spectral
 quasi-cylindrical algorithm is free of
-the unphysical artifacts associated with numerical Cherenkov radiation.
+the unphysical artifacts associated with the zero-order numerical
+Cherenkov effect.
 
 \begin{figure}[!h]
 \centering
@@ -1061,7 +1084,7 @@ modified finite-difference algorithms. However, it is important to
 note that these algorithms were applicable to a Cartesian PIC code,
 but not to a quasi-cylindrical code. An adaptation to
 cylindrical geometry is proposed in \citep{LeheThesis}, and was 
-shown to efficiently suppress numerical Cherenkov. However, this
+shown to efficiently suppress zero-order numerical Cherenkov effect. However, this
 adaptation is not, strictly speaking, dispersion-free. 
 
 \subsection{Accurate force of a laser on a copropagating electron}
@@ -1101,7 +1124,7 @@ $\gamma_e = 25$. For comparison, the simulation was run, again, with both our sp
 quasi-cylindrical algorithm and the finite-difference
 quasi-cylindrical algorithm of \textsc{Warp}. In order to study
 numerical convergence, the simulations were run with a varying
-longitudinal resolution $\Delta z$, but with fixed cell aspect ratio
+longitudinal resolution $\Delta z$, but with a fixed cell aspect ratio
 $\Delta r = 10\Delta z$. The timestep was again $c\Delta t=
 1/\sqrt{1/\Delta z^2 + 2/\Delta r^2}$ for the finite-difference
 simulation and $c\Delta t = \Delta z$ for the spectral
@@ -1120,7 +1143,7 @@ The laser propagates to the right, and is polarized along $x$.}
 \end{figure}
 
 In order to assess the correctness of the force felt by the electron,
-we analyzed the evolution of its transverse momentum in
+we analyze the evolution of its transverse momentum in
 time. Analytically, it can be shown from the Lagrangian 
 $\mathcal{L} = - \sqrt{1-\vec{\beta}^2} \,mc^2 - e \vec{v} \cdot
 \vec{A}$ that the equation of motion along the $x$ axis (i.e. the axis of laser polarization) is 
@@ -1146,15 +1169,15 @@ resolution of the simulation, which confirms their spurious nature. These
 observations are consistent with those of \citep{LehePRSTAB2014}, and
 they are due to the above-mentioned erroneous calculation of the
 Lorentz force. On the other hand, in the spectral simulations, the
-evolution of $p_x/m_e c$ exhibits virtually no dependence on the
+oscillations of $p_x/m_e c$ exhibits virtually no dependence on the
 resolution. In addition, the oscillations of $p_x/m_e c$ have a realistic
 amplitude. (The fact that these oscillations do not reach exactly the
 value 0.2 may be due to the fact that $a_0$ decreases as the laser
 propagates, as a consequence of diffraction.) These observations
 confirm that the spectral quasi-cylindrical algorithm properly calculates
 the Lorentz force on the electron. This is also consistent with our
-expectations, which were based on the fact that $\vec{E}$ and $\vec{B}$ are not
-staggered in time.
+expectations, which were based on the fact that $\vec{E}$ and
+$\vec{B}$ fields are not staggered in time, in this algorithm.
 
 \begin{figure}[!h]
 \centering
@@ -1183,11 +1206,12 @@ artifacts, that are usually present in a finite-difference algorithm.
 This second aspect was tested in details in this article, through
 several benchmarks. By comparing simulations with analytical results, 
 we showed that our spectral quasi-cylindrical code is free of
-numerical dispersion, that it does not exhibit numerical Cherenkov radiation in typical lab-frame
+numerical dispersion, that it does not exhibit zero-order numerical Cherenkov
+effect in typical lab-frame
 simulations, and that it can accurately calculate the force of a
 laser on a copropagating electron. By running the
 same benchmarks with a finite-difference quasi-cylindrical algorithm, we showed that
-these numerical artifacts could, on the contrary, be present in
+these numerical artifacts can, on the contrary, be present in
 finite-difference PIC algorithms. 
 
 However, it must not be forgotten that
