@@ -285,15 +285,17 @@ ik_z\left[ \frac{\trho{n+1}}{\omega^2}\left(
 \section{Discrete Hankel Transform}
 \label{sec:HTMatrix}
 
-Here we use a transformation similar to that of \cite{Yu,Guizar,KaiMing}, but
-extend it to the case of an evenly-spaced grid in real space (as opposed to one
-that is distributed according to the zeros of the Bessel
-function). Moreover, we impose, as much as possible, that the
-succession of a Discrete Hankel Transform (DHT) and an Inverse Discrete
-Hankel Transform (IDHT) retrieve the initial function.
+\subsection{Calculation of the transformation matrices $M_{n,m}$ and $M'_{n,m}$}
 
-As explained in the text of the article, we use a matrix formalism for
-the discrete Hankel transform
+Here, for the Discrete Hankel Transform, we use a transformation
+similar to that of \cite{Yu,Guizar,KaiMing}, but
+we extend it to the case of an evenly-spaced grid in real space (as opposed to one
+that is distributed according to the zeros of the Bessel
+function, which would have been inconvenient for current deposition
+and field gathering). Moreover, we impose, as much as possible, that the
+succession of a Discrete Hankel Transform (DHT) and an Inverse Discrete
+Hankel Transform (IDHT) retrieve the initial function. As explained in
+the text of the article, we use a matrix formalism for the DHT:
 \[ \mathrm{DHT^m_n}[f] \,(k^m_{\perp,j}) = \sum_{p=0}^{N_r-1} (M_{n,m})_{j,p}
 \,f(r_p) \qquad \mathrm{IDHT^m_n}[g] \, (r_j) = \sum_{p=0}^{N_r-1}
 (M'_{n,m})_{j,p} \,g(k^m_{\perp,p}) \]
@@ -303,8 +305,9 @@ $k^m_{\perp,j}$ on which the Hankel transform is evaluated.
 In practice, as mentioned in the text, these
 transforms are only used in the cases $n=m-1$, $n=m$ or $n=m+1$.
 
-The matrices $M_{n,m}$ and $M'_{n,m}$ can be determined by a set of $N_r^2$ conditions. These
-conditions can be found, for instance, by imposing the value of the
+The $N_r\times N_r$ matrices $M_{n,m}$ and $M'_{n,m}$ can be entirely
+determined by a set of $N_r^2$ constraints. These
+constraints can be found, for instance, by imposing the value of the
 DHT for a set of $N_r$ different functions, whose exact analytical Hankel
 transforms are known. In our case, we impose that the DHT be equal to the exact analytical
 Hankel transform for the eigenmodes of a cavity with
@@ -319,15 +322,22 @@ E_r +i E_\theta \;& \; \propto  J_{m-1}(k^m_{\perp,\ell} \,r)
 \end{align*}
 where $\Theta$ is the Heaviside function and where $k^m_{\perp,\ell} =
 \alpha^m_\ell / r_{max}$, with $\alpha^m_\ell$ the $\ell$th positive zero of
-the Bessel function of order $m$. These eigenmodes form an othogonal basis of
-functions for the chosen boundary condition. The exact Hankel
-transform of these modes, evaluated on the discrete set
-$\{k^m_{\perp,j} \}$ reads (see relation 11.4.5 in \cite{Abramowitz}).
-\[ \mathrm{HT}_{n}[ \; J_n(k^m_{\perp,\ell} \,r)  \Theta(r_{max}-r)  \;] \,(k^m_{\perp,j} )
-\quad \equiv 2\pi \rInteg \; J_n (k^m_{\perp,\ell} r) J_n (k^m_{\perp,j} r)
-\quad = \pi\, r_{max}^2\,[ J_{m-1}(\alpha_\ell^m)]^2 \; \delta_{j,\ell} \]
-where $n$ is either $m-1$, $m$ or $m+1$. (Notice that the final
-result actually does not depend on $n$.) Here we impose that the DHT of these functions has the same value for $(j,\ell) \in \{ 0,..., N_r - 1\}$.
+the Bessel function of order $m$. 
+%These eigenmodes form an othogonal basis of
+%functions for the chosen boundary condition. 
+The exact Hankel transform of these modes, evaluated on the discrete set
+$\{k^m_{\perp,j} \}$ reads (see \ref{sec:HT-expression} for a derivation)
+\begin{equation} 
+\label{eq:HT-expression}
+\mathrm{HT}_{n}[ \; J_n(k^m_{\perp,\ell} \,r)  \Theta(r_{max}-r)  \;] \,(k^m_{\perp,j} )
+\quad \equiv 2\pi \rInteg \; J_n (k^m_{\perp,j} r) J_n (k^m_{\perp,\ell} r)
+\quad = \pi\, r_{max}^2\,[ J_{m-1}(\alpha_\ell^m)]^2 \;\delta_{j,\ell} 
+\end{equation}
+where $n$ is either $m-1$, $m$ or $m+1$. Note that the above relation
+is valid for any value of $n$, $m$, $j$, $\ell$, except in the case
+where $n \neq 0$, $m \neq 0$ and $\ell = 0$ simultaneously (again, see
+\ref{sec:HT-expression} for an explanation). Here we impose that the DHT is consistent with
+\cref{eq:HT-expression}, where applicable.
 \begin{equation}
 \label{eq:DHT-matrix}
 \mathrm{DHT}^m_{n}[ \; J_n(k^m_{\perp,\ell} \,r) \Theta(r_{max}-r)  \;] \,(k^m_{\perp,j}) 
@@ -336,8 +346,11 @@ result actually does not depend on $n$.) Here we impose that the DHT of these fu
 \quad = \pi\, r_{max}^2\,[ J_{m-1}(\alpha_j^m)]^2 \; \delta_{j,\ell} 
 \end{equation}
 
-\paragraph{Case in which $n=0$ or $m=0$:}
-In this case, \cref{eq:DHT-matrix} imposes $N_r^2$ conditions on the matrix
+\paragraph{In the case where $n=0$ or $m=0$:}
+In this case, \cref{eq:DHT-matrix} is applicable for any $j$ and
+$\ell$, and we impose it for 
+
+imposes $N_r^2$ conditions on the matrix
 $M_{n,m}$ and thus allows one to completely determine it. 
 In fact, a closer look at the above relations shows
 that the inverse matrix $M^{-1}_{n,m}$ can be directly extracted from the above relations,
@@ -376,3 +389,7 @@ done towards better Hankel transform representation.
 %(In the case $m>0,n>0$, the above expression is modified for $\ell=0$ and
 %is replaced by $ (M_{n,m}^{-1})_{p,0} = \frac{ J_m(k^m_{\perp,N_r}\,r_p) } { \pi\,
  % r_{max}^2\,[ J_{m-1}(\alpha_{N_r}^m)]^2  }$.)
+
+
+\subsection{Derivation of \cref{eq:HT-expression}}
+\label{sec:HT-expression}
