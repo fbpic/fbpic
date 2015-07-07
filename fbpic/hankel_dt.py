@@ -314,6 +314,8 @@ class DHT(object) :
                 self.M = np.linalg.inv(self.invM)
                 # Put the modified row back to 0
                 self.invM[0,:] = 0.
+                # Put also the corresponding line in M to 0
+                self.M[:,0] = 0
             else :
                 self.M = np.linalg.inv( self.invM )
                 
