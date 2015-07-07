@@ -60,7 +60,7 @@ abstract = {A quasi-discrete Hankel transform (QDHT) is presented as a new and e
   publisher = {American Physical Society}
 }
 
-@article{XuJCP2013,
+@article{XuCPC2013,
 title = "Numerical instability due to relativistic plasma drift in EM-PIC simulations ",
 journal = "Computer Physics Communications ",
 volume = "184",
@@ -625,3 +625,84 @@ abstract = "The new method of local electric current density assignment in the P
 }
 
 
+@book{godfrey1985iprop,
+  title={The IPROP Three-Dimensional Beam Propagation Code},
+  author={Godfrey, B.B.},
+  url={https://books.google.com/books?id=hos\_OAAACAAJ},
+  year={1985},
+  publisher={Defense Technical Information Center}
+}
+
+@article{VayJCP2011,
+title = "Numerical methods for instability mitigation in the modeling of laser wakefield accelerators in a Lorentz-boosted frame ",
+journal = "Journal of Computational Physics ",
+volume = "230",
+number = "15",
+pages = "5908 - 5929",
+year = "2011",
+note = "",
+issn = "0021-9991",
+doi = "http://dx.doi.org/10.1016/j.jcp.2011.04.003",
+url = "http://www.sciencedirect.com/science/article/pii/S0021999111002270",
+author = "J.-L. Vay and C.G.R. Geddes and E. Cormier-Michel and D.P. Grote",
+keywords = "Laser wakefield acceleration",
+keywords = "Particle-in-cell",
+keywords = "Plasma simulation",
+keywords = "Special relativity",
+keywords = "Boosted frame",
+keywords = "Numerical instability ",
+abstract = "Modeling of laser-plasma wakefield accelerators in an optimal frame of reference [1] has been shown to produce orders of magnitude speed-up of calculations from first principles. Obtaining these speedups required mitigation of a high-frequency instability that otherwise limits effectiveness. In this paper, methods are presented which mitigated the observed instability, including an electromagnetic solver with tunable coefficients, its extension to accommodate Perfectly Matched Layers and Friedman’s damping algorithms, as well as an efficient large bandwidth digital filter. It is observed that choosing the frame of the wake as the frame of reference allows for higher levels of filtering or damping than is possible in other frames for the same accuracy. Detailed testing also revealed the existence of a singular time step at which the instability level is minimized, independently of numerical dispersion. A combination of the techniques presented in this paper prove to be very efficient at controlling the instability, allowing for efficient direct modeling of 10&#xa0;GeV class laser plasma accelerator stages. The methods developed in this paper may have broader application, to other Lorentz-boosted simulations and Particle-In-Cell simulations in general. "
+}
+
+@article{Warpref,
+  author={J-L Vay and D P Grote and R H Cohen and A Friedman},
+  title={Novel methods in the Particle-In-Cell accelerator Code-Framework Warp},
+  journal={Computational Science \& Discovery},
+  volume={5},
+  number={1},
+  pages={014019},
+  url={http://stacks.iop.org/1749-4699/5/i=1/a=014019},
+  year={2012},
+  abstract={The Particle-In-Cell (PIC) Code-Framework Warp is being developed by the Heavy Ion Fusion Science Virtual National Laboratory (HIFS-VNL) to guide the development of accelerators that can deliver beams suitable for high-energy density experiments and implosion of inertial fusion capsules. It is also applied in various areas outside the Heavy Ion Fusion program to the study and design of existing and next-generation high-energy accelerators, including the study of electron cloud effects and laser wakefield acceleration for example. This paper presents an overview of Warp's capabilities, summarizing recent original numerical methods that were developed by the HIFS-VNL (including PIC with adaptive mesh refinement, a large-timestep ‘drift-Lorentz’ mover for arbitrarily magnetized species, a relativistic Lorentz invariant leapfrog particle pusher, simulations in Lorentz-boosted frames, an electromagnetic solver with tunable numerical dispersion and efficient stride-based digital filtering), with special emphasis on the description of the mesh refinement capability. Selected examples of the applications of the methods to the abovementioned fields are given.}
+}
+
+@article{GodfreyJCP2013,
+title = "Numerical stability of relativistic beam multidimensional \{PIC\} simulations employing the Esirkepov algorithm ",
+journal = "Journal of Computational Physics ",
+volume = "248",
+number = "0",
+pages = "33 - 46",
+year = "2013",
+note = "",
+issn = "0021-9991",
+doi = "http://dx.doi.org/10.1016/j.jcp.2013.04.006",
+url = "http://www.sciencedirect.com/science/article/pii/S0021999113002556",
+author = "Brendan B. Godfrey and Jean-Luc Vay",
+keywords = "Particle-in-cell",
+keywords = "Esirkepov algorithm",
+keywords = "Relativistic beam",
+keywords = "Numerical stability ",
+abstract = "Abstract Rapidly growing numerical instabilities routinely occur in multidimensional particle-in-cell computer simulations of plasma-based particle accelerators, astrophysical phenomena, and relativistic charged particle beams. Reducing instability growth to acceptable levels has necessitated higher resolution grids, high-order field solvers, current filtering, etc. except for certain ratios of the time step to the axial cell size, for which numerical growth rates and saturation levels are reduced substantially. This paper derives and solves the cold beam dispersion relation for numerical instabilities in multidimensional, relativistic, electromagnetic particle-in-cell programs employing either the standard or the Cole–Karkkainnen finite difference field solver on a staggered mesh and the common Esirkepov current-gathering algorithm. Good overall agreement is achieved with previously reported results of the \{WARP\} code. In particular, the existence of select time steps for which instabilities are minimized is explained. Additionally, an alternative field interpolation algorithm is proposed for which instabilities are almost completely eliminated for a particular time step in ultra-relativistic simulations. "
+}
+
+@article{GodfreyCPC2015,
+title = "Improved numerical Cherenkov instability suppression in the generalized \{PSTD\} \{PIC\} algorithm ",
+journal = "Computer Physics Communications ",
+volume = "",
+number = "0",
+pages = " - ",
+year = "2015",
+note = "",
+issn = "0010-4655",
+doi = "http://dx.doi.org/10.1016/j.cpc.2015.06.008",
+url = "http://www.sciencedirect.com/science/article/pii/S0010465515002532",
+author = "Brendan B. Godfrey and Jean-Luc Vay",
+keywords = "Particle-in-cell",
+keywords = "Pseudo-Spectral Time-Domain",
+keywords = "Relativistic beam",
+keywords = "Numerical stability ",
+abstract = "Abstract The family of generalized Pseudo-Spectral Time Domain (including the Pseudo-Spectral Analytical Time Domain) Particle-in-Cell algorithms offers substantial versatility for simulating particle beams and plasmas, and well written codes using these algorithms run reasonably fast. When simulating relativistic beams and streaming plasmas in multiple dimensions, they are, however, subject to the numerical Cherenkov instability. Previous studies have shown that instability growth rates can be reduced substantially by modifying slightly the transverse fields as seen by the streaming particles. Here, we offer an approach which completely eliminates the fundamental mode of the numerical Cherenkov instability while minimizing the transverse field corrections. The procedure, numerically computed residual growth rates (from weaker, higher order instability aliases), and comparisons with simulations using the code Warp are presented. In some instances, there are no numerical instabilities whatsoever, at least in the linear regime. "
+}
+
+
+	

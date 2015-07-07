@@ -64,7 +64,7 @@
 \begin{document}
 
 \begin{abstract}
-We propose a spectral Particle-In-Cell (PIC) algorithm which is based 
+We propose a spectral Particle-In-Cell (PIC) algorithm that is based 
 on the combination of a Hankel transform and a Fourier transform. 
 For physical problems that have close-to-cylindrical symmetry, this
 algorithm can be much faster than full 3D PIC algorithms. In addition,
@@ -84,21 +84,21 @@ Particle-In-Cell (PIC) algorithms \citep{Birdsall2004,Hockney1988}
 are extensively used in several areas of physics, including the study
 of astrophysical plasmas, fusion plasmas, laser-plasma
 interactions and accelerator physics. Yet,
-despite their wide use, PIC algorithms remain very computationally
-demanding and are still subject to a range of numerical artifacts. 
+despite their wide use, PIC algorithms can be very computationally
+demanding, especially in three-dimensions, and are still subject to a range of numerical artifacts. 
 These shortcomings can be particularly significant when simulating 
 accelerated particle beams, or 
-laser-plasma interactions (such as laser-wakefield acceleration). 
-This is mainly for two reasons:
+laser-plasma interactions (such as laser-wakefield acceleration) for two reasons:
 \begin{itemize}
-\item In these particular cases, the system often has close-to-cylindrical
+\item 
+these systems often have close-to-cylindrical
   symmetry (e.g. particle beams and laser pulses are often
   cylindrically symmetric). This prevents the use of 2D Cartesian 
-PIC algorithms (which are only well-suited for slab-like symmetry),
+or 2D cylindrical PIC algorithms (which are only well-suited for slab-like and azimuthal symmetry),
 and is instead often dealt with by using
-  3D Cartesian PIC algorithms. However, 3D PIC algorithms are very 
-computationally expensive.
-\item The physical objects of interest (e.g. the laser, or the
+  3D Cartesian PIC algorithms, which can be very 
+computationally expensive; 
+\item the physical objects of interest (e.g. the laser, or the
   accelerated particle beam) often propagate close to the speed of
   light. This makes them very sensitive to \emph{numerical
     dispersion}, i.e. the fact that the electromagnetic waves do not
@@ -113,13 +113,13 @@ e.g. the erroneous prediction of the dephasing length in
 laser-wakefield acceleration \citep{CowanPRSTAB2013}.
 
 \end{itemize}
-Yet several improvements can be made to the PIC algorithm, in order
+Yet several modifications can be made to the PIC algorithm, in order
 to mitigate these difficulties and increase the speed and
-accuracy of the simulations in these physical situations. 
+accuracy of the simulations in these physical situations: 
 \begin{itemize}
-\item One of these improvements is the recent
-  development of cylindrically-symmetric
-PIC algorithms with azimuthal Fourier decomposition \citep{Lifschitz,Davidson} 
+\item one of these modifications is the development of cylindrically-symmetric
+PIC algorithms with azimuthal Fourier decomposition \citep{godfrey1985iprop,Lifschitz,Davidson} 
+of the electromagnetic field components 
 (sometimes refered to as \emph{quasi-3D} algorithms, or as
 \emph{quasi-cylindrical} algorithms as we do here). By taking
 into account the symmetry of the system, these algorithms can typically reduce
@@ -128,25 +128,24 @@ instead of that of a full 3D Cartesian simulation. Moreover, unlike 2D
 Cartesian algorithms, these algorithms are well adapted to close-to-cylindrical
 physical systems and can accurately capture physical effects that are intrisically
 3D (such as e.g. the non-linear self-focusing of an intense laser in a
-plasma \citep{EsareyRMP2009}).
+plasma \citep{EsareyRMP2009});
 
-\item A second, separate improvement was introduced by the development
+\item a second, separate modification was introduced by the development
   of \emph{spectral} Cartesian PIC algorithms
-  \citep{BunemanJCP1980,DawsonRMP1983} i.e. algorithms that solve the
+  \citep{Haber,BunemanJCP1980,DawsonRMP1983} i.e. algorithms that solve the
   Maxwell equations in Fourier space. These algorithms contrast with
   \emph{finite-difference} algorithms, which solve the Maxwell equations
   by approximating the derivatives as finite differences on a discrete spatial grid.
-Importantly, while finite-difference algorithm often suffer from
+Importantly, while finite-difference algorithm suffer from
 numerical dispersion, there is a class of spectral algorithms -- often refered to
 as \emph{Pseudo-Spectral Analytical Time Domain} (PSATD) algorithms 
-\citep{Haber} -- which exhibits no numerical dispersion whatsoever. As a
+\citep{Haber,BunemanJCP1980} -- which exhibits no numerical dispersion whatsoever. As a
 consequence, these algorithms are free from the associated numerical
 artifacts. Moreover, it was shown recently
-\citep{XuJCP2013,YuJCP2014,YuCPC2015,
-GodfreyIEEE2014,GodfreyJCP2014} 
+\citep{GodfreyJCP2014,GodfreyIEEE2014,YuJCP2014,YuCPC2015} 
 that spectral PIC algorithms have better stability properties when 
 performing PIC simulations in
-a Lorentz-boosted frame \citep{VayPRL2007,MartinsNatPhys2010}. 
+a Lorentz-boosted frame \citep{VayPRL2007,MartinsNatPhys2010,VayJCP2011}. 
 These stability properties are very
 promising since boosted-frame simulations can be faster than 
 their laboratory-frame counterparts by several orders of magnitude \citep{VayPRL2007}.
@@ -456,8 +455,8 @@ spectral grid ($\spectral{F}_{u,m}$). Note that, in the PSATD
 scheme that we chose (and which is described in more details in
 \cref{sec:FieldIntegration}), all the fields are defined at integer
 timesteps, except for the currents, which are defined at half
-timesteps. The subsections 
-\cref{sec:sec:gathering,sec:eq-motion,sec:current-deposition,sec:FieldIntegration} 
+timesteps.  
+\cref{sec:gathering,sec:eq-motion,sec:current-deposition,sec:FieldIntegration} 
 describe the successive steps of the PIC cycle in more details.
 
 \begin{figure}
@@ -484,15 +483,15 @@ On the other hand, there are a variety of existing algorithms (that are not math
 equivalent) to discretize the Hankel
 transform (e.g. \citep{Cree,Yu,Siegman,Guizar,KaiMing}), and the use of one or the other
 is very dependent on the application pursued. Broadly
-speaking, chosing an algorithm for the Discrete Hankel Transform (DHT)
-algorithms consists in 
+speaking, choosing an algorithm for the Discrete Hankel Transform (DHT)
+algorithms consists in:
 \begin{itemize}
-\item Choosing a discrete grid in $r$ and $k_\perp$ space, on which to
+\item choosing a discrete grid in $r$ and $k_\perp$ space, on which to
   sample the functions to be transformed. In some algorithms, these
   grids may not be evenly-spaced, and can be for instance
   logarithmically spaced \citep{Siegman} or can correspond to the zeros of
-  Bessel functions \citep{Yu,Guizar,KaiMing}.
-\item Once a grid is chosen, the DHT amounts to a linear operation on a
+  Bessel functions \citep{Yu,Guizar,KaiMing},
+\item once a grid is chosen, the DHT amounts to a linear operation on a
   finite set of points (the points of the grid) and can thus be
   represented by a matrix. Thus the second choice is that of a matrix
   that represents, as closely as possible, the exact Hankel Transform.
@@ -553,7 +552,7 @@ iteration. Notice also that the computational time for this
 matrix multiplication is proportional to $N_r^2$, which is slow
 compared to a 1D FFT ($\propto N_r \log(N_r)$), but
 still faster than the 2D FFT ($\propto N_x N_y \log(N_x) + N_x N_y \log(N_y) $)
-which is typically used in a spectral 3D Cartesian code. 
+which is typically used in the transverse plane of a spectral 3D Cartesian code. 
 
 
 \subsection{Field gathering}
@@ -589,6 +588,10 @@ S_{z,p +1}(z) = \frac{ z - z_{p} }{\Delta z} \qquad
 \qquad S_{r,q+1}(r) = \frac{ r - r_{q} }{  \Delta r }
 \qquad \mathrm{with} \quad r_{q} \leq r < r_{q+1}
  \]
+\noindent \comment{Note that we use linear shape factors here only for
+the sake of simplicity, and that higher-order shape factors
+(e.g. quadratic or cubic) could also be used in principle.}
+ 
 %\noindent Additionally, for particles that are located in the first half of the first
 %cell ($0< r < \Delta r/2$), the shape $S_{r,0}$ is modified and reads
 %\[ S_{r,0}(r) = \frac{2r}{\Delta r} \]
@@ -631,7 +634,7 @@ FFT and a DHT (see \cref{fig:GlobalScheme}).
 Smoothing is then typically applied on the charge and currents, after they
 have been deposited (but no smoothing is applied on the
 fields $E$ and $B$ directly). This is done in order to avoid the accumulation
-of noise at high frequency, in the simulations. This smoothing
+of noise at high frequency in the simulations. This smoothing
 is performed directly in spectral space, by multiplying the charge
 and currents by a transfer function $\spectral{T}(k_z, k_\perp)$ which
 damps the high frequencies $\vec{k}$, and whose mathematical form is
@@ -648,7 +651,7 @@ reproduce the Esirkepov current deposition \citep{Esirkepov}, and instead use a
 simple direct current deposition. It is well-known that this simple deposition does not necessarily
 satisfy the relation $\partial_t\rho + \vec{\nabla}\cdot\vec{j} =
 0$, but that this can be corrected for, by slightly modifying the
-currents without modifying their curl:
+currents without modifying their curl \citep{VayJCP2013}:
 \[ \vec{j}' = \vec{j} - \vec{\nabla} G \]
 where $G$ satisfies the Poisson-like equation
 \[ \vec{\nabla}^2 G = \partial_t\rho + \vec{\nabla}\cdot\vec{j} \]
@@ -748,6 +751,7 @@ derivation of these equations.)
 
 \subsection{Practical implementation}
 
+% add references (web sites) for Python, FFTW, BLAS and Numba
 The full PIC algorithm described in this section was implemented in a
 code written in Python. For performance, this implementation makes use of the
 pre-compiled libraries FFTW and BLAS (for the matrix multiplication
@@ -774,13 +778,13 @@ measuring its group velocity in the simulation. These simulations were
 run with the spectral quasi-cylindrical algorithm presented in
 \cref{sec:implementation}, but also, for comparison, with a finite-difference quasi-cylindrical
 algorithm equivalent to that of \cite{Lifschitz,Davidson} and which had
-been previously implemented in the PIC code \textsc{Warp}.
+been previously implemented in the PIC code \textsc{Warp} \citep{Warpref}.
 
 The simulations were run with a moving window, in a box with a
 longitudinal size of 40 $\mu$m and a transverse size of 48 $\mu$m. (In
 the case of the spectral algorithm, the fields were damped at the back
 of the moving window, in a similar way as in \citep{YuIPAC2015}, in
-order to prevent periodic wrapping of the fields)
+order to prevent periodic wrapping of the fields).
 The laser pulse itself was initialized at focus, with a waist 
 $w_0 = 16 \;\mathrm{\mu m}$, a length $L = 10 \; \mathrm{\mu m}$,
 a wavelength $\lambda = 0.8 \; \mathrm{\mu m}$ and a 
@@ -886,12 +890,14 @@ dealt with in finite-difference codes by either using an even finer grid in
 $z$ (which is very computationally expensive) or
 a \emph{coarser} grid in $r$. (Recall that, in the simulations shown here, $\Delta r = 5\Delta
 z$. A coarser resolution in $r$ allows to
-use a larger timestep $\Delta t$, which improves numerical
-dispersion.) However, a coarser resolution in $r$ may not always be
-adapted to resolve the physics of interest. It is therefore remarkable 
+use a slightly larger timestep $\Delta t$ that approaches $c\Delta z$, the limit 
+at which numerical dispersion vanishes in the $z$-direction.) 
+However, a coarser resolution in $r$ may not always be
+adapted to resolve the physics of interest, while a finer resolution in $z$ 
+is expensive. It is therefore remarkable 
 that, with the spectral quasi-cylindrical algorithm, the correct group
-velocity is obtained, without having to specifically adapt the
-resolution in $r$.
+velocity is obtained independently of the cell aspect ratio, without having to 
+specifically adapt the resolution in $r$ or $z$.
 
 \subsection{Linear laser-wakefield}
 
@@ -952,7 +958,7 @@ the validity of our PIC algorithm. This agreement is all
 the more remarkable as the $E_z$ field has been extracted from the cells
 that are closest to the axis, a region where quasi-cylindrical algorithms
 are typically very noisy.
-
+% add comparison with Warp-circ to show advantage over FDTD-circ?
 
 \section{Advantages over finite-difference algorithms}
 \label{sec:advantages}
@@ -1003,11 +1009,13 @@ was also shown that, by modifying the PIC algorithm and its
 numerical dispersion relation, the zero-order Cherenkov radiation can be
 suppressed. (Notice that there exists also a set of higher-order,
 \emph{aliased} numerical Cherenkov effects, which are not as easily
-suppressed \citep{XuJCP2013,YuJCP2014,YuCPC2015,
-GodfreyIEEE2014,GodfreyJCP2014}. These high-order effects can lead to
+suppressed \citep{GodfreyJCP2013,XuCPC2013,GodfreyJCP2014,
+GodfreyIEEE2014,YuJCP2014,YuCPC2015,GodfreyCPC2015}. 
+These high-order effects can lead to
 disruptive instabilities in boosted-frame simulations, but on the
 other hand no such instability was observed in typical lab-frame
-simulations. It is in fact likely that these instabilities may not have enough time to
+simulations of laser-plasma acceleration. 
+It is in fact likely that these instabilities may not have enough time to
 develop in the case of typical lab-frame simulations.) 
 
 Since the spectral quasi-cylindrical algorithm described here is
@@ -1052,43 +1060,50 @@ bunch is similar in both simulations. In particular, the injected
 charge was found to be almost the same (766~pC with the
 finite-difference algorithm and 750~pC with the spectral
 algorithm). However, when having a closer look at the bunch in the
-finite-difference algorithm (see the lower left panel in
+finite-difference algorithm (see the middle left panel in
 \cref{fig:Cherenkov}), it appears that the bunch emits a
-high-frequency radiation. This radiation is due to the
-zero-order numerical Cherenkov effect, a fact which is confirmed by
-the observation of the corresponding characteristic parabola in
-$\vec{k}$ space \citep{LehePRSTAB2013,XuJCP2013}, on \cref{fig:Cherenkov-spectrum}. 
-Importantly, the amplitude of this unphysical field
+high-frequency radiation. \comment{This radiation seems to be due to the
+zero-order numerical Cherenkov effect -- an interpretation which is confirmed by
+the observation of the corresponding characteristic double-parabola in
+$\vec{k}$ space \citep{LehePRSTAB2013,XuCPC2013} on the lower left
+panel of \cref{fig:Cherenkov}. Importantly, the amplitude of this
+unphysical field, in the middle panel of \cref{fig:Cherenkov}, 
 happens to be comparable to the focusing
 fields inside the bubble, and it can thus potentially affect the bunch
 in a substantial manner. On the other hand, the spectral algorithm does not
-exhibit this unphysical radiation (see the lower right panel in
-\cref{fig:Cherenkov}), as expected from its dispersion-free property. 
-This confirms the fact that our spectral
-quasi-cylindrical algorithm is free of
+exhibit this unphysical radiation in real space (see the middle right panel in
+\cref{fig:Cherenkov}), nor does it exhibit the corresponding
+characteristic pattern in $\vec{k}$ space (see the lower right
+panel). This was indeed expected from its dispersion-free property, 
+and it confirms the fact that our spectral quasi-cylindrical algorithm is free of
 the unphysical artifacts associated with the zero-order numerical
-Cherenkov effect.
+Cherenkov effect.}
 
 \begin{figure}[!h]
 \centering
 \includegraphics[width=\textwidth]{figures/Cherenkov.png}
-\caption{\label{fig:Cherenkov}Snapshot of a finite-difference
+\caption{\label{fig:Cherenkov}\comment{Snapshot of a finite-difference
   simulation (left) and of a spectral simulation (right), at a similar
-  physical time. The superimposed blue shades represent the electron
-  density. The lower panels show the region surrounding the
-  bunch in more details.}
+  physical time. Upper panels: Aspect of the bubble in real space ; 
+the superimposed blue shades represent the electron
+  density. Middle panels: More detailed view of the region surrounding the
+  bunch. Lower panels: two-dimensional Fourier transform of the
+  quantity $E_y + cB_x$ ; the central spot around $k_z=0$ corresponds
+  to the physical fields, while the double-parabola in the left panel
+  is a signature of the zero-order Cherenkov effect.}}
 \end{figure}
 
-\begin{figure}[!h]
-\centering
-\includegraphics[width=0.9\textwidth]{figures/Cherenkov-spectrum.png}
-\caption{\label{fig:Cherenkov-spectrum}Spectrum of the electric field in the
-  finite-difference simulation. This spectrum corresponds to the
-  fields plotted in the left panels of \cref{fig:Cherenkov}. We used
-  \cref{eq:CircFwTransp} to calculate the spectral component $\mathcal{E}_{+,1}$
-  from the electric field $E$ in real-space. The spectrum displays the
-characteristic parabola of the zero-order Cherenkov effect.}
-\end{figure}
+%\begin{figure}[!h]
+%\centering
+%\includegraphics[width=0.9\textwidth]{figures/Cherenkov-spectrum.png}
+%\caption{\label{fig:Cherenkov-spectrum}Spectrum of the electric field in the
+ % finite-difference simulation. This spectrum corresponds to the
+  %fields plotted in the left panels of \cref{fig:Cherenkov}. We used
+ % \cref{eq:CircFwTransp} to calculate the spectral component $\mathcal{E}_{+,1}$
+  %from the electric field $E$ in real-space. The spectrum displays the
+%characteristic parabola of the zero-order Cherenkov effect.}
+% show also spectrum of PSATD-circ run?
+%\end{figure}
 
 
 For completeness, we remark that a similar suppression of the
