@@ -358,7 +358,7 @@ since this inverse matrices is defined by the relation $\sum_p (M_{n,m})_{j,p}
 (M^{-1}_{n,m})_{p,\ell} = \delta_{j,\ell}$. Thus, from the above
 relations, one can directly infer:
 \[ (M_{n,m}^{-1})_{p,\ell} = \frac{ J_n(k^m_{\perp,\ell}\,r_p) } { \pi\,
-  r_{max}^2\,[ J_{m-1}(\alpha_\ell^m)]^2  } \]
+  r_{max}^2\,[ J_{n+\delta_{n,m}}(\alpha_\ell^m)]^2  } \]
 
 \noindent The matrix $M_{n,m}$ can then be extracted, by numerically inverting
 the matrices  $M^{-1}_{n,m}$ given by the above expression. In
@@ -371,20 +371,19 @@ equation \cref{eq:DHT-matrix} is not valid for $\ell=0$, and thus it
 provides only $N_r(N_r-1)$ constraints on the matrix $M_{n,m}$, which
 is not enough to completely determine it. In this case, we use an
 empirical method in which we impose the additional constraints
-\[ \mathrm{DHT}^m_{n}[ \; J_n(k^m_{\perp,N_r} \,r) \Theta(r_{max}-r)  \;] \,(k^m_{\perp,j}) 
-\quad \equiv \sum_{p=0}^{N_r-1} (M_{n,m})_{j,p}
-  J_n(k^m_{\perp,N_r}\,r_p) 
-\quad = \pi\, r_{max}^2\,[ J_{n+\delta_{n,m}}(\alpha_{N_r}^m)]^2 \;\delta_{j,0} \]
-\noindent for any $j$ in $\{ 0,..., N_r-1 \}$. This constraint is
-linearly independent from the previous ones, and thus ensures that
-$M_{n,m}$ is invertible. Following the same method as in the case
-where $n=0$ or $m=0$, the matrix $M^{-1}_{n,m}$ can be directly read
-from the imposed constraints, and a numerical inversion provides
-$M_{n,m}$. In addition, to obtain $M'_{n,m}$, we impose
-$ (M'_{n,m})_{p,\ell}= (M^{-1}_{n,m})_{p,\ell}$ for any $\ell \in \{1,
-..., N_r-1 \}$, but also $(M'_{n,m})_{p,\ell}=0$ for
-$\ell=0$. This is done empirically in order to avoid the apparition of spurious
-noise in the mode corresponding to $k^m_{\perp, 0}$. We note that the
+\[ (M_{n,m})_{0,p} = 0 \qquad \mathrm{for} \quad p \in \{ 0, ...,
+N_r-1 \} \]
+\noindent This constraint is imposed because we choose the amplitude of the
+Hankel mode proportional to $J_{n}(k^m_0 r)$ to be 0 in the
+simulation. (For $n\neq 0$ and $m \neq 0$, $J_n(k^m_0 r)=0$ for any
+$r$, so that the amplitude of the corresponding mode has no physical
+meaning whatsoever.) This allows to determine the matrix
+$M_{n,m}$ entirely. In addition, to obtain $M'_{n,m}$, we impose
+$ (M'_{n,m})_{p,\ell}=\frac{ J_n(k^m_{\perp,\ell}\,r_p) } { \pi\,
+  r_{max}^2\,[ J_{n+\delta_{n,m}}(\alpha_\ell^m)]^2  }$ for any $\ell \in \{1,
+..., N_r-1 \}$ (as in the case $n=0$ or $m=0$), but also $(M'_{n,m})_{p,\ell}=0$ for
+$\ell=0$. This is done again for consistency with the fact that
+$J_n(k^m_0 r)=0$. We note that the
 above method gives satisfying results for $m=1$ but not for $m=2$. 
 In the future, further work will be done towards a better Hankel transform representation.
 
