@@ -588,9 +588,9 @@ S_{z,p +1}(z) = \frac{ z - z_{p} }{\Delta z} \qquad
 \qquad S_{r,q+1}(r) = \frac{ r - r_{q} }{  \Delta r }
 \qquad \mathrm{with} \quad r_{q} \leq r < r_{q+1}
  \]
-\noindent \comment{Note that we use linear shape factors here only for
+\noindent Note that we use linear shape factors here only for
 the sake of simplicity, and that higher-order shape factors
-(e.g. quadratic or cubic) could also be used in principle.}
+(e.g. quadratic or cubic) could also be used in principle.
  
 %\noindent Additionally, for particles that are located in the first half of the first
 %cell ($0< r < \Delta r/2$), the shape $S_{r,0}$ is modified and reads
@@ -1062,7 +1062,7 @@ finite-difference algorithm and 750~pC with the spectral
 algorithm). However, when having a closer look at the bunch in the
 finite-difference algorithm (see the middle left panel in
 \cref{fig:Cherenkov}), it appears that the bunch emits a
-high-frequency radiation. \comment{This radiation seems to be due to the
+high-frequency radiation. This radiation seems to be due to the
 zero-order numerical Cherenkov effect -- an interpretation which is confirmed by
 the observation of the corresponding characteristic double-parabola in
 $\vec{k}$ space \citep{LehePRSTAB2013,XuCPC2013} on the lower left
@@ -1077,12 +1077,12 @@ characteristic pattern in $\vec{k}$ space (see the lower right
 panel). This was indeed expected from its dispersion-free property, 
 and it confirms the fact that our spectral quasi-cylindrical algorithm is free of
 the unphysical artifacts associated with the zero-order numerical
-Cherenkov effect.}
+numerical Cherenkov effect.
 
 \begin{figure}[!h]
 \centering
 \includegraphics[width=\textwidth]{figures/Cherenkov.png}
-\caption{\label{fig:Cherenkov}\comment{Snapshot of a finite-difference
+\caption{\label{fig:Cherenkov}Snapshot of a finite-difference
   simulation (left) and of a spectral simulation (right), at a similar
   physical time. Upper panels: Aspect of the bubble in real space ; 
 the superimposed blue shades represent the electron
@@ -1090,7 +1090,7 @@ the superimposed blue shades represent the electron
   bunch. Lower panels: two-dimensional Fourier transform of the
   quantity $E_y + cB_x$ ; the central spot around $k_z=0$ corresponds
   to the physical fields, while the double-parabola in the left panel
-  is a signature of the zero-order Cherenkov effect.}}
+  is a signature of the zero-order Cherenkov effect.}
 \end{figure}
 
 %\begin{figure}[!h]
