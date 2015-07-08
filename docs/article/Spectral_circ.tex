@@ -57,7 +57,7 @@
 \author[label1]{Jean-Luc {Vay}}
 
 \address[label1]{Lawrence Berkeley National Laboratory, Berkeley, CA 94720, USA}
-\address[label2]{DESY, 22607 Hamburg, Germany}
+\address[label2]{Center for Free-Electron Laser Science \& Department of Physics, University of Hamburg, 22761 Hamburg, Germany}
 \address[label3]{LOA, 91761 Palaiseau, France}
 \address[label4]{University of Maryland, College Park, MD 20742, USA}
 
@@ -69,7 +69,7 @@ on the combination of a Hankel transform and a Fourier transform.
 For physical problems that have close-to-cylindrical symmetry, this
 algorithm can be much faster than full 3D PIC algorithms. In addition,
 unlike standard finite-difference PIC codes, the proposed algorithm is free of numerical
-dispersion. This algorithm is benchmarked here in several situations that
+dispersion. This algorithm is benchmarked in several situations that
 are of interest for laser-plasma interactions. These
 benchmarks show that it avoids a number of numerical artifacts, that
 would otherwise affect the physics in a standard PIC algorithm -- 
@@ -107,7 +107,7 @@ computationally expensive;
   resolution-dependent velocity. In the above-mentioned cases, 
 numerical dispersion can lead to substantial numerical artifacts
 which can mask or disrupt the physics at stake in the simulation. This
-includes for instance numerical Cherenkov effect in general
+includes for instance numerical Cherenkov effects in general
 \citep{GodfreyJCP1974}, but also more specific artifacts, such as
 e.g. the erroneous prediction of the dephasing length in
 laser-wakefield acceleration \citep{CowanPRSTAB2013}.
@@ -120,13 +120,13 @@ accuracy of the simulations in these physical situations:
 \item one of these modifications is the development of cylindrically-symmetric
 PIC algorithms with azimuthal Fourier decomposition \citep{godfrey1985iprop,Lifschitz,Davidson} 
 of the electromagnetic field components 
-(sometimes refered to as \emph{quasi-3D} algorithms, or as
+(sometimes referred to as \emph{quasi-3D} algorithms, or as
 \emph{quasi-cylindrical} algorithms as we do here). By taking
 into account the symmetry of the system, these algorithms can typically reduce
 the cost of the simulation to a few times that of a 2D Cartesian simulation,
 instead of that of a full 3D Cartesian simulation. Moreover, unlike 2D
 Cartesian algorithms, these algorithms are well adapted to close-to-cylindrical
-physical systems and can accurately capture physical effects that are intrisically
+physical systems and can accurately capture physical effects that are intrinsically
 3D (such as e.g. the non-linear self-focusing of an intense laser in a
 plasma \citep{EsareyRMP2009});
 
@@ -137,7 +137,7 @@ plasma \citep{EsareyRMP2009});
   \emph{finite-difference} algorithms, which solve the Maxwell equations
   by approximating the derivatives as finite differences on a discrete spatial grid.
 Importantly, while finite-difference algorithm suffer from
-numerical dispersion, there is a class of spectral algorithms -- often refered to
+numerical dispersion, there is a class of spectral algorithms -- often referred to
 as \emph{Pseudo-Spectral Analytical Time Domain} (PSATD) algorithms 
 \citep{Haber,BunemanJCP1980} -- which exhibits no numerical dispersion whatsoever. As a
 consequence, these algorithms are free from the associated numerical
@@ -155,10 +155,10 @@ Even though these two improvements are both very valuable, they cannot be
 combined with one another in their present
 formulation. Fundamentally, this is because the \emph{quasi-cylindrical} algorithm uses a
 cylindrical system of coordinates, whereas most spectral algorithms
-(and in particular the \emph{PSTAD} algorithms)
-were developped in a Cartesian system of coordinates. This
+(and in particular the \emph{PSATD} algorithms)
+were developed in a Cartesian system of coordinates. This
 incompatibility is however not definitive, and the aim of this article
-is to overcome these differences by developping a \emph{spectral
+is to overcome these differences by developing a \emph{spectral
   quasi-cylindrical} formalism. In this document, we derive this formalism,
 and we show that it can be used to build a PIC algorithm that combines 
 the speed of \emph{quasi-cylindrical} algorithms with
@@ -558,8 +558,8 @@ which is typically used in the transverse plane of a spectral 3D Cartesian code.
 \subsection{Field gathering}
 \label{sec:gathering}
 
-Let us now describe in details the 4 sucessive steps of a PIC cycle
-with our algorithm, and let us start with field gathering.
+In the following, we describe the 4 successive steps of a PIC cycle
+with our algorithm in detail, starting with the field gathering.
 When gathering the fields from the intermediate grid to the
 macroparticles (see \cref{fig:GlobalScheme}),
 we use the standard linear shape factors :
@@ -746,7 +746,7 @@ ik_z\left[ \frac{\trho{n+1}}{\omega^2}\left(
 \end{align*}
 
 \noindent where $\omega \equiv c\sqrt{k_z^2 + k_\perp^2}$, $C \equiv \cos(\omega \Delta t)$
-and $S \equiv \sin(\omega \Delta t) $. (See \ref{sec:PSTADderiv} for a
+and $S \equiv \sin(\omega \Delta t) $. (See \ref{sec:PSATDderiv} for a
 derivation of these equations.)
 
 \subsection{Practical implementation}
@@ -873,7 +873,7 @@ close to the analytical prediction at all resolutions.
 group velocity of a laser pulse in a plasma at $10^{-3}\,n_c$, for different
 resolutions. The dashed line represents
 the analytical prediction given by \cref{eq:plasma_vg}, while the blue
-and red points represent the results of PIC simulation.}
+and red points represent the results of PIC simulations.}
 \end{figure}
 
 We emphasize that, although the difference between $c$ and $v_g$ is
@@ -885,7 +885,7 @@ problem is well-known in the case of standard finite-difference
 codes. For Cartesian finite-difference codes, a common solution is to
 use a scheme which is dispersion-free along the $z$ axis 
 (e.g. \citep{Karkkainen,Pukhov,Nuter}), but no such scheme has been
-developped for quasi-cylindrical codes. Alternatively, numerical dispersion is often 
+developed for quasi-cylindrical codes. Alternatively, numerical dispersion is often 
 dealt with in finite-difference codes by either using an even finer grid in
 $z$ (which is very computationally expensive) or
 a \emph{coarser} grid in $r$. (Recall that, in the simulations shown here, $\Delta r = 5\Delta
@@ -944,7 +944,7 @@ lower panels are plotted (dashed line).
 \includegraphics[width=\textwidth]{figures/Linear_wkfld.png}
 \caption{\label{fig:Linear_wkfld}Upper panels: Colormaps of the fields $E_z$ and
   $E_y$ as extracted from the simulation (blue and red), along with
-  the laser enveloppe (orange hues). (The laser propagates to the
+  the laser envelope (orange hues). (The laser propagates to the
   right and is polarized along $x$.) The dashed lines indicate the
   position where the curves of the lower panels have been extracted. 
 Lower panels: profile of the fields at a given radial
@@ -1253,6 +1253,7 @@ method of \citep{VayJCP2013}. This will be the subject of future work.
 \paragraph{Acknowledgements}
 
 We thank Axel Huebl for interesting discussions on the GPU implementation.
+We acknowledge computational resources from the JUROPA cluster, project HHH20, and the Physnet cluster, University of Hamburg.
 
 This work was supported by the Director, Office of Science, Office of High Energy Physics, U.S. Dept. of Energy under Contract No. DE-AC02-05CH11231, including from the Laboratory Directed Research and Development (LDRD) funding from Berkeley Lab.
 
