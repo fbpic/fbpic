@@ -1,4 +1,4 @@
-\documentclass[1p,times,authoryear]{elsarticle}
+\documentclass[1p,times]{elsarticle}
 \usepackage[usenames,dvipsnames]{xcolor}
 \usepackage{wrapfig}
 \usepackage{amssymb}
@@ -58,7 +58,7 @@
 
 \address[label1]{Lawrence Berkeley National Laboratory, Berkeley, CA 94720, USA}
 \address[label2]{Center for Free-Electron Laser Science \& Department of Physics, University of Hamburg, 22761 Hamburg, Germany}
-\address[label3]{LOA, 91761 Palaiseau, France}
+\address[label3]{LOA, ENSTA ParisTech, CNRS, \'Ecole polytechnique, Universit\'e Paris-Saclay, 828 bd des Mar\'echaux, 91762 Palaiseau c\'edex France}
 \address[label4]{University of Maryland, College Park, MD 20742, USA}
 
 \begin{document}
@@ -165,19 +165,19 @@ the speed of \emph{quasi-cylindrical} algorithms with
 the accuracy and lack of numerical dispersion of the \emph{PSATD} algorithms.
 
 Although the algorithm described here is, to our knowledge, unique in
-its capabilities, there are several other PIC algorithms that use 
-a similar -- yet not equivalent -- approach. One such example is the
+its capabilities, \comment{there are several other existing codes
+  which have some similarities with it.} One such example is the
 hybrid, quasi-cylindrical version of \textsc{OSIRIS} \citep{Yuarxiv2015}. This algorithm
 involves a Fourier transform in the longitudinal direction, but
 retains a finite-difference formulation in the transverse (radial)
 direction. As a consequence, this algorithm is not fully spectral, nor
-fully dispersion-free. Another such example is the PIC code \textsc{PlaRes} 
-\citep{AndriyashJCP2015}, which also uses a spectral quasi-cylindrical
-formalism but relies on the scalar and vector potentials
-$\phi$ and $\vec{A}$ instead of the standard PIC formulation in terms
-of $\vec{E}$ and $\vec{B}$. As a result, \textsc{PlaRes} largely differs from the
-algorithm described here, both in the equations that it simulates and
-in their numerical implementation.
+fully dispersion-free. 
+\comment{Another such example is the code \textsc{PlaRes} 
+\citep{AndriyashJCP2015}, which is designed to simulate the physics of
+free-electron lasers. This code also uses a spectral quasi-cylindrical
+formalism, but it relies on the scalar and vector potentials
+$\phi$ and $\vec{A}$ and uses no spatial grid. As a result, \textsc{PlaRes} differs significantly from the
+standard PIC formulation, and from the algorithm described here.}
 
 In the present article, we start by deriving the equations of our
 spectral quasi-cylindrical formalism (\cref{sec:theory}). We then explain
@@ -194,6 +194,7 @@ finite-difference algorithms (\cref{sec:advantages}).
 \subsection{A reminder on spectral Cartesian codes}
 
 It is well-known that the Maxwell equations in Cartesian coordinates 
+\begin{subequations}
 \begin{align}
 \frac{1}{c^2}\partial_t E_x = \partial_y B_z - \partial_z B_y - \mu_0  j_x \qquad&   
 \partial_t B_x = -\partial_y E_z + \partial_z E_y \label{eq:CartMaxwellx} \\
@@ -202,6 +203,7 @@ It is well-known that the Maxwell equations in Cartesian coordinates
 \frac{1}{c^2}\partial_t E_z = \partial_x B_y - \partial_y B_x - \mu_0  j_z \qquad &   
 \partial_t B_z = -\partial_x E_y + \partial_y E_x \label{eq:CartMaxwellz} 
 \end{align}
+\end{subequations}
 can be solved by representing the fields as a sum of Fourier modes.
 \begin{equation}
 \label{eq:CartBwTrans}
@@ -221,6 +223,7 @@ $\mathcal{E}$, $\mathcal{B}$ or $\mathcal{J}$ depending on whether
 $F$ represents $E$, $B$ or $j$. With this representation, the
 different Fourier modes decouple and the equations 
 \cref{eq:CartMaxwellx,eq:CartMaxwelly,eq:CartMaxwellz} become 
+\begin{subequations}
 \begin{align}
 \frac{1}{c^2}\partial_t \mathcal{E}_x = ik_y \mathcal{B}_z - ik_z \mathcal{B}_y - \mu_0 \mathcal{J}_x \qquad &   
 \partial_t \mathcal{B}_x = -ik_y \mathcal{E}_z + ik_z \mathcal{E}_y \label{eq:CartSpectMaxwellx}\\
@@ -229,6 +232,7 @@ different Fourier modes decouple and the equations
 \frac{1}{c^2}\partial_t \mathcal{E}_z = ik_x \mathcal{B}_y - ik_y \mathcal{B}_x - \mu_0 \mathcal{J}_z  \qquad &   
 \partial_t \mathcal{B}_z = -ik_x \mathcal{E}_y + ik_y \mathcal{E}_x \label{eq:CartSpectMaxwellz}
 \end{align}
+\end{subequations}
 The Fourier coefficients $\mathcal{E}$ and $\mathcal{B}$ can be then integrated in time, and
 transformed back into real space using \cref{eq:CartBwTrans}. This is
 the core principle of spectral Cartesian algorithms, including the PSATD algorithms.
@@ -237,6 +241,7 @@ the core principle of spectral Cartesian algorithms, including the PSATD algorit
 
 The Fourier representation \cref{eq:CartBwTrans} is no longer the
 appropriate representation when the Maxwell equations are written in cylindrical coordinates.
+\begin{subequations}
 \begin{align}
 \frac{1}{c^2}\partial_t E_r = \ir \partial_\theta B_z - \partial_z B_\theta - \mu_0  j_r \qquad&   
 \partial_t B_r = -\ir \partial_\theta E_z + \partial_z E_\theta \label{eq:CircMaxwellr} \\
@@ -245,9 +250,12 @@ appropriate representation when the Maxwell equations are written in cylindrical
 \frac{1}{c^2}\partial_t E_z = \ir\partial_r r B_\theta - \ir\partial_\theta B_r - \mu_0  j_z \qquad & 
 \partial_t B_z = -\ir\partial_r r E_\theta + \ir\partial_\theta E_r \label{eq:CircMaxwellzz} 
 \end{align}
+\end{subequations}
 When replacing the representation \cref{eq:CartBwTrans} into the 
 \cref{eq:CircMaxwellr,eq:CircMaxwellt,eq:CircMaxwellzz}, the Fourier
-modes do not decouple. Instead one has to use the Fourier-Hankel representation:
+modes do not decouple. Instead one has to use the Fourier-Hankel
+representation:
+\begin{subequations}
 \begin{align}
 & F_z(\vec{r}) = \frac{1}{(2\pi)^2}\!\!\!\sum_{m=-\infty}^{\infty} \Integ{k_z}
 \RInteg{k_\perp }\; \spectral{F}_{z,m}(k_z,k_\perp ) \; J_m(k_\perp r)\, e^{-im\theta + ik_z z} 
@@ -261,6 +269,7 @@ i\left( \spectral{F}_{+,m}(k_z,k_\perp )\; J_{m+1}(k_\perp r) - \spectral{F}_{-,
 \right)  e^{-im\theta +ik_z z} 
 \label{eq:CircBwTranst}
 \end{align}
+\end{subequations}
 where $F$ is either $E$, $B$ or $j$, where $J_m$ denotes the Bessel
 function of order $m$, and where $\spectral{F}_{z,m}$, $\spectral{F}_{+,m}$ and
  $\spectral{F}_{-,m}$ represent the spectral components of $F$. (See
@@ -268,6 +277,7 @@ function of order $m$, and where $\spectral{F}_{z,m}$, $\spectral{F}_{+,m}$ and
 Conversely, the spectral components $\spectral{F}_{z,m}$, $\spectral{F}_{+,m}$ and
  $\spectral{F}_{-,m}$ are related to the real-space fields $F_r$,
  $F_\theta$ and $F_z$ by:
+\begin{subequations}
 \begin{align}
 \spectral{F}_{z,m}(k_z,k_\perp ) &= \Integ{z} \RInteg{r}
 \TInteg{\theta} \;F_z(\vec{r})\; J_m(k_\perp r) e^{im\theta
@@ -279,6 +289,7 @@ Conversely, the spectral components $\spectral{F}_{z,m}$, $\spectral{F}_{+,m}$ a
 \TInteg{\theta} \;\frac{F_r (\vec{r})+iF_\theta(\vec{r})}{2}\; J_{m-1}(k_\perp r) e^{im\theta
  - i k_z z} \label{eq:CircFwTransm} 
 \end{align}
+\end{subequations}
 \noindent In the above equations, notice here that the Cartesian
 component $F_z$ and cylindrical components
 $F_r$, $F_\theta$ do not transform in the same manner, which is due
@@ -291,6 +302,7 @@ When replacing \cref{eq:CircBwTransr,eq:CircBwTranst,eq:CircBwTransz} into the M
 coordinates \cref{eq:CircMaxwellr,eq:CircMaxwellt,eq:CircMaxwellzz},
 the different modes decouple, and the equations for the spectral
 coefficients become:
+\begin{subequations}
 \begin{align}
 \frac{1}{c^2}\partial_t \spectral{E}_{+,m} = - \frac{ik_\perp }{2}\spectral{B}_{z,m} + k_z\spectral{B}_{+,m} - \mu_0\spectral{J}_{+,m} \qquad &   
 \partial_t \spectral{B}_{+,m} = \frac{ik_\perp }{2} \spectral{E}_{z,m} - k_z
@@ -302,6 +314,7 @@ coefficients become:
 \frac{1}{c^2}\partial_t \spectral{E}_{z,m} = ik_\perp  \spectral{B}_{+,m} + ik_\perp \spectral{B}_{-,m}  - \mu_0 \spectral{J}_{z,m}  \qquad & 
 \partial_t \spectral{B}_{z,m} = -ik_\perp  \spectral{E}_{+,m} - ik_\perp \spectral{E}_{-,m}  \label{eq:CircMaxwellz} 
 \end{align}
+\end{subequations}
 (See \ref{sec:SpectMaxwell} for a derivation of these equations.)
 Notice that these equations have a similar structure as the spectral
 Cartesian equations \cref{eq:CartSpectMaxwellx,eq:CartSpectMaxwelly,eq:CartSpectMaxwellz}, as 
@@ -329,7 +342,11 @@ that the current satisfies $\partial_t
 \label{eq:SpectCharge}
 \partial_t \spectral{\rho}_m + k_\perp (\spectral{J}_{+,m} -\spectral{J}_{-,m}) + ik_z
 \spectral{J}_{z,m} = 0
-\end{equation}  
+\end{equation} 
+\comment{\noindent (This can be checked for instance by differentiating
+\cref{eq:SpectCons} in time and by using
+\cref{eq:CircMaxwellp,eq:CircMaxwellm,eq:CircMaxwellz} to re-express the
+time derivatives.)}
 
 As in a spectral Cartesian PIC codes, the equations
 \cref{eq:CircMaxwellp,eq:CircMaxwellm,eq:CircMaxwellz}  
@@ -399,6 +416,7 @@ can be easily integrated. From \cref{eq:IntermFwTrans,eq:IntermBwTrans} and
 \cref{eq:CircFwTransz,eq:CircFwTransp,eq:CircFwTransm,eq:CircBwTransz,eq:CircBwTransr,eq:CircBwTranst}, 
 the transformation between the intermediate grid $\hat{F}_{m}(r,z)$
 and the spectral grid $\spectral{F}_m(k_\perp, k_z)$ is:
+\begin{subequations}
 \begin{align}
 \spectral{F}_{z,m}(k_\perp,k_z) & = \mathrm{HT}_{m} [ \; \mathrm{FT}
                                [ \; \hat{F}_{z,m}(r,z) \; ] \;] \\
@@ -407,7 +425,9 @@ and the spectral grid $\spectral{F}_m(k_\perp, k_z)$ is:
 \spectral{F}_{-,m}(k_\perp,k_z) &= \mathrm{HT}_{m-1} \left[ \;\mathrm{FT} \left[ \frac{
   \hat{F}_{r,m} +i  \hat{F}_{\theta,m} }{2}  \right] \;\right] 
 \end{align}
+\end{subequations}
 and
+\begin{subequations}
 \begin{align}
 \hat{F}_{z,m}(r,z) &= \mathrm{IFT} [\; \mathrm{IHT}_{m} [
                          \spectral{F}_{z,m}(k_\perp,k_z) ] \; ] \\
@@ -420,6 +440,7 @@ and
                           \spectral{F}_{-,m}(k_\perp,k_z) ] \; \right]
 \label{eq:FTHTt}
 \end{align}
+\end{subequations}
 where $\mathrm{FT}$ represents a Fourier Transform along the $z$
 axis and $\mathrm{HT}_{n}$ represents a Hankel Transform of order
 $n$ along the transverse $r$ axis, and where $\mathrm{IFT}$ and
@@ -498,8 +519,10 @@ algorithms consists in:
 \end{itemize}
 Here, we choose to discretize the algorithm on an evenly-spaced grid in $r$
 (for the intermediate grid) :
-\[ r_j = \Delta r \left( j+\frac{1}{2} \right) \qquad  j \in \{0, ...,
-N_r-1 \} \qquad \mathrm{where} \quad \Delta r = \frac{r_{max}}{N_r} \]
+\begin{equation} 
+r_j = \Delta r \left( j+\frac{1}{2} \right) \qquad  j \in \{0, ...,
+N_r-1 \} \qquad \mathrm{where} \quad \Delta r = \frac{r_{max}}{N_r} 
+\end{equation}
 but on an irregular grid in $k_\perp$ (for the spectral grid). This is because the authorized
 values of $k_\perp$ are determined by the boundary conditions, in the same way that
 the periodic boundaries in a Cartesian code impose the use of
@@ -507,7 +530,10 @@ evenly-spaced $k$. Here, for simplicity, we impose that the
 longitudinal fields be $0$ at $r_{max}$ (i.e. $E_z(r_{max}, z) = 0$,
 $B_z(r_{max}, z) = 0$). In this case, it turns out that the set of authorized
 $k_\perp$ depends on the azimuthal mode $m$ and reads
-\[  k^m_{\perp,j} = \frac{\alpha_j^m}{r_{max}} \qquad j \in \{0, ..., N_r-1 \}\]
+\begin{equation}  
+k^m_{\perp,j} = \frac{\alpha_j^m}{r_{max}} \qquad j \in \{0, ...,
+N_r-1 \}
+\end{equation}
 where $\alpha^m_j$ is the $j$th positive zero of the Bessel function of order
 $m$ $J_m$ (including the trivial value $\alpha_0^m=0$ for
 $m>0$). These values are represented in figure \ref{fig:Kgrid}. Notice
@@ -527,9 +553,11 @@ $k_\perp$ grids, since each azimuthal mode $m$ evolves separately in
 As mentioned above, once this grid is set up, the Discrete Hankel Transform is simply a
 linear operation on a finite set of points, and can thus be
 represented by a matrix operation.
-\[\mathrm{DHT^m_n}[f] \,(k^m_{\perp,j}) = \sum_{p=0}^{N_r-1} (M_{n,m})_{j,p}
+\begin{equation}
+\mathrm{DHT^m_n}[f] \,(k^m_{\perp,j}) = \sum_{p=0}^{N_r-1} (M_{n,m})_{j,p}
 \;f(r_p) \qquad \mathrm{IDHT^m_n}[g] \, (r_j) = \sum_{p=0}^{N_r-1}
-(M'_{n,m})_{j,p} \; g(k^m_{\perp,p}) \]
+(M'_{n,m})_{j,p} \; g(k^m_{\perp,p}) 
+\end{equation}
 
 Notice that the $N_r\times N_r$ transformation matrices $M_{n,m}$ and
 $M_{n,m}'$ depend on $n$ (order of the Hankel transform, i.e. order of
@@ -565,7 +593,7 @@ macroparticles (see \cref{fig:GlobalScheme}),
 we use the standard linear shape factors :
 \begin{align} 
 F_u(\vec{r}_k) &=  \sum_{p,q} S_{z,p}(z_k)S_{r,q}(r_k) \left[ \sum_{m=-N_m}^{N_m} \hat{F}_{u,m}(z_p, r_q)
-  e^{-im\theta_k} \right] \\
+  e^{-im\theta_k} \right] \nonumber \\
 & = \sum_{p,q} S_{z,p}(z_k)S_{r,q}(r_k) \left[ \hat{F}_{u,0}(z_p,
   r_q) + 2\,\Re \left( \sum_{m=1}^{N_m} \hat{F}_{u,m}(z_p, r_q)
   e^{-im\theta_k} \right) \right] \label{eq:gathering}
@@ -581,13 +609,18 @@ sufficient to retrieve the force on the macroparticles.
 
 Finally, in \cref{eq:gathering}, $S_{z,p}$ and $S_{z,q}$ are the linear
 shape factors in $z$ and $r$ :
-\[ S_{z,p}(z) = \frac{z_{p+1}- z}{\Delta z}  \qquad 
+\begin{subequations}
+\begin{equation} 
+S_{z,p}(z) = \frac{z_{p+1}- z}{\Delta z}  \qquad 
 S_{z,p +1}(z) = \frac{ z - z_{p} }{\Delta z} \qquad
-\mathrm{with} \quad z_{p} \leq z < z_{p +1}  \]
-\[ S_{r,q}(r) = \frac{ r_{q+1} - r }{  \Delta r }
+\mathrm{with} \quad z_{p} \leq z < z_{p +1}  
+\end{equation}
+\begin{equation} 
+S_{r,q}(r) = \frac{ r_{q+1} - r }{  \Delta r }
 \qquad S_{r,q+1}(r) = \frac{ r - r_{q} }{  \Delta r }
 \qquad \mathrm{with} \quad r_{q} \leq r < r_{q+1}
- \]
+\end{equation}
+\end{subequations}
 \noindent Note that we use linear shape factors here only for
 the sake of simplicity, and that higher-order shape factors
 (e.g. quadratic or cubic) could also be used in principle.
@@ -608,8 +641,8 @@ the Cartesian components $E_x$, $E_y$, $E_z$, $B_x$, $B_y$ and
 $B_z$, from the fields $E_r$, $E_\theta$, $E_z$, $B_r$, $B_\theta$ and
 $B_z$ that were gathered at the positions of each macroparticle. 
 We then advance the equations of motion
-\[ \frac{d\vec{p}}{dt} = q\vec{E} + q\vec{v}\times \vec{B} \qquad
-\frac{d\vec{x}}{dt} = \frac{\vec{p}}{\gamma \,m} \]
+\begin{equation} \frac{d\vec{p}}{dt} = q\vec{E} + q\vec{v}\times \vec{B} \qquad
+\frac{d\vec{x}}{dt} = \frac{\vec{p}}{\gamma \,m} \end{equation}
 \noindent  in standard 3D Cartesian coordinates, by using the leap-frog pusher described in \citep{VayPoP2008}.
 
 \subsection{Current deposition}
@@ -617,14 +650,14 @@ We then advance the equations of motion
 
 As in \citep{Lifschitz}, the charge density is calculated on the intermediate grid in the
 following way:
-\[ \hat{\rho}_m(z_p,r_q) = \frac{ \sum_k  S_{z,p}(z_k)S_{r,q}(r_k) Q_k e^{im\theta_k}}{V_{q}} \]
+\begin{equation} \hat{\rho}_m(z_p,r_q) = \frac{ \sum_k  S_{z,p}(z_k)S_{r,q}(r_k) Q_k e^{im\theta_k}}{V_{q}} \end{equation}
 where $Q_k$ is the charge of the macroparticle with index $k$, and
 where $V_q$ is the volume of a cell, which is for our grid
-\[ V_{q} = \pi [\, (q+1)^2- q^2\,] \Delta r^2 \Delta z \]
+\begin{equation} V_{q} = \pi [\, (q+1)^2- q^2\,] \Delta r^2 \Delta z \end{equation}
 
 \noindent Similarly, the current deposition is given by
-\[ \hat{j}_{u,m}(z_p,r_q) = \frac{\sum_k S_{z,p}(z_k) S_{r,q}(r_k)
-Q_k v_{u,k} e^{im\theta_k}}{V_{q}} \]
+\begin{equation} \hat{j}_{u,m}(z_p,r_q) = \frac{\sum_k S_{z,p}(z_k) S_{r,q}(r_k)
+Q_k v_{u,k} e^{im\theta_k}}{V_{q}} \end{equation}
 where $u = z,r,\theta$ and the $v_{u,k}$ are the cylindrical components of the
 velocity of the macroparticle $k$. As mentioned previously, once the
 macroparticles have deposited their charge and current on the
@@ -640,8 +673,8 @@ and currents by a transfer function $\spectral{T}(k_z, k_\perp)$ which
 damps the high frequencies $\vec{k}$, and whose mathematical form is
 identical to the spectral Cartesian representation of a single-pass
 binomial filter \citep{Birdsall2004}.
-\[ \spectral{T}(k_z, k_r) = \cos^2 \left( \frac{k_z}{k_{z,max}}\frac{\pi}{2} \right)
-\cos^2\left( \frac{k_\perp}{k_{\perp,max}}\frac{\pi}{2} \right) \]
+\begin{equation} \spectral{T}(k_z, k_r) = \cos^2 \left( \frac{k_z}{k_{z,max}}\frac{\pi}{2} \right)
+\cos^2\left( \frac{k_\perp}{k_{\perp,max}}\frac{\pi}{2} \right) \end{equation}
 \noindent where $k_{z, max}$ and $k_{\perp,max}$ are the highest
 wavevectors that the discrete spectral grid supports, in the
 longitudinal and transverse direction.
@@ -652,23 +685,23 @@ simple direct current deposition. It is well-known that this simple deposition d
 satisfy the relation $\partial_t\rho + \vec{\nabla}\cdot\vec{j} =
 0$, but that this can be corrected for, by slightly modifying the
 currents without modifying their curl \citep{VayJCP2013}:
-\[ \vec{j}' = \vec{j} - \vec{\nabla} G \]
+\begin{equation} \vec{j}' = \vec{j} - \vec{\nabla} G \end{equation}
 where $G$ satisfies the Poisson-like equation
-\[ \vec{\nabla}^2 G = \partial_t\rho + \vec{\nabla}\cdot\vec{j} \]
+\begin{equation} \vec{\nabla}^2 G = \partial_t\rho + \vec{\nabla}\cdot\vec{j} \end{equation}
 
 The above equation is typically expensive to solve on a spatial grid, but
 very easy to solve in spectral space. In spectral space and with the
 notations of \cref{fig:GlobalScheme}, these equations become
-\[ \spectral{J}'^{\,n+1/2}_{+,m} = \spectral{J}^{n+1/2}_{+,m} +
+\begin{equation} \spectral{J}'^{\,n+1/2}_{+,m} = \spectral{J}^{n+1/2}_{+,m} +
 \frac{k_\perp}{2} \spectral{G}^{n+1/2}_m
 \qquad
 \spectral{J}'^{\,n+1/2}_{-,m} = \spectral{J}^{n+1/2}_{-,m} - \frac{k_\perp}{2} \spectral{G}^{n+1/2}_m
 \qquad \spectral{J}'^{\,n+1/2}_{z,m} = \spectral{J}^{n+1/2}_{z,m} - ik_z
-\spectral{G}^{n+1/2}_m\]
+\spectral{G}^{n+1/2}_m\end{equation}
 with
-\[ \spectral{G}^{n+1/2}_m = - \frac{1}{k_\perp^2 + k_z^2}\left(
+\begin{equation} \spectral{G}^{n+1/2}_m = - \frac{1}{k_\perp^2 + k_z^2}\left(
   \frac{\spectral{\rho}^{n+1}_m -\spectral{\rho}^{n}_m}{\Delta t} + k_\perp
-  (\spectral{J}^{n+1/2}_{+,m} -\spectral{J}^{n+1/2}_{-,m}) + ik_z\spectral{J}^{n+1/2}_{z,m}  \right) \]
+  (\spectral{J}^{n+1/2}_{+,m} -\spectral{J}^{n+1/2}_{-,m}) + ik_z\spectral{J}^{n+1/2}_{z,m}  \right) \end{equation}
 With this correction, the new currents $\spectral{J}'^{n+1/2}$ do satisfy
 the charge conservation equation \cref{eq:SpectCharge}. Therefore we apply this
 correction in spectral space, at the end of the current deposition at each timestep.
@@ -678,8 +711,9 @@ correction in spectral space, at the end of the current deposition at each times
 
 The Maxwell equations
 \cref{eq:CircMaxwellp,eq:CircMaxwellm,eq:CircMaxwellz} could in
-principle be integrated by using a finite difference scheme in time:
-\begin{align*}
+principle be integrated by using a finite-difference scheme in time:
+\begin{subequations}
+\begin{align}
 \tE{+}{n+1} = \; & \tE{+}{n} + 
 c^2\Delta t\left(-\frac{ik_\perp }{2} \tB{z}{n} + k_z\tB{+}{n}
 - \mu_0 \tj{+}{n+1/2} \right) & \\
@@ -689,8 +723,10 @@ c^2\Delta t\left(- \frac{ik_\perp }{2} \tB{z}{n} - k_z\tB{-}{n}
 \tE{z}{n+1} =\; & \tE{z}{n} + 
 c^2\Delta t\left(ik_\perp \tB{+}{n} + ik_\perp \tB{-}{n}
 - \mu_0 \tj{z}{n+1/2} \right)  &
-\end{align*}
-\begin{align*}
+\end{align}
+\end{subequations}
+\begin{subequations}
+\begin{align}
 \tB{+}{n+1} = \; & \tB{+}{n} - 
 \Delta t\left(-\frac{ik_\perp }{2} \tE{z}{n} + k_z\tE{+}{n}
 \right) & \\
@@ -700,7 +736,8 @@ c^2\Delta t\left(ik_\perp \tB{+}{n} + ik_\perp \tB{-}{n}
 \tB{z}{n+1} =\; & \tB{z}{n} - 
 \Delta t\left(ik_\perp \tE{+}{n} + ik_\perp \tE{-}{n}
 \right) &
-\end{align*}
+\end{align}
+\end{subequations}
 However, this type of scheme retains some amount of numerical dispersion, and can
 thus affect the simulated physics.
 
@@ -710,7 +747,8 @@ PSATD, we assume that the currents are constant over one timestep and
 that the charge density is linear in time over the same timestep. Under these
 assumptions, the Maxwell equations \cref{eq:CircMaxwellp,eq:CircMaxwellm,eq:CircMaxwellz} can be integrated
 analytically over that timestep, and they lead to:
-\begin{align*}
+\begin{subequations}
+\begin{align}
 \tE{+}{n+1} = \; & C \tE{+}{n} + 
 c^2\frac{S}{\omega}\left(-\frac{ik_\perp }{2} \tB{z}{n} + k_z\tB{+}{n}
 - \mu_0 \tj{+}{n+1/2} \right) + \frac{c^2}{\epsilon_0}
@@ -729,8 +767,10 @@ c^2\frac{S}{\omega}\left(ik_\perp \tB{+}{n} + ik_\perp \tB{-}{n}
 ik_z\left[ \frac{\trho{n+1}}{\omega^2}\left(
   1 - \frac{S}{\omega\Delta t}\right) - \frac{\trho{n}}{\omega^2}
 \left( C - \frac{S}{\omega\Delta t}\right)\right]  &
-\end{align*}
-\begin{align*}
+\end{align}
+\end{subequations}
+\begin{subequations}
+\begin{align}
 \tB{+}{n+1} = \; & C \tB{+}{n} - 
 \frac{S}{\omega}\left(-\frac{ik_\perp }{2} \tE{z}{n} + k_z\tE{+}{n}
 \right) + \mu_0 c^2\frac{1-C}{\omega^2} \left( -\frac{ik_\perp }{2}
@@ -743,7 +783,8 @@ ik_z\left[ \frac{\trho{n+1}}{\omega^2}\left(
 \frac{S}{\omega}\left(ik_\perp \tE{+}{n} + ik_\perp \tE{-}{n}
 \right) + \mu_0 c^2\frac{1-C}{\omega^2} \left( ik_\perp
   \tj{+}{n+1/2} + ik_\perp \tj{-}{n+1/2} \right)&
-\end{align*}
+\end{align}
+\end{subequations}
 
 \noindent where $\omega \equiv c\sqrt{k_z^2 + k_\perp^2}$, $C \equiv \cos(\omega \Delta t)$
 and $S \equiv \sin(\omega \Delta t) $. (See \ref{sec:PSATDderiv} for a
@@ -917,7 +958,9 @@ resolutions were $\Delta z = 0.05 \; \mathrm{\mu m}$, $\Delta r = 0.5
 the linear and quasistatic theory. For a laser of the
 form $a(z, r, t)= a_\ell(z, t) e^{-r^2/w_0^2} \cos(k_0z-\omega_0 t)$ --
 where $a_\ell(z, t)$ is the longitudinal envelope of the laser -- the
-longitudinal and transverse fields $E_z$ and $E_y$ are given by (e.g. \citep{EsareyRMP2009})
+longitudinal and transverse fields $E_z$ and $E_y$ are given by
+(e.g. \citep{EsareyRMP2009})
+\begin{subequations}
 \begin{equation} 
 E_z(z, r, t) = \frac{mc^2}{e} \frac{k_p^2}{4}\int_{z}^{\infty} 
 a_\ell^2(z', t) e^{-r^2/w_0^2} \cos[k_p(z-z')]dz' \label{eq:analytical-Ez}
@@ -926,6 +969,7 @@ a_\ell^2(z', t) e^{-r^2/w_0^2} \cos[k_p(z-z')]dz' \label{eq:analytical-Ez}
 E_y(z, r, t) = -\frac{mc^2}{e} \frac{k_p y}{w_0^2}\int_{z}^{\infty} 
 a_\ell^2(z', t) e^{-r^2/w_0^2} \sin[k_p(z-z')]dz' \label{eq:analytical-Ey}
 \end{equation}
+\end{subequations}
 \noindent where $k_p$ is the plasma wavevector.
 
 Here, the longitudinal laser envelope $a_\ell$ was extracted directly from the
@@ -1176,15 +1220,15 @@ we analyze the evolution of its transverse momentum in
 time. Analytically, it can be shown from the Lagrangian 
 $\mathcal{L} = - \sqrt{1-\vec{\beta}^2} \,mc^2 - e \vec{v} \cdot
 \vec{A}$ that the equation of motion along the $x$ axis (i.e. the axis of laser polarization) is 
-\[ \frac{1}{c}\frac{d \,}{dt} \left( \frac{p_x}{m_e c} - a_x \right) =
+\begin{equation} \frac{1}{c}\frac{d \,}{dt} \left( \frac{p_x}{m_e c} - a_x \right) =
  - \frac{p_x}{\gamma m_e c}\frac{\partial a_x}{\partial x} \qquad \sim
-\frac{a_0^2}{\gamma w_0} \]
+\frac{a_0^2}{\gamma w_0} \end{equation}
 \noindent where $a_x$ is the normalized vector potential of the laser
 pulse. The right-hand side corresponds to the ponderomotive force, and,
 for the parameters and timescale considered here, it is in fact
 negligible. The canonical momentum of the
 electron is thus approximately conserved.
-\[ \frac{p_x}{m_e c} - a_x  = const. \]
+\begin{equation} \frac{p_x}{m_e c} - a_x  = const. \end{equation}
 \noindent Since, inside the laser pulse, $a_x$ oscillates between the values $-a_0$ and $a_0$,
 the quantity $p_x/m_e c$ is predicted to also also oscillate
 between $-a_0$ and $a_0$, as the electron progressively
@@ -1265,6 +1309,6 @@ This document was prepared as an account of work sponsored in part by the United
 \input{appendix.tex}
 
 \bibliography{Bibliography}
-\bibliographystyle{elsarticle-harv}
+\bibliographystyle{elsarticle-num}
 
 \end{document}
