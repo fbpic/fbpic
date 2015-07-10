@@ -17,32 +17,32 @@ itself is ill-defined at this position.)
 Let $F_u$ be the Cartesian component of a field $F$ 
 (typically $F$ is $E$, $B$ or $J$ and $u$ is $x$, $y$ or $z$). Its Fourier representation
 is thus given by \cref{eq:CartBwTrans,eq:CartFwTrans}:
-\begin{align*}
+\begin{align}
 F_u(\vec{r}) = \frac{1}{(2\pi)^{3}}\Integ{k_x} \,\Integ{k_y}\,
 \Integ{k_z} \; \mathcal{F}_u(\vec{k}) e^{i(k_x x + k_y y + k_z z)} \\
 \mathcal{F}_u(\vec{k})  = \Integ{x} \,\Integ{y}\,
 \Integ{z} \; F_u(\vec{r}) e^{-i(k_x x + k_y y + k_z z)} 
-\end{align*}
+\end{align}
 Using the change of variable $k_x=k_\perp\cos(\phi)$, $k_y = k_\perp\sin(\phi)$,
 $x=r\cos(\theta)$, $y=r\sin(\theta)$, this becomes
- \begin{align*}
+ \begin{align}
 F_u(\vec{r}) = \frac{1}{(2\pi)^{3}}\Integ{k_z} \,\RInteg{k_\perp}\,
 \TInteg{\phi} \; \mathcal{F}_u(\vec{k})
 e^{i(k_\perp r \cos(\theta-\phi) + k_z z)} \\
 \mathcal{F}_u(\vec{k})   = \Integ{z} \,\RInteg{r}\,
 \Integ{\theta} \; F_u(\vec{r}) e^{-i(k_\perp r \cos(\theta-\phi) + k_z z)} 
-\end{align*}
+\end{align}
 Let us now use the relation $e^{ik_\perp r\cos(\theta-\phi)} =
 \sum_{m=-\infty}^{\infty} i^m J_m(k_\perp r) e^{im(\phi-\theta)}$
 (which is simply another way of writing the well-known relation
 $e^{i \alpha \sin \psi} =\sum_{m=-\infty}^{\infty}J_m(\alpha)e^{im\psi}$). The above equations become:
-\begin{align*}
+\begin{align}
 F_u (\vec{r})  = \sum_{m=-\infty}^{\infty} \frac{1}{(2\pi)^{3}}\Integ{k_z} \,\RInteg{k_\perp }
 \TInteg{\phi} \; i^m \mathcal{F}_u(\vec{k}) \;
 J_m(k_\perp r) e^{-im(\theta-\phi) + ik_z z} \\
 \mathcal{F}_u(\vec{k})   =  \sum_{m=-\infty}^{\infty} \Integ{z} \,\RInteg{r}
 \TInteg{\theta} \;\; (-i)^m F_u(\vec{r}) \; J_m(k_\perp r) e^{-im(\phi-\theta) -ik_z z} 
-\end{align*}
+\end{align}
 We now define $\spectral{F}_{u,m}(k_z,k_\perp ) = \frac{1}{2\pi}\int_0^{2\pi}
 \mathrm{d}\phi \; i^m \mathcal{F}_u(\vec{k})
 e^{im\phi}$. This results in the following equations :
@@ -60,22 +60,22 @@ These equations correspond to \cref{eq:CircBwTransz,eq:CircFwTransz}.
 
 Let us now consider fields of the type $E_r$, $B_r$ or $J_r$, which we
 denote generally by $F_r$. We have :
-\[ F_r = \cos(\theta) F_x + \sin(\theta) F_y 
+\begin{equation} F_r = \cos(\theta) F_x + \sin(\theta) F_y 
 = \frac{F_x - iF_y}{2}e^{i\theta} + \frac{F_x +
-  iF_y}{2}e^{-i\theta} \] 
+  iF_y}{2}e^{-i\theta} \end{equation} 
 Using \cref{eq:CircBwTransu}, this leads to
-\begin{align*} 
+\begin{align} 
 F_r =   \frac{1}{(2\pi)^2}\sum_{m=-\infty}^{\infty} \Integ{k_z}\,\RInteg{k_\perp }\;
 \left(  J_m(k_\perp r) \frac{\spectral{F}_{x,m} -
     i\spectral{F}_{y,m}}{2}e^{-i(m-1)\theta +ik_z z} + J_m(k_\perp r) \frac{\spectral{F}_{x,m} +   i\spectral{F}_{y,m}}{2}e^{-i(m+1)\theta +
     ik_z z} \right) 
-\end{align*}
-\begin{align*}
+\end{align}
+\begin{align}
 F_r =  \frac{1}{(2\pi)^2}\sum_{m=-\infty}^{\infty} \Integ{k_z}\,\RInteg{k_\perp }\;
 \left(  J_{m+1}(k_\perp r) \frac{\spectral{F}_{x,m+1} -
     i\spectral{F}_{y,m+1}}{2}e^{-im\theta +ik_z z} + J_{m-1}(k_\perp r) \frac{\spectral{F}_{x,m-1} +   i\spectral{F}_{y,m-1}}{2}e^{-im\theta +
     ik_z z} \right) 
-\end{align*}
+\end{align}
 where we relabeled the dummy variable $m$ in the above sums. Let us
 thus define $\spectral{F}_{-,m} = (\spectral{F}_{x,m-1} +
     i\spectral{F}_{y,m-1})/2$ and $\spectral{F}_{+,m} = (\spectral{F}_{x,m+1} -
@@ -112,28 +112,33 @@ In the following, we write only the equations corresponding to $\partial_t \vec{
 -\vec{\nabla}\times \vec{E}$, since the equation $c^{-2}\partial_t \vec{E} =
 \vec{\nabla}\times\vec{B} - \mu_0 \vec{j}$ can be treated very
 similarly. These equations become
-\begin{align*}
+\begin{subequations}
+\begin{align}
 \RInteg{k_\perp } \left[ \; \partial_t \spectral{B}_{+,m}  J_{m+1}(k_\perp r)
-  + \partial_t \spectral{B}_{-,m}  J_{m-1}(k_\perp r) \; \right] =&& \\ 
+  + \partial_t \spectral{B}_{-,m}  J_{m-1}(k_\perp r) \; \right] =&&
+\nonumber \\ 
 \qquad \RInteg{k_\perp } \left[ \; \spectral{E}_{z,m} \frac{im}{r}
   J_m(k_\perp r) \right.-&\left.
   k_z\spectral{E}_{+,m}J_{m+1}(k_\perp r) + k_z\spectral{E}_{-,m}J_{m-1}(k_\perp r) \;
 \right] & \\
 \RInteg{k_\perp } \left[ \; \partial_t \spectral{B}_{+,m}  J_{m+1}(k_\perp r)
-  - \partial_t \spectral{B}_{-,m}  J_{m-1}(k_\perp r) \; \right] =&& \\
+  - \partial_t \spectral{B}_{-,m}  J_{m-1}(k_\perp r) \; \right] =&&
+\nonumber \\
  \RInteg{k_\perp } \left[ \; -k_z\spectral{E}_{+,m}J_{m+1}(k_\perp r)
  \right.-&\left.  k_z\spectral{E}_{-,m}J_{m-1}(k_\perp r) - ik_\perp \spectral{E}_{z,m} J_m'(k_\perp r) \;\right] \\
 \RInteg{k_\perp }\; \partial_t \spectral{B}_{z,m}  J_{m}(k_\perp r) =
 \RInteg{k_\perp } \left[ \; -ik_\perp
   \spectral{E}_{+,m}\right.&\left(\frac{J_{m+1}(k_\perp r)}{k_\perp r} +
-    J_{m+1}'(k_\perp r) \right) + &\\
+    J_{m+1}'(k_\perp r) \right) + & \nonumber \\
 \left. ik_\perp \spectral{E}_{-,m}\left(\frac{J_{m-1}(k_\perp r)}{k_\perp r} +
     J_{m-1}'(k_\perp r) \right) \right.-&\left. \frac{im}{r} \left( E_{+,m} J_{m+1}(k_\perp r) +
     E_{-,m} J_{m-1}(k_\perp r) \right) \;\right] 
-\end{align*}
+\end{align}
+\end{subequations}
 By taking the sum and difference of the first two equations, and by
 rearranging the third equation, we obtain:
-\begin{align*}
+\begin{subequations}
+\begin{align}
 \RInteg{k_\perp } \; 2 \,\partial_t \spectral{B}_{+,m}  J_{m+1}(k_\perp r) =
 \RInteg{k_\perp } \left[ \; ik_\perp \spectral{E}_{z,m} \left( \frac{m}{k_\perp r} J_m(k_\perp r) -
     J_m'(k_\perp r) \right) -2 k_z\spectral{E}_{+,m}J_{m+1}(k_\perp r) \;
@@ -145,15 +150,17 @@ rearranging the third equation, we obtain:
 \right] \\
 \RInteg{k_\perp }\; \partial_t \spectral{B}_{z,m}  J_{m}(k_\perp r) =
 \RInteg{k_\perp } \left[ \; -ik_\perp \spectral{E}_{+,m}\left(\frac{m+1}{k_\perp r}J_{m+1}(k_\perp r) +
-    J_{m+1}'(k_\perp r) \right) \right.\\
+    J_{m+1}'(k_\perp r) \right) \right.\nonumber \\
 \qquad \left. - ik_\perp \spectral{E}_{-,m}\left(\frac{m-1}{k_\perp r}J_{m-1}(k_\perp r) -
     J_{m-1}'(k_\perp r) \right) \right] 
-\end{align*}
+\end{align}
+\end{subequations}
 We can now use the relations $\frac{m}{k_\perp r} J_m(k_\perp r) +
     J_m'(k_\perp r) = J_{m-1}(k_\perp r)$ and $\frac{m}{k_\perp r} J_m(k_\perp r) -
     J_m'(k_\perp r) = J_{m+1}(k_\perp r)$ (see relation 9.1.27 in
     \cite{Abramowitz}), and obtain :
-\begin{align*}
+\begin{subequations}
+\begin{align}
 \RInteg{k_\perp } \; 2 \,\partial_t \spectral{B}_{+,m}  J_{m+1}(k_\perp r) =
 \RInteg{k_\perp } \left[ \; ik_\perp \spectral{E}_{z,m}\,
     J_{m+1}(k_\perp r) -2 k_z\spectral{E}_{+,m}J_{m+1}(k_\perp r) \;
@@ -165,18 +172,21 @@ We can now use the relations $\frac{m}{k_\perp r} J_m(k_\perp r) +
 \right] \\
 \RInteg{k_\perp }\; \partial_t \spectral{B}_{z,m}  J_{m}(k_\perp r) =
 \RInteg{k_\perp } \left[ \; -ik_\perp \spectral{E}_{+,m} J_{m}(k_\perp r) - ik_\perp \spectral{E}_{-,m}\,J_{m}(k_\perp r) \right] 
-\end{align*}
+\end{align}
+\end{subequations}
 Each equation of the above system contains Bessel functions of only one
 given order (either $m+1$, $m-1$ or $m$). This allows to separate the
 different $k_\perp $ components, since the functions $J_n(k_\perp r)$, for a
 fixed $n$ and different values of $k_\perp $, form a basis of the set of real functions:
-\begin{align*}
+\begin{subequations}
+\begin{align}
 2 \,\partial_t \spectral{B}_{+,m} =
 ik_\perp \spectral{E}_{z,m} -2 k_z\spectral{E}_{+,m} \\
 2\, \partial_t \spectral{B}_{-,m} = ik_\perp \spectral{E}_{z,m} \,
     + 2k_z\spectral{E}_{-,m} \\
  \partial_t \spectral{B}_{z,m} = -ik_\perp \spectral{E}_{+,m}  - ik_\perp \spectral{E}_{-,m}
-\end{align*}
+\end{align}
+\end{subequations}
 
 \section{PSATD scheme, in the Fourier-Hankel representation}
 \label{sec:PSATDderiv}
@@ -187,7 +197,8 @@ We use a scheme very similar to that of \cite{Haber}. In this scheme the current
 
 By combining \cref{eq:CircMaxwellp,eq:CircMaxwellm,eq:CircMaxwellz}
 and \cref{eq:SpectCons}, one can find the propagation equations for $B$.
-\begin{align*}
+\begin{subequations}
+\begin{align}
 \partial_t^2 \spectral{B}_{+,m} + c^2(k_\perp ^2+k_z^2) \spectral{B}_{+,m} = 
 \mu_0 c^2 \left( - \frac{ik_\perp }{2} \spectral{J}_{z,m} + k_z \spectral{J}_{+,m}
 \right) \\
@@ -196,22 +207,24 @@ and \cref{eq:SpectCons}, one can find the propagation equations for $B$.
 \right) \\
 \partial_t^2 \spectral{B}_{z,m} + c^2(k_\perp ^2+k_z^2) \spectral{B}_{z,m} =
 \mu_0c^2  (ik_\perp  \spectral{J}_{+,m} + ik_\perp \spectral{J}_{-,m} ) 
-\end{align*}
+\end{align}
+\end{subequations}
 Let us integrate these equations for $t\in [n\Delta t, (n+1)\Delta
 t]$. In this interval, $\vec{\spectral{J}}_m(t)$ is constant
 and equal to $\vec{\spectral{J}}_m^{n+1/2}$, and thus the right-hand side of the above
 equations is constant. Using Green functions, the
 general solution of a differential equation of the form 
 $\partial_t^2 f + \omega^2 f = g_0$, where $g_0$ is a constant, is 
-\[ f(t) = f(t_0) \cos[\,\omega (t-t_0)\,] + \partial_t f (t_0) \frac{
+\begin{equation} f(t) = f(t_0) \cos[\,\omega (t-t_0)\,] + \partial_t f (t_0) \frac{
   \sin[\,\omega (t-t_0)\,]  }{\omega} + \frac{g_0}{\omega^2} (1-
-\cos[\,\omega (t-t_0)\,] ) \]  
+\cos[\,\omega (t-t_0)\,] ) \end{equation}  
 We thus use the above expression, with $\omega^2 =c^2(k_\perp^2 +
 k_z^2)$, to integrate the fields from $t_0 = n\Delta t$ to $t=(n+1)\Delta t$. In
 particular, we use again the Maxwell equations
 \cref{eq:CircMaxwellp,eq:CircMaxwellm,eq:CircMaxwellz} to obtain the
 expression of $\partial_t \spectral{B}_{m} (t_0)$. This yields:
-\begin{align*}
+\begin{subequations}
+\begin{align}
 \tB{+}{n+1} = \; & C \tB{+}{n} - 
 \frac{S}{\omega}\left(-\frac{ik_\perp }{2} \tE{z}{n} + k_z\tE{+}{n}
 \right) + \mu_0 c^2\frac{1-C}{\omega^2} \left( -\frac{ik_\perp }{2}
@@ -224,14 +237,16 @@ expression of $\partial_t \spectral{B}_{m} (t_0)$. This yields:
 \frac{S}{\omega}\left(ik_\perp \tE{+}{n} + ik_\perp \tE{-}{n}
 \right) + \mu_0 c^2\frac{1-C}{\omega^2} \left( ik_\perp
   \tj{+}{n+1/2} + ik_\perp \tj{-}{n+1/2} \right)&
-\end{align*}
+\end{align}
+\end{subequations}
 where $C = \cos(\omega \Delta t)$ and $S = \sin(\omega \Delta t) $.
 
 \subsection{Expressions for $\spectral{E}_m$}
 
 Similarly, when combining \cref{eq:CircMaxwellp,eq:CircMaxwellm,eq:CircMaxwellz}
 and \cref{eq:SpectCons}, the propagation equations for $E$ are:
-\begin{align*}
+\begin{subequations}
+\begin{align}
 \partial_t^2 \spectral{E}_{+,m} + c^2(k_\perp^2 + k_z^2) \spectral{E}_{+,m}
 = \frac{c^2}{\epsilon_0} \frac{k_\perp}{2} \spectral{\rho}_m -
 \mu_0c^2 \partial_t\spectral{J}_{+,m} \\
@@ -241,26 +256,28 @@ and \cref{eq:SpectCons}, the propagation equations for $E$ are:
 \partial_t^2 \spectral{E}_{z,m} + c^2(k_\perp^2 + k_z^2) \spectral{E}_{z,m}
 = - \frac{c^2}{\epsilon_0} i k_z \spectral{\rho}_m -
 \mu_0c^2 \partial_t\spectral{J}_{z,m} 
-\end{align*}
+\end{align}
+\end{subequations}
 Let us again integrate these equations for $t\in [n\Delta t, (n+1)\Delta
 t]$. In this interval, $\vec{\spectral{J}}_m(t)$ is constant (thus its time
 derivatives drop), and $\spectral{\rho}_m$ is linear in time. As a
 consequence the right hand side is proportional to $\trho{n} +
 (\trho{n+1}-\trho{n})(t-t_0)/\Delta t$. Using Green functions, the solution of 
 $ \partial_t^2 f + \omega^2 f = \trho{n} + (\trho{n+1}-\trho{n})(t-t_0)/\Delta t $ is
-\[ f(t) = f(t_0) \cos[\,\omega(t-t_0)\,] + \partial_tf (t_0)
+\begin{equation} f(t) = f(t_0) \cos[\,\omega(t-t_0)\,] + \partial_tf (t_0)
 \frac{\sin[\,\omega(t-t_0)\,]}{\omega} + \trho{n}\frac{1-
   \cos[\,\omega(t-t_0)\,]}{\omega^2} + \frac{\trho{n+1}-\trho{n}}{\omega^2}\left(
   \frac{t-t_0}{\Delta t} - \frac{\sin[\,\omega(t-t_0)\,]}{\omega
     \Delta t}
-\right) \]
+\right) \end{equation}
 which, for $t=t_0 +\Delta t$, reduces to
-\[ f(t_0 +\Delta t) = f(t_0) C + \partial_tf (t_0)
+\begin{equation} f(t_0 +\Delta t) = f(t_0) C + \partial_tf (t_0)
 \frac{S}{\omega} 
 + \frac{\trho{n+1}}{\omega^2}\left( 1 - \frac{S}{\omega\Delta t}\right) 
-- \frac{\trho{n}}{\omega^2}\left( C - \frac{S}{\omega\Delta t}\right) \]
+- \frac{\trho{n}}{\omega^2}\left( C - \frac{S}{\omega\Delta t}\right) \end{equation}
 Using the above expression, we obtain
-\begin{align*}
+\begin{subequations}
+\begin{align}
 \tE{+}{n+1} = \; & C \tE{+}{n} + 
 c^2\frac{S}{\omega}\left(-\frac{ik_\perp }{2} \tB{z}{n} + k_z\tB{+}{n}
 - \mu_0 \tj{+}{n+1/2} \right) + \frac{c^2}{\epsilon_0}
@@ -279,7 +296,8 @@ c^2\frac{S}{\omega}\left(ik_\perp \tB{+}{n} + ik_\perp \tB{-}{n}
 ik_z\left[ \frac{\trho{n+1}}{\omega^2}\left(
   1 - \frac{S}{\omega\Delta t}\right) - \frac{\trho{n}}{\omega^2}
 \left( C - \frac{S}{\omega\Delta t}\right)\right]  &
-\end{align*}
+\end{align}
+\end{subequations}
 
 \section{Discrete Hankel Transform}
 \label{sec:HTMatrix}
@@ -295,9 +313,9 @@ and field gathering). Moreover, we impose, as much as possible, that the
 succession of a Discrete Hankel Transform (DHT) and an Inverse Discrete
 Hankel Transform (IDHT) retrieves the initial function. As explained in
 the text of the article, we use a matrix formalism for the DHT:
-\[ \mathrm{DHT^m_n}[f] \,(k^m_{\perp,j}) = \sum_{p=0}^{N_r-1} (M_{n,m})_{j,p}
+\begin{equation} \mathrm{DHT^m_n}[f] \,(k^m_{\perp,j}) = \sum_{p=0}^{N_r-1} (M_{n,m})_{j,p}
 \,f(r_p) \qquad \mathrm{IDHT^m_n}[g] \, (r_j) = \sum_{p=0}^{N_r-1}
-(M'_{n,m})_{j,p} \,g(k^m_{\perp,p}) \]
+(M'_{n,m})_{j,p} \,g(k^m_{\perp,p}) \end{equation}
 \noindent where $n$ is the order of the Hankel transform, and where
 $m$ is the index of the spectral grid
 $k^m_{\perp,j}$ on which the Hankel transform is evaluated. 
@@ -313,12 +331,14 @@ Hankel transform for the eigenmodes of a cavity with
 perfectly conducting boundary at $r_{max}$ ($E_z(r_{max},z) =
 0$), since these physical eigenmodes should also be eigenmodes of our
 PIC cycle. These eigenmodes have the following form:
-\begin{align*}
+\begin{subequations}
+\begin{align}
 E_z \;& \; \propto  J_m(k^m_{\perp,\ell} \,r)\,e^{ik_z z -im\theta} \Theta(r_{max}-r) \\
 E_r -i E_\theta \;& \; \propto  J_{m+1}(k^m_{\perp,\ell} \,r) \,e^{ik_z z -im\theta} \Theta(r_{max}-r)\\
 E_r +i E_\theta \;& \; \propto  J_{m-1}(k^m_{\perp,\ell} \,r)
                     \,e^{ik_z z -im\theta} \Theta(r_{max}-r) 
-\end{align*}
+\end{align}
+\end{subequations}
 where $\Theta$ is the Heaviside function and where $k^m_{\perp,\ell} =
 \alpha^m_\ell / r_{max}$, with $\alpha^m_\ell$ the $\ell$th positive zero of
 the Bessel function of order $m$. 
@@ -356,8 +376,8 @@ that the inverse matrix $M^{-1}_{n,m}$ can be directly extracted from the above 
 since this inverse matrices is defined by the relation $\sum_p (M_{n,m})_{j,p}
 (M^{-1}_{n,m})_{p,\ell} = \delta_{j,\ell}$. Thus, from the above
 relations, one can directly infer:
-\[ (M_{n,m}^{-1})_{p,\ell} = \frac{ J_n(k^m_{\perp,\ell}\,r_p) } { \pi\,
-  r_{max}^2\,[ J_{n+\delta_{n,m}}(\alpha_\ell^m)]^2  } \]
+\begin{equation} (M_{n,m}^{-1})_{p,\ell} = \frac{ J_n(k^m_{\perp,\ell}\,r_p) } { \pi\,
+  r_{max}^2\,[ J_{n+\delta_{n,m}}(\alpha_\ell^m)]^2  } \end{equation}
 
 \noindent The matrix $M_{n,m}$ can then be extracted, by numerically inverting
 the matrices  $M^{-1}_{n,m}$ given by the above expression. In
@@ -370,8 +390,8 @@ equation \cref{eq:DHT-matrix} is not valid for $\ell=0$, and thus it
 provides only $N_r(N_r-1)$ constraints on the matrix $M_{n,m}$, which
 is not enough to completely determine it. In this case, we use an
 empirical method in which we impose the additional constraints
-\[ (M_{n,m})_{0,p} = 0 \qquad \mathrm{for} \quad p \in \{ 0, ...,
-N_r-1 \} \]
+\begin{equation} (M_{n,m})_{0,p} = 0 \qquad \mathrm{for} \quad p \in \{ 0, ...,
+N_r-1 \} \end{equation}
 \noindent This constraint is imposed because we choose the amplitude of the
 Hankel mode proportional to $J_{n}(k^m_0 r)$ to be 0 in the
 simulation. (For $n\neq 0$ and $m \neq 0$, $J_n(k^m_0 r)=0$ for any
@@ -408,8 +428,8 @@ definition $\alpha^m_j$ is the zero of the Bessel function of order $m$, we have
 $J_n(\alpha^m_j)= J_n(\alpha^m_\ell)=0$, and the relation 11.4.5 is
 thus used in the case $b=0$ and $a=1$ (see relation 11.4.5 in \cite{Abramowitz} for the definition
 of the $a$ and $b$ coefficients). This yields
-\[ \int_0^1 \!\!\! tdt\; J_n (\alpha^m_{\ell} t) J_n (\alpha^m_{j} t)
-= \frac{1}{2}[ J_n'(\alpha_\ell^m) ]^2 \delta_{j,\ell} = \frac{1}{2}[ J_{n+1}(\alpha_\ell^m) ]^2 \delta_{j,\ell}\]
+\begin{equation} \int_0^1 \!\!\! tdt\; J_n (\alpha^m_{\ell} t) J_n (\alpha^m_{j} t)
+= \frac{1}{2}[ J_n'(\alpha_\ell^m) ]^2 \delta_{j,\ell} = \frac{1}{2}[ J_{n+1}(\alpha_\ell^m) ]^2 \delta_{j,\ell}\end{equation}
 \noindent where we further used the relation 9.1.27 in \cite{Abramowitz}, which
 reads $ J_n'(\alpha^m_\ell) = -J_{n+1}(\alpha^m_\ell)+
 \frac{n}{\alpha^m_\ell} J_{n}(\alpha^m_\ell)$, and took into account
@@ -423,9 +443,9 @@ definition, we have $J_m(\alpha^m_\ell) = 0$, and thus from the relation 9.1.27 
 \cite{Abramowitz} $J_{m+1}'(\alpha^m_\ell) + \frac{m+1}{\alpha^m_\ell}
 J_{m+1}(\alpha^m_\ell) = 0$. We can thus apply the relation 11.4.5 in
 \cite{Abramowitz} with $a=m+1$ and $b=1$, and find 
-\[ \int_0^1 \!\!\! tdt\; J_n (\alpha^m_{\ell} t) J_n (\alpha^m_{j} t) = \frac{1}{2
+\begin{equation} \int_0^1 \!\!\! tdt\; J_n (\alpha^m_{\ell} t) J_n (\alpha^m_{j} t) = \frac{1}{2
   (\alpha_\ell^m)^2}\left( (m+1)^2 + (\alpha_\ell^m)^2 - n^2 \right)[
-J_{n}(\alpha_\ell^m) ]^2 \delta_{j,\ell} = \frac{1}{2}[J_{n}(\alpha_\ell^m) ]^2 \delta_{j,\ell}  \]
+J_{n}(\alpha_\ell^m) ]^2 \delta_{j,\ell} = \frac{1}{2}[J_{n}(\alpha_\ell^m) ]^2 \delta_{j,\ell}  \end{equation}
 
 \paragraph{Case where $m=0$ and $\ell=0$} The proof of the two above
 cases used the relation 11.4.5 from \cite{Abramowitz}, which is applicable
@@ -438,12 +458,12 @@ the above proofs are also valid for $m=0$ and $\ell=0$.
 In this case, $\alpha^m_\ell = 0$ and thus the relation 11.4.5 from
 \cite{Abramowitz} does not apply. However, for $j\neq 0$, the left-hand
 side of equation \cref{eq:HT-expression2} reduces to 
-\[ \int_0^1 \!\!\! tdt\; J_n( \alpha_\ell^m t)  J_n( \alpha_j^m t) =
+\begin{equation} \int_0^1 \!\!\! tdt\; J_n( \alpha_\ell^m t)  J_n( \alpha_j^m t) =
 J_0(0) \int_0^1 \!\!\! tdt J_n( \alpha_j^m t) =
 \frac{J_0(0)}{(\alpha_j^m)^2} \int_0^{\alpha_\ell^m} \!\!\! tdt
-J_n(t)= 0\]
+J_n(t)= 0\end{equation}
 \noindent where we used relation 11.1.1 in \cite{Abramowitz}. On the
 other hand, for $j=0$, one has $\alpha^m_j=\alpha^m_\ell=0$ and thus
-\[ \int_0^1 \!\!\! tdt\; J_n( \alpha_\ell^m t)  J_n( \alpha_j^m t) =
-[J_0(0)]^2 \int_0^1 \!\!\! tdt = \frac{1}{2}[J_0(0)]^2 \]
+\begin{equation} \int_0^1 \!\!\! tdt\; J_n( \alpha_\ell^m t)  J_n( \alpha_j^m t) =
+[J_0(0)]^2 \int_0^1 \!\!\! tdt = \frac{1}{2}[J_0(0)]^2 \end{equation}
 

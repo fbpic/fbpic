@@ -155,14 +155,14 @@ Even though these two improvements are both very valuable, they cannot be
 combined with one another in their present
 formulation. Fundamentally, this is because the \emph{quasi-cylindrical} algorithm uses a
 cylindrical system of coordinates, whereas most spectral algorithms
-(and in particular the \emph{PSATD} algorithms)
+(and in particular the PSATD algorithms)
 were developed in a Cartesian system of coordinates. This
 incompatibility is however not definitive, and the aim of this article
 is to overcome these differences by developing a \emph{spectral
   quasi-cylindrical} formalism. In this document, we derive this formalism,
 and we show that it can be used to build a PIC algorithm that combines 
 the speed of \emph{quasi-cylindrical} algorithms with
-the accuracy and lack of numerical dispersion of the \emph{PSATD} algorithms.
+the accuracy and lack of numerical dispersion of the PSATD algorithms.
 
 Although the algorithm described here is, to our knowledge, unique in
 its capabilities, \comment{there are several other existing codes
@@ -680,11 +680,12 @@ wavevectors that the discrete spectral grid supports, in the
 longitudinal and transverse direction.
 
 Notice also that, in the above deposition scheme, we do not attempt to
-reproduce the Esirkepov current deposition \citep{Esirkepov}, and instead use a
+reproduce the Esirkepov charge-conserving current deposition
+\citep{Esirkepov}, and instead use a
 simple direct current deposition. It is well-known that this simple deposition does not necessarily
 satisfy the relation $\partial_t\rho + \vec{\nabla}\cdot\vec{j} =
 0$, but that this can be corrected for, by slightly modifying the
-currents without modifying their curl \citep{VayJCP2013}:
+currents without modifying their curl (e.g. \cite{VayJCP2013}):
 \begin{equation} \vec{j}' = \vec{j} - \vec{\nabla} G \end{equation}
 where $G$ satisfies the Poisson-like equation
 \begin{equation} \vec{\nabla}^2 G = \partial_t\rho + \vec{\nabla}\cdot\vec{j} \end{equation}
@@ -795,8 +796,7 @@ derivation of these equations.)
 % add references (web sites) for Python, FFTW, BLAS and Numba
 The full PIC algorithm described in this section was implemented in a
 code written in Python. For performance, this implementation makes use of the
-pre-compiled libraries FFTW and BLAS (for the matrix multiplication
-  in the DHT), and utilizes the Numba just-in-time compiler for the
+pre-compiled libraries FFTW \cite{FFTW} and BLAS \cite{BLAS} (for the matrix multiplication in the DHT), and utilizes the Numba just-in-time compiler \cite{Numba} for the
   computationally-intensive parts of the code (current deposition and
   field gathering). In addition, the code
   was developed for both single-CPU and single-GPU architectures (with the GPU runs
@@ -1271,7 +1271,7 @@ $\vec{B}$ fields are not staggered in time, in this algorithm.
 In this article, we derived the equations of a spectral
 quasi-cylindrical PIC algorithm, and discussed its numerical
 implementation. As explained in the text, because this algorithm is
-quasi-cylindrical, it require much less computational
+quasi-cylindrical, it requires much less computational
 time and memory than a full 3D algorithm. In addition, the fact
 that it is spectral (and uses the PSATD algorithm) prevents a certain number of
 artifacts, that are usually present in a finite-difference algorithm.
