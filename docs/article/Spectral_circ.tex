@@ -132,8 +132,11 @@ plasma \citep{EsareyRMP2009});
 
 \item a second, separate modification was introduced by the development
   of \emph{spectral} Cartesian PIC algorithms
-  \citep{Haber,BunemanJCP1980,DawsonRMP1983} i.e. algorithms that solve the
-  Maxwell equations in Fourier space. These algorithms contrast with
+  \citep{Haber,BunemanJCP1980,DawsonRMP1983,Liu} i.e. algorithms that solve the
+  Maxwell equations in Fourier space. \comment{(These algorithm are also sometimes referred to as
+  \emph{pseudo-spectral algorithms} when they make use of an
+  intermediate interpolation grid in real space, and this term then
+  also applies to the algorithm presented here.)} These algorithms contrast with
   \emph{finite-difference} algorithms, which solve the Maxwell equations
   by approximating the derivatives as finite differences on a discrete spatial grid.
 Importantly, while finite-difference algorithm suffer from
@@ -603,9 +606,8 @@ and $p$ and $q$ are the indices of the two nearest cells in $z$ and
 $r$ respectively. $N_m$ is the total number
 of azimuthal modes used. Notice that, in \cref{eq:gathering}, we used the fact that
 $\hat{F}_{u,-m}(z,r) = \hat{F}^*_{u,m}(z,r) $, which can be
-inferred from \cref{eq:IntermFwTrans}. Incidentally, \cref{eq:gathering} shows that only the modes
-with $m\geq 0$ need to be taken into account in the code, as they are 
-sufficient to retrieve the force on the macroparticles.
+inferred from \cref{eq:IntermFwTrans}. Incidentally,
+\cref{eq:gathering} shows that only the modes with $m\geq 0$ need to be taken into account in the code, as they are sufficient to retrieve the force on the macroparticles.
 
 Finally, in \cref{eq:gathering}, $S_{z,p}$ and $S_{z,q}$ are the linear
 shape factors in $z$ and $r$ :
@@ -616,14 +618,28 @@ S_{z,p +1}(z) = \frac{ z - z_{p} }{\Delta z} \qquad
 \mathrm{with} \quad z_{p} \leq z < z_{p +1}  
 \end{equation}
 \begin{equation} 
+\label{eq:shape-r}
 S_{r,q}(r) = \frac{ r_{q+1} - r }{  \Delta r }
 \qquad S_{r,q+1}(r) = \frac{ r - r_{q} }{  \Delta r }
 \qquad \mathrm{with} \quad r_{q} \leq r < r_{q+1}
 \end{equation}
 \end{subequations}
-\noindent Note that we use linear shape factors here only for
+\noindent \comment{For particles that are in the lower half of the first
+  radial cell ($r < r_0 = \Delta r/2$), \cref{eq:gathering,eq:shape-r}
+  require the value $\hat{F}_{u,m}(z_p, r_{-1})$ although $r_{-1} =
+  -\Delta r/2$ is not actually part of the grid. In order to still
+  apply \cref{eq:gathering,eq:shape-r}, we explicitly set 
+$\hat{F}_{u,m}(z_p, -\Delta r/2) = \pm \hat{F}_{u,m}(z_p,\Delta r/2)$,
+where the $-$ sign is chosen whenever the considered field $\hat{F}_{u,m}$
+is by definition zero on the axis, and the $+$ sign is chosen
+otherwise. (e.g. $\hat{E}_{r,0}$ is by
+definition zero on the axis ; see \cite{Lifschitz} for more details,
+and for a similar method.)}
+
+Note that we use linear shape factors here only for
 the sake of simplicity, and that higher-order shape factors
-(e.g. quadratic or cubic) could also be used in principle.
+(e.g. quadratic or cubic) could also be used in principle, \comment{with
+a similar mirroring of the field values across the axis.}
  
 %\noindent Additionally, for particles that are located in the first half of the first
 %cell ($0< r < \Delta r/2$), the shape $S_{r,0}$ is modified and reads
@@ -712,7 +728,8 @@ correction in spectral space, at the end of the current deposition at each times
 
 The Maxwell equations
 \cref{eq:CircMaxwellp,eq:CircMaxwellm,eq:CircMaxwellz} could in
-principle be integrated by using a finite-difference scheme in time:
+principle be integrated by using a finite-difference scheme in time,
+\comment{which would be an adaptation of the Cartesian PSTD scheme \cite{Liu}.}
 \begin{subequations}
 \begin{align}
 \tE{+}{n+1} = \; & \tE{+}{n} + 
@@ -742,7 +759,7 @@ c^2\Delta t\left(ik_\perp \tB{+}{n} + ik_\perp \tB{-}{n}
 However, this type of scheme retains some amount of numerical dispersion, and can
 thus affect the simulated physics.
 
-Instead, here we use an adaptation of the PSATD scheme \citep{Haber}
+Instead, here we use an adaptation of the Cartesian PSATD scheme \citep{Haber}
 for our spectral quasi-cylindrical representation. As in the case of the standard
 PSATD, we assume that the currents are constant over one timestep and
 that the charge density is linear in time over the same timestep. Under these
