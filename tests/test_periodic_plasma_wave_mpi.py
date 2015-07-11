@@ -153,65 +153,67 @@ def check_E_field( interp, epsilon, k0, w0, wp, t, field='Ez' ) :
 
     plt.show()
     
-if __name__ == '__main__' :
 
-    # Setup MPI
-    mpi_comm = mpi.COMM_WORLD
 
-    rank = mpi_comm.rank
-    size = mpi_comm.size
+# Setup MPI
+mpi_comm = mpi.COMM_WORLD
 
-    # ----------
-    # Parameters
-    # ----------
-    use_mpi=True
+rank = mpi_comm.rank
+size = mpi_comm.size
+
+# ----------
+# Parameters
+# ----------
+use_mpi=True
+
+# The simulation box
+Nz = 512        # Number of gridpoints along z
+zmax = 40.e-6    # Length of the box along z (meters)
+Nr = 32          # Number of gridpoints along r
+rmax = 20.e-6    # Length of the box along r (meters)
+Nm = 2           # Number of modes used
+# The simulation timestep
+dt = zmax/Nz/c   # Timestep (seconds)
+
+# The particles
+p_zmin = 0.e-6   # Position of the beginning of the plasma (meters)
+p_zmax = 41.e-6  # Position of the end of the plasma (meters)
+p_rmin = 0.      # Minimal radial position of the plasma (meters)
+p_rmax = 18.e-6  # Maximal radial position of the plasma (meters)
+n_e = 2.e24      # Density (electrons.meters^-3)
+p_nz = 2         # Number of particles per cell along z
+p_nr = 2         # Number of particles per cell along r
+p_nt = 4         # Number of particles per cell along theta
+
+# The plasma wave
+epsilon = 0.001  # Dimensionless amplitude of the wave
+w0 = 5.e-6      # The transverse size of the plasma wave
+N_periods = 3   # Number of periods in the box
+# Calculated quantities
+k0 = 2*np.pi/zmax*N_periods
+wp = np.sqrt( n_e*e**2/(m_e*epsilon_0) )
+
+# Run the simulation for 0.75 plasma period
+N_step = int( 2*np.pi/(wp*dt)*0.75 )
     
-    # The simulation box
-    Nz = 512        # Number of gridpoints along z
-    zmax = 40.e-6    # Length of the box along z (meters)
-    Nr = 32          # Number of gridpoints along r
-    rmax = 20.e-6    # Length of the box along r (meters)
-    Nm = 2           # Number of modes used
-    # The simulation timestep
-    dt = zmax/Nz/c   # Timestep (seconds)
+# -------------------------
+# Launching the simulation
+# -------------------------
 
-    # The particles
-    p_zmin = 0.e-6   # Position of the beginning of the plasma (meters)
-    p_zmax = 41.e-6  # Position of the end of the plasma (meters)
-    p_rmin = 0.      # Minimal radial position of the plasma (meters)
-    p_rmax = 18.e-6  # Maximal radial position of the plasma (meters)
-    n_e = 2.e24      # Density (electrons.meters^-3)
-    p_nz = 8         # Number of particles per cell along z
-    p_nr = 2         # Number of particles per cell along r
-    p_nt = 4         # Number of particles per cell along theta
+# Initialization of the simulation object
+sim = Simulation( Nz, zmax, Nr, rmax, Nm, dt,
+                  p_zmin, p_zmax, p_rmin, p_rmax, p_nz, p_nr, p_nt, n_e,
+                  use_mpi = use_mpi, n_guard = 50 )
 
-    # The plasma wave
-    epsilon = 0.001  # Dimensionless amplitude of the wave
-    w0 = 5.e-6      # The transverse size of the plasma wave
-    N_periods = 3   # Number of periods in the box
-    # Calculated quantities
-    k0 = 2*np.pi/zmax*N_periods
-    wp = np.sqrt( n_e*e**2/(m_e*epsilon_0) )
+# Impart velocities to the electrons
+# (The electrons are initially homogeneous, but have an
+# intial non-zero velocity that develops into a plasma wave)
+impart_momenta( sim.ptcl[0], epsilon, k0, w0, wp )
 
-    # Run the simulation for 0.75 plasma period
-    N_step = int( 2*np.pi/(wp*dt)*0.75 )
-    
-    # -------------------------
-    # Launching the simulation
-    # -------------------------
-    
-    # Initialization of the simulation object
-    sim = Simulation( Nz, zmax, Nr, rmax, Nm, dt,
-        p_zmin, p_zmax, p_rmin, p_rmax, p_nz, p_nr, p_nt, n_e,
-        use_mpi = use_mpi, n_guard = 50 )
-    
-    # Impart velocities to the electrons
-    # (The electrons are initially homogeneous, but have an
-    # intial non-zero velocity that develops into a plasma wave)
-    impart_momenta( sim.ptcl[0], epsilon, k0, w0, wp )
-
-    # Launch the simulation
-    sim.step( N_step, moving_window=False, correct_currents = False)
+def show_fields(sim) :
+    """
+    Gathers the fields and compare them with the analytical theory
+    """
 
     if use_mpi:
         gathered_grid = sim.comm.gather_grid(sim.fld.interp[0])
@@ -233,3 +235,8 @@ if __name__ == '__main__' :
                    sim.time, field='Er' )
     
     
+# Launch the simulation
+if __name__ == '__main__' :
+    sim.step( N_step, moving_window=False, correct_currents = False)
+
+    show_fields( sim )
