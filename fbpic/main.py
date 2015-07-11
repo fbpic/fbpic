@@ -39,8 +39,8 @@ class Simulation(object) :
     def __init__(self, Nz, zmax, Nr, rmax, Nm, dt,
                  p_zmin, p_zmax, p_rmin, p_rmax, p_nz, p_nr, p_nt,
                  n_e, zmin = 0., dens_func=None, filter_currents=True,
-                 initialize_ions=False, use_cuda = False,
-                 use_mpi = False, n_guard = 50) :
+                 initialize_ions=False, use_cuda=False, use_mpi=False,
+                 n_guard=50, boundaries='periodic' ) :
         """
         Initializes a simulation, by creating the following structures :
         - the Fields object, which contains the EM fields
@@ -104,6 +104,11 @@ class Simulation(object) :
         n_guard : int, optional
             Number of guard cells to use at the left and right of
             a domain, when using MPI.
+
+        boundaries : str
+            Indicates how to exchange the fields at the left and right
+            boundaries of the global simulation box
+            Either 'periodic' or 'open'
         """
         # Check whether to use cuda
         self.use_cuda = use_cuda
@@ -116,7 +121,7 @@ class Simulation(object) :
             self.use_mpi = False
         if self.use_mpi:
             # Initialize the MPI communicator
-            self.comm = MPI_Communicator(Nz, Nr, n_guard, Nm)
+            self.comm = MPI_Communicator(Nz, Nr, n_guard, Nm, boundaries)
             # Modify domain region
             zmin, zmax, p_zmin, p_zmax = self.comm.divide_into_domain(
                                             zmin, zmax, p_zmin, p_zmax)

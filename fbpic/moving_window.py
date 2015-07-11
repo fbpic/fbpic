@@ -292,7 +292,7 @@ class MovingWindow(object) :
         if interp[0].use_cuda :
             # Damp the fields on the GPU
             
-            Nz_eff = self.ncells_zero + self.ncells_damp
+            Nz_eff = ncells_zero + self.ncells_damp
             Nr = interp[0].Nr
             dim_grid, dim_block = cuda_tpb_bpg_2d( Nz_eff, Nr )
                         
@@ -315,7 +315,7 @@ class MovingWindow(object) :
                     
                     field = getattr( interp[m], fieldtype )
                     damp_field( field, self.damp_array_EB,
-                            self.ncells_damp, self.ncells_zero,
+                            self.ncells_damp, ncells_zero,
                             damp_left, damp_right )
             
 # ---------------------------------------
