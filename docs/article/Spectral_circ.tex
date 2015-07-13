@@ -40,8 +40,6 @@
 
 \renewcommand{\vec}[1]{\boldsymbol{#1}}
 
-\newcommand{\comment}[1]{\textcolor{red}{#1}}
-
 \newcommand{\spectral}[1]{\hat{\mathcal{#1}}}
 
 % Reference automatique aux equations, sections, figures
@@ -50,7 +48,7 @@
 \title{A spectral, quasi-cylindrical and dispersion-free Particle-In-Cell algorithm}
 %\pagestyle{empty}
 \author[label1]{R\'emi {Lehe}}
-\ead{rlehe@lbl.gov}
+\ead{rlehe@lbl.gov}         
 \author[label2]{Manuel {Kirchen}}
 \author[label3]{Igor A. {Andriyash}}
 \author[label4]{Brendan B. {Godfrey}}
@@ -75,6 +73,11 @@ benchmarks show that it avoids a number of numerical artifacts, that
 would otherwise affect the physics in a standard PIC algorithm -- 
 including the zero-order numerical Cherenkov effect.
 \end{abstract}
+
+\begin{keyword}
+particle-in-cell \sep pseudo-spectral \sep Hankel transform \sep
+cylindrical geometry
+\end{keyword}
 
 \maketitle
 
@@ -133,10 +136,10 @@ plasma \citep{EsareyRMP2009});
 \item a second, separate modification was introduced by the development
   of \emph{spectral} Cartesian PIC algorithms
   \citep{Haber,BunemanJCP1980,DawsonRMP1983,Liu} i.e. algorithms that solve the
-  Maxwell equations in Fourier space. \comment{(These algorithm are also sometimes referred to as
+  Maxwell equations in Fourier space. (These algorithm are also sometimes referred to as
   \emph{pseudo-spectral algorithms} when they make use of an
   intermediate interpolation grid in real space, and this term then
-  also applies to the algorithm presented here.)} These algorithms contrast with
+  also applies to the algorithm presented here.) These algorithms contrast with
   \emph{finite-difference} algorithms, which solve the Maxwell equations
   by approximating the derivatives as finite differences on a discrete spatial grid.
 Importantly, while finite-difference algorithm suffer from
@@ -168,19 +171,20 @@ the speed of \emph{quasi-cylindrical} algorithms with
 the accuracy and lack of numerical dispersion of the PSATD algorithms.
 
 Although the algorithm described here is, to our knowledge, unique in
-its capabilities, \comment{there are several other existing codes
-  which have some similarities with it.} One such example is the
+its capabilities, there are several other existing codes
+  which have some similarities with it. One such example is the
 hybrid, quasi-cylindrical version of \textsc{OSIRIS} \citep{Yuarxiv2015}. This algorithm
 involves a Fourier transform in the longitudinal direction, but
 retains a finite-difference formulation in the transverse (radial)
 direction. As a consequence, this algorithm is not fully spectral, nor
-fully dispersion-free. 
-\comment{Another such example is the code \textsc{PlaRes} 
+fully dispersion-free. Another such example is the code \textsc{PlaRes} 
 \citep{AndriyashJCP2015}, which is designed to simulate the physics of
-free-electron lasers. This code also uses a spectral quasi-cylindrical
-formalism, but it relies on the scalar and vector potentials
-$\phi$ and $\vec{A}$ and uses no spatial grid. As a result, \textsc{PlaRes} differs significantly from the
-standard PIC formulation, and from the algorithm described here.}
+free-electron lasers (FEL). This code also uses a spectral quasi-cylindrical
+formalism, but it models the fields in narrow spectral intervals around the
+resonant FEL frequencies, relies on the scalar and vector potentials
+$\phi$ and $\vec{A}$ and uses no spatial grid. As a result,
+\textsc{PlaRes} differs significantly from the standard PIC
+formulation, and from the algorithm described here.
 
 In the present article, we start by deriving the equations of our
 spectral quasi-cylindrical formalism (\cref{sec:theory}). We then explain
@@ -346,10 +350,10 @@ that the current satisfies $\partial_t
 \partial_t \spectral{\rho}_m + k_\perp (\spectral{J}_{+,m} -\spectral{J}_{-,m}) + ik_z
 \spectral{J}_{z,m} = 0
 \end{equation} 
-\comment{\noindent (This can be checked for instance by differentiating
+\noindent (This can be checked for instance by differentiating
 \cref{eq:SpectCons} in time and by using
 \cref{eq:CircMaxwellp,eq:CircMaxwellm,eq:CircMaxwellz} to re-express the
-time derivatives.)}
+time derivatives.)
 
 As in a spectral Cartesian PIC codes, the equations
 \cref{eq:CircMaxwellp,eq:CircMaxwellm,eq:CircMaxwellz}  
@@ -624,7 +628,7 @@ S_{r,q}(r) = \frac{ r_{q+1} - r }{  \Delta r }
 \qquad \mathrm{with} \quad r_{q} \leq r < r_{q+1}
 \end{equation}
 \end{subequations}
-\noindent \comment{For particles that are in the lower half of the first
+\noindent For particles that are in the lower half of the first
   radial cell ($r < r_0 = \Delta r/2$), \cref{eq:gathering,eq:shape-r}
   require the value $\hat{F}_{u,m}(z_p, r_{-1})$ although $r_{-1} =
   -\Delta r/2$ is not actually part of the grid. In order to still
@@ -634,12 +638,12 @@ where the $-$ sign is chosen whenever the considered field $\hat{F}_{u,m}$
 is by definition zero on the axis, and the $+$ sign is chosen
 otherwise. (e.g. $\hat{E}_{r,0}$ is by
 definition zero on the axis ; see \cite{Lifschitz} for more details,
-and for a similar method.)}
+and for a similar method.)
 
 Note that we use linear shape factors here only for
 the sake of simplicity, and that higher-order shape factors
-(e.g. quadratic or cubic) could also be used in principle, \comment{with
-a similar mirroring of the field values across the axis.}
+(e.g. quadratic or cubic) could also be used in principle, with
+a similar mirroring of the field values across the axis.
  
 %\noindent Additionally, for particles that are located in the first half of the first
 %cell ($0< r < \Delta r/2$), the shape $S_{r,0}$ is modified and reads
@@ -728,8 +732,8 @@ correction in spectral space, at the end of the current deposition at each times
 
 The Maxwell equations
 \cref{eq:CircMaxwellp,eq:CircMaxwellm,eq:CircMaxwellz} could in
-principle be integrated by using a finite-difference scheme in time,
-\comment{which would be an adaptation of the Cartesian PSTD scheme \cite{Liu}.}
+principle be integrated by using a finite-difference scheme in time, 
+which would be an adaptation of the Cartesian PSTD scheme \cite{Liu}.
 \begin{subequations}
 \begin{align}
 \tE{+}{n+1} = \; & \tE{+}{n} + 
