@@ -51,7 +51,7 @@
 \ead{rlehe@lbl.gov}         
 \author[label2]{Manuel {Kirchen}}
 \author[label3]{Igor A. {Andriyash}}
-\author[label4]{Brendan B. {Godfrey}}
+\author[label1,label4]{Brendan B. {Godfrey}}
 \author[label1]{Jean-Luc {Vay}}
 
 \address[label1]{Lawrence Berkeley National Laboratory, Berkeley, CA 94720, USA}
@@ -110,7 +110,7 @@ computationally expensive;
   resolution-dependent velocity. In the above-mentioned cases, 
 numerical dispersion can lead to substantial numerical artifacts
 which can mask or disrupt the physics at stake in the simulation. This
-includes for instance numerical Cherenkov effects in general
+includes, for instance, numerical Cherenkov effects in general
 \citep{GodfreyJCP1974}, but also more specific artifacts, such as
 e.g. the erroneous prediction of the dephasing length in
 laser-wakefield acceleration \citep{CowanPRSTAB2013}.
@@ -120,7 +120,7 @@ Yet several modifications can be made to the PIC algorithm, in order
 to mitigate these difficulties and increase the speed and
 accuracy of the simulations in these physical situations: 
 \begin{itemize}
-\item one of these modifications is the development of cylindrically-symmetric
+\item one of these modifications is the development of cylindrical 
 PIC algorithms with azimuthal Fourier decomposition \citep{godfrey1985iprop,Lifschitz,Davidson} 
 of the electromagnetic field components 
 (sometimes referred to as \emph{quasi-3D} algorithms, or as
@@ -153,12 +153,12 @@ that spectral PIC algorithms have better stability properties when
 performing PIC simulations in
 a Lorentz-boosted frame \citep{VayPRL2007,MartinsNatPhys2010,VayJCP2011}. 
 These stability properties are very
-promising since boosted-frame simulations can be faster than 
+promising, since boosted-frame simulations can be faster than 
 their laboratory-frame counterparts by several orders of magnitude \citep{VayPRL2007}.
 \end{itemize}
 
 Even though these two improvements are both very valuable, they cannot be
-combined with one another in their present
+combined with each other in their present
 formulation. Fundamentally, this is because the \emph{quasi-cylindrical} algorithm uses a
 cylindrical system of coordinates, whereas most spectral algorithms
 (and in particular the PSATD algorithms)
@@ -350,7 +350,7 @@ that the current satisfies $\partial_t
 \partial_t \spectral{\rho}_m + k_\perp (\spectral{J}_{+,m} -\spectral{J}_{-,m}) + ik_z
 \spectral{J}_{z,m} = 0
 \end{equation} 
-\noindent (This can be checked for instance by differentiating
+\noindent (This can be checked, for instance, by differentiating
 \cref{eq:SpectCons} in time and by using
 \cref{eq:CircMaxwellp,eq:CircMaxwellm,eq:CircMaxwellz} to re-express the
 time derivatives.)
@@ -466,7 +466,7 @@ The above equations show that the transformation from the intermediate
 grid ($\hat{F}_{u,m}$) to the spectral grid ($\spectral{F}_{u,m}$) is
 the combination of a Fourier transform (in $z$) and a Hankel transform
 (in $r$). The Fourier transform in $z$ can be discretized through a Fast Fourier
-Transform (FFT) algorithm, which imposes to use an evenly-spaced grid
+Transform (FFT) algorithm, which requires an evenly-spaced grid
 in $z$ and in $k_z$. On the other hand, there is more freedom of
 choice for the Discrete Hankel Transform (DHT), and the implementation that
 we chose is described in the next section
@@ -734,12 +734,12 @@ Here, we choose to discretize the algorithm on an evenly-spaced grid in $r$
 r_j = \Delta r \left( j+\frac{1}{2} \right) \qquad  j \in \{0, ...,
 N_r-1 \} \qquad \mathrm{where} \quad \Delta r = \frac{r_{max}}{N_r} 
 \end{equation}
-but on an irregular grid in $k_\perp$ (for the spectral grid). This is because the authorized
+but on an irregular grid in $k_\perp$ (for the spectral grid). This is because the allowed
 values of $k_\perp$ are determined by the boundary conditions, in the same way that
 the periodic boundaries in a Cartesian code impose the use of
 evenly-spaced $k$. Here, for simplicity, we impose that the
 longitudinal fields be $0$ at $r_{max}$ (i.e. $E_z(r_{max}, z) = 0$,
-$B_z(r_{max}, z) = 0$). In this case, it turns out that the set of authorized
+$B_z(r_{max}, z) = 0$). In this case, it turns out that the set of allowed
 $k_\perp$ depends on the azimuthal mode $m$ and reads
 \begin{equation}  
 k^m_{\perp,j} = \frac{\alpha_j^m}{r_{max}} \qquad j \in \{0, ...,
@@ -793,7 +793,7 @@ which is typically used in the transverse plane of a spectral 3D Cartesian code.
 \subsection{Field gathering}
 \label{sec:gathering}
 
-In the following, we describe the 4 successive steps of a PIC cycle
+In the following, we describe the four successive steps of a PIC cycle
 with our algorithm in detail, starting with the field gathering.
 When gathering the fields from the intermediate grid to the
 macroparticles (see \cref{fig:GlobalScheme}),
@@ -808,7 +808,8 @@ F_u(\vec{r}_k) &=  \sum_{p,q} S_{z,p}(z_k)S_{r,q}(r_k) \left[ \sum_{m=-N_m}^{N_m
 where $F$ is either $E$ or $B$, $u$ is either $r$, $\theta$ or $z$, $k$ is the index of the macroparticle,
 and $p$ and $q$ are the indices of the two nearest cells in $z$ and
 $r$ respectively. $N_m$ is the total number
-of azimuthal modes used. Notice that, in \cref{eq:gathering}, we used the fact that
+of azimuthal modes used, and $\Re$ denotes the real part of a complex
+quantity. Notice that, in \cref{eq:gathering}, we used the fact that
 $\hat{F}_{u,-m}(z,r) = \hat{F}^*_{u,m}(z,r) $, which can be
 inferred from \cref{eq:IntermFwTrans}. Incidentally,
 \cref{eq:gathering} shows that only the modes with $m\geq 0$ need to be taken into account in the code, as they are sufficient to retrieve the force on the macroparticles.
@@ -855,7 +856,7 @@ $B_z$ that were gathered at the positions of each macroparticle.
 We then advance the equations of motion
 \begin{equation} \frac{d\vec{p}}{dt} = q\vec{E} + q\vec{v}\times \vec{B} \qquad
 \frac{d\vec{x}}{dt} = \frac{\vec{p}}{\gamma \,m} \end{equation}
-\noindent  in standard 3D Cartesian coordinates, by using the leap-frog pusher described in \citep{VayPoP2008}.
+\noindent  in standard 3D Cartesian coordinates by using the leap-frog pusher described in \citep{VayPoP2008}.
 
 \subsection{Current deposition}
 \label{sec:current-deposition}
@@ -896,7 +897,7 @@ reproduce the Esirkepov charge-conserving current deposition
 \citep{Esirkepov}, and instead use a
 simple direct current deposition. It is well-known that this simple deposition does not necessarily
 satisfy the relation $\partial_t\rho + \vec{\nabla}\cdot\vec{j} =
-0$, but that this can be corrected for, by slightly modifying the
+0$, but that this can be corrected, by slightly modifying the
 currents without modifying their curl (e.g. \cite{VayJCP2013}):
 \begin{equation} \vec{j}' = \vec{j} - \vec{\nabla} G \end{equation}
 where $G$ satisfies the Poisson-like equation
@@ -1067,7 +1068,7 @@ To assess the capacities of the finite-difference and
 spectral quasi-cylindrical code in this regard, \cref{fig:Vacuum_vg} displays the relative
 difference in group velocity, as measured in the
 simulations. As can be expected, in the
-finite-difference simulations, the
+finite-difference simulations the
 group velocity of the laser depends on the resolution, due to numerical
 dispersion. 
 Moreover, this group velocity is considerably different than the analytical
@@ -1188,8 +1189,9 @@ a_\ell^2(z', t) e^{-r^2/w_0^2} \sin[k_p(z-z')]dz' \label{eq:analytical-Ey}
 Here, the longitudinal laser envelope $a_\ell$ was extracted directly from the
 simulation, and the above analytical integrals where carried out
 numerically. The resulting predicted fields $E_z$ and $E_y$ are plotted in dashed lines
-in the left and right lower panels of \cref{fig:Linear_wkfld}
-respectively. These predicted curves are compared with
+in the left and right lower panels respectively of
+\cref{fig:Linear_wkfld}. 
+These predicted curves are compared with
 the fields $E_z$ and $E_y$ extracted directly from the simulation (red
 lines in the lower panels). These fields from the simulation are also
 displayed as colormaps in the upper panels of \cref{fig:Linear_wkfld},
@@ -1201,7 +1203,7 @@ lower panels are plotted (dashed line).
 \includegraphics[width=\textwidth]{Linear_wkfld.png}
 \caption{\label{fig:Linear_wkfld}Upper panels: Colormaps of the fields $E_z$ and
   $E_y$ as extracted from the simulation (blue and red), along with
-  the laser envelope (orange hues). (The laser propagates to the
+  the laser envelope (orange contour lines). (The laser propagates to the
   right and is polarized along $x$.) The dashed lines indicate the
   position where the curves of the lower panels have been extracted. 
 Lower panels: profile of the fields at a given radial
@@ -1221,7 +1223,7 @@ are typically very noisy.
 \label{sec:advantages}
 
 Since finite-difference algorithms and spectral algorithms are
-considerably different, each of them have their own advantages and
+considerably different, each of them has its own advantages and
 shortcomings. 
 
 For instance, spectral algorithms -- including the one described here
@@ -1244,7 +1246,7 @@ may be difficult to discern, especially in the cases where there is no
 analytical formula for this length. As shown in
 \cref{sec:linear_plasma}, the algorithm described here would not suffer
 from this effect, as it is free of numerical dispersion. Similarly, in
-this section, we describe two other typical situations in which our spectral
+this section we describe two other typical situations in which our spectral
 quasi-cylindrical algorithm avoids important artifacts, that would otherwise
 arise in a finite-difference code. 
 
@@ -1316,9 +1318,9 @@ in the top panels, the global aspect of the bubble and of the injected
 bunch is similar in both simulations. In particular, the injected
 charge was found to be almost the same (766~pC with the
 finite-difference algorithm and 750~pC with the spectral
-algorithm). However, when having a closer look at the bunch in the
+algorithm). However, a closer look at the bunch in the
 finite-difference algorithm (see the middle left panel in
-\cref{fig:Cherenkov}), it appears that the bunch emits a
+\cref{fig:Cherenkov}) reveals that the bunch emits a
 high-frequency radiation. This radiation seems to be due to the
 zero-order numerical Cherenkov effect -- an interpretation which is confirmed by
 the observation of the corresponding characteristic double-parabola in
@@ -1341,7 +1343,7 @@ numerical Cherenkov effect.
 \includegraphics[width=\textwidth]{Cherenkov.png}
 \caption{\label{fig:Cherenkov}Snapshot of a finite-difference
   simulation (left) and of a spectral simulation (right), at a similar
-  physical time. Upper panels: Aspect of the bubble in real space ; 
+  physical time. Upper panels: Representation of the bubble in real space; 
 the superimposed blue shades represent the electron
   density. Middle panels: More detailed view of the region surrounding the
   bunch. Lower panels: two-dimensional Fourier transform of the
@@ -1396,7 +1398,7 @@ represents a relativistic electron having an initial Lorentz factor
 $\gamma_e = 25$. For comparison, the simulation was run, again, with both our spectral
 quasi-cylindrical algorithm and the finite-difference
 quasi-cylindrical algorithm of \textsc{Warp}. In order to study
-numerical convergence, the simulations were run with a varying
+numerical convergence, the simulations were run with various
 longitudinal resolution $\Delta z$, but with a fixed cell aspect ratio
 $\Delta r = 10\Delta z$. The timestep was again $c\Delta t=
 1/\sqrt{1/\Delta z^2 + 2/\Delta r^2}$ for the finite-difference
@@ -1436,7 +1438,7 @@ dephases with the laser.
 
 Keeping in mind that here initially $a_0=0.2$, one can observe on
 \cref{fig:Laser} that the oscillation amplitude of $p_x/m_e c$
-is much higher than analytically predicted, in the finite-difference
+is much higher than analytically predicted in the finite-difference
 simulation. In addition, these oscillations strongly depend on the
 resolution of the simulation, which confirms their spurious nature. These
 observations are consistent with those of \citep{LehePRSTAB2014}, and
@@ -1461,7 +1463,7 @@ $\vec{B}$ fields are not staggered in time, in this algorithm.
   laser pulse having $a_0 = 0.2$ (see \cref{fig:Schematic_laser} for a
   schematic representation of the situation simulated). The left and
   right plots correspond to the finite-difference and spectral
-  algorithm respectively (note the different vertical scales on the two
+  algorithms respectively (note the different vertical scales on the two
   plots). The colored curves correspond to different resolutions for the simulations.}
 \end{figure}
 
@@ -1476,7 +1478,7 @@ time and memory than a full 3D algorithm. In addition, the fact
 that it is spectral (and uses the PSATD algorithm) prevents a certain number of
 artifacts, that are usually present in a finite-difference algorithm.
 
-This second aspect was tested in details in this article, through
+This second aspect was tested in detail in this article, through
 several benchmarks. By comparing simulations with analytical results, 
 we showed that our spectral quasi-cylindrical code is free of
 numerical dispersion, that it does not exhibit zero-order numerical Cherenkov
@@ -1511,11 +1513,11 @@ This document was prepared as an account of work sponsored in part by the United
 \label{sec:CircTrans}
 
 In order to derive the representation
-\cref{eq:CircBwTransz,eq:CircBwTransr,eq:CircBwTranst} we have to
+\cref{eq:CircBwTransz,eq:CircBwTransr,eq:CircBwTranst}, we have to
 distinguish the Cartesian components (e.g. $E_x$, $E_y$, $E_z$, $B_x$,
-$B_y$, $B_z$) which are well-defined everywhere in space and thus have a regular
+$B_y$, $B_z$), which are well-defined everywhere in space and thus have a regular
 Fourier representation, from the cylindrical components (e.g. $E_r$,
-$E_\theta$, $B_r$, $B_\theta$) which are ill-defined at $r=0$. (For instance, for a
+$E_\theta$, $B_r$, $B_\theta$), which are ill-defined at $r=0$. (For instance, for a
 field of the form $\vec{E} = E_0 \vec{e}_x$, the expression of $E_r$
 is $E_r = E_0 \cos(\theta)$, which ill-defined at $r=0$, as $\theta$
 itself is ill-defined at this position.)
@@ -1571,7 +1573,7 @@ denote generally by $F_r$. We have :
 \begin{equation} F_r = \cos(\theta) F_x + \sin(\theta) F_y 
 = \frac{F_x - iF_y}{2}e^{i\theta} + \frac{F_x +
   iF_y}{2}e^{-i\theta} \end{equation} 
-Using \cref{eq:CircBwTransu}, this leads to
+Using \cref{eq:CircBwTransu} leads to
 \begin{align} 
 F_r =   \frac{1}{(2\pi)^2}\sum_{m=-\infty}^{\infty} \Integ{k_z}\,\RInteg{k_\perp }\;
 \left(  J_m(k_\perp r) \frac{\spectral{F}_{x,m} -
@@ -1683,8 +1685,8 @@ We can now use the relations $\frac{m}{k_\perp r} J_m(k_\perp r) +
 \end{align}
 \end{subequations}
 Each equation of the above system contains Bessel functions of only one
-given order (either $m+1$, $m-1$ or $m$). This allows to separate the
-different $k_\perp $ components, since the functions $J_n(k_\perp r)$, for a
+given order ($m+1$, $m-1$ or $m$). This allows the
+different $k_\perp $ components to be separated, since the functions $J_n(k_\perp r)$, for a
 fixed $n$ and different values of $k_\perp $, form a basis of the set of real functions:
 \begin{subequations}
 \begin{align}
@@ -1904,8 +1906,8 @@ N_r-1 \} \end{equation}
 Hankel mode proportional to $J_{n}(k^m_0 r)$ to be 0 in the
 simulation. (For $n\neq 0$ and $m \neq 0$, $J_n(k^m_0 r)=0$ for any
 $r$, so that the amplitude of the corresponding mode has no physical
-meaning whatsoever.) This allows to determine the matrix
-$M_{n,m}$ entirely. In addition, to obtain $M'_{n,m}$, we impose
+meaning whatsoever.) This allows the matrix
+$M_{n,m}$ to be entirely determined. In addition, to obtain $M'_{n,m}$, we impose
 $ (M'_{n,m})_{p,\ell}=\frac{ J_n(k^m_{\perp,\ell}\,r_p) } { \pi\,
   r_{max}^2\,[ J_{n+\delta_{n,m}}(\alpha_\ell^m)]^2  }$ for any $\ell \in \{1,
 ..., N_r-1 \}$ (as in the case $n=0$ or $m=0$), but also $(M'_{n,m})_{p,\ell}=0$ for
