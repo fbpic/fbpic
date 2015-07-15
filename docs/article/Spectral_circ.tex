@@ -384,10 +384,6 @@ The PIC algorithm described here uses the above-mentioned representation
 of the fields. Although the fields are represented by a few
 2D arrays, the particles are still distributed in 3D and their motion
 is integrated in 3D Cartesian coordinates. 
-%However, due to the
-%lower number of cells in a 2D array, as compared to a 3D array, one can drastically reduce the
-%total number of particles and still have significative statistics for
-%each cell.
 
 As in a spectral Cartesian code, we do not perform the
 current deposition and field gathering directly from the
@@ -488,7 +484,215 @@ timesteps.
 describe the successive steps of the PIC cycle in more details.
 
 \begin{figure}
-\input{figures/PIC-cycle.tex}
+
+%%%% Large tikz program, which I would normally put in a separate tex
+%%%% file, using '\input', if this had not caused a bug, when
+%%%% compiling through Elsevier's online application page. 
+
+\begin{tikzpicture}
+\def \Dt{2.8}
+\def \yspac{0.7}
+
+\begin{scope}[yshift=0cm]
+
+\draw (-0.5,4.5*\yspac) node[anchor=west]{\textbf{a) Field gathering}};
+
+% Axes
+\draw[thick,->,>=stealth] (1,0) -- (5*\Dt,0) node[below]{$t$};
+\draw[thick,dashed] (-0.5,0) -- (1,0);
+% Labels
+\draw (0.5,3*\yspac) node[red,text width=2.5cm]{\textbf{Spectral grid ($k_\perp$, $k_z$)}};
+\draw (0.5,\yspac) node[red,text width=2.5cm]{\textbf{Intermediate grid ($r$, $z$)}};
+\draw (0.5,-\yspac) node[blue]{\textbf{Macroparticles}};
+% Timesteps
+\foreach \n in {1,3} 
+\draw[fill=black] (\n*\Dt,0) circle(0.1);
+\foreach \n in {2,4} 
+\draw[fill=white] (\n*\Dt,0) circle(0.1);
+% Arrows
+%\draw[->,>=stealth,thick] (3*\Dt,\yspac) -- (2.5*\Dt,-0.25);
+%\draw[->,>=stealth,thick] (1.85*\Dt,\yspac) -- (1.85*\Dt,-0.25);
+\draw[->,>=stealth,thick] (2.2*\Dt,\yspac) .. controls (2.3*\Dt,0) .. (2.2*\Dt,-1.5*\yspac);
+\draw[->,>=stealth,thick] (1.9*\Dt,-1*\yspac) .. controls (1.8*\Dt,-1*\yspac) .. (1.8*\Dt,-1.5*\yspac);
+% Fields
+% -- n-1/2
+\draw (\Dt,3*\yspac) node[gray,fill=white,draw=white,rounded corners]{$ \spectral{J}^{n-1/2}_m$};
+\draw (\Dt,1*\yspac) node[gray,fill=white,draw=white,rounded corners]{$ \hat{j}^{n-1/2}_m$};
+\draw (\Dt,-\yspac) node[blue]{$\vec{p}_k^{n-1/2}$};
+% -- n
+\draw (1.8*\Dt,3*\yspac) node[red,fill=white,draw=white,rounded corners]{$\spectral{\rho}^n_m$};
+\draw (2.2*\Dt,3*\yspac) node[gray,fill=white,draw=white,rounded corners]{$  \spectral{B}^{n}_m, \spectral{E}^{n}_m$};
+\draw (1.8*\Dt,\yspac) node[gray,fill=white,draw=white,rounded corners]{$\hat{\rho}^n_m$};
+\draw (2.2*\Dt,\yspac) node[red,fill=white,draw=red,rounded corners]{$\hat{B}^{n}_m, \hat{E}^{n}_m$};
+\draw (2*\Dt,-\yspac) node[blue,fill=white,draw=blue,rounded corners]{$\vec{x}_k^{n}$};
+\draw (2*\Dt,-2*\yspac) node[blue,fill=white!75!blue,draw=blue,rounded corners]{$\vec{E}(\vec{x}_k), \vec{B}(\vec{x}_k)$};
+% -- n+1/2
+\draw (3*\Dt,3*\yspac) node[gray,fill=white,draw=white,rounded corners]{$ \spectral{J}^{n+1/2}_m$};
+\draw (3*\Dt,1*\yspac) node[gray,fill=white,draw=white,rounded corners]{$ \hat{j}^{n+1/2}_m$};
+\draw (3*\Dt,-\yspac) node[gray]{$\vec{p}_k^{n+1/2}$};
+% -- n+1
+\draw (3.8*\Dt,3*\yspac) node[gray,fill=white,draw=white,rounded corners]{$\spectral{\rho}^{n+1}_m$};
+\draw (4.4*\Dt,3*\yspac) node[gray,fill=white,draw=white,rounded corners]{$  \spectral{B}^{n+1}_m, \spectral{E}^{n+1}_m$};
+\draw (3.8*\Dt,\yspac) node[gray,fill=white,draw=white,rounded corners]{$\hat{\rho}^{n+1}_m$};
+\draw (4.4*\Dt,\yspac) node[gray,fill=white,draw=white,rounded corners]{$\hat{B}^{n+1}_m, \hat{E}^{n+1}_m$};
+\draw (4*\Dt,-\yspac) node[gray]{$\vec{x}_k^{n+1}$};
+
+\end{scope}
+
+\begin{scope}[yshift=-6cm]
+
+\draw (-0.5, 4.5*\yspac) node[anchor=west]{\textbf{b) Equations of motion}};
+% Axes
+\draw[thick,->,>=stealth] (1,0) -- (5*\Dt,0) node[below]{$t$};
+\draw[thick,dashed] (-0.5,0) -- (1,0);
+% Labels
+\draw (0.5,3*\yspac) node[red,text width=2.5cm]{\textbf{Spectral grid ($k_\perp$, $k_z$)}};
+\draw (0.5,\yspac) node[red,text width=2.5cm]{\textbf{Intermediate grid ($r$, $z$)}};
+\draw (0.5,-\yspac) node[blue]{\textbf{Macroparticles}};
+% Timesteps
+\foreach \n in {1,3} 
+\draw[fill=black] (\n*\Dt,0) circle(0.1);
+\foreach \n in {2,4} 
+\draw[fill=white] (\n*\Dt,0) circle(0.1);
+% Arrows
+%\draw[->,>=stealth,thick] (\Dt,\yspac) -- (1.5*\Dt,-0.25);
+%\draw[->,>=stealth,thick] (3*\Dt,\yspac) -- (2.5*\Dt,-0.25);
+%\draw[->,>=stealth,thick] (1.85*\Dt,\yspac) -- (1.85*\Dt,-0.25);
+\draw[->,>=stealth,thick] (1*\Dt,-\yspac) .. controls (2*\Dt,-1.9*\yspac) .. (2.75*\Dt,-1.2*\yspac);
+\draw[->,>=stealth,thick] (2.1*\Dt,-1*\yspac) .. controls (3*\Dt,-0.7*\yspac) .. (3.8*\Dt,-1.*\yspac);
+% Fields
+% -- n-1/2
+\draw (\Dt,3*\yspac) node[gray,fill=white,draw=white,rounded corners]{$ \spectral{J}^{n-1/2}_m$};
+\draw (\Dt,1*\yspac) node[gray,fill=white,draw=white,rounded corners]{$ \hat{j}^{n-1/2}_m$};
+\draw (\Dt,-\yspac) node[blue,fill=white,draw=blue,rounded corners]{$\vec{p}_k^{n-1/2}$};
+% -- n
+\draw (1.8*\Dt,3*\yspac) node[red,fill=white,draw=white,rounded corners]{$\spectral{\rho}^n_m$};
+\draw (2.2*\Dt,3*\yspac) node[gray,fill=white,draw=white,rounded corners]{$  \spectral{B}^{n}_m, \spectral{E}^{n}_m$};
+\draw (1.8*\Dt,\yspac) node[gray,fill=white,draw=white,rounded corners]{$\hat{\rho}^n_m$};
+\draw (2.2*\Dt,\yspac) node[red,fill=white,draw=white,rounded corners]{$\hat{B}^n_m, \hat{E}^{n}_m$};
+\draw (2*\Dt,-\yspac) node[blue,fill=white,draw=blue,rounded corners]{$\vec{x}_k^{n}$};
+\draw (2*\Dt,-2*\yspac) node[blue,fill=white,draw=blue,rounded corners]{$\vec{E}(\vec{x}_k), \vec{B}(\vec{x}_k)$};
+% -- n+1/2
+\draw (3*\Dt,3*\yspac) node[gray,fill=white,draw=white,rounded corners]{$ \spectral{J}^{n+1/2}_m$};
+\draw (3*\Dt,1*\yspac) node[gray,fill=white,draw=white,rounded corners]{$ \hat{j}^{n+1/2}_m$};
+\draw (3*\Dt,-\yspac) node[blue,fill=white!75!blue,draw=blue,rounded corners]{$\vec{p}_k^{n+1/2}$};
+% -- n+1
+\draw (3.8*\Dt,3*\yspac) node[gray,fill=white,draw=white,rounded corners]{$\spectral{\rho}^{n+1}_m$};
+\draw (4.4*\Dt,3*\yspac) node[gray,fill=white,draw=white,rounded corners]{$  \spectral{B}^{n+1}_m, \spectral{E}^{n+1}_m$};
+\draw (3.8*\Dt,\yspac) node[gray,fill=white,draw=white,rounded corners]{$\hat{\rho}^{n+1}_m$};
+\draw (4.4*\Dt,\yspac) node[gray,fill=white,draw=white,rounded corners]{$\hat{B}^{n+1}_m, \hat{E}^{n+1}_m$};
+\draw (4*\Dt,-\yspac) node[blue,fill=white!75!blue,draw=blue,rounded corners]{$\vec{x}_k^{n+1}$};
+
+\end{scope}
+
+\begin{scope}[yshift=-12cm]
+
+\draw (-0.5,4.5*\yspac) node[anchor=west]{\textbf{c) Current and charge deposition}};
+
+% Axes
+\draw[thick,->,>=stealth] (1,0) -- (5*\Dt,0) node[below]{$t$};
+\draw[thick,dashed] (-0.5,0) -- (1,0);
+% Labels
+\draw (0.5,3*\yspac) node[red,text width=2.5cm]{\textbf{Spectral grid ($k_\perp$, $k_z$)}};
+\draw (0.5,\yspac) node[red,text width=2.5cm]{\textbf{Intermediate grid ($r$, $z$)}};
+\draw (0.5,-\yspac) node[blue]{\textbf{Macroparticles}};
+% Timesteps
+\foreach \n in {1,3} 
+\draw[fill=black] (\n*\Dt,0) circle(0.1);
+\foreach \n in {2,4} 
+\draw[fill=white] (\n*\Dt,0) circle(0.1);
+% Arrows
+\draw[->,>=stealth,thick] (2*\Dt,-\yspac) -- (2.74*\Dt,0.8*\yspac);
+\draw[->,>=stealth,thick] (2.9*\Dt,-\yspac) -- (2.9*\Dt,0.5*\yspac);
+\draw[->,>=stealth,thick] (2.9*\Dt,1.4*\yspac) -- node[anchor=west]{FFT, DHT}(2.9*\Dt,2.5*\yspac);
+\draw[->,>=stealth,thick] (4*\Dt,-\yspac) -- (3.26*\Dt,0.8*\yspac);
+\draw[->,>=stealth,thick] (3.9*\Dt,-\yspac) -- (3.9*\Dt,0.5*\yspac);
+\draw[->,>=stealth,thick] (3.9*\Dt,1.4*\yspac) -- node[anchor=west]{FFT, DHT}(3.9*\Dt,2.5*\yspac);
+%\draw[->,>=stealth,thick] (3*\Dt,\yspac) -- (2.5*\Dt,-0.25);
+%\draw[->,>=stealth,thick] (1.85*\Dt,\yspac) -- (1.85*\Dt,-0.25);
+%\draw[->,>=stealth,thick] (1*\Dt,-\yspac) .. controls (2*\Dt,-1.9*\yspac) .. (2.75*\Dt,-1.2*\yspac);
+%\draw[->,>=stealth,thick] (2.1*\Dt,-1*\yspac) .. controls (3*\Dt,-0.7*\yspac) .. (3.8*\Dt,-1.*\yspac);
+% Fields
+% -- n-1/2
+\draw (\Dt,3*\yspac) node[gray,fill=white,draw=white,rounded corners]{$ \spectral{J}^{n-1/2}_m$};
+\draw (\Dt,1*\yspac) node[gray,fill=white,draw=white,rounded corners]{$ \hat{j}^{n-1/2}_m$};
+\draw (\Dt,-\yspac) node[gray,fill=white,draw=white,rounded corners]{$\vec{p}_k^{n-1/2}$};
+% -- n
+\draw[->,>=stealth,thick] (1.8*\Dt,3.2*\yspac) .. controls
+(2.3*\Dt,4*\yspac) .. (2.8*\Dt,3.5*\yspac);
+\draw (1.8*\Dt,3*\yspac) node[red,fill=white,draw=red,rounded
+corners]{$\spectral{\rho}^n_m$};
+\draw (2.2*\Dt,3*\yspac) node[gray,fill=white,draw=white,rounded corners]{$  \spectral{B}^{n}_m, \spectral{E}^{n}_m$};
+\draw (1.8*\Dt,\yspac) node[gray,fill=white,draw=white,rounded corners]{$\hat{\rho}^n_m$};
+\draw (2.2*\Dt,\yspac) node[red,fill=white,draw=white,rounded corners]{$\hat{B}^n_m, \hat{E}^{n}_m$};
+\draw (2*\Dt,-\yspac) node[blue,fill=white,draw=blue,rounded corners]{$\vec{x}_k^{n}$};
+% -- n+1/2
+\draw (3*\Dt,4*\yspac) node[above]{Current correction};
+\draw (3*\Dt,3*\yspac) node[red,fill=white!75!red,draw=red,rounded corners]{$ \spectral{J}^{n+1/2}_m$};
+\draw (3*\Dt,1*\yspac) node[red,fill=white!75!red,draw=red,rounded corners]{$ \hat{j}^{n+1/2}_m$};
+\draw (3*\Dt,-\yspac) node[blue,fill=white,draw=blue,rounded corners]{$\vec{p}_k^{n+1/2}$};
+% -- n+1
+\draw[->,>=stealth,thick] (3.8*\Dt,3.2*\yspac) .. controls
+(3.5*\Dt,4*\yspac) .. (3.2*\Dt,3.5*\yspac);
+\draw (3.8*\Dt,3*\yspac) node[red,fill=white!75!red,draw=red,rounded corners]{$\spectral{\rho}^{n+1}_m$};
+\draw (4.4*\Dt,3*\yspac) node[gray,fill=white,draw=white,rounded corners]{$  \spectral{B}^{n+1}_m, \spectral{E}^{n+1}_m$};
+\draw (3.8*\Dt,\yspac) node[red,fill=white!75!red,draw=red,rounded corners]{$\hat{\rho}^{n+1}_m$};
+\draw (4.4*\Dt,\yspac) node[gray,fill=white,draw=white,rounded corners]{$\hat{B}^{n+1}_m, \hat{E}^{n+1}_m$};
+\draw (4*\Dt,-\yspac) node[blue,fill=white,draw=blue,rounded corners]{$\vec{x}_k^{n+1}$};
+
+\end{scope}
+
+\begin{scope}[yshift=-18cm]
+
+\draw (-0.5,4.5*\yspac) node[anchor=west]{\textbf{d) Maxwell equations}};
+
+% Axes
+\draw[thick,->,>=stealth] (1,0) -- (5*\Dt,0) node[below]{$t$};
+\draw[thick,dashed] (-0.5,0) -- (1,0);
+% Labels
+\draw (0.5,3*\yspac) node[red,text width=2.5cm]{\textbf{Spectral grid ($k_\perp$, $k_z$)}};
+\draw (0.5,\yspac) node[red,text width=2.5cm]{\textbf{Intermediate grid ($r$, $z$)}};
+\draw (0.5,-\yspac) node[blue]{\textbf{Macroparticles}};
+% Timesteps
+\foreach \n in {1,3} 
+\draw[fill=black] (\n*\Dt,0) circle(0.1);
+\foreach \n in {2,4} 
+\draw[fill=white] (\n*\Dt,0) circle(0.1);
+% Arrows
+\draw[->,>=stealth,thick] (2.1*\Dt,1.4*\yspac) -- node[anchor=west]{FFT, DHT}(2.1*\Dt,2.5*\yspac);
+\draw[<-,>=stealth,thick] (4.2*\Dt,1.5*\yspac) -- node[anchor=west]{IFFT, IDHT}(4.2*\Dt,2.5*\yspac);
+\draw[->,>=stealth,thick] (2.4*\Dt,2.8*\yspac) .. controls (3.7*\Dt,4*\yspac) .. node[above]{PSATD} (4.05*\Dt,3.6*\yspac);
+% Fields
+% -- n-1/2
+\draw (\Dt,3*\yspac) node[gray,fill=white,draw=white,rounded corners]{$ \spectral{J}^{n-1/2}_m$};
+\draw (\Dt,1*\yspac) node[gray,fill=white,draw=white,rounded corners]{$ \hat{j}^{n-1/2}_m$};
+\draw (\Dt,-\yspac) node[gray,fill=white,draw=white,rounded corners]{$\vec{p}_k^{n-1/2}$};
+% -- n
+\draw (1.8*\Dt,3*\yspac) node[red,fill=white,draw=red,rounded corners]{$\spectral{\rho}^n_m$};
+\draw (2.2*\Dt,3*\yspac) node[red,fill=white!75!red,draw=red,rounded corners]{$  \spectral{B}^{n}_m, \spectral{E}^{n}_m$};
+\draw (1.8*\Dt,\yspac) node[gray,fill=white,draw=white,rounded corners]{$\hat{\rho}^n_m$};
+\draw (2.2*\Dt,\yspac) node[red,fill=white,draw=red,rounded corners]{$\hat{B}^n_m, \hat{E}^{n}_m$};
+\draw (2*\Dt,-\yspac) node[gray]{$\vec{x}_k^{n}$};
+% -- n+1/2
+\draw (3*\Dt,3*\yspac) node[red,fill=white,draw=red,rounded corners]{$ \spectral{J}^{n+1/2}_m$};
+\draw (3*\Dt,1*\yspac) node[gray,fill=white,draw=white,rounded corners]{$ \hat{j}^{n+1/2}_m$};
+\draw (3*\Dt,-\yspac) node[blue]{$\vec{p}_k^{n+1/2}$};
+% -- n+1
+\draw (3.8*\Dt,3*\yspac) node[red,fill=white,draw=red,rounded corners]{$\spectral{\rho}^{n+1}_m$};
+\draw (4.4*\Dt,3*\yspac) node[red,fill=white!75!red,draw=red,rounded corners]{$  \spectral{B}^{n+1}_m, \spectral{E}^{n+1}_m$};
+\draw (3.8*\Dt,\yspac) node[gray,fill=white,draw=white,rounded corners]{$\hat{\rho}^{n+1}_m$};
+\draw (4.4*\Dt,\yspac) node[red,fill=white!75!red,draw=red,rounded corners]{$\hat{B}^{n+1}_m, \hat{E}^{n+1}_m$};
+\draw (4*\Dt,-\yspac) node[blue]{$\vec{x}_k^{n+1}$};
+
+\end{scope}
+
+\end{tikzpicture}
+
+%%%%
+
+
+
+
 \caption{\label{fig:GlobalScheme}Schematic description of the 4 steps
   of a PIC
   cycle. At any given time, the quantities that
@@ -550,7 +754,7 @@ $k_\perp$ grids, since each azimuthal mode $m$ evolves separately in
 \cref{eq:CircMaxwellp,eq:CircMaxwellm,eq:CircMaxwellz}.
 
 \begin{figure}[!h]
-\includegraphics[width=\textwidth]{figures/KGrid.pdf}
+\includegraphics[width=\textwidth]{KGrid.pdf}
 \caption{\label{fig:Kgrid}Position of the grid points in $k_\perp$ space
   (blue dots) for the azimuthal modes $m=0$, $m=1$ and $m=2$ for $N_r
   = 10$ and $r_{max}=1$. These values are compared with those of an
@@ -577,10 +781,6 @@ transformed using the Hankel transform of order $m+1$ or $m-1$.)
 
 The expressions of $M_{n,m}$ and $M'_{n,m}$, for the DHT algorithm
 that we chose, are given in \ref{sec:HTMatrix}. 
-%This particular choice is very specific and
-%dependent on the imposed boundary conditions at $r_{max}$ ; in future
-%work, different implementations of the DHT could be used depending on
-%the boundary conditions. 
 In practice,  these matrices need to be
 computed only once (at the beginning of the simulation) and can then be used at each
 iteration. Notice also that the computational time for this
@@ -644,14 +844,6 @@ Note that we use linear shape factors here only for
 the sake of simplicity, and that higher-order shape factors
 (e.g. quadratic or cubic) could also be used in principle, with
 a similar mirroring of the field values across the axis.
- 
-%\noindent Additionally, for particles that are located in the first half of the first
-%cell ($0< r < \Delta r/2$), the shape $S_{r,0}$ is modified and reads
-%\[ S_{r,0}(r) = \frac{2r}{\Delta r} \]
-%\noindent This expression is chosen so as to ensure that a uniform particle
-%distribution yields a uniform charge density, even on the axis. (This
-%is a common issue for quasi-cylindrical algorithms, and is discussed e.g. in
-%\citep{Verboncoeur}).
 
 \subsection{Equations of motion}
 \label{sec:eq-motion}
@@ -888,7 +1080,7 @@ described here has no numerical dispersion in vacuum.
 
 \begin{figure}[!h]
 \centering
-\includegraphics[width=0.6\textwidth]{figures/Vacuum_vg.pdf}
+\includegraphics[width=0.6\textwidth]{Vacuum_vg.pdf}
 \caption{\label{fig:Vacuum_vg}Relative difference between $c$ and the
 group velocity of a laser pulse in vacuum, for different resolutions. The dashed line represents
 the analytical prediction given by \cref{eq:vacuum_vg}, while the blue
@@ -930,7 +1122,7 @@ close to the analytical prediction at all resolutions.
 
 \begin{figure}[!h]
 \centering
-\includegraphics[width=0.6\textwidth]{figures/Plasma_vg.pdf}
+\includegraphics[width=0.6\textwidth]{Plasma_vg.pdf}
 \caption{\label{fig:Plasma_vg}Relative difference between $c$ and the
 group velocity of a laser pulse in a plasma at $10^{-3}\,n_c$, for different
 resolutions. The dashed line represents
@@ -1006,7 +1198,7 @@ lower panels are plotted (dashed line).
 
 \begin{figure}[!h]
 \centering
-\includegraphics[width=\textwidth]{figures/Linear_wkfld.png}
+\includegraphics[width=\textwidth]{Linear_wkfld.png}
 \caption{\label{fig:Linear_wkfld}Upper panels: Colormaps of the fields $E_z$ and
   $E_y$ as extracted from the simulation (blue and red), along with
   the laser envelope (orange hues). (The laser propagates to the
@@ -1146,7 +1338,7 @@ numerical Cherenkov effect.
 
 \begin{figure}[!h]
 \centering
-\includegraphics[width=\textwidth]{figures/Cherenkov.png}
+\includegraphics[width=\textwidth]{Cherenkov.png}
 \caption{\label{fig:Cherenkov}Snapshot of a finite-difference
   simulation (left) and of a spectral simulation (right), at a similar
   physical time. Upper panels: Aspect of the bubble in real space ; 
@@ -1157,19 +1349,6 @@ the superimposed blue shades represent the electron
   to the physical fields, while the double-parabola in the left panel
   is a signature of the zero-order Cherenkov effect.}
 \end{figure}
-
-%\begin{figure}[!h]
-%\centering
-%\includegraphics[width=0.9\textwidth]{figures/Cherenkov-spectrum.png}
-%\caption{\label{fig:Cherenkov-spectrum}Spectrum of the electric field in the
- % finite-difference simulation. This spectrum corresponds to the
-  %fields plotted in the left panels of \cref{fig:Cherenkov}. We used
- % \cref{eq:CircFwTransp} to calculate the spectral component $\mathcal{E}_{+,1}$
-  %from the electric field $E$ in real-space. The spectrum displays the
-%characteristic parabola of the zero-order Cherenkov effect.}
-% show also spectrum of PSATD-circ run?
-%\end{figure}
-
 
 For completeness, we remark that a similar suppression of the
 numerical Cherenkov radiation was 
@@ -1228,7 +1407,7 @@ $\mathrm{\mu m}$ respectively.
 
 \begin{figure}[!h]
 \centering
-\includegraphics[width=0.5\textwidth]{figures/Schematic_laser.pdf}
+\includegraphics[width=0.5\textwidth]{Schematic_laser.pdf}
 \caption{\label{fig:Schematic_laser}Representation of the situation
   which is simulated in \cref{sec:accurate-laser}. The red and blue
   colormap corresponds to the electric field of the laser pulse, while
@@ -1275,8 +1454,8 @@ $\vec{B}$ fields are not staggered in time, in this algorithm.
 
 \begin{figure}[!h]
 \centering
-\includegraphics[width=0.45\textwidth]{figures/Laser_finite-difference.pdf}
-\includegraphics[width=0.45\textwidth]{figures/Laser_spectral.pdf}
+\includegraphics[width=0.45\textwidth]{Laser_finite-difference.pdf}
+\includegraphics[width=0.45\textwidth]{Laser_spectral.pdf}
 \caption{\label{fig:Laser}Evolution of the transverse normalized
   momentum of a macroparticle, as it copropagates with a
   laser pulse having $a_0 = 0.2$ (see \cref{fig:Schematic_laser} for a
@@ -1327,7 +1506,476 @@ This document was prepared as an account of work sponsored in part by the United
 \newpage
 \appendix
 
-\input{appendix.tex}
+
+\section{Derivation of the spectral quasi-cylindrical representation}
+\label{sec:CircTrans}
+
+In order to derive the representation
+\cref{eq:CircBwTransz,eq:CircBwTransr,eq:CircBwTranst} we have to
+distinguish the Cartesian components (e.g. $E_x$, $E_y$, $E_z$, $B_x$,
+$B_y$, $B_z$) which are well-defined everywhere in space and thus have a regular
+Fourier representation, from the cylindrical components (e.g. $E_r$,
+$E_\theta$, $B_r$, $B_\theta$) which are ill-defined at $r=0$. (For instance, for a
+field of the form $\vec{E} = E_0 \vec{e}_x$, the expression of $E_r$
+is $E_r = E_0 \cos(\theta)$, which ill-defined at $r=0$, as $\theta$
+itself is ill-defined at this position.)
+
+\subsection{Cartesian components}
+
+Let $F_u$ be the Cartesian component of a field $F$ 
+(typically $F$ is $E$, $B$ or $J$ and $u$ is $x$, $y$ or $z$). Its Fourier representation
+is thus given by \cref{eq:CartBwTrans,eq:CartFwTrans}:
+\begin{align}
+F_u(\vec{r}) = \frac{1}{(2\pi)^{3}}\Integ{k_x} \,\Integ{k_y}\,
+\Integ{k_z} \; \mathcal{F}_u(\vec{k}) e^{i(k_x x + k_y y + k_z z)} \\
+\mathcal{F}_u(\vec{k})  = \Integ{x} \,\Integ{y}\,
+\Integ{z} \; F_u(\vec{r}) e^{-i(k_x x + k_y y + k_z z)} 
+\end{align}
+Using the change of variable $k_x=k_\perp\cos(\phi)$, $k_y = k_\perp\sin(\phi)$,
+$x=r\cos(\theta)$, $y=r\sin(\theta)$, this becomes
+ \begin{align}
+F_u(\vec{r}) = \frac{1}{(2\pi)^{3}}\Integ{k_z} \,\RInteg{k_\perp}\,
+\TInteg{\phi} \; \mathcal{F}_u(\vec{k})
+e^{i(k_\perp r \cos(\theta-\phi) + k_z z)} \\
+\mathcal{F}_u(\vec{k})   = \Integ{z} \,\RInteg{r}\,
+\Integ{\theta} \; F_u(\vec{r}) e^{-i(k_\perp r \cos(\theta-\phi) + k_z z)} 
+\end{align}
+Let us now use the relation $e^{ik_\perp r\cos(\theta-\phi)} =
+\sum_{m=-\infty}^{\infty} i^m J_m(k_\perp r) e^{im(\phi-\theta)}$
+(which is simply another way of writing the well-known relation
+$e^{i \alpha \sin \psi} =\sum_{m=-\infty}^{\infty}J_m(\alpha)e^{im\psi}$). The above equations become:
+\begin{align}
+F_u (\vec{r})  = \sum_{m=-\infty}^{\infty} \frac{1}{(2\pi)^{3}}\Integ{k_z} \,\RInteg{k_\perp }
+\TInteg{\phi} \; i^m \mathcal{F}_u(\vec{k}) \;
+J_m(k_\perp r) e^{-im(\theta-\phi) + ik_z z} \\
+\mathcal{F}_u(\vec{k})   =  \sum_{m=-\infty}^{\infty} \Integ{z} \,\RInteg{r}
+\TInteg{\theta} \;\; (-i)^m F_u(\vec{r}) \; J_m(k_\perp r) e^{-im(\phi-\theta) -ik_z z} 
+\end{align}
+We now define $\spectral{F}_{u,m}(k_z,k_\perp ) = \frac{1}{2\pi}\int_0^{2\pi}
+\mathrm{d}\phi \; i^m \mathcal{F}_u(\vec{k})
+e^{im\phi}$. This results in the following equations :
+\begin{align}
+F_u(\vec{r}) =  \frac{1}{(2\pi)^2}\sum_{m=-\infty}^{\infty} \Integ{k_z}
+\RInteg{k_\perp }\; \spectral{F}_{u,m}(k_z,k_\perp ) \; J_m(k_\perp r) e^{-im\theta + ik_z z} 
+\\
+\spectral{F}_{u,m}(k_z,k_\perp ) = \Integ{z} \RInteg{r}
+\TInteg{\theta} \;F_u(\vec{r})\; J_m(k_\perp r) e^{-im\theta
+ - i k_z z} \label{eq:CircBwTransu}
+\end{align}
+These equations correspond to \cref{eq:CircBwTransz,eq:CircFwTransz}.
+
+\subsection{Cylindrical components}
+
+Let us now consider fields of the type $E_r$, $B_r$ or $J_r$, which we
+denote generally by $F_r$. We have :
+\begin{equation} F_r = \cos(\theta) F_x + \sin(\theta) F_y 
+= \frac{F_x - iF_y}{2}e^{i\theta} + \frac{F_x +
+  iF_y}{2}e^{-i\theta} \end{equation} 
+Using \cref{eq:CircBwTransu}, this leads to
+\begin{align} 
+F_r =   \frac{1}{(2\pi)^2}\sum_{m=-\infty}^{\infty} \Integ{k_z}\,\RInteg{k_\perp }\;
+\left(  J_m(k_\perp r) \frac{\spectral{F}_{x,m} -
+    i\spectral{F}_{y,m}}{2}e^{-i(m-1)\theta +ik_z z} + J_m(k_\perp r) \frac{\spectral{F}_{x,m} +   i\spectral{F}_{y,m}}{2}e^{-i(m+1)\theta +
+    ik_z z} \right) 
+\end{align}
+\begin{align}
+F_r =  \frac{1}{(2\pi)^2}\sum_{m=-\infty}^{\infty} \Integ{k_z}\,\RInteg{k_\perp }\;
+\left(  J_{m+1}(k_\perp r) \frac{\spectral{F}_{x,m+1} -
+    i\spectral{F}_{y,m+1}}{2}e^{-im\theta +ik_z z} + J_{m-1}(k_\perp r) \frac{\spectral{F}_{x,m-1} +   i\spectral{F}_{y,m-1}}{2}e^{-im\theta +
+    ik_z z} \right) 
+\end{align}
+where we relabeled the dummy variable $m$ in the above sums. Let us
+thus define $\spectral{F}_{-,m} = (\spectral{F}_{x,m-1} +
+    i\spectral{F}_{y,m-1})/2$ and $\spectral{F}_{+,m} = (\spectral{F}_{x,m+1} -
+    i\spectral{F}_{y,m+1})/2$. This results in:
+\begin{equation} 
+F_r(\vec{r}) =  \frac{1}{(2\pi)^2}\sum_{m=-\infty}^{\infty} \Integ{k_z}\,\RInteg{k_\perp }\;
+\left( \spectral{F}_{+,m}\; J_{m+1}(k_\perp r) +\spectral{F}_{-,m}\; J_{m-1}(k_\perp r)
+\right)  e^{-im\theta +ik_z z}
+\end{equation}
+
+With the same definitions and the same method, it is also easy to show that:
+\begin{equation} 
+F_\theta(\vec{r}) = \sum_{m=-\infty}^{\infty} \Integ{k_z}\,\RInteg{k_\perp }\;
+i\left( \spectral{F}_{+,m}\; J_{m+1}(k_\perp r) - \spectral{F}_{-,m}\; J_{m-1}(k_\perp r)
+\right)  e^{-im\theta +ik_z z}
+\end{equation}
+
+\section{Maxwell equations for the spectral coefficients}
+\label{sec:SpectMaxwell}
+
+In this section, let us derive the Maxwell equations for the spectral
+coefficients \cref{eq:CircMaxwellp,eq:CircMaxwellm,eq:CircMaxwellz}
+from the Maxwell equations written in cylindrical coordinates \cref{eq:CircMaxwellr,eq:CircMaxwellt,eq:CircMaxwellzz}.
+
+When replacing the Fourier-Hankel decomposition
+(\cref{eq:CircBwTransu,eq:CircBwTransr,eq:CircBwTranst}) in the
+Maxwell equations \cref{eq:CircMaxwellr,eq:CircMaxwellt,eq:CircMaxwellzz}, we
+first notice that the modes proportional to $e^{-im\theta +ik_z z}$ for different
+values of $m$ and $k_z$ are not coupled. These different modes can
+thus be treated separately. The same cannot be said of the modes
+corresponding to different values of $k_\perp $, since they may be coupled
+through the Bessel functions $J_m(k_\perp r)$ and their derivatives. 
+In the following, we write only the equations corresponding to $\partial_t \vec{B} =
+-\vec{\nabla}\times \vec{E}$, since the equation $c^{-2}\partial_t \vec{E} =
+\vec{\nabla}\times\vec{B} - \mu_0 \vec{j}$ can be treated very
+similarly. These equations become
+\begin{subequations}
+\begin{align}
+\RInteg{k_\perp } \left[ \; \partial_t \spectral{B}_{+,m}  J_{m+1}(k_\perp r)
+  + \partial_t \spectral{B}_{-,m}  J_{m-1}(k_\perp r) \; \right] =&&
+\nonumber \\ 
+\qquad \RInteg{k_\perp } \left[ \; \spectral{E}_{z,m} \frac{im}{r}
+  J_m(k_\perp r) \right.-&\left.
+  k_z\spectral{E}_{+,m}J_{m+1}(k_\perp r) + k_z\spectral{E}_{-,m}J_{m-1}(k_\perp r) \;
+\right] & \\
+\RInteg{k_\perp } \left[ \; \partial_t \spectral{B}_{+,m}  J_{m+1}(k_\perp r)
+  - \partial_t \spectral{B}_{-,m}  J_{m-1}(k_\perp r) \; \right] =&&
+\nonumber \\
+ \RInteg{k_\perp } \left[ \; -k_z\spectral{E}_{+,m}J_{m+1}(k_\perp r)
+ \right.-&\left.  k_z\spectral{E}_{-,m}J_{m-1}(k_\perp r) - ik_\perp \spectral{E}_{z,m} J_m'(k_\perp r) \;\right] \\
+\RInteg{k_\perp }\; \partial_t \spectral{B}_{z,m}  J_{m}(k_\perp r) =
+\RInteg{k_\perp } \left[ \; -ik_\perp
+  \spectral{E}_{+,m}\right.&\left(\frac{J_{m+1}(k_\perp r)}{k_\perp r} +
+    J_{m+1}'(k_\perp r) \right) + & \nonumber \\
+\left. ik_\perp \spectral{E}_{-,m}\left(\frac{J_{m-1}(k_\perp r)}{k_\perp r} +
+    J_{m-1}'(k_\perp r) \right) \right.-&\left. \frac{im}{r} \left( E_{+,m} J_{m+1}(k_\perp r) +
+    E_{-,m} J_{m-1}(k_\perp r) \right) \;\right] 
+\end{align}
+\end{subequations}
+By taking the sum and difference of the first two equations, and by
+rearranging the third equation, we obtain:
+\begin{subequations}
+\begin{align}
+\RInteg{k_\perp } \; 2 \,\partial_t \spectral{B}_{+,m}  J_{m+1}(k_\perp r) =
+\RInteg{k_\perp } \left[ \; ik_\perp \spectral{E}_{z,m} \left( \frac{m}{k_\perp r} J_m(k_\perp r) -
+    J_m'(k_\perp r) \right) -2 k_z\spectral{E}_{+,m}J_{m+1}(k_\perp r) \;
+\right] \\
+\RInteg{k_\perp } \; 2\, \partial_t \spectral{B}_{-,m}  J_{m-1}(k_\perp r) \; =
+\RInteg{k_\perp } \left[ \;
+   ik_\perp \spectral{E}_{z,m} \left( \frac{m}{k_\perp r} J_m(k_\perp r) +
+    J_m'(k_\perp r) \right)  + 2k_z\spectral{E}_{-,m}J_{m-1}(k_\perp r) \;
+\right] \\
+\RInteg{k_\perp }\; \partial_t \spectral{B}_{z,m}  J_{m}(k_\perp r) =
+\RInteg{k_\perp } \left[ \; -ik_\perp \spectral{E}_{+,m}\left(\frac{m+1}{k_\perp r}J_{m+1}(k_\perp r) +
+    J_{m+1}'(k_\perp r) \right) \right.\nonumber \\
+\qquad \left. - ik_\perp \spectral{E}_{-,m}\left(\frac{m-1}{k_\perp r}J_{m-1}(k_\perp r) -
+    J_{m-1}'(k_\perp r) \right) \right] 
+\end{align}
+\end{subequations}
+We can now use the relations $\frac{m}{k_\perp r} J_m(k_\perp r) +
+    J_m'(k_\perp r) = J_{m-1}(k_\perp r)$ and $\frac{m}{k_\perp r} J_m(k_\perp r) -
+    J_m'(k_\perp r) = J_{m+1}(k_\perp r)$ (see relation 9.1.27 in
+    \cite{Abramowitz}), and obtain :
+\begin{subequations}
+\begin{align}
+\RInteg{k_\perp } \; 2 \,\partial_t \spectral{B}_{+,m}  J_{m+1}(k_\perp r) =
+\RInteg{k_\perp } \left[ \; ik_\perp \spectral{E}_{z,m}\,
+    J_{m+1}(k_\perp r) -2 k_z\spectral{E}_{+,m}J_{m+1}(k_\perp r) \;
+\right] \\
+\RInteg{k_\perp } \; 2\, \partial_t \spectral{B}_{-,m}  J_{m-1}(k_\perp r) \; =
+\RInteg{k_\perp } \left[ \;
+   ik_\perp \spectral{E}_{z,m} \,
+    J_{m-1}(k_\perp r) + 2k_z\spectral{E}_{-,m}J_{m-1}(k_\perp r) \;
+\right] \\
+\RInteg{k_\perp }\; \partial_t \spectral{B}_{z,m}  J_{m}(k_\perp r) =
+\RInteg{k_\perp } \left[ \; -ik_\perp \spectral{E}_{+,m} J_{m}(k_\perp r) - ik_\perp \spectral{E}_{-,m}\,J_{m}(k_\perp r) \right] 
+\end{align}
+\end{subequations}
+Each equation of the above system contains Bessel functions of only one
+given order (either $m+1$, $m-1$ or $m$). This allows to separate the
+different $k_\perp $ components, since the functions $J_n(k_\perp r)$, for a
+fixed $n$ and different values of $k_\perp $, form a basis of the set of real functions:
+\begin{subequations}
+\begin{align}
+2 \,\partial_t \spectral{B}_{+,m} =
+ik_\perp \spectral{E}_{z,m} -2 k_z\spectral{E}_{+,m} \\
+2\, \partial_t \spectral{B}_{-,m} = ik_\perp \spectral{E}_{z,m} \,
+    + 2k_z\spectral{E}_{-,m} \\
+ \partial_t \spectral{B}_{z,m} = -ik_\perp \spectral{E}_{+,m}  - ik_\perp \spectral{E}_{-,m}
+\end{align}
+\end{subequations}
+
+\section{PSATD scheme, in the Fourier-Hankel representation}
+\label{sec:PSATDderiv}
+
+We use a scheme very similar to that of \cite{Haber}. In this scheme the currents are considered constant over one timestep, and the charge density is considered linear in time.
+
+\subsection{Expressions for $\spectral{B}_m$}
+
+By combining \cref{eq:CircMaxwellp,eq:CircMaxwellm,eq:CircMaxwellz}
+and \cref{eq:SpectCons}, one can find the propagation equations for $B$.
+\begin{subequations}
+\begin{align}
+\partial_t^2 \spectral{B}_{+,m} + c^2(k_\perp ^2+k_z^2) \spectral{B}_{+,m} = 
+\mu_0 c^2 \left( - \frac{ik_\perp }{2} \spectral{J}_{z,m} + k_z \spectral{J}_{+,m}
+\right) \\
+\partial_t^2 \spectral{B}_{-,m} + c^2(k_\perp ^2+k_z^2) \spectral{B}_{-,m} = 
+\mu_0 c^2 \left( - \frac{ik_\perp }{2} \spectral{J}_{z,m} - k_z \spectral{J}_{-,m}
+\right) \\
+\partial_t^2 \spectral{B}_{z,m} + c^2(k_\perp ^2+k_z^2) \spectral{B}_{z,m} =
+\mu_0c^2  (ik_\perp  \spectral{J}_{+,m} + ik_\perp \spectral{J}_{-,m} ) 
+\end{align}
+\end{subequations}
+Let us integrate these equations for $t\in [n\Delta t, (n+1)\Delta
+t]$. In this interval, $\vec{\spectral{J}}_m(t)$ is constant
+and equal to $\vec{\spectral{J}}_m^{n+1/2}$, and thus the right-hand side of the above
+equations is constant. Using Green functions, the
+general solution of a differential equation of the form 
+$\partial_t^2 f + \omega^2 f = g_0$, where $g_0$ is a constant, is 
+\begin{equation} f(t) = f(t_0) \cos[\,\omega (t-t_0)\,] + \partial_t f (t_0) \frac{
+  \sin[\,\omega (t-t_0)\,]  }{\omega} + \frac{g_0}{\omega^2} (1-
+\cos[\,\omega (t-t_0)\,] ) \end{equation}  
+We thus use the above expression, with $\omega^2 =c^2(k_\perp^2 +
+k_z^2)$, to integrate the fields from $t_0 = n\Delta t$ to $t=(n+1)\Delta t$. In
+particular, we use again the Maxwell equations
+\cref{eq:CircMaxwellp,eq:CircMaxwellm,eq:CircMaxwellz} to obtain the
+expression of $\partial_t \spectral{B}_{m} (t_0)$. This yields:
+\begin{subequations}
+\begin{align}
+\tB{+}{n+1} = \; & C \tB{+}{n} - 
+\frac{S}{\omega}\left(-\frac{ik_\perp }{2} \tE{z}{n} + k_z\tE{+}{n}
+\right) + \mu_0 c^2\frac{1-C}{\omega^2} \left( -\frac{ik_\perp }{2}
+  \tj{z}{n+1/2} + k_z \tj{+}{n+1/2} \right)& \\
+\tB{-}{n+1} =\; & C \tB{-}{n} - 
+\frac{S}{\omega}\left(- \frac{ik_\perp }{2} \tE{z}{n} - k_z\tE{-}{n}
+\right) + \mu_0 c^2\frac{1-C}{\omega^2} \left( - \frac{ik_\perp }{2}
+  \tj{z}{n+1/2} - k_z \tj{-}{n+1/2} \right) &\\
+\tB{z}{n+1} =\; & C \tB{z}{n} - 
+\frac{S}{\omega}\left(ik_\perp \tE{+}{n} + ik_\perp \tE{-}{n}
+\right) + \mu_0 c^2\frac{1-C}{\omega^2} \left( ik_\perp
+  \tj{+}{n+1/2} + ik_\perp \tj{-}{n+1/2} \right)&
+\end{align}
+\end{subequations}
+where $C = \cos(\omega \Delta t)$ and $S = \sin(\omega \Delta t) $.
+
+\subsection{Expressions for $\spectral{E}_m$}
+
+Similarly, when combining \cref{eq:CircMaxwellp,eq:CircMaxwellm,eq:CircMaxwellz}
+and \cref{eq:SpectCons}, the propagation equations for $E$ are:
+\begin{subequations}
+\begin{align}
+\partial_t^2 \spectral{E}_{+,m} + c^2(k_\perp^2 + k_z^2) \spectral{E}_{+,m}
+= \frac{c^2}{\epsilon_0} \frac{k_\perp}{2} \spectral{\rho}_m -
+\mu_0c^2 \partial_t\spectral{J}_{+,m} \\
+\partial_t^2 \spectral{E}_{-,m} + c^2(k_\perp^2 + k_z^2) \spectral{E}_{-,m}
+= - \frac{c^2}{\epsilon_0} \frac{k_\perp}{2} \spectral{\rho}_m -
+\mu_0c^2 \partial_t\spectral{J}_{-,m} \\
+\partial_t^2 \spectral{E}_{z,m} + c^2(k_\perp^2 + k_z^2) \spectral{E}_{z,m}
+= - \frac{c^2}{\epsilon_0} i k_z \spectral{\rho}_m -
+\mu_0c^2 \partial_t\spectral{J}_{z,m} 
+\end{align}
+\end{subequations}
+Let us again integrate these equations for $t\in [n\Delta t, (n+1)\Delta
+t]$. In this interval, $\vec{\spectral{J}}_m(t)$ is constant (thus its time
+derivatives drop), and $\spectral{\rho}_m$ is linear in time. As a
+consequence the right hand side is proportional to $\trho{n} +
+(\trho{n+1}-\trho{n})(t-t_0)/\Delta t$. Using Green functions, the solution of 
+$ \partial_t^2 f + \omega^2 f = \trho{n} + (\trho{n+1}-\trho{n})(t-t_0)/\Delta t $ is
+\begin{equation} f(t) = f(t_0) \cos[\,\omega(t-t_0)\,] + \partial_tf (t_0)
+\frac{\sin[\,\omega(t-t_0)\,]}{\omega} + \trho{n}\frac{1-
+  \cos[\,\omega(t-t_0)\,]}{\omega^2} + \frac{\trho{n+1}-\trho{n}}{\omega^2}\left(
+  \frac{t-t_0}{\Delta t} - \frac{\sin[\,\omega(t-t_0)\,]}{\omega
+    \Delta t}
+\right) \end{equation}
+which, for $t=t_0 +\Delta t$, reduces to
+\begin{equation} f(t_0 +\Delta t) = f(t_0) C + \partial_tf (t_0)
+\frac{S}{\omega} 
++ \frac{\trho{n+1}}{\omega^2}\left( 1 - \frac{S}{\omega\Delta t}\right) 
+- \frac{\trho{n}}{\omega^2}\left( C - \frac{S}{\omega\Delta t}\right) \end{equation}
+Using the above expression, we obtain
+\begin{subequations}
+\begin{align}
+\tE{+}{n+1} = \; & C \tE{+}{n} + 
+c^2\frac{S}{\omega}\left(-\frac{ik_\perp }{2} \tB{z}{n} + k_z\tB{+}{n}
+- \mu_0 \tj{+}{n+1/2} \right) + \frac{c^2}{\epsilon_0}
+\frac{k_\perp}{2}\left[ \frac{\trho{n+1}}{\omega^2}\left(
+  1 - \frac{S}{\omega\Delta t}\right) -
+\frac{\trho{n}}{\omega^2}\left( C -\frac{S}{\omega\Delta t}\right)\right]  & \\
+\tE{-}{n+1} =\; & C \tE{-}{n} +
+c^2\frac{S}{\omega}\left(- \frac{ik_\perp }{2} \tB{z}{n} - k_z\tB{-}{n}
+- \mu_0 \tj{-}{n+1/2} \right) - \frac{c^2}{\epsilon_0}
+\frac{k_\perp}{2}\left[ \frac{\trho{n+1}}{\omega^2}\left(
+  1 - \frac{S}{\omega\Delta t}\right) - \frac{\trho{n}}{\omega^2}
+\left( C - \frac{S}{\omega\Delta t}\right)\right]  &\\
+\tE{z}{n+1} =\; & C \tE{z}{n} + 
+c^2\frac{S}{\omega}\left(ik_\perp \tB{+}{n} + ik_\perp \tB{-}{n}
+- \mu_0 \tj{z}{n+1/2} \right) - \frac{c^2}{\epsilon_0}
+ik_z\left[ \frac{\trho{n+1}}{\omega^2}\left(
+  1 - \frac{S}{\omega\Delta t}\right) - \frac{\trho{n}}{\omega^2}
+\left( C - \frac{S}{\omega\Delta t}\right)\right]  &
+\end{align}
+\end{subequations}
+
+\section{Discrete Hankel Transform}
+\label{sec:HTMatrix}
+
+\subsection{Calculation of the transformation matrices $M_{n,m}$ and $M'_{n,m}$}
+
+Here, for the Discrete Hankel Transform, we use a transformation
+similar to that of \cite{Yu,Guizar,KaiMing}, but
+we extend it to the case of an evenly-spaced grid in real space (as opposed to one
+that is distributed according to the zeros of the Bessel
+function, which would have been inconvenient for current deposition
+and field gathering). Moreover, we impose, as much as possible, that the
+succession of a Discrete Hankel Transform (DHT) and an Inverse Discrete
+Hankel Transform (IDHT) retrieves the initial function. As explained in
+the text of the article, we use a matrix formalism for the DHT:
+\begin{equation} \mathrm{DHT^m_n}[f] \,(k^m_{\perp,j}) = \sum_{p=0}^{N_r-1} (M_{n,m})_{j,p}
+\,f(r_p) \qquad \mathrm{IDHT^m_n}[g] \, (r_j) = \sum_{p=0}^{N_r-1}
+(M'_{n,m})_{j,p} \,g(k^m_{\perp,p}) \end{equation}
+\noindent where $n$ is the order of the Hankel transform, and where
+$m$ is the index of the spectral grid
+$k^m_{\perp,j}$ on which the Hankel transform is evaluated. 
+In practice, as mentioned in the text, these
+transforms are only used in the cases $n=m-1$, $n=m$ or $n=m+1$.
+
+The $N_r\times N_r$ matrices $M_{n,m}$ and $M'_{n,m}$ can be entirely
+determined by a set of $N_r^2$ constraints. These
+constraints can be found, for instance, by imposing the value of the
+DHT for a set of $N_r$ different functions, whose exact analytical Hankel
+transforms are known. In our case, we impose that the DHT be equal to the exact analytical
+Hankel transform for the eigenmodes of a cavity with
+perfectly conducting boundary at $r_{max}$ ($E_z(r_{max},z) =
+0$), since these physical eigenmodes should also be eigenmodes of our
+PIC cycle. These eigenmodes have the following form:
+\begin{subequations}
+\begin{align}
+E_z \;& \; \propto  J_m(k^m_{\perp,\ell} \,r)\,e^{ik_z z -im\theta} \Theta(r_{max}-r) \\
+E_r -i E_\theta \;& \; \propto  J_{m+1}(k^m_{\perp,\ell} \,r) \,e^{ik_z z -im\theta} \Theta(r_{max}-r)\\
+E_r +i E_\theta \;& \; \propto  J_{m-1}(k^m_{\perp,\ell} \,r)
+                    \,e^{ik_z z -im\theta} \Theta(r_{max}-r) 
+\end{align}
+\end{subequations}
+where $\Theta$ is the Heaviside function and where $k^m_{\perp,\ell} =
+\alpha^m_\ell / r_{max}$, with $\alpha^m_\ell$ the $\ell$th positive zero of
+the Bessel function of order $m$. 
+%These eigenmodes form an othogonal basis of
+%functions for the chosen boundary condition. 
+The exact Hankel transform of these modes, evaluated on the discrete set
+$\{k^m_{\perp,j} \}$ reads (see \ref{sec:HT-expression} for a derivation)
+\begin{equation} 
+\label{eq:HT-expression}
+\mathrm{HT}_{n}[ \; J_n(k^m_{\perp,\ell} \,r)  \Theta(r_{max}-r)  \;] \,(k^m_{\perp,j} )
+\quad \equiv 2\pi \rInteg \; J_n (k^m_{\perp,j} r) J_n (k^m_{\perp,\ell} r)
+\quad = \pi\, r_{max}^2\,[ J_{n+\delta_{n,m}}(\alpha_\ell^m)]^2 \;\delta_{j,\ell} 
+\end{equation}
+where $n$ is either $m-1$, $m$ or $m+1$. Note that the above relation
+is valid for any value of $m$, $j$, $\ell$ and $n$ (provided that $n\in \{m-1,m,m+1\}$), except when $n
+\neq 0$, $m \neq 0$ and $\ell = 0$ simultaneously (again, see
+\ref{sec:HT-expression} for an explanation). Here we impose that the DHT is consistent with
+\cref{eq:HT-expression}, where applicable
+\begin{equation}
+\label{eq:DHT-matrix}
+\mathrm{DHT}^m_{n}[ \; J_n(k^m_{\perp,\ell} \,r) \Theta(r_{max}-r)  \;] \,(k^m_{\perp,j}) 
+\quad \equiv \sum_{p=0}^{N_r-1} (M_{n,m})_{j,p}
+  J_n(k^m_{\perp,\ell}\,r_p) 
+\quad = \pi\, r_{max}^2\,[ J_{n+\delta_{n,m}}(\alpha_\ell^m)]^2 \; \delta_{j,\ell} 
+\end{equation}
+\noindent and we use the constraints given by \cref{eq:DHT-matrix} to
+obtain the matrix $M_{n,m}$.
+
+\paragraph{Case where $n=0$ or $m=0$} In this case,
+\cref{eq:DHT-matrix} is applicable for any $j$ and $\ell$ in  $\{ 0,
+..., N_r-1 \}$, and thus this provides $N_r^2$ constraints on the matrix
+$M_{n,m}$, which allow one to completely determine it. 
+In fact, a closer look at \cref{eq:DHT-matrix} shows
+that the inverse matrix $M^{-1}_{n,m}$ can be directly extracted from the above relations,
+since this inverse matrices is defined by the relation $\sum_p (M_{n,m})_{j,p}
+(M^{-1}_{n,m})_{p,\ell} = \delta_{j,\ell}$. Thus, from the above
+relations, one can directly infer:
+\begin{equation} (M_{n,m}^{-1})_{p,\ell} = \frac{ J_n(k^m_{\perp,\ell}\,r_p) } { \pi\,
+  r_{max}^2\,[ J_{n+\delta_{n,m}}(\alpha_\ell^m)]^2  } \end{equation}
+
+\noindent The matrix $M_{n,m}$ can then be extracted, by numerically inverting
+the matrices  $M^{-1}_{n,m}$ given by the above expression. In
+addition, we impose that $M'_{n,m}$ be exactly equal to
+$M^{-1}_{n,m}$, so that the succession of a DHT and IDHT retrieves
+exactly the initial function.
+
+\paragraph{Case where $n \neq 0$ and $m \neq 0$} In this case, the
+equation \cref{eq:DHT-matrix} is not valid for $\ell=0$, and thus it
+provides only $N_r(N_r-1)$ constraints on the matrix $M_{n,m}$, which
+is not enough to completely determine it. In this case, we use an
+empirical method in which we impose the additional constraints
+\begin{equation} (M_{n,m})_{0,p} = 0 \qquad \mathrm{for} \quad p \in \{ 0, ...,
+N_r-1 \} \end{equation}
+\noindent This constraint is imposed because we choose the amplitude of the
+Hankel mode proportional to $J_{n}(k^m_0 r)$ to be 0 in the
+simulation. (For $n\neq 0$ and $m \neq 0$, $J_n(k^m_0 r)=0$ for any
+$r$, so that the amplitude of the corresponding mode has no physical
+meaning whatsoever.) This allows to determine the matrix
+$M_{n,m}$ entirely. In addition, to obtain $M'_{n,m}$, we impose
+$ (M'_{n,m})_{p,\ell}=\frac{ J_n(k^m_{\perp,\ell}\,r_p) } { \pi\,
+  r_{max}^2\,[ J_{n+\delta_{n,m}}(\alpha_\ell^m)]^2  }$ for any $\ell \in \{1,
+..., N_r-1 \}$ (as in the case $n=0$ or $m=0$), but also $(M'_{n,m})_{p,\ell}=0$ for
+$\ell=0$. This is done again for consistency with the fact that
+$J_n(k^m_0 r)=0$. We note that the
+above method gives satisfying results for $m=1$ but not for $m=2$. 
+In the future, further work will be done towards a better Hankel transform representation.
+
+
+\subsection{Derivation of \cref{eq:HT-expression}}
+\label{sec:HT-expression}
+
+Let us first remark that, through a change of variable where
+$r=r_{max}t$, \cref{eq:HT-expression} is equivalent to
+\begin{equation} 
+\label{eq:HT-expression2}
+\int_0^1 \!\!\! tdt\; J_n (\alpha^m_{\ell} t) J_n (\alpha^m_{j} t)
+\quad = \frac{1}{2}\,[
+J_{n+\delta_{n,m}}(\alpha_\ell^m)]^2\;\delta_{j,\ell} 
+\end{equation}
+\noindent and let us prove this equation for different cases,
+excluding the case where $n\neq 0$, $m\neq 0$ and $\ell=0$ and in which it is
+not valid.
+
+\paragraph{Case where $n=m$ and $\ell \neq 0$} In this case, we use
+the relation 11.4.5 of \cite{Abramowitz}. Since $n=m$, and since by
+definition $\alpha^m_j$ is the zero of the Bessel function of order $m$, we have
+$J_n(\alpha^m_j)= J_n(\alpha^m_\ell)=0$, and the relation 11.4.5 is
+thus used in the case $b=0$ and $a=1$ (see relation 11.4.5 in \cite{Abramowitz} for the definition
+of the $a$ and $b$ coefficients). This yields
+\begin{equation} \int_0^1 \!\!\! tdt\; J_n (\alpha^m_{\ell} t) J_n (\alpha^m_{j} t)
+= \frac{1}{2}[ J_n'(\alpha_\ell^m) ]^2 \delta_{j,\ell} = \frac{1}{2}[ J_{n+1}(\alpha_\ell^m) ]^2 \delta_{j,\ell}\end{equation}
+\noindent where we further used the relation 9.1.27 in \cite{Abramowitz}, which
+reads $ J_n'(\alpha^m_\ell) = -J_{n+1}(\alpha^m_\ell)+
+\frac{n}{\alpha^m_\ell} J_{n}(\alpha^m_\ell)$, and took into account
+the fact that $J_n (\alpha^m_\ell)=0$ in our case.
+
+\paragraph{Case where $n \neq m$ and $\ell \neq 0$} In this case, $n$
+is either $m+1$ or $m-1$, since we restricted ourselves to $n\in \{m-1,m,m+1\}$. Let us
+prove the equation \cref{eq:HT-expression2} in the case $n=m+1$ (the
+proof for $n=m-1$ being very similar). By
+definition, we have $J_m(\alpha^m_\ell) = 0$, and thus from the relation 9.1.27 in
+\cite{Abramowitz} $J_{m+1}'(\alpha^m_\ell) + \frac{m+1}{\alpha^m_\ell}
+J_{m+1}(\alpha^m_\ell) = 0$. We can thus apply the relation 11.4.5 in
+\cite{Abramowitz} with $a=m+1$ and $b=1$, and find 
+\begin{equation} \int_0^1 \!\!\! tdt\; J_n (\alpha^m_{\ell} t) J_n (\alpha^m_{j} t) = \frac{1}{2
+  (\alpha_\ell^m)^2}\left( (m+1)^2 + (\alpha_\ell^m)^2 - n^2 \right)[
+J_{n}(\alpha_\ell^m) ]^2 \delta_{j,\ell} = \frac{1}{2}[J_{n}(\alpha_\ell^m) ]^2 \delta_{j,\ell}  \end{equation}
+
+\paragraph{Case where $m=0$ and $\ell=0$} The proof of the two above
+cases used the relation 11.4.5 from \cite{Abramowitz}, which is applicable
+as long as $\alpha^m_\ell > 0$. This is the case for $\ell \neq 0$
+(i.e. the two above cases) but also for $m=0$ and $\ell=0$
+(i.e. $J_0(0) \neq 0$ and thus $\alpha^0_0 > 0$). As a consequence,
+the above proofs are also valid for $m=0$ and $\ell=0$.
+
+\paragraph{Case where $n=0$, $m \neq 0$ and $\ell=0$}
+In this case, $\alpha^m_\ell = 0$ and thus the relation 11.4.5 from
+\cite{Abramowitz} does not apply. However, for $j\neq 0$, the left-hand
+side of equation \cref{eq:HT-expression2} reduces to 
+\begin{equation} \int_0^1 \!\!\! tdt\; J_n( \alpha_\ell^m t)  J_n( \alpha_j^m t) =
+J_0(0) \int_0^1 \!\!\! tdt J_n( \alpha_j^m t) =
+\frac{J_0(0)}{(\alpha_j^m)^2} \int_0^{\alpha_\ell^m} \!\!\! tdt
+J_n(t)= 0\end{equation}
+\noindent where we used relation 11.1.1 in \cite{Abramowitz}. On the
+other hand, for $j=0$, one has $\alpha^m_j=\alpha^m_\ell=0$ and thus
+\begin{equation} \int_0^1 \!\!\! tdt\; J_n( \alpha_\ell^m t)  J_n( \alpha_j^m t) =
+[J_0(0)]^2 \int_0^1 \!\!\! tdt = \frac{1}{2}[J_0(0)]^2 \end{equation}
+
+
 
 \bibliography{Bibliography}
 \bibliographystyle{elsarticle-num}
