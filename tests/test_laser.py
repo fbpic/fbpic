@@ -117,13 +117,14 @@ def test_pulse( Nz, Nr, Nm, zmin, zmax, Lr, L_prop, zf, Nt, w0, ctau,
         fld.interp2spect('B')
                             
     # Get the analytical solution
-    if m == 0 : # zf is not implemented for m=0
-        z_prop = c*dt*np.arange(1, Nt+1)
-    else : 
-        z_prop = c*dt*np.arange(1, Nt+1) - zf
+    z_prop = c*dt*np.arange(1, Nt+1) 
     ZR = 0.5*k0*w0**2
-    w_analytic = w0*np.sqrt( 1 + z_prop**2/ZR**2 )
-    E_analytic = E0/( 1 + z_prop**2/ZR**2 )**(1./2)
+    if m == 0 : # zf is not implemented for m = 0
+        w_analytic = w0*np.sqrt( 1 + z_prop**2/ZR**2 )
+        E_analytic = E0/( 1 + z_prop**2/ZR**2 )**(1./2)
+    else : # + zf because the pulse is backward propagating
+        w_analytic = w0*np.sqrt( 1 + (z_prop+zf)**2/ZR**2 )
+        E_analytic = E0/( 1 + (z_prop+zf)**2/ZR**2 )**(1./2)
         
     # Plot the results
     plt.suptitle('Diffraction of a pulse in the mode %d' %m)
@@ -181,7 +182,7 @@ def init_fields( fld, w, ctau, k0, z0, zf, E0, m=1 ) :
     # Initialize the fields with the right value and phase
     if m == 1 :
         add_laser( fld, E0*e/(m_e*c**2*k0), w, ctau, z0, zf=zf, 
-                   lambda0 = 2*np.pi/k0, fw_propagating=True )
+                   lambda0 = 2*np.pi/k0, fw_propagating=False )
     if m == 0 :
         z = fld.interp[m].z
         r = fld.interp[m].r
@@ -364,7 +365,7 @@ if __name__ == '__main__' :
     E0 = 1.
     # Propagation
     L_prop = 30.
-    zf = 30.
+    zf = -30.
     N_step = 10
     N_show = 2 # interval between two plots (in number of timestep)
 
