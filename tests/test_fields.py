@@ -346,7 +346,7 @@ if __name__ == '__main__' :
     Nm = 2
     # Laser pulse
     w0 = 2.
-    ctau = 10.
+    ctau = 5.
     k0 = 2*np.pi/0.8
     E0 = 1.
     # Propagation
