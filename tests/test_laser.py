@@ -14,7 +14,7 @@ from scipy.optimize import curve_fit
 from fbpic.fields import Fields
 from fbpic.lpa_utils import add_laser
 
-def test_pulse( Nz, Nr, Nm, Lz, Lr, L_prop, Nt, w0, ctau,
+def test_pulse( Nz, Nr, Nm, zmin, zmax, Lr, L_prop, zf, Nt, w0, ctau,
                 k0, E0, m, N_show, show=False ) :
     """
     Propagate the beam over a distance L_prop in N_step,
@@ -27,14 +27,20 @@ def test_pulse( Nz, Nr, Nm, Lz, Lr, L_prop, Nt, w0, ctau,
 
     Nm : int
         The number of modes in the azimuthal direction
-       
-    Lz, Lr : float
-       The size of the box in z and r respectively (in microns)
+
+    zmin, zmax : float
+        The limits of the box in z
+           
+    Lr : float
+       The size of the box in the r direction
        (In the case of Lr, this is the distance from the *axis*
        to the outer boundary)
 
     L_prop : float
        The total propagation distance (in microns)
+
+    zf : float
+       The position of the focal plane of the laser (only works for m=1)
 
     Nt : int
        The number of timesteps to take, to reach that distance
@@ -72,9 +78,9 @@ def test_pulse( Nz, Nr, Nm, Lz, Lr, L_prop, Nt, w0, ctau,
 
     # Initialize the fields object
     dt = L_prop/c * 1./Nt
-    fld = Fields( Nz, Lz, Nr, Lr, Nm, dt )
-    z0 = Lz/2
-    init_fields( fld, w0, ctau, k0, z0, E0, m )
+    fld = Fields( Nz, zmax, Nr, Lr, Nm, dt, zmin=zmin )
+    z0 = (zmax+zmin)/2
+    init_fields( fld, w0, ctau, k0, z0, zf, E0, m )
 
     # Create the arrays to get the waist and amplitude
     w = np.zeros(Nt)
@@ -95,7 +101,7 @@ def test_pulse( Nz, Nr, Nm, Lz, Lr, L_prop, Nt, w0, ctau,
         # Fit the fields to find the waist and a0
         w[it], E[it] = fit_fields( fld, m )
         # Since the fit returns the RMS of E, renormalize it
-        E[it] = E[it]*2**(3./4)/np.pi**(1./4)*np.sqrt(Lz/ctau)
+        E[it] = E[it]*2**(3./4)/np.pi**(1./4)*np.sqrt((zmax-zmin)/ctau)
         # Show the progression bar
         progression_bar(it, Nt-1)
         # Plot the fields during the simulation
@@ -111,10 +117,14 @@ def test_pulse( Nz, Nr, Nm, Lz, Lr, L_prop, Nt, w0, ctau,
         fld.interp2spect('B')
                             
     # Get the analytical solution
-    z_prop = c*dt*np.arange(1, Nt+1)
+    z_prop = c*dt*np.arange(1, Nt+1) 
     ZR = 0.5*k0*w0**2
-    w_analytic = w0*np.sqrt( 1 + z_prop**2/ZR**2 )
-    E_analytic = E0/( 1 + z_prop**2/ZR**2 )**(1./2)
+    if m == 0 : # zf is not implemented for m = 0
+        w_analytic = w0*np.sqrt( 1 + z_prop**2/ZR**2 )
+        E_analytic = E0/( 1 + z_prop**2/ZR**2 )**(1./2)
+    else : # + zf because the pulse is backward propagating
+        w_analytic = w0*np.sqrt( 1 + (z_prop+zf)**2/ZR**2 )
+        E_analytic = E0/( 1 + (z_prop+zf)**2/ZR**2 )**(1./2)
         
     # Plot the results
     plt.suptitle('Diffraction of a pulse in the mode %d' %m)
@@ -137,7 +147,7 @@ def test_pulse( Nz, Nr, Nm, Lz, Lr, L_prop, Nt, w0, ctau,
     return( { 'E' : E, 'w' : w, 'fld' : fld } )
 
     
-def init_fields( fld, w, ctau, k0, z0, E0, m=1 ) :
+def init_fields( fld, w, ctau, k0, z0, zf, E0, m=1 ) :
     """
     Imprints the appropriate profile on the fields of the simulation.
 
@@ -157,6 +167,9 @@ def init_fields( fld, w, ctau, k0, z0, E0, m=1 ) :
     z0 : float
        The position of the centroid on the z axis
 
+    zf : float 
+       The position of the focal plane
+
     E0 : float
        The initial E0 of the pulse
 
@@ -168,7 +181,7 @@ def init_fields( fld, w, ctau, k0, z0, E0, m=1 ) :
     
     # Initialize the fields with the right value and phase
     if m == 1 :
-        add_laser( fld, E0*e/(m_e*c**2*k0), w, ctau, z0,
+        add_laser( fld, E0*e/(m_e*c**2*k0), w, ctau, z0, zf=zf, 
                    lambda0 = 2*np.pi/k0, fw_propagating=False )
     if m == 0 :
         z = fld.interp[m].z
@@ -340,17 +353,19 @@ if __name__ == '__main__' :
     
     # Simulation box
     Nz = 300
-    Lz = 30.
+    zmin = -15
+    zmax = 15.
     Nr = 300
     Lr = 40.
     Nm = 2
     # Laser pulse
     w0 = 2.
-    ctau = 10.
+    ctau = 5.
     k0 = 2*np.pi/0.8
     E0 = 1.
     # Propagation
     L_prop = 30.
+    zf = -30.
     N_step = 10
     N_show = 2 # interval between two plots (in number of timestep)
 
@@ -359,15 +374,15 @@ if __name__ == '__main__' :
     print('')
     print('Testing mode m=0 with an annular beam')
     plt.figure()
-    res = test_pulse( Nz, Nr, Nm, Lz, Lr, L_prop, N_step, w0, ctau,
-                      k0, E0, 0, N_show, show=show )
+    res = test_pulse( Nz, Nr, Nm, zmin, zmax, Lr, L_prop, zf,
+                      N_step, w0, ctau, k0, E0, 0, N_show, show=show )
     plt.show()
     
     print('')
     print('Testing mode m=1 with an gaussian beam')
     plt.figure()
-    res = test_pulse(Nz, Nr, Nm, Lz, Lr, L_prop, N_step, w0, ctau,
-                     k0, E0, 1, N_show, show=show )
+    res = test_pulse(Nz, Nr, Nm, zmin, zmax, Lr, L_prop, zf,
+                     N_step, w0, ctau, k0, E0, 1, N_show, show=show )
     plt.show()
 
     print('')
