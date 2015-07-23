@@ -7,7 +7,7 @@ from scipy.constants import m_e, c, e, epsilon_0, mu_0
 from main import adapt_to_grid
 from particles import Particles
 
-def add_laser( fld, a0, w0, ctau, z0, zf=0., lambda0=0.8e-6,
+def add_laser( fld, a0, w0, ctau, z0, zf=None, lambda0=0.8e-6,
                theta_pol=0., fw_propagating=True,
                update_spectral=True ) :
     """
@@ -33,8 +33,9 @@ def add_laser( fld, a0, w0, ctau, z0, zf=0., lambda0=0.8e-6,
     z0 : float (in meters)
        The position of the laser centroid relative to z=0.
 
-    zf : float (in meters)
+    zf : float (in meters), optional
        The position of the laser focus relative to z=0.
+       If not provided, then the laser focus is at z0
     
     lambda0 : float (in meters), optional
        The central wavelength of the laser
@@ -53,49 +54,36 @@ def add_laser( fld, a0, w0, ctau, z0, zf=0., lambda0=0.8e-6,
        fields on the interpolation grid.
        Default : True
     """
-    # Extract the wavevector, and the amplitude of the E field at focus
+    # Set a number of parameters for the laser
     k0 = 2*np.pi/lambda0
-    E0 = a0*m_e*c**2*k0/e
-
-    # Calculate the Rayleigh length
-    zr = np.pi*w0**2/lambda0
-
-    # Define functions for laser waist and curvature
-    w = lambda z: w0*np.sqrt(1+(z/zr)**2)
-    R = lambda z: z*(1+(zr/z)**2)
-
+    E0 = a0*m_e*c**2*k0/e      # Amplitude at focus
+    zr = np.pi*w0**2/lambda0   # Rayleigh length
     # Get the polarization component
     # (Due to the Fourier transform along theta, the
     # polarization angle becomes a complex phase in the fields)
     exptheta = np.exp(1.j*theta_pol)
-
     # Sign for the propagation
-    # (prop is 1 if the laser goes in the forward direction,
-    # and -1 in the opposite case)
+    # (prop is 1 for forward propagation, and -1 otherwise)
     prop = 2*int(fw_propagating) - 1.
+    # Set default focusing position
+    if zf is None : zf = z0
+
+    # Get 2D mesh for z and r
+    r, z = np.meshgrid( fld.interp[1].r, fld.interp[1].z )  
+
+    # Define functions for laser waist and curvature
+    w = lambda z: w0*np.sqrt(1+(z/zr)**2)
+    R = lambda z: z*(1+(zr/z)**2)
+    waist =  w(z-zf)
+    propag_phase = np.arctan((z-zf)/zr) - k0*r**2/(2*R(z-zf)) - k0*(z-zf)
     
-    # Get the profile for the Er and Et fields
-    z = fld.interp[1].z  # Position of the grid points in z
-    # Shift z array by -z0 (laser centroid position at initialization time)
-    z -= z0
-    r = fld.interp[1].r  # Position of the grid points in r
-    # Recalculate distance between focus position and laser centroid positon
-    zf = (zf-z0)
-    # Temporal profile
-    long_profile = np.exp( -(z[:,np.newaxis])**2/ctau**2 )
-    # Transverse profile
-    trans_profile = ( w0 / w(z[:,np.newaxis]-zf) \
-                      * np.exp( -r[np.newaxis,:]**2 \
-                                / (w(z[:,np.newaxis]-zf))**2 ) )
-    # Curvature and laser oscillations
-    curvature_oscillations = \
-        np.cos( + np.arctan((z[:,np.newaxis]-zf)/zr) \
-                - (k0*r[np.newaxis,:]**2)/(2*R(z[:,np.newaxis]-zf)) \
-                - (k0 * (z[:,np.newaxis]-zf)) )
+    # Longitudinal and transverse profile
+    long_profile = np.exp( -(z-z0)**2/ctau**2 )
+    trans_profile = w0/waist * np.exp( -(r/waist)**2 )
+    # Curvature and laser oscillations (cos part)
+    curvature_oscillations_cos = np.cos( propag_phase )
     # Combine profiles
-    profile = long_profile[:,:] \
-            * trans_profile[:,:] \
-            * curvature_oscillations[:,:]
+    profile = long_profile * trans_profile * curvature_oscillations_cos
     
     # Add the Er and Et fields to the mode m=1 (linearly polarized laser)
     # (The factor 0.5 is related to the fact that there is a factor 2
@@ -107,28 +95,13 @@ def add_laser( fld, a0, w0, ctau, z0, zf=0., lambda0=0.8e-6,
 
     # Get the profile for the Ez fields (to ensure div(E) = 0)
     # (This uses the approximation lambda0 << ctau for long_profile )
-    # Temporal profile
-    long_profile = np.exp( -(z[:,np.newaxis])**2/ctau**2 )
     # Transverse profile
-    trans_profile = ( - r[np.newaxis,:]/zr \
-                      * ( w0**3 / w(z[:,np.newaxis]-zf)**3 ) \
-                      * np.exp( -r[np.newaxis,:]**2 \
-                                / w(z[:,np.newaxis]-zf)**2 ) )
+    trans_profile = - r/zr * ( w0/waist )**3 * np.exp( -(r/waist)**2 )
     # Curvature and laser oscillations (sin part)
-    curvature_oscillations_sin = \
-        np.sin( + np.arctan((z[:,np.newaxis]-zf)/zr) \
-                - (k0*r[np.newaxis,:]**2)/(2*R(z[:,np.newaxis]-zf)) \
-                - (k0 * (z[:,np.newaxis]-zf)) )
-    # Curvature and laser oscillations (cos part)
-    curvature_oscillations_cos = (z[:,np.newaxis]-zf)/zr * \
-        np.cos( + np.arctan((z[:,np.newaxis]-zf)/zr) \
-                - (k0*r[np.newaxis,:]**2)/(2*R(z[:,np.newaxis]-zf)) \
-                - (k0 * (z[:,np.newaxis]-zf)) )
+    curvature_oscillations_sin = np.sin( propag_phase )
     # Combine profiles
-    profile = long_profile[:,:] \
-            * trans_profile[:,:] \
-            * ( curvature_oscillations_sin[:,:] + \
-                curvature_oscillations_cos[:,:] )
+    profile = long_profile * trans_profile * \
+    ( curvature_oscillations_sin + (z-zf)/zr*curvature_oscillations_cos )
 
     # Add the Ez fields to the mode m=1 (linearly polarized laser)
     fld.interp[1].Ez +=  0.5  * E0 * exptheta * profile
@@ -142,7 +115,7 @@ def add_laser( fld, a0, w0, ctau, z0, zf=0., lambda0=0.8e-6,
 
 
 def add_elec_bunch( sim, gamma0, n_e, p_zmin, p_zmax, p_rmin, p_rmax,
-                    p_nr=2, p_nz=2, p_nt=4, filter_currents=True, dens_func=None ) :
+                p_nr=2, p_nz=2, p_nt=4, filter_currents=True, dens_func=None ) :
     """
     Introduce a relativistic electron bunch in the simulation,
     along with its space charge field.
