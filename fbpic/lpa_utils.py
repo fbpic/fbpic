@@ -69,8 +69,8 @@ def add_laser( fld, a0, w0, ctau, z0, zf=None, lambda0=0.8e-6,
     if zf is None : zf = z0
 
     # Get 2D mesh for z and r
-    r, z = np.meshgrid( fld.interp[1].r, fld.interp[1].z )  
-
+    r, z = np.meshgrid( fld.interp[1].r, fld.interp[1].z )
+    
     # Define functions for laser waist and curvature
     w = lambda z: w0*np.sqrt(1+(z/zr)**2)
     R = lambda z: z*(1+(zr/z)**2)
