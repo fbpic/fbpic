@@ -311,7 +311,7 @@ class MovingWindow(object) :
             # Loop over the azimuthal modes
             for m in range( Nm ) :
                 # Loop over the different fields
-                for fieldtype in ['Er', 'Er', 'Ez', 'Br', 'Bt', 'Bz' ] :
+                for fieldtype in ['Er', 'Et', 'Ez', 'Br', 'Bt', 'Bz' ] :
                     
                     field = getattr( interp[m], fieldtype )
                     damp_field( field, self.damp_array_EB,
