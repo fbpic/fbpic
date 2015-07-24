@@ -80,7 +80,8 @@ class Fields(object) :
 
         use_cuda_memory : bool, optional
             Wether to use manual memory management. Recommended.
-        """        
+        """
+
         # Register the arguments inside the object
         self.Nz = Nz
         self.Nr = Nr

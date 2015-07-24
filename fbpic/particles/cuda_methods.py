@@ -200,7 +200,8 @@ def gather_field_gpu(x, y, z,
     """
     # Get the 1D CUDA grid
     i = cuda.grid(1)
-    # Deposit the field per cell in parallel (for threads < number of particles)
+    # Deposit the field per cell in parallel 
+    # (for threads < number of particles)
     if i < x.shape[0]:
         # Preliminary arrays for the cylindrical conversion
         # --------------------------------------------
@@ -527,8 +528,8 @@ def deposit_rho_gpu(x, y, z, w,
         # current cell (inclusive).
         incl_offset = np.int32(prefix_sum[i])
         # Calculate the frequency per cell from the offset and the previous
-        # offset (prefix_sum[i-1]). For cell 0, you need to add +1 for the correct
-        # frequency in the case its not zero.
+        # offset (prefix_sum[i-1]). For cell 0, you need to add +1 for
+        # the correct frequency in the case its not zero.
         if i > 0:
             frequency_per_cell = np.int32(incl_offset - prefix_sum[i-1])
         if i == 0:
@@ -797,8 +798,8 @@ def deposit_J_gpu(x, y, z, w,
         # current cell (inclusive).
         incl_offset = np.int32(prefix_sum[i])
         # Calculate the frequency per cell from the offset and the previous
-        # offset (prefix_sum[i-1]). For cell 0, you need to add +1 for the correct
-        # frequency in the case its not zero.
+        # offset (prefix_sum[i-1]). For cell 0, you need to add +1 for 
+        # the correct frequency in the case its not zero.
         if i > 0:
             frequency_per_cell = np.int32(incl_offset - prefix_sum[i-1])
         if i == 0:
