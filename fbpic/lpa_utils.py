@@ -175,8 +175,68 @@ def add_elec_bunch( sim, gamma0, n_e, p_zmin, p_zmax, p_rmin, p_rmax,
     # Get the corresponding space-charge fields
     get_space_charge_fields( sim.fld, [relat_elec], gamma0, filter_currents )
     
+def add_elec_bunch_file( sim, filename, Q_tot, z_off=0., filter_currents=True) :
+    """
+    Introduce a relativistic electron bunch in the simulation,
+    along with its space charge field,
+    load particles from text file.
+
+    sim : a Simulation object
+
+    filename : str
+        the file containing the particle phase space in seven columns
+        (like for Warp), all float, no header
+        x [m]  y [m]  z [m]  vx [m/s]  vy [m/s]  vz [m/s]  1./gamma [1]
+
+    Q_tot : float (in Coulomb)
+        total charge in bunch
+
+    z_center: float (m)
+        shift phase space in z by z_off
+ 
+    filter_currents : bool, optional
+        Whether to filter the currents (in k space by default)
+    """
+
+    # load phase space to numpy array
+    phsp = np.loadtxt(filename)
+    # extract number of particles and average gamma
+    N_part = np.shape(phsp)[0]
+    gamma0 = 1./np.mean(phsp[:,6])
+    # make sure that no particle sits at exactly x = 0 or y = 0
+    phsp[phsp[:,0]==0.,0] = 1.e-14
+    phsp[phsp[:,1]==0.,1] = 1.e-14
+
+    # Create dummy electrons with the correct number of particles
+    relat_elec = Particles( q=-e, m=m_e, n=1.,
+                            Npz=N_part, zmin=1., zmax=2.,
+                            Npr=1, rmin=0., rmax=1.,
+                            Nptheta=1, dt=sim.dt,
+                            continuous_injection=False,
+                            dens_func=None )
+
+    # replace dummy particle parameters with phase space from text file
+    relat_elec.x[:] = phsp[:,0]
+    relat_elec.y[:] = phsp[:,1]
+    relat_elec.z[:] = phsp[:,2] + z_off
+    # for momenta: convert velocity [m/s] to normalized momentum u = p/m_e/c [1]
+    relat_elec.ux[:] = phsp[:,3]/phsp[:,6]/c
+    relat_elec.uy[:] = phsp[:,4]/phsp[:,6]/c
+    relat_elec.uz[:] = phsp[:,5]/phsp[:,6]/c
+    relat_elec.inv_gamma[:] = phsp[:,6]
+    # calculate weights (charge of macroparticle)
+    # assuming equally weighted particles as used in particle tracking codes
+    relat_elec.w[:] = Q_tot/N_part
     
-def get_space_charge_fields( fld, ptcl, gamma, filter_currents=True ) :
+    # Add them to the particles of the simulation
+    sim.ptcl.append( relat_elec )
+
+    # Get the corresponding space-charge fields
+    # include a larger tolerance of the deviation of inv_gamma from 1./gamma0
+    # to allow for energy spread
+    get_space_charge_fields( sim.fld, [relat_elec], gamma0 , filter_currents, gamma_rtol = 1.e-1, gamma_atol = 1.e-2 )
+    
+def get_space_charge_fields( fld, ptcl, gamma, filter_currents=True, gamma_rtol = 1e-05, gamma_atol = 1e-08 ) :
     """
     Calculate the space charge field on the grid
 
@@ -203,7 +263,7 @@ def get_space_charge_fields( fld, ptcl, gamma, filter_currents=True ) :
     """
     # Check that all the particles have the right gamma
     for species in ptcl :
-        if np.allclose( species.inv_gamma, 1./gamma ) == False :
+        if np.allclose( species.inv_gamma, 1./gamma, rtol = gamma_rtol, atol = gamma_atol) == False :    
             raise ValueError("The particles in ptcl do not have "
                             "a Lorentz factor matching gamma. Please check "
                             "that they have been properly initialized.")
