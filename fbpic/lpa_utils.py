@@ -226,7 +226,8 @@ def add_elec_bunch_file( sim, filename, Q_tot, z_off=0., filter_currents=True) :
     relat_elec.inv_gamma[:] = phsp[:,6]
     # calculate weights (charge of macroparticle)
     # assuming equally weighted particles as used in particle tracking codes
-    relat_elec.w[:] = Q_tot/N_part
+    # multiply by -1 to make them negatively charged
+    relat_elec.w[:] = -1.*Q_tot/N_part
     
     # Add them to the particles of the simulation
     sim.ptcl.append( relat_elec )
@@ -234,9 +235,10 @@ def add_elec_bunch_file( sim, filename, Q_tot, z_off=0., filter_currents=True) :
     # Get the corresponding space-charge fields
     # include a larger tolerance of the deviation of inv_gamma from 1./gamma0
     # to allow for energy spread
-    get_space_charge_fields( sim.fld, [relat_elec], gamma0 , filter_currents, gamma_rtol = 1.e-1, gamma_atol = 1.e-2 )
+    get_space_charge_fields( sim.fld, [relat_elec], gamma0,
+                             filter_currents, check_gaminv=False)
     
-def get_space_charge_fields( fld, ptcl, gamma, filter_currents=True, gamma_rtol = 1e-05, gamma_atol = 1e-08 ) :
+def get_space_charge_fields( fld, ptcl, gamma, filter_currents=True, check_gaminv=True ) :
     """
     Calculate the space charge field on the grid
 
@@ -262,11 +264,12 @@ def get_space_charge_fields( fld, ptcl, gamma, filter_currents=True, gamma_rtol 
         
     """
     # Check that all the particles have the right gamma
-    for species in ptcl :
-        if np.allclose( species.inv_gamma, 1./gamma, rtol = gamma_rtol, atol = gamma_atol) == False :    
-            raise ValueError("The particles in ptcl do not have "
-                            "a Lorentz factor matching gamma. Please check "
-                            "that they have been properly initialized.")
+    if check_gaminv:
+        for species in ptcl :
+            if np.allclose( species.inv_gamma, 1./gamma ) == False :    
+                raise ValueError("The particles in ptcl do not have "
+                                 "a Lorentz factor matching gamma. Please check "
+                                 "that they have been properly initialized.")
 
     # Project the charge and currents onto the grid
     fld.erase('rho')
