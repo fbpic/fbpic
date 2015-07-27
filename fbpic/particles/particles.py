@@ -334,9 +334,10 @@ class Particles(object) :
         else:
             # Preliminary arrays for the cylindrical conversion
             r = np.sqrt( self.x**2 + self.y**2 )
-            invr = 1./r
-            cos = self.x*invr  # Cosine
-            sin = self.y*invr  # Sine
+            # Avoid division by 0.
+            invr = 1./np.where( r!=0., r, 1. )
+            cos = np.where( r!=0., self.x*invr, 1. )
+            sin = np.where( r!=0., self.y*invr, 0. )
 
             # Indices and weights
             iz_lower, iz_upper, Sz_lower, Sz_upper = linear_weights( self.z,
@@ -551,12 +552,15 @@ class Particles(object) :
             else :
                 raise ValueError(
         "`fieldtype` should be either 'J' or 'rho', but is `%s`" %fieldtype )
+
+        # CPU version
         else:       
             # Preliminary arrays for the cylindrical conversion
             r = np.sqrt( self.x**2 + self.y**2 )
-            invr = 1./r
-            cos = self.x*invr  # Cosine
-            sin = self.y*invr  # Sine
+            # Avoid division by 0.
+            invr = 1./np.where( r!=0., r, 1. )
+            cos = np.where( r!=0., self.x*invr, 1. )
+            sin = np.where( r!=0., self.y*invr, 0. )
 
             # Indices and weights
             iz_lower, iz_upper, Sz_lower, Sz_upper = linear_weights( 
