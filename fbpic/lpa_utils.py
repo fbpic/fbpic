@@ -198,14 +198,11 @@ def add_elec_bunch_file( sim, filename, Q_tot, z_off=0., filter_currents=True) :
         Whether to filter the currents (in k space by default)
     """
 
-    # load phase space to numpy array
+    # Load phase space to numpy array
     phsp = np.loadtxt(filename)
-    # extract number of particles and average gamma
+    # Extract number of particles and average gamma
     N_part = np.shape(phsp)[0]
     gamma0 = 1./np.mean(phsp[:,6])
-    # make sure that no particle sits at exactly x = 0 or y = 0
-    phsp[phsp[:,0]==0.,0] = 1.e-14
-    phsp[phsp[:,1]==0.,1] = 1.e-14
 
     # Create dummy electrons with the correct number of particles
     relat_elec = Particles( q=-e, m=m_e, n=1.,
@@ -215,16 +212,16 @@ def add_elec_bunch_file( sim, filename, Q_tot, z_off=0., filter_currents=True) :
                             continuous_injection=False,
                             dens_func=None )
 
-    # replace dummy particle parameters with phase space from text file
+    # Replace dummy particle parameters with phase space from text file
     relat_elec.x[:] = phsp[:,0]
     relat_elec.y[:] = phsp[:,1]
     relat_elec.z[:] = phsp[:,2] + z_off
-    # for momenta: convert velocity [m/s] to normalized momentum u = p/m_e/c [1]
+    # For momenta: convert velocity [m/s] to normalized momentum u = p/m_e/c [1]
     relat_elec.ux[:] = phsp[:,3]/phsp[:,6]/c
     relat_elec.uy[:] = phsp[:,4]/phsp[:,6]/c
     relat_elec.uz[:] = phsp[:,5]/phsp[:,6]/c
     relat_elec.inv_gamma[:] = phsp[:,6]
-    # calculate weights (charge of macroparticle)
+    # Calculate weights (charge of macroparticle)
     # assuming equally weighted particles as used in particle tracking codes
     # multiply by -1 to make them negatively charged
     relat_elec.w[:] = -1.*Q_tot/N_part
@@ -238,7 +235,8 @@ def add_elec_bunch_file( sim, filename, Q_tot, z_off=0., filter_currents=True) :
     get_space_charge_fields( sim.fld, [relat_elec], gamma0,
                              filter_currents, check_gaminv=False)
     
-def get_space_charge_fields( fld, ptcl, gamma, filter_currents=True, check_gaminv=True ) :
+def get_space_charge_fields( fld, ptcl, gamma, filter_currents=True,
+                             check_gaminv=True ) :
     """
     Calculate the space charge field on the grid
 
@@ -261,15 +259,18 @@ def get_space_charge_fields( fld, ptcl, gamma, filter_currents=True, check_gamin
 
     filter_currents : bool, optional
        Whether to filter the currents (in k space by default)
-        
+
+    check_gaminv : bool, optional
+        Explicitly check that all particles have the same
+        gamma factor (assumed by the model)
     """
     # Check that all the particles have the right gamma
     if check_gaminv:
         for species in ptcl :
             if np.allclose( species.inv_gamma, 1./gamma ) == False :    
                 raise ValueError("The particles in ptcl do not have "
-                                 "a Lorentz factor matching gamma. Please check "
-                                 "that they have been properly initialized.")
+                            "a Lorentz factor matching gamma. Please check "
+                            "that they have been properly initialized.")
 
     # Project the charge and currents onto the grid
     fld.erase('rho')
