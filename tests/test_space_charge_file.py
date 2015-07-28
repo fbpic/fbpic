@@ -49,7 +49,8 @@ sim.moving_win = MovingWindow( ncells_damp=2,
 
 # Suppress the particles that were intialized by default and add the bunch
 sim.ptcl = [ ]
-add_elec_bunch_file( sim, filename = 'beam.in', Q_tot = 1.e-12, z_off = 20.e-6 )
+add_elec_bunch_file( sim, filename = 'test_space_charge_file_data.txt',
+                     Q_tot = 1.e-12, z_off = 20.e-6 )
 
 
 # Carry out 100 step, and show the fields
