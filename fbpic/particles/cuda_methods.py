@@ -212,9 +212,13 @@ def gather_field_gpu(x, y, z,
 
         # Cylindrical conversion
         rj = math.sqrt( xj**2 + yj**2 )
-        invr = 1./rj
-        cos = xj*invr  # Cosine
-        sin = yj*invr  # Sine
+        if (rj !=0. ) :
+            invr = 1./rj
+            cos = xj*invr  # Cosine
+            sin = yj*invr  # Sine
+        else :
+            cos = 1.
+            sin = 0.
         exptheta_m0 = 1.
         exptheta_m1 = cos - 1.j*sin
 
@@ -569,9 +573,14 @@ def deposit_rho_gpu(x, y, z, w,
 
             # Cylindrical conversion
             rj = math.sqrt( xj**2 + yj**2 )
-            invr = 1./rj
-            cos = xj*invr  # Cosine
-            sin = yj*invr  # Sine
+            # Avoid division by 0.
+            if (rj != 0.) :
+                invr = 1./rj
+                cos = xj*invr  # Cosine
+                sin = yj*invr  # Sine
+            else :
+                cos = 1.
+                sim = 0.
             exptheta_m0 = 1.
             exptheta_m1 = cos + 1.j*sin
 
@@ -865,9 +874,14 @@ def deposit_J_gpu(x, y, z, w,
 
             # Cylindrical conversion
             rj = math.sqrt( xj**2 + yj**2 )
-            invr = 1./rj
-            cos = xj*invr  # Cosine
-            sin = yj*invr  # Sine
+            # Avoid division by 0.
+            if (rj!=0.) :
+                invr = 1./rj
+                cos = xj*invr  # Cosine
+                sin = yj*invr  # Sine
+            else :
+                cos = 1.
+                sin = 0.
             exptheta_m0 = 1.
             exptheta_m1 = cos + 1.j*sin
 
