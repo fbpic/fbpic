@@ -615,7 +615,8 @@ class ParticleDiagnostic(OpenPMDDiagnostic) :
 
         # If this is the weight, divide it by the charge
         # so as to obtain an actual number of particles
-        quantity_array *= 1./species.q
+        if quantity is 'w':
+            quantity_array *= 1./species.q
         
         return( quantity_array )
     
