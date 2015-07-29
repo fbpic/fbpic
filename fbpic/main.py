@@ -123,10 +123,8 @@ class Simulation(object) :
             # Initialize the MPI communicator
             self.comm = MPI_Communicator(Nz, Nr, n_guard, Nm, boundaries)
             # Modify domain region
-            zmin, zmax, p_zmin, p_zmax = self.comm.divide_into_domain(
-                                            zmin, zmax, p_zmin, p_zmax)
-            # Register new number of cells for local domain
-            Nz = self.comm.Nz_local
+            zmin, zmax, p_zmin, p_zmax, Nz = \
+              self.comm.divide_into_domain(zmin, zmax, p_zmin, p_zmax)
         else :
             self.comm = None
 

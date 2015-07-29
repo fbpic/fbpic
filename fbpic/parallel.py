@@ -12,6 +12,14 @@ try :
 except ImportError :
     cuda_installed = False
 
+# Dictionary of correspondance between numpy types and mpi types
+# (Necessary when calling Gatherv)
+mpi_type_dict = { 'float32' : mpi.REAL4,
+                  'float64' : mpi.REAL8,
+                  'complex64' : mpi.COMPLEX8,
+                  'complex128' : mpi.COMPLEX16 }
+    
+    
 class MPI_Communicator(object) :
     """
     Class that handles the MPI communication between domains,
@@ -23,16 +31,12 @@ class MPI_Communicator(object) :
     - Nz, Nr : int
         The global number of cells of the simulation (without guard cells)
 
-    - Nz_local : int
-        The local number of cells on the MPI process (with guard cells)
-    
-    - Nz_domain : int
-        The local number of cells without the guard regions
+    - Nz_enlarged, Nz_domain : int
+        The local number of cells, with and without guard cells, respectively
 
-    - Nz_add_last : int 
-        The additional number of cells in the last (right) domain, that
-        need to be added if the grid cannot be divided by n domains evenly.
-
+    - Nz_enlarged_procs, Nz_domain_procs : list of ints
+        The number of cells in each proc, with and without guard cells
+        
     - Ltot : float
         The global size (length) of the simulation box in z
     
@@ -98,21 +102,26 @@ class MPI_Communicator(object) :
         self.rank = self.mpi_comm.rank
         self.size = self.mpi_comm.size
 
-        # Initialize local number of cells
+        # Initialize the number of cells of each proc
         # (Splits the global simulation and
         # adds guard cells to the local domain)
-        if self.rank == (self.size-1):
-            # Last domain gets extra cells in case Nz/self.size returns float
-            # Last domain = domain at the right edge of the Simulation
-            self.Nz_add_last = Nz % self.size
-            self.Nz_local = int(Nz/self.size) + self.Nz_add_last + 2*n_guard
-        else:
-            # Other domains get all the same domain size
-            self.Nz_local = int(Nz/self.size) + 2*n_guard
-            self.Nz_add_last = 0
+        Nz_per_proc = int(Nz/self.size)
+        # Get the number of cells in each domain
+        # (The last proc gets extra cells, so as to have Nz cells in total)
+        Nz_domain_procs = [ Nz_per_proc for k in range(self.size) ]
+        Nz_domain_procs[-1] = Nz_domain_procs[-1] + Nz%(self.size)
+        self.Nz_domain_procs = Nz_domain_procs
+        # Get the starting index (for easy output)
+        self.iz_start_procs = [ k*Nz_per_proc for k in range(self.size) ]
+        # Get the enlarged number of cells in each domain (includes guards)
+        self.Nz_enlarged_procs = [ n+2*n_guard for n in Nz_domain_procs ]
+
+        # Get the local values of the above arrays
+        self.Nz_domain = self.Nz_domain_procs[self.rank]
+        self.Nz_enlarged = self.Nz_enlarged_procs[self.rank]
 
         # Check if the local domain size is large enough
-        if self.Nz_local < 4*self.n_guard:
+        if self.Nz_enlarged < 4*self.n_guard:
             raise ValueError( 'Number of local cells in z is smaller \
                                than 4 times n_guard. Use fewer domains or \
                                a smaller number of guard cells.')
@@ -152,21 +161,21 @@ class MPI_Communicator(object) :
         self.create_damp_array(ncells_damp = int(n_guard/2))
 
         # Get the rank of the left and the right domain
-        self.left_domain = self.rank-1
-        self.right_domain = self.rank+1
+        self.left_proc = self.rank-1
+        self.right_proc = self.rank+1
         # Correct these initial values by taking into account boundaries
         if self.boundaries == 'periodic' :
             # Periodic boundary conditions for the domains
             if self.rank == 0 : 
-                self.left_domain = (self.size-1)
+                self.left_proc = (self.size-1)
             if self.rank == self.size-1 :
-                self.right_domain = 0
+                self.right_proc = 0
         elif self.boundaries == 'open' :
             # Moving window
             if self.rank == 0 :
-                self.left_domain = None
+                self.left_proc = None
             if self.rank == self.size-1 :
-                self.right_domain = None
+                self.right_proc = None
         else :
             raise ValueError('Unrecognized boundaries: %s' %self.boundaries)
         
@@ -198,28 +207,30 @@ class MPI_Communicator(object) :
            Positions between which the plasma will be initialized, in
            the local simulation box.
            (NB : no plasma will be initialized in the guard cells)
+
+        Nz_enlarged : int
+           The number of cells in the local simulation box (with guard cells)
         """
         # Initilize global box size
         self.Ltot = (zmax-zmin)
+        
         # Get the distance dz between the cells
         # (longitudinal spacing of the grid)
         dz = (zmax - zmin)/self.Nz
-        # Get the number of local cells without the guard cells
-        # in each domain (except the last domain, which has extra cells)
-        Nz_domain = int(self.Nz/self.size)
+        self.dz = dz
+        
         # Calculate the local boundaries (zmin and zmax)
         # of this local simulation box including the guard cells.
-        zmin_local = zmin + ((self.rank)*Nz_domain - self.n_guard)*dz
-        zmax_local = zmin_local + self.Nz_local*dz
+        iz_start = self.iz_start_procs[self.rank]
+        zmin_local = zmin + (iz_start - self.n_guard)*dz
+        zmax_local = zmin_local + self.Nz_enlarged*dz
+        
         # Calculate the new limits (p_zmin and p_zmax)
         # for adding particles to this domain
         p_zmin = max( zmin_local + self.n_guard*dz, p_zmin)
         p_zmax = min( zmax_local - self.n_guard*dz, p_zmax)
-        # Initilaize domain specific parameters
-        self.dz = dz
-        self.Nz_domain = Nz_domain
         # Return the new boundaries to the simulation object
-        return( zmin_local, zmax_local, p_zmin, p_zmax )
+        return( zmin_local, zmax_local, p_zmin, p_zmax, self.Nz_enlarged )
 
     def exchange_domains( self, send_left, send_right, recv_left, recv_right ):
         """
@@ -236,21 +247,21 @@ class MPI_Communicator(object) :
         # MPI-Exchange: Uses non-blocking send and receive, 
         # which return directly and need to be synchronized later.
         # Send to left domain and receive from right domain
-        if self.left_domain is not None :
-            self.mpi_comm.Isend(send_left, dest=self.left_domain, tag=1)
-        if self.right_domain is not None :
+        if self.left_proc is not None :
+            self.mpi_comm.Isend(send_left, dest=self.left_proc, tag=1)
+        if self.right_proc is not None :
             req_1 = self.mpi_comm.Irecv(recv_right,
-                                        source=self.right_domain, tag=1)
+                                        source=self.right_proc, tag=1)
         # Send to right domain and receive from left domain
-        if self.right_domain is not None :
-            self.mpi_comm.Isend(send_right, dest=self.right_domain, tag=2)
-        if self.left_domain is not None :
+        if self.right_proc is not None :
+            self.mpi_comm.Isend(send_right, dest=self.right_proc, tag=2)
+        if self.left_proc is not None :
             req_2 = self.mpi_comm.Irecv(recv_left,
-                                        source=self.left_domain, tag=2)
+                                        source=self.left_proc, tag=2)
         # Wait for the non-blocking sends to be received (synchronization)
-        if self.right_domain is not None :
+        if self.right_proc is not None :
             re_1 = mpi.Request.Wait(req_1)
-        if self.left_domain is not None :
+        if self.left_proc is not None :
             re_2 = mpi.Request.Wait(req_2)
 
     def exchange_fields( self, interp, fieldtype ):
@@ -301,7 +312,7 @@ class MPI_Communicator(object) :
             for m in range(self.Nm):
                 offset = 6*m
                 # Copy to buffer for sending to left
-                if self.left_domain is not None :
+                if self.left_proc is not None :
                     self.EB_send_l[0+offset,:,:] = interp[m].Er[ng:2*ng,:]
                     self.EB_send_l[1+offset,:,:] = interp[m].Et[ng:2*ng,:]
                     self.EB_send_l[2+offset,:,:] = interp[m].Ez[ng:2*ng,:]
@@ -309,7 +320,7 @@ class MPI_Communicator(object) :
                     self.EB_send_l[4+offset,:,:] = interp[m].Bt[ng:2*ng,:]
                     self.EB_send_l[5+offset,:,:] = interp[m].Bz[ng:2*ng,:]
                 # Copy to buffer for sending to right
-                if self.right_domain is not None :
+                if self.right_proc is not None :
                     self.EB_send_r[0+offset,:,:] = interp[m].Er[-2*ng:-ng,:]
                     self.EB_send_r[1+offset,:,:] = interp[m].Et[-2*ng:-ng,:]
                     self.EB_send_r[2+offset,:,:] = interp[m].Ez[-2*ng:-ng,:]
@@ -332,7 +343,7 @@ class MPI_Communicator(object) :
             for m in range(self.Nm):
                 offset = 6*m
                 # Copy buffer received from left to guard region
-                if self.left_domain is not None :
+                if self.left_proc is not None :
                     interp[m].Er[:ng,:] = self.EB_recv_l[0+offset,:,:]
                     interp[m].Et[:ng,:] = self.EB_recv_l[1+offset,:,:]
                     interp[m].Ez[:ng,:] = self.EB_recv_l[2+offset,:,:]
@@ -340,7 +351,7 @@ class MPI_Communicator(object) :
                     interp[m].Bt[:ng,:] = self.EB_recv_l[4+offset,:,:] 
                     interp[m].Bz[:ng,:] = self.EB_recv_l[5+offset,:,:]
                 # Copy buffer received from right to guard region
-                if self.right_domain is not None :
+                if self.right_proc is not None :
                     interp[m].Er[-ng:,:] = self.EB_recv_r[0+offset,:,:]
                     interp[m].Et[-ng:,:] = self.EB_recv_r[1+offset,:,:]
                     interp[m].Ez[-ng:,:] = self.EB_recv_r[2+offset,:,:]
@@ -354,12 +365,12 @@ class MPI_Communicator(object) :
             for m in range(self.Nm):
                 offset = 3*m
                 # Copy to buffer for sending to left
-                if self.left_domain is not None :
+                if self.left_proc is not None :
                     self.J_send_l[0+offset,:,:] = interp[m].Jr[:2*ng,:]
                     self.J_send_l[1+offset,:,:] = interp[m].Jt[:2*ng,:]
                     self.J_send_l[2+offset,:,:] = interp[m].Jz[:2*ng,:]
                 # Copy to buffer for sending to right
-                if self.right_domain is not None :
+                if self.right_proc is not None :
                     self.J_send_r[0+offset,:,:] = interp[m].Jr[-2*ng:,:]
                     self.J_send_r[1+offset,:,:] = interp[m].Jt[-2*ng:,:]
                     self.J_send_r[2+offset,:,:] = interp[m].Jz[-2*ng:,:]
@@ -379,13 +390,13 @@ class MPI_Communicator(object) :
                 offset = 3*m
                 # Add the buffer received from the left domain 
                 # to the inner region and the guard region
-                if self.left_domain is not None :
+                if self.left_proc is not None :
                     interp[m].Jr[:2*ng,:] += self.J_recv_l[0+offset,:,:]
                     interp[m].Jt[:2*ng,:] += self.J_recv_l[1+offset,:,:] 
                     interp[m].Jz[:2*ng,:] += self.J_recv_l[2+offset,:,:] 
                 # Add the buffer received from the right
                 # to the inner region and the guard region
-                if self.right_domain is not None :
+                if self.right_proc is not None :
                     interp[m].Jr[-2*ng:,:] += self.J_recv_r[0+offset,:,:]
                     interp[m].Jt[-2*ng:,:] += self.J_recv_r[1+offset,:,:] 
                     interp[m].Jz[-2*ng:,:] += self.J_recv_r[2+offset,:,:]
@@ -396,10 +407,10 @@ class MPI_Communicator(object) :
             for m in range(self.Nm):
                 offset = 1*m
                 # Copy to buffer for sending to left
-                if self.left_domain is not None :
+                if self.left_proc is not None :
                     self.rho_send_l[0+offset,:,:] = interp[m].rho[:2*ng,:]
                 # Copy to buffer for sending to right
-                if self.right_domain is not None :
+                if self.right_proc is not None :
                     self.rho_send_r[0+offset,:,:] = interp[m].rho[-2*ng:,:]
             # Exchange the guard regions and the inner regions of the 
             # current rank between the neighboring domains (MPI).
@@ -417,11 +428,11 @@ class MPI_Communicator(object) :
                 offset = 1*m
                 # Add the buffer received from the left domain 
                 # to the inner region and the guard region
-                if self.left_domain is not None :
+                if self.left_proc is not None :
                     interp[m].rho[:2*ng,:] += self.rho_recv_l[0+offset,:,:]
                 # Add the buffer received from the right
                 # to the inner region and the guard region
-                if self.right_domain is not None :
+                if self.right_proc is not None :
                     interp[m].rho[-2*ng:,:] += self.rho_recv_r[0+offset,:,:]
                 
         else :
@@ -664,19 +675,22 @@ class MPI_Communicator(object) :
         if self.rank == root:
             # Root process creates empty numpy array of the shape 
             # (Nz, Nr), that is used to gather the data
-            gathered_array = np.zeros((self.Nz, self.Nr), dtype = array.dtype)
+            gathered_array = np.zeros((self.Nz, self.Nr), dtype=array.dtype)
         else:
             # Other processes do not need to initialize a new array
             gathered_array = None
         # Shortcut for the guard cells
         ng = self.n_guard
-        # Call the mpi4py routine Gartherv and pass the local grid array
-        # as sending buffer without the guard region. The receiving buffer
-        # on process root (0) is used to gather the data.
-        self.mpi_comm.Gatherv(
-            sendbuf = array[ng:-ng,:], 
-            recvbuf = gathered_array,
-            root = root)
+        
+        # Call the mpi4py routine Gartherv
+        # First get the size and MPI type of the 2D arrays in each procs
+        i_start_procs = tuple( self.Nr*iz for iz in self.iz_start_procs )
+        N_domain_procs = tuple( self.Nr*nz for nz in self.Nz_domain_procs )
+        mpi_type = mpi_type_dict[ str(array.dtype) ] 
+        # Then send the arrays
+        sendbuf = [ array[ng:-ng,:], N_domain_procs[self.rank] ]
+        recvbuf = [ gathered_array, N_domain_procs, i_start_procs, mpi_type ]
+        self.mpi_comm.Gatherv( sendbuf, recvbuf, root=root )
         # return the gathered_array only on process root
         if self.rank == root:
             return(gathered_array)
@@ -754,7 +768,7 @@ class MPI_Communicator(object) :
         if self.rank == root:
             # Root process creates empty numpy array of the shape 
             # (length), that is used to gather the data.
-            gathered_array = np.empty(length, dtype = array.dtype)
+            gathered_array = np.empty(length, dtype=array.dtype)
         else:
             # Other processes do not need to initialize a new array
             gathered_array = None
