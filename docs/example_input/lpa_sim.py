@@ -26,7 +26,7 @@ from scipy.constants import c
 from fbpic.main import Simulation
 from fbpic.lpa_utils import add_laser
 from fbpic.moving_window import MovingWindow
-from fbpic.diagnostics import FieldDiagnostic, ParticleDiagnostic
+from fbpic.openpmd_diag import FieldDiagnostic, ParticleDiagnostic
 
 # ----------
 # Parameters

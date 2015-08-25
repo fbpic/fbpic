@@ -16,7 +16,6 @@ from scipy.integrate import quad
 from fbpic.main import Simulation
 from fbpic.lpa_utils import add_laser
 from fbpic.moving_window import MovingWindow
-from fbpic.diagnostics import FieldDiagnostic, ParticleDiagnostic
 
 # ---------------------------
 # Analytical solution
