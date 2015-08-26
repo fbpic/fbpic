@@ -337,6 +337,11 @@ class ParticleDiagnostic(OpenPMDDiagnostic) :
         # Apply the selection
         quantity_array = quantity_array[ select_array ]
 
+        # If this is the momentum, mutliply by the proper factor
+        if quantity in ['ux', 'uy', 'uz'] :
+            scale_factor = species.m * constants.c
+            quantity_array *= scale_factor
+        
         # If this is the weight, divide it by the charge
         # so as to obtain an actual number of particles
         if quantity is 'w':
