@@ -165,9 +165,10 @@ if __name__ == '__main__' :
     # The simulation box
     Nz = 801         # Number of gridpoints along z
     zmax = 40.e-6    # Length of the box along z (meters)
-    Nr = 120          # Number of gridpoints along r
+    Nr = 120         # Number of gridpoints along r
     rmax = 60.e-6    # Length of the box along r (meters)
     Nm = 2           # Number of modes used
+    n_order = -1     # Order of the stencil in z
     # The simulation timestep
     dt = zmax/Nz/c   # Timestep (seconds)
 
@@ -203,7 +204,7 @@ if __name__ == '__main__' :
     # Initialize the simulation object
     sim = Simulation( Nz, zmax, Nr, rmax, Nm, dt,
         p_zmin, p_zmax, p_rmin, p_rmax, p_nz, p_nr, p_nt, n_e,
-        use_cuda=True ) 
+        use_cuda=True, n_order=n_order ) 
 
     # Add a laser to the fields of the simulation
     add_laser( sim.fld, a0, w0, ctau, z0 )
