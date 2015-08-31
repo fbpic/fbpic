@@ -166,6 +166,7 @@ if __name__ == '__main__' :
     Nr = 32          # Number of gridpoints along r
     rmax = 20.e-6    # Length of the box along r (meters)
     Nm = 2           # Number of modes used
+    n_order = -1     # Order of the finite stencil
     # The simulation timestep
     dt = zmax/Nz/c   # Timestep (seconds)
 
@@ -196,7 +197,8 @@ if __name__ == '__main__' :
     
     # Initialization of the simulation object
     sim = Simulation( Nz, zmax, Nr, rmax, Nm, dt,
-    p_zmin, p_zmax, p_rmin, p_rmax, p_nz, p_nr, p_nt, n_e, use_cuda=use_cuda )
+    p_zmin, p_zmax, p_rmin, p_rmax, p_nz, p_nr, p_nt, n_e,
+    n_order=n_order, use_cuda=use_cuda )
 
     # Redo the initialization of the electrons, to avoid to two last empty
     # cells at the right end of the box
