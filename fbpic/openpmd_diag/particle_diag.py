@@ -144,6 +144,11 @@ class ParticleDiagnostic(OpenPMDDiagnostic) :
         iteration : int
              The current iteration number of the simulation.
         """
+        # Receive data from the GPU if needed
+        for ptcl_object in self.species.values() :
+            if ptcl_object.use_cuda :
+                ptcl_object.receive_particles_from_gpu()
+
         # Create the file
         filename = "data%08d.h5" %iteration
         fullpath = os.path.join( self.write_dir, "diags/hdf5", filename )
@@ -182,6 +187,11 @@ class ParticleDiagnostic(OpenPMDDiagnostic) :
         
         # Close the file
         f.close()
+
+        # Send data to the GPU if needed
+        for ptcl_object in self.species.values() :
+            if ptcl_object.use_cuda :
+                ptcl_object.send_particles_to_gpu()
 
     def write_particles( self, species_grp, species,
                          n_rank, N, select_array ) :

@@ -130,6 +130,10 @@ class FieldDiagnostic(OpenPMDDiagnostic) :
         iteration : int
              The current iteration number of the simulation.
         """
+        # Receive data from the GPU if needed
+        if self.fld.use_cuda :
+            self.fld.receive_fields_from_gpu()
+
         # Create the file
         filename = "data%08d.h5" %iteration
         fullpath = os.path.join( self.write_dir, "diags/hdf5", filename )
@@ -163,6 +167,10 @@ class FieldDiagnostic(OpenPMDDiagnostic) :
         
         # Close the file    
         f.close()
+
+        # Send data to the GPU if needed
+        if self.fld.use_cuda :
+            self.fld.send_fields_to_gpu()
 
     def write_dataset( self, field_grp, path, quantity ) :
         """
