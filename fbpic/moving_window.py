@@ -34,15 +34,17 @@ class MovingWindow(object) :
     - damp : set the fields progressively to zero at the left end of the box
     """
     
-    def __init__( self, zmin=0, v=c, ncells_zero=1, ncells_damp=1,
-                  period=1, damp_shape='cos', gradual_damp_EB=True ) :
+    def __init__( self, interp, v=c, ncells_zero=1,
+                  ncells_damp=1, period=1, damp_shape='cos',
+                  gradual_damp_EB=True, ux_m=0., uy_m=0., uz_m=0.,
+                  ux_th=0., uy_th=0., uz_th=0. ) :
         """
         Initializes a moving window object.
 
         Parameters
         ----------
-        zmin : float (meters), optional
-            The starting position of the moving window
+        interp: an InterpolationGrid object
+            Needed to obtain the initial position of the moving window
         
         v : float (meters per seconds), optional
             The speed of the moving window
@@ -67,10 +69,35 @@ class MovingWindow(object) :
         gradual_damp_EB : bool, optional
             Whether to gradually damp the fields EB
             If False, no damping at all will be applied to the fields E and B
+
+        ux_m, uy_m, uz_m: floats (dimensionless)
+           Normalized mean momenta of the injected particles in each direction
+
+        ux_th, uy_th, uz_th: floats (dimensionless)
+           Normalized thermal momenta in each direction
+           Only the electrons have these momenta added to their mean momentum
         """
-        # Attach position and speed
-        self.zmin = zmin
+        # Momenta parameters
+        self.ux_m = ux_m
+        self.uy_m = uy_m
+        self.uz_m = uz_m
+        self.gamma_inv_m = 1./np.sqrt( 1 + ux_m**2 + uy_m**2 + uz_m**2 )
+        self.ux_th = ux_th
+        self.uy_th = uy_th
+        self.uz_th = uz_th
+        
+        # Attach positions and speed
+        # - Moving window speed
         self.v = v
+        # - Initial position of the moving window (move with moving window)
+        self.zmin = interp.zmin
+        # - Initial injection position (move with moving window)
+        #   (particles are not loaded in the last two upper cells)
+        self.z_inject = interp.zmax - 2 * interp.dz
+        # - Mean speed of the end of the plasma
+        self.v_end_plasma = c * uz_m * self.gamma_inv_m
+        # - Position of the right end of the plasma (moves with the plasma)
+        self.z_end_plasma = interp.zmax - 2 * interp.dz
 
         # Verify parameters, to prevent wrapping around of the particles
         if ncells_zero < period :
@@ -121,7 +148,8 @@ class MovingWindow(object) :
         
         Parameters
         ----------
-        interp : a Fields object
+        interp : a list of InterpolationGrid objects
+            (one element per azimuthal mode)
             Contains the fields data of the simulation
     
         ptcl : a list of Particles objects
@@ -134,11 +162,16 @@ class MovingWindow(object) :
             Timestep of the simulation
         """
         # Move the position of the moving window object
-        self.zmin = self.zmin + self.v*dt*self.period
-        
+        # and the position of injection
+        self.zmin += self.v * dt * self.period
+        self.z_inject += self.v * dt * self.period
+        # Take into account the motion of the end of the plasma
+        self.z_end_plasma += self.v_end_plasma * dt * self.period
+
         # Find the number of cells by which the window should move
         dz = interp[0].dz
-        n_move = int( (self.zmin-interp[0].zmin)/dz )
+        n_move = int( (self.zmin - interp[0].zmin)/dz )
+        # Move the window
         if n_move > 0 :
             
             # Shift the fields
@@ -154,17 +187,20 @@ class MovingWindow(object) :
             # should be removed
             z_zero = zmin + self.ncells_zero*dz
     
-            # Now that the grid has moved, remove the particles that are
-            # outside of it, and add new particles in the next-to-last cell
+            # Now that the grid has moved, remove the particles that exited
             for species in ptcl :
                 clean_outside_particles( species, z_zero )
+
+        # Find the number of particle cells to add
+        n_inject = int( (self.z_inject - self.z_end_plasma)/dz )
+        # Add the new particle cells
+        if n_inject > 0 :
+            for species in ptcl :
                 if species.continuous_injection == True :
-                    # Remember that particles are not loaded in the
-                    # last two upper cells, in order to prevent wrapping
-                    # around of the charge density, when it is smoothed
-                    add_particles( species, zmax-(n_move+2)*dz,
-                                   zmax-2*dz, n_move*p_nz )
-            
+                    add_particles( species, self.z_end_plasma,
+                            self.z_end_plasma + n_inject*dz, n_inject*p_nz )
+            self.z_end_plasma += n_inject*dz
+                                
     def shift_interp_grid( self, grid, n_move, shift_currents=False ) :
         """
         Shift the interpolation grid by one cell
