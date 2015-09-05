@@ -129,7 +129,7 @@ def unalign_angles( thetap, Npz, Npr, method='irrational' ) :
     """
     # Determine the angle shift
     if method == 'random' :
-        angle_shift = 2*np.pi*np.random.rand((Npr, Nprz))
+        angle_shift = 2*np.pi*np.random.rand(Npz, Npr)
     elif method == 'irrational' :
         # Subrandom sequence, by adding irrational number (sqrt(2) and sqrt(3))
         # This ensures that the sequence does not wrap around and induce

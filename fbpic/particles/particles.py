@@ -43,7 +43,7 @@ class Particles(object) :
 
     def __init__(self, q, m, n, Npz, zmin, zmax,
                     Npr, rmin, rmax, Nptheta, dt,
-                    dens_func=None, global_theta=0.,
+                    dens_func=None,
                     ux_m=0., uy_m=0., uz_m=0.,
                     ux_th=0., uy_th=0., uz_th=0.,
                     continuous_injection=True,
@@ -93,12 +93,6 @@ class Particles(object) :
            where z and r are 1d arrays, and which returns
            a 1d array containing the density *relative to n*
            (i.e. a number between 0 and 1) at the given positions
-
-        global_theta : float (in rad), optional
-           A global shift on all the theta of the particles
-           This is useful when repetitively adding new particles
-           (e.g. with the moving window), in order to avoid that
-           the successively-added particles are aligned.
 
         continuous_injection : bool, optional
            Whether to continuously inject the particles,
@@ -185,8 +179,7 @@ class Particles(object) :
             # change the angles individually)
             zp, rp, thetap = np.meshgrid( z_reg, r_reg, theta_reg, copy=True)
             # Prevent the particles from being aligned along any direction
-            unalign_angles( thetap, Npr, Npz, method='irrational' )
-            thetap += global_theta
+            unalign_angles( thetap, Npr, Npz, method='random' )
             # Flatten them (This performs a memory copy)
             r = rp.flatten()
             self.x[:] = r * np.cos( thetap.flatten() )

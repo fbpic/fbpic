@@ -367,15 +367,11 @@ def add_particles( species, zmin, zmax, Npz, ux_m=0., uy_m=0., uz_m=0.,
     ux_th, uy_th, uz_th: floats (dimensionless)
         Normalized thermal momenta in each direction     
     """
-
-    # Take the angle of the last particle as a global shift in theta,
-    # in order to prevent the successively-added particles from being aligned
-    global_theta = np.angle( species.x[-1] + 1.j*species.y[-1] )
     # Create the particles that will be added
     new_ptcl = Particles( species.q, species.m, species.n,
         Npz, zmin, zmax, species.Npr, species.rmin, species.rmax,
         species.Nptheta, species.dt, species.dens_func,
-        global_theta=global_theta, ux_m=ux_m, uy_m=uy_m, uz_m=uz_m,
+        ux_m=ux_m, uy_m=uy_m, uz_m=uz_m,
         ux_th=ux_th, uy_th=uy_th, uz_th=uz_th )
 
     # Add the properties of these new particles to species object
