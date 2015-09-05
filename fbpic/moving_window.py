@@ -75,13 +75,11 @@ class MovingWindow(object) :
 
         ux_th, uy_th, uz_th: floats (dimensionless)
            Normalized thermal momenta in each direction
-           Only the electrons have these momenta added to their mean momentum
         """
         # Momenta parameters
         self.ux_m = ux_m
         self.uy_m = uy_m
         self.uz_m = uz_m
-        self.gamma_inv_m = 1./np.sqrt( 1 + ux_m**2 + uy_m**2 + uz_m**2 )
         self.ux_th = ux_th
         self.uy_th = uy_th
         self.uz_th = uz_th
@@ -95,7 +93,7 @@ class MovingWindow(object) :
         #   (particles are not loaded in the last two upper cells)
         self.z_inject = interp.zmax - 2 * interp.dz
         # - Mean speed of the end of the plasma
-        self.v_end_plasma = c * uz_m * self.gamma_inv_m
+        self.v_end_plasma = c * uz_m / np.sqrt(1 + ux_m**2 + uy_m**2 + uz_m**2)
         # - Position of the right end of the plasma (moves with the plasma)
         self.z_end_plasma = interp.zmax - 2 * interp.dz
 
@@ -198,7 +196,9 @@ class MovingWindow(object) :
             for species in ptcl :
                 if species.continuous_injection == True :
                     add_particles( species, self.z_end_plasma,
-                            self.z_end_plasma + n_inject*dz, n_inject*p_nz )
+                        self.z_end_plasma + n_inject*dz, n_inject*p_nz,
+                        ux_m=self.ux_m, uy_m=self.uy_m, uz_m=self.uz_m,
+                        ux_th=self.ux_th, uy_th=self.uy_th, uz_th=self.uz_th)
             self.z_end_plasma += n_inject*dz
                                 
     def shift_interp_grid( self, grid, n_move, shift_currents=False ) :
@@ -343,7 +343,8 @@ def clean_outside_particles( species, zmin ) :
     # Adapt the number of particles accordingly
     species.Ntot = len( species.w )
 
-def add_particles( species, zmin, zmax, Npz ) :
+def add_particles( species, zmin, zmax, Npz, ux_m=0., uy_m=0., uz_m=0.,
+                  ux_th=0., uy_th=0., uz_th=0. ) :
     """
     Create new particles between zmin and zmax, and add them to `species`
 
@@ -356,9 +357,15 @@ def add_particles( species, zmin, zmax, Npz ) :
        The positions between which the new particles are created
 
     Npz : int
-       The total number of particles to be added along the z axis
-       (The number of particles along r and theta is the same as that of
-       `species`)
+        The total number of particles to be added along the z axis
+        (The number of particles along r and theta is the same as that of
+        `species`)
+
+    ux_m, uy_m, uz_m: floats (dimensionless)
+        Normalized mean momenta of the injected particles in each direction
+
+    ux_th, uy_th, uz_th: floats (dimensionless)
+        Normalized thermal momenta in each direction     
     """
 
     # Take the angle of the last particle as a global shift in theta,
@@ -368,7 +375,8 @@ def add_particles( species, zmin, zmax, Npz ) :
     new_ptcl = Particles( species.q, species.m, species.n,
         Npz, zmin, zmax, species.Npr, species.rmin, species.rmax,
         species.Nptheta, species.dt, species.dens_func,
-        global_theta=global_theta )
+        global_theta=global_theta, ux_m=ux_m, uy_m=uy_m, uz_m=uz_m,
+        ux_th=ux_th, uy_th=uy_th, uz_th=uz_th )
 
     # Add the properties of these new particles to species object
     # Loop over the attributes of the species
