@@ -106,7 +106,8 @@ sim = Simulation( Nz, zmax, Nr, rmax, Nm, dt,
 add_laser( sim.fld, a0, w0, ctau, z0 )
 
 # Configure the moving window
-sim.moving_win = MovingWindow( ncells_damp=ncells_damp,
+sim.moving_win = MovingWindow( sim.fld.interp[0],
+                               ncells_damp=ncells_damp,
                                ncells_zero=ncells_zero )
 
 # Add a field diagnostic

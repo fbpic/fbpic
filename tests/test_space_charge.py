@@ -29,7 +29,7 @@ N_step = 300     # Number of iterations to perform
 N_show = 300     # Number of timestep between every plot
 
 # The particles
-gamma0 = 25.                                                            
+gamma0 = 25.
 p_zmin = 15.e-6  # Position of the beginning of the bunch (meters)
 p_zmax = 25.e-6  # Position of the end of the bunch (meters)                   
 p_rmin = 0.      # Minimal radial position of the bunch (meters)               
@@ -44,7 +44,8 @@ sim = Simulation( Nz, zmax, Nr, rmax, Nm, dt,
     p_zmin, p_zmax, p_rmin, p_rmax, p_nz, p_nr, p_nt, n_e, n_order=n_order )
 
 # Configure the moving window
-sim.moving_win = MovingWindow( ncells_damp=2,
+sim.moving_win = MovingWindow( sim.fld.interp[0],
+                               ncells_damp=2,
                                ncells_zero=2 )
 
 # Suppress the particles that were intialized by default and add the bunch

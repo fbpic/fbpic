@@ -24,7 +24,7 @@ rmax = 100.e-6   # Length of the box along r (meters)
 Nm = 2           # Number of modes used
 n_order = -1     # Order of the stencil
 
-# The simulation timestep                                                       
+# The simulation timestep                                             
 dt = zmax/Nz/c   # Timestep (seconds)                                           
 N_step = 100     # Number of iterations to perform
 
@@ -44,7 +44,8 @@ sim = Simulation( Nz, zmax, Nr, rmax, Nm, dt,
     p_zmin, p_zmax, p_rmin, p_rmax, p_nz, p_nr, p_nt, n_e, n_order=n_order )
 
 # Configure the moving window
-sim.moving_win = MovingWindow( ncells_damp=2,
+sim.moving_win = MovingWindow( sim.fld.interp[0],
+                               ncells_damp=2,
                                ncells_zero=2 )
 
 # Suppress the particles that were intialized by default and add the bunch
