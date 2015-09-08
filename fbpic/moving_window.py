@@ -34,15 +34,17 @@ class MovingWindow(object) :
     - damp : set the fields progressively to zero at the left end of the box
     """
     
-    def __init__( self, zmin=0, v=c, ncells_zero=1, ncells_damp=1,
-                  period=1, damp_shape='cos', gradual_damp_EB=True ) :
+    def __init__( self, interp, v=c, ncells_zero=1,
+                  ncells_damp=1, period=1, damp_shape='cos',
+                  gradual_damp_EB=True, ux_m=0., uy_m=0., uz_m=0.,
+                  ux_th=0., uy_th=0., uz_th=0., comm=None ) :
         """
         Initializes a moving window object.
 
         Parameters
         ----------
-        zmin : float (meters), optional
-            The starting position of the moving window
+        interp: an InterpolationGrid object
+            Needed to obtain the initial position of the moving window
         
         v : float (meters per seconds), optional
             The speed of the moving window
@@ -67,10 +69,39 @@ class MovingWindow(object) :
         gradual_damp_EB : bool, optional
             Whether to gradually damp the fields EB
             If False, no damping at all will be applied to the fields E and B
+
+        ux_m, uy_m, uz_m: floats (dimensionless)
+           Normalized mean momenta of the injected particles in each direction
+
+        ux_th, uy_th, uz_th: floats (dimensionless)
+           Normalized thermal momenta in each direction
         """
-        # Attach position and speed
-        self.zmin = zmin
+        # Momenta parameters
+        self.ux_m = ux_m
+        self.uy_m = uy_m
+        self.uz_m = uz_m
+        self.ux_th = ux_th
+        self.uy_th = uy_th
+        self.uz_th = uz_th
+        
+        # Attach moving window positions and speed
         self.v = v
+        self.zmin = interp.zmin
+        if comm is not None:
+            # zmin is the global zmin of the simulation
+            self.zmin = self.zmin + interp.dz * \
+              (comm.n_guard - comm.rank*comm.Nz_domain)
+            
+        # Attach injection position and speed (only for the last proc)
+        if (comm is None) or (comm.rank == comm.size-1):
+            self.z_inject = interp.zmax - 2 * interp.dz
+            self.z_end_plasma = interp.zmax - 2 * interp.dz
+            self.v_end_plasma = \
+              c * uz_m / np.sqrt(1 + ux_m**2 + uy_m**2 + uz_m**2)
+            # With MPI, correct for the guard cells
+            if comm is not None:
+                self.z_inject -= comm.n_guard * interp.dz
+                self.z_end_plasma -= comm.n_guard * interp.dz
 
         # Verify parameters, to prevent wrapping around of the particles
         if ncells_zero < period :
@@ -122,6 +153,7 @@ class MovingWindow(object) :
         Parameters
         ----------
         interp : a list of InterpolationGrid objects
+            (one element per azimuthal mode)
             Contains the fields data of the simulation
     
         ptcl : a list of Particles objects
@@ -138,15 +170,15 @@ class MovingWindow(object) :
             When not using MPI, this object is None
         """
         # Move the position of the moving window object
-        self.zmin = self.zmin + self.v*dt*self.period
-        
+        self.zmin += self.v * dt * self.period
+
         # Find the number of cells by which the window should move
         dz = interp[0].dz
         zmin_global = interp[0].zmin
         if comm is not None :
             zmin_global = interp[0].zmin \
             + dz*(comm.n_guard - comm.rank*comm.Nz_domain)
-        n_move = int( (self.zmin-zmin_global)/dz )
+        n_move = int( (self.zmin - zmin_global)/dz )
 
         # Move the window
         if n_move > 0 :
@@ -177,19 +209,6 @@ class MovingWindow(object) :
                 # Remove the outside particles
                 for species in ptcl :
                     clean_outside_particles( species, z_zero )
-                    
-            # The last proc adds new particles
-            if (comm is None) or (comm.rank == comm.size-1) :
-                # Determine the position below which particles are added
-                # (Leave the last two cells empty.)
-                p_zmax = zmax - 2*dz
-                if comm is not None :
-                    p_zmax = p_zmax - comm.n_guard*dz
-                # Add the new particles
-                for species in ptcl :
-                    if species.continuous_injection == True :
-                        add_particles( species, p_zmax-n_move*dz,
-                                        p_zmax, n_move*p_nz )
 
             # Exchange the fields and the particles 
             # in the guard cells between domains when using MPI
@@ -200,7 +219,27 @@ class MovingWindow(object) :
                 for species in ptcl:
                     comm.exchange_particles( species,
                             interp[0].zmin, interp[0].zmax )
-            
+
+        # The last proc adds new particles
+        if (comm is None) or (comm.rank == comm.size-1) :
+            # Move the injection position
+            self.z_inject += self.v * dt * self.period
+            # Take into account the motion of the end of the plasma
+            self.z_end_plasma += self.v_end_plasma * dt * self.period
+            # Find the number of particle cells to add
+            n_inject = int( (self.z_inject - self.z_end_plasma)/dz )
+            # Add the new particle cells
+            if n_inject > 0 :
+                for species in ptcl :
+                    if species.continuous_injection == True :
+                        add_particles( species, self.z_end_plasma,
+                            self.z_end_plasma + n_inject*dz, n_inject*p_nz,
+                            ux_m=self.ux_m, uy_m=self.uy_m, uz_m=self.uz_m,
+                            ux_th=self.ux_th, uy_th=self.uy_th,
+                            uz_th=self.uz_th)
+            # Increment the position of the end of the plasma
+            self.z_end_plasma += n_inject*dz
+
     def shift_interp_grid( self, grid, n_move, shift_currents=False ) :
         """
         Shift the interpolation grid by one cell
@@ -358,7 +397,8 @@ def clean_outside_particles( species, zmin ) :
     # Adapt the number of particles accordingly
     species.Ntot = len( species.w )
 
-def add_particles( species, zmin, zmax, Npz ) :
+def add_particles( species, zmin, zmax, Npz, ux_m=0., uy_m=0., uz_m=0.,
+                  ux_th=0., uy_th=0., uz_th=0. ) :
     """
     Create new particles between zmin and zmax, and add them to `species`
 
@@ -371,19 +411,22 @@ def add_particles( species, zmin, zmax, Npz ) :
        The positions between which the new particles are created
 
     Npz : int
-       The total number of particles to be added along the z axis
-       (The number of particles along r and theta is the same as that of
-       `species`)
-    """
+        The total number of particles to be added along the z axis
+        (The number of particles along r and theta is the same as that of
+        `species`)
 
-    # Take the angle of the last particle as a global shift in theta,
-    # in order to prevent the successively-added particles from being aligned
-    global_theta = np.angle( species.x[-1] + 1.j*species.y[-1] )
+    ux_m, uy_m, uz_m: floats (dimensionless)
+        Normalized mean momenta of the injected particles in each direction
+
+    ux_th, uy_th, uz_th: floats (dimensionless)
+        Normalized thermal momenta in each direction     
+    """
     # Create the particles that will be added
     new_ptcl = Particles( species.q, species.m, species.n,
         Npz, zmin, zmax, species.Npr, species.rmin, species.rmax,
         species.Nptheta, species.dt, species.dens_func,
-        global_theta=global_theta )
+        ux_m=ux_m, uy_m=uy_m, uz_m=uz_m,
+        ux_th=ux_th, uy_th=uy_th, uz_th=uz_th )
 
     # Add the properties of these new particles to species object
     # Loop over the attributes of the species

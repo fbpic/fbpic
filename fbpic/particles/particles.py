@@ -43,10 +43,12 @@ class Particles(object) :
 
     def __init__(self, q, m, n, Npz, zmin, zmax,
                     Npr, rmin, rmax, Nptheta, dt,
-                    dens_func=None, global_theta=0.,
+                    dens_func=None,
+                    ux_m=0., uy_m=0., uz_m=0.,
+                    ux_th=0., uy_th=0., uz_th=0.,
                     continuous_injection=True,
                     use_numba=True, use_cuda=False,
-                    use_cuda_memory = True ) :
+                    use_cuda_memory=True ) :
         """
         Initialize a uniform set of particles
 
@@ -79,18 +81,18 @@ class Particles(object) :
         dt : float (in seconds)
            The timestep for the particle pusher
 
+        ux_m, uy_m, uz_m: floats (dimensionless), optional
+           Normalized mean momenta of the injected particles in each direction
+
+        ux_th, uy_th, uz_th: floats (dimensionless), optional
+           Normalized thermal momenta in each direction
+           
         dens_func : callable, optional
            A function of the form :
            def dens_func( z, r ) ...
            where z and r are 1d arrays, and which returns
            a 1d array containing the density *relative to n*
            (i.e. a number between 0 and 1) at the given positions
-
-        global_theta : float (in rad), optional
-           A global shift on all the theta of the particles
-           This is useful when repetitively adding new particles
-           (e.g. with the moving window), in order to avoid that
-           the successively-added particles are aligned.
 
         continuous_injection : bool, optional
            Whether to continuously inject the particles,
@@ -129,7 +131,8 @@ class Particles(object) :
         
         # Register the properties of the particles
         # (Necessary for the pusher, and when adding more particles later, )
-        self.Ntot = Npz*Npr*Nptheta
+        Ntot = Npz*Npr*Nptheta
+        self.Ntot = Ntot
         self.q = q
         self.m = m
         self.n = n
@@ -140,28 +143,29 @@ class Particles(object) :
         self.dens_func = dens_func
         self.continuous_injection = continuous_injection
         
-        # Initialize the and momenta
-        self.uz = np.zeros( self.Ntot )
-        self.ux = np.zeros( self.Ntot )
-        self.uy = np.zeros( self.Ntot )
-        self.inv_gamma = np.ones( self.Ntot )
+        # Initialize the momenta
+        self.uz = uz_m * np.ones(Ntot) + uz_th * np.random.normal(size=Ntot)
+        self.ux = ux_m * np.ones(Ntot) + ux_th * np.random.normal(size=Ntot)
+        self.uy = uy_m * np.ones(Ntot) + uy_th * np.random.normal(size=Ntot)
+        self.inv_gamma = 1./np.sqrt(
+            1 + self.ux**2 + self.uy**2 + self.uz**2 )
 
         # Initilialize the fields array (at the positions of the particles)
-        self.Ez = np.zeros( self.Ntot )
-        self.Ex = np.zeros( self.Ntot )
-        self.Ey = np.zeros( self.Ntot )
-        self.Bz = np.zeros( self.Ntot )
-        self.Bx = np.zeros( self.Ntot )
-        self.By = np.zeros( self.Ntot )
+        self.Ez = np.zeros( Ntot )
+        self.Ex = np.zeros( Ntot )
+        self.Ey = np.zeros( Ntot )
+        self.Bz = np.zeros( Ntot )
+        self.Bx = np.zeros( Ntot )
+        self.By = np.zeros( Ntot )
 
         # Allocate the positions and weights of the particles,
         # and fill them with values if the array is not empty
-        self.x = np.empty( self.Ntot )
-        self.y = np.empty( self.Ntot )
-        self.z = np.empty( self.Ntot )
-        self.w = np.empty( self.Ntot )
+        self.x = np.empty( Ntot )
+        self.y = np.empty( Ntot )
+        self.z = np.empty( Ntot )
+        self.w = np.empty( Ntot )
         
-        if self.Ntot > 0 :
+        if Ntot > 0 :
             # Get the 1d arrays of evenly-spaced positions for the particles
             dz = (zmax-zmin)*1./Npz
             z_reg =  zmin + dz*( np.arange(Npz) + 0.5 )
@@ -175,8 +179,7 @@ class Particles(object) :
             # change the angles individually)
             zp, rp, thetap = np.meshgrid( z_reg, r_reg, theta_reg, copy=True)
             # Prevent the particles from being aligned along any direction
-            unalign_angles( thetap, Npr, Npz, method='irrational' )
-            thetap += global_theta
+            unalign_angles( thetap, Npr, Npz, method='random' )
             # Flatten them (This performs a memory copy)
             r = rp.flatten()
             self.x[:] = r * np.cos( thetap.flatten() )
@@ -191,8 +194,8 @@ class Particles(object) :
                 self.w[:] = self.w * dens_func( self.z, r )
 
         # Allocate arrays for the particles sorting when using CUDA
-        self.cell_idx = np.empty(self.Ntot, dtype=np.int32)
-        self.sorted_idx = np.arange(self.Ntot, dtype=np.uint32)
+        self.cell_idx = np.empty( Ntot, dtype=np.int32)
+        self.sorted_idx = np.arange( Ntot, dtype=np.uint32)
 
     def send_particles_to_gpu( self ):
         """
