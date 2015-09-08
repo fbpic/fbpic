@@ -15,7 +15,6 @@ from scipy.constants import c, epsilon_0, e
 from fbpic.main import Simulation
 from fbpic.lpa_utils import add_laser, add_elec_bunch_file
 from fbpic.moving_window import MovingWindow
-from fbpic.diagnostics import FieldDiagnostic, ParticleDiagnostic
 
 # The simulation box                                                            
 Nz = 400         # Number of gridpoints along z
