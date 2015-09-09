@@ -466,13 +466,13 @@ def gather_field_gpu(x, y, z,
                 float64, float64, int32, \
                 complex128[:,:,:], complex128[:,:,:], \
                 complex128[:,:,:], complex128[:,:,:],\
-                int32[:], uint32[:], int32[:])')
+                int32[:], int32[:])')
 def deposit_rho_gpu(x, y, z, w, 
                     invdz, zmin, Nz, 
                     invdr, rmin, Nr,
                     rho0, rho1, 
                     rho2, rho3,
-                    cell_idx, sorted_idx, prefix_sum):
+                    cell_idx, prefix_sum):
     """
     Deposition of the charge density rho using numba on the GPU.
     Iterates over the cells and over the particles per cell.
@@ -511,10 +511,6 @@ def deposit_rho_gpu(x, y, z, w,
     cell_idx : 1darray of integers
         The cell index of the particle
 
-    sorted_idx : 1darray of integers
-        The sorted index array needs to be reset
-        before doing the sort
-
     prefix_sum : 1darray of integers
         Represents the cumulative sum of 
         the particles per cell
@@ -524,8 +520,8 @@ def deposit_rho_gpu(x, y, z, w,
     # Deposit the field per cell in parallel (for threads < number of cells)
     if i < prefix_sum.shape[0]:
         # Calculate the cell index in 2D from the 1D threadIdx
-        ir = int(i/Nz)
-        iz = int(i - ir * Nz)
+        iz = int(i/Nr)
+        ir = int(i - iz * Nr)
         # Calculate the inclusive offset for the current cell
         # It represents the number of particles contained in all other cells
         # with an index smaller than i + the total number of particles in the 
@@ -560,7 +556,7 @@ def deposit_rho_gpu(x, y, z, w,
         for j in range(frequency_per_cell):
             # Get the particle index before the sorting
             # --------------------------------------------
-            ptcl_idx = sorted_idx[incl_offset-j]
+            ptcl_idx = incl_offset-j
 
             # Preliminary arrays for the cylindrical conversion
             # --------------------------------------------
@@ -733,14 +729,14 @@ def add_rho(rho_m0, rho_m1,
                 float64, float64, int32, \
                 complex128[:,:,:], complex128[:,:,:], \
                 complex128[:,:,:], complex128[:,:,:],\
-                int32[:], uint32[:], int32[:])')
+                int32[:], int32[:])')
 def deposit_J_gpu(x, y, z, w,
                   ux, uy, uz, inv_gamma,
                   invdz, zmin, Nz, 
                   invdr, rmin, Nr,
                   J0, J1, 
                   J2, J3,
-                  cell_idx, sorted_idx, prefix_sum):
+                  cell_idx, prefix_sum):
     """
     Deposition of the current J using numba on the GPU.
     Iterates over the cells and over the particles per cell.
@@ -786,10 +782,6 @@ def deposit_J_gpu(x, y, z, w,
     cell_idx : 1darray of integers
         The cell index of the particle
 
-    sorted_idx : 1darray of integers
-        The sorted index array needs to be reset
-        before doing the sort
-
     prefix_sum : 1darray of integers
         Represents the cumulative sum of 
         the particles per cell
@@ -799,8 +791,8 @@ def deposit_J_gpu(x, y, z, w,
     # Deposit the field per cell in parallel (for threads < number of cells)
     if i < prefix_sum.shape[0]:
         # Calculate the cell index in 2D from the 1D threadIdx
-        ir = int(i/Nz)
-        iz = int(i - ir * Nz)
+        iz = int(i/Nr)
+        ir = int(i - iz * Nr)
         # Calculate the inclusive offset for the current cell
         # It represents the number of particles contained in all other cells
         # with an index smaller than i + the total number of particles in the 
@@ -853,9 +845,9 @@ def deposit_J_gpu(x, y, z, w,
         Jz4_m1 = 0.+0.j
         # Loop over the number of particles per cell
         for j in range(frequency_per_cell):
-            # Get the particle index before the sorting
-            # --------------------------------------------
-            ptcl_idx = sorted_idx[incl_offset-j]
+            # Get the particle index
+            # ----------------------
+            ptcl_idx = incl_offset-j
 
             # Preliminary arrays for the cylindrical conversion
             # --------------------------------------------
@@ -1198,8 +1190,8 @@ def get_cell_idx_per_particle(cell_idx, sorted_idx,
                 
             # Reset sorted_idx array
             sorted_idx[i] = i
-            # Calculate the 1D cell_idx by cell_idx_iz + cell_idx_ir * Nz
-            cell_idx[i] = iz_lower + ir_lower * Nz
+            # Calculate the 1D cell_idx by cell_idx_ir + cell_idx_iz * Nr
+            cell_idx[i] = ir_lower + iz_lower * Nr
 
 def sort_particles_per_cell(cell_idx, sorted_idx):
     """
@@ -1262,6 +1254,29 @@ def reset_prefix_sum(prefix_sum):
     i = cuda.grid(1)
     if i < prefix_sum.shape[0]:
         prefix_sum[i] = 0
+
+@cuda.jit('void(uint32[:], float64[:], float64[:])')
+def write_particle_buffer(sorted_idx, val, buf):
+    """
+    Writes the values of a particle array to a buffer,
+    while rearranging them to match the sorted cell index array.
+
+    Parameters
+    ----------    
+    sorted_idx : 1darray of integers
+        Represents the original index of the 
+        particle before the sorting
+
+    val : 1d array of floats
+        A particle data array
+
+    buf : 1d array of floats
+        A buffer array to temporarily store the
+        sorted particle data array
+    """
+    i = cuda.grid(1)
+    if i < val.shape[0]:
+        buf[i] = val[sorted_idx[i]]
 
 # -----------------------------------------------------
 # Device array creation utility (will be removed later)
