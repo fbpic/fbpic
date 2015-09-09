@@ -309,7 +309,18 @@ class MovingWindow(object) :
         # Transfer the values to n_move cell before
         field_array[:-n_move,:] = field_array[n_move:,:]
         # Put the last cells to 0
-        field_array[-n_move,:] = 0        
+        field_array[-n_move,:] = 0  
+
+    def shift_interp_field_gpu( self, field_array, n_move) :
+        # Get a 2D CUDA grid of the size of the grid
+        dim_grid_2d, dim_block_2d = cuda_tpb_bpg_2d( field_array.shape[0], field_array.shape[1] )
+        # Initialize a field buffer to temporarily store the data
+        field_buffer = cuda.device_array_like(field_array)
+        # Shift the field array and copy it to the buffer
+        shift_field_array_gpu[dim_grid_2d, dim_block_2d](
+            field_array, field_buffer, np.array(n_move))
+        # Assign the buffer to the original field array object
+        field_array = field_buffer
 
     def damp_EB( self, interp, comm ) :
         """
@@ -547,6 +558,15 @@ def damp_field( field_array, damp_array, n_damp, n_zero,
             damp_array[::-1,np.newaxis]*field_array[-n_zero-n_damp:-n_zero,:]
 
 if cuda_installed :
+
+    @cuda.jit('void(complex128[:,:], complex128[:,:], int32)')
+    def shift_field_array_gpu( field_array, field_buffer, n_move ):
+        i, j = cuda.grid(2)
+        if i < field_array.shape[0] and j < field_array.shape[1]:
+            if (i + n_move) < field_array.shape[0]:
+                field_buffer[i, j] = field_array[i+n_move, j]
+            if (i + n_move) >= field_array.shape[0]:
+                field_buffer[i, j] = 0.
 
     @cuda.jit('void(float64[:], float64[:])')
     def remove_particle_data_gpu( particle_array, particle_buffer ):
