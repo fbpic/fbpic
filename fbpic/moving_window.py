@@ -87,10 +87,6 @@ class MovingWindow(object) :
         # Attach moving window positions and speed
         self.v = v
         self.zmin = interp.zmin
-        if comm is not None:
-            # zmin is the global zmin of the simulation
-            self.zmin = self.zmin + interp.dz * \
-              (comm.n_guard - comm.rank*comm.Nz_domain)
             
         # Attach injection position and speed (only for the last proc)
         if (comm is None) or (comm.rank == comm.size-1):
@@ -174,11 +170,7 @@ class MovingWindow(object) :
 
         # Find the number of cells by which the window should move
         dz = interp[0].dz
-        zmin_global = interp[0].zmin
-        if comm is not None :
-            zmin_global = interp[0].zmin \
-            + dz*(comm.n_guard - comm.rank*comm.Nz_domain)
-        n_move = int( (self.zmin - zmin_global)/dz )
+        n_move = int( (self.zmin - interp[0].zmin)/dz )
 
         # Move the window
         if n_move > 0 :
