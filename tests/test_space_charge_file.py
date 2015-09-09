@@ -15,16 +15,16 @@ from scipy.constants import c, epsilon_0, e
 from fbpic.main import Simulation
 from fbpic.lpa_utils import add_laser, add_elec_bunch_file
 from fbpic.moving_window import MovingWindow
-from fbpic.diagnostics import FieldDiagnostic, ParticleDiagnostic
 
 # The simulation box                                                            
 Nz = 400         # Number of gridpoints along z
 zmax = 40.e-6    # Length of the box along z (meters)
 Nr = 100         # Number of gridpoints along r 
-rmax = 100.e-6    # Length of the box along r (meters)
-Nm = 2           # Number of modes used                                         
+rmax = 100.e-6   # Length of the box along r (meters)
+Nm = 2           # Number of modes used
+n_order = -1     # Order of the stencil
 
-# The simulation timestep                                                       
+# The simulation timestep                                             
 dt = zmax/Nz/c   # Timestep (seconds)                                           
 N_step = 100     # Number of iterations to perform
 
@@ -41,10 +41,11 @@ p_nt = 4         # Number of particles per cell along theta
 
 # Initialize the simulation object
 sim = Simulation( Nz, zmax, Nr, rmax, Nm, dt,
-    p_zmin, p_zmax, p_rmin, p_rmax, p_nz, p_nr, p_nt, n_e )
+    p_zmin, p_zmax, p_rmin, p_rmax, p_nz, p_nr, p_nt, n_e, n_order=n_order )
 
 # Configure the moving window
-sim.moving_win = MovingWindow( ncells_damp=2,
+sim.moving_win = MovingWindow( sim.fld.interp[0],
+                               ncells_damp=2,
                                ncells_zero=2 )
 
 # Suppress the particles that were intialized by default and add the bunch

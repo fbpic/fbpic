@@ -15,7 +15,7 @@ from fbpic.fields import Fields
 from fbpic.lpa_utils import add_laser
 
 def test_pulse( Nz, Nr, Nm, zmin, zmax, Lr, L_prop, zf, Nt, w0, ctau,
-                k0, E0, m, N_show, show=False ) :
+                k0, E0, m, N_show, n_order, show=False ) :
     """
     Propagate the beam over a distance L_prop in N_step,
     and extracts the waist and a0 at each step
@@ -62,6 +62,9 @@ def test_pulse( Nz, Nr, Nm, zmin, zmax, Lr, L_prop, zf, Nt, w0, ctau,
        For m = 1 : test with a gaussian, linearly polarized beam
        For m = 0 : test with an annular beam, polarized in E_theta
 
+    n_order : int
+       Order of the stencil
+
     show : bool
        Wether to show the fields
 
@@ -78,7 +81,7 @@ def test_pulse( Nz, Nr, Nm, zmin, zmax, Lr, L_prop, zf, Nt, w0, ctau,
 
     # Initialize the fields object
     dt = L_prop/c * 1./Nt
-    fld = Fields( Nz, zmax, Nr, Lr, Nm, dt, zmin=zmin )
+    fld = Fields( Nz, zmax, Nr, Lr, Nm, dt, n_order=n_order, zmin=zmin )
     z0 = (zmax+zmin)/2
     init_fields( fld, w0, ctau, k0, z0, zf, E0, m )
 
@@ -358,6 +361,7 @@ if __name__ == '__main__' :
     Nr = 300
     Lr = 40.
     Nm = 2
+    n_order = -1
     # Laser pulse
     w0 = 2.
     ctau = 5.
@@ -375,14 +379,14 @@ if __name__ == '__main__' :
     print('Testing mode m=0 with an annular beam')
     plt.figure()
     res = test_pulse( Nz, Nr, Nm, zmin, zmax, Lr, L_prop, zf,
-                      N_step, w0, ctau, k0, E0, 0, N_show, show=show )
+                      N_step, w0, ctau, k0, E0, 0, N_show, n_order, show=show )
     plt.show()
     
     print('')
     print('Testing mode m=1 with an gaussian beam')
     plt.figure()
     res = test_pulse(Nz, Nr, Nm, zmin, zmax, Lr, L_prop, zf,
-                     N_step, w0, ctau, k0, E0, 1, N_show, show=show )
+                     N_step, w0, ctau, k0, E0, 1, N_show, n_order, show=show )
     plt.show()
 
     print('')

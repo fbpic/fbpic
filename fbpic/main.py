@@ -36,9 +36,9 @@ class Simulation(object) :
     - step : perform n PIC cycles
     """
 
-    def __init__(self, Nz, zmax, Nr, rmax, Nm, dt,
-                 p_zmin, p_zmax, p_rmin, p_rmax, p_nz, p_nr, p_nt,
-                 n_e, zmin = 0., dens_func=None, filter_currents=True,
+    def __init__(self, Nz, zmax, Nr, rmax, Nm, dt, p_zmin, p_zmax,
+                 p_rmin, p_rmax, p_nz, p_nr, p_nt, n_e, zmin=0.,
+                 n_order=-1, dens_func=None, filter_currents=True,
                  initialize_ions=False, use_cuda=False, use_mpi=False,
                  n_guard=50, boundaries='periodic' ) :
         """
@@ -77,6 +77,12 @@ class Simulation(object) :
         n_e : float (in particles per m^3)
            Peak density of the electrons
 
+        n_order : int, optional
+           The order of the stencil for the z derivatives
+           Use -1 for infinite order
+           Otherwise use a positive, even number. In this case
+           the stencil extends up to n_order/2 cells on each side.
+           
         zmin : float, optional
            The position of the edge of the simulation box
            (More precisely, the position of the edge of the first cell)
@@ -129,7 +135,7 @@ class Simulation(object) :
             self.comm = None
 
         # Initialize the field structure
-        self.fld = Fields(Nz, zmax, Nr, rmax, Nm, dt,
+        self.fld = Fields(Nz, zmax, Nr, rmax, Nm, dt, n_order=n_order,
                           zmin=zmin, use_cuda=self.use_cuda)
 
         # Modify the input parameters p_zmin, p_zmax, r_zmin, r_zmax, so that

@@ -48,7 +48,7 @@ class Fields(object) :
         Contains the coefficients to solve the Maxwell equations
     """
 
-    def __init__( self, Nz, zmax, Nr, rmax, Nm, dt,
+    def __init__( self, Nz, zmax, Nr, rmax, Nm, dt, n_order=-1,
                   zmin=0., use_cuda=False, use_cuda_memory=True ) :
         """
         Initialize the components of the Fields object
@@ -75,19 +75,25 @@ class Fields(object) :
             The timestep of the simulation, required for the
             coefficients of the psatd scheme
 
+        n_order : int, optional
+           The order of the stencil for the z derivatives
+           Use -1 for infinite order
+           Otherwise use a positive, even number. In this case
+           the stencil extends up to n_order/2 cells on each side.
+            
         use_cuda : bool, optional
             Wether to use the GPU or not
 
         use_cuda_memory : bool, optional
             Wether to use manual memory management. Recommended.
         """
-
         # Register the arguments inside the object
         self.Nz = Nz
         self.Nr = Nr
         self.rmax = rmax
         self.Nm = Nm
         self.dt = dt
+        self.n_order = n_order
 
         # Define wether or not to use the GPU
         self.use_cuda = use_cuda
@@ -104,10 +110,7 @@ class Fields(object) :
         # Infer the values of the z and kz grid
         dz = (zmax-zmin)/Nz
         z = dz * ( np.arange( 0, Nz ) + 0.5 ) + zmin
-        kz = 2*np.pi* np.fft.fftfreq( Nz, dz ) 
-        # (According to FFT conventions, the kz array starts with
-        # positive frequencies and ends with negative frequency.)
-        
+                
         # Create the list of the transformers, which convert the fields
         # back and forth between the spatial and spectral grid
         # (one object per azimuthal mode)
@@ -126,6 +129,12 @@ class Fields(object) :
             self.interp.append( InterpolationGrid( z, r, m,
                                         use_cuda=self.use_cuda ) )
 
+        # Get the kz and (finite-order) modified kz arrays
+        # (According to FFT conventions, the kz array starts with
+        # positive frequencies and ends with negative frequency.)
+        kz_true = 2*np.pi* np.fft.fftfreq( Nz, dz ) 
+        kz_modified = get_modified_k( kz_true, n_order, dz )
+
         # Create the spectral grid for each mode, as well as
         # the psatd coefficients
         # (one grid per azimuthal mode)
@@ -135,8 +144,8 @@ class Fields(object) :
             # Extract the inhomogeneous spectral grid for mode m
             kr = 2*np.pi * self.trans[m].dht0.get_nu()
             # Create the object
-            self.spect.append( SpectralGrid( kz, kr, m,
-                                        use_cuda=self.use_cuda ) )
+            self.spect.append( SpectralGrid( kz_modified, kr, m,
+                        kz_true, use_cuda=self.use_cuda ) )
             self.psatd.append( PsatdCoeffs( self.spect[m].kz,
                                 self.spect[m].kr, m, dt, Nz, Nr,
                                 use_cuda = self.use_cuda ) )
@@ -569,30 +578,41 @@ class SpectralGrid(object) :
     Contains the fields and coordinates of the spectral grid.
     """
 
-    def __init__(self, kz, kr, m, use_cuda=False ) :
+    def __init__(self, kz_modified, kr, m, kz_true, use_cuda=False ) :
         """
         Allocates the matrices corresponding to the spectral grid
         
         Parameters
         ----------
-        kz : 1darray of float
-            The wavevectors of the longitudinal, spectral grid
+        kz_modified : 1darray of float
+            The modified wavevectors of the longitudinal, spectral grid
+            (Different then kz_true in the case of a finite-stencil)
         
         kr : 1darray of float
             The wavevectors of the radial, spectral grid
-
+            
         m : int
             The index of the mode
 
+        kz_true : 1darray of float
+            The true wavevector of the longitudinal, spectral grid
+            (The actual kz that a Fourier transform would give)
+            
         use_cuda : bool, optional
             Wether to use the GPU or not
         """
         # Register the arrays and their length
-        Nz = len(kz)
+        Nz = len(kz_modified)
         Nr = len(kr)
         self.Nr = Nr
         self.Nz = Nz
         self.m = m
+
+        # Find the limits of the grid (useful for plotting ; use the true kz)
+        self.kzmin = kz_true.min()
+        self.kzmax = kz_true.max()
+        self.krmin = kr.min()
+        self.krmax = kr.max()
         
         # Allocate the fields arrays
         self.Ep = np.zeros( (Nz, Nr), dtype='complex' )
@@ -608,9 +628,12 @@ class SpectralGrid(object) :
         self.rho_next = np.zeros( (Nz, Nr), dtype='complex' )
 
         # Auxiliary arrays
-        self.kz, self.kr = np.meshgrid( kz, kr, indexing='ij' )
+        # - for the field solve
+        #   (use the modified kz, since this corresponds to the stencil)
+        self.kz, self.kr = np.meshgrid( kz_modified, kr, indexing='ij' )
         # - for filtering
-        self.filter_array = get_filter_array( kz, kr )
+        #   (use the true kz, so as to effectively filter the high k's)
+        self.filter_array = get_filter_array( kz_true, kr )
         # - for current correction
         self.F = np.zeros( (Nz, Nr), dtype='complex' )
         self.inv_k2 = 1./np.where( ( self.kz == 0 ) & (self.kr == 0),
@@ -903,11 +926,9 @@ class SpectralGrid(object) :
         plotted_field = np.fft.fftshift( plotted_field, axes=0 )
         if below_axis == True :
             plotted_field = np.hstack((plotted_field[:,::-1], plotted_field))
-            extent = [ self.kz[:,0].min(), self.kz[:,0].max(),
-                    -self.kr[0,:].max(), self.kr[0,:].max() ]
+            extent = [ self.kzmin, self.kzmax, -self.krmax, self.krmax ]
         else :
-            extent = [ self.kz[:,0].min(), self.kz[:,0].max(),
-                    self.kr[0,:].min(), self.kr[0,:].max() ]
+            extent = [ self.kzmin, self.kzmax, self.krmin, self.krmax ]
         # Title
         plt.suptitle(
             '%s on the spectral grid, for mode %d' %(fieldtype, self.m) )
@@ -1356,3 +1377,61 @@ def get_filter_array( kz, kr ) :
     filter_array = filt_z[:, np.newaxis] * filt_r[np.newaxis, :]
 
     return( filter_array )
+
+    
+def get_modified_k(k, n_order, dz):
+    """
+    Calculate the modified k that corresponds to a finite-order stencil
+
+    The modified k are given by the formula
+    $$ [k] = \sum_{n=1}^{m} a_n \,\frac{\sin(nk\Delta z)}{n\Delta z}$$
+    with
+    $$a_{n} = - \left(\frac{m+1-n}{m+n}\right) a_{n-1}$$
+    
+    Parameter:
+    ----------
+    k: 1darray
+       Values of the real k at which to calculate the modified k
+       
+    n_order: int
+       The order of the stencil
+           Use -1 for infinite order
+           Otherwise use a positive, even number. In this case
+           the stencil extends up to n_order/2 cells on each side.
+       
+    dz: double
+       The spacing of the grid in z
+
+    Returns:
+    --------
+    A 1d array of the same length as k, which contains the modified ks
+    """
+    # Check the order
+    # - For n_order = -1, do not go through the function.
+    if n_order==-1:
+        return( k )
+    # - Else do additional checks
+    elif n_order%2==1 or n_order<=0 :
+        raise ValueError('Invalid n_order: %d' %n_order)
+    else:
+        m = n_order/2
+    
+    # Calculate the stencil coefficients a_n by recurrence
+    # (See definition of the a_n in the docstring)
+    # $$ a_{n} = - \left(\frac{m+1-n}{m+n}\right) a_{n-1} $$
+    stencil_coef = np.zeros(m+1)
+    stencil_coef[0] = -2.
+    for n in range(1,m+1):
+        stencil_coef[n] = - (m+1-n)*1./(m+n) * stencil_coef[n-1]
+        
+    # Array of values for n: from 1 to m
+    n_array = np.arange(1,m+1)
+    # Array of values of sin: 
+    # first axis corresponds to k and second axis to n (from 1 to m)
+    sin_array = np.sin( k[:,np.newaxis] * n_array[np.newaxis,:] * dz ) / \
+                ( n_array[np.newaxis,:] * dz )
+    
+    # Modified k
+    k_array = np.tensordot( sin_array, stencil_coef[1:], axes=(-1,-1))
+    
+    return( k_array )

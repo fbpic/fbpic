@@ -16,7 +16,6 @@ from scipy.integrate import quad
 from fbpic.main import Simulation
 from fbpic.lpa_utils import add_laser
 from fbpic.moving_window import MovingWindow
-from fbpic.diagnostics import FieldDiagnostic, ParticleDiagnostic
 from mpi4py import MPI as mpi
 
 # ---------------------------
@@ -221,9 +220,11 @@ sim = Simulation( Nz, zmax, Nr, rmax, Nm, dt,
 add_laser( sim.fld, a0, w0, ctau, z0 )
 
 # Configure the moving window
-sim.moving_win = MovingWindow( ncells_damp=ncells_damp,
+sim.moving_win = MovingWindow( sim.fld.interp[0],
+                               ncells_damp=ncells_damp,
                                ncells_zero=ncells_zero,
-                               period=mw_period )
+                               period=mw_period,
+                               comm=sim.comm )
 
 
 
