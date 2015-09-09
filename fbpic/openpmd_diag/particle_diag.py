@@ -18,7 +18,7 @@ class ParticleDiagnostic(OpenPMDDiagnostic) :
     `write` method.
     """
 
-    def __init__(self, period, species = {"electrons": None},
+    def __init__(self, period, species = {"electrons": None}, comm=None,
                  particle_data=["position", "momentum", "weighting"],
                  select=None, write_dir=None ) :
         """
@@ -36,6 +36,9 @@ class ParticleDiagnostic(OpenPMDDiagnostic) :
             is assigned to the particleName of this species.
             (e.g. {"electrons" : elec })
 
+        comm : an fbpic MPI_Communicator object
+            Use None for single-proc simulation
+            
         particle_data : a list of strings, optional 
             The particle properties are given by:
             ["position", "momentum", "weighting"]
@@ -55,7 +58,7 @@ class ParticleDiagnostic(OpenPMDDiagnostic) :
             of the current working directory.
         """
         # General setup
-        OpenPMDDiagnostic.__init__(self, period, write_dir)
+        OpenPMDDiagnostic.__init__(self, period, comm, write_dir)
         
         # Register the arguments
         self.particle_data = particle_data
@@ -149,13 +152,14 @@ class ParticleDiagnostic(OpenPMDDiagnostic) :
             if species.use_cuda :
                 species.receive_particles_from_gpu()
 
-        # Create the file
-        filename = "data%08d.h5" %iteration
-        fullpath = os.path.join( self.write_dir, "diags/hdf5", filename )
-        f = h5py.File( fullpath, mode="a" )
+        # Create the file and setup the openPMD structure (only first proc)
+        if self.rank == 0:
+            filename = "data%08d.h5" %iteration
+            fullpath = os.path.join( self.write_dir, "diags/hdf5", filename )
+            f = h5py.File( fullpath, mode="a" )
 
-        # Setup its attributes
-        self.setup_openpmd_file( f, self.dt, iteration*self.dt, iteration )
+            # Setup its attributes
+            self.setup_openpmd_file( f, self.dt, iteration*self.dt, iteration )
 
         # Loop over the different species and 
         # particle quantities that should be written
@@ -167,34 +171,44 @@ class ParticleDiagnostic(OpenPMDDiagnostic) :
                 # If not, immediately go to the next species_name
                 continue
 
-            # Setup the species group
-            species_path = "/data/%d/particles/%s" %(iteration, species_name)
-            # Create and setup the h5py.Group species_grp
-            species_grp = f.require_group( species_path )
-            self.setup_openpmd_species_group( species_grp, species )
+            # Setup the species group (only first proc)
+            if self.rank==0:
+                species_path = "/data/%d/particles/%s" %(
+                    iteration, species_name)
+                # Create and setup the h5py.Group species_grp
+                species_grp = f.require_group( species_path )
+                self.setup_openpmd_species_group( species_grp, species )
+            else:
+                species_grp = None
 
             # Select the particles that will be written
             select_array = self.apply_selection( species )
             # Get their total number
             n = select_array.sum()
-            # Single-proc output
-            n_rank = None
-            N = n
-
+            if self.comm is not None:
+                # Multi-proc output
+                n_rank = self.comm.mpi_comm.allgather(n)
+                Ntot = sum(n_rank)
+            else:
+                # Single-proc output
+                n_rank = None
+                Ntot = n
+                
             # Write the datasets for each particle datatype
-            self.write_particles( species_grp, species,
-                                  n_rank, N, select_array )
+            self.write_particles( species_grp, species, n_rank,
+                                  Ntot, select_array )
         
         # Close the file
-        f.close()
+        if self.rank == 0:
+            f.close()
 
         # Send data to the GPU if needed
         for species in self.species_dict.values() :
             if species.use_cuda :
                 species.send_particles_to_gpu()
 
-    def write_particles( self, species_grp, species,
-                         n_rank, N, select_array ) :
+    def write_particles( self, species_grp, species, n_rank,
+                         Ntot, select_array ) :
         """
         Write all the particle data sets for one given species
     
@@ -204,10 +218,10 @@ class ParticleDiagnostic(OpenPMDDiagnostic) :
         species : a warp Species object
         	The species object to get the particle data from 
 
-        n_rank: an array with dtype = int of size = n_procs
-        	Contains the local number of particles for each process
+        n_rank : list of ints
+            A list containing the number of particles to send on each proc
             
-        N : int
+        Ntot : int
         	Contains the global number of particles
 
         select_array : 1darray of bool
@@ -216,14 +230,15 @@ class ParticleDiagnostic(OpenPMDDiagnostic) :
             the rules of self.select
         """
         for particle_var in self.particle_data :
-                
+
             if particle_var == "position" :
                 for coord in ["x", "y", "z"] :
                     quantity = coord
                     quantity_path = "%s/%s" %(particle_var, coord)
                     self.write_dataset( species_grp, species, quantity_path,
-                        quantity, n_rank, N, select_array )
-                self.setup_openpmd_species_record(
+                        quantity, n_rank, Ntot, select_array )
+                if self.rank == 0:
+                    self.setup_openpmd_species_record(
                         species_grp[particle_var], particle_var )
                         
             elif particle_var == "momentum" :
@@ -231,16 +246,18 @@ class ParticleDiagnostic(OpenPMDDiagnostic) :
                     quantity = "u%s" %(coord)
                     quantity_path = "%s/%s" %(particle_var, coord)
                     self.write_dataset( species_grp, species, quantity_path,
-                        quantity, n_rank, N, select_array )
-                self.setup_openpmd_species_record( 
+                        quantity, n_rank, Ntot, select_array )
+                if self.rank == 0:
+                    self.setup_openpmd_species_record( 
                         species_grp[particle_var], particle_var )
                         
             elif particle_var == "weighting" :
                 quantity = "w"
                 quantity_path = "weighting"
                 self.write_dataset( species_grp, species, quantity_path,
-                                    quantity, n_rank, N, select_array )
-                self.setup_openpmd_species_record( 
+                                    quantity, n_rank, Ntot, select_array )
+                if self.rank == 0:
+                    self.setup_openpmd_species_record( 
                         species_grp[particle_var], particle_var )
                 
             else :
@@ -286,7 +303,7 @@ class ParticleDiagnostic(OpenPMDDiagnostic) :
 
         
     def write_dataset( self, species_grp, species, path, quantity,
-                       n_rank, N, select_array ) :
+                       n_rank, Ntot, select_array ) :
         """
         Write a given dataset
     
@@ -305,11 +322,11 @@ class ParticleDiagnostic(OpenPMDDiagnostic) :
         quantity : string
             Describes which quantity is written
             x, y, z, ux, uy, uz, w
+
+        n_rank : list of ints
+            A list containing the number of particles to send on each proc
             
-        n_rank: an array with dtype = int of size = n_procs
-        	Contains the local number of particles for each process
-            
-        N : int
+        Ntot : int
         	Contains the global number of particles
 
         select_array : 1darray of bool
@@ -318,15 +335,18 @@ class ParticleDiagnostic(OpenPMDDiagnostic) :
             the rules of self.select
         """
         # Create the dataset and setup its attributes
-        datashape = (N, )
-        dset = species_grp.require_dataset( path, datashape, dtype='f')
-        self.setup_openpmd_species_component( dset, quantity )
+        if self.rank==0:
+            datashape = (Ntot, )
+            dset = species_grp.require_dataset( path, datashape, dtype='f')
+            self.setup_openpmd_species_component( dset, quantity )
             
         # Fill the dataset with the quantity
-        quantity_array = self.get_dataset( species, quantity, select_array )
-        dset[:] = quantity_array
+        quantity_array = self.get_dataset( species, quantity, select_array,
+                                           n_rank, Ntot )
+        if self.rank==0:
+            dset[:] = quantity_array
             
-    def get_dataset( self, species, quantity, select_array ) :
+    def get_dataset( self, species, quantity, select_array, n_rank, Ntot ) :
         """
         Extract the array that satisfies select_array
         
@@ -335,28 +355,40 @@ class ParticleDiagnostic(OpenPMDDiagnostic) :
 
         quantity : string
             The quantity to be extracted (e.g. 'x', 'uz', 'w')
-            
+
         select_array : 1darray of bool
             An array of the same shape as that particle array
             containing True for the particles that satify all
             the rules of self.select
+
+        n_rank: list of ints
+        	A list containing the number of particles to send on each proc
+            
+        Ntot : int
+            Length of the final array (selected + gathered from all proc)
         """
         # Extract the quantity
-        quantity_array = getattr( species, quantity )
+        quantity_one_proc = getattr( species, quantity )
         
         # Apply the selection
-        quantity_array = quantity_array[ select_array ]
+        quantity_one_proc = quantity_one_proc[ select_array ]
 
         # If this is the momentum, mutliply by the proper factor
         if quantity in ['ux', 'uy', 'uz'] :
             scale_factor = species.m * constants.c
-            quantity_array *= scale_factor
+            quantity_one_proc *= scale_factor
         
         # If this is the weight, divide it by the charge
         # so as to obtain an actual number of particles
         if quantity is 'w':
-            quantity_array *= 1./species.q
-        
+            quantity_one_proc *= 1./species.q
+
+        if self.comm is not None:
+            quantity_all_proc = self.comm.gather_ptcl_array(
+                quantity_one_proc, n_rank, Ntot )
+        else:
+            quantity_all_proc = quantity_one_proc
+            
         # Return the results
-        return( quantity_array )
+        return( quantity_all_proc )
         

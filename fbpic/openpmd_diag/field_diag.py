@@ -246,6 +246,9 @@ class FieldDiagnostic(OpenPMDDiagnostic):
         data_one_proc = getattr( self.fld.interp[m], quantity )
 
         # Gather the data
-        data_all_proc = self.comm.gather_grid_array( data_one_proc )
+        if self.comm is not None:
+            data_all_proc = self.comm.gather_grid_array( data_one_proc )
+        else:
+            data_all_proc = data_one_proc
 
         return( data_all_proc )
