@@ -18,7 +18,7 @@ class OpenPMDDiagnostic(object) :
     to both FieldDiagnostic and ParticleDiagnostic
     """
 
-    def __init__(self, period, write_dir=None ) :
+    def __init__(self, period, comm, write_dir=None ) :
         """
         General setup of the diagnostic
 
@@ -28,15 +28,24 @@ class OpenPMDDiagnostic(object) :
             The period of the diagnostics, in number of timesteps.
             (i.e. the diagnostics are written whenever the number
             of iterations is divisible by `period`)
+
+        comm : an fbpic MPI_Communicator object
+            Use None if the simulation is single-proc
             
         write_dir : string, optional
             The POSIX path to the directory where the results are
             to be written. If none is provided, this will be the path
             of the current working directory
-        """    
+        """
+        # Get the rank of this processor
+        if comm is not None :
+            self.rank = comm.rank
+        else :
+            self.rank = 0
+
         # Register the arguments
         self.period = period
-        self.rank = 0
+        self.comm = comm
             
         # Get the directory in which to write the data
         if write_dir is None :
