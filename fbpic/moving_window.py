@@ -206,9 +206,19 @@ class MovingWindow(object) :
                 z_zero = zmin + self.ncells_zero*dz
                 if comm is not None :
                     z_zero = z_zero + comm.n_guard*dz
+                # Determine the cells in which the particles are removed
+                n_remove = n_move + self.ncells_zero
+                if comm is not None :
+                    n_remove = n_remove + comm.n_guard
+                # Calculate 1D cell index for n_remove
+                n_remove = n_remove*interp[0].Nr
                 # Remove the outside particles
                 for species in ptcl :
-                    clean_outside_particles( species, z_zero )
+                    if interp[0].use_cuda == True:
+                        # Remove outside particles on GPU
+                        clean_outside_particles_gpu( species, n_remove)
+                    else:
+                        clean_outside_particles( species, z_zero )
 
             # Exchange the fields and the particles 
             # in the guard cells between domains when using MPI
@@ -232,11 +242,18 @@ class MovingWindow(object) :
             if n_inject > 0 :
                 for species in ptcl :
                     if species.continuous_injection == True :
-                        add_particles( species, self.z_end_plasma,
-                            self.z_end_plasma + n_inject*dz, n_inject*p_nz,
-                            ux_m=self.ux_m, uy_m=self.uy_m, uz_m=self.uz_m,
-                            ux_th=self.ux_th, uy_th=self.uy_th,
-                            uz_th=self.uz_th)
+                        if interp[0].use_cuda:
+                            add_particles_gpu( species, self.z_end_plasma,
+                                self.z_end_plasma + n_inject*dz, n_inject*p_nz,
+                                ux_m=self.ux_m, uy_m=self.uy_m, uz_m=self.uz_m,
+                                ux_th=self.ux_th, uy_th=self.uy_th,
+                                uz_th=self.uz_th)
+                        else:
+                            add_particles( species, self.z_end_plasma,
+                                self.z_end_plasma + n_inject*dz, n_inject*p_nz,
+                                ux_m=self.ux_m, uy_m=self.uy_m, uz_m=self.uz_m,
+                                ux_th=self.ux_th, uy_th=self.uy_th,
+                                uz_th=self.uz_th)
             # Increment the position of the end of the plasma
             self.z_end_plasma += n_inject*dz
 
@@ -397,6 +414,27 @@ def clean_outside_particles( species, zmin ) :
     # Adapt the number of particles accordingly
     species.Ntot = len( species.w )
 
+def clean_outside_particles_gpu( species, n_remove ):
+    # Get the number of offset of the number of particles to remove
+    remove_particles_idx = species.prefix_sum.getitem(n_remove-1)
+    # Get the threads per block and the blocks per grid
+    dim_grid_1d, dim_block_1d = cuda_tpb_bpg_1d( species.Ntot )
+    # Iterate over particle attributes
+    for attr in ['x', 'y', 'z', 'ux', 'uy', 'uz', 'w', 'inv_gamma']:
+        # Initialize buffer array
+        particle_buffer = cuda.device_array((species.Ntot-remove_particles_idx), dtype=np.float64)
+        # Get particle GPU array
+        particle_array = getattr(species, attr)
+        # Remove particle data and write to particle buffer array
+        remove_particle_data_gpu[dim_grid_1d, dim_block_1d](
+            particle_array, particle_buffer)
+        # Assign the particle buffer to 
+        # the initial particle data array
+        setattr(species, attr, particle_buffer)
+
+    # Change the new total number of particles    
+    species.Ntot -= remove_particles_idx
+
 def add_particles( species, zmin, zmax, Npz, ux_m=0., uy_m=0., uz_m=0.,
                   ux_th=0., uy_th=0., uz_th=0. ) :
     """
@@ -443,7 +481,36 @@ def add_particles( species, zmin, zmax, Npz, ux_m=0., uy_m=0., uz_m=0.,
 
     # Add the number of new particles to the global count of particles
     species.Ntot += new_ptcl.Ntot
-    
+
+def add_particles_gpu( species, zmin, zmax, Npz, ux_m=0., uy_m=0., uz_m=0.,
+                  ux_th=0., uy_th=0., uz_th=0.):
+
+    # Create the particles that will be added
+    new_ptcl = Particles( species.q, species.m, species.n,
+        Npz, zmin, zmax, species.Npr, species.rmin, species.rmax,
+        species.Nptheta, species.dt, species.dens_func,
+        ux_m=ux_m, uy_m=uy_m, uz_m=uz_m,
+        ux_th=ux_th, uy_th=uy_th, uz_th=uz_th, use_cuda = True)
+
+    # Get the threads per block and the blocks per grid
+    dim_grid_1d, dim_block_1d = cuda_tpb_bpg_1d( new_ptcl.Ntot )
+    # Iterate over particle attributes
+    for attr in ['x', 'y', 'z', 'ux', 'uy', 'uz', 'w', 'inv_gamma']:
+        # Initialize buffer array
+        particle_buffer = cuda.device_array((species.Ntot+new_ptcl.Ntot), dtype=np.float64)
+        # Get particle GPU array
+        particle_array = getattr(species, attr)
+        new_particle_array = getattr(new_ptcl, attr)
+        # Add particle data to particle buffer array
+        add_particle_data_gpu[dim_grid_1d, dim_block_1d](
+            particle_array, new_particle_array, particle_buffer)
+        # Assign the particle buffer to 
+        # the initial particle data array 
+        setattr(species, attr, particle_buffer)
+
+    # Change the new total number of particles    
+    species.Ntot += new_ptcl.Ntot
+
 def damp_field( field_array, damp_array, n_damp, n_zero,
                 damp_left=True, damp_right=True ) :
     """
@@ -480,6 +547,21 @@ def damp_field( field_array, damp_array, n_damp, n_zero,
             damp_array[::-1,np.newaxis]*field_array[-n_zero-n_damp:-n_zero,:]
 
 if cuda_installed :
+
+    @cuda.jit('void(float64[:], float64[:])')
+    def remove_particle_data_gpu( particle_array, particle_buffer ):
+        i = cuda.grid(1)
+        if i < particle_array.shape[0]:
+            offset_remove = particle_array.shape[0] - particle_buffer.shape[0]
+            particle_buffer[i] = particle_array[i+offset_remove]
+
+    @cuda.jit('void(float64[:], float64[:], float64[:])')
+    def add_particle_data_gpu( particle_array, new_particle_array, particle_buffer ):
+        i = cuda.grid(1)
+        if i < particle_array.shape[0]:
+            particle_buffer[i] = particle_array[i]
+        if (i >= particle_array.shape[0]) and (i < new_particle_array.shape[0]):
+            particle_buffer[i] = new_particle_array[i]
 
     @cuda.jit('void(complex128[:,:], complex128[:,:], complex128[:,:], \
                     complex128[:,:], complex128[:,:], complex128[:,:], \
