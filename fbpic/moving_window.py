@@ -86,7 +86,8 @@ class MovingWindow(object) :
         
         # Attach moving window positions and speed
         self.v = v
-        self.zmin = interp.zmin
+        if (comm is None) or (comm.rank==0):
+            self.zmin = interp.zmin
             
         # Attach injection position and speed (only for the last proc)
         if (comm is None) or (comm.rank == comm.size-1):
@@ -165,13 +166,21 @@ class MovingWindow(object) :
             Defines how to send fields and particles with MPI
             When not using MPI, this object is None
         """
-        # Move the position of the moving window object
-        self.zmin += self.v * dt * self.period
-
-        # Find the number of cells by which the window should move
+        # To avoid discrepancies between processors, only the first proc
+        # decides whether to send the data, and sends the information to
+        # all proc.
         dz = interp[0].dz
-        n_move = int( (self.zmin - interp[0].zmin)/dz )
-
+        if (comm is None) or (comm.rank == 0):
+            # Move the continuous position of the moving window object
+            self.zmin += self.v * dt * self.period
+            # Find the number of cells by which the window should move          
+            n_move = int( (self.zmin - interp[0].zmin)/dz )
+        else:
+            n_move = None
+        # Broadcast the information to all proc
+        if comm is not None:
+            n_move = comm.mpi_comm.bcast( n_move )
+    
         # Move the window
         if n_move > 0 :
             
