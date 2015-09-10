@@ -691,7 +691,7 @@ class MPI_Communicator(object) :
         sendbuf = [ array[ng:-ng,:], N_domain_procs[self.rank] ]
         recvbuf = [ gathered_array, N_domain_procs, i_start_procs, mpi_type ]
         self.mpi_comm.Gatherv( sendbuf, recvbuf, root=root )
-        # return the gathered_array only on process root
+        # Return the gathered_array only on process root
         if self.rank == root:
             return(gathered_array)
 
@@ -722,28 +722,22 @@ class MPI_Communicator(object) :
         else:
             # Other processes do not need to initialize new Particle object
             gathered_ptcl = None
-        # Create a new array that contains the local number of particles
-        Ntot_local = np.array(ptcl.Ntot, dtype = np.int32)
-        # Create a new array that gathers the total number of particles
-        Ntot = np.array([0], dtype = np.int32)
-        # Use the mpi4py routine Reduce to perform a parallel sum reduction
-        # in order to gather the total number of particles.
-        self.mpi_comm.Reduce(Ntot_local, Ntot, op=SUM, root = root)
+        # Get the local number of particle on each proc, and the particle number
+        n_rank = self.mpi_comm.allgather( ptcl.Ntot )
+        Ntot = sum(n_rank)
         # Loop over particle attributes that need to be gathered
-        for particle_attr in ['x', 'y', 'z',
-                              'ux', 'uy', 'uz',
-                              'inv_gamma', 'w']:
+        for particle_attr in ['x', 'y', 'z', 'ux', 'uy', 'uz','inv_gamma', 'w']:
             # Get array of particle attribute
             array = getattr(ptcl, particle_attr)
             # Gather array on process root
-            gathered_array = self.gather_ptcl_array(array, Ntot, root)
+            gathered_array = self.gather_ptcl_array(array, n_rank, Ntot, root)
             if self.rank == root:
                 # Write array to particle attribute in the gathered object
                 setattr(gathered_ptcl, particle_attr, gathered_array)
         # Return the gathered particle object
         return(gathered_ptcl)
 
-    def gather_ptcl_array(self, array, length, root = 0):
+    def gather_ptcl_array(self, array, n_rank, Ntot, root = 0):
         """
         Gather a particle array on the root process by using the
         mpi4py routine Gatherv, that gathers arbitrary shape arrays
@@ -754,8 +748,11 @@ class MPI_Communicator(object) :
         array : array (ptcl array)
             A particle array of the local domain
 
-        length : int
-            The length of the gathered array (total number of particles)
+        n_rank : list of ints
+            A list containing the number of particles to send on each proc
+            
+        Ntot : int
+            The total number of particles for all the proc together
 
         root : int, optional
             Process that gathers the data
@@ -765,20 +762,25 @@ class MPI_Communicator(object) :
         gathered_array : array (global ptcl array)
             A gathered array that contains the global simulation data
         """
+        # Prepare the output array
         if self.rank == root:
-            # Root process creates empty numpy array of the shape 
-            # (length), that is used to gather the data.
-            gathered_array = np.empty(length, dtype=array.dtype)
+            # Root process creates empty numpy array
+            gathered_array = np.empty(Ntot, dtype=array.dtype)
         else:
             # Other processes do not need to initialize a new array
             gathered_array = None
-        # Call the mpi4py routine Gartherv and pass the local particle array.
-        # The receiving buffer on process root (0) is used to gather the data.
-        self.mpi_comm.Gatherv(
-            sendbuf = array, 
-            recvbuf = gathered_array,
-            root = root)
-        # return the gathered_array only on process root
+
+        # Prepare the send and receive buffers
+        i_start_procs = tuple( np.cumsum([0] + n_rank[:-1]) )
+        n_rank_procs = tuple( n_rank )
+        mpi_type = mpi_type_dict[ str(array.dtype) ]
+        sendbuf = [ array, n_rank_procs[self.rank] ]
+        recvbuf = [ gathered_array, n_rank_procs, i_start_procs, mpi_type ]
+
+        # Send/receive the arrays
+        self.mpi_comm.Gatherv( sendbuf, recvbuf, root=root )
+        
+        # Return the gathered_array only on process root
         if self.rank == root:
             return(gathered_array)
 

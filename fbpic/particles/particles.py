@@ -196,6 +196,7 @@ class Particles(object) :
         # Allocate arrays for the particles sorting when using CUDA
         self.cell_idx = np.empty( Ntot, dtype=np.int32)
         self.sorted_idx = np.arange( Ntot, dtype=np.uint32)
+        self.particle_buffer = np.arange( Ntot, dtype=np.float64 )
 
     def send_particles_to_gpu( self ):
         """
@@ -226,6 +227,7 @@ class Particles(object) :
             # Initialize empty arrays on the GPU for the sorting
             self.cell_idx = cuda.device_array_like(self.cell_idx)
             self.sorted_idx = cuda.device_array_like(self.sorted_idx)
+            self.particle_buffer = cuda.device_array_like(self.particle_buffer)
 
     def receive_particles_from_gpu( self ):
         """
@@ -257,6 +259,30 @@ class Particles(object) :
             # that represent the sorting arrays
             self.cell_idx = np.empty(self.Ntot, dtype = np.int32)
             self.sorted_idx = np.arange(self.Ntot, dtype = np.uint32)
+            self.particle_buffer = np.arange( self.Ntot, dtype = np.float64)
+
+    def rearrange_particle_arrays( self ):
+        """
+        Rearranges the particle data arrays to match with the sorted
+        cell index array. The sorted index array is used to resort the
+        arrays. A particle buffer is used to temporarily store
+        the rearranged data.
+        """
+        # Get the threads per block and the blocks per grid
+        dim_grid_1d, dim_block_1d = cuda_tpb_bpg_1d( self.Ntot )
+        # Iterate over particle attributes
+        for attr in ['x', 'y', 'z', 'ux', 'uy', 'uz', 'w', 'inv_gamma']:
+            # Get particle GPU array
+            val = getattr(self, attr)
+            # Write particle data to particle buffer array while rearranging
+            write_particle_buffer[dim_grid_1d, dim_block_1d](
+                self.sorted_idx, val, self.particle_buffer)
+            # Assign the particle buffer to 
+            # the initial particle data array 
+            setattr(self, attr, self.particle_buffer)
+            # Assign the old particle data array to
+            # the particle buffer
+            self.particle_buffer = val
 
     def push_p( self ) :
         """
@@ -520,6 +546,8 @@ class Particles(object) :
             # Perform the inclusive parallel prefix sum
             incl_prefix_sum[dim_grid_1d, dim_block_1d](
                 self.cell_idx, d_prefix_sum)
+            # Rearrange the particle arrays
+            self.rearrange_particle_arrays()
 
             # Call the CUDA Kernel for the deposition of rho or J
             # for Mode 0 and 1 only.
@@ -531,7 +559,7 @@ class Particles(object) :
                     grid[0].invdz, grid[0].zmin, grid[0].Nz, 
                     grid[0].invdr, grid[0].rmin, grid[0].Nr,
                     d_F0, d_F1, d_F2, d_F3,
-                    self.cell_idx, self.sorted_idx, d_prefix_sum)
+                    self.cell_idx, d_prefix_sum)
                 # Add the four directions together
                 add_rho[dim_grid_2d, dim_block_2d](
                     grid[0].rho, grid[1].rho,
@@ -545,7 +573,7 @@ class Particles(object) :
                     grid[0].invdz, grid[0].zmin, grid[0].Nz, 
                     grid[0].invdr, grid[0].rmin, grid[0].Nr,
                     d_F0, d_F1, d_F2, d_F3,
-                    self.cell_idx, self.sorted_idx, d_prefix_sum)
+                    self.cell_idx, d_prefix_sum)
                 # Add the four directions together
                 add_J[dim_grid_2d, dim_block_2d](
                     grid[0].Jr, grid[1].Jr,
