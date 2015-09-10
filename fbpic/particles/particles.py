@@ -196,6 +196,7 @@ class Particles(object) :
         # Allocate arrays for the particles sorting when using CUDA
         self.cell_idx = np.empty( Ntot, dtype=np.int32)
         self.sorted_idx = np.arange( Ntot, dtype=np.uint32)
+        # Allocate a buffer that is used to resort the particle arrays
         self.particle_buffer = np.arange( Ntot, dtype=np.float64 )
 
     def send_particles_to_gpu( self ):

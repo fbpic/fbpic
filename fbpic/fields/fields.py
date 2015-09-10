@@ -151,7 +151,7 @@ class Fields(object) :
                                 use_cuda = self.use_cuda ) )
 
         # Initialize the needed prefix sum array for sorting
-        if self.use_cuda:
+        if self.use_cuda: # Only done when using CUDA
             self.d_prefix_sum = cuda.device_array(
                 shape = self.Nz*self.Nr, dtype = np.int32 )
 
