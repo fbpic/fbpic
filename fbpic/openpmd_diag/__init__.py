@@ -1,6 +1,6 @@
 """
-This file imports the objects that allow to produce
-output in OpenPMD format.
+This file is part of the Fourier-Bessel Particle-In-Cell code (FB-PIC)
+It imports the objects that allow to produce output in openPMD format.
 
 Usage
 -----
