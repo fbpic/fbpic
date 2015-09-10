@@ -612,7 +612,7 @@ def add_particles_gpu( species, zmin, zmax, Npz, ux_m=0., uy_m=0., uz_m=0.,
         Npz, zmin, zmax, species.Npr, species.rmin, species.rmax,
         species.Nptheta, species.dt, species.dens_func,
         ux_m=ux_m, uy_m=uy_m, uz_m=uz_m,
-        ux_th=ux_th, uy_th=uy_th, uz_th=uz_th, use_cuda = True)
+        ux_th=ux_th, uy_th=uy_th, uz_th=uz_th)
     # Calculate new total number of particles
     new_Ntot = species.Ntot + new_ptcl.Ntot
     # Get the threads per block and the blocks per grid
