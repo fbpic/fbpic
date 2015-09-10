@@ -4,8 +4,8 @@ It defines the structure necessary to implement the moving window.
 """
 import numpy as np
 from mpi4py import MPI as mpi
-from fields.fields import InterpolationGrid
-from particles.particles import Particles
+from fbpic.fields.fields import InterpolationGrid
+from fbpic.particles.particles import Particles
 try :
     from numba import cuda
     cuda_installed = True

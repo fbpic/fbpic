@@ -5,8 +5,8 @@ import os
 import h5py
 import numpy as np
 from scipy import constants
-from generic_diag import OpenPMDDiagnostic
-from data_dict import macro_weighted_dict, weighting_power_dict
+from .generic_diag import OpenPMDDiagnostic
+from .data_dict import macro_weighted_dict, weighting_power_dict
 
 class ParticleDiagnostic(OpenPMDDiagnostic) :
     """
