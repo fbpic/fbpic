@@ -239,18 +239,11 @@ class Simulation(object) :
 
                 # Move the window if needed
                 if self.iteration % self.moving_win.period == 0 :
-                    
-                    # Receive the data from the GPU (if CUDA is used)
-                    if self.use_cuda:
-                        receive_data_from_gpu(self)
                     # Shift the fields and add new particles
                     # (Exchange fields and particles between
                     # processors when using MPI)
                     self.moving_win.move( fld.interp, ptcl, self.p_nz,
                                           self.dt, self.comm )
-                    # Send the data to the GPU (if Cuda is used)
-                    if self.use_cuda:
-                        send_data_to_gpu(self)
                     # Reproject the charge on the interpolation grid
                     # (Since particles have been added/suppressed)
                     self.deposit('rho_prev')

@@ -428,12 +428,14 @@ def clean_outside_particles( species, zmin ) :
 def clean_outside_particles_gpu( species, n_remove ):
     # Get the number of offset of the number of particles to remove
     remove_particles_idx = species.prefix_sum.getitem(n_remove-1)
+    # New total number of particles
+    new_Ntot = species.Ntot-remove_particles_idx
     # Get the threads per block and the blocks per grid
     dim_grid_1d, dim_block_1d = cuda_tpb_bpg_1d( species.Ntot )
     # Iterate over particle attributes
     for attr in ['x', 'y', 'z', 'ux', 'uy', 'uz', 'w', 'inv_gamma']:
         # Initialize buffer array
-        particle_buffer = cuda.device_array((species.Ntot-remove_particles_idx), dtype=np.float64)
+        particle_buffer = cuda.device_array((new_Ntot), dtype=np.float64)
         # Get particle GPU array
         particle_array = getattr(species, attr)
         # Remove particle data and write to particle buffer array
@@ -443,6 +445,16 @@ def clean_outside_particles_gpu( species, n_remove ):
         # the initial particle data array
         setattr(species, attr, particle_buffer)
 
+    # Create new CUDA particle arrays
+    # Fields
+    species.Ex = cuda.device_array((new_Ntot), dtype=np.float64)
+    species.Ey = cuda.device_array((new_Ntot), dtype=np.float64)
+    species.Ez = cuda.device_array((new_Ntot), dtype=np.float64)
+    species.Bx = cuda.device_array((new_Ntot), dtype=np.float64)
+    species.By = cuda.device_array((new_Ntot), dtype=np.float64)
+    species.Bz = cuda.device_array((new_Ntot), dtype=np.float64)
+    # Particles
+    
     # Change the new total number of particles    
     species.Ntot -= remove_particles_idx
 
