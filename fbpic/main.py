@@ -242,7 +242,7 @@ class Simulation(object) :
                     # Shift the fields and add new particles
                     # (Exchange fields and particles between
                     # processors when using MPI)
-                    self.moving_win.move( fld.interp, ptcl, self.p_nz,
+                    self.moving_win.move( fld, ptcl, self.p_nz,
                                           self.dt, self.comm )
                     # Reproject the charge on the interpolation grid
                     # (Since particles have been added/suppressed)
@@ -325,20 +325,20 @@ class Simulation(object) :
         if fieldtype in ['rho_prev', 'rho_next'] :
             fld.erase('rho')
             for species in self.ptcl :
-                species.deposit( fld.interp, 'rho' )
+                species.deposit( fld, 'rho' )
             fld.divide_by_volume('rho')
             # Exchange the charge density of the guard cells between domains
             if self.use_mpi:
-                self.comm.exchange_fields(self.fld.interp, 'rho')
+                self.comm.exchange_fields(fld.interp, 'rho')
         # Currents
         elif fieldtype == 'J' :
             fld.erase('J')
             for species in self.ptcl :
-                species.deposit( fld.interp, 'J' )
+                species.deposit( fld, 'J' )
             fld.divide_by_volume('J')
             # Exchange the current of the guard cells between domains
             if self.use_mpi:
-                self.comm.exchange_fields(self.fld.interp, 'J')
+                self.comm.exchange_fields(fld.interp, 'J')
         else :
             raise ValueError('Unknown fieldtype : %s' %fieldtype)
             

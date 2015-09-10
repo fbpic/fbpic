@@ -8,7 +8,7 @@ from particles import Particles
 
 try :
     from numba import cuda
-    from fbpic.cuda_utils import cuda_tpb_bpg_2d
+    from fbpic.cuda_utils import *
     cuda_installed = True
 except ImportError :
     cuda_installed = False
@@ -138,7 +138,7 @@ class MovingWindow(object) :
         if cuda_installed :
             self.d_damp_array_EB = cuda.to_device(self.damp_array_EB)
         
-    def move( self, interp, ptcl, p_nz, dt, comm=None ) :
+    def move( self, fld, ptcl, p_nz, dt, comm=None ) :
         """
         Calculate by how many cells the moving window should be moved.
         If this is non-zero, shift the fields on the interpolation grid,
@@ -149,8 +149,7 @@ class MovingWindow(object) :
         
         Parameters
         ----------
-        interp : a list of InterpolationGrid objects
-            (one element per azimuthal mode)
+        fld : a Field object
             Contains the fields data of the simulation
     
         ptcl : a list of Particles objects
@@ -166,6 +165,8 @@ class MovingWindow(object) :
             Defines how to send fields and particles with MPI
             When not using MPI, this object is None
         """
+        # Shortcut for list of InterpolationGrid objects
+        interp = fld.interp
         # To avoid discrepancies between processors, only the first proc
         # decides whether to send the data, and sends the information to
         # all proc.
@@ -196,7 +197,7 @@ class MovingWindow(object) :
             Nm = len(interp)
             for m in range(Nm) :
                 self.shift_interp_grid( interp[m], n_move )
-        
+
             # Extract a few quantities of the new (shifted) grid
             zmin = interp[0].zmin
             zmax = interp[0].zmax
@@ -215,9 +216,10 @@ class MovingWindow(object) :
                 n_remove = n_remove*interp[0].Nr
                 # Remove the outside particles
                 for species in ptcl :
-                    if interp[0].use_cuda == True:
+                    if interp[0].use_cuda:
                         # Remove outside particles on GPU
-                        clean_outside_particles_gpu( species, n_remove)
+                        clean_outside_particles_gpu( 
+                            species, n_remove, fld.d_prefix_sum )
                     else:
                         clean_outside_particles( species, z_zero )
 
@@ -280,19 +282,33 @@ class MovingWindow(object) :
         grid.z += n_move*grid.dz
         grid.zmin += n_move*grid.dz
         grid.zmax += n_move*grid.dz
-    
-        # Shift all the fields
-        self.shift_interp_field( grid.Er, n_move )
-        self.shift_interp_field( grid.Et, n_move )
-        self.shift_interp_field( grid.Ez, n_move )
-        self.shift_interp_field( grid.Br, n_move )
-        self.shift_interp_field( grid.Bt, n_move )
-        self.shift_interp_field( grid.Bz, n_move )
-        if shift_currents :
-            self.shift_interp_field( grid.Jr, n_move )
-            self.shift_interp_field( grid.Jt, n_move )
-            self.shift_interp_field( grid.Jz, n_move )
-            self.shift_interp_field( grid.rho, n_move )
+        
+        if grid.use_cuda:
+            # Shift all the fields on the GPU
+            grid.Er = self.shift_interp_field_gpu( grid.Er, n_move )
+            grid.Et = self.shift_interp_field_gpu( grid.Et, n_move )
+            grid.Ez = self.shift_interp_field_gpu( grid.Ez, n_move )
+            grid.Br = self.shift_interp_field_gpu( grid.Br, n_move )
+            grid.Bt = self.shift_interp_field_gpu( grid.Bt, n_move )
+            grid.Bz = self.shift_interp_field_gpu( grid.Bz, n_move )
+            if shift_currents :
+                grid.Jr = self.shift_interp_field_gpu( grid.Jr, n_move )
+                grid.Jt = self.shift_interp_field_gpu( grid.Jt, n_move )
+                grid.Jz = self.shift_interp_field_gpu( grid.Jz, n_move )
+                grid.rho = self.shift_interp_field_gpu( grid.rho, n_move )
+        else:
+            # Shift all the fields on the CPU
+            self.shift_interp_field( grid.Er, n_move )
+            self.shift_interp_field( grid.Et, n_move )
+            self.shift_interp_field( grid.Ez, n_move )
+            self.shift_interp_field( grid.Br, n_move )
+            self.shift_interp_field( grid.Bt, n_move )
+            self.shift_interp_field( grid.Bz, n_move )
+            if shift_currents :
+                self.shift_interp_field( grid.Jr, n_move )
+                self.shift_interp_field( grid.Jt, n_move )
+                self.shift_interp_field( grid.Jz, n_move )
+                self.shift_interp_field( grid.rho, n_move )
 
     def shift_interp_field( self, field_array, n_move ) :
         """
@@ -314,14 +330,16 @@ class MovingWindow(object) :
 
     def shift_interp_field_gpu( self, field_array, n_move) :
         # Get a 2D CUDA grid of the size of the grid
-        dim_grid_2d, dim_block_2d = cuda_tpb_bpg_2d( field_array.shape[0], field_array.shape[1] )
+        dim_grid_2d, dim_block_2d = cuda_tpb_bpg_2d( 
+            field_array.shape[0], field_array.shape[1] )
         # Initialize a field buffer to temporarily store the data
-        field_buffer = cuda.device_array_like(field_array)
+        field_buffer = cuda.device_array((field_array.shape[0], field_array.shape[1]), dtype=np.complex128)
         # Shift the field array and copy it to the buffer
         shift_field_array_gpu[dim_grid_2d, dim_block_2d](
-            field_array, field_buffer, np.array(n_move))
+            field_array, field_buffer, n_move)
         # Assign the buffer to the original field array object
         field_array = field_buffer
+        return field_array
 
     def damp_EB( self, interp, comm ) :
         """
@@ -426,13 +444,13 @@ def clean_outside_particles( species, zmin ) :
     # Adapt the number of particles accordingly
     species.Ntot = len( species.w )
 
-def clean_outside_particles_gpu( species, n_remove ):
+def clean_outside_particles_gpu( species, n_remove, prefix_sum ):
     # Get the number of offset of the number of particles to remove
-    remove_particles_idx = species.prefix_sum.getitem(n_remove-1)
+    remove_particles_idx = prefix_sum.getitem(n_remove-1)
     # New total number of particles
     new_Ntot = species.Ntot-remove_particles_idx
     # Get the threads per block and the blocks per grid
-    dim_grid_1d, dim_block_1d = cuda_tpb_bpg_1d( species.Ntot )
+    dim_grid_1d, dim_block_1d = cuda_tpb_bpg_1d( new_Ntot )
     # Iterate over particle attributes
     for attr in ['x', 'y', 'z', 'ux', 'uy', 'uz', 'w', 'inv_gamma']:
         # Initialize buffer array
@@ -474,7 +492,6 @@ def clean_outside_particles_gpu( species, n_remove ):
     species.cell_idx = cuda.device_array_like(species.cell_idx)
     species.sorted_idx = cuda.device_array_like(species.sorted_idx)
     species.particle_buffer = cuda.device_array_like(species.particle_buffer)
-    
     # Change the new total number of particles    
     species.Ntot = new_Ntot
 
@@ -537,7 +554,7 @@ def add_particles_gpu( species, zmin, zmax, Npz, ux_m=0., uy_m=0., uz_m=0.,
     # Calculate new total number of particles
     new_Ntot = species.Ntot + new_ptcl.Ntot
     # Get the threads per block and the blocks per grid
-    dim_grid_1d, dim_block_1d = cuda_tpb_bpg_1d( new_ptcl.Ntot )
+    dim_grid_1d, dim_block_1d = cuda_tpb_bpg_1d( new_Ntot )
     # Iterate over particle attributes
     for attr in ['x', 'y', 'z', 'ux', 'uy', 'uz', 'w', 'inv_gamma']:
         # Initialize buffer array
@@ -624,16 +641,15 @@ if cuda_installed :
     @cuda.jit('void(complex128[:,:], complex128[:,:], int32)')
     def shift_field_array_gpu( field_array, field_buffer, n_move ):
         i, j = cuda.grid(2)
-        if i < field_array.shape[0] and j < field_array.shape[1]:
-            if (i + n_move) < field_array.shape[0]:
-                field_buffer[i, j] = field_array[i+n_move, j]
-            if (i + n_move) >= field_array.shape[0]:
-                field_buffer[i, j] = 0.
+        if (i + n_move) < field_array.shape[0] and j < field_array.shape[1]:
+            field_buffer[i, j] = field_array[i+n_move, j]
+        if (i + n_move) >= field_array.shape[0] and i < field_array.shape[0] and j < field_array.shape[1]:
+            field_buffer[i, j] = 0.
 
     @cuda.jit('void(float64[:], float64[:])')
     def remove_particle_data_gpu( particle_array, particle_buffer ):
         i = cuda.grid(1)
-        if i < particle_array.shape[0]:
+        if i < particle_buffer.shape[0]:
             offset_remove = particle_array.shape[0] - particle_buffer.shape[0]
             particle_buffer[i] = particle_array[i+offset_remove]
 
@@ -642,8 +658,8 @@ if cuda_installed :
         i = cuda.grid(1)
         if i < particle_array.shape[0]:
             particle_buffer[i] = particle_array[i]
-        if (i >= particle_array.shape[0]) and (i < new_particle_array.shape[0]):
-            particle_buffer[i] = new_particle_array[i]
+        if (i >= particle_array.shape[0]) and (i < (particle_buffer.shape[0])):
+            particle_buffer[i] = new_particle_array[i-particle_array.shape[0]]
 
     @cuda.jit('void(complex128[:,:], complex128[:,:], complex128[:,:], \
                     complex128[:,:], complex128[:,:], complex128[:,:], \

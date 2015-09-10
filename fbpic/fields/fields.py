@@ -150,6 +150,11 @@ class Fields(object) :
                                 self.spect[m].kr, m, dt, Nz, Nr,
                                 use_cuda = self.use_cuda ) )
 
+        # Initialize the needed prefix sum array for sorting
+        if self.use_cuda:
+            self.d_prefix_sum = cuda.device_array(
+                shape = self.Nz*self.Nr, dtype = np.int32 )
+
     def send_fields_to_gpu( self ):
         """
         Copy the fields to the GPU.

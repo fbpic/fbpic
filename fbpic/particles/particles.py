@@ -488,7 +488,7 @@ class Particles(object) :
             self.By[:] = sin*Fr + cos*Ft
 
         
-    def deposit(self, grid, fieldtype ) :
+    def deposit( self, fld, fieldtype ) :
         """
         Deposit the particles charge or current onto the grid, using numpy
         
@@ -497,14 +497,17 @@ class Particles(object) :
         
         Parameter
         ----------
-        grid : a list of InterpolationGrid objects
-             (one InterpolationGrid object per azimuthal mode)
-             Contains the field values on the interpolation grid
+        fld : a Field object 
+             Contains the list of InterpolationGrid objects with
+             the field values as well as the prefix sum.
 
         fieldtype : string
              Indicates which field to deposit
              Either 'J' or 'rho'
         """
+        # Shortcut for the list of InterpolationGrid objects
+        grid = fld.interp
+
         if self.use_cuda == True:
             # Get the threads per block and the blocks per grid
             dim_grid_1d, dim_block_1d = cuda_tpb_bpg_1d( self.Ntot )
@@ -513,16 +516,9 @@ class Particles(object) :
             dim_grid_2d, dim_block_2d = cuda_tpb_bpg_2d( 
                                           grid[0].Nz, grid[0].Nr )
 
-            ###################################################################
-            # Needs to be moved to the fields package
-
-            # Create the needed prefix sum array for sorting
-            d_prefix_sum = cuda.device_array(
-                             shape = grid[0].Nz*grid[0].Nr, dtype = np.int32 )
             # Create the helper arrays for deposition
-            d_F0, d_F1, d_F2, d_F3 = cuda_deposition_arrays( grid[0].Nz,
-                                       grid[0].Nr, fieldtype = fieldtype )
-            ###################################################################
+            d_F0, d_F1, d_F2, d_F3 = cuda_deposition_arrays( 
+                grid[0].Nz, grid[0].Nr, fieldtype = fieldtype )
 
             # ------------------------
             # Sorting of the particles
@@ -542,10 +538,11 @@ class Particles(object) :
             sort_particles_per_cell(self.cell_idx, self.sorted_idx)
             # Reset the old prefix sum
             reset_prefix_sum[dim_grid_2d_flat, dim_block_2d_flat](
-                d_prefix_sum)
+                fld.d_prefix_sum)
+
             # Perform the inclusive parallel prefix sum
             incl_prefix_sum[dim_grid_1d, dim_block_1d](
-                self.cell_idx, d_prefix_sum)
+                self.cell_idx, fld.d_prefix_sum)
             # Rearrange the particle arrays
             self.rearrange_particle_arrays()
 
@@ -559,7 +556,7 @@ class Particles(object) :
                     grid[0].invdz, grid[0].zmin, grid[0].Nz, 
                     grid[0].invdr, grid[0].rmin, grid[0].Nr,
                     d_F0, d_F1, d_F2, d_F3,
-                    self.cell_idx, d_prefix_sum)
+                    self.cell_idx, fld.d_prefix_sum)
                 # Add the four directions together
                 add_rho[dim_grid_2d, dim_block_2d](
                     grid[0].rho, grid[1].rho,
@@ -573,7 +570,7 @@ class Particles(object) :
                     grid[0].invdz, grid[0].zmin, grid[0].Nz, 
                     grid[0].invdr, grid[0].rmin, grid[0].Nr,
                     d_F0, d_F1, d_F2, d_F3,
-                    self.cell_idx, d_prefix_sum)
+                    self.cell_idx, fld.d_prefix_sum)
                 # Add the four directions together
                 add_J[dim_grid_2d, dim_block_2d](
                     grid[0].Jr, grid[1].Jr,
