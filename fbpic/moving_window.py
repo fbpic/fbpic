@@ -484,60 +484,60 @@ def clean_outside_particles_gpu( species, n_remove, prefix_sum ):
         sum of particles per cell in 1D
     """
     # Check if particles are sorted, otherwise raise exception
-    if species.sorted == True:
-        # Get the number of particles to be removed by looking up the
-        # value of the inclusive prefix sum at the cell n_remove.
-        remove_particles_idx = prefix_sum.getitem(n_remove-1)
-        # New total number of particles
-        new_Ntot = species.Ntot-remove_particles_idx
-        # Get the threads per block and the blocks per grid
-        dim_grid_1d, dim_block_1d = cuda_tpb_bpg_1d( new_Ntot )
-        # Iterate over particle attributes
-        for attr in ['x', 'y', 'z', 'ux', 'uy', 'uz', 'w', 'inv_gamma']:
-            # Initialize a buffer array
-            particle_buffer = cuda.device_array(new_Ntot, dtype=np.float64)
-            # Get particle GPU array
-            particle_array = getattr(species, attr)
-            # Remove particle data and write to particle buffer array
-            remove_particle_data_gpu[dim_grid_1d, dim_block_1d](
-                particle_array, particle_buffer)
-            # Assign the particle buffer to 
-            # the initial particle data array
-            setattr(species, attr, particle_buffer)
-
-        # Initialize empty arrays on the CPU for the field
-        # gathering and the particle push
-        species.Ex = np.zeros(new_Ntot, dtype = np.float64)
-        species.Ey = np.zeros(new_Ntot, dtype = np.float64)
-        species.Ez = np.zeros(new_Ntot, dtype = np.float64)
-        species.Bx = np.zeros(new_Ntot, dtype = np.float64)
-        species.By = np.zeros(new_Ntot, dtype = np.float64)
-        species.Bz = np.zeros(new_Ntot, dtype = np.float64)
-        # Initialize empty arrays on the CPU
-        # that represent the sorting arrays
-        species.cell_idx = np.empty(new_Ntot, dtype = np.int32)
-        species.sorted_idx = np.arange(new_Ntot, dtype = np.uint32)
-        species.particle_buffer = np.arange(new_Ntot, dtype = np.float64)
-        # Initialize empty arrays on the GPU for the field
-        # gathering and the particle push
-        species.Ex = cuda.device_array_like(species.Ex)
-        species.Ey = cuda.device_array_like(species.Ey)
-        species.Ez = cuda.device_array_like(species.Ez)
-        species.Bx = cuda.device_array_like(species.Bx)
-        species.By = cuda.device_array_like(species.By)
-        species.Bz = cuda.device_array_like(species.Bz)
-        # Initialize empty arrays on the GPU for the sorting
-        species.cell_idx = cuda.device_array_like(species.cell_idx)
-        species.sorted_idx = cuda.device_array_like(species.sorted_idx)
-        species.particle_buffer = cuda.device_array_like(
-                                    species.particle_buffer)
-        # Change the new total number of particles    
-        species.Ntot = new_Ntot
-        # Particles remain sorted after removing some of them.
-        # However, the cell index array was reinitialized.
-        species.sorted = False
-    else:
+    if species.sorted == False:
         raise ValueError('Removing particles: The particles are not sorted!')
+        
+    # Get the number of particles to be removed by looking up the
+    # value of the inclusive prefix sum at the cell n_remove.
+    remove_particles_idx = prefix_sum.getitem(n_remove-1)
+    # New total number of particles
+    new_Ntot = species.Ntot-remove_particles_idx
+    # Get the threads per block and the blocks per grid
+    dim_grid_1d, dim_block_1d = cuda_tpb_bpg_1d( new_Ntot )
+    # Iterate over particle attributes
+    for attr in ['x', 'y', 'z', 'ux', 'uy', 'uz', 'w', 'inv_gamma']:
+        # Initialize a buffer array
+        particle_buffer = cuda.device_array(new_Ntot, dtype=np.float64)
+        # Get particle GPU array
+        particle_array = getattr(species, attr)
+        # Remove particle data and write to particle buffer array
+        remove_particle_data_gpu[dim_grid_1d, dim_block_1d](
+            particle_array, particle_buffer)
+        # Assign the particle buffer to 
+        # the initial particle data array
+        setattr(species, attr, particle_buffer)
+
+    # Initialize empty arrays on the CPU for the field
+    # gathering and the particle push
+    species.Ex = np.zeros(new_Ntot, dtype = np.float64)
+    species.Ey = np.zeros(new_Ntot, dtype = np.float64)
+    species.Ez = np.zeros(new_Ntot, dtype = np.float64)
+    species.Bx = np.zeros(new_Ntot, dtype = np.float64)
+    species.By = np.zeros(new_Ntot, dtype = np.float64)
+    species.Bz = np.zeros(new_Ntot, dtype = np.float64)
+    # Initialize empty arrays on the CPU
+    # that represent the sorting arrays
+    species.cell_idx = np.empty(new_Ntot, dtype = np.int32)
+    species.sorted_idx = np.arange(new_Ntot, dtype = np.uint32)
+    species.particle_buffer = np.arange(new_Ntot, dtype = np.float64)
+    # Initialize empty arrays on the GPU for the field
+    # gathering and the particle push
+    species.Ex = cuda.device_array_like(species.Ex)
+    species.Ey = cuda.device_array_like(species.Ey)
+    species.Ez = cuda.device_array_like(species.Ez)
+    species.Bx = cuda.device_array_like(species.Bx)
+    species.By = cuda.device_array_like(species.By)
+    species.Bz = cuda.device_array_like(species.Bz)
+    # Initialize empty arrays on the GPU for the sorting
+    species.cell_idx = cuda.device_array_like(species.cell_idx)
+    species.sorted_idx = cuda.device_array_like(species.sorted_idx)
+    species.particle_buffer = cuda.device_array_like(
+                                species.particle_buffer)
+    # Change the new total number of particles    
+    species.Ntot = new_Ntot
+    # Particles remain sorted after removing some of them.
+    # However, the cell index array was reinitialized.
+    species.sorted = False
 
 def add_particles( species, zmin, zmax, Npz, ux_m=0., uy_m=0., uz_m=0.,
                   ux_th=0., uy_th=0., uz_th=0. ) :
