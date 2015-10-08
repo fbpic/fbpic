@@ -76,6 +76,10 @@ class Fields(object) :
             The timestep of the simulation, required for the
             coefficients of the psatd scheme
 
+        v_galilean : float, optional
+            The velocity of a Galilean frame in which
+            the simulation is solved.
+
         n_order : int, optional
            The order of the stencil for the z derivatives
            Use -1 for infinite order
@@ -95,6 +99,7 @@ class Fields(object) :
         self.Nm = Nm
         self.dt = dt
         self.n_order = n_order
+        self.v_galilean = v_galilean
 
         # Define wether or not to use the GPU
         self.use_cuda = use_cuda
@@ -149,7 +154,7 @@ class Fields(object) :
                         kz_true, use_cuda=self.use_cuda ) )
             self.psatd.append( PsatdCoeffs( self.spect[m].kz,
                                 self.spect[m].kr, m, dt, Nz, Nr,
-                                V=v_galilean,
+                                V=self.v_galilean,
                                 use_cuda = self.use_cuda ) )
 
     def send_fields_to_gpu( self ):

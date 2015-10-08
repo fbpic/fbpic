@@ -31,7 +31,7 @@ class Simulation(object) :
     def __init__(self, Nz, zmax, Nr, rmax, Nm, dt, p_zmin, p_zmax,
                  p_rmin, p_rmax, p_nz, p_nr, p_nt, n_e, zmin=0.,
                  n_order=-1,dens_func=None, filter_currents=True,
-                 initialize_ions=False, use_cuda = False) :
+                 v_galilean = 0., initialize_ions=False, use_cuda = False) :
         """
         Initializes a simulation, by creating the following structures :
         - the Fields object, which contains the EM fields
@@ -90,7 +90,11 @@ class Simulation(object) :
 
         filter_currents : bool, optional
             Whether to filter the currents and charge in k space
-           
+        
+        v_galilean : float, optional
+            The velocity of a Galilean frame in which
+            the simulation is solved.
+
         use_cuda : bool, optional
             Wether to use CUDA (GPU) acceleration
         """
@@ -99,9 +103,13 @@ class Simulation(object) :
         if (use_cuda==True) and (cuda_installed==False) :
             self.use_cuda = False
 
+        # Register galilean frame velocity
+        self.v_galilean = v_galilean
+        
         # Initialize the field structure
-        self.fld = Fields(Nz, zmax, Nr, rmax, Nm, dt, n_order=n_order,
-                          zmin=zmin, use_cuda=self.use_cuda)
+        self.fld = Fields( Nz, zmax, Nr, rmax, Nm, dt, 
+                           n_order=n_order, v_galilean = self.v_galilean,
+                           zmin=zmin, use_cuda=self.use_cuda )
 
         # Modify the input parameters p_zmin, p_zmax, r_zmin, r_zmax, so that
         # they fall exactly on the grid, and infer the number of particles
@@ -115,13 +123,13 @@ class Simulation(object) :
             Particles( q=-e, m=m_e, n=n_e, Npz=Npz, zmin=p_zmin,
                        zmax=p_zmax, Npr=Npr, rmin=p_rmin, rmax=p_rmax,
                        Nptheta=p_nt, dt=dt, dens_func=dens_func,
-                       use_cuda=self.use_cuda) ]
+                       v_galilean = v_galilean, use_cuda=self.use_cuda) ]
         if initialize_ions :
             self.ptcl.append(
                 Particles(q=e, m=m_p, n=n_e, Npz=Npz, zmin=p_zmin,
                           zmax=p_zmax, Npr=Npr, rmin=p_rmin, rmax=p_rmax,
                           Nptheta=p_nt, dt=dt, dens_func=dens_func,
-                          use_cuda=self.use_cuda ) )
+                          v_galilean = self.v_galilean, use_cuda=self.use_cuda ) )
         
         # Register the number of particles per cell along z, and dt
         # (Necessary for the moving window)

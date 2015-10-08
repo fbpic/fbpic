@@ -43,7 +43,7 @@ class Particles(object) :
 
     def __init__(self, q, m, n, Npz, zmin, zmax,
                     Npr, rmin, rmax, Nptheta, dt,
-                    dens_func=None,
+                    v_galilean = 0., dens_func=None,
                     ux_m=0., uy_m=0., uz_m=0.,
                     ux_th=0., uy_th=0., uz_th=0.,
                     continuous_injection=True,
@@ -80,6 +80,10 @@ class Particles(object) :
 
         dt : float (in seconds)
            The timestep for the particle pusher
+        
+        v_galilean : float, optional
+            The velocity of a Galilean frame in which
+            the simulation is solved.
 
         ux_m, uy_m, uz_m: floats (dimensionless), optional
            Normalized mean momenta of the injected particles in each direction
@@ -142,7 +146,8 @@ class Particles(object) :
         self.Nptheta = Nptheta
         self.dens_func = dens_func
         self.continuous_injection = continuous_injection
-        
+        self.v_galilean = v_galilean
+
         # Initialize the momenta
         self.uz = uz_m * np.ones(Ntot) + uz_th * np.random.normal(size=Ntot)
         self.ux = ux_m * np.ones(Ntot) + ux_th * np.random.normal(size=Ntot)
@@ -330,7 +335,7 @@ class Particles(object) :
         else :
             push_x_numpy(self.x, self.y, self.z,
                 self.ux, self.uy, self.uz,
-                self.inv_gamma, self.dt )
+                self.inv_gamma, self.dt, self.v_galilean)
         
     def gather( self, grid ) :
         """

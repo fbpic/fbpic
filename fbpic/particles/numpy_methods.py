@@ -52,7 +52,7 @@ def push_p_numpy( ux, uy, uz, inv_gamma,
     uy[:] = s*( uy_tmp + tauy*utau + uz_tmp*taux - ux_tmp*tauz )
     uz[:] = s*( uz_tmp + tauz*utau + ux_tmp*tauy - uy_tmp*taux )
 
-def push_x_numpy( x, y, z, ux, uy, uz, inv_gamma, dt ) :
+def push_x_numpy( x, y, z, ux, uy, uz, inv_gamma, dt, v_galilean) :
     """
     Advance the particles' positions over one half-timestep
     
@@ -66,7 +66,7 @@ def push_x_numpy( x, y, z, ux, uy, uz, inv_gamma, dt ) :
     # Particle push
     x[:] += chdt*inv_gamma*ux
     y[:] += chdt*inv_gamma*uy
-    z[:] += chdt*inv_gamma*uz
+    z[:] += chdt*inv_gamma*uz - 0.5*dt*v_galilean
 
 # -----------------------
 # Field gathering utility
