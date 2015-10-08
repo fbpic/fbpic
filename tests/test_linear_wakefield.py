@@ -16,7 +16,6 @@ from scipy.integrate import quad
 from fbpic.main import Simulation
 from fbpic.lpa_utils import add_laser
 from fbpic.moving_window import MovingWindow
-from fbpic.diagnostics import FieldDiagnostic, ParticleDiagnostic
 
 # ---------------------------
 # Analytical solution
@@ -165,9 +164,10 @@ if __name__ == '__main__' :
     # The simulation box
     Nz = 801         # Number of gridpoints along z
     zmax = 40.e-6    # Length of the box along z (meters)
-    Nr = 120          # Number of gridpoints along r
+    Nr = 120         # Number of gridpoints along r
     rmax = 60.e-6    # Length of the box along r (meters)
     Nm = 2           # Number of modes used
+    n_order = -1     # Order of the stencil in z
     # The simulation timestep
     dt = zmax/Nz/c   # Timestep (seconds)
 
@@ -203,13 +203,13 @@ if __name__ == '__main__' :
     # Initialize the simulation object
     sim = Simulation( Nz, zmax, Nr, rmax, Nm, dt,
         p_zmin, p_zmax, p_rmin, p_rmax, p_nz, p_nr, p_nt, n_e,
-        use_cuda=True ) 
+        use_cuda=True, n_order=n_order ) 
 
     # Add a laser to the fields of the simulation
     add_laser( sim.fld, a0, w0, ctau, z0 )
 
     # Configure the moving window
-    sim.moving_win = MovingWindow( ncells_damp=ncells_damp,
+    sim.moving_win = MovingWindow( sim.fld.interp[0], ncells_damp=ncells_damp,
                                    ncells_zero=ncells_zero,
                                    period=mw_period )
 
@@ -237,7 +237,7 @@ if __name__ == '__main__' :
 
     # Carry out 300 PIC steps
     print 'Calculate PIC solution for the wakefield'
-    sim.step(750)
+    sim.step(1500)
     print 'Done...'
     print ''
 

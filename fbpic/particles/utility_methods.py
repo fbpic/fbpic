@@ -31,7 +31,8 @@ def linear_weights(x, invdx, offset, Nx, direction) :
         Inverse of the grid step along the considered direction
 
     offset : float (in meters)
-        Position of the first node of the grid along the considered direction
+        Position of the edge of the simulation box,
+        along the direction considered
 
     Nx : int
         Number of gridpoints along the considered direction
@@ -59,7 +60,7 @@ def linear_weights(x, invdx, offset, Nx, direction) :
     """
 
     # Positions of the particles, in the cell unit
-    x_cell =  invdx*(x - offset)
+    x_cell =  invdx*(x - offset) - 0.5
     
     # Index of the uppper and lower cell
     i_lower = np.floor( x_cell ).astype('int')  
@@ -128,7 +129,7 @@ def unalign_angles( thetap, Npz, Npr, method='irrational' ) :
     """
     # Determine the angle shift
     if method == 'random' :
-        angle_shift = 2*np.pi*np.random.rand((Npr, Nprz))
+        angle_shift = 2*np.pi*np.random.rand(Npz, Npr)
     elif method == 'irrational' :
         # Subrandom sequence, by adding irrational number (sqrt(2) and sqrt(3))
         # This ensures that the sequence does not wrap around and induce

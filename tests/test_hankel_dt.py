@@ -16,7 +16,7 @@ from scipy.special import eval_genlaguerre
 import time
 
 def compare_Hankel_methods( f_analytic, g_analytic, p, Nz, Nr,
-                            rmax, npts=1000, **kw ) :
+                            rmax, npts=1000, methods=available_methods, **kw ) :
     """
     Compare the discrete Hankel transform of f_analytic to the
     analytical result g_analytic.
@@ -37,7 +37,7 @@ def compare_Hankel_methods( f_analytic, g_analytic, p, Nz, Nr,
     plt.plot( nu, g_analytic(nu) )
     
     # Test the different methods
-    for method in available_methods :
+    for method in methods :
 
         # Initialize transform
         dht = DHT( p, Nr, Nz, rmax, method, **kw )
@@ -112,7 +112,7 @@ def compare_power_p( p, rcut, N, rmax, Nz=1, **kw ) :
 
     compare_Hankel_methods( power_p, power_p_trans, p, Nz, N, rmax, **kw )
 
-def compare_laguerre_gauss( p, n, N, rmax, Nz=1 ) :
+def compare_laguerre_gauss( p, n, N, rmax, Nz=1, **kw ) :
     """
     Test the Hankel transforms for the test function :
     x -> x^p L_n^p(x^2) exp(-x^2/2)
@@ -172,18 +172,26 @@ if __name__ == '__main__' :
     pmax = 1
     rmax = 4
     kw = { 'use_cuda' : True,  'd' : 0.5, 'Fw' : 'inverse' }
+
+    restricted_methods = \
+      [ method for method in available_methods if method != 'MDHT(m-1,m)']
+    methods = [ available_methods, restricted_methods ]
     
     for p in range(pmax+1) :
-        compare_power_p( p, 1, Nr, rmax, Nz=Nz, **kw )
+        compare_power_p( p, 1, Nr, rmax, Nz=Nz, methods=methods[p], **kw )
 
     for p in range(pmax+1) :
         for n in range(2) :
-            compare_laguerre_gauss( p, n, Nr, rmax, Nz=Nz )
+            compare_laguerre_gauss( p, n, Nr, rmax, methods=methods[p], Nz=Nz)
 
     for p in range(pmax+1) :
-        compare_bessel( p, p, int(Nr*0.3), Nr, rmax, Nz=Nz, **kw )
-        compare_bessel( p, p, int(Nr*0.9), Nr, rmax, Nz=Nz, **kw )
+        compare_bessel( p, p, int(Nr*0.3), Nr, rmax,
+                        methods=methods[p], Nz=Nz, **kw )
+        compare_bessel( p, p, int(Nr*0.9), Nr, rmax,
+                        methods=methods[p], Nz=Nz, **kw )
 
     for p in range(pmax+1) :
-        compare_bessel( p, p+1, int(Nr*0.3), Nr, rmax, Nz=Nz, **kw )
-        compare_bessel( p, p+1, int(Nr*0.9), Nr, rmax, Nz=Nz, **kw )
+        compare_bessel( p, p+1, int(Nr*0.3), Nr, rmax,
+                        methods=methods[p], Nz=Nz, **kw )
+        compare_bessel( p, p+1, int(Nr*0.9), Nr, rmax,
+                        methods=methods[p], Nz=Nz, **kw )

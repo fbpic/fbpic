@@ -88,13 +88,16 @@ def test_pulse( Nz, Nr, Nm, Lz, Lr, Nt, w0, ctau,
     fld.interp2spect('B')
     
     #Create moving window object
-    mov_win = MovingWindow()
-    
+    mov_win = MovingWindow( fld.interp[0] )
+
     # Loop over the iterations
     print('Running the simulation...')
     for it in range(Nt) :
         # Shift the fields using the moving window
-        mov_win.shift_fields(fld)
+        mov_win.move( fld.interp, [], 1, dt )
+        # Put the fields onto the spectral grid
+        fld.interp2spect('E')
+        fld.interp2spect('B')
         # Advance the Maxwell equations
         fld.push()
         # Bring the fields back onto the interpolation grid
@@ -393,7 +396,7 @@ if __name__ == '__main__' :
     N_step = 200
     N_show = 20 # interval between two plots (in number of timestep)
 
-    show=False
+    show=True
 
     print('')
     print('Testing mode m=0 with an annular beam')

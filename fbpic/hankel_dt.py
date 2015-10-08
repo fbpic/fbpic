@@ -79,7 +79,7 @@ class DHT(object) :
         Number of points in the r direction and z direction
 
         rmax : float
-        Maximal radius of the r grid.
+        Edge of the box in which the Hankel transform is taken
         (The function is assumed to be zero at that point.)
 
         method : string
@@ -218,7 +218,7 @@ class DHT(object) :
         Reference : see the paper associated with FBPIC
 
         Grid :
-        r_n = n*rmax/N        (if d is not None)
+        r_n = (n+d)*rmax/N        (if d is not None)
         r_n = alpha_{m,n}/S   (if d is None)
         nu_n = alpha_{m,n}/(2*pi*rmax)
         where alpha_{m,n} is the n^th zero of the m^th Bessel function
@@ -242,8 +242,8 @@ class DHT(object) :
         """
         # Check that m has a valid value
         if (m in [p-1, p, p+1]) == False :
-            raise ValueError(
-                'm must be either %d, %d or %d, but is %d'  %(p-1,p,p+1,m))
+            raise ValueError('m must be either p-1, p or p+1')
+        
         # Register values of the arguments
         self.d = d
         self.Fw =Fw
@@ -253,8 +253,7 @@ class DHT(object) :
         self.rmax = rmax
                 
         # Calculate the zeros of the Bessel function
-        include_0 = [-1,1]
-        if m in include_0 :
+        if m !=0 :
             # In this case, 0 is a zero of the Bessel function of order m.
             # It turns out that it is needed to reconstruct the signal for p=0.
             zeros = np.hstack( (np.array([0.]), jn_zeros(m, N)) )
@@ -273,7 +272,6 @@ class DHT(object) :
             S = last_alpha  # product of the spatial and spectral bandwidth
         else :
             # Bessel-like grid
-            # First determine the product S of spatial and spectral bandwidth
             if m == p :
                 # S from Guizar-Sicairos et al., JOSA A 21 (2004)
                 S = last_alpha
@@ -288,32 +286,30 @@ class DHT(object) :
             self.r = rmax*alphas/S
 
         # Calculate and store the inverse matrix invM
-        # (imposed by the condition that the DHT of Bessel modes
-        # give delta functions)
-        p_denom = p
-        if p == m : p_denom = m+1
+        # (imposed by the constraints on the DHT of Bessel modes)
+        # NB : When compared with the article, all the matrices here
+        # are calculated in transposed form. This is done so as to use the
+        # `dot` and `gemm` functions, in the `transform` method.
+        self.invM = np.empty((N, N))
+        if p == m :
+            p_denom = p+1
+        else :
+            p_denom = p
         denom = np.pi * rmax**2 * jn( p_denom, alphas)**2
         num = jn( p, 2*np.pi* self.r[np.newaxis,:]*self.nu[:,np.newaxis] )
         # Get the inverse matrix
-        if denom[0] == 0 and np.all(num[0,:] == 0) :
-            denom[0] = 1 # Avoid division by 0
-        self.invM = num / denom[ :, np.newaxis ]
+        if m!=0 and p!=0 :
+            self.invM[1:, :] = num[1:, :] / denom[1:, np.newaxis]
+            self.invM[0, :] = 0.
+        else :
+            self.invM[:, :] = num[:, :] / denom[:, np.newaxis]
 
         # Calculate the matrix M
+        self.M = np.empty((N, N))
         if Fw == 'inverse' :
-            if m in include_0 and p != 0 :
-                # In this case, and the matrix is singular,
-                # since self.invM[:,0] = 0.
-                # Change this by imposing that an additional Bessel mode
-                # gives a delta function
-                nu_additional = 1./(2*np.pi*rmax) * last_alpha
-                denom[0] = np.pi * rmax**2 * jn( p_denom, last_alpha )**2
-                num[0,:] = jn( p, 2*np.pi* self.r[:]*nu_additional )
-                self.invM = num / denom[:,np.newaxis]
-                # Inverse the matrix
-                self.M = np.linalg.inv(self.invM)
-                # Put the modified row back to 0
-                self.invM[0,:] = 0.
+            if m !=0 and p != 0 :
+                self.M[:, 1:] = np.linalg.pinv( self.invM[1:, :] )
+                self.M[:, 0] = 0.
             else :
                 self.M = np.linalg.inv( self.invM )
                 

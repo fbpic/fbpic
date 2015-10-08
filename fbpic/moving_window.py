@@ -34,15 +34,17 @@ class MovingWindow(object) :
     - damp : set the fields progressively to zero at the left end of the box
     """
     
-    def __init__( self, zmin=0, v=c, ncells_zero=1, ncells_damp=1,
-                  period=1, damp_shape='cos', gradual_damp_EB=True ) :
+    def __init__( self, interp, v=c, ncells_zero=1,
+                  ncells_damp=1, period=1, damp_shape='cos',
+                  gradual_damp_EB=True, ux_m=0., uy_m=0., uz_m=0.,
+                  ux_th=0., uy_th=0., uz_th=0. ) :
         """
         Initializes a moving window object.
 
         Parameters
         ----------
-        zmin : float (meters), optional
-            The starting position of the moving window
+        interp: an InterpolationGrid object
+            Needed to obtain the initial position of the moving window
         
         v : float (meters per seconds), optional
             The speed of the moving window
@@ -67,10 +69,33 @@ class MovingWindow(object) :
         gradual_damp_EB : bool, optional
             Whether to gradually damp the fields EB
             If False, no damping at all will be applied to the fields E and B
+
+        ux_m, uy_m, uz_m: floats (dimensionless)
+           Normalized mean momenta of the injected particles in each direction
+
+        ux_th, uy_th, uz_th: floats (dimensionless)
+           Normalized thermal momenta in each direction
         """
-        # Attach position and speed
-        self.zmin = zmin
+        # Momenta parameters
+        self.ux_m = ux_m
+        self.uy_m = uy_m
+        self.uz_m = uz_m
+        self.ux_th = ux_th
+        self.uy_th = uy_th
+        self.uz_th = uz_th
+        
+        # Attach positions and speed
+        # - Moving window speed
         self.v = v
+        # - Initial position of the moving window (move with moving window)
+        self.zmin = interp.zmin
+        # - Initial injection position (move with moving window)
+        #   (particles are not loaded in the last two upper cells)
+        self.z_inject = interp.zmax - 2 * interp.dz
+        # - Mean speed of the end of the plasma
+        self.v_end_plasma = c * uz_m / np.sqrt(1 + ux_m**2 + uy_m**2 + uz_m**2)
+        # - Position of the right end of the plasma (moves with the plasma)
+        self.z_end_plasma = interp.zmax - 2 * interp.dz
 
         # Verify parameters, to prevent wrapping around of the particles
         if ncells_zero < period :
@@ -106,6 +131,9 @@ class MovingWindow(object) :
             # damping result in the same damping shape as for J.
             self.damp_array_EB[:-1] = \
               self.damp_array_J[:-1]/self.damp_array_J[1:]
+        # Copy the array to the GPU if possible
+        if cuda_installed :
+            self.d_damp_array_EB = cuda.to_device(self.damp_array_EB)
         
     def move( self, interp, ptcl, p_nz, dt ) :
         """
@@ -118,7 +146,8 @@ class MovingWindow(object) :
         
         Parameters
         ----------
-        interp : a Fields object
+        interp : a list of InterpolationGrid objects
+            (one element per azimuthal mode)
             Contains the fields data of the simulation
     
         ptcl : a list of Particles objects
@@ -131,11 +160,16 @@ class MovingWindow(object) :
             Timestep of the simulation
         """
         # Move the position of the moving window object
-        self.zmin = self.zmin + self.v*dt*self.period
-        
+        # and the position of injection
+        self.zmin += self.v * dt * self.period
+        self.z_inject += self.v * dt * self.period
+        # Take into account the motion of the end of the plasma
+        self.z_end_plasma += self.v_end_plasma * dt * self.period
+
         # Find the number of cells by which the window should move
         dz = interp[0].dz
-        n_move = int( (self.zmin-interp[0].zmin)/dz )
+        n_move = int( (self.zmin - interp[0].zmin)/dz )
+        # Move the window
         if n_move > 0 :
             
             # Shift the fields
@@ -151,17 +185,22 @@ class MovingWindow(object) :
             # should be removed
             z_zero = zmin + self.ncells_zero*dz
     
-            # Now that the grid has moved, remove the particles that are
-            # outside of it, and add new particles in the next-to-last cell
+            # Now that the grid has moved, remove the particles that exited
             for species in ptcl :
-                clean_outside_particles( species, z_zero-0.5*dz )
+                clean_outside_particles( species, z_zero )
+
+        # Find the number of particle cells to add
+        n_inject = int( (self.z_inject - self.z_end_plasma)/dz )
+        # Add the new particle cells
+        if n_inject > 0 :
+            for species in ptcl :
                 if species.continuous_injection == True :
-                    # Remember that particles are not loaded in the
-                    # last two upper cells, in order to prevent wrapping
-                    # around of the charge density, when it is smoothed
-                    add_particles( species, zmax-(n_move+1.5)*dz,
-                                   zmax-1.5*dz, n_move*p_nz )
-            
+                    add_particles( species, self.z_end_plasma,
+                        self.z_end_plasma + n_inject*dz, n_inject*p_nz,
+                        ux_m=self.ux_m, uy_m=self.uy_m, uz_m=self.uz_m,
+                        ux_th=self.ux_th, uy_th=self.uy_th, uz_th=self.uz_th)
+            self.z_end_plasma += n_inject*dz
+                                
     def shift_interp_grid( self, grid, n_move, shift_currents=False ) :
         """
         Shift the interpolation grid by one cell
@@ -219,9 +258,9 @@ class MovingWindow(object) :
     def damp_EB( self, interp ) :
         """
         Set the fields E and B progressively to zero, at the left
-        end of the moving window.
+        end and right end of the moving window.
 
-        This is done by multiplying the self.ncells_damp first cells
+        This is done by multiplying the first and last cells
         of the field array (along z) by self.damp_array_EB
 
         Parameters
@@ -241,8 +280,8 @@ class MovingWindow(object) :
                 interp[0].Er, interp[0].Et, interp[0].Ez,
                 interp[0].Br, interp[0].Bt, interp[0].Bz,
                 interp[1].Er, interp[1].Et, interp[1].Ez,
-                interp[1].Er, interp[1].Et, interp[1].Ez,
-                self.damp_array_EB, self.ncells_zero, self.ncells_damp, Nr )
+                interp[1].Br, interp[1].Bt, interp[1].Bz,
+                self.d_damp_array_EB, self.ncells_zero, self.ncells_damp )
         else :
             # Damp the fields on the CPU
             
@@ -304,7 +343,8 @@ def clean_outside_particles( species, zmin ) :
     # Adapt the number of particles accordingly
     species.Ntot = len( species.w )
 
-def add_particles( species, zmin, zmax, Npz ) :
+def add_particles( species, zmin, zmax, Npz, ux_m=0., uy_m=0., uz_m=0.,
+                  ux_th=0., uy_th=0., uz_th=0. ) :
     """
     Create new particles between zmin and zmax, and add them to `species`
 
@@ -317,19 +357,22 @@ def add_particles( species, zmin, zmax, Npz ) :
        The positions between which the new particles are created
 
     Npz : int
-       The total number of particles to be added along the z axis
-       (The number of particles along r and theta is the same as that of
-       `species`)
-    """
+        The total number of particles to be added along the z axis
+        (The number of particles along r and theta is the same as that of
+        `species`)
 
-    # Take the angle of the last particle as a global shift in theta,
-    # in order to prevent the successively-added particles from being aligned
-    global_theta = np.angle( species.x[-1] + 1.j*species.y[-1] )
+    ux_m, uy_m, uz_m: floats (dimensionless)
+        Normalized mean momenta of the injected particles in each direction
+
+    ux_th, uy_th, uz_th: floats (dimensionless)
+        Normalized thermal momenta in each direction     
+    """
     # Create the particles that will be added
     new_ptcl = Particles( species.q, species.m, species.n,
         Npz, zmin, zmax, species.Npr, species.rmin, species.rmax,
         species.Nptheta, species.dt, species.dens_func,
-        global_theta=global_theta )
+        ux_m=ux_m, uy_m=uy_m, uz_m=uz_m,
+        ux_th=ux_th, uy_th=uy_th, uz_th=uz_th )
 
     # Add the properties of these new particles to species object
     # Loop over the attributes of the species
@@ -349,8 +392,9 @@ def add_particles( species, zmin, zmax, Npz ) :
     
 def damp_field( field_array, damp_array, n_damp, n_zero ) :
     """
-    Multiply the n first cells and last n cells of field_array
-    by damp_array, along the first axis.
+    Put the fields to 0 in the n_zero first cells
+    Multiply the fields by damp_array_EB in the n_damp next cells
+    (at the left and right boundary)
 
     Parameters
     ----------
@@ -359,8 +403,11 @@ def damp_field( field_array, damp_array, n_damp, n_zero ) :
     n_damp, n_zero : int
     """
     field_array[:n_zero,:] = 0
+    field_array[-n_zero:,:] = 0
     field_array[n_zero:n_zero+n_damp,:] = \
         damp_array[:,np.newaxis] * field_array[n_zero:n_zero+n_damp,:]
+    field_array[-n_zero-n_damp:-n_zero,:] = \
+        damp_array[::-1,np.newaxis] * field_array[-n_zero-n_damp:-n_zero,:]
 
 if cuda_installed :
 
@@ -368,13 +415,14 @@ if cuda_installed :
                     complex128[:,:], complex128[:,:], complex128[:,:], \
                     complex128[:,:], complex128[:,:], complex128[:,:], \
                     complex128[:,:], complex128[:,:], complex128[:,:], \
-                    float64[:], int32, int32, int32)')
+                    float64[:], int32, int32)')
     def cuda_damp_EB( Er0, Et0, Ez0, Br0, Bt0, Bz0,
                       Er1, Et1, Ez1, Br1, Bt1, Bz1,
-                      damp_array_EB, ncells_zero, ncells_damp, Nr ) :
+                      damp_array_EB, ncells_zero, ncells_damp ) :
         """
         Put the fields to 0 in the ncells_zero first cells
         Multiply the fields by damp_array_EB in the next cells
+        (at the left and right boundary)
 
         Parameters :
         ------------
@@ -390,9 +438,13 @@ if cuda_installed :
         # Obtain Cuda grid
         iz, ir = cuda.grid(2)
 
+        # Obtain the size of the array along z and r
+        Nz, Nr = Er0.shape
+        
         # Modify the fields
         if ir < Nr :
             if iz < ncells_zero :
+                # At the left end
                 Er0[iz, ir] = 0.
                 Et0[iz, ir] = 0.
                 Ez0[iz, ir] = 0.
@@ -404,9 +456,24 @@ if cuda_installed :
                 Ez1[iz, ir] = 0.
                 Br1[iz, ir] = 0.
                 Bt1[iz, ir] = 0.
-                Bz1[iz, ir] = 0.                
+                Bz1[iz, ir] = 0.
+                # At the right end
+                iz_right = Nz - iz - 1
+                Er0[iz_right, ir] = 0.
+                Et0[iz_right, ir] = 0.
+                Ez0[iz_right, ir] = 0.
+                Br0[iz_right, ir] = 0.
+                Bt0[iz_right, ir] = 0.
+                Bz0[iz_right, ir] = 0.
+                Er1[iz_right, ir] = 0.
+                Et1[iz_right, ir] = 0.
+                Ez1[iz_right, ir] = 0.
+                Br1[iz_right, ir] = 0.
+                Bt1[iz_right, ir] = 0.
+                Bz1[iz_right, ir] = 0.
             elif iz < ncells_zero + ncells_damp :
                 damp_factor = damp_array_EB[iz - ncells_zero]
+                # At the left end
                 Er0[iz, ir] *= damp_factor
                 Et0[iz, ir] *= damp_factor
                 Ez0[iz, ir] *= damp_factor
@@ -419,3 +486,17 @@ if cuda_installed :
                 Br1[iz, ir] *= damp_factor
                 Bt1[iz, ir] *= damp_factor
                 Bz1[iz, ir] *= damp_factor
+                # At the right end
+                iz_right = Nz - iz - 1
+                Er0[iz_right, ir] *= damp_factor
+                Et0[iz_right, ir] *= damp_factor
+                Ez0[iz_right, ir] *= damp_factor
+                Br0[iz_right, ir] *= damp_factor
+                Bt0[iz_right, ir] *= damp_factor
+                Bz0[iz_right, ir] *= damp_factor
+                Er1[iz_right, ir] *= damp_factor
+                Et1[iz_right, ir] *= damp_factor
+                Ez1[iz_right, ir] *= damp_factor
+                Br1[iz_right, ir] *= damp_factor
+                Bt1[iz_right, ir] *= damp_factor
+                Bz1[iz_right, ir] *= damp_factor

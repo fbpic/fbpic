@@ -43,10 +43,12 @@ class Particles(object) :
 
     def __init__(self, q, m, n, Npz, zmin, zmax,
                     Npr, rmin, rmax, Nptheta, dt,
-                    dens_func=None, global_theta=0.,
+                    dens_func=None,
+                    ux_m=0., uy_m=0., uz_m=0.,
+                    ux_th=0., uy_th=0., uz_th=0.,
                     continuous_injection=True,
                     use_numba=True, use_cuda=False,
-                    use_cuda_memory = True ) :
+                    use_cuda_memory=True ) :
         """
         Initialize a uniform set of particles
 
@@ -79,18 +81,18 @@ class Particles(object) :
         dt : float (in seconds)
            The timestep for the particle pusher
 
+        ux_m, uy_m, uz_m: floats (dimensionless), optional
+           Normalized mean momenta of the injected particles in each direction
+
+        ux_th, uy_th, uz_th: floats (dimensionless), optional
+           Normalized thermal momenta in each direction
+           
         dens_func : callable, optional
            A function of the form :
            def dens_func( z, r ) ...
            where z and r are 1d arrays, and which returns
            a 1d array containing the density *relative to n*
            (i.e. a number between 0 and 1) at the given positions
-
-        global_theta : float (in rad), optional
-           A global shift on all the theta of the particles
-           This is useful when repetitively adding new particles
-           (e.g. with the moving window), in order to avoid that
-           the successively-added particles are aligned.
 
         continuous_injection : bool, optional
            Whether to continuously inject the particles,
@@ -129,7 +131,8 @@ class Particles(object) :
         
         # Register the properties of the particles
         # (Necessary for the pusher, and when adding more particles later, )
-        self.Ntot = Npz*Npr*Nptheta
+        Ntot = Npz*Npr*Nptheta
+        self.Ntot = Ntot
         self.q = q
         self.m = m
         self.n = n
@@ -139,52 +142,61 @@ class Particles(object) :
         self.Nptheta = Nptheta
         self.dens_func = dens_func
         self.continuous_injection = continuous_injection
-
-        # Initialize the (normalized) momenta
-        self.uz = np.zeros( self.Ntot )
-        self.ux = np.zeros( self.Ntot )
-        self.uy = np.zeros( self.Ntot )
-        self.inv_gamma = np.ones( self.Ntot )
+        
+        # Initialize the momenta
+        self.uz = uz_m * np.ones(Ntot) + uz_th * np.random.normal(size=Ntot)
+        self.ux = ux_m * np.ones(Ntot) + ux_th * np.random.normal(size=Ntot)
+        self.uy = uy_m * np.ones(Ntot) + uy_th * np.random.normal(size=Ntot)
+        self.inv_gamma = 1./np.sqrt(
+            1 + self.ux**2 + self.uy**2 + self.uz**2 )
 
         # Initilialize the fields array (at the positions of the particles)
-        self.Ez = np.zeros( self.Ntot )
-        self.Ex = np.zeros( self.Ntot )
-        self.Ey = np.zeros( self.Ntot )
-        self.Bz = np.zeros( self.Ntot )
-        self.Bx = np.zeros( self.Ntot )
-        self.By = np.zeros( self.Ntot )
+        self.Ez = np.zeros( Ntot )
+        self.Ex = np.zeros( Ntot )
+        self.Ey = np.zeros( Ntot )
+        self.Bz = np.zeros( Ntot )
+        self.Bx = np.zeros( Ntot )
+        self.By = np.zeros( Ntot )
+
+        # Allocate the positions and weights of the particles,
+        # and fill them with values if the array is not empty
+        self.x = np.empty( Ntot )
+        self.y = np.empty( Ntot )
+        self.z = np.empty( Ntot )
+        self.w = np.empty( Ntot )
         
-        # Get the 1d arrays of evenly-spaced positions for the particles
-        dz = (zmax-zmin)*1./Npz
-        z_reg =  zmin + dz*( np.arange(Npz) + 0.5 )
-        dr = (rmax-rmin)*1./Npr
-        r_reg =  rmin + dr*( np.arange(Npr) + 0.5 )
-        dtheta = 2*np.pi/Nptheta
-        theta_reg = dtheta * np.arange(Nptheta)
+        if Ntot > 0 :
+            # Get the 1d arrays of evenly-spaced positions for the particles
+            dz = (zmax-zmin)*1./Npz
+            z_reg =  zmin + dz*( np.arange(Npz) + 0.5 )
+            dr = (rmax-rmin)*1./Npr
+            r_reg =  rmin + dr*( np.arange(Npr) + 0.5 )
+            dtheta = 2*np.pi/Nptheta
+            theta_reg = dtheta * np.arange(Nptheta)
 
-        # Get the corresponding particles positions
-        # (copy=True is important here, since it allows to
-        # change the angles individually)
-        zp, rp, thetap = np.meshgrid( z_reg, r_reg, theta_reg, copy=True)
-        # Prevent the particles from being aligned along any direction
-        unalign_angles( thetap, Npr, Npz, method='irrational' )
-        thetap += global_theta
-        # Flatten them (This performs a memory copy)
-        r = rp.flatten()
-        self.x = r * np.cos( thetap.flatten() )
-        self.y = r * np.sin( thetap.flatten() )
-        self.z = zp.flatten()
+            # Get the corresponding particles positions
+            # (copy=True is important here, since it allows to
+            # change the angles individually)
+            zp, rp, thetap = np.meshgrid( z_reg, r_reg, theta_reg, copy=True)
+            # Prevent the particles from being aligned along any direction
+            unalign_angles( thetap, Npr, Npz, method='random' )
+            # Flatten them (This performs a memory copy)
+            r = rp.flatten()
+            self.x[:] = r * np.cos( thetap.flatten() )
+            self.y[:] = r * np.sin( thetap.flatten() )
+            self.z[:] = zp.flatten()
 
-        # Get the weights (i.e. charge of each macroparticle), which are equal
-        # to the density times the elementary volume r d\theta dr dz
-        self.w = q * n * r * dtheta*dr*dz
-        # Modulate it by the density profile
-        if dens_func is not None :
-            self.w = self.w * dens_func( self.z, r )
+            # Get the weights (i.e. charge of each macroparticle), which
+            # are equal to the density times the volume r d\theta dr dz
+            self.w[:] = q * n * r * dtheta*dr*dz
+            # Modulate it by the density profile
+            if dens_func is not None :
+                self.w[:] = self.w * dens_func( self.z, r )
 
         # Allocate arrays for the particles sorting when using CUDA
-        self.cell_idx = np.empty(self.Ntot, dtype = np.int32)
-        self.sorted_idx = np.arange(self.Ntot, dtype = np.uint32)
+        self.cell_idx = np.empty( Ntot, dtype=np.int32)
+        self.sorted_idx = np.arange( Ntot, dtype=np.uint32)
+        self.particle_buffer = np.arange( Ntot, dtype=np.float64 )
 
     def send_particles_to_gpu( self ):
         """
@@ -215,6 +227,7 @@ class Particles(object) :
             # Initialize empty arrays on the GPU for the sorting
             self.cell_idx = cuda.device_array_like(self.cell_idx)
             self.sorted_idx = cuda.device_array_like(self.sorted_idx)
+            self.particle_buffer = cuda.device_array_like(self.particle_buffer)
 
     def receive_particles_from_gpu( self ):
         """
@@ -246,6 +259,30 @@ class Particles(object) :
             # that represent the sorting arrays
             self.cell_idx = np.empty(self.Ntot, dtype = np.int32)
             self.sorted_idx = np.arange(self.Ntot, dtype = np.uint32)
+            self.particle_buffer = np.arange( self.Ntot, dtype = np.float64)
+
+    def rearrange_particle_arrays( self ):
+        """
+        Rearranges the particle data arrays to match with the sorted
+        cell index array. The sorted index array is used to resort the
+        arrays. A particle buffer is used to temporarily store
+        the rearranged data.
+        """
+        # Get the threads per block and the blocks per grid
+        dim_grid_1d, dim_block_1d = cuda_tpb_bpg_1d( self.Ntot )
+        # Iterate over particle attributes
+        for attr in ['x', 'y', 'z', 'ux', 'uy', 'uz', 'w', 'inv_gamma']:
+            # Get particle GPU array
+            val = getattr(self, attr)
+            # Write particle data to particle buffer array while rearranging
+            write_particle_buffer[dim_grid_1d, dim_block_1d](
+                self.sorted_idx, val, self.particle_buffer)
+            # Assign the particle buffer to 
+            # the initial particle data array 
+            setattr(self, attr, self.particle_buffer)
+            # Assign the old particle data array to
+            # the particle buffer
+            self.particle_buffer = val
 
     def push_p( self ) :
         """
@@ -326,13 +363,14 @@ class Particles(object) :
         else:
             # Preliminary arrays for the cylindrical conversion
             r = np.sqrt( self.x**2 + self.y**2 )
-            invr = 1./r
-            cos = self.x*invr  # Cosine
-            sin = self.y*invr  # Sine
+            # Avoid division by 0.
+            invr = 1./np.where( r!=0., r, 1. )
+            cos = np.where( r!=0., self.x*invr, 1. )
+            sin = np.where( r!=0., self.y*invr, 0. )
 
             # Indices and weights
-            iz_lower, iz_upper, Sz_lower, Sz_upper = linear_weights(
-               self.z, grid[0].invdz, grid[0].zmin, grid[0].Nz, direction='z' )
+            iz_lower, iz_upper, Sz_lower, Sz_upper = linear_weights( self.z,
+                grid[0].invdz, grid[0].zmin, grid[0].Nz, direction='z')
             ir_lower, ir_upper, Sr_lower, Sr_upper, Sr_guard = linear_weights(
                 r, grid[0].invdr, grid[0].rmin, grid[0].Nr, direction='r' )
 
@@ -508,6 +546,8 @@ class Particles(object) :
             # Perform the inclusive parallel prefix sum
             incl_prefix_sum[dim_grid_1d, dim_block_1d](
                 self.cell_idx, d_prefix_sum)
+            # Rearrange the particle arrays
+            self.rearrange_particle_arrays()
 
             # Call the CUDA Kernel for the deposition of rho or J
             # for Mode 0 and 1 only.
@@ -519,7 +559,7 @@ class Particles(object) :
                     grid[0].invdz, grid[0].zmin, grid[0].Nz, 
                     grid[0].invdr, grid[0].rmin, grid[0].Nr,
                     d_F0, d_F1, d_F2, d_F3,
-                    self.cell_idx, self.sorted_idx, d_prefix_sum)
+                    self.cell_idx, d_prefix_sum)
                 # Add the four directions together
                 add_rho[dim_grid_2d, dim_block_2d](
                     grid[0].rho, grid[1].rho,
@@ -533,7 +573,7 @@ class Particles(object) :
                     grid[0].invdz, grid[0].zmin, grid[0].Nz, 
                     grid[0].invdr, grid[0].rmin, grid[0].Nr,
                     d_F0, d_F1, d_F2, d_F3,
-                    self.cell_idx, self.sorted_idx, d_prefix_sum)
+                    self.cell_idx, d_prefix_sum)
                 # Add the four directions together
                 add_J[dim_grid_2d, dim_block_2d](
                     grid[0].Jr, grid[1].Jr,
@@ -543,12 +583,15 @@ class Particles(object) :
             else :
                 raise ValueError(
         "`fieldtype` should be either 'J' or 'rho', but is `%s`" %fieldtype )
+
+        # CPU version
         else:       
             # Preliminary arrays for the cylindrical conversion
             r = np.sqrt( self.x**2 + self.y**2 )
-            invr = 1./r
-            cos = self.x*invr  # Cosine
-            sin = self.y*invr  # Sine
+            # Avoid division by 0.
+            invr = 1./np.where( r!=0., r, 1. )
+            cos = np.where( r!=0., self.x*invr, 1. )
+            sin = np.where( r!=0., self.y*invr, 0. )
 
             # Indices and weights
             iz_lower, iz_upper, Sz_lower, Sz_upper = linear_weights( 
