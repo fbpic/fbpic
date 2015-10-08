@@ -74,7 +74,7 @@ def test_pulse( Nz, Nr, Nm, Lz, Lr, Nt, w0, ctau,
     dt = Lz*1./Nz * 1./c
     
     # Initialize the fields object
-    fld = Fields( Nz, Lz, Nr, Lr, Nm, dt )
+    fld = Fields( Nz, Lz, Nr, Lr, Nm, dt, v_galilean = c )
     z0 = Lz/2
     init_fields( fld, w0, ctau, k0, z0, E0, m )
 
@@ -88,7 +88,7 @@ def test_pulse( Nz, Nr, Nm, Lz, Lr, Nt, w0, ctau,
     fld.interp2spect('B')
     
     #Create moving window object
-    mov_win = MovingWindow( fld.interp[0] )
+    mov_win = MovingWindow( fld.interp[0], v=0.)
 
     # Loop over the iterations
     print('Running the simulation...')

@@ -48,8 +48,9 @@ class Fields(object) :
         Contains the coefficients to solve the Maxwell equations
     """
 
-    def __init__( self, Nz, zmax, Nr, rmax, Nm, dt, n_order=-1,
-                  zmin=0., use_cuda=False, use_cuda_memory=True ) :
+    def __init__( self, Nz, zmax, Nr, rmax, Nm, dt, 
+                  n_order=-1, zmin=0., v_galilean=0.,
+                  use_cuda=False, use_cuda_memory=True ) :
         """
         Initialize the components of the Fields object
 
@@ -148,6 +149,7 @@ class Fields(object) :
                         kz_true, use_cuda=self.use_cuda ) )
             self.psatd.append( PsatdCoeffs( self.spect[m].kz,
                                 self.spect[m].kr, m, dt, Nz, Nr,
+                                V=v_galilean,
                                 use_cuda = self.use_cuda ) )
 
     def send_fields_to_gpu( self ):
@@ -196,7 +198,7 @@ class Fields(object) :
         """
         # Correct each azimuthal grid individually
         for m in range(self.Nm) :
-            self.spect[m].correct_currents( self.dt )
+            self.spect[m].correct_currents( self.dt, self.psatd[m] )
 
     def interp2spect(self, fieldtype) :
         """
@@ -689,7 +691,7 @@ class SpectralGrid(object) :
         self.rho_prev = self.rho_prev.copy_to_host()
         self.rho_next = self.rho_next.copy_to_host()
 
-    def correct_currents (self, dt) :
+    def correct_currents (self, dt, ps) :
         """
         Correct the currents so that they satisfy the
         charge conservation equation
@@ -713,16 +715,27 @@ class SpectralGrid(object) :
             # Correct the currents on the CPU
 
             # Calculate the intermediate variable F
-            self.F[:,:] = - self.inv_k2 * (
-                (self.rho_next - self.rho_prev)*inv_dt \
-                + 1.j*self.kz*self.Jz + self.kr*( self.Jp - self.Jm ) ) 
+            if ps.V != 0.:
+                self.F[:,:] = np.where(
+                                self.kz!=0,
+                                - self.inv_k2 * ( - 1.j*self.kz*ps.V * \
+                                (self.rho_next - self.rho_prev*ps.T)*(1./(1-ps.T)) \
+                                + 1.j*self.kz*self.Jz + self.kr*( self.Jp - self.Jm ) ),
+                                - self.inv_k2 * (
+                                (self.rho_next - self.rho_prev)*inv_dt \
+                                + 1.j*self.kz*self.Jz + self.kr*( self.Jp - self.Jm ) )
+                                )
+            else:
+                self.F[:,:] = - self.inv_k2 * (
+                    (self.rho_next - self.rho_prev)*inv_dt \
+                    + 1.j*self.kz*self.Jz + self.kr*( self.Jp - self.Jm ) ) 
             
             # Correct the current accordingly
             self.Jp += 0.5*self.kr*self.F
             self.Jm += -0.5*self.kr*self.F
             self.Jz += -1.j*self.kz*self.F
 
-    def push_eb_with(self, ps, ptcl_feedback=True, use_true_rho=False ) :
+    def push_eb_with(self, ps, ptcl_feedback=True, use_true_rho=True ) :
         """
         Push the fields over one timestep, using the psatd coefficients.
 
@@ -786,53 +799,56 @@ class SpectralGrid(object) :
                     (self.kr*self.Jp - self.kr*self.Jm + i*self.kz*self.Jz)
 
                 # Push the E field
-                self.Ep[:,:] = ps.C*self.Ep + 0.5*self.kr*rho_diff \
-                    + c2*ps.S_w*( -i*0.5*self.kr*self.Bz + self.kz*self.Bp \
+                self.Ep[:,:] = ps.T*ps.C*self.Ep + 0.5*self.kr*rho_diff \
+                    + ps.j_coef*i*self.kz*ps.V*self.Jp \
+                    + c2*ps.T*ps.S_w*( -i*0.5*self.kr*self.Bz + self.kz*self.Bp \
                               - mu_0*self.Jp )
 
-                self.Em[:,:] = ps.C*self.Em - 0.5*self.kr*rho_diff \
-                    + c2*ps.S_w*( -i*0.5*self.kr*self.Bz - self.kz*self.Bm \
+                self.Em[:,:] = ps.T*ps.C*self.Em - 0.5*self.kr*rho_diff \
+                    + ps.j_coef*i*self.kz*ps.V*self.Jm \
+                    + c2*ps.T*ps.S_w*( -i*0.5*self.kr*self.Bz - self.kz*self.Bm \
                               - mu_0*self.Jm )
 
-                self.Ez[:,:] = ps.C*self.Ez - i*self.kz*rho_diff \
-                    + c2*ps.S_w*( i*self.kr*self.Bp + i*self.kr*self.Bm \
+                self.Ez[:,:] = ps.T*ps.C*self.Ez - i*self.kz*rho_diff \
+                    + ps.j_coef*i*self.kz*ps.V*self.Jz \
+                    + c2*ps.T*ps.S_w*( i*self.kr*self.Bp + i*self.kr*self.Bm \
                       - mu_0*self.Jz )
 
                 # Push the B field
-                self.Bp[:,:] = ps.C*self.Bp \
-                    - ps.S_w*( -i*0.5*self.kr*ps.Ez + self.kz*ps.Ep ) \
+                self.Bp[:,:] = ps.T*ps.C*self.Bp \
+                    - ps.T*ps.S_w*( -i*0.5*self.kr*ps.Ez + self.kz*ps.Ep ) \
                     + ps.j_coef*( -i*0.5*self.kr*self.Jz + self.kz*self.Jp )
 
-                self.Bm[:,:] = ps.C*self.Bm \
-                    - ps.S_w*( -i*0.5*self.kr*ps.Ez - self.kz*ps.Em ) \
+                self.Bm[:,:] = ps.T*ps.C*self.Bm \
+                    - ps.T*ps.S_w*( -i*0.5*self.kr*ps.Ez - self.kz*ps.Em ) \
                     + ps.j_coef*( -i*0.5*self.kr*self.Jz - self.kz*self.Jm )
 
-                self.Bz[:,:] = ps.C*self.Bz \
-                    - ps.S_w*( i*self.kr*ps.Ep + i*self.kr*ps.Em ) \
+                self.Bz[:,:] = ps.T*ps.C*self.Bz \
+                    - ps.T*ps.S_w*( i*self.kr*ps.Ep + i*self.kr*ps.Em ) \
                     + ps.j_coef*( i*self.kr*self.Jp + i*self.kr*self.Jm )
 
             # Without particle feedback
             else :
 
                 # Push the E field
-                self.Ep[:,:] = ps.C*self.Ep \
-                + c2*ps.S_w*( -i*0.5*self.kr*self.Bz + self.kz*self.Bp )
+                self.Ep[:,:] = ps.T*ps.C*self.Ep \
+                + c2*ps.T*ps.S_w*( -i*0.5*self.kr*self.Bz + self.kz*self.Bp )
         
-                self.Em[:,:] = ps.C*self.Em \
-                + c2*ps.S_w*( -i*0.5*self.kr*self.Bz - self.kz*self.Bm )
+                self.Em[:,:] = ps.T*ps.C*self.Em \
+                + c2*ps.T*ps.S_w*( -i*0.5*self.kr*self.Bz - self.kz*self.Bm )
     
-                self.Ez[:,:] = ps.C*self.Ez \
-                + c2*ps.S_w*( i*self.kr*self.Bp + i*self.kr*self.Bm )
+                self.Ez[:,:] = ps.T*ps.C*self.Ez \
+                + c2*ps.T*ps.S_w*( i*self.kr*self.Bp + i*self.kr*self.Bm )
         
                 # Push the B field
-                self.Bp[:,:] = ps.C*self.Bp \
-                    - ps.S_w*( -i*0.5*self.kr*ps.Ez + self.kz*ps.Ep ) 
+                self.Bp[:,:] = ps.T*ps.C*self.Bp \
+                    - ps.T*ps.S_w*( -i*0.5*self.kr*ps.Ez + self.kz*ps.Ep ) 
     
-                self.Bm[:,:] = ps.C*self.Bm \
-                    - ps.S_w*( -i*0.5*self.kr*ps.Ez - self.kz*ps.Em ) 
+                self.Bm[:,:] = ps.T*ps.C*self.Bm \
+                    - ps.T*ps.S_w*( -i*0.5*self.kr*ps.Ez - self.kz*ps.Em ) 
 
-                self.Bz[:,:] = ps.C*self.Bz \
-                    - ps.S_w*( i*self.kr*ps.Ep + i*self.kr*ps.Em )
+                self.Bz[:,:] = ps.T*ps.C*self.Bz \
+                    - ps.T*ps.S_w*( i*self.kr*ps.Ep + i*self.kr*ps.Em )
 
     def push_rho(self) :
         """
@@ -958,7 +974,7 @@ class PsatdCoeffs(object) :
     Contains the coefficients of the PSATD scheme for a given mode.
     """
     
-    def __init__( self, kz, kr, m, dt, Nz, Nr, use_cuda=False ) :
+    def __init__( self, kz, kr, m, dt, Nz, Nr, V=0., use_cuda=False ) :
         """
         Allocates the coefficients matrices for the psatd scheme.
         
@@ -976,17 +992,27 @@ class PsatdCoeffs(object) :
         dt : float
             The timestep of the simulation
 
+        V : float
+            The velocity of a galilean moving frame,
+            in which the Maxwell equations are solved.
+
         use_cuda : bool, optional
             Wether to use the GPU or not
         """
-        
+        # Shortcuts
+        i = 1.j
+
         # Register m and dt
         self.m = m
         self.dt = dt
-    
+        inv_dt = 1./dt
+
+        # Register velocity of galilean moving frame
+        self.V = V
+
         # Construct the omega and inverse omega array
         w = c*np.sqrt( kz**2 + kr**2 )
-        inv_w = 1./np.where( w == 0, 1., w ) # Avoid division by 0 
+        inv_w = 1./np.where( w == 0, 1., w ) # Avoid division by 0
 
         # Construct the C coefficient arrays
         self.C = np.cos( w*dt )
@@ -996,22 +1022,57 @@ class PsatdCoeffs(object) :
         # Enforce the right value for w==0
         self.S_w[ w==0 ] = dt
         
-        # Construct the mu0 c2 (1-C)/w2 array
-        self.j_coef =  mu_0*c**2*(1.-self.C)*inv_w**2
+        # Theta coefficient due to galilean frame
+        self.T = np.exp(i*kz*V*dt)
+
+        # Precalculate some coefficients
+        if V != 0.:
+            # Calculate pre-factor
+            inv_w_kzV = 1./np.where( (w**2 - kz**2 * V**2)==0, 1., (w**2 - kz**2 * V**2) )
+            # Calculate factor involding 1/Theta
+            inv_1_Theta = 1./np.where(self.T == 1, 1., 1-self.T)
+            # Calculate Xi 1 coefficient
+            xi_1 = inv_w_kzV * (1. - self.T*self.C + i*kz*V*self.T*self.S_w)
+            # Calculate Xi 2 coefficient
+            xi_2 = np.where(
+                    kz!=0, 
+                    inv_w_kzV * ( 1. \
+                        + i*kz*V*self.T*self.S_w*inv_1_Theta \
+                        + kz**2*V**2*inv_w**2*self.T*inv_1_Theta*(1-self.C) ),
+                    1.*inv_w**2 * (1.-self.S_w*inv_dt) )
+            # Calculate Xi 3 coefficient
+            xi_3 = np.where(
+                    kz!=0, 
+                    self.T * inv_w_kzV * ( self.C \
+                        + i*kz*V*self.T*self.S_w*inv_1_Theta \
+                        + kz**2*V**2*inv_w**2*inv_1_Theta*(1-self.C) ),
+                    1.*inv_w**2 * (self.C-self.S_w*inv_dt) )
+
+        # Construct the mu0 c2 array
+        if V != 0.:
+            self.j_coef = mu_0*c**2*(xi_1)
+        else:
+            self.j_coef =  mu_0*c**2*(1.-self.C)*inv_w**2
+
         # Enforce the right value for w==0
         self.j_coef[ w==0 ] = mu_0*c**2*(0.5*dt**2)
 
-        # Construct rho_prev coefficient array
-        inv_dt = 1./dt
-        self.rho_prev_coef= c**2/epsilon_0*(self.C - inv_dt*self.S_w)*inv_w**2
+        # Calculate rho_prev coefficient array
+        if V != 0.:
+            self.rho_prev_coef = c**2/epsilon_0*(xi_3)
+        else:
+            self.rho_prev_coef= c**2/epsilon_0*(self.C - inv_dt*self.S_w)*inv_w**2
         # Enforce the right value for w==0
         self.rho_prev_coef[ w==0 ] = c**2/epsilon_0*(-1./3*dt**2)
 
-        # Construct rho_next coefficient array
-        self.rho_next_coef = c**2/epsilon_0*(1 - inv_dt*self.S_w)*inv_w**2
+        # Calculate rho_next coefficient array
+        if V != 0.:
+            self.rho_next_coef = c**2/epsilon_0*(xi_2)
+        else:
+            self.rho_next_coef = c**2/epsilon_0*(1 - inv_dt*self.S_w)*inv_w**2
         # Enforce the right value for w==0
         self.rho_next_coef[ w==0 ] = c**2/epsilon_0*(1./6*dt**2)
-        
+
         # Allocate useful auxiliary matrices
         self.Ep = np.zeros( (Nz, Nr), dtype='complex' )
         self.Em = np.zeros( (Nz, Nr), dtype='complex' )
@@ -1021,6 +1082,7 @@ class PsatdCoeffs(object) :
         if use_cuda :
             self.d_C = cuda.to_device(self.C)
             self.d_S_w = cuda.to_device(self.S_w)
+            self.d_T = cuda.to_device(self.T)
             self.d_j_coef = cuda.to_device(self.j_coef)
             self.d_rho_prev_coef = cuda.to_device(self.rho_prev_coef)
             self.d_rho_next_coef = cuda.to_device(self.rho_next_coef)
