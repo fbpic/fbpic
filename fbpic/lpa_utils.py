@@ -115,7 +115,8 @@ def add_laser( fld, a0, w0, ctau, z0, zf=None, lambda0=0.8e-6,
 
 
 def add_elec_bunch( sim, gamma0, n_e, p_zmin, p_zmax, p_rmin, p_rmax,
-                p_nr=2, p_nz=2, p_nt=4, filter_currents=True, dens_func=None ) :
+                p_nr=2, p_nz=2, p_nt=4, filter_currents=True, dens_func=None,
+                direction = 'forward' ) :
     """
     Introduce a relativistic electron bunch in the simulation,
     along with its space charge field.
@@ -149,6 +150,10 @@ def add_elec_bunch( sim, gamma0, n_e, p_zmin, p_zmax, p_rmin, p_rmax,
 
     filter_currents : bool, optional
         Whether to filter the currents (in k space by default)
+
+    direction : string, optional
+        Can be either "forward" or "backward".
+        Propagation direction of the beam.
     """
     # Modify the input parameters p_zmin, p_zmax, r_zmin, r_zmax, so that
     # they fall exactly on the grid, and infer the number of particles
@@ -171,13 +176,19 @@ def add_elec_bunch( sim, gamma0, n_e, p_zmin, p_zmax, p_rmin, p_rmax,
     relat_elec.inv_gamma[:] = 1./gamma0
     relat_elec.uz[:] = np.sqrt( gamma0**2 -1.)
     
+    # Electron beam moving in the background direction
+    if direction == 'backward':
+        relat_elec.uz[:] *= -1.
+
     # Add them to the particles of the simulation
     sim.ptcl.append( relat_elec )
 
     # Get the corresponding space-charge fields
-    get_space_charge_fields( sim.fld, [relat_elec], gamma0, filter_currents )
+    get_space_charge_fields( sim.fld, [relat_elec], gamma0, 
+                             filter_currents, direction = direction)
     
-def add_elec_bunch_file( sim, filename, Q_tot, z_off=0., filter_currents=True) :
+def add_elec_bunch_file( sim, filename, Q_tot, z_off=0., 
+                         filter_currents=True, direction = 'forward' ) :
     """
     Introduce a relativistic electron bunch in the simulation,
     along with its space charge field,
@@ -198,6 +209,10 @@ def add_elec_bunch_file( sim, filename, Q_tot, z_off=0., filter_currents=True) :
  
     filter_currents : bool, optional
         Whether to filter the currents (in k space by default)
+
+    direction : string, optional
+        Can be either "forward" or "backward".
+        Propagation direction of the beam.
     """
 
     # Load phase space to numpy array
@@ -237,10 +252,11 @@ def add_elec_bunch_file( sim, filename, Q_tot, z_off=0., filter_currents=True) :
     # include a larger tolerance of the deviation of inv_gamma from 1./gamma0
     # to allow for energy spread
     get_space_charge_fields( sim.fld, [relat_elec], gamma0,
-                             filter_currents, check_gaminv=False)
+                             filter_currents, check_gaminv=False,
+                             direction = direction)
     
 def get_space_charge_fields( fld, ptcl, gamma, filter_currents=True,
-                             check_gaminv=True ) :
+                             check_gaminv=True, direction = 'forward' ) :
     """
     Calculate the space charge field on the grid
 
@@ -267,6 +283,10 @@ def get_space_charge_fields( fld, ptcl, gamma, filter_currents=True,
     check_gaminv : bool, optional
         Explicitly check that all particles have the same
         gamma factor (assumed by the model)
+
+    direction : string, optional
+        Can be either "forward" or "backward".
+        Propagation direction of the beam.
     """
     # Check that all the particles have the right gamma
     if check_gaminv:
@@ -294,7 +314,7 @@ def get_space_charge_fields( fld, ptcl, gamma, filter_currents=True,
 
     # Get the space charge field in spectral space
     for m in range(fld.Nm) :
-        get_space_charge_spect( fld.spect[m], gamma )
+        get_space_charge_spect( fld.spect[m], gamma, direction )
 
     # Convert to the interpolation grid
     fld.spect2interp( 'E' )
@@ -304,7 +324,7 @@ def get_space_charge_fields( fld, ptcl, gamma, filter_currents=True,
     for m in range(fld.Nm) :
         fld.spect[m].push_rho()
 
-def get_space_charge_spect( spect, gamma ) :
+def get_space_charge_spect( spect, gamma, direction = 'forward' ) :
     """
     Determine the space charge field in spectral space
 
@@ -320,10 +340,19 @@ def get_space_charge_spect( spect, gamma ) :
     gamma : float
         The Lorentz factor of the particles which produce the
         space charge field
+
+    direction : string, optional
+        Can be either "forward" or "backward".
+        Propagation direction of the beam.
     """
     # Speed of the beam
     beta = np.sqrt(1.-1./gamma**2)
+
+    # Propagation direction of the beam
+    if direction == 'backward':
+        beta *= -1.
     
+    print beta
     # Get the denominator
     K2 = spect.kr**2 + spect.kz**2 * 1./gamma**2
     K2_corrected = np.where( K2 != 0, K2, 1. )
