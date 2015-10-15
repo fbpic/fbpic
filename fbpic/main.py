@@ -5,10 +5,11 @@ This file steers and controls the simulation.
 """
 import sys
 from scipy.constants import m_e, m_p, e
-from fields import Fields
-from particles import Particles
+from .fields import Fields
+from .particles import Particles
+from .lpa_utils.boosted_frame import BoostConverter
 try:
-    from cuda_utils import *
+    from .cuda_utils import *
     cuda_installed = True
 except ImportError:
     cuda_installed = False
@@ -31,7 +32,7 @@ class Simulation(object) :
     def __init__(self, Nz, zmax, Nr, rmax, Nm, dt, p_zmin, p_zmax,
                  p_rmin, p_rmax, p_nz, p_nr, p_nt, n_e, zmin=0.,
                  n_order=-1,dens_func=None, filter_currents=True,
-                 initialize_ions=False, use_cuda = False) :
+                 initialize_ions=False, use_cuda=False, gamma_boost=None) :
         """
         Initializes a simulation, by creating the following structures :
         - the Fields object, which contains the EM fields
@@ -93,11 +94,26 @@ class Simulation(object) :
            
         use_cuda : bool, optional
             Wether to use CUDA (GPU) acceleration
+
+        gamma_boost : float, optional
+            When initializing the laser in a boosted frame, set the
+            value of `gamma_boost` to the corresponding Lorentz factor.
+            All the other quantities (zmin, zmax, n_e, etc.) are to be given
+            in the lab frame.
         """
         # Check whether to use cuda
         self.use_cuda = use_cuda
         if (use_cuda==True) and (cuda_installed==False) :
             self.use_cuda = False
+
+        # When running the simulation in a boosted frame, convert the arguments
+        uz_m = 0.   # Mean normalized momentum of the particles
+        if gamma_boost is not None:
+            boost = BoostConverter( gamma_boost )
+            zmin, zmax, dt = boost.copropag_length([ zmin, zmax, dt ])
+            p_zmin, p_zmax = boost.static_length([ p_zmin, p_zmax ])
+            n_e, = boost.static_density([ n_e ])
+            uz_m, = boost.longitudinal_momentum([ uz_m ])
 
         # Initialize the field structure
         self.fld = Fields(Nz, zmax, Nr, rmax, Nm, dt, n_order=n_order,
@@ -115,13 +131,13 @@ class Simulation(object) :
             Particles( q=-e, m=m_e, n=n_e, Npz=Npz, zmin=p_zmin,
                        zmax=p_zmax, Npr=Npr, rmin=p_rmin, rmax=p_rmax,
                        Nptheta=p_nt, dt=dt, dens_func=dens_func,
-                       use_cuda=self.use_cuda) ]
+                       use_cuda=self.use_cuda, uz_m=uz_m) ]
         if initialize_ions :
             self.ptcl.append(
                 Particles(q=e, m=m_p, n=n_e, Npz=Npz, zmin=p_zmin,
                           zmax=p_zmax, Npr=Npr, rmin=p_rmin, rmax=p_rmax,
                           Nptheta=p_nt, dt=dt, dens_func=dens_func,
-                          use_cuda=self.use_cuda ) )
+                          use_cuda=self.use_cuda, uz_m=uz_m) )
         
         # Register the number of particles per cell along z, and dt
         # (Necessary for the moving window)

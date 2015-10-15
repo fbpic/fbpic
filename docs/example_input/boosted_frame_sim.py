@@ -24,7 +24,7 @@ import matplotlib.pyplot as plt
 from scipy.constants import c
 # Import the relevant structures in FBPIC
 from fbpic.main import Simulation
-from fbpic.lpa_utils import add_laser, BoostConverter
+from fbpic.lpa_utils import add_laser
 from fbpic.moving_window import MovingWindow
 from fbpic.openpmd_diag import FieldDiagnostic, ParticleDiagnostic
 
@@ -44,7 +44,7 @@ dt = (zmax-zmin)/Nz/c   # Timestep (seconds)
 N_step = 400           # Number of iterations to perform
 
 # Boosted frame
-gamma0 = 4.
+gamma_boost = 4.
 
 # The particles
 p_zmin = 5.e-6  # Position of the beginning of the plasma (meters)
@@ -90,16 +90,6 @@ def dens_func( z, r ):
     
     return(n)
 
-# -------------------------------------------
-# Perform a boost of the different quantities
-# -------------------------------------------
-boost = BoostConverter( gamma0 )
-p_zmin, p_zmax, zfoc = boost.static_length([ p_zmin, p_zmax, zfoc ])
-zmin, zmax, z0, dt = boost.copropag_length([ zmin, zmax, z0, dt ])
-ctau, lambda0 = boost.copropag_length([ ctau, lambda0 ])
-n_e, = boost.static_density([ n_e ])
-uz_m, = boost.longitudinal_momentum([ uz_m ])
-
 # -----------------------
 # Checking the parameters
 # -----------------------
@@ -118,13 +108,12 @@ sim = Simulation( Nz, zmax, Nr, rmax, Nm, dt,
     dens_func=dens_func, zmin=zmin, initialize_ions=True ) 
 
 # Add a laser to the fields of the simulation
-add_laser( sim.fld, a0, w0, ctau, z0, lambda0=lambda0, zf=zfoc )
+add_laser( sim.fld, a0, w0, ctau, z0, lambda0=lambda0,
+           zf=zfoc, gamma_boost=gamma_boost )
 
 # Configure the moving window
-sim.moving_win = MovingWindow( sim.fld.interp[0],
-                               ncells_damp=ncells_damp,
-                               ncells_zero=ncells_zero,
-                               uz_m=uz_m, period=1 )
+sim.moving_win = MovingWindow( sim.fld.interp[0], gamma_boost=gamma_boost,
+                period=1, ncells_damp=ncells_damp, ncells_zero=ncells_zero )
 
 # Add a field diagnostic
 sim.diags = [ FieldDiagnostic(diag_period, sim.fld, fieldtypes=fieldtypes),

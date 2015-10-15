@@ -4,7 +4,8 @@ It defines the structure necessary to implement the moving window.
 """
 import numpy as np
 from scipy.constants import c
-from particles import Particles
+from .particles import Particles
+from .lpa_utils.boosted_frame import BoostConverter
 
 try :
     from numba import cuda
@@ -37,7 +38,7 @@ class MovingWindow(object) :
     def __init__( self, interp, v=c, ncells_zero=1,
                   ncells_damp=1, period=1, damp_shape='cos',
                   gradual_damp_EB=True, ux_m=0., uy_m=0., uz_m=0.,
-                  ux_th=0., uy_th=0., uz_th=0. ) :
+                  ux_th=0., uy_th=0., uz_th=0., gamma_boost=None ) :
         """
         Initializes a moving window object.
 
@@ -75,6 +76,12 @@ class MovingWindow(object) :
 
         ux_th, uy_th, uz_th: floats (dimensionless)
            Normalized thermal momenta in each direction
+
+        gamma_boost : float, optional
+            When initializing the laser in a boosted frame, set the
+            value of `gamma_boost` to the corresponding Lorentz factor.
+            (uz_m is to be given in the lab frame ; for the moment, this
+            will not work if any of ux_th, uy_th, uz_th, ux_m, uy_m is nonzero)
         """
         # Momenta parameters
         self.ux_m = ux_m
@@ -83,6 +90,11 @@ class MovingWindow(object) :
         self.ux_th = ux_th
         self.uy_th = uy_th
         self.uz_th = uz_th
+
+        # When running the simulation in boosted frame, convert the arguments
+        if gamma_boost is not None:
+            boost = BoostConverter( gamma_boost )
+            self.uz_m, = boost.longitudinal_momentum([ self.uz_m ])
         
         # Attach positions and speed
         # - Moving window speed
