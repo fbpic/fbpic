@@ -9,7 +9,7 @@ from numba import cuda
                  complex128[:,:], complex128[:,:], complex128[:,:], \
                  complex128[:,:], complex128[:,:], complex128[:,:], \
                  complex128[:,:], complex128[:,:], complex128[:,:], \
-                 int32, int32, int32')
+                 int32, int32, int32 )')
 def copy_EB_to_gpu_buffers( EB_left, EB_right,
                             Er0, Et0, Ez0, Br0, Bt0, Bz0,
                             Er1, Et1, Ez1, Br1, Bt1, Bz1,
@@ -90,7 +90,7 @@ def copy_EB_to_gpu_buffers( EB_left, EB_right,
                  complex128[:,:], complex128[:,:], complex128[:,:], \
                  complex128[:,:], complex128[:,:], complex128[:,:], \
                  complex128[:,:], complex128[:,:], complex128[:,:], \
-                 int32, int32, int32')
+                 int32, int32, int32 )')
 def copy_EB_from_gpu_buffers( EB_left, EB_right,
                             Er0, Et0, Ez0, Br0, Bt0, Bz0,
                             Er1, Et1, Ez1, Br1, Bt1, Bz1,
@@ -169,7 +169,7 @@ def copy_EB_from_gpu_buffers( EB_left, EB_right,
 @cuda.jit('void( complex128[:,:], complex128[:,:], \
                  complex128[:,:], complex128[:,:], complex128[:,:], \
                  complex128[:,:], complex128[:,:], complex128[:,:], \
-                 int32, int32, int32')
+                 int32, int32, int32 )')
 def copy_J_to_gpu_buffers( J_left, J_right,
                             Jr0, Jt0, Jz0, Jr1, Jt1, Jz1, 
                             copy_left, copy_right, ng ):
@@ -232,7 +232,7 @@ def copy_J_to_gpu_buffers( J_left, J_right,
 @cuda.jit('void( complex128[:,:], complex128[:,:], \
                  complex128[:,:], complex128[:,:], complex128[:,:], \
                  complex128[:,:], complex128[:,:], complex128[:,:], \
-                 int32, int32, int32')
+                 int32, int32, int32 )')
 def add_J_from_gpu_buffers( J_left, J_right,
                             Jr0, Jt0, Jz0, Jr1, Jt1, Jz1, 
                             copy_left, copy_right, ng ):
@@ -293,7 +293,7 @@ def add_J_from_gpu_buffers( J_left, J_right,
 
 @cuda.jit('void( complex128[:,:], complex128[:,:], \
                  complex128[:,:], complex128[:,:], \
-                 int32, int32, int32')
+                 int32, int32, int32 )')
 def copy_rho_to_gpu_buffers( rho_left, rho_right, rho0, rho1,
                             copy_left, copy_right, ng ):
     """
@@ -346,7 +346,7 @@ def copy_rho_to_gpu_buffers( rho_left, rho_right, rho0, rho1,
 
 @cuda.jit('void( complex128[:,:], complex128[:,:], \
                  complex128[:,:], complex128[:,:], \
-                 int32, int32, int32')
+                 int32, int32, int32 )')
 def add_rho_from_gpu_buffers( rho_left, rho_right, rho0, rho1,
                             copy_left, copy_right, ng ):
     """
