@@ -13,7 +13,7 @@ from numba import cuda
 def copy_EB_to_gpu_buffers( EB_left, EB_right,
                             Er0, Et0, Ez0, Br0, Bt0, Bz0,
                             Er1, Et1, Ez1, Br1, Bt1, Bz1,
-                            copy_left, copy_right, ng )
+                            copy_left, copy_right, ng ):
     """
     Copy the ng inner domain cells of Er0, ..., Bz1
     to the GPU buffer EB_left and EB_right
@@ -94,7 +94,7 @@ def copy_EB_to_gpu_buffers( EB_left, EB_right,
 def copy_EB_from_gpu_buffers( EB_left, EB_right,
                             Er0, Et0, Ez0, Br0, Bt0, Bz0,
                             Er1, Et1, Ez1, Br1, Bt1, Bz1,
-                            copy_left, copy_right, ng )
+                            copy_left, copy_right, ng ):
     """
     Copy the GPU buffer EB_left and EB_right to the ng guards
     cells of Er0, ..., Bz1
@@ -172,7 +172,7 @@ def copy_EB_from_gpu_buffers( EB_left, EB_right,
                  int32, int32, int32')
 def copy_J_to_gpu_buffers( J_left, J_right,
                             Jr0, Jt0, Jz0, Jr1, Jt1, Jz1, 
-                            copy_left, copy_right, ng )
+                            copy_left, copy_right, ng ):
     """
     Copy the 2*ng outermost cells of Jr0, ..., Jz1 to the GPU buffers
     J_left and J_right
@@ -235,7 +235,7 @@ def copy_J_to_gpu_buffers( J_left, J_right,
                  int32, int32, int32')
 def add_J_from_gpu_buffers( J_left, J_right,
                             Jr0, Jt0, Jz0, Jr1, Jt1, Jz1, 
-                            copy_left, copy_right, ng )
+                            copy_left, copy_right, ng ):
     """
     Add the GPU buffer J_left and J_right to the 2*ng outermost 
     cells of Jr0, ..., Jz1
@@ -295,7 +295,7 @@ def add_J_from_gpu_buffers( J_left, J_right,
                  complex128[:,:], complex128[:,:], \
                  int32, int32, int32')
 def copy_rho_to_gpu_buffers( rho_left, rho_right, rho0, rho1,
-                            copy_left, copy_right, ng )
+                            copy_left, copy_right, ng ):
     """
     Copy the 2*ng outermost cells of rho0, rho1 to the GPU buffers
     rho_left and rho_right
@@ -348,7 +348,7 @@ def copy_rho_to_gpu_buffers( rho_left, rho_right, rho0, rho1,
                  complex128[:,:], complex128[:,:], \
                  int32, int32, int32')
 def add_rho_from_gpu_buffers( rho_left, rho_right, rho0, rho1,
-                            copy_left, copy_right, ng )
+                            copy_left, copy_right, ng ):
     """
     Add the GPU buffers rho_left and rho_right to the 2*ng outermost
     cells of rho0, rho1
