@@ -76,7 +76,7 @@ def add_laser( fld, a0, w0, ctau, z0, zf=None, lambda0=0.8e-6,
     if (gamma_boost is not None) and (fw_propagating==True):
         boost = BoostConverter( gamma_boost )
         zr, zf = boost.static_length([ zr, zf])
-        ctau, z0, lambda0 = boost.copropag_length([ ctau, lambda0, z0 ])
+        ctau, z0, lambda0 = boost.copropag_length([ ctau, z0, lambda0 ])
         k0, E0 = boost.wavenumber([ k0, E0 ])
 
     # Get the 2D mesh for z and r
