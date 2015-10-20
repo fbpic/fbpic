@@ -3,6 +3,7 @@ This file is part of the Fourier-Bessel Particle-In-Cell code (FB-PIC)
 It defines the structure necessary to handle mpi buffers, in parallel.py
 """
 try :
+    from fbpic.cuda_utils import cuda_tpb_bpg_2d
     from .cuda_methods import *
     cuda_installed = True
 except ImportError :
