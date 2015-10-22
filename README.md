@@ -58,5 +58,5 @@ FBPIC structures. An example script (called `lpa_sim.py`) can be found in
 `python -i lpa_sim.py`.
 
 The code outputs HDF5 files, that comply with the
-[OpenPMD standard](https://github.com/ComputationalRadiationPhysics/openPMD),
- and which can thus be read as such.
+[OpenPMD standard](http://www.openpmd.org/#/start),
+ and which can thus be read as such (e.g. by using the [openPMD-viewer](https://github.com/openPMD/openPMD-viewer)).

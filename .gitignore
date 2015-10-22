@@ -1,5 +1,6 @@
 *~
 *.bbl
+*.spl
 *.blg
 *.DS_Store
 *.aux
