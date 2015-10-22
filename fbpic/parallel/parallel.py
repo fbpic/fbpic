@@ -358,8 +358,8 @@ class MPI_Communicator(object) :
 
         Parameters :
         ------------
-        ptcl : list
-            A list of Particles objects
+        ptcl : a Particle object
+            The object corresponding to a given species
         """
         # Shortcuts for number of guard cells and spacing between cells
         ng = self.n_guard
@@ -378,6 +378,10 @@ class MPI_Communicator(object) :
             periodic_offset_left = 0.
             periodic_offset_right = 0.
 
+        # If needed, copy the particles to the CPU
+        if ptcl.use_cuda:
+            ptcl.receive_particles_from_gpu()
+            
         # Select the particles that are in the left or right guard cells,
         # and those that stay on the local process
         selec_left = ( ptcl.z < (zmin + ng*dz) )
@@ -385,9 +389,9 @@ class MPI_Communicator(object) :
         selec_stay = (np.logical_not(selec_left) & np.logical_not(selec_right))
         # Count them, and convert the result into an array
         # so as to send them easily.
-        N_send_l = np.array( sum(selec_left), dtype=np.int32)
-        N_send_r = np.array( sum(selec_right), dtype=np.int32)
-        N_stay = sum(selec_stay)
+        N_send_l = np.array( selec_left.sum(), dtype=np.int32)
+        N_send_r = np.array( selec_right.sum(), dtype=np.int32)
+        N_stay = selec_stay.sum()
 
         # Initialize empty arrays to receive the number of particles that
         # will be send to this domain.
@@ -461,6 +465,10 @@ class MPI_Communicator(object) :
         # Reallocate the cell index and sorted index arrays
         ptcl.cell_idx = np.empty(ptcl.Ntot, dtype = np.int32)
         ptcl.sorted_idx = np.arange(ptcl.Ntot, dtype = np.uint32)
+
+        # If needed, copy the particles to the GPU
+        if ptcl.use_cuda:
+            ptcl.send_particles_to_gpu()
 
     def create_damp_array( self, ncells_damp = 0, damp_shape = 'cos'):
         """
