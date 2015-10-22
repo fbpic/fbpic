@@ -12,15 +12,7 @@ This file describes how to install `pyfftw` in `mpi4py` in this case.
 Installation of `pyfftw`
 -------------------
 
-For OSX :
-`conda install -c https://conda.binstar.org/asmeurer pyfftw`
-
-For Linux :
-`conda install -c https://conda.binstar.org/richli pyfftw`
-
-(See
-[this link](https://groups.google.com/a/continuum.io/forum/#!topic/anaconda/_nDXdAYweCI)
-for reference)
+`conda install -c https://conda.anaconda.org/mforbes pyfftw`
 
 Bug fix  of `mpi4py` on OSX
 ------------------------
