@@ -1208,8 +1208,9 @@ def sort_particles_per_cell(cell_idx, sorted_idx):
         particle before the sorting.
     """
     Ntot = cell_idx.shape[0]
-    sorter = sorting.RadixSort(Ntot, dtype = np.int32)
-    sorter.sort(cell_idx, vals = sorted_idx)
+    if Ntot > 0:
+        sorter = sorting.RadixSort(Ntot, dtype = np.int32)
+        sorter.sort(cell_idx, vals = sorted_idx)
 
 @cuda.jit('void(int32[:], int32[:])')
 def incl_prefix_sum(cell_idx, prefix_sum):

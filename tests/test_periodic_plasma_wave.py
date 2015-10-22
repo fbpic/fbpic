@@ -212,7 +212,7 @@ if __name__ == '__main__' :
     # Do the initial charge deposition (at t=0) now
     sim.fld.erase('rho')
     for species in sim.ptcl :
-        species.deposit( sim.fld.interp, 'rho' )
+        species.deposit( sim.fld, 'rho' )
     sim.fld.divide_by_volume('rho')
     # Bring it to the spectral space
     sim.fld.interp2spect('rho_prev')

@@ -74,7 +74,7 @@ def test_pulse( Nz, Nr, Nm, Lz, Lr, Nt, w0, ctau,
     dt = Lz*1./Nz * 1./c
     
     # Initialize the fields object
-    fld = Fields( Nz, Lz, Nr, Lr, Nm, dt )
+    fld = Fields( Nz, Lz, Nr, Lr, Nm, dt, use_cuda = True )
     z0 = Lz/2
     init_fields( fld, w0, ctau, k0, z0, E0, m )
 
@@ -89,12 +89,13 @@ def test_pulse( Nz, Nr, Nm, Lz, Lr, Nt, w0, ctau,
     
     #Create moving window object
     mov_win = MovingWindow( fld.interp[0] )
-
+    
     # Loop over the iterations
     print('Running the simulation...')
     for it in range(Nt) :
-        # Shift the fields using the moving window
-        mov_win.move( fld.interp, [], 1, dt )
+	fld.send_fields_to_gpu()
+	# Shift the fields using the moving window
+        mov_win.move( fld, [], 1, dt )
         # Put the fields onto the spectral grid
         fld.interp2spect('E')
         fld.interp2spect('B')
@@ -103,6 +104,7 @@ def test_pulse( Nz, Nr, Nm, Lz, Lr, Nt, w0, ctau,
         # Bring the fields back onto the interpolation grid
         fld.spect2interp('E')
         fld.spect2interp('B')
+	fld.receive_fields_from_gpu()
         # Fit the fields to find the waist and a0
         w[it], E[it] = fit_fields( fld, m )
         # Since the fit returns the RMS of E, renormalize it
