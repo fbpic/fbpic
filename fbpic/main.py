@@ -283,7 +283,7 @@ class Simulation(object) :
             if moving_window or self.use_mpi :
                 if self.use_mpi:
                     # Damp the fields in the guard cells
-                    self.comm.damp_guard_fields(self.fld.interp)
+                    self.comm.damp_guard_fields( fld.interp )
                 # Get the exchanged and/or damped fields 
                 # E and B on the spectral grid
                 fld.interp2spect('E')

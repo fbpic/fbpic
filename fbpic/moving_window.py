@@ -724,7 +724,8 @@ if cuda_installed :
         if (i + n_move) < field_array.shape[0] and j < field_array.shape[1]:
             field_buffer[i, j] = field_array[i+n_move, j]
         # Set the remaining values to zero
-        if (i + n_move) >= field_array.shape[0] and i < field_array.shape[0] and j < field_array.shape[1]:
+        if (i + n_move) >= field_array.shape[0] and i < field_array.shape[0] \
+          and j < field_array.shape[1]:
             field_buffer[i, j] = 0.
 
     @cuda.jit('void(float64[:], float64[:])')

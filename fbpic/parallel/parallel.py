@@ -7,6 +7,11 @@ from mpi4py import MPI as mpi
 from fbpic.fields.fields import InterpolationGrid
 from fbpic.particles.particles import Particles
 from .buffer_handling import *
+try :
+    from fbpic.cuda_utils import *
+    from fbpic.moving_window import cuda_damp_EB
+except ImportError :
+    cuda_installed = False
 
 # Dictionary of correspondance between numpy types and mpi types
 # (Necessary when calling Gatherv)
@@ -156,6 +161,8 @@ class MPI_Communicator(object) :
         # The n_guard/2 last cells on both sides of the 
         # domain are damped by default.
         self.create_damp_array( ncells_damp = int(n_guard/2) )
+        if cuda_installed:
+            self.d_damp_array = cuda.to_device( self.damp_array )
 
         # Get the rank of the left and the right domain
         self.left_proc = self.rank-1
@@ -513,25 +520,46 @@ class MPI_Communicator(object) :
             A list of InterpolationGrid objects (one per azimuthal mode)
         """
         # Number of cells that are damped
-        dc = len(self.damp_array) 
-        # Damping of the fields in the guard cells.
-        # Shape and length defined by self.damp_array
-        # (create_damp_array needs to be called before this function)
-        for m in range(self.Nm):
-            # Damp the fields in left guard cells
-            interp[m].Er[:dc,:] *= self.damp_array[:,np.newaxis]
-            interp[m].Et[:dc,:] *= self.damp_array[:,np.newaxis]
-            interp[m].Ez[:dc,:] *= self.damp_array[:,np.newaxis]
-            interp[m].Br[:dc,:] *= self.damp_array[:,np.newaxis]
-            interp[m].Bt[:dc,:] *= self.damp_array[:,np.newaxis]
-            interp[m].Bz[:dc,:] *= self.damp_array[:,np.newaxis]
-            # Damp the fields in right guard cells
-            interp[m].Er[-dc:,:] *= self.damp_array[::-1,np.newaxis]
-            interp[m].Et[-dc:,:] *= self.damp_array[::-1,np.newaxis]
-            interp[m].Ez[-dc:,:] *= self.damp_array[::-1,np.newaxis]
-            interp[m].Br[-dc:,:] *= self.damp_array[::-1,np.newaxis]
-            interp[m].Bt[-dc:,:] *= self.damp_array[::-1,np.newaxis]
-            interp[m].Bz[-dc:,:] *= self.damp_array[::-1,np.newaxis]
+        n_damp = len(self.damp_array)
+            
+        # Determine which boundary should be damped
+        damp_left = False
+        damp_right = False
+        if self.left_proc is not None:
+            damp_left = True
+        if self.right_proc is not None:
+            damp_right = True
+
+        # Damp the fields on the CPU or the GPU
+        if interp[0].use_cuda :
+            # Damp the fields on the GPU
+            dim_grid, dim_block = cuda_tpb_bpg_2d( n_damp, interp[0].Nr )
+
+            cuda_damp_EB[dim_grid, dim_block](
+                interp[0].Er, interp[0].Et, interp[0].Ez,
+                interp[0].Br, interp[0].Bt, interp[0].Bz,
+                interp[1].Er, interp[1].Et, interp[1].Ez,
+                interp[1].Br, interp[1].Bt, interp[1].Bz,
+                self.d_damp_array, 0, n_damp, damp_left, damp_right )
+
+        else :
+            # Damp the fields on the CPU
+            
+            for m in range(self.Nm):
+                # Damp the fields in left guard cells
+                interp[m].Er[:n_damp,:] *= self.damp_array[:,np.newaxis]
+                interp[m].Et[:n_damp,:] *= self.damp_array[:,np.newaxis]
+                interp[m].Ez[:n_damp,:] *= self.damp_array[:,np.newaxis]
+                interp[m].Br[:n_damp,:] *= self.damp_array[:,np.newaxis]
+                interp[m].Bt[:n_damp,:] *= self.damp_array[:,np.newaxis]
+                interp[m].Bz[:n_damp,:] *= self.damp_array[:,np.newaxis]
+                # Damp the fields in right guard cells
+                interp[m].Er[-n_damp:,:] *= self.damp_array[::-1,np.newaxis]
+                interp[m].Et[-n_damp:,:] *= self.damp_array[::-1,np.newaxis]
+                interp[m].Ez[-n_damp:,:] *= self.damp_array[::-1,np.newaxis]
+                interp[m].Br[-n_damp:,:] *= self.damp_array[::-1,np.newaxis]
+                interp[m].Bt[-n_damp:,:] *= self.damp_array[::-1,np.newaxis]
+                interp[m].Bz[-n_damp:,:] *= self.damp_array[::-1,np.newaxis]
 
     def gather_grid( self, grid, root = 0):
         """
