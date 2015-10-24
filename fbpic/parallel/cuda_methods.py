@@ -136,7 +136,7 @@ def copy_EB_from_gpu_buffers( EB_left, EB_right,
         if iz < ng:
             # At the left end
             if copy_left:
-                iz_left = ng + iz
+                iz_left = iz
                 Er0[ iz_left, ir ] = EB_left[0, iz, ir]
                 Et0[ iz_left, ir ] = EB_left[1, iz, ir]
                 Ez0[ iz_left, ir ] = EB_left[2, iz, ir]
@@ -151,7 +151,7 @@ def copy_EB_from_gpu_buffers( EB_left, EB_right,
                 Bz1[ iz_left, ir ] = EB_left[5+offset, iz, ir]
             # At the right end
             if copy_right:
-                iz_right = Nz - 2*ng + iz
+                iz_right = Nz - ng + iz
                 Er0[ iz_right, ir ] = EB_right[0, iz, ir]
                 Et0[ iz_right, ir ] = EB_right[1, iz, ir]
                 Ez0[ iz_right, ir ] = EB_right[2, iz, ir]
