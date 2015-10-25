@@ -469,13 +469,15 @@ class MPI_Communicator(object) :
         ptcl.Bx = np.empty(ptcl.Ntot, dtype = np.float64)
         ptcl.By = np.empty(ptcl.Ntot, dtype = np.float64)
         ptcl.Bz = np.empty(ptcl.Ntot, dtype = np.float64)
-        # Reallocate the cell index and sorted index arrays
+        # Reallocate the cell index and sorted index arrays on the CPU
         ptcl.cell_idx = np.empty(ptcl.Ntot, dtype = np.int32)
         ptcl.sorted_idx = np.arange(ptcl.Ntot, dtype = np.uint32)
-
+        ptcl.particle_buffer = np.arange(ptcl.Ntot, dtype = np.float64)
         # If needed, copy the particles to the GPU
         if ptcl.use_cuda:
             ptcl.send_particles_to_gpu()
+        # The particles are unsorted after adding new particles.
+        ptcl.sorted = False
 
     def create_damp_array( self, ncells_damp = 0, damp_shape = 'cos'):
         """
