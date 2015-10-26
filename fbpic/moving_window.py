@@ -185,14 +185,6 @@ class MovingWindow(object) :
         # Move the window
         if n_move > 0 :
             
-            # Exchange the paticles, when using MPI
-            if comm is not None :
-                # Exchange only if this was not done previously in main.py
-                if self.period % comm.exchange_part_period != 0 :
-                    for species in ptcl:
-                        comm.exchange_particles( species,
-                            interp[0].zmin, interp[0].zmax )
-            
             # Shift the fields
             Nm = len(interp)
             for m in range(Nm) :

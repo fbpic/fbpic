@@ -218,11 +218,6 @@ class Simulation(object) :
             # in the guard cells between domains
             if self.use_mpi:
                 self.comm.exchange_fields(self.fld.interp, 'EB')
-                # Particle exchange every exchange_part_period
-                if self.iteration % self.comm.exchange_part_period == 0:
-                    for species in self.ptcl:
-                        self.comm.exchange_particles(species,
-                            fld.interp[0].zmin, fld.interp[0].zmax )
 
             # Run the diagnostics
             for diag in self.diags :
@@ -252,6 +247,14 @@ class Simulation(object) :
                 # and right boundary). When using MPI, only the last
                 # and first processors damp the fields.
                 self.moving_win.damp_EB( fld.interp, self.comm )
+
+            # Particle exchange after the moving window
+            if self.use_mpi:
+                if self.iteration % self.comm.exchange_part_period == 0 \
+                  or self.iteration % self.moving_win.period == 0 :
+                    for species in self.ptcl:
+                        self.comm.exchange_particles(species,
+                            fld.interp[0].zmin, fld.interp[0].zmax )
 
             # Gather the fields at t = n dt
             for species in ptcl :
