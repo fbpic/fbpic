@@ -278,8 +278,8 @@ def add_J_from_gpu_buffers( J_left, J_right,
                 Jt0[ iz_left, ir ] += J_left[1, iz, ir]
                 Jz0[ iz_left, ir ] += J_left[2, iz, ir]
                 Jr1[ iz_left, ir ] += J_left[0+offset, iz, ir]
-                Jt1[ iz_left, ir ] += J_left[0+offset, iz, ir]
-                Jz1[ iz_left, ir ] += J_left[0+offset, iz, ir]
+                Jt1[ iz_left, ir ] += J_left[1+offset, iz, ir]
+                Jz1[ iz_left, ir ] += J_left[2+offset, iz, ir]
             # At the right end
             if copy_right:
                 iz_right = Nz - 2*ng + iz
@@ -287,8 +287,8 @@ def add_J_from_gpu_buffers( J_left, J_right,
                 Jt0[ iz_right, ir ] += J_right[1, iz, ir]
                 Jz0[ iz_right, ir ] += J_right[2, iz, ir]
                 Jr1[ iz_right, ir ] += J_right[0+offset, iz, ir]
-                Jt1[ iz_right, ir ] += J_right[0+offset, iz, ir]
-                Jz1[ iz_right, ir ] += J_right[0+offset, iz, ir]
+                Jt1[ iz_right, ir ] += J_right[1+offset, iz, ir]
+                Jz1[ iz_right, ir ] += J_right[2+offset, iz, ir]
 
 
 @cuda.jit('void( complex128[:,:,:], complex128[:,:,:], \
