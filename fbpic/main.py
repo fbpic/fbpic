@@ -251,7 +251,8 @@ class Simulation(object) :
             # Particle exchange after the moving window
             if self.use_mpi:
                 if self.iteration % self.comm.exchange_part_period == 0 \
-                  or self.iteration % self.moving_win.period == 0 :
+                  or (moving_window==True and \
+                      self.iteration % self.moving_win.period == 0) :
                     for species in self.ptcl:
                         self.comm.exchange_particles(species,
                             fld.interp[0].zmin, fld.interp[0].zmax )

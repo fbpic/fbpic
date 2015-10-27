@@ -340,8 +340,8 @@ def copy_rho_to_gpu_buffers( rho_left, rho_right, rho0, rho1,
             # At the right end
             if copy_right:
                 iz_right = Nz - 2*ng + iz
-                rho_right[0, iz, ir] += rho0[ iz_right, ir ]
-                rho_right[0+offset, iz, ir] += rho1[ iz_right, ir ]
+                rho_right[0, iz, ir] = rho0[ iz_right, ir ]
+                rho_right[0+offset, iz, ir] = rho1[ iz_right, ir ]
 
 
 @cuda.jit('void( complex128[:,:,:], complex128[:,:,:], \
