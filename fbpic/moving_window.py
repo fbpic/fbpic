@@ -179,7 +179,6 @@ class MovingWindow(object) :
         
             # Extract a few quantities of the new (shifted) grid
             zmin = interp[0].zmin
-            zmax = interp[0].zmax
 
             # Determine the position below which the particles
             # should be removed

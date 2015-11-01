@@ -8,7 +8,7 @@ from scipy.constants import m_e, m_p, e
 from fields import Fields
 from particles import Particles
 try:
-    from cuda_utils import *
+    from cuda_utils import send_data_to_gpu, receive_data_from_gpu
     cuda_installed = True
 except ImportError:
     cuda_installed = False
