@@ -10,7 +10,7 @@ $ python tests/test_hankel_dt.py
 
 import numpy as np
 import matplotlib.pyplot as plt
-from fbpic.hankel_dt import DHT, available_methods
+from fbpic.fields.spectral_transform.hankel import DHT, available_methods
 from scipy.special import jn, jn_zeros
 from scipy.special import eval_genlaguerre
 import time

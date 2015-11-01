@@ -36,14 +36,13 @@ See the docstring of the DHT object for usage instructions.
 
 import numpy as np
 from scipy.special import jn, jn_zeros
-from scipy.interpolate import interp1d
 from scipy.optimize import fsolve
 
 # Try to import cuda and cublas
 try :
     from numbapro.cudalib import cublas
     from fbpic.cuda_utils import cuda_tpb_bpg_2d
-    from cuda_utils import cuda, cuda_copy_2d_to_2d
+    from .cuda_methods import cuda, cuda_copy_2d_to_2d
     cuda_installed = True
 except ImportError :
     cuda_installed = False
