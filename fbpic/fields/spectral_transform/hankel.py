@@ -33,7 +33,6 @@ Available methods :
   
 See the docstring of the DHT object for usage instructions.
 """
-
 import numpy as np
 from scipy.special import jn, jn_zeros
 from scipy.optimize import fsolve
