@@ -5,3 +5,4 @@ this object can be used at a higher level.
 """
 
 from .fields import Fields
+__all__ = [ 'Fields' ]

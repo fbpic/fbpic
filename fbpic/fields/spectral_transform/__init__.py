@@ -5,3 +5,4 @@ this object can be used at a higher level.
 """
 
 from .spectral_transformer import SpectralTransformer
+__all__ = ['SpectralTransformer']

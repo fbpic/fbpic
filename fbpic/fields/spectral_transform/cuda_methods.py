@@ -3,9 +3,6 @@ This file is part of the Fourier-Bessel Particle-In-Cell code (FB-PIC)
 It defines a set of functions that are useful when converting the
 fields from interpolation grid to the spectral grid and vice-versa
 """
-__all__ = ['cuda', 'cuda_copy_2d_to_2d', 'cuda_copy_2d_to_1d',
-           'cuda_copy_1d_to_2d', 'cuda_rt_to_pm', 'cuda_pm_to_rt']
-
 from numba import cuda
 
 # ------------------

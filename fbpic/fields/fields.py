@@ -9,7 +9,12 @@ from .spectral_transform import SpectralTransformer
 
 # If numbapro is installed, it potentially allows to use the GPU
 try :
-    from cuda_methods import *
+    from fbpic.cuda_utils import cuda_tpb_bpg_2d
+    from .cuda_methods import cuda, cuda_correct_currents, \
+        cuda_divide_scalar_by_volume, cuda_divide_vector_by_volume, \
+        cuda_erase_scalar, cuda_erase_vector, \
+        cuda_filter_scalar, cuda_filter_vector, \
+        cuda_push_eb_with, cuda_push_rho
     cuda_installed = True
 except ImportError :
     cuda_installed = False
