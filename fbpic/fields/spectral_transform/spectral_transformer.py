@@ -4,15 +4,15 @@ It defines the SpectralTransformer class, which handles conversion of
 the fields from the interpolation grid to the spectral grid and vice-versa.
 """
 from .hankel import DHT
-from .fourier import FFT
+from .fourier import FFT, cuda_installed
 
-# If numbapro is installed, it potentially allows to use the GPU
-try :
-    from fbpic.cuda_utils import cuda_tpb_bpg_2d
-    from .cuda_methods import cuda_rt_to_pm, cuda_pm_to_rt
-    cuda_installed = True
-except ImportError :
-    cuda_installed = False
+# If the cuda FFT is installed, try importing all the needed cuda methods.
+if cuda_installed:
+    try :
+        from fbpic.cuda_utils import cuda_tpb_bpg_2d
+        from .cuda_methods import cuda_rt_to_pm, cuda_pm_to_rt
+    except ImportError :
+        cuda_installed = False
 
 class SpectralTransformer(object) :
     """
@@ -51,6 +51,8 @@ class SpectralTransformer(object) :
         """
         # Check whether to use the GPU
         self.use_cuda = use_cuda
+        if (self.use_cuda is True) and (cuda_installed is False) :
+            self.use_cuda = False
         if self.use_cuda:
             # Initialize the dimension of the grid and blocks
             self.dim_grid, self.dim_block = cuda_tpb_bpg_2d( Nz, Nr)
@@ -61,18 +63,18 @@ class SpectralTransformer(object) :
         else :
             print('Preparing the Hankel Transforms for mode %d on the CPU' %m)
         self.dht0 = DHT(  m, Nr, Nz, rmax, 'MDHT(m,m)', d=0.5, Fw='inverse',
-                           use_cuda=use_cuda )
+                           use_cuda=self.use_cuda )
         self.dhtp = DHT(m+1, Nr, Nz, rmax, 'MDHT(m+1,m)', d=0.5, Fw='inverse',
-                           use_cuda=use_cuda )
+                           use_cuda=self.use_cuda )
         self.dhtm = DHT(m-1, Nr, Nz, rmax, 'MDHT(m-1,m)', d=0.5, Fw='inverse',
-                           use_cuda=use_cuda )
+                           use_cuda=self.use_cuda )
 
         # Initialize the FFT
         if self.use_cuda:
             print('Preparing FFTW for mode %d on the GPU' %m)
         else:
             print('Preparing FFTW for mode %d on the CPU' %m)
-        self.fft = FFT( Nr, Nz, use_cuda=use_cuda )
+        self.fft = FFT( Nr, Nz, use_cuda=self.use_cuda )
 
         # Extract the spectral buffers
         # ......... Some explanation in CPU and GPU

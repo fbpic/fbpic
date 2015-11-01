@@ -4,5 +4,5 @@ It imports the Fields object from the fields package, so that
 this object can be used at a higher level.
 """
 
-from .fields import Fields
-__all__ = [ 'Fields' ]
+from .fields import Fields, cuda_installed
+__all__ = [ 'Fields', 'cuda_installed' ]

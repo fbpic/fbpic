@@ -9,8 +9,11 @@ from particles import Particles
 try :
     from numba import cuda
     from fbpic.cuda_utils import cuda_tpb_bpg_2d
-    cuda_installed = True
-except ImportError :
+    if cuda.is_available():
+        cuda_installed = True
+    else:
+        cuda_installed = False
+except ImportError:
     cuda_installed = False
 
 class MovingWindow(object) :

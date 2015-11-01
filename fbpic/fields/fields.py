@@ -5,19 +5,20 @@ It defines the structure and methods associated with the fields.
 import numpy as np
 import matplotlib.pyplot as plt
 from scipy.constants import c, mu_0, epsilon_0
-from .spectral_transform import SpectralTransformer
+from .spectral_transform import SpectralTransformer, cuda_installed
 
-# If numbapro is installed, it potentially allows to use the GPU
-try :
-    from fbpic.cuda_utils import cuda_tpb_bpg_2d
-    from .cuda_methods import cuda, cuda_correct_currents, \
+# If cuda is installed for the spectral transformer, import
+# the rest of the cuda methods
+if cuda_installed:
+    try :
+        from fbpic.cuda_utils import cuda_tpb_bpg_2d
+        from .cuda_methods import cuda, cuda_correct_currents, \
         cuda_divide_scalar_by_volume, cuda_divide_vector_by_volume, \
         cuda_erase_scalar, cuda_erase_vector, \
         cuda_filter_scalar, cuda_filter_vector, \
         cuda_push_eb_with, cuda_push_rho
-    cuda_installed = True
-except ImportError :
-    cuda_installed = False
+    except ImportError :
+        cuda_installed = False
 
 class Fields(object) :
     """
@@ -104,8 +105,8 @@ class Fields(object) :
             print '*** Cuda not available for the fields.'
             print '*** Performing the field operations on the CPU.'
             self.use_cuda = False
-        if self.use_cuda == False:
-            self.use_cuda_memory == False
+        if self.use_cuda is False:
+            self.use_cuda_memory = False
         if self.use_cuda == True:
             print 'Using the GPU for the field.'
 
