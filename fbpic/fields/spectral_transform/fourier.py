@@ -6,6 +6,7 @@ import numpy as np
 import pyfftw
 try :
     from numbapro.cudalib import cufft, cublas
+    from fbpic.cuda_utils import cuda_tpb_bpg_2d
     from .cuda_methods import cuda, cuda_copy_2d_to_1d, cuda_copy_1d_to_2d
     cuda_installed = True
 except ImportError :
@@ -26,6 +27,9 @@ class FFT(object):
             print '** Performing the Fourier transform on the CPU.'
 
         if self.use_cuda:
+            # Initialize the dimension of the grid and blocks
+            self.dim_grid, self.dim_block = cuda_tpb_bpg_2d( Nz, Nr)
+            
             # Initialize 1d buffer for cufft
             self.buffer1d_in = cuda.device_array(
                 (Nz*Nr,), dtype=np.complex128)
@@ -65,8 +69,7 @@ class FFT(object):
                     axes=(0,), direction='FFTW_BACKWARD', threads=nthreads)
                         
     def get_buffers( self ):
-        return( self.spect_buffer_r, self.spect_buffer_t,
-                self.interp_buffer_r, self.interp_buffer_t )
+        return( self.spect_buffer_r, self.spect_buffer_t )
 
     def inverse_transform( self, array_in, array_out ):
         

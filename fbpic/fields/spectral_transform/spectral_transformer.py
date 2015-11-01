@@ -80,8 +80,7 @@ class SpectralTransformer(object) :
         # ......... Some explanation in CPU and GPU
         # (Two buffers and FFTW objects are initialized, since
         # spect2interp_vect and interp2spect_vect require two separate FFT)
-        self.spect_buffer_r, self.spect_buffer_t, \
-          self.interp_buffer_r, self.interp_buffer_t = self.fft.get_buffers()
+        self.spect_buffer_r, self.spect_buffer_t = self.fft.get_buffers()
 
         # Different names for same object (for economy of memory)
         self.spect_buffer_p = self.spect_buffer_r
