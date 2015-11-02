@@ -6,7 +6,7 @@ the fields from the interpolation grid to the spectral grid and vice-versa.
 from .hankel import DHT
 from .fourier import FFT, cuda_installed
 
-# If the cuda FFT is installed, try importing all the needed cuda methods.
+# If the cuda FFT is installed, try importing all the other cuda methods.
 if cuda_installed:
     try :
         from fbpic.cuda_utils import cuda_tpb_bpg_2d
@@ -20,7 +20,9 @@ class SpectralTransformer(object) :
     spectral and interpolation grid.
 
     Attributes :
-    - dht : the discrete Hankel transform object that operates along r
+    - dht0, dhtp, dhtp : the discrete Hankel transform objects
+       that operates along r
+    - fft : the discrete Fourier transform object that operates along z
 
     Main methods :
     - spect2interp_scal :
@@ -35,7 +37,7 @@ class SpectralTransformer(object) :
 
     def __init__(self, Nz, Nr, m, rmax, use_cuda=False ) :
         """
-        Initializes the dht attributes, which contain auxiliary
+        Initializes the dht and fft attributes, which contain auxiliary
         matrices allowing to transform the fields quickly
 
         Parameters
@@ -77,15 +79,16 @@ class SpectralTransformer(object) :
         self.fft = FFT( Nr, Nz, use_cuda=self.use_cuda )
 
         # Extract the spectral buffers
-        # ......... Some explanation in CPU and GPU
-        # (Two buffers and FFTW objects are initialized, since
-        # spect2interp_vect and interp2spect_vect require two separate FFT)
+        # - In the case where the GPU is used, these buffers are cuda
+        #   device arrays.
+        # - In the case where the CPU is used, these buffers are tied to
+        #   the FFTW plan object (see the __init__ of the FFT object). Do
+        #   *not* modify these buffers to make them point to another array. 
         self.spect_buffer_r, self.spect_buffer_t = self.fft.get_buffers()
 
         # Different names for same object (for economy of memory)
         self.spect_buffer_p = self.spect_buffer_r
         self.spect_buffer_m = self.spect_buffer_t
-
 
     def spect2interp_scal( self, spect_array, interp_array ) :
         """
