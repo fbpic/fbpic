@@ -5,13 +5,15 @@ This file steers and controls the simulation.
 """
 import sys
 from scipy.constants import m_e, m_p, e
-from fields import Fields
 from particles import Particles
-try:
-    from cuda_utils import *
-    cuda_installed = True
-except ImportError:
-    cuda_installed = False
+from fields import Fields, cuda_installed
+
+# If cuda is installed, try importing the rest of the cuda methods
+if cuda_installed:
+    try:
+        from cuda_utils import send_data_to_gpu, receive_data_from_gpu
+    except ImportError:
+        cuda_installed = False
     
 class Simulation(object) :
     """

@@ -111,7 +111,6 @@ class OpenPMDDiagnostic(object) :
         f.attrs["openPMD"] = np.string_("1.0.0")
         f.attrs["openPMDextension"] = np.uint32(1)
         f.attrs["software"] = np.string_("fbpic")
-        today = datetime.datetime.now()
         f.attrs["date"] = np.string_(
             datetime.datetime.now(tzlocal()).strftime('%Y-%m-%d %H:%M:%S %z'))
         f.attrs["meshesPath"] = np.string_("fields/")

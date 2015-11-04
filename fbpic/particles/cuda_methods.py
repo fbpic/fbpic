@@ -576,7 +576,7 @@ def deposit_rho_gpu(x, y, z, w,
                 sin = yj*invr  # Sine
             else :
                 cos = 1.
-                sim = 0.
+                sin = 0.
             exptheta_m0 = 1.
             exptheta_m1 = cos + 1.j*sin
 
