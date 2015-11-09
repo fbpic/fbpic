@@ -322,8 +322,7 @@ class MPI_Communicator(object) :
 
         else:
             raise ValueError('Unknown fieldtype : %s' %fieldtype)
-
-
+        
     def exchange_domains( self, send_left, send_right, recv_left, recv_right ):
         """
         Send the arrays send_left and send_right to the left and right

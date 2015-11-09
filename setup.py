@@ -11,9 +11,9 @@ setup(
                       'pyfftw', 'h5py', 'datetime' ],
     version=fbpic.__version__,
     author='Remi Lehe',
-    author_email='remi.lehe@normalesup.org',
-    packages=['fbpic', 'fbpic.particles', 'fbpic.fields',
-              'fbpic.openpmd_diag', 'fbpic.parallel' ],
+    author_email='remi.lehe@normalesup.org'
+    packages=['fbpic', 'fbpic.particles', 'fbpic.fields', 'fbpic.parallel',
+              'fbpic.fields.spectral_transform', 'fbpic.openpmd_diag'],
     description='Fourier-Bessel Particle-In-Cell code',
     long_description = long_description,
     platforms='Linux, MacOSX',
