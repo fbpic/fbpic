@@ -8,9 +8,12 @@ from particles import Particles
 
 try :
     from numba import cuda
-    from fbpic.cuda_utils import *
-    cuda_installed = True
-except ImportError :
+    from fbpic.cuda_utils import cuda_tpb_bpg_2d
+    if cuda.is_available():
+        cuda_installed = True
+    else:
+        cuda_installed = False
+except ImportError:
     cuda_installed = False
 
 class MovingWindow(object) :
@@ -200,7 +203,6 @@ class MovingWindow(object) :
 
             # Extract a few quantities of the new (shifted) grid
             zmin = interp[0].zmin
-            zmax = interp[0].zmax
 
             # The first proc removes the particles that are outside of the box
             if (comm is None) or (comm.rank == 0) :

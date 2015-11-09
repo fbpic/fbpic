@@ -260,9 +260,9 @@ class MPI_Communicator(object) :
                                         source=self.left_proc, tag=2)
         # Wait for the non-blocking sends to be received (synchronization)
         if self.right_proc is not None :
-            re_1 = mpi.Request.Wait(req_1)
+            mpi.Request.Wait(req_1)
         if self.left_proc is not None :
-            re_2 = mpi.Request.Wait(req_2)
+            mpi.Request.Wait(req_2)
 
     def exchange_fields( self, interp, fieldtype ):
         """
