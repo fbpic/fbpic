@@ -8,7 +8,7 @@ from the top-level directory of FBPIC run
 $ python tests/test_cuda_transform.py
 """
 import numpy as np
-from fbpic.fields.fields import SpectralTransformer
+from fbpic.fields.spectral_transform import SpectralTransformer
 from fbpic.cuda_utils import *
 from numba import cuda
 import time
