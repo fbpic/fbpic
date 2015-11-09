@@ -4,7 +4,7 @@ This file defines the class FieldDiagnostic
 import os
 import h5py
 import numpy as np
-from generic_diag import OpenPMDDiagnostic
+from .generic_diag import OpenPMDDiagnostic
 
 class FieldDiagnostic(OpenPMDDiagnostic):
     """

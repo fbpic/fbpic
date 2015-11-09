@@ -8,7 +8,7 @@ from particles import Particles
 
 try :
     from numba import cuda
-    from fbpic.cuda_utils import cuda_tpb_bpg_2d
+    from fbpic.cuda_utils import cuda_tpb_bpg_2d, cuda_tpb_bpg_1d
     if cuda.is_available():
         cuda_installed = True
     else:
@@ -187,14 +187,6 @@ class MovingWindow(object) :
     
         # Move the window
         if n_move > 0 :
-            
-            # Exchange the paticles, when using MPI
-            if comm is not None :
-                # Exchange only if this was not done previously in main.py
-                if self.period % comm.exchange_part_period != 0 :
-                    for species in ptcl:
-                        comm.exchange_particles( species,
-                            interp[0].zmin, interp[0].zmax )
             
             # Shift the fields
             Nm = len(interp)
@@ -726,7 +718,8 @@ if cuda_installed :
         if (i + n_move) < field_array.shape[0] and j < field_array.shape[1]:
             field_buffer[i, j] = field_array[i+n_move, j]
         # Set the remaining values to zero
-        if (i + n_move) >= field_array.shape[0] and i < field_array.shape[0] and j < field_array.shape[1]:
+        if (i + n_move) >= field_array.shape[0] and i < field_array.shape[0] \
+          and j < field_array.shape[1]:
             field_buffer[i, j] = 0.
 
     @cuda.jit('void(float64[:], float64[:])')

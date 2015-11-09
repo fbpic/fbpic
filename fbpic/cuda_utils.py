@@ -21,7 +21,7 @@ def cuda_tpb_bpg_1d(x, TPB = 256):
         Threads per block
 
     Returns :
-    ------------
+    ---------
     BPG : int
         Number of blocks per grid
 
