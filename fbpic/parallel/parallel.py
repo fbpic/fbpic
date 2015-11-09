@@ -10,6 +10,7 @@ from .buffer_handling import copy_EB_buffers, copy_J_buffers, copy_rho_buffers
 try :
     from fbpic.cuda_utils import cuda_tpb_bpg_2d, cuda
     from fbpic.moving_window import cuda_damp_EB
+    cuda_installed = True
 except ImportError :
     cuda_installed = False
 
