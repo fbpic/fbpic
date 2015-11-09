@@ -6,9 +6,9 @@ import numpy as np
 from mpi4py import MPI as mpi
 from fbpic.fields.fields import InterpolationGrid
 from fbpic.particles.particles import Particles
-from .buffer_handling import *
+from .buffer_handling import copy_EB_buffers, copy_J_buffers, copy_rho_buffers
 try :
-    from fbpic.cuda_utils import *
+    from fbpic.cuda_utils import cuda_tpb_bpg_2d, cuda
     from fbpic.moving_window import cuda_damp_EB
 except ImportError :
     cuda_installed = False
@@ -352,9 +352,9 @@ class MPI_Communicator(object) :
                                         source=self.left_proc, tag=2)
         # Wait for the non-blocking sends to be received (synchronization)
         if self.right_proc is not None :
-            re_1 = mpi.Request.Wait(req_1)
+            mpi.Request.Wait(req_1)
         if self.left_proc is not None :
-            re_2 = mpi.Request.Wait(req_2)
+            mpi.Request.Wait(req_2)
 
 
     def exchange_particles(self, ptcl, zmin, zmax) :

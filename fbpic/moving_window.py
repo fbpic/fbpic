@@ -8,7 +8,7 @@ from particles import Particles
 
 try :
     from numba import cuda
-    from fbpic.cuda_utils import cuda_tpb_bpg_2d
+    from fbpic.cuda_utils import cuda_tpb_bpg_2d, cuda_tpb_bpg_1d
     if cuda.is_available():
         cuda_installed = True
     else:

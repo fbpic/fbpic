@@ -4,7 +4,10 @@ It defines the structure necessary to handle mpi buffers, in parallel.py
 """
 try :
     from fbpic.cuda_utils import cuda_tpb_bpg_2d
-    from .cuda_methods import *
+    from .cuda_methods import \
+        copy_EB_to_gpu_buffers, copy_EB_from_gpu_buffers, \
+        copy_J_to_gpu_buffers, add_J_from_gpu_buffers, \
+        copy_rho_to_gpu_buffers, add_rho_from_gpu_buffers
     cuda_installed = True
 except ImportError :
     cuda_installed = False
