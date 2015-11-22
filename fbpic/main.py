@@ -16,7 +16,7 @@ if cuda_installed:
         cuda_installed = False
 
 try:
-    from parallel import MPI_Communicator
+    from boundaries import MPI_Communicator
     mpi_installed = True
 except ImportError:
     mpi_installed = False

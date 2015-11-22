@@ -6,7 +6,7 @@ import numpy as np
 from mpi4py import MPI as mpi
 from fbpic.fields.fields import InterpolationGrid
 from fbpic.particles.particles import Particles
-from .buffer_handling import copy_EB_buffers, copy_J_buffers, copy_rho_buffers
+from .buffer_handling import BufferHandler
 try :
     from fbpic.cuda_utils import cuda_tpb_bpg_2d, cuda
     from fbpic.moving_window import cuda_damp_EB
@@ -20,141 +20,100 @@ mpi_type_dict = { 'float32' : mpi.REAL4,
                   'float64' : mpi.REAL8,
                   'complex64' : mpi.COMPLEX8,
                   'complex128' : mpi.COMPLEX16 }
-    
-    
-class MPI_Communicator(object) :
+
+class BoundaryCommunicator(object) :
     """
-    Class that handles the MPI communication between domains,
-    when carrying out a simulation in parallel. It also handles
-    the initial domain decomposition.
+    Class that handles the boundary conditions along z, esp.
+    the moving window and MPI communication between domains.
+    It also handles the initial domain decomposition.
 
-    Main attributes
-    ---------------
-    - Nz, Nr : int
-        The global number of cells of the simulation (without guard cells)
-
-    - Nz_enlarged, Nz_domain : int
-        The local number of cells, with and without guard cells, respectively
-
-    - Nz_enlarged_procs, Nz_domain_procs : list of ints
-        The number of cells in each proc, with and without guard cells
-        
-    - Ltot : float
-        The global size (length) of the simulation box in z
+    The functions of this object is:
     
-    - exchange_part_period : int
-        The period for exchanging the particles between domains.
-        Needs to be smaller than the number of guard cells, when
-        advancing the simulation with a timestep dt = dz/c.
+    - At each timestep, to exchange the fields between MPI domains
+      and damp the E and B fields in the guard cells
 
-    - n_guard : int
-        The number of guard cells that are added on the left and 
-        the right side of each local (one MPI process) domain.
+    - Every exchange_period iterations, to exchange the particles
+      between MPI domains and (in the case of a moving window) shift the grid
 
-    - rank : int
-        Identifier of MPI thread
-
-    - size : int 
-        Total number of MPI threads
-
-    - mpi_comm : object
-        The mpi4py communicator object (defaults to COMM_WORLD)
+    - When the diagnostics are called, to gather the fields and particles
     """
 
-    def __init__( self, Nz, Nr, n_guard, Nm, boundaries='periodic') :
+    def __init__( self, Nz, Nr, n_guard, Nm, boundaries='periodic',
+                  exchange_period=None, v_moving=0 ) :
         """
         Initializes a communicator object.
 
         Parameters
         ----------
 
-        Nz, Nr : int
+        Nz, Nr: int
             The initial global number of cells
 
-        n_guard : int
+        n_guard: int
             The number of guard cells at the 
             left and right edge of the domain
 
-        Nm : int
+        Nm: int
             The total number of modes
 
-        boundaries : str
+        boundaries: str
             Indicates how to exchange the fields at the left and right
             boundaries of the global simulation box
             Either 'periodic' or 'open'
+
+        exchange_period: int
+            Indicates how often to move the moving window and exchange
+            the particles. (These 2 operations are done simultaneously.)
+
+        v_moving: int
+            Speed of the moving window. Use 0 for no moving window.
         """
-        # Initialize global number of cells
+        # Initialize global number of cells and modes
         self.Nz = Nz
         self.Nr = Nr
-        # Initialize number of modes
         self.Nm = Nm
-        # Initialize number of guard cells
-        self.n_guard = n_guard
-        # Initialize the exchange boundaries
-        self.boundaries = boundaries
-        # Initialize the period of the particle exchange
-        # Particles are only exchanged every exchange_part_period timesteps.
-        # (Cannot be higer than the number of guard cells)
-        self.exchange_part_period = int(n_guard/2)
-
+        
         # MPI Setup
-        # Initialize the mpi communicator
         self.mpi_comm = mpi.COMM_WORLD
-        # Initialize the rank and the total number of mpi processes
         self.rank = self.mpi_comm.rank
         self.size = self.mpi_comm.size
+        # Get the rank of the left and the right domain
+        self.left_proc = self.rank-1
+        self.right_proc = self.rank+1
+        # Correct these initial values by taking into account boundaries
+        if boundaries == 'periodic' :
+            # Periodic boundary conditions for the domains
+            if self.rank == 0 : 
+                self.left_proc = (self.size-1)
+            if self.rank == self.size-1 :
+                self.right_proc = 0
+        elif boundaries == 'open' :
+            # None means that the boundary is open
+            if self.rank == 0 :
+                self.left_proc = None
+            if self.rank == self.size-1 :
+                self.right_proc = None
+        else :
+            raise ValueError('Unrecognized boundaries: %s' %self.boundaries)
 
-        # Initialize the number of cells of each proc
-        # (Splits the global simulation and
-        # adds guard cells to the local domain)
-        Nz_per_proc = int(Nz/self.size)
-        # Get the number of cells in each domain
-        # (The last proc gets extra cells, so as to have Nz cells in total)
-        Nz_domain_procs = [ Nz_per_proc for k in range(self.size) ]
-        Nz_domain_procs[-1] = Nz_domain_procs[-1] + Nz%(self.size)
-        self.Nz_domain_procs = Nz_domain_procs
-        # Get the starting index (for easy output)
-        self.iz_start_procs = [ k*Nz_per_proc for k in range(self.size) ]
-        # Get the enlarged number of cells in each domain (includes guards)
-        self.Nz_enlarged_procs = [ n+2*n_guard for n in Nz_domain_procs ]
+        # Initialize number of guard cells
+        # For single proc and periodic boundaries, no need for guard cells
+        if boundaries=='periodic' and self.size==1:
+            self.n_guard = 0
+        self.n_guard = n_guard
 
-        # Get the local values of the above arrays
-        self.Nz_domain = self.Nz_domain_procs[self.rank]
-        self.Nz_enlarged = self.Nz_enlarged_procs[self.rank]
+        # Initialize the period of the particle exchange and moving window
+        if exchange_period is None:
+            self.exchange_period = int(n_guard/2)
+        else:
+            self.exchange_period = exchange_period
 
-        # Check if the local domain size is large enough
-        if self.Nz_enlarged < 4*self.n_guard:
-            raise ValueError( 'Number of local cells in z is smaller \
-                               than 4 times n_guard. Use fewer domains or \
-                               a smaller number of guard cells.')
-            
-        # Initialize the guard cell buffers for the fields 
-        # for both sides of the domain. These buffers are used 
-        # to exchange the fields between the neighboring domains.
-        # For the E and B fields: Only the guard cells are exchanged
-        # For J and rho: 2 * the guard cells are exchanged
-        # - Sending buffer on the CPU at right and left of the box
-        self.EB_send_r = np.empty((6*Nm, n_guard, Nr), dtype = np.complex128)
-        self.EB_send_l = np.empty((6*Nm, n_guard, Nr), dtype = np.complex128)
-        self.J_send_r = np.empty((3*Nm, 2*n_guard, Nr), dtype = np.complex128)
-        self.J_send_l = np.empty((3*Nm, 2*n_guard, Nr), dtype = np.complex128)
-        self.rho_send_r = np.empty((Nm, 2*n_guard, Nr), dtype = np.complex128)
-        self.rho_send_l = np.empty((Nm, 2*n_guard, Nr), dtype = np.complex128)
-        # - Receiving buffer on the CPU at right and left of the box
-        self.EB_recv_r = np.empty((6*Nm, n_guard, Nr), dtype = np.complex128)
-        self.EB_recv_l = np.empty((6*Nm, n_guard, Nr), dtype = np.complex128)
-        self.J_recv_r = np.empty((3*Nm, 2*n_guard, Nr), dtype = np.complex128)
-        self.J_recv_l = np.empty((3*Nm, 2*n_guard, Nr), dtype = np.complex128)
-        self.rho_recv_r = np.empty((Nm, 2*n_guard, Nr), dtype = np.complex128)
-        self.rho_recv_l = np.empty((Nm, 2*n_guard, Nr), dtype = np.complex128)
-        # - Buffers on the GPU at right and left of the box
-        if cuda_installed:
-            self.d_EB_r = cuda.to_device( self.EB_send_r )
-            self.d_EB_l = cuda.to_device( self.EB_send_l )
-            self.d_J_r = cuda.to_device( self.J_send_r )
-            self.d_J_l = cuda.to_device( self.J_send_l )
-            self.d_rho_r = cuda.to_device( self.rho_send_r )
-            self.d_rho_l = cuda.to_device( self.rho_send_l )
+        # Initialize the speed of the moving window.
+        self.v_moving = v_moving
+
+        # Initialize a buffer handler object
+        self.buffers = BufferHandler( self.n_guard, Nr, Nm,
+                                      self.left_proc, self.right_proc )
 
         # Create damping array which is used to damp
         # the fields in the guard cells to reduce the error
@@ -164,25 +123,6 @@ class MPI_Communicator(object) :
         self.create_damp_array( ncells_damp = int(n_guard/2) )
         if cuda_installed:
             self.d_damp_array = cuda.to_device( self.damp_array )
-
-        # Get the rank of the left and the right domain
-        self.left_proc = self.rank-1
-        self.right_proc = self.rank+1
-        # Correct these initial values by taking into account boundaries
-        if self.boundaries == 'periodic' :
-            # Periodic boundary conditions for the domains
-            if self.rank == 0 : 
-                self.left_proc = (self.size-1)
-            if self.rank == self.size-1 :
-                self.right_proc = 0
-        elif self.boundaries == 'open' :
-            # Moving window
-            if self.rank == 0 :
-                self.left_proc = None
-            if self.rank == self.size-1 :
-                self.right_proc = None
-        else :
-            raise ValueError('Unrecognized boundaries: %s' %self.boundaries)
         
     def divide_into_domain( self, zmin, zmax, p_zmin, p_zmax ):
         """
@@ -216,13 +156,35 @@ class MPI_Communicator(object) :
         Nz_enlarged : int
            The number of cells in the local simulation box (with guard cells)
         """
-        # Initilize global box size
+        # Initialize global box size
         self.Ltot = (zmax-zmin)
-        
         # Get the distance dz between the cells
         # (longitudinal spacing of the grid)
         dz = (zmax - zmin)/self.Nz
         self.dz = dz
+            
+        # Initialize the number of cells of each proc
+        # (Splits the global simulation and
+        # adds guard cells to the local domain)
+        Nz_per_proc = int(self.Nz/self.size)
+        # Get the number of cells in each domain
+        # (The last proc gets extra cells, so as to have Nz cells in total)
+        Nz_domain_procs = [ Nz_per_proc for k in range(self.size) ]
+        Nz_domain_procs[-1] = Nz_domain_procs[-1] + (self.Nz)%(self.size)
+        self.Nz_domain_procs = Nz_domain_procs
+        # Get the starting index (for easy output)
+        self.iz_start_procs = [ k*Nz_per_proc for k in range(self.size) ]
+        # Get the enlarged number of cells in each domain (includes guards)
+        self.Nz_enlarged_procs = [ n+2*self.n_guard for n in Nz_domain_procs ]
+        # Get the local values of the above arrays
+        self.Nz_domain = self.Nz_domain_procs[self.rank]
+        self.Nz_enlarged = self.Nz_enlarged_procs[self.rank]
+
+        # Check if the local domain size is large enough
+        if self.Nz_enlarged < 4*self.n_guard:
+            raise ValueError( 'Number of local cells in z is smaller \
+                               than 4 times n_guard. Use fewer domains or \
+                               a smaller number of guard cells.')
         
         # Calculate the local boundaries (zmin and zmax)
         # of this local simulation box including the guard cells.
@@ -281,82 +243,44 @@ class MPI_Communicator(object) :
             (Either 'EB', 'J' or 'rho')
         """
         # Check for fieldtype
-
         if fieldtype == 'EB':
 
             # Copy the inner part of the domain to the sending buffer
-            copy_EB_buffers( self, interp, before_sending=True )
-            # Exchange the guard regions between the domains (MPI)
-            self.exchange_domains( self.EB_send_l, self.EB_send_r,
-                                  self.EB_recv_l, self.EB_recv_r)
+            self.buffers.copy_EB_buffers( interp, before_sending=True )
+            # Copy the sending buffers to the receiving buffers via MPI
+            self.buffers.exchange_domains( 'EB', self.mpi_comm )
             # An MPI barrier is needed here so that a single rank does not
             # do two sends and receives before this exchange is completed.
             self.mpi_comm.Barrier()
             # Copy the receiving buffer to the guard cells of the domain
-            copy_EB_buffers( self, interp, after_receiving=True )
+            self.buffers.copy_EB_buffers( interp, after_receiving=True )
 
         elif fieldtype == 'J':
 
             # Copy the inner part of the domain to the sending buffer
-            copy_J_buffers( self, interp, before_sending=True )
-            # Exchange the guard regions between the domains (MPI)
-            self.exchange_domains( self.J_send_l, self.J_send_r,
-                                  self.J_recv_l, self.J_recv_r)
+            self.buffers.copy_J_buffers( interp, before_sending=True )
+            # Copy the sending buffers to the receiving buffers via MPI
+            self.buffers.exchange_domains( 'J', self.mpi_comm )
             # An MPI barrier is needed here so that a single rank does not
             # do two sends and receives before this exchange is completed.
             self.mpi_comm.Barrier()
             # Copy the receiving buffer to the guard cells of the domain
-            copy_J_buffers( self, interp, after_receiving=True )
+            self.buffer.copy_J_buffers( interp, after_receiving=True )
 
         elif fieldtype == 'rho':
 
             # Copy the inner part of the domain to the sending buffer
-            copy_rho_buffers( self, interp, before_sending=True )
-            # Exchange the guard regions between the domains (MPI)
-            self.exchange_domains( self.rho_send_l, self.rho_send_r,
-                                  self.rho_recv_l, self.rho_recv_r)
+            self.buffers.copy_rho_buffers( interp, before_sending=True )
+            # Copy the sending buffers to the receiving buffers via MPI
+            self.exchange_domains( 'rho', self.mpi_comm )
             # An MPI barrier is needed here so that a single rank does not
             # do two sends and receives before this exchange is completed.
             self.mpi_comm.Barrier()
             # Copy the receiving buffer to the guard cells of the domain
-            copy_rho_buffers( self, interp, after_receiving=True )
+            self.buffers.copy_rho_buffers( interp, after_receiving=True )
 
         else:
             raise ValueError('Unknown fieldtype : %s' %fieldtype)
-        
-    def exchange_domains( self, send_left, send_right, recv_left, recv_right ):
-        """
-        Send the arrays send_left and send_right to the left and right
-        processes respectively.
-        Receive the arrays from the neighboring processes into recv_left
-        and recv_right.
-        Sending and receiving is done from CPU to CPU.
-
-        Parameters :
-        ------------
-        - send_left, send_right, recv_left, recv_right : arrays 
-             Sending and receiving buffers
-        """
-        # MPI-Exchange: Uses non-blocking send and receive, 
-        # which return directly and need to be synchronized later.
-        # Send to left domain and receive from right domain
-        if self.left_proc is not None :
-            self.mpi_comm.Isend(send_left, dest=self.left_proc, tag=1)
-        if self.right_proc is not None :
-            req_1 = self.mpi_comm.Irecv(recv_right,
-                                        source=self.right_proc, tag=1)
-        # Send to right domain and receive from left domain
-        if self.right_proc is not None :
-            self.mpi_comm.Isend(send_right, dest=self.right_proc, tag=2)
-        if self.left_proc is not None :
-            req_2 = self.mpi_comm.Irecv(recv_left,
-                                        source=self.left_proc, tag=2)
-        # Wait for the non-blocking sends to be received (synchronization)
-        if self.right_proc is not None :
-            mpi.Request.Wait(req_1)
-        if self.left_proc is not None :
-            mpi.Request.Wait(req_2)
-
 
     def exchange_particles(self, ptcl, zmin, zmax) :
         """
