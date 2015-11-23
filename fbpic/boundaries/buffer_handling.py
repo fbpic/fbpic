@@ -3,14 +3,14 @@ This file is part of the Fourier-Bessel Particle-In-Cell code (FB-PIC)
 It defines the structure necessary to handle mpi buffers, in parallel.py
 """
 import numpy as np
-try :
+try:
     from fbpic.cuda_utils import cuda_tpb_bpg_2d, cuda
     from .cuda_methods import \
         copy_EB_to_gpu_buffers, copy_EB_from_gpu_buffers, \
         copy_J_to_gpu_buffers, add_J_from_gpu_buffers, \
         copy_rho_to_gpu_buffers, add_rho_from_gpu_buffers
     cuda_installed = True
-except ImportError :
+except ImportError:
     cuda_installed = False
 
 
@@ -44,9 +44,12 @@ class BufferHandler(object):
         self.left_proc = left_proc
         self.right_proc = right_proc
         
-        # Don't initialize buffers if the number of guard cells is 0
-        if n_guard==0:
-            return()
+        # Determine whether the exchange should be performed
+        if n_guard==0 or ((left_proc==False) and (right_proc==False)):
+            self.perform_exchange = False
+            return
+        else:
+            self.perform_exchange = True
 
         # For the E and B fields: Only the guard cells are exchanged
         # For J and rho: 2 * the guard cells are exchanged
@@ -95,6 +98,10 @@ class BufferHandler(object):
         after_receiving: bool
             Whether to copy the receiving buffer to the guard cells
         """
+        # Do not copy the fields if no exchange to perform (single proc)
+        if self.perform_exchange == False:
+            return
+
         # Shortcut for the guard cells
         ng = self.n_guard
         copy_left = (self.left_proc is not None)
@@ -196,6 +203,10 @@ class BufferHandler(object):
         after_receiving: bool
             Whether to add the receiving buffer to the guard cells
         """
+        # Do not copy the fields if no exchange to perform (single proc)
+        if self.perform_exchange == False:
+            return
+
         # Shortcut for the guard cells
         ng = self.n_guard
         copy_left = (self.left_proc is not None)
@@ -281,6 +292,10 @@ class BufferHandler(object):
         after_receiving: bool
             Whether to add the receiving buffer to the guard cells
         """
+        # Do not copy the fields if no exchange to perform (single proc)
+        if self.perform_exchange == False:
+            return
+
         # Shortcut for the guard cells
         ng = self.n_guard
         copy_left = (self.left_proc is not None)
@@ -332,49 +347,3 @@ class BufferHandler(object):
                         interp[m].rho[:2*ng,:] += self.rho_recv_l[0+offset,:,:]
                     if copy_right:
                         interp[m].rho[-2*ng:,:]+= self.rho_recv_r[0+offset,:,:]
-
-    def exchange_domains( self, fieldtype, mpi_comm ):
-        """
-        Send the sending buffers to the left and right neighbors via MPI.
-        Receive the buffers from the left and right neighbors via MPI.
-
-        Sending and receiving is done from CPU to CPU.
-
-        Parameters :
-        ------------
-        fieldtype: string
-            Either 'EB', 'J' or 'rho'
-            The type of field to exchange
-
-        mpi_comm: mpi4py communicator
-            The MPI communicator of the BoundaryCommunicator object
-        """
-        # Select the buffers to send and receive 
-        if fieldtype == 'EB':
-            send_left = self.EB_send_l
-            send_right = self.EB_send_r
-            recv_left = self.EB_recv_l
-            recv_right = self.EB_recv_r
-        elif fieldtype == 'J':
-            send_left = self.J_send_l
-            send_right = self.J_send_r
-            recv_left = self.J_recv_l
-            recv_right = self.J_recv_r
-        elif fieldtype == 'rho':
-            send_left = self.rho_send_l
-            send_right = self.rho_send_r
-            recv_left = self.rho_recv_l
-            recv_right = self.rho_recv_r
-
-        # MPI-Exchange: Uses non-blocking send and receive, 
-        # which return directly and need to be synchronized later.
-        # Send to left domain and receive from right domain
-        if self.left_proc is not None :
-            mpi_comm.Isend(send_left, dest=self.left_proc, tag=1)
-        if self.right_proc is not None :
-            mpi_comm.Irecv(recv_right, source=self.right_proc, tag=1)
-        # Send to right domain and receive from left domain
-        if self.right_proc is not None :
-            mpi_comm.Isend(send_right, dest=self.right_proc, tag=2)
-        if self.left_proc is not None :
-            mpi_comm.Irecv(recv_left, source=self.left_proc, tag=2)

@@ -7,21 +7,21 @@ from mpi4py import MPI as mpi
 from fbpic.fields.fields import InterpolationGrid
 from fbpic.particles.particles import Particles
 from .buffer_handling import BufferHandler
-try :
+try:
     from fbpic.cuda_utils import cuda_tpb_bpg_2d, cuda
     from fbpic.moving_window import cuda_damp_EB
     cuda_installed = True
-except ImportError :
+except ImportError:
     cuda_installed = False
 
 # Dictionary of correspondance between numpy types and mpi types
 # (Necessary when calling Gatherv)
-mpi_type_dict = { 'float32' : mpi.REAL4,
-                  'float64' : mpi.REAL8,
-                  'complex64' : mpi.COMPLEX8,
-                  'complex128' : mpi.COMPLEX16 }
+mpi_type_dict = { 'float32': mpi.REAL4,
+                  'float64': mpi.REAL8,
+                  'complex64': mpi.COMPLEX8,
+                  'complex128': mpi.COMPLEX16 }
 
-class BoundaryCommunicator(object) :
+class BoundaryCommunicator(object):
     """
     Class that handles the boundary conditions along z, esp.
     the moving window and MPI communication between domains.
@@ -39,7 +39,7 @@ class BoundaryCommunicator(object) :
     """
 
     def __init__( self, Nz, Nr, n_guard, Nm, boundaries='periodic',
-                  exchange_period=None, v_moving=0 ) :
+                  exchange_period=None, v_moving=0 ):
         """
         Initializes a communicator object.
 
@@ -81,30 +81,30 @@ class BoundaryCommunicator(object) :
         self.left_proc = self.rank-1
         self.right_proc = self.rank+1
         # Correct these initial values by taking into account boundaries
-        if boundaries == 'periodic' :
+        if boundaries == 'periodic':
             # Periodic boundary conditions for the domains
-            if self.rank == 0 : 
+            if self.rank == 0: 
                 self.left_proc = (self.size-1)
-            if self.rank == self.size-1 :
+            if self.rank == self.size-1:
                 self.right_proc = 0
-        elif boundaries == 'open' :
+        elif boundaries == 'open':
             # None means that the boundary is open
-            if self.rank == 0 :
+            if self.rank == 0:
                 self.left_proc = None
-            if self.rank == self.size-1 :
+            if self.rank == self.size-1:
                 self.right_proc = None
-        else :
+        else:
             raise ValueError('Unrecognized boundaries: %s' %self.boundaries)
 
         # Initialize number of guard cells
         # For single proc and periodic boundaries, no need for guard cells
         if boundaries=='periodic' and self.size==1:
-            self.n_guard = 0
+            n_guard = 0
         self.n_guard = n_guard
 
         # Initialize the period of the particle exchange and moving window
         if exchange_period is None:
-            self.exchange_period = int(n_guard/2)
+            self.exchange_period = max(1, int(n_guard/2))
         else:
             self.exchange_period = exchange_period
 
@@ -131,29 +131,29 @@ class BoundaryCommunicator(object) :
         Return the new size of the local domain (zmin, zmax) and the
         boundaries of the initial plasma (p_zmin, p_zmax)
 
-        Parameters :
+        Parameters:
         ------------
-        zmin, zmax : floats
+        zmin, zmax: floats
             Positions of the edges of the global simulation box
             (without guard cells)
 
-        p_zmin, p_zmax : floats
+        p_zmin, p_zmax: floats
             Positions between which the plasma will be initialized, in
             the global simulation box.
 
-        Returns :
+        Returns:
         ---------
         A tuple with 
-        zmin, zmax : floats
+        zmin, zmax: floats
             Positions of the edges of the local simulation box
             (with guard cells)
 
-        p_zmin, p_zmax : floats
+        p_zmin, p_zmax: floats
            Positions between which the plasma will be initialized, in
            the local simulation box.
-           (NB : no plasma will be initialized in the guard cells)
+           (NB: no plasma will be initialized in the guard cells)
 
-        Nz_enlarged : int
+        Nz_enlarged: int
            The number of cells in the local simulation box (with guard cells)
         """
         # Initialize global box size
@@ -232,64 +232,105 @@ class BoundaryCommunicator(object) :
         - Copy the guard cell region "ng" and the correct part "nc" and 
           add it to the same region (ng + nc) of the neighboring domain.
 
-        Parameters :
+        Parameters:
         ------------
-        interp : list
+        interp: list
             A list of InterpolationGrid objects
             (one element per azimuthal mode)
 
-        fieldtype : str
+        fieldtype: str
             An identifier for the field to send
             (Either 'EB', 'J' or 'rho')
         """
-        # Check for fieldtype
-        if fieldtype == 'EB':
+        # Only perform the exchange if there is more than 1 proc
+        if self.size > 1:
 
-            # Copy the inner part of the domain to the sending buffer
-            self.buffers.copy_EB_buffers( interp, before_sending=True )
-            # Copy the sending buffers to the receiving buffers via MPI
-            self.buffers.exchange_domains( 'EB', self.mpi_comm )
-            # An MPI barrier is needed here so that a single rank does not
-            # do two sends and receives before this exchange is completed.
-            self.mpi_comm.Barrier()
-            # Copy the receiving buffer to the guard cells of the domain
-            self.buffers.copy_EB_buffers( interp, after_receiving=True )
+            if fieldtype == 'EB':
 
-        elif fieldtype == 'J':
+                # Copy the inner part of the domain to the sending buffer
+                self.buffers.copy_EB_buffers( interp, before_sending=True )
+                # Copy the sending buffers to the receiving buffers via MPI
+                self.exchange_domains(
+                    self.buffers.EB_send_l, self.buffers.EB_send_r,
+                    self.buffers.EB_recv_l, self.buffers.EB_recv_r )
+                # An MPI barrier is needed here so that a single rank does not
+                # do two sends and receives before this exchange is completed.
+                self.mpi_comm.Barrier()
+                # Copy the receiving buffer to the guard cells of the domain
+                self.buffers.copy_EB_buffers( interp, after_receiving=True )
 
-            # Copy the inner part of the domain to the sending buffer
-            self.buffers.copy_J_buffers( interp, before_sending=True )
-            # Copy the sending buffers to the receiving buffers via MPI
-            self.buffers.exchange_domains( 'J', self.mpi_comm )
-            # An MPI barrier is needed here so that a single rank does not
-            # do two sends and receives before this exchange is completed.
-            self.mpi_comm.Barrier()
-            # Copy the receiving buffer to the guard cells of the domain
-            self.buffer.copy_J_buffers( interp, after_receiving=True )
+            elif fieldtype == 'J':
 
-        elif fieldtype == 'rho':
+                # Copy the inner part of the domain to the sending buffer
+                self.buffers.copy_J_buffers( interp, before_sending=True )
+                # Copy the sending buffers to the receiving buffers via MPI
+                self.exchange_domains(
+                    self.buffers.J_send_l, self.buffers.J_send_r,
+                    self.buffers.J_recv_l, self.buffers.J_recv_r )
+                # An MPI barrier is needed here so that a single rank does not
+                # do two sends and receives before this exchange is completed.
+                self.mpi_comm.Barrier()
+                # Copy the receiving buffer to the guard cells of the domain
+                self.buffer.copy_J_buffers( interp, after_receiving=True )
 
-            # Copy the inner part of the domain to the sending buffer
-            self.buffers.copy_rho_buffers( interp, before_sending=True )
-            # Copy the sending buffers to the receiving buffers via MPI
-            self.exchange_domains( 'rho', self.mpi_comm )
-            # An MPI barrier is needed here so that a single rank does not
-            # do two sends and receives before this exchange is completed.
-            self.mpi_comm.Barrier()
-            # Copy the receiving buffer to the guard cells of the domain
-            self.buffers.copy_rho_buffers( interp, after_receiving=True )
+            elif fieldtype == 'rho':
 
-        else:
-            raise ValueError('Unknown fieldtype : %s' %fieldtype)
+                # Copy the inner part of the domain to the sending buffer
+                self.buffers.copy_rho_buffers( interp, before_sending=True )
+                # Copy the sending buffers to the receiving buffers via MPI
+                self.exchange_domains(
+                    self.buffers.rho_send_l, self.buffers.rho_send_r,
+                    self.buffers.rho_recv_l, self.buffers.rho_recv_r )
+                # An MPI barrier is needed here so that a single rank does not
+                # do two sends and receives before this exchange is completed.
+                self.mpi_comm.Barrier()
+                # Copy the receiving buffer to the guard cells of the domain
+                self.buffers.copy_rho_buffers( interp, after_receiving=True )
 
-    def exchange_particles(self, ptcl, zmin, zmax) :
+            else:
+                raise ValueError('Unknown fieldtype: %s' %fieldtype)
+
+    def exchange_domains( self, send_left, send_right, recv_left, recv_right ):
+        """
+        Send the arrays send_left and send_right to the left and right
+        processes respectively.
+        Receive the arrays from the neighboring processes into recv_left
+        and recv_right.
+        Sending and receiving is done from CPU to CPU.
+
+        Parameters :
+        ------------
+        - send_left, send_right, recv_left, recv_right : arrays 
+             Sending and receiving buffers
+        """
+        # MPI-Exchange: Uses non-blocking send and receive, 
+        # which return directly and need to be synchronized later.
+        # Send to left domain and receive from right domain
+        if self.left_proc is not None :
+            self.mpi_comm.Isend(send_left, dest=self.left_proc, tag=1)
+        if self.right_proc is not None :
+            req_1 = self.mpi_comm.Irecv(recv_right,
+                                        source=self.right_proc, tag=1)
+        # Send to right domain and receive from left domain
+        if self.right_proc is not None :
+            self.mpi_comm.Isend(send_right, dest=self.right_proc, tag=2)
+        if self.left_proc is not None :
+            req_2 = self.mpi_comm.Irecv(recv_left,
+                                        source=self.left_proc, tag=2)
+        # Wait for the non-blocking sends to be received (synchronization)
+        if self.right_proc is not None :
+            mpi.Request.Wait(req_1)
+        if self.left_proc is not None :
+            mpi.Request.Wait(req_2)
+            
+    def exchange_particles(self, ptcl, zmin, zmax):
         """
         Look for particles that are located inside the guard cells
         and exchange them with the corresponding neighboring processor.
 
-        Parameters :
+        Parameters:
         ------------
-        ptcl : a Particle object
+        ptcl: a Particle object
             The object corresponding to a given species
         """
         # Shortcuts for number of guard cells and spacing between cells
@@ -328,7 +369,7 @@ class BoundaryCommunicator(object) :
         # will be send to this domain.
         N_recv_l = np.array(0, dtype = np.int32)
         N_recv_r = np.array(0, dtype = np.int32)
-        # Send and receive the number of particles that are exchanged 
+        # Send and receive the number of particles that are exchanged
         self.exchange_domains(N_send_l, N_send_r, N_recv_l, N_recv_r)
 
         # Allocate sending buffers
@@ -408,27 +449,27 @@ class BoundaryCommunicator(object) :
         Create the damping array for the fields in the guard cells.
         The ncells_damp first cells are modified by the damping.
 
-        Parameters :
+        Parameters:
         ------------
-        ncells_damp : int
+        ncells_damp: int
             The number of cells over which the field is damped,
             in the guard cells
 
-        damp_shape : str
+        damp_shape: str
             An identifier of the damping function
             Either 'cos', 'None', 'linear' or 'sin'
         """
-        if damp_shape == 'None' :
+        if damp_shape == 'None':
             self.damp_array = np.ones(ncells_damp)
-        elif damp_shape == 'linear' :
+        elif damp_shape == 'linear':
             self.damp_array = np.linspace(0, 1, ncells_damp)
-        elif damp_shape == 'sin' :
+        elif damp_shape == 'sin':
             self.damp_array = np.sin(np.linspace(0, np.pi/2, ncells_damp) )
-        elif damp_shape == 'cos' :
+        elif damp_shape == 'cos':
             self.damp_array = 0.5-0.5*np.cos(
                 np.linspace(0, np.pi, ncells_damp) )
-        else :
-            raise ValueError("Invalid string for damp_shape : %s"%damp_shape)
+        else:
+            raise ValueError("Invalid string for damp_shape: %s"%damp_shape)
 
         # Copy the array to the GPU if possible
         if cuda_installed:
@@ -440,11 +481,15 @@ class BoundaryCommunicator(object) :
         create_damp_array() needs to be called before this function
         is called, in order to initialize the damping array.
 
-        Parameter :
+        Parameter:
         -----------
-        interp : list
+        interp: list
             A list of InterpolationGrid objects (one per azimuthal mode)
         """
+        # Do not damp the fields for 0 guard cells (periodic, single proc)
+        if self.n_guard == 0:
+            return
+        
         # Number of cells that are damped
         n_damp = len(self.damp_array)
             
@@ -457,7 +502,7 @@ class BoundaryCommunicator(object) :
             damp_right = True
 
         # Damp the fields on the CPU or the GPU
-        if interp[0].use_cuda :
+        if interp[0].use_cuda:
             # Damp the fields on the GPU
             dim_grid, dim_block = cuda_tpb_bpg_2d( n_damp, interp[0].Nr )
 
@@ -468,7 +513,7 @@ class BoundaryCommunicator(object) :
                 interp[1].Br, interp[1].Bt, interp[1].Bz,
                 self.d_damp_array, 0, n_damp, damp_left, damp_right )
 
-        else :
+        else:
             # Damp the fields on the CPU
             
             for m in range(self.Nm):
@@ -492,17 +537,17 @@ class BoundaryCommunicator(object) :
         Gather a grid object by combining the local domains
         without the guard regions to a new global grid object.
 
-        Parameter :
+        Parameter:
         -----------
-        grid : Grid object (InterpolationGrid)
+        grid: Grid object (InterpolationGrid)
             A grid object that is gathered on the root process
 
-        root : int, optional
+        root: int, optional
             Process that gathers the data
 
-        Returns :
+        Returns:
         ---------
-        gathered_grid : Grid object (InterpolationGrid)
+        gathered_grid: Grid object (InterpolationGrid)
             A gathered grid that contains the global simulation data
         """
         if self.rank == root:
@@ -538,17 +583,17 @@ class BoundaryCommunicator(object) :
         mpi4py routine Gatherv, that gathers arbitrary shape arrays
         by combining the first dimension in ascending order.
 
-        Parameter :
+        Parameter:
         -----------
-        array : array (grid array)
+        array: array (grid array)
             A grid array of the local domain
 
-        root : int, optional
+        root: int, optional
             Process that gathers the data
 
-        Returns :
+        Returns:
         ---------
-        gathered_array : array (global grid array)
+        gathered_array: array (global grid array)
             A gathered array that contains the global simulation data
         """
         if self.rank == root:
@@ -580,17 +625,17 @@ class BoundaryCommunicator(object) :
         Ntot (uses parallel sum reduction) in order to gather (mpi4py Gatherv) 
         the local particle arrays to global particle arrays with a length Ntot.
 
-        Parameter :
+        Parameter:
         -----------
-        ptcl : Particle object
+        ptcl: Particle object
             A particle object that is gathered on the root process
 
-        root : int, optional
+        root: int, optional
             Process that gathers the data
 
-        Returns :
+        Returns:
         ---------
-        gathered_ptcl : Particle object
+        gathered_ptcl: Particle object
             A gathered particle object that contains the global simulation data
         """
         if self.rank == root:
@@ -622,23 +667,23 @@ class BoundaryCommunicator(object) :
         mpi4py routine Gatherv, that gathers arbitrary shape arrays
         by combining the first dimension in ascending order.
 
-        Parameter :
+        Parameter:
         -----------
-        array : array (ptcl array)
+        array: array (ptcl array)
             A particle array of the local domain
 
-        n_rank : list of ints
+        n_rank: list of ints
             A list containing the number of particles to send on each proc
             
-        Ntot : int
+        Ntot: int
             The total number of particles for all the proc together
 
-        root : int, optional
+        root: int, optional
             Process that gathers the data
 
-        Returns :
+        Returns:
         ---------
-        gathered_array : array (global ptcl array)
+        gathered_array: array (global ptcl array)
             A gathered array that contains the global simulation data
         """
         # Prepare the output array
@@ -662,3 +707,5 @@ class BoundaryCommunicator(object) :
         # Return the gathered_array only on process root
         if self.rank == root:
             return(gathered_array)
+
+
