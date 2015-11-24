@@ -265,7 +265,7 @@ class Simulation(object):
                 fld.correct_currents()
 
             # Damp the fields in the guard cells
-            self.comm.damp_guard_fields( fld.interp )
+            self.comm.damp_guard_EB( fld.interp )
             # Get the exchanged and/or damped fields
             fld.interp2spect('E')
             fld.interp2spect('B')

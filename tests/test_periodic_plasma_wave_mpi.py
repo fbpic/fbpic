@@ -164,7 +164,6 @@ size = mpi_comm.size
 # ----------
 # Parameters
 # ----------
-use_mpi=True
 
 # The simulation box
 Nz = 512        # Number of gridpoints along z
@@ -202,8 +201,8 @@ N_step = int( 2*np.pi/(wp*dt)*0.75 )
 
 # Initialization of the simulation object
 sim = Simulation( Nz, zmax, Nr, rmax, Nm, dt,
-                  p_zmin, p_zmax, p_rmin, p_rmax, p_nz, p_nr, p_nt, n_e,
-                  use_mpi = use_mpi, n_guard = 50 )
+                  p_zmin, p_zmax, p_rmin, p_rmax, p_nz, p_nr,
+                  p_nt, n_e, n_guard = 50 )
 
 # Impart velocities to the electrons
 # (The electrons are initially homogeneous, but have an
@@ -215,25 +214,15 @@ def show_fields(sim) :
     Gathers the fields and compare them with the analytical theory
     """
 
-    if use_mpi:
-        gathered_grid = sim.comm.gather_grid(sim.fld.interp[0])
+    gathered_grid = sim.comm.gather_grid(sim.fld.interp[0])
 
-    if use_mpi:
-        if rank == 0:
-            # Check the Ez field
-            check_E_field( gathered_grid, epsilon, k0, w0, wp,
-                    sim.time, field='Ez' )
-            # Check the Er field
-            check_E_field( gathered_grid, epsilon, k0, w0, wp,
-                    sim.time, field='Er' )
-    else:
+    if rank == 0:
         # Check the Ez field
-        check_E_field( sim.fld.interp[0], epsilon, k0, w0, wp,
-                   sim.time, field='Ez' )
+        check_E_field( gathered_grid, epsilon, k0, w0, wp,
+                    sim.time, field='Ez' )
         # Check the Er field
-        check_E_field( sim.fld.interp[0], epsilon, k0, w0, wp,
-                   sim.time, field='Er' )
-    
+        check_E_field( gathered_grid, epsilon, k0, w0, wp,
+                    sim.time, field='Er' )
     
 # Launch the simulation
 if __name__ == '__main__' :
