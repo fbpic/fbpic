@@ -24,8 +24,10 @@ class GuardCellDamper(object):
         self.n_guard = n_guard
 
         # Create the damping arrays
-        self.left_damp = generate_damp_array( n_guard, left_proc )
-        self.right_damp = generate_damp_array( n_guard, right_proc )
+        self.left_damp = generate_damp_array(
+            n_guard, left_proc, exchange_period )
+        self.right_damp = generate_damp_array(
+            n_guard, right_proc, exchange_period )
 
         # Transfer the damping array to the GPU
         if cuda_installed:
@@ -53,7 +55,7 @@ class GuardCellDamper(object):
         else:
             # Damp the fields on the CPU
             n_guard = self.n_guard
-            for m in range(self.Nm):
+            for m in range(len(interp)):
                 # Damp the fields in left guard cells
                 interp[m].Er[:n_guard,:] *= self.left_damp[:,np.newaxis]
                 interp[m].Et[:n_guard,:] *= self.left_damp[:,np.newaxis]

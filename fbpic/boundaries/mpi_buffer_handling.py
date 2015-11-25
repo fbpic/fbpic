@@ -43,13 +43,6 @@ class BufferHandler(object):
         self.n_guard = n_guard
         self.left_proc = left_proc
         self.right_proc = right_proc
-        
-        # Determine whether the exchange should be performed
-        if n_guard==0 or ((left_proc==False) and (right_proc==False)):
-            self.perform_exchange = False
-            return
-        else:
-            self.perform_exchange = True
 
         # For the E and B fields: Only the guard cells are exchanged
         # For J and rho: 2 * the guard cells are exchanged
@@ -98,10 +91,6 @@ class BufferHandler(object):
         after_receiving: bool
             Whether to copy the receiving buffer to the guard cells
         """
-        # Do not copy the fields if no exchange to perform (single proc)
-        if self.perform_exchange == False:
-            return
-
         # Shortcut for the guard cells
         ng = self.n_guard
         copy_left = (self.left_proc is not None)
@@ -203,10 +192,6 @@ class BufferHandler(object):
         after_receiving: bool
             Whether to add the receiving buffer to the guard cells
         """
-        # Do not copy the fields if no exchange to perform (single proc)
-        if self.perform_exchange == False:
-            return
-
         # Shortcut for the guard cells
         ng = self.n_guard
         copy_left = (self.left_proc is not None)
@@ -292,10 +277,6 @@ class BufferHandler(object):
         after_receiving: bool
             Whether to add the receiving buffer to the guard cells
         """
-        # Do not copy the fields if no exchange to perform (single proc)
-        if self.perform_exchange == False:
-            return
-
         # Shortcut for the guard cells
         ng = self.n_guard
         copy_left = (self.left_proc is not None)

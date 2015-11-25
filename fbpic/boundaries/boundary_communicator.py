@@ -447,7 +447,7 @@ class BoundaryCommunicator(object):
         """
         # Do not damp the fields for 0 guard cells (periodic, single proc)
         if self.n_guard != 0:
-            self.damper.damp_guard_EB( interp )
+            self.guard_damper.damp_guard_EB( interp )
 
     def gather_grid( self, grid, root = 0):
         """
