@@ -11,14 +11,30 @@ except ImportError:
 
 class GuardCellDamper(object):
     """
-    Class that handles the damping in the guard cells.
+    Class that handles the damping of the E and B fields in the guard cells,
+    either on CPU or GPU.
 
-    EXPLAIN HOW THE DAMPING IS DONE
+    The damping is done in order to avoid:
+    - sudden cutting of the stencil between MPI domains
+    - wrapping around of the fields at open boundaries
+
+    To mirror those two different goals, the damping is done differently
+    in the guard cells that correspond to an open boundary (light damping)
+    and in the guard cells that correspond to a boundary between processors.
     """
 
     def __init__( self, n_guard, left_proc, right_proc, exchange_period ):
         """
-        DOCUMENTATION
+        Initialize a damping object.
+
+        Parameters
+        ----------
+        n_guard: int
+            The number of guard cells along z
+
+        left_proc, right_proc: int or None
+            Indicates whether the boundary is open (proc is None) or
+            is a boundary between processors (proc is an integer)
         """
         # Register the number of guard cells
         self.n_guard = n_guard
@@ -37,9 +53,13 @@ class GuardCellDamper(object):
 
     def damp_guard_EB( self, interp ):
         """
-        DOCUMENTATION
-        """
+        Damp the fields E and B in the guard cells.
 
+        Parameters
+        ----------
+        interp: list of InterpolationGrid objects (one per azimuthal mode)
+            Objects that contain the fields to be damped.
+        """
         # Damp the fields on the CPU or the GPU
         if interp[0].use_cuda:
             # Damp the fields on the GPU
