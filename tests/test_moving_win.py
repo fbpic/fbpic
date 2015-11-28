@@ -74,7 +74,7 @@ def test_pulse( Nz, Nr, Nm, Lz, Lr, Nt, w0, ctau,
     dt = Lz*1./Nz * 1./c
     
     # Initialize the fields object
-    fld = Fields( Nz, Lz, Nr, Lr, Nm, dt, v_galilean = -c )
+    fld = Fields( Nz, Lz, Nr, Lr, Nm, dt )
     z0 = Lz/2
     init_fields( fld, w0, ctau, k0, z0, E0, m )
 
@@ -88,7 +88,7 @@ def test_pulse( Nz, Nr, Nm, Lz, Lr, Nt, w0, ctau,
     fld.interp2spect('B')
     
     #Create moving window object
-    mov_win = MovingWindow( fld.interp[0], v=0.)
+    mov_win = MovingWindow( fld.interp[0] )
 
     # Loop over the iterations
     print('Running the simulation...')
@@ -188,7 +188,7 @@ def init_fields( fld, w, ctau, k0, z0, E0, m=1 ) :
     # Initialize the fields with the right value and phase
     if m == 1 :
         add_laser( fld, E0*e/(m_e*c**2*k0), w, ctau, z0,
-                   lambda0 = 2*np.pi/k0, fw_propagating=False )
+                   lambda0 = 2*np.pi/k0, fw_propagating=True )
     if m == 0 :
         z = fld.interp[m].z
         r = fld.interp[m].r
@@ -398,12 +398,12 @@ if __name__ == '__main__' :
 
     show=True
 
-    #print('')
-    #print('Testing mode m=0 with an annular beam')
-    #plt.figure()
-    #res = test_pulse( Nz, Nr, Nm, Lz, Lr, N_step, w0, ctau,
-    #                  k0, E0, 0, N_show, show=show )
-    #plt.show()
+    print('')
+    print('Testing mode m=0 with an annular beam')
+    plt.figure()
+    res = test_pulse( Nz, Nr, Nm, Lz, Lr, N_step, w0, ctau,
+                      k0, E0, 0, N_show, show=show )
+    plt.show()
     
     print('')
     print('Testing mode m=1 with an gaussian beam')

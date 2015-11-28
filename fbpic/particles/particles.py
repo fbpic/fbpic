@@ -3,25 +3,30 @@ This file is part of the Fourier-Bessel Particle-In-Cell code (FB-PIC)
 It defines the structure and methods associated with the particles.
 """
 import numpy as np
-import matplotlib.pyplot as plt
 from scipy.constants import c
 
-# Load the standard numpy routines
-from numpy_methods import *
 # Load the utility methods
-from utility_methods import *
+from .utility_methods import linear_weights, unalign_angles
+# Load the standard numpy routines
+from .numpy_methods import push_p_numpy, push_x_numpy, \
+        gather_field_numpy, deposit_field_numpy
 
 # If numba is installed, it can make the code much faster
 try :
-    from numba_methods import *
+    from .numba_methods import push_p_numba, \
+        gather_field_numba, deposit_field_numba
     numba_installed = True
 except ImportError :
     numba_installed = False
 
 # If numbapro is installed, it potentially allows to use a GPU
 try :
-    from cuda_methods import *
-    from fbpic.cuda_utils import *
+    from fbpic.cuda_utils import cuda, cuda_tpb_bpg_1d, cuda_tpb_bpg_2d
+    from .cuda_methods import push_p_gpu, push_x_gpu, \
+        gather_field_gpu, deposit_rho_gpu, deposit_J_gpu, \
+        write_particle_buffer, cuda_deposition_arrays, \
+        get_cell_idx_per_particle, sort_particles_per_cell, \
+        reset_prefix_sum, incl_prefix_sum, add_rho, add_J
     cuda_installed = True
 except :
     cuda_installed = False

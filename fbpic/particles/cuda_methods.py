@@ -528,14 +528,11 @@ def deposit_rho_gpu(x, y, z, w,
         # current cell (inclusive).
         incl_offset = np.int32(prefix_sum[i])
         # Calculate the frequency per cell from the offset and the previous
-        # offset (prefix_sum[i-1]). For cell 0, you need to add +1 for
-        # the correct frequency in the case its not zero.
+        # offset (prefix_sum[i-1]).
         if i > 0:
             frequency_per_cell = np.int32(incl_offset - prefix_sum[i-1])
         if i == 0:
-            frequency_per_cell = np.int32(incl_offset + 1)
-            if frequency_per_cell == 1:
-                frequency_per_cell = 0
+            frequency_per_cell = np.int32(incl_offset)
         # Initialize the local field value for 
         # all four possible deposition directions
         # Mode 0, 1 for r, t, z
@@ -556,7 +553,9 @@ def deposit_rho_gpu(x, y, z, w,
         for j in range(frequency_per_cell):
             # Get the particle index before the sorting
             # --------------------------------------------
-            ptcl_idx = incl_offset-j
+            # (Since incl_offset is a cumulative sum of particle number,
+            # and since python index starts at 0, one has to add -1)
+            ptcl_idx = incl_offset-1-j
 
             # Preliminary arrays for the cylindrical conversion
             # --------------------------------------------
@@ -576,7 +575,7 @@ def deposit_rho_gpu(x, y, z, w,
                 sin = yj*invr  # Sine
             else :
                 cos = 1.
-                sim = 0.
+                sin = 0.
             exptheta_m0 = 1.
             exptheta_m1 = cos + 1.j*sin
 
@@ -799,14 +798,11 @@ def deposit_J_gpu(x, y, z, w,
         # current cell (inclusive).
         incl_offset = np.int32(prefix_sum[i])
         # Calculate the frequency per cell from the offset and the previous
-        # offset (prefix_sum[i-1]). For cell 0, you need to add +1 for 
-        # the correct frequency in the case its not zero.
+        # offset (prefix_sum[i-1]).
         if i > 0:
             frequency_per_cell = np.int32(incl_offset - prefix_sum[i-1])
         if i == 0:
-            frequency_per_cell = np.int32(incl_offset + 1)
-            if frequency_per_cell == 1:
-                frequency_per_cell = 0
+            frequency_per_cell = np.int32(incl_offset)
         # Initialize the local field value for 
         # all four possible deposition directions
         # Mode 0, 1 for r, t, z
@@ -847,7 +843,9 @@ def deposit_J_gpu(x, y, z, w,
         for j in range(frequency_per_cell):
             # Get the particle index
             # ----------------------
-            ptcl_idx = incl_offset-j
+            # (Since incl_offset is a cumulative sum of particle number,
+            # and since python index starts at 0, one has to add -1)
+            ptcl_idx = incl_offset-1-j
 
             # Preliminary arrays for the cylindrical conversion
             # --------------------------------------------
@@ -1208,8 +1206,9 @@ def sort_particles_per_cell(cell_idx, sorted_idx):
         particle before the sorting.
     """
     Ntot = cell_idx.shape[0]
-    sorter = sorting.RadixSort(Ntot, dtype = np.int32)
-    sorter.sort(cell_idx, vals = sorted_idx)
+    if Ntot > 0:
+        sorter = sorting.RadixSort(Ntot, dtype = np.int32)
+        sorter.sort(cell_idx, vals = sorted_idx)
 
 @cuda.jit('void(int32[:], int32[:])')
 def incl_prefix_sum(cell_idx, prefix_sum):
@@ -1228,16 +1227,23 @@ def incl_prefix_sum(cell_idx, prefix_sum):
         Represents the cumulative sum of 
         the particles per cell
     """
+    # i is the index of the macroparticle
     i = cuda.grid(1)
     if i < cell_idx.shape[0]-1:
+        # ci: index of the cell of the present macroparticle
         ci = cell_idx[i]
+        # ci_next: index of the cell of the next macroparticle
         ci_next = cell_idx[i+1]
+        # Fill all the cells between ci and ci_next with the
+        # inclusive cumulative sum of the number particles until ci
         while ci < ci_next:
-            prefix_sum[ci] = i
+            # The cumulative sum of the number of particle per cell
+            # until ci is i+1 (since i obeys python index, starting at 0)
+            prefix_sum[ci] = i+1
             ci += 1
     if i == cell_idx.shape[0]-1:
         ci = cell_idx[i]
-        prefix_sum[ci] = i
+        prefix_sum[ci] = i+1
 
 @cuda.jit('void(int32[:])')
 def reset_prefix_sum(prefix_sum):

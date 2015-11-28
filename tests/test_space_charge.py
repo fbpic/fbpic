@@ -26,7 +26,7 @@ n_order = -1     # The order of the stencil in z
 # The simulation timestep                                              
 dt = zmax/Nz/c   # Timestep (seconds)                                           
 N_step = 300     # Number of iterations to perform
-N_show = 30      # Number of timestep between every plot
+N_show = 300     # Number of timestep between every plot
 
 # The particles
 gamma0 = 25.
@@ -41,22 +41,21 @@ p_nt = 4         # Number of particles per cell along theta
 
 # Initialize the simulation object
 sim = Simulation( Nz, zmax, Nr, rmax, Nm, dt,
-    p_zmin, p_zmax, p_rmin, p_rmax, p_nz, p_nr, p_nt, n_e, 
-    n_order=n_order, v_galilean = -0.999999999999*c )
+    p_zmin, p_zmax, p_rmin, p_rmax, p_nz, p_nr, p_nt, n_e, n_order=n_order )
 
 # Configure the moving window
-#sim.moving_win = MovingWindow( sim.fld.interp[0],
-#                               ncells_damp=2,
-#                               ncells_zero=2 )
+sim.moving_win = MovingWindow( sim.fld.interp[0],
+                               ncells_damp=2,
+                               ncells_zero=2 )
 
 # Suppress the particles that were intialized by default and add the bunch
 sim.ptcl = [ ]
-add_elec_bunch( sim, gamma0, n_e, p_zmin, p_zmax, p_rmin, p_rmax, direction = 'forward' )
+add_elec_bunch( sim, gamma0, n_e, p_zmin, p_zmax, p_rmin, p_rmax )
+
 
 # Show the initial fields
 plt.figure(0)
 sim.fld.interp[0].show('Ez')
-plt.scatter(sim.ptcl[0].z*1e6, np.sqrt(sim.ptcl[0].x**2+sim.ptcl[0].y**2)*1e6)
 plt.figure(1)
 sim.fld.interp[0].show('Er')
 plt.show()
@@ -64,12 +63,11 @@ print 'Done'
 
 # Carry out the simulation
 for k in range(N_step/N_show) :
-    sim.step(N_show, correct_currents=False, moving_window = False)
+    sim.step(N_show)
 
     plt.figure(0)
     plt.clf()
     sim.fld.interp[0].show('Ez')
-    plt.scatter(sim.ptcl[0].z*1e6, np.sqrt(sim.ptcl[0].x**2+sim.ptcl[0].y**2)*1e6)
     plt.figure(1)
     plt.clf()
     sim.fld.interp[0].show('Er')
