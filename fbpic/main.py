@@ -142,7 +142,8 @@ class Simulation(object) :
         self.diags = []
 
     def step(self, N=1, ptcl_feedback=True, correct_currents=True,
-             move_positions=True, move_momenta=True, moving_window=True ) :
+             move_positions=True, move_momenta=True, moving_window=True,
+             use_true_rho = False ) :
         """
         Perform N PIC cycles
         
@@ -169,6 +170,10 @@ class Simulation(object) :
             Whether to move using a moving window. In this case,
             a MovingWindow object has to be attached to the simulation
             beforehand. e.g : sim.moving_win = MovingWindow(v=c)
+
+        use_true_rho: bool, optional
+            Wether to use the true rho deposited on the grid for the 
+            field push or not. (requires initialize_ions = True)
         """
         # Shortcuts
         ptcl = self.ptcl
@@ -239,7 +244,7 @@ class Simulation(object) :
                 fld.correct_currents()
             
             # Get the fields E and B on the spectral grid at t = (n+1) dt
-            fld.push( ptcl_feedback )
+            fld.push( ptcl_feedback, use_true_rho )
             # Get the fields E and B on the interpolation grid at t = (n+1) dt
             fld.spect2interp('E')
             fld.spect2interp('B')
