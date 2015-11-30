@@ -810,10 +810,11 @@ class SpectralGrid(object) :
                         - ps.rho_prev_coef*self.rho_prev
                 else :
                     # Evaluation using div(E) and div(J)
-                    rho_diff= (ps.rho_next_coef-ps.rho_prev_coef)*epsilon_0* \
-                    (self.kr*self.Ep - self.kr*self.Em + i*self.kz*self.Ez) \
-                    - ps.rho_next_coef * ps.dt * \
-                    (self.kr*self.Jp - self.kr*self.Jm + i*self.kz*self.Jz)
+                    rho_diff = (ps.rho_next_coef*ps.T - ps.rho_prev_coef)* \
+                    epsilon_0 * (self.kr*self.Ep - self.kr*self.Em + i*self.kz*self.Ez) \
+                    + ps.T_rho \
+                    * ps.rho_next_coef \
+                    * (self.kr*self.Jp - self.kr*self.Jm + i*self.kz*self.Jz)
 
                 # Push the E field
                 self.Ep[:,:] = ps.T*ps.C*self.Ep + 0.5*self.kr*rho_diff \
@@ -1040,6 +1041,12 @@ class PsatdCoeffs(object) :
         # Theta coefficient due to galilean frame
         self.T = np.exp(i*kz*V*dt)
 
+        # Theta-like coefficient for calculation of rho_diff
+        if V != 0.:
+            self.T_rho = np.where(kz != 0., (1.-self.T)/(i*kz*self.V), -self.dt)
+        else:
+            self.T_rho = - self.dt
+
         # Precalculate some coefficients
         if V != 0.:
             # Calculate pre-factor
@@ -1098,6 +1105,7 @@ class PsatdCoeffs(object) :
             self.d_C = cuda.to_device(self.C)
             self.d_S_w = cuda.to_device(self.S_w)
             self.d_T = cuda.to_device(self.T)
+            self.d_T_rho = cuda.to_device(self.T)
             self.d_j_coef = cuda.to_device(self.j_coef)
             self.d_rho_prev_coef = cuda.to_device(self.rho_prev_coef)
             self.d_rho_next_coef = cuda.to_device(self.rho_next_coef)
