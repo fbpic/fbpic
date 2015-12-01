@@ -179,7 +179,7 @@ class Simulation(object):
                     v, ux_m, uy_m, uz_m, ux_th, uy_th, uz_th )
 
     def step(self, N=1, ptcl_feedback=True, correct_currents=True,
-             move_positions=True, move_momenta=True):
+             move_positions=True, move_momenta=True, show_progress=True):
         """
         Perform N PIC cycles
         
@@ -201,6 +201,9 @@ class Simulation(object):
 
         move_momenta: bool, optional
             Whether to move or freeze the particles' momenta
+
+        show_progress: bool, optional
+            Whether to show a progression bar
         """
         # Shortcuts
         ptcl = self.ptcl
@@ -214,7 +217,8 @@ class Simulation(object):
         for i_step in xrange(N):
 
             # Show a progression bar
-            progression_bar( i_step, N )
+            if show_progress:
+                progression_bar( i_step, N )
             
             # Exchange the fields (EB) and the particles 
             # in the guard cells between domains
@@ -292,7 +296,8 @@ class Simulation(object):
             receive_data_from_gpu(self)
 
         # Print a space at the end of the loop, for esthetical reasons
-        print('')
+        if show_progress:
+            print('')
         
     def deposit( self, fieldtype ):
         """

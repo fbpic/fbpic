@@ -93,7 +93,7 @@ def test_pulse( Nz, Nr, Nm, Lz, Lr, Nt, w0, ctau,
     print('Running the simulation...')
     for it in range(Nt) :
         # Perform one simulation step
-        sim.step()
+        sim.step( show_progress=False )
         # Fit the fields to find the waist and a0
         w[it], E[it] = fit_fields( sim.fld, m )
         # Since the fit returns the RMS of E, renormalize it
@@ -372,7 +372,7 @@ if __name__ == '__main__' :
     N_step = 200
     N_show = 20 # interval between two plots (in number of timestep)
 
-    show=True
+    show = True
 
     print('')
     print('Testing mode m=0 with an annular beam')
