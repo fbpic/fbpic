@@ -1043,7 +1043,9 @@ class PsatdCoeffs(object) :
 
         # Theta-like coefficient for calculation of rho_diff
         if V != 0.:
-            self.T_rho = np.where(kz != 0., (1.-self.T)/(i*kz*self.V), -self.dt)
+            i_kz_V = i*kz*self.V
+            i_kz_V[ kz==0 ] = 1.
+            self.T_rho = np.where(kz == 0., -self.dt, (1.-self.T)/i_kz_V)
         else:
             self.T_rho = - self.dt
 

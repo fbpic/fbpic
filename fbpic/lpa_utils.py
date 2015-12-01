@@ -351,8 +351,7 @@ def get_space_charge_spect( spect, gamma, direction = 'forward' ) :
     # Propagation direction of the beam
     if direction == 'backward':
         beta *= -1.
-    
-    print beta
+        
     # Get the denominator
     K2 = spect.kr**2 + spect.kz**2 * 1./gamma**2
     K2_corrected = np.where( K2 != 0, K2, 1. )
