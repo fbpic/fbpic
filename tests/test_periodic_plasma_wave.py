@@ -224,7 +224,7 @@ if __name__ == '__main__' :
     impart_momenta( sim.ptcl[0], epsilon, k0, w0, wp )
 
     # Launch the simulation
-    sim.step( N_step, moving_window=False )
+    sim.step( N_step )
 
     # Check the Ez field
     check_E_field( sim.fld.interp[0], epsilon, k0, w0, wp,

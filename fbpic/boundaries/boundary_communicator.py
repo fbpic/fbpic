@@ -34,7 +34,7 @@ class BoundaryCommunicator(object):
     """
 
     def __init__( self, Nz, Nr, n_guard, Nm, boundaries='periodic',
-                  exchange_period=None, v_moving=0 ):
+                  exchange_period=None ):
         """
         Initializes a communicator object.
 
@@ -103,8 +103,9 @@ class BoundaryCommunicator(object):
         else:
             self.exchange_period = exchange_period
 
-        # Initialize the speed of the moving window.
-        self.v_moving = v_moving
+        # Initialize the moving window to None (See the method
+        # set_moving_window in main.py to initialize a proper moving window)
+        self.moving_win = None
 
         # Initialize a buffer handler object, for MPI communications
         if self.size > 1:
@@ -115,7 +116,7 @@ class BoundaryCommunicator(object):
         if self.n_guard > 0:
             self.guard_damper = GuardCellDamper( self.n_guard,
                     self.left_proc, self.right_proc, self.exchange_period )
-        
+
     def divide_into_domain( self, zmin, zmax, p_zmin, p_zmax ):
         """
         Divide the global simulation into domain and add local guard cells.
@@ -191,6 +192,25 @@ class BoundaryCommunicator(object):
         # Return the new boundaries to the simulation object
         return( zmin_local, zmax_local, p_zmin, p_zmax, self.Nz_enlarged )
 
+    def move_grids( self, interp, dt ):
+        """
+        Calculate by how many cells the moving window should be moved.
+        If this is non-zero, shift the fields on the interpolation grid,
+        and add new particles.
+
+        NB: the spectral grid is not modified, as it is automatically
+        updated after damping the fields (see main.py)
+
+        Parameters
+        ----------
+        interp: a list of Interpolation object
+            Contains the fields data of the simulation
+    
+        dt: float (in seconds)
+            Timestep of the simulation
+        """
+        self.moving_win.move_grids(interp, dt, self.mpi_comm)
+           
     def exchange_fields( self, interp, fieldtype ):
         """
         Send and receive the proper fields, depending on fieldtype
@@ -567,7 +587,8 @@ class BoundaryCommunicator(object):
         n_rank = self.mpi_comm.allgather( ptcl.Ntot )
         Ntot = sum(n_rank)
         # Loop over particle attributes that need to be gathered
-        for particle_attr in ['x', 'y', 'z', 'ux', 'uy', 'uz','inv_gamma', 'w']:
+        for particle_attr in ['x', 'y', 'z', 'ux', 'uy',
+                              'uz', 'inv_gamma', 'w']:
             # Get array of particle attribute
             array = getattr(ptcl, particle_attr)
             # Gather array on process root

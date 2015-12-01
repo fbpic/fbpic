@@ -4,10 +4,10 @@ Fourier-Bessel Particle-In-Cell (FB-PIC) main file
 This file steers and controls the simulation.
 """
 import sys
-from scipy.constants import m_e, m_p, e
+from scipy.constants import m_e, m_p, e, c
 from .particles import Particles
 from .fields import Fields, cuda_installed
-from .boundaries import BoundaryCommunicator
+from .boundaries import BoundaryCommunicator, MovingWindow
 
 # If cuda is installed, try importing the rest of the cuda methods
 if cuda_installed:
@@ -158,8 +158,28 @@ class Simulation(object):
         # Initialize an empty list of diagnostics
         self.diags = []
 
+    def set_moving_window( self, v=c, ux_m=0., uy_m=0., uz_m=0.,
+                  ux_th=0., uy_th=0., uz_th=0. ):
+        """
+        Initializes a moving window for the simulation.
+
+        Parameters
+        ----------
+        v: float (meters per seconds), optional
+            The speed of the moving window
+
+        ux_m, uy_m, uz_m: floats (dimensionless)
+           Normalized mean momenta of the injected particles in each direction
+
+        ux_th, uy_th, uz_th: floats (dimensionless)
+           Normalized thermal momenta in each direction
+        """
+        # Attach the moving window to the boundary communicator
+        self.comm.moving_win = MovingWindow( self.fld.interp, self.comm,
+                    v, ux_m, uy_m, uz_m, ux_th, uy_th, uz_th )
+
     def step(self, N=1, ptcl_feedback=True, correct_currents=True,
-             move_positions=True, move_momenta=True, moving_window=True ):
+             move_positions=True, move_momenta=True):
         """
         Perform N PIC cycles
         
@@ -181,11 +201,6 @@ class Simulation(object):
 
         move_momenta: bool, optional
             Whether to move or freeze the particles' momenta
-
-        moving_window: bool, optional
-            Whether to move using a moving window. In this case,
-            a MovingWindow object has to be attached to the simulation
-            beforehand. e.g: sim.moving_win = MovingWindow(v=c)
         """
         # Shortcuts
         ptcl = self.ptcl
@@ -198,9 +213,12 @@ class Simulation(object):
         # Loop over timesteps
         for i_step in xrange(N):
 
+            # Show a progression bar
+            progression_bar( i_step, N )
+            
             # Exchange the fields (EB) and the particles 
             # in the guard cells between domains
-            self.comm.exchange_fields(self.fld.interp, 'EB')
+            self.comm.exchange_fields(fld.interp, 'EB')
 
             # Run the diagnostics
             for diag in self.diags:
@@ -208,34 +226,24 @@ class Simulation(object):
                 # this iteration and do it if needed.
                 # (Send the data to the GPU if needed.)
                 diag.write( self.iteration )
-            
-            # Show a progression bar
-            progression_bar( i_step, N )
 
             # Handle the moving window
-            if moving_window:
-
+            if self.comm.moving_win is not None:
                 # Move the window if needed
-                if self.iteration % self.moving_win.period == 0:
-                    # Shift the fields and add new particles
-                    # (Exchange fields and particles between
-                    # processors when using MPI)
-                    self.moving_win.move( fld, ptcl, self.p_nz,
-                                          self.dt, self.comm )
-                    # Reproject the charge on the interpolation grid
-                    # (Since particles have been added/suppressed)
-                    self.deposit('rho_prev')
-
-                # Damp the fields at every time step (at the left
-                # and right boundary). When using MPI, only the last
-                # and first processors damp the fields.
-                self.moving_win.damp_EB( fld.interp, self.comm )
+                if self.iteration % self.comm.exchange_period == 0:
+                    # Shift the fields
+                    self.comm.move_grids(fld.interp, self.dt)
+                    # Exchange the fields via MPI if needed
+                    self.comm.exchange_fields(fld.interp, 'EB')
 
             # Particle exchange after moving window / mpi communications
             if self.iteration % self.comm.exchange_period == 0:
                 for species in self.ptcl:
                     self.comm.exchange_particles(species,
                             fld.interp[0].zmin, fld.interp[0].zmax )
+                # Reproject the charge on the interpolation grid
+                # (Since particles have been added/suppressed)
+                self.deposit('rho_prev')
 
             # Gather the fields at t = n dt
             for species in ptcl:
@@ -285,7 +293,7 @@ class Simulation(object):
 
         # Print a space at the end of the loop, for esthetical reasons
         print('')
-
+        
     def deposit( self, fieldtype ):
         """
         Deposit the charge or the currents to the interpolation

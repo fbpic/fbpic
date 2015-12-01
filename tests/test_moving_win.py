@@ -6,14 +6,12 @@ Usage :
 from the top-level directory of FBPIC run
 $ python tests/test_moving_win.py
 """
-import sys
 import numpy as np
 import matplotlib.pyplot as plt
 from scipy.constants import c, m_e, e
 from scipy.optimize import curve_fit
-from fbpic.fields import Fields
+from fbpic.main import Simulation
 from fbpic.lpa_utils import add_laser
-from fbpic.moving_window import MovingWindow
 
 def test_pulse( Nz, Nr, Nm, Lz, Lr, Nt, w0, ctau,
                 k0, E0, m, N_show, show=False ) :
@@ -73,57 +71,40 @@ def test_pulse( Nz, Nr, Nm, Lz, Lr, Nt, w0, ctau,
     # one cell at every timestep
     dt = Lz*1./Nz * 1./c
     
-    # Initialize the fields object
-    fld = Fields( Nz, Lz, Nr, Lr, Nm, dt, use_cuda = True )
+    # Initialize the simulation object
+    sim = Simulation( Nz, Lz, Nr, Lr, Nm, dt, p_zmin=0, p_zmax=0,
+                    p_rmin=0, p_rmax=0, p_nz=2, p_nr=2, p_nt=2, n_e=0.,
+                    use_cuda=True )
+    # Remove the particles
+    sim.ptcl = []
+    # Create moving window object
+    sim.set_moving_window( v=c )
+
+    # Initialize the laser fields
     z0 = Lz/2
-    init_fields( fld, w0, ctau, k0, z0, E0, m )
+    init_fields( sim.fld, w0, ctau, k0, z0, E0, m )
 
     # Create the arrays to get the waist and amplitude
     w = np.zeros(Nt)
     E = np.zeros(Nt)
     z_center = np.zeros(Nt)
-        
-    # Get the fields in spectral space
-    fld.interp2spect('E')
-    fld.interp2spect('B')
-    
-    #Create moving window object
-    mov_win = MovingWindow( fld.interp[0] )
     
     # Loop over the iterations
     print('Running the simulation...')
     for it in range(Nt) :
-	fld.send_fields_to_gpu()
-	# Shift the fields using the moving window
-        mov_win.move( fld, [], 1, dt )
-        # Put the fields onto the spectral grid
-        fld.interp2spect('E')
-        fld.interp2spect('B')
-        # Advance the Maxwell equations
-        fld.push()
-        # Bring the fields back onto the interpolation grid
-        fld.spect2interp('E')
-        fld.spect2interp('B')
-	fld.receive_fields_from_gpu()
+        # Perform one simulation step
+        sim.step()
         # Fit the fields to find the waist and a0
-        w[it], E[it] = fit_fields( fld, m )
+        w[it], E[it] = fit_fields( sim.fld, m )
         # Since the fit returns the RMS of E, renormalize it
         E[it] = E[it]*2**(3./4)/np.pi**(1./4)*np.sqrt(Lz/ctau)
         # Get the average position of the laser
-        z_center[it] = average_position( fld, m )
-        # Show the progression bar
-        progression_bar(it, Nt-1)
+        z_center[it] = average_position( sim.fld, m )
         # Plot the fields during the simulation
         if show==True and it%N_show == 0 :
             plt.clf()
-            fld.interp[m].show('Et')
+            sim.fld.interp[m].show('Et')
             plt.show()
-        # Bring the fields back again onto the spectral grid
-        # (This is not needed in principle, as the fields
-        # were not modified in the real space, but it allows
-        # additional checking on the reversibility of the transform)
-        fld.interp2spect('E')
-        fld.interp2spect('B')
                             
     # Get the analytical solution
     z_prop = c*dt*np.arange(1, Nt+1)
@@ -155,7 +136,7 @@ def test_pulse( Nz, Nr, Nm, Lz, Lr, Nt, w0, ctau,
     plt.title('Centroid position')
     
     # Return a dictionary of the results
-    return( { 'E' : E, 'w' : w, 'fld' : fld, 'z_center' : z_center } )
+    return( { 'E' : E, 'w' : w, 'fld' : sim.fld, 'z_center' : z_center } )
 
     
 def init_fields( fld, w, ctau, k0, z0, E0, m=1 ) :
@@ -373,13 +354,6 @@ def fit_fields( fld, m ) :
                             laser_profile, p0=np.array([1,1]) )
     
     return( fit_result[0] )
-
-def progression_bar(i, Ntot, Nbars=60, char='-') :
-    "Shows a progression bar with Nbars"
-    nbars = int( i*1./Ntot*Nbars )
-    sys.stdout.write('\r[' + nbars*char )
-    sys.stdout.write((Nbars-nbars)*' ' + ']')
-    sys.stdout.flush()
     
 if __name__ == '__main__' :
     

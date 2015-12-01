@@ -226,6 +226,6 @@ def show_fields(sim) :
     
 # Launch the simulation
 if __name__ == '__main__' :
-    sim.step( N_step, moving_window=False, correct_currents = False)
+    sim.step( N_step, correct_currents = False)
 
     show_fields( sim )
