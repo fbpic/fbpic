@@ -522,41 +522,6 @@ def add_particles_gpu( species, zmin, zmax, Npz, ux_m=0., uy_m=0., uz_m=0.,
     # The particles are unsorted after adding new particles.
     species.sorted = False
 
-def damp_field( field_array, damp_array, n_damp, n_zero,
-                damp_left=True, damp_right=True ):
-    """
-    Put the fields to 0 in the n_zero first cells
-    Multiply the fields by damp_array in the n_damp next cells
-    (at the left and right boundary, depending on damp_left and damp_right)
-
-    Parameters
-    ----------
-    field_array: 2darray of complexs
-        The field to be damped
-        
-    damp_array: 1darray of reals
-        An array of length n_damp, containing values between 0 and 1,
-        for damping
-        
-    n_damp, n_zero: int
-        Number of cells over which the fields are damped and set to 0
-        respectively
-        
-    damp_left, damp_right: bool
-        Whether to damp the fields at the left and right boundary respectively
-    """
-    # Damp the fields at the left boundary
-    if damp_left:
-        field_array[:n_zero,:] = 0
-        field_array[n_zero:n_zero+n_damp,:] = \
-            damp_array[:,np.newaxis]*field_array[n_zero:n_zero+n_damp,:]
-
-    # Damp the fields at the right boundary
-    if damp_right:
-        field_array[-n_zero:,:] = 0
-        field_array[-n_zero-n_damp:-n_zero,:] = \
-            damp_array[::-1,np.newaxis]*field_array[-n_zero-n_damp:-n_zero,:]
-
 if cuda_installed:
 
     @cuda.jit('void(complex128[:,:], complex128[:,:], int32)')
