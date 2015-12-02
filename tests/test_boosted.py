@@ -1,19 +1,13 @@
 """
-This is a typical input script that runs a simulation of
-laser-wakefield acceleration using FBPIC.
+This is a test with a relativistic plasma flowing through a periodic
+box. It can typically be used to investigate the Cherenkov instability.
+
+In particular, there is an option to set the Galilean frame, and thus
+try to reduce the Cherenkov instability. 
 
 Usage
 -----
-- Modify the parameters below to suit your needs
-- Type "python -i lpa_sim.py" in a terminal
-- When the simulation finishes, the python session will *not* quit.
-    Therefore the simulation can be continued by running sim.step()
-
-Help
-----
-All the structures implemented in FBPIC are internally documented.
-Enter "print(fbpic_object.__doc__)" to have access to this documentation,
-where fbpic_object is any of the objects or function of FBPIC.
+Type "python -i test_boosted.py" in a terminal
 """
 
 # -------
@@ -21,34 +15,40 @@ where fbpic_object is any of the objects or function of FBPIC.
 # -------
 import numpy as np
 import matplotlib.pyplot as plt
-from scipy.constants import c
+from scipy.constants import c, e, m_e, m_p
 # Import the relevant structures in FBPIC
-from fbpic.main import Simulation
+from fbpic.main import Simulation, adapt_to_grid
+from fbpic.particles import Particles
 from fbpic.lpa_utils import add_laser
-from fbpic.moving_window import MovingWindow
 from fbpic.openpmd_diag import FieldDiagnostic, ParticleDiagnostic
 
 # ----------
 # Parameters
 # ----------
 
+# Speed of galilean frame (set to 0 for a normal simulation)
+v_galilean = -0.999999*c
+
+# Whether to correct the currents
+correct_currents = True
+
 # The simulation box
-Nz = 336         # Number of gridpoints along z
-zmax = 10.e-6    # Length of the box along z (meters)
-zmin = -200.e-6
+Nz = 128         # Number of gridpoints along z
+zmax = 0.e-6    # Length of the box along z (meters)
+zmin = -128.e-6
 Nr = 64          # Number of gridpoints along r
 rmax = 40.e-6    # Length of the box along r (meters)
 Nm = 2           # Number of modes used
 # The simulation timestep
 dt = (zmax-zmin)/Nz/c   # Timestep (seconds)
-N_step = 101     # Number of iterations to perform
+N_step = 501     # Number of iterations to perform
 
 # The boost
 gamma0 = 130.
 
 # The particles
-p_zmin = -35.e-6  # Position of the beginning of the plasma (meters)
-p_zmax = 5.e-6  # Position of the end of the plasma (meters)
+p_zmin = zmin  # Position of the beginning of the plasma (meters)
+p_zmax = zmax  # Position of the end of the plasma (meters)
 p_rmin = 0.      # Minimal radial position of the plasma (meters)
 p_rmax = 41.e-6  # Maximal radial position of the plasma (meters)
 n_e = 5.e25 * gamma0
@@ -69,6 +69,10 @@ ncells_zero = 50    # Number of cells over which the field is set to 0
 ncells_damp = 30   # Number of cells over which the field is damped,
                    # at the left of the simulation box, after ncells_zero
                    # in order to prevent it from wrapping around.
+
+# The diagnostics
+diag_period = 10        # Period of the diagnostics in number of timesteps
+fieldtypes = [ "E", "rho", "B", "J" ]  # The fields that will be written
 
 
 # The density profile
@@ -102,42 +106,35 @@ if p_nr%2 == 1 :
 # Initialize the simulation object
 sim = Simulation( Nz, zmax, Nr, rmax, Nm, dt,
     p_zmin, p_zmax, p_rmin, p_rmax, p_nz, p_nr, p_nt, n_e,
-    dens_func=dens_func, zmin=zmin, initialize_ions=True ) 
+    dens_func=dens_func, zmin=zmin, initialize_ions=True,
+    v_galilean=v_galilean ) 
+
+# Reinitialize the particles, in order to give them a no-zero velocity
+p_zmin, p_zmax, Npz = adapt_to_grid( sim.fld.interp[0].z,
+                                p_zmin, p_zmax, p_nz, ncells_empty=0 )
+p_rmin, p_rmax, Npr = adapt_to_grid( sim.fld.interp[0].r,
+                                p_rmin, p_rmax, p_nr, ncells_empty=0 )
+sim.ptcl = [
+    Particles( q=-e, m=m_e, n=n_e, Npz=Npz, zmin=p_zmin,
+            zmax=p_zmax, Npr=Npr, rmin=p_rmin, rmax=p_rmax,
+            Nptheta=p_nt, dt=dt, uz_m=-np.sqrt(gamma0**2-1),
+            v_galilean=sim.v_galilean ),
+    Particles( q=e, m=m_p, n=n_e, Npz=Npz, zmin=p_zmin,
+            zmax=p_zmax, Npr=Npr, rmin=p_rmin, rmax=p_rmax,
+            Nptheta=p_nt, dt=dt, uz_m=-np.sqrt(gamma0**2-1),
+            v_galilean=sim.v_galilean ) ]
+    
 
 # Add a laser to the fields of the simulation
 add_laser( sim.fld, a0, w0, ctau, z0 )
 
-# Configure the moving window
-sim.moving_win = MovingWindow( sim.fld.interp[0],
-                               ncells_damp=ncells_damp,
-                               ncells_zero=ncells_zero,
-                               uz_m = -np.sqrt(gamma0**2-1) )
-
-# Show the initial fields
-plt.figure(0)
-sim.fld.interp[0].show('Ez')
-plt.figure(1)
-sim.fld.interp[0].show('Er')
-plt.figure(2)
-sim.fld.interp[0].show('Jz')
-plt.figure(3)
-sim.fld.interp[0].show('rho')
-plt.show()
-print 'Done'
+# Add a field diagnostic
+sim.diags = [ FieldDiagnostic(diag_period, sim.fld, fieldtypes=fieldtypes),
+              ParticleDiagnostic(diag_period, {"electrons" : sim.ptcl[0]}) ]
 
 ### Run the simulation
 print('\n Performing %d PIC cycles' % N_step) 
-sim.step( N_step )
+sim.step( N_step, moving_window=False, correct_currents=correct_currents )
 print('')
 
-# Show the initial fields
-plt.figure(0)
-sim.fld.interp[0].show('Ez')
-plt.figure(1)
-sim.fld.interp[0].show('Er')
-plt.figure(2)
-sim.fld.interp[0].show('Jz')
-plt.figure(3)
-sim.fld.interp[0].show('rho')
-plt.show()
-print 'Done'
+
