@@ -733,10 +733,12 @@ class SpectralGrid(object) :
 
             # Calculate the intermediate variable F
             if ps.V != 0.:
+                # Precalculate 1/(1-Theta)
+                inv_1_Theta = 1./np.where(ps.T == 1, 1., 1-ps.T)
                 self.F[:,:] = np.where(
                                 self.kz!=0,
                                 - self.inv_k2 * ( - 1.j*self.kz*ps.V * \
-                                (self.rho_next - self.rho_prev*ps.T)*(1./(1-ps.T)) \
+                                (self.rho_next - self.rho_prev*ps.T)*inv_1_Theta \
                                 + 1.j*self.kz*self.Jz + self.kr*( self.Jp - self.Jm ) ),
                                 - self.inv_k2 * (
                                 (self.rho_next - self.rho_prev)*inv_dt \
