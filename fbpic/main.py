@@ -150,8 +150,8 @@ class Simulation(object) :
         self.diags = []
 
     def step(self, N=1, ptcl_feedback=True, correct_currents=True,
-             move_positions=True, move_momenta=True, moving_window=True,
-             use_true_rho = False ) :
+             correct_divE=False, move_positions=True, move_momenta=True,
+             moving_window=True, use_true_rho=False ) :
         """
         Perform N PIC cycles
         
@@ -167,6 +167,9 @@ class Simulation(object) :
 
         correct_currents : bool, optional
             Whether to correct the currents in spectral space
+
+        correct_divE : bool, optional
+            Whether to correct the divergence of E in spectral space
 
         move_positions : bool, optional
             Whether to move or freeze the particles' positions
@@ -253,6 +256,8 @@ class Simulation(object) :
             
             # Get the fields E and B on the spectral grid at t = (n+1) dt
             fld.push( ptcl_feedback, use_true_rho )
+            if correct_divE:
+                fld.correct_divE()
             # Get the fields E and B on the interpolation grid at t = (n+1) dt
             fld.spect2interp('E')
             fld.spect2interp('B')

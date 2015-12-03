@@ -217,6 +217,15 @@ class Fields(object) :
         for m in range(self.Nm) :
             self.spect[m].correct_currents( self.dt, self.psatd[m] )
 
+    def correct_divE(self) :
+        """
+        Correct the currents so that they satisfy the
+        charge conservation equation
+        """
+        # Correct each azimuthal grid individually
+        for m in range(self.Nm) :
+            self.spect[m].correct_divE()
+
     def interp2spect(self, fieldtype) :
         """
         Transform the fields `fieldtype` from the interpolation
@@ -754,6 +763,24 @@ class SpectralGrid(object) :
             self.Jm += -0.5*self.kr*self.F
             self.Jz += -1.j*self.kz*self.F
 
+    def correct_divE(self) :
+        """
+        Correct the electric field, so that it satisfies the equation
+        div(E) - rho/epsilon_0 = 0
+        """
+        # Correct div(E) on the CPU
+
+        # Calculate the intermediate variable F
+        self.F[:,:] = - self.inv_k2 * (
+            - self.rho_prev/epsilon_0 \
+            + 1.j*self.kz*self.Ez + self.kr*( self.Ep - self.Em ) ) 
+            
+        # Correct the current accordingly
+        self.Ep += 0.5*self.kr*self.F
+        self.Em += -0.5*self.kr*self.F
+        self.Ez += -1.j*self.kz*self.F
+
+            
     def push_eb_with(self, ps, ptcl_feedback=True, use_true_rho=False ) :
         """
         Push the fields over one timestep, using the psatd coefficients.
