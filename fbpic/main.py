@@ -176,7 +176,7 @@ class Simulation(object):
         """
         # Attach the moving window to the boundary communicator
         self.comm.moving_win = MovingWindow( self.fld.interp, self.comm,
-                    v, ux_m, uy_m, uz_m, ux_th, uy_th, uz_th )
+                    v, self.p_nz, ux_m, uy_m, uz_m, ux_th, uy_th, uz_th )
 
     def step(self, N=1, ptcl_feedback=True, correct_currents=True,
              move_positions=True, move_momenta=True, show_progress=True):

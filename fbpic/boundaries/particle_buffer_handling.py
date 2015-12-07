@@ -197,6 +197,95 @@ def remove_particles_gpu(species, fld, nguard, left_proc, right_proc):
     # Change the new total number of particles    
     species.Ntot = new_Ntot
 
+
+def add_buffers_to_particles( species, recv_left, recv_right ):
+    """
+    DOCUMENTATION
+    """
+    # Copy the buffers to an enlarged array
+    if species.use_cuda:
+        add_buffers_gpu( species, recv_left, recv_right )
+    else:
+        add_buffers_cpu( species, recv_left, recv_right )        
+    
+    # Reallocate the particles field arrays. This needs to be done,
+    # as the total number of particles in this domain has changed.
+    species.Ex = np.empty(species.Ntot, dtype = np.float64)
+    species.Ey = np.empty(species.Ntot, dtype = np.float64)
+    species.Ez = np.empty(species.Ntot, dtype = np.float64)
+    species.Bx = np.empty(species.Ntot, dtype = np.float64)
+    species.By = np.empty(species.Ntot, dtype = np.float64)
+    species.Bz = np.empty(species.Ntot, dtype = np.float64)
+    if species.use_cuda:
+        # Initialize empty arrays on the GPU for the field
+        # gathering and the particle push
+        species.Ex = cuda.device_array_like(species.Ex)
+        species.Ey = cuda.device_array_like(species.Ey)
+        species.Ez = cuda.device_array_like(species.Ez)
+        species.Bx = cuda.device_array_like(species.Bx)
+        species.By = cuda.device_array_like(species.By)
+        species.Bz = cuda.device_array_like(species.Bz)
+    
+    # Reallocate the cell index and sorted index arrays on the CPU
+    species.cell_idx = np.empty(species.Ntot, dtype = np.int32)
+    species.sorted_idx = np.arange(species.Ntot, dtype = np.uint32)
+    species.particle_buffer = np.arange(species.Ntot, dtype = np.float64)
+    # The particles are unsorted after adding new particles.
+    species.sorted = False
+
+def add_buffers_cpu( species, recv_left, recv_right ):
+    """
+    DOCUMENTATION
+    """    
+    # Form the new particle arrays by adding the received particles
+    # from the left and the right to the particles that stay in the domain
+    species.x = np.hstack((recv_left[0], species.x, recv_right[0]))
+    species.y = np.hstack((recv_left[1], species.y, recv_right[1]))
+    species.z = np.hstack((recv_left[2], species.z, recv_right[2]))
+    species.ux = np.hstack((recv_left[3], species.ux, recv_right[3]))
+    species.uy = np.hstack((recv_left[4], species.uy, recv_right[4]))
+    species.uz = np.hstack((recv_left[5], species.uz, recv_right[5]))
+    species.inv_gamma = \
+        np.hstack((recv_left[6], species.inv_gamma, recv_right[6]))
+    species.w = np.hstack((recv_left[7], species.w, recv_right[7]))
+
+    # Adapt the total number of particles
+    species.Ntot = species.Ntot + recv_left.shape[1] + recv_right.shape[1]
+    
+    
+def add_buffers_gpu( species, recv_left, recv_right ):
+    """
+    DOCUMENTATION
+    """
+    # Get the new number of particles
+    new_Ntot = species.Ntot + recv_left.shape[1] + recv_right.shape[1]
+    
+    # Get the threads per block and the blocks per grid
+    dim_grid_1d, dim_block_1d = cuda_tpb_bpg_1d( new_Ntot )
+    
+    # Iterate over particle attributes
+    i_attr = 0
+    for attr in ['x', 'y', 'z', 'ux', 'uy', 'uz', 'w', 'inv_gamma']:
+        # Copy the proper buffers to the GPU
+        left_buffer = cuda.copy_to_device( recv_left[i_attr] )
+        right_buffer = cuda.copy_to_device( recv_right[i_attr] )
+        # Initialize the new particle array
+        particle_array = cuda.device_array(new_Ntot, dtype=np.float64)
+        # Merge the arrays on the GPU
+        stay_buffer = getattr(species, attr)
+        merge_buffers_to_particles[dim_grid_1d, dim_block_1d](
+            particle_array, left_buffer, stay_buffer, right_buffer)
+        # Assign the stay_buffer to the initial particle data array
+        # and fill the sending buffers (if needed for MPI)
+        setattr(species, attr, particle_array)
+        # Increment the buffer index
+        i_attr += 1
+
+    # Adapt the total number of particles
+    species.Ntot = new_Ntot
+        
+# Cuda routines
+# -------------
 if cuda_installed:
 
     @cuda.jit('void(float64[:], float64[:], float64[:], float64[:])')

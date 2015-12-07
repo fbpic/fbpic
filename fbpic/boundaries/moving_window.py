@@ -6,7 +6,7 @@ import numpy as np
 from scipy.constants import c
 from fbpic.particles import Particles
 try:
-    from fbpic.cuda_utils import cuda, cuda_tpb_bpg_2d, cuda_tpb_bpg_1d
+    from fbpic.cuda_utils import cuda, cuda_tpb_bpg_2d
     if cuda.is_available():
         cuda_installed = True
     else:
@@ -24,7 +24,7 @@ class MovingWindow(object):
     of the periodicity of the Fourier transform.
     """
     
-    def __init__( self, interp, comm, v=c, ux_m=0., uy_m=0., uz_m=0.,
+    def __init__( self, interp, comm, v=c, p_nz=1, ux_m=0., uy_m=0., uz_m=0.,
                   ux_th=0., uy_th=0., uz_th=0. ):
         """
         Initializes a moving window object.
@@ -40,6 +40,9 @@ class MovingWindow(object):
         v: float (meters per seconds), optional
             The speed of the moving window
 
+        p_nz: int
+            Number of macroparticles per cell along the z direction
+            
         ux_m, uy_m, uz_m: floats (dimensionless)
            Normalized mean momenta of the injected particles in each direction
 
@@ -70,6 +73,7 @@ class MovingWindow(object):
             self.z_end_plasma = interp[0].zmax - ng*interp[0].dz
             self.v_end_plasma = \
               c * uz_m / np.sqrt(1 + ux_m**2 + uy_m**2 + uz_m**2)
+            self.nz_inject = 0
 
     def move_grids(self, fld, dt, mpi_comm):
         """
@@ -126,28 +130,45 @@ class MovingWindow(object):
             self.z_inject += self.v * dt * self.exchange_period
             # Take into account the motion of the end of the plasma
             self.z_end_plasma += self.v_end_plasma * dt * self.exchange_period
+            # Find the number of particle cells to add
+            self.nz_inject = int( (self.z_inject - self.z_end_plasma)/dz )
+            # Increment the position of the end of the plasma
+            self.z_end_plasma += self.nz_inject*dz
 
-    ##         # Find the number of particle cells to add
-    ##         n_inject = int( (self.z_inject - self.z_end_plasma)/dz )
-    ##         # Add the new particle cells
-    ##         if n_inject > 0:
-    ##             for species in ptcl:
-    ##                 if species.continuous_injection == True:
-    ##                     if interp[0].use_cuda:
-    ##                         # Add particles on the GPU
-    ##                         add_particles_gpu( species, self.z_end_plasma,
-    ##                             self.z_end_plasma + n_inject*dz, n_inject*p_nz,
-    ##                             ux_m=self.ux_m, uy_m=self.uy_m, uz_m=self.uz_m,
-    ##                             ux_th=self.ux_th, uy_th=self.uy_th,
-    ##                             uz_th=self.uz_th)
-    ##                     else:
-    ##                         add_particles( species, self.z_end_plasma,
-    ##                             self.z_end_plasma + n_inject*dz, n_inject*p_nz,
-    ##                             ux_m=self.ux_m, uy_m=self.uy_m, uz_m=self.uz_m,
-    ##                             ux_th=self.ux_th, uy_th=self.uy_th,
-    ##                             uz_th=self.uz_th)
-    ##         # Increment the position of the end of the plasma
-    ##         self.z_end_plasma += n_inject*dz
+    def generate_particles( self, species, dz ) :
+        """
+        Generate new particles at the right end of the plasma
+        (i.e. between self.z_inject and self.z_end_plasma)
+
+        Return them in the form of a particle buffer of shape (8, Nptcl)
+
+        Parameters
+        ----------
+        DOCUMENTATION
+        """
+        # Create new particle cells
+        if (self.nz_inject > 0) and (species.continuous_injection == True):
+            # Create the particles that will be added
+            zmax = self.z_end_plasma
+            zmin = self.z_end_plasma - self.nz_inject*dz
+            Npz = self.nz_inject * self.p_nz
+            new_ptcl = Particles( species.q, species.m, species.n,
+                Npz, zmin, zmax, species.Npr, species.rmin, species.rmax,
+                species.Nptheta, species.dt, species.dens_func,
+                ux_m=self.ux_m, uy_m=self.uy_m, uz_m=self.uz_m,
+                ux_th=self.ux_th, uy_th=self.uy_th, uz_th=self.uz_th)
+            # Convert them to a particle buffer of shape (8,Nptcl)
+            particle_buffer = np.empty( (8, new_ptcl.Ntot), dtype=np.float64 )
+            particle_buffer[0,:] = new_ptcl.x
+            particle_buffer[1,:] = new_ptcl.y
+            particle_buffer[2,:] = new_ptcl.z
+            particle_buffer[3,:] = new_ptcl.ux
+            particle_buffer[4,:] = new_ptcl.uy
+            particle_buffer[5,:] = new_ptcl.uz
+            particle_buffer[6,:] = new_ptcl.inv_gam
+            particle_buffer[7,:] = new_ptcl.w
+            
+        return( particle_buffer )
 
     def shift_interp_grid( self, grid, n_move, shift_currents=False ):
         """
@@ -250,138 +271,6 @@ class MovingWindow(object):
         field_array = field_buffer
         # Return the new shifted field array
         return( field_array )
-            
-# ---------------------------------------
-# Utility functions for the moving window
-# ---------------------------------------
-
-
-
-def add_particles( species, zmin, zmax, Npz, ux_m=0., uy_m=0., uz_m=0.,
-                  ux_th=0., uy_th=0., uz_th=0. ):
-    """
-    Create new particles between zmin and zmax, and add them to `species`
-
-    Parameters
-    ----------
-    species: a Particles object
-       Contains the particle data of that species
-
-    zmin, zmax: floats (meters)
-       The positions between which the new particles are created
-
-    Npz: int
-        The total number of particles to be added along the z axis
-        (The number of particles along r and theta is the same as that of
-        `species`)
-
-    ux_m, uy_m, uz_m: floats (dimensionless)
-        Normalized mean momenta of the injected particles in each direction
-
-    ux_th, uy_th, uz_th: floats (dimensionless)
-        Normalized thermal momenta in each direction     
-    """
-    # Create the particles that will be added
-    new_ptcl = Particles( species.q, species.m, species.n,
-        Npz, zmin, zmax, species.Npr, species.rmin, species.rmax,
-        species.Nptheta, species.dt, species.dens_func,
-        ux_m=ux_m, uy_m=uy_m, uz_m=uz_m,
-        ux_th=ux_th, uy_th=uy_th, uz_th=uz_th )
-
-    # Add the properties of these new particles to species object
-    # Loop over the attributes of the species
-    for key, attribute in vars(species).items():
-        # Detect if it is an array
-        if type(attribute) is np.ndarray:
-            # Detect if it has one element per particle
-            if attribute.shape == ( species.Ntot ,):
-                # Concatenate the attribute of species and of new_ptcl
-                new_attribute = np.hstack(
-                    ( getattr(species, key), getattr(new_ptcl, key) )  )
-                # Affect the resized array to the species object
-                setattr( species, key, new_attribute )
-
-    # Add the number of new particles to the global count of particles
-    species.Ntot += new_ptcl.Ntot
-
-def add_particles_gpu( species, zmin, zmax, Npz, ux_m=0., uy_m=0., uz_m=0.,
-                  ux_th=0., uy_th=0., uz_th=0.):
-    """
-    Create new particles between zmin and zmax, and add them to `species`
-    on the GPU.
-
-    Parameters
-    ----------
-    species: a Particles object
-       Contains the particle data of that species
-
-    zmin, zmax: floats (meters)
-       The positions between which the new particles are created
-
-    Npz: int
-        The total number of particles to be added along the z axis
-        (The number of particles along r and theta is the same as that of
-        `species`)
-
-    ux_m, uy_m, uz_m: floats (dimensionless)
-        Normalized mean momenta of the injected particles in each direction
-
-    ux_th, uy_th, uz_th: floats (dimensionless)
-        Normalized thermal momenta in each direction     
-    """
-    # Create the particles that will be added
-    new_ptcl = Particles( species.q, species.m, species.n,
-        Npz, zmin, zmax, species.Npr, species.rmin, species.rmax,
-        species.Nptheta, species.dt, species.dens_func,
-        ux_m=ux_m, uy_m=uy_m, uz_m=uz_m,
-        ux_th=ux_th, uy_th=uy_th, uz_th=uz_th)
-    # Calculate new total number of particles
-    new_Ntot = species.Ntot + new_ptcl.Ntot
-    # Get the threads per block and the blocks per grid
-    dim_grid_1d, dim_block_1d = cuda_tpb_bpg_1d( new_Ntot )
-    # Iterate over particle attributes
-    for attr in ['x', 'y', 'z', 'ux', 'uy', 'uz', 'w', 'inv_gamma']:
-        # Initialize buffer array
-        particle_buffer = cuda.device_array(new_Ntot, dtype=np.float64)
-        # Get particle GPU array
-        particle_array = getattr(species, attr)
-        new_particle_array = getattr(new_ptcl, attr)
-        # Add particle data to particle buffer array
-        add_particle_data_gpu[dim_grid_1d, dim_block_1d](
-            particle_array, new_particle_array, particle_buffer)
-        # Assign the particle buffer to 
-        # the initial particle data array 
-        setattr(species, attr, particle_buffer)
-
-    # Initialize empty arrays on the CPU for the field
-    # gathering and the particle push
-    species.Ex = np.zeros(new_Ntot, dtype = np.float64)
-    species.Ey = np.zeros(new_Ntot, dtype = np.float64)
-    species.Ez = np.zeros(new_Ntot, dtype = np.float64)
-    species.Bx = np.zeros(new_Ntot, dtype = np.float64)
-    species.By = np.zeros(new_Ntot, dtype = np.float64)
-    species.Bz = np.zeros(new_Ntot, dtype = np.float64)
-    # Initialize empty arrays on the CPU
-    # that represent the sorting arrays
-    species.cell_idx = np.empty(new_Ntot, dtype = np.int32)
-    species.sorted_idx = np.arange(new_Ntot, dtype = np.uint32)
-    species.particle_buffer = np.arange(new_Ntot, dtype = np.float64)
-    # Initialize empty arrays on the GPU for the field
-    # gathering and the particle push
-    species.Ex = cuda.device_array_like(species.Ex)
-    species.Ey = cuda.device_array_like(species.Ey)
-    species.Ez = cuda.device_array_like(species.Ez)
-    species.Bx = cuda.device_array_like(species.Bx)
-    species.By = cuda.device_array_like(species.By)
-    species.Bz = cuda.device_array_like(species.Bz)
-    # Initialize empty arrays on the GPU for the sorting
-    species.cell_idx = cuda.device_array_like(species.cell_idx)
-    species.sorted_idx = cuda.device_array_like(species.sorted_idx)
-    species.particle_buffer = cuda.device_array_like(species.particle_buffer)
-    # Change the new total number of particles    
-    species.Ntot = new_Ntot
-    # The particles are unsorted after adding new particles.
-    species.sorted = False
 
 if cuda_installed:
 
@@ -410,27 +299,3 @@ if cuda_installed:
         if (i + n_move) >= field_array.shape[0] and i < field_array.shape[0] \
           and j < field_array.shape[1]:
             field_buffer[i, j] = 0.
-
-
-
-    @cuda.jit('void(float64[:], float64[:], float64[:])')
-    def add_particle_data_gpu( particle_array, new_particle_array, particle_buffer ):
-        """
-        Add new particles by combining the old and the added particle data to a 
-        new buffer array that then contains the new particles.
-
-        Parameters:
-        ------------
-        particle_array, new_particle_array, particle_buffer: 1darrays of floats
-            Contains the old particles (particle_array)
-            Contains the added particles (new_particle_array)
-            Contains the new particles (particle_buffer) afterwards
-        """
-        # Get a 1D CUDA grid
-        i = cuda.grid(1)
-        # Copy the old particle data to the buffer
-        if i < particle_array.shape[0]:
-            particle_buffer[i] = particle_array[i]
-        # Copy the added particle data to the buffer
-        if (i >= particle_array.shape[0]) and (i < (particle_buffer.shape[0])):
-            particle_buffer[i] = new_particle_array[i-particle_array.shape[0]]

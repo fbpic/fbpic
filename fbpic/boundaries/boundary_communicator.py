@@ -4,12 +4,12 @@ It defines the structure necessary to implement the boundary exchanges.
 """
 import numpy as np
 from mpi4py import MPI as mpi
-from numba import cuda
 from fbpic.fields.fields import InterpolationGrid
 from fbpic.particles.particles import Particles
 from .field_buffer_handling import BufferHandler
 from .guard_cell_damping import GuardCellDamper
-from .particle_buffer_handling import remove_outside_particles
+from .particle_buffer_handling import remove_outside_particles, \
+     add_buffers_to_particles
 
 # Dictionary of correspondance between numpy types and mpi types
 # (Necessary when calling Gatherv)
@@ -384,8 +384,13 @@ class BoundaryCommunicator(object):
         recv_right = np.zeros((8, N_recv_r), dtype = np.float64)
         self.exchange_domains(send_left, send_right, recv_left, recv_right)
 
-        # >> Create new particles in the right receiving buffer
-        
+        # When using a moving window, create new particles in recv_right
+        # (Overlap this with the exchange of domains, since recv_right
+        # will not be affected by the exchange at this open boundary)
+        if (self.moving_win is not None) and (self.rank == self.size-1):
+            recv_right = self.moving_win.generate_particles(
+                species, fld.interp[0].dz )
+
         # An MPI barrier is needed here so that a single rank 
         # does not perform two sends and receives before all 
         # the other MPI connections within this exchange are completed.
@@ -401,45 +406,8 @@ class BoundaryCommunicator(object):
             # The index 2 corresponds to z
             recv_left[2,:] = recv_left[2,:] - self.Ltot
 
-        # >> Adapt the code for merging buffers to particles on the CPU or GPU
-
-        # Form the new particle arrays by adding the received particles
-        # from the left and the right to the particles that stay in the domain
-        species.Ntot = species.Ntot + send_left.shape[1] + send_right.shape[1]
-        species.x = np.hstack((recv_left[0], species.x, recv_right[0]))
-        species.y = np.hstack((recv_left[1], species.y, recv_right[1]))
-        species.z = np.hstack((recv_left[2], species.z, recv_right[2]))
-        species.ux = np.hstack((recv_left[3], species.ux, recv_right[3]))
-        species.uy = np.hstack((recv_left[4], species.uy, recv_right[4]))
-        species.uz = np.hstack((recv_left[5], species.uz, recv_right[5]))
-        species.inv_gamma = \
-          np.hstack((recv_left[6], species.inv_gamma, recv_right[6]))
-        species.w = np.hstack((recv_left[7], species.w, recv_right[7]))
-
-        # Reallocate the particles field arrays. This needs to be done,
-        # as the total number of particles in this domain has changed.
-        species.Ex = np.empty(species.Ntot, dtype = np.float64)
-        species.Ey = np.empty(species.Ntot, dtype = np.float64)
-        species.Ez = np.empty(species.Ntot, dtype = np.float64)
-        species.Bx = np.empty(species.Ntot, dtype = np.float64)
-        species.By = np.empty(species.Ntot, dtype = np.float64)
-        species.Bz = np.empty(species.Ntot, dtype = np.float64)
-        if species.use_cuda:
-            # Initialize empty arrays on the GPU for the field
-            # gathering and the particle push
-            species.Ex = cuda.device_array_like(species.Ex)
-            species.Ey = cuda.device_array_like(species.Ey)
-            species.Ez = cuda.device_array_like(species.Ez)
-            species.Bx = cuda.device_array_like(species.Bx)
-            species.By = cuda.device_array_like(species.By)
-            species.Bz = cuda.device_array_like(species.Bz)
-            
-        # Reallocate the cell index and sorted index arrays on the CPU
-        species.cell_idx = np.empty(species.Ntot, dtype = np.int32)
-        species.sorted_idx = np.arange(species.Ntot, dtype = np.uint32)
-        species.particle_buffer = np.arange(species.Ntot, dtype = np.float64)
-        # The particles are unsorted after adding new particles.
-        species.sorted = False
+        # Add the exchanged buffers to the particles on the CPU or GPU
+        add_buffers_to_particles( species, recv_left, recv_right )
 
     def damp_guard_EB( self, interp ):
         """
