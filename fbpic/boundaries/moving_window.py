@@ -74,6 +74,7 @@ class MovingWindow(object):
             self.v_end_plasma = \
               c * uz_m / np.sqrt(1 + ux_m**2 + uy_m**2 + uz_m**2)
             self.nz_inject = 0
+            self.p_nz = p_nz
 
     def move_grids(self, fld, dt, mpi_comm):
         """
@@ -174,7 +175,7 @@ class MovingWindow(object):
             particle_buffer[3,:] = new_ptcl.ux
             particle_buffer[4,:] = new_ptcl.uy
             particle_buffer[5,:] = new_ptcl.uz
-            particle_buffer[6,:] = new_ptcl.inv_gam
+            particle_buffer[6,:] = new_ptcl.inv_gamma
             particle_buffer[7,:] = new_ptcl.w
         else:
             particle_buffer = np.empty( (8, 0), dtype=np.float64 )

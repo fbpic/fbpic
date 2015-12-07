@@ -14,7 +14,6 @@ from scipy.constants import c, epsilon_0, e
 # Import the relevant structures in FBPIC                                       
 from fbpic.main import Simulation
 from fbpic.lpa_utils import add_laser, add_elec_bunch_file
-from fbpic.moving_window import MovingWindow
 
 # The simulation box                                                            
 Nz = 400         # Number of gridpoints along z
@@ -44,9 +43,7 @@ sim = Simulation( Nz, zmax, Nr, rmax, Nm, dt,
     p_zmin, p_zmax, p_rmin, p_rmax, p_nz, p_nr, p_nt, n_e, n_order=n_order )
 
 # Configure the moving window
-sim.moving_win = MovingWindow( sim.fld.interp[0],
-                               ncells_damp=2,
-                               ncells_zero=2 )
+sim.set_moving_window( v=c )
 
 # Suppress the particles that were intialized by default and add the bunch
 sim.ptcl = [ ]

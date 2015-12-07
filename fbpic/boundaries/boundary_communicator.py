@@ -361,13 +361,13 @@ class BoundaryCommunicator(object):
             The object itself is not modified by this routine.
         """
         # Do not exchange particles for 0 guard cells (periodic, single-proc)
-        if self.nguard == 0:
+        if self.n_guard == 0:
             return
 
         # Remove out-of-domain particles from particle arrays (either on
         # CPU or GPU) and store them in sending buffers on the CPU
         send_left, send_right = remove_outside_particles( species,
-                fld, self.nguard, self.left_proc, self.right_proc )
+                fld, self.n_guard, self.left_proc, self.right_proc )
 
         # Send/receive the number of particles (need to be stored in arrays)
         N_send_l = np.array( send_left.shape[1], dtype=np.int32)
