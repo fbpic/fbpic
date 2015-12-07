@@ -200,7 +200,18 @@ def remove_particles_gpu(species, fld, nguard, left_proc, right_proc):
 
 def add_buffers_to_particles( species, recv_left, recv_right ):
     """
-    DOCUMENTATION
+    Add the particles stored in recv_left and recv_right
+    to the existing particle in species.
+
+    Parameters
+    ----------
+    species: a Particles object
+        Contain the particles that stayed on the present processors
+
+    recv_left, recv_right: 2darrays of floats
+        Arrays of shape (8, Nptcl) that represent the particles that
+        were received from the neighboring processors
+        These arrays are always on the CPU (since they were used for MPI)
     """
     # Copy the buffers to an enlarged array
     if species.use_cuda:
@@ -235,7 +246,18 @@ def add_buffers_to_particles( species, recv_left, recv_right ):
 
 def add_buffers_cpu( species, recv_left, recv_right ):
     """
-    DOCUMENTATION
+    Add the particles stored in recv_left and recv_right
+    to the existing particle in species.
+
+    Parameters
+    ----------
+    species: a Particles object
+        Contain the particles that stayed on the present processors
+
+    recv_left, recv_right: 2darrays of floats
+        Arrays of shape (8, Nptcl) that represent the particles that
+        were received from the neighboring processors
+        These arrays are always on the CPU (since they were used for MPI)
     """    
     # Form the new particle arrays by adding the received particles
     # from the left and the right to the particles that stay in the domain
@@ -255,7 +277,18 @@ def add_buffers_cpu( species, recv_left, recv_right ):
     
 def add_buffers_gpu( species, recv_left, recv_right ):
     """
-    DOCUMENTATION
+    Add the particles stored in recv_left and recv_right
+    to the existing particle in species.
+
+    Parameters
+    ----------
+    species: a Particles object
+        Contain the particles that stayed on the present processors
+
+    recv_left, recv_right: 2darrays of floats
+        Arrays of shape (8, Nptcl) that represent the particles that
+        were received from the neighboring processors
+        These arrays are always on the CPU (since they were used for MPI)
     """
     # Get the new number of particles
     new_Ntot = species.Ntot + recv_left.shape[1] + recv_right.shape[1]

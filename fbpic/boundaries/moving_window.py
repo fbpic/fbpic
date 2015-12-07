@@ -144,7 +144,16 @@ class MovingWindow(object):
 
         Parameters
         ----------
-        DOCUMENTATION
+        species: a Particles object
+            Contains data about the existing particles
+
+        dz: float
+            The grid spacing along see on the grid
+        
+        Returns
+        -------
+        An array of floats of shape (8, Nptcl) that represent the new
+        particles to be added
         """
         # Create new particle cells
         if (self.nz_inject > 0) and (species.continuous_injection == True):
@@ -167,6 +176,8 @@ class MovingWindow(object):
             particle_buffer[5,:] = new_ptcl.uz
             particle_buffer[6,:] = new_ptcl.inv_gam
             particle_buffer[7,:] = new_ptcl.w
+        else:
+            particle_buffer = np.empty( (8, 0), dtype=np.float64 )
             
         return( particle_buffer )
 
