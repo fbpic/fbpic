@@ -709,6 +709,7 @@ class Particles(object) :
         # arrays.
         sort_particles_per_cell(self.cell_idx, self.sorted_idx)
         # Reset the old prefix sum
+        fld.prefix_sum_shift = 0
         reset_prefix_sum[dim_grid_2d_flat, dim_block_2d_flat](
             fld.d_prefix_sum)
         # Perform the inclusive parallel prefix sum

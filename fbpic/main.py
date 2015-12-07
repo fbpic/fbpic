@@ -219,10 +219,6 @@ class Simulation(object):
             # Show a progression bar
             if show_progress:
                 progression_bar( i_step, N )
-            
-            # Exchange the fields (EB) and the particles 
-            # in the guard cells between domains
-            self.comm.exchange_fields(fld.interp, 'EB')
 
             # Run the diagnostics
             for diag in self.diags:
@@ -231,24 +227,37 @@ class Simulation(object):
                 # (Send the data to the GPU if needed.)
                 diag.write( self.iteration )
 
-            # Handle the moving window
-            if self.comm.moving_win is not None:
-                # Move the window if needed
-                if self.iteration % self.comm.exchange_period == 0:
-                    # Shift the fields
-                    self.comm.move_grids(fld.interp, self.dt)
-                    # Exchange the fields via MPI if needed
+            # Exchange the fields (EB) in the guard cells between domains
+            self.comm.exchange_fields(fld.interp, 'EB')
+                
+            # Check whether this iteration involves
+            # particle exchange / moving window
+            if self.iteration % self.comm.exchange_period == 0:
+
+                # Move the grids if needed
+                if self.comm.moving_win is not None:
+                    # Shift the fields, and prepare positions
+                    # between which new particles should be added
+                    self.comm.move_grids(fld, self.dt)
+                    # Exchange the E and B fields via MPI if needed
+                    # (Notice that the fields have not been damped since the
+                    # last exchange, so fields are correct in the guard cells)
                     self.comm.exchange_fields(fld.interp, 'EB')
 
-            # Particle exchange after moving window / mpi communications
-            if self.iteration % self.comm.exchange_period == 0:
+                # Particle exchange after moving window / mpi communications
+                # This includes MPI exchange of particles, removal of
+                # out-of-box particles and (if there is a moving window)
+                # injection of new particles by the moving window.
                 for species in self.ptcl:
-                    self.comm.exchange_particles(species,
-                            fld.interp[0].zmin, fld.interp[0].zmax )
+                    self.comm.exchange_particles(species, fld)
+
                 # Reproject the charge on the interpolation grid
                 # (Since particles have been added/suppressed)
                 self.deposit('rho_prev')
 
+            # Standard PIC loop
+            # -----------------
+                
             # Gather the fields at t = n dt
             for species in ptcl:
                 species.gather( fld.interp )
@@ -257,7 +266,6 @@ class Simulation(object):
             if move_momenta:
                 for species in ptcl:
                     species.push_p()
- 
             if move_positions:
                 for species in ptcl:
                     species.halfpush_x()

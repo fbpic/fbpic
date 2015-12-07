@@ -1,6 +1,6 @@
 """
 This file is part of the Fourier-Bessel Particle-In-Cell code (FB-PIC)
-It defines the structure necessary to handle mpi buffers, in parallel.py
+It defines the structure necessary to handle mpi buffers for the fields
 """
 import numpy as np
 try:

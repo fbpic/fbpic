@@ -4,10 +4,12 @@ It defines the structure necessary to implement the boundary exchanges.
 """
 import numpy as np
 from mpi4py import MPI as mpi
+from numba import cuda
 from fbpic.fields.fields import InterpolationGrid
 from fbpic.particles.particles import Particles
-from .mpi_buffer_handling import BufferHandler
+from .field_buffer_handling import BufferHandler
 from .guard_cell_damping import GuardCellDamper
+from .particle_buffer_handling import remove_outside_particles
 
 # Dictionary of correspondance between numpy types and mpi types
 # (Necessary when calling Gatherv)
@@ -22,7 +24,7 @@ class BoundaryCommunicator(object):
     the moving window and MPI communication between domains.
     It also handles the initial domain decomposition.
 
-    The functions of this object is:
+    The functions of this object are:
     
     - At each timestep, to exchange the fields between MPI domains
       and damp the E and B fields in the guard cells
@@ -33,6 +35,9 @@ class BoundaryCommunicator(object):
     - When the diagnostics are called, to gather the fields and particles
     """
 
+    # Initialization routines
+    # -----------------------
+    
     def __init__( self, Nz, Nr, n_guard, Nm, boundaries='periodic',
                   exchange_period=None ):
         """
@@ -40,7 +45,6 @@ class BoundaryCommunicator(object):
 
         Parameters
         ----------
-
         Nz, Nr: int
             The initial global number of cells
 
@@ -192,7 +196,10 @@ class BoundaryCommunicator(object):
         # Return the new boundaries to the simulation object
         return( zmin_local, zmax_local, p_zmin, p_zmax, self.Nz_enlarged )
 
-    def move_grids( self, interp, dt ):
+    # Exchange routines
+    # -----------------
+        
+    def move_grids( self, fld, dt ):
         """
         Calculate by how many cells the moving window should be moved.
         If this is non-zero, shift the fields on the interpolation grid,
@@ -203,13 +210,13 @@ class BoundaryCommunicator(object):
 
         Parameters
         ----------
-        interp: a list of Interpolation object
+        fld: a Fields object
             Contains the fields data of the simulation
     
         dt: float (in seconds)
             Timestep of the simulation
         """
-        self.moving_win.move_grids(interp, dt, self.mpi_comm)
+        self.moving_win.move_grids(fld, dt, self.mpi_comm)
            
     def exchange_fields( self, interp, fieldtype ):
         """
@@ -260,7 +267,7 @@ class BoundaryCommunicator(object):
             if fieldtype == 'EB':
 
                 # Copy the inner part of the domain to the sending buffer
-                self.mpi_buffers.copy_EB_buffers( interp, before_sending=True )
+                self.mpi_buffers.copy_EB_buffers(interp, before_sending=True)
                 # Copy the sending buffers to the receiving buffers via MPI
                 self.exchange_domains(
                     self.mpi_buffers.EB_send_l, self.mpi_buffers.EB_send_r,
@@ -269,12 +276,12 @@ class BoundaryCommunicator(object):
                 # do two sends and receives before this exchange is completed.
                 self.mpi_comm.Barrier()
                 # Copy the receiving buffer to the guard cells of the domain
-                self.mpi_buffers.copy_EB_buffers( interp, after_receiving=True )
+                self.mpi_buffers.copy_EB_buffers(interp, after_receiving=True)
 
             elif fieldtype == 'J':
 
                 # Copy the inner part of the domain to the sending buffer
-                self.mpi_buffers.copy_J_buffers( interp, before_sending=True )
+                self.mpi_buffers.copy_J_buffers(interp, before_sending=True)
                 # Copy the sending buffers to the receiving buffers via MPI
                 self.exchange_domains(
                     self.mpi_buffers.J_send_l, self.mpi_buffers.J_send_r,
@@ -283,12 +290,12 @@ class BoundaryCommunicator(object):
                 # do two sends and receives before this exchange is completed.
                 self.mpi_comm.Barrier()
                 # Copy the receiving buffer to the guard cells of the domain
-                self.mpi_buffers.copy_J_buffers( interp, after_receiving=True )
+                self.mpi_buffers.copy_J_buffers(interp, after_receiving=True)
 
             elif fieldtype == 'rho':
 
                 # Copy the inner part of the domain to the sending buffer
-                self.mpi_buffers.copy_rho_buffers( interp, before_sending=True )
+                self.mpi_buffers.copy_rho_buffers(interp, before_sending=True)
                 # Copy the sending buffers to the receiving buffers via MPI
                 self.exchange_domains(
                     self.mpi_buffers.rho_send_l, self.mpi_buffers.rho_send_r,
@@ -335,126 +342,104 @@ class BoundaryCommunicator(object):
         if self.left_proc is not None :
             mpi.Request.Wait(req_2)
             
-    def exchange_particles(self, ptcl, zmin, zmax):
+    def exchange_particles(self, species, fld ):
         """
-        Look for particles that are located inside the guard cells
+        Look for particles that are located outside of the physical boundaries
         and exchange them with the corresponding neighboring processor.
+        Also remove the particles that are below the left boundary of the
+        global box, and (when using the moving window) add particles at the
+        right boundary of the global box.
 
         Parameters:
         ------------
-        ptcl: a Particle object
+        species: a Particle object
             The object corresponding to a given species
+
+        fld: a Fields object
+            Contains information about the dimension of the grid,
+            and the prefix sum (when using the GPU).
+            The object itself is not modified by this routine.
         """
-        # Shortcuts for number of guard cells and spacing between cells
-        ng = self.n_guard
-        dz = self.dz
-        
-        # Periodic boundary conditions for exchanging particles
-        # Particles leaving at the right (left) side of the simulation box
-        # are shifted by Ltot (zmax-zmin) to the left (right).
-        if self.rank == 0:
-            periodic_offset_left = self.Ltot
-            periodic_offset_right = 0.
-        elif self.rank == (self.size-1):
-            periodic_offset_left = 0.
-            periodic_offset_right = -self.Ltot
-        else:
-            periodic_offset_left = 0.
-            periodic_offset_right = 0.
+        # Do not exchange particles for 0 guard cells (periodic, single-proc)
+        if self.nguard == 0:
+            return
 
-        # If needed, copy the particles to the CPU
-        if ptcl.use_cuda:
-            ptcl.receive_particles_from_gpu()
-            
-        # Select the particles that are in the left or right guard cells,
-        # and those that stay on the local process
-        selec_left = ( ptcl.z < (zmin + ng*dz) )
-        selec_right = ( ptcl.z > (zmax - ng*dz) )
-        selec_stay = (np.logical_not(selec_left) & np.logical_not(selec_right))
-        # Count them, and convert the result into an array
-        # so as to send them easily.
-        N_send_l = np.array( selec_left.sum(), dtype=np.int32)
-        N_send_r = np.array( selec_right.sum(), dtype=np.int32)
-        N_stay = selec_stay.sum()
+        # Remove out-of-domain particles from particle arrays (either on
+        # CPU or GPU) and store them in sending buffers on the CPU
+        send_left, send_right = remove_outside_particles( species,
+                fld, self.nguard, self.left_proc, self.right_proc )
 
-        # Initialize empty arrays to receive the number of particles that
-        # will be send to this domain.
-        N_recv_l = np.array(0, dtype = np.int32)
-        N_recv_r = np.array(0, dtype = np.int32)
-        # Send and receive the number of particles that are exchanged
+        # Send/receive the number of particles (need to be stored in arrays)
+        N_send_l = np.array( send_left.shape[1], dtype=np.int32)
+        N_send_r = np.array( send_right.shape[1], dtype=np.int32)
+        N_recv_l = np.array( 0, dtype = np.int32)
+        N_recv_r = np.array( 0, dtype = np.int32)
         self.exchange_domains(N_send_l, N_send_r, N_recv_l, N_recv_r)
-
-        # Allocate sending buffers
-        send_left = np.empty((8, N_send_l), dtype = np.float64)
-        send_right = np.empty((8, N_send_r), dtype = np.float64)
-
-        # Fill the sending buffers
-        # Left guard region
-        send_left[0,:] = ptcl.x[selec_left]
-        send_left[1,:] = ptcl.y[selec_left]
-        send_left[2,:] = ptcl.z[selec_left]+periodic_offset_left
-        send_left[3,:] = ptcl.ux[selec_left]
-        send_left[4,:] = ptcl.uy[selec_left]
-        send_left[5,:] = ptcl.uz[selec_left]
-        send_left[6,:] = ptcl.inv_gamma[selec_left]
-        send_left[7,:] = ptcl.w[selec_left]
-        # Right guard region
-        send_right[0,:] = ptcl.x[selec_right]
-        send_right[1,:] = ptcl.y[selec_right]
-        send_right[2,:] = ptcl.z[selec_right]+periodic_offset_right
-        send_right[3,:] = ptcl.ux[selec_right]
-        send_right[4,:] = ptcl.uy[selec_right]
-        send_right[5,:] = ptcl.uz[selec_right]
-        send_right[6,:] = ptcl.inv_gamma[selec_right]
-        send_right[7,:] = ptcl.w[selec_right]
-
-        # An MPI barrier is needed here so that a single rank 
-        # does not perform two sends and receives before all 
-        # the other MPI connections within this exchange are completed.
-        # Barrier is not called directly after the exchange
-        # to hide the allocation of buffer data
         self.mpi_comm.Barrier()
+        # NB: if left_proc or right_proc is None, the
+        # corresponding N_recv remains 0 (no exchange)
 
         # Allocate the receiving buffers and exchange particles
         recv_left = np.zeros((8, N_recv_l), dtype = np.float64)
         recv_right = np.zeros((8, N_recv_r), dtype = np.float64)
         self.exchange_domains(send_left, send_right, recv_left, recv_right)
 
+        # >> Create new particles in the right receiving buffer
+        
         # An MPI barrier is needed here so that a single rank 
         # does not perform two sends and receives before all 
         # the other MPI connections within this exchange are completed.
         self.mpi_comm.Barrier()
 
+        # Periodic boundary conditions for exchanging particles
+        # Particles received at the right (resp. left) end of the simulation
+        # box are shifted by Ltot (zmax-zmin) to the right (resp. left).
+        if self.right_proc == 0:
+            # The index 2 corresponds to z
+            recv_right[2,:] = recv_right[2,:] + self.Ltot
+        if self.left_proc == self.size-1:
+            # The index 2 corresponds to z
+            recv_left[2,:] = recv_left[2,:] - self.Ltot
+
+        # >> Adapt the code for merging buffers to particles on the CPU or GPU
+
         # Form the new particle arrays by adding the received particles
         # from the left and the right to the particles that stay in the domain
-        ptcl.Ntot = N_stay + int(N_recv_l) + int(N_recv_r)
-        ptcl.x = np.hstack((recv_left[0], ptcl.x[selec_stay], recv_right[0]))
-        ptcl.y = np.hstack((recv_left[1], ptcl.y[selec_stay], recv_right[1]))
-        ptcl.z = np.hstack((recv_left[2], ptcl.z[selec_stay], recv_right[2]))
-        ptcl.ux = np.hstack((recv_left[3], ptcl.ux[selec_stay], recv_right[3]))
-        ptcl.uy = np.hstack((recv_left[4], ptcl.uy[selec_stay], recv_right[4]))
-        ptcl.uz = np.hstack((recv_left[5], ptcl.uz[selec_stay], recv_right[5]))
-        ptcl.inv_gamma = \
-          np.hstack((recv_left[6], ptcl.inv_gamma[selec_stay], recv_right[6]))
-        ptcl.w = np.hstack((recv_left[7], ptcl.w[selec_stay], recv_right[7]))
+        species.Ntot = species.Ntot + send_left.shape[1] + send_right.shape[1]
+        species.x = np.hstack((recv_left[0], species.x, recv_right[0]))
+        species.y = np.hstack((recv_left[1], species.y, recv_right[1]))
+        species.z = np.hstack((recv_left[2], species.z, recv_right[2]))
+        species.ux = np.hstack((recv_left[3], species.ux, recv_right[3]))
+        species.uy = np.hstack((recv_left[4], species.uy, recv_right[4]))
+        species.uz = np.hstack((recv_left[5], species.uz, recv_right[5]))
+        species.inv_gamma = \
+          np.hstack((recv_left[6], species.inv_gamma, recv_right[6]))
+        species.w = np.hstack((recv_left[7], species.w, recv_right[7]))
 
         # Reallocate the particles field arrays. This needs to be done,
         # as the total number of particles in this domain has changed.
-        ptcl.Ex = np.empty(ptcl.Ntot, dtype = np.float64)
-        ptcl.Ey = np.empty(ptcl.Ntot, dtype = np.float64)
-        ptcl.Ez = np.empty(ptcl.Ntot, dtype = np.float64)
-        ptcl.Bx = np.empty(ptcl.Ntot, dtype = np.float64)
-        ptcl.By = np.empty(ptcl.Ntot, dtype = np.float64)
-        ptcl.Bz = np.empty(ptcl.Ntot, dtype = np.float64)
+        species.Ex = np.empty(species.Ntot, dtype = np.float64)
+        species.Ey = np.empty(species.Ntot, dtype = np.float64)
+        species.Ez = np.empty(species.Ntot, dtype = np.float64)
+        species.Bx = np.empty(species.Ntot, dtype = np.float64)
+        species.By = np.empty(species.Ntot, dtype = np.float64)
+        species.Bz = np.empty(species.Ntot, dtype = np.float64)
+        if species.use_cuda:
+            # Initialize empty arrays on the GPU for the field
+            # gathering and the particle push
+            species.Ex = cuda.device_array_like(species.Ex)
+            species.Ey = cuda.device_array_like(species.Ey)
+            species.Ez = cuda.device_array_like(species.Ez)
+            species.Bx = cuda.device_array_like(species.Bx)
+            species.By = cuda.device_array_like(species.By)
+            species.Bz = cuda.device_array_like(species.Bz)
+            
         # Reallocate the cell index and sorted index arrays on the CPU
-        ptcl.cell_idx = np.empty(ptcl.Ntot, dtype = np.int32)
-        ptcl.sorted_idx = np.arange(ptcl.Ntot, dtype = np.uint32)
-        ptcl.particle_buffer = np.arange(ptcl.Ntot, dtype = np.float64)
-        # If needed, copy the particles to the GPU
-        if ptcl.use_cuda:
-            ptcl.send_particles_to_gpu()
+        species.cell_idx = np.empty(species.Ntot, dtype = np.int32)
+        species.sorted_idx = np.arange(species.Ntot, dtype = np.uint32)
+        species.particle_buffer = np.arange(species.Ntot, dtype = np.float64)
         # The particles are unsorted after adding new particles.
-        ptcl.sorted = False
+        species.sorted = False
 
     def damp_guard_EB( self, interp ):
         """
@@ -469,6 +454,9 @@ class BoundaryCommunicator(object):
         if self.n_guard != 0:
             self.guard_damper.damp_guard_EB( interp )
 
+    # Gathering routines
+    # ------------------
+            
     def gather_grid( self, grid, root = 0):
         """
         Gather a grid object by combining the local domains

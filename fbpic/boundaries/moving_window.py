@@ -5,7 +5,6 @@ It defines the structure necessary to implement the moving window.
 import numpy as np
 from scipy.constants import c
 from fbpic.particles import Particles
-
 try:
     from fbpic.cuda_utils import cuda, cuda_tpb_bpg_2d, cuda_tpb_bpg_1d
     if cuda.is_available():
@@ -72,7 +71,7 @@ class MovingWindow(object):
             self.v_end_plasma = \
               c * uz_m / np.sqrt(1 + ux_m**2 + uy_m**2 + uz_m**2)
 
-    def move_grids(self, interp, dt, mpi_comm):
+    def move_grids(self, fld, dt, mpi_comm):
         """
         Calculate by how many cells the moving window should be moved.
         If this is non-zero, shift the fields on the interpolation grid,
@@ -83,7 +82,7 @@ class MovingWindow(object):
         
         Parameters
         ----------
-        interp: a list of Interpolation object
+        fld: a Fields object
             Contains the fields data of the simulation
     
         dt: float (in seconds)
@@ -94,12 +93,12 @@ class MovingWindow(object):
         """
         # To avoid discrepancies between processors, only the first proc
         # decides whether to send the data, and broadcasts the information.
-        dz = interp[0].dz
+        dz = fld.interp[0].dz
         if mpi_comm.rank==0:
             # Move the continuous position of the moving window object
             self.zmin += self.v * dt * self.exchange_period
-            # Find the number of cells by which the window should move          
-            n_move = int( (self.zmin - interp[0].zmin)/dz )
+            # Find the number of cells by which the window should move
+            n_move = int( (self.zmin - fld.interp[0].zmin)/dz )
         else:
             n_move = None
         # Broadcast the information to all proc
@@ -109,55 +108,24 @@ class MovingWindow(object):
         # Move the grids
         if n_move > 0:
             # Shift the fields
-            Nm = len(interp)
+            Nm = len(fld.interp)
             for m in range(Nm):
-                self.shift_interp_grid( interp[m], n_move )
+                self.shift_interp_grid( fld.interp[m], n_move )
 
-
-    ## #### Particle removal stuff
-
-    ##     # Prepare the positions of injection for the particles
-    ##     # (The actual creation of particles is done in the routine
-    ##     # exchange_particles of boundary_communicator.py)
-    ##     if mpi_comm.rank == comm.size-1:
-    ##         # Move the injection position
-    ##         self.z_inject += self.v * dt * self.exchange_period
-    ##         # Take into account the motion of the end of the plasma
-    ##         self.z_end_plasma += self.v_end_plasma * dt * self.exchange_period
-    
-    ##         # Extract a few quantities of the new (shifted) grid
-    ##         zmin = interp[0].zmin
-
-    ##         # The first proc removes the particles that are outside of the box
-    ##         if (comm is None) or (comm.rank == 0):
-    ##             # Determine the position below which the particles are removed
-    ##             z_zero = zmin + self.ncells_zero*dz
-    ##             if comm is not None:
-    ##                 z_zero = z_zero + comm.n_guard*dz
-    ##             # Determine the cells in which the particles are removed
-    ##             n_remove = n_move + self.ncells_zero
-    ##             if comm is not None:
-    ##                 n_remove = n_remove + comm.n_guard
-    ##             # Calculate 1D cell index for n_remove
-    ##             n_remove = n_remove*interp[0].Nr
-
-    ##             # Remove the outside particles
-    ##             for species in ptcl:
-    ##                 if interp[0].use_cuda:
-    ##                     # Remove outside particles on GPU
-    ##                     clean_outside_particles_gpu( 
-    ##                         species, n_remove, fld.d_prefix_sum )
-    ##                 else:
-    ##                     clean_outside_particles( species, z_zero )
-
-    ##         # Exchange the particles 
-    ##         # in the guard cells between domains when using MPI
-    ##         if comm is not None:
-    ##             for species in ptcl:
-    ##                 comm.exchange_particles( species,
-    ##                         interp[0].zmin, interp[0].zmax )
-
-    ## ### Particle injection stuff
+        # Because the grids have just been shifted, there is a shift
+        # in the cell indices that are used for the prefix sum.
+        if fld.use_cuda:
+            fld.prefix_sum_shift = n_move * fld.Nr
+            # This quantity is reset to 0 whenever d_prefix_sum is recalculated
+                
+        # Prepare the positions of injection for the particles
+        # (The actual creation of particles is done when the routine
+        # exchange_particles of boundary_communicator.py is called)
+        if mpi_comm.rank == mpi_comm.size-1:
+            # Move the injection position
+            self.z_inject += self.v * dt * self.exchange_period
+            # Take into account the motion of the end of the plasma
+            self.z_end_plasma += self.v_end_plasma * dt * self.exchange_period
 
     ##         # Find the number of particle cells to add
     ##         n_inject = int( (self.z_inject - self.z_end_plasma)/dz )
@@ -281,120 +249,13 @@ class MovingWindow(object):
         # Assign the buffer to the original field array object
         field_array = field_buffer
         # Return the new shifted field array
-        return field_array
+        return( field_array )
             
 # ---------------------------------------
 # Utility functions for the moving window
 # ---------------------------------------
 
-def clean_outside_particles( species, zmin ):
-    """
-    Removes the particles that are below `zmin`.
 
-    Parameters
-    ----------
-    species: a Particles object
-        Contains the data of this species
-
-    zmin: float
-        The lower bound under which particles are removed
-    """
-    # Select the particles that are still inside the box
-    selec = ( species.z > zmin )
-
-    # Keep only this selection, in the different arrays that contains the
-    # particle properties (x, y, z, ux, uy, uz, etc...)
-    # Instead of hard-coding x = x[selec], y=y[selec], etc... here we loop
-    # over the particles attributes, and resize the attributes that are
-    # arrays with one element per particles.
-    # The advantage is that nothing needs to be added to this piece of code,
-    # if a new particle attribute is later added in particles.py.
-
-    # Loop over the attributes
-    for key, attribute in vars(species).items():
-        # Detect if it is an array
-        if type(attribute) is np.ndarray:
-            # Detect if it has one element per particle
-            if attribute.shape == ( species.Ntot ,):
-                # Affect the resized array to the object
-                setattr( species, key, attribute[selec] )
-
-    # Adapt the number of particles accordingly
-    species.Ntot = len( species.w )
-
-def clean_outside_particles_gpu( species, n_remove, prefix_sum ):
-    """
-    Removes the sorted particles that reside in the first n_remove
-    cells of the simulation box in the longitudinal direction.
-
-    Parameters
-    ----------
-    species: a Particles object
-        Contains the data of this species
-
-    n_remove: int
-        The last cell up to which particles are removed as 1D cell
-        index value
-
-    prefix_sum: 1D array of int
-        Contains the inclusive prefix sum, containing the cummulative
-        sum of particles per cell in 1D
-    """
-    # Check if particles are sorted, otherwise raise exception
-    if species.sorted == False:
-        raise ValueError('Removing particles: The particles are not sorted!')
-        
-    # Get the number of particles to be removed by looking up the
-    # value of the inclusive prefix sum at the cell n_remove.
-    remove_particles_idx = prefix_sum.getitem(n_remove-1)
-    # New total number of particles
-    new_Ntot = species.Ntot-remove_particles_idx
-    # Get the threads per block and the blocks per grid
-    dim_grid_1d, dim_block_1d = cuda_tpb_bpg_1d( new_Ntot )
-    # Iterate over particle attributes
-    for attr in ['x', 'y', 'z', 'ux', 'uy', 'uz', 'w', 'inv_gamma']:
-        # Initialize a buffer array
-        particle_buffer = cuda.device_array(new_Ntot, dtype=np.float64)
-        # Get particle GPU array
-        particle_array = getattr(species, attr)
-        # Remove particle data and write to particle buffer array
-        remove_particle_data_gpu[dim_grid_1d, dim_block_1d](
-            particle_array, particle_buffer)
-        # Assign the particle buffer to 
-        # the initial particle data array
-        setattr(species, attr, particle_buffer)
-
-    # Initialize empty arrays on the CPU for the field
-    # gathering and the particle push
-    species.Ex = np.zeros(new_Ntot, dtype = np.float64)
-    species.Ey = np.zeros(new_Ntot, dtype = np.float64)
-    species.Ez = np.zeros(new_Ntot, dtype = np.float64)
-    species.Bx = np.zeros(new_Ntot, dtype = np.float64)
-    species.By = np.zeros(new_Ntot, dtype = np.float64)
-    species.Bz = np.zeros(new_Ntot, dtype = np.float64)
-    # Initialize empty arrays on the CPU
-    # that represent the sorting arrays
-    species.cell_idx = np.empty(new_Ntot, dtype = np.int32)
-    species.sorted_idx = np.arange(new_Ntot, dtype = np.uint32)
-    species.particle_buffer = np.arange(new_Ntot, dtype = np.float64)
-    # Initialize empty arrays on the GPU for the field
-    # gathering and the particle push
-    species.Ex = cuda.device_array_like(species.Ex)
-    species.Ey = cuda.device_array_like(species.Ey)
-    species.Ez = cuda.device_array_like(species.Ez)
-    species.Bx = cuda.device_array_like(species.Bx)
-    species.By = cuda.device_array_like(species.By)
-    species.Bz = cuda.device_array_like(species.Bz)
-    # Initialize empty arrays on the GPU for the sorting
-    species.cell_idx = cuda.device_array_like(species.cell_idx)
-    species.sorted_idx = cuda.device_array_like(species.sorted_idx)
-    species.particle_buffer = cuda.device_array_like(
-                                species.particle_buffer)
-    # Change the new total number of particles    
-    species.Ntot = new_Ntot
-    # Particles remain sorted after removing some of them.
-    # However, the cell index array was reinitialized.
-    species.sorted = False
 
 def add_particles( species, zmin, zmax, Npz, ux_m=0., uy_m=0., uz_m=0.,
                   ux_th=0., uy_th=0., uz_th=0. ):
@@ -550,26 +411,7 @@ if cuda_installed:
           and j < field_array.shape[1]:
             field_buffer[i, j] = 0.
 
-    @cuda.jit('void(float64[:], float64[:])')
-    def remove_particle_data_gpu( particle_array, particle_buffer ):
-        """
-        Remove sorted particles by copying only the last elements 
-        of the particle array to a particle buffer.
 
-        Parameters:
-        ------------
-        particle_array, particle_buffer: 1darrays of floats
-            Contains the old particles (particle_array)
-            Contains the only the particles which were not removed (particle_buffer)
-        """
-        # Get a 1D CUDA grid
-        i = cuda.grid(1)
-        if i < particle_buffer.shape[0]:
-            # Calculate the offset (i.e. the first position at which the particles
-            # are not removed anymore)
-            offset_remove = particle_array.shape[0] - particle_buffer.shape[0]
-            # Copy only the particles to the buffer that stay in the simulation
-            particle_buffer[i] = particle_array[i+offset_remove]
 
     @cuda.jit('void(float64[:], float64[:], float64[:])')
     def add_particle_data_gpu( particle_array, new_particle_array, particle_buffer ):
