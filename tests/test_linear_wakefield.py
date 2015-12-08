@@ -15,7 +15,6 @@ from scipy.integrate import quad
 # Import the relevant structures in FBPIC
 from fbpic.main import Simulation
 from fbpic.lpa_utils import add_laser
-from mpi4py import MPI as mpi
 
 # ---------------------------
 # Analytical solution
@@ -163,11 +162,6 @@ def compare_wakefields(Ez_analytic, Er_analytic, grid):
 use_cuda = False
 n_guard = 50
 
-# Setup MPI
-mpi_comm = mpi.COMM_WORLD
-rank = mpi_comm.rank
-size = mpi_comm.size
-
 # The simulation box
 Nz = 800         # Number of gridpoints along z
 zmax = 40.e-6    # Length of the box along z (meters)
@@ -224,7 +218,7 @@ def compare_fields(sim) :
     Gather the results and compare them with the analytical predicitions
     """
     gathered_grid = sim.comm.gather_grid(sim.fld.interp[0])
-    if rank==0 :
+    if sim.comm.rank==0 :
         z = gathered_grid.z
         r = gathered_grid.r
 
