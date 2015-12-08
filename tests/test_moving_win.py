@@ -74,7 +74,7 @@ def test_pulse( Nz, Nr, Nm, Lz, Lr, Nt, w0, ctau,
     # Initialize the simulation object
     sim = Simulation( Nz, Lz, Nr, Lr, Nm, dt, p_zmin=0, p_zmax=0,
                     p_rmin=0, p_rmax=0, p_nz=2, p_nr=2, p_nt=2, n_e=0.,
-                    use_cuda=True )
+                    use_cuda=True, boundaries='open' )
     # Remove the particles
     sim.ptcl = []
     # Create moving window object

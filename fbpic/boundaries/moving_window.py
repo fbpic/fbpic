@@ -49,6 +49,13 @@ class MovingWindow(object):
         ux_th, uy_th, uz_th: floats (dimensionless)
            Normalized thermal momenta in each direction
         """
+        # Check that the boundaries are open
+        if ((comm.rank == comm.size-1) and (comm.right_proc is not None)) \
+          or ((comm.rank == 0) and (comm.left_proc is not None)):
+          raise ValueError('The simulation is using a moving window, but '
+                    'the boundaries are periodic.\n Please select open '
+                    'boundaries when initializing the Simulation object.')
+        
         # Momenta parameters
         self.ux_m = ux_m
         self.uy_m = uy_m

@@ -40,7 +40,8 @@ p_nt = 4         # Number of particles per cell along theta
 
 # Initialize the simulation object
 sim = Simulation( Nz, zmax, Nr, rmax, Nm, dt,
-    p_zmin, p_zmax, p_rmin, p_rmax, p_nz, p_nr, p_nt, n_e, n_order=n_order )
+    p_zmin, p_zmax, p_rmin, p_rmax, p_nz, p_nr, p_nt, n_e,
+    n_order=n_order, boundaries='open' )
 
 # Configure the moving window
 sim.set_moving_window( v=c )
