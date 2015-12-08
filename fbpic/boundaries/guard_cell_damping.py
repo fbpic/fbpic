@@ -134,7 +134,7 @@ def generate_damp_array( n_guard, neighbor_proc, exchange_period ):
         # at each timestep. In addition, put some cells to 0, in order to
         # avoid wrapping around of the fields.
         damping_array = np.where( i_cell < n_guard/2, 0.,
-            np.sin( (i_cell - n_guard/2)*np.pi/n_guard )**(2./exchange_period))
+        abs(np.sin( (i_cell - n_guard/2)*np.pi/n_guard ))**(2./exchange_period))
 
     return( damping_array )
 
