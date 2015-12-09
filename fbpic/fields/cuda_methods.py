@@ -137,9 +137,12 @@ def cuda_divide_vector_by_volume( mode0r, mode1r, mode0t, mode1t,
 @cuda.jit('void(complex128[:,:], complex128[:,:], \
            complex128[:,:], complex128[:,:], complex128[:,:], \
            float64[:,:], float64[:,:], float64[:,:], \
+           float64[:,:], float64[:,:], \
            float64, int32, int32)')
 def cuda_correct_currents( rho_prev, rho_next, Jp, Jm, Jz,
-                            kz, kr, inv_k2, inv_dt, Nz, Nr ) :
+                            kz, kr, inv_k2, 
+                            j_corr_coef, T,
+                            inv_dt, Nz, Nr ) :
     """
     Correct the currents in spectral space
 
@@ -148,7 +151,7 @@ def cuda_correct_currents( rho_prev, rho_next, Jp, Jm, Jz,
     rho_prev, rho_next, Jp, Jm, Jz : 2darrays of complex
         Fields in spectral space.
         
-    kz, kr, inv_k2 : 2darrays of reals
+    kz, kr, inv_k2, j_corr_coef : 2darrays of reals
         Constant coefficients that depend on the spectral grid
 
     inv_dt : float
@@ -165,8 +168,8 @@ def cuda_correct_currents( rho_prev, rho_next, Jp, Jm, Jz,
     if (iz < Nz) and (ir < Nr) :
         
         # Calculate the intermediate variable F
-        F = - inv_k2[iz, ir] * (
-            (rho_next[iz, ir] - rho_prev[iz, ir])*inv_dt \
+        F = - inv_k2[iz, ir] * ( j_corr_coef[iz, ir] \
+            * (rho_next[iz, ir] - rho_prev[iz, ir]*T[iz, ir]) \
             + 1.j*kz[iz, ir]*Jz[iz, ir] \
             + kr[iz, ir]*( Jp[iz, ir] - Jm[iz, ir] ) )
 

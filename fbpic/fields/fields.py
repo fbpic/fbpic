@@ -736,27 +736,15 @@ class SpectralGrid(object) :
             # Correct the currents on the GPU
             cuda_correct_currents[dim_grid, dim_block](
                 self.rho_prev, self.rho_next, self.Jp, self.Jm, self.Jz,
-                self.d_kz, self.d_kr, self.d_inv_k2, inv_dt, self.Nz, self.Nr)
+                self.d_kz, self.d_kr, self.d_inv_k2, 
+                ps.d_j_corr_coef, ps.d_T, inv_dt, self.Nz, self.Nr)
         else :
             # Correct the currents on the CPU
 
             # Calculate the intermediate variable F
-            if ps.V != 0.:
-                # Precalculate 1/(1-Theta)
-                inv_1_Theta = 1./np.where(ps.T == 1, 1., 1-ps.T)
-                self.F[:,:] = np.where(
-                                self.kz!=0,
-                                - self.inv_k2 * ( - 1.j*self.kz*ps.V * \
-                                (self.rho_next - self.rho_prev*ps.T)*inv_1_Theta \
-                                + 1.j*self.kz*self.Jz + self.kr*( self.Jp - self.Jm ) ),
-                                - self.inv_k2 * (
-                                (self.rho_next - self.rho_prev)*inv_dt \
-                                + 1.j*self.kz*self.Jz + self.kr*( self.Jp - self.Jm ) )
-                                )
-            else:
-                self.F[:,:] = - self.inv_k2 * (
-                    (self.rho_next - self.rho_prev)*inv_dt \
-                    + 1.j*self.kz*self.Jz + self.kr*( self.Jp - self.Jm ) ) 
+            self.F[:,:] = - self.inv_k2 * ( ps.j_corr_coef \
+                * (self.rho_next - self.rho_prev*ps.T) \
+                + 1.j*self.kz*self.Jz + self.kr*( self.Jp - self.Jm ) ) 
             
             # Correct the current accordingly
             self.Jp += 0.5*self.kr*self.F
@@ -1077,12 +1065,15 @@ class PsatdCoeffs(object) :
             i_kz_V[ kz==0 ] = 1.
             self.T_rho = np.where(kz == 0., -self.dt, (1.-self.T)/i_kz_V)
         else:
-            self.T_rho = - self.dt
+            self.T_rho = -self.dt*np.ones_like(kz)
 
         # Precalculate some coefficients
         if V != 0.:
             # Calculate pre-factor
-            inv_w_kzV = 1./np.where( (w**2 - kz**2 * V**2)==0, 1., (w**2 - kz**2 * V**2) )
+            inv_w_kzV = 1./np.where( 
+                            (w**2 - kz**2 * V**2)==0, 
+                            1., 
+                            (w**2 - kz**2 * V**2) )
             # Calculate factor involding 1/Theta
             inv_1_Theta = 1./np.where(self.T == 1, 1., 1-self.T)
             # Calculate Xi 1 coefficient
@@ -1115,7 +1106,8 @@ class PsatdCoeffs(object) :
         if V != 0.:
             self.rho_prev_coef = c**2/epsilon_0*(xi_3)
         else:
-            self.rho_prev_coef= c**2/epsilon_0*(self.C - inv_dt*self.S_w)*inv_w**2
+            self.rho_prev_coef = c**2/epsilon_0*( 
+                self.C - inv_dt*self.S_w )*inv_w**2
         # Enforce the right value for w==0
         self.rho_prev_coef[ w==0 ] = c**2/epsilon_0*(-1./3*dt**2)
 
@@ -1123,9 +1115,20 @@ class PsatdCoeffs(object) :
         if V != 0.:
             self.rho_next_coef = c**2/epsilon_0*(xi_2)
         else:
-            self.rho_next_coef = c**2/epsilon_0*(1 - inv_dt*self.S_w)*inv_w**2
+            self.rho_next_coef = c**2/epsilon_0*( 
+                1 - inv_dt*self.S_w )*inv_w**2
         # Enforce the right value for w==0
         self.rho_next_coef[ w==0 ] = c**2/epsilon_0*(1./6*dt**2)
+
+        # Coefficient for the current correction (curl-free)
+        if V != 0.:
+             inv_1_Theta = 1./np.where(self.T == 1, 1., 1-self.T)
+             # Take care of kz = 0 singularity
+             self.j_corr_coef = np.where( kz != 0, 
+                            (-i*kz*V)*inv_1_Theta, 
+                            inv_dt )
+        else:
+             self.j_corr_coef = inv_dt*np.ones_like(kz)
 
         # Allocate useful auxiliary matrices
         self.Ep = np.zeros( (Nz, Nr), dtype='complex' )
@@ -1141,6 +1144,7 @@ class PsatdCoeffs(object) :
             self.d_j_coef = cuda.to_device(self.j_coef)
             self.d_rho_prev_coef = cuda.to_device(self.rho_prev_coef)
             self.d_rho_next_coef = cuda.to_device(self.rho_next_coef)
+            self.d_j_corr_coef = cuda.to_device(self.j_corr_coef)
             # NB : Ep, Em, Ez are not needed on the GPU (on-the-fly variables)
 
         
