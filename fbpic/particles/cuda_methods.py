@@ -98,8 +98,8 @@ def push_p_gpu( ux, uy, uz, inv_gamma,
 
 @cuda.jit('void(float64[:], float64[:], float64[:], \
             float64[:], float64[:], float64[:], \
-            float64[:], float64)')
-def push_x_gpu( x, y, z, ux, uy, uz, inv_gamma, dt ) :
+            float64[:], float64, float64)')
+def push_x_gpu( x, y, z, ux, uy, uz, inv_gamma, dt, v_galilean ) :
     """
     Advance the particles' positions over one half-timestep
     
@@ -121,6 +121,10 @@ def push_x_gpu( x, y, z, ux, uy, uz, inv_gamma, dt ) :
 
     dt : float (seconds)
         The time by which the position is advanced
+
+    v_galilean: float (velocity, m/s)
+        The velocity of the Galilean frame in which the PSATD
+        algorithm is solved.
     """
     # Half timestep, multiplied by c
     chdt = c*0.5*dt
@@ -131,7 +135,7 @@ def push_x_gpu( x, y, z, ux, uy, uz, inv_gamma, dt ) :
         inv_g = inv_gamma[i]
         x[i] += chdt*inv_g*ux[i]
         y[i] += chdt*inv_g*uy[i]
-        z[i] += chdt*inv_g*uz[i]
+        z[i] += chdt*inv_g*uz[i] - 0.5*dt*v_galilean
 
 # -----------------------
 # Field gathering utility

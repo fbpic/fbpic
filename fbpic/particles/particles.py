@@ -336,7 +336,7 @@ class Particles(object) :
             push_x_gpu[dim_grid_1d, dim_block_1d](
                 self.x, self.y, self.z,
                 self.ux, self.uy, self.uz,
-                self.inv_gamma, self.dt )
+                self.inv_gamma, self.dt, self.v_galilean )
         else :
             push_x_numpy(self.x, self.y, self.z,
                 self.ux, self.uy, self.uz,

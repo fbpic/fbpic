@@ -814,7 +814,8 @@ class SpectralGrid(object) :
                 self.Ep, self.Em, self.Ez, self.Bp, self.Bm, self.Bz,
                 self.Jp, self.Jm, self.Jz, self.rho_prev, self.rho_next,
                 ps.d_rho_prev_coef, ps.d_rho_next_coef, ps.d_j_coef,
-                ps.d_C, ps.d_S_w, self.d_kr, self.d_kz, ps.dt,
+                ps.d_C, ps.d_S_w, ps.d_T, ps.d_T_rho,
+                self.d_kr, self.d_kz, ps.dt, ps.V,
                 ptcl_feedback, use_true_rho, self.Nz, self.Nr )
 
         else :
