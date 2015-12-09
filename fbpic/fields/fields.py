@@ -177,7 +177,7 @@ class Fields(object) :
                 self.interp[m].receive_fields_from_gpu()
                 self.spect[m].receive_fields_from_gpu()
             
-    def push(self, ptcl_feedback=True) :
+    def push(self, ptcl_feedback=True, use_true_rho=False) :
         """
         Push the different azimuthal modes over one timestep,
         in spectral space.
@@ -185,11 +185,20 @@ class Fields(object) :
         ptcl_feedback : bool, optional
             Whether to use the particles' densities and currents
             when pushing the fields
+
+        use_true_rho : bool, optional
+            Whether to use the rho projected on the grid.
+            If set to False, this will use div(E) and div(J)
+            to evaluate rho and its time evolution.
+            In the case use_true_rho==False, the rho projected
+            on the grid is used only to correct the currents, and
+            the simulation can be run without the neutralizing ions.
         """
         # Push each azimuthal grid individually, by passing the
         # corresponding psatd coefficients
         for m in range(self.Nm) :
-            self.spect[m].push_eb_with( self.psatd[m], ptcl_feedback )
+            self.spect[m].push_eb_with( 
+                self.psatd[m], ptcl_feedback, use_true_rho )
             self.spect[m].push_rho()
 
     def correct_currents(self) :
