@@ -137,7 +137,7 @@ def cuda_divide_vector_by_volume( mode0r, mode1r, mode0t, mode1t,
 @cuda.jit('void(complex128[:,:], complex128[:,:], \
            complex128[:,:], complex128[:,:], complex128[:,:], \
            float64[:,:], float64[:,:], float64[:,:], \
-           float64[:,:], float64[:,:], \
+           complex128[:,:], complex128[:,:], \
            float64, int32, int32)')
 def cuda_correct_currents( rho_prev, rho_next, Jp, Jm, Jz,
                             kz, kr, inv_k2, 
@@ -183,8 +183,8 @@ def cuda_correct_currents( rho_prev, rho_next, Jp, Jm, Jz,
            complex128[:,:], complex128[:,:], complex128[:,:], \
            complex128[:,:], complex128[:,:], complex128[:,:], \
            complex128[:,:], complex128[:,:], \
-           float64[:,:], float64[:,:], float64[:,:], \
-           float64[:,:], float64[:,:], float64[:,:], float64[:,:], \
+           complex128[:,:], complex128[:,:], complex128[:,:], \
+           float64[:,:], float64[:,:], complex128[:,:], complex128[:,:], \
            float64[:,:], float64[:,:], float64, float64, \
            int8, int8, int32, int32)')
 def cuda_push_eb_with( Ep, Em, Ez, Bp, Bm, Bz, Jp, Jm, Jz,
