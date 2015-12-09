@@ -190,7 +190,7 @@ class FieldDiagnostic(OpenPMDDiagnostic) :
         """        
         # Shape of the data : first write the real part mode 0
         # and then the imaginary part of the mode 1
-        datashape = ( 2*self.fld.Nm + 1, self.fld.Nr, self.fld.Nz )
+        datashape = ( 2*self.fld.Nm - 1, self.fld.Nr, self.fld.Nz )
         dset = field_grp.require_dataset( path, datashape, dtype='f' )
         self.setup_openpmd_mesh_component( dset, quantity )
 
