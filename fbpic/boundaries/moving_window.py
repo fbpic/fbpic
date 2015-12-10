@@ -76,7 +76,7 @@ class MovingWindow(object):
         # Attach injection position and speed (only for the last proc)
         if comm.rank == comm.size-1:
             ng = comm.n_guard
-            self.z_inject = interp[0].zmax - ng*interp[0].dz
+            self.z_inject = interp[0].zmax - ng/2*interp[0].dz
             self.z_end_plasma = interp[0].zmax - ng*interp[0].dz
             self.v_end_plasma = \
               c * uz_m / np.sqrt(1 + ux_m**2 + uy_m**2 + uz_m**2)

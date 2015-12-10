@@ -17,6 +17,10 @@ def remove_outside_particles(species, fld, nguard, left_proc, right_proc):
     Remove the particles that are outside of the physical domain (i.e.
     in the guard cells). Store them in sending buffers, which are returned.
 
+    When the boundaries are open, only the particles that are in the
+    outermost half of the guard cells are removed. The particles that
+    are in the innermost half are kept.
+    
     Parameters
     ----------
     species: a Particles object
@@ -31,8 +35,7 @@ def remove_outside_particles(species, fld, nguard, left_proc, right_proc):
         
     left_proc, right_proc: int or None
         Indicate whether there is a left or right processor or if the
-        boundary is open (None). When the boundary is open, some time can be
-        saved by returning an be empty, since it is not used anyway.
+        boundary is open (None).
 
     Returns
     -------
@@ -46,32 +49,52 @@ def remove_outside_particles(species, fld, nguard, left_proc, right_proc):
                                     nguard, left_proc, right_proc )
     else:
         # Remove outside particles on the CPU
-        zbox_min = fld.interp[0].zmin + nguard*fld.interp[0].dz
-        zbox_max = fld.interp[0].zmax - nguard*fld.interp[0].dz
-        send_left, send_right = remove_particles_cpu( species,
-                    zbox_min, zbox_max, left_proc, right_proc )
+        send_left, send_right = remove_particles_cpu( species, fld,
+                                    nguard, left_proc, right_proc )
 
     return( send_left, send_right )
         
-def remove_particles_cpu(species, zbox_min, zbox_max, left_proc, right_proc):
+def remove_particles_cpu(species, fld, nguard, left_proc, right_proc):
     """
-    Removes the particles that are below `zbox_min` or beyond `zbox_max`
-    from the particles arrays. Store them in sending buffers.
+    Remove the particles that are outside of the physical domain (i.e.
+    in the guard cells). Store them in sending buffers, which are returned.
 
+    When the boundaries are open, only the particles that are in the
+    outermost half of the guard cells are removed. The particles that
+    are in the innermost half are kept.
+    
     Parameters
     ----------
     species: a Particles object
         Contains the data of this species
 
-    zbox_min, zbox_max: float
-        The lower and upper boundary of the physical box
-        (i.e. does not include the guard cells)
+    fld: a Fields object
+        Contains information about the dimension of the grid,
+        and the prefix sum (when using the GPU)
 
+    nguard: int
+        Number of guard cells
+        
     left_proc, right_proc: int or None
         Indicate whether there is a left or right processor or if the
-        boundary is open (None). When the boundary is open, some time can be
-        saved by returning an be empty, since it is not used anyway.
+        boundary is open (None).
+
+    Returns
+    -------
+    Two arrays of shape (8,Nptcl) where Nptcl is the number of particles
+    that are sent to the left proc and right proc respectively.
+    If left_proc or right_proc is None, the corresponding array has Nptcl=0
     """
+    # Calculate the positions between which to remove particles
+    # For the open boundaries, only the particles in the outermost
+    # half of the guard cells are removed
+    zbox_min = fld.interp[0].zmin + nguard*fld.interp[0].dz
+    zbox_max = fld.interp[0].zmax - nguard*fld.interp[0].dz
+    if left_proc is None:
+        zbox_min = fld.interp[0].zmin + nguard/2*fld.interp[0].dz
+    if right_proc is None:
+        zbox_max = fld.interp[0].zmax - nguard/2*fld.interp[0].dz
+    
     # Select the particles that are in the left or right guard cells,
     # and those that stay on the local process
     selec_left = ( species.z < zbox_min )
@@ -127,9 +150,13 @@ def remove_particles_cpu(species, zbox_min, zbox_max, left_proc, right_proc):
 
 def remove_particles_gpu(species, fld, nguard, left_proc, right_proc):
     """
-    Removes the particles that are below `zbox_min` or beyond `zbox_max`
-    from the particles arrays. Store them in sending buffers on the CPU.
+    Remove the particles that are outside of the physical domain (i.e.
+    in the guard cells). Store them in sending buffers, which are returned.
 
+    When the boundaries are open, only the particles that are in the
+    outermost half of the guard cells are removed. The particles that
+    are in the innermost half are kept.
+    
     Parameters
     ----------
     species: a Particles object
@@ -144,17 +171,30 @@ def remove_particles_gpu(species, fld, nguard, left_proc, right_proc):
         
     left_proc, right_proc: int or None
         Indicate whether there is a left or right processor or if the
-        boundary is open (None). When the boundary is open, some time can be
-        saved by returning an be empty, since it is not used anyway.
+        boundary is open (None).
+
+    Returns
+    -------
+    Two arrays of shape (8,Nptcl) where Nptcl is the number of particles
+    that are sent to the left proc and right proc respectively.
+    If left_proc or right_proc is None, the corresponding array has Nptcl=0
     """
     # Check if particles are sorted, otherwise raise exception
     if species.sorted == False:
         raise ValueError('Removing particles: The particles are not sorted!')
 
     # Get the particle indices between which to remove the particles
+    # For the open boundaries, only the particles in the outermost
+    # half of the guard cells are removed
     prefix_sum = fld.d_prefix_sum
-    i_min = prefix_sum.getitem(nguard*fld.Nr + fld.prefix_sum_shift)
-    i_max = prefix_sum.getitem(nguard*fld.Nr - fld.prefix_sum_shift)
+    Nz = fld.Nz
+    Nr = fld.Nr
+    i_min = prefix_sum.getitem( nguard*fld.Nr + fld.prefix_sum_shift )
+    i_max = prefix_sum.getitem( (Nz-nguard)*Nr - fld.prefix_sum_shift )
+    if left_proc is None:
+        i_min = prefix_sum.getitem( nguard/2*Nr + fld.prefix_sum_shift )
+    if right_proc is None:
+        i_max = prefix_sum.getitem( (Nz-nguard/2)*Nr - fld.prefix_sum_shift )
 
     # Total number of particles in each particle group
     N_send_l = i_min

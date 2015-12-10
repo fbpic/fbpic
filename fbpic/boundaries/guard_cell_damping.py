@@ -19,8 +19,8 @@ class GuardCellDamper(object):
     - wrapping around of the fields at open boundaries
 
     To mirror those two different goals, the damping is done differently
-    in the guard cells that correspond to an open boundary (light damping)
-    and in the guard cells that correspond to a boundary between processors.
+    in the guard cells that correspond to an open boundary and in the guard
+    cells that correspond to a boundary between processors.
     """
 
     def __init__( self, n_guard, left_proc, right_proc, exchange_period ):
@@ -96,8 +96,7 @@ def generate_damp_array( n_guard, neighbor_proc, exchange_period ):
     Create a 1d damping array of length n_guard.
 
     The expression of the damping array depends on whether the guard cells
-    correspond to an open boundary (light damping that accumulates at
-    each timestep) or a boundary with another processor (strong damping)
+    correspond to an open boundary or a boundary with another processor.
 
     Parameters
     ----------
@@ -122,19 +121,16 @@ def generate_damp_array( n_guard, neighbor_proc, exchange_period ):
 
     # Boundary with a neighboring proc
     if neighbor_proc is not None:
-        # Perform strong damping, since the guard cells are regenerated
-        # at each timestep. Damp the n_guard/2 first cells with a sinusoidal
-        # shape, and put the next cells to 1.
+        # Perform wide damping
         damping_array = np.where( i_cell < n_guard/2,
                     np.sin( i_cell * np.pi/n_guard )**2, 1. )
 
     # Open boundary
     elif neighbor_proc is None:
-        # Perform light damping, since the guard cells are not regenerated
-        # at each timestep. In addition, put some cells to 0, in order to
-        # avoid wrapping around of the fields.
-        damping_array = np.where( i_cell < n_guard/2, 0.,
-        abs(np.sin( (i_cell - n_guard/2)*np.pi/n_guard ))**(2./exchange_period))
+        # Perform narrow damping, with one quarter of the cells at 0
+        damping_array = np.where( i_cell < n_guard/2,
+                np.sin(2*(i_cell - n_guard/4)*np.pi/n_guard)**2, 1. )
+        damping_array = np.where( i_cell < n_guard/4, 0., damping_array )
 
     return( damping_array )
 
