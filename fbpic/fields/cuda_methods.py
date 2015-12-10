@@ -228,7 +228,7 @@ def cuda_push_eb_with( Ep, Em, Ez, Bp, Bm, Bz, Jp, Jm, Jz,
                 rho_diff = ( T[iz,ir] * rho_next_coef[iz, ir] \
                   - rho_prev_coef[iz, ir] ) \
                   * epsilon_0 * divE + T_rho[iz, ir] \
-                  * rho_next_coef[iz, ir] * dt * divJ
+                  * rho_next_coef[iz, ir] * divJ
 
             # Push the E field
             Ep[iz, ir] = \

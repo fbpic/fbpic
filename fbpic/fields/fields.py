@@ -1140,7 +1140,7 @@ class PsatdCoeffs(object) :
             self.d_C = cuda.to_device(self.C)
             self.d_S_w = cuda.to_device(self.S_w)
             self.d_T = cuda.to_device(self.T)
-            self.d_T_rho = cuda.to_device(self.T)
+            self.d_T_rho = cuda.to_device(self.T_rho)
             self.d_j_coef = cuda.to_device(self.j_coef)
             self.d_rho_prev_coef = cuda.to_device(self.rho_prev_coef)
             self.d_rho_next_coef = cuda.to_device(self.rho_next_coef)
