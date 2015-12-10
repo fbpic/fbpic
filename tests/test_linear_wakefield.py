@@ -213,8 +213,8 @@ ctau = 6.e-6     # Laser duration
 z0 = 27.e-6      # Laser centroid
 
 # Diagnostics
-write_fields = 1
-write_particles = 1
+write_fields = False
+write_particles = False
 diag_period = 5
 
 # Plasma and laser wavenumber
@@ -233,17 +233,23 @@ add_laser( sim.fld, a0, w0, ctau, z0 )
 sim.set_moving_window( v=c )
 
 # Add diagnostics
-if write_fields == 1:
+if write_fields:
     sim.diags.append( FieldDiagnostic(diag_period, sim.fld, sim.comm ) )
     sim.diags.append( FieldDiagnostic(diag_period, sim.fld, None,
                                       write_dir='proc%d' %sim.comm.rank) )
-if write_particles == 1:
+if write_particles:
     sim.diags.append( ParticleDiagnostic(diag_period,
                     {'electrons': sim.ptcl[0]}, sim.comm ) )
 
 if __name__ == '__main__' :
-    # Carry out simulation
-    sim.step(N_step, correct_currents=False)
+    # Prevent current correction for MPI simulation
+    if sim.comm.size > 1:
+        correct_currents=False
+    else:
+        correct_currents=True
+
+    # Run the simulation
+    sim.step(N_step, correct_currents=correct_currents)
 
     # Plot the fields
     compare_fields(sim)
