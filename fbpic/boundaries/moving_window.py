@@ -127,7 +127,7 @@ class MovingWindow(object):
         # Because the grids have just been shifted, there is a shift
         # in the cell indices that are used for the prefix sum.
         if fld.use_cuda:
-            fld.prefix_sum_shift = n_move * fld.Nr
+            fld.prefix_sum_shift = n_move
             # This quantity is reset to 0 whenever d_prefix_sum is recalculated
                 
         # Prepare the positions of injection for the particles

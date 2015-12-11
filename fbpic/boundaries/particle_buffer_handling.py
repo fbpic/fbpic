@@ -189,12 +189,12 @@ def remove_particles_gpu(species, fld, nguard, left_proc, right_proc):
     prefix_sum = fld.d_prefix_sum
     Nz = fld.Nz
     Nr = fld.Nr
-    i_min = prefix_sum.getitem( nguard*fld.Nr + fld.prefix_sum_shift )
-    i_max = prefix_sum.getitem( (Nz-nguard)*Nr - fld.prefix_sum_shift )
+    i_min = prefix_sum.getitem( (nguard + fld.prefix_sum_shift)*Nr )
+    i_max = prefix_sum.getitem( (Nz - nguard - fld.prefix_sum_shift)*Nr )
     if left_proc is None:
-        i_min = prefix_sum.getitem( nguard/2*Nr + fld.prefix_sum_shift )
+        i_min = prefix_sum.getitem( (nguard/2 + fld.prefix_sum_shift)*Nr )
     if right_proc is None:
-        i_max = prefix_sum.getitem( (Nz-nguard/2)*Nr - fld.prefix_sum_shift )
+        i_max = prefix_sum.getitem( (Nz - nguard/2 - fld.prefix_sum_shift)*Nr )
 
     # Total number of particles in each particle group
     N_send_l = i_min
