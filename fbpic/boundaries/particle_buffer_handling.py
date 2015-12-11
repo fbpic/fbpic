@@ -215,7 +215,7 @@ def remove_particles_gpu(species, fld, nguard, left_proc, right_proc):
     dim_grid_1d, dim_block_1d = cuda_tpb_bpg_1d( species.Ntot )
     # Iterate over particle attributes
     i_attr = 0
-    for attr in ['x', 'y', 'z', 'ux', 'uy', 'uz', 'w', 'inv_gamma']:
+    for attr in ['x', 'y', 'z', 'ux', 'uy', 'uz', 'inv_gamma', 'w' ]:
         # Initialize 3 buffer arrays on the GPU
         left_buffer = cuda.device_array((N_send_l,), dtype=np.float64)
         right_buffer = cuda.device_array((N_send_r,), dtype=np.float64)
@@ -351,7 +351,7 @@ def add_buffers_gpu( species, recv_left, recv_right ):
     
     # Iterate over particle attributes
     i_attr = 0
-    for attr in ['x', 'y', 'z', 'ux', 'uy', 'uz', 'w', 'inv_gamma']:
+    for attr in ['x', 'y', 'z', 'ux', 'uy', 'uz', 'inv_gamma', 'w']:
         # Copy the proper buffers to the GPU
         left_buffer = cuda.to_device( recv_left[i_attr] )
         right_buffer = cuda.to_device( recv_right[i_attr] )
