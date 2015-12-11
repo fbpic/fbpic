@@ -179,7 +179,8 @@ class Simulation(object):
                     v, self.p_nz, ux_m, uy_m, uz_m, ux_th, uy_th, uz_th )
 
     def step(self, N=1, ptcl_feedback=True, correct_currents=True,
-             move_positions=True, move_momenta=True, show_progress=True):
+             use_true_rho=False, move_positions=True, move_momenta=True,
+             show_progress=True):
         """
         Perform N PIC cycles
         
@@ -201,6 +202,10 @@ class Simulation(object):
 
         move_momenta: bool, optional
             Whether to move or freeze the particles' momenta
+
+        use_true_rho: bool, optional
+            Wether to use the true rho deposited on the grid for the 
+            field push or not. (requires initialize_ions = True)
 
         show_progress: bool, optional
             Whether to show a progression bar
@@ -290,7 +295,7 @@ class Simulation(object):
             fld.interp2spect('E')
             fld.interp2spect('B')
             # Get the fields E and B on the spectral grid at t = (n+1) dt
-            fld.push( ptcl_feedback )
+            fld.push( ptcl_feedback, use_true_rho )
             # Get the fields E and B on the interpolation grid at t = (n+1) dt
             fld.spect2interp('E')
             fld.spect2interp('B')
