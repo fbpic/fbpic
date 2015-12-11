@@ -1097,7 +1097,7 @@ class PsatdCoeffs(object) :
         if V != 0.:
             self.j_coef = mu_0*c**2*(xi_1)
         else:
-            self.j_coef =  mu_0*c**2*(1.-self.C)*inv_w**2
+            self.j_coef = mu_0*c**2*(1.-self.C)*inv_w**2
 
         # Enforce the right value for w==0
         self.j_coef[ w==0 ] = mu_0*c**2*(0.5*dt**2)

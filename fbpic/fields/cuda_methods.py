@@ -134,11 +134,12 @@ def cuda_divide_vector_by_volume( mode0r, mode1r, mode0t, mode1t,
 # Methods of the SpectralGrid object
 # -----------------------------------
 
-@cuda.jit('void(complex128[:,:], complex128[:,:], \
-           complex128[:,:], complex128[:,:], complex128[:,:], \
-           float64[:,:], float64[:,:], float64[:,:], \
-           complex128[:,:], complex128[:,:], \
-           float64, int32, int32)')
+# @cuda.jit('void(complex128[:,:], complex128[:,:], \
+#            complex128[:,:], complex128[:,:], complex128[:,:], \
+#            float64[:,:], float64[:,:], float64[:,:], \
+#            complex128[:,:], complex128[:,:], \
+#            float64, int32, int32)')
+@cuda.jit
 def cuda_correct_currents( rho_prev, rho_next, Jp, Jm, Jz,
                             kz, kr, inv_k2, 
                             j_corr_coef, T,
@@ -179,14 +180,15 @@ def cuda_correct_currents( rho_prev, rho_next, Jp, Jm, Jz,
         Jz[iz, ir] += -1.j * kz[iz, ir] * F
 
 
-@cuda.jit('void(complex128[:,:], complex128[:,:], complex128[:,:], \
-           complex128[:,:], complex128[:,:], complex128[:,:], \
-           complex128[:,:], complex128[:,:], complex128[:,:], \
-           complex128[:,:], complex128[:,:], \
-           complex128[:,:], complex128[:,:], complex128[:,:], \
-           float64[:,:], float64[:,:], complex128[:,:], complex128[:,:], \
-           float64[:,:], float64[:,:], float64, float64, \
-           int8, int8, int32, int32)')
+# @cuda.jit('void(complex128[:,:], complex128[:,:], complex128[:,:], \
+#            complex128[:,:], complex128[:,:], complex128[:,:], \
+#            complex128[:,:], complex128[:,:], complex128[:,:], \
+#            complex128[:,:], complex128[:,:], \
+#            complex128[:,:], complex128[:,:], complex128[:,:], \
+#            float64[:,:], float64[:,:], complex128[:,:], complex128[:,:], \
+#            float64[:,:], float64[:,:], float64, float64, \
+#            int8, int8, int32, int32)')
+@cuda.jit
 def cuda_push_eb_with( Ep, Em, Ez, Bp, Bm, Bz, Jp, Jm, Jz,
                        rho_prev, rho_next, 
                        rho_prev_coef, rho_next_coef, j_coef, 
