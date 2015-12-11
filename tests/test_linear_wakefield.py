@@ -182,7 +182,7 @@ def compare_fields(sim) :
 # ---------------------------
 # Setup simulation & parameters
 # ---------------------------
-use_cuda = False
+use_cuda = True
 
 # The simulation box
 Nz = 800         # Number of gridpoints along z
