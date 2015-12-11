@@ -24,7 +24,7 @@ try :
     from fbpic.cuda_utils import cuda, cuda_tpb_bpg_1d, cuda_tpb_bpg_2d
     from .cuda_methods import push_p_gpu, push_x_gpu, \
         gather_field_gpu, deposit_rho_gpu, deposit_J_gpu, \
-        write_particle_buffer, cuda_deposition_arrays, \
+        write_sorting_buffer, cuda_deposition_arrays, \
         get_cell_idx_per_particle, sort_particles_per_cell, \
         reset_prefix_sum, incl_prefix_sum, add_rho, add_J
     cuda_installed = True
@@ -202,7 +202,7 @@ class Particles(object) :
         self.cell_idx = np.empty( Ntot, dtype=np.int32)
         self.sorted_idx = np.arange( Ntot, dtype=np.uint32)
         # Allocate a buffer that is used to resort the particle arrays
-        self.particle_buffer = np.arange( Ntot, dtype=np.float64 )
+        self.sorting_buffer = np.arange( Ntot, dtype=np.float64 )
         # Register boolean that records if the particles are sorted or not
         self.sorted = False
 
@@ -235,7 +235,7 @@ class Particles(object) :
             # Initialize empty arrays on the GPU for the sorting
             self.cell_idx = cuda.device_array_like(self.cell_idx)
             self.sorted_idx = cuda.device_array_like(self.sorted_idx)
-            self.particle_buffer = cuda.device_array_like(self.particle_buffer)
+            self.sorting_buffer = cuda.device_array_like(self.sorting_buffer)
 
     def receive_particles_from_gpu( self ):
         """
@@ -267,7 +267,7 @@ class Particles(object) :
             # that represent the sorting arrays
             self.cell_idx = np.empty(self.Ntot, dtype = np.int32)
             self.sorted_idx = np.arange(self.Ntot, dtype = np.uint32)
-            self.particle_buffer = np.arange( self.Ntot, dtype = np.float64)
+            self.sorting_buffer = np.arange( self.Ntot, dtype = np.float64)
 
     def rearrange_particle_arrays( self ):
         """
@@ -283,14 +283,14 @@ class Particles(object) :
             # Get particle GPU array
             val = getattr(self, attr)
             # Write particle data to particle buffer array while rearranging
-            write_particle_buffer[dim_grid_1d, dim_block_1d](
-                self.sorted_idx, val, self.particle_buffer)
+            write_sorting_buffer[dim_grid_1d, dim_block_1d](
+                self.sorted_idx, val, self.sorting_buffer)
             # Assign the particle buffer to 
             # the initial particle data array 
-            setattr(self, attr, self.particle_buffer)
+            setattr(self, attr, self.sorting_buffer)
             # Assign the old particle data array to
             # the particle buffer
-            self.particle_buffer = val
+            self.sorting_buffer = val
 
     def push_p( self ) :
         """

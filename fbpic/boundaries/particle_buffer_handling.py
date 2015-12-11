@@ -246,6 +246,9 @@ def add_buffers_to_particles( species, recv_left, recv_right ):
     Add the particles stored in recv_left and recv_right
     to the existing particle in species.
 
+    Resize the auxiliary arrays of the particles Ex, Ey, Ez, Bx, By, Bz,
+    as well as cell_idx, sorted_idx and sorting_buffer
+    
     Parameters
     ----------
     species: a Particles object
@@ -262,28 +265,35 @@ def add_buffers_to_particles( species, recv_left, recv_right ):
     else:
         add_buffers_cpu( species, recv_left, recv_right )        
     
-    # Reallocate the particles field arrays. This needs to be done,
+    # Reallocate the particles auxiliary arrays. This needs to be done,
     # as the total number of particles in this domain has changed.
-    species.Ex = np.empty(species.Ntot, dtype = np.float64)
-    species.Ey = np.empty(species.Ntot, dtype = np.float64)
-    species.Ez = np.empty(species.Ntot, dtype = np.float64)
-    species.Bx = np.empty(species.Ntot, dtype = np.float64)
-    species.By = np.empty(species.Ntot, dtype = np.float64)
-    species.Bz = np.empty(species.Ntot, dtype = np.float64)
     if species.use_cuda:
-        # Initialize empty arrays on the GPU for the field
-        # gathering and the particle push
-        species.Ex = cuda.device_array_like(species.Ex)
-        species.Ey = cuda.device_array_like(species.Ey)
-        species.Ez = cuda.device_array_like(species.Ez)
-        species.Bx = cuda.device_array_like(species.Bx)
-        species.By = cuda.device_array_like(species.By)
-        species.Bz = cuda.device_array_like(species.Bz)
-    
-    # Reallocate the cell index and sorted index arrays on the CPU
-    species.cell_idx = np.empty(species.Ntot, dtype = np.int32)
-    species.sorted_idx = np.arange(species.Ntot, dtype = np.uint32)
-    species.particle_buffer = np.arange(species.Ntot, dtype = np.float64)
+        shape = (species.Ntot,)
+        # Reallocate empty field-on-particle arrays on the GPU
+        species.Ex = cuda.device_array( shape, dtype=np.float64 )
+        species.Ex = cuda.device_array( shape, dtype=np.float64 )
+        species.Ey = cuda.device_array( shape, dtype=np.float64 )
+        species.Ez = cuda.device_array( shape, dtype=np.float64 )
+        species.Bx = cuda.device_array( shape, dtype=np.float64 )
+        species.By = cuda.device_array( shape, dtype=np.float64 )
+        species.Bz = cuda.device_array( shape, dtype=np.float64 )
+        # Reallocate empty auxiliary sorting arrays on the GPU
+        species.cell_idx = cuda.device_array( shape, dtype=np.int32 )
+        species.sorted_idx = cuda.device_array( shape, dtype=np.int32 )
+        species.sorting_buffer = cuda.device_array( shape, dtype=np.float64 )
+    else:
+        # Reallocate empty field-on-particle arrays on the CPU
+        species.Ex = np.empty(species.Ntot, dtype=np.float64)
+        species.Ey = np.empty(species.Ntot, dtype=np.float64)
+        species.Ez = np.empty(species.Ntot, dtype=np.float64)
+        species.Bx = np.empty(species.Ntot, dtype=np.float64)
+        species.By = np.empty(species.Ntot, dtype=np.float64)
+        species.Bz = np.empty(species.Ntot, dtype=np.float64)
+        # Reallocate empty auxiliary sorting arrays on the CPU
+        species.cell_idx = np.empty( species.Ntot, dtype=np.int32 )
+        species.sorted_idx =np.empty( species.Ntot, dtype=np.int32 )
+        species.sorting_buffer = np.empty( species.Ntot, dtype=np.float64 )
+
     # The particles are unsorted after adding new particles.
     species.sorted = False
 

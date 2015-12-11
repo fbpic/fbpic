@@ -407,6 +407,7 @@ class BoundaryCommunicator(object):
             recv_left[2,:] = recv_left[2,:] - self.Ltot
 
         # Add the exchanged buffers to the particles on the CPU or GPU
+        # and resize the auxiliary field-on-particle and sorting arrays
         add_buffers_to_particles( species, recv_left, recv_right )
 
     def damp_guard_EB( self, interp ):
