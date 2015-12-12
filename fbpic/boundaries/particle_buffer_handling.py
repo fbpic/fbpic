@@ -222,8 +222,8 @@ def remove_particles_gpu(species, fld, nguard, left_proc, right_proc):
         stay_buffer = cuda.device_array((new_Ntot,), dtype=np.float64)
         # Split the particle array into the 3 buffers on the GPU
         particle_array = getattr(species, attr)
-        split_particles_to_buffers[dim_grid_1d, dim_block_1d](
-            particle_array, left_buffer, stay_buffer, right_buffer)
+        split_particles_to_buffers[dim_grid_1d, dim_block_1d]( particle_array,
+                    left_buffer, stay_buffer, right_buffer, i_min, i_max)
         # Assign the stay_buffer to the initial particle data array
         # and fill the sending buffers (if needed for MPI)
         setattr(species, attr, stay_buffer)
@@ -374,9 +374,10 @@ def add_buffers_gpu( species, recv_left, recv_right ):
 # -------------
 if cuda_installed:
 
-    @cuda.jit('void(float64[:], float64[:], float64[:], float64[:])')
-    def split_particles_to_buffers( particle_array,
-                    left_buffer, stay_buffer, right_buffer ):
+    @cuda.jit('void(float64[:], float64[:], float64[:], \
+                    float64[:], int32, int32)')
+    def split_particles_to_buffers( particle_array, left_buffer,
+                    stay_buffer, right_buffer, i_min, i_max ):
         """
         Split the (sorted) particle array into the three arrays left_buffer,
         stay_buffer and right_buffer (in the same order)
@@ -386,28 +387,40 @@ if cuda_installed:
         particle_array: 1d device arrays of floats
             Original array of particles
             (represents *one* of the particle quantities)
-
+            
         left_buffer, right_buffer: 1d device arrays of floats
             Will contain the particles that are outside of the physical domain
+            Note: if the boundary is open, then these buffers have size 0
+            and in this case, they will not be filled
+            (the corresponding particles are simply lost)
 
         stay_buffer: 1d device array of floats
             Will contain the particles that are inside the physical domain
+
+        i_min, i_max: int
+            Indices of particle_array between which particles are kept
+            (and thus copied to stay_buffer). The particles below i_min
+            (resp. above i_max) are copied to left_buffer (resp. right_buffer)
         """
         # Get a 1D CUDA grid (the index corresponds to a particle index)
         i = cuda.grid(1)
 
-        # Define a few variables
+        # Auxiliary variables
         n_left = left_buffer.shape[0]
-        n_stay = stay_buffer.shape[0]
         n_right = right_buffer.shape[0]
+        Ntot = particle_array.shape[0]
 
         # Copy the particles into the right buffer
-        if i < n_left:
-            left_buffer[i] = particle_array[i]
-        elif i < n_left + n_stay:
-            stay_buffer[i-n_left] = particle_array[i]
-        elif i < n_left + n_stay + n_right:
-            right_buffer[i-n_left-n_stay] = particle_array[i]
+        if i < i_min:
+            # Check whether buffer is not empty (open boundary)
+            if (n_left != 0):
+                left_buffer[i] = particle_array[i]
+        elif i < i_max:
+            stay_buffer[i-i_min] = particle_array[i]
+        elif i < Ntot:
+            # Check whether buffer is not empty (open boundary)
+            if (n_right != 0):
+                right_buffer[i-i_max] = particle_array[i]
 
     @cuda.jit('void(float64[:], float64[:], float64[:], float64[:])')
     def merge_buffers_to_particles( particle_array,
