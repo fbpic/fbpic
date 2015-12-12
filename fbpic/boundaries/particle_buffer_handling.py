@@ -184,17 +184,24 @@ def remove_particles_gpu(species, fld, nguard, left_proc, right_proc):
         raise ValueError('Removing particles: The particles are not sorted!')
 
     # Get the particle indices between which to remove the particles
-    # For the open boundaries, only the particles in the outermost
-    # half of the guard cells are removed
+    # (Take into account the fact that the moving window may have
+    # shifted the grid since the particles were last sorted: prefix_sum_shift)
     prefix_sum = fld.d_prefix_sum
     Nz = fld.Nz
     Nr = fld.Nr
-    i_min = prefix_sum.getitem( (nguard + fld.prefix_sum_shift)*Nr )
-    i_max = prefix_sum.getitem( (Nz - nguard - fld.prefix_sum_shift)*Nr )
+    i_min = prefix_sum.getitem( (nguard+fld.prefix_sum_shift)*Nr )
+    i_max = prefix_sum.getitem( (Nz-nguard+fld.prefix_sum_shift)*Nr - 1 )
+    # For the open boundaries, only the particles in the outermost
+    # half of the guard cells are removed
     if left_proc is None:
-        i_min = prefix_sum.getitem( (nguard/2 + fld.prefix_sum_shift)*Nr )
+        i_min = prefix_sum.getitem( (nguard/2+fld.prefix_sum_shift)*Nr )
     if right_proc is None:
-        i_max = prefix_sum.getitem( (Nz - nguard/2 - fld.prefix_sum_shift)*Nr )
+        i_max = prefix_sum.getitem( (Nz-nguard/2+fld.prefix_sum_shift)*Nr - 1 )
+    # Because of the way in which the prefix_sum is calculated, if the
+    # cell that was requested for i_max is beyond the last non-empty cell,
+    # i_max will be zero, but should in fact be species.Ntot
+    if i_max == 0:
+        i_max = species.Ntot
 
     # Total number of particles in each particle group
     N_send_l = i_min
