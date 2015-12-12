@@ -1,5 +1,5 @@
 """
-This is file tests the whole PIC-Cycle by simulating a 
+This file tests the whole PIC-Cycle by simulating a 
 linear, laser-driven plasma wakefield and comparing
 it to the analytical solution.
 
