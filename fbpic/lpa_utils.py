@@ -278,8 +278,8 @@ def get_space_charge_fields( fld, ptcl, gamma, filter_currents=True,
     fld.erase('rho')
     fld.erase('J')
     for species in ptcl :
-        species.deposit( fld.interp, 'rho' )
-        species.deposit( fld.interp, 'J' )
+        species.deposit( fld, 'rho' )
+        species.deposit( fld, 'J' )
     fld.divide_by_volume('rho')
     fld.divide_by_volume('J')
     # Convert to the spectral grid
