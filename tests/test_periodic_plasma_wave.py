@@ -208,7 +208,8 @@ if __name__ == '__main__' :
                                 p_rmin, p_rmax, p_nr, ncells_empty=0 )
     sim.ptcl[0] = Particles( q=-e, m=m_e, n=n_e, Npz=Npz, zmin=p_zmin,
                              zmax=p_zmax, Npr=Npr, rmin=p_rmin, rmax=p_rmax,
-                             Nptheta=p_nt, dt=dt, use_cuda = sim.use_cuda )
+                             Nptheta=p_nt, dt=dt, use_cuda = sim.use_cuda,
+                             grid_shape=sim.fld.interp[0].Ez.shape )
     # Do the initial charge deposition (at t=0) now
     sim.fld.erase('rho')
     for species in sim.ptcl :
