@@ -52,8 +52,7 @@ class Particles(object) :
                     ux_m=0., uy_m=0., uz_m=0.,
                     ux_th=0., uy_th=0., uz_th=0.,
                     continuous_injection=True,
-                    use_numba=True, use_cuda=False,
-                    use_cuda_memory=True ) :
+                    use_numba=True, use_cuda=False ) :
         """
         Initialize a uniform set of particles
 
@@ -108,22 +107,16 @@ class Particles(object) :
            
         use_cuda : bool, optional
             Wether to use the GPU or not. Overrides use_numba.
-
-        use_cuda_memory : bool, optional
-            Wether to use manual memory management. Recommended.
         """
         # Register the timestep
         self.dt = dt
 
         # Define wether or not to use the GPU
         self.use_cuda = use_cuda
-        self.use_cuda_memory = use_cuda_memory
         if (self.use_cuda==True) and (cuda_installed==False) :
             print '*** Cuda not available for the particles.'
             print '*** Performing the particle operations on the CPU.'
             self.use_cuda = False
-        if self.use_cuda == False:
-            self.use_cuda_memory == False
         if self.use_cuda == True:
             print 'Using the GPU for the particles.'
 
@@ -208,7 +201,7 @@ class Particles(object) :
         Copy the particles to the GPU.
         Particle arrays of self now point to the GPU arrays.
         """
-        if self.use_cuda_memory:
+        if self.use_cuda:
             # Send positions, velocities, inverse gamma and weights
             # to the GPU (CUDA)
             self.x = cuda.to_device(self.x)
@@ -239,7 +232,7 @@ class Particles(object) :
         Receive the particles from the GPU.
         Particle arrays are accessible by the CPU again.
         """
-        if self.use_cuda_memory:
+        if self.use_cuda:
             # Copy the positions, velocities, inverse gamma and weights
             # to the GPU (CUDA)
             self.x = self.x.copy_to_host()
@@ -302,7 +295,7 @@ class Particles(object) :
             push_p_numba(self.ux, self.uy, self.uz, self.inv_gamma, 
                     self.Ex, self.Ey, self.Ez, self.Bx, self.By, self.Bz,
                     self.q, self.m, self.Ntot, self.dt )
-        elif self.use_cuda :
+        elif self.use_cuda:
             # Get the threads per block and the blocks per grid
             dim_grid_1d, dim_block_1d = cuda_tpb_bpg_1d( self.Ntot )
             # Call the CUDA Kernel for the particle push
@@ -324,7 +317,7 @@ class Particles(object) :
         one half-timestep *behind* the momenta (ux, uy, uz), or at the
         same timestep as the momenta.
         """
-        if self.use_cuda :
+        if self.use_cuda:
             # Get the threads per block and the blocks per grid
             dim_grid_1d, dim_block_1d = cuda_tpb_bpg_1d( self.Ntot )
             # Call the CUDA Kernel for halfpush in x
