@@ -48,11 +48,10 @@ class Particles(object) :
 
     def __init__(self, q, m, n, Npz, zmin, zmax,
                     Npr, rmin, rmax, Nptheta, dt,
-                    dens_func=None,
                     ux_m=0., uy_m=0., uz_m=0.,
                     ux_th=0., uy_th=0., uz_th=0.,
-                    continuous_injection=True,
-                    use_numba=True, use_cuda=False ) :
+                    dens_func=None, continuous_injection=True,
+                    use_numba=True, use_cuda=False, grid_shape=None ) :
         """
         Initialize a uniform set of particles
 
@@ -107,6 +106,12 @@ class Particles(object) :
            
         use_cuda : bool, optional
             Wether to use the GPU or not. Overrides use_numba.
+
+        grid_shape: tuple, optional
+            Needed when running on the GPU
+            The shape of the local grid (including guard cells), i.e.
+            a tuple of the form (Nz, Nr). This is needed in order
+            to initialize the sorting of the particles per cell.
         """
         # Register the timestep
         self.dt = dt
@@ -192,9 +197,15 @@ class Particles(object) :
                 self.w[:] = self.w * dens_func( self.z, r )
 
         # Allocate arrays for the particles sorting when using CUDA
-        self.cell_idx = np.empty( Ntot, dtype=np.int32)
-        self.sorted_idx = np.arange( Ntot, dtype=np.uint32)
-        self.particle_buffer = np.arange( Ntot, dtype=np.float64 )
+        if self.use_cuda:
+            if grid_shape is None:
+                raise ValueError("A `grid_shape` is needed when running "
+                "on the GPU.\nPlease provide it when initializing particles.")
+            self.cell_idx = np.empty( Ntot, dtype=np.int32)
+            self.sorted_idx = np.arange( Ntot, dtype=np.uint32)
+            self.particle_buffer = np.arange( Ntot, dtype=np.float64 )
+            self.prefix_sum = np.empty( grid_shape[0]*grid_shape[1],
+                                        dtype=np.int32 )
 
     def send_particles_to_gpu( self ):
         """
@@ -215,17 +226,18 @@ class Particles(object) :
 
             # Initialize empty arrays on the GPU for the field
             # gathering and the particle push
-            self.Ex = cuda.device_array_like(self.Ex)
-            self.Ey = cuda.device_array_like(self.Ey)
-            self.Ez = cuda.device_array_like(self.Ez)
-            self.Bx = cuda.device_array_like(self.Bx)
-            self.By = cuda.device_array_like(self.By)
-            self.Bz = cuda.device_array_like(self.Bz)
+            self.Ex = cuda.to_device(self.Ex)
+            self.Ey = cuda.to_device(self.Ey)
+            self.Ez = cuda.to_device(self.Ez)
+            self.Bx = cuda.to_device(self.Bx)
+            self.By = cuda.to_device(self.By)
+            self.Bz = cuda.to_device(self.Bz)
 
             # Initialize empty arrays on the GPU for the sorting
-            self.cell_idx = cuda.device_array_like(self.cell_idx)
-            self.sorted_idx = cuda.device_array_like(self.sorted_idx)
-            self.particle_buffer = cuda.device_array_like(self.particle_buffer)
+            self.cell_idx = cuda.to_device(self.cell_idx)
+            self.sorted_idx = cuda.to_device(self.sorted_idx)
+            self.particle_buffer = cuda.to_device(self.particle_buffer)
+            self.prefix_sum = cuda.to_device(self.prefix_sum)
 
     def receive_particles_from_gpu( self ):
         """
@@ -246,18 +258,19 @@ class Particles(object) :
 
             # Initialize empty arrays on the CPU for the field
             # gathering and the particle push
-            self.Ex = np.zeros(self.Ntot, dtype = np.float64)
-            self.Ey = np.zeros(self.Ntot, dtype = np.float64)
-            self.Ez = np.zeros(self.Ntot, dtype = np.float64)
-            self.Bx = np.zeros(self.Ntot, dtype = np.float64)
-            self.By = np.zeros(self.Ntot, dtype = np.float64)
-            self.Bz = np.zeros(self.Ntot, dtype = np.float64)
+            self.Ex = self.Ex.copy_to_host()
+            self.Ey = self.Ey.copy_to_host()
+            self.Ez = self.Ez.copy_to_host()
+            self.Bx = self.Bx.copy_to_host()
+            self.By = self.By.copy_to_host()
+            self.Bz = self.Bz.copy_to_host()
 
             # Initialize empty arrays on the CPU
             # that represent the sorting arrays
-            self.cell_idx = np.empty(self.Ntot, dtype = np.int32)
-            self.sorted_idx = np.arange(self.Ntot, dtype = np.uint32)
-            self.particle_buffer = np.arange( self.Ntot, dtype = np.float64)
+            self.cell_idx = self.cell_idx.copy_to_host()
+            self.sorted_idx = self.sorted_idx.copy_to_host()
+            self.particle_buffer = self.particle_buffer.copy_to_host()
+            self.prefix_sum = self.prefix_sum.copy_to_host()
 
     def rearrange_particle_arrays( self ):
         """
@@ -511,16 +524,9 @@ class Particles(object) :
             dim_grid_2d, dim_block_2d = cuda_tpb_bpg_2d( 
                                           grid[0].Nz, grid[0].Nr )
 
-            ###################################################################
-            # Needs to be moved to the fields package
-
-            # Create the needed prefix sum array for sorting
-            d_prefix_sum = cuda.device_array(
-                             shape = grid[0].Nz*grid[0].Nr, dtype = np.int32 )
             # Create the helper arrays for deposition
             d_F0, d_F1, d_F2, d_F3 = cuda_deposition_arrays( grid[0].Nz,
                                        grid[0].Nr, fieldtype = fieldtype )
-            ###################################################################
 
             # ------------------------
             # Sorting of the particles
@@ -540,10 +546,10 @@ class Particles(object) :
             sort_particles_per_cell(self.cell_idx, self.sorted_idx)
             # Reset the old prefix sum
             reset_prefix_sum[dim_grid_2d_flat, dim_block_2d_flat](
-                d_prefix_sum)
+                self.prefix_sum)
             # Perform the inclusive parallel prefix sum
             incl_prefix_sum[dim_grid_1d, dim_block_1d](
-                self.cell_idx, d_prefix_sum)
+                self.cell_idx, self.prefix_sum)
             # Rearrange the particle arrays
             self.rearrange_particle_arrays()
 
@@ -557,7 +563,7 @@ class Particles(object) :
                     grid[0].invdz, grid[0].zmin, grid[0].Nz, 
                     grid[0].invdr, grid[0].rmin, grid[0].Nr,
                     d_F0, d_F1, d_F2, d_F3,
-                    self.cell_idx, d_prefix_sum)
+                    self.cell_idx, self.prefix_sum)
                 # Add the four directions together
                 add_rho[dim_grid_2d, dim_block_2d](
                     grid[0].rho, grid[1].rho,
@@ -571,7 +577,7 @@ class Particles(object) :
                     grid[0].invdz, grid[0].zmin, grid[0].Nz, 
                     grid[0].invdr, grid[0].rmin, grid[0].Nr,
                     d_F0, d_F1, d_F2, d_F3,
-                    self.cell_idx, d_prefix_sum)
+                    self.cell_idx, self.prefix_sum)
                 # Add the four directions together
                 add_J[dim_grid_2d, dim_block_2d](
                     grid[0].Jr, grid[1].Jr,

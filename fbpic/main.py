@@ -113,17 +113,18 @@ class Simulation(object) :
                                 p_rmin, p_rmax, p_nr )
         
         # Initialize the electrons and the ions
+        grid_shape = self.fld.interp[0].Ez.shape
         self.ptcl = [
             Particles( q=-e, m=m_e, n=n_e, Npz=Npz, zmin=p_zmin,
                        zmax=p_zmax, Npr=Npr, rmin=p_rmin, rmax=p_rmax,
                        Nptheta=p_nt, dt=dt, dens_func=dens_func,
-                       use_cuda=self.use_cuda) ]
+                       use_cuda=self.use_cuda, grid_shape=grid_shape) ]
         if initialize_ions :
             self.ptcl.append(
                 Particles(q=e, m=m_p, n=n_e, Npz=Npz, zmin=p_zmin,
                           zmax=p_zmax, Npr=Npr, rmin=p_rmin, rmax=p_rmax,
                           Nptheta=p_nt, dt=dt, dens_func=dens_func,
-                          use_cuda=self.use_cuda ) )
+                          use_cuda=self.use_cuda, grid_shape=grid_shape ) )
         
         # Register the number of particles per cell along z, and dt
         # (Necessary for the moving window)
