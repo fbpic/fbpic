@@ -171,7 +171,7 @@ class MovingWindow(object):
             Npz = self.nz_inject * self.p_nz
             new_ptcl = Particles( species.q, species.m, species.n,
                 Npz, zmin, zmax, species.Npr, species.rmin, species.rmax,
-                species.Nptheta, species.dt, species.dens_func,
+                species.Nptheta, species.dt, dens_func=species.dens_func,
                 ux_m=self.ux_m, uy_m=self.uy_m, uz_m=self.uz_m,
                 ux_th=self.ux_th, uy_th=self.uy_th, uz_th=self.uz_th)
             # Convert them to a particle buffer of shape (8,Nptcl)
