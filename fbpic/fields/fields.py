@@ -50,10 +50,8 @@ class Fields(object) :
     - psatd : a list of PsatdCoeffs
         Contains the coefficients to solve the Maxwell equations
     """
-
-    def __init__( self, Nz, zmax, Nr, rmax, Nm, dt, 
-                  n_order=-1, zmin=0., v_galilean=0.,
-                  use_cuda=False, use_cuda_memory=True ) :
+    def __init__( self, Nz, zmax, Nr, rmax, Nm, dt, n_order=-1,
+                  zmin=0., v_galilean=0., use_cuda=False ) :
         """
         Initialize the components of the Fields object
 
@@ -91,9 +89,6 @@ class Fields(object) :
             
         use_cuda : bool, optional
             Wether to use the GPU or not
-
-        use_cuda_memory : bool, optional
-            Wether to use manual memory management. Recommended.
         """
         # Register the arguments inside the object
         self.Nz = Nz
@@ -106,13 +101,10 @@ class Fields(object) :
 
         # Define wether or not to use the GPU
         self.use_cuda = use_cuda
-        self.use_cuda_memory = use_cuda_memory
         if (self.use_cuda==True) and (cuda_installed==False) :
             print '*** Cuda not available for the fields.'
             print '*** Performing the field operations on the CPU.'
             self.use_cuda = False
-        if self.use_cuda is False:
-            self.use_cuda_memory = False
         if self.use_cuda == True:
             print 'Using the GPU for the field.'
 
@@ -162,9 +154,6 @@ class Fields(object) :
 
         # Initialize the needed prefix sum array for sorting
         if self.use_cuda:
-            # Only done when using CUDA
-            self.d_prefix_sum = cuda.device_array(
-                shape = self.Nz*self.Nr, dtype = np.int32 )
             # Shift in the indices, induced by the moving window
             self.prefix_sum_shift = 0
 
@@ -175,7 +164,7 @@ class Fields(object) :
         After this function is called, the array attributes of the
         interpolation and spectral grids point to GPU arrays
         """
-        if self.use_cuda_memory:
+        if self.use_cuda:
             for m in range(self.Nm) :
                 self.interp[m].send_fields_to_gpu()
                 self.spect[m].send_fields_to_gpu()
@@ -187,7 +176,7 @@ class Fields(object) :
         After this function is called, the array attributes of the
         interpolation and spectral grids are accessible by the CPU again.
         """
-        if self.use_cuda_memory:
+        if self.use_cuda:
             for m in range(self.Nm) :
                 self.interp[m].receive_fields_from_gpu()
                 self.spect[m].receive_fields_from_gpu()
