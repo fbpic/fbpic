@@ -121,7 +121,7 @@ def deposit_current( ptcl, fld ) :
     fld : a Fields object
     """
     fld.erase('J')
-    ptcl.deposit( fld.interp, 'J')
+    ptcl.deposit( fld, 'J')
     fld.divide_by_volume('J') 
 
 def compare( Jr_analytic, Jr_simulation ) :
