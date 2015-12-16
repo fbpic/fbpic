@@ -1262,7 +1262,7 @@ def reset_prefix_sum(prefix_sum):
         prefix_sum[i] = 0
 
 @cuda.jit('void(uint32[:], float64[:], float64[:])')
-def write_particle_buffer(sorted_idx, val, buf):
+def write_sorting_buffer(sorted_idx, val, buf):
     """
     Writes the values of a particle array to a buffer,
     while rearranging them to match the sorted cell index array.

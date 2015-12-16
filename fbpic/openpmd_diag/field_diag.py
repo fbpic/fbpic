@@ -4,9 +4,9 @@ This file defines the class FieldDiagnostic
 import os
 import h5py
 import numpy as np
-from generic_diag import OpenPMDDiagnostic
+from .generic_diag import OpenPMDDiagnostic
 
-class FieldDiagnostic(OpenPMDDiagnostic) :
+class FieldDiagnostic(OpenPMDDiagnostic):
     """
     Class that defines the field diagnostics to be done.
 
@@ -16,7 +16,7 @@ class FieldDiagnostic(OpenPMDDiagnostic) :
     `write` method.
     """
 
-    def __init__(self, period, fldobject,
+    def __init__(self, period, fldobject, comm=None,
                  fieldtypes=["rho", "E", "B", "J"], write_dir=None ) :
         """
         Initialize the field diagnostic.
@@ -31,18 +31,21 @@ class FieldDiagnostic(OpenPMDDiagnostic) :
         fldobject : a Fields object
             Points to the data that has to be written at each output
 
+        comm : an fbpic MPI_Communicator object
+            Use None if the simulation is single-proc
+
         fieldtypes : a list of strings, optional
             The strings are either "rho", "E", "B" or "J"
             and indicate which field should be written.
             Default : all fields are written
-            
+
         write_dir : string, optional
             The POSIX path to the directory where the results are
             to be written. If none is provided, this will be the path
             of the current working directory.
         """
         # General setup
-        OpenPMDDiagnostic.__init__(self, period, write_dir)
+        OpenPMDDiagnostic.__init__(self, period, comm, write_dir)
         
         # Register the arguments
         self.fld = fldobject
@@ -99,8 +102,13 @@ class FieldDiagnostic(OpenPMDDiagnostic) :
         # Generic attributes
         dset.attrs["dataOrder"] = np.string_("C")
         dset.attrs["gridUnitSI"] = 1.
+        # Get the initial start of the physical box
+        zmin = self.fld.interp[0].zmin
+        if self.comm is not None:
+            dz = self.fld.interp[0].dz
+            zmin += (self.comm.n_guard - self.comm.rank*self.comm.Nz)*dz
         dset.attrs["gridGlobalOffset"] = np.array([
-            self.fld.interp[0].rmin, self.fld.interp[0].zmin ])
+            self.fld.interp[0].rmin, zmin ])
         dset.attrs["fieldSmoothing"] = np.string_("none")
 
     def setup_openpmd_mesh_component( self, dset, quantity ) :
@@ -134,39 +142,45 @@ class FieldDiagnostic(OpenPMDDiagnostic) :
         if self.fld.use_cuda :
             self.fld.receive_fields_from_gpu()
 
-        # Create the file
-        filename = "data%08d.h5" %iteration
-        fullpath = os.path.join( self.write_dir, "diags/hdf5", filename )
-        f = h5py.File( fullpath, mode="a" )
+        # Create the file and setup the openPMD structure (only first proc)
+        if self.rank == 0:
+            filename = "data%08d.h5" %iteration
+            fullpath = os.path.join( self.write_dir, "diags/hdf5", filename )
+            f = h5py.File( fullpath, mode="a" )
         
-        # Set up its attributes
-        self.setup_openpmd_file( f, self.fld.dt,
+            # Set up its attributes
+            self.setup_openpmd_file( f, self.fld.dt,
                                  iteration*self.fld.dt, iteration )
 
-        # Setup the fields group
-        field_path = "/data/%d/fields/" %iteration
-        field_grp = f.require_group(field_path)
-        self.setup_openpmd_meshes_group( field_grp )
+            # Setup the fields group
+            field_path = "/data/%d/fields/" %iteration
+            field_grp = f.require_group(field_path)
+            self.setup_openpmd_meshes_group( field_grp )
+        else:
+            field_grp = None
             
         # Loop over the different quantities that should be written
-        for fieldtype in self.fieldtypes :
+        for fieldtype in self.fieldtypes:
             # Scalar field
             if fieldtype == "rho" :
                 self.write_dataset( field_grp, "rho", "rho" )
-                self.setup_openpmd_mesh_record( field_grp["rho"], "rho" )
+                if self.rank==0:
+                    self.setup_openpmd_mesh_record( field_grp["rho"], "rho" )
             # Vector field
             elif fieldtype in ["E", "B", "J"] :
                 for coord in ["r", "t", "z"] :
                     quantity = "%s%s" %(fieldtype, coord)
                     path = "%s/%s" %(fieldtype, coord)
                     self.write_dataset( field_grp, path, quantity )
+                if self.rank == 0:
                     self.setup_openpmd_mesh_record(
                         field_grp[fieldtype], fieldtype )
             else :
                 raise ValueError("Invalid string in fieldtypes: %s" %fieldtype)
         
-        # Close the file    
-        f.close()
+        # Close the file (only the first proc does this)
+        if self.rank == 0:
+            f.close()
 
         # Send data to the GPU if needed
         if self.fld.use_cuda :
@@ -187,20 +201,54 @@ class FieldDiagnostic(OpenPMDDiagnostic) :
         quantity : string
             Describes which field is being written.
             (Either rho, Er, Et, Ez, Br, Bz, Bt, Jr, Jt or Jz)
-        """        
-        # Shape of the data : first write the real part mode 0
-        # and then the imaginary part of the mode 1
-        datashape = ( 2*self.fld.Nm - 1, self.fld.Nr, self.fld.Nz )
-        dset = field_grp.require_dataset( path, datashape, dtype='f' )
-        self.setup_openpmd_mesh_component( dset, quantity )
+        """
+        # Create the dataset and setup its attributes (only first proc)
+        if self.rank == 0:
+            # Shape of the data : first write the real part mode 0
+            # and then the imaginary part of the mode 1
+            if self.comm is None:
+                datashape = ( 2*self.fld.Nm - 1, self.fld.Nr, self.fld.Nz )
+            else:
+                datashape = ( 2*self.fld.Nm - 1, self.comm.Nr, self.comm.Nz )
+            dset = field_grp.require_dataset( path, datashape, dtype='f' )
+            self.setup_openpmd_mesh_component( dset, quantity )
 
         # Write the mode 0 : only the real part is non-zero
-        mode0 = getattr( self.fld.interp[0], quantity ).T
-        dset[0,:,:] = mode0[:,:].real
+        mode0 = self.get_dataset( quantity, 0 )
+        if self.rank == 0:
+            mode0 = mode0.T
+            dset[0,:,:] = mode0[:,:].real
         # Write the higher modes
         # There is a factor 2 here so as to comply with the convention in
         # Lifschitz et al., which is also the convention adopted in Warp Circ
-        for i in range(1,self.fld.Nm):
-            mode = getattr( self.fld.interp[i], quantity ).T
-            dset[2*i-1,:,:] = 2*mode[:,:].real
-            dset[2*i,:,:] = 2*mode[:,:].imag
+        for m in range(1,self.fld.Nm):
+            mode = self.get_dataset( quantity, m )
+            if self.rank == 0:
+                mode = mode.T
+                dset[2*m-1,:,:] = 2*mode[:,:].real
+                dset[2*m,:,:] = 2*mode[:,:].imag
+
+    def get_dataset( self, quantity, m ):
+        """
+        Get the field `quantity` in the mode `m`
+        Gathers it on the first proc, in MPI mode
+
+        Parameters
+        ----------
+        quantity: string
+            Describes which field is being written.
+            (Either rho, Er, Et, Ez, Br, Bz, Bt, Jr, Jt or Jz)
+
+        m: int
+            The index of the mode that is being written
+        """
+        # Get the data on each individual proc
+        data_one_proc = getattr( self.fld.interp[m], quantity )
+
+        # Gather the data
+        if self.comm is not None:
+            data_all_proc = self.comm.gather_grid_array( data_one_proc )
+        else:
+            data_all_proc = data_one_proc
+
+        return( data_all_proc )

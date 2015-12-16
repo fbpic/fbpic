@@ -24,7 +24,7 @@ try :
     from fbpic.cuda_utils import cuda, cuda_tpb_bpg_1d, cuda_tpb_bpg_2d
     from .cuda_methods import push_p_gpu, push_x_gpu, \
         gather_field_gpu, deposit_rho_gpu, deposit_J_gpu, \
-        write_particle_buffer, cuda_deposition_arrays, \
+        write_sorting_buffer, cuda_deposition_arrays, \
         get_cell_idx_per_particle, sort_particles_per_cell, \
         reset_prefix_sum, incl_prefix_sum, add_rho, add_J
     cuda_installed = True
@@ -201,7 +201,10 @@ class Particles(object) :
         # Allocate arrays for the particles sorting when using CUDA
         self.cell_idx = np.empty( Ntot, dtype=np.int32)
         self.sorted_idx = np.arange( Ntot, dtype=np.uint32)
-        self.particle_buffer = np.arange( Ntot, dtype=np.float64 )
+        # Allocate a buffer that is used to resort the particle arrays
+        self.sorting_buffer = np.arange( Ntot, dtype=np.float64 )
+        # Register boolean that records if the particles are sorted or not
+        self.sorted = False
 
     def send_particles_to_gpu( self ):
         """
@@ -232,7 +235,7 @@ class Particles(object) :
             # Initialize empty arrays on the GPU for the sorting
             self.cell_idx = cuda.device_array_like(self.cell_idx)
             self.sorted_idx = cuda.device_array_like(self.sorted_idx)
-            self.particle_buffer = cuda.device_array_like(self.particle_buffer)
+            self.sorting_buffer = cuda.device_array_like(self.sorting_buffer)
 
     def receive_particles_from_gpu( self ):
         """
@@ -264,7 +267,7 @@ class Particles(object) :
             # that represent the sorting arrays
             self.cell_idx = np.empty(self.Ntot, dtype = np.int32)
             self.sorted_idx = np.arange(self.Ntot, dtype = np.uint32)
-            self.particle_buffer = np.arange( self.Ntot, dtype = np.float64)
+            self.sorting_buffer = np.arange( self.Ntot, dtype = np.float64)
 
     def rearrange_particle_arrays( self ):
         """
@@ -280,14 +283,14 @@ class Particles(object) :
             # Get particle GPU array
             val = getattr(self, attr)
             # Write particle data to particle buffer array while rearranging
-            write_particle_buffer[dim_grid_1d, dim_block_1d](
-                self.sorted_idx, val, self.particle_buffer)
+            write_sorting_buffer[dim_grid_1d, dim_block_1d](
+                self.sorted_idx, val, self.sorting_buffer)
             # Assign the particle buffer to 
             # the initial particle data array 
-            setattr(self, attr, self.particle_buffer)
+            setattr(self, attr, self.sorting_buffer)
             # Assign the old particle data array to
             # the particle buffer
-            self.particle_buffer = val
+            self.sorting_buffer = val
 
     def push_p( self ) :
         """
@@ -332,6 +335,8 @@ class Particles(object) :
                 self.x, self.y, self.z,
                 self.ux, self.uy, self.uz,
                 self.inv_gamma, self.dt )
+            # The particle array is unsorted after the push in x
+            self.sorted = False
         else :
             push_x_numpy(self.x, self.y, self.z,
                 self.ux, self.uy, self.uz,
@@ -493,7 +498,7 @@ class Particles(object) :
             self.By[:] = sin*Fr + cos*Ft
 
         
-    def deposit(self, grid, fieldtype ) :
+    def deposit( self, fld, fieldtype ) :
         """
         Deposit the particles charge or current onto the grid, using numpy
         
@@ -502,57 +507,33 @@ class Particles(object) :
         
         Parameter
         ----------
-        grid : a list of InterpolationGrid objects
-             (one InterpolationGrid object per azimuthal mode)
-             Contains the field values on the interpolation grid
+        fld : a Field object 
+             Contains the list of InterpolationGrid objects with
+             the field values as well as the prefix sum.
 
         fieldtype : string
              Indicates which field to deposit
              Either 'J' or 'rho'
         """
+        # Shortcut for the list of InterpolationGrid objects
+        grid = fld.interp
+
         if self.use_cuda == True:
             # Get the threads per block and the blocks per grid
-            dim_grid_1d, dim_block_1d = cuda_tpb_bpg_1d( self.Ntot )
             dim_grid_2d_flat, dim_block_2d_flat = cuda_tpb_bpg_1d(
                                                     grid[0].Nz*grid[0].Nr )
             dim_grid_2d, dim_block_2d = cuda_tpb_bpg_2d( 
                                           grid[0].Nz, grid[0].Nr )
 
-            ###################################################################
-            # Needs to be moved to the fields package
-
-            # Create the needed prefix sum array for sorting
-            d_prefix_sum = cuda.device_array(
-                             shape = grid[0].Nz*grid[0].Nr, dtype = np.int32 )
             # Create the helper arrays for deposition
-            d_F0, d_F1, d_F2, d_F3 = cuda_deposition_arrays( grid[0].Nz,
-                                       grid[0].Nr, fieldtype = fieldtype )
-            ###################################################################
+            d_F0, d_F1, d_F2, d_F3 = cuda_deposition_arrays( 
+                grid[0].Nz, grid[0].Nr, fieldtype = fieldtype )
 
-            # ------------------------
-            # Sorting of the particles
-            # ------------------------
-            # Get the cell index of each particle 
-            # (defined by iz_lower and ir_lower)
-            get_cell_idx_per_particle[dim_grid_1d, dim_block_1d](
-                self.cell_idx,
-                self.sorted_idx, 
-                self.x, self.y, self.z, 
-                grid[0].invdz, grid[0].zmin, grid[0].Nz, 
-                grid[0].invdr, grid[0].rmin, grid[0].Nr)
-            # Sort the cell index array and modify the sorted_idx array
-            # accordingly. The value of the sorted_idx array corresponds 
-            # to the index of the sorted particle in the other particle 
-            # arrays.
-            sort_particles_per_cell(self.cell_idx, self.sorted_idx)
-            # Reset the old prefix sum
-            reset_prefix_sum[dim_grid_2d_flat, dim_block_2d_flat](
-                d_prefix_sum)
-            # Perform the inclusive parallel prefix sum
-            incl_prefix_sum[dim_grid_1d, dim_block_1d](
-                self.cell_idx, d_prefix_sum)
-            # Rearrange the particle arrays
-            self.rearrange_particle_arrays()
+            # Sort the particles
+            if self.sorted == False:
+                self.sort_particles(fld = fld)
+                # The particles are now sorted and rearranged
+                self.sorted = True
 
             # Call the CUDA Kernel for the deposition of rho or J
             # for Mode 0 and 1 only.
@@ -564,7 +545,7 @@ class Particles(object) :
                     grid[0].invdz, grid[0].zmin, grid[0].Nz, 
                     grid[0].invdr, grid[0].rmin, grid[0].Nr,
                     d_F0, d_F1, d_F2, d_F3,
-                    self.cell_idx, d_prefix_sum)
+                    self.cell_idx, fld.d_prefix_sum)
                 # Add the four directions together
                 add_rho[dim_grid_2d, dim_block_2d](
                     grid[0].rho, grid[1].rho,
@@ -578,7 +559,7 @@ class Particles(object) :
                     grid[0].invdz, grid[0].zmin, grid[0].Nz, 
                     grid[0].invdr, grid[0].rmin, grid[0].Nr,
                     d_F0, d_F1, d_F2, d_F3,
-                    self.cell_idx, d_prefix_sum)
+                    self.cell_idx, fld.d_prefix_sum)
                 # Add the four directions together
                 add_J[dim_grid_2d, dim_block_2d](
                     grid[0].Jr, grid[1].Jr,
@@ -690,3 +671,49 @@ class Particles(object) :
             else :
                 raise ValueError(
         "`fieldtype` should be either 'J' or 'rho', but is `%s`" %fieldtype )
+
+    def sort_particles(self, fld):
+        """
+        Sort the particles by performing the following steps:
+        1. Get fied cell index
+        2. Sort field cell index
+        3. Parallel prefix sum
+        4. Rearrange particle arrays
+        
+        Parameter
+        ----------
+        fld : a Field object 
+             Contains the list of InterpolationGrid objects with
+             the field values as well as the prefix sum.
+        """
+        # Shortcut for interpolation grids
+        grid = fld.interp
+        # Get the threads per block and the blocks per grid
+        dim_grid_1d, dim_block_1d = cuda_tpb_bpg_1d( self.Ntot )
+        dim_grid_2d_flat, dim_block_2d_flat = cuda_tpb_bpg_1d(
+                                                grid[0].Nz*grid[0].Nr )
+        # ------------------------
+        # Sorting of the particles
+        # ------------------------
+        # Get the cell index of each particle 
+        # (defined by iz_lower and ir_lower)
+        get_cell_idx_per_particle[dim_grid_1d, dim_block_1d](
+            self.cell_idx,
+            self.sorted_idx, 
+            self.x, self.y, self.z, 
+            grid[0].invdz, grid[0].zmin, grid[0].Nz, 
+            grid[0].invdr, grid[0].rmin, grid[0].Nr)
+        # Sort the cell index array and modify the sorted_idx array
+        # accordingly. The value of the sorted_idx array corresponds 
+        # to the index of the sorted particle in the other particle 
+        # arrays.
+        sort_particles_per_cell(self.cell_idx, self.sorted_idx)
+        # Reset the old prefix sum
+        fld.prefix_sum_shift = 0
+        reset_prefix_sum[dim_grid_2d_flat, dim_block_2d_flat](
+            fld.d_prefix_sum)
+        # Perform the inclusive parallel prefix sum
+        incl_prefix_sum[dim_grid_1d, dim_block_1d](
+            self.cell_idx, fld.d_prefix_sum)
+        # Rearrange the particle arrays
+        self.rearrange_particle_arrays()
