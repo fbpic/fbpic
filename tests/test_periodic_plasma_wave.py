@@ -4,6 +4,12 @@ linear periodic plasma wave, in time.
 
 No moving window is involved.
 
+Usage:
+------
+python test_periodic_plasma_wave.py  # Single-proc simulation
+or:
+mpirun -np 2 python test_periodic_plasma_wave.py
+
 The fields are given by the analytical formulas :
 $$ \phi = \epsilon \,\frac{m c^2}{e} \exp\left(-\frac{r^2}{w_0^2}\right)
 \sin(k_0 z) \sin(\omega_p t)$$
@@ -151,86 +157,82 @@ def check_E_field( interp, epsilon, k0, w0, wp, t, field='Ez' ) :
     plt.title('Field off axis')
 
     plt.show()
+
+def show_fields(sim) :
+    """
+    Gathers the fields and compare them with the analytical theory
+    """
+
+    gathered_grid = sim.comm.gather_grid(sim.fld.interp[0])
+
+    if sim.comm.rank == 0:
+        # Check the Ez field
+        check_E_field( gathered_grid, epsilon, k0, w0, wp,
+                    sim.time, field='Ez' )
+        # Check the Er field
+        check_E_field( gathered_grid, epsilon, k0, w0, wp,
+                    sim.time, field='Er' )
     
+# ----------
+# Parameters
+# ----------
+
+use_cuda=True
+
+# The simulation box
+Nz = 512        # Number of gridpoints along z
+zmax = 40.e-6    # Length of the box along z (meters)
+Nr = 32          # Number of gridpoints along r
+rmax = 20.e-6    # Length of the box along r (meters)
+Nm = 2           # Number of modes used
+n_order = -1     # Order of the finite stencil
+# The simulation timestep
+dt = zmax/Nz/c   # Timestep (seconds)
+
+# The particles
+p_zmin = 0.e-6   # Position of the beginning of the plasma (meters)
+p_zmax = 41.e-6  # Position of the end of the plasma (meters)
+p_rmin = 0.      # Minimal radial position of the plasma (meters)
+p_rmax = 18.e-6  # Maximal radial position of the plasma (meters)
+n_e = 2.e24      # Density (electrons.meters^-3)
+p_nz = 2         # Number of particles per cell along z
+p_nr = 2         # Number of particles per cell along r
+p_nt = 4         # Number of particles per cell along theta
+
+# The plasma wave
+epsilon = 0.001  # Dimensionless amplitude of the wave
+w0 = 5.e-6      # The transverse size of the plasma wave
+N_periods = 3   # Number of periods in the box
+# Calculated quantities
+k0 = 2*np.pi/zmax*N_periods
+wp = np.sqrt( n_e*e**2/(m_e*epsilon_0) )
+
+# Run the simulation for 0.75 plasma period
+N_step = int( 2*np.pi/(wp*dt)*0.75 )
+    
+# -------------------------
+# Launching the simulation
+# -------------------------
+
+# Initialization of the simulation object
+sim = Simulation( Nz, zmax, Nr, rmax, Nm, dt,
+                  p_zmin, p_zmax, p_rmin, p_rmax, p_nz, p_nr,
+                  p_nt, n_e, n_order=n_order, use_cuda=use_cuda )
+
+# Impart velocities to the electrons
+# (The electrons are initially homogeneous, but have an
+# intial non-zero velocity that develops into a plasma wave)
+impart_momenta( sim.ptcl[0], epsilon, k0, w0, wp )
+
+# Launch the simulation
 if __name__ == '__main__' :
 
-    # ----------
-    # Parameters
-    # ----------
-
-    use_cuda=True
-    
-    # The simulation box
-    Nz = 512         # Number of gridpoints along z
-    zmax = 40.e-6    # Length of the box along z (meters)
-    Nr = 32          # Number of gridpoints along r
-    rmax = 20.e-6    # Length of the box along r (meters)
-    Nm = 2           # Number of modes used
-    n_order = -1     # Order of the finite stencil
-    # The simulation timestep
-    dt = zmax/Nz/c   # Timestep (seconds)
-
-    # The particles
-    p_zmin = 0.e-6   # Position of the beginning of the plasma (meters)
-    p_zmax = 41.e-6  # Position of the end of the plasma (meters)
-    p_rmin = 0.      # Minimal radial position of the plasma (meters)
-    p_rmax = 18.e-6  # Maximal radial position of the plasma (meters)
-    n_e = 2.e24      # Density (electrons.meters^-3)
-    p_nz = 2         # Number of particles per cell along z
-    p_nr = 2         # Number of particles per cell along r
-    p_nt = 4         # Number of particles per cell along theta
-
-    # The plasma wave
-    epsilon = 0.001  # Dimensionless amplitude of the wave
-    w0 = 5.e-6      # The transverse size of the plasma wave
-    N_periods = 3   # Number of periods in the box
-    # Calculated quantities
-    k0 = 2*np.pi/zmax*N_periods
-    wp = np.sqrt( n_e*e**2/(m_e*epsilon_0) )
-
-    # Run the simulation for 0.75 plasma period
-    N_step = int( 2*np.pi/(wp*dt)*0.75 )
-    
-    # -------------------------
-    # Launching the simulation
-    # -------------------------
-    
-    # Initialization of the simulation object
-    sim = Simulation( Nz, zmax, Nr, rmax, Nm, dt,
-    p_zmin, p_zmax, p_rmin, p_rmax, p_nz, p_nr, p_nt, n_e,
-    n_order=n_order, use_cuda=use_cuda )
-
-    # Redo the initialization of the electrons, to avoid to two last empty
-    # cells at the right end of the box
-    p_zmin, p_zmax, Npz = adapt_to_grid( sim.fld.interp[0].z,
-                                p_zmin, p_zmax, p_nz, ncells_empty=0 )
-    p_rmin, p_rmax, Npr = adapt_to_grid( sim.fld.interp[0].r,
-                                p_rmin, p_rmax, p_nr, ncells_empty=0 )
-    sim.ptcl[0] = Particles( q=-e, m=m_e, n=n_e, Npz=Npz, zmin=p_zmin,
-                             zmax=p_zmax, Npr=Npr, rmin=p_rmin, rmax=p_rmax,
-                             Nptheta=p_nt, dt=dt, use_cuda = sim.use_cuda )
-    # Do the initial charge deposition (at t=0) now
-    sim.fld.erase('rho')
-    for species in sim.ptcl :
-        species.deposit( sim.fld.interp, 'rho' )
-    sim.fld.divide_by_volume('rho')
-    # Bring it to the spectral space
-    sim.fld.interp2spect('rho_prev')
-    sim.fld.filter_spect('rho_prev')
-    
-    # Impart velocities to the electrons
-    # (The electrons are initially homogeneous, but have an
-    # intial non-zero velocity that develops into a plasma wave)
-    impart_momenta( sim.ptcl[0], epsilon, k0, w0, wp )
-
-    # Launch the simulation
-    sim.step( N_step, moving_window=False )
-
-    # Check the Ez field
-    check_E_field( sim.fld.interp[0], epsilon, k0, w0, wp,
-                   sim.time, field='Ez' )
-    # Check the Er field
-    check_E_field( sim.fld.interp[0], epsilon, k0, w0, wp,
-                   sim.time, field='Er' )
-    
-    
+    # Choose whether to correct the currents
+    if sim.comm.size == 1:
+        correct_currents = True
+    else:
+        correct_currents = False
+    # Run the simulation 
+    sim.step( N_step, correct_currents=correct_currents )
+    # Plot the results
+    show_fields( sim )
