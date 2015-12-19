@@ -64,11 +64,6 @@ z0 = 25.e-6      # Laser centroid
 
 # The moving window
 v_window = c       # Speed of the window
-ncells_zero = 50    # Number of cells over which the field is set to 0
-                   # at the left end of the simulation box
-ncells_damp = 30   # Number of cells over which the field is damped,
-                   # at the left of the simulation box, after ncells_zero
-                   # in order to prevent it from wrapping around.
 
 # The diagnostics
 diag_period = 10        # Period of the diagnostics in number of timesteps
@@ -122,8 +117,7 @@ sim.ptcl = [
     Particles( q=e, m=m_p, n=n_e, Npz=Npz, zmin=p_zmin,
             zmax=p_zmax, Npr=Npr, rmin=p_rmin, rmax=p_rmax,
             Nptheta=p_nt, dt=dt, uz_m=-np.sqrt(gamma0**2-1),
-            v_galilean=sim.v_galilean ) ]
-    
+            v_galilean=sim.v_galilean ) ]    
 
 # Add a laser to the fields of the simulation
 add_laser( sim.fld, a0, w0, ctau, z0 )
@@ -134,7 +128,7 @@ sim.diags = [ FieldDiagnostic(diag_period, sim.fld, fieldtypes=fieldtypes),
 
 ### Run the simulation
 print('\n Performing %d PIC cycles' % N_step) 
-sim.step( N_step, moving_window=False, correct_currents=correct_currents )
+sim.step( N_step, correct_currents=correct_currents )
 print('')
 
 

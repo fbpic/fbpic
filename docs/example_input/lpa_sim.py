@@ -25,7 +25,6 @@ from scipy.constants import c
 # Import the relevant structures in FBPIC
 from fbpic.main import Simulation
 from fbpic.lpa_utils import add_laser
-from fbpic.moving_window import MovingWindow
 from fbpic.openpmd_diag import FieldDiagnostic, ParticleDiagnostic
 
 # ----------
@@ -60,11 +59,6 @@ z0 = 25.e-6      # Laser centroid
 
 # The moving window
 v_window = c       # Speed of the window
-ncells_zero = 50    # Number of cells over which the field is set to 0
-                   # at the left end of the simulation box
-ncells_damp = 30   # Number of cells over which the field is damped,
-                   # at the left of the simulation box, after ncells_zero
-                   # in order to prevent it from wrapping around.
 
 # The diagnostics
 diag_period = 10        # Period of the diagnostics in number of timesteps
@@ -106,9 +100,7 @@ sim = Simulation( Nz, zmax, Nr, rmax, Nm, dt,
 add_laser( sim.fld, a0, w0, ctau, z0 )
 
 # Configure the moving window
-sim.moving_win = MovingWindow( sim.fld.interp[0],
-                               ncells_damp=ncells_damp,
-                               ncells_zero=ncells_zero )
+sim.set_moving_window( v=v_window )
 
 # Add a field diagnostic
 sim.diags = [ FieldDiagnostic( diag_period, sim.fld, fieldtypes=fieldtypes ),
