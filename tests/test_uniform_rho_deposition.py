@@ -44,7 +44,7 @@ if __name__ == '__main__' :
     # Deposit the charge
     sim.fld.erase('rho')
     for species in sim.ptcl :
-        species.deposit( sim.fld.interp, 'rho')
+        species.deposit( sim.fld, 'rho')
     sim.fld.divide_by_volume('rho')
     
     # Show the results
