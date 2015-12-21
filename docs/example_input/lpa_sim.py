@@ -85,6 +85,7 @@ def dens_func( z, r ) :
 # ---------------------------
 # Carrying out the simulation
 # ---------------------------
+
 # NB: The code below is only executed when running the script,
 # (`python -i lpa_sim.py`), but not when importing it (`import lpa_sim`).
 if __name__ == '__main__':

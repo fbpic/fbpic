@@ -120,7 +120,6 @@ class FieldDiagnostic(OpenPMDDiagnostic):
 
     # Writing methods
     # ---------------
-
     def write_dataset( self, field_grp, path, quantity ) :
         """
         Write a given dataset

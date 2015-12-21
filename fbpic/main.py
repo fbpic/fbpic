@@ -242,8 +242,8 @@ class Simulation(object):
         for i_step in xrange(N):
 
             # Show a progression bar
-            if show_progress:
-                progression_bar( i_step, N, measured_start )
+            if (show_progress) and (self.comm.rank==0):
+                progression_bar( i_step, N )
 
             # Run the diagnostics
             for diag in self.diags:
