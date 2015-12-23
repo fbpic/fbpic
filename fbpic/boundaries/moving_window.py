@@ -19,7 +19,6 @@ class MovingWindow(object):
     """
     Class that contains the moving window's variables and methods
     """
-    
     def __init__( self, interp, comm, v, p_nz, time,
                   ux_m=0., uy_m=0., uz_m=0.,
                   ux_th=0., uy_th=0., uz_th=0., gamma_boost=None ) :
@@ -28,11 +27,15 @@ class MovingWindow(object):
 
         Parameters
         ----------
-        interp: a list of Interpolation object
+        interp: a list of Interpolation objects
             Contains the positions of the boundaries
 
         comm: a BoundaryCommunicator object
-            Contains information about the MPI and about 
+            Contains information about the MPI and about
+
+        ptcl: a list of Particle objects
+            Need to infer the position of injection of the particles,
+            by the moving window.
                     
         v: float (meters per seconds), optional
             The speed of the moving window
@@ -90,7 +93,15 @@ class MovingWindow(object):
         if comm.rank == comm.size-1:
             ng = comm.n_guard
             self.z_inject = interp[0].zmax - ng/2*interp[0].dz
-            self.z_end_plasma = interp[0].zmax - ng*interp[0].dz
+            # Try to detect the position of the end of the plasma
+            if (ptcl != []) and (ptcl[0].Ntot != 0):
+                # Find the maximal position of the particles and add
+                # half of the spacing between particles (the injection
+                # function itself will add a half-spacing again)
+                self.z_end_plasma = ptcl[0].z.max() + 0.5*interp[0].dz/p_nz
+            else:
+                # Default value in the absence of particles
+                self.z_end_plasma = self.z_inject
             self.v_end_plasma = \
               c * self.uz_m / np.sqrt(1 + ux_m**2 + uy_m**2 + self.uz_m**2)
             self.nz_inject = 0
@@ -169,7 +180,7 @@ class MovingWindow(object):
     def generate_particles( self, species, dz, time ) :
         """
         Generate new particles at the right end of the plasma
-        (i.e. between self.z_inject and self.z_end_plasma)
+        (i.e. between z_end_plasma - nz_inject*dz and z_end_plasma)
 
         Return them in the form of a particle buffer of shape (8, Nptcl)
 

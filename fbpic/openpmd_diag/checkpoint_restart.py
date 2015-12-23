@@ -101,15 +101,15 @@ def load_fields( grid, fieldtype, coord, ts, iteration ):
     # Extract the field from the restart file using opmd_viewer
     if m==0:
         field_data, info = ts.get_field( fieldtype, coord,
-                                         mode=m, iteration=iteration )
+                                         m=m, iteration=iteration )
         # Select a half-plane and transpose it to conform to FBPIC format
         field_data = field_data[Nr:,:].T
     elif m==1:
         # Extract the real and imaginary part by selecting the angle
         field_data_real, info = ts.get_field( fieldtype, coord,
-                            iteration=iteration, mode=m, theta=0)
+                            iteration=iteration, m=m, theta=0)
         field_data_imag, _ = ts.get_field( fieldtype, coord,
-                            iteration=iteration, mode=m, theta=np.pi/2)
+                            iteration=iteration, m=m, theta=np.pi/2)
         # Select a half-plane and transpose it to conform to FBPIC format
         field_data_real = field_data_real[Nr:,:].T
         field_data_imag = field_data_imag[Nr:,:].T
@@ -144,9 +144,12 @@ def load_species( species, name, ts, iteration ):
     x, y, z = ts.get_particle( 
                 ['x', 'y', 'z'], iteration=iteration, species=name )
     species.x, species.y, species.z = 1.e-6*x, 1.e-6*y, 1.e-6*z
-    # Get the particles' momenta and weights
-    species.ux, species.uy, species.uz, species.w = ts.get_particle(
-        ['ux', 'uy', 'uz', 'w'], iteration=iteration, species=name )
+    # Get the particles' momenta
+    species.ux, species.uy, species.uz = ts.get_particle(
+        ['ux', 'uy', 'uz' ], iteration=iteration, species=name )
+    # Get the weight (multiply it by the charge to conform with FBPIC)
+    w, = ts.get_particle( ['w'], iteration=iteration, species=name )
+    species.w = species.q * w
     # Get the inverse gamma
     species.inv_gamma = 1./np.sqrt(
         1 + species.ux**2 + species.uy**2 + species.uz**2 )

@@ -195,7 +195,6 @@ class Simulation(object):
         # Do the initial charge deposition (at t=0) now
         self.deposit('rho_prev')
 
-
     def step(self, N=1, ptcl_feedback=True, correct_currents=True,
              use_true_rho=False, move_positions=True, move_momenta=True,
              show_progress=True):
@@ -241,6 +240,9 @@ class Simulation(object):
         # Loop over timesteps
         for i_step in xrange(N):
 
+            # Messages and diagnostics
+            # ------------------------
+
             # Show a progression bar
             if (show_progress) and (self.comm.rank==0):
                 progression_bar( i_step, N )
@@ -252,6 +254,9 @@ class Simulation(object):
                 # (Send the data to the GPU if needed.)
                 diag.write( self.iteration )
 
+            # Exchanges to prepare for this iteration
+            # ---------------------------------------
+            
             # Exchange the fields (EB) in the guard cells between domains
             self.comm.exchange_fields(fld.interp, 'EB')
 
@@ -330,7 +335,7 @@ class Simulation(object):
             # Get the fields E and B on the interpolation grid at t = (n+1) dt
             fld.spect2interp('E')
             fld.spect2interp('B')
-
+            
             # Increment the global time and iteration
             self.time += self.dt
             self.iteration += 1
