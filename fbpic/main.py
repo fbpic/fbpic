@@ -232,7 +232,7 @@ class Simulation(object):
         fld = self.fld
         # Measure the time taken by the PIC cycle
         measured_start = time.time()
- 
+
         # Send simulation data to GPU (if CUDA is used)
         if self.use_cuda:
             send_data_to_gpu(self)
