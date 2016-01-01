@@ -18,3 +18,4 @@ build/
 dist/
 fbpic.egg-info/
 .cache/
+.eggs/
