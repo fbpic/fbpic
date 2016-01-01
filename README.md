@@ -44,20 +44,25 @@ The recommended installation is through the
 
 - If Anaconda is not your default Python installation, download and install it from
   [here](https://www.continuum.io/downloads).
-- `cd` into the root folder of `fbpic` and install the dependencies:  
-`
+- `cd` into the top folder of `fbpic` and install the dependencies:  
+```
 conda install --file requirements.txt
-`
+```
 - Install `pyfftw` (not in the standard Anaconda channels, and thus it
 requires a special command):  
-`
+```
 conda install -c https://conda.anaconda.org/mforbes pyfftw
 conda upgrade numpy
-`
+```
 - Install `fbpic`  
-`
+```
 python setup.py install
-`
+```
+
+The installation can be tested by running:
+```
+python setup.py test
+```
 
 If you encounter issues with the installation, you may find a
 documented solution in `docs/install`.
