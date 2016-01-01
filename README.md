@@ -39,15 +39,28 @@ If available, it will also use Numba.)
 Installation
 ---------
 
-Standard installation with `setup.py` (i.e. `python setup.py install`).
+The recommended installation is through the
+[Anaconda](https://www.continuum.io/why-anaconda) distribution:
 
-Numba is not required for the code to run, since it is somewhat
-difficult to install on MacOSX. However, if it is installed, the code
-will automatically detect it and use it. This can result in up to an order
-of magnitude speedup.
+- If Anaconda is not your default Python installation, download and install it from
+  [here](https://www.continuum.io/downloads).
+- `cd` into the root folder of `fbpic` and install the dependencies:  
+`
+conda install --file requirements.txt
+`
+- Install `pyfftw` (not in the standard Anaconda channels, and thus it
+requires a special command):  
+`
+conda install -c https://conda.anaconda.org/mforbes pyfftw
+conda upgrade numpy
+`
+- Install `fbpic`  
+`
+python setup.py install
+`
 
-Instructions for installing Numba on MacOSX can be found in
-`docs/install`.
+If you encounter issues with the installation, you may find a
+documented solution in `docs/install`.
 
 Running simulations
 ----------------

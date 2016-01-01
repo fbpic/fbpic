@@ -8,6 +8,9 @@ with open('README.md') as f :
 # Get the package requirements from the requirements.txt file
 with open('requirements.txt') as f:
     install_requires = [ line.strip('\n') for line in f.readlines() ]
+# pyfftw is not included in the requirements.txt since it causes
+# a bug when doing conda install --file requirements.txt
+install_requires.append('pyfftw')
 
 setup(
     name='fbpic',
