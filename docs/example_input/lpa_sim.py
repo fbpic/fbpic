@@ -94,7 +94,7 @@ if p_nr%2 == 1 :
 # Initialize the simulation object
 sim = Simulation( Nz, zmax, Nr, rmax, Nm, dt,
     p_zmin, p_zmax, p_rmin, p_rmax, p_nz, p_nr, p_nt, n_e,
-    dens_func=dens_func ) 
+    dens_func=dens_func, boundaries='open' ) 
 
 # Add a laser to the fields of the simulation
 add_laser( sim.fld, a0, w0, ctau, z0 )
