@@ -1,14 +1,27 @@
 """
-This file tests the global PIC loop by evolving a
-linear periodic plasma wave, in time.
+This test file is part of FB-PIC (Fourier-Bessel Particle-In-Cell).
 
-No moving window is involved.
+It tests the global PIC loop by launching a linear periodic plasma wave,
+and letting it evolve in time. Its fields are then compared with theory.
+
+No moving window is involved, and periodic conditions are userd.
 
 Usage:
 ------
-python test_periodic_plasma_wave.py  # Single-proc simulation
-or:
-mpirun -np 2 python test_periodic_plasma_wave.py
+In order to show the images of the laser, and manually check the
+agreement between the simulation and the theory:
+(except when setting show to False in the parameters below)
+$ python tests/test_periodic_plasma_wave.py  # Single-proc simulation
+$ mpirun -np 2 python tests/test_periodic_plasma_wave.py # Two-proc simulation
+
+In order to let Python check the agreement between the curve without
+having to look at the plots
+$ py.test -q tests/test_periodic_plasma_wave.py
+or 
+$ python setup.py test
+
+Theory:
+-------
 
 The fields are given by the analytical formulas :
 $$ \phi = \epsilon \,\frac{m c^2}{e} \exp\left(-\frac{r^2}{w_0^2}\right)
@@ -32,12 +45,15 @@ import numpy as np
 import matplotlib.pyplot as plt
 from scipy.constants import c, e, m_e, epsilon_0
 # Import the relevant structures in FBPIC
-from fbpic.main import Simulation, adapt_to_grid
-from fbpic.particles import Particles
+from fbpic.main import Simulation
 
 # Parameters
 # ----------
-use_cuda=True
+show = True      # Whether to show the comparison between simulation
+                 # and theory to the user, or to automatically determine
+                 # whether they agree.
+
+use_cuda=True    # Whether to run with cuda
 
 # The simulation box
 Nz = 200         # Number of gridpoints along z
@@ -69,6 +85,34 @@ wp = np.sqrt( n_e*e**2/(m_e*epsilon_0) )
 
 # Run the simulation for 0.75 plasma period
 N_step = int( 2*np.pi/(wp*dt)*0.75 )
+
+# -------------
+# Test function
+# -------------
+
+def test_periodic_plasma_wave(show=False):
+    "Function that is run by py.test, when doing `python setup.py test`"
+
+    # Initialization of the simulation object
+    sim = Simulation( Nz, zmax, Nr, rmax, Nm, dt,
+                  p_zmin, p_zmax, p_rmin, p_rmax, p_nz, p_nr,
+                  p_nt, n_e, n_order=n_order, use_cuda=use_cuda )
+
+    # Impart velocities to the electrons
+    # (The electrons are initially homogeneous, but have an
+    # intial non-zero velocity that develops into a plasma wave)
+    impart_momenta( sim.ptcl[0], epsilon, k0, w0, wp )
+
+    # Choose whether to correct the currents
+    if sim.comm.size == 1:
+        correct_currents = True
+    else:
+        correct_currents = False
+
+    # Run the simulation 
+    sim.step( N_step, correct_currents=correct_currents )
+    # Plot the results
+    compare_fields( sim, show )
 
 # -----------------------------------------
 # Analytical solutions for the plasma wave
@@ -131,19 +175,30 @@ def impart_momenta( ptcl, epsilon, k0, w0, wp) :
 # --------------------
 # Diagnostic function
 # --------------------
-    
-def check_E_field( interp, epsilon, k0, w0, wp, t, field='Ez' ) :
+
+def compare_fields( sim, show ) :
+    """
+    Gathers the fields and compare them with the analytical theory
+    """
+    gathered_grid = sim.comm.gather_grid(sim.fld.interp[0])
+
+    if sim.comm.rank == 0:
+        # Check the Ez field
+        check_E_field( gathered_grid, epsilon, k0, w0, wp,
+                    sim.time, field='Ez', show=show )
+        # Check the Er field
+        check_E_field( gathered_grid, epsilon, k0, w0, wp,
+                    sim.time, field='Er', show=show )
+
+def check_E_field( interp, epsilon, k0, w0, wp, t, field='Ez', show=False ):
     """
     Compare the longitudinal and radial field with the
     simulation.
-    """
-    # -------------------
-    # Longitudinal field 
-    # -------------------
-    plt.figure(figsize=(8,10))
-    plt.suptitle('%s field' %field)
 
-    # 2D plots
+    If show=True : show the plots to the user
+    If show=False : compare the 2D maps automatically
+    """
+    # 2D maps of the field
     r, z = np.meshgrid( interp.r, interp.z )
     if field == 'Ez' : 
         E_analytical = Ez( z, r, epsilon, k0, w0, wp, t )
@@ -151,81 +206,61 @@ def check_E_field( interp, epsilon, k0, w0, wp, t, field='Ez' ) :
     if field == 'Er' :
         E_analytical = Er( z, r, epsilon, k0, w0, wp, t )
         E_simulation = interp.Er.real
-    
-    plt.subplot(221)
-    plt.imshow( E_analytical.T[::-1], extent=1.e6*np.array(
+
+    if show is False:
+        # Automatically check that the fields agree,
+        # to a relative tolerance rtol
+        rtol = 1.e-3
+        np.allclose( E_analytical, E_simulation, rtol=rtol )
+        print('The field %s agrees with the theory to %e,\n' %(field, rtol) + \
+               'over the whole simulation box.'  )
+    else:
+        # Show the images to the user
+        plt.figure(figsize=(8,10))
+        plt.suptitle('%s field' %field)
+        
+        plt.subplot(221)
+        plt.imshow( E_analytical.T[::-1], extent=1.e6*np.array(
         [interp.zmin, interp.zmax, interp.rmin, interp.rmax]), aspect='auto' )
-    plt.colorbar()
-    plt.title('Analytical')
-    plt.xlabel('z (microns)')
-    plt.ylabel('r (microns)')
-    plt.subplot(222)
-    plt.imshow( E_simulation.T[::-1], extent=1.e6*np.array(
+        plt.colorbar()
+        plt.title('Analytical')
+        plt.xlabel('z (microns)')
+        plt.ylabel('r (microns)')
+        plt.subplot(222)
+        plt.imshow( E_simulation.T[::-1], extent=1.e6*np.array(
         [interp.zmin, interp.zmax, interp.rmin, interp.rmax]), aspect='auto' )
-    plt.colorbar()
-    plt.title('Simulated')
-    plt.xlabel('z (microns)')
-    plt.ylabel('r (microns)')
+        plt.colorbar()
+        plt.title('Simulated')
+        plt.xlabel('z (microns)')
+        plt.ylabel('r (microns)')
 
-    # On-axis plot
-    plt.subplot(223)
-    plt.plot( 1.e6*interp.z, E_analytical[:,0], label='Analytical' )
-    plt.plot( 1.e6*interp.z, E_simulation[:,0].real, label='Simulated' )
-    plt.xlabel('z (microns)')
-    plt.ylabel('Ez')
-    plt.legend(loc=0)
-    plt.title('Field on axis')
+        # On-axis plot
+        plt.subplot(223)
+        plt.plot( 1.e6*interp.z, E_analytical[:,0], label='Analytical' )
+        plt.plot( 1.e6*interp.z, E_simulation[:,0].real, label='Simulated' )
+        plt.xlabel('z (microns)')
+        plt.ylabel('Ez')
+        plt.legend(loc=0)
+        plt.title('Field on axis')
 
-    # Plot at a radius w0
-    plt.subplot(224)
-    ir = int(w0/interp.dr)
-    plt.plot( 1.e6*interp.z, E_analytical[:,ir], label='Analytical' )
-    plt.plot( 1.e6*interp.z, E_simulation[:,ir].real, label='Simulated' )
-    plt.xlabel('z (microns)')
-    plt.ylabel(field)
-    plt.legend(loc=0)
-    plt.title('Field off axis')
+        # Plot at a radius w0
+        plt.subplot(224)
+        ir = int(w0/interp.dr)
+        plt.plot( 1.e6*interp.z, E_analytical[:,ir], label='Analytical' )
+        plt.plot( 1.e6*interp.z, E_simulation[:,ir].real, label='Simulated' )
+        plt.xlabel('z (microns)')
+        plt.ylabel(field)
+        plt.legend(loc=0)
+        plt.title('Field off axis')
 
-    plt.show()
+        plt.show()
 
-def show_fields(sim) :
-    """
-    Gathers the fields and compare them with the analytical theory
-    """
 
-    gathered_grid = sim.comm.gather_grid(sim.fld.interp[0])
-
-    if sim.comm.rank == 0:
-        # Check the Ez field
-        check_E_field( gathered_grid, epsilon, k0, w0, wp,
-                    sim.time, field='Ez' )
-        # Check the Er field
-        check_E_field( gathered_grid, epsilon, k0, w0, wp,
-                    sim.time, field='Er' )
-    
 # -------------------------
 # Launching the simulation
 # -------------------------
 
-# Initialization of the simulation object
-sim = Simulation( Nz, zmax, Nr, rmax, Nm, dt,
-                  p_zmin, p_zmax, p_rmin, p_rmax, p_nz, p_nr,
-                  p_nt, n_e, n_order=n_order, use_cuda=use_cuda )
-
-# Impart velocities to the electrons
-# (The electrons are initially homogeneous, but have an
-# intial non-zero velocity that develops into a plasma wave)
-impart_momenta( sim.ptcl[0], epsilon, k0, w0, wp )
-
-# Launch the simulation
 if __name__ == '__main__' :
 
-    # Choose whether to correct the currents
-    if sim.comm.size == 1:
-        correct_currents = True
-    else:
-        correct_currents = False
-    # Run the simulation 
-    sim.step( N_step, correct_currents=correct_currents )
-    # Plot the results
-    show_fields( sim )
+    # Run the simulation and show the results to the user
+    test_periodic_plasma_wave(show=show)
