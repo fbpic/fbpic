@@ -6,7 +6,7 @@ runs without crashing. It does not actually check the validity of the
 physics involved.
 
 Usage:
-This file is meant to be run from the root directory of fbpic,
+This file is meant to be run from the top directory of fbpic,
 by any of the following commands
 $ python tests/test_example_docs_script.py
 $ py.test --ignore=tests/unautomated
