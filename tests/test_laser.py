@@ -67,14 +67,12 @@ def test_laser(show=False):
     "Function that is run by py.test, when doing `python setup.py test`"
     print('')
     print('Testing mode m=0 with an annular beam')
-    plt.figure()
     propagate_pulse( Nz, Nr, Nm, zmin, zmax, Lr, L_prop, zf,
                       N_step, w0, ctau, k0, E0, 0, N_show, n_order,
                       rtol, show=show )
 
     print('')
     print('Testing mode m=1 with an gaussian beam')
-    plt.figure()
     propagate_pulse(Nz, Nr, Nm, zmin, zmax, Lr, L_prop, zf,
                      N_step, w0, ctau, k0, E0, 1, N_show,
                      n_order, rtol, show=show )
