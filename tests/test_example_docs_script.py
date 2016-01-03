@@ -9,7 +9,7 @@ Usage:
 This file is meant to be run from the top directory of fbpic,
 by any of the following commands
 $ python tests/test_example_docs_script.py
-$ py.test --ignore=tests/unautomated
+$ py.test -q tests/test_example_docs_script.py
 $ python setup.py test
 """
 import os

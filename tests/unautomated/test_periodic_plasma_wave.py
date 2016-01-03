@@ -28,17 +28,47 @@ $$ v_z/c = - \epsilon \, \frac{c}{\omega_p} \, k_0
 
 where $\epsilon$ is the dimensionless amplitude.
 """
-
-# --------
-# Imports
-# --------
-
 import numpy as np
 import matplotlib.pyplot as plt
 from scipy.constants import c, e, m_e, epsilon_0
 # Import the relevant structures in FBPIC
 from fbpic.main import Simulation, adapt_to_grid
 from fbpic.particles import Particles
+
+# Parameters
+# ----------
+use_cuda=True
+
+# The simulation box
+Nz = 200         # Number of gridpoints along z
+zmax = 40.e-6    # Length of the box along z (meters)
+Nr = 64          # Number of gridpoints along r
+rmax = 20.e-6    # Length of the box along r (meters)
+Nm = 2           # Number of modes used
+n_order = -1     # Order of the finite stencil
+# The simulation timestep
+dt = zmax/Nz/c   # Timestep (seconds)
+
+# The particles
+p_zmin = 0.e-6   # Position of the beginning of the plasma (meters)
+p_zmax = 41.e-6  # Position of the end of the plasma (meters)
+p_rmin = 0.      # Minimal radial position of the plasma (meters)
+p_rmax = 18.e-6  # Maximal radial position of the plasma (meters)
+n_e = 2.e24      # Density (electrons.meters^-3)
+p_nz = 2         # Number of particles per cell along z
+p_nr = 2         # Number of particles per cell along r
+p_nt = 4         # Number of particles per cell along theta
+
+# The plasma wave
+epsilon = 0.001  # Dimensionless amplitude of the wave
+w0 = 5.e-6      # The transverse size of the plasma wave
+N_periods = 3   # Number of periods in the box
+# Calculated quantities
+k0 = 2*np.pi/zmax*N_periods
+wp = np.sqrt( n_e*e**2/(m_e*epsilon_0) )
+
+# Run the simulation for 0.75 plasma period
+N_step = int( 2*np.pi/(wp*dt)*0.75 )
 
 # -----------------------------------------
 # Analytical solutions for the plasma wave
@@ -112,7 +142,7 @@ def check_E_field( interp, epsilon, k0, w0, wp, t, field='Ez' ) :
     # -------------------
     plt.figure(figsize=(8,10))
     plt.suptitle('%s field' %field)
-    
+
     # 2D plots
     r, z = np.meshgrid( interp.r, interp.z )
     if field == 'Ez' : 
@@ -172,43 +202,6 @@ def show_fields(sim) :
         # Check the Er field
         check_E_field( gathered_grid, epsilon, k0, w0, wp,
                     sim.time, field='Er' )
-    
-# ----------
-# Parameters
-# ----------
-
-use_cuda=True
-
-# The simulation box
-Nz = 512        # Number of gridpoints along z
-zmax = 40.e-6    # Length of the box along z (meters)
-Nr = 32          # Number of gridpoints along r
-rmax = 20.e-6    # Length of the box along r (meters)
-Nm = 2           # Number of modes used
-n_order = -1     # Order of the finite stencil
-# The simulation timestep
-dt = zmax/Nz/c   # Timestep (seconds)
-
-# The particles
-p_zmin = 0.e-6   # Position of the beginning of the plasma (meters)
-p_zmax = 41.e-6  # Position of the end of the plasma (meters)
-p_rmin = 0.      # Minimal radial position of the plasma (meters)
-p_rmax = 18.e-6  # Maximal radial position of the plasma (meters)
-n_e = 2.e24      # Density (electrons.meters^-3)
-p_nz = 2         # Number of particles per cell along z
-p_nr = 2         # Number of particles per cell along r
-p_nt = 4         # Number of particles per cell along theta
-
-# The plasma wave
-epsilon = 0.001  # Dimensionless amplitude of the wave
-w0 = 5.e-6      # The transverse size of the plasma wave
-N_periods = 3   # Number of periods in the box
-# Calculated quantities
-k0 = 2*np.pi/zmax*N_periods
-wp = np.sqrt( n_e*e**2/(m_e*epsilon_0) )
-
-# Run the simulation for 0.75 plasma period
-N_step = int( 2*np.pi/(wp*dt)*0.75 )
     
 # -------------------------
 # Launching the simulation
