@@ -103,9 +103,10 @@ add_laser( sim.fld, a0, w0, ctau, z0 )
 sim.set_moving_window( v=v_window )
 
 # Add a field diagnostic
-sim.diags = [ FieldDiagnostic( diag_period, sim.fld, fieldtypes=fieldtypes ),
+sim.diags = [ FieldDiagnostic( diag_period, sim.fld,
+                               fieldtypes=fieldtypes, comm=sim.comm ),
               ParticleDiagnostic( diag_period, {"electrons" : sim.ptcl[0]},
-                                  select={"uz" : [1., None ]} ) ]
+                            select={"uz" : [1., None ]}, comm=sim.comm ) ]
 
 ### Run the simulation
 print('\n Performing %d PIC cycles' % N_step) 
