@@ -450,7 +450,7 @@ class BoundaryCommunicator(object):
                             (self.n_guard - self.rank*self.Nz_domain)
             zmax_global = zmin_global + self.Ltot
             # Create new grid array that contains cell positions in z
-            z = np.linspace(zmin_global, zmax_global, self.Nz) + 0.5*self.dz
+            z = zmin_global + self.dz*( 0.5 + np.arange(self.Nz) )
             # Initialize new InterpolationGrid object that 
             # is used to gather the global grid data
             gathered_grid = InterpolationGrid(z = z, r = grid.r, m = grid.m )
