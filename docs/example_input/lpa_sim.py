@@ -20,7 +20,6 @@ where fbpic_object is any of the objects or function of FBPIC.
 # Imports
 # -------
 import numpy as np
-import matplotlib.pyplot as plt
 from scipy.constants import c
 # Import the relevant structures in FBPIC
 from fbpic.main import Simulation

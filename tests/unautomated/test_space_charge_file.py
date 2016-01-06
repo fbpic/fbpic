@@ -8,12 +8,11 @@ Usage :
 from the top-level directory of FBPIC run
 $ python tests/test_space_charge_file.py
 """
-import numpy as np
 import matplotlib.pyplot as plt
-from scipy.constants import c, epsilon_0, e
+from scipy.constants import c
 # Import the relevant structures in FBPIC                                       
 from fbpic.main import Simulation
-from fbpic.lpa_utils import add_laser, add_elec_bunch_file
+from fbpic.lpa_utils import add_elec_bunch_file
 
 # The simulation box                                                            
 Nz = 400         # Number of gridpoints along z
