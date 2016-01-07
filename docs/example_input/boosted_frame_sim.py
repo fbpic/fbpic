@@ -20,7 +20,6 @@ where fbpic_object is any of the objects or function of FBPIC.
 # Imports
 # -------
 import numpy as np
-import matplotlib.pyplot as plt
 from scipy.constants import c
 # Import the relevant structures in FBPIC
 from fbpic.main import Simulation
@@ -66,11 +65,6 @@ lambda0 = 0.8e-6 # Laser wavelength
 
 # The moving window
 v_window = c       # Speed of the window
-ncells_zero = 10   # Number of cells over which the field is set to 0
-                   # at the left end of the simulation box
-ncells_damp = 10   # Number of cells over which the field is damped,
-                   # at the left of the simulation box, after ncells_zero
-                   # in order to prevent it from wrapping around.
 
 # The diagnostics
 diag_period = 10        # Period of the diagnostics in number of timesteps
@@ -97,7 +91,7 @@ def dens_func( z, r ):
 sim = Simulation( Nz, zmax, Nr, rmax, Nm, dt,
     p_zmin, p_zmax, p_rmin, p_rmax, p_nz, p_nr, p_nt, n_e,
     dens_func=dens_func, zmin=zmin, initialize_ions=True,
-    gamma_boost=gamma_boost ) 
+    gamma_boost=gamma_boost, boundaries='open' ) 
 
 # Add a laser to the fields of the simulation
 add_laser( sim.fld, a0, w0, ctau, z0, lambda0=lambda0,
@@ -105,9 +99,6 @@ add_laser( sim.fld, a0, w0, ctau, z0, lambda0=lambda0,
 
 # Configure the moving window
 sim.set_moving_window( v=v_window, gamma_boost=gamma_boost )
-
-sim.moving_win = MovingWindow( sim.fld.interp[0], gamma_boost=gamma_boost,
-                period=1, ncells_damp=ncells_damp, ncells_zero=ncells_zero )
 
 # Add a field diagnostic
 sim.diags = [ FieldDiagnostic(diag_period, sim.fld, fieldtypes=fieldtypes),

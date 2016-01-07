@@ -3,7 +3,7 @@ This file is part of the Fourier-Bessel Particle-In-Cell code (FB-PIC)
 It defines a set of utilities for laser initialization
 """
 import numpy as np
-from scipy.constants import m_e, c, e, epsilon_0, mu_0
+from scipy.constants import m_e, c, e
 from .boosted_frame import BoostConverter
 
 def add_laser( fld, a0, w0, ctau, z0, zf=None, lambda0=0.8e-6,

@@ -12,7 +12,6 @@ import matplotlib.pyplot as plt
 from scipy.constants import c
 # Import the relevant structures in FBPIC                                       
 from fbpic.main import Simulation
-from fbpic.lpa_utils import add_laser
 from fbpic.lpa_utils.bunch import add_elec_bunch_file
 
 # The simulation box                                                            
