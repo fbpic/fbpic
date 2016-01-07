@@ -25,7 +25,6 @@ from scipy.constants import c
 # Import the relevant structures in FBPIC
 from fbpic.main import Simulation
 from fbpic.lpa_utils import add_laser
-from fbpic.moving_window import MovingWindow
 from fbpic.openpmd_diag import FieldDiagnostic, ParticleDiagnostic
 
 # ----------
@@ -90,14 +89,6 @@ def dens_func( z, r ):
     
     return(n)
 
-# -----------------------
-# Checking the parameters
-# -----------------------
-if p_nr%2 == 1 :
-    raise UserWarning("Running the simulation with an odd number \n"
-                      "of macroparticles may result in a very \n"
-                      "noisy simulation.")
-
 # ---------------------------
 # Carrying out the simulation
 # ---------------------------
@@ -113,6 +104,8 @@ add_laser( sim.fld, a0, w0, ctau, z0, lambda0=lambda0,
            zf=zfoc, gamma_boost=gamma_boost )
 
 # Configure the moving window
+sim.set_moving_window( v=v_window, gamma_boost=gamma_boost )
+
 sim.moving_win = MovingWindow( sim.fld.interp[0], gamma_boost=gamma_boost,
                 period=1, ncells_damp=ncells_damp, ncells_zero=ncells_zero )
 

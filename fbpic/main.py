@@ -159,7 +159,7 @@ class Simulation(object):
                           zmax=p_zmax, Npr=Npr, rmin=p_rmin, rmax=p_rmax,
                           Nptheta=p_nt, dt=dt, dens_func=dens_func,
                           use_cuda=self.use_cuda, uz_m=uz_m,
-                          grid_shape=grid_shape)
+                          grid_shape=grid_shape) )
         
         # Register the number of particles per cell along z, and dt
         # (Necessary for the moving window)
@@ -178,7 +178,7 @@ class Simulation(object):
         self.diags = []
 
     def set_moving_window( self, v=c, ux_m=0., uy_m=0., uz_m=0.,
-                  ux_th=0., uy_th=0., uz_th=0. ):
+                  ux_th=0., uy_th=0., uz_th=0., gamma_boost=None ):
         """
         Initializes a moving window for the simulation.
 
@@ -192,10 +192,18 @@ class Simulation(object):
 
         ux_th, uy_th, uz_th: floats (dimensionless)
            Normalized thermal momenta in each direction
+
+        gamma_boost : float, optional
+            When initializing a moving window in a boosted frame, set the
+            value of `gamma_boost` to the corresponding Lorentz factor.
+            Quantities like uz_m of the injected particles will be
+            automatically Lorentz-transformed.
+            (uz_m is to be given in the lab frame ; for the moment, this
+            will not work if any of ux_th, uy_th, uz_th, ux_m, uy_m is nonzero)
         """
         # Attach the moving window to the boundary communicator
         self.comm.moving_win = MovingWindow( self.fld.interp, self.comm,
-                    v, self.p_nz, ux_m, uy_m, uz_m, ux_th, uy_th, uz_th )
+            v, self.p_nz, ux_m, uy_m, uz_m, ux_th, uy_th, uz_th, gamma_boost )
 
     def step(self, N=1, ptcl_feedback=True, correct_currents=True,
              use_true_rho=False, move_positions=True, move_momenta=True,

@@ -18,11 +18,6 @@ except ImportError:
 class MovingWindow(object):
     """
     Class that contains the moving window's variables and methods
-
-    One major problem of the moving window in a spectral code is that \
-    the fields `wrap around` the moving window, .i.e the fields that
-    disappear at the left end reappear at the right end, as a consequence
-    of the periodicity of the Fourier transform.
     """
     
     def __init__( self, interp, comm, v=c, p_nz=1, ux_m=0., uy_m=0., uz_m=0.,
