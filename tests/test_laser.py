@@ -34,7 +34,7 @@ import matplotlib.pyplot as plt
 from scipy.constants import c, m_e, e
 from scipy.optimize import curve_fit
 from fbpic.fields import Fields
-from fbpic.lpa_utils import add_laser
+from fbpic.lpa_utils.laser import add_laser
 
 # Parameters
 # ----------

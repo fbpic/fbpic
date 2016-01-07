@@ -23,7 +23,7 @@ import numpy as np
 from scipy.constants import c
 # Import the relevant structures in FBPIC
 from fbpic.main import Simulation
-from fbpic.lpa_utils import add_laser
+from fbpic.lpa_utils.laser import add_laser
 from fbpic.openpmd_diag import FieldDiagnostic, ParticleDiagnostic
 
 # ----------

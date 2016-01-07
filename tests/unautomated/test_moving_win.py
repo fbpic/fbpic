@@ -11,7 +11,7 @@ import matplotlib.pyplot as plt
 from scipy.constants import c, m_e, e
 from scipy.optimize import curve_fit
 from fbpic.main import Simulation
-from fbpic.lpa_utils import add_laser
+from fbpic.lpa_utils.laser import add_laser
 
 def test_pulse( Nz, Nr, Nm, Lz, Lr, Nt, w0, ctau,
                 k0, E0, m, N_show, show=False ) :
