@@ -31,11 +31,11 @@ from fbpic.openpmd_diag import FieldDiagnostic, ParticleDiagnostic
 # ----------
 
 # The simulation box
-Nz = 800         # Number of gridpoints along z
+Nz = 400         # Number of gridpoints along z
 zmax = 0.e-6     # Length of the box along z (meters)
-zmin = -40.e-6
+zmin = -20.e-6
 Nr = 100         # Number of gridpoints along r
-rmax = 20.e-6    # Length of the box along r (meters)
+rmax = 40.e-6    # Length of the box along r (meters)
 Nm = 2           # Number of modes used
 # The simulation timestep
 dt = (zmax-zmin)/Nz/c   # Timestep (seconds)
@@ -101,8 +101,9 @@ add_laser( sim.fld, a0, w0, ctau, z0, lambda0=lambda0,
 sim.set_moving_window( v=v_window, gamma_boost=gamma_boost )
 
 # Add a field diagnostic
-sim.diags = [ FieldDiagnostic(diag_period, sim.fld, fieldtypes=fieldtypes),
-              ParticleDiagnostic(diag_period, {"electrons" : sim.ptcl[0]}) ]
+sim.diags = [ FieldDiagnostic(diag_period, sim.fld, sim.comm ),
+              ParticleDiagnostic(diag_period,
+                                 {"electrons" : sim.ptcl[0]}, sim.comm) ]
 
 ### Run the simulation
 print('\n Performing %d PIC cycles' % N_step) 

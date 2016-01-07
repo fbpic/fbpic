@@ -86,7 +86,7 @@ class MovingWindow(object):
             self.z_inject = interp[0].zmax - ng/2*interp[0].dz
             self.z_end_plasma = interp[0].zmax - ng*interp[0].dz
             self.v_end_plasma = \
-              c * uz_m / np.sqrt(1 + ux_m**2 + uy_m**2 + uz_m**2)
+              c * self.uz_m / np.sqrt(1 + ux_m**2 + uy_m**2 + self.uz_m**2)
             self.nz_inject = 0
             self.p_nz = p_nz
 
