@@ -448,7 +448,6 @@ class BoundaryCommunicator(object):
             # Calculate global edges of the simulation box on root process
             zmin_global = grid.zmin + self.dz * \
                             (self.n_guard - self.rank*self.Nz_domain)
-            zmax_global = zmin_global + self.Ltot
             # Create new grid array that contains cell positions in z
             z = zmin_global + self.dz*( 0.5 + np.arange(self.Nz) )
             # Initialize new InterpolationGrid object that 

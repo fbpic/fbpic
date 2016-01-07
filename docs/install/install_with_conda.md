@@ -12,7 +12,14 @@ This file describes how to install `pyfftw` in `mpi4py` in this case.
 Installation of `pyfftw`
 -------------------
 
-`conda install -c https://conda.anaconda.org/mforbes pyfftw`
+`
+conda install -c https://conda.anaconda.org/mforbes pyfftw
+`
+This command typically downgrades the version of numpy, so please type
+afterwards
+`
+conda upgrade numpy
+`
 
 Bug fix  of `mpi4py` on OSX
 ------------------------

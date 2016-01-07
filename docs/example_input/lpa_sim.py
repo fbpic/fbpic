@@ -20,7 +20,6 @@ where fbpic_object is any of the objects or function of FBPIC.
 # Imports
 # -------
 import numpy as np
-import matplotlib.pyplot as plt
 from scipy.constants import c
 # Import the relevant structures in FBPIC
 from fbpic.main import Simulation
@@ -98,7 +97,8 @@ if p_nr%2 == 1 :
 # Initialize the simulation object
 sim = Simulation( Nz, zmax, Nr, rmax, Nm, dt,
     p_zmin, p_zmax, p_rmin, p_rmax, p_nz, p_nr, p_nt, n_e,
-    dens_func=dens_func, zmin=zmin, use_cuda=use_cuda ) 
+    dens_func=dens_func, zmin=zmin, boundaries='open',
+    use_cuda=use_cuda )
 
 # Add a laser to the fields of the simulation
 add_laser( sim.fld, a0, w0, ctau, z0 )
@@ -107,9 +107,10 @@ add_laser( sim.fld, a0, w0, ctau, z0 )
 sim.set_moving_window( v=v_window )
 
 # Add a field diagnostic
-sim.diags = [ FieldDiagnostic( diag_period, sim.fld, fieldtypes=fieldtypes ),
+sim.diags = [ FieldDiagnostic( diag_period, sim.fld,
+                               fieldtypes=fieldtypes, comm=sim.comm ),
               ParticleDiagnostic( diag_period, {"electrons" : sim.ptcl[0]},
-                                  select={"uz" : [1., None ]} ) ]
+                            select={"uz" : [1., None ]}, comm=sim.comm ) ]
 
 ### Run the simulation
 print('\n Performing %d PIC cycles' % N_step) 
