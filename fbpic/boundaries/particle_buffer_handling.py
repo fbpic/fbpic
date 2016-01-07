@@ -186,7 +186,7 @@ def remove_particles_gpu(species, fld, nguard, left_proc, right_proc):
     # Get the particle indices between which to remove the particles
     # (Take into account the fact that the moving window may have
     # shifted the grid since the particles were last sorted: prefix_sum_shift)
-    prefix_sum = fld.d_prefix_sum
+    prefix_sum = species.prefix_sum
     Nz = fld.Nz
     Nr = fld.Nr
     i_min = prefix_sum.getitem( (nguard+fld.prefix_sum_shift)*Nr )
