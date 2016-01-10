@@ -24,7 +24,8 @@ from scipy.constants import c
 # Import the relevant structures in FBPIC
 from fbpic.main import Simulation
 from fbpic.lpa_utils.laser import add_laser
-from fbpic.openpmd_diag import FieldDiagnostic, ParticleDiagnostic
+from fbpic.openpmd_diag import FieldDiagnostic, ParticleDiagnostic, \
+                                BoostedFieldDiagnostic
 
 # ----------
 # Parameters
@@ -69,6 +70,9 @@ v_window = c       # Speed of the window
 # The diagnostics
 diag_period = 10        # Period of the diagnostics in number of timesteps
 fieldtypes = [ "E", "rho", "B", "J" ]  # The fields that will be written
+# Whether to write the fields in the lab frame
+Ntot_snapshot_lab = 10
+dt_snapshot_lab = 0.1*(zmax-zmin)/c
 
 def dens_func( z, r ):
     """
@@ -80,7 +84,7 @@ def dens_func( z, r ):
     n = np.ones_like(z)
     n = np.where( z < p_zmin, 0., n )
     n = np.where( z > p_zmax, 0., n )
-    
+
     return(n)
 
 # ---------------------------
@@ -91,7 +95,7 @@ def dens_func( z, r ):
 sim = Simulation( Nz, zmax, Nr, rmax, Nm, dt,
     p_zmin, p_zmax, p_rmin, p_rmax, p_nz, p_nr, p_nt, n_e,
     dens_func=dens_func, zmin=zmin, initialize_ions=True,
-    gamma_boost=gamma_boost, boundaries='open' ) 
+    gamma_boost=gamma_boost, boundaries='open' )
 
 # Add a laser to the fields of the simulation
 add_laser( sim.fld, a0, w0, ctau, z0, lambda0=lambda0,
@@ -103,11 +107,12 @@ sim.set_moving_window( v=v_window, gamma_boost=gamma_boost )
 # Add a field diagnostic
 sim.diags = [ FieldDiagnostic(diag_period, sim.fld, sim.comm ),
               ParticleDiagnostic(diag_period,
-                                 {"electrons" : sim.ptcl[0]}, sim.comm) ]
+                                 {"electrons" : sim.ptcl[0]}, sim.comm),
+              BoostedFieldDiagnostic( zmin, zmax, c,
+                dt_snapshot_lab, Ntot_snapshot_lab, gamma_boost,
+                period=diag_period, fldobject=sim.fld, comm=sim.comm) ]
 
 ### Run the simulation
-print('\n Performing %d PIC cycles' % N_step) 
+print('\n Performing %d PIC cycles' % N_step)
 sim.step( N_step )
 print('')
-
-

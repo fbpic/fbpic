@@ -1,5 +1,5 @@
 """
-This file defines the class FieldDiagnostic
+This file defines the class FieldDiagnostic.
 """
 import os
 import numpy as np
@@ -26,7 +26,7 @@ class FieldDiagnostic(OpenPMDDiagnostic):
             The period of the diagnostics, in number of timesteps.
             (i.e. the diagnostics are written whenever the number
             of iterations is divisible by `period`)
-            
+
         fldobject : a Fields object
             Points to the data that has to be written at each output
 
@@ -48,7 +48,7 @@ class FieldDiagnostic(OpenPMDDiagnostic):
         """
         # General setup
         OpenPMDDiagnostic.__init__(self, period, comm, write_dir)
-        
+
         # Register the arguments
         self.fld = fldobject
         self.fieldtypes = fieldtypes
@@ -74,7 +74,7 @@ class FieldDiagnostic(OpenPMDDiagnostic):
         if self.comm is None:
             # No communicator: dump all the present subdomain
             zmin = self.fld.interp[0].zmin
-            Nz = self.fld.interp[0].Nz            
+            Nz = self.fld.interp[0].Nz
         else:
             # Communicator: remove guard cells and combine subdomains
             zmin = self.fld.interp[0].zmin \
@@ -109,7 +109,7 @@ class FieldDiagnostic(OpenPMDDiagnostic):
                     self.write_dataset( field_grp, path, quantity )
             else :
                 raise ValueError("Invalid string in fieldtypes: %s" %fieldtype)
-        
+
         # Close the file (only the first proc does this)
         if f is not None:
             f.close()
@@ -124,12 +124,12 @@ class FieldDiagnostic(OpenPMDDiagnostic):
     def write_dataset( self, field_grp, path, quantity ) :
         """
         Write a given dataset
-    
+
         Parameters
         ----------
         field_grp : an h5py.Group object
             The group that corresponds to the path indicated in meshesPath
-        
+
         path : string
             The relative path where to write the dataset, in field_grp
 
@@ -207,7 +207,7 @@ class FieldDiagnostic(OpenPMDDiagnostic):
 
         zmin: float (meters)
             The position of the left end of the box
-            
+
         dz: float (meters)
             The resolution in z of this diagnostic
 
@@ -220,7 +220,7 @@ class FieldDiagnostic(OpenPMDDiagnostic):
 
         # Create the file
         f = self.open_file( fullpath )
-            
+
         # Setup the different layers of the openPMD file
         # (f is None if this processor does not participate is writing data)
         if f is not None:
@@ -256,7 +256,7 @@ class FieldDiagnostic(OpenPMDDiagnostic):
                             path, data_shape, dtype='f')
                         self.setup_openpmd_mesh_component( dset, quantity )
                     # Setup the record to which they belong
-                    self.setup_openpmd_mesh_record( 
+                    self.setup_openpmd_mesh_record(
                         field_grp[fieldtype], fieldtype, dz, zmin )
 
                 # Unknown field
@@ -266,11 +266,11 @@ class FieldDiagnostic(OpenPMDDiagnostic):
 
             # Close the file
             f.close()
-        
+
     def setup_openpmd_meshes_group( self, dset ) :
         """
         Set the attributes that are specific to the mesh path
-        
+
         Parameter
         ---------
         dset : an h5py.Group object that contains all the mesh quantities
@@ -292,11 +292,11 @@ class FieldDiagnostic(OpenPMDDiagnostic):
         # Charge correction
         dset.attrs["chargeCorrection"] = np.string_("spectral")
         dset.attrs["chargeCorrectionParameters"] = np.string_("period=1")
-        
+
     def setup_openpmd_mesh_record( self, dset, quantity, dz, zmin ) :
         """
         Sets the attributes that are specific to a mesh record
-        
+
         Parameter
         ---------
         dset : an h5py.Dataset or h5py.Group object
@@ -312,7 +312,7 @@ class FieldDiagnostic(OpenPMDDiagnostic):
         """
         # Generic record attributes
         self.setup_openpmd_record( dset, quantity )
-        
+
         # Geometry parameters
         dset.attrs['geometry'] = np.string_("thetaMode")
         dset.attrs['geometryParameters'] = \
@@ -322,7 +322,7 @@ class FieldDiagnostic(OpenPMDDiagnostic):
         dset.attrs["gridGlobalOffset"] = np.array([
             self.fld.interp[0].rmin, zmin ])
         dset.attrs['axisLabels'] = np.array([ 'r', 'z' ])
-            
+
         # Generic attributes
         dset.attrs["dataOrder"] = np.string_("C")
         dset.attrs["gridUnitSI"] = 1.
@@ -331,16 +331,16 @@ class FieldDiagnostic(OpenPMDDiagnostic):
     def setup_openpmd_mesh_component( self, dset, quantity ) :
         """
         Set up the attributes of a mesh component
-    
+
         Parameter
         ---------
         dset : an h5py.Dataset or h5py.Group object
-        
+
         quantity : string
             The field that is being written
         """
         # Generic setup of the component
         self.setup_openpmd_component( dset )
-        
+
         # Field positions
         dset.attrs["position"] = np.array([0.5, 0.5])
