@@ -35,15 +35,15 @@ from fbpic.openpmd_diag import FieldDiagnostic, ParticleDiagnostic, \
 Nz = 800         # Number of gridpoints along z
 zmax = 0.e-6     # Length of the box along z (meters)
 zmin = -40.e-6
-Nr = 100         # Number of gridpoints along r
-rmax = 100.e-6   # Length of the box along r (meters)
+Nr = 150         # Number of gridpoints along r
+rmax = 150.e-6   # Length of the box along r (meters)
 Nm = 2           # Number of modes used
 # The simulation timestep
 dt = (zmax-zmin)/Nz/c   # Timestep (seconds)
-N_step = 200           # Number of iterations to perform
+N_step = 400           # Number of iterations to perform
 
 # Boosted frame
-gamma_boost = 4.
+gamma_boost = 10.
 
 # The particles
 p_zmin = 0.e-6   # Position of the beginning of the plasma (meters)
