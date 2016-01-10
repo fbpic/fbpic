@@ -40,14 +40,15 @@ rmax = 150.e-6   # Length of the box along r (meters)
 Nm = 2           # Number of modes used
 # The simulation timestep
 dt = (zmax-zmin)/Nz/c   # Timestep (seconds)
-N_step = 400           # Number of iterations to perform
+N_step = 50      # Number of iterations to perform 
+                 # (increase this number for a real simulation)
 
 # Boosted frame
-gamma_boost = 10.
+gamma_boost = 15.
 
 # The particles
 p_zmin = 0.e-6   # Position of the beginning of the plasma (meters)
-p_zmax = 100.e-6 # Position of the end of the plasma (meters)
+p_zmax = 10000.e-6 # Position of the end of the plasma (meters)
 p_rmin = 0.      # Minimal radial position of the plasma (meters)
 p_rmax = 90.e-6  # Maximal radial position of the plasma (meters)
 n_e = 1.e24      # The density in the labframe (electrons.meters^-3)
@@ -72,7 +73,7 @@ diag_period = 10        # Period of the diagnostics in number of timesteps
 fieldtypes = [ "E", "rho", "B", "J" ]  # The fields that will be written
 # Whether to write the fields in the lab frame
 Ntot_snapshot_lab = 10
-dt_snapshot_lab = 0.5*(zmax-zmin)/c
+dt_snapshot_lab = (zmax-zmin)/c
 
 def dens_func( z, r ):
     """
