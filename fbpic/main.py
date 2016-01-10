@@ -4,6 +4,7 @@ Fourier-Bessel Particle-In-Cell (FB-PIC) main file
 This file steers and controls the simulation.
 """
 import sys
+import time
 from scipy.constants import m_e, m_p, e, c
 from .particles import Particles
 from .fields import Fields, cuda_installed
@@ -15,7 +16,7 @@ if cuda_installed:
         from cuda_utils import send_data_to_gpu, receive_data_from_gpu
     except ImportError:
         cuda_installed = False
-    
+
 class Simulation(object):
     """
     Top-level simulation class that contains all the simulation
@@ -77,11 +78,11 @@ class Simulation(object):
            Use -1 for infinite order
            Otherwise use a positive, even number. In this case
            the stencil extends up to n_order/2 cells on each side.
-           
+
         zmin: float, optional
            The position of the edge of the simulation box
            (More precisely, the position of the edge of the first cell)
-           
+
         dens_func: callable, optional
            A function of the form:
            def dens_func( z, r ) ...
@@ -94,7 +95,7 @@ class Simulation(object):
 
         filter_currents: bool, optional
             Whether to filter the currents and charge in k space
-           
+
         use_cuda: bool, optional
             Wether to use CUDA (GPU) acceleration
 
@@ -142,7 +143,7 @@ class Simulation(object):
                           zmax=p_zmax, Npr=Npr, rmin=p_rmin, rmax=p_rmax,
                           Nptheta=p_nt, dt=dt, dens_func=dens_func,
                           use_cuda=self.use_cuda, grid_shape=grid_shape ) )
-        
+
         # Register the number of particles per cell along z, and dt
         # (Necessary for the moving window)
         self.dt = dt
@@ -152,7 +153,7 @@ class Simulation(object):
         self.iteration = 0
         # Register the filtering flag
         self.filter_currents = filter_currents
-        
+
         # Do the initial charge deposition (at t=0) now
         self.deposit('rho_prev')
 
@@ -184,7 +185,7 @@ class Simulation(object):
              show_progress=True):
         """
         Perform N PIC cycles
-        
+
         Parameter
         ---------
         N: int, optional
@@ -205,7 +206,7 @@ class Simulation(object):
             Whether to move or freeze the particles' momenta
 
         use_true_rho: bool, optional
-            Wether to use the true rho deposited on the grid for the 
+            Wether to use the true rho deposited on the grid for the
             field push or not. (requires initialize_ions = True)
 
         show_progress: bool, optional
@@ -214,6 +215,8 @@ class Simulation(object):
         # Shortcuts
         ptcl = self.ptcl
         fld = self.fld
+        # Measure the time taken by the PIC cycle
+        measured_start = time.clock()
 
         # Send simulation data to GPU (if CUDA is used)
         if self.use_cuda:
@@ -235,7 +238,7 @@ class Simulation(object):
 
             # Exchange the fields (EB) in the guard cells between domains
             self.comm.exchange_fields(fld.interp, 'EB')
-                
+
             # Check whether this iteration involves
             # particle exchange / moving window
             if self.iteration % self.comm.exchange_period == 0:
@@ -263,7 +266,7 @@ class Simulation(object):
 
             # Standard PIC loop
             # -----------------
-                
+
             # Gather the fields at t = n dt
             for species in ptcl:
                 species.gather( fld.interp )
@@ -309,15 +312,16 @@ class Simulation(object):
         if self.use_cuda:
             receive_data_from_gpu(self)
 
-        # Print a space at the end of the loop, for esthetical reasons
-        if show_progress:
-            print('')
-        
+        # Print the measured time taken by the PIC cycle
+        measured_duration = time.clock() - measured_start
+        if show_progress and (self.comm.rank==0):
+            print('\n Time taken by the loop: %.1f s\n' %measured_duration)
+
     def deposit( self, fieldtype ):
         """
         Deposit the charge or the currents to the interpolation
         grid and then to the spectral grid.
-    
+
         Parameters:
         ------------
         fieldtype: str
@@ -347,7 +351,7 @@ class Simulation(object):
             self.comm.exchange_fields(fld.interp, 'J')
         else:
             raise ValueError('Unknown fieldtype: %s' %fieldtype)
-            
+
         # Get the charge or currents on the spectral grid
         fld.interp2spect( fieldtype )
         if self.filter_currents:
@@ -367,7 +371,7 @@ def adapt_to_grid( x, p_xmin, p_xmax, p_nx, ncells_empty=0 ):
     Adapt p_xmin and p_xmax, so that they fall exactly on the grid x
     Return the total number of particles, assuming p_nx particles
     per gridpoint
-    
+
     Parameters
     ----------
     x: 1darray
@@ -383,7 +387,7 @@ def adapt_to_grid( x, p_xmin, p_xmax, p_nx, ncells_empty=0 ):
     ncells_empty: int
         Number of empty cells at the righthand side of the box
         (Typically used when using a moving window)
-        
+
     Returns
     -------
     A tuple with:
@@ -391,12 +395,12 @@ def adapt_to_grid( x, p_xmin, p_xmax, p_nx, ncells_empty=0 ):
        - p_xmax: a float that falls exactly on the grid
        - Npx: the total number of particles
     """
-    
+
     # Find the max and the step of the array
     xmin = x.min()
     xmax = x.max()
     dx = x[1] - x[0]
-    
+
     # Do not load particles below the lower bound of the box
     if p_xmin < xmin - 0.5*dx:
         p_xmin = xmin - 0.5*dx
@@ -407,7 +411,7 @@ def adapt_to_grid( x, p_xmin, p_xmax, p_nx, ncells_empty=0 ):
     # at the left boundary.)
     if p_xmax > xmax + (0.5-ncells_empty)*dx:
         p_xmax = xmax + (0.5-ncells_empty)*dx
-    
+
     # Find the gridpoints on which the particles should be loaded
     x_load = x[ ( x > p_xmin ) & ( x < p_xmax ) ]
     # Deduce the total number of particles
@@ -417,4 +421,4 @@ def adapt_to_grid( x, p_xmin, p_xmax, p_nx, ncells_empty=0 ):
         p_xmin = x_load.min() - 0.5*dx
         p_xmax = x_load.max() + 0.5*dx
 
-    return( p_xmin, p_xmax, Npx )    
+    return( p_xmin, p_xmax, Npx )
