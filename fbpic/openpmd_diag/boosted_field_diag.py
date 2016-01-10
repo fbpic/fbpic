@@ -72,7 +72,7 @@ class BoostedFieldDiagnostic(FieldDiagnostic):
         # Find the z resolution and size of the diagnostic *in the lab frame*
         # (Needed to initialize metadata in the openPMD file)
         dz_lab = c*self.fld.dt * self.inv_beta_boost*self.inv_gamma_boost
-        Nz = int( (zmax_lab - zmin_lab)/dz_lab )
+        Nz = int( (zmax_lab - zmin_lab)/dz_lab ) + 1
         self.inv_dz_lab = 1./dz_lab
 
         # Create the list of LabSnapshot objects
@@ -304,7 +304,14 @@ class LabSnapshot:
             Inverse of the grid spacing in z, *in the lab frame*
         """
         # Find the index of the slice in the lab frame
-        iz_lab = int( (self.current_z_lab - self.zmin_lab)*inv_dz_lab )
+        if self.buffer_z_indices == []:
+            # No previous index: caculate it from the absolute z_lab
+            iz_lab = int( (self.current_z_lab - self.zmin_lab)*inv_dz_lab )
+        else:
+            # By construction, this index shoud be the previous index - 1
+            # Handling integers avoids unstable roundoff errors, when
+            # self.current_z_lab is very close to zmin_lab + iz_lab*dz_lab
+            iz_lab = self.buffer_z_indices[-1] - 1
 
         # Store the values and the index
         self.buffered_slices.append( slice_array )
