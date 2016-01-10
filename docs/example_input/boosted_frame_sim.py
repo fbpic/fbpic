@@ -32,35 +32,35 @@ from fbpic.openpmd_diag import FieldDiagnostic, ParticleDiagnostic, \
 # ----------
 
 # The simulation box
-Nz = 400         # Number of gridpoints along z
+Nz = 800         # Number of gridpoints along z
 zmax = 0.e-6     # Length of the box along z (meters)
-zmin = -20.e-6
+zmin = -40.e-6
 Nr = 100         # Number of gridpoints along r
-rmax = 40.e-6    # Length of the box along r (meters)
+rmax = 100.e-6   # Length of the box along r (meters)
 Nm = 2           # Number of modes used
 # The simulation timestep
 dt = (zmax-zmin)/Nz/c   # Timestep (seconds)
-N_step = 400           # Number of iterations to perform
+N_step = 200           # Number of iterations to perform
 
 # Boosted frame
 gamma_boost = 4.
 
 # The particles
-p_zmin = 5.e-6  # Position of the beginning of the plasma (meters)
+p_zmin = 0.e-6   # Position of the beginning of the plasma (meters)
 p_zmax = 100.e-6 # Position of the end of the plasma (meters)
 p_rmin = 0.      # Minimal radial position of the plasma (meters)
-p_rmax = 18.e-6  # Maximal radial position of the plasma (meters)
-n_e = 5.e25      # The density in the labframe (electrons.meters^-3)
-p_nz = 4         # Number of particles per cell along z
-p_nr = 4         # Number of particles per cell along r
+p_rmax = 90.e-6  # Maximal radial position of the plasma (meters)
+n_e = 1.e24      # The density in the labframe (electrons.meters^-3)
+p_nz = 2         # Number of particles per cell along z
+p_nr = 2         # Number of particles per cell along r
 p_nt = 4         # Number of particles per cell along theta
 uz_m = 0.        # Initial momentum of the electrons in the lab frame
 
 # The laser
-a0 = 4.          # Laser amplitude
-w0 = 5.e-6       # Laser waist
-ctau = 5.e-6     # Laser duration
-z0 = -10.e-6     # Laser centroid
+a0 = 2.          # Laser amplitude
+w0 = 50.e-6      # Laser waist
+ctau = 9.e-6     # Laser duration
+z0 = -20.e-6     # Laser centroid
 zfoc = 0.e-6     # Focal position
 lambda0 = 0.8e-6 # Laser wavelength
 
@@ -72,7 +72,7 @@ diag_period = 10        # Period of the diagnostics in number of timesteps
 fieldtypes = [ "E", "rho", "B", "J" ]  # The fields that will be written
 # Whether to write the fields in the lab frame
 Ntot_snapshot_lab = 10
-dt_snapshot_lab = 0.1*(zmax-zmin)/c
+dt_snapshot_lab = 0.5*(zmax-zmin)/c
 
 def dens_func( z, r ):
     """
