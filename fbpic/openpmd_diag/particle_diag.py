@@ -36,8 +36,10 @@ class ParticleDiagnostic(OpenPMDDiagnostic) :
             is assigned to the particleName of this species.
             (e.g. {"electrons" : elec })
 
-        comm : an fbpic MPI_Communicator object
-            Use None for single-proc simulation
+        comm : an fbpic BoundaryCommunicator object or None
+            If this is not None, the data is gathered on the first proc
+            Otherwise, each proc writes its own data.
+            (Make sure to use different write_dir in this case.)
             
         particle_data : a list of strings, optional 
             The particle properties are given by:
@@ -155,11 +157,11 @@ class ParticleDiagnostic(OpenPMDDiagnostic) :
         # Create the file and setup the openPMD structure (only first proc)
         if self.rank == 0:
             filename = "data%08d.h5" %iteration
-            fullpath = os.path.join( self.write_dir, "diags/hdf5", filename )
+            fullpath = os.path.join( self.write_dir, "hdf5", filename )
             f = h5py.File( fullpath, mode="a" )
 
             # Setup its attributes
-            self.setup_openpmd_file( f, self.dt, iteration*self.dt, iteration )
+            self.setup_openpmd_file( f, iteration, iteration*self.dt, self.dt)
 
         # Loop over the different species and 
         # particle quantities that should be written
