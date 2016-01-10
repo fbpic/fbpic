@@ -9,6 +9,7 @@
 notebooks/*
 references/*
 docs/article/Spectral_circ.pdf
+tests/__pycache__
 
 fbpic/Makefile
 

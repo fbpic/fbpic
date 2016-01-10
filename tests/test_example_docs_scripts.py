@@ -56,7 +56,7 @@ def test_boosted_frame_sim_singleproc():
     os.chdir( temporary_dir )
     # The globals command make sure that the package which
     # are imported within the script can be used here.
-    execfile( 'lpa_sim.py', globals(), globals() )
+    execfile( 'boosted_frame_sim.py', globals(), globals() )
 
     # Exit the temporary directory and suppress it
     os.chdir('../../')
