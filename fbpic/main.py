@@ -216,7 +216,7 @@ class Simulation(object):
         ptcl = self.ptcl
         fld = self.fld
         # Measure the time taken by the PIC cycle
-        measured_start = time.clock()
+        measured_start = time.time()
 
         # Send simulation data to GPU (if CUDA is used)
         if self.use_cuda:
@@ -313,7 +313,7 @@ class Simulation(object):
             receive_data_from_gpu(self)
 
         # Print the measured time taken by the PIC cycle
-        measured_duration = time.clock() - measured_start
+        measured_duration = time.time() - measured_start
         if show_progress and (self.comm.rank==0):
             print('\n Time taken by the loop: %.1f s\n' %measured_duration)
 
