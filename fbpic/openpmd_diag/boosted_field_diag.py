@@ -610,7 +610,7 @@ if cuda_installed:
         complex128[:,:], complex128[:,:], complex128[:,:], \
         complex128[:,:], complex128[:,:], complex128[:,:], \
         complex128[:,:], complex128[:,:], complex128[:,:], complex128[:,:])')
-    def extract_slice_cuda( Nr, iz, Sz, slice_array,
+    def extract_slice_cuda( Nr, iz, Sz, slice_arr,
         Er0, Et0, Ez0, Br0, Bt0, Bz0, Jr0, Jt0, Jz0, rho0,
         Er1, Et1, Ez1, Br1, Bt1, Bz1, Jr1, Jt1, Jz1, rho1 ):
         """
@@ -628,7 +628,7 @@ if cuda_installed:
         Sz: float
             Interpolation shape factor used at iz
 
-        slice_array: cuda.device_array
+        slice_arr: cuda.device_array
             Array of floats of shape (10, 2*Nm-1, Nr)
 
         Er0, Et0, etc...: cuda.device_array
@@ -645,38 +645,46 @@ if cuda_installed:
             # and store it into pre-packed arrays
 
             # Mode 0
-            slice_array[0,0,ir] = Sz*Er0[iz, ir].real + Szp*Er0[izp, ir].real
-            slice_array[1,0,ir] = Sz*Et0[iz, ir].real + Szp*Et0[izp, ir].real
-            slice_array[2,0,ir] = Sz*Ez0[iz, ir].real + Szp*Ez0[izp, ir].real
-            slice_array[3,0,ir] = Sz*Br0[iz, ir].real + Szp*Br0[izp, ir].real
-            slice_array[4,0,ir] = Sz*Bt0[iz, ir].real + Szp*Bt0[izp, ir].real
-            slice_array[5,0,ir] = Sz*Bz0[iz, ir].real + Szp*Bz0[izp, ir].real
-            slice_array[6,0,ir] = Sz*Jr0[iz, ir].real + Szp*Jr0[izp, ir].real
-            slice_array[7,0,ir] = Sz*Jt0[iz, ir].real + Szp*Jt0[izp, ir].real
-            slice_array[8,0,ir] = Sz*Jz0[iz, ir].real + Szp*Jz0[izp, ir].real
-            slice_array[9,0,ir] = Sz*rho0[iz, ir].real + \
-                                    Szp*rho0[izp, ir].real
+            slice_arr[0,0,ir] = Sz*Er0[iz,ir].real + Szp*Er0[izp,ir].real
+            slice_arr[1,0,ir] = Sz*Et0[iz,ir].real + Szp*Et0[izp,ir].real
+            slice_arr[2,0,ir] = Sz*Ez0[iz,ir].real + Szp*Ez0[izp,ir].real
+            slice_arr[3,0,ir] = Sz*Br0[iz,ir].real + Szp*Br0[izp,ir].real
+            slice_arr[4,0,ir] = Sz*Bt0[iz,ir].real + Szp*Bt0[izp,ir].real
+            slice_arr[5,0,ir] = Sz*Bz0[iz,ir].real + Szp*Bz0[izp,ir].real
+            slice_arr[6,0,ir] = Sz*Jr0[iz,ir].real + Szp*Jr0[izp,ir].real
+            slice_arr[7,0,ir] = Sz*Jt0[iz,ir].real + Szp*Jt0[izp,ir].real
+            slice_arr[8,0,ir] = Sz*Jz0[iz,ir].real + Szp*Jz0[izp,ir].real
+            slice_arr[9,0,ir] = Sz*rho0[iz,ir].real + \
+                                    Szp*rho0[izp,ir].real
+            # Get the higher modes
+            # There is a factor 2 here so as to comply with the convention in
+            # Lifschitz et al., which is also the convention of Warp
+            # For better performance, this factor is included in the shape
+            # factors ('t' stands for 'twice' below) 
+            tSz = 2*Sz
+            tSzp = 2*Szp
+
             # Mode 1 (real part)
-            slice_array[0,1,ir] = Sz*Er1[iz, ir].real + Szp*Er1[izp, ir].real
-            slice_array[1,1,ir] = Sz*Et1[iz, ir].real + Szp*Et1[izp, ir].real
-            slice_array[2,1,ir] = Sz*Ez1[iz, ir].real + Szp*Ez1[izp, ir].real
-            slice_array[3,1,ir] = Sz*Br1[iz, ir].real + Szp*Br1[izp, ir].real
-            slice_array[4,1,ir] = Sz*Bt1[iz, ir].real + Szp*Bt1[izp, ir].real
-            slice_array[5,1,ir] = Sz*Bz1[iz, ir].real + Szp*Bz1[izp, ir].real
-            slice_array[6,1,ir] = Sz*Jr1[iz, ir].real + Szp*Jr1[izp, ir].real
-            slice_array[7,1,ir] = Sz*Jt1[iz, ir].real + Szp*Jt1[izp, ir].real
-            slice_array[8,1,ir] = Sz*Jz1[iz, ir].real + Szp*Jz1[izp, ir].real
-            slice_array[9,1,ir] = Sz*rho1[iz, ir].imag + \
-                                    Szp*rho1[izp, ir].real
+            slice_arr[0,1,ir] = tSz*Er1[iz,ir].real + tSzp*Er1[izp,ir].real
+            slice_arr[1,1,ir] = tSz*Et1[iz,ir].real + tSzp*Et1[izp,ir].real
+            slice_arr[2,1,ir] = tSz*Ez1[iz,ir].real + tSzp*Ez1[izp,ir].real
+            slice_arr[3,1,ir] = tSz*Br1[iz,ir].real + tSzp*Br1[izp,ir].real
+            slice_arr[4,1,ir] = tSz*Bt1[iz,ir].real + tSzp*Bt1[izp,ir].real
+            slice_arr[5,1,ir] = tSz*Bz1[iz,ir].real + tSzp*Bz1[izp,ir].real
+            slice_arr[6,1,ir] = tSz*Jr1[iz,ir].real + tSzp*Jr1[izp,ir].real
+            slice_arr[7,1,ir] = tSz*Jt1[iz,ir].real + tSzp*Jt1[izp,ir].real
+            slice_arr[8,1,ir] = tSz*Jz1[iz,ir].real + tSzp*Jz1[izp,ir].real
+            slice_arr[9,1,ir] = tSz*rho1[iz,ir].imag + \
+                                    tSzp*rho1[izp,ir].real
             # Mode 1 (imaginary part)
-            slice_array[0,2,ir] = Sz*Er1[iz, ir].imag + Szp*Er1[izp, ir].imag
-            slice_array[1,2,ir] = Sz*Et1[iz, ir].imag + Szp*Et1[izp, ir].imag
-            slice_array[2,2,ir] = Sz*Ez1[iz, ir].imag + Szp*Ez1[izp, ir].imag
-            slice_array[3,2,ir] = Sz*Br1[iz, ir].imag + Szp*Br1[izp, ir].imag
-            slice_array[4,2,ir] = Sz*Bt1[iz, ir].imag + Szp*Bt1[izp, ir].imag
-            slice_array[5,2,ir] = Sz*Bz1[iz, ir].imag + Szp*Bz1[izp, ir].imag
-            slice_array[6,2,ir] = Sz*Jr1[iz, ir].imag + Szp*Jr1[izp, ir].imag
-            slice_array[7,2,ir] = Sz*Jt1[iz, ir].imag + Szp*Jt1[izp, ir].imag
-            slice_array[8,2,ir] = Sz*Jz1[iz, ir].imag + Szp*Jz1[izp, ir].imag
-            slice_array[9,2,ir] = Sz*rho1[iz, ir].imag + \
-                                    Szp*rho1[izp, ir].imag
+            slice_arr[0,2,ir] = tSz*Er1[iz,ir].imag + tSzp*Er1[izp,ir].imag
+            slice_arr[1,2,ir] = tSz*Et1[iz,ir].imag + tSzp*Et1[izp,ir].imag
+            slice_arr[2,2,ir] = tSz*Ez1[iz,ir].imag + tSzp*Ez1[izp,ir].imag
+            slice_arr[3,2,ir] = tSz*Br1[iz,ir].imag + tSzp*Br1[izp,ir].imag
+            slice_arr[4,2,ir] = tSz*Bt1[iz,ir].imag + tSzp*Bt1[izp,ir].imag
+            slice_arr[5,2,ir] = tSz*Bz1[iz,ir].imag + tSzp*Bz1[izp,ir].imag
+            slice_arr[6,2,ir] = tSz*Jr1[iz,ir].imag + tSzp*Jr1[izp,ir].imag
+            slice_arr[7,2,ir] = tSz*Jt1[iz,ir].imag + tSzp*Jt1[izp,ir].imag
+            slice_arr[8,2,ir] = tSz*Jz1[iz,ir].imag + tSzp*Jz1[izp,ir].imag
+            slice_arr[9,2,ir] = tSz*rho1[iz,ir].imag + \
+                                    tSzp*rho1[izp,ir].imag
