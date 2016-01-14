@@ -596,8 +596,8 @@ class SliceHandler:
         # For rho and J
         # (NB: the transverse components of J are unchanged)
         # Use temporary arrays when changing rho and Jz in place
-        rho_lab = gamma*( fields[f2i['rho']] + 0*beta_c * fields[f2i['Jz']] )
-        Jz_lab =  gamma*( fields[f2i['Jz']] + 0*cbeta * fields[f2i['rho']] )
+        rho_lab = gamma*( fields[f2i['rho']] + beta_c * fields[f2i['Jz']] )
+        Jz_lab =  gamma*( fields[f2i['Jz']] + cbeta * fields[f2i['rho']] )
         fields[ f2i['rho'], ... ] = rho_lab
         fields[ f2i['Jz'], ... ] = Jz_lab
 
@@ -674,7 +674,7 @@ if cuda_installed:
             slice_arr[6,1,ir] = tSz*Jr1[iz,ir].real + tSzp*Jr1[izp,ir].real
             slice_arr[7,1,ir] = tSz*Jt1[iz,ir].real + tSzp*Jt1[izp,ir].real
             slice_arr[8,1,ir] = tSz*Jz1[iz,ir].real + tSzp*Jz1[izp,ir].real
-            slice_arr[9,1,ir] = tSz*rho1[iz,ir].imag + \
+            slice_arr[9,1,ir] = tSz*rho1[iz,ir].real + \
                                     tSzp*rho1[izp,ir].real
             # Mode 1 (imaginary part)
             slice_arr[0,2,ir] = tSz*Er1[iz,ir].imag + tSzp*Er1[izp,ir].imag
