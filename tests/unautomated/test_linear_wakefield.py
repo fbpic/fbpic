@@ -14,7 +14,7 @@ from scipy.constants import c, e, m_e, epsilon_0
 from scipy.integrate import quad
 # Import the relevant structures in FBPIC
 from fbpic.main import Simulation
-from fbpic.lpa_utils import add_laser
+from fbpic.lpa_utils.laser import add_laser
 
 from fbpic.openpmd_diag import FieldDiagnostic, ParticleDiagnostic
 

@@ -28,7 +28,7 @@ try :
         get_cell_idx_per_particle, sort_particles_per_cell, \
         reset_prefix_sum, incl_prefix_sum, add_rho, add_J
     cuda_installed = True
-except :
+except ImportError:
     cuda_installed = False
 
 
@@ -58,17 +58,17 @@ class Particles(object) :
         Parameters
         ----------
         q : float (in Coulombs)
-           Charge of the particle species 
+           Charge of the particle species
 
         m : float (in kg)
-           Mass of the particle species 
+           Mass of the particle species
 
         n : float (in particles per m^3)
            Peak density of particles
-           
+
         Npz : int
            Number of macroparticles along the z axis
-           
+
         zmin, zmax : floats (in meters)
            z positions between which the particles are initialized
 
@@ -93,7 +93,7 @@ class Particles(object) :
 
         ux_th, uy_th, uz_th: floats (dimensionless), optional
            Normalized thermal momenta in each direction
-           
+
         dens_func : callable, optional
            A function of the form :
            def dens_func( z, r ) ...
@@ -107,7 +107,7 @@ class Particles(object) :
 
         use_numba : bool, optional
             Whether to use numba-compiled code on the CPU
-           
+
         use_cuda : bool, optional
             Wether to use the GPU or not. Overrides use_numba.
 
@@ -135,7 +135,7 @@ class Particles(object) :
             self.use_numba = False
         if (self.use_numba==True) and (numba_installed==False) :
             print 'Numba is not installed ; the code will be slow.'
-        
+
         # Register the properties of the particles
         # (Necessary for the pusher, and when adding more particles later, )
         Ntot = Npz*Npr*Nptheta
@@ -172,7 +172,7 @@ class Particles(object) :
         self.y = np.empty( Ntot )
         self.z = np.empty( Ntot )
         self.w = np.empty( Ntot )
-        
+
         if Ntot > 0 :
             # Get the 1d arrays of evenly-spaced positions for the particles
             dz = (zmax-zmin)*1./Npz
@@ -295,8 +295,8 @@ class Particles(object) :
             # Write particle data to particle buffer array while rearranging
             write_sorting_buffer[dim_grid_1d, dim_block_1d](
                 self.sorted_idx, val, self.sorting_buffer)
-            # Assign the particle buffer to 
-            # the initial particle data array 
+            # Assign the particle buffer to
+            # the initial particle data array
             setattr(self, attr, self.sorting_buffer)
             # Assign the old particle data array to
             # the particle buffer
@@ -312,7 +312,7 @@ class Particles(object) :
         them one half-timestep *ahead* of the positions.
         """
         if self.use_numba :
-            push_p_numba(self.ux, self.uy, self.uz, self.inv_gamma, 
+            push_p_numba(self.ux, self.uy, self.uz, self.inv_gamma,
                     self.Ex, self.Ey, self.Ez, self.Bx, self.By, self.Bz,
                     self.q, self.m, self.Ntot, self.dt )
         elif self.use_cuda:
@@ -325,14 +325,14 @@ class Particles(object) :
                     self.Bx, self.By, self.Bz,
                     self.q, self.m, self.Ntot, self.dt )
         else :
-            push_p_numpy(self.ux, self.uy, self.uz, self.inv_gamma, 
+            push_p_numpy(self.ux, self.uy, self.uz, self.inv_gamma,
                     self.Ex, self.Ey, self.Ez, self.Bx, self.By, self.Bz,
                     self.q, self.m, self.Ntot, self.dt )
-        
+
     def halfpush_x( self ) :
         """
         Advance the particles' positions over one half-timestep
-        
+
         This assumes that the positions (x, y, z) are initially either
         one half-timestep *behind* the momenta (ux, uy, uz), or at the
         same timestep as the momenta.
@@ -358,7 +358,7 @@ class Particles(object) :
 
         This assumes that the particle positions are currently at
         the same timestep as the field that is to be gathered.
-        
+
         Parameter
         ----------
         grid : a list of InterpolationGrid objects
@@ -397,7 +397,7 @@ class Particles(object) :
             # Number of modes considered :
             # number of elements in the grid list
             Nm = len(grid)
-            
+
             # -------------------------------
             # Gather the E field mode by mode
             # -------------------------------
@@ -422,29 +422,29 @@ class Particles(object) :
                 # depends on whether the fields should be zero on axis)
                 if self.use_numba:
                     # Use numba
-                    gather_field_numba( exptheta, m, grid[m].Er, Fr, 
+                    gather_field_numba( exptheta, m, grid[m].Er, Fr,
                         iz_lower, iz_upper, Sz_lower, Sz_upper,
                         ir_lower, ir_upper, Sr_lower, Sr_upper,
                         -(-1.)**m, Sr_guard )
-                    gather_field_numba( exptheta, m, grid[m].Et, Ft, 
+                    gather_field_numba( exptheta, m, grid[m].Et, Ft,
                         iz_lower, iz_upper, Sz_lower, Sz_upper,
                         ir_lower, ir_upper, Sr_lower, Sr_upper,
                         -(-1.)**m, Sr_guard )
-                    gather_field_numba( exptheta, m, grid[m].Ez, self.Ez, 
+                    gather_field_numba( exptheta, m, grid[m].Ez, self.Ez,
                         iz_lower, iz_upper, Sz_lower, Sz_upper,
                         ir_lower, ir_upper, Sr_lower, Sr_upper,
                         (-1.)**m, Sr_guard )
                 else:
                     # Use numpy (slower)
-                    gather_field_numpy( exptheta, m, grid[m].Er, Fr, 
+                    gather_field_numpy( exptheta, m, grid[m].Er, Fr,
                         iz_lower, iz_upper, Sz_lower, Sz_upper,
                         ir_lower, ir_upper, Sr_lower, Sr_upper,
                         -(-1.)**m, Sr_guard )
-                    gather_field_numpy( exptheta, m, grid[m].Et, Ft, 
+                    gather_field_numpy( exptheta, m, grid[m].Et, Ft,
                         iz_lower, iz_upper, Sz_lower, Sz_upper,
                         ir_lower, ir_upper, Sr_lower, Sr_upper,
                         -(-1.)**m, Sr_guard )
-                    gather_field_numpy( exptheta, m, grid[m].Ez, self.Ez, 
+                    gather_field_numpy( exptheta, m, grid[m].Ez, self.Ez,
                         iz_lower, iz_upper, Sz_lower, Sz_upper,
                         ir_lower, ir_upper, Sr_lower, Sr_upper,
                         (-1.)**m, Sr_guard )
@@ -477,29 +477,29 @@ class Particles(object) :
                 # depends on whether the fields should be zero on axis)
                 if self.use_numba:
                     # Use numba
-                    gather_field_numba( exptheta, m, grid[m].Br, Fr, 
+                    gather_field_numba( exptheta, m, grid[m].Br, Fr,
                         iz_lower, iz_upper, Sz_lower, Sz_upper,
                         ir_lower, ir_upper, Sr_lower, Sr_upper,
                         -(-1.)**m, Sr_guard )
-                    gather_field_numba( exptheta, m, grid[m].Bt, Ft, 
+                    gather_field_numba( exptheta, m, grid[m].Bt, Ft,
                         iz_lower, iz_upper, Sz_lower, Sz_upper,
                         ir_lower, ir_upper, Sr_lower, Sr_upper,
                         -(-1.)**m, Sr_guard )
-                    gather_field_numba( exptheta, m, grid[m].Bz, self.Bz, 
+                    gather_field_numba( exptheta, m, grid[m].Bz, self.Bz,
                         iz_lower, iz_upper, Sz_lower, Sz_upper,
                         ir_lower, ir_upper, Sr_lower, Sr_upper,
                         (-1.)**m, Sr_guard )
                 else:
                     # Use numpy (slower)
-                    gather_field_numpy( exptheta, m, grid[m].Br, Fr, 
+                    gather_field_numpy( exptheta, m, grid[m].Br, Fr,
                         iz_lower, iz_upper, Sz_lower, Sz_upper,
                         ir_lower, ir_upper, Sr_lower, Sr_upper,
                         -(-1.)**m, Sr_guard )
-                    gather_field_numpy( exptheta, m, grid[m].Bt, Ft, 
+                    gather_field_numpy( exptheta, m, grid[m].Bt, Ft,
                         iz_lower, iz_upper, Sz_lower, Sz_upper,
                         ir_lower, ir_upper, Sr_lower, Sr_upper,
                         -(-1.)**m, Sr_guard )
-                    gather_field_numpy( exptheta, m, grid[m].Bz, self.Bz, 
+                    gather_field_numpy( exptheta, m, grid[m].Bz, self.Bz,
                         iz_lower, iz_upper, Sz_lower, Sz_upper,
                         ir_lower, ir_upper, Sr_lower, Sr_upper,
                         (-1.)**m, Sr_guard )
@@ -507,17 +507,17 @@ class Particles(object) :
             self.Bx[:] = cos*Fr - sin*Ft
             self.By[:] = sin*Fr + cos*Ft
 
-        
+
     def deposit( self, fld, fieldtype ) :
         """
         Deposit the particles charge or current onto the grid, using numpy
-        
+
         This assumes that the particle positions (and momenta in the case of J)
         are currently at the same timestep as the field that is to be deposited
-        
+
         Parameter
         ----------
-        fld : a Field object 
+        fld : a Field object
              Contains the list of InterpolationGrid objects with
              the field values as well as the prefix sum.
 
@@ -532,11 +532,11 @@ class Particles(object) :
             # Get the threads per block and the blocks per grid
             dim_grid_2d_flat, dim_block_2d_flat = cuda_tpb_bpg_1d(
                                                     grid[0].Nz*grid[0].Nr )
-            dim_grid_2d, dim_block_2d = cuda_tpb_bpg_2d( 
+            dim_grid_2d, dim_block_2d = cuda_tpb_bpg_2d(
                                           grid[0].Nz, grid[0].Nr )
 
             # Create the helper arrays for deposition
-            d_F0, d_F1, d_F2, d_F3 = cuda_deposition_arrays( 
+            d_F0, d_F1, d_F2, d_F3 = cuda_deposition_arrays(
                 grid[0].Nz, grid[0].Nr, fieldtype = fieldtype )
 
             # Sort the particles
@@ -551,8 +551,8 @@ class Particles(object) :
             if fieldtype == 'rho':
                 # Deposit rho in each of four directions
                 deposit_rho_gpu[dim_grid_2d_flat, dim_block_2d_flat](
-                    self.x, self.y, self.z, self.w, 
-                    grid[0].invdz, grid[0].zmin, grid[0].Nz, 
+                    self.x, self.y, self.z, self.w,
+                    grid[0].invdz, grid[0].zmin, grid[0].Nz,
                     grid[0].invdr, grid[0].rmin, grid[0].Nr,
                     d_F0, d_F1, d_F2, d_F3,
                     self.cell_idx, self.prefix_sum)
@@ -566,7 +566,7 @@ class Particles(object) :
                 deposit_J_gpu[dim_grid_2d_flat, dim_block_2d_flat](
                     self.x, self.y, self.z, self.w,
                     self.ux, self.uy, self.uz, self.inv_gamma,
-                    grid[0].invdz, grid[0].zmin, grid[0].Nz, 
+                    grid[0].invdz, grid[0].zmin, grid[0].Nz,
                     grid[0].invdr, grid[0].rmin, grid[0].Nr,
                     d_F0, d_F1, d_F2, d_F3,
                     self.cell_idx, self.prefix_sum)
@@ -581,7 +581,7 @@ class Particles(object) :
         "`fieldtype` should be either 'J' or 'rho', but is `%s`" %fieldtype )
 
         # CPU version
-        else:       
+        else:
             # Preliminary arrays for the cylindrical conversion
             r = np.sqrt( self.x**2 + self.y**2 )
             # Avoid division by 0.
@@ -590,7 +590,7 @@ class Particles(object) :
             sin = np.where( r!=0., self.y*invr, 0. )
 
             # Indices and weights
-            iz_lower, iz_upper, Sz_lower, Sz_upper = linear_weights( 
+            iz_lower, iz_upper, Sz_lower, Sz_upper = linear_weights(
                 self.z, grid[0].invdz, grid[0].zmin, grid[0].Nz, direction='z')
             ir_lower, ir_upper, Sr_lower, Sr_upper, Sr_guard = linear_weights(
                 r, grid[0].invdr, grid[0].rmin, grid[0].Nr, direction='r')
@@ -618,13 +618,13 @@ class Particles(object) :
                     # trivial to derive but avoids artifacts on the axis)
                     if self.use_numba :
                         # Use numba
-                        deposit_field_numba( self.w*exptheta, grid[m].rho, 
+                        deposit_field_numba( self.w*exptheta, grid[m].rho,
                             iz_lower, iz_upper, Sz_lower, Sz_upper,
                             ir_lower, ir_upper, Sr_lower, Sr_upper,
                             -1., Sr_guard )
                     else:
                         # Use numpy (slower)
-                        deposit_field_numpy( self.w*exptheta, grid[m].rho, 
+                        deposit_field_numpy( self.w*exptheta, grid[m].rho,
                             iz_lower, iz_upper, Sz_lower, Sz_upper,
                             ir_lower, ir_upper, Sr_lower, Sr_upper,
                             -1., Sr_guard )
@@ -652,29 +652,29 @@ class Particles(object) :
                     # trivial to derive but avoids artifacts on the axis)
                     if self.use_numba:
                         # Use numba
-                        deposit_field_numba( Jr*exptheta, grid[m].Jr, 
+                        deposit_field_numba( Jr*exptheta, grid[m].Jr,
                             iz_lower, iz_upper, Sz_lower, Sz_upper,
                             ir_lower, ir_upper, Sr_lower, Sr_upper,
                             -1., Sr_guard )
-                        deposit_field_numba( Jt*exptheta, grid[m].Jt, 
+                        deposit_field_numba( Jt*exptheta, grid[m].Jt,
                             iz_lower, iz_upper, Sz_lower, Sz_upper,
                             ir_lower, ir_upper, Sr_lower, Sr_upper,
                             -1., Sr_guard )
-                        deposit_field_numba( Jz*exptheta, grid[m].Jz, 
+                        deposit_field_numba( Jz*exptheta, grid[m].Jz,
                             iz_lower, iz_upper, Sz_lower, Sz_upper,
                             ir_lower, ir_upper, Sr_lower, Sr_upper,
                             -1., Sr_guard )
                     else:
                         # Use numpy (slower)
-                        deposit_field_numpy( Jr*exptheta, grid[m].Jr, 
+                        deposit_field_numpy( Jr*exptheta, grid[m].Jr,
                             iz_lower, iz_upper, Sz_lower, Sz_upper,
                             ir_lower, ir_upper, Sr_lower, Sr_upper,
                             -1., Sr_guard )
-                        deposit_field_numpy( Jt*exptheta, grid[m].Jt, 
+                        deposit_field_numpy( Jt*exptheta, grid[m].Jt,
                             iz_lower, iz_upper, Sz_lower, Sz_upper,
                             ir_lower, ir_upper, Sr_lower, Sr_upper,
                             -1., Sr_guard )
-                        deposit_field_numpy( Jz*exptheta, grid[m].Jz, 
+                        deposit_field_numpy( Jz*exptheta, grid[m].Jz,
                             iz_lower, iz_upper, Sz_lower, Sz_upper,
                             ir_lower, ir_upper, Sr_lower, Sr_upper,
                             -1., Sr_guard )
@@ -689,10 +689,10 @@ class Particles(object) :
         2. Sort field cell index
         3. Parallel prefix sum
         4. Rearrange particle arrays
-        
+
         Parameter
         ----------
-        fld : a Field object 
+        fld : a Field object
              Contains the list of InterpolationGrid objects with
              the field values as well as the prefix sum.
         """
@@ -705,17 +705,17 @@ class Particles(object) :
         # ------------------------
         # Sorting of the particles
         # ------------------------
-        # Get the cell index of each particle 
+        # Get the cell index of each particle
         # (defined by iz_lower and ir_lower)
         get_cell_idx_per_particle[dim_grid_1d, dim_block_1d](
             self.cell_idx,
-            self.sorted_idx, 
-            self.x, self.y, self.z, 
-            grid[0].invdz, grid[0].zmin, grid[0].Nz, 
+            self.sorted_idx,
+            self.x, self.y, self.z,
+            grid[0].invdz, grid[0].zmin, grid[0].Nz,
             grid[0].invdr, grid[0].rmin, grid[0].Nr)
         # Sort the cell index array and modify the sorted_idx array
-        # accordingly. The value of the sorted_idx array corresponds 
-        # to the index of the sorted particle in the other particle 
+        # accordingly. The value of the sorted_idx array corresponds
+        # to the index of the sorted particle in the other particle
         # arrays.
         sort_particles_per_cell(self.cell_idx, self.sorted_idx)
         # Reset the old prefix sum

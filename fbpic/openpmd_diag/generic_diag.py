@@ -8,6 +8,7 @@ import os
 import datetime
 from dateutil.tz import tzlocal
 import numpy as np
+import h5py
 
 # Dictionaries of correspondance for openPMD
 from data_dict import unit_dimension_dict
@@ -29,8 +30,10 @@ class OpenPMDDiagnostic(object) :
             (i.e. the diagnostics are written whenever the number
             of iterations is divisible by `period`)
 
-        comm : an fbpic MPI_Communicator object
-            Use None if the simulation is single-proc
+        comm : an fbpic BoundaryCommunicator object or None
+            If this is not None, the data is gathered on the first proc
+            Otherwise, each proc writes its own data.
+            (Make sure to use different write_dir in this case.)
             
         write_dir : string, optional
             The POSIX path to the directory where the results are
@@ -49,15 +52,41 @@ class OpenPMDDiagnostic(object) :
             
         # Get the directory in which to write the data
         if write_dir is None :
-            self.write_dir = os.getcwd()
+            self.write_dir = os.path.join( os.getcwd(), 'diags' )
         else :
             self.write_dir = os.path.abspath(write_dir)
 
         # Create a few addiditional directories within self.write_dir
         self.create_dir("")
-        self.create_dir("diags")
-        self.create_dir("diags/hdf5")
+        self.create_dir("hdf5")
 
+    def open_file( self, fullpath ):
+        """
+        Open a file on either several processors or a single processor
+        (For the moment, only single-processor is enabled, but this
+        routine is a placeholder for future multi-proc implementation)
+
+        If a processor does not participate in the opening of
+        the file, this returns None, for that processor
+
+        Parameter
+        ---------
+        fullpath: string
+            The absolute path to the openPMD file
+
+        Returns
+        -------
+        An h5py.File object, or None
+        """
+        # In gathering mode, only the first proc opens/creates the file.
+        if self.rank == 0 :
+            # Create the filename and open hdf5 file
+            f = h5py.File( fullpath, mode="a" )
+        else:
+            f = None
+
+        return(f)
+        
     def write( self, iteration ) :
         """
         Check if the data should be written at this iteration
@@ -97,22 +126,22 @@ class OpenPMDDiagnostic(object) :
                 except OSError :
                     pass
 
-    def setup_openpmd_file( self, f, dt, t, iteration ) :
+    def setup_openpmd_file( self, f, iteration, time, dt ) :
         """
         Sets the attributes of the hdf5 file, that comply with OpenPMD
     
         Parameter
         ---------
         f : an h5py.File object
-    
-        t : float (seconds)
-            The absolute time at this point in the simulation
-        
-        dt : float (seconds)
-            The timestep of the simulation
 
-        iteration : int
-            The iteration corresponding to this timestep
+        iteration: int
+            The iteration number of this diagnostic
+
+        time: float (seconds)
+            The physical time at this iteration
+
+        dt: float (seconds)
+            The timestep of the simulation
         """
         # Set the attributes of the HDF5 file
     
@@ -131,7 +160,7 @@ class OpenPMDDiagnostic(object) :
         base_path = "/data/%d/" %iteration
         f.attrs["basePath"] = np.string_(base_path)
         bp = f.require_group( base_path )
-        bp.attrs["time"] = t
+        bp.attrs["time"] = time
         bp.attrs["dt"] = dt
         bp.attrs["timeUnitSI"] = 1.
         

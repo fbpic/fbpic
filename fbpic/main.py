@@ -4,8 +4,10 @@ Fourier-Bessel Particle-In-Cell (FB-PIC) main file
 This file steers and controls the simulation.
 """
 import sys
+import time
 from scipy.constants import m_e, m_p, e, c
 from .particles import Particles
+from .lpa_utils.boosted_frame import BoostConverter
 from .fields import Fields, cuda_installed
 from .boundaries import BoundaryCommunicator, MovingWindow
 
@@ -15,7 +17,7 @@ if cuda_installed:
         from cuda_utils import send_data_to_gpu, receive_data_from_gpu
     except ImportError:
         cuda_installed = False
-    
+
 class Simulation(object):
     """
     Top-level simulation class that contains all the simulation
@@ -36,7 +38,7 @@ class Simulation(object):
                  n_order=-1, dens_func=None, filter_currents=True,
                  v_galilean = 0., comoving_current = False,
                  initialize_ions=False, use_cuda=False,
-                 n_guard=50, boundaries='periodic' ):
+                 n_guard=50, boundaries='periodic', gamma_boost=None):
         """
         Initializes a simulation, by creating the following structures:
         - the Fields object, which contains the EM fields
@@ -78,11 +80,11 @@ class Simulation(object):
            Use -1 for infinite order
            Otherwise use a positive, even number. In this case
            the stencil extends up to n_order/2 cells on each side.
-           
+
         zmin: float, optional
            The position of the edge of the simulation box
            (More precisely, the position of the edge of the first cell)
-           
+
         dens_func: callable, optional
            A function of the form:
            def dens_func( z, r ) ...
@@ -108,7 +110,7 @@ class Simulation(object):
             (useful for boosted frame simulations
             with v_galilean = -beta_boost)
 
-        use_cuda : bool, optional
+        use_cuda: bool, optional
             Wether to use CUDA (GPU) acceleration
 
         n_guard: int, optional
@@ -119,6 +121,12 @@ class Simulation(object):
             Indicates how to exchange the fields at the left and right
             boundaries of the global simulation box
             Either 'periodic' or 'open'
+
+        gamma_boost : float, optional
+            When initializing the laser in a boosted frame, set the
+            value of `gamma_boost` to the corresponding Lorentz factor.
+            All the other quantities (zmin, zmax, n_e, etc.) are to be given
+            in the lab frame.
         """
         # Check whether to use cuda
         self.use_cuda = use_cuda
@@ -130,6 +138,15 @@ class Simulation(object):
         # Register if the comoving current assumption should be used
         # In this case, v_galilean is forced to zero for the Particles. 
         self.comoving_current = comoving_current
+
+        # When running the simulation in a boosted frame, convert the arguments
+        uz_m = 0.   # Mean normalized momentum of the particles
+        if gamma_boost is not None:
+            boost = BoostConverter( gamma_boost )
+            zmin, zmax, dt = boost.copropag_length([ zmin, zmax, dt ])
+            p_zmin, p_zmax = boost.static_length([ p_zmin, p_zmax ])
+            n_e, = boost.static_density([ n_e ])
+            uz_m, = boost.longitudinal_momentum([ uz_m ])
 
         # Initialize the boundary communicator
         self.comm = BoundaryCommunicator(Nz, Nr, n_guard, Nm, boundaries)
@@ -157,17 +174,17 @@ class Simulation(object):
                        zmax=p_zmax, Npr=Npr, rmin=p_rmin, rmax=p_rmax,
                        Nptheta=p_nt, dt=dt, dens_func=dens_func,
                        v_galilean=self.v_galilean*(1-self.comoving_current), 
-                       use_cuda=self.use_cuda,
+                       use_cuda=self.use_cuda, uz_m=uz_m,
                        grid_shape=grid_shape) ]
         if initialize_ions :
             self.ptcl.append(
                 Particles(q=e, m=m_p, n=n_e, Npz=Npz, zmin=p_zmin,
                           zmax=p_zmax, Npr=Npr, rmin=p_rmin, rmax=p_rmax,
                           Nptheta=p_nt, dt=dt, dens_func=dens_func,
-                          v_galilean=self.v_galilean*(1-self.comoving_current), 
-                          use_cuda=self.use_cuda,
-                          grid_shape=grid_shape ) )
-        
+                          v_galilean=self.v_galilean*(1-self.comoving_current),
+                          use_cuda=self.use_cuda, uz_m=uz_m,
+                          grid_shape=grid_shape) )
+
         # Register the number of particles per cell along z, and dt
         # (Necessary for the moving window)
         self.dt = dt
@@ -177,7 +194,7 @@ class Simulation(object):
         self.iteration = 0
         # Register the filtering flag
         self.filter_currents = filter_currents
-        
+
         # Do the initial charge deposition (at t=0) now
         self.deposit('rho_prev')
 
@@ -185,7 +202,7 @@ class Simulation(object):
         self.diags = []
 
     def set_moving_window( self, v=c, ux_m=0., uy_m=0., uz_m=0.,
-                  ux_th=0., uy_th=0., uz_th=0. ):
+                  ux_th=0., uy_th=0., uz_th=0., gamma_boost=None ):
         """
         Initializes a moving window for the simulation.
 
@@ -199,17 +216,25 @@ class Simulation(object):
 
         ux_th, uy_th, uz_th: floats (dimensionless)
            Normalized thermal momenta in each direction
+
+        gamma_boost : float, optional
+            When initializing a moving window in a boosted frame, set the
+            value of `gamma_boost` to the corresponding Lorentz factor.
+            Quantities like uz_m of the injected particles will be
+            automatically Lorentz-transformed.
+            (uz_m is to be given in the lab frame ; for the moment, this
+            will not work if any of ux_th, uy_th, uz_th, ux_m, uy_m is nonzero)
         """
         # Attach the moving window to the boundary communicator
         self.comm.moving_win = MovingWindow( self.fld.interp, self.comm,
-                    v, self.p_nz, ux_m, uy_m, uz_m, ux_th, uy_th, uz_th )
+            v, self.p_nz, ux_m, uy_m, uz_m, ux_th, uy_th, uz_th, gamma_boost )
 
     def step(self, N=1, ptcl_feedback=True, correct_currents=True,
              correct_divE=False, use_true_rho=False,
              move_positions=True, move_momenta=True, show_progress=True):
         """
         Perform N PIC cycles
-        
+
         Parameter
         ---------
         N: int, optional
@@ -236,12 +261,18 @@ class Simulation(object):
         move_momenta: bool, optional
             Whether to move or freeze the particles' momenta
 
+        use_true_rho: bool, optional
+            Wether to use the true rho deposited on the grid for the
+            field push or not. (requires initialize_ions = True)
+
         show_progress: bool, optional
             Whether to show a progression bar
         """
         # Shortcuts
         ptcl = self.ptcl
         fld = self.fld
+        # Measure the time taken by the PIC cycle
+        measured_start = time.time()
 
         # Send simulation data to GPU (if CUDA is used)
         if self.use_cuda:
@@ -263,7 +294,7 @@ class Simulation(object):
 
             # Exchange the fields (EB) in the guard cells between domains
             self.comm.exchange_fields(fld.interp, 'EB')
-                
+
             # Check whether this iteration involves
             # particle exchange / moving window
             if self.iteration % self.comm.exchange_period == 0:
@@ -291,7 +322,7 @@ class Simulation(object):
 
             # Standard PIC loop
             # -----------------
-                
+
             # Gather the fields at t = n dt
             for species in ptcl:
                 species.gather( fld.interp )
@@ -339,15 +370,16 @@ class Simulation(object):
         if self.use_cuda:
             receive_data_from_gpu(self)
 
-        # Print a space at the end of the loop, for esthetical reasons
-        if show_progress:
-            print('')
-        
+        # Print the measured time taken by the PIC cycle
+        measured_duration = time.time() - measured_start
+        if show_progress and (self.comm.rank==0):
+            print('\n Time taken by the loop: %.1f s\n' %measured_duration)
+
     def deposit( self, fieldtype ):
         """
         Deposit the charge or the currents to the interpolation
         grid and then to the spectral grid.
-    
+
         Parameters:
         ------------
         fieldtype: str
@@ -377,7 +409,7 @@ class Simulation(object):
             self.comm.exchange_fields(fld.interp, 'J')
         else:
             raise ValueError('Unknown fieldtype: %s' %fieldtype)
-            
+
         # Get the charge or currents on the spectral grid
         fld.interp2spect( fieldtype )
         if self.filter_currents:
@@ -397,7 +429,7 @@ def adapt_to_grid( x, p_xmin, p_xmax, p_nx, ncells_empty=0 ):
     Adapt p_xmin and p_xmax, so that they fall exactly on the grid x
     Return the total number of particles, assuming p_nx particles
     per gridpoint
-    
+
     Parameters
     ----------
     x: 1darray
@@ -413,7 +445,7 @@ def adapt_to_grid( x, p_xmin, p_xmax, p_nx, ncells_empty=0 ):
     ncells_empty: int
         Number of empty cells at the righthand side of the box
         (Typically used when using a moving window)
-        
+
     Returns
     -------
     A tuple with:
@@ -421,12 +453,12 @@ def adapt_to_grid( x, p_xmin, p_xmax, p_nx, ncells_empty=0 ):
        - p_xmax: a float that falls exactly on the grid
        - Npx: the total number of particles
     """
-    
+
     # Find the max and the step of the array
     xmin = x.min()
     xmax = x.max()
     dx = x[1] - x[0]
-    
+
     # Do not load particles below the lower bound of the box
     if p_xmin < xmin - 0.5*dx:
         p_xmin = xmin - 0.5*dx
@@ -437,7 +469,7 @@ def adapt_to_grid( x, p_xmin, p_xmax, p_nx, ncells_empty=0 ):
     # at the left boundary.)
     if p_xmax > xmax + (0.5-ncells_empty)*dx:
         p_xmax = xmax + (0.5-ncells_empty)*dx
-    
+
     # Find the gridpoints on which the particles should be loaded
     x_load = x[ ( x > p_xmin ) & ( x < p_xmax ) ]
     # Deduce the total number of particles
@@ -447,4 +479,4 @@ def adapt_to_grid( x, p_xmin, p_xmax, p_nx, ncells_empty=0 ):
         p_xmin = x_load.min() - 0.5*dx
         p_xmax = x_load.max() + 0.5*dx
 
-    return( p_xmin, p_xmax, Npx )    
+    return( p_xmin, p_xmax, Npx )
