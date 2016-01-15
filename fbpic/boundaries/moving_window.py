@@ -5,6 +5,7 @@ It defines the structure necessary to implement the moving window.
 import numpy as np
 from scipy.constants import c
 from fbpic.particles import Particles
+from fbpic.lpa_utils.boosted_frame import BoostConverter
 try:
     from fbpic.cuda_utils import cuda, cuda_tpb_bpg_2d
     if cuda.is_available():
@@ -17,15 +18,10 @@ except ImportError:
 class MovingWindow(object):
     """
     Class that contains the moving window's variables and methods
-
-    One major problem of the moving window in a spectral code is that \
-    the fields `wrap around` the moving window, .i.e the fields that
-    disappear at the left end reappear at the right end, as a consequence
-    of the periodicity of the Fourier transform.
     """
     
     def __init__( self, interp, comm, v=c, p_nz=1, ux_m=0., uy_m=0., uz_m=0.,
-                  ux_th=0., uy_th=0., uz_th=0. ):
+                  ux_th=0., uy_th=0., uz_th=0., gamma_boost=None ) :
         """
         Initializes a moving window object.
 
@@ -48,6 +44,12 @@ class MovingWindow(object):
 
         ux_th, uy_th, uz_th: floats (dimensionless)
            Normalized thermal momenta in each direction
+
+        gamma_boost : float, optional
+            When initializing the laser in a boosted frame, set the
+            value of `gamma_boost` to the corresponding Lorentz factor.
+            (uz_m is to be given in the lab frame ; for the moment, this
+            will not work if any of ux_th, uy_th, uz_th, ux_m, uy_m is nonzero)
         """
         # Check that the boundaries are open
         if ((comm.rank == comm.size-1) and (comm.right_proc is not None)) \
@@ -63,7 +65,12 @@ class MovingWindow(object):
         self.ux_th = ux_th
         self.uy_th = uy_th
         self.uz_th = uz_th
-        
+
+        # When running the simulation in boosted frame, convert the arguments
+        if gamma_boost is not None:
+            boost = BoostConverter( gamma_boost )
+            self.uz_m, = boost.longitudinal_momentum([ self.uz_m ])
+
         # Attach moving window speed and period
         self.v = v
         self.exchange_period = comm.exchange_period
@@ -79,7 +86,7 @@ class MovingWindow(object):
             self.z_inject = interp[0].zmax - ng/2*interp[0].dz
             self.z_end_plasma = interp[0].zmax - ng*interp[0].dz
             self.v_end_plasma = \
-              c * uz_m / np.sqrt(1 + ux_m**2 + uy_m**2 + uz_m**2)
+              c * self.uz_m / np.sqrt(1 + ux_m**2 + uy_m**2 + self.uz_m**2)
             self.nz_inject = 0
             self.p_nz = p_nz
 

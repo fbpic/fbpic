@@ -1,4 +1,3 @@
-*~
 *.bbl
 *.spl
 *.blg
@@ -6,11 +5,11 @@
 *.aux
 *.log
 *.out
-*.pyc
 *.gz
 notebooks/*
 references/*
 docs/article/Spectral_circ.pdf
+tests/__pycache__
 
 fbpic/Makefile
 

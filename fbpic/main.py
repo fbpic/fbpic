@@ -7,6 +7,7 @@ import sys
 import time
 from scipy.constants import m_e, m_p, e, c
 from .particles import Particles
+from .lpa_utils.boosted_frame import BoostConverter
 from .fields import Fields, cuda_installed
 from .boundaries import BoundaryCommunicator, MovingWindow
 
@@ -36,7 +37,7 @@ class Simulation(object):
                  p_rmin, p_rmax, p_nz, p_nr, p_nt, n_e, zmin=0.,
                  n_order=-1, dens_func=None, filter_currents=True,
                  initialize_ions=False, use_cuda=False,
-                 n_guard=50, boundaries='periodic' ):
+                 n_guard=50, boundaries='periodic', gamma_boost=None):
         """
         Initializes a simulation, by creating the following structures:
         - the Fields object, which contains the EM fields
@@ -107,11 +108,26 @@ class Simulation(object):
             Indicates how to exchange the fields at the left and right
             boundaries of the global simulation box
             Either 'periodic' or 'open'
+
+        gamma_boost : float, optional
+            When initializing the laser in a boosted frame, set the
+            value of `gamma_boost` to the corresponding Lorentz factor.
+            All the other quantities (zmin, zmax, n_e, etc.) are to be given
+            in the lab frame.
         """
         # Check whether to use cuda
         self.use_cuda = use_cuda
         if (use_cuda==True) and (cuda_installed==False):
             self.use_cuda = False
+
+        # When running the simulation in a boosted frame, convert the arguments
+        uz_m = 0.   # Mean normalized momentum of the particles
+        if gamma_boost is not None:
+            boost = BoostConverter( gamma_boost )
+            zmin, zmax, dt = boost.copropag_length([ zmin, zmax, dt ])
+            p_zmin, p_zmax = boost.static_length([ p_zmin, p_zmax ])
+            n_e, = boost.static_density([ n_e ])
+            uz_m, = boost.longitudinal_momentum([ uz_m ])
 
         # Initialize the boundary communicator
         self.comm = BoundaryCommunicator(Nz, Nr, n_guard, Nm, boundaries)
@@ -136,13 +152,15 @@ class Simulation(object):
             Particles( q=-e, m=m_e, n=n_e, Npz=Npz, zmin=p_zmin,
                        zmax=p_zmax, Npr=Npr, rmin=p_rmin, rmax=p_rmax,
                        Nptheta=p_nt, dt=dt, dens_func=dens_func,
-                       use_cuda=self.use_cuda, grid_shape=grid_shape) ]
+                       use_cuda=self.use_cuda, uz_m=uz_m,
+                       grid_shape=grid_shape) ]
         if initialize_ions :
             self.ptcl.append(
                 Particles(q=e, m=m_p, n=n_e, Npz=Npz, zmin=p_zmin,
                           zmax=p_zmax, Npr=Npr, rmin=p_rmin, rmax=p_rmax,
                           Nptheta=p_nt, dt=dt, dens_func=dens_func,
-                          use_cuda=self.use_cuda, grid_shape=grid_shape ) )
+                          use_cuda=self.use_cuda, uz_m=uz_m,
+                          grid_shape=grid_shape) )
 
         # Register the number of particles per cell along z, and dt
         # (Necessary for the moving window)
@@ -161,7 +179,7 @@ class Simulation(object):
         self.diags = []
 
     def set_moving_window( self, v=c, ux_m=0., uy_m=0., uz_m=0.,
-                  ux_th=0., uy_th=0., uz_th=0. ):
+                  ux_th=0., uy_th=0., uz_th=0., gamma_boost=None ):
         """
         Initializes a moving window for the simulation.
 
@@ -175,10 +193,18 @@ class Simulation(object):
 
         ux_th, uy_th, uz_th: floats (dimensionless)
            Normalized thermal momenta in each direction
+
+        gamma_boost : float, optional
+            When initializing a moving window in a boosted frame, set the
+            value of `gamma_boost` to the corresponding Lorentz factor.
+            Quantities like uz_m of the injected particles will be
+            automatically Lorentz-transformed.
+            (uz_m is to be given in the lab frame ; for the moment, this
+            will not work if any of ux_th, uy_th, uz_th, ux_m, uy_m is nonzero)
         """
         # Attach the moving window to the boundary communicator
         self.comm.moving_win = MovingWindow( self.fld.interp, self.comm,
-                    v, self.p_nz, ux_m, uy_m, uz_m, ux_th, uy_th, uz_th )
+            v, self.p_nz, ux_m, uy_m, uz_m, ux_th, uy_th, uz_th, gamma_boost )
 
     def step(self, N=1, ptcl_feedback=True, correct_currents=True,
              use_true_rho=False, move_positions=True, move_momenta=True,
