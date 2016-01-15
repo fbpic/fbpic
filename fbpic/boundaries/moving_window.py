@@ -317,10 +317,14 @@ if cuda_installed:
         """
         # Get a 2D CUDA grid
         i, j = cuda.grid(2)
-        # Shift the values of the field array and copy them to the buffer
-        if (i + n_move) < field_array.shape[0] and j < field_array.shape[1]:
-            field_buffer[i, j] = field_array[i+n_move, j]
-        # Set the remaining values to zero
-        if (i + n_move) >= field_array.shape[0] and i < field_array.shape[0] \
-          and j < field_array.shape[1]:
-            field_buffer[i, j] = 0.
+
+        # Only access values that are actually in the array
+        if j < field_array.shape[1] and i < field_array.shape[0]:
+            
+            # Shift the values of the field array and copy them to the buffer
+            if (i+n_move) < field_array.shape[0] and (i+n_move) >= 0 :
+                field_buffer[i, j] = field_array[i+n_move, j]
+
+            # Set the remaining values to zero
+            if (i+n_move) >= field_array.shape[0] or (i+n_move) < 0:
+                field_buffer[i, j] = 0.
