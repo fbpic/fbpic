@@ -1086,7 +1086,7 @@ class PsatdCoeffs(object) :
         if comoving_current:
             # If the comoving current assumption is used, sqrt(Theta) 
             # is multiplied to some quantities during the field push.
-            self.T_cc = sqrt(self.T)
+            self.T_cc = np.sqrt(self.T)
         else:
             self.T_cc = np.ones_like(self.T)
 

@@ -140,6 +140,7 @@ class Simulation(object):
         # Initialize the field structure
         self.fld = Fields( Nz, zmax, Nr, rmax, Nm, dt, 
                            n_order=n_order, v_galilean = self.v_galilean,
+                           comoving_current = self.comoving_current,
                            zmin=zmin, use_cuda=self.use_cuda )
 
         # Modify the input parameters p_zmin, p_zmax, r_zmin, r_zmax, so that
