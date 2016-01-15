@@ -34,7 +34,8 @@ class Simulation(object):
     def __init__(self, Nz, zmax, Nr, rmax, Nm, dt, p_zmin, p_zmax,
                  p_rmin, p_rmax, p_nz, p_nr, p_nt, n_e, zmin=0.,
                  n_order=-1, dens_func=None, filter_currents=True,
-                 v_galilean = 0., initialize_ions=False, use_cuda=False,
+                 v_galilean = 0., comoving_current = False,
+                 initialize_ions=False, use_cuda=False,
                  n_guard=50, boundaries='periodic' ):
         """
         Initializes a simulation, by creating the following structures:
@@ -96,8 +97,16 @@ class Simulation(object):
             Whether to filter the currents and charge in k space
 
         v_galilean : float, optional
-            The velocity of a Galilean frame in which
-            the simulation is solved.
+            The velocity of a galilean moving frame,
+            in which the Maxwell equations are solved or
+            the velocity of the comoving current assumption 
+        
+        comoving_current : bool, optional
+            Wether the comoving current assumption is used for the
+            PSATD algorithm. In this case, the current is assumend to
+            be constant with respect to (z - v_galilean * t).
+            (useful for boosted frame simulations
+            with v_galilean = -beta_boost)
 
         use_cuda : bool, optional
             Wether to use CUDA (GPU) acceleration
@@ -118,6 +127,9 @@ class Simulation(object):
 
         # Register galilean frame velocity
         self.v_galilean = v_galilean
+        # Register if the comoving current assumption should be used
+        # In this case, v_galilean is forced to zero for the Particles. 
+        self.comoving_current = comoving_current
 
         # Initialize the boundary communicator
         self.comm = BoundaryCommunicator(Nz, Nr, n_guard, Nm, boundaries)
@@ -143,14 +155,16 @@ class Simulation(object):
             Particles( q=-e, m=m_e, n=n_e, Npz=Npz, zmin=p_zmin,
                        zmax=p_zmax, Npr=Npr, rmin=p_rmin, rmax=p_rmax,
                        Nptheta=p_nt, dt=dt, dens_func=dens_func,
-                       v_galilean=v_galilean, use_cuda=self.use_cuda,
+                       v_galilean=self.v_galilean*(1-self.comoving_current), 
+                       use_cuda=self.use_cuda,
                        grid_shape=grid_shape) ]
         if initialize_ions :
             self.ptcl.append(
                 Particles(q=e, m=m_p, n=n_e, Npz=Npz, zmin=p_zmin,
                           zmax=p_zmax, Npr=Npr, rmin=p_rmin, rmax=p_rmax,
                           Nptheta=p_nt, dt=dt, dens_func=dens_func,
-                          v_galilean=v_galilean, use_cuda=self.use_cuda,
+                          v_galilean=self.v_galilean*(1-self.comoving_current), 
+                          use_cuda=self.use_cuda,
                           grid_shape=grid_shape ) )
         
         # Register the number of particles per cell along z, and dt
