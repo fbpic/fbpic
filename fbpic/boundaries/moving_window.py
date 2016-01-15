@@ -118,7 +118,7 @@ class MovingWindow(object):
             n_move = mpi_comm.bcast( n_move )
     
         # Move the grids
-        if n_move > 0:
+        if n_move != 0:
             # Shift the fields
             Nm = len(fld.interp)
             for m in range(Nm):
@@ -253,10 +253,16 @@ class MovingWindow(object):
         n_move: int
             The number of cells by which the grid should be shifted
         """
-        # Transfer the values to n_move cell before
-        field_array[:-n_move,:] = field_array[n_move:,:]
-        # Put the last cells to 0
-        field_array[-n_move,:] = 0  
+        if n_move > 0:
+            # Transfer the values to n_move cell before
+            field_array[:-n_move,:] = field_array[n_move:,:]
+            # Put the last cells to 0
+            field_array[-n_move:,:] = 0
+        if n_move < 0:
+            # Transfer the values to n_move cell before
+            field_array[n_move:,:] = field_array[:-n_move,:]
+            # Put the last cells to 0
+            field_array[:n_move,:] = 0
 
     def shift_interp_field_gpu( self, field_array, n_move):
         """
