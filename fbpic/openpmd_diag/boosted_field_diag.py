@@ -13,6 +13,13 @@ import numpy as np
 from scipy.constants import c
 from .field_diag import FieldDiagnostic
 
+# If numbapro is installed, it potentially allows to use a GPU
+try :
+    from fbpic.cuda_utils import cuda, cuda_tpb_bpg_1d
+    cuda_installed = cuda.is_available()
+except ImportError:
+    cuda_installed = False
+
 class BoostedFieldDiagnostic(FieldDiagnostic):
     """
     Class that writes the fields *in the lab frame*, from
@@ -82,7 +89,7 @@ class BoostedFieldDiagnostic(FieldDiagnostic):
             snapshot = LabSnapshot( t_lab,
                                     zmin_lab + v_lab*t_lab,
                                     zmax_lab + v_lab*t_lab,
-                                    self.write_dir, i )
+                                    self.write_dir, i, self.fld )
             self.snapshots.append( snapshot )
             # Initialize a corresponding empty file
             self.create_file_empty_meshes( snapshot.filename, i,
@@ -144,12 +151,16 @@ class BoostedFieldDiagnostic(FieldDiagnostic):
                  (snapshot.current_z_lab < snapshot.zmax_lab) ):
 
                 # In this case, extract the proper slice from the field array,
-                # perform a Lorentz transform to the lab frame, and store
-                # the results in a properly-formed array
-                slice_array = self.slice_handler.extract_slice(
-                    self.fld, self.comm, snapshot.current_z_boost, zmin_boost )
-                # Register this in the buffers of this snapshot
-                snapshot.register_slice( slice_array, self.inv_dz_lab )
+                # and store the results into snapshot.slice_array
+                # (when running on the GPU, snapshot.slice_array
+                # is a device array)
+                self.slice_handler.extract_slice(
+                    self.fld, self.comm, snapshot.current_z_boost,
+                    zmin_boost, snapshot.slice_array )
+
+                # Register snapshot.slice_array in the list of buffers
+                # (when running on the GPU, the slice to the CPU)
+                snapshot.register_slice( self.inv_dz_lab )
 
     def flush_to_disk( self ):
         """
@@ -169,6 +180,12 @@ class BoostedFieldDiagnostic(FieldDiagnostic):
 
             # Write this array to disk (if this snapshot has new slices)
             if field_array is not None:
+
+                # First perform the Lorentz transformation of the field values
+                # *from the boosted frame to the lab frame*
+                self.slice_handler.transform_fields_to_lab_frame( field_array )
+
+                # Write to disk
                 self.write_slices( field_array, iz_min, iz_max,
                     snapshot, self.slice_handler.field_to_index )
 
@@ -230,7 +247,8 @@ class LabSnapshot:
     Class that stores data relative to one given snapshot
     in the lab frame (i.e. one given *time* in the lab frame)
     """
-    def __init__(self, t_lab, zmin_lab, zmax_lab, write_dir, i):
+    def __init__(self, t_lab, zmin_lab, zmax_lab,
+                    write_dir, i, fld):
         """
         Initialize a LabSnapshot
 
@@ -248,6 +266,10 @@ class LabSnapshot:
 
         i: int
            Number of the file where this snapshot is to be written
+
+        fld: a Fields object
+           This is passed only in order to determine how to initialize
+           the slice_array buffer (either on the CPU or GPU)
         """
         # Deduce the name of the filename where this snapshot writes
         self.filename = os.path.join( write_dir, 'hdf5/data%05d.h5' %i)
@@ -266,6 +288,14 @@ class LabSnapshot:
         # Buffered field slice and corresponding array index in z
         self.buffered_slices = []
         self.buffer_z_indices = []
+
+        # Allocate a buffer for only one slice (avoids having to
+        # reallocate arrays when running on the GPU)
+        data_shape = (10, 2*fld.Nm-1, fld.Nr)
+        if fld.use_cuda is False:
+            self.slice_array = np.empty( data_shape )
+        else:
+            self.slice_array = cuda.device_array( data_shape )
 
     def update_current_output_positions( self, t_boost, inv_gamma, inv_beta ):
         """
@@ -288,18 +318,14 @@ class LabSnapshot:
         self.current_z_boost = ( t_lab*inv_gamma - t_boost )*c*inv_beta
         self.current_z_lab = ( t_lab - t_boost*inv_gamma )*c*inv_beta
 
-    def register_slice( self, slice_array, inv_dz_lab ):
+    def register_slice( self, inv_dz_lab ):
         """
-        Store the slice of fields represented by slice_array
+        Store the slice of fields represented by self.slice_array
         and also store the z index at which this slice should be
         written in the final lab frame array
 
         Parameters
         ----------
-        slice_array: array of reals
-            An array of packed fields that corresponds to one slice,
-            as given by the SliceHandler object
-
         inv_dz_lab: float
             Inverse of the grid spacing in z, *in the lab frame*
         """
@@ -313,9 +339,14 @@ class LabSnapshot:
             # self.current_z_lab is very close to zmin_lab + iz_lab*dz_lab
             iz_lab = self.buffer_z_indices[-1] - 1
 
-        # Store the values and the index
-        self.buffered_slices.append( slice_array )
+        # Store the array and the index
         self.buffer_z_indices.append( iz_lab )
+        # Make a copy of the array if it is directly on the CPU
+        if type(self.slice_array) is np.ndarray:
+            self.buffered_slices.append( self.slice_array.copy() )
+        # or copy from the GPU
+        else:
+            self.buffered_slices.append( self.slice_array.copy_to_host() )
 
     def compact_slices(self):
         """
@@ -325,7 +356,7 @@ class LabSnapshot:
 
         Returns
         -------
-        field_array: an array of reals of shape (10, 2*Nm-1, Nr)
+        field_array: an array of reals of shape (10, 2*Nm-1, Nr, nslices)
         In the above nslices is the number of buffered slices
 
         iz_min, iz_max: integers
@@ -386,10 +417,12 @@ class SliceHandler:
         self.field_to_index = {'Er':0, 'Et':1, 'Ez':2, 'Br':3,
                 'Bt':4, 'Bz':5, 'Jr':6, 'Jt':7, 'Jz':8, 'rho':9}
 
-    def extract_slice( self, fld, comm, z_boost, zmin_boost ):
+    def extract_slice( self, fld, comm, z_boost, zmin_boost, slice_array ):
         """
-        Returns an array that contains the slice of the fields at
-        z_boost (the fields returned are already transformed to the lab frame)
+        Fills `slice_array` with a slice of the fields at z_boost
+        (the fields returned are still in the boosted frame ;
+        for performance, the Lorentz transform of the fields values
+        is performed only when flushing to disk)
 
         Parameters
         ----------
@@ -406,44 +439,14 @@ class SliceHandler:
             Position of the left end of physical part of the local subdomain
             (i.e. excludes guard cells)
 
-        Returns
-        -------
-        An array of reals that packs together the slices of the
-        different fields.
-
-        The first index of this array corresponds to the field type
-        (10 different field types), and the correspondance
-        between the field type and integer index is given self.field_to_index
-
-        The shape of this arrays is (10, 2*Nm-1, Nr)
-        """
-        # Extract a slice of the fields *in the boosted frame*
-        # at z_boost, using interpolation, and store them in an array
-        # (See the docstring of the extract_slice_boosted_frame for
-        # the shape of this array.)
-        slice_array = self.extract_slice_boosted_frame(
-                            fld, comm, z_boost, zmin_boost )
-
-        # Perform the Lorentz transformation of the fields *from
-        # the boosted frame to the lab frame*
-        self.transform_fields_to_lab_frame( slice_array )
-
-        return( slice_array )
-
-    def extract_slice_boosted_frame( self, fld, comm, z_boost, zmin_boost ):
-        """
-        Extract a slice of the fields at z_boost, using interpolation in z
-
-        See the docstring of extract_slice for the parameters.
-
-        Returns
-        -------
-        An array that packs together the slices of the different fields.
+        slice_array: either a numpy array or a cuda device array
+            An array of reals that packs together the slices of the
+            different fields (always on array on the CPU).
+            The first index of this array corresponds to the field type
+            (10 different field types), and the correspondance
+            between the field type and integer index is given field_to_index
             The shape of this arrays is (10, 2*Nm-1, Nr)
         """
-        # Allocate an array of the proper shape
-        slice_array = np.empty( (10, 2*fld.Nm-1, fld.Nr) )
-
         # Find the index of the slice in the boosted frame
         # and the corresponding interpolation shape factor
         dz = fld.interp[0].dz
@@ -455,6 +458,50 @@ class SliceHandler:
         if comm is not None:
             iz += comm.n_guard
 
+        # Extract the slice directly on the CPU
+        # Fill the pre-allocated CPU array slice_array
+        if fld.use_cuda is False :
+
+            # Extract a slice of the fields *in the boosted frame*
+            # at z_boost, using interpolation, and store them in slice_array
+            self.extract_slice_cpu( fld, iz, Sz, slice_array )
+
+        # Extract the slice on the GPU
+        # Fill the pre-allocated GPU array slice_array
+        else:
+            # Prepare kernel call
+            interp = fld.interp
+            Nr = fld.Nr
+            dim_grid_1d, dim_block_1d = cuda_tpb_bpg_1d( Nr )
+
+            # Extract the slices
+            slice_array = extract_slice_cuda[ dim_grid_1d, dim_block_1d ](
+                Nr, iz, Sz, slice_array,
+                interp[0].Er, interp[0].Et, interp[0].Ez,
+                interp[0].Br, interp[0].Bt, interp[0].Bz,
+                interp[0].Jr, interp[0].Jt, interp[0].Jz, interp[0].rho,
+                interp[1].Er, interp[1].Et, interp[1].Ez,
+                interp[1].Br, interp[1].Bt, interp[1].Bz,
+                interp[1].Jr, interp[1].Jt, interp[1].Jz, interp[1].rho )
+
+    def extract_slice_cpu( self, fld, iz, Sz, slice_array ):
+        """
+        Extract a slice of the fields at iz and iz+1, and interpolated
+        between those two points using Sz and (1-Sz)
+
+        Parameters
+        ----------
+        fld: a Fields object
+
+        iz: int
+            Index at which to extract the fields
+
+        Sz: float
+            Interpolation shape factor used at iz
+
+        slice_array: np.ndarray
+            Array of shape (10, 2*Nm-1, Nr )
+        """
         # Shortcut for the correspondance between field and integer index
         f2i = self.field_to_index
 
@@ -463,14 +510,10 @@ class SliceHandler:
             # Here typical values for `quantity` are e.g. 'Er', 'Bz', 'rho'
 
             # Interpolate the centered field in z
-            # (Transversally-staggered fields are also interpolated
-            # to the nodes of the grid, thanks to the flag transverse_centered)
             slice_array[ f2i[quantity], :, : ] = Sz*self.get_dataset(
                                             fld, quantity, iz_slice=iz )
-            slice_array[ f2i[quantity], ... ] += (1.-Sz) * self.get_dataset(
+            slice_array[ f2i[quantity], :, : ] += (1.-Sz) * self.get_dataset(
                                             fld, quantity, iz_slice=iz+1 )
-
-        return( slice_array )
 
     def get_dataset( self, fld, quantity, iz_slice ):
         """
@@ -525,8 +568,9 @@ class SliceHandler:
         Parameter
         ---------
         fields: array of floats
-             An array that packs together the slices of the different fields.
-            The shape of this arrays is (10, 2*Nm-1, Nr)
+            An array that packs together the slices of the different fields.
+            The shape of this arrays is (10, 2*Nm-1, Nr, nslices)
+            where nslices is the number of slices that have been buffered
         """
         # Some shortcuts
         gamma = self.gamma_boost
@@ -552,7 +596,95 @@ class SliceHandler:
         # For rho and J
         # (NB: the transverse components of J are unchanged)
         # Use temporary arrays when changing rho and Jz in place
-        rho_lab = gamma*( fields[f2i['rho']] + 0*beta_c * fields[f2i['Jz']] )
-        Jz_lab =  gamma*( fields[f2i['Jz']] + 0*cbeta * fields[f2i['rho']] )
+        rho_lab = gamma*( fields[f2i['rho']] + beta_c * fields[f2i['Jz']] )
+        Jz_lab =  gamma*( fields[f2i['Jz']] + cbeta * fields[f2i['rho']] )
         fields[ f2i['rho'], ... ] = rho_lab
         fields[ f2i['Jz'], ... ] = Jz_lab
+
+if cuda_installed:
+
+    @cuda.jit('void( int32, int32, float64, float64[:,:,:], \
+        complex128[:,:], complex128[:,:], complex128[:,:], \
+        complex128[:,:], complex128[:,:], complex128[:,:], \
+        complex128[:,:], complex128[:,:], complex128[:,:], complex128[:,:], \
+        complex128[:,:], complex128[:,:], complex128[:,:], \
+        complex128[:,:], complex128[:,:], complex128[:,:], \
+        complex128[:,:], complex128[:,:], complex128[:,:], complex128[:,:])')
+    def extract_slice_cuda( Nr, iz, Sz, slice_arr,
+        Er0, Et0, Ez0, Br0, Bt0, Bz0, Jr0, Jt0, Jz0, rho0,
+        Er1, Et1, Ez1, Br1, Bt1, Bz1, Jr1, Jt1, Jz1, rho1 ):
+        """
+        Extract a slice of the fields at iz and iz+1, and interpolated
+        between those two points using Sz and (1-Sz)
+
+        Parameters
+        ----------
+        Nr: int
+            Number of cells transversally
+
+        iz: int
+            Index at which to extract the fields
+
+        Sz: float
+            Interpolation shape factor used at iz
+
+        slice_arr: cuda.device_array
+            Array of floats of shape (10, 2*Nm-1, Nr)
+
+        Er0, Et0, etc...: cuda.device_array
+            Array of complexs of shape (Nz, Nr)
+        """
+        # One thread per radial position
+        ir = cuda.grid(1)
+        # Intermediate variables
+        izp = iz+1
+        Szp = 1 - Sz
+
+        if ir < Nr:
+            # Interpolate the field in the longitudinal direction
+            # and store it into pre-packed arrays
+
+            # Mode 0
+            slice_arr[0,0,ir] = Sz*Er0[iz,ir].real + Szp*Er0[izp,ir].real
+            slice_arr[1,0,ir] = Sz*Et0[iz,ir].real + Szp*Et0[izp,ir].real
+            slice_arr[2,0,ir] = Sz*Ez0[iz,ir].real + Szp*Ez0[izp,ir].real
+            slice_arr[3,0,ir] = Sz*Br0[iz,ir].real + Szp*Br0[izp,ir].real
+            slice_arr[4,0,ir] = Sz*Bt0[iz,ir].real + Szp*Bt0[izp,ir].real
+            slice_arr[5,0,ir] = Sz*Bz0[iz,ir].real + Szp*Bz0[izp,ir].real
+            slice_arr[6,0,ir] = Sz*Jr0[iz,ir].real + Szp*Jr0[izp,ir].real
+            slice_arr[7,0,ir] = Sz*Jt0[iz,ir].real + Szp*Jt0[izp,ir].real
+            slice_arr[8,0,ir] = Sz*Jz0[iz,ir].real + Szp*Jz0[izp,ir].real
+            slice_arr[9,0,ir] = Sz*rho0[iz,ir].real + \
+                                    Szp*rho0[izp,ir].real
+            # Get the higher modes
+            # There is a factor 2 here so as to comply with the convention in
+            # Lifschitz et al., which is also the convention of Warp
+            # For better performance, this factor is included in the shape
+            # factors ('t' stands for 'twice' below) 
+            tSz = 2*Sz
+            tSzp = 2*Szp
+
+            # Mode 1 (real part)
+            slice_arr[0,1,ir] = tSz*Er1[iz,ir].real + tSzp*Er1[izp,ir].real
+            slice_arr[1,1,ir] = tSz*Et1[iz,ir].real + tSzp*Et1[izp,ir].real
+            slice_arr[2,1,ir] = tSz*Ez1[iz,ir].real + tSzp*Ez1[izp,ir].real
+            slice_arr[3,1,ir] = tSz*Br1[iz,ir].real + tSzp*Br1[izp,ir].real
+            slice_arr[4,1,ir] = tSz*Bt1[iz,ir].real + tSzp*Bt1[izp,ir].real
+            slice_arr[5,1,ir] = tSz*Bz1[iz,ir].real + tSzp*Bz1[izp,ir].real
+            slice_arr[6,1,ir] = tSz*Jr1[iz,ir].real + tSzp*Jr1[izp,ir].real
+            slice_arr[7,1,ir] = tSz*Jt1[iz,ir].real + tSzp*Jt1[izp,ir].real
+            slice_arr[8,1,ir] = tSz*Jz1[iz,ir].real + tSzp*Jz1[izp,ir].real
+            slice_arr[9,1,ir] = tSz*rho1[iz,ir].real + \
+                                    tSzp*rho1[izp,ir].real
+            # Mode 1 (imaginary part)
+            slice_arr[0,2,ir] = tSz*Er1[iz,ir].imag + tSzp*Er1[izp,ir].imag
+            slice_arr[1,2,ir] = tSz*Et1[iz,ir].imag + tSzp*Et1[izp,ir].imag
+            slice_arr[2,2,ir] = tSz*Ez1[iz,ir].imag + tSzp*Ez1[izp,ir].imag
+            slice_arr[3,2,ir] = tSz*Br1[iz,ir].imag + tSzp*Br1[izp,ir].imag
+            slice_arr[4,2,ir] = tSz*Bt1[iz,ir].imag + tSzp*Bt1[izp,ir].imag
+            slice_arr[5,2,ir] = tSz*Bz1[iz,ir].imag + tSzp*Bz1[izp,ir].imag
+            slice_arr[6,2,ir] = tSz*Jr1[iz,ir].imag + tSzp*Jr1[izp,ir].imag
+            slice_arr[7,2,ir] = tSz*Jt1[iz,ir].imag + tSzp*Jt1[izp,ir].imag
+            slice_arr[8,2,ir] = tSz*Jz1[iz,ir].imag + tSzp*Jz1[izp,ir].imag
+            slice_arr[9,2,ir] = tSz*rho1[iz,ir].imag + \
+                                    tSzp*rho1[izp,ir].imag

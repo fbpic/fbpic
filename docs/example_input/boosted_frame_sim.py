@@ -31,6 +31,8 @@ from fbpic.openpmd_diag import FieldDiagnostic, ParticleDiagnostic, \
 # Parameters
 # ----------
 
+use_cuda = False
+
 # The simulation box
 Nz = 800         # Number of gridpoints along z
 zmax = 0.e-6     # Length of the box along z (meters)
@@ -96,7 +98,7 @@ def dens_func( z, r ):
 sim = Simulation( Nz, zmax, Nr, rmax, Nm, dt,
     p_zmin, p_zmax, p_rmin, p_rmax, p_nz, p_nr, p_nt, n_e,
     dens_func=dens_func, zmin=zmin, initialize_ions=True,
-    gamma_boost=gamma_boost, boundaries='open' )
+    gamma_boost=gamma_boost, boundaries='open', use_cuda=use_cuda )
 
 # Add a laser to the fields of the simulation
 add_laser( sim.fld, a0, w0, ctau, z0, lambda0=lambda0,

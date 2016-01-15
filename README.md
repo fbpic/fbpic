@@ -1,6 +1,8 @@
 Fourier-Bessel Particle-In-Cell code (FBPIC)
 =============================
 
+![build_badge](https://img.shields.io/shippable/5686afb51895ca44746736e6.svg)
+
 Overview
 --------
 
