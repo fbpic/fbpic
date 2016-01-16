@@ -156,7 +156,8 @@ class Simulation(object):
             Particles( q=-e, m=m_e, n=n_e, Npz=Npz, zmin=p_zmin,
                        zmax=p_zmax, Npr=Npr, rmin=p_rmin, rmax=p_rmax,
                        Nptheta=p_nt, dt=dt, dens_func=dens_func,
-                       v_galilean=self.v_galilean*(1-self.comoving_current), 
+                       v_galilean=self.v_galilean,
+                       comoving_current=self.comoving_current,
                        use_cuda=self.use_cuda,
                        grid_shape=grid_shape) ]
         if initialize_ions :
@@ -164,7 +165,8 @@ class Simulation(object):
                 Particles(q=e, m=m_p, n=n_e, Npz=Npz, zmin=p_zmin,
                           zmax=p_zmax, Npr=Npr, rmin=p_rmin, rmax=p_rmax,
                           Nptheta=p_nt, dt=dt, dens_func=dens_func,
-                          v_galilean=self.v_galilean*(1-self.comoving_current), 
+                          v_galilean=self.v_galilean,
+                          comoving_current=self.comoving_current, 
                           use_cuda=self.use_cuda,
                           grid_shape=grid_shape ) )
         

@@ -49,7 +49,8 @@ class Particles(object) :
     def __init__(self, q, m, n, Npz, zmin, zmax,
                     Npr, rmin, rmax, Nptheta, dt,
                     ux_m=0., uy_m=0., uz_m=0.,
-                    ux_th=0., uy_th=0., uz_th=0., v_galilean=0., 
+                    ux_th=0., uy_th=0., uz_th=0., v_galilean=0.,
+                    comoving_current = False,
                     dens_func=None, continuous_injection=True,
                     use_numba=True, use_cuda=False, grid_shape=None ) :
         """
@@ -150,6 +151,8 @@ class Particles(object) :
         self.dens_func = dens_func
         self.continuous_injection = continuous_injection
         self.v_galilean = v_galilean
+        if comoving_current:
+            self.v_galilean = 0.
 
         # Initialize the momenta
         self.uz = uz_m * np.ones(Ntot) + uz_th * np.random.normal(size=Ntot)
