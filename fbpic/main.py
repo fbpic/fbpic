@@ -101,8 +101,8 @@ class Simulation(object):
         v_galilean : float, optional
             The velocity of a galilean moving frame,
             in which the Maxwell equations are solved or
-            the velocity of the comoving current assumption 
-        
+            the velocity of the comoving current assumption
+
         comoving_current : bool, optional
             Wether the comoving current assumption is used for the
             PSATD algorithm. In this case, the current is assumend to
@@ -136,7 +136,7 @@ class Simulation(object):
         # Register galilean frame velocity
         self.v_galilean = v_galilean
         # Register if the comoving current assumption should be used
-        # In this case, v_galilean is forced to zero for the Particles. 
+        # In this case, v_galilean is forced to zero for the Particles.
         self.comoving_current = comoving_current
 
         # When running the simulation in a boosted frame, convert the arguments
@@ -155,7 +155,7 @@ class Simulation(object):
               self.comm.divide_into_domain(zmin, zmax, p_zmin, p_zmax)
 
         # Initialize the field structure
-        self.fld = Fields( Nz, zmax, Nr, rmax, Nm, dt, 
+        self.fld = Fields( Nz, zmax, Nr, rmax, Nm, dt,
                            n_order=n_order, v_galilean = self.v_galilean,
                            comoving_current = self.comoving_current,
                            zmin=zmin, use_cuda=self.use_cuda )
@@ -173,17 +173,19 @@ class Simulation(object):
             Particles( q=-e, m=m_e, n=n_e, Npz=Npz, zmin=p_zmin,
                        zmax=p_zmax, Npr=Npr, rmin=p_rmin, rmax=p_rmax,
                        Nptheta=p_nt, dt=dt, dens_func=dens_func,
-                       v_galilean=self.v_galilean*(1-self.comoving_current), 
-                       use_cuda=self.use_cuda, uz_m=uz_m,
+                       v_galilean=self.v_galilean, uz_m=uz_m,
+                       comoving_current=self.comoving_current,
+                       use_cuda=self.use_cuda,
                        grid_shape=grid_shape) ]
         if initialize_ions :
             self.ptcl.append(
                 Particles(q=e, m=m_p, n=n_e, Npz=Npz, zmin=p_zmin,
                           zmax=p_zmax, Npr=Npr, rmin=p_rmin, rmax=p_rmax,
                           Nptheta=p_nt, dt=dt, dens_func=dens_func,
-                          v_galilean=self.v_galilean*(1-self.comoving_current),
-                          use_cuda=self.use_cuda, uz_m=uz_m,
-                          grid_shape=grid_shape) )
+                          v_galilean=self.v_galilean, uz_m=uz_m,
+                          comoving_current=self.comoving_current,
+                          use_cuda=self.use_cuda,
+                          grid_shape=grid_shape ) )
 
         # Register the number of particles per cell along z, and dt
         # (Necessary for the moving window)
@@ -252,7 +254,7 @@ class Simulation(object):
             Whether to correct the divergence of E in spectral space
 
         use_true_rho: bool, optional
-            Wether to use the true rho deposited on the grid for the 
+            Wether to use the true rho deposited on the grid for the
             field push or not. (requires initialize_ions = True)
 
         move_positions: bool, optional

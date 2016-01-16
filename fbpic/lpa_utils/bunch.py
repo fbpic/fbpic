@@ -63,6 +63,7 @@ def add_elec_bunch( sim, gamma0, n_e, p_zmin, p_zmax, p_rmin, p_rmax,
                             continuous_injection=False,
                             dens_func=dens_func, use_cuda=sim.use_cuda,
                             v_galilean = sim.v_galilean,
+                            comoving_current = sim.comoving_current,
                             grid_shape=sim.fld.interp[0].Ez.shape )
 
     # Give them the right velocity
@@ -122,6 +123,7 @@ def add_elec_bunch_file( sim, filename, Q_tot, z_off=0.,
                             continuous_injection=False,
                             dens_func=None, use_cuda=sim.use_cuda,
                             v_galilean = sim.v_galilean,
+                            comoving_current = sim.comoving_current,
                             grid_shape=sim.fld.interp[0].Ez.shape )
 
     # Replace dummy particle parameters with phase space from text file

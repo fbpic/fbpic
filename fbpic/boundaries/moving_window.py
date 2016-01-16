@@ -267,9 +267,9 @@ class MovingWindow(object):
             field_array[-n_move:,:] = 0
         if n_move < 0:
             # Transfer the values to n_move cell before
-            field_array[n_move:,:] = field_array[:-n_move,:]
+            field_array[abs(n_move):,:] = field_array[:-abs(n_move),:]
             # Put the last cells to 0
-            field_array[:n_move,:] = 0
+            field_array[:abs(n_move),:] = 0
 
     def shift_interp_field_gpu( self, field_array, n_move):
         """
