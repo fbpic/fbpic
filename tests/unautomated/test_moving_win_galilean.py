@@ -12,8 +12,7 @@ import matplotlib.pyplot as plt
 from scipy.constants import c, m_e, e
 from scipy.optimize import curve_fit
 from fbpic.fields import Fields
-from fbpic.lpa_utils import add_laser
-from fbpic.moving_window import MovingWindow
+from fbpic.lpa_utils.laser import add_laser
 
 def test_pulse( Nz, Nr, Nm, Lz, Lr, Nt, w0, ctau,
                 k0, E0, m, N_show, show=False ) :
@@ -88,7 +87,7 @@ def test_pulse( Nz, Nr, Nm, Lz, Lr, Nt, w0, ctau,
     fld.interp2spect('B')
     
     #Create moving window object
-    mov_win = MovingWindow( fld.interp[0], v= 0. )
+    sim.set_moving_window( v=v_window )
 
     # Loop over the iterations
     print('Running the simulation...')

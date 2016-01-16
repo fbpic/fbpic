@@ -3,7 +3,7 @@ This is a test with a relativistic plasma flowing through a periodic
 box. It can typically be used to investigate the Cherenkov instability.
 
 In particular, there is an option to set the Galilean frame, and thus
-try to reduce the Cherenkov instability. 
+try to reduce the Cherenkov instability.
 
 Usage
 -----
@@ -14,7 +14,6 @@ Type "python -i test_boosted.py" in a terminal
 # Imports
 # -------
 import numpy as np
-import matplotlib.pyplot as plt
 from scipy.constants import c, e, m_e, m_p
 # Import the relevant structures in FBPIC
 from fbpic.main import Simulation, adapt_to_grid
@@ -83,7 +82,7 @@ def dens_func( z, r ):
     n = np.ones_like(z)
     # Suppress density at high radius
     n = np.where( r<r_max, n, 0.)
-    
+
     return(n)
 
 # -----------------------
@@ -102,7 +101,7 @@ if p_nr%2 == 1 :
 sim = Simulation( Nz, zmax, Nr, rmax, Nm, dt,
     p_zmin, p_zmax, p_rmin, p_rmax, p_nz, p_nr, p_nt, n_e,
     dens_func=dens_func, zmin=zmin, initialize_ions=True,
-    v_galilean=v_galilean ) 
+    v_galilean=v_galilean )
 
 # Reinitialize the particles, in order to give them a no-zero velocity
 p_zmin, p_zmax, Npz = adapt_to_grid( sim.fld.interp[0].z,
@@ -117,7 +116,7 @@ sim.ptcl = [
     Particles( q=e, m=m_p, n=n_e, Npz=Npz, zmin=p_zmin,
             zmax=p_zmax, Npr=Npr, rmin=p_rmin, rmax=p_rmax,
             Nptheta=p_nt, dt=dt, uz_m=-np.sqrt(gamma0**2-1),
-            v_galilean=sim.v_galilean ) ]    
+            v_galilean=sim.v_galilean ) ]
 
 # Add a laser to the fields of the simulation
 add_laser( sim.fld, a0, w0, ctau, z0 )
@@ -127,8 +126,6 @@ sim.diags = [ FieldDiagnostic(diag_period, sim.fld, fieldtypes=fieldtypes),
               ParticleDiagnostic(diag_period, {"electrons" : sim.ptcl[0]}) ]
 
 ### Run the simulation
-print('\n Performing %d PIC cycles' % N_step) 
+print('\n Performing %d PIC cycles' % N_step)
 sim.step( N_step, correct_currents=correct_currents )
 print('')
-
-
