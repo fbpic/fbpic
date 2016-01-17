@@ -35,7 +35,7 @@ class Fields(object) :
            they satisfy the conservation equation
     - erase : sets the fields to zero on the interpolation grid
     - divide_by_volume : divide the fields by the cell volume
-    
+
     Main attributes
     ----------
     All the following attributes are lists,
@@ -50,9 +50,9 @@ class Fields(object) :
     - psatd : a list of PsatdCoeffs
         Contains the coefficients to solve the Maxwell equations
     """
-    def __init__( self, Nz, zmax, Nr, rmax, Nm, dt, zmin=0., 
-                  n_order=-1, v_galilean=0.,
-                  comoving_current=False, use_cuda=False ) :
+    def __init__( self, Nz, zmax, Nr, rmax, Nm, dt, zmin=0.,
+                  n_order=-1, v_comoving=0.,
+                  use_galilean=True, use_cuda=False ) :
         """
         Initialize the components of the Fields object
 
@@ -64,7 +64,7 @@ class Fields(object) :
         zmin, zmax : float (zmin, optional)
             The initial position of the left and right
             edge of the box along z
-            
+
         Nr : int
             The number of gridpoints in r
 
@@ -78,23 +78,24 @@ class Fields(object) :
             The timestep of the simulation, required for the
             coefficients of the psatd scheme
 
-        v_galilean : float, optional
-            The velocity of a galilean moving frame,
-            in which the Maxwell equations are solved or
-            the velocity of the comoving current assumption 
-        
-        comoving_current : bool, optional
-            Wether the comoving current assumption is used for the
-            PSATD algorithm. In this case, the current is assumend to
-            be constant with respect to (z - v_galilean * t).
-            (useful for boosted frame simulations, if v_galilean = -beta_boost)
+        v_comoving: float, optional
+            In this case, the current is assumend to "comoving",
+            i.e. constant with respect to (z - v_comoving * t).
+            This can be done in two ways: either by
+            - Using a PSATD scheme that takes this hypothesis into account
+            - Solving the PSATD scheme in a Galilean frame
+
+        use_galilean: bool, optional
+            Determines which one of the two above schemes is used
+            When use_galilean is true, the whole grid moves
+            with a speed v_comoving
 
         n_order : int, optional
            The order of the stencil for the z derivatives
            Use -1 for infinite order
            Otherwise use a positive, even number. In this case
            the stencil extends up to n_order/2 cells on each side.
-            
+
         use_cuda : bool, optional
             Wether to use the GPU or not
         """
@@ -105,8 +106,8 @@ class Fields(object) :
         self.Nm = Nm
         self.dt = dt
         self.n_order = n_order
-        self.v_galilean = v_galilean
-        self.comoving_current = comoving_current
+        self.v_comoving = v_comoving
+        self.use_galilean = use_galilean
 
         # Define wether or not to use the GPU
         self.use_cuda = use_cuda
@@ -120,7 +121,7 @@ class Fields(object) :
         # Infer the values of the z and kz grid
         dz = (zmax-zmin)/Nz
         z = dz * ( np.arange( 0, Nz ) + 0.5 ) + zmin
-                
+
         # Create the list of the transformers, which convert the fields
         # back and forth between the spatial and spectral grid
         # (one object per azimuthal mode)
@@ -142,7 +143,7 @@ class Fields(object) :
         # Get the kz and (finite-order) modified kz arrays
         # (According to FFT conventions, the kz array starts with
         # positive frequencies and ends with negative frequency.)
-        kz_true = 2*np.pi* np.fft.fftfreq( Nz, dz ) 
+        kz_true = 2*np.pi* np.fft.fftfreq( Nz, dz )
         kz_modified = get_modified_k( kz_true, n_order, dz )
 
         # Create the spectral grid for each mode, as well as
@@ -158,8 +159,8 @@ class Fields(object) :
                         kz_true, use_cuda=self.use_cuda ) )
             self.psatd.append( PsatdCoeffs( self.spect[m].kz,
                                 self.spect[m].kr, m, dt, Nz, Nr,
-                                V=self.v_galilean, 
-                                comoving_current=self.comoving_current,
+                                V=self.v_comoving,
+                                use_galilean=self.use_galilean,
                                 use_cuda=self.use_cuda ) )
 
         # Initialize the needed prefix sum array for sorting
@@ -170,7 +171,7 @@ class Fields(object) :
     def send_fields_to_gpu( self ):
         """
         Copy the fields to the GPU.
-        
+
         After this function is called, the array attributes of the
         interpolation and spectral grids point to GPU arrays
         """
@@ -182,7 +183,7 @@ class Fields(object) :
     def receive_fields_from_gpu( self ):
         """
         Receive the fields from the GPU.
-        
+
         After this function is called, the array attributes of the
         interpolation and spectral grids are accessible by the CPU again.
         """
@@ -190,7 +191,7 @@ class Fields(object) :
             for m in range(self.Nm) :
                 self.interp[m].receive_fields_from_gpu()
                 self.spect[m].receive_fields_from_gpu()
-            
+
     def push(self, ptcl_feedback=True, use_true_rho=False) :
         """
         Push the different azimuthal modes over one timestep,
@@ -211,7 +212,7 @@ class Fields(object) :
         # Push each azimuthal grid individually, by passing the
         # corresponding psatd coefficients
         for m in range(self.Nm) :
-            self.spect[m].push_eb_with( 
+            self.spect[m].push_eb_with(
                 self.psatd[m], ptcl_feedback, use_true_rho )
             self.spect[m].push_rho()
 
@@ -458,12 +459,12 @@ class InterpolationGrid(object) :
     def __init__(self, z, r, m, use_cuda=False ) :
         """
         Allocates the matrices corresponding to the spatial grid
-        
+
         Parameters
         ----------
         z : 1darray of float
             The positions of the longitudinal, spatial grid
-        
+
         r : 1darray of float
             The positions of the radial, spatial grid
 
@@ -482,7 +483,7 @@ class InterpolationGrid(object) :
         self.Nr = Nr
         self.r = r.copy()
         self.m = m
-        
+
         # Register a few grid properties
         dr = r[1] - r[0]
         dz = z[1] - z[0]
@@ -499,7 +500,7 @@ class InterpolationGrid(object) :
         vol = np.pi*dz*( (r+0.5*dr)**2 - (r-0.5*dr)**2 )
         # NB : No Verboncoeur-type correction required
         self.invvol = 1./vol
-        
+
         # Allocate the fields arrays
         self.Er = np.zeros( (Nz, Nr), dtype='complex' )
         self.Et = np.zeros( (Nz, Nr), dtype='complex' )
@@ -514,7 +515,7 @@ class InterpolationGrid(object) :
 
         # Check whether the GPU should be used
         self.use_cuda = use_cuda
-        
+
         # Replace the invvol array by an array on the GPU, when using cuda
         if self.use_cuda :
             self.d_invvol = cuda.to_device( self.invvol )
@@ -522,7 +523,7 @@ class InterpolationGrid(object) :
     def send_fields_to_gpu( self ):
         """
         Copy the fields to the GPU.
-        
+
         After this function is called, the array attributes
         point to GPU arrays.
         """
@@ -540,7 +541,7 @@ class InterpolationGrid(object) :
     def receive_fields_from_gpu( self ):
         """
         Receive the fields from the GPU.
-        
+
         After this function is called, the array attributes
         are accessible by the CPU again.
         """
@@ -554,7 +555,7 @@ class InterpolationGrid(object) :
         self.Jt = self.Jt.copy_to_host()
         self.Jz = self.Jz.copy_to_host()
         self.rho = self.rho.copy_to_host()
-        
+
     def show(self, fieldtype, below_axis=True, scale=1,
              gridscale=1.e-6, **kw) :
         """
@@ -573,7 +574,7 @@ class InterpolationGrid(object) :
         gridscale : float, optional
             Value by which to scale the z and r axis
             Default : scale it in microns
-            
+
         kw : dictionary
             Options to be passed to matplotlib's imshow
         """
@@ -589,7 +590,7 @@ class InterpolationGrid(object) :
         # Title
         plt.suptitle(
             '%s on the interpolation grid, for mode %d' %(fieldtype, self.m) )
-            
+
         # Plot the real part
         plt.subplot(211)
         plt.imshow( plotted_field.real.T[::-1]/scale, aspect='auto',
@@ -607,7 +608,7 @@ class InterpolationGrid(object) :
         plt.ylabel('r')
         cb = plt.colorbar()
         cb.set_label('Imaginary part')
-        
+
 class SpectralGrid(object) :
     """
     Contains the fields and coordinates of the spectral grid.
@@ -616,23 +617,23 @@ class SpectralGrid(object) :
     def __init__(self, kz_modified, kr, m, kz_true, use_cuda=False ) :
         """
         Allocates the matrices corresponding to the spectral grid
-        
+
         Parameters
         ----------
         kz_modified : 1darray of float
             The modified wavevectors of the longitudinal, spectral grid
             (Different then kz_true in the case of a finite-stencil)
-        
+
         kr : 1darray of float
             The wavevectors of the radial, spectral grid
-            
+
         m : int
             The index of the mode
 
         kz_true : 1darray of float
             The true wavevector of the longitudinal, spectral grid
             (The actual kz that a Fourier transform would give)
-            
+
         use_cuda : bool, optional
             Wether to use the GPU or not
         """
@@ -648,7 +649,7 @@ class SpectralGrid(object) :
         self.kzmax = kz_true.max()
         self.krmin = kr.min()
         self.krmax = kr.max()
-        
+
         # Allocate the fields arrays
         self.Ep = np.zeros( (Nz, Nr), dtype='complex' )
         self.Em = np.zeros( (Nz, Nr), dtype='complex' )
@@ -677,7 +678,7 @@ class SpectralGrid(object) :
 
         # Check whether to use the GPU
         self.use_cuda = use_cuda
-        
+
         # Transfer the auxiliary arrays on the GPU
         if self.use_cuda :
             self.d_filter_array = cuda.to_device( self.filter_array )
@@ -689,7 +690,7 @@ class SpectralGrid(object) :
     def send_fields_to_gpu( self ):
         """
         Copy the fields to the GPU.
-        
+
         After this function is called, the array attributes
         point to GPU arrays.
         """
@@ -708,7 +709,7 @@ class SpectralGrid(object) :
     def receive_fields_from_gpu( self ):
         """
         Receive the fields from the GPU.
-        
+
         After this function is called, the array attributes
         are accessible by the CPU again.
         """
@@ -736,14 +737,14 @@ class SpectralGrid(object) :
         """
         # Precalculate useful coefficient
         inv_dt = 1./dt
-        
+
         if self.use_cuda :
             # Obtain the cuda grid
             dim_grid, dim_block = cuda_tpb_bpg_2d( self.Nz, self.Nr)
             # Correct the currents on the GPU
             cuda_correct_currents[dim_grid, dim_block](
                 self.rho_prev, self.rho_next, self.Jp, self.Jm, self.Jz,
-                self.d_kz, self.d_kr, self.d_inv_k2, 
+                self.d_kz, self.d_kr, self.d_inv_k2,
                 ps.d_j_corr_coef, ps.d_T, inv_dt, self.Nz, self.Nr)
         else :
             # Correct the currents on the CPU
@@ -751,8 +752,8 @@ class SpectralGrid(object) :
             # Calculate the intermediate variable F
             self.F[:,:] = - self.inv_k2 * ( ps.T_cc*ps.j_corr_coef \
                 * (self.rho_next - self.rho_prev*ps.T_eb) \
-                + 1.j*self.kz*self.Jz + self.kr*( self.Jp - self.Jm ) ) 
-            
+                + 1.j*self.kz*self.Jz + self.kr*( self.Jp - self.Jm ) )
+
             # Correct the current accordingly
             self.Jp += 0.5*self.kr*self.F
             self.Jm += -0.5*self.kr*self.F
@@ -768,14 +769,14 @@ class SpectralGrid(object) :
         # Calculate the intermediate variable F
         self.F[:,:] = - self.inv_k2 * (
             - self.rho_prev/epsilon_0 \
-            + 1.j*self.kz*self.Ez + self.kr*( self.Ep - self.Em ) ) 
-            
+            + 1.j*self.kz*self.Ez + self.kr*( self.Ep - self.Em ) )
+
         # Correct the current accordingly
         self.Ep += 0.5*self.kr*self.F
         self.Em += -0.5*self.kr*self.F
         self.Ez += -1.j*self.kz*self.F
 
-            
+
     def push_eb_with(self, ps, ptcl_feedback=True, use_true_rho=False ) :
         """
         Push the fields over one timestep, using the psatd coefficients.
@@ -804,7 +805,7 @@ class SpectralGrid(object) :
         if self.use_cuda :
             # Obtain the cuda grid
             dim_grid, dim_block = cuda_tpb_bpg_2d( self.Nz, self.Nr)
-            # Push the fields on the GPU            
+            # Push the fields on the GPU
             cuda_push_eb_with[dim_grid, dim_block](
                 self.Ep, self.Em, self.Ez, self.Bp, self.Bm, self.Bz,
                 self.Jp, self.Jm, self.Jz, self.rho_prev, self.rho_next,
@@ -815,7 +816,7 @@ class SpectralGrid(object) :
 
         else :
             # Push the fields on the CPU
-            
+
             # Define a few constants
             i = 1.j
             c2 = c**2
@@ -876,19 +877,19 @@ class SpectralGrid(object) :
                 # Push the E field
                 self.Ep[:,:] = ps.T_eb*ps.C*self.Ep \
                 + c2*ps.T_eb*ps.S_w*( -i*0.5*self.kr*self.Bz + self.kz*self.Bp )
-        
+
                 self.Em[:,:] = ps.T_eb*ps.C*self.Em \
                 + c2*ps.T_eb*ps.S_w*( -i*0.5*self.kr*self.Bz - self.kz*self.Bm )
-    
+
                 self.Ez[:,:] = ps.T_eb*ps.C*self.Ez \
                 + c2*ps.T_eb*ps.S_w*( i*self.kr*self.Bp + i*self.kr*self.Bm )
-        
+
                 # Push the B field
                 self.Bp[:,:] = ps.T_eb*ps.C*self.Bp \
-                    - ps.T_eb*ps.S_w*( -i*0.5*self.kr*ps.Ez + self.kz*ps.Ep ) 
-    
+                    - ps.T_eb*ps.S_w*( -i*0.5*self.kr*ps.Ez + self.kz*ps.Ep )
+
                 self.Bm[:,:] = ps.T_eb*ps.C*self.Bm \
-                    - ps.T_eb*ps.S_w*( -i*0.5*self.kr*ps.Ez - self.kz*ps.Em ) 
+                    - ps.T_eb*ps.S_w*( -i*0.5*self.kr*ps.Ez - self.kz*ps.Em )
 
                 self.Bz[:,:] = ps.T_eb*ps.C*self.Bz \
                     - ps.T_eb*ps.S_w*( i*self.kr*ps.Ep + i*self.kr*ps.Em )
@@ -922,7 +923,7 @@ class SpectralGrid(object) :
         if self.use_cuda :
             # Obtain the cuda grid
             dim_grid, dim_block = cuda_tpb_bpg_2d( self.Nz, self.Nr)
-            # Filter fields on the GPU            
+            # Filter fields on the GPU
             if fieldtype == 'rho_prev' :
                 cuda_filter_scalar[dim_grid, dim_block](
                     self.rho_prev, self.d_filter_array, self.Nz, self.Nr )
@@ -942,7 +943,7 @@ class SpectralGrid(object) :
                 raise ValueError('Invalid string for fieldtype: %s'%fieldtype)
         else :
             # Filter fields on the CPU
-            
+
             if fieldtype == 'rho_prev' :
                 self.rho_prev = self.rho_prev * self.filter_array
             elif fieldtype == 'rho_next' :
@@ -961,7 +962,7 @@ class SpectralGrid(object) :
                 self.Bz = self.Bz * self.filter_array
             else :
                 raise ValueError('Invalid string for fieldtype: %s'%fieldtype)
-        
+
     def show(self, fieldtype, below_axis=True, scale=1, **kw) :
         """
         Show the field `fieldtype` on the spectral grid
@@ -975,7 +976,7 @@ class SpectralGrid(object) :
 
         scale : float
             Value by which the field should be divide before plotting
-            
+
         kw : dictionary
             Options to be passed to matplotlib's imshow
         """
@@ -991,7 +992,7 @@ class SpectralGrid(object) :
         # Title
         plt.suptitle(
             '%s on the spectral grid, for mode %d' %(fieldtype, self.m) )
-        
+
         # Plot the real part
         plt.subplot(211)
         plt.imshow( plotted_field.real.T[::-1]/scale, aspect='auto',
@@ -1000,7 +1001,7 @@ class SpectralGrid(object) :
         plt.ylabel('kr')
         cb = plt.colorbar()
         cb.set_label('Real part')
-        
+
         # Plot the imaginary part
         plt.subplot(212)
         plt.imshow( plotted_field.imag.T[::-1]/scale, aspect='auto',
@@ -1014,37 +1015,37 @@ class PsatdCoeffs(object) :
     """
     Contains the coefficients of the PSATD scheme for a given mode.
     """
-    
+
     def __init__( self, kz, kr, m, dt, Nz, Nr, V=0.,
-                  comoving_current=False, use_cuda=False ) :
+                  use_galilean=False, use_cuda=False ) :
         """
         Allocates the coefficients matrices for the psatd scheme.
-        
+
         Parameters
         ----------
         kz : 2darray of float
             The positions of the longitudinal, spectral grid
-        
+
         kr : 2darray of float
             The positions of the radial, spectral grid
 
         m : int
             Index of the mode
-            
+
         dt : float
             The timestep of the simulation
 
-        V : float, optional
-            The velocity of a galilean moving frame,
-            in which the Maxwell equations are solved or
-            the velocity of the comoving current assumption 
-        
-        comoving_current : bool, optional
-            Wether the comoving current assumption is used for the
-            PSATD algorithm. In this case, the current is assumend to
-            be constant with respect to (z - v_galilean * t).
-            (useful for boosted frame simulations
-            with v_galilean = -beta_boost)
+        V: float, optional
+            In this case, the current is assumend to "comoving",
+            i.e. constant with respect to (z - v_comoving * t).
+            This can be done in two ways: either by
+            - Using a PSATD scheme that takes this hypothesis into account
+            - Solving the PSATD scheme in a Galilean frame
+
+        use_galilean: bool, optional
+            Determines which one of the two above schemes is used
+            When use_galilean is true, the whole grid moves
+            with a speed v_comoving
 
         use_cuda : bool, optional
             Wether to use the GPU or not
@@ -1066,37 +1067,38 @@ class PsatdCoeffs(object) :
 
         # Construct the C coefficient arrays
         self.C = np.cos( w*dt )
-        
+
         # Construct the S/w coefficient arrays
         self.S_w = np.sin( w*dt )*inv_w
         # Enforce the right value for w==0
         self.S_w[ w==0 ] = dt
-        
+
         # Theta coefficient due to galilean frame
         self.T = np.exp(i*kz*V*dt)
         # Theta coefficient related to the E and B fields in the field push
-        if comoving_current:
+        if use_galilean:
+            self.T_eb = self.T
+        else:
             # If the comoving current assumption is used, the Theta coefficient
             # is not multiplied to the old E and B fields during the field push.
             # (This coeff is also used at some other places to supress Theta)
             self.T_eb = np.ones_like(self.T)
-        else:
-            self.T_eb = self.T
+
         # Theta coefficient due to the comoving current assumption
-        if comoving_current:
-            # If the comoving current assumption is used, sqrt(Theta) 
+        if use_galilean:
+            self.T_cc = np.ones_like(self.T)
+        else:
+            # If the comoving current assumption is used, sqrt(Theta)
             # is multiplied to some quantities during the field push.
             self.T_cc = np.sqrt(self.T)
-        else:
-            self.T_cc = np.ones_like(self.T)
 
         # Theta-like coefficient for calculation of rho_diff
         if V != 0.:
             i_kz_V = i*kz*self.V
             i_kz_V[ kz==0 ] = 1.
-            self.T_rho = np.where( 
-                            kz == 0., 
-                            -self.dt, 
+            self.T_rho = np.where(
+                            kz == 0.,
+                            -self.dt,
                             (1.-self.T)/(self.T_cc*i_kz_V) )
         else:
             self.T_rho = -self.dt*np.ones_like(kz)
@@ -1104,9 +1106,9 @@ class PsatdCoeffs(object) :
         # Precalculate some coefficients
         if V != 0.:
             # Calculate pre-factor
-            inv_w_kzV = 1./np.where( 
-                            (w**2 - kz**2 * V**2)==0, 
-                            1., 
+            inv_w_kzV = 1./np.where(
+                            (w**2 - kz**2 * V**2)==0,
+                            1.,
                             (w**2 - kz**2 * V**2) )
             # Calculate factor involding 1/Theta
             inv_1_Theta = 1./np.where(self.T == 1, 1., 1-self.T)
@@ -1115,14 +1117,14 @@ class PsatdCoeffs(object) :
                    * (1. - self.T*self.C + i*kz*V*self.T*self.S_w)
             # Calculate Xi 2 coefficient
             xi_2 = np.where(
-                    kz!=0, 
+                    kz!=0,
                     inv_w_kzV * ( 1. \
                         + i*kz*V*self.T*self.S_w*inv_1_Theta \
                         + kz**2*V**2*inv_w**2*self.T*inv_1_Theta*(1-self.C) ),
                     1.*inv_w**2 * (1.-self.S_w*inv_dt) )
             # Calculate Xi 3 coefficient
             xi_3 = np.where(
-                    kz!=0, 
+                    kz!=0,
                     self.T_eb * inv_w_kzV * ( self.C \
                         + i*kz*V*self.T*self.S_w*inv_1_Theta \
                         + kz**2*V**2*inv_w**2*inv_1_Theta*(1-self.C) ),
@@ -1141,7 +1143,7 @@ class PsatdCoeffs(object) :
         if V != 0.:
             self.rho_prev_coef = c**2/epsilon_0*(xi_3)
         else:
-            self.rho_prev_coef = c**2/epsilon_0*( 
+            self.rho_prev_coef = c**2/epsilon_0*(
                 self.C - inv_dt*self.S_w )*inv_w**2
         # Enforce the right value for w==0
         self.rho_prev_coef[ w==0 ] = c**2/epsilon_0*(-1./3*dt**2)
@@ -1150,7 +1152,7 @@ class PsatdCoeffs(object) :
         if V != 0.:
             self.rho_next_coef = c**2/epsilon_0*(xi_2)
         else:
-            self.rho_next_coef = c**2/epsilon_0*( 
+            self.rho_next_coef = c**2/epsilon_0*(
                 1 - inv_dt*self.S_w )*inv_w**2
         # Enforce the right value for w==0
         self.rho_next_coef[ w==0 ] = c**2/epsilon_0*(1./6*dt**2)
@@ -1159,8 +1161,8 @@ class PsatdCoeffs(object) :
         if V != 0.:
              inv_1_Theta = 1./np.where(self.T == 1, 1., 1-self.T)
              # Take care of kz = 0 singularity
-             self.j_corr_coef = np.where( kz != 0, 
-                            (-i*kz*V)*inv_1_Theta, 
+             self.j_corr_coef = np.where( kz != 0,
+                            (-i*kz*V)*inv_1_Theta,
                             inv_dt )
         else:
              self.j_corr_coef = inv_dt*np.ones_like(kz)
@@ -1182,7 +1184,7 @@ class PsatdCoeffs(object) :
             self.d_j_corr_coef = cuda.to_device(self.j_corr_coef)
             # NB : Ep, Em, Ez are not needed on the GPU (on-the-fly variables)
 
-        
+
 
 
 # -----------------
@@ -1219,7 +1221,7 @@ def get_filter_array( kz, kr ) :
 
     return( filter_array )
 
-    
+
 def get_modified_k(k, n_order, dz):
     """
     Calculate the modified k that corresponds to a finite-order stencil
@@ -1228,18 +1230,18 @@ def get_modified_k(k, n_order, dz):
     $$ [k] = \sum_{n=1}^{m} a_n \,\frac{\sin(nk\Delta z)}{n\Delta z}$$
     with
     $$a_{n} = - \left(\frac{m+1-n}{m+n}\right) a_{n-1}$$
-    
+
     Parameter:
     ----------
     k: 1darray
        Values of the real k at which to calculate the modified k
-       
+
     n_order: int
        The order of the stencil
            Use -1 for infinite order
            Otherwise use a positive, even number. In this case
            the stencil extends up to n_order/2 cells on each side.
-       
+
     dz: double
        The spacing of the grid in z
 
@@ -1256,7 +1258,7 @@ def get_modified_k(k, n_order, dz):
         raise ValueError('Invalid n_order: %d' %n_order)
     else:
         m = n_order/2
-    
+
     # Calculate the stencil coefficients a_n by recurrence
     # (See definition of the a_n in the docstring)
     # $$ a_{n} = - \left(\frac{m+1-n}{m+n}\right) a_{n-1} $$
@@ -1264,15 +1266,15 @@ def get_modified_k(k, n_order, dz):
     stencil_coef[0] = -2.
     for n in range(1,m+1):
         stencil_coef[n] = - (m+1-n)*1./(m+n) * stencil_coef[n-1]
-        
+
     # Array of values for n: from 1 to m
     n_array = np.arange(1,m+1)
-    # Array of values of sin: 
+    # Array of values of sin:
     # first axis corresponds to k and second axis to n (from 1 to m)
     sin_array = np.sin( k[:,np.newaxis] * n_array[np.newaxis,:] * dz ) / \
                 ( n_array[np.newaxis,:] * dz )
-    
+
     # Modified k
     k_array = np.tensordot( sin_array, stencil_coef[1:], axes=(-1,-1))
-    
+
     return( k_array )

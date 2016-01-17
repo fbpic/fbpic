@@ -16,7 +16,7 @@ import numpy as np
             float64[:], float64[:], float64[:], \
             float64[:], float64[:], float64[:], \
             float64, float64, int32, float64)')
-def push_p_gpu( ux, uy, uz, inv_gamma, 
+def push_p_gpu( ux, uy, uz, inv_gamma,
                 Ex, Ey, Ez, Bx, By, Bz,
                 q, m, Ntot, dt ) :
     """
@@ -52,7 +52,7 @@ def push_p_gpu( ux, uy, uz, inv_gamma,
     # Set a few constants
     econst = q*dt/(m*c)
     bconst = 0.5*q*dt/m
-    
+
     #Cuda 1D grid
     ip = cuda.grid(1)
 
@@ -61,13 +61,13 @@ def push_p_gpu( ux, uy, uz, inv_gamma,
 
         # Shortcut for initial 1./gamma
         inv_gamma_i = inv_gamma[ip]
-            
+
         # Get the magnetic rotation vector
         taux = bconst*Bx[ip]
         tauy = bconst*By[ip]
         tauz = bconst*Bz[ip]
         tau2 = taux**2 + tauy**2 + tauz**2
-            
+
         # Get the momenta at the half timestep
         uxp = ux[ip] + econst*Ex[ip] \
         + inv_gamma_i*( uy[ip]*tauz - uz[ip]*tauy )
@@ -99,10 +99,10 @@ def push_p_gpu( ux, uy, uz, inv_gamma,
 @cuda.jit('void(float64[:], float64[:], float64[:], \
             float64[:], float64[:], float64[:], \
             float64[:], float64, float64)')
-def push_x_gpu( x, y, z, ux, uy, uz, inv_gamma, dt, v_galilean ) :
+def push_x_gpu( x, y, z, ux, uy, uz, inv_gamma, dt ) :
     """
     Advance the particles' positions over one half-timestep
-    
+
     This assumes that the positions (x, y, z) are initially either
     one half-timestep *behind* the momenta (ux, uy, uz), or at the
     same timestep as the momenta.
@@ -121,10 +121,6 @@ def push_x_gpu( x, y, z, ux, uy, uz, inv_gamma, dt, v_galilean ) :
 
     dt : float (seconds)
         The time by which the position is advanced
-
-    v_galilean: float (velocity, m/s)
-        The velocity of the Galilean frame in which the PSATD
-        algorithm is solved.
     """
     # Half timestep, multiplied by c
     chdt = c*0.5*dt
@@ -135,7 +131,7 @@ def push_x_gpu( x, y, z, ux, uy, uz, inv_gamma, dt, v_galilean ) :
         inv_g = inv_gamma[i]
         x[i] += chdt*inv_g*ux[i]
         y[i] += chdt*inv_g*uy[i]
-        z[i] += chdt*inv_g*uz[i] - 0.5*dt*v_galilean
+        z[i] += chdt*inv_g*uz[i]
 
 # -----------------------
 # Field gathering utility
@@ -164,7 +160,7 @@ def gather_field_gpu(x, y, z,
     Iterates over the particles, calculates the weighted amount
     of fields acting on each particle based on its shape (linear).
     Fields are gathered in cylindrical coordinates and then
-    transformed to cartesian coordinates. 
+    transformed to cartesian coordinates.
     Supports only mode 0 and 1.
 
     Parameters
@@ -189,7 +185,7 @@ def gather_field_gpu(x, y, z,
         The electric fields on the interpolation grid for the mode 1
 
     Br_m0, Bt_m0, Bz_m0 : 2darray of complexs
-        The magnetic fields on the interpolation grid for the mode 0 
+        The magnetic fields on the interpolation grid for the mode 0
 
     Br_m1, Bt_m1, Bz_m1 : 2darray of complexs
         The magnetic fields on the interpolation grid for the mode 1
@@ -204,7 +200,7 @@ def gather_field_gpu(x, y, z,
     """
     # Get the 1D CUDA grid
     i = cuda.grid(1)
-    # Deposit the field per cell in parallel 
+    # Deposit the field per cell in parallel
     # (for threads < number of particles)
     if i < x.shape[0]:
         # Preliminary arrays for the cylindrical conversion
@@ -250,7 +246,7 @@ def gather_field_gpu(x, y, z,
         if ir_lower < 0:
             Sr_guard = Sr_lower
             Sr_lower = 0.
-            ir_lower = 0          
+            ir_lower = 0
         # absorbing in upper r
         if ir_lower > Nr-1:
             ir_lower = Nr-1
@@ -278,7 +274,7 @@ def gather_field_gpu(x, y, z,
 
         # E-Field
         # ----------------------------
-        # Define the initial placeholders for the 
+        # Define the initial placeholders for the
         # gathered field for each coordinate
         Fr = 0.
         Ft = 0.
@@ -286,7 +282,7 @@ def gather_field_gpu(x, y, z,
 
         # Mode 0
         # ----------------------------
-        # Create temporary variables 
+        # Create temporary variables
         # for the "per mode" gathering
         Fr_m = 0.j
         Ft_m = 0.j
@@ -325,7 +321,7 @@ def gather_field_gpu(x, y, z,
 
         # Mode 1
         # ----------------------------
-        # Clear the temporary variables 
+        # Clear the temporary variables
         # for the "per mode" gathering
         Fr_m = 0.j
         Ft_m = 0.j
@@ -370,7 +366,7 @@ def gather_field_gpu(x, y, z,
 
         # B-Field
         # ----------------------------
-        # Clear the placeholders for the 
+        # Clear the placeholders for the
         # gathered field for each coordinate
         Fr = 0.
         Ft = 0.
@@ -378,7 +374,7 @@ def gather_field_gpu(x, y, z,
 
         # Mode 0
         # ----------------------------
-        # Create temporary variables 
+        # Create temporary variables
         # for the "per mode" gathering
         Fr_m = 0.j
         Ft_m = 0.j
@@ -417,7 +413,7 @@ def gather_field_gpu(x, y, z,
 
         # Mode 1
         # ----------------------------
-        # Clear the temporary variables 
+        # Clear the temporary variables
         # for the "per mode" gathering
         Fr_m = 0.j
         Ft_m = 0.j
@@ -460,7 +456,7 @@ def gather_field_gpu(x, y, z,
         Bx[i] = cos*Fr - sin*Ft
         By[i] = sin*Fr + cos*Ft
         Bz[i] = Fz
-        
+
 # -------------------------------
 # Field deposition utility - rho
 # -------------------------------
@@ -471,16 +467,16 @@ def gather_field_gpu(x, y, z,
                 complex128[:,:,:], complex128[:,:,:], \
                 complex128[:,:,:], complex128[:,:,:],\
                 int32[:], int32[:])')
-def deposit_rho_gpu(x, y, z, w, 
-                    invdz, zmin, Nz, 
+def deposit_rho_gpu(x, y, z, w,
+                    invdz, zmin, Nz,
                     invdr, rmin, Nr,
-                    rho0, rho1, 
+                    rho0, rho1,
                     rho2, rho3,
                     cell_idx, prefix_sum):
     """
     Deposition of the charge density rho using numba on the GPU.
     Iterates over the cells and over the particles per cell.
-    Calculates the weighted amount of rho that is deposited to the 
+    Calculates the weighted amount of rho that is deposited to the
     4 cells surounding the particle based on its shape (linear).
 
     The particles are sorted by their cell index (the lower cell
@@ -516,7 +512,7 @@ def deposit_rho_gpu(x, y, z, w,
         The cell index of the particle
 
     prefix_sum : 1darray of integers
-        Represents the cumulative sum of 
+        Represents the cumulative sum of
         the particles per cell
     """
     # Get the 1D CUDA grid
@@ -528,7 +524,7 @@ def deposit_rho_gpu(x, y, z, w,
         ir = int(i - iz * Nr)
         # Calculate the inclusive offset for the current cell
         # It represents the number of particles contained in all other cells
-        # with an index smaller than i + the total number of particles in the 
+        # with an index smaller than i + the total number of particles in the
         # current cell (inclusive).
         incl_offset = np.int32(prefix_sum[i])
         # Calculate the frequency per cell from the offset and the previous
@@ -537,7 +533,7 @@ def deposit_rho_gpu(x, y, z, w,
             frequency_per_cell = np.int32(incl_offset - prefix_sum[i-1])
         if i == 0:
             frequency_per_cell = np.int32(incl_offset)
-        # Initialize the local field value for 
+        # Initialize the local field value for
         # all four possible deposition directions
         # Mode 0, 1 for r, t, z
         # 1 : lower in r, lower in z
@@ -607,7 +603,7 @@ def deposit_rho_gpu(x, y, z, w,
             if ir_lower < 0:
                 Sr_guard = Sr_lower
                 Sr_lower = 0.
-                ir_lower = 0          
+                ir_lower = 0
             # absorbing in upper r
             if ir_lower > Nr-1:
                 ir_lower = Nr-1
@@ -638,7 +634,7 @@ def deposit_rho_gpu(x, y, z, w,
             if ir_lower == ir_upper:
                 # In the case that ir_lower and ir_upper are equal,
                 # the current is added only to the array corresponding
-                # to ir_lower. 
+                # to ir_lower.
                 # (This is the case for the boundaries in r)
                 R1_m0 += Sz_lower*Sr_lower*R_m0
                 R1_m0 += Sz_lower*Sr_upper*R_m0
@@ -667,14 +663,14 @@ def deposit_rho_gpu(x, y, z, w,
             if ir_lower == ir_upper == 0:
                 # Treat the guard cells.
                 # Add the current to the guard cells
-                # for particles that had an original 
+                # for particles that had an original
                 # cell index < 0.
                 R1_m0 += -1.*Sz_lower*Sr_guard*R_m0
                 R3_m0 += -1.*Sz_upper*Sr_guard*R_m0
                 # ---------------------------------
                 R1_m1 += -1.*Sz_lower*Sr_guard*R_m1
                 R3_m1 += -1.*Sz_upper*Sr_guard*R_m1
-        # Write the calculated field values to 
+        # Write the calculated field values to
         # the field arrays defined on the interpolation grid
         rho0[iz, ir, 0] = R1_m0
         rho0[iz, ir, 1] = R1_m1
@@ -688,11 +684,11 @@ def deposit_rho_gpu(x, y, z, w,
 @cuda.jit('void(complex128[:,:], complex128[:,:], \
                 complex128[:,:,:], complex128[:,:,:], \
                 complex128[:,:,:], complex128[:,:,:])')
-def add_rho(rho_m0, rho_m1, 
-            rho0, rho1, 
+def add_rho(rho_m0, rho_m1,
+            rho0, rho1,
             rho2, rho3):
     """
-    Merges the 4 separate field arrays that contain rho for 
+    Merges the 4 separate field arrays that contain rho for
     each deposition direction and adds them to the global
     interpolation grid arrays for mode 0 and 1.
 
@@ -710,7 +706,7 @@ def add_rho(rho_m0, rho_m1,
     i, j = cuda.grid(2)
     # Only for threads within (nz, nr)
     if (i < rho_m0.shape[0] and j < rho_m0.shape[1]):
-        # Sum the four field arrays for the different deposition 
+        # Sum the four field arrays for the different deposition
         # directions and write them to the global field array
         rho_m0[i, j] += rho0[i, j, 0] + \
                         rho1[i, j-1, 0] + \
@@ -735,15 +731,15 @@ def add_rho(rho_m0, rho_m1,
                 int32[:], int32[:])')
 def deposit_J_gpu(x, y, z, w,
                   ux, uy, uz, inv_gamma,
-                  invdz, zmin, Nz, 
+                  invdz, zmin, Nz,
                   invdr, rmin, Nr,
-                  J0, J1, 
+                  J0, J1,
                   J2, J3,
                   cell_idx, prefix_sum):
     """
     Deposition of the current J using numba on the GPU.
     Iterates over the cells and over the particles per cell.
-    Calculates the weighted amount of J that is deposited to the 
+    Calculates the weighted amount of J that is deposited to the
     4 cells surounding the particle based on its shape (linear).
 
     The particles are sorted by their cell index (the lower cell
@@ -786,7 +782,7 @@ def deposit_J_gpu(x, y, z, w,
         The cell index of the particle
 
     prefix_sum : 1darray of integers
-        Represents the cumulative sum of 
+        Represents the cumulative sum of
         the particles per cell
     """
     # Get the 1D CUDA grid
@@ -798,7 +794,7 @@ def deposit_J_gpu(x, y, z, w,
         ir = int(i - iz * Nr)
         # Calculate the inclusive offset for the current cell
         # It represents the number of particles contained in all other cells
-        # with an index smaller than i + the total number of particles in the 
+        # with an index smaller than i + the total number of particles in the
         # current cell (inclusive).
         incl_offset = np.int32(prefix_sum[i])
         # Calculate the frequency per cell from the offset and the previous
@@ -807,7 +803,7 @@ def deposit_J_gpu(x, y, z, w,
             frequency_per_cell = np.int32(incl_offset - prefix_sum[i-1])
         if i == 0:
             frequency_per_cell = np.int32(incl_offset)
-        # Initialize the local field value for 
+        # Initialize the local field value for
         # all four possible deposition directions
         # Mode 0, 1 for r, t, z
         # 1 : lower in r, lower in z
@@ -904,7 +900,7 @@ def deposit_J_gpu(x, y, z, w,
             if ir_lower < 0:
                 Sr_guard = Sr_lower
                 Sr_lower = 0.
-                ir_lower = 0          
+                ir_lower = 0
             # absorbing in upper r
             if ir_lower > Nr-1:
                 ir_lower = Nr-1
@@ -921,7 +917,7 @@ def deposit_J_gpu(x, y, z, w,
                 iz_lower -= Nz
             if iz_upper > Nz-1:
                 iz_upper -= Nz
-            
+
             # Calculate the currents
             # --------------------------------------------
             # Mode 0
@@ -939,7 +935,7 @@ def deposit_J_gpu(x, y, z, w,
             if ir_lower == ir_upper:
                 # In the case that ir_lower and ir_upper are equal,
                 # the current is added only to the array corresponding
-                # to ir_lower. 
+                # to ir_lower.
                 # (This is the case for the boundaries in r)
                 Jr1_m0 += Sz_lower*Sr_lower*Jr_m0
                 Jr1_m0 += Sz_lower*Sr_upper*Jr_m0
@@ -1008,7 +1004,7 @@ def deposit_J_gpu(x, y, z, w,
             if ir_lower == ir_upper == 0:
                 # Treat the guard cells.
                 # Add the current to the guard cells
-                # for particles that had an original 
+                # for particles that had an original
                 # cell index < 0.
                 Jr1_m0 += -1.*Sz_lower*Sr_guard*Jr_m0
                 Jr3_m0 += -1.*Sz_upper*Sr_guard*Jr_m0
@@ -1027,7 +1023,7 @@ def deposit_J_gpu(x, y, z, w,
                 # -----------------------------------
                 Jz1_m1 += -1.*Sz_lower*Sr_guard*Jz_m1
                 Jz3_m1 += -1.*Sz_upper*Sr_guard*Jz_m1
-        # Write the calculated field values to 
+        # Write the calculated field values to
         # the field arrays defined on the interpolation grid
         J0[iz, ir, 0] = Jr1_m0
         J0[iz, ir, 1] = Jr1_m1
@@ -1065,10 +1061,10 @@ def deposit_J_gpu(x, y, z, w,
 def add_J(Jr_m0, Jr_m1,
           Jt_m0, Jt_m1,
           Jz_m0, Jz_m1,
-          J0, J1,     
+          J0, J1,
           J2, J3):
     """
-    Merges the 4 separate field arrays that contain J for 
+    Merges the 4 separate field arrays that contain J for
     each deposition direction and adds them to the global
     interpolation grid arrays for mode 0 and 1.
 
@@ -1076,7 +1072,7 @@ def add_J(Jr_m0, Jr_m1,
     ----------
     Jr_m0, Jr_m1, Jt_m0, Jt_m1, Jz_m0, Jz_m1,: 2darrays of complexs
         The current component in each direction (r, t, z)
-        on the interpolation grid for mode 0 and 1. 
+        on the interpolation grid for mode 0 and 1.
         (is modified by this function)
 
     J0, J1, J2, J3 : 3darrays of complexs
@@ -1088,7 +1084,7 @@ def add_J(Jr_m0, Jr_m1,
     i, j = cuda.grid(2)
     # Only for threads within (nz, nr)
     if (i < Jr_m0.shape[0] and j < Jr_m0.shape[1]):
-        # Sum the four field arrays for the different deposition 
+        # Sum the four field arrays for the different deposition
         # directions and write them to the global field array
             Jr_m0[i, j] +=  J0[i, j, 0] + \
                             J1[i, j-1, 0] + \
@@ -1130,13 +1126,13 @@ def add_J(Jr_m0, Jr_m1,
                 float64, float64, int32)')
 def get_cell_idx_per_particle(cell_idx, sorted_idx,
                               x, y, z,
-                              invdz, zmin, Nz, 
+                              invdz, zmin, Nz,
                               invdr, rmin, Nr):
     """
     Get the cell index of each particle.
     The cell index is 1d and calculated by:
     cell index in z + cell index in r * number of cells in z.
-    The cell_idx of a particle is defined by 
+    The cell_idx of a particle is defined by
     the lower cell in r and z, that it deposits its field to.
 
     Parameters
@@ -1151,7 +1147,7 @@ def get_cell_idx_per_particle(cell_idx, sorted_idx,
     x, y, z : 1darray of floats (in meters)
         The position of the particles
         (is modified by this function)
-    
+
     invdz, invdr : float (in meters^-1)
         Inverse of the grid step along the considered direction
 
@@ -1168,7 +1164,7 @@ def get_cell_idx_per_particle(cell_idx, sorted_idx,
             yj = y[i]
             zj = z[i]
             rj = math.sqrt( xj**2 + yj**2 )
-    
+
             # Positions of the particles, in the cell unit
             r_cell =  invdr*(rj - rmin) - 0.5
             z_cell =  invdz*(zj - zmin) - 0.5
@@ -1180,7 +1176,7 @@ def get_cell_idx_per_particle(cell_idx, sorted_idx,
             # Treat the boundary conditions
             # guard cells in lower r
             if ir_lower < 0:
-                ir_lower = 0          
+                ir_lower = 0
             # absorbing in upper r
             if ir_lower > Nr-1:
                 ir_lower = Nr-1
@@ -1189,7 +1185,7 @@ def get_cell_idx_per_particle(cell_idx, sorted_idx,
                 iz_lower += Nz
             if iz_lower > Nz-1:
                 iz_lower -= Nz
-                
+
             # Reset sorted_idx array
             sorted_idx[i] = i
             # Calculate the 1D cell_idx by cell_idx_ir + cell_idx_iz * Nr
@@ -1197,16 +1193,16 @@ def get_cell_idx_per_particle(cell_idx, sorted_idx,
 
 def sort_particles_per_cell(cell_idx, sorted_idx):
     """
-    Sort the cell index of the particles and 
+    Sort the cell index of the particles and
     modify the sorted index array accordingly.
 
     Parameters
     ----------
     cell_idx : 1darray of integers
         The cell index of the particle
-    
+
     sorted_idx : 1darray of integers
-        Represents the original index of the 
+        Represents the original index of the
         particle before the sorting.
     """
     Ntot = cell_idx.shape[0]
@@ -1217,7 +1213,7 @@ def sort_particles_per_cell(cell_idx, sorted_idx):
 @cuda.jit('void(int32[:], int32[:])')
 def incl_prefix_sum(cell_idx, prefix_sum):
     """
-    Perform an inclusive parallel prefix sum on the sorted 
+    Perform an inclusive parallel prefix sum on the sorted
     cell index array. The prefix sum array represents the
     cumulative sum of the number of particles per cell
     for each cell index.
@@ -1226,9 +1222,9 @@ def incl_prefix_sum(cell_idx, prefix_sum):
     ----------
     cell_idx : 1darray of integers
         The cell index of the particle
-    
+
     prefix_sum : 1darray of integers
-        Represents the cumulative sum of 
+        Represents the cumulative sum of
         the particles per cell
     """
     # i is the index of the macroparticle
@@ -1256,9 +1252,9 @@ def reset_prefix_sum(prefix_sum):
     to zero.
 
     Parameters
-    ----------    
+    ----------
     prefix_sum : 1darray of integers
-        Represents the cumulative sum of 
+        Represents the cumulative sum of
         the particles per cell
     """
     i = cuda.grid(1)
@@ -1272,9 +1268,9 @@ def write_sorting_buffer(sorted_idx, val, buf):
     while rearranging them to match the sorted cell index array.
 
     Parameters
-    ----------    
+    ----------
     sorted_idx : 1darray of integers
-        Represents the original index of the 
+        Represents the original index of the
         particle before the sorting
 
     val : 1d array of floats
@@ -1294,7 +1290,7 @@ def write_sorting_buffer(sorted_idx, val, buf):
 
 def cuda_deposition_arrays(Nz = None, Nr = None, fieldtype = None):
     """
-    Create empty arrays on the GPU for the charge and 
+    Create empty arrays on the GPU for the charge and
     current deposition in each of the 4 possible direction.
 
     ###########################################
@@ -1302,13 +1298,13 @@ def cuda_deposition_arrays(Nz = None, Nr = None, fieldtype = None):
     ###########################################
 
     Parameters
-    ----------    
+    ----------
     Nz : int
         Number of cells in z.
     Nr : int
         Number of cells in r.
 
-    fieldtype : string 
+    fieldtype : string
         Either 'rho' or 'J'.
     """
     # Create empty arrays to store the four different possible
@@ -1322,11 +1318,10 @@ def cuda_deposition_arrays(Nz = None, Nr = None, fieldtype = None):
         return rho0, rho1, rho2, rho3
 
     if fieldtype == 'J':
-        # J - third dimension represents 2 modes 
+        # J - third dimension represents 2 modes
         # times 3 dimensions (r, t, z)
         J0 = cuda.device_array(shape = (Nz, Nr, 6), dtype = np.complex128)
         J1 = cuda.device_array(shape = (Nz, Nr, 6), dtype = np.complex128)
         J2 = cuda.device_array(shape = (Nz, Nr, 6), dtype = np.complex128)
         J3 = cuda.device_array(shape = (Nz, Nr, 6), dtype = np.complex128)
         return J0, J1, J2, J3
-        

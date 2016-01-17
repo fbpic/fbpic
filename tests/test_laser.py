@@ -124,19 +124,21 @@ def test_laser_galilean(show=False):
     print('Testing mode m=0 with an annular beam')
     propagate_pulse( Nz, Nr, Nm, zmin, zmax, Lr, L_prop, zf, dt,
                       N_diag, w0, ctau, k0, E0, 0, N_show, n_order,
-                      rtol, boundaries='open', v_galilean=0.999*c, show=show )
+                      rtol, boundaries='open',
+                      use_galilean=True, v_comoving=0.999*c, show=show )
 
     print('')
     print('Testing mode m=1 with an gaussian beam')
     propagate_pulse(Nz, Nr, Nm, zmin, zmax, Lr, L_prop, zf, dt,
                      N_diag, w0, ctau, k0, E0, 1, N_show, n_order,
-                     rtol, boundaries='open', v_galilean=0.999*c, show=show )
+                     rtol, boundaries='open',
+                     use_galilean=True, v_comoving=0.999*c, show=show )
 
     print('')
 
 def propagate_pulse( Nz, Nr, Nm, zmin, zmax, Lr, L_prop, zf, dt,
         N_diag, w0, ctau, k0, E0, m, N_show, n_order, rtol,
-        boundaries, v_window=0, v_galilean=0, show=False ):
+        boundaries, v_window=0, use_galilean=False, v_comoving=0, show=False ):
     """
     Propagate the beam over a distance L_prop in Nt steps,
     and extracts the waist and a0 at each step.
@@ -207,8 +209,11 @@ def propagate_pulse( Nz, Nr, Nm, zmin, zmax, Lr, L_prop, zf, dt,
     v_window : float
         Speed of the moving window
 
-    v_galilean : float
-        Speed of the galilean frame
+    v_comoving : float
+        Velocity at which the currents are assumed to move
+
+    use_galilean: bool
+        Whether to use a galilean frame that moves at the speed v_comoving
 
     Returns
     -------
@@ -222,7 +227,8 @@ def propagate_pulse( Nz, Nr, Nm, zmin, zmax, Lr, L_prop, zf, dt,
     sim = Simulation( Nz, zmax, Nr, Lr, Nm, dt, p_zmin=0, p_zmax=0,
                     p_rmin=0, p_rmax=0, p_nz=2, p_nr=2, p_nt=2, n_e=0.,
                     n_order=n_order, zmin=zmin, use_cuda=use_cuda,
-                    boundaries=boundaries, v_galilean=v_galilean )
+                    boundaries=boundaries, v_comoving=v_comoving,
+                    use_galilean=use_galilean )
     # Remove the particles
     sim.ptcl = []
     # Set the moving window object

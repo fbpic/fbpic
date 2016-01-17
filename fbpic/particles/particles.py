@@ -19,7 +19,7 @@ try :
 except ImportError :
     numba_installed = False
 
-# If numbapro is installed, it potentially allows to use a GPU
+# If accelerate is installed, it potentially allows to use a GPU
 try :
     from fbpic.cuda_utils import cuda, cuda_tpb_bpg_1d, cuda_tpb_bpg_2d
     from .cuda_methods import push_p_gpu, push_x_gpu, \
@@ -49,8 +49,7 @@ class Particles(object) :
     def __init__(self, q, m, n, Npz, zmin, zmax,
                     Npr, rmin, rmax, Nptheta, dt,
                     ux_m=0., uy_m=0., uz_m=0.,
-                    ux_th=0., uy_th=0., uz_th=0., v_galilean=0.,
-                    comoving_current = False,
+                    ux_th=0., uy_th=0., uz_th=0.,
                     dens_func=None, continuous_injection=True,
                     use_numba=True, use_cuda=False, grid_shape=None ) :
         """
@@ -84,10 +83,6 @@ class Particles(object) :
 
         dt : float (in seconds)
            The timestep for the particle pusher
-        
-        v_galilean : float, optional
-            The velocity of a Galilean frame in which
-            the simulation is solved.
 
         ux_m, uy_m, uz_m: floats (dimensionless), optional
            Normalized mean momenta of the injected particles in each direction
@@ -150,9 +145,6 @@ class Particles(object) :
         self.Nptheta = Nptheta
         self.dens_func = dens_func
         self.continuous_injection = continuous_injection
-        self.v_galilean = v_galilean
-        if comoving_current:
-            self.v_galilean = 0.
 
         # Initialize the momenta
         self.uz = uz_m * np.ones(Ntot) + uz_th * np.random.normal(size=Ntot)
@@ -347,13 +339,13 @@ class Particles(object) :
             push_x_gpu[dim_grid_1d, dim_block_1d](
                 self.x, self.y, self.z,
                 self.ux, self.uy, self.uz,
-                self.inv_gamma, self.dt, self.v_galilean )
+                self.inv_gamma, self.dt )
             # The particle array is unsorted after the push in x
             self.sorted = False
         else :
             push_x_numpy(self.x, self.y, self.z,
                 self.ux, self.uy, self.uz,
-                self.inv_gamma, self.dt, self.v_galilean)
+                self.inv_gamma, self.dt )
 
     def gather( self, grid ) :
         """
