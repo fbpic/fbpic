@@ -56,6 +56,13 @@ requires a special command):
 conda install -c https://conda.anaconda.org/mforbes pyfftw
 conda upgrade numpy
 ```
+- **Optional:** In order to get full CUDA support install the `accelerate` and `accelerate_cudalib` package:
+```
+conda install accelerate
+```
+```
+conda install accelerate_cudalib
+```
 - Install `fbpic`  
 ```
 python setup.py install
