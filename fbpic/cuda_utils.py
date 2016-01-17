@@ -146,3 +146,21 @@ def print_current_gpu():
                                         gpu.compute_capability[1])
     print_gpu_meminfo(gpu)
 
+def mpi_select_gpus(mpi_comm):
+    """
+    Selects the correct GPU used by the current MPI process
+
+    Parameters :
+    ------------
+    comm : MPI communicator
+        The MPI communicator.
+    """
+    gpu_size = len(cuda.gpus)
+
+    for gpu in range(gpu_size):
+        if mpi_comm.rank%gpu_size == gpu:
+            cuda.select_device(gpu)
+        mpi_comm.barrier()
+
+    print_current_gpu()
+

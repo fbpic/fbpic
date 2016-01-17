@@ -6,6 +6,16 @@ This file steers and controls the simulation.
 import sys
 import time
 from scipy.constants import m_e, m_p, e, c
+
+try:
+    from numba import cuda
+    from mpi4py import MPI
+    from cuda_utils import mpi_select_gpus
+    mpi_comm = MPI.COMM_WORLD
+    mpi_select_gpus(mpi_comm)
+except ImportError:
+    print "Failed to select GPUs in MPI mode"
+
 from .particles import Particles
 from .lpa_utils.boosted_frame import BoostConverter
 from .fields import Fields, cuda_installed
