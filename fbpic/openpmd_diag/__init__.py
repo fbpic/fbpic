@@ -10,7 +10,7 @@ FieldDiagnostic and a ParticleDiagnostic :
     diag1 = FieldDiagnostic( period=50, top=top, w3d=w3d, em=em )
     diag2 = ParticleDiagnostic( period=50, top=top, w3d=w3d,
                      species={"electrons":elec} )
-    
+
 Then pass the method diag.write to installafterstep :
     installafterstep( diag1.write )
     installafterstep( diag2.write )
@@ -18,4 +18,5 @@ Then pass the method diag.write to installafterstep :
 
 from field_diag import FieldDiagnostic
 from particle_diag import ParticleDiagnostic
-__all__ = ['FieldDiagnostic', 'ParticleDiagnostic']
+from boosted_field_diag import BoostedFieldDiagnostic
+__all__ = ['FieldDiagnostic', 'ParticleDiagnostic', 'BoostedFieldDiagnostic']

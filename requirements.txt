@@ -1,0 +1,6 @@
+numpy
+scipy
+matplotlib
+numba==0.22.1
+h5py
+mpi4py

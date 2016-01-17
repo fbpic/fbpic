@@ -20,26 +20,29 @@ where fbpic_object is any of the objects or function of FBPIC.
 # Imports
 # -------
 import numpy as np
-import matplotlib.pyplot as plt
 from scipy.constants import c
 # Import the relevant structures in FBPIC
 from fbpic.main import Simulation
-from fbpic.lpa_utils import add_laser
+from fbpic.lpa_utils.laser import add_laser
 from fbpic.openpmd_diag import FieldDiagnostic, ParticleDiagnostic
 
 # ----------
 # Parameters
 # ----------
 
+# Whether to use the GPU
+use_cuda = False
+
 # The simulation box
 Nz = 400         # Number of gridpoints along z
-zmax = 40.e-6    # Length of the box along z (meters)
-Nr = 50         # Number of gridpoints along r
+zmin = 0.e-6     # Left end of the box along z (meters)
+zmax = 40.e-6    # Right end of the box along z (meters)
+Nr = 50          # Number of gridpoints along r
 rmax = 20.e-6    # Length of the box along r (meters)
 Nm = 2           # Number of modes used
 # The simulation timestep
-dt = zmax/Nz/c   # Timestep (seconds)
-N_step = 100     # Number of iterations to perform
+dt = (zmax-zmin)/Nz/c   # Timestep (seconds)
+N_step = 200     # Number of iterations to perform
 
 # The particles
 p_zmin = 35.e-6  # Position of the beginning of the plasma (meters)
@@ -94,7 +97,8 @@ if p_nr%2 == 1 :
 # Initialize the simulation object
 sim = Simulation( Nz, zmax, Nr, rmax, Nm, dt,
     p_zmin, p_zmax, p_rmin, p_rmax, p_nz, p_nr, p_nt, n_e,
-    dens_func=dens_func ) 
+    dens_func=dens_func, zmin=zmin, boundaries='open',
+    use_cuda=use_cuda )
 
 # Add a laser to the fields of the simulation
 add_laser( sim.fld, a0, w0, ctau, z0 )
@@ -103,9 +107,10 @@ add_laser( sim.fld, a0, w0, ctau, z0 )
 sim.set_moving_window( v=v_window )
 
 # Add a field diagnostic
-sim.diags = [ FieldDiagnostic( diag_period, sim.fld, fieldtypes=fieldtypes ),
+sim.diags = [ FieldDiagnostic( diag_period, sim.fld,
+                               fieldtypes=fieldtypes, comm=sim.comm ),
               ParticleDiagnostic( diag_period, {"electrons" : sim.ptcl[0]},
-                                  select={"uz" : [1., None ]} ) ]
+                            select={"uz" : [1., None ]}, comm=sim.comm ) ]
 
 ### Run the simulation
 print('\n Performing %d PIC cycles' % N_step) 
