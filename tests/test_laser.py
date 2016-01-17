@@ -11,11 +11,12 @@ by studying the propagation of a laser in vacuum:
 In both cases, the evolution of the a0 and w0 are compared
 with theoretical results from diffraction theory.
 
-These tests are performed in two cases:
+These tests are performed in 3 cases:
 - Periodic box : in this case, a very large timestep is taken,
   so as to test the absence of a Courant condition
 - Moving window : in this case, the timestep has to be reduced,
-  in order to leave time for damping to occur
+  in order to leave time for the moving window to shift/damp the fields
+- In a galilean frame : in this case again, large timestep can be taken
 
 Usage :
 -------
@@ -42,7 +43,7 @@ from fbpic.lpa_utils.laser import add_laser
 # (See the documentation of the function propagate_pulse
 # below for their definition)
 
-show = False  # Whether to show the plots, and check them manually
+show = True  # Whether to show the plots, and check them manually
 
 use_cuda = True
 
@@ -60,12 +61,12 @@ ctau = 5.e-6
 k0 = 2*np.pi/0.8e-6
 E0 = 1.
 # Propagation
-L_prop = 60.e-6
-zf = 60.e-6
+L_prop = 30.e-6
+zf = 25.e-6
 N_diag = 10   # Number of diagnostic points along the propagation
 # Checking the results
 N_show = 10
-rtol = 1.e-3
+rtol = 1.e-4
 
 def test_laser_periodic(show=False):
     """
@@ -111,9 +112,31 @@ def test_laser_moving_window(show=False):
 
     print('')
 
+def test_laser_galilean(show=False):
+    """
+    Function that is run by py.test, when doing `python setup.py test`
+    Test the propagation of a laser with a galilean change of frame
+    """
+    # Choose the regular timestep (required by moving window)
+    dt = L_prop*1./c/N_diag
+
+    print('')
+    print('Testing mode m=0 with an annular beam')
+    propagate_pulse( Nz, Nr, Nm, zmin, zmax, Lr, L_prop, zf, dt,
+                      N_diag, w0, ctau, k0, E0, 0, N_show, n_order,
+                      rtol, boundaries='open', v_galilean=0.999*c, show=show )
+
+    print('')
+    print('Testing mode m=1 with an gaussian beam')
+    propagate_pulse(Nz, Nr, Nm, zmin, zmax, Lr, L_prop, zf, dt,
+                     N_diag, w0, ctau, k0, E0, 1, N_show, n_order,
+                     rtol, boundaries='open', v_galilean=0.999*c, show=show )
+
+    print('')
+
 def propagate_pulse( Nz, Nr, Nm, zmin, zmax, Lr, L_prop, zf, dt,
         N_diag, w0, ctau, k0, E0, m, N_show, n_order, rtol,
-        boundaries, v_window, show=False ):
+        boundaries, v_window=0, v_galilean=0, show=False ):
     """
     Propagate the beam over a distance L_prop in Nt steps,
     and extracts the waist and a0 at each step.
@@ -184,6 +207,9 @@ def propagate_pulse( Nz, Nr, Nm, zmin, zmax, Lr, L_prop, zf, dt,
     v_window : float
         Speed of the moving window
 
+    v_galilean : float
+        Speed of the galilean frame
+
     Returns
     -------
     A dictionary containing :
@@ -196,7 +222,7 @@ def propagate_pulse( Nz, Nr, Nm, zmin, zmax, Lr, L_prop, zf, dt,
     sim = Simulation( Nz, zmax, Nr, Lr, Nm, dt, p_zmin=0, p_zmax=0,
                     p_rmin=0, p_rmax=0, p_nz=2, p_nr=2, p_nt=2, n_e=0.,
                     n_order=n_order, zmin=zmin, use_cuda=use_cuda,
-                    boundaries=boundaries )
+                    boundaries=boundaries, v_galilean=v_galilean )
     # Remove the particles
     sim.ptcl = []
     # Set the moving window object
@@ -258,7 +284,7 @@ def propagate_pulse( Nz, Nr, Nm, zmin, zmax, Lr, L_prop, zf, dt,
         plt.title('Amplitude')
         plt.show()
     # or automatically check that the theoretical and simulated curves
-    # of a0 and E are close
+    # of w and E are close
     else:
         assert np.allclose( w, w_analytic, rtol=rtol )
         print('The simulation results agree with the theory to %e.' %rtol)
@@ -430,3 +456,5 @@ if __name__ == '__main__' :
     test_laser_periodic(show=show)
 
     test_laser_moving_window(show=show)
+
+    test_laser_galilean(show=show)
