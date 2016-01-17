@@ -3,7 +3,7 @@ This file is part of the Fourier-Bessel Particle-In-Cell code (FB-PIC)
 It defines the optimized particles methods that use cuda on a GPU
 """
 from numba import cuda
-from numbapro.cudalib import sorting
+from accelerate.cuda import sorting
 import math
 from scipy.constants import c
 import numpy as np
