@@ -3,30 +3,22 @@ Fourier-Bessel Particle-In-Cell (FB-PIC) main file
 
 This file steers and controls the simulation.
 """
-import sys
-import time
-from scipy.constants import m_e, m_p, e, c
-
-try:
-    from numba import cuda
+# When cuda is available, select one GPU per mpi process
+# (This needs to be done before the other imports,
+# as it sets the cuda contests)
+from numba import cuda
+if cuda.is_available():
     from mpi4py import MPI
-    from cuda_utils import mpi_select_gpus
-    mpi_comm = MPI.COMM_WORLD
-    mpi_select_gpus(mpi_comm)
-except ImportError:
-    print "Failed to select GPUs in MPI mode"
+    from .cuda_utils import send_data_to_gpu, \
+                receive_data_from_gpu, mpi_select_gpus
+    mpi_select_gpus( MPI.COMM_WORLD )
 
+import sys, time
+from scipy.constants import m_e, m_p, e, c
 from .particles import Particles
 from .lpa_utils.boosted_frame import BoostConverter
 from .fields import Fields, cuda_installed
 from .boundaries import BoundaryCommunicator, MovingWindow
-
-# If cuda is installed, try importing the rest of the cuda methods
-if cuda_installed:
-    try:
-        from cuda_utils import send_data_to_gpu, receive_data_from_gpu
-    except ImportError:
-        cuda_installed = False
 
 class Simulation(object):
     """
