@@ -21,7 +21,7 @@ def add_elec_bunch( sim, gamma0, n_e, p_zmin, p_zmax, p_rmin, p_rmax,
 
     n_e : float (in particles per m^3)
         Density of the electron bunch
-    
+
     p_zmin, p_zmax : floats
         z positions between which the particles are initialized
 
@@ -62,14 +62,12 @@ def add_elec_bunch( sim, gamma0, n_e, p_zmin, p_zmax, p_rmin, p_rmax,
                             Nptheta=p_nt, dt=sim.dt,
                             continuous_injection=False,
                             dens_func=dens_func, use_cuda=sim.use_cuda,
-                            v_galilean = sim.v_galilean,
-                            comoving_current = sim.comoving_current,
                             grid_shape=sim.fld.interp[0].Ez.shape )
 
     # Give them the right velocity
     relat_elec.inv_gamma[:] = 1./gamma0
     relat_elec.uz[:] = np.sqrt( gamma0**2 -1.)
-    
+
     # Electron beam moving in the background direction
     if direction == 'backward':
         relat_elec.uz[:] *= -1.
@@ -78,10 +76,10 @@ def add_elec_bunch( sim, gamma0, n_e, p_zmin, p_zmax, p_rmin, p_rmax,
     sim.ptcl.append( relat_elec )
 
     # Get the corresponding space-charge fields
-    get_space_charge_fields( sim.fld, [relat_elec], gamma0, 
+    get_space_charge_fields( sim.fld, [relat_elec], gamma0,
                              filter_currents, direction = direction)
-    
-def add_elec_bunch_file( sim, filename, Q_tot, z_off=0., 
+
+def add_elec_bunch_file( sim, filename, Q_tot, z_off=0.,
                          filter_currents=True, direction = 'forward' ) :
     """
     Introduce a relativistic electron bunch in the simulation,
@@ -100,7 +98,7 @@ def add_elec_bunch_file( sim, filename, Q_tot, z_off=0.,
 
     z_center: float (m)
         shift phase space in z by z_off
- 
+
     filter_currents : bool, optional
         Whether to filter the currents (in k space by default)
 
@@ -122,8 +120,6 @@ def add_elec_bunch_file( sim, filename, Q_tot, z_off=0.,
                             Nptheta=1, dt=sim.dt,
                             continuous_injection=False,
                             dens_func=None, use_cuda=sim.use_cuda,
-                            v_galilean = sim.v_galilean,
-                            comoving_current = sim.comoving_current,
                             grid_shape=sim.fld.interp[0].Ez.shape )
 
     # Replace dummy particle parameters with phase space from text file
@@ -139,7 +135,7 @@ def add_elec_bunch_file( sim, filename, Q_tot, z_off=0.,
     # assuming equally weighted particles as used in particle tracking codes
     # multiply by -1 to make them negatively charged
     relat_elec.w[:] = -1.*Q_tot/N_part
-    
+
     # Add them to the particles of the simulation
     sim.ptcl.append( relat_elec )
 
@@ -149,7 +145,7 @@ def add_elec_bunch_file( sim, filename, Q_tot, z_off=0.,
     get_space_charge_fields( sim.fld, [relat_elec], gamma0,
                              filter_currents, check_gaminv=False,
                              direction = direction)
-    
+
 def get_space_charge_fields( fld, ptcl, gamma, filter_currents=True,
                              check_gaminv=True, direction = 'forward' ) :
     """
@@ -167,7 +163,7 @@ def get_space_charge_fields( fld, ptcl, gamma, filter_currents=True,
         (one element per species)
         The list of the species which are relativistic and
         will produce a space charge field. (Do not pass the
-        particles which are at rest.) 
+        particles which are at rest.)
 
     gamma : float
         The Lorentz factor of the particles
@@ -186,7 +182,7 @@ def get_space_charge_fields( fld, ptcl, gamma, filter_currents=True,
     # Check that all the particles have the right gamma
     if check_gaminv:
         for species in ptcl :
-            if np.allclose( species.inv_gamma, 1./gamma ) == False :    
+            if np.allclose( species.inv_gamma, 1./gamma ) == False :
                 raise ValueError("The particles in ptcl do not have "
                             "a Lorentz factor matching gamma. Please check "
                             "that they have been properly initialized.")
@@ -204,8 +200,8 @@ def get_space_charge_fields( fld, ptcl, gamma, filter_currents=True,
     fld.interp2spect('J')
     # Filter the currents
     if filter_currents :
-        fld.filter_spect('rho_next')      
-        fld.filter_spect('J')      
+        fld.filter_spect('rho_next')
+        fld.filter_spect('J')
 
     # Get the space charge field in spectral space
     for m in range(fld.Nm) :
@@ -215,7 +211,7 @@ def get_space_charge_fields( fld, ptcl, gamma, filter_currents=True,
     fld.spect2interp( 'E' )
     fld.spect2interp( 'B' )
 
-    # Move the charge density to rho_prev    
+    # Move the charge density to rho_prev
     for m in range(fld.Nm) :
         fld.spect[m].push_rho()
 
@@ -246,12 +242,12 @@ def get_space_charge_spect( spect, gamma, direction = 'forward' ) :
     # Propagation direction of the beam
     if direction == 'backward':
         beta *= -1.
-        
+
     # Get the denominator
     K2 = spect.kr**2 + spect.kz**2 * 1./gamma**2
     K2_corrected = np.where( K2 != 0, K2, 1. )
     inv_K2 = np.where( K2 !=0, 1./K2_corrected, 0. )
-    
+
     # Get the potentials
     phi = spect.rho_next[:,:]*inv_K2[:,:]/epsilon_0
     Ap = spect.Jp[:,:]*inv_K2[:,:]*mu_0
@@ -267,4 +263,3 @@ def get_space_charge_spect( spect, gamma, direction = 'forward' ) :
     spect.Bp[:,:] = -0.5j*spect.kr * Az + spect.kz * Ap
     spect.Bm[:,:] = -0.5j*spect.kr * Az - spect.kz * Am
     spect.Bz[:,:] = 1.j*spect.kr * Ap + 1.j*spect.kr * Am
-

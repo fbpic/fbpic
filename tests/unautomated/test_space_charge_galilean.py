@@ -40,7 +40,7 @@ p_nt = 4         # Number of particles per cell along theta
 # Initialize the simulation object
 sim = Simulation( Nz, zmax, Nr, rmax, Nm, dt,
     p_zmin, p_zmax, p_rmin, p_rmax, p_nz, p_nr, p_nt, n_e, n_order=n_order,
-    v_galilean = -0.999999*c )
+    v_comoving=-0.999999*c, use_galilean=True )
 
 # Configure the moving window
 #sim.moving_win = MovingWindow( sim.fld.interp[0],
@@ -49,7 +49,8 @@ sim = Simulation( Nz, zmax, Nr, rmax, Nm, dt,
 
 # Suppress the particles that were intialized by default and add the bunch
 sim.ptcl = [ ]
-add_elec_bunch( sim, gamma0, n_e, p_zmin, p_zmax, p_rmin, p_rmax, direction='backward' )
+add_elec_bunch( sim, gamma0, n_e, p_zmin, p_zmax,
+            p_rmin, p_rmax, direction='backward' )
 
 
 # Show the initial fields

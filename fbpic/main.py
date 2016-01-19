@@ -36,7 +36,7 @@ class Simulation(object):
     def __init__(self, Nz, zmax, Nr, rmax, Nm, dt, p_zmin, p_zmax,
                  p_rmin, p_rmax, p_nz, p_nr, p_nt, n_e, zmin=0.,
                  n_order=-1, dens_func=None, filter_currents=True,
-                 v_galilean = 0., comoving_current = False,
+                 v_comoving=0., use_galilean=True,
                  initialize_ions=False, use_cuda=False,
                  n_guard=50, boundaries='periodic', gamma_boost=None):
         """
@@ -98,17 +98,17 @@ class Simulation(object):
         filter_currents: bool, optional
             Whether to filter the currents and charge in k space
 
-        v_galilean : float, optional
-            The velocity of a galilean moving frame,
-            in which the Maxwell equations are solved or
-            the velocity of the comoving current assumption
+        v_comoving: float, optional
+            In this case, the current is assumend to "comoving",
+            i.e. constant with respect to (z - v_comoving * t).
+            This can be done in two ways: either by
+            - Using a PSATD scheme that takes this hypothesis into account
+            - Solving the PSATD scheme in a Galilean frame
 
-        comoving_current : bool, optional
-            Wether the comoving current assumption is used for the
-            PSATD algorithm. In this case, the current is assumend to
-            be constant with respect to (z - v_galilean * t).
-            (useful for boosted frame simulations
-            with v_galilean = -beta_boost)
+        use_galilean: bool, optional
+            Determines which one of the two above schemes is used
+            When use_galilean is true, the whole grid moves
+            with a speed v_comoving
 
         use_cuda: bool, optional
             Wether to use CUDA (GPU) acceleration
@@ -133,11 +133,9 @@ class Simulation(object):
         if (use_cuda==True) and (cuda_installed==False):
             self.use_cuda = False
 
-        # Register galilean frame velocity
-        self.v_galilean = v_galilean
-        # Register if the comoving current assumption should be used
-        # In this case, v_galilean is forced to zero for the Particles.
-        self.comoving_current = comoving_current
+        # Register the comoving parameters
+        self.v_comoving = v_comoving
+        self.use_galilean = use_galilean
 
         # When running the simulation in a boosted frame, convert the arguments
         uz_m = 0.   # Mean normalized momentum of the particles
@@ -156,9 +154,10 @@ class Simulation(object):
 
         # Initialize the field structure
         self.fld = Fields( Nz, zmax, Nr, rmax, Nm, dt,
-                           n_order=n_order, v_galilean = self.v_galilean,
-                           comoving_current = self.comoving_current,
-                           zmin=zmin, use_cuda=self.use_cuda )
+                    n_order=n_order, zmin=zmin,
+                    v_comoving=v_comoving,
+                    use_galilean=use_galilean,
+                    use_cuda=self.use_cuda )
 
         # Modify the input parameters p_zmin, p_zmax, r_zmin, r_zmax, so that
         # they fall exactly on the grid, and infer the number of particles
@@ -173,8 +172,6 @@ class Simulation(object):
             Particles( q=-e, m=m_e, n=n_e, Npz=Npz, zmin=p_zmin,
                        zmax=p_zmax, Npr=Npr, rmin=p_rmin, rmax=p_rmax,
                        Nptheta=p_nt, dt=dt, dens_func=dens_func,
-                       v_galilean=self.v_galilean, uz_m=uz_m,
-                       comoving_current=self.comoving_current,
                        use_cuda=self.use_cuda,
                        grid_shape=grid_shape) ]
         if initialize_ions :
@@ -182,8 +179,6 @@ class Simulation(object):
                 Particles(q=e, m=m_p, n=n_e, Npz=Npz, zmin=p_zmin,
                           zmax=p_zmax, Npr=Npr, rmin=p_rmin, rmax=p_rmax,
                           Nptheta=p_nt, dt=dt, dens_func=dens_func,
-                          v_galilean=self.v_galilean, uz_m=uz_m,
-                          comoving_current=self.comoving_current,
                           use_cuda=self.use_cuda,
                           grid_shape=grid_shape ) )
 
@@ -202,34 +197,6 @@ class Simulation(object):
 
         # Initialize an empty list of diagnostics
         self.diags = []
-
-    def set_moving_window( self, v=c, ux_m=0., uy_m=0., uz_m=0.,
-                  ux_th=0., uy_th=0., uz_th=0., gamma_boost=None ):
-        """
-        Initializes a moving window for the simulation.
-
-        Parameters
-        ----------
-        v: float (meters per seconds), optional
-            The speed of the moving window
-
-        ux_m, uy_m, uz_m: floats (dimensionless)
-           Normalized mean momenta of the injected particles in each direction
-
-        ux_th, uy_th, uz_th: floats (dimensionless)
-           Normalized thermal momenta in each direction
-
-        gamma_boost : float, optional
-            When initializing a moving window in a boosted frame, set the
-            value of `gamma_boost` to the corresponding Lorentz factor.
-            Quantities like uz_m of the injected particles will be
-            automatically Lorentz-transformed.
-            (uz_m is to be given in the lab frame ; for the moment, this
-            will not work if any of ux_th, uy_th, uz_th, ux_m, uy_m is nonzero)
-        """
-        # Attach the moving window to the boundary communicator
-        self.comm.moving_win = MovingWindow( self.fld.interp, self.comm,
-            v, self.p_nz, ux_m, uy_m, uz_m, ux_th, uy_th, uz_th, gamma_boost )
 
     def step(self, N=1, ptcl_feedback=True, correct_currents=True,
              correct_divE=False, use_true_rho=False,
@@ -336,6 +303,9 @@ class Simulation(object):
             if move_positions:
                 for species in ptcl:
                     species.halfpush_x()
+            # Shift the boundaries of the grid for the Galilean frame
+            if self.use_galilean:
+                self.shift_galilean_boundaries()
 
             # Get the current at t = (n+1/2) dt
             self.deposit('J')
@@ -344,9 +314,12 @@ class Simulation(object):
             if move_positions:
                 for species in ptcl:
                     species.halfpush_x()
+            # Shift the boundaries of the grid for the Galilean frame
+            if self.use_galilean:
+                self.shift_galilean_boundaries()
+
             # Get the charge density at t = (n+1) dt
             self.deposit('rho_next')
-
             # Correct the currents (requires rho at t = (n+1) dt )
             if correct_currents:
                 fld.correct_currents()
@@ -417,6 +390,52 @@ class Simulation(object):
         if self.filter_currents:
             fld.filter_spect( fieldtype )
 
+    def shift_galilean_boundaries(self):
+        """
+        Shift the interpolation grids by v_comoving over
+        a half-timestep. (The arrays of values are unchanged,
+        only position attributes are changed.)
+
+        With the Galilean frame, in principle everything should
+        be solved in variables xi = z - v_comoving t, and -v_comoving
+        should be added to the motion of the particles. However, it
+        is equivalent to, instead, shift the boundaries of the grid.
+        """
+        # Calculate shift distance over a half timestep
+        shift_distance = self.v_comoving * 0.5 * self.dt
+        # Shift the boundaries of the grid
+        for m in range(self.fld.Nm):
+            self.fld.interp[m].zmin += shift_distance
+            self.fld.interp[m].zmax += shift_distance
+            self.fld.interp[m].z += shift_distance
+
+    def set_moving_window( self, v=c, ux_m=0., uy_m=0., uz_m=0.,
+                  ux_th=0., uy_th=0., uz_th=0., gamma_boost=None ):
+        """
+        Initializes a moving window for the simulation.
+
+        Parameters
+        ----------
+        v: float (meters per seconds), optional
+            The speed of the moving window
+
+        ux_m, uy_m, uz_m: floats (dimensionless)
+           Normalized mean momenta of the injected particles in each direction
+
+        ux_th, uy_th, uz_th: floats (dimensionless)
+           Normalized thermal momenta in each direction
+
+        gamma_boost : float, optional
+            When initializing a moving window in a boosted frame, set the
+            value of `gamma_boost` to the corresponding Lorentz factor.
+            Quantities like uz_m of the injected particles will be
+            automatically Lorentz-transformed.
+            (uz_m is to be given in the lab frame ; for the moment, this
+            will not work if any of ux_th, uy_th, uz_th, ux_m, uy_m is nonzero)
+        """
+        # Attach the moving window to the boundary communicator
+        self.comm.moving_win = MovingWindow( self.fld.interp, self.comm,
+            v, self.p_nz, ux_m, uy_m, uz_m, ux_th, uy_th, uz_th, gamma_boost )
 
 def progression_bar(i, Ntot, Nbars=60, char='-'):
     "Shows a progression bar with Nbars"

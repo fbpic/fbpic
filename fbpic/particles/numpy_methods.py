@@ -8,7 +8,7 @@ from scipy.constants import c
 # -----------------------
 # Particle pusher utility
 # -----------------------
-          
+
 def push_p_numpy( ux, uy, uz, inv_gamma,
         Ex, Ey, Ez, Bx, By, Bz,
         q, m, Ntot, dt ) :
@@ -18,7 +18,7 @@ def push_p_numpy( ux, uy, uz, inv_gamma,
     # Set a few constants
     econst = q*dt/(m*c)
     bconst = 0.5*q*dt/m
-    
+
     # Get the magnetic rotation vector
     taux = bconst*Bx
     tauy = bconst*By
@@ -52,10 +52,10 @@ def push_p_numpy( ux, uy, uz, inv_gamma,
     uy[:] = s*( uy_tmp + tauy*utau + uz_tmp*taux - ux_tmp*tauz )
     uz[:] = s*( uz_tmp + tauz*utau + ux_tmp*tauy - uy_tmp*taux )
 
-def push_x_numpy( x, y, z, ux, uy, uz, inv_gamma, dt, v_galilean) :
+def push_x_numpy( x, y, z, ux, uy, uz, inv_gamma, dt) :
     """
     Advance the particles' positions over one half-timestep
-    
+
     This assumes that the positions (x, y, z) are initially either
     one half-timestep *behind* the momenta (ux, uy, uz), or at the
     same timestep as the momenta.
@@ -66,13 +66,13 @@ def push_x_numpy( x, y, z, ux, uy, uz, inv_gamma, dt, v_galilean) :
     # Particle push
     x[:] += chdt*inv_gamma*ux
     y[:] += chdt*inv_gamma*uy
-    z[:] += chdt*inv_gamma*uz - 0.5*dt*v_galilean
+    z[:] += chdt*inv_gamma*uz
 
 # -----------------------
 # Field gathering utility
 # -----------------------
 
-def gather_field_numpy( exptheta, m, Fgrid, Fptcl, 
+def gather_field_numpy( exptheta, m, Fgrid, Fptcl,
         iz_lower, iz_upper, Sz_lower, Sz_upper,
         ir_lower, ir_upper, Sr_lower, Sr_upper,
         sign_guards, Sr_guard ) :
@@ -89,7 +89,7 @@ def gather_field_numpy( exptheta, m, Fgrid, Fptcl,
     m : int
         Index of the mode.
         Determines wether a factor 2 should be applied
-    
+
     Fgrid : 2darray of complexs
         Contains the fields on the interpolation grid,
         from which to do the gathering
@@ -103,11 +103,11 @@ def gather_field_numpy( exptheta, m, Fgrid, Fptcl,
         (one element per macroparticle)
         Contains the index of the cells immediately below and
         immediately above each macroparticle, in z and r
-        
+
     Sz_lower, Sz_upper, Sr_lower, Sr_upper : 1darrays of floats
         (one element per macroparticle)
         Contains the weight for the lower and upper cells.
-        
+
     sign_guards : float
        The sign (+1 or -1) with which the weight of the guard cells should
        be added to the 0th cell.
@@ -115,10 +115,10 @@ def gather_field_numpy( exptheta, m, Fgrid, Fptcl,
     Sr_guard : 1darray of float
         (one element per macroparticle)
         Contains the weight in the guard cells
-    """    
+    """
     # Temporary matrix that contains the complex fields
     F = np.zeros_like(exptheta)
-    
+
     # Sum the fields from the 4 points
     # Lower cell in z, Lower cell in r
     F += Sz_lower*Sr_lower*Fgrid[ iz_lower, ir_lower ]
@@ -128,7 +128,7 @@ def gather_field_numpy( exptheta, m, Fgrid, Fptcl,
     F += Sz_upper*Sr_lower*Fgrid[ iz_upper, ir_lower ]
     # Upper cell in z, Upper cell in r
     F += Sz_upper*Sr_upper*Fgrid[ iz_upper, ir_upper ]
-    
+
     # Add the fields from the guard cells
     F += sign_guards * Sz_lower*Sr_guard * Fgrid[ iz_lower, 0]
     F += sign_guards * Sz_upper*Sr_guard * Fgrid[ iz_upper, 0]
@@ -142,8 +142,8 @@ def gather_field_numpy( exptheta, m, Fgrid, Fptcl,
 # -------------------------
 # Charge deposition utility
 # -------------------------
-            
-def deposit_field_numpy( Fptcl, Fgrid, 
+
+def deposit_field_numpy( Fptcl, Fgrid,
         iz_lower, iz_upper, Sz_lower, Sz_upper,
         ir_lower, ir_upper, Sr_lower, Sr_upper,
         sign_guards, Sr_guard ) :
@@ -156,7 +156,7 @@ def deposit_field_numpy( Fptcl, Fgrid,
         (one element per macroparticle)
         Contains the charge or current for each macroparticle (already
         multiplied by exp(im theta), from which to do the deposition
-    
+
     Fgrid : 2darray of complexs
         Contains the fields on the interpolation grid.
         Is modified by this function
@@ -165,11 +165,11 @@ def deposit_field_numpy( Fptcl, Fgrid,
         (one element per macroparticle)
         Contains the index of the cells immediately below and
         immediately above each macroparticle, in z and r
-        
+
     Sz_lower, Sz_upper, Sr_lower, Sr_upper : 1darrays of floats
         (one element per macroparticle)
         Contains the weight for the lower and upper cells.
-        
+
     sign_guards : float
        The sign (+1 or -1) with which the weight of the guard cells should
        be added to the 0th cell.
@@ -180,7 +180,7 @@ def deposit_field_numpy( Fptcl, Fgrid,
     """
     # Deposit the particle quantity onto the grid
     # Lower cell in z, Lower cell in r
-    np.add.at( Fgrid, (iz_lower, ir_lower), Sz_lower*Sr_lower*Fptcl ) 
+    np.add.at( Fgrid, (iz_lower, ir_lower), Sz_lower*Sr_lower*Fptcl )
     # Lower cell in z, Upper cell in r
     np.add.at( Fgrid, (iz_lower, ir_upper), Sz_lower*Sr_upper*Fptcl )
     # Upper cell in z, Lower cell in r
