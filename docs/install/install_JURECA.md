@@ -48,7 +48,7 @@ conda install numba
 conda install accelerate
 `
 `
-conda install accelerate-cudalib
+conda install accelerate_cudalib
 `
 `
 conda install matplotlib
