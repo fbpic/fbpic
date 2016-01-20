@@ -95,7 +95,7 @@ def receive_data_from_gpu(simulation):
     # Receive the particles from the GPU (if CUDA is used)
     for species in simulation.ptcl :
         if species.use_cuda:
-            species.receive_particles_from_gpu() 
+            species.receive_particles_from_gpu()
     # Receive fields from the GPU (if CUDA is used)
     simulation.fld.receive_fields_from_gpu()
 
@@ -142,7 +142,24 @@ def print_current_gpu():
     print "------------------------------"
     print "ID: %s" %(gpu.id)
     print "Name: %s" %(gpu.name)
-    print "Compute capability: %s.%s" %(gpu.compute_capability[0], 
+    print "Compute capability: %s.%s" %(gpu.compute_capability[0],
                                         gpu.compute_capability[1])
     print_gpu_meminfo(gpu)
 
+def mpi_select_gpus(mpi_comm):
+    """
+    Selects the correct GPU used by the current MPI process
+
+    Parameters :
+    ------------
+    mpi_comm : MPI communicator
+        The mpi4py communicator.
+    """
+    n_gpus = len(cuda.gpus)
+
+    for i_gpu in range(n_gpus):
+        if mpi_comm.rank%n_gpus == i_gpu:
+            cuda.select_device(i_gpu)
+        mpi_comm.barrier()
+
+    print_current_gpu()
