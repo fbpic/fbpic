@@ -134,15 +134,10 @@ def cuda_divide_vector_by_volume( mode0r, mode1r, mode0t, mode1t,
 # Methods of the SpectralGrid object
 # -----------------------------------
 
-# @cuda.jit('void(complex128[:,:], complex128[:,:], \
-#            complex128[:,:], complex128[:,:], complex128[:,:], \
-#            float64[:,:], float64[:,:], float64[:,:], \
-#            complex128[:,:], complex128[:,:], \
-#            float64, int32, int32)')
 @cuda.jit
 def cuda_correct_currents( rho_prev, rho_next, Jp, Jm, Jz,
                             kz, kr, inv_k2, 
-                            j_corr_coef, T,
+                            j_corr_coef, T_eb, T_cc,
                             inv_dt, Nz, Nr ) :
     """
     Correct the currents in spectral space
@@ -169,8 +164,8 @@ def cuda_correct_currents( rho_prev, rho_next, Jp, Jm, Jz,
     if (iz < Nz) and (ir < Nr) :
         
         # Calculate the intermediate variable F
-        F = - inv_k2[iz, ir] * ( j_corr_coef[iz, ir] \
-            * (rho_next[iz, ir] - rho_prev[iz, ir]*T[iz, ir]) \
+        F = - inv_k2[iz, ir] * ( T_cc[iz, ir]*j_corr_coef[iz, ir] \
+            * (rho_next[iz, ir] - rho_prev[iz, ir]*T_eb[iz, ir]) \
             + 1.j*kz[iz, ir]*Jz[iz, ir] \
             + kr[iz, ir]*( Jp[iz, ir] - Jm[iz, ir] ) )
 
@@ -180,19 +175,11 @@ def cuda_correct_currents( rho_prev, rho_next, Jp, Jm, Jz,
         Jz[iz, ir] += -1.j * kz[iz, ir] * F
 
 
-# @cuda.jit('void(complex128[:,:], complex128[:,:], complex128[:,:], \
-#            complex128[:,:], complex128[:,:], complex128[:,:], \
-#            complex128[:,:], complex128[:,:], complex128[:,:], \
-#            complex128[:,:], complex128[:,:], \
-#            complex128[:,:], complex128[:,:], complex128[:,:], \
-#            float64[:,:], float64[:,:], complex128[:,:], complex128[:,:], \
-#            float64[:,:], float64[:,:], float64, float64, \
-#            int8, int8, int32, int32)')
 @cuda.jit
 def cuda_push_eb_with( Ep, Em, Ez, Bp, Bm, Bz, Jp, Jm, Jz,
                        rho_prev, rho_next, 
                        rho_prev_coef, rho_next_coef, j_coef, 
-                       C, S_w, T, T_rho,
+                       C, S_w, T_eb, T_cc, T_rho,
                        kr, kz, dt, V, 
                        ptcl_feedback, use_true_rho, Nz, Nr) :
     """
@@ -227,45 +214,45 @@ def cuda_push_eb_with( Ep, Em, Ez, Bp, Bm, Bz, Jp, Jm, Jz,
                 divJ = kr[iz, ir]*( Jp[iz, ir] - Jm[iz, ir] ) \
                     + 1.j*kz[iz, ir]*Jz[iz, ir]
 
-                rho_diff = ( T[iz,ir] * rho_next_coef[iz, ir] \
+                rho_diff = ( T_eb[iz,ir] * rho_next_coef[iz, ir] \
                   - rho_prev_coef[iz, ir] ) \
                   * epsilon_0 * divE + T_rho[iz, ir] \
                   * rho_next_coef[iz, ir] * divJ
 
             # Push the E field
             Ep[iz, ir] = \
-                T[iz, ir]*C[iz, ir]*Ep[iz, ir] + 0.5*kr[iz, ir]*rho_diff \
+                T_eb[iz, ir]*C[iz, ir]*Ep[iz, ir] + 0.5*kr[iz, ir]*rho_diff \
                 + j_coef[iz, ir]*1.j*kz[iz, ir]*V*Jp[iz, ir] \
-                + c2*T[iz, ir]*S_w[iz, ir]*( -1.j*0.5*kr[iz, ir]*Bz[iz, ir] \
-                + kz[iz, ir]*Bp[iz, ir] - mu_0*Jp[iz, ir] )
+                + c2*T_eb[iz, ir]*S_w[iz, ir]*( -1.j*0.5*kr[iz, ir]*Bz[iz, ir] \
+                + kz[iz, ir]*Bp[iz, ir] - mu_0*T_cc[iz, ir]*Jp[iz, ir] )
 
             Em[iz, ir] = \
-                T[iz, ir]*C[iz, ir]*Em[iz, ir] - 0.5*kr[iz, ir]*rho_diff \
+                T_eb[iz, ir]*C[iz, ir]*Em[iz, ir] - 0.5*kr[iz, ir]*rho_diff \
                 + j_coef[iz, ir]*1.j*kz[iz, ir]*V*Jm[iz, ir] \
-                + c2*T[iz, ir]*S_w[iz, ir]*( -1.j*0.5*kr[iz, ir]*Bz[iz, ir] \
-                - kz[iz, ir]*Bm[iz, ir] - mu_0*Jm[iz, ir] )
+                + c2*T_eb[iz, ir]*S_w[iz, ir]*( -1.j*0.5*kr[iz, ir]*Bz[iz, ir] \
+                - kz[iz, ir]*Bm[iz, ir] - mu_0*T_cc[iz, ir]*Jm[iz, ir] )
                 
             Ez[iz, ir] = \
-                T[iz, ir]*C[iz, ir]*Ez[iz, ir] - 1.j*kz[iz, ir]*rho_diff \
+                T_eb[iz, ir]*C[iz, ir]*Ez[iz, ir] - 1.j*kz[iz, ir]*rho_diff \
                 + j_coef[iz, ir]*1.j*kz[iz, ir]*V*Jz[iz, ir] \
-                + c2*T[iz, ir]*S_w[iz, ir]*( 1.j*kr[iz, ir]*Bp[iz, ir] \
-                + 1.j*kr[iz, ir]*Bm[iz, ir] - mu_0*Jz[iz, ir] )
+                + c2*T_eb[iz, ir]*S_w[iz, ir]*( 1.j*kr[iz, ir]*Bp[iz, ir] \
+                + 1.j*kr[iz, ir]*Bm[iz, ir] - mu_0*T_cc[iz, ir]*Jz[iz, ir] )
 
             # Push the B field
-            Bp[iz, ir] = T[iz, ir]*C[iz, ir]*Bp[iz, ir] \
-                - T[iz, ir]*S_w[iz, ir]*( -1.j*0.5*kr[iz, ir]*Ez_old \
+            Bp[iz, ir] = T_eb[iz, ir]*C[iz, ir]*Bp[iz, ir] \
+                - T_eb[iz, ir]*S_w[iz, ir]*( -1.j*0.5*kr[iz, ir]*Ez_old \
                             + kz[iz, ir]*Ep_old ) \
                 + j_coef[iz, ir]*( -1.j*0.5*kr[iz, ir]*Jz[iz, ir] \
                             + kz[iz, ir]*Jp[iz, ir] )
 
-            Bm[iz, ir] = T[iz, ir]*C[iz, ir]*Bm[iz, ir] \
-                - T[iz, ir]*S_w[iz, ir]*( -1.j*0.5*kr[iz, ir]*Ez_old \
+            Bm[iz, ir] = T_eb[iz, ir]*C[iz, ir]*Bm[iz, ir] \
+                - T_eb[iz, ir]*S_w[iz, ir]*( -1.j*0.5*kr[iz, ir]*Ez_old \
                             - kz[iz, ir]*Em_old ) \
                 + j_coef[iz, ir]*( -1.j*0.5*kr[iz, ir]*Jz[iz, ir] \
                             - kz[iz, ir]*Jm[iz, ir] )
 
-            Bz[iz, ir] = T[iz, ir]*C[iz, ir]*Bz[iz, ir] \
-                - T[iz, ir]*S_w[iz, ir]*( 1.j*kr[iz, ir]*Ep_old \
+            Bz[iz, ir] = T_eb[iz, ir]*C[iz, ir]*Bz[iz, ir] \
+                - T_eb[iz, ir]*S_w[iz, ir]*( 1.j*kr[iz, ir]*Ep_old \
                             + 1.j*kr[iz, ir]*Em_old ) \
                 + j_coef[iz, ir]*( 1.j*kr[iz, ir]*Jp[iz, ir] \
                             + 1.j*kr[iz, ir]*Jm[iz, ir] )
@@ -274,29 +261,29 @@ def cuda_push_eb_with( Ep, Em, Ez, Bp, Bm, Bz, Jp, Jm, Jz,
         else :
 
             # Push the E field
-            Ep[iz, ir] = T[iz, ir]*C[iz, ir]*Ep[iz, ir] \
-                + c2*T[iz, ir]*S_w[iz, ir]*( -1.j*0.5*kr[iz, ir]*Bz[iz, ir] \
+            Ep[iz, ir] = T_eb[iz, ir]*C[iz, ir]*Ep[iz, ir] \
+                + c2*T_eb[iz, ir]*S_w[iz, ir]*( -1.j*0.5*kr[iz, ir]*Bz[iz, ir] \
                 + kz[iz, ir]*Bp[iz, ir] )
 
-            Em[iz, ir] = T[iz, ir]*C[iz, ir]*Em[iz, ir]  \
-                + c2*T[iz, ir]*S_w[iz, ir]*( -1.j*0.5*kr[iz, ir]*Bz[iz, ir] \
+            Em[iz, ir] = T_eb[iz, ir]*C[iz, ir]*Em[iz, ir]  \
+                + c2*T_eb[iz, ir]*S_w[iz, ir]*( -1.j*0.5*kr[iz, ir]*Bz[iz, ir] \
                 - kz[iz, ir]*Bm[iz, ir] )
                 
-            Ez[iz, ir] = T[iz, ir]*C[iz, ir]*Ez[iz, ir]  \
-                + c2*T[iz, ir]*S_w[iz, ir]*( 1.j*kr[iz, ir]*Bp[iz, ir] \
+            Ez[iz, ir] = T_eb[iz, ir]*C[iz, ir]*Ez[iz, ir]  \
+                + c2*T_eb[iz, ir]*S_w[iz, ir]*( 1.j*kr[iz, ir]*Bp[iz, ir] \
                 + 1.j*kr[iz, ir]*Bm[iz, ir] )
 
             # Push the B field
-            Bp[iz, ir] = T[iz, ir]*C[iz, ir]*Bp[iz, ir] \
-                - T[iz, ir]*S_w[iz, ir]*( -1.j*0.5*kr[iz, ir]*Ez_old \
+            Bp[iz, ir] = T_eb[iz, ir]*C[iz, ir]*Bp[iz, ir] \
+                - T_eb[iz, ir]*S_w[iz, ir]*( -1.j*0.5*kr[iz, ir]*Ez_old \
                             + kz[iz, ir]*Ep_old ) 
 
-            Bm[iz, ir] = T[iz, ir]*C[iz, ir]*Bm[iz, ir] \
-                - T[iz, ir]*S_w[iz, ir]*( -1.j*0.5*kr[iz, ir]*Ez_old \
+            Bm[iz, ir] = T_eb[iz, ir]*C[iz, ir]*Bm[iz, ir] \
+                - T_eb[iz, ir]*S_w[iz, ir]*( -1.j*0.5*kr[iz, ir]*Ez_old \
                             - kz[iz, ir]*Em_old ) 
 
-            Bz[iz, ir] = T[iz, ir]*C[iz, ir]*Bz[iz, ir] \
-                - T[iz, ir]*S_w[iz, ir]*( 1.j*kr[iz, ir]*Ep_old \
+            Bz[iz, ir] = T_eb[iz, ir]*C[iz, ir]*Bz[iz, ir] \
+                - T_eb[iz, ir]*S_w[iz, ir]*( 1.j*kr[iz, ir]*Ep_old \
                             + 1.j*kr[iz, ir]*Em_old )
 
 

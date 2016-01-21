@@ -745,7 +745,8 @@ class SpectralGrid(object) :
             cuda_correct_currents[dim_grid, dim_block](
                 self.rho_prev, self.rho_next, self.Jp, self.Jm, self.Jz,
                 self.d_kz, self.d_kr, self.d_inv_k2,
-                ps.d_j_corr_coef, ps.d_T, inv_dt, self.Nz, self.Nr)
+                ps.d_j_corr_coef, ps.d_T_eb, ps.d_T_cc,
+                inv_dt, self.Nz, self.Nr)
         else :
             # Correct the currents on the CPU
 
@@ -810,7 +811,7 @@ class SpectralGrid(object) :
                 self.Ep, self.Em, self.Ez, self.Bp, self.Bm, self.Bz,
                 self.Jp, self.Jm, self.Jz, self.rho_prev, self.rho_next,
                 ps.d_rho_prev_coef, ps.d_rho_next_coef, ps.d_j_coef,
-                ps.d_C, ps.d_S_w, ps.d_T, ps.d_T_rho,
+                ps.d_C, ps.d_S_w, ps.d_T_eb, ps.d_T_cc, ps.d_T_rho,
                 self.d_kr, self.d_kz, ps.dt, ps.V,
                 ptcl_feedback, use_true_rho, self.Nz, self.Nr )
 
@@ -1177,6 +1178,8 @@ class PsatdCoeffs(object) :
             self.d_C = cuda.to_device(self.C)
             self.d_S_w = cuda.to_device(self.S_w)
             self.d_T = cuda.to_device(self.T)
+            self.d_T_eb = cuda.to_device(self.T_eb)
+            self.d_T_cc = cuda.to_device(self.T_cc)
             self.d_T_rho = cuda.to_device(self.T_rho)
             self.d_j_coef = cuda.to_device(self.j_coef)
             self.d_rho_prev_coef = cuda.to_device(self.rho_prev_coef)
