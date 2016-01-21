@@ -98,7 +98,7 @@ def push_p_gpu( ux, uy, uz, inv_gamma,
 
 @cuda.jit('void(float64[:], float64[:], float64[:], \
             float64[:], float64[:], float64[:], \
-            float64[:], float64, float64)')
+            float64[:], float64)')
 def push_x_gpu( x, y, z, ux, uy, uz, inv_gamma, dt ) :
     """
     Advance the particles' positions over one half-timestep
