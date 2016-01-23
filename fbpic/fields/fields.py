@@ -838,34 +838,34 @@ class SpectralGrid(object) :
                 else :
                     # Evaluation using div(E) and div(J)
                     rho_diff = (ps.rho_next_coef*ps.T_eb - ps.rho_prev_coef)* \
-                    epsilon_0 * (self.kr*self.Ep - self.kr*self.Em + i*self.kz*self.Ez) \
-                    + ps.T_rho \
-                    * ps.rho_next_coef \
-                    * (self.kr*self.Jp - self.kr*self.Jm + i*self.kz*self.Jz)
+                        epsilon_0 * (self.kr*self.Ep -
+                        self.kr*self.Em + i*self.kz*self.Ez) \
+                        + ps.T_rho * ps.rho_next_coef * ( self.kr*self.Jp \
+                        - self.kr*self.Jm + i*self.kz*self.Jz)
 
                 # Push the E field
                 self.Ep[:,:] = ps.T_eb*ps.C*self.Ep + 0.5*self.kr*rho_diff \
                     + ps.j_coef*i*self.kz*ps.V*self.Jp \
-                    + c2*ps.T_eb*ps.S_w*( -i*0.5*self.kr*self.Bz + self.kz*self.Bp \
-                              - mu_0*ps.T_cc*self.Jp )
+                    + c2*ps.T_eb*ps.S_w*(-i*0.5*self.kr*self.Bz \
+                        + self.kz*self.Bp - mu_0*ps.T_cc*self.Jp )
 
                 self.Em[:,:] = ps.T_eb*ps.C*self.Em - 0.5*self.kr*rho_diff \
                     + ps.j_coef*i*self.kz*ps.V*self.Jm \
-                    + c2*ps.T_eb*ps.S_w*( -i*0.5*self.kr*self.Bz - self.kz*self.Bm \
-                              - mu_0*ps.T_cc*self.Jm )
+                    + c2*ps.T_eb*ps.S_w*(-i*0.5*self.kr*self.Bz \
+                        - self.kz*self.Bm - mu_0*ps.T_cc*self.Jm )
 
                 self.Ez[:,:] = ps.T_eb*ps.C*self.Ez - i*self.kz*rho_diff \
                     + ps.j_coef*i*self.kz*ps.V*self.Jz \
-                    + c2*ps.T_eb*ps.S_w*( i*self.kr*self.Bp + i*self.kr*self.Bm \
-                      - mu_0*ps.T_cc*self.Jz )
+                    + c2*ps.T_eb*ps.S_w*( i*self.kr*self.Bp \
+                        + i*self.kr*self.Bm - mu_0*ps.T_cc*self.Jz )
 
                 # Push the B field
                 self.Bp[:,:] = ps.T_eb*ps.C*self.Bp \
-                    - ps.T_eb*ps.S_w*( -i*0.5*self.kr*ps.Ez + self.kz*ps.Ep ) \
+                    - ps.T_eb*ps.S_w*(-i*0.5*self.kr*ps.Ez + self.kz*ps.Ep ) \
                     + ps.j_coef*( -i*0.5*self.kr*self.Jz + self.kz*self.Jp )
 
                 self.Bm[:,:] = ps.T_eb*ps.C*self.Bm \
-                    - ps.T_eb*ps.S_w*( -i*0.5*self.kr*ps.Ez - self.kz*ps.Em ) \
+                    - ps.T_eb*ps.S_w*(-i*0.5*self.kr*ps.Ez - self.kz*ps.Em ) \
                     + ps.j_coef*( -i*0.5*self.kr*self.Jz - self.kz*self.Jm )
 
                 self.Bz[:,:] = ps.T_eb*ps.C*self.Bz \
@@ -877,10 +877,10 @@ class SpectralGrid(object) :
 
                 # Push the E field
                 self.Ep[:,:] = ps.T_eb*ps.C*self.Ep \
-                + c2*ps.T_eb*ps.S_w*( -i*0.5*self.kr*self.Bz + self.kz*self.Bp )
+                + c2*ps.T_eb*ps.S_w*(-i*0.5*self.kr*self.Bz + self.kz*self.Bp )
 
                 self.Em[:,:] = ps.T_eb*ps.C*self.Em \
-                + c2*ps.T_eb*ps.S_w*( -i*0.5*self.kr*self.Bz - self.kz*self.Bm )
+                + c2*ps.T_eb*ps.S_w*(-i*0.5*self.kr*self.Bz - self.kz*self.Bm )
 
                 self.Ez[:,:] = ps.T_eb*ps.C*self.Ez \
                 + c2*ps.T_eb*ps.S_w*( i*self.kr*self.Bp + i*self.kr*self.Bm )
@@ -1074,24 +1074,19 @@ class PsatdCoeffs(object) :
         # Enforce the right value for w==0
         self.S_w[ w==0 ] = dt
 
-        # Theta coefficient due to galilean frame
-        self.T = np.exp(i*kz*V*dt)
-        # Theta coefficient related to the E and B fields in the field push
+        # Theta coefficients due to galilean frame
+        T2 = np.exp(i*kz*V*dt)
+        if use_galilean is False:
+            T = np.exp(i*0.5*kz*V*dt)
+        # The coefficients T_cc and T_eb abstract the modification
+        # of the comoving current or galilean frame, so that the Maxwell
+        # equations can be written in the same form
         if use_galilean:
-            self.T_eb = self.T
+            self.T_eb = T2
+            self.T_cc = np.ones_like(T2)
         else:
-            # If the comoving current assumption is used, the Theta coefficient
-            # is not multiplied to the old E and B fields during the field push.
-            # (This coeff is also used at some other places to supress Theta)
-            self.T_eb = np.ones_like(self.T)
-
-        # Theta coefficient due to the comoving current assumption
-        if use_galilean:
-            self.T_cc = np.ones_like(self.T)
-        else:
-            # If the comoving current assumption is used, sqrt(Theta)
-            # is multiplied to some quantities during the field push.
-            self.T_cc = np.sqrt(self.T)
+            self.T_cc = T
+            self.T_eb = np.ones_like(T2)
 
         # Theta-like coefficient for calculation of rho_diff
         if V != 0.:
@@ -1100,7 +1095,7 @@ class PsatdCoeffs(object) :
             self.T_rho = np.where(
                             kz == 0.,
                             -self.dt,
-                            (1.-self.T)/(self.T_cc*i_kz_V) )
+                            (1.-T2)/(self.T_cc*i_kz_V) )
         else:
             self.T_rho = -self.dt*np.ones_like(kz)
 
@@ -1111,24 +1106,26 @@ class PsatdCoeffs(object) :
                             (w**2 - kz**2 * V**2)==0,
                             1.,
                             (w**2 - kz**2 * V**2) )
-            # Calculate factor involding 1/Theta
-            inv_1_Theta = 1./np.where(self.T == 1, 1., 1-self.T)
+            # Calculate factor involving 1/T2
+            inv_1_T2 = 1./np.where(T2 == 1, 1., 1-T2)
             # Calculate Xi 1 coefficient
             xi_1 = 1./self.T_cc * inv_w_kzV \
-                   * (1. - self.T*self.C + i*kz*V*self.T*self.S_w)
+                   * (1. - T2*self.C + i*kz*V*T2*self.S_w)
             # Calculate Xi 2 coefficient
             xi_2 = np.where(
                     kz!=0,
                     inv_w_kzV * ( 1. \
-                        + i*kz*V*self.T*self.S_w*inv_1_Theta \
-                        + kz**2*V**2*inv_w**2*self.T*inv_1_Theta*(1-self.C) ),
+                        + i*kz*V * T2 * self.S_w * inv_1_T2 \
+                        + kz**2*V**2 * inv_w**2 * T2 * \
+                        inv_1_T2*(1-self.C) ),
                     1.*inv_w**2 * (1.-self.S_w*inv_dt) )
             # Calculate Xi 3 coefficient
             xi_3 = np.where(
                     kz!=0,
                     self.T_eb * inv_w_kzV * ( self.C \
-                        + i*kz*V*self.T*self.S_w*inv_1_Theta \
-                        + kz**2*V**2*inv_w**2*inv_1_Theta*(1-self.C) ),
+                        + i*kz*V * T2 *self.S_w * inv_1_T2 \
+                        + kz**2*V**2 * inv_w**2 * \
+                        inv_1_T2 * (1-self.C) ),
                     1.*inv_w**2 * (self.C-self.S_w*inv_dt) )
 
         # Construct the mu0 c2 array
@@ -1160,10 +1157,10 @@ class PsatdCoeffs(object) :
 
         # Coefficient for the current correction (curl-free)
         if V != 0.:
-             inv_1_Theta = 1./np.where(self.T == 1, 1., 1-self.T)
+             inv_1_T2 = 1./np.where(T2 == 1, 1., 1-T2)
              # Take care of kz = 0 singularity
              self.j_corr_coef = np.where( kz != 0,
-                            (-i*kz*V)*inv_1_Theta,
+                            (-i*kz*V)*inv_1_T2,
                             inv_dt )
         else:
              self.j_corr_coef = inv_dt*np.ones_like(kz)
@@ -1177,7 +1174,6 @@ class PsatdCoeffs(object) :
         if use_cuda :
             self.d_C = cuda.to_device(self.C)
             self.d_S_w = cuda.to_device(self.S_w)
-            self.d_T = cuda.to_device(self.T)
             self.d_T_eb = cuda.to_device(self.T_eb)
             self.d_T_cc = cuda.to_device(self.T_cc)
             self.d_T_rho = cuda.to_device(self.T_rho)
