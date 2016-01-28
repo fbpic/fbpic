@@ -98,6 +98,7 @@ def dens_func( z, r ):
 sim = Simulation( Nz, zmax, Nr, rmax, Nm, dt,
     p_zmin, p_zmax, p_rmin, p_rmax, p_nz, p_nr, p_nt, n_e,
     dens_func=dens_func, zmin=zmin, initialize_ions=True,
+    v_comoving=-0.999*c, use_galilean=False,
     gamma_boost=gamma_boost, boundaries='open', use_cuda=use_cuda )
 
 # Add a laser to the fields of the simulation
@@ -117,5 +118,5 @@ sim.diags = [ FieldDiagnostic(diag_period, sim.fld, sim.comm ),
 
 ### Run the simulation
 print('\n Performing %d PIC cycles' % N_step)
-sim.step( N_step )
+sim.step( N_step, use_true_rho=True )
 print('')
