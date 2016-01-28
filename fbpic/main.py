@@ -3,11 +3,11 @@ Fourier-Bessel Particle-In-Cell (FB-PIC) main file
 
 This file steers and controls the simulation.
 """
-# Determined if cuda is available
+# Determine if cuda is available
 try:
     from numba import cuda
-    cuda_installed = cuda.is_available():
-except ImporError, CudaSupportError:
+    cuda_installed = cuda.is_available()
+except ImportError, CudaSupportError:
     cuda_installed = False
 
 # When cuda is available, select one GPU per mpi process
