@@ -1,6 +1,6 @@
 numpy
 scipy
 matplotlib
-numba==0.22.1
+numba
 h5py
 mpi4py
