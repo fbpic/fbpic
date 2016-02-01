@@ -262,7 +262,7 @@ class Simulation(object):
 
             # Show a progression bar
             if show_progress:
-                progression_bar( i_step, N )
+                progression_bar( i_step, N, measured_start )
 
             # Run the diagnostics
             for diag in self.diags:
@@ -393,12 +393,21 @@ class Simulation(object):
             fld.filter_spect( fieldtype )
 
 
-def progression_bar(i, Ntot, Nbars=60, char='-'):
-    "Shows a progression bar with Nbars"
+def progression_bar(i, Ntot, measured_start, Nbars=50, char='-'):
+    """
+    Shows a progression bar with Nbars and the remaining 
+    simulation time.
+    """
     nbars = int( (i+1)*1./Ntot*Nbars )
     sys.stdout.write('\r[' + nbars*char )
     sys.stdout.write((Nbars-nbars)*' ' + ']')
     sys.stdout.write(' %d/%d' %(i,Ntot))
+    # Estimated time in seconds until it will finish (linear interpolation)
+    eta = (((float(Ntot)/(i+1.))-1.)*(time.time()-measured_start))
+    # Conversion to H:M:S
+    m, s = divmod(eta, 60)
+    h, m = divmod(m, 60)
+    sys.stdout.write(', %d:%02d:%02d left' % (h, m, s))
     sys.stdout.flush()
 
 def adapt_to_grid( x, p_xmin, p_xmax, p_nx, ncells_empty=0 ):
