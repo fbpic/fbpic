@@ -23,7 +23,8 @@ class GuardCellDamper(object):
     cells that correspond to a boundary between processors.
     """
 
-    def __init__( self, n_guard, left_proc, right_proc, exchange_period ):
+    def __init__( self, n_guard, left_proc, right_proc,
+                    exchange_period, n_order ):
         """
         Initialize a damping object.
 
@@ -35,15 +36,21 @@ class GuardCellDamper(object):
         left_proc, right_proc: int or None
             Indicates whether the boundary is open (proc is None) or
             is a boundary between processors (proc is an integer)
+
+        n_order: int
+            The order of the stencil. If the stencil fits into the
+            guard cells, no damping is performed, between two processors.
+            (Damping is still performed in the guard cells that correspond
+            to open boundaries)
         """
         # Register the number of guard cells
         self.n_guard = n_guard
 
         # Create the damping arrays
         self.left_damp = generate_damp_array(
-            n_guard, left_proc, exchange_period )
+            n_guard, n_order, left_proc, exchange_period )
         self.right_damp = generate_damp_array(
-            n_guard, right_proc, exchange_period )
+            n_guard, n_order, right_proc, exchange_period )
 
         # Transfer the damping array to the GPU
         if cuda_installed:
@@ -91,7 +98,7 @@ class GuardCellDamper(object):
                 interp[m].Bt[-n_guard:,:] *= self.right_damp[::-1,np.newaxis]
                 interp[m].Bz[-n_guard:,:] *= self.right_damp[::-1,np.newaxis]
 
-def generate_damp_array( n_guard, neighbor_proc, exchange_period ):
+def generate_damp_array( n_guard, neighbor_proc, exchange_period, n_order ):
     """
     Create a 1d damping array of length n_guard.
 
@@ -112,6 +119,12 @@ def generate_damp_array( n_guard, neighbor_proc, exchange_period ):
         The number of timestep before the moving window is moved.
         The larger this number, the lower the damping in the open boundaries.
 
+    n_order: int
+        The order of the stencil, use -1 for infinite order.
+        If the stencil fits into the guard cells, no damping is performed,
+        between two processors. (Damping is still performed in the guard
+        cells that correspond to open boundaries)
+
     Returns
     -------
     A 1darray of doubles, of length n_guard, which represents the damping.
@@ -121,8 +134,12 @@ def generate_damp_array( n_guard, neighbor_proc, exchange_period ):
 
     # Boundary with a neighboring proc
     if neighbor_proc is not None:
-        # Perform wide damping
-        damping_array = np.where( i_cell < n_guard/2,
+        # If the stencil fits in the guard cells, do not perform any damping
+        if (n_order!=-1) and (n_order/2 <= n_guard):
+            damping_array = np.ones( n_guard )
+        # If the stencil does not fit in guard cells, perform wide damping
+        else:
+            damping_array = np.where( i_cell < n_guard/2,
                     np.sin( i_cell * np.pi/n_guard )**2, 1. )
 
     # Open boundary
@@ -150,7 +167,7 @@ if cuda_installed :
 
         Parameters :
         ------------
-        Er0, Et0, Ez0, Br0, Bt0, Bz0, 
+        Er0, Et0, Ez0, Br0, Bt0, Bz0,
         Er1, Et1, Ez1, Br1, Bt1, Bz1 : 2darrays of complexs
             Contain the fields to be damped
             The first axis corresponds to z and the second to r

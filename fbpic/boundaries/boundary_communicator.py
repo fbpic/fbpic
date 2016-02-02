@@ -25,7 +25,7 @@ class BoundaryCommunicator(object):
     It also handles the initial domain decomposition.
 
     The functions of this object are:
-    
+
     - At each timestep, to exchange the fields between MPI domains
       and damp the E and B fields in the guard cells
 
@@ -37,9 +37,9 @@ class BoundaryCommunicator(object):
 
     # Initialization routines
     # -----------------------
-    
-    def __init__( self, Nz, Nr, n_guard, Nm, boundaries='periodic',
-                  exchange_period=None ):
+
+    def __init__( self, Nz, Nr, n_guard, Nm, boundaries,
+                  n_order, exchange_period=None ):
         """
         Initializes a communicator object.
 
@@ -49,7 +49,7 @@ class BoundaryCommunicator(object):
             The initial global number of cells
 
         n_guard: int
-            The number of guard cells at the 
+            The number of guard cells at the
             left and right edge of the domain
 
         Nm: int
@@ -66,12 +66,18 @@ class BoundaryCommunicator(object):
 
         v_moving: int
             Speed of the moving window. Use 0 for no moving window.
+
+        n_order: int
+            The order of the stencil, use -1 for infinite order.
+            If the stencil fits into the guard cells, no damping is
+            performed, between two processors. (Damping is still performed
+            in the guard cells that correspond to open boundaries)
         """
         # Initialize global number of cells and modes
         self.Nz = Nz
         self.Nr = Nr
         self.Nm = Nm
-        
+
         # MPI Setup
         self.mpi_comm = mpi.COMM_WORLD
         self.rank = self.mpi_comm.rank
@@ -82,7 +88,7 @@ class BoundaryCommunicator(object):
         # Correct these initial values by taking into account boundaries
         if boundaries == 'periodic':
             # Periodic boundary conditions for the domains
-            if self.rank == 0: 
+            if self.rank == 0:
                 self.left_proc = (self.size-1)
             if self.rank == self.size-1:
                 self.right_proc = 0
@@ -119,7 +125,8 @@ class BoundaryCommunicator(object):
         # Create damping object for the guard cells
         if self.n_guard > 0:
             self.guard_damper = GuardCellDamper( self.n_guard,
-                    self.left_proc, self.right_proc, self.exchange_period )
+                    self.left_proc, self.right_proc,
+                    self.exchange_period, n_order )
 
     def divide_into_domain( self, zmin, zmax, p_zmin, p_zmax ):
         """
@@ -140,7 +147,7 @@ class BoundaryCommunicator(object):
 
         Returns:
         ---------
-        A tuple with 
+        A tuple with
         zmin, zmax: floats
             Positions of the edges of the local simulation box
             (with guard cells)
@@ -159,7 +166,7 @@ class BoundaryCommunicator(object):
         # (longitudinal spacing of the grid)
         dz = (zmax - zmin)/self.Nz
         self.dz = dz
-            
+
         # Initialize the number of cells of each proc
         # (Splits the global simulation and
         # adds guard cells to the local domain)
@@ -182,13 +189,13 @@ class BoundaryCommunicator(object):
             raise ValueError( 'Number of local cells in z is smaller \
                                than 4 times n_guard. Use fewer domains or \
                                a smaller number of guard cells.')
-        
+
         # Calculate the local boundaries (zmin and zmax)
         # of this local simulation box including the guard cells.
         iz_start = self.iz_start_procs[self.rank]
         zmin_local = zmin + (iz_start - self.n_guard)*dz
         zmax_local = zmin_local + self.Nz_enlarged*dz
-        
+
         # Calculate the new limits (p_zmin and p_zmax)
         # for adding particles to this domain
         p_zmin = max( zmin_local + self.n_guard*dz, p_zmin)
@@ -198,7 +205,7 @@ class BoundaryCommunicator(object):
 
     # Exchange routines
     # -----------------
-        
+
     def move_grids( self, fld, dt ):
         """
         Calculate by how many cells the moving window should be moved.
@@ -212,12 +219,12 @@ class BoundaryCommunicator(object):
         ----------
         fld: a Fields object
             Contains the fields data of the simulation
-    
+
         dt: float (in seconds)
             Timestep of the simulation
         """
         self.moving_win.move_grids(fld, dt, self.mpi_comm)
-           
+
     def exchange_fields( self, interp, fieldtype ):
         """
         Send and receive the proper fields, depending on fieldtype
@@ -227,7 +234,7 @@ class BoundaryCommunicator(object):
         or on the GPU, this function will do the appropriate exchange
         with the device.
 
-        The layout of the local domain and a neighboring domain 
+        The layout of the local domain and a neighboring domain
         can be visualised like this:
                       ---------------------
                       |ng|nc|       |nc|ng|    <- Local domain (rank)
@@ -236,8 +243,8 @@ class BoundaryCommunicator(object):
         |ng|nc|       |nc|ng|                  <- Neighboring domain (rank-1)
         ---------------------
         The area "ng" defines the region of the guard cells with length n_guard
-        The area "nc" defines a region within the domain, that contains the 
-        correct simulation data and has also a length of n_guard cells. 
+        The area "nc" defines a region within the domain, that contains the
+        correct simulation data and has also a length of n_guard cells.
         This region overlaps with the guard cells of the neighboring domain.
 
         Exchange of E and B fields:
@@ -248,7 +255,7 @@ class BoundaryCommunicator(object):
 
         Exchange of the currents J and the charge density rho:
 
-        - Copy the guard cell region "ng" and the correct part "nc" and 
+        - Copy the guard cell region "ng" and the correct part "nc" and
           add it to the same region (ng + nc) of the neighboring domain.
 
         Parameters:
@@ -319,10 +326,10 @@ class BoundaryCommunicator(object):
 
         Parameters :
         ------------
-        - send_left, send_right, recv_left, recv_right : arrays 
+        - send_left, send_right, recv_left, recv_right : arrays
              Sending and receiving buffers
         """
-        # MPI-Exchange: Uses non-blocking send and receive, 
+        # MPI-Exchange: Uses non-blocking send and receive,
         # which return directly and need to be synchronized later.
         # Send to left domain and receive from right domain
         if self.left_proc is not None :
@@ -341,7 +348,7 @@ class BoundaryCommunicator(object):
             mpi.Request.Wait(req_1)
         if self.left_proc is not None :
             mpi.Request.Wait(req_2)
-            
+
     def exchange_particles(self, species, fld ):
         """
         Look for particles that are located outside of the physical boundaries
@@ -391,8 +398,8 @@ class BoundaryCommunicator(object):
             recv_right = self.moving_win.generate_particles(
                 species, fld.interp[0].dz )
 
-        # An MPI barrier is needed here so that a single rank 
-        # does not perform two sends and receives before all 
+        # An MPI barrier is needed here so that a single rank
+        # does not perform two sends and receives before all
         # the other MPI connections within this exchange are completed.
         self.mpi_comm.Barrier()
 
@@ -425,7 +432,7 @@ class BoundaryCommunicator(object):
 
     # Gathering routines
     # ------------------
-            
+
     def gather_grid( self, grid, root = 0):
         """
         Gather a grid object by combining the local domains
@@ -450,7 +457,7 @@ class BoundaryCommunicator(object):
                             (self.n_guard - self.rank*self.Nz_domain)
             # Create new grid array that contains cell positions in z
             z = zmin_global + self.dz*( 0.5 + np.arange(self.Nz) )
-            # Initialize new InterpolationGrid object that 
+            # Initialize new InterpolationGrid object that
             # is used to gather the global grid data
             gathered_grid = InterpolationGrid(z = z, r = grid.r, m = grid.m )
         else:
@@ -490,7 +497,7 @@ class BoundaryCommunicator(object):
             A gathered array that contains the global simulation data
         """
         if self.rank == root:
-            # Root process creates empty numpy array of the shape 
+            # Root process creates empty numpy array of the shape
             # (Nz, Nr), that is used to gather the data
             gathered_array = np.zeros((self.Nz, self.Nr), dtype=array.dtype)
         else:
@@ -498,12 +505,12 @@ class BoundaryCommunicator(object):
             gathered_array = None
         # Shortcut for the guard cells
         ng = self.n_guard
-        
+
         # Call the mpi4py routine Gartherv
         # First get the size and MPI type of the 2D arrays in each procs
         i_start_procs = tuple( self.Nr*iz for iz in self.iz_start_procs )
         N_domain_procs = tuple( self.Nr*nz for nz in self.Nz_domain_procs )
-        mpi_type = mpi_type_dict[ str(array.dtype) ] 
+        mpi_type = mpi_type_dict[ str(array.dtype) ]
         # Then send the arrays
         sendbuf = [ array[ng:-ng,:], N_domain_procs[self.rank] ]
         recvbuf = [ gathered_array, N_domain_procs, i_start_procs, mpi_type ]
@@ -515,7 +522,7 @@ class BoundaryCommunicator(object):
     def gather_ptcl( self, ptcl, root = 0):
         """
         Gather a particle object by receiving the total number of particles
-        Ntot (uses parallel sum reduction) in order to gather (mpi4py Gatherv) 
+        Ntot (uses parallel sum reduction) in order to gather (mpi4py Gatherv)
         the local particle arrays to global particle arrays with a length Ntot.
 
         Parameter:
@@ -532,7 +539,7 @@ class BoundaryCommunicator(object):
             A gathered particle object that contains the global simulation data
         """
         if self.rank == root:
-            # Initialize new Particle object that 
+            # Initialize new Particle object that
             # is used to gather the global grid data
             gathered_ptcl = Particles(ptcl.q, ptcl.m, ptcl.n, 0, self.zmin,
                 self.zmax, 0, ptcl.rmin, ptcl.rmax, ptcl.dt)
@@ -568,7 +575,7 @@ class BoundaryCommunicator(object):
 
         n_rank: list of ints
             A list containing the number of particles to send on each proc
-            
+
         Ntot: int
             The total number of particles for all the proc together
 
@@ -597,9 +604,7 @@ class BoundaryCommunicator(object):
 
         # Send/receive the arrays
         self.mpi_comm.Gatherv( sendbuf, recvbuf, root=root )
-        
+
         # Return the gathered_array only on process root
         if self.rank == root:
             return(gathered_array)
-
-

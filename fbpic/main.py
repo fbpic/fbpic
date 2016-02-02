@@ -139,7 +139,8 @@ class Simulation(object):
             uz_m, = boost.longitudinal_momentum([ uz_m ])
 
         # Initialize the boundary communicator
-        self.comm = BoundaryCommunicator(Nz, Nr, n_guard, Nm, boundaries)
+        self.comm = BoundaryCommunicator(Nz, Nr, n_guard, Nm,
+                                        boundaries, n_order)
         # Modify domain region
         zmin, zmax, p_zmin, p_zmax, Nz = \
               self.comm.divide_into_domain(zmin, zmax, p_zmin, p_zmax)
