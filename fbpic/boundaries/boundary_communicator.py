@@ -349,7 +349,7 @@ class BoundaryCommunicator(object):
         if self.left_proc is not None :
             mpi.Request.Wait(req_2)
 
-    def exchange_particles(self, species, fld ):
+    def exchange_particles(self, species, fld, time ):
         """
         Look for particles that are located outside of the physical boundaries
         and exchange them with the corresponding neighboring processor.
@@ -366,6 +366,12 @@ class BoundaryCommunicator(object):
             Contains information about the dimension of the grid,
             and the prefix sum (when using the GPU).
             The object itself is not modified by this routine.
+
+        time: float (seconds)
+            The global time of the simulation
+            (Needed in the case of a flowing plasma which is generate
+            from a density profile: in the case the time is used in
+            order to infer how much the plasma has moved)
         """
         # Do not exchange particles for 0 guard cells (periodic, single-proc)
         if self.n_guard == 0:
@@ -396,7 +402,7 @@ class BoundaryCommunicator(object):
         # will not be affected by the exchange at this open boundary)
         if (self.moving_win is not None) and (self.rank == self.size-1):
             recv_right = self.moving_win.generate_particles(
-                species, fld.interp[0].dz )
+                species, fld.interp[0].dz, time )
 
         # An MPI barrier is needed here so that a single rank
         # does not perform two sends and receives before all

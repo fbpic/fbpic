@@ -294,7 +294,7 @@ class Simulation(object):
                 # out-of-box particles and (if there is a moving window)
                 # injection of new particles by the moving window.
                 for species in self.ptcl:
-                    self.comm.exchange_particles(species, fld)
+                    self.comm.exchange_particles(species, fld, self.time)
 
                 # Reproject the charge on the interpolation grid
                 # (Since particles have been added/suppressed)

@@ -150,7 +150,7 @@ class MovingWindow(object):
             # Increment the position of the end of the plasma
             self.z_end_plasma += self.nz_inject*dz
 
-    def generate_particles( self, species, dz ) :
+    def generate_particles( self, species, dz, time ) :
         """
         Generate new particles at the right end of the plasma
         (i.e. between self.z_inject and self.z_end_plasma)
@@ -162,9 +162,13 @@ class MovingWindow(object):
         species: a Particles object
             Contains data about the existing particles
 
-        dz: float
+        dz: float (meters)
             The grid spacing along see on the grid
-        
+
+        time: float (seconds)
+            The global time of the simulation
+            (Needed in order to infer how much the plasma has moved)
+
         Returns
         -------
         An array of floats of shape (8, Nptcl) that represent the new
@@ -172,13 +176,20 @@ class MovingWindow(object):
         """
         # Create new particle cells
         if (self.nz_inject > 0) and (species.continuous_injection == True):
+            # Create a temporary density function that takes into
+            # account the fact that the plasma has moved
+            if species.dens_func is not None:
+                def dens_func( z, r ):
+                    return( species.dens_func( z-self.v_end_plasma*time, r ) )
+            else:
+                dens_func = None
             # Create the particles that will be added
             zmax = self.z_end_plasma
             zmin = self.z_end_plasma - self.nz_inject*dz
             Npz = self.nz_inject * self.p_nz
             new_ptcl = Particles( species.q, species.m, species.n,
                 Npz, zmin, zmax, species.Npr, species.rmin, species.rmax,
-                species.Nptheta, species.dt, dens_func=species.dens_func,
+                species.Nptheta, species.dt, dens_func=dens_func,
                 ux_m=self.ux_m, uy_m=self.uy_m, uz_m=self.uz_m,
                 ux_th=self.ux_th, uy_th=self.uy_th, uz_th=self.uz_th)
             # Convert them to a particle buffer of shape (8,Nptcl)
