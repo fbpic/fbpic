@@ -20,7 +20,8 @@ class MovingWindow(object):
     Class that contains the moving window's variables and methods
     """
     
-    def __init__( self, interp, comm, v=c, p_nz=1, ux_m=0., uy_m=0., uz_m=0.,
+    def __init__( self, interp, comm, v, p_nz, time,
+                  ux_m=0., uy_m=0., uz_m=0.,
                   ux_th=0., uy_th=0., uz_th=0., gamma_boost=None ) :
         """
         Initializes a moving window object.
@@ -38,7 +39,11 @@ class MovingWindow(object):
 
         p_nz: int
             Number of macroparticles per cell along the z direction
-            
+
+        time: float (seconds)
+            The time (in the simulation) at which the moving
+            window was initialized
+
         ux_m, uy_m, uz_m: floats (dimensionless)
            Normalized mean momenta of the injected particles in each direction
 
@@ -50,6 +55,7 @@ class MovingWindow(object):
             value of `gamma_boost` to the corresponding Lorentz factor.
             (uz_m is to be given in the lab frame ; for the moment, this
             will not work if any of ux_th, uy_th, uz_th, ux_m, uy_m is nonzero)
+
         """
         # Check that the boundaries are open
         if ((comm.rank == comm.size-1) and (comm.right_proc is not None)) \
@@ -90,7 +96,10 @@ class MovingWindow(object):
             self.nz_inject = 0
             self.p_nz = p_nz
 
-    def move_grids(self, fld, dt, mpi_comm):
+        # Attach time of last move
+        self.t_last_move = time
+
+    def move_grids(self, fld, dt, mpi_comm, time):
         """
         Calculate by how many cells the moving window should be moved.
         If this is non-zero, shift the fields on the interpolation grid,
@@ -109,13 +118,17 @@ class MovingWindow(object):
 
         mpi_comm: an mpi4py communicator
             This is typically the attribute `comm` of the BoundaryCommunicator
+
+        time: float (seconds)
+            The global time in the simulation
+            This is used in order to determine how much the window should move
         """
         # To avoid discrepancies between processors, only the first proc
         # decides whether to send the data, and broadcasts the information.
         dz = fld.interp[0].dz
         if mpi_comm.rank==0:
             # Move the continuous position of the moving window object
-            self.zmin += self.v * dt * self.exchange_period
+            self.zmin += self.v * (time - self.t_last_move)
             # Find the number of cells by which the window should move
             n_move = int( (self.zmin - fld.interp[0].zmin)/dz )
         else:
@@ -142,13 +155,16 @@ class MovingWindow(object):
         # exchange_particles of boundary_communicator.py is called)
         if mpi_comm.rank == mpi_comm.size-1:
             # Move the injection position
-            self.z_inject += self.v * dt * self.exchange_period
+            self.z_inject += self.v * (time - self.t_last_move)
             # Take into account the motion of the end of the plasma
-            self.z_end_plasma += self.v_end_plasma * dt * self.exchange_period
+            self.z_end_plasma += self.v_end_plasma * (time - self.t_last_move)
             # Find the number of particle cells to add
             self.nz_inject = int( (self.z_inject - self.z_end_plasma)/dz )
             # Increment the position of the end of the plasma
             self.z_end_plasma += self.nz_inject*dz
+
+        # Change the time of the last move
+        self.t_last_move = time
 
     def generate_particles( self, species, dz, time ) :
         """

@@ -214,7 +214,8 @@ class Simulation(object):
         """
         # Attach the moving window to the boundary communicator
         self.comm.moving_win = MovingWindow( self.fld.interp, self.comm,
-            v, self.p_nz, ux_m, uy_m, uz_m, ux_th, uy_th, uz_th, gamma_boost )
+            v, self.p_nz, self.time, ux_m, uy_m, uz_m,
+            ux_th, uy_th, uz_th, gamma_boost )
 
     def step(self, N=1, ptcl_feedback=True, correct_currents=True,
              use_true_rho=False, move_positions=True, move_momenta=True,
@@ -283,7 +284,7 @@ class Simulation(object):
                 if self.comm.moving_win is not None:
                     # Shift the fields, and prepare positions
                     # between which new particles should be added
-                    self.comm.move_grids(fld, self.dt)
+                    self.comm.move_grids(fld, self.dt, self.time)
                     # Exchange the E and B fields via MPI if needed
                     # (Notice that the fields have not been damped since the
                     # last exchange, so fields are correct in the guard cells)

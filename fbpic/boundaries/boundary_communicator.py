@@ -206,7 +206,7 @@ class BoundaryCommunicator(object):
     # Exchange routines
     # -----------------
 
-    def move_grids( self, fld, dt ):
+    def move_grids( self, fld, dt, time ):
         """
         Calculate by how many cells the moving window should be moved.
         If this is non-zero, shift the fields on the interpolation grid,
@@ -222,8 +222,12 @@ class BoundaryCommunicator(object):
 
         dt: float (in seconds)
             Timestep of the simulation
+
+        time: float (seconds)
+            The global time in the simulation
+            This is used in order to determine how much the window should move
         """
-        self.moving_win.move_grids(fld, dt, self.mpi_comm)
+        self.moving_win.move_grids(fld, dt, self.mpi_comm, time)
 
     def exchange_fields( self, interp, fieldtype ):
         """
