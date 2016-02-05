@@ -22,9 +22,11 @@ On the JURECA cluster, the correct modules to use a fast CUDA-aware MPI distribu
 Therefore, the `.bashrc` should contain the following:
 
 ```
-module use /usr/local/software/jureca/OtherStages
-module load Stages/Devel
-module load gmv2olfc
+module load intel-para/2015.07
+module load CUDA
+module load HDF5
+module load mpi4py/1.3-Python-2.7.10
+module load h5py
 ```
 
 Installation of Anaconda and additional packages
@@ -53,9 +55,6 @@ conda install accelerate_cudalib
 `
 conda install matplotlib
 `
-`
-conda install h5py
-`
 
 pyFFTW needs to be installed from a third-party source:
 `
@@ -67,16 +66,10 @@ afterwards
 conda upgrade numpy
 `
 
-It is important that the following packages are **NOT** installed directly with Anaconda: `mpich` and `mpi4py`
+It is important that the following packages are **NOT** installed directly with Anaconda: `mpich`, `mpi4py`, `hdf5` and `h5py`
 
-Installation of the package `mpi4py`
+Checking version of MPI linked with `mpi4py`
 -------------------
-
-The package `mpi4py` needs to be build with the cluster MPI distribution. Therefore, after loading the correct modules, it can be installed by:
-
-```
-pip install mpi4py
-```
 
 One can check if the correct MPI is linked by opening a `python` shell and checking:
 
