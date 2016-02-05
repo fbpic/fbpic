@@ -30,13 +30,10 @@ Here are some of the specific features of this code :
 
 For more details on the algorithm, see the `docs/article` folder.
 
-Since this is only a proof of principle, the implementation has
-important shortcomings :
+Implementation details:
 
-* Sub-optimized code written in Python.   
-(However, the code does call BLAS and FFTW for computationally intensive parts. 
-If available, it will also use Numba.)
-* Single-CPU (with partial use of multi-threading) or single-GPU only  
+* The code is written in Python and calls BLAS and FFTW for computationally intensive parts. Moroever, it will also use Numba, if availabe
+* Single-CPU (with partial use of multi-threading) or single-GPU
 
 Installation
 ---------
