@@ -98,7 +98,7 @@ class GuardCellDamper(object):
                 interp[m].Bt[-n_guard:,:] *= self.right_damp[::-1,np.newaxis]
                 interp[m].Bz[-n_guard:,:] *= self.right_damp[::-1,np.newaxis]
 
-def generate_damp_array( n_guard, neighbor_proc, exchange_period, n_order ):
+def generate_damp_array( n_guard, n_order, neighbor_proc, exchange_period ):
     """
     Create a 1d damping array of length n_guard.
 
@@ -110,6 +110,12 @@ def generate_damp_array( n_guard, neighbor_proc, exchange_period, n_order ):
     n_guard: int
         Number of guard cells along z
 
+    n_order: int
+        The order of the stencil, use -1 for infinite order.
+        If the stencil fits into the guard cells, no damping is performed,
+        between two processors. (Damping is still performed in the guard
+        cells that correspond to open boundaries)
+        
     neighbor_proc: int or None
         Indicate wether the present guard cells correspond to an open
         boundary (neighbor_proc = None) or a boundary with another
@@ -118,12 +124,6 @@ def generate_damp_array( n_guard, neighbor_proc, exchange_period, n_order ):
     exchange_period: int
         The number of timestep before the moving window is moved.
         The larger this number, the lower the damping in the open boundaries.
-
-    n_order: int
-        The order of the stencil, use -1 for infinite order.
-        If the stencil fits into the guard cells, no damping is performed,
-        between two processors. (Damping is still performed in the guard
-        cells that correspond to open boundaries)
 
     Returns
     -------
