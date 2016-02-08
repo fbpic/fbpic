@@ -34,26 +34,23 @@ from fbpic.openpmd_diag import FieldDiagnostic, ParticleDiagnostic, \
 use_cuda = True
 
 # The simulation box
-Nz = 1600         # Number of gridpoints along z
+Nz = 1600        # Number of gridpoints along z
 zmax = 0.e-6     # Length of the box along z (meters)
 zmin = -80.e-6
-Nr = 150         # Number of gridpoints along r
+Nr = 75          # Number of gridpoints along r
 rmax = 150.e-6   # Length of the box along r (meters)
 Nm = 2           # Number of modes used
 # The simulation timestep
 dt = (zmax-zmin)/Nz/c   # Timestep (seconds)
-N_step = 2000     # Number of iterations to perform 
-                  # (increase this number for a real simulation)
+N_step = 100     # Number of iterations to perform
+                 # (increase this number for a real simulation)
 
 # Boosted frame
 gamma_boost = 15.
 boost = BoostConverter(gamma_boost)
-# Additional factor to take into account the motion of the plasma
-# when injecting it through a moving plane
-prop_factor = 1./( 1.+ boost.beta0 )
 
 # The laser (conversion to boosted frame is done inside 'add_laser')
-a0 = 2.19        # Laser amplitude
+a0 = 2.          # Laser amplitude
 w0 = 50.e-6      # Laser waist
 ctau = 9.e-6     # Laser duration
 z0 = -20.e-6     # Laser centroid
@@ -78,15 +75,17 @@ p_nt = 4         # Number of particles per cell along theta
 uz_m = 0.        # Initial momentum of the electrons in the lab frame
 
 # Density profile
-# Relative change divided by w_matched_2 that allows guiding
-rel_delta_n_over_w2 = 1./( np.pi * 2.81e-15 * w_matched**4 * n_e )
 # Convert parameters to boosted frame
-ramp_up, plateau, ramp_down, p_zmax = prop_factor * np.array(
-    boost.static_length( [ ramp_up, plateau, ramp_down, p_zmax ] ) )
+# (NB: the density is converted inside the Simulation object)
+ramp_up, plateau, ramp_down, p_zmax = \
+    boost.static_length( [ ramp_up, plateau, ramp_down, p_zmax ] )
+# Relative change divided by w_matched^2 that allows guiding
+rel_delta_n_over_w2 = 1./( np.pi * 2.81e-15 * w_matched**4 * n_e )
+# Define the density function
 def dens_func( z, r ):
     """
     User-defined function: density profile of the plasma
-    
+
     It should return the relative density with respect to n_plasma,
     at the position x, y, z (i.e. return a number between 0 and 1)
 
@@ -119,25 +118,23 @@ bunch_rmax = 10.e-6
 bunch_gamma = 400.
 bunch_n = 5.e23
 # Convert parameters to boosted frame
-bunch_zmin, bunch_zmax = boost.copropag_length( [ bunch_zmin, bunch_zmax ] )
-bunch_n = bunch_n/( boost.gamma0*( 1. + boost.beta0 ) )
-bunch_gamma = boost.gamma0*( bunch_gamma - \
-                boost.beta0*np.sqrt( bunch_gamma**2 - 1)  )
+bunch_beta = np.sqrt( 1. - 1./bunch_gamma**2 )
+bunch_zmin, bunch_zmax = \
+    boost.copropag_length( [ bunch_zmin, bunch_zmax ], beta_object=bunch_beta )
+bunch_n, = boost.copropag_density( [bunch_n], beta_object=bunch_beta )
+bunch_gamma, = boost.gamma( [bunch_gamma] )
 
-
-# The moving window
+# The moving window (moves with the group velocity in a plasma)
 v_window = c*( 1 - 0.5*n_e/1.75e27 )
 # Convert parameter to boosted frame
-v_window = (v_window - boost.beta0*c)/( 1. - v_window/c*boost.beta0 )
-print v_window
+v_window, = boost.velocity( [ v_window ] )
 
 # The diagnostics
 diag_period = 100        # Period of the diagnostics in number of timesteps
-fieldtypes = [ "E", "rho", "B", "J" ]  # The fields that will be written
 # Whether to write the fields in the lab frame
 Ntot_snapshot_lab = 25
 dt_snapshot_lab = (zmax-zmin)/c
-    
+
 # ---------------------------
 # Carrying out the simulation
 # ---------------------------
