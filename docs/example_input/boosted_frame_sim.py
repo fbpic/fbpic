@@ -40,6 +40,8 @@ zmin = -80.e-6
 Nr = 75          # Number of gridpoints along r
 rmax = 150.e-6   # Length of the box along r (meters)
 Nm = 2           # Number of modes used
+n_guard = 40     # Number of guard cells
+exchange_period = 10
 # The simulation timestep
 dt = (zmax-zmin)/Nz/c   # Timestep (seconds)
 N_step = 100     # Number of iterations to perform
@@ -144,6 +146,7 @@ sim = Simulation( Nz, zmax, Nr, rmax, Nm, dt,
     p_zmin, p_zmax, p_rmin, p_rmax, p_nz, p_nr, p_nt, n_e,
     dens_func=dens_func, zmin=zmin, initialize_ions=True,
 #    v_comoving=-0.9999*c, use_galilean=False,
+    n_guard=n_guard, exchange_period=exchange_period,
     gamma_boost=gamma_boost, boundaries='open', use_cuda=use_cuda )
 
 # Add an electron bunch

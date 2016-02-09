@@ -46,7 +46,8 @@ class Simulation(object):
                  p_rmin, p_rmax, p_nz, p_nr, p_nt, n_e, zmin=0.,
                  n_order=-1, dens_func=None, filter_currents=True,
                  initialize_ions=False, use_cuda=False,
-                 n_guard=50, boundaries='periodic', gamma_boost=None):
+                 n_guard=50, exchange_period=None,
+                 boundaries='periodic', gamma_boost=None):
         """
         Initializes a simulation, by creating the following structures:
         - the Fields object, which contains the EM fields
@@ -113,6 +114,11 @@ class Simulation(object):
             Number of guard cells to use at the left and right of
             a domain, when using MPI.
 
+        exchange_period: int, optional
+            Number of iteration before which the particles are exchanged
+            and the window is moved (the two operations are simultaneous)
+            If set to None, the particles are exchanged every n_guard/2
+            
         boundaries: str
             Indicates how to exchange the fields at the left and right
             boundaries of the global simulation box
@@ -140,7 +146,7 @@ class Simulation(object):
 
         # Initialize the boundary communicator
         self.comm = BoundaryCommunicator(Nz, Nr, n_guard, Nm,
-                                        boundaries, n_order)
+                            boundaries, n_order, exchange_period )
         # Modify domain region
         zmin, zmax, p_zmin, p_zmax, Nz = \
               self.comm.divide_into_domain(zmin, zmax, p_zmin, p_zmax)

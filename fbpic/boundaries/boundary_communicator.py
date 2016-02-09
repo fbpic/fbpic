@@ -61,8 +61,9 @@ class BoundaryCommunicator(object):
             Either 'periodic' or 'open'
 
         exchange_period: int
-            Indicates how often to move the moving window and exchange
-            the particles. (These 2 operations are done simultaneously.)
+            Number of iteration before which the particles are exchanged
+            and the window is moved (the two operations are simultaneous)
+            If set to None, the particles are exchanged every n_guard/2
 
         v_moving: int
             Speed of the moving window. Use 0 for no moving window.
