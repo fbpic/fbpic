@@ -61,8 +61,9 @@ class BoundaryCommunicator(object):
             Either 'periodic' or 'open'
 
         exchange_period: int
-            Indicates how often to move the moving window and exchange
-            the particles. (These 2 operations are done simultaneously.)
+            Number of iteration before which the particles are exchanged
+            and the window is moved (the two operations are simultaneous)
+            If set to None, the particles are exchanged every n_guard/2
 
         v_moving: int
             Speed of the moving window. Use 0 for no moving window.
@@ -206,7 +207,7 @@ class BoundaryCommunicator(object):
     # Exchange routines
     # -----------------
 
-    def move_grids( self, fld, dt ):
+    def move_grids( self, fld, dt, time ):
         """
         Calculate by how many cells the moving window should be moved.
         If this is non-zero, shift the fields on the interpolation grid,
@@ -222,8 +223,12 @@ class BoundaryCommunicator(object):
 
         dt: float (in seconds)
             Timestep of the simulation
+
+        time: float (seconds)
+            The global time in the simulation
+            This is used in order to determine how much the window should move
         """
-        self.moving_win.move_grids(fld, dt, self.mpi_comm)
+        self.moving_win.move_grids(fld, dt, self.mpi_comm, time)
 
     def exchange_fields( self, interp, fieldtype ):
         """
@@ -349,7 +354,7 @@ class BoundaryCommunicator(object):
         if self.left_proc is not None :
             mpi.Request.Wait(req_2)
 
-    def exchange_particles(self, species, fld ):
+    def exchange_particles(self, species, fld, time ):
         """
         Look for particles that are located outside of the physical boundaries
         and exchange them with the corresponding neighboring processor.
@@ -366,6 +371,12 @@ class BoundaryCommunicator(object):
             Contains information about the dimension of the grid,
             and the prefix sum (when using the GPU).
             The object itself is not modified by this routine.
+
+        time: float (seconds)
+            The global time of the simulation
+            (Needed in the case of a flowing plasma which is generate
+            from a density profile: in the case the time is used in
+            order to infer how much the plasma has moved)
         """
         # Do not exchange particles for 0 guard cells (periodic, single-proc)
         if self.n_guard == 0:
@@ -396,7 +407,7 @@ class BoundaryCommunicator(object):
         # will not be affected by the exchange at this open boundary)
         if (self.moving_win is not None) and (self.rank == self.size-1):
             recv_right = self.moving_win.generate_particles(
-                species, fld.interp[0].dz )
+                species, fld.interp[0].dz, time )
 
         # An MPI barrier is needed here so that a single rank
         # does not perform two sends and receives before all

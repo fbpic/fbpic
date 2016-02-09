@@ -46,7 +46,8 @@ class Simulation(object):
                  p_rmin, p_rmax, p_nz, p_nr, p_nt, n_e, zmin=0.,
                  n_order=-1, dens_func=None, filter_currents=True,
                  initialize_ions=False, use_cuda=False,
-                 n_guard=50, boundaries='periodic', gamma_boost=None):
+                 n_guard=50, exchange_period=None,
+                 boundaries='periodic', gamma_boost=None):
         """
         Initializes a simulation, by creating the following structures:
         - the Fields object, which contains the EM fields
@@ -113,6 +114,11 @@ class Simulation(object):
             Number of guard cells to use at the left and right of
             a domain, when using MPI.
 
+        exchange_period: int, optional
+            Number of iteration before which the particles are exchanged
+            and the window is moved (the two operations are simultaneous)
+            If set to None, the particles are exchanged every n_guard/2
+            
         boundaries: str
             Indicates how to exchange the fields at the left and right
             boundaries of the global simulation box
@@ -140,7 +146,7 @@ class Simulation(object):
 
         # Initialize the boundary communicator
         self.comm = BoundaryCommunicator(Nz, Nr, n_guard, Nm,
-                                        boundaries, n_order)
+                            boundaries, n_order, exchange_period )
         # Modify domain region
         zmin, zmax, p_zmin, p_zmax, Nz = \
               self.comm.divide_into_domain(zmin, zmax, p_zmin, p_zmax)
@@ -214,7 +220,8 @@ class Simulation(object):
         """
         # Attach the moving window to the boundary communicator
         self.comm.moving_win = MovingWindow( self.fld.interp, self.comm,
-            v, self.p_nz, ux_m, uy_m, uz_m, ux_th, uy_th, uz_th, gamma_boost )
+            v, self.p_nz, self.time, ux_m, uy_m, uz_m,
+            ux_th, uy_th, uz_th, gamma_boost )
 
     def step(self, N=1, ptcl_feedback=True, correct_currents=True,
              use_true_rho=False, move_positions=True, move_momenta=True,
@@ -283,7 +290,7 @@ class Simulation(object):
                 if self.comm.moving_win is not None:
                     # Shift the fields, and prepare positions
                     # between which new particles should be added
-                    self.comm.move_grids(fld, self.dt)
+                    self.comm.move_grids(fld, self.dt, self.time)
                     # Exchange the E and B fields via MPI if needed
                     # (Notice that the fields have not been damped since the
                     # last exchange, so fields are correct in the guard cells)
@@ -294,7 +301,7 @@ class Simulation(object):
                 # out-of-box particles and (if there is a moving window)
                 # injection of new particles by the moving window.
                 for species in self.ptcl:
-                    self.comm.exchange_particles(species, fld)
+                    self.comm.exchange_particles(species, fld, self.time)
 
                 # Reproject the charge on the interpolation grid
                 # (Since particles have been added/suppressed)
