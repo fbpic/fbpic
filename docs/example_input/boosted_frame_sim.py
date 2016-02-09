@@ -77,8 +77,8 @@ uz_m = 0.        # Initial momentum of the electrons in the lab frame
 # Density profile
 # Convert parameters to boosted frame
 # (NB: the density is converted inside the Simulation object)
-ramp_up, plateau, ramp_down, p_zmax = \
-    boost.static_length( [ ramp_up, plateau, ramp_down, p_zmax ] )
+ramp_up, plateau, ramp_down = \
+    boost.static_length( [ ramp_up, plateau, ramp_down ] )
 # Relative change divided by w_matched^2 that allows guiding
 rel_delta_n_over_w2 = 1./( np.pi * 2.81e-15 * w_matched**4 * n_e )
 # Define the density function
