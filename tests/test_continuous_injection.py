@@ -27,11 +27,11 @@ show = True     # Whether to show the results to the user, or to
                 # automatically determine if they are correct.
 
 # Dimensions of the box
-Nz = 250
+Nz = 100
 Nr = 50
 Nm = 1
 zmin = -10.e-6
-zmax = 20.e-6
+zmax = 5.e-6
 rmax = 20.e-6
 # Particles
 p_nr = 2
@@ -42,7 +42,7 @@ p_zmin = 0.e-6 # Chosen so that there is initially some plasma inside the box
 p_zmax = 1e6
 n = 1.e24
 
-ramp = 10.e-6
+ramp = 7.e-6
 
 # -------------
 # Test function
@@ -62,16 +62,16 @@ def test_rest_continuous_injection(show=False):
         return( dens )
 
     # Run the test
-    run_continuous_injection( None, dens_func, p_zmin, p_zmax )
+    run_continuous_injection( None, dens_func, p_zmin, p_zmax, show )
 
 def test_boosted_continuous_injection(show=False):
     "Function that is run by py.test, when doing `python setup.py test`"
     # Moving plasma (boosted frame), non-uniform density
     gamma_boost = 15.
     
-    global p_zmin, p_zmax, ramp
+    global ramp
     # The ramp is made longer so as to still resolve it in the boosted frame
-    ramp = gamma_boost*ramp
+    ramp = 2*gamma_boost*ramp
 
     def dens_func( z, r ):
         dens = np.ones_like( z )
@@ -83,14 +83,13 @@ def test_boosted_continuous_injection(show=False):
         return( dens )
 
     # Run the test
-    run_continuous_injection( gamma_boost, dens_func, p_zmin, p_zmax )
+    run_continuous_injection( gamma_boost, dens_func, p_zmin, p_zmax, show )
 
 
 def run_continuous_injection( gamma_boost, dens_func,
-                              p_zmin, p_zmax, N_check=3 ):
-
+                              p_zmin, p_zmax, show, N_check=3 ):
     # Chose the time step
-    dt = (zmax-zmin)/N_check/c
+    dt = (zmax-zmin)/Nz/c
 
     # Initialize the different structures
     sim = Simulation( Nz, zmax, Nr, rmax, Nm, dt,
@@ -104,14 +103,12 @@ def run_continuous_injection( gamma_boost, dens_func,
     sim.set_moving_window( v=c, gamma_boost=gamma_boost )
 
     # Check that the density is correct after different timesteps
+    N_step = Nz/N_check/2
     for i in range( N_check ):
-        sim.step( move_momenta=False )
-        check_density( sim, gamma_boost, dens_func )
+        sim.step( N_step, move_momenta=False )
+        check_density( sim, gamma_boost, dens_func, show )
 
-def check_density( sim, gamma_boost, dens_func ):
-    """
-    # TODO: Documentation
-    """
+def check_density( sim, gamma_boost, dens_func, show ):
 
     # Get the grid without the guard cells (mode 0)
     gathered_grid = sim.comm.gather_grid( sim.fld.interp[0] )
