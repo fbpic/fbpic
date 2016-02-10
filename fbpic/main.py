@@ -3,20 +3,29 @@ Fourier-Bessel Particle-In-Cell (FB-PIC) main file
 
 This file steers and controls the simulation.
 """
-import sys
-import time
+# Determine if cuda is available
+try:
+    from numba import cuda
+    cuda_installed = cuda.is_available()
+except ImportError, CudaSupportError:
+    cuda_installed = False
+
+# When cuda is available, select one GPU per mpi process
+# (This needs to be done before the other imports,
+# as it sets the cuda contests)
+if cuda_installed:
+    from mpi4py import MPI
+    from .cuda_utils import send_data_to_gpu, \
+                receive_data_from_gpu, mpi_select_gpus
+    mpi_select_gpus( MPI.COMM_WORLD )
+
+# Import the rest of the requirements
+import sys, time
 from scipy.constants import m_e, m_p, e, c
 from .particles import Particles
 from .lpa_utils.boosted_frame import BoostConverter
 from .fields import Fields, cuda_installed
 from .boundaries import BoundaryCommunicator, MovingWindow
-
-# If cuda is installed, try importing the rest of the cuda methods
-if cuda_installed:
-    try:
-        from cuda_utils import send_data_to_gpu, receive_data_from_gpu
-    except ImportError:
-        cuda_installed = False
 
 class Simulation(object):
     """
@@ -38,7 +47,8 @@ class Simulation(object):
                  n_order=-1, dens_func=None, filter_currents=True,
                  v_comoving=0., use_galilean=True,
                  initialize_ions=False, use_cuda=False,
-                 n_guard=50, boundaries='periodic', gamma_boost=None):
+                 n_guard=50, exchange_period=None,
+                 boundaries='periodic', gamma_boost=None):
         """
         Initializes a simulation, by creating the following structures:
         - the Fields object, which contains the EM fields
@@ -117,6 +127,11 @@ class Simulation(object):
             Number of guard cells to use at the left and right of
             a domain, when using MPI.
 
+        exchange_period: int, optional
+            Number of iteration before which the particles are exchanged
+            and the window is moved (the two operations are simultaneous)
+            If set to None, the particles are exchanged every n_guard/2
+
         boundaries: str
             Indicates how to exchange the fields at the left and right
             boundaries of the global simulation box
@@ -147,7 +162,8 @@ class Simulation(object):
             uz_m, = boost.longitudinal_momentum([ uz_m ])
 
         # Initialize the boundary communicator
-        self.comm = BoundaryCommunicator(Nz, Nr, n_guard, Nm, boundaries)
+        self.comm = BoundaryCommunicator(Nz, Nr, n_guard, Nm,
+                            boundaries, n_order, exchange_period )
         # Modify domain region
         zmin, zmax, p_zmin, p_zmax, Nz = \
               self.comm.divide_into_domain(zmin, zmax, p_zmin, p_zmax)
@@ -172,14 +188,14 @@ class Simulation(object):
             Particles( q=-e, m=m_e, n=n_e, Npz=Npz, zmin=p_zmin,
                        zmax=p_zmax, Npr=Npr, rmin=p_rmin, rmax=p_rmax,
                        Nptheta=p_nt, dt=dt, dens_func=dens_func,
-                       use_cuda=self.use_cuda,
+                       use_cuda=self.use_cuda, uz_m=uz_m,
                        grid_shape=grid_shape) ]
         if initialize_ions :
             self.ptcl.append(
                 Particles(q=e, m=m_p, n=n_e, Npz=Npz, zmin=p_zmin,
                           zmax=p_zmax, Npr=Npr, rmin=p_rmin, rmax=p_rmax,
                           Nptheta=p_nt, dt=dt, dens_func=dens_func,
-                          use_cuda=self.use_cuda,
+                          use_cuda=self.use_cuda, uz_m=uz_m,
                           grid_shape=grid_shape ) )
 
         # Register the number of particles per cell along z, and dt
@@ -252,7 +268,7 @@ class Simulation(object):
 
             # Show a progression bar
             if show_progress:
-                progression_bar( i_step, N )
+                progression_bar( i_step, N, measured_start )
 
             # Run the diagnostics
             for diag in self.diags:
@@ -272,7 +288,7 @@ class Simulation(object):
                 if self.comm.moving_win is not None:
                     # Shift the fields, and prepare positions
                     # between which new particles should be added
-                    self.comm.move_grids(fld, self.dt)
+                    self.comm.move_grids(fld, self.dt, self.time)
                     # Exchange the E and B fields via MPI if needed
                     # (Notice that the fields have not been damped since the
                     # last exchange, so fields are correct in the guard cells)
@@ -283,7 +299,7 @@ class Simulation(object):
                 # out-of-box particles and (if there is a moving window)
                 # injection of new particles by the moving window.
                 for species in self.ptcl:
-                    self.comm.exchange_particles(species, fld)
+                    self.comm.exchange_particles(species, fld, self.time)
 
                 # Reproject the charge on the interpolation grid
                 # (Since particles have been added/suppressed)
@@ -435,14 +451,24 @@ class Simulation(object):
         """
         # Attach the moving window to the boundary communicator
         self.comm.moving_win = MovingWindow( self.fld.interp, self.comm,
-            v, self.p_nz, ux_m, uy_m, uz_m, ux_th, uy_th, uz_th, gamma_boost )
+            v, self.p_nz, self.time, ux_m, uy_m, uz_m,
+            ux_th, uy_th, uz_th, gamma_boost )
 
-def progression_bar(i, Ntot, Nbars=60, char='-'):
-    "Shows a progression bar with Nbars"
+def progression_bar(i, Ntot, measured_start, Nbars=50, char='-'):
+    """
+    Shows a progression bar with Nbars and the remaining
+    simulation time.
+    """
     nbars = int( (i+1)*1./Ntot*Nbars )
     sys.stdout.write('\r[' + nbars*char )
     sys.stdout.write((Nbars-nbars)*' ' + ']')
     sys.stdout.write(' %d/%d' %(i,Ntot))
+    # Estimated time in seconds until it will finish (linear interpolation)
+    eta = (((float(Ntot)/(i+1.))-1.)*(time.time()-measured_start))
+    # Conversion to H:M:S
+    m, s = divmod(eta, 60)
+    h, m = divmod(m, 60)
+    sys.stdout.write(', %d:%02d:%02d left' % (h, m, s))
     sys.stdout.flush()
 
 def adapt_to_grid( x, p_xmin, p_xmax, p_nx, ncells_empty=0 ):

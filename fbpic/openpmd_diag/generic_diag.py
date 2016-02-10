@@ -157,8 +157,8 @@ class OpenPMDDiagnostic(object) :
         f.attrs["iterationFormat"] =  np.string_("data%T.h5")
 
         # Setup the basePath
+        f.attrs["basePath"] = np.string_("/data/%T/")
         base_path = "/data/%d/" %iteration
-        f.attrs["basePath"] = np.string_(base_path)
         bp = f.require_group( base_path )
         bp.attrs["time"] = time
         bp.attrs["dt"] = dt
