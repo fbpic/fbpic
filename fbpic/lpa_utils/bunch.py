@@ -227,12 +227,12 @@ def get_space_charge_spect( spect, gamma ) :
     Az = spect.Jz[:,:]*inv_K2[:,:]*mu_0
 
     # Deduce the E field
-    spect.Ep[:,:] = 0.5*spect.kr * phi + 1.j*beta*c*spect.kz * Ap
-    spect.Em[:,:] = -0.5*spect.kr * phi + 1.j*beta*c*spect.kz * Am
-    spect.Ez[:,:] = -1.j*spect.kz * phi + 1.j*beta*c*spect.kz * Az
+    spect.Ep[:,:] += 0.5*spect.kr * phi + 1.j*beta*c*spect.kz * Ap
+    spect.Em[:,:] += -0.5*spect.kr * phi + 1.j*beta*c*spect.kz * Am
+    spect.Ez[:,:] += -1.j*spect.kz * phi + 1.j*beta*c*spect.kz * Az
 
     # Deduce the B field
-    spect.Bp[:,:] = -0.5j*spect.kr * Az + spect.kz * Ap
-    spect.Bm[:,:] = -0.5j*spect.kr * Az - spect.kz * Am
-    spect.Bz[:,:] = 1.j*spect.kr * Ap + 1.j*spect.kr * Am
+    spect.Bp[:,:] += -0.5j*spect.kr * Az + spect.kz * Ap
+    spect.Bm[:,:] += -0.5j*spect.kr * Az - spect.kz * Am
+    spect.Bz[:,:] += 1.j*spect.kr * Ap + 1.j*spect.kr * Am
 
