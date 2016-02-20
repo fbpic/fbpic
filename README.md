@@ -6,10 +6,10 @@ Fourier-Bessel Particle-In-Cell code (FBPIC)
 Overview
 --------
 
-This program is a proof-of-principle Particle-In-Cell (PIC) code,
+This program is a Particle-In-Cell (PIC) code,
 whose distinctive feature is to use a **spectral decomposition in
 cylindrical geometry** for the fields (Fourier-Bessel
-decomposition). 
+decomposition).
 
 This decomposition allows to combine the advantages of
 **spectral 3D Cartesian** PIC codes (high accuracy and stability) and
@@ -32,17 +32,24 @@ For more details on the algorithm, see the `docs/article` folder.
 
 Implementation details:
 
-* The code is written in Python and calls BLAS and FFTW for computationally intensive parts. Moroever, it will also use Numba, if availabe
+* The code is written in Python and calls BLAS and FFTW for computationally
+intensive parts. Moroever, it will also use Numba, if availabe
 * Single-CPU (with partial use of multi-threading) or single-GPU
 
 Installation
 ---------
+The installation instructions below are for a local computer. For instructions
+specific to a particular HPC cluster (e.g. Titan, Jureca, etc.), please
+see `docs/install`.
 
 The recommended installation is through the
 [Anaconda](https://www.continuum.io/why-anaconda) distribution:
 
-- If Anaconda is not your default Python installation, download and install it from
-  [here](https://www.continuum.io/downloads).
+- If Anaconda is not your default Python installation, download and install
+it from [here](https://www.continuum.io/downloads).
+
+- Clone the `fbpic` repository using git.
+
 - `cd` into the top folder of `fbpic` and install the dependencies:  
 ```
 conda install --file requirements.txt
@@ -53,13 +60,16 @@ requires a special command):
 conda install -c https://conda.anaconda.org/mforbes pyfftw
 conda upgrade numpy
 ```
-- **Optional:** In order to get full CUDA support install the `accelerate` and `accelerate_cudalib` package:
+- **Optional:** In order to be able to run the code on a GPU:
 ```
 conda install accelerate
-```
-```
 conda install accelerate_cudalib
 ```
+(The `accelerate` package is not free, but there is a 30-day free trial period,
+  which starts when the above command is entered. For further use beyond 30
+  days, one option is to obtain an academic license, which is also free. To do
+  so, please visit https://www.continuum.io/anaconda-academic-subscriptions-available.)
+
 - Install `fbpic`  
 ```
 python setup.py install
