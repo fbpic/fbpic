@@ -1,5 +1,5 @@
-import numba
-from numba import cuda
+from numba import cuda, vectorize, float64
+import numpy as np
 
 class ExternalField( object ):
 
@@ -17,7 +17,8 @@ class ExternalField( object ):
         field_func: callable
             Function of the form
                 field_func( F, x, y, z, t, amplitude, length_scale )
-
+            and which returns the modified field F'
+                
             This function will be called at each timestep, with:
             - F: 1d array of shape (N_ptcl,), containing the field
               designated by fieldtype, gathered on the particles
@@ -28,10 +29,10 @@ class ExternalField( object ):
               the function expression
 
             **WARNING:** In the PIC loop, this function is called after
-            the gathering operation. Thus this function can potentially
+            the field gathering. Thus this function can potentially
             overwrite the fields that were gathered on the grid.
-            To avoid this, use "F += " inside the definition of the
-            function instead of "F = "
+            To avoid this, use "return(F + external_field) " inside
+            the definition of `field_func` instead of "return(external_field)"
 
         fieldtype: string
             Specifies on which field `field_func` will be applied
@@ -47,7 +48,7 @@ class ExternalField( object ):
         In order to define a magnetic undulator, polarized along y, with
         a field of 1 Tesla and a period of 1 cm :
         >>> def field_func( F, x, y, z, t , amplitude, length_scale ):
-                F += amplitude * np.cos( 2*np.pi*z/length_scale )
+                return( F + amplitude * np.cos( 2*np.pi*z/length_scale ) )
         >>> sim.external_fields = [
                 ExternalField( field_func, 'By', 1., 1.e-2 ) ]
         """
@@ -60,19 +61,33 @@ class ExternalField( object ):
         # Register the arguments
         self.amplitude = amplitude
         self.length_scale = length_scale
+        self.species = species
     
         # Compile the field_func for cpu and gpu
-        self.cpu_func = numba.vectorize( field_func, nopython=True )
+        signature = [ float64( float64, float64, float64,
+                               float64, float64, float64, float64 ) ]
+        cpu_compiler = vectorize( signature, target='cpu', nopython=True )
+        self.cpu_func = cpu_compiler( field_func )
         if cuda.is_available():
-            self.gpu_func = numba.vectorize(
-                field_func, nopython=True, target='cuda' )
+            gpu_compiler = vectorize( signature, target='cuda', nopython=True )
+            self.gpu_func = gpu_compiler( field_func )
 
 
     def apply_expression( self, ptcl, t ):
         """
-        
-        """
+        Apply the external field function to the particles
 
+        This function is called at each timestep, after field gathering
+        in the step function.
+
+        Parameters
+        ----------
+        ptcl: a list a Particles objects
+            The particles on which the external fields will be applied
+
+        t: float (seconds)
+            The time in the simulation
+        """
         for species in ptcl:      
 
             # If any species was specified at initialization,
@@ -84,8 +99,8 @@ class ExternalField( object ):
                 if type( field ) is np.ndarray:
                     # Call the CPU function
                     self.cpu_func( field, species.x, species.y, species.z,
-                                   t, self.amplitude, self.length_scale )
+                        t, self.amplitude, self.length_scale, out=field )
                 else:
                     # Call the GPU function
                     self.gpu_func( field, species.x, species.y, species.z,
-                                   t, self.amplitude, self.length_scale )
+                        t, self.amplitude, self.length_scale, out=field )
