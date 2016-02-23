@@ -39,7 +39,7 @@ intensive parts. Moroever, it will also use Numba, if availabe
 Installation
 ---------
 The installation instructions below are for a local computer. For instructions
-specific to a particular HPC cluster (e.g. Titan, Jureca, etc.), please
+specific to a particular HPC cluster (e.g. Titan, Jureca, Lawrencium, etc.), please
 see `docs/install`.
 
 The recommended installation is through the
@@ -52,7 +52,8 @@ it from [here](https://www.continuum.io/downloads).
 
 - `cd` into the top folder of `fbpic` and install the dependencies:  
 ```
-conda install --file requirements.txt
+conda install --file re
+quirements.txt
 ```
 - Install `pyfftw` (not in the standard Anaconda channels, and thus it
 requires a special command):  
