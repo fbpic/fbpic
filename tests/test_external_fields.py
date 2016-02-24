@@ -12,6 +12,7 @@ import matplotlib.pyplot as plt
 from scipy.constants import e, m_e, c
 from fbpic.main import Simulation
 from fbpic.lpa_utils.external_fields import ExternalField
+import math
 
 # Parameters
 # ----------
@@ -24,7 +25,7 @@ show = True     # Whether to show the results to the user, or to
 # (low_resolution since the external field are not resolved on the grid)
 Nz = 5
 Nr = 10
-Nm = 1
+Nm = 2
 zmin = 0.e-6
 zmax = 0.8e-6
 rmax = 2.e-6
@@ -121,7 +122,7 @@ def laser_func( F, x, y, z, t, amplitude, length_scale ):
     """
     Function to be called at each timestep on the particles 
     """
-    return( F + amplitude*np.cos( 2*np.pi*(z-c*t)/length_scale ) )
+    return( F + amplitude*math.cos( 2*np.pi*(z-c*t)/length_scale ) )
 
 if __name__ == '__main__' :
 

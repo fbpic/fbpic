@@ -18,7 +18,7 @@ class ExternalField( object ):
             Function of the form
                 field_func( F, x, y, z, t, amplitude, length_scale )
             and which returns the modified field F'
-                
+
             This function will be called at each timestep, with:
             - F: 1d array of shape (N_ptcl,), containing the field
               designated by fieldtype, gathered on the particles
@@ -33,6 +33,10 @@ class ExternalField( object ):
             overwrite the fields that were gathered on the grid.
             To avoid this, use "return(F + external_field) " inside
             the definition of `field_func` instead of "return(external_field)"
+
+            **WARNING:** Inside the definition of `field_func` please use
+            the `math` module for mathematical functions, instead of numpy. 
+            This will allow the function to be compiled for GPU.
 
         fieldtype: string
             Specifies on which field `field_func` will be applied
@@ -69,7 +73,7 @@ class ExternalField( object ):
         cpu_compiler = vectorize( signature, target='cpu', nopython=True )
         self.cpu_func = cpu_compiler( field_func )
         if cuda.is_available():
-            gpu_compiler = vectorize( signature, target='cuda', nopython=True )
+            gpu_compiler = vectorize( signature, target='cuda' )
             self.gpu_func = gpu_compiler( field_func )
 
 
