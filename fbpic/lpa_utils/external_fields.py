@@ -52,7 +52,7 @@ class ExternalField( object ):
         In order to define a magnetic undulator, polarized along y, with
         a field of 1 Tesla and a period of 1 cm :
         >>> def field_func( F, x, y, z, t , amplitude, length_scale ):
-                return( F + amplitude * np.cos( 2*np.pi*z/length_scale ) )
+                return( F + amplitude * math.cos( 2*np.pi*z/length_scale ) )
         >>> sim.external_fields = [
                 ExternalField( field_func, 'By', 1., 1.e-2 ) ]
         """
