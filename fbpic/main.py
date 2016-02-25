@@ -191,6 +191,8 @@ class Simulation(object):
         # Do the initial charge deposition (at t=0) now
         self.deposit('rho_prev')
 
+        # Initialize an empty list of external fields
+        self.external_fields = []
         # Initialize an empty list of diagnostics
         self.diags = []
 
@@ -310,9 +312,12 @@ class Simulation(object):
             # Standard PIC loop
             # -----------------
 
-            # Gather the fields at t = n dt
+            # Gather the fields from the grid at t = n dt
             for species in ptcl:
                 species.gather( fld.interp )
+            # Apply the external fields at t = n dt
+            for ext_field in self.external_fields:
+                ext_field.apply_expression( self.ptcl, self.time )
 
             # Push the particles' positions and velocities to t = (n+1/2) dt
             if move_momenta:
@@ -338,10 +343,10 @@ class Simulation(object):
 
             # Damp the fields in the guard cells
             self.comm.damp_guard_EB( fld.interp )
-            # Get the exchanged and/or damped fields
+            # Get the damped fields on the spectral grid at t = n dt
             fld.interp2spect('E')
             fld.interp2spect('B')
-            # Get the fields E and B on the spectral grid at t = (n+1) dt
+            # Push the fields E and B on the spectral grid to t = (n+1) dt
             fld.push( ptcl_feedback, use_true_rho )
             # Get the fields E and B on the interpolation grid at t = (n+1) dt
             fld.spect2interp('E')
