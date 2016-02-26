@@ -341,9 +341,7 @@ class Simulation(object):
             if correct_currents:
                 fld.correct_currents()
 
-            # Damp the fields in the guard cells
-            self.comm.damp_guard_EB( fld.interp )
-            # Get the damped fields on the spectral grid at t = n dt
+            # Get the fields on the spectral grid at t = n dt
             fld.interp2spect('E')
             fld.interp2spect('B')
             # Push the fields E and B on the spectral grid to t = (n+1) dt
@@ -351,7 +349,8 @@ class Simulation(object):
             # Get the fields E and B on the interpolation grid at t = (n+1) dt
             fld.spect2interp('E')
             fld.spect2interp('B')
-
+	    # Damp the fields in the guard cells
+	    self.comm.damp_guard_EB( fld.interp )
             # Increment the global time and iteration
             self.time += self.dt
             self.iteration += 1
