@@ -1,5 +1,4 @@
 @article{LehePRSTAB2014,
-  title = {Laser-plasma lens for laser-wakefield accelerators},
   author = {Lehe, R. and Thaury, C. and Guillaume, E. and Lifschitz, A. and Malka, V.},
   journal = {Phys. Rev. ST Accel. Beams},
   volume = {17},
@@ -21,7 +20,6 @@ keywords = {Physics literature and publications; ABCD transforms},
 number = {6}, 
 pages = {409--411}, 
 publisher = {OSA},
-title = {Quasi-discrete Hankel transform}, 
 volume = {23}, 
 month = {Mar},
 year = {1998},
@@ -33,7 +31,6 @@ abstract = {A quasi-discrete Hankel transform (QDHT) is presented as a new and e
   	
 @article{KaiMing,
   author={You Kai-Ming and Wen Shuang-Chun and Chen Lie-Zun and Wang You-Wen and Hu Yong-Hua},
-  title={A quasi-discrete Hankel transform for nonlinear beam propagation},
   journal={Chinese Physics B},
   volume={18},
   number={9},
@@ -43,10 +40,23 @@ abstract = {A quasi-discrete Hankel transform (QDHT) is presented as a new and e
   abstract={We propose and implement a quasi-discrete Hankel transform algorithm based on Dini series expansion (DQDHT) in this paper. By making use of the property that the zero-order Bessel function derivative J ' 0 (0) = 0, the DQDHT can be used to calculate the values on the symmetry axis directly. In addition, except for the truncated treatment of the input function, no other approximation is made, thus the DQDHT satisfies the discrete Parseval theorem for energy conservation, implying that it has a high numerical accuracy. Further, we have performed several numerical tests. The test results show that the DQDHT has a very high numerical accuracy and keeps energy conservation even after thousands of times of repeating the transform either in a spatial domain or in a frequency domain. Finally, as an example, we have applied the DQDHT to the nonlinear propagation of a Gaussian beam through a Kerr medium system with cylindrical symmetry. The calculated results are found to be in excellent agreement with those based on the conventional 2D-FFT algorithm, while the simulation based on the proposed DQDHT takes much less computing time.}
 }
 
-@article{BunemanJCP1980, place={United States}, title={Principles and capabilities of 3-D, E-M particle simulations}, volume={38:1}, abstractNote={Presently available computing power is just sufficient for carrying out some meaningful three-dimensional, fully electro-magnetic particle simulations. The background for building the appropriate codes is reviewed in this article, and the modest achievments of one such code, SPLASH, (operating on a CDC 7600) are presented. A more ambitious code for the CRAY-1, still under construction, is based on similar principles and algorithms. Data management emerges as a crucial element, in addition to the physics and numerics, for determining code structure.}, journal={J. Comput. Phys.; (United States)}, author={Buneman, O. and Barnes, C.W. and Green, J.C. and Nielsen, D.E.}, year={1980}, month={Nov}}
+@article{BunemanJCP1980,
+title = "Principles and capabilities of 3-D, E-M particle simulations",
+journal = "Journal of Computational Physics",
+volume = "38",
+number = "1",
+pages = "1 - 44",
+year = "1980",
+note = "",
+issn = "0021-9991",
+doi = "http://dx.doi.org/10.1016/0021-9991(80)90010-8",
+url = "http://www.sciencedirect.com/science/article/pii/0021999180900108",
+author = "O. Buneman and C.W. Barnes and J.C. Green and D.E. Nielsen",
+abstract = "Presently available computing power is just sufficient for carrying out some meaningful three-dimensional, fully electro-magnetic particle simulations. The background for building the appropriate codes is reviewed in this article, and the modest achievements of one such code, SPLASH, (operating on a CDC 7600) are presented. A more ambitious code for the CRAY1, still under construction, is based on similar principles and algorithms. Data management emerges as a crucial element, in addition to the physics and numerics, for determining code structure."
+}
+
 
 @article{CowanPRSTAB2013,
-  title = {Generalized algorithm for control of numerical dispersion in explicit time-domain electromagnetic simulations},
   author = {Cowan, Benjamin M. and Bruhwiler, David L. and Cary, John R. and Cormier-Michel, Estelle and Geddes, Cameron G. R.},
   journal = {Phys. Rev. ST Accel. Beams},
   volume = {16},
@@ -61,7 +71,6 @@ abstract = {A quasi-discrete Hankel transform (QDHT) is presented as a new and e
 }
 
 @article{XuCPC2013,
-title = "Numerical instability due to relativistic plasma drift in EM-PIC simulations ",
 journal = "Computer Physics Communications ",
 volume = "184",
 number = "11",
@@ -82,10 +91,8 @@ abstract = "Abstract The numerical instability observed in electromagnetic parti
 }
 
 @article{AndriyashJCP2015,
-title = "A spectral unaveraged algorithm for free electron laser simulations ",
 journal = "Journal of Computational Physics ",
 volume = "282",
-number = "0",
 pages = "397 - 409",
 year = "2015",
 note = "",
@@ -99,15 +106,45 @@ keywords = "Synchrotron radiation source ",
 abstract = "Abstract We propose and discuss a numerical method to model electromagnetic emission from the oscillating relativistic charged particles and its coherent amplification. The developed technique is well suited for free electron laser simulations, but it may also be useful for a wider range of physical problems involving resonant field–particles interactions. The algorithm integrates the unaveraged coupled equations for the particles and the electromagnetic fields in a discrete spectral domain. Using this algorithm, it is possible to perform full three-dimensional or axisymmetric simulations of short-wavelength amplification. In this paper we describe the method, its implementation, and we present examples of free electron laser simulations comparing the results with the ones provided by commonly known free electron laser codes. "
 }
 
-@inproceedings{PIConGPU, author = {Bussmann, M. and Burau, H. and Cowan, T. E. and Debus, A. and Huebl, A. and Juckeland, G. and Kluge, T. and Nagel, W. E. and Pausch, R. and Schmitt, F. and Schramm, U. and Schuchart, J. and Widera, R.}, title = {Radiative Signatures of the Relativistic Kelvin-Helmholtz Instability}, booktitle = {Proceedings of the International Conference on High Performance Computing, Networking, Storage and Analysis}, series = {SC '13}, year = {2013}, isbn = {978-1-4503-2378-9}, location = {Denver, Colorado}, pages = {5:1--5:12}, articleno = {5}, numpages = {12}, url = {http://doi.acm.org/10.1145/2503210.2504564}, doi = {10.1145/2503210.2504564}, acmid = {2504564}, publisher = {ACM}, address = {New York, NY, USA}, }
+@inproceedings{PIConGPU, author = {Bussmann, M. and Burau, H. and Cowan, T. E. and Debus, A. and Huebl, A. and Juckeland, G. and Kluge, T. and Nagel, W. E. and Pausch, R. and Schmitt, F. and Schramm, U. and Schuchart, J. and Widera, R.},
+booktitle = {Proceedings of the International Conference on High Performance Computing, Networking, Storage and Analysis}, series = {SC '13}, year = {2013}, isbn = {978-1-4503-2378-9}, location = {Denver, Colorado}, pages = {5:1--5:12}, articleno = {5}, numpages = {12}, url = {http://doi.acm.org/10.1145/2503210.2504564}, doi = {10.1145/2503210.2504564}, acmid = {2504564}, publisher = {ACM}, address = {New York, NY, USA}, }
 
+@article{SchroederDSP,
+journal = "Digital Signal Processing ",
+volume = "3",
+number = "2",
+pages = "112 - 124",
+year = "1993",
+note = "",
+issn = "1051-2004",
+doi = "http://dx.doi.org/10.1006/dspr.1993.1016",
+url = "http://www.sciencedirect.com/science/article/pii/S105120048371016X",
+author = "Jim Schroeder"
+}
+
+
+@article{LeeCPC2015,
+journal = "Computer Physics Communications ",
+volume = "194",
+number = "",
+pages = "1 - 9",
+year = "2015",
+note = "",
+issn = "0010-4655",
+doi = "http://dx.doi.org/10.1016/j.cpc.2015.04.004",
+url = "http://www.sciencedirect.com/science/article/pii/S0010465515001356",
+author = "P. Lee and J.-L. Vay",
+keywords = "Perfectly Matched (PML)",
+keywords = "High order FDTD",
+keywords = "Pseudo-spectral solvers ",
+abstract = "Abstract The commonly used second order Finite-Difference Time-Domain (FDTD) scheme for electromagnetic solvers in Particle-In-Cell codes produces fast solvers that scale well in parallel, but suffers from anomalous numerical effects resulting from discretization, such as numerical dispersion. High order schemes are therefore seen as the remedy for reducing the discretization errors. In the modeling of various applications, an open boundary is necessary for simulating vacuum extending beyond the computational box, for which algorithms based on–or derived from–Bérenger’s Perfectly Matched Layers (PML) have demonstrated high efficiency over a wide range of wavelength and angle of incidence. The amount of numerical reflection of \{PMLs\} has been studied numerically and analytically for low order stencils but not systematically at higher order, nor for the pseudo-spectral scheme. In this paper, we extend the theoretical and numerical analysis of the coefficient of reflection of \{PML\} layers to solvers of any order of accuracy. Results show that the \{PML\} efficiency is preserved at any order, including at the infinite order limit that is attained by the pseudo-spectral formulation. "
+}
     
 @article{Yuarxiv2015,
    author = {{Yu}, P. and {Xu}, X. and {Tableman}, A. and {Decyk}, V.~K. and 
 	{Tsung}, F.~S. and {Fiuza}, F. and {Davidson}, A. and {Vieira}, J. and 
 	{Fonseca}, R.~A. and {Lu}, W. and {Silva}, L.~O. and {Mori}, W.~B.
 	},
-    title = "{Mitigation of numerical Cerenkov radiation and instability using a hybrid finite difference-FFT Maxwell solver and a local charge conserving current deposit}",
   journal = {ArXiv e-prints},
 archivePrefix = "arXiv",
    eprint = {1502.01376},
@@ -121,10 +158,8 @@ archivePrefix = "arXiv",
 }
     
 @article{YuCPC2015,
-title = "Elimination of the numerical Cerenkov instability for spectral EM-PIC codes ",
 journal = "Computer Physics Communications ",
 volume = "192",
-number = "0",
 pages = "32 - 47",
 year = "2015",
 note = "",
@@ -142,10 +177,8 @@ abstract = "Abstract When using an electromagnetic particle-in-cell (EM-PIC) cod
 }
 
 @article{YuJCP2014,
-title = "Modeling of laser wakefield acceleration in Lorentz boosted frame using EM-PIC code with spectral solver ",
 journal = "Journal of Computational Physics ",
 volume = "266",
-number = "0",
 pages = "124 - 138",
 year = "2014",
 note = "",
@@ -164,7 +197,6 @@ abstract = "Abstract Simulating laser wakefield acceleration (LWFA) in a Lorentz
 
 
 @article{VayPRL2007,
-  title = {Noninvariance of Space- and Time-Scale Ranges under a Lorentz Transformation and the Implications for the Study of Relativistic Interactions},
   author = {Vay, J.-L.},
   journal = {Phys. Rev. Lett.},
   volume = {98},
@@ -191,7 +223,6 @@ abstract = "Abstract Simulating laser wakefield acceleration (LWFA) in a Lorentz
     Number = {4},
     Pages = {311--316},
     Publisher = {Nature Publishing Group},
-    Title = {Exploring laser-wakefield-accelerator regimes for near-term lasers using particle-in-cell simulation in Lorentz-boosted frames},
     Ty = {JOUR},
     Url = {http://dx.doi.org/10.1038/nphys1538},
     Volume = {6},
@@ -200,7 +231,6 @@ abstract = "Abstract Simulating laser wakefield acceleration (LWFA) in a Lorentz
 
 
 @article{DawsonRMP1983,
-  title = {Particle simulation of plasmas},
   author = {Dawson, John M.},
   journal = {Rev. Mod. Phys.},
   volume = {55},
@@ -226,7 +256,6 @@ abstract = "Abstract Simulating laser wakefield acceleration (LWFA) in a Lorentz
 }
 
 @article{GodfreyJCP1974,
-title = "Numerical Cherenkov instabilities in electromagnetic particle codes",
 journal = "Journal of Computational Physics",
 volume = "15",
 number = "4",
@@ -250,10 +279,8 @@ author = "Brendan B Godfrey"
 }
 
 @article{VayJCP2013,
-title = "A domain decomposition method for pseudo-spectral electromagnetic simulations of plasmas ",
 journal = "Journal of Computational Physics ",
 volume = "243",
-number = "0",
 pages = "260 - 268",
 year = "2013",
 note = "",
@@ -285,7 +312,6 @@ abstract = "Abstract Pseudo-spectral electromagnetic solvers (i.e. representing 
         Number = {11},
         Pages = {867--871},
         Publisher = {Nature Publishing Group},
-        Title = {Gamma-rays from harmonically resonant betatron oscillations in a plasma wake},
         Ty = {JOUR},
         Url = {http://dx.doi.org/10.1038/nphys2090},
         Volume = {7},
@@ -294,7 +320,6 @@ abstract = "Abstract Pseudo-spectral electromagnetic solvers (i.e. representing 
 
 
 @article{NemethPRL2008,
-  title = {Laser-Driven Coherent Betatron Oscillation in a Laser-Wakefield Cavity},
   author = {N\'emeth, K\'aroly and Shen, Baifei and Li, Yuelin and Shang, Hairong and Crowell, Robert and Harkay, Katherine C. and Cary, John R.},
   journal = {Phys. Rev. Lett.},
   volume = {100},
@@ -316,7 +341,6 @@ eid={177},
 volume={68},
 number={6},
 doi={10.1140/epjd/e2014-50162-y},
-title={Maxwell solvers for the simulations of the laser-matter interaction},
 url={http://dx.doi.org/10.1140/epjd/e2014-50162-y},
 publisher={Springer Berlin Heidelberg},
 author={Nuter, Rachel and Grech, Mickael and Gonzalez de Alaiza Martinez, Pedro and Bonnaud, Guy and d'Humi\`eres, Emmanuel},
@@ -332,14 +356,12 @@ language={English}
   keywords = {fdtd pic plasma simulation},
   pages = 35,
   timestamp = {2012-11-13T17:48:47.000+0100},
-  title = {Low-Dispersion Wake Field Calculation Tools},
   volume = 1,
   year = 2006
 }
 
 @article{Pukhov,
 author = {Pukhov,A.},
-title = {Three-dimensional electromagnetic relativistic  particle-in-cell code VLPL  (Virtual Laser Plasma Lab)},
 journal = {Journal of Plasma Physics},
 volume = {61},
 number = {03},
@@ -349,7 +371,6 @@ doi = {null}
 }
 
 @phdthesis{LeheThesis,
-  TITLE = {{Improvement of laser-wakefield accelerators: towards a compact free electron laser}},
   AUTHOR = {Lehe, R{\'e}mi},
   URL = {https://pastel.archives-ouvertes.fr/tel-01088398},
   SCHOOL = {{Ecole Polytechnique}},
@@ -364,7 +385,6 @@ doi = {null}
 
 
 @article{LehePRSTAB2013,
-  title = {Numerical growth of emittance in simulations of laser-wakefield acceleration},
   author = {Lehe, R. and Lifschitz, A. and Thaury, C. and Malka, V. and Davoine, X.},
   journal = {Phys. Rev. ST Accel. Beams},
   volume = {16},
@@ -380,7 +400,6 @@ doi = {null}
 
 
 @article{EsareyRMP2009,
-  title = {Physics of laser-driven plasma-based electron accelerators},
   author = {Esarey, E. and Schroeder, C. B. and Leemans, W. P.},
   journal = {Rev. Mod. Phys.},
   volume = {81},
@@ -396,8 +415,6 @@ doi = {null}
 
 @article {Liu,
 author = {Liu, Q. H.},
-title = {The PSTD algorithm: A time-domain method requiring only two cells per \
-wavelength},
 journal = {Microwave and Optical Technology Letters},
 volume = {15},
 number = {3},
@@ -420,14 +437,12 @@ publisher = {Dover Publications},
 year = "1972" }
 
 @book{Haber, 
-  title = {Advances in electromagnetic simulation techniques},
   booktitle = {Proc. Sixth Conf. on Num. Sim. Plasmas, Berkeley, CA},
   year = {1973},
   author = {Haber, I. and Lee, R. and Klein, H. and Boris, J.}
 }
 
 @book{YuIPAC2015, 
-  title = {Lorentz boosted frame simulation of laser-wakefield acceleration using hybrid Yee-FFT solver in quasi-3D geometry},
   booktitle = {Proc. International Particle Accelerator Confererence},
   year = {2015},
   author = {{Yu}, P. and {Davidson}, A. and {Tableman}, A. and {Decyk}, V.~K. and {Tsung}, F.~S. and {Mori}, W.~B.}
@@ -437,7 +452,6 @@ year = "1972" }
    author = {{Davidson}, A. and {Tableman}, A. and {An}, W. and {Tsung}, F.~S. and 
 	{Lu}, W. and {Vieira}, J. and {Fonseca}, R.~A. and {Silva}, L.~O. and 
 	{Mori}, W.~B.},
-    title = "{Implementation of a hybrid particle code with a PIC description in r-z and a gridless description in {$\phi$} into OSIRIS}",
   journal = {Journal of Computational Physics},
 archivePrefix = "arXiv",
    eprint = {1403.6890},
@@ -454,8 +468,6 @@ archivePrefix = "arXiv",
 
 @ARTICLE{Verboncoeur,
    author = {{Verboncoeur}, J.},
-    title = "{Symmetric Spline Weighting for Charge and
-Current Density in Particle Simulation}",
   journal = {Journal of Computational Physics},
      year = 2001,
    volume = 174,
@@ -464,7 +476,6 @@ Current Density in Particle Simulation}",
 
 @article{Lifschitz,
  author = {Lifschitz, A. F. and Davoine, X. and Lefebvre, E. and Faure, J. and Rechatin, C. and Malka, V.},
- title = {Particle-in-Cell Modelling of Laser-plasma Interaction Using Fourier Decomposition},
  journal = {J. Comput. Phys.},
  issue_date = {March, 2009},
  volume = {228},
@@ -483,7 +494,6 @@ Current Density in Particle Simulation}",
 } 
 
 @article{Cree,
-title = "Algorithms to numerically evaluate the Hankel transform ",
 journal = "Computers \& Mathematics with Applications ",
 volume = "26",
 number = "1",
@@ -504,7 +514,6 @@ keywords = {},
 number = {4}, 
 pages = {510--520}, 
 publisher = {OSA},
-title = {Recursive methods for computing the Abel transform and its inverse}, 
 volume = {2}, 
 month = {Apr},
 year = {1985},
@@ -520,7 +529,6 @@ keywords = {},
 number = {1}, 
 pages = {13--15}, 
 publisher = {OSA},
-title = {Quasi fast Hankel transform}, 
 volume = {1}, 
 month = {Jul},
 year = {1977},
@@ -536,7 +544,6 @@ keywords = {Numerical approximation and analysis; Mathematical methods (general)
 number = {10}, 
 pages = {10551--10556}, 
 publisher = {OSA},
-title = {Reconstruction of optical fields with the Quasi-discrete Hankel transform}, 
 volume = {18}, 
 month = {May},
 year = {2010},
@@ -555,7 +562,6 @@ keywords = {Numerical approximation and analysis; Diffraction theory; ABCD trans
 number = {1}, 
 pages = {53--58}, 
 publisher = {OSA},
-title = {Computation of quasi-discrete Hankel transforms of integer order for propagating optical wave fields}, 
 volume = {21}, 
 month = {Jan},
 year = {2004},
@@ -567,7 +573,6 @@ abstract = {The method originally proposed by {\textless}author order$=$"1"{\tex
 @ARTICLE{GodfreyIEEE2014,
 author={Godfrey, B.B. and Vay, J.-L. and Haber, I.},
 journal={Plasma Science, IEEE Transactions on},
-title={Numerical Stability Improvements for the Pseudospectral EM PIC Algorithm},
 year={2014},
 month={May},
 volume={42},
@@ -578,10 +583,8 @@ doi={10.1109/TPS.2014.2310654},
 ISSN={0093-3813},}
     
 @article{GodfreyJCP2014,
-title = "Numerical stability analysis of the pseudo-spectral analytical time-domain \{PIC\} algorithm ",
 journal = "Journal of Computational Physics ",
 volume = "258",
-number = "0",
 pages = "689 - 704",
 year = "2014",
 note = "",
@@ -597,7 +600,6 @@ abstract = "Abstract The pseudo-spectral analytical time-domain (PSATD) particle
 }
 
 @article{Esarey1999,
-  title = {Nonparaxial propagation of ultrashort laser pulses in plasma channels},
   author = {Esarey, E. and Leemans, W. P.},
   journal = {Phys. Rev. E},
   volume = {59},
@@ -613,7 +615,6 @@ abstract = "Abstract The pseudo-spectral analytical time-domain (PSATD) particle
 
 
 @article{Esirkepov,
-title = "Exact charge conservation scheme for Particle-in-Cell simulation with an arbitrary form-factor ",
 journal = "Computer Physics Communications ",
 volume = "135",
 number = "2",
@@ -635,7 +636,6 @@ abstract = "The new method of local electric current density assignment in the P
 
 @article{VayPoP2008,
    author = "Vay, J.-L.",
-   title = "Simulation of beams or plasmas crossing at relativistic velocity",
    journal = "Physics of Plasmas (1994-present)",
    year = "2008",
    volume = "15",
@@ -656,7 +656,6 @@ abstract = "The new method of local electric current density assignment in the P
 }
 
 @article{VayJCP2011,
-title = "Numerical methods for instability mitigation in the modeling of laser wakefield accelerators in a Lorentz-boosted frame ",
 journal = "Journal of Computational Physics ",
 volume = "230",
 number = "15",
@@ -676,9 +675,21 @@ keywords = "Numerical instability ",
 abstract = "Modeling of laser-plasma wakefield accelerators in an optimal frame of reference [1] has been shown to produce orders of magnitude speed-up of calculations from first principles. Obtaining these speedups required mitigation of a high-frequency instability that otherwise limits effectiveness. In this paper, methods are presented which mitigated the observed instability, including an electromagnetic solver with tunable coefficients, its extension to accommodate Perfectly Matched Layers and Friedman’s damping algorithms, as well as an efficient large bandwidth digital filter. It is observed that choosing the frame of the wake as the frame of reference allows for higher levels of filtering or damping than is possible in other frames for the same accuracy. Detailed testing also revealed the existence of a singular time step at which the instability level is minimized, independently of numerical dispersion. A combination of the techniques presented in this paper prove to be very efficient at controlling the instability, allowing for efficient direct modeling of 10&#xa0;GeV class laser plasma accelerator stages. The methods developed in this paper may have broader application, to other Lorentz-boosted simulations and Particle-In-Cell simulations in general. "
 }
 
+@article{LinPhysFluids1974,
+   author = "Lin, A. T. and Dawson, J. M. and Okuda, H.",
+   journal = "Physics of Fluids",
+   year = "1974",
+   volume = "17",
+   number = "11", 
+   pages = "1995-2001",
+   url = "http://scitation.aip.org/content/aip/journal/pof1/17/11/10.1063/1.1694656",
+   doi = "http://dx.doi.org/10.1063/1.1694656" 
+}
+
+
+
 @article{Warpref,
   author={J-L Vay and D P Grote and R H Cohen and A Friedman},
-  title={Novel methods in the Particle-In-Cell accelerator Code-Framework Warp},
   journal={Computational Science \& Discovery},
   volume={5},
   number={1},
@@ -689,10 +700,8 @@ abstract = "Modeling of laser-plasma wakefield accelerators in an optimal frame 
 }
 
 @article{GodfreyJCP2013,
-title = "Numerical stability of relativistic beam multidimensional \{PIC\} simulations employing the Esirkepov algorithm ",
 journal = "Journal of Computational Physics ",
 volume = "248",
-number = "0",
 pages = "33 - 46",
 year = "2013",
 note = "",
@@ -708,10 +717,8 @@ abstract = "Abstract Rapidly growing numerical instabilities routinely occur in 
 }
 
 @article{GodfreyCPC2015,
-title = "Improved numerical Cherenkov instability suppression in the generalized \{PSTD\} \{PIC\} algorithm ",
 journal = "Computer Physics Communications ",
 volume = "",
-number = "0",
 pages = " - ",
 year = "2015",
 note = "",
@@ -726,6 +733,19 @@ keywords = "Numerical stability ",
 abstract = "Abstract The family of generalized Pseudo-Spectral Time Domain (including the Pseudo-Spectral Analytical Time Domain) Particle-in-Cell algorithms offers substantial versatility for simulating particle beams and plasmas, and well written codes using these algorithms run reasonably fast. When simulating relativistic beams and streaming plasmas in multiple dimensions, they are, however, subject to the numerical Cherenkov instability. Previous studies have shown that instability growth rates can be reduced substantially by modifying slightly the transverse fields as seen by the streaming particles. Here, we offer an approach which completely eliminates the fundamental mode of the numerical Cherenkov instability while minimizing the transverse field corrections. The procedure, numerically computed residual growth rates (from weaker, higher order instability aliases), and comparisons with simulations using the code Warp are presented. In some instances, there are no numerical instabilities whatsoever, at least in the linear regime. "
 }
 
+
+@ARTICLE{Vincenti2015,
+   author = {{Vincenti}, H. and {Vay}, J.},
+  journal = {ArXiv e-prints},
+archivePrefix = "arXiv",
+   eprint = {1507.05572},
+ primaryClass = "physics.comp-ph",
+ keywords = {Physics - Computational Physics},
+     year = 2015,
+    month = jul,
+   adsurl = {http://adsabs.harvard.edu/abs/2015arXiv150705572V},
+  adsnote = {Provided by the SAO/NASA Astrophysics Data System}
+}
 
 @online{FFTW,
 title = {FFTW},
