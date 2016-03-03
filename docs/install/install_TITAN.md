@@ -1,8 +1,6 @@
-Installation of FBPIC on the Titan supercomputer
-=======================================
+# Installation of FBPIC on the Titan supercomputer
 
-Overview
--------
+## Overview
 
 Titan is a supercomputer at the Oakridge Leadership Computing Facility (OLCF).
 
@@ -10,8 +8,9 @@ Installation and usage of FBPIC requires the following steps:
 * Installation of Anaconda and FBPIC
 * Allocation of ressources and starting runs
 
-Installation of Anaconda
-------------------------
+## Installation
+
+### Installation of Anaconda
 
 In order to download and install Anaconda and FBPIC, follow the steps below:
 
@@ -43,8 +42,7 @@ export $LD_LIBRARY_PATH="<$MEMBERWORK directory>/<project id>/anaconda2/lib:$LD_
 ```
 where again the bracketed text should be replaced by the values for your account.
 
-Installation of FBPIC and related packages
-------------------------------------------
+### Installation of FBPIC and related packages
 
 - Clone the `fbpic` repository using git.
 
@@ -77,24 +75,42 @@ conda install accelerate_cudalib
 python setup.py install
 ```
 
-Allocation of ressources and starting runs
--------------------
+## Allocation of ressources and starting runs
+
 Each node consists of 1 Nvidia K20 device.
 
-**Interactive jobs:**
+In order to create a new simulation, create a new directory in
+`$MEMBERWORK/` in and copy your input script there:
+```
+mkdir $MEMBERWORK/<project id>/<simulation name>
+cp fbpic_script.py $MEMBERWORK/<project id>/<simulation name>
+```
+
+### Interactive jobs
 
 In order to request an interactive job:
 ```
 qsub -I -A <project id> -l nodes=1,walltime=00:30:00 -q debug
 ```
-Once the job has started, switch to the `$MEMBERWORK/` directory and
-copy your script there.
+Once the job has started, switch to your simulation directory
 ```
-mkdir $MEMBERWORK/<project id>/<simulation name>
-cp <fbpic_script.py> $MEMBERWORK/<project id>/<simulation name>
 cd $MEMBERWORK/<project id>/<simulation name>
 ```
 Then use `aprun` to launch the job on a GPU (even for single-node job)
 ```
 aprun -n 1 python <fbpic_script.py>
+```
+
+### Batch jobs
+
+Create a file `submission_script` with contains the following text:
+```
+#!/bin/bash
+#PBS -A <project id>
+#PBS -l walltime=<your walltime>
+#PBS -l nodes=<number of nodes>
+
+cd  $MEMBERWORK/<project id>/<simulation name>
+
+aprun -n <number of nodes> python fbpic_script.py
 ```
