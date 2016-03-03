@@ -1,10 +1,6 @@
-Fourier-Bessel Particle-In-Cell code (FBPIC)
-=============================
+# Fourier-Bessel Particle-In-Cell code (FBPIC)
 
-![build_badge](https://img.shields.io/shippable/5686afb51895ca44746736e6.svg)
-
-Overview
---------
+## Overview
 
 This program is a Particle-In-Cell (PIC) code,
 whose distinctive feature is to use a **spectral decomposition in
@@ -36,8 +32,8 @@ Implementation details:
 intensive parts. Moroever, it will also use Numba, if availabe
 * Single-CPU (with partial use of multi-threading) or single-GPU
 
-Installation
----------
+## Installation
+
 The installation instructions below are for a local computer. For instructions
 specific to a particular HPC cluster (e.g. Titan, Jureca, Lawrencium, etc.), please
 see `docs/install`.
@@ -84,8 +80,7 @@ python setup.py test
 If you encounter issues with the installation, you may find a
 documented solution in `docs/install`.
 
-Running simulations
-----------------
+## Running simulations
 
 Simulations are run with a user-written python script, which calls the
 FBPIC structures. An example script (called `lpa_sim.py`) can be found in
