@@ -9,7 +9,25 @@ from scipy.constants import c
 # -----------------------
 # Particle pusher utility
 # -----------------------
-          
+
+@numba.jit(nopython=True)
+def push_x_numba( x, y, z, ux, uy, uz, inv_gamma, Ntot, dt ):
+    """
+    Advance the particles' positions over one half-timestep
+    
+    This assumes that the positions (x, y, z) are initially either
+    one half-timestep *behind* the momenta (ux, uy, uz), or at the
+    same timestep as the momenta.
+    """
+    # Half timestep, multiplied by c
+    chdt = c*0.5*dt
+
+    # Particle push
+    for ip in xrange(Ntot) :
+        x[ip] += chdt * inv_gamma[ip] * ux[ip]
+        y[ip] += chdt * inv_gamma[ip] * uy[ip]
+        z[ip] += chdt * inv_gamma[ip] * uz[ip]
+
 @numba.jit(nopython=True)
 def push_p_numba( ux, uy, uz, inv_gamma, 
                 Ex, Ey, Ez, Bx, By, Bz, q, m, Ntot, dt ) :
