@@ -7,19 +7,11 @@ from scipy.constants import c
 
 # Load the utility methods
 from .utility_methods import linear_weights, unalign_angles
-# Load the standard numpy routines
-from .numpy_methods import push_p_numpy, push_x_numpy, \
-        gather_field_numpy, deposit_field_numpy
-
-# If numba is installed, it can make the code much faster
-try :
-    from .numba_methods import push_p_numba, \
+# Load the numba routines
+from .numba_methods import push_p_numba, push_x_numba, \
         gather_field_numba, deposit_field_numba
-    numba_installed = True
-except ImportError :
-    numba_installed = False
 
-# If numbapro is installed, it potentially allows to use a GPU
+# If cuda is installed, it potentially allows to use a GPU
 try :
     from fbpic.cuda_utils import cuda, cuda_tpb_bpg_1d, cuda_tpb_bpg_2d
     from .cuda_methods import push_p_gpu, push_x_gpu, \
@@ -45,13 +37,12 @@ class Particles(object) :
     At the end or start of any PIC cycle, the momenta should be
     one half-timestep *behind* the position.
     """
-
     def __init__(self, q, m, n, Npz, zmin, zmax,
                     Npr, rmin, rmax, Nptheta, dt,
                     ux_m=0., uy_m=0., uz_m=0.,
                     ux_th=0., uy_th=0., uz_th=0.,
                     dens_func=None, continuous_injection=True,
-                    use_numba=True, use_cuda=False, grid_shape=None ) :
+                    use_cuda=False, grid_shape=None ) :
         """
         Initialize a uniform set of particles
 
@@ -101,11 +92,8 @@ class Particles(object) :
            Whether to continuously inject the particles,
            in the case of a moving window
 
-        use_numba : bool, optional
-            Whether to use numba-compiled code on the CPU
-
         use_cuda : bool, optional
-            Wether to use the GPU or not. Overrides use_numba.
+            Wether to use the GPU or not.
 
         grid_shape: tuple, optional
             Needed when running on the GPU
@@ -124,13 +112,6 @@ class Particles(object) :
             self.use_cuda = False
         if self.use_cuda == True:
             print 'Using the GPU for the particles.'
-
-        # Define whether or not to use numba on a CPU
-        self.use_numba = use_numba
-        if self.use_cuda == True :
-            self.use_numba = False
-        if (self.use_numba==True) and (numba_installed==False) :
-            print 'Numba is not installed ; the code will be slow.'
 
         # Register the properties of the particles
         # (Necessary for the pusher, and when adding more particles later, )
@@ -306,11 +287,7 @@ class Particles(object) :
         half-timestep *behind* the positions (x, y, z), and it brings
         them one half-timestep *ahead* of the positions.
         """
-        if self.use_numba :
-            push_p_numba(self.ux, self.uy, self.uz, self.inv_gamma,
-                    self.Ex, self.Ey, self.Ez, self.Bx, self.By, self.Bz,
-                    self.q, self.m, self.Ntot, self.dt )
-        elif self.use_cuda:
+        if self.use_cuda:
             # Get the threads per block and the blocks per grid
             dim_grid_1d, dim_block_1d = cuda_tpb_bpg_1d( self.Ntot )
             # Call the CUDA Kernel for the particle push
@@ -320,7 +297,7 @@ class Particles(object) :
                     self.Bx, self.By, self.Bz,
                     self.q, self.m, self.Ntot, self.dt )
         else :
-            push_p_numpy(self.ux, self.uy, self.uz, self.inv_gamma,
+            push_p_numba(self.ux, self.uy, self.uz, self.inv_gamma,
                     self.Ex, self.Ey, self.Ez, self.Bx, self.By, self.Bz,
                     self.q, self.m, self.Ntot, self.dt )
 
@@ -343,13 +320,13 @@ class Particles(object) :
             # The particle array is unsorted after the push in x
             self.sorted = False
         else :
-            push_x_numpy(self.x, self.y, self.z,
+            push_x_numba( self.x, self.y, self.z,
                 self.ux, self.uy, self.uz,
-                self.inv_gamma, self.dt )
+                self.inv_gamma, self.Ntot, self.dt )
 
     def gather( self, grid ) :
         """
-        Gather the fields onto the macroparticles using numpy
+        Gather the fields onto the macroparticles
 
         This assumes that the particle positions are currently at
         the same timestep as the field that is to be gathered.
@@ -415,34 +392,18 @@ class Particles(object) :
                 # Gather the fields
                 # (The sign with which the guards are added
                 # depends on whether the fields should be zero on axis)
-                if self.use_numba:
-                    # Use numba
-                    gather_field_numba( exptheta, m, grid[m].Er, Fr,
-                        iz_lower, iz_upper, Sz_lower, Sz_upper,
-                        ir_lower, ir_upper, Sr_lower, Sr_upper,
-                        -(-1.)**m, Sr_guard )
-                    gather_field_numba( exptheta, m, grid[m].Et, Ft,
-                        iz_lower, iz_upper, Sz_lower, Sz_upper,
-                        ir_lower, ir_upper, Sr_lower, Sr_upper,
-                        -(-1.)**m, Sr_guard )
-                    gather_field_numba( exptheta, m, grid[m].Ez, self.Ez,
-                        iz_lower, iz_upper, Sz_lower, Sz_upper,
-                        ir_lower, ir_upper, Sr_lower, Sr_upper,
-                        (-1.)**m, Sr_guard )
-                else:
-                    # Use numpy (slower)
-                    gather_field_numpy( exptheta, m, grid[m].Er, Fr,
-                        iz_lower, iz_upper, Sz_lower, Sz_upper,
-                        ir_lower, ir_upper, Sr_lower, Sr_upper,
-                        -(-1.)**m, Sr_guard )
-                    gather_field_numpy( exptheta, m, grid[m].Et, Ft,
-                        iz_lower, iz_upper, Sz_lower, Sz_upper,
-                        ir_lower, ir_upper, Sr_lower, Sr_upper,
-                        -(-1.)**m, Sr_guard )
-                    gather_field_numpy( exptheta, m, grid[m].Ez, self.Ez,
-                        iz_lower, iz_upper, Sz_lower, Sz_upper,
-                        ir_lower, ir_upper, Sr_lower, Sr_upper,
-                        (-1.)**m, Sr_guard )
+                gather_field_numba( exptheta, m, grid[m].Er, Fr,
+                    iz_lower, iz_upper, Sz_lower, Sz_upper,
+                    ir_lower, ir_upper, Sr_lower, Sr_upper,
+                    -(-1.)**m, Sr_guard )
+                gather_field_numba( exptheta, m, grid[m].Et, Ft,
+                    iz_lower, iz_upper, Sz_lower, Sz_upper,
+                    ir_lower, ir_upper, Sr_lower, Sr_upper,
+                    -(-1.)**m, Sr_guard )
+                gather_field_numba( exptheta, m, grid[m].Ez, self.Ez,
+                    iz_lower, iz_upper, Sz_lower, Sz_upper,
+                    ir_lower, ir_upper, Sr_lower, Sr_upper,
+                    (-1.)**m, Sr_guard )
 
             # Convert to Cartesian coordinates
             self.Ex[:] = cos*Fr - sin*Ft
@@ -470,34 +431,19 @@ class Particles(object) :
                 # Gather the fields
                 # (The sign with which the guards are added
                 # depends on whether the fields should be zero on axis)
-                if self.use_numba:
-                    # Use numba
-                    gather_field_numba( exptheta, m, grid[m].Br, Fr,
-                        iz_lower, iz_upper, Sz_lower, Sz_upper,
-                        ir_lower, ir_upper, Sr_lower, Sr_upper,
-                        -(-1.)**m, Sr_guard )
-                    gather_field_numba( exptheta, m, grid[m].Bt, Ft,
-                        iz_lower, iz_upper, Sz_lower, Sz_upper,
-                        ir_lower, ir_upper, Sr_lower, Sr_upper,
-                        -(-1.)**m, Sr_guard )
-                    gather_field_numba( exptheta, m, grid[m].Bz, self.Bz,
-                        iz_lower, iz_upper, Sz_lower, Sz_upper,
-                        ir_lower, ir_upper, Sr_lower, Sr_upper,
-                        (-1.)**m, Sr_guard )
-                else:
-                    # Use numpy (slower)
-                    gather_field_numpy( exptheta, m, grid[m].Br, Fr,
-                        iz_lower, iz_upper, Sz_lower, Sz_upper,
-                        ir_lower, ir_upper, Sr_lower, Sr_upper,
-                        -(-1.)**m, Sr_guard )
-                    gather_field_numpy( exptheta, m, grid[m].Bt, Ft,
-                        iz_lower, iz_upper, Sz_lower, Sz_upper,
-                        ir_lower, ir_upper, Sr_lower, Sr_upper,
-                        -(-1.)**m, Sr_guard )
-                    gather_field_numpy( exptheta, m, grid[m].Bz, self.Bz,
-                        iz_lower, iz_upper, Sz_lower, Sz_upper,
-                        ir_lower, ir_upper, Sr_lower, Sr_upper,
-                        (-1.)**m, Sr_guard )
+                gather_field_numba( exptheta, m, grid[m].Br, Fr,
+                    iz_lower, iz_upper, Sz_lower, Sz_upper,
+                    ir_lower, ir_upper, Sr_lower, Sr_upper,
+                    -(-1.)**m, Sr_guard )
+                gather_field_numba( exptheta, m, grid[m].Bt, Ft,
+                    iz_lower, iz_upper, Sz_lower, Sz_upper,
+                    ir_lower, ir_upper, Sr_lower, Sr_upper,
+                    -(-1.)**m, Sr_guard )
+                gather_field_numba( exptheta, m, grid[m].Bz, self.Bz,
+                    iz_lower, iz_upper, Sz_lower, Sz_upper,
+                    ir_lower, ir_upper, Sr_lower, Sr_upper,
+                    (-1.)**m, Sr_guard )
+
             # Convert to Cartesian coordinates
             self.Bx[:] = cos*Fr - sin*Ft
             self.By[:] = sin*Fr + cos*Ft
@@ -505,7 +451,7 @@ class Particles(object) :
 
     def deposit( self, fld, fieldtype ) :
         """
-        Deposit the particles charge or current onto the grid, using numpy
+        Deposit the particles charge or current onto the grid
 
         This assumes that the particle positions (and momenta in the case of J)
         are currently at the same timestep as the field that is to be deposited
@@ -611,18 +557,10 @@ class Particles(object) :
                     # Deposit the fields
                     # (The sign -1 with which the guards are added is not
                     # trivial to derive but avoids artifacts on the axis)
-                    if self.use_numba :
-                        # Use numba
-                        deposit_field_numba( self.w*exptheta, grid[m].rho,
-                            iz_lower, iz_upper, Sz_lower, Sz_upper,
-                            ir_lower, ir_upper, Sr_lower, Sr_upper,
-                            -1., Sr_guard )
-                    else:
-                        # Use numpy (slower)
-                        deposit_field_numpy( self.w*exptheta, grid[m].rho,
-                            iz_lower, iz_upper, Sz_lower, Sz_upper,
-                            ir_lower, ir_upper, Sr_lower, Sr_upper,
-                            -1., Sr_guard )
+                    deposit_field_numba( self.w*exptheta, grid[m].rho,
+                        iz_lower, iz_upper, Sz_lower, Sz_upper,
+                        ir_lower, ir_upper, Sr_lower, Sr_upper,
+                        -1., Sr_guard )
 
             elif fieldtype == 'J' :
                 # ----------------------------------------
@@ -645,34 +583,19 @@ class Particles(object) :
                     # Deposit the fields
                     # (The sign -1 with which the guards are added is not
                     # trivial to derive but avoids artifacts on the axis)
-                    if self.use_numba:
-                        # Use numba
-                        deposit_field_numba( Jr*exptheta, grid[m].Jr,
-                            iz_lower, iz_upper, Sz_lower, Sz_upper,
-                            ir_lower, ir_upper, Sr_lower, Sr_upper,
-                            -1., Sr_guard )
-                        deposit_field_numba( Jt*exptheta, grid[m].Jt,
-                            iz_lower, iz_upper, Sz_lower, Sz_upper,
-                            ir_lower, ir_upper, Sr_lower, Sr_upper,
-                            -1., Sr_guard )
-                        deposit_field_numba( Jz*exptheta, grid[m].Jz,
-                            iz_lower, iz_upper, Sz_lower, Sz_upper,
-                            ir_lower, ir_upper, Sr_lower, Sr_upper,
-                            -1., Sr_guard )
-                    else:
-                        # Use numpy (slower)
-                        deposit_field_numpy( Jr*exptheta, grid[m].Jr,
-                            iz_lower, iz_upper, Sz_lower, Sz_upper,
-                            ir_lower, ir_upper, Sr_lower, Sr_upper,
-                            -1., Sr_guard )
-                        deposit_field_numpy( Jt*exptheta, grid[m].Jt,
-                            iz_lower, iz_upper, Sz_lower, Sz_upper,
-                            ir_lower, ir_upper, Sr_lower, Sr_upper,
-                            -1., Sr_guard )
-                        deposit_field_numpy( Jz*exptheta, grid[m].Jz,
-                            iz_lower, iz_upper, Sz_lower, Sz_upper,
-                            ir_lower, ir_upper, Sr_lower, Sr_upper,
-                            -1., Sr_guard )
+                    deposit_field_numba( Jr*exptheta, grid[m].Jr,
+                        iz_lower, iz_upper, Sz_lower, Sz_upper,
+                        ir_lower, ir_upper, Sr_lower, Sr_upper,
+                        -1., Sr_guard )
+                    deposit_field_numba( Jt*exptheta, grid[m].Jt,
+                        iz_lower, iz_upper, Sz_lower, Sz_upper,
+                        ir_lower, ir_upper, Sr_lower, Sr_upper,
+                        -1., Sr_guard )
+                    deposit_field_numba( Jz*exptheta, grid[m].Jz,
+                        iz_lower, iz_upper, Sz_lower, Sz_upper,
+                        ir_lower, ir_upper, Sr_lower, Sr_upper,
+                        -1., Sr_guard )
+
             else :
                 raise ValueError(
         "`fieldtype` should be either 'J' or 'rho', but is `%s`" %fieldtype )
