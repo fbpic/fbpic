@@ -290,6 +290,8 @@ class Simulation(object):
 
                 # Move the grids if needed
                 if self.comm.moving_win is not None:
+                    # Damp the fields in the guard cells
+                    self.comm.damp_guard_EB( fld.interp )
                     # Shift the fields, and prepare positions
                     # between which new particles should be added
                     self.comm.move_grids(fld, self.dt, self.time)
