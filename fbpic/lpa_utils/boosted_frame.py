@@ -237,3 +237,61 @@ class BoostConverter( object ):
             boosted_frame_vars.append( R /( 1 + self.beta0 ) )
 
         return( boosted_frame_vars )
+
+    def boost_particles( self, particles ):
+        """
+        Transforms particles to the boosted frame and propagates
+        them to a fixed time t_boost = 0. without taking any electromagnetic
+        effects into account. (This is useful for the initialization
+        of a bunch distribution in the boosted frame.)
+
+        Parameters
+        ----------
+        particles: a Particles object
+            A Particles object that contains the particles in the lab frame.
+
+        Returns
+        -------
+        The Particles object with the boosted particle quantities.
+        """
+        # Shortcut for Particles object
+        part = particles
+
+        # Apply a Lorentz boost to the particle distribution. 
+        # In the Lorentz boosted frame, particles will not be defined 
+        # at a single time t'. Therefore, move of all particles to 
+        # a single time t' = const. in the boosted frame.
+        uz_boost = self.gamma0*self.beta0
+        
+        # Transform particle times and longitudinal positions 
+        # to the boosted frame. Assumes a lab time t = 0.
+        t_boost = -uz_boost*part.z/c
+        z_boost = self.gamma0*part.z
+        
+        # Get particle Lab velocities
+        vx = part.ux*part.inv_gamma*c
+        vy = part.uy*part.inv_gamma*c
+        vz = part.uz*part.inv_gamma*c
+        
+        # Calculate boost factor for velocities
+        boost_fact = 1./(1.-self.beta0*vz/c)
+        
+        # Transform velocities to boosted frame
+        vx_boost = vx*boost_fact/self.gamma0
+        vy_boost = vy*boost_fact/self.gamma0
+        vz_boost = (vz-self.beta0*c)*boost_fact
+        
+        # Correct for shift in t_boost, which comes from transformation 
+        # into boosted frame. Particles are moved with transformed 
+        # velocities to a boosted time t'=0.
+        part.x = part.x - t_boost * vx_boost
+        part.y = part.y - t_boost * vy_boost
+        part.z = part.z - t_boost * vz_boost
+        
+        # Get final quantities
+        part.inv_gamma = np.sqrt(1.-(vx_boost**2+vy_boost**2+vz_boost**2)/c**2)
+        part.ux = vx_boost / (part.inv_gamma * c)
+        part.uy = vy_boost / (part.inv_gamma * c)
+        part.uz = vz_boost / (part.inv_gamma * c)
+
+
