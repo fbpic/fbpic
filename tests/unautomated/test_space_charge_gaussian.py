@@ -24,22 +24,11 @@ n_order = -1     # The order of the stencil in z
 # The simulation timestep                                              
 dt = zmax/Nz/c   # Timestep (seconds)                                           
 N_step = 300     # Number of iterations to perform
-N_show = 300     # Number of timestep between every plot
-
-# The particles
-gamma0 = 25.
-p_zmin = 15.e-6  # Position of the beginning of the bunch (meters)
-p_zmax = 25.e-6  # Position of the end of the bunch (meters)                   
-p_rmin = 0.      # Minimal radial position of the bunch (meters)               
-p_rmax = 5.e-6   # Maximal radial position of the bunch (meters)               
-n_e = 4.e18*1.e6 # Density (electrons.meters^-3)                                
-p_nz = 2         # Number of particles per cell along z                         
-p_nr = 2         # Number of particles per cell along r                         
-p_nt = 4         # Number of particles per cell along theta 
+N_show = 300     # Number of timestep between every plot                
 
 # Initialize the simulation object
 sim = Simulation( Nz, zmax, Nr, rmax, Nm, dt,
-    p_zmin, p_zmax, p_rmin, p_rmax, p_nz, p_nr, p_nt, n_e,
+    0., 1.e-6, 0., 1.e6., 1, 1, 1, 1.e18,
     n_order=n_order, boundaries='open' )
 
 # Configure the moving window
