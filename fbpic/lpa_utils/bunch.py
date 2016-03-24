@@ -53,9 +53,9 @@ def add_elec_bunch( sim, gamma0, n_e, p_zmin, p_zmax, p_rmin, p_rmax,
     # Convert parameters to boosted frame
     if boost != None:
         beta0 = np.sqrt( 1. - 1./gamma0**2 )
-        zmin, zmax = boost.copropag_length( 
-            [ zmin, zmax ], beta_object=beta0 )
-        n, = boost.copropag_density( [n], beta_object=beta0 )
+        p_zmin, p_zmax = boost.copropag_length( 
+            [ p_zmin, p_zmax ], beta_object=beta0 )
+        n_e, = boost.copropag_density( [n_e], beta_object=beta0 )
         gamma0, = boost.gamma( [gamma0] )
 
     # Modify the input parameters p_zmin, p_zmax, r_zmin, r_zmax, so that
@@ -131,9 +131,6 @@ def add_elec_bunch_gaussian( sim, sig_r, sig_z, n_emit, gamma0, sig_gamma,
     filter_currents : bool, optional
         Whether to filter the currents in k space (True by default)
     """
-    # Generate Gaussian electron bunch in the Lab frame
-    # get mean beta of bunch
-    beta0 = np.sqrt(1-1/(gamma0**2))
     # get Gaussian particle distribution in x,y,z
     x = np.random.normal(0., sig_r, N)
     y = np.random.normal(0., sig_r, N)
