@@ -286,7 +286,7 @@ class BoostConverter( object ):
         # velocities to a boosted time t'=0.
         part.x = part.x - t_boost * vx_boost
         part.y = part.y - t_boost * vy_boost
-        part.z = part.z - t_boost * vz_boost
+        part.z = z_boost - t_boost * vz_boost
         
         # Get final quantities
         part.inv_gamma = np.sqrt(1.-(vx_boost**2+vy_boost**2+vz_boost**2)/c**2)

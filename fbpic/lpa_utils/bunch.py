@@ -188,7 +188,10 @@ def add_elec_bunch_gaussian( sim, sig_r, sig_z, n_emit, gamma0, sig_gamma,
     # Transform particle distribution in 
     # the Lorentz boosted frame, if gamma_boost != 1.
     if boost != None:
-        relat_elec = boost.boost_particles( relat_elec )
+        boost.boost_particles( relat_elec )
+
+    # Get mean gamma
+    gamma0 = 1./np.mean(relat_elec.inv_gamma)
 
     # Add them to the particles of the simulation
     sim.ptcl.append( relat_elec )
@@ -196,7 +199,6 @@ def add_elec_bunch_gaussian( sim, sig_r, sig_z, n_emit, gamma0, sig_gamma,
     # Get the corresponding space-charge fields
     # include a larger tolerance of the deviation of inv_gamma from 1./gamma0
     # to allow for energy spread
-    gamma0 = 1./np.mean(relat_elec.inv_gamma)
     get_space_charge_fields( sim.fld, [relat_elec], gamma0,
                              filter_currents, check_gaminv=False)
 
