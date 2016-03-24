@@ -53,7 +53,7 @@ def add_elec_bunch( sim, gamma0, n_e, p_zmin, p_zmax, p_rmin, p_rmax,
     """
 
     # Convert parameters to boosted frame
-    if boost != None:
+    if boost is not None:
         beta0 = np.sqrt( 1. - 1./gamma0**2 )
         p_zmin, p_zmax = boost.copropag_length( 
             [ p_zmin, p_zmax ], beta_object=beta0 )
@@ -136,32 +136,26 @@ def add_elec_bunch_gaussian( sim, sig_r, sig_z, n_emit, gamma0, sig_gamma,
     filter_currents : bool, optional
         Whether to filter the currents in k space (True by default)
     """
-    # get Gaussian particle distribution in x,y,z
+    # Get Gaussian particle distribution in x,y,z
     x = np.random.normal(0., sig_r, N)
     y = np.random.normal(0., sig_r, N)
     z = np.random.normal(zf, sig_z, N) # with offset in z
-    # Define sigma of px and py based on
-    # "trace-space" definition of emittance (sig_xp = emit/sig_x).
-    sig_pr = (n_emit/sig_r) * m_e * c
-    # Get Gaussian distribution of transverse momenta px, py. 
-    # This uses sig_x_prime/sig_y_prime for the distribution.
-    px = np.random.normal(0., sig_pr, N)
-    py = np.random.normal(0., sig_pr, N)
+    # Define sigma of ux and uy based on normalized emittance
+    sig_ur = (n_emit/sig_r)
+    # Get Gaussian distribution of transverse normalized momenta ux, uy
+    ux = np.random.normal(0., sig_ur, N)
+    uy = np.random.normal(0., sig_ur, N)
     # Now we imprint an energy spread on the gammas of each particle
     gamma = np.random.normal(gamma0, sig_gamma, N)
-    # Finally we calculate the pz of each particle 
-    # from the gamma and the transverse momenta px, py
-    pz = np.sqrt((gamma**2-1)*m_e**2*c**2 - px**2 - py**2)
+    # Finally we calculate the uz of each particle 
+    # from the gamma and the transverse momenta ux, uy
+    uz = np.sqrt((gamma**2-1) - ux**2 - uy**2)
     # Get inverse gamma
     inv_gamma = 1./gamma
-    # Get normalized momenta
-    ux = px/(m_e*c)
-    uy = py/(m_e*c)
-    uz = pz/(m_e*c)
     # Get weight of each particle
     w = -1. * Q / N
 
-    # Propagate distribution to an out-of-focus position t.
+    # Propagate distribution to an out-of-focus position tf.
     # (without taking space charge effects into account)
     if tf != 0.:
         x = x - ux*inv_gamma*c*tf
@@ -189,7 +183,7 @@ def add_elec_bunch_gaussian( sim, sig_r, sig_z, n_emit, gamma0, sig_gamma,
 
     # Transform particle distribution in 
     # the Lorentz boosted frame, if gamma_boost != 1.
-    if boost != None:
+    if boost is not None:
         boost.boost_particles( relat_elec )
 
     # Get mean gamma
