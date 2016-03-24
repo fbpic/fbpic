@@ -8,11 +8,15 @@ from fbpic.main import adapt_to_grid
 from fbpic.particles import Particles
 
 def add_elec_bunch( sim, gamma0, n_e, p_zmin, p_zmax, p_rmin, p_rmax,
-                p_nr=2, p_nz=2, p_nt=4, filter_currents=True, dens_func=None ) :
+                p_nr=2, p_nz=2, p_nt=4, dens_func=None, boost = None,
+                filter_currents=True ) :
     """
-    Introduce a relativistic electron bunch in the simulation,
+    Introduce a simple relativistic electron bunch in the simulation,
     along with its space charge field.
+    Uniform particle distribution with weights according to density function.
 
+    Parameters
+    ----------
     sim : a Simulation object
 
     gamma0 : float
@@ -39,10 +43,23 @@ def add_elec_bunch( sim, gamma0, n_e, p_zmin, p_zmax, p_rmin, p_rmax,
         where z and r are 1d arrays, and which returns
         a 1d array containing the density *relative to n*
         (i.e. a number between 0 and 1) at the given positions
+    
+    boost : a BoostConverter object, optional
+        A BoostConverter object defining the Lorentz boost of 
+        the simulation.
 
     filter_currents : bool, optional
-        Whether to filter the currents (in k space by default)
+        Whether to filter the currents in k space (True by default)
     """
+
+    # Convert parameters to boosted frame
+    if boost is not None:
+        beta0 = np.sqrt( 1. - 1./gamma0**2 )
+        p_zmin, p_zmax = boost.copropag_length( 
+            [ p_zmin, p_zmax ], beta_object=beta0 )
+        n_e, = boost.copropag_density( [n_e], beta_object=beta0 )
+        gamma0, = boost.gamma( [gamma0] )
+
     # Modify the input parameters p_zmin, p_zmax, r_zmin, r_zmax, so that
     # they fall exactly on the grid, and infer the number of particles
     p_zmin, p_zmax, Npz = adapt_to_grid( sim.fld.interp[0].z,
@@ -61,20 +78,135 @@ def add_elec_bunch( sim, gamma0, n_e, p_zmin, p_zmax, p_rmin, p_rmax,
 
     # Give them the right velocity
     relat_elec.inv_gamma[:] = 1./gamma0
-    relat_elec.uz[:] = np.sqrt( gamma0**2 -1.)
+    relat_elec.uz[:] = np.sqrt( gamma0**2 - 1.)
     
     # Add them to the particles of the simulation
     sim.ptcl.append( relat_elec )
 
     # Get the corresponding space-charge fields
     get_space_charge_fields( sim.fld, [relat_elec], gamma0, filter_currents )
+
+def add_elec_bunch_gaussian( sim, sig_r, sig_z, n_emit, gamma0, sig_gamma, 
+                        Q, N, tf=0., zf=0., boost=None,
+                        filter_currents=True ):
+    """
+    Introduce a relativistic Gaussian electron bunch in the simulation, 
+    along with its space charge field.
+
+    The bunch is initialized with a normalized emittance `n_emit`,  
+    in such a way that it will be focused at time `tf`, at the position `zf`.
+    Thus if `tf` is not 0, the bunch will be initially out of focus.
+    (This does not take space charge effects into account.)
     
-def add_elec_bunch_file( sim, filename, Q_tot, z_off=0., filter_currents=True) :
+    Parameters
+    ----------
+    sim : a Simulation object
+    
+    sig_r : float (m)
+        The transverse bunch size.
+
+    sig_z : float (m)
+        The longitudinal bunch size.
+
+    n_emit : float (m)
+        The normalized emittance of the bunch.
+
+    gamma0 : float
+        The Lorentz factor of the electrons.
+    
+    sig_gamma : float
+        The absolute energy spread of the bunch.
+
+    Q : float (C)
+        The total charge of the bunch (in Coulomb).
+
+    N : int
+        The number of particles the bunch should consist of.
+    
+    zf: float (m)
+        Position of the focus.
+
+    tf : float (s)
+        Time at which the bunch reaches focus.
+
+    boost : a BoostConverter object, optional
+        A BoostConverter object defining the Lorentz boost of 
+        the simulation.
+
+    filter_currents : bool, optional
+        Whether to filter the currents in k space (True by default)
+    """
+    # Get Gaussian particle distribution in x,y,z
+    x = np.random.normal(0., sig_r, N)
+    y = np.random.normal(0., sig_r, N)
+    z = np.random.normal(zf, sig_z, N) # with offset in z
+    # Define sigma of ux and uy based on normalized emittance
+    sig_ur = (n_emit/sig_r)
+    # Get Gaussian distribution of transverse normalized momenta ux, uy
+    ux = np.random.normal(0., sig_ur, N)
+    uy = np.random.normal(0., sig_ur, N)
+    # Now we imprint an energy spread on the gammas of each particle
+    gamma = np.random.normal(gamma0, sig_gamma, N)
+    # Finally we calculate the uz of each particle 
+    # from the gamma and the transverse momenta ux, uy
+    uz = np.sqrt((gamma**2-1) - ux**2 - uy**2)
+    # Get inverse gamma
+    inv_gamma = 1./gamma
+    # Get weight of each particle
+    w = -1. * Q / N
+
+    # Propagate distribution to an out-of-focus position tf.
+    # (without taking space charge effects into account)
+    if tf != 0.:
+        x = x - ux*inv_gamma*c*tf
+        y = y - uy*inv_gamma*c*tf
+        z = z - uz*inv_gamma*c*tf
+
+    # Create dummy electrons with the correct number of particles
+    relat_elec = Particles( q=-e, m=m_e, n=1.,
+                            Npz=N, zmin=1., zmax=2.,
+                            Npr=1, rmin=0., rmax=1.,
+                            Nptheta=1, dt=sim.dt,
+                            continuous_injection=False,
+                            dens_func=None, use_cuda=sim.use_cuda,
+                            grid_shape=sim.fld.interp[0].Ez.shape )
+
+    # Copy generated bunch particles into Particles object.
+    relat_elec.x[:] = x
+    relat_elec.y[:] = y
+    relat_elec.z[:] = z
+    relat_elec.ux[:] = ux   
+    relat_elec.uy[:] = uy   
+    relat_elec.uz[:] = uz   
+    relat_elec.inv_gamma[:] = inv_gamma
+    relat_elec.w[:] = w
+
+    # Transform particle distribution in 
+    # the Lorentz boosted frame, if gamma_boost != 1.
+    if boost is not None:
+        boost.boost_particles( relat_elec )
+
+    # Get mean gamma
+    gamma0 = 1./np.mean(relat_elec.inv_gamma)
+
+    # Add them to the particles of the simulation
+    sim.ptcl.append( relat_elec )
+
+    # Get the corresponding space-charge fields
+    # include a larger tolerance of the deviation of inv_gamma from 1./gamma0
+    # to allow for energy spread
+    get_space_charge_fields( sim.fld, [relat_elec], gamma0,
+                             filter_currents, check_gaminv=False)
+
+def add_elec_bunch_file( sim, filename, Q_tot, z_off=0., boost=None,
+                    filter_currents=True ):
     """
     Introduce a relativistic electron bunch in the simulation,
     along with its space charge field,
     load particles from text file.
 
+    Parameters
+    ----------
     sim : a Simulation object
 
     filename : str
@@ -85,11 +217,15 @@ def add_elec_bunch_file( sim, filename, Q_tot, z_off=0., filter_currents=True) :
     Q_tot : float (in Coulomb)
         total charge in bunch
 
-    z_center: float (m)
+    z_off: float (m)
         shift phase space in z by z_off
- 
+
+    boost : a BoostConverter object, optional
+        A BoostConverter object defining the Lorentz boost of 
+        the simulation.
+
     filter_currents : bool, optional
-        Whether to filter the currents (in k space by default)
+        Whether to filter the currents in k space (True by default)
     """
 
     # Load phase space to numpy array
@@ -121,12 +257,18 @@ def add_elec_bunch_file( sim, filename, Q_tot, z_off=0., filter_currents=True) :
     # multiply by -1 to make them negatively charged
     relat_elec.w[:] = -1.*Q_tot/N_part
     
+    # Transform particle distribution in 
+    # the Lorentz boosted frame, if gamma_boost != 1.
+    if boost != None:
+        relat_elec = boost.boost_particles( relat_elec )
+
     # Add them to the particles of the simulation
     sim.ptcl.append( relat_elec )
 
     # Get the corresponding space-charge fields
     # include a larger tolerance of the deviation of inv_gamma from 1./gamma0
     # to allow for energy spread
+    gamma0 = 1./np.mean(relat_elec.inv_gamma)
     get_space_charge_fields( sim.fld, [relat_elec], gamma0,
                              filter_currents, check_gaminv=False)
     
