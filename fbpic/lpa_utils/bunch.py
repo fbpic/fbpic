@@ -90,13 +90,14 @@ def add_elec_bunch_gaussian( sim, sig_r, sig_z, n_emit, gamma0, sig_gamma,
                         Q, N, tf=0., zf=0., boost=None,
                         filter_currents=True ):
     """
-    Introduce a relativistic electron bunch in the simulation,
+    Introduce a relativistic Gaussian electron bunch in the simulation, 
     along with its space charge field.
-    Generates a Gaussian electron bunch in focus with 
-    emittance and energy spread. The distribution can be
-    propagated out of focus by setting t != 0. 
-    (this does not take space charge effects into account). 
 
+    The bunch is initialized with a normalized emittance `n_emit`,  
+    in such a way that it will be focused at time `tf`, at the position `zf`.
+    Thus if `tf` is not 0, the bunch will be initially out of focus.
+    (This does not take space charge effects into account.)
+    
     Parameters
     ----------
     sim : a Simulation object
@@ -108,13 +109,13 @@ def add_elec_bunch_gaussian( sim, sig_r, sig_z, n_emit, gamma0, sig_gamma,
         The longitudinal bunch size.
 
     n_emit : float (m)
-        The normalized emittance of the bunch
+        The normalized emittance of the bunch.
 
     gamma0 : float
-        The Lorentz factor of the electrons
+        The Lorentz factor of the electrons.
     
     sig_gamma : float
-        The energy spread of the bunch with respect to gamma.
+        The absolute energy spread of the bunch.
 
     Q : float (C)
         The total charge of the bunch (in Coulomb).
