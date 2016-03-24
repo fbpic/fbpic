@@ -15,6 +15,8 @@ def add_elec_bunch( sim, gamma0, n_e, p_zmin, p_zmax, p_rmin, p_rmax,
     along with its space charge field.
     Uniform particle distribution with weights according to density function.
 
+    Parameters
+    ----------
     sim : a Simulation object
 
     gamma0 : float
@@ -95,6 +97,8 @@ def add_elec_bunch_gaussian( sim, sig_r, sig_z, n_emit, gamma0, sig_gamma,
     propagated out of focus by setting t != 0. 
     (this does not take space charge effects into account). 
 
+    Parameters
+    ----------
     sim : a Simulation object
     
     sig_r : float (m)
@@ -206,6 +210,8 @@ def add_elec_bunch_file( sim, filename, Q_tot, z_off=0., boost=None,
     along with its space charge field,
     load particles from text file.
 
+    Parameters
+    ----------
     sim : a Simulation object
 
     filename : str
