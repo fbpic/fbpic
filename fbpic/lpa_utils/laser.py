@@ -6,7 +6,7 @@ import numpy as np
 from scipy.constants import m_e, c, e
 from .boosted_frame import BoostConverter
 
-def add_laser( fld, a0, w0, ctau, z0, zf=None, lambda0=0.8e-6,
+def add_laser( sim, a0, w0, ctau, z0, zf=None, lambda0=0.8e-6,
                theta_pol=0., fw_propagating=True,
                update_spectral=True, gamma_boost=None ) :
     """
@@ -17,7 +17,7 @@ def add_laser( fld, a0, w0, ctau, z0, zf=None, lambda0=0.8e-6,
     
     Parameters
     ----------
-    fld : a Fields object
+    fld : a Simulation object
        The structure that contains the fields of the simulation
     
     a0 : float (unitless)
