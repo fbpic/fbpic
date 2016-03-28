@@ -10,7 +10,7 @@ Major features:
 import os
 import numpy as np
 import time
-from scipy.constants import c
+from scipy.constants import c, m_e
 from .particle_diag import ParticleDiagnostic
 
 # If numbapro is installed, it potentially allows to use a GPU
@@ -519,7 +519,7 @@ class ParticleCatcher:
             particle_data = {
                 'x' : species.x, 'y' : species.y, 'z' : species.z,
                 'ux' : species.ux, 'uy' : species.uy, 'uz' : species.uz,
-                'w' : species.w, 'inv_gamma' : species.inv_gamma }
+                'w' : species.w/species.q, 'inv_gamma' : species.inv_gamma }
             # Get the selection of particles (slice) that crossed the 
             # output plane during the last iteration
             slice_array = self.get_particle_slice( 
@@ -539,7 +539,7 @@ class ParticleCatcher:
         # transform particle attributes to the lab frame
         slice_array = self.interpolate_particles_to_lab_frame( 
             slice_array, current_z_boost, t )
-                                                                                            
+
         # Choose the particles based on the select criteria defined by the 
         # users. Notice: this implementation still comes with a cost, 
         # one way to optimize it would be to do the selection before Lorentz
@@ -667,12 +667,13 @@ class ParticleCatcher:
             + gamma*(self.beta_boost*self.gamma_boost)
 
         # Write the modified quantities to slice_array
+        # and adapt to openPMD format
         slice_array[p2i['x'],:] = x
         slice_array[p2i['y'],:] = y
         slice_array[p2i['z'],:] = z_lab
-        slice_array[p2i['ux'],:] = ux
-        slice_array[p2i['uy'],:] = uy
-        slice_array[p2i['uz'],:] = uz_lab
+        slice_array[p2i['ux'],:] = ux * m_e * c
+        slice_array[p2i['uy'],:] = uy * m_e * c
+        slice_array[p2i['uz'],:] = uz_lab * m_e * c
 
         return slice_array
 
