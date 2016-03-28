@@ -1,0 +1,696 @@
+"""
+This file defines the class BoostedParticleDiagnostic
+
+Major features:
+- The class reuses the existing methods of ParticleDiagnostic
+  as much as possible, through class inheritance
+- The class implements memory buffering of the slices, so as
+  not to write to disk at every timestep
+"""
+import os
+import numpy as np
+import time
+from scipy.constants import c
+from .particle_diag import ParticleDiagnostic
+
+# If numbapro is installed, it potentially allows to use a GPU
+try :
+    from fbpic.cuda_utils import cuda, cuda_tpb_bpg_1d
+    cuda_installed = cuda.is_available()
+except ImportError:
+    cuda_installed = False
+
+class BoostedParticleDiagnostic(ParticleDiagnostic):
+    """
+    Class that writes the particles *in the lab frame*, 
+    from a simulation in the boosted frame
+
+    Usage
+    -----
+    After initialization, the diagnostic is called by using 
+    the 'write' method.
+    """
+    def __init__(self, zmin_lab, zmax_lab, v_lab, dt_snapshots_lab,
+                 Ntot_snapshots_lab, gamma_boost, period, zmin, dz, 
+                 particle_data=["position", "momentum", "weighting"],
+                 select=None, write_dir=None, species={"electrons": None}):
+        """
+        Initialize diagnostics that retrieve the data in the lab frame,
+        as a series of snapshot (one file per snapshot),
+        within a virtual moving window defined by zmin_lab, zmax_lab, v_lab.
+                     
+        Parameters
+        ----------
+        zmin_lab, zmax_lab: floats (meters)
+            Positions of the minimum and maximum of the virtual moving window,
+            *in the lab frame*, at t=0
+
+        v_lab: float (m.s^-1)
+            Speed of the moving window *in the lab frame*
+
+        dt_snapshots_lab: float (seconds)
+            Time interval *in the lab frame* between two successive snapshots
+
+        Ntot_snapshots_lab: int
+            Total number of snapshots that this diagnostic will produce
+
+        period: int
+            Number of iterations for which the data is accumulated in memory,
+            before finally writing it to the disk.
+
+        zmin, dz : float
+            The minimum longitudinal extent of simulation box and 
+            the cell size in the boosted frame at initialization time.
+            (Used for the boosted particle diagnostics when using CUDA)
+                
+        See the documentation of ParticleDiagnostic for the other parameters
+
+        """
+        # Do not leave write_dir as None, as this may conflict with
+        # the default directory ('./diags') in which diagnostics in the
+        # boosted frame are written
+        if write_dir is None:
+            write_dir = 'lab_diags'
+        
+        # Initialize Particle diagnostic normal attributes
+        ParticleDiagnostic.__init__(self, period, species, 
+            particle_data, select, write_dir)
+
+        # Register the boost quantities
+        self.gamma_boost = gamma_boost
+        self.inv_gamma_boost = 1./gamma_boost
+        self.beta_boost = np.sqrt(1. - self.inv_gamma_boost**2)
+        self.inv_beta_boost = 1./self.beta_boost
+
+        # Create the list of LabSnapshot objects
+        self.snapshots = []
+        for i in range( Ntot_snapshots_lab ):
+            t_lab = i*dt_snapshots_lab
+            snapshot = LabSnapshot( t_lab,
+                                    zmin_lab + v_lab*t_lab,
+                                    zmax_lab + v_lab*t_lab,
+                                    self.dt,
+                                    self.write_dir, i ,self.species_dict )
+            self.snapshots.append(snapshot)
+            # Initialize a corresponding empty file to store particles
+            self.create_file_empty_slice(
+                    snapshot.filename, i, snapshot.t_lab, self.dt)
+
+        # Create the ParticleCatcher object
+        # (This object will extract the particles (slices) that crossed the 
+        # output plane during the last iteration.)
+        self.particle_catcher = ParticleCatcher(
+            self.gamma_boost, self.beta_boost, zmin, dz, self.dt)
+
+    def write( self, iteration ): 
+        """
+        Redefines the method write of the parent class ParticleDiagnostic
+
+        Parameters
+        ----------
+        iteration : int
+            Current iteration of the boosted frame simulation
+        """
+        # At each timestep, store a slice of the particles in memory buffers 
+        self.store_snapshot_slices()
+        
+        # Every self.period, write the buffered slices to disk 
+        if iteration % self.period == 0:
+            self.flush_to_disk()
+        
+    def store_snapshot_slices( self, iteration ):
+        """
+        Store slices of the particles in the memory buffers of the
+        corresponding lab snapshots
+
+        Parameters
+        ----------
+        iteration : int
+            Current iteration of the boosted frame simulation 
+        """
+        # Extract the current time in the boosted frame
+        time = iteration * self.dt
+
+        # Loop through the labsnapshots
+        for snapshot in self.snapshots:
+
+            # Update the positions of the output slice of this snapshot
+            # in the lab and boosted frame (current_z_lab and current_z_boost)
+            snapshot.update_current_output_positions( time,
+                self.inv_gamma_boost, self.inv_beta_boost)
+
+            for species_name in self.species_dict:
+                species = self.species_dict[species_name]
+                # Extract the slice of particles
+                slice_array = self.particle_catcher.extract_slice( 
+                    species, snapshot.current_z_boost, 
+                    snapshot.prev_z_boost, time, self.select)
+                # Register new slice in the LabSnapshot
+                snapshot.register_slice( slice_array, species_name )
+
+    def flush_to_disk(self):
+        """
+        Writes the buffered slices of particles to the disk. Erase the 
+        buffered slices of the LabSnapshot objects
+        """
+        # Loop through the labsnapshots and flush the data
+    
+        for snapshot in self.snapshots:
+            
+            # Compact the successive slices that have been buffered
+            # over time into a single array
+            for species_name in self.species_dict:
+
+                # Compact the successive slices that have been buffered
+                # over time into a single array
+                particle_array = snapshot.compact_slices(species_name)
+               
+                # Write this array to disk (if this snapshot has new slices)
+                if particle_array.size:
+                    self.write_slices(particle_array, species_name, 
+                        snapshot, self.particle_catcher.particle_to_index)            
+
+                # Erase the memory buffers
+                snapshot.buffered_slices[species_name] = []
+
+    def write_slices( self, particle_array, species_name, snapshot, p2i ): 
+        """
+        For one given snapshot, write the slices of the
+        different species to an openPMD file
+
+        Parameters
+        ----------
+        particle_array: array of reals
+            Array of shape (7, num_part) 
+
+        species_name: String
+            A String that acts as the key for the buffered_slices dictionary
+
+        snapshot: a LabSnaphot object
+
+        p2i: dict
+            Dictionary of correspondance between the particle quantities
+            and the integer index in the particle_array
+        """
+        # Open the file without parallel I/O in this implementation
+
+        f = self.open_file(snapshot.filename)
+        particle_path = "/data/%d/particles/%s" %(snapshot.iteration, 
+            species_name)
+        species_grp = f[particle_path]
+
+        # Loop over the different quantities that should be written
+        for particle_var in self.particle_data:
+            # Scalar field
+            if particle_var == "position":
+                for coord in ["x","y","z"]:
+                    quantity= coord
+                    path = "%s/%s" %(particle_var, quantity)
+                    data = particle_array[ p2i[ quantity ] ]
+                    self.write_particle_slices(species_grp, path, data, 
+                        quantity)
+                self.setup_openpmd_species_record(species_grp[particle_var], 
+                    particle_var)
+     
+            elif particle_var == "momentum":
+                for coord in ["x","y","z"]:
+                    quantity= "u%s" %coord
+                    path = "%s/%s" %(particle_var,coord)
+                    data = particle_array[ p2i[ quantity ] ]
+                    self.write_particle_slices( species_grp, path, data,
+                        quantity)
+                self.setup_openpmd_species_record(species_grp[particle_var], 
+                    particle_var)
+                
+            elif particle_var == "weighting":
+               quantity= "w"
+               path = 'weighting'
+               data = particle_array[ p2i[ quantity ] ]
+               self.write_particle_slices(species_grp, path, data,
+                    quantity)
+               self.setup_openpmd_species_record(species_grp[particle_var], 
+                    particle_var)
+            
+        # Close the file
+        f.close()
+
+    def write_particle_slices( self, species_grp, path, data, quantity ):
+        """
+        Writes each quantity of the buffered dataset to the disk, the 
+        final step of the writing
+        """
+        dset = species_grp[path]
+        index = dset.shape[0]
+
+        # Resize the h5py dataset 
+        dset.resize(index+len(data), axis=0)
+
+        # Write the data to the dataset at correct indices
+        dset[index:] = data
+
+    def create_file_empty_slice( self, fullpath, iteration, time, dt ):
+        """
+        Create an openPMD file with empty meshes and setup all its attributes
+
+        Parameters
+        ----------
+        fullpath: string
+            The absolute path to the file to be created
+
+        iteration: int
+            The iteration number of this diagnostic
+
+        time: float (seconds)
+            The physical time at this iteration
+
+        dt: float (seconds)
+            The timestep of the simulation
+        """
+        # Create the file
+        f = self.open_file( fullpath )
+
+        # Setup the different layers of the openPMD file
+        # (f is None if this processor does not participate is writing data)
+
+        if f is not None:
+
+            # Setup the attributes of the top level of the file
+            self.setup_openpmd_file( f, iteration, time, dt )
+            # Setup the meshes group (contains all the particles)
+            particle_path = "/data/%d/particles/" %iteration
+            particle_grp = f.require_group(particle_path)
+
+            for species_name, species in self.species_dict.iteritems():
+                species_path = particle_path+"%s/" %(species_name)
+                # Create and setup the h5py.Group species_grp
+                species_grp = f.require_group( species_path )
+                self.setup_openpmd_species_group( species_grp, species )
+                
+                # Loop over the different quantities that should be written
+                # and setup the corresponding datasets
+                for particle_var in self.particle_data:
+
+                    # Vector quantities
+                    if particle_var in ["position", "momentum"]:
+                        # Setup the dataset
+                        quantity_path=species_path+ "%s/" %particle_var
+                        quantity_grp = f.require_group(quantity_path)
+                        for coord in ["x","y","z"]:
+                            dset = species_grp.create_dataset(
+                                coord, (0,), maxshape=(None,), dtype='f')        
+                            self.setup_openpmd_species_component( dset )
+                        self.setup_openpmd_species_record( quantity_grp,
+                                                           particle_var)
+
+                    # Scalar quantity
+                    elif particle_var == "weighting":
+                        dset = quantity_grp.create_dataset(
+                                particle_var, (0,), maxshape=(None,), dtype='f')
+                        self.setup_openpmd_species_component( dset )    
+                        self.setup_openpmd_species_record( dset, particle_var )
+
+                    # Unknown field
+                    else:
+                        raise ValueError(
+                            "Invalid string in particletypes: %s" %particle_var)
+
+            # Close the file
+            f.close()
+
+class LabSnapshot:
+    """
+    Class that stores data relative to one given snapshot
+    in the lab frame (i.e. one given *time* in the lab frame)
+    """
+    def __init__( self, t_lab, zmin_lab, zmax_lab, dt, 
+                  write_dir, i, species_dict ):
+        """
+        Initialize a LabSnapshot 
+
+        Parameters
+        ----------
+        t_lab: float (seconds)
+            Time of this snapshot *in the lab frame*
+            
+        zmin_lab, zmax_lab: floats
+            Longitudinal limits of this snapshot
+
+        write_dir: string
+            Absolute path to the directory where the data for
+            this snapshot is to be written
+
+        dt : float
+            The timestep of the simulation in the boosted frame
+
+        i: int
+            Number of the file where this snapshot is to be written
+
+        species_dict: dict
+            Contains all the species name of the species object 
+            (inherited from Warp)
+        """
+        # Deduce the name of the filename where this snapshot writes
+        self.filename = os.path.join( write_dir, 'hdf5/data%08d.h5' %i)
+        self.iteration = i
+        self.dt = dt
+
+        # Time and boundaries in the lab frame (constant quantities)
+        self.zmin_lab = zmin_lab
+        self.zmax_lab = zmax_lab
+        self.t_lab = t_lab
+
+        # Positions where the fields are to be registered
+        # (Change at every iteration)
+        self.current_z_lab = 0
+        self.current_z_boost = 0
+
+        # Initialize empty dictionary to buffer the slices for each species
+        self.buffered_slices = {}
+        for species in species_dict:
+            self.buffered_slices[species] = []
+
+    def update_current_output_positions( self, t_boost, inv_gamma, inv_beta ):
+        """
+        Update the current and previous positions of output for this snapshot,
+        so that it corresponds to the time t_boost in the boosted frame
+
+        Parameters
+        ----------
+        t_boost: float (seconds)
+            Time of the current iteration, in the boosted frame
+
+        inv_gamma, inv_beta: floats
+            Inverse of the Lorentz factor of the boost, and inverse
+            of the corresponding beta
+        """
+        # Some shorcuts for further calculation's purposes
+        t_lab = self.t_lab  
+        t_boost_diff = t_boost - self.dt
+
+        # This implements the Lorentz transformation formulas,
+        # for a snapshot having a fixed t_lab
+        self.current_z_boost = (t_lab*inv_gamma - t_boost)*c*inv_beta
+        self.prev_z_boost = (t_lab*inv_gamma - t_boost_diff)*c*inv_beta     
+        self.current_z_lab = (t_lab - t_boost*inv_gamma)*c*inv_beta
+        self.prev_z_lab = (t_lab - t_boost_diff*inv_gamma)*c*inv_beta
+    
+    def register_slice( self, slice_array, species ):
+        """
+        Store the slice of particles represented by slice_array
+
+        Parameters
+        ----------
+        slice_array: array of reals
+            An array of packed fields that corresponds to one slice,
+            as given by the ParticleCatcher object
+
+        species: String, key of the species_dict
+            Act as the key for the buffered_slices dictionary
+        """
+        # Store the values 
+        self.buffered_slices[species].append(slice_array)
+
+    def compact_slices( self, species ):
+        """
+        Compact the successive slices that have been buffered
+        over time into a single array.
+
+        Parameters
+        ----------
+        species: String, key of the species_dict
+            Act as the key for the buffered_slices dictionary
+
+        Returns
+        -------
+        paticle_array: an array of reals of shape (7, numPart) 
+        regardless of the dimension
+
+        Returns None if the slices are empty
+        """
+        particle_array = np.concatenate(
+            self.buffered_slices[species], axis=1)
+
+        return particle_array
+
+class ParticleCatcher:
+    """
+    Class that extracts, Lorentz-transforms and gathers particles
+    """
+    def __init__( self, gamma_boost, beta_boost, zmin, dz, dt ):
+        """
+        Initialize the ParticleCatcher object
+
+        Parameters
+        ----------
+        gamma_boost, beta_boost: float
+            The Lorentz factor of the boost and the corresponding beta
+
+        zmin, dz : float
+            The minimum longitudinal extent of simulation box and 
+            the cell size in the boosted frame at initialization time
+        
+        dt : float
+            The timestep of the boosted frame simulation
+        """
+        # Some attributes neccessary for particle selections
+        self.gamma_boost = gamma_boost
+        self.beta_boost = beta_boost
+
+        # Simulation box dimensions in the boosted frame
+        # and the timestep
+        self.zmin = zmin
+        self.dz = dz
+        self.dt = dt
+        
+        # Create a dictionary that contains the correspondance
+        # between the particles quantity and array index
+        self.particle_to_index = {'x':0, 'y':1, 'z':2, 
+                                  'ux':3,'uy':4, 'uz':5, 'w':6}
+
+    def extract_slice( self, species, current_z_boost, 
+                       previous_z_boost, t, select=None):
+        """
+        Extract a slice of the particles at z_boost and if select is present,
+        extract only the particles that satisfy the given criteria 
+
+        Parameters
+        ----------
+        species : A ParticleObject
+            Contains the particle attributes to output
+
+        current_z_boost, previous_z_boost : float (m)
+            Current and previous position of the output plane
+            in the boosted frame
+
+        t : float
+            Current time of the simulation in the boosted frame
+
+        select : dict 
+            A set of rules defined by the users in selecting the particles
+            Ex: {"uz" : [50/c, 100/c]} for particles which have normalized 
+            values between 50 and 100
+
+        Returns
+        -------
+        slice_array : An array of reals of shape (7, numPart) 
+            An array that packs together the slices of the different 
+            particles.
+        """
+
+        if species.use_cuda is False:
+            # Create a dictionary containing the particle attributes
+            particle_data = {
+                'x' : species.x, 'y' : species.y, 'z' : species.z,
+                'ux' : species.ux, 'uy' : species.uy, 'uz' : species.uz,
+                'w' : species.w }
+            # Get the selection of particles (slice) that crossed the 
+            # output plane during the last iteration
+            slice_array = self.get_particle_slice( 
+                particle_data, current_z_boost, previous_z_boost )
+        else:
+            ### get particles from GPU
+            # calculate cell area to get particles from
+            # get prefix sum values
+            # calculate number of particles
+            # create empty GPU array for particles
+            # call kernel that extracts particles
+            # copy GPU array to the host
+            # create particle_data dictionary
+            print 'GPU'
+
+        # Backpropagate particles to correct output position and 
+        # transform particle attributes to the lab frame
+        slice_array = self.interpolate_particles_to_lab_frame( 
+            slice_array, current_z_boost, t )
+                                                                                            
+        # Choose the particles based on the select criteria defined by the 
+        # users. Notice: this implementation still comes with a cost, 
+        # one way to optimize it would be to do the selection before Lorentz
+        # transformation back to the lab frame
+        if (select is not None) and slice_array.size:
+            select_array = self.apply_selection(select, slice_array)
+            row, column =  np.where(select_array==True)
+            temp_slice_array = slice_array[row,column]
+
+            # Temp_slice_array is a 1D numpy array, we reshape it so that it 
+            # has the same size as slice_array
+            slice_array = np.reshape(
+                temp_slice_array,(np.shape(p2i.keys())[0],-1))
+
+        return slice_array
+
+    def get_particle_slice( particle_data, current_z_boost, 
+                             previous_z_boost ):
+        """
+        Get the selection of particles that crossed the output
+        plane during the last iteration.
+
+        Parameters
+        ----------
+        particle_data : float
+            Dictionary containing the particle data
+
+        current_z_boost, previous_z_boost : float (m)
+            Current and previous position of the output plane
+            in the boosted frame
+
+        Returns
+        -------
+        slice_array : An array of reals of shape (7, numPart) 
+            An array that packs together the slices of the different 
+            particles.
+        """
+        # Shortcuts
+        pd = particle_data
+        p2i = self.particle_to_index
+
+        # Calculate current and previous position in z
+        current_z = pd['z']
+        previous_z = pd['z']-pd['uz']*pd['inv_gamma']*c*self.dt
+
+        # A particle array for mapping purposes
+        particle_indices = np.arange(len(current_z))
+            
+        # For this snapshot:
+        # - check if the output position *in the boosted frame*
+        #   crosses the zboost in a forward motion
+        # - check if the output position *in the boosted frame*
+        #   crosses the zboost_prev in a backward motion
+        selected_indices = np.compress((((current_z >= current_z_boost) &
+            (previous_z <= previous_z_boost)) |
+            ((current_z <= current_z_boost) & 
+            (previous_z >= previous_z_boost))), particle_indices)
+
+        # Get number of selected particles
+        num_part = np.shape(selected_indices)[0]
+
+        # Create empty 2D slice array (7, num_part)
+        slice_array = np.empty((np.shape(p2i.keys())[0], num_part,))
+
+        for quantity in p2i.keys():
+                # Store particle quantities in a 2D array
+                slice_array[ p2i[quantity], ... ] = \
+                np.take(particle_data[quantity], selected_indices)
+
+        return slice_array
+
+    def interpolate_particles_to_lab_frame( self, slice_array, current_z_boost, t ):
+        """
+        Transform the particle quantities from the boosted frame to the
+        lab frame. These are classical Lorentz transformation equations
+
+        Parameters
+        ----------
+        slice_array : float, (7, n_part)
+            2D array containing the slices of all quantities
+
+        current_z_boost : float (m)
+            Current position of the output plane in the boosted frame
+
+        t : float
+            Current time of the simulation in the boosted frame
+
+        Returns
+        -------
+        slice_array : An array of reals of shape (7, numPart) 
+            An array that packs together the slices of the different 
+            particles.
+        """
+        # Shortcut
+        p2i = self.particle_to_index
+
+        # Shortcuts for particle attributes
+        x = slice_array[p2i['x']]
+        y = slice_array[p2i['y']]
+        z = slice_array[p2i['z']]
+        ux = slice_array[p2i['ux']]
+        uy = slice_array[p2i['uy']]
+        uz = slice_array[p2i['uz']]
+
+        # Calculate time (t_cross) when particle and plane intersect
+        # Velocity of the particles
+        v_z = uz*inv_gamma*c
+        # Velocity of the plane
+        v_plane = -c/self.beta_boost
+        # Time in the boosted frame when particles cross the output plane
+        t_cross = t - (current_z_boost - z) / (v_plane - v_z)
+
+        # Push particles to position of plane intersection
+        x += c*(t_cross - t)*inv_gamma*ux
+        y += c*(t_cross - t)*inv_gamma*uy
+        z += c*(t_cross - t)*inv_gamma*uz
+
+        # Back-transformation of position with updated time (t_cross)
+        z_lab = self.gamma_boost*( z + self.beta_boost*c*t_cross )
+ 
+        # Back-transformation of momentum
+        gamma = np.sqrt(1. + (ux**2 + uy**2 + uz**2))
+        uz_lab = self.gamma_boost*uz \
+            + gamma*(self.beta_boost*self_gamma_boost)
+
+        # Write the modified quantities to slice_array
+        slice_array[p2i['x'],:] = x
+        slice_array[p2i['y'],:] = y
+        slice_array[p2i['z'],:] = z_lab
+        slice_array[p2i['ux'],:] = ux
+        slice_array[p2i['uy'],:] = uy
+        slice_array[p2i['uz'],:] = uz_lab
+
+        return slice_array
+
+    def apply_selection( self, select, slice_array ) :
+        """
+        Apply the rules of self.select to determine which
+        particles should be written
+
+        Parameters
+        ----------
+        select : a dictionary that defines all selection rules based
+        on the quantities
+
+        Returns
+        -------
+        A 1d array of the same shape as that particle array
+        containing True for the particles that satify all
+        the rules of self.select
+        """
+        p2i = self.particle_to_index
+
+        # Initialize an array filled with True
+        select_array = np.ones( np.shape(slice_array), dtype = 'bool' )
+
+        # Apply the rules successively
+        # Go through the quantities on which a rule applies
+        for quantity in select.keys() :
+            # Lower bound
+            if select[quantity][0] is not None :
+                select_array = np.logical_and(
+                    slice_array[p2i[quantity]] >\
+                     select[quantity][0], select_array )
+            # Upper bound
+            if select[quantity][1] is not None :
+                select_array = np.logical_and(
+                    slice_array[p2i[quantity]] <\
+                    select[quantity][1], select_array )
+
+        return select_array
