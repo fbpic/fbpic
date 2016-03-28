@@ -33,7 +33,8 @@ class BoostedParticleDiagnostic(ParticleDiagnostic):
     def __init__(self, zmin_lab, zmax_lab, v_lab, dt_snapshots_lab,
                  Ntot_snapshots_lab, gamma_boost, period, zmin, dz, 
                  particle_data=["position", "momentum", "weighting"],
-                 select=None, write_dir=None, species={"electrons": None}):
+                 select=None, write_dir=None, species={"electrons": None},
+                 comm = None):
         """
         Initialize diagnostics that retrieve the data in the lab frame,
         as a series of snapshot (one file per snapshot),
@@ -74,7 +75,7 @@ class BoostedParticleDiagnostic(ParticleDiagnostic):
         
         # Initialize Particle diagnostic normal attributes
         ParticleDiagnostic.__init__(self, period, species, 
-            particle_data, select, write_dir)
+            comm, particle_data, select, write_dir)
 
         # Register the boost quantities
         self.gamma_boost = gamma_boost
@@ -112,7 +113,7 @@ class BoostedParticleDiagnostic(ParticleDiagnostic):
             Current iteration of the boosted frame simulation
         """
         # At each timestep, store a slice of the particles in memory buffers 
-        self.store_snapshot_slices()
+        self.store_snapshot_slices(iteration)
         
         # Every self.period, write the buffered slices to disk 
         if iteration % self.period == 0:
@@ -261,7 +262,7 @@ class BoostedParticleDiagnostic(ParticleDiagnostic):
             The iteration number of this diagnostic
 
         time: float (seconds)
-            The physical time at this iteration
+            The physical time at this ibteration
 
         dt: float (seconds)
             The timestep of the simulation
@@ -288,31 +289,46 @@ class BoostedParticleDiagnostic(ParticleDiagnostic):
                 
                 # Loop over the different quantities that should be written
                 # and setup the corresponding datasets
-                for particle_var in self.particle_data:
+                for particle_var in self.particle_data :
 
-                    # Vector quantities
-                    if particle_var in ["position", "momentum"]:
-                        # Setup the dataset
-                        quantity_path=species_path+ "%s/" %particle_var
-                        quantity_grp = f.require_group(quantity_path)
-                        for coord in ["x","y","z"]:
-                            dset = species_grp.create_dataset(
-                                coord, (0,), maxshape=(None,), dtype='f')        
-                            self.setup_openpmd_species_component( dset )
-                        self.setup_openpmd_species_record( quantity_grp,
-                                                           particle_var)
-
-                    # Scalar quantity
-                    elif particle_var == "weighting":
-                        dset = quantity_grp.create_dataset(
-                                particle_var, (0,), maxshape=(None,), dtype='f')
-                        self.setup_openpmd_species_component( dset )    
-                        self.setup_openpmd_species_record( dset, particle_var )
-
-                    # Unknown field
-                    else:
-                        raise ValueError(
-                            "Invalid string in particletypes: %s" %particle_var)
+                    if particle_var == "position" :
+                        for coord in ["x", "y", "z"] :
+                            quantity = coord
+                            quantity_path = "%s/%s" %(particle_var, coord)
+                            dset = species_grp.require_dataset(
+                                quantity_path, (0,), 
+                                maxshape=(None,), dtype='f')        
+                            self.setup_openpmd_species_component( 
+                                dset, quantity )
+                            self.setup_openpmd_species_record( 
+                                species_grp[particle_var], particle_var )
+                        
+                    elif particle_var == "momentum" :
+                        for coord in ["x", "y", "z"] :
+                            quantity = "u%s" %(coord)
+                            quantity_path = "%s/%s" %(particle_var, coord)
+                            dset = species_grp.require_dataset(
+                                quantity_path, (0,), 
+                                maxshape=(None,), dtype='f')        
+                            self.setup_openpmd_species_component( 
+                                dset, quantity )
+                            self.setup_openpmd_species_record( 
+                                species_grp[particle_var], particle_var )
+                                
+                    elif particle_var == "weighting" :
+                        quantity = "w"
+                        quantity_path = "weighting"
+                        dset = species_grp.require_dataset(
+                            quantity_path, (0,), 
+                            maxshape=(None,), dtype='f')        
+                        self.setup_openpmd_species_component( 
+                            dset, quantity )
+                        self.setup_openpmd_species_record( 
+                            species_grp[particle_var], particle_var )
+                        
+                    else :
+                        raise ValueError("Invalid string in %s of species" 
+                                             %(particle_var))
 
             # Close the file
             f.close()
@@ -465,7 +481,8 @@ class ParticleCatcher:
         # Create a dictionary that contains the correspondance
         # between the particles quantity and array index
         self.particle_to_index = {'x':0, 'y':1, 'z':2, 
-                                  'ux':3,'uy':4, 'uz':5, 'w':6}
+                                  'ux':3,'uy':4, 'uz':5,
+                                  'inv_gamma':5, 'w':6}
 
     def extract_slice( self, species, current_z_boost, 
                        previous_z_boost, t, select=None):
@@ -502,7 +519,7 @@ class ParticleCatcher:
             particle_data = {
                 'x' : species.x, 'y' : species.y, 'z' : species.z,
                 'ux' : species.ux, 'uy' : species.uy, 'uz' : species.uz,
-                'w' : species.w }
+                'w' : species.w, 'inv_gamma' : species.inv_gamma }
             # Get the selection of particles (slice) that crossed the 
             # output plane during the last iteration
             slice_array = self.get_particle_slice( 
@@ -539,7 +556,7 @@ class ParticleCatcher:
 
         return slice_array
 
-    def get_particle_slice( particle_data, current_z_boost, 
+    def get_particle_slice( self, particle_data, current_z_boost, 
                              previous_z_boost ):
         """
         Get the selection of particles that crossed the output
@@ -560,9 +577,9 @@ class ParticleCatcher:
             An array that packs together the slices of the different 
             particles.
         """
-        # Shortcuts
-        pd = particle_data
+        # Shortcut
         p2i = self.particle_to_index
+        pd = particle_data
 
         # Calculate current and previous position in z
         current_z = pd['z']
@@ -626,6 +643,7 @@ class ParticleCatcher:
         ux = slice_array[p2i['ux']]
         uy = slice_array[p2i['uy']]
         uz = slice_array[p2i['uz']]
+        inv_gamma = slice_array[p2i['inv_gamma']]
 
         # Calculate time (t_cross) when particle and plane intersect
         # Velocity of the particles
@@ -646,7 +664,7 @@ class ParticleCatcher:
         # Back-transformation of momentum
         gamma = np.sqrt(1. + (ux**2 + uy**2 + uz**2))
         uz_lab = self.gamma_boost*uz \
-            + gamma*(self.beta_boost*self_gamma_boost)
+            + gamma*(self.beta_boost*self.gamma_boost)
 
         # Write the modified quantities to slice_array
         slice_array[p2i['x'],:] = x
