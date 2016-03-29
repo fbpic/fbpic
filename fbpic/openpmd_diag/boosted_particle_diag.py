@@ -144,8 +144,8 @@ class BoostedParticleDiagnostic(ParticleDiagnostic):
                 species = self.species_dict[species_name]
                 # Extract the slice of particles
                 slice_array = self.particle_catcher.extract_slice( 
-                    species, snapshot.current_z_boost, 
-                    snapshot.prev_z_boost, time, self.select)
+                    species, snapshot.current_z_boost, snapshot.prev_z_boost, 
+                    time, self.select)
                 # Register new slice in the LabSnapshot
                 snapshot.register_slice( slice_array, species_name )
 
@@ -482,10 +482,10 @@ class ParticleCatcher:
         # between the particles quantity and array index
         self.particle_to_index = {'x':0, 'y':1, 'z':2, 
                                   'ux':3,'uy':4, 'uz':5,
-                                  'inv_gamma':5, 'w':6}
+                                  'inv_gamma':6, 'w':7}
 
-    def extract_slice( self, species, current_z_boost, 
-                       previous_z_boost, t, select=None):
+    def extract_slice( self, species, current_z_boost, previous_z_boost, 
+                       t, select=None ):
         """
         Extract a slice of the particles at z_boost and if select is present,
         extract only the particles that satisfy the given criteria 
@@ -504,8 +504,8 @@ class ParticleCatcher:
 
         select : dict 
             A set of rules defined by the users in selecting the particles
-            Ex: {"uz" : [50/c, 100/c]} for particles which have normalized 
-            values between 50 and 100
+            z: {"uz" : [50, 100]} for particles which have normalized 
+            momenta between 50 and 100
 
         Returns
         -------
@@ -514,31 +514,22 @@ class ParticleCatcher:
             particles.
         """
 
-        if species.use_cuda is False:
-            # Create a dictionary containing the particle attributes
-            particle_data = {
-                'x' : species.x, 'y' : species.y, 'z' : species.z,
-                'ux' : species.ux, 'uy' : species.uy, 'uz' : species.uz,
-                'w' : species.w/species.q, 'inv_gamma' : species.inv_gamma }
-            # Get the selection of particles (slice) that crossed the 
-            # output plane during the last iteration
-            slice_array = self.get_particle_slice( 
+        # Get a dictionary containing the particle data
+        particle_data = self.get_particle_data( species, 
+                            current_z_boost, previous_z_boost )
+
+        # Get the selection of particles (slice) that crossed the 
+        # output plane during the last iteration
+        slice_array = self.get_particle_slice( 
                 particle_data, current_z_boost, previous_z_boost )
-        else:
-            ### get particles from GPU
-            # calculate cell area to get particles from
-            # get prefix sum values
-            # calculate number of particles
-            # create empty GPU array for particles
-            # call kernel that extracts particles
-            # copy GPU array to the host
-            # create particle_data dictionary
-            print 'GPU'
 
         # Backpropagate particles to correct output position and 
         # transform particle attributes to the lab frame
         slice_array = self.interpolate_particles_to_lab_frame( 
             slice_array, current_z_boost, t )
+
+        # Convert data to the OpenPMD standard
+        slice_array = self.apply_opmd_standard( slice_array, species )
 
         # Choose the particles based on the select criteria defined by the 
         # users. Notice: this implementation still comes with a cost, 
@@ -548,13 +539,57 @@ class ParticleCatcher:
             select_array = self.apply_selection(select, slice_array)
             row, column =  np.where(select_array==True)
             temp_slice_array = slice_array[row,column]
-
             # Temp_slice_array is a 1D numpy array, we reshape it so that it 
             # has the same size as slice_array
             slice_array = np.reshape(
                 temp_slice_array,(np.shape(p2i.keys())[0],-1))
 
         return slice_array
+
+    def get_particle_data( self, species, current_z_boost, previous_z_boost ):
+        """
+        Extract the particle data from the species object.
+        In case CUDA is used, only a selection of particles
+        (i.e. particles that are within cells corresponding
+        to the immediate neighborhood of the output plane)
+        is received from the GPU (increases performance).
+
+        Parameters
+        ----------
+        species : A ParticleObject
+            Contains the particle attributes to output
+
+        Returns
+        -------
+        particle_data : A dictionary of reals
+            A dictionary that contains the particle data of 
+            the simulation (with normalized weigths).
+        """
+
+        # CPU
+        if species.use_cuda is False:
+            # Create a dictionary containing the particle attributes
+            # (The weight is normalized in order to correspond
+            # to the OpenPMD standard)
+            particle_data = {
+                'x' : species.x, 'y' : species.y, 'z' : species.z,
+                'ux' : species.ux, 'uy' : species.uy, 'uz' : species.uz,
+                'w' : species.w, 'inv_gamma' : species.inv_gamma }
+        # GPU
+        else:
+            # calculate cell area to get particles from
+            current_cell = int((current_z_boost - self.zmin + 0.5*self.dz)/self.dz)
+            previous_cell = int((previous_z_boost - self.zmin + 0.5*dz)/self.dz + self.dt * c)+1
+            # get prefix sum values and calculate number of particles
+            current_prefix = species.prefix_sum
+            previous_prefix = 0.
+            # create empty GPU array for particles
+            # call kernel that extracts particles
+            # copy GPU array to the host
+            # create particle_data dictionary
+            print 'GPU'
+
+        return particle_data 
 
     def get_particle_slice( self, particle_data, current_z_boost, 
                              previous_z_boost ):
@@ -667,13 +702,44 @@ class ParticleCatcher:
             + gamma*(self.beta_boost*self.gamma_boost)
 
         # Write the modified quantities to slice_array
-        # and adapt to openPMD format
+        # and adapt to openPMD standard (u * m_e * c)
         slice_array[p2i['x'],:] = x
         slice_array[p2i['y'],:] = y
         slice_array[p2i['z'],:] = z_lab
-        slice_array[p2i['ux'],:] = ux * m_e * c
-        slice_array[p2i['uy'],:] = uy * m_e * c
-        slice_array[p2i['uz'],:] = uz_lab * m_e * c
+        slice_array[p2i['ux'],:] = ux
+        slice_array[p2i['uy'],:] = uy
+        slice_array[p2i['uz'],:] = uz_lab
+
+        return slice_array
+
+    def apply_opmd_standard( self, slice_array, species ):
+        """
+        Apply the OpenPMD standard to the particle quantities.
+        Momentum (u) is multiplied by m * c and weights are 
+        divided by the particle charge q.
+
+        Parameters
+        ----------
+        slice_array : 2D array of floats
+            Contains the particle slice data to output.
+
+        species : A ParticleObject
+            Contains the particle data and the meta-data
+            needed for the conversion to the OpenPMD format.
+
+        Returns
+        -------
+        slice_array : 2D array of floats
+            Contains the particle slice data to output in 
+            the OpenPMD format.
+        """
+        # Normalize momenta
+        for quantitiy in ['ux', 'uy' 'uz']:
+            idx = self.particle_to_index['quantitiy']
+            slice_array[idx] *= species.m * c
+        # Normalize weights
+        idx = self.particle_to_index['w']
+        slice_array[idx] *= 1./species.q
 
         return slice_array
 
