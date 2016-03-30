@@ -8,17 +8,18 @@ from .boosted_frame import BoostConverter
 
 def add_laser( sim, a0, w0, ctau, z0, zf=None, lambda0=0.8e-6,
                theta_pol=0., fw_propagating=True,
-               update_spectral=True, gamma_boost=None ) :
+               update_spectral=True, gamma_boost=None, method='direct' ) :
     """
     Add a linearly-polarized, Gaussian laser pulse in the Fields object
 
-    The laser profile is added to the interpolation grid, and then
-    transformed into spectral space if update_spectral is True
+    The laser is either added directly to the interpolation grid initially
+    (method='direct') or it is progressively emitted by an antenna
+    (method='antenna')
     
     Parameters
     ----------
-    fld : a Simulation object
-       The structure that contains the fields of the simulation
+    sim : a Simulation object
+       The structure that contains the simulation
     
     a0 : float (unitless)
        The a0 of the pulse at focus
@@ -58,19 +59,25 @@ def add_laser( sim, a0, w0, ctau, z0, zf=None, lambda0=0.8e-6,
         When initializing the laser in a boosted frame, set the value of
         `gamma_boost` to the corresponding Lorentz factor. All the other
         quantities (ctau, zf, etc.) are to be given in the lab frame.
+
+    method: string, optional
+        Whether to initialize the laser directly in the box (method='direct')
+        or through a laser antenna (method='antenna')
     """
     # Set a number of parameters for the laser
     k0 = 2*np.pi/lambda0
     E0 = a0*m_e*c**2*k0/e      # Amplitude at focus
     zr = np.pi*w0**2/lambda0   # Rayleigh length
+
+    # Set default focusing position
+    if zf is None : zf = z0
+
     # Get the polarization component
     # (Due to the Fourier transform along theta, the
     # polarization angle becomes a complex phase in the fields)
     exptheta = np.exp(1.j*theta_pol)
     # Sign for the propagation (1 for forward propagation, and -1 otherwise)
     prop = 2*int(fw_propagating) - 1.
-    # Set default focusing position
-    if zf is None : zf = z0
 
     # When running a simulation in boosted frame, convert these parameters
     if (gamma_boost is not None) and (fw_propagating==True):
@@ -128,3 +135,49 @@ def add_laser( sim, a0, w0, ctau, z0, zf=None, lambda0=0.8e-6,
         fld.interp2spect('E')
         fld.interp2spect('B')
 
+
+class LaserAntenna(object):
+    """
+    TO BE COMPLETED
+    """
+
+    def __init__( self, interp ):
+        """
+        TO BE COMPLETED
+        """
+
+        # Initialize the virtual particles along an 8-branch star,
+        # with n_las particle per cell
+        dr_particles = interp.dr/nlas
+        N_particles = interp.Nr*nlas
+        r_particles = 0.5*dr_particles + dr_particles*np.arange( N_particles )
+
+        self.x = 0
+        self.y = 0
+        self.ux = 0
+        self.uy = 0
+        self.inv_gamma = 0
+        # Initialize position and "momentum" of the antenna
+        self.z_antenna = 0
+        self.uz_antenna = 0
+
+        # Calculate the weight of the particles
+
+        
+        
+    def deposit( self ):
+        """
+        TO BE COMPLETED
+        """
+        # Check if z_antenna is in the current physical domain
+
+        # Calculate the displacement of the particles
+        
+        pass
+    
+
+    
+
+    # See add_laser_work in em3dsolver.py
+
+    

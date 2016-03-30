@@ -370,11 +370,17 @@ class Simulation(object):
             fld.divide_by_volume('rho')
             # Exchange the charge density of the guard cells between domains
             self.comm.exchange_fields(fld.interp, 'rho')
+
         # Currents
         elif fieldtype == 'J':
             fld.erase('J')
+            # Deposit the particle current
             for species in self.ptcl:
                 species.deposit( fld, 'J' )
+            # Deposit the current of the virtual particles in the antenna
+            for antenna in self.laser_antennas:
+                antenna.deposit( fld, 'rho' )
+            # Divide by cell volume
             fld.divide_by_volume('J')
             # Exchange the current of the guard cells between domains
             self.comm.exchange_fields(fld.interp, 'J')
