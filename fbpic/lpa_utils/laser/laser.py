@@ -4,7 +4,8 @@ It defines a set of utilities for laser initialization
 """
 import numpy as np
 from scipy.constants import m_e, c, e
-from .boosted_frame import BoostConverter
+from fbpic.lpa_utils.boosted_frame import BoostConverter
+from .laser_antenna import LaserAntenna
 
 def add_laser( sim, a0, w0, ctau, z0, zf=None, lambda0=0.8e-6,
                theta_pol=0., fw_propagating=True,
@@ -136,48 +137,4 @@ def add_laser( sim, a0, w0, ctau, z0, zf=None, lambda0=0.8e-6,
         fld.interp2spect('B')
 
 
-class LaserAntenna(object):
-    """
-    TO BE COMPLETED
-    """
 
-    def __init__( self, interp ):
-        """
-        TO BE COMPLETED
-        """
-
-        # Initialize the virtual particles along an 8-branch star,
-        # with n_las particle per cell
-        dr_particles = interp.dr/nlas
-        N_particles = interp.Nr*nlas
-        r_particles = 0.5*dr_particles + dr_particles*np.arange( N_particles )
-
-        self.x = 0
-        self.y = 0
-        self.ux = 0
-        self.uy = 0
-        self.inv_gamma = 0
-        # Initialize position and "momentum" of the antenna
-        self.z_antenna = 0
-        self.uz_antenna = 0
-
-        # Calculate the weight of the particles
-
-        
-        
-    def deposit( self ):
-        """
-        TO BE COMPLETED
-        """
-        # Check if z_antenna is in the current physical domain
-
-        # Calculate the displacement of the particles
-        
-        pass
-    
-
-    
-
-    # See add_laser_work in em3dsolver.py
-
-    
