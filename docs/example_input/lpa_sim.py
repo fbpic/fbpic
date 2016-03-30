@@ -101,7 +101,7 @@ sim = Simulation( Nz, zmax, Nr, rmax, Nm, dt,
     use_cuda=use_cuda )
 
 # Add a laser to the fields of the simulation
-add_laser( sim.fld, a0, w0, ctau, z0 )
+add_laser( sim, a0, w0, ctau, z0 )
 
 # Configure the moving window
 sim.set_moving_window( v=v_window )

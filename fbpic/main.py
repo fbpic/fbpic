@@ -188,15 +188,16 @@ class Simulation(object):
         # Register the filtering flag
         self.filter_currents = filter_currents
 
-        # Do the initial charge deposition (at t=0) now
-        self.deposit('rho_prev')
-
         # Initialize an empty list of external fields
         self.external_fields = []
         # Initialize an empty list of diagnostics
         self.diags = []
         # Initialize an empty list of laser antennas
         self.laser_antennas = []
+
+        # Do the initial charge deposition (at t=0) now
+        self.deposit('rho_prev')
+
 
     def step(self, N=1, ptcl_feedback=True, correct_currents=True,
              use_true_rho=False, move_positions=True, move_momenta=True,

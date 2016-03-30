@@ -5,7 +5,6 @@ It defines a set of utilities for laser initialization
 import numpy as np
 from scipy.constants import m_e, c, e
 from fbpic.lpa_utils.boosted_frame import BoostConverter
-from .laser_antenna import LaserAntenna
 
 def add_laser( sim, a0, w0, ctau, z0, zf=None, lambda0=0.8e-6,
                theta_pol=0., fw_propagating=True,
@@ -71,7 +70,8 @@ def add_laser( sim, a0, w0, ctau, z0, zf=None, lambda0=0.8e-6,
     zr = np.pi*w0**2/lambda0   # Rayleigh length
 
     # Set default focusing position
-    if zf is None : zf = z0
+    if zf is None:
+        zf = z0
 
     # Get the polarization component
     # (Due to the Fourier transform along theta, the
@@ -87,6 +87,9 @@ def add_laser( sim, a0, w0, ctau, z0, zf=None, lambda0=0.8e-6,
         ctau, z0, lambda0 = boost.copropag_length([ ctau, z0, lambda0 ])
         k0, E0 = boost.wavenumber([ k0, E0 ])
 
+    # Shortcut for the Fields object
+    fld = sim.fld
+        
     # Get the 2D mesh for z and r
     # (When running a simulation in boosted frame, then z is the coordinate
     # in the boosted frame -- if the Fields object was correctly initialized.)
