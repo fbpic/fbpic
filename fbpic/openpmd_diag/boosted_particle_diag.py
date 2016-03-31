@@ -613,9 +613,9 @@ class ParticleCatcher:
             # Create particle_data dictionary
             # Create a dictionary containing the particle attributes
             particle_data = {
-                'x' : part_data[0], 'y' : part_data.y, 'z' : part_data.z,
-                'ux' : part_data.ux, 'uy' : part_data.uy, 'uz' : part_data.uz,
-                'w' : part_data.w, 'inv_gamma' : part_data.inv_gamma }
+                'x' : part_data[0], 'y' : part_data[1], 'z' : part_data[2],
+                'ux' : part_data[3], 'uy' : part_data[4], 'uz' : part_data[5],
+                'w' : part_data[6], 'inv_gamma' : part_data[7]}
 
         return particle_data 
 
