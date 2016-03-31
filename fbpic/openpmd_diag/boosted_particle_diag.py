@@ -763,7 +763,7 @@ class ParticleCatcher:
         """
         # Normalize momenta
         for quantity in ['ux', 'uy' 'uz']:
-            idx = self.particle_to_index['quantity']
+            idx = self.particle_to_index[quantity]
             slice_array[idx] *= species.m * c
         # Normalize weights
         idx = self.particle_to_index['w']
