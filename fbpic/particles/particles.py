@@ -149,7 +149,7 @@ class Particles(object) :
         self.z = np.empty( Ntot )
         self.w = np.empty( Ntot )
 
-        if Ntot > 0 :
+        if Ntot > 0:
             # Get the 1d arrays of evenly-spaced positions for the particles
             dz = (zmax-zmin)*1./Npz
             z_reg =  zmin + dz*( np.arange(Npz) + 0.5 )

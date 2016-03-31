@@ -3,19 +3,81 @@ This file is part of the Fourier-Bessel Particle-In-Cell code (FB-PIC)
 It defines the class LaserAntenna, which can be used to continuously
 emit a laser during a simulation.
 """
+import numpy as np
+from scipy.constants import e, c, m_e, epsilon_0
+# Classical radius of the electron
+r_e = e**2/(4*np.pi*epsilon_0*m_e*c**2)
 
-class LaserAntenna(object):
+class LaserAntenna( object ):
     """
     TO BE COMPLETED
+
+    EXPLAIN THE VIRTUAL PARTICLES
     """
 
-    def __init__( self, interp ):
+    def __init__( self,  a0, w0, ctau, z0, zf, lambda0, 
+                    theta_pol, z0_antenna, dr_grid, Nr_grid, 
+                    npr=2, Nptheta=4, epsilon=0.01, boost=None ):
         """
         TO BE COMPLETED
-        """
 
+        npr: int
+           Number of virtual particles along the r axis, per cell
+
+        Nptheta: int
+           Number of virtual particles in the theta direction
+           (Particles are distributed along a star-pattern with
+           Nptheta arms in the transverse plane)
+
+        epsilon: float
+           Ratio between the maximum transverse excursion of any virtual
+           particle of the laser antenna, and the transverse size of a cell
+           (i.e. a virtual particle will not move by more than epsilon*dr)
+
+        boost: a BoostConverter object or None
         
+        """
+        # Porportionality coefficient between the weight of a particle
+        # and its transverse position (in cylindrical geometry, particles
+        # that are further away from the axis have a larger weight)
+        alpha_weights = np.pi / ( 2*npr*epsilon ) * dr_grid / r_e * e
+        # The mobility coefficient is the proportionality coefficient
+        # between the velocity of the particles and the electric field
+        # to be emitted
+        self.mobility_coef = np.pi * dr_grid**2 / ( 2*npr*alpha_weights ) \
+            * epsilon_0 * c
+        if boost is not None:
+            self.mobility_coef = self.mobility_coef / boost.gamma0
+
+        # Get total number of virtual particles
+        Npr = Nr_grid * npr
+        Ntot = Npr * Nptheta
+        # Get the baseline radius and angles of the virtual particles
+        r_reg = dr_grid/npr * ( np.arange( Npr ) + 0.5 )
+        theta_reg = 2*np.pi/Nptheta * np.arange( Nptheta )
+        rp, thetap = np.meshgrid( r_reg, theta_reg, copy=True)
+        r0 = rp.flatten()
+        theta0 = thetap.flatten()
         
+        # Baseline position of the particles and weights
+        self.x0 = r0 * np.cos( theta0 )
+        self.y0 = r0 * np.sin( theta0 )
+        self.w = alpha_weights * self.r0 / dr_grid
+        
+        # Excursion with respect to the baseline position
+        self.excursion_x = np.zeros( Ntot )
+        self.excursion_y = np.zeros( Ntot )
+
+        # Position and velocity of the antenna
+        self.z_antenna = z0_antenna
+        self.vz_antenna = 0.
+        # If the simulation is performed in a boosted frame,
+        # boost these quantities
+        if boost is not None:
+            self.z_antenna, = boost.static_length( [ self.z_antenna ] )
+            self.vz_antenna, = boost.velocity( [ self.vz_antenna ] )
+            
+                    
     def deposit( self ):
         """
         TO BE COMPLETED
