@@ -10,7 +10,7 @@ def add_laser( sim, a0, w0, ctau, z0, zf=None, lambda0=0.8e-6,
                theta_pol=0., fw_propagating=True,
                update_spectral=True, gamma_boost=None, method='direct' ) :
     """
-    Add a linearly-polarized, Gaussian laser pulse in the Fields object
+    Add a linearly-polarized, Gaussian laser pulse to the Fields object
 
     The laser is either added directly to the interpolation grid initially
     (method='direct') or it is progressively emitted by an antenna
@@ -89,7 +89,7 @@ def add_laser( sim, a0, w0, ctau, z0, zf=None, lambda0=0.8e-6,
 
     # Shortcut for the Fields object
     fld = sim.fld
-        
+
     # Get the 2D mesh for z and r
     # (When running a simulation in boosted frame, then z is the coordinate
     # in the boosted frame -- if the Fields object was correctly initialized.)
@@ -140,4 +140,5 @@ def add_laser( sim, a0, w0, ctau, z0, zf=None, lambda0=0.8e-6,
         fld.interp2spect('B')
 
 
-
+def add_laser_direct( fld, ):
+    

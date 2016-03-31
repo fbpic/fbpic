@@ -8,6 +8,8 @@ from scipy.constants import e, c, m_e, epsilon_0
 # Classical radius of the electron
 r_e = e**2/(4*np.pi*epsilon_0*m_e*c**2)
 
+from .profiles import gaussian_laser
+
 class LaserAntenna( object ):
     """
     TO BE COMPLETED
@@ -22,7 +24,7 @@ class LaserAntenna( object ):
     
     """
 
-    def __init__( self,  a0, w0, ctau, z0, zf, lambda0, 
+    def __init__( self, E0, w0, ctau, z0, zf, lambda0, 
                     theta_pol, z0_antenna, dr_grid, Nr_grid, 
                     npr=2, Nptheta=4, epsilon=0.01, boost=None ):
         """
@@ -86,6 +88,7 @@ class LaserAntenna( object ):
             self.vz_antenna, = boost.velocity( [ self.vz_antenna ] )
 
         # Record laser proerties
+        self.E0 = E0
         self.boost = boost
             
     def halfpush_x( dt ):
@@ -133,13 +136,16 @@ class LaserAntenna( object ):
             t_lab = t
 
         # Calculate the electric field to be emitted (in the lab-frame)
-        Ex, Ey = 0. #gaussian_laser( a0, .... )
+        # Eu is the amplitude along the polarization angle
+        Eu = self.E0 * gaussian_profile(
+            
+            boost=None, output_longitudinal_field=False )
 
         # Calculate the corresponding velocity. This takes into account
         # lab-frame to boosted-frame conversion, through a modification
         # of the mobility coefficient: see the __init__ function
-        self.vx = self.mobility_coef * Ex
-        self.vy = self.mobility_coef * Ey
+        self.vx = ( self.mobility_coef * np.cos(self.theta_pol) ) * Eu
+        self.vy = ( self.mobility_coef * np.sin(self.theta_pol) ) * Eu
 
     def deposit( self ):
         """
