@@ -582,22 +582,25 @@ class ParticleCatcher:
             # (indices of the current and previous cell representing the
             # boundaries of this area)
             cell_curr = int((current_z_boost-self.zmin+0.5*self.dz)/self.dz)
-            cell_prev = int((previous_z_boost-self.zmin+0.5*self.dz)*\
-                1./self.dz+self.dt*c) + 1
+            cell_prev = int((previous_z_boost-self.zmin+0.5*self.dz + \
+                    self.dt*c) / self.dz)
             pref_sum = species.prefix_sum
             Nz, Nr = species.grid_shape
+            # Check for cell indices being within grid boundaries
+            if cell_prev > Nz-1: 
+                cell_prev = Nz-1
+            if cell_curr > Nz-1:
+                cell_curr = Nz-1
+            if cell_prev < 0:
+                cell_prev = 0
+            if cell_curr < 0:
+                cell_curr = 0
             # Get the prefix sum values for calculation 
             # of number of particles
-            pref_sum_curr = pref_sum.getitem( cell_curr*Nr - 1 ) 
+            pref_sum_curr = pref_sum.getitem( cell_curr*Nr ) 
             pref_sum_prev = pref_sum.getitem( cell_prev*Nr )
             # Calculate number of particles in this area (N_area)
-            # (Take into account that for cell_prev = 0, there is 
-            # no value pref_sum[cell_prev - 1]. Therefore, an
-            # if statement is needed to get N_area in this case )
-            if cell_prev > 0:
-                N_area = pref_sum_prev - pref_sum_curr
-            if cell_prev == 0:
-                N_area = pref_sum_prev
+            N_area = pref_sum_prev - pref_sum_curr
             # Create empty GPU array for particles
             particle_selection = cuda.device_array( 
                 (8, N_area), dtype=np.float64 )
