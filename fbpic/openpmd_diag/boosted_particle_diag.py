@@ -609,7 +609,7 @@ class ParticleCatcher:
                  species.w, species.inv_gamma, 
                  particle_selection, (pref_sum_prev-1) )
             # Copy GPU array to the host
-            part_data = cuda.to_host(particle_selection)
+            part_data = particle_selection.copy_to_host()
             # Create particle_data dictionary
             # Create a dictionary containing the particle attributes
             particle_data = {
