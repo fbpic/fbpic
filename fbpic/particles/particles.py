@@ -177,11 +177,14 @@ class Particles(object) :
             if dens_func is not None :
                 self.w[:] = self.w * dens_func( self.z, r )
 
-        # Allocate arrays for the particles sorting when using CUDA
+        # Allocate arrays and register variables when using CUDA
         if self.use_cuda:
             if grid_shape is None:
                 raise ValueError("A `grid_shape` is needed when running "
                 "on the GPU.\nPlease provide it when initializing particles.")
+            # Register grid shape
+            self.grid_shape = grid_shape
+            # Allocate arrays for the particles sorting when using CUDA
             self.cell_idx = np.empty( Ntot, dtype=np.int32)
             self.sorted_idx = np.arange( Ntot, dtype=np.uint32)
             self.sorting_buffer = np.arange( Ntot, dtype=np.float64 )
