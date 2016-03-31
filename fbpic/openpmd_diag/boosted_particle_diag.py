@@ -528,9 +528,6 @@ class ParticleCatcher:
         slice_array = self.interpolate_particles_to_lab_frame( 
             slice_array, current_z_boost, t )
 
-        # Convert data to the OpenPMD standard
-        slice_array = self.apply_opmd_standard( slice_array, species )
-
         # Choose the particles based on the select criteria defined by the 
         # users. Notice: this implementation still comes with a cost, 
         # one way to optimize it would be to do the selection before Lorentz
@@ -543,6 +540,9 @@ class ParticleCatcher:
             # has the same size as slice_array
             slice_array = np.reshape(
                 temp_slice_array,(np.shape(p2i.keys())[0],-1))
+
+        # Convert data to the OpenPMD standard
+        slice_array = self.apply_opmd_standard( slice_array, species )
 
         return slice_array
 
@@ -565,29 +565,57 @@ class ParticleCatcher:
             A dictionary that contains the particle data of 
             the simulation (with normalized weigths).
         """
-
         # CPU
         if species.use_cuda is False:
             # Create a dictionary containing the particle attributes
-            # (The weight is normalized in order to correspond
-            # to the OpenPMD standard)
             particle_data = {
                 'x' : species.x, 'y' : species.y, 'z' : species.z,
                 'ux' : species.ux, 'uy' : species.uy, 'uz' : species.uz,
                 'w' : species.w, 'inv_gamma' : species.inv_gamma }
         # GPU
         else:
-            # calculate cell area to get particles from
-            current_cell = int((current_z_boost - self.zmin + 0.5*self.dz)/self.dz)
-            previous_cell = int((previous_z_boost - self.zmin + 0.5*dz)/self.dz + self.dt * c)+1
-            # get prefix sum values and calculate number of particles
-            current_prefix = species.prefix_sum
-            previous_prefix = 0.
-            # create empty GPU array for particles
-            # call kernel that extracts particles
-            # copy GPU array to the host
-            # create particle_data dictionary
-            print 'GPU'
+            # Check if particles are sorted, otherwise raise exception
+            if species.sorted == False:
+                raise ValueError('Removing particles: \
+                 The particles are not sorted!')
+            # Calculate cell area to get particles from 
+            # (indices of the current and previous cell representing the
+            # boundaries of this area)
+            cell_curr = int((current_z_boost-self.zmin+0.5*self.dz)/self.dz)
+            cell_prev = int((previous_z_boost-self.zmin+0.5*self.dz)*\
+                1./self.dz+self.dt*c) + 1
+            pref_sum = species.prefix_sum
+            Nz, Nr = species.grid_shape
+            # Get the prefix sum values for calculation 
+            # of number of particles
+            pref_sum_curr = pref_sum.getitem( cell_curr*Nr ) 
+            pref_sum_prev = pref_sum.getitem( cell_prev*Nr - 1 )
+            # Calculate number of particles in this area (N_area)
+            # (Take into account that for cell_prev = 0, there is 
+            # no value pref_sum[cell_prev - 1]. Therefore, an
+            # if statement is needed to get N_area in this case )
+            if cell_prev > 0:
+                N_area = pref_sum_curr - pref_sum_prev
+            if cell_prev == 0:
+                N_area = pref_sum_curr
+            # Create empty GPU array for particles
+            particle_selection = cuda.device_array( 
+                (8, N_area), dtype=np.float64 )
+            # Call kernel that extracts particles from GPU
+            dim_grid_1d, dim_block_1d = cuda_tpb_bpg_1d(N_area)
+            extract_particles_from_gpu[dim_grid_1d, dim_block_1d](
+                 species.x, species.y, species.z,
+                 species.ux, species.uy, species.uz,
+                 species.w, species.inv_gamma, 
+                 particle_selection, (pref_sum_prev-1) )
+            # Copy GPU array to the host
+            part_data = cuda.to_host(particle_selection)
+            # Create particle_data dictionary
+            # Create a dictionary containing the particle attributes
+            particle_data = {
+                'x' : part_data[0], 'y' : part_data.y, 'z' : part_data.z,
+                'ux' : part_data.ux, 'uy' : part_data.uy, 'uz' : part_data.uz,
+                'w' : part_data.w, 'inv_gamma' : part_data.inv_gamma }
 
         return particle_data 
 
@@ -753,11 +781,15 @@ class ParticleCatcher:
         select : a dictionary that defines all selection rules based
         on the quantities
 
+        slice_array : 2D array of floats
+            Contains the particle slice data to output.
+
         Returns
         -------
-        A 1d array of the same shape as that particle array
-        containing True for the particles that satify all
-        the rules of self.select
+        select_array : 1D array of bools
+            A 1d array of the same shape as that particle array
+            containing True for the particles that satify all
+            the rules of select
         """
         p2i = self.particle_to_index
 
@@ -779,3 +811,41 @@ class ParticleCatcher:
                     select[quantity][1], select_array )
 
         return select_array
+
+@cuda.jit
+def extract_particles_from_gpu( x, y, z, ux, uy, uz, w, inv_gamma,
+                                selected, part_idx_start ):
+    """
+    Extract a selection of particles from the GPU and 
+    store them in a 2D array (8, N_part) in the following
+    order: x, y, z, ux, uy, uz, w, inv_gamma.
+    Selection goes from starting index (part_idx_start) updated
+    to (part_idx_start + N_part), where N_part is derived
+    from the shape of the 2D array (selected).
+
+    Parameters
+    ----------
+    x, y, z, ux, uy, uz, w, inv_gamma : 1D arrays of floats
+        The GPU particle arrays for a given species.
+
+    selected : 2D array of floats
+        An empty GPU array to store the particles 
+        that are extracted.
+    
+    part_idx_start : int
+        The starting index needed for the extraction process.
+    """
+
+    i = cuda.grid(1)
+    n = selected.shape[1]
+    start = part_idx_start
+
+    if i < n:
+        selected[0, i] = x[start:start+i]
+        selected[1, i] = y[start:start+i]
+        selected[2, i] = z[start:start+i]
+        selected[3, i] = ux[start:start+i]
+        selected[4, i] = uy[start:start+i]
+        selected[5, i] = uz[start:start+i]
+        selected[6, i] = w[start:start+i]
+        selected[7, i] = inv_gamma[start:start+i]
