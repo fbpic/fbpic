@@ -762,8 +762,8 @@ class ParticleCatcher:
             the OpenPMD format.
         """
         # Normalize momenta
-        for quantitiy in ['ux', 'uy' 'uz']:
-            idx = self.particle_to_index['quantitiy']
+        for quantity in ['ux', 'uy' 'uz']:
+            idx = self.particle_to_index['quantity']
             slice_array[idx] *= species.m * c
         # Normalize weights
         idx = self.particle_to_index['w']
