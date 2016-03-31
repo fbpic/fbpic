@@ -588,8 +588,8 @@ class ParticleCatcher:
             Nz, Nr = species.grid_shape
             # Get the prefix sum values for calculation 
             # of number of particles
-            pref_sum_curr = pref_sum.getitem( cell_curr*Nr ) 
-            pref_sum_prev = pref_sum.getitem( cell_prev*Nr - 1 )
+            pref_sum_curr = pref_sum.getitem( cell_curr*Nr - 1 ) 
+            pref_sum_prev = pref_sum.getitem( cell_prev*Nr )
             # Calculate number of particles in this area (N_area)
             # (Take into account that for cell_prev = 0, there is 
             # no value pref_sum[cell_prev - 1]. Therefore, an
