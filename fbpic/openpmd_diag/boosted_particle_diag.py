@@ -841,11 +841,11 @@ def extract_particles_from_gpu( x, y, z, ux, uy, uz, w, inv_gamma,
     start = part_idx_start
 
     if i < n:
-        selected[0, i] = x[start:start+i]
-        selected[1, i] = y[start:start+i]
-        selected[2, i] = z[start:start+i]
-        selected[3, i] = ux[start:start+i]
-        selected[4, i] = uy[start:start+i]
-        selected[5, i] = uz[start:start+i]
-        selected[6, i] = w[start:start+i]
-        selected[7, i] = inv_gamma[start:start+i]
+        selected[0, i] = x[start+i]
+        selected[1, i] = y[start+i]
+        selected[2, i] = z[start+i]
+        selected[3, i] = ux[start+i]
+        selected[4, i] = uy[start+i]
+        selected[5, i] = uz[start+i]
+        selected[6, i] = w[start+i]
+        selected[7, i] = inv_gamma[start+i]
