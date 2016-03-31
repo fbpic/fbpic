@@ -302,6 +302,10 @@ class Simulation(object):
             if move_positions:
                 for species in ptcl:
                     species.halfpush_x()
+            # Get positions/velocities for antenna particles at t = (n+1/2) dt
+            for antenna in self.laser_antennas:
+                antenna.update_v( sim.time + 0.5*sim.dt )
+                antenna.halfpush_x( sim.dt )
 
             # Get the current at t = (n+1/2) dt
             self.deposit('J')
@@ -310,9 +314,12 @@ class Simulation(object):
             if move_positions:
                 for species in ptcl:
                     species.halfpush_x()
+            # Get positions for antenna particles at t = (n+1) dt
+            for antenna in self.laser_antennas:
+                antenna.halfpush_x( sim.dt )
+            
             # Get the charge density at t = (n+1) dt
             self.deposit('rho_next')
-
             # Correct the currents (requires rho at t = (n+1) dt )
             if correct_currents:
                 fld.correct_currents()
