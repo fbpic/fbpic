@@ -595,9 +595,9 @@ class ParticleCatcher:
             # no value pref_sum[cell_prev - 1]. Therefore, an
             # if statement is needed to get N_area in this case )
             if cell_prev > 0:
-                N_area = pref_sum_curr - pref_sum_prev
+                N_area = pref_sum_prev - pref_sum_curr
             if cell_prev == 0:
-                N_area = pref_sum_curr
+                N_area = pref_sum_prev
             # Create empty GPU array for particles
             particle_selection = cuda.device_array( 
                 (8, N_area), dtype=np.float64 )
