@@ -287,7 +287,6 @@ class Simulation(object):
 
             # Standard PIC loop
             # -----------------
-
             # Gather the fields from the grid at t = n dt
             for species in ptcl:
                 species.gather( fld.interp )
@@ -304,8 +303,8 @@ class Simulation(object):
                     species.halfpush_x()
             # Get positions/velocities for antenna particles at t = (n+1/2) dt
             for antenna in self.laser_antennas:
-                antenna.update_v( sim.time + 0.5*sim.dt )
-                antenna.halfpush_x( sim.dt )
+                antenna.update_v( self.time + 0.5*self.dt )
+                antenna.halfpush_x( self.dt )
 
             # Get the current at t = (n+1/2) dt
             self.deposit('J')
@@ -316,11 +315,11 @@ class Simulation(object):
                     species.halfpush_x()
             # Get positions for antenna particles at t = (n+1) dt
             for antenna in self.laser_antennas:
-                antenna.halfpush_x( sim.dt )
+                antenna.halfpush_x( self.dt )
             
             # Get the charge density at t = (n+1) dt
             self.deposit('rho_next')
-            # Correct the currents (requires rho at t = (n+1) dt )
+            # Correct the currents ( requires rho at t = (n+1) dt )
             if correct_currents:
                 fld.correct_currents()
 

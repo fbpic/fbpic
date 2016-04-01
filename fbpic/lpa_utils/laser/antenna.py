@@ -7,8 +7,7 @@ import numpy as np
 from scipy.constants import e, c, m_e, epsilon_0
 # Classical radius of the electron
 r_e = e**2/(4*np.pi*epsilon_0*m_e*c**2)
-
-from .profiles import gaussian_laser
+from .profiles import gaussian_profile
 
 class LaserAntenna( object ):
     """
@@ -24,7 +23,7 @@ class LaserAntenna( object ):
     
     """
 
-    def __init__( self, E0, w0, ctau, z0, zf, lambda0, 
+    def __init__( self, E0, w0, ctau, z0, zf, k0, 
                     theta_pol, z0_antenna, dr_grid, Nr_grid, 
                     npr=2, Nptheta=4, epsilon=0.01, boost=None ):
         """
@@ -59,7 +58,7 @@ class LaserAntenna( object ):
 
         # Get total number of virtual particles
         Npr = Nr_grid * npr
-        self.Ntot = Npr * Nptheta
+        Ntot = Npr * Nptheta
         # Get the baseline radius and angles of the virtual particles
         r_reg = dr_grid/npr * ( np.arange( Npr ) + 0.5 )
         theta_reg = 2*np.pi/Nptheta * np.arange( Nptheta )
@@ -91,7 +90,7 @@ class LaserAntenna( object ):
         self.E0 = E0
         self.boost = boost
             
-    def halfpush_x( dt ):
+    def halfpush_x( self, dt ):
         """
         Push the position of the virtual particles in the antenna
         over half a timestep, using their current velocity
@@ -111,7 +110,7 @@ class LaserAntenna( object ):
         # Move position of the antenna
         self.z_antenna += hdt * self.vz_antenna
 
-    def update_v( t ):
+    def update_v( self, t ):
         """
         Update the particle velocities so that it corresponds to time t
 
@@ -137,9 +136,10 @@ class LaserAntenna( object ):
 
         # Calculate the electric field to be emitted (in the lab-frame)
         # Eu is the amplitude along the polarization angle
-        Eu = self.E0 * gaussian_profile(
-            
-            boost=None, output_longitudinal_field=False )
+        r0 = np.sqrt( (self.x0 + self.excursion_x)**2 + \
+                      (self.y0 + self.excursion_y)**2 )
+        Eu = self.E0 * gaussian_profile( z_lab, r0, t_lab, w0, ctau,
+            z0, zf, k0, boost=None, output_longitudinal_field=False )
 
         # Calculate the corresponding velocity. This takes into account
         # lab-frame to boosted-frame conversion, through a modification
