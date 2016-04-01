@@ -75,6 +75,9 @@ class BoostedParticleDiagnostic(ParticleDiagnostic):
         ParticleDiagnostic.__init__(self, period, species, 
             comm, particle_data, select, write_dir)
 
+        # Register the Field object
+        self.fld = fld
+
         # Register the boost quantities
         self.gamma_boost = gamma_boost
         self.inv_gamma_boost = 1./gamma_boost
@@ -99,7 +102,7 @@ class BoostedParticleDiagnostic(ParticleDiagnostic):
         # (This object will extract the particles (slices) that crossed the 
         # output plane during the last iteration.)
         self.particle_catcher = ParticleCatcher(
-            self.gamma_boost, self.beta_boost, fld )
+            self.gamma_boost, self.beta_boost, self.fld )
 
     def write( self, iteration ): 
         """
@@ -127,6 +130,15 @@ class BoostedParticleDiagnostic(ParticleDiagnostic):
         iteration : int
             Current iteration of the boosted frame simulation 
         """
+        # Find the limits of the local subdomain at this iteration
+        zmin_boost = self.fld.interp[0].zmin
+        zmax_boost = self.fld.interp[0].zmax
+        # If a communicator is provided, remove the guard cells
+        if self.comm is not None:
+            dz = self.fld.interp[0].dz
+            zmin_boost += dz*self.comm.n_guard
+            zmax_boost -= dz*self.comm.n_guard
+
         # Extract the current time in the boosted frame
         time = iteration * self.dt
 
@@ -139,9 +151,13 @@ class BoostedParticleDiagnostic(ParticleDiagnostic):
                 self.inv_gamma_boost, self.inv_beta_boost)
 
             # For this snapshot:
+            # - check if the output position *in the boosted frame*
+            #   is in the current local domain
             # - check if the output position *in the lab frame*
             #   is within the lab-frame boundaries of the current snapshot
-            if ( (snapshot.current_z_lab > snapshot.zmin_lab) and \
+            if ( (snapshot.current_z_boost > zmin_boost) and \
+                 (snapshot.current_z_boost < zmax_boost) and \
+                 (snapshot.current_z_lab > snapshot.zmin_lab) and \
                  (snapshot.current_z_lab < snapshot.zmax_lab) ):
                 
                 # Loop through the particle species and register the
@@ -601,18 +617,23 @@ class ParticleCatcher:
             pref_sum_prev = pref_sum.getitem( cell_prev*Nr - 1 )
             # Calculate number of particles in this area (N_area)
             N_area = pref_sum_prev - pref_sum_curr
-            # Create empty GPU array for particles
-            particle_selection = cuda.device_array( 
-                (8, N_area), dtype=np.float64 )
-            # Call kernel that extracts particles from GPU
-            dim_grid_1d, dim_block_1d = cuda_tpb_bpg_1d(N_area)
-            extract_particles_from_gpu[dim_grid_1d, dim_block_1d](
-                 species.x, species.y, species.z,
-                 species.ux, species.uy, species.uz,
-                 species.w, species.inv_gamma, 
-                 particle_selection, (pref_sum_prev-1))
-            # Copy GPU array to the host
-            part_data = particle_selection.copy_to_host()
+            # Check if there are particles to extract
+            if N_area > 0:
+                # Create empty GPU array for particles
+                particle_selection = cuda.device_array( 
+                    (8, N_area), dtype=np.float64 )
+                # Call kernel that extracts particles from GPU
+                dim_grid_1d, dim_block_1d = cuda_tpb_bpg_1d(N_area)
+                extract_particles_from_gpu[dim_grid_1d, dim_block_1d](
+                     species.x, species.y, species.z,
+                     species.ux, species.uy, species.uz,
+                     species.w, species.inv_gamma, 
+                     particle_selection, (pref_sum_prev-1))
+                # Copy GPU array to the host
+                part_data = particle_selection.copy_to_host()
+            else:
+                # Create an empty array if N_area is zero.
+                part_data = np.zeros((8,0), np.float64)
             # Create a dictionary containing the particle attributes
             particle_data = {
                 'x' : part_data[0], 'y' : part_data[1], 'z' : part_data[2],
