@@ -20,23 +20,23 @@ import matplotlib.pyplot as plt
 from scipy.constants import c
 from fbpic.main import Simulation
 from fbpic.lpa_utils.laser import add_laser
+#from fbpic.openpmd_diag import FieldDiagnostic
 
 # Parameters
 # ----------
 show = True  # Whether to show the plots, and check them manually
-
 use_cuda = True
 
 # Simulation box
-Nz = 200
-zmin = -10.e-6
-zmax = 10.e-6
+Nz = 1200
+zmin = -15.e-6
+zmax = 15.e-6
 Nr = 25
 rmax = 20.e-6
 Nm = 2
 dt = (zmax-zmin)/Nz/c
 # Laser pulse
-w0 = 4.e-6
+w0 = 8.e-6
 ctau = 5.e-6
 a0 = 1.
 z0_antenna = 0.e-6
@@ -45,7 +45,7 @@ z0 = - 10.e-6
 # Propagation
 Lprop = 20.e-6
 Ntot_step = int(Lprop/(c*dt))
-N_show = 3 # Number of instants in which to show the plots (during propagation)
+N_show = 10 # Number of instants in which to show the plots (during propagation)
 
 def test_laser_antenna(show=False):
     """
@@ -67,6 +67,12 @@ def test_laser_antenna(show=False):
     # Calculate the number of steps between each output
     N_step = int( round( Ntot_step/N_show ) )
 
+#    # Add diagnostic
+#    sim.diags = [
+#        FieldDiagnostic( N_step, sim.fld, comm=None,
+#                 fieldtypes=["rho", "E", "B", "J"] )
+#    ]
+    
     # Loop over the iterations
     print('Running the simulation...')
     for it in range(N_show) :
@@ -77,7 +83,14 @@ def test_laser_antenna(show=False):
             sim.fld.interp[1].show('Et')
             plt.show()
         # Advance the Maxwell equations
-        sim.step( N_step, show_progress=False )
+        sim.step( N_step, show_progress=False,
+                  use_true_rho=True )
+
+    # Do a fit of a Gaussian laser
+    
+
+
+    
 
 if __name__ == '__main__' :
 

@@ -8,12 +8,15 @@ from scipy.constants import e, c, m_e, epsilon_0
 # Classical radius of the electron
 r_e = e**2/(4*np.pi*epsilon_0*m_e*c**2)
 from .profiles import gaussian_profile
+from fbpic.particles.utility_methods import linear_weights
+from fbpic.particles.numba_methods import deposit_field_numba
 
 class LaserAntenna( object ):
     """
     TO BE COMPLETED
 
     EXPLAIN THE VIRTUAL PARTICLES
+    + that they are positive / negative + have opposite motion
 
     By default only the positive particles are stored.
     The excursion of the negative particles is the opposite.
@@ -22,7 +25,6 @@ class LaserAntenna( object ):
     Every operation is done on the CPU
     
     """
-
     def __init__( self, E0, w0, ctau, z0, zf, k0, 
                     theta_pol, z0_antenna, dr_grid, Nr_grid, 
                     npr=2, nptheta=4, epsilon=0.01, boost=None ):
@@ -67,9 +69,10 @@ class LaserAntenna( object ):
         theta0 = thetap.flatten()
         
         # Baseline position of the particles and weights
+        self.Ntot = Ntot
         self.baseline_x = self.baseline_r * np.cos( theta0 )
         self.baseline_y = self.baseline_r * np.sin( theta0 )
-        self.baseline_z = z0_antenna
+        self.baseline_z = z0_antenna * np.ones( Ntot )
         self.w = alpha_weights * self.baseline_r / dr_grid
         # Excursion with respect to the baseline position
         # (No excursion in z: the particles do not oscillate in this direction)
@@ -157,11 +160,114 @@ class LaserAntenna( object ):
 
     def deposit( self, fld, fieldtype ):
         """
-        TO BE COMPLETED
-        """
-        # Check if z_antenna is in the current physical domain        
-        # Calculate the displacement of the particles
+        Deposit the charge or current of the virtual particles onto the grid
+
+        This function closely mirrors the deposit function of the regular
+        macroparticles, but also introduces a few specific optimization:
+        - use the particle velocities instead of the momenta for J
+        - reuse some of the quantities that are valid for both positive
+          and negative virtual particles
         
-        pass
-    
-    
+        Parameter
+        ----------
+        fld : a Field object
+             Contains the list of InterpolationGrid objects with
+             the field values as well as the prefix sum.
+
+        fieldtype : string
+             Indicates which field to deposit
+             Either 'J' or 'rho'
+        """
+        # TO BE COMPLETED
+        # Check if z_antenna is in the current physical domain
+
+        # Shortcut for the list of InterpolationGrid objects
+        grid = fld.interp
+        Nm = len(grid)
+
+        # Indices and weights in z:
+        # same for both the negative and positive virtual particles
+        iz_lower, iz_upper, Sz_lower, Sz_upper = linear_weights(
+            self.baseline_z, grid[0].invdz, grid[0].zmin,
+            grid[0].Nz, direction='z')
+
+        # Deposit the positive and negative virtual particles successively
+        for q in [-1, 1]:
+
+            # Position of the particles
+            x = self.baseline_x + q*self.excursion_x
+            y = self.baseline_y + q*self.excursion_y
+            vx = q*self.vx
+            vy = q*self.vy
+            w = q*self.w
+
+            # Preliminary arrays for the cylindrical conversion
+            r = np.sqrt( x**2 + y**2 )
+            # Avoid division by 0.
+            invr = 1./np.where( r!=0., r, 1. )
+            cos = np.where( r!=0., x*invr, 1. )
+            sin = np.where( r!=0., y*invr, 0. )
+
+            # Indices and weights in z
+            ir_lower, ir_upper, Sr_lower, Sr_upper, Sr_guard = linear_weights(
+                r, grid[0].invdr, grid[0].rmin, grid[0].Nr, direction='r')
+
+            if fieldtype == 'rho' :
+                # ---------------------------------------
+                # Deposit the charge density mode by mode
+                # ---------------------------------------
+                # Prepare auxiliary matrix
+                exptheta = np.ones( self.Ntot, dtype='complex')
+                # exptheta takes the value exp(im theta) throughout the loop
+                for m in range(Nm) :
+                    # Increment exptheta (notice the + : forward transform)
+                    if m==1 :
+                        exptheta[:].real = cos
+                        exptheta[:].imag = sin
+                    elif m>1 :
+                        exptheta[:] = exptheta*( cos + 1.j*sin )
+                    # Deposit the fields
+                    # (The sign -1 with which the guards are added is not
+                    # trivial to derive but avoids artifacts on the axis)
+                    deposit_field_numba( w*exptheta, grid[m].rho,
+                        iz_lower, iz_upper, Sz_lower, Sz_upper,
+                        ir_lower, ir_upper, Sr_lower, Sr_upper,
+                        -1., Sr_guard )
+
+            elif fieldtype == 'J' :
+                # ----------------------------------------
+                # Deposit the current density mode by mode
+                # ----------------------------------------
+                # Calculate the currents
+                Jr = w * ( cos*vx + sin*vy )
+                Jt = w * ( cos*vy - sin*vx )
+                if np.any( self.vz != 0 ):
+                    Jz = w * self.vz
+                else:
+                    Jz = None
+                # Prepare auxiliary matrix
+                exptheta = np.ones( self.Ntot, dtype='complex')
+                # exptheta takes the value exp(im theta) throughout the loop
+                for m in range(Nm) :
+                    # Increment exptheta (notice the + : forward transform)
+                    if m==1 :
+                        exptheta[:].real = cos
+                        exptheta[:].imag = sin
+                    elif m>1 :
+                        exptheta[:] = exptheta*( cos + 1.j*sin )
+                    # Deposit the fields
+                    # (The sign -1 with which the guards are added is not
+                    # trivial to derive but avoids artifacts on the axis)
+                    deposit_field_numba( Jr*exptheta, grid[m].Jr,
+                        iz_lower, iz_upper, Sz_lower, Sz_upper,
+                        ir_lower, ir_upper, Sr_lower, Sr_upper,
+                        -1., Sr_guard )
+                    deposit_field_numba( Jt*exptheta, grid[m].Jt,
+                        iz_lower, iz_upper, Sz_lower, Sz_upper,
+                        ir_lower, ir_upper, Sr_lower, Sr_upper,
+                        -1., Sr_guard )
+                    if Jz is not None:
+                        deposit_field_numba( Jz*exptheta, grid[m].Jz,
+                            iz_lower, iz_upper, Sz_lower, Sz_upper,
+                            ir_lower, ir_upper, Sr_lower, Sr_upper,
+                            -1., Sr_guard )

@@ -386,7 +386,7 @@ class Simulation(object):
                 species.deposit( fld, 'J' )
             # Deposit the current of the virtual particles in the antenna
             for antenna in self.laser_antennas:
-                antenna.deposit( fld, 'rho' )
+                antenna.deposit( fld, 'J' )
             # Divide by cell volume
             fld.divide_by_volume('J')
             # Exchange the current of the guard cells between domains
