@@ -9,8 +9,7 @@ Major features:
 """
 import os
 import numpy as np
-import time
-from scipy.constants import c, m_e
+from scipy.constants import c
 from .particle_diag import ParticleDiagnostic
 
 # If numbapro is installed, it potentially allows to use a GPU
@@ -284,7 +283,6 @@ class BoostedParticleDiagnostic(ParticleDiagnostic):
             self.setup_openpmd_file( f, iteration, time, dt )
             # Setup the meshes group (contains all the particles)
             particle_path = "/data/%d/particles/" %iteration
-            particle_grp = f.require_group(particle_path)
 
             for species_name, species in self.species_dict.iteritems():
                 species_path = particle_path+"%s/" %(species_name)
@@ -513,7 +511,6 @@ class ParticleCatcher:
             An array that packs together the slices of the different 
             particles.
         """
-
         # Get a dictionary containing the particle data
         particle_data = self.get_particle_data( species, 
                             current_z_boost, previous_z_boost, t )
@@ -539,7 +536,8 @@ class ParticleCatcher:
             # Temp_slice_array is a 1D numpy array, we reshape it so that it 
             # has the same size as slice_array
             slice_array = np.reshape(
-                temp_slice_array,(np.shape(p2i.keys())[0],-1))
+                temp_slice_array,(np.shape(
+                    self.particle_to_index.keys())[0],-1))
 
         # Convert data to the OpenPMD standard
         slice_array = self.apply_opmd_standard( slice_array, species )
