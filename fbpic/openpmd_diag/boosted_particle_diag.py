@@ -41,7 +41,7 @@ class BoostedParticleDiagnostic(ParticleDiagnostic):
     the 'write' method.
     """
     def __init__(self, zmin_lab, zmax_lab, v_lab, dt_snapshots_lab,
-                 Ntot_snapshots_lab, gamma_boost, period, fld, 
+                 Ntot_snapshots_lab, gamma_boost, period, fldobject, 
                  particle_data=["position", "momentum", "weighting"],
                  select=None, write_dir=None, species={"electrons": None},
                  comm = None):
@@ -69,7 +69,7 @@ class BoostedParticleDiagnostic(ParticleDiagnostic):
             Number of iterations for which the data is accumulated in memory,
             before finally writing it to the disk.
 
-        fld : a Fields object,
+        fldobject : a Fields object,
             The Fields object of the simulation, that is needed to
             extract some information about the grid
                 
@@ -87,7 +87,7 @@ class BoostedParticleDiagnostic(ParticleDiagnostic):
             comm, particle_data, select, write_dir)
 
         # Register the Field object
-        self.fld = fld
+        self.fld = fldobject
 
         # Register the boost quantities
         self.gamma_boost = gamma_boost
@@ -482,7 +482,7 @@ class ParticleCatcher:
     """
     Class that extracts, Lorentz-transforms and gathers particles
     """
-    def __init__( self, gamma_boost, beta_boost, fld ):
+    def __init__( self, gamma_boost, beta_boost, fldobject ):
         """
         Initialize the ParticleCatcher object
 
@@ -491,7 +491,7 @@ class ParticleCatcher:
         gamma_boost, beta_boost: float
             The Lorentz factor of the boost and the corresponding beta
 
-        fld : a Fields object,
+        fldobject : a Fields object,
             The Fields object of the simulation, that is needed to
             extract some information about the grid
         """
@@ -500,7 +500,7 @@ class ParticleCatcher:
         self.beta_boost = beta_boost
 
         # Register the fields object
-        self.fld = fld
+        self.fld = fldobject
         self.dt = fld.dt
         
         # Create a dictionary that contains the correspondance
