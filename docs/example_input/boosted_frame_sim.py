@@ -31,7 +31,7 @@ from fbpic.openpmd_diag import FieldDiagnostic, ParticleDiagnostic, \
 # ----------
 # Parameters
 # ----------
-use_cuda = False
+use_cuda = True
 
 # Boosted frame
 gamma_boost = 10.
@@ -115,8 +115,7 @@ sim.diags = [ FieldDiagnostic(diag_period, sim.fld, sim.comm ),
                 dt_snapshots_lab, Ntot_snapshots_lab, gamma_boost,
                 period=diag_period, fldobject=sim.fld, comm=sim.comm),
               BoostedParticleDiagnostic(zmin, zmax, c, dt_snapshots_lab,
-                 Ntot_snapshots_lab, gamma_boost, diag_period, 
-                 sim.fld.interp[0].zmin, sim.fld.interp[0].dz, 
+                 Ntot_snapshots_lab, gamma_boost, diag_period, sim.fld, 
                  species = {"bunch":sim.ptcl[0]}, comm=sim.comm) ]
 
 ### Run the simulation
