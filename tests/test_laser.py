@@ -21,7 +21,7 @@ Usage :
 -------
 In order to show the images of the laser, and manually check the
 agreement between the simulation and the theory:
-$ python tests/test_fields.py
+$ python tests/test_laser.py
 (except when setting show to False in the parameters below)
 
 In order to let Python check the agreement between the curve without
@@ -42,7 +42,7 @@ from fbpic.lpa_utils.laser import add_laser
 # (See the documentation of the function propagate_pulse
 # below for their definition)
 
-show = False  # Whether to show the plots, and check them manually
+show = True  # Whether to show the plots, and check them manually
 
 use_cuda = True
 

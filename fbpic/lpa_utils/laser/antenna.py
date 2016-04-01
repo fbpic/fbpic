@@ -63,36 +63,36 @@ class LaserAntenna( object ):
         r_reg = dr_grid/npr * ( np.arange( Npr ) + 0.5 )
         theta_reg = 2*np.pi/nptheta * np.arange( nptheta )
         rp, thetap = np.meshgrid( r_reg, theta_reg, copy=True)
-        self.r0 = rp.flatten()
+        self.baseline_r = rp.flatten()
         theta0 = thetap.flatten()
         
         # Baseline position of the particles and weights
-        self.x0 = self.r0 * np.cos( theta0 )
-        self.y0 = self.r0 * np.sin( theta0 )
-        self.w = alpha_weights * self.r0 / dr_grid
+        self.baseline_x = self.baseline_r * np.cos( theta0 )
+        self.baseline_y = self.baseline_r * np.sin( theta0 )
+        self.baseline_z = z0_antenna
+        self.w = alpha_weights * self.baseline_r / dr_grid
         # Excursion with respect to the baseline position
+        # (No excursion in z: the particles do not oscillate in this direction)
         self.excursion_x = np.zeros( Ntot )
         self.excursion_y = np.zeros( Ntot )
         # Particle velocities
         self.vx = np.zeros( Ntot )
         self.vy = np.zeros( Ntot )
-
-        # Position and velocity of the antenna
-        self.z_antenna = z0_antenna
-        self.vz_antenna = 0.
+        self.vz = np.zeros( Ntot )
         # If the simulation is performed in a boosted frame,
         # boost these quantities
         if boost is not None:
-            self.z_antenna, = boost.static_length( [ self.z_antenna ] )
-            self.vz_antenna, = boost.velocity( [ self.vz_antenna ] )
+            self.baseline_z, = boost.static_length( [ self.baseline_z ] )
+            self.vz, = boost.velocity( [ self.vz ] )
 
         # Record laser properties
         self.E0 = E0
         self.w0 = w0
         self.k0 = k0
         self.ctau = ctau
-        self.z0 = zf
+        self.z0 = z0
         self.zf = zf
+        self.theta_pol = theta_pol
         self.boost = boost
             
     def halfpush_x( self, dt ):
@@ -111,9 +111,8 @@ class LaserAntenna( object ):
         # Push transverse particle positions (element-wise array operation)
         self.excursion_x += hdt * self.vx
         self.excursion_y += hdt * self.vy
-
-        # Move position of the antenna
-        self.z_antenna += hdt * self.vz_antenna
+        # Move the position of the antenna (element-wise array operation)
+        self.baseline_z += hdt * self.vz
 
     def update_v( self, t ):
         """
@@ -133,10 +132,10 @@ class LaserAntenna( object ):
         if self.boost is not None:
             gamma0 = self.boost.gamma0
             beta0 = self.boost.beta0
-            z_lab = gamma0*( self.z_antenna - beta0*t )
+            z_lab = gamma0*( self.baseline_z - beta0*t )
             t_lab = gamma0*( t - beta0*self.z_antenna )
         else:
-            z_lab = self.z_antenna
+            z_lab = self.baseline_z
             t_lab = t
 
         # Calculate the electric field to be emitted (in the lab-frame)
@@ -146,7 +145,7 @@ class LaserAntenna( object ):
         # the excursion is typically small and because virtual negative and
         # positive particles have opposite excursion which would require 
         # calling this function twice.
-        Eu = self.E0 * gaussian_profile( z_lab, self.r0, t_lab,
+        Eu = self.E0 * gaussian_profile( z_lab, self.baseline_r, t_lab,
                         self.w0, self.ctau, self.z0, self.zf,
                         self.k0, boost=None, output_Ez_profile=False )
 

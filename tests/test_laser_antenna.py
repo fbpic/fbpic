@@ -12,7 +12,7 @@ $ python tests/test_fields.py
 
 In order to let Python check the agreement between the curve without
 having to look at the plots
-$ py.test -q tests/test_fields.py
+$ py.test -q tests/test_laser_antenna.py
 or
 $ python setup.py test
 """
@@ -23,7 +23,7 @@ from fbpic.lpa_utils.laser import add_laser
 
 # Parameters
 # ----------
-show = False  # Whether to show the plots, and check them manually
+show = True  # Whether to show the plots, and check them manually
 
 use_cuda = True
 

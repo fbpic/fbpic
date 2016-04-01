@@ -19,10 +19,11 @@ def gaussian_profile( z, r, t, w0, ctau, z0, zf, k0,
         
     Parameters
     ----------
-    z, r: float or array (meters)
+    z, r: 1darrays or 2darrays (meters)
         The positions at which to calculate the profile
         (if these positions are boosted-frame positions,
         a boost object needs to be passed)
+        Both arrays should have the same shape
 
     t: float (seconds)
         The time at which to calculate the profile
@@ -39,16 +40,22 @@ def gaussian_profile( z, r, t, w0, ctau, z0, zf, k0,
 
     # Calculate the laser waist and curvature in the pulse (2d arrays)
     waist = w0*np.sqrt( 1+( (z-zf) /zr)**2 )
-    R = (z-zf)*( 1 + (zr/(z-zf))**2 )
+    # Calculate the curvature (avoid division by 0)
+    z_minus_zf = np.where( z-zf != 0, (z-zf), np.nan )
+    R = (z-zf)*( 1 + (zr/z_minus_zf)**2 )
     # Convert the curvature, when running a simulation in the boosted frame
     if boost is not None:
         R, = boost.curvature([ R ])
+    # Calculate the inverse of the curvature and correct the NaNs where
+    # there was potential division by 0 (in these cases inv_R is physically 0)
+    inv_R = np.where( z-zf != 0, 1./R, 0. )
 
     # Longitudinal and transverse profile
     long_profile = np.exp( -(z-c*prop*t-z0)**2/ctau**2 )
     trans_profile_Eperp = w0/waist * np.exp( -(r/waist)**2 )
     # Curvature and laser oscillations (cos part)
-    propag_phase = np.arctan((z-zf)/zr) - k0*r**2/(2*R) - k0*(z-c*prop*t-zf)
+    propag_phase = np.arctan((z-zf)/zr) - 0.5*k0*r**2*inv_R \
+      - k0*(z-c*prop*t-zf)
     curvature_oscillations_cos = np.cos( propag_phase )
     # Get the profile for the Ez fields (to ensure div(E) = 0)
     # (This uses the approximation lambda0 << ctau for long_profile )
