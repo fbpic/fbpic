@@ -501,7 +501,7 @@ class ParticleCatcher:
 
         # Register the fields object
         self.fld = fldobject
-        self.dt = fld.dt
+        self.dt = self.fld.dt
         
         # Create a dictionary that contains the correspondance
         # between the particles quantity and array index
