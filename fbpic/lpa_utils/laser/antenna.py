@@ -25,17 +25,17 @@ class LaserAntenna( object ):
 
     def __init__( self, E0, w0, ctau, z0, zf, k0, 
                     theta_pol, z0_antenna, dr_grid, Nr_grid, 
-                    npr=2, Nptheta=4, epsilon=0.01, boost=None ):
+                    npr=2, nptheta=4, epsilon=0.01, boost=None ):
         """
         TO BE COMPLETED
 
         npr: int
            Number of virtual particles along the r axis, per cell
 
-        Nptheta: int
+        nptheta: int
            Number of virtual particles in the theta direction
            (Particles are distributed along a star-pattern with
-           Nptheta arms in the transverse plane)
+           nptheta arms in the transverse plane)
 
         epsilon: float
            Ratio between the maximum transverse excursion of any virtual
@@ -48,20 +48,20 @@ class LaserAntenna( object ):
         # Porportionality coefficient between the weight of a particle
         # and its transverse position (in cylindrical geometry, particles
         # that are further away from the axis have a larger weight)
-        alpha_weights = np.pi / ( 2*npr*epsilon ) * dr_grid / r_e * e
+        alpha_weights = 2*np.pi / ( nptheta*npr*epsilon ) * dr_grid / r_e * e
         # Mobility coefficient: proportionality coefficient between the
         # velocity of the particles and the electric field to be emitted
-        self.mobility_coef = np.pi * dr_grid**2 / ( 2*npr*alpha_weights ) \
-            * epsilon_0 * c
+        self.mobility_coef = 2*np.pi * \
+          dr_grid**2 / ( nptheta*npr*alpha_weights ) * epsilon_0 * c
         if boost is not None:
             self.mobility_coef = self.mobility_coef / boost.gamma0
 
         # Get total number of virtual particles
         Npr = Nr_grid * npr
-        Ntot = Npr * Nptheta
+        Ntot = Npr * nptheta
         # Get the baseline radius and angles of the virtual particles
         r_reg = dr_grid/npr * ( np.arange( Npr ) + 0.5 )
-        theta_reg = 2*np.pi/Nptheta * np.arange( Nptheta )
+        theta_reg = 2*np.pi/nptheta * np.arange( nptheta )
         rp, thetap = np.meshgrid( r_reg, theta_reg, copy=True)
         r0 = rp.flatten()
         theta0 = thetap.flatten()
