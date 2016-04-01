@@ -23,7 +23,18 @@ class BoostedParticleDiagnostic(ParticleDiagnostic):
     """
     Class that writes the particles *in the lab frame*, 
     from a simulation in the boosted frame
-
+    
+    Particles are extracted from the simulation in slices each time step
+    and buffered in memory before writing to disk. On the CPU, slices of 
+    particles are directly selected from the particle arrays of the species.
+    On the GPU, first particles within an area of cells surrounding the 
+    output planes are extracted from the GPU particle arrays and stored in 
+    a smaller GPU array, which is then copied to the CPU for selection.
+    The mechanism of extracting the particles within the outputplane-area
+    on the GPU relies on particle arrays being sorted on the GPU. For the
+    back-transformation to the Lab frame, interpolation in space is applied,
+    but no interpolation for the particle velocities is applied.
+    
     Usage
     -----
     After initialization, the diagnostic is called by using 
