@@ -86,8 +86,13 @@ class LaserAntenna( object ):
             self.z_antenna, = boost.static_length( [ self.z_antenna ] )
             self.vz_antenna, = boost.velocity( [ self.vz_antenna ] )
 
-        # Record laser proerties
+        # Record laser properties
         self.E0 = E0
+        self.w0 = w0
+        self.k0 = k0
+        self.ctau = ctau
+        self.z0 = zf
+        self.zf = zf
         self.boost = boost
             
     def halfpush_x( self, dt ):
@@ -135,11 +140,12 @@ class LaserAntenna( object ):
             t_lab = t
 
         # Calculate the electric field to be emitted (in the lab-frame)
-        # Eu is the amplitude along the polarization angle
+        # Eu is the amplitude along the polarization direction
         r0 = np.sqrt( (self.x0 + self.excursion_x)**2 + \
                       (self.y0 + self.excursion_y)**2 )
-        Eu = self.E0 * gaussian_profile( z_lab, r0, t_lab, w0, ctau,
-            z0, zf, k0, boost=None, output_longitudinal_field=False )
+        Eu = self.E0 * gaussian_profile( z_lab, r0, t_lab,
+                        self.w0, self.ctau, self.z0, self.zf,
+                        self.k0, boost=None, output_longitudinal_field=False )
 
         # Calculate the corresponding velocity. This takes into account
         # lab-frame to boosted-frame conversion, through a modification
