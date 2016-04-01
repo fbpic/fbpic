@@ -9,14 +9,24 @@ def gaussian_profile( z, r, t, w0, ctau, z0, zf, k0,
                       prop=1., boost=None, output_Ez_profile=False ):
     """
     Calculate the profile of a Gaussian pulse
-    (normalized to a maximum amplitude of 1)
+    (normalized to a maximum amplitude of 1):
 
-    If output_Ez_profile is True, then both the profile for Eperp and
-    the profile for Ez are given.
+
     
+    If output_Ez_profile is True, then both the profile for Eperp and
+    the profile for Ez are given. (The field Ez is never 0 when there are
+    transverse variations of the intensity, due to div(E)=0 )
+        
     Parameters
     ----------
-    ## TO BE COMPLETED
+    z, r: float or array (meters)
+        The positions at which to calculate the profile
+        (if these positions are boosted-frame positions,
+        a boost object needs to be passed)
+
+    t: float (seconds)
+        The time at which to calculate the profile
+
     """
     # Calculate the Rayleigh length
     zr = k0*w0**2 / 2.
