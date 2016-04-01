@@ -63,12 +63,12 @@ class LaserAntenna( object ):
         r_reg = dr_grid/npr * ( np.arange( Npr ) + 0.5 )
         theta_reg = 2*np.pi/nptheta * np.arange( nptheta )
         rp, thetap = np.meshgrid( r_reg, theta_reg, copy=True)
-        r0 = rp.flatten()
+        self.r0 = rp.flatten()
         theta0 = thetap.flatten()
         
         # Baseline position of the particles and weights
-        self.x0 = r0 * np.cos( theta0 )
-        self.y0 = r0 * np.sin( theta0 )
+        self.x0 = self.r0 * np.cos( theta0 )
+        self.y0 = self.r0 * np.sin( theta0 )
         self.w = alpha_weights * self.r0 / dr_grid
         # Excursion with respect to the baseline position
         self.excursion_x = np.zeros( Ntot )
@@ -141,11 +141,14 @@ class LaserAntenna( object ):
 
         # Calculate the electric field to be emitted (in the lab-frame)
         # Eu is the amplitude along the polarization direction
-        r0 = np.sqrt( (self.x0 + self.excursion_x)**2 + \
-                      (self.y0 + self.excursion_y)**2 )
-        Eu = self.E0 * gaussian_profile( z_lab, r0, t_lab,
+        # Note that we neglect the excursion of the particles when
+        # calculating the electric field on the particles. This is because
+        # the excursion is typically small and because virtual negative and
+        # positive particles have opposite excursion which would require 
+        # calling this function twice.
+        Eu = self.E0 * gaussian_profile( z_lab, self.r0, t_lab,
                         self.w0, self.ctau, self.z0, self.zf,
-                        self.k0, boost=None, output_longitudinal_field=False )
+                        self.k0, boost=None, output_Ez_profile=False )
 
         # Calculate the corresponding velocity. This takes into account
         # lab-frame to boosted-frame conversion, through a modification
@@ -153,7 +156,7 @@ class LaserAntenna( object ):
         self.vx = ( self.mobility_coef * np.cos(self.theta_pol) ) * Eu
         self.vy = ( self.mobility_coef * np.sin(self.theta_pol) ) * Eu
 
-    def deposit( self ):
+    def deposit( self, fld, fieldtype ):
         """
         TO BE COMPLETED
         """

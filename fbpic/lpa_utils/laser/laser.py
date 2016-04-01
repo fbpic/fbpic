@@ -10,7 +10,7 @@ from .antenna import LaserAntenna
 
 def add_laser( sim, a0, w0, ctau, z0, zf=None, lambda0=0.8e-6,
                theta_pol=0., gamma_boost=None, method='direct',
-               fw_propagating=True, update_spectral=True, z0_antenna=0. ):
+               fw_propagating=True, update_spectral=True, z0_antenna=None ):
     """
     Introduce a linearly-polarized, Gaussian laser in the simulation
     
@@ -68,15 +68,17 @@ def add_laser( sim, a0, w0, ctau, z0, zf=None, lambda0=0.8e-6,
 
     z0_antenna: float, optional (meters)
        Only for the 'antenna' method: initial position (in the lab frame)
-       of the antenna.
+       of the antenna. If not provided, then the z0_antenna is set to zf.
     """
     # Set a number of parameters for the laser
     k0 = 2*np.pi/lambda0
     E0 = a0*m_e*c**2*k0/e      # Amplitude at focus
 
-    # Set default focusing position
+    # Set default focusing position and laser antenna position
     if zf is None:
         zf = z0
+    if z0_antenna is None:
+        z0_antenna = z0
 
     # Prepare the boosted frame converter
     if (gamma_boost is not None) and (fw_propagating==True):
