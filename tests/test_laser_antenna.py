@@ -3,6 +3,12 @@ This test file is part of FB-PIC (Fourier-Bessel Particle-In-Cell).
 
 It tests the injection of a laser by a laser antenna
 
+The laser is emitted from an antenna, and then its 2D profile is
+compared with theory. There is typically a strong influence of the
+longitudinal resolution on the amplitude of the emitted laser:
+below ~30 points per laser wavelength, the emitted a0 can be ~10%
+smaller than the desired value.
+
 Usage :
 -------
 In order to show the images of the laser, and manually check the
@@ -16,21 +22,24 @@ $ py.test -q tests/test_laser_antenna.py
 or
 $ python setup.py test
 """
+import numpy as np
 import matplotlib.pyplot as plt
-from scipy.constants import c
+from scipy.optimize import curve_fit
+from scipy.constants import c, m_e, e
 from fbpic.main import Simulation
 from fbpic.lpa_utils.laser import add_laser
 #from fbpic.openpmd_diag import FieldDiagnostic
 
 # Parameters
 # ----------
-show = True  # Whether to show the plots, and check them manually
+show = True
+# Whether to show the plots, and check them manually
 use_cuda = True
 
 # Simulation box
-Nz = 1200
-zmin = -15.e-6
-zmax = 15.e-6
+Nz = 800
+zmin = -10.e-6
+zmax = 10.e-6
 Nr = 25
 rmax = 20.e-6
 Nm = 2
@@ -41,11 +50,11 @@ ctau = 5.e-6
 a0 = 1.
 z0_antenna = 0.e-6
 zf = 0.e-6
-z0 = - 10.e-6
+z0 = -5.e-6
 # Propagation
-Lprop = 20.e-6
+Lprop = 10.5e-6
 Ntot_step = int(Lprop/(c*dt))
-N_show = 10 # Number of instants in which to show the plots (during propagation)
+N_show = 3 # Number of instants in which to show the plots (during propagation)
 
 def test_laser_antenna(show=False):
     """
@@ -72,25 +81,99 @@ def test_laser_antenna(show=False):
 #        FieldDiagnostic( N_step, sim.fld, comm=None,
 #                 fieldtypes=["rho", "E", "B", "J"] )
 #    ]
-    
+
     # Loop over the iterations
     print('Running the simulation...')
     for it in range(N_show) :
         print 'Diagnostic point %d/%d' %(it, N_show)
+        # Advance the Maxwell equations
+        sim.step( N_step, show_progress=False,
+                  use_true_rho=True )
         # Plot the fields during the simulation
         if show==True :
             plt.clf()
             sim.fld.interp[1].show('Et')
             plt.show()
-        # Advance the Maxwell equations
-        sim.step( N_step, show_progress=False,
-                  use_true_rho=True )
 
-    # Do a fit of a Gaussian laser
-    
+    # Check the transverse E and B field
+    Nz_half = sim.fld.interp[1].Nz/2 + 2
+    z = sim.fld.interp[1].z[Nz_half:-sim.comm.n_guard]
+    r = sim.fld.interp[1].r
+    # Loop through the different fields
+    for fieldtype, info_in_real_part, factor in [ ('Er', True, 2.), \
+                ('Et', False, 2.), ('Br', False, 2.*c), ('Bt', True, 2.*c) ]:
+        # factor correspond to the factor that has to be applied
+        # in order to get a value which is comparable to an electric field
+        # (Because of the definition of the interpolation grid, the )
+        field = getattr(sim.fld.interp[1], fieldtype)\
+                            [Nz_half:-sim.comm.n_guard]
+        print 'Checking %s' %fieldtype
+        check_fields( factor*field, z, r, info_in_real_part )
+        print 'OK'
 
+def check_fields( interp1_complex, z, r, info_in_real_part,
+                    show_difference=False ):
+    """
+    Check the real and imaginary part of the interpolation grid agree
+    with the theory by:
+    - Checking that the part (real or imaginary) that does not
+        carry information is zero
+    - Extracting the a0 from the other part and comparing it
+        to the predicted value
+    - Using the extracted value of a0 to compare the simulated
+      profile with a gaussian profile
+    """
+    # Extract the part that has information
+    if info_in_real_part:
+        interp1 = interp1_complex.real
+        zero_part = interp1_complex.imag
+    else:
+        interp1 = interp1_complex.imag
+        zero_part = interp1_complex.real
 
-    
+    # Control that the part that has no information is 0
+    assert np.allclose( 0., zero_part, atol=1.e-12*interp1.max() )
+
+    # Fit the on-axis profile to extract a0
+    def fit_function(z, a0, z0_phase):
+        # Factor 0.5 due to the definition of the interpolation grid
+        return( gaussian_laser( z, r[0], a0, z0_phase, z0+Lprop) )
+    fit_result = curve_fit( fit_function, z, interp1[:,0],
+                            p0=np.array([a0, z0+Lprop]) )
+    a0_fit, z0_fit = fit_result[0]
+
+    # Check that the a0 agrees within 5% of the predicted value
+    assert abs( abs(a0_fit) - a0 )/a0 < 0.05
+
+    # Calculate predicted fields
+    r2d, z2d = np.meshgrid(r, z)
+    # Factor 0.5 due to the definition of the interpolation grid
+    interp1_predicted = gaussian_laser( z2d, r2d, a0_fit, z0_fit,
+                                            z0+Lprop )
+    # Plot the difference
+    if show_difference:
+        plt.subplot(311)
+        plt.imshow( interp1.T )
+        plt.colorbar()
+        plt.subplot(312)
+        plt.imshow( interp1_predicted.T )
+        plt.colorbar()
+        plt.subplot(313)
+        plt.imshow( (interp1_predicted - interp1).T )
+        plt.colorbar()
+        plt.show()
+    # Control the values (with a precision of 1%)
+    assert np.allclose( interp1_predicted, interp1, atol=3.e-2*interp1.max() )
+
+def gaussian_laser( z, r, a0, z0_phase, z0_prop ):
+    """
+    Returns a Gaussian laser profile
+    """
+    lambda0 = 0.8e-6
+    k0 = 2*np.pi/lambda0
+    E0 = a0*m_e*c**2*k0/e
+    return( E0*np.exp( -r**2/w0**2 - (z-z0_prop)**2/ctau**2 ) \
+                *np.cos( k0*(z-z0_phase) ) )
 
 if __name__ == '__main__' :
 
