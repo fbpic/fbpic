@@ -22,11 +22,13 @@ class LaserAntenna( object ):
     The excursion of the negative particles is the opposite.
     But then both negative and positive particles deposit current
 
+    Say it is always done with linear shape
+    
     Every operation is done on the CPU
     
     """
     def __init__( self, E0, w0, ctau, z0, zf, k0, 
-                    theta_pol, z0_antenna, dr_grid, Nr_grid, 
+                    theta_pol, z0_antenna, dr_grid, Nr_grid, Nm, 
                     npr=2, nptheta=4, epsilon=0.01, boost=None ):
         """
         TO BE COMPLETED
@@ -97,7 +99,15 @@ class LaserAntenna( object ):
         self.zf = zf
         self.theta_pol = theta_pol
         self.boost = boost
-            
+
+        # Initialize small-size buffers where the particles charge and currents
+        # will be deposited before being added to the regular, large-size array
+        # (esp. useful when running on GPU, for memory transfer)
+        self.rho_buffer = np.empty( (Nm, 2, Nr_grid), dtype='complex' )
+        self.Jr_buffer = np.empty( (Nm, 2, Nr_grid), dtype='complex' )
+        self.Jt_buffer = np.empty( (Nm, 2, Nr_grid), dtype='complex' )
+        self.Jz_buffer = np.empty( (Nm, 2, Nr_grid), dtype='complex' )
+        
     def halfpush_x( self, dt ):
         """
         Push the position of the virtual particles in the antenna
@@ -143,11 +153,8 @@ class LaserAntenna( object ):
 
         # Calculate the electric field to be emitted (in the lab-frame)
         # Eu is the amplitude along the polarization direction
-        # Note that we neglect the excursion of the particles when
-        # calculating the electric field on the particles. This is because
-        # the excursion is typically small and because virtual negative and
-        # positive particles have opposite excursion which would require 
-        # calling this function twice.
+        # Note that we neglect the (small) excursion of the particles when
+        # calculating the electric field on the particles.
         Eu = self.E0 * gaussian_profile( z_lab, self.baseline_r, t_lab,
                         self.w0, self.ctau, self.z0, self.zf,
                         self.k0, boost=None, output_Ez_profile=False )
@@ -165,8 +172,7 @@ class LaserAntenna( object ):
         This function closely mirrors the deposit function of the regular
         macroparticles, but also introduces a few specific optimization:
         - use the particle velocities instead of the momenta for J
-        - reuse some of the quantities that are valid for both positive
-          and negative virtual particles
+        - deposit the currents and charge into a small-size array
         
         Parameter
         ----------
@@ -183,91 +189,148 @@ class LaserAntenna( object ):
 
         # Shortcut for the list of InterpolationGrid objects
         grid = fld.interp
-        Nm = len(grid)
+
+        # Set the buffers to zero
+        if fieldtype == 'rho':
+            self.rho_buffer[:,:,:] = 0.
+        elif fieldtype == 'J':
+            self.Jr_buffer[:,:,:] = 0.
+            self.Jt_buffer[:,:,:] = 0.
+            self.Jz_buffer[:,:,:] = 0.
 
         # Indices and weights in z:
         # same for both the negative and positive virtual particles
         iz_lower, iz_upper, Sz_lower, Sz_upper = linear_weights(
-            self.baseline_z, grid[0].invdz, grid[0].zmin,
-            grid[0].Nz, direction='z')
+                self.baseline_z, grid[0].invdz, grid[0].zmin,
+                grid[0].Nz, direction='z')
 
-        # Deposit the positive and negative virtual particles successively
+        # Find the z index where the small-size buffers should be added
+        # to the large-size arrays rho, Jr, Jt, Jz
+        iz_min = iz_lower.min()
+        iz_max = iz_upper.max()
+        # Substract from the array of indices in order to find the particle
+        # index within the small-size buffers
+        iz_lower = iz_lower - iz_min
+        iz_upper = iz_upper - iz_min
+
+        # Deposit the charge/current of positive and negative
+        # virtual particles successively, into the small-size buffers
         for q in [-1, 1]:
+            self.deposit_virtual_particles( q, fieldtype, grid,
+                        iz_lower, iz_upper, Sz_lower, Sz_upper )
 
-            # Position of the particles
-            x = self.baseline_x + q*self.excursion_x
-            y = self.baseline_y + q*self.excursion_y
-            vx = q*self.vx
-            vy = q*self.vy
-            w = q*self.w
+        # Copy the small-size buffers into the large-size arrays
+        # (When running on the GPU, this involves copying the
+        # small-size buffers from CPU to GPU)
+        # Since linear shape are used, and since the virtual particles all
+        # have the same z position, iz_max is necessarily equal to iz_min+1
+        assert iz_max == iz_min+1
+        if fieldtype == 'rho':
+            self.copy_rho_buffer( iz_min, grid )
+        elif fieldtype == 'J':
+            self.copy_J_buffer( iz_min, grid )
 
-            # Preliminary arrays for the cylindrical conversion
-            r = np.sqrt( x**2 + y**2 )
-            # Avoid division by 0.
-            invr = 1./np.where( r!=0., r, 1. )
-            cos = np.where( r!=0., x*invr, 1. )
-            sin = np.where( r!=0., y*invr, 0. )
+    def deposit_virtual_particles( self, q, fieldtype, grid,
+                        iz_lower, iz_upper, Sz_lower, Sz_upper ):
+        """
+        TO BE COMPLETED
+        """
+        # Position of the particles
+        x = self.baseline_x + q*self.excursion_x
+        y = self.baseline_y + q*self.excursion_y
+        vx = q*self.vx
+        vy = q*self.vy
+        w = q*self.w
 
-            # Indices and weights in z
-            ir_lower, ir_upper, Sr_lower, Sr_upper, Sr_guard = linear_weights(
-                r, grid[0].invdr, grid[0].rmin, grid[0].Nr, direction='r')
+        # Preliminary arrays for the cylindrical conversion
+        r = np.sqrt( x**2 + y**2 )
+        # Avoid division by 0.
+        invr = 1./np.where( r!=0., r, 1. )
+        cos = np.where( r!=0., x*invr, 1. )
+        sin = np.where( r!=0., y*invr, 0. )
 
-            if fieldtype == 'rho' :
-                # ---------------------------------------
-                # Deposit the charge density mode by mode
-                # ---------------------------------------
-                # Prepare auxiliary matrix
-                exptheta = np.ones( self.Ntot, dtype='complex')
-                # exptheta takes the value exp(im theta) throughout the loop
-                for m in range(Nm) :
-                    # Increment exptheta (notice the + : forward transform)
-                    if m==1 :
-                        exptheta[:].real = cos
-                        exptheta[:].imag = sin
-                    elif m>1 :
-                        exptheta[:] = exptheta*( cos + 1.j*sin )
-                    # Deposit the fields
-                    # (The sign -1 with which the guards are added is not
-                    # trivial to derive but avoids artifacts on the axis)
-                    deposit_field_numba( w*exptheta, grid[m].rho,
+        # Indices and weights in z
+        ir_lower, ir_upper, Sr_lower, Sr_upper, Sr_guard = linear_weights(
+            r, grid[0].invdr, grid[0].rmin, grid[0].Nr, direction='r')
+
+        if fieldtype == 'rho' :
+            # ---------------------------------------
+            # Deposit the charge density mode by mode
+            # ---------------------------------------
+            # Prepare auxiliary matrix
+            exptheta = np.ones( self.Ntot, dtype='complex')
+            # exptheta takes the value exp(im theta) throughout the loop
+            for m in range( len(grid) ) :
+                # Increment exptheta (notice the + : forward transform)
+                if m==1 :
+                    exptheta[:].real = cos
+                    exptheta[:].imag = sin
+                elif m>1 :
+                    exptheta[:] = exptheta*( cos + 1.j*sin )
+                # Deposit the fields into small-size buffer arrays
+                # (The sign -1 with which the guards are added is not
+                # trivial to derive but avoids artifacts on the axis)
+                deposit_field_numba( w*exptheta, self.rho_buffer[m,:],
+                    iz_lower, iz_upper, Sz_lower, Sz_upper,
+                    ir_lower, ir_upper, Sr_lower, Sr_upper,
+                    -1., Sr_guard )
+
+        elif fieldtype == 'J' :
+            # ----------------------------------------
+            # Deposit the current density mode by mode
+            # ----------------------------------------
+            # Calculate the currents
+            Jr = w * ( cos*vx + sin*vy )
+            Jt = w * ( cos*vy - sin*vx )
+            Jz = w * self.vz
+            # Prepare auxiliary matrix
+            exptheta = np.ones( self.Ntot, dtype='complex')
+            # exptheta takes the value exp(im theta) throughout the loop
+            for m in range( len(grid) ) :
+                # Increment exptheta (notice the + : forward transform)
+                if m==1 :
+                    exptheta[:].real = cos
+                    exptheta[:].imag = sin
+                elif m>1 :
+                    exptheta[:] = exptheta*( cos + 1.j*sin )
+                # Deposit the fields into small-size buffer arrays
+                # (The sign -1 with which the guards are added is not
+                # trivial to derive but avoids artifacts on the axis)
+                deposit_field_numba( Jr*exptheta, self.Jr_buffer[m,:],
+                    iz_lower, iz_upper, Sz_lower, Sz_upper,
+                    ir_lower, ir_upper, Sr_lower, Sr_upper,
+                    -1., Sr_guard )
+                deposit_field_numba( Jt*exptheta, self.Jt_buffer[m,:],
+                    iz_lower, iz_upper, Sz_lower, Sz_upper,
+                    ir_lower, ir_upper, Sr_lower, Sr_upper,
+                    -1., Sr_guard )
+                deposit_field_numba( Jz*exptheta, self.Jz_buffer[m,:],
                         iz_lower, iz_upper, Sz_lower, Sz_upper,
                         ir_lower, ir_upper, Sr_lower, Sr_upper,
                         -1., Sr_guard )
 
-            elif fieldtype == 'J' :
-                # ----------------------------------------
-                # Deposit the current density mode by mode
-                # ----------------------------------------
-                # Calculate the currents
-                Jr = w * ( cos*vx + sin*vy )
-                Jt = w * ( cos*vy - sin*vx )
-                if np.any( self.vz != 0 ):
-                    Jz = w * self.vz
-                else:
-                    Jz = None
-                # Prepare auxiliary matrix
-                exptheta = np.ones( self.Ntot, dtype='complex')
-                # exptheta takes the value exp(im theta) throughout the loop
-                for m in range(Nm) :
-                    # Increment exptheta (notice the + : forward transform)
-                    if m==1 :
-                        exptheta[:].real = cos
-                        exptheta[:].imag = sin
-                    elif m>1 :
-                        exptheta[:] = exptheta*( cos + 1.j*sin )
-                    # Deposit the fields
-                    # (The sign -1 with which the guards are added is not
-                    # trivial to derive but avoids artifacts on the axis)
-                    deposit_field_numba( Jr*exptheta, grid[m].Jr,
-                        iz_lower, iz_upper, Sz_lower, Sz_upper,
-                        ir_lower, ir_upper, Sr_lower, Sr_upper,
-                        -1., Sr_guard )
-                    deposit_field_numba( Jt*exptheta, grid[m].Jt,
-                        iz_lower, iz_upper, Sz_lower, Sz_upper,
-                        ir_lower, ir_upper, Sr_lower, Sr_upper,
-                        -1., Sr_guard )
-                    if Jz is not None:
-                        deposit_field_numba( Jz*exptheta, grid[m].Jz,
-                            iz_lower, iz_upper, Sz_lower, Sz_upper,
-                            ir_lower, ir_upper, Sr_lower, Sr_upper,
-                            -1., Sr_guard )
+    def copy_rho_buffer( self, iz_min, grid ):
+        """
+        TO BE COMPLETED
+        """
+        if type(grid[0].rho) is np.ndarray:
+            # The large-size array rho is on the CPU
+            for m in range( len(grid) ):
+                grid[m].rho[ iz_min:iz_min+2 ] += self.rho_buffer[m]
+        else:
+            # The large-size array rho is on the GPU
+            pass
+
+    def copy_J_buffer( self, iz_min, grid ):
+        """
+        TO BE COMPLETED
+        """
+        if type(grid[0].Jr) is np.ndarray:
+            # The large-size arrays for J are on the CPU
+            for m in range( len(grid) ):
+                grid[m].Jr[ iz_min:iz_min+2 ] += self.Jr_buffer[m]
+                grid[m].Jt[ iz_min:iz_min+2 ] += self.Jt_buffer[m]
+                grid[m].Jz[ iz_min:iz_min+2 ] += self.Jz_buffer[m]
+        else:
+            # The large-size arrays for J are on the GPU
+            pass

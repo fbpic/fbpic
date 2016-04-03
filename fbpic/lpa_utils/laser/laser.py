@@ -94,9 +94,10 @@ def add_laser( sim, a0, w0, ctau, z0, zf=None, lambda0=0.8e-6,
     elif method == 'antenna':
         dr = sim.fld.interp[0].dr
         Nr = sim.fld.interp[0].Nr
+        Nm = sim.fld.Nm
         # Add a laser antenna to the simulation object
         sim.laser_antennas.append( LaserAntenna( E0, w0, ctau, z0, zf,
-                        k0, theta_pol, z0_antenna, dr, Nr, boost=boost ) )
+                        k0, theta_pol, z0_antenna, dr, Nr, Nm, boost=boost ) )
     else:
         raise ValueError('Unknown laser method: %s' %method)
 
