@@ -332,7 +332,7 @@ class LaserAntenna( object ):
         else:
             # The large-size array rho is on the GPU
             # Copy the small-size buffer to the GPU
-            cuda.copy_to_device( self.rho_buffer, to=self.d_rho_buffer )
+            cuda.to_device( self.rho_buffer, to=self.d_rho_buffer )
             # On the GPU: add the small-size buffers to the large-size array
             dim_grid_1d, dim_block_1d = cuda_tpb_bpg_1d( grid[0].Nr, TPB=64 )
             add_rho_to_gpu_array[dim_grid_1d, dim_block_1d]( iz_min,
@@ -351,9 +351,9 @@ class LaserAntenna( object ):
         else:
             # The large-size arrays for J are on the GPU
             # Copy the small-size buffers to the GPU
-            cuda.copy_to_device( self.Jr_buffer, to=self.d_Jr_buffer )
-            cuda.copy_to_device( self.Jt_buffer, to=self.d_Jt_buffer )
-            cuda.copy_to_device( self.Jz_buffer, to=self.d_Jz_buffer )
+            cuda.to_device( self.Jr_buffer, to=self.d_Jr_buffer )
+            cuda.to_device( self.Jt_buffer, to=self.d_Jt_buffer )
+            cuda.to_device( self.Jz_buffer, to=self.d_Jz_buffer )
             # On the GPU: add the small-size buffers to the large-size array
             dim_grid_1d, dim_block_1d = cuda_tpb_bpg_1d( grid[0].Nr, TPB=64 )
             add_J_to_gpu_array[dim_grid_1d, dim_block_1d]( iz_min,

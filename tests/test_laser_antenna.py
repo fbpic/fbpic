@@ -32,7 +32,7 @@ from fbpic.lpa_utils.laser import add_laser
 
 # Parameters
 # ----------
-show = True
+show = False
 # Whether to show the plots, and check them manually
 use_cuda = True
 
