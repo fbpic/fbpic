@@ -11,6 +11,13 @@ from .profiles import gaussian_profile
 from fbpic.particles.utility_methods import linear_weights
 from fbpic.particles.numba_methods import deposit_field_numba
 
+try:
+    from numba import cuda
+    from fbpic.cuda_utils import cuda_tpb_bpg_1d
+    cuda_installed = cuda.is_available()
+except ImportError:
+    cuda_installed = False
+
 class LaserAntenna( object ):
     """
     TO BE COMPLETED
@@ -107,6 +114,11 @@ class LaserAntenna( object ):
         self.Jr_buffer = np.empty( (Nm, 2, Nr_grid), dtype='complex' )
         self.Jt_buffer = np.empty( (Nm, 2, Nr_grid), dtype='complex' )
         self.Jz_buffer = np.empty( (Nm, 2, Nr_grid), dtype='complex' )
+        if cuda_installed:
+            self.d_rho_buffer = cuda.device_array_like( self.rho_buffer )
+            self.d_Jr_buffer = cuda.device_array_like( self.Jr_buffer )
+            self.d_Jt_buffer = cuda.device_array_like( self.Jt_buffer )
+            self.d_Jz_buffer = cuda.device_array_like( self.Jz_buffer )
         
     def halfpush_x( self, dt ):
         """
@@ -319,7 +331,12 @@ class LaserAntenna( object ):
                 grid[m].rho[ iz_min:iz_min+2 ] += self.rho_buffer[m]
         else:
             # The large-size array rho is on the GPU
-            pass
+            # Copy the small-size buffer to the GPU
+            cuda.copy_to_device( self.rho_buffer, to=self.d_rho_buffer )
+            # On the GPU: add the small-size buffers to the large-size array
+            dim_grid_1d, dim_block_1d = cuda_tpb_bpg_1d( grid[0].Nr, TPB=64 )
+            add_rho_to_gpu_array[dim_grid_1d, dim_block_1d]( iz_min,
+                            self.d_rho_buffer, grid[0].rho, grid[1].rho ) 
 
     def copy_J_buffer( self, iz_min, grid ):
         """
@@ -333,4 +350,55 @@ class LaserAntenna( object ):
                 grid[m].Jz[ iz_min:iz_min+2 ] += self.Jz_buffer[m]
         else:
             # The large-size arrays for J are on the GPU
-            pass
+            # Copy the small-size buffers to the GPU
+            cuda.copy_to_device( self.Jr_buffer, to=self.d_Jr_buffer )
+            cuda.copy_to_device( self.Jt_buffer, to=self.d_Jt_buffer )
+            cuda.copy_to_device( self.Jz_buffer, to=self.d_Jz_buffer )
+            # On the GPU: add the small-size buffers to the large-size array
+            dim_grid_1d, dim_block_1d = cuda_tpb_bpg_1d( grid[0].Nr, TPB=64 )
+            add_J_to_gpu_array[dim_grid_1d, dim_block_1d]( iz_min,
+                    self.d_Jr_buffer, self.d_Jt_buffer, self.d_Jz_buffer,
+                    grid[0].Jr, grid[1].Jr, grid[0].Jt, grid[1].Jt,
+                    grid[0].Jz, grid[1].Jz ) 
+if cuda_installed:
+
+    @cuda.jit()
+    def add_rho_to_gpu_array( iz_min, rho_buffer, rho0, rho1 ):
+        """
+        TO BE COMPLETED
+        """
+        # Use one thread per radial cell
+        ir = cuda.grid(1)
+
+        # Add the values
+        if ir < rho0.shape[1]:
+            rho0[iz_min, ir] += rho_buffer[0, 0, ir]
+            rho0[iz_min+1, ir] += rho_buffer[0, 1, ir]
+            rho1[iz_min, ir] += rho_buffer[1, 0, ir]
+            rho1[iz_min+1, ir] += rho_buffer[1, 1, ir]
+
+    @cuda.jit()
+    def add_J_to_gpu_array( iz_min, Jr_buffer, Jt_buffer, Jz_buffer,
+            Jr0, Jr1, Jt0, Jt1, Jz0, Jz1 ):
+        """
+        TO BE COMPLETED
+        """
+        # Use one thread per radial cell
+        ir = cuda.grid(1)
+
+        # Add the values
+        if ir < Jr0.shape[1]:
+            Jr0[iz_min, ir] += Jr_buffer[0, 0, ir]
+            Jr0[iz_min+1, ir] += Jr_buffer[0, 1, ir]
+            Jr1[iz_min, ir] += Jr_buffer[1, 0, ir]
+            Jr1[iz_min+1, ir] += Jr_buffer[1, 1, ir]
+
+            Jt0[iz_min, ir] += Jt_buffer[0, 0, ir]
+            Jt0[iz_min+1, ir] += Jt_buffer[0, 1, ir]
+            Jt1[iz_min, ir] += Jt_buffer[1, 0, ir]
+            Jt1[iz_min+1, ir] += Jt_buffer[1, 1, ir]
+
+            Jz0[iz_min, ir] += Jz_buffer[0, 0, ir]
+            Jz0[iz_min+1, ir] += Jz_buffer[0, 1, ir]
+            Jz1[iz_min, ir] += Jz_buffer[1, 0, ir]
+            Jz1[iz_min+1, ir] += Jz_buffer[1, 1, ir]
