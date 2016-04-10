@@ -48,8 +48,7 @@ it from [here](https://www.continuum.io/downloads).
 
 - `cd` into the top folder of `fbpic` and install the dependencies:  
 ```
-conda install --file re
-quirements.txt
+conda install --file requirements.txt
 ```
 - Install `pyfftw` (not in the standard Anaconda channels, and thus it
 requires a special command):  
