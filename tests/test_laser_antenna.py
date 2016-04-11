@@ -13,7 +13,7 @@ Usage :
 -------
 In order to show the images of the laser, and manually check the
 agreement between the simulation and the theory:
-$ python tests/test_fields.py
+$ python tests/test_laser_antenna.py
 (except when setting show to False in the parameters below)
 
 In order to let Python check the agreement between the curve without
@@ -28,11 +28,12 @@ from scipy.optimize import curve_fit
 from scipy.constants import c, m_e, e
 from fbpic.main import Simulation
 from fbpic.lpa_utils.laser import add_laser
-#from fbpic.openpmd_diag import FieldDiagnostic
+from fbpic.openpmd_diag import FieldDiagnostic
 
 # Parameters
 # ----------
-show = False
+show = True
+write_files = True
 # Whether to show the plots, and check them manually
 use_cuda = True
 
@@ -41,11 +42,11 @@ Nz = 800
 zmin = -10.e-6
 zmax = 10.e-6
 Nr = 25
-rmax = 20.e-6
+rmax = 100.e-6
 Nm = 2
 dt = (zmax-zmin)/Nz/c
 # Laser pulse
-w0 = 8.e-6
+w0 = 32.e-6
 ctau = 5.e-6
 a0 = 1.
 z0_antenna = 0.e-6
@@ -56,44 +57,75 @@ Lprop = 10.5e-6
 Ntot_step = int(Lprop/(c*dt))
 N_show = 3 # Number of instants in which to show the plots (during propagation)
 
-def test_laser_antenna(show=False):
+# The boost in the case of the boosted frame run
+gamma_boost = 2.
+
+def test_antenna_labframe(show=False, write_files=False):
     """
     Function that is run by py.test, when doing `python setup.py test`
-    Test the emission of a laser by an antenna
+    Test the emission of a laser by an antenna, in the lab frame
+    """
+    run_and_check_laser_antenna(None, show, write_files)
+
+def test_antenna_boostedframe(show=False, write_files=False):
+    """
+    Function that is run by py.test, when doing `python setup.py test`
+    Test the emission of a laser by an antenna, in the boosted frame
+    """
+    run_and_check_laser_antenna(gamma_boost, show, write_files)
+
+def run_and_check_laser_antenna(gamma_b, show, write_files):
+    """
+    Generic function, which runs and check the laser antenna for 
+    both boosted frame and lab frame
+
+    Parameters
+    ----------
+    gamma_b: float or None
+        The Lorentz factor of the boosted frame
+
+    show: bool
+        Whether to show the images of the laser as pop-up windows
+
+    write_files: bool
+        Whether to output openPMD data of the laser
     """
     # Initialize the simulation object
     sim = Simulation( Nz, zmax, Nr, rmax, Nm, dt, p_zmin=0, p_zmax=0,
                     p_rmin=0, p_rmax=0, p_nz=2, p_nr=2, p_nt=2, n_e=0.,
-                    zmin=zmin, use_cuda=use_cuda, boundaries='open' )
+                    zmin=zmin, use_cuda=use_cuda, boundaries='open',
+                    gamma_boost=gamma_b)
 
     # Remove the particles
     sim.ptcl = []
 
     # Add the laser
     add_laser( sim, a0, w0, ctau, z0, zf=zf,
-        method='antenna', z0_antenna=z0_antenna )
+        method='antenna', z0_antenna=z0_antenna, gamma_boost=gamma_b)
 
     # Calculate the number of steps between each output
     N_step = int( round( Ntot_step/N_show ) )
 
-#    # Add diagnostic
-#    sim.diags = [
-#        FieldDiagnostic( N_step, sim.fld, comm=None,
-#                 fieldtypes=["rho", "E", "B", "J"] )
-#    ]
+    # Add diagnostic
+    if write_files:
+        sim.diags = [
+            FieldDiagnostic( N_step, sim.fld, comm=None,
+                             fieldtypes=["rho", "E", "B", "J"] )
+            ]
 
     # Loop over the iterations
     print('Running the simulation...')
     for it in range(N_show) :
         print 'Diagnostic point %d/%d' %(it, N_show)
         # Advance the Maxwell equations
-        sim.step( N_step, show_progress=False,
-                  use_true_rho=True )
+        sim.step( N_step, show_progress=False )
         # Plot the fields during the simulation
         if show==True :
             plt.clf()
             sim.fld.interp[1].show('Et')
             plt.show()
+    # Finish the remaining iterations
+    sim.step( Ntot_step - N_show*N_step, show_progress=True )
 
     # Check the transverse E and B field
     Nz_half = sim.fld.interp[1].Nz/2 + 2
@@ -177,5 +209,6 @@ def gaussian_laser( z, r, a0, z0_phase, z0_prop ):
 
 if __name__ == '__main__' :
 
-    # Run the testing function
-    test_laser_antenna(show=show)
+    # Run the testing functions
+    test_antenna_labframe(show, write_files)
+    test_antenna_boostedframe(show, write_files)
