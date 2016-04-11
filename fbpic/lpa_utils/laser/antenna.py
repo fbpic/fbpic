@@ -157,8 +157,9 @@ class LaserAntenna( object ):
         if self.boost is not None:
             gamma0 = self.boost.gamma0
             beta0 = self.boost.beta0
-            z_lab = gamma0*( self.baseline_z - beta0*t )
-            t_lab = gamma0*( t - beta0*self.baseline_z )
+            inv_c = 1./c
+            z_lab = gamma0*( self.baseline_z + c*beta0*t )
+            t_lab = gamma0*( t + inv_c*beta0*self.baseline_z )
         else:
             z_lab = self.baseline_z
             t_lab = t
