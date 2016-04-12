@@ -82,6 +82,8 @@ class LaserAntenna( object ):
         self.baseline_x = self.baseline_r * np.cos( theta0 )
         self.baseline_y = self.baseline_r * np.sin( theta0 )
         self.baseline_z = z0_antenna * np.ones( Ntot )
+        # NB: all virtual particles have the same baseline_z, but for
+        # convenient reuse of other functions, baseline_z is still an array
         self.w = alpha_weights * self.baseline_r / dr_grid
         # Excursion with respect to the baseline position
         # (No excursion in z: the particles do not oscillate in this direction)
@@ -178,7 +180,7 @@ class LaserAntenna( object ):
         self.vx = ( self.mobility_coef * np.cos(self.theta_pol) ) * Eu
         self.vy = ( self.mobility_coef * np.sin(self.theta_pol) ) * Eu
 
-    def deposit( self, fld, fieldtype ):
+    def deposit( self, fld, fieldtype, comm ):
         """
         Deposit the charge or current of the virtual particles onto the grid
 
@@ -196,9 +198,24 @@ class LaserAntenna( object ):
         fieldtype : string
              Indicates which field to deposit
              Either 'J' or 'rho'
+
+        comm : a BoundaryCommunicator object
+             Allows to extract the boundaries of the physical domain
         """
-        # TO BE COMPLETED
-        # Check if z_antenna is in the current physical domain
+        # Check if baseline_z is in the local physical domain
+        # (This prevents out-of-bounds errors, and prevents 2 neighboring
+        # processors from simultaneously depositing the laser antenna)
+        zmin_local = fld.interp[0].zmin
+        zmax_local = fld.interp[0].zmax
+        # If a communicator is provided, remove the guard cells
+        if comm is not None:
+            dz = fld.interp[0].dz
+            zmin_local += dz*comm.n_guard
+            zmax_local -= dz*comm.n_guard
+        # Interrupt this function if the antenna is not in the local domain
+        z_antenna = self.baseline_z[0]
+        if (z_antenna < zmin_local) or (z_antenna >= zmax_local):
+            return
 
         # Shortcut for the list of InterpolationGrid objects
         grid = fld.interp
