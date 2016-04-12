@@ -29,6 +29,7 @@ from scipy.constants import c, m_e, e
 from fbpic.main import Simulation
 from fbpic.lpa_utils.laser import add_laser
 from fbpic.openpmd_diag import FieldDiagnostic
+from fbpic.lpa_utils.boosted_frame import BoostConverter
 
 # Parameters
 # ----------
@@ -42,11 +43,11 @@ Nz = 800
 zmin = -10.e-6
 zmax = 10.e-6
 Nr = 25
-rmax = 100.e-6
+rmax = 400.e-6
 Nm = 2
 dt = (zmax-zmin)/Nz/c
 # Laser pulse
-w0 = 32.e-6
+w0 = 128.e-6
 ctau = 5.e-6
 a0 = 1.
 z0_antenna = 0.e-6
@@ -58,7 +59,7 @@ Ntot_step = int(Lprop/(c*dt))
 N_show = 3 # Number of instants in which to show the plots (during propagation)
 
 # The boost in the case of the boosted frame run
-gamma_boost = 2.
+gamma_boost = 10.
 
 def test_antenna_labframe(show=False, write_files=False):
     """
@@ -125,7 +126,7 @@ def run_and_check_laser_antenna(gamma_b, show, write_files):
             sim.fld.interp[1].show('Et')
             plt.show()
     # Finish the remaining iterations
-    sim.step( Ntot_step - N_show*N_step, show_progress=True )
+    sim.step( Ntot_step - N_show*N_step, show_progress=False )
 
     # Check the transverse E and B field
     Nz_half = sim.fld.interp[1].Nz/2 + 2
@@ -140,10 +141,10 @@ def run_and_check_laser_antenna(gamma_b, show, write_files):
         field = getattr(sim.fld.interp[1], fieldtype)\
                             [Nz_half:-sim.comm.n_guard]
         print 'Checking %s' %fieldtype
-        check_fields( factor*field, z, r, info_in_real_part )
+        check_fields( factor*field, z, r, info_in_real_part, gamma_b )
         print 'OK'
 
-def check_fields( interp1_complex, z, r, info_in_real_part,
+def check_fields( interp1_complex, z, r, info_in_real_part, gamma_b,
                     show_difference=False ):
     """
     Check the real and imaginary part of the interpolation grid agree
@@ -164,14 +165,22 @@ def check_fields( interp1_complex, z, r, info_in_real_part,
         zero_part = interp1_complex.real
 
     # Control that the part that has no information is 0
-    assert np.allclose( 0., zero_part, atol=1.e-12*interp1.max() )
+    assert np.allclose( 0., zero_part, atol=1.e-6*interp1.max() )
 
+    # Get the predicted properties of the laser in the boosted frame
+    if gamma_b is None:
+        boost = BoostConverter(1.)
+    else:
+        boost = BoostConverter(gamma_b)
+    ctau_b, lambda0_b, Lprop_b, z0_b = \
+        boost.copropag_length([ctau, 0.8e-6, Lprop, z0])
+    
     # Fit the on-axis profile to extract a0
     def fit_function(z, a0, z0_phase):
-        # Factor 0.5 due to the definition of the interpolation grid
-        return( gaussian_laser( z, r[0], a0, z0_phase, z0+Lprop) )
+        return( gaussian_laser( z, r[0], a0, z0_phase, 
+                                z0_b+Lprop_b, ctau_b, lambda0_b ) )
     fit_result = curve_fit( fit_function, z, interp1[:,0],
-                            p0=np.array([a0, z0+Lprop]) )
+                            p0=np.array([a0, z0_b+Lprop_b]) )
     a0_fit, z0_fit = fit_result[0]
 
     # Check that the a0 agrees within 5% of the predicted value
@@ -181,7 +190,7 @@ def check_fields( interp1_complex, z, r, info_in_real_part,
     r2d, z2d = np.meshgrid(r, z)
     # Factor 0.5 due to the definition of the interpolation grid
     interp1_predicted = gaussian_laser( z2d, r2d, a0_fit, z0_fit,
-                                            z0+Lprop )
+                                        z0_b+Lprop_b, ctau_b, lambda0_b )
     # Plot the difference
     if show_difference:
         plt.subplot(311)
@@ -194,14 +203,13 @@ def check_fields( interp1_complex, z, r, info_in_real_part,
         plt.imshow( (interp1_predicted - interp1).T )
         plt.colorbar()
         plt.show()
-    # Control the values (with a precision of 1%)
+    # Control the values (with a precision of 3%)
     assert np.allclose( interp1_predicted, interp1, atol=3.e-2*interp1.max() )
 
-def gaussian_laser( z, r, a0, z0_phase, z0_prop ):
+def gaussian_laser( z, r, a0, z0_phase, z0_prop, ctau, lambda0 ):
     """
     Returns a Gaussian laser profile
     """
-    lambda0 = 0.8e-6
     k0 = 2*np.pi/lambda0
     E0 = a0*m_e*c**2*k0/e
     return( E0*np.exp( -r**2/w0**2 - (z-z0_prop)**2/ctau**2 ) \
