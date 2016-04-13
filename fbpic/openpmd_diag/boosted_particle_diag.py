@@ -220,7 +220,6 @@ class BoostedParticleDiagnostic(ParticleDiagnostic):
             and the integer index in the particle_array
         """
         # Open the file without parallel I/O in this implementation
-
         f = self.open_file(snapshot.filename)
         particle_path = "/data/%d/particles/%s" %(snapshot.iteration, 
             species_name)
@@ -228,7 +227,7 @@ class BoostedParticleDiagnostic(ParticleDiagnostic):
 
         # Loop over the different quantities that should be written
         for particle_var in self.particle_data:
-            # Scalar field
+
             if particle_var == "position":
                 for coord in ["x","y","z"]:
                     quantity= coord
@@ -236,8 +235,6 @@ class BoostedParticleDiagnostic(ParticleDiagnostic):
                     data = particle_array[ p2i[ quantity ] ]
                     self.write_particle_slices(species_grp, path, data, 
                         quantity)
-                self.setup_openpmd_species_record(species_grp[particle_var], 
-                    particle_var)
      
             elif particle_var == "momentum":
                 for coord in ["x","y","z"]:
@@ -246,8 +243,6 @@ class BoostedParticleDiagnostic(ParticleDiagnostic):
                     data = particle_array[ p2i[ quantity ] ]
                     self.write_particle_slices( species_grp, path, data,
                         quantity)
-                self.setup_openpmd_species_record(species_grp[particle_var], 
-                    particle_var)
                 
             elif particle_var == "weighting":
                quantity= "w"
@@ -255,8 +250,6 @@ class BoostedParticleDiagnostic(ParticleDiagnostic):
                data = particle_array[ p2i[ quantity ] ]
                self.write_particle_slices(species_grp, path, data,
                     quantity)
-               self.setup_openpmd_species_record(species_grp[particle_var], 
-                    particle_var)
             
         # Close the file
         f.close()
@@ -298,7 +291,6 @@ class BoostedParticleDiagnostic(ParticleDiagnostic):
 
         # Setup the different layers of the openPMD file
         # (f is None if this processor does not participate is writing data)
-
         if f is not None:
 
             # Setup the attributes of the top level of the file
@@ -426,14 +418,14 @@ class LabSnapshot:
         """
         # Some shorcuts for further calculation's purposes
         t_lab = self.t_lab  
-        t_boost_diff = t_boost - self.dt
+        t_boost_prev = t_boost - self.dt
 
         # This implements the Lorentz transformation formulas,
         # for a snapshot having a fixed t_lab
         self.current_z_boost = (t_lab*inv_gamma - t_boost)*c*inv_beta
-        self.prev_z_boost = (t_lab*inv_gamma - t_boost_diff)*c*inv_beta     
+        self.prev_z_boost = (t_lab*inv_gamma - t_boost_prev)*c*inv_beta     
         self.current_z_lab = (t_lab - t_boost*inv_gamma)*c*inv_beta
-        self.prev_z_lab = (t_lab - t_boost_diff*inv_gamma)*c*inv_beta
+        self.prev_z_lab = (t_lab - t_boost_prev*inv_gamma)*c*inv_beta
     
     def register_slice( self, slice_array, species ):
         """
@@ -490,7 +482,7 @@ class ParticleCatcher:
             The Fields object of the simulation, that is needed to
             extract some information about the grid
         """
-        # Some attributes neccessary for particle selections
+        # Some attributes necessary for particle selections
         self.gamma_boost = gamma_boost
         self.beta_boost = beta_boost
 
@@ -534,8 +526,8 @@ class ParticleCatcher:
             particles.
         """
         # Get a dictionary containing the particle data
-		# When running on the GPU, this only copies to CPU the particles 
-		# within a small area around the output plane.
+        # When running on the GPU, this only copies to CPU the particles 
+        # within a small area around the output plane.
         particle_data = self.get_particle_data( species, 
                             current_z_boost, previous_z_boost, t )
 
@@ -761,7 +753,6 @@ class ParticleCatcher:
             + gamma*(self.beta_boost*self.gamma_boost)
 
         # Write the modified quantities to slice_array
-        # and adapt to openPMD standard (u * m_e * c)
         slice_array[p2i['x'],:] = x
         slice_array[p2i['y'],:] = y
         slice_array[p2i['z'],:] = z_lab
