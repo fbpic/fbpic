@@ -554,14 +554,10 @@ class ParticleCatcher:
         # one way to optimize it would be to do the selection before Lorentz
         # transformation back to the lab frame
         if (select is not None) and slice_array.size:
+            # Find the particles that should be selected
             select_array = self.apply_selection(select, slice_array)
-            row, column =  np.where(select_array==True)
-            temp_slice_array = slice_array[row,column]
-            # Temp_slice_array is a 1D numpy array, we reshape it so that it 
-            # has the same size as slice_array
-            slice_array = np.reshape(
-                temp_slice_array,(np.shape(
-                    self.particle_to_index.keys())[0],-1))
+            # Keep only those particles in slice_array
+            slice_array = slice_array[:, select_array]
 
         # Convert data to the OpenPMD standard
         slice_array = self.apply_opmd_standard( slice_array, species )
@@ -812,20 +808,21 @@ class ParticleCatcher:
         select : a dictionary that defines all selection rules based
         on the quantities
 
-        slice_array : 2D array of floats
-            Contains the particle slice data to output.
+        slice_array: 2d array of floats
+           An array of shape (7, num_part) which contains the particle slice 
+           data, from which particle data is to be further selected 
+           according to `select`
 
         Returns
         -------
-        select_array : 1D array of bools
-            A 1d array of the same shape as that particle array
-            containing True for the particles that satify all
-            the rules of select
+        select_array: 1darray of bools
+            A 1darray of shape (num_part,) containing True for the particles 
+            that satisfy all the rules of select.
         """
         p2i = self.particle_to_index
 
         # Initialize an array filled with True
-        select_array = np.ones( np.shape(slice_array), dtype = 'bool' )
+        select_array = np.ones( np.shape(slice_array)[1], dtype='bool' )
 
         # Apply the rules successively
         # Go through the quantities on which a rule applies
