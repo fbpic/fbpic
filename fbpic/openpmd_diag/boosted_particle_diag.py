@@ -111,7 +111,7 @@ class BoostedParticleDiagnostic(ParticleDiagnostic):
 
         # Create the ParticleCatcher object
         # (This object will extract the particles (slices) that crossed the 
-        # output plane during the last iteration.)
+        # output plane at each iteration.)
         self.particle_catcher = ParticleCatcher(
             self.gamma_boost, self.beta_boost, self.fld )
 
@@ -144,11 +144,6 @@ class BoostedParticleDiagnostic(ParticleDiagnostic):
         # Find the limits of the local subdomain at this iteration
         zmin_boost = self.fld.interp[0].zmin
         zmax_boost = self.fld.interp[0].zmax
-        # If a communicator is provided, remove the guard cells
-        if self.comm is not None:
-            dz = self.fld.interp[0].dz
-            zmin_boost += dz*self.comm.n_guard
-            zmax_boost -= dz*self.comm.n_guard
 
         # Extract the current time in the boosted frame
         time = iteration * self.dt
@@ -378,14 +373,14 @@ class LabSnapshot:
         t_lab: float (seconds)
             Time of this snapshot *in the lab frame*
             
-        zmin_lab, zmax_lab: floats
+        zmin_lab, zmax_lab: floats (meters)
             Longitudinal limits of this snapshot
 
         write_dir: string
             Absolute path to the directory where the data for
             this snapshot is to be written
 
-        dt : float
+        dt : float (s)
             The timestep of the simulation in the boosted frame
 
         i: int
@@ -524,7 +519,7 @@ class ParticleCatcher:
             Current and previous position of the output plane
             in the boosted frame
 
-        t : float
+        t : float (s)
             Current time of the simulation in the boosted frame
 
         select : dict 
@@ -539,6 +534,8 @@ class ParticleCatcher:
             particles.
         """
         # Get a dictionary containing the particle data
+		# When running on the GPU, this only copies to CPU the particles 
+		# within a small area around the output plane.
         particle_data = self.get_particle_data( species, 
                             current_z_boost, previous_z_boost, t )
 
@@ -589,12 +586,12 @@ class ParticleCatcher:
             Current and previous position of the output plane
             in the boosted frame
 
-        t : float
+        t : float (s)
             Current time of the simulation in the boosted frame
 
         Returns
         -------
-        particle_data : A dictionary of reals
+        particle_data : A dictionary of 1D float arrays
             A dictionary that contains the particle data of 
             the simulation (with normalized weigths).
         """
@@ -609,7 +606,7 @@ class ParticleCatcher:
         else:
             # Check if particles are sorted, otherwise raise exception
             if species.sorted == False:
-                raise ValueError('Removing particles: \
+                raise ValueError('Particle boosted-frame diagnostic: \
                  The particles are not sorted!')
             # Precalculating quantities and shortcuts
             dt = self.fld.dt
@@ -639,7 +636,7 @@ class ParticleCatcher:
                      species.x, species.y, species.z,
                      species.ux, species.uy, species.uz,
                      species.w, species.inv_gamma, 
-                     particle_selection, (pref_sum_prev-1))
+                     particle_selection, pref_sum_curr)
                 # Copy GPU array to the host
                 part_data = particle_selection.copy_to_host()
             else:
@@ -721,7 +718,7 @@ class ParticleCatcher:
         current_z_boost : float (m)
             Current position of the output plane in the boosted frame
 
-        t : float
+        t : float (s)
             Current time of the simulation in the boosted frame
 
         Returns
@@ -854,7 +851,7 @@ def extract_particles_from_gpu( x, y, z, ux, uy, uz, w, inv_gamma,
     store them in a 2D array (8, N_part) in the following
     order: x, y, z, ux, uy, uz, w, inv_gamma.
     Selection goes from starting index (part_idx_start) 
-    to (part_idx_start - N_part), where N_part is derived
+    to (part_idx_start + N_part-1), where N_part is derived
     from the shape of the 2D array (selected).
 
     Parameters
@@ -868,14 +865,14 @@ def extract_particles_from_gpu( x, y, z, ux, uy, uz, w, inv_gamma,
     
     part_idx_start : int
         The starting index needed for the extraction process.
-        ( maximum particle index to be extracted )
+        ( minimum particle index to be extracted )
     """
 
     i = cuda.grid(1)
     N_part = selected.shape[1]
  
     if i < N_part:
-        ptcl_idx = part_idx_start-i
+        ptcl_idx = part_idx_start+i
         selected[0, i] = x[ptcl_idx]
         selected[1, i] = y[ptcl_idx]
         selected[2, i] = z[ptcl_idx]
