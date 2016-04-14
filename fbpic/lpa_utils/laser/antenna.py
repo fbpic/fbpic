@@ -20,25 +20,72 @@ except ImportError:
 
 class LaserAntenna( object ):
     """
-    TO BE COMPLETED
+    Class that implements the emission of a laser by an antenna
 
-    EXPLAIN THE VIRTUAL PARTICLES
-    + that they are positive / negative + have opposite motion
+    The antenna produces a current on the grid (in a thin slice along z), which
+    matches the electric field to be emitted, according to the formula
+    j(t) = 2 \epsilon_0 c E_emitted(z0, t)
+    (See the repository fbpic-theory for more details, and for the adaptation
+    of the above formula for boosted frame.)
 
-    By default only the positive particles are stored.
-    The excursion of the negative particles is the opposite.
-    But then both negative and positive particles deposit current
+    This current is produced on the grid by using virtual macroparticles (this
+    ensures that the charge conservation is properly satisfied), whose
+    positions are stored in the LaserAntenna object. The motion of the virtual
+    particles is prescribed, and their charge and currents are deposited
+    at each timestep during the PIC loop.
 
-    Say it is always done with linear shape
-    
-    Every operation is done on the CPU
-    
+    Note that the antenna is made of a set of matching positive and negative
+    macroparticles, which are exactly superimposed when there is no emission,
+    and which have opposite excursions when there is some emission.
+    (Therefore, only the excursion of the positive particles is stored; the
+    excursion of the negative is infered e.g. before depositing their current)
+
+    Since the number of macroparticles is small, both updating their motion
+    and depositing their charge/current is always done on the CPU.
+    For GPU performance, the charge/current are deposited in a small-size array
+    (corresponding to a thin slice in z) which is then transfered to the GPU
+    and added into the full-size array of charge/current. 
     """
     def __init__( self, E0, w0, ctau, z0, zf, k0, 
                     theta_pol, z0_antenna, dr_grid, Nr_grid, Nm, 
                     npr=2, nptheta=4, epsilon=0.01, boost=None ):
         """
-        TO BE COMPLETED
+        Initialize a LaserAntenna object (see class docstring for more info)
+
+        Parameters
+        ----------
+        E0: float (V.m^-1)
+            The amplitude of the the electric field *in the lab frame*
+
+        w0: float (m)
+            The waist of the laser at focus
+
+        ctau: float (m)
+            The duration of the laser *in the lab frame*
+
+        z0: float (m)
+            The initial position of the laser centroid *in the lab frame*
+
+        zf: float (m)
+            The position of the focal plane *in the lab frame*
+
+        k0: float (m^-1)
+            Laser wavevector *in the lab frame*
+
+        theta_pol: float (rad)
+            Polarization angle of the laser 
+
+        z0_antenna: float (m)
+            Initial position of the antenna *in the lab frame*
+
+        dr_grid: float (m)
+           Resolution of the grid which contains the fields
+
+        Nr_grid: int
+           Number of gridpoints radially
+
+        Nm: int
+           Number of azimuthal modes
 
         npr: int
            Number of virtual particles along the r axis, per cell
@@ -54,7 +101,7 @@ class LaserAntenna( object ):
            (i.e. a virtual particle will not move by more than epsilon*dr)
 
         boost: a BoostConverter object or None
-        
+           Contains the information about the boost to be applied
         """
         # Porportionality coefficient between the weight of a particle
         # and its transverse position (in cylindrical geometry, particles
@@ -62,6 +109,7 @@ class LaserAntenna( object ):
         alpha_weights = 2*np.pi / ( nptheta*npr*epsilon ) * dr_grid / r_e * e
         # Mobility coefficient: proportionality coefficient between the
         # velocity of the particles and the electric field to be emitted
+        # (See the fbpic-theory repository for a derivation)
         self.mobility_coef = 2*np.pi * \
           dr_grid**2 / ( nptheta*npr*alpha_weights ) * epsilon_0 * c
         if boost is not None:
@@ -263,7 +311,31 @@ class LaserAntenna( object ):
     def deposit_virtual_particles( self, q, fieldtype, grid,
                         iz_lower, iz_upper, Sz_lower, Sz_upper ):
         """
-        TO BE COMPLETED
+        Deposit the charge/current of the positive (q=+1) or negative
+        (q=-1) virtual macroparticles
+
+        Parameters
+        ----------
+        q: float (either +1 or -1)
+            Indicates whether to deposit the charge/current
+            of the positive or negative virtual macroparticles
+
+        fieldtype: string (either 'rho' or 'J')
+            Indicates whether to deposit the charge or current
+            
+        grid: a list of InterpolationGrid object
+            The grids on which to the deposit the charge/current
+
+        iz_lower, iz_upper: 1darrays of ints
+            Arrays with one element per particles, and which indicate
+            at which index in z *within the small-size arrays* the
+            charge/current of each particle will be deposited
+            (In the case of the laser antenna, these arrays are constant
+            in principle; but they are kept as arrays for compatibility
+            with the deposit_field_numba function.)
+
+        Sz_lower, Sz_upper: 1darrays of floats
+            The corresponding shape factors
         """
         # Position of the particles
         x = self.baseline_x + q*self.excursion_x
@@ -341,7 +413,17 @@ class LaserAntenna( object ):
 
     def copy_rho_buffer( self, iz_min, grid ):
         """
-        TO BE COMPLETED
+        Add the small-size array rho_buffer into the full-size array rho
+
+        Parameters
+        ----------
+        iz_min: int
+            The z index in the full-size array, that corresponds to index 0
+            in the small-size array (i.e. position at which to add the
+            small-size array into the full-size one)
+
+        grid: a list of InterpolationGrid objects
+            Contains the full-size array rho
         """
         if type(grid[0].rho) is np.ndarray:
             # The large-size array rho is on the CPU
@@ -358,7 +440,18 @@ class LaserAntenna( object ):
 
     def copy_J_buffer( self, iz_min, grid ):
         """
-        TO BE COMPLETED
+        Add the small-size arrays Jr_buffer, Jt_buffer, Jz_buffer into
+        the full-size arrays Jr, Jt, Jz
+
+        Parameters
+        ----------
+        iz_min: int
+            The z index in the full-size array, that corresponds to index 0
+            in the small-size array (i.e. position at which to add the
+            small-size array into the full-size one)
+
+        grid: a list of InterpolationGrid objects
+            Contains the full-size array Jr, Jt, Jz
         """
         if type(grid[0].Jr) is np.ndarray:
             # The large-size arrays for J are on the CPU
@@ -377,13 +470,15 @@ class LaserAntenna( object ):
             add_J_to_gpu_array[dim_grid_1d, dim_block_1d]( iz_min,
                     self.d_Jr_buffer, self.d_Jt_buffer, self.d_Jz_buffer,
                     grid[0].Jr, grid[1].Jr, grid[0].Jt, grid[1].Jt,
-                    grid[0].Jz, grid[1].Jz ) 
+                    grid[0].Jz, grid[1].Jz )
+
 if cuda_installed:
 
     @cuda.jit()
     def add_rho_to_gpu_array( iz_min, rho_buffer, rho0, rho1 ):
         """
-        TO BE COMPLETED
+        Add the small-size array rho_buffer into the full-size array rho
+        on the GPU
         """
         # Use one thread per radial cell
         ir = cuda.grid(1)
@@ -399,7 +494,8 @@ if cuda_installed:
     def add_J_to_gpu_array( iz_min, Jr_buffer, Jt_buffer, Jz_buffer,
             Jr0, Jr1, Jt0, Jt1, Jz0, Jz1 ):
         """
-        TO BE COMPLETED
+        Add the small-size arrays Jr_buffer, Jt_buffer, Jz_buffer into
+        the full-size arrays Jr, Jt, Jz on the GPU
         """
         # Use one thread per radial cell
         ir = cuda.grid(1)
