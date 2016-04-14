@@ -58,12 +58,7 @@ conda install matplotlib
 
 pyFFTW needs to be installed from a third-party source:
 `
-conda install -c https://conda.anaconda.org/mforbes pyfftw
-`
-This command typically downgrades the version of numpy, so please type
-afterwards
-`
-conda upgrade numpy
+conda install -c https://conda.anaconda.org/nanshe pyfftw
 `
 
 It is important that the following packages are **NOT** installed directly with Anaconda: `mpich`, `mpi4py`, `hdf5` and `h5py`

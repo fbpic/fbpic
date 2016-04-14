@@ -15,8 +15,7 @@ before_install:
 # Install packages
 install:
   - conda install --yes python=$TRAVIS_PYTHON_VERSION --file requirements.txt
-  - conda install --yes -c https://conda.anaconda.org/mforbes pyfftw
-  - conda upgrade --yes numpy
+  - conda install --yes -c https://conda.anaconda.org/nanshe pyfftw
   - conda install --yes pyflakes
   - python setup.py install
 before_script:

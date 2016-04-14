@@ -50,8 +50,7 @@ conda install --file requirements.txt
 - Install `pyfftw` (not in the standard Anaconda channels, and thus it
 requires a special command):  
 ```
-conda install -c https://conda.anaconda.org/richli pyfftw
-conda upgrade numpy
+conda install -c https://conda.anaconda.org/nanshe pyfftw
 ```
 
 - Install the `accelerate` package in order to be able to run on GPUs

@@ -54,8 +54,7 @@ conda install --file requirements.txt
 - Install `pyfftw` (not in the standard Anaconda channels, and thus it
 requires a special command):  
 ```
-conda install -c https://conda.anaconda.org/richli pyfftw
-conda upgrade numpy
+conda install -c https://conda.anaconda.org/nanshe pyfftw
 ```
 **Important:** Do not use the URL https://conda.anaconda.org/mforbes, since it
 is known to cause bugs on the Titan cluster.
