@@ -202,8 +202,7 @@ def add_elec_bunch_file( sim, filename, Q_tot, z_off=0., boost=None,
                     filter_currents=True ):
     """
     Introduce a relativistic electron bunch in the simulation,
-    along with its space charge field,
-    load particles from text file.
+    along with its space charge field, loading particles from text file.
 
     Parameters
     ----------
@@ -211,14 +210,14 @@ def add_elec_bunch_file( sim, filename, Q_tot, z_off=0., boost=None,
 
     filename : str
         the file containing the particle phase space in seven columns
-        (like for Warp), all float, no header
-        x [m]  y [m]  z [m]  vx [m/s]  vy [m/s]  vz [m/s]  1./gamma [1]
+        all float, no header
+        x [m]  y [m]  z [m]  ux [unitless]  uy [unitless]  uz [unitless]
 
     Q_tot : float (in Coulomb)
         total charge in bunch
 
     z_off: float (m)
-        shift phase space in z by z_off
+        Shift the particle positions in z by z_off
 
     boost : a BoostConverter object, optional
         A BoostConverter object defining the Lorentz boost of 
@@ -227,12 +226,11 @@ def add_elec_bunch_file( sim, filename, Q_tot, z_off=0., boost=None,
     filter_currents : bool, optional
         Whether to filter the currents in k space (True by default)
     """
+    # Load particle data to numpy array
+    particle_data = np.loadtxt(filename)
 
-    # Load phase space to numpy array
-    phsp = np.loadtxt(filename)
     # Extract number of particles and average gamma
-    N_part = np.shape(phsp)[0]
-    gamma0 = 1./np.mean(phsp[:,6])
+    N_part = np.shape(particle_data)[0]
 
     # Create dummy electrons with the correct number of particles
     relat_elec = Particles( q=-e, m=m_e, n=1.,
@@ -244,19 +242,19 @@ def add_elec_bunch_file( sim, filename, Q_tot, z_off=0., boost=None,
                             grid_shape=sim.fld.interp[0].Ez.shape )
 
     # Replace dummy particle parameters with phase space from text file
-    relat_elec.x[:] = phsp[:,0]
-    relat_elec.y[:] = phsp[:,1]
-    relat_elec.z[:] = phsp[:,2] + z_off
-    # For momenta: convert velocity [m/s] to normalized momentum u = p/m_e/c [1]
-    relat_elec.ux[:] = phsp[:,3]/phsp[:,6]/c
-    relat_elec.uy[:] = phsp[:,4]/phsp[:,6]/c
-    relat_elec.uz[:] = phsp[:,5]/phsp[:,6]/c
-    relat_elec.inv_gamma[:] = phsp[:,6]
+    relat_elec.x[:] = particle_data[:,0]
+    relat_elec.y[:] = particle_data[:,1]
+    relat_elec.z[:] = particle_data[:,2] + z_off
+    relat_elec.ux[:] = particle_data[:,3]
+    relat_elec.uy[:] = particle_data[:,4]
+    relat_elec.uz[:] = particle_data[:,5]
+    relat_elec.inv_gamma[:] = 1./np.sqrt( \
+        1. + relat_elec.ux**2 + relat_elec.uy**2 + relat_elec.uz**2 )
     # Calculate weights (charge of macroparticle)
     # assuming equally weighted particles as used in particle tracking codes
     # multiply by -1 to make them negatively charged
     relat_elec.w[:] = -1.*Q_tot/N_part
-    
+
     # Transform particle distribution in 
     # the Lorentz boosted frame, if gamma_boost != 1.
     if boost != None:
