@@ -4,9 +4,8 @@ It defines the class LaserAntenna, which can be used to continuously
 emit a laser during a simulation.
 """
 import numpy as np
-from scipy.constants import e, c, m_e, epsilon_0
-# Classical radius of the electron
-r_e = e**2/(4*np.pi*epsilon_0*m_e*c**2)
+from scipy.constants import e, c, m_e, epsilon_0, physical_constants
+r_e = physical_constants['classical electron radius'][0]
 from .profiles import gaussian_profile
 from fbpic.particles.utility_methods import linear_weights
 from fbpic.particles.numba_methods import deposit_field_numba
@@ -25,8 +24,9 @@ class LaserAntenna( object ):
     The antenna produces a current on the grid (in a thin slice along z), which
     matches the electric field to be emitted, according to the formula
     j(t) = 2 \epsilon_0 c E_emitted(z0, t)
-    (See the repository fbpic-theory for more details, and for the adaptation
-    of the above formula for boosted frame.)
+    (The above formula is valid for an antenna at a fixed z0. When running in
+    the boosted frame, the antenna is moving and the proportionality coefficient
+    is modified accordingly.)
 
     This current is produced on the grid by using virtual macroparticles (this
     ensures that the charge conservation is properly satisfied), whose
@@ -106,10 +106,11 @@ class LaserAntenna( object ):
         # Porportionality coefficient between the weight of a particle
         # and its transverse position (in cylindrical geometry, particles
         # that are further away from the axis have a larger weight)
+        # The larger the weight, the lower the excursion of the particles,
+        # in order to emit a given laser (see definition of epsilon)
         alpha_weights = 2*np.pi / ( nptheta*npr*epsilon ) * dr_grid / r_e * e
         # Mobility coefficient: proportionality coefficient between the
         # velocity of the particles and the electric field to be emitted
-        # (See the fbpic-theory repository for a derivation)
         self.mobility_coef = 2*np.pi * \
           dr_grid**2 / ( nptheta*npr*alpha_weights ) * epsilon_0 * c
         if boost is not None:
@@ -286,6 +287,10 @@ class LaserAntenna( object ):
         # to the large-size arrays rho, Jr, Jt, Jz
         iz_min = iz_lower.min()
         iz_max = iz_upper.max()
+        # Since linear shape are used, and since the virtual particles all
+        # have the same z position, iz_max is necessarily equal to iz_min+1
+        # This is a sanity check, to avoid out-of-bound access later on.
+        assert iz_max == iz_min+1
         # Substract from the array of indices in order to find the particle
         # index within the small-size buffers
         iz_lower = iz_lower - iz_min
@@ -300,9 +305,6 @@ class LaserAntenna( object ):
         # Copy the small-size buffers into the large-size arrays
         # (When running on the GPU, this involves copying the
         # small-size buffers from CPU to GPU)
-        # Since linear shape are used, and since the virtual particles all
-        # have the same z position, iz_max is necessarily equal to iz_min+1
-        assert iz_max == iz_min+1
         if fieldtype == 'rho':
             self.copy_rho_buffer( iz_min, grid )
         elif fieldtype == 'J':
