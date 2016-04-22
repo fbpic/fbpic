@@ -4,7 +4,7 @@ It defines the class LaserAntenna, which can be used to continuously
 emit a laser during a simulation.
 """
 import numpy as np
-from scipy.constants import e, c, m_e, epsilon_0, physical_constants
+from scipy.constants import e, c, epsilon_0, physical_constants
 r_e = physical_constants['classical electron radius'][0]
 from .profiles import gaussian_profile
 from fbpic.particles.utility_methods import linear_weights
