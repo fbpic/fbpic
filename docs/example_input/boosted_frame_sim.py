@@ -154,7 +154,7 @@ add_elec_bunch( sim, bunch_gamma, bunch_n, bunch_zmin,
                 bunch_zmax, 0, bunch_rmax )
 
 # Add a laser to the fields of the simulation
-add_laser( sim.fld, a0, w0, ctau, z0, lambda0=lambda0,
+add_laser( sim, a0, w0, ctau, z0, lambda0=lambda0,
            zf=zfoc, gamma_boost=gamma_boost )
 
 # Configure the moving window

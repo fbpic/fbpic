@@ -188,42 +188,16 @@ class Simulation(object):
         # Register the filtering flag
         self.filter_currents = filter_currents
 
-        # Do the initial charge deposition (at t=0) now
-        self.deposit('rho_prev')
-
         # Initialize an empty list of external fields
         self.external_fields = []
         # Initialize an empty list of diagnostics
         self.diags = []
+        # Initialize an empty list of laser antennas
+        self.laser_antennas = []
 
-    def set_moving_window( self, v=c, ux_m=0., uy_m=0., uz_m=0.,
-                  ux_th=0., uy_th=0., uz_th=0., gamma_boost=None ):
-        """
-        Initializes a moving window for the simulation.
+        # Do the initial charge deposition (at t=0) now
+        self.deposit('rho_prev')
 
-        Parameters
-        ----------
-        v: float (meters per seconds), optional
-            The speed of the moving window
-
-        ux_m, uy_m, uz_m: floats (dimensionless)
-           Normalized mean momenta of the injected particles in each direction
-
-        ux_th, uy_th, uz_th: floats (dimensionless)
-           Normalized thermal momenta in each direction
-
-        gamma_boost : float, optional
-            When initializing a moving window in a boosted frame, set the
-            value of `gamma_boost` to the corresponding Lorentz factor.
-            Quantities like uz_m of the injected particles will be
-            automatically Lorentz-transformed.
-            (uz_m is to be given in the lab frame ; for the moment, this
-            will not work if any of ux_th, uy_th, uz_th, ux_m, uy_m is nonzero)
-        """
-        # Attach the moving window to the boundary communicator
-        self.comm.moving_win = MovingWindow( self.fld.interp, self.comm,
-            v, self.p_nz, self.time, ux_m, uy_m, uz_m,
-            ux_th, uy_th, uz_th, gamma_boost )
 
     def step(self, N=1, ptcl_feedback=True, correct_currents=True,
              use_true_rho=False, move_positions=True, move_momenta=True,
@@ -262,7 +236,7 @@ class Simulation(object):
         fld = self.fld
         # Measure the time taken by the PIC cycle
         measured_start = time.time()
-
+ 
         # Send simulation data to GPU (if CUDA is used)
         if self.use_cuda:
             send_data_to_gpu(self)
@@ -313,7 +287,6 @@ class Simulation(object):
 
             # Standard PIC loop
             # -----------------
-
             # Gather the fields from the grid at t = n dt
             for species in ptcl:
                 species.gather( fld.interp )
@@ -328,6 +301,10 @@ class Simulation(object):
             if move_positions:
                 for species in ptcl:
                     species.halfpush_x()
+            # Get positions/velocities for antenna particles at t = (n+1/2) dt
+            for antenna in self.laser_antennas:
+                antenna.update_v( self.time + 0.5*self.dt )
+                antenna.halfpush_x( self.dt )
 
             # Get the current at t = (n+1/2) dt
             self.deposit('J')
@@ -336,10 +313,13 @@ class Simulation(object):
             if move_positions:
                 for species in ptcl:
                     species.halfpush_x()
+            # Get positions for antenna particles at t = (n+1) dt
+            for antenna in self.laser_antennas:
+                antenna.halfpush_x( self.dt )
+            
             # Get the charge density at t = (n+1) dt
             self.deposit('rho_next')
-
-            # Correct the currents (requires rho at t = (n+1) dt )
+            # Correct the currents ( requires rho at t = (n+1) dt )
             if correct_currents:
                 fld.correct_currents()
 
@@ -383,19 +363,31 @@ class Simulation(object):
         fld = self.fld
 
         # Deposit charge or currents on the interpolation grid
+        
         # Charge
         if fieldtype in ['rho_prev', 'rho_next']:
             fld.erase('rho')
+            # Deposit the particle charge
             for species in self.ptcl:
                 species.deposit( fld, 'rho' )
+            # Deposit the charge of the virtual particles in the antenna
+            for antenna in self.laser_antennas:
+                antenna.deposit( fld, 'rho', self.comm )
+            # Divide by cell volume
             fld.divide_by_volume('rho')
             # Exchange the charge density of the guard cells between domains
             self.comm.exchange_fields(fld.interp, 'rho')
+
         # Currents
         elif fieldtype == 'J':
             fld.erase('J')
+            # Deposit the particle current
             for species in self.ptcl:
                 species.deposit( fld, 'J' )
+            # Deposit the current of the virtual particles in the antenna
+            for antenna in self.laser_antennas:
+                antenna.deposit( fld, 'J', self.comm )
+            # Divide by cell volume
             fld.divide_by_volume('J')
             # Exchange the current of the guard cells between domains
             self.comm.exchange_fields(fld.interp, 'J')
@@ -407,7 +399,35 @@ class Simulation(object):
         if self.filter_currents:
             fld.filter_spect( fieldtype )
 
+    def set_moving_window( self, v=c, ux_m=0., uy_m=0., uz_m=0.,
+                  ux_th=0., uy_th=0., uz_th=0., gamma_boost=None ):
+        """
+        Initializes a moving window for the simulation.
 
+        Parameters
+        ----------
+        v: float (meters per seconds), optional
+            The speed of the moving window
+
+        ux_m, uy_m, uz_m: floats (dimensionless)
+           Normalized mean momenta of the injected particles in each direction
+
+        ux_th, uy_th, uz_th: floats (dimensionless)
+           Normalized thermal momenta in each direction
+
+        gamma_boost : float, optional
+            When initializing a moving window in a boosted frame, set the
+            value of `gamma_boost` to the corresponding Lorentz factor.
+            Quantities like uz_m of the injected particles will be
+            automatically Lorentz-transformed.
+            (uz_m is to be given in the lab frame ; for the moment, this
+            will not work if any of ux_th, uy_th, uz_th, ux_m, uy_m is nonzero)
+        """
+        # Attach the moving window to the boundary communicator
+        self.comm.moving_win = MovingWindow( self.fld.interp, self.comm,
+            v, self.p_nz, self.time, ux_m, uy_m, uz_m,
+            ux_th, uy_th, uz_th, gamma_boost )
+            
 def progression_bar(i, Ntot, measured_start, Nbars=50, char='-'):
     """
     Shows a progression bar with Nbars and the remaining 

@@ -21,7 +21,7 @@ Usage :
 -------
 In order to show the images of the laser, and manually check the
 agreement between the simulation and the theory:
-$ python tests/test_fields.py
+$ python tests/test_laser.py
 (except when setting show to False in the parameters below)
 
 In order to let Python check the agreement between the curve without
@@ -42,7 +42,7 @@ from fbpic.lpa_utils.laser import add_laser
 # (See the documentation of the function propagate_pulse
 # below for their definition)
 
-show = False  # Whether to show the plots, and check them manually
+show = True  # Whether to show the plots, and check them manually
 
 use_cuda = True
 
@@ -205,7 +205,7 @@ def propagate_pulse( Nz, Nr, Nm, zmin, zmax, Lr, L_prop, zf, dt,
 
     # Initialize the laser fields
     z0 = (zmax+zmin)/2
-    init_fields( sim.fld, w0, ctau, k0, z0, zf, E0, m )
+    init_fields( sim, w0, ctau, k0, z0, zf, E0, m )
 
     # Create the arrays to get the waist and amplitude
     w = np.zeros(N_diag)
@@ -267,13 +267,13 @@ def propagate_pulse( Nz, Nr, Nm, zmin, zmax, Lr, L_prop, zf, dt,
     return( { 'E' : E, 'w' : w, 'fld' : sim.fld } )
 
 
-def init_fields( fld, w, ctau, k0, z0, zf, E0, m=1 ) :
+def init_fields( sim, w, ctau, k0, z0, zf, E0, m=1 ) :
     """
     Imprints the appropriate profile on the fields of the simulation.
 
     Parameters
     ----------
-    fld: Fields object from fbpic
+    sim: Simulation object from fbpic
 
     w : float
        The initial waist of the laser (in microns)
@@ -301,9 +301,10 @@ def init_fields( fld, w, ctau, k0, z0, zf, E0, m=1 ) :
 
     # Initialize the fields with the right value and phase
     if m == 1 :
-        add_laser( fld, E0*e/(m_e*c**2*k0), w, ctau, z0, zf=zf,
+        add_laser( sim, E0*e/(m_e*c**2*k0), w, ctau, z0, zf=zf,
                    lambda0 = 2*np.pi/k0 )
     if m == 0 :
+        fld = sim.fld
         z = fld.interp[m].z
         r = fld.interp[m].r
         profile = annular_pulse( z, r, w, ctau, k0, z0, E0 )
