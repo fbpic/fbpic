@@ -27,7 +27,7 @@ from fbpic.lpa_utils.laser import add_laser
 from fbpic.lpa_utils.bunch import add_elec_bunch
 from fbpic.lpa_utils.boosted_frame import BoostConverter
 from fbpic.openpmd_diag import FieldDiagnostic, ParticleDiagnostic, \
-                                BoostedFieldDiagnostic
+                  BoostedFieldDiagnostic, BoostedParticleDiagnostic
 # ----------
 # Parameters
 # ----------
@@ -44,7 +44,7 @@ n_guard = 40     # Number of guard cells
 exchange_period = 10
 # The simulation timestep
 dt = (zmax-zmin)/Nz/c   # Timestep (seconds)
-N_step = 100     # Number of iterations to perform
+N_step = 101     # Number of iterations to perform
                  # (increase this number for a real simulation)
 
 # Boosted frame
@@ -132,7 +132,7 @@ v_window = c*( 1 - 0.5*n_e/1.75e27 )
 v_window, = boost.velocity( [ v_window ] )
 
 # The diagnostics
-diag_period = 100        # Period of the diagnostics in number of timesteps
+diag_period = 50        # Period of the diagnostics in number of timesteps
 # Whether to write the fields in the lab frame
 Ntot_snapshot_lab = 25
 dt_snapshot_lab = (zmax-zmin)/c
@@ -154,7 +154,7 @@ add_elec_bunch( sim, bunch_gamma, bunch_n, bunch_zmin,
                 bunch_zmax, 0, bunch_rmax )
 
 # Add a laser to the fields of the simulation
-add_laser( sim.fld, a0, w0, ctau, z0, lambda0=lambda0,
+add_laser( sim, a0, w0, ctau, z0, lambda0=lambda0,
            zf=zfoc, gamma_boost=gamma_boost )
 
 # Configure the moving window
@@ -166,8 +166,10 @@ sim.diags = [ FieldDiagnostic(diag_period, sim.fld, sim.comm ),
                 {"electrons":sim.ptcl[0], "bunch":sim.ptcl[2]}, sim.comm),
               BoostedFieldDiagnostic( zmin, zmax, c,
                 dt_snapshot_lab, Ntot_snapshot_lab, gamma_boost,
-                period=diag_period, fldobject=sim.fld, comm=sim.comm) ]
-
+                period=diag_period, fldobject=sim.fld, comm=sim.comm),
+              BoostedParticleDiagnostic( zmin, zmax, c, dt_snapshot_lab,
+                Ntot_snapshot_lab, gamma_boost, diag_period, sim.fld, 
+                select={'uz':[0.,None]}, species={'electrons':sim.ptcl[0]})]
 ### Run the simulation
 print('\n Performing %d PIC cycles' % N_step)
 sim.step( N_step, use_true_rho=True )

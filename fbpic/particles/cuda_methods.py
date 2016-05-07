@@ -1241,9 +1241,14 @@ def incl_prefix_sum(cell_idx, prefix_sum):
             # until ci is i+1 (since i obeys python index, starting at 0)
             prefix_sum[ci] = i+1
             ci += 1
+    # The last "macroparticle" of the cell_idx array fills up the 
+    # rest of the prefix sum array
     if i == cell_idx.shape[0]-1:
+        # Get the cell_index of the last macroparticle
         ci = cell_idx[i]
-        prefix_sum[ci] = i+1
+        # Fill all the remaining entries of the prefix sum array
+        for empty_index in range(ci, prefix_sum.shape[0]):
+            prefix_sum[empty_index] = i+1
 
 @cuda.jit('void(int32[:])')
 def reset_prefix_sum(prefix_sum):

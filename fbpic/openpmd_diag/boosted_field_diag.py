@@ -272,7 +272,7 @@ class LabSnapshot:
            the slice_array buffer (either on the CPU or GPU)
         """
         # Deduce the name of the filename where this snapshot writes
-        self.filename = os.path.join( write_dir, 'hdf5/data%05d.h5' %i)
+        self.filename = os.path.join( write_dir, 'hdf5/data%08d.h5' %i)
         self.iteration = i
 
         # Time and boundaries in the lab frame (constants quantities)

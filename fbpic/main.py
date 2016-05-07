@@ -208,11 +208,15 @@ class Simulation(object):
         # Register the filtering flag
         self.filter_currents = filter_currents
 
-        # Do the initial charge deposition (at t=0) now
-        self.deposit('rho_prev')
-
+        # Initialize an empty list of external fields
+        self.external_fields = []
         # Initialize an empty list of diagnostics
         self.diags = []
+        # Initialize an empty list of laser antennas
+        self.laser_antennas = []
+
+        # Do the initial charge deposition (at t=0) now
+        self.deposit('rho_prev')
 
     def step(self, N=1, ptcl_feedback=True, correct_currents=True,
              correct_divE=False, use_true_rho=False,
@@ -258,7 +262,7 @@ class Simulation(object):
         fld = self.fld
         # Measure the time taken by the PIC cycle
         measured_start = time.time()
-
+ 
         # Send simulation data to GPU (if CUDA is used)
         if self.use_cuda:
             send_data_to_gpu(self)
@@ -286,6 +290,8 @@ class Simulation(object):
 
                 # Move the grids if needed
                 if self.comm.moving_win is not None:
+                    # Damp the fields in the guard cells
+                    self.comm.damp_guard_EB( fld.interp )
                     # Shift the fields, and prepare positions
                     # between which new particles should be added
                     self.comm.move_grids(fld, self.dt, self.time)
@@ -307,10 +313,12 @@ class Simulation(object):
 
             # Standard PIC loop
             # -----------------
-
-            # Gather the fields at t = n dt
+            # Gather the fields from the grid at t = n dt
             for species in ptcl:
                 species.gather( fld.interp )
+            # Apply the external fields at t = n dt
+            for ext_field in self.external_fields:
+                ext_field.apply_expression( self.ptcl, self.time )
 
             # Push the particles' positions and velocities to t = (n+1/2) dt
             if move_momenta:
@@ -319,6 +327,10 @@ class Simulation(object):
             if move_positions:
                 for species in ptcl:
                     species.halfpush_x()
+            # Get positions/velocities for antenna particles at t = (n+1/2) dt
+            for antenna in self.laser_antennas:
+                antenna.update_v( self.time + 0.5*self.dt )
+                antenna.halfpush_x( self.dt )
             # Shift the boundaries of the grid for the Galilean frame
             if self.use_galilean:
                 self.shift_galilean_boundaries()
@@ -330,6 +342,9 @@ class Simulation(object):
             if move_positions:
                 for species in ptcl:
                     species.halfpush_x()
+            # Get positions for antenna particles at t = (n+1) dt
+            for antenna in self.laser_antennas:
+                antenna.halfpush_x( self.dt )
             # Shift the boundaries of the grid for the Galilean frame
             if self.use_galilean:
                 self.shift_galilean_boundaries()
@@ -342,10 +357,10 @@ class Simulation(object):
 
             # Damp the fields in the guard cells
             self.comm.damp_guard_EB( fld.interp )
-            # Get the exchanged and/or damped fields
+            # Get the damped fields on the spectral grid at t = n dt
             fld.interp2spect('E')
             fld.interp2spect('B')
-            # Get the fields E and B on the spectral grid at t = (n+1) dt
+            # Push the fields E and B on the spectral grid to t = (n+1) dt
             fld.push( ptcl_feedback, use_true_rho )
             if correct_divE:
                 fld.correct_divE()
@@ -382,19 +397,31 @@ class Simulation(object):
         fld = self.fld
 
         # Deposit charge or currents on the interpolation grid
+        
         # Charge
         if fieldtype in ['rho_prev', 'rho_next']:
             fld.erase('rho')
+            # Deposit the particle charge
             for species in self.ptcl:
                 species.deposit( fld, 'rho' )
+            # Deposit the charge of the virtual particles in the antenna
+            for antenna in self.laser_antennas:
+                antenna.deposit( fld, 'rho', self.comm )
+            # Divide by cell volume
             fld.divide_by_volume('rho')
             # Exchange the charge density of the guard cells between domains
             self.comm.exchange_fields(fld.interp, 'rho')
+
         # Currents
         elif fieldtype == 'J':
             fld.erase('J')
+            # Deposit the particle current
             for species in self.ptcl:
                 species.deposit( fld, 'J' )
+            # Deposit the current of the virtual particles in the antenna
+            for antenna in self.laser_antennas:
+                antenna.deposit( fld, 'J', self.comm )
+            # Divide by cell volume
             fld.divide_by_volume('J')
             # Exchange the current of the guard cells between domains
             self.comm.exchange_fields(fld.interp, 'J')
@@ -453,7 +480,7 @@ class Simulation(object):
         self.comm.moving_win = MovingWindow( self.fld.interp, self.comm,
             v, self.p_nz, self.time, ux_m, uy_m, uz_m,
             ux_th, uy_th, uz_th, gamma_boost )
-
+            
 def progression_bar(i, Ntot, measured_start, Nbars=50, char='-'):
     """
     Shows a progression bar with Nbars and the remaining
