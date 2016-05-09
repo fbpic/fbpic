@@ -88,7 +88,7 @@ def add_elec_bunch( sim, gamma0, n_e, p_zmin, p_zmax, p_rmin, p_rmax,
 
 def add_elec_bunch_gaussian( sim, sig_r, sig_z, n_emit, gamma0, sig_gamma, 
                         Q, N, tf=0., zf=0., boost=None,
-                        filter_currents=True ):
+                        filter_currents=True, save_beam=None ):
     """
     Introduce a relativistic Gaussian electron bunch in the simulation, 
     along with its space charge field.
@@ -135,6 +135,9 @@ def add_elec_bunch_gaussian( sim, sig_r, sig_z, n_emit, gamma0, sig_gamma,
 
     filter_currents : bool, optional
         Whether to filter the currents in k space (True by default)
+
+    save_beam : string, optional
+        Saves the generated beam distribution as an .npz file "string".npz
     """
     # Get Gaussian particle distribution in x,y,z
     x = np.random.normal(0., sig_r, N)
@@ -191,6 +194,10 @@ def add_elec_bunch_gaussian( sim, sig_r, sig_z, n_emit, gamma0, sig_gamma,
 
     # Add them to the particles of the simulation
     sim.ptcl.append( relat_elec )
+
+    # Save beam distribution to an .npz file
+    if save_beam is not None:
+        np.savez(save_beam, x, y, ux, uy, uz, gamma_inv, w)
 
     # Get the corresponding space-charge fields
     # include a larger tolerance of the deviation of inv_gamma from 1./gamma0
