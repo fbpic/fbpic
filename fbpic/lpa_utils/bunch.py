@@ -178,9 +178,9 @@ def add_elec_bunch_gaussian( sim, sig_r, sig_z, n_emit, gamma0, sig_gamma,
     relat_elec.x[:] = x
     relat_elec.y[:] = y
     relat_elec.z[:] = z
-    relat_elec.ux[:] = ux   
-    relat_elec.uy[:] = uy   
-    relat_elec.uz[:] = uz   
+    relat_elec.ux[:] = ux
+    relat_elec.uy[:] = uy
+    relat_elec.uz[:] = uz
     relat_elec.inv_gamma[:] = inv_gamma
     relat_elec.w[:] = w
 
@@ -197,7 +197,7 @@ def add_elec_bunch_gaussian( sim, sig_r, sig_z, n_emit, gamma0, sig_gamma,
 
     # Save beam distribution to an .npz file
     if save_beam is not None:
-        np.savez(save_beam, x=x, y=y, ux=ux, uy=uy, uz=uz,
+        np.savez(save_beam, x=x, y=y, z=z, ux=ux, uy=uy, uz=uz,
             inv_gamma=inv_gamma, w=w)
 
     # Get the corresponding space-charge fields
