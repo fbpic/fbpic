@@ -58,7 +58,7 @@ conda install matplotlib
 
 pyFFTW needs to be installed from a third-party source:
 `
-conda install -c https://conda.anaconda.org/nanshe pyfftw
+conda install -c conda-forge pyfftw
 `
 
 It is important that the following packages are **NOT** installed directly with Anaconda: `mpich`, `mpi4py`, `hdf5` and `h5py`

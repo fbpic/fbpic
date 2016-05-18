@@ -53,7 +53,7 @@ conda install --file requirements.txt
 - Install `pyfftw` (not in the standard Anaconda channels, and thus it
 requires a special command):  
 ```
-conda install -c https://conda.anaconda.org/nanshe pyfftw
+conda install -c conda-forge pyfftw
 ```
 - **Optional:** In order to be able to run the code on a GPU:
 ```
