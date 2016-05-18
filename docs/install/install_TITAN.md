@@ -16,22 +16,16 @@ In order to download and install Anaconda and FBPIC, follow the steps below:
 
 - Download Miniconda:
 ```
-wget http://repo.continuum.io/miniconda/Miniconda-latest-Linux-x86_64.sh -O miniconda.sh
+wget
+http://repo.continuum.io/miniconda/Miniconda-latest-Linux-x86_64.sh -O
+miniconda.sh
 ```
 
-- Get the name of your $MEMBERWORK directory and write it down
+- Execute the installation script, and use `$MEMBERWORK/<project id>`
+as an install directory, so that the installation is accessible to the
+compute nodes.
 ```
-echo $MEMBERWORK
-```
-
-- Execute the Anaconda installation script
-```
-bash miniconda.sh
-```
-**DO NOT use the default installation directory:** When prompted for an
-installation directory, use
-```
-<$MEMBERWORK directory>/<project id>/miniconda2
+bash miniconda.sh -b -p $MEMBERWORK/<project id>/miniconda2
 ```
 where the bracketed text should be replaced by the values for your account.
 
@@ -59,8 +53,8 @@ conda install -c conda-forge pyfftw
 
 - Install the `accelerate` package in order to be able to run on GPUs
 ```
+conda install cudatoolkit=7.0
 conda install accelerate
-conda install accelerate_cudalib
 ```
 (The `accelerate` package is not free, but there is a 30-day free trial period,
   which starts when the above command is entered. For further use beyond 30
