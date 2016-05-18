@@ -13,7 +13,7 @@ Installation of `pyfftw`
 -------------------
 
 `
-conda install -c https://conda.anaconda.org/nanshe pyfftw
+conda install -c conda-forge pyfftw
 `
 
 Bug fix  of `mpi4py` on OSX

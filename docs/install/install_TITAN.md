@@ -14,9 +14,9 @@ Installation and usage of FBPIC requires the following steps:
 
 In order to download and install Anaconda and FBPIC, follow the steps below:
 
-- Download Anaconda:
+- Download Miniconda:
 ```
-wget https://3230d63b5fc54e62148e-c95ac804525aac4b6dba79b00b39d1d3.ssl.cf1.rackcdn.com/Anaconda2-2.4.1-Linux-x86_64.sh
+wget http://repo.continuum.io/miniconda/Miniconda-latest-Linux-x86_64.sh -O miniconda.sh
 ```
 
 - Get the name of your $MEMBERWORK directory and write it down
@@ -26,19 +26,19 @@ echo $MEMBERWORK
 
 - Execute the Anaconda installation script
 ```
-bash Anaconda2-2.4.1-Linux-x86_64.sh
+bash miniconda.sh
 ```
 **DO NOT use the default installation directory:** When prompted for an
 installation directory, use
 ```
-<$MEMBERWORK directory>/<project id>/anaconda2
+<$MEMBERWORK directory>/<project id>/miniconda2
 ```
 where the bracketed text should be replaced by the values for your account.
 
 - Add the following lines at the end of your .bashrc
 ```
 export $PATH="<$MEMBERWORK directory>/<project id>/anaconda2/bin:$PATH"
-export $LD_LIBRARY_PATH="<$MEMBERWORK directory>/<project id>/anaconda2/lib:$LD_LIBRARY_PATH"
+export $LD_LIBRARY_PATH=$LD_LIBRARY_PATH:"<$MEMBERWORK directory>/<project id>/miniconda2/lib"
 ```
 where again the bracketed text should be replaced by the values for your account.
 
@@ -54,10 +54,8 @@ conda install --file requirements.txt
 - Install `pyfftw` (not in the standard Anaconda channels, and thus it
 requires a special command):  
 ```
-conda install -c https://conda.anaconda.org/nanshe pyfftw
+conda install -c conda-forge pyfftw
 ```
-**Important:** Do not use the URL https://conda.anaconda.org/mforbes, since it
-is known to cause bugs on the Titan cluster.
 
 - Install the `accelerate` package in order to be able to run on GPUs
 ```
