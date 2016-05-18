@@ -19,18 +19,18 @@ In order to download and install Anaconda and FBPIC, follow the steps below:
 wget http://repo.continuum.io/miniconda/Miniconda-latest-Linux-x86_64.sh -O miniconda.sh
 ```
 
-- Execute the installation script, and use `$MEMBERWORK/<project id>`
+- Execute the installation script, and use `/ccs/proj/<project id>`
 as an install directory, so that the installation is accessible to the
 compute nodes.
 ```
-bash miniconda.sh -b -p $MEMBERWORK/<project id>/miniconda2
+bash miniconda.sh -b -p /ccs/proj/<project id>/miniconda2
 ```
 where the bracketed text should be replaced by the values for your account.
 
 - Add the following lines at the end of your .bashrc
 ```
-export $PATH="<$MEMBERWORK directory>/<project id>/anaconda2/bin:$PATH"
-export $LD_LIBRARY_PATH=$LD_LIBRARY_PATH:"<$MEMBERWORK directory>/<project id>/miniconda2/lib"
+export $PATH=/ccs/proj/<project id>/miniconda2/bin:$PATH
+export $LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/ccs/proj/<project id>/miniconda2/lib
 ```
 where again the bracketed text should be replaced by the values for your account.
 
@@ -69,7 +69,7 @@ python setup.py install
 Each node consists of 1 Nvidia K20 device.
 
 In order to create a new simulation, create a new directory in
-`$MEMBERWORK/` in and copy your input script there:
+`$MEMBERWORK/` and copy your input script there:
 ```
 mkdir $MEMBERWORK/<project id>/<simulation name>
 cp fbpic_script.py $MEMBERWORK/<project id>/<simulation name>
