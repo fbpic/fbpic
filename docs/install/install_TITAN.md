@@ -14,31 +14,23 @@ Installation and usage of FBPIC requires the following steps:
 
 In order to download and install Anaconda and FBPIC, follow the steps below:
 
-- Download Anaconda:
+- Download Miniconda:
 ```
-wget https://3230d63b5fc54e62148e-c95ac804525aac4b6dba79b00b39d1d3.ssl.cf1.rackcdn.com/Anaconda2-2.4.1-Linux-x86_64.sh
-```
-
-- Get the name of your $MEMBERWORK directory and write it down
-```
-echo $MEMBERWORK
+wget http://repo.continuum.io/miniconda/Miniconda-latest-Linux-x86_64.sh -O miniconda.sh
 ```
 
-- Execute the Anaconda installation script
+- Execute the installation script, and use `/ccs/proj/<project id>`
+as an install directory, so that the installation is accessible to the
+compute nodes.
 ```
-bash Anaconda2-2.4.1-Linux-x86_64.sh
-```
-**DO NOT use the default installation directory:** When prompted for an
-installation directory, use
-```
-<$MEMBERWORK directory>/<project id>/anaconda2
+bash miniconda.sh -b -p /ccs/proj/<project id>/miniconda2
 ```
 where the bracketed text should be replaced by the values for your account.
 
 - Add the following lines at the end of your .bashrc
 ```
-export $PATH="<$MEMBERWORK directory>/<project id>/anaconda2/bin:$PATH"
-export $LD_LIBRARY_PATH="<$MEMBERWORK directory>/<project id>/anaconda2/lib:$LD_LIBRARY_PATH"
+export $PATH=/ccs/proj/<project id>/miniconda2/bin:$PATH
+export $LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/ccs/proj/<project id>/miniconda2/lib
 ```
 where again the bracketed text should be replaced by the values for your account.
 
@@ -54,15 +46,13 @@ conda install --file requirements.txt
 - Install `pyfftw` (not in the standard Anaconda channels, and thus it
 requires a special command):  
 ```
-conda install -c https://conda.anaconda.org/nanshe pyfftw
+conda install -c conda-forge pyfftw
 ```
-**Important:** Do not use the URL https://conda.anaconda.org/mforbes, since it
-is known to cause bugs on the Titan cluster.
 
 - Install the `accelerate` package in order to be able to run on GPUs
 ```
+conda install cudatoolkit=7.0
 conda install accelerate
-conda install accelerate_cudalib
 ```
 (The `accelerate` package is not free, but there is a 30-day free trial period,
   which starts when the above command is entered. For further use beyond 30
@@ -79,7 +69,7 @@ python setup.py install
 Each node consists of 1 Nvidia K20 device.
 
 In order to create a new simulation, create a new directory in
-`$MEMBERWORK/` in and copy your input script there:
+`$MEMBERWORK/` and copy your input script there:
 ```
 mkdir $MEMBERWORK/<project id>/<simulation name>
 cp fbpic_script.py $MEMBERWORK/<project id>/<simulation name>

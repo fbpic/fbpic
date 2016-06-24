@@ -609,8 +609,10 @@ class ParticleCatcher:
             cell_prev = int((previous_z_boost - zmin - 0.5*dz + dt*c)/dz)+1
             # Get the prefix sum values for calculation 
             # of number of particles
-            pref_sum_curr = pref_sum.getitem( cell_curr*Nr - 1 ) 
-            pref_sum_prev = pref_sum.getitem( cell_prev*Nr - 1 )
+            pref_sum_curr = pref_sum.getitem( 
+                np.fmax( cell_curr*Nr-1, 0 ) ) 
+            pref_sum_prev = pref_sum.getitem( 
+                np.fmin( cell_prev*Nr-1, Nz*Nr-1) )
             # Calculate number of particles in this area (N_area)
             N_area = pref_sum_prev - pref_sum_curr
             # Check if there are particles to extract
