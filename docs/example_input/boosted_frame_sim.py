@@ -5,7 +5,7 @@ laser-wakefield acceleration using FBPIC.
 Usage
 -----
 - Modify the parameters below to suit your needs
-- Type "python -i lpa_sim.py" in a terminal
+- Type "python -i boosted_frame_sim.py" in a terminal
 - When the simulation finishes, the python session will *not* quit.
     Therefore the simulation can be continued by running sim.step()
 
@@ -73,7 +73,7 @@ p_rmax = 100.e-6 # Maximal radial position of the plasma (meters)
 n_e = 1.e24      # The density in the labframe (electrons.meters^-3)
 p_nz = 2         # Number of particles per cell along z
 p_nr = 2         # Number of particles per cell along r
-p_nt = 4         # Number of particles per cell along theta
+p_nt = 6         # Number of particles per cell along theta
 uz_m = 0.        # Initial momentum of the electrons in the lab frame
 
 # Density profile
@@ -140,37 +140,42 @@ dt_snapshot_lab = (zmax-zmin)/c
 # ---------------------------
 # Carrying out the simulation
 # ---------------------------
+# NB: The code below is only executed when running the script,
+# (`python -i boosted_frame_sim.py`), but not when importing it.
+if __name__ == '__main__':
 
-# Initialize the simulation object
-sim = Simulation( Nz, zmax, Nr, rmax, Nm, dt,
-    p_zmin, p_zmax, p_rmin, p_rmax, p_nz, p_nr, p_nt, n_e,
-    dens_func=dens_func, zmin=zmin, initialize_ions=True,
-#    v_comoving=-0.9999*c, use_galilean=False,
-    n_guard=n_guard, exchange_period=exchange_period,
-    gamma_boost=gamma_boost, boundaries='open', use_cuda=use_cuda )
-
-# Add an electron bunch
-add_elec_bunch( sim, bunch_gamma, bunch_n, bunch_zmin,
+    # Initialize the simulation object
+    sim = Simulation( Nz, zmax, Nr, rmax, Nm, dt,
+        p_zmin, p_zmax, p_rmin, p_rmax, p_nz, p_nr, p_nt, n_e,
+        dens_func=dens_func, zmin=zmin, initialize_ions=True,
+        # v_comoving=-0.9999*c, use_galilean=False,
+        n_guard=n_guard, exchange_period=exchange_period,
+        gamma_boost=gamma_boost, boundaries='open', use_cuda=use_cuda )
+    
+    # Add an electron bunch
+    add_elec_bunch( sim, bunch_gamma, bunch_n, bunch_zmin,
                 bunch_zmax, 0, bunch_rmax )
 
-# Add a laser to the fields of the simulation
-add_laser( sim, a0, w0, ctau, z0, lambda0=lambda0,
+    # Add a laser to the fields of the simulation
+    add_laser( sim, a0, w0, ctau, z0, lambda0=lambda0,
            zf=zfoc, gamma_boost=gamma_boost )
 
-# Configure the moving window
-sim.set_moving_window( v=v_window, gamma_boost=gamma_boost )
+    # Configure the moving window
+    sim.set_moving_window( v=v_window, gamma_boost=gamma_boost )
 
-# Add a field diagnostic
-sim.diags = [ FieldDiagnostic(diag_period, sim.fld, sim.comm ),
-              ParticleDiagnostic(diag_period,
-                {"electrons":sim.ptcl[0], "bunch":sim.ptcl[2]}, sim.comm),
-              BoostedFieldDiagnostic( zmin, zmax, c,
-                dt_snapshot_lab, Ntot_snapshot_lab, gamma_boost,
-                period=diag_period, fldobject=sim.fld, comm=sim.comm),
-              BoostedParticleDiagnostic( zmin, zmax, c, dt_snapshot_lab,
-                Ntot_snapshot_lab, gamma_boost, diag_period, sim.fld, 
-                select={'uz':[0.,None]}, species={'electrons':sim.ptcl[0]})]
-### Run the simulation
-print('\n Performing %d PIC cycles' % N_step)
-sim.step( N_step, use_true_rho=True )
-print('')
+    # Add a field diagnostic
+    sim.diags = [ FieldDiagnostic(diag_period, sim.fld, sim.comm ),
+                ParticleDiagnostic(diag_period,
+                    {"electrons":sim.ptcl[0], "bunch":sim.ptcl[2]}, sim.comm),
+                BoostedFieldDiagnostic( zmin, zmax, c,
+                    dt_snapshot_lab, Ntot_snapshot_lab, gamma_boost,
+                    period=diag_period, fldobject=sim.fld, comm=sim.comm),
+                BoostedParticleDiagnostic( zmin, zmax, c, dt_snapshot_lab,
+                    Ntot_snapshot_lab, gamma_boost, diag_period, sim.fld, 
+                    select={'uz':[0.,None]}, species={'electrons':sim.ptcl[0]})
+                    ]
+
+    ### Run the simulation
+    print('\n Performing %d PIC cycles' % N_step)
+    sim.step( N_step, use_true_rho=True )
+    print('')

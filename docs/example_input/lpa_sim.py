@@ -82,39 +82,32 @@ def dens_func( z, r ) :
     n = np.where( z<ramp_start, 0., n )
     return(n)
 
-# -----------------------
-# Checking the parameters
-# -----------------------
-if p_nr%2 == 1 :
-    raise UserWarning("Running the simulation with an odd number \n"
-                      "of macroparticles may result in a very \n"
-                      "noisy simulation.")
-
 # ---------------------------
 # Carrying out the simulation
 # ---------------------------
+# NB: The code below is only executed when running the script,
+# (`python -i lpa_sim.py`), but not when importing it (`import lpa_sim`).
+if __name__ == '__main__':
 
-# Initialize the simulation object
-sim = Simulation( Nz, zmax, Nr, rmax, Nm, dt,
-    p_zmin, p_zmax, p_rmin, p_rmax, p_nz, p_nr, p_nt, n_e,
-    dens_func=dens_func, zmin=zmin, boundaries='open',
-    use_cuda=use_cuda )
+    # Initialize the simulation object
+    sim = Simulation( Nz, zmax, Nr, rmax, Nm, dt,
+        p_zmin, p_zmax, p_rmin, p_rmax, p_nz, p_nr, p_nt, n_e,
+        dens_func=dens_func, zmin=zmin, boundaries='open',
+        use_cuda=use_cuda )
 
-# Add a laser to the fields of the simulation
-add_laser( sim, a0, w0, ctau, z0 )
-
-# Configure the moving window
-sim.set_moving_window( v=v_window )
-
-# Add a field diagnostic
-sim.diags = [ FieldDiagnostic( diag_period, sim.fld,
-                               fieldtypes=fieldtypes, comm=sim.comm ),
-              ParticleDiagnostic( diag_period, {"electrons" : sim.ptcl[0]},
-                            select={"uz" : [1., None ]}, comm=sim.comm ) ]
-
-### Run the simulation
-print('\n Performing %d PIC cycles' % N_step) 
-sim.step( N_step )
-print('')
-
-
+    # Add a laser to the fields of the simulation
+    add_laser( sim, a0, w0, ctau, z0 )
+    
+    # Configure the moving window
+    sim.set_moving_window( v=v_window )
+    
+    # Add a field diagnostic
+    sim.diags = [ FieldDiagnostic( diag_period, sim.fld,
+                                fieldtypes=fieldtypes, comm=sim.comm ),
+                ParticleDiagnostic( diag_period, {"electrons" : sim.ptcl[0]},
+                                select={"uz" : [1., None ]}, comm=sim.comm ) ]
+    
+    ### Run the simulation
+    print('\n Performing %d PIC cycles' % N_step) 
+    sim.step( N_step )
+    print('')
