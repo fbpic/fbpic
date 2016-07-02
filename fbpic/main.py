@@ -10,8 +10,9 @@ from mpi4py import MPI
 try:    
     from .cuda_utils import cuda, send_data_to_gpu, \
                 receive_data_from_gpu, mpi_select_gpus
-    mpi_select_gpus( MPI.COMM_WORLD )
     cuda_installed = cuda.is_available()
+    if cuda_installed:
+        mpi_select_gpus( MPI.COMM_WORLD )
 except ImportError, CudaSupportError:
     cuda_installed = False
 
