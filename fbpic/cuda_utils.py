@@ -137,13 +137,13 @@ def print_current_gpu():
     """
     gpu = cuda.gpus.current
 
-    print "CUDA Device info of"
-    print "currently selected device:"
-    print "------------------------------"
-    print "ID: %s" %(gpu.id)
-    print "Name: %s" %(gpu.name)
-    print "Compute capability: %s.%s" %(gpu.compute_capability[0],
-                                        gpu.compute_capability[1])
+    print("CUDA Device info of ")
+    print("currently selected device:")
+    print("------------------------------")
+    print("ID: %s" %(gpu.id))
+    print("Name: %s" %(gpu.name))
+    print("Compute capability: %s.%s" %(gpu.compute_capability[0],
+                                        gpu.compute_capability[1]))
     print_gpu_meminfo(gpu)
 
 def mpi_select_gpus(mpi_comm):
