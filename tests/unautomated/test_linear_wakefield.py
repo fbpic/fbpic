@@ -48,8 +48,8 @@ def Ez( z, r, t) :
     Nr = len(r)
 
     ez = np.zeros((Nz, Nr))
-    for iz in xrange(Nz) :
-        for ir in xrange(Nr) :
+    for iz in range(Nz) :
+        for ir in range(Nr) :
           ez[iz, ir] = quad( kernel_Ez, -zmax, -z[iz]+c*t, 
             args = ( -z[iz]+c*t, r[ir] ), limit=30 )[0]
     return( ez )
@@ -67,8 +67,8 @@ def Er( z, r, t) :
     Nr = len(r)
 
     er = np.zeros((Nz, Nr))
-    for iz in xrange(Nz) :
-        for ir in xrange(Nr) :
+    for iz in range(Nz) :
+        for ir in range(Nr) :
           er[iz, ir] = quad( kernel_Er, -zmax, -z[iz]+c*t, 
             args = ( -z[iz]+c*t, r[ir] ), limit=200 )[0]
     return( er )
