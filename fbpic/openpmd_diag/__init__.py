@@ -16,9 +16,9 @@ Then pass the method diag.write to installafterstep :
     installafterstep( diag2.write )
 """
 
-from field_diag import FieldDiagnostic
-from particle_diag import ParticleDiagnostic
-from boosted_field_diag import BoostedFieldDiagnostic
-from boosted_particle_diag import BoostedParticleDiagnostic
+from .field_diag import FieldDiagnostic
+from .particle_diag import ParticleDiagnostic
+from .boosted_field_diag import BoostedFieldDiagnostic
+from .boosted_particle_diag import BoostedParticleDiagnostic
 __all__ = ['FieldDiagnostic', 'ParticleDiagnostic', 
 	'BoostedFieldDiagnostic', 'BoostedParticleDiagnostic']

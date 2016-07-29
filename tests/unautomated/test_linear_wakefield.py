@@ -167,15 +167,13 @@ def compare_fields(sim) :
         r = gathered_grid.r
 
         # Analytical solution
-        print 'Calculate analytical solution for Ez'
+        print( 'Calculate analytical solution for Ez' )
         ez = Ez(z-z.min(), r, 0.)
-        print 'Done...'
-        print ''
+        print( 'Done...\n' )
 
-        print 'Calculate analytical solution for Er'
+        print( 'Calculate analytical solution for Er' )
         er = Er(z-z.min(), r, 0.)
-        print 'Done...'
-        print ''
+        print('Done...\n')
 
         compare_wakefields(ez, er, gathered_grid)
     
