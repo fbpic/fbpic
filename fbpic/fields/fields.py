@@ -1108,7 +1108,7 @@ def get_modified_k(k, n_order, dz):
     elif n_order%2==1 or n_order<=0 :
         raise ValueError('Invalid n_order: %d' %n_order)
     else:
-        m = n_order/2
+        m = int(n_order/2)
     
     # Calculate the stencil coefficients a_n by recurrence
     # (See definition of the a_n in the docstring)

@@ -29,7 +29,7 @@ show = True     # Whether to show the results to the user, or to
 # Dimensions of the box
 Nz = 100
 Nr = 50
-Nm = 1
+Nm = 2
 zmin = -10.e-6
 zmax = 5.e-6
 rmax = 20.e-6
