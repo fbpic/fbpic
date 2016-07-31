@@ -104,8 +104,8 @@ class DHT(object) :
         self.use_cuda = use_cuda
         if (self.use_cuda==True) and (cuda_installed==False) :
             self.use_cuda = False
-            print '** Cuda not available for Hankel transform.'
-            print '** Performing the Hankel transform on the CPU.'
+            print('** Cuda not available for Hankel transform.')
+            print('** Performing the Hankel transform on the CPU.')
         if self.use_cuda :
             # Initialize a cuda stream (required by cublas)
             self.blas = cublas.Blas()

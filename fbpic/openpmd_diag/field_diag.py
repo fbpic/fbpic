@@ -320,7 +320,7 @@ class FieldDiagnostic(OpenPMDDiagnostic):
                 self.fld.interp[0].dr, dz ])
         dset.attrs["gridGlobalOffset"] = np.array([
             self.fld.interp[0].rmin, zmin ])
-        dset.attrs['axisLabels'] = np.array([ 'r', 'z' ])
+        dset.attrs['axisLabels'] = np.array([ b'r', b'z' ])
 
         # Generic attributes
         dset.attrs["dataOrder"] = np.string_("C")

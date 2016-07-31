@@ -13,7 +13,7 @@ try:
     cuda_installed = cuda.is_available()
     if cuda_installed:
         mpi_select_gpus( MPI.COMM_WORLD )
-except ImportError, CudaSupportError:
+except ImportError:
     cuda_installed = False
 
 # Import the rest of the requirements
@@ -238,7 +238,7 @@ class Simulation(object):
             send_data_to_gpu(self)
 
         # Loop over timesteps
-        for i_step in xrange(N):
+        for i_step in range(N):
 
             # Messages and diagnostics
             # ------------------------

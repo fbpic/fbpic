@@ -11,7 +11,7 @@ import numpy as np
 import h5py
 
 # Dictionaries of correspondance for openPMD
-from data_dict import unit_dimension_dict
+from .data_dict import unit_dimension_dict
 
 class OpenPMDDiagnostic(object) :
     """

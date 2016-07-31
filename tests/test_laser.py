@@ -218,7 +218,7 @@ def propagate_pulse( Nz, Nr, Nm, zmin, zmax, Lr, L_prop, zf, dt,
     # Loop over the iterations
     print('Running the simulation...')
     for it in range(N_diag) :
-        print 'Diagnostic point %d/%d' %(it, N_diag)
+        print( 'Diagnostic point %d/%d' %(it, N_diag) )
         # Fit the fields to find the waist and a0
         w[it], E[it] = fit_fields( sim.fld, m )
         # Plot the fields during the simulation

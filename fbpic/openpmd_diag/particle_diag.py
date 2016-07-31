@@ -68,7 +68,7 @@ class ParticleDiagnostic(OpenPMDDiagnostic) :
         self.select = select
 
         # Extract the timestep from a given species
-        random_species = self.species_dict.keys()[0]
+        random_species = list(self.species_dict.keys())[0]
         self.dt = self.species_dict[random_species].dt
         
     def setup_openpmd_species_group( self, grp, species ) :

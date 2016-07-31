@@ -29,7 +29,7 @@ show = True     # Whether to show the results to the user, or to
 # Dimensions of the box
 Nz = 100
 Nr = 50
-Nm = 1
+Nm = 2
 zmin = -10.e-6
 zmax = 5.e-6
 rmax = 20.e-6
@@ -103,7 +103,7 @@ def run_continuous_injection( gamma_boost, dens_func,
     sim.set_moving_window( v=c, gamma_boost=gamma_boost )
 
     # Check that the density is correct after different timesteps
-    N_step = Nz/N_check/2
+    N_step = int( Nz/N_check/2 )
     for i in range( N_check ):
         sim.step( N_step, move_momenta=False )
         check_density( sim, gamma_boost, dens_func, show )

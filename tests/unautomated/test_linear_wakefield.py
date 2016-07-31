@@ -48,8 +48,8 @@ def Ez( z, r, t) :
     Nr = len(r)
 
     ez = np.zeros((Nz, Nr))
-    for iz in xrange(Nz) :
-        for ir in xrange(Nr) :
+    for iz in range(Nz) :
+        for ir in range(Nr) :
           ez[iz, ir] = quad( kernel_Ez, -zmax, -z[iz]+c*t, 
             args = ( -z[iz]+c*t, r[ir] ), limit=30 )[0]
     return( ez )
@@ -67,8 +67,8 @@ def Er( z, r, t) :
     Nr = len(r)
 
     er = np.zeros((Nz, Nr))
-    for iz in xrange(Nz) :
-        for ir in xrange(Nr) :
+    for iz in range(Nz) :
+        for ir in range(Nr) :
           er[iz, ir] = quad( kernel_Er, -zmax, -z[iz]+c*t, 
             args = ( -z[iz]+c*t, r[ir] ), limit=200 )[0]
     return( er )
@@ -167,15 +167,13 @@ def compare_fields(sim) :
         r = gathered_grid.r
 
         # Analytical solution
-        print 'Calculate analytical solution for Ez'
+        print( 'Calculate analytical solution for Ez' )
         ez = Ez(z-z.min(), r, 0.)
-        print 'Done...'
-        print ''
+        print( 'Done...\n' )
 
-        print 'Calculate analytical solution for Er'
+        print( 'Calculate analytical solution for Er' )
         er = Er(z-z.min(), r, 0.)
-        print 'Done...'
-        print ''
+        print('Done...\n')
 
         compare_wakefields(ez, er, gathered_grid)
     

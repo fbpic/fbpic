@@ -168,7 +168,7 @@ class BoostedParticleDiagnostic(ParticleDiagnostic):
                 
                 # Loop through the particle species and register the
                 # particle arrays in the snapshot objects (buffering)
-                for species_name, species in self.species_dict.iteritems():
+                for species_name, species in self.species_dict.items():
                     # Extract the slice of particles
                     slice_array = self.particle_catcher.extract_slice( 
                         species, snapshot.current_z_boost, 
@@ -298,7 +298,7 @@ class BoostedParticleDiagnostic(ParticleDiagnostic):
             # Setup the meshes group (contains all the particles)
             particle_path = "/data/%d/particles/" %iteration
 
-            for species_name, species in self.species_dict.iteritems():
+            for species_name, species in self.species_dict.items():
                 species_path = particle_path+"%s/" %(species_name)
                 # Create and setup the h5py.Group species_grp
                 species_grp = f.require_group( species_path )
@@ -686,7 +686,7 @@ class ParticleCatcher:
         num_part = np.shape(selected_indices)[0]
 
         # Create empty 2D slice array (7, num_part)
-        slice_array = np.empty((np.shape(p2i.keys())[0], num_part,))
+        slice_array = np.empty( (len(p2i), num_part,) )
 
         for quantity in p2i.keys():
                 # Store particle quantities in a 2D array

@@ -23,7 +23,7 @@ def push_x_numba( x, y, z, ux, uy, uz, inv_gamma, Ntot, dt ):
     chdt = c*0.5*dt
 
     # Particle push
-    for ip in xrange(Ntot) :
+    for ip in range(Ntot) :
         x[ip] += chdt * inv_gamma[ip] * ux[ip]
         y[ip] += chdt * inv_gamma[ip] * uy[ip]
         z[ip] += chdt * inv_gamma[ip] * uz[ip]
@@ -39,7 +39,7 @@ def push_p_numba( ux, uy, uz, inv_gamma,
     bconst = 0.5*q*dt/m
         
     # Loop over the particles
-    for ip in xrange(Ntot) :
+    for ip in range(Ntot) :
 
         # Shortcut for initial 1./gamma
         inv_gamma_i = inv_gamma[ip]
@@ -130,7 +130,7 @@ def gather_field_numba( exptheta, m, Fgrid, Fptcl,
     Ntot = len(Fptcl)
     
     # Loop over the particles
-    for ip in xrange(Ntot) :
+    for ip in range(Ntot) :
         # Erase the temporary variable
         F = 0.j
         # Sum the fields from the 4 points
@@ -198,26 +198,26 @@ def deposit_field_numba( Fptcl, Fgrid,
     
     # Deposit the particle quantity onto the grid
     # Lower cell in z, Lower cell in r
-    for ip in xrange(Ntot) :
+    for ip in range(Ntot) :
         Fgrid[ iz_lower[ip], ir_lower[ip] ] += \
           Sz_lower[ip] * Sr_lower[ip] * Fptcl[ip]
     # Lower cell in z, Upper cell in r
-    for ip in xrange(Ntot) :
+    for ip in range(Ntot) :
         Fgrid[ iz_lower[ip], ir_upper[ip] ] += \
           Sz_lower[ip] * Sr_upper[ip] * Fptcl[ip]
     # Upper cell in z, Lower cell in r
-    for ip in xrange(Ntot) :
+    for ip in range(Ntot) :
         Fgrid[ iz_upper[ip], ir_lower[ip] ] += \
           Sz_upper[ip] * Sr_lower[ip] * Fptcl[ip]
     # Upper cell in z, Upper cell in r
-    for ip in xrange(Ntot) :
+    for ip in range(Ntot) :
         Fgrid[ iz_upper[ip], ir_upper[ip] ] += \
           Sz_upper[ip] * Sr_upper[ip] * Fptcl[ip]
 
     # Add the fields from the guard cells in r
-    for ip in xrange(Ntot) :
+    for ip in range(Ntot) :
         Fgrid[ iz_lower[ip], 0 ] += \
             sign_guards * Sz_lower[ip]*Sr_guard[ip] * Fptcl[ip]
-    for ip in xrange(Ntot) :
+    for ip in range(Ntot) :
         Fgrid[ iz_upper[ip], 0 ] += \
             sign_guards * Sz_upper[ip]*Sr_guard[ip] * Fptcl[ip]

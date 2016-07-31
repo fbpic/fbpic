@@ -91,9 +91,9 @@ def remove_particles_cpu(species, fld, nguard, left_proc, right_proc):
     zbox_min = fld.interp[0].zmin + nguard*fld.interp[0].dz
     zbox_max = fld.interp[0].zmax - nguard*fld.interp[0].dz
     if left_proc is None:
-        zbox_min = fld.interp[0].zmin + nguard/2*fld.interp[0].dz
+        zbox_min = fld.interp[0].zmin + int(nguard/2)*fld.interp[0].dz
     if right_proc is None:
-        zbox_max = fld.interp[0].zmax - nguard/2*fld.interp[0].dz
+        zbox_max = fld.interp[0].zmax - int(nguard/2)*fld.interp[0].dz
     
     # Select the particles that are in the left or right guard cells,
     # and those that stay on the local process
@@ -195,11 +195,11 @@ def remove_particles_gpu(species, fld, nguard, left_proc, right_proc):
     # half of the guard cells are removed
     if left_proc is None:
         # Find the index in z below which particles are removed
-        iz_min = max( nguard/2 + fld.prefix_sum_shift, 0 )
+        iz_min = max( int(nguard/2) + fld.prefix_sum_shift, 0 )
         i_min = prefix_sum.getitem( iz_min * Nr )
     if right_proc is None:
         # Find the index in z above which particles are removed
-        iz_max = min( Nz - nguard/2 + fld.prefix_sum_shift, Nz )
+        iz_max = min( Nz - int(nguard/2) + fld.prefix_sum_shift, Nz )
         i_max = prefix_sum.getitem( iz_max * Nr - 1 )
     # Because of the way in which the prefix_sum is calculated, if the
     # cell that was requested for i_max is beyond the last non-empty cell,
@@ -367,7 +367,7 @@ def add_buffers_gpu( species, recv_left, recv_right ):
         left_buffer = cuda.to_device( recv_left[i_attr] )
         right_buffer = cuda.to_device( recv_right[i_attr] )
         # Initialize the new particle array
-        particle_array = cuda.device_array(new_Ntot, dtype=np.float64)
+        particle_array = cuda.device_array( (new_Ntot,), dtype=np.float64)
         # Merge the arrays on the GPU
         stay_buffer = getattr(species, attr)
         merge_buffers_to_particles[dim_grid_1d, dim_block_1d](
