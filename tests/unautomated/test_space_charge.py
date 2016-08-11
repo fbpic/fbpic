@@ -56,7 +56,7 @@ sim.fld.interp[0].show('Ez')
 plt.figure(1)
 sim.fld.interp[0].show('Er')
 plt.show()
-print 'Done'
+print( 'Done' )
 
 # Carry out the simulation
 for k in range(N_step/N_show) :

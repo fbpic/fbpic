@@ -73,7 +73,7 @@ if show_fields:
     plt.figure(1)
     sim.fld.interp[0].show('Er')
     plt.show()
-    print 'Done'
+    print( 'Done' )
 
 # Create empty arrays for saving rms bunch sizes
 sig_zp = np.zeros(N_step/N_show+1)

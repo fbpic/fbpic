@@ -31,7 +31,7 @@ from fbpic.openpmd_diag import FieldDiagnostic, ParticleDiagnostic
 # ----------
 
 # Whether to use the GPU
-use_cuda = False
+use_cuda = True
 
 # The simulation box
 Nz = 400         # Number of gridpoints along z

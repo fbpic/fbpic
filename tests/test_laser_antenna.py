@@ -117,7 +117,7 @@ def run_and_check_laser_antenna(gamma_b, show, write_files):
     # Loop over the iterations
     print('Running the simulation...')
     for it in range(N_show) :
-        print 'Diagnostic point %d/%d' %(it, N_show)
+        print( 'Diagnostic point %d/%d' %(it, N_show) )
         # Advance the Maxwell equations
         sim.step( N_step, show_progress=False )
         # Plot the fields during the simulation
@@ -140,9 +140,9 @@ def run_and_check_laser_antenna(gamma_b, show, write_files):
         # (Because of the definition of the interpolation grid, the )
         field = getattr(sim.fld.interp[1], fieldtype)\
                             [Nz_half:-sim.comm.n_guard]
-        print 'Checking %s' %fieldtype
+        print( 'Checking %s' %fieldtype )
         check_fields( factor*field, z, r, info_in_real_part, gamma_b )
-        print 'OK'
+        print( 'OK' )
 
 def check_fields( interp1_complex, z, r, info_in_real_part, gamma_b,
                     show_difference=False ):
