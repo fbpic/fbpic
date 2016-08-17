@@ -69,7 +69,7 @@ def restart_from_checkpoint( sim, iteration=None ):
 
     # Load the particles
     # Loop through the different species
-    for i in xrange(len(sim.ptcl)):
+    for i in range(len(sim.ptcl)):
         name = 'species %d' %i        
         load_species( sim.ptcl[i], name, ts, iteration)
 
