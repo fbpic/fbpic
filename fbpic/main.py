@@ -427,7 +427,7 @@ class Simulation(object):
         """
         # Attach the moving window to the boundary communicator
         self.comm.moving_win = MovingWindow( self.fld.interp, self.comm,
-            v, self.p_nz, self.time, ux_m, uy_m, uz_m,
+            self.ptcl, v, self.p_nz, self.time, ux_m, uy_m, uz_m,
             ux_th, uy_th, uz_th, gamma_boost )
             
 def progression_bar(i, Ntot, measured_start, Nbars=50, char='-'):

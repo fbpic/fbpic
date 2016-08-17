@@ -110,8 +110,7 @@ if __name__ == '__main__':
     sim.set_moving_window( v=v_window )
     
     # Add a field diagnostic
-    sim.diags = [ FieldDiagnostic( diag_period, sim.fld,
-                                fieldtypes=fieldtypes, comm=sim.comm ),
+    sim.diags = [ FieldDiagnostic( diag_period, sim.fld, comm=sim.comm ),
                 ParticleDiagnostic( diag_period, {"electrons" : sim.ptcl[0]},
                                 select={"uz" : [1., None ]}, comm=sim.comm ) ]
     # Add checkpoints
