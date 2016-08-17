@@ -244,8 +244,8 @@ class Simulation(object):
             # ------------------------
 
             # Show a progression bar
-            if (show_progress) and (self.comm.rank==0):
-                progression_bar( i_step, N )
+            if show_progress and self.comm.rank==0:
+                progression_bar( i_step, N, measured_start )
 
             # Run the diagnostics
             for diag in self.diags:
@@ -430,7 +430,7 @@ class Simulation(object):
             self.ptcl, v, self.p_nz, self.time, ux_m, uy_m, uz_m,
             ux_th, uy_th, uz_th, gamma_boost )
             
-def progression_bar(i, Ntot, measured_start, Nbars=50, char='-'):
+def progression_bar( i, Ntot, measured_start, Nbars=50, char='-'):
     """
     Shows a progression bar with Nbars and the remaining 
     simulation time.
