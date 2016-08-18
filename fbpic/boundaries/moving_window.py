@@ -31,7 +31,8 @@ class MovingWindow(object):
             Contains the positions of the boundaries
 
         comm: a BoundaryCommunicator object
-            Contains information about the MPI and about
+            Contains information about the MPI decomposition
+            and about the longitudinal boundaries
 
         ptcl: a list of Particle objects
             Needed in order to infer the position of injection 

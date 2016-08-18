@@ -5,7 +5,7 @@ This file steers and controls the simulation.
 """
 # When cuda is available, select one GPU per mpi process
 # (This needs to be done before the other imports,
-# as it sets the cuda contests)
+# as it sets the cuda context)
 from mpi4py import MPI
 try:    
     from .cuda_utils import cuda, send_data_to_gpu, \
