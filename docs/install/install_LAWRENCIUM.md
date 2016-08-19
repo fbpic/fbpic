@@ -44,13 +44,7 @@ module load cuda
 
 - `cd` into the top folder of `fbpic` and install the dependencies:  
 ```
-conda install --file requirements.txt
-```
-
-- Install `pyfftw` (not in the standard Anaconda channels, and thus it
-requires a special command):  
-```
-conda install -c conda-forge pyfftw
+conda install -c conda-forge --file requirements.txt
 ```
 
 - Install the `accelerate` package in order to be able to run on GPUs
