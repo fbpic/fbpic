@@ -51,9 +51,9 @@ class OpenPMDDiagnostic(object) :
         self.comm = comm
             
         # Get the directory in which to write the data
-        if write_dir is None :
+        if write_dir is None:
             self.write_dir = os.path.join( os.getcwd(), 'diags' )
-        else :
+        else:
             self.write_dir = os.path.abspath(write_dir)
 
         # Create a few addiditional directories within self.write_dir

@@ -20,5 +20,9 @@ from .field_diag import FieldDiagnostic
 from .particle_diag import ParticleDiagnostic
 from .boosted_field_diag import BoostedFieldDiagnostic
 from .boosted_particle_diag import BoostedParticleDiagnostic
+from .checkpoint_restart import set_periodic_checkpoint, \
+     restart_from_checkpoint
+
 __all__ = ['FieldDiagnostic', 'ParticleDiagnostic', 
-	'BoostedFieldDiagnostic', 'BoostedParticleDiagnostic']
+	'BoostedFieldDiagnostic', 'BoostedParticleDiagnostic',
+    'set_periodic_checkpoint', 'restart_from_checkpoint']

@@ -19,8 +19,7 @@ class MovingWindow(object):
     """
     Class that contains the moving window's variables and methods
     """
-    
-    def __init__( self, interp, comm, v, p_nz, time,
+    def __init__( self, interp, comm, ptcl, v, p_nz, time,
                   ux_m=0., uy_m=0., uz_m=0.,
                   ux_th=0., uy_th=0., uz_th=0., gamma_boost=None ) :
         """
@@ -28,11 +27,16 @@ class MovingWindow(object):
 
         Parameters
         ----------
-        interp: a list of Interpolation object
+        interp: a list of Interpolation objects
             Contains the positions of the boundaries
 
         comm: a BoundaryCommunicator object
-            Contains information about the MPI and about 
+            Contains information about the MPI decomposition
+            and about the longitudinal boundaries
+
+        ptcl: a list of Particle objects
+            Needed in order to infer the position of injection 
+            of the particles by the moving window.
                     
         v: float (meters per seconds), optional
             The speed of the moving window
@@ -55,7 +59,6 @@ class MovingWindow(object):
             value of `gamma_boost` to the corresponding Lorentz factor.
             (uz_m is to be given in the lab frame ; for the moment, this
             will not work if any of ux_th, uy_th, uz_th, ux_m, uy_m is nonzero)
-
         """
         # Check that the boundaries are open
         if ((comm.rank == comm.size-1) and (comm.right_proc is not None)) \
@@ -82,7 +85,7 @@ class MovingWindow(object):
         self.exchange_period = comm.exchange_period
 
         # Attach reference position of moving window (only for the first proc)
-        # (Determines by how many cells the window should be moves)
+        # (Determines by how many cells the window should be moved)
         if comm.rank == 0:
             self.zmin = interp[0].zmin
         
@@ -90,7 +93,19 @@ class MovingWindow(object):
         if comm.rank == comm.size-1:
             ng = comm.n_guard
             self.z_inject = interp[0].zmax - ng/2*interp[0].dz
-            self.z_end_plasma = interp[0].zmax - ng*interp[0].dz
+            # Try to detect the position of the end of the plasma:
+            # Find the maximal position of the particles which are
+            # continously injected.
+            self.z_end_plasma = None
+            for species in ptcl:
+                if species.continuous_injection and species.Ntot != 0:
+                    # Add half of the spacing between particles (the injection
+                    # function itself will add a half-spacing again)
+                    self.z_end_plasma = species.z.max() + 0.5*interp[0].dz/p_nz
+                    break
+            # Default value in the absence of continuously-injected particles
+            if self.z_end_plasma is None:
+                self.z_end_plasma = self.z_inject
             self.v_end_plasma = \
               c * self.uz_m / np.sqrt(1 + ux_m**2 + uy_m**2 + self.uz_m**2)
             self.nz_inject = 0
@@ -169,7 +184,7 @@ class MovingWindow(object):
     def generate_particles( self, species, dz, time ) :
         """
         Generate new particles at the right end of the plasma
-        (i.e. between self.z_inject and self.z_end_plasma)
+        (i.e. between z_end_plasma - nz_inject*dz and z_end_plasma)
 
         Return them in the form of a particle buffer of shape (8, Nptcl)
 

@@ -17,6 +17,7 @@ before_install:
 install:
   - conda install --yes python=$TRAVIS_PYTHON_VERSION -c conda-forge --file requirements.txt
   - conda install --yes pyflakes
+  - pip install openpmd_viewer
   - python setup.py install
 before_script:
   - python -m pyflakes .

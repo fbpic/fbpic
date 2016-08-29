@@ -5,7 +5,7 @@ This file steers and controls the simulation.
 """
 # When cuda is available, select one GPU per mpi process
 # (This needs to be done before the other imports,
-# as it sets the cuda contests)
+# as it sets the cuda context)
 from mpi4py import MPI
 try:    
     from .cuda_utils import cuda, send_data_to_gpu, \
@@ -195,7 +195,6 @@ class Simulation(object):
         # Do the initial charge deposition (at t=0) now
         self.deposit('rho_prev')
 
-
     def step(self, N=1, ptcl_feedback=True, correct_currents=True,
              use_true_rho=False, move_positions=True, move_momenta=True,
              show_progress=True):
@@ -233,7 +232,7 @@ class Simulation(object):
         fld = self.fld
         # Measure the time taken by the PIC cycle
         measured_start = time.time()
- 
+
         # Send simulation data to GPU (if CUDA is used)
         if self.use_cuda:
             send_data_to_gpu(self)
@@ -241,8 +240,11 @@ class Simulation(object):
         # Loop over timesteps
         for i_step in range(N):
 
+            # Messages and diagnostics
+            # ------------------------
+
             # Show a progression bar
-            if show_progress:
+            if show_progress and self.comm.rank==0:
                 progression_bar( i_step, N, measured_start )
 
             # Run the diagnostics
@@ -252,6 +254,9 @@ class Simulation(object):
                 # (Send the data to the GPU if needed.)
                 diag.write( self.iteration )
 
+            # Exchanges to prepare for this iteration
+            # ---------------------------------------
+            
             # Exchange the fields (EB) in the guard cells between domains
             self.comm.exchange_fields(fld.interp, 'EB')
 
@@ -330,7 +335,7 @@ class Simulation(object):
             # Get the fields E and B on the interpolation grid at t = (n+1) dt
             fld.spect2interp('E')
             fld.spect2interp('B')
-
+            
             # Increment the global time and iteration
             self.time += self.dt
             self.iteration += 1
@@ -422,10 +427,10 @@ class Simulation(object):
         """
         # Attach the moving window to the boundary communicator
         self.comm.moving_win = MovingWindow( self.fld.interp, self.comm,
-            v, self.p_nz, self.time, ux_m, uy_m, uz_m,
+            self.ptcl, v, self.p_nz, self.time, ux_m, uy_m, uz_m,
             ux_th, uy_th, uz_th, gamma_boost )
             
-def progression_bar(i, Ntot, measured_start, Nbars=50, char='-'):
+def progression_bar( i, Ntot, measured_start, Nbars=50, char='-'):
     """
     Shows a progression bar with Nbars and the remaining 
     simulation time.
