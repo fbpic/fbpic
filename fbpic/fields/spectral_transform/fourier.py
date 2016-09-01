@@ -43,8 +43,8 @@ class FFT(object):
         self.use_cuda = use_cuda
         if (self.use_cuda is True) and (cuda_installed is False) :
             self.use_cuda = False
-            print '** Cuda not available for Fourier transform.'
-            print '** Performing the Fourier transform on the CPU.'
+            print('** Cuda not available for Fourier transform.')
+            print('** Performing the Fourier transform on the CPU.')
 
         # Initialize the object for calculation on the GPU
         if self.use_cuda:

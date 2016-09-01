@@ -39,7 +39,7 @@ if __name__ == '__main__' :
     # ----------------
     # Scalar transform
     # ----------------
-    print '\n ### Scalar transform \n'
+    print( '\n ### Scalar transform \n' )
     
     # Perform the transform on the CPU
     trans_cpu = SpectralTransformer( Nz, Nr, m, rmax )
@@ -52,7 +52,7 @@ if __name__ == '__main__' :
         trans_cpu.spect2interp_scal( spect_field_p, back_field_r )
         e = time.time()
         tmin = min(tmin, e-s )
-    print '\n Time taken on the CPU : %.3f ms\n' %(tmin*1e3)
+    print( '\n Time taken on the CPU : %.3f ms\n' %(tmin*1e3) )
     
     # Perform the transform on the GPU
     trans_gpu = SpectralTransformer( Nz, Nr, m, rmax, use_cuda=True )
@@ -65,20 +65,20 @@ if __name__ == '__main__' :
         trans_gpu.spect2interp_scal( d_spect_field_p, d_back_field_r )
         e = time.time()
         tmin = min(tmin, e-s )
-    print '\n Time taken on the GPU : %.3f ms\n' %(tmin*1e3)
+    print( '\n Time taken on the GPU : %.3f ms\n' %(tmin*1e3) )
     
     # Check accuracy
     check_spect_field_p = d_spect_field_p.copy_to_host()
     check_back_field_r = d_back_field_r.copy_to_host()
-    print 'Max error on forward transform : %e' \
-      % abs(spect_field_p - check_spect_field_p).max()
-    print 'Max error on backward transform : %e\n' \
-      % abs(back_field_r - check_back_field_r).max()
+    print( 'Max error on forward transform : %e' \
+      % abs(spect_field_p - check_spect_field_p).max() )
+    print( 'Max error on backward transform : %e\n' \
+      % abs(back_field_r - check_back_field_r).max() )
 
     # ----------------
     # Vector transform
     # ----------------
-    print '\n ### Vector transform \n'
+    print( '\n ### Vector transform \n' )
     
     # Perform the transform on the CPU
     trans_cpu = SpectralTransformer( Nz, Nr, m, rmax )
@@ -94,7 +94,7 @@ if __name__ == '__main__' :
         cuda.synchronize()
         e = time.time()
         tmin = min(tmin, e-s )
-    print '\n Time taken on the CPU : %.3f ms\n' %(tmin*1e3)
+    print( '\n Time taken on the CPU : %.3f ms\n' %(tmin*1e3) )
     
     # Perform the transform on the GPU
     trans_gpu = SpectralTransformer( Nz, Nr, m, rmax, use_cuda=True )
@@ -110,18 +110,18 @@ if __name__ == '__main__' :
         cuda.synchronize()
         e = time.time()
         tmin = min(tmin, e-s )
-    print '\n Time taken on the GPU : %.3f ms\n' %(tmin*1e3)
+    print( '\n Time taken on the GPU : %.3f ms\n' %(tmin*1e3) )
     
     # Check accuracy
     check_spect_field_p = d_spect_field_p.copy_to_host()
     check_spect_field_m = d_spect_field_m.copy_to_host()
     check_back_field_r = d_back_field_r.copy_to_host()
     check_back_field_t = d_back_field_t.copy_to_host()
-    print 'Max error on forward transform : %e' \
+    print( 'Max error on forward transform : %e' \
       % ( abs(spect_field_p - check_spect_field_p).max() \
-      + abs(spect_field_m - check_spect_field_m).max() )
-    print 'Max error on backward transform : %e\n' \
+      + abs(spect_field_m - check_spect_field_m).max() ) )
+    print( 'Max error on backward transform : %e\n' \
       % ( abs(back_field_r - check_back_field_r).max() \
-      + abs(back_field_t - check_back_field_t).max() )
+      + abs(back_field_t - check_back_field_t).max() ) )
 
       

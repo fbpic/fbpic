@@ -29,10 +29,18 @@ where the bracketed text should be replaced by the values for your account.
 
 - Add the following lines at the end of your .bashrc
 ```
-export $PATH=/ccs/proj/<project id>/miniconda2/bin:$PATH
-export $LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/ccs/proj/<project id>/miniconda2/lib
+module load python_anaconda
+export PATH=/ccs/proj/<proj id>/miniconda2/bin:$PATH
+export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/ccs/proj/<proj id>/miniconda2/lib
+export PYTHONPATH=$PYTHONPATH:/ccs/proj/<proj id>/miniconda2/lib/python2.7/site-packages/:/sw/xk6/python_anaconda/2.3.0/sles11.3_gnu4.8.2/lib/python2.7/site-packages/
 ```
-where again the bracketed text should be replaced by the values for your account.
+where again the bracketed text should be replaced by the values for
+your account. The first line gives access to the `mpi4py`
+installation of Titan (which is contained in the module
+`python_anaconda`) while the other lines allow you to use packages
+that you install locally.
+
+Then execute the modified .bashrc file: `source .bashrc`.
 
 ### Installation of FBPIC and related packages
 
@@ -40,13 +48,7 @@ where again the bracketed text should be replaced by the values for your account
 
 - `cd` into the top folder of `fbpic` and install the dependencies:  
 ```
-conda install --file requirements.txt
-```
-
-- Install `pyfftw` (not in the standard Anaconda channels, and thus it
-requires a special command):  
-```
-conda install -c conda-forge pyfftw
+conda install -c conda-forge --file requirements.txt
 ```
 
 - Install the `accelerate` package in order to be able to run on GPUs
@@ -57,11 +59,17 @@ conda install accelerate
 (The `accelerate` package is not free, but there is a 30-day free trial period,
   which starts when the above command is entered. For further use beyond 30
   days, one option is to obtain an academic license, which is also free. To do
-  so, please visit https://www.continuum.io/anaconda-academic-subscriptions-available.)
+  so, please visit [this page](https://www.continuum.io/anaconda-academic-subscriptions-available).)
 
-- Install `fbpic`
+- Install `fbpic` into your local set of packages
 ```
 python setup.py install
+```
+
+- Uninstall mpi4py (in order to use the `mpi4py` from Titan
+instead):  
+```
+conda uninstall mpi4py
 ```
 
 ## Allocation of ressources and starting runs
@@ -87,7 +95,7 @@ cd $MEMBERWORK/<project id>/<simulation name>
 ```
 Then use `aprun` to launch the job on a GPU (even for single-node job)
 ```
-aprun -n 1 python <fbpic_script.py>
+aprun -n 1 -N 1 python <fbpic_script.py>
 ```
 
 ### Batch jobs
@@ -101,5 +109,5 @@ Create a file `submission_script` with contains the following text:
 
 cd  $MEMBERWORK/<project id>/<simulation name>
 
-aprun -n <number of nodes> python fbpic_script.py
+aprun -n <number of nodes> -N 1 python fbpic_script.py
 ```

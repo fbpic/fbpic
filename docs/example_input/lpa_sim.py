@@ -24,19 +24,20 @@ from scipy.constants import c
 # Import the relevant structures in FBPIC
 from fbpic.main import Simulation
 from fbpic.lpa_utils.laser import add_laser
-from fbpic.openpmd_diag import FieldDiagnostic, ParticleDiagnostic
+from fbpic.openpmd_diag import FieldDiagnostic, ParticleDiagnostic, \
+     set_periodic_checkpoint, restart_from_checkpoint
 
 # ----------
 # Parameters
 # ----------
 
 # Whether to use the GPU
-use_cuda = False
+use_cuda = True
 
 # The simulation box
 Nz = 400         # Number of gridpoints along z
-zmin = 0.e-6     # Left end of the box along z (meters)
-zmax = 40.e-6    # Right end of the box along z (meters)
+zmax = 30.e-6    # Right end of the simulation box (meters)
+zmin = -10.e-6   # Left end of the simulation box (meters)
 Nr = 50          # Number of gridpoints along r
 rmax = 20.e-6    # Length of the box along r (meters)
 Nm = 2           # Number of modes used
@@ -45,8 +46,8 @@ dt = (zmax-zmin)/Nz/c   # Timestep (seconds)
 N_step = 200     # Number of iterations to perform
 
 # The particles
-p_zmin = 35.e-6  # Position of the beginning of the plasma (meters)
-p_zmax = 41.e-6  # Position of the end of the plasma (meters)
+p_zmin = 25.e-6  # Position of the beginning of the plasma (meters)
+p_zmax = 31.e-6  # Position of the end of the plasma (meters)
 p_rmin = 0.      # Minimal radial position of the plasma (meters)
 p_rmax = 18.e-6  # Maximal radial position of the plasma (meters)
 n_e = 4.e18*1.e6 # Density (electrons.meters^-3)
@@ -58,19 +59,20 @@ p_nt = 4         # Number of particles per cell along theta
 a0 = 4.          # Laser amplitude
 w0 = 5.e-6       # Laser waist
 ctau = 5.e-6     # Laser duration
-z0 = 25.e-6      # Laser centroid
+z0 = 15.e-6      # Laser centroid
 
 # The moving window
 v_window = c       # Speed of the window
 
-# The diagnostics
-diag_period = 10        # Period of the diagnostics in number of timesteps
-fieldtypes = [ "E", "rho", "B", "J" ]  # The fields that will be written
-
+# The diagnostics and the checkpoints/restarts
+diag_period = 10         # Period of the diagnostics in number of timesteps
+save_checkpoints = False # Whether to write checkpoint files
+checkpoint_period = 50   # Period for writing the checkpoints
+use_restart = False      # Whether to restart from a previous checkpoint
 
 # The density profile
-ramp_start = 40.e-6
-ramp_length = 50.e-6
+ramp_start = 30.e-6
+ramp_length = 40.e-6
 
 def dens_func( z, r ) :
     """Returns relative density at position z and r"""    
@@ -82,39 +84,40 @@ def dens_func( z, r ) :
     n = np.where( z<ramp_start, 0., n )
     return(n)
 
-# -----------------------
-# Checking the parameters
-# -----------------------
-if p_nr%2 == 1 :
-    raise UserWarning("Running the simulation with an odd number \n"
-                      "of macroparticles may result in a very \n"
-                      "noisy simulation.")
-
 # ---------------------------
 # Carrying out the simulation
 # ---------------------------
 
-# Initialize the simulation object
-sim = Simulation( Nz, zmax, Nr, rmax, Nm, dt,
-    p_zmin, p_zmax, p_rmin, p_rmax, p_nz, p_nr, p_nt, n_e,
-    dens_func=dens_func, zmin=zmin, boundaries='open',
-    use_cuda=use_cuda )
+# NB: The code below is only executed when running the script,
+# (`python -i lpa_sim.py`), but not when importing it (`import lpa_sim`).
+if __name__ == '__main__':
 
-# Add a laser to the fields of the simulation
-add_laser( sim, a0, w0, ctau, z0 )
+    # Initialize the simulation object
+    sim = Simulation( Nz, zmax, Nr, rmax, Nm, dt,
+        p_zmin, p_zmax, p_rmin, p_rmax, p_nz, p_nr, p_nt, n_e,
+        dens_func=dens_func, zmin=zmin, boundaries='open',
+        use_cuda=use_cuda )
 
-# Configure the moving window
-sim.set_moving_window( v=v_window )
+    # Load initial fields
+    if use_restart is False: 
+        # Add a laser to the fields of the simulation
+        add_laser( sim, a0, w0, ctau, z0 )
+    else:
+        # Load the fields and particles from the latest checkpoint file
+        restart_from_checkpoint( sim )
+    
+    # Configure the moving window
+    sim.set_moving_window( v=v_window )
+    
+    # Add a field diagnostic
+    sim.diags = [ FieldDiagnostic( diag_period, sim.fld, comm=sim.comm ),
+                ParticleDiagnostic( diag_period, {"electrons" : sim.ptcl[0]},
+                                select={"uz" : [1., None ]}, comm=sim.comm ) ]
+    # Add checkpoints
+    if save_checkpoints:
+        set_periodic_checkpoint( sim, checkpoint_period )
 
-# Add a field diagnostic
-sim.diags = [ FieldDiagnostic( diag_period, sim.fld,
-                               fieldtypes=fieldtypes, comm=sim.comm ),
-              ParticleDiagnostic( diag_period, {"electrons" : sim.ptcl[0]},
-                            select={"uz" : [1., None ]}, comm=sim.comm ) ]
-
-### Run the simulation
-print('\n Performing %d PIC cycles' % N_step) 
-sim.step( N_step )
-print('')
-
-
+    ### Run the simulation
+    print('\n Performing %d PIC cycles' % N_step) 
+    sim.step( N_step )
+    print('')
