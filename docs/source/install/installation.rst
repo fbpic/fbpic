@@ -8,4 +8,5 @@ Contents:
    
    install_local
    install_titan
+   install_jureca
    install_lawrencium

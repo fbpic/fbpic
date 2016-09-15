@@ -4,7 +4,7 @@ Installation on Lawrencium (LBNL)
 `Lawrencium
 <https://sites.google.com/a/lbl.gov/high-performance-computing-services-group/lbnl-supercluster/lawrencium>`__
 is a local cluster at the `Lawrence Berkeley National Lab <http://www.lbl.gov/>`__
-(LBNL).
+(LBNL).::
 
 It has a few nodes with K20 and K80 Nvidia GPUs.
 

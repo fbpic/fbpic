@@ -38,6 +38,7 @@ Python. If Anaconda is not your default Python distribution, download and instal
 The installation can be tested by running:
 
 ::
+   
     pip install openPMD-viewer
     python setup.py test
 
