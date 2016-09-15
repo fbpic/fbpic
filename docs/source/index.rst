@@ -12,7 +12,7 @@ Contents:
    :maxdepth: 2
 
    overview
-   installation
+   install/installation
    tutorial
    api_reference
 
