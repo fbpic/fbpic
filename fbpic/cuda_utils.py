@@ -2,6 +2,7 @@
 This file is part of the Fourier-Bessel Particle-In-Cell code (FB-PIC)
 It defines a set of generic functions that operate on a GPU.
 """
+import os
 from numba import cuda
 
 # -----------------------------------------------------
@@ -141,9 +142,13 @@ def print_current_gpu( mpi_rank ):
         The ID of the MPI process
     """
     gpu = cuda.gpus.current
-
-    print("MPI rank %d selected CUDA Device %s with id %s" %(
-        mpi_rank, gpu.name, gpu.id ))
+    message = "MPI rank %d selected a %s GPU with id %s" %(
+        mpi_rank, gpu.name, gpu.id )
+    try:
+        message += " on node %s" %os.environ['HOSTNAME']
+    except KeyError:
+        pass
+    print(message)
 
 def mpi_select_gpus(mpi_comm):
     """
