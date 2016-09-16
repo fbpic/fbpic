@@ -142,7 +142,8 @@ class Fields(object) :
             kr = 2*np.pi * self.trans[m].dht0.get_nu()
             # Create the object
             self.spect.append( SpectralGrid( kz_modified, kr, m,
-                        kz_true, use_cuda=self.use_cuda ) )
+                kz_true, self.interp[m].dz, self.interp[m].dr,
+                use_cuda=self.use_cuda ) )
             self.psatd.append( PsatdCoeffs( self.spect[m].kz,
                                 self.spect[m].kr, m, dt, Nz, Nr,
                                 use_cuda = self.use_cuda ) )
@@ -589,7 +590,7 @@ class SpectralGrid(object) :
     Contains the fields and coordinates of the spectral grid.
     """
 
-    def __init__(self, kz_modified, kr, m, kz_true, use_cuda=False ) :
+    def __init__(self, kz_modified, kr, m, kz_true, dz, dr, use_cuda=False ) :
         """
         Allocates the matrices corresponding to the spectral grid
         
@@ -608,6 +609,10 @@ class SpectralGrid(object) :
         kz_true : 1darray of float
             The true wavevector of the longitudinal, spectral grid
             (The actual kz that a Fourier transform would give)
+
+        dz, dr: float
+            The grid spacings (needed to calculate
+            precisely the filtering function in spectral space)
             
         use_cuda : bool, optional
             Wether to use the GPU or not
@@ -644,7 +649,7 @@ class SpectralGrid(object) :
         self.kz, self.kr = np.meshgrid( kz_modified, kr, indexing='ij' )
         # - for filtering
         #   (use the true kz, so as to effectively filter the high k's)
-        self.filter_array = get_filter_array( kz_true, kr )
+        self.filter_array = get_filter_array( kz_true, kr, dz, dr )
         # - for current correction
         self.F = np.zeros( (Nz, Nr), dtype='complex' )
         self.inv_k2 = 1./np.where( ( self.kz == 0 ) & (self.kr == 0),
@@ -1042,7 +1047,7 @@ class PsatdCoeffs(object) :
 # Utility function
 # -----------------
 
-def get_filter_array( kz, kr ) :
+def get_filter_array( kz, kr, dz, dr ) :
     """
     Return the array that multiplies the fields in k space
 
@@ -1052,20 +1057,26 @@ def get_filter_array( kz, kr ) :
 
     Parameters
     ----------
-    kz, kr : 1darrays
-       The longitudinal and transverse wavevectors on the spectral grid
+    kz: 1darray
+        The true wavevectors of the longitudinal, spectral grid
+        (i.e. not the kz modified by finite order)
+
+    kr: 1darray
+        The transverse wavevectors on the spectral grid
+
+    dz, dr: float
+        The grid spacings (needed to calculate
+        precisely the filtering function in spectral space)
 
     Returns
     -------
     A 2darray of shape ( len(kz), len(kr) )
     """
     # Find the 1D filter in z
-    coef_z = 1./kz.max() * np.pi/2
-    filt_z = 1. - np.sin( kz * coef_z )**2
+    filt_z = 1. - np.sin( 0.5 * kz * dz )**2
 
     # Find the 1D filter in r
-    coef_r = 1./kr.max() * np.pi/2
-    filt_r = 1. - np.sin( kr * coef_r )**2
+    filt_r = 1. - np.sin( 0.5 * kr * dr )**2
 
     # Build the 2D filter by takin the product
     filter_array = filt_z[:, np.newaxis] * filt_r[np.newaxis, :]
