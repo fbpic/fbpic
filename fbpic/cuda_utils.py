@@ -142,7 +142,7 @@ def print_current_gpu( mpi_rank ):
     """
     gpu = cuda.gpus.current
 
-    print("MPI rank %d selected CUDA Device %s %s" %(
+    print("MPI rank %d selected CUDA Device %s with id %s" %(
         mpi_rank, gpu.name, gpu.id ))
 
 def mpi_select_gpus(mpi_comm):
