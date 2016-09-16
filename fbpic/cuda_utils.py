@@ -131,20 +131,19 @@ def print_gpu_meminfo_all():
     for gpu in gpus:
         print_gpu_meminfo(gpu)
 
-def print_current_gpu():
+def print_current_gpu( mpi_rank ):
     """
     Prints information about the currently selected GPU.
+    
+    Parameter:
+    ----------
+    mpi_rank: int
+        The ID of the MPI process
     """
     gpu = cuda.gpus.current
 
-    print("CUDA Device info of ")
-    print("currently selected device:")
-    print("------------------------------")
-    print("ID: %s" %(gpu.id))
-    print("Name: %s" %(gpu.name))
-    print("Compute capability: %s.%s" %(gpu.compute_capability[0],
-                                        gpu.compute_capability[1]))
-    print_gpu_meminfo(gpu)
+    print("MPI rank %d selected CUDA Device %s %s" %(
+        mpi_rank, gpu.name, gpu.id ))
 
 def mpi_select_gpus(mpi_comm):
     """
@@ -162,4 +161,4 @@ def mpi_select_gpus(mpi_comm):
             cuda.select_device(i_gpu)
         mpi_comm.barrier()
 
-    print_current_gpu()
+    print_current_gpu( mpi_comm.rank )

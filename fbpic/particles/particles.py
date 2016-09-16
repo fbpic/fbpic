@@ -110,8 +110,6 @@ class Particles(object) :
             print('*** Cuda not available for the particles.')
             print('*** Performing the particle operations on the CPU.')
             self.use_cuda = False
-        if self.use_cuda == True:
-            print('Using the GPU for the particles.')
 
         # Register the properties of the particles
         # (Necessary for the pusher, and when adding more particles later, )
