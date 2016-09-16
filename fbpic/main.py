@@ -12,7 +12,7 @@ try:
                 receive_data_from_gpu, mpi_select_gpus
     cuda_installed = cuda.is_available()
     if cuda_installed:
-        mpi_select_gpus( MPI.COMM_WORLD )
+        mpi_select_gpus( MPI )
 except ImportError:
     cuda_installed = False
 

@@ -2,7 +2,6 @@
 This file is part of the Fourier-Bessel Particle-In-Cell code (FB-PIC)
 It defines a set of generic functions that operate on a GPU.
 """
-import os
 from numba import cuda
 
 # -----------------------------------------------------
@@ -132,38 +131,34 @@ def print_gpu_meminfo_all():
     for gpu in gpus:
         print_gpu_meminfo(gpu)
 
-def print_current_gpu( mpi_rank ):
+def print_current_gpu( mpi ):
     """
     Prints information about the currently selected GPU.
     
     Parameter:
     ----------
-    mpi_rank: int
-        The ID of the MPI process
+    mpi: an mpi4py.MPI object
     """
     gpu = cuda.gpus.current
-    message = "MPI rank %d selected a %s GPU with id %s" %(
-        mpi_rank, gpu.name, gpu.id )
-    try:
-        message += " on node %s" %os.environ['HOSTNAME']
-    except KeyError:
-        pass
+    rank = mpi.COMM_WORLD.rank
+    node = mpi.Get_processor_name()
+    message = "MPI rank %d selected a %s GPU with id %s on node %s" %(
+        rank, gpu.name, gpu.id, node)
     print(message)
 
-def mpi_select_gpus(mpi_comm):
+def mpi_select_gpus(mpi):
     """
     Selects the correct GPU used by the current MPI process
 
     Parameters :
     ------------
-    mpi_comm : MPI communicator
-        The mpi4py communicator.
+    mpi: an mpi4py.MPI object
     """
     n_gpus = len(cuda.gpus)
-
+    rank = mpi.COMM_WORLD.rank
     for i_gpu in range(n_gpus):
-        if mpi_comm.rank%n_gpus == i_gpu:
+        if rank%n_gpus == i_gpu:
             cuda.select_device(i_gpu)
-        mpi_comm.barrier()
+        mpi.COMM_WORLD.barrier()
 
-    print_current_gpu( mpi_comm.rank )
+    print_current_gpu( mpi )
