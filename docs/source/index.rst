@@ -6,7 +6,8 @@
 Welcome to fbpic's documentation!
 =================================
 
-Contents:
+Contents
+----------
 
 .. toctree::
    :maxdepth: 2
@@ -17,11 +18,4 @@ Contents:
    api_reference/api_reference.rst
 
 
-
-Indices and tables
-==================
-
-* :ref:`genindex`
-* :ref:`modindex`
-* :ref:`search`
 

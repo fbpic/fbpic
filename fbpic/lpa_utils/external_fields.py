@@ -9,17 +9,21 @@ class ExternalField( object ):
         Initialize an ExternalField object, so that the function
         `field_func` is called at each time step on the field `fieldtype`
 
-        The function field_func is automatically converted to a GPU
+        This object should be added to the list `external_fields`,
+        which is an attribute of the Simulation object, so that the
+        fields are applied at each timestep. (See the example below)
+
+        The function `field_func` is automatically converted to a GPU
         function if needed, by using numba's ufunc feature.
         
         Parameters
         ----------
         field_func: callable
-            Function of the form
-                field_func( F, x, y, z, t, amplitude, length_scale )
-            and which returns the modified field F'
+            Function of the form `field_func( F, x, y, z, t, amplitude, 
+            length_scale )` and which returns the modified field F'
 
             This function will be called at each timestep, with:
+
             - F: 1d array of shape (N_ptcl,), containing the field
               designated by fieldtype, gathered on the particles
             - x, y, z: 1d arrays of shape (N_ptcl), containing the
@@ -39,18 +43,19 @@ class ExternalField( object ):
             This will allow the function to be compiled for GPU.
 
         fieldtype: string
-            Specifies on which field `field_func` will be applied
+            Specifies on which field `field_func` will be applied.
             Either 'Ex', 'Ey', 'Ez', 'Bx', 'By', 'Bz'
 
         species: a Particles object, optionals
-            The species on which the external field has to be applied
+            The species on which the external field has to be applied.
             If no species is specified, the external field is applied
-            to all particles
+            to all particles.
 
         Example
         -------
         In order to define a magnetic undulator, polarized along y, with
         a field of 1 Tesla and a period of 1 cm :
+
         >>> def field_func( F, x, y, z, t , amplitude, length_scale ):
                 return( F + amplitude * math.cos( 2*np.pi*z/length_scale ) )
         >>> sim.external_fields = [

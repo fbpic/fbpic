@@ -13,11 +13,13 @@ def add_elec_bunch( sim, gamma0, n_e, p_zmin, p_zmax, p_rmin, p_rmax,
     """
     Introduce a simple relativistic electron bunch in the simulation,
     along with its space charge field.
+
     Uniform particle distribution with weights according to density function.
 
     Parameters
     ----------
     sim : a Simulation object
+        The structure that contains the simulation.
 
     gamma0 : float
         The Lorentz factor of the electrons
@@ -25,24 +27,33 @@ def add_elec_bunch( sim, gamma0, n_e, p_zmin, p_zmax, p_rmin, p_rmax,
     n_e : float (in particles per m^3)
         Density of the electron bunch
     
-    p_zmin, p_zmax : floats
-        z positions between which the particles are initialized
+    p_zmin : float (in meters)
+        The minimal z position above which the particles are initialized
 
-    p_rmin, p_rmax : floats
-        r positions between which the fields are initialized
+    p_zmax : float (in meters)
+        The maximal z position below which the particles are initialized
 
-    p_nz, p_nr : ints
-        Number of macroparticles per cell along the z and r directions
+    p_rmin : float (in meters)
+        The minimal r position above which the particles are initialized
+
+    p_rmax : float (in meters)
+        The maximal r position below which the particles are initialized
+
+    p_nz : int
+        Number of macroparticles per cell along the z directions
+
+    p_nr : int
+        Number of macroparticles per cell along the r directions
 
     p_nt : int
         Number of macroparticles along the theta direction
 
     dens_func : callable, optional
-        A function of the form :
-        def dens_func( z, r ) ...
-        where z and r are 1d arrays, and which returns
-        a 1d array containing the density *relative to n*
-        (i.e. a number between 0 and 1) at the given positions
+        A function of the form : 
+        `def dens_func( z, r ) ...`
+        where `z` and `r` are 1d arrays, and which returns
+        a 1d array containing the density *relative to n_e*
+        (i.e. a number between 0 and 1) at the given positions.
     
     boost : a BoostConverter object, optional
         A BoostConverter object defining the Lorentz boost of 
@@ -101,14 +112,15 @@ def add_elec_bunch_gaussian( sim, sig_r, sig_z, n_emit, gamma0, sig_gamma,
     Parameters
     ----------
     sim : a Simulation object
+        The structure that contains the simulation.
     
-    sig_r : float (m)
-        The transverse bunch size.
+    sig_r : float (in meters)
+        The transverse RMS bunch size.
 
-    sig_z : float (m)
-        The longitudinal bunch size.
+    sig_z : float (in meters)
+        The longitudinal RMS bunch size.
 
-    n_emit : float (m)
+    n_emit : float (in meters)
         The normalized emittance of the bunch.
 
     gamma0 : float
@@ -117,16 +129,16 @@ def add_elec_bunch_gaussian( sim, sig_r, sig_z, n_emit, gamma0, sig_gamma,
     sig_gamma : float
         The absolute energy spread of the bunch.
 
-    Q : float (C)
-        The total charge of the bunch (in Coulomb).
+    Q : float (in Coulomb)
+        The total charge of the bunch.
 
     N : int
         The number of particles the bunch should consist of.
     
-    zf: float (m)
+    zf: float (in meters), optional
         Position of the focus.
 
-    tf : float (s)
+    tf : float (in seconds), optional
         Time at which the bunch reaches focus.
 
     boost : a BoostConverter object, optional
@@ -215,8 +227,9 @@ def add_elec_bunch_file( sim, filename, Q_tot, z_off=0., boost=None,
     Parameters
     ----------
     sim : a Simulation object
+        The structure that contains the simulation.
 
-    filename : str
+    filename : string
         the file containing the particle phase space in seven columns
         all float, no header
         x [m]  y [m]  z [m]  ux [unitless]  uy [unitless]  uz [unitless]
@@ -224,7 +237,7 @@ def add_elec_bunch_file( sim, filename, Q_tot, z_off=0., boost=None,
     Q_tot : float (in Coulomb)
         total charge in bunch
 
-    z_off: float (m)
+    z_off: float (in meters)
         Shift the particle positions in z by z_off
 
     boost : a BoostConverter object, optional
