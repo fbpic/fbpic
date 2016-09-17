@@ -32,9 +32,9 @@ def test_lpa_sim_singleproc():
 
     # Enter the temporary directory and run the script
     os.chdir( temporary_dir )
-    # The globals command make sure that the package which
-    # are imported within the script can be used here.
-    exec( open('lpa_sim.py').read(), globals(), globals() )
+    # Launch the script from the OS
+    response = os.system( 'python lpa_sim.py' )
+    assert response==0
 
     # Exit the temporary directory and suppress it
     os.chdir('../../')
@@ -54,9 +54,9 @@ def test_boosted_frame_sim_singleproc():
 
     # Enter the temporary directory and run the script
     os.chdir( temporary_dir )
-    # The globals command make sure that the package which
-    # are imported within the script can be used here.
-    exec( open('boosted_frame_sim.py').read(), globals(), globals() )
+    # Launch the script from the OS
+    response = os.system( 'python boosted_frame_sim.py' )
+    assert response==0
 
     # Exit the temporary directory and suppress it
     os.chdir('../../')
