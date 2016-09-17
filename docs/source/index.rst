@@ -14,7 +14,7 @@ Contents:
    overview
    install/installation
    tutorial
-   api_reference
+   api_reference/api_reference.rst
 
 
 

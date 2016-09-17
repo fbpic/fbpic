@@ -29,14 +29,12 @@ class Simulation(object):
     Top-level simulation class that contains all the simulation
     data, as well as the methods to perform the PIC cycle.
 
-    Attributes
-    ----------
-    - fld: a Fields object
-    - ptcl: a list of Particles objects (one element per species)
+    The `Simulation` class has several important attributes:
 
-    Methods
-    -------
-    - step: perform n PIC cycles
+    - `fld`, a `Fields` object which contains the field information
+    - `ptcl`, a list of `Particles` objects (one per species)
+    - `diags`, a list of diagnostics to be run during the simulation
+    - `comm`, a `BoundaryCommunicator`, which contains the MPI decomposition
     """
 
     def __init__(self, Nz, zmax, Nr, rmax, Nm, dt, p_zmin, p_zmax,
@@ -47,80 +45,74 @@ class Simulation(object):
                  boundaries='periodic', gamma_boost=None):
         """
         Initializes a simulation, by creating the following structures:
-        - the Fields object, which contains the EM fields
+
+        - the `Fields` object, which contains the field data on the grids
         - a set of electrons
         - a set of ions (if initialize_ions is True)
 
         Parameters
         ----------
-        Nz, Nr: ints
-            The number of gridpoints in z and r
-
-        zmax, rmax: floats
-            The position of the edge of the simulation in z and r
+        Nz: int
+            The number of gridpoints along z
+        Nr: int
+            The number of gridpoints along r
+        zmax: float
+            The position of the edge of the simulation in z
             (More precisely, the position of the edge of the last cell)
-
+        rmax: float
+            The position of the edge of the simulation in r
+            (More precisely, the position of the edge of the last cell)
         Nm: int
             The number of azimuthal modes taken into account
-
         dt: float
             The timestep of the simulation
-
-        p_zmin, p_zmax: floats
-            z positions between which the particles are initialized
-
-        p_rmin, p_rmax: floats
-            r positions between which the fields are initialized
-
-        p_nz, p_nr: ints
-            Number of macroparticles per cell along the z and r directions
-
+        p_zmin: float
+            The minimal z position above which the particles are initialized
+        p_zmax: float
+            The maximal z position below which the particles are initialized
+        p_rmin: float
+            The minimal r position above which the particles are initialized
+        p_rmax: float
+            The maximal r position below which the particles are initialized
+        p_nz: int
+            The number of macroparticles per cell along the z direction
+        p_nr: int
+            The number of macroparticles per cell along the r direction
         p_nt: int
             Number of macroparticles along the theta direction
-
         n_e: float (in particles per m^3)
            Peak density of the electrons
-
         n_order: int, optional
-           The order of the stencil for the z derivatives
-           Use -1 for infinite order
-           Otherwise use a positive, even number. In this case
-           the stencil extends up to n_order/2 cells on each side.
-
+           The order of the stencil for the z derivatives.
+           Use -1 for infinite order, otherwise use a positive, even
+           number. In this case, the stencil extends up to n_order/2 
+           cells on each side.
         zmin: float, optional
            The position of the edge of the simulation box
            (More precisely, the position of the edge of the first cell)
-
         dens_func: callable, optional
            A function of the form:
            def dens_func( z, r ) ...
            where z and r are 1d arrays, and which returns
            a 1d array containing the density *relative to n*
            (i.e. a number between 0 and 1) at the given positions
-
         initialize_ions: bool, optional
            Whether to initialize the neutralizing ions
-
         filter_currents: bool, optional
             Whether to filter the currents and charge in k space
-
         use_cuda: bool, optional
             Wether to use CUDA (GPU) acceleration
-
         n_guard: int, optional
             Number of guard cells to use at the left and right of
             a domain, when using MPI.
-
         exchange_period: int, optional
             Number of iteration before which the particles are exchanged
             and the window is moved (the two operations are simultaneous)
             If set to None, the particles are exchanged every n_guard/2
-            
         boundaries: str
             Indicates how to exchange the fields at the left and right
             boundaries of the global simulation box
             Either 'periodic' or 'open'
-
         gamma_boost : float, optional
             When initializing the laser in a boosted frame, set the
             value of `gamma_boost` to the corresponding Lorentz factor.
@@ -199,10 +191,10 @@ class Simulation(object):
              use_true_rho=False, move_positions=True, move_momenta=True,
              show_progress=True):
         """
-        Perform N PIC cycles
+        Perform N PIC cycles.
 
-        Parameter
-        ---------
+        Parameters
+        ----------
         N: int, optional
             The number of timesteps to take
             Default: N=1
@@ -351,11 +343,11 @@ class Simulation(object):
 
     def deposit( self, fieldtype ):
         """
-        Deposit the charge or the currents to the interpolation
-        grid and then to the spectral grid.
+        Deposit the charge or the currents to the interpolation grid
+        and then to the spectral grid.
 
-        Parameters:
-        ------------
+        Parameters
+        ----------
         fieldtype: str
             The designation of the spectral field that
             should be changed by the deposition
