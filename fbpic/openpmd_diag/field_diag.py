@@ -7,12 +7,7 @@ from .generic_diag import OpenPMDDiagnostic
 
 class FieldDiagnostic(OpenPMDDiagnostic):
     """
-    Class that defines the field diagnostics to be done.
-
-    Usage
-    -----
-    After initialization, the diagnostic is called by using the
-    `write` method.
+    Class that defines the field diagnostics to be performed.
     """
 
     def __init__(self, period, fldobject, comm=None,

@@ -10,19 +10,14 @@ from .data_dict import macro_weighted_dict, weighting_power_dict
 
 class ParticleDiagnostic(OpenPMDDiagnostic) :
     """
-    Class that defines the particle diagnostics to be done.
-
-    Usage
-    -----
-    After initialization, the diagnostic is called by using the
-    `write` method.
+    Class that defines the particle diagnostics to be performed.
     """
 
     def __init__(self, period, species = {"electrons": None}, comm=None,
                  particle_data=["position", "momentum", "weighting"],
                  select=None, write_dir=None ) :
         """
-        Initialize the field diagnostics.
+        Initialize the particle diagnostics.
 
         Parameters
         ----------

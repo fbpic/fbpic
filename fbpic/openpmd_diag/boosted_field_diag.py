@@ -24,11 +24,6 @@ class BoostedFieldDiagnostic(FieldDiagnostic):
     """
     Class that writes the fields *in the lab frame*, from
     a simulation in the boosted frame
-
-    Usage
-    -----
-    After initialization, the diagnostic is called by using the
-    `write` method.
     """
     def __init__(self, zmin_lab, zmax_lab, v_lab, dt_snapshots_lab,
                  Ntot_snapshots_lab, gamma_boost, period, fldobject,

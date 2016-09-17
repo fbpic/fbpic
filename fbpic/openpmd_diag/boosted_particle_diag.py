@@ -34,11 +34,6 @@ class BoostedParticleDiagnostic(ParticleDiagnostic):
     on the GPU relies on particle arrays being sorted on the GPU. For the
     back-transformation to the Lab frame, interpolation in space is applied,
     but no interpolation for the particle velocities is applied.
-    
-    Usage
-    -----
-    After initialization, the diagnostic is called by using 
-    the 'write' method.
     """
     def __init__(self, zmin_lab, zmax_lab, v_lab, dt_snapshots_lab,
                  Ntot_snapshots_lab, gamma_boost, period, fldobject, 
