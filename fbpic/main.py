@@ -56,16 +56,21 @@ class Simulation(object):
             The number of gridpoints along z
         Nr: int
             The number of gridpoints along r
+
         zmax: float
             The position of the edge of the simulation in z
             (More precisely, the position of the edge of the last cell)
         rmax: float
             The position of the edge of the simulation in r
-            (More precisely, the position of the edge of the last cell)
+            (More precisely, the position of the edge of the last
+            cell)
+
         Nm: int
             The number of azimuthal modes taken into account
+
         dt: float
             The timestep of the simulation
+
         p_zmin: float
             The minimal z position above which the particles are initialized
         p_zmax: float
@@ -74,34 +79,41 @@ class Simulation(object):
             The minimal r position above which the particles are initialized
         p_rmax: float
             The maximal r position below which the particles are initialized
+
         p_nz: int
             The number of macroparticles per cell along the z direction
         p_nr: int
             The number of macroparticles per cell along the r direction
         p_nt: int
-            Number of macroparticles along the theta direction
+            The number of macroparticles along the theta direction
+
         n_e: float (in particles per m^3)
            Peak density of the electrons
+
         n_order: int, optional
            The order of the stencil for the z derivatives.
            Use -1 for infinite order, otherwise use a positive, even
            number. In this case, the stencil extends up to n_order/2 
            cells on each side.
+
         zmin: float, optional
-           The position of the edge of the simulation box
+           The position of the edge of the simulation box. 
            (More precisely, the position of the edge of the first cell)
+
         dens_func: callable, optional
            A function of the form:
            def dens_func( z, r ) ...
            where z and r are 1d arrays, and which returns
            a 1d array containing the density *relative to n*
            (i.e. a number between 0 and 1) at the given positions
+
         initialize_ions: bool, optional
            Whether to initialize the neutralizing ions
         filter_currents: bool, optional
             Whether to filter the currents and charge in k space
         use_cuda: bool, optional
             Wether to use CUDA (GPU) acceleration
+
         n_guard: int, optional
             Number of guard cells to use at the left and right of
             a domain, when using MPI.
@@ -109,10 +121,12 @@ class Simulation(object):
             Number of iteration before which the particles are exchanged
             and the window is moved (the two operations are simultaneous)
             If set to None, the particles are exchanged every n_guard/2
-        boundaries: str
+
+        boundaries: string, optional
             Indicates how to exchange the fields at the left and right
-            boundaries of the global simulation box
+            boundaries of the global simulation box. 
             Either 'periodic' or 'open'
+
         gamma_boost : float, optional
             When initializing the laser in a boosted frame, set the
             value of `gamma_boost` to the corresponding Lorentz factor.
@@ -400,14 +414,22 @@ class Simulation(object):
 
         Parameters
         ----------
-        v: float (meters per seconds), optional
+        v: float (in meters per seconds), optional
             The speed of the moving window
 
-        ux_m, uy_m, uz_m: floats (dimensionless)
-           Normalized mean momenta of the injected particles in each direction
+        ux_m: float (dimensionless), optional
+           Normalized mean momenta of the injected particles along x
+        uy_m: float (dimensionless), optional
+           Normalized mean momenta of the injected particles along y
+        uz_m: float (dimensionless), optional
+           Normalized mean momenta of the injected particles along z
 
-        ux_th, uy_th, uz_th: floats (dimensionless)
-           Normalized thermal momenta in each direction
+        ux_th: float (dimensionless), optional
+           Normalized thermal momenta of the injected particles along x
+        uy_th: float (dimensionless), optional
+           Normalized thermal momenta of the injected particles along y
+        uz_th: float (dimensionless), optional
+           Normalized thermal momenta of the injected particles along z
 
         gamma_boost : float, optional
             When initializing a moving window in a boosted frame, set the
