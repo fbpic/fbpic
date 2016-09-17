@@ -1,5 +1,5 @@
 Installation on Lawrencium (LBNL)
-===================================
+=================================
 
 `Lawrencium
 <https://sites.google.com/a/lbl.gov/high-performance-computing-services-group/lbnl-supercluster/lawrencium>`__
@@ -26,7 +26,7 @@ When prompted for the password, generate a new one-time password with
 the Pledge application, and enter it at the prompt.
 
 Installation of FBPIC
-------------
+---------------------
 
 Installation of Anaconda
 ~~~~~~~~~~~~~~~~~~~~~~~~

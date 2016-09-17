@@ -8,7 +8,7 @@ Installation on Titan (OLCF)
 Each node consists of 1 Nvidia K20 device.
 
 Installing FBPIC
-------------
+----------------
 
 Installation of Anaconda
 ~~~~~~~~~~~~~~~~~~~~~~~~

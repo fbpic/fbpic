@@ -6,3 +6,4 @@ API reference
 	     
    simulation
    diagnostics
+   lpa_utilities
