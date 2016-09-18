@@ -176,6 +176,5 @@ if __name__ == '__main__':
                     ]
 
     ### Run the simulation
-    print('\n Performing %d PIC cycles' % N_step)
     sim.step( N_step, use_true_rho=True )
     print('')
