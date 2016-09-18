@@ -118,6 +118,5 @@ if __name__ == '__main__':
         set_periodic_checkpoint( sim, checkpoint_period )
 
     ### Run the simulation
-    print('\n Performing %d PIC cycles' % N_step) 
     sim.step( N_step )
     print('')

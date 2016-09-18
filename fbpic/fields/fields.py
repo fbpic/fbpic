@@ -101,8 +101,6 @@ class Fields(object) :
             print('*** Cuda not available for the fields.')
             print('*** Performing the field operations on the CPU.')
             self.use_cuda = False
-        if self.use_cuda == True:
-            print('Using the GPU for the field.')
 
         # Infer the values of the z and kz grid
         dz = (zmax-zmin)/Nz

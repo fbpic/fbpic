@@ -12,7 +12,7 @@ try:
                 receive_data_from_gpu, mpi_select_gpus
     cuda_installed = cuda.is_available()
     if cuda_installed:
-        mpi_select_gpus( MPI.COMM_WORLD )
+        mpi_select_gpus( MPI )
 except ImportError:
     cuda_installed = False
 
@@ -136,6 +136,8 @@ class Simulation(object):
         # Check whether to use cuda
         self.use_cuda = use_cuda
         if (use_cuda==True) and (cuda_installed==False):
+            print('*** Cuda not available for the simulation.')
+            print('*** Performing the simulation on CPU.')
             self.use_cuda = False
 
         # When running the simulation in a boosted frame, convert the arguments
@@ -150,6 +152,7 @@ class Simulation(object):
         # Initialize the boundary communicator
         self.comm = BoundaryCommunicator(Nz, Nr, n_guard, Nm,
                             boundaries, n_order, exchange_period )
+        print_simulation_setup( self.comm, self.use_cuda )
         # Modify domain region
         zmin, zmax, p_zmin, p_zmax, Nz = \
               self.comm.divide_into_domain(zmin, zmax, p_zmin, p_zmax)
@@ -351,9 +354,11 @@ class Simulation(object):
             receive_data_from_gpu(self)
 
         # Print the measured time taken by the PIC cycle
-        measured_duration = time.time() - measured_start
         if show_progress and (self.comm.rank==0):
-            print('\n Time taken by the loop: %.1f s\n' %measured_duration)
+            measured_duration = time.time() - measured_start
+            m, s = divmod(measured_duration, 60)
+            h, m = divmod(m, 60)
+            print('\n Time taken by the loop: %d:%02d:%02d\n' % (h, m, s))
 
     def deposit( self, fieldtype ):
         """
@@ -460,6 +465,26 @@ def progression_bar( i, Ntot, measured_start, Nbars=50, char='-'):
     h, m = divmod(m, 60)
     sys.stdout.write(', %d:%02d:%02d left' % (h, m, s))
     sys.stdout.flush()
+
+def print_simulation_setup( comm, use_cuda ):
+    """
+    Print message about the number of proc and 
+    whether it is using GPU or CPU.
+
+    Parameters
+    ----------
+    comm: a BoundaryCommunicator object
+
+    use_cuda: bool
+        Whether the simulation is set up to use CUDA
+    """
+    if comm.rank == 0:
+        if use_cuda:
+            message = "\nRunning FBPIC on GPU "
+        else:
+            message = "\nRunning FBPIC on CPU " 
+        message += "with %d proc.\n" %comm.size
+        print( message )
 
 def adapt_to_grid( x, p_xmin, p_xmax, p_nx, ncells_empty=0 ):
     """
