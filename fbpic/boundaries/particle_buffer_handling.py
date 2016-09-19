@@ -184,8 +184,8 @@ def remove_particles_gpu(species, fld, nguard, left_proc, right_proc):
     # iteration at this point - except in a restart from a checkpoint.)
     if species.sorted == False:
         print('Removing particles: Particles are unsorted. Sorting them now.')
-        self.sort_particles(fld = fld)
-        self.sorted = True
+        species.sort_particles(fld = fld)
+        species.sorted = True
 
     # Get the particle indices between which to remove the particles
     # (Take into account the fact that the moving window may have
