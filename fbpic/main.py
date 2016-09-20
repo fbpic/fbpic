@@ -473,7 +473,8 @@ def print_simulation_setup( comm, use_cuda ):
 
     Parameters
     ----------
-    comm: a BoundaryCommunicator object
+    comm: an fbpic BoundaryCommunicator object
+        Contains the information on the MPI decomposition
 
     use_cuda: bool
         Whether the simulation is set up to use CUDA
