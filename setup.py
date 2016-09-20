@@ -31,7 +31,7 @@ setup(
     cmdclass={'test': PyTest},
     install_requires=install_requires,
     platforms='any',
-    url='http://github.com/FBPIC/FBPIC',
+    url='http://github.com/fbpic/fbpic',
     classifiers=[
         'Programming Language :: Python',
         'Development Status :: 4 - Beta',
