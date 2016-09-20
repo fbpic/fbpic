@@ -11,5 +11,5 @@ the simulation data, and has the high-level methods to perform the PIC cycle.
     - `diags`, a list of diagnostics to be run during the simulation
     - `comm`, a `BoundaryCommunicator`, which contains the MPI decomposition
 
-.. autoclass:: fbpic.Simulation
+.. autoclass:: fbpic.main.Simulation
    :members: step, set_moving_window
