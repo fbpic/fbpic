@@ -61,6 +61,13 @@ Installation of FBPIC and its dependencies
 
        conda install -c conda-forge --file requirements.txt
 
+-  Uninstall mpi4py (in order to use the ``mpi4py`` from Titan instead):
+
+   ::
+
+       conda uninstall mpi4py
+
+       
 -  Install the ``accelerate`` package in order to be able to run on GPUs
 
    ::
@@ -80,11 +87,6 @@ Installation of FBPIC and its dependencies
 
        python setup.py install
 
--  Uninstall mpi4py (in order to use the ``mpi4py`` from Titan instead):
-
-   ::
-
-       conda uninstall mpi4py
 
 Running simulations
 ------------------------------------------
