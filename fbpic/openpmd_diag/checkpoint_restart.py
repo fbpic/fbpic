@@ -245,9 +245,11 @@ def load_species( species, name, ts, iteration ):
     # Get the particles' momenta
     species.ux, species.uy, species.uz = ts.get_particle(
         ['ux', 'uy', 'uz' ], iteration=iteration, species=name )
-    # Get the weight (multiply it by the charge to conform with FBPIC)
+    # Get the weight (multiply it by the charge to conform with FBPIC,
+    # and make sure that the weight is obtained in float64, as this 
+    # was causing problems with older versions of openPMD-viewer)
     w, = ts.get_particle( ['w'], iteration=iteration, species=name )
-    species.w = species.q * w
+    species.w = species.q * w.astype(np.float64)
     # Get the inverse gamma
     species.inv_gamma = 1./np.sqrt(
         1 + species.ux**2 + species.uy**2 + species.uz**2 )
