@@ -252,6 +252,10 @@ def load_species( species, name, ts, iteration ):
     species.inv_gamma = 1./np.sqrt(
         1 + species.ux**2 + species.uy**2 + species.uz**2 )
 
+    # As a safe-guard, check that the loaded data is in float64
+    for attr in ['x', 'y', 'z', 'ux', 'uy', 'uz', 'w', 'inv_gamma' ]:
+        assert getattr( species, attr ).dtype == np.float64
+    
     # Take into account the fact that the arrays are resized
     Ntot = len(species.w)
     species.Ntot = Ntot
