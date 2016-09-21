@@ -339,7 +339,7 @@ class ParticleDiagnostic(OpenPMDDiagnostic) :
         # Create the dataset and setup its attributes
         if self.rank==0:
             datashape = (Ntot, )
-            dset = species_grp.require_dataset( path, datashape, dtype='f')
+            dset = species_grp.require_dataset( path, datashape, dtype='f8')
             self.setup_openpmd_species_component( dset, quantity )
             
         # Fill the dataset with the quantity

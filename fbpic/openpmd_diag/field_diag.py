@@ -240,7 +240,7 @@ class FieldDiagnostic(OpenPMDDiagnostic):
                 if fieldtype == "rho":
                     # Setup the dataset
                     dset = field_grp.require_dataset(
-                        "rho", data_shape, dtype='f')
+                        "rho", data_shape, dtype='f8')
                     self.setup_openpmd_mesh_component( dset, "rho" )
                     # Setup the record to which it belongs
                     self.setup_openpmd_mesh_record( dset, "rho", dz, zmin )
@@ -252,7 +252,7 @@ class FieldDiagnostic(OpenPMDDiagnostic):
                         quantity = "%s%s" %(fieldtype, coord)
                         path = "%s/%s" %(fieldtype, coord)
                         dset = field_grp.require_dataset(
-                            path, data_shape, dtype='f')
+                            path, data_shape, dtype='f8')
                         self.setup_openpmd_mesh_component( dset, quantity )
                     # Setup the record to which they belong
                     self.setup_openpmd_mesh_record(
