@@ -314,7 +314,7 @@ class BoostedParticleDiagnostic(ParticleDiagnostic):
                             quantity_path = "%s/%s" %(particle_var, coord)
                             dset = species_grp.require_dataset(
                                 quantity_path, (0,), 
-                                maxshape=(None,), dtype='f')        
+                                maxshape=(None,), dtype='f8')        
                             self.setup_openpmd_species_component( 
                                 dset, quantity )
                             self.setup_openpmd_species_record( 
@@ -326,7 +326,7 @@ class BoostedParticleDiagnostic(ParticleDiagnostic):
                             quantity_path = "%s/%s" %(particle_var, coord)
                             dset = species_grp.require_dataset(
                                 quantity_path, (0,), 
-                                maxshape=(None,), dtype='f')        
+                                maxshape=(None,), dtype='f8')        
                             self.setup_openpmd_species_component( 
                                 dset, quantity )
                             self.setup_openpmd_species_record( 
@@ -337,7 +337,7 @@ class BoostedParticleDiagnostic(ParticleDiagnostic):
                         quantity_path = "weighting"
                         dset = species_grp.require_dataset(
                             quantity_path, (0,), 
-                            maxshape=(None,), dtype='f')        
+                            maxshape=(None,), dtype='f8')        
                         self.setup_openpmd_species_component( 
                             dset, quantity )
                         self.setup_openpmd_species_record( 
