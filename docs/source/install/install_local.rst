@@ -21,7 +21,6 @@ Python. If Anaconda is not your default Python distribution, download and instal
    ::
 
        conda install accelerate
-       conda install accelerate_cudalib
 
    (The ``accelerate`` package is not free, but there is a 30-day free
    trial period, which starts when the above command is entered. For
@@ -35,6 +34,10 @@ Python. If Anaconda is not your default Python distribution, download and instal
 
        python setup.py install
 
+
+Testing and potential issues
+--------------------------------
+       
 The installation can be tested by running:
 
 ::
@@ -44,6 +47,17 @@ The installation can be tested by running:
 
 Please be patient, as the tests can take around 5 minutes to run.
 
+**Potential issues on Mac OSX:** The package ``mpi4py`` can sometimes cause
+issues on Mac OSX. If you observe that the code crashes with an
+MPI-related error, try installing ``mpi4py`` using MacPorts and
+``pip``. To do so, first install `MacPorts <https://www.macports.org/>`_. Then execute the following commands:
+
+::
+
+   conda uninstall mpi4py
+   sudo port install openmpi-gcc48
+   sudo port select --set mpi openmpi-gcc48-fortran
+   pip install mpi4py
     
 Running simulations
 -------------------
