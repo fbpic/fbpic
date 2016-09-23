@@ -2,76 +2,61 @@
 
 ## Overview
 
-This program is a Particle-In-Cell (PIC) code,
-whose distinctive feature is to use a **spectral decomposition in
-cylindrical geometry** for the fields (Fourier-Bessel
-decomposition).
+FBPIC is a **[Particle-In-Cell (PIC) code](https://en.wikipedia.org/wiki/Particle-in-cell)** for plasma physics.  
 
-This decomposition allows to combine the advantages of
-**spectral 3D Cartesian** PIC codes (high accuracy and stability) and
-those of **finite-difference cylindrical** PIC codes with azimuthal
-decomposition (orders-of-magnitude speedup when compared to 3D simulations).
-Here are some of the specific features of this code :  
+It is especially well-suited for physical simulations of
+**laser-wakefield acceleration** and **plasma-wakefield acceleration**, with close-to-cylindrical symmetry.
 
-* The Maxwell solver uses a Pseudo-Spectral Analytical Time-Domain
-  algorithm (PSATD), and is therefore **dispersion-free in all
-  directions**, in vacuum.
-* The fields *E* and *B* are defined at the **same points in space** and at
-  the **same time** (i.e. they are not staggered). This avoids some
-  interpolation errors.
-* The particle pusher uses the Vay algorithm.
-* The moving window is supported.
-* The initialization of charged bunch (with its space-charge fields)
-  is supported.
+**Algorithm:**  
+The distinctive feature of FBPIC is to use
+a **spectral decomposition in
+cylindrical geometry** (Fourier-Bessel
+decomposition) for the fields. This combines the advantages of **spectral 3D Cartesian** PIC codes (high accuracy and stability) and
+those of **finite-difference cylindrical** PIC codes
+(orders-of-magnitude speedup when compared to 3D simulations).  
+For more details on the algorithm, its advantages and limitations, see
+the [documentation](http://fbpic.github.io).
 
-For more details on the algorithm, see the `docs/article` folder.
 
-Implementation details:
-
-* The code is written in Python and calls BLAS and FFTW for computationally
-intensive parts. Moroever, it will also use Numba, if availabe
-* Single-CPU (with partial use of multi-threading) or single-GPU
+**Language and harware:**  
+FBPIC is written entirely in Python, but uses 
+**[Numba](http://numba.pydata.org/)** Just-In-Time compiler for high
+performance. In addition, the code was designed to be run
+either on **CPU or GPU**. For large
+simulations, running the code on GPU can be up to **40 times faster**
+than on CPU.
 
 ## Installation
 
-The installation instructions below are for a local computer. For instructions
-specific to a particular HPC cluster (e.g. Titan, Jureca, Lawrencium, etc.), please
-see `docs/install`.
+The installation instructions below are for a local computer. For more
+details, or for instructions specific to a particular HPC cluster, see
+the [documentation](http://fbpic.github.io).
 
 The recommended installation is through the
-[Anaconda](https://www.continuum.io/why-anaconda) distribution:
-
-- If Anaconda is not your default Python installation, download and install
+[Anaconda](https://www.continuum.io/why-anaconda) distribution.
+If Anaconda is not your default Python installation, download and install
 it from [here](https://www.continuum.io/downloads).
 
-- Clone the `fbpic` repository using git.
+**Installation steps**:
 
-- `cd` into the top folder of `fbpic` and install the dependencies:  
+- Install the dependencies of FBPIC. This can be done with a single line:  
 ```
-conda install -c conda-forge --file requirements.txt
+conda install -c conda-forge numba matplotlib scipy h5py mpi4py pyfftw
 ```
-- **Optional:** In order to be able to run the code on a GPU:
+- Download and install FBPIC:
+```
+pip install fbpic
+```
+
+- **Optional:** in order to run on GPU, install the additional package
+`accelerate`:
 ```
 conda install accelerate
-conda install accelerate_cudalib
 ```
 (The `accelerate` package is not free, but there is a 30-day free trial period,
   which starts when the above command is entered. For further use beyond 30
   days, one option is to obtain an academic license, which is also free. To do
   so, please visit [this link](https://www.continuum.io/anaconda-academic-subscriptions-available).)
-
-- Install `fbpic`  
-```
-python setup.py install
-```
-
-The installation can be tested by running:
-```
-python setup.py test
-```
-
-If you encounter issues with the installation, you may find a
-documented solution in `docs/install`.
 
 ## Running simulations
 
