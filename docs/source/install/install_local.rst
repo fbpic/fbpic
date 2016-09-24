@@ -77,4 +77,4 @@ as such (e.g. by using the
 `openPMD-viewer <https://github.com/openPMD/openPMD-viewer>`__).
 
 For more details on how to set up the input script and run
-simulations, see the section :doc:`../tutorial`.
+simulations, see the section :doc:`../how_to_run`.

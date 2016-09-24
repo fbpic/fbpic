@@ -14,7 +14,7 @@ Contents
 
    overview
    install/installation
-   tutorial
+   how_to_run
    api_reference/api_reference.rst
 
 

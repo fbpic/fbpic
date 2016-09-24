@@ -5,7 +5,7 @@ laser-wakefield acceleration using FBPIC.
 Usage
 -----
 - Modify the parameters below to suit your needs
-- Type "python -i lpa_sim.py" in a terminal
+- Type "python -i lwfa_script.py" in a terminal
 - When the simulation finishes, the python session will *not* quit.
     Therefore the simulation can be continued by running sim.step()
 
