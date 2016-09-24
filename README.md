@@ -11,7 +11,7 @@ It is especially well-suited for physical simulations of
 The distinctive feature of FBPIC is to use
 a **spectral decomposition in
 cylindrical geometry** (Fourier-Bessel
-decomposition) for the fields. This combines the advantages of **spectral 3D Cartesian** PIC codes (high accuracy and stability) and
+decomposition) for the fields. This combines the advantages of **spectral 3D** PIC codes (high accuracy and stability) and
 those of **finite-difference cylindrical** PIC codes
 (orders-of-magnitude speedup when compared to 3D simulations).  
 For more details on the algorithm, its advantages and limitations, see
@@ -60,11 +60,34 @@ conda install accelerate
 
 ## Running simulations
 
-Simulations are run with a user-written python script, which calls the
-FBPIC structures. An example script (called `lpa_sim.py`) can be found in
-`docs/example_input`. The simulation can be run simply by entering
-`python -i lpa_sim.py`.
+Once installed, FBPIC is available as a **Python module** on your
+system.
 
+Therefore, in order to run a physical simulation, you will need a **Python
+script** that imports FBPIC's functionalities and use them to setup the
+simulation. You can find examples of such scripts in the
+[documentation](http://fbpic.github.io). The documentation also
+includes a tutorial that goes through one script step by step.
+
+Once your script is ready, the simulation is run simply by typing:
+```
+python fbpic_script.py
+```
 The code outputs HDF5 files, that comply with the
 [OpenPMD standard](http://www.openpmd.org/#/start),
- and which can thus be read as such (e.g. by using the [openPMD-viewer](https://github.com/openPMD/openPMD-viewer)).
+ and which can thus be read as such (e.g. by using the
+ [openPMD-viewer](https://github.com/openPMD/openPMD-viewer)).
+
+## Contributing
+
+We welcome contributions to the code! Please read [this page](https://github.com/fbpic/fbpic/blob/master/CONTRIBUTING.md) for guidelines on how to contribute.
+
+## Attribution
+
+If you use FBPIC for your research project: that's great! We are
+delighted that the code is useful to you!
+
+If your project even leads to a scientific publication, please
+consider citing FBPIC's original paper, which can be found
+[here](http://www.sciencedirect.com/science/article/pii/S0010465516300224)
+(see [this link](https://arxiv.org/abs/1507.04790) for the arxiv version).
