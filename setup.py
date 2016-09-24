@@ -4,8 +4,13 @@ from setuptools.command.test import test as TestCommand
 import fbpic # In order to extract the version number
 
 # Obtain the long description from README.md
-with open('README.md') as f :
-    long_description = f.read()
+# If possible, use pypandoc to convert the README from Markdown
+# to reStructuredText, as this is the only supported format on PyPI
+try:
+    import pypandoc
+    long_description = pypandoc.convert( './README.md', 'rst')
+except (ImportError, RuntimeError):
+    long_description = open('./README.md').read()
 # Get the package requirements from the requirements.txt file
 with open('requirements.txt') as f:
     install_requires = [ line.strip('\n') for line in f.readlines() ]
@@ -21,7 +26,7 @@ class PyTest(TestCommand):
 setup(
     name='fbpic',
     version=fbpic.__version__,
-    description='Fourier-Bessel Particle-In-Cell code',
+    description='Spectral, quasi-3D Particle-In-Cell for CPU and GPU',
     long_description=long_description,
     maintainer='Remi Lehe',
     maintainer_email='remi.lehe@normalesup.org',
