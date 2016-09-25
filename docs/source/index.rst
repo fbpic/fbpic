@@ -73,8 +73,11 @@ please read `this page <https://github.com/fbpic/fbpic/blob/master/CONTRIBUTING.
 Attribution
 ---------------
 
-FBPIC was originally developed at 
-`Berkeley Lab <http://www.lbl.gov/>`_ and `University of Hamburg <https://www.uni-hamburg.de/en>`_.
+FBPIC was originally developed by Remi Lehe at `Berkeley Lab <http://www.lbl.gov/>`_,
+and Manuel Kirchen at 
+`CFEL, Hamburg University <http://lux.cfel.de/>`_. The code also
+benefitted from the contributions of Soeren Jalas, Kevin Peters and
+Irene Dornmair (CFEL).
 
 If you use FBPIC for your research project: that's great! We are
 very pleased that the code is useful to you! If your project even leads
