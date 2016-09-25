@@ -1,3 +1,6 @@
+# Copyright 2016, FBPIC contributors
+# Authors: Remi Lehe, Manuel Kirchen
+# License: 3-Clause-BSD-LBNL
 """
 This file tests the charge density deposition by initializing a uniform
 plasma and shifting the electrons by a small amout in r.

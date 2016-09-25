@@ -1,3 +1,6 @@
+# Copyright 2016, FBPIC contributors
+# Authors: Remi Lehe, Manuel Kirchen
+# License: 3-Clause-BSD-LBNL
 """
 This file tests the current deposition by initializing the electron
 momenta as if they where in a laser field, and projecting the currents.

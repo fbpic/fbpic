@@ -1,3 +1,6 @@
+# Copyright 2016, FBPIC contributors
+# Authors: Remi Lehe, Manuel Kirchen, Kevin Peters, Soeren Jalas
+# License: 3-Clause-BSD-LBNL
 import sys
 from setuptools import setup, find_packages
 from setuptools.command.test import test as TestCommand
