@@ -45,7 +45,7 @@ what the code does.
 
 You can then see the section :doc:`install/installation` and
 :doc:`how_to_run`, to get started with using FBPIC. For more
-informatino, the section :doc:`api_reference/api_reference` lists the main objects
+information, the section :doc:`api_reference/api_reference` lists the main objects
 that are accessible in the ``fbpic`` package.
 
 .. toctree::

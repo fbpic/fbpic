@@ -68,8 +68,7 @@ system.
 Therefore, in order to run a physical simulation, you will need a **Python
 script** that imports FBPIC's functionalities and use them to setup the
 simulation. You can find examples of such scripts in the
-[documentation](http://fbpic.github.io). The documentation also
-includes a tutorial that goes through one script step by step.
+[documentation](http://fbpic.github.io) or in this repository, in `docs/source/example_input/`.
 
 Once your script is ready, the simulation is run simply by typing:
 ```
