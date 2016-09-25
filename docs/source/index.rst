@@ -29,11 +29,15 @@ than on CPU.
    - For **multi**-CPU and **multi**-GPU runs (using MPI), the code is not yet
      production-ready.
      
+   - Only linear shape factors (a.k.a. first-order shape factors) are implemented for the
+     macroparticles. Third-order shape factors will be implemented in a
+     future realease
 
    - The code supports **boosted-frame simulations**. However, no
      specific mechanism against the Numerical Cherenkov Instability is
      included in this release. In future releases, the `Galilean scheme
      <https://arxiv.org/abs/1608.00215>`_ will be included.
+
 
 
 Contents of the documentation
