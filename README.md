@@ -2,7 +2,9 @@
 
 ## Overview
 
-FBPIC is a **[Particle-In-Cell (PIC) code](https://en.wikipedia.org/wiki/Particle-in-cell)** for plasma physics.  
+FBPIC is a
+**[Particle-In-Cell (PIC) code](https://en.wikipedia.org/wiki/Particle-in-cell)**
+for relativistic plasma physics.  
 
 It is especially well-suited for physical simulations of
 **laser-wakefield acceleration** and **plasma-wakefield acceleration**, with close-to-cylindrical symmetry.
@@ -84,8 +86,11 @@ We welcome contributions to the code! Please read [this page](https://github.com
 
 ## Attribution
 
+FBPIC was originally developed at 
+[Berkeley Lab](http://www.lbl.gov/) and [University of Hamburg](https://www.uni-hamburg.de/en).
+
 If you use FBPIC for your research project: that's great! We are
-delighted that the code is useful to you!
+very pleased that the code is useful to you!
 
 If your project even leads to a scientific publication, please
 consider citing FBPIC's original paper, which can be found

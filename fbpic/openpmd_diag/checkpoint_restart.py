@@ -17,7 +17,8 @@ def set_periodic_checkpoint( sim, period ):
     `./checkpoints`, with one subdirectory per process. 
     All the field and particle information of each processor is saved.
  
-    NB: Checkpoints are registered among the diagnostics of the simulation. 
+    NB: Checkpoints are registered among the list of diagnostics
+    `diags` of the Simulation object `sim`. 
 
     Parameters
     ----------
@@ -54,6 +55,7 @@ def restart_from_checkpoint( sim, iteration=None ):
     Fills the Simulation object `sim` with data saved in a checkpoint.
 
     More precisely, the following data from `sim` is overwritten:
+
     - Current time and iteration number of the simulation
     - Position of the boundaries of the simulation box
     - Values of the field arrays

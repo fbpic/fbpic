@@ -3,14 +3,53 @@
    You can adapt this file completely to your liking, but it should at least
    contain the root `toctree` directive.
 
-Welcome to fbpic's documentation!
-=================================
+FBPIC documentation
+======================================================
 
-Contents
-----------
+FBPIC (Fourier-Bessel Particle-In-Cell) is a `Particle-In-Cell (PIC)
+code <http://en.wikipedia.org/wiki/Particle-in-cell)>`_ for
+relativistic plasma
+physics. It is especially well-suited for physical simulations of **laser-wakefield acceleration** and **plasma-wakefield acceleration**.
+
+The distinctive feature of FBPIC compared to *most* other PIC codes is to use
+a spectral **Fourier-Bessel representation.** This makes the code both **fast**
+and **accurate**, for situations with **close-to-cylindrical
+symmetry**. For a brief overview of the algorithm, its advantages and
+limitations, see the section :doc:`overview`.
+
+FBPIC can run either on CPU or GPU. For large
+simulations, running the code on GPU can be up to **40 times faster**
+than on CPU.
+
+.. note::
+
+   This is an Alpha release, and some parts of the code are not yet fully
+   functional:
+
+   - For **multi**-CPU and **multi**-GPU runs (using MPI), the code is not yet
+     production-ready.
+     
+
+   - The code supports **boosted-frame simulations**. However, no
+     specific mechanism against the Numerical Cherenkov Instability is
+     included in this release. In future releases, the `Galilean scheme
+     <https://arxiv.org/abs/1608.00215>`_ will be included.
+
+
+Contents of the documentation
+-------------------------------------
+
+If you are new to FBPIC, we **strongly recommend** that you read the
+section :doc:`overview` first, so as to have a basic understanding of
+what the code does.
+
+You can then see the section :doc:`install/installation` and
+:doc:`how_to_run`, to get started with using FBPIC. For more
+informatino, the section :doc:`api_reference/api_reference` lists the main objects
+that are accessible in the ``fbpic`` package.
 
 .. toctree::
-   :maxdepth: 2
+   :maxdepth: 1
 
    overview
    install/installation
@@ -18,4 +57,23 @@ Contents
    api_reference/api_reference.rst
 
 
+Contributing to FBPIC
+---------------------
 
+FBPIC is open-source, and the source code is hosted `here <http://github.com/fbpic/fbpic>`_, on
+Github.
+
+We welcome contributions to the code! If you wish to contribute,
+please read `this page <https://github.com/fbpic/fbpic/blob/master/CONTRIBUTING.md>`_ for guidelines.
+
+Attribution
+---------------
+
+FBPIC was originally developed at 
+`Berkeley Lab <http://www.lbl.gov/>`_ and `University of Hamburg <https://www.uni-hamburg.de/en>`_.
+
+If you use FBPIC for your research project: that's great! We are
+very pleased that the code is useful to you! If your project even leads
+to a scientific publication, please consider citing FBPIC's original
+paper, which can be found `on this page <http://www.sciencedirect.com/science/article/pii/S0010465516300224>`_
+(see `this link <https://arxiv.org/abs/1507.04790>`_ for the arxiv version).
