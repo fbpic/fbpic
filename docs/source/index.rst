@@ -31,7 +31,7 @@ than on CPU.
      
    - Only linear shape factors (a.k.a. first-order shape factors) are implemented for the
      macroparticles. Third-order shape factors will be implemented in a
-     future realease
+     future release
 
    - The code supports **boosted-frame simulations**. However, no
      specific mechanism against the Numerical Cherenkov Instability is
@@ -50,7 +50,7 @@ what the code does.
 You can then see the section :doc:`install/installation` and
 :doc:`how_to_run`, to get started with using FBPIC. For more
 information, the section :doc:`api_reference/api_reference` lists the main objects
-that are accessible in the ``fbpic`` package.
+that are accessible through FBPIC.
 
 .. toctree::
    :maxdepth: 1
@@ -68,7 +68,7 @@ FBPIC is open-source, and the source code is hosted `here <http://github.com/fbp
 Github.
 
 We welcome contributions to the code! If you wish to contribute,
-please read `this page <https://github.com/fbpic/fbpic/blob/master/CONTRIBUTING.md>`_ for guidelines.
+please read `this page <https://github.com/fbpic/fbpic/blob/master/CONTRIBUTING.md>`_ .
 
 Attribution
 ---------------

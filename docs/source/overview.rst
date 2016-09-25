@@ -23,8 +23,29 @@ time steps**. At each timestep:
 The distinctive features of FBPIC
 -------------------------------------
 
-Cylindrical grid (with azimuthal decomposition)
+Cylindrical grid with azimuthal decomposition
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+In the *standard* PIC algorithm, the fields are represented on a 3D
+Cartesian grid. This is very generic, but also very computational
+expensive. However, for physical situations 
+
+.. image:: images/3d_vs_cylindrical.png
+
+The above is only a schematic view. In fact, instead of using a **3D
+Cartesian grid**, FBPIC uses **a set of 2D radial grids**. Each 2D radial grid represents **an azimuthal mode** (labeled by an integer :math:`m`):
+
+- The grid for :math:`m=0` represents the fields that are **independent of**
+  :math:`\theta`. (In idealized laser-wakefield acceleration, this is
+  for instance the case for the plasma wakefield.)
+
+- The grid for :math:`m=1` represents the fields that **vary
+  proportionally to** :math:`\cos(\theta)` and :math:`\sin(\theta)`. (In
+  idealized laser-wakefield acceleration, this is the case of the
+  linearly-polarized laser field, when expressed in cylindrical coordinates,
+  as :math:`E_r` and :math:`E_{\theta}`.)
+
+- The grids for higher values of :math:`m`
 
 Explain decomposition in modes
 
@@ -32,7 +53,8 @@ The laser stuff
 
 .. image:: images/cylindrical_grid.png
 
-FBPIC only uses 2 modes: allows to model fields that vary
+.. note::
+   In practice, FBPIC only uses 2 modes: allows to model fields that vary
 
 .. note::
 
