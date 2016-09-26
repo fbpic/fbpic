@@ -60,7 +60,7 @@ git pull git@github.com:fbpic/fbpic.git dev
   ```
   (Be patient: the tests can take approx. 5 min.)
 
-- Push the changes to your personal copy on Bitbucket
+- Push the changes to your personal copy on Github
 ```
 git push -u origin <NewBranchName>
 ```
