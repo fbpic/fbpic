@@ -135,13 +135,16 @@ and a **Hankel transform** along :math:`r`.
    using a large number of gridpoints along :math:`r` (:math:`N_r\sim 1000`),
    the Hankel transforms may dominate the computational time.
 
-Guard cells and moving window
-------------------------------------------
+Centering in time and space
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-.. note::
+While, in the *standard* PIC algorithm, the fields are **staggered in
+space and time**, in FBPIC the fields are all defined at the **same
+points in space** and the **same time** (with the
+notable exception of the currents, which are staggered in time).
 
-  large number of guard cells:
-  automatically added in the simulation, and not included in the
-  output, so most invisible to the user. Yet, important to be aware
-
-  Moving window is only moved every so often.
+This allows to avoid **important interpolation artifacts**, which can
+produce for instance spurious forces for relativistic electrons
+copropagating with a laser (more details in the `original article
+<http://www.sciencedirect.com/science/article/pii/S0010465516300224>`_
+of FBPIC).

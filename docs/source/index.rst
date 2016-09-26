@@ -12,7 +12,7 @@ relativistic plasma
 physics. It is especially well-suited for physical simulations of **laser-wakefield acceleration** and **plasma-wakefield acceleration**.
 
 The distinctive feature of FBPIC, compared to *most* other PIC codes, is to use
-a spectral **Fourier-Bessel representation.** This makes the code both **fast**
+a **spectral cylindrical representation.** This makes the code both **fast**
 and **accurate**, for situations with **close-to-cylindrical
 symmetry**. Partly because of this representation, the code is
 **dispersion-free in all directions**, and avoids some **major interpolation
