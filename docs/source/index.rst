@@ -11,15 +11,17 @@ code <http://en.wikipedia.org/wiki/Particle-in-cell)>`_ for
 relativistic plasma
 physics. It is especially well-suited for physical simulations of **laser-wakefield acceleration** and **plasma-wakefield acceleration**.
 
-The distinctive feature of FBPIC compared to *most* other PIC codes is to use
+The distinctive feature of FBPIC, compared to *most* other PIC codes, is to use
 a spectral **Fourier-Bessel representation.** This makes the code both **fast**
 and **accurate**, for situations with **close-to-cylindrical
-symmetry**. For a brief overview of the algorithm, its advantages and
-limitations, see the section :doc:`overview`.
+symmetry**. Partly because of this representation, the code is
+**dispersion-free in all directions**, and avoids some **major interpolation
+artifacts** that other PIC codes may have. For a brief overview of the
+algorithm, its advantages and limitations, see the section :doc:`overview`.
 
 FBPIC can run either on CPU or GPU. For large
 simulations, running the code on GPU can be up to **40 times faster**
-than on CPU.
+than on CPU. 
 
 .. note::
 
