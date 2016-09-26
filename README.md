@@ -1,5 +1,11 @@
 # Fourier-Bessel Particle-In-Cell code (FBPIC)
 
+[![Build Status master](https://img.shields.io/travis/fbpic/fbpic/master.svg?label=master)](https://travis-ci.org/fbpic/fbpic/branches)
+[![Build Status dev](https://img.shields.io/travis/fbpic/fbpic/dev.svg?label=dev)](https://travis-ci.org/fbpic/fbpic/branches)
+[![pypi version](https://img.shields.io/pypi/v/fbpic.svg)](https://pypi.python.org/pypi/fbpic)
+[![License](https://img.shields.io/pypi/l/fbpic.svg)](LICENSE.txt)
+
+
 ## Overview
 
 FBPIC is a
