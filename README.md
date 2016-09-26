@@ -3,7 +3,7 @@
 ## Overview
 
 FBPIC is a
-**[Particle-In-Cell (PIC) code](https://en.wikipedia.org/wiki/Particle-in-cell)**
+[Particle-In-Cell (PIC) code](https://en.wikipedia.org/wiki/Particle-in-cell)
 for relativistic plasma physics.  
 
 It is especially well-suited for physical simulations of
@@ -22,7 +22,7 @@ the [documentation](http://fbpic.github.io).
 
 **Language and harware:**  
 FBPIC is written entirely in Python, but uses 
-**[Numba](http://numba.pydata.org/)** Just-In-Time compiler for high
+[Numba](http://numba.pydata.org/) Just-In-Time compiler for high
 performance. In addition, the code was designed to be run
 either on **CPU or GPU**. For large
 simulations, running the code on GPU can be up to **40 times faster**
