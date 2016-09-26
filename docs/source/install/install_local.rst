@@ -1,0 +1,60 @@
+Installation on a local computer
+==================================
+
+Installing FBPIC
+------------------
+
+The installation requires the
+`Anaconda <https://www.continuum.io/why-anaconda>`__ distribution of
+Python. If Anaconda is not your default Python distribution, download and install it from `here <https://www.continuum.io/downloads>`__.
+
+-  Clone the ``fbpic`` repository using git.
+
+-  ``cd`` into the top folder of ``fbpic`` and install the dependencies:
+
+   ::
+
+       conda install -c conda-forge --file requirements.txt
+
+-  **Optional:** In order to be able to run the code on a GPU:
+
+   ::
+
+       conda install accelerate
+
+   (The ``accelerate`` package is not free, but there is a 30-day free
+   trial period, which starts when the above command is entered. For
+   further use beyond 30 days, one option is to obtain an academic
+   license, which is also free. To do so, please visit `this
+   link <https://www.continuum.io/anaconda-academic-subscriptions-available>`__.)
+
+-  Install ``fbpic``
+
+   ::
+
+       pip install fbpic
+
+   Alternatively, instead of using ``pip``, you can also install FBPIC
+   from the souces, by cloning the `code from Github
+   <https://github.com/fbpic/fbpic>`_, and typing ``python setup.py install``.
+
+
+Potential issues
+--------------------------------
+       
+On Mac OSX, the package ``mpi4py`` can sometimes cause
+issues on Mac OSX. If you observe that the code crashes with an
+MPI-related error, try installing ``mpi4py`` using MacPorts and
+``pip``. To do so, first install `MacPorts <https://www.macports.org/>`_. Then execute the following commands:
+
+::
+
+   conda uninstall mpi4py
+   sudo port install openmpi-gcc48
+   sudo port select --set mpi openmpi-gcc48-fortran
+   pip install mpi4py
+    
+Running simulations
+-------------------
+
+See the section :doc:`../how_to_run`, for instructions on how to run a simultion.

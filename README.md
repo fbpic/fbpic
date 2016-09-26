@@ -2,84 +2,99 @@
 
 ## Overview
 
-This program is a Particle-In-Cell (PIC) code,
-whose distinctive feature is to use a **spectral decomposition in
-cylindrical geometry** for the fields (Fourier-Bessel
-decomposition).
+FBPIC is a
+**[Particle-In-Cell (PIC) code](https://en.wikipedia.org/wiki/Particle-in-cell)**
+for relativistic plasma physics.  
 
-This decomposition allows to combine the advantages of
-**spectral 3D Cartesian** PIC codes (high accuracy and stability) and
-those of **finite-difference cylindrical** PIC codes with azimuthal
-decomposition (orders-of-magnitude speedup when compared to 3D simulations).
-Here are some of the specific features of this code :  
+It is especially well-suited for physical simulations of
+**laser-wakefield acceleration** and **plasma-wakefield acceleration**, with close-to-cylindrical symmetry.
 
-* The Maxwell solver uses a Pseudo-Spectral Analytical Time-Domain
-  algorithm (PSATD), and is therefore **dispersion-free in all
-  directions**, in vacuum.
-* The fields *E* and *B* are defined at the **same points in space** and at
-  the **same time** (i.e. they are not staggered). This avoids some
-  interpolation errors.
-* The particle pusher uses the Vay algorithm.
-* The moving window is supported.
-* The initialization of charged bunch (with its space-charge fields)
-  is supported.
+**Algorithm:**  
+The distinctive feature of FBPIC is to use
+a **spectral decomposition in
+cylindrical geometry** (Fourier-Bessel
+decomposition) for the fields. This combines the advantages of **spectral 3D** PIC codes (high accuracy and stability) and
+those of **finite-difference cylindrical** PIC codes
+(orders-of-magnitude speedup when compared to 3D simulations).  
+For more details on the algorithm, its advantages and limitations, see
+the [documentation](http://fbpic.github.io).
 
-For more details on the algorithm, see the `docs/article` folder.
 
-Implementation details:
-
-* The code is written in Python and calls BLAS and FFTW for computationally
-intensive parts. Moroever, it will also use Numba, if availabe
-* Single-CPU (with partial use of multi-threading) or single-GPU
+**Language and harware:**  
+FBPIC is written entirely in Python, but uses 
+**[Numba](http://numba.pydata.org/)** Just-In-Time compiler for high
+performance. In addition, the code was designed to be run
+either on **CPU or GPU**. For large
+simulations, running the code on GPU can be up to **40 times faster**
+than on CPU.
 
 ## Installation
 
-The installation instructions below are for a local computer. For instructions
-specific to a particular HPC cluster (e.g. Titan, Jureca, Lawrencium, etc.), please
-see `docs/install`.
+The installation instructions below are for a local computer. For more
+details, or for instructions specific to a particular HPC cluster, see
+the [documentation](http://fbpic.github.io).
 
 The recommended installation is through the
-[Anaconda](https://www.continuum.io/why-anaconda) distribution:
-
-- If Anaconda is not your default Python installation, download and install
+[Anaconda](https://www.continuum.io/why-anaconda) distribution.
+If Anaconda is not your default Python installation, download and install
 it from [here](https://www.continuum.io/downloads).
 
-- Clone the `fbpic` repository using git.
+**Installation steps**:
 
-- `cd` into the top folder of `fbpic` and install the dependencies:  
+- Install the dependencies of FBPIC. This can be done with a single line:  
 ```
-conda install -c conda-forge --file requirements.txt
+conda install -c conda-forge numba matplotlib scipy h5py mpi4py pyfftw
 ```
-- **Optional:** In order to be able to run the code on a GPU:
+- Download and install FBPIC:
+```
+pip install fbpic
+```
+
+- **Optional:** in order to run on GPU, install the additional package
+`accelerate`:
 ```
 conda install accelerate
-conda install accelerate_cudalib
 ```
 (The `accelerate` package is not free, but there is a 30-day free trial period,
   which starts when the above command is entered. For further use beyond 30
   days, one option is to obtain an academic license, which is also free. To do
   so, please visit [this link](https://www.continuum.io/anaconda-academic-subscriptions-available).)
 
-- Install `fbpic`  
-```
-python setup.py install
-```
-
-The installation can be tested by running:
-```
-python setup.py test
-```
-
-If you encounter issues with the installation, you may find a
-documented solution in `docs/install`.
-
 ## Running simulations
 
-Simulations are run with a user-written python script, which calls the
-FBPIC structures. An example script (called `lpa_sim.py`) can be found in
-`docs/example_input`. The simulation can be run simply by entering
-`python -i lpa_sim.py`.
+Once installed, FBPIC is available as a **Python module** on your
+system.
 
+Therefore, in order to run a physical simulation, you will need a **Python
+script** that imports FBPIC's functionalities and use them to setup the
+simulation. You can find examples of such scripts in the
+[documentation](http://fbpic.github.io) or in this repository, in `docs/source/example_input/`.
+
+Once your script is ready, the simulation is run simply by typing:
+```
+python fbpic_script.py
+```
 The code outputs HDF5 files, that comply with the
 [OpenPMD standard](http://www.openpmd.org/#/start),
- and which can thus be read as such (e.g. by using the [openPMD-viewer](https://github.com/openPMD/openPMD-viewer)).
+ and which can thus be read as such (e.g. by using the
+ [openPMD-viewer](https://github.com/openPMD/openPMD-viewer)).
+
+## Contributing
+
+We welcome contributions to the code! Please read [this page](https://github.com/fbpic/fbpic/blob/master/CONTRIBUTING.md) for guidelines on how to contribute.
+
+## Attribution
+
+FBPIC was originally developed by Remi Lehe at [Berkeley Lab](http://www.lbl.gov/),
+and Manuel Kirchen at 
+[CFEL, Hamburg University](http://lux.cfel.de/). The code also
+benefitted from the contributions of Soeren Jalas, Kevin Peters and
+Irene Dornmair (CFEL).
+
+If you use FBPIC for your research project: that's great! We are
+very pleased that the code is useful to you!
+
+If your project even leads to a scientific publication, please
+consider citing FBPIC's original paper, which can be found
+[here](http://www.sciencedirect.com/science/article/pii/S0010465516300224)
+(see [this link](https://arxiv.org/abs/1507.04790) for the arxiv version).

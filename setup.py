@@ -42,7 +42,7 @@ setup(
     url='http://github.com/fbpic/fbpic',
     classifiers=[
         'Programming Language :: Python',
-        'Development Status :: 4 - Beta',
+        'Development Status :: 3 - Alpha',
         'Natural Language :: English',
         'Environment :: Console',
         'Intended Audience :: Science/Research',

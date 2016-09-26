@@ -37,11 +37,6 @@ class BoostedParticleDiagnostic(ParticleDiagnostic):
     on the GPU relies on particle arrays being sorted on the GPU. For the
     back-transformation to the Lab frame, interpolation in space is applied,
     but no interpolation for the particle velocities is applied.
-    
-    Usage
-    -----
-    After initialization, the diagnostic is called by using 
-    the 'write' method.
     """
     def __init__(self, zmin_lab, zmax_lab, v_lab, dt_snapshots_lab,
                  Ntot_snapshots_lab, gamma_boost, period, fldobject, 
@@ -52,11 +47,18 @@ class BoostedParticleDiagnostic(ParticleDiagnostic):
         Initialize diagnostics that retrieve the data in the lab frame,
         as a series of snapshot (one file per snapshot),
         within a virtual moving window defined by zmin_lab, zmax_lab, v_lab.
-                     
+
+        The parameters defined below are specific to the back-transformed
+        diagnostics. See the documentation of `FieldDiagnostic` for
+        the other parameters.
+
         Parameters
         ----------
-        zmin_lab, zmax_lab: floats (meters)
-            Positions of the minimum and maximum of the virtual moving window,
+        zmin_lab: float (in meters)
+            The position of the left edge of the virtual moving window,
+            *in the lab frame*, at t=0
+        zmax_lab: float (in meters)
+            The position of the right edge of the virtual moving window,
             *in the lab frame*, at t=0
 
         v_lab: float (m.s^-1)
@@ -75,9 +77,6 @@ class BoostedParticleDiagnostic(ParticleDiagnostic):
         fldobject : a Fields object,
             The Fields object of the simulation, that is needed to
             extract some information about the grid
-                
-        See the documentation of ParticleDiagnostic for the other parameters
-
         """
         # Do not leave write_dir as None, as this may conflict with
         # the default directory ('./diags') in which diagnostics in the

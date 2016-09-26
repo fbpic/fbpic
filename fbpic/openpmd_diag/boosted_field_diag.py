@@ -27,11 +27,6 @@ class BoostedFieldDiagnostic(FieldDiagnostic):
     """
     Class that writes the fields *in the lab frame*, from
     a simulation in the boosted frame
-
-    Usage
-    -----
-    After initialization, the diagnostic is called by using the
-    `write` method.
     """
     def __init__(self, zmin_lab, zmax_lab, v_lab, dt_snapshots_lab,
                  Ntot_snapshots_lab, gamma_boost, period, fldobject,
@@ -42,16 +37,23 @@ class BoostedFieldDiagnostic(FieldDiagnostic):
         as a series of snapshot (one file per snapshot),
         within a virtual moving window defined by zmin_lab, zmax_lab, v_lab.
 
+        The parameters defined below are specific to the back-transformed
+        diagnostics. See the documentation of `FieldDiagnostic` for
+        the other parameters.
+
         Parameters
         ----------
-        zmin_lab, zmax_lab: floats (meters)
-            Positions of the minimum and maximum of the virtual moving window,
+        zmin_lab: float (in meters)
+            The position of the left edge of the virtual moving window,
+            *in the lab frame*, at t=0
+        zmax_lab: float (in meters)
+            The position of the right edge of the virtual moving window,
             *in the lab frame*, at t=0
 
-        v_lab: float (m.s^-1)
+        v_lab: float (in m.s^-1)
             Speed of the moving window *in the lab frame*
 
-        dt_snapshots_lab: float (seconds)
+        dt_snapshots_lab: float (in seconds)
             Time interval *in the lab frame* between two successive snapshots
 
         Ntot_snapshots_lab: int
@@ -60,8 +62,6 @@ class BoostedFieldDiagnostic(FieldDiagnostic):
         period: int
             Number of iterations for which the data is accumulated in memory,
             before finally writing it to the disk.
-
-        See the documentation of FieldDiagnostic for the other parameters
         """
         # Do not leave write_dir as None, as this may conflict with
         # the default directory ('./diags') in which diagnostics in the
