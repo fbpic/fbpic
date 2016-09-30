@@ -15,7 +15,8 @@ before_install:
 
 # Install packages
 install:
-  - conda install --yes python=$TRAVIS_PYTHON_VERSION -c conda-forge --file requirements.txt
+  - conda install --yes python=$TRAVIS_PYTHON_VERSION numba matplotlib scipy h5py
+  - conda install --yes -c conda-forge python=$TRAVIS_PYTHON_VERSION pyfftw mpi4py
   - conda install --yes pyflakes
   - pip install openpmd_viewer
   - python setup.py install

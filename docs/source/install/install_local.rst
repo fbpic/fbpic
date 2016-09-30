@@ -10,11 +10,12 @@ Python. If Anaconda is not your default Python distribution, download and instal
 
 **Installation steps**:
 
-- Install the dependencies of FBPIC. This can be done with a single line:  
+- Install the dependencies of FBPIC. This can be done in two lines:
 
   ::
 
-     conda install -c conda-forge numba matplotlib scipy h5py mpi4py pyfftw
+     conda install numba matplotlib scipy h5py
+     conda install -c conda-forge mpi4py pyfftw
 
 -  Install ``fbpic``
 
