@@ -8,13 +8,25 @@ The installation requires the
 `Anaconda <https://www.continuum.io/why-anaconda>`__ distribution of
 Python. If Anaconda is not your default Python distribution, download and install it from `here <https://www.continuum.io/downloads>`__.
 
--  Clone the ``fbpic`` repository using git.
+**Installation steps**:
 
--  ``cd`` into the top folder of ``fbpic`` and install the dependencies:
+- Install the dependencies of FBPIC. This can be done with a single line:  
+
+  ::
+
+     conda install -c conda-forge numba matplotlib scipy h5py mpi4py pyfftw
+
+-  Install ``fbpic``
 
    ::
 
-       conda install -c conda-forge --file requirements.txt
+       pip install fbpic
+
+   Alternatively, instead of using ``pip``, you can also install FBPIC
+   from the souces, by cloning the `code from Github
+   <https://github.com/fbpic/fbpic>`_, and typing ``python setup.py
+   install``.
+
 
 -  **Optional:** In order to be able to run the code on a GPU:
 
@@ -27,16 +39,6 @@ Python. If Anaconda is not your default Python distribution, download and instal
    further use beyond 30 days, one option is to obtain an academic
    license, which is also free. To do so, please visit `this
    link <https://www.continuum.io/anaconda-academic-subscriptions-available>`__.)
-
--  Install ``fbpic``
-
-   ::
-
-       pip install fbpic
-
-   Alternatively, instead of using ``pip``, you can also install FBPIC
-   from the souces, by cloning the `code from Github
-   <https://github.com/fbpic/fbpic>`_, and typing ``python setup.py install``.
 
 
 Potential issues
