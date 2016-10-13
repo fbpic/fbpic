@@ -10,7 +10,7 @@ This file steers and controls the simulation.
 # (This needs to be done before the other imports,
 # as it sets the cuda context)
 from mpi4py import MPI
-try:    
+try:
     from .cuda_utils import cuda, send_data_to_gpu, \
                 receive_data_from_gpu, mpi_select_gpus
     cuda_installed = cuda.is_available()
@@ -44,8 +44,8 @@ class Simulation(object):
                  p_rmin, p_rmax, p_nz, p_nr, p_nt, n_e, zmin=0.,
                  n_order=-1, dens_func=None, filter_currents=True,
                  initialize_ions=False, use_cuda=False,
-                 n_guard=50, exchange_period=None,
-                 boundaries='periodic', gamma_boost=None):
+                 n_guard=50, exchange_period=None, boundaries='periodic',
+                 gamma_boost=None, use_all_mpi_ranks=True ):
         """
         Initializes a simulation, by creating the following structures:
 
@@ -135,6 +135,18 @@ class Simulation(object):
             value of `gamma_boost` to the corresponding Lorentz factor.
             All the other quantities (zmin, zmax, n_e, etc.) are to be given
             in the lab frame.
+
+        use_all_mpi_ranks: bool, optional
+            When launching the simulation with mpirun:
+
+            - if `use_all_mpi_ranks` is True (default):
+              All the MPI ranks will contribute to the same simulation,
+              using domain-decomposition to share the work.
+            - if `use_all_mpi_ranks` is False:
+              Each MPI rank will run an independent simulation.
+              This can be useful when running parameter scans. In this case,
+              make sure that your input script is written so that the input
+              parameters and output folder depend on the MPI rank.
         """
         # Check whether to use cuda
         self.use_cuda = use_cuda
@@ -154,7 +166,7 @@ class Simulation(object):
 
         # Initialize the boundary communicator
         self.comm = BoundaryCommunicator(Nz, Nr, n_guard, Nm,
-                            boundaries, n_order, exchange_period )
+            boundaries, n_order, exchange_period, use_all_mpi_ranks )
         print_simulation_setup( self.comm, self.use_cuda )
         # Modify domain region
         zmin, zmax, p_zmin, p_zmax, Nz = \

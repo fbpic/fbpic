@@ -152,7 +152,7 @@ class MovingWindow(object):
         else:
             n_move = None
         # Broadcast the information to all proc
-        if comm.size > 0:
+        if comm.size > 1:
             n_move = comm.mpi_comm.bcast( n_move )
     
         # Move the grids
