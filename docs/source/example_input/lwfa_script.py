@@ -43,7 +43,7 @@ rmax = 20.e-6    # Length of the box along r (meters)
 Nm = 2           # Number of modes used
 # The simulation timestep
 dt = (zmax-zmin)/Nz/c   # Timestep (seconds)
-N_step = 200     # Number of iterations to perform
+N_step = 300     # Number of iterations to perform
 
 # The particles
 p_zmin = 25.e-6  # Position of the beginning of the plasma (meters)

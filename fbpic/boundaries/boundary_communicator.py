@@ -231,7 +231,7 @@ class BoundaryCommunicator(object):
             The global time in the simulation
             This is used in order to determine how much the window should move
         """
-        self.moving_win.move_grids(fld, dt, self.mpi_comm, time)
+        self.moving_win.move_grids(fld, dt, self, time)
 
     def exchange_fields( self, interp, fieldtype ):
         """
@@ -353,9 +353,9 @@ class BoundaryCommunicator(object):
                                         source=self.left_proc, tag=2)
         # Wait for the non-blocking sends to be received (synchronization)
         if self.right_proc is not None :
-            mpi.Request.Wait(req_1)
+            req_1.Wait()
         if self.left_proc is not None :
-            mpi.Request.Wait(req_2)
+            req_2.Wait()
 
     def exchange_particles(self, species, fld, time ):
         """

@@ -117,7 +117,7 @@ class MovingWindow(object):
         # Attach time of last move
         self.t_last_move = time
 
-    def move_grids(self, fld, dt, mpi_comm, time):
+    def move_grids(self, fld, dt, comm, time):
         """
         Calculate by how many cells the moving window should be moved.
         If this is non-zero, shift the fields on the interpolation grid,
@@ -134,8 +134,8 @@ class MovingWindow(object):
         dt: float (in seconds)
             Timestep of the simulation
 
-        mpi_comm: an mpi4py communicator
-            This is typically the attribute `comm` of the BoundaryCommunicator
+        comm: an fbpic BoundaryCommunicator object
+            Contains the information on the MPI decomposition
 
         time: float (seconds)
             The global time in the simulation
@@ -144,7 +144,7 @@ class MovingWindow(object):
         # To avoid discrepancies between processors, only the first proc
         # decides whether to send the data, and broadcasts the information.
         dz = fld.interp[0].dz
-        if mpi_comm.rank==0:
+        if comm.rank==0:
             # Move the continuous position of the moving window object
             self.zmin += self.v * (time - self.t_last_move)
             # Find the number of cells by which the window should move
@@ -152,8 +152,8 @@ class MovingWindow(object):
         else:
             n_move = None
         # Broadcast the information to all proc
-        if mpi_comm.size > 0:
-            n_move = mpi_comm.bcast( n_move )
+        if comm.size > 0:
+            n_move = comm.mpi_comm.bcast( n_move )
     
         # Move the grids
         if n_move > 0:
@@ -171,7 +171,7 @@ class MovingWindow(object):
         # Prepare the positions of injection for the particles
         # (The actual creation of particles is done when the routine
         # exchange_particles of boundary_communicator.py is called)
-        if mpi_comm.rank == mpi_comm.size-1:
+        if comm.rank == comm.size-1:
             # Move the injection position
             self.z_inject += self.v * (time - self.t_last_move)
             # Take into account the motion of the end of the plasma
