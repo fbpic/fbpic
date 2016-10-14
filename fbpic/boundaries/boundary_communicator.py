@@ -534,20 +534,21 @@ class BoundaryCommunicator(object):
             gathered_array = None
         # Shortcut for the guard cells
         ng = self.n_guard
+        local_array = array[ng:len(array)-ng]
 
-        # Call the mpi4py routine Gartherv
-        # First get the size and MPI type of the 2D arrays in each procs
-        i_start_procs = tuple( self.Nr*iz for iz in self.iz_start_procs )
-        N_domain_procs = tuple( self.Nr*nz for nz in self.Nz_domain_procs )
-        mpi_type = mpi_type_dict[ str(array.dtype) ]
         # Then send the arrays
         if self.size > 1:
-            sendbuf = [ array[ng:-ng,:], N_domain_procs[self.rank] ]
+            # First get the size and MPI type of the 2D arrays in each procs
+            i_start_procs = tuple( self.Nr*iz for iz in self.iz_start_procs )
+            N_domain_procs = tuple( self.Nr*nz for nz in self.Nz_domain_procs )
+            mpi_type = mpi_type_dict[ str(array.dtype) ]
+            sendbuf = [ local_array, N_domain_procs[self.rank] ]
             recvbuf = [ gathered_array, N_domain_procs,
                         i_start_procs, mpi_type ]
             self.mpi_comm.Gatherv( sendbuf, recvbuf, root=root )
         else:
-            gathered_array[:,:] = array[ng:-ng]
+            gathered_array[:,:] = local_array
+
         # Return the gathered_array only on process root
         if self.rank == root:
             return(gathered_array)
