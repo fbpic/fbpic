@@ -35,8 +35,9 @@ class ParticleDiagnostic(OpenPMDDiagnostic) :
             (e.g. {"electrons" : elec })
 
         comm : an fbpic BoundaryCommunicator object or None
-            If this is not None, the data is gathered on the first proc
-            Otherwise, each proc writes its own data.
+            If this is not None, the data is gathered by the communicator, and
+            guard cells are removed.
+            Otherwise, each rank writes its own data, including guard cells.
             (Make sure to use different write_dir in this case.)
             
         particle_data : a list of strings, optional 
@@ -187,7 +188,10 @@ class ParticleDiagnostic(OpenPMDDiagnostic) :
             n = select_array.sum()
             if self.comm is not None:
                 # Multi-proc output
-                n_rank = self.comm.mpi_comm.allgather(n)
+                if self.comm.size > 1:
+                    n_rank = self.comm.mpi_comm.allgather(n)
+                else:
+                    n_rank = [n]
                 Ntot = sum(n_rank)
             else:
                 # Single-proc output
@@ -373,7 +377,7 @@ class ParticleDiagnostic(OpenPMDDiagnostic) :
         # Apply the selection
         quantity_one_proc = quantity_one_proc[ select_array ]
 
-        # If this is the momentum, mutliply by the proper factor
+        # If this is the momentum, multiply by the proper factor
         if quantity in ['ux', 'uy', 'uz'] :
             scale_factor = species.m * constants.c
             quantity_one_proc *= scale_factor

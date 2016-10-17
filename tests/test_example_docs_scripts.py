@@ -7,8 +7,9 @@ This test file is part of FB-PIC (Fourier-Bessel Particle-In-Cell).
 It makes sure that the example input scripts in `docs/source/example_input`
 runs **without crashing**. It runs the following scripts:
 - lwfa_script.py with a single proc
+- lwfa_script.py with two proc using checkpoint and restart
 - boosted_frame_script.py with a single proc
-- lwfa_script.py with two proc
+- parametric_script.py with two procs
 **It does not actually check the validity of the physics involved.**
 
 Usage:
@@ -20,6 +21,7 @@ $ python setup.py test
 """
 import os
 import shutil
+from opmd_viewer.addons import LpaDiagnostics
 
 def test_lpa_sim_singleproc():
     "Test the example input script with one proc in `docs/source/example_input`"
@@ -38,50 +40,6 @@ def test_lpa_sim_singleproc():
     os.chdir( temporary_dir )
     # Launch the script from the OS
     response = os.system( 'python lwfa_script.py' )
-    assert response==0
-
-    # Exit the temporary directory and suppress it
-    os.chdir('../../')
-    shutil.rmtree( temporary_dir )
-
-def test_boosted_frame_sim_singleproc():
-    "Test the example input script with one proc in `docs/source/example_input`"
-
-    temporary_dir = './tests/tmp_test_dir'
-
-    # Create a temporary directory for the simulation
-    # and copy the example script into this directory
-    if os.path.exists( temporary_dir ):
-        shutil.rmtree( temporary_dir )
-    os.mkdir( temporary_dir )
-    shutil.copy('./docs/source/example_input/boosted_frame_script.py',
-                    temporary_dir )
-
-    # Enter the temporary directory and run the script
-    os.chdir( temporary_dir )
-    # Launch the script from the OS
-    response = os.system( 'python boosted_frame_script.py' )
-    assert response==0
-
-    # Exit the temporary directory and suppress it
-    os.chdir('../../')
-    shutil.rmtree( temporary_dir )
-
-def test_lpa_sim_twoproc():
-    "Test the example input script with two proc in `docs/source/example_input`"
-    temporary_dir = './tests/tmp_test_dir'
-
-    # Create a temporary directory for the simulation
-    # and copy the example script into this directory
-    if os.path.exists( temporary_dir ):
-        shutil.rmtree( temporary_dir )
-    os.mkdir( temporary_dir )
-    shutil.copy('./docs/source/example_input/lwfa_script.py', temporary_dir )
-
-    # Enter the temporary directory and run the script
-    os.chdir( temporary_dir )
-    # Launch the script from the OS, with 2 proc
-    response = os.system( 'mpirun -np 2 python lwfa_script.py' )
     assert response==0
 
     # Exit the temporary directory and suppress it
@@ -135,9 +93,69 @@ def test_lpa_sim_twoproc_restart():
    # Exit the temporary directory and suppress it
     os.chdir('../../')
     shutil.rmtree( temporary_dir )
+
+
+def test_boosted_frame_sim_singleproc():
+    "Test the example input script with one proc in `docs/source/example_input`"
+
+    temporary_dir = './tests/tmp_test_dir'
+
+    # Create a temporary directory for the simulation
+    # and copy the example script into this directory
+    if os.path.exists( temporary_dir ):
+        shutil.rmtree( temporary_dir )
+    os.mkdir( temporary_dir )
+    shutil.copy('./docs/source/example_input/boosted_frame_script.py',
+                    temporary_dir )
+
+    # Enter the temporary directory and run the script
+    os.chdir( temporary_dir )
+    # Launch the script from the OS
+    response = os.system( 'python boosted_frame_script.py' )
+    assert response==0
+
+    # Exit the temporary directory and suppress it
+    os.chdir('../../')
+    shutil.rmtree( temporary_dir )
+
+def test_parametric_sim_twoproc():
+    "Test the example input script with two proc in `docs/source/example_input`"
+
+    temporary_dir = './tests/tmp_test_dir'
+    
+    # Create a temporary directory for the simulation
+    # and copy the example script into this directory
+    if os.path.exists( temporary_dir ):
+        shutil.rmtree( temporary_dir )
+    os.mkdir( temporary_dir )
+    shutil.copy(
+        './docs/source/example_input/parametric_script.py', temporary_dir )
+
+    # Enter the temporary directory
+    os.chdir( temporary_dir )
+
+    # Launch the modified script from the OS, with 2 proc
+    response = os.system( 'mpirun -np 2 python parametric_script.py' )
+    assert response==0
+
+    # Check that the simulation produced two output directories
+    # and that these directories correspond to different values of
+    # a0 (this is done by checking the a0 of the laser, with openPMD-viewer)
+    for a0 in [ 2.0, 4.0 ]:
+        # Open the diagnotics
+        diag_folder = 'diags_a0_%.1f/hdf5' %a0
+        ts = LpaDiagnostics( diag_folder )
+        # Check that the value of a0 in the diagnostics is the
+        # expected one.
+        a0_in_diag = ts.get_a0( iteration=40, pol='x' )
+        assert abs( (a0 - a0_in_diag)/a0 ) < 1.e-2
+    
+    # Exit the temporary directory and suppress it
+    os.chdir('../../')
+    shutil.rmtree( temporary_dir )
     
 if __name__ == '__main__':
     test_lpa_sim_singleproc()
-    test_boosted_frame_sim_singleproc()
-    test_lpa_sim_twoproc()
     test_lpa_sim_twoproc_restart()
+    test_boosted_frame_sim_singleproc()
+    test_parametric_sim_twoproc()
