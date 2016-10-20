@@ -1,3 +1,6 @@
+# Copyright 2016, FBPIC contributors
+# Authors: Remi Lehe, Manuel Kirchen
+# License: 3-Clause-BSD-LBNL
 """
 This file is part of the Fourier-Bessel Particle-In-Cell code (FB-PIC)
 It defines the structure necessary to handle mpi buffers for the particles
@@ -179,9 +182,13 @@ def remove_particles_gpu(species, fld, nguard, left_proc, right_proc):
     that are sent to the left proc and right proc respectively.
     If left_proc or right_proc is None, the corresponding array has Nptcl=0
     """
-    # Check if particles are sorted, otherwise raise exception
+    # Check if particles are sorted  ; if not print a message and sort them
+    # (The particles are usually expected to be sorted from the previous
+    # iteration at this point - except in a restart from a checkpoint.)
     if species.sorted == False:
-        raise ValueError('Removing particles: The particles are not sorted!')
+        print('Removing particles: Particles are unsorted. Sorting them now.')
+        species.sort_particles(fld = fld)
+        species.sorted = True
 
     # Get the particle indices between which to remove the particles
     # (Take into account the fact that the moving window may have

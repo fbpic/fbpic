@@ -1,3 +1,6 @@
+# Copyright 2016, FBPIC contributors
+# Authors: Remi Lehe, Manuel Kirchen
+# License: 3-Clause-BSD-LBNL
 """
 This file tests the Discrete Hankel Transform which is implemented
 in hankel_dt, by performing the forward and backward Hankel Transform

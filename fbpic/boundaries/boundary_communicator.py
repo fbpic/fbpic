@@ -1,3 +1,6 @@
+# Copyright 2016, FBPIC contributors
+# Authors: Remi Lehe, Manuel Kirchen
+# License: 3-Clause-BSD-LBNL
 """
 This file is part of the Fourier-Bessel Particle-In-Cell code (FB-PIC)
 It defines the structure necessary to implement the boundary exchanges.
@@ -39,7 +42,7 @@ class BoundaryCommunicator(object):
     # -----------------------
 
     def __init__( self, Nz, Nr, n_guard, Nm, boundaries,
-                  n_order, exchange_period=None ):
+        n_order, exchange_period=None, use_all_mpi_ranks=True ):
         """
         Initializes a communicator object.
 
@@ -73,6 +76,14 @@ class BoundaryCommunicator(object):
             If the stencil fits into the guard cells, no damping is
             performed, between two processors. (Damping is still performed
             in the guard cells that correspond to open boundaries)
+    
+        use_all_mpi_ranks: bool, optional
+            - if `use_all_mpi_ranks` is True (default):
+              All the MPI ranks will contribute to the same simulation,
+              using domain-decomposition to share the work.
+            - if `use_all_mpi_ranks` is False:
+              Each MPI rank will run an independent simulation.
+              This can be useful when running parameter scans.
         """
         # Initialize global number of cells and modes
         self.Nz = Nz
@@ -80,9 +91,14 @@ class BoundaryCommunicator(object):
         self.Nm = Nm
 
         # MPI Setup
-        self.mpi_comm = mpi.COMM_WORLD
-        self.rank = self.mpi_comm.rank
-        self.size = self.mpi_comm.size
+        if use_all_mpi_ranks:
+            self.mpi_comm = mpi.COMM_WORLD
+            self.rank = self.mpi_comm.rank
+            self.size = self.mpi_comm.size
+        else:
+            self.mpi_comm = None
+            self.rank = 0
+            self.size = 1
         # Get the rank of the left and the right domain
         self.left_proc = self.rank-1
         self.right_proc = self.rank+1
@@ -228,7 +244,7 @@ class BoundaryCommunicator(object):
             The global time in the simulation
             This is used in order to determine how much the window should move
         """
-        self.moving_win.move_grids(fld, dt, self.mpi_comm, time)
+        self.moving_win.move_grids(fld, dt, self, time)
 
     def exchange_fields( self, interp, fieldtype ):
         """
@@ -350,9 +366,9 @@ class BoundaryCommunicator(object):
                                         source=self.left_proc, tag=2)
         # Wait for the non-blocking sends to be received (synchronization)
         if self.right_proc is not None :
-            mpi.Request.Wait(req_1)
+            req_1.Wait()
         if self.left_proc is not None :
-            mpi.Request.Wait(req_2)
+            req_2.Wait()
 
     def exchange_particles(self, species, fld, time ):
         """
@@ -393,9 +409,10 @@ class BoundaryCommunicator(object):
         N_recv_l = np.array( 0, dtype = np.int32)
         N_recv_r = np.array( 0, dtype = np.int32)
         self.exchange_domains(N_send_l, N_send_r, N_recv_l, N_recv_r)
-        self.mpi_comm.Barrier()
         # NB: if left_proc or right_proc is None, the
         # corresponding N_recv remains 0 (no exchange)
+        if self.size > 1:
+            self.mpi_comm.Barrier()
 
         # Allocate the receiving buffers and exchange particles
         recv_left = np.zeros((8, N_recv_l), dtype = np.float64)
@@ -412,7 +429,8 @@ class BoundaryCommunicator(object):
         # An MPI barrier is needed here so that a single rank
         # does not perform two sends and receives before all
         # the other MPI connections within this exchange are completed.
-        self.mpi_comm.Barrier()
+        if self.size > 1:
+            self.mpi_comm.Barrier()
 
         # Periodic boundary conditions for exchanging particles
         # Particles received at the right (resp. left) end of the simulation
@@ -516,16 +534,21 @@ class BoundaryCommunicator(object):
             gathered_array = None
         # Shortcut for the guard cells
         ng = self.n_guard
+        local_array = array[ng:len(array)-ng]
 
-        # Call the mpi4py routine Gartherv
-        # First get the size and MPI type of the 2D arrays in each procs
-        i_start_procs = tuple( self.Nr*iz for iz in self.iz_start_procs )
-        N_domain_procs = tuple( self.Nr*nz for nz in self.Nz_domain_procs )
-        mpi_type = mpi_type_dict[ str(array.dtype) ]
         # Then send the arrays
-        sendbuf = [ array[ng:-ng,:], N_domain_procs[self.rank] ]
-        recvbuf = [ gathered_array, N_domain_procs, i_start_procs, mpi_type ]
-        self.mpi_comm.Gatherv( sendbuf, recvbuf, root=root )
+        if self.size > 1:
+            # First get the size and MPI type of the 2D arrays in each procs
+            i_start_procs = tuple( self.Nr*iz for iz in self.iz_start_procs )
+            N_domain_procs = tuple( self.Nr*nz for nz in self.Nz_domain_procs )
+            mpi_type = mpi_type_dict[ str(array.dtype) ]
+            sendbuf = [ local_array, N_domain_procs[self.rank] ]
+            recvbuf = [ gathered_array, N_domain_procs,
+                        i_start_procs, mpi_type ]
+            self.mpi_comm.Gatherv( sendbuf, recvbuf, root=root )
+        else:
+            gathered_array[:,:] = local_array
+
         # Return the gathered_array only on process root
         if self.rank == root:
             return(gathered_array)
@@ -606,15 +629,17 @@ class BoundaryCommunicator(object):
             # Other processes do not need to initialize a new array
             gathered_array = None
 
-        # Prepare the send and receive buffers
-        i_start_procs = tuple( np.cumsum([0] + n_rank[:-1]) )
-        n_rank_procs = tuple( n_rank )
-        mpi_type = mpi_type_dict[ str(array.dtype) ]
-        sendbuf = [ array, n_rank_procs[self.rank] ]
-        recvbuf = [ gathered_array, n_rank_procs, i_start_procs, mpi_type ]
-
-        # Send/receive the arrays
-        self.mpi_comm.Gatherv( sendbuf, recvbuf, root=root )
+        if self.size > 1:
+            # Prepare the send and receive buffers
+            i_start_procs = tuple( np.cumsum([0] + n_rank[:-1]) )
+            n_rank_procs = tuple( n_rank )
+            mpi_type = mpi_type_dict[ str(array.dtype) ]
+            sendbuf = [ array, n_rank_procs[self.rank] ]
+            recvbuf = [ gathered_array, n_rank_procs, i_start_procs, mpi_type ]
+            # Send/receive the arrays
+            self.mpi_comm.Gatherv( sendbuf, recvbuf, root=root )
+        else:
+            gathered_array[:] = array[:]
 
         # Return the gathered_array only on process root
         if self.rank == root:

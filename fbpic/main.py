@@ -1,3 +1,6 @@
+# Copyright 2016, FBPIC contributors
+# Authors: Remi Lehe, Manuel Kirchen, Kevin Peters, Soeren Jalas
+# License: 3-Clause-BSD-LBNL
 """
 Fourier-Bessel Particle-In-Cell (FB-PIC) main file
 
@@ -7,12 +10,12 @@ This file steers and controls the simulation.
 # (This needs to be done before the other imports,
 # as it sets the cuda context)
 from mpi4py import MPI
-try:    
+try:
     from .cuda_utils import cuda, send_data_to_gpu, \
                 receive_data_from_gpu, mpi_select_gpus
     cuda_installed = cuda.is_available()
     if cuda_installed:
-        mpi_select_gpus( MPI.COMM_WORLD )
+        mpi_select_gpus( MPI )
 except ImportError:
     cuda_installed = False
 
@@ -29,14 +32,12 @@ class Simulation(object):
     Top-level simulation class that contains all the simulation
     data, as well as the methods to perform the PIC cycle.
 
-    Attributes
-    ----------
-    - fld: a Fields object
-    - ptcl: a list of Particles objects (one element per species)
+    The `Simulation` class has several important attributes:
 
-    Methods
-    -------
-    - step: perform n PIC cycles
+    - `fld`, a `Fields` object which contains the field information
+    - `ptcl`, a list of `Particles` objects (one per species)
+    - `diags`, a list of diagnostics to be run during the simulation
+    - `comm`, a `BoundaryCommunicator`, which contains the MPI decomposition
     """
 
     def __init__(self, Nz, zmax, Nr, rmax, Nm, dt, p_zmin, p_zmax,
@@ -44,22 +45,29 @@ class Simulation(object):
                  n_order=-1, dens_func=None, filter_currents=True,
                  v_comoving=0., use_galilean=True,
                  initialize_ions=False, use_cuda=False,
-                 n_guard=50, exchange_period=None,
-                 boundaries='periodic', gamma_boost=None):
+                 n_guard=50, exchange_period=None, boundaries='periodic',
+                 gamma_boost=None, use_all_mpi_ranks=True ):
         """
         Initializes a simulation, by creating the following structures:
-        - the Fields object, which contains the EM fields
+
+        - the `Fields` object, which contains the field data on the grids
         - a set of electrons
         - a set of ions (if initialize_ions is True)
 
         Parameters
         ----------
-        Nz, Nr: ints
-            The number of gridpoints in z and r
+        Nz: int
+            The number of gridpoints along z
+        Nr: int
+            The number of gridpoints along r
 
-        zmax, rmax: floats
-            The position of the edge of the simulation in z and r
+        zmax: float
+            The position of the edge of the simulation in z
             (More precisely, the position of the edge of the last cell)
+        rmax: float
+            The position of the edge of the simulation in r
+            (More precisely, the position of the edge of the last
+            cell)
 
         Nm: int
             The number of azimuthal modes taken into account
@@ -67,29 +75,33 @@ class Simulation(object):
         dt: float
             The timestep of the simulation
 
-        p_zmin, p_zmax: floats
-            z positions between which the particles are initialized
+        p_zmin: float
+            The minimal z position above which the particles are initialized
+        p_zmax: float
+            The maximal z position below which the particles are initialized
+        p_rmin: float
+            The minimal r position above which the particles are initialized
+        p_rmax: float
+            The maximal r position below which the particles are initialized
 
-        p_rmin, p_rmax: floats
-            r positions between which the fields are initialized
-
-        p_nz, p_nr: ints
-            Number of macroparticles per cell along the z and r directions
-
+        p_nz: int
+            The number of macroparticles per cell along the z direction
+        p_nr: int
+            The number of macroparticles per cell along the r direction
         p_nt: int
-            Number of macroparticles along the theta direction
+            The number of macroparticles along the theta direction
 
         n_e: float (in particles per m^3)
            Peak density of the electrons
 
         n_order: int, optional
-           The order of the stencil for the z derivatives
-           Use -1 for infinite order
-           Otherwise use a positive, even number. In this case
-           the stencil extends up to n_order/2 cells on each side.
+           The order of the stencil for the z derivatives.
+           Use -1 for infinite order, otherwise use a positive, even
+           number. In this case, the stencil extends up to n_order/2 
+           cells on each side.
 
         zmin: float, optional
-           The position of the edge of the simulation box
+           The position of the edge of the simulation box. 
            (More precisely, the position of the edge of the first cell)
 
         dens_func: callable, optional
@@ -101,7 +113,6 @@ class Simulation(object):
 
         initialize_ions: bool, optional
            Whether to initialize the neutralizing ions
-
         filter_currents: bool, optional
             Whether to filter the currents and charge in k space
 
@@ -111,7 +122,6 @@ class Simulation(object):
             This can be done in two ways: either by
             - Using a PSATD scheme that takes this hypothesis into account
             - Solving the PSATD scheme in a Galilean frame
-
         use_galilean: bool, optional
             Determines which one of the two above schemes is used
             When use_galilean is true, the whole grid moves
@@ -123,15 +133,14 @@ class Simulation(object):
         n_guard: int, optional
             Number of guard cells to use at the left and right of
             a domain, when using MPI.
-
         exchange_period: int, optional
             Number of iteration before which the particles are exchanged
             and the window is moved (the two operations are simultaneous)
             If set to None, the particles are exchanged every n_guard/2
 
-        boundaries: str
+        boundaries: string, optional
             Indicates how to exchange the fields at the left and right
-            boundaries of the global simulation box
+            boundaries of the global simulation box. 
             Either 'periodic' or 'open'
 
         gamma_boost : float, optional
@@ -139,10 +148,24 @@ class Simulation(object):
             value of `gamma_boost` to the corresponding Lorentz factor.
             All the other quantities (zmin, zmax, n_e, etc.) are to be given
             in the lab frame.
+
+        use_all_mpi_ranks: bool, optional
+            When launching the simulation with mpirun:
+
+            - if `use_all_mpi_ranks` is True (default):
+              All the MPI ranks will contribute to the same simulation,
+              using domain-decomposition to share the work.
+            - if `use_all_mpi_ranks` is False:
+              Each MPI rank will run an independent simulation.
+              This can be useful when running parameter scans. In this case,
+              make sure that your input script is written so that the input
+              parameters and output folder depend on the MPI rank.
         """
         # Check whether to use cuda
         self.use_cuda = use_cuda
         if (use_cuda==True) and (cuda_installed==False):
+            print('*** Cuda not available for the simulation.')
+            print('*** Performing the simulation on CPU.')
             self.use_cuda = False
 
         # Register the comoving parameters
@@ -160,7 +183,8 @@ class Simulation(object):
 
         # Initialize the boundary communicator
         self.comm = BoundaryCommunicator(Nz, Nr, n_guard, Nm,
-                            boundaries, n_order, exchange_period )
+            boundaries, n_order, exchange_period, use_all_mpi_ranks )
+        print_simulation_setup( self.comm, self.use_cuda )
         # Modify domain region
         zmin, zmax, p_zmin, p_zmax, Nz = \
               self.comm.divide_into_domain(zmin, zmax, p_zmin, p_zmax)
@@ -219,10 +243,10 @@ class Simulation(object):
              correct_divE=False, use_true_rho=False,
              move_positions=True, move_momenta=True, show_progress=True):
         """
-        Perform N PIC cycles
+        Perform N PIC cycles.
 
-        Parameter
-        ---------
+        Parameters
+        ----------
         N: int, optional
             The number of timesteps to take
             Default: N=1
@@ -380,17 +404,19 @@ class Simulation(object):
             receive_data_from_gpu(self)
 
         # Print the measured time taken by the PIC cycle
-        measured_duration = time.time() - measured_start
         if show_progress and (self.comm.rank==0):
-            print('\n Time taken by the loop: %.1f s\n' %measured_duration)
+            measured_duration = time.time() - measured_start
+            m, s = divmod(measured_duration, 60)
+            h, m = divmod(m, 60)
+            print('\n Time taken by the loop: %d:%02d:%02d\n' % (h, m, s))
 
     def deposit( self, fieldtype ):
         """
-        Deposit the charge or the currents to the interpolation
-        grid and then to the spectral grid.
+        Deposit the charge or the currents to the interpolation grid
+        and then to the spectral grid.
 
-        Parameters:
-        ------------
+        Parameters
+        ----------
         fieldtype: str
             The designation of the spectral field that
             should be changed by the deposition
@@ -462,14 +488,22 @@ class Simulation(object):
 
         Parameters
         ----------
-        v: float (meters per seconds), optional
+        v: float (in meters per seconds), optional
             The speed of the moving window
 
-        ux_m, uy_m, uz_m: floats (dimensionless)
-           Normalized mean momenta of the injected particles in each direction
+        ux_m: float (dimensionless), optional
+           Normalized mean momenta of the injected particles along x
+        uy_m: float (dimensionless), optional
+           Normalized mean momenta of the injected particles along y
+        uz_m: float (dimensionless), optional
+           Normalized mean momenta of the injected particles along z
 
-        ux_th, uy_th, uz_th: floats (dimensionless)
-           Normalized thermal momenta in each direction
+        ux_th: float (dimensionless), optional
+           Normalized thermal momenta of the injected particles along x
+        uy_th: float (dimensionless), optional
+           Normalized thermal momenta of the injected particles along y
+        uz_th: float (dimensionless), optional
+           Normalized thermal momenta of the injected particles along z
 
         gamma_boost : float, optional
             When initializing a moving window in a boosted frame, set the
@@ -500,6 +534,27 @@ def progression_bar( i, Ntot, measured_start, Nbars=50, char='-'):
     h, m = divmod(m, 60)
     sys.stdout.write(', %d:%02d:%02d left' % (h, m, s))
     sys.stdout.flush()
+
+def print_simulation_setup( comm, use_cuda ):
+    """
+    Print message about the number of proc and 
+    whether it is using GPU or CPU.
+
+    Parameters
+    ----------
+    comm: an fbpic BoundaryCommunicator object
+        Contains the information on the MPI decomposition
+
+    use_cuda: bool
+        Whether the simulation is set up to use CUDA
+    """
+    if comm.rank == 0:
+        if use_cuda:
+            message = "\nRunning FBPIC on GPU "
+        else:
+            message = "\nRunning FBPIC on CPU " 
+        message += "with %d proc.\n" %comm.size
+        print( message )
 
 def adapt_to_grid( x, p_xmin, p_xmax, p_nx, ncells_empty=0 ):
     """

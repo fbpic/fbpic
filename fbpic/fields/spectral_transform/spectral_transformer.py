@@ -1,3 +1,6 @@
+# Copyright 2016, FBPIC contributors
+# Authors: Remi Lehe, Manuel Kirchen
+# License: 3-Clause-BSD-LBNL
 """
 This file is part of the Fourier-Bessel Particle-In-Cell code (FB-PIC)
 It defines the SpectralTransformer class, which handles conversion of
@@ -60,10 +63,6 @@ class SpectralTransformer(object) :
             self.dim_grid, self.dim_block = cuda_tpb_bpg_2d( Nz, Nr)
 
         # Initialize the DHT (local implementation, see hankel.py)
-        if self.use_cuda :
-            print('Preparing the Hankel Transforms for mode %d on the GPU' %m)
-        else :
-            print('Preparing the Hankel Transforms for mode %d on the CPU' %m)
         self.dht0 = DHT(  m, Nr, Nz, rmax, 'MDHT(m,m)', d=0.5, Fw='inverse',
                            use_cuda=self.use_cuda )
         self.dhtp = DHT(m+1, Nr, Nz, rmax, 'MDHT(m+1,m)', d=0.5, Fw='inverse',
@@ -72,10 +71,6 @@ class SpectralTransformer(object) :
                            use_cuda=self.use_cuda )
 
         # Initialize the FFT
-        if self.use_cuda:
-            print('Preparing FFTW for mode %d on the GPU' %m)
-        else:
-            print('Preparing FFTW for mode %d on the CPU' %m)
         self.fft = FFT( Nr, Nz, use_cuda=self.use_cuda )
 
         # Extract the spectral buffers

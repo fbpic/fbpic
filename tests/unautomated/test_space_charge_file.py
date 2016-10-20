@@ -1,3 +1,6 @@
+# Copyright 2016, FBPIC contributors
+# Authors: Remi Lehe, Manuel Kirchen
+# License: 3-Clause-BSD-LBNL
 """
 This file tests the space charge initialization of a beam 
 defined in an external text file, implemented

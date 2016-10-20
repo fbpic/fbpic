@@ -1,3 +1,6 @@
+# Copyright 2016, FBPIC contributors
+# Authors: Remi Lehe, Manuel Kirchen
+# License: 3-Clause-BSD-LBNL
 """
 This file is part of the Fourier-Bessel Partile-In-Cell code (FB-PIC)
 It defines the FFT object, which performs Fourier transforms along the axis 0,

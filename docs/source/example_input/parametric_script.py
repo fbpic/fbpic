@@ -1,19 +1,20 @@
 """
-This is a typical input script that runs a simulation of
-laser-wakefield acceleration using FBPIC.
+This script runs two simulations in parallel using MPI, 
+with each simulation having a different value of a0 as input.
+(Each simulation is performed by a different MPI process.)
+
+This makes use of the parameter `use_all_mpi_ranks=False` in 
+the `Simulation` object, which allows each MPI rank to carry out a 
+different simulation. Search for the lines tagged with the comment
+`Parametric scan` to find the lines that are key for this technique.
+
+This can be useful for instance to run several simulations on one 
+node that has several GPUs.
 
 Usage
 -----
-- Modify the parameters below to suit your needs
-- Type "python -i lpa_sim.py" in a terminal
-- When the simulation finishes, the python session will *not* quit.
-    Therefore the simulation can be continued by running sim.step()
-
-Help
-----
-All the structures implemented in FBPIC are internally documented.
-Enter "print(fbpic_object.__doc__)" to have access to this documentation,
-where fbpic_object is any of the objects or function of FBPIC.
+In a terminal, type:
+  mpirun -np 2 python parametric_script.py
 """
 
 # -------
@@ -24,8 +25,10 @@ from scipy.constants import c
 # Import the relevant structures in FBPIC
 from fbpic.main import Simulation
 from fbpic.lpa_utils.laser import add_laser
-from fbpic.openpmd_diag import FieldDiagnostic, ParticleDiagnostic, \
-     set_periodic_checkpoint, restart_from_checkpoint
+from fbpic.openpmd_diag import FieldDiagnostic, ParticleDiagnostic
+# Parametric scan: import mpi4py so as to be able to give different
+# input parameters to each MPI rank.
+from mpi4py.MPI import COMM_WORLD as comm
 
 # ----------
 # Parameters
@@ -43,7 +46,7 @@ rmax = 20.e-6    # Length of the box along r (meters)
 Nm = 2           # Number of modes used
 # The simulation timestep
 dt = (zmax-zmin)/Nz/c   # Timestep (seconds)
-N_step = 200     # Number of iterations to perform
+N_step = 50     # Number of iterations to perform
 
 # The particles
 p_zmin = 25.e-6  # Position of the beginning of the plasma (meters)
@@ -56,19 +59,23 @@ p_nr = 2         # Number of particles per cell along r
 p_nt = 4         # Number of particles per cell along theta
 
 # The laser
-a0 = 4.          # Laser amplitude
 w0 = 5.e-6       # Laser waist
 ctau = 5.e-6     # Laser duration
 z0 = 15.e-6      # Laser centroid
+
+# Parametric scan: Give a list of a0 values to scan,
+# and pick one value that this rank takes as input parameter
+a0_list = [ 2.0, 4.0 ]
+if len(a0_list) != comm.size:
+    raise ValueError(
+        'This script should be launched with %d MPI ranks.'%len(a0_list))
+a0 = a0_list[ comm.rank ]
 
 # The moving window
 v_window = c       # Speed of the window
 
 # The diagnostics and the checkpoints/restarts
 diag_period = 10         # Period of the diagnostics in number of timesteps
-save_checkpoints = False # Whether to write checkpoint files
-checkpoint_period = 50   # Period for writing the checkpoints
-use_restart = False      # Whether to restart from a previous checkpoint
 
 # The density profile
 ramp_start = 30.e-6
@@ -93,31 +100,29 @@ def dens_func( z, r ) :
 if __name__ == '__main__':
 
     # Initialize the simulation object
+    # Parametric scan: use the flag `use_all_mpi_ranks=False` to
+    # have each MPI rank run an independent simulation
     sim = Simulation( Nz, zmax, Nr, rmax, Nm, dt,
         p_zmin, p_zmax, p_rmin, p_rmax, p_nz, p_nr, p_nt, n_e,
         dens_func=dens_func, zmin=zmin, boundaries='open',
-        use_cuda=use_cuda )
+        use_cuda=use_cuda, use_all_mpi_ranks=False )
 
-    # Load initial fields
-    if use_restart is False: 
-        # Add a laser to the fields of the simulation
-        add_laser( sim, a0, w0, ctau, z0 )
-    else:
-        # Load the fields and particles from the latest checkpoint file
-        restart_from_checkpoint( sim )
+    # Add the laser
+    add_laser( sim, a0, w0, ctau, z0 )
     
     # Configure the moving window
     sim.set_moving_window( v=v_window )
     
     # Add a field diagnostic
-    sim.diags = [ FieldDiagnostic( diag_period, sim.fld, comm=sim.comm ),
+    # Parametric scan: each MPI rank should output its data to a
+    # different directory
+    write_dir = 'diags_a0_%.1f' %a0
+    sim.diags = [ FieldDiagnostic( diag_period, sim.fld,
+                    comm=sim.comm, write_dir=write_dir ),
                 ParticleDiagnostic( diag_period, {"electrons" : sim.ptcl[0]},
-                                select={"uz" : [1., None ]}, comm=sim.comm ) ]
-    # Add checkpoints
-    if save_checkpoints:
-        set_periodic_checkpoint( sim, checkpoint_period )
+                    select={"uz" : [1., None ]},
+                    comm=sim.comm, write_dir=write_dir ) ]
 
     ### Run the simulation
-    print('\n Performing %d PIC cycles' % N_step) 
     sim.step( N_step )
     print('')

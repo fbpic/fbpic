@@ -1,3 +1,6 @@
+# Copyright 2016, FBPIC contributors
+# Authors: Remi Lehe, Manuel Kirchen
+# License: 3-Clause-BSD-LBNL
 """
 This file is part of the Fourier-Bessel Particle-In-Cell code (FB-PIC)
 
@@ -17,7 +20,8 @@ def set_periodic_checkpoint( sim, period ):
     `./checkpoints`, with one subdirectory per process. 
     All the field and particle information of each processor is saved.
  
-    NB: Checkpoints are registered among the diagnostics of the simulation. 
+    NB: Checkpoints are registered among the list of diagnostics
+    `diags` of the Simulation object `sim`. 
 
     Parameters
     ----------
@@ -54,6 +58,7 @@ def restart_from_checkpoint( sim, iteration=None ):
     Fills the Simulation object `sim` with data saved in a checkpoint.
 
     More precisely, the following data from `sim` is overwritten:
+
     - Current time and iteration number of the simulation
     - Position of the boundaries of the simulation box
     - Values of the field arrays
@@ -252,6 +257,10 @@ def load_species( species, name, ts, iteration ):
     species.inv_gamma = 1./np.sqrt(
         1 + species.ux**2 + species.uy**2 + species.uz**2 )
 
+    # As a safe-guard, check that the loaded data is in float64
+    for attr in ['x', 'y', 'z', 'ux', 'uy', 'uz', 'w', 'inv_gamma' ]:
+        assert getattr( species, attr ).dtype == np.float64
+    
     # Take into account the fact that the arrays are resized
     Ntot = len(species.w)
     species.Ntot = Ntot
