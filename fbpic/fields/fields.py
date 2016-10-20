@@ -555,7 +555,12 @@ class InterpolationGrid(object) :
             Options to be passed to matplotlib's imshow
         """
         # matplotlib only needs to be imported if this function is called
-        import matplotlib.pyplot as plt
+        try:
+            import matplotlib.pyplot as plt
+        except ImportError:
+            raise ImportError(
+        'The package `matplotlib` is required to show the fields.'
+        '\nPlease install it: `conda install matplotlib`')
         
         # Select the field to plot
         plotted_field = getattr( self, fieldtype)
@@ -940,7 +945,12 @@ class SpectralGrid(object) :
             Options to be passed to matplotlib's imshow
         """
         # matplotlib only needs to be imported if this function is called
-        import matplotlib.pyplot as plt
+        try:
+            import matplotlib.pyplot as plt
+        except ImportError:
+            raise ImportError(
+        'The package `matplotlib` is required to show the fields.'
+        '\nPlease install it: `conda install matplotlib`')
 
         # Select the field to plot
         plotted_field = getattr( self, fieldtype)
