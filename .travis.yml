@@ -6,17 +6,20 @@ python:
     - "2.7"
     - "3.5"
 
-# Setup anaconda
 before_install:
+  # Setup miniconda
   - wget http://repo.continuum.io/miniconda/Miniconda-latest-Linux-x86_64.sh -O miniconda.sh
   - chmod +x miniconda.sh
   - ./miniconda.sh -b
   - export PATH=$HOME/miniconda2/bin:$PATH
+  # Create a virtual environment with the right version of python
+  - conda create -n testing python=$TRAVIS_PYTHON_VERSION
+  - source activate testing
 
 # Install packages
 install:
-  - conda install --yes python=$TRAVIS_PYTHON_VERSION numba scipy h5py
-  - conda install --yes -c conda-forge python=$TRAVIS_PYTHON_VERSION pyfftw mpi4py
+  - conda install --yes numba scipy h5py
+  - conda install --yes -c conda-forge pyfftw mpi4py
   - conda install --yes pyflakes
   - python setup.py install
 before_script:
