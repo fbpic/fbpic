@@ -6,7 +6,6 @@ This file is part of the Fourier-Bessel Particle-In-Cell code (FB-PIC)
 It defines the structure and methods associated with the fields.
 """
 import numpy as np
-import matplotlib.pyplot as plt
 from scipy.constants import c, mu_0, epsilon_0
 from .spectral_transform import SpectralTransformer, cuda_installed
 
@@ -555,6 +554,9 @@ class InterpolationGrid(object) :
         kw : dictionary
             Options to be passed to matplotlib's imshow
         """
+        # matplotlib only needs to be imported if this function is called
+        import matplotlib.pyplot as plt
+        
         # Select the field to plot
         plotted_field = getattr( self, fieldtype)
         # Show the field also below the axis for a more realistic picture
@@ -937,6 +939,9 @@ class SpectralGrid(object) :
         kw : dictionary
             Options to be passed to matplotlib's imshow
         """
+        # matplotlib only needs to be imported if this function is called
+        import matplotlib.pyplot as plt
+
         # Select the field to plot
         plotted_field = getattr( self, fieldtype)
         # Fold it so as to center the 0 frequency
