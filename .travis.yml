@@ -13,7 +13,7 @@ before_install:
   - ./miniconda.sh -b
   - export PATH=$HOME/miniconda2/bin:$PATH
   # Create a virtual environment with the right version of python
-  - conda create -n testing python=$TRAVIS_PYTHON_VERSION
+  - conda create -n testing python=$TRAVIS_PYTHON_VERSION --yes
   - source activate testing
 
 # Install packages
