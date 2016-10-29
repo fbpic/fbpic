@@ -30,7 +30,6 @@ from scipy.constants import c
 import matplotlib.pyplot as plt
 # Import the relevant structures in FBPIC
 from fbpic.main import Simulation
-from fbpic.openpmd_diag import FieldDiagnostic, ParticleDiagnostic
 
 # ----------
 # Parameters
@@ -44,11 +43,11 @@ show = True
 v_galilean = -0.999999*c
 
 # The simulation box
-Nz = 100         # Number of gridpoints along z
-zmax = 19.64     # Length of the box along z (meters)
-zmin = -19.64
-Nr = 50          # Number of gridpoints along r
-rmax = 19.64     # Length of the box along r (meters)
+Nz = 50         # Number of gridpoints along z
+zmax = 9.82     # Length of the box along z (meters)
+zmin = -9.82
+Nr = 25          # Number of gridpoints along r
+rmax = 9.82     # Length of the box along r (meters)
 Nm = 2           # Number of modes used
 # The simulation timestep
 dt = (zmax-zmin)/Nz/c   # Timestep (seconds)
@@ -89,7 +88,7 @@ def test_instability_standard( show=False ):
     sim = Simulation( Nz, zmax, Nr, rmax, Nm, dt,
         p_zmin, p_zmax, p_rmin, p_rmax, p_nz, p_nr, p_nt, n_e,
         zmin=zmin, initialize_ions=True,
-        v_comoving=0, exchange_period=1, n_guard=5,
+        exchange_period=1, n_guard=5,
         boundaries='periodic', use_cuda=use_cuda )
 
     # Give a relativistic velocity to the particle, with some noise
@@ -105,7 +104,7 @@ def test_instability_standard( show=False ):
     Er_rms[0] = get_Er_rms(sim)
     t[0] += sim.time
     for i in range(int(N_step/10)):
-        sim.step( 10, show_progress=False )
+        sim.step( 10, show_progress=True, move_momenta=False )
         print('Checkpoint %d' %i)
         Er_rms[i+1] = get_Er_rms(sim)
         t[i+1] += sim.time
