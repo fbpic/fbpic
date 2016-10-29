@@ -41,7 +41,7 @@ In order to download and install `Anaconda <https://www.continuum.io/downloads>`
 Then install the dependencies of FBPIC:
 ::
    
-   conda install numba accelerate accelerate_cudalib matplotlib
+   conda install numba accelerate accelerate_cudalib
    conda install -c conda-forge pyfftw
 
 It is important that the following packages are **NOT** installed
