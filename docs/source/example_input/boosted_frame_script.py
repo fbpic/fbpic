@@ -109,6 +109,7 @@ def dens_func( z, r ):
     inv_ramp_down = 1./ramp_down
     n = np.where( (z >= ramp_up+plateau) & (z < ramp_up+plateau+ramp_down),
               - (z - (ramp_up+plateau+ramp_down) )*inv_ramp_down, n )
+    n = np.where( z >= ramp_up+plateau+ramp_down, 0, n)
     # Add transverse guiding parabolic profile
     n = n * ( 1. + rel_delta_n_over_w2 * r**2 )
     return(n)
