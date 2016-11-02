@@ -394,10 +394,6 @@ class BoundaryCommunicator(object):
             from a density profile: in the case the time is used in
             order to infer how much the plasma has moved)
         """
-        # Do not exchange particles for 0 guard cells (periodic, single-proc)
-        if self.n_guard == 0:
-            return
-
         # Remove out-of-domain particles from particle arrays (either on
         # CPU or GPU) and store them in sending buffers on the CPU
         send_left, send_right = remove_outside_particles( species,
