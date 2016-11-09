@@ -97,11 +97,11 @@ class Simulation(object):
         n_order: int, optional
            The order of the stencil for the z derivatives.
            Use -1 for infinite order, otherwise use a positive, even
-           number. In this case, the stencil extends up to n_order/2 
+           number. In this case, the stencil extends up to n_order/2
            cells on each side.
 
         zmin: float, optional
-           The position of the edge of the simulation box. 
+           The position of the edge of the simulation box.
            (More precisely, the position of the edge of the first cell)
 
         dens_func: callable, optional
@@ -140,7 +140,7 @@ class Simulation(object):
 
         boundaries: string, optional
             Indicates how to exchange the fields at the left and right
-            boundaries of the global simulation box. 
+            boundaries of the global simulation box.
             Either 'periodic' or 'open'
 
         gamma_boost : float, optional
@@ -239,9 +239,9 @@ class Simulation(object):
         # Do the initial charge deposition (at t=0) now
         self.deposit('rho_prev')
 
-    def step(self, N=1, ptcl_feedback=True, correct_currents=True,
-             correct_divE=False, use_true_rho=False,
-             move_positions=True, move_momenta=True, show_progress=True):
+    def step(self, N=1, correct_currents=True,
+            correct_divE=False, use_true_rho=False,
+            move_positions=True, move_momenta=True, show_progress=True):
         """
         Perform N PIC cycles.
 
@@ -250,10 +250,6 @@ class Simulation(object):
         N: int, optional
             The number of timesteps to take
             Default: N=1
-
-        ptcl_feedback: bool, optional
-            Whether to take into account the particle density and
-            currents when pushing the fields
 
         correct_currents: bool, optional
             Whether to correct the currents in spectral space
@@ -270,10 +266,6 @@ class Simulation(object):
 
         move_momenta: bool, optional
             Whether to move or freeze the particles' momenta
-
-        use_true_rho: bool, optional
-            Wether to use the true rho deposited on the grid for the
-            field push or not. (requires initialize_ions = True)
 
         show_progress: bool, optional
             Whether to show a progression bar
@@ -307,7 +299,7 @@ class Simulation(object):
 
             # Exchanges to prepare for this iteration
             # ---------------------------------------
-            
+
             # Exchange the fields (EB) in the guard cells between domains
             self.comm.exchange_fields(fld.interp, 'EB')
 
@@ -388,13 +380,13 @@ class Simulation(object):
             fld.interp2spect('E')
             fld.interp2spect('B')
             # Push the fields E and B on the spectral grid to t = (n+1) dt
-            fld.push( ptcl_feedback, use_true_rho )
+            fld.push( use_true_rho )
             if correct_divE:
                 fld.correct_divE()
             # Get the fields E and B on the interpolation grid at t = (n+1) dt
             fld.spect2interp('E')
             fld.spect2interp('B')
-            
+
             # Increment the global time and iteration
             self.time += self.dt
             self.iteration += 1
@@ -426,7 +418,7 @@ class Simulation(object):
         fld = self.fld
 
         # Deposit charge or currents on the interpolation grid
-        
+
         # Charge
         if fieldtype in ['rho_prev', 'rho_next']:
             fld.erase('rho')
@@ -517,7 +509,7 @@ class Simulation(object):
         self.comm.moving_win = MovingWindow( self.fld.interp, self.comm,
             self.ptcl, v, self.p_nz, self.time, ux_m, uy_m, uz_m,
             ux_th, uy_th, uz_th, gamma_boost )
-            
+
 def progression_bar( i, Ntot, measured_start, Nbars=50, char='-'):
     """
     Shows a progression bar with Nbars and the remaining
@@ -537,7 +529,7 @@ def progression_bar( i, Ntot, measured_start, Nbars=50, char='-'):
 
 def print_simulation_setup( comm, use_cuda ):
     """
-    Print message about the number of proc and 
+    Print message about the number of proc and
     whether it is using GPU or CPU.
 
     Parameters
@@ -552,7 +544,7 @@ def print_simulation_setup( comm, use_cuda ):
         if use_cuda:
             message = "\nRunning FBPIC on GPU "
         else:
-            message = "\nRunning FBPIC on CPU " 
+            message = "\nRunning FBPIC on CPU "
         message += "with %d proc.\n" %comm.size
         print( message )
 
