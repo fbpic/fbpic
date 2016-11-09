@@ -21,7 +21,7 @@ algorithm, its advantages and limitations, see the section :doc:`overview`.
 
 FBPIC can run either on CPU or GPU. For large
 simulations, running the code on GPU can be up to **40 times faster**
-than on CPU. 
+than on CPU.
 
 .. note::
 
@@ -30,16 +30,10 @@ than on CPU.
 
    - For **multi**-CPU and **multi**-GPU runs (using MPI), the code is not yet
      production-ready.
-     
+
    - Only linear shape factors (a.k.a. first-order shape factors) are implemented for the
      macroparticles. Third-order shape factors will be implemented in a
      future release
-
-   - The code supports **boosted-frame simulations**. However, no
-     specific mechanism against the Numerical Cherenkov Instability is
-     included in this release. In future releases, the `Galilean scheme
-     <https://arxiv.org/abs/1608.00215>`_ will be included.
-
 
 
 Contents of the documentation
@@ -76,7 +70,7 @@ Attribution
 ---------------
 
 FBPIC was originally developed by Remi Lehe at `Berkeley Lab <http://www.lbl.gov/>`_,
-and Manuel Kirchen at 
+and Manuel Kirchen at
 `CFEL, Hamburg University <http://lux.cfel.de/>`_. The code also
 benefitted from the contributions of Soeren Jalas, Kevin Peters and
 Irene Dornmair (CFEL).

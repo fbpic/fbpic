@@ -30,7 +30,7 @@ class BoostedFieldDiagnostic(FieldDiagnostic):
     """
     def __init__(self, zmin_lab, zmax_lab, v_lab, dt_snapshots_lab,
                  Ntot_snapshots_lab, gamma_boost, period, fldobject,
-                 comm=None, fieldtypes=["rho", "E", "B", "J"],
+                 comm=None, fieldtypes=["E", "B"],
                  write_dir=None ) :
         """
         Initialize diagnostics that retrieve the data in the lab frame,
@@ -62,6 +62,15 @@ class BoostedFieldDiagnostic(FieldDiagnostic):
         period: int
             Number of iterations for which the data is accumulated in memory,
             before finally writing it to the disk.
+
+        fieldtypes : a list of strings, optional
+            The strings are either "rho", "E", "B" or "J"
+            and indicate which field should be written.
+            Default : only "E" and "B" are written. This is because the
+            backward Lorentz transform is not as precise for "rho" and "J" as
+            for "E" and "B" (because "rho" and "J" are staggered in time).
+            The user can still output "rho" and "J" by changing `fieldtypes`,
+            but has to be aware that there may errors in the backward transform.
         """
         # Do not leave write_dir as None, as this may conflict with
         # the default directory ('./diags') in which diagnostics in the
@@ -663,7 +672,7 @@ if cuda_installed:
             # There is a factor 2 here so as to comply with the convention in
             # Lifschitz et al., which is also the convention of Warp
             # For better performance, this factor is included in the shape
-            # factors ('t' stands for 'twice' below) 
+            # factors ('t' stands for 'twice' below)
             tSz = 2*Sz
             tSzp = 2*Szp
 
