@@ -14,7 +14,7 @@ from .utility_methods import linear_weights, unalign_angles
 from .numba_methods import push_p_numba, push_x_numba, \
         gather_field_numba, deposit_field_numba
 
-# If cuda is installed, it potentially allows to use a GPU
+# If accelerate is installed, it potentially allows to use a GPU
 try :
     from fbpic.cuda_utils import cuda, cuda_tpb_bpg_1d, cuda_tpb_bpg_2d
     from .cuda_methods import push_p_gpu, push_x_gpu, \

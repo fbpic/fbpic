@@ -11,8 +11,8 @@ from fbpic.main import adapt_to_grid
 from fbpic.particles import Particles
 
 def add_elec_bunch( sim, gamma0, n_e, p_zmin, p_zmax, p_rmin, p_rmax,
-                p_nr=2, p_nz=2, p_nt=4, dens_func=None, boost = None,
-                filter_currents=True ) :
+                p_nr=2, p_nz=2, p_nt=4, dens_func=None, boost=None,
+                direction='forward', filter_currents=True ) :
     """
     Introduce a simple relativistic electron bunch in the simulation,
     along with its space charge field.
@@ -29,7 +29,7 @@ def add_elec_bunch( sim, gamma0, n_e, p_zmin, p_zmax, p_rmin, p_rmax,
 
     n_e : float (in particles per m^3)
         Density of the electron bunch
-    
+
     p_zmin : float (in meters)
         The minimal z position above which the particles are initialized
 
@@ -64,6 +64,10 @@ def add_elec_bunch( sim, gamma0, n_e, p_zmin, p_zmax, p_rmin, p_rmax,
 
     filter_currents : bool, optional
         Whether to filter the currents in k space (True by default)
+        
+    direction : string, optional
+        Can be either "forward" or "backward".
+        Propagation direction of the beam.
     """
 
     # Convert parameters to boosted frame
@@ -92,13 +96,19 @@ def add_elec_bunch( sim, gamma0, n_e, p_zmin, p_zmax, p_rmin, p_rmax,
 
     # Give them the right velocity
     relat_elec.inv_gamma[:] = 1./gamma0
-    relat_elec.uz[:] = np.sqrt( gamma0**2 - 1.)
-    
+    relat_elec.uz[:] = np.sqrt( gamma0**2 -1.)
+
+    # Electron beam moving in the background direction
+    if direction == 'backward':
+        relat_elec.uz[:] *= -1.
+
     # Add them to the particles of the simulation
     sim.ptcl.append( relat_elec )
 
     # Get the corresponding space-charge fields
-    get_space_charge_fields( sim.fld, [relat_elec], gamma0, filter_currents )
+    get_space_charge_fields( sim.fld, [relat_elec], gamma0,
+                             filter_currents, direction=direction)
+
 
 def add_elec_bunch_gaussian( sim, sig_r, sig_z, n_emit, gamma0, sig_gamma, 
                         Q, N, tf=0., zf=0., boost=None,
@@ -221,8 +231,9 @@ def add_elec_bunch_gaussian( sim, sig_r, sig_z, n_emit, gamma0, sig_gamma,
     get_space_charge_fields( sim.fld, [relat_elec], gamma0,
                              filter_currents, check_gaminv=False)
 
+
 def add_elec_bunch_file( sim, filename, Q_tot, z_off=0., boost=None,
-                    filter_currents=True ):
+                    filter_currents=True, direction='forward' ):
     """
     Introduce a relativistic electron bunch in the simulation,
     along with its space charge field, loading particles from text file.
@@ -249,6 +260,10 @@ def add_elec_bunch_file( sim, filename, Q_tot, z_off=0., boost=None,
 
     filter_currents : bool, optional
         Whether to filter the currents in k space (True by default)
+        
+    direction : string, optional
+        Can be either "forward" or "backward".
+        Propagation direction of the beam.
     """
     # Load particle data to numpy array
     particle_data = np.loadtxt(filename)
@@ -292,10 +307,11 @@ def add_elec_bunch_file( sim, filename, Q_tot, z_off=0., boost=None,
     # to allow for energy spread
     gamma0 = 1./np.mean(relat_elec.inv_gamma)
     get_space_charge_fields( sim.fld, [relat_elec], gamma0,
-                             filter_currents, check_gaminv=False)
-    
+                             filter_currents, check_gaminv=False,
+                             direction = direction)
+
 def get_space_charge_fields( fld, ptcl, gamma, filter_currents=True,
-                             check_gaminv=True ) :
+                             check_gaminv=True, direction = 'forward' ) :
     """
     Calculate the space charge field on the grid
 
@@ -311,7 +327,7 @@ def get_space_charge_fields( fld, ptcl, gamma, filter_currents=True,
         (one element per species)
         The list of the species which are relativistic and
         will produce a space charge field. (Do not pass the
-        particles which are at rest.) 
+        particles which are at rest.)
 
     gamma : float
         The Lorentz factor of the particles
@@ -322,11 +338,15 @@ def get_space_charge_fields( fld, ptcl, gamma, filter_currents=True,
     check_gaminv : bool, optional
         Explicitly check that all particles have the same
         gamma factor (assumed by the model)
+
+    direction : string, optional
+        Can be either "forward" or "backward".
+        Propagation direction of the beam.
     """
     # Check that all the particles have the right gamma
     if check_gaminv:
         for species in ptcl :
-            if np.allclose( species.inv_gamma, 1./gamma ) == False :    
+            if np.allclose( species.inv_gamma, 1./gamma ) == False :
                 raise ValueError("The particles in ptcl do not have "
                             "a Lorentz factor matching gamma. Please check "
                             "that they have been properly initialized.")
@@ -344,22 +364,22 @@ def get_space_charge_fields( fld, ptcl, gamma, filter_currents=True,
     fld.interp2spect('J')
     # Filter the currents
     if filter_currents :
-        fld.filter_spect('rho_next')      
-        fld.filter_spect('J')      
+        fld.filter_spect('rho_next')
+        fld.filter_spect('J')
 
     # Get the space charge field in spectral space
     for m in range(fld.Nm) :
-        get_space_charge_spect( fld.spect[m], gamma )
+        get_space_charge_spect( fld.spect[m], gamma, direction )
 
     # Convert to the interpolation grid
     fld.spect2interp( 'E' )
     fld.spect2interp( 'B' )
 
-    # Move the charge density to rho_prev    
+    # Move the charge density to rho_prev
     for m in range(fld.Nm) :
         fld.spect[m].push_rho()
 
-def get_space_charge_spect( spect, gamma ) :
+def get_space_charge_spect( spect, gamma, direction = 'forward' ) :
     """
     Determine the space charge field in spectral space
 
@@ -375,15 +395,23 @@ def get_space_charge_spect( spect, gamma ) :
     gamma : float
         The Lorentz factor of the particles which produce the
         space charge field
+
+    direction : string, optional
+        Can be either "forward" or "backward".
+        Propagation direction of the beam.
     """
     # Speed of the beam
     beta = np.sqrt(1.-1./gamma**2)
-    
+
+    # Propagation direction of the beam
+    if direction == 'backward':
+        beta *= -1.
+
     # Get the denominator
     K2 = spect.kr**2 + spect.kz**2 * 1./gamma**2
     K2_corrected = np.where( K2 != 0, K2, 1. )
     inv_K2 = np.where( K2 !=0, 1./K2_corrected, 0. )
-    
+
     # Get the potentials
     phi = spect.rho_next[:,:]*inv_K2[:,:]/epsilon_0
     Ap = spect.Jp[:,:]*inv_K2[:,:]*mu_0

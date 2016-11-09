@@ -43,6 +43,7 @@ class Simulation(object):
     def __init__(self, Nz, zmax, Nr, rmax, Nm, dt, p_zmin, p_zmax,
                  p_rmin, p_rmax, p_nz, p_nr, p_nt, n_e, zmin=0.,
                  n_order=-1, dens_func=None, filter_currents=True,
+                 v_comoving=0., use_galilean=True,
                  initialize_ions=False, use_cuda=False,
                  n_guard=50, exchange_period=None, boundaries='periodic',
                  gamma_boost=None, use_all_mpi_ranks=True ):
@@ -114,6 +115,18 @@ class Simulation(object):
            Whether to initialize the neutralizing ions
         filter_currents: bool, optional
             Whether to filter the currents and charge in k space
+
+        v_comoving: float, optional
+            In this case, the current is assumend to "comoving",
+            i.e. constant with respect to (z - v_comoving * t).
+            This can be done in two ways: either by
+            - Using a PSATD scheme that takes this hypothesis into account
+            - Solving the PSATD scheme in a Galilean frame
+        use_galilean: bool, optional
+            Determines which one of the two above schemes is used
+            When use_galilean is true, the whole grid moves
+            with a speed v_comoving
+
         use_cuda: bool, optional
             Wether to use CUDA (GPU) acceleration
 
@@ -155,6 +168,10 @@ class Simulation(object):
             print('*** Performing the simulation on CPU.')
             self.use_cuda = False
 
+        # Register the comoving parameters
+        self.v_comoving = v_comoving
+        self.use_galilean = use_galilean
+
         # When running the simulation in a boosted frame, convert the arguments
         uz_m = 0.   # Mean normalized momentum of the particles
         if gamma_boost is not None:
@@ -173,8 +190,11 @@ class Simulation(object):
               self.comm.divide_into_domain(zmin, zmax, p_zmin, p_zmax)
 
         # Initialize the field structure
-        self.fld = Fields(Nz, zmax, Nr, rmax, Nm, dt, n_order=n_order,
-                          zmin=zmin, use_cuda=self.use_cuda)
+        self.fld = Fields( Nz, zmax, Nr, rmax, Nm, dt,
+                    n_order=n_order, zmin=zmin,
+                    v_comoving=v_comoving,
+                    use_galilean=use_galilean,
+                    use_cuda=self.use_cuda )
 
         # Modify the input parameters p_zmin, p_zmax, r_zmin, r_zmax, so that
         # they fall exactly on the grid, and infer the number of particles
@@ -197,7 +217,7 @@ class Simulation(object):
                           zmax=p_zmax, Npr=Npr, rmin=p_rmin, rmax=p_rmax,
                           Nptheta=p_nt, dt=dt, dens_func=dens_func,
                           use_cuda=self.use_cuda, uz_m=uz_m,
-                          grid_shape=grid_shape) )
+                          grid_shape=grid_shape ) )
 
         # Register the number of particles per cell along z, and dt
         # (Necessary for the moving window)
@@ -220,8 +240,8 @@ class Simulation(object):
         self.deposit('rho_prev')
 
     def step(self, N=1, ptcl_feedback=True, correct_currents=True,
-             use_true_rho=False, move_positions=True, move_momenta=True,
-             show_progress=True):
+             correct_divE=False, use_true_rho=False,
+             move_positions=True, move_momenta=True, show_progress=True):
         """
         Perform N PIC cycles.
 
@@ -237,6 +257,13 @@ class Simulation(object):
 
         correct_currents: bool, optional
             Whether to correct the currents in spectral space
+
+        correct_divE: bool, optional
+            Whether to correct the divergence of E in spectral space
+
+        use_true_rho: bool, optional
+            Wether to use the true rho deposited on the grid for the
+            field push or not. (requires initialize_ions = True)
 
         move_positions: bool, optional
             Whether to move or freeze the particles' positions
@@ -331,6 +358,9 @@ class Simulation(object):
             for antenna in self.laser_antennas:
                 antenna.update_v( self.time + 0.5*self.dt )
                 antenna.halfpush_x( self.dt )
+            # Shift the boundaries of the grid for the Galilean frame
+            if self.use_galilean:
+                self.shift_galilean_boundaries()
 
             # Get the current at t = (n+1/2) dt
             self.deposit('J')
@@ -342,10 +372,13 @@ class Simulation(object):
             # Get positions for antenna particles at t = (n+1) dt
             for antenna in self.laser_antennas:
                 antenna.halfpush_x( self.dt )
-            
+            # Shift the boundaries of the grid for the Galilean frame
+            if self.use_galilean:
+                self.shift_galilean_boundaries()
+
             # Get the charge density at t = (n+1) dt
             self.deposit('rho_next')
-            # Correct the currents ( requires rho at t = (n+1) dt )
+            # Correct the currents (requires rho at t = (n+1) dt )
             if correct_currents:
                 fld.correct_currents()
 
@@ -356,6 +389,8 @@ class Simulation(object):
             fld.interp2spect('B')
             # Push the fields E and B on the spectral grid to t = (n+1) dt
             fld.push( ptcl_feedback, use_true_rho )
+            if correct_divE:
+                fld.correct_divE()
             # Get the fields E and B on the interpolation grid at t = (n+1) dt
             fld.spect2interp('E')
             fld.spect2interp('B')
@@ -427,6 +462,25 @@ class Simulation(object):
         if self.filter_currents:
             fld.filter_spect( fieldtype )
 
+    def shift_galilean_boundaries(self):
+        """
+        Shift the interpolation grids by v_comoving over
+        a half-timestep. (The arrays of values are unchanged,
+        only position attributes are changed.)
+
+        With the Galilean frame, in principle everything should
+        be solved in variables xi = z - v_comoving t, and -v_comoving
+        should be added to the motion of the particles. However, it
+        is equivalent to, instead, shift the boundaries of the grid.
+        """
+        # Calculate shift distance over a half timestep
+        shift_distance = self.v_comoving * 0.5 * self.dt
+        # Shift the boundaries of the grid
+        for m in range(self.fld.Nm):
+            self.fld.interp[m].zmin += shift_distance
+            self.fld.interp[m].zmax += shift_distance
+            self.fld.interp[m].z += shift_distance
+
     def set_moving_window( self, v=c, ux_m=0., uy_m=0., uz_m=0.,
                   ux_th=0., uy_th=0., uz_th=0., gamma_boost=None ):
         """
@@ -466,7 +520,7 @@ class Simulation(object):
             
 def progression_bar( i, Ntot, measured_start, Nbars=50, char='-'):
     """
-    Shows a progression bar with Nbars and the remaining 
+    Shows a progression bar with Nbars and the remaining
     simulation time.
     """
     nbars = int( (i+1)*1./Ntot*Nbars )
