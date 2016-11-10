@@ -193,14 +193,10 @@ class Fields(object) :
                 self.interp[m].receive_fields_from_gpu()
                 self.spect[m].receive_fields_from_gpu()
 
-    def push(self, ptcl_feedback=True, use_true_rho=False) :
+    def push(self, use_true_rho=False) :
         """
         Push the different azimuthal modes over one timestep,
         in spectral space.
-
-        ptcl_feedback : bool, optional
-            Whether to use the particles' densities and currents
-            when pushing the fields
 
         use_true_rho : bool, optional
             Whether to use the rho projected on the grid.
@@ -213,8 +209,7 @@ class Fields(object) :
         # Push each azimuthal grid individually, by passing the
         # corresponding psatd coefficients
         for m in range(self.Nm) :
-            self.spect[m].push_eb_with(
-                self.psatd[m], ptcl_feedback, use_true_rho )
+            self.spect[m].push_eb_with( self.psatd[m], use_true_rho )
             self.spect[m].push_rho()
 
     def correct_currents(self) :
@@ -586,7 +581,7 @@ class InterpolationGrid(object) :
             raise ImportError(
         'The package `matplotlib` is required to show the fields.'
         '\nPlease install it: `conda install matplotlib`')
-        
+
         # Select the field to plot
         plotted_field = getattr( self, fieldtype)
         # Show the field also below the axis for a more realistic picture
@@ -791,7 +786,7 @@ class SpectralGrid(object) :
         self.Ez += -1.j*self.kz*self.F
 
 
-    def push_eb_with(self, ps, ptcl_feedback=True, use_true_rho=False ) :
+    def push_eb_with(self, ps, use_true_rho=False ) :
         """
         Push the fields over one timestep, using the psatd coefficients.
 
@@ -799,10 +794,6 @@ class SpectralGrid(object) :
         ----------
         ps : PsatdCoeffs object
             psatd object corresponding to the same m mode
-
-        ptcl_feedback : bool, optional
-            Whether to take into the densities and currents when
-            pushing the fields
 
         use_true_rho : bool, optional
             Whether to use the rho projected on the grid.
@@ -826,7 +817,7 @@ class SpectralGrid(object) :
                 ps.d_rho_prev_coef, ps.d_rho_next_coef, ps.d_j_coef,
                 ps.d_C, ps.d_S_w, ps.d_T_eb, ps.d_T_cc, ps.d_T_rho,
                 self.d_kr, self.d_kz, ps.dt, ps.V,
-                ptcl_feedback, use_true_rho, self.Nz, self.Nr )
+                use_true_rho, self.Nz, self.Nr )
 
         else :
             # Push the fields on the CPU
@@ -840,73 +831,47 @@ class SpectralGrid(object) :
             ps.Em[:,:] = self.Em[:,:]
             ps.Ez[:,:] = self.Ez[:,:]
 
-            # With particle feedback
-            if ptcl_feedback :
-
-                # Calculate useful auxiliary arrays
-                if use_true_rho :
-                    # Evaluation using the rho projected on the grid
-                    rho_diff = ps.rho_next_coef*self.rho_next \
-                        - ps.rho_prev_coef*self.rho_prev
-                else :
-                    # Evaluation using div(E) and div(J)
-                    rho_diff = (ps.rho_next_coef*ps.T_eb - ps.rho_prev_coef)* \
-                        epsilon_0 * (self.kr*self.Ep -
-                        self.kr*self.Em + i*self.kz*self.Ez) \
-                        + ps.T_rho * ps.rho_next_coef * ( self.kr*self.Jp \
-                        - self.kr*self.Jm + i*self.kz*self.Jz)
-
-                # Push the E field
-                self.Ep[:,:] = ps.T_eb*ps.C*self.Ep + 0.5*self.kr*rho_diff \
-                    + ps.j_coef*i*self.kz*ps.V*self.Jp \
-                    + c2*ps.T_eb*ps.S_w*(-i*0.5*self.kr*self.Bz \
-                        + self.kz*self.Bp - mu_0*ps.T_cc*self.Jp )
-
-                self.Em[:,:] = ps.T_eb*ps.C*self.Em - 0.5*self.kr*rho_diff \
-                    + ps.j_coef*i*self.kz*ps.V*self.Jm \
-                    + c2*ps.T_eb*ps.S_w*(-i*0.5*self.kr*self.Bz \
-                        - self.kz*self.Bm - mu_0*ps.T_cc*self.Jm )
-
-                self.Ez[:,:] = ps.T_eb*ps.C*self.Ez - i*self.kz*rho_diff \
-                    + ps.j_coef*i*self.kz*ps.V*self.Jz \
-                    + c2*ps.T_eb*ps.S_w*( i*self.kr*self.Bp \
-                        + i*self.kr*self.Bm - mu_0*ps.T_cc*self.Jz )
-
-                # Push the B field
-                self.Bp[:,:] = ps.T_eb*ps.C*self.Bp \
-                    - ps.T_eb*ps.S_w*(-i*0.5*self.kr*ps.Ez + self.kz*ps.Ep ) \
-                    + ps.j_coef*( -i*0.5*self.kr*self.Jz + self.kz*self.Jp )
-
-                self.Bm[:,:] = ps.T_eb*ps.C*self.Bm \
-                    - ps.T_eb*ps.S_w*(-i*0.5*self.kr*ps.Ez - self.kz*ps.Em ) \
-                    + ps.j_coef*( -i*0.5*self.kr*self.Jz - self.kz*self.Jm )
-
-                self.Bz[:,:] = ps.T_eb*ps.C*self.Bz \
-                    - ps.T_eb*ps.S_w*( i*self.kr*ps.Ep + i*self.kr*ps.Em ) \
-                    + ps.j_coef*( i*self.kr*self.Jp + i*self.kr*self.Jm )
-
-            # Without particle feedback
+            # Calculate useful auxiliary arrays
+            if use_true_rho :
+                # Evaluation using the rho projected on the grid
+                rho_diff = ps.rho_next_coef*self.rho_next \
+                    - ps.rho_prev_coef*self.rho_prev
             else :
+                # Evaluation using div(E) and div(J)
+                rho_diff = (ps.rho_next_coef*ps.T_eb - ps.rho_prev_coef)* \
+                    epsilon_0 * (self.kr*self.Ep -
+                    self.kr*self.Em + i*self.kz*self.Ez) \
+                    + ps.T_rho * ps.rho_next_coef * ( self.kr*self.Jp \
+                    - self.kr*self.Jm + i*self.kz*self.Jz)
 
-                # Push the E field
-                self.Ep[:,:] = ps.T_eb*ps.C*self.Ep \
-                + c2*ps.T_eb*ps.S_w*(-i*0.5*self.kr*self.Bz + self.kz*self.Bp )
+            # Push the E field
+            self.Ep[:,:] = ps.T_eb*ps.C*self.Ep + 0.5*self.kr*rho_diff \
+                + ps.j_coef*i*self.kz*ps.V*self.Jp \
+                + c2*ps.T_eb*ps.S_w*(-i*0.5*self.kr*self.Bz \
+                    + self.kz*self.Bp - mu_0*ps.T_cc*self.Jp )
 
-                self.Em[:,:] = ps.T_eb*ps.C*self.Em \
-                + c2*ps.T_eb*ps.S_w*(-i*0.5*self.kr*self.Bz - self.kz*self.Bm )
+            self.Em[:,:] = ps.T_eb*ps.C*self.Em - 0.5*self.kr*rho_diff \
+                + ps.j_coef*i*self.kz*ps.V*self.Jm \
+                + c2*ps.T_eb*ps.S_w*(-i*0.5*self.kr*self.Bz \
+                    - self.kz*self.Bm - mu_0*ps.T_cc*self.Jm )
 
-                self.Ez[:,:] = ps.T_eb*ps.C*self.Ez \
-                + c2*ps.T_eb*ps.S_w*( i*self.kr*self.Bp + i*self.kr*self.Bm )
+            self.Ez[:,:] = ps.T_eb*ps.C*self.Ez - i*self.kz*rho_diff \
+                + ps.j_coef*i*self.kz*ps.V*self.Jz \
+                + c2*ps.T_eb*ps.S_w*( i*self.kr*self.Bp \
+                    + i*self.kr*self.Bm - mu_0*ps.T_cc*self.Jz )
 
-                # Push the B field
-                self.Bp[:,:] = ps.T_eb*ps.C*self.Bp \
-                    - ps.T_eb*ps.S_w*( -i*0.5*self.kr*ps.Ez + self.kz*ps.Ep )
+            # Push the B field
+            self.Bp[:,:] = ps.T_eb*ps.C*self.Bp \
+                - ps.T_eb*ps.S_w*(-i*0.5*self.kr*ps.Ez + self.kz*ps.Ep ) \
+                + ps.j_coef*( -i*0.5*self.kr*self.Jz + self.kz*self.Jp )
 
-                self.Bm[:,:] = ps.T_eb*ps.C*self.Bm \
-                    - ps.T_eb*ps.S_w*( -i*0.5*self.kr*ps.Ez - self.kz*ps.Em )
+            self.Bm[:,:] = ps.T_eb*ps.C*self.Bm \
+                - ps.T_eb*ps.S_w*(-i*0.5*self.kr*ps.Ez - self.kz*ps.Em ) \
+                + ps.j_coef*( -i*0.5*self.kr*self.Jz - self.kz*self.Jm )
 
-                self.Bz[:,:] = ps.T_eb*ps.C*self.Bz \
-                    - ps.T_eb*ps.S_w*( i*self.kr*ps.Ep + i*self.kr*ps.Em )
+            self.Bz[:,:] = ps.T_eb*ps.C*self.Bz \
+                - ps.T_eb*ps.S_w*( i*self.kr*ps.Ep + i*self.kr*ps.Em ) \
+                + ps.j_coef*( i*self.kr*self.Jp + i*self.kr*self.Jm )
 
     def push_rho(self) :
         """
