@@ -53,40 +53,26 @@ Then execute the modified .bashrc file: ``source .bashrc``.
 Installation of FBPIC and its dependencies
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
--  Clone the ``fbpic`` repository using git.
+- Install the dependencies by typing
 
--  ``cd`` into the top folder of ``fbpic`` and install the dependencies:
+  ::
 
-   ::
+    conda install numba accelerate
+    conda install -c conda-forge pyfftw
 
-       conda install -c conda-forge --file requirements.txt
+  (The ``accelerate`` package is not free, but there is a 30-day free
+  trial period, which starts when the above command is entered. For
+  further use beyond 30 days, one option is to obtain an academic
+  license, which is also free. To do so, please visit `this
+  page <https://www.continuum.io/anaconda-academic-subscriptions-available>`__.)
 
--  Uninstall mpi4py (in order to use the ``mpi4py`` from Titan instead):
+-  Clone and install the ``fbpic`` repository using git
 
-   ::
+  ::
 
-       conda uninstall mpi4py
-
-       
--  Install the ``accelerate`` package in order to be able to run on GPUs
-
-   ::
-
-       conda install cudatoolkit=7.0
-       conda install accelerate
-
-   (The ``accelerate`` package is not free, but there is a 30-day free
-   trial period, which starts when the above command is entered. For
-   further use beyond 30 days, one option is to obtain an academic
-   license, which is also free. To do so, please visit `this
-   page <https://www.continuum.io/anaconda-academic-subscriptions-available>`__.)
-
--  Install ``fbpic`` into your local set of packages
-
-   ::
-
-       python setup.py install
-
+    git clone git://github.com/fbpic/fbpic.git
+    cd fbpic
+    python setup.py install
 
 Running simulations
 ------------------------------------------

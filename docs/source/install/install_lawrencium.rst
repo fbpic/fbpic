@@ -53,7 +53,7 @@ below:
 
    ::
 
-       module load glib/2.32.4 
+       module load glib/2.32.4
        module load cuda
 
   and type
@@ -78,13 +78,14 @@ Installation of FBPIC and its dependencies
    license, which is also free. To do so, please visit `this
    link <https://www.continuum.io/anaconda-academic-subscriptions-available>`__.)
 
-   
--  Clone ``fbpic`` using ``git``, then and ``cd`` into the directory
-   ``fbpic`` and type
+
+-  Install ``fbpic``
 
    ::
 
-       python setup.py install
+      git clone git://github.com/fbpic/fbpic.git
+      cd fbpic
+      python setup.py install
 
 Running simulations
 -------------------
