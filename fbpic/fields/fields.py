@@ -7,6 +7,7 @@ It defines the structure and methods associated with the fields.
 """
 import numpy as np
 from scipy.constants import c, mu_0, epsilon_0
+from .numba_methods import numba_push_eb_with
 from .spectral_transform import SpectralTransformer, cuda_installed
 
 # If cuda is installed for the spectral transformer, import
@@ -818,60 +819,15 @@ class SpectralGrid(object) :
                 ps.d_C, ps.d_S_w, ps.d_T_eb, ps.d_T_cc, ps.d_T_rho,
                 self.d_kr, self.d_kz, ps.dt, ps.V,
                 use_true_rho, self.Nz, self.Nr )
-
         else :
             # Push the fields on the CPU
-
-            # Define a few constants
-            i = 1.j
-            c2 = c**2
-
-            # Save the electric fields, since it is needed for the B push
-            ps.Ep[:,:] = self.Ep[:,:]
-            ps.Em[:,:] = self.Em[:,:]
-            ps.Ez[:,:] = self.Ez[:,:]
-
-            # Calculate useful auxiliary arrays
-            if use_true_rho :
-                # Evaluation using the rho projected on the grid
-                rho_diff = ps.rho_next_coef*self.rho_next \
-                    - ps.rho_prev_coef*self.rho_prev
-            else :
-                # Evaluation using div(E) and div(J)
-                rho_diff = (ps.rho_next_coef*ps.T_eb - ps.rho_prev_coef)* \
-                    epsilon_0 * (self.kr*self.Ep -
-                    self.kr*self.Em + i*self.kz*self.Ez) \
-                    + ps.T_rho * ps.rho_next_coef * ( self.kr*self.Jp \
-                    - self.kr*self.Jm + i*self.kz*self.Jz)
-
-            # Push the E field
-            self.Ep[:,:] = ps.T_eb*ps.C*self.Ep + 0.5*self.kr*rho_diff \
-                + ps.j_coef*i*self.kz*ps.V*self.Jp \
-                + c2*ps.T_eb*ps.S_w*(-i*0.5*self.kr*self.Bz \
-                    + self.kz*self.Bp - mu_0*ps.T_cc*self.Jp )
-
-            self.Em[:,:] = ps.T_eb*ps.C*self.Em - 0.5*self.kr*rho_diff \
-                + ps.j_coef*i*self.kz*ps.V*self.Jm \
-                + c2*ps.T_eb*ps.S_w*(-i*0.5*self.kr*self.Bz \
-                    - self.kz*self.Bm - mu_0*ps.T_cc*self.Jm )
-
-            self.Ez[:,:] = ps.T_eb*ps.C*self.Ez - i*self.kz*rho_diff \
-                + ps.j_coef*i*self.kz*ps.V*self.Jz \
-                + c2*ps.T_eb*ps.S_w*( i*self.kr*self.Bp \
-                    + i*self.kr*self.Bm - mu_0*ps.T_cc*self.Jz )
-
-            # Push the B field
-            self.Bp[:,:] = ps.T_eb*ps.C*self.Bp \
-                - ps.T_eb*ps.S_w*(-i*0.5*self.kr*ps.Ez + self.kz*ps.Ep ) \
-                + ps.j_coef*( -i*0.5*self.kr*self.Jz + self.kz*self.Jp )
-
-            self.Bm[:,:] = ps.T_eb*ps.C*self.Bm \
-                - ps.T_eb*ps.S_w*(-i*0.5*self.kr*ps.Ez - self.kz*ps.Em ) \
-                + ps.j_coef*( -i*0.5*self.kr*self.Jz - self.kz*self.Jm )
-
-            self.Bz[:,:] = ps.T_eb*ps.C*self.Bz \
-                - ps.T_eb*ps.S_w*( i*self.kr*ps.Ep + i*self.kr*ps.Em ) \
-                + ps.j_coef*( i*self.kr*self.Jp + i*self.kr*self.Jm )
+            numba_push_eb_with(
+                    self.Ep, self.Em, self.Ez, self.Bp, self.Bm, self.Bz,
+                    self.Jp, self.Jm, self.Jz, self.rho_prev, self.rho_next,
+                    ps.rho_prev_coef, ps.rho_next_coef, ps.j_coef,
+                    ps.C, ps.S_w, ps.T_eb, ps.T_cc, ps.T_rho,
+                    self.kr, self.kz, ps.dt, ps.V,
+                    use_true_rho, self.Nz, self.Nr )
 
     def push_rho(self) :
         """
