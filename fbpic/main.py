@@ -43,7 +43,7 @@ class Simulation(object):
     def __init__(self, Nz, zmax, Nr, rmax, Nm, dt, p_zmin, p_zmax,
                  p_rmin, p_rmax, p_nz, p_nr, p_nt, n_e, zmin=0.,
                  n_order=-1, dens_func=None, filter_currents=True,
-                 v_comoving=0., use_galilean=True,
+                 v_comoving=None, use_galilean=False,
                  initialize_ions=False, use_cuda=False,
                  n_guard=50, exchange_period=None, boundaries='periodic',
                  gamma_boost=None, use_all_mpi_ranks=True ):
@@ -116,8 +116,9 @@ class Simulation(object):
         filter_currents: bool, optional
             Whether to filter the currents and charge in k space
 
-        v_comoving: float, optional
-            In this case, the current is assumend to "comoving",
+        v_comoving: float or None, optional
+            If this variable is None, the standard PSATD is used (default).
+            Otherwise, the current is assumed to be "comoving",
             i.e. constant with respect to (z - v_comoving * t).
             This can be done in two ways: either by
             - Using a PSATD scheme that takes this hypothesis into account
@@ -171,6 +172,8 @@ class Simulation(object):
         # Register the comoving parameters
         self.v_comoving = v_comoving
         self.use_galilean = use_galilean
+        if v_comoving is None:
+            self.use_galilean = False
 
         # When running the simulation in a boosted frame, convert the arguments
         uz_m = 0.   # Mean normalized momentum of the particles
