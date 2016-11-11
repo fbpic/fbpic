@@ -1138,11 +1138,6 @@ class PsatdCoeffs(object) :
         else:
              self.j_corr_coef = inv_dt*np.ones_like(kz)
 
-        # Allocate useful auxiliary matrices
-        self.Ep = np.zeros( (Nz, Nr), dtype='complex' )
-        self.Em = np.zeros( (Nz, Nr), dtype='complex' )
-        self.Ez = np.zeros( (Nz, Nr), dtype='complex' )
-
         # Replace these array by arrays on the GPU, when using cuda
         if use_cuda :
             self.d_C = cuda.to_device(self.C)
@@ -1154,9 +1149,6 @@ class PsatdCoeffs(object) :
             self.d_rho_prev_coef = cuda.to_device(self.rho_prev_coef)
             self.d_rho_next_coef = cuda.to_device(self.rho_next_coef)
             self.d_j_corr_coef = cuda.to_device(self.j_corr_coef)
-            # NB : Ep, Em, Ez are not needed on the GPU (on-the-fly variables)
-
-
 
 
 # -----------------
