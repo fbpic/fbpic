@@ -754,7 +754,7 @@ class SpectralGrid(object) :
             # Obtain the cuda grid
             dim_grid, dim_block = cuda_tpb_bpg_2d( self.Nz, self.Nr)
             # Correct the currents on the GPU
-            if ps.V == 0:
+            if ps.V is None:
                 # With standard PSATD algorithm
                 cuda_correct_currents_standard[dim_grid, dim_block](
                     self.rho_prev, self.rho_next, self.Jp, self.Jm, self.Jz,
@@ -768,7 +768,7 @@ class SpectralGrid(object) :
                     inv_dt, self.Nz, self.Nr)
         else :
             # Correct the currents on the CPU
-            if ps.V == 0:
+            if ps.V is None:
                 # With standard PSATD algorithm
                 numba_correct_currents_standard(
                     self.rho_prev, self.rho_next, self.Jp, self.Jm, self.Jz,
@@ -824,7 +824,7 @@ class SpectralGrid(object) :
             # Obtain the cuda grid
             dim_grid, dim_block = cuda_tpb_bpg_2d( self.Nz, self.Nr)
             # Push the fields on the GPU
-            if ps.V == 0:
+            if ps.V is None:
                 # With the standard PSATD algorithm
                 cuda_push_eb_standard[dim_grid, dim_block](
                     self.Ep, self.Em, self.Ez, self.Bp, self.Bm, self.Bz,
@@ -843,7 +843,7 @@ class SpectralGrid(object) :
                     use_true_rho, self.Nz, self.Nr )
         else :
             # Push the fields on the CPU
-            if ps.V == 0:
+            if ps.V is None:
                 # With the standard PSATD algorithm
                 numba_push_eb_standard(
                     self.Ep, self.Em, self.Ez, self.Bp, self.Bm, self.Bz,
