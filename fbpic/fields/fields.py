@@ -7,7 +7,7 @@ It defines the structure and methods associated with the fields.
 """
 import numpy as np
 from scipy.constants import c, mu_0, epsilon_0
-from .numba_methods import numba_push_eb_with
+from .numba_methods import numba_push_eb_with, numba_correct_currents
 from .spectral_transform import SpectralTransformer, cuda_installed
 
 # If cuda is installed for the spectral transformer, import
@@ -758,16 +758,11 @@ class SpectralGrid(object) :
                 inv_dt, self.Nz, self.Nr)
         else :
             # Correct the currents on the CPU
-
-            # Calculate the intermediate variable F
-            self.F[:,:] = - self.inv_k2 * ( ps.T_cc*ps.j_corr_coef \
-                * (self.rho_next - self.rho_prev*ps.T_eb) \
-                + 1.j*self.kz*self.Jz + self.kr*( self.Jp - self.Jm ) )
-
-            # Correct the current accordingly
-            self.Jp += 0.5*self.kr*self.F
-            self.Jm += -0.5*self.kr*self.F
-            self.Jz += -1.j*self.kz*self.F
+            cuda_correct_currents[dim_grid, dim_block](
+                self.rho_prev, self.rho_next, self.Jp, self.Jm, self.Jz,
+                self.kz, self.kr, self.inv_k2,
+                ps.d_j_corr_coef, ps.T_eb, ps.T_cc,
+                inv_dt, self.Nz, self.Nr)
 
     def correct_divE(self) :
         """

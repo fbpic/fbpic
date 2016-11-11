@@ -10,11 +10,34 @@ from scipy.constants import c, epsilon_0, mu_0
 c2 = c**2
 
 @numba.jit
+def numba_correct_currents( rho_prev, rho_next, Jp, Jm, Jz,
+                            kz, kr, inv_k2,
+                            j_corr_coef, T_eb, T_cc,
+                            inv_dt, Nz, Nr ) :
+    """
+    Correct the currents in spectral space
+    """
+    # Loop over the 2D grid
+    for iz in range(Nz):
+        for ir in range(Nr):
+
+            # Calculate the intermediate variable F
+            F =  - inv_k2[iz, ir] * ( T_cc[iz, ir]*j_corr_coef[iz, ir] \
+                * (rho_next[iz, ir] - rho_prev[iz, ir]*T_eb[iz, ir]) \
+                + 1.j*kz[iz, ir]*Jz[iz, ir] \
+                + kr[iz, ir]*( Jp[iz, ir] - Jm[iz, ir] ) )
+
+            # Correct the currents accordingly
+            Jp[iz, ir] +=  0.5 * kr[iz, ir] * F
+            Jm[iz, ir] += -0.5 * kr[iz, ir] * F
+            Jz[iz, ir] += -1.j * kz[iz, ir] * F
+
+@numba.jit
 def numba_push_eb_with( Ep, Em, Ez, Bp, Bm, Bz, Jp, Jm, Jz,
                        rho_prev, rho_next,
                        rho_prev_coef, rho_next_coef, j_coef,
                        C, S_w, T_eb, T_cc, T_rho,
-                       kr, kz, dt, V, use_true_rho, Nz, Nr) :
+                       kr, kz, dt, V, use_true_rho, Nz, Nr):
     """
     Push the fields over one timestep, using the psatd algorithm
 
