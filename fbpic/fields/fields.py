@@ -7,20 +7,22 @@ It defines the structure and methods associated with the fields.
 """
 import numpy as np
 from scipy.constants import c, mu_0, epsilon_0
-from .numba_methods import numba_push_eb_with, numba_correct_currents
+from .numba_methods import numba_push_eb_standard, numba_push_eb_comoving, \
+    numba_correct_currents_standard, numba_correct_currents_comoving
 from .spectral_transform import SpectralTransformer, cuda_installed
 
 # If cuda is installed for the spectral transformer, import
 # the rest of the cuda methods
 if cuda_installed:
-    try :
+    try:
         from fbpic.cuda_utils import cuda_tpb_bpg_2d
-        from .cuda_methods import cuda, cuda_correct_currents, \
+        from .cuda_methods import cuda, \
+        cuda_correct_currents_standard, cuda_correct_currents_comoving, \
         cuda_divide_scalar_by_volume, cuda_divide_vector_by_volume, \
         cuda_erase_scalar, cuda_erase_vector, \
         cuda_filter_scalar, cuda_filter_vector, \
-        cuda_push_eb_with, cuda_push_rho
-    except ImportError :
+        cuda_push_eb_standard, cuda_push_eb_comoving, cuda_push_rho
+    except ImportError:
         cuda_installed = False
 
 class Fields(object) :
@@ -751,18 +753,32 @@ class SpectralGrid(object) :
             # Obtain the cuda grid
             dim_grid, dim_block = cuda_tpb_bpg_2d( self.Nz, self.Nr)
             # Correct the currents on the GPU
-            cuda_correct_currents[dim_grid, dim_block](
-                self.rho_prev, self.rho_next, self.Jp, self.Jm, self.Jz,
-                self.d_kz, self.d_kr, self.d_inv_k2,
-                ps.d_j_corr_coef, ps.d_T_eb, ps.d_T_cc,
-                inv_dt, self.Nz, self.Nr)
+            if ps.V == 0:
+                # With standard PSATD algorithm
+                cuda_correct_currents_standard[dim_grid, dim_block](
+                    self.rho_prev, self.rho_next, self.Jp, self.Jm, self.Jz,
+                    self.kz, self.kr, self.inv_k2, inv_dt, self.Nz, self.Nr )
+            else:
+                # With Galilean/comoving algorithm
+                cuda_correct_currents_comoving[dim_grid, dim_block](
+                    self.rho_prev, self.rho_next, self.Jp, self.Jm, self.Jz,
+                    self.d_kz, self.d_kr, self.d_inv_k2,
+                    ps.d_j_corr_coef, ps.d_T_eb, ps.d_T_cc,
+                    inv_dt, self.Nz, self.Nr)
         else :
             # Correct the currents on the CPU
-            cuda_correct_currents[dim_grid, dim_block](
-                self.rho_prev, self.rho_next, self.Jp, self.Jm, self.Jz,
-                self.kz, self.kr, self.inv_k2,
-                ps.d_j_corr_coef, ps.T_eb, ps.T_cc,
-                inv_dt, self.Nz, self.Nr)
+            if ps.V == 0:
+                # With standard PSATD algorithm
+                numba_correct_currents_standard(
+                    self.rho_prev, self.rho_next, self.Jp, self.Jm, self.Jz,
+                    self.kz, self.kr, self.inv_k2, inv_dt, self.Nz, self.Nr )
+            else:
+                # With Galilean/comoving algorithm
+                numba_correct_currents_comoving(
+                    self.rho_prev, self.rho_next, self.Jp, self.Jm, self.Jz,
+                    self.kz, self.kr, self.inv_k2,
+                    ps.j_corr_coef, ps.T_eb, ps.T_cc,
+                    inv_dt, self.Nz, self.Nr)
 
     def correct_divE(self) :
         """
@@ -807,16 +823,36 @@ class SpectralGrid(object) :
             # Obtain the cuda grid
             dim_grid, dim_block = cuda_tpb_bpg_2d( self.Nz, self.Nr)
             # Push the fields on the GPU
-            cuda_push_eb_with[dim_grid, dim_block](
-                self.Ep, self.Em, self.Ez, self.Bp, self.Bm, self.Bz,
-                self.Jp, self.Jm, self.Jz, self.rho_prev, self.rho_next,
-                ps.d_rho_prev_coef, ps.d_rho_next_coef, ps.d_j_coef,
-                ps.d_C, ps.d_S_w, ps.d_T_eb, ps.d_T_cc, ps.d_T_rho,
-                self.d_kr, self.d_kz, ps.dt, ps.V,
-                use_true_rho, self.Nz, self.Nr )
+            if ps.V == 0:
+                # With the standard PSATD algorithm
+                cuda_push_eb_standard[dim_grid, dim_block](
+                    self.Ep, self.Em, self.Ez, self.Bp, self.Bm, self.Bz,
+                    self.Jp, self.Jm, self.Jz, self.rho_prev, self.rho_next,
+                    ps.d_rho_prev_coef, ps.d_rho_next_coef, ps.d_j_coef,
+                    ps.d_C, ps.d_S_w, self.d_kr, self.d_kz, ps.dt,
+                    use_true_rho, self.Nz, self.Nr )
+            else:
+                # With the Galilean/comoving algorithm
+                cuda_push_eb_comoving[dim_grid, dim_block](
+                    self.Ep, self.Em, self.Ez, self.Bp, self.Bm, self.Bz,
+                    self.Jp, self.Jm, self.Jz, self.rho_prev, self.rho_next,
+                    ps.d_rho_prev_coef, ps.d_rho_next_coef, ps.d_j_coef,
+                    ps.d_C, ps.d_S_w, ps.d_T_eb, ps.d_T_cc, ps.d_T_rho,
+                    self.d_kr, self.d_kz, ps.dt, ps.V,
+                    use_true_rho, self.Nz, self.Nr )
         else :
             # Push the fields on the CPU
-            numba_push_eb_with(
+            if ps.V == 0:
+                # With the standard PSATD algorithm
+                numba_push_eb_standard(
+                    self.Ep, self.Em, self.Ez, self.Bp, self.Bm, self.Bz,
+                    self.Jp, self.Jm, self.Jz, self.rho_prev, self.rho_next,
+                    ps.rho_prev_coef, ps.rho_next_coef, ps.j_coef,
+                    ps.C, ps.S_w, self.kr, self.kz, ps.dt,
+                    use_true_rho, self.Nz, self.Nr )
+            else:
+                # With the Galilean/comoving algorithm
+                numba_push_eb_comoving(
                     self.Ep, self.Em, self.Ez, self.Bp, self.Bm, self.Bz,
                     self.Jp, self.Jm, self.Jz, self.rho_prev, self.rho_next,
                     ps.rho_prev_coef, ps.rho_next_coef, ps.j_coef,
