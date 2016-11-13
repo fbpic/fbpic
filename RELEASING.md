@@ -33,7 +33,7 @@ username = <yourPypiUsername>
 
 ## Creating a release on Github
 
-- Make sure that the version number in `setup.py`
+- Make sure that the version number in `fbpic/__init__.py`
   corresponds to the new release, and that the corresponding changes have been
   documented in `CHANGELOG.md`.
 
