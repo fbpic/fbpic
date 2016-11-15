@@ -107,10 +107,7 @@ In order to request a node with a GPU:
 
 ::
 
-    salloc --time=00:30:00 --nodes=1 --partition lr_manycore  --constraint=lr_kepler --account=<yourAccountName> --qos=lr_normal
-
-where ``<yourAccountName>`` should be replace by the account that will
-be charged for the simulation.
+    salloc --time=00:30:00 --nodes=1 --partition lr_manycore  --constraint=lr_kepler --qos=lr_normal
 
 Once the job has started, type
 
@@ -141,7 +138,6 @@ following text (and replace the bracketed text by the proper values).
     #SBATCH --constraint lr_kepler
     #SBATCH --time <requestedTime>
     #SBATCH --nodes 1
-    #SBATCH --account <yourAccountName>
     #SBATCH --qos lr_normal
     #SBATCH -e my_job.%j.err
     #SBATCH -o my_job.%j.out
