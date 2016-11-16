@@ -212,10 +212,11 @@ def check_E_field( interp, epsilon, k0, w0, wp, t, field='Ez', show=False ):
 
     if show is False:
         # Automatically check that the fields agree,
-        # to a relative tolerance rtol
-        rtol = 1.e-3
-        np.allclose( E_analytical, E_simulation, rtol=rtol )
-        print('The field %s agrees with the theory to %e,\n' %(field, rtol) + \
+        # to an absolute tolerance
+        atol = 1e6
+        rtol = 2e-2
+        assert np.allclose( E_analytical, E_simulation, atol=atol, rtol=rtol )
+        print('The field %s agrees with the theory to %e,\n' %(field, atol) + \
                'over the whole simulation box.'  )
     else:
         # Show the images to the user
