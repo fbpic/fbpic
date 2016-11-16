@@ -23,7 +23,7 @@ def remove_outside_particles(species, fld, nguard, left_proc, right_proc):
     When the boundaries are open, only the particles that are in the
     outermost half of the guard cells are removed. The particles that
     are in the innermost half are kept.
-    
+
     Parameters
     ----------
     species: a Particles object
@@ -35,7 +35,7 @@ def remove_outside_particles(species, fld, nguard, left_proc, right_proc):
 
     nguard: int
         Number of guard cells
-        
+
     left_proc, right_proc: int or None
         Indicate whether there is a left or right processor or if the
         boundary is open (None).
@@ -56,7 +56,7 @@ def remove_outside_particles(species, fld, nguard, left_proc, right_proc):
                                     nguard, left_proc, right_proc )
 
     return( send_left, send_right )
-        
+
 def remove_particles_cpu(species, fld, nguard, left_proc, right_proc):
     """
     Remove the particles that are outside of the physical domain (i.e.
@@ -65,7 +65,7 @@ def remove_particles_cpu(species, fld, nguard, left_proc, right_proc):
     When the boundaries are open, only the particles that are in the
     outermost half of the guard cells are removed. The particles that
     are in the innermost half are kept.
-    
+
     Parameters
     ----------
     species: a Particles object
@@ -77,7 +77,7 @@ def remove_particles_cpu(species, fld, nguard, left_proc, right_proc):
 
     nguard: int
         Number of guard cells
-        
+
     left_proc, right_proc: int or None
         Indicate whether there is a left or right processor or if the
         boundary is open (None).
@@ -97,13 +97,13 @@ def remove_particles_cpu(species, fld, nguard, left_proc, right_proc):
         zbox_min = fld.interp[0].zmin + int(nguard/2)*fld.interp[0].dz
     if right_proc is None:
         zbox_max = fld.interp[0].zmax - int(nguard/2)*fld.interp[0].dz
-    
+
     # Select the particles that are in the left or right guard cells,
     # and those that stay on the local process
     selec_left = ( species.z < zbox_min )
     selec_right = ( species.z > zbox_max )
     selec_stay = (np.logical_not(selec_left) & np.logical_not(selec_right))
-        
+
     # Allocate and fill left sending buffer
     if left_proc is not None:
         N_send_l = selec_left.sum()
@@ -147,7 +147,7 @@ def remove_particles_cpu(species, fld, nguard, left_proc, right_proc):
     species.uz = species.uz[selec_stay]
     species.inv_gamma = species.inv_gamma[selec_stay]
     species.w = species.w[selec_stay]
-        
+
     # Return the sending buffers
     return( send_left, send_right )
 
@@ -159,7 +159,7 @@ def remove_particles_gpu(species, fld, nguard, left_proc, right_proc):
     When the boundaries are open, only the particles that are in the
     outermost half of the guard cells are removed. The particles that
     are in the innermost half are kept.
-    
+
     Parameters
     ----------
     species: a Particles object
@@ -171,7 +171,7 @@ def remove_particles_gpu(species, fld, nguard, left_proc, right_proc):
 
     nguard: int
         Number of guard cells
-        
+
     left_proc, right_proc: int or None
         Indicate whether there is a left or right processor or if the
         boundary is open (None).
@@ -196,18 +196,28 @@ def remove_particles_gpu(species, fld, nguard, left_proc, right_proc):
     prefix_sum = species.prefix_sum
     Nz = fld.Nz
     Nr = fld.Nr
-    i_min = prefix_sum.getitem( (nguard+fld.prefix_sum_shift)*Nr )
-    i_max = prefix_sum.getitem( (Nz-nguard+fld.prefix_sum_shift)*Nr - 1 )
-    # For the open boundaries, only the particles in the outermost
-    # half of the guard cells are removed
+    # Find the z index of the first cell for which particles are kept
     if left_proc is None:
-        # Find the index in z below which particles are removed
+        # Open boundary: particles in outermost half of guard cells are removed
         iz_min = max( int(nguard/2) + fld.prefix_sum_shift, 0 )
-        i_min = prefix_sum.getitem( iz_min * Nr )
+    else:
+        # Normal boundary: all particles in guard cells are removed
+        iz_min = max( nguard + fld.prefix_sum_shift, 0 )
+    # Find the z index of the first cell for which particles are removed again
     if right_proc is None:
-        # Find the index in z above which particles are removed
+        # Open boundary: particles in outermost half of guard cells are removed
         iz_max = min( Nz - int(nguard/2) + fld.prefix_sum_shift, Nz )
-        i_max = prefix_sum.getitem( iz_max * Nr - 1 )
+    else:
+        # Normal boundary: all particles in guard cells are removed
+        iz_max = min( Nz - nguard, Nz )
+    # Find the corresponding indices in the particle array
+    # Reminder: prefix_sum[i] is the cumulative sum of the number of particles
+    # in cells 0 to i (where cell i is included)
+    if iz_min*Nr - 1 >= 0:
+        i_min = prefix_sum.getitem( iz_min*Nr - 1 )
+    else:
+        i_min = 0
+    i_max = prefix_sum.getitem( iz_max*Nr - 1 )
     # Because of the way in which the prefix_sum is calculated, if the
     # cell that was requested for i_max is beyond the last non-empty cell,
     # i_max will be zero, but should in fact be species.Ntot
@@ -228,7 +238,7 @@ def remove_particles_gpu(species, fld, nguard, left_proc, right_proc):
         send_right = np.empty((8, N_send_r), dtype = np.float64)
     else:
         send_right = np.empty((8, 0), dtype = np.float64)
-    
+
     # Get the threads per block and the blocks per grid
     dim_grid_1d, dim_block_1d = cuda_tpb_bpg_1d( species.Ntot )
     # Iterate over particle attributes
@@ -252,9 +262,9 @@ def remove_particles_gpu(species, fld, nguard, left_proc, right_proc):
         # Increment the buffer index
         i_attr += 1
 
-    # Change the new total number of particles    
+    # Change the new total number of particles
     species.Ntot = new_Ntot
-        
+
     # Return the sending buffers
     return( send_left, send_right )
 
@@ -266,7 +276,7 @@ def add_buffers_to_particles( species, recv_left, recv_right ):
 
     Resize the auxiliary arrays of the particles Ex, Ey, Ez, Bx, By, Bz,
     as well as cell_idx, sorted_idx and sorting_buffer
-    
+
     Parameters
     ----------
     species: a Particles object
@@ -281,8 +291,8 @@ def add_buffers_to_particles( species, recv_left, recv_right ):
     if species.use_cuda:
         add_buffers_gpu( species, recv_left, recv_right )
     else:
-        add_buffers_cpu( species, recv_left, recv_right )        
-    
+        add_buffers_cpu( species, recv_left, recv_right )
+
     # Reallocate the particles auxiliary arrays. This needs to be done,
     # as the total number of particles in this domain has changed.
     if species.use_cuda:
@@ -329,7 +339,7 @@ def add_buffers_cpu( species, recv_left, recv_right ):
         Arrays of shape (8, Nptcl) that represent the particles that
         were received from the neighboring processors
         These arrays are always on the CPU (since they were used for MPI)
-    """    
+    """
     # Form the new particle arrays by adding the received particles
     # from the left and the right to the particles that stay in the domain
     species.x = np.hstack((recv_left[0], species.x, recv_right[0]))
@@ -344,8 +354,8 @@ def add_buffers_cpu( species, recv_left, recv_right ):
 
     # Adapt the total number of particles
     species.Ntot = species.Ntot + recv_left.shape[1] + recv_right.shape[1]
-    
-    
+
+
 def add_buffers_gpu( species, recv_left, recv_right ):
     """
     Add the particles stored in recv_left and recv_right
@@ -363,10 +373,10 @@ def add_buffers_gpu( species, recv_left, recv_right ):
     """
     # Get the new number of particles
     new_Ntot = species.Ntot + recv_left.shape[1] + recv_right.shape[1]
-    
+
     # Get the threads per block and the blocks per grid
     dim_grid_1d, dim_block_1d = cuda_tpb_bpg_1d( new_Ntot )
-    
+
     # Iterate over particle attributes
     i_attr = 0
     for attr in ['x', 'y', 'z', 'ux', 'uy', 'uz', 'inv_gamma', 'w']:
@@ -387,7 +397,7 @@ def add_buffers_gpu( species, recv_left, recv_right ):
 
     # Adapt the total number of particles
     species.Ntot = new_Ntot
-        
+
 # Cuda routines
 # -------------
 if cuda_installed:
@@ -405,7 +415,7 @@ if cuda_installed:
         particle_array: 1d device arrays of floats
             Original array of particles
             (represents *one* of the particle quantities)
-            
+
         left_buffer, right_buffer: 1d device arrays of floats
             Will contain the particles that are outside of the physical domain
             Note: if the boundary is open, then these buffers have size 0
