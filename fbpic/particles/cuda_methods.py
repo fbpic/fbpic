@@ -5,7 +5,7 @@
 This file is part of the Fourier-Bessel Particle-In-Cell code (FB-PIC)
 It defines the optimized particles methods that use cuda on a GPU
 """
-from numba import cuda, complex128, int64
+from numba import cuda, int64
 from accelerate.cuda import sorting
 import math
 from scipy.constants import c
