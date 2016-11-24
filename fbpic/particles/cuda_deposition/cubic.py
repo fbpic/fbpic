@@ -6,7 +6,6 @@ This file is part of the Fourier-Bessel Particle-In-Cell code (FB-PIC)
 It defines the deposition methods for rho and J for cubic order shapes
 """
 from numba import cuda, int64
-from accelerate.cuda import sorting
 import math
 from scipy.constants import c
 import numpy as np
