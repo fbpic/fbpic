@@ -18,12 +18,15 @@ from .numba_methods import push_p_numba, push_x_numba, \
 try :
     from fbpic.cuda_utils import cuda, cuda_tpb_bpg_1d, cuda_tpb_bpg_2d
     from .cuda_methods import push_p_gpu, push_x_gpu, \
-        gather_field_gpu, deposit_rho_gpu, deposit_J_gpu, \
-        deposit_rho_gpu_cubic, deposit_J_gpu_cubic, \
-        deposit_rho_gpu_linear, deposit_J_gpu_linear, \
-        write_sorting_buffer, cuda_deposition_arrays, \
+        gather_field_gpu, write_sorting_buffer, cuda_deposition_arrays, \
         get_cell_idx_per_particle, sort_particles_per_cell, \
-        reset_prefix_sum, incl_prefix_sum, add_rho, add_J
+        reset_prefix_sum, incl_prefix_sum
+    from .cuda_deposition.cubic import deposit_rho_gpu_cubic, \
+        deposit_J_gpu_cubic
+    from .cuda_deposition.linear import deposit_rho_gpu_linear, \
+        deposit_J_gpu_linear
+    from .cuda_deposition.linear_non_atomic import deposit_rho_gpu, \
+        deposit_J_gpu, add_rho, add_J
     cuda_installed = True
 except ImportError:
     cuda_installed = False

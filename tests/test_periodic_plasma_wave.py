@@ -20,7 +20,7 @@ $ mpirun -np 2 python tests/test_periodic_plasma_wave.py # Two-proc simulation
 In order to let Python check the agreement between the curve without
 having to look at the plots
 $ py.test -q tests/test_periodic_plasma_wave.py
-or 
+or
 $ python setup.py test
 
 Theory:
@@ -112,7 +112,7 @@ def test_periodic_plasma_wave(show=False):
     else:
         correct_currents = False
 
-    # Run the simulation 
+    # Run the simulation
     sim.step( N_step, correct_currents=correct_currents )
     # Plot the results
     compare_fields( sim, show )
@@ -129,7 +129,7 @@ def Er( z, r, epsilon, k0, w0, wp, t) :
     Er_array = epsilon * m_e*c**2/e * 2*r/w0**2 * np.exp( -r**2/w0**2 ) * \
       np.sin( k0*z ) * np.sin( wp*t )
     return( Er_array )
-    
+
 def Ez( z, r, epsilon, k0, w0, wp, t) :
     """
     Return the longitudinal electric field as an array
@@ -138,7 +138,7 @@ def Ez( z, r, epsilon, k0, w0, wp, t) :
     Ez_array = - epsilon * m_e*c**2/e * k0 * np.exp( -r**2/w0**2 ) * \
       np.cos( k0*z ) * np.sin( wp*t )
     return( Ez_array )
-    
+
 def ur( z, r, epsilon, k0, w0, wp, t) :
     """
     Return the radial normalized velocity as an array
@@ -147,7 +147,7 @@ def ur( z, r, epsilon, k0, w0, wp, t) :
     ur_array = epsilon * c/wp * 2*r/w0**2 * np.exp( -r**2/w0**2 ) * \
       np.sin( k0*z ) * np.cos( wp*t )
     return( ur_array )
-    
+
 def uz( z, r, epsilon, k0, w0, wp, t) :
     """
     Return the longitudinal normalized velocity as an array
@@ -203,7 +203,7 @@ def check_E_field( interp, epsilon, k0, w0, wp, t, field='Ez', show=False ):
     """
     # 2D maps of the field
     r, z = np.meshgrid( interp.r, interp.z )
-    if field == 'Ez' : 
+    if field == 'Ez' :
         E_analytical = Ez( z, r, epsilon, k0, w0, wp, t )
         E_simulation = interp.Ez.real
     if field == 'Er' :
@@ -222,7 +222,7 @@ def check_E_field( interp, epsilon, k0, w0, wp, t, field='Ez', show=False ):
         # Show the images to the user
         plt.figure(figsize=(8,10))
         plt.suptitle('%s field' %field)
-        
+
         plt.subplot(221)
         plt.imshow( E_analytical.T[::-1], extent=1.e6*np.array(
         [interp.zmin, interp.zmax, interp.rmin, interp.rmax]), aspect='auto' )
