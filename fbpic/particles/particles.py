@@ -18,9 +18,9 @@ from .numba_methods import push_p_numba, push_x_numba, \
 try :
     from fbpic.cuda_utils import cuda, cuda_tpb_bpg_1d, cuda_tpb_bpg_2d
     from .cuda_methods import push_p_gpu, push_x_gpu, \
-        gather_field_gpu, write_sorting_buffer, cuda_deposition_arrays, \
-        get_cell_idx_per_particle, sort_particles_per_cell, \
-        reset_prefix_sum, incl_prefix_sum
+        gather_field_gpu, gather_field_gpu_cubic, write_sorting_buffer, \
+        cuda_deposition_arrays, get_cell_idx_per_particle, \
+        sort_particles_per_cell, reset_prefix_sum, incl_prefix_sum
     from .cuda_deposition.cubic import deposit_rho_gpu_cubic, \
         deposit_J_gpu_cubic
     from .cuda_deposition.linear import deposit_rho_gpu_linear, \
@@ -360,16 +360,28 @@ class Particles(object) :
             dim_grid_1d, dim_block_1d = cuda_tpb_bpg_1d( self.Ntot )
             # Call the CUDA Kernel for the gathering of E and B Fields
             # for Mode 0 and 1 only.
-            gather_field_gpu[dim_grid_1d, dim_block_1d](
-                 self.x, self.y, self.z,
-                 grid[0].invdz, grid[0].zmin, grid[0].Nz,
-                 grid[0].invdr, grid[0].rmin, grid[0].Nr,
-                 grid[0].Er, grid[0].Et, grid[0].Ez,
-                 grid[1].Er, grid[1].Et, grid[1].Ez,
-                 grid[0].Br, grid[0].Bt, grid[0].Bz,
-                 grid[1].Br, grid[1].Bt, grid[1].Bz,
-                 self.Ex, self.Ey, self.Ez,
-                 self.Bx, self.By, self.Bz)
+            if self.particle_shape == 'cubic':
+                gather_field_gpu_cubic[dim_grid_1d, dim_block_1d](
+                     self.x, self.y, self.z,
+                     grid[0].invdz, grid[0].zmin, grid[0].Nz,
+                     grid[0].invdr, grid[0].rmin, grid[0].Nr,
+                     grid[0].Er, grid[0].Et, grid[0].Ez,
+                     grid[1].Er, grid[1].Et, grid[1].Ez,
+                     grid[0].Br, grid[0].Bt, grid[0].Bz,
+                     grid[1].Br, grid[1].Bt, grid[1].Bz,
+                     self.Ex, self.Ey, self.Ez,
+                     self.Bx, self.By, self.Bz)
+            else:
+                gather_field_gpu[dim_grid_1d, dim_block_1d](
+                     self.x, self.y, self.z,
+                     grid[0].invdz, grid[0].zmin, grid[0].Nz,
+                     grid[0].invdr, grid[0].rmin, grid[0].Nr,
+                     grid[0].Er, grid[0].Et, grid[0].Ez,
+                     grid[1].Er, grid[1].Et, grid[1].Ez,
+                     grid[0].Br, grid[0].Bt, grid[0].Bz,
+                     grid[1].Br, grid[1].Bt, grid[1].Bz,
+                     self.Ex, self.Ey, self.Ez,
+                     self.Bx, self.By, self.Bz)
         else:
             # Preliminary arrays for the cylindrical conversion
             r = np.sqrt( self.x**2 + self.y**2 )
