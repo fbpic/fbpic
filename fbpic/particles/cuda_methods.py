@@ -149,7 +149,7 @@ def push_x_gpu( x, y, z, ux, uy, uz, inv_gamma, dt ) :
             complex128[:,:], complex128[:,:], complex128[:,:], \
             float64[:], float64[:], float64[:], \
             float64[:], float64[:], float64[:])')
-def gather_field_gpu(x, y, z,
+def gather_field_gpu_linear(x, y, z,
                     invdz, zmin, Nz,
                     invdr, rmin, Nr,
                     Er_m0, Et_m0, Ez_m0,

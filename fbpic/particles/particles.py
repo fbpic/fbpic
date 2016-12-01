@@ -18,9 +18,10 @@ from .numba_methods import push_p_numba, push_x_numba, \
 try :
     from fbpic.cuda_utils import cuda, cuda_tpb_bpg_1d, cuda_tpb_bpg_2d
     from .cuda_methods import push_p_gpu, push_x_gpu, \
-        gather_field_gpu, gather_field_gpu_cubic, write_sorting_buffer, \
-        cuda_deposition_arrays, get_cell_idx_per_particle, \
-        sort_particles_per_cell, reset_prefix_sum, incl_prefix_sum
+        gather_field_gpu_linear, gather_field_gpu_cubic, \
+        write_sorting_buffer, cuda_deposition_arrays, \
+        get_cell_idx_per_particle, sort_particles_per_cell, \
+        reset_prefix_sum, incl_prefix_sum
     from .cuda_deposition.cubic import deposit_rho_gpu_cubic, \
         deposit_J_gpu_cubic
     from .cuda_deposition.linear import deposit_rho_gpu_linear, \
@@ -372,7 +373,7 @@ class Particles(object) :
                      self.Ex, self.Ey, self.Ez,
                      self.Bx, self.By, self.Bz)
             else:
-                gather_field_gpu[dim_grid_1d, dim_block_1d](
+                gather_field_gpu_linear[dim_grid_1d, dim_block_1d](
                      self.x, self.y, self.z,
                      grid[0].invdz, grid[0].zmin, grid[0].Nz,
                      grid[0].invdr, grid[0].rmin, grid[0].Nr,
