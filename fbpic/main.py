@@ -163,7 +163,7 @@ class Simulation(object):
               make sure that your input script is written so that the input
               parameters and output folder depend on the MPI rank.
 
-        particle_shape: str, optional (GPU only)
+        particle_shape: str, optional
             This attribute sets the particle shape for the deposition steps
             Possible values are 'cubic', 'linear' and 'linear_non_atomic'.
             While 'cubic' is identified with third order shapes and linear

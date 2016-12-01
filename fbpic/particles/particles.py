@@ -9,7 +9,7 @@ import numpy as np
 from scipy.constants import c
 
 # Load the utility methods
-from .utility_methods import linear_weights, unalign_angles
+from .utility_methods import weights, unalign_angles
 # Load the numba routines
 from .numba_methods import push_p_numba, push_x_numba, \
         gather_field_numba, deposit_field_numba
@@ -182,7 +182,6 @@ class Particles(object) :
             self.x[:] = r * np.cos( thetap.flatten() )
             self.y[:] = r * np.sin( thetap.flatten() )
             self.z[:] = zp.flatten()
-
             # Get the weights (i.e. charge of each macroparticle), which
             # are equal to the density times the volume r d\theta dr dz
             self.w[:] = q * n * r * dtheta*dr*dz
@@ -197,8 +196,6 @@ class Particles(object) :
                 "on the GPU.\nPlease provide it when initializing particles.")
             # Register grid shape
             self.grid_shape = grid_shape
-            # Register particle shape
-            self.particle_shape = particle_shape
             # Allocate arrays for the particles sorting when using CUDA
             self.cell_idx = np.empty( Ntot, dtype=np.int32)
             self.sorted_idx = np.arange( Ntot, dtype=np.uint32)
@@ -207,6 +204,9 @@ class Particles(object) :
                                         dtype=np.int32 )
             # Register boolean that records if the particles are sorted or not
             self.sorted = False
+
+        # Register particle shape
+        self.particle_shape = particle_shape
 
     def send_particles_to_gpu( self ):
         """
@@ -391,10 +391,14 @@ class Particles(object) :
             sin = np.where( r!=0., self.y*invr, 0. )
 
             # Indices and weights
-            iz_lower, iz_upper, Sz_lower, Sz_upper = linear_weights( self.z,
-                grid[0].invdz, grid[0].zmin, grid[0].Nz, direction='z')
-            ir_lower, ir_upper, Sr_lower, Sr_upper, Sr_guard = linear_weights(
-                r, grid[0].invdr, grid[0].rmin, grid[0].Nr, direction='r' )
+            if self.particle_shape == 'cubic':
+                shape_order = 3
+            else:
+                shape_order = 1
+            iz, Sz = weights(self.z, grid[0].invdz, grid[0].zmin, grid[0].Nz,
+                             direction='z', shape_order=shape_order)
+            ir, Sr = weights(r, grid[0].invdr, grid[0].rmin, grid[0].Nr,
+                             direction='r', shape_order=shape_order)
 
             # Number of modes considered :
             # number of elements in the grid list
@@ -422,18 +426,12 @@ class Particles(object) :
                 # Gather the fields
                 # (The sign with which the guards are added
                 # depends on whether the fields should be zero on axis)
-                gather_field_numba( exptheta, m, grid[m].Er, Fr,
-                    iz_lower, iz_upper, Sz_lower, Sz_upper,
-                    ir_lower, ir_upper, Sr_lower, Sr_upper,
-                    -(-1.)**m, Sr_guard )
-                gather_field_numba( exptheta, m, grid[m].Et, Ft,
-                    iz_lower, iz_upper, Sz_lower, Sz_upper,
-                    ir_lower, ir_upper, Sr_lower, Sr_upper,
-                    -(-1.)**m, Sr_guard )
-                gather_field_numba( exptheta, m, grid[m].Ez, self.Ez,
-                    iz_lower, iz_upper, Sz_lower, Sz_upper,
-                    ir_lower, ir_upper, Sr_lower, Sr_upper,
-                    (-1.)**m, Sr_guard )
+                gather_field_numba(
+                    exptheta, m, grid[m].Er, Fr, iz, ir, Sz, Sr, -((-1.)**m))
+                gather_field_numba(
+                    exptheta, m, grid[m].Et, Ft, iz, ir, Sz, Sr, -((-1.)**m))
+                gather_field_numba(
+                    exptheta, m, grid[m].Ez, self.Ez, iz, ir, Sz, Sr, (-1.)**m)
 
             # Convert to Cartesian coordinates
             self.Ex[:] = cos*Fr - sin*Ft
@@ -461,18 +459,12 @@ class Particles(object) :
                 # Gather the fields
                 # (The sign with which the guards are added
                 # depends on whether the fields should be zero on axis)
-                gather_field_numba( exptheta, m, grid[m].Br, Fr,
-                    iz_lower, iz_upper, Sz_lower, Sz_upper,
-                    ir_lower, ir_upper, Sr_lower, Sr_upper,
-                    -(-1.)**m, Sr_guard )
-                gather_field_numba( exptheta, m, grid[m].Bt, Ft,
-                    iz_lower, iz_upper, Sz_lower, Sz_upper,
-                    ir_lower, ir_upper, Sr_lower, Sr_upper,
-                    -(-1.)**m, Sr_guard )
-                gather_field_numba( exptheta, m, grid[m].Bz, self.Bz,
-                    iz_lower, iz_upper, Sz_lower, Sz_upper,
-                    ir_lower, ir_upper, Sr_lower, Sr_upper,
-                    (-1.)**m, Sr_guard )
+                gather_field_numba(
+                    exptheta, m, grid[m].Br, Fr, iz, ir, Sz, Sr, -((-1.)**m))
+                gather_field_numba(
+                    exptheta, m, grid[m].Bt, Ft, iz, ir, Sz, Sr, -((-1.)**m))
+                gather_field_numba(
+                    exptheta, m, grid[m].Bz, self.Bz, iz, ir, Sz, Sr, (-1.)**m)
 
             # Convert to Cartesian coordinates
             self.Bx[:] = cos*Fr - sin*Ft
@@ -606,10 +598,14 @@ class Particles(object) :
             sin = np.where( r!=0., self.y*invr, 0. )
 
             # Indices and weights
-            iz_lower, iz_upper, Sz_lower, Sz_upper = linear_weights(
-                self.z, grid[0].invdz, grid[0].zmin, grid[0].Nz, direction='z')
-            ir_lower, ir_upper, Sr_lower, Sr_upper, Sr_guard = linear_weights(
-                r, grid[0].invdr, grid[0].rmin, grid[0].Nr, direction='r')
+            if self.particle_shape == 'cubic':
+                shape_order = 3
+            else:
+                shape_order = 1
+            iz, Sz = weights(self.z, grid[0].invdz, grid[0].zmin, grid[0].Nz,
+                             direction='z', shape_order=shape_order)
+            ir, Sr = weights(r, grid[0].invdr, grid[0].rmin, grid[0].Nr,
+                             direction='r', shape_order=shape_order)
 
             # Number of modes considered :
             # number of elements in the grid list
@@ -632,10 +628,8 @@ class Particles(object) :
                     # Deposit the fields
                     # (The sign -1 with which the guards are added is not
                     # trivial to derive but avoids artifacts on the axis)
-                    deposit_field_numba( self.w*exptheta, grid[m].rho,
-                        iz_lower, iz_upper, Sz_lower, Sz_upper,
-                        ir_lower, ir_upper, Sr_lower, Sr_upper,
-                        -1., Sr_guard )
+                    deposit_field_numba(self.w*exptheta, grid[m].rho,
+                                            iz, ir, Sz, Sr, -1.)
 
             elif fieldtype == 'J' :
                 # ----------------------------------------
@@ -658,18 +652,12 @@ class Particles(object) :
                     # Deposit the fields
                     # (The sign -1 with which the guards are added is not
                     # trivial to derive but avoids artifacts on the axis)
-                    deposit_field_numba( Jr*exptheta, grid[m].Jr,
-                        iz_lower, iz_upper, Sz_lower, Sz_upper,
-                        ir_lower, ir_upper, Sr_lower, Sr_upper,
-                        -1., Sr_guard )
-                    deposit_field_numba( Jt*exptheta, grid[m].Jt,
-                        iz_lower, iz_upper, Sz_lower, Sz_upper,
-                        ir_lower, ir_upper, Sr_lower, Sr_upper,
-                        -1., Sr_guard )
-                    deposit_field_numba( Jz*exptheta, grid[m].Jz,
-                        iz_lower, iz_upper, Sz_lower, Sz_upper,
-                        ir_lower, ir_upper, Sr_lower, Sr_upper,
-                        -1., Sr_guard )
+                    deposit_field_numba(Jr*exptheta, grid[m].Jr,
+                                        iz, ir, Sz, Sr, -1.)
+                    deposit_field_numba(Jt*exptheta, grid[m].Jt,
+                                        iz, ir, Sz, Sr, -1.)
+                    deposit_field_numba(Jz*exptheta, grid[m].Jz,
+                                        iz, ir, Sz, Sr, -1.)
 
             else :
                 raise ValueError(
