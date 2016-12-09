@@ -115,7 +115,7 @@ def dens_func( z, r ):
     return(n)
 
 # The bunch
-bunch_zmin = z0 - 27.e-6
+bunch_zmin = z0 - 10.e-6
 bunch_zmax = bunch_zmin + 4.e-6
 bunch_rmax = 10.e-6
 bunch_gamma = 400.
@@ -173,7 +173,7 @@ if __name__ == '__main__':
                     period=diag_period, fldobject=sim.fld, comm=sim.comm),
                 BoostedParticleDiagnostic( zmin, zmax, c, dt_snapshot_lab,
                     Ntot_snapshot_lab, gamma_boost, diag_period, sim.fld, 
-                    select={'uz':[0.,None]}, species={'electrons':sim.ptcl[0]},
+                    select={'uz':[0.,None]}, species={'electrons':sim.ptcl[2]},
                     comm=sim.comm )
                     ]
 
