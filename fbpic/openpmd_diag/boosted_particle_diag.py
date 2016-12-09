@@ -210,7 +210,7 @@ class BoostedParticleDiagnostic(ParticleDiagnostic):
 
                 snapshot.buffered_slices[species_name] = []
 
-    def gather_particle_arrays( array, root=0 ):
+    def gather_particle_arrays( self, array, root=0 ):
         """
         Gather the compacted arrays of particle slices, on the
 
@@ -230,7 +230,7 @@ class BoostedParticleDiagnostic(ParticleDiagnostic):
         """
         # Send the local number of particles to all procs
         n_particles_local = array.shape[1]
-        n_particles_list = self.comm.allgather( n_particles_local )
+        n_particles_list = self.comm.mpi_comm.allgather( n_particles_local )
 
         # Prepare the send and receive buffers
         if self.rank == root:
@@ -246,7 +246,7 @@ class BoostedParticleDiagnostic(ParticleDiagnostic):
         recvbuf = [ gathered_array, n_size_procs, i_start_procs, REAL8 ]
 
         # Send/receive the arrays
-        self.mpi_comm.Gatherv( sendbuf, recvbuf, root=root )
+        self.comm.mpi_comm.Gatherv( sendbuf, recvbuf, root=root )
 
         # Return the receive buffer
         return( recvbuf )

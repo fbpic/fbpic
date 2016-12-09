@@ -204,8 +204,8 @@ class BoostedFieldDiagnostic(FieldDiagnostic):
             if (self.rank==0) and (global_field_array is not None):
 
                 # Write to disk
-                self.write_slices( field_array, global_iz_min, global_iz_max,
-                    snapshot, self.slice_handler.field_to_index )
+                self.write_slices( global_field_array, global_iz_min,
+                    global_iz_max, snapshot, self.slice_handler.field_to_index)
 
             # Erase the memory buffers
             snapshot.buffered_slices = []
@@ -237,9 +237,10 @@ class BoostedFieldDiagnostic(FieldDiagnostic):
         # Gather objects into lists (one element per proc)
         # Note: this is slow, as it uses the generic mpi4py routines gather.
         # (This is because for some proc field_array can be None.)
-        field_array_list = self.comm.gather( field_array, comm=self.comm_world )
-        iz_min_list = self.comm.gather( iz_min, comm=self.comm_world )
-        iz_max_list = self.comm.gather( iz_max, comm=self.comm_world )
+        mpi_comm = self.comm.mpi_comm
+        field_array_list = mpi_comm.gather( field_array )
+        iz_min_list = mpi_comm.gather( iz_min )
+        iz_max_list = mpi_comm.gather( iz_max )
 
         # First proc: merge the results
         if self.rank == 0:
@@ -266,21 +267,22 @@ class BoostedFieldDiagnostic(FieldDiagnostic):
 
                 # Allocate a the global field array, with the proper size
                 nslice = global_iz_max - global_iz_min
-                datashape = (10, n_modes, Nr, nslice)
-                global_array = np.zeros( data_shape )
+                data_shape = (10, n_modes, Nr, nslice)
+                global_field_array = np.zeros( data_shape )
 
                 # Loop through all the processors
-                # Fit the field arrays one by one into the global_array
-                for i_proc in xrange(self.top.nprocs):
+                # Fit the field arrays one by one into the global_field_array
+                for i_proc in range(self.comm.size):
 
                     # If this proc has no data, skip it
                     if field_array_list[ i_proc ] is None:
                         continue
-                    # Longitudinal indices within the array global_array
+                    # Longitudinal indices within the array global_field_array
                     s_min = iz_min_list[ i_proc ] - global_iz_min
                     s_max = iz_max_list[ i_proc ] - global_iz_min
                     # Copy the array to the proper position
-                    global_array[:,:,:, s_min:s_max] = field_array_list[i_proc]
+                    global_field_array[:,:,:, s_min:s_max] = \
+                                                    field_array_list[i_proc]
 
             # The first proc returns the result
             return( global_field_array, global_iz_min, global_iz_max )
