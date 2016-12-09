@@ -495,8 +495,7 @@ class ParticleCatcher:
         # Create a dictionary that contains the correspondance
         # between the particles quantity and array index
         self.particle_to_index = {'x':0, 'y':1, 'z':2,
-                                  'ux':3,'uy':4, 'uz':5,
-                                  'inv_gamma':6, 'w':7}
+                                  'ux':3,'uy':4, 'uz':5, 'w':6}
 
     def extract_slice( self, species, current_z_boost, previous_z_boost,
                        t, select=None ):
@@ -530,18 +529,21 @@ class ParticleCatcher:
         # Get a dictionary containing the particle data
         # When running on the GPU, this only copies to CPU the particles
         # within a small area around the output plane.
-        particle_data = self.get_particle_data( species,
+        # (Return the result in the form of a dictionary of 1darrays)
+        particle_data_dict = self.get_particle_data( species,
                             current_z_boost, previous_z_boost, t )
 
         # Get the selection of particles (slice) that crossed the
         # output plane during the last iteration
-        slice_array = self.get_particle_slice(
-                particle_data, current_z_boost, previous_z_boost )
+        # (Return the result in the form of a dictionary of smaller 1darrays)
+        slice_data_dict = self.get_particle_slice(
+                particle_data_dict, current_z_boost, previous_z_boost )
 
         # Backpropagate particles to correct output position and
         # transform particle attributes to the lab frame
+        # (Return the result in the form of a 2darray of shape (7, numpart))
         slice_array = self.interpolate_particles_to_lab_frame(
-            slice_array, current_z_boost, t )
+            slice_data_dict, current_z_boost, t )
 
         # Choose the particles based on the select criteria defined by the
         # users. Notice: this implementation still comes with a cost,
@@ -650,8 +652,9 @@ class ParticleCatcher:
 
         Parameters
         ----------
-        particle_data : float
-            Dictionary containing the particle data
+        particle_data : dict
+            Dictionary with keys 'x', 'y', 'z', 'ux', 'uy', 'uz',
+            'inv_gamma', 'w', containing the particle data, as 1darrays
 
         current_z_boost, previous_z_boost : float (m)
             Current and previous position of the output plane
@@ -659,12 +662,11 @@ class ParticleCatcher:
 
         Returns
         -------
-        slice_array : An array of reals of shape (7, numPart)
-            An array that packs together the slices of the different
-            particles.
+        slice_data : dict
+            Dictionary with keys 'x', 'y', 'z', 'ux', 'uy', 'uz',
+            'inv_gamma', 'w', containing the particle data, as 1darrays
         """
         # Shortcut
-        p2i = self.particle_to_index
         pd = particle_data
 
         # Calculate current and previous position in z
@@ -684,28 +686,25 @@ class ParticleCatcher:
             ((current_z <= current_z_boost) &
             (previous_z >= previous_z_boost))), particle_indices)
 
-        # Get number of selected particles
-        num_part = np.shape(selected_indices)[0]
+        # Create dictionary which contains only the selected particles
+        slice_data = {}
+        for quantity in pd.keys():
+            slice_data[quantity] = \
+                np.take( particle_data[quantity], selected_indices)
 
-        # Create empty 2D slice array (7, num_part)
-        slice_array = np.empty( (len(p2i), num_part,) )
+        return( slice_data )
 
-        for quantity in p2i.keys():
-                # Store particle quantities in a 2D array
-                slice_array[ p2i[quantity], ... ] = \
-                np.take(particle_data[quantity], selected_indices)
-
-        return slice_array
-
-    def interpolate_particles_to_lab_frame( self, slice_array, current_z_boost, t ):
+    def interpolate_particles_to_lab_frame( self, slice_data_dict,
+                                                    current_z_boost, t ):
         """
         Transform the particle quantities from the boosted frame to the
         lab frame. These are classical Lorentz transformation equations
 
         Parameters
         ----------
-        slice_array : float, (7, n_part)
-            2D array containing the slices of all quantities
+        slice_data_dict : dictionary
+            Dictionary with keys 'x', 'y', 'z', 'ux', 'uy', 'uz',
+            'inv_gamma', 'w', containing the particle data, as 1darrays
 
         current_z_boost : float (m)
             Current position of the output plane in the boosted frame
@@ -717,19 +716,16 @@ class ParticleCatcher:
         -------
         slice_array : An array of reals of shape (7, numPart)
             An array that packs together the slices of the different
-            particles.
+            particles: x, y, z, ux, uy, uz, w
         """
-        # Shortcut
-        p2i = self.particle_to_index
-
         # Shortcuts for particle attributes
-        x = slice_array[p2i['x']]
-        y = slice_array[p2i['y']]
-        z = slice_array[p2i['z']]
-        ux = slice_array[p2i['ux']]
-        uy = slice_array[p2i['uy']]
-        uz = slice_array[p2i['uz']]
-        inv_gamma = slice_array[p2i['inv_gamma']]
+        x = slice_data_dict['x']
+        y = slice_data_dict['y']
+        z = slice_data_dict['z']
+        ux = slice_data_dict['ux']
+        uy = slice_data_dict['uy']
+        uz = slice_data_dict['uz']
+        inv_gamma = slice_data_dict['inv_gamma']
 
         # Calculate time (t_cross) when particle and plane intersect
         # Velocity of the particles
@@ -748,19 +744,29 @@ class ParticleCatcher:
         z_lab = self.gamma_boost*( z + self.beta_boost*c*t_cross )
 
         # Back-transformation of momentum
-        gamma = np.sqrt(1. + (ux**2 + uy**2 + uz**2))
+        gamma = 1./inv_gamma
         uz_lab = self.gamma_boost*uz \
             + gamma*(self.beta_boost*self.gamma_boost)
 
+        # Create empty compact 2D slice array of shape (7, num_part)
+        # to store the final result
+        num_part = len(x)
+        slice_array = np.empty( (7, num_part), dtype=np.float64 )
+
         # Write the modified quantities to slice_array
+        p2i = self.particle_to_index
         slice_array[p2i['x'],:] = x
         slice_array[p2i['y'],:] = y
         slice_array[p2i['z'],:] = z_lab
         slice_array[p2i['ux'],:] = ux
         slice_array[p2i['uy'],:] = uy
         slice_array[p2i['uz'],:] = uz_lab
+        slice_array[p2i['w'],:] = slice_data_dict['w']
+        # Note: now that the back-transformation has been performed,
+        # the quantity inv_gamma is not need anymore. Therefore it is not
+        # stored in the returned slice_array.
 
-        return slice_array
+        return( slice_array )
 
     def apply_opmd_standard( self, slice_array, species ):
         """
