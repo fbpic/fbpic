@@ -13,6 +13,7 @@ Major features:
 import os
 import numpy as np
 from scipy.constants import c
+from mpi4py.MPI import REAL8
 from .particle_diag import ParticleDiagnostic
 
 # If numbapro is installed, it potentially allows to use a GPU
@@ -190,17 +191,65 @@ class BoostedParticleDiagnostic(ParticleDiagnostic):
             # over time into a single array
             for species_name in self.species_dict:
 
-                if snapshot.buffered_slices[species_name] != []:
-                    # Compact the slices in a single array
-                    particle_array = snapshot.compact_slices(species_name)
+                # Compact the slices in a single array (on each proc)
+                local_particle_array = snapshot.compact_slices(species_name)
 
-                    # Write this array to disk
-                    # (if this snapshot has new slices)
-                    if particle_array.size:
-                        self.write_slices( particle_array, species_name,
-                            snapshot, self.particle_catcher.particle_to_index )
+                # Gather the slices on the first proc
+                if self.comm is not None:
+                    particle_array = self.gather_particle_arrays(
+                                    local_particle_array )
+                else:
+                    particle_array = local_particle_array
 
+                # The first proc writes this array to disk
+                # (if this snapshot has new slices)
+                if self.rank==0 and particle_array.size:
+                    self.write_slices( particle_array, species_name,
+                        snapshot, self.particle_catcher.particle_to_index )
+
+                # Erase the previous slices
                 snapshot.buffered_slices[species_name] = []
+
+    def gather_particle_arrays( self, array, root=0 ):
+        """
+        Gather the compacted arrays of particle slices, on the
+
+        Parameters:
+        -----------
+        array: A local array of reals of shape (7, n_particles_local )
+            An array that packs together the slices of the different particles.
+            (First dimension corresponds to the particle position and momenta.)
+
+        root: int, optional
+            Processor that gathers the data
+
+        Returns:
+        --------
+        gathered_array: an array of shape (7, n_particles_total) or None
+        (None is returned on all other processors than root.)
+        """
+        # Send the local number of particles to all procs
+        n_particles_local = array.shape[1]
+        n_particles_list = self.comm.mpi_comm.allgather( n_particles_local )
+
+        # Prepare the send and receive buffers
+        if self.rank == root:
+            # Root process creates empty numpy array
+            gathered_shape = (7, sum( n_particles_list ) )
+            gathered_array = np.empty( gathered_shape, dtype=np.float64 )
+        else:
+            # Other processes do not need to initialize a new array
+            gathered_array = None
+        i_start_procs = tuple( 7 * np.cumsum([0] + n_particles_list[:-1]) )
+        n_size_procs = tuple( 7 * np.array(n_particles_list) )
+        sendbuf = [ array, n_size_procs[self.rank] ]
+        recvbuf = [ gathered_array, n_size_procs, i_start_procs, REAL8 ]
+
+        # Send/receive the arrays
+        self.comm.mpi_comm.Gatherv( sendbuf, recvbuf, root=root )
+
+        # Return the gathered array
+        return( gathered_array )
 
     def write_slices( self, particle_array, species_name, snapshot, p2i ):
         """
@@ -459,13 +508,15 @@ class LabSnapshot:
         -------
         paticle_array: an array of reals of shape (7, numPart)
         regardless of the dimension
-
-        Returns None if the slices are empty
+        Returns an array of size (7,0) if the slices are empty
         """
-        particle_array = np.concatenate(
-            self.buffered_slices[species], axis=1)
+        if self.buffered_slices[species] != []:
+            particle_array = np.concatenate(
+                self.buffered_slices[species], axis=1)
+        else:
+            particle_array = np.zeros( (7,0), dtype=np.float64 )
 
-        return particle_array
+        return(particle_array)
 
 class ParticleCatcher:
     """

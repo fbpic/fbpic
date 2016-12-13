@@ -8,7 +8,7 @@ It makes sure that the example input scripts in `docs/source/example_input`
 runs **without crashing**. It runs the following scripts:
 - lwfa_script.py with a single proc
 - lwfa_script.py with two proc using checkpoint and restart
-- boosted_frame_script.py with a single proc
+- boosted_frame_script.py with two procs
 - parametric_script.py with two procs
 **It does not actually check the validity of the physics involved.**
 
@@ -73,7 +73,7 @@ def test_lpa_sim_twoproc_restart():
     script = script.replace('save_checkpoints = False',
                                 'save_checkpoints = True')
     script = script.replace('N_step = 200', 'N_step = 101')
-    with open('lwfa_script.py', 'w') as f: 
+    with open('lwfa_script.py', 'w') as f:
         f.write(script)
     # Launch the modified script from the OS, with 2 proc
     response = os.system( 'mpirun -np 2 python lwfa_script.py' )
@@ -84,7 +84,7 @@ def test_lpa_sim_twoproc_restart():
                                 'use_restart = True')
     script = script.replace('save_checkpoints = True',
                                 'save_checkpoints = False')
-    with open('lwfa_script.py', 'w') as f: 
+    with open('lwfa_script.py', 'w') as f:
         f.write(script)
     # Launch the modified script from the OS, with 2 proc
     response = os.system( 'mpirun -np 2 python lwfa_script.py' )
@@ -94,9 +94,8 @@ def test_lpa_sim_twoproc_restart():
     os.chdir('../../')
     shutil.rmtree( temporary_dir )
 
-
-def test_boosted_frame_sim_singleproc():
-    "Test the example input script with one proc in `docs/source/example_input`"
+def test_boosted_frame_sim_twoproc():
+    "Test the example input script with two procs in `docs/source/example_input`"
 
     temporary_dir = './tests/tmp_test_dir'
 
@@ -111,7 +110,7 @@ def test_boosted_frame_sim_singleproc():
     # Enter the temporary directory and run the script
     os.chdir( temporary_dir )
     # Launch the script from the OS
-    response = os.system( 'python boosted_frame_script.py' )
+    response = os.system( 'mpirun -np 2 python boosted_frame_script.py' )
     assert response==0
 
     # Exit the temporary directory and suppress it
@@ -122,7 +121,7 @@ def test_parametric_sim_twoproc():
     "Test the example input script with two proc in `docs/source/example_input`"
 
     temporary_dir = './tests/tmp_test_dir'
-    
+
     # Create a temporary directory for the simulation
     # and copy the example script into this directory
     if os.path.exists( temporary_dir ):
@@ -149,13 +148,13 @@ def test_parametric_sim_twoproc():
         # expected one.
         a0_in_diag = ts.get_a0( iteration=40, pol='x' )
         assert abs( (a0 - a0_in_diag)/a0 ) < 1.e-2
-    
+
     # Exit the temporary directory and suppress it
     os.chdir('../../')
     shutil.rmtree( temporary_dir )
-    
+
 if __name__ == '__main__':
     test_lpa_sim_singleproc()
     test_lpa_sim_twoproc_restart()
-    test_boosted_frame_sim_singleproc()
+    test_boosted_frame_sim_twoproc()
     test_parametric_sim_twoproc()

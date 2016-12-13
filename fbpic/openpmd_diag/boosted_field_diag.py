@@ -16,7 +16,7 @@ import numpy as np
 from scipy.constants import c
 from .field_diag import FieldDiagnostic
 
-# If numbapro is installed, it potentially allows to use a GPU
+# If accelerate is installed, it potentially allows to use a GPU
 try :
     from fbpic.cuda_utils import cuda, cuda_tpb_bpg_1d
     cuda_installed = cuda.is_available()
@@ -184,22 +184,112 @@ class BoostedFieldDiagnostic(FieldDiagnostic):
         for snapshot in self.snapshots:
 
             # Compact the successive slices that have been buffered
-            # over time into a single array
+            # over time into a single array, on each proc
             field_array, iz_min, iz_max = snapshot.compact_slices()
+            # Perform the Lorentz transformation of the field values
+            # *from the boosted frame to the lab frame*, on each proc
+            if field_array is not None:
+                self.slice_handler.transform_fields_to_lab_frame( field_array )
+
+            # Gather the slices on the first proc
+            if self.comm is not None:
+                global_field_array, global_iz_min, global_iz_max = \
+                    self.gather_slices( field_array, iz_min, iz_max )
+            else:
+                global_field_array = field_array
+                global_iz_min = iz_min
+                global_iz_max = iz_max
+
+            # First proc writes the global array to disk (if it is not empty)
+            if (self.rank==0) and (global_field_array is not None):
+
+                # Write to disk
+                self.write_slices( global_field_array, global_iz_min,
+                    global_iz_max, snapshot, self.slice_handler.field_to_index)
+
             # Erase the memory buffers
             snapshot.buffered_slices = []
             snapshot.buffer_z_indices = []
 
-            # Write this array to disk (if this snapshot has new slices)
-            if field_array is not None:
+    def gather_slices( self, field_array, iz_min, iz_max ):
+        """
+        Stitch together the field_array of the different processors
 
-                # First perform the Lorentz transformation of the field values
-                # *from the boosted frame to the lab frame*
-                self.slice_handler.transform_fields_to_lab_frame( field_array )
+        Parameters:
+        -----------
+        field_array: ndarray of reals, or None
+            If the local proc has no slice data, this is None
+            Otherwise, it is an array of shape (10, 2*Nm-1, Nr, nslice_local)
 
-                # Write to disk
-                self.write_slices( field_array, iz_min, iz_max,
-                    snapshot, self.slice_handler.field_to_index )
+        iz_min, iz_max: ints or None
+            If the local proc has no slice data, this is None
+            Otherwise, it corresponds to the indices at which the data should
+            written, in final dataset which is on disk
+
+        Returns:
+        --------
+        A tuple with:
+        global_field_array: an array of shape (10, 2*Nm-1, Nr, nslice_global),
+           or None if none of the procs had any data
+        global_izmin, global_izmax: the indices at which the global_field_array
+           should be written (or None)
+        """
+        # Gather objects into lists (one element per proc)
+        # Note: this is slow, as it uses the generic mpi4py routines gather.
+        # (This is because for some proc field_array can be None.)
+        mpi_comm = self.comm.mpi_comm
+        field_array_list = mpi_comm.gather( field_array )
+        iz_min_list = mpi_comm.gather( iz_min )
+        iz_max_list = mpi_comm.gather( iz_max )
+
+        # First proc: merge the results
+        if self.rank == 0:
+
+            # Check whether any processor had some slices
+            no_slices = True
+            for f_array in field_array_list:
+                if f_array is not None:
+                    no_slices = False
+                    n_modes = f_array.shape[1] # n_modes is 2*Nm - 1
+                    Nr = f_array.shape[2]
+
+            # If there are no slices, set global quantities to None
+            if no_slices:
+                global_field_array = None
+                global_iz_min = None
+                global_iz_max = None
+
+            # If there are some slices, gather them
+            else:
+                # Find the global iz_min and global iz_max
+                global_iz_min = min([n for n in iz_min_list if n is not None])
+                global_iz_max = max([n for n in iz_max_list if n is not None])
+
+                # Allocate a the global field array, with the proper size
+                nslice = global_iz_max - global_iz_min
+                data_shape = (10, n_modes, Nr, nslice)
+                global_field_array = np.zeros( data_shape )
+
+                # Loop through all the processors
+                # Fit the field arrays one by one into the global_field_array
+                for i_proc in range(self.comm.size):
+
+                    # If this proc has no data, skip it
+                    if field_array_list[ i_proc ] is None:
+                        continue
+                    # Longitudinal indices within the array global_field_array
+                    s_min = iz_min_list[ i_proc ] - global_iz_min
+                    s_max = iz_max_list[ i_proc ] - global_iz_min
+                    # Copy the array to the proper position
+                    global_field_array[:,:,:, s_min:s_max] = \
+                                                    field_array_list[i_proc]
+
+            # The first proc returns the result
+            return( global_field_array, global_iz_min, global_iz_max )
+
+        # Other processors return a dummy placeholder
+        else:
+            return( None, None, None )
 
     def write_slices( self, field_array, iz_min, iz_max, snapshot, f2i ):
         """
