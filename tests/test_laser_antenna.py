@@ -12,6 +12,8 @@ longitudinal resolution on the amplitude of the emitted laser:
 below ~30 points per laser wavelength, the emitted a0 can be ~10%
 smaller than the desired value.
 
+This is tested for different particle shapes.
+
 Usage :
 -------
 In order to show the images of the laser, and manually check the
@@ -36,7 +38,7 @@ from fbpic.lpa_utils.boosted_frame import BoostConverter
 
 # Parameters
 # ----------
-show = True
+show = False
 write_files = True
 # Whether to show the plots, and check them manually
 use_cuda = True
@@ -64,21 +66,41 @@ N_show = 3 # Number of instants in which to show the plots (during propagation)
 # The boost in the case of the boosted frame run
 gamma_boost = 10.
 
-def test_antenna_labframe(show=False, write_files=False):
+def test_antenna_labframe_cubic(show=False, write_files=False):
     """
     Function that is run by py.test, when doing `python setup.py test`
     Test the emission of a laser by an antenna, in the lab frame
     """
-    run_and_check_laser_antenna(None, show, write_files)
+    run_and_check_laser_antenna(None, 'cubic', show, write_files)
 
-def test_antenna_boostedframe(show=False, write_files=False):
+def test_antenna_labframe_linear(show=False, write_files=False):
+    """
+    Function that is run by py.test, when doing `python setup.py test`
+    Test the emission of a laser by an antenna, in the lab frame
+    """
+    run_and_check_laser_antenna(None, 'linear', show, write_files)
+    if use_cuda:
+        run_and_check_laser_antenna(None, 'linear_non_atomic', 
+                                    show, write_files)
+
+def test_antenna_boostedframe_cubic(show=False, write_files=False):
     """
     Function that is run by py.test, when doing `python setup.py test`
     Test the emission of a laser by an antenna, in the boosted frame
     """
-    run_and_check_laser_antenna(gamma_boost, show, write_files)
+    run_and_check_laser_antenna(gamma_boost, 'cubic', show, write_files)
 
-def run_and_check_laser_antenna(gamma_b, show, write_files):
+def test_antenna_boostedframe_linear(show=False, write_files=False):
+    """
+    Function that is run by py.test, when doing `python setup.py test`
+    Test the emission of a laser by an antenna, in the boosted frame
+    """
+    run_and_check_laser_antenna(gamma_boost, 'linear', show, write_files)
+    if use_cuda:
+        run_and_check_laser_antenna(gamma_boost, 'linear_non_atomic', 
+                                show, write_files)
+
+def run_and_check_laser_antenna(gamma_b, shape, show, write_files):
     """
     Generic function, which runs and check the laser antenna for 
     both boosted frame and lab frame
@@ -87,6 +109,9 @@ def run_and_check_laser_antenna(gamma_b, show, write_files):
     ----------
     gamma_b: float or None
         The Lorentz factor of the boosted frame
+
+    shape: string
+        Indicates the particle shape that is being used
 
     show: bool
         Whether to show the images of the laser as pop-up windows
@@ -98,7 +123,7 @@ def run_and_check_laser_antenna(gamma_b, show, write_files):
     sim = Simulation( Nz, zmax, Nr, rmax, Nm, dt, p_zmin=0, p_zmax=0,
                     p_rmin=0, p_rmax=0, p_nz=2, p_nr=2, p_nt=2, n_e=0.,
                     zmin=zmin, use_cuda=use_cuda, boundaries='open',
-                    gamma_boost=gamma_b)
+                    gamma_boost=gamma_b, particle_shape=shape)
 
     # Remove the particles
     sim.ptcl = []
@@ -132,7 +157,7 @@ def run_and_check_laser_antenna(gamma_b, show, write_files):
     sim.step( Ntot_step - N_show*N_step, show_progress=False )
 
     # Check the transverse E and B field
-    Nz_half = sim.fld.interp[1].Nz/2 + 2
+    Nz_half = int(sim.fld.interp[1].Nz/2) + 2
     z = sim.fld.interp[1].z[Nz_half:-sim.comm.n_guard]
     r = sim.fld.interp[1].r
     # Loop through the different fields
@@ -221,5 +246,7 @@ def gaussian_laser( z, r, a0, z0_phase, z0_prop, ctau, lambda0 ):
 if __name__ == '__main__' :
 
     # Run the testing functions
-    test_antenna_labframe(show, write_files)
-    test_antenna_boostedframe(show, write_files)
+    test_antenna_labframe_cubic(show, write_files)
+    test_antenna_labframe_linear(show, write_files)
+    test_antenna_boostedframe_cubic(show, write_files)
+    test_antenna_boostedframe_linear(show, write_files)
