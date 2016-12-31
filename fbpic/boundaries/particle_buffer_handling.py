@@ -6,6 +6,7 @@ This file is part of the Fourier-Bessel Particle-In-Cell code (FB-PIC)
 It defines the structure necessary to handle mpi buffers for the particles
 """
 import numpy as np
+import numba
 try:
     from fbpic.cuda_utils import cuda, cuda_tpb_bpg_1d
     if cuda.is_available():
@@ -398,6 +399,51 @@ def add_buffers_gpu( species, recv_left, recv_right ):
     # Adapt the total number of particles
     species.Ntot = new_Ntot
 
+
+def shift_particles_periodic_subdomain( species, zmin, zmax ):
+    """
+    Assuming the local subdomain is periodic:
+    Shift the particle positions by an integer number of box length,
+    so that outside particle are back inside the physical domain
+
+    Parameters:
+    -----------
+    species: an fbpic.Species object
+        Contains the particle data
+    zmin, zmax: floats
+        Positions of the edges of the periodic box
+    """
+    # Perform the shift on the GPU
+    if species.use_cuda:
+        dim_grid_1d, dim_block_1d = cuda_tpb_bpg_1d( species.Ntot )
+        shift_particles_periodic_cuda[ dim_grid_1d, dim_block_1d ](
+                                                    species.z, zmin, zmax )
+    # Perform the shift on the CPU
+    else:
+        shift_particles_periodic_numba( species.z, zmin, zmax )
+
+@numba.jit(nopython=True)
+def shift_particles_periodic_numba( z, zmin, zmax ):
+    """
+    Shift the particle positions by an integer number of box length,
+    so that outside particle are back inside the physical domain
+
+    Parameters:
+    -----------
+    z: 1darray of floats
+        The z position of the particles (one element per particle)
+    zmin, zmax: floats
+        Positions of the edges of the periodic box
+    """
+    # Get box length
+    l_box = zmax - zmin
+    # Loop through the particles and shift their positions
+    for i in range(len(z)):
+        while z[i] >= zmax:
+            z[i] -= l_box
+        while z[i] < zmin:
+            z[i] += l_box
+
 # Cuda routines
 # -------------
 if cuda_installed:
@@ -484,3 +530,26 @@ if cuda_installed:
             particle_array[i] = stay_buffer[i-n_left]
         elif i < n_left + n_stay + n_right:
             particle_array[i] = right_buffer[i-n_left-n_stay]
+
+    @cuda.jit('void(float64[:], float64, float64)')
+    def shift_particles_periodic_cuda( z, zmin, zmax ):
+        """
+        Shift the particle positions by an integer number of box length,
+        so that outside particle are back inside the physical domain
+
+        Parameters:
+        -----------
+        z: 1darray of floats
+            The z position of the particles (one element per particle)
+        zmin, zmax: floats
+            Positions of the edges of the periodic box
+        """
+        # Get a 1D CUDA grid (the index corresponds to a particle index)
+        i = cuda.grid(1)
+        # Get box length
+        l_box = zmax - zmin
+        # Shift particle position
+        while z[i] >= zmax:
+            z[i] -= l_box
+        while z[i] < zmin:
+            z[i] += l_box
