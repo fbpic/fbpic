@@ -549,7 +549,8 @@ if cuda_installed:
         # Get box length
         l_box = zmax - zmin
         # Shift particle position
-        while z[i] >= zmax:
-            z[i] -= l_box
-        while z[i] < zmin:
-            z[i] += l_box
+        if i < z.shape[0]:
+            while z[i] >= zmax:
+                z[i] -= l_box
+            while z[i] < zmin:
+                z[i] += l_box
