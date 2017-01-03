@@ -110,17 +110,17 @@ def gather_field_numba(exptheta, m, Fgrid, Fptcl,
         Contains the fields for each macroparticle
         Is modified by this function
 
-    iz, ir :  2darray of ints
-        (one element per macroparticle per cell)
-        Contains the index of the cells that the macro particle
+    iz, ir : 2darray of ints
+        Arrays of shape (shape_order+1, Ntot)
+        where Ntot is the number of macroparticles
+        Contains the index of the cells that each macroparticle
         will gather from.
-        i.E.: iz[2][1] is the cell index of the 3. Cell(from left)
-        of the particle with number 1.
 
-    Sz, Sr: 2darray of ints
-        (one element per macroparticle per cell)
-        Contains the weight for respective sells from iz and ir
-        per particle.
+    Sz, Sr: 2darray of floats
+        Arrays of shape (shape_order+1, Ntot)
+        where Ntot is the number of macroparticles
+        Contains the weight for respective cells from iz and ir,
+        for each macroparticle.
 
     sign_guards : float
        The sign (+1 or -1) with which the weight of the guard cells should
@@ -133,29 +133,24 @@ def gather_field_numba(exptheta, m, Fgrid, Fptcl,
     for ip in range(Ntot):
         # Erase the temporary variable
         F = 0.j
-        # Create help variables for the right index and shape. This is necessary
-        # because otherwise the signum in the z-component will be wrong
-        # because this method gets called three times. If the indices were
-        # to be corrected in the first call of this function by doing
-        # ir[cell_index_r][ip] = abs(ir[cell_index_r][ip]) - 1
-        # then for the second and thrid call the signum would never change
-        # but it has to in the thrid call (since the z-component has a
-        # different signum change)
-        ir_corr = 0
-        Sr_corr = 0
         # Loop over all the adjacent cells (given by shape order)
+        # Use helper variables `ir_corr` and `Sr_corr`.
+        # This is necessary, because ir and Sr should **not** be modified
+        # **in-place**. (This is because ir and Sr are reused several
+        # times, as we call the present function 3 times, with different
+        # values for sign_guards.)
         for cell_index_r in range(ir.shape[0]):
             for cell_index_z in range(iz.shape[0]):
                 # Correct the guard cell index and sign
-                if ir[cell_index_r][ip] < 0:
-                    ir_corr = abs(ir[cell_index_r][ip]) - 1
-                    Sr_corr = sign_guards * Sr[cell_index_r][ip]
+                if ir[cell_index_r, ip] < 0:
+                    ir_corr = abs(ir[cell_index_r, ip]) - 1
+                    Sr_corr = sign_guards * Sr[cell_index_r, ip]
                 else:
-                    ir_corr = ir[cell_index_r][ip]
-                    Sr_corr = Sr[cell_index_r][ip]
+                    ir_corr = ir[cell_index_r, ip]
+                    Sr_corr = Sr[cell_index_r, ip]
                 # Gather the field value at the respective grid point
-                F += Sz[cell_index_z][ip] * Sr_corr * \
-                    Fgrid[iz[cell_index_z][ip], ir_corr]
+                F += Sz[cell_index_z, ip] * Sr_corr * \
+                    Fgrid[ iz[cell_index_z, ip], ir_corr]
 
         # Add the complex phase
         if m == 0:
@@ -184,17 +179,17 @@ def deposit_field_numba(Fptcl, Fgrid,
         Contains the fields on the interpolation grid.
         Is modified by this function
 
-    iz, ir :  2darray of ints
-        (one element per macroparticle per cell)
-        Contains the index of the cells that the macro particle
-        will gather from.
-        i.E.: iz[2][1] is the cell index of the 3. Cell(from left)
-        of the particle with number 1.
+    iz, ir : 2darray of ints
+        Arrays of shape (shape_order+1, Ntot)
+        where Ntot is the number of macroparticles
+        Contains the index of the cells that each macroparticle
+        will deposit to.
 
-    Sz, Sr: 2darray of ints
-        (one element per macroparticle per cell)
-        Contains the weight for respective sells from iz and ir
-        per partice
+    Sz, Sr: 2darray of floats
+        Arrays of shape (shape_order+1, Ntot)
+        where Ntot is the number of macroparticles
+        Contains the weight for respective cells from iz and ir,
+        for each macroparticle.
 
     sign_guards : float
        The sign (+1 or -1) with which the weight of the guard cells should
@@ -206,12 +201,18 @@ def deposit_field_numba(Fptcl, Fgrid,
     # Loop over all particles
     for ip in range(Ntot):
         # Loop over adjacent cells (given by shape order)
+        # Use helper variables `ir_corr` and `Sr_corr`, in order to avoid
+        # modifying ir and Sr in place. (This is not strictly necessary,
+        # but is just here as a safeguard.)
         for cell_index_r in range(ir.shape[0]):
             for cell_index_z in range(iz.shape[0]):
                 # Correct the guard cell index and sign
-                if ir[cell_index_r][ip] < 0:
-                    ir[cell_index_r][ip] = abs(ir[cell_index_r][ip]) - 1
-                    Sr[cell_index_r][ip] = sign_guards*Sr[cell_index_r][ip]
+                if ir[cell_index_r, ip] < 0:
+                    ir_corr = abs(ir[cell_index_r, ip]) - 1
+                    Sr_corr = sign_guards * Sr[cell_index_r, ip]
+                else:
+                    ir_corr = ir[cell_index_r, ip]
+                    Sr_corr = Sr[cell_index_r, ip]
                 # Deposit field from particle to the respective grid point
-                Fgrid[iz[cell_index_z][ip], ir[cell_index_r][ip]] += \
-                    Sz[cell_index_z][ip] * Sr[cell_index_r][ip] * Fptcl[ip]
+                Fgrid[ iz[cell_index_z, ip], ir_corr ] += \
+                    Sz[cell_index_z,ip] * Sr_corr * Fptcl[ip]

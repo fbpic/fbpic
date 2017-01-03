@@ -43,17 +43,17 @@ def weights(x, invdx, offset, Nx, direction, shape_order):
     --------
     A tuple containing :
 
-    i: 2darray of floats
-        An array of shape (shape_order+1, Nptcl)
-        where Nptcl is the number of macroparticles
+    i: 2darray of ints
+        An array of shape (shape_order+1, Ntot)
+        where Ntot is the number of macroparticles
         (i.e. the number of elements in the array x)
         This array contains the indices of the grid cells
         (along the axis specified by `direction`) where each macroparticle
         deposits charge/current and gathers field data.
 
     S: 2darray of floats
-        An array of shape (shape_order+1, Nptcl)
-        where Nptcl is the number of macroparticles
+        An array of shape (shape_order+1, Ntot)
+        where Ntot is the number of macroparticles
         (i.e. the number of elements in the array x)
         This array contains the shape factors (a.k.a. interpolation weights)
         that correspond to each of the indices in the array `i`.
