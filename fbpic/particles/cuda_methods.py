@@ -482,7 +482,7 @@ def gather_field_gpu_cubic(x, y, z,
     """
     Gathering of the fields (E and B) using numba on the GPU.
     Iterates over the particles, calculates the weighted amount
-    of fields acting on each particle based on its shape (linear).
+    of fields acting on each particle based on its shape (cubic).
     Fields are gathered in cylindrical coordinates and then
     transformed to cartesian coordinates.
     Supports only mode 0 and 1.
@@ -609,9 +609,11 @@ def gather_field_gpu_cubic(x, y, z,
                 Fr_m += Sz[index_z]*Sr[index_r]*Er_m0[iz[index_z], ir[index_r]]
                 Ft_m += Sz[index_z]*Sr[index_r]*Et_m0[iz[index_z], ir[index_r]]
                 if Sz[index_z]*Sr[index_r] < 0:
-                    Fz_m += (-1.)*Sz[index_z]*Sr[index_r]*Ez_m0[iz[index_z], ir[index_r]]
+                    Fz_m += (-1.)*Sz[index_z]*Sr[index_r]* \
+                        Ez_m0[iz[index_z], ir[index_r]]
                 else:
-                    Fz_m += Sz[index_z]*Sr[index_r]*Ez_m0[iz[index_z], ir[index_r]]
+                    Fz_m += Sz[index_z]*Sr[index_r]* \
+                        Ez_m0[iz[index_z], ir[index_r]]
 
         Fr += (Fr_m*exptheta_m0).real
         Ft += (Ft_m*exptheta_m0).real
@@ -628,11 +630,15 @@ def gather_field_gpu_cubic(x, y, z,
         for index_r in range(4):
             for index_z in range(4):
                 if Sz[index_z]*Sr[index_r] < 0:
-                    Fr_m += (-1.)*Sz[index_z]*Sr[index_r]*Er_m1[iz[index_z], ir[index_r]]
-                    Ft_m += (-1.)*Sz[index_z]*Sr[index_r]*Et_m1[iz[index_z], ir[index_r]]
+                    Fr_m += (-1.)*Sz[index_z]*Sr[index_r]* \
+                                Er_m1[iz[index_z], ir[index_r]]
+                    Ft_m += (-1.)*Sz[index_z]*Sr[index_r]* \
+                                Et_m1[iz[index_z], ir[index_r]]
                 else:
-                    Fr_m += Sz[index_z]*Sr[index_r]*Er_m1[iz[index_z], ir[index_r]]
-                    Ft_m += Sz[index_z]*Sr[index_r]*Et_m1[iz[index_z], ir[index_r]]
+                    Fr_m += Sz[index_z]*Sr[index_r]* \
+                                Er_m1[iz[index_z], ir[index_r]]
+                    Ft_m += Sz[index_z]*Sr[index_r]* \
+                                Et_m1[iz[index_z], ir[index_r]]
                 Fz_m += Sz[index_z]*Sr[index_r]*Ez_m1[iz[index_z], ir[index_r]]
 
         # Add the fields from the mode 1
@@ -664,12 +670,16 @@ def gather_field_gpu_cubic(x, y, z,
         # Add the fields for mode 0
         for index_r in range(4):
             for index_z in range(4):
-                Fr_m += Sz[index_z]*Sr[index_r]*Br_m0[iz[index_z], ir[index_r]]
-                Ft_m += Sz[index_z]*Sr[index_r]*Bt_m0[iz[index_z], ir[index_r]]
+                Fr_m += Sz[index_z]*Sr[index_r]* \
+                    Br_m0[iz[index_z], ir[index_r]]
+                Ft_m += Sz[index_z]*Sr[index_r]* \
+                    Bt_m0[iz[index_z], ir[index_r]]
                 if Sz[index_z]*Sr[index_r] < 0:
-                    Fz_m += (-1.)*Sz[index_z]*Sr[index_r]*Bz_m0[iz[index_z], ir[index_r]]
+                    Fz_m += (-1.)*Sz[index_z]*Sr[index_r]* \
+                        Bz_m0[iz[index_z], ir[index_r]]
                 else:
-                    Fz_m += Sz[index_z]*Sr[index_r]*Bz_m0[iz[index_z], ir[index_r]]
+                    Fz_m += Sz[index_z]*Sr[index_r]* \
+                        Bz_m0[iz[index_z], ir[index_r]]
 
         # Add the fields from the mode 0
         Fr += (Fr_m*exptheta_m0).real
@@ -688,11 +698,15 @@ def gather_field_gpu_cubic(x, y, z,
         for index_r in range(4):
             for index_z in range(4):
                 if Sz[index_z]*Sr[index_r] < 0:
-                    Fr_m += (-1.)*Sz[index_z]*Sr[index_r]*Br_m1[iz[index_z], ir[index_r]]
-                    Ft_m += (-1.)*Sz[index_z]*Sr[index_r]*Bt_m1[iz[index_z], ir[index_r]]
+                    Fr_m += (-1.)*Sz[index_z]*Sr[index_r]* \
+                        Br_m1[iz[index_z], ir[index_r]]
+                    Ft_m += (-1.)*Sz[index_z]*Sr[index_r]* \
+                        Bt_m1[iz[index_z], ir[index_r]]
                 else:
-                    Fr_m += Sz[index_z]*Sr[index_r]*Br_m1[iz[index_z], ir[index_r]]
-                    Ft_m += Sz[index_z]*Sr[index_r]*Bt_m1[iz[index_z], ir[index_r]]
+                    Fr_m += Sz[index_z]*Sr[index_r]* \
+                        Br_m1[iz[index_z], ir[index_r]]
+                    Ft_m += Sz[index_z]*Sr[index_r]* \
+                        Bt_m1[iz[index_z], ir[index_r]]
                 Fz_m += Sz[index_z]*Sr[index_r]*Bz_m1[iz[index_z], ir[index_r]]
 
         # Add the fields from the mode 1
