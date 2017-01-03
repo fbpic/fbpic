@@ -13,11 +13,11 @@ import numpy as np
 
 def weights(x, invdx, offset, Nx, direction, shape_order):
     """
-    Return the matrix indices and the shape factors for a given direction
-    and a given shape order.
+    Return the array of cell indices and corresponding shape factors
+    for current/charge deposition and field gathering
 
-    Parameters
-    ----------
+    Parameters:
+    -----------
     x : 1darray of floats (in meters)
         Array of particle positions along a given direction
         (one element per macroparticle)
@@ -39,76 +39,69 @@ def weights(x, invdx, offset, Nx, direction, shape_order):
         Order of the shape factor.
         Either 1 or 3
 
-
-    -------
+    Returns:
+    --------
     A tuple containing :
 
-    i: 1D array of 1D arrays
-        This array contains the indicies for each particle
-        the first index is the respective cell index,
-        the second for the respective particle
+    i: 2darray of floats
+        An array of shape (shape_order+1, Nptcl)
+        where Nptcl is the number of macroparticles
+        (i.e. the number of elements in the array x)
+        This array contains the indices of the grid cells
+        (along the axis specified by `direction`) where each macroparticle
+        deposits charge/current and gathers field data.
 
-    S: 1D array of 1D arrays
-        This array contains the shape factors for each particle
-        the first index is the respective cell index,
-        the second for the respective particle
-
+    S: 2darray of floats
+        An array of shape (shape_order+1, Nptcl)
+        where Nptcl is the number of macroparticles
+        (i.e. the number of elements in the array x)
+        This array contains the shape factors (a.k.a. interpolation weights)
+        that correspond to each of the indices in the array `i`.
     """
-
     # Positions of the particles, in the cell unit
     x_cell = invdx*(x - offset) - 0.5
 
     # Initialize empty arrays of the correct size
-    i = []
-    S = []
+    i = np.empty( (shape_order+1, len(x)), dtype=np.int64)
+    S = np.empty( (shape_order+1, len(x)), dtype=np.float64)
 
     # Indices and shapes
     if shape_order == 1:
-        i.append(np.floor(x_cell).astype('int'))
-        i.append(i[0] + 1)
+        i[0,:] = np.floor(x_cell).astype('int')
+        i[1,:] = i[0,:] + 1
         # Linear weight
-        S.append(i[1] - x_cell)
-        S.append(x_cell - i[0])
+        S[0,:] = i[1,:] - x_cell
+        S[1,:] = x_cell - i[0,:]
     elif shape_order == 3:
-        i.append(np.floor(x_cell).astype('int') - 1)
-        i.append(i[0] + 1)
-        i.append(i[1] + 1)
-        i.append(i[2] + 1)
-        # Qubic Weights
-        S.append(-1./6. * ((x_cell-i[0])-2)**3)
-        S.append(1./6. * (3*((x_cell-i[1])**3) - 6*((x_cell-i[1])**2)+4))
-        S.append(1./6. * (3*((i[2]-x_cell)**3) - 6*((i[2]-x_cell)**2)+4))
-        S.append(-1./6. * ((i[3]-x_cell)-2)**3)
+        i[0,:] = np.floor(x_cell).astype('int') - 1
+        i[1,:] = i[0,:] + 1
+        i[2,:] = i[0,:] + 2
+        i[3,:] = i[0,:] + 3
+        # Cubic Weights
+        S[0,:] = -1./6. * ((x_cell-i[0])-2)**3
+        S[1,:] = 1./6. * (3*((x_cell-i[1])**3) - 6*((x_cell-i[1])**2)+4)
+        S[2,:] = 1./6. * (3*((i[2]-x_cell)**3) - 6*((i[2]-x_cell)**2)+4)
+        S[3,:] = -1./6. * ((i[3]-x_cell)-2)**3
     else:
         raise ValueError("shapes other than linear and cubic are not supported yet.")
 
-    # Periodic boundary conditions
-    # Counter to go through the indices
-    # Note: We cycle through the indices for the cells.
-    # in i[0] we have the indicies of the cells for all the particles that
-    # lie the most to the left. In i[1] the cell indices next to it for each
-    # particle.
-    counter = 0
+    # Periodic boundary conditions in z
     if direction == 'z':
-        for index in i:
-            # Lower Bound Periodic
-            i[counter] = np.where(i[counter] < 0, i[counter]+Nx, i[counter])
-            # Upper Bound Periodic
-            i[counter] = np.where(i[counter] > Nx-1, i[counter]-Nx, i[counter])
-            counter += 1
-
+        # Lower Bound Periodic
+        i = np.where( i < 0, i+Nx, i )
+        # Upper Bound Periodic
+        i = np.where( i > Nx-1, i-Nx, i )
+    # Absorbing boundary condition at the upper r boundary
     elif direction == 'r':
-        for index in i:
-            # Upper bound : absorbing
-            i[counter] = np.where(index > Nx-1, Nx-1, i[counter])
-            counter += 1
-            # Note: The lower bound index shift for r is done in the gather
-            # and deposit methods because the sign changes .
-            # This avoids using specific guard cells.
+        i = np.where(  i > Nx-1, Nx-1, i )
+        # Note: The lower bound index shift for r is done in the gather
+        # and deposit methods because the sign changes.
+        # This avoids using specific guard cells.
     else:
         raise ValueError("Unrecognized `direction` : %s" % direction)
+
     # Return the result
-    return(np.asarray(i, dtype=np.int64), np.asarray(S, dtype=np.float64))
+    return( i, S )
 
 # ----------------------------
 # Angle initialization utility
