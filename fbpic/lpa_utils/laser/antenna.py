@@ -1,5 +1,5 @@
 # Copyright 2016, FBPIC contributors
-# Authors: Remi Lehe, Manuel Kirchen
+# Authors: Remi Lehe, Manuel Kirchen, Kevin Peters
 # License: 3-Clause-BSD-LBNL
 """
 This file is part of the Fourier-Bessel Particle-In-Cell code (FB-PIC)

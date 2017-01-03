@@ -1,5 +1,5 @@
 # Copyright 2016, FBPIC contributors
-# Authors: Remi Lehe, Manuel Kirchen
+# Authors: Remi Lehe, Manuel Kirchen, Kevin Peters
 # License: 3-Clause-BSD-LBNL
 """
 This file is part of the Fourier-Bessel Particle-In-Cell code (FB-PIC)
@@ -111,11 +111,11 @@ class Particles(object) :
             to initialize the sorting of the particles per cell.
 
         particle_shape: str, optional
-            This attribute sets the particle shape for the deposition steps
+            Set the particle shape for the charge/current deposition.
             Possible values are 'cubic', 'linear' and 'linear_non_atomic'.
-            While 'cubic' is identified with third order shapes and linear
-            with first order shapes, 'linear_non_atomic' uses an equivalent
-            deposition scheme to 'linear' which is for now supported for tests.
+            While 'cubic' corresponds to third order shapes and 'linear'
+            to first order shapes, 'linear_non_atomic' uses an equivalent
+            deposition scheme to 'linear' which avoids atomics on the GPU.
         """
         # Register the timestep
         self.dt = dt
