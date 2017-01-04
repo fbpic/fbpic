@@ -1,5 +1,5 @@
 # Copyright 2016, FBPIC contributors
-# Authors: Remi Lehe, Manuel Kirchen
+# Authors: Remi Lehe, Manuel Kirchen, Kevin Peters
 # License: 3-Clause-BSD-LBNL
 """
 This file is part of the Fourier-Bessel Particle-In-Cell code (FB-PIC)
@@ -48,6 +48,8 @@ class LaserAntenna( object ):
     For GPU performance, the charge/current are deposited in a small-size array
     (corresponding to a thin slice in z) which is then transfered to the GPU
     and added into the full-size array of charge/current.
+    Note that the antenna always uses linear shape factors (even when the
+    rest of the simulation uses cubic shape factors.)
     """
     def __init__( self, E0, w0, ctau, z0, zf, k0,
                     theta_pol, z0_antenna, dr_grid, Nr_grid, Nm,
@@ -326,20 +328,20 @@ class LaserAntenna( object ):
         grid: a list of InterpolationGrid object
             The grids on which to the deposit the charge/current
 
-        iz, ir :  2darray of ints
-            (one element per macroparticle per cell)
-            Contains the index of the cells that the macro particle
-            will gather from.
-            i.E.: iz[2][1] is the cell index of the 3. Cell(from left)
-            of the particle with number 1.
+        iz, ir : 2darray of ints
+            Arrays of shape (shape_order+1, Ntot)
+            where Ntot is the number of macroparticles.
+            Contains the index of the cells that each virtual macroparticle
+            will deposit to.
             (In the case of the laser antenna, these arrays are constant
             in principle; but they are kept as arrays for compatibility
             with the deposit_field_numba function.)
 
         Sz, Sr: 2darray of ints
-            (one element per macroparticle per cell)
-            Contains the weight for respective sells from iz and ir
-            per partice
+            Arrays of shape (shape_order+1, Ntot)
+            where Ntot is the number of macroparticles
+            Contains the weight for respective cells from iz and ir,
+            for each macroparticle.
         """
         # Position of the particles
         x = self.baseline_x + q*self.excursion_x

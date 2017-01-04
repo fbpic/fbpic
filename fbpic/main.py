@@ -164,11 +164,11 @@ class Simulation(object):
               parameters and output folder depend on the MPI rank.
 
         particle_shape: str, optional
-            This attribute sets the particle shape for the deposition steps
+            Set the particle shape for the charge/current deposition.
             Possible values are 'cubic', 'linear' and 'linear_non_atomic'.
-            While 'cubic' is identified with third order shapes and linear
-            with first order shapes, 'linear_non_atomic' uses an equivalent
-            deposition scheme to 'linear' which is for now supported for tests.
+            While 'cubic' corresponds to third order shapes and 'linear'
+            to first order shapes, 'linear_non_atomic' uses an equivalent
+            deposition scheme to 'linear' which avoids atomics on the GPU.
         """
         # Check whether to use cuda
         self.use_cuda = use_cuda
