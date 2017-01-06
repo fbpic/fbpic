@@ -12,7 +12,7 @@ from fbpic.particles.particles import Particles
 from .field_buffer_handling import BufferHandler
 from .guard_cell_damping import GuardCellDamper
 from .particle_buffer_handling import remove_outside_particles, \
-     add_buffers_to_particles
+     add_buffers_to_particles, shift_particles_periodic_subdomain
 
 # Dictionary of correspondance between numpy types and mpi types
 # (Necessary when calling Gatherv)
@@ -76,7 +76,7 @@ class BoundaryCommunicator(object):
             If the stencil fits into the guard cells, no damping is
             performed, between two processors. (Damping is still performed
             in the guard cells that correspond to open boundaries)
-    
+
         use_all_mpi_ranks: bool, optional
             - if `use_all_mpi_ranks` is True (default):
               All the MPI ranks will contribute to the same simulation,
@@ -373,7 +373,48 @@ class BoundaryCommunicator(object):
     def exchange_particles(self, species, fld, time ):
         """
         Look for particles that are located outside of the physical boundaries
-        and exchange them with the corresponding neighboring processor.
+        and:
+         - for open boundaries: remove the particles at the edges of the global
+           box and (when using a moving window) add the new particles from
+           the moving window
+         - for boundaries with neighboring processors: exchange particles that
+           are outside of the local physical subdomain
+         - for single-proc periodic simulation (periodic boundaries on both
+           sides): simply shift the particle positions by an integer number
+           of box length, so that outside particle are back inside the
+           physical domain
+
+        Parameters:
+        ------------
+        species: a Particle object
+            The object corresponding to a given species
+
+        fld: a Fields object
+            Contains information about the dimension of the grid,
+            and the prefix sum (when using the GPU).
+            The object itself is not modified by this routine.
+
+        time: float (seconds)
+            The global time of the simulation
+            (Needed in the case of a flowing plasma which is generate
+            from a density profile: in the case the time is used in
+            order to infer how much the plasma has moved)
+        """
+        # For single-proc periodic simulation (periodic boundaries)
+        # simply shift the particle positions by an integer number
+        if self.n_guard == 0:
+            shift_particles_periodic_subdomain( species,
+                    fld.interp[0].zmin, fld.interp[0].zmax )
+        # Otherwise, remove particles that are outside of the local physical
+        # subdomain and send them to neighboring processors
+        else:
+            self.exchange_particles_aperiodic_subdomain( species, fld, time )
+
+    def exchange_particles_aperiodic_subdomain(self, species, fld, time ):
+        """
+        Look for particles that are located outside of the physical boundaries
+        of the local subdomain and exchange them with the corresponding
+        neighboring processor.
         Also remove the particles that are below the left boundary of the
         global box, and (when using the moving window) add particles at the
         right boundary of the global box.
