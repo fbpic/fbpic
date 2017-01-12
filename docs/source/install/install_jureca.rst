@@ -10,7 +10,7 @@ Installation and usage of FBPIC requires the following steps:
 -  Loading the cluster modules
 -  Installation of Anaconda
 -  Installation of FBPIC
--  Allocation of ressources and running simulations
+-  Allocation of resources and running simulations
 
 Loading the cluster modules
 ---------------------------
@@ -21,12 +21,15 @@ distribution need to be loaded.
 Therefore, the ``.bashrc`` should contain the following:
 
 ::
-   
-    module load intel-para/2015.07
+
+    module load Intel
+    module load ParaStationMPI
     module load CUDA
     module load HDF5
-    module load mpi4py/1.3-Python-2.7.10
-    module load h5py
+    module load mpi4py/2.0.0-Python-2.7.12
+    module load h5py/2.6.0-Python-2.7.12
+
+Please note that the exact versions may change in the future.
 
 Installation of Anaconda
 ------------------------------------------------
@@ -34,13 +37,13 @@ Installation of Anaconda
 In order to download and install `Anaconda <https://www.continuum.io/downloads>`__, type:
 
 ::
-   
-    wget https://3230d63b5fc54e62148e-c95ac804525aac4b6dba79b00b39d1d3.ssl.cf1.rackcdn.com/Anaconda2-2.4.1-Linux-x86_64.sh
-    bash Anaconda2-2.4.1-Linux-x86_64.sh
+
+    wget https://repo.continuum.io/archive/Anaconda2-4.2.0-Linux-x86_64.sh
+    bash Anaconda2-4.2.0-Linux-x86_64.sh
 
 Then install the dependencies of FBPIC:
 ::
-   
+
    conda install numba accelerate accelerate_cudalib
    conda install -c conda-forge pyfftw
 
@@ -51,9 +54,12 @@ One can check if the correct MPI is linked by opening a ``python`` shell
 and checking:
 
 ::
-   
+
     from mpi4py import MPI
     MPI.Get_library_version()
+
+Note that the ``PATH`` and ``PYTHONPATH`` environment variables have to be set
+after the ``module loads ...`` in your ``.bashrc`` to work with the conda environment.
 
 Installation of FBPIC
 ---------------------
@@ -61,7 +67,7 @@ Installation of FBPIC
 Finally, clone FBPIC using ``git``, ``cd`` into the folder ``fbpic/``
 and type
 ::
-   
+
    python setup.py install
 
 Running simulations
@@ -69,7 +75,7 @@ Running simulations
 
 In the following, it is explained how to allocate and use
 **interactive** jobs on JURECA. For the usage of normal jobs, one can
-use the similar commands in a jobscript. More information can be found
+use the similar commands in a job script. More information can be found
 here:
 
 ``http://www.fz-juelich.de/ias/jsc/EN/Expertise/Supercomputers/JURECA/UserInfo/UserInfo_node.html``
