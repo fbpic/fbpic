@@ -310,6 +310,109 @@ def add_elec_bunch_file( sim, filename, Q_tot, z_off=0., boost=None,
                              filter_currents, check_gaminv=False,
                              direction = direction)
 
+def add_elec_bunch_openPMD( sim, ts_path, z_off=0., species=None, select=None,
+                            iteration=None, boost=None, filter_currents=True):
+    """
+    Introduce a relativistic electron bunch in the simulation,
+    along with its space charge field, loading particles from an openPMD
+    timeseries.
+
+    Parameters
+    ----------
+    sim : a Simulation object
+        The structure that contains the simulation.
+
+    ts_path : string
+        The path to the directory where the openPMD files are.
+        For the moment, only HDF5 files are supported. There should be
+        one file per iteration, and the name of the files should end
+        with the iteration number, followed by '.h5' (e.g. data0005000.h5)
+
+    z_off: float (in meters)
+        Shift the particle positions in z by z_off. By default the initialized
+        phasespace is centered at z=0.
+
+    species: string
+        A string indicating the name of the species
+        This is optional if there is only one species
+
+    select: dict, optional
+        Either None or a dictionary of rules
+        to select the particles, of the form
+        'x' : [-4., 10.]   (Particles having x between -4 and 10 microns)
+        'ux' : [-0.1, 0.1] (Particles having ux between -0.1 and 0.1 mc)
+        'uz' : [5., None]  (Particles with uz above 5 mc)
+
+    iteration: integer (optional)
+       The iteration number of the checkpoint from which to restart
+       If None, the last iteration of the timeseries will be used.
+
+    boost : a BoostConverter object, optional
+        A BoostConverter object defining the Lorentz boost of
+        the simulation.
+
+    filter_currents : bool, optional
+        Whether to filter the currents in k space (True by default)
+    """
+
+    # Import openPMD viewer
+    try:
+        from opmd_viewer import OpenPMDTimeSeries
+    except ImportError:
+        raise ImportError(
+        'The package `opmd_viewer` is required to restart from checkpoints.'
+        '\nPlease install it from https://github.com/openPMD/openPMD-viewer')
+    ts = OpenPMDTimeSeries(ts_path)
+    # Extract phasespace and particle weights
+    x, y, z, ux, uy, uz, w = ts.get_particle(
+                                ['x', 'y', 'z', 'ux', 'uy', 'uz', 'w'],
+                                iteration=iteration, species=species,
+                                select=select)
+
+    # Shift the center of the phasespace to z=0
+    z = z - (np.amax(z) + np.amin(z)) / 2
+    # Get the number of macroparticles in the loaded phasespace
+    N_part = z.size
+
+    # Create dummy electrons with the correct number of particles
+    relat_elec = Particles( q=-e, m=m_e, n=1.,
+                            Npz=N_part, zmin=1., zmax=2.,
+                            Npr=1, rmin=0., rmax=1.,
+                            Nptheta=1, dt=sim.dt,
+                            continuous_injection=False,
+                            dens_func=None, use_cuda=sim.use_cuda,
+                            grid_shape=sim.fld.interp[0].Ez.shape )
+
+    # Replace dummy particle parameters with phase space from text file
+    # Convert lengths from microns to meters
+    relat_elec.x[:] = x[:] * 1.e-6
+    relat_elec.y[:] = y[:] * 1.e-6
+    relat_elec.z[:] = z[:] * 1.e-6 + z_off
+    relat_elec.ux[:] = ux[:]
+    relat_elec.uy[:] = uy[:]
+    relat_elec.uz[:] = uz[:]
+    relat_elec.inv_gamma[:] = 1./np.sqrt( \
+        1. + relat_elec.ux**2 + relat_elec.uy**2 + relat_elec.uz**2 )
+    # Calculate weights (charge of macroparticle)
+    # assuming equally weighted particles as used in particle tracking codes
+    # multiply by -1 to make them negatively charged
+    relat_elec.w[:] = -e * w[:]
+
+    # Transform particle distribution in
+    # the Lorentz boosted frame, if gamma_boost != 1.
+    if boost != None:
+        relat_elec = boost.boost_particles( relat_elec )
+
+    # Add them to the particles of the simulation
+    sim.ptcl.append( relat_elec )
+
+    # Get the corresponding space-charge fields
+    # include a larger tolerance of the deviation of inv_gamma from 1./gamma0
+    # to allow for energy spread
+    gamma0 = 1. / np.mean(relat_elec.inv_gamma)
+    get_space_charge_fields( sim.fld, [relat_elec], gamma0,
+                             filter_currents, check_gaminv=False)
+
 def get_space_charge_fields( fld, ptcl, gamma, filter_currents=True,
                              check_gaminv=True, direction = 'forward' ) :
     """
