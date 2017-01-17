@@ -383,7 +383,7 @@ def add_elec_bunch_openPMD( sim, ts_path, z_off=0., species=None, select=None,
                             dens_func=None, use_cuda=sim.use_cuda,
                             grid_shape=sim.fld.interp[0].Ez.shape )
 
-    # Replace dummy particle parameters with phase space from text file
+    # Replace dummy particle parameters with phase space from openPMD file
     # Convert lengths from microns to meters
     relat_elec.x[:] = x[:] * 1.e-6
     relat_elec.y[:] = y[:] * 1.e-6
@@ -393,9 +393,7 @@ def add_elec_bunch_openPMD( sim, ts_path, z_off=0., species=None, select=None,
     relat_elec.uz[:] = uz[:]
     relat_elec.inv_gamma[:] = 1./np.sqrt( \
         1. + relat_elec.ux**2 + relat_elec.uy**2 + relat_elec.uz**2 )
-    # Calculate weights (charge of macroparticle)
-    # assuming equally weighted particles as used in particle tracking codes
-    # multiply by -1 to make them negatively charged
+    # Convert number of particle weights to particle charge
     relat_elec.w[:] = -e * w[:]
 
     # Transform particle distribution in
