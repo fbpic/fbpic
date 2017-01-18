@@ -344,8 +344,8 @@ def add_elec_bunch_openPMD( sim, ts_path, z_off=0., species=None, select=None,
         'uz' : [5., None]  (Particles with uz above 5 mc)
 
     iteration: integer (optional)
-       The iteration number of the checkpoint from which to restart
-       If None, the last iteration of the timeseries will be used.
+        The iteration number of the openPMD file from which to extract the
+        particles.
 
     boost : a BoostConverter object, optional
         A BoostConverter object defining the Lorentz boost of
