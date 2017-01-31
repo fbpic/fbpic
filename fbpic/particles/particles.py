@@ -6,6 +6,7 @@ This file is part of the Fourier-Bessel Particle-In-Cell code (FB-PIC)
 It defines the structure and methods associated with the particles.
 """
 import numpy as np
+from .ionization import Ionizer
 from scipy.constants import c
 from .tracking import ParticleTracker
 
@@ -128,6 +129,10 @@ class Particles(object) :
         self.Nptheta = Nptheta
         self.dens_func = dens_func
         self.continuous_injection = continuous_injection
+
+        # By default, the species is not ionizable
+        # (see the method make_ionizable)
+        self.ionizer = None
 
         # Initialize the momenta
         self.uz = uz_m * np.ones(Ntot) + uz_th * np.random.normal(size=Ntot)
@@ -287,6 +292,17 @@ class Particles(object) :
         """
         self.tracker = ParticleTracker( comm.size, comm.rank, self.Ntot )
         self.n_integer_quantities += 1
+
+    def make_ionizable( self, element, target_species, z_min=0, z_max=None ):
+        """
+        Make this species ionizable
+
+        # TODO: complete
+
+        Parameters
+
+        """
+        self.ionizer = Ionizer( element, self, target_species, z_min, z_max )
 
     def rearrange_particle_arrays( self ):
         """
