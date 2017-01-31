@@ -79,7 +79,7 @@ class Ionizer(object):
             self.z_max = min( z_max, len(energies) )
 
         # Calculate the ADK prefactor
-        EH = ionization_energies_dict['H'][0]
+#        EH = ionization_energies_dict['H'][0]
 
 
     def send_particles_to_gpu( self ):

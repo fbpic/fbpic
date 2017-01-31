@@ -8,7 +8,7 @@ It defines the optimized particles methods that use cuda on a GPU
 from numba import cuda
 from accelerate.cuda import sorting
 import math
-from scipy.constants import c
+from scipy.constants import c, e
 import numpy as np
 
 # -----------------------
@@ -61,43 +61,103 @@ def push_p_gpu( ux, uy, uz, inv_gamma,
 
     # Loop over the particles
     if ip < Ntot:
+        ux[ip], uy[ip], uz[ip], inv_gamma[ip] = push_p_vay(
+            ux[ip], uy[ip], uz[ip], inv_gamma[ip],
+            Ex[ip], Ey[ip], Ez[ip], Bx[ip], By[ip], Bz[ip], econst, bconst)
 
-        # Shortcut for initial 1./gamma
-        inv_gamma_i = inv_gamma[ip]
+@cuda.jit('void(float64[:], float64[:], float64[:], float64[:], \
+            float64[:], float64[:], float64[:], \
+            float64[:], float64[:], float64[:], \
+            float64, int32, float64, int16[:])')
+def push_p_ioniz_gpu( ux, uy, uz, inv_gamma,
+                Ex, Ey, Ez, Bx, By, Bz,
+                m, Ntot, dt, ionization_level ) :
+    """
+    Advance the particles' momenta, using numba on the GPU
+    This take into account that the particles are ionizable, and thus
+    that their charge is determined by `ionization_level`
 
-        # Get the magnetic rotation vector
-        taux = bconst*Bx[ip]
-        tauy = bconst*By[ip]
-        tauz = bconst*Bz[ip]
-        tau2 = taux**2 + tauy**2 + tauz**2
+    Parameters
+    ----------
+    ux, uy, uz : 1darray of floats
+        The velocity of the particles
+        (is modified by this function)
 
-        # Get the momenta at the half timestep
-        uxp = ux[ip] + econst*Ex[ip] \
-        + inv_gamma_i*( uy[ip]*tauz - uz[ip]*tauy )
-        uyp = uy[ip] + econst*Ey[ip] \
-        + inv_gamma_i*( uz[ip]*taux - ux[ip]*tauz )
-        uzp = uz[ip] + econst*Ez[ip] \
-        + inv_gamma_i*( ux[ip]*tauy - uy[ip]*taux )
-        sigma = 1 + uxp**2 + uyp**2 + uzp**2 - tau2
-        utau = uxp*taux + uyp*tauy + uzp*tauz
+    inv_gamma : 1darray of floats
+        The inverse of the relativistic gamma factor
 
-        # Get the new 1./gamma
-        inv_gamma_f = math.sqrt(
-            2./( sigma + math.sqrt( sigma**2 + 4*(tau2 + utau**2 ) ) )
-        )
-        inv_gamma[ip] = inv_gamma_f
+    Ex, Ey, Ez : 1darray of floats
+        The electric fields acting on the particles
 
-        # Reuse the tau and utau arrays to save memory
-        tx = inv_gamma_f*taux
-        ty = inv_gamma_f*tauy
-        tz = inv_gamma_f*tauz
-        ut = inv_gamma_f*utau
-        s = 1./( 1 + tau2*inv_gamma_f**2 )
+    Bx, By, Bz : 1darray of floats
+        The magnetic fields acting on the particles
 
-        # Get the new u
-        ux[ip] = s*( uxp + tx*ut + uyp*tz - uzp*ty )
-        uy[ip] = s*( uyp + ty*ut + uzp*tx - uxp*tz )
-        uz[ip] = s*( uzp + tz*ut + uxp*ty - uyp*tx )
+    m : float
+        The mass of the particle species
+
+    Ntot : int
+        The total number of particles
+
+    dt : float
+        The time by which the momenta is advanced
+
+    ionization_level : 1darray of ints
+        The number of electrons that each ion is missing
+        (compared to a neutral atom)
+    """
+    #Cuda 1D grid
+    ip = cuda.grid(1)
+
+    # Loop over the particles
+    if ip < Ntot:
+        if ionization_level[ip] != 0:
+            # Set a few constants
+            econst = ionization_level[ip] * e * dt/(m*c)
+            bconst = 0.5 * ionization_level[ip] * e * dt/m
+            # Use the Vay pusher
+            ux[ip], uy[ip], uz[ip], inv_gamma[ip] = push_p_vay(
+                ux[ip], uy[ip], uz[ip], inv_gamma[ip],
+                Ex[ip], Ey[ip], Ez[ip], Bx[ip], By[ip], Bz[ip], econst, bconst)
+
+@cuda.jit(device=True, inline=True)
+def push_p_vay( ux_i, uy_i, uz_i, inv_gamma_i,
+    Ex, Ey, Ez, Bx, By, Bz, econst, bconst ):
+    """
+    Push at single macroparticle, using the Vay pusher
+    """
+    # Get the magnetic rotation vector
+    taux = bconst*Bx
+    tauy = bconst*By
+    tauz = bconst*Bz
+    tau2 = taux**2 + tauy**2 + tauz**2
+
+    # Get the momenta at the half timestep
+    uxp = ux_i + econst*Ex \
+    + inv_gamma_i*( uy_i*tauz - uz_i*tauy )
+    uyp = uy_i + econst*Ey \
+    + inv_gamma_i*( uz_i*taux - ux_i*tauz )
+    uzp = uz_i + econst*Ez \
+    + inv_gamma_i*( ux_i*tauy - uy_i*taux )
+    sigma = 1 + uxp**2 + uyp**2 + uzp**2 - tau2
+    utau = uxp*taux + uyp*tauy + uzp*tauz
+
+    # Get the new 1./gamma
+    inv_gamma_f = math.sqrt(
+        2./( sigma + math.sqrt( sigma**2 + 4*(tau2 + utau**2 ) ) ) )
+
+    # Reuse the tau and utau arrays to save memory
+    tx = inv_gamma_f*taux
+    ty = inv_gamma_f*tauy
+    tz = inv_gamma_f*tauz
+    ut = inv_gamma_f*utau
+    s = 1./( 1 + tau2*inv_gamma_f**2 )
+
+    # Get the new u
+    ux_f = s*( uxp + tx*ut + uyp*tz - uzp*ty )
+    uy_f = s*( uyp + ty*ut + uzp*tx - uxp*tz )
+    uz_f = s*( uzp + tz*ut + uxp*ty - uyp*tx )
+
+    return( ux_f, uy_f, uz_f, inv_gamma_f )
 
 @cuda.jit('void(float64[:], float64[:], float64[:], \
             float64[:], float64[:], float64[:], \
@@ -1244,7 +1304,7 @@ def incl_prefix_sum(cell_idx, prefix_sum):
             # until ci is i+1 (since i obeys python index, starting at 0)
             prefix_sum[ci] = i+1
             ci += 1
-    # The last "macroparticle" of the cell_idx array fills up the 
+    # The last "macroparticle" of the cell_idx array fills up the
     # rest of the prefix sum array
     if i == cell_idx.shape[0]-1:
         # Get the cell_index of the last macroparticle

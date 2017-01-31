@@ -13,13 +13,13 @@ from .tracking import ParticleTracker
 # Load the utility methods
 from .utility_methods import linear_weights, unalign_angles
 # Load the numba routines
-from .numba_methods import push_p_numba, push_x_numba, \
+from .numba_methods import push_p_numba, push_p_ioniz_numba, push_x_numba, \
         gather_field_numba, deposit_field_numba
 
 # If accelerate is installed, it potentially allows to use a GPU
 try :
     from fbpic.cuda_utils import cuda, cuda_tpb_bpg_1d, cuda_tpb_bpg_2d
-    from .cuda_methods import push_p_gpu, push_x_gpu, \
+    from .cuda_methods import push_p_gpu, push_p_ioniz_gpu, push_x_gpu, \
         gather_field_gpu, deposit_rho_gpu, deposit_J_gpu, \
         write_sorting_buffer, cuda_deposition_arrays, \
         get_cell_idx_per_particle, sort_particles_per_cell, \
@@ -347,15 +347,31 @@ class Particles(object) :
             # Get the threads per block and the blocks per grid
             dim_grid_1d, dim_block_1d = cuda_tpb_bpg_1d( self.Ntot )
             # Call the CUDA Kernel for the particle push
-            push_p_gpu[dim_grid_1d, dim_block_1d](
+            if self.ionizer is None:
+                push_p_gpu[dim_grid_1d, dim_block_1d](
                     self.ux, self.uy, self.uz, self.inv_gamma,
                     self.Ex, self.Ey, self.Ez,
                     self.Bx, self.By, self.Bz,
                     self.q, self.m, self.Ntot, self.dt )
+            else:
+                # Ionizable species can have a charge that depends on the
+                # macroparticle, and hence require a different function
+                push_p_ioniz_gpu[dim_grid_1d, dim_block_1d](
+                    self.ux, self.uy, self.uz, self.inv_gamma,
+                    self.Ex, self.Ey, self.Ez,
+                    self.Bx, self.By, self.Bz,
+                    self.m, self.Ntot, self.dt, self.ionizer.ionization_level )
         else :
-            push_p_numba(self.ux, self.uy, self.uz, self.inv_gamma,
+            if self.ionizer is None:
+                push_p_numba(self.ux, self.uy, self.uz, self.inv_gamma,
                     self.Ex, self.Ey, self.Ez, self.Bx, self.By, self.Bz,
                     self.q, self.m, self.Ntot, self.dt )
+            else:
+                # Ionizable species can have a charge that depends on the
+                # macroparticle, and hence require a different function
+                push_p_ioniz_numba(self.ux, self.uy, self.uz, self.inv_gamma,
+                    self.Ex, self.Ey, self.Ez, self.Bx, self.By, self.Bz,
+                    self.m, self.Ntot, self.dt, self.ionizer.ionization_level )
 
     def halfpush_x( self ) :
         """
