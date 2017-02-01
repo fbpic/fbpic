@@ -6,8 +6,8 @@ This file is part of the Fourier-Bessel Particle-In-Cell code (FB-PIC)
 It defines the structure and methods associated with the particles.
 """
 import numpy as np
+from scipy.constants import c, e
 from .ionization import Ionizer
-from scipy.constants import c
 from .tracking import ParticleTracker
 
 # Load the utility methods
@@ -130,10 +130,6 @@ class Particles(object) :
         self.dens_func = dens_func
         self.continuous_injection = continuous_injection
 
-        # By default, the species is not ionizable
-        # (see the method make_ionizable)
-        self.ionizer = None
-
         # Initialize the momenta
         self.uz = uz_m * np.ones(Ntot) + uz_th * np.random.normal(size=Ntot)
         self.ux = ux_m * np.ones(Ntot) + ux_th * np.random.normal(size=Ntot)
@@ -156,8 +152,10 @@ class Particles(object) :
         self.z = np.empty( Ntot )
         self.w = np.empty( Ntot )
 
-        # By default, there is no particle tracking
+        # By default, there is no particle tracking (see method track)
         self.tracker = None
+        # By default, the species is not ionizable (see method make_ionizable)
+        self.ionizer = None
         # Total number of quantities (necessary in MPI communications)
         self.n_integer_quantities = 0
         self.n_float_quantities = 8 # x, y, z, ux, uy, uz, inv_gamma, w
@@ -241,6 +239,9 @@ class Particles(object) :
             # Copy particle tracker data
             if self.tracker is not None:
                 self.tracker.send_to_gpu()
+            # Copy the ionization data
+            if self.ionizer is not None:
+                self.ionizer.send_to_gpu()
 
     def receive_particles_from_gpu( self ):
         """
@@ -278,6 +279,9 @@ class Particles(object) :
             # Copy particle tracker data
             if self.tracker is not None:
                 self.track.receive_from_gpu()
+            # Copy the ionization data
+            if self.ionizer is not None:
+                self.ionizer.receive_from_gpu()
 
     def track( self, comm ):
         """
@@ -302,7 +306,11 @@ class Particles(object) :
         Parameters
 
         """
+        # Initialize the ionizer module
         self.ionizer = Ionizer( element, self, target_species, z_min, z_max )
+        # Recalculate the weights to reflect the current ionization levels
+        # (This is updated whenever further ionization happens)
+        self.w[:] = e*self.ionizer.ionization_level*self.ionizer.neutral_weight
 
     def rearrange_particle_arrays( self ):
         """
