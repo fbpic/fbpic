@@ -28,7 +28,7 @@ class ParticleDiagnostic(OpenPMDDiagnostic) :
             The period of the diagnostics, in number of timesteps.
             (i.e. the diagnostics are written whenever the number
             of iterations is divisible by `period`)
-        
+
         species : a dictionary of Particle objects
             The object that is written (e.g. elec)
             is assigned to the particleName of this species.
@@ -39,12 +39,12 @@ class ParticleDiagnostic(OpenPMDDiagnostic) :
             guard cells are removed.
             Otherwise, each rank writes its own data, including guard cells.
             (Make sure to use different write_dir in this case.)
-            
-        particle_data : a list of strings, optional 
+
+        particle_data : a list of strings, optional
             The particle properties are given by:
             ["position", "momentum", "weighting"]
             for the coordinates x,y,z.
-            Default : electron particle data is written
+            By default, if a particle is tracked, its id is always written.
 
         select : dict, optional
             Either None or a dictionary of rules
@@ -52,7 +52,7 @@ class ParticleDiagnostic(OpenPMDDiagnostic) :
             'x' : [-4., 10.]   (Particles having x between -4 and 10 microns)
             'ux' : [-0.1, 0.1] (Particles having ux between -0.1 and 0.1 mc)
             'uz' : [5., None]  (Particles with uz above 5 mc)
-            
+
         write_dir : a list of strings, optional
             The POSIX path to the directory where the results are
             to be written. If none is provided, this will be the path
@@ -60,7 +60,7 @@ class ParticleDiagnostic(OpenPMDDiagnostic) :
         """
         # General setup
         OpenPMDDiagnostic.__init__(self, period, comm, write_dir)
-        
+
         # Register the arguments
         self.particle_data = particle_data
         self.species_dict = species
@@ -69,16 +69,16 @@ class ParticleDiagnostic(OpenPMDDiagnostic) :
         # Extract the timestep from a given species
         random_species = list(self.species_dict.keys())[0]
         self.dt = self.species_dict[random_species].dt
-        
+
     def setup_openpmd_species_group( self, grp, species ) :
         """
         Set the attributes that are specific to the particle group
-        
+
         Parameter
         ---------
         grp : an h5py.Group object
             Contains all the species
-    
+
         species : a fbpic Particle object
         """
         # Generic attributes
@@ -87,7 +87,7 @@ class ParticleDiagnostic(OpenPMDDiagnostic) :
         grp.attrs["particleSmoothing"] = np.string_("none")
         grp.attrs["particlePush"] = np.string_("Vay")
         grp.attrs["particleInterpolation"] = np.string_("uniform")
-        
+
         # Setup constant datasets
         for quantity in ["charge", "mass", "positionOffset"] :
             grp.require_group(quantity)
@@ -108,13 +108,13 @@ class ParticleDiagnostic(OpenPMDDiagnostic) :
     def setup_openpmd_species_record( self, grp, quantity ) :
         """
         Set the attributes that are specific to a species record
-        
+
         Parameter
         ---------
         grp : an h5py.Group object or h5py.Dataset
             The group that correspond to `quantity`
             (in particular, its path must end with "/<quantity>")
-    
+
         quantity : string
             The name of the record being setup
             e.g. "position", "momentum"
@@ -133,12 +133,12 @@ class ParticleDiagnostic(OpenPMDDiagnostic) :
         Parameter
         ---------
         grp : an h5py.Group object or h5py.Dataset
-        
+
         quantity : string
             The name of the component
         """
         self.setup_openpmd_component( grp )
-        
+
     def write_hdf5( self, iteration ) :
         """
         Write an HDF5 file that complies with the OpenPMD standard
@@ -162,7 +162,7 @@ class ParticleDiagnostic(OpenPMDDiagnostic) :
             # Setup its attributes
             self.setup_openpmd_file( f, iteration, iteration*self.dt, self.dt)
 
-        # Loop over the different species and 
+        # Loop over the different species and
         # particle quantities that should be written
         for species_name in self.species_dict :
 
@@ -197,11 +197,11 @@ class ParticleDiagnostic(OpenPMDDiagnostic) :
                 # Single-proc output
                 n_rank = None
                 Ntot = n
-                
+
             # Write the datasets for each particle datatype
             self.write_particles( species_grp, species, n_rank,
                                   Ntot, select_array )
-        
+
         # Close the file
         if self.rank == 0:
             f.close()
@@ -215,16 +215,16 @@ class ParticleDiagnostic(OpenPMDDiagnostic) :
                          Ntot, select_array ) :
         """
         Write all the particle data sets for one given species
-    
+
         species_grp : an h5py.Group
             The group where to write the species considered
 
-        species : a warp Species object
-        	The species object to get the particle data from 
+        species : an fbpic.Particles object
+        	The species object to get the particle data from
 
         n_rank : list of ints
             A list containing the number of particles to send on each proc
-            
+
         Ntot : int
         	Contains the global number of particles
 
@@ -233,7 +233,12 @@ class ParticleDiagnostic(OpenPMDDiagnostic) :
             containing True for the particles that satify all
             the rules of self.select
         """
-        for particle_var in self.particle_data :
+        # If needed, add the id to the quantities to be written
+        particle_data = self.particle_data.copy()
+        if species.tracker is not None:
+            particle_data.append("id")
+
+        for particle_var in particle_data :
 
             if particle_var == "position" :
                 for coord in ["x", "y", "z"] :
@@ -244,7 +249,7 @@ class ParticleDiagnostic(OpenPMDDiagnostic) :
                 if self.rank == 0:
                     self.setup_openpmd_species_record(
                         species_grp[particle_var], particle_var )
-                        
+
             elif particle_var == "momentum" :
                 for coord in ["x", "y", "z"] :
                     quantity = "u%s" %(coord)
@@ -252,20 +257,23 @@ class ParticleDiagnostic(OpenPMDDiagnostic) :
                     self.write_dataset( species_grp, species, quantity_path,
                         quantity, n_rank, Ntot, select_array )
                 if self.rank == 0:
-                    self.setup_openpmd_species_record( 
+                    self.setup_openpmd_species_record(
                         species_grp[particle_var], particle_var )
-                        
-            elif particle_var == "weighting" :
-                quantity = "w"
-                quantity_path = "weighting"
+
+            elif particle_var in ["weighting", "id"]:
+                quantity_path = particle_var
+                if particle_var == "id":
+                    quantity = "id"
+                else:
+                    quantity = "w"
                 self.write_dataset( species_grp, species, quantity_path,
                                     quantity, n_rank, Ntot, select_array )
                 if self.rank == 0:
-                    self.setup_openpmd_species_record( 
+                    self.setup_openpmd_species_record(
                         species_grp[particle_var], particle_var )
-                
+
             else :
-                raise ValueError("Invalid string in %s of species" 
+                raise ValueError("Invalid string in %s of species"
                     				 %(particle_var))
 
     def apply_selection( self, species ) :
@@ -290,7 +298,7 @@ class ParticleDiagnostic(OpenPMDDiagnostic) :
         if self.select is not None :
             # Go through the quantities on which a rule applies
             for quantity in self.select.keys() :
-                
+
                 quantity_array = getattr( species, quantity )
                 # Lower bound
                 if self.select[quantity][0] is not None :
@@ -305,17 +313,17 @@ class ParticleDiagnostic(OpenPMDDiagnostic) :
 
         return( select_array )
 
-        
+
     def write_dataset( self, species_grp, species, path, quantity,
                        n_rank, Ntot, select_array ) :
         """
         Write a given dataset
-    
+
         Parameters
         ----------
         species_grp : an h5py.Group
             The group where to write the species considered
-        
+
         species : a warp Species object
         	The species object to get the particle data from
 
@@ -325,11 +333,11 @@ class ParticleDiagnostic(OpenPMDDiagnostic) :
 
         quantity : string
             Describes which quantity is written
-            x, y, z, ux, uy, uz, w
+            x, y, z, ux, uy, uz, w, id
 
         n_rank : list of ints
             A list containing the number of particles to send on each proc
-            
+
         Ntot : int
         	Contains the global number of particles
 
@@ -341,21 +349,25 @@ class ParticleDiagnostic(OpenPMDDiagnostic) :
         # Create the dataset and setup its attributes
         if self.rank==0:
             datashape = (Ntot, )
-            dset = species_grp.require_dataset( path, datashape, dtype='f8')
+            if quantity == "id":
+                dtype = 'uint64'
+            else:
+                dtype = 'f8'
+            dset = species_grp.require_dataset(path, datashape, dtype=dtype )
             self.setup_openpmd_species_component( dset, quantity )
-            
+
         # Fill the dataset with the quantity
         quantity_array = self.get_dataset( species, quantity, select_array,
                                            n_rank, Ntot )
         if self.rank==0:
             dset[:] = quantity_array
-            
+
     def get_dataset( self, species, quantity, select_array, n_rank, Ntot ) :
         """
         Extract the array that satisfies select_array
-        
+
         species : a Particles object
-        	The species object to get the particle data from 
+        	The species object to get the particle data from
 
         quantity : string
             The quantity to be extracted (e.g. 'x', 'uz', 'w')
@@ -367,13 +379,16 @@ class ParticleDiagnostic(OpenPMDDiagnostic) :
 
         n_rank: list of ints
         	A list containing the number of particles to send on each proc
-            
+
         Ntot : int
             Length of the final array (selected + gathered from all proc)
         """
         # Extract the quantity
-        quantity_one_proc = getattr( species, quantity )
-        
+        if quantity == "id":
+            quantity_one_proc = species.tracker.id
+        else:
+            quantity_one_proc = getattr( species, quantity )
+
         # Apply the selection
         quantity_one_proc = quantity_one_proc[ select_array ]
 
@@ -381,7 +396,7 @@ class ParticleDiagnostic(OpenPMDDiagnostic) :
         if quantity in ['ux', 'uy', 'uz'] :
             scale_factor = species.m * constants.c
             quantity_one_proc *= scale_factor
-        
+
         # If this is the weight, divide it by the charge
         # so as to obtain an actual number of particles
         if quantity is 'w':
@@ -392,7 +407,6 @@ class ParticleDiagnostic(OpenPMDDiagnostic) :
                 quantity_one_proc, n_rank, Ntot )
         else:
             quantity_all_proc = quantity_one_proc
-            
+
         # Return the results
         return( quantity_all_proc )
-        
