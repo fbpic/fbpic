@@ -7,6 +7,7 @@ It defines the structure and methods associated with the particles.
 """
 import numpy as np
 from scipy.constants import c
+from .tracking import ParticleTracker
 
 # Load the utility methods
 from .utility_methods import linear_weights, unalign_angles
@@ -150,6 +151,9 @@ class Particles(object) :
         self.z = np.empty( Ntot )
         self.w = np.empty( Ntot )
 
+        # By default, there is no particle tracking
+        self.tracker = None
+
         if Ntot > 0:
             # Get the 1d arrays of evenly-spaced positions for the particles
             dz = (zmax-zmin)*1./Npz
@@ -226,6 +230,10 @@ class Particles(object) :
             self.sorting_buffer = cuda.to_device(self.sorting_buffer)
             self.prefix_sum = cuda.to_device(self.prefix_sum)
 
+            # Copy tracker particle id
+            if self.tracker is not None:
+                self.tracker.id = cuda.to_device(self.tracker.id)
+
     def receive_particles_from_gpu( self ):
         """
         Receive the particles from the GPU.
@@ -258,6 +266,24 @@ class Particles(object) :
             self.sorted_idx = self.sorted_idx.copy_to_host()
             self.sorting_buffer = self.sorting_buffer.copy_to_host()
             self.prefix_sum = self.prefix_sum.copy_to_host()
+
+            # Copy tracker particle id
+            if self.tracker is not None:
+                self.tracker.id = self.tracker.id.copy_to_host()
+
+    def track( self, comm ):
+        """
+        Activate particle tracking for the current species
+
+        (i.e. allocates an array of ids, that can then be output in
+        the openPMD file)
+
+        Parameters:
+        -----------
+        comm: an fbpic.BoundaryCommunicator object
+            Contains information about the number of processors
+        """
+        self.tracker = ParticleTracker( comm.size, comm.rank, self.Ntot )
 
     def rearrange_particle_arrays( self ):
         """

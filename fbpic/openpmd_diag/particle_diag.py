@@ -44,7 +44,7 @@ class ParticleDiagnostic(OpenPMDDiagnostic) :
             The particle properties are given by:
             ["position", "momentum", "weighting"]
             for the coordinates x,y,z.
-            Default : electron particle data is written
+            By default, if a particle is tracked, its id is always written.
 
         select : dict, optional
             Either None or a dictionary of rules
@@ -224,7 +224,7 @@ class ParticleDiagnostic(OpenPMDDiagnostic) :
         species_grp : an h5py.Group
             The group where to write the species considered
 
-        species : a warp Species object
+        species : an fbpic.Particles object
         	The species object to get the particle data from
 
         n_rank : list of ints
@@ -238,7 +238,12 @@ class ParticleDiagnostic(OpenPMDDiagnostic) :
             containing True for the particles that satify all
             the rules of self.select
         """
-        for particle_var in self.particle_data :
+        # If needed, add the id to the quantities to be written
+        particle_data = self.particle_data.copy()
+        if species.tracker is not None:
+            particle_data.append("id")
+
+        for particle_var in particle_data :
 
             if particle_var == "position" :
                 for coord in ["x", "y", "z"] :
@@ -260,9 +265,12 @@ class ParticleDiagnostic(OpenPMDDiagnostic) :
                     self.setup_openpmd_species_record(
                         species_grp[particle_var], particle_var )
 
-            elif particle_var == "weighting" :
-                quantity = "w"
-                quantity_path = "weighting"
+            elif particle_var in ["weighting", "id"]:
+                quantity_path = particle_var
+                if particle_var == "id":
+                    quantity = "id"
+                else:
+                    quantity = "w"
                 self.write_dataset( species_grp, species, quantity_path,
                                     quantity, n_rank, Ntot, select_array )
                 if self.rank == 0:
@@ -330,7 +338,7 @@ class ParticleDiagnostic(OpenPMDDiagnostic) :
 
         quantity : string
             Describes which quantity is written
-            x, y, z, ux, uy, uz, w
+            x, y, z, ux, uy, uz, w, id
 
         n_rank : list of ints
             A list containing the number of particles to send on each proc
@@ -346,7 +354,11 @@ class ParticleDiagnostic(OpenPMDDiagnostic) :
         # Create the dataset and setup its attributes
         if self.rank==0:
             datashape = (Ntot, )
-            dset = species_grp.require_dataset( path, datashape, dtype='f8')
+            if quantity == "id":
+                dtype = 'uint64'
+            else:
+                dtype = 'f8'
+            dset = species_grp.require_dataset(path, datashape, dtype=dtype )
             self.setup_openpmd_species_component( dset, quantity )
 
         # Fill the dataset with the quantity
@@ -377,7 +389,10 @@ class ParticleDiagnostic(OpenPMDDiagnostic) :
             Length of the final array (selected + gathered from all proc)
         """
         # Extract the quantity
-        quantity_one_proc = getattr( species, quantity )
+        if quantity == "id":
+            quantity_one_proc = species.tracker.id
+        else:
+            quantity_one_proc = getattr( species, quantity )
 
         # Apply the selection
         quantity_one_proc = quantity_one_proc[ select_array ]
