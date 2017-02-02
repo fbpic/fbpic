@@ -239,7 +239,7 @@ class ParticleDiagnostic(OpenPMDDiagnostic) :
             the rules of self.select
         """
         # If needed, add the id to the quantities to be written
-        particle_data = self.particle_data.copy()
+        particle_data = self.particle_data[:]
         if species.tracker is not None:
             particle_data.append("id")
 
