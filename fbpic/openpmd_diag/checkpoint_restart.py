@@ -267,7 +267,7 @@ def load_species( species, name, ts, iteration, comm ):
     if "id" in ts.avail_record_components[name]:
         pid, = ts.get_particle( ['id'], iteration=iteration, species=name )
         species.track( comm )
-        species.tracker.rewrite_ids( pid, comm )
+        species.tracker.overwrite_ids( pid, comm )
 
     # As a safe-guard, check that the loaded data is in float64
     for attr in ['x', 'y', 'z', 'ux', 'uy', 'uz', 'w', 'inv_gamma' ]:
