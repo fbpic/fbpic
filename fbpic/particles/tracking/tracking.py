@@ -57,3 +57,26 @@ class ParticleTracker(object):
             step=self.id_step, dtype=np.uint64 )
         self.next_attributed_id = new_next_attributed_id
         return( new_ids )
+
+    def rewrite_ids( self, pid, comm ):
+        """
+        # TODO
+        """
+        # Get the new ids
+        self.id[:] = pid
+
+        # Set self.next_attributed_id, so that attributed ids are still unique
+        # In order to do this, find the maximum of all pid across processors
+        if len(pid) > 0:
+            local_id_max = pid.max()
+        else:
+            local_id_max = 0
+        if comm.mpi_comm is None:
+            global_id_max = local_id_max
+        else:
+            local_id_max_list = comm.mpi_comm.allgather( local_id_max )
+            global_id_max = max( local_id_max_list )
+        # Find the next_attibuted_id: has to be of the form
+        # comm.rank + n*self.id_step
+        n = int( (global_id_max - comm.rank)/self.id_step ) + 1
+        self.next_attibuted_id = comm.rank + n*self.id_step

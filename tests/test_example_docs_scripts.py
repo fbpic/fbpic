@@ -66,12 +66,15 @@ def test_lpa_sim_twoproc_restart():
         # Check that the targeted lines are present
         if script.find('save_checkpoints = False') == -1 \
             or script.find('use_restart = False') == -1 \
+            or script.find('track_electrons = False') == -1 \
             or script.find('N_step = 200') == -1:
             raise RuntimeError('Did not find expected lines in lwfa_script.py')
 
     # Modify the script so as to enable checkpoints
     script = script.replace('save_checkpoints = False',
                                 'save_checkpoints = True')
+    script = script.replace('track_electrons = False',
+                                'track_electrons = True')
     script = script.replace('N_step = 200', 'N_step = 101')
     with open('lwfa_script.py', 'w') as f:
         f.write(script)
