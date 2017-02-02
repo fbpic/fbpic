@@ -16,18 +16,18 @@ def set_periodic_checkpoint( sim, period ):
     """
     Set up periodic checkpoints of the simulation
 
-    The checkpoints are saved in openPMD format, in the directory 
-    `./checkpoints`, with one subdirectory per process. 
+    The checkpoints are saved in openPMD format, in the directory
+    `./checkpoints`, with one subdirectory per process.
     All the field and particle information of each processor is saved.
- 
+
     NB: Checkpoints are registered among the list of diagnostics
-    `diags` of the Simulation object `sim`. 
+    `diags` of the Simulation object `sim`.
 
     Parameters
     ----------
     sim: a Simulation object
        The simulation that is to be saved in checkpoints
-    
+
     period: integer
        The number of PIC iteration between each checkpoint.
     """
@@ -37,7 +37,7 @@ def set_periodic_checkpoint( sim, period ):
         if os.path.exists('./checkpoints') is False:
             os.mkdir('./checkpoints')
     sim.comm.mpi_comm.Barrier()
-    
+
     # Choose the name of the directory: one directory per processor
     write_dir = 'checkpoints/proc%d/' %sim.comm.rank
 
@@ -64,17 +64,17 @@ def restart_from_checkpoint( sim, iteration=None ):
     - Values of the field arrays
     - Size and values of the particle arrays
 
-    Any other information (e.g. diagnostics of the simulation, presence of a 
+    Any other information (e.g. diagnostics of the simulation, presence of a
     moving window, presence of a laser antenna, etc.) need to be set by hand.
 
-    For this reason, a successful restart will often require to modify the 
-    original input script that produced the checkpoint, rather than to start 
+    For this reason, a successful restart will often require to modify the
+    original input script that produced the checkpoint, rather than to start
     a new input script from scratch.
 
     NB: This function should always be called *before* the initialization
     of the moving window, since the moving window infers the position of
     particle injection from the existing particle data.
- 
+
     Parameters
     ----------
     sim: a Simulation object
@@ -105,7 +105,7 @@ def restart_from_checkpoint( sim, iteration=None ):
     if iteration is None:
         iteration = ts.iterations[-1]
     i_iteration = ts.iterations.index( iteration )
-    
+
     # Modify parameters of the simulation
     sim.iteration = iteration
     sim.time = ts.t[ i_iteration ]
@@ -113,7 +113,7 @@ def restart_from_checkpoint( sim, iteration=None ):
     # Load the particles
     # Loop through the different species
     for i in range(len(sim.ptcl)):
-        name = 'species %d' %i        
+        name = 'species %d' %i
         load_species( sim.ptcl[i], name, ts, iteration)
 
     # Load the fields
@@ -169,7 +169,7 @@ def load_fields( grid, fieldtype, coord, ts, iteration ):
     ----------
     grid: an InterpolationGrid object
        The object into which data should be loaded
-    
+
     fieldtype: string
        Either 'E', 'B', 'J' or 'rho'. Indicates which field to load.
 
@@ -231,7 +231,7 @@ def load_species( species, name, ts, iteration ):
 
     Parameters:
     -----------
-    species: a Species object 
+    species: a Species object
         The object into which data is loaded
 
     name: string
@@ -244,7 +244,7 @@ def load_species( species, name, ts, iteration ):
         The iteration at which to load the checkpoint
     """
     # Get the particles' positions (convert to meters)
-    x, y, z = ts.get_particle( 
+    x, y, z = ts.get_particle(
                 ['x', 'y', 'z'], iteration=iteration, species=name )
     species.x, species.y, species.z = 1.e-6*x, 1.e-6*y, 1.e-6*z
     # Get the particles' momenta
@@ -256,11 +256,16 @@ def load_species( species, name, ts, iteration ):
     # Get the inverse gamma
     species.inv_gamma = 1./np.sqrt(
         1 + species.ux**2 + species.uy**2 + species.uz**2 )
+    # Check if the particles where tracked
+    if "id" in ts.avail_record_components[name]:
+        pid, = ts.get_particle( ['id'], iteration=iteration, species=name )
+        species.track()
+        species.id[:] = pid
 
     # As a safe-guard, check that the loaded data is in float64
     for attr in ['x', 'y', 'z', 'ux', 'uy', 'uz', 'w', 'inv_gamma' ]:
         assert getattr( species, attr ).dtype == np.float64
-    
+
     # Take into account the fact that the arrays are resized
     Ntot = len(species.w)
     species.Ntot = Ntot
