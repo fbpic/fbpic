@@ -153,6 +153,9 @@ class Particles(object) :
 
         # By default, there is no particle tracking
         self.tracker = None
+        # Total number of quantities (necessary in MPI communications)
+        self.n_integer_quantities = 0
+        self.n_float_quantities = 8 # x, y, z, ux, uy, uz, inv_gamma, w
 
         if Ntot > 0:
             # Get the 1d arrays of evenly-spaced positions for the particles
@@ -191,8 +194,8 @@ class Particles(object) :
             self.grid_shape = grid_shape
             # Allocate arrays for the particles sorting when using CUDA
             self.cell_idx = np.empty( Ntot, dtype=np.int32)
-            self.sorted_idx = np.arange( Ntot, dtype=np.uint32)
-            self.sorting_buffer = np.arange( Ntot, dtype=np.float64 )
+            self.sorted_idx = np.empty( Ntot, dtype=np.uint32)
+            self.sorting_buffer = np.empty( Ntot, dtype=np.float64 )
             self.prefix_sum = np.empty( grid_shape[0]*grid_shape[1],
                                         dtype=np.int32 )
             # Register boolean that records if the particles are sorted or not
@@ -284,6 +287,7 @@ class Particles(object) :
         """
         self.tracker = ParticleTracker( comm.size, comm.rank,
                                         self.Ntot, self.use_cuda )
+        self.n_integer_quantities += 1
 
     def rearrange_particle_arrays( self ):
         """
