@@ -43,20 +43,23 @@ def remove_outside_particles(species, fld, nguard, left_proc, right_proc):
 
     Returns
     -------
-    Two arrays of shape (8,Nptcl) where Nptcl is the number of particles
-    that are sent to the left proc and right proc respectively.
+    float_send_left, float_send_right, uint_send_left, uint_send_right:
+        arrays of shape (n_float,Nptcl) and (n_int,Nptcl) where Nptcl
+        is the number of particles that are sent to the left
+        proc and right proc respectively, and where n_float and n_int
+        are the number of float and integer quantities respectively
     If left_proc or right_proc is None, the corresponding array has Nptcl=0
     """
     if species.use_cuda:
         # Remove outside particles on GPU, and copy buffers on CPU
-        send_left, send_right = remove_particles_gpu( species, fld,
-                                    nguard, left_proc, right_proc )
+        float_send_left, float_send_right, uint_send_left, uint_send_right = \
+            remove_particles_gpu( species, fld, nguard, left_proc, right_proc )
     else:
         # Remove outside particles on the CPU
-        send_left, send_right = remove_particles_cpu( species, fld,
-                                    nguard, left_proc, right_proc )
+        float_send_left, float_send_right, uint_send_left, uint_send_right = \
+            remove_particles_cpu( species, fld, nguard, left_proc, right_proc )
 
-    return( send_left, send_right )
+    return(float_send_left, float_send_right, uint_send_left, uint_send_right)
 
 def remove_particles_cpu(species, fld, nguard, left_proc, right_proc):
     """
@@ -85,9 +88,11 @@ def remove_particles_cpu(species, fld, nguard, left_proc, right_proc):
 
     Returns
     -------
-    Two arrays of shape (8,Nptcl) where Nptcl is the number of particles
-    that are sent to the left proc and right proc respectively.
-    If left_proc or right_proc is None, the corresponding array has Nptcl=0
+    float_send_left, float_send_right, uint_send_left, uint_send_right:
+        arrays of shape (n_float,Nptcl) and (n_int,Nptcl) where Nptcl
+        is the number of particles that are sent to the left
+        proc and right proc respectively, and where n_float and n_int
+        are the number of float and integer quantities respectively
     """
     # Calculate the positions between which to remove particles
     # For the open boundaries, only the particles in the outermost
@@ -105,37 +110,49 @@ def remove_particles_cpu(species, fld, nguard, left_proc, right_proc):
     selec_right = ( species.z > zbox_max )
     selec_stay = (np.logical_not(selec_left) & np.logical_not(selec_right))
 
+    # Shortcuts
+    n_float = species.n_float_quantities
+    n_int = species.n_integer_quantities
+
     # Allocate and fill left sending buffer
     if left_proc is not None:
         N_send_l = selec_left.sum()
-        send_left = np.empty((8, N_send_l), dtype = np.float64)
-        send_left[0,:] = species.x[selec_left]
-        send_left[1,:] = species.y[selec_left]
-        send_left[2,:] = species.z[selec_left]
-        send_left[3,:] = species.ux[selec_left]
-        send_left[4,:] = species.uy[selec_left]
-        send_left[5,:] = species.uz[selec_left]
-        send_left[6,:] = species.inv_gamma[selec_left]
-        send_left[7,:] = species.w[selec_left]
+        float_send_left = np.empty((n_float, N_send_l), dtype=np.float64)
+        uint_send_left = np.empty((n_int, N_send_l), dtype=np.uint64)
+        float_send_left[0,:] = species.x[selec_left]
+        float_send_left[1,:] = species.y[selec_left]
+        float_send_left[2,:] = species.z[selec_left]
+        float_send_left[3,:] = species.ux[selec_left]
+        float_send_left[4,:] = species.uy[selec_left]
+        float_send_left[5,:] = species.uz[selec_left]
+        float_send_left[6,:] = species.inv_gamma[selec_left]
+        float_send_left[7,:] = species.w[selec_left]
+        if species.tracker is not None:
+            uint_send_left[0,:] = species.tracker.id[selec_left]
     else:
         # No need to allocate and copy data ; return an empty array
-        send_left = np.empty((8, 0), dtype = np.float64)
+        float_send_left = np.empty((n_float, 0), dtype=np.float64)
+        uint_send_left = np.empty((n_int, 0), dtype=np.uint64)
 
     # Allocate and fill right sending buffer
     if right_proc is not None:
         N_send_r = selec_right.sum()
-        send_right = np.empty((8, N_send_r), dtype = np.float64)
-        send_right[0,:] = species.x[selec_right]
-        send_right[1,:] = species.y[selec_right]
-        send_right[2,:] = species.z[selec_right]
-        send_right[3,:] = species.ux[selec_right]
-        send_right[4,:] = species.uy[selec_right]
-        send_right[5,:] = species.uz[selec_right]
-        send_right[6,:] = species.inv_gamma[selec_right]
-        send_right[7,:] = species.w[selec_right]
+        float_send_right = np.empty((n_float, N_send_r), dtype=np.float64)
+        uint_send_right = np.empty((n_int, N_send_r), dtype=np.float64)
+        float_send_right[0,:] = species.x[selec_right]
+        float_send_right[1,:] = species.y[selec_right]
+        float_send_right[2,:] = species.z[selec_right]
+        float_send_right[3,:] = species.ux[selec_right]
+        float_send_right[4,:] = species.uy[selec_right]
+        float_send_right[5,:] = species.uz[selec_right]
+        float_send_right[6,:] = species.inv_gamma[selec_right]
+        float_send_right[7,:] = species.w[selec_right]
+        if species.tracker is not None:
+            uint_send_right[0,:] = species.tracker.id[selec_right]
     else:
         # No need to allocate and copy data ; return an empty array
-        send_right = np.empty((8, 0), dtype = np.float64)
+        float_send_right = np.empty((n_float, 0), dtype = np.float64)
+        uint_send_right = np.empty((n_int, 0), dtype=np.float64)
 
     # Resize the particle arrays
     N_stay = selec_stay.sum()
@@ -148,9 +165,11 @@ def remove_particles_cpu(species, fld, nguard, left_proc, right_proc):
     species.uz = species.uz[selec_stay]
     species.inv_gamma = species.inv_gamma[selec_stay]
     species.w = species.w[selec_stay]
+    if species.tracker is not None:
+        species.tracker.id = species.tracker.id[selec_stay]
 
     # Return the sending buffers
-    return( send_left, send_right )
+    return(float_send_left, float_send_right, uint_send_left, uint_send_right)
 
 def remove_particles_gpu(species, fld, nguard, left_proc, right_proc):
     """
@@ -179,9 +198,11 @@ def remove_particles_gpu(species, fld, nguard, left_proc, right_proc):
 
     Returns
     -------
-    Two arrays of shape (8,Nptcl) where Nptcl is the number of particles
-    that are sent to the left proc and right proc respectively.
-    If left_proc or right_proc is None, the corresponding array has Nptcl=0
+    float_send_left, float_send_right, uint_send_left, uint_send_right:
+        arrays of shape (n_float,Nptcl) and (n_int,Nptcl) where Nptcl
+        is the number of particles that are sent to the left
+        proc and right proc respectively, and where n_float and n_int
+        are the number of float and integer quantities respectively
     """
     # Check if particles are sorted  ; if not print a message and sort them
     # (The particles are usually expected to be sorted from the previous
@@ -231,24 +252,35 @@ def remove_particles_gpu(species, fld, nguard, left_proc, right_proc):
     N_send_r = species.Ntot - i_max
 
     # Allocate the sending buffers on the CPU
+    n_float = species.n_float_quantities
+    n_int = species.n_integer_quantities
     if left_proc is not None:
-        send_left = np.empty((8, N_send_l), dtype = np.float64)
+        float_send_left = np.empty((n_float, N_send_l), dtype=np.float64)
+        uint_send_left = np.empty((n_int, N_send_l), dtype=np.uint64)
     else:
-        send_left = np.empty((8, 0), dtype = np.float64)
+        float_send_left = np.empty((n_float, 0), dtype=np.float64)
+        uint_send_left = np.empty((n_int, 0), dtype=np.uint64)
     if right_proc is not None:
-        send_right = np.empty((8, N_send_r), dtype = np.float64)
+        float_send_right = np.empty((n_float, N_send_r), dtype=np.float64)
+        uint_send_right = np.empty((n_int, N_send_r), dtype=np.uint64)
     else:
-        send_right = np.empty((8, 0), dtype = np.float64)
+        float_send_right = np.empty((n_float, 0), dtype=np.float64)
+        uint_send_right = np.empty((n_int, 0), dtype=np.uint64)
 
     # Get the threads per block and the blocks per grid
     dim_grid_1d, dim_block_1d = cuda_tpb_bpg_1d( species.Ntot )
     # Iterate over particle attributes
     i_attr = 0
+    # Float quantities: Initialize 3 buffer arrays on the GPU
+    left_buffer = cuda.device_array((N_send_l,), dtype=np.float64)
+    right_buffer = cuda.device_array((N_send_r,), dtype=np.float64)
+    stay_buffer = cuda.device_array((new_Ntot,), dtype=np.float64)
     for attr in ['x', 'y', 'z', 'ux', 'uy', 'uz', 'inv_gamma', 'w' ]:
-        # Initialize 3 buffer arrays on the GPU
-        left_buffer = cuda.device_array((N_send_l,), dtype=np.float64)
-        right_buffer = cuda.device_array((N_send_r,), dtype=np.float64)
-        stay_buffer = cuda.device_array((new_Ntot,), dtype=np.float64)
+        # Check that the buffers are still on GPU
+        # (safeguard against automatic memory management)
+        assert type(left_buffer) != np.ndarray
+        assert type(right_buffer) != np.ndarray
+        assert type(left_buffer) != np.ndarray
         # Split the particle array into the 3 buffers on the GPU
         particle_array = getattr(species, attr)
         split_particles_to_buffers[dim_grid_1d, dim_block_1d]( particle_array,
@@ -257,20 +289,35 @@ def remove_particles_gpu(species, fld, nguard, left_proc, right_proc):
         # and fill the sending buffers (if needed for MPI)
         setattr(species, attr, stay_buffer)
         if left_proc is not None:
-            left_buffer.copy_to_host( send_left[i_attr] )
+            left_buffer.copy_to_host( float_send_left[i_attr] )
         if right_proc is not None:
-            right_buffer.copy_to_host( send_right[i_attr] )
+            right_buffer.copy_to_host( float_send_right[i_attr] )
         # Increment the buffer index
         i_attr += 1
+
+    # Integer quantities: Initialize 3 buffer arrays on the GPU
+    if species.tracker is not None:
+        left_buffer = cuda.device_array((N_send_l,), dtype=np.uint64)
+        right_buffer = cuda.device_array((N_send_r,), dtype=np.uint64)
+        stay_buffer = cuda.device_array((new_Ntot,), dtype=np.uint64)
+        # Split the particle array into the 3 buffers on the GPU
+        split_particles_to_buffers[dim_grid_1d, dim_block_1d](
+            species.tracker.id, left_buffer,
+            stay_buffer, right_buffer, i_min, i_max)
+        if left_proc is not None:
+            left_buffer.copy_to_host( uint_send_left[0] )
+        if right_proc is not None:
+            right_buffer.copy_to_host( uint_send_right[0] )
 
     # Change the new total number of particles
     species.Ntot = new_Ntot
 
     # Return the sending buffers
-    return( send_left, send_right )
+    return(float_send_left, float_send_right, uint_send_left, uint_send_right)
 
 
-def add_buffers_to_particles( species, recv_left, recv_right ):
+def add_buffers_to_particles( species, float_recv_left, float_recv_right,
+                                        uint_recv_left, uint_recv_right):
     """
     Add the particles stored in recv_left and recv_right
     to the existing particle in species.
@@ -283,16 +330,20 @@ def add_buffers_to_particles( species, recv_left, recv_right ):
     species: a Particles object
         Contain the particles that stayed on the present processors
 
-    recv_left, recv_right: 2darrays of floats
-        Arrays of shape (8, Nptcl) that represent the particles that
-        were received from the neighboring processors
+    float_recv_left, float_recv_right, uint_recv_left, uint_recv_right:
+        arrays of shape (n_float,Nptcl) and (n_int,Nptcl) where Nptcl
+        is the number of particles that are received to the left
+        proc and right proc respectively, and where n_float and n_int
+        are the number of float and integer quantities respectively
         These arrays are always on the CPU (since they were used for MPI)
     """
     # Copy the buffers to an enlarged array
     if species.use_cuda:
-        add_buffers_gpu( species, recv_left, recv_right )
+        add_buffers_gpu( species, float_recv_left, float_recv_right,
+                                uint_recv_left, uint_recv_right )
     else:
-        add_buffers_cpu( species, recv_left, recv_right )
+        add_buffers_cpu( species, float_recv_left, float_recv_right,
+                                uint_recv_left, uint_recv_right )
 
     # Reallocate the particles auxiliary arrays. This needs to be done,
     # as the total number of particles in this domain has changed.
@@ -310,6 +361,9 @@ def add_buffers_to_particles( species, recv_left, recv_right ):
         species.cell_idx = cuda.device_array( shape, dtype=np.int32 )
         species.sorted_idx = cuda.device_array( shape, dtype=np.int32 )
         species.sorting_buffer = cuda.device_array( shape, dtype=np.float64 )
+        if species.tracker is not None:
+            species.tracker.sorting_buffer = \
+                cuda.device_array( shape, dtype=np.uint64 )
     else:
         # Reallocate empty field-on-particle arrays on the CPU
         species.Ex = np.empty(species.Ntot, dtype=np.float64)
@@ -320,13 +374,17 @@ def add_buffers_to_particles( species, recv_left, recv_right ):
         species.Bz = np.empty(species.Ntot, dtype=np.float64)
         # Reallocate empty auxiliary sorting arrays on the CPU
         species.cell_idx = np.empty( species.Ntot, dtype=np.int32 )
-        species.sorted_idx =np.empty( species.Ntot, dtype=np.int32 )
+        species.sorted_idx = np.empty( species.Ntot, dtype=np.int32 )
         species.sorting_buffer = np.empty( species.Ntot, dtype=np.float64 )
+        if species.tracker is not None:
+            species.tracker.sorting_buffer = \
+                np.empty( species.Ntot, dtype=np.uint64 )
 
     # The particles are unsorted after adding new particles.
     species.sorted = False
 
-def add_buffers_cpu( species, recv_left, recv_right ):
+def add_buffers_cpu( species, float_recv_left, float_recv_right,
+                            uint_recv_left, uint_recv_right):
     """
     Add the particles stored in recv_left and recv_right
     to the existing particle in species.
@@ -336,28 +394,35 @@ def add_buffers_cpu( species, recv_left, recv_right ):
     species: a Particles object
         Contain the particles that stayed on the present processors
 
-    recv_left, recv_right: 2darrays of floats
-        Arrays of shape (8, Nptcl) that represent the particles that
-        were received from the neighboring processors
+    float_recv_left, float_recv_right, uint_recv_left, uint_recv_right:
+        arrays of shape (n_float,Nptcl) and (n_int,Nptcl) where Nptcl
+        is the number of particles that are received to the left
+        proc and right proc respectively, and where n_float and n_int
+        are the number of float and integer quantities respectively
         These arrays are always on the CPU (since they were used for MPI)
     """
     # Form the new particle arrays by adding the received particles
     # from the left and the right to the particles that stay in the domain
-    species.x = np.hstack((recv_left[0], species.x, recv_right[0]))
-    species.y = np.hstack((recv_left[1], species.y, recv_right[1]))
-    species.z = np.hstack((recv_left[2], species.z, recv_right[2]))
-    species.ux = np.hstack((recv_left[3], species.ux, recv_right[3]))
-    species.uy = np.hstack((recv_left[4], species.uy, recv_right[4]))
-    species.uz = np.hstack((recv_left[5], species.uz, recv_right[5]))
+    species.x = np.hstack((float_recv_left[0], species.x, float_recv_right[0]))
+    species.y = np.hstack((float_recv_left[1], species.y, float_recv_right[1]))
+    species.z = np.hstack((float_recv_left[2], species.z, float_recv_right[2]))
+    species.ux = np.hstack((float_recv_left[3],species.ux,float_recv_right[3]))
+    species.uy = np.hstack((float_recv_left[4],species.uy,float_recv_right[4]))
+    species.uz = np.hstack((float_recv_left[5],species.uz,float_recv_right[5]))
     species.inv_gamma = \
-        np.hstack((recv_left[6], species.inv_gamma, recv_right[6]))
-    species.w = np.hstack((recv_left[7], species.w, recv_right[7]))
+        np.hstack((float_recv_left[6], species.inv_gamma, float_recv_right[6]))
+    species.w = np.hstack((float_recv_left[7], species.w, float_recv_right[7]))
+    if species.tracker is not None:
+        species.tracker.id = np.hstack(
+            (uint_recv_left[0], species.tracker.id, uint_recv_right[0]))
 
     # Adapt the total number of particles
-    species.Ntot = species.Ntot + recv_left.shape[1] + recv_right.shape[1]
+    species.Ntot = species.Ntot + float_recv_left.shape[1] \
+                                + float_recv_right.shape[1]
 
 
-def add_buffers_gpu( species, recv_left, recv_right ):
+def add_buffers_gpu( species, float_recv_left, float_recv_right,
+                            uint_recv_left, uint_recv_right):
     """
     Add the particles stored in recv_left and recv_right
     to the existing particle in species.
@@ -367,23 +432,27 @@ def add_buffers_gpu( species, recv_left, recv_right ):
     species: a Particles object
         Contain the particles that stayed on the present processors
 
-    recv_left, recv_right: 2darrays of floats
-        Arrays of shape (8, Nptcl) that represent the particles that
-        were received from the neighboring processors
+    float_recv_left, float_recv_right, uint_recv_left, uint_recv_right:
+        arrays of shape (n_float,Nptcl) and (n_int,Nptcl) where Nptcl
+        is the number of particles that are received to the left
+        proc and right proc respectively, and where n_float and n_int
+        are the number of float and integer quantities respectively
         These arrays are always on the CPU (since they were used for MPI)
     """
     # Get the new number of particles
-    new_Ntot = species.Ntot + recv_left.shape[1] + recv_right.shape[1]
+    new_Ntot = species.Ntot + float_recv_left.shape[1] \
+                            + float_recv_right.shape[1]
 
     # Get the threads per block and the blocks per grid
     dim_grid_1d, dim_block_1d = cuda_tpb_bpg_1d( new_Ntot )
 
     # Iterate over particle attributes
+    # Float quantities
     i_attr = 0
     for attr in ['x', 'y', 'z', 'ux', 'uy', 'uz', 'inv_gamma', 'w']:
         # Copy the proper buffers to the GPU
-        left_buffer = cuda.to_device( recv_left[i_attr] )
-        right_buffer = cuda.to_device( recv_right[i_attr] )
+        left_buffer = cuda.to_device( float_recv_left[i_attr] )
+        right_buffer = cuda.to_device( float_recv_right[i_attr] )
         # Initialize the new particle array
         particle_array = cuda.device_array( (new_Ntot,), dtype=np.float64)
         # Merge the arrays on the GPU
@@ -395,6 +464,17 @@ def add_buffers_gpu( species, recv_left, recv_right ):
         setattr(species, attr, particle_array)
         # Increment the buffer index
         i_attr += 1
+    # Integer quantities
+    if species.tracker is not None:
+        # Copy the proper buffers to the GPU
+        left_buffer = cuda.to_device( uint_recv_left[0] )
+        right_buffer = cuda.to_device( uint_recv_right[0] )
+        # Initialize the new particle array
+        particle_array = cuda.device_array( (new_Ntot,), dtype=np.uint64)
+        # Merge the arrays on the GPU
+        merge_buffers_to_particles[dim_grid_1d, dim_block_1d](
+            particle_array, left_buffer, species.tracker.id, right_buffer)
+        species.tracker.id = particle_array
 
     # Adapt the total number of particles
     species.Ntot = new_Ntot
@@ -448,8 +528,7 @@ def shift_particles_periodic_numba( z, zmin, zmax ):
 # -------------
 if cuda_installed:
 
-    @cuda.jit('void(float64[:], float64[:], float64[:], \
-                    float64[:], int32, int32)')
+    @cuda.jit
     def split_particles_to_buffers( particle_array, left_buffer,
                     stay_buffer, right_buffer, i_min, i_max ):
         """
@@ -496,7 +575,7 @@ if cuda_installed:
             if (n_right != 0):
                 right_buffer[i-i_max] = particle_array[i]
 
-    @cuda.jit('void(float64[:], float64[:], float64[:], float64[:])')
+    @cuda.jit
     def merge_buffers_to_particles( particle_array,
                     left_buffer, stay_buffer, right_buffer ):
         """

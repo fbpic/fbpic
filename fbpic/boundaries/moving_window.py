@@ -38,9 +38,9 @@ class MovingWindow(object):
             and about the longitudinal boundaries
 
         ptcl: a list of Particle objects
-            Needed in order to infer the position of injection 
+            Needed in order to infer the position of injection
             of the particles by the moving window.
-                    
+
         v: float (meters per seconds), optional
             The speed of the moving window
 
@@ -69,7 +69,7 @@ class MovingWindow(object):
           raise ValueError('The simulation is using a moving window, but '
                     'the boundaries are periodic.\n Please select open '
                     'boundaries when initializing the Simulation object.')
-        
+
         # Momenta parameters
         self.ux_m = ux_m
         self.uy_m = uy_m
@@ -91,7 +91,7 @@ class MovingWindow(object):
         # (Determines by how many cells the window should be moved)
         if comm.rank == 0:
             self.zmin = interp[0].zmin
-        
+
         # Attach injection position and speed (only for the last proc)
         if comm.rank == comm.size-1:
             ng = comm.n_guard
@@ -125,12 +125,12 @@ class MovingWindow(object):
 
         NB: the spectral grid is not modified, as it is automatically
         updated after damping the fields (see main.py)
-        
+
         Parameters
         ----------
         fld: a Fields object
             Contains the fields data of the simulation
-    
+
         dt: float (in seconds)
             Timestep of the simulation
 
@@ -154,7 +154,7 @@ class MovingWindow(object):
         # Broadcast the information to all proc
         if comm.size > 1:
             n_move = comm.mpi_comm.bcast( n_move )
-    
+
         # Move the grids
         if n_move != 0:
             # Shift the fields
@@ -167,7 +167,7 @@ class MovingWindow(object):
         if fld.use_cuda:
             fld.prefix_sum_shift = n_move
             # This quantity is reset to 0 whenever prefix_sum is recalculated
-                
+
         # Prepare the positions of injection for the particles
         # (The actual creation of particles is done when the routine
         # exchange_particles of boundary_communicator.py is called)
@@ -205,9 +205,14 @@ class MovingWindow(object):
 
         Returns
         -------
-        An array of floats of shape (8, Nptcl) that represent the new
-        particles to be added
+        - float_buffer: An array of floats of shape (n_float, Nptcl)
+            that contain the float properties of the particles
+        - uint_buffer: An array of uints of shape (n_int, Nptcl)
+            that contain the integer properties of the particles (e.g. id)
         """
+        # Shortcut for the number of integer quantities
+        n_int = species.n_integer_quantities
+
         # Create new particle cells
         if (self.nz_inject > 0) and (species.continuous_injection == True):
             # Create a temporary density function that takes into
@@ -227,28 +232,36 @@ class MovingWindow(object):
                 ux_m=self.ux_m, uy_m=self.uy_m, uz_m=self.uz_m,
                 ux_th=self.ux_th, uy_th=self.uy_th, uz_th=self.uz_th)
             # Convert them to a particle buffer of shape (8,Nptcl)
-            particle_buffer = np.empty( (8, new_ptcl.Ntot), dtype=np.float64 )
-            particle_buffer[0,:] = new_ptcl.x
-            particle_buffer[1,:] = new_ptcl.y
-            particle_buffer[2,:] = new_ptcl.z
-            particle_buffer[3,:] = new_ptcl.ux
-            particle_buffer[4,:] = new_ptcl.uy
-            particle_buffer[5,:] = new_ptcl.uz
-            particle_buffer[6,:] = new_ptcl.inv_gamma
-            particle_buffer[7,:] = new_ptcl.w
+            # - Float buffer
+            float_buffer = np.empty( (8, new_ptcl.Ntot), dtype=np.float64 )
+            float_buffer[0,:] = new_ptcl.x
+            float_buffer[1,:] = new_ptcl.y
+            float_buffer[2,:] = new_ptcl.z
+            float_buffer[3,:] = new_ptcl.ux
+            float_buffer[4,:] = new_ptcl.uy
+            float_buffer[5,:] = new_ptcl.uz
+            float_buffer[6,:] = new_ptcl.inv_gamma
+            float_buffer[7,:] = new_ptcl.w
+            # - Integer buffer
+            uint_buffer = np.empty( (n_int, new_ptcl.Ntot), dtype=np.uint64 )
+            if species.tracker is not None:
+                uint_buffer[0,:] = \
+                    species.tracker.generate_new_ids(new_ptcl.Ntot)
         else:
-            particle_buffer = np.empty( (8, 0), dtype=np.float64 )
-            
-        return( particle_buffer )
+            # No new particles: initialize empty arrays
+            float_buffer = np.empty( (8, 0), dtype=np.float64 )
+            uint_buffer = np.empty( (n_int, 0), dtype=np.float64 )
+
+        return( float_buffer, uint_buffer )
 
     def shift_interp_grid( self, grid, n_move, shift_currents=False ):
         """
         Shift the interpolation grid by n_move cells. Shifting is done
         either on the CPU or the GPU, if use_cuda is True.
-    
+
         Parameters
         ----------
-        grid: an InterpolationGrid corresponding to one given azimuthal mode 
+        grid: an InterpolationGrid corresponding to one given azimuthal mode
             Contains the values of the fields on the interpolation grid,
             and is modified by this function.
 
@@ -260,11 +273,11 @@ class MovingWindow(object):
             Default: False, since the currents are recalculated from
             scratch at each PIC cycle
         """
-        # Modify the values of the corresponding z's 
+        # Modify the values of the corresponding z's
         grid.z += n_move*grid.dz
         grid.zmin += n_move*grid.dz
         grid.zmax += n_move*grid.dz
-        
+
         if grid.use_cuda:
             # Shift all the fields on the GPU
             grid.Er = self.shift_interp_field_gpu( grid.Er, n_move )
@@ -295,7 +308,7 @@ class MovingWindow(object):
     def shift_interp_field( self, field_array, n_move ):
         """
         Shift the field 'field_array' by n_move cells (backwards)
-        
+
         Parameters
         ----------
         field_array: 2darray of complexs
@@ -321,7 +334,7 @@ class MovingWindow(object):
         Shift the field 'field_array' by n_move cells (backwards)
         on the GPU by applying a kernel that copies the shifted
         fields to a buffer array.
-        
+
         Parameters
         ----------
         field_array: 2darray of complexs
@@ -331,12 +344,12 @@ class MovingWindow(object):
         n_move: int
             The number of cells by which the grid should be shifted
 
-        Returns 
+        Returns
         -------
         The new shifted field array
         """
         # Get a 2D CUDA grid of the size of the grid
-        dim_grid_2d, dim_block_2d = cuda_tpb_bpg_2d( 
+        dim_grid_2d, dim_block_2d = cuda_tpb_bpg_2d(
             field_array.shape[0], field_array.shape[1] )
         # Initialize a field buffer to temporarily store the data
         field_buffer = cuda.device_array(
@@ -364,7 +377,7 @@ if cuda_installed:
             Contains the shifted field (field_buffer) afterwards
 
         n_move: int
-            Amount of cells by which the field array should be 
+            Amount of cells by which the field array should be
             shifted in the longitudinal direction.
         """
         # Get a 2D CUDA grid
@@ -372,7 +385,7 @@ if cuda_installed:
 
         # Only access values that are actually in the array
         if j < field_array.shape[1] and i < field_array.shape[0]:
-            
+
             # Shift the values of the field array and copy them to the buffer
             if (i+n_move) < field_array.shape[0] and (i+n_move) >= 0 :
                 field_buffer[i, j] = field_array[i+n_move, j]
