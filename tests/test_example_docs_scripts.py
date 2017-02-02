@@ -19,8 +19,11 @@ $ python tests/test_example_docs_script.py
 $ py.test -q tests/test_example_docs_script.py
 $ python setup.py test
 """
+import time
 import os
 import shutil
+import numpy as np
+from opmd_viewer import OpenPMDTimeSeries
 from opmd_viewer.addons import LpaDiagnostics
 
 def test_lpa_sim_singleproc():
@@ -70,7 +73,7 @@ def test_lpa_sim_twoproc_restart():
             or script.find('N_step = 200') == -1:
             raise RuntimeError('Did not find expected lines in lwfa_script.py')
 
-    # Modify the script so as to enable checkpoints
+    # Modify the script so as to enable checkpoints and particle tracking
     script = script.replace('save_checkpoints = False',
                                 'save_checkpoints = True')
     script = script.replace('track_electrons = False',
@@ -92,6 +95,16 @@ def test_lpa_sim_twoproc_restart():
     # Launch the modified script from the OS, with 2 proc
     response = os.system( 'mpirun -np 2 python lwfa_script.py' )
     assert response==0
+
+    # Check that the particle ids are unique at each iterations
+    ts = OpenPMDTimeSeries('./diags/hdf5')
+    print('Checking particle ids...')
+    start_time = time.time()
+    for iteration in ts.iterations:
+        pid, = ts.get_particle(["id"], iteration=iteration)
+        assert len(np.unique(pid)) == len(pid)
+    end_time = time.time()
+    print( "%.2f seconds" %(end_time-start_time))
 
    # Exit the temporary directory and suppress it
     os.chdir('../../')

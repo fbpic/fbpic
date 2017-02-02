@@ -10,11 +10,27 @@ from numba import cuda
 
 class ParticleTracker(object):
     """
-    # TODO
+    Class that stores particles ids and attributes new ids when necessary
+
+    The ids are integers that are used in order to *uniquely* identify
+    individual macroparticles (for the purpose of tracking, in postprocessing)
+
+    Therefore, ids should be unique across all MPI processors. This is
+    implemented here be having each MPI rank attribute ids of the form:
+    mpi_rank + n * mpi_size
     """
-    def __init__( self, comm_size, comm_rank, N, use_cuda ):
+    def __init__( self, comm_size, comm_rank, N ):
         """
-        # TODO
+        Initialize the ParticleTracker class
+
+        Parameters
+        ----------
+        comm_size: int
+            The number MPI ranks in the MPI communicator
+        comm_rank: int
+            The rank of the local MPI process
+        N: int
+            The total number of particles to which id should be attributed
         """
         # Prepare how to attribute new ids
         self.next_attributed_id = comm_rank
@@ -35,21 +51,27 @@ class ParticleTracker(object):
 
     def send_to_gpu(self):
         """
-        # TODO
+        Transfer the tracking data from the CPU to the GPU
         """
         self.id = cuda.to_device( self.id )
         self.sorting_buffer = cuda.to_device( self.sorting_buffer )
 
     def receive_from_gpu(self):
         """
-        # TODO
+        Transfer the tracking data from the GPU to the CPU
         """
         self.id = self.id.copy_to_host()
         self.sorting_buffer = self.sorting_buffer.copy_to_host()
 
     def generate_new_ids( self, N ):
         """
-        # TODO
+        Generate `N` new unique ids (which are unique across all MPI ranks)
+        Update the corresponding next attributed id
+
+        Parameters
+        ----------
+        N: int
+            The number of ids to generate
         """
         new_next_attributed_id = self.next_attributed_id + N*self.id_step
         new_ids = np.arange(
@@ -58,9 +80,18 @@ class ParticleTracker(object):
         self.next_attributed_id = new_next_attributed_id
         return( new_ids )
 
-    def rewrite_ids( self, pid, comm ):
+    def overwrite_ids( self, pid, comm ):
         """
-        # TODO
+        Overwrite the particle ids and update the corresponding next
+        attributed id (so that it is still unique across all MPI ranks)
+
+        Parameters
+        ----------
+        pid: 1darray of uint64
+            The new array of particle id (has the same length as self.id)
+        comm: an fbpic.BoundaryCommunicator object
+            This is used in order to communicate global information on the
+            ids across all MPI ranks
         """
         # Get the new ids
         self.id[:] = pid

@@ -285,8 +285,7 @@ class Particles(object) :
         comm: an fbpic.BoundaryCommunicator object
             Contains information about the number of processors
         """
-        self.tracker = ParticleTracker( comm.size, comm.rank,
-                                        self.Ntot, self.use_cuda )
+        self.tracker = ParticleTracker( comm.size, comm.rank, self.Ntot )
         self.n_integer_quantities += 1
 
     def rearrange_particle_arrays( self ):
