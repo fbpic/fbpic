@@ -230,9 +230,9 @@ class Particles(object) :
             self.sorting_buffer = cuda.to_device(self.sorting_buffer)
             self.prefix_sum = cuda.to_device(self.prefix_sum)
 
-            # Copy tracker particle id
+            # Copy particle tracker data
             if self.tracker is not None:
-                self.tracker.id = cuda.to_device(self.tracker.id)
+                self.tracker.send_to_gpu()
 
     def receive_particles_from_gpu( self ):
         """
@@ -267,23 +267,23 @@ class Particles(object) :
             self.sorting_buffer = self.sorting_buffer.copy_to_host()
             self.prefix_sum = self.prefix_sum.copy_to_host()
 
-            # Copy tracker particle id
+            # Copy particle tracker data
             if self.tracker is not None:
-                self.tracker.id = self.tracker.id.copy_to_host()
+                self.track.receive_from_gpu()
 
     def track( self, comm ):
         """
         Activate particle tracking for the current species
-
-        (i.e. allocates an array of ids, that can then be output in
-        the openPMD file)
+        (i.e. allocates an array of ids, that is communicated through MPI
+        and sorting, and is output in the openPMD file)
 
         Parameters:
         -----------
         comm: an fbpic.BoundaryCommunicator object
             Contains information about the number of processors
         """
-        self.tracker = ParticleTracker( comm.size, comm.rank, self.Ntot )
+        self.tracker = ParticleTracker( comm.size, comm.rank,
+                                        self.Ntot, self.use_cuda )
 
     def rearrange_particle_arrays( self ):
         """
@@ -307,6 +307,13 @@ class Particles(object) :
             # Assign the old particle data array to
             # the particle buffer
             self.sorting_buffer = val
+        # Handle tracking data
+        if self.tracker is not None:
+            val = self.tracker.id
+            write_sorting_buffer[dim_grid_1d, dim_block_1d](
+                self.sorted_idx, val, self.tracker.sorting_buffer )
+            self.tracker.id = self.tracker.sorting_buffer
+            self.tracker.sorting_buffer = val
 
     def push_p( self ) :
         """
