@@ -312,6 +312,17 @@ class Particles(object) :
         # (This is updated whenever further ionization happens)
         self.w[:] = e*self.ionizer.ionization_level*self.ionizer.neutral_weight
 
+    def handle_ionization( self ):
+        """
+        # TODO: complete
+        Ionize the species, and add new macroparticles to the target species
+        """
+        if self.ionizer is not None:
+            if self.use_cuda:
+                self.ionizer.handle_ionization_gpu( self )
+            else:
+                self.ionizer.handle_ionization_cpu( self )
+
     def rearrange_particle_arrays( self ):
         """
         Rearranges the particle data arrays to match with the sorted

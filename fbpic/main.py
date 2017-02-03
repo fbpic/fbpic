@@ -327,7 +327,7 @@ class Simulation(object):
                 # out-of-box particles and (if there is a moving window)
                 # injection of new particles by the moving window.
                 # (In the case of single-proc periodic simulations, particles
-                # are shifted by one box length, so they remain inside the box.) 
+                # are shifted by one box length, so they remain inside the box.)
                 for species in self.ptcl:
                     self.comm.exchange_particles(species, fld, self.time)
 
@@ -343,6 +343,11 @@ class Simulation(object):
             # Apply the external fields at t = n dt
             for ext_field in self.external_fields:
                 ext_field.apply_expression( self.ptcl, self.time )
+
+            # Ionize the particles at t = n dt
+            # (if the species is not ionizable, `handle_ionization` skips it)
+            for species in ptcl:
+                species.handle_ionization()
 
             # Push the particles' positions and velocities to t = (n+1/2) dt
             if move_momenta:

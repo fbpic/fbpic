@@ -116,7 +116,7 @@ class Ionizer(object):
         # TODO: Complete
         """
         # Process particles in batches (of typically 10, 20 particles)
-        N_batch = ion.Ntot / self.batch_size + 1
+        N_batch = int( ion.Ntot / self.batch_size ) + 1
 
         # Create temporary arrays
         is_ionized = cuda.device_array( ion.Ntot, dtype=np.int16 )
@@ -128,7 +128,7 @@ class Ionizer(object):
         # Ionize the ions (one thread per batch)
         batch_grid_1d, batch_block_1d = cuda_tpb_bpg_1d( N_batch )
         ionize_ions_cuda[ batch_grid_1d, batch_block_1d ](
-            N_batch, self.batch_size, ion.Ntot, self.zmax,
+            N_batch, self.batch_size, ion.Ntot, self.z_max,
             n_ionized, is_ionized, self.ionization_level, random_draw,
             self.adk_prefactor, self.adk_power, self.adk_exp_prefactor,
             ion.ux, ion.uy, ion.uz,
@@ -141,6 +141,9 @@ class Ionizer(object):
         n_ionized = n_ionized.copy_to_host()
         cumulative_n_ionized = np.zeros( len(n_ionized)+1, dtype=np.int64 )
         np.cumsum( n_ionized, out=cumulative_n_ionized[1:] )
+        # If no new particle was created, skip the rest of this function
+        if cumulative_n_ionized[-1] == 0:
+            return
 
         # Reallocate the electron species, in order to
         # accomodate the electrons produced by ionization
@@ -178,7 +181,7 @@ class Ionizer(object):
         # TODO: Complete
         """
         # Process particles in batches (of typically 10, 20 particles)
-        N_batch = ion.Ntot / self.batch_size + 1
+        N_batch = int( ion.Ntot / self.batch_size ) + 1
 
         # Create temporary arrays
         is_ionized = np.empty( ion.Ntot, dtype=np.int16 )
@@ -188,7 +191,7 @@ class Ionizer(object):
 
         # Ionize the ions (one thread per batch)
         ionize_ions_numba(
-            N_batch, self.batch_size, ion.Ntot, self.zmax,
+            N_batch, self.batch_size, ion.Ntot, self.z_max,
             n_ionized, is_ionized, self.ionization_level, random_draw,
             self.adk_prefactor, self.adk_power, self.adk_exp_prefactor,
             ion.ux, ion.uy, ion.uz,
@@ -199,6 +202,9 @@ class Ionizer(object):
         # Count the total number of electrons
         cumulative_n_ionized = np.zeros( len(n_ionized)+1, dtype=np.int64 )
         np.cumsum( n_ionized, out=cumulative_n_ionized[1:] )
+        # If no new particle was created, skip the rest of this function
+        if cumulative_n_ionized[-1] == 0:
+            return
 
         # Reallocate the electron species, in order to
         # accomodate the electrons produced by ionization
