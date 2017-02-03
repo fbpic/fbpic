@@ -153,7 +153,8 @@ class Ionizer(object):
         # Iterate over particle attributes and copy the old electrons
         # (one thread per particle)
         ptcl_grid_1d, ptcl_block_1d = cuda_tpb_bpg_1d( old_Ntot )
-        for attr in ['x', 'y', 'z', 'ux', 'uy', 'uz', 'w', 'inv_gamma']:
+        for attr in ['x', 'y', 'z', 'ux', 'uy', 'uz', 'w', 'inv_gamma',
+                        'Ex', 'Ey', 'Ez', 'Bx', 'By', 'Bz']:
             old_array = getattr(elec, attr)
             new_array = cuda.device_array( new_Ntot, dtype=np.float64 )
             copy_particle_data_cuda[ ptcl_grid_1d, ptcl_block_1d ](
@@ -173,8 +174,10 @@ class Ionizer(object):
             n_ionized, is_ionized,
             elec.x, elec.y, elec.z, elec.inv_gamma,
             elec.ux, elec.uy, elec.uz, elec.w,
+            elec.Ex, elec.Ey, elec.Ez, elec.Bx, elec.By, elec.Bz,
             ion.x, ion.y, ion.z, ion.inv_gamma,
-            ion.ux, ion.uy, ion.uz, self.neutral_weight )
+            ion.ux, ion.uy, ion.uz, self.neutral_weight,
+            ion.Ex, ion.Ey, ion.Ez, ion.Bx, ion.By, ion.Bz )
 
     def handle_ionization_cpu( self, ion ):
         """
@@ -213,7 +216,8 @@ class Ionizer(object):
         new_Ntot = old_Ntot + cumulative_n_ionized[-1]
         # Iterate over particle attributes and copy the old electrons
         # (one thread per particle)
-        for attr in ['x', 'y', 'z', 'ux', 'uy', 'uz', 'w', 'inv_gamma']:
+        for attr in ['x', 'y', 'z', 'ux', 'uy', 'uz', 'w', 'inv_gamma',
+                            'Ex', 'Ey', 'Ez', 'Bx', 'By', 'Bz']:
             old_array = getattr(elec, attr)
             new_array = np.empty( new_Ntot, dtype=np.float64 )
             new_array[:old_Ntot] = old_array
@@ -232,8 +236,10 @@ class Ionizer(object):
             n_ionized, is_ionized,
             elec.x, elec.y, elec.z, elec.inv_gamma,
             elec.ux, elec.uy, elec.uz, elec.w,
+            elec.Ex, elec.Ey, elec.Ez, elec.Bx, elec.By, elec.Bz,
             ion.x, ion.y, ion.z, ion.inv_gamma,
-            ion.ux, ion.uy, ion.uz, self.neutral_weight )
+            ion.ux, ion.uy, ion.uz, self.neutral_weight,
+            ion.Ex, ion.Ey, ion.Ez, ion.Bx, ion.By, ion.Bz )
 
     def send_to_gpu( self ):
         """
