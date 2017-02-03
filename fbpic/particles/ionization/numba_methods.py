@@ -12,7 +12,7 @@ from scipy.constants import c, e
 from .inline_functions import get_ionization_probability_numba, \
     get_E_amplitude_numba, copy_ionized_electrons_batch_numba
 
-@numba.jit()
+@numba.jit(nopython=True)
 def ionize_ions_numba( N_batch, batch_size, Ntot, z_max,
     n_ionized, is_ionized, ionization_level, random_draw,
     adk_prefactor, adk_power, adk_exp_prefactor,
@@ -54,7 +54,7 @@ def ionize_ions_numba( N_batch, batch_size, Ntot, z_max,
             else:
                 is_ionized[ip] = 0
 
-@numba.jit()
+@numba.jit(nopython=True)
 def copy_ionized_electrons_numba(
     N_batch, batch_size, elec_old_Ntot, ion_Ntot,
     n_ionized, is_ionized,
