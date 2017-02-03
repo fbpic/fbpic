@@ -9,7 +9,7 @@ import numpy as np
 from scipy.constants import e
 
 # The dictionary below defines the ionization energies in Joules
-# (energies are multiplied by e)
+# (energies in eV are multiplied by e)
 ionization_energies_dict = {
     'H':  e * np.array([ 13.6 ]),
     'He': e * np.array([ 24.5874, 54.417760 ]),

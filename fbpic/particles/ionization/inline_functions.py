@@ -57,9 +57,12 @@ get_ionization_probability_numba = \
 # -----------------
 
 def copy_ionized_electrons_batch(
-    i_batch, N_batches, elec_old_Ntot, ion_Ntot, n_ionized, is_ionized,
-    elec_x, elec_y, elec_z, elec_ux, elec_uy, elec_uz, elec_w,
-    ion_x, ion_y, ion_z, ion_ux, ion_uy, ion_uz, ion_neutral_weight ):
+    i_batch, batch_size, elec_old_Ntot, ion_Ntot,
+    n_ionized, is_ionized,
+    elec_x, elec_y, elec_z, elec_inv_gamma,
+    elec_ux, elec_uy, elec_uz, elec_w,
+    ion_x, ion_y, ion_z, ion_inv_gamma,
+    ion_ux, ion_uy, ion_uz, ion_neutral_weight ):
     """
     TO DO
     """
@@ -67,8 +70,8 @@ def copy_ionized_electrons_batch(
     # an ionized electron is identified
     elec_index = elec_old_Ntot + n_ionized[i_batch]
     # Loop through the ions in this batch
-    N_max = min( (i_batch+1)*N_batches, ion_Ntot )
-    for ion_index in range( i_batch*N_batches, N_max ):
+    N_max = min( (i_batch+1)*batch_size, ion_Ntot )
+    for ion_index in range( i_batch*batch_size, N_max ):
 
         if is_ionized[ion_index] == 1:
             # Copy the ion data to the current electron_index
@@ -78,6 +81,7 @@ def copy_ionized_electrons_batch(
             elec_ux[elec_index] = ion_ux[ion_index]
             elec_uy[elec_index] = ion_uy[ion_index]
             elec_uz[elec_index] = ion_uz[ion_index]
+            elec_inv_gamma[elec_index] = ion_inv_gamma[ion_index]
             elec_w[elec_index] = - e * ion_neutral_weight[ion_index]
 
             # Update the electron_index
