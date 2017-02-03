@@ -85,6 +85,12 @@ def copy_ionized_electrons_batch(
             elec_uz[elec_index] = ion_uz[ion_index]
             elec_inv_gamma[elec_index] = ion_inv_gamma[ion_index]
             elec_w[elec_index] = - e * ion_neutral_weight[ion_index]
+            elec_Ex[elec_index] = ion_Ex[ion_index]
+            elec_Ey[elec_index] = ion_Ey[ion_index]
+            elec_Ez[elec_index] = ion_Ez[ion_index]
+            elec_Bx[elec_index] = ion_Bx[ion_index]
+            elec_By[elec_index] = ion_By[ion_index]
+            elec_Bz[elec_index] = ion_Bz[ion_index]
 
             # Update the electron_index
             elec_index += 1
