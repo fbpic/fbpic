@@ -171,7 +171,7 @@ class Ionizer(object):
         # Copy the new electrons from ionization (one thread per batch)
         copy_ionized_electrons_cuda[ batch_grid_1d, batch_block_1d ](
             N_batch, self.batch_size, old_Ntot, ion.Ntot,
-            n_ionized, is_ionized,
+            cumulative_n_ionized, is_ionized,
             elec.x, elec.y, elec.z, elec.inv_gamma,
             elec.ux, elec.uy, elec.uz, elec.w,
             elec.Ex, elec.Ey, elec.Ez, elec.Bx, elec.By, elec.Bz,
@@ -233,7 +233,7 @@ class Ionizer(object):
         # Copy the new electrons from ionization (one thread per batch)
         copy_ionized_electrons_numba(
             N_batch, self.batch_size, old_Ntot, ion.Ntot,
-            n_ionized, is_ionized,
+            cumulative_n_ionized, is_ionized,
             elec.x, elec.y, elec.z, elec.inv_gamma,
             elec.ux, elec.uy, elec.uz, elec.w,
             elec.Ex, elec.Ey, elec.Ez, elec.Bx, elec.By, elec.Bz,

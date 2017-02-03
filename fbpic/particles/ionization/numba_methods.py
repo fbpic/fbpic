@@ -57,7 +57,7 @@ def ionize_ions_numba( N_batch, batch_size, Ntot, z_max,
 @numba.jit(nopython=True)
 def copy_ionized_electrons_numba(
     N_batch, batch_size, elec_old_Ntot, ion_Ntot,
-    n_ionized, is_ionized,
+    cumulative_n_ionized, is_ionized,
     elec_x, elec_y, elec_z, elec_inv_gamma,
     elec_ux, elec_uy, elec_uz, elec_w,
     elec_Ex, elec_Ey, elec_Ez, elec_Bx, elec_By, elec_Bz,
@@ -71,7 +71,7 @@ def copy_ionized_electrons_numba(
     for i_batch in range( N_batch ):
         copy_ionized_electrons_batch_numba(
             i_batch, batch_size, elec_old_Ntot, ion_Ntot,
-            n_ionized, is_ionized,
+            cumulative_n_ionized, is_ionized,
             elec_x, elec_y, elec_z, elec_inv_gamma,
             elec_ux, elec_uy, elec_uz, elec_w,
             elec_Ex, elec_Ey, elec_Ez, elec_Bx, elec_By, elec_Bz,
