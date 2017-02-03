@@ -93,7 +93,7 @@ class Ionizer(object):
         # - Scalars
         alpha = physical_constants['fine-structure constant'][0]
         r_e = physical_constants['classical electron radius'][0]
-        wa = alpha**3 * c * r_e
+        wa = alpha**3 * c / r_e
         Ea = m_e*c**2/e * alpha**4/r_e
         # - Arrays (one element per ionization level)
         UH = ionization_energies_dict['H'][0]
