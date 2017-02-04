@@ -27,7 +27,7 @@ def get_E_amplitude( ux, uy, uz, Ex, Ey, Ez, cBx, cBy, cBz ):
         + ( gamma*Ey + uz*cBx - ux*cBz )**2 \
         + ( gamma*Ez + ux*cBy - uy*cBx )**2
 
-    return( math.sqrt( E2_on_particle ) )
+    return( math.sqrt( E2_on_particle ), gamma )
 
 # Compile the function for CPU and GPU
 if cuda_installed:
@@ -37,12 +37,14 @@ get_E_amplitude_numba = numba.jit(get_E_amplitude, nopython=True)
 # ----------------------------
 # Function for ADK probability
 # ----------------------------
-def get_ionization_probability( E, prefactor, power, exp_prefactor ):
+def get_ionization_probability( E, gamma, prefactor, power, exp_prefactor ):
     """
     TO DO
     """
-    w_dt = prefactor * E**power * math.exp( exp_prefactor/E )
-    p = 1. - math.exp( - w_dt )
+    # The gamma factor takes into account the fact that the ionization
+    # rate is multiplied by dtau (proper time of the ion), i.e. dt/gamma
+    w_dtau = 1./ gamma * prefactor * E**power * math.exp( exp_prefactor/E )
+    p = 1. - math.exp( - w_dtau )
     return( p )
 
 # Compile the function for CPU and GPU

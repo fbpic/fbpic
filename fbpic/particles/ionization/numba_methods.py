@@ -38,11 +38,11 @@ def ionize_ions_numba( N_batch, batch_size, Ntot, z_max,
 
             # Calculate the amplitude of the electric field,
             # in the frame of the electrons (device inline function)
-            E = get_E_amplitude_numba( ux[ip], uy[ip], uz[ip],
+            E, gamma = get_E_amplitude_numba( ux[ip], uy[ip], uz[ip],
                     Ex[ip], Ey[ip], Ez[ip], c*Bx[ip], c*By[ip], c*Bz[ip] )
             # Get ADK rate (device inline function)
-            p = get_ionization_probability_numba( E, adk_prefactor[level],
-                adk_power[level], adk_exp_prefactor[level] )
+            p = get_ionization_probability_numba( E, gamma,
+              adk_prefactor[level], adk_power[level], adk_exp_prefactor[level])
             # Ionize particles
             if random_draw[ip] < p:
                 # Set the corresponding flag and update particle count
