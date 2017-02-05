@@ -178,6 +178,7 @@ class Ionizer(object):
             ion.x, ion.y, ion.z, ion.inv_gamma,
             ion.ux, ion.uy, ion.uz, self.neutral_weight,
             ion.Ex, ion.Ey, ion.Ez, ion.Bx, ion.By, ion.Bz )
+        elec.sorted = False
 
     def handle_ionization_cpu( self, ion ):
         """
