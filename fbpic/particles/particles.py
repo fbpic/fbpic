@@ -278,7 +278,7 @@ class Particles(object) :
 
             # Copy particle tracker data
             if self.tracker is not None:
-                self.track.receive_from_gpu()
+                self.tracker.receive_from_gpu()
             # Copy the ionization data
             if self.ionizer is not None:
                 self.ionizer.receive_from_gpu()
