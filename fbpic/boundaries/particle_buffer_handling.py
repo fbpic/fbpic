@@ -127,8 +127,14 @@ def remove_particles_cpu(species, fld, nguard, left_proc, right_proc):
         float_send_left[5,:] = species.uz[selec_left]
         float_send_left[6,:] = species.inv_gamma[selec_left]
         float_send_left[7,:] = species.w[selec_left]
+        i_attr = 0
         if species.tracker is not None:
-            uint_send_left[0,:] = species.tracker.id[selec_left]
+            uint_send_left[i_attr,:] = species.tracker.id[selec_left]
+            i_attr += 1
+        if species.ionizer is not None:
+            uint_send_left[i_attr,:] = \
+                species.ionizer.ionization_level[selec_left]
+            float_send_left[8,:] = species.ionizer.neutral_weight[selec_left]
     else:
         # No need to allocate and copy data ; return an empty array
         float_send_left = np.empty((n_float, 0), dtype=np.float64)
@@ -147,8 +153,14 @@ def remove_particles_cpu(species, fld, nguard, left_proc, right_proc):
         float_send_right[5,:] = species.uz[selec_right]
         float_send_right[6,:] = species.inv_gamma[selec_right]
         float_send_right[7,:] = species.w[selec_right]
+        i_attr = 0
         if species.tracker is not None:
-            uint_send_right[0,:] = species.tracker.id[selec_right]
+            uint_send_right[i_attr,:] = species.tracker.id[selec_right]
+            i_attr += 1
+        if species.ionizer is not None:
+            uint_send_right[i_attr,:] = \
+                species.ionizer.ionization_level[selec_right]
+            float_send_right[8,:] = species.ionizer.neutral_weight[selec_right]
     else:
         # No need to allocate and copy data ; return an empty array
         float_send_right = np.empty((n_float, 0), dtype = np.float64)
@@ -167,6 +179,11 @@ def remove_particles_cpu(species, fld, nguard, left_proc, right_proc):
     species.w = species.w[selec_stay]
     if species.tracker is not None:
         species.tracker.id = species.tracker.id[selec_stay]
+    if species.ionizer is not None:
+        species.ionizer.neutral_weight = \
+            species.ionizer.neutral_weight[selec_stay]
+        species.ionizer.ionization_level = \
+            species.ionizer.ionization_level[selec_stay]
 
     # Return the sending buffers
     return(float_send_left, float_send_right, uint_send_left, uint_send_right)
@@ -269,45 +286,57 @@ def remove_particles_gpu(species, fld, nguard, left_proc, right_proc):
 
     # Get the threads per block and the blocks per grid
     dim_grid_1d, dim_block_1d = cuda_tpb_bpg_1d( species.Ntot )
-    # Iterate over particle attributes
-    i_attr = 0
     # Float quantities: Initialize 3 buffer arrays on the GPU
     left_buffer = cuda.device_array((N_send_l,), dtype=np.float64)
     right_buffer = cuda.device_array((N_send_r,), dtype=np.float64)
     stay_buffer = cuda.device_array((new_Ntot,), dtype=np.float64)
-    for attr in ['x', 'y', 'z', 'ux', 'uy', 'uz', 'inv_gamma', 'w' ]:
+    # Build list of float attributes to copy
+    attr_list = [ (species,'x'), (species,'y'), (species,'z'),
+                    (species,'ux'), (species,'uy'), (species,'uz'),
+                    (species,'inv_gamma'), (species,'w') ]
+    if species.ionizer is not None:
+        attr_list.append( (species.ionizer,'neutral_weight') )
+    # Loop through the float attributes
+    for i_attr in range(n_float):
         # Check that the buffers are still on GPU
         # (safeguard against automatic memory management)
         assert type(left_buffer) != np.ndarray
         assert type(right_buffer) != np.ndarray
         assert type(left_buffer) != np.ndarray
         # Split the particle array into the 3 buffers on the GPU
-        particle_array = getattr(species, attr)
+        particle_array = getattr( attr_list[i_attr][0], attr_list[i_attr][1] )
         split_particles_to_buffers[dim_grid_1d, dim_block_1d]( particle_array,
                     left_buffer, stay_buffer, right_buffer, i_min, i_max)
         # Assign the stay_buffer to the initial particle data array
         # and fill the sending buffers (if needed for MPI)
-        setattr(species, attr, stay_buffer)
+        setattr( attr_list[i_attr][0], attr_list[i_attr][1], stay_buffer)
         if left_proc is not None:
             left_buffer.copy_to_host( float_send_left[i_attr] )
         if right_proc is not None:
             right_buffer.copy_to_host( float_send_right[i_attr] )
-        # Increment the buffer index
-        i_attr += 1
 
     # Integer quantities: Initialize 3 buffer arrays on the GPU
-    if species.tracker is not None:
+    if n_int > 0:
         left_buffer = cuda.device_array((N_send_l,), dtype=np.uint64)
         right_buffer = cuda.device_array((N_send_r,), dtype=np.uint64)
         stay_buffer = cuda.device_array((new_Ntot,), dtype=np.uint64)
+        attr_list = []
+    if species.tracker is not None:
+        attr_list.append( (species.tracker,'id') )
+    if species.ionizer is not None:
+        attr_list.append( (species.ionizer,'ionization_level') )
+    for i_attr in range(n_int):
         # Split the particle array into the 3 buffers on the GPU
-        split_particles_to_buffers[dim_grid_1d, dim_block_1d](
-            species.tracker.id, left_buffer,
-            stay_buffer, right_buffer, i_min, i_max)
+        particle_array = getattr( attr_list[i_attr][0], attr_list[i_attr][1] )
+        split_particles_to_buffers[dim_grid_1d, dim_block_1d]( particle_array,
+            left_buffer, stay_buffer, right_buffer, i_min, i_max)
+        # Assign the stay_buffer to the initial particle data array
+        # and fill the sending buffers (if needed for MPI)
+        setattr( attr_list[i_attr][0], attr_list[i_attr][1], stay_buffer)
         if left_proc is not None:
-            left_buffer.copy_to_host( uint_send_left[0] )
+            left_buffer.copy_to_host( uint_send_left[i_attr] )
         if right_proc is not None:
-            right_buffer.copy_to_host( uint_send_right[0] )
+            right_buffer.copy_to_host( uint_send_right[i_attr] )
 
     # Change the new total number of particles
     species.Ntot = new_Ntot
@@ -412,9 +441,16 @@ def add_buffers_cpu( species, float_recv_left, float_recv_right,
     species.inv_gamma = \
         np.hstack((float_recv_left[6], species.inv_gamma, float_recv_right[6]))
     species.w = np.hstack((float_recv_left[7], species.w, float_recv_right[7]))
+    i_attr = 0
     if species.tracker is not None:
-        species.tracker.id = np.hstack(
-            (uint_recv_left[0], species.tracker.id, uint_recv_right[0]))
+        species.tracker.id = np.hstack( (uint_recv_left[i_attr],
+            species.tracker.id, uint_recv_right[i_attr]))
+        i_attr += 1
+    if species.ionizer is not None:
+        species.ionizer.ionization_level = np.hstack( (uint_recv_left[i_attr],
+            species.ionizer.ionization_level, uint_recv_right[i_attr]))
+        species.ionizer.neutral_weight = np.hstack( (float_recv_left[8],
+            species.ionizer.neutral_weight, float_recv_right[8]))
 
     # Adapt the total number of particles
     species.Ntot = species.Ntot + float_recv_left.shape[1] \
@@ -447,34 +483,45 @@ def add_buffers_gpu( species, float_recv_left, float_recv_right,
     dim_grid_1d, dim_block_1d = cuda_tpb_bpg_1d( new_Ntot )
 
     # Iterate over particle attributes
-    # Float quantities
-    i_attr = 0
-    for attr in ['x', 'y', 'z', 'ux', 'uy', 'uz', 'inv_gamma', 'w']:
+    # Build list of float attributes to copy
+    attr_list = [ (species,'x'), (species,'y'), (species,'z'), \
+                  (species,'ux'), (species,'uy'), (species,'uz'), \
+                  (species,'inv_gamma'), (species,'w') ]
+    if species.ionizer is not None:
+        attr_list += [ (species.ionizer, 'neutral_weight') ]
+    # Loop through the float quantities
+    for i_attr in range( len(attr_list) ):
         # Copy the proper buffers to the GPU
         left_buffer = cuda.to_device( float_recv_left[i_attr] )
         right_buffer = cuda.to_device( float_recv_right[i_attr] )
         # Initialize the new particle array
         particle_array = cuda.device_array( (new_Ntot,), dtype=np.float64)
         # Merge the arrays on the GPU
-        stay_buffer = getattr(species, attr)
+        stay_buffer = getattr( attr_list[i_attr][0], attr_list[i_attr][1])
         merge_buffers_to_particles[dim_grid_1d, dim_block_1d](
             particle_array, left_buffer, stay_buffer, right_buffer)
         # Assign the stay_buffer to the initial particle data array
         # and fill the sending buffers (if needed for MPI)
-        setattr(species, attr, particle_array)
-        # Increment the buffer index
-        i_attr += 1
-    # Integer quantities
+        setattr(attr_list[i_attr][0], attr_list[i_attr][1], particle_array)
+
+    # Build list of integer quantities to copy
+    attr_list = []
     if species.tracker is not None:
+        attr_list.append( (species.tracker,'id') )
+    if species.ionizer is not None:
+        attr_list.append( (species.ionizer,'ionization_level') )
+    for i_attr in range( len(attr_list) ):
         # Copy the proper buffers to the GPU
-        left_buffer = cuda.to_device( uint_recv_left[0] )
-        right_buffer = cuda.to_device( uint_recv_right[0] )
+        left_buffer = cuda.to_device( uint_recv_left[i_attr] )
+        right_buffer = cuda.to_device( uint_recv_right[i_attr] )
         # Initialize the new particle array
         particle_array = cuda.device_array( (new_Ntot,), dtype=np.uint64)
         # Merge the arrays on the GPU
         merge_buffers_to_particles[dim_grid_1d, dim_block_1d](
             particle_array, left_buffer, species.tracker.id, right_buffer)
-        species.tracker.id = particle_array
+        # Assign the stay_buffer to the initial particle data array
+        # and fill the sending buffers (if needed for MPI)
+        setattr(attr_list[i_attr][0], attr_list[i_attr][1], particle_array)
 
     # Adapt the total number of particles
     species.Ntot = new_Ntot

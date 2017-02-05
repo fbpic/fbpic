@@ -297,7 +297,8 @@ class Particles(object) :
         self.tracker = ParticleTracker( comm.size, comm.rank, self.Ntot )
         self.n_integer_quantities += 1
 
-    def make_ionizable( self, element, target_species, z_min=0, z_max=None ):
+    def make_ionizable( self, element, target_species,
+                        z_min=0, z_max=None, full_initialization=True ):
         """
         Make this species ionizable
 
@@ -307,10 +308,14 @@ class Particles(object) :
 
         """
         # Initialize the ionizer module
-        self.ionizer = Ionizer( element, self, target_species, z_min, z_max )
+        self.ionizer = Ionizer( element, self, target_species,
+                                    z_min, z_max, full_initialization )
         # Recalculate the weights to reflect the current ionization levels
         # (This is updated whenever further ionization happens)
         self.w[:] = e*self.ionizer.ionization_level*self.ionizer.neutral_weight
+        # Update the number of float and int arrays
+        self.n_float_quantities += 1 # neutral_weight
+        self.n_integer_quantities += 1 # ionization_level
 
     def handle_ionization( self ):
         """

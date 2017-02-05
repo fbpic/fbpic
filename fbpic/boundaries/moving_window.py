@@ -212,6 +212,7 @@ class MovingWindow(object):
         """
         # Shortcut for the number of integer quantities
         n_int = species.n_integer_quantities
+        n_float = species.n_float_quantities
 
         # Create new particle cells
         if (self.nz_inject > 0) and (species.continuous_injection == True):
@@ -231,9 +232,15 @@ class MovingWindow(object):
                 species.Nptheta, species.dt, dens_func=dens_func,
                 ux_m=self.ux_m, uy_m=self.uy_m, uz_m=self.uz_m,
                 ux_th=self.ux_th, uy_th=self.uy_th, uz_th=self.uz_th)
-            # Convert them to a particle buffer of shape (8,Nptcl)
+            # Initialize ionization-relevant arrays if species is ionizable
+            if species.ionizer is not None:
+                new_ptcl.make_ionizable( element=species.ionizer.element,
+                    target_species=species.ionizer.target_species,
+                    z_min=species.ionizer.z_min, z_max=species.ionizer.z_max,
+                    full_initialization=False )
+            # Convert them to a particle buffer
             # - Float buffer
-            float_buffer = np.empty( (8, new_ptcl.Ntot), dtype=np.float64 )
+            float_buffer = np.empty( (n_float, new_ptcl.Ntot), dtype=np.float64 )
             float_buffer[0,:] = new_ptcl.x
             float_buffer[1,:] = new_ptcl.y
             float_buffer[2,:] = new_ptcl.z
@@ -242,14 +249,20 @@ class MovingWindow(object):
             float_buffer[5,:] = new_ptcl.uz
             float_buffer[6,:] = new_ptcl.inv_gamma
             float_buffer[7,:] = new_ptcl.w
+            if species.ionizer is not None:
+                float_buffer[8,:] = new_ptcl.ionizer.neutral_weight
             # - Integer buffer
             uint_buffer = np.empty( (n_int, new_ptcl.Ntot), dtype=np.uint64 )
+            i_int = 0
             if species.tracker is not None:
-                uint_buffer[0,:] = \
+                uint_buffer[i_int,:] = \
                     species.tracker.generate_new_ids(new_ptcl.Ntot)
+                i_int += 1
+            if species.ionizer is not None:
+                uint_buffer[i_int,:] = new_ptcl.ionizer.ionization_level
         else:
             # No new particles: initialize empty arrays
-            float_buffer = np.empty( (8, 0), dtype=np.float64 )
+            float_buffer = np.empty( (n_float, 0), dtype=np.float64 )
             uint_buffer = np.empty( (n_int, 0), dtype=np.float64 )
 
         return( float_buffer, uint_buffer )
