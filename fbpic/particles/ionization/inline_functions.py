@@ -41,6 +41,9 @@ def get_ionization_probability( E, gamma, prefactor, power, exp_prefactor ):
     """
     TO DO
     """
+    # Avoid singular expression for E = 0
+    if E == 0:
+        return(0)
     # The gamma factor takes into account the fact that the ionization
     # rate is multiplied by dtau (proper time of the ion), i.e. dt/gamma
     w_dtau = 1./ gamma * prefactor * E**power * math.exp( exp_prefactor/E )
