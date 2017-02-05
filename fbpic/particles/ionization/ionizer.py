@@ -161,9 +161,10 @@ class Ionizer(object):
                 old_Ntot, old_array, new_array )
             setattr( elec, attr, new_array )
         # Allocate the auxiliary arrays
-        self.cell_idx = cuda.device_array( new_Ntot, dtype=np.int32)
-        self.sorted_idx = cuda.device_array( new_Ntot, dtype=np.uint32)
-        self.sorting_buffer = cuda.device_array( new_Ntot, dtype=np.float64 )
+        self.cell_idx = cuda.device_array(new_Ntot, dtype=np.int32)
+        self.sorted_idx = cuda.device_array(new_Ntot, dtype=np.uint32)
+        self.sorting_buffer = cuda.device_array(new_Ntot, dtype=np.float64)
+        self.int_sorting_buffer = cuda.device_array(new_Ntot, dtype=np.uint64)
         # Modify the total number of electrons
         elec.Ntot = new_Ntot
         # TODO: Generate particle ids on the GPU
@@ -223,10 +224,6 @@ class Ionizer(object):
             new_array = np.empty( new_Ntot, dtype=np.float64 )
             new_array[:old_Ntot] = old_array
             setattr( elec, attr, new_array )
-        # Allocate the auxiliary arrays
-        self.cell_idx = np.empty( new_Ntot, dtype=np.int32)
-        self.sorted_idx = np.empty( new_Ntot, dtype=np.uint32)
-        self.sorting_buffer = np.empty( new_Ntot, dtype=np.float64 )
         # Modify the total number of electrons
         elec.Ntot = new_Ntot
         # TODO: Generate particle ids on the GPU

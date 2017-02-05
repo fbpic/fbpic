@@ -233,8 +233,10 @@ class Particles(object) :
             # Copy arrays on the GPU for the sorting
             self.cell_idx = cuda.to_device(self.cell_idx)
             self.sorted_idx = cuda.to_device(self.sorted_idx)
-            self.sorting_buffer = cuda.to_device(self.sorting_buffer)
             self.prefix_sum = cuda.to_device(self.prefix_sum)
+            self.sorting_buffer = cuda.to_device(self.sorting_buffer)
+            if self.n_integer_quantities > 0:
+                self.int_sorting_buffer = cuda.to_device(self.int_sorting_buffer)
 
             # Copy particle tracker data
             if self.tracker is not None:
@@ -273,8 +275,10 @@ class Particles(object) :
             # that represent the sorting arrays
             self.cell_idx = self.cell_idx.copy_to_host()
             self.sorted_idx = self.sorted_idx.copy_to_host()
-            self.sorting_buffer = self.sorting_buffer.copy_to_host()
             self.prefix_sum = self.prefix_sum.copy_to_host()
+            self.sorting_buffer = self.sorting_buffer.copy_to_host()
+            if self.n_integer_quantities > 0:
+                self.int_sorting_buffer = self.int_sorting_buffer.copy_to_host()
 
             # Copy particle tracker data
             if self.tracker is not None:
@@ -295,7 +299,11 @@ class Particles(object) :
             Contains information about the number of processors
         """
         self.tracker = ParticleTracker( comm.size, comm.rank, self.Ntot )
+        # Update the number of integer quantities
         self.n_integer_quantities += 1
+        # Allocate the integer sorting buffer if needed
+        if hasattr( self, 'int_sorting_buffer' ) is False and self.use_cuda:
+            self.int_sorting_buffer = np.empty( self.Ntot, dtype=np.uint64 )
 
     def make_ionizable( self, element, target_species,
                         z_min=0, z_max=None, full_initialization=True ):
@@ -313,9 +321,13 @@ class Particles(object) :
         # Recalculate the weights to reflect the current ionization levels
         # (This is updated whenever further ionization happens)
         self.w[:] = e*self.ionizer.ionization_level*self.ionizer.neutral_weight
+
         # Update the number of float and int arrays
         self.n_float_quantities += 1 # neutral_weight
         self.n_integer_quantities += 1 # ionization_level
+        # Allocate the integer sorting buffer if needed
+        if hasattr( self, 'int_sorting_buffer' ) is False and self.use_cuda:
+            self.int_sorting_buffer = np.empty( self.Ntot, dtype=np.uint64 )
 
     def handle_ionization( self ):
         """
@@ -337,26 +349,40 @@ class Particles(object) :
         """
         # Get the threads per block and the blocks per grid
         dim_grid_1d, dim_block_1d = cuda_tpb_bpg_1d( self.Ntot )
-        # Iterate over particle attributes
-        for attr in ['x', 'y', 'z', 'ux', 'uy', 'uz', 'w', 'inv_gamma']:
+        # Iterate over (float) particle attributes
+        attr_list = [ (self,'x'), (self,'y'), (self,'z'), \
+                        (self,'ux'), (self,'uy'), (self,'uz'), \
+                        (self, 'w'), (self,'inv_gamma') ]
+        if self.ionizer is not None:
+            attr_list += [ (self.ionizer,'neutral_weight') ]
+        for attr in attr_list:
             # Get particle GPU array
-            val = getattr(self, attr)
+            particle_array = getattr( attr[0], attr[1] )
             # Write particle data to particle buffer array while rearranging
             write_sorting_buffer[dim_grid_1d, dim_block_1d](
-                self.sorted_idx, val, self.sorting_buffer)
+                self.sorted_idx, particle_array, self.sorting_buffer)
             # Assign the particle buffer to
             # the initial particle data array
-            setattr(self, attr, self.sorting_buffer)
-            # Assign the old particle data array to
-            # the particle buffer
-            self.sorting_buffer = val
-        # Handle tracking data
+            setattr( attr[0], attr[1], self.sorting_buffer)
+            # Assign the old particle data array to the particle buffer
+            self.sorting_buffer = particle_array
+        # Iterate over (integer) particle attributes
+        attr_list = [ ]
         if self.tracker is not None:
-            val = self.tracker.id
+            attr_list += [ (self.tracker,'id') ]
+        if self.ionizer is not None:
+            attr_list += [ (self.ionizer,'ionization_level') ]
+        for attr in attr_list:
+            # Get particle GPU array
+            particle_array = getattr( attr[0], attr[1] )
+            # Write particle data to particle buffer array while rearranging
             write_sorting_buffer[dim_grid_1d, dim_block_1d](
-                self.sorted_idx, val, self.tracker.sorting_buffer )
-            self.tracker.id = self.tracker.sorting_buffer
-            self.tracker.sorting_buffer = val
+                self.sorted_idx, particle_array, self.int_sorting_buffer)
+            # Assign the particle buffer to
+            # the initial particle data array
+            setattr( attr[0], attr[1], self.int_sorting_buffer)
+            # Assign the old particle data array to the particle buffer
+            self.int_sorting_buffer = particle_array
 
     def push_p( self ) :
         """

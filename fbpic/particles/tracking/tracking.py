@@ -46,22 +46,17 @@ class ParticleTracker(object):
             step=self.id_step, dtype=np.uint64 )
         self.next_attributed_id = new_next_attributed_id
 
-        # Create a sorting buffer
-        self.sorting_buffer = np.empty( N, dtype=np.uint64 )
-
     def send_to_gpu(self):
         """
         Transfer the tracking data from the CPU to the GPU
         """
         self.id = cuda.to_device( self.id )
-        self.sorting_buffer = cuda.to_device( self.sorting_buffer )
 
     def receive_from_gpu(self):
         """
         Transfer the tracking data from the GPU to the CPU
         """
         self.id = self.id.copy_to_host()
-        self.sorting_buffer = self.sorting_buffer.copy_to_host()
 
     def generate_new_ids( self, N ):
         """

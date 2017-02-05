@@ -390,8 +390,8 @@ def add_buffers_to_particles( species, float_recv_left, float_recv_right,
         species.cell_idx = cuda.device_array( shape, dtype=np.int32 )
         species.sorted_idx = cuda.device_array( shape, dtype=np.int32 )
         species.sorting_buffer = cuda.device_array( shape, dtype=np.float64 )
-        if species.tracker is not None:
-            species.tracker.sorting_buffer = \
+        if species.n_integer_quantities > 0:
+            species.int_sorting_buffer = \
                 cuda.device_array( shape, dtype=np.uint64 )
     else:
         # Reallocate empty field-on-particle arrays on the CPU
@@ -401,13 +401,6 @@ def add_buffers_to_particles( species, float_recv_left, float_recv_right,
         species.Bx = np.empty(species.Ntot, dtype=np.float64)
         species.By = np.empty(species.Ntot, dtype=np.float64)
         species.Bz = np.empty(species.Ntot, dtype=np.float64)
-        # Reallocate empty auxiliary sorting arrays on the CPU
-        species.cell_idx = np.empty( species.Ntot, dtype=np.int32 )
-        species.sorted_idx = np.empty( species.Ntot, dtype=np.int32 )
-        species.sorting_buffer = np.empty( species.Ntot, dtype=np.float64 )
-        if species.tracker is not None:
-            species.tracker.sorting_buffer = \
-                np.empty( species.Ntot, dtype=np.uint64 )
 
     # The particles are unsorted after adding new particles.
     species.sorted = False
