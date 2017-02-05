@@ -144,6 +144,8 @@ class Ionizer(object):
         # If no new particle was created, skip the rest of this function
         if cumulative_n_ionized[-1] == 0:
             return
+        # Send `cumulative_n_ionized` back to the GPU
+        cumulative_n_ionized = cuda.to_device( cumulative_n_ionized )
 
         # Reallocate the electron species, in order to
         # accomodate the electrons produced by ionization
@@ -160,6 +162,12 @@ class Ionizer(object):
             copy_particle_data_cuda[ ptcl_grid_1d, ptcl_block_1d ](
                 old_Ntot, old_array, new_array )
             setattr( elec, attr, new_array )
+        if elec.tracker is not None:
+            old_array = elec.tracker.id
+            new_array = cuda.device_array( new_Ntot, dtype=np.uint64 )
+            copy_particle_data_cuda[ ptcl_grid_1d, ptcl_block_1d ](
+                old_Ntot, old_array, new_array )
+            elec.tracker.id = new_array
         # Allocate the auxiliary arrays
         self.cell_idx = cuda.device_array(new_Ntot, dtype=np.int32)
         self.sorted_idx = cuda.device_array(new_Ntot, dtype=np.uint32)
@@ -167,7 +175,6 @@ class Ionizer(object):
         self.int_sorting_buffer = cuda.device_array(new_Ntot, dtype=np.uint64)
         # Modify the total number of electrons
         elec.Ntot = new_Ntot
-        # TODO: Generate particle ids on the GPU
 
         # Copy the new electrons from ionization (one thread per batch)
         copy_ionized_electrons_cuda[ batch_grid_1d, batch_block_1d ](
@@ -180,6 +187,10 @@ class Ionizer(object):
             ion.ux, ion.uy, ion.uz, self.neutral_weight,
             ion.Ex, ion.Ey, ion.Ez, ion.Bx, ion.By, ion.Bz )
         elec.sorted = False
+
+        # If the electrons are tracked, generate new ids
+        if elec.tracker is not None:
+            elec.tracker.generate_new_ids_gpu( old_Ntot, new_Ntot )
 
     def handle_ionization_cpu( self, ion ):
         """
@@ -224,9 +235,13 @@ class Ionizer(object):
             new_array = np.empty( new_Ntot, dtype=np.float64 )
             new_array[:old_Ntot] = old_array
             setattr( elec, attr, new_array )
+        if elec.tracker is not None:
+            old_array = elec.tracker.id
+            new_array = np.empty( new_Ntot, dtype=np.uint64 )
+            new_array[:old_Ntot] = old_array
+            elec.tracker.id = new_array
         # Modify the total number of electrons
         elec.Ntot = new_Ntot
-        # TODO: Generate particle ids on the GPU
 
         # Copy the new electrons from ionization (one thread per batch)
         copy_ionized_electrons_numba(
@@ -238,6 +253,11 @@ class Ionizer(object):
             ion.x, ion.y, ion.z, ion.inv_gamma,
             ion.ux, ion.uy, ion.uz, self.neutral_weight,
             ion.Ex, ion.Ey, ion.Ez, ion.Bx, ion.By, ion.Bz )
+
+        # If the electrons are tracked, generate new ids
+        if elec.tracker is not None:
+            elec.tracker.id[old_Ntot:new_Ntot] = \
+                elec.tracker.generate_new_ids( new_Ntot - old_Ntot )
 
     def send_to_gpu( self ):
         """
