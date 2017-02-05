@@ -272,7 +272,7 @@ class Particles(object) :
 
             # Copy particle tracker data
             if self.tracker is not None:
-                self.track.receive_from_gpu()
+                self.tracker.receive_from_gpu()
 
     def track( self, comm ):
         """
