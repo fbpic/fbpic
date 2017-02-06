@@ -104,7 +104,8 @@ if __name__ == '__main__':
         # Add a laser to the fields of the simulation
         add_laser( sim, a0, w0, ctau, z0 )
         # Track electrons if required (species 0 correspond to the electrons)
-        sim.ptcl[0].track( sim.comm )
+        if track_electrons:
+            sim.ptcl[0].track( sim.comm )
     else:
         # Load the fields and particles from the latest checkpoint file
         restart_from_checkpoint( sim )
