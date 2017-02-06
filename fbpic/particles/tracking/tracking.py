@@ -10,7 +10,7 @@ from numba import cuda
 cuda_installed = cuda.is_available()
 try:
     from fbpic.cuda_utils import cuda_tpb_bpg_1d
-except ImporError:
+except ImportError:
     cuda_installed = False
 
 class ParticleTracker(object):
