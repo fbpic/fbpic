@@ -14,7 +14,8 @@ class FieldDiagnostic(OpenPMDDiagnostic):
     """
 
     def __init__(self, period, fldobject, comm=None,
-                 fieldtypes=["rho", "E", "B", "J"], write_dir=None ) :
+                 fieldtypes=["rho", "E", "B", "J"], write_dir=None,
+                 iteration_min=0, iteration_max=np.inf ) :
         """
         Initialize the field diagnostic.
 
@@ -43,9 +44,13 @@ class FieldDiagnostic(OpenPMDDiagnostic):
             The POSIX path to the directory where the results are
             to be written. If none is provided, this will be the path
             of the current working directory.
+
+        iteration_min, iteration_max: ints
+            The iterations between which data should be written
         """
         # General setup
-        OpenPMDDiagnostic.__init__(self, period, comm, write_dir)
+        OpenPMDDiagnostic.__init__(self, period, comm, write_dir,
+                                    iteration_min, iteration_max )
 
         # Register the arguments
         self.fld = fldobject
