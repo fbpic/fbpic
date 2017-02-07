@@ -47,6 +47,7 @@ class FieldDiagnostic(OpenPMDDiagnostic):
 
         iteration_min, iteration_max: ints
             The iterations between which data should be written
+            (`iteration_min` is inclusive, `iteration_max` is exclusive)
         """
         # General setup
         OpenPMDDiagnostic.__init__(self, period, comm, write_dir,

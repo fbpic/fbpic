@@ -46,6 +46,7 @@ class OpenPMDDiagnostic(object) :
 
         iteration_min, iteration_max: ints
             The iterations between which data should be written
+            (`iteration_min` is inclusive, `iteration_max` is exclusive)
         """
         # Get the rank of this processor
         if comm is not None :
@@ -109,7 +110,7 @@ class OpenPMDDiagnostic(object) :
         # Check if the fields should be written at this iteration
         if iteration % self.period == 0 \
             and iteration >= self.iteration_min \
-            and iteration <= self.iteration_max:
+            and iteration < self.iteration_max:
 
             # Write the hdf5 file if needed
             self.write_hdf5( iteration )
