@@ -509,8 +509,9 @@ def add_buffers_gpu( species, float_recv_left, float_recv_right,
         # Initialize the new particle array
         particle_array = cuda.device_array( (new_Ntot,), dtype=np.uint64)
         # Merge the arrays on the GPU
+        stay_buffer = getattr( attr_list[i_attr][0], attr_list[i_attr][1])
         merge_buffers_to_particles[dim_grid_1d, dim_block_1d](
-            particle_array, left_buffer, species.tracker.id, right_buffer)
+            particle_array, left_buffer, stay_buffer, right_buffer)
         # Assign the stay_buffer to the initial particle data array
         # and fill the sending buffers (if needed for MPI)
         setattr(attr_list[i_attr][0], attr_list[i_attr][1], particle_array)

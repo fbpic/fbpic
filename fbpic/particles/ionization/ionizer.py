@@ -14,6 +14,7 @@ from scipy.special import gamma
 from .atomic_data import ionization_energies_dict
 from .numba_methods import ionize_ions_numba, copy_ionized_electrons_numba
 try:
+    from accelerate.cuda.rand import PRNG
     from fbpic.cuda_utils import cuda_tpb_bpg_1d
     from .cuda_methods import ionize_ions_cuda, \
         copy_ionized_electrons_cuda, copy_particle_data_cuda
@@ -109,7 +110,7 @@ class Ionizer(object):
 
         # Prepare random number generator
         if self.use_cuda:
-            self.prng = cuda.rand.PRNG()
+            self.prng = PRNG()
 
     def handle_ionization_gpu( self, ion ):
         """
@@ -144,8 +145,6 @@ class Ionizer(object):
         # If no new particle was created, skip the rest of this function
         if cumulative_n_ionized[-1] == 0:
             return
-        # Send `cumulative_n_ionized` back to the GPU
-        cumulative_n_ionized = cuda.to_device( cumulative_n_ionized )
 
         # Reallocate the electron species, in order to
         # accomodate the electrons produced by ionization
@@ -176,6 +175,8 @@ class Ionizer(object):
         # Modify the total number of electrons
         elec.Ntot = new_Ntot
 
+        # Send `cumulative_n_ionized` back to the GPU
+        cumulative_n_ionized = cuda.to_device( cumulative_n_ionized )
         # Copy the new electrons from ionization (one thread per batch)
         copy_ionized_electrons_cuda[ batch_grid_1d, batch_block_1d ](
             N_batch, self.batch_size, old_Ntot, ion.Ntot,
