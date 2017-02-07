@@ -271,11 +271,13 @@ def remove_particles_gpu(species, fld, nguard, left_proc, right_proc):
     dim_grid_1d, dim_block_1d = cuda_tpb_bpg_1d( species.Ntot )
     # Iterate over particle attributes
     i_attr = 0
-    # Float quantities: Initialize 3 buffer arrays on the GPU
-    left_buffer = cuda.device_array((N_send_l,), dtype=np.float64)
-    right_buffer = cuda.device_array((N_send_r,), dtype=np.float64)
-    stay_buffer = cuda.device_array((new_Ntot,), dtype=np.float64)
+    # Float quantities:
     for attr in ['x', 'y', 'z', 'ux', 'uy', 'uz', 'inv_gamma', 'w' ]:
+        # Initialize 3 buffer arrays on the GPU (need to be initialized
+        # inside the loop, as `copy_to_host` invalidates these arrays)
+        left_buffer = cuda.device_array((N_send_l,), dtype=np.float64)
+        right_buffer = cuda.device_array((N_send_r,), dtype=np.float64)
+        stay_buffer = cuda.device_array((new_Ntot,), dtype=np.float64)
         # Check that the buffers are still on GPU
         # (safeguard against automatic memory management)
         assert type(left_buffer) != np.ndarray
@@ -295,8 +297,9 @@ def remove_particles_gpu(species, fld, nguard, left_proc, right_proc):
         # Increment the buffer index
         i_attr += 1
 
-    # Integer quantities: Initialize 3 buffer arrays on the GPU
+    # Integer quantities:
     if species.tracker is not None:
+        # Initialize 3 buffer arrays on the GPU
         left_buffer = cuda.device_array((N_send_l,), dtype=np.uint64)
         right_buffer = cuda.device_array((N_send_r,), dtype=np.uint64)
         stay_buffer = cuda.device_array((new_Ntot,), dtype=np.uint64)
@@ -308,6 +311,7 @@ def remove_particles_gpu(species, fld, nguard, left_proc, right_proc):
             left_buffer.copy_to_host( uint_send_left[0] )
         if right_proc is not None:
             right_buffer.copy_to_host( uint_send_right[0] )
+        species.tracker.id = stay_buffer
 
     # Change the new total number of particles
     species.Ntot = new_Ntot
