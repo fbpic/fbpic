@@ -312,7 +312,7 @@ def remove_particles_gpu(species, fld, nguard, left_proc, right_proc):
         if right_proc is not None:
             right_buffer.copy_to_host( float_send_right[i_attr] )
 
-    # Integer quantities: Initialize 3 buffer arrays on the GPU
+    # Integer quantities:
     if n_int > 0:
         attr_list = []
     if species.tracker is not None:
