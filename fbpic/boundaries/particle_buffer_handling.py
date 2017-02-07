@@ -300,6 +300,11 @@ def remove_particles_gpu(species, fld, nguard, left_proc, right_proc):
         left_buffer = cuda.device_array((N_send_l,), dtype=np.float64)
         right_buffer = cuda.device_array((N_send_r,), dtype=np.float64)
         stay_buffer = cuda.device_array((new_Ntot,), dtype=np.float64)
+        # Check that the buffers are still on GPU
+        # (safeguard against automatic memory management)
+        assert type(left_buffer) != np.ndarray
+        assert type(right_buffer) != np.ndarray
+        assert type(left_buffer) != np.ndarray
         # Split the particle array into the 3 buffers on the GPU
         particle_array = getattr( attr_list[i_attr][0], attr_list[i_attr][1] )
         split_particles_to_buffers[dim_grid_1d, dim_block_1d]( particle_array,
@@ -336,6 +341,22 @@ def remove_particles_gpu(species, fld, nguard, left_proc, right_proc):
             left_buffer.copy_to_host( uint_send_left[i_attr] )
         if right_proc is not None:
             right_buffer.copy_to_host( uint_send_right[i_attr] )
+
+    # Integer quantities:
+    if species.tracker is not None:
+        # Initialize 3 buffer arrays on the GPU
+        left_buffer = cuda.device_array((N_send_l,), dtype=np.uint64)
+        right_buffer = cuda.device_array((N_send_r,), dtype=np.uint64)
+        stay_buffer = cuda.device_array((new_Ntot,), dtype=np.uint64)
+        # Split the particle array into the 3 buffers on the GPU
+        split_particles_to_buffers[dim_grid_1d, dim_block_1d](
+            species.tracker.id, left_buffer,
+            stay_buffer, right_buffer, i_min, i_max)
+        if left_proc is not None:
+            left_buffer.copy_to_host( uint_send_left[0] )
+        if right_proc is not None:
+            right_buffer.copy_to_host( uint_send_right[0] )
+        species.tracker.id = stay_buffer
 
     # Change the new total number of particles
     species.Ntot = new_Ntot
@@ -502,6 +523,7 @@ def add_buffers_gpu( species, float_recv_left, float_recv_right,
         attr_list.append( (species.tracker,'id') )
     if species.ionizer is not None:
         attr_list.append( (species.ionizer,'ionization_level') )
+    # Loop through the integer quantities
     for i_attr in range( len(attr_list) ):
         # Copy the proper buffers to the GPU
         left_buffer = cuda.to_device( uint_recv_left[i_attr] )

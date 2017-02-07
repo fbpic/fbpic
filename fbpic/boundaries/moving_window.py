@@ -232,6 +232,7 @@ class MovingWindow(object):
                 species.Nptheta, species.dt, dens_func=dens_func,
                 ux_m=self.ux_m, uy_m=self.uy_m, uz_m=self.uz_m,
                 ux_th=self.ux_th, uy_th=self.uy_th, uz_th=self.uz_th)
+
             # Initialize ionization-relevant arrays if species is ionizable
             if species.ionizer is not None:
                 new_ptcl.make_ionizable( element=species.ionizer.element,

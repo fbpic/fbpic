@@ -22,7 +22,8 @@ class OpenPMDDiagnostic(object) :
     to both FieldDiagnostic and ParticleDiagnostic
     """
 
-    def __init__(self, period, comm, write_dir=None ) :
+    def __init__(self, period, comm, write_dir=None,
+                        iteration_min=0, iteration_max=np.inf ):
         """
         General setup of the diagnostic
 
@@ -37,11 +38,15 @@ class OpenPMDDiagnostic(object) :
             If this is not None, the data is gathered on the first proc
             Otherwise, each proc writes its own data.
             (Make sure to use different write_dir in this case.)
-            
+
         write_dir : string, optional
             The POSIX path to the directory where the results are
             to be written. If none is provided, this will be the path
             of the current working directory
+
+        iteration_min, iteration_max: ints
+            The iterations between which data should be written
+            (`iteration_min` is inclusive, `iteration_max` is exclusive)
         """
         # Get the rank of this processor
         if comm is not None :
@@ -51,8 +56,10 @@ class OpenPMDDiagnostic(object) :
 
         # Register the arguments
         self.period = period
+        self.iteration_min = iteration_min
+        self.iteration_max = iteration_max
         self.comm = comm
-            
+
         # Get the directory in which to write the data
         if write_dir is None:
             self.write_dir = os.path.join( os.getcwd(), 'diags' )
@@ -89,7 +96,7 @@ class OpenPMDDiagnostic(object) :
             f = None
 
         return(f)
-        
+
     def write( self, iteration ) :
         """
         Check if the data should be written at this iteration
@@ -99,17 +106,19 @@ class OpenPMDDiagnostic(object) :
         ---------
         iteration : int
              The current iteration number of the simulation.
-        """        
+        """
         # Check if the fields should be written at this iteration
-        if iteration % self.period == 0 :
+        if iteration % self.period == 0 \
+            and iteration >= self.iteration_min \
+            and iteration < self.iteration_max:
 
             # Write the hdf5 file if needed
             self.write_hdf5( iteration )
-        
+
     def create_dir( self, dir_path) :
         """
         Check whether the directory exists, and if not create it.
-    
+
         Parameter
         ---------
         dir_path : string
@@ -118,10 +127,10 @@ class OpenPMDDiagnostic(object) :
         """
         # The following operations are done only by the first processor.
         if self.rank == 0 :
-            
+
             # Get the full path
             full_path = os.path.join( self.write_dir, dir_path )
-        
+
             # Check wether it exists, and create it if needed
             if os.path.exists(full_path) == False :
                 try:
@@ -132,7 +141,7 @@ class OpenPMDDiagnostic(object) :
     def setup_openpmd_file( self, f, iteration, time, dt ) :
         """
         Sets the attributes of the hdf5 file, that comply with OpenPMD
-    
+
         Parameter
         ---------
         f : an h5py.File object
@@ -147,7 +156,7 @@ class OpenPMDDiagnostic(object) :
             The timestep of the simulation
         """
         # Set the attributes of the HDF5 file
-    
+
         # General attributes
         f.attrs["openPMD"] = np.string_("1.0.0")
         f.attrs["openPMDextension"] = np.uint32(1)
@@ -166,29 +175,28 @@ class OpenPMDDiagnostic(object) :
         bp.attrs["time"] = time
         bp.attrs["dt"] = dt
         bp.attrs["timeUnitSI"] = 1.
-        
+
     def setup_openpmd_record( self, dset, quantity ) :
         """
         Sets the attributes of a record, that comply with OpenPMD
-    
+
         Parameter
         ---------
         dset : an h5py.Dataset or h5py.Group object
-        
+
         quantity : string
            The name of the record considered
         """
         dset.attrs["unitDimension"] = unit_dimension_dict[quantity]
         # No time offset (approximation)
         dset.attrs["timeOffset"] = 0.
-        
+
     def setup_openpmd_component( self, dset ) :
         """
         Sets the attributes of a component, that comply with OpenPMD
-    
+
         Parameter
         ---------
         dset : an h5py.Dataset or h5py.Group object
         """
         dset.attrs["unitSI"] = 1.
-

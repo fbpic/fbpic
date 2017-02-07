@@ -17,8 +17,8 @@ class ParticleDiagnostic(OpenPMDDiagnostic) :
     """
 
     def __init__(self, period, species = {"electrons": None}, comm=None,
-                 particle_data=["position", "momentum", "weighting"],
-                 select=None, write_dir=None ) :
+        particle_data=["position", "momentum", "weighting"],
+        select=None, write_dir=None, iteration_min=0, iteration_max=np.inf ) :
         """
         Initialize the particle diagnostics.
 
@@ -57,9 +57,14 @@ class ParticleDiagnostic(OpenPMDDiagnostic) :
             The POSIX path to the directory where the results are
             to be written. If none is provided, this will be the path
             of the current working directory.
+
+        iteration_min, iteration_max: ints
+            The iterations between which data should be written
+            (`iteration_min` is inclusive, `iteration_max` is exclusive)
         """
         # General setup
-        OpenPMDDiagnostic.__init__(self, period, comm, write_dir)
+        OpenPMDDiagnostic.__init__(self, period, comm, write_dir,
+                                    iteration_min, iteration_max )
 
         # Register the arguments
         self.species_dict = species
