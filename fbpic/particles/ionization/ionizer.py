@@ -168,10 +168,12 @@ class Ionizer(object):
                 old_Ntot, old_array, new_array )
             elec.tracker.id = new_array
         # Allocate the auxiliary arrays
-        self.cell_idx = cuda.device_array(new_Ntot, dtype=np.int32)
-        self.sorted_idx = cuda.device_array(new_Ntot, dtype=np.uint32)
-        self.sorting_buffer = cuda.device_array(new_Ntot, dtype=np.float64)
-        self.int_sorting_buffer = cuda.device_array(new_Ntot, dtype=np.uint64)
+        elec.cell_idx = cuda.device_array(new_Ntot, dtype=np.int32)
+        elec.sorted_idx = cuda.device_array(new_Ntot, dtype=np.uint32)
+        elec.sorting_buffer = cuda.device_array(new_Ntot, dtype=np.float64)
+        if elec.n_integer_quantities > 0:
+            elec.int_sorting_buffer = \
+                cuda.device_array(new_Ntot, dtype=np.uint64)
         # Modify the total number of electrons
         elec.Ntot = new_Ntot
 
