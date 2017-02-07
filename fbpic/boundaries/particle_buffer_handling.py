@@ -286,10 +286,7 @@ def remove_particles_gpu(species, fld, nguard, left_proc, right_proc):
 
     # Get the threads per block and the blocks per grid
     dim_grid_1d, dim_block_1d = cuda_tpb_bpg_1d( species.Ntot )
-    # Float quantities: Initialize 3 buffer arrays on the GPU
-    left_buffer = cuda.device_array((N_send_l,), dtype=np.float64)
-    right_buffer = cuda.device_array((N_send_r,), dtype=np.float64)
-    stay_buffer = cuda.device_array((new_Ntot,), dtype=np.float64)
+    # Float quantities:
     # Build list of float attributes to copy
     attr_list = [ (species,'x'), (species,'y'), (species,'z'),
                     (species,'ux'), (species,'uy'), (species,'uz'),
@@ -298,11 +295,11 @@ def remove_particles_gpu(species, fld, nguard, left_proc, right_proc):
         attr_list.append( (species.ionizer,'neutral_weight') )
     # Loop through the float attributes
     for i_attr in range(n_float):
-        # Check that the buffers are still on GPU
-        # (safeguard against automatic memory management)
-        assert type(left_buffer) != np.ndarray
-        assert type(right_buffer) != np.ndarray
-        assert type(left_buffer) != np.ndarray
+        # Initialize 3 buffer arrays on the GPU (need to be initialized
+        # inside the loop, as `copy_to_host` invalidates these arrays)
+        left_buffer = cuda.device_array((N_send_l,), dtype=np.float64)
+        right_buffer = cuda.device_array((N_send_r,), dtype=np.float64)
+        stay_buffer = cuda.device_array((new_Ntot,), dtype=np.float64)
         # Split the particle array into the 3 buffers on the GPU
         particle_array = getattr( attr_list[i_attr][0], attr_list[i_attr][1] )
         split_particles_to_buffers[dim_grid_1d, dim_block_1d]( particle_array,
@@ -317,15 +314,17 @@ def remove_particles_gpu(species, fld, nguard, left_proc, right_proc):
 
     # Integer quantities: Initialize 3 buffer arrays on the GPU
     if n_int > 0:
-        left_buffer = cuda.device_array((N_send_l,), dtype=np.uint64)
-        right_buffer = cuda.device_array((N_send_r,), dtype=np.uint64)
-        stay_buffer = cuda.device_array((new_Ntot,), dtype=np.uint64)
         attr_list = []
     if species.tracker is not None:
         attr_list.append( (species.tracker,'id') )
     if species.ionizer is not None:
         attr_list.append( (species.ionizer,'ionization_level') )
     for i_attr in range(n_int):
+        # Initialize 3 buffer arrays on the GPU (need to be initialized
+        # inside the loop, as `copy_to_host` invalidates these arrays)
+        left_buffer = cuda.device_array((N_send_l,), dtype=np.uint64)
+        right_buffer = cuda.device_array((N_send_r,), dtype=np.uint64)
+        stay_buffer = cuda.device_array((new_Ntot,), dtype=np.uint64)
         # Split the particle array into the 3 buffers on the GPU
         particle_array = getattr( attr_list[i_attr][0], attr_list[i_attr][1] )
         split_particles_to_buffers[dim_grid_1d, dim_block_1d]( particle_array,

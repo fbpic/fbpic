@@ -263,7 +263,7 @@ class MovingWindow(object):
         else:
             # No new particles: initialize empty arrays
             float_buffer = np.empty( (n_float, 0), dtype=np.float64 )
-            uint_buffer = np.empty( (n_int, 0), dtype=np.float64 )
+            uint_buffer = np.empty( (n_int, 0), dtype=np.uint64 )
 
         return( float_buffer, uint_buffer )
 
