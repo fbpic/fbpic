@@ -245,10 +245,6 @@ class Particles(object) :
             if self.ionizer is not None:
                 self.ionizer.send_to_gpu()
 
-            # Copy particle tracker data
-            if self.tracker is not None:
-                self.tracker.send_to_gpu()
-
     def receive_particles_from_gpu( self ):
         """
         Receive the particles from the GPU.
@@ -343,10 +339,6 @@ class Particles(object) :
                 self.ionizer.handle_ionization_gpu( self )
             else:
                 self.ionizer.handle_ionization_cpu( self )
-
-            # Copy particle tracker data
-            if self.tracker is not None:
-                self.tracker.receive_from_gpu()
 
     def rearrange_particle_arrays( self ):
         """

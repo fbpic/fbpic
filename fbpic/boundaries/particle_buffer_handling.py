@@ -342,22 +342,6 @@ def remove_particles_gpu(species, fld, nguard, left_proc, right_proc):
         if right_proc is not None:
             right_buffer.copy_to_host( uint_send_right[i_attr] )
 
-    # Integer quantities:
-    if species.tracker is not None:
-        # Initialize 3 buffer arrays on the GPU
-        left_buffer = cuda.device_array((N_send_l,), dtype=np.uint64)
-        right_buffer = cuda.device_array((N_send_r,), dtype=np.uint64)
-        stay_buffer = cuda.device_array((new_Ntot,), dtype=np.uint64)
-        # Split the particle array into the 3 buffers on the GPU
-        split_particles_to_buffers[dim_grid_1d, dim_block_1d](
-            species.tracker.id, left_buffer,
-            stay_buffer, right_buffer, i_min, i_max)
-        if left_proc is not None:
-            left_buffer.copy_to_host( uint_send_left[0] )
-        if right_proc is not None:
-            right_buffer.copy_to_host( uint_send_right[0] )
-        species.tracker.id = stay_buffer
-
     # Change the new total number of particles
     species.Ntot = new_Ntot
 
