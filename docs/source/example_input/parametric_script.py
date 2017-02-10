@@ -1,14 +1,14 @@
 """
-This script runs two simulations in parallel using MPI, 
+This script runs two simulations in parallel using MPI,
 with each simulation having a different value of a0 as input.
 (Each simulation is performed by a different MPI process.)
 
-This makes use of the parameter `use_all_mpi_ranks=False` in 
-the `Simulation` object, which allows each MPI rank to carry out a 
+This makes use of the parameter `use_all_mpi_ranks=False` in
+the `Simulation` object, which allows each MPI rank to carry out a
 different simulation. Search for the lines tagged with the comment
 `Parametric scan` to find the lines that are key for this technique.
 
-This can be useful for instance to run several simulations on one 
+This can be useful for instance to run several simulations on one
 node that has several GPUs.
 
 Usage
@@ -25,7 +25,8 @@ from scipy.constants import c
 # Import the relevant structures in FBPIC
 from fbpic.main import Simulation
 from fbpic.lpa_utils.laser import add_laser
-from fbpic.openpmd_diag import FieldDiagnostic, ParticleDiagnostic
+from fbpic.openpmd_diag import FieldDiagnostic, ParticleDiagnostic, \
+     set_periodic_checkpoint, restart_from_checkpoint
 # Parametric scan: import mpi4py so as to be able to give different
 # input parameters to each MPI rank.
 from mpi4py.MPI import COMM_WORLD as comm
@@ -46,7 +47,7 @@ rmax = 20.e-6    # Length of the box along r (meters)
 Nm = 2           # Number of modes used
 # The simulation timestep
 dt = (zmax-zmin)/Nz/c   # Timestep (seconds)
-N_step = 50     # Number of iterations to perform
+N_step = 51     # Number of iterations to perform
 
 # The particles
 p_zmin = 25.e-6  # Position of the beginning of the plasma (meters)
@@ -76,13 +77,16 @@ v_window = c       # Speed of the window
 
 # The diagnostics and the checkpoints/restarts
 diag_period = 10         # Period of the diagnostics in number of timesteps
+save_checkpoints = False # Whether to write checkpoint files
+checkpoint_period = 50   # Period for writing the checkpoints
+use_restart = False      # Whether to restart from a previous checkpoint
 
 # The density profile
 ramp_start = 30.e-6
 ramp_length = 40.e-6
 
 def dens_func( z, r ) :
-    """Returns relative density at position z and r"""    
+    """Returns relative density at position z and r"""
     # Allocate relative density
     n = np.ones_like(z)
     # Make linear ramp
@@ -107,12 +111,17 @@ if __name__ == '__main__':
         dens_func=dens_func, zmin=zmin, boundaries='open',
         use_cuda=use_cuda, use_all_mpi_ranks=False )
 
-    # Add the laser
-    add_laser( sim, a0, w0, ctau, z0 )
-    
+    # Load initial fields
+    if use_restart is False:
+        # Add a laser to the fields of the simulation
+        add_laser( sim, a0, w0, ctau, z0 )
+    else:
+        # Load the fields and particles from the latest checkpoint file
+        restart_from_checkpoint( sim )
+
     # Configure the moving window
     sim.set_moving_window( v=v_window )
-    
+
     # Add a field diagnostic
     # Parametric scan: each MPI rank should output its data to a
     # different directory
@@ -122,6 +131,10 @@ if __name__ == '__main__':
                 ParticleDiagnostic( diag_period, {"electrons" : sim.ptcl[0]},
                     select={"uz" : [1., None ]},
                     comm=sim.comm, write_dir=write_dir ) ]
+
+    # Add checkpoints
+    if save_checkpoints:
+        set_periodic_checkpoint( sim, checkpoint_period )
 
     ### Run the simulation
     sim.step( N_step )

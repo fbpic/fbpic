@@ -11,6 +11,7 @@ import os, re
 import numpy as np
 from .field_diag import FieldDiagnostic
 from .particle_diag import ParticleDiagnostic
+from mpi4py.MPI import COMM_WORLD as comm
 
 def set_periodic_checkpoint( sim, period ):
     """
@@ -33,13 +34,15 @@ def set_periodic_checkpoint( sim, period ):
     """
     # Only processor 0 creates a directory where checkpoints will be stored
     # Make sure that all processors wait until this directory is created
-    if sim.comm.rank == 0:
+    # (Use the global MPI communicator instead of the `BoundaryCommunicator`
+    # so that this still works in the case `use_all_ranks=False`)
+    if comm.rank == 0:
         if os.path.exists('./checkpoints') is False:
             os.mkdir('./checkpoints')
-    sim.comm.mpi_comm.Barrier()
+    comm.Barrier()
 
     # Choose the name of the directory: one directory per processor
-    write_dir = 'checkpoints/proc%d/' %sim.comm.rank
+    write_dir = 'checkpoints/proc%d/' %comm.rank
 
     # Register a periodic FieldDiagnostic in the diagnostics of the simulation
     sim.diags.append(
@@ -93,13 +96,15 @@ def restart_from_checkpoint( sim, iteration=None ):
         '\nPlease install it from https://github.com/openPMD/openPMD-viewer')
 
     # Verify that the restart is valid (only for the first processor)
-    if sim.comm.rank == 0:
+    # (Use the global MPI communicator instead of the `BoundaryCommunicator`,
+    # so that this also works for `use_all_ranks=False`)
+    if comm.rank == 0:
         check_restart( sim, iteration )
-    sim.comm.mpi_comm.Barrier()
+    comm.Barrier()
 
     # Choose the name of the directory from which to restart:
     # one directory per processor
-    checkpoint_dir = 'checkpoints/proc%d/hdf5' %sim.comm.rank
+    checkpoint_dir = 'checkpoints/proc%d/hdf5' %comm.rank
     ts = OpenPMDTimeSeries( checkpoint_dir )
     # Select the iteration, and its index
     if iteration is None:
@@ -149,7 +154,7 @@ def check_restart( sim, iteration ):
     for directory in os.listdir('./checkpoints'):
         if regex_matcher.match(directory) is not None:
             nproc += 1
-    if nproc != sim.comm.size:
+    if nproc != comm.size:
         raise RuntimeError('For a valid restart, the current simulation '
         'should use %d MPI processes.' %nproc)
 
@@ -272,7 +277,6 @@ def load_species( species, name, ts, iteration, comm ):
     # As a safe-guard, check that the loaded data is in float64
     for attr in ['x', 'y', 'z', 'ux', 'uy', 'uz', 'w', 'inv_gamma' ]:
         assert getattr( species, attr ).dtype == np.float64
-    assert species.tracker.id.dtype == np.uint64
 
     # Field arrays
     species.Ez = np.zeros( Ntot )

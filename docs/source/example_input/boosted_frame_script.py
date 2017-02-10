@@ -44,7 +44,7 @@ n_guard = 40     # Number of guard cells
 exchange_period = 10
 # The simulation timestep
 dt = (zmax-zmin)/Nz/c   # Timestep (seconds)
-N_step = 201     # Number of iterations to perform
+N_step = 101     # Number of iterations to perform
                  # (increase this number for a real simulation)
 
 # Boosted frame
@@ -152,7 +152,7 @@ if __name__ == '__main__':
         v_comoving=-0.9999*c, use_galilean=False,
         n_guard=n_guard, exchange_period=exchange_period,
         gamma_boost=gamma_boost, boundaries='open', use_cuda=use_cuda )
-    
+
     # Add an electron bunch
     add_elec_bunch( sim, bunch_gamma, bunch_n, bunch_zmin,
                 bunch_zmax, 0, bunch_rmax )
@@ -172,7 +172,7 @@ if __name__ == '__main__':
                     dt_snapshot_lab, Ntot_snapshot_lab, gamma_boost,
                     period=diag_period, fldobject=sim.fld, comm=sim.comm),
                 BoostedParticleDiagnostic( zmin, zmax, c, dt_snapshot_lab,
-                    Ntot_snapshot_lab, gamma_boost, diag_period, sim.fld, 
+                    Ntot_snapshot_lab, gamma_boost, diag_period, sim.fld,
                     select={'uz':[0.,None]}, species={'electrons':sim.ptcl[2]},
                     comm=sim.comm )
                     ]
