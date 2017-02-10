@@ -7,6 +7,7 @@ It defines the structure and methods associated with the particles.
 """
 import numpy as np
 from scipy.constants import c
+from .tracking import ParticleTracker
 
 # Load the utility methods
 from .utility_methods import linear_weights, unalign_angles
@@ -150,6 +151,12 @@ class Particles(object) :
         self.z = np.empty( Ntot )
         self.w = np.empty( Ntot )
 
+        # By default, there is no particle tracking
+        self.tracker = None
+        # Total number of quantities (necessary in MPI communications)
+        self.n_integer_quantities = 0
+        self.n_float_quantities = 8 # x, y, z, ux, uy, uz, inv_gamma, w
+
         if Ntot > 0:
             # Get the 1d arrays of evenly-spaced positions for the particles
             dz = (zmax-zmin)*1./Npz
@@ -187,8 +194,8 @@ class Particles(object) :
             self.grid_shape = grid_shape
             # Allocate arrays for the particles sorting when using CUDA
             self.cell_idx = np.empty( Ntot, dtype=np.int32)
-            self.sorted_idx = np.arange( Ntot, dtype=np.uint32)
-            self.sorting_buffer = np.arange( Ntot, dtype=np.float64 )
+            self.sorted_idx = np.empty( Ntot, dtype=np.uint32)
+            self.sorting_buffer = np.empty( Ntot, dtype=np.float64 )
             self.prefix_sum = np.empty( grid_shape[0]*grid_shape[1],
                                         dtype=np.int32 )
             # Register boolean that records if the particles are sorted or not
@@ -226,6 +233,10 @@ class Particles(object) :
             self.sorting_buffer = cuda.to_device(self.sorting_buffer)
             self.prefix_sum = cuda.to_device(self.prefix_sum)
 
+            # Copy particle tracker data
+            if self.tracker is not None:
+                self.tracker.send_to_gpu()
+
     def receive_particles_from_gpu( self ):
         """
         Receive the particles from the GPU.
@@ -259,6 +270,24 @@ class Particles(object) :
             self.sorting_buffer = self.sorting_buffer.copy_to_host()
             self.prefix_sum = self.prefix_sum.copy_to_host()
 
+            # Copy particle tracker data
+            if self.tracker is not None:
+                self.tracker.receive_from_gpu()
+
+    def track( self, comm ):
+        """
+        Activate particle tracking for the current species
+        (i.e. allocates an array of ids, that is communicated through MPI
+        and sorting, and is output in the openPMD file)
+
+        Parameters:
+        -----------
+        comm: an fbpic.BoundaryCommunicator object
+            Contains information about the number of processors
+        """
+        self.tracker = ParticleTracker( comm.size, comm.rank, self.Ntot )
+        self.n_integer_quantities += 1
+
     def rearrange_particle_arrays( self ):
         """
         Rearranges the particle data arrays to match with the sorted
@@ -281,6 +310,13 @@ class Particles(object) :
             # Assign the old particle data array to
             # the particle buffer
             self.sorting_buffer = val
+        # Handle tracking data
+        if self.tracker is not None:
+            val = self.tracker.id
+            write_sorting_buffer[dim_grid_1d, dim_block_1d](
+                self.sorted_idx, val, self.tracker.sorting_buffer )
+            self.tracker.id = self.tracker.sorting_buffer
+            self.tracker.sorting_buffer = val
 
     def push_p( self ) :
         """

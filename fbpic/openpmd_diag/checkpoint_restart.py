@@ -119,7 +119,7 @@ def restart_from_checkpoint( sim, iteration=None ):
     # Loop through the different species
     for i in range(len(sim.ptcl)):
         name = 'species %d' %i
-        load_species( sim.ptcl[i], name, ts, iteration)
+        load_species( sim.ptcl[i], name, ts, iteration, sim.comm )
 
     # Load the fields
     # Loop through the different modes
@@ -229,7 +229,7 @@ def load_fields( grid, fieldtype, coord, ts, iteration ):
     length_new = grid.zmax - grid.zmin
     assert np.allclose( length_old, length_new )
 
-def load_species( species, name, ts, iteration ):
+def load_species( species, name, ts, iteration, comm ):
     """
     Read the species data from the checkpoint `ts`
     and load it into the Species object `species`
@@ -247,6 +247,9 @@ def load_species( species, name, ts, iteration ):
 
     iteration: integer
         The iteration at which to load the checkpoint
+
+    comm: an fbpic.BoundaryCommunicator object
+        Contains information about the number of procs
     """
     # Get the particles' positions (convert to meters)
     x, y, z = ts.get_particle(
@@ -261,14 +264,20 @@ def load_species( species, name, ts, iteration ):
     # Get the inverse gamma
     species.inv_gamma = 1./np.sqrt(
         1 + species.ux**2 + species.uy**2 + species.uz**2 )
+    # Take into account the fact that the arrays are resized
+    Ntot = len(species.w)
+    species.Ntot = Ntot
+
+    # Check if the particles where tracked
+    if "id" in ts.avail_record_components[name]:
+        pid, = ts.get_particle( ['id'], iteration=iteration, species=name )
+        species.track( comm )
+        species.tracker.overwrite_ids( pid, comm )
 
     # As a safe-guard, check that the loaded data is in float64
     for attr in ['x', 'y', 'z', 'ux', 'uy', 'uz', 'w', 'inv_gamma' ]:
         assert getattr( species, attr ).dtype == np.float64
 
-    # Take into account the fact that the arrays are resized
-    Ntot = len(species.w)
-    species.Ntot = Ntot
     # Field arrays
     species.Ez = np.zeros( Ntot )
     species.Ex = np.zeros( Ntot )

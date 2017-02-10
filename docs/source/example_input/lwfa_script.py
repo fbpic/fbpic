@@ -69,13 +69,14 @@ diag_period = 10         # Period of the diagnostics in number of timesteps
 save_checkpoints = False # Whether to write checkpoint files
 checkpoint_period = 50   # Period for writing the checkpoints
 use_restart = False      # Whether to restart from a previous checkpoint
+track_electrons = False  # Whether to track and write particle ids
 
 # The density profile
 ramp_start = 30.e-6
 ramp_length = 40.e-6
 
 def dens_func( z, r ) :
-    """Returns relative density at position z and r"""    
+    """Returns relative density at position z and r"""
     # Allocate relative density
     n = np.ones_like(z)
     # Make linear ramp
@@ -99,16 +100,19 @@ if __name__ == '__main__':
         use_cuda=use_cuda )
 
     # Load initial fields
-    if use_restart is False: 
+    if use_restart is False:
         # Add a laser to the fields of the simulation
         add_laser( sim, a0, w0, ctau, z0 )
+        # Track electrons if required (species 0 correspond to the electrons)
+        if track_electrons:
+            sim.ptcl[0].track( sim.comm )
     else:
         # Load the fields and particles from the latest checkpoint file
         restart_from_checkpoint( sim )
-    
+
     # Configure the moving window
     sim.set_moving_window( v=v_window )
-    
+
     # Add a field diagnostic
     sim.diags = [ FieldDiagnostic( diag_period, sim.fld, comm=sim.comm ),
                 ParticleDiagnostic( diag_period, {"electrons" : sim.ptcl[0]},

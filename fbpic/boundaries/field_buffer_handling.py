@@ -32,7 +32,7 @@ class BufferHandler(object):
         ----------
         n_guard: int
            Number of guard cells
-           
+
         Nr, Nm: int
            Number of points in the radial direction and
            number of azimuthal modes
@@ -164,14 +164,14 @@ class BufferHandler(object):
                         interp[m].Et[:ng,:] = self.EB_recv_l[1+offset,:,:]
                         interp[m].Ez[:ng,:] = self.EB_recv_l[2+offset,:,:]
                         interp[m].Br[:ng,:] = self.EB_recv_l[3+offset,:,:]
-                        interp[m].Bt[:ng,:] = self.EB_recv_l[4+offset,:,:] 
+                        interp[m].Bt[:ng,:] = self.EB_recv_l[4+offset,:,:]
                         interp[m].Bz[:ng,:] = self.EB_recv_l[5+offset,:,:]
                     if copy_right:
                         interp[m].Er[-ng:,:] = self.EB_recv_r[0+offset,:,:]
                         interp[m].Et[-ng:,:] = self.EB_recv_r[1+offset,:,:]
                         interp[m].Ez[-ng:,:] = self.EB_recv_r[2+offset,:,:]
                         interp[m].Br[-ng:,:] = self.EB_recv_r[3+offset,:,:]
-                        interp[m].Bt[-ng:,:] = self.EB_recv_r[4+offset,:,:] 
+                        interp[m].Bt[-ng:,:] = self.EB_recv_r[4+offset,:,:]
                         interp[m].Bz[-ng:,:] = self.EB_recv_r[5+offset,:,:]
 
     def copy_J_buffers( self, interp,

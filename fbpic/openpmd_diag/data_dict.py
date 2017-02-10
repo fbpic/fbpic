@@ -20,8 +20,9 @@ unit_dimension_dict = {
     "weighting" : np.array([0., 0., 0., 0., 0., 0., 0.]),
     "position" : np.array([1., 0., 0., 0., 0., 0., 0.]),
     "positionOffset" : np.array([1., 0., 0., 0., 0., 0., 0.]),
-    "momentum" : np.array([1., 1.,-1., 0., 0., 0., 0.]) }
-    
+    "momentum" : np.array([1., 1.,-1., 0., 0., 0., 0.]),
+    "id" : np.array([0., 0., 0., 0., 0., 0., 0.]) }
+
 # Typical weighting of different particle properties
 macro_weighted_dict = {
     "charge": np.uint32(0),
@@ -29,11 +30,13 @@ macro_weighted_dict = {
     "weighting": np.uint32(1),
     "position": np.uint32(0),
     "positionOffset": np.uint32(0),
-    "momentum" : np.uint32(0) }
+    "momentum" : np.uint32(0),
+    "id" : np.uint32(0) }
 weighting_power_dict = {
     "charge": 1.,
     "mass": 1.,
     "weighting": 1.,
     "position": 0.,
     "positionOffset": 0.,
-    "momentum": 1. }
+    "momentum": 1.,
+    "id": 0 }

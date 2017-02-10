@@ -19,7 +19,8 @@ from .particle_buffer_handling import remove_outside_particles, \
 mpi_type_dict = { 'float32': mpi.REAL4,
                   'float64': mpi.REAL8,
                   'complex64': mpi.COMPLEX8,
-                  'complex128': mpi.COMPLEX16 }
+                  'complex128': mpi.COMPLEX16,
+                  'uint64': mpi.UINT64_T }
 
 class BoundaryCommunicator(object):
     """
@@ -437,31 +438,41 @@ class BoundaryCommunicator(object):
         """
         # Remove out-of-domain particles from particle arrays (either on
         # CPU or GPU) and store them in sending buffers on the CPU
-        send_left, send_right = remove_outside_particles( species,
-                fld, self.n_guard, self.left_proc, self.right_proc )
+        float_send_left, float_send_right, uint_send_left, uint_send_right = \
+            remove_outside_particles( species, fld, self.n_guard,
+                                    self.left_proc, self.right_proc )
 
         # Send/receive the number of particles (need to be stored in arrays)
-        N_send_l = np.array( send_left.shape[1], dtype=np.int32)
-        N_send_r = np.array( send_right.shape[1], dtype=np.int32)
-        N_recv_l = np.array( 0, dtype = np.int32)
-        N_recv_r = np.array( 0, dtype = np.int32)
+        N_send_l = np.array( float_send_left.shape[1], dtype=np.uint64 )
+        N_send_r = np.array( float_send_right.shape[1], dtype=np.uint64 )
+        N_recv_l = np.array( 0, dtype=np.int64 )
+        N_recv_r = np.array( 0, dtype=np.int64 )
         self.exchange_domains(N_send_l, N_send_r, N_recv_l, N_recv_r)
-        # NB: if left_proc or right_proc is None, the
+        # Note: if left_proc or right_proc is None, the
         # corresponding N_recv remains 0 (no exchange)
         if self.size > 1:
             self.mpi_comm.Barrier()
 
         # Allocate the receiving buffers and exchange particles
-        recv_left = np.zeros((8, N_recv_l), dtype = np.float64)
-        recv_right = np.zeros((8, N_recv_r), dtype = np.float64)
-        self.exchange_domains(send_left, send_right, recv_left, recv_right)
+        n_float = float_send_left.shape[0]
+        float_recv_left = np.zeros((n_float, N_recv_l), dtype=np.float64)
+        float_recv_right = np.zeros((n_float, N_recv_r), dtype=np.float64)
+        self.exchange_domains( float_send_left, float_send_right,
+                                float_recv_left, float_recv_right )
+        # Integers (e.g. particle id), if any
+        n_int = uint_send_left.shape[0]
+        uint_recv_left = np.zeros((n_int, N_recv_l), dtype=np.uint64 )
+        uint_recv_right = np.zeros((n_int, N_recv_r), dtype=np.uint64 )
+        if n_int > 0:
+            self.exchange_domains( uint_send_left, uint_send_right,
+                                    uint_recv_left, uint_recv_right )
 
         # When using a moving window, create new particles in recv_right
         # (Overlap this with the exchange of domains, since recv_right
         # will not be affected by the exchange at this open boundary)
         if (self.moving_win is not None) and (self.rank == self.size-1):
-            recv_right = self.moving_win.generate_particles(
-                species, fld.interp[0].dz, time )
+            float_recv_right, uint_recv_right = \
+              self.moving_win.generate_particles(species,fld.interp[0].dz,time)
 
         # An MPI barrier is needed here so that a single rank
         # does not perform two sends and receives before all
@@ -474,14 +485,15 @@ class BoundaryCommunicator(object):
         # box are shifted by Ltot (zmax-zmin) to the right (resp. left).
         if self.right_proc == 0:
             # The index 2 corresponds to z
-            recv_right[2,:] = recv_right[2,:] + self.Ltot
+            float_recv_right[2,:] = float_recv_right[2,:] + self.Ltot
         if self.left_proc == self.size-1:
             # The index 2 corresponds to z
-            recv_left[2,:] = recv_left[2,:] - self.Ltot
+            float_recv_left[2,:] = float_recv_left[2,:] - self.Ltot
 
         # Add the exchanged buffers to the particles on the CPU or GPU
         # and resize the auxiliary field-on-particle and sorting arrays
-        add_buffers_to_particles( species, recv_left, recv_right )
+        add_buffers_to_particles( species, float_recv_left, float_recv_right,
+                                    uint_recv_left, uint_recv_right )
 
     def damp_guard_EB( self, interp ):
         """
