@@ -137,7 +137,23 @@ if cuda_installed:
     def generate_ids_gpu( id_array, i_end, i_start,
                             next_attributed_id, id_step ):
         """
-        TODO
+        Generate new unique ids, and use them to fill `id_array` in place
+        from index `i_start` (included) to index `i_end` (excluded)
+
+        Parameters
+        ----------
+        id_array: 1darray of integers
+            The unique id of the particles. (One element per macroparticle)
+
+        i_end, i_start: integers
+            The indices between which new ids should be generated
+
+        next_attributed_id: integer
+            The first id to be attributed (i.e. the id at i_start)
+
+        id_step: integer
+            The step by which id is incremented when going from one
+            macroparticle to the next.
         """
         i = cuda.grid(1)
         if i < i_end - i_start:

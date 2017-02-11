@@ -17,7 +17,11 @@ except ImportError:
 # ----------------------------
 def get_E_amplitude( ux, uy, uz, Ex, Ey, Ez, cBx, cBy, cBz ):
     """
-    # TODO
+    For one given macroparticle, calculate the amplitude of the E field
+    *in the rest frame of the macroparticle*.
+
+    (This is necessary so that the ADK probability is fully Lorentz invariant
+    and thus also works in a boosted frame.)
     """
     u_dot_E = ux*Ex + uy*Ey + uz*Ez
     gamma = math.sqrt( 1 + ux**2 + uy**2 + uz**2 )
@@ -39,7 +43,11 @@ get_E_amplitude_numba = numba.jit(get_E_amplitude, nopython=True)
 # ----------------------------
 def get_ionization_probability( E, gamma, prefactor, power, exp_prefactor ):
     """
-    TO DO
+    For one given macroparticle, calculate the ADK probability that the
+    particle is ionized during this timestep.
+
+    (The proper time of the particle is used, so that the ADK probability
+    is fully Lorentz invariant and thus also works in a boosted frame.)
     """
     # Avoid singular expression for E = 0
     if E == 0:
@@ -71,7 +79,15 @@ def copy_ionized_electrons_batch(
     ion_ux, ion_uy, ion_uz, ion_neutral_weight,
     ion_Ex, ion_Ey, ion_Ez, ion_Bx, ion_By, ion_Bz ):
     """
-    TO DO
+    Create the new electrons by copying the properties (position, momentum,
+    etc) of the ions that they originate from.
+
+    Particles are handled by batch: this functions goes through one batch
+    of ion macroparticles and checks which macroparticles have been ionized
+    during the present timestep (using the flag `is_ionized`).
+    In order to know at which position, in the electron array, this data
+    should be copied, the cumulated number of electrons `cumulative_n_ionized`
+    (one element per batch) is used.
     """
     # Electron index: this is incremented each time
     # an ionized electron is identified

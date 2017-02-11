@@ -6,6 +6,10 @@ This file is part of the Fourier-Bessel Particle-In-Cell code (FB-PIC)
 It defines the structure and methods associated with atomic ionization.
 
 #TODO A few words on the implementation: all levels are kept in the same species
+Mention the ADK probability
+Mention that particles are handled in batches
+Mention that it is fully relativistic
+
 """
 import numpy as np
 from numba import cuda
@@ -25,17 +29,20 @@ except ImportError:
 class Ionizer(object):
     """
     Class that contains the data associated with ionization (on the ions side)
+    and has method to calculate the ionization probability
 
     Main attributes
     ---------------
-    - ionization_level: 1darray of int16 (one element per particle)
+    - ionization_level: 1darray of integers (one element per particle)
       which contains the ionization state of each particle
-    - TODO: complete
+    - neutral_weight: 1darray of floats (one element per particle)
+      which contains the number of physical particle that correspond to each
+      macroparticle (not multiplied by the charge, unlike `w`)
     """
     def __init__( self, element, ionizable_species, target_species,
-                    z_min, z_max, full_initialization=True ):
+                    level_start, level_max, full_initialization=True ):
         """
-        # TODO: complete
+        Initialize an Ionizer instance
 
         Parameters
         ----------
@@ -51,29 +58,47 @@ class Ionizer(object):
             This object is not modified when creating the class, but
             it is modified when ionization occurs
             (i.e. more particles are created)
+
+        level_start: int
+            The ionization level at which the macroparticles are initially
+            (e.g. 0 for initially neutral atoms)
+
+        full_initialization: bool
+            If True: initialize the parameters needed for the calculation
+            of the ADK ionization rate. This is not needed when adding
+            new particles to the same species (e.g. with the moving window).
         """
         # Register a few parameters
         self.target_species = target_species
-        self.z_min = z_min
+        self.level_start = level_start
         self.use_cuda = ionizable_species.use_cuda
         # Process ionized particles into batches
         self.batch_size = 10
 
         # Initialize ionization-relevant meta-data
         if full_initialization:
-            self.initialize_ADK_parameters( element, z_max,
-                                            ionizable_species.dt )
+            self.initialize_ADK_parameters( element, ionizable_species.dt )
 
         # Initialize the required arrays
         Ntot = ionizable_species.Ntot
-        self.ionization_level = np.ones( Ntot, dtype=np.uint64 ) * z_min
+        self.ionization_level = np.ones( Ntot, dtype=np.uint64 ) * level_start
         self.neutral_weight = ionizable_species.w/ionizable_species.q
 
-    def initialize_ADK_parameters( self, element, z_max, dt ):
+    def initialize_ADK_parameters( self, element, dt ):
         """
-        # TODO complete
+        Initialize parameters needed for the calculation of ADK ionization rate
 
-        See Chen, JCP 236 (2013), equation (2)
+        Parameters
+        ----------
+        element: string
+            The atomic symbol of the considered ionizable species
+            (e.g. 'He', 'N' ;  do not use 'Helium' or 'Nitrogen')
+
+        dt: float (in seconds)
+            The timestep of the simulation. (The calculated ionization
+            probability is a probability *per timestep*.)
+
+        See Chen, JCP 236 (2013), equation (2) for the ionization rate formula
         """
         # Check whether the element string is valid
         if element in ionization_energies_dict:
@@ -85,10 +110,7 @@ class Ionizer(object):
         Uion = ionization_energies_dict[element]
 
         # Determine the maximum level of ionization
-        if z_max is None:
-            self.z_max = len(Uion)
-        else:
-            self.z_max = min( z_max, len(Uion) )
+        self.level_max = len(Uion)
 
         # Calculate the ADK prefactors (See Chen, JCP 236 (2013), equation (2))
         # - Scalars
@@ -114,7 +136,15 @@ class Ionizer(object):
 
     def handle_ionization_gpu( self, ion ):
         """
-        # TODO: Complete
+        Handle ionization on the GPU:
+        - For each ion macroparticle, decide whether it is going to
+          be further ionized during this timestep, based on the ADK rate.
+        - Add the electrons created from ionization to the `target_species`
+
+        Parameters:
+        -----------
+        ion: an fbpic.Particles object
+            The ionizable species, from which new electrons are created.
         """
         # Process particles in batches (of typically 10, 20 particles)
         N_batch = int( ion.Ntot / self.batch_size ) + 1
@@ -129,7 +159,7 @@ class Ionizer(object):
         # Ionize the ions (one thread per batch)
         batch_grid_1d, batch_block_1d = cuda_tpb_bpg_1d( N_batch )
         ionize_ions_cuda[ batch_grid_1d, batch_block_1d ](
-            N_batch, self.batch_size, ion.Ntot, self.z_max,
+            N_batch, self.batch_size, ion.Ntot, self.level_max,
             n_ionized, is_ionized, self.ionization_level, random_draw,
             self.adk_prefactor, self.adk_power, self.adk_exp_prefactor,
             ion.ux, ion.uy, ion.uz,
@@ -197,7 +227,15 @@ class Ionizer(object):
 
     def handle_ionization_cpu( self, ion ):
         """
-        # TODO: Complete
+        Handle ionization on the CPU:
+        - For each ion macroparticle, decide whether it is going to
+          be further ionized during this timestep, based on the ADK rate.
+        - Add the electrons created from ionization to the `target_species`
+
+        Parameters:
+        -----------
+        ion: an fbpic.Particles object
+            The ionizable species, from which new electrons are created.
         """
         # Process particles in batches (of typically 10, 20 particles)
         N_batch = int( ion.Ntot / self.batch_size ) + 1
@@ -210,7 +248,7 @@ class Ionizer(object):
 
         # Ionize the ions (one thread per batch)
         ionize_ions_numba(
-            N_batch, self.batch_size, ion.Ntot, self.z_max,
+            N_batch, self.batch_size, ion.Ntot, self.level_max,
             n_ionized, is_ionized, self.ionization_level, random_draw,
             self.adk_prefactor, self.adk_power, self.adk_exp_prefactor,
             ion.ux, ion.uy, ion.uz,
@@ -266,11 +304,12 @@ class Ionizer(object):
         """
         Copy the ionization data to the GPU.
         """
-        # TODO: complete: add all required arrays
         if self.use_cuda:
+            # Arrays with one element per macroparticles
             self.ionization_level = cuda.to_device( self.ionization_level )
             self.neutral_weight = cuda.to_device( self.neutral_weight )
             # Small-size arrays with ADK parameters
+            # (One element per ionization level)
             self.adk_power = cuda.to_device( self.adk_power )
             self.adk_prefactor = cuda.to_device( self.adk_prefactor )
             self.adk_exp_prefactor = cuda.to_device( self.adk_exp_prefactor )
@@ -279,11 +318,12 @@ class Ionizer(object):
         """
         Receive the ionization data from the GPU.
         """
-        # TODO: complete: add all required arrays
         if self.use_cuda:
+            # Arrays with one element per macroparticles
             self.ionization_level = self.ionization_level.copy_to_host()
             self.neutral_weight = self.neutral_weight.copy_to_host()
             # Small-size arrays with ADK parameters
+            # (One element per ionization level)
             self.adk_power = self.adk_power.copy_to_host()
             self.adk_prefactor = self.adk_prefactor.copy_to_host()
             self.adk_exp_prefactor = self.adk_exp_prefactor.copy_to_host()

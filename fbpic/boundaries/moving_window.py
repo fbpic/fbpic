@@ -237,7 +237,7 @@ class MovingWindow(object):
             if species.ionizer is not None:
                 new_ptcl.make_ionizable( element=species.ionizer.element,
                     target_species=species.ionizer.target_species,
-                    z_min=species.ionizer.z_min, z_max=species.ionizer.z_max,
+                    level_start=species.ionizer.level_start,
                     full_initialization=False )
             # Convert them to a particle buffer
             # - Float buffer

@@ -5,7 +5,7 @@
 This file is part of the Fourier-Bessel Particle-In-Cell code (FB-PIC)
 It defines cuda methods that are used in particle ionization.
 
-Apart from synthactic, this file is very close to numba_methods.py
+Apart from synthactic details, this file is very close to numba_methods.py
 """
 from numba import cuda
 from scipy.constants import c, e
@@ -13,12 +13,22 @@ from .inline_functions import get_ionization_probability_cuda, \
     get_E_amplitude_cuda, copy_ionized_electrons_batch_cuda
 
 @cuda.jit()
-def ionize_ions_cuda( N_batch, batch_size, Ntot, z_max,
+def ionize_ions_cuda( N_batch, batch_size, Ntot, level_max,
     n_ionized, is_ionized, ionization_level, random_draw,
     adk_prefactor, adk_power, adk_exp_prefactor,
     ux, uy, uz, Ex, Ey, Ez, Bx, By, Bz, w, neutral_weight ):
     """
-    # TODO
+    For each ion macroparticle, decide whether it is going to
+    be further ionized during this timestep, based on the ADK rate.
+
+    Increment the elements in `ionization_level` accordingly, and update the
+    charged weight `w` of the ions to take into account the change in charge
+    of the corresponding macroparticle.
+
+    For the purpose of counting and creating the corresponding electrons,
+    `is_ionized` (one element per macroparticle) is set to 1 at the position
+    of the ionized ions, and `n_ionized` (one element per batch) counts
+    the total number of ionized particles in the current batch.
     """
     # Loop over batches of particles
     i_batch = cuda.grid(1)
@@ -34,7 +44,7 @@ def ionize_ions_cuda( N_batch, batch_size, Ntot, z_max,
             # Skip the ionization routine, if the maximal ionization level
             # has already been reached for this macroparticle
             level = ionization_level[ip]
-            if level >= z_max:
+            if level >= level_max:
                 continue
 
             # Calculate the amplitude of the electric field,
@@ -66,7 +76,8 @@ def copy_ionized_electrons_cuda(
     ion_ux, ion_uy, ion_uz, ion_neutral_weight,
     ion_Ex, ion_Ey, ion_Ez, ion_Bx, ion_By, ion_Bz ):
     """
-    # TODO
+    Create the new electrons by copying the properties (position, momentum,
+    etc) of the ions that they originate from.
     """
     # Select the current batch
     i_batch = cuda.grid(1)

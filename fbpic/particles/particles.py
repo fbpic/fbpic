@@ -306,9 +306,12 @@ class Particles(object) :
             self.int_sorting_buffer = np.empty( self.Ntot, dtype=np.uint64 )
 
     def make_ionizable( self, element, target_species,
-                        z_min=0, z_max=None, full_initialization=True ):
+                        level_start=0, full_initialization=True ):
         """
         Make this species ionizable
+
+        NB: Field ionization with ADK probability
+        See Chen, JCP 236 (2013), equation (2)
 
         # TODO: complete
 
@@ -317,7 +320,7 @@ class Particles(object) :
         """
         # Initialize the ionizer module
         self.ionizer = Ionizer( element, self, target_species,
-                                    z_min, z_max, full_initialization )
+                                level_start, full_initialization )
         # Recalculate the weights to reflect the current ionization levels
         # (This is updated whenever further ionization happens)
         self.w[:] = e*self.ionizer.ionization_level*self.ionizer.neutral_weight
