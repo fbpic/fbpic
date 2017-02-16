@@ -134,7 +134,7 @@ class ParticleTracker(object):
 if cuda_installed:
 
     @cuda.jit()
-    def generate_ids_gpu( id_array, i_end, i_start,
+    def generate_ids_gpu( id_array, i_start, i_end,
                             next_attributed_id, id_step ):
         """
         Generate new unique ids, and use them to fill `id_array` in place
