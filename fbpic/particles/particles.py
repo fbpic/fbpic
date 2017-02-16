@@ -310,13 +310,28 @@ class Particles(object) :
         """
         Make this species ionizable
 
-        NB: Field ionization with ADK probability
+        The implemented ionization model is the ADK model.
         See Chen, JCP 236 (2013), equation (2)
 
-        # TODO: complete
-
         Parameters
+        ----------
+        element: string
+            The atomic symbol of the considered ionizable species
+            (e.g. 'He', 'N' ;  do not use 'Helium' or 'Nitrogen')
 
+        target_species: an fbpic.Particles object
+            This object is not modified when creating the class, but
+            it is modified when ionization occurs
+            (i.e. more particles are created)
+
+        level_start: int
+            The ionization level at which the macroparticles are initially
+            (e.g. 0 for initially neutral atoms)
+
+        full_initialization: bool
+            If True: initialize the parameters needed for the calculation
+            of the ADK ionization rate. This is not needed when adding
+            new particles to the same species (e.g. with the moving window).
         """
         # Initialize the ionizer module
         self.ionizer = Ionizer( element, self, target_species,
@@ -334,8 +349,7 @@ class Particles(object) :
 
     def handle_ionization( self ):
         """
-        # TODO: complete
-        Ionize the species, and add new macroparticles to the target species
+        Ionize this species, and add new macroparticles to the target species
         """
         if self.ionizer is not None:
             if self.use_cuda:
