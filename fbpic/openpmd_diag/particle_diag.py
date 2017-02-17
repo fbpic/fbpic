@@ -116,7 +116,7 @@ class ParticleDiagnostic(OpenPMDDiagnostic) :
             grp.require_group( quantity )
             self.setup_openpmd_species_record( grp[quantity], quantity )
             self.setup_openpmd_species_component( grp[quantity], quantity )
-            grp[quantity].attrs["shape"] = np.array([species.Ntot], dtype=np.uint64)
+            grp[quantity].attrs["shape"] = np.array([1], dtype=np.uint64)
         # Set the corresponding values
         grp["mass"].attrs["value"] = species.m
         if "charge" in constant_quantities:
@@ -130,8 +130,8 @@ class ParticleDiagnostic(OpenPMDDiagnostic) :
                             "positionOffset/z"] :
             grp.require_group(quantity)
             self.setup_openpmd_species_component( grp[quantity], quantity )
-            grp[quantity].attrs["shape"] = np.array([species.Ntot],
-                                                    dtype=np.uint64)
+            grp[quantity].attrs["shape"] = np.array([1], dtype=np.uint64)
+
         # Set the corresponding values
         grp["positionOffset/x"].attrs["value"] = 0.
         grp["positionOffset/y"].attrs["value"] = 0.
