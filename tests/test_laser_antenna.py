@@ -132,7 +132,7 @@ def run_and_check_laser_antenna(gamma_b, show, write_files):
     sim.step( Ntot_step - N_show*N_step, show_progress=False )
 
     # Check the transverse E and B field
-    Nz_half = sim.fld.interp[1].Nz/2 + 2
+    Nz_half = int(sim.fld.interp[1].Nz/2) + 2
     z = sim.fld.interp[1].z[Nz_half:-sim.comm.n_guard]
     r = sim.fld.interp[1].r
     # Loop through the different fields
