@@ -1,5 +1,5 @@
 # Copyright 2016, FBPIC contributors
-# Authors: Remi Lehe, Manuel Kirchen
+# Authors: Remi Lehe, Manuel Kirchen, Kevin Peters
 # License: 3-Clause-BSD-LBNL
 """
 This file is part of the Fourier-Bessel Particle-In-Cell code (FB-PIC)
@@ -11,21 +11,13 @@ import numpy as np
 # Particle shapes utility
 # -----------------------
 
-def linear_weights(x, invdx, offset, Nx, direction) :
+def weights(x, invdx, offset, Nx, direction, shape_order):
     """
-    Return the matrix indices and the shape factors, for linear shapes.
+    Return the array of cell indices and corresponding shape factors
+    for current/charge deposition and field gathering
 
-    The boundary conditions are determined by direction :
-    - direction='z' : periodic conditions
-    - direction='r' : absorbing at the upper bound,
-                      using guard cells at the lower bounds
-    NB : the guard cells are not technically part of the field arrays 
-    The weight deposited in the guard cells are added positively or
-    negatively to the lower cell of the field array, depending on the
-    exact field considered.
-
-    Parameters
-    ----------
+    Parameters:
+    -----------
     x : 1darray of floats (in meters)
         Array of particle positions along a given direction
         (one element per macroparticle)
@@ -43,61 +35,73 @@ def linear_weights(x, invdx, offset, Nx, direction) :
     direction : string
         Determines the boundary conditions. Either 'r' or 'z'
 
-    Returns
-    -------
+    shape_order : int
+        Order of the shape factor.
+        Either 1 or 3
+
+    Returns:
+    --------
     A tuple containing :
-    
-    i_lower, i_upper : 1darray of integers
-        (one element per macroparticle)
-        Contains the index of the cell immediately below each
-        macroparticle, along the considered axis
-    i_upper : 1darray of integers
-        (one element per macroparticle)
-        Contains the index of the cell immediately above each
-        macroparticle, along the considered axis
-    S_lower : 1darray of floats
-        (one element per macroparticle)
-        Contains the weight for the lower cell, for each macroparticle.
-        The weight for the upper cell is just 1-S_lower.
-    S_upper : 1darray of floats
+
+    i: 2darray of ints
+        An array of shape (shape_order+1, Ntot)
+        where Ntot is the number of macroparticles
+        (i.e. the number of elements in the array x)
+        This array contains the indices of the grid cells
+        (along the axis specified by `direction`) where each macroparticle
+        deposits charge/current and gathers field data.
+
+    S: 2darray of floats
+        An array of shape (shape_order+1, Ntot)
+        where Ntot is the number of macroparticles
+        (i.e. the number of elements in the array x)
+        This array contains the shape factors (a.k.a. interpolation weights)
+        that correspond to each of the indices in the array `i`.
     """
-
     # Positions of the particles, in the cell unit
-    x_cell =  invdx*(x - offset) - 0.5
-    
-    # Index of the uppper and lower cell
-    i_lower = np.floor( x_cell ).astype('int')  
-    i_upper = i_lower + 1
+    x_cell = invdx*(x - offset) - 0.5
 
-    # Linear weight
-    S_lower = i_upper - x_cell
-    S_upper = x_cell - i_lower
-    
-    # Treat the boundary conditions
-    if direction=='r' :   # Radial boundary condition
-        # Lower bound : place the weight in the guard cells
-        out_of_bounds =  (i_lower < 0)
-        S_guard = np.where( out_of_bounds, S_lower, 0. )
-        S_lower = np.where( out_of_bounds, 0., S_lower )
-        i_lower = np.where( out_of_bounds, 0, i_lower )
-        # Upper bound : absorbing
-        i_lower = np.where( i_lower > Nx-1, Nx-1, i_lower )
-        i_upper = np.where( i_upper > Nx-1, Nx-1, i_upper )
-        # Return the result
-        return( i_lower, i_upper, S_lower, S_upper, S_guard )
-        
-    elif direction=='z' :  # Longitudinal boundary condition
-        # Lower bound : periodic
-        i_lower = np.where( i_lower < 0, i_lower+Nx, i_lower )
-        i_upper = np.where( i_upper < 0, i_upper+Nx, i_upper )
-        # Upper bound : periodic
-        i_lower = np.where( i_lower > Nx-1, i_lower-Nx, i_lower )
-        i_upper = np.where( i_upper > Nx-1, i_upper-Nx, i_upper )
-        # Return the result
-        return( i_lower, i_upper, S_lower, S_upper )
+    # Initialize empty arrays of the correct size
+    i = np.empty( (shape_order+1, len(x)), dtype=np.int64)
+    S = np.empty( (shape_order+1, len(x)), dtype=np.float64)
 
-    else :
-        raise ValueError("Unrecognized `direction` : %s" %direction)
+    # Indices and shapes
+    if shape_order == 1:
+        i[0,:] = np.floor(x_cell).astype('int')
+        i[1,:] = i[0,:] + 1
+        # Linear weight
+        S[0,:] = i[1,:] - x_cell
+        S[1,:] = x_cell - i[0,:]
+    elif shape_order == 3:
+        i[0,:] = np.floor(x_cell).astype('int') - 1
+        i[1,:] = i[0,:] + 1
+        i[2,:] = i[0,:] + 2
+        i[3,:] = i[0,:] + 3
+        # Cubic Weights
+        S[0,:] = -1./6. * ((x_cell-i[0])-2)**3
+        S[1,:] = 1./6. * (3*((x_cell-i[1])**3) - 6*((x_cell-i[1])**2)+4)
+        S[2,:] = 1./6. * (3*((i[2]-x_cell)**3) - 6*((i[2]-x_cell)**2)+4)
+        S[3,:] = -1./6. * ((i[3]-x_cell)-2)**3
+    else:
+        raise ValueError("shapes other than linear and cubic are not supported yet.")
+
+    # Periodic boundary conditions in z
+    if direction == 'z':
+        # Lower Bound Periodic
+        i = np.where( i < 0, i+Nx, i )
+        # Upper Bound Periodic
+        i = np.where( i > Nx-1, i-Nx, i )
+    # Absorbing boundary condition at the upper r boundary
+    elif direction == 'r':
+        i = np.where(  i > Nx-1, Nx-1, i )
+        # Note: The lower bound index shift for r is done in the gather
+        # and deposit methods because the sign changes.
+        # This avoids using specific guard cells.
+    else:
+        raise ValueError("Unrecognized `direction` : %s" % direction)
+
+    # Return the result
+    return( i, S )
 
 # ----------------------------
 # Angle initialization utility
@@ -126,7 +130,7 @@ def unalign_angles( thetap, Npz, Npr, method='irrational' ) :
 
     Npz, Npr : ints
         The number of macroparticles along the z and r directions
-    
+
     method : string
         Either 'random' or 'irrational'
     """

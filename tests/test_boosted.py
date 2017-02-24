@@ -7,7 +7,7 @@ This test file is part of FB-PIC (Fourier-Bessel Particle-In-Cell).
 It simulates a relativistic plasma flowing through a periodic box.
 This test checks that the Galilean option prevents the Cherenkov instability.
 
-The parameters are the same as in the article 
+The parameters are the same as in the article
 "Elimination of Numerical Cherenkov Instability in flowing-plasma Particle-In-Cell simulations by using Galilean coordinates"
 
 Usage
@@ -83,7 +83,7 @@ def test_cherenkov_instability( show=False ):
     """
     # Dictionary to record the final value of E
     slope_Erms = {}
-    
+
     for scheme in [ 'standard', 'galilean', 'pseudo-galilean']:
 
         # Choose the correct parameters for the scheme
@@ -104,13 +104,13 @@ def test_cherenkov_instability( show=False ):
             v_comoving=v_comoving, use_galilean=use_galilean,
             n_guard=5, exchange_period=1,
             boundaries='periodic', use_cuda=use_cuda )
-        
+
         # Give a relativistic velocity to the particle, with some noise
         sim.ptcl[0].uz[:] = uz_m
         sim.ptcl[0].inv_gamma[:] = 1./np.sqrt( 1 + sim.ptcl[0].uz**2 )
         sim.ptcl[1].uz[:] = uz_m
         sim.ptcl[1].inv_gamma[:] = 1./np.sqrt( 1 + sim.ptcl[1].uz**2 )
-        
+
         # Perform the simulation;
         # record the rms electric field every 50 timestep
         Er_rms = np.zeros(int(N_step/30)+1)
@@ -123,7 +123,7 @@ def test_cherenkov_instability( show=False ):
             Er_rms[i+1] = get_Er_rms(sim)
             t[i+1] += sim.time
             print('Calculated RMS')
-        
+
         # Check/plot the results
         if show:
             # Add a plot

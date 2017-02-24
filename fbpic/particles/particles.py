@@ -1,5 +1,5 @@
 # Copyright 2016, FBPIC contributors
-# Authors: Remi Lehe, Manuel Kirchen
+# Authors: Remi Lehe, Manuel Kirchen, Kevin Peters
 # License: 3-Clause-BSD-LBNL
 """
 This file is part of the Fourier-Bessel Particle-In-Cell code (FB-PIC)
@@ -10,7 +10,7 @@ from scipy.constants import c
 from .tracking import ParticleTracker
 
 # Load the utility methods
-from .utility_methods import linear_weights, unalign_angles
+from .utility_methods import weights, unalign_angles
 # Load the numba routines
 from .numba_methods import push_p_numba, push_x_numba, \
         gather_field_numba, deposit_field_numba
@@ -19,10 +19,16 @@ from .numba_methods import push_p_numba, push_x_numba, \
 try :
     from fbpic.cuda_utils import cuda, cuda_tpb_bpg_1d, cuda_tpb_bpg_2d
     from .cuda_methods import push_p_gpu, push_x_gpu, \
-        gather_field_gpu, deposit_rho_gpu, deposit_J_gpu, \
+        gather_field_gpu_linear, gather_field_gpu_cubic, \
         write_sorting_buffer, cuda_deposition_arrays, \
         get_cell_idx_per_particle, sort_particles_per_cell, \
-        reset_prefix_sum, incl_prefix_sum, add_rho, add_J
+        reset_prefix_sum, incl_prefix_sum
+    from .cuda_deposition.cubic import deposit_rho_gpu_cubic, \
+        deposit_J_gpu_cubic
+    from .cuda_deposition.linear import deposit_rho_gpu_linear, \
+        deposit_J_gpu_linear
+    from .cuda_deposition.linear_non_atomic import deposit_rho_gpu, \
+        deposit_J_gpu, add_rho, add_J
     cuda_installed = True
 except ImportError:
     cuda_installed = False
@@ -46,7 +52,7 @@ class Particles(object) :
                     ux_m=0., uy_m=0., uz_m=0.,
                     ux_th=0., uy_th=0., uz_th=0.,
                     dens_func=None, continuous_injection=True,
-                    use_cuda=False, grid_shape=None ) :
+                    use_cuda=False, grid_shape=None, particle_shape='linear' ) :
         """
         Initialize a uniform set of particles
 
@@ -104,6 +110,13 @@ class Particles(object) :
             The shape of the local grid (including guard cells), i.e.
             a tuple of the form (Nz, Nr). This is needed in order
             to initialize the sorting of the particles per cell.
+
+        particle_shape: str, optional
+            Set the particle shape for the charge/current deposition.
+            Possible values are 'cubic', 'linear' and 'linear_non_atomic'.
+            While 'cubic' corresponds to third order shapes and 'linear'
+            to first order shapes, 'linear_non_atomic' uses an equivalent
+            deposition scheme to 'linear' which avoids atomics on the GPU.
         """
         # Register the timestep
         self.dt = dt
@@ -177,7 +190,6 @@ class Particles(object) :
             self.x[:] = r * np.cos( thetap.flatten() )
             self.y[:] = r * np.sin( thetap.flatten() )
             self.z[:] = zp.flatten()
-
             # Get the weights (i.e. charge of each macroparticle), which
             # are equal to the density times the volume r d\theta dr dz
             self.w[:] = q * n * r * dtheta*dr*dz
@@ -200,6 +212,9 @@ class Particles(object) :
                                         dtype=np.int32 )
             # Register boolean that records if the particles are sorted or not
             self.sorted = False
+
+        # Register particle shape
+        self.particle_shape = particle_shape
 
     def send_particles_to_gpu( self ):
         """
@@ -382,16 +397,28 @@ class Particles(object) :
             dim_grid_1d, dim_block_1d = cuda_tpb_bpg_1d( self.Ntot )
             # Call the CUDA Kernel for the gathering of E and B Fields
             # for Mode 0 and 1 only.
-            gather_field_gpu[dim_grid_1d, dim_block_1d](
-                 self.x, self.y, self.z,
-                 grid[0].invdz, grid[0].zmin, grid[0].Nz,
-                 grid[0].invdr, grid[0].rmin, grid[0].Nr,
-                 grid[0].Er, grid[0].Et, grid[0].Ez,
-                 grid[1].Er, grid[1].Et, grid[1].Ez,
-                 grid[0].Br, grid[0].Bt, grid[0].Bz,
-                 grid[1].Br, grid[1].Bt, grid[1].Bz,
-                 self.Ex, self.Ey, self.Ez,
-                 self.Bx, self.By, self.Bz)
+            if self.particle_shape == 'cubic':
+                gather_field_gpu_cubic[dim_grid_1d, dim_block_1d](
+                     self.x, self.y, self.z,
+                     grid[0].invdz, grid[0].zmin, grid[0].Nz,
+                     grid[0].invdr, grid[0].rmin, grid[0].Nr,
+                     grid[0].Er, grid[0].Et, grid[0].Ez,
+                     grid[1].Er, grid[1].Et, grid[1].Ez,
+                     grid[0].Br, grid[0].Bt, grid[0].Bz,
+                     grid[1].Br, grid[1].Bt, grid[1].Bz,
+                     self.Ex, self.Ey, self.Ez,
+                     self.Bx, self.By, self.Bz)
+            else:
+                gather_field_gpu_linear[dim_grid_1d, dim_block_1d](
+                     self.x, self.y, self.z,
+                     grid[0].invdz, grid[0].zmin, grid[0].Nz,
+                     grid[0].invdr, grid[0].rmin, grid[0].Nr,
+                     grid[0].Er, grid[0].Et, grid[0].Ez,
+                     grid[1].Er, grid[1].Et, grid[1].Ez,
+                     grid[0].Br, grid[0].Bt, grid[0].Bz,
+                     grid[1].Br, grid[1].Bt, grid[1].Bz,
+                     self.Ex, self.Ey, self.Ez,
+                     self.Bx, self.By, self.Bz)
         else:
             # Preliminary arrays for the cylindrical conversion
             r = np.sqrt( self.x**2 + self.y**2 )
@@ -401,10 +428,14 @@ class Particles(object) :
             sin = np.where( r!=0., self.y*invr, 0. )
 
             # Indices and weights
-            iz_lower, iz_upper, Sz_lower, Sz_upper = linear_weights( self.z,
-                grid[0].invdz, grid[0].zmin, grid[0].Nz, direction='z')
-            ir_lower, ir_upper, Sr_lower, Sr_upper, Sr_guard = linear_weights(
-                r, grid[0].invdr, grid[0].rmin, grid[0].Nr, direction='r' )
+            if self.particle_shape == 'cubic':
+                shape_order = 3
+            else:
+                shape_order = 1
+            iz, Sz = weights(self.z, grid[0].invdz, grid[0].zmin, grid[0].Nz,
+                             direction='z', shape_order=shape_order)
+            ir, Sr = weights(r, grid[0].invdr, grid[0].rmin, grid[0].Nr,
+                             direction='r', shape_order=shape_order)
 
             # Number of modes considered :
             # number of elements in the grid list
@@ -432,18 +463,12 @@ class Particles(object) :
                 # Gather the fields
                 # (The sign with which the guards are added
                 # depends on whether the fields should be zero on axis)
-                gather_field_numba( exptheta, m, grid[m].Er, Fr,
-                    iz_lower, iz_upper, Sz_lower, Sz_upper,
-                    ir_lower, ir_upper, Sr_lower, Sr_upper,
-                    -(-1.)**m, Sr_guard )
-                gather_field_numba( exptheta, m, grid[m].Et, Ft,
-                    iz_lower, iz_upper, Sz_lower, Sz_upper,
-                    ir_lower, ir_upper, Sr_lower, Sr_upper,
-                    -(-1.)**m, Sr_guard )
-                gather_field_numba( exptheta, m, grid[m].Ez, self.Ez,
-                    iz_lower, iz_upper, Sz_lower, Sz_upper,
-                    ir_lower, ir_upper, Sr_lower, Sr_upper,
-                    (-1.)**m, Sr_guard )
+                gather_field_numba(
+                    exptheta, m, grid[m].Er, Fr, iz, ir, Sz, Sr, -((-1.)**m))
+                gather_field_numba(
+                    exptheta, m, grid[m].Et, Ft, iz, ir, Sz, Sr, -((-1.)**m))
+                gather_field_numba(
+                    exptheta, m, grid[m].Ez, self.Ez, iz, ir, Sz, Sr, (-1.)**m)
 
             # Convert to Cartesian coordinates
             self.Ex[:] = cos*Fr - sin*Ft
@@ -471,18 +496,12 @@ class Particles(object) :
                 # Gather the fields
                 # (The sign with which the guards are added
                 # depends on whether the fields should be zero on axis)
-                gather_field_numba( exptheta, m, grid[m].Br, Fr,
-                    iz_lower, iz_upper, Sz_lower, Sz_upper,
-                    ir_lower, ir_upper, Sr_lower, Sr_upper,
-                    -(-1.)**m, Sr_guard )
-                gather_field_numba( exptheta, m, grid[m].Bt, Ft,
-                    iz_lower, iz_upper, Sz_lower, Sz_upper,
-                    ir_lower, ir_upper, Sr_lower, Sr_upper,
-                    -(-1.)**m, Sr_guard )
-                gather_field_numba( exptheta, m, grid[m].Bz, self.Bz,
-                    iz_lower, iz_upper, Sz_lower, Sz_upper,
-                    ir_lower, ir_upper, Sr_lower, Sr_upper,
-                    (-1.)**m, Sr_guard )
+                gather_field_numba(
+                    exptheta, m, grid[m].Br, Fr, iz, ir, Sz, Sr, -((-1.)**m))
+                gather_field_numba(
+                    exptheta, m, grid[m].Bt, Ft, iz, ir, Sz, Sr, -((-1.)**m))
+                gather_field_numba(
+                    exptheta, m, grid[m].Bz, self.Bz, iz, ir, Sz, Sr, (-1.)**m)
 
             # Convert to Cartesian coordinates
             self.Bx[:] = cos*Fr - sin*Ft
@@ -517,12 +536,13 @@ class Particles(object) :
                                           grid[0].Nz, grid[0].Nr )
 
             # Create the helper arrays for deposition
-            d_F0, d_F1, d_F2, d_F3 = cuda_deposition_arrays(
-                grid[0].Nz, grid[0].Nr, fieldtype = fieldtype )
+            if self.particle_shape == 'linear_non_atomic':
+                d_F0, d_F1, d_F2, d_F3 = cuda_deposition_arrays(
+                    grid[0].Nz, grid[0].Nr, fieldtype=fieldtype)
 
             # Sort the particles
-            if self.sorted == False:
-                self.sort_particles(fld = fld)
+            if self.sorted is False:
+                self.sort_particles(fld=fld)
                 # The particles are now sorted and rearranged
                 self.sorted = True
 
@@ -531,35 +551,79 @@ class Particles(object) :
             # Rho
             if fieldtype == 'rho':
                 # Deposit rho in each of four directions
-                deposit_rho_gpu[dim_grid_2d_flat, dim_block_2d_flat](
-                    self.x, self.y, self.z, self.w,
-                    grid[0].invdz, grid[0].zmin, grid[0].Nz,
-                    grid[0].invdr, grid[0].rmin, grid[0].Nr,
-                    d_F0, d_F1, d_F2, d_F3,
-                    self.cell_idx, self.prefix_sum)
-                # Add the four directions together
-                add_rho[dim_grid_2d, dim_block_2d](
-                    grid[0].rho, grid[1].rho,
-                    d_F0, d_F1, d_F2, d_F3)
+                if self.particle_shape == 'linear_non_atomic':
+                    deposit_rho_gpu[dim_grid_2d_flat, dim_block_2d_flat](
+                        self.x, self.y, self.z, self.w,
+                        grid[0].invdz, grid[0].zmin, grid[0].Nz,
+                        grid[0].invdr, grid[0].rmin, grid[0].Nr,
+                        d_F0, d_F1, d_F2, d_F3,
+                        self.cell_idx, self.prefix_sum)
+                    # Add the four directions together
+                    add_rho[dim_grid_2d, dim_block_2d](
+                        grid[0].rho, grid[1].rho,
+                        d_F0, d_F1, d_F2, d_F3)
+                elif self.particle_shape == 'cubic':
+                    deposit_rho_gpu_cubic[dim_grid_2d_flat, dim_block_2d_flat](
+                        self.x, self.y, self.z, self.w,
+                        grid[0].invdz, grid[0].zmin, grid[0].Nz,
+                        grid[0].invdr, grid[0].rmin, grid[0].Nr,
+                        grid[0].rho, grid[1].rho,
+                        self.cell_idx, self.prefix_sum)
+                elif self.particle_shape == 'linear':
+                    deposit_rho_gpu_linear[dim_grid_2d_flat, dim_block_2d_flat](
+                        self.x, self.y, self.z, self.w,
+                        grid[0].invdz, grid[0].zmin, grid[0].Nz,
+                        grid[0].invdr, grid[0].rmin, grid[0].Nr,
+                        grid[0].rho, grid[1].rho,
+                        self.cell_idx, self.prefix_sum)
+                else:
+                    raise ValueError("`particle_shape` should be either 'linear', 'linear_atomic' \
+                                      or 'cubic' but is `%s`" % self.particle_shape)
             # J
             elif fieldtype == 'J':
                 # Deposit J in each of four directions
-                deposit_J_gpu[dim_grid_2d_flat, dim_block_2d_flat](
-                    self.x, self.y, self.z, self.w,
-                    self.ux, self.uy, self.uz, self.inv_gamma,
-                    grid[0].invdz, grid[0].zmin, grid[0].Nz,
-                    grid[0].invdr, grid[0].rmin, grid[0].Nr,
-                    d_F0, d_F1, d_F2, d_F3,
-                    self.cell_idx, self.prefix_sum)
-                # Add the four directions together
-                add_J[dim_grid_2d, dim_block_2d](
-                    grid[0].Jr, grid[1].Jr,
-                    grid[0].Jt, grid[1].Jt,
-                    grid[0].Jz, grid[1].Jz,
-                    d_F0, d_F1, d_F2, d_F3)
-            else :
-                raise ValueError(
-        "`fieldtype` should be either 'J' or 'rho', but is `%s`" %fieldtype )
+                if self.particle_shape == 'linear_non_atomic':
+                    deposit_J_gpu[dim_grid_2d_flat, dim_block_2d_flat](
+                        self.x, self.y, self.z, self.w,
+                        self.ux, self.uy, self.uz, self.inv_gamma,
+                        grid[0].invdz, grid[0].zmin, grid[0].Nz,
+                        grid[0].invdr, grid[0].rmin, grid[0].Nr,
+                        d_F0, d_F1, d_F2, d_F3,
+                        self.cell_idx, self.prefix_sum)
+                    # Add the four directions together
+                    add_J[dim_grid_2d, dim_block_2d](
+                        grid[0].Jr, grid[1].Jr,
+                        grid[0].Jt, grid[1].Jt,
+                        grid[0].Jz, grid[1].Jz,
+                        d_F0, d_F1, d_F2, d_F3)
+                elif self.particle_shape == 'cubic':
+                    deposit_J_gpu_cubic[dim_grid_2d_flat, dim_block_2d_flat](
+                        self.x, self.y, self.z, self.w,
+                        self.ux, self.uy, self.uz, self.inv_gamma,
+                        grid[0].invdz, grid[0].zmin, grid[0].Nz,
+                        grid[0].invdr, grid[0].rmin, grid[0].Nr,
+                        grid[0].Jr, grid[1].Jr,
+                        grid[0].Jt, grid[1].Jt,
+                        grid[0].Jz, grid[1].Jz,
+                        self.cell_idx, self.prefix_sum)
+                elif self.particle_shape == 'linear':
+                    deposit_J_gpu_linear[dim_grid_2d_flat, dim_block_2d_flat](
+                        self.x, self.y, self.z, self.w,
+                        self.ux, self.uy, self.uz, self.inv_gamma,
+                        grid[0].invdz, grid[0].zmin, grid[0].Nz,
+                        grid[0].invdr, grid[0].rmin, grid[0].Nr,
+                        grid[0].Jr, grid[1].Jr,
+                        grid[0].Jt, grid[1].Jt,
+                        grid[0].Jz, grid[1].Jz,
+                        self.cell_idx, self.prefix_sum)
+                else:
+                    raise ValueError("`particle_shape` should be either \
+                                      'linear', 'linear_atomic' or 'cubic' \
+                                       but is `%s`" % self.particle_shape)
+            else:
+                raise ValueError("`fieldtype` should be either 'J' or \
+                                  'rho', but is `%s`" % fieldtype)
+
 
         # CPU version
         else:
@@ -571,10 +635,14 @@ class Particles(object) :
             sin = np.where( r!=0., self.y*invr, 0. )
 
             # Indices and weights
-            iz_lower, iz_upper, Sz_lower, Sz_upper = linear_weights(
-                self.z, grid[0].invdz, grid[0].zmin, grid[0].Nz, direction='z')
-            ir_lower, ir_upper, Sr_lower, Sr_upper, Sr_guard = linear_weights(
-                r, grid[0].invdr, grid[0].rmin, grid[0].Nr, direction='r')
+            if self.particle_shape == 'cubic':
+                shape_order = 3
+            else:
+                shape_order = 1
+            iz, Sz = weights(self.z, grid[0].invdz, grid[0].zmin, grid[0].Nz,
+                             direction='z', shape_order=shape_order)
+            ir, Sr = weights(r, grid[0].invdr, grid[0].rmin, grid[0].Nr,
+                             direction='r', shape_order=shape_order)
 
             # Number of modes considered :
             # number of elements in the grid list
@@ -597,10 +665,8 @@ class Particles(object) :
                     # Deposit the fields
                     # (The sign -1 with which the guards are added is not
                     # trivial to derive but avoids artifacts on the axis)
-                    deposit_field_numba( self.w*exptheta, grid[m].rho,
-                        iz_lower, iz_upper, Sz_lower, Sz_upper,
-                        ir_lower, ir_upper, Sr_lower, Sr_upper,
-                        -1., Sr_guard )
+                    deposit_field_numba(self.w*exptheta, grid[m].rho,
+                                            iz, ir, Sz, Sr, -1.)
 
             elif fieldtype == 'J' :
                 # ----------------------------------------
@@ -623,18 +689,12 @@ class Particles(object) :
                     # Deposit the fields
                     # (The sign -1 with which the guards are added is not
                     # trivial to derive but avoids artifacts on the axis)
-                    deposit_field_numba( Jr*exptheta, grid[m].Jr,
-                        iz_lower, iz_upper, Sz_lower, Sz_upper,
-                        ir_lower, ir_upper, Sr_lower, Sr_upper,
-                        -1., Sr_guard )
-                    deposit_field_numba( Jt*exptheta, grid[m].Jt,
-                        iz_lower, iz_upper, Sz_lower, Sz_upper,
-                        ir_lower, ir_upper, Sr_lower, Sr_upper,
-                        -1., Sr_guard )
-                    deposit_field_numba( Jz*exptheta, grid[m].Jz,
-                        iz_lower, iz_upper, Sz_lower, Sz_upper,
-                        ir_lower, ir_upper, Sr_lower, Sr_upper,
-                        -1., Sr_guard )
+                    deposit_field_numba(Jr*exptheta, grid[m].Jr,
+                                        iz, ir, Sz, Sr, -1.)
+                    deposit_field_numba(Jt*exptheta, grid[m].Jt,
+                                        iz, ir, Sz, Sr, -1.)
+                    deposit_field_numba(Jz*exptheta, grid[m].Jz,
+                                        iz, ir, Sz, Sr, -1.)
 
             else :
                 raise ValueError(
