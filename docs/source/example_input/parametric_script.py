@@ -112,10 +112,10 @@ if __name__ == '__main__':
         use_cuda=use_cuda, use_all_mpi_ranks=False )
 
     # Load initial fields
-    if use_restart is False:
-        # Add a laser to the fields of the simulation
-        add_laser( sim, a0, w0, ctau, z0 )
-    else:
+    # Add a laser to the fields of the simulation
+    add_laser( sim, a0, w0, ctau, z0 )
+
+    if use_restart is True:
         # Load the fields and particles from the latest checkpoint file
         restart_from_checkpoint( sim )
 
