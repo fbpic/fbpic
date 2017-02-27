@@ -100,9 +100,10 @@ if __name__ == '__main__':
         use_cuda=use_cuda )
 
     # Load initial fields
+    # Add a laser to the fields of the simulation
+    add_laser( sim, a0, w0, ctau, z0 )
+
     if use_restart is False:
-        # Add a laser to the fields of the simulation
-        add_laser( sim, a0, w0, ctau, z0 )
         # Track electrons if required (species 0 correspond to the electrons)
         if track_electrons:
             sim.ptcl[0].track( sim.comm )
