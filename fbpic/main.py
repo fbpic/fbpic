@@ -46,7 +46,8 @@ class Simulation(object):
                  v_comoving=None, use_galilean=False,
                  initialize_ions=False, use_cuda=False,
                  n_guard=50, exchange_period=None, boundaries='periodic',
-                 gamma_boost=None, use_all_mpi_ranks=True ):
+                 gamma_boost=None, use_all_mpi_ranks=True,
+                 particle_shape='linear' ):
         """
         Initializes a simulation, by creating the following structures:
 
@@ -161,6 +162,13 @@ class Simulation(object):
               This can be useful when running parameter scans. In this case,
               make sure that your input script is written so that the input
               parameters and output folder depend on the MPI rank.
+
+        particle_shape: str, optional
+            Set the particle shape for the charge/current deposition.
+            Possible values are 'cubic', 'linear' and 'linear_non_atomic'.
+            While 'cubic' corresponds to third order shapes and 'linear'
+            to first order shapes, 'linear_non_atomic' uses an equivalent
+            deposition scheme to 'linear' which avoids atomics on the GPU.
         """
         # Check whether to use cuda
         self.use_cuda = use_cuda
@@ -213,14 +221,15 @@ class Simulation(object):
                        zmax=p_zmax, Npr=Npr, rmin=p_rmin, rmax=p_rmax,
                        Nptheta=p_nt, dt=dt, dens_func=dens_func,
                        use_cuda=self.use_cuda, uz_m=uz_m,
-                       grid_shape=grid_shape) ]
+                       grid_shape=grid_shape, particle_shape=particle_shape) ]
         if initialize_ions :
             self.ptcl.append(
                 Particles(q=e, m=m_p, n=n_e, Npz=Npz, zmin=p_zmin,
                           zmax=p_zmax, Npr=Npr, rmin=p_rmin, rmax=p_rmax,
                           Nptheta=p_nt, dt=dt, dens_func=dens_func,
                           use_cuda=self.use_cuda, uz_m=uz_m,
-                          grid_shape=grid_shape ) )
+                          grid_shape=grid_shape,
+                          particle_shape=particle_shape ) )
 
         # Register the number of particles per cell along z, and dt
         # (Necessary for the moving window)

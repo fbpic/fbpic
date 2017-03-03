@@ -15,8 +15,8 @@ runs **without crashing**. It runs the following scripts:
 Usage:
 This file is meant to be run from the top directory of fbpic,
 by any of the following commands
-$ python tests/test_example_docs_script.py
-$ py.test -q tests/test_example_docs_script.py
+$ python tests/test_example_docs_scripts.py
+$ py.test -q tests/test_example_docs_scripts.py
 $ python setup.py test
 """
 import time
@@ -41,7 +41,34 @@ def test_lpa_sim_singleproc():
 
     # Enter the temporary directory and run the script
     os.chdir( temporary_dir )
+
+    # Read the script and check that the targeted lines are present
+    with open('lwfa_script.py') as f:
+        script = f.read()
+        # Check that the targeted lines are present
+        if script.find('save_checkpoints = False') == -1 \
+            or script.find('use_restart = False') == -1 \
+            or script.find('N_step = 200') == -1:
+            raise RuntimeError('Did not find expected lines in lwfa_script.py')
+
+    # Modify the script so as to enable checkpoints
+    script = script.replace('save_checkpoints = False',
+                                'save_checkpoints = True')
+    script = script.replace('N_step = 200', 'N_step = 101')
+    with open('lwfa_script.py', 'w') as f:
+        f.write(script)
     # Launch the script from the OS
+    response = os.system( 'python lwfa_script.py' )
+    assert response==0
+
+    # Modify the script so as to enable restarts
+    script = script.replace('use_restart = False',
+                                'use_restart = True')
+    script = script.replace('save_checkpoints = True',
+                                'save_checkpoints = False')
+    with open('lwfa_script.py', 'w') as f:
+        f.write(script)
+    # Launch the modified script from the OS, with 2 proc
     response = os.system( 'python lwfa_script.py' )
     assert response==0
 
@@ -149,6 +176,31 @@ def test_parametric_sim_twoproc():
     # Enter the temporary directory
     os.chdir( temporary_dir )
 
+    # Read the script and check that the targeted lines are present
+    with open('parametric_script.py') as f:
+        script = f.read()
+        # Check that the targeted lines are present
+        if script.find('save_checkpoints = False') == -1 \
+            or script.find('use_restart = False') == -1:
+            raise RuntimeError(
+            'Did not find expected lines in parametric_script.py')
+
+    # Modify the script so as to enable checkpoints
+    script = script.replace('save_checkpoints = False',
+                                'save_checkpoints = True')
+    with open('parametric_script.py', 'w') as f:
+        f.write(script)
+    # Launch the modified script from the OS, with 2 proc
+    response = os.system( 'mpirun -np 2 python parametric_script.py' )
+    assert response==0
+
+    # Modify the script so as to enable restarts
+    script = script.replace('use_restart = False',
+                                'use_restart = True')
+    script = script.replace('save_checkpoints = True',
+                                'save_checkpoints = False')
+    with open('parametric_script.py', 'w') as f:
+        f.write(script)
     # Launch the modified script from the OS, with 2 proc
     response = os.system( 'mpirun -np 2 python parametric_script.py' )
     assert response==0
@@ -162,7 +214,7 @@ def test_parametric_sim_twoproc():
         ts = LpaDiagnostics( diag_folder )
         # Check that the value of a0 in the diagnostics is the
         # expected one.
-        a0_in_diag = ts.get_a0( iteration=40, pol='x' )
+        a0_in_diag = ts.get_a0( iteration=80, pol='x' )
         assert abs( (a0 - a0_in_diag)/a0 ) < 1.e-2
 
     # Exit the temporary directory and suppress it
@@ -170,7 +222,7 @@ def test_parametric_sim_twoproc():
     shutil.rmtree( temporary_dir )
 
 if __name__ == '__main__':
+    test_parametric_sim_twoproc()
     test_lpa_sim_singleproc()
     test_lpa_sim_twoproc_restart()
     test_boosted_frame_sim_twoproc()
-    test_parametric_sim_twoproc()

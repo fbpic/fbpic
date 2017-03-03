@@ -10,6 +10,7 @@ It verifies the validity of the charge density deposition by:
   (i.e. this confirms that no Verboncoeur-type correction is needed)
 - Shifting this plasma by a small amount in r, and still verifying
   that the deposited density is uniform
+ The tests are performed with different particle shapes: linear
 
 Usage :
 from the top-level directory of FBPIC run
@@ -46,11 +47,14 @@ frac_shift = 0.01
 
 def test_uniform_electron_plasma(show=False):
     "Function that is run by py.test, when doing `python setup.py test`"
+    for shape in ['cubic', 'linear', 'linear_non_atomic']:
+        uniform_electron_plasma( shape, show )
 
+def uniform_electron_plasma(shape, show=False):
     # Initialize the different structures
     sim = Simulation( Nz, zmax, Nr, rmax, Nm, zmax/Nz/c,
         0, zmax, 0, p_rmax, p_nz, p_nr, p_nt, n,
-        initialize_ions=False )
+        initialize_ions=False, particle_shape=shape )
 
     # Deposit the charge
     sim.fld.erase('rho')
@@ -83,11 +87,14 @@ def test_uniform_electron_plasma(show=False):
 
 def test_neutral_plasma_shifted(show=False):
     "Function that is run by py.test, when doing `python setup.py test`"
+    for shape in ['cubic', 'linear', 'linear_non_atomic']:
+        neutral_plasma_shifted( shape, show )
 
+def neutral_plasma_shifted(shape, show=False):
     # Initialize the different structures
     sim = Simulation( Nz, zmax, Nr, rmax, Nm, zmax/Nz/c,
         0, zmax, 0, p_rmax, p_nz, p_nr, p_nt, n,
-        initialize_ions=True )
+        initialize_ions=True, particle_shape=shape )
 
     # Shift the electrons
     dr = rmax/Nr

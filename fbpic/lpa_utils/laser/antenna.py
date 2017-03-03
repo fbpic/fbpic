@@ -1,5 +1,5 @@
 # Copyright 2016, FBPIC contributors
-# Authors: Remi Lehe, Manuel Kirchen
+# Authors: Remi Lehe, Manuel Kirchen, Kevin Peters
 # License: 3-Clause-BSD-LBNL
 """
 This file is part of the Fourier-Bessel Particle-In-Cell code (FB-PIC)
@@ -10,7 +10,7 @@ import numpy as np
 from scipy.constants import e, c, epsilon_0, physical_constants
 r_e = physical_constants['classical electron radius'][0]
 from .profiles import gaussian_profile
-from fbpic.particles.utility_methods import linear_weights
+from fbpic.particles.utility_methods import weights
 from fbpic.particles.numba_methods import deposit_field_numba
 
 try:
@@ -47,10 +47,12 @@ class LaserAntenna( object ):
     and depositing their charge/current is always done on the CPU.
     For GPU performance, the charge/current are deposited in a small-size array
     (corresponding to a thin slice in z) which is then transfered to the GPU
-    and added into the full-size array of charge/current. 
+    and added into the full-size array of charge/current.
+    Note that the antenna always uses linear shape factors (even when the
+    rest of the simulation uses cubic shape factors.)
     """
-    def __init__( self, E0, w0, ctau, z0, zf, k0, 
-                    theta_pol, z0_antenna, dr_grid, Nr_grid, Nm, 
+    def __init__( self, E0, w0, ctau, z0, zf, k0,
+                    theta_pol, z0_antenna, dr_grid, Nr_grid, Nm,
                     npr=2, nptheta=4, epsilon=0.01, boost=None ):
         """
         Initialize a LaserAntenna object (see class docstring for more info)
@@ -76,7 +78,7 @@ class LaserAntenna( object ):
             Laser wavevector *in the lab frame*
 
         theta_pol: float (rad)
-            Polarization angle of the laser 
+            Polarization angle of the laser
 
         z0_antenna: float (m)
             Initial position of the antenna *in the lab frame*
@@ -128,7 +130,7 @@ class LaserAntenna( object ):
         rp, thetap = np.meshgrid( r_reg, theta_reg, copy=True)
         self.baseline_r = rp.flatten()
         theta0 = thetap.flatten()
-        
+
         # Baseline position of the particles and weights
         self.Ntot = Ntot
         self.baseline_x = self.baseline_r * np.cos( theta0 )
@@ -173,12 +175,12 @@ class LaserAntenna( object ):
             self.d_Jr_buffer = cuda.device_array_like( self.Jr_buffer )
             self.d_Jt_buffer = cuda.device_array_like( self.Jt_buffer )
             self.d_Jz_buffer = cuda.device_array_like( self.Jz_buffer )
-        
+
     def halfpush_x( self, dt ):
         """
         Push the position of the virtual particles in the antenna
         over half a timestep, using their current velocity
-    
+
         Parameter
         ---------
         dt: float (seconds)
@@ -240,7 +242,7 @@ class LaserAntenna( object ):
         macroparticles, but also introduces a few specific optimization:
         - use the particle velocities instead of the momenta for J
         - deposit the currents and charge into a small-size array
-        
+
         Parameter
         ----------
         fld : a Field object
@@ -282,28 +284,24 @@ class LaserAntenna( object ):
 
         # Indices and weights in z:
         # same for both the negative and positive virtual particles
-        iz_lower, iz_upper, Sz_lower, Sz_upper = linear_weights(
-                self.baseline_z, grid[0].invdz, grid[0].zmin,
-                grid[0].Nz, direction='z')
-
+        iz, Sz = weights(self.baseline_z, grid[0].invdz, grid[0].zmin, grid[0].Nz,
+                         direction='z', shape_order=1)
         # Find the z index where the small-size buffers should be added
         # to the large-size arrays rho, Jr, Jt, Jz
-        iz_min = iz_lower.min()
-        iz_max = iz_upper.max()
+        iz_min = iz.min()
+        iz_max = iz.max()
         # Since linear shape are used, and since the virtual particles all
         # have the same z position, iz_max is necessarily equal to iz_min+1
         # This is a sanity check, to avoid out-of-bound access later on.
         assert iz_max == iz_min+1
         # Substract from the array of indices in order to find the particle
         # index within the small-size buffers
-        iz_lower = iz_lower - iz_min
-        iz_upper = iz_upper - iz_min
+        iz = iz - iz_min
 
         # Deposit the charge/current of positive and negative
         # virtual particles successively, into the small-size buffers
         for q in [-1, 1]:
-            self.deposit_virtual_particles( q, fieldtype, grid,
-                        iz_lower, iz_upper, Sz_lower, Sz_upper )
+            self.deposit_virtual_particles( q, fieldtype, grid, iz, Sz )
 
         # Copy the small-size buffers into the large-size arrays
         # (When running on the GPU, this involves copying the
@@ -313,8 +311,7 @@ class LaserAntenna( object ):
         elif fieldtype == 'J':
             self.copy_J_buffer( iz_min, grid )
 
-    def deposit_virtual_particles( self, q, fieldtype, grid,
-                        iz_lower, iz_upper, Sz_lower, Sz_upper ):
+    def deposit_virtual_particles( self, q, fieldtype, grid, iz, Sz ):
         """
         Deposit the charge/current of the positive (q=+1) or negative
         (q=-1) virtual macroparticles
@@ -327,20 +324,24 @@ class LaserAntenna( object ):
 
         fieldtype: string (either 'rho' or 'J')
             Indicates whether to deposit the charge or current
-            
+
         grid: a list of InterpolationGrid object
             The grids on which to the deposit the charge/current
 
-        iz_lower, iz_upper: 1darrays of ints
-            Arrays with one element per particles, and which indicate
-            at which index in z *within the small-size arrays* the
-            charge/current of each particle will be deposited
+        iz, ir : 2darray of ints
+            Arrays of shape (shape_order+1, Ntot)
+            where Ntot is the number of macroparticles.
+            Contains the index of the cells that each virtual macroparticle
+            will deposit to.
             (In the case of the laser antenna, these arrays are constant
             in principle; but they are kept as arrays for compatibility
             with the deposit_field_numba function.)
 
-        Sz_lower, Sz_upper: 1darrays of floats
-            The corresponding shape factors
+        Sz, Sr: 2darray of ints
+            Arrays of shape (shape_order+1, Ntot)
+            where Ntot is the number of macroparticles
+            Contains the weight for respective cells from iz and ir,
+            for each macroparticle.
         """
         # Position of the particles
         x = self.baseline_x + q*self.excursion_x
@@ -356,9 +357,9 @@ class LaserAntenna( object ):
         cos = np.where( r!=0., x*invr, 1. )
         sin = np.where( r!=0., y*invr, 0. )
 
-        # Indices and weights in z
-        ir_lower, ir_upper, Sr_lower, Sr_upper, Sr_guard = linear_weights(
-            r, grid[0].invdr, grid[0].rmin, grid[0].Nr, direction='r')
+        # Indices and weights in r
+        ir, Sr = weights(r, grid[0].invdr, grid[0].rmin, grid[0].Nr,
+                         direction='r', shape_order=1)
 
         if fieldtype == 'rho' :
             # ---------------------------------------
@@ -378,9 +379,7 @@ class LaserAntenna( object ):
                 # (The sign -1 with which the guards are added is not
                 # trivial to derive but avoids artifacts on the axis)
                 deposit_field_numba( w*exptheta, self.rho_buffer[m,:],
-                    iz_lower, iz_upper, Sz_lower, Sz_upper,
-                    ir_lower, ir_upper, Sr_lower, Sr_upper,
-                    -1., Sr_guard )
+                    iz, ir, Sz, Sr, -1.)
 
         elif fieldtype == 'J' :
             # ----------------------------------------
@@ -404,17 +403,11 @@ class LaserAntenna( object ):
                 # (The sign -1 with which the guards are added is not
                 # trivial to derive but avoids artifacts on the axis)
                 deposit_field_numba( Jr*exptheta, self.Jr_buffer[m,:],
-                    iz_lower, iz_upper, Sz_lower, Sz_upper,
-                    ir_lower, ir_upper, Sr_lower, Sr_upper,
-                    -1., Sr_guard )
+                                     iz, ir, Sz, Sr, -1.)
                 deposit_field_numba( Jt*exptheta, self.Jt_buffer[m,:],
-                    iz_lower, iz_upper, Sz_lower, Sz_upper,
-                    ir_lower, ir_upper, Sr_lower, Sr_upper,
-                    -1., Sr_guard )
+                                     iz, ir, Sz, Sr, -1.)
                 deposit_field_numba( Jz*exptheta, self.Jz_buffer[m,:],
-                        iz_lower, iz_upper, Sz_lower, Sz_upper,
-                        ir_lower, ir_upper, Sr_lower, Sr_upper,
-                        -1., Sr_guard )
+                                     iz, ir, Sz, Sr, -1.)
 
     def copy_rho_buffer( self, iz_min, grid ):
         """
@@ -441,7 +434,7 @@ class LaserAntenna( object ):
             # On the GPU: add the small-size buffers to the large-size array
             dim_grid_1d, dim_block_1d = cuda_tpb_bpg_1d( grid[0].Nr, TPB=64 )
             add_rho_to_gpu_array[dim_grid_1d, dim_block_1d]( iz_min,
-                            self.d_rho_buffer, grid[0].rho, grid[1].rho ) 
+                            self.d_rho_buffer, grid[0].rho, grid[1].rho )
 
     def copy_J_buffer( self, iz_min, grid ):
         """
