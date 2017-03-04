@@ -139,7 +139,7 @@ class Ionizer(object):
         wa = alpha**3 * c / r_e
         Ea = m_e*c**2/e * alpha**4/r_e
         # - Arrays (one element per ionization level)
-        UH = ionization_energies_dict['H'][0]
+        UH = get_ionization_energies('H')[0]
         Z = np.arange( len(Uion) ) + 1
         n_eff = Z * np.sqrt( UH/Uion )
         l_eff = n_eff[0] - 1
