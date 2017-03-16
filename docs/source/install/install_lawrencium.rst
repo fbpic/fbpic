@@ -69,8 +69,7 @@ Installation of FBPIC and its dependencies
 
    ::
 
-       conda install -c conda-forge numba scipy h5py pyfftw mpi4py
-       conda install accelerate
+       conda install -c conda-forge numba scipy h5py pyfftw mpi4py accelerate
 
    (NB: The ``accelerate`` package is not free, but there is a 30-day free
    trial period, which starts when the above command is entered. For
