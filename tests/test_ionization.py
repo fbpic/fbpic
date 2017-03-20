@@ -4,13 +4,15 @@
 """
 This test file is part of FB-PIC (Fourier-Bessel Particle-In-Cell).
 
-It reproduces the test from Chen, JCP, 2013, figure 2:d
+It reproduces the test from Chen, JCP, 2013, figure 2.
 A Gaussian laser pulse propagates through a gas of Nitrogen atoms. For the
 intensity and duration of this laser, about 1/3 of the atoms remain in the
 N5+ state, after the laser has passed through the gas.
 
 This test simulates the interaction and checks that the final number N5+ ions
-is indeed close to 1/3.
+is indeed close to 1/3. (Due to the low number of macroparticles and the
+corresponding statistical fluctuations in this test, it is difficult to have
+a precise number, but the ionization fraction is checked at the 10% level.)
 
 Because the original test from Chen (2013) is essentially 1D, in the FBPIC
 simulation, the number of radial cells is very low, and the laser is produced
@@ -28,8 +30,8 @@ from fbpic.main import Simulation, adapt_to_grid
 from fbpic.particles import Particles
 from fbpic.lpa_utils.external_fields import ExternalField
 from fbpic.lpa_utils.boosted_frame import BoostConverter
-from fbpic.openpmd_diag import FieldDiagnostic, ParticleDiagnostic, \
-                  BoostedFieldDiagnostic, BoostedParticleDiagnostic
+from fbpic.openpmd_diag import FieldDiagnostic, ParticleDiagnostic
+
 # ----------
 # Parameters
 # ----------
