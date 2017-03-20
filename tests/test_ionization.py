@@ -4,9 +4,9 @@
 """
 This test file is part of FB-PIC (Fourier-Bessel Particle-In-Cell).
 
-It reproduces the test from Chen, JCP, 2013, figure 2:
+It reproduces the test from Chen, JCP, 2013, figure 2:d
 A Gaussian laser pulse propagates through a gas of Nitrogen atoms. For the
-intensity and duration of this laser, about 1/3 of the atoms stay in the
+intensity and duration of this laser, about 1/3 of the atoms remain in the
 N5+ state, after the laser has passed through the gas.
 
 This test simulates the interaction and checks that the final number N5+ ions
@@ -47,26 +47,49 @@ def run_simulation( gamma_boost ):
         The Lorentz factor of the frame in which the simulation is carried out.
     """
     # The simulation box
-    Nz = 400         # Number of gridpoints along z
     zmax = 20.e-6    # Length of the box along z (meters)
     zmin = 0.e-6
     Nr = 3           # Number of gridpoints along r
     rmax = 10.e-6    # Length of the box along r (meters)
     Nm = 2           # Number of modes used
-    n_guard = 40     # Number of guard cells
-    exchange_period = 10
-    # The simulation timestep
-    dt = (zmax-zmin)/Nz/c   # Timestep (seconds)
-    N_step = 1601    # Number of iterations to perform
+    n_guard = 20     # Number of guard cells
+    if gamma_boost>1:
+        exchange_period = 1    # The simulation timestep
+    else:
+        exchange_period = 10
+
+    # The particles of the plasma
+    p_zmin = 5.e-6   # Position of the beginning of the plasma (meters)
+    p_zmax = 15.e-6
+    p_rmin = 0.      # Minimal radial position of the plasma (meters)
+    p_rmax = 100.e-6 # Maximal radial position of the plasma (meters)
+    n_e = 1.         # The plasma density is chosen very low,
+                     # to avoid collective effects
+    p_nz = 2         # Number of particles per cell along z
+    p_nr = 1         # Number of particles per cell along r
+    p_nt = 4         # Number of particles per cell along theta
 
     # Boosted frame
     boost = BoostConverter(gamma_boost)
+    # Boost the different quantities
+    beta_boost = np.sqrt( 1. - 1./gamma_boost**2 )
+    zmin, zmax = boost.static_length( [zmin, zmax] )
+    p_zmin, p_zmax = boost.static_length( [p_zmin, p_zmax] )
+    n_e, = boost.static_density( [n_e] )
+    # Increase the number of particles per cell in order to keep sufficient
+    # statistics for the evaluation of the ionization fraction
+    if gamma_boost > 1:
+        p_nz = int( 2 * gamma_boost * (1+beta_boost) * p_nz )
 
     # The laser
     a0 = 1.8         # Laser amplitude
-    ctau = 8.e-6     # Laser duration
-    z0 = -16.e-6     # Laser centroid
     lambda0 = 0.8e-6 # Laser wavelength
+    # Boost the laser wavelength before calculating the laser amplitude
+    lambda0, = boost.copropag_length( [ lambda0 ], beta_object=1. )
+    # Duration and initial position of the laser
+    ctau = 10.*lambda0
+    z0 = -2*ctau
+    # Calculate laser amplitude
     omega = 2*np.pi*c/lambda0
     E0 = a0 * m_e*c*omega/e
     B0 = E0/c
@@ -77,24 +100,18 @@ def run_simulation( gamma_boost ):
         return( F + amplitude * math.cos( 2*np.pi*(z-c*t)/lambda0 ) * \
                 math.exp( - (z - c*t - z0)**2/ctau**2 ) )
 
-    # The particles of the plasma
-    p_zmin = 5.e-6   # Position of the beginning of the plasma (meters)
-    p_zmax = 15.e-6
-    p_rmin = 0.      # Minimal radial position of the plasma (meters)
-    p_rmax = 100.e-6 # Maximal radial position of the plasma (meters)
-    n_e = 1.         # The density in the labframe (electrons.meters^-3)
-    p_nz = 2         # Number of particles per cell along z
-    p_nr = 1         # Number of particles per cell along r
-    p_nt = 4         # Number of particles per cell along theta
+    # Resolution and number of timesteps
+    dz = lambda0/16.
+    dt = dz/c
+    Nz = int( (zmax-zmin)/dz ) + 1
+    N_step = int( (2.*40.*lambda0 + zmax-zmin)/(dz*(1+beta_boost)) ) + 1
 
     # Get the speed of the plasma
+    uz_m, = boost.longitudinal_momentum( [ 0. ] )
     v_plasma, = boost.velocity( [ 0. ] )
 
     # The diagnostics
-    diag_period = 200 # Period of the diagnostics in number of timesteps
-    # Whether to write the fields in the lab frame
-    Ntot_snapshot_lab = 20
-    dt_snapshot_lab = (zmax-zmin)/c
+    diag_period = int(N_step/50) # Period of the diagnostics in number of timesteps
 
     # Initialize the simulation object
     sim = Simulation( Nz, zmax, Nr, rmax, Nm, dt,
@@ -103,7 +120,8 @@ def run_simulation( gamma_boost ):
         zmin=zmin, initialize_ions=False,
         v_comoving=v_plasma, use_galilean=False,
         n_guard=n_guard, exchange_period=exchange_period,
-        gamma_boost=gamma_boost, boundaries='open', use_cuda=use_cuda )
+        boundaries='open', use_cuda=use_cuda )
+    sim.set_moving_window( v=v_plasma )
 
     # Add the N atoms
     p_zmin, p_zmax, Npz = adapt_to_grid( sim.fld.interp[0].z,
@@ -113,8 +131,9 @@ def run_simulation( gamma_boost ):
     sim.ptcl.append(
         Particles(q=e, m=14.*m_p, n=0.2*n_e, Npz=Npz, zmin=p_zmin,
                   zmax=p_zmax, Npr=Npr, rmin=p_rmin, rmax=p_rmax,
-                  Nptheta=p_nt, dt=dt, use_cuda=use_cuda, uz_m=0,
-                  grid_shape=sim.fld.interp[0].Ez.shape ) )
+                  Nptheta=p_nt, dt=dt, use_cuda=use_cuda, uz_m=uz_m,
+                  grid_shape=sim.fld.interp[0].Ez.shape,
+                  continuous_injection=False ) )
     sim.ptcl[1].make_ionizable(element='N', level_start=0,
                                target_species=sim.ptcl[0])
 
@@ -125,18 +144,10 @@ def run_simulation( gamma_boost ):
 
     # Add a field diagnostic
     if output_hdf5_files:
-        if gamma_boost == 1:
-            sim.diags = [ FieldDiagnostic(diag_period, sim.fld, sim.comm ),
-                        ParticleDiagnostic(diag_period,
-                        {"ions":sim.ptcl[1]}, sim.comm) ]
-        else:
-            sim.diags = [
-                     BoostedFieldDiagnostic( zmin, zmax, c,
-                        dt_snapshot_lab, Ntot_snapshot_lab, gamma_boost,
-                        period=diag_period, fldobject=sim.fld, comm=sim.comm),
-                    BoostedParticleDiagnostic( zmin, zmax, c, dt_snapshot_lab,
-                        Ntot_snapshot_lab, gamma_boost, diag_period, sim.fld,
-                        species={'ions':sim.ptcl[1]}, comm=sim.comm ) ]
+        sim.diags = [ FieldDiagnostic( diag_period, sim.fld, sim.comm ),
+                        ParticleDiagnostic( diag_period,
+                        {"electrons":sim.ptcl[0], "ions":sim.ptcl[1]},
+                        comm=sim.comm) ]
 
     # Run the simulation
     sim.step( N_step, use_true_rho=True )
@@ -150,12 +161,16 @@ def run_simulation( gamma_boost ):
     n_N5 = w_neutral[ioniz_level == 5].sum()
     # Get the fraction of N5+ ions, and check that it is close to 0.32
     N5_fraction = n_N5 / ntot
-    print(N5_fraction)
+    print('N5+ fraction: %.4f' %N5_fraction)
     assert ((N5_fraction > 0.30) and (N5_fraction < 0.34))
 
 def test_ionization_labframe():
     run_simulation(1.)
 
+def test_ionization_boostedframe():
+    run_simulation(2.)
+
 # Run the tests
 if __name__ == '__main__':
     test_ionization_labframe()
+    test_ionization_boostedframe()
