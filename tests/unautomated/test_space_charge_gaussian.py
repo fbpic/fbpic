@@ -79,9 +79,9 @@ if show_fields:
     print( 'Done' )
 
 # Create empty arrays for saving rms bunch sizes
-sig_zp = np.zeros(N_step/N_show+1)
-sig_xp = np.zeros(N_step/N_show+1)
-sig_yp = np.zeros(N_step/N_show+1)
+sig_zp = np.zeros(int(N_step/N_show)+1)
+sig_xp = np.zeros(int(N_step/N_show)+1)
+sig_yp = np.zeros(int(N_step/N_show)+1)
 
 # Set initial bunch sizes
 sig_zp[0] = np.std(sim.ptcl[0].z)
@@ -89,13 +89,13 @@ sig_xp[0] = np.std(sim.ptcl[0].x)
 sig_yp[0] = np.std(sim.ptcl[0].y)
 
 # Create array corresponding to the propagation distance of the bunch
-z_prop  = np.arange(N_step/N_show+1) * ((zmax-zmin)/Nz) * N_show
+z_prop  = np.arange(int(N_step/N_show)+1) * ((zmax-zmin)/Nz) * N_show
 z_prop += -20.e-6
 if l_boost:
     z_prop, = boost.copropag_length([z_prop], beta_object = boost.beta0)
 
 # Carry out the simulation
-for k in range(N_step/N_show) :
+for k in range(int(N_step/N_show)) :
     sim.step(N_show)
     sig_zp[k+1] = np.std(sim.ptcl[0].z)
     sig_xp[k+1] = np.std(sim.ptcl[0].x)
