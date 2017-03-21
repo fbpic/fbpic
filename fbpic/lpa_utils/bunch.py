@@ -174,7 +174,14 @@ def add_elec_bunch_gaussian( sim, sig_r, sig_z, n_emit, gamma0, sig_gamma,
     ux = np.random.normal(0., sig_ur, N)
     uy = np.random.normal(0., sig_ur, N)
     # Now we imprint an energy spread on the gammas of each particle
-    gamma = np.random.normal(gamma0, sig_gamma, N)
+    if sig_gamma > 0.:
+        gamma = np.random.normal(gamma0, sig_gamma, N)
+    else:
+        # Or set it to zero
+        gamma = np.full(N, gamma0)
+        if sig_gamma < 0.:
+            print("Warning: Negative energy spread sig_gamma detected."
+                  " sig_gamma will be set to zero. \n")
     # Finally we calculate the uz of each particle 
     # from the gamma and the transverse momenta ux, uy
     uz = np.sqrt((gamma**2-1) - ux**2 - uy**2)
