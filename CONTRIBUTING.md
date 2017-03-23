@@ -77,7 +77,8 @@ git push -u origin <NewBranchName>
   [docstring](https://www.python.org/dev/peps/pep-0257/). List the
   parameters in and describe what the functions return, according to
   [Numpy style](https://github.com/numpy/numpy/blob/master/doc/HOWTO_DOCUMENT.rst.txt),  as in this example:
-  ```python
+ 
+```python
 def print_simulation_setup( comm, use_cuda ):
     """
     Print message about the number of proc and 
@@ -91,7 +92,7 @@ def print_simulation_setup( comm, use_cuda ):
     use_cuda: bool
         Whether the simulation is set up to use CUDA
     """
-	```
+```
 Don't use documenting styles like `:param:`, `:return:`, or
 `@param`, `@return`, as they are less readable.
 
