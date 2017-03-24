@@ -44,6 +44,7 @@ def ionize_ions_numba( N_batch, batch_size, Ntot, level_max,
             # has already been reached for this macroparticle
             level = ionization_level[ip]
             if level >= level_max:
+                is_ionized[ip] = 0
                 continue
 
             # Calculate the amplitude of the electric field,
