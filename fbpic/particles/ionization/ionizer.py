@@ -60,7 +60,7 @@ class Ionizer(object):
       macroparticle (not multiplied by the charge, unlike `w`)
     """
     def __init__( self, element, ionizable_species, target_species,
-                    level_start, level_max, full_initialization=True ):
+                    level_start, full_initialization=True ):
         """
         Initialize an Ionizer instance
 
