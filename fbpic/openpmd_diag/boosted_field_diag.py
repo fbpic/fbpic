@@ -192,7 +192,7 @@ class BoostedFieldDiagnostic(FieldDiagnostic):
                 self.slice_handler.transform_fields_to_lab_frame( field_array )
 
             # Gather the slices on the first proc
-            if self.comm is not None:
+            if self.comm is not None and self.comm.size > 1:
                 global_field_array, global_iz_min, global_iz_max = \
                     self.gather_slices( field_array, iz_min, iz_max )
             else:

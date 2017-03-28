@@ -195,7 +195,7 @@ class BoostedParticleDiagnostic(ParticleDiagnostic):
                 local_particle_array = snapshot.compact_slices(species_name)
 
                 # Gather the slices on the first proc
-                if self.comm is not None:
+                if self.comm is not None and self.comm.size > 1:
                     particle_array = self.gather_particle_arrays(
                                     local_particle_array )
                 else:
