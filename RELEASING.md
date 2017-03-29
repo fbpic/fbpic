@@ -11,9 +11,7 @@ PyPI and conda. In particular:
 
 - you should install the packages
 [`pypandoc`](https://pypi.python.org/pypi/pypandoc/),
-[`twine`](https://pypi.python.org/pypi/twine),
-[`conda-build`](http://conda.pydata.org/docs/commands/build/conda-build.html)
-and [`anaconda-client`](https://anaconda.org/anaconda/anaconda-client)
+[`twine`](https://pypi.python.org/pypi/twine))
 - you should have a registered account on [PyPI](https://pypi.python.org/pypi) and [test PyPI](https://testpypi.python.org/pypi), and your `$HOME` should contain a file `.pypirc` which contains the following text:
   ```
 [distutils]
@@ -58,6 +56,3 @@ twine upload dist/* -r pypi
 (NB: You can also first test this by uploading the package to
 [test PyPI](https://testpypi.python.org/pypi) ; to do so, simply
 replace `pypi` by `pypitest` in the above set of commands)
-
-
-

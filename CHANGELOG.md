@@ -1,5 +1,13 @@
 # Change Log / Release Log for fbpic
 
+## 0.3.0
+
+This version incorporates the 3rd order particle shapes, in addition to the
+pre-existing 1st order particle shapes. (2nd order particle shapes are not
+implemented.)
+In addition, particle tracking was implemented (i.e. particle can have unique
+IDs which are then output in the openPMD files.)
+
 ## 0.2.0
 
 This version incorporates the Galilean scheme, in order to prevent the
