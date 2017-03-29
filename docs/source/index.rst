@@ -26,14 +26,9 @@ than on CPU.
 .. note::
 
    This is an Alpha release, and some parts of the code are not yet fully
-   functional:
+   functional. In particular, for **multi**-CPU and **multi**-GPU runs
+   (using MPI), the code is not yet production-ready.
 
-   - For **multi**-CPU and **multi**-GPU runs (using MPI), the code is not yet
-     production-ready.
-
-   - Only linear shape factors (a.k.a. first-order shape factors) are implemented for the
-     macroparticles. Third-order shape factors will be implemented in a
-     future release
 
 
 Contents of the documentation
