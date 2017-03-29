@@ -277,7 +277,7 @@ class BoostedParticleDiagnostic(ParticleDiagnostic):
         species_grp = f[particle_path]
 
         # Loop over the different quantities that should be written
-        for particle_var in self.particle_data:
+        for particle_var in self.array_quantities_dict[species_name]:
 
             if particle_var == "position":
                 for coord in ["x","y","z"]:
@@ -353,11 +353,12 @@ class BoostedParticleDiagnostic(ParticleDiagnostic):
                 species_path = particle_path+"%s/" %(species_name)
                 # Create and setup the h5py.Group species_grp
                 species_grp = f.require_group( species_path )
-                self.setup_openpmd_species_group( species_grp, species )
+                self.setup_openpmd_species_group( species_grp, species,
+                            self.constant_quantities_dict[species_name])
 
                 # Loop over the different quantities that should be written
                 # and setup the corresponding datasets
-                for particle_var in self.particle_data :
+                for particle_var in self.array_quantities_dict[species_name]:
 
                     if particle_var == "position" :
                         for coord in ["x", "y", "z"] :

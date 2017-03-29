@@ -7,7 +7,7 @@ It defines the optimized particles methods that use numba on a CPU
 """
 import numba
 import math
-from scipy.constants import c
+from scipy.constants import c, e
 
 # -----------------------
 # Particle pusher utility
@@ -43,43 +43,75 @@ def push_p_numba( ux, uy, uz, inv_gamma,
 
     # Loop over the particles
     for ip in range(Ntot) :
+        ux[ip], uy[ip], uz[ip], inv_gamma[ip] = push_p_vay(
+            ux[ip], uy[ip], uz[ip], inv_gamma[ip],
+            Ex[ip], Ey[ip], Ez[ip], Bx[ip], By[ip], Bz[ip], econst, bconst )
 
-        # Shortcut for initial 1./gamma
-        inv_gamma_i = inv_gamma[ip]
+@numba.jit(nopython=True)
+def push_p_ioniz_numba( ux, uy, uz, inv_gamma,
+                Ex, Ey, Ez, Bx, By, Bz, m, Ntot, dt, ionization_level ) :
+    """
+    Advance the particles' momenta, using numba
+    """
+    # Set a few constants
+    prefactor_econst = e*dt/(m*c)
+    prefactor_bconst = 0.5*e*dt/m
 
-        # Get the magnetic rotation vector
-        taux = bconst*Bx[ip]
-        tauy = bconst*By[ip]
-        tauz = bconst*Bz[ip]
-        tau2 = taux**2 + tauy**2 + tauz**2
+    # Loop over the particles
+    for ip in range(Ntot) :
 
-        # Get the momenta at the half timestep
-        uxp = ux[ip] + econst*Ex[ip] \
-        + inv_gamma_i*( uy[ip]*tauz - uz[ip]*tauy )
-        uyp = uy[ip] + econst*Ey[ip] \
-        + inv_gamma_i*( uz[ip]*taux - ux[ip]*tauz )
-        uzp = uz[ip] + econst*Ez[ip] \
-        + inv_gamma_i*( ux[ip]*tauy - uy[ip]*taux )
-        sigma = 1 + uxp**2 + uyp**2 + uzp**2 - tau2
-        utau = uxp*taux + uyp*tauy + uzp*tauz
+        # For neutral macroparticles, skip this step
+        if ionization_level[ip] == 0:
+            continue
 
-        # Get the new 1./gamma
-        inv_gamma_f = math.sqrt(
-            2./( sigma + math.sqrt( sigma**2 + 4*(tau2 + utau**2 ) ) )
-        )
-        inv_gamma[ip] = inv_gamma_f
+        # Calculate the charge dependent constants
+        econst = prefactor_econst * ionization_level[ip]
+        bconst = prefactor_bconst * ionization_level[ip]
+        # Perform the push
+        ux[ip], uy[ip], uz[ip], inv_gamma[ip] = push_p_vay(
+            ux[ip], uy[ip], uz[ip], inv_gamma[ip],
+            Ex[ip], Ey[ip], Ez[ip], Bx[ip], By[ip], Bz[ip],
+            econst, bconst )
 
-        # Reuse the tau and utau variables to save memory
-        tx = inv_gamma_f*taux
-        ty = inv_gamma_f*tauy
-        tz = inv_gamma_f*tauz
-        ut = inv_gamma_f*utau
-        s = 1./( 1 + tau2*inv_gamma_f**2 )
+@numba.jit(nopython=True)
+def push_p_vay( ux_i, uy_i, uz_i, inv_gamma_i,
+                Ex, Ey, Ez, Bx, By, Bz, econst, bconst ):
+    """
+    Push at single macroparticle, using the Vay pusher
+    """
+    # Get the magnetic rotation vector
+    taux = bconst*Bx
+    tauy = bconst*By
+    tauz = bconst*Bz
+    tau2 = taux**2 + tauy**2 + tauz**2
 
-        # Get the new u
-        ux[ip] = s*( uxp + tx*ut + uyp*tz - uzp*ty )
-        uy[ip] = s*( uyp + ty*ut + uzp*tx - uxp*tz )
-        uz[ip] = s*( uzp + tz*ut + uxp*ty - uyp*tx )
+    # Get the momenta at the half timestep
+    uxp = ux_i + econst*Ex \
+    + inv_gamma_i*( uy_i*tauz - uz_i*tauy )
+    uyp = uy_i + econst*Ey \
+    + inv_gamma_i*( uz_i*taux - ux_i*tauz )
+    uzp = uz_i + econst*Ez \
+    + inv_gamma_i*( ux_i*tauy - uy_i*taux )
+    sigma = 1 + uxp**2 + uyp**2 + uzp**2 - tau2
+    utau = uxp*taux + uyp*tauy + uzp*tauz
+
+    # Get the new 1./gamma
+    inv_gamma_f = math.sqrt(
+        2./( sigma + math.sqrt( sigma**2 + 4*(tau2 + utau**2 ) ) ) )
+
+    # Reuse the tau and utau variables to save memory
+    tx = inv_gamma_f*taux
+    ty = inv_gamma_f*tauy
+    tz = inv_gamma_f*tauz
+    ut = inv_gamma_f*utau
+    s = 1./( 1 + tau2*inv_gamma_f**2 )
+
+    # Get the new u
+    ux_f = s*( uxp + tx*ut + uyp*tz - uzp*ty )
+    uy_f = s*( uyp + ty*ut + uzp*tx - uxp*tz )
+    uz_f = s*( uzp + tz*ut + uxp*ty - uyp*tx )
+
+    return( ux_f, uy_f, uz_f, inv_gamma_f )
 
 # -----------------------
 # Field gathering utility
@@ -164,7 +196,7 @@ def gather_field_numba(exptheta, m, Fgrid, Fptcl,
 
 @numba.jit(nopython=True)
 def deposit_field_numba(Fptcl, Fgrid,
-                        iz, ir, Sz, Sr, sign_guards):
+        iz, ir, Sz, Sr, sign_guards):
     """
     Perform the deposition using numba
 
@@ -198,6 +230,7 @@ def deposit_field_numba(Fptcl, Fgrid,
 
     # Get the total number of particles
     Ntot = len(Fptcl)
+
     # Loop over all particles
     for ip in range(Ntot):
         # Loop over adjacent cells (given by shape order)

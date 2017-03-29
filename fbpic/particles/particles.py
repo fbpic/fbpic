@@ -6,19 +6,20 @@ This file is part of the Fourier-Bessel Particle-In-Cell code (FB-PIC)
 It defines the structure and methods associated with the particles.
 """
 import numpy as np
-from scipy.constants import c
+from scipy.constants import c, e
+from .ionization import Ionizer
 from .tracking import ParticleTracker
 
 # Load the utility methods
 from .utility_methods import weights, unalign_angles
 # Load the numba routines
-from .numba_methods import push_p_numba, push_x_numba, \
+from .numba_methods import push_p_numba, push_p_ioniz_numba, push_x_numba, \
         gather_field_numba, deposit_field_numba
 
 # If accelerate is installed, it potentially allows to use a GPU
 try :
     from fbpic.cuda_utils import cuda, cuda_tpb_bpg_1d, cuda_tpb_bpg_2d
-    from .cuda_methods import push_p_gpu, push_x_gpu, \
+    from .cuda_methods import push_p_gpu, push_p_ioniz_gpu, push_x_gpu, \
         gather_field_gpu_linear, gather_field_gpu_cubic, \
         write_sorting_buffer, cuda_deposition_arrays, \
         get_cell_idx_per_particle, sort_particles_per_cell, \
@@ -164,8 +165,10 @@ class Particles(object) :
         self.z = np.empty( Ntot )
         self.w = np.empty( Ntot )
 
-        # By default, there is no particle tracking
+        # By default, there is no particle tracking (see method track)
         self.tracker = None
+        # By default, the species is not ionizable (see method make_ionizable)
+        self.ionizer = None
         # Total number of quantities (necessary in MPI communications)
         self.n_integer_quantities = 0
         self.n_float_quantities = 8 # x, y, z, ux, uy, uz, inv_gamma, w
@@ -245,12 +248,17 @@ class Particles(object) :
             # Copy arrays on the GPU for the sorting
             self.cell_idx = cuda.to_device(self.cell_idx)
             self.sorted_idx = cuda.to_device(self.sorted_idx)
-            self.sorting_buffer = cuda.to_device(self.sorting_buffer)
             self.prefix_sum = cuda.to_device(self.prefix_sum)
+            self.sorting_buffer = cuda.to_device(self.sorting_buffer)
+            if self.n_integer_quantities > 0:
+                self.int_sorting_buffer = cuda.to_device(self.int_sorting_buffer)
 
             # Copy particle tracker data
             if self.tracker is not None:
                 self.tracker.send_to_gpu()
+            # Copy the ionization data
+            if self.ionizer is not None:
+                self.ionizer.send_to_gpu()
 
     def receive_particles_from_gpu( self ):
         """
@@ -282,12 +290,17 @@ class Particles(object) :
             # that represent the sorting arrays
             self.cell_idx = self.cell_idx.copy_to_host()
             self.sorted_idx = self.sorted_idx.copy_to_host()
-            self.sorting_buffer = self.sorting_buffer.copy_to_host()
             self.prefix_sum = self.prefix_sum.copy_to_host()
+            self.sorting_buffer = self.sorting_buffer.copy_to_host()
+            if self.n_integer_quantities > 0:
+                self.int_sorting_buffer = self.int_sorting_buffer.copy_to_host()
 
             # Copy particle tracker data
             if self.tracker is not None:
                 self.tracker.receive_from_gpu()
+            # Copy the ionization data
+            if self.ionizer is not None:
+                self.ionizer.receive_from_gpu()
 
     def track( self, comm ):
         """
@@ -301,7 +314,63 @@ class Particles(object) :
             Contains information about the number of processors
         """
         self.tracker = ParticleTracker( comm.size, comm.rank, self.Ntot )
+        # Update the number of integer quantities
         self.n_integer_quantities += 1
+        # Allocate the integer sorting buffer if needed
+        if hasattr( self, 'int_sorting_buffer' ) is False and self.use_cuda:
+            self.int_sorting_buffer = np.empty( self.Ntot, dtype=np.uint64 )
+
+    def make_ionizable( self, element, target_species,
+                        level_start=0, full_initialization=True ):
+        """
+        Make this species ionizable
+
+        The implemented ionization model is the ADK model.
+        See Chen, JCP 236 (2013), equation (2)
+
+        Parameters
+        ----------
+        element: string
+            The atomic symbol of the considered ionizable species
+            (e.g. 'He', 'N' ;  do not use 'Helium' or 'Nitrogen')
+
+        target_species: an fbpic.Particles object
+            This object is not modified when creating the class, but
+            it is modified when ionization occurs
+            (i.e. more particles are created)
+
+        level_start: int
+            The ionization level at which the macroparticles are initially
+            (e.g. 0 for initially neutral atoms)
+
+        full_initialization: bool
+            If True: initialize the parameters needed for the calculation
+            of the ADK ionization rate. This is not needed when adding
+            new particles to the same species (e.g. with the moving window).
+        """
+        # Initialize the ionizer module
+        self.ionizer = Ionizer( element, self, target_species,
+                                level_start, full_initialization )
+        # Recalculate the weights to reflect the current ionization levels
+        # (This is updated whenever further ionization happens)
+        self.w[:] = e*self.ionizer.ionization_level*self.ionizer.neutral_weight
+
+        # Update the number of float and int arrays
+        self.n_float_quantities += 1 # neutral_weight
+        self.n_integer_quantities += 1 # ionization_level
+        # Allocate the integer sorting buffer if needed
+        if hasattr( self, 'int_sorting_buffer' ) is False and self.use_cuda:
+            self.int_sorting_buffer = np.empty( self.Ntot, dtype=np.uint64 )
+
+    def handle_ionization( self ):
+        """
+        Ionize this species, and add new macroparticles to the target species
+        """
+        if self.ionizer is not None:
+            if self.use_cuda:
+                self.ionizer.handle_ionization_gpu( self )
+            else:
+                self.ionizer.handle_ionization_cpu( self )
 
     def rearrange_particle_arrays( self ):
         """
@@ -312,26 +381,40 @@ class Particles(object) :
         """
         # Get the threads per block and the blocks per grid
         dim_grid_1d, dim_block_1d = cuda_tpb_bpg_1d( self.Ntot )
-        # Iterate over particle attributes
-        for attr in ['x', 'y', 'z', 'ux', 'uy', 'uz', 'w', 'inv_gamma']:
+        # Iterate over (float) particle attributes
+        attr_list = [ (self,'x'), (self,'y'), (self,'z'), \
+                        (self,'ux'), (self,'uy'), (self,'uz'), \
+                        (self, 'w'), (self,'inv_gamma') ]
+        if self.ionizer is not None:
+            attr_list += [ (self.ionizer,'neutral_weight') ]
+        for attr in attr_list:
             # Get particle GPU array
-            val = getattr(self, attr)
+            particle_array = getattr( attr[0], attr[1] )
             # Write particle data to particle buffer array while rearranging
             write_sorting_buffer[dim_grid_1d, dim_block_1d](
-                self.sorted_idx, val, self.sorting_buffer)
+                self.sorted_idx, particle_array, self.sorting_buffer)
             # Assign the particle buffer to
             # the initial particle data array
-            setattr(self, attr, self.sorting_buffer)
-            # Assign the old particle data array to
-            # the particle buffer
-            self.sorting_buffer = val
-        # Handle tracking data
+            setattr( attr[0], attr[1], self.sorting_buffer)
+            # Assign the old particle data array to the particle buffer
+            self.sorting_buffer = particle_array
+        # Iterate over (integer) particle attributes
+        attr_list = [ ]
         if self.tracker is not None:
-            val = self.tracker.id
+            attr_list += [ (self.tracker,'id') ]
+        if self.ionizer is not None:
+            attr_list += [ (self.ionizer,'ionization_level') ]
+        for attr in attr_list:
+            # Get particle GPU array
+            particle_array = getattr( attr[0], attr[1] )
+            # Write particle data to particle buffer array while rearranging
             write_sorting_buffer[dim_grid_1d, dim_block_1d](
-                self.sorted_idx, val, self.tracker.sorting_buffer )
-            self.tracker.id = self.tracker.sorting_buffer
-            self.tracker.sorting_buffer = val
+                self.sorted_idx, particle_array, self.int_sorting_buffer)
+            # Assign the particle buffer to
+            # the initial particle data array
+            setattr( attr[0], attr[1], self.int_sorting_buffer)
+            # Assign the old particle data array to the particle buffer
+            self.int_sorting_buffer = particle_array
 
     def push_p( self ) :
         """
@@ -346,15 +429,31 @@ class Particles(object) :
             # Get the threads per block and the blocks per grid
             dim_grid_1d, dim_block_1d = cuda_tpb_bpg_1d( self.Ntot )
             # Call the CUDA Kernel for the particle push
-            push_p_gpu[dim_grid_1d, dim_block_1d](
+            if self.ionizer is None:
+                push_p_gpu[dim_grid_1d, dim_block_1d](
                     self.ux, self.uy, self.uz, self.inv_gamma,
                     self.Ex, self.Ey, self.Ez,
                     self.Bx, self.By, self.Bz,
                     self.q, self.m, self.Ntot, self.dt )
+            else:
+                # Ionizable species can have a charge that depends on the
+                # macroparticle, and hence require a different function
+                push_p_ioniz_gpu[dim_grid_1d, dim_block_1d](
+                    self.ux, self.uy, self.uz, self.inv_gamma,
+                    self.Ex, self.Ey, self.Ez,
+                    self.Bx, self.By, self.Bz,
+                    self.m, self.Ntot, self.dt, self.ionizer.ionization_level )
         else :
-            push_p_numba(self.ux, self.uy, self.uz, self.inv_gamma,
+            if self.ionizer is None:
+                push_p_numba(self.ux, self.uy, self.uz, self.inv_gamma,
                     self.Ex, self.Ey, self.Ez, self.Bx, self.By, self.Bz,
                     self.q, self.m, self.Ntot, self.dt )
+            else:
+                # Ionizable species can have a charge that depends on the
+                # macroparticle, and hence require a different function
+                push_p_ioniz_numba(self.ux, self.uy, self.uz, self.inv_gamma,
+                    self.Ex, self.Ey, self.Ez, self.Bx, self.By, self.Bz,
+                    self.m, self.Ntot, self.dt, self.ionizer.ionization_level )
 
     def halfpush_x( self ) :
         """

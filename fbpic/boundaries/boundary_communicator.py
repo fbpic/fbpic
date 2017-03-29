@@ -443,10 +443,10 @@ class BoundaryCommunicator(object):
                                     self.left_proc, self.right_proc )
 
         # Send/receive the number of particles (need to be stored in arrays)
-        N_send_l = np.array( float_send_left.shape[1], dtype=np.uint64 )
-        N_send_r = np.array( float_send_right.shape[1], dtype=np.uint64 )
-        N_recv_l = np.array( 0, dtype=np.int64 )
-        N_recv_r = np.array( 0, dtype=np.int64 )
+        N_send_l = np.array( float_send_left.shape[1], dtype=np.uint32 )
+        N_send_r = np.array( float_send_right.shape[1], dtype=np.uint32 )
+        N_recv_l = np.array( 0, dtype=np.uint32 )
+        N_recv_r = np.array( 0, dtype=np.uint32 )
         self.exchange_domains(N_send_l, N_send_r, N_recv_l, N_recv_r)
         # Note: if left_proc or right_proc is None, the
         # corresponding N_recv remains 0 (no exchange)

@@ -7,6 +7,11 @@ It defines the structure and methods associated with particle tracking.
 """
 import numpy as np
 from numba import cuda
+cuda_installed = cuda.is_available()
+try:
+    from fbpic.cuda_utils import cuda_tpb_bpg_1d
+except ImportError:
+    cuda_installed = False
 
 class ParticleTracker(object):
     """
@@ -46,22 +51,17 @@ class ParticleTracker(object):
             step=self.id_step, dtype=np.uint64 )
         self.next_attributed_id = new_next_attributed_id
 
-        # Create a sorting buffer
-        self.sorting_buffer = np.empty( N, dtype=np.uint64 )
-
     def send_to_gpu(self):
         """
         Transfer the tracking data from the CPU to the GPU
         """
         self.id = cuda.to_device( self.id )
-        self.sorting_buffer = cuda.to_device( self.sorting_buffer )
 
     def receive_from_gpu(self):
         """
         Transfer the tracking data from the GPU to the CPU
         """
         self.id = self.id.copy_to_host()
-        self.sorting_buffer = self.sorting_buffer.copy_to_host()
 
     def generate_new_ids( self, N ):
         """
@@ -79,6 +79,25 @@ class ParticleTracker(object):
             step=self.id_step, dtype=np.uint64 )
         self.next_attributed_id = new_next_attributed_id
         return( new_ids )
+
+    def generate_new_ids_gpu( self, i_start, i_end ):
+        """
+        Generate new unique ids, and use them to fill the array `id` in place
+        from index `i_start` (included) to index `i_end` (excluded)
+
+        Parameters
+        ----------
+        i_start, i_end: int
+            The indices between which new id should be generated
+        """
+        N = i_end - i_start
+        grid_1d, block_1d = cuda_tpb_bpg_1d( N )
+        # Modify the array self.id in-place,
+        # between the indices i_start and i_end
+        generate_ids_gpu[ grid_1d, block_1d ]( self.id, i_start, i_end,
+                                    self.next_attributed_id, self.id_step )
+        # Update the value of self.next_attributed_id
+        self.next_attributed_id = self.next_attributed_id + N*self.id_step
 
     def overwrite_ids( self, pid, comm ):
         """
@@ -111,3 +130,31 @@ class ParticleTracker(object):
         # comm.rank + n*self.id_step
         n = int( (global_id_max - comm.rank)/self.id_step ) + 1
         self.next_attibuted_id = comm.rank + n*self.id_step
+
+if cuda_installed:
+
+    @cuda.jit()
+    def generate_ids_gpu( id_array, i_start, i_end,
+                            next_attributed_id, id_step ):
+        """
+        Generate new unique ids, and use them to fill `id_array` in place
+        from index `i_start` (included) to index `i_end` (excluded)
+
+        Parameters
+        ----------
+        id_array: 1darray of integers
+            The unique id of the particles. (One element per macroparticle)
+
+        i_end, i_start: integers
+            The indices between which new ids should be generated
+
+        next_attributed_id: integer
+            The first id to be attributed (i.e. the id at i_start)
+
+        id_step: integer
+            The step by which id is incremented when going from one
+            macroparticle to the next.
+        """
+        i = cuda.grid(1)
+        if i < i_end - i_start:
+            id_array[ i_start + i ] = next_attributed_id + i*id_step
