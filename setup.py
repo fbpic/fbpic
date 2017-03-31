@@ -25,7 +25,7 @@ class PyTest(TestCommand):
         import pytest
         errcode = pytest.main(['--ignore=tests/unautomated'])
         sys.exit(errcode)
-    
+
 setup(
     name='fbpic',
     version=fbpic.__version__,
@@ -38,6 +38,7 @@ setup(
     tests_require=['pytest', 'matplotlib', 'openpmd_viewer'],
     cmdclass={'test': PyTest},
     install_requires=install_requires,
+    include_package_data=True,
     platforms='any',
     url='http://github.com/fbpic/fbpic',
     classifiers=[

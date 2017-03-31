@@ -27,7 +27,7 @@ the [documentation](http://fbpic.github.io).
 
 
 **Language and harware:**  
-FBPIC is written entirely in Python, but uses 
+FBPIC is written entirely in Python, but uses
 [Numba](http://numba.pydata.org/) Just-In-Time compiler for high
 performance. In addition, the code was designed to be run
 either on **CPU or GPU**. For large
@@ -93,7 +93,7 @@ We welcome contributions to the code! Please read [this page](https://github.com
 ## Attribution
 
 FBPIC was originally developed by Remi Lehe at [Berkeley Lab](http://www.lbl.gov/),
-and Manuel Kirchen at 
+and Manuel Kirchen at
 [CFEL, Hamburg University](http://lux.cfel.de/). The code also
 benefitted from the contributions of Soeren Jalas, Kevin Peters and
 Irene Dornmair (CFEL).

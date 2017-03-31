@@ -1,0 +1,439 @@
+# This file was obtained from NIST Atomic Data and contains ionization
+# energies for different elements. It is read by `read_atomic_data.py`
+
+# In order to regenerate this data:
+# go to http://physics.nist.gov/PhysRefData/ASD/ionEnergy.html
+# and use the following parameters:
+# Spectra: H-Ar Kr Xe Rb Rn
+# Units: eV
+# Format output: ASCII
+# Output data: Atomic number - Spectrum name - Ion charge
+# Please remember to copy the reference and license below.
+
+# Reference:
+# Kramida, A., Ralchenko, Yu., Reader, J., and NIST ASD Team (2014).
+# NIST Atomic Spectra Database (ver. 5.2), [Online].
+# Available: http://physics.nist.gov/asd [2017, March 3].
+
+# License (from https://www.nist.gov/director/licensing):
+# This data was developed by employees of the National Institute of Standards
+# and Technology (NIST), an agency of the Federal Government. Pursuant to title
+# 17 United States Code Section 105, works of NIST employees are not subject to
+# copyright protection in the United States and are considered to be in the
+# public domain.
+# The data is provided by NIST as a public service and is expressly provided
+# "AS IS." NIST MAKES NO WARRANTY OF ANY KIND, EXPRESS, IMPLIED OR STATUTORY,
+# INCLUDING, WITHOUT LIMITATION, THE IMPLIED WARRANTY OF MERCHANTABILITY,
+# FITNESS FOR A PARTICULAR PURPOSE, NON-INFRINGEMENT AND DATA ACCURACY. NIST
+# does not warrant or make any representations regarding the use of the data or
+# the results thereof, including but not limited to the correctness, accuracy,
+# reliability or usefulness of the data. NIST SHALL NOT BE LIABLE AND YOU
+# HEREBY RELEASE NIST FROM LIABILITY FOR ANY INDIRECT, CONSEQUENTIAL, SPECIAL,
+# OR INCIDENTAL DAMAGES (INCLUDING DAMAGES FOR LOSS OF BUSINESS PROFITS,
+# BUSINESS INTERRUPTION, LOSS OF BUSINESS INFORMATION, AND THE LIKE), WHETHER
+# ARISING IN TORT, CONTRACT, OR OTHERWISE, ARISING FROM OR RELATING TO THE DATA
+# (OR THE USE OF OR INABILITY TO USE THIS DATA), EVEN IF NIST HAS BEEN ADVISED
+# OF THE POSSIBILITY OF SUCH DAMAGES.
+# To the extent that NIST may hold copyright in countries other than the United
+# States, you are hereby granted the non-exclusive irrevocable and unconditional
+# right to print, publish, prepare derivative works and distribute the NIST
+# data, in any medium, or authorize others to do so on your behalf, on a
+# royalty-free basis throughout the world.
+# You may improve, modify, and create derivative works of the data or any
+# portion of the data, and you may copy and distribute such modifications or
+# works. Modified works should carry a notice stating that you changed the data
+# and should note the date and nature of any such change. Please explicitly
+# acknowledge the National Institute of Standards and Technology as the source
+# of the data: Data citation recommendations are provided below.
+# Permission to use this data is contingent upon your acceptance of the terms
+# of this agreement and upon your providing appropriate acknowledgments of
+# NIST's creation of the data.
+
+------------------------------------------------------------------------------
+At. num | Sp. Name      | Ion Charge |        Ionization Energy (eV)         |
+--------|---------------|------------|---------------------------------------|
+      1 | H I           |          0 |           (13.598434005136)           |
+      2 | He I          |          0 |            24.587387936               |
+      2 | He II         |         +1 |           (54.417763110)              |
+      3 | Li I          |          0 |             5.391714761               |
+      3 | Li II         |         +1 |           [75.6400937]                |
+      3 | Li III        |         +2 |          (122.45435380)               |
+      4 | Be I          |          0 |             9.3226990                 |
+      4 | Be II         |         +1 |            18.211153                  |
+      4 | Be III        |         +2 |          [153.8961980]                |
+      4 | Be IV         |         +3 |          (217.7185766)                |
+      5 | B I           |          0 |             8.2980190                 |
+      5 | B II          |         +1 |            25.154830                  |
+      5 | B III         |         +2 |            37.930580                  |
+      5 | B IV          |         +3 |           259.3715                    |
+      5 | B V           |         +4 |          (340.2260080)                |
+      6 | C I           |          0 |            11.260300                  |
+      6 | C II          |         +1 |           [24.38450]                  |
+      6 | C III         |         +2 |            47.88778                   |
+      6 | C IV          |         +3 |            64.49351                   |
+      6 | C V           |         +4 |          [392.090500]                 |
+      6 | C VI          |         +5 |          (489.9931770)                |
+      7 | N I           |          0 |            14.534130                  |
+      7 | N II          |         +1 |           [29.601250]                 |
+      7 | N III         |         +2 |           [47.4453]                   |
+      7 | N IV          |         +3 |            77.47350                   |
+      7 | N V           |         +4 |            97.89013                   |
+      7 | N VI          |         +5 |          [552.067310]                 |
+      7 | N VII         |         +6 |          (667.046090)                 |
+      8 | O I           |          0 |            13.6180540                 |
+      8 | O II          |         +1 |            35.121110                  |
+      8 | O III         |         +2 |           [54.93554]                  |
+      8 | O IV          |         +3 |            77.41350                   |
+      8 | O V           |         +4 |           113.89890                   |
+      8 | O VI          |         +5 |          [138.1189]                   |
+      8 | O VII         |         +6 |          [739.326790]                 |
+      8 | O VIII        |         +7 |          (871.409850)                 |
+      9 | F I           |          0 |            17.422820                  |
+      9 | F II          |         +1 |            34.97081                   |
+      9 | F III         |         +2 |           [62.70800]                  |
+      9 | F IV          |         +3 |           [87.175]                    |
+      9 | F V           |         +4 |          [114.2490]                   |
+      9 | F VI          |         +5 |           157.16310                   |
+      9 | F VII         |         +6 |          [185.18680]                  |
+      9 | F VIII        |         +7 |          [953.89800]                  |
+      9 | F IX          |         +8 |         (1103.117430)                 |
+     10 | Ne I          |          0 |            21.5645400                 |
+     10 | Ne II         |         +1 |            40.962960                  |
+     10 | Ne III        |         +2 |            63.42331                   |
+     10 | Ne IV         |         +3 |           [97.1900]                   |
+     10 | Ne V          |         +4 |           126.247                     |
+     10 | Ne VI         |         +5 |           157.9340                    |
+     10 | Ne VII        |         +6 |           207.271                     |
+     10 | Ne VIII       |         +7 |          [239.0969]                   |
+     10 | Ne IX         |         +8 |         [1195.80779]                  |
+     10 | Ne X          |         +9 |         (1362.199100)                 |
+     11 | Na I          |          0 |             5.13907670                |
+     11 | Na II         |         +1 |            47.28636                   |
+     11 | Na III        |         +2 |           [71.6200]                   |
+     11 | Na IV         |         +3 |           [98.936]                    |
+     11 | Na V          |         +4 |           138.400                     |
+     11 | Na VI         |         +5 |          [172.228]                    |
+     11 | Na VII        |         +6 |          [208.500]                    |
+     11 | Na VIII       |         +7 |          [264.192]                    |
+     11 | Na IX         |         +8 |          (299.8600)                   |
+     11 | Na X          |         +9 |         (1465.134440)                 |
+     11 | Na XI         |        +10 |         (1648.70200)                  |
+     12 | Mg I          |          0 |             7.6462350                 |
+     12 | Mg II         |         +1 |            15.0352700                 |
+     12 | Mg III        |         +2 |            80.14360                   |
+     12 | Mg IV         |         +3 |          [109.2654]                   |
+     12 | Mg V          |         +4 |          [141.335]                    |
+     12 | Mg VI         |         +5 |          [186.760]                    |
+     12 | Mg VII        |         +6 |          [225.015]                    |
+     12 | Mg VIII       |         +7 |          [265.924]                    |
+     12 | Mg IX         |         +8 |          [327.985]                    |
+     12 | Mg X          |         +9 |          (367.5000)                   |
+     12 | Mg XI         |        +10 |         (1761.80481)                  |
+     12 | Mg XII        |        +11 |         (1962.66400)                  |
+     13 | Al I          |          0 |             5.9857684                 |
+     13 | Al II         |         +1 |            18.828550                  |
+     13 | Al III        |         +2 |            28.447641                  |
+     13 | Al IV         |         +3 |           119.9924                    |
+     13 | Al V          |         +4 |          [153.8252]                   |
+     13 | Al VI         |         +5 |          [190.490]                    |
+     13 | Al VII        |         +6 |          [241.760]                    |
+     13 | Al VIII       |         +7 |          [284.638]                    |
+     13 | Al IX         |         +8 |          [330.212]                    |
+     13 | Al X          |         +9 |          [398.650]                    |
+     13 | Al XI         |        +10 |          (442.0050)                   |
+     13 | Al XII        |        +11 |         (2085.97693)                  |
+     13 | Al XIII       |        +12 |         (2304.14000)                  |
+     14 | Si I          |          0 |             8.151683                  |
+     14 | Si II         |         +1 |            16.345845                  |
+     14 | Si III        |         +2 |            33.493000                  |
+     14 | Si IV         |         +3 |            45.141790                  |
+     14 | Si V          |         +4 |           166.7670                    |
+     14 | Si VI         |         +5 |          [205.267]                    |
+     14 | Si VII        |         +6 |          [246.32]                     |
+     14 | Si VIII       |         +7 |          [303.66]                     |
+     14 | Si IX         |         +8 |          [351.100]                    |
+     14 | Si X          |         +9 |          [401.380]                    |
+     14 | Si XI         |        +10 |          [476.180]                    |
+     14 | Si XII        |        +11 |          (523.4150)                   |
+     14 | Si XIII       |        +12 |         (2437.65804)                  |
+     14 | Si XIV        |        +13 |         (2673.17740)                  |
+     15 | P I           |          0 |            10.486686                  |
+     15 | P II          |         +1 |           [19.769490]                 |
+     15 | P III         |         +2 |            30.202640                  |
+     15 | P IV          |         +3 |            51.44387                   |
+     15 | P V           |         +4 |            65.02511                   |
+     15 | P VI          |         +5 |          [220.4304]                   |
+     15 | P VII         |         +6 |          [263.570]                    |
+     15 | P VIII        |         +7 |          [309.60]                     |
+     15 | P IX          |         +8 |          [372.31]                     |
+     15 | P X           |         +9 |          [424.400]                    |
+     15 | P XI          |        +10 |          [479.441]                    |
+     15 | P XII         |        +11 |          [560.62]                     |
+     15 | P XIII        |        +12 |          (611.7400)                   |
+     15 | P XIV         |        +13 |         (2816.90867)                  |
+     15 | P XV          |        +14 |         (3069.84140)                  |
+     16 | S I           |          0 |            10.36001                   |
+     16 | S II          |         +1 |            23.33788                   |
+     16 | S III         |         +2 |           [34.856]                    |
+     16 | S IV          |         +3 |           [47.222]                    |
+     16 | S V           |         +4 |            72.59449                   |
+     16 | S VI          |         +5 |            88.05292                   |
+     16 | S VII         |         +6 |           280.9540                    |
+     16 | S VIII        |         +7 |           328.7900                    |
+     16 | S IX          |         +8 |          [379.84]                     |
+     16 | S X           |         +9 |          [447.74]                     |
+     16 | S XI          |        +10 |          [504.55]                     |
+     16 | S XII         |        +11 |          [564.407]                    |
+     16 | S XIII        |        +12 |          [651.96]                     |
+     16 | S XIV         |        +13 |          (706.9940)                   |
+     16 | S XV          |        +14 |         (3223.78059)                  |
+     16 | S XVI         |        +15 |         (3494.18770)                  |
+     17 | Cl I          |          0 |            12.967632                  |
+     17 | Cl II         |         +1 |            23.81364                   |
+     17 | Cl III        |         +2 |           [39.80]                     |
+     17 | Cl IV         |         +3 |           [53.24]                     |
+     17 | Cl V          |         +4 |           [67.68]                     |
+     17 | Cl VI         |         +5 |           [96.940]                    |
+     17 | Cl VII        |         +6 |           114.20130                   |
+     17 | Cl VIII       |         +7 |           348.3060                    |
+     17 | Cl IX         |         +8 |           400.851                     |
+     17 | Cl X          |         +9 |          [456.68]                     |
+     17 | Cl XI         |        +10 |          [529.97]                     |
+     17 | Cl XII        |        +11 |          [591.58]                     |
+     17 | Cl XIII       |        +12 |          [656.30]                     |
+     17 | Cl XIV        |        +13 |          [750.20]                     |
+     17 | Cl XV         |        +14 |          (809.1980)                   |
+     17 | Cl XVI        |        +15 |         (3658.34362)                  |
+     17 | Cl XVII       |        +16 |         (3946.29080)                  |
+     18 | Ar I          |          0 |            15.75961120                |
+     18 | Ar II         |         +1 |            27.62967                   |
+     18 | Ar III        |         +2 |           [40.735]                    |
+     18 | Ar IV         |         +3 |           [59.58]                     |
+     18 | Ar V          |         +4 |           [74.84]                     |
+     18 | Ar VI         |         +5 |            91.290                     |
+     18 | Ar VII        |         +6 |          [124.412]                    |
+     18 | Ar VIII       |         +7 |          [143.4567]                   |
+     18 | Ar IX         |         +8 |          [422.598]                    |
+     18 | Ar X          |         +9 |          [479.76]                     |
+     18 | Ar XI         |        +10 |          [540.43]                     |
+     18 | Ar XII        |        +11 |          [618.95]                     |
+     18 | Ar XIII       |        +12 |          [685.47]                     |
+     18 | Ar XIV        |        +13 |          [755.13]                     |
+     18 | Ar XV         |        +14 |          [855.47]                     |
+     18 | Ar XVI        |        +15 |          (918.3740)                   |
+     18 | Ar XVII       |        +16 |         (4120.66550)                  |
+     18 | Ar XVIII      |        +17 |         (4426.22270)                  |
+     36 | Kr I          |          0 |            13.9996049                 |
+     36 | Kr II         |         +1 |            24.35984                   |
+     36 | Kr III        |         +2 |            35.838                     |
+     36 | Kr IV         |         +3 |            50.85                      |
+     36 | Kr V          |         +4 |           [64.69]                     |
+     36 | Kr VI         |         +5 |           [78.49]                     |
+     36 | Kr VII        |         +6 |          (109.130)                    |
+     36 | Kr VIII       |         +7 |           125.8024                    |
+     36 | Kr IX         |         +8 |          [233.00]                     |
+     36 | Kr X          |         +9 |          (268)                        |
+     36 | Kr XI         |        +10 |          (308)                        |
+     36 | Kr XII        |        +11 |          (350)                        |
+     36 | Kr XIII       |        +12 |          (391)                        |
+     36 | Kr XIV        |        +13 |          (446)                        |
+     36 | Kr XV         |        +14 |          (492)                        |
+     36 | Kr XVI        |        +15 |          (540)                        |
+     36 | Kr XVII       |        +16 |          (591)                        |
+     36 | Kr XVIII      |        +17 |          (640)                        |
+     36 | Kr XIX        |        +18 |          [785]                        |
+     36 | Kr XX         |        +19 |          [831.64]                     |
+     36 | Kr XXI        |        +20 |          [882.8]                      |
+     36 | Kr XXII       |        +21 |          [945]                        |
+     36 | Kr XXIII      |        +22 |          [999.0]                      |
+     36 | Kr XXIV       |        +23 |         [1042]                        |
+     36 | Kr XXV        |        +24 |         [1155.0]                      |
+     36 | Kr XXVI       |        +25 |         [1205.233]                    |
+     36 | Kr XXVII      |        +26 |         [2928.9]                      |
+     36 | Kr XXVIII     |        +27 |         [3072]                        |
+     36 | Kr XXIX       |        +28 |         [3228]                        |
+     36 | Kr XXX        |        +29 |         [3380]                        |
+     36 | Kr XXXI       |        +30 |         [3584]                        |
+     36 | Kr XXXII      |        +31 |         [3752.0]                      |
+     36 | Kr XXXIII     |        +32 |         [3971]                        |
+     36 | Kr XXXIV      |        +33 |         (4109.0830)                   |
+     36 | Kr XXXV       |        +34 |        (17296.4200)                   |
+     36 | Kr XXXVI      |        +35 |        (17936.208)                    |
+     37 | Rb I          |          0 |             4.1771280                 |
+     37 | Rb II         |         +1 |            27.289540                  |
+     37 | Rb III        |         +2 |           [39.2470]                   |
+     37 | Rb IV         |         +3 |           [52.20]                     |
+     37 | Rb V          |         +4 |           (68.40)                     |
+     37 | Rb VI         |         +5 |           (82.9)                      |
+     37 | Rb VII        |         +6 |           [98.670]                    |
+     37 | Rb VIII       |         +7 |          [132.80]                     |
+     37 | Rb IX         |         +8 |           150.630                     |
+     37 | Rb X          |         +9 |           277.12                      |
+     37 | Rb XI         |        +10 |          (313.1)                      |
+     37 | Rb XII        |        +11 |          (356.0)                      |
+     37 | Rb XIII       |        +12 |          (400)                        |
+     37 | Rb XIV        |        +13 |          (443)                        |
+     37 | Rb XV         |        +14 |          (502)                        |
+     37 | Rb XVI        |        +15 |          (550)                        |
+     37 | Rb XVII       |        +16 |          (601)                        |
+     37 | Rb XVIII      |        +17 |          (654)                        |
+     37 | Rb XIX        |        +18 |          (706.0)                      |
+     37 | Rb XX         |        +19 |          [857]                        |
+     37 | Rb XXI        |        +20 |          [905.3]                      |
+     37 | Rb XXII       |        +21 |          [958.9]                      |
+     37 | Rb XXIII      |        +22 |         [1024]                        |
+     37 | Rb XXIV       |        +23 |         [1080]                        |
+     37 | Rb XXV        |        +24 |         [1125]                        |
+     37 | Rb XXVI       |        +25 |         [1242.5]                      |
+     37 | Rb XXVII      |        +26 |         [1294.567]                    |
+     37 | Rb XXVIII     |        +27 |         [3133.3]                      |
+     37 | Rb XXIX       |        +28 |         [3281]                        |
+     37 | Rb XXX        |        +29 |         [3442]                        |
+     37 | Rb XXXI       |        +30 |         [3600]                        |
+     37 | Rb XXXII      |        +31 |         [3815]                        |
+     37 | Rb XXXIII     |        +32 |         [3988]                        |
+     37 | Rb XXXIV      |        +33 |         [4214]                        |
+     37 | Rb XXXV       |        +34 |         (4356.865)                    |
+     37 | Rb XXXVI      |        +35 |        (18305.8830)                   |
+     37 | Rb XXXVII     |        +36 |        (18965.510)                    |
+     54 | Xe I          |          0 |            12.1298431                 |
+     54 | Xe II         |         +1 |           [20.9750]                   |
+     54 | Xe III        |         +2 |           [31.050]                    |
+     54 | Xe IV         |         +3 |            42.20                      |
+     54 | Xe V          |         +4 |           [54.14]                     |
+     54 | Xe VI         |         +5 |            66.7030                    |
+     54 | Xe VII        |         +6 |           [91.60]                     |
+     54 | Xe VIII       |         +7 |           105.9778                    |
+     54 | Xe IX         |         +8 |           179.84                      |
+     54 | Xe X          |         +9 |          (202.0)                      |
+     54 | Xe XI         |        +10 |          [229.02]                     |
+     54 | Xe XII        |        +11 |          (255.0)                      |
+     54 | Xe XIII       |        +12 |          (281)                        |
+     54 | Xe XIV        |        +13 |          (314)                        |
+     54 | Xe XV         |        +14 |          (343)                        |
+     54 | Xe XVI        |        +15 |          (374)                        |
+     54 | Xe XVII       |        +16 |          (404)                        |
+     54 | Xe XVIII      |        +17 |          (430)                        |
+     54 | Xe XIX        |        +18 |          (549)                        |
+     54 | Xe XX         |        +19 |          (582)                        |
+     54 | Xe XXI        |        +20 |          (616)                        |
+     54 | Xe XXII       |        +21 |          (650)                        |
+     54 | Xe XXIII      |        +22 |          (700)                        |
+     54 | Xe XXIV       |        +23 |          (736)                        |
+     54 | Xe XXV        |        +24 |          (818)                        |
+     54 | Xe XXVI       |        +25 |          [857.03]                     |
+     54 | Xe XXVII      |        +26 |         (1493)                        |
+     54 | Xe XXVIII     |        +27 |         (1571)                        |
+     54 | Xe XXIX       |        +28 |         (1653)                        |
+     54 | Xe XXX        |        +29 |         (1742)                        |
+     54 | Xe XXXI       |        +30 |         (1826)                        |
+     54 | Xe XXXII      |        +31 |         (1919)                        |
+     54 | Xe XXXIII     |        +32 |         (2023)                        |
+     54 | Xe XXXIV      |        +33 |         (2113)                        |
+     54 | Xe XXXV       |        +34 |         (2209)                        |
+     54 | Xe XXXVI      |        +35 |         (2300)                        |
+     54 | Xe XXXVII     |        +36 |         (2556)                        |
+     54 | Xe XXXVIII    |        +37 |         (2637)                        |
+     54 | Xe XXXIX      |        +38 |         (2726)                        |
+     54 | Xe XL         |        +39 |         (2811)                        |
+     54 | Xe XLI        |        +40 |         (2975)                        |
+     54 | Xe XLII       |        +41 |         (3068)                        |
+     54 | Xe XLIII      |        +42 |         (3243)                        |
+     54 | Xe XLIV       |        +43 |         [3333.80]                     |
+     54 | Xe XLV        |        +44 |         (7660)                        |
+     54 | Xe XLVI       |        +45 |         (7889)                        |
+     54 | Xe XLVII      |        +46 |         (8144)                        |
+     54 | Xe XLVIII     |        +47 |         (8382)                        |
+     54 | Xe XLIX       |        +48 |         (8971)                        |
+     54 | Xe L          |        +49 |         (9243)                        |
+     54 | Xe LI         |        +50 |         (9581)                        |
+     54 | Xe LII        |        +51 |         (9810.400)                    |
+     54 | Xe LIII       |        +52 |        (40271.722)                    |
+     54 | Xe LIV        |        +53 |        (41299.710)                    |
+     86 | Rn I          |          0 |            10.74850                   |
+     86 | Rn II         |         +1 |           [21.4]                      |
+     86 | Rn III        |         +2 |           [29.4]                      |
+     86 | Rn IV         |         +3 |           (36.9)                      |
+     86 | Rn V          |         +4 |           (52.9)                      |
+     86 | Rn VI         |         +5 |           (64.0)                      |
+     86 | Rn VII        |         +6 |           (88.0)                      |
+     86 | Rn VIII       |         +7 |          (102.0)                      |
+     86 | Rn IX         |         +8 |          (154.0)                      |
+     86 | Rn X          |         +9 |          (173.9)                      |
+     86 | Rn XI         |        +10 |          (195.0)                      |
+     86 | Rn XII        |        +11 |          (218.0)                      |
+     86 | Rn XIII       |        +12 |          (240)                        |
+     86 | Rn XIV        |        +13 |          (264)                        |
+     86 | Rn XV         |        +14 |          (293)                        |
+     86 | Rn XVI        |        +15 |          (317)                        |
+     86 | Rn XVII       |        +16 |          (342)                        |
+     86 | Rn XVIII      |        +17 |          (367)                        |
+     86 | Rn XIX        |        +18 |          (488)                        |
+     86 | Rn XX         |        +19 |          (520)                        |
+     86 | Rn XXI        |        +20 |          (550)                        |
+     86 | Rn XXII       |        +21 |          (580)                        |
+     86 | Rn XXIII      |        +22 |          (640)                        |
+     86 | Rn XXIV       |        +23 |          (680)                        |
+     86 | Rn XXV        |        +24 |          (760)                        |
+     86 | Rn XXVI       |        +25 |          (800)                        |
+     86 | Rn XXVII      |        +26 |          (850)                        |
+     86 | Rn XXVIII     |        +27 |          (920)                        |
+     86 | Rn XXIX       |        +28 |          (980)                        |
+     86 | Rn XXX        |        +29 |         (1050)                        |
+     86 | Rn XXXI       |        +30 |         (1120)                        |
+     86 | Rn XXXII      |        +31 |         (1180)                        |
+     86 | Rn XXXIII     |        +32 |         (1250)                        |
+     86 | Rn XXXIV      |        +33 |         (1310)                        |
+     86 | Rn XXXV       |        +34 |         (1390)                        |
+     86 | Rn XXXVI      |        +35 |         (1460)                        |
+     86 | Rn XXXVII     |        +36 |         (1520)                        |
+     86 | Rn XXXVIII    |        +37 |         (1590)                        |
+     86 | Rn XXXIX      |        +38 |         (1660)                        |
+     86 | Rn XL         |        +39 |         (1720)                        |
+     86 | Rn XLI        |        +40 |         (2033)                        |
+     86 | Rn XLII       |        +41 |         (2094)                        |
+     86 | Rn XLIII      |        +42 |         (2158)                        |
+     86 | Rn XLIV       |        +43 |         (2227)                        |
+     86 | Rn XLV        |        +44 |         (2293)                        |
+     86 | Rn XLVI       |        +45 |         (2357)                        |
+     86 | Rn XLVII      |        +46 |         (2467)                        |
+     86 | Rn XLVIII     |        +47 |         (2535)                        |
+     86 | Rn XLIX       |        +48 |         (2606)                        |
+     86 | Rn L          |        +49 |         (2674)                        |
+     86 | Rn LI         |        +50 |         (2944)                        |
+     86 | Rn LII        |        +51 |         (3010)                        |
+     86 | Rn LIII       |        +52 |         (3082)                        |
+     86 | Rn LIV        |        +53 |         (3149)                        |
+     86 | Rn LV         |        +54 |         (3433)                        |
+     86 | Rn LVI        |        +55 |         (3510)                        |
+     86 | Rn LVII       |        +56 |         (3699)                        |
+     86 | Rn LVIII      |        +57 |         [3777]                        |
+     86 | Rn LIX        |        +58 |         (6169)                        |
+     86 | Rn LX         |        +59 |         (6318)                        |
+     86 | Rn LXI        |        +60 |         (6476)                        |
+     86 | Rn LXII       |        +61 |         (6646)                        |
+     86 | Rn LXIII      |        +62 |         (6807)                        |
+     86 | Rn LXIV       |        +63 |         (6964)                        |
+     86 | Rn LXV        |        +64 |         (7283)                        |
+     86 | Rn LXVI       |        +65 |         (7450)                        |
+     86 | Rn LXVII      |        +66 |         (7630)                        |
+     86 | Rn LXVIII     |        +67 |         (7800)                        |
+     86 | Rn LXIX       |        +68 |         (8260)                        |
+     86 | Rn LXX        |        +69 |         (8410)                        |
+     86 | Rn LXXI       |        +70 |         (8570)                        |
+     86 | Rn LXXII      |        +71 |         (8710)                        |
+     86 | Rn LXXIII     |        +72 |         (9610)                        |
+     86 | Rn LXXIV      |        +73 |         (9780)                        |
+     86 | Rn LXXV       |        +74 |        (10120)                        |
+     86 | Rn LXXVI      |        +75 |        (10290)                        |
+     86 | Rn LXXVII     |        +76 |        (21770)                        |
+     86 | Rn LXXVIII    |        +77 |        (22160)                        |
+     86 | Rn LXXIX      |        +78 |        (22600)                        |
+     86 | Rn LXXX       |        +79 |        (23000)                        |
+     86 | Rn LXXXI      |        +80 |        (26310)                        |
+     86 | Rn LXXXII     |        +81 |        (26830)                        |
+     86 | Rn LXXXIII    |        +82 |        (27490)                        |
+     86 | Rn LXXXIV     |        +83 |        (27903.10)                     |
+     86 | Rn LXXXV      |        +84 |       (110842.00)                     |
+     86 | Rn LXXXVI     |        +85 |       (112843.7)                      |
+------------------------------------------------------------------------------

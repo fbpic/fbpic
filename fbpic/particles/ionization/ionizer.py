@@ -32,7 +32,7 @@ import numpy as np
 from numba import cuda
 from scipy.constants import c, e, m_e, physical_constants
 from scipy.special import gamma
-from .atomic_data import ionization_energies_dict
+from .read_atomic_data import get_ionization_energies
 from .numba_methods import ionize_ions_numba, copy_ionized_electrons_numba
 try:
     from accelerate.cuda.rand import PRNG
@@ -120,14 +120,14 @@ class Ionizer(object):
 
         See Chen, JCP 236 (2013), equation (2) for the ionization rate formula
         """
-        # Check whether the element string is valid
-        if element in ionization_energies_dict:
-            self.element = element
-        else:
+        # Get the array of energies
+        Uion = get_ionization_energies( element )
+        # Check whether the element string was valid
+        if Uion is None:
             raise ValueError("Unknown ionizable element %s.\n" %element + \
             "Please use atomic symbol (e.g. 'He') not full name (e.g. Helium)")
-        # Get the array of energies
-        Uion = ionization_energies_dict[element]
+        else:
+            self.element = element
 
         # Determine the maximum level of ionization
         self.level_max = len(Uion)
@@ -139,7 +139,7 @@ class Ionizer(object):
         wa = alpha**3 * c / r_e
         Ea = m_e*c**2/e * alpha**4/r_e
         # - Arrays (one element per ionization level)
-        UH = ionization_energies_dict['H'][0]
+        UH = get_ionization_energies('H')[0]
         Z = np.arange( len(Uion) ) + 1
         n_eff = Z * np.sqrt( UH/Uion )
         l_eff = n_eff[0] - 1
