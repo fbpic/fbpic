@@ -219,28 +219,6 @@ class BoostConverter( object ):
 
         return( boosted_frame_vars )
 
-
-    def curvature( self, lab_frame_vars ):
-        """
-        Converts a list of laser curvature from the lab frame
-        to the boosted frame:
-        R' = R / ( 1 + beta0 )
-
-        Parameters
-        ----------
-        lab_frame_vars: list of floats
-            A list containing several curvatures to be converted
-
-        Returns
-        -------
-        A list with the same number of elements, with the converted quantities
-        """
-        boosted_frame_vars = []
-        for R in lab_frame_vars:
-            boosted_frame_vars.append( R /( 1 + self.beta0 ) )
-
-        return( boosted_frame_vars )
-
     def boost_particles( self, particles ):
         """
         Transforms particles to the boosted frame and propagates
