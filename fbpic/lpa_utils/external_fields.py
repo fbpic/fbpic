@@ -18,11 +18,11 @@ class ExternalField( object ):
 
         The function `field_func` is automatically converted to a GPU
         function if needed, by using numba's ufunc feature.
-        
+
         Parameters
         ----------
         field_func: callable
-            Function of the form `field_func( F, x, y, z, t, amplitude, 
+            Function of the form `field_func( F, x, y, z, t, amplitude,
             length_scale )` and which returns the modified field F'
 
             This function will be called at each timestep, with:
@@ -42,7 +42,7 @@ class ExternalField( object ):
             the definition of `field_func` instead of "return(external_field)"
 
             **WARNING:** Inside the definition of `field_func` please use
-            the `math` module for mathematical functions, instead of numpy. 
+            the `math` module for mathematical functions, instead of numpy.
             This will allow the function to be compiled for GPU.
 
         fieldtype: string
@@ -69,12 +69,12 @@ class ExternalField( object ):
             raise ValueError()
         else:
             self.fieldtype = fieldtype
-            
+
         # Register the arguments
         self.amplitude = amplitude
         self.length_scale = length_scale
         self.species = species
-    
+
         # Compile the field_func for cpu and gpu
         signature = [ float64( float64, float64, float64,
                                float64, float64, float64, float64 ) ]
@@ -100,7 +100,7 @@ class ExternalField( object ):
         t: float (seconds)
             The time in the simulation
         """
-        for species in ptcl:      
+        for species in ptcl:
 
             # If any species was specified at initialization,
             # apply the field only on this species

@@ -38,7 +38,7 @@ class FFT(object):
 
         use_cuda: bool, optional
            Whether to perform the Fourier transform on the z axis
-           
+
         nthreads : int, optional
             Number of threads for the FFTW transform
         """
@@ -53,7 +53,7 @@ class FFT(object):
         if self.use_cuda:
             # Initialize the dimension of the grid and blocks
             self.dim_grid, self.dim_block = cuda_tpb_bpg_2d( Nz, Nr)
-            
+
             # Initialize 1d buffer for cufft
             self.buffer1d_in = cuda.device_array(
                 (Nz*Nr,), dtype=np.complex128)
@@ -81,8 +81,8 @@ class FFT(object):
             self.fft_r= pyfftw.FFTW(self.interp_buffer_r, self.spect_buffer_r,
                     axes=(0,), direction='FFTW_FORWARD', threads=nthreads)
             self.ifft_r=pyfftw.FFTW(self.spect_buffer_r, self.interp_buffer_r,
-                    axes=(0,), direction='FFTW_BACKWARD', threads=nthreads) 
-            
+                    axes=(0,), direction='FFTW_BACKWARD', threads=nthreads)
+
             # Second buffer and FFTW transform
             self.interp_buffer_t = \
                 pyfftw.n_byte_align_empty( (Nz,Nr), 16, 'complex128' )
@@ -92,7 +92,7 @@ class FFT(object):
                     axes=(0,), direction='FFTW_FORWARD', threads=nthreads )
             self.ifft_t=pyfftw.FFTW(self.spect_buffer_t, self.interp_buffer_t,
                     axes=(0,), direction='FFTW_BACKWARD', threads=nthreads)
-                        
+
     def get_buffers( self ):
         """
         Return the spectral buffers which are typically used to store
@@ -144,7 +144,7 @@ class FFT(object):
             else:
                 raise ValueError('Invalid output array.The output array '
                 'must be either self.spect_buffer_r or self.spect_buffer_t.')
-        
+
     def inverse_transform( self, array_in, array_out ):
         """
         Perform the inverse Fourier transform of array_in,
@@ -159,7 +159,7 @@ class FFT(object):
         """
         if self.use_cuda :
             # Perform the inverse FFT on the GPU
-            # (The cuFFT API requires 1D arrays)            
+            # (The cuFFT API requires 1D arrays)
             cuda_copy_2d_to_1d[self.dim_grid, self.dim_block](
                 array_in, self.buffer1d_in )
             self.fft.inverse( self.buffer1d_in, out=self.buffer1d_out )
@@ -179,9 +179,7 @@ class FFT(object):
                 # self.spect_buffer_t to self.interp_buffer_t
                 self.ifft_t()
                 # Copy to the output array
-                array_out[:,:] = self.interp_buffer_t[:,:]                
+                array_out[:,:] = self.interp_buffer_t[:,:]
             else:
                 raise ValueError('Invalid input array.The input array must'
                 ' be either self.spect_buffer_r or self.spect_buffer_t.')
-
-

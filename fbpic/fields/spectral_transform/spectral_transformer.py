@@ -78,7 +78,7 @@ class SpectralTransformer(object) :
         #   device arrays.
         # - In the case where the CPU is used, these buffers are tied to
         #   the FFTW plan object (see the __init__ of the FFT object). Do
-        #   *not* modify these buffers to make them point to another array. 
+        #   *not* modify these buffers to make them point to another array.
         self.spect_buffer_r, self.spect_buffer_t = self.fft.get_buffers()
 
         # Different names for same object (for economy of memory)
@@ -93,7 +93,7 @@ class SpectralTransformer(object) :
         Parameters
         ----------
         spect_array : 2darray of complexs
-           A complex array representing the fields in spectral space, from 
+           A complex array representing the fields in spectral space, from
            which to compute the values of the interpolation grid
            The first axis should correspond to z and the second axis to r.
 
@@ -116,7 +116,7 @@ class SpectralTransformer(object) :
         Parameters
         ----------
         spect_array_p, spect_array_m : 2darray
-           Complex arrays representing the fields in spectral space, from 
+           Complex arrays representing the fields in spectral space, from
            which to compute the values of the interpolation grid
            The first axis should correspond to z and the second axis to r.
 
@@ -127,7 +127,7 @@ class SpectralTransformer(object) :
         # Perform the inverse DHT (along axis -1, which corresponds to r)
         self.dhtp.inverse_transform( spect_array_p, self.spect_buffer_p )
         self.dhtm.inverse_transform( spect_array_m, self.spect_buffer_m )
-    
+
         # Combine the p and m components to obtain the r and t components
         if self.use_cuda :
             # Combine them on the GPU
@@ -163,14 +163,14 @@ class SpectralTransformer(object) :
            A complex array representing the fields on the interpolation
            grid, from which to compute the values of the interpolation grid
            The first axis should correspond to z and the second axis to r.
-        
+
         spect_array : 2darray
            A complex array representing the fields in spectral space,
            and which is overwritten by this function.
         """
         # Perform the FFT first (along axis 0, which corresponds to z)
         self.fft.transform( interp_array, self.spect_buffer_r )
-        
+
         # Then perform the DHT (along axis -1, which corresponds to r)
         self.dht0.transform( self.spect_buffer_r, spect_array )
 
@@ -186,7 +186,7 @@ class SpectralTransformer(object) :
            Complex arrays representing the fields on the interpolation
            grid, from which to compute the values in spectral space
            The first axis should correspond to z and the second axis to r.
-        
+
         spect_array_p, spect_array_m : 2darray
            Complex arrays representing the fields in spectral space,
            and which are overwritten by this function.
@@ -214,8 +214,7 @@ class SpectralTransformer(object) :
             self.spect_buffer_p[:,:], self.spect_buffer_m[:,:] = \
                 0.5*( self.spect_buffer_r - 1.j*self.spect_buffer_t ), \
                 0.5*( self.spect_buffer_r + 1.j*self.spect_buffer_t )
-        
+
         # Perform the inverse DHT (along axis -1, which corresponds to r)
         self.dhtp.transform( self.spect_buffer_p, spect_array_p )
         self.dhtm.transform( self.spect_buffer_m, spect_array_m )
-

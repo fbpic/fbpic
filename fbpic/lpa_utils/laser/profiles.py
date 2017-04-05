@@ -17,7 +17,7 @@ def gaussian_profile( z, r, t, w0, ctau, z0, zf, k0,
     If output_Ez_profile is True, then both the profile for Eperp and
     the profile for Ez are given. (The field Ez is never 0 when there are
     transverse variations of the intensity, due to div(E)=0 )
-        
+
     Parameters
     ----------
     z, r: 1darrays or 2darrays (meters)
@@ -44,7 +44,7 @@ def gaussian_profile( z, r, t, w0, ctau, z0, zf, k0,
 
     k0: float (m)
         The wavenumber *in the lab frame*
-    
+
     prop: float (either +1 or -1)
         Whether the laser is forward or backward propagating
 
@@ -63,7 +63,7 @@ def gaussian_profile( z, r, t, w0, ctau, z0, zf, k0,
     """
     # Calculate the Rayleigh length
     zr = k0*w0**2 / 2.
-    
+
     # When running in a boosted frame, convert the different laser quantities
     if boost is not None:
         zr, zf = boost.static_length([ zr, zf])
@@ -94,7 +94,7 @@ def gaussian_profile( z, r, t, w0, ctau, z0, zf, k0,
     if output_Ez_profile:
         trans_profile_Ez = - r/zr * ( w0/waist )**3 * np.exp( -(r/waist)**2 )
         curvature_oscillations_sin = np.sin( propag_phase )
-    
+
     # Combine profiles to create the Eperp and Ez profiles
     profile_Eperp = long_profile * trans_profile_Eperp \
                       * curvature_oscillations_cos
@@ -107,4 +107,3 @@ def gaussian_profile( z, r, t, w0, ctau, z0, zf, k0,
         return( profile_Eperp )
     else:
         return( profile_Eperp, profile_Ez )
-    

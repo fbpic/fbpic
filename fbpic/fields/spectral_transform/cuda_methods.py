@@ -16,12 +16,12 @@ from numba import cuda
 def cuda_copy_2d_to_2d( array_in, array_out ) :
     """
     Copy array_in to array_out, on the GPU
-    
+
     This is typically done in cases where one of the two
     arrays is in C-order and the other one is in Fortran order.
     This conversion from C order to Fortran order is needed
     before using cuBlas functions.
-        
+
     Parameters :
     ------------
     array_in, array_out : 2darray of complexs
@@ -30,7 +30,7 @@ def cuda_copy_2d_to_2d( array_in, array_out ) :
 
     # Set up cuda grid
     iz, ir = cuda.grid(2)
-    
+
     # Copy from array_in to array_out
     if (iz < array_in.shape[0]) and (ir < array_in.shape[1]) :
         array_out[iz, ir] = array_in[iz, ir]
@@ -40,10 +40,10 @@ def cuda_copy_2d_to_1d( array_2d, array_1d ) :
     """
     Copy array_2d to array_1d, so that the first axis of array_2d
     is contiguous in array_1d
-    
+
     This is typically done before using the cuFFT API,
     which requires 1d arrays to do FFT in only one dimension.
-        
+
     Parameters :
     ------------
     array_2d : 2darray of complexs
@@ -55,7 +55,7 @@ def cuda_copy_2d_to_1d( array_2d, array_1d ) :
 
     # Set up cuda grid
     iz, ir = cuda.grid(2)
-    
+
     # Copy from array_2d to array_1d
     if (iz < array_2d.shape[0]) and (ir < array_2d.shape[1]) :
         i = iz + array_2d.shape[0]*ir
@@ -66,10 +66,10 @@ def cuda_copy_1d_to_2d( array_1d, array_2d ) :
     """
     Copy array_1d to array_2d, so that the first axis of array_2d
     is contiguous in array_1d
-    
+
     This is typically done after using the cuFFT API,
     since the the output of cuFFT is a 1d array
-        
+
     Parameters :
     ------------
     array_2d : 2darray of complexs
@@ -81,7 +81,7 @@ def cuda_copy_1d_to_2d( array_1d, array_2d ) :
 
     # Set up cuda grid
     iz, ir = cuda.grid(2)
-    
+
     # Copy from array_1d to array_2d
     if (iz < array_2d.shape[0]) and (ir < array_2d.shape[1]) :
         i = iz + array_2d.shape[0]*ir

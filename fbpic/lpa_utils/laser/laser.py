@@ -16,24 +16,24 @@ def add_laser( sim, a0, w0, ctau, z0, zf=None, lambda0=0.8e-6,
                fw_propagating=True, update_spectral=True, z0_antenna=None ):
     """
     Introduce a linearly-polarized, Gaussian laser in the simulation
-    
+
     The laser is either added directly to the interpolation grid initially
     (method=`direct`) or it is progressively emitted by an antenna
     (method=`antenna`)
-    
+
     Parameters
     ----------
     sim: a Simulation object
        The structure that contains the simulation.
-    
+
     a0: float (unitless)
        The a0 of the pulse at focus (in the lab-frame).
-    
+
     w0: float (in meters)
        The waist of the pulse at focus.
 
     ctau: float (in meters)
-       The pulse length (in the lab-frame), defined as: 
+       The pulse length (in the lab-frame), defined as:
        E_laser ~ exp( - (z-ct)**2 / ctau**2 )
 
     z0: float (in meters)
@@ -42,7 +42,7 @@ def add_laser( sim, a0, w0, ctau, z0, zf=None, lambda0=0.8e-6,
     zf: float (in meters), optional
        The position of the laser focus relative to z=0 (in the lab-frame).
        Default: the laser focus is at z0.
-    
+
     lambda0: float (in meters), optional
        The central wavelength of the laser (in the lab-frame).
        Default: 0.8 microns (Ti:Sapph laser).
@@ -59,7 +59,7 @@ def add_laser( sim, a0, w0, ctau, z0, zf=None, lambda0=0.8e-6,
     method: string, optional
         Whether to initialize the laser directly in the box (method=`direct`)
         or through a laser antenna (method=`antenna`)
-       
+
     fw_propagating: bool, optional
        Only for the `direct` method: Wether the laser is propagating in the
        forward or backward direction.
@@ -134,7 +134,7 @@ def add_laser_direct( fld, E0, w0, ctau, z0, zf, k0, theta_pol,
     profile_Eperp, profile_Ez = gaussian_profile( z, r, 0,
                         w0, ctau, z0, zf, k0, prop=prop,
                         boost=boost, output_Ez_profile=True )
-    
+
     # Add the Er and Et fields to the mode m=1 (linearly polarized laser)
     # (The factor 0.5 is related to the fact that there is a factor 2
     # in the gathering function, for the particles)
@@ -146,7 +146,7 @@ def add_laser_direct( fld, E0, w0, ctau, z0, zf, k0, theta_pol,
     # Add the Ez fields to the mode m=1 (linearly polarized laser)
     fld.interp[1].Ez +=  0.5  * E0 * exptheta * profile_Ez
     fld.interp[1].Bz +=  0.5j * prop * E0/c * exptheta * profile_Ez
-        
+
     # Up to now, only the interpolation grid was modified.
     # Now convert the fields to spectral space.
     if update_spectral:

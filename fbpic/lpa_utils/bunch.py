@@ -52,19 +52,19 @@ def add_elec_bunch( sim, gamma0, n_e, p_zmin, p_zmax, p_rmin, p_rmax,
         Number of macroparticles along the theta direction
 
     dens_func : callable, optional
-        A function of the form : 
+        A function of the form :
         `def dens_func( z, r ) ...`
         where `z` and `r` are 1d arrays, and which returns
         a 1d array containing the density *relative to n_e*
         (i.e. a number between 0 and 1) at the given positions.
-    
+
     boost : a BoostConverter object, optional
-        A BoostConverter object defining the Lorentz boost of 
+        A BoostConverter object defining the Lorentz boost of
         the simulation.
 
     filter_currents : bool, optional
         Whether to filter the currents in k space (True by default)
-        
+
     direction : string, optional
         Can be either "forward" or "backward".
         Propagation direction of the beam.
@@ -73,7 +73,7 @@ def add_elec_bunch( sim, gamma0, n_e, p_zmin, p_zmax, p_rmin, p_rmax,
     # Convert parameters to boosted frame
     if boost is not None:
         beta0 = np.sqrt( 1. - 1./gamma0**2 )
-        p_zmin, p_zmax = boost.copropag_length( 
+        p_zmin, p_zmax = boost.copropag_length(
             [ p_zmin, p_zmax ], beta_object=beta0 )
         n_e, = boost.copropag_density( [n_e], beta_object=beta0 )
         gamma0, = boost.gamma( [gamma0] )
@@ -110,23 +110,23 @@ def add_elec_bunch( sim, gamma0, n_e, p_zmin, p_zmax, p_rmin, p_rmax,
                              filter_currents, direction=direction)
 
 
-def add_elec_bunch_gaussian( sim, sig_r, sig_z, n_emit, gamma0, sig_gamma, 
+def add_elec_bunch_gaussian( sim, sig_r, sig_z, n_emit, gamma0, sig_gamma,
                         Q, N, tf=0., zf=0., boost=None,
                         filter_currents=True, save_beam=None ):
     """
-    Introduce a relativistic Gaussian electron bunch in the simulation, 
+    Introduce a relativistic Gaussian electron bunch in the simulation,
     along with its space charge field.
 
-    The bunch is initialized with a normalized emittance `n_emit`,  
+    The bunch is initialized with a normalized emittance `n_emit`,
     in such a way that it will be focused at time `tf`, at the position `zf`.
     Thus if `tf` is not 0, the bunch will be initially out of focus.
     (This does not take space charge effects into account.)
-    
+
     Parameters
     ----------
     sim : a Simulation object
         The structure that contains the simulation.
-    
+
     sig_r : float (in meters)
         The transverse RMS bunch size.
 
@@ -138,7 +138,7 @@ def add_elec_bunch_gaussian( sim, sig_r, sig_z, n_emit, gamma0, sig_gamma,
 
     gamma0 : float
         The Lorentz factor of the electrons.
-    
+
     sig_gamma : float
         The absolute energy spread of the bunch.
 
@@ -147,7 +147,7 @@ def add_elec_bunch_gaussian( sim, sig_r, sig_z, n_emit, gamma0, sig_gamma,
 
     N : int
         The number of particles the bunch should consist of.
-    
+
     zf: float (in meters), optional
         Position of the focus.
 
@@ -155,7 +155,7 @@ def add_elec_bunch_gaussian( sim, sig_r, sig_z, n_emit, gamma0, sig_gamma,
         Time at which the bunch reaches focus.
 
     boost : a BoostConverter object, optional
-        A BoostConverter object defining the Lorentz boost of 
+        A BoostConverter object defining the Lorentz boost of
         the simulation.
 
     filter_currents : bool, optional
@@ -182,7 +182,7 @@ def add_elec_bunch_gaussian( sim, sig_r, sig_z, n_emit, gamma0, sig_gamma,
         if sig_gamma < 0.:
             print("Warning: Negative energy spread sig_gamma detected."
                   " sig_gamma will be set to zero. \n")
-    # Finally we calculate the uz of each particle 
+    # Finally we calculate the uz of each particle
     # from the gamma and the transverse momenta ux, uy
     uz = np.sqrt((gamma**2-1) - ux**2 - uy**2)
     # Get inverse gamma
@@ -216,7 +216,7 @@ def add_elec_bunch_gaussian( sim, sig_r, sig_z, n_emit, gamma0, sig_gamma,
     relat_elec.inv_gamma[:] = inv_gamma
     relat_elec.w[:] = w
 
-    # Transform particle distribution in 
+    # Transform particle distribution in
     # the Lorentz boosted frame, if gamma_boost != 1.
     if boost is not None:
         boost.boost_particles( relat_elec )
@@ -262,12 +262,12 @@ def add_elec_bunch_file( sim, filename, Q_tot, z_off=0., boost=None,
         Shift the particle positions in z by z_off
 
     boost : a BoostConverter object, optional
-        A BoostConverter object defining the Lorentz boost of 
+        A BoostConverter object defining the Lorentz boost of
         the simulation.
 
     filter_currents : bool, optional
         Whether to filter the currents in k space (True by default)
-        
+
     direction : string, optional
         Can be either "forward" or "backward".
         Propagation direction of the beam.
@@ -301,7 +301,7 @@ def add_elec_bunch_file( sim, filename, Q_tot, z_off=0., boost=None,
     # multiply by -1 to make them negatively charged
     relat_elec.w[:] = -1.*Q_tot/N_part
 
-    # Transform particle distribution in 
+    # Transform particle distribution in
     # the Lorentz boosted frame, if gamma_boost != 1.
     if boost != None:
         relat_elec = boost.boost_particles( relat_elec )
@@ -535,4 +535,3 @@ def get_space_charge_spect( spect, gamma, direction = 'forward' ) :
     spect.Bp[:,:] += -0.5j*spect.kr * Az + spect.kz * Ap
     spect.Bm[:,:] += -0.5j*spect.kr * Az - spect.kz * Am
     spect.Bz[:,:] += 1.j*spect.kr * Ap + 1.j*spect.kr * Am
-

@@ -137,7 +137,7 @@ def print_gpu_meminfo_all():
 def print_current_gpu( mpi ):
     """
     Prints information about the currently selected GPU.
-    
+
     Parameter:
     ----------
     mpi: an mpi4py.MPI object

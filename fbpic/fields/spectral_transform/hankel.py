@@ -33,7 +33,7 @@ Available methods :
   of a forward and backward transformation retrieves the original function
   (to machine precision).
   The discretization r grid is evenly spaced.
-  
+
 See the docstring of the DHT object for usage instructions.
 """
 import numpy as np
@@ -48,14 +48,14 @@ try :
     cuda_installed = True
 except ImportError :
     cuda_installed = False
-    
+
 # The list of available methods
 available_methods = [ 'QDHT', 'MDHT(m+1,m)', 'MDHT(m-1,m)', 'MDHT(m,m)']
 
 class DHT(object) :
     """
     Class that allows to perform the Discrete Hankel Transform.
-        
+
     Usage : (for a callable f for instance)
     >>> trans = DHT(0,10,1,'QDHT')
     >>> r = trans.get_r()  # Array of radial position
@@ -70,7 +70,7 @@ class DHT(object) :
         on which the transform will operate.
 
         Also store auxiliary data needed for the transform.
-        
+
         Parameters :
         ------------
         p : int
@@ -92,10 +92,10 @@ class DHT(object) :
 
         tpb : int, optional
         Number of threads per block, in the case where cuda is used
-        
+
         kw : optional arguments to be passed in the case of the MDHT
         """
-        
+
         # Check that the method is valid
         if ( method in available_methods ) == False :
             raise ValueError('Illegal method string')
@@ -132,7 +132,7 @@ class DHT(object) :
         elif self.method == 'MDHT(m+1,m)' :
             self.MDHT_init(p, Nr, rmax, m=p-1, **kw)
 
-        
+
     def get_r(self) :
         """
         Return the natural, non-uniform r grid for the chosen method
@@ -143,7 +143,7 @@ class DHT(object) :
         """
         return( self.r )
 
-        
+
     def get_nu(self) :
         """
         Return the natural, non-uniform nu grid for the chosen method
@@ -153,8 +153,8 @@ class DHT(object) :
         A real 1darray containing the values of the frequencies
         """
         return( self.nu )
-            
-            
+
+
     def transform( self, F, G ) :
         """
         Perform the Hankel transform of F, according to the method
@@ -173,9 +173,9 @@ class DHT(object) :
         ---------
         A ndarray of the same shape as F, containing the value of the transform
         """
-           
+
         # Perform the appropriate transform, depending on the method
-        
+
         if self.method == 'FHT' :
             G[:,:] = self.FHT_transform(F)
         elif self.method == 'QDHT' :
@@ -203,14 +203,14 @@ class DHT(object) :
         transform
         """
         # Perform the appropriate transform, depending on the method
-        
+
         if self.method == 'FHT' :
             F[:,:] = self.FHT_inverse_transform(G)
         elif self.method == 'QDHT' :
             F[:,:] = self.QDHT_inverse_transform(G)
         elif self.method in [ 'MDHT(m,m)', 'MDHT(m-1,m)', 'MDHT(m+1,m)' ] :
             self.MDHT_inverse_transform(G, F)
-        
+
 
     def MDHT_init(self, p, N, rmax, m, d=0.5, Fw='inverse') :
         """
@@ -223,7 +223,7 @@ class DHT(object) :
         r_n = alpha_{m,n}/S   (if d is None)
         nu_n = alpha_{m,n}/(2*pi*rmax)
         where alpha_{m,n} is the n^th zero of the m^th Bessel function
-        
+
         m : int
            Index of the nu grid on which to evaluate the Hankel
            transform. This can only be p-1, p or p+1 for the
@@ -239,12 +239,12 @@ class DHT(object) :
            transformation.
            If 'inverse', inverses the matrix of the backward transformation
            to find that of the forward transformation.
-        
+
         """
         # Check that m has a valid value
         if (m in [p-1, p, p+1]) == False :
             raise ValueError('m must be either p-1, p or p+1')
-        
+
         # Register values of the arguments
         self.d = d
         self.Fw =Fw
@@ -252,13 +252,13 @@ class DHT(object) :
         self.m = m
         self.N = N
         self.rmax = rmax
-                
+
         # Calculate the zeros of the Bessel function
         if m !=0 :
             # In this case, 0 is a zero of the Bessel function of order m.
             # It turns out that it is needed to reconstruct the signal for p=0.
             zeros = np.hstack( (np.array([0.]), jn_zeros(m, N)) )
-        else : 
+        else :
             zeros = jn_zeros(m, N+1)
         last_alpha = zeros[-1] # The N+1^{th} zero
         alphas = zeros[:-1]    # The N first zeros
@@ -278,7 +278,7 @@ class DHT(object) :
                 S = last_alpha
             else :
                 # S from Kai-Ming et al., Chinese Physics B, 18 (2009)
-                k = int(N/4) 
+                k = int(N/4)
                 A = alphas[k]
                 J = jn_zeros(m,N)[-1]
                 S = abs(2./jn( m-1, alphas[k]))*np.sqrt(
@@ -313,7 +313,7 @@ class DHT(object) :
                 self.M[:, 0] = 0.
             else :
                 self.M = np.linalg.inv( self.invM )
-                
+
         if Fw == 'symmetric' :
             self.M = (2*np.pi*rmax**2/S)**2 * self.invM.T
 
@@ -348,15 +348,15 @@ class DHT(object) :
             # Convert the C-order F array to the Fortran-order d_in array
             cuda_copy_2d_to_2d[self.dim_grid, self.dim_block]( F, self.d_in )
             # Perform the matrix product using cuBlas
-            self.blas.gemm( 'N', 'N', F.shape[0], F.shape[1], 
+            self.blas.gemm( 'N', 'N', F.shape[0], F.shape[1],
                    F.shape[1], 1.0, self.d_in, self.d_M, 0., self.d_out )
             # Convert the Fortran-order d_out array to the C-order G array
             cuda_copy_2d_to_2d[self.dim_grid, self.dim_block]( self.d_out, G )
-            
+
         else :
             np.dot( F, self.M, out=G )
-        
-        
+
+
     def MDHT_inverse_transform( self, G, F ) :
         """
         Performs the MDHT of G and stores the result in F
@@ -378,15 +378,15 @@ class DHT(object) :
             # Convert the C-order G array to the Fortran-order d_in array
             cuda_copy_2d_to_2d[self.dim_grid, self.dim_block](G, self.d_in )
             # Perform the matrix product using cuBlas
-            self.blas.gemm( 'N', 'N', G.shape[0], G.shape[1], 
+            self.blas.gemm( 'N', 'N', G.shape[0], G.shape[1],
                    G.shape[1], 1.0, self.d_in, self.d_invM, 0., self.d_out )
             # Convert the Fortran-order d_out array to the C-order G array
             cuda_copy_2d_to_2d[self.dim_grid, self.dim_block]( self.d_out, F )
-        
+
         else :
             np.dot( G, self.invM, out=F )
 
-        
+
     def QDHT_init(self,p,N,rmax) :
         """
         Calculate r and nu for the QDHT.
@@ -401,15 +401,15 @@ class DHT(object) :
 
         # Calculate the zeros of the Bessel function
         zeros = jn_zeros(p,N+1)
-                
+
         # Calculate the grid
         last_alpha = zeros[-1] # The N+1^{th} zero
         alphas = zeros[:-1]    # The N first zeros
-        numax = last_alpha/(2*np.pi*rmax) 
+        numax = last_alpha/(2*np.pi*rmax)
         self.N = N
         self.rmax = rmax
         self.numax = numax
-        self.r = rmax*alphas/last_alpha 
+        self.r = rmax*alphas/last_alpha
         self.nu = numax*alphas/last_alpha
 
         # Calculate and store the vector J
@@ -421,7 +421,7 @@ class DHT(object) :
         denom = J[:,np.newaxis]*J[np.newaxis,:]*last_alpha
         num = 2*jn( p, alphas[:,np.newaxis]*alphas[np.newaxis,:]/last_alpha )
         self.T = num/denom
-        
+
     def QDHT_transform( self, F ) :
         """
         Performs the QDHT of F and returns the results.
@@ -452,7 +452,7 @@ class DHT(object) :
         """
 
         # Multiply the input function by the vector J_inv
-        G =  array_multiply( G, self.J_inv*self.numax, -1 ) 
+        G =  array_multiply( G, self.J_inv*self.numax, -1 )
 
         # Perform the matrix product with T
         F = np.dot( G, self.T )
@@ -461,26 +461,26 @@ class DHT(object) :
         F = array_multiply( F, self.J / self.rmax, -1 )
 
         return( F )
-        
+
     def FHT_init(self, p, N, rmax) :
         """
         Calculate r and nu for the FHT.
-        Reference : A. Siegman, Optics Letters 1 (1977) 
+        Reference : A. Siegman, Optics Letters 1 (1977)
 
         Also store the auxilary vector fft_j_convol needed for the
         transformation.
-        
+
         Grid : r = dr*exp( alpha*n )
           with rmax = dr*exp( alpha*N )
-          and exp( alpha*N )*(1-exp(-alpha)) 
+          and exp( alpha*N )*(1-exp(-alpha))
          """
 
         # Minimal number of points of the r grid, within one
         # oscillation of the highest frequency of the nu grid
         # (Corresponds to K1 and K2, in Siegman's article, with
-        # K1 = K2 = K here.)   
+        # K1 = K2 = K here.)
         K = 4.
-        
+
         # Find the alpha corresponding to N
         alpha = fsolve( lambda x : np.exp(x*N)*(1-np.exp(-x)) - 1,
                         x0 = 1. )[0]
@@ -496,7 +496,7 @@ class DHT(object) :
         j_convol = 2*np.pi* alpha * r_nu * jn( p, 2*np.pi * r_nu )
         self.fft_j_convol = np.fft.ifft( j_convol )
 
-        
+
     def FHT_transform( self, F ) :
         """
         Performs the FHT of F and returns the results.
@@ -507,7 +507,7 @@ class DHT(object) :
         """
         # This function calculates the convolution of j_convol and F
         # by multiplying their fourier transform
-        
+
         # Multiply F by self.r
         rF = array_multiply( F, self.r, -1 )
         # Perform the FFT of rF with 0 padding from N to 2N along axis
@@ -523,7 +523,7 @@ class DHT(object) :
         G  = array_multiply( nuG, 1./self.nu, -1 )
 
         return( G )
-        
+
     def FHT_inverse_transform( self, G ) :
         """
         Performs the inverse FHT of G and returns the results.
@@ -534,7 +534,7 @@ class DHT(object) :
         """
         # This function calculates the convolution of j_convol and G
         # by multiplying their fourier transform
-        
+
         # Multiply G by self.nu, along axis
         nuG = array_multiply( G, self.nu, -1 )
         # Perform the FFT of nuG with 0 padding from N to 2N along axis
@@ -554,7 +554,7 @@ class DHT(object) :
 # ------------------
 # Utility functions
 # ------------------
-        
+
 def array_multiply( a, v, axis ) :
     """
     Mutliply the array `a` (of any shape) with the vector
@@ -576,7 +576,7 @@ def array_multiply( a, v, axis ) :
     --------
     A matrix of the same shape as a
     """
-    
+
     if a.ndim > 1 and axis!=-1 :
         # Carry out the product by moving the axis `axis`
         # (This is done because the shape of the array a is
@@ -586,12 +586,10 @@ def array_multiply( a, v, axis ) :
         r = a.swapaxes(-1,axis)
     else :
         r = a
-    # Calculate the product    
+    # Calculate the product
     r = r*v
     # If needed swap the axes back
     if a.ndim > 1 and axis!=-1 :
         r = r.swapaxes(-1,axis)
 
     return(r)
-
-
