@@ -8,7 +8,7 @@ It defines a set of common laser profiles
 import numpy as np
 from scipy.constants import c
 
-def gaussian_profile( z, r, t, w0, ctau, z0, zf, k0, phi2=0.,
+def gaussian_profile( z, r, t, w0, ctau, z0, zf, k0, cep_phase=0, phi2_chirp=0,
                       prop=1., boost=None, output_Ez_profile=False ):
     """
     Calculate the profile of a Gaussian pulse
@@ -45,7 +45,11 @@ def gaussian_profile( z, r, t, w0, ctau, z0, zf, k0, phi2=0.,
     k0: float (m)
         The wavenumber *in the lab frame*
 
-    phi2: float (in second^2)
+    cep_phase: float (rad)
+        The Carrier Enveloppe Phase (CEP), i.e. the phase of the laser
+        oscillation, at the position where the laser enveloppe is maximum.
+
+    phi2_chirp: float (in second^2)
         The amount of temporal chirp, at focus *in the lab frame*
         Namely, a wave packet centered on the frequency (w0 + dw) will
         reach its peak intensity at a time z(dw) = z0 - c*phi2*dw.
@@ -77,8 +81,9 @@ def gaussian_profile( z, r, t, w0, ctau, z0, zf, k0, phi2=0.,
     # When running in a boosted frame, convert the position and time at
     # which to find the laser amplitude.
     if boost is not None:
-        zlab_source = self.boost.gamma0*( z + self.boost.beta0*c*t )
-        tlab_source = self.boost.gamma0*( t + self.boost.beta0*z/c )
+        inv_c = 1./c
+        zlab_source = boost.gamma0*( z + (c*boost.beta0)*t )
+        tlab_source = boost.gamma0*( t + (inv_c*boost.beta0)*z )
         # Overwrite boosted frame values, within the scope of this function
         z = zlab_source
         t = tlab_source
@@ -86,11 +91,12 @@ def gaussian_profile( z, r, t, w0, ctau, z0, zf, k0, phi2=0.,
     # Lab-frame formula for the laser:
     # Diffraction and stretch_factor
     diffract_factor = 1. - 1j*(z-zf)*inv_zr
-    stretch_factor = 1 + 2j * phi2 * c**2 * inv_ctau2
+    stretch_factor = 1 + 2j * phi2_chirp * c**2 * inv_ctau2
 
     # Calculate the argument of the complex exponential
-    exp_argument = 1j*k0*(c*t + z0 - z) - r**2 / (w0**2 * diffract_factor) \
-      - 1./stretch_factor * inv_ctau2 * ( c*t  + z0 - z )**2
+    exp_argument = 1j*cep_phase + 1j*k0*( c*t + z0 - z ) \
+        - r**2 / (w0**2 * diffract_factor) \
+        - 1./stretch_factor * inv_ctau2 * ( c*t  + z0 - z )**2
 
     # Get the transverse profile
     profile_Eperp = np.exp(exp_argument) \

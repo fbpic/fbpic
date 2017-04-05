@@ -12,7 +12,8 @@ from .profiles import gaussian_profile
 from .antenna import LaserAntenna
 
 def add_laser( sim, a0, w0, ctau, z0, zf=None, lambda0=0.8e-6,
-               theta_pol=0., gamma_boost=None, method='direct',
+               cep_phase=0., phi2_chirp=0., theta_pol=0.,
+               gamma_boost=None, method='direct',
                fw_propagating=True, update_spectral=True, z0_antenna=None ):
     """
     Introduce a linearly-polarized, Gaussian laser in the simulation
@@ -46,6 +47,18 @@ def add_laser( sim, a0, w0, ctau, z0, zf=None, lambda0=0.8e-6,
     lambda0: float (in meters), optional
        The central wavelength of the laser (in the lab-frame).
        Default: 0.8 microns (Ti:Sapph laser).
+
+    cep_phase: float (rad)
+        Carrier Enveloppe Phase (CEP), i.e. the phase of the laser
+        oscillations, at the position where the laser enveloppe is maximum.
+
+    phi2_chirp: float (in second^2)
+        The amount of temporal chirp, at focus *in the lab frame*
+        Namely, a wave packet centered on the frequency (w0 + dw) will
+        reach its peak intensity at a time z(dw) = z0 - c*phi2*dw.
+        Thus, a positive phi2 corresponds to positive chirp, i.e. red part
+        of the spectrum in the front of the pulse and blue part of the
+        spectrum in the back.
 
     theta_pol: float (in radians), optional
        The angle of polarization with respect to the x axis.
@@ -91,21 +104,22 @@ def add_laser( sim, a0, w0, ctau, z0, zf=None, lambda0=0.8e-6,
     # Handle the introduction method of the laser
     if method == 'direct':
         # Directly add the laser to the interpolation object
-        add_laser_direct( sim.fld, E0, w0, ctau, z0, zf, k0, theta_pol,
-                          fw_propagating, update_spectral, boost=boost )
+        add_laser_direct( sim.fld, E0, w0, ctau, z0, zf, k0, cep_phase,
+            phi2_chirp, theta_pol, fw_propagating, update_spectral, boost )
     elif method == 'antenna':
         dr = sim.fld.interp[0].dr
         Nr = sim.fld.interp[0].Nr
         Nm = sim.fld.Nm
         # Add a laser antenna to the simulation object
-        sim.laser_antennas.append( LaserAntenna( E0, w0, ctau, z0, zf,
-                        k0, theta_pol, z0_antenna, dr, Nr, Nm, boost=boost ) )
+        sim.laser_antennas.append(
+            LaserAntenna( E0, w0, ctau, z0, zf, k0, cep_phase,
+                phi2_chirp, theta_pol, z0_antenna, dr, Nr, Nm, boost=boost ) )
     else:
         raise ValueError('Unknown laser method: %s' %method)
 
 
-def add_laser_direct( fld, E0, w0, ctau, z0, zf, k0, theta_pol,
-                          fw_propagating, update_spectral, boost ):
+def add_laser_direct( fld, E0, w0, ctau, z0, zf, k0, cep_phase,
+    phi2_chirp, theta_pol, fw_propagating, update_spectral, boost ):
     """
     Add a linearly-polarized, Gaussian laser pulse to the Fields object
 
@@ -132,8 +146,8 @@ def add_laser_direct( fld, E0, w0, ctau, z0, zf, k0, theta_pol,
     r, z = np.meshgrid( fld.interp[1].r, fld.interp[1].z )
     # Calculate the laser profile on the mesh
     profile_Eperp, profile_Ez = gaussian_profile( z, r, 0,
-                        w0, ctau, z0, zf, k0, prop=prop,
-                        boost=boost, output_Ez_profile=True )
+            w0, ctau, z0, zf, k0, cep_phase, phi2_chirp, prop=prop,
+            boost=boost, output_Ez_profile=True )
 
     # Add the Er and Et fields to the mode m=1 (linearly polarized laser)
     # (The factor 0.5 is related to the fact that there is a factor 2
