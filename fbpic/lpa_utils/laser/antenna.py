@@ -226,7 +226,7 @@ class LaserAntenna( object ):
         # Eu is the amplitude along the polarization direction
         # Note that we neglect the (small) excursion of the particles when
         # calculating the electric field on the particles.
-        Eu = self.E0 * gaussian_profile( z_lab, self.baseline_r, t_lab,
+        Eu = self.E0 * gaussian_profile( self.baseline_z, self.baseline_r, t,
                         self.w0, self.ctau, self.z0, self.zf,
                         self.k0, self.cep_phase, self.phi2_chirp,
                         boost=self.boost, output_Ez_profile=False )
