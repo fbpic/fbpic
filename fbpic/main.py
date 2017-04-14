@@ -48,7 +48,7 @@ class Simulation(object):
                  p_nz=None, p_nr=None, p_nt=None, n_e=None, zmin=0.,
                  n_order=-1, dens_func=None, filter_currents=True,
                  v_comoving=None, use_galilean=True,
-                 initialize_ions=False, use_cuda=False,
+                 initialize_ions=False, use_cuda=False, n_pml=0,
                  n_guard=None, n_damp=64, exchange_period=None,
                  current_correction='curl-free', boundaries='periodic',
                  gamma_boost=None, use_all_mpi_ranks=True,
@@ -211,6 +211,9 @@ class Simulation(object):
         if v_comoving is None:
             self.use_galilean = False
 
+        # Check whether the pml should be used
+        use_pml = (n_pml > 0)
+
         # When running the simulation in a boosted frame, convert the arguments
         if gamma_boost is not None:
             self.boost = BoostConverter( gamma_boost )
@@ -221,14 +224,16 @@ class Simulation(object):
         self.dt = dt
 
         # Initialize the boundary communicator
+        cdt_over_dr = c*dt / (rmax/Nr)
         self.comm = BoundaryCommunicator( Nz, zmin, zmax, Nr, rmax, Nm, dt,
             self.v_comoving, self.use_galilean, boundaries, n_order,
-            n_guard, n_damp, exchange_period, use_all_mpi_ranks )
+            n_pml, cdt_over_dr, n_guard, n_damp,
+            exchange_period, use_all_mpi_ranks )
         # Modify domain region
         zmin, zmax, Nz = self.comm.divide_into_domain()
         # Initialize the field structure
         self.fld = Fields( Nz, zmax, Nr, rmax, Nm, dt,
-                    n_order=n_order, zmin=zmin,
+                    n_order=n_order, use_pml=use_pml, zmin=zmin,
                     v_comoving=v_comoving,
                     use_galilean=use_galilean,
                     current_correction=current_correction,
@@ -462,18 +467,14 @@ class Simulation(object):
 
             # Get the MPI-exchanged and damped E and B field in both
             # spectral space and interpolation space
-            # (Since exchange/damp operation is purely along z, spectral fields
-            # are updated by doing an iFFT/FFT instead of a full transform)
-            fld.spect2partial_interp('E')
-            fld.spect2partial_interp('B')
+            fld.spect2interp('E')
+            fld.spect2interp('B')
             self.comm.exchange_fields(fld.interp, 'E', 'replace')
             self.comm.exchange_fields(fld.interp, 'B', 'replace')
             self.comm.damp_EB_open_boundary( fld.interp )
-            fld.partial_interp2spect('E')
-            fld.partial_interp2spect('B')
-            # Get the corresponding fields in interpolation space
-            fld.spect2interp('E')
-            fld.spect2interp('B')
+            self.comm.damp_pml_EB( fld.interp )
+            fld.interp2spect('E')
+            fld.interp2spect('B')
 
             # Increment the global time and iteration
             self.time += dt
