@@ -88,22 +88,33 @@ def gaussian_profile( z, r, t, w0, ctau, z0, zf, k0, cep_phase=0, phi2_chirp=0,
         z = zlab_source
         t = tlab_source
 
-    # Lab-frame formula for the laser:
+    # Lab-frame formula for the laser
+    # Note: this formula is expressed with complex numbers for compactness and
+    # simplicity, but only the real part is used in the end
+    # (see final return statement)
+    # The formula for the laser (in complex numbers) is obtained by multiplying
+    # the Fourier transform of the laser at focus
+    # E(k_x,k_y,\omega) = exp( -(\omega-\omega_0)^2(\tau^2/4 + \phi^(2)/2)
+    #                                - (k_x^2 + k_y^2)w_0^2/4 )
+    # by the paraxial propagator e^(i(\omega/c - (k_x^2 +k_y^2)/2k0)(z-z_foc))
+    # and then by taking the inverse Fourier transform in x, y, and t
+
     # Diffraction and stretch_factor
     diffract_factor = 1. - 1j*(z-zf)*inv_zr
     stretch_factor = 1 + 2j * phi2_chirp * c**2 * inv_ctau2
-
     # Calculate the argument of the complex exponential
     exp_argument = 1j*cep_phase + 1j*k0*( c*t + z0 - z ) \
         - r**2 / (w0**2 * diffract_factor) \
         - 1./stretch_factor * inv_ctau2 * ( c*t  + z0 - z )**2
-
     # Get the transverse profile
     profile_Eperp = np.exp(exp_argument) \
         / ( diffract_factor * stretch_factor**0.5 )
 
     # Get the profile for the Ez fields (to ensure div(E) = 0)
-    # (This uses the approximation lambda0 << ctau for long_profile )
+    # (This uses the approximation lambda0 << ctau for long_profile.
+    # In addition, it uses the fact that, for a linearly polarized laser in
+    # mode m=1: Er = E_perp e^i pol_angle and E_theta = -i E_perp e^i pol_angle
+    # so that div(E) = 0 becomes \partial_z E_z + \partial_r E_perp = 0.)
     if output_Ez_profile:
         profile_Ez = 1.j * r * inv_zr / diffract_factor * profile_Eperp
 
