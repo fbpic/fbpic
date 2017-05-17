@@ -248,9 +248,6 @@ class Simulation(object):
         # Initialize an empty list of laser antennas
         self.laser_antennas = []
 
-        # Do the initial charge deposition (at t=0) now
-        self.deposit('rho_prev')
-
     def step(self, N=1, correct_currents=True,
             correct_divE=False, use_true_rho=False,
             move_positions=True, move_momenta=True, show_progress=True):
@@ -317,7 +314,12 @@ class Simulation(object):
 
             # Check whether this iteration involves
             # particle exchange / moving window
-            if self.iteration % self.comm.exchange_period == 0:
+            if self.iteration % self.comm.exchange_period == 0 or i_step == 0:
+
+                # Note: Particle exchange is imposed at the first iteration
+                # of this loop (i_step == 0) in order to make sure that:
+                # - All particles are inside the box initially
+                # - The quantity `rho_prev` is properly defined
 
                 # Move the grids if needed
                 if self.comm.moving_win is not None:
