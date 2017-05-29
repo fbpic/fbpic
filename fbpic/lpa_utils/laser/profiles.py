@@ -8,7 +8,7 @@ It defines a set of common laser profiles
 import numpy as np
 from scipy.constants import c
 
-def gaussian_profile( z, r, t, w0, ctau, z0, zf, k0,
+def gaussian_profile( z, r, t, w0, ctau, z0, zf, k0, cep_phase=0, phi2_chirp=0,
                       prop=1., boost=None, output_Ez_profile=False ):
     """
     Calculate the profile of a Gaussian pulse
@@ -45,6 +45,18 @@ def gaussian_profile( z, r, t, w0, ctau, z0, zf, k0,
     k0: float (m)
         The wavenumber *in the lab frame*
 
+    cep_phase: float (rad)
+        The Carrier Enveloppe Phase (CEP), i.e. the phase of the laser
+        oscillation, at the position where the laser enveloppe is maximum.
+
+    phi2_chirp: float (in second^2)
+        The amount of temporal chirp, at focus *in the lab frame*
+        Namely, a wave packet centered on the frequency (w0 + dw) will
+        reach its peak intensity at a time z(dw) = z0 - c*phi2*dw.
+        Thus, a positive phi2 corresponds to positive chirp, i.e. red part
+        of the spectrum in the front of the pulse and blue part of the
+        spectrum in the back.
+
     prop: float (either +1 or -1)
         Whether the laser is forward or backward propagating
 
@@ -62,48 +74,52 @@ def gaussian_profile( z, r, t, w0, ctau, z0, zf, k0,
        a tuple with 2 array of reals of the same shape as z and r
     """
     # Calculate the Rayleigh length
-    zr = k0*w0**2 / 2.
+    zr = 0.5*k0*w0**2
+    inv_zr = 1./zr
+    inv_ctau2 = 1./ctau**2
 
-    # When running in a boosted frame, convert the different laser quantities
+    # When running in a boosted frame, convert the position and time at
+    # which to find the laser amplitude.
     if boost is not None:
-        zr, zf = boost.static_length([ zr, zf])
-        ctau, z0 = boost.copropag_length([ ctau, z0 ])
-        k0, = boost.wavenumber([ k0 ])
+        inv_c = 1./c
+        zlab_source = boost.gamma0*( z + (c*boost.beta0)*t )
+        tlab_source = boost.gamma0*( t + (inv_c*boost.beta0)*z )
+        # Overwrite boosted frame values, within the scope of this function
+        z = zlab_source
+        t = tlab_source
 
-    # Calculate the laser waist and curvature in the pulse (2d arrays)
-    waist = w0*np.sqrt( 1+( (z-zf) /zr)**2 )
-    # Calculate the curvature (avoid division by 0)
-    z_minus_zf = np.where( z-zf != 0, (z-zf), np.nan )
-    R = (z-zf)*( 1 + (zr/z_minus_zf)**2 )
-    # Convert the curvature, when running a simulation in the boosted frame
-    if boost is not None:
-        R, = boost.curvature([ R ])
-    # Calculate the inverse of the curvature and correct the NaNs where
-    # there was potential division by 0 (in these cases inv_R is physically 0)
-    inv_R = np.where( z-zf != 0, 1./R, 0. )
+    # Lab-frame formula for the laser
+    # Note: this formula is expressed with complex numbers for compactness and
+    # simplicity, but only the real part is used in the end
+    # (see final return statement)
+    # The formula for the laser (in complex numbers) is obtained by multiplying
+    # the Fourier transform of the laser at focus
+    # E(k_x,k_y,\omega) = exp( -(\omega-\omega_0)^2(\tau^2/4 + \phi^(2)/2)
+    #                                - (k_x^2 + k_y^2)w_0^2/4 )
+    # by the paraxial propagator e^(i(\omega/c - (k_x^2 +k_y^2)/2k0)(z-z_foc))
+    # and then by taking the inverse Fourier transform in x, y, and t
 
-    # Longitudinal and transverse profile
-    long_profile = np.exp( -(z-c*prop*t-z0)**2/ctau**2 )
-    trans_profile_Eperp = w0/waist * np.exp( -(r/waist)**2 )
-    # Curvature and laser oscillations (cos part)
-    propag_phase = np.arctan((z-zf)/zr) - 0.5*k0*r**2*inv_R \
-      - k0*(z-c*prop*t-zf)
-    curvature_oscillations_cos = np.cos( propag_phase )
+    # Diffraction and stretch_factor
+    diffract_factor = 1. - 1j*(z-zf)*inv_zr
+    stretch_factor = 1 + 2j * phi2_chirp * c**2 * inv_ctau2
+    # Calculate the argument of the complex exponential
+    exp_argument = 1j*cep_phase + 1j*k0*( c*t + z0 - z ) \
+        - r**2 / (w0**2 * diffract_factor) \
+        - 1./stretch_factor * inv_ctau2 * ( c*t  + z0 - z )**2
+    # Get the transverse profile
+    profile_Eperp = np.exp(exp_argument) \
+        / ( diffract_factor * stretch_factor**0.5 )
+
     # Get the profile for the Ez fields (to ensure div(E) = 0)
-    # (This uses the approximation lambda0 << ctau for long_profile )
+    # (This uses the approximation lambda0 << ctau for long_profile.
+    # In addition, it uses the fact that, for a linearly polarized laser in
+    # mode m=1: Er = E_perp e^i pol_angle and E_theta = -i E_perp e^i pol_angle
+    # so that div(E) = 0 becomes \partial_z E_z + \partial_r E_perp = 0.)
     if output_Ez_profile:
-        trans_profile_Ez = - r/zr * ( w0/waist )**3 * np.exp( -(r/waist)**2 )
-        curvature_oscillations_sin = np.sin( propag_phase )
-
-    # Combine profiles to create the Eperp and Ez profiles
-    profile_Eperp = long_profile * trans_profile_Eperp \
-                      * curvature_oscillations_cos
-    if output_Ez_profile:
-        profile_Ez = long_profile * trans_profile_Ez * \
-        ( curvature_oscillations_sin + (z-zf)/zr*curvature_oscillations_cos )
+        profile_Ez = 1.j * r * inv_zr / diffract_factor * profile_Eperp
 
     # Return the profiles
     if output_Ez_profile is False:
-        return( profile_Eperp )
+        return( profile_Eperp.real )
     else:
-        return( profile_Eperp, profile_Ez )
+        return( profile_Eperp.real, profile_Ez.real )

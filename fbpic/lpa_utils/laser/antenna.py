@@ -51,9 +51,9 @@ class LaserAntenna( object ):
     Note that the antenna always uses linear shape factors (even when the
     rest of the simulation uses cubic shape factors.)
     """
-    def __init__( self, E0, w0, ctau, z0, zf, k0,
-                    theta_pol, z0_antenna, dr_grid, Nr_grid, Nm,
-                    npr=2, nptheta=4, epsilon=0.01, boost=None ):
+    def __init__( self, E0, w0, ctau, z0, zf, k0, cep_phase,
+        phi2_chirp, theta_pol, z0_antenna, dr_grid, Nr_grid, Nm,
+        npr=2, nptheta=4, epsilon=0.01, boost=None ):
         """
         Initialize a LaserAntenna object (see class docstring for more info)
 
@@ -76,6 +76,18 @@ class LaserAntenna( object ):
 
         k0: float (m^-1)
             Laser wavevector *in the lab frame*
+
+        cep_phase: float (rad)
+            Carrier Enveloppe Phase (CEP), i.e. the phase of the laser
+            oscillations, at the position where the laser enveloppe is maximum.
+
+        phi2_chirp: float (in second^2)
+            The amount of temporal chirp, at focus *in the lab frame*
+            Namely, a wave packet centered on the frequency (w0 + dw) will
+            reach its peak intensity at a time z(dw) = z0 - c*phi2*dw.
+            Thus, a positive phi2 corresponds to positive chirp, i.e. red part
+            of the spectrum in the front of the pulse and blue part of the
+            spectrum in the back.
 
         theta_pol: float (rad)
             Polarization angle of the laser
@@ -160,6 +172,8 @@ class LaserAntenna( object ):
         self.ctau = ctau
         self.z0 = z0
         self.zf = zf
+        self.cep_phase = cep_phase
+        self.phi2_chirp = phi2_chirp
         self.theta_pol = theta_pol
         self.boost = boost
 
@@ -208,25 +222,14 @@ class LaserAntenna( object ):
         t: float (seconds)
             The time at which to calculate the velocities
         """
-        # The electric field is calculated from its lab-frame expression.
-        # Thus, in case of a boost, find the time and position in the lab-frame
-        if self.boost is not None:
-            gamma0 = self.boost.gamma0
-            beta0 = self.boost.beta0
-            inv_c = 1./c
-            z_lab = gamma0*( self.baseline_z + c*beta0*t )
-            t_lab = gamma0*( t + inv_c*beta0*self.baseline_z )
-        else:
-            z_lab = self.baseline_z
-            t_lab = t
-
         # Calculate the electric field to be emitted (in the lab-frame)
         # Eu is the amplitude along the polarization direction
         # Note that we neglect the (small) excursion of the particles when
         # calculating the electric field on the particles.
-        Eu = self.E0 * gaussian_profile( z_lab, self.baseline_r, t_lab,
+        Eu = self.E0 * gaussian_profile( self.baseline_z, self.baseline_r, t,
                         self.w0, self.ctau, self.z0, self.zf,
-                        self.k0, boost=None, output_Ez_profile=False )
+                        self.k0, self.cep_phase, self.phi2_chirp,
+                        boost=self.boost, output_Ez_profile=False )
 
         # Calculate the corresponding velocity. This takes into account
         # lab-frame to boosted-frame conversion, through a modification
