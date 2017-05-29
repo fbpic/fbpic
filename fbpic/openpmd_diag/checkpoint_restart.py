@@ -129,15 +129,6 @@ def restart_from_checkpoint( sim, iteration=None ):
             for coord in ['r', 't', 'z']:
                 load_fields( sim.fld.interp[m], fieldtype,
                              coord, ts, iteration )
-        # Load the charge density (to prepare charge conservation)
-        load_fields( sim.fld.interp[m], 'rho', None, ts, iteration )
-
-    # Convert 'rho' to spectral space ('rho_prev')
-    # to prepare charge conservation for the first timestep
-    sim.fld.interp2spect( 'rho_prev' )
-    if sim.filter_currents:
-        sim.fld.filter_spect( 'rho_prev' )
-
 
 def check_restart( sim, iteration ):
     """Verify that the restart is valid."""
