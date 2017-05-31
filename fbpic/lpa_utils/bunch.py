@@ -387,8 +387,8 @@ def add_elec_bunch_from_arrays( sim, x, y, z, ux, uy, uz, w,
 
     # Transform particle distribution in
     # the Lorentz boosted frame, if gamma_boost != 1.
-    if boost != None:
-        relat_elec = boost.boost_particles( relat_elec )
+    if boost is not None:
+        boost.boost_particles( relat_elec )
 
     # Add them to the particles of the simulation
     sim.ptcl.append( relat_elec )
