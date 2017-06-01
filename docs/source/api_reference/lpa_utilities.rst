@@ -21,7 +21,9 @@ Beam utilities
 
 .. autofunction:: fbpic.lpa_utils.bunch.add_elec_bunch_gaussian
 
-.. autofunction:: fbpic.lpa_utils.bunch.add_elec_bunch_file	  
+.. autofunction:: fbpic.lpa_utils.bunch.add_elec_bunch_from_arrays
+
+.. autofunction:: fbpic.lpa_utils.bunch.add_elec_bunch_file
 
 External fields
 ---------------
