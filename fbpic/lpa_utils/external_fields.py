@@ -106,13 +106,17 @@ class ExternalField( object ):
             # apply the field only on this species
             if (self.species is None) or (species is self.species):
 
-                field = getattr( species, self.fieldtype )
+                # Only apply the field if there are macroparticles
+                # in this species
+                if species.Ntot > 0:
 
-                if type( field ) is np.ndarray:
-                    # Call the CPU function
-                    self.cpu_func( field, species.x, species.y, species.z,
-                        t, self.amplitude, self.length_scale, out=field )
-                else:
-                    # Call the GPU function
-                    self.gpu_func( field, species.x, species.y, species.z,
-                        t, self.amplitude, self.length_scale, out=field )
+                    field = getattr( species, self.fieldtype )
+
+                    if type( field ) is np.ndarray:
+                        # Call the CPU function
+                        self.cpu_func( field, species.x, species.y, species.z,
+                              t, self.amplitude, self.length_scale, out=field )
+                    else:
+                        # Call the GPU function
+                        self.gpu_func( field, species.x, species.y, species.z,
+                              t, self.amplitude, self.length_scale, out=field )
