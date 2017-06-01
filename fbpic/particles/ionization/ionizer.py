@@ -170,10 +170,10 @@ class Ionizer(object):
         N_batch = int( ion.Ntot / self.batch_size ) + 1
 
         # Create temporary arrays
-        is_ionized = cuda.device_array( ion.Ntot, dtype=np.int16 )
-        n_ionized = cuda.device_array( N_batch, dtype=np.int64 )
+        is_ionized = cuda.device_array( (ion.Ntot,), dtype=np.int16 )
+        n_ionized = cuda.device_array( (N_batch,), dtype=np.int64 )
         # Draw random numbers
-        random_draw = cuda.device_array( ion.Ntot, dtype=np.float32 )
+        random_draw = cuda.device_array( (ion.Ntot,), dtype=np.float32 )
         self.prng.uniform( random_draw )
 
         # Ionize the ions (one thread per batch)
@@ -207,23 +207,26 @@ class Ionizer(object):
         for attr in ['x', 'y', 'z', 'ux', 'uy', 'uz', 'w', 'inv_gamma',
                         'Ex', 'Ey', 'Ez', 'Bx', 'By', 'Bz']:
             old_array = getattr(elec, attr)
-            new_array = cuda.device_array( new_Ntot, dtype=np.float64 )
+            new_array = cuda.device_array( (new_Ntot,), dtype=np.float64 )
             copy_particle_data_cuda[ ptcl_grid_1d, ptcl_block_1d ](
                 old_Ntot, old_array, new_array )
             setattr( elec, attr, new_array )
         if elec.tracker is not None:
             old_array = elec.tracker.id
-            new_array = cuda.device_array( new_Ntot, dtype=np.uint64 )
+            new_array = cuda.device_array( (new_Ntot,), dtype=np.uint64 )
             copy_particle_data_cuda[ ptcl_grid_1d, ptcl_block_1d ](
                 old_Ntot, old_array, new_array )
             elec.tracker.id = new_array
         # Allocate the auxiliary arrays
-        elec.cell_idx = cuda.device_array(new_Ntot, dtype=np.int32)
-        elec.sorted_idx = cuda.device_array(new_Ntot, dtype=np.uint32)
-        elec.sorting_buffer = cuda.device_array(new_Ntot, dtype=np.float64)
+        elec.cell_idx = cuda.device_array(
+            (new_Ntot,), dtype=np.int32 )
+        elec.sorted_idx = cuda.device_array(
+            (new_Ntot,), dtype=np.uint32 )
+        elec.sorting_buffer = cuda.device_array(
+            (new_Ntot,), dtype=np.float64 )
         if elec.n_integer_quantities > 0:
             elec.int_sorting_buffer = \
-                cuda.device_array(new_Ntot, dtype=np.uint64)
+                cuda.device_array( (new_Ntot,), dtype=np.uint64 )
         # Modify the total number of electrons
         elec.Ntot = new_Ntot
 
