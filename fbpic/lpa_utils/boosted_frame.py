@@ -230,10 +230,6 @@ class BoostConverter( object ):
         ----------
         particles: a Particles object
             A Particles object that contains the particles in the lab frame.
-
-        Returns
-        -------
-        The Particles object with the boosted particle quantities.
         """
         # Shortcut for Particles object
         part = particles

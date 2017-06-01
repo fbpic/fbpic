@@ -109,7 +109,6 @@ def add_elec_bunch( sim, gamma0, n_e, p_zmin, p_zmax, p_rmin, p_rmax,
     get_space_charge_fields( sim.fld, [relat_elec], gamma0,
                              filter_currents, direction=direction)
 
-
 def add_elec_bunch_gaussian( sim, sig_r, sig_z, n_emit, gamma0, sig_gamma,
                         Q, N, tf=0., zf=0., boost=None,
                         filter_currents=True, save_beam=None ):
@@ -188,7 +187,7 @@ def add_elec_bunch_gaussian( sim, sig_r, sig_z, n_emit, gamma0, sig_gamma,
     # Get inverse gamma
     inv_gamma = 1./gamma
     # Get weight of each particle
-    w = -1. * Q / N
+    w = -1. * Q / N * np.ones_like(x)
 
     # Propagate distribution to an out-of-focus position tf.
     # (without taking space charge effects into account)
@@ -197,46 +196,14 @@ def add_elec_bunch_gaussian( sim, sig_r, sig_z, n_emit, gamma0, sig_gamma,
         y = y - uy*inv_gamma*c*tf
         z = z - uz*inv_gamma*c*tf
 
-    # Create dummy electrons with the correct number of particles
-    relat_elec = Particles( q=-e, m=m_e, n=1.,
-                            Npz=N, zmin=1., zmax=2.,
-                            Npr=1, rmin=0., rmax=1.,
-                            Nptheta=1, dt=sim.dt,
-                            continuous_injection=False,
-                            dens_func=None, use_cuda=sim.use_cuda,
-                            grid_shape=sim.fld.interp[0].Ez.shape )
-
-    # Copy generated bunch particles into Particles object.
-    relat_elec.x[:] = x
-    relat_elec.y[:] = y
-    relat_elec.z[:] = z
-    relat_elec.ux[:] = ux
-    relat_elec.uy[:] = uy
-    relat_elec.uz[:] = uz
-    relat_elec.inv_gamma[:] = inv_gamma
-    relat_elec.w[:] = w
-
-    # Transform particle distribution in
-    # the Lorentz boosted frame, if gamma_boost != 1.
-    if boost is not None:
-        boost.boost_particles( relat_elec )
-
-    # Get mean gamma
-    gamma0 = 1./np.mean(relat_elec.inv_gamma)
-
-    # Add them to the particles of the simulation
-    sim.ptcl.append( relat_elec )
-
     # Save beam distribution to an .npz file
     if save_beam is not None:
         np.savez(save_beam, x=x, y=y, z=z, ux=ux, uy=uy, uz=uz,
             inv_gamma=inv_gamma, w=w)
 
-    # Get the corresponding space-charge fields
-    # include a larger tolerance of the deviation of inv_gamma from 1./gamma0
-    # to allow for energy spread
-    get_space_charge_fields( sim.fld, [relat_elec], gamma0,
-                             filter_currents, check_gaminv=False)
+    # Add the electrons to the simulation
+    add_elec_bunch_from_arrays( sim, x, y, z, ux, uy, uz, w,
+        boost=boost, filter_currents=filter_currents )
 
 
 def add_elec_bunch_file( sim, filename, Q_tot, z_off=0., boost=None,
@@ -275,47 +242,23 @@ def add_elec_bunch_file( sim, filename, Q_tot, z_off=0., boost=None,
     # Load particle data to numpy array
     particle_data = np.loadtxt(filename)
 
-    # Extract number of particles and average gamma
-    N_part = np.shape(particle_data)[0]
-
-    # Create dummy electrons with the correct number of particles
-    relat_elec = Particles( q=-e, m=m_e, n=1.,
-                            Npz=N_part, zmin=1., zmax=2.,
-                            Npr=1, rmin=0., rmax=1.,
-                            Nptheta=1, dt=sim.dt,
-                            continuous_injection=False,
-                            dens_func=None, use_cuda=sim.use_cuda,
-                            grid_shape=sim.fld.interp[0].Ez.shape )
-
-    # Replace dummy particle parameters with phase space from text file
-    relat_elec.x[:] = particle_data[:,0]
-    relat_elec.y[:] = particle_data[:,1]
-    relat_elec.z[:] = particle_data[:,2] + z_off
-    relat_elec.ux[:] = particle_data[:,3]
-    relat_elec.uy[:] = particle_data[:,4]
-    relat_elec.uz[:] = particle_data[:,5]
-    relat_elec.inv_gamma[:] = 1./np.sqrt( \
-        1. + relat_elec.ux**2 + relat_elec.uy**2 + relat_elec.uz**2 )
+    # Extract positions and momenta
+    x = particle_data[:,0]
+    y = particle_data[:,1]
+    z = particle_data[:,2] + z_off
+    ux = particle_data[:,3]
+    uy = particle_data[:,4]
+    uz = particle_data[:,5]
     # Calculate weights (charge of macroparticle)
     # assuming equally weighted particles as used in particle tracking codes
     # multiply by -1 to make them negatively charged
-    relat_elec.w[:] = -1.*Q_tot/N_part
+    N_part = len(x)
+    w = -1.*Q_tot/N_part * np.ones_like( x )
 
-    # Transform particle distribution in
-    # the Lorentz boosted frame, if gamma_boost != 1.
-    if boost != None:
-        relat_elec = boost.boost_particles( relat_elec )
+    # Add the electrons to the simulation
+    add_elec_bunch_from_arrays( sim, x, y, z, ux, uy, uz, w,
+        boost=boost, filter_currents=filter_currents, direction=direction )
 
-    # Add them to the particles of the simulation
-    sim.ptcl.append( relat_elec )
-
-    # Get the corresponding space-charge fields
-    # include a larger tolerance of the deviation of inv_gamma from 1./gamma0
-    # to allow for energy spread
-    gamma0 = 1./np.mean(relat_elec.inv_gamma)
-    get_space_charge_fields( sim.fld, [relat_elec], gamma0,
-                             filter_currents, check_gaminv=False,
-                             direction = direction)
 
 def add_elec_bunch_openPMD( sim, ts_path, z_off=0., species=None, select=None,
                             iteration=None, boost=None, filter_currents=True):
@@ -361,7 +304,6 @@ def add_elec_bunch_openPMD( sim, ts_path, z_off=0., species=None, select=None,
     filter_currents : bool, optional
         Whether to filter the currents in k space (True by default)
     """
-
     # Import openPMD viewer
     try:
         from opmd_viewer import OpenPMDTimeSeries
@@ -375,26 +317,66 @@ def add_elec_bunch_openPMD( sim, ts_path, z_off=0., species=None, select=None,
                                 ['x', 'y', 'z', 'ux', 'uy', 'uz', 'w'],
                                 iteration=iteration, species=species,
                                 select=select)
+    # Convert the positions from microns to meters
+    x *= 1.e-6
+    y *= 1.e-6
+    z *= 1.e-6
+    # Shift the center of the phasespace to z_off
+    z = z - (np.amax(z) + np.amin(z)) / 2 + z_off
 
-    # Shift the center of the phasespace to z=0
-    z = z - (np.amax(z) + np.amin(z)) / 2
-    # Get the number of macroparticles in the loaded phasespace
-    N_part = z.size
+    # Add the electrons to the simulation, and calculate the space charge
+    add_elec_bunch_from_arrays( sim, x, y, z, ux, uy, uz, w,
+                                boost=boost, filter_currents=filter_currents)
+
+
+def add_elec_bunch_from_arrays( sim, x, y, z, ux, uy, uz, w,
+                    boost=None, filter_currents=True, direction='forward' ):
+    """
+    Introduce a relativistic electron bunch in the simulation,
+    along with its space charge field, loading particles from numpy arrays.
+
+    Parameters
+    ----------
+    sim : a Simulation object
+        The structure that contains the simulation.
+
+    x, y, z: 1d arrays of length (N_macroparticles,)
+        The positions of the particles in x, y, z in meters
+
+    ux, uy, uz: 1d arrays of length (N_macroparticles,)
+        The dimensionless momenta of the particles in each direction
+
+    w: 1d array of length (N_macroparticles,)
+        The weight of the particles, i.e. the number of physical particles
+        that each macroparticle corresponds to.
+
+    boost : a BoostConverter object, optional
+        A BoostConverter object defining the Lorentz boost of
+        the simulation.
+
+    filter_currents : bool, optional
+        Whether to filter the currents in k space (True by default)
+
+    direction : string, optional
+        Can be either "forward" or "backward".
+        Propagation direction of the beam.
+    """
+    # Extract the number of macroparticles
+    N_part = len(x)
 
     # Create dummy electrons with the correct number of particles
     relat_elec = Particles( q=-e, m=m_e, n=1.,
-                            Npz=N_part, zmin=1., zmax=2.,
-                            Npr=1, rmin=0., rmax=1.,
-                            Nptheta=1, dt=sim.dt,
-                            continuous_injection=False,
-                            dens_func=None, use_cuda=sim.use_cuda,
-                            grid_shape=sim.fld.interp[0].Ez.shape )
+                        Npz=N_part, zmin=1., zmax=2.,
+                        Npr=1, rmin=0., rmax=1.,
+                        Nptheta=1, dt=sim.dt,
+                        continuous_injection=False,
+                        dens_func=None, use_cuda=sim.use_cuda,
+                        grid_shape=sim.fld.interp[0].Ez.shape )
 
-    # Replace dummy particle parameters with phase space from openPMD file
-    # Convert lengths from microns to meters
-    relat_elec.x[:] = x[:] * 1.e-6
-    relat_elec.y[:] = y[:] * 1.e-6
-    relat_elec.z[:] = z[:] * 1.e-6 + z_off
+    # Replace dummy particle parameters with the provided arrays
+    relat_elec.x[:] = x[:]
+    relat_elec.y[:] = y[:]
+    relat_elec.z[:] = z[:]
     relat_elec.ux[:] = ux[:]
     relat_elec.uy[:] = uy[:]
     relat_elec.uz[:] = uz[:]
@@ -405,8 +387,8 @@ def add_elec_bunch_openPMD( sim, ts_path, z_off=0., species=None, select=None,
 
     # Transform particle distribution in
     # the Lorentz boosted frame, if gamma_boost != 1.
-    if boost != None:
-        relat_elec = boost.boost_particles( relat_elec )
+    if boost is not None:
+        boost.boost_particles( relat_elec )
 
     # Add them to the particles of the simulation
     sim.ptcl.append( relat_elec )
@@ -416,10 +398,10 @@ def add_elec_bunch_openPMD( sim, ts_path, z_off=0., species=None, select=None,
     # to allow for energy spread
     gamma0 = 1. / np.mean(relat_elec.inv_gamma)
     get_space_charge_fields( sim.fld, [relat_elec], gamma0,
-                             filter_currents, check_gaminv=False)
+      filter_currents=filter_currents, check_gaminv=False, direction=direction)
 
 def get_space_charge_fields( fld, ptcl, gamma, filter_currents=True,
-                             check_gaminv=True, direction = 'forward' ) :
+                             check_gaminv=True, direction='forward' ) :
     """
     Calculate the space charge field on the grid
 
@@ -487,7 +469,8 @@ def get_space_charge_fields( fld, ptcl, gamma, filter_currents=True,
     for m in range(fld.Nm) :
         fld.spect[m].push_rho()
 
-def get_space_charge_spect( spect, gamma, direction = 'forward' ) :
+
+def get_space_charge_spect( spect, gamma, direction='forward' ) :
     """
     Determine the space charge field in spectral space
 
