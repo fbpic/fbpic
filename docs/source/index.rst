@@ -50,7 +50,7 @@ that are accessible through FBPIC.
    install/installation
    how_to_run
    api_reference/api_reference.rst
-
+   advanced/advanced.rst
 
 Contributing to FBPIC
 ---------------------

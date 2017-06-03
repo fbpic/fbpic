@@ -1,7 +1,7 @@
 Advanced use
 ============
 
-This page contains a few more advanced tips, that can help you get
+This section contains several tips, that can help you get
 more performance and faster results from the code.
 
 **Topics:**

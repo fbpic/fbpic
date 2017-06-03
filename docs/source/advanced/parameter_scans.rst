@@ -1,2 +1,2 @@
-Performing parameter scans
-==========================
+Performing parameter scans in parallel
+======================================
