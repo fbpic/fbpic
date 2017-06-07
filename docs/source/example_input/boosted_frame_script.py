@@ -40,12 +40,17 @@ zmin = -20.e-6
 Nr = 75          # Number of gridpoints along r
 rmax = 150.e-6   # Length of the box along r (meters)
 Nm = 2           # Number of modes used
-n_guard = 40     # Number of guard cells
-exchange_period = 10
+
 # The simulation timestep
 dt = (zmax-zmin)/Nz/c   # Timestep (seconds)
 N_step = 101     # Number of iterations to perform
                  # (increase this number for a real simulation)
+
+# Stencil order of the solver. -1 corresponds to the standard
+# fully spectral solver with infinite order. For a localized stencil,
+# thus finite-order accuracy of the solver, choose n_order > 4
+# (needs to be a multiple of 2).
+n_order = -1
 
 # Boosted frame
 gamma_boost = 15.
@@ -149,8 +154,8 @@ if __name__ == '__main__':
     sim = Simulation( Nz, zmax, Nr, rmax, Nm, dt,
         p_zmin, p_zmax, p_rmin, p_rmax, p_nz, p_nr, p_nt, n_e,
         dens_func=dens_func, zmin=zmin, initialize_ions=True,
-        v_comoving=-0.9999*c, use_galilean=False,
-        n_guard=n_guard, exchange_period=exchange_period,
+        v_comoving=-np.sqrt(gamma_boost**2-1.)/gamma_boost * c,
+        use_galilean=True, n_order = n_order,
         gamma_boost=gamma_boost, boundaries='open', use_cuda=use_cuda )
 
     # Add an electron bunch

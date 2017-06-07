@@ -45,7 +45,8 @@ class Simulation(object):
                  n_order=-1, dens_func=None, filter_currents=True,
                  v_comoving=None, use_galilean=False,
                  initialize_ions=False, use_cuda=False,
-                 n_guard=50, exchange_period=None, boundaries='periodic',
+                 n_guard=None, n_damp=30,
+                 exchange_period=None, boundaries='periodic',
                  gamma_boost=None, use_all_mpi_ranks=True,
                  particle_shape='linear' ):
         """
@@ -98,8 +99,10 @@ class Simulation(object):
         n_order: int, optional
            The order of the stencil for the z derivatives.
            Use -1 for infinite order, otherwise use a positive, even
-           number. In this case, the stencil extends up to n_order/2
-           cells on each side.
+           number. In this case, the stencil extends up to approx.
+           2*n_order cells on each side. (A finite order stencil
+           is required to have a localized field push that allows
+           to do simulations in parallel on multiple MPI ranks)
 
         zmin: float, optional
            The position of the edge of the simulation box.
@@ -134,11 +137,26 @@ class Simulation(object):
 
         n_guard: int, optional
             Number of guard cells to use at the left and right of
-            a domain, when using MPI.
+            a domain, when performing parallel (MPI) computation
+            or when using open boundaries. Defaults to None, which
+            calculates the required guard cells for n_order
+            automatically (approx 2*n_order). If no MPI is used and
+            in the case of open boundaries with an infinite order stencil,
+            n_guard defaults to 30, if not set otherwise.
+        n_damp : int, optional
+            Number of damping guard cells at the left and right of a
+            simulation box if a moving window is attached. The guard
+            region at these areas (left / right of moving window) is
+            extended by n_damp (N=n_guard+n_damp) in order to smoothly
+            damp the fields such that they do not wrap around.
+            (Defaults to 30)
         exchange_period: int, optional
-            Number of iteration before which the particles are exchanged
-            and the window is moved (the two operations are simultaneous)
-            If set to None, the particles are exchanged every n_guard/2
+            Number of iterations before which the particles are exchanged
+            and the window is moved (the two operations are simultaneous).
+            If set to None, the minimum exchange period is calculated
+            automatically: Within exchange_period timesteps, the
+            particles should never be able to travel more than
+            (n_guard - particle_shape order) cells.
 
         boundaries: string, optional
             Indicates how to exchange the fields at the left and right
@@ -194,11 +212,38 @@ class Simulation(object):
 
         # Initialize the boundary communicator
         self.comm = BoundaryCommunicator(Nz, Nr, n_guard, Nm,
-            boundaries, n_order, exchange_period, use_all_mpi_ranks )
+            boundaries, n_order, n_damp, use_all_mpi_ranks )
         print_simulation_setup( self.comm, self.use_cuda )
         # Modify domain region
         zmin, zmax, p_zmin, p_zmax, Nz = \
               self.comm.divide_into_domain(zmin, zmax, p_zmin, p_zmax)
+
+        # Initialize the period of the particle exchange and moving window
+        if exchange_period is None:
+            # Calculate absolute value of the Galilean co-moving frame velocity
+            if v_comoving is not None:
+                v_co = abs(v_comoving)
+            else:
+                v_co = 0.
+            # Maximum number of cells a particle can travel in one timestep
+            # (c+v_comoving)*dt / dz
+            cells_per_step = (c+v_co)*dt / ((zmax-zmin)/Nz)
+            # Maximum number of timesteps before a particle can reach the end
+            # of the guard region including the maximum number of cells (+/-3)
+            # it can affect with a "cubic" particle shape_factor.
+            self.exchange_period = int((self.comm.n_guard-3)/cells_per_step)
+            # Set exchange_period to 1 in the case of single-proc
+            # and periodic boundary conditions.
+            if self.comm.size == 1 and boundaries == 'periodic':
+                self.exchange_period = 1
+            # Check that calculated exchange_period is acceptable for given
+            # simulation parameters (check that guard region is large enough).
+            if self.exchange_period < 1:
+                raise ValueError('Guard region size is too small for chosen \
+                    timestep. Within one timestep, a particle can travel more \
+                    than n_guard region cells.')
+        else:
+            self.exchange_period = exchange_period
 
         # Initialize the field structure
         self.fld = Fields( Nz, zmax, Nr, rmax, Nm, dt,
@@ -314,7 +359,7 @@ class Simulation(object):
 
             # Check whether this iteration involves
             # particle exchange / moving window
-            if self.iteration % self.comm.exchange_period == 0 or i_step == 0:
+            if self.iteration % self.exchange_period == 0 or i_step == 0:
 
                 # Note: Particle exchange is imposed at the first iteration
                 # of this loop (i_step == 0) in order to make sure that:
@@ -528,8 +573,8 @@ class Simulation(object):
         """
         # Attach the moving window to the boundary communicator
         self.comm.moving_win = MovingWindow( self.fld.interp, self.comm,
-            self.ptcl, v, self.p_nz, self.time, ux_m, uy_m, uz_m,
-            ux_th, uy_th, uz_th, gamma_boost )
+            self.exchange_period, self.dt, self.ptcl, v, self.p_nz, self.time,
+            ux_m, uy_m, uz_m, ux_th, uy_th, uz_th, gamma_boost )
 
 def progression_bar( i, Ntot, measured_start, Nbars=50, char='-'):
     """

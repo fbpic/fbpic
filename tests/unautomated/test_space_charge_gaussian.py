@@ -13,28 +13,28 @@ $ python tests/test_space_charge.py
 import matplotlib.pyplot as plt
 from scipy.constants import c
 import numpy as np
-# Import the relevant structures in FBPIC                                       
+# Import the relevant structures in FBPIC
 from fbpic.main import Simulation
 from fbpic.lpa_utils.boosted_frame import BoostConverter
 from fbpic.lpa_utils.bunch import add_elec_bunch_gaussian
 
-# The simulation box                                                            
+# The simulation box
 Nz = 400         # Number of gridpoints along z
 zmin = -40.e-6   # Start of the box in z (meters)
 zmax = 0.e-6     # End of the box in z (meters)
-Nr = 100         # Number of gridpoints along r 
+Nr = 100         # Number of gridpoints along r
 rmax = 100.e-6   # Length of the box along r (meters)
-Nm = 2           # Number of modes used             
+Nm = 2           # Number of modes used
 n_order = -1     # The order of the stencil in z
 
-# The simulation timestep                                              
-dt = (zmax-zmin)/Nz/c   # Timestep (seconds)                                           
+# The simulation timestep
+dt = (zmax-zmin)/Nz/c   # Timestep (seconds)
 N_step = 800     # Number of iterations to perform
-N_show = 40     # Number of timestep between every plot                
+N_show = 40     # Number of timestep between every plot
 show_fields = False
 l_boost = False
 
-if l_boost: 
+if l_boost:
     # Boosted frame
     gamma_boost = 15.
     boost = BoostConverter(gamma_boost)
@@ -46,7 +46,7 @@ else:
 sim = Simulation( Nz, zmax, Nr, rmax, Nm, dt,
     -1.e-6, 0., -1.e-6, 0., 1, 1, 1, 1.e18,
     zmin=zmin, n_order=n_order, boundaries='open',
-    exchange_period=10, gamma_boost=gamma_boost )
+    gamma_boost=gamma_boost )
 
 # Configure the moving window
 sim.set_moving_window(v=c, gamma_boost=gamma_boost)
@@ -66,7 +66,7 @@ tf = 40.e-6 / (np.sqrt(1.-1./gamma0**2)*c)
 zf = 20.e-6
 
 # Add gaussian electron bunch
-add_elec_bunch_gaussian( sim, sig_r, sig_z, n_emit, gamma0, sig_gamma, 
+add_elec_bunch_gaussian( sim, sig_r, sig_z, n_emit, gamma0, sig_gamma,
                          Q, N, tf, zf, boost=boost )
 
 if show_fields:
@@ -120,7 +120,3 @@ plt.xlabel('Propagation distance [mu]')
 plt.ylabel('rms of bunch size [mu]')
 plt.legend()
 plt.show()
-
-    
-
-

@@ -10,9 +10,14 @@ from mpi4py import MPI as mpi
 from fbpic.fields.fields import InterpolationGrid
 from fbpic.particles.particles import Particles
 from .field_buffer_handling import BufferHandler
-from .guard_cell_damping import GuardCellDamper
 from .particle_buffer_handling import remove_outside_particles, \
      add_buffers_to_particles, shift_particles_periodic_subdomain
+try:
+    from fbpic.cuda_utils import cuda_tpb_bpg_2d, cuda
+    from .cuda_methods import cuda_damp_EB_left, cuda_damp_EB_right
+    cuda_installed = True
+except ImportError:
+    cuda_installed = False
 
 # Dictionary of correspondance between numpy types and mpi types
 # (Necessary when calling Gatherv)
@@ -31,7 +36,8 @@ class BoundaryCommunicator(object):
     The functions of this object are:
 
     - At each timestep, to exchange the fields between MPI domains
-      and damp the E and B fields in the guard cells
+      in the guard cells (n_guard) and damp the E and B fields in the damping
+      guard cells (n_damp)
 
     - Every exchange_period iterations, to exchange the particles
       between MPI domains and (in the case of a moving window) shift the grid
@@ -43,7 +49,7 @@ class BoundaryCommunicator(object):
     # -----------------------
 
     def __init__( self, Nz, Nr, n_guard, Nm, boundaries,
-        n_order, exchange_period=None, use_all_mpi_ranks=True ):
+        n_order, n_damp=30, use_all_mpi_ranks=True ):
         """
         Initializes a communicator object.
 
@@ -53,8 +59,8 @@ class BoundaryCommunicator(object):
             The initial global number of cells
 
         n_guard: int
-            The number of guard cells at the
-            left and right edge of the domain
+            Number of guard cells to use at the left and right of
+            a domain, when using MPI.
 
         Nm: int
             The total number of modes
@@ -64,19 +70,21 @@ class BoundaryCommunicator(object):
             boundaries of the global simulation box
             Either 'periodic' or 'open'
 
-        exchange_period: int
-            Number of iteration before which the particles are exchanged
-            and the window is moved (the two operations are simultaneous)
-            If set to None, the particles are exchanged every n_guard/2
-
-        v_moving: int
-            Speed of the moving window. Use 0 for no moving window.
-
         n_order: int
-            The order of the stencil, use -1 for infinite order.
-            If the stencil fits into the guard cells, no damping is
-            performed, between two processors. (Damping is still performed
-            in the guard cells that correspond to open boundaries)
+           The order of the stencil for the z derivatives.
+           Use -1 for infinite order, otherwise use a positive, even
+           number. In this case, the stencil extends up to approx.
+           n_order/2 cells on each side. (A finite order stencil
+           is required to have a localized field push that allows
+           to do simulations in parallel on multiple MPI ranks)
+
+        n_damp : int
+            Number of damping guard cells at the left and right of a
+            simulation box if a moving window is attached. The guard
+            region at these areas (left / right of moving window) is
+            extended by n_damp (N=n_guard+n_damp) in order to smoothly
+            damp the fields such that they do not wrap around.
+            (Defaults to 30)
 
         use_all_mpi_ranks: bool, optional
             - if `use_all_mpi_ranks` is True (default):
@@ -120,16 +128,37 @@ class BoundaryCommunicator(object):
             raise ValueError('Unrecognized boundaries: %s' %self.boundaries)
 
         # Initialize number of guard cells
+        # Automatically calculate required guard cells
+        # for given order (n_order)
+        if n_guard == None:
+            if n_order == -1:
+                # Set n_guard to fixed value of 30 in case of
+                # open boundaries and infinite order stencil
+                # (if not defined otherwise by user)
+                self.n_guard = 30
+                # Raise error if user tries to use parallel MPI computation
+                # with an infinite order stencil. This would give wrong results
+                if self.size != 1:
+                    raise ValueError('Non-local, infinite order stencil \
+                        selected, while performing parallel (MPI) computation.')
+            else:
+                # Automatic calculation of the guard region size,
+                # depending on the stencil order (n_order)
+                print("Automatic n_guard not supported in this version, " \
+		            "n_guard will be set to n_order * 2 or " \
+		            "will be set to 0 if running in single proc mode.")
+                self.n_guard = n_order*2
+        else:
+            # Otherwise: set user defined guard region size
+            self.n_guard = n_guard
         # For single proc and periodic boundaries, no need for guard cells
         if boundaries=='periodic' and self.size==1:
-            n_guard = 0
-        self.n_guard = n_guard
-
-        # Initialize the period of the particle exchange and moving window
-        if exchange_period is None:
-            self.exchange_period = max(1, int(n_guard/2))
-        else:
-            self.exchange_period = exchange_period
+            self.n_guard = 0
+        # Register damping cells
+        self.n_damp = n_damp
+        # For periodic boundaries, no need for damping cells
+        if boundaries=='periodic':
+            self.n_damp = 0
 
         # Initialize the moving window to None (See the method
         # set_moving_window in main.py to initialize a proper moving window)
@@ -140,11 +169,21 @@ class BoundaryCommunicator(object):
             self.mpi_buffers = BufferHandler( self.n_guard, Nr, Nm,
                                       self.left_proc, self.right_proc )
 
-        # Create damping object for the guard cells
-        if self.n_guard > 0:
-            self.guard_damper = GuardCellDamper( self.n_guard,
-                    self.left_proc, self.right_proc,
-                    self.exchange_period, n_order )
+        # Create damping arrays for the damping cells at the left
+        # and right of the box in the case of "open" boundaries.
+        if self.n_damp > 0:
+            if self.left_proc is None:
+                # Create the damping arrays for left proc
+                self.left_damp = self.generate_damp_array(
+                    self.n_guard, self.n_damp )
+                if cuda_installed:
+                    self.d_left_damp = cuda.to_device( self.left_damp )
+            if self.right_proc is None:
+                # Create the damping arrays for right proc
+                self.right_damp = self.generate_damp_array(
+                    self.n_guard, self.n_damp )
+                if cuda_installed:
+                    self.d_right_damp = cuda.to_device( self.right_damp )
 
     def divide_into_domain( self, zmin, zmax, p_zmin, p_zmax ):
         """
@@ -198,6 +237,9 @@ class BoundaryCommunicator(object):
         self.iz_start_procs = [ k*Nz_per_proc for k in range(self.size) ]
         # Get the enlarged number of cells in each domain (includes guards)
         self.Nz_enlarged_procs = [ n+2*self.n_guard for n in Nz_domain_procs ]
+        # Add damping region to first and last domain
+        self.Nz_enlarged_procs[0] += self.n_damp
+        self.Nz_enlarged_procs[-1] += self.n_damp
         # Get the local values of the above arrays
         self.Nz_domain = self.Nz_domain_procs[self.rank]
         self.Nz_enlarged = self.Nz_enlarged_procs[self.rank]
@@ -208,16 +250,32 @@ class BoundaryCommunicator(object):
                                than 4 times n_guard. Use fewer domains or \
                                a smaller number of guard cells.')
 
-        # Calculate the local boundaries (zmin and zmax)
+        # Calculate the local boundaries (zmin)
         # of this local simulation box including the guard cells.
         iz_start = self.iz_start_procs[self.rank]
         zmin_local = zmin + (iz_start - self.n_guard)*dz
+        # Correct for first process by adding n_damp cells
+        # to the left of the box
+        if self.rank==0:
+            zmin_local -= self.n_damp*dz
+        # Calculate the local boundaries (zmax)
+        # of this local simulation box including the guard cells.
         zmax_local = zmin_local + self.Nz_enlarged*dz
 
         # Calculate the new limits (p_zmin and p_zmax)
         # for adding particles to this domain
         p_zmin = max( zmin_local + self.n_guard*dz, p_zmin)
+        # For the first process, we need to take into account an
+        # additional +n_damp cells for the particle boundaries
+        if self.rank==0:
+            p_zmin = max(
+                zmin_local + (self.n_guard+self.n_damp)*dz, p_zmin )
         p_zmax = min( zmax_local - self.n_guard*dz, p_zmax)
+        # For the last process, we need to take into account an
+        # additional -n_damp cells for the particle boundaries
+        if self.rank==self.size-1:
+            p_zmax = min(
+                zmax_local - (self.n_guard+self.n_damp)*dz, p_zmax )
         # Return the new boundaries to the simulation object
         return( zmin_local, zmax_local, p_zmin, p_zmax, self.Nz_enlarged )
 
@@ -245,7 +303,7 @@ class BoundaryCommunicator(object):
             The global time in the simulation
             This is used in order to determine how much the window should move
         """
-        self.moving_win.move_grids(fld, dt, self, time)
+        self.moving_win.move_grids(fld, self, time)
 
     def exchange_fields( self, interp, fieldtype ):
         """
@@ -498,15 +556,99 @@ class BoundaryCommunicator(object):
     def damp_guard_EB( self, interp ):
         """
         Apply the damping shape in the right and left guard cells.
+        Damp the fields E and B in the guard cells.
 
         Parameter:
         -----------
-        interp: list
-            A list of InterpolationGrid objects (one per azimuthal mode)
+        interp: list of InterpolationGrid objects (one per azimuthal mode)
+            Objects that contain the fields to be damped.
         """
-        # Do not damp the fields for 0 guard cells (periodic, single proc)
-        if self.n_guard != 0:
-            self.guard_damper.damp_guard_EB( interp )
+        # Do not damp the fields for 0 n_damp cells (periodic)
+        if self.n_damp != 0:
+            if self.left_proc is None:
+                # Damp the fields on the CPU or the GPU
+                if interp[0].use_cuda:
+                    # Damp the fields on the GPU
+                    dim_grid, dim_block = cuda_tpb_bpg_2d(
+                        self.n_guard+self.n_damp, interp[0].Nr )
+
+                    cuda_damp_EB_left[dim_grid, dim_block](
+                        interp[0].Er, interp[0].Et, interp[0].Ez,
+                        interp[0].Br, interp[0].Bt, interp[0].Bz,
+                        interp[1].Er, interp[1].Et, interp[1].Ez,
+                        interp[1].Br, interp[1].Bt, interp[1].Bz,
+                        self.d_left_damp, self.n_guard, self.n_damp)
+                else:
+                    # Damp the fields on the CPU
+                    nd = self.n_guard + self.n_damp
+                    for m in range(len(interp)):
+                        # Damp the fields in left guard cells
+                        interp[m].Er[:nd,:]*=self.left_damp[:,np.newaxis]
+                        interp[m].Et[:nd,:]*=self.left_damp[:,np.newaxis]
+                        interp[m].Ez[:nd,:]*=self.left_damp[:,np.newaxis]
+                        interp[m].Br[:nd,:]*=self.left_damp[:,np.newaxis]
+                        interp[m].Bt[:nd,:]*=self.left_damp[:,np.newaxis]
+                        interp[m].Bz[:nd,:]*=self.left_damp[:,np.newaxis]
+
+            if self.right_proc is None:
+                # Damp the fields on the CPU or the GPU
+                if interp[0].use_cuda:
+                    # Damp the fields on the GPU
+                    dim_grid, dim_block = cuda_tpb_bpg_2d(
+                        self.n_guard+self.n_damp, interp[0].Nr )
+
+                    cuda_damp_EB_right[dim_grid, dim_block](
+                        interp[0].Er, interp[0].Et, interp[0].Ez,
+                        interp[0].Br, interp[0].Bt, interp[0].Bz,
+                        interp[1].Er, interp[1].Et, interp[1].Ez,
+                        interp[1].Br, interp[1].Bt, interp[1].Bz,
+                        self.d_right_damp, self.n_guard, self.n_damp)
+                else:
+                    # Damp the fields on the CPU
+                    nd = self.n_guard + self.n_damp
+                    for m in range(len(interp)):
+                        # Damp the fields in left guard cells
+                        interp[m].Er[-nd:,:]*=self.right_damp[::-1,np.newaxis]
+                        interp[m].Et[-nd:,:]*=self.right_damp[::-1,np.newaxis]
+                        interp[m].Ez[-nd:,:]*=self.right_damp[::-1,np.newaxis]
+                        interp[m].Br[-nd:,:]*=self.right_damp[::-1,np.newaxis]
+                        interp[m].Bt[-nd:,:]*=self.right_damp[::-1,np.newaxis]
+                        interp[m].Bz[-nd:,:]*=self.right_damp[::-1,np.newaxis]
+
+    def generate_damp_array( self, n_guard, n_damp ):
+        """
+        Create a 1d damping array of length n_guard.
+
+        The expression of the damping array depends on whether the guard cells
+        correspond to an open boundary or a boundary with another processor.
+
+        Parameters
+        ----------
+        n_guard: int
+            Number of guard cells along z
+
+        n_damp: int
+            Number of damping cells along z
+
+        Returns
+        -------
+        A 1darray of doubles, of length n_guard + n_damp,
+        which represents the damping.
+        """
+        # Array of cell indices
+        i_cell = np.arange( n_guard+n_damp )
+
+        # Perform narrow damping, with the first n_guard of the cells at 0,
+        # then 1/3*n_damp cells with a sinusoidal**2 rise, and finally
+        # 2/3*n_damp cells at 1 (the damping array is defined such that it
+        # can directly be multiplied with the fields at the left boundary of
+        # the box - and needs to be inverted (damping_array[::-1]) before being
+        # applied to the right boundary of the box.)
+        damping_array = np.where( i_cell < n_guard+n_damp/3.,
+                np.sin((i_cell - n_guard)*np.pi/(2*n_damp/3.))**2, 1. )
+        damping_array = np.where( i_cell < n_guard, 0., damping_array )
+
+        return( damping_array )
 
     # Gathering routines
     # ------------------
@@ -532,7 +674,7 @@ class BoundaryCommunicator(object):
         if self.rank == root:
             # Calculate global edges of the simulation box on root process
             zmin_global = grid.zmin + self.dz * \
-                            (self.n_guard - self.rank*self.Nz_domain)
+                (self.n_guard + self.n_damp - self.rank*self.Nz_domain)
             # Create new grid array that contains cell positions in z
             z = zmin_global + self.dz*( 0.5 + np.arange(self.Nz) )
             # Initialize new InterpolationGrid object that
@@ -583,7 +725,18 @@ class BoundaryCommunicator(object):
             gathered_array = None
         # Shortcut for the guard cells
         ng = self.n_guard
-        local_array = array[ng:len(array)-ng]
+        # Remove n_damp cells from the left proc's output region
+        if self.rank == 0:
+            n_left = ng + self.n_damp
+        else:
+            n_left = ng
+        # Remove n_damp cells from the right proc's output region
+        if self.rank == self.size-1:
+            n_right = ng + self.n_damp
+        else:
+            n_right = ng
+        # Select the physical region of the local box
+        local_array = array[n_left:len(array)-n_right,:]
 
         # Then send the arrays
         if self.size > 1:

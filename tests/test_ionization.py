@@ -54,11 +54,6 @@ def run_simulation( gamma_boost ):
     Nr = 3           # Number of gridpoints along r
     rmax = 10.e-6    # Length of the box along r (meters)
     Nm = 2           # Number of modes used
-    n_guard = 20     # Number of guard cells
-    if gamma_boost>1:
-        exchange_period = 1    # The simulation timestep
-    else:
-        exchange_period = 10
 
     # The particles of the plasma
     p_zmin = 5.e-6   # Position of the beginning of the plasma (meters)
@@ -121,7 +116,6 @@ def run_simulation( gamma_boost ):
         p_rmin, p_rmax, p_nz, p_nr, p_nt, n_e,
         zmin=zmin, initialize_ions=False,
         v_comoving=v_plasma, use_galilean=False,
-        n_guard=n_guard, exchange_period=exchange_period,
         boundaries='open', use_cuda=use_cuda )
     sim.set_moving_window( v=v_plasma )
 

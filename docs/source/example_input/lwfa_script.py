@@ -41,9 +41,16 @@ zmin = -10.e-6   # Left end of the simulation box (meters)
 Nr = 50          # Number of gridpoints along r
 rmax = 20.e-6    # Length of the box along r (meters)
 Nm = 2           # Number of modes used
+
 # The simulation timestep
 dt = (zmax-zmin)/Nz/c   # Timestep (seconds)
 N_step = 200     # Number of iterations to perform
+
+# Stencil order of the solver. -1 corresponds to the standard
+# fully spectral solver with infinite order. For a localized stencil,
+# thus finite-order accuracy of the solver, choose n_order > 4
+# (needs to be a multiple of 2).
+n_order = -1
 
 # The particles
 p_zmin = 25.e-6  # Position of the beginning of the plasma (meters)
@@ -97,7 +104,7 @@ if __name__ == '__main__':
     sim = Simulation( Nz, zmax, Nr, rmax, Nm, dt,
         p_zmin, p_zmax, p_rmin, p_rmax, p_nz, p_nr, p_nt, n_e,
         dens_func=dens_func, zmin=zmin, boundaries='open',
-        use_cuda=use_cuda )
+        n_order=n_order, use_cuda=use_cuda )
 
     # Load initial fields
     # Add a laser to the fields of the simulation
