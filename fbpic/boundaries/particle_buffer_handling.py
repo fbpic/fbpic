@@ -225,7 +225,8 @@ def remove_particles_gpu(species, fld, nguard, left_proc, right_proc):
     # (The particles are usually expected to be sorted from the previous
     # iteration at this point - except in a restart from a checkpoint.)
     if species.sorted == False:
-        print('Removing particles: Particles are unsorted. Sorting them now.')
+        print(
+            '\n Removing particles: Particles are unsorted. Sorting them now.')
         species.sort_particles(fld = fld)
         species.sorted = True
 
