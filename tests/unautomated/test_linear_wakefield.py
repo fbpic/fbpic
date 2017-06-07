@@ -28,7 +28,7 @@ from fbpic.openpmd_diag import FieldDiagnostic, ParticleDiagnostic
 # Laser field
 def a2( xi, r ) :
     """Average of a^2 ; envelope of the intensity of the laser"""
-    return( 0.5*a0**2*np.exp( -2*(xi + z0)**2/ctau**2 )*np.exp(-2*r**2/w0**2) )
+    return( 0.5*a0**2*np.exp( -2*(xi - z0)**2/ctau**2 )*np.exp(-2*r**2/w0**2) )
 
 def kernel_Ez( xi0, xi, r) :
     """Integration kernel for Ez"""
@@ -36,7 +36,7 @@ def kernel_Ez( xi0, xi, r) :
 
 def kernel_Er( xi0, xi, r) :
     """Integration kernel for Er"""
-    return( m_e*c**2/e * 2*kp*r/w0**2 * np.sin( kp*(xi-xi0) )*a2( xi0, r ) )
+    return( - m_e*c**2/e * 2*kp*r/w0**2 * np.sin( kp*(xi-xi0) )*a2( xi0, r ) )
 
 def Ez( z, r, t) :
     """
@@ -49,12 +49,13 @@ def Ez( z, r, t) :
     """
     Nz = len(z)
     Nr = len(r)
+    window_zmax = z.max()
 
     ez = np.zeros((Nz, Nr))
     for iz in range(Nz) :
         for ir in range(Nr) :
-          ez[iz, ir] = quad( kernel_Ez, -zmax, -z[iz]+c*t,
-            args = ( -z[iz]+c*t, r[ir] ), limit=30 )[0]
+          ez[iz, ir] = quad( kernel_Ez, z[iz]-c*t, window_zmax-c*t,
+            args = ( z[iz]-c*t, r[ir] ), limit=30 )[0]
     return( ez )
 
 def Er( z, r, t) :
@@ -68,12 +69,14 @@ def Er( z, r, t) :
     """
     Nz = len(z)
     Nr = len(r)
+    window_zmax = z.max()
 
     er = np.zeros((Nz, Nr))
     for iz in range(Nz) :
         for ir in range(Nr) :
-          er[iz, ir] = quad( kernel_Er, -zmax, -z[iz]+c*t,
-            args = ( -z[iz]+c*t, r[ir] ), limit=200 )[0]
+          er[iz, ir] = quad( kernel_Er, z[iz]-c*t, window_zmax-c*t,
+            args = ( z[iz]-c*t, r[ir] ), limit=200 )[0]
+
     return( er )
 
 # ---------------------------
@@ -97,7 +100,7 @@ def compare_wakefields(Ez_analytic, Er_analytic, grid):
 
     # Plot analytic Ez in 2D
     plt.subplot(321)
-    plt.imshow(Ez_analytic[:,::-1].T, extent = extent,
+    plt.imshow(Ez_analytic.T, extent=extent, origin='lower',
         aspect='auto', interpolation='nearest')
     plt.xlabel('z')
     plt.ylabel('r')
@@ -107,7 +110,7 @@ def compare_wakefields(Ez_analytic, Er_analytic, grid):
 
     # Plot analytic Er in 2D
     plt.subplot(322)
-    plt.imshow(Er_analytic[:,::-1].T, extent = extent,
+    plt.imshow(Er_analytic.T, extent=extent, origin='lower',
         aspect='auto', interpolation='nearest')
     plt.xlabel('z')
     plt.ylabel('r')
@@ -116,7 +119,7 @@ def compare_wakefields(Ez_analytic, Er_analytic, grid):
 
     # Plot simulated Ez in 2D
     plt.subplot(323)
-    plt.imshow(grid.Ez[:,::-1].real.T, extent = extent,
+    plt.imshow(grid.Ez.real.T, extent=extent, origin='lower',
         aspect='auto', interpolation='nearest')
     plt.xlabel('z')
     plt.ylabel('r')
@@ -129,7 +132,7 @@ def compare_wakefields(Ez_analytic, Er_analytic, grid):
 
     # Plot simulated Er in 2D
     plt.subplot(324)
-    plt.imshow(grid.Er[:,::-1].real.T, extent = extent,
+    plt.imshow(grid.Er.real.T, extent=extent, origin='lower',
         aspect='auto', interpolation='nearest')
     plt.xlabel('z')
     plt.ylabel('r')
@@ -171,11 +174,11 @@ def compare_fields(sim) :
 
         # Analytical solution
         print( 'Calculate analytical solution for Ez' )
-        ez = Ez(z-z.min(), r, 0.)
+        ez = Ez(z, r, sim.time)
         print( 'Done...\n' )
 
         print( 'Calculate analytical solution for Er' )
-        er = Er(z-z.min(), r, 0.)
+        er = Er(z, r, sim.time)
         print('Done...\n')
 
         compare_wakefields(ez, er, gathered_grid)
@@ -224,7 +227,7 @@ k0 = 2*np.pi/0.8e-6
 # Initialize the simulation object
 sim = Simulation( Nz, zmax, Nr, rmax, Nm, dt,
                   p_zmin, p_zmax, p_rmin, p_rmax, p_nz, p_nr, p_nt, n_e,
-                  use_cuda=use_cuda, boundaries='open' ) 
+                  use_cuda=use_cuda, boundaries='open' )
 
 # Add a laser to the fields of the simulation
 add_laser( sim, a0, w0, ctau, z0 )
