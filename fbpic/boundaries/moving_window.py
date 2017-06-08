@@ -93,7 +93,7 @@ class MovingWindow(object):
 
         # Attach moving window speed and period
         self.v = v
-        
+
         # Attach reference position of moving window (only for the first proc)
         # (Determines by how many cells the window should be moved)
         if comm.rank == 0:
@@ -171,7 +171,7 @@ class MovingWindow(object):
         # Because the grids have just been shifted, there is a shift
         # in the cell indices that are used for the prefix sum.
         if fld.use_cuda:
-            fld.prefix_sum_shift = n_move
+            fld.prefix_sum_shift += n_move
             # This quantity is reset to 0 whenever prefix_sum is recalculated
 
         # Prepare the positions of injection for the particles
@@ -182,10 +182,6 @@ class MovingWindow(object):
             self.z_inject += self.v * (time - self.t_last_move)
             # Take into account the motion of the end of the plasma
             self.z_end_plasma += self.v_end_plasma * (time - self.t_last_move)
-            # Find the number of particle cells to add
-            self.nz_inject = int( (self.z_inject - self.z_end_plasma)/dz )
-            # Increment the position of the end of the plasma
-            self.z_end_plasma += self.nz_inject*dz
 
         # Change the time of the last move
         self.t_last_move = time
@@ -219,6 +215,11 @@ class MovingWindow(object):
         # Shortcut for the number of integer quantities
         n_int = species.n_integer_quantities
         n_float = species.n_float_quantities
+
+        # Find the number of particle cells to add
+        self.nz_inject = int( (self.z_inject - self.z_end_plasma)/dz )
+        # Increment the position of the end of the plasma
+        self.z_end_plasma += self.nz_inject*dz
 
         # Create new particle cells
         if (self.nz_inject > 0) and (species.continuous_injection == True):
