@@ -6,7 +6,7 @@ This file defines the class BoostedParticleDiagnostic
 
 Major features:
 - The class reuses the existing methods of ParticleDiagnostic
-  as much as possible, through class inheritance
+  as much as possible through class inheritance
 - The class implements memory buffering of the slices, so as
   not to write to disk at every timestep
 """
@@ -164,9 +164,9 @@ class BoostedParticleDiagnostic(ParticleDiagnostic):
             #   is in the current local domain
             # - check if the output position *in the lab frame*
             #   is within the lab-frame boundaries of the current snapshot
-            if ( (snapshot.current_z_boost > zmin_boost) and \
+            if ( (snapshot.current_z_boost >= zmin_boost) and \
                  (snapshot.current_z_boost < zmax_boost) and \
-                 (snapshot.current_z_lab > snapshot.zmin_lab) and \
+                 (snapshot.current_z_lab >= snapshot.zmin_lab) and \
                  (snapshot.current_z_lab < snapshot.zmax_lab) ):
 
                 # Loop through the particle species and register the
@@ -384,14 +384,18 @@ class BoostedParticleDiagnostic(ParticleDiagnostic):
                             self.setup_openpmd_species_record(
                                 species_grp[particle_var], particle_var )
 
-                    elif particle_var == "weighting" :
-                        quantity = "w"
-                        quantity_path = "weighting"
+                    elif particle_var in ["weighting", "id", "charge"]:
+                        if particle_var == "weighting":
+                            quantity = "w"
+                        else:
+                            quantity = particle_var
+                        if quantity == "id":
+                            dtype = 'uint64'
+                        else:
+                            dtype = 'f8'
                         dset = species_grp.require_dataset(
-                            quantity_path, (0,),
-                            maxshape=(None,), dtype='f8')
-                        self.setup_openpmd_species_component(
-                            dset, quantity )
+                            particle_var, (0,), maxshape=(None,), dtype=dtype )
+                        self.setup_openpmd_species_component( dset, quantity )
                         self.setup_openpmd_species_record(
                             species_grp[particle_var], particle_var )
 
@@ -639,6 +643,9 @@ class ParticleCatcher:
             A dictionary that contains the particle data of
             the simulation (with normalized weigths).
         """
+        # Prepare array of integer data (id or charge)
+        integer_data = {}
+
         # CPU
         if species.use_cuda is False:
             # Create a dictionary containing the particle attributes
@@ -646,6 +653,11 @@ class ParticleCatcher:
                 'x' : species.x, 'y' : species.y, 'z' : species.z,
                 'ux' : species.ux, 'uy' : species.uy, 'uz' : species.uz,
                 'w' : species.w, 'inv_gamma' : species.inv_gamma }
+            # Optional integer quantities
+            if species.ionizer is not None:
+                integer_data['id'] = species.ionizer.ionization_level
+            if species.tracker is not None:
+                integer_data['charge'] = species.tracker.id
         # GPU
         else:
             # Check if particles are sorted, otherwise raise exception
@@ -673,18 +685,32 @@ class ParticleCatcher:
             N_area = pref_sum_prev - pref_sum_curr
             # Check if there are particles to extract
             if N_area > 0:
-                # Create empty GPU array for particles
-                particle_selection = cuda.device_array(
-                    (8, N_area), dtype=np.float64 )
                 # Call kernel that extracts particles from GPU
+                # - General particle quantities
                 dim_grid_1d, dim_block_1d = cuda_tpb_bpg_1d(N_area)
+                part_data = cuda.device_array(
+                    (8, N_area), dtype=np.float64 )
                 extract_particles_from_gpu[dim_grid_1d, dim_block_1d](
                      species.x, species.y, species.z,
                      species.ux, species.uy, species.uz,
                      species.w, species.inv_gamma,
-                     particle_selection, pref_sum_curr)
-                # Copy GPU array to the host
-                part_data = particle_selection.copy_to_host()
+                     part_data, pref_sum_curr)
+                # - Particle ID
+                if species.tracker is not None:
+                    integer_data['id'] = cuda.device_array(
+                                    (N_area,), dtype=np.uint64 )
+                    extract_integers_from_gpu[dim_grid_1d, dim_block_1d](
+                      species.tracker.id, species_data['id'] )
+                # - Ion charge
+                if species.ionizer is not None:
+                    integer_data['charge'] = cuda.device_array(
+                                    (N_area,), dtype=np.uint64 )
+                    extract_integers_from_gpu[dim_grid_1d, dim_block_1d](
+                      species.ionizer.ionization_level, species_data['charge'])
+                # Copy GPU arrays to the host
+                part_data = part_data.copy_to_host()
+                if species.ionizer is not None:
+
             else:
                 # Create an empty array if N_area is zero.
                 part_data = np.zeros((8,0), np.float64)
@@ -694,7 +720,7 @@ class ParticleCatcher:
                 'ux' : part_data[3], 'uy' : part_data[4], 'uz' : part_data[5],
                 'w' : part_data[6], 'inv_gamma' : part_data[7]}
 
-        return particle_data
+        return( particle_data,
 
     def get_particle_slice( self, particle_data, current_z_boost,
                              previous_z_boost ):
