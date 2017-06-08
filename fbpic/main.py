@@ -386,6 +386,10 @@ class Simulation(object):
             for ext_field in self.external_fields:
                 ext_field.apply_expression( self.ptcl, self.time )
 
+            # FIX ME: Need to sort the particles after the grid
+            # moved for the deposition of rho_prev
+            for species in ptcl:
+                species.sorted = False
             # Reproject the charge on the interpolation grid
             # (Since the moving window has moved or particles
             # have been removed / added to the simulation)
