@@ -39,8 +39,10 @@ class BoundaryCommunicator(object):
       in the guard cells (n_guard) and damp the E and B fields in the damping
       guard cells (n_damp)
 
+    - Every iteration, to move the grid in case of a moving window
+
     - Every exchange_period iterations, to exchange the particles
-      between MPI domains and (in the case of a moving window) shift the grid
+      between MPI domains / or add and remove particles
 
     - When the diagnostics are called, to gather the fields and particles
     """
@@ -74,7 +76,7 @@ class BoundaryCommunicator(object):
            The order of the stencil for the z derivatives.
            Use -1 for infinite order, otherwise use a positive, even
            number. In this case, the stencil extends up to approx.
-           n_order/2 cells on each side. (A finite order stencil
+           2*n_order cells on each side. (A finite order stencil
            is required to have a localized field push that allows
            to do simulations in parallel on multiple MPI ranks)
 
@@ -147,9 +149,13 @@ class BoundaryCommunicator(object):
                 print("Automatic n_guard not supported in this version, " \
 		            "n_guard will be set to n_order * 2 or " \
 		            "will be set to 0 if running in single proc mode.")
-                self.n_guard = n_order*2
+                # approx 2*n_order (+1 because the moving window
+                # shifts the grid by one cell during the PIC loop
+                # and therefore, the guard region needs to be larger
+                # by one cell)
+                self.n_guard = n_order*2 + 1
         else:
-            # Otherwise: set user defined guard region size
+            # Otherwise: Set user defined guard region size
             self.n_guard = n_guard
         # For single proc and periodic boundaries, no need for guard cells
         if boundaries=='periodic' and self.size==1:

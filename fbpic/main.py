@@ -151,8 +151,7 @@ class Simulation(object):
             damp the fields such that they do not wrap around.
             (Defaults to 30)
         exchange_period: int, optional
-            Number of iterations before which the particles are exchanged
-            and the window is moved (the two operations are simultaneous).
+            Number of iterations before which the particles are exchanged.
             If set to None, the minimum exchange period is calculated
             automatically: Within exchange_period timesteps, the
             particles should never be able to travel more than
@@ -220,18 +219,14 @@ class Simulation(object):
 
         # Initialize the period of the particle exchange and moving window
         if exchange_period is None:
-            # Calculate absolute value of the Galilean co-moving frame velocity
-            if v_comoving is not None:
-                v_co = abs(v_comoving)
-            else:
-                v_co = 0.
             # Maximum number of cells a particle can travel in one timestep
-            # (c+v_comoving)*dt / dz
-            cells_per_step = (c+v_co)*dt / ((zmax-zmin)/Nz)
+            # Safety factor of 2 needed if there is a moving window attached
+            # to the simulation or in case a galilean frame is used.
+            cells_per_step = 2*c*dt/((zmax-zmin)/Nz)
             # Maximum number of timesteps before a particle can reach the end
             # of the guard region including the maximum number of cells (+/-3)
             # it can affect with a "cubic" particle shape_factor.
-            self.exchange_period = int((self.comm.n_guard-3)/cells_per_step)
+            self.exchange_period = int( (self.comm.n_guard-3)/cells_per_step )
             # Set exchange_period to 1 in the case of single-proc
             # and periodic boundary conditions.
             if self.comm.size == 1 and boundaries == 'periodic':
@@ -240,9 +235,10 @@ class Simulation(object):
             # simulation parameters (check that guard region is large enough).
             if self.exchange_period < 1:
                 raise ValueError('Guard region size is too small for chosen \
-                    timestep. Within one timestep, a particle can travel more \
+                    timestep. In one timestep, a particle can travel more \
                     than n_guard region cells.')
         else:
+            # User-defined exchange_period. Choose carefully.
             self.exchange_period = exchange_period
 
         # Initialize the field structure
@@ -354,42 +350,29 @@ class Simulation(object):
             # Exchanges to prepare for this iteration
             # ---------------------------------------
 
-            # Exchange the fields (EB) in the guard cells between domains
+            # Move the grids if needed
+            if self.comm.moving_win is not None:
+                # Shift the fields and update positions
+                self.comm.move_grids(fld, self.dt, self.time)
+
+            # Exchange the fields (EB) in the guard cells between MPI domains
             self.comm.exchange_fields(fld.interp, 'EB')
 
-            # Check whether this iteration involves
-            # particle exchange / moving window
+            # Check whether this iteration involves particle exchange,
+            # defined by "exchange_period".
+            # Note: Particle exchange is imposed at the first iteration
+            # of this loop (i_step == 0) in order to make sure that
+            # all particles are inside the box initially
             if self.iteration % self.exchange_period == 0 or i_step == 0:
-
-                # Note: Particle exchange is imposed at the first iteration
-                # of this loop (i_step == 0) in order to make sure that:
-                # - All particles are inside the box initially
-                # - The quantity `rho_prev` is properly defined
-
-                # Move the grids if needed
-                if self.comm.moving_win is not None:
-                    # Damp the fields in the guard cells
-                    self.comm.damp_guard_EB( fld.interp )
-                    # Shift the fields, and prepare positions
-                    # between which new particles should be added
-                    self.comm.move_grids(fld, self.dt, self.time)
-                    # Exchange the E and B fields via MPI if needed
-                    # (Notice that the fields have not been damped since the
-                    # last exchange, so fields are correct in the guard cells)
-                    self.comm.exchange_fields(fld.interp, 'EB')
-
                 # Particle exchange after moving window / mpi communications
                 # This includes MPI exchange of particles, removal of
                 # out-of-box particles and (if there is a moving window)
                 # injection of new particles by the moving window.
                 # (In the case of single-proc periodic simulations, particles
-                # are shifted by one box length, so they remain inside the box.)
+                # are shifted by one box length, so they remain inside
+                # the box.)
                 for species in self.ptcl:
                     self.comm.exchange_particles(species, fld, self.time)
-
-                # Reproject the charge on the interpolation grid
-                # (Since particles have been added/suppressed)
-                self.deposit('rho_prev')
 
             # Standard PIC loop
             # -----------------
@@ -399,6 +382,11 @@ class Simulation(object):
             # Apply the external fields at t = n dt
             for ext_field in self.external_fields:
                 ext_field.apply_expression( self.ptcl, self.time )
+
+            # Reproject the charge on the interpolation grid
+            # (Since the moving window has moved or particles
+            # have been removed / added to the simulation)
+            self.deposit('rho_prev')
 
             # Ionize the particles at t = n dt
             # (if the species is not ionizable, `handle_ionization` skips it)

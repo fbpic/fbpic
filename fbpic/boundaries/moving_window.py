@@ -93,8 +93,7 @@ class MovingWindow(object):
 
         # Attach moving window speed and period
         self.v = v
-        self.exchange_period = exchange_period
-
+        
         # Attach reference position of moving window (only for the first proc)
         # (Determines by how many cells the window should be moved)
         if comm.rank == 0:
