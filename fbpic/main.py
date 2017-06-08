@@ -369,10 +369,13 @@ class Simulation(object):
                 # out-of-box particles and (if there is a moving window)
                 # injection of new particles by the moving window.
                 # (In the case of single-proc periodic simulations, particles
-                # are shifted by one box length, so they remain inside
-                # the box.)
+                # are shifted by one box length, so they remain inside the box.)
                 for species in self.ptcl:
                     self.comm.exchange_particles(species, fld, self.time)
+                # Set again the number of cells to be injected to 0
+                # (This number is incremented when `move_grids` is called)
+                if self.comm.moving_win is not None:
+                    self.comm.moving_win.nz_inject = 0
 
             # Standard PIC loop
             # -----------------

@@ -182,6 +182,14 @@ class MovingWindow(object):
             self.z_inject += self.v * (time - self.t_last_move)
             # Take into account the motion of the end of the plasma
             self.z_end_plasma += self.v_end_plasma * (time - self.t_last_move)
+            # Increment the number of particle cells to add
+            nz_new = int( (self.z_inject - self.z_end_plasma)/dz )
+            self.nz_inject += nz_new
+            # Increment the virtual position of the end of the plasma
+            # (When `generate_particles` is called, then the plasma
+            # is injected between z_end_plasma - nz_inject*dz and z_end_plasma,
+            # and afterwards nz_inject is set to 0.)
+            self.z_end_plasma += nz_new*dz
 
         # Change the time of the last move
         self.t_last_move = time
@@ -215,11 +223,6 @@ class MovingWindow(object):
         # Shortcut for the number of integer quantities
         n_int = species.n_integer_quantities
         n_float = species.n_float_quantities
-
-        # Find the number of particle cells to add
-        self.nz_inject = int( (self.z_inject - self.z_end_plasma)/dz )
-        # Increment the position of the end of the plasma
-        self.z_end_plasma += self.nz_inject*dz
 
         # Create new particle cells
         if (self.nz_inject > 0) and (species.continuous_injection == True):
