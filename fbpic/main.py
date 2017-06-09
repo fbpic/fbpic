@@ -222,7 +222,7 @@ class Simulation(object):
             # Maximum number of cells a particle can travel in one timestep
             # Safety factor of 2 needed if there is a moving window attached
             # to the simulation or in case a galilean frame is used.
-            cells_per_step = 2*c*dt/((zmax-zmin)/Nz)
+            cells_per_step = 2*c*dt/self.comm.dz
             # Maximum number of timesteps before a particle can reach the end
             # of the guard region including the maximum number of cells (+/-3)
             # it can affect with a "cubic" particle shape_factor.
