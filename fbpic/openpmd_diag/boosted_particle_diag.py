@@ -16,12 +16,10 @@ from scipy.constants import c
 from mpi4py.MPI import REAL8
 from .particle_diag import ParticleDiagnostic
 
-# If numbapro is installed, it potentially allows to use a GPU
-try :
-    from fbpic.cuda_utils import cuda, cuda_tpb_bpg_1d
-    cuda_installed = cuda.is_available()
-except ImportError:
-    cuda_installed = False
+# If cuda is installed, it potentially allows to use a GPU
+from numba import cuda
+if cuda.is_available():
+    from .cuda_methods import extract_particles_from_gpu
 
 class BoostedParticleDiagnostic(ParticleDiagnostic):
     """
@@ -639,13 +637,13 @@ class ParticleCatcher:
 
         Returns
         -------
-        particle_data : A dictionary of 1D float arrays
+        particle_data : A dictionary of 1D float arrays (that are on the CPU)
             A dictionary that contains the particle data of
             the simulation (with normalized weigths).
+        integer_data : A dictionary of 1D integer arrays (that are on the CPU
+            A dictionary that contains the optional particle data
+            (ionization level and particle id)
         """
-        # Prepare array of integer data (id or charge)
-        integer_data = {}
-
         # CPU
         if species.use_cuda is False:
             # Create a dictionary containing the particle attributes
@@ -654,6 +652,7 @@ class ParticleCatcher:
                 'ux' : species.ux, 'uy' : species.uy, 'uz' : species.uz,
                 'w' : species.w, 'inv_gamma' : species.inv_gamma }
             # Optional integer quantities
+            integer_data = {}
             if species.ionizer is not None:
                 integer_data['id'] = species.ionizer.ionization_level
             if species.tracker is not None:
@@ -677,50 +676,33 @@ class ParticleCatcher:
             cell_prev = int((previous_z_boost - zmin - 0.5*dz + dt*c)/dz)+1
             # Get the prefix sum values for calculation
             # of number of particles
-            pref_sum_curr = pref_sum.getitem(
-                np.fmax( cell_curr*Nr-1, 0 ) )
-            pref_sum_prev = pref_sum.getitem(
-                np.fmin( cell_prev*Nr-1, Nz*Nr-1) )
+            pref_sum_curr = pref_sum.getitem(np.fmax( cell_curr*Nr-1, 0 ))
+            pref_sum_prev = pref_sum.getitem(np.fmin( cell_prev*Nr-1, Nz*Nr-1))
             # Calculate number of particles in this area (N_area)
             N_area = pref_sum_prev - pref_sum_curr
             # Check if there are particles to extract
             if N_area > 0:
-                # Call kernel that extracts particles from GPU
-                # - General particle quantities
-                dim_grid_1d, dim_block_1d = cuda_tpb_bpg_1d(N_area)
-                part_data = cuda.device_array(
-                    (8, N_area), dtype=np.float64 )
-                extract_particles_from_gpu[dim_grid_1d, dim_block_1d](
-                     species.x, species.y, species.z,
-                     species.ux, species.uy, species.uz,
-                     species.w, species.inv_gamma,
-                     part_data, pref_sum_curr)
-                # - Particle ID
-                if species.tracker is not None:
-                    integer_data['id'] = cuda.device_array(
-                                    (N_area,), dtype=np.uint64 )
-                    extract_integers_from_gpu[dim_grid_1d, dim_block_1d](
-                      species.tracker.id, species_data['id'] )
-                # - Ion charge
-                if species.ionizer is not None:
-                    integer_data['charge'] = cuda.device_array(
-                                    (N_area,), dtype=np.uint64 )
-                    extract_integers_from_gpu[dim_grid_1d, dim_block_1d](
-                      species.ionizer.ionization_level, species_data['charge'])
-                # Copy GPU arrays to the host
-                part_data = part_data.copy_to_host()
-                if species.ionizer is not None:
-
+                # Only copy a particle slice of size N_area from the GPU
+                particle_data, integer_data = extract_particles_from_gpu(
+                    pref_sum_curr, N_area, species )
             else:
-                # Create an empty array if N_area is zero.
-                part_data = np.zeros((8,0), np.float64)
+                # Empty particle data
+                particle_data = {}
+                for var in ['x', 'y', 'z', 'ux', 'uy', 'uz', 'w', 'inv_gamma']:
+                    particle_data[var] = np.empty( (0,), dtype=np.float64 )
+                # Empty optional integer quantities
+                integer_data = {}
+                if species.ionizer is not None:
+                    integer_data['id'] = np.empty( (0,), dtype=np.uint64 )
+                if species.tracker is not None:
+                    integer_data['charge'] = np.empty( (0,), dtype=np.uint64 )
             # Create a dictionary containing the particle attributes
             particle_data = {
                 'x' : part_data[0], 'y' : part_data[1], 'z' : part_data[2],
                 'ux' : part_data[3], 'uy' : part_data[4], 'uz' : part_data[5],
                 'w' : part_data[6], 'inv_gamma' : part_data[7]}
 
-        return( particle_data,
+        return( particle_data, integer_data )
 
     def get_particle_slice( self, particle_data, current_z_boost,
                              previous_z_boost ):
@@ -918,42 +900,3 @@ class ParticleCatcher:
                     select[quantity][1], select_array )
 
         return select_array
-
-@cuda.jit
-def extract_particles_from_gpu( x, y, z, ux, uy, uz, w, inv_gamma,
-                                selected, part_idx_start ):
-    """
-    Extract a selection of particles from the GPU and
-    store them in a 2D array (8, N_part) in the following
-    order: x, y, z, ux, uy, uz, w, inv_gamma.
-    Selection goes from starting index (part_idx_start)
-    to (part_idx_start + N_part-1), where N_part is derived
-    from the shape of the 2D array (selected).
-
-    Parameters
-    ----------
-    x, y, z, ux, uy, uz, w, inv_gamma : 1D arrays of floats
-        The GPU particle arrays for a given species.
-
-    selected : 2D array of floats
-        An empty GPU array to store the particles
-        that are extracted.
-
-    part_idx_start : int
-        The starting index needed for the extraction process.
-        ( minimum particle index to be extracted )
-    """
-
-    i = cuda.grid(1)
-    N_part = selected.shape[1]
-
-    if i < N_part:
-        ptcl_idx = part_idx_start+i
-        selected[0, i] = x[ptcl_idx]
-        selected[1, i] = y[ptcl_idx]
-        selected[2, i] = z[ptcl_idx]
-        selected[3, i] = ux[ptcl_idx]
-        selected[4, i] = uy[ptcl_idx]
-        selected[5, i] = uz[ptcl_idx]
-        selected[6, i] = w[ptcl_idx]
-        selected[7, i] = inv_gamma[ptcl_idx]
