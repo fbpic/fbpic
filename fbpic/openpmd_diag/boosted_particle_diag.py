@@ -645,9 +645,9 @@ class ParticleCatcher:
                 'w' : species.w, 'inv_gamma' : species.inv_gamma }
             # Optional integer quantities
             if species.ionizer is not None:
-                particle_data['id'] = species.ionizer.ionization_level
+                particle_data['charge'] = species.ionizer.ionization_level
             if species.tracker is not None:
-                particle_data['charge'] = species.tracker.id
+                particle_data['id'] = species.tracker.id
         # GPU
         else:
             # Check if particles are sorted, otherwise raise exception
@@ -683,9 +683,9 @@ class ParticleCatcher:
                     particle_data[var] = np.empty( (0,), dtype=np.float64 )
                 # Empty optional integer quantities
                 if species.ionizer is not None:
-                    particle_data['id'] = np.empty( (0,), dtype=np.uint64 )
-                if species.tracker is not None:
                     particle_data['charge'] = np.empty( (0,), dtype=np.uint64 )
+                if species.tracker is not None:
+                    particle_data['id'] = np.empty( (0,), dtype=np.uint64 )
 
         return( particle_data )
 
