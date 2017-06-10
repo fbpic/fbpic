@@ -1,5 +1,18 @@
 # Change Log / Release Log for fbpic
 
+## 0.4.0
+
+This version incorporates ionization (ADK model). The implementation is 
+Lorentz-invariant and thus works in the boosted-frame. The implementation
+is also fully compatible with GPU, MPI, openPMD diagnostics (including
+boosted openPMD diagnostics), and tracking (e.g. of the produced electrons)
+
+In addition, several improvements were made to the code in general:
+- External bunches can now be loaded to the simulation from openPMD files, 
+or from numpy arrays.
+- Particle tracking is now compatible with the boosted openPMD diagnostics.
+- The laser can now be injected in the simulation with a temporal chirp.
+
 ## 0.3.0
 
 This version incorporates the 3rd order particle shapes, in addition to the
