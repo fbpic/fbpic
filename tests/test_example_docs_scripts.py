@@ -164,6 +164,16 @@ def test_boosted_frame_sim_twoproc():
     response = os.system( 'mpirun -np 2 python boosted_frame_script.py' )
     assert response==0
 
+    # Check that the particle ids are unique at each iterations
+    ts = OpenPMDTimeSeries('./lab_diags/hdf5')
+    print('Checking particle ids...')
+    start_time = time.time()
+    for iteration in ts.iterations:
+        pid, = ts.get_particle(["id"], iteration=iteration)
+        assert len(np.unique(pid)) == len(pid)
+    end_time = time.time()
+    print( "%.2f seconds" %(end_time-start_time))
+
     # Exit the temporary directory and suppress it
     os.chdir('../../')
     shutil.rmtree( temporary_dir )
