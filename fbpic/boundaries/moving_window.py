@@ -22,9 +22,9 @@ class MovingWindow(object):
     """
     Class that contains the moving window's variables and methods
     """
-    def __init__( self, interp, comm, exchange_period, dt,
-                  ptcl, v, p_nz, time, ux_m=0., uy_m=0., uz_m=0.,
-                  ux_th=0., uy_th=0., uz_th=0., gamma_boost=None ) :
+    def __init__( self, interp, comm, dt, ptcl, v, p_nz, time,
+                  ux_m=0., uy_m=0., uz_m=0., ux_th=0., uy_th=0., uz_th=0.,
+                  gamma_boost=None ) :
         """
         Initializes a moving window object.
 
@@ -36,11 +36,6 @@ class MovingWindow(object):
         comm: a BoundaryCommunicator object
             Contains information about the MPI decomposition
             and about the longitudinal boundaries
-
-        exchange_period: int
-            The number of timesteps, after which the moving window
-            is updated and the particles are removed and/or
-            exchanged between MPI domains.
 
         dt: float
             The timestep of the simulation.
@@ -106,7 +101,7 @@ class MovingWindow(object):
             ng = comm.n_guard
             nd = comm.n_damp
             self.z_inject = interp[0].zmax - (ng+nd)*interp[0].dz + \
-                exchange_period * (v-self.v_end_plasma) * dt
+                comm.exchange_period * (v-self.v_end_plasma) * dt
             # Try to detect the position of the end of the plasma:
             # Find the maximal position of the particles which are
             # continously injected.

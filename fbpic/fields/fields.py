@@ -10,6 +10,7 @@ from scipy.constants import c, mu_0, epsilon_0
 from .numba_methods import numba_push_eb_standard, numba_push_eb_comoving, \
     numba_correct_currents_standard, numba_correct_currents_comoving
 from .spectral_transform import SpectralTransformer, cuda_installed
+from .utility_methods import get_filter_array, get_modified_k
 
 # If cuda is installed for the spectral transformer, import
 # the rest of the cuda methods
