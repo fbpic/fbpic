@@ -137,6 +137,7 @@ diag_period = 50        # Period of the diagnostics in number of timesteps
 # Whether to write the fields in the lab frame
 Ntot_snapshot_lab = 20
 dt_snapshot_lab = (zmax-zmin)/c
+track_bunch = False  # Whether to tag and track the particles of the bunch
 
 # ---------------------------
 # Carrying out the simulation
@@ -156,6 +157,8 @@ if __name__ == '__main__':
     # Add an electron bunch
     add_elec_bunch( sim, bunch_gamma, bunch_n, bunch_zmin,
                 bunch_zmax, 0, bunch_rmax )
+    if track_bunch:
+        sim.ptcl[2].track( sim.comm )
 
     # Add a laser to the fields of the simulation
     add_laser( sim, a0, w0, ctau, z0, lambda0=lambda0,
