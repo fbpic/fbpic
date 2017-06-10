@@ -188,14 +188,17 @@ class BoostedParticleDiagnostic(ParticleDiagnostic):
             # over time into a single array
             for species_name in self.species_dict:
 
+                # Get list of quantities to be written to file
+                quantities_in_file = self.array_quantities_dict[species_name]
+
                 # Compact the slices in a single array (on each proc)
                 local_particle_dict = snapshot.compact_slices(species_name,
-                                    self.array_quantities_dict[species_name])
+                                    quantities_in_file )
 
                 # Gather the slices on the first proc
                 if self.comm is not None and self.comm.size > 1:
                     particle_dict = self.gather_particle_arrays(
-                                    local_particle_dict )
+                        local_particle_dict, quantities_in_file )
                 else:
                     particle_dict = local_particle_dict
 
@@ -214,8 +217,7 @@ class BoostedParticleDiagnostic(ParticleDiagnostic):
         Parameters:
         -----------
         local_dict: A dictionary of 1d arrays of shape (n_particles_local,)
-            A dictionary that contains the different particle quantities, on
-            one proc.
+            A dictionary that contains the quantities on one MPI rank.
         quantities_in_file: list of strings
             The quantities that will be written into the openPMD
             file, for this species.
@@ -263,30 +265,23 @@ class BoostedParticleDiagnostic(ParticleDiagnostic):
         species_grp = f[particle_path]
 
         # Loop over the different quantities that should be written
-        for particle_var in self.array_quantities_dict[species_name]:
+        for quantity in self.array_quantities_dict[species_name]:
 
-            if particle_var == "position":
-                for coord in ["x","y","z"]:
-                    quantity = coord
-                    path = "%s/%s" %(particle_var, quantity)
-                    data = particle_dict[ quantity ]
-                    self.write_particle_slices(species_grp, path, data,
-                        quantity)
+            if quantity in ["x","y","z"]:
+                path = "position/%s" %(quantity)
+                data = particle_dict[ quantity ]
+                self.write_particle_slices(species_grp, path, data, quantity)
 
-            elif particle_var == "momentum":
-                for coord in ["x","y","z"]:
-                    quantity= "u%s" %coord
-                    path = "%s/%s" %(particle_var,coord)
-                    data = particle_dict[ quantity ]
-                    self.write_particle_slices( species_grp, path, data,
-                        quantity)
+            elif quantity in ["ux","uy","uz"]:
+                path = "momentum/%s" %(quantity[-1])
+                data = particle_dict[ quantity ]
+                self.write_particle_slices( species_grp, path, data, quantity)
 
-            elif particle_var in ["weighting", "charge", "id"]:
-                path = particle_var
-                if particle_var == "weighting":
-                    quantity= "w"
+            elif quantity in ["w", "charge", "id"]:
+                if quantity == "w":
+                    path = "weighting"
                 else:
-                    quantity = particle_var
+                    path = quantity
                 data = particle_dict[ quantity ]
                 self.write_particle_slices(species_grp, path, data, quantity)
 
@@ -346,37 +341,27 @@ class BoostedParticleDiagnostic(ParticleDiagnostic):
 
                 # Loop over the different quantities that should be written
                 # and setup the corresponding datasets
-                for particle_var in self.array_quantities_dict[species_name]:
+                for quantity in self.array_quantities_dict[species_name]:
 
-                    if particle_var == "position" :
-                        for coord in ["x", "y", "z"] :
-                            quantity = coord
-                            quantity_path = "%s/%s" %(particle_var, coord)
-                            dset = species_grp.require_dataset(
+                    if quantity in ["x", "y", "z"]:
+                        quantity_path = "position/%s" %(quantity)
+                        dset = species_grp.require_dataset(
                                 quantity_path, (0,),
                                 maxshape=(None,), dtype='f8')
-                            self.setup_openpmd_species_component(
-                                dset, quantity )
-                            self.setup_openpmd_species_record(
-                                species_grp[particle_var], particle_var )
+                        self.setup_openpmd_species_component( dset, quantity )
 
-                    elif particle_var == "momentum" :
-                        for coord in ["x", "y", "z"] :
-                            quantity = "u%s" %(coord)
-                            quantity_path = "%s/%s" %(particle_var, coord)
-                            dset = species_grp.require_dataset(
+                    elif quantity in ["ux", "uy", "uz"]:
+                        quantity_path = "momentum/%s" %(quantity[-1])
+                        dset = species_grp.require_dataset(
                                 quantity_path, (0,),
                                 maxshape=(None,), dtype='f8')
-                            self.setup_openpmd_species_component(
-                                dset, quantity )
-                            self.setup_openpmd_species_record(
-                                species_grp[particle_var], particle_var )
+                        self.setup_openpmd_species_component( dset, quantity )
 
-                    elif particle_var in ["weighting", "id", "charge"]:
-                        if particle_var == "weighting":
-                            quantity = "w"
+                    elif quantity in ["w", "id", "charge"]:
+                        if quantity == "w":
+                            particle_var = "weighting"
                         else:
-                            quantity = particle_var
+                            particle_var = quantity
                         if quantity == "id":
                             dtype = 'uint64'
                         else:
@@ -390,6 +375,15 @@ class BoostedParticleDiagnostic(ParticleDiagnostic):
                     else :
                         raise ValueError("Invalid string in %s of species"
                                              %(particle_var))
+
+                # Setup the hdf5 groups for "position" and "momentum"
+                if self.rank == 0:
+                    if "x" in self.array_quantities_dict[species_name]:
+                        self.setup_openpmd_species_record(
+                            species_grp["position"], "position" )
+                    if "ux" in self.array_quantities_dict[species_name]:
+                        self.setup_openpmd_species_record(
+                            species_grp["momentum"], "momentum" )
 
             # Close the file
             f.close()
