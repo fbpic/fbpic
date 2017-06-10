@@ -546,11 +546,6 @@ class ParticleCatcher:
         self.fld = fldobject
         self.dt = self.fld.dt
 
-        # Create a dictionary that contains the correspondance
-        # between the particles quantity and array index
-        self.particle_to_index = {'x':0, 'y':1, 'z':2,
-                                  'ux':3,'uy':4, 'uz':5, 'w':6}
-
     def extract_slice( self, species, current_z_boost, previous_z_boost,
                        t, select=None ):
         """
@@ -584,8 +579,8 @@ class ParticleCatcher:
         # When running on the GPU, this only copies to CPU the particles
         # within a small area around the output plane.
         # (Return the result in the form of a dictionary of 1darrays)
-        particle_data_dict = self.get_particle_data( species,
-                            current_z_boost, previous_z_boost, t )
+        particle_data_dict = self.get_particle_data(
+                species, current_z_boost, previous_z_boost, t )
 
         # Get the selection of particles (slice) that crossed the
         # output plane during the last iteration
@@ -595,8 +590,8 @@ class ParticleCatcher:
 
         # Backpropagate particles to correct output position and
         # transform particle attributes to the lab frame
-        # (Return the result in the form of a 2darray of shape (7, numpart))
-        slice_array = self.interpolate_particles_to_lab_frame(
+        # (Modifies the arrays of `slice_data_dict` in place.)
+        slice_data_dict = self.interpolate_particles_to_lab_frame(
             slice_data_dict, current_z_boost, t )
 
         # Choose the particles based on the select criteria defined by the
@@ -604,10 +599,9 @@ class ParticleCatcher:
         # one way to optimize it would be to do the selection before Lorentz
         # transformation back to the lab frame
         if (select is not None) and slice_array.size:
-            # Find the particles that should be selected
-            select_array = self.apply_selection(select, slice_array)
-            # Keep only those particles in slice_array
-            slice_array = slice_array[:, select_array]
+            # Find the particles that should be selected and resize
+            # the arrays in `slice_data_dict` accordingly
+            slice_data_dict = self.apply_selection(select, slice_data_dict)
 
         # Convert data to the OpenPMD standard
         slice_array = self.apply_opmd_standard( slice_array, species )
@@ -627,22 +621,18 @@ class ParticleCatcher:
         ----------
         species : A ParticleObject
             Contains the particle attributes to output
-
         current_z_boost, previous_z_boost : float (m)
             Current and previous position of the output plane
             in the boosted frame
-
         t : float (s)
             Current time of the simulation in the boosted frame
 
         Returns
         -------
-        particle_data : A dictionary of 1D float arrays (that are on the CPU)
+        particle_data : A dictionary of 1D float and integer arrays
             A dictionary that contains the particle data of
-            the simulation (with normalized weigths).
-        integer_data : A dictionary of 1D integer arrays (that are on the CPU
-            A dictionary that contains the optional particle data
-            (ionization level and particle id)
+            the simulation (with normalized weigths), including optional
+            integer arrays (e.g. "id", "charge")
         """
         # CPU
         if species.use_cuda is False:
@@ -652,11 +642,10 @@ class ParticleCatcher:
                 'ux' : species.ux, 'uy' : species.uy, 'uz' : species.uz,
                 'w' : species.w, 'inv_gamma' : species.inv_gamma }
             # Optional integer quantities
-            integer_data = {}
             if species.ionizer is not None:
-                integer_data['id'] = species.ionizer.ionization_level
+                particle_data['id'] = species.ionizer.ionization_level
             if species.tracker is not None:
-                integer_data['charge'] = species.tracker.id
+                particle_data['charge'] = species.tracker.id
         # GPU
         else:
             # Check if particles are sorted, otherwise raise exception
@@ -683,26 +672,20 @@ class ParticleCatcher:
             # Check if there are particles to extract
             if N_area > 0:
                 # Only copy a particle slice of size N_area from the GPU
-                particle_data, integer_data = extract_particles_from_gpu(
-                    pref_sum_curr, N_area, species )
+                particle_data = extract_particles_from_gpu(
+                                    pref_sum_curr, N_area, species )
             else:
                 # Empty particle data
                 particle_data = {}
                 for var in ['x', 'y', 'z', 'ux', 'uy', 'uz', 'w', 'inv_gamma']:
                     particle_data[var] = np.empty( (0,), dtype=np.float64 )
                 # Empty optional integer quantities
-                integer_data = {}
                 if species.ionizer is not None:
-                    integer_data['id'] = np.empty( (0,), dtype=np.uint64 )
+                    particle_data['id'] = np.empty( (0,), dtype=np.uint64 )
                 if species.tracker is not None:
-                    integer_data['charge'] = np.empty( (0,), dtype=np.uint64 )
-            # Create a dictionary containing the particle attributes
-            particle_data = {
-                'x' : part_data[0], 'y' : part_data[1], 'z' : part_data[2],
-                'ux' : part_data[3], 'uy' : part_data[4], 'uz' : part_data[5],
-                'w' : part_data[6], 'inv_gamma' : part_data[7]}
+                    particle_data['charge'] = np.empty( (0,), dtype=np.uint64 )
 
-        return( particle_data, integer_data )
+        return( particle_data )
 
     def get_particle_slice( self, particle_data, current_z_boost,
                              previous_z_boost ):
@@ -712,9 +695,10 @@ class ParticleCatcher:
 
         Parameters
         ----------
-        particle_data : dict
-            Dictionary with keys 'x', 'y', 'z', 'ux', 'uy', 'uz',
-            'inv_gamma', 'w', containing the particle data, as 1darrays
+        particle_data : dictionary of 1D float and integer arrays
+            A dictionary that contains the particle data of
+            the simulation (with normalized weigths), including optional
+            integer arrays (e.g. "id", "charge")
 
         current_z_boost, previous_z_boost : float (m)
             Current and previous position of the output plane
@@ -722,9 +706,9 @@ class ParticleCatcher:
 
         Returns
         -------
-        slice_data : dict
-            Dictionary with keys 'x', 'y', 'z', 'ux', 'uy', 'uz',
-            'inv_gamma', 'w', containing the particle data, as 1darrays
+        slice_data : dictionary of 1D float and integer arrays
+            Contains the same keys as particle_data, but with smaller
+            arrays which contain only the particles of the slice.
         """
         # Shortcut
         pd = particle_data
@@ -741,10 +725,10 @@ class ParticleCatcher:
         #   crosses the zboost in a forward motion
         # - check if the output position *in the boosted frame*
         #   crosses the zboost_prev in a backward motion
-        selected_indices = np.compress((((current_z >= current_z_boost) &
-            (previous_z <= previous_z_boost)) |
-            ((current_z <= current_z_boost) &
-            (previous_z >= previous_z_boost))), particle_indices)
+        selected_indices = np.compress((
+            ((current_z >= current_z_boost)&(previous_z <= previous_z_boost))|
+            ((current_z <= current_z_boost)&(previous_z >= previous_z_boost))),
+            particle_indices)
 
         # Create dictionary which contains only the selected particles
         slice_data = {}
@@ -758,13 +742,16 @@ class ParticleCatcher:
                                                     current_z_boost, t ):
         """
         Transform the particle quantities from the boosted frame to the
-        lab frame. These are classical Lorentz transformation equations
+        lab frame. These are classical Lorentz transformation equations.
+
+        `slice_data_dict` is modified in place.
 
         Parameters
         ----------
-        slice_data_dict : dictionary
-            Dictionary with keys 'x', 'y', 'z', 'ux', 'uy', 'uz',
-            'inv_gamma', 'w', containing the particle data, as 1darrays
+        slice_data_dict : dictionary of 1D float and integer arrays
+            A dictionary that contains the particle data of
+            the simulation (with normalized weigths), including optional
+            integer arrays (e.g. "id", "charge")
 
         current_z_boost : float (m)
             Current position of the output plane in the boosted frame
@@ -772,11 +759,12 @@ class ParticleCatcher:
         t : float (s)
             Current time of the simulation in the boosted frame
 
-        Returns
-        -------
-        slice_array : An array of reals of shape (7, numPart)
-            An array that packs together the slices of the different
-            particles: x, y, z, ux, uy, uz, w
+        Return
+        ------
+        slice_data_dict : dictionary of 1D float and integer arrays
+            A dictionary that contains the particle data of
+            the simulation (with normalized weigths), including optional
+            integer arrays (e.g. "id", "charge")
         """
         # Shortcuts for particle attributes
         x = slice_data_dict['x']
@@ -805,28 +793,18 @@ class ParticleCatcher:
 
         # Back-transformation of momentum
         gamma = 1./inv_gamma
-        uz_lab = self.gamma_boost*uz \
-            + gamma*(self.beta_boost*self.gamma_boost)
+        uz_lab = self.gamma_boost*uz + gamma*(self.beta_boost*self.gamma_boost)
 
-        # Create empty compact 2D slice array of shape (7, num_part)
-        # to store the final result
-        num_part = len(x)
-        slice_array = np.empty( (7, num_part), dtype=np.float64 )
+        # Replace the arrays that have been modified, in `slice_data_dict`
+        slice_data_dict['x'] = x
+        slice_data_dict['y'] = y
+        slice_data_dict['z'] = z_lab
+        slice_data_dict['uz'] = uz_lab
+        # Remove `inv_gamma`, since it is not needed anymore, now at the
+        # Lorentz transform has been performed.
+        slice_data_dict.pop('inv_gamma')
 
-        # Write the modified quantities to slice_array
-        p2i = self.particle_to_index
-        slice_array[p2i['x'],:] = x
-        slice_array[p2i['y'],:] = y
-        slice_array[p2i['z'],:] = z_lab
-        slice_array[p2i['ux'],:] = ux
-        slice_array[p2i['uy'],:] = uy
-        slice_array[p2i['uz'],:] = uz_lab
-        slice_array[p2i['w'],:] = slice_data_dict['w']
-        # Note: now that the back-transformation has been performed,
-        # the quantity inv_gamma is not need anymore. Therefore it is not
-        # stored in the returned slice_array.
-
-        return( slice_array )
+        return(slice_data_dict)
 
     def apply_opmd_standard( self, slice_array, species ):
         """
@@ -859,44 +837,50 @@ class ParticleCatcher:
 
         return slice_array
 
-    def apply_selection( self, select, slice_array ) :
+    def apply_selection( self, select, slice_data_dict ) :
         """
         Apply the rules of self.select to determine which
-        particles should be written
+        particles should be written. Modify the arrays of
+        `slice_data_dict` so that only the selected particles remain.
 
         Parameters
         ----------
         select : a dictionary that defines all selection rules based
         on the quantities
 
-        slice_array: 2d array of floats
-           An array of shape (7, num_part) which contains the particle slice
-           data, from which particle data is to be further selected
-           according to `select`
+        slice_data_dict : dictionary of 1D float and integer arrays
+            A dictionary that contains the particle data of
+            the simulation (with normalized weigths), including optional
+            integer arrays (e.g. "id", "charge")
 
         Returns
         -------
-        select_array: 1darray of bools
-            A 1darray of shape (num_part,) containing True for the particles
-            that satisfy all the rules of select.
+        slice_data_dict : dictionary of 1D float and integer arrays
+            A dictionary that contains the particle data of
+            the simulation (with normalized weigths), including optional
+            integer arrays (e.g. "id", "charge")
         """
-        p2i = self.particle_to_index
-
         # Initialize an array filled with True
-        select_array = np.ones( np.shape(slice_array)[1], dtype='bool' )
+        N_part_slice = len( slice_data_dict['w'] )
+        select_array = np.ones( N_part_slice, dtype='bool' )
 
         # Apply the rules successively
         # Go through the quantities on which a rule applies
         for quantity in select.keys() :
             # Lower bound
             if select[quantity][0] is not None :
-                select_array = np.logical_and(
-                    slice_array[p2i[quantity]] >\
-                     select[quantity][0], select_array )
+                select_array = np.logical_and( select_array,
+                    slice_data_dict[quantity] > select[quantity][0] )
             # Upper bound
             if select[quantity][1] is not None :
-                select_array = np.logical_and(
-                    slice_array[p2i[quantity]] <\
-                    select[quantity][1], select_array )
+                select_array = np.logical_and( select_array,
+                    slice_data_dict[quantity] < select[quantity][1] )
+        # At this point, `select_array` contains True
+        # wherever a particle should be kept
 
-        return select_array
+        # Loop through the keys of `select_array` and select only the
+        # particles that should be kept.
+        for quantity in slice_data_dict.keys():
+            slice_data_dict[quantity] = slice_data_dict[quantity][select_array]
+
+        return slice_data_dict

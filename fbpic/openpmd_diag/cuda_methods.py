@@ -27,10 +27,8 @@ def extract_slice_from_gpu( pref_sum_curr, N_area, species ):
     -------
     particle_data : A dictionary of 1D float arrays (that are on the CPU)
         A dictionary that contains the particle data of
-        the simulation (with normalized weigths).
-    integer_data : A dictionary of 1D integer arrays (that are on the CPU
-        A dictionary that contains the optional particle data
-        (ionization level and particle id)
+        the simulation (with normalized weigths), including optional
+        integer arrays (e.g. "id", "charge")
     """
     # Call kernel that extracts particles from GPU
     dim_grid_1d, dim_block_1d = cuda_tpb_bpg_1d(N_area)
@@ -40,32 +38,27 @@ def extract_slice_from_gpu( pref_sum_curr, N_area, species ):
          species.x, species.y, species.z, species.ux, species.uy, species.uz,
          species.w, species.inv_gamma, part_data )
     # - Optional integer particle arrays
-    integer_data = {}
     if species.tracker is not None:
-        integer_data['id'] = cuda.device_array( (N_area,), dtype=np.uint64 )
+        selected_particle_id = cuda.device_array( (N_area,), dtype=np.uint64 )
         extract_integers_from_gpu[dim_grid_1d, dim_block_1d](
-            pref_sum_curr, species.tracker.id, integer_data['id'] )
+            pref_sum_curr, species.tracker.id, selected_particle_id )
     if species.ionizer is not None:
-        integer_data['charge'] = cuda.device_array( (N_area,), dtype=np.uint64 )
+        selected_particle_charge = cuda.device_array( (N_area,), dtype=np.uint64 )
         extract_integers_from_gpu[dim_grid_1d, dim_block_1d]( pref_sum_curr,
-          species.ionizer.ionization_level, integer_data['charge'] )
+          species.ionizer.ionization_level, selected_particle_charge )
 
     # Copy GPU arrays to the host
     part_data = part_data.copy_to_host()
-    if species.ionizer is not None:
-        integer_data['charge'] = \
-            integer_data['charge'].copy_to_host()
-    if species.tracker is not None:
-        integer_data['id'] = \
-            integer_data['id'].copy_to_host()
-
-    # Return the data as dictionaries
     particle_data = { 'x':part_data[0], 'y':part_data[1], 'z':part_data[2],
         'ux':part_data[3], 'uy':part_data[4], 'uz':part_data[5],
         'w':part_data[6], 'inv_gamma':part_data[7] }
+    if species.tracker is not None:
+        particle_data['id'] = selected_particle_id.copy_to_host()
+    if species.ionizer is not None:
+        particle_data['charge'] = selected_particle_charge.copy_to_host()
 
-    return( particle_data, integer_data )
-
+    # Return the data as dictionary
+    return( particle_data )
 
 @cuda.jit()
 def extract_particles_from_gpu( part_idx_start, x, y, z, ux, uy, uz, w,
