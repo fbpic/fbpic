@@ -23,7 +23,7 @@ class PyTest(TestCommand):
 
     def run_tests(self):
         import pytest
-        errcode = pytest.main(['--ignore=tests/unautomated'])
+        errcode = pytest.main(['--ignore=tests/unautomated', '--durations=10'])
         sys.exit(errcode)
 
 setup(

@@ -152,26 +152,37 @@ def test_boosted_frame_sim_twoproc():
     os.mkdir( temporary_dir )
     shutil.copy('./docs/source/example_input/boosted_frame_script.py',
                     temporary_dir )
-
-    # Enter the temporary directory and run the script
+    # Enter the temporary directory
     os.chdir( temporary_dir )
 
     # Read the script and check that the targeted lines are present
     with open('boosted_frame_script.py') as f:
         script = f.read()
         # Check that the targeted lines are present
-        if script.find('n_order = -1') == -1:
+        if script.find('n_order = -1') == -1 \
+            or script.find('track_bunch = False') == -1 \
             raise RuntimeError('Did not find expected lines in \
                 boosted_frame_script.py')
 
     # Modify the script so as to enable finite order
-    script = script.replace('n_order = -1',
-                                'n_order = 16')
+    script = script.replace('n_order = -1', 'n_order = 16')
+    script = script.replace('track_bunch = False', 'track_bunch = True')
     with open('boosted_frame_script.py', 'w') as f:
         f.write(script)
+    
     # Launch the script from the OS
     response = os.system( 'mpirun -np 2 python boosted_frame_script.py' )
     assert response==0
+
+    # Check that the particle ids are unique at each iterations
+    ts = OpenPMDTimeSeries('./lab_diags/hdf5')
+    print('Checking particle ids...')
+    start_time = time.time()
+    for iteration in ts.iterations:
+        pid, = ts.get_particle(["id"], iteration=iteration)
+        assert len(np.unique(pid)) == len(pid)
+    end_time = time.time()
+    print( "%.2f seconds" %(end_time-start_time))
 
     # Exit the temporary directory and suppress it
     os.chdir('../../')

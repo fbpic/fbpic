@@ -75,16 +75,27 @@ class ParticleDiagnostic(OpenPMDDiagnostic) :
         self.constant_quantities_dict = {}
         for species_name in self.species_dict:
             species = self.species_dict[species_name]
-            self.array_quantities_dict[species_name] = particle_data[:]
+            # Get the list of quantities that are written as arrays
+            self.array_quantities_dict[species_name] = []
+            for quantity in particle_data:
+                if quantity == "position":
+                    self.array_quantities_dict[species_name] += ['x','y','z']
+                elif quantity == "momentum":
+                    self.array_quantities_dict[species_name] += ['ux','uy','uz']
+                elif quantity == "weighting":
+                    self.array_quantities_dict[species_name].append('w')
+                else:
+                    self.array_quantities_dict[species_name].append(quantity)
+            # For tracked particles, the id is automatically added
+            if species.tracker is not None:
+                self.array_quantities_dict[species_name] += ["id"]
+            # Get the list of quantities that are constant
             self.constant_quantities_dict[species_name] = ["mass"]
             # For ionizable particles, the charge must be treated as an array
             if species.ionizer is not None:
                 self.array_quantities_dict[species_name] += ["charge"]
             else:
                 self.constant_quantities_dict[species_name] += ["charge"]
-            # For tracked particles, the id is automatically added
-            if species.tracker is not None:
-                self.array_quantities_dict[species_name] += ["id"]
 
         # Extract the timestep from a given species
         random_species = list(self.species_dict.keys())[0]
@@ -268,44 +279,44 @@ class ParticleDiagnostic(OpenPMDDiagnostic) :
 
         particle_data: list of string
             The particle quantities that should be written
+            (e.g. 'x', 'uy', 'id', 'w')
         """
-        for particle_var in particle_data :
+        # Loop through the quantities and write them
+        for quantity in particle_data :
 
-            if particle_var == "position" :
-                for coord in ["x", "y", "z"] :
-                    quantity = coord
-                    quantity_path = "%s/%s" %(particle_var, coord)
-                    self.write_dataset( species_grp, species, quantity_path,
+            if quantity in ["x", "y", "z"]:
+                quantity_path = "position/%s" %(quantity)
+                self.write_dataset( species_grp, species, quantity_path,
                         quantity, n_rank, Ntot, select_array )
-                if self.rank == 0:
-                    self.setup_openpmd_species_record(
-                        species_grp[particle_var], particle_var )
 
-            elif particle_var == "momentum" :
-                for coord in ["x", "y", "z"] :
-                    quantity = "u%s" %(coord)
-                    quantity_path = "%s/%s" %(particle_var, coord)
-                    self.write_dataset( species_grp, species, quantity_path,
+            elif quantity in ["ux", "uy", "uz"]:
+                quantity_path = "momentum/%s" %(quantity[-1])
+                self.write_dataset( species_grp, species, quantity_path,
                         quantity, n_rank, Ntot, select_array )
-                if self.rank == 0:
-                    self.setup_openpmd_species_record(
-                        species_grp[particle_var], particle_var )
 
-            elif particle_var in ["weighting", "id", "charge"]:
-                quantity_path = particle_var
-                if particle_var == "weighting":
-                    quantity = "w"
+            elif quantity in ["w", "id", "charge"]:
+                if quantity == "w":
+                    quantity_path = "weighting"
                 else:
-                    quantity = particle_var
+                    quantity_path = quantity
                 self.write_dataset( species_grp, species, quantity_path,
                                     quantity, n_rank, Ntot, select_array )
                 if self.rank == 0:
                     self.setup_openpmd_species_record(
-                        species_grp[particle_var], particle_var )
+                        species_grp[quantity_path], quantity_path )
 
             else :
                 raise ValueError("Invalid string in %s of species"
-                    				 %(particle_var))
+                    				 %(quantity))
+
+        # Setup the hdf5 groups for the quantities "position" and "momentum"
+        if self.rank == 0:
+            if "x" in particle_data:
+                self.setup_openpmd_species_record(
+                    species_grp["position"], "position" )
+            if "ux" in particle_data:
+                self.setup_openpmd_species_record(
+                    species_grp["momentum"], "momentum" )
 
     def apply_selection( self, species ) :
         """
