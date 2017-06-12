@@ -4,3 +4,4 @@ numba
 h5py
 mpi4py
 pyfftw
+python-dateutil
