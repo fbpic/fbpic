@@ -160,7 +160,7 @@ def test_boosted_frame_sim_twoproc():
         script = f.read()
         # Check that the targeted lines are present
         if script.find('n_order = -1') == -1 \
-            or script.find('track_bunch = False') == -1 \
+            or script.find('track_bunch = False') == -1:
             raise RuntimeError('Did not find expected lines in \
                 boosted_frame_script.py')
 
