@@ -168,7 +168,8 @@ class BoostedParticleDiagnostic(ParticleDiagnostic):
 
                 # Loop through the particle species and register the
                 # data dictionaries in the snapshot objects (buffering)
-                for species_name, species in self.species_dict.items():
+                for species_name in self.species_names_list:
+                    species = self.species_dict[species_name]
                     # Extract the slice of particles
                     slice_data_dict = self.particle_catcher.extract_slice(
                         species, snapshot.current_z_boost,
@@ -186,7 +187,7 @@ class BoostedParticleDiagnostic(ParticleDiagnostic):
 
             # Compact the successive slices that have been buffered
             # over time into a single array
-            for species_name in self.species_dict:
+            for species_name in self.species_names_list:
 
                 # Get list of quantities to be written to file
                 quantities_in_file = self.array_quantities_dict[species_name]
@@ -332,7 +333,8 @@ class BoostedParticleDiagnostic(ParticleDiagnostic):
             # Setup the meshes group (contains all the particles)
             particle_path = "/data/%d/particles/" %iteration
 
-            for species_name, species in self.species_dict.items():
+            for species_name in self.species_names_list:
+                species = self.species_dict[species_name]
                 species_path = particle_path+"%s/" %(species_name)
                 # Create and setup the h5py.Group species_grp
                 species_grp = f.require_group( species_path )

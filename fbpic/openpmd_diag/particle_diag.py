@@ -69,11 +69,15 @@ class ParticleDiagnostic(OpenPMDDiagnostic) :
         # Register the arguments
         self.species_dict = species
         self.select = select
+        # Build an ordered list of species. (This is needed since the order
+        # of the keys is not well defined, so each MPI rank could go through
+        # the species in a different order, if species_dict.keys() is used.)
+        self.species_names_list = sorted( self.species_dict.keys() )
 
         # For each species, get the particle arrays to be written
         self.array_quantities_dict = {}
         self.constant_quantities_dict = {}
-        for species_name in self.species_dict:
+        for species_name in self.species_names_list:
             species = self.species_dict[species_name]
             # Get the list of quantities that are written as arrays
             self.array_quantities_dict[species_name] = []
@@ -98,7 +102,7 @@ class ParticleDiagnostic(OpenPMDDiagnostic) :
                 self.constant_quantities_dict[species_name] += ["charge"]
 
         # Extract the timestep from a given species
-        random_species = list(self.species_dict.keys())[0]
+        random_species = self.species_names_list[0]
         self.dt = self.species_dict[random_species].dt
 
     def setup_openpmd_species_group( self, grp, species, constant_quantities ) :
@@ -192,7 +196,8 @@ class ParticleDiagnostic(OpenPMDDiagnostic) :
              The current iteration number of the simulation.
         """
         # Receive data from the GPU if needed
-        for species in self.species_dict.values() :
+        for species_name in self.species_names_list:
+            species = self.species_dict[species_name]
             if species.use_cuda :
                 species.receive_particles_from_gpu()
 
@@ -207,7 +212,7 @@ class ParticleDiagnostic(OpenPMDDiagnostic) :
 
         # Loop over the different species and
         # particle quantities that should be written
-        for species_name in self.species_dict :
+        for species_name in self.species_names_list:
 
             # Check if the species exists
             species = self.species_dict[species_name]
@@ -251,7 +256,8 @@ class ParticleDiagnostic(OpenPMDDiagnostic) :
             f.close()
 
         # Send data to the GPU if needed
-        for species in self.species_dict.values() :
+        for species_name in self.species_names_list:
+            species = self.species_dict[species_name]
             if species.use_cuda :
                 species.send_particles_to_gpu()
 
