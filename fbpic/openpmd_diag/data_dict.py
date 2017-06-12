@@ -39,4 +39,4 @@ weighting_power_dict = {
     "position": 0.,
     "positionOffset": 0.,
     "momentum": 1.,
-    "id": 0 }
+    "id": 0. }
