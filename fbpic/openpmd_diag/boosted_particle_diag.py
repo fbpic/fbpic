@@ -642,12 +642,14 @@ class ParticleCatcher:
         if species.use_cuda is False:
             # Create a dictionary containing the particle attributes
             particle_data = {
-                'x' : species.x, 'y' : species.y, 'z' : species.z,
-                'ux' : species.ux, 'uy' : species.uy, 'uz' : species.uz,
-                'w' : species.w, 'inv_gamma' : species.inv_gamma }
+                'x': species.x, 'y': species.y, 'z': species.z,
+                'ux': species.ux, 'uy' : species.uy, 'uz': species.uz,
+                'w': species.w*(1./species.q), 'inv_gamma': species.inv_gamma }
             # Optional integer quantities
             if species.ionizer is not None:
                 particle_data['charge'] = species.ionizer.ionization_level
+                # Replace particle weight
+                particle_data['w'] = species.neutral_weight
             if species.tracker is not None:
                 particle_data['id'] = species.tracker.id
         # GPU
@@ -839,8 +841,6 @@ class ParticleCatcher:
         # Normalize momenta
         for quantity in ['ux', 'uy', 'uz']:
             slice_data_dict[quantity] *= species.m * c
-        # Normalize weights
-        slice_data_dict['w'] *= (1./species.q)
         # Convert ionizable level (integer) to charge in Coulombs (float)
         if 'charge' in slice_data_dict:
             slice_data_dict['charge'] = slice_data_dict['charge']*e
