@@ -758,7 +758,8 @@ class SpectralGrid(object) :
                 # With standard PSATD algorithm
                 cuda_correct_currents_standard[dim_grid, dim_block](
                     self.rho_prev, self.rho_next, self.Jp, self.Jm, self.Jz,
-                    self.kz, self.kr, self.inv_k2, inv_dt, self.Nz, self.Nr )
+                    self.d_kz, self.d_kr, self.d_inv_k2,
+                    inv_dt, self.Nz, self.Nr )
             else:
                 # With Galilean/comoving algorithm
                 cuda_correct_currents_comoving[dim_grid, dim_block](
