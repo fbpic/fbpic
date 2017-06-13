@@ -16,12 +16,10 @@ import numpy as np
 from scipy.constants import c
 from .field_diag import FieldDiagnostic
 
-# If accelerate is installed, it potentially allows to use a GPU
-try :
+# Check if CUDA is available, then import CUDA functions
+from fbpic.cuda_utils import cuda_installed
+if cuda_installed:
     from fbpic.cuda_utils import cuda, cuda_tpb_bpg_1d
-    cuda_installed = cuda.is_available()
-except ImportError:
-    cuda_installed = False
 
 class BoostedFieldDiagnostic(FieldDiagnostic):
     """

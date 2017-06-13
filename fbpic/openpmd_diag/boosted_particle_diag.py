@@ -15,9 +15,9 @@ import numpy as np
 from scipy.constants import c, e
 from .particle_diag import ParticleDiagnostic
 
-# If cuda is installed, it potentially allows to use a GPU
-from numba import cuda
-if cuda.is_available():
+# Check if CUDA is available, then import CUDA functions
+from fbpic.cuda_utils import cuda_installed
+if cuda_installed:
     from .cuda_methods import extract_particles_from_gpu
 
 class BoostedParticleDiagnostic(ParticleDiagnostic):
