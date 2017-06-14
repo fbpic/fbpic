@@ -34,14 +34,13 @@ from scipy.constants import c, e, m_e, physical_constants
 from scipy.special import gamma
 from .read_atomic_data import get_ionization_energies
 from .numba_methods import ionize_ions_numba, copy_ionized_electrons_numba
-try:
+# Check if CUDA is available, then import CUDA functions
+from fbpic.cuda_utils import cuda_installed
+if cuda_installed:
     from accelerate.cuda.rand import PRNG
     from fbpic.cuda_utils import cuda_tpb_bpg_1d
     from .cuda_methods import ionize_ions_cuda, \
         copy_ionized_electrons_cuda, copy_particle_data_cuda
-    cuda_installed = True
-except ImportError:
-    cuda_installed = False
 
 class Ionizer(object):
     """

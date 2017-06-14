@@ -10,21 +10,19 @@ This file steers and controls the simulation.
 # (This needs to be done before the other imports,
 # as it sets the cuda context)
 from mpi4py import MPI
-try:
-    from .cuda_utils import cuda, send_data_to_gpu, \
+# Check if CUDA is available, then import CUDA functions
+from .cuda_utils import cuda_installed
+if cuda_installed:
+    from .cuda_utils import send_data_to_gpu, \
                 receive_data_from_gpu, mpi_select_gpus
-    cuda_installed = cuda.is_available()
-    if cuda_installed:
-        mpi_select_gpus( MPI )
-except ImportError:
-    cuda_installed = False
+    mpi_select_gpus( MPI )
 
 # Import the rest of the requirements
 import sys, time
 from scipy.constants import m_e, m_p, e, c
 from .particles import Particles
 from .lpa_utils.boosted_frame import BoostConverter
-from .fields import Fields, cuda_installed
+from .fields import Fields
 from .boundaries import BoundaryCommunicator, MovingWindow
 
 class Simulation(object):

@@ -40,14 +40,12 @@ import numpy as np
 from scipy.special import jn, jn_zeros
 from scipy.optimize import fsolve
 
-# Try to import cuda and cublas
-try :
+# Check if CUDA is available, then import CUDA functions
+from fbpic.cuda_utils import cuda_installed
+if cuda_installed:
     from accelerate.cuda import blas as cublas
-    from fbpic.cuda_utils import cuda_tpb_bpg_2d
-    from .cuda_methods import cuda, cuda_copy_2d_to_2d
-    cuda_installed = True
-except ImportError :
-    cuda_installed = False
+    from fbpic.cuda_utils import cuda, cuda_tpb_bpg_2d
+    from .cuda_methods import cuda_copy_2d_to_2d
 
 # The list of available methods
 available_methods = [ 'QDHT', 'MDHT(m+1,m)', 'MDHT(m-1,m)', 'MDHT(m,m)']

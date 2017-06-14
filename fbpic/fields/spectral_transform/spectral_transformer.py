@@ -7,15 +7,13 @@ It defines the SpectralTransformer class, which handles conversion of
 the fields from the interpolation grid to the spectral grid and vice-versa.
 """
 from .hankel import DHT
-from .fourier import FFT, cuda_installed
+from .fourier import FFT
 
-# If the cuda FFT is installed, try importing all the other cuda methods.
+# Check if CUDA is available, then import CUDA functions
+from fbpic.cuda_utils import cuda_installed
 if cuda_installed:
-    try :
-        from fbpic.cuda_utils import cuda_tpb_bpg_2d
-        from .cuda_methods import cuda_rt_to_pm, cuda_pm_to_rt
-    except ImportError :
-        cuda_installed = False
+    from fbpic.cuda_utils import cuda_tpb_bpg_2d
+    from .cuda_methods import cuda_rt_to_pm, cuda_pm_to_rt
 
 class SpectralTransformer(object) :
     """

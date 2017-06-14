@@ -8,13 +8,12 @@ and is used in spectral_transformer.py
 """
 import numpy as np
 import pyfftw
-try :
+# Check if CUDA is available, then import CUDA functions
+from fbpic.cuda_utils import cuda_installed
+if cuda_installed:
     from accelerate.cuda import fft as cufft, blas as cublas
-    from fbpic.cuda_utils import cuda_tpb_bpg_2d
-    from .cuda_methods import cuda, cuda_copy_2d_to_1d, cuda_copy_1d_to_2d
-    cuda_installed = True
-except ImportError :
-    cuda_installed = False
+    from fbpic.cuda_utils import cuda, cuda_tpb_bpg_2d
+    from .cuda_methods import cuda_copy_2d_to_1d, cuda_copy_1d_to_2d
 
 class FFT(object):
     """
