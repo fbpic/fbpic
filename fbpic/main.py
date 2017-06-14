@@ -315,20 +315,8 @@ class Simulation(object):
             if show_progress and self.comm.rank==0:
                 progression_bar( i_step, N, measured_start )
 
-            # Run the diagnostics
-            for diag in self.diags:
-                # Check if the fields should be written at
-                # this iteration and do it if needed.
-                # (Send the data to the GPU if needed.)
-                diag.write( self.iteration )
-
             # Exchanges to prepare for this iteration
             # ---------------------------------------
-
-            # Move the grids if needed
-            if self.comm.moving_win is not None:
-                # Shift the fields and update positions
-                self.comm.move_grids(fld, self.dt, self.time)
 
             # Exchange the fields (EB) in the guard cells between MPI domains
             self.comm.exchange_fields(fld.interp, 'EB')
@@ -351,24 +339,23 @@ class Simulation(object):
                 # (This number is incremented when `move_grids` is called)
                 if self.comm.moving_win is not None:
                     self.comm.moving_win.nz_inject = 0
+                # Reproject the charge on the interpolation grid
+                # (Since the moving window has moved or particles
+                # have been removed / added to the simulation)
+                self.deposit('rho_prev')
+            else:
+                # If no particles have been removed or added to the simulation
+                # use the pushed and shifted (moving window) rho from last
+                # timestep as new rho_prev. Need to bring it from spectral
+                # space to spatial space.
+                fld.spect2interp('rho_prev')
 
-            # Standard PIC loop
-            # -----------------
             # Gather the fields from the grid at t = n dt
             for species in ptcl:
                 species.gather( fld.interp )
             # Apply the external fields at t = n dt
             for ext_field in self.external_fields:
                 ext_field.apply_expression( self.ptcl, self.time )
-
-            # FIX ME: Need to sort the particles after the grid
-            # moved for the deposition of rho_prev
-            for species in ptcl:
-                species.sorted = False
-            # Reproject the charge on the interpolation grid
-            # (Since the moving window has moved or particles
-            # have been removed / added to the simulation)
-            self.deposit('rho_prev')
 
             # Ionize the particles at t = n dt
             # (if the species is not ionizable, `handle_ionization` skips it)
@@ -392,6 +379,15 @@ class Simulation(object):
 
             # Get the current at t = (n+1/2) dt
             self.deposit('J')
+
+            # Run the diagnostics
+            # (E, B, rho are defined at time n)
+            # (J, x, p are defined at time n+1/2)
+            for diag in self.diags:
+                # Check if the fields should be written at
+                # this iteration and do it if needed.
+                # (Send the data to the GPU if needed.)
+                diag.write( self.iteration )
 
             # Push the particles' positions to t = (n+1) dt
             if move_positions:
@@ -419,6 +415,10 @@ class Simulation(object):
             fld.push( use_true_rho )
             if correct_divE:
                 fld.correct_divE()
+            # Move the grids if needed
+            if self.comm.moving_win is not None:
+                # Shift the fields is spectral space and update positions
+                self.comm.move_grids(fld, self.dt, self.time)
             # Get the fields E and B on the interpolation grid at t = (n+1) dt
             fld.spect2interp('E')
             fld.spect2interp('B')
