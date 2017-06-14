@@ -9,21 +9,18 @@ import numpy as np
 from scipy.constants import c, mu_0, epsilon_0
 from .numba_methods import numba_push_eb_standard, numba_push_eb_comoving, \
     numba_correct_currents_standard, numba_correct_currents_comoving
-from .spectral_transform import SpectralTransformer, cuda_installed
+from .spectral_transform import SpectralTransformer
 
-# If cuda is installed for the spectral transformer, import
-# the rest of the cuda methods
+# Check if CUDA is available, then import CUDA functions
+from fbpic.cuda_utils import cuda_installed
 if cuda_installed:
-    try:
-        from fbpic.cuda_utils import cuda_tpb_bpg_2d
-        from .cuda_methods import cuda, \
-        cuda_correct_currents_standard, cuda_correct_currents_comoving, \
-        cuda_divide_scalar_by_volume, cuda_divide_vector_by_volume, \
-        cuda_erase_scalar, cuda_erase_vector, \
-        cuda_filter_scalar, cuda_filter_vector, \
-        cuda_push_eb_standard, cuda_push_eb_comoving, cuda_push_rho
-    except ImportError:
-        cuda_installed = False
+    from fbpic.cuda_utils import cuda_tpb_bpg_2d
+    from .cuda_methods import cuda, \
+    cuda_correct_currents_standard, cuda_correct_currents_comoving, \
+    cuda_divide_scalar_by_volume, cuda_divide_vector_by_volume, \
+    cuda_erase_scalar, cuda_erase_vector, \
+    cuda_filter_scalar, cuda_filter_vector, \
+    cuda_push_eb_standard, cuda_push_eb_comoving, cuda_push_rho
 
 class Fields(object) :
     """

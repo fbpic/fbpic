@@ -6,16 +6,14 @@ This file is part of the Fourier-Bessel Particle-In-Cell code (FB-PIC)
 It defines the structure necessary to handle mpi buffers for the fields
 """
 import numpy as np
-try:
-    from fbpic.cuda_utils import cuda_tpb_bpg_2d, cuda
+# Check if CUDA is available, then import CUDA functions
+from fbpic.cuda_utils import cuda_installed
+if cuda_installed:
+    from fbpic.cuda_utils import cuda, cuda_tpb_bpg_2d
     from .cuda_methods import \
         copy_EB_to_gpu_buffers, copy_EB_from_gpu_buffers, \
         copy_J_to_gpu_buffers, add_J_from_gpu_buffers, \
         copy_rho_to_gpu_buffers, add_rho_from_gpu_buffers
-    cuda_installed = True
-except ImportError:
-    cuda_installed = False
-
 
 class BufferHandler(object):
     """
