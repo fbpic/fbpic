@@ -9,14 +9,10 @@ import numpy as np
 from scipy.constants import c
 from fbpic.particles import Particles
 from fbpic.lpa_utils.boosted_frame import BoostConverter
-try:
+# Check if CUDA is available, then import CUDA functions
+from fbpic.cuda_utils import cuda_installed
+if cuda_installed:
     from fbpic.cuda_utils import cuda, cuda_tpb_bpg_2d
-    if cuda.is_available():
-        cuda_installed = True
-    else:
-        cuda_installed = False
-except ImportError:
-    cuda_installed = False
 
 class MovingWindow(object):
     """

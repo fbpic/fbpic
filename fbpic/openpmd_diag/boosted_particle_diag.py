@@ -15,9 +15,9 @@ import numpy as np
 from scipy.constants import c, e
 from .particle_diag import ParticleDiagnostic
 
-# If cuda is installed, it potentially allows to use a GPU
-from numba import cuda
-if cuda.is_available():
+# Check if CUDA is available, then import CUDA functions
+from fbpic.cuda_utils import cuda_installed
+if cuda_installed:
     from .cuda_methods import extract_particles_from_gpu
 
 class BoostedParticleDiagnostic(ParticleDiagnostic):
@@ -168,7 +168,8 @@ class BoostedParticleDiagnostic(ParticleDiagnostic):
 
                 # Loop through the particle species and register the
                 # data dictionaries in the snapshot objects (buffering)
-                for species_name, species in self.species_dict.items():
+                for species_name in self.species_names_list:
+                    species = self.species_dict[species_name]
                     # Extract the slice of particles
                     slice_data_dict = self.particle_catcher.extract_slice(
                         species, snapshot.current_z_boost,
@@ -186,7 +187,7 @@ class BoostedParticleDiagnostic(ParticleDiagnostic):
 
             # Compact the successive slices that have been buffered
             # over time into a single array
-            for species_name in self.species_dict:
+            for species_name in self.species_names_list:
 
                 # Get list of quantities to be written to file
                 quantities_in_file = self.array_quantities_dict[species_name]
@@ -332,7 +333,8 @@ class BoostedParticleDiagnostic(ParticleDiagnostic):
             # Setup the meshes group (contains all the particles)
             particle_path = "/data/%d/particles/" %iteration
 
-            for species_name, species in self.species_dict.items():
+            for species_name in self.species_names_list:
+                species = self.species_dict[species_name]
                 species_path = particle_path+"%s/" %(species_name)
                 # Create and setup the h5py.Group species_grp
                 species_grp = f.require_group( species_path )
@@ -640,12 +642,14 @@ class ParticleCatcher:
         if species.use_cuda is False:
             # Create a dictionary containing the particle attributes
             particle_data = {
-                'x' : species.x, 'y' : species.y, 'z' : species.z,
-                'ux' : species.ux, 'uy' : species.uy, 'uz' : species.uz,
-                'w' : species.w, 'inv_gamma' : species.inv_gamma }
+                'x': species.x, 'y': species.y, 'z': species.z,
+                'ux': species.ux, 'uy' : species.uy, 'uz': species.uz,
+                'w': species.w*(1./species.q), 'inv_gamma': species.inv_gamma }
             # Optional integer quantities
             if species.ionizer is not None:
                 particle_data['charge'] = species.ionizer.ionization_level
+                # Replace particle weight
+                particle_data['w'] = species.neutral_weight
             if species.tracker is not None:
                 particle_data['id'] = species.tracker.id
         # GPU
@@ -837,8 +841,6 @@ class ParticleCatcher:
         # Normalize momenta
         for quantity in ['ux', 'uy', 'uz']:
             slice_data_dict[quantity] *= species.m * c
-        # Normalize weights
-        slice_data_dict['w'] *= (1./species.q)
         # Convert ionizable level (integer) to charge in Coulombs (float)
         if 'charge' in slice_data_dict:
             slice_data_dict['charge'] = slice_data_dict['charge']*e

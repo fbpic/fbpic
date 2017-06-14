@@ -1,8 +1,10 @@
 # Copyright 2016, FBPIC contributors
 # Authors: Remi Lehe, Manuel Kirchen
 # License: 3-Clause-BSD-LBNL
-from numba import cuda, vectorize, float64
+from numba import vectorize, float64
 import numpy as np
+# Check if CUDA is available, then import CUDA functions
+from fbpic.cuda_utils import cuda_installed
 
 class ExternalField( object ):
 
@@ -80,7 +82,7 @@ class ExternalField( object ):
                                float64, float64, float64, float64 ) ]
         cpu_compiler = vectorize( signature, target='cpu', nopython=True )
         self.cpu_func = cpu_compiler( field_func )
-        if cuda.is_available():
+        if cuda_installed:
             gpu_compiler = vectorize( signature, target='cuda' )
             self.gpu_func = gpu_compiler( field_func )
 

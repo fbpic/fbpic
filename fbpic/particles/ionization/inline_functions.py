@@ -6,11 +6,10 @@ used in the ionization code.
 import math
 import numba
 from scipy.constants import e
-try:
-    from numba import cuda
-    cuda_installed = cuda.is_available()
-except ImportError:
-    cuda_installed = False
+# Check if CUDA is available, then import CUDA functions
+from fbpic.cuda_utils import cuda_installed
+if cuda_installed:
+    from fbpic.cuda_utils import cuda
 
 # ----------------------------
 # Function for field amplitude

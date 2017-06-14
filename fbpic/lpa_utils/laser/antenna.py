@@ -13,12 +13,10 @@ from .profiles import gaussian_profile
 from fbpic.particles.utility_methods import weights
 from fbpic.particles.numba_methods import deposit_field_numba
 
-try:
-    from numba import cuda
-    from fbpic.cuda_utils import cuda_tpb_bpg_1d
-    cuda_installed = cuda.is_available()
-except ImportError:
-    cuda_installed = False
+# Check if CUDA is available, then import CUDA functions
+from fbpic.cuda_utils import cuda_installed
+if cuda_installed:
+    from fbpic.cuda_utils import cuda, cuda_tpb_bpg_1d
 
 class LaserAntenna( object ):
     """
