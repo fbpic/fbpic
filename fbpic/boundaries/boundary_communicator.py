@@ -14,12 +14,11 @@ from fbpic.particles.particles import Particles
 from .field_buffer_handling import BufferHandler
 from .particle_buffer_handling import remove_outside_particles, \
      add_buffers_to_particles, shift_particles_periodic_subdomain
-try:
-    from fbpic.cuda_utils import cuda_tpb_bpg_2d, cuda
+# Check if CUDA is available, then import CUDA functions
+from fbpic.cuda_utils import cuda_installed
+if cuda_installed:
+    from fbpic.cuda_utils import cuda, cuda_tpb_bpg_2d
     from .cuda_methods import cuda_damp_EB_left, cuda_damp_EB_right
-    cuda_installed = True
-except ImportError:
-    cuda_installed = False
 
 # Dictionary of correspondance between numpy types and mpi types
 # (Necessary when calling Gatherv)
