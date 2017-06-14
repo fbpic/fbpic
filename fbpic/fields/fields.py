@@ -686,6 +686,10 @@ class SpectralGrid(object) :
                                    1., self.kz**2 + self.kr**2 )
         self.inv_k2[ ( self.kz == 0 ) & (self.kr == 0) ] = 0.
 
+        # Register shift factor used for shifting the fields
+        # in the spectral domain when using a moving window
+        self.field_shift = np.exp(-i*kz_true*dz)
+
         # Check whether to use the GPU
         self.use_cuda = use_cuda
 
@@ -695,6 +699,7 @@ class SpectralGrid(object) :
             self.d_inv_k2 = cuda.to_device( self.inv_k2 )
             self.d_kz = cuda.to_device( self.kz )
             self.d_kr = cuda.to_device( self.kr )
+            self.d_field_shift = cuda.to_device( self.field_shift )
             # NB: F is not needed on the GPU (on-the-fly variables)
 
     def send_fields_to_gpu( self ):
