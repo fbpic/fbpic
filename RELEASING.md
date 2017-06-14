@@ -13,7 +13,8 @@ PyPI and conda. In particular:
 [`pypandoc`](https://pypi.python.org/pypi/pypandoc/),
 [`twine`](https://pypi.python.org/pypi/twine))
 - you should have a registered account on [PyPI](https://pypi.python.org/pypi) and [test PyPI](https://testpypi.python.org/pypi), and your `$HOME` should contain a file `.pypirc` which contains the following text:
-  ```
+
+```
 [distutils]
 index-servers=
 	pypitest
@@ -27,6 +28,7 @@ username = <yourPypiUsername>
 repository = https://pypi.python.org/pypi
 username = <yourPypiUsername>
 ```
+
 - you should have a registered account on [Anaconda.org](https://anaconda.org/)
 
 ## Creating a release on Github
@@ -37,6 +39,7 @@ username = <yourPypiUsername>
 
 - If everything works fine, then merge the `dev` version into `master`
 and upload it to Github:
+
 ```
 git checkout master
 git merge dev
@@ -48,11 +51,13 @@ git push
 ## Uploading the package to PyPI
 
 - Upload the package to [PyPI](https://pypi.python.org/pypi):
+
 ```
 rm -rf dist
 python setup.py sdist bdist_wheel
 twine upload dist/* -r pypi
 ```
+
 (NB: You can also first test this by uploading the package to
 [test PyPI](https://testpypi.python.org/pypi) ; to do so, simply
 replace `pypi` by `pypitest` in the above set of commands)

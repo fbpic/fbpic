@@ -15,7 +15,8 @@ for relativistic plasma physics.
 It is especially well-suited for physical simulations of
 **laser-wakefield acceleration** and **plasma-wakefield acceleration**, with close-to-cylindrical symmetry.
 
-**Algorithm:**  
+### Algorithm
+
 The distinctive feature of FBPIC is to use
 a **spectral decomposition in
 cylindrical geometry** (Fourier-Bessel
@@ -25,8 +26,8 @@ those of **finite-difference cylindrical** PIC codes
 For more details on the algorithm, its advantages and limitations, see
 the [documentation](http://fbpic.github.io).
 
+### Language and harware
 
-**Language and harware:**  
 FBPIC is written entirely in Python, but uses
 [Numba](http://numba.pydata.org/) Just-In-Time compiler for high
 performance. In addition, the code was designed to be run
