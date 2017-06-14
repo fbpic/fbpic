@@ -6,11 +6,10 @@ This file is part of the Fourier-Bessel Particle-In-Cell code (FB-PIC)
 It defines the structure that damps the fields in the guard cells.
 """
 import numpy as np
-try:
-    from fbpic.cuda_utils import cuda_tpb_bpg_2d, cuda
-    cuda_installed = cuda.is_available()
-except ImportError:
-    cuda_installed = False
+# Check if CUDA is available, then import CUDA functions
+from fbpic.cuda_utils import cuda_installed
+if cuda_installed:
+    from fbpic.cuda_utils import cuda, cuda_tpb_bpg_2d
 
 class GuardCellDamper(object):
     """
@@ -118,7 +117,7 @@ def generate_damp_array( n_guard, n_order, neighbor_proc, exchange_period ):
         If the stencil fits into the guard cells, no damping is performed,
         between two processors. (Damping is still performed in the guard
         cells that correspond to open boundaries)
-        
+
     neighbor_proc: int or None
         Indicate wether the present guard cells correspond to an open
         boundary (neighbor_proc = None) or a boundary with another

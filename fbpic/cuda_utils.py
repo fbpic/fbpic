@@ -7,6 +7,12 @@ It defines a set of generic functions that operate on a GPU.
 """
 from numba import cuda
 
+# Check if CUDA is available and set variable accordingly
+try:
+    cuda_installed = cuda.is_available()
+except Exception:
+    cuda_installed = False
+
 # -----------------------------------------------------
 # CUDA grid utilities
 # -----------------------------------------------------

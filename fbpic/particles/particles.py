@@ -16,8 +16,9 @@ from .utility_methods import weights, unalign_angles
 from .numba_methods import push_p_numba, push_p_ioniz_numba, push_x_numba, \
         gather_field_numba, deposit_field_numba
 
-# If accelerate is installed, it potentially allows to use a GPU
-try :
+# Check if CUDA is available, then import CUDA functions
+from fbpic.cuda_utils import cuda_installed
+if cuda_installed:
     from fbpic.cuda_utils import cuda, cuda_tpb_bpg_1d, cuda_tpb_bpg_2d
     from .cuda_methods import push_p_gpu, push_p_ioniz_gpu, push_x_gpu, \
         gather_field_gpu_linear, gather_field_gpu_cubic, \
@@ -30,10 +31,6 @@ try :
         deposit_J_gpu_linear
     from .cuda_deposition.linear_non_atomic import deposit_rho_gpu, \
         deposit_J_gpu, add_rho, add_J
-    cuda_installed = True
-except ImportError:
-    cuda_installed = False
-
 
 class Particles(object) :
     """

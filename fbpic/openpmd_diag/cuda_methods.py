@@ -8,7 +8,6 @@ diagnostics
 import numpy as np
 from fbpic.cuda_utils import cuda, cuda_tpb_bpg_1d
 
-@cuda.jit()
 def extract_slice_from_gpu( pref_sum_curr, N_area, species ):
     """
     Extract the particles which have which have index between pref_sum_curr
@@ -37,25 +36,30 @@ def extract_slice_from_gpu( pref_sum_curr, N_area, species ):
     extract_particles_from_gpu[dim_grid_1d, dim_block_1d]( pref_sum_curr,
          species.x, species.y, species.z, species.ux, species.uy, species.uz,
          species.w, species.inv_gamma, part_data )
-    # - Optional integer particle arrays
+    # - Optional particle arrays
     if species.tracker is not None:
         selected_particle_id = cuda.device_array( (N_area,), dtype=np.uint64 )
-        extract_integers_from_gpu[dim_grid_1d, dim_block_1d](
+        extract_array_from_gpu[dim_grid_1d, dim_block_1d](
             pref_sum_curr, species.tracker.id, selected_particle_id )
     if species.ionizer is not None:
         selected_particle_charge = cuda.device_array( (N_area,), dtype=np.uint64 )
-        extract_integers_from_gpu[dim_grid_1d, dim_block_1d]( pref_sum_curr,
+        extract_array_from_gpu[dim_grid_1d, dim_block_1d]( pref_sum_curr,
           species.ionizer.ionization_level, selected_particle_charge )
+        selected_particle_weight = cuda.device_array( (N_area,), dtype=np.float64 )
+        extract_array_from_gpu[dim_grid_1d, dim_block_1d]( pref_sum_curr,
+          species.ionizer.neutral_weight, selected_particle_weight )
 
     # Copy GPU arrays to the host
     part_data = part_data.copy_to_host()
     particle_data = { 'x':part_data[0], 'y':part_data[1], 'z':part_data[2],
         'ux':part_data[3], 'uy':part_data[4], 'uz':part_data[5],
-        'w':part_data[6], 'inv_gamma':part_data[7] }
+        'w':part_data[6]*(1./species.q), 'inv_gamma':part_data[7] }
     if species.tracker is not None:
         particle_data['id'] = selected_particle_id.copy_to_host()
     if species.ionizer is not None:
         particle_data['charge'] = selected_particle_charge.copy_to_host()
+        # Replace particle weight
+        particle_data['w'] = selected_particle_weight.copy_to_host()
 
     # Return the data as dictionary
     return( particle_data )
@@ -98,7 +102,8 @@ def extract_particles_from_gpu( part_idx_start, x, y, z, ux, uy, uz, w,
         selected[6, i] = w[ptcl_idx]
         selected[7, i] = inv_gamma[ptcl_idx]
 
-def extract_integers_from_gpu( part_idx_start, integer_array, selected ):
+@cuda.jit()
+def extract_array_from_gpu( part_idx_start, array, selected ):
     """
     Extract a selection of particles from the GPU and
     store them in a 1D array (N_part,)
@@ -112,14 +117,14 @@ def extract_integers_from_gpu( part_idx_start, integer_array, selected ):
         The starting index needed for the extraction process.
         ( minimum particle index to be extracted )
 
-    integer_array : 1D arrays of ints
+    array : 1D arrays of ints or floats
         The GPU particle arrays for a given species. (e.g. particle id)
 
-    selected : 1D array of ints
+    selected : 1D array of ints or floats
         An empty GPU array to store the particles that are extracted.
     """
     i = cuda.grid(1)
     N_part = selected.shape[1]
 
     if i < N_part:
-        selected[i] = integer_array[part_idx_start+i]
+        selected[i] = array[part_idx_start+i]
