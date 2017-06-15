@@ -10,6 +10,7 @@ from scipy.constants import c, mu_0, epsilon_0
 from .numba_methods import numba_push_eb_standard, numba_push_eb_comoving, \
     numba_correct_currents_standard, numba_correct_currents_comoving
 from .spectral_transform import SpectralTransformer
+from .utility_methods import get_filter_array, get_modified_k
 
 # Check if CUDA is available, then import CUDA functions
 from fbpic.cuda_utils import cuda_installed
@@ -1147,101 +1148,3 @@ class PsatdCoeffs(object) :
                 self.d_T_cc = cuda.to_device(self.T_cc)
                 self.d_T_rho = cuda.to_device(self.T_rho)
                 self.d_j_corr_coef = cuda.to_device(self.j_corr_coef)
-
-# -----------------
-# Utility function
-# -----------------
-
-def get_filter_array( kz, kr, dz, dr ) :
-    """
-    Return the array that multiplies the fields in k space
-
-    The filtering function is 1-sin( k/kmax * pi/2 )**2.
-    (equivalent to a one-pass binomial filter in real space,
-    for the longitudinal direction)
-
-    Parameters
-    ----------
-    kz: 1darray
-        The true wavevectors of the longitudinal, spectral grid
-        (i.e. not the kz modified by finite order)
-
-    kr: 1darray
-        The transverse wavevectors on the spectral grid
-
-    dz, dr: float
-        The grid spacings (needed to calculate
-        precisely the filtering function in spectral space)
-
-    Returns
-    -------
-    A 2darray of shape ( len(kz), len(kr) )
-    """
-    # Find the 1D filter in z
-    filt_z = 1. - np.sin( 0.5 * kz * dz )**2
-
-    # Find the 1D filter in r
-    filt_r = 1. - np.sin( 0.5 * kr * dr )**2
-
-    # Build the 2D filter by takin the product
-    filter_array = filt_z[:, np.newaxis] * filt_r[np.newaxis, :]
-
-    return( filter_array )
-
-
-def get_modified_k(k, n_order, dz):
-    """
-    Calculate the modified k that corresponds to a finite-order stencil
-
-    The modified k are given by the formula
-    $$ [k] = \sum_{n=1}^{m} a_n \,\frac{\sin(nk\Delta z)}{n\Delta z}$$
-    with
-    $$a_{n} = - \left(\frac{m+1-n}{m+n}\right) a_{n-1}$$
-
-    Parameter:
-    ----------
-    k: 1darray
-       Values of the real k at which to calculate the modified k
-
-    n_order: int
-       The order of the stencil
-           Use -1 for infinite order
-           Otherwise use a positive, even number. In this case
-           the stencil extends up to n_order/2 cells on each side.
-
-    dz: double
-       The spacing of the grid in z
-
-    Returns:
-    --------
-    A 1d array of the same length as k, which contains the modified ks
-    """
-    # Check the order
-    # - For n_order = -1, do not go through the function.
-    if n_order==-1:
-        return( k )
-    # - Else do additional checks
-    elif n_order%2==1 or n_order<=0 :
-        raise ValueError('Invalid n_order: %d' %n_order)
-    else:
-        m = int(n_order/2)
-
-    # Calculate the stencil coefficients a_n by recurrence
-    # (See definition of the a_n in the docstring)
-    # $$ a_{n} = - \left(\frac{m+1-n}{m+n}\right) a_{n-1} $$
-    stencil_coef = np.zeros(m+1)
-    stencil_coef[0] = -2.
-    for n in range(1,m+1):
-        stencil_coef[n] = - (m+1-n)*1./(m+n) * stencil_coef[n-1]
-
-    # Array of values for n: from 1 to m
-    n_array = np.arange(1,m+1)
-    # Array of values of sin:
-    # first axis corresponds to k and second axis to n (from 1 to m)
-    sin_array = np.sin( k[:,np.newaxis] * n_array[np.newaxis,:] * dz ) / \
-                ( n_array[np.newaxis,:] * dz )
-
-    # Modified k
-    k_array = np.tensordot( sin_array, stencil_coef[1:], axes=(-1,-1))
-
-    return( k_array )

@@ -150,10 +150,11 @@ class Simulation(object):
             (Defaults to 30)
         exchange_period: int, optional
             Number of iterations before which the particles are exchanged.
-            If set to None, the minimum exchange period is calculated
+            If set to None, the maximum exchange period is calculated
             automatically: Within exchange_period timesteps, the
             particles should never be able to travel more than
-            (n_guard - particle_shape order) cells.
+            (n_guard - particle_shape order) cells. (Setting exchange_period
+            to small values can substantially affect the performance)
 
         boundaries: string, optional
             Indicates how to exchange the fields at the left and right
@@ -208,36 +209,13 @@ class Simulation(object):
             uz_m, = boost.longitudinal_momentum([ uz_m ])
 
         # Initialize the boundary communicator
-        self.comm = BoundaryCommunicator(Nz, Nr, n_guard, Nm,
-            boundaries, n_order, n_damp, use_all_mpi_ranks )
+        self.comm = BoundaryCommunicator( Nz, zmin, zmax, Nr, rmax, Nm, dt,
+            boundaries, n_order, n_guard, n_damp, exchange_period,
+            use_all_mpi_ranks )
         print_simulation_setup( self.comm, self.use_cuda )
         # Modify domain region
         zmin, zmax, p_zmin, p_zmax, Nz = \
               self.comm.divide_into_domain(zmin, zmax, p_zmin, p_zmax)
-
-        # Initialize the period of the particle exchange and moving window
-        if exchange_period is None:
-            # Maximum number of cells a particle can travel in one timestep
-            # Safety factor of 2 needed if there is a moving window attached
-            # to the simulation or in case a galilean frame is used.
-            cells_per_step = 2*c*dt/self.comm.dz
-            # Maximum number of timesteps before a particle can reach the end
-            # of the guard region including the maximum number of cells (+/-3)
-            # it can affect with a "cubic" particle shape_factor.
-            self.exchange_period = int( (self.comm.n_guard-3)/cells_per_step )
-            # Set exchange_period to 1 in the case of single-proc
-            # and periodic boundary conditions.
-            if self.comm.size == 1 and boundaries == 'periodic':
-                self.exchange_period = 1
-            # Check that calculated exchange_period is acceptable for given
-            # simulation parameters (check that guard region is large enough).
-            if self.exchange_period < 1:
-                raise ValueError('Guard region size is too small for chosen \
-                    timestep. In one timestep, a particle can travel more \
-                    than n_guard region cells.')
-        else:
-            # User-defined exchange_period. Choose carefully.
-            self.exchange_period = exchange_period
 
         # Initialize the field structure
         self.fld = Fields( Nz, zmax, Nr, rmax, Nm, dt,
@@ -361,7 +339,7 @@ class Simulation(object):
             # Note: Particle exchange is imposed at the first iteration
             # of this loop (i_step == 0) in order to make sure that
             # all particles are inside the box initially
-            if self.iteration % self.exchange_period == 0 or i_step == 0:
+            if self.iteration % self.comm.exchange_period == 0 or i_step == 0:
                 # Particle exchange after moving window / mpi communications
                 # This includes MPI exchange of particles, removal of
                 # out-of-box particles and (if there is a moving window)
@@ -566,7 +544,7 @@ class Simulation(object):
         """
         # Attach the moving window to the boundary communicator
         self.comm.moving_win = MovingWindow( self.fld.interp, self.comm,
-            self.exchange_period, self.dt, self.ptcl, v, self.p_nz, self.time,
+            self.dt, self.ptcl, v, self.p_nz, self.time,
             ux_m, uy_m, uz_m, ux_th, uy_th, uz_th, gamma_boost )
 
 def progression_bar( i, Ntot, measured_start, Nbars=50, char='-'):

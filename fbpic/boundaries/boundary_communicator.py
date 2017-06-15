@@ -6,8 +6,10 @@ This file is part of the Fourier-Bessel Particle-In-Cell code (FB-PIC)
 It defines the structure necessary to implement the boundary exchanges.
 """
 import numpy as np
+from scipy.constants import c
 from mpi4py import MPI as mpi
 from fbpic.fields.fields import InterpolationGrid
+from fbpic.fields.utility_methods import get_stencil_reach
 from fbpic.particles.particles import Particles
 from .field_buffer_handling import BufferHandler
 from .particle_buffer_handling import remove_outside_particles, \
@@ -50,8 +52,9 @@ class BoundaryCommunicator(object):
     # Initialization routines
     # -----------------------
 
-    def __init__( self, Nz, Nr, n_guard, Nm, boundaries,
-        n_order, n_damp=30, use_all_mpi_ranks=True ):
+    def __init__( self, Nz, zmin, zmax, Nr, rmax, Nm, dt,
+            boundaries, n_order, n_guard = None, n_damp=30,
+            exchange_period = None, use_all_mpi_ranks=True ):
         """
         Initializes a communicator object.
 
@@ -60,12 +63,16 @@ class BoundaryCommunicator(object):
         Nz, Nr: int
             The initial global number of cells
 
-        n_guard: int
-            Number of guard cells to use at the left and right of
-            a domain, when using MPI.
+        zmin, zmax, rmax: float
+            The position of the edges of the simulation box in z and r
+            (More precisely, the position of the edge of the (first)
+             last cell)
 
         Nm: int
             The total number of modes
+
+        dt: float
+            The timestep of the simulation
 
         boundaries: str
             Indicates how to exchange the fields at the left and right
@@ -80,6 +87,10 @@ class BoundaryCommunicator(object):
            is required to have a localized field push that allows
            to do simulations in parallel on multiple MPI ranks)
 
+        n_guard: int
+            Number of guard cells to use at the left and right of
+            a domain, when using MPI.
+
         n_damp : int
             Number of damping guard cells at the left and right of a
             simulation box if a moving window is attached. The guard
@@ -87,6 +98,13 @@ class BoundaryCommunicator(object):
             extended by n_damp (N=n_guard+n_damp) in order to smoothly
             damp the fields such that they do not wrap around.
             (Defaults to 30)
+
+        exchange_period: int, optional
+            Number of iterations before which the particles are exchanged.
+            If set to None, the minimum exchange period is calculated
+            automatically: Within exchange_period timesteps, the
+            particles should never be able to travel more than
+            (n_guard - particle_shape order) cells.
 
         use_all_mpi_ranks: bool, optional
             - if `use_all_mpi_ranks` is True (default):
@@ -100,6 +118,10 @@ class BoundaryCommunicator(object):
         self.Nz = Nz
         self.Nr = Nr
         self.Nm = Nm
+
+        # Get the distance dz between the cells
+        # (longitudinal spacing of the grid)
+        self.dz = (zmax - zmin)/self.Nz
 
         # MPI Setup
         if use_all_mpi_ranks:
@@ -142,18 +164,16 @@ class BoundaryCommunicator(object):
                 # with an infinite order stencil. This would give wrong results
                 if self.size != 1:
                     raise ValueError('Non-local, infinite order stencil \
-                        selected, while performing parallel (MPI) computation.')
+                        selected, while performing parallel computation.')
             else:
                 # Automatic calculation of the guard region size,
                 # depending on the stencil order (n_order)
-                print("Automatic n_guard not supported in this version, " \
-		            "n_guard will be set to n_order * 2 or " \
-		            "will be set to 0 if running in single proc mode.")
+                stencil = get_stencil_reach( self.Nz, self.dz, c*dt, n_order )
                 # approx 2*n_order (+1 because the moving window
                 # shifts the grid by one cell during the PIC loop
                 # and therefore, the guard region needs to be larger
                 # by one cell)
-                self.n_guard = n_order*2 + 1
+                self.n_guard = stencil + 1
         else:
             # Otherwise: Set user defined guard region size
             self.n_guard = n_guard
@@ -165,6 +185,30 @@ class BoundaryCommunicator(object):
         # For periodic boundaries, no need for damping cells
         if boundaries=='periodic':
             self.n_damp = 0
+
+        # Initialize the period of the particle exchange and moving window
+        if exchange_period is None:
+            # Maximum number of cells a particle can travel in one timestep
+            # Safety factor of 2 needed if there is a moving window attached
+            # to the simulation or in case a galilean frame is used.
+            cells_per_step = 2.*c*dt/self.dz
+            # Maximum number of timesteps before a particle can reach the end
+            # of the guard region including the maximum number of cells (+/-3)
+            # it can affect with a "cubic" particle shape_factor.
+            self.exchange_period = int( (self.n_guard-3)/cells_per_step )
+            # Set exchange_period to 1 in the case of single-proc
+            # and periodic boundary conditions.
+            if self.size == 1 and boundaries == 'periodic':
+                self.exchange_period = 1
+            # Check that calculated exchange_period is acceptable for given
+            # simulation parameters (check that guard region is large enough).
+            if self.exchange_period < 1:
+                raise ValueError('Guard region size is too small for chosen \
+                    timestep. In one timestep, a particle can travel more \
+                    than n_guard region cells.')
+        else:
+            # User-defined exchange_period. Choose carefully.
+            self.exchange_period = exchange_period
 
         # Initialize the moving window to None (See the method
         # set_moving_window in main.py to initialize a proper moving window)
@@ -228,7 +272,6 @@ class BoundaryCommunicator(object):
         # Get the distance dz between the cells
         # (longitudinal spacing of the grid)
         dz = (zmax - zmin)/self.Nz
-        self.dz = dz
 
         # Initialize the number of cells of each proc
         # (Splits the global simulation and
@@ -244,6 +287,7 @@ class BoundaryCommunicator(object):
         # Get the enlarged number of cells in each domain (includes guards)
         self.Nz_enlarged_procs = [ n+2*self.n_guard for n in Nz_domain_procs ]
         # Add damping region to first and last domain
+        # (Note: self.n_damp is zero in case of 'periodic' boundaries)
         self.Nz_enlarged_procs[0] += self.n_damp
         self.Nz_enlarged_procs[-1] += self.n_damp
         # Get the local values of the above arrays
@@ -256,34 +300,21 @@ class BoundaryCommunicator(object):
                                than 4 times n_guard. Use fewer domains or \
                                a smaller number of guard cells.')
 
-        # Calculate the local boundaries (zmin)
-        # of this local simulation box including the guard cells.
+        # Calculate the local boundaries,
+        # zmin_local_domain and zmax_local_domain,
+        # of this local simulation box.
         iz_start = self.iz_start_procs[self.rank]
-        zmin_local = zmin + (iz_start - self.n_guard)*dz
-        # Correct for first process by adding n_damp cells
-        # to the left of the box
-        if self.rank==0:
-            zmin_local -= self.n_damp*dz
-        # Calculate the local boundaries (zmax)
-        # of this local simulation box including the guard cells.
-        zmax_local = zmin_local + self.Nz_enlarged*dz
-
+        zmin_local_domain = zmin + iz_start*dz
+        zmax_local_domain = zmin_local_domain + self.Nz_domain
         # Calculate the new limits (p_zmin and p_zmax)
         # for adding particles to this domain
-        p_zmin = max( zmin_local + self.n_guard*dz, p_zmin)
-        # For the first process, we need to take into account an
-        # additional +n_damp cells for the particle boundaries
-        if self.rank==0:
-            p_zmin = max(
-                zmin_local + (self.n_guard+self.n_damp)*dz, p_zmin )
-        p_zmax = min( zmax_local - self.n_guard*dz, p_zmax)
-        # For the last process, we need to take into account an
-        # additional -n_damp cells for the particle boundaries
-        if self.rank==self.size-1:
-            p_zmax = min(
-                zmax_local - (self.n_guard+self.n_damp)*dz, p_zmax )
+        p_zmin_local_domain = max( zmin_local_domain, p_zmin)
+        p_zmax_local_domain = min( zmax_local_domain, p_zmax)
+
         # Return the new boundaries to the simulation object
-        return( zmin_local, zmax_local, p_zmin, p_zmax, self.Nz_enlarged )
+        return( zmin_local_domain, zmax_local_domain,
+                p_zmin_local_domain, p_zmax_local_domain,
+                self.Nz_enlarged )
 
     # Exchange routines
     # -----------------
@@ -677,10 +708,15 @@ class BoundaryCommunicator(object):
         gathered_grid: Grid object (InterpolationGrid)
             A gathered grid that contains the global simulation data
         """
+        # Calculate global edges of the simulation box on root process
         if self.rank == root:
-            # Calculate global edges of the simulation box on root process
+            n_remove = self.n_guard
+            if self.left_proc is None:
+                # Add damp cells if root process is rank 0
+                n_remove += self.n_damp
+            # Calculate the global zmin without the guard (and damp) region
             zmin_global = grid.zmin + self.dz * \
-                (self.n_guard + self.n_damp - self.rank*self.Nz_domain)
+                (n_remove - self.rank*self.Nz_domain)
             # Create new grid array that contains cell positions in z
             z = zmin_global + self.dz*( 0.5 + np.arange(self.Nz) )
             # Initialize new InterpolationGrid object that
@@ -729,20 +765,18 @@ class BoundaryCommunicator(object):
         else:
             # Other processes do not need to initialize a new array
             gathered_array = None
-        # Shortcut for the guard cells
-        ng = self.n_guard
+
+        # Guard region cells to be removed at the left and right
+        n_remove_l = self.n_guard
+        n_remove_r = self.n_guard
         # Remove n_damp cells from the left proc's output region
-        if self.rank == 0:
-            n_left = ng + self.n_damp
-        else:
-            n_left = ng
+        if self.left_proc is None:
+            n_remove_l += self.n_damp
         # Remove n_damp cells from the right proc's output region
-        if self.rank == self.size-1:
-            n_right = ng + self.n_damp
-        else:
-            n_right = ng
+        if self.right_proc is None:
+            n_remove_r += self.n_damp
         # Select the physical region of the local box
-        local_array = array[n_left:len(array)-n_right,:]
+        local_array = array[n_remove_l:len(array)-n_remove_r,:]
 
         # Then send the arrays
         if self.size > 1:
