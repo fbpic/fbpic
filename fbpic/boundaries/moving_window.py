@@ -115,7 +115,7 @@ class MovingWindow(object):
             self.p_nz = p_nz
 
         # Attach time of last move
-        self.t_last_move = time
+        self.t_last_move = time - dt
 
     def move_grids(self, fld, comm, time, shift_spectral=True):
         """
@@ -286,7 +286,7 @@ class MovingWindow(object):
         return( float_buffer, uint_buffer )
 
     def shift_spect_grid( self, grid, n_move,
-                          shift_rho=True, shift_currents=False ):
+                          shift_rho=True, shift_currents=True ):
         """
         Shift the spectral fields by n_move cells (with respect to the
         spatial grid). Shifting is done either on the CPU or the GPU,
@@ -347,7 +347,7 @@ class MovingWindow(object):
         """
         Shift the field 'field_array' by n_move cells.
         This is done in spectral space and corresponds to multiplying the
-        fields with the factor exp(-i*kz_true*dz)**n_move .
+        fields with the factor exp(i*kz_true*dz)**n_move .
         (Typically n_move is positive, and the fields are shifted backwards)
 
         Parameters
@@ -359,7 +359,7 @@ class MovingWindow(object):
         shift_factor: 1darray of complexs
             Contains the shift array, that is multiplied to the fields in
             spectral space to shift them by one cell in spatial space
-            ( exp(-i*kz_true*dz) )
+            ( exp(i*kz_true*dz) )
 
         n_move: int
             The number of cells by which the grid should be shifted
@@ -371,7 +371,7 @@ class MovingWindow(object):
         """
         Shift the field 'field_array' by n_move cells on the GPU.
         This is done in spectral space and corresponds to multiplying the
-        fields with the factor exp(-i*kz_true*dz)**n_move .
+        fields with the factor exp(i*kz_true*dz)**n_move .
         (Typically n_move is positive, and the fields are shifted backwards)
 
         Parameters
@@ -383,7 +383,7 @@ class MovingWindow(object):
         shift_factor: 1darray of complexs
             Contains the shift array, that is multiplied to the fields in
             spectral space to shift them by one cell in spatial space
-            ( exp(-i*kz_true*dz) )
+            ( exp(i*kz_true*dz) )
 
         n_move: int
             The number of cells by which the grid should be shifted
@@ -546,7 +546,7 @@ if cuda_installed:
         """
         Shift the field 'field_array' by n_move cells on the GPU.
         This is done in spectral space and corresponds to multiplying the
-        fields with the factor exp(-i*kz_true*dz)**n_move .
+        fields with the factor exp(i*kz_true*dz)**n_move .
 
         Parameters
         ----------
@@ -557,7 +557,7 @@ if cuda_installed:
         shift_factor: 1darray of complexs
             Contains the shift array, that is multiplied to the fields in
             spectral space to shift them by one cell in spatial space
-            ( exp(-i*kz_true*dz) )
+            ( exp(i*kz_true*dz) )
 
         n_move: int
             The number of cells by which the grid should be shifted

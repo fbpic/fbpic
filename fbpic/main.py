@@ -352,12 +352,6 @@ class Simulation(object):
                 # (Since the moving window has moved or particles
                 # have been removed / added to the simulation)
                 self.deposit('rho_prev')
-            else:
-                # If no particles have been removed or added to the simulation
-                # use the pushed and shifted (moving window) rho from last
-                # timestep as new rho_prev. Need to bring it from spectral
-                # space to spatial space.
-                fld.spect2interp('rho_prev')
 
             # Gather the fields from the grid at t = n dt
             for species in ptcl:
@@ -389,15 +383,6 @@ class Simulation(object):
             # Get the current at t = (n+1/2) dt
             self.deposit('J')
 
-            # # Run the diagnostics
-            # # (E, B, rho are defined at time n)
-            # # (J, x, p are defined at time n+1/2)
-            # for diag in self.diags:
-            #     # Check if the fields should be written at
-            #     # this iteration and do it if needed.
-            #     # (Send the data to the GPU if needed.)
-            #     diag.write( self.iteration )
-
             # Push the particles' positions to t = (n+1) dt
             if move_positions:
                 for species in ptcl:
@@ -426,7 +411,8 @@ class Simulation(object):
                 fld.correct_divE()
             # Move the grids if needed
             if self.comm.moving_win is not None:
-                # Shift the fields is spectral space and update positions
+                # Shift the fields is spectral space and update positions of
+                # the interpolation grids
                 self.comm.move_grids(fld, self.dt, self.time)
             # Get the fields E and B on the interpolation grid at t = (n+1) dt
             fld.spect2interp('E')
@@ -435,6 +421,11 @@ class Simulation(object):
             # Increment the global time and iteration
             self.time += self.dt
             self.iteration += 1
+
+        # Finalize PIC loop
+        # Get the charge density and the current from spectral space.
+        fld.spect2interp('J')
+        fld.spect2interp('rho_prev')
 
         # Receive simulation data from GPU (if CUDA is used)
         if self.use_cuda:
