@@ -2,7 +2,7 @@
 # Authors: Remi Lehe, Manuel Kirchen
 # License: 3-Clause-BSD-LBNL
 """
-This file tests the whole PIC-Cycle by simulating a 
+This file tests the whole PIC-Cycle by simulating a
 linear, laser-driven plasma wakefield and comparing
 it to the analytical solution.
 
@@ -41,7 +41,7 @@ def kernel_Er( xi0, xi, r) :
 def Ez( z, r, t) :
     """
     Get the 2d Ez field
-    
+
     Parameters
     ----------
     z : 1darray
@@ -61,7 +61,7 @@ def Ez( z, r, t) :
 def Er( z, r, t) :
     """
     Get the 2d Ez field
-    
+
     Parameters
     ----------
     z : 1darray
@@ -74,7 +74,7 @@ def Er( z, r, t) :
     er = np.zeros((Nz, Nr))
     for iz in range(Nz) :
         for ir in range(Nr) :
-          er[iz, ir] = quad( kernel_Er, z[iz]-c*t, window_zmax-c*t, 
+          er[iz, ir] = quad( kernel_Er, z[iz]-c*t, window_zmax-c*t,
             args = ( z[iz]-c*t, r[ir] ), limit=200 )[0]
 
     return( er )
@@ -127,7 +127,7 @@ def compare_wakefields(Ez_analytic, Er_analytic, grid):
     cb.set_label('Ez')
     plt.title('Simulated Ez')
 
-    # Get z 
+    # Get z
     z = grid.z
 
     # Plot simulated Er in 2D
@@ -142,7 +142,7 @@ def compare_wakefields(Ez_analytic, Er_analytic, grid):
 
     # Plot lineouts of Ez (simulation and analytical solution)
     plt.subplot(325)
-    plt.plot(1.e6*z, grid.Ez[:,0].real, 
+    plt.plot(1.e6*z, grid.Ez[:,0].real,
         color = 'b', label = 'Simulation')
     plt.plot(1.e6*z, Ez_analytic[:,0], color = 'r', label = 'Analytical')
     plt.xlabel('z')
@@ -152,7 +152,7 @@ def compare_wakefields(Ez_analytic, Er_analytic, grid):
 
     # Plot lineouts of Er (simulation and analytical solution)
     plt.subplot(326)
-    plt.plot(1.e6*z, grid.Er[:,5].real, 
+    plt.plot(1.e6*z, grid.Er[:,5].real,
         color = 'b', label = 'Simulation')
     plt.plot(1.e6*z, Er_analytic[:,5], color = 'r', label = 'Analytical')
     plt.xlabel('z')
@@ -182,7 +182,7 @@ def compare_fields(sim) :
         print('Done...\n')
 
         compare_wakefields(ez, er, gathered_grid)
-    
+
 # ---------------------------
 # Setup simulation & parameters
 # ---------------------------
@@ -194,7 +194,6 @@ zmax = 40.e-6    # Length of the box along z (meters)
 Nr = 60          # Number of gridpoints along r
 rmax = 60.e-6    # Length of the box along r (meters)
 Nm = 2           # Number of modes used
-n_guard = 50     # Number of guard cells
 # The simulation timestep
 dt = zmax/Nz/c   # Timestep (seconds)
 # The number of steps
@@ -228,7 +227,7 @@ k0 = 2*np.pi/0.8e-6
 # Initialize the simulation object
 sim = Simulation( Nz, zmax, Nr, rmax, Nm, dt,
                   p_zmin, p_zmax, p_rmin, p_rmax, p_nz, p_nr, p_nt, n_e,
-                  use_cuda=use_cuda, n_guard=n_guard, boundaries='open' ) 
+                  use_cuda=use_cuda, boundaries='open' )
 
 # Add a laser to the fields of the simulation
 add_laser( sim, a0, w0, ctau, z0 )

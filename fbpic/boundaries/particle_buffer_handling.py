@@ -12,7 +12,7 @@ from fbpic.cuda_utils import cuda_installed
 if cuda_installed:
     from fbpic.cuda_utils import cuda, cuda_tpb_bpg_1d
 
-def remove_outside_particles(species, fld, nguard, left_proc, right_proc):
+def remove_outside_particles(species, fld, n_guard, left_proc, right_proc):
     """
     Remove the particles that are outside of the physical domain (i.e.
     in the guard cells). Store them in sending buffers, which are returned.
@@ -30,7 +30,7 @@ def remove_outside_particles(species, fld, nguard, left_proc, right_proc):
         Contains information about the dimension of the grid,
         and the prefix sum (when using the GPU)
 
-    nguard: int
+    n_guard: int
         Number of guard cells
 
     left_proc, right_proc: int or None
@@ -49,15 +49,15 @@ def remove_outside_particles(species, fld, nguard, left_proc, right_proc):
     if species.use_cuda:
         # Remove outside particles on GPU, and copy buffers on CPU
         float_send_left, float_send_right, uint_send_left, uint_send_right = \
-            remove_particles_gpu( species, fld, nguard, left_proc, right_proc )
+            remove_particles_gpu( species, fld, n_guard, left_proc, right_proc )
     else:
         # Remove outside particles on the CPU
         float_send_left, float_send_right, uint_send_left, uint_send_right = \
-            remove_particles_cpu( species, fld, nguard, left_proc, right_proc )
+            remove_particles_cpu( species, fld, n_guard, left_proc, right_proc )
 
     return(float_send_left, float_send_right, uint_send_left, uint_send_right)
 
-def remove_particles_cpu(species, fld, nguard, left_proc, right_proc):
+def remove_particles_cpu(species, fld, n_guard, left_proc, right_proc):
     """
     Remove the particles that are outside of the physical domain (i.e.
     in the guard cells). Store them in sending buffers, which are returned.
@@ -75,7 +75,7 @@ def remove_particles_cpu(species, fld, nguard, left_proc, right_proc):
         Contains information about the dimension of the grid,
         and the prefix sum (when using the GPU)
 
-    nguard: int
+    n_guard: int
         Number of guard cells
 
     left_proc, right_proc: int or None
@@ -93,12 +93,8 @@ def remove_particles_cpu(species, fld, nguard, left_proc, right_proc):
     # Calculate the positions between which to remove particles
     # For the open boundaries, only the particles in the outermost
     # half of the guard cells are removed
-    zbox_min = fld.interp[0].zmin + nguard*fld.interp[0].dz
-    zbox_max = fld.interp[0].zmax - nguard*fld.interp[0].dz
-    if left_proc is None:
-        zbox_min = fld.interp[0].zmin + int(nguard/2)*fld.interp[0].dz
-    if right_proc is None:
-        zbox_max = fld.interp[0].zmax - int(nguard/2)*fld.interp[0].dz
+    zbox_min = fld.interp[0].zmin + n_guard*fld.interp[0].dz
+    zbox_max = fld.interp[0].zmax - n_guard*fld.interp[0].dz
 
     # Select the particles that are in the left or right guard cells,
     # and those that stay on the local process
@@ -184,7 +180,7 @@ def remove_particles_cpu(species, fld, nguard, left_proc, right_proc):
     # Return the sending buffers
     return(float_send_left, float_send_right, uint_send_left, uint_send_right)
 
-def remove_particles_gpu(species, fld, nguard, left_proc, right_proc):
+def remove_particles_gpu(species, fld, n_guard, left_proc, right_proc):
     """
     Remove the particles that are outside of the physical domain (i.e.
     in the guard cells). Store them in sending buffers, which are returned.
@@ -202,7 +198,7 @@ def remove_particles_gpu(species, fld, nguard, left_proc, right_proc):
         Contains information about the dimension of the grid,
         and the prefix sum (when using the GPU)
 
-    nguard: int
+    n_guard: int
         Number of guard cells
 
     left_proc, right_proc: int or None
@@ -233,19 +229,9 @@ def remove_particles_gpu(species, fld, nguard, left_proc, right_proc):
     Nz = fld.Nz
     Nr = fld.Nr
     # Find the z index of the first cell for which particles are kept
-    if left_proc is None:
-        # Open boundary: particles in outermost half of guard cells are removed
-        iz_min = max( int(nguard/2) + fld.prefix_sum_shift, 0 )
-    else:
-        # Normal boundary: all particles in guard cells are removed
-        iz_min = max( nguard + fld.prefix_sum_shift, 0 )
+    iz_min = max( n_guard + fld.prefix_sum_shift, 0 )
     # Find the z index of the first cell for which particles are removed again
-    if right_proc is None:
-        # Open boundary: particles in outermost half of guard cells are removed
-        iz_max = min( Nz - int(nguard/2) + fld.prefix_sum_shift, Nz )
-    else:
-        # Normal boundary: all particles in guard cells are removed
-        iz_max = min( Nz - nguard, Nz )
+    iz_max = min( Nz - n_guard + fld.prefix_sum_shift, Nz )
     # Find the corresponding indices in the particle array
     # Reminder: prefix_sum[i] is the cumulative sum of the number of particles
     # in cells 0 to i (where cell i is included)

@@ -52,7 +52,7 @@ def copy_EB_to_gpu_buffers( EB_left, EB_right,
 
     # Offset between modes, for the EB buffer
     offset = 6
-    
+
     # Copy the inner regions of the domain to the buffer
     if ir < Nr:
         if iz < ng:
@@ -87,7 +87,7 @@ def copy_EB_to_gpu_buffers( EB_left, EB_right,
                 EB_right[4+offset, iz, ir] = Bt1[ iz_right, ir ]
                 EB_right[5+offset, iz, ir] = Bz1[ iz_right, ir ]
 
-        
+
 @cuda.jit('void( complex128[:,:,:], complex128[:,:,:], \
                  complex128[:,:], complex128[:,:], complex128[:,:], \
                  complex128[:,:], complex128[:,:], complex128[:,:], \
@@ -133,7 +133,7 @@ def copy_EB_from_gpu_buffers( EB_left, EB_right,
 
     # Offset between modes, for the EB buffer
     offset = 6
-    
+
     # Copy the GPU buffers to the guard cells of the domain
     if ir < Nr:
         if iz < ng:
@@ -174,7 +174,7 @@ def copy_EB_from_gpu_buffers( EB_left, EB_right,
                  complex128[:,:], complex128[:,:], complex128[:,:], \
                  int32, int32, int32 )')
 def copy_J_to_gpu_buffers( J_left, J_right,
-                            Jr0, Jt0, Jz0, Jr1, Jt1, Jz1, 
+                            Jr0, Jt0, Jz0, Jr1, Jt1, Jz1,
                             copy_left, copy_right, ng ):
     """
     Copy the 2*ng outermost cells of Jr0, ..., Jz1 to the GPU buffers
@@ -207,7 +207,7 @@ def copy_J_to_gpu_buffers( J_left, J_right,
 
     # Offset between modes, for the J buffer
     offset = 3
-    
+
     # Copy the inner regions of the domain to the buffer
     if ir < Nr:
         if iz < 2*ng:
@@ -237,10 +237,10 @@ def copy_J_to_gpu_buffers( J_left, J_right,
                  complex128[:,:], complex128[:,:], complex128[:,:], \
                  int32, int32, int32 )')
 def add_J_from_gpu_buffers( J_left, J_right,
-                            Jr0, Jt0, Jz0, Jr1, Jt1, Jz1, 
+                            Jr0, Jt0, Jz0, Jr1, Jt1, Jz1,
                             copy_left, copy_right, ng ):
     """
-    Add the GPU buffer J_left and J_right to the 2*ng outermost 
+    Add the GPU buffer J_left and J_right to the 2*ng outermost
     cells of Jr0, ..., Jz1
 
     Parameters
@@ -270,7 +270,7 @@ def add_J_from_gpu_buffers( J_left, J_right,
 
     # Offset between modes, for the J buffer
     offset = 3
-    
+
     # Add the GPU buffer to the guard cells of the domain
     if ir < Nr:
         if iz < 2*ng:
@@ -330,7 +330,7 @@ def copy_rho_to_gpu_buffers( rho_left, rho_right, rho0, rho1,
 
     # Offset between modes, for the rho buffer
     offset = 1
-    
+
     # Copy the inner regions of the domain to the buffer
     if ir < Nr:
         if iz < 2*ng:
@@ -383,7 +383,7 @@ def add_rho_from_gpu_buffers( rho_left, rho_right, rho0, rho1,
 
     # Offset between modes, for the rho buffer
     offset = 1
-    
+
     # Add the GPU buffer to the guard cells of the domain
     if ir < Nr:
         if iz < 2*ng:
@@ -397,3 +397,116 @@ def add_rho_from_gpu_buffers( rho_left, rho_right, rho0, rho1,
                 iz_right = Nz - 2*ng + iz
                 rho0[ iz_right, ir ] += rho_right[0, iz, ir]
                 rho1[ iz_right, ir ] += rho_right[0+offset, iz, ir]
+
+# CUDA damping kernels:
+# --------------------
+@cuda.jit('void(complex128[:,:], complex128[:,:], complex128[:,:], \
+                complex128[:,:], complex128[:,:], complex128[:,:], \
+                complex128[:,:], complex128[:,:], complex128[:,:], \
+                complex128[:,:], complex128[:,:], complex128[:,:], \
+                float64[:], int32, int32)')
+def cuda_damp_EB_left( Er0, Et0, Ez0, Br0, Bt0, Bz0,
+                  Er1, Et1, Ez1, Br1, Bt1, Bz1,
+                  damp_array, n_guard, n_damp ) :
+    """
+    Multiply the E and B fields in the left guard cells
+    by damp_array.
+
+    Parameters :
+    ------------
+    Er0, Et0, Ez0, Br0, Bt0, Bz0,
+    Er1, Et1, Ez1, Br1, Bt1, Bz1 : 2darrays of complexs
+        Contain the fields to be damped
+        The first axis corresponds to z and the second to r
+
+    damp_array : 1darray of floats
+        An array of length n_guard+n_damp,
+        which contains the damping factors.
+
+    n_guard: int
+        Number of guard cells
+
+    n_damp: int
+        Number of damping cells
+    """
+    # Obtain Cuda grid
+    iz, ir = cuda.grid(2)
+
+    # Obtain the size of the array along z and r
+    Nz, Nr = Er0.shape
+
+    # Modify the fields
+    if ir < Nr :
+        # Apply the damping arrays
+        if iz < n_guard+n_damp:
+            damp_factor_left = damp_array[iz]
+
+            # At the left end
+            Er0[iz, ir] *= damp_factor_left
+            Et0[iz, ir] *= damp_factor_left
+            Ez0[iz, ir] *= damp_factor_left
+            Br0[iz, ir] *= damp_factor_left
+            Bt0[iz, ir] *= damp_factor_left
+            Bz0[iz, ir] *= damp_factor_left
+            Er1[iz, ir] *= damp_factor_left
+            Et1[iz, ir] *= damp_factor_left
+            Ez1[iz, ir] *= damp_factor_left
+            Br1[iz, ir] *= damp_factor_left
+            Bt1[iz, ir] *= damp_factor_left
+            Bz1[iz, ir] *= damp_factor_left
+
+@cuda.jit('void(complex128[:,:], complex128[:,:], complex128[:,:], \
+                complex128[:,:], complex128[:,:], complex128[:,:], \
+                complex128[:,:], complex128[:,:], complex128[:,:], \
+                complex128[:,:], complex128[:,:], complex128[:,:], \
+                float64[:], int32, int32)')
+def cuda_damp_EB_right( Er0, Et0, Ez0, Br0, Bt0, Bz0,
+                  Er1, Et1, Ez1, Br1, Bt1, Bz1,
+                  damp_array, n_guard, n_damp ) :
+    """
+    Multiply the E and B fields in the right guard cells
+    by damp_array.
+
+    Parameters :
+    ------------
+    Er0, Et0, Ez0, Br0, Bt0, Bz0,
+    Er1, Et1, Ez1, Br1, Bt1, Bz1 : 2darrays of complexs
+        Contain the fields to be damped
+        The first axis corresponds to z and the second to r
+
+    damp_array : 1darray of floats
+        An array of length n_guard+n_damp,
+        which contains the damping factors.
+
+    n_guard: int
+        Number of guard cells
+
+    n_damp: int
+        Number of damping cells
+    """
+    # Obtain Cuda grid
+    iz, ir = cuda.grid(2)
+
+    # Obtain the size of the array along z and r
+    Nz, Nr = Er0.shape
+
+    # Modify the fields
+    if ir < Nr :
+        # Apply the damping arrays
+        if iz < n_guard+n_damp:
+            damp_factor_right = damp_array[iz]
+
+            # At the right end
+            iz_right = Nz - iz - 1
+            Er0[iz_right, ir] *= damp_factor_right
+            Et0[iz_right, ir] *= damp_factor_right
+            Ez0[iz_right, ir] *= damp_factor_right
+            Br0[iz_right, ir] *= damp_factor_right
+            Bt0[iz_right, ir] *= damp_factor_right
+            Bz0[iz_right, ir] *= damp_factor_right
+            Er1[iz_right, ir] *= damp_factor_right
+            Et1[iz_right, ir] *= damp_factor_right
+            Ez1[iz_right, ir] *= damp_factor_right
+            Br1[iz_right, ir] *= damp_factor_right
+            Bt1[iz_right, ir] *= damp_factor_right
+            Bz1[iz_right, ir] *= damp_factor_right

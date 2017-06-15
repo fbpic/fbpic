@@ -71,7 +71,7 @@ def test_boosted_continuous_injection(show=False):
     "Function that is run by py.test, when doing `python setup.py test`"
     # Moving plasma (boosted frame), non-uniform density
     gamma_boost = 15.
-    
+
     global ramp
     # The ramp is made longer so as to still resolve it in the boosted frame
     ramp = 2*gamma_boost*ramp
@@ -115,7 +115,7 @@ def check_density( sim, gamma_boost, dens_func, show ):
 
     # Get the grid without the guard cells (mode 0)
     gathered_grid = sim.comm.gather_grid( sim.fld.interp[0] )
-    
+
     # Calculate the expected density
     z, r = np.meshgrid( gathered_grid.z, gathered_grid.r, indexing='ij' )
     if gamma_boost is None:
@@ -124,20 +124,20 @@ def check_density( sim, gamma_boost, dens_func, show ):
         v_boost = np.sqrt( 1. - 1./gamma_boost**2 ) * c
         shift = v_boost * sim.time
         rho_expected = - gamma_boost * n * e * dens_func( z + shift, r )
-    
+
     # Show the results
     if show:
         extent = 1.e6*np.array([ gathered_grid.zmin, gathered_grid.zmax,
                    gathered_grid.rmin, gathered_grid.rmax ])
-        
+
         plt.figure(1, figsize=(6,12) )
         plt.clf()
-        
+
         plt.subplot(311)
         plt.title('Deposited density')
         plt.imshow( gathered_grid.rho.real.T, aspect='auto', extent=extent )
         plt.colorbar()
-        
+
         plt.subplot(312)
         plt.title('Expected density')
         plt.imshow( rho_expected.T, aspect='auto', extent=extent )
@@ -147,7 +147,7 @@ def check_density( sim, gamma_boost, dens_func, show ):
         plt.title('Difference')
         plt.imshow( rho_expected.T - gathered_grid.rho.real.T, aspect='auto' )
         plt.colorbar()
-        
+
         plt.show()
 
     else:
@@ -158,7 +158,7 @@ def check_density( sim, gamma_boost, dens_func, show ):
         assert np.allclose( gathered_grid.rho.imag, 0.,
                             atol=1.e-2*abs(rho_expected).max() )
 
-    
+
 if __name__ == '__main__' :
 
     test_rest_continuous_injection(show)

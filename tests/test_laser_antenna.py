@@ -80,7 +80,7 @@ def test_antenna_boostedframe(show=False, write_files=False):
 
 def run_and_check_laser_antenna(gamma_b, show, write_files):
     """
-    Generic function, which runs and check the laser antenna for 
+    Generic function, which runs and check the laser antenna for
     both boosted frame and lab frame
 
     Parameters
@@ -133,7 +133,7 @@ def run_and_check_laser_antenna(gamma_b, show, write_files):
 
     # Check the transverse E and B field
     Nz_half = int(sim.fld.interp[1].Nz/2) + 2
-    z = sim.fld.interp[1].z[Nz_half:-sim.comm.n_guard]
+    z = sim.fld.interp[1].z[Nz_half:-(sim.comm.n_guard+sim.comm.n_damp)]
     r = sim.fld.interp[1].r
     # Loop through the different fields
     for fieldtype, info_in_real_part, factor in [ ('Er', True, 2.), \
@@ -142,7 +142,7 @@ def run_and_check_laser_antenna(gamma_b, show, write_files):
         # in order to get a value which is comparable to an electric field
         # (Because of the definition of the interpolation grid, the )
         field = getattr(sim.fld.interp[1], fieldtype)\
-                            [Nz_half:-sim.comm.n_guard]
+                            [Nz_half:-(sim.comm.n_guard+sim.comm.n_damp)]
         print( 'Checking %s' %fieldtype )
         check_fields( factor*field, z, r, info_in_real_part, gamma_b )
         print( 'OK' )
@@ -177,10 +177,10 @@ def check_fields( interp1_complex, z, r, info_in_real_part, gamma_b,
         boost = BoostConverter(gamma_b)
     ctau_b, lambda0_b, Lprop_b, z0_b = \
         boost.copropag_length([ctau, 0.8e-6, Lprop, z0])
-    
+
     # Fit the on-axis profile to extract a0
     def fit_function(z, a0, z0_phase):
-        return( gaussian_laser( z, r[0], a0, z0_phase, 
+        return( gaussian_laser( z, r[0], a0, z0_phase,
                                 z0_b+Lprop_b, ctau_b, lambda0_b ) )
     fit_result = curve_fit( fit_function, z, interp1[:,0],
                             p0=np.array([a0, z0_b+Lprop_b]) )

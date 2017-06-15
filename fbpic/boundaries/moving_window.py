@@ -18,8 +18,8 @@ class MovingWindow(object):
     """
     Class that contains the moving window's variables and methods
     """
-    def __init__( self, interp, comm, ptcl, v, p_nz, time,
-                  ux_m=0., uy_m=0., uz_m=0.,
+    def __init__( self, interp, comm, exchange_period, dt,
+                  ptcl, v, p_nz, time, ux_m=0., uy_m=0., uz_m=0.,
                   ux_th=0., uy_th=0., uz_th=0., gamma_boost=None ) :
         """
         Initializes a moving window object.
@@ -32,6 +32,14 @@ class MovingWindow(object):
         comm: a BoundaryCommunicator object
             Contains information about the MPI decomposition
             and about the longitudinal boundaries
+
+        exchange_period: int
+            The number of timesteps, after which the moving window
+            is updated and the particles are removed and/or
+            exchanged between MPI domains.
+
+        dt: float
+            The timestep of the simulation.
 
         ptcl: a list of Particle objects
             Needed in order to infer the position of injection
@@ -81,7 +89,6 @@ class MovingWindow(object):
 
         # Attach moving window speed and period
         self.v = v
-        self.exchange_period = comm.exchange_period
 
         # Attach reference position of moving window (only for the first proc)
         # (Determines by how many cells the window should be moved)
@@ -90,8 +97,12 @@ class MovingWindow(object):
 
         # Attach injection position and speed (only for the last proc)
         if comm.rank == comm.size-1:
+            self.v_end_plasma = \
+                c * self.uz_m / np.sqrt(1 + ux_m**2 + uy_m**2 + self.uz_m**2)
             ng = comm.n_guard
-            self.z_inject = interp[0].zmax - ng/2*interp[0].dz
+            nd = comm.n_damp
+            self.z_inject = interp[0].zmax - (ng+nd)*interp[0].dz + \
+                exchange_period * (v-self.v_end_plasma) * dt
             # Try to detect the position of the end of the plasma:
             # Find the maximal position of the particles which are
             # continously injected.
@@ -105,15 +116,13 @@ class MovingWindow(object):
             # Default value in the absence of continuously-injected particles
             if self.z_end_plasma is None:
                 self.z_end_plasma = self.z_inject
-            self.v_end_plasma = \
-              c * self.uz_m / np.sqrt(1 + ux_m**2 + uy_m**2 + self.uz_m**2)
             self.nz_inject = 0
             self.p_nz = p_nz
 
         # Attach time of last move
         self.t_last_move = time
 
-    def move_grids(self, fld, dt, comm, time):
+    def move_grids(self, fld, comm, time):
         """
         Calculate by how many cells the moving window should be moved.
         If this is non-zero, shift the fields on the interpolation grid,
@@ -126,9 +135,6 @@ class MovingWindow(object):
         ----------
         fld: a Fields object
             Contains the fields data of the simulation
-
-        dt: float (in seconds)
-            Timestep of the simulation
 
         comm: an fbpic BoundaryCommunicator object
             Contains the information on the MPI decomposition
@@ -161,7 +167,7 @@ class MovingWindow(object):
         # Because the grids have just been shifted, there is a shift
         # in the cell indices that are used for the prefix sum.
         if fld.use_cuda:
-            fld.prefix_sum_shift = n_move
+            fld.prefix_sum_shift += n_move
             # This quantity is reset to 0 whenever prefix_sum is recalculated
 
         # Prepare the positions of injection for the particles
@@ -172,10 +178,14 @@ class MovingWindow(object):
             self.z_inject += self.v * (time - self.t_last_move)
             # Take into account the motion of the end of the plasma
             self.z_end_plasma += self.v_end_plasma * (time - self.t_last_move)
-            # Find the number of particle cells to add
-            self.nz_inject = int( (self.z_inject - self.z_end_plasma)/dz )
-            # Increment the position of the end of the plasma
-            self.z_end_plasma += self.nz_inject*dz
+            # Increment the number of particle cells to add
+            nz_new = int( (self.z_inject - self.z_end_plasma)/dz )
+            self.nz_inject += nz_new
+            # Increment the virtual position of the end of the plasma
+            # (When `generate_particles` is called, then the plasma
+            # is injected between z_end_plasma - nz_inject*dz and z_end_plasma,
+            # and afterwards nz_inject is set to 0.)
+            self.z_end_plasma += nz_new*dz
 
         # Change the time of the last move
         self.t_last_move = time

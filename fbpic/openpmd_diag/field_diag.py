@@ -81,8 +81,14 @@ class FieldDiagnostic(OpenPMDDiagnostic):
             Nz = self.fld.interp[0].Nz
         else:
             # Communicator: remove guard cells and combine subdomains
+            if self.comm.left_proc is None:
+                # Additionally remove damping cells
+                n_remove = self.comm.n_guard + self.comm.n_damp
+            else:
+                n_remove = self.comm.n_guard
+            # Calculate minimum z position of physical domain
             zmin = self.fld.interp[0].zmin \
-            + (self.comm.n_guard - self.comm.rank*self.comm.Nz)*dz
+                + (n_remove - self.comm.rank*self.comm.Nz)*dz
             Nz = self.comm.Nz
 
         # Create the file with these attributes

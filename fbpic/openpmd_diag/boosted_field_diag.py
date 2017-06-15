@@ -137,7 +137,11 @@ class BoostedFieldDiagnostic(FieldDiagnostic):
         if self.comm is not None:
             dz = self.fld.interp[0].dz
             zmin_boost += dz*self.comm.n_guard
+            if self.comm.left_proc is None:
+                zmin_boost += dz*self.comm.n_damp
             zmax_boost -= dz*self.comm.n_guard
+            if self.comm.right_proc is None:
+                zmax_boost -= dz*self.comm.n_damp
 
         # Extract the current time in the boosted frame
         time = iteration * self.fld.dt
@@ -557,6 +561,8 @@ class SliceHandler:
         # Add the guard cells to the index iz
         if comm is not None:
             iz += comm.n_guard
+            if comm.left_proc is None:
+                iz += comm.n_damp
 
         # Extract the slice directly on the CPU
         # Fill the pre-allocated CPU array slice_array

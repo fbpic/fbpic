@@ -97,6 +97,7 @@ def test_lpa_sim_twoproc_restart():
         if script.find('save_checkpoints = False') == -1 \
             or script.find('use_restart = False') == -1 \
             or script.find('track_electrons = False') == -1 \
+            or script.find('n_order = -1') == -1 \
             or script.find('N_step = 200') == -1:
             raise RuntimeError('Did not find expected lines in lwfa_script.py')
 
@@ -106,6 +107,8 @@ def test_lpa_sim_twoproc_restart():
     script = script.replace('track_electrons = False',
                                 'track_electrons = True')
     script = script.replace('N_step = 200', 'N_step = 101')
+    script = script.replace('n_order = -1',
+                                'n_order = 16')
     with open('lwfa_script.py', 'w') as f:
         f.write(script)
     # Launch the modified script from the OS, with 2 proc
@@ -155,7 +158,14 @@ def test_boosted_frame_sim_twoproc():
     # Read the script and check that the targeted lines are present
     with open('boosted_frame_script.py') as f:
         script = f.read()
-    # Modify the script so as to enable particle tracking
+        # Check that the targeted lines are present
+        if script.find('n_order = -1') == -1 \
+            or script.find('track_bunch = False') == -1:
+            raise RuntimeError('Did not find expected lines in \
+                boosted_frame_script.py')
+
+    # Modify the script so as to enable finite order
+    script = script.replace('n_order = -1', 'n_order = 16')
     script = script.replace('track_bunch = False', 'track_bunch = True')
     with open('boosted_frame_script.py', 'w') as f:
         f.write(script)
@@ -199,6 +209,7 @@ def test_parametric_sim_twoproc():
         script = f.read()
         # Check that the targeted lines are present
         if script.find('save_checkpoints = False') == -1 \
+            or script.find('n_order = -1') == -1 \
             or script.find('use_restart = False') == -1:
             raise RuntimeError(
             'Did not find expected lines in parametric_script.py')
@@ -206,6 +217,8 @@ def test_parametric_sim_twoproc():
     # Modify the script so as to enable checkpoints
     script = script.replace('save_checkpoints = False',
                                 'save_checkpoints = True')
+    script = script.replace('n_order = -1',
+                                'n_order = 16')
     with open('parametric_script.py', 'w') as f:
         f.write(script)
     # Launch the modified script from the OS, with 2 proc

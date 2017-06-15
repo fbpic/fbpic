@@ -266,7 +266,11 @@ class LaserAntenna( object ):
         if comm is not None:
             dz = fld.interp[0].dz
             zmin_local += dz*comm.n_guard
+            if comm.left_proc is None:
+                zmin_local += dz*comm.n_damp
             zmax_local -= dz*comm.n_guard
+            if comm.right_proc is None:
+                zmax_local -= dz*comm.n_damp
         # Interrupt this function if the antenna is not in the local domain
         z_antenna = self.baseline_z[0]
         if (z_antenna < zmin_local) or (z_antenna >= zmax_local):
