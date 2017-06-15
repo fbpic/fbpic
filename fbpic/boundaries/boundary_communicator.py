@@ -305,14 +305,23 @@ class BoundaryCommunicator(object):
         # of this local simulation box.
         iz_start = self.iz_start_procs[self.rank]
         zmin_local_domain = zmin + iz_start*dz
-        zmax_local_domain = zmin_local_domain + self.Nz_domain
+        zmax_local_domain = zmin_local_domain + self.Nz_domain*dz
         # Calculate the new limits (p_zmin and p_zmax)
         # for adding particles to this domain
         p_zmin_local_domain = max( zmin_local_domain, p_zmin)
         p_zmax_local_domain = min( zmax_local_domain, p_zmax)
 
+        # Calculate the enlarged boundaries (i.e. including guard cells
+        # and damp cells), which are passed to the fields object.
+        zmin_local_enlarged = zmin_local_domain - self.n_guard*dz
+        zmax_local_enlarged = zmax_local_domain + self.n_guard*dz
+        if self.left_proc is None:
+            zmin_local_enlarged -= self.n_damp*dz
+        if self.right_proc is None:
+            zmax_local_enlarged += self.n_damp*dz
+
         # Return the new boundaries to the simulation object
-        return( zmin_local_domain, zmax_local_domain,
+        return( zmin_local_enlarged, zmax_local_enlarged,
                 p_zmin_local_domain, p_zmax_local_domain,
                 self.Nz_enlarged )
 
