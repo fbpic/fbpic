@@ -260,6 +260,7 @@ class Simulation(object):
         # Initialize an empty list of external fields
         self.external_fields = []
         # Initialize an empty list of diagnostics and checkpoints
+        # (Checkpoints are used for restarting the simulation)
         self.diags = []
         self.checkpoints = []
         # Initialize an empty list of laser antennas
