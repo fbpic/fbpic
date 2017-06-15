@@ -19,10 +19,11 @@ def set_periodic_checkpoint( sim, period ):
 
     The checkpoints are saved in openPMD format, in the directory
     `./checkpoints`, with one subdirectory per process.
-    All the field and particle information of each processor is saved.
+    The E and B fields and particle information of each processor is saved.
 
-    NB: Checkpoints are registered among the list of diagnostics
-    `diags` of the Simulation object `sim`.
+    NB: Checkpoints are registered in the list `checkpoints` of the Simulation
+    object `sim`, and written at the end of the PIC loop (whereas regular
+    diagnostics are written at the beginning of the PIC loop).
 
     Parameters
     ----------
@@ -45,15 +46,15 @@ def set_periodic_checkpoint( sim, period ):
     write_dir = 'checkpoints/proc%d/' %comm.rank
 
     # Register a periodic FieldDiagnostic in the diagnostics of the simulation
-    sim.diags.append(
-        FieldDiagnostic( period, sim.fld, write_dir=write_dir) )
+    sim.checkpoints.append( FieldDiagnostic( period, sim.fld,
+                        fieldtypes=["E", "B"], write_dir=write_dir ) )
 
     # Register a periodic ParticleDiagnostic, which contains all
     # the particles which are present in the simulation
     particle_dict = {}
     for i in range(len(sim.ptcl)):
         particle_dict[ 'species %d' %i ] = sim.ptcl[i]
-    sim.diags.append(
+    sim.checkpoints.append(
         ParticleDiagnostic( period, particle_dict, write_dir=write_dir ) )
 
 def restart_from_checkpoint( sim, iteration=None ):
@@ -125,7 +126,7 @@ def restart_from_checkpoint( sim, iteration=None ):
     # Loop through the different modes
     for m in range( sim.fld.Nm ):
         # Load the fields E and B
-        for fieldtype in ['E', 'B', 'J']:
+        for fieldtype in ['E', 'B']:
             for coord in ['r', 't', 'z']:
                 load_fields( sim.fld.interp[m], fieldtype,
                              coord, ts, iteration )
