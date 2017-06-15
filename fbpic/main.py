@@ -44,7 +44,7 @@ class Simulation(object):
                  v_comoving=None, use_galilean=False,
                  initialize_ions=False, use_cuda=False,
                  n_guard=None, n_damp=30,
-                 __period=None, boundaries='periodic',
+                 exchange_period=None, boundaries='periodic',
                  gamma_boost=None, use_all_mpi_ranks=True,
                  particle_shape='linear' ):
         """
