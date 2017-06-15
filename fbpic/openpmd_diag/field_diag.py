@@ -67,7 +67,15 @@ class FieldDiagnostic(OpenPMDDiagnostic):
         iteration : int
              The current iteration number of the simulation.
         """
-        # Receive data from the GPU if needed
+        # If needed: Bring rho/J from spectral space (where they where
+        # smoothed/corrected) to real space
+        if "rho" in self.fieldtypes:
+            # Get 'rho_prev', since it correspond to rho at time n
+            self.fld.spect2interp('rho_prev')
+        if "J" in self.fieldtypes:
+            self.fld.spect2interp('J')
+
+        # If needed: Receive data from the GPU
         if self.fld.use_cuda :
             self.fld.receive_fields_from_gpu()
 

@@ -69,6 +69,8 @@ class BoostedFieldDiagnostic(FieldDiagnostic):
             for "E" and "B" (because "rho" and "J" are staggered in time).
             The user can still output "rho" and "J" by changing `fieldtypes`,
             but has to be aware that there may errors in the backward transform.
+            Moreover, writing rho/J slows down the simulation, as these fields
+            are then brought from spectral to real space, at each iteration.
         """
         # Do not leave write_dir as None, as this may conflict with
         # the default directory ('./diags') in which diagnostics in the
@@ -130,6 +132,13 @@ class BoostedFieldDiagnostic(FieldDiagnostic):
         iteration : int
             The current iteration in the boosted frame simulation
         """
+        # If needed: Bring rho/J from spectral space (where they where
+        # smoothed/corrected) to real space
+        if "rho" in self.fieldtypes or "J" in self.fieldtypes:
+            # Get 'rho_prev', since it correspond to rho at time n
+            self.fld.spect2interp('rho_prev')
+            self.fld.spect2interp('J')
+
         # Find the limits of the local subdomain at this iteration
         zmin_boost = self.fld.interp[0].zmin
         zmax_boost = self.fld.interp[0].zmax
