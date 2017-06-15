@@ -259,8 +259,10 @@ class Simulation(object):
 
         # Initialize an empty list of external fields
         self.external_fields = []
-        # Initialize an empty list of diagnostics
+        # Initialize an empty list of diagnostics and checkpoints
+        # (Checkpoints are used for restarting the simulation)
         self.diags = []
+        self.checkpoints = []
         # Initialize an empty list of laser antennas
         self.laser_antennas = []
 
@@ -305,6 +307,9 @@ class Simulation(object):
         if self.use_cuda:
             send_data_to_gpu(self)
 
+        # Beginning of the N iterations
+        # -----------------------------
+
         # Loop over timesteps
         for i_step in range(N):
 
@@ -315,43 +320,45 @@ class Simulation(object):
             if show_progress and self.comm.rank==0:
                 progression_bar( i_step, N, measured_start )
 
+            # Run the diagnostics
+            # (E, B, rho, x are defined at time n; J, p at time n-1/2)
+            for diag in self.diags:
+                # Check if the diagnostic should be written at this iteration
+                # and write it, if it is the case.
+                # (If needed: bring rho/J from spectral space, where they
+                # were smoothed/corrected, and copy the data from the GPU.)
+                diag.write( self.iteration )
+
             # Exchanges to prepare for this iteration
             # ---------------------------------------
-
-            # Run the diagnostics
-            # (E, B, rho are defined at time n)
-            # (J, x, p are defined at time n+1/2)
-            for diag in self.diags:
-                # Check if the fields should be written at
-                # this iteration and do it if needed.
-                # (Send the data to the GPU if needed.)
-                diag.write( self.iteration )
 
             # Exchange the fields (EB) in the guard cells between MPI domains
             self.comm.exchange_fields(fld.interp, 'EB')
 
-            # Check whether this iteration involves particle exchange,
-            # defined by "exchange_period".
+            # Check whether this iteration involves particle exchange.
             # Note: Particle exchange is imposed at the first iteration
-            # of this loop (i_step == 0) in order to make sure that
-            # all particles are inside the box initially
+            # of this loop (i_step == 0) in order to ensure that all
+            # particles are inside the box, and that 'rho_prev' is correct
             if self.iteration % self.comm.exchange_period == 0 or i_step == 0:
-                # Particle exchange after moving window / mpi communications
-                # This includes MPI exchange of particles, removal of
-                # out-of-box particles and (if there is a moving window)
+                # Particle exchange includes MPI exchange of particles, removal
+                # of out-of-box particles and (if there is a moving window)
                 # injection of new particles by the moving window.
                 # (In the case of single-proc periodic simulations, particles
-                # are shifted by one box length, so they remain inside the box.)
+                # are shifted by one box length, so they remain inside the box)
                 for species in self.ptcl:
                     self.comm.exchange_particles(species, fld, self.time)
                 # Set again the number of cells to be injected to 0
                 # (This number is incremented when `move_grids` is called)
                 if self.comm.moving_win is not None:
                     self.comm.moving_win.nz_inject = 0
+
                 # Reproject the charge on the interpolation grid
-                # (Since the moving window has moved or particles
-                # have been removed / added to the simulation)
+                # (Since particles have been removed / added to the simulation;
+                # otherwise rho_prev is obtained from the previous iteration)
                 self.deposit('rho_prev')
+
+            # Main PIC iteration
+            # ------------------
 
             # Gather the fields from the grid at t = n dt
             for species in ptcl:
@@ -421,6 +428,13 @@ class Simulation(object):
             # Increment the global time and iteration
             self.time += self.dt
             self.iteration += 1
+
+            # Write the checkpoints if needed
+            for checkpoint in self.checkpoints:
+                checkpoint.write( self.iteration )
+
+        # End of the N iterations
+        # -----------------------
 
         # Finalize PIC loop
         # Get the charge density and the current from spectral space.
