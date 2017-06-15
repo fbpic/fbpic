@@ -46,10 +46,13 @@ Nm = 2           # Number of modes used
 dt = (zmax-zmin)/Nz/c   # Timestep (seconds)
 N_step = 200     # Number of iterations to perform
 
-# Stencil order of the solver. -1 corresponds to the standard
-# fully spectral solver with infinite order. For a localized stencil,
-# thus finite-order accuracy of the solver, choose n_order > 4
-# (needs to be a multiple of 2).
+# Order of accuracy of the spectral, Maxwell (PSATD) solver.
+# -1 correspond to infinite order, i.e. wave propagation is perfectly
+# dispersion-free in all directions. This is adviced for single GPU/CPU
+# simulations. For multi GPU/CPU simulations, choose n_order > 4
+# (and multiple of 2). A large n_order leads to more overhead in MPI
+# communications, but also to a more accurate dispersion for waves.
+# (Typically, n_order = 32 gives accurate physical results)
 n_order = -1
 
 # The particles

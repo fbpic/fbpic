@@ -293,6 +293,7 @@ class BoundaryCommunicator(object):
         # Get the enlarged number of cells in each domain (includes guards)
         self.Nz_enlarged_procs = [ n+2*self.n_guard for n in Nz_domain_procs ]
         # Add damping region to first and last domain
+        # (Note: self.n_damp is zero in case of 'periodic' boundaries)
         self.Nz_enlarged_procs[0] += self.n_damp
         self.Nz_enlarged_procs[-1] += self.n_damp
         # Get the local values of the above arrays
@@ -305,34 +306,21 @@ class BoundaryCommunicator(object):
                                than 4 times n_guard. Use fewer domains or \
                                a smaller number of guard cells.')
 
-        # Calculate the local boundaries (zmin)
-        # of this local simulation box including the guard cells.
+        # Calculate the local boundaries,
+        # zmin_local_domain and zmax_local_domain,
+        # of this local simulation box.
         iz_start = self.iz_start_procs[self.rank]
-        zmin_local = zmin + (iz_start - self.n_guard)*dz
-        # Correct for first process by adding n_damp cells
-        # to the left of the box
-        if self.rank==0:
-            zmin_local -= self.n_damp*dz
-        # Calculate the local boundaries (zmax)
-        # of this local simulation box including the guard cells.
-        zmax_local = zmin_local + self.Nz_enlarged*dz
-
+        zmin_local_domain = zmin + iz_start*dz
+        zmax_local_domain = zmin_local_domain + self.Nz_domain
         # Calculate the new limits (p_zmin and p_zmax)
         # for adding particles to this domain
-        p_zmin = max( zmin_local + self.n_guard*dz, p_zmin)
-        # For the first process, we need to take into account an
-        # additional +n_damp cells for the particle boundaries
-        if self.rank==0:
-            p_zmin = max(
-                zmin_local + (self.n_guard+self.n_damp)*dz, p_zmin )
-        p_zmax = min( zmax_local - self.n_guard*dz, p_zmax)
-        # For the last process, we need to take into account an
-        # additional -n_damp cells for the particle boundaries
-        if self.rank==self.size-1:
-            p_zmax = min(
-                zmax_local - (self.n_guard+self.n_damp)*dz, p_zmax )
+        p_zmin_local_domain = max( zmin_local_domain, p_zmin)
+        p_zmax_local_domain = min( zmax_local_domain, p_zmax)
+
         # Return the new boundaries to the simulation object
-        return( zmin_local, zmax_local, p_zmin, p_zmax, self.Nz_enlarged )
+        return( zmin_local_domain, zmax_local_domain,
+                p_zmin_local_domain, p_zmax_local_domain,
+                self.Nz_enlarged )
 
     # Exchange routines
     # -----------------
@@ -726,10 +714,15 @@ class BoundaryCommunicator(object):
         gathered_grid: Grid object (InterpolationGrid)
             A gathered grid that contains the global simulation data
         """
+        # Calculate global edges of the simulation box on root process
         if self.rank == root:
-            # Calculate global edges of the simulation box on root process
+            n_remove = self.n_guard
+            if self.left_proc is None:
+                # Add damp cells if root process is rank 0
+                n_remove += self.n_damp
+            # Caluclate the global zmin without the guard (and damp) region
             zmin_global = grid.zmin + self.dz * \
-                (self.n_guard + self.n_damp - self.rank*self.Nz_domain)
+                (n_remove - self.rank*self.Nz_domain)
             # Create new grid array that contains cell positions in z
             z = zmin_global + self.dz*( 0.5 + np.arange(self.Nz) )
             # Initialize new InterpolationGrid object that
@@ -778,20 +771,18 @@ class BoundaryCommunicator(object):
         else:
             # Other processes do not need to initialize a new array
             gathered_array = None
-        # Shortcut for the guard cells
-        ng = self.n_guard
+
+        # Guard region cells to be removed at the left and right
+        n_remove_l = self.n_guard
+        n_remove_r = self.n_guard
         # Remove n_damp cells from the left proc's output region
-        if self.rank == 0:
-            n_left = ng + self.n_damp
-        else:
-            n_left = ng
+        if self.left_proc is None:
+            n_remove_l += self.n_damp
         # Remove n_damp cells from the right proc's output region
-        if self.rank == self.size-1:
-            n_right = ng + self.n_damp
-        else:
-            n_right = ng
+        if self.right_proc is None:
+            n_remove_r += self.n_damp
         # Select the physical region of the local box
-        local_array = array[n_left:len(array)-n_right,:]
+        local_array = array[n_remove_l:len(array)-n_remove_r,:]
 
         # Then send the arrays
         if self.size > 1:

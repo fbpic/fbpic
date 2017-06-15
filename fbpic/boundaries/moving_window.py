@@ -96,6 +96,10 @@ class MovingWindow(object):
                 c * self.uz_m / np.sqrt(1 + ux_m**2 + uy_m**2 + self.uz_m**2)
             ng = comm.n_guard
             nd = comm.n_damp
+            # Initialize plasma *ahead* of the right *physical* boundary of
+            # the box so, after `exchange_period` iterations
+            # (without adding new plasma), there will still be plasma
+            # inside the physical domain.
             self.z_inject = interp[0].zmax - (ng+nd)*interp[0].dz + \
                 comm.exchange_period * (v-self.v_end_plasma) * dt
             # Try to detect the position of the end of the plasma:
