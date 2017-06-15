@@ -319,8 +319,8 @@ class Simulation(object):
             # ---------------------------------------
 
             # Run the diagnostics
-            # (E, B, rho are defined at time n)
-            # (J, x, p are defined at time n+1/2)
+            # (E, B, rho, x are defined at time n)
+            # (J, p are defined at time n-1/2)
             for diag in self.diags:
                 # Check if the fields should be written at
                 # this iteration and do it if needed.

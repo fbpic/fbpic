@@ -401,7 +401,12 @@ class ParticleDiagnostic(OpenPMDDiagnostic) :
                 dtype = 'uint64'
             else:
                 dtype = 'f8'
-            dset = species_grp.require_dataset(path, datashape, dtype=dtype )
+            # If the dataset already exists, remove it.
+            # (This avoids errors with diags from previous simulations,
+            # in case the number of particles is not exactly the same.)
+            if path in species_grp.keys():
+                del species_grp[path]
+            dset = species_grp.create_dataset(path, datashape, dtype=dtype )
             self.setup_openpmd_species_component( dset, quantity )
 
         # Fill the dataset with the quantity
