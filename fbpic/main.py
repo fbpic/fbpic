@@ -318,6 +318,15 @@ class Simulation(object):
             # Exchanges to prepare for this iteration
             # ---------------------------------------
 
+            # Run the diagnostics
+            # (E, B, rho are defined at time n)
+            # (J, x, p are defined at time n+1/2)
+            for diag in self.diags:
+                # Check if the fields should be written at
+                # this iteration and do it if needed.
+                # (Send the data to the GPU if needed.)
+                diag.write( self.iteration )
+
             # Exchange the fields (EB) in the guard cells between MPI domains
             self.comm.exchange_fields(fld.interp, 'EB')
 
@@ -380,14 +389,14 @@ class Simulation(object):
             # Get the current at t = (n+1/2) dt
             self.deposit('J')
 
-            # Run the diagnostics
-            # (E, B, rho are defined at time n)
-            # (J, x, p are defined at time n+1/2)
-            for diag in self.diags:
-                # Check if the fields should be written at
-                # this iteration and do it if needed.
-                # (Send the data to the GPU if needed.)
-                diag.write( self.iteration )
+            # # Run the diagnostics
+            # # (E, B, rho are defined at time n)
+            # # (J, x, p are defined at time n+1/2)
+            # for diag in self.diags:
+            #     # Check if the fields should be written at
+            #     # this iteration and do it if needed.
+            #     # (Send the data to the GPU if needed.)
+            #     diag.write( self.iteration )
 
             # Push the particles' positions to t = (n+1) dt
             if move_positions:
