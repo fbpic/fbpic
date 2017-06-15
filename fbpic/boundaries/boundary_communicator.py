@@ -9,7 +9,7 @@ import numpy as np
 from scipy.constants import c
 from mpi4py import MPI as mpi
 from fbpic.fields.fields import InterpolationGrid
-from fbpic.fields.utility_methods import get_modified_k, stencil_reach
+from fbpic.fields.utility_methods import get_stencil_reach
 from fbpic.particles.particles import Particles
 from .field_buffer_handling import BufferHandler
 from .particle_buffer_handling import remove_outside_particles, \
@@ -168,13 +168,7 @@ class BoundaryCommunicator(object):
             else:
                 # Automatic calculation of the guard region size,
                 # depending on the stencil order (n_order)
-                # Calculate the real kz for the given grid (Nz)
-                real_kz = 2 * np.pi * np.fft.fftfreq(Nz, d=self.dz)
-                # Get the modified, finite order kz
-                kz = get_modified_k(real_kz, n_order, dz=self.dz)
-                # Calculate the stencil reach at an arbitrary kperp = 0.5
-                # (Note: The stencil reach depends only weakly on kperp)
-                stencil = stencil_reach(kz, 0.5, c*dt)
+                stencil = get_stencil_reach( self.Nz, self.dz, c*dt, n_order )
                 # approx 2*n_order (+1 because the moving window
                 # shifts the grid by one cell during the PIC loop
                 # and therefore, the guard region needs to be larger
@@ -720,7 +714,7 @@ class BoundaryCommunicator(object):
             if self.left_proc is None:
                 # Add damp cells if root process is rank 0
                 n_remove += self.n_damp
-            # Caluclate the global zmin without the guard (and damp) region
+            # Calculate the global zmin without the guard (and damp) region
             zmin_global = grid.zmin + self.dz * \
                 (n_remove - self.rank*self.Nz_domain)
             # Create new grid array that contains cell positions in z
