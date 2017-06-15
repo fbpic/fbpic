@@ -45,7 +45,8 @@ p_zmin = 0.e-6 # Chosen so that there is initially some plasma inside the box
 p_zmax = 1e6
 n = 1.e24
 
-ramp = 7.e-6
+ramp = 7.e-6 # linear density upramp in z
+smooth_r = rmax*0.5 # smooth cos**2 decrease of density in r (towards rmax)
 
 # -------------
 # Test function
@@ -57,11 +58,14 @@ def test_rest_continuous_injection(show=False):
     # Plasma at rest, non-uniform density
     def dens_func( z, r ):
         dens = np.ones_like( z )
+        # Make the density smooth at rmax
+        dens = np.where( r > rmax-smooth_r,
+            np.cos(0.5*np.pi*(r-smooth_r)/smooth_r)**2, dens)
         # Make the density 0 below p_zmin
         dens = np.where( z < p_zmin, 0., dens )
         # Make a linear ramp
         dens = np.where( (z>=p_zmin) & (z<p_zmin+ramp),
-                         (z-p_zmin)/ramp, dens )
+                         (z-p_zmin)/ramp*dens, dens )
         return( dens )
 
     # Run the test
@@ -78,11 +82,14 @@ def test_boosted_continuous_injection(show=False):
 
     def dens_func( z, r ):
         dens = np.ones_like( z )
+        # Make the density smooth at rmax
+        dens = np.where( r > rmax-smooth_r,
+            np.cos(0.5*np.pi*(r-smooth_r)/smooth_r)**2, dens)
         # Make the density 0 below p_zmin
         dens = np.where( z < p_zmin, 0., dens )
         # Make a linear ramp
         dens = np.where( (z>=p_zmin) & (z<p_zmin+ramp),
-                         (z-p_zmin)/ramp, dens )
+                         (z-p_zmin)/ramp*dens, dens )
         return( dens )
 
     # Run the test
@@ -135,17 +142,20 @@ def check_density( sim, gamma_boost, dens_func, show ):
 
         plt.subplot(311)
         plt.title('Deposited density')
-        plt.imshow( gathered_grid.rho.real.T, aspect='auto', extent=extent )
+        plt.imshow( gathered_grid.rho.real.T[::-1],
+            aspect='auto', extent=extent )
         plt.colorbar()
 
         plt.subplot(312)
         plt.title('Expected density')
-        plt.imshow( rho_expected.T, aspect='auto', extent=extent )
+        plt.imshow( rho_expected.T[::-1],
+            aspect='auto', extent=extent )
         plt.colorbar()
 
         plt.subplot(313)
         plt.title('Difference')
-        plt.imshow( rho_expected.T - gathered_grid.rho.real.T, aspect='auto' )
+        plt.imshow( rho_expected.T[::-1] - gathered_grid.rho.real.T[::-1],
+            aspect='auto' )
         plt.colorbar()
 
         plt.show()
