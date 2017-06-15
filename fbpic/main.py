@@ -150,10 +150,11 @@ class Simulation(object):
             (Defaults to 30)
         exchange_period: int, optional
             Number of iterations before which the particles are exchanged.
-            If set to None, the minimum exchange period is calculated
+            If set to None, the maximum exchange period is calculated
             automatically: Within exchange_period timesteps, the
             particles should never be able to travel more than
-            (n_guard - particle_shape order) cells.
+            (n_guard - particle_shape order) cells. (Setting exchange_period
+            to small values can substantially affect the performance)
 
         boundaries: string, optional
             Indicates how to exchange the fields at the left and right

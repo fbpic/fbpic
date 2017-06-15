@@ -141,5 +141,42 @@ def stencil_reach(kz, kperp, cdt):
     # Reach of the stencil defined at the position, when the signal
     # decreased to machine precision
     stencil_reach = np.where(np.abs(alpha)[:int(alpha.shape[0]/2)] < 1.e-16)[0][0]
-    
+
     return int(stencil_reach)
+
+def get_stencil_reach(Nz, dz, cdt, n_order):
+    """
+    Return the stencil reach (in spatial space) for a given finite order
+    stencil and for a given simulation setup with Nz cells and spacing dz.
+    The stencil reach depends only slightly on the transverse k (kr) and will
+    be calculated at a fixed kperp of 0.5 . The stencil reach is needed to
+    define the number of guard cells between domains when running in parallel.
+
+    Parameters:
+    ----------
+    Nz: int
+        The number of cells in the logintudinal direction
+
+    dz: float (microns)
+        The cell spacing in the longitudinal direction
+
+    cdt: float
+        Timestep times speed of light
+
+    n_order: int (multiple of 2)
+        The (finite) order of the arbitrary order spectral,
+        Maxwell (PSATD) solver, which defines the stencil reach.
+
+    Returns:
+    -------
+    Number of cells needed for the stencil to decrease to
+    machine precision at kperp = 0.5
+    """
+    # Calculate the real kz for the given grid (Nz)
+    real_kz = 2 * np.pi * np.fft.fftfreq(Nz, d=dz)
+    # Get the modified, finite order kz
+    kz = get_modified_k(real_kz, n_order, dz=dz)
+
+    # Calculate the stencil reach at an arbitrary kperp = 0.5
+    # (Note: The stencil reach depends only weakly on kperp)
+    return stencil_reach(kz, 0.5, cdt)
