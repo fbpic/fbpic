@@ -107,7 +107,8 @@ if __name__ == '__main__':
     sim = Simulation( Nz, zmax, Nr, rmax, Nm, dt,
         p_zmin, p_zmax, p_rmin, p_rmax, p_nz, p_nr, p_nt, n_e,
         dens_func=dens_func, zmin=zmin, boundaries='open',
-        n_order=n_order, use_cuda=use_cuda )
+        n_order=n_order, use_cuda=use_cuda, 
+        current_corr_type='cross-deposition' )
 
     # Load initial fields
     # Add a laser to the fields of the simulation

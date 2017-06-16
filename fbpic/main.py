@@ -312,6 +312,7 @@ class Simulation(object):
         # Shortcuts
         ptcl = self.ptcl
         fld = self.fld
+        dt = self.dt
         # Measure the time taken by the PIC cycle
         measured_start = time.time()
 
@@ -390,11 +391,11 @@ class Simulation(object):
                     species.push_p()
             if move_positions:
                 for species in ptcl:
-                    species.halfpush_x()
+                    species.push_x( 0.5*dt )
             # Get positions/velocities for antenna particles at t = (n+1/2) dt
             for antenna in self.laser_antennas:
-                antenna.update_v( self.time + 0.5*self.dt )
-                antenna.halfpush_x( self.dt )
+                antenna.update_v( self.time + 0.5*dt )
+                antenna.halfpush_x( dt )
             # Shift the boundaries of the grid for the Galilean frame
             if self.use_galilean:
                 self.shift_galilean_boundaries()
@@ -408,10 +409,10 @@ class Simulation(object):
             # Push the particles' positions to t = (n+1) dt
             if move_positions:
                 for species in ptcl:
-                    species.halfpush_x()
+                    species.push_x( 0.5*dt )
             # Get positions for antenna particles at t = (n+1) dt
             for antenna in self.laser_antennas:
-                antenna.halfpush_x( self.dt )
+                antenna.halfpush_x( dt )
             # Shift the boundaries of the grid for the Galilean frame
             if self.use_galilean:
                 self.shift_galilean_boundaries()
@@ -435,13 +436,13 @@ class Simulation(object):
             if self.comm.moving_win is not None:
                 # Shift the fields is spectral space and update positions of
                 # the interpolation grids
-                self.comm.move_grids(fld, self.dt, self.time)
+                self.comm.move_grids(fld, dt, self.time)
             # Get the fields E and B on the interpolation grid at t = (n+1) dt
             fld.spect2interp('E')
             fld.spect2interp('B')
 
             # Increment the global time and iteration
-            self.time += self.dt
+            self.time += dt
             self.iteration += 1
 
             # Write the checkpoints if needed
@@ -527,21 +528,24 @@ class Simulation(object):
         This function should be called when the particles are at time n+1/2
         """
         dt = self.dt
+        # WARNING: this does not implement the flag `move_position=True`
+        # and does not consider the antennas.
+
         # Push the particles: z[n+1/2], x[n+1/2] => z[n], x[n+1]
-        for species in ptcl:
-            species.push_x( 0.5*dt, x_push=1., y_push=1., z_push=-1. )
+        for species in self.ptcl:
+            species.push_x(0.5*dt, x_push= 1., y_push= 1., z_push= -1.)
         # Deposit rho_next_xy
         self.deposit( 'rho_next_xy' )
 
         # Push the particles: z[n], x[n+1] => z[n+1], x[n]
-        for species in ptcl:
-            species.push_x( dt, x_push=-1., y_push=-1., z_push=1. )
+        for species in self.ptcl:
+            species.push_x(dt, x_push= -1., y_push= -1., z_push= 1.)
         # Deposit rho_next_z
         self.deposit( 'rho_next_z' )
 
         # Push the particles: z[n+1], x[n] => z[n+1/2], x[n+1/2]
-        for species in ptcl:
-            species.push_x( 0.5*dt, x_push=1., y_push=1., z_push=-1. )
+        for species in self.ptcl:
+            species.push_x(0.5*dt, x_push= 1., y_push= 1., z_push= -1.)
 
     def shift_galilean_boundaries(self):
         """

@@ -14,22 +14,20 @@ from scipy.constants import c, e
 # -----------------------
 
 @numba.jit(nopython=True)
-def push_x_numba( x, y, z, ux, uy, uz, inv_gamma, Ntot, dt ):
+def push_x_numba( x, y, z, ux, uy, uz, inv_gamma, Ntot,
+                    dt, x_push, y_push, z_push ):
     """
-    Advance the particles' positions over one half-timestep
-
-    This assumes that the positions (x, y, z) are initially either
-    one half-timestep *behind* the momenta (ux, uy, uz), or at the
-    same timestep as the momenta.
+    Advance the particles' positions over `dt` using the momenta ux, uy, uz,
+    multiplied by the scalar coefficients x_push, y_push, z_push.
     """
     # Half timestep, multiplied by c
-    chdt = c*0.5*dt
+    cdt = c*dt
 
     # Particle push
     for ip in range(Ntot) :
-        x[ip] += chdt * inv_gamma[ip] * ux[ip]
-        y[ip] += chdt * inv_gamma[ip] * uy[ip]
-        z[ip] += chdt * inv_gamma[ip] * uz[ip]
+        x[ip] += cdt * x_push * inv_gamma[ip] * ux[ip]
+        y[ip] += cdt * y_push * inv_gamma[ip] * uy[ip]
+        z[ip] += cdt * z_push * inv_gamma[ip] * uz[ip]
 
 @numba.jit(nopython=True)
 def push_p_numba( ux, uy, uz, inv_gamma,
