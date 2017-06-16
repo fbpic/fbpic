@@ -333,8 +333,9 @@ class Simulation(object):
             # Exchanges to prepare for this iteration
             # ---------------------------------------
 
-            # Exchange the fields (EB) in the guard cells between MPI domains
-            self.comm.exchange_fields(fld.interp, 'EB')
+            # Exchange the fields (E,B) in the guard cells between MPI domains
+            self.comm.exchange_fields(fld.interp, 'E', 'replace')
+            self.comm.exchange_fields(fld.interp, 'B', 'replace')
 
             # Check whether this iteration involves particle exchange.
             # Note: Particle exchange is imposed at the first iteration
@@ -407,6 +408,11 @@ class Simulation(object):
             # Correct the currents (requires rho at t = (n+1) dt )
             if correct_currents:
                 fld.correct_currents()
+                if self.comm.size > 1:
+                    # Exchange the corrected J between domains
+                    fld.spect2interp('J')
+                    self.comm.exchange_fields(fld.interp, 'J', 'replace')
+                    fld.interp2spect('J')
 
             # Damp the fields in the guard cells
             self.comm.damp_guard_EB( fld.interp )
@@ -482,7 +488,7 @@ class Simulation(object):
             # Divide by cell volume
             fld.divide_by_volume('rho')
             # Exchange the charge density of the guard cells between domains
-            self.comm.exchange_fields(fld.interp, 'rho')
+            self.comm.exchange_fields(fld.interp, 'rho', 'add')
 
         # Currents
         elif fieldtype == 'J':
@@ -496,7 +502,7 @@ class Simulation(object):
             # Divide by cell volume
             fld.divide_by_volume('J')
             # Exchange the current of the guard cells between domains
-            self.comm.exchange_fields(fld.interp, 'J')
+            self.comm.exchange_fields(fld.interp, 'J', 'add')
         else:
             raise ValueError('Unknown fieldtype: %s' %fieldtype)
 
