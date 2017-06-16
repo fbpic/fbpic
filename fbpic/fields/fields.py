@@ -268,17 +268,13 @@ class Fields(object) :
                 self.trans[m].interp2spect_vect(
                     self.interp[m].Jr, self.interp[m].Jt,
                     self.spect[m].Jp, self.spect[m].Jm )
-        elif fieldtype == 'rho_next' :
+        elif fieldtype in ['rho_prev', 'rho_next', 'rho_next_z', 'rho_next_xy']:
             # Transform each azimuthal grid individually
             for m in range(self.Nm) :
+                spectral_rho = getattr( self.spect[m], fieldtype )
                 self.trans[m].interp2spect_scal(
-                    self.interp[m].rho, self.spect[m].rho_next )
-        elif fieldtype == 'rho_prev' :
-            # Transform each azimuthal grid individually
-            for m in range(self.Nm) :
-                self.trans[m].interp2spect_scal(
-                    self.interp[m].rho, self.spect[m].rho_prev )
-        else :
+                    self.interp[m].rho, spectral_rho )
+        else:
             raise ValueError( 'Invalid string for fieldtype: %s' %fieldtype )
 
     def spect2interp(self, fieldtype) :
@@ -685,11 +681,14 @@ class SpectralGrid(object) :
         # - for filtering
         #   (use the true kz, so as to effectively filter the high k's)
         self.filter_array = get_filter_array( kz_true, kr, dz, dr )
-        # - for current correction
+        # - for curl-free current correction
         self.F = np.zeros( (Nz, Nr), dtype='complex' )
         self.inv_k2 = 1./np.where( ( self.kz == 0 ) & (self.kr == 0),
                                    1., self.kz**2 + self.kr**2 )
         self.inv_k2[ ( self.kz == 0 ) & (self.kr == 0) ] = 0.
+        # - for cross-deposition current correction
+        self.rho_next_z = np.zeros( (Nz, Nr), dtype='complex' )
+        self.rho_next_xy = np.zeros( (Nz, Nr), dtype='complex' )
 
         # Register shift factor used for shifting the fields
         # in the spectral domain when using a moving window
