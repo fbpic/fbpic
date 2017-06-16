@@ -290,7 +290,7 @@ class Fields(object) :
         ---------
         fieldtype :
             A string which represents the kind of field to transform
-            (either 'E', 'B', 'J', 'rho')
+            (either 'E', 'B', 'J', 'rho_next', 'rho_prev')
         """
         # Use the appropriate transformation depending on the fieldtype.
         if fieldtype == 'E' :
@@ -317,11 +317,16 @@ class Fields(object) :
                 self.trans[m].spect2interp_vect(
                     self.spect[m].Jp,  self.spect[m].Jm,
                     self.interp[m].Jr, self.interp[m].Jt )
-        elif fieldtype == 'rho' :
+        elif fieldtype == 'rho_next' :
             # Transform each azimuthal grid individually
             for m in range(self.Nm) :
                 self.trans[m].spect2interp_scal(
                     self.spect[m].rho_next, self.interp[m].rho )
+        elif fieldtype == 'rho_prev' :
+            # Transform each azimuthal grid individually
+            for m in range(self.Nm) :
+                self.trans[m].spect2interp_scal(
+                    self.spect[m].rho_prev, self.interp[m].rho )
         else :
             raise ValueError( 'Invalid string for fieldtype: %s' %fieldtype )
 
@@ -686,6 +691,10 @@ class SpectralGrid(object) :
                                    1., self.kz**2 + self.kr**2 )
         self.inv_k2[ ( self.kz == 0 ) & (self.kr == 0) ] = 0.
 
+        # Register shift factor used for shifting the fields
+        # in the spectral domain when using a moving window
+        self.field_shift = np.exp(1.j*kz_true*dz)
+
         # Check whether to use the GPU
         self.use_cuda = use_cuda
 
@@ -695,6 +704,7 @@ class SpectralGrid(object) :
             self.d_inv_k2 = cuda.to_device( self.inv_k2 )
             self.d_kz = cuda.to_device( self.kz )
             self.d_kr = cuda.to_device( self.kr )
+            self.d_field_shift = cuda.to_device( self.field_shift )
             # NB: F is not needed on the GPU (on-the-fly variables)
 
     def send_fields_to_gpu( self ):
