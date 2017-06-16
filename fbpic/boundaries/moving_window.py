@@ -143,10 +143,10 @@ class MovingWindow(object):
             This is used in order to determine how much the window should move
 
         shift_spectral: bool (optional)
-            Wether to shift the fields in spectral space (spectral grid)
+            Whether to shift the fields in spectral space (spectral grid)
             or in spatial space (interpolation grid).
             Defaults to True, as shifting the fields in spectral space is
-            much more efficients.
+            much more efficient.
         """
         # To avoid discrepancies between processors, only the first proc
         # decides whether to send the data, and broadcasts the information.
@@ -532,18 +532,18 @@ if cuda_installed:
             shifted in the longitudinal direction.
         """
         # Get a 2D CUDA grid
-        i, j = cuda.grid(2)
+        iz, ir = cuda.grid(2)
 
         # Only access values that are actually in the array
-        if j < field_array.shape[1] and i < field_array.shape[0]:
+        if ir < field_array.shape[1] and iz < field_array.shape[0]:
 
             # Shift the values of the field array and copy them to the buffer
-            if (i+n_move) < field_array.shape[0] and (i+n_move) >= 0 :
-                field_buffer[i, j] = field_array[i+n_move, j]
+            if (iz+n_move) < field_array.shape[0] and (iz+n_move) >= 0 :
+                field_buffer[iz, ir] = field_array[iz+n_move, ir]
 
             # Set the remaining values to zero
-            if (i+n_move) >= field_array.shape[0] or (i+n_move) < 0:
-                field_buffer[i, j] = 0.
+            if (iz+n_move) >= field_array.shape[0] or (iz+n_move) < 0:
+                field_buffer[iz, ir] = 0.
 
     @cuda.jit('void(complex128[:,:], complex128[:], int32)')
     def shift_spect_array_gpu( field_array, shift_factor, n_move ):
@@ -567,16 +567,10 @@ if cuda_installed:
             The number of cells by which the grid should be shifted
         """
         # Get a 2D CUDA grid
-        i, j = cuda.grid(2)
+        iz, ir = cuda.grid(2)
 
         # Only access values that are actually in the array
-        if j < field_array.shape[1] and i < field_array.shape[0]:
-
-            if n_move > 0:
-                # Shift fields backward
-                field_array[i, j] = field_array[i, j] \
-                    * ( shift_factor[i] )**np.abs(n_move)
-            if n_move < 0:
-                # Shift fields forward
-                field_array[i, j] = field_array[i, j] \
-                    * ( -1.*shift_factor[i] )**np.abs(n_move)
+        if ir < field_array.shape[1] and iz < field_array.shape[0]:
+            # Shift fields backward
+            field_array[iz, ir] = field_array[iz, ir] \
+                * ( shift_factor[iz] )**n_move
