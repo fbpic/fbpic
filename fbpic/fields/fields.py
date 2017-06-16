@@ -899,13 +899,7 @@ class SpectralGrid(object) :
             # Obtain the cuda grid
             dim_grid, dim_block = cuda_tpb_bpg_2d( self.Nz, self.Nr)
             # Filter fields on the GPU
-            if fieldtype == 'rho_prev' :
-                cuda_filter_scalar[dim_grid, dim_block](
-                    self.rho_prev, self.d_filter_array, self.Nz, self.Nr )
-            elif fieldtype == 'rho_next' :
-                cuda_filter_scalar[dim_grid, dim_block](
-                    self.rho_next, self.d_filter_array, self.Nz, self.Nr )
-            elif fieldtype == 'J' :
+            if fieldtype == 'J' :
                 cuda_filter_vector[dim_grid, dim_block]( self.Jp, self.Jm,
                         self.Jz, self.d_filter_array, self.Nz, self.Nr)
             elif fieldtype == 'E' :
@@ -914,27 +908,31 @@ class SpectralGrid(object) :
             elif fieldtype == 'B' :
                 cuda_filter_vector[dim_grid, dim_block]( self.Bp, self.Bm,
                         self.Bz, self.d_filter_array, self.Nz, self.Nr)
+            elif fieldtype in ['rho_prev', 'rho_next',
+                                'rho_next_z', 'rho_next_xy']:
+                spectral_rho = getattr( self, fieldtype )
+                cuda_filter_scalar[dim_grid, dim_block](
+                    spectral_rho, self.d_filter_array, self.Nz, self.Nr )
             else :
                 raise ValueError('Invalid string for fieldtype: %s'%fieldtype)
         else :
             # Filter fields on the CPU
-
-            if fieldtype == 'rho_prev' :
-                self.rho_prev = self.rho_prev * self.filter_array
-            elif fieldtype == 'rho_next' :
-                self.rho_next = self.rho_next * self.filter_array
-            elif fieldtype == 'J' :
+            if fieldtype == 'J':
                 self.Jp = self.Jp * self.filter_array
                 self.Jm = self.Jm * self.filter_array
                 self.Jz = self.Jz * self.filter_array
-            elif fieldtype == 'E' :
+            elif fieldtype == 'E':
                 self.Ep = self.Ep * self.filter_array
                 self.Em = self.Em * self.filter_array
                 self.Ez = self.Ez * self.filter_array
-            elif fieldtype == 'B' :
+            elif fieldtype == 'B':
                 self.Bp = self.Bp * self.filter_array
                 self.Bm = self.Bm * self.filter_array
                 self.Bz = self.Bz * self.filter_array
+            elif fieldtype in ['rho_prev', 'rho_next',
+                                'rho_next_z', 'rho_next_xy']:
+                spectral_rho = getattr( self, fieldtype )
+                spectral_rho *= self.filter_array
             else :
                 raise ValueError('Invalid string for fieldtype: %s'%fieldtype)
 
