@@ -464,7 +464,7 @@ class Particles(object) :
             (This can be typically be half of the simulation timestep)
 
         x_push, y_push, z_push: float, dimensionless
-            Multiplying coefficient for the momenta in x_push, y_push, z_push
+            Multiplying coefficient for the momenta in x, y and z
             e.g. if x_push=1., the particles are pushed forward in x
                  if x_push=-1., the particles are pushed backward in x
         """

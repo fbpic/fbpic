@@ -185,7 +185,7 @@ def push_x_gpu( x, y, z, ux, uy, uz, inv_gamma,
         The timestep by which the position is advanced
 
     x_push, y_push, z_push: float, dimensionless
-        Multiplying coefficient for the momenta in x_push, y_push, z_push
+        Multiplying coefficient for the momenta in x, y and z
         e.g. if x_push=1., the particles are pushed forward in x
              if x_push=-1., the particles are pushed backward in x
     """

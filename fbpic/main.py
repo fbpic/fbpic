@@ -395,7 +395,7 @@ class Simulation(object):
             # Get positions/velocities for antenna particles at t = (n+1/2) dt
             for antenna in self.laser_antennas:
                 antenna.update_v( self.time + 0.5*dt )
-                antenna.halfpush_x( dt )
+                antenna.push_x( 0.5*dt )
             # Shift the boundaries of the grid for the Galilean frame
             if self.use_galilean:
                 self.shift_galilean_boundaries()
@@ -404,7 +404,7 @@ class Simulation(object):
             self.deposit('J')
             # Perform cross-deposition if needed
             if correct_currents and self.current_corr_type=='cross-deposition':
-                self.cross_deposit()
+                self.cross_deposit( move_positions )
 
             # Push the particles' positions to t = (n+1) dt
             if move_positions:
@@ -412,7 +412,7 @@ class Simulation(object):
                     species.push_x( 0.5*dt )
             # Get positions for antenna particles at t = (n+1) dt
             for antenna in self.laser_antennas:
-                antenna.halfpush_x( dt )
+                antenna.push_x( 0.5*dt )
             # Shift the boundaries of the grid for the Galilean frame
             if self.use_galilean:
                 self.shift_galilean_boundaries()
@@ -521,31 +521,42 @@ class Simulation(object):
         if self.filter_currents:
             fld.filter_spect( fieldtype )
 
-    def cross_deposit( self ):
+    def cross_deposit( self, move_positions ):
         """
-        Perform cross-deposition
+        Perform cross-deposition. This function should be called
+        when the particles are at time n+1/2.
 
-        This function should be called when the particles are at time n+1/2
+        Parameters
+        ----------
+        move_positions:bool
+            Whether to move the positions of regular particles
         """
         dt = self.dt
-        # WARNING: this does not implement the flag `move_position=True`
-        # and does not consider the antennas.
 
         # Push the particles: z[n+1/2], x[n+1/2] => z[n], x[n+1]
-        for species in self.ptcl:
-            species.push_x(0.5*dt, x_push= 1., y_push= 1., z_push= -1.)
+        if move_positions:
+            for species in self.ptcl:
+                species.push_x( 0.5*dt, x_push= 1., y_push= 1., z_push= -1. )
+        for antenna in self.laser_antennas:
+            antenna.push_x( 0.5*dt, x_push= 1., y_push= 1., z_push= -1. )
         # Deposit rho_next_xy
         self.deposit( 'rho_next_xy' )
 
         # Push the particles: z[n], x[n+1] => z[n+1], x[n]
-        for species in self.ptcl:
-            species.push_x(dt, x_push= -1., y_push= -1., z_push= 1.)
+        if move_positions:
+            for species in self.ptcl:
+                species.push_x(dt, x_push= -1., y_push= -1., z_push= 1.)
+        for antenna in self.laser_antennas:
+            antenna.push_x(dt, x_push= -1., y_push= -1., z_push= 1.)
         # Deposit rho_next_z
         self.deposit( 'rho_next_z' )
 
         # Push the particles: z[n+1], x[n] => z[n+1/2], x[n+1/2]
-        for species in self.ptcl:
-            species.push_x(0.5*dt, x_push= 1., y_push= 1., z_push= -1.)
+        if move_positions:
+            for species in self.ptcl:
+                species.push_x(0.5*dt, x_push= 1., y_push= 1., z_push= -1.)
+        for antenna in self.laser_antennas:
+            antenna.push_x(0.5*dt, x_push= 1., y_push= 1., z_push= -1.)
 
     def shift_galilean_boundaries(self):
         """
