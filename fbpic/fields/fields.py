@@ -691,7 +691,6 @@ class SpectralGrid(object) :
         #   (use the true kz, so as to effectively filter the high k's)
         self.filter_array = get_filter_array( kz_true, kr, dz, dr )
         # - for curl-free current correction
-        self.F = np.zeros( (Nz, Nr), dtype='complex' )
         self.inv_k2 = 1./np.where( ( self.kz == 0 ) & (self.kr == 0),
                                    1., self.kz**2 + self.kr**2 )
         self.inv_k2[ ( self.kz == 0 ) & (self.kr == 0) ] = 0.
@@ -823,15 +822,14 @@ class SpectralGrid(object) :
         # Correct div(E) on the CPU
 
         # Calculate the intermediate variable F
-        self.F[:,:] = - self.inv_k2 * (
+        F = - self.inv_k2 * (
             - self.rho_prev/epsilon_0 \
             + 1.j*self.kz*self.Ez + self.kr*( self.Ep - self.Em ) )
 
         # Correct the current accordingly
-        self.Ep += 0.5*self.kr*self.F
-        self.Em += -0.5*self.kr*self.F
-        self.Ez += -1.j*self.kz*self.F
-
+        self.Ep += 0.5*self.kr*F
+        self.Em += -0.5*self.kr*F
+        self.Ez += -1.j*self.kz*F
 
     def push_eb_with(self, ps, use_true_rho=False ) :
         """
