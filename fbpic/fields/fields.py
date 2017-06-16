@@ -214,14 +214,21 @@ class Fields(object) :
             self.spect[m].push_eb_with( self.psatd[m], use_true_rho )
             self.spect[m].push_rho()
 
-    def correct_currents(self) :
+    def correct_currents(self, current_corr_type):
         """
         Correct the currents so that they satisfy the
         charge conservation equation
+
+        Parameters
+        ----------
+        current_corr_type: string
+            The type of current correction applied.
+            Either 'curl-free' or 'cross-deposition'.
         """
         # Correct each azimuthal grid individually
         for m in range(self.Nm) :
-            self.spect[m].correct_currents( self.dt, self.psatd[m] )
+            self.spect[m].correct_currents(
+                self.dt, self.psatd[m], current_corr_type )
 
     def correct_divE(self) :
         """
@@ -744,15 +751,21 @@ class SpectralGrid(object) :
         self.rho_prev = self.rho_prev.copy_to_host()
         self.rho_next = self.rho_next.copy_to_host()
 
-    def correct_currents (self, dt, ps) :
+    def correct_currents (self, dt, ps, current_corr_type):
         """
         Correct the currents so that they satisfy the
         charge conservation equation
 
         Parameters
         ----------
-        dt : float
+        dt: float
             Timestep of the simulation
+
+        ps: a PSATDCoefs object
+            Contains coefficients that are used in the current correction
+
+        current_corr_type: string
+            The type of current correction performed
         """
         # Precalculate useful coefficient
         inv_dt = 1./dt
@@ -761,6 +774,7 @@ class SpectralGrid(object) :
             # Obtain the cuda grid
             dim_grid, dim_block = cuda_tpb_bpg_2d( self.Nz, self.Nr)
             # Correct the currents on the GPU
+            # WARNING: So far the cross-deposition is not implemented on GPU.
             if ps.V is None:
                 # With standard PSATD algorithm
                 cuda_correct_currents_standard[dim_grid, dim_block](
@@ -776,11 +790,21 @@ class SpectralGrid(object) :
                     inv_dt, self.Nz, self.Nr)
         else :
             # Correct the currents on the CPU
+            # WARNING: So far the cross-deposition is incompatible with Galilean
             if ps.V is None:
                 # With standard PSATD algorithm
-                numba_correct_currents_standard(
-                    self.rho_prev, self.rho_next, self.Jp, self.Jm, self.Jz,
-                    self.kz, self.kr, self.inv_k2, inv_dt, self.Nz, self.Nr )
+                # Method: curl-free
+                if current_corr_type == 'curl-free':
+                    numba_correct_currents_curlfree_standard(
+                        self.rho_prev, self.rho_next, self.Jp, self.Jm, self.Jz,
+                        self.kz, self.kr, self.inv_k2, inv_dt, self.Nz, self.Nr)
+                # Method: cross-deposition
+                elif current_corr_type == 'cross-deposition':
+                    numba_correct_currents_crossdeposition_standard(
+                        self.rho_prev, self.rho_next,
+                        self.rho_next_z, self.rho_next_xy,
+                        self.Jp, self.Jm, self.Jz,
+                        self.kz, self.kr, inv_dt, self.Nz, self.Nr)
             else:
                 # With Galilean/comoving algorithm
                 numba_correct_currents_comoving(

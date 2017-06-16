@@ -421,7 +421,7 @@ class Simulation(object):
             self.deposit('rho_next')
             # Correct the currents (requires rho at t = (n+1) dt )
             if correct_currents:
-                fld.correct_currents()
+                fld.correct_currents( self.current_corr_type )
 
             # Damp the fields in the guard cells
             self.comm.damp_guard_EB( fld.interp )

@@ -13,10 +13,11 @@ c2 = c**2
            complex128[:,:], complex128[:,:], complex128[:,:], \
            float64[:,:], float64[:,:], float64[:,:], \
            float64, int32, int32)')
-def numba_correct_currents_standard( rho_prev, rho_next, Jp, Jm, Jz,
+def numba_correct_currents_curlfree_standard( rho_prev, rho_next, Jp, Jm, Jz,
                             kz, kr, inv_k2, inv_dt, Nz, Nr ):
     """
-    Correct the currents in spectral space, using the standard pstad
+    Correct the currents in spectral space, using the curl-free correction
+    which is adapted to the standard psatd
     """
     # Loop over the 2D grid
     for iz in range(Nz):
@@ -32,6 +33,36 @@ def numba_correct_currents_standard( rho_prev, rho_next, Jp, Jm, Jz,
             Jp[iz, ir] +=  0.5 * kr[iz, ir] * F
             Jm[iz, ir] += -0.5 * kr[iz, ir] * F
             Jz[iz, ir] += -1.j * kz[iz, ir] * F
+
+@numba.jit('void(complex128[:,:], complex128[:,:], \
+           complex128[:,:], complex128[:,:], \
+           complex128[:,:], complex128[:,:], complex128[:,:], \
+           float64[:,:], float64[:,:], float64, int32, int32)')
+def numba_correct_currents_crossdeposition_standard( rho_prev, rho_next,
+        rho_next_z, rho_next_xy, Jp, Jm, Jz, kz, kr, inv_dt, Nz, Nr ):
+    """
+    Correct the currents in spectral space, using the cross-deposition
+    algorithm adapted to the standard psatd.
+    """
+    # Loop over the 2D grid
+    for iz in range(Nz):
+        for ir in range(Nr):
+
+            # Calculate the intermediate variable Dz and Dxy
+            # (Such that Dz + Dxy is the error in the continuity equation)
+            Dz = 1.j*kz[iz, ir]*Jz[iz, ir] + 0.5 * inv_dt * \
+                ( rho_next[iz, ir] - rho_next_xy[iz, ir] + \
+                  rho_next_z[iz, ir] - rho_prev[iz, ir] )
+            Dxy = kr[iz, ir]*( Jp[iz, ir] - Jm[iz, ir] ) + 0.5 * inv_dt * \
+                ( rho_next[iz, ir] - rho_next_z[iz, ir] + \
+                  rho_next_xy[iz, ir] - rho_prev[iz, ir] )
+
+            # Correct the currents accordingly
+            inv_kr = 1./kr[iz, ir]
+            inv_kz = 1./kz[iz, ir]
+            Jp[iz, ir] += -0.5 * Dxy * inv_kr
+            Jm[iz, ir] +=  0.5 * Dxy * inv_kr
+            Jz[iz, ir] += 1.j * Dz * inv_kz
 
 @numba.jit('void(complex128[:,:], complex128[:,:], complex128[:,:], \
            complex128[:,:], complex128[:,:], complex128[:,:], \
