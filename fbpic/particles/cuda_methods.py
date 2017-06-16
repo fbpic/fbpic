@@ -196,9 +196,9 @@ def push_x_gpu( x, y, z, ux, uy, uz, inv_gamma,
     if i < x.shape[0]:
         # Particle push
         inv_g = inv_gamma[i]
-        x[i] += chdt*x_push*inv_g*ux[i]
-        y[i] += chdt*y_push*inv_g*uy[i]
-        z[i] += chdt*z_push*inv_g*uz[i]
+        x[i] += cdt * x_push * inv_g * ux[i]
+        y[i] += cdt * y_push * inv_g * uy[i]
+        z[i] += cdt * z_push * inv_g * uz[i]
 
 # -----------------------
 # Field gathering utility
