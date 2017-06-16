@@ -8,7 +8,9 @@ It defines the structure and methods associated with the fields.
 import numpy as np
 from scipy.constants import c, mu_0, epsilon_0
 from .numba_methods import numba_push_eb_standard, numba_push_eb_comoving, \
-    numba_correct_currents_standard, numba_correct_currents_comoving
+    numba_correct_currents_curlfree_standard, \
+    numba_correct_currents_crossdeposition_standard, \
+    numba_correct_currents_comoving
 from .spectral_transform import SpectralTransformer
 from .utility_methods import get_filter_array, get_modified_k
 

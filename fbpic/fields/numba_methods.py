@@ -58,11 +58,13 @@ def numba_correct_currents_crossdeposition_standard( rho_prev, rho_next,
                   rho_next_xy[iz, ir] - rho_prev[iz, ir] )
 
             # Correct the currents accordingly
-            inv_kr = 1./kr[iz, ir]
-            inv_kz = 1./kz[iz, ir]
-            Jp[iz, ir] += -0.5 * Dxy * inv_kr
-            Jm[iz, ir] +=  0.5 * Dxy * inv_kr
-            Jz[iz, ir] += 1.j * Dz * inv_kz
+            if kr[iz, ir] != 0:
+                inv_kr = 1./kr[iz, ir]
+                Jp[iz, ir] += -0.5 * Dxy * inv_kr
+                Jm[iz, ir] +=  0.5 * Dxy * inv_kr
+            if kz[iz, ir] != 0:
+                inv_kz = 1./kz[iz, ir]
+                Jz[iz, ir] += 1.j * Dz * inv_kz
 
 @numba.jit('void(complex128[:,:], complex128[:,:], complex128[:,:], \
            complex128[:,:], complex128[:,:], complex128[:,:], \
