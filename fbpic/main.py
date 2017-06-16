@@ -43,8 +43,8 @@ class Simulation(object):
                  n_order=-1, dens_func=None, filter_currents=True,
                  v_comoving=None, use_galilean=False,
                  initialize_ions=False, use_cuda=False,
-                 n_guard=None, n_damp=30,
-                 exchange_period=None, boundaries='periodic',
+                 n_guard=None, n_damp=30, exchange_period=None,
+                 current_corr_type='curl-free', boundaries='periodic',
                  gamma_boost=None, use_all_mpi_ranks=True,
                  particle_shape='linear' ):
         """
@@ -161,6 +161,11 @@ class Simulation(object):
             boundaries of the global simulation box.
             Either 'periodic' or 'open'
 
+        current_corr_type: string, optional
+            The method used in order to ensure that the continuity equation
+            is satisfied. Either `curl-free` or `cross-deposition`.
+            `curl-free` is faster but less local (should not be used with MPI)
+
         gamma_boost : float, optional
             When initializing the laser in a boosted frame, set the
             value of `gamma_boost` to the corresponding Lorentz factor.
@@ -198,6 +203,12 @@ class Simulation(object):
         self.use_galilean = use_galilean
         if v_comoving is None:
             self.use_galilean = False
+
+        # Register the current correction type
+        if current_corr_type in ['curl-free', 'cross-deposition']:
+            self.current_corr_type = current_corr_type
+        else:
+            raise ValueError('Unkown current correction:%s' %current_corr_type)
 
         # When running the simulation in a boosted frame, convert the arguments
         uz_m = 0.   # Mean normalized momentum of the particles
@@ -390,6 +401,9 @@ class Simulation(object):
 
             # Get the current at t = (n+1/2) dt
             self.deposit('J')
+            # Perform cross-deposition if needed
+            if correct_currents and self.current_corr_type=='cross-deposition':
+                self.cross_deposit()
 
             # Push the particles' positions to t = (n+1) dt
             if move_positions:
@@ -464,6 +478,7 @@ class Simulation(object):
             The designation of the spectral field that
             should be changed by the deposition
             Either 'rho_prev', 'rho_next' or 'J'
+            (or 'rho_next_xy' and 'rho_next_z' for cross-deposition)
         """
         # Shortcut
         fld = self.fld
@@ -471,7 +486,7 @@ class Simulation(object):
         # Deposit charge or currents on the interpolation grid
 
         # Charge
-        if fieldtype in ['rho_prev', 'rho_next']:
+        if fieldtype in ['rho_prev', 'rho_next', 'rho_next_xy', 'rho_next_z']:
             fld.erase('rho')
             # Deposit the particle charge
             for species in self.ptcl:
@@ -504,6 +519,29 @@ class Simulation(object):
         fld.interp2spect( fieldtype )
         if self.filter_currents:
             fld.filter_spect( fieldtype )
+
+    def cross_deposit( self ):
+        """
+        Perform cross-deposition
+
+        This function should be called when the particles are at time n+1/2
+        """
+        dt = self.dt
+        # Push the particles: z[n+1/2], x[n+1/2] => z[n], x[n+1]
+        for species in ptcl:
+            species.push_x( 0.5*dt, x_push=1., y_push=1., z_push=-1. )
+        # Deposit rho_next_xy
+        self.deposit( 'rho_next_xy' )
+
+        # Push the particles: z[n], x[n+1] => z[n+1], x[n]
+        for species in ptcl:
+            species.push_x( dt, x_push=-1., y_push=-1., z_push=1. )
+        # Deposit rho_next_z
+        self.deposit( 'rho_next_z' )
+
+        # Push the particles: z[n+1], x[n] => z[n+1/2], x[n+1/2]
+        for species in ptcl:
+            species.push_x( 0.5*dt, x_push=1., y_push=1., z_push=-1. )
 
     def shift_galilean_boundaries(self):
         """
