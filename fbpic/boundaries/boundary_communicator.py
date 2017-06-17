@@ -413,25 +413,25 @@ class BoundaryCommunicator(object):
                     vec_recv_right = self.mpi_buffers.vec_add_recv_r
                 # Handle the sending buffers
                 self.mpi_buffers.handle_vec_buffer(
-                    method, interp[0].use_cuda,
                     interp[0].Er, interp[0].Et, interp[0].Ez,
                     interp[1].Er, interp[1].Et, interp[1].Ez,
+                    method, interp[0].use_cuda,
                     before_sending=True )
                 # Send and receive the buffers via MPI
                 self.exchange_domains(
                     vec_send_left, vec_send_right,
-                    vec_recv_right, vec_recv_right )
+                    vec_recv_left, vec_recv_right )
                 # An MPI barrier is needed here so that a single rank does not
                 # do two sends and receives before this exchange is completed.
                 self.mpi_comm.Barrier()
                 # Handle the received buffers
                 self.mpi_buffers.handle_vec_buffer(
-                    method, interp[0].use_cuda,
                     interp[0].Er, interp[0].Et, interp[0].Ez,
                     interp[1].Er, interp[1].Et, interp[1].Ez,
+                    method, interp[0].use_cuda,
                     after_receiving=True )
 
-            if fieldtype == 'B':
+            elif fieldtype == 'B':
                 if method == 'replace':
                     vec_send_left = self.mpi_buffers.vec_rep_send_l
                     vec_send_right = self.mpi_buffers.vec_rep_send_r
@@ -444,25 +444,25 @@ class BoundaryCommunicator(object):
                     vec_recv_right = self.mpi_buffers.vec_add_recv_r
                 # Handle the sending buffers
                 self.mpi_buffers.handle_vec_buffer(
-                    method, interp[0].use_cuda,
                     interp[0].Br, interp[0].Bt, interp[0].Bz,
                     interp[1].Br, interp[1].Bt, interp[1].Bz,
+                    method, interp[0].use_cuda,
                     before_sending=True )
                 # Send and receive the buffers via MPI
                 self.exchange_domains(
                     vec_send_left, vec_send_right,
-                    vec_recv_right, vec_recv_right )
+                    vec_recv_left, vec_recv_right )
                 # An MPI barrier is needed here so that a single rank does not
                 # do two sends and receives before this exchange is completed.
                 self.mpi_comm.Barrier()
                 # Handle the received buffers
                 self.mpi_buffers.handle_vec_buffer(
-                    method, interp[0].use_cuda,
                     interp[0].Br, interp[0].Bt, interp[0].Bz,
                     interp[1].Br, interp[1].Bt, interp[1].Bz,
+                    method, interp[0].use_cuda,
                     after_receiving=True )
 
-            if fieldtype == 'J':
+            elif fieldtype == 'J':
                 if method == 'replace':
                     vec_send_left = self.mpi_buffers.vec_rep_send_l
                     vec_send_right = self.mpi_buffers.vec_rep_send_r
@@ -475,25 +475,25 @@ class BoundaryCommunicator(object):
                     vec_recv_right = self.mpi_buffers.vec_add_recv_r
                 # Handle the sending buffers
                 self.mpi_buffers.handle_vec_buffer(
-                    method, interp[0].use_cuda,
                     interp[0].Jr, interp[0].Jt, interp[0].Jz,
                     interp[1].Jr, interp[1].Jt, interp[1].Jz,
+                    method, interp[0].use_cuda,
                     before_sending=True )
                 # Send and receive the buffers via MPI
                 self.exchange_domains(
                     vec_send_left, vec_send_right,
-                    vec_recv_right, vec_recv_right )
+                    vec_recv_left, vec_recv_right )
                 # An MPI barrier is needed here so that a single rank does not
                 # do two sends and receives before this exchange is completed.
                 self.mpi_comm.Barrier()
                 # Handle the received buffers
                 self.mpi_buffers.handle_vec_buffer(
-                    method, interp[0].use_cuda,
                     interp[0].Jr, interp[0].Jt, interp[0].Jz,
                     interp[1].Jr, interp[1].Jt, interp[1].Jz,
+                    method, interp[0].use_cuda,
                     after_receiving=True )
 
-            if fieldtype == 'rho':
+            elif fieldtype == 'rho':
                 if method == 'replace':
                     scal_send_left = self.mpi_buffers.scal_rep_send_l
                     scal_send_right = self.mpi_buffers.scal_rep_send_r
@@ -506,20 +506,20 @@ class BoundaryCommunicator(object):
                     scal_recv_right = self.mpi_buffers.scal_add_recv_r
                 # Handle the sending buffers
                 self.mpi_buffers.handle_scal_buffer(
-                    method, interp[0].use_cuda,
                     interp[0].rho, interp[1].rho,
+                    method, interp[0].use_cuda,
                     before_sending=True )
                 # Send and receive the buffers via MPI
                 self.exchange_domains(
                     scal_send_left, scal_send_right,
-                    scal_recv_right, scal_recv_right )
+                    scal_recv_left, scal_recv_right )
                 # An MPI barrier is needed here so that a single rank does not
                 # do two sends and receives before this exchange is completed.
                 self.mpi_comm.Barrier()
                 # Handle the received buffers
                 self.mpi_buffers.handle_scal_buffer(
-                    method, interp[0].use_cuda,
                     interp[0].rho, interp[1].rho,
+                    method, interp[0].use_cuda,
                     after_receiving=True )
             else:
                 raise ValueError('Unknown fieldtype: %s' %fieldtype)

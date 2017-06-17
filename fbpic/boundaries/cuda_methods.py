@@ -114,7 +114,7 @@ def copy_scal_to_gpu_buffer( scal_buffer_l, scal_buffer_r,
         on either the left or the right side of the enlarged domain.
     """
     # Dimension of the arrays
-    Nz, Nr = grid_0_r.shape
+    Nz, Nr = grid_0.shape
 
     # Obtain Cuda grid
     iz, ir = cuda.grid(2)
@@ -236,7 +236,7 @@ def replace_scal_from_gpu_buffer( scal_buffer_l, scal_buffer_r,
         on either the left or the right side of the enlarged domain.
     """
     # Dimension of the arrays
-    Nz, Nr = grid_0_r.shape
+    Nz, Nr = grid_0.shape
 
     # Obtain Cuda grid
     iz, ir = cuda.grid(2)
@@ -359,7 +359,7 @@ def add_scal_from_gpu_buffer( scal_buffer_l, scal_buffer_r,
         on either the left or the right side of the enlarged domain.
     """
     # Dimension of the arrays
-    Nz, Nr = grid_0_r.shape
+    Nz, Nr = grid_0.shape
 
     # Obtain Cuda grid
     iz, ir = cuda.grid(2)
