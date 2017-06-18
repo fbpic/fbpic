@@ -192,9 +192,11 @@ class BoundaryCommunicator(object):
             # to the simulation or in case a galilean frame is used.
             cells_per_step = 2.*c*dt/self.dz
             # Maximum number of timesteps before a particle can reach the end
-            # of the guard region including the maximum number of cells (+/-3)
-            # it can affect with a "cubic" particle shape_factor.
-            self.exchange_period = int( (self.n_guard-3)/cells_per_step )
+            # of the half of guard region including the maximum number of cells
+            # (+/-3) it can affect with a "cubic" particle shape_factor.
+            # (Particles are only allowed to reside in half of the guard
+            # region as this is the stencil reach of the current correction)
+            self.exchange_period = int(((self.n_guard/2)-3)/cells_per_step)
             # Set exchange_period to 1 in the case of single-proc
             # and periodic boundary conditions.
             if self.size == 1 and boundaries == 'periodic':
