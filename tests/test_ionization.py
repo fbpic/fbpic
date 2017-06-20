@@ -22,7 +22,7 @@ through external fields.
 # -------
 # Imports
 # -------
-import math
+import os, shutil, math
 import numpy as np
 from scipy.constants import c, m_e, m_p, e
 # Import the relevant structures in FBPIC
@@ -31,12 +31,13 @@ from fbpic.particles import Particles
 from fbpic.lpa_utils.external_fields import ExternalField
 from fbpic.lpa_utils.boosted_frame import BoostConverter
 from fbpic.openpmd_diag import FieldDiagnostic, ParticleDiagnostic
+# Import openPMD-viewer for checking output files
+from opmd_viewer import OpenPMDTimeSeries
 
 # ----------
 # Parameters
 # ----------
 use_cuda = True
-output_hdf5_files = False
 
 def run_simulation( gamma_boost ):
     """
@@ -108,7 +109,10 @@ def run_simulation( gamma_boost ):
     v_plasma, = boost.velocity( [ 0. ] )
 
     # The diagnostics
-    diag_period = int(N_step/50) # Period of the diagnostics in number of timesteps
+    diag_period = N_step-1 # Period of the diagnostics in number of timesteps
+
+    # Move into directory `tests`
+    os.chdir('./tests')
 
     # Initialize the simulation object
     sim = Simulation( Nz, zmax, Nr, rmax, Nm, dt,
@@ -139,11 +143,9 @@ def run_simulation( gamma_boost ):
         ExternalField( laser_func, 'By', B0, 0. ) ]
 
     # Add a field diagnostic
-    if output_hdf5_files:
-        sim.diags = [ FieldDiagnostic( diag_period, sim.fld, sim.comm ),
-                        ParticleDiagnostic( diag_period,
-                        {"electrons":sim.ptcl[0], "ions":sim.ptcl[1]},
-                        comm=sim.comm) ]
+    sim.diags = [ FieldDiagnostic( diag_period, sim.fld, comm=sim.comm ),
+                    ParticleDiagnostic( diag_period,
+                    {"ions":sim.ptcl[1]}, comm=sim.comm) ]
 
     # Run the simulation
     sim.step( N_step, use_true_rho=True )
@@ -159,6 +161,19 @@ def run_simulation( gamma_boost ):
     N5_fraction = n_N5 / ntot
     print('N5+ fraction: %.4f' %N5_fraction)
     assert ((N5_fraction > 0.30) and (N5_fraction < 0.34))
+
+    # Check consistency in the regular openPMD diagnostics
+    ts = OpenPMDTimeSeries('./diags/hdf5/')
+    last_iteration = ts.iterations[-1]
+    w, q = ts.get_particle( ['w', 'charge'], species="ions",
+                                iteration=last_iteration )
+    # Check that the openPMD file contains the same number of N5+ ions
+    n_N5_openpmd = np.sum(w[ (4.5*e < q) & (q < 5.5*e) ])
+    assert np.isclose( n_N5_openpmd, n_N5 )
+
+    # Remove openPMD files
+    shutil.rmtree('./diags/')
+    os.chdir('../')
 
 def test_ionization_labframe():
     run_simulation(1.)
