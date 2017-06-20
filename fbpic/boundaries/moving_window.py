@@ -571,6 +571,9 @@ if cuda_installed:
 
         # Only access values that are actually in the array
         if ir < field_array.shape[1] and iz < field_array.shape[0]:
-            # Shift fields backward
-            field_array[iz, ir] = field_array[iz, ir] \
-                * ( shift_factor[iz] )**n_move
+            # Calculate the shift factor (raising to the power n_move)
+            power_shift = shift_factor[iz]
+            for i in range(1,n_move):
+                power_shift *= shift_factor[iz]
+            # Shift fields backwards
+            field_array[iz, ir] *= power_shift
