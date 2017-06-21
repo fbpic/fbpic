@@ -64,7 +64,7 @@ zmax = 40.e-6    # Length of the box along z (meters)
 Nr = 64          # Number of gridpoints along r
 rmax = 20.e-6    # Length of the box along r (meters)
 Nm = 2           # Number of modes used
-n_order = -1     # Order of the finite stencil
+n_order = 16     # Order of the finite stencil
 # The simulation timestep
 dt = zmax/Nz/c   # Timestep (seconds)
 
