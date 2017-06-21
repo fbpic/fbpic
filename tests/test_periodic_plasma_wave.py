@@ -64,7 +64,7 @@ zmax = 40.e-6    # Length of the box along z (meters)
 Nr = 64          # Number of gridpoints along r
 rmax = 20.e-6    # Length of the box along r (meters)
 Nm = 2           # Number of modes used
-n_order = -1     # Order of the finite stencil
+n_order = 16     # Order of the finite stencil
 # The simulation timestep
 dt = zmax/Nz/c   # Timestep (seconds)
 
@@ -101,6 +101,13 @@ def test_periodic_plasma_wave(show=False):
                   p_zmin, p_zmax, p_rmin, p_rmax, p_nz, p_nr,
                   p_nt, n_e, n_order=n_order, use_cuda=use_cuda )
 
+    # Save the initial density in spectral space, and consider it
+    # to be the density of the (uninitialized) ions
+    sim.deposit('rho_prev')
+    rho_ions = [ ]
+    for m in range(len(sim.fld.spect)):
+        rho_ions.append( -sim.fld.spect[m].rho_prev.copy() )
+
     # Impart velocities to the electrons
     # (The electrons are initially homogeneous, but have an
     # intial non-zero velocity that develops into a plasma wave)
@@ -114,7 +121,11 @@ def test_periodic_plasma_wave(show=False):
 
     # Run the simulation
     sim.step( N_step, correct_currents=correct_currents )
-    # Plot the results
+
+    # Test check that div(E) - rho = 0 (directly in spectral space)
+    if correct_currents:
+        check_charge_conservation( sim, rho_ions )
+    # Plot the results and compare with analytical theory
     compare_fields( sim, show )
 
 # -----------------------------------------
@@ -178,6 +189,31 @@ def impart_momenta( ptcl, epsilon, k0, w0, wp) :
 # --------------------
 # Diagnostic function
 # --------------------
+
+def check_charge_conservation( sim, rho_ions ):
+    """
+    Check that the relation div(E) - rho/epsilon_0 is satisfied, with a
+    relative precision close to the machine precision (directly in spectral space)
+
+    Parameters
+    ----------
+    sim: Simulation object
+    rho_ions: list of 2d complex arrays (one per mode)
+        The density of the ions (which are not explicitly present in the `sim`
+        object, since they are motionless)
+    """
+    # Loop over modes
+    for m in range( len(sim.fld.interp) ):
+        spect = sim.fld.spect[m]
+        # Calculate div(E) in spectral space
+        divE = spect.kr * ( spect.Ep - spect.Em ) + 1.j * spect.kz * spect.Ez
+        # Calculate rho/epsilon_0 in spectral space
+        rho_eps0 = (spect.rho_prev + rho_ions[m])/epsilon_0
+        # Calculate relative RMS error
+        rel_err = np.sqrt( np.sum(abs(divE - rho_eps0)**2) \
+            / np.sum(abs(rho_eps0)**2) )
+        print('Relative error on divE in mode %d: %e' %(m, rel_err) )
+        assert rel_err < 1.e-11
 
 def compare_fields( sim, show ) :
     """
