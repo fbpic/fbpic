@@ -654,10 +654,11 @@ class ParticleCatcher:
                 particle_data['id'] = species.tracker.id
         # GPU
         else:
-            # Check if particles are sorted, otherwise raise exception
+            # Check if particles are sorted, otherwise sort them
             if species.sorted == False:
-                raise ValueError('Particle boosted-frame diagnostic: \
-                 The particles are not sorted!')
+                species.sort_particles(fld=self.fld)
+                # The particles are now sorted and rearranged
+                species.sorted = True
             # Precalculating quantities and shortcuts
             dt = self.fld.dt
             dz = self.fld.interp[0].dz
