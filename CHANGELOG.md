@@ -1,5 +1,11 @@
 # Change Log / Release Log for fbpic
 
+## 0.4.1
+
+This is a bug-fix release, to solve an issue with the particle boosted-frame
+diagnostics, in the case where the GPU is used. The particle 
+boosted-frame diagnostics now correctly run on the GPU.
+
 ## 0.4.0
 
 This version incorporates ionization (ADK model). The implementation is 
