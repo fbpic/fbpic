@@ -124,7 +124,7 @@ def extract_array_from_gpu( part_idx_start, array, selected ):
         An empty GPU array to store the particles that are extracted.
     """
     i = cuda.grid(1)
-    N_part = selected.shape[1]
+    N_part = selected.shape[0]
 
     if i < N_part:
         selected[i] = array[part_idx_start+i]
