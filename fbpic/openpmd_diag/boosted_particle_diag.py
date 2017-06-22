@@ -18,7 +18,7 @@ from .particle_diag import ParticleDiagnostic
 # Check if CUDA is available, then import CUDA functions
 from fbpic.cuda_utils import cuda_installed
 if cuda_installed:
-    from .cuda_methods import extract_particles_from_gpu
+    from .cuda_methods import extract_slice_from_gpu
 
 class BoostedParticleDiagnostic(ParticleDiagnostic):
     """
