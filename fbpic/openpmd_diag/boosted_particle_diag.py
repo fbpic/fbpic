@@ -679,7 +679,7 @@ class ParticleCatcher:
             # Check if there are particles to extract
             if N_area > 0:
                 # Only copy a particle slice of size N_area from the GPU
-                particle_data = extract_particles_from_gpu(
+                particle_data = extract_slice_from_gpu(
                                     pref_sum_curr, N_area, species )
             else:
                 # Empty particle data
