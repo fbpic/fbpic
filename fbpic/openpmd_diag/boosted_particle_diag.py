@@ -18,7 +18,7 @@ from .particle_diag import ParticleDiagnostic
 # Check if CUDA is available, then import CUDA functions
 from fbpic.cuda_utils import cuda_installed
 if cuda_installed:
-    from .cuda_methods import extract_particles_from_gpu
+    from .cuda_methods import extract_slice_from_gpu
 
 class BoostedParticleDiagnostic(ParticleDiagnostic):
     """
@@ -649,15 +649,16 @@ class ParticleCatcher:
             if species.ionizer is not None:
                 particle_data['charge'] = species.ionizer.ionization_level
                 # Replace particle weight
-                particle_data['w'] = species.neutral_weight
+                particle_data['w'] = species.ionizer.neutral_weight
             if species.tracker is not None:
                 particle_data['id'] = species.tracker.id
         # GPU
         else:
-            # Check if particles are sorted, otherwise raise exception
+            # Check if particles are sorted, otherwise sort them
             if species.sorted == False:
-                raise ValueError('Particle boosted-frame diagnostic: \
-                 The particles are not sorted!')
+                species.sort_particles(fld=self.fld)
+                # The particles are now sorted and rearranged
+                species.sorted = True
             # Precalculating quantities and shortcuts
             dt = self.fld.dt
             dz = self.fld.interp[0].dz
@@ -678,7 +679,7 @@ class ParticleCatcher:
             # Check if there are particles to extract
             if N_area > 0:
                 # Only copy a particle slice of size N_area from the GPU
-                particle_data = extract_particles_from_gpu(
+                particle_data = extract_slice_from_gpu(
                                     pref_sum_curr, N_area, species )
             else:
                 # Empty particle data
