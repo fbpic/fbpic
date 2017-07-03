@@ -241,7 +241,7 @@ def test_parametric_sim_twoproc():
     # a0 (this is done by checking the a0 of the laser, with openPMD-viewer)
     for a0 in [ 2.0, 4.0 ]:
         # Open the diagnotics
-        diag_folder = 'diags_a0_%.1f/hdf5' %a0
+        diag_folder = 'diags_a0_%.2f/hdf5' %a0
         ts = LpaDiagnostics( diag_folder )
         # Check that the value of a0 in the diagnostics is the
         # expected one.
