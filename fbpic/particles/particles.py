@@ -182,9 +182,10 @@ class Particles(object) :
             # Get the corresponding particles positions
             # (copy=True is important here, since it allows to
             # change the angles individually)
-            zp, rp, thetap = np.meshgrid( z_reg, r_reg, theta_reg, copy=True)
+            zp, rp, thetap = np.meshgrid( z_reg, r_reg, theta_reg,
+                                        copy=True, indexing='ij' )
             # Prevent the particles from being aligned along any direction
-            unalign_angles( thetap, Npr, Npz, method='random' )
+            unalign_angles( thetap, Npz, Npr, method='random' )
             # Flatten them (This performs a memory copy)
             r = rp.flatten()
             self.x[:] = r * np.cos( thetap.flatten() )
