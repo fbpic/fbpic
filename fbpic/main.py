@@ -10,6 +10,7 @@ This file steers and controls the simulation.
 # (This needs to be done before the other imports,
 # as it sets the cuda context)
 from mpi4py import MPI
+import numba
 # Check if CUDA is available, then import CUDA functions
 from .cuda_utils import cuda_installed
 if cuda_installed:
@@ -41,12 +42,11 @@ class Simulation(object):
     def __init__(self, Nz, zmax, Nr, rmax, Nm, dt, p_zmin, p_zmax,
                  p_rmin, p_rmax, p_nz, p_nr, p_nt, n_e, zmin=0.,
                  n_order=-1, dens_func=None, filter_currents=True,
-                 v_comoving=None, use_galilean=False,
-                 initialize_ions=False, use_cuda=False,
-                 n_guard=None, n_damp=30,
-                 exchange_period=None, boundaries='periodic',
-                 gamma_boost=None, use_all_mpi_ranks=True,
-                 particle_shape='linear' ):
+                 v_comoving=None, use_galilean=False, initialize_ions=False,
+                 use_cuda=False, use_threading=True, nthreads=None,
+                 n_guard=None, n_damp=30, exchange_period=None, 
+                 boundaries='periodic', gamma_boost=None, 
+                 use_all_mpi_ranks=True, particle_shape='linear' ):
         """
         Initializes a simulation, by creating the following structures:
 
@@ -132,6 +132,12 @@ class Simulation(object):
 
         use_cuda: bool, optional
             Wether to use CUDA (GPU) acceleration
+        use_threading : bool, optional
+            Wether to use multi-threading on the CPU.
+        nthreads: int, optional
+            Number of CPU multi-threading threads used (if use_threading
+            is set). If nthreads is set to None, the number of threads
+            are automatically determined.
 
         n_guard: int, optional
             Number of guard cells to use at the left and right of
@@ -186,13 +192,23 @@ class Simulation(object):
             to first order shapes, 'linear_non_atomic' uses an equivalent
             deposition scheme to 'linear' which avoids atomics on the GPU.
         """
-        # Check whether to use cuda
+        # Check whether to use CUDA
         self.use_cuda = use_cuda
         if (use_cuda==True) and (cuda_installed==False):
             print('*** Cuda not available for the simulation.')
             print('*** Performing the simulation on CPU.')
             self.use_cuda = False
-
+        # CPU multi-threading
+        self.use_threading = use_threading
+        if self.use_threading:
+            # Define number of threads used
+            if nthreads is not None:
+                # Automatically take numba preset for number of threads
+                self.nthreads = nthreads
+                numba.config.NUMBA_NUM_THREADS = self.nthreads
+            else:
+                # Set user-defined number of threads
+                self.nthreads = numba.config.NUMBA_NUM_THREADS
         # Register the comoving parameters
         self.v_comoving = v_comoving
         self.use_galilean = use_galilean
@@ -234,19 +250,20 @@ class Simulation(object):
         # Initialize the electrons and the ions
         grid_shape = self.fld.interp[0].Ez.shape
         self.ptcl = [
-            Particles( q=-e, m=m_e, n=n_e, Npz=Npz, zmin=p_zmin,
-                       zmax=p_zmax, Npr=Npr, rmin=p_rmin, rmax=p_rmax,
-                       Nptheta=p_nt, dt=dt, dens_func=dens_func,
-                       use_cuda=self.use_cuda, uz_m=uz_m,
-                       grid_shape=grid_shape, particle_shape=particle_shape) ]
+            Particles(q=-e, m=m_e, n=n_e, Npz=Npz, zmin=p_zmin,
+                      zmax=p_zmax, Npr=Npr, rmin=p_rmin, rmax=p_rmax,
+                      Nptheta=p_nt, dt=dt, dens_func=dens_func, uz_m=uz_m,
+                      grid_shape=grid_shape, particle_shape=particle_shape,
+                      use_cuda=self.use_cuda,
+                      use_threading=self.use_threading) ]
         if initialize_ions :
             self.ptcl.append(
                 Particles(q=e, m=m_p, n=n_e, Npz=Npz, zmin=p_zmin,
                           zmax=p_zmax, Npr=Npr, rmin=p_rmin, rmax=p_rmax,
-                          Nptheta=p_nt, dt=dt, dens_func=dens_func,
-                          use_cuda=self.use_cuda, uz_m=uz_m,
-                          grid_shape=grid_shape,
-                          particle_shape=particle_shape ) )
+                          Nptheta=p_nt, dt=dt, dens_func=dens_func, uz_m=uz_m,
+                          grid_shape=grid_shape, particle_shape=particle_shape,
+                          use_cuda=self.use_cuda,
+                          use_threading=self.use_threading) )
 
         # Register the number of particles per cell along z, and dt
         # (Necessary for the moving window)
