@@ -7,6 +7,8 @@ It defines the particle sorting methods on the GPU using CUDA.
 """
 from numba import cuda
 from accelerate.cuda import sorting
+import math
+import numpy as np
 
 # -----------------------------------------------------
 # Sorting utilities - get_cell_idx / sort / prefix_sum

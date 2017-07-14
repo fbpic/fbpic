@@ -7,7 +7,6 @@ It defines the deposition methods for rho and J for linear and cubic
 order shapes on the CPU with numba.
 """
 import numba
-from scipy.constants import c, e
 
 @numba.njit
 def deposit_field_numba(Fptcl, Fgrid,

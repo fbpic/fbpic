@@ -8,8 +8,6 @@ on the GPU using CUDA.
 """
 from numba import cuda, float64, int64
 import math
-from scipy.constants import c, e
-import numpy as np
 
 # -----------------------
 # Field gathering linear
