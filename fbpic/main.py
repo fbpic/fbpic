@@ -228,7 +228,7 @@ class Simulation(object):
         self.comm = BoundaryCommunicator( Nz, zmin, zmax, Nr, rmax, Nm, dt,
             boundaries, n_order, n_guard, n_damp, exchange_period,
             use_all_mpi_ranks )
-        print_simulation_setup( self.comm, self.use_cuda )
+        print_simulation_setup( self.comm, self.use_cuda, self.use_threading )
         # Modify domain region
         zmin, zmax, p_zmin, p_zmax, Nz = \
               self.comm.divide_into_domain(zmin, zmax, p_zmin, p_zmax)
@@ -595,7 +595,7 @@ def progression_bar( i, Ntot, measured_start, Nbars=50, char='-'):
     sys.stdout.write(', %d:%02d:%02d left' % (h, m, s))
     sys.stdout.flush()
 
-def print_simulation_setup( comm, use_cuda ):
+def print_simulation_setup( comm, use_cuda, use_threading ):
     """
     Print message about the number of proc and
     whether it is using GPU or CPU.
@@ -607,13 +607,20 @@ def print_simulation_setup( comm, use_cuda ):
 
     use_cuda: bool
         Whether the simulation is set up to use CUDA
+
+    use_threading: bool
+        Whether the simulation is set up to use threads on CPU
     """
     if comm.rank == 0:
         if use_cuda:
             message = "\nRunning FBPIC on GPU "
         else:
             message = "\nRunning FBPIC on CPU "
-        message += "with %d proc.\n" %comm.size
+        message += "with %d proc" %comm.size
+        if use_threading and not use_cuda:
+            message += " (%d threads per proc)" %numba.config.NUMBA_NUM_THREADS
+        message += ".\n"
+            
         print( message )
 
 def adapt_to_grid( x, p_xmin, p_xmax, p_nx, ncells_empty=0 ):
