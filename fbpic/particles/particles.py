@@ -764,7 +764,7 @@ class Particles(object) :
             # Register particle chunk size for each thread
             tx_N = int(self.Ntot/self.nthreads) 
             tx_chunks = [ tx_N for k in range(self.nthreads) ]
-            tx_chunks[-1] = tx_chunks[-1] + (tx_N)%(self.nthreads)
+            tx_chunks[-1] = tx_chunks[-1] + self.Ntot%(self.nthreads)
             # Multithreading functions for the deposition of rho or J
             # for Mode 0 and 1 only.
             if fieldtype == 'rho':
