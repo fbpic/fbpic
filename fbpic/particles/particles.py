@@ -770,10 +770,10 @@ class Particles(object) :
             if fieldtype == 'rho':
                 # Generate temporary arrays for rho
                 rho_m0_global = np.zeros(
-                    (grid[0].rho.shape[0], grid[0].rho.shape[1], self.nthreads), 
+                    (self.nthreads, grid[0].rho.shape[0], grid[0].rho.shape[1]), 
                     dtype=grid[0].rho.dtype )
                 rho_m1_global = np.zeros(
-                    (grid[1].rho.shape[0], grid[1].rho.shape[1], self.nthreads), 
+                    (self.nthreads, grid[1].rho.shape[0], grid[1].rho.shape[1]), 
                     dtype=grid[1].rho.dtype )
                 # Deposit rho using CPU threading
                 if self.particle_shape == 'linear':
@@ -782,7 +782,6 @@ class Particles(object) :
                         grid[0].invdz, grid[0].zmin, grid[0].Nz,
                         grid[0].invdr, grid[0].rmin, grid[0].Nr,
                         rho_m0_global, rho_m1_global,
-                        grid[0].rho, grid[1].rho,
                         self.nthreads, tx_chunks, tx_N )
                 elif self.particle_shape == 'cubic':
                     print('Not yet implemented')
@@ -798,28 +797,28 @@ class Particles(object) :
                                       'linear' or 'cubic' \
                                        but is `%s`" % self.particle_shape)
                 # Sum thread-local results to main field array
-                grid[0].rho = np.sum(rho_m0_global, axis=2)
-                grid[1].rho = np.sum(rho_m1_global, axis=2)
+                grid[0].rho = np.sum(rho_m0_global, axis=0)
+                grid[1].rho = np.sum(rho_m1_global, axis=0)
 
             elif fieldtype == 'J':
                 # Generate temporary arrays for J
                 Jr_m0_global = np.zeros(
-                    (grid[0].Jr.shape[0], grid[0].Jr.shape[1], self.nthreads), 
+                    (self.nthreads, grid[0].Jr.shape[0], grid[0].Jr.shape[1]), 
                     dtype=grid[0].Jr.dtype )
                 Jt_m0_global = np.zeros(
-                    (grid[0].Jt.shape[0], grid[0].Jt.shape[1], self.nthreads), 
+                    (self.nthreads, grid[0].Jt.shape[0], grid[0].Jt.shape[1]), 
                     dtype=grid[0].Jt.dtype )
                 Jz_m0_global = np.zeros(
-                    (grid[0].Jz.shape[0], grid[0].Jz.shape[1], self.nthreads), 
+                    (self.nthreads, grid[0].Jz.shape[0], grid[0].Jz.shape[1]), 
                     dtype=grid[0].Jz.dtype )
                 Jr_m1_global = np.zeros(
-                    (grid[1].Jr.shape[0], grid[1].Jr.shape[1], self.nthreads), 
+                    (self.nthreads, grid[1].Jr.shape[0], grid[1].Jr.shape[1]), 
                     dtype=grid[1].Jr.dtype )
                 Jt_m1_global = np.zeros(
-                    (grid[1].Jt.shape[0], grid[1].Jt.shape[1], self.nthreads), 
+                    (self.nthreads, grid[1].Jt.shape[0], grid[1].Jt.shape[1]), 
                     dtype=grid[1].Jt.dtype )
                 Jz_m1_global = np.zeros(
-                    (grid[1].Jz.shape[0], grid[1].Jz.shape[1], self.nthreads), 
+                    (self.nthreads, grid[1].Jz.shape[0], grid[1].Jz.shape[1]), 
                     dtype=grid[1].Jz.dtype )
                 # Deposit J using CPU threading
                 if self.particle_shape == 'linear':
@@ -831,9 +830,6 @@ class Particles(object) :
                         Jr_m0_global, Jr_m1_global,
                         Jt_m0_global, Jt_m1_global,
                         Jz_m0_global, Jz_m1_global,
-                        grid[0].Jr, grid[1].Jr,
-                        grid[0].Jt, grid[1].Jt,
-                        grid[0].Jz, grid[1].Jz,
                         self.nthreads, tx_chunks, tx_N )
                 elif self.particle_shape == 'cubic':
                     print('Not yet implemented')
@@ -854,12 +850,12 @@ class Particles(object) :
                                       'linear' or 'cubic' \
                                        but is `%s`" % self.particle_shape)
                 # Sum thread-local results to main field array
-                grid[0].Jr = np.sum(Jr_m0_global, axis=2)
-                grid[0].Jt = np.sum(Jt_m0_global, axis=2)
-                grid[0].Jz = np.sum(Jz_m0_global, axis=2)
-                grid[1].Jr = np.sum(Jr_m1_global, axis=2)
-                grid[1].Jt = np.sum(Jt_m1_global, axis=2)
-                grid[1].Jz = np.sum(Jz_m1_global, axis=2)
+                grid[0].Jr = np.sum(Jr_m0_global, axis=0)
+                grid[0].Jt = np.sum(Jt_m0_global, axis=0)
+                grid[0].Jz = np.sum(Jz_m0_global, axis=0)
+                grid[1].Jr = np.sum(Jr_m1_global, axis=0)
+                grid[1].Jt = np.sum(Jt_m1_global, axis=0)
+                grid[1].Jz = np.sum(Jz_m1_global, axis=0)
 
             else:
                 raise ValueError("`fieldtype` should be either 'J' or \
