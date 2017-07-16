@@ -10,7 +10,6 @@ import numba
 from numba import prange, int64
 import math
 from scipy.constants import c
-import numpy as np
 
 # -------------------------------
 # Particle shape Factor functions 
@@ -79,7 +78,6 @@ def deposit_rho_prange_linear(x, y, z, w,
                            invdz, zmin, Nz,
                            invdr, rmin, Nr,
                            rho_m0_global, rho_m1_global,
-                           rho_m0, rho_m1,
                            nthreads, tx_chunks, tx_N):
     """
     Deposition of the charge density rho using numba prange on the CPU.
@@ -120,8 +118,6 @@ def deposit_rho_prange_linear(x, y, z, w,
         # Create thread_local helper arrays
         # FIXME! ( instead of using zeros_like, 
         # it would be nicer to use np.zeros((Nz,Nr)) )
-        rho_m0_thread = np.zeros_like( rho_m0 )
-        rho_m1_thread = np.zeros_like( rho_m1 )
         # Loop over all particles in thread chunk
         for idx in range( tx_chunks[tx] ):
             # Calculate thread local particle index
@@ -203,21 +199,17 @@ def deposit_rho_prange_linear(x, y, z, w,
             if iz_cell+1 > Nz-1:
                 shift_z -= Nz
             # Write to thread local arrays
-            rho_m0_thread[iz_cell, ir_cell] += R_m0_00
-            rho_m1_thread[iz_cell, ir_cell] += R_m1_00
+            rho_m0_global[tx, iz_cell, ir_cell] += R_m0_00
+            rho_m1_global[tx, iz_cell, ir_cell] += R_m1_00
 
-            rho_m0_thread[iz_cell+1 + shift_z, ir_cell] += R_m0_01
-            rho_m1_thread[iz_cell+1 + shift_z, ir_cell] += R_m1_01
+            rho_m0_global[tx,iz_cell+1 + shift_z, ir_cell] += R_m0_01
+            rho_m1_global[tx,iz_cell+1 + shift_z, ir_cell] += R_m1_01
 
-            rho_m0_thread[iz_cell, ir_cell+1 + shift_r] += R_m0_10
-            rho_m1_thread[iz_cell, ir_cell+1 + shift_r] += R_m1_10
+            rho_m0_global[tx,iz_cell, ir_cell+1 + shift_r] += R_m0_10
+            rho_m1_global[tx,iz_cell, ir_cell+1 + shift_r] += R_m1_10
 
-            rho_m0_thread[iz_cell+1 + shift_z, ir_cell+1 + shift_r] += R_m0_11
-            rho_m1_thread[iz_cell+1 + shift_z, ir_cell+1 + shift_r] += R_m1_11
-
-        # Write thread local deposition arrays to global deposition arrays
-        rho_m0_global[:,:,tx] = rho_m0_thread
-        rho_m1_global[:,:,tx] = rho_m1_thread
+            rho_m0_global[tx,iz_cell+1 + shift_z, ir_cell+1 + shift_r] += R_m0_11
+            rho_m1_global[tx,iz_cell+1 + shift_z, ir_cell+1 + shift_r] += R_m1_11
 
     return
 
@@ -233,9 +225,6 @@ def deposit_J_prange_linear(x, y, z, w,
                          j_r_m0_global, j_r_m1_global,
                          j_t_m0_global, j_t_m1_global,
                          j_z_m0_global, j_z_m1_global,
-                         j_r_m0, j_r_m1,
-                         j_t_m0, j_t_m1,
-                         j_z_m0, j_z_m1,
                          nthreads, tx_chunks, tx_N):
     """
     Deposition of the current density J using numba prange on the CPU.
@@ -283,12 +272,6 @@ def deposit_J_prange_linear(x, y, z, w,
         # Create thread_local helper arrays
         # FIXME! ( instead of using zeros_like, 
         # it would be nicer to use np.zeros((Nz,Nr)) )
-        j_r_m0_thread = np.zeros_like( j_r_m0 )
-        j_t_m0_thread = np.zeros_like( j_t_m0 )
-        j_z_m0_thread = np.zeros_like( j_z_m0 )
-        j_r_m1_thread = np.zeros_like( j_r_m1 )
-        j_t_m1_thread = np.zeros_like( j_t_m1 )
-        j_z_m1_thread = np.zeros_like( j_z_m1 )
         # Loop over all particles in thread chunk
         for idx in range( tx_chunks[tx] ):
             # Calculate thread local particle index
@@ -407,48 +390,40 @@ def deposit_J_prange_linear(x, y, z, w,
             if (iz_cell+1) > Nz-1:
                 shift_z -= Nz
 
-            j_r_m0_thread[iz_cell, ir_cell] += J_r_m0_00
-            j_r_m1_thread[iz_cell, ir_cell] += J_r_m1_00
+            j_r_m0_global[tx,iz_cell, ir_cell] += J_r_m0_00
+            j_r_m1_global[tx,iz_cell, ir_cell] += J_r_m1_00
 
-            j_r_m0_thread[iz_cell+1 + shift_z, ir_cell] += J_r_m0_01
-            j_r_m1_thread[iz_cell+1 + shift_z, ir_cell] += J_r_m1_01
+            j_r_m0_global[tx,iz_cell+1 + shift_z, ir_cell] += J_r_m0_01
+            j_r_m1_global[tx,iz_cell+1 + shift_z, ir_cell] += J_r_m1_01
 
-            j_r_m0_thread[iz_cell, ir_cell+1 + shift_r] += J_r_m0_10
-            j_r_m1_thread[iz_cell, ir_cell+1 + shift_r] += J_r_m1_10
+            j_r_m0_global[tx,iz_cell, ir_cell+1 + shift_r] += J_r_m0_10
+            j_r_m1_global[tx,iz_cell, ir_cell+1 + shift_r] += J_r_m1_10
 
-            j_r_m0_thread[iz_cell+1 + shift_z, ir_cell+1 + shift_r] += J_r_m0_11
-            j_r_m1_thread[iz_cell+1 + shift_z, ir_cell+1 + shift_r] += J_r_m1_11
+            j_r_m0_global[tx,iz_cell+1 + shift_z, ir_cell+1 + shift_r] += J_r_m0_11
+            j_r_m1_global[tx,iz_cell+1 + shift_z, ir_cell+1 + shift_r] += J_r_m1_11
 
-            j_t_m0_thread[iz_cell, ir_cell] += J_t_m0_00
-            j_t_m1_thread[iz_cell, ir_cell] += J_t_m1_00
+            j_t_m0_global[tx,iz_cell, ir_cell] += J_t_m0_00
+            j_t_m1_global[tx,iz_cell, ir_cell] += J_t_m1_00
 
-            j_t_m0_thread[iz_cell+1 + shift_z, ir_cell] += J_t_m0_01
-            j_t_m1_thread[iz_cell+1 + shift_z, ir_cell] += J_t_m1_01
+            j_t_m0_global[tx,iz_cell+1 + shift_z, ir_cell] += J_t_m0_01
+            j_t_m1_global[tx,iz_cell+1 + shift_z, ir_cell] += J_t_m1_01
 
-            j_t_m0_thread[iz_cell, ir_cell+1 + shift_r] += J_t_m0_10
-            j_t_m1_thread[iz_cell, ir_cell+1 + shift_r] += J_t_m1_10
+            j_t_m0_global[tx,iz_cell, ir_cell+1 + shift_r] += J_t_m0_10
+            j_t_m1_global[tx,iz_cell, ir_cell+1 + shift_r] += J_t_m1_10
 
-            j_t_m0_thread[iz_cell+1 + shift_z, ir_cell+1 + shift_r] += J_t_m0_11
-            j_t_m1_thread[iz_cell+1 + shift_z, ir_cell+1 + shift_r] += J_t_m1_11
+            j_t_m0_global[tx,iz_cell+1 + shift_z, ir_cell+1 + shift_r] += J_t_m0_11
+            j_t_m1_global[tx,iz_cell+1 + shift_z, ir_cell+1 + shift_r] += J_t_m1_11
 
-            j_z_m0_thread[iz_cell, ir_cell] += J_z_m0_00
-            j_z_m1_thread[iz_cell, ir_cell] += J_z_m1_00
+            j_z_m0_global[tx,iz_cell, ir_cell] += J_z_m0_00
+            j_z_m1_global[tx,iz_cell, ir_cell] += J_z_m1_00
 
-            j_z_m0_thread[iz_cell+1 + shift_z, ir_cell] += J_z_m0_01
-            j_z_m1_thread[iz_cell+1 + shift_z, ir_cell] += J_z_m1_01
+            j_z_m0_global[tx,iz_cell+1 + shift_z, ir_cell] += J_z_m0_01
+            j_z_m1_global[tx,iz_cell+1 + shift_z, ir_cell] += J_z_m1_01
 
-            j_z_m0_thread[iz_cell, ir_cell+1 + shift_r] += J_z_m0_10
-            j_z_m1_thread[iz_cell, ir_cell+1 + shift_r] += J_z_m1_10
+            j_z_m0_global[tx,iz_cell, ir_cell+1 + shift_r] += J_z_m0_10
+            j_z_m1_global[tx,iz_cell, ir_cell+1 + shift_r] += J_z_m1_10
 
-            j_z_m0_thread[iz_cell+1 + shift_z, ir_cell+1 + shift_r] += J_z_m0_11
-            j_z_m1_thread[iz_cell+1 + shift_z, ir_cell+1 + shift_r] += J_z_m1_11
-
-        # Write thread local deposition arrays to global deposition arrays
-        j_r_m0_global[:,:,tx] = j_r_m0_thread
-        j_t_m0_global[:,:,tx] = j_t_m0_thread
-        j_z_m0_global[:,:,tx] = j_z_m0_thread
-        j_r_m1_global[:,:,tx] = j_r_m1_thread
-        j_t_m1_global[:,:,tx] = j_t_m1_thread
-        j_z_m1_global[:,:,tx] = j_z_m1_thread
+            j_z_m0_global[tx,iz_cell+1 + shift_z, ir_cell+1 + shift_r] += J_z_m0_11
+            j_z_m1_global[tx,iz_cell+1 + shift_z, ir_cell+1 + shift_r] += J_z_m1_11
 
     return
