@@ -10,7 +10,6 @@ import numba
 from numba import prange, int64
 import math
 from scipy.constants import c
-import numpy as np
 
 # -------------------------------
 # Particle shape Factor functions 
