@@ -21,7 +21,8 @@ from .gathering.numba_methods import gather_field_numba
 from .push.threading_methods import push_p_prange, push_p_ioniz_prange, \
     push_x_prange
 from .deposition.threading_methods import deposit_rho_prange_linear, \
-    deposit_J_prange_linear, sum_reduce_2d_array #CUBIC tbd
+    deposit_J_prange_linear, deposit_rho_prange_cubic,
+    deposit_J_prange_cubic, sum_reduce_2d_array 
 from .gathering.threading_methods import gather_field_prange_linear, \
     gather_field_prange_cubic
 
@@ -782,16 +783,14 @@ class Particles(object) :
                         grid[0].invdz, grid[0].zmin, grid[0].Nz,
                         grid[0].invdr, grid[0].rmin, grid[0].Nr,
                         rho_m0_global, rho_m1_global,
-                        self.nthreads, tx_chunks, tx_N )
+                        self.nthreads, tx_chunks )
                 elif self.particle_shape == 'cubic':
-                    print('Not yet implemented')
-                    # deposit_rho_prange_cubic(
-                    #     self.x, self.y, self.z, self.w,
-                    #     grid[0].invdz, grid[0].zmin, grid[0].Nz,
-                    #     grid[0].invdr, grid[0].rmin, grid[0].Nr,
-                    #     rho_m0_global, rho_m1_global,
-                    #     grid[0].rho, grid[1].rho,
-                    #     self.nthreads, tx_chunks, tx_N )
+                    deposit_rho_prange_cubic(
+                        self.x, self.y, self.z, self.w,
+                        grid[0].invdz, grid[0].zmin, grid[0].Nz,
+                        grid[0].invdr, grid[0].rmin, grid[0].Nr,
+                        rho_m0_global, rho_m1_global,
+                        self.nthreads, tx_chunks )
                 else:
                     raise ValueError("`particle_shape` should be either \
                                       'linear' or 'cubic' \
@@ -830,21 +829,17 @@ class Particles(object) :
                         Jr_m0_global, Jr_m1_global,
                         Jt_m0_global, Jt_m1_global,
                         Jz_m0_global, Jz_m1_global,
-                        self.nthreads, tx_chunks, tx_N )
+                        self.nthreads, tx_chunks )
                 elif self.particle_shape == 'cubic':
-                    print('Not yet implemented')
-                    # deposit_J_prange_cubic(
-                    #     self.x, self.y, self.z, self.w,
-                    #     self.ux, self.uy, self.uz, self.inv_gamma,
-                    #     grid[0].invdz, grid[0].zmin, grid[0].Nz,
-                    #     grid[0].invdr, grid[0].rmin, grid[0].Nr,
-                    #     Jr_m0_global, Jr_m1_global,
-                    #     Jt_m0_global, Jt_m1_global,
-                    #     Jz_m0_global, Jz_m1_global,
-                    #     grid[0].Jr, grid[1].Jr,
-                    #     grid[0].Jt, grid[1].Jt,
-                    #     grid[0].Jz, grid[1].Jz,
-                    #     self.nthreads, tx_chunks, tx_N )
+                    deposit_J_prange_cubic(
+                        self.x, self.y, self.z, self.w,
+                        self.ux, self.uy, self.uz, self.inv_gamma,
+                        grid[0].invdz, grid[0].zmin, grid[0].Nz,
+                        grid[0].invdr, grid[0].rmin, grid[0].Nr,
+                        Jr_m0_global, Jr_m1_global,
+                        Jt_m0_global, Jt_m1_global,
+                        Jz_m0_global, Jz_m1_global,
+                        self.nthreads, tx_chunks )
                 else:
                     raise ValueError("`particle_shape` should be either \
                                       'linear' or 'cubic' \
