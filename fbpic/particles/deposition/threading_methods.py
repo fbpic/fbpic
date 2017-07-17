@@ -1423,7 +1423,7 @@ def deposit_J_prange_cubic(x, y, z, w,
             if (ir_cell+1) == (Nr - 1):
                 sru2 = -1
             if (ir_cell-1) < 0:
-            ] +=  srl = 1
+                srl = 1
 
             j_r_m0_global[iz_cell - 1 + szl, ir_cell - 1 + srl] += J_r_m0_00
             j_r_m1_global[iz_cell - 1 + szl, ir_cell - 1 + srl] += J_r_m1_00

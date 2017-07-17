@@ -21,7 +21,7 @@ from .gathering.numba_methods import gather_field_numba
 from .push.threading_methods import push_p_prange, push_p_ioniz_prange, \
     push_x_prange
 from .deposition.threading_methods import deposit_rho_prange_linear, \
-    deposit_J_prange_linear, deposit_rho_prange_cubic,
+    deposit_J_prange_linear, deposit_rho_prange_cubic, \
     deposit_J_prange_cubic, sum_reduce_2d_array 
 from .gathering.threading_methods import gather_field_prange_linear, \
     gather_field_prange_cubic
