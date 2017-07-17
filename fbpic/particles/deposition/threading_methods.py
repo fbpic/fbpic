@@ -435,7 +435,17 @@ def deposit_J_prange_linear(x, y, z, w,
 @numba.njit( parallel=True )
 def sum_reduce_2d_array( global_array, reduced_array ):
     """
-    # TODO
+    Sum the array `global_array` along its first axis and 
+    add it into `reduced_array`.
+
+    Parameters:
+    -----------
+    global_array: 3darray of complexs
+       Field array whose first dimension corresponds to the 
+       reduction dimension (typically: the number of threads used
+       during the current deposition)
+
+    reduced array: 2darray of complexs
     """
     # Extract size of each dimension
     Nreduce, Nz, Nr = global_array.shape
