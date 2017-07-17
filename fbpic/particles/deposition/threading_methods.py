@@ -12,7 +12,7 @@ import math
 from scipy.constants import c
 
 # -------------------------------
-# Particle shape Factor functions 
+# Particle shape Factor functions
 # -------------------------------
 
 # Linear shapes
@@ -116,7 +116,7 @@ def deposit_rho_prange_linear(x, y, z, w,
     # Deposit the field per cell in parallel (for threads < number of cells)
     for tx in prange( nthreads ):
         # Create thread_local helper arrays
-        # FIXME! ( instead of using zeros_like, 
+        # FIXME! ( instead of using zeros_like,
         # it would be nicer to use np.zeros((Nz,Nr)) )
         # Loop over all particles in thread chunk
         for idx in range( tx_chunks[tx] ):
@@ -270,7 +270,7 @@ def deposit_J_prange_linear(x, y, z, w,
     # Deposit the field per cell in parallel (for threads < number of cells)
     for tx in prange( nthreads ):
         # Create thread_local helper arrays
-        # FIXME! ( instead of using zeros_like, 
+        # FIXME! ( instead of using zeros_like,
         # it would be nicer to use np.zeros((Nz,Nr)) )
         # Loop over all particles in thread chunk
         for idx in range( tx_chunks[tx] ):
@@ -427,3 +427,24 @@ def deposit_J_prange_linear(x, y, z, w,
             j_z_m1_global[tx,iz_cell+1 + shift_z, ir_cell+1 + shift_r] += J_z_m1_11
 
     return
+
+# -----------------------------------------------------------------------
+# Parallel reduction of the global arrays for threads into a single array
+# -----------------------------------------------------------------------
+
+@numba.njit( parallel=True )
+def sum_reduce_2d_array( global_array, reduced_array ):
+    """
+    # TODO
+    """
+    # Extract size of each dimension
+    Nreduce, Nz, Nr = global_array.shape
+
+    # Parallel loop over iz
+    for iz in prange( Nz ):
+        # Loop over the reduction dimension (slow dimension)
+        for it in range( Nreduce ):
+            # Loop over ir (fast dimension)
+            for ir in range( Nr ):
+
+                reduced_array[ iz, ir ] +=  global_array[ it, iz, ir ]

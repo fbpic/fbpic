@@ -21,7 +21,7 @@ from .gathering.numba_methods import gather_field_numba
 from .push.threading_methods import push_p_prange, push_p_ioniz_prange, \
     push_x_prange
 from .deposition.threading_methods import deposit_rho_prange_linear, \
-    deposit_J_prange_linear #CUBIC tbd
+    deposit_J_prange_linear, sum_reduce_2d_array #CUBIC tbd
 from .gathering.threading_methods import gather_field_prange_linear, \
     gather_field_prange_cubic
 
@@ -797,8 +797,8 @@ class Particles(object) :
                                       'linear' or 'cubic' \
                                        but is `%s`" % self.particle_shape)
                 # Sum thread-local results to main field array
-                grid[0].rho = np.sum(rho_m0_global, axis=0)
-                grid[1].rho = np.sum(rho_m1_global, axis=0)
+                sum_reduce_2d_array( rho_m0_global, grid[0].rho )
+                sum_reduce_2d_array( rho_m1_global, grid[1].rho )
 
             elif fieldtype == 'J':
                 # Generate temporary arrays for J
@@ -850,12 +850,12 @@ class Particles(object) :
                                       'linear' or 'cubic' \
                                        but is `%s`" % self.particle_shape)
                 # Sum thread-local results to main field array
-                grid[0].Jr = np.sum(Jr_m0_global, axis=0)
-                grid[0].Jt = np.sum(Jt_m0_global, axis=0)
-                grid[0].Jz = np.sum(Jz_m0_global, axis=0)
-                grid[1].Jr = np.sum(Jr_m1_global, axis=0)
-                grid[1].Jt = np.sum(Jt_m1_global, axis=0)
-                grid[1].Jz = np.sum(Jz_m1_global, axis=0)
+                sum_reduce_2d_array( Jr_m0_global, grid[0].Jr )
+                sum_reduce_2d_array( Jt_m0_global, grid[0].Jt )
+                sum_reduce_2d_array( Jz_m0_global, grid[0].Jz )
+                sum_reduce_2d_array( Jr_m1_global, grid[1].Jr )
+                sum_reduce_2d_array( Jt_m1_global, grid[1].Jt )
+                sum_reduce_2d_array( Jz_m1_global, grid[1].Jz )
 
             else:
                 raise ValueError("`fieldtype` should be either 'J' or \
