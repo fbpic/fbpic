@@ -9,6 +9,7 @@ on the CPU with threading
 from numba import prange, int64
 import numba
 import math
+import numpy as np
 
 # -----------------------
 # Field gathering linear
@@ -411,8 +412,8 @@ def gather_field_prange_cubic(x, y, z,
         z_cell = invdz*(zj - zmin) - 0.5
 
         # Calculate the shape factors
-        Sr = [0.,0.,0.,0.]
-        ir = [0,0,0,0]
+        ir = np.zeros(4, dtype=int64) #[0,0,0,0]
+        Sr = np.zeros(4) #[0.,0.,0.,0.]
         ir[0] = int64(math.floor(r_cell)) - 1
         ir[1] = ir[0] + 1
         ir[2] = ir[1] + 1
@@ -421,8 +422,8 @@ def gather_field_prange_cubic(x, y, z,
         Sr[1] = 1./6. * (3*((r_cell-ir[1])**3)-6*((r_cell-ir[1])**2)+4)
         Sr[2] = 1./6. * (3*((ir[2]-r_cell)**3)-6*((ir[2]-r_cell)**2)+4)
         Sr[3] = -1./6. * ((ir[3]-r_cell)-2)**3
-        iz = [0.,0.,0.,0.]
-        Sz = [0,0,0,0]
+        iz = np.zeros(4, dtype=int64) #[0,0,0,0]
+        Sz = np.zeros(4) #[0.,0.,0.,0.]
         iz[0] = int64(math.floor(z_cell)) - 1
         iz[1] = iz[0] + 1
         iz[2] = iz[1] + 1
@@ -432,18 +433,22 @@ def gather_field_prange_cubic(x, y, z,
         Sz[2] = 1./6. * (3*((iz[2]-z_cell)**3)-6*((iz[2]-z_cell)**2)+4)
         Sz[3] = -1./6. * ((iz[3]-z_cell)-2)**3
         # Lower and upper periodic boundary for z
-        for index_z in range(4):
+        index_z = 0
+        while index_z < 4:
             if iz[index_z] < 0:
                 iz[index_z] += Nz
             if iz[index_z] > Nz - 1:
                 iz[index_z] -= Nz
+            index_z += 1
         # Lower and upper boundary for r
-        for index_r in range(4):
+        index_r = 0
+        while index_r < 4:
             if ir[index_r] < 0:
                 ir[index_r] = abs(ir[index_r])-1
                 Sr[index_r] = (-1.)*Sr[index_r]
             if ir[index_r] > Nr - 1:
                 ir[index_r] = Nr - 1
+            index_r += 1
 
         # E-Field
         # ----------------------------
@@ -461,8 +466,10 @@ def gather_field_prange_cubic(x, y, z,
         Ft_m = 0.j
         Fz_m = 0.j
         # Add the fields for mode 0
-        for index_r in range(4):
-            for index_z in range(4):
+        index_r = 0
+        while index_r < 4:
+            index_z = 0
+            while index_z < 4:
                 Fr_m += Sz[index_z]*Sr[index_r]*Er_m0[iz[index_z], ir[index_r]]
                 Ft_m += Sz[index_z]*Sr[index_r]*Et_m0[iz[index_z], ir[index_r]]
                 if Sz[index_z]*Sr[index_r] < 0:
@@ -471,6 +478,8 @@ def gather_field_prange_cubic(x, y, z,
                 else:
                     Fz_m += Sz[index_z]*Sr[index_r]* \
                         Ez_m0[iz[index_z], ir[index_r]]
+                index_z += 1
+            index_r += 1
 
         Fr += (Fr_m*exptheta_m0).real
         Ft += (Ft_m*exptheta_m0).real
@@ -484,8 +493,10 @@ def gather_field_prange_cubic(x, y, z,
         Ft_m = 0.j
         Fz_m = 0.j
         # Add the fields for mode 1
-        for index_r in range(4):
-            for index_z in range(4):
+        index_r = 0
+        while index_r < 4:
+            index_z = 0
+            while index_z < 4:
                 if Sz[index_z]*Sr[index_r] < 0:
                     Fr_m += (-1.)*Sz[index_z]*Sr[index_r]* \
                                 Er_m1[iz[index_z], ir[index_r]]
@@ -497,6 +508,8 @@ def gather_field_prange_cubic(x, y, z,
                     Ft_m += Sz[index_z]*Sr[index_r]* \
                                 Et_m1[iz[index_z], ir[index_r]]
                 Fz_m += Sz[index_z]*Sr[index_r]*Ez_m1[iz[index_z], ir[index_r]]
+                index_z += 1
+            index_r += 1
 
         # Add the fields from the mode 1
         Fr += 2*(Fr_m*exptheta_m1).real
@@ -525,8 +538,10 @@ def gather_field_prange_cubic(x, y, z,
         Ft_m = 0.j
         Fz_m = 0.j
         # Add the fields for mode 0
-        for index_r in range(4):
-            for index_z in range(4):
+        index_r = 0
+        while index_r < 4:
+            index_z = 0
+            while index_z < 4:
                 Fr_m += Sz[index_z]*Sr[index_r]* \
                     Br_m0[iz[index_z], ir[index_r]]
                 Ft_m += Sz[index_z]*Sr[index_r]* \
@@ -537,6 +552,8 @@ def gather_field_prange_cubic(x, y, z,
                 else:
                     Fz_m += Sz[index_z]*Sr[index_r]* \
                         Bz_m0[iz[index_z], ir[index_r]]
+                index_z += 1
+            index_r += 1
 
         # Add the fields from the mode 0
         Fr += (Fr_m*exptheta_m0).real
@@ -552,8 +569,10 @@ def gather_field_prange_cubic(x, y, z,
         Fz_m = 0.j
 
         # Add the fields for mode 1
-        for index_r in range(4):
-            for index_z in range(4):
+        index_r = 0
+        while index_r < 4:
+            index_z = 0
+            while index_z < 4:
                 if Sz[index_z]*Sr[index_r] < 0:
                     Fr_m += (-1.)*Sz[index_z]*Sr[index_r]* \
                         Br_m1[iz[index_z], ir[index_r]]
@@ -565,6 +584,8 @@ def gather_field_prange_cubic(x, y, z,
                     Ft_m += Sz[index_z]*Sr[index_r]* \
                         Bt_m1[iz[index_z], ir[index_r]]
                 Fz_m += Sz[index_z]*Sr[index_r]*Bz_m1[iz[index_z], ir[index_r]]
+                index_z += 1
+            index_r += 1
 
         # Add the fields from the mode 1
         Fr += 2*(Fr_m*exptheta_m1).real

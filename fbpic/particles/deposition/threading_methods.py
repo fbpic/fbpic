@@ -780,53 +780,38 @@ def deposit_rho_prange_cubic(x, y, z, w,
                 srl = 1
 
             # Write ptcl fields to thread-local part of global deposition array
-            rho_m0_global[iz_cell - 1 + szl, ir_cell - 1 + srl] += R_m0_00
-            rho_m1_global[iz_cell - 1 + szl, ir_cell - 1 + srl] += R_m1_00
-
-            rho_m0_global[iz_cell, ir_cell - 1 + srl] += R_m0_01
-            rho_m1_global[iz_cell, ir_cell - 1 + srl] += R_m1_01
-
-            rho_m0_global[iz_cell + 1 + szu, ir_cell - 1 + srl] += R_m0_02
-            rho_m1_global[iz_cell + 1 + szu, ir_cell - 1 + srl] += R_m1_02
-
-            rho_m0_global[iz_cell + 2 + szu2, ir_cell - 1 + srl] += R_m0_03
-            rho_m1_global[iz_cell + 2 + szu2, ir_cell - 1 + srl] += R_m1_03
-
-            rho_m0_global[iz_cell - 1 + szl, ir_cell] += R_m0_10
-            rho_m1_global[iz_cell - 1 + szl, ir_cell] += R_m1_10
-
-            rho_m0_global[iz_cell, ir_cell] += R_m0_11
-            rho_m1_global[iz_cell, ir_cell] += R_m1_11
-
-            rho_m0_global[iz_cell + 1 + szu, ir_cell] += R_m0_12
-            rho_m1_global[iz_cell + 1 + szu, ir_cell] += R_m1_12
-
-            rho_m0_global[iz_cell + 2 + szu2, ir_cell] += R_m0_13
-            rho_m1_global[iz_cell + 2 + szu2, ir_cell] += R_m1_13
-
-            rho_m0_global[iz_cell - 1 + szl, ir_cell + 1 + sru] += R_m0_20
-            rho_m1_global[iz_cell - 1 + szl, ir_cell + 1 + sru] += R_m1_20
-
-            rho_m0_global[iz_cell, ir_cell + 1 + sru] += R_m0_21
-            rho_m1_global[iz_cell, ir_cell + 1 + sru] += R_m1_21
-
-            rho_m0_global[iz_cell + 1 + szu, ir_cell + 1 + sru] += R_m0_22
-            rho_m1_global[iz_cell + 1 + szu, ir_cell + 1 + sru] += R_m1_22
-
-            rho_m0_global[iz_cell + 2 + szu2, ir_cell + 1 + sru] += R_m0_23
-            rho_m1_global[iz_cell + 2 + szu2, ir_cell + 1 + sru] += R_m1_23
-
-            rho_m0_global[iz_cell - 1 + szl, ir_cell + 2 + sru2] += R_m0_30
-            rho_m1_global[iz_cell - 1 + szl, ir_cell + 2 + sru2] += R_m1_30
-
-            rho_m0_global[iz_cell, ir_cell + 2 + sru2] += R_m0_31
-            rho_m1_global[iz_cell, ir_cell + 2 + sru2] += R_m1_31
-
-            rho_m0_global[iz_cell + 1 + szu, ir_cell + 2 + sru2] += R_m0_32
-            rho_m1_global[iz_cell + 1 + szu, ir_cell + 2 + sru2] += R_m1_32
-
-            rho_m0_global[iz_cell + 2 + szu2, ir_cell + 2 + sru2] += R_m0_33
-            rho_m1_global[iz_cell + 2 + szu2, ir_cell + 2 + sru2] += R_m1_33
+            rho_m0_global[tx, iz_cell - 1 + szl, ir_cell - 1 + srl] += R_m0_00
+            rho_m1_global[tx, iz_cell - 1 + szl, ir_cell - 1 + srl] += R_m1_00
+            rho_m0_global[tx, iz_cell, ir_cell - 1 + srl] += R_m0_01
+            rho_m1_global[tx, iz_cell, ir_cell - 1 + srl] += R_m1_01
+            rho_m0_global[tx, iz_cell + 1 + szu, ir_cell - 1 + srl] += R_m0_02
+            rho_m1_global[tx, iz_cell + 1 + szu, ir_cell - 1 + srl] += R_m1_02
+            rho_m0_global[tx, iz_cell + 2 + szu2, ir_cell - 1 + srl] += R_m0_03
+            rho_m1_global[tx, iz_cell + 2 + szu2, ir_cell - 1 + srl] += R_m1_03
+            rho_m0_global[tx, iz_cell - 1 + szl, ir_cell] += R_m0_10
+            rho_m1_global[tx, iz_cell - 1 + szl, ir_cell] += R_m1_10
+            rho_m0_global[tx, iz_cell, ir_cell] += R_m0_11
+            rho_m1_global[tx, iz_cell, ir_cell] += R_m1_11
+            rho_m0_global[tx, iz_cell + 1 + szu, ir_cell] += R_m0_12
+            rho_m1_global[tx, iz_cell + 1 + szu, ir_cell] += R_m1_12
+            rho_m0_global[tx, iz_cell + 2 + szu2, ir_cell] += R_m0_13
+            rho_m1_global[tx, iz_cell + 2 + szu2, ir_cell] += R_m1_13
+            rho_m0_global[tx, iz_cell - 1 + szl, ir_cell + 1 + sru] += R_m0_20
+            rho_m1_global[tx, iz_cell - 1 + szl, ir_cell + 1 + sru] += R_m1_20
+            rho_m0_global[tx, iz_cell, ir_cell + 1 + sru] += R_m0_21
+            rho_m1_global[tx, iz_cell, ir_cell + 1 + sru] += R_m1_21
+            rho_m0_global[tx, iz_cell + 1 + szu, ir_cell + 1 + sru] += R_m0_22
+            rho_m1_global[tx, iz_cell + 1 + szu, ir_cell + 1 + sru] += R_m1_22
+            rho_m0_global[tx, iz_cell + 2 + szu2, ir_cell + 1 + sru] += R_m0_23
+            rho_m1_global[tx, iz_cell + 2 + szu2, ir_cell + 1 + sru] += R_m1_23
+            rho_m0_global[tx, iz_cell - 1 + szl, ir_cell + 2 + sru2] += R_m0_30
+            rho_m1_global[tx, iz_cell - 1 + szl, ir_cell + 2 + sru2] += R_m1_30
+            rho_m0_global[tx, iz_cell, ir_cell + 2 + sru2] += R_m0_31
+            rho_m1_global[tx, iz_cell, ir_cell + 2 + sru2] += R_m1_31
+            rho_m0_global[tx, iz_cell + 1 + szu, ir_cell + 2 + sru2] += R_m0_32
+            rho_m1_global[tx, iz_cell + 1 + szu, ir_cell + 2 + sru2] += R_m1_32
+            rho_m0_global[tx, iz_cell + 2 + szu2, ir_cell + 2 + sru2] += R_m0_33
+            rho_m1_global[tx, iz_cell + 2 + szu2, ir_cell + 2 + sru2] += R_m1_33
 
     return
 
@@ -1425,104 +1410,104 @@ def deposit_J_prange_cubic(x, y, z, w,
             if (ir_cell-1) < 0:
                 srl = 1
 
-            j_r_m0_global[iz_cell - 1 + szl, ir_cell - 1 + srl] += J_r_m0_00
-            j_r_m1_global[iz_cell - 1 + szl, ir_cell - 1 + srl] += J_r_m1_00
-            j_r_m0_global[iz_cell, ir_cell - 1 + srl] += J_r_m0_01
-            j_r_m1_global[iz_cell, ir_cell - 1 + srl] += J_r_m1_01
-            j_r_m0_global[iz_cell + 1 + szu, ir_cell - 1 + srl] += J_r_m0_02
-            j_r_m1_global[iz_cell + 1 + szu, ir_cell - 1 + srl] += J_r_m1_02
-            j_r_m0_global[iz_cell + 2 + szu2, ir_cell - 1 + srl] += J_r_m0_03
-            j_r_m1_global[iz_cell + 2 + szu2, ir_cell - 1 + srl] += J_r_m1_03
-            j_r_m0_global[iz_cell - 1 + szl, ir_cell ] += J_r_m0_10
-            j_r_m1_global[iz_cell - 1 + szl, ir_cell ] += J_r_m1_10
-            j_r_m0_global[iz_cell, ir_cell] += J_r_m0_11
-            j_r_m1_global[iz_cell, ir_cell] += J_r_m1_11
-            j_r_m0_global[iz_cell + 1 + szu, ir_cell] += J_r_m0_12
-            j_r_m1_global[iz_cell + 1 + szu, ir_cell] += J_r_m1_12
-            j_r_m0_global[iz_cell + 2 + szu2, ir_cell] += J_r_m0_13
-            j_r_m1_global[iz_cell + 2 + szu2, ir_cell] += J_r_m1_13
-            j_r_m0_global[iz_cell - 1 + szl, ir_cell + 1 + sru] += J_r_m0_20
-            j_r_m1_global[iz_cell - 1 + szl, ir_cell + 1 + sru] += J_r_m1_20
-            j_r_m0_global[iz_cell, ir_cell + 1 + sru] += J_r_m0_21
-            j_r_m1_global[iz_cell, ir_cell + 1 + sru] += J_r_m1_21
-            j_r_m0_global[iz_cell + 1 + szu, ir_cell + 1 + sru] += J_r_m0_22
-            j_r_m1_global[iz_cell + 1 + szu, ir_cell + 1 + sru] += J_r_m1_22
-            j_r_m0_global[iz_cell + 2 + szu2, ir_cell + 1 + sru] += J_r_m0_23
-            j_r_m1_global[iz_cell + 2 + szu2, ir_cell + 1 + sru] += J_r_m1_23
-            j_r_m0_global[iz_cell - 1 + szl, ir_cell + 2 + sru2] += J_r_m0_30
-            j_r_m1_global[iz_cell - 1 + szl, ir_cell + 2 + sru2] += J_r_m1_30
-            j_r_m0_global[iz_cell, ir_cell + 2 + sru2] += J_r_m0_31
-            j_r_m1_global[iz_cell, ir_cell + 2 + sru2] += J_r_m1_31
-            j_r_m0_global[iz_cell + 1 + szu, ir_cell + 2 + sru2] += J_r_m0_32
-            j_r_m1_global[iz_cell + 1 + szu, ir_cell + 2 + sru2] += J_r_m1_32
-            j_r_m0_global[iz_cell + 2 + szu2, ir_cell + 2 + sru2] += J_r_m0_33
-            j_r_m1_global[iz_cell + 2 + szu2, ir_cell + 2 + sru2] += J_r_m1_33
+            j_r_m0_global[tx, iz_cell - 1 + szl, ir_cell - 1 + srl] += J_r_m0_00
+            j_r_m1_global[tx, iz_cell - 1 + szl, ir_cell - 1 + srl] += J_r_m1_00
+            j_r_m0_global[tx, iz_cell, ir_cell - 1 + srl] += J_r_m0_01
+            j_r_m1_global[tx, iz_cell, ir_cell - 1 + srl] += J_r_m1_01
+            j_r_m0_global[tx, iz_cell + 1 + szu, ir_cell - 1 + srl] += J_r_m0_02
+            j_r_m1_global[tx, iz_cell + 1 + szu, ir_cell - 1 + srl] += J_r_m1_02
+            j_r_m0_global[tx, iz_cell + 2 + szu2, ir_cell - 1 + srl] += J_r_m0_03
+            j_r_m1_global[tx, iz_cell + 2 + szu2, ir_cell - 1 + srl] += J_r_m1_03
+            j_r_m0_global[tx, iz_cell - 1 + szl, ir_cell ] += J_r_m0_10
+            j_r_m1_global[tx, iz_cell - 1 + szl, ir_cell ] += J_r_m1_10
+            j_r_m0_global[tx, iz_cell, ir_cell] += J_r_m0_11
+            j_r_m1_global[tx, iz_cell, ir_cell] += J_r_m1_11
+            j_r_m0_global[tx, iz_cell + 1 + szu, ir_cell] += J_r_m0_12
+            j_r_m1_global[tx, iz_cell + 1 + szu, ir_cell] += J_r_m1_12
+            j_r_m0_global[tx, iz_cell + 2 + szu2, ir_cell] += J_r_m0_13
+            j_r_m1_global[tx, iz_cell + 2 + szu2, ir_cell] += J_r_m1_13
+            j_r_m0_global[tx, iz_cell - 1 + szl, ir_cell + 1 + sru] += J_r_m0_20
+            j_r_m1_global[tx, iz_cell - 1 + szl, ir_cell + 1 + sru] += J_r_m1_20
+            j_r_m0_global[tx, iz_cell, ir_cell + 1 + sru] += J_r_m0_21
+            j_r_m1_global[tx, iz_cell, ir_cell + 1 + sru] += J_r_m1_21
+            j_r_m0_global[tx, iz_cell + 1 + szu, ir_cell + 1 + sru] += J_r_m0_22
+            j_r_m1_global[tx, iz_cell + 1 + szu, ir_cell + 1 + sru] += J_r_m1_22
+            j_r_m0_global[tx, iz_cell + 2 + szu2, ir_cell + 1 + sru] += J_r_m0_23
+            j_r_m1_global[tx, iz_cell + 2 + szu2, ir_cell + 1 + sru] += J_r_m1_23
+            j_r_m0_global[tx, iz_cell - 1 + szl, ir_cell + 2 + sru2] += J_r_m0_30
+            j_r_m1_global[tx, iz_cell - 1 + szl, ir_cell + 2 + sru2] += J_r_m1_30
+            j_r_m0_global[tx, iz_cell, ir_cell + 2 + sru2] += J_r_m0_31
+            j_r_m1_global[tx, iz_cell, ir_cell + 2 + sru2] += J_r_m1_31
+            j_r_m0_global[tx, iz_cell + 1 + szu, ir_cell + 2 + sru2] += J_r_m0_32
+            j_r_m1_global[tx, iz_cell + 1 + szu, ir_cell + 2 + sru2] += J_r_m1_32
+            j_r_m0_global[tx, iz_cell + 2 + szu2, ir_cell + 2 + sru2] += J_r_m0_33
+            j_r_m1_global[tx, iz_cell + 2 + szu2, ir_cell + 2 + sru2] += J_r_m1_33
 
-            j_t_m0_global[iz_cell - 1 + szl, ir_cell - 1 + srl] += J_t_m0_00
-            j_t_m1_global[iz_cell - 1 + szl, ir_cell - 1 + srl] += J_t_m1_00
-            j_t_m0_global[iz_cell, ir_cell - 1 + srl] += J_t_m0_01
-            j_t_m1_global[iz_cell, ir_cell - 1 + srl] += J_t_m1_01
-            j_t_m0_global[iz_cell + 1 + szu, ir_cell - 1 + srl] += J_t_m0_02
-            j_t_m1_global[iz_cell + 1 + szu, ir_cell - 1 + srl] += J_t_m1_02
-            j_t_m0_global[iz_cell + 2 + szu2, ir_cell - 1 + srl] += J_t_m0_03
-            j_t_m1_global[iz_cell + 2 + szu2, ir_cell - 1 + srl] += J_t_m1_03
-            j_t_m0_global[iz_cell - 1 + szl, ir_cell ] += J_t_m0_10
-            j_t_m1_global[iz_cell - 1 + szl, ir_cell ] += J_t_m1_10
-            j_t_m0_global[iz_cell, ir_cell] += J_t_m0_11
-            j_t_m1_global[iz_cell, ir_cell] += J_t_m1_11
-            j_t_m0_global[iz_cell + 1 + szu, ir_cell] += J_t_m0_12
-            j_t_m1_global[iz_cell + 1 + szu, ir_cell] += J_t_m1_12
-            j_t_m0_global[iz_cell + 2 + szu2, ir_cell] += J_t_m0_13
-            j_t_m1_global[iz_cell + 2 + szu2, ir_cell] += J_t_m1_13
-            j_t_m0_global[iz_cell - 1 + szl, ir_cell + 1 + sru] += J_t_m0_20
-            j_t_m1_global[iz_cell - 1 + szl, ir_cell + 1 + sru] += J_t_m1_20
-            j_t_m0_global[iz_cell, ir_cell + 1 + sru] += J_t_m0_21
-            j_t_m1_global[iz_cell, ir_cell + 1 + sru] += J_t_m1_21
-            j_t_m0_global[iz_cell + 1 + szu, ir_cell + 1 + sru] += J_t_m0_22
-            j_t_m1_global[iz_cell + 1 + szu, ir_cell + 1 + sru] += J_t_m1_22
-            j_t_m0_global[iz_cell + 2 + szu2, ir_cell + 1 + sru] += J_t_m0_23
-            j_t_m1_global[iz_cell + 2 + szu2, ir_cell + 1 + sru] += J_t_m1_23
-            j_t_m0_global[iz_cell - 1 + szl, ir_cell + 2 + sru2] += J_t_m0_30
-            j_t_m1_global[iz_cell - 1 + szl, ir_cell + 2 + sru2] += J_t_m1_30
-            j_t_m0_global[iz_cell, ir_cell + 2 + sru2] += J_t_m0_31
-            j_t_m1_global[iz_cell, ir_cell + 2 + sru2] += J_t_m1_31
-            j_t_m0_global[iz_cell + 1 + szu, ir_cell + 2 + sru2] += J_t_m0_32
-            j_t_m1_global[iz_cell + 1 + szu, ir_cell + 2 + sru2] += J_t_m1_32
-            j_t_m0_global[iz_cell + 2 + szu2, ir_cell + 2 + sru2] += J_t_m0_33
-            j_t_m1_global[iz_cell + 2 + szu2, ir_cell + 2 + sru2] += J_t_m1_33
+            j_t_m0_global[tx, iz_cell - 1 + szl, ir_cell - 1 + srl] += J_t_m0_00
+            j_t_m1_global[tx, iz_cell - 1 + szl, ir_cell - 1 + srl] += J_t_m1_00
+            j_t_m0_global[tx, iz_cell, ir_cell - 1 + srl] += J_t_m0_01
+            j_t_m1_global[tx, iz_cell, ir_cell - 1 + srl] += J_t_m1_01
+            j_t_m0_global[tx, iz_cell + 1 + szu, ir_cell - 1 + srl] += J_t_m0_02
+            j_t_m1_global[tx, iz_cell + 1 + szu, ir_cell - 1 + srl] += J_t_m1_02
+            j_t_m0_global[tx, iz_cell + 2 + szu2, ir_cell - 1 + srl] += J_t_m0_03
+            j_t_m1_global[tx, iz_cell + 2 + szu2, ir_cell - 1 + srl] += J_t_m1_03
+            j_t_m0_global[tx, iz_cell - 1 + szl, ir_cell ] += J_t_m0_10
+            j_t_m1_global[tx, iz_cell - 1 + szl, ir_cell ] += J_t_m1_10
+            j_t_m0_global[tx, iz_cell, ir_cell] += J_t_m0_11
+            j_t_m1_global[tx, iz_cell, ir_cell] += J_t_m1_11
+            j_t_m0_global[tx, iz_cell + 1 + szu, ir_cell] += J_t_m0_12
+            j_t_m1_global[tx, iz_cell + 1 + szu, ir_cell] += J_t_m1_12
+            j_t_m0_global[tx, iz_cell + 2 + szu2, ir_cell] += J_t_m0_13
+            j_t_m1_global[tx, iz_cell + 2 + szu2, ir_cell] += J_t_m1_13
+            j_t_m0_global[tx, iz_cell - 1 + szl, ir_cell + 1 + sru] += J_t_m0_20
+            j_t_m1_global[tx, iz_cell - 1 + szl, ir_cell + 1 + sru] += J_t_m1_20
+            j_t_m0_global[tx, iz_cell, ir_cell + 1 + sru] += J_t_m0_21
+            j_t_m1_global[tx, iz_cell, ir_cell + 1 + sru] += J_t_m1_21
+            j_t_m0_global[tx, iz_cell + 1 + szu, ir_cell + 1 + sru] += J_t_m0_22
+            j_t_m1_global[tx, iz_cell + 1 + szu, ir_cell + 1 + sru] += J_t_m1_22
+            j_t_m0_global[tx, iz_cell + 2 + szu2, ir_cell + 1 + sru] += J_t_m0_23
+            j_t_m1_global[tx, iz_cell + 2 + szu2, ir_cell + 1 + sru] += J_t_m1_23
+            j_t_m0_global[tx, iz_cell - 1 + szl, ir_cell + 2 + sru2] += J_t_m0_30
+            j_t_m1_global[tx, iz_cell - 1 + szl, ir_cell + 2 + sru2] += J_t_m1_30
+            j_t_m0_global[tx, iz_cell, ir_cell + 2 + sru2] += J_t_m0_31
+            j_t_m1_global[tx, iz_cell, ir_cell + 2 + sru2] += J_t_m1_31
+            j_t_m0_global[tx, iz_cell + 1 + szu, ir_cell + 2 + sru2] += J_t_m0_32
+            j_t_m1_global[tx, iz_cell + 1 + szu, ir_cell + 2 + sru2] += J_t_m1_32
+            j_t_m0_global[tx, iz_cell + 2 + szu2, ir_cell + 2 + sru2] += J_t_m0_33
+            j_t_m1_global[tx, iz_cell + 2 + szu2, ir_cell + 2 + sru2] += J_t_m1_33
 
-            j_z_m0_global[iz_cell - 1 + szl, ir_cell - 1 + srl] += J_z_m0_00
-            j_z_m1_global[iz_cell - 1 + szl, ir_cell - 1 + srl] += J_z_m1_00
-            j_z_m0_global[iz_cell, ir_cell - 1 + srl] += J_z_m0_01
-            j_z_m1_global[iz_cell, ir_cell - 1 + srl] += J_z_m1_01
-            j_z_m0_global[iz_cell + 1 + szu, ir_cell - 1 + srl] += J_z_m0_02
-            j_z_m1_global[iz_cell + 1 + szu, ir_cell - 1 + srl] += J_z_m1_02
-            j_z_m0_global[iz_cell + 2 + szu2, ir_cell - 1 + srl] += J_z_m0_03
-            j_z_m1_global[iz_cell + 2 + szu2, ir_cell - 1 + srl] += J_z_m1_03
-            j_z_m0_global[iz_cell - 1 + szl, ir_cell ] += J_z_m0_10
-            j_z_m1_global[iz_cell - 1 + szl, ir_cell ] += J_z_m1_10
-            j_z_m0_global[iz_cell, ir_cell] += J_z_m0_11
-            j_z_m1_global[iz_cell, ir_cell] += J_z_m1_11
-            j_z_m0_global[iz_cell + 1 + szu, ir_cell] += J_z_m0_12
-            j_z_m1_global[iz_cell + 1 + szu, ir_cell] += J_z_m1_12
-            j_z_m0_global[iz_cell + 2 + szu2, ir_cell] += J_z_m0_13
-            j_z_m1_global[iz_cell + 2 + szu2, ir_cell] += J_z_m1_13
-            j_z_m0_global[iz_cell - 1 + szl, ir_cell + 1 + sru] += J_z_m0_20
-            j_z_m1_global[iz_cell - 1 + szl, ir_cell + 1 + sru] += J_z_m1_20
-            j_z_m0_global[iz_cell, ir_cell + 1 + sru] += J_z_m0_21
-            j_z_m1_global[iz_cell, ir_cell + 1 + sru] += J_z_m1_21
-            j_z_m0_global[iz_cell + 1 + szu, ir_cell + 1 + sru] += J_z_m0_22
-            j_z_m1_global[iz_cell + 1 + szu, ir_cell + 1 + sru] += J_z_m1_22
-            j_z_m0_global[iz_cell + 2 + szu2, ir_cell + 1 + sru] += J_z_m0_23
-            j_z_m1_global[iz_cell + 2 + szu2, ir_cell + 1 + sru] += J_z_m1_23
-            j_z_m0_global[iz_cell - 1 + szl, ir_cell + 2 + sru2] += J_z_m0_30
-            j_z_m1_global[iz_cell - 1 + szl, ir_cell + 2 + sru2] += J_z_m1_30
-            j_z_m0_global[iz_cell, ir_cell + 2 + sru2] += J_z_m0_31
-            j_z_m1_global[iz_cell, ir_cell + 2 + sru2] += J_z_m1_31
-            j_z_m0_global[iz_cell + 1 + szu, ir_cell + 2 + sru2] += J_z_m0_32
-            j_z_m1_global[iz_cell + 1 + szu, ir_cell + 2 + sru2] += J_z_m1_32
-            j_z_m0_global[iz_cell + 2 + szu2, ir_cell + 2 + sru2] += J_z_m0_33
-            j_z_m1_global[iz_cell + 2 + szu2, ir_cell + 2 + sru2] += J_z_m1_33
+            j_z_m0_global[tx, iz_cell - 1 + szl, ir_cell - 1 + srl] += J_z_m0_00
+            j_z_m1_global[tx, iz_cell - 1 + szl, ir_cell - 1 + srl] += J_z_m1_00
+            j_z_m0_global[tx, iz_cell, ir_cell - 1 + srl] += J_z_m0_01
+            j_z_m1_global[tx, iz_cell, ir_cell - 1 + srl] += J_z_m1_01
+            j_z_m0_global[tx, iz_cell + 1 + szu, ir_cell - 1 + srl] += J_z_m0_02
+            j_z_m1_global[tx, iz_cell + 1 + szu, ir_cell - 1 + srl] += J_z_m1_02
+            j_z_m0_global[tx, iz_cell + 2 + szu2, ir_cell - 1 + srl] += J_z_m0_03
+            j_z_m1_global[tx, iz_cell + 2 + szu2, ir_cell - 1 + srl] += J_z_m1_03
+            j_z_m0_global[tx, iz_cell - 1 + szl, ir_cell ] += J_z_m0_10
+            j_z_m1_global[tx, iz_cell - 1 + szl, ir_cell ] += J_z_m1_10
+            j_z_m0_global[tx, iz_cell, ir_cell] += J_z_m0_11
+            j_z_m1_global[tx, iz_cell, ir_cell] += J_z_m1_11
+            j_z_m0_global[tx, iz_cell + 1 + szu, ir_cell] += J_z_m0_12
+            j_z_m1_global[tx, iz_cell + 1 + szu, ir_cell] += J_z_m1_12
+            j_z_m0_global[tx, iz_cell + 2 + szu2, ir_cell] += J_z_m0_13
+            j_z_m1_global[tx, iz_cell + 2 + szu2, ir_cell] += J_z_m1_13
+            j_z_m0_global[tx, iz_cell - 1 + szl, ir_cell + 1 + sru] += J_z_m0_20
+            j_z_m1_global[tx, iz_cell - 1 + szl, ir_cell + 1 + sru] += J_z_m1_20
+            j_z_m0_global[tx, iz_cell, ir_cell + 1 + sru] += J_z_m0_21
+            j_z_m1_global[tx, iz_cell, ir_cell + 1 + sru] += J_z_m1_21
+            j_z_m0_global[tx, iz_cell + 1 + szu, ir_cell + 1 + sru] += J_z_m0_22
+            j_z_m1_global[tx, iz_cell + 1 + szu, ir_cell + 1 + sru] += J_z_m1_22
+            j_z_m0_global[tx, iz_cell + 2 + szu2, ir_cell + 1 + sru] += J_z_m0_23
+            j_z_m1_global[tx, iz_cell + 2 + szu2, ir_cell + 1 + sru] += J_z_m1_23
+            j_z_m0_global[tx, iz_cell - 1 + szl, ir_cell + 2 + sru2] += J_z_m0_30
+            j_z_m1_global[tx, iz_cell - 1 + szl, ir_cell + 2 + sru2] += J_z_m1_30
+            j_z_m0_global[tx, iz_cell, ir_cell + 2 + sru2] += J_z_m0_31
+            j_z_m1_global[tx, iz_cell, ir_cell + 2 + sru2] += J_z_m1_31
+            j_z_m0_global[tx, iz_cell + 1 + szu, ir_cell + 2 + sru2] += J_z_m0_32
+            j_z_m1_global[tx, iz_cell + 1 + szu, ir_cell + 2 + sru2] += J_z_m1_32
+            j_z_m0_global[tx, iz_cell + 2 + szu2, ir_cell + 2 + sru2] += J_z_m0_33
+            j_z_m1_global[tx, iz_cell + 2 + szu2, ir_cell + 2 + sru2] += J_z_m1_33
 
     return
 

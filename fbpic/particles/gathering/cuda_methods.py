@@ -430,8 +430,8 @@ def gather_field_gpu_cubic(x, y, z,
         z_cell = invdz*(zj - zmin) - 0.5
 
         # Calculate the shape factors
-        Sr = cuda.local.array((4,), dtype=float64)
         ir = cuda.local.array((4,), dtype=int64)
+        Sr = cuda.local.array((4,), dtype=float64)
         ir[0] = int64(math.floor(r_cell)) - 1
         ir[1] = ir[0] + 1
         ir[2] = ir[1] + 1
