@@ -11,6 +11,8 @@ This file steers and controls the simulation.
 # as it sets the cuda context)
 from mpi4py import MPI
 import numba
+# Check if threading is available
+from .threading_utils import threading_installed
 # Check if CUDA is available, then import CUDA functions
 from .cuda_utils import cuda_installed
 if cuda_installed:
@@ -44,8 +46,8 @@ class Simulation(object):
                  n_order=-1, dens_func=None, filter_currents=True,
                  v_comoving=None, use_galilean=False, initialize_ions=False,
                  use_cuda=False, use_threading=True, nthreads=None,
-                 n_guard=None, n_damp=30, exchange_period=None, 
-                 boundaries='periodic', gamma_boost=None, 
+                 n_guard=None, n_damp=30, exchange_period=None,
+                 boundaries='periodic', gamma_boost=None,
                  use_all_mpi_ranks=True, particle_shape='linear' ):
         """
         Initializes a simulation, by creating the following structures:
@@ -200,6 +202,10 @@ class Simulation(object):
             self.use_cuda = False
         # CPU multi-threading
         self.use_threading = use_threading
+        if (use_threading) and (threading_installed=False):
+            print('*** Threading not available for the simulation.')
+            print('*** (Please make sure that numba>0.34 is installed)')
+            self.use_threading = False
         if self.use_threading:
             # Define number of threads used
             if nthreads is not None:
@@ -620,7 +626,7 @@ def print_simulation_setup( comm, use_cuda, use_threading ):
         if use_threading and not use_cuda:
             message += " (%d threads per proc)" %numba.config.NUMBA_NUM_THREADS
         message += ".\n"
-            
+
         print( message )
 
 def adapt_to_grid( x, p_xmin, p_xmax, p_nx, ncells_empty=0 ):
