@@ -21,8 +21,6 @@ from .gathering.numba_methods import gather_field_numba
 # Check if threading is available, then import threaded functions
 from fbpic.threading_utils import threading_installed
 if threading_installed:
-    from .push.threading_methods import push_p_prange, push_p_ioniz_prange, \
-        push_x_prange
     from .deposition.threading_methods import deposit_rho_prange_linear, \
         deposit_J_prange_linear, deposit_rho_prange_cubic, \
         deposit_J_prange_cubic, sum_reduce_2d_array
@@ -460,19 +458,7 @@ class Particles(object) :
                     self.Ex, self.Ey, self.Ez,
                     self.Bx, self.By, self.Bz,
                     self.m, self.Ntot, self.dt, self.ionizer.ionization_level )
-        # CPU multi-threading version
-        elif self.use_threading:
-            if self.ionizer is None:
-                push_p_prange(self.ux, self.uy, self.uz, self.inv_gamma,
-                    self.Ex, self.Ey, self.Ez, self.Bx, self.By, self.Bz,
-                    self.q, self.m, self.Ntot, self.dt )
-            else:
-                # Ionizable species can have a charge that depends on the
-                # macroparticle, and hence require a different function
-                push_p_ioniz_prange(self.ux, self.uy, self.uz, self.inv_gamma,
-                    self.Ex, self.Ey, self.Ez, self.Bx, self.By, self.Bz,
-                    self.m, self.Ntot, self.dt, self.ionizer.ionization_level )
-        # CPU single-core version
+        # CPU version
         else:
             if self.ionizer is None:
                 push_p_numba(self.ux, self.uy, self.uz, self.inv_gamma,
@@ -504,12 +490,7 @@ class Particles(object) :
                 self.inv_gamma, self.dt )
             # The particle array is unsorted after the push in x
             self.sorted = False
-        # CPU multi-threading version
-        elif self.use_threading:
-            push_x_prange( self.x, self.y, self.z,
-                self.ux, self.uy, self.uz,
-                self.inv_gamma, self.Ntot, self.dt )
-        # CPU single-core version
+        # CPU version
         else:
             push_x_numba( self.x, self.y, self.z,
                 self.ux, self.uy, self.uz,
