@@ -5,11 +5,15 @@
 This file is part of the Fourier-Bessel Particle-In-Cell code (FB-PIC)
 It defines a set of generic functions for multithreaded CPU execution.
 """
+from numba import njit
+
 try:
     # Try to import the threading function prange
     from numba import prange
     threading_installed = True
+    njit_parallel = njit( parallel=True )
 except ImportError:
     # If not replace threading functions by single-thread functions
     prange = range
     threading_installed = False
+    njit_parallel = njit

@@ -8,15 +8,15 @@ It defines the optimized fields methods that use numba on a CPU
 import numba
 from scipy.constants import c, epsilon_0, mu_0
 c2 = c**2
-from fbpic.threading_utils import threading_installed, prange
+from fbpic.threading_utils import njit_parallel, prange
 
-@numba.njit( parallel=threading_installed )
+@njit_parallel
 def numba_correct_currents_standard( rho_prev, rho_next, Jp, Jm, Jz,
                             kz, kr, inv_k2, inv_dt, Nz, Nr ):
     """
     Correct the currents in spectral space, using the standard pstad
     """
-    # Loop over the 2D grid
+    # Loop over the 2D grid (parallel in z, if threading is installed)
     for iz in prange(Nz):
         for ir in range(Nr):
 
@@ -33,7 +33,7 @@ def numba_correct_currents_standard( rho_prev, rho_next, Jp, Jm, Jz,
 
     return
 
-@numba.njit( parallel=threading_installed )
+@njit_parallel
 def numba_push_eb_standard( Ep, Em, Ez, Bp, Bm, Bz, Jp, Jm, Jz,
                        rho_prev, rho_next,
                        rho_prev_coef, rho_next_coef, j_coef,
@@ -44,7 +44,7 @@ def numba_push_eb_standard( Ep, Em, Ez, Bp, Bm, Bz, Jp, Jm, Jz,
 
     See the documentation of SpectralGrid.push_eb_with
     """
-    # Loop over the 2D grid
+    # Loop over the 2D grid (parallel in z, if threading is installed)
     for iz in prange(Nz):
         for ir in range(Nr):
 
@@ -102,7 +102,7 @@ def numba_push_eb_standard( Ep, Em, Ez, Bp, Bm, Bz, Jp, Jm, Jz,
 
     return
 
-@numba.njit( parallel=threading_installed )
+@njit_parallel
 def numba_correct_currents_comoving( rho_prev, rho_next, Jp, Jm, Jz,
                             kz, kr, inv_k2,
                             j_corr_coef, T_eb, T_cc,
@@ -111,7 +111,7 @@ def numba_correct_currents_comoving( rho_prev, rho_next, Jp, Jm, Jz,
     Correct the currents in spectral space, using the assumption
     of comoving currents
     """
-    # Loop over the 2D grid
+    # Loop over the 2D grid (parallel in z, if threading is installed)
     for iz in prange(Nz):
         for ir in range(Nr):
 
@@ -128,7 +128,7 @@ def numba_correct_currents_comoving( rho_prev, rho_next, Jp, Jm, Jz,
 
     return
 
-@numba.njit( parallel=threading_installed )
+@njit_parallel
 def numba_push_eb_comoving( Ep, Em, Ez, Bp, Bm, Bz, Jp, Jm, Jz,
                        rho_prev, rho_next,
                        rho_prev_coef, rho_next_coef, j_coef,

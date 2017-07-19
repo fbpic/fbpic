@@ -17,14 +17,17 @@ from .utilities.utility_methods import weights, unalign_angles
 from .push.numba_methods import push_p_numba, push_p_ioniz_numba, push_x_numba
 from .deposition.numba_methods import deposit_field_numba
 from .gathering.numba_methods import gather_field_numba
-# Load the numba CPU multi-threading methods
-from .push.threading_methods import push_p_prange, push_p_ioniz_prange, \
-    push_x_prange
-from .deposition.threading_methods import deposit_rho_prange_linear, \
-    deposit_J_prange_linear, deposit_rho_prange_cubic, \
-    deposit_J_prange_cubic, sum_reduce_2d_array 
-from .gathering.threading_methods import gather_field_prange_linear, \
-    gather_field_prange_cubic
+
+# Check if threading is available, then import threaded functions
+from fbpic.threading_utils import threading_installed
+if threading_installed:
+    from .push.threading_methods import push_p_prange, push_p_ioniz_prange, \
+        push_x_prange
+    from .deposition.threading_methods import deposit_rho_prange_linear, \
+        deposit_J_prange_linear, deposit_rho_prange_cubic, \
+        deposit_J_prange_cubic, sum_reduce_2d_array
+    from .gathering.threading_methods import gather_field_prange_linear, \
+        gather_field_prange_cubic
 
 # Check if CUDA is available, then import CUDA functions
 from fbpic.cuda_utils import cuda_installed
@@ -505,7 +508,7 @@ class Particles(object) :
         elif self.use_threading:
             push_x_prange( self.x, self.y, self.z,
                 self.ux, self.uy, self.uz,
-                self.inv_gamma, self.Ntot, self.dt ) 
+                self.inv_gamma, self.Ntot, self.dt )
         # CPU single-core version
         else:
             push_x_numba( self.x, self.y, self.z,
@@ -763,7 +766,7 @@ class Particles(object) :
         # CPU multi-threading version
         elif self.use_threading:
             # Register particle chunk size for each thread
-            tx_N = int(self.Ntot/self.nthreads) 
+            tx_N = int(self.Ntot/self.nthreads)
             tx_chunks = [ tx_N for k in range(self.nthreads) ]
             tx_chunks[-1] = tx_chunks[-1] + int(self.Ntot%self.nthreads)
             # Multithreading functions for the deposition of rho or J
@@ -771,10 +774,10 @@ class Particles(object) :
             if fieldtype == 'rho':
                 # Generate temporary arrays for rho
                 rho_m0_global = np.zeros(
-                    (self.nthreads, grid[0].rho.shape[0], grid[0].rho.shape[1]), 
+                    (self.nthreads, grid[0].rho.shape[0], grid[0].rho.shape[1]),
                     dtype=grid[0].rho.dtype )
                 rho_m1_global = np.zeros(
-                    (self.nthreads, grid[1].rho.shape[0], grid[1].rho.shape[1]), 
+                    (self.nthreads, grid[1].rho.shape[0], grid[1].rho.shape[1]),
                     dtype=grid[1].rho.dtype )
                 # Deposit rho using CPU threading
                 if self.particle_shape == 'linear':
@@ -802,22 +805,22 @@ class Particles(object) :
             elif fieldtype == 'J':
                 # Generate temporary arrays for J
                 Jr_m0_global = np.zeros(
-                    (self.nthreads, grid[0].Jr.shape[0], grid[0].Jr.shape[1]), 
+                    (self.nthreads, grid[0].Jr.shape[0], grid[0].Jr.shape[1]),
                     dtype=grid[0].Jr.dtype )
                 Jt_m0_global = np.zeros(
-                    (self.nthreads, grid[0].Jt.shape[0], grid[0].Jt.shape[1]), 
+                    (self.nthreads, grid[0].Jt.shape[0], grid[0].Jt.shape[1]),
                     dtype=grid[0].Jt.dtype )
                 Jz_m0_global = np.zeros(
-                    (self.nthreads, grid[0].Jz.shape[0], grid[0].Jz.shape[1]), 
+                    (self.nthreads, grid[0].Jz.shape[0], grid[0].Jz.shape[1]),
                     dtype=grid[0].Jz.dtype )
                 Jr_m1_global = np.zeros(
-                    (self.nthreads, grid[1].Jr.shape[0], grid[1].Jr.shape[1]), 
+                    (self.nthreads, grid[1].Jr.shape[0], grid[1].Jr.shape[1]),
                     dtype=grid[1].Jr.dtype )
                 Jt_m1_global = np.zeros(
-                    (self.nthreads, grid[1].Jt.shape[0], grid[1].Jt.shape[1]), 
+                    (self.nthreads, grid[1].Jt.shape[0], grid[1].Jt.shape[1]),
                     dtype=grid[1].Jt.dtype )
                 Jz_m1_global = np.zeros(
-                    (self.nthreads, grid[1].Jz.shape[0], grid[1].Jz.shape[1]), 
+                    (self.nthreads, grid[1].Jz.shape[0], grid[1].Jz.shape[1]),
                     dtype=grid[1].Jz.dtype )
                 # Deposit J using CPU threading
                 if self.particle_shape == 'linear':

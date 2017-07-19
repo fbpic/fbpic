@@ -202,7 +202,7 @@ class Simulation(object):
             self.use_cuda = False
         # CPU multi-threading
         self.use_threading = use_threading
-        if (use_threading) and (threading_installed=False):
+        if (use_threading) and (threading_installed==False):
             print('*** Threading not available for the simulation.')
             print('*** (Please make sure that numba>0.34 is installed)')
             self.use_threading = False
