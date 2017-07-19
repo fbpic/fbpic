@@ -234,7 +234,6 @@ class Particles(object) :
             # Register boolean that records if the particles are sorted or not
             self.sorted = False
         # Register variables when using multithreading
-        self.use_threading = use_threading
         if self.use_threading == True:
             # Register number of threads
             self.nthreads = numba.config.NUMBA_NUM_THREADS
