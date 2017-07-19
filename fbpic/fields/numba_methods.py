@@ -9,10 +9,7 @@ import numba
 from scipy.constants import c, epsilon_0, mu_0
 c2 = c**2
 
-@numba.jit('void(complex128[:,:], complex128[:,:], \
-           complex128[:,:], complex128[:,:], complex128[:,:], \
-           float64[:,:], float64[:,:], float64[:,:], \
-           float64, int32, int32)')
+@numba.njit
 def numba_correct_currents_standard( rho_prev, rho_next, Jp, Jm, Jz,
                             kz, kr, inv_k2, inv_dt, Nz, Nr ):
     """
@@ -33,13 +30,7 @@ def numba_correct_currents_standard( rho_prev, rho_next, Jp, Jm, Jz,
             Jm[iz, ir] += -0.5 * kr[iz, ir] * F
             Jz[iz, ir] += -1.j * kz[iz, ir] * F
 
-@numba.jit('void(complex128[:,:], complex128[:,:], complex128[:,:], \
-           complex128[:,:], complex128[:,:], complex128[:,:], \
-           complex128[:,:], complex128[:,:], complex128[:,:], \
-           complex128[:,:], complex128[:,:], \
-           float64[:,:], float64[:,:], float64[:,:], \
-           float64[:,:], float64[:,:], float64[:,:], float64[:,:], float64, \
-           int8, int32, int32)')
+@numba.njit
 def numba_push_eb_standard( Ep, Em, Ez, Bp, Bm, Bz, Jp, Jm, Jz,
                        rho_prev, rho_next,
                        rho_prev_coef, rho_next_coef, j_coef,
@@ -106,7 +97,7 @@ def numba_push_eb_standard( Ep, Em, Ez, Bp, Bm, Bz, Jp, Jm, Jz,
                 + j_coef[iz, ir]*( 1.j*kr[iz, ir]*Jp[iz, ir] \
                             + 1.j*kr[iz, ir]*Jm[iz, ir] )
 
-@numba.jit
+@numba.njit
 def numba_correct_currents_comoving( rho_prev, rho_next, Jp, Jm, Jz,
                             kz, kr, inv_k2,
                             j_corr_coef, T_eb, T_cc,
@@ -130,7 +121,7 @@ def numba_correct_currents_comoving( rho_prev, rho_next, Jp, Jm, Jz,
             Jm[iz, ir] += -0.5 * kr[iz, ir] * F
             Jz[iz, ir] += -1.j * kz[iz, ir] * F
 
-@numba.jit
+@numba.njit
 def numba_push_eb_comoving( Ep, Em, Ez, Bp, Bm, Bz, Jp, Jm, Jz,
                        rho_prev, rho_next,
                        rho_prev_coef, rho_next_coef, j_coef,
