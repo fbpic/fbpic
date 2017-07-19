@@ -8,15 +8,16 @@ It defines the optimized fields methods that use numba on a CPU
 import numba
 from scipy.constants import c, epsilon_0, mu_0
 c2 = c**2
+from fbpic.threading_utils import threading_installed, prange
 
-@numba.njit
+@numba.njit( parallel=threading_installed )
 def numba_correct_currents_standard( rho_prev, rho_next, Jp, Jm, Jz,
                             kz, kr, inv_k2, inv_dt, Nz, Nr ):
     """
     Correct the currents in spectral space, using the standard pstad
     """
     # Loop over the 2D grid
-    for iz in range(Nz):
+    for iz in prange(Nz):
         for ir in range(Nr):
 
             # Calculate the intermediate variable F
@@ -30,7 +31,9 @@ def numba_correct_currents_standard( rho_prev, rho_next, Jp, Jm, Jz,
             Jm[iz, ir] += -0.5 * kr[iz, ir] * F
             Jz[iz, ir] += -1.j * kz[iz, ir] * F
 
-@numba.njit
+    return
+
+@numba.njit( parallel=threading_installed )
 def numba_push_eb_standard( Ep, Em, Ez, Bp, Bm, Bz, Jp, Jm, Jz,
                        rho_prev, rho_next,
                        rho_prev_coef, rho_next_coef, j_coef,
@@ -42,7 +45,7 @@ def numba_push_eb_standard( Ep, Em, Ez, Bp, Bm, Bz, Jp, Jm, Jz,
     See the documentation of SpectralGrid.push_eb_with
     """
     # Loop over the 2D grid
-    for iz in range(Nz):
+    for iz in prange(Nz):
         for ir in range(Nr):
 
             # Save the electric fields, since it is needed for the B push
@@ -97,7 +100,9 @@ def numba_push_eb_standard( Ep, Em, Ez, Bp, Bm, Bz, Jp, Jm, Jz,
                 + j_coef[iz, ir]*( 1.j*kr[iz, ir]*Jp[iz, ir] \
                             + 1.j*kr[iz, ir]*Jm[iz, ir] )
 
-@numba.njit
+    return
+
+@numba.njit( parallel=threading_installed )
 def numba_correct_currents_comoving( rho_prev, rho_next, Jp, Jm, Jz,
                             kz, kr, inv_k2,
                             j_corr_coef, T_eb, T_cc,
@@ -107,7 +112,7 @@ def numba_correct_currents_comoving( rho_prev, rho_next, Jp, Jm, Jz,
     of comoving currents
     """
     # Loop over the 2D grid
-    for iz in range(Nz):
+    for iz in prange(Nz):
         for ir in range(Nr):
 
             # Calculate the intermediate variable F
@@ -121,7 +126,9 @@ def numba_correct_currents_comoving( rho_prev, rho_next, Jp, Jm, Jz,
             Jm[iz, ir] += -0.5 * kr[iz, ir] * F
             Jz[iz, ir] += -1.j * kz[iz, ir] * F
 
-@numba.njit
+    return
+
+@numba.njit( parallel=threading_installed )
 def numba_push_eb_comoving( Ep, Em, Ez, Bp, Bm, Bz, Jp, Jm, Jz,
                        rho_prev, rho_next,
                        rho_prev_coef, rho_next_coef, j_coef,
@@ -198,3 +205,5 @@ def numba_push_eb_comoving( Ep, Em, Ez, Bp, Bm, Bz, Jp, Jm, Jz,
                             + 1.j*kr[iz, ir]*Em_old ) \
                 + j_coef[iz, ir]*( 1.j*kr[iz, ir]*Jp[iz, ir] \
                             + 1.j*kr[iz, ir]*Jm[iz, ir] )
+
+    return
