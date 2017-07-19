@@ -130,12 +130,18 @@ class Particles(object) :
         # Register the timestep
         self.dt = dt
 
-        # Define wether or not to use the GPU
+        # Define whether or not to use the GPU
         self.use_cuda = use_cuda
         if (self.use_cuda==True) and (cuda_installed==False) :
             print('*** Cuda not available for the particles.')
             print('*** Performing the particle operations on the CPU.')
             self.use_cuda = False
+        # Define whether or not to use threading
+        self.use_threading = use_threading
+        if (self.use_threading==True) and (threading_installed==False) :
+            print('*** Threading not available for the simulation.')
+            print('*** (Please make sure that numba>0.34 is installed)')
+            self.use_threading = False
 
         # Register the properties of the particles
         # (Necessary for the pusher, and when adding more particles later, )

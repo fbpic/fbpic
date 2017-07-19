@@ -46,7 +46,7 @@ def push_p_numba( ux, uy, uz, inv_gamma,
             ux[ip], uy[ip], uz[ip], inv_gamma[ip],
             Ex[ip], Ey[ip], Ez[ip], Bx[ip], By[ip], Bz[ip], econst, bconst )
 
-    return
+    return ux, uy, uz, inv_gamma
 
 @njit_parallel
 def push_p_ioniz_numba( ux, uy, uz, inv_gamma,
@@ -74,7 +74,7 @@ def push_p_ioniz_numba( ux, uy, uz, inv_gamma,
             Ex[ip], Ey[ip], Ez[ip], Bx[ip], By[ip], Bz[ip],
             econst, bconst )
 
-    return
+    return ux, uy, uz, inv_gamma
 
 @numba.njit
 def push_p_vay( ux_i, uy_i, uz_i, inv_gamma_i,
