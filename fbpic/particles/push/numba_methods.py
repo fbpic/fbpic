@@ -28,7 +28,7 @@ def push_x_numba( x, y, z, ux, uy, uz, inv_gamma, Ntot, dt ):
         y[ip] += chdt * inv_gamma[ip] * uy[ip]
         z[ip] += chdt * inv_gamma[ip] * uz[ip]
 
-    return
+    return x, y, z
 
 @njit_parallel
 def push_p_numba( ux, uy, uz, inv_gamma,
