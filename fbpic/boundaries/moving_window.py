@@ -9,6 +9,7 @@ import numpy as np
 from scipy.constants import c
 from fbpic.particles import Particles
 from fbpic.lpa_utils.boosted_frame import BoostConverter
+from fbpic.threading_utils import njit_parallel, prange
 # Check if CUDA is available, then import CUDA functions
 from fbpic.cuda_utils import cuda_installed
 if cuda_installed:
@@ -484,17 +485,17 @@ def shift_spect_array_cpu( field_array, shift_factor, n_move ):
     n_move: int
         The number of cells by which the grid should be shifted
     """
-    # Get a 2D CUDA grid
-    iz, ir = cuda.grid(2)
+    Nz, Nr = field_array.shape
 
-    # Only access values that are actually in the array
-    if ir < field_array.shape[1] and iz < field_array.shape[0]:
-        # Calculate the shift factor (raising to the power n_move)
+    # Loop over the 2D array (in parallel over z if threading is enabled)
+    for iz in prange( Nz ):
         power_shift = shift_factor[iz]
+        # Calculate the shift factor (raising to the power n_move)
         for i in range(1,n_move):
             power_shift *= shift_factor[iz]
         # Shift fields backwards
-        field_array[iz, ir] *= power_shift
+        for ir in range( Nr ):
+            field_array[iz, ir] *= power_shift
 
 if cuda_installed:
 
