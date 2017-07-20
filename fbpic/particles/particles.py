@@ -19,8 +19,8 @@ from .deposition.numba_methods import deposit_field_numba
 from .gathering.numba_methods import gather_field_numba
 
 # Check if threading is available, then import threaded functions
-from fbpic.threading_utils import threading_installed
-if threading_installed:
+from fbpic.threading_utils import threading_enabled
+if threading_enabled:
     from .deposition.threading_methods import deposit_rho_prange_linear, \
         deposit_J_prange_linear, deposit_rho_prange_cubic, \
         deposit_J_prange_cubic, sum_reduce_2d_array
@@ -60,7 +60,7 @@ class Particles(object) :
                     ux_th=0., uy_th=0., uz_th=0.,
                     dens_func=None, continuous_injection=True,
                     grid_shape=None, particle_shape='linear',
-                    use_cuda=False, use_threading=True) :
+                    use_cuda=False ) :
         """
         Initialize a uniform set of particles
 
@@ -123,9 +123,6 @@ class Particles(object) :
 
         use_cuda : bool, optional
             Wether to use the GPU or not.
-
-        use_threading : bool, optional
-            Wether to use multi-threading on the CPU.
         """
         # Register the timestep
         self.dt = dt
@@ -136,12 +133,6 @@ class Particles(object) :
             print('*** Cuda not available for the particles.')
             print('*** Performing the particle operations on the CPU.')
             self.use_cuda = False
-        # Define whether or not to use threading
-        self.use_threading = use_threading
-        if (self.use_threading==True) and (threading_installed==False) :
-            print('*** Threading not available for the simulation.')
-            print('*** (Please make sure that numba>0.34 is installed)')
-            self.use_threading = False
 
         # Register the properties of the particles
         # (Necessary for the pusher, and when adding more particles later, )
@@ -234,6 +225,7 @@ class Particles(object) :
             # Register boolean that records if the particles are sorted or not
             self.sorted = False
         # Register variables when using multithreading
+        self.use_threading = threading_enabled
         if self.use_threading == True:
             # Register number of threads
             self.nthreads = numba.config.NUMBA_NUM_THREADS

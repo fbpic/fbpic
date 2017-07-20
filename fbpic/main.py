@@ -12,7 +12,7 @@ This file steers and controls the simulation.
 from mpi4py import MPI
 import numba
 # Check if threading is available
-from .threading_utils import threading_installed
+from .threading_utils import threading_enabled
 # Check if CUDA is available, then import CUDA functions
 from .cuda_utils import cuda_installed
 if cuda_installed:
@@ -45,7 +45,7 @@ class Simulation(object):
                  p_rmin, p_rmax, p_nz, p_nr, p_nt, n_e, zmin=0.,
                  n_order=-1, dens_func=None, filter_currents=True,
                  v_comoving=None, use_galilean=False, initialize_ions=False,
-                 use_cuda=False, use_threading=True, nthreads=None,
+                 use_cuda=False, nthreads=None,
                  n_guard=None, n_damp=30, exchange_period=None,
                  boundaries='periodic', gamma_boost=None,
                  use_all_mpi_ranks=True, particle_shape='linear' ):
@@ -134,12 +134,10 @@ class Simulation(object):
 
         use_cuda: bool, optional
             Wether to use CUDA (GPU) acceleration
-        use_threading : bool, optional
-            Wether to use multi-threading on the CPU.
         nthreads: int, optional
-            Number of CPU multi-threading threads used (if use_threading
-            is set). If nthreads is set to None, the number of threads
-            are automatically determined.
+            Number of CPU multi-threading threads used (if threading is
+            enabled) If nthreads is set to None, the number of threads
+            is automatically determined.
 
         n_guard: int, optional
             Number of guard cells to use at the left and right of
@@ -201,11 +199,7 @@ class Simulation(object):
             print('*** Performing the simulation on CPU.')
             self.use_cuda = False
         # CPU multi-threading
-        self.use_threading = use_threading
-        if (use_threading) and (threading_installed==False):
-            print('*** Threading not available for the simulation.')
-            print('*** (Please make sure that numba>0.34 is installed)')
-            self.use_threading = False
+        self.use_threading = threading_enabled
         if self.use_threading:
             # Define number of threads used
             if nthreads is not None:
@@ -260,16 +254,14 @@ class Simulation(object):
                       zmax=p_zmax, Npr=Npr, rmin=p_rmin, rmax=p_rmax,
                       Nptheta=p_nt, dt=dt, dens_func=dens_func, uz_m=uz_m,
                       grid_shape=grid_shape, particle_shape=particle_shape,
-                      use_cuda=self.use_cuda,
-                      use_threading=self.use_threading) ]
+                      use_cuda=self.use_cuda ) ]
         if initialize_ions :
             self.ptcl.append(
                 Particles(q=e, m=m_p, n=n_e, Npz=Npz, zmin=p_zmin,
                           zmax=p_zmax, Npr=Npr, rmin=p_rmin, rmax=p_rmax,
                           Nptheta=p_nt, dt=dt, dens_func=dens_func, uz_m=uz_m,
                           grid_shape=grid_shape, particle_shape=particle_shape,
-                          use_cuda=self.use_cuda,
-                          use_threading=self.use_threading) )
+                          use_cuda=self.use_cuda ) )
 
         # Register the number of particles per cell along z, and dt
         # (Necessary for the moving window)
