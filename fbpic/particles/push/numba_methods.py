@@ -5,11 +5,12 @@
 This file is part of the Fourier-Bessel Particle-In-Cell code (FB-PIC)
 It defines the particle push methods on the CPU with numba.
 """
-import numba
 import math
+import numba
+from fbpic.threading_utils import njit_parallel, prange
 from scipy.constants import c, e
 
-@numba.njit
+@njit_parallel
 def push_x_numba( x, y, z, ux, uy, uz, inv_gamma, Ntot, dt ):
     """
     Advance the particles' positions over one half-timestep
@@ -21,13 +22,15 @@ def push_x_numba( x, y, z, ux, uy, uz, inv_gamma, Ntot, dt ):
     # Half timestep, multiplied by c
     chdt = c*0.5*dt
 
-    # Particle push
-    for ip in range(Ntot) :
+    # Particle push (in parallel if threading is installed)
+    for ip in prange(Ntot) :
         x[ip] += chdt * inv_gamma[ip] * ux[ip]
         y[ip] += chdt * inv_gamma[ip] * uy[ip]
         z[ip] += chdt * inv_gamma[ip] * uz[ip]
 
-@numba.njit
+    return x, y, z
+
+@njit_parallel
 def push_p_numba( ux, uy, uz, inv_gamma,
                 Ex, Ey, Ez, Bx, By, Bz, q, m, Ntot, dt ) :
     """
@@ -37,13 +40,15 @@ def push_p_numba( ux, uy, uz, inv_gamma,
     econst = q*dt/(m*c)
     bconst = 0.5*q*dt/m
 
-    # Loop over the particles
-    for ip in range(Ntot) :
+    # Loop over the particles (in parallel if threading is installed)
+    for ip in prange(Ntot) :
         ux[ip], uy[ip], uz[ip], inv_gamma[ip] = push_p_vay(
             ux[ip], uy[ip], uz[ip], inv_gamma[ip],
             Ex[ip], Ey[ip], Ez[ip], Bx[ip], By[ip], Bz[ip], econst, bconst )
 
-@numba.njit
+    return ux, uy, uz, inv_gamma
+
+@njit_parallel
 def push_p_ioniz_numba( ux, uy, uz, inv_gamma,
                 Ex, Ey, Ez, Bx, By, Bz, m, Ntot, dt, ionization_level ) :
     """
@@ -53,8 +58,8 @@ def push_p_ioniz_numba( ux, uy, uz, inv_gamma,
     prefactor_econst = e*dt/(m*c)
     prefactor_bconst = 0.5*e*dt/m
 
-    # Loop over the particles
-    for ip in range(Ntot) :
+    # Loop over the particles (in parallel if threading is installed)
+    for ip in prange(Ntot) :
 
         # For neutral macroparticles, skip this step
         if ionization_level[ip] == 0:
@@ -68,6 +73,8 @@ def push_p_ioniz_numba( ux, uy, uz, inv_gamma,
             ux[ip], uy[ip], uz[ip], inv_gamma[ip],
             Ex[ip], Ey[ip], Ez[ip], Bx[ip], By[ip], Bz[ip],
             econst, bconst )
+
+    return ux, uy, uz, inv_gamma
 
 @numba.njit
 def push_p_vay( ux_i, uy_i, uz_i, inv_gamma_i,
