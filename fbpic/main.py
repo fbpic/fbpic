@@ -45,8 +45,7 @@ class Simulation(object):
                  p_rmin, p_rmax, p_nz, p_nr, p_nt, n_e, zmin=0.,
                  n_order=-1, dens_func=None, filter_currents=True,
                  v_comoving=None, use_galilean=False, initialize_ions=False,
-                 use_cuda=False, nthreads=None,
-                 n_guard=None, n_damp=30, exchange_period=None,
+                 use_cuda=False, n_guard=None, n_damp=30, exchange_period=None,
                  boundaries='periodic', gamma_boost=None,
                  use_all_mpi_ranks=True, particle_shape='linear' ):
         """
@@ -134,10 +133,6 @@ class Simulation(object):
 
         use_cuda: bool, optional
             Wether to use CUDA (GPU) acceleration
-        nthreads: int, optional
-            Number of CPU multi-threading threads used (if threading is
-            enabled) If nthreads is set to None, the number of threads
-            is automatically determined.
 
         n_guard: int, optional
             Number of guard cells to use at the left and right of
@@ -200,15 +195,7 @@ class Simulation(object):
             self.use_cuda = False
         # CPU multi-threading
         self.use_threading = threading_enabled
-        if self.use_threading:
-            # Define number of threads used
-            if nthreads is not None:
-                # Automatically take numba preset for number of threads
-                self.nthreads = nthreads
-                numba.config.NUMBA_NUM_THREADS = self.nthreads
-            else:
-                # Set user-defined number of threads
-                self.nthreads = numba.config.NUMBA_NUM_THREADS
+
         # Register the comoving parameters
         self.v_comoving = v_comoving
         self.use_galilean = use_galilean
