@@ -22,7 +22,7 @@ if 'FBPIC_DISABLE_THREADING' in os.environ:
 if threading_enabled:
     try:
         # Try to import the threading function prange
-        import numba.prange
+        from numba import prange as numba_prange
     except ImportError:
         threading_enabled = False
         print('*** Threading not available for the simulation.')
@@ -36,4 +36,4 @@ if not threading_enabled:
 else:
     # Use the parallel compilation function
     njit_parallel = njit( parallel=True )
-    prange = numba.prange
+    prange = numba_prange
