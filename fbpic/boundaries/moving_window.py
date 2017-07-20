@@ -318,86 +318,36 @@ class MovingWindow(object):
         """
         if grid.use_cuda:
             shift = grid.d_field_shift
+            # Get a 2D CUDA grid of the size of the grid
+            tpb, bpg = cuda_tpb_bpg_2d( grid.Ep.shape[0], grid.Ep.shape[1] )
             # Shift all the fields on the GPU
-            self.shift_spect_field_gpu( grid.Ep, shift, n_move )
-            self.shift_spect_field_gpu( grid.Em, shift, n_move )
-            self.shift_spect_field_gpu( grid.Ez, shift, n_move )
-            self.shift_spect_field_gpu( grid.Bp, shift, n_move )
-            self.shift_spect_field_gpu( grid.Bm, shift, n_move )
-            self.shift_spect_field_gpu( grid.Bz, shift, n_move )
+            shift_spect_array_gpu[tpb, bpg]( grid.Ep, shift, n_move )
+            shift_spect_array_gpu[tpb, bpg]( grid.Em, shift, n_move )
+            shift_spect_array_gpu[tpb, bpg]( grid.Ez, shift, n_move )
+            shift_spect_array_gpu[tpb, bpg]( grid.Bp, shift, n_move )
+            shift_spect_array_gpu[tpb, bpg]( grid.Bm, shift, n_move )
+            shift_spect_array_gpu[tpb, bpg]( grid.Bz, shift, n_move )
             if shift_rho:
-                self.shift_spect_field_gpu( grid.rho_prev, shift, n_move )
+                shift_spect_array_gpu[tpb, bpg]( grid.rho_prev, shift, n_move )
             if shift_currents:
-                self.shift_spect_field_gpu( grid.Jp, shift, n_move )
-                self.shift_spect_field_gpu( grid.Jm, shift, n_move )
-                self.shift_spect_field_gpu( grid.Jz, shift, n_move )
+                shift_spect_array_gpu[tpb, bpg]( grid.Jp, shift, n_move )
+                shift_spect_array_gpu[tpb, bpg]( grid.Jm, shift, n_move )
+                shift_spect_array_gpu[tpb, bpg]( grid.Jz, shift, n_move )
         else:
             shift = grid.field_shift
             # Shift all the fields on the CPU
-            self.shift_spect_field( grid.Ep, shift, n_move )
-            self.shift_spect_field( grid.Em, shift, n_move )
-            self.shift_spect_field( grid.Ez, shift, n_move )
-            self.shift_spect_field( grid.Bp, shift, n_move )
-            self.shift_spect_field( grid.Bm, shift, n_move )
-            self.shift_spect_field( grid.Bz, shift, n_move )
+            shift_spect_array_cpu( grid.Ep, shift, n_move )
+            shift_spect_array_cpu( grid.Em, shift, n_move )
+            shift_spect_array_cpu( grid.Ez, shift, n_move )
+            shift_spect_array_cpu( grid.Bp, shift, n_move )
+            shift_spect_array_cpu( grid.Bm, shift, n_move )
+            shift_spect_array_cpu( grid.Bz, shift, n_move )
             if shift_rho:
-                self.shift_spect_field( grid.rho_prev, shift, n_move )
+                shift_spect_array_cpu( grid.rho_prev, shift, n_move )
             if shift_currents:
-                self.shift_spect_field( grid.Jp, shift, n_move )
-                self.shift_spect_field( grid.Jm, shift, n_move )
-                self.shift_spect_field( grid.Jz, shift, n_move )
-
-    def shift_spect_field( self, field_array, shift_factor, n_move ):
-        """
-        Shift the field 'field_array' by n_move cells.
-        This is done in spectral space and corresponds to multiplying the
-        fields with the factor exp(i*kz_true*dz)**n_move .
-        (Typically n_move is positive, and the fields are shifted backwards)
-
-        Parameters
-        ----------
-        field_array: 2darray of complexs
-            Contains the value of the fields, and is modified by
-            this function
-
-        shift_factor: 1darray of complexs
-            Contains the shift array, that is multiplied to the fields in
-            spectral space to shift them by one cell in spatial space
-            ( exp(i*kz_true*dz) )
-
-        n_move: int
-            The number of cells by which the grid should be shifted
-        """
-        # Multiply with (shift_factor*sign(n_move))**n_move
-        field_array *= ( shift_factor[:, np.newaxis] )**n_move
-
-    def shift_spect_field_gpu( self, field_array, shift_factor, n_move):
-        """
-        Shift the field 'field_array' by n_move cells on the GPU.
-        This is done in spectral space and corresponds to multiplying the
-        fields with the factor exp(i*kz_true*dz)**n_move .
-        (Typically n_move is positive, and the fields are shifted backwards)
-
-        Parameters
-        ----------
-        field_array: 2darray of complexs
-            Contains the value of the fields, and is modified by
-            this function
-
-        shift_factor: 1darray of complexs
-            Contains the shift array, that is multiplied to the fields in
-            spectral space to shift them by one cell in spatial space
-            ( exp(i*kz_true*dz) )
-
-        n_move: int
-            The number of cells by which the grid should be shifted
-        """
-        # Get a 2D CUDA grid of the size of the grid
-        dim_grid_2d, dim_block_2d = cuda_tpb_bpg_2d(
-            field_array.shape[0], field_array.shape[1] )
-        # Shift the field array in place
-        shift_spect_array_gpu[dim_grid_2d, dim_block_2d](
-            field_array, shift_factor, n_move)
+                shift_spect_array_cpu( grid.Jp, shift, n_move )
+                shift_spect_array_cpu( grid.Jm, shift, n_move )
+                shift_spect_array_cpu( grid.Jz, shift, n_move )
 
     def shift_interp_grid( self, grid, n_move,
                            shift_rho=True, shift_currents=False ):
@@ -512,6 +462,39 @@ class MovingWindow(object):
         field_array = field_buffer
         # Return the new shifted field array
         return( field_array )
+
+@njit_parallel
+def shift_spect_array_cpu( field_array, shift_factor, n_move ):
+    """
+    Shift the field 'field_array' by n_move cells on CPU.
+    This is done in spectral space and corresponds to multiplying the
+    fields with the factor exp(i*kz_true*dz)**n_move .
+
+    Parameters
+    ----------
+    field_array: 2darray of complexs
+        Contains the value of the fields, and is modified by
+        this function
+
+    shift_factor: 1darray of complexs
+        Contains the shift array, that is multiplied to the fields in
+        spectral space to shift them by one cell in spatial space
+        ( exp(i*kz_true*dz) )
+
+    n_move: int
+        The number of cells by which the grid should be shifted
+    """
+    # Get a 2D CUDA grid
+    iz, ir = cuda.grid(2)
+
+    # Only access values that are actually in the array
+    if ir < field_array.shape[1] and iz < field_array.shape[0]:
+        # Calculate the shift factor (raising to the power n_move)
+        power_shift = shift_factor[iz]
+        for i in range(1,n_move):
+            power_shift *= shift_factor[iz]
+        # Shift fields backwards
+        field_array[iz, ir] *= power_shift
 
 if cuda_installed:
 
