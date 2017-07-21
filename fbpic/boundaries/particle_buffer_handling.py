@@ -214,11 +214,7 @@ def remove_particles_gpu(species, fld, n_guard, left_proc, right_proc):
         are the number of float and integer quantities respectively
     """
     # Check if particles are sorted  ; if not print a message and sort them
-    # (The particles are usually expected to be sorted from the previous
-    # iteration at this point - except in a restart from a checkpoint.)
     if species.sorted == False:
-        print(
-            '\n Removing particles: Particles are unsorted. Sorting them now.')
         species.sort_particles(fld = fld)
         species.sorted = True
 
