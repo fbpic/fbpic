@@ -213,7 +213,9 @@ def remove_particles_gpu(species, fld, n_guard, left_proc, right_proc):
         proc and right proc respectively, and where n_float and n_int
         are the number of float and integer quantities respectively
     """
-    # Check if particles are sorted  ; if not print a message and sort them
+    # Check if particles are sorted
+    # (The particles are usually expected to be sorted from the previous
+    # iteration at this point - except at the first iteration of `step`.)
     if species.sorted == False:
         species.sort_particles(fld = fld)
         species.sorted = True
