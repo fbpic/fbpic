@@ -16,7 +16,8 @@ from .utilities.utility_methods import weights, unalign_angles
 # Load the numba methods
 from .push.numba_methods import push_p_numba, push_p_ioniz_numba, push_x_numba
 from .deposition.numba_methods import deposit_field_numba
-from .gathering.numba_methods import gather_field_numba
+from .gathering.numba_methods import gather_field_numba_linear, \
+        gather_field_numba_cubic
 
 # Check if threading is available, then import threaded functions
 from fbpic.threading_utils import threading_enabled
@@ -24,8 +25,6 @@ if threading_enabled:
     from .deposition.threading_methods import deposit_rho_prange_linear, \
         deposit_J_prange_linear, deposit_rho_prange_cubic, \
         deposit_J_prange_cubic, sum_reduce_2d_array
-    from .gathering.threading_methods import gather_field_prange_linear, \
-        gather_field_prange_cubic
 
 # Check if CUDA is available, then import CUDA functions
 from fbpic.cuda_utils import cuda_installed
@@ -538,10 +537,10 @@ class Particles(object) :
                 raise ValueError("`particle_shape` should be either \
                                   'linear' or 'cubic' \
                                    but is `%s`" % self.particle_shape)
-        # CPU multi-threading version
-        elif self.use_threading:
+        # CPU version
+        else:
             if self.particle_shape == 'linear':
-                gather_field_prange_linear(
+                gather_field_numba_linear(
                      self.x, self.y, self.z,
                      grid[0].invdz, grid[0].zmin, grid[0].Nz,
                      grid[0].invdr, grid[0].rmin, grid[0].Nr,
@@ -552,7 +551,7 @@ class Particles(object) :
                      self.Ex, self.Ey, self.Ez,
                      self.Bx, self.By, self.Bz)
             elif self.particle_shape == 'cubic':
-                gather_field_prange_cubic(
+                gather_field_numba_cubic(
                      self.x, self.y, self.z,
                      grid[0].invdz, grid[0].zmin, grid[0].Nz,
                      grid[0].invdr, grid[0].rmin, grid[0].Nr,
@@ -566,95 +565,6 @@ class Particles(object) :
                 raise ValueError("`particle_shape` should be either \
                                   'linear' or 'cubic' \
                                    but is `%s`" % self.particle_shape)
-        # CPU single-core version
-        else:
-            # Preliminary arrays for the cylindrical conversion
-            r = np.sqrt( self.x**2 + self.y**2 )
-            # Avoid division by 0.
-            invr = 1./np.where( r!=0., r, 1. )
-            cos = np.where( r!=0., self.x*invr, 1. )
-            sin = np.where( r!=0., self.y*invr, 0. )
-
-            # Indices and weights
-            if self.particle_shape == 'cubic':
-                shape_order = 3
-            else:
-                shape_order = 1
-            iz, Sz = weights(self.z, grid[0].invdz, grid[0].zmin, grid[0].Nz,
-                             direction='z', shape_order=shape_order)
-            ir, Sr = weights(r, grid[0].invdr, grid[0].rmin, grid[0].Nr,
-                             direction='r', shape_order=shape_order)
-
-            # Number of modes considered :
-            # number of elements in the grid list
-            Nm = len(grid)
-
-            # -------------------------------
-            # Gather the E field mode by mode
-            # -------------------------------
-            # Zero the previous fields
-            self.Ex[:] = 0.
-            self.Ey[:] = 0.
-            self.Ez[:] = 0.
-            # Prepare auxiliary matrices
-            Ft = np.zeros(self.Ntot)
-            Fr = np.zeros(self.Ntot)
-            exptheta = np.ones(self.Ntot, dtype='complex')
-            # exptheta takes the value exp(-im theta) throughout the loop
-            for m in range(Nm) :
-                # Increment exptheta (notice the - : backward transform)
-                if m==1 :
-                    exptheta[:].real = cos
-                    exptheta[:].imag = -sin
-                elif m>1 :
-                    exptheta[:] = exptheta*( cos - 1.j*sin )
-                # Gather the fields
-                # (The sign with which the guards are added
-                # depends on whether the fields should be zero on axis)
-                gather_field_numba(
-                    exptheta, m, grid[m].Er, Fr, iz, ir, Sz, Sr, -((-1.)**m))
-                gather_field_numba(
-                    exptheta, m, grid[m].Et, Ft, iz, ir, Sz, Sr, -((-1.)**m))
-                gather_field_numba(
-                    exptheta, m, grid[m].Ez, self.Ez, iz, ir, Sz, Sr, (-1.)**m)
-
-            # Convert to Cartesian coordinates
-            self.Ex[:] = cos*Fr - sin*Ft
-            self.Ey[:] = sin*Fr + cos*Ft
-
-            # -------------------------------
-            # Gather the B field mode by mode
-            # -------------------------------
-            # Zero the previous fields
-            self.Bx[:] = 0.
-            self.By[:] = 0.
-            self.Bz[:] = 0.
-            # Prepare auxiliary matrices
-            Ft[:] = 0.
-            Fr[:] = 0.
-            exptheta[:] = 1.
-            # exptheta takes the value exp(-im theta) throughout the loop
-            for m in range(Nm) :
-                # Increment exptheta (notice the - : backward transform)
-                if m==1 :
-                    exptheta[:].real = cos
-                    exptheta[:].imag = -sin
-                elif m>1 :
-                    exptheta[:] = exptheta*( cos - 1.j*sin )
-                # Gather the fields
-                # (The sign with which the guards are added
-                # depends on whether the fields should be zero on axis)
-                gather_field_numba(
-                    exptheta, m, grid[m].Br, Fr, iz, ir, Sz, Sr, -((-1.)**m))
-                gather_field_numba(
-                    exptheta, m, grid[m].Bt, Ft, iz, ir, Sz, Sr, -((-1.)**m))
-                gather_field_numba(
-                    exptheta, m, grid[m].Bz, self.Bz, iz, ir, Sz, Sr, (-1.)**m)
-
-            # Convert to Cartesian coordinates
-            self.Bx[:] = cos*Fr - sin*Ft
-            self.By[:] = sin*Fr + cos*Ft
-
 
     def deposit( self, fld, fieldtype ) :
         """
