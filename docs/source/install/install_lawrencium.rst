@@ -6,7 +6,7 @@ Installation on Lawrencium (LBNL)
 is a local cluster at the `Lawrence Berkeley National Lab <http://www.lbl.gov/>`__
 (LBNL).
 
-It has a few nodes with K20 and K80 Nvidia GPUs.
+It has a few nodes with GPUs (Tesla K20 and K80, as well as GeForce GTX 1080 Ti).
 
 Connecting to Lawrencium
 ------------------------
@@ -22,9 +22,6 @@ Once your OTP token is configured, you can connect by using
 
     ssh <username>@lrc-login.lbl.gov
 
-When prompted for the password, generate a new one-time password with
-the Pledge application, and enter it at the prompt.
-
 Installation of FBPIC
 ---------------------
 
@@ -38,25 +35,15 @@ below:
 
    ::
 
-       wget https://repo.continuum.io/miniconda/Miniconda-latest-Linux-x86_64.sh
+       wget https://repo.continuum.io/miniconda/Miniconda3-latest-Linux-x86_64.sh
 
--  Execute the Miniconda installation script
-
-   ::
-
-       bash Miniconda-latest-Linux-x86_64.sh
-
-   Accept the default location of the installation, and answer yes
-   when the installer proposes to modify your ``PATH`` inside your ``.bashrc``.
-
--  Add the following lines at the end of your ``.bashrc``
+-  Execute the Miniconda installation script, and use ``/global/scratch/<yourUsername>`` as an install directory, for faster disk access.
 
    ::
 
-       module load glib/2.32.4
-       module load cuda
+       bash Miniconda-latest3-Linux-x86_64.sh -p /global/scratch/<yourUsername>
 
-  and type
+   where the bracketed text should be replaced by your username. Then type
 
   ::
 
@@ -70,21 +57,20 @@ Installation of FBPIC and its dependencies
    ::
 
        conda install -c conda-forge numba scipy h5py pyfftw mpi4py accelerate
+       conda install -c numba cudatoolkit=8.0
 
+   The second line is only necessary to run simulations on the GeForce GTX GPUs.
    (NB: The ``accelerate`` package is not free, but there is a 30-day free
    trial period, which starts when the above command is entered. For
    further use beyond 30 days, one option is to obtain an academic
    license, which is also free. To do so, please visit `this
    link <https://www.continuum.io/anaconda-academic-subscriptions-available>`__.)
 
-
 -  Install ``fbpic``
 
    ::
 
-      git clone git://github.com/fbpic/fbpic.git
-      cd fbpic
-      python setup.py install
+	pip install fbpic
 
 Running simulations
 -------------------
@@ -138,8 +124,6 @@ following text (and replace the bracketed text by the proper values).
     #SBATCH --time <requestedTime>
     #SBATCH --nodes 1
     #SBATCH --qos lr_normal
-    #SBATCH -e my_job.%j.err
-    #SBATCH -o my_job.%j.out
 
     python <fbpic_script.py>
 
@@ -155,8 +139,19 @@ In order to see the queue:
 
     squeue -p lr_manycore
 
+Visualizing the results through Jupyter
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Lawrencium provides access to the cluster via Jupyter, at `https://lrc-jupyter.lbl.gov <https://lrc-jupyter.lbl.gov>`__. Once you logged in and opened a Jupyter notebook, you can type in a cell:
+
+::
+
+	!pip install openPMD-viewer --user
+
+in order to install `openPMD-viewer <https://github.com/openPMD/openPMD-viewer>`__.
+
+
 Transfering data to your local computer
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 In order to transfer your data to your local machine, you need to
 connect to the transfer node. From a Lawrencium login node, type:
