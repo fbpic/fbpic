@@ -10,6 +10,9 @@ This file steers and controls the simulation.
 # (This needs to be done before the other imports,
 # as it sets the cuda context)
 from mpi4py import MPI
+import numba
+# Check if threading is available
+from .threading_utils import threading_enabled
 # Check if CUDA is available, then import CUDA functions
 from .cuda_utils import cuda_installed
 if cuda_installed:
@@ -41,12 +44,10 @@ class Simulation(object):
     def __init__(self, Nz, zmax, Nr, rmax, Nm, dt, p_zmin, p_zmax,
                  p_rmin, p_rmax, p_nz, p_nr, p_nt, n_e, zmin=0.,
                  n_order=-1, dens_func=None, filter_currents=True,
-                 v_comoving=None, use_galilean=False,
-                 initialize_ions=False, use_cuda=False,
-                 n_guard=None, n_damp=30,
-                 exchange_period=None, boundaries='periodic',
-                 gamma_boost=None, use_all_mpi_ranks=True,
-                 particle_shape='linear' ):
+                 v_comoving=None, use_galilean=False, initialize_ions=False,
+                 use_cuda=False, n_guard=None, n_damp=30, exchange_period=None,
+                 boundaries='periodic', gamma_boost=None,
+                 use_all_mpi_ranks=True, particle_shape='linear' ):
         """
         Initializes a simulation, by creating the following structures:
 
@@ -181,17 +182,17 @@ class Simulation(object):
 
         particle_shape: str, optional
             Set the particle shape for the charge/current deposition.
-            Possible values are 'cubic', 'linear' and 'linear_non_atomic'.
-            While 'cubic' corresponds to third order shapes and 'linear'
-            to first order shapes, 'linear_non_atomic' uses an equivalent
-            deposition scheme to 'linear' which avoids atomics on the GPU.
+            Possible values are 'cubic', 'linear'. ('cubic' corresponds to
+            third order shapes and 'linear' to first order shapes).
         """
-        # Check whether to use cuda
+        # Check whether to use CUDA
         self.use_cuda = use_cuda
         if (use_cuda==True) and (cuda_installed==False):
             print('*** Cuda not available for the simulation.')
             print('*** Performing the simulation on CPU.')
             self.use_cuda = False
+        # CPU multi-threading
+        self.use_threading = threading_enabled
 
         # Register the comoving parameters
         self.v_comoving = v_comoving
@@ -212,7 +213,7 @@ class Simulation(object):
         self.comm = BoundaryCommunicator( Nz, zmin, zmax, Nr, rmax, Nm, dt,
             boundaries, n_order, n_guard, n_damp, exchange_period,
             use_all_mpi_ranks )
-        print_simulation_setup( self.comm, self.use_cuda )
+        print_simulation_setup( self.comm, self.use_cuda, self.use_threading )
         # Modify domain region
         zmin, zmax, p_zmin, p_zmax, Nz = \
               self.comm.divide_into_domain(zmin, zmax, p_zmin, p_zmax)
@@ -234,19 +235,18 @@ class Simulation(object):
         # Initialize the electrons and the ions
         grid_shape = self.fld.interp[0].Ez.shape
         self.ptcl = [
-            Particles( q=-e, m=m_e, n=n_e, Npz=Npz, zmin=p_zmin,
-                       zmax=p_zmax, Npr=Npr, rmin=p_rmin, rmax=p_rmax,
-                       Nptheta=p_nt, dt=dt, dens_func=dens_func,
-                       use_cuda=self.use_cuda, uz_m=uz_m,
-                       grid_shape=grid_shape, particle_shape=particle_shape) ]
+            Particles(q=-e, m=m_e, n=n_e, Npz=Npz, zmin=p_zmin,
+                      zmax=p_zmax, Npr=Npr, rmin=p_rmin, rmax=p_rmax,
+                      Nptheta=p_nt, dt=dt, dens_func=dens_func, uz_m=uz_m,
+                      grid_shape=grid_shape, particle_shape=particle_shape,
+                      use_cuda=self.use_cuda ) ]
         if initialize_ions :
             self.ptcl.append(
                 Particles(q=e, m=m_p, n=n_e, Npz=Npz, zmin=p_zmin,
                           zmax=p_zmax, Npr=Npr, rmin=p_rmin, rmax=p_rmax,
-                          Nptheta=p_nt, dt=dt, dens_func=dens_func,
-                          use_cuda=self.use_cuda, uz_m=uz_m,
-                          grid_shape=grid_shape,
-                          particle_shape=particle_shape ) )
+                          Nptheta=p_nt, dt=dt, dens_func=dens_func, uz_m=uz_m,
+                          grid_shape=grid_shape, particle_shape=particle_shape,
+                          use_cuda=self.use_cuda ) )
 
         # Register the number of particles per cell along z, and dt
         # (Necessary for the moving window)
@@ -578,7 +578,7 @@ def progression_bar( i, Ntot, measured_start, Nbars=50, char='-'):
     sys.stdout.write(', %d:%02d:%02d left' % (h, m, s))
     sys.stdout.flush()
 
-def print_simulation_setup( comm, use_cuda ):
+def print_simulation_setup( comm, use_cuda, use_threading ):
     """
     Print message about the number of proc and
     whether it is using GPU or CPU.
@@ -590,13 +590,20 @@ def print_simulation_setup( comm, use_cuda ):
 
     use_cuda: bool
         Whether the simulation is set up to use CUDA
+
+    use_threading: bool
+        Whether the simulation is set up to use threads on CPU
     """
     if comm.rank == 0:
         if use_cuda:
             message = "\nRunning FBPIC on GPU "
         else:
             message = "\nRunning FBPIC on CPU "
-        message += "with %d proc.\n" %comm.size
+        message += "with %d proc" %comm.size
+        if use_threading and not use_cuda:
+            message += " (%d threads per proc)" %numba.config.NUMBA_NUM_THREADS
+        message += ".\n"
+
         print( message )
 
 def adapt_to_grid( x, p_xmin, p_xmax, p_nx, ncells_empty=0 ):

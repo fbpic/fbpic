@@ -10,8 +10,8 @@ import numpy as np
 from scipy.constants import e, c, epsilon_0, physical_constants
 r_e = physical_constants['classical electron radius'][0]
 from .profiles import gaussian_profile
-from fbpic.particles.utility_methods import weights
-from fbpic.particles.numba_methods import deposit_field_numba
+from fbpic.particles.utilities.utility_methods import weights
+from fbpic.particles.deposition.numba_methods import deposit_field_numba
 
 # Check if CUDA is available, then import CUDA functions
 from fbpic.cuda_utils import cuda_installed
