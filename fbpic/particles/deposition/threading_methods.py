@@ -12,7 +12,7 @@ import math
 from scipy.constants import c
 
 # -------------------------------
-# Particle shape Factor functions 
+# Particle shape Factor functions
 # -------------------------------
 
 # Linear shapes
@@ -102,7 +102,7 @@ def deposit_rho_prange_linear(x, y, z, w,
 
     rho_m0_global, rho_m1_global : 3darrays of complexs (nthread, Nz, Nr)
         The global helper arrays to store the thread local charge densities
-        on the interpolation grid for mode 0 and 1. 
+        on the interpolation grid for mode 0 and 1.
         (is modified by this function)
 
     invdz, invdr : float (in meters^-1)
@@ -516,7 +516,7 @@ def deposit_rho_prange_cubic(x, y, z, w,
 
     rho_m0_global, rho_m1_global : 3darrays of complexs (nthread, Nz, Nr)
         The global helper arrays to store the thread local charge densities
-        on the interpolation grid for mode 0 and 1. 
+        on the interpolation grid for mode 0 and 1.
         (is modified by this function)
 
     invdz, invdr : float (in meters^-1)
@@ -1518,13 +1518,13 @@ def deposit_J_prange_cubic(x, y, z, w,
 @numba.njit( parallel=True )
 def sum_reduce_2d_array( global_array, reduced_array ):
     """
-    Sum the array `global_array` along its first axis and 
+    Sum the array `global_array` along its first axis and
     add it into `reduced_array`.
 
     Parameters:
     -----------
     global_array: 3darray of complexs
-       Field array whose first dimension corresponds to the 
+       Field array whose first dimension corresponds to the
        reduction dimension (typically: the number of threads used
        during the current deposition)
 
