@@ -182,10 +182,8 @@ class Simulation(object):
 
         particle_shape: str, optional
             Set the particle shape for the charge/current deposition.
-            Possible values are 'cubic', 'linear' and 'linear_non_atomic'.
-            While 'cubic' corresponds to third order shapes and 'linear'
-            to first order shapes, 'linear_non_atomic' uses an equivalent
-            deposition scheme to 'linear' which avoids atomics on the GPU.
+            Possible values are 'cubic', 'linear'. ('cubic' corresponds to
+            third order shapes and 'linear' to first order shapes).
         """
         # Check whether to use CUDA
         self.use_cuda = use_cuda
