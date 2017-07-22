@@ -125,9 +125,7 @@ def deposit_rho_prange_linear(x, y, z, w,
     # Deposit the field per cell in parallel (for threads < number of cells)
     for tx in prange( nthreads ):
         # Loop over all particles in thread chunk
-        for idx in range( tx_chunks[tx] ):
-            # Calculate thread local particle index
-            ptcl_idx = idx + tx*tx_chunks[0]
+        for ptcl_idx in range( tx_chunks[tx], tx_chunks[tx+1] ):
             # Preliminary arrays for the cylindrical conversion
             # --------------------------------------------
             # Position
@@ -296,9 +294,7 @@ def deposit_J_prange_linear(x, y, z, w,
     # Deposit the field per cell in parallel (for threads < number of cells)
     for tx in prange( nthreads ):
         # Loop over all particles in thread chunk
-        for idx in range( tx_chunks[tx] ):
-            # Calculate thread local particle index
-            ptcl_idx = idx + tx*tx_chunks[0]
+        for ptcl_idx in range( tx_chunks[tx], tx_chunks[tx+1] ):
             # Preliminary arrays for the cylindrical conversion
             # --------------------------------------------
             # Position
@@ -539,9 +535,7 @@ def deposit_rho_prange_cubic(x, y, z, w,
     # Deposit the field per cell in parallel (for threads < number of cells)
     for tx in prange( nthreads ):
         # Loop over all particles in thread chunk
-        for idx in range( tx_chunks[tx] ):
-            # Calculate thread local particle index
-            ptcl_idx = idx + tx*tx_chunks[0]
+        for ptcl_idx in range( tx_chunks[tx], tx_chunks[tx+1] ):
             # Preliminary arrays for the cylindrical conversion
             # --------------------------------------------
             # Position
@@ -880,9 +874,7 @@ def deposit_J_prange_cubic(x, y, z, w,
     # Deposit the field per cell in parallel (for threads < number of cells)
     for tx in prange( nthreads ):
         # Loop over all particles in thread chunk
-        for idx in range( tx_chunks[tx] ):
-            # Calculate thread local particle index
-            ptcl_idx = idx + tx*tx_chunks[0]
+        for ptcl_idx in range( tx_chunks[tx], tx_chunks[tx+1] ):
             # Preliminary arrays for the cylindrical conversion
             # --------------------------------------------
             # Position

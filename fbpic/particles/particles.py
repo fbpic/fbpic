@@ -743,10 +743,15 @@ class Particles(object) :
                                   'rho', but is `%s`" % fieldtype)
         # CPU multi-threading version
         elif self.use_threading:
-            # Register particle chunk size for each thread
-            tx_N = int(self.Ntot/self.nthreads)
-            tx_chunks = [ tx_N for k in range(self.nthreads) ]
-            tx_chunks[-1] = tx_chunks[-1] + int(self.Ntot%self.nthreads)
+
+            # Divide particles in chunks (each chunk is handled by a different
+            # thread) and register the indices that bound each chunks
+            n_avg_per_thread = int( self.Ntot/self.nthreads )
+            # Attribute n_avg_per_thread to each thread (except the last one)
+            ptcl_chunk_indices = np.array(
+                [ i_chk*n_avg_per_thread for i_chk in range(self.nthreads+1) ],
+                dtype=np.uint64 )
+            ptcl_chunk_indices[-1] = self.Ntot
             # Multithreading functions for the deposition of rho or J
             # for Mode 0 and 1 only.
             if fieldtype == 'rho':
@@ -764,14 +769,14 @@ class Particles(object) :
                         grid[0].invdz, grid[0].zmin, grid[0].Nz,
                         grid[0].invdr, grid[0].rmin, grid[0].Nr,
                         rho_m0_global, rho_m1_global,
-                        self.nthreads, tx_chunks )
+                        self.nthreads, ptcl_chunk_indices )
                 elif self.particle_shape == 'cubic':
                     deposit_rho_prange_cubic(
                         self.x, self.y, self.z, self.w,
                         grid[0].invdz, grid[0].zmin, grid[0].Nz,
                         grid[0].invdr, grid[0].rmin, grid[0].Nr,
                         rho_m0_global, rho_m1_global,
-                        self.nthreads, tx_chunks )
+                        self.nthreads, ptcl_chunk_indices )
                 else:
                     raise ValueError("`particle_shape` should be either \
                                       'linear' or 'cubic' \
@@ -810,7 +815,7 @@ class Particles(object) :
                         Jr_m0_global, Jr_m1_global,
                         Jt_m0_global, Jt_m1_global,
                         Jz_m0_global, Jz_m1_global,
-                        self.nthreads, tx_chunks )
+                        self.nthreads, ptcl_chunk_indices )
                 elif self.particle_shape == 'cubic':
                     deposit_J_prange_cubic(
                         self.x, self.y, self.z, self.w,
@@ -820,7 +825,7 @@ class Particles(object) :
                         Jr_m0_global, Jr_m1_global,
                         Jt_m0_global, Jt_m1_global,
                         Jz_m0_global, Jz_m1_global,
-                        self.nthreads, tx_chunks )
+                        self.nthreads, ptcl_chunk_indices )
                 else:
                     raise ValueError("`particle_shape` should be either \
                                       'linear' or 'cubic' \
