@@ -6,26 +6,23 @@ This file is part of the Fourier-Bessel Particle-In-Cell code (FB-PIC)
 It defines the structure and methods associated with the particles.
 """
 import numpy as np
-from scipy.constants import c, e
+import numba
+from scipy.constants import e
 from .ionization import Ionizer
 from .tracking import ParticleTracker
-import numba
 
 # Load the utility methods
-from .utilities.utility_methods import weights, unalign_angles
+from .utilities.utility_methods import unalign_angles
 # Load the numba methods
 from .push.numba_methods import push_p_numba, push_p_ioniz_numba, push_x_numba
-from .deposition.numba_methods import deposit_field_numba
 from .gathering.numba_methods import gather_field_numba_linear, \
         gather_field_numba_cubic
+from .deposition.threading_methods import deposit_rho_numba_linear, \
+        deposit_J_numba_linear, deposit_rho_numba_cubic, \
+        deposit_J_numba_cubic, sum_reduce_2d_array
 
-# Check if threading is available, then import threaded functions
+# Check if threading is enabled
 from fbpic.threading_utils import threading_enabled
-if threading_enabled:
-    from .deposition.threading_methods import deposit_rho_prange_linear, \
-        deposit_J_prange_linear, deposit_rho_prange_cubic, \
-        deposit_J_prange_cubic, sum_reduce_2d_array
-
 # Check if CUDA is available, then import CUDA functions
 from fbpic.cuda_utils import cuda_installed
 if cuda_installed:
@@ -225,9 +222,11 @@ class Particles(object) :
             self.sorted = False
         # Register variables when using multithreading
         self.use_threading = threading_enabled
+        # Register number of threads
         if self.use_threading == True:
-            # Register number of threads
             self.nthreads = numba.config.NUMBA_NUM_THREADS
+        else:
+            self.nthreads = 1
 
     def send_particles_to_gpu( self ):
         """
@@ -664,17 +663,18 @@ class Particles(object) :
                 raise ValueError("`fieldtype` should be either 'J' or \
                                   'rho', but is `%s`" % fieldtype)
 
-        # CPU multi-threading version
-        elif self.use_threading:
-
+        # CPU version
+        else:
             # Divide particles in chunks (each chunk is handled by a different
             # thread) and register the indices that bound each chunks
+            # (Note: when threading is disabled, then self.nthreads is 1)
             n_avg_per_thread = int( self.Ntot/self.nthreads )
             # Attribute n_avg_per_thread to each thread (except the last one)
             ptcl_chunk_indices = np.array(
                 [ i_chk*n_avg_per_thread for i_chk in range(self.nthreads+1) ],
                 dtype=np.uint64 )
             ptcl_chunk_indices[-1] = self.Ntot
+
             # Multithreading functions for the deposition of rho or J
             # for Mode 0 and 1 only.
             if fieldtype == 'rho':
@@ -760,80 +760,6 @@ class Particles(object) :
                 sum_reduce_2d_array( Jr_m1_global, grid[1].Jr )
                 sum_reduce_2d_array( Jt_m1_global, grid[1].Jt )
                 sum_reduce_2d_array( Jz_m1_global, grid[1].Jz )
-
-            else:
-                raise ValueError("`fieldtype` should be either 'J' or \
-                                  'rho', but is `%s`" % fieldtype)
-        # CPU single-core version
-        else:
-            # Preliminary arrays for the cylindrical conversion
-            r = np.sqrt( self.x**2 + self.y**2 )
-            # Avoid division by 0.
-            invr = 1./np.where( r!=0., r, 1. )
-            cos = np.where( r!=0., self.x*invr, 1. )
-            sin = np.where( r!=0., self.y*invr, 0. )
-
-            # Indices and weights
-            if self.particle_shape == 'cubic':
-                shape_order = 3
-            else:
-                shape_order = 1
-            iz, Sz = weights(self.z, grid[0].invdz, grid[0].zmin, grid[0].Nz,
-                             direction='z', shape_order=shape_order)
-            ir, Sr = weights(r, grid[0].invdr, grid[0].rmin, grid[0].Nr,
-                             direction='r', shape_order=shape_order)
-
-            # Number of modes considered :
-            # number of elements in the grid list
-            Nm = len(grid)
-
-            if fieldtype == 'rho':
-                # ---------------------------------------
-                # Deposit the charge density mode by mode
-                # ---------------------------------------
-                # Prepare auxiliary matrix
-                exptheta = np.ones( self.Ntot, dtype='complex')
-                # exptheta takes the value exp(im theta) throughout the loop
-                for m in range(Nm) :
-                    # Increment exptheta (notice the + : forward transform)
-                    if m==1 :
-                        exptheta[:].real = cos
-                        exptheta[:].imag = sin
-                    elif m>1 :
-                        exptheta[:] = exptheta*( cos + 1.j*sin )
-                    # Deposit the fields
-                    # (The sign -1 with which the guards are added is not
-                    # trivial to derive but avoids artifacts on the axis)
-                    deposit_field_numba( self.q*weight*exptheta, grid[m].rho,
-                                            iz, ir, Sz, Sr, -1.)
-
-            elif fieldtype == 'J':
-                # ----------------------------------------
-                # Deposit the current density mode by mode
-                # ----------------------------------------
-                # Calculate the currents
-                Jr = self.q*weight * c * self.inv_gamma*( cos*self.ux + sin*self.uy )
-                Jt = self.q*weight * c * self.inv_gamma*( cos*self.uy - sin*self.ux )
-                Jz = self.q*weight * c * self.inv_gamma*self.uz
-                # Prepare auxiliary matrix
-                exptheta = np.ones( self.Ntot, dtype='complex')
-                # exptheta takes the value exp(im theta) throughout the loop
-                for m in range(Nm) :
-                    # Increment exptheta (notice the + : forward transform)
-                    if m==1 :
-                        exptheta[:].real = cos
-                        exptheta[:].imag = sin
-                    elif m>1 :
-                        exptheta[:] = exptheta*( cos + 1.j*sin )
-                    # Deposit the fields
-                    # (The sign -1 with which the guards are added is not
-                    # trivial to derive but avoids artifacts on the axis)
-                    deposit_field_numba(Jr*exptheta, grid[m].Jr,
-                                        iz, ir, Sz, Sr, -1.)
-                    deposit_field_numba(Jt*exptheta, grid[m].Jt,
-                                        iz, ir, Sz, Sr, -1.)
-                    deposit_field_numba(Jz*exptheta, grid[m].Jz,
-                                        iz, ir, Sz, Sr, -1.)
 
             else:
                 raise ValueError("`fieldtype` should be either 'J' or \

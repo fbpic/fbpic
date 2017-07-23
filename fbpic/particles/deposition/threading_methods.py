@@ -7,7 +7,8 @@ It defines the deposition methods for rho and J for linear and cubic
 order shapes on the CPU with threading.
 """
 import numba
-from numba import prange, int64
+from numba import int64
+from fbpic.threading_utils import njit_parallel, prange
 import math
 from scipy.constants import c
 
@@ -73,8 +74,8 @@ def r_shape_cubic(cell_position, index):
 # Field deposition - linear - rho
 # -------------------------------
 
-@numba.njit(parallel=True)
-def deposit_rho_prange_linear(x, y, z, w, q,
+@njit_parallel
+def deposit_rho_numba_linear(x, y, z, w, q,
                            invdz, zmin, Nz,
                            invdr, rmin, Nr,
                            rho_m0_global, rho_m1_global,
@@ -237,8 +238,8 @@ def deposit_rho_prange_linear(x, y, z, w, q,
 # Field deposition - linear - J
 # -------------------------------
 
-@numba.njit(parallel=True)
-def deposit_J_prange_linear(x, y, z, w, q,
+@njit_parallel
+def deposit_J_numba_linear(x, y, z, w, q,
                          ux, uy, uz, inv_gamma,
                          invdz, zmin, Nz,
                          invdr, rmin, Nr,
@@ -490,8 +491,8 @@ def deposit_J_prange_linear(x, y, z, w, q,
 # Field deposition - cubic - rho
 # -------------------------------
 
-@numba.njit(parallel=True)
-def deposit_rho_prange_cubic(x, y, z, w, q,
+@njit_parallel
+def deposit_rho_numba_cubic(x, y, z, w,
                           invdz, zmin, Nz,
                           invdr, rmin, Nr,
                           rho_m0_global, rho_m1_global,
@@ -824,8 +825,8 @@ def deposit_rho_prange_cubic(x, y, z, w, q,
 # Field deposition - cubic - J
 # -------------------------------
 
-@numba.njit(parallel=True)
-def deposit_J_prange_cubic(x, y, z, w, q,
+@njit_parallel
+def deposit_J_numba_cubic(x, y, z, w,
                         ux, uy, uz, inv_gamma,
                         invdz, zmin, Nz,
                         invdr, rmin, Nr,
@@ -1522,7 +1523,7 @@ def deposit_J_prange_cubic(x, y, z, w, q,
 # Parallel reduction of the global arrays for threads into a single array
 # -----------------------------------------------------------------------
 
-@numba.njit( parallel=True )
+@njit_parallel
 def sum_reduce_2d_array( global_array, reduced_array ):
     """
     Sum the array `global_array` along its first axis and
