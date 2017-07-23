@@ -15,7 +15,7 @@ from .tracking import ParticleTracker
 from .utilities.utility_methods import unalign_angles
 # Load the numba methods
 from .push.numba_methods import push_p_numba, push_p_ioniz_numba, push_x_numba
-from .gathering.numba_methods import gather_field_numba_linear, \
+from .gathering.threading_methods import gather_field_numba_linear, \
         gather_field_numba_cubic
 from .deposition.threading_methods import deposit_rho_numba_linear, \
         deposit_J_numba_linear, deposit_rho_numba_cubic, \
