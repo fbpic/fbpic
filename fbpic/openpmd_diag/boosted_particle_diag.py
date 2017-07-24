@@ -648,8 +648,6 @@ class ParticleCatcher:
             # Optional integer quantities
             if species.ionizer is not None:
                 particle_data['charge'] = species.ionizer.ionization_level
-                # Replace particle weight
-                particle_data['w'] = species.ionizer.neutral_weight
             if species.tracker is not None:
                 particle_data['id'] = species.tracker.id
         # GPU

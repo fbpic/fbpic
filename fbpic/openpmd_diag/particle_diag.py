@@ -442,10 +442,7 @@ class ParticleDiagnostic(OpenPMDDiagnostic) :
         elif quantity == "charge":
             quantity_one_proc = constants.e * species.ionizer.ionization_level
         elif quantity == "w":
-            if species.ionizer is not None:
-                quantity_one_proc = species.ionizer.neutral_weight
-            else:
-                quantity_one_proc = species.w
+            quantity_one_proc = species.w
         else:
             quantity_one_proc = getattr( species, quantity )
 
