@@ -36,14 +36,15 @@ Python script: either ``lwfa_script.py`` or
    default number of threads is the number of cores on your system. You
    can modify this with environment variables:
 
-   - To modify the number of threads:
-   
+   - To modify the number of threads (e.g. set it to 8 threads):
+
    ::
 
+    export MKL_NUM_THREADS=8
 	export NUMBA_NUM_THREADS=8
 	python fbpic_script.py
 
-   - To disable multi-threading altogether (except for the FFT and DHT): 
+   - To disable multi-threading altogether (except for the FFT and DHT):
 
    ::
 
