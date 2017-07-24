@@ -201,7 +201,7 @@ class Particles(object) :
             self.z[:] = zp.flatten()
             # Get the weights (i.e. charge of each macroparticle), which
             # are equal to the density times the volume r d\theta dr dz
-            self.w[:] = q * n * r * dtheta*dr*dz
+            self.w[:] = n * r * dtheta*dr*dz
             # Modulate it by the density profile
             if dens_func is not None :
                 self.w[:] = self.w * dens_func( self.z, r )
@@ -363,8 +363,11 @@ class Particles(object) :
         self.ionizer = Ionizer( element, self, target_species,
                                 level_start, full_initialization )
         # Recalculate the weights to reflect the current ionization levels
-        # (This is updated whenever further ionization happens)
-        self.w[:] = e*self.ionizer.ionization_level*self.ionizer.neutral_weight
+        # (This is updated whenever further ionization happens, and is passed
+        # to the deposition kernel as the effective weight of the particles)
+        self.w[:] = self.ionizer.ionization_level*self.ionizer.neutral_weight
+        # Set charge to the elementary charge e (assumed by deposition kernel)
+        self.q = e
 
         # Update the number of float and int arrays
         self.n_float_quantities += 1 # neutral_weight
@@ -695,14 +698,14 @@ class Particles(object) :
                 # Deposit rho in each of four directions
                 if self.particle_shape == 'linear':
                     deposit_rho_gpu_linear[dim_grid_2d_flat, dim_block_2d_flat](
-                        self.x, self.y, self.z, self.w,
+                        self.x, self.y, self.z, self.w, self.q,
                         grid[0].invdz, grid[0].zmin, grid[0].Nz,
                         grid[0].invdr, grid[0].rmin, grid[0].Nr,
                         grid[0].rho, grid[1].rho,
                         self.cell_idx, self.prefix_sum)
                 elif self.particle_shape == 'cubic':
                     deposit_rho_gpu_cubic[dim_grid_2d_flat, dim_block_2d_flat](
-                        self.x, self.y, self.z, self.w,
+                        self.x, self.y, self.z, self.w, self.q,
                         grid[0].invdz, grid[0].zmin, grid[0].Nz,
                         grid[0].invdr, grid[0].rmin, grid[0].Nr,
                         grid[0].rho, grid[1].rho,
@@ -716,7 +719,7 @@ class Particles(object) :
                 # Deposit J in each of four directions
                 if self.particle_shape == 'linear':
                     deposit_J_gpu_linear[dim_grid_2d_flat, dim_block_2d_flat](
-                        self.x, self.y, self.z, self.w,
+                        self.x, self.y, self.z, self.w, self.q,
                         self.ux, self.uy, self.uz, self.inv_gamma,
                         grid[0].invdz, grid[0].zmin, grid[0].Nz,
                         grid[0].invdr, grid[0].rmin, grid[0].Nr,
@@ -726,7 +729,7 @@ class Particles(object) :
                         self.cell_idx, self.prefix_sum)
                 elif self.particle_shape == 'cubic':
                     deposit_J_gpu_cubic[dim_grid_2d_flat, dim_block_2d_flat](
-                        self.x, self.y, self.z, self.w,
+                        self.x, self.y, self.z, self.w, self.q,
                         self.ux, self.uy, self.uz, self.inv_gamma,
                         grid[0].invdz, grid[0].zmin, grid[0].Nz,
                         grid[0].invdr, grid[0].rmin, grid[0].Nr,
@@ -765,14 +768,14 @@ class Particles(object) :
                 # Deposit rho using CPU threading
                 if self.particle_shape == 'linear':
                     deposit_rho_prange_linear(
-                        self.x, self.y, self.z, self.w,
+                        self.x, self.y, self.z, self.w, self.q,
                         grid[0].invdz, grid[0].zmin, grid[0].Nz,
                         grid[0].invdr, grid[0].rmin, grid[0].Nr,
                         rho_m0_global, rho_m1_global,
                         self.nthreads, ptcl_chunk_indices )
                 elif self.particle_shape == 'cubic':
                     deposit_rho_prange_cubic(
-                        self.x, self.y, self.z, self.w,
+                        self.x, self.y, self.z, self.w, self.q,
                         grid[0].invdz, grid[0].zmin, grid[0].Nz,
                         grid[0].invdr, grid[0].rmin, grid[0].Nr,
                         rho_m0_global, rho_m1_global,
@@ -808,7 +811,7 @@ class Particles(object) :
                 # Deposit J using CPU threading
                 if self.particle_shape == 'linear':
                     deposit_J_prange_linear(
-                        self.x, self.y, self.z, self.w,
+                        self.x, self.y, self.z, self.w, self.q,
                         self.ux, self.uy, self.uz, self.inv_gamma,
                         grid[0].invdz, grid[0].zmin, grid[0].Nz,
                         grid[0].invdr, grid[0].rmin, grid[0].Nr,
@@ -818,7 +821,7 @@ class Particles(object) :
                         self.nthreads, ptcl_chunk_indices )
                 elif self.particle_shape == 'cubic':
                     deposit_J_prange_cubic(
-                        self.x, self.y, self.z, self.w,
+                        self.x, self.y, self.z, self.w, self.q,
                         self.ux, self.uy, self.uz, self.inv_gamma,
                         grid[0].invdz, grid[0].zmin, grid[0].Nz,
                         grid[0].invdr, grid[0].rmin, grid[0].Nr,

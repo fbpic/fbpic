@@ -445,7 +445,7 @@ class ParticleDiagnostic(OpenPMDDiagnostic) :
             if species.ionizer is not None:
                 quantity_one_proc = species.ionizer.neutral_weight
             else:
-                quantity_one_proc = species.w / species.q
+                quantity_one_proc = species.w
         else:
             quantity_one_proc = getattr( species, quantity )
 

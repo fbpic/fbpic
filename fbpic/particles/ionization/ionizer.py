@@ -101,7 +101,7 @@ class Ionizer(object):
         # Initialize the required arrays
         Ntot = ionizable_species.Ntot
         self.ionization_level = np.ones( Ntot, dtype=np.uint64 ) * level_start
-        self.neutral_weight = ionizable_species.w/ionizable_species.q
+        self.neutral_weight = ionizable_species.w.copy()
 
     def initialize_ADK_parameters( self, element, dt ):
         """
