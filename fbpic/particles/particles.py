@@ -889,7 +889,7 @@ class Particles(object) :
                     # Deposit the fields
                     # (The sign -1 with which the guards are added is not
                     # trivial to derive but avoids artifacts on the axis)
-                    deposit_field_numba(self.w*exptheta, grid[m].rho,
+                    deposit_field_numba( self.q*weight*exptheta, grid[m].rho,
                                             iz, ir, Sz, Sr, -1.)
 
             elif fieldtype == 'J':
@@ -897,9 +897,9 @@ class Particles(object) :
                 # Deposit the current density mode by mode
                 # ----------------------------------------
                 # Calculate the currents
-                Jr = self.w * c * self.inv_gamma*( cos*self.ux + sin*self.uy )
-                Jt = self.w * c * self.inv_gamma*( cos*self.uy - sin*self.ux )
-                Jz = self.w * c * self.inv_gamma*self.uz
+                Jr = self.q*weight * c * self.inv_gamma*( cos*self.ux + sin*self.uy )
+                Jt = self.q*weight * c * self.inv_gamma*( cos*self.uy - sin*self.ux )
+                Jz = self.q*weight * c * self.inv_gamma*self.uz
                 # Prepare auxiliary matrix
                 exptheta = np.ones( self.Ntot, dtype='complex')
                 # exptheta takes the value exp(im theta) throughout the loop
