@@ -40,7 +40,7 @@ Python script: either ``lwfa_script.py`` or
 
    ::
 
-    export MKL_NUM_THREADS=8
+	export MKL_NUM_THREADS=8
 	export NUMBA_NUM_THREADS=8
 	python fbpic_script.py
 
