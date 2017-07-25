@@ -5,7 +5,6 @@ used in the ionization code.
 """
 import math
 import numba
-from scipy.constants import e
 # Check if CUDA is available, then import CUDA functions
 from fbpic.cuda_utils import cuda_installed
 if cuda_installed:
@@ -75,7 +74,7 @@ def copy_ionized_electrons_batch(
     elec_ux, elec_uy, elec_uz, elec_w,
     elec_Ex, elec_Ey, elec_Ez, elec_Bx, elec_By, elec_Bz,
     ion_x, ion_y, ion_z, ion_inv_gamma,
-    ion_ux, ion_uy, ion_uz, ion_neutral_weight,
+    ion_ux, ion_uy, ion_uz, ion_w,
     ion_Ex, ion_Ey, ion_Ez, ion_Bx, ion_By, ion_Bz ):
     """
     Create the new electrons by copying the properties (position, momentum,
@@ -104,7 +103,7 @@ def copy_ionized_electrons_batch(
             elec_uy[elec_index] = ion_uy[ion_index]
             elec_uz[elec_index] = ion_uz[ion_index]
             elec_inv_gamma[elec_index] = ion_inv_gamma[ion_index]
-            elec_w[elec_index] = - e * ion_neutral_weight[ion_index]
+            elec_w[elec_index] = ion_w[ion_index]
             elec_Ex[elec_index] = ion_Ex[ion_index]
             elec_Ey[elec_index] = ion_Ey[ion_index]
             elec_Ez[elec_index] = ion_Ez[ion_index]

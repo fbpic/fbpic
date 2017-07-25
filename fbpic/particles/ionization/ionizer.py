@@ -54,9 +54,11 @@ class Ionizer(object):
     ---------------
     - ionization_level: 1darray of integers (one element per particle)
       which contains the ionization state of each particle
-    - neutral_weight: 1darray of floats (one element per particle)
+    - w_times_level: 1darray of floats (one element per particle)
       which contains the number of physical particle that correspond to each
-      macroparticle (not multiplied by the charge, unlike `w`)
+      macroparticle, multiplied by the ionization level. (This is updated
+      whenever further ionization happens, and is passed to the deposition
+      kernel as the effective weight of the particles)
     """
     def __init__( self, element, ionizable_species, target_species,
                     level_start, full_initialization=True ):
@@ -101,7 +103,7 @@ class Ionizer(object):
         # Initialize the required arrays
         Ntot = ionizable_species.Ntot
         self.ionization_level = np.ones( Ntot, dtype=np.uint64 ) * level_start
-        self.neutral_weight = ionizable_species.w/ionizable_species.q
+        self.w_times_level = ionizable_species.w * self.ionization_level
 
     def initialize_ADK_parameters( self, element, dt ):
         """
@@ -184,7 +186,7 @@ class Ionizer(object):
             ion.ux, ion.uy, ion.uz,
             ion.Ex, ion.Ey, ion.Ez,
             ion.Bx, ion.By, ion.Bz,
-            ion.w, self.neutral_weight )
+            ion.w, self.w_times_level )
 
         # Count the total number of electrons (operation performed
         # on the CPU, as this is typically difficult on the GPU)
@@ -239,7 +241,7 @@ class Ionizer(object):
             elec.ux, elec.uy, elec.uz, elec.w,
             elec.Ex, elec.Ey, elec.Ez, elec.Bx, elec.By, elec.Bz,
             ion.x, ion.y, ion.z, ion.inv_gamma,
-            ion.ux, ion.uy, ion.uz, self.neutral_weight,
+            ion.ux, ion.uy, ion.uz, ion.w,
             ion.Ex, ion.Ey, ion.Ez, ion.Bx, ion.By, ion.Bz )
         elec.sorted = False
 
@@ -276,7 +278,7 @@ class Ionizer(object):
             ion.ux, ion.uy, ion.uz,
             ion.Ex, ion.Ey, ion.Ez,
             ion.Bx, ion.By, ion.Bz,
-            ion.w, self.neutral_weight )
+            ion.w, self.w_times_level )
 
         # Count the total number of electrons
         cumulative_n_ionized = np.zeros( len(n_ionized)+1, dtype=np.int64 )
@@ -314,7 +316,7 @@ class Ionizer(object):
             elec.ux, elec.uy, elec.uz, elec.w,
             elec.Ex, elec.Ey, elec.Ez, elec.Bx, elec.By, elec.Bz,
             ion.x, ion.y, ion.z, ion.inv_gamma,
-            ion.ux, ion.uy, ion.uz, self.neutral_weight,
+            ion.ux, ion.uy, ion.uz, ion.w,
             ion.Ex, ion.Ey, ion.Ez, ion.Bx, ion.By, ion.Bz )
 
         # If the electrons are tracked, generate new ids
@@ -329,7 +331,7 @@ class Ionizer(object):
         if self.use_cuda:
             # Arrays with one element per macroparticles
             self.ionization_level = cuda.to_device( self.ionization_level )
-            self.neutral_weight = cuda.to_device( self.neutral_weight )
+            self.w_times_level = cuda.to_device( self.w_times_level )
             # Small-size arrays with ADK parameters
             # (One element per ionization level)
             self.adk_power = cuda.to_device( self.adk_power )
@@ -343,7 +345,7 @@ class Ionizer(object):
         if self.use_cuda:
             # Arrays with one element per macroparticles
             self.ionization_level = self.ionization_level.copy_to_host()
-            self.neutral_weight = self.neutral_weight.copy_to_host()
+            self.w_times_level = self.w_times_level.copy_to_host()
             # Small-size arrays with ADK parameters
             # (One element per ionization level)
             self.adk_power = self.adk_power.copy_to_host()

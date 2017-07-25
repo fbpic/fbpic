@@ -74,7 +74,7 @@ def r_shape_cubic(cell_position, index):
 # -------------------------------
 
 @numba.njit(parallel=True)
-def deposit_rho_prange_linear(x, y, z, w,
+def deposit_rho_prange_linear(x, y, z, w, q,
                            invdz, zmin, Nz,
                            invdr, rmin, Nr,
                            rho_m0_global, rho_m1_global,
@@ -97,6 +97,11 @@ def deposit_rho_prange_linear(x, y, z, w,
 
     w : 1d array of floats
         The weights of the particles
+        (For ionizable atoms: weight times the ionization level)
+
+    q : float
+        Charge of the species
+        (For ionizable atoms: this is always the elementary charge e)
 
     rho_m0_global, rho_m1_global : 3darrays of complexs (nthread, Nz, Nr)
         The global helper arrays to store the thread local charge densities
@@ -132,7 +137,7 @@ def deposit_rho_prange_linear(x, y, z, w,
             yj = y[i_ptcl]
             zj = z[i_ptcl]
             # Weights
-            wj = w[i_ptcl]
+            wj = q * w[i_ptcl]
 
             # Cylindrical conversion
             rj = math.sqrt(xj**2 + yj**2)
@@ -233,7 +238,7 @@ def deposit_rho_prange_linear(x, y, z, w,
 # -------------------------------
 
 @numba.njit(parallel=True)
-def deposit_J_prange_linear(x, y, z, w,
+def deposit_J_prange_linear(x, y, z, w, q,
                          ux, uy, uz, inv_gamma,
                          invdz, zmin, Nz,
                          invdr, rmin, Nr,
@@ -259,6 +264,11 @@ def deposit_J_prange_linear(x, y, z, w,
 
     w : 1d array of floats
         The weights of the particles
+        (For ionizable atoms: weight times the ionization level)
+
+    q : float
+        Charge of the species
+        (For ionizable atoms: this is always the elementary charge e)
 
     ux, uy, uz : 1darray of floats (in meters * second^-1)
         The velocity of the particles
@@ -306,7 +316,7 @@ def deposit_J_prange_linear(x, y, z, w,
             # Inverse gamma
             inv_gammaj = inv_gamma[i_ptcl]
             # Weights
-            wj = w[i_ptcl]
+            wj = q * w[i_ptcl]
 
             # Cylindrical conversion
             rj = math.sqrt(xj**2 + yj**2)
@@ -481,7 +491,7 @@ def deposit_J_prange_linear(x, y, z, w,
 # -------------------------------
 
 @numba.njit(parallel=True)
-def deposit_rho_prange_cubic(x, y, z, w,
+def deposit_rho_prange_cubic(x, y, z, w, q,
                           invdz, zmin, Nz,
                           invdr, rmin, Nr,
                           rho_m0_global, rho_m1_global,
@@ -504,6 +514,11 @@ def deposit_rho_prange_cubic(x, y, z, w,
 
     w : 1d array of floats
         The weights of the particles
+        (For ionizable atoms: weight times the ionization level)
+
+    q : float
+        Charge of the species
+        (For ionizable atoms: this is always the elementary charge e)
 
     rho_m0_global, rho_m1_global : 3darrays of complexs (nthread, Nz, Nr)
         The global helper arrays to store the thread local charge densities
@@ -539,7 +554,7 @@ def deposit_rho_prange_cubic(x, y, z, w,
             yj = y[i_ptcl]
             zj = z[i_ptcl]
             # Weights
-            wj = w[i_ptcl]
+            wj = q * w[i_ptcl]
 
             # Cylindrical conversion
             rj = math.sqrt(xj**2 + yj**2)
@@ -810,7 +825,7 @@ def deposit_rho_prange_cubic(x, y, z, w,
 # -------------------------------
 
 @numba.njit(parallel=True)
-def deposit_J_prange_cubic(x, y, z, w,
+def deposit_J_prange_cubic(x, y, z, w, q,
                         ux, uy, uz, inv_gamma,
                         invdz, zmin, Nz,
                         invdr, rmin, Nr,
@@ -836,6 +851,11 @@ def deposit_J_prange_cubic(x, y, z, w,
 
     w : 1d array of floats
         The weights of the particles
+        (For ionizable atoms: weight times the ionization level)
+
+    q : float
+        Charge of the species
+        (For ionizable atoms: this is always the elementary charge e)
 
     ux, uy, uz : 1darray of floats (in meters * second^-1)
         The velocity of the particles
@@ -883,7 +903,7 @@ def deposit_J_prange_cubic(x, y, z, w,
             # Inverse gamma
             inv_gammaj = inv_gamma[i_ptcl]
             # Weights
-            wj = w[i_ptcl]
+            wj = q * w[i_ptcl]
 
             # Cylindrical conversion
             rj = math.sqrt(xj**2 + yj**2)

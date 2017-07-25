@@ -201,7 +201,7 @@ class Particles(object) :
             self.z[:] = zp.flatten()
             # Get the weights (i.e. charge of each macroparticle), which
             # are equal to the density times the volume r d\theta dr dz
-            self.w[:] = q * n * r * dtheta*dr*dz
+            self.w[:] = n * r * dtheta*dr*dz
             # Modulate it by the density profile
             if dens_func is not None :
                 self.w[:] = self.w * dens_func( self.z, r )
@@ -362,12 +362,12 @@ class Particles(object) :
         # Initialize the ionizer module
         self.ionizer = Ionizer( element, self, target_species,
                                 level_start, full_initialization )
-        # Recalculate the weights to reflect the current ionization levels
-        # (This is updated whenever further ionization happens)
-        self.w[:] = e*self.ionizer.ionization_level*self.ionizer.neutral_weight
+        # Set charge to the elementary charge e (assumed by deposition kernel,
+        # when using self.ionizer.w_times_level as the effective weight)
+        self.q = e
 
         # Update the number of float and int arrays
-        self.n_float_quantities += 1 # neutral_weight
+        self.n_float_quantities += 1 # w_times_level
         self.n_integer_quantities += 1 # ionization_level
         # Allocate the integer sorting buffer if needed
         if hasattr( self, 'int_sorting_buffer' ) is False and self.use_cuda:
@@ -397,7 +397,7 @@ class Particles(object) :
                         (self,'ux'), (self,'uy'), (self,'uz'), \
                         (self, 'w'), (self,'inv_gamma') ]
         if self.ionizer is not None:
-            attr_list += [ (self.ionizer,'neutral_weight') ]
+            attr_list += [ (self.ionizer,'w_times_level') ]
         for attr in attr_list:
             # Get particle GPU array
             particle_array = getattr( attr[0], attr[1] )
@@ -673,8 +673,16 @@ class Particles(object) :
              Indicates which field to deposit
              Either 'J' or 'rho'
         """
+        # For ionizable atoms: set the effective weight to the weight
+        # times the ionization level
+        if self.ionizer is not None:
+            weight = self.ionizer.w_times_level
+        else:
+            weight = self.w
+
         # Shortcut for the list of InterpolationGrid objects
         grid = fld.interp
+
         # GPU (CUDA) version
         if self.use_cuda:
             # Get the threads per block and the blocks per grid
@@ -695,14 +703,14 @@ class Particles(object) :
                 # Deposit rho in each of four directions
                 if self.particle_shape == 'linear':
                     deposit_rho_gpu_linear[dim_grid_2d_flat, dim_block_2d_flat](
-                        self.x, self.y, self.z, self.w,
+                        self.x, self.y, self.z, weight, self.q,
                         grid[0].invdz, grid[0].zmin, grid[0].Nz,
                         grid[0].invdr, grid[0].rmin, grid[0].Nr,
                         grid[0].rho, grid[1].rho,
                         self.cell_idx, self.prefix_sum)
                 elif self.particle_shape == 'cubic':
                     deposit_rho_gpu_cubic[dim_grid_2d_flat, dim_block_2d_flat](
-                        self.x, self.y, self.z, self.w,
+                        self.x, self.y, self.z, weight, self.q,
                         grid[0].invdz, grid[0].zmin, grid[0].Nz,
                         grid[0].invdr, grid[0].rmin, grid[0].Nr,
                         grid[0].rho, grid[1].rho,
@@ -716,7 +724,7 @@ class Particles(object) :
                 # Deposit J in each of four directions
                 if self.particle_shape == 'linear':
                     deposit_J_gpu_linear[dim_grid_2d_flat, dim_block_2d_flat](
-                        self.x, self.y, self.z, self.w,
+                        self.x, self.y, self.z, weight, self.q,
                         self.ux, self.uy, self.uz, self.inv_gamma,
                         grid[0].invdz, grid[0].zmin, grid[0].Nz,
                         grid[0].invdr, grid[0].rmin, grid[0].Nr,
@@ -726,7 +734,7 @@ class Particles(object) :
                         self.cell_idx, self.prefix_sum)
                 elif self.particle_shape == 'cubic':
                     deposit_J_gpu_cubic[dim_grid_2d_flat, dim_block_2d_flat](
-                        self.x, self.y, self.z, self.w,
+                        self.x, self.y, self.z, weight, self.q,
                         self.ux, self.uy, self.uz, self.inv_gamma,
                         grid[0].invdz, grid[0].zmin, grid[0].Nz,
                         grid[0].invdr, grid[0].rmin, grid[0].Nr,
@@ -765,14 +773,14 @@ class Particles(object) :
                 # Deposit rho using CPU threading
                 if self.particle_shape == 'linear':
                     deposit_rho_prange_linear(
-                        self.x, self.y, self.z, self.w,
+                        self.x, self.y, self.z, weight, self.q,
                         grid[0].invdz, grid[0].zmin, grid[0].Nz,
                         grid[0].invdr, grid[0].rmin, grid[0].Nr,
                         rho_m0_global, rho_m1_global,
                         self.nthreads, ptcl_chunk_indices )
                 elif self.particle_shape == 'cubic':
                     deposit_rho_prange_cubic(
-                        self.x, self.y, self.z, self.w,
+                        self.x, self.y, self.z, weight, self.q,
                         grid[0].invdz, grid[0].zmin, grid[0].Nz,
                         grid[0].invdr, grid[0].rmin, grid[0].Nr,
                         rho_m0_global, rho_m1_global,
@@ -808,7 +816,7 @@ class Particles(object) :
                 # Deposit J using CPU threading
                 if self.particle_shape == 'linear':
                     deposit_J_prange_linear(
-                        self.x, self.y, self.z, self.w,
+                        self.x, self.y, self.z, weight, self.q,
                         self.ux, self.uy, self.uz, self.inv_gamma,
                         grid[0].invdz, grid[0].zmin, grid[0].Nz,
                         grid[0].invdr, grid[0].rmin, grid[0].Nr,
@@ -818,7 +826,7 @@ class Particles(object) :
                         self.nthreads, ptcl_chunk_indices )
                 elif self.particle_shape == 'cubic':
                     deposit_J_prange_cubic(
-                        self.x, self.y, self.z, self.w,
+                        self.x, self.y, self.z, weight, self.q,
                         self.ux, self.uy, self.uz, self.inv_gamma,
                         grid[0].invdz, grid[0].zmin, grid[0].Nz,
                         grid[0].invdr, grid[0].rmin, grid[0].Nr,
@@ -881,7 +889,7 @@ class Particles(object) :
                     # Deposit the fields
                     # (The sign -1 with which the guards are added is not
                     # trivial to derive but avoids artifacts on the axis)
-                    deposit_field_numba(self.w*exptheta, grid[m].rho,
+                    deposit_field_numba( self.q*weight*exptheta, grid[m].rho,
                                             iz, ir, Sz, Sr, -1.)
 
             elif fieldtype == 'J':
@@ -889,9 +897,9 @@ class Particles(object) :
                 # Deposit the current density mode by mode
                 # ----------------------------------------
                 # Calculate the currents
-                Jr = self.w * c * self.inv_gamma*( cos*self.ux + sin*self.uy )
-                Jt = self.w * c * self.inv_gamma*( cos*self.uy - sin*self.ux )
-                Jz = self.w * c * self.inv_gamma*self.uz
+                Jr = self.q*weight * c * self.inv_gamma*( cos*self.ux + sin*self.uy )
+                Jt = self.q*weight * c * self.inv_gamma*( cos*self.uy - sin*self.ux )
+                Jz = self.q*weight * c * self.inv_gamma*self.uz
                 # Prepare auxiliary matrix
                 exptheta = np.ones( self.Ntot, dtype='complex')
                 # exptheta takes the value exp(im theta) throughout the loop

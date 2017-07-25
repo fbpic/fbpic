@@ -644,12 +644,10 @@ class ParticleCatcher:
             particle_data = {
                 'x': species.x, 'y': species.y, 'z': species.z,
                 'ux': species.ux, 'uy' : species.uy, 'uz': species.uz,
-                'w': species.w*(1./species.q), 'inv_gamma': species.inv_gamma }
+                'w': species.w, 'inv_gamma': species.inv_gamma }
             # Optional integer quantities
             if species.ionizer is not None:
                 particle_data['charge'] = species.ionizer.ionization_level
-                # Replace particle weight
-                particle_data['w'] = species.ionizer.neutral_weight
             if species.tracker is not None:
                 particle_data['id'] = species.tracker.id
         # GPU

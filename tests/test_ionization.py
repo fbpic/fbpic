@@ -156,12 +156,12 @@ def run_simulation( gamma_boost ):
     sim.step( N_step, use_true_rho=True )
 
     # Check the fraction of N5+ ions at the end of the simulation
-    w_neutral = sim.ptcl[1].ionizer.neutral_weight
+    w = sim.ptcl[1].w
     ioniz_level = sim.ptcl[1].ionizer.ionization_level
     # Get the total number of N atoms/ions (all ionization levels together)
-    ntot = w_neutral.sum()
+    ntot = w.sum()
     # Get the total number of N5+ ions
-    n_N5 = w_neutral[ioniz_level == 5].sum()
+    n_N5 = w[ioniz_level == 5].sum()
     # Get the fraction of N5+ ions, and check that it is close to 0.32
     N5_fraction = n_N5 / ntot
     print('N5+ fraction: %.4f' %N5_fraction)
