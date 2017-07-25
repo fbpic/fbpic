@@ -30,10 +30,9 @@ the [documentation](http://fbpic.github.io).
 
 FBPIC is written entirely in Python, but uses
 [Numba](http://numba.pydata.org/) Just-In-Time compiler for high
-performance. In addition, the code was designed to be run
-either on **CPU or GPU**. For large
-simulations, running the code on GPU can be up to **40 times faster**
-than on CPU.
+performance. In addition, the code can run on **CPU** (with multi-threading) 
+and on **GPU**. For large simulations, running the 
+code on GPU can be much faster than on CPU.
 
 ## Installation
 

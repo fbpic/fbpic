@@ -19,9 +19,8 @@ symmetry**. Partly because of this representation, the code is
 artifacts** that other PIC codes may have. For a brief overview of the
 algorithm, its advantages and limitations, see the section :doc:`overview`.
 
-FBPIC can run either on CPU or GPU. For large
-simulations, running the code on GPU can be up to **40 times faster**
-than on CPU.
+FBPIC can run on CPU (with multi-threading) or GPU. For large
+simulations, running the code on GPU can be much faster than on CPU.
 
 .. note::
 
