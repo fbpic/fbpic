@@ -70,6 +70,9 @@ def ionize_ions_numba( N_batch, batch_size, Ntot, level_max,
             # Increment ip
             ip = ip + 1
 
+    return( n_ionized, is_ionized, ionization_level, w_times_level )
+
+
 @njit_parallel
 def copy_ionized_electrons_numba(
     N_batch, batch_size, elec_old_Ntot, ion_Ntot,
@@ -95,6 +98,10 @@ def copy_ionized_electrons_numba(
             ion_x, ion_y, ion_z, ion_inv_gamma,
             ion_ux, ion_uy, ion_uz, ion_w,
             ion_Ex, ion_Ey, ion_Ez, ion_Bx, ion_By, ion_Bz )
+
+    return( elec_x, elec_y, elec_z, elec_inv_gamma,
+        elec_ux, elec_uy, elec_uz, elec_w,
+        elec_Ex, elec_Ey, elec_Ez, elec_Bx, elec_By, elec_Bz )
 
 @njit_parallel
 def copy_particle_data_numba( Ntot, old_array, new_array ):
