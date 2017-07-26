@@ -33,7 +33,8 @@ from numba import cuda
 from scipy.constants import c, e, m_e, physical_constants
 from scipy.special import gamma
 from .read_atomic_data import get_ionization_energies
-from .numba_methods import ionize_ions_numba, copy_ionized_electrons_numba
+from .numba_methods import ionize_ions_numba, \
+    copy_ionized_electrons_numba, copy_particle_data_numba
 # Check if CUDA is available, then import CUDA functions
 from fbpic.cuda_utils import cuda_installed
 if cuda_installed:
@@ -270,7 +271,7 @@ class Ionizer(object):
         # Draw random numbers
         random_draw = np.random.rand( ion.Ntot )
 
-        # Ionize the ions (one thread per batch)
+        # Ionize the ions (parallel loop over batches)
         ionize_ions_numba(
             N_batch, self.batch_size, ion.Ntot, self.level_max,
             n_ionized, is_ionized, self.ionization_level, random_draw,
@@ -293,22 +294,21 @@ class Ionizer(object):
         old_Ntot = elec.Ntot
         new_Ntot = old_Ntot + cumulative_n_ionized[-1]
         # Iterate over particle attributes and copy the old electrons
-        # (one thread per particle)
         for attr in ['x', 'y', 'z', 'ux', 'uy', 'uz', 'w', 'inv_gamma',
                             'Ex', 'Ey', 'Ez', 'Bx', 'By', 'Bz']:
             old_array = getattr(elec, attr)
             new_array = np.empty( new_Ntot, dtype=np.float64 )
-            new_array[:old_Ntot] = old_array
+            copy_particle_data_numba( old_Ntot, old_array, new_array )
             setattr( elec, attr, new_array )
         if elec.tracker is not None:
             old_array = elec.tracker.id
             new_array = np.empty( new_Ntot, dtype=np.uint64 )
-            new_array[:old_Ntot] = old_array
+            copy_particle_data_numba( old_Ntot, old_array, new_array )
             elec.tracker.id = new_array
         # Modify the total number of electrons
         elec.Ntot = new_Ntot
 
-        # Copy the new electrons from ionization (one thread per batch)
+        # Copy the new electrons from ionization (parallel loop over batches)
         copy_ionized_electrons_numba(
             N_batch, self.batch_size, old_Ntot, ion.Ntot,
             cumulative_n_ionized, is_ionized,

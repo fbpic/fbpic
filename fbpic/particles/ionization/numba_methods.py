@@ -30,7 +30,7 @@ def ionize_ions_numba( N_batch, batch_size, Ntot, level_max,
     of the ionized ions, and `n_ionized` (one element per batch) counts
     the total number of ionized particles in the current batch.
     """
-    # Loop over batches of particles
+    # Loop over batches of particles (in parallel, if threading is enabled)
     for i_batch in prange( N_batch ):
 
         # Set the count of ionized particles in the batch to 0
@@ -84,7 +84,7 @@ def copy_ionized_electrons_numba(
     Create the new electrons by copying the properties (position, momentum,
     etc) of the ions that they originate from.
     """
-    # Select the current batch
+    #  Loop over batches of particles (in parallel, if threading is enabled)
     for i_batch in prange( N_batch ):
         copy_ionized_electrons_batch_numba(
             i_batch, batch_size, elec_old_Ntot, ion_Ntot,
@@ -95,3 +95,9 @@ def copy_ionized_electrons_numba(
             ion_x, ion_y, ion_z, ion_inv_gamma,
             ion_ux, ion_uy, ion_uz, ion_w,
             ion_Ex, ion_Ey, ion_Ez, ion_Bx, ion_By, ion_Bz )
+
+@njit_parallel
+def copy_particle_data_numba( Ntot, old_array, new_array ):
+    # Loop over single particles (in parallel if threading is enabled)
+    for ip in prange( Ntot ):
+        new_array[ip] = old_array[ip]
