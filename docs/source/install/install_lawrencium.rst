@@ -56,10 +56,10 @@ Installation of FBPIC and its dependencies
 
    ::
 
-       conda install numba spicy h5py
+       conda install numba scipy h5py
        conda install -c conda-forge mpi4py
        conda install -c numba cudatoolkit
-       conda install —-no-debs accelerate accelerate_cudalib
+       conda install —-no-deps accelerate accelerate_cudalib
        conda install —-no-deps -c conda-forge fftw pyfftw
 
    The second line is only necessary to run simulations on the GeForce GTX GPUs.
