@@ -8,7 +8,7 @@ It defines the structure and methods associated with the particles.
 import numpy as np
 import numba
 from scipy.constants import e
-from .ionization import Ionizer
+from .elementary_process.ionization import Ionizer
 from .tracking import ParticleTracker
 
 # Load the utility methods
