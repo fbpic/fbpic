@@ -434,6 +434,10 @@ class Particles(object) :
         half-timestep *behind* the positions (x, y, z), and it brings
         them one half-timestep *ahead* of the positions.
         """
+        # Skip push for neutral particles (e.g. photons)
+        if self.q == 0:
+            return
+
         # GPU (CUDA) version
         if self.use_cuda:
             # Get the threads per block and the blocks per grid
@@ -504,6 +508,10 @@ class Particles(object) :
              (one InterpolationGrid object per azimuthal mode)
              Contains the field values on the interpolation grid
         """
+        # Skip gathering for neutral particles (e.g. photons)
+        if self.q == 0:
+            return
+
         # GPU (CUDA) version
         if self.use_cuda:
             # Get the threads per block and the blocks per grid
@@ -582,6 +590,10 @@ class Particles(object) :
              Indicates which field to deposit
              Either 'J' or 'rho'
         """
+        # Skip deposition for neutral particles (e.g. photons)
+        if self.q == 0:
+            return
+
         # Shortcut for the list of InterpolationGrid objects
         grid = fld.interp
 
