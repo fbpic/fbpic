@@ -41,13 +41,13 @@ below:
 
    ::
 
-       bash Miniconda-latest3-Linux-x86_64.sh -p /global/scratch/<yourUsername>/miniconda3
+       bash Miniconda3-latest-Linux-x86_64.sh -p /global/scratch/<yourUsername>/miniconda3
 
    where the bracketed text should be replaced by your username. Then type
 
   ::
 
-     source .bashrc
+       source .bashrc
 
 Installation of FBPIC and its dependencies
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
