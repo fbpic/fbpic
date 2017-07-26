@@ -108,3 +108,4 @@ def copy_particle_data_numba( Ntot, old_array, new_array ):
     # Loop over single particles (in parallel if threading is enabled)
     for ip in prange( Ntot ):
         new_array[ip] = old_array[ip]
+    return( new_array )
