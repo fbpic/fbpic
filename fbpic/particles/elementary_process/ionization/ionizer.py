@@ -156,9 +156,9 @@ class Ionizer(object):
         if self.use_cuda:
             self.prng = PRNG()
 
-    def handle_ionization_gpu( self, ion ):
+    def handle_ionization( self, ion ):
         """
-        Handle ionization on the GPU:
+        Handle ionization:
         - For each ion macroparticle, decide whether it is going to
           be further ionized during this timestep, based on the ADK rate.
         - Add the electrons created from ionization to the `target_species`
@@ -167,6 +167,15 @@ class Ionizer(object):
         -----------
         ion: an fbpic.Particles object
             The ionizable species, from which new electrons are created.
+        """
+        if self.use_cuda:
+            self.handle_ionization_gpu( ion )
+        else:
+            self.handle_ionization_cpu( ion )
+
+    def handle_ionization_gpu( self, ion ):
+        """
+        Handle ionization on the GPU
         """
         # Process particles in batches (of typically 10, 20 particles)
         N_batch = int( ion.Ntot / self.batch_size ) + 1
@@ -252,15 +261,7 @@ class Ionizer(object):
 
     def handle_ionization_cpu( self, ion ):
         """
-        Handle ionization on the CPU:
-        - For each ion macroparticle, decide whether it is going to
-          be further ionized during this timestep, based on the ADK rate.
-        - Add the electrons created from ionization to the `target_species`
-
-        Parameters:
-        -----------
-        ion: an fbpic.Particles object
-            The ionizable species, from which new electrons are created.
+        Handle ionization on the CPU
         """
         # Process particles in batches (of typically 10, 20 particles)
         N_batch = int( ion.Ntot / self.batch_size ) + 1

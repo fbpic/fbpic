@@ -168,8 +168,10 @@ class Particles(object) :
 
         # By default, there is no particle tracking (see method track)
         self.tracker = None
-        # By default, the species is not ionizable (see method make_ionizable)
+        # By default, the species experiences no elementary processes
+        # (see method make_ionizable and activate_compton)
         self.ionizer = None
+        self.compton_scatterer = None
         # Total number of quantities (necessary in MPI communications)
         self.n_integer_quantities = 0
         self.n_float_quantities = 8 # x, y, z, ux, uy, uz, inv_gamma, w
@@ -371,15 +373,18 @@ class Particles(object) :
         if hasattr( self, 'int_sorting_buffer' ) is False and self.use_cuda:
             self.int_sorting_buffer = np.empty( self.Ntot, dtype=np.uint64 )
 
-    def handle_ionization( self ):
+    def handle_elementary_processes( self ):
         """
-        Ionize this species, and add new macroparticles to the target species
+        Handle elementary processes for this species
+        (e.g. ionization, Compton scattering, ...)
         """
+        # Ionization
         if self.ionizer is not None:
-            if self.use_cuda:
-                self.ionizer.handle_ionization_gpu( self )
-            else:
-                self.ionizer.handle_ionization_cpu( self )
+            self.ionizer.handle_ionization( self )
+
+        # Compton scattering
+        if self.compton_scatterer is not None:
+            self.compton_scatterer.handle_scattering( self )
 
     def rearrange_particle_arrays( self ):
         """
