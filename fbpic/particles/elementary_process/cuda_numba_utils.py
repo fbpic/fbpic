@@ -15,13 +15,13 @@ if cuda_installed:
 
 def allocate_empty( N, use_cuda, dtype ):
     """
-    Allocate an empty array, of size `N` and type `dtype`,
+    Allocate and return an empty array, of size `N` and type `dtype`,
     either on GPU or CPU, depending on whether `use_cuda` is True or False
     """
     if use_cuda:
-        cuda.device_array( (N,), dtype=dtype )
+        return( cuda.device_array( (N,), dtype=dtype ) )
     else:
-        np.empty( N, dtype=dtype )
+        return( np.empty( N, dtype=dtype ) )
 
 def perform_cumsum( input_array ):
     """
