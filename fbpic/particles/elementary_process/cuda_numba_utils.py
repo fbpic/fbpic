@@ -11,7 +11,7 @@ from fbpic.threading_utils import njit_parallel, prange
 # Check if CUDA is available, then import CUDA functions
 from fbpic.cuda_utils import cuda_installed
 if cuda_installed:
-    from fbpic.cuda_utils import cuda_tpb_bpg_1d
+    from fbpic.cuda_utils import cuda, cuda_tpb_bpg_1d
 
 def allocate_empty( N, use_cuda, dtype ):
     """
@@ -27,7 +27,7 @@ def perform_cumsum( input_array, use_cuda ):
     # TODO
     """
     cumulative_array = np.zeros( len(input_array)+1, dtype=np.int64 )
-    np.cumsum( n_ionized, out=cumulative_array )
+    np.cumsum( input_array, out=cumulative_array )
 
 def reallocate_and_copy_old( species, use_cuda, old_Ntot, new_Ntot ):
     """

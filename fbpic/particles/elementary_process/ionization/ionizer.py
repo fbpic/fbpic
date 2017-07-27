@@ -34,6 +34,9 @@ from scipy.constants import c, e, m_e, physical_constants
 from scipy.special import gamma
 from .read_atomic_data import get_ionization_energies
 from .numba_methods import ionize_ions_numba, copy_ionized_electrons_numba
+from ..cuda_numba_utils import allocate_empty, reallocate_and_copy_old, \
+                                                    perform_cumsum
+
 # Check if CUDA is available, then import CUDA functions
 from fbpic.cuda_utils import cuda_installed
 if cuda_installed:
