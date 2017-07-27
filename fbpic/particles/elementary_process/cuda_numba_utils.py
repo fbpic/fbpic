@@ -93,6 +93,21 @@ def reallocate_and_copy_old( species, use_cuda, old_Ntot, new_Ntot ):
     species.Ntot = new_Ntot
 
 
+def generate_new_ids( species, old_Ntot, new_Ntot ):
+    """
+    If `species` is tracked, then generate new ids, between the
+    indices `old_Ntot` and `new_Ntot` of the particle ID arrays
+
+    (This is performed either on GPU or CPU.)
+    """
+    if species.tracker is not None:
+        if species.use_cuda:
+            species.tracker.generate_new_ids_gpu( old_Ntot, new_Ntot )
+        else:
+            species.tracker.id[old_Ntot:new_Ntot] = \
+                species.tracker.generate_new_ids( new_Ntot - old_Ntot )
+
+
 @njit_parallel
 def copy_particle_data_numba( Ntot, old_array, new_array ):
     """

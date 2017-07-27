@@ -35,7 +35,7 @@ from scipy.special import gamma
 from .read_atomic_data import get_ionization_energies
 from .numba_methods import ionize_ions_numba, copy_ionized_electrons_numba
 from ..cuda_numba_utils import allocate_empty, reallocate_and_copy_old, \
-                                                    perform_cumsum
+                                perform_cumsum, generate_new_ids
 
 # Check if CUDA is available, then import CUDA functions
 from fbpic.cuda_utils import cuda_installed
@@ -247,8 +247,8 @@ class Ionizer(object):
 
         # If the electrons are tracked, generate new ids
         # (on GPU or GPU depending on `use_cuda`)
-        if elec.tracker is not None:
-            elec.tracker.generate_new_ids( old_Ntot, new_Ntot )
+        generate_new_ids( elec, old_Ntot, new_Ntot )
+
 
     def send_to_gpu( self ):
         """
