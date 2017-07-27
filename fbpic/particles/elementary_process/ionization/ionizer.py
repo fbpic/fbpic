@@ -33,15 +33,13 @@ from numba import cuda
 from scipy.constants import c, e, m_e, physical_constants
 from scipy.special import gamma
 from .read_atomic_data import get_ionization_energies
-from .numba_methods import ionize_ions_numba, \
-    copy_ionized_electrons_numba, copy_particle_data_numba
+from .numba_methods import ionize_ions_numba, copy_ionized_electrons_numba
 # Check if CUDA is available, then import CUDA functions
 from fbpic.cuda_utils import cuda_installed
 if cuda_installed:
     from pyculib.rand import PRNG
     from fbpic.cuda_utils import cuda_tpb_bpg_1d
-    from .cuda_methods import ionize_ions_cuda, \
-        copy_ionized_electrons_cuda, copy_particle_data_cuda
+    from .cuda_methods import ionize_ions_cuda, copy_ionized_electrons_cuda
 
 class Ionizer(object):
     """
@@ -158,7 +156,8 @@ class Ionizer(object):
 
     def handle_ionization( self, ion ):
         """
-        Handle ionization:
+        Handle ionization, either on CPU or GPU
+
         - For each ion macroparticle, decide whether it is going to
           be further ionized during this timestep, based on the ADK rate.
         - Add the electrons created from ionization to the `target_species`
@@ -168,162 +167,85 @@ class Ionizer(object):
         ion: an fbpic.Particles object
             The ionizable species, from which new electrons are created.
         """
+        # Process particles in batches (of typically 10, 20 particles)
+        N_batch = int( ion.Ntot / self.batch_size ) + 1
+        # Short-cut for use_cuda
+        use_cuda = self.use_cuda
+
+        # Create temporary arrays (on CPU or GPU, depending on `use_cuda`)
+        is_ionized = allocate_empty( ion.Ntot, use_cuda, dtype=np.int16 )
+        n_ionized = allocate_empty( N_batch, use_cuda, dtype=np.int64 )
+        # Draw random numbers
         if self.use_cuda:
-            self.handle_ionization_gpu( ion )
+            random_draw = allocate_empty(ion.Ntot, use_cuda, dtype=np.float32)
+            self.prng.uniform( random_draw )
         else:
-            self.handle_ionization_cpu( ion )
+            random_draw = np.random.rand( ion.Ntot )
 
-    def handle_ionization_gpu( self, ion ):
-        """
-        Handle ionization on the GPU
-        """
-        # Process particles in batches (of typically 10, 20 particles)
-        N_batch = int( ion.Ntot / self.batch_size ) + 1
+        # Determine the ions that are ionized, and count them in each batch
+        # (one thread per batch on GPU; parallel loop over batches on CPU)
+        if use_cuda:
+            batch_grid_1d, batch_block_1d = cuda_tpb_bpg_1d( N_batch )
+            ionize_ions_cuda[ batch_grid_1d, batch_block_1d ](
+                N_batch, self.batch_size, ion.Ntot, self.level_max,
+                n_ionized, is_ionized, self.ionization_level, random_draw,
+                self.adk_prefactor, self.adk_power, self.adk_exp_prefactor,
+                ion.ux, ion.uy, ion.uz, ion.Ex, ion.Ey, ion.Ez,
+                ion.Bx, ion.By, ion.Bz, ion.w, self.w_times_level )
+        else:
+            ionize_ions_numba(
+                N_batch, self.batch_size, ion.Ntot, self.level_max,
+                n_ionized, is_ionized, self.ionization_level, random_draw,
+                self.adk_prefactor, self.adk_power, self.adk_exp_prefactor,
+                ion.ux, ion.uy, ion.uz, ion.Ex, ion.Ey, ion.Ez,
+                ion.Bx, ion.By, ion.Bz, ion.w, self.w_times_level )
 
-        # Create temporary arrays
-        is_ionized = cuda.device_array( (ion.Ntot,), dtype=np.int16 )
-        n_ionized = cuda.device_array( (N_batch,), dtype=np.int64 )
-        # Draw random numbers
-        random_draw = cuda.device_array( (ion.Ntot,), dtype=np.float32 )
-        self.prng.uniform( random_draw )
-
-        # Ionize the ions (one thread per batch)
-        batch_grid_1d, batch_block_1d = cuda_tpb_bpg_1d( N_batch )
-        ionize_ions_cuda[ batch_grid_1d, batch_block_1d ](
-            N_batch, self.batch_size, ion.Ntot, self.level_max,
-            n_ionized, is_ionized, self.ionization_level, random_draw,
-            self.adk_prefactor, self.adk_power, self.adk_exp_prefactor,
-            ion.ux, ion.uy, ion.uz,
-            ion.Ex, ion.Ey, ion.Ez,
-            ion.Bx, ion.By, ion.Bz,
-            ion.w, self.w_times_level )
-
-        # Count the total number of electrons (operation performed
+        # Count the total number of new electrons (operation always performed
         # on the CPU, as this is typically difficult on the GPU)
-        n_ionized = n_ionized.copy_to_host()
-        cumulative_n_ionized = np.zeros( len(n_ionized)+1, dtype=np.int64 )
-        np.cumsum( n_ionized, out=cumulative_n_ionized[1:] )
+        if use_cuda:
+            n_ionized = n_ionized.copy_to_host()
+        cumulative_n_ionized = perform_cumsum( n_ionized )
         # If no new particle was created, skip the rest of this function
         if cumulative_n_ionized[-1] == 0:
             return
 
-        # Reallocate the electron species, in order to
-        # accomodate the electrons produced by ionization
+        # Reallocate electron species (on CPU or GPU depending on `use_cuda`),
+        # to accomodate the electrons produced by ionization,
+        # and copy the old electrons to the new arrays
         elec = self.target_species
         old_Ntot = elec.Ntot
         new_Ntot = old_Ntot + cumulative_n_ionized[-1]
-        # Iterate over particle attributes and copy the old electrons
-        # (one thread per particle)
-        ptcl_grid_1d, ptcl_block_1d = cuda_tpb_bpg_1d( old_Ntot )
-        for attr in ['x', 'y', 'z', 'ux', 'uy', 'uz', 'w', 'inv_gamma',
-                        'Ex', 'Ey', 'Ez', 'Bx', 'By', 'Bz']:
-            old_array = getattr(elec, attr)
-            new_array = cuda.device_array( (new_Ntot,), dtype=np.float64 )
-            copy_particle_data_cuda[ ptcl_grid_1d, ptcl_block_1d ](
-                old_Ntot, old_array, new_array )
-            setattr( elec, attr, new_array )
-        if elec.tracker is not None:
-            old_array = elec.tracker.id
-            new_array = cuda.device_array( (new_Ntot,), dtype=np.uint64 )
-            copy_particle_data_cuda[ ptcl_grid_1d, ptcl_block_1d ](
-                old_Ntot, old_array, new_array )
-            elec.tracker.id = new_array
-        # Allocate the auxiliary arrays
-        elec.cell_idx = cuda.device_array(
-            (new_Ntot,), dtype=np.int32 )
-        elec.sorted_idx = cuda.device_array(
-            (new_Ntot,), dtype=np.uint32 )
-        elec.sorting_buffer = cuda.device_array(
-            (new_Ntot,), dtype=np.float64 )
-        if elec.n_integer_quantities > 0:
-            elec.int_sorting_buffer = \
-                cuda.device_array( (new_Ntot,), dtype=np.uint64 )
-        # Modify the total number of electrons
-        elec.Ntot = new_Ntot
+        reallocate_and_copy_old( elec, use_cuda, old_Ntot, new_Ntot )
 
-        # Send `cumulative_n_ionized` back to the GPU
-        cumulative_n_ionized = cuda.to_device( cumulative_n_ionized )
-        # Copy the new electrons from ionization (one thread per batch)
-        copy_ionized_electrons_cuda[ batch_grid_1d, batch_block_1d ](
-            N_batch, self.batch_size, old_Ntot, ion.Ntot,
-            cumulative_n_ionized, is_ionized,
-            elec.x, elec.y, elec.z, elec.inv_gamma,
-            elec.ux, elec.uy, elec.uz, elec.w,
-            elec.Ex, elec.Ey, elec.Ez, elec.Bx, elec.By, elec.Bz,
-            ion.x, ion.y, ion.z, ion.inv_gamma,
-            ion.ux, ion.uy, ion.uz, ion.w,
-            ion.Ex, ion.Ey, ion.Ez, ion.Bx, ion.By, ion.Bz )
-        elec.sorted = False
+        # Create the new electrons from ionization (one thread per batch)
+        if use_cuda:
+            cumulative_n_ionized = cuda.to_device( cumulative_n_ionized )
+            copy_ionized_electrons_cuda[ batch_grid_1d, batch_block_1d ](
+                N_batch, self.batch_size, old_Ntot, ion.Ntot,
+                cumulative_n_ionized, is_ionized,
+                elec.x, elec.y, elec.z, elec.inv_gamma,
+                elec.ux, elec.uy, elec.uz, elec.w,
+                elec.Ex, elec.Ey, elec.Ez, elec.Bx, elec.By, elec.Bz,
+                ion.x, ion.y, ion.z, ion.inv_gamma,
+                ion.ux, ion.uy, ion.uz, ion.w,
+                ion.Ex, ion.Ey, ion.Ez, ion.Bx, ion.By, ion.Bz )
+            # Mark the new electrons as unsorted
+            elec.sorted = False
+        else:
+            copy_ionized_electrons_numba(
+                N_batch, self.batch_size, old_Ntot, ion.Ntot,
+                cumulative_n_ionized, is_ionized,
+                elec.x, elec.y, elec.z, elec.inv_gamma,
+                elec.ux, elec.uy, elec.uz, elec.w,
+                elec.Ex, elec.Ey, elec.Ez, elec.Bx, elec.By, elec.Bz,
+                ion.x, ion.y, ion.z, ion.inv_gamma,
+                ion.ux, ion.uy, ion.uz, ion.w,
+                ion.Ex, ion.Ey, ion.Ez, ion.Bx, ion.By, ion.Bz )
 
         # If the electrons are tracked, generate new ids
+        # (on GPU or GPU depending on `use_cuda`)
         if elec.tracker is not None:
-            elec.tracker.generate_new_ids_gpu( old_Ntot, new_Ntot )
-
-    def handle_ionization_cpu( self, ion ):
-        """
-        Handle ionization on the CPU
-        """
-        # Process particles in batches (of typically 10, 20 particles)
-        N_batch = int( ion.Ntot / self.batch_size ) + 1
-
-        # Create temporary arrays
-        is_ionized = np.empty( ion.Ntot, dtype=np.int16 )
-        n_ionized = np.empty( N_batch, dtype=np.int64 )
-        # Draw random numbers
-        random_draw = np.random.rand( ion.Ntot )
-
-        # Ionize the ions (parallel loop over batches)
-        ionize_ions_numba(
-            N_batch, self.batch_size, ion.Ntot, self.level_max,
-            n_ionized, is_ionized, self.ionization_level, random_draw,
-            self.adk_prefactor, self.adk_power, self.adk_exp_prefactor,
-            ion.ux, ion.uy, ion.uz,
-            ion.Ex, ion.Ey, ion.Ez,
-            ion.Bx, ion.By, ion.Bz,
-            ion.w, self.w_times_level )
-
-        # Count the total number of electrons
-        cumulative_n_ionized = np.zeros( len(n_ionized)+1, dtype=np.int64 )
-        np.cumsum( n_ionized, out=cumulative_n_ionized[1:] )
-        # If no new particle was created, skip the rest of this function
-        if cumulative_n_ionized[-1] == 0:
-            return
-
-        # Reallocate the electron species, in order to
-        # accomodate the electrons produced by ionization
-        elec = self.target_species
-        old_Ntot = elec.Ntot
-        new_Ntot = old_Ntot + cumulative_n_ionized[-1]
-        # Iterate over particle attributes and copy the old electrons
-        for attr in ['x', 'y', 'z', 'ux', 'uy', 'uz', 'w', 'inv_gamma',
-                            'Ex', 'Ey', 'Ez', 'Bx', 'By', 'Bz']:
-            old_array = getattr(elec, attr)
-            new_array = np.empty( new_Ntot, dtype=np.float64 )
-            copy_particle_data_numba( old_Ntot, old_array, new_array )
-            setattr( elec, attr, new_array )
-        if elec.tracker is not None:
-            old_array = elec.tracker.id
-            new_array = np.empty( new_Ntot, dtype=np.uint64 )
-            copy_particle_data_numba( old_Ntot, old_array, new_array )
-            elec.tracker.id = new_array
-        # Modify the total number of electrons
-        elec.Ntot = new_Ntot
-
-        # Copy the new electrons from ionization (parallel loop over batches)
-        copy_ionized_electrons_numba(
-            N_batch, self.batch_size, old_Ntot, ion.Ntot,
-            cumulative_n_ionized, is_ionized,
-            elec.x, elec.y, elec.z, elec.inv_gamma,
-            elec.ux, elec.uy, elec.uz, elec.w,
-            elec.Ex, elec.Ey, elec.Ez, elec.Bx, elec.By, elec.Bz,
-            ion.x, ion.y, ion.z, ion.inv_gamma,
-            ion.ux, ion.uy, ion.uz, ion.w,
-            ion.Ex, ion.Ey, ion.Ez, ion.Bx, ion.By, ion.Bz )
-
-        # If the electrons are tracked, generate new ids
-        if elec.tracker is not None:
-            elec.tracker.id[old_Ntot:new_Ntot] = \
-                elec.tracker.generate_new_ids( new_Ntot - old_Ntot )
+            elec.tracker.generate_new_ids( old_Ntot, new_Ntot )
 
     def send_to_gpu( self ):
         """

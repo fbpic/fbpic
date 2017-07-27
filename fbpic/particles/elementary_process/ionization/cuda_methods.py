@@ -92,10 +92,3 @@ def copy_ionized_electrons_cuda(
             ion_x, ion_y, ion_z, ion_inv_gamma,
             ion_ux, ion_uy, ion_uz, ion_w,
             ion_Ex, ion_Ey, ion_Ez, ion_Bx, ion_By, ion_Bz )
-
-@cuda.jit()
-def copy_particle_data_cuda( Ntot, old_array, new_array ):
-    # Loop over single particles
-    ip = cuda.grid(1)
-    if ip < Ntot:
-        new_array[ip] = old_array[ip]
