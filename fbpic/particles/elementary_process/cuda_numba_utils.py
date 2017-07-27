@@ -4,7 +4,7 @@
 """
 This file is part of the Fourier-Bessel Particle-In-Cell code (FB-PIC)
 It defines a number of methods that are useful for elementary processes
-(e.g. ionization, Compton scattering) on CPU and GPU
+(e.g. ionization) on CPU and GPU
 """
 import numpy as np
 from fbpic.threading_utils import njit_parallel, prange
@@ -15,23 +15,44 @@ if cuda_installed:
 
 def allocate_empty( N, use_cuda, dtype ):
     """
-    # TODO
+    Allocate an empty array, of size `N` and type `dtype`,
+    either on GPU or CPU, depending on whether `use_cuda` is True or False
     """
     if use_cuda:
         cuda.device_array( (N,), dtype=dtype )
     else:
         np.empty( N, dtype=dtype )
 
-def perform_cumsum( input_array, use_cuda ):
+def perform_cumsum( input_array ):
     """
-    # TODO
+    Return an array containing the cumulative sum of the 1darray `input_array`
+
+    (The returned array has one more element than `input_array`; its first
+    element is 0 and its last element is the total sum of `input_array`)
     """
     cumulative_array = np.zeros( len(input_array)+1, dtype=np.int64 )
-    np.cumsum( input_array, out=cumulative_array )
+    np.cumsum( input_array, out=cumulative_array[1:] )
+    return( cumulative_array )
 
 def reallocate_and_copy_old( species, use_cuda, old_Ntot, new_Ntot ):
     """
-    # TODO
+    Copy the particle quantities of `species` from arrays of size `old_Ntot`
+    into arrays of size `new_Ntot`. Set these arrays as attributes of `species`.
+
+    (The first `old_Ntot` elements of the new arrays are copied from the old
+    arrays ; the last elements are left empty and expected to be filled later.)
+
+    When `use_cuda` is True, this function also reallocates
+    the sorting buffers for GPU, with a size `new_Ntot`
+
+    Parameters
+    ----------
+    species: an fbpic Particles object
+    use_cuda: bool
+        If True, the new arrays are device arrays, and copying is done on GPU.
+        If False, the arrays are on CPU, and copying is done on CPU.
+    old_Ntot, new_Ntot: int
+        Size of the old and new arrays (with old_Ntot < new_Ntot)
     """
     # On GPU, use one thread per particle
     if use_cuda:
@@ -74,6 +95,9 @@ def reallocate_and_copy_old( species, use_cuda, old_Ntot, new_Ntot ):
 
 @njit_parallel
 def copy_particle_data_numba( Ntot, old_array, new_array ):
+    """
+    Copy the `Ntot` elements of `old_array` into `new_array`, on CPU
+    """
     # Loop over single particles (in parallel if threading is enabled)
     for ip in prange( Ntot ):
         new_array[ip] = old_array[ip]
@@ -82,6 +106,9 @@ def copy_particle_data_numba( Ntot, old_array, new_array ):
 if cuda_installed:
     @cuda.jit()
     def copy_particle_data_cuda( Ntot, old_array, new_array ):
+        """
+        Copy the `Ntot` elements of `old_array` into `new_array`, on GPU
+        """
         # Loop over single particles
         ip = cuda.grid(1)
         if ip < Ntot:

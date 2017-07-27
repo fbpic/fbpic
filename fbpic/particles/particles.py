@@ -169,9 +169,7 @@ class Particles(object) :
         # By default, there is no particle tracking (see method track)
         self.tracker = None
         # By default, the species experiences no elementary processes
-        # (see method make_ionizable and activate_compton)
         self.ionizer = None
-        self.compton_scatterer = None
         # Total number of quantities (necessary in MPI communications)
         self.n_integer_quantities = 0
         self.n_float_quantities = 8 # x, y, z, ux, uy, uz, inv_gamma, w
@@ -375,16 +373,11 @@ class Particles(object) :
 
     def handle_elementary_processes( self ):
         """
-        Handle elementary processes for this species
-        (e.g. ionization, Compton scattering, ...)
+        Handle elementary processes for this species (e.g. ionization)
         """
         # Ionization
         if self.ionizer is not None:
             self.ionizer.handle_ionization( self )
-
-        # Compton scattering
-        if self.compton_scatterer is not None:
-            self.compton_scatterer.handle_scattering( self )
 
     def rearrange_particle_arrays( self ):
         """
