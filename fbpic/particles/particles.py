@@ -8,9 +8,9 @@ It defines the structure and methods associated with the particles.
 import numpy as np
 import numba
 from scipy.constants import e
-from .elementary_process.ionization import Ionizer
 from .tracking import ParticleTracker
-
+from .elementary_process.ionization import Ionizer
+from .elementary_process.compton import ComptonScatterer
 # Load the utility methods
 from .utilities.utility_methods import unalign_angles
 # Load the numba methods
@@ -169,7 +169,9 @@ class Particles(object) :
         # By default, there is no particle tracking (see method track)
         self.tracker = None
         # By default, the species experiences no elementary processes
+        # (see method make_ionizable and activate_compton)
         self.ionizer = None
+        self.compton_scatterer = None
         # Total number of quantities (necessary in MPI communications)
         self.n_integer_quantities = 0
         self.n_float_quantities = 8 # x, y, z, ux, uy, uz, inv_gamma, w
@@ -328,6 +330,14 @@ class Particles(object) :
         if hasattr( self, 'int_sorting_buffer' ) is False and self.use_cuda:
             self.int_sorting_buffer = np.empty( self.Ntot, dtype=np.uint64 )
 
+    def activate_compton( self, target_species, photon_n,
+                            photon_px, photon_py, photon_pz, boost=None ):
+        """
+        # TODO
+        """
+        self.compton_scatterer = ComptonScatterer( self, target_species,
+            photon_n, photon_px, photon_py, photon_pz, boost )
+
     def make_ionizable( self, element, target_species,
                         level_start=0, full_initialization=True ):
         """
@@ -370,6 +380,7 @@ class Particles(object) :
         if hasattr( self, 'int_sorting_buffer' ) is False and self.use_cuda:
             self.int_sorting_buffer = np.empty( self.Ntot, dtype=np.uint64 )
 
+
     def handle_elementary_processes( self ):
         """
         Handle elementary processes for this species (e.g. ionization)
@@ -377,6 +388,10 @@ class Particles(object) :
         # Ionization
         if self.ionizer is not None:
             self.ionizer.handle_ionization( self )
+        # Compton scattering
+        if self.compton_scatterer is not None:
+            self.compton_scatterer.handle_scattering( self )
+
 
     def rearrange_particle_arrays( self ):
         """

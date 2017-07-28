@@ -44,7 +44,7 @@ def get_scattering_probability(
 
 @njit_parallel
 def determine_scatterings_numba( N_batch, batch_size, elec_Ntot,
-    does_scatter, n_scatters, random_draw,
+    does_scatter, n_scatters, random_draw, dt, pi_re2, inv_mc,
     elec_ux, elec_uy, elec_uz, elec_inv_gamma,
     photon_n, photon_p, photon_beta_x, photon_beta_y, photon_beta_z ):
     """
@@ -74,7 +74,9 @@ def determine_scatterings_numba( N_batch, batch_size, elec_Ntot,
         while ip < N_max:
 
             # For each electron, calculate the probability of scattering
-            p = get_scattering_probability( )
+            p = get_scattering_probability( dt, pi_re2, inv_mc,
+                elec_ux[ip], elec_uy[ip], elec_uz[ip], elec_inv_gamma[ip],
+                photon_n, photon_p, photon_beta_x, photon_beta_y, photon_beta_z)
 
             # Determine whether the electron scatters
             if random_draw[ip] < p:
@@ -88,3 +90,55 @@ def determine_scatterings_numba( N_batch, batch_size, elec_Ntot,
             ip = ip + 1
 
     return( does_scatter, n_scatters )
+
+@numba.njit
+def scatter_photons_electrons_numba(
+    N_batch, batch_size, photon_old_Ntot, elec_Ntot,
+    cumulative_n_scatters, does_scatter,
+    photon_x, photon_y, photon_z, photon_inv_gamma,
+    photon_ux, photon_uy, photon_uz, photon_w,
+    photon_Ex, photon_Ey, photon_Ez,
+    photon_Bx, photon_By, photon_Bz,
+    elec_x, elec_y, elec_z, elec_inv_gamma,
+    elec_ux, elec_uy, elec_uz, elec_w,
+    elec_Ex, elec_Ey, elec_Ez, elec_Bx, elec_By, elec_Bz ):
+    """
+    # TODO: so far, this is only copy the photons
+    # One should a random additional angle
+    """
+    #  Loop over batches of particles (in parallel, if threading is enabled)
+    for i_batch in range( N_batch ):
+        # Photon index: this is incremented each time
+        # an scattered photon is identified
+        photon_index = photon_old_Ntot + cumulative_n_scatters[i_batch]
+
+        # Loop through the electrons in this batch
+        N_max = min( (i_batch+1)*batch_size, elec_Ntot )
+        elec_index = i_batch*batch_size
+        while elec_index < N_max:
+            if does_scatter[elec_index] == 1:
+                # Copy the elec data to the current photon_index
+                photon_x[photon_index] = elec_x[elec_index]
+                photon_y[photon_index] = elec_y[elec_index]
+                photon_z[photon_index] = elec_z[elec_index]
+                # TODO: For the moment, the momentum of the photon is wrong!
+                photon_ux[photon_index] = elec_ux[elec_index]
+                photon_uy[photon_index] = elec_uy[elec_index]
+                photon_uz[photon_index] = elec_uz[elec_index]
+                photon_inv_gamma[photon_index] = elec_inv_gamma[elec_index]
+                photon_w[photon_index] = elec_w[elec_index]
+                photon_Ex[photon_index] = elec_Ex[elec_index]
+                photon_Ey[photon_index] = elec_Ey[elec_index]
+                photon_Ez[photon_index] = elec_Ez[elec_index]
+                photon_Bx[photon_index] = elec_Bx[elec_index]
+                photon_By[photon_index] = elec_By[elec_index]
+                photon_Bz[photon_index] = elec_Bz[elec_index]
+                # Update the photon index
+                photon_index += 1
+
+            # Increment elecron index
+            elec_index += 1
+
+    return( photon_x, photon_y, photon_z, photon_inv_gamma,
+        photon_ux, photon_uy, photon_uz, photon_w,
+        photon_Ex, photon_Ey, photon_Ez, photon_Bx, photon_By, photon_Bz )
