@@ -273,7 +273,7 @@ class MovingWindow(object):
             float_buffer[6,:] = new_ptcl.inv_gamma
             float_buffer[7,:] = new_ptcl.w
             if species.ionizer is not None:
-                float_buffer[8,:] = new_ptcl.ionizer.neutral_weight
+                float_buffer[8,:] = new_ptcl.ionizer.w_times_level
             # - Integer buffer
             uint_buffer = np.empty( (n_int, new_ptcl.Ntot), dtype=np.uint64 )
             i_int = 0
