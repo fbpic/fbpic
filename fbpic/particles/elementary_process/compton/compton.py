@@ -23,8 +23,8 @@ class ComtonScatterer(object):
     # TODO: Describe method for ComptonScattering
     # Reference Dave Grote
     """
-    def __init__(self, source_species, target_species,
-            photon_n, photon_px, photon_py, photon_pz, boost=None):
+    def __init__(self, source_species, target_species, photon_lab_n,
+            photon_lab_px, photon_lab_py, photon_lab_pz, boost=None):
         """
         Initialize a ComptonScatterer:
         Scattering on a uniform, monoenergetic, unidirectional flux of photons.
@@ -39,11 +39,11 @@ class ComtonScatterer(object):
         target species: an fbpic Particles object
             The species that will store the produced photons
 
-        photon_n: float (m^-3)
+        photon_lab_n: float (m^-3)
             The density of photons *in the lab frame*
 
-        photon_px, photon_py, photon_pz: float (kg.m.s^-1)
-            The momentum of the photons *in the lab frame*
+        photon_lab_px, photon_lab_py, photon_lab_pz: float (kg.m.s^-1)
+            The momenta of the photons *in the lab frame*
 
         boost: an fbpic BoostConverter object
             Contains information on the boosted-Lorentz frame,
@@ -57,19 +57,28 @@ class ComtonScatterer(object):
         # **in the frame of the simulation**
         if boost is None:
             # Lab frame simulation: register directly the parameters
-            self.photon_n = photon_n
-            self.photon_px = photon_px
-            self.photon_py = photon_py
-            self.photon_pz = photon_pz
+            self.photon_n = photon_lab_n
+            self.photon_px = photon_lab_px
+            self.photon_py = photon_lab_py
+            self.photon_pz = photon_lab_pz
         else:
             # Boosted-frame simulation: convert photon parameters
             # to the boosted-frame, and store them as such
-            photon_p = np.sqrt( photon_px**2 + photon_py**2 + photon_pz**2)
-            self.photon_n = photon_n * \
+            photon_lab_p = np.sqrt( photon_lab_px**2 \
+                                + photon_lab_py**2 + photon_lab_pz**2)
+            # All the quantities below are in the frame of the simulation
+            self.photon_px = photon_lab_px
+            self.photon_py = photon_lab_py
+            self.photon_pz = boost.gamma0 * \
+                    (photon_lab_pz - boost.beta0*photon_lab_p)
+            self.photon_n = photon_lab_n * \
                     boost.gamma0 * (1 - boost.beta0*photon_pz/photon_p)
-            self.photon_pz = boost.gamma0 * (photon_pz - boost.beta0*photon_p)
-            self.photon_px = photon_pz
-            self.photon_py = photon_py
+        # Get additional useful parameters (precalculated, because constant)
+        self.photon_p = np.sqrt( self.photon_px**2 \
+                                + self.photon_py**2 + self.photon_pz**2 )
+        self.photon_beta_x = self.photon_px/self.photon_p
+        self.photon_beta_y = self.photon_py/self.photon_p
+        self.photon_beta_z = self.photon_pz/self.photon_p
 
         # Register a few other parameters
         self.batch_size = 10
@@ -114,7 +123,7 @@ class ComtonScatterer(object):
                 N_batch, self.batch_size, elec.Ntot,
                 does_scatter, n_scatters, random_draw,
                 elec.ux, elec.uy, elec.uz, elec.inv_gamma,
-                self.photon_n, self.photon_px, self.photon_py, self.photon_pz )
+                self.photon_n, self.photon_p, self.photon_beta_x, self.photon_py, self.photon_pz )
         else:
             determine_scatterings_numba(
                 N_batch, self.batch_size, elec.Ntot,
