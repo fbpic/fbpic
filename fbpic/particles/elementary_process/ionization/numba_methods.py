@@ -102,10 +102,3 @@ def copy_ionized_electrons_numba(
     return( elec_x, elec_y, elec_z, elec_inv_gamma,
         elec_ux, elec_uy, elec_uz, elec_w,
         elec_Ex, elec_Ey, elec_Ez, elec_Bx, elec_By, elec_Bz )
-
-@njit_parallel
-def copy_particle_data_numba( Ntot, old_array, new_array ):
-    # Loop over single particles (in parallel if threading is enabled)
-    for ip in prange( Ntot ):
-        new_array[ip] = old_array[ip]
-    return( new_array )
