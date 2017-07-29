@@ -29,13 +29,11 @@ def get_scattering_probability(
 
     # Calculate the Klein-Nishina cross-section
     k = photon_p_rest * inv_mc
-    f1 = 2 * ( 2 + k*(1+k)*(8+k) ) / ( k**2 * (1 + 2*k**2) )
+    f1 = 2 * ( 2 + k*(1+k)*(8+k) ) / ( k**2 * (1 + 2*k)**2 )
     f2 = ( 2 + k*(2-k) ) * math.log( 1 + 2*k ) / k**3
     sigma = pi_re2 * ( f1 - f2 )
-
     # Get the electron proper time
     proper_dt_rest = dt * elec_inv_gamma
-
     # Calculate the probability of scattering
     p = 1 - math.exp( - sigma * photon_n_rest * c * proper_dt_rest )
 
