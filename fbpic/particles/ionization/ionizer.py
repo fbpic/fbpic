@@ -38,7 +38,7 @@ from .numba_methods import ionize_ions_numba, \
 # Check if CUDA is available, then import CUDA functions
 from fbpic.cuda_utils import cuda_installed
 if cuda_installed:
-    from accelerate.cuda.rand import PRNG
+    from pyculib.rand import PRNG
     from fbpic.cuda_utils import cuda_tpb_bpg_1d
     from .cuda_methods import ionize_ions_cuda, \
         copy_ionized_electrons_cuda, copy_particle_data_cuda

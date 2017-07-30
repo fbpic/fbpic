@@ -43,7 +43,7 @@ from scipy.optimize import fsolve
 # Check if CUDA is available, then import CUDA functions
 from fbpic.cuda_utils import cuda_installed
 if cuda_installed:
-    from accelerate.cuda import blas as cublas
+    from pyculib import blas as cublas
     from fbpic.cuda_utils import cuda, cuda_tpb_bpg_2d
     from .cuda_methods import cuda_copy_2d_to_2d
 
