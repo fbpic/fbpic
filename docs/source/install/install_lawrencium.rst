@@ -56,18 +56,9 @@ Installation of FBPIC and its dependencies
 
    ::
 
-       conda install numba scipy h5py
-       conda install -c conda-forge mpi4py
-       conda install -c numba cudatoolkit
-       conda install —-no-deps accelerate accelerate_cudalib
-       conda install —-no-deps -c conda-forge fftw pyfftw
+       conda install -c conda-forge numba scipy h5py pyfftw mpi4py
+       conda install -c numba pyculib
 
-   The second line is only necessary to run simulations on the GeForce GTX GPUs.
-   (NB: The ``accelerate`` package is not free, but there is a 30-day free
-   trial period, which starts when the above command is entered. For
-   further use beyond 30 days, one option is to obtain an academic
-   license, which is also free. To do so, please visit `this
-   link <https://www.continuum.io/anaconda-academic-subscriptions-available>`__.)
 
 -  Install ``fbpic``
 

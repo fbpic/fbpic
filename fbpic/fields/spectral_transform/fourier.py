@@ -12,7 +12,7 @@ import pyfftw
 # Check if CUDA is available, then import CUDA functions
 from fbpic.cuda_utils import cuda_installed
 if cuda_installed:
-    from accelerate.cuda import fft as cufft, blas as cublas
+    from pyculib import fft as cufft, blas as cublas
     from fbpic.cuda_utils import cuda, cuda_tpb_bpg_2d
     from .cuda_methods import cuda_copy_2d_to_1d, cuda_copy_1d_to_2d
 

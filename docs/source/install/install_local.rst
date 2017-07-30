@@ -33,13 +33,8 @@ Python. If Anaconda is not your default Python distribution, download and instal
 
    ::
 
-       conda install accelerate
+       conda install -c numba pyculib
 
-   (The ``accelerate`` package is not free, but there is a 30-day free
-   trial period, which starts when the above command is entered. For
-   further use beyond 30 days, one option is to obtain an academic
-   license, which is also free. To do so, please visit `this
-   link <https://www.continuum.io/anaconda-academic-subscriptions-available>`__.)
 
 
 Potential issues
