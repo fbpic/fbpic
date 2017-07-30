@@ -41,13 +41,13 @@ below:
 
    ::
 
-       bash Miniconda-latest3-Linux-x86_64.sh -p /global/scratch/<yourUsername>/miniconda3
+       bash Miniconda3-latest-Linux-x86_64.sh -p /global/scratch/<yourUsername>/miniconda3
 
    where the bracketed text should be replaced by your username. Then type
 
   ::
 
-     source .bashrc
+       source .bashrc
 
 Installation of FBPIC and its dependencies
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -56,8 +56,11 @@ Installation of FBPIC and its dependencies
 
    ::
 
-       conda install -c conda-forge numba scipy h5py pyfftw mpi4py accelerate
-       conda install -c numba cudatoolkit=8.0
+       conda install numba scipy h5py
+       conda install -c conda-forge mpi4py
+       conda install -c numba cudatoolkit
+       conda install —-no-deps accelerate accelerate_cudalib
+       conda install —-no-deps -c conda-forge fftw pyfftw
 
    The second line is only necessary to run simulations on the GeForce GTX GPUs.
    (NB: The ``accelerate`` package is not free, but there is a 30-day free

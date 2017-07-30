@@ -7,12 +7,12 @@ It defines numba methods that are used in particle ionization.
 
 Apart from synthactic, this file is very close to cuda_methods.py
 """
-import numba
 from scipy.constants import c
+from fbpic.threading_utils import njit_parallel, prange
 from .inline_functions import get_ionization_probability_numba, \
     get_E_amplitude_numba, copy_ionized_electrons_batch_numba
 
-@numba.jit(nopython=True)
+@njit_parallel
 def ionize_ions_numba( N_batch, batch_size, Ntot, level_max,
     n_ionized, is_ionized, ionization_level, random_draw,
     adk_prefactor, adk_power, adk_exp_prefactor,
@@ -30,42 +30,50 @@ def ionize_ions_numba( N_batch, batch_size, Ntot, level_max,
     of the ionized ions, and `n_ionized` (one element per batch) counts
     the total number of ionized particles in the current batch.
     """
-    # Loop over batches of particles
-    for i_batch in range( N_batch ):
+    # Loop over batches of particles (in parallel, if threading is enabled)
+    for i_batch in prange( N_batch ):
 
         # Set the count of ionized particles in the batch to 0
         n_ionized[i_batch] = 0
 
         # Loop through the batch
+        # (Note: a while loop is used here, because numba 0.34 does
+        # not support nested prange and range loops)
         N_max = min( (i_batch+1)*batch_size, Ntot )
-        for ip in range( i_batch*batch_size, N_max ):
+        ip = i_batch*batch_size
+        while ip < N_max:
 
             # Skip the ionization routine, if the maximal ionization level
             # has already been reached for this macroparticle
             level = ionization_level[ip]
             if level >= level_max:
                 is_ionized[ip] = 0
-                continue
-
-            # Calculate the amplitude of the electric field,
-            # in the frame of the electrons (device inline function)
-            E, gamma = get_E_amplitude_numba( ux[ip], uy[ip], uz[ip],
-                    Ex[ip], Ey[ip], Ez[ip], c*Bx[ip], c*By[ip], c*Bz[ip] )
-            # Get ADK rate (device inline function)
-            p = get_ionization_probability_numba( E, gamma,
-              adk_prefactor[level], adk_power[level], adk_exp_prefactor[level])
-            # Ionize particles
-            if random_draw[ip] < p:
-                # Set the corresponding flag and update particle count
-                is_ionized[ip] = 1
-                n_ionized[i_batch] += 1
-                # Update the ionization level and the corresponding weight
-                ionization_level[ip] += 1
-                w_times_level[ip] = w[ip] * ionization_level[ip]
             else:
-                is_ionized[ip] = 0
+                # Calculate the amplitude of the electric field,
+                # in the frame of the electrons (device inline function)
+                E, gamma = get_E_amplitude_numba( ux[ip], uy[ip], uz[ip],
+                        Ex[ip], Ey[ip], Ez[ip], c*Bx[ip], c*By[ip], c*Bz[ip] )
+                # Get ADK rate (device inline function)
+                p = get_ionization_probability_numba( E, gamma,
+                  adk_prefactor[level], adk_power[level], adk_exp_prefactor[level])
+                # Ionize particles
+                if random_draw[ip] < p:
+                    # Set the corresponding flag and update particle count
+                    is_ionized[ip] = 1
+                    n_ionized[i_batch] += 1
+                    # Update the ionization level and the corresponding weight
+                    ionization_level[ip] += 1
+                    w_times_level[ip] = w[ip] * ionization_level[ip]
+                else:
+                    is_ionized[ip] = 0
 
-@numba.jit(nopython=True)
+            # Increment ip
+            ip = ip + 1
+
+    return( n_ionized, is_ionized, ionization_level, w_times_level )
+
+
+@njit_parallel
 def copy_ionized_electrons_numba(
     N_batch, batch_size, elec_old_Ntot, ion_Ntot,
     cumulative_n_ionized, is_ionized,
@@ -79,8 +87,8 @@ def copy_ionized_electrons_numba(
     Create the new electrons by copying the properties (position, momentum,
     etc) of the ions that they originate from.
     """
-    # Select the current batch
-    for i_batch in range( N_batch ):
+    #  Loop over batches of particles (in parallel, if threading is enabled)
+    for i_batch in prange( N_batch ):
         copy_ionized_electrons_batch_numba(
             i_batch, batch_size, elec_old_Ntot, ion_Ntot,
             cumulative_n_ionized, is_ionized,
@@ -90,3 +98,14 @@ def copy_ionized_electrons_numba(
             ion_x, ion_y, ion_z, ion_inv_gamma,
             ion_ux, ion_uy, ion_uz, ion_w,
             ion_Ex, ion_Ey, ion_Ez, ion_Bx, ion_By, ion_Bz )
+
+    return( elec_x, elec_y, elec_z, elec_inv_gamma,
+        elec_ux, elec_uy, elec_uz, elec_w,
+        elec_Ex, elec_Ey, elec_Ez, elec_Bx, elec_By, elec_Bz )
+
+@njit_parallel
+def copy_particle_data_numba( Ntot, old_array, new_array ):
+    # Loop over single particles (in parallel if threading is enabled)
+    for ip in prange( Ntot ):
+        new_array[ip] = old_array[ip]
+    return( new_array )
