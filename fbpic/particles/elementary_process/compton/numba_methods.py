@@ -104,7 +104,7 @@ def scatter_photons_electrons_numba(
     # TODO: so far, this is only copy the photons
     # One should a random additional angle
     """
-    #  Loop over batches of particles (in parallel, if threading is enabled)
+    #  Loop over batches of particles
     for i_batch in range( N_batch ):
         # Photon index: this is incremented each time
         # an scattered photon is identified
@@ -115,7 +115,51 @@ def scatter_photons_electrons_numba(
         elec_index = i_batch*batch_size
         while elec_index < N_max:
             if does_scatter[elec_index] == 1:
-                # Copy the elec data to the current photon_index
+
+                # Put everything in a function?
+
+                # Prepare transformation to the electron rest frame
+                elec_u = 1./math.sqrt(elec_ux**2 + elec_uy**2 + elec_uz**2)
+                elec_inv_u = 1./elec_u
+                elec_gamma = 1./elec_inv_gamma
+                elec_uxhat = elec_inv_u * elec_ux
+                elec_uyhat = elec_inv_u * elec_uy
+                elec_uzhat = elec_inv_u * elec_uz
+
+                # Transform momentum of photon to the electron rest frame
+                photon_p_parallel = elec_uxhat*photon_px + elec_uyhat*photon_py + elec_uzhat*photon_pz
+                photon_rest_p = elec_gamma * photon_p - elec_u * photon_p_parallel
+                photon_rest_p_parallel = elec_gamma * photon_p_parallel - elec_u * photon_p
+                photon_rest_px = photon_px + elec_uxhat*( photon_rest_p_parallel - photon_p_parallel )
+                photon_rest_py = photon_py + elec_uyhat*( photon_rest_p_parallel - photon_p_parallel )
+                photon_rest_pz = photon_pz + elec_uzhat*( photon_rest_p_parallel - photon_p_parallel )
+
+                # Draw scattering angle in the rest frame, from the Klein-Nishina cross-section
+                # (See Ozmutl, E. N. "Sampling of Angular Distribution in Compton Scattering"
+                # Appl. Radiat. Isot. 43, 6, pp. 713-715 (1992)
+                k = photon_rest_p * inv_mc
+                c0 = 2.*(2.*k**2 + 2.*k + 1.)/(2.*k + 1.)**3
+                b = (2. + c0)/(2. - c0)
+                a = 2.*b - 1.
+                # Use rejection method to draw x with the right probability ditribution
+                reject = True
+                while reject:
+                    # - Draw x with an approximate probability distribution
+                    r1 = random.rand()
+                    x = b - (b + 1.)*(0.5*c0)**r1
+                    # - Calculate approximate probability distribution h
+                    h = a/(b-x)
+                    # - Calculate expected (exact) probability distribution f
+                    factor = 1 + k*(1-x)
+                    f = ( (1+x**2)*factor + k**2*(1-x)**2 )/factor**3
+                    # - Keep x according to rejection rule
+                    r2 = random.rand()
+                    if r2 < f/h:
+                        reject = False
+
+
+
+                # Create the new photon by copying the electron data
                 photon_x[photon_index] = elec_x[elec_index]
                 photon_y[photon_index] = elec_y[elec_index]
                 photon_z[photon_index] = elec_z[elec_index]
