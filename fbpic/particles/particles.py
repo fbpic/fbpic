@@ -673,15 +673,24 @@ class Particles(object) :
              Indicates which field to deposit
              Either 'J' or 'rho'
         """
+        # Shortcut for the list of InterpolationGrid objects
+        grid = fld.interp
+
+        # When running on GPU: first sort the arrays of particles
+        if self.use_cuda:
+            # Sort the particles
+            if not self.sorted:
+                self.sort_particles(fld=fld)
+                # The particles are now sorted and rearranged
+                self.sorted = True
+
         # For ionizable atoms: set the effective weight to the weight
-        # times the ionization level
+        # times the ionization level (on GPU, this needs to be done *after*
+        # sorting, otherwise `weight` is not equal to the corresponding array)
         if self.ionizer is not None:
             weight = self.ionizer.w_times_level
         else:
             weight = self.w
-
-        # Shortcut for the list of InterpolationGrid objects
-        grid = fld.interp
 
         # GPU (CUDA) version
         if self.use_cuda:
@@ -690,11 +699,6 @@ class Particles(object) :
                                                     grid[0].Nz*grid[0].Nr )
             dim_grid_2d, dim_block_2d = cuda_tpb_bpg_2d(
                                           grid[0].Nz, grid[0].Nr )
-            # Sort the particles
-            if self.sorted is False:
-                self.sort_particles(fld=fld)
-                # The particles are now sorted and rearranged
-                self.sorted = True
 
             # Call the CUDA Kernel for the deposition of rho or J
             # for Mode 0 and 1 only.
@@ -749,6 +753,7 @@ class Particles(object) :
             else:
                 raise ValueError("`fieldtype` should be either 'J' or \
                                   'rho', but is `%s`" % fieldtype)
+
         # CPU multi-threading version
         elif self.use_threading:
 

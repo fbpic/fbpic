@@ -47,7 +47,7 @@ def extract_slice_from_gpu( pref_sum_curr, N_area, species ):
           species.ionizer.ionization_level, selected_particle_charge )
         selected_particle_weight = cuda.device_array( (N_area,), dtype=np.float64 )
         extract_array_from_gpu[dim_grid_1d, dim_block_1d]( pref_sum_curr,
-          species.ionizer.neutral_weight, selected_particle_weight )
+          species.ionizer.w_times_level, selected_particle_weight )
 
     # Copy GPU arrays to the host
     part_data = part_data.copy_to_host()

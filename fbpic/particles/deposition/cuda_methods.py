@@ -74,11 +74,11 @@ def r_shape_cubic(cell_position, index):
 # -------------------------------
 
 @cuda.jit('void(float64[:], float64[:], float64[:], float64[:], \
-                float64, float64, int32, \
+                float64, float64, float64, int32, \
                 float64, float64, int32, \
                 complex128[:,:], complex128[:,:], \
                 int32[:], int32[:])')
-def deposit_rho_gpu_linear(x, y, z, w, q,
+def deposit_rho_gpu_linear(x, y, z, w, q, 
                            invdz, zmin, Nz,
                            invdr, rmin, Nr,
                            rho_m0, rho_m1,
@@ -251,7 +251,7 @@ def deposit_rho_gpu_linear(x, y, z, w, q,
 # -------------------------------
 
 @cuda.jit('void(float64[:], float64[:], float64[:], float64[:], \
-                float64[:], float64[:], float64[:], float64[:], \
+                float64, float64[:], float64[:], float64[:], float64[:], \
                 float64, float64, int32, \
                 float64, float64, int32, \
                 complex128[:,:], complex128[:,:], \
@@ -532,7 +532,7 @@ def deposit_J_gpu_linear(x, y, z, w, q,
 # -------------------------------
 
 @cuda.jit('void(float64[:], float64[:], float64[:], float64[:], \
-                float64, float64, int32, \
+                float64, float64, float64, int32, \
                 float64, float64, int32, \
                 complex128[:,:], complex128[:,:], \
                 int32[:], int32[:])')
@@ -902,7 +902,7 @@ def deposit_rho_gpu_cubic(x, y, z, w, q,
 # -------------------------------
 
 @cuda.jit('void(float64[:], float64[:], float64[:], float64[:], \
-                float64[:], float64[:], float64[:], float64[:], \
+                float64, float64[:], float64[:], float64[:], float64[:], \
                 float64, float64, int32, \
                 float64, float64, int32, \
                 complex128[:,:], complex128[:,:], \
