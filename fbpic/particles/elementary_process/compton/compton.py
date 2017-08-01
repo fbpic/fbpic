@@ -164,26 +164,22 @@ class ComptonScatterer(object):
             cumulative_n_scatters = cuda.to_device( cumulative_n_scatters )
             scatter_photons_electrons_cuda[ batch_grid_1d, batch_block_1d ](
                 N_batch, self.batch_size, old_Ntot, elec.Ntot,
-                cumulative_n_scatters, does_scatter,
+                cumulative_n_scatters, does_scatter, self.inv_mc,
+                self.photon_p, self.photon_px, self.photon_py, self.photon_pz,
                 photons.x, photons.y, photons.z, photons.inv_gamma,
                 photons.ux, photons.uy, photons.uz, photons.w,
-                photons.Ex, photons.Ey, photons.Ez,
-                photons.Bx, photons.By, photons.Bz,
                 elec.x, elec.y, elec.z, elec.inv_gamma,
-                elec.ux, elec.uy, elec.uz, elec.w,
-                elec.Ex, elec.Ey, elec.Ez, elec.Bx, elec.By, elec.Bz )
+                elec.ux, elec.uy, elec.uz, elec.w )
             photons.sorted = False
         else:
             scatter_photons_electrons_numba(
                 N_batch, self.batch_size, old_Ntot, elec.Ntot,
-                cumulative_n_scatters, does_scatter,
+                cumulative_n_scatters, does_scatter, self.inv_mc,
+                self.photon_p, self.photon_px, self.photon_py, self.photon_pz,
                 photons.x, photons.y, photons.z, photons.inv_gamma,
                 photons.ux, photons.uy, photons.uz, photons.w,
-                photons.Ex, photons.Ey, photons.Ez,
-                photons.Bx, photons.By, photons.Bz,
                 elec.x, elec.y, elec.z, elec.inv_gamma,
-                elec.ux, elec.uy, elec.uz, elec.w,
-                elec.Ex, elec.Ey, elec.Ez, elec.Bx, elec.By, elec.Bz )
+                elec.ux, elec.uy, elec.uz, elec.w )
 
         # If the photons are tracked, generate new ids
         # (on GPU or GPU depending on `use_cuda`)
