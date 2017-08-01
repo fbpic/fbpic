@@ -687,14 +687,14 @@ class Particles(object) :
                     dtype=grid[1].rho.dtype )
                 # Deposit rho using CPU threading
                 if self.particle_shape == 'linear':
-                    deposit_rho_prange_linear(
+                    deposit_rho_numba_linear(
                         self.x, self.y, self.z, weight, self.q,
                         grid[0].invdz, grid[0].zmin, grid[0].Nz,
                         grid[0].invdr, grid[0].rmin, grid[0].Nr,
                         rho_m0_global, rho_m1_global,
                         self.nthreads, ptcl_chunk_indices )
                 elif self.particle_shape == 'cubic':
-                    deposit_rho_prange_cubic(
+                    deposit_rho_numba_cubic(
                         self.x, self.y, self.z, weight, self.q,
                         grid[0].invdz, grid[0].zmin, grid[0].Nz,
                         grid[0].invdr, grid[0].rmin, grid[0].Nr,
@@ -730,7 +730,7 @@ class Particles(object) :
                     dtype=grid[1].Jz.dtype )
                 # Deposit J using CPU threading
                 if self.particle_shape == 'linear':
-                    deposit_J_prange_linear(
+                    deposit_J_numba_linear(
                         self.x, self.y, self.z, weight, self.q,
                         self.ux, self.uy, self.uz, self.inv_gamma,
                         grid[0].invdz, grid[0].zmin, grid[0].Nz,
@@ -740,7 +740,7 @@ class Particles(object) :
                         Jz_m0_global, Jz_m1_global,
                         self.nthreads, ptcl_chunk_indices )
                 elif self.particle_shape == 'cubic':
-                    deposit_J_prange_cubic(
+                    deposit_J_numba_cubic(
                         self.x, self.y, self.z, weight, self.q,
                         self.ux, self.uy, self.uz, self.inv_gamma,
                         grid[0].invdz, grid[0].zmin, grid[0].Nz,

@@ -492,7 +492,7 @@ def deposit_J_numba_linear(x, y, z, w, q,
 # -------------------------------
 
 @njit_parallel
-def deposit_rho_numba_cubic(x, y, z, w,
+def deposit_rho_numba_cubic(x, y, z, w, q,
                           invdz, zmin, Nz,
                           invdr, rmin, Nr,
                           rho_m0_global, rho_m1_global,
@@ -826,7 +826,7 @@ def deposit_rho_numba_cubic(x, y, z, w,
 # -------------------------------
 
 @njit_parallel
-def deposit_J_numba_cubic(x, y, z, w,
+def deposit_J_numba_cubic(x, y, z, w, q,
                         ux, uy, uz, inv_gamma,
                         invdz, zmin, Nz,
                         invdr, rmin, Nr,
