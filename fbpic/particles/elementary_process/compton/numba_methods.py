@@ -7,8 +7,13 @@ It defines numba methods that are used in Compton scattering.
 """
 import numba
 import math, random
-from scipy.constants import c
+from scipy.constants import c, m_e, physical_constants
 from fbpic.threading_utils import njit_parallel, prange
+
+# Get additional useful constants
+r_e = physical_constants['classical electron radius'][0]
+PI_RE_2 = math.pi * r_e**2
+INV_MC = 1./( m_e*c )
 
 @numba.njit
 def lorentz_transform( p_in, px_in, py_in, pz_in, gamma, beta, nx, ny, nz ):
@@ -38,7 +43,7 @@ def lorentz_transform( p_in, px_in, py_in, pz_in, gamma, beta, nx, ny, nz ):
 
 @numba.njit
 def get_scattering_probability(
-    dt, pi_re2, inv_mc, elec_ux, elec_uy, elec_uz, elec_inv_gamma,
+    dt, elec_ux, elec_uy, elec_uz, elec_inv_gamma,
     photon_n, photon_p, photon_beta_x, photon_beta_y, photon_beta_z ):
     """
     # TODO:
@@ -54,10 +59,10 @@ def get_scattering_probability(
     photon_p_rest = photon_p * transform_factor
 
     # Calculate the Klein-Nishina cross-section
-    k = photon_p_rest * inv_mc
+    k = photon_p_rest * INV_MC
     f1 = 2 * ( 2 + k*(1+k)*(8+k) ) / ( k**2 * (1 + 2*k)**2 )
     f2 = ( 2 + k*(2-k) ) * math.log( 1 + 2*k ) / k**3
-    sigma = pi_re2 * ( f1 - f2 )
+    sigma = PI_RE_2 * ( f1 - f2 )
     # Get the electron proper time
     proper_dt_rest = dt * elec_inv_gamma
     # Calculate the probability of scattering
@@ -65,10 +70,48 @@ def get_scattering_probability(
 
     return( p )
 
+@numba.njit
+def get_photon_density_gaussian(
+    elec_x, elec_y, elec_z, ct, photon_n_lab_max, inv_laser_waist2,
+    inv_laser_ctau2, laser_initial_z0, gamma_boost, beta_boost ):
+    """
+    # TODO
+    """
+    # Transform electrons coordinates from simulation frame to lab frame
+    elec_zlab = gamma_boost*( elec_z + beta_boost*ct )
+    elec_ctlab = gamma_boost*( ct + beta_boost*elec_z )
+
+    # Get photon density *in the lab frame*
+    photon_n_lab = photon_n_lab_max * math.exp(
+        - 2*inv_laser_waist2*( elec_x**2 + elec_y**2 ) \
+        - 2*inv_laser_ctau2*(elec_zlab - laser_initial_z0 + elec_ctlab)**2 )
+
+    # Get photon density *in the simulation frame*
+    photon_n_sim = gamma_boost*photon_n_lab*( 1 + beta_boost)
+
+    return( photon_n_sim )
+
+
+@njit_parallel
+def get_photon_density_gaussian_numba( photon_n, elec_Ntot,
+    elec_x, elec_y, elec_z, ct, photon_n_lab_max, inv_laser_waist2,
+    inv_laser_ctau2, laser_initial_z0, gamma_boost, beta_boost ):
+    """
+    # TODO
+    """
+    # Loop over electrons (in parallel, if threading is enabled)
+    for i_elec in prange( elec_Ntot ):
+
+        photon_n[i_elec] = get_photon_density_gaussian(
+            elec_x[i_elec], elec_y[i_elec], elec_z[i_elec], ct,
+            photon_n_lab_max, inv_laser_waist2, inv_laser_ctau2,
+            laser_initial_z0, gamma_boost, beta_boost )
+
+    return( photon_n )
 
 @njit_parallel
 def determine_scatterings_numba( N_batch, batch_size, elec_Ntot,
-    does_scatter, n_scatters, random_draw, dt, pi_re2, inv_mc,
+    does_scatter, n_scatters, random_draw, dt,
     elec_ux, elec_uy, elec_uz, elec_inv_gamma,
     photon_n, photon_p, photon_beta_x, photon_beta_y, photon_beta_z ):
     """
@@ -98,9 +141,9 @@ def determine_scatterings_numba( N_batch, batch_size, elec_Ntot,
         while ip < N_max:
 
             # For each electron, calculate the probability of scattering
-            p = get_scattering_probability( dt, pi_re2, inv_mc,
-                elec_ux[ip], elec_uy[ip], elec_uz[ip], elec_inv_gamma[ip],
-                photon_n, photon_p, photon_beta_x, photon_beta_y, photon_beta_z)
+            p = get_scattering_probability( dt, elec_ux[ip], elec_uy[ip],
+                elec_uz[ip], elec_inv_gamma[ip], photon_n[ip],
+                photon_p, photon_beta_x, photon_beta_y, photon_beta_z )
 
             # Determine whether the electron scatters
             if random_draw[ip] < p:
@@ -120,7 +163,7 @@ def determine_scatterings_numba( N_batch, batch_size, elec_Ntot,
 @numba.njit
 def scatter_photons_electrons_numba(
     N_batch, batch_size, photon_old_Ntot, elec_Ntot,
-    cumulative_n_scatters, does_scatter, inv_mc,
+    cumulative_n_scatters, does_scatter,
     photon_p, photon_px, photon_py, photon_pz,
     photon_x, photon_y, photon_z, photon_inv_gamma,
     photon_ux, photon_uy, photon_uz, photon_w,
@@ -183,7 +226,7 @@ def scatter_photons_electrons_numba(
                 # Klein-Nishina cross-section (See Ozmutl, E. N.
                 # "Sampling of Angular Distribution in Compton Scattering"
                 # Appl. Radiat. Isot. 43, 6, pp. 713-715 (1992))
-                k = photon_rest_p * inv_mc
+                k = photon_rest_p * INV_MC
                 c0 = 2.*(2.*k**2 + 2.*k + 1.)/(2.*k + 1.)**3
                 b = (2. + c0)/(2. - c0)
                 a = 2.*b - 1.

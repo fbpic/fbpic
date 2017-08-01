@@ -330,13 +330,15 @@ class Particles(object) :
         if hasattr( self, 'int_sorting_buffer' ) is False and self.use_cuda:
             self.int_sorting_buffer = np.empty( self.Ntot, dtype=np.uint64 )
 
-    def activate_compton( self, target_species, photon_n,
-                            photon_px, photon_py, photon_pz, boost=None ):
+    def activate_compton( self, target_species, laser_energy, laser_wavelength,
+        laser_waist, laser_ctau, laser_initial_z0, boost=None ):
         """
         # TODO
         """
-        self.compton_scatterer = ComptonScatterer( self, target_species,
-            photon_n, photon_px, photon_py, photon_pz, boost )
+        self.compton_scatterer = ComptonScatterer(
+            self, target_species, laser_energy, laser_wavelength,
+            laser_waist, laser_ctau, laser_initial_z0, boost )
+
 
     def make_ionizable( self, element, target_species,
                         level_start=0, full_initialization=True ):
@@ -381,16 +383,17 @@ class Particles(object) :
             self.int_sorting_buffer = np.empty( self.Ntot, dtype=np.uint64 )
 
 
-    def handle_elementary_processes( self ):
+    def handle_elementary_processes( self, t ):
         """
-        Handle elementary processes for this species (e.g. ionization)
+        Handle elementary processes for this species (e.g. ionization,
+        Compton scattering) at simulation time t.
         """
         # Ionization
         if self.ionizer is not None:
             self.ionizer.handle_ionization( self )
         # Compton scattering
         if self.compton_scatterer is not None:
-            self.compton_scatterer.handle_scattering( self )
+            self.compton_scatterer.handle_scattering( self, t )
 
 
     def rearrange_particle_arrays( self ):
