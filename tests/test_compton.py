@@ -29,7 +29,10 @@ from fbpic.openpmd_diag import ParticleDiagnostic
 # ----------
 use_cuda = True
 
-def run_simulation( gamma_boost ):
+write_hdf5 = False
+show_plots = True
+
+def run_simulation( gamma_boost, show ):
     """
     Run a simulation with a relativistic electron bunch crosses a laser
 
@@ -37,6 +40,8 @@ def run_simulation( gamma_boost ):
     ----------
     gamma_boost: float
         The Lorentz factor of the frame in which the simulation is carried out.
+    show: bool
+        Whether to show a plot of the angular distribution
     """
     # Boosted frame
     boost = BoostConverter(gamma_boost)
@@ -53,7 +58,7 @@ def run_simulation( gamma_boost ):
     Q_bunch = 2080.5031144200598 * 30000 * e
     N_bunch = 300000   # Number of macroparticles
     gamma_bunch_mean = 30.205798028084185
-    gamma_bunch_rms = 0. #0.58182474907848347
+    gamma_bunch_rms = 0.58182474907848347
     bunch_sigma_z = 1.e-6
 
     # The scattering laser (in the lab frame)
@@ -111,8 +116,9 @@ def run_simulation( gamma_boost ):
     print( 'Activated Compton' )
 
     # Add diagnostics
-    sim.diags = [ ParticleDiagnostic( diag_period,
-        species={'electrons': elec, 'photons': photons}, comm=sim.comm ) ]
+    if write_hdf5:
+        sim.diags = [ ParticleDiagnostic( diag_period,
+            species={'electrons': elec, 'photons': photons}, comm=sim.comm ) ]
 
     ### Run the simulation
     for i_step in range( N_step ):
@@ -132,6 +138,13 @@ def run_simulation( gamma_boost ):
             print( 'Iteration %d: Photon fraction per electron = %f' \
                        %(i_step, simulated_frac) )
 
+    # Transform the photon momenta back into the lab frame
+    photon_u = 1./photons.inv_gamma
+    photon_lab_pz = boost.gamma0*( photons.uz + boost.beta0*photon_u )
+    photon_lab_p = boost.gamma0*( photon_u + boost.beta0*photons.uz )
+    photon_lab_px = photons.ux
+    photon_lab_py = photons.uy
+
     # Calculate the expected photon fraction
     # - Total Klein-Nishina cross section in electron rest frame:
     beta_bunch_mean = np.sqrt(1-1./gamma_bunch_mean**2)
@@ -146,22 +159,57 @@ def run_simulation( gamma_boost ):
     energy_per_surface = laser_energy / ( np.pi/2*laser_waist**2 )
     nphoton_per_surface = energy_per_surface / ( h*c/laser_wavelength )
     expected_frac = sigma * nphoton_per_surface
-
     # Automatically check that the obtained fraction is within 10%
     assert abs(simulated_frac-expected_frac) < 0.1*expected_frac
     print( 'Test passed.' )
 
-def test_compton_labframe():
+    # Plot the scaled angle and frequency
+    if show:
+        import matplotlib.pyplot as plt
+        # Bin the photons on a grid in frequency and angle
+        freq_min = 0.5
+        freq_max = 1.2
+        N_freq = 500
+        gammatheta_min = 0.
+        gammatheta_max = 1.
+        N_gammatheta = 100
+        hist_range = [[freq_min, freq_max], [gammatheta_min, gammatheta_max]]
+        extent = [freq_min, freq_max, gammatheta_min, gammatheta_max]
+        fundamental_frequency = 4*gamma_bunch_mean**2*c/laser_wavelength
+        photon_scaled_freq = photon_lab_p*c / (h*fundamental_frequency)
+        gamma_theta = gamma_bunch_mean * np.arccos(photon_lab_pz/photon_lab_p)
+        grid, freq_bins, gammatheta_bins = np.histogram2d(
+            photon_scaled_freq, gamma_theta, weights=photons.w,
+            range=hist_range, bins=[ N_freq, N_gammatheta ] )
+        # Normalize by solid angle, frequency and number of photons
+        dw = (freq_bins[1]-freq_bins[0]) * 2*np.pi * fundamental_frequency
+        dtheta = ( gammatheta_bins[1]-gammatheta_bins[0] )/gamma_bunch_mean
+        domega = 2.*np.pi*np.sin( gammatheta_bins/gamma_bunch_mean )*dtheta
+        grid /= dw * domega[np.newaxis, 1:] * elec.w.sum()
+        grid = np.where( grid==0, np.nan, grid )
+        plt.imshow( grid.T, origin='lower', extent=extent,
+                    cmap='gist_earth', aspect='auto' )
+        plt.title('Particles, $d^2N/d\omega \,d\Omega$')
+        plt.xlabel('Scaled energy ($\omega/4\gamma^2\omega_\ell$)')
+        plt.ylabel(r'$\gamma \theta$' )
+        plt.colorbar()
+        # Plot theory
+        plt.plot( 1./( 1 + gammatheta_bins**2), gammatheta_bins, color='r' )
+        plt.show()
+        plt.clf()
+
+
+def test_compton_labframe( show=False ):
     print('\nTest Compton scattering in lab frame')
     print('------------------------------------')
-    run_simulation(1.)
+    run_simulation(gamma_boost=1., show=show)
 
-def test_compton_boostedframe():
+def test_compton_boostedframe( show=False ):
     print('\nTest Compton scattering in boosted frame')
     print('----------------------------------------')
-    run_simulation(16.6)
+    run_simulation(gamma_boost=16.6, show=show)
 
 # Run the tests
 if __name__ == '__main__':
-    test_compton_labframe()
-    test_compton_boostedframe()
+    test_compton_labframe( show=show_plots )
+    test_compton_boostedframe( show=show_plots )
