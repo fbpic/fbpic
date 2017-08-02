@@ -88,6 +88,7 @@ def run_simulation( gamma_boost ):
     add_elec_bunch_gaussian( sim, sig_r=1.e-6, sig_z=bunch_sigma_z,
         n_emit=0., gamma0=gamma_bunch_mean, sig_gamma=gamma_bunch_rms,
         Q=Q_bunch, N=N_bunch, tf=0.0, zf=0.5*(zmax+zmin), boost=boost )
+    elec = sim.ptcl[0]
     print( 'Initialized electron bunch' )
     # Add a photon species
     photons = Particles( q=0, m=0, n=0, Npz=1, zmin=0, zmax=0,
@@ -101,7 +102,7 @@ def run_simulation( gamma_boost ):
     print( 'Initialized photons' )
 
     # Activate Compton scattering for electrons of the bunch
-    sim.ptcl[0].activate_compton( target_species=photons,
+    elec.activate_compton( target_species=photons,
         laser_energy=laser_energy, laser_wavelength=laser_wavelength,
         laser_waist=laser_waist, laser_ctau=laser_ctau,
         laser_initial_z0=laser_initial_z0, boost=boost )
@@ -109,14 +110,14 @@ def run_simulation( gamma_boost ):
 
     ### Run the simulation
     for i_step in range( N_step ):
-        sim.ptcl[0].halfpush_x()
-        sim.ptcl[0].handle_elementary_processes( sim.time + 0.5*sim.dt )
-        sim.ptcl[0].halfpush_x()
+        elec.halfpush_x()
+        elec.handle_elementary_processes( sim.time + 0.5*sim.dt )
+        elec.halfpush_x()
         sim.time += sim.dt
         sim.iteration += 1
         # Print fraction of photons produced
         if i_step%10 == 0:
-            simulated_frac = sim.ptcl[1].Ntot/sim.ptcl[0].Ntot
+            simulated_frac = photons.w.sum()/elec.w.sum()
             print( 'Iteration %d: Photon fraction per electron = %f' \
                        %(i_step, simulated_frac) )
 
