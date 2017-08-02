@@ -42,8 +42,8 @@ def run_simulation( gamma_boost ):
 
     # The simulation box (in the lab frame)
     Nz = 200         # Number of gridpoints along z
-    zmax = 30.e-6    # Right end of the simulation box (meters)
-    zmin = -10.e-6   # Left end of the simulation box (meters)
+    zmax_lab = 20.e-6    # Right end of the simulation box (meters)
+    zmin_lab = -20.e-6   # Left end of the simulation box (meters)
     Nr = 50          # Number of gridpoints along r
     rmax = 20.e-6    # Length of the box along r (meters)
     Nm = 2           # Number of modes used
@@ -53,6 +53,7 @@ def run_simulation( gamma_boost ):
     N_bunch = 300000   # Number of macroparticles
     gamma_bunch_mean = 30.205798028084185
     gamma_bunch_rms = 0. #0.58182474907848347
+    bunch_sigma_z = 1.e-6
 
     # The scattering laser (in the lab frame)
     laser_energy = 1. # Joule
@@ -65,12 +66,15 @@ def run_simulation( gamma_boost ):
 
     # The simulation timestep
     N_step = 101     # Number of iterations to perform
-    # Calculate timestep
+    # Calculate timestep to resolve the interaction with enough points
     laser_duration_boosted, = boost.copropag_length(
         [laser_duration], beta_object=-1 )
-    dt = 4*laser_duration/N_step
+    bunch_sigma_z_boosted, = boost.copropag_length(
+        [bunch_sigma_z], beta_object=1 )
+    dt = (4*laser_duration_boosted + bunch_sigma_z_boosted/c)/N_step
 
     # Initialize the simulation object
+    zmax, zmin = boost.copropag_length( [zmax_lab, zmin_lab], beta_object=1. )
     sim = Simulation( Nz, zmax, Nr, rmax, Nm, dt,
         p_zmin=0, p_zmax=0, p_rmin=0, p_rmax=0,
         p_nz=1, p_nr=1, p_nt=1, n_e=1,
@@ -78,11 +82,13 @@ def run_simulation( gamma_boost ):
         use_cuda=use_cuda )
     # Remove particles that were previously created
     sim.ptcl = []
+    print( 'Initialized simulation' )
 
     # Add electron bunch (automatically converted to boosted-frame)
-    add_elec_bunch_gaussian( sim, sig_r=1.e-6, sig_z=1.e-6,
+    add_elec_bunch_gaussian( sim, sig_r=1.e-6, sig_z=bunch_sigma_z,
         n_emit=0., gamma0=gamma_bunch_mean, sig_gamma=gamma_bunch_rms,
         Q=Q_bunch, N=N_bunch, tf=0.0, zf=0.5*(zmax+zmin), boost=boost )
+    print( 'Initialized electron bunch' )
     # Add a photon species
     photons = Particles( q=0, m=0, n=0, Npz=1, zmin=0, zmax=0,
                     Npr=1, rmin=0, rmax=0, Nptheta=1, dt=sim.dt,
@@ -90,14 +96,16 @@ def run_simulation( gamma_boost ):
                     ux_th=0., uy_th=0., uz_th=0.,
                     dens_func=None, continuous_injection=False,
                     grid_shape=None, particle_shape='linear',
-                    use_cuda=use_cuda)
+                    use_cuda=sim.use_cuda)
     sim.ptcl.append( photons )
+    print( 'Initialized photons' )
 
     # Activate Compton scattering for electrons of the bunch
     sim.ptcl[0].activate_compton( target_species=photons,
         laser_energy=laser_energy, laser_wavelength=laser_wavelength,
         laser_waist=laser_waist, laser_ctau=laser_ctau,
         laser_initial_z0=laser_initial_z0, boost=boost )
+    print( 'Activated Compton' )
 
     ### Run the simulation
     for i_step in range( N_step ):
@@ -132,12 +140,16 @@ def run_simulation( gamma_boost ):
     print( 'Test passed.' )
 
 def test_compton_labframe():
+    print('\nTest Compton scattering in lab frame')
+    print('------------------------------------')
     run_simulation(1.)
 
-def deactivated_test_compton_boostedframe():
+def test_compton_boostedframe():
+    print('\nTest Compton scattering in boosted frame')
+    print('----------------------------------------')
     run_simulation(16.6)
 
 # Run the tests
 if __name__ == '__main__':
     test_compton_labframe()
-#    test_compton_boostedframe()
+    test_compton_boostedframe()
