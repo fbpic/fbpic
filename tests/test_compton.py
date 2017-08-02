@@ -22,6 +22,7 @@ from fbpic.lpa_utils.boosted_frame import BoostConverter
 from fbpic.main import Simulation
 from fbpic.particles import Particles
 from fbpic.lpa_utils.bunch import add_elec_bunch_gaussian
+from fbpic.openpmd_diag import ParticleDiagnostic
 
 # ----------
 # Parameters
@@ -65,6 +66,7 @@ def run_simulation( gamma_boost ):
     laser_initial_z0 = c*4*laser_duration # meters
 
     # The simulation timestep
+    diag_period = 100
     N_step = 101     # Number of iterations to perform
     # Calculate timestep to resolve the interaction with enough points
     laser_duration_boosted, = boost.copropag_length(
@@ -108,13 +110,22 @@ def run_simulation( gamma_boost ):
         laser_initial_z0=laser_initial_z0, boost=boost )
     print( 'Activated Compton' )
 
+    # Add diagnostics
+    sim.diags = [ ParticleDiagnostic( diag_period,
+        species={'electrons': elec, 'photons': photons}, comm=sim.comm ) ]
+
     ### Run the simulation
     for i_step in range( N_step ):
-        elec.halfpush_x()
+        for species in sim.ptcl:
+            species.halfpush_x()
         elec.handle_elementary_processes( sim.time + 0.5*sim.dt )
-        elec.halfpush_x()
+        for species in sim.ptcl:
+            species.halfpush_x()
+        # Increment time and run diagnostics
         sim.time += sim.dt
         sim.iteration += 1
+        for diag in sim.diags:
+            diag.write( sim.iteration )
         # Print fraction of photons produced
         if i_step%10 == 0:
             simulated_frac = photons.w.sum()/elec.w.sum()

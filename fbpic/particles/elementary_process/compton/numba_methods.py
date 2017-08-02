@@ -187,7 +187,8 @@ def scatter_photons_electrons_numba(
 
                 # Prepare Lorentz transformation to the electron rest frame
                 elec_gamma = 1./elec_inv_gamma[i_elec]
-                elec_u = math.sqrt( elec_gamma**2 - 1. )
+                elec_u = math.sqrt( elec_ux[i_elec]**2 + \
+                                    elec_uy[i_elec]**2 + elec_uz[i_elec]**2 )
                 elec_beta = elec_u * elec_inv_gamma[i_elec]
                 if elec_u != 0:
                     elec_inv_u = 1./elec_u
@@ -250,7 +251,7 @@ def scatter_photons_electrons_numba(
                 # - First in a system of axes aligned with the incoming photon
                 cos_theta_s = x
                 sin_theta_s = math.sqrt( 1 - x**2 )
-                phi_s = random.random()
+                phi_s = 2*math.pi*random.random()
                 cos_phi_s = math.cos( phi_s )
                 sin_phi_s = math.sin( phi_s )
                 new_photon_rest_pX = new_photon_rest_p * sin_theta_s*cos_phi_s
