@@ -170,7 +170,6 @@ def scatter_photons_electrons_numba(
     elec_x, elec_y, elec_z, elec_inv_gamma,
     elec_ux, elec_uy, elec_uz, elec_w ):
     """
-    # TODO: so far, this is only copy the photons
     # One should a random additional angle
     """
     #  Loop over batches of particles
@@ -283,6 +282,8 @@ def scatter_photons_electrons_numba(
                 photon_ux[i_photon] = new_photon_px
                 photon_uy[i_photon] = new_photon_py
                 photon_uz[i_photon] = new_photon_pz
+                # The photon's inv_gamma corresponds to 1./p (consistent
+                # with the code in the openPMD back-transformed diagnostics)
                 photon_inv_gamma[i_photon] = 1./new_photon_p
                 photon_w[i_photon] = elec_w[i_elec]
 

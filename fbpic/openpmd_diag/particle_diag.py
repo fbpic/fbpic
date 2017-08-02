@@ -450,7 +450,8 @@ class ParticleDiagnostic(OpenPMDDiagnostic) :
         quantity_one_proc = quantity_one_proc[ select_array ]
 
         # If this is the momentum, multiply by the proper factor
-        if quantity in ['ux', 'uy', 'uz'] :
+        # (only for species that have a mass)
+        if quantity in ['ux', 'uy', 'uz'] and species.m>0:
             scale_factor = species.m * constants.c
             quantity_one_proc *= scale_factor
 
