@@ -112,7 +112,7 @@ def run_simulation( gamma_boost, show ):
     elec.activate_compton( target_species=photons,
         laser_energy=laser_energy, laser_wavelength=laser_wavelength,
         laser_waist=laser_waist, laser_ctau=laser_ctau,
-        laser_initial_z0=laser_initial_z0, ratio_w_electron_photon=100,
+        laser_initial_z0=laser_initial_z0, ratio_w_electron_photon=50,
         boost=boost )
     print( 'Activated Compton' )
 
@@ -143,8 +143,6 @@ def run_simulation( gamma_boost, show ):
     photon_u = 1./photons.inv_gamma
     photon_lab_pz = boost.gamma0*( photons.uz + boost.beta0*photon_u )
     photon_lab_p = boost.gamma0*( photon_u + boost.beta0*photons.uz )
-    photon_lab_px = photons.ux
-    photon_lab_py = photons.uy
 
     # Calculate the expected photon fraction
     # - Total Klein-Nishina cross section in electron rest frame:
