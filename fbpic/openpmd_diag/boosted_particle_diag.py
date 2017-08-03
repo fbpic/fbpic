@@ -839,8 +839,9 @@ class ParticleCatcher:
         """
         # Normalize momenta
         # (only for species that have a mass)
-        for quantity in ['ux', 'uy', 'uz'] and species.m > 0:
-            slice_data_dict[quantity] *= species.m * c
+        for quantity in ['ux', 'uy', 'uz']:
+            if species.m > 0:
+                slice_data_dict[quantity] *= species.m * c
         # Convert ionizable level (integer) to charge in Coulombs (float)
         if 'charge' in slice_data_dict:
             slice_data_dict['charge'] = slice_data_dict['charge']*e

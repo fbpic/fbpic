@@ -451,10 +451,10 @@ class ParticleDiagnostic(OpenPMDDiagnostic) :
 
         # If this is the momentum, multiply by the proper factor
         # (only for species that have a mass)
-        if quantity in ['ux', 'uy', 'uz'] and species.m>0:
-            scale_factor = species.m * constants.c
-            quantity_one_proc *= scale_factor
-
+        if quantity in ['ux', 'uy', 'uz']:
+            if species.m>0:
+                scale_factor = species.m * constants.c
+                quantity_one_proc *= scale_factor
         if self.comm is not None:
             quantity_all_proc = self.comm.gather_ptcl_array(
                 quantity_one_proc, n_rank, Ntot )
