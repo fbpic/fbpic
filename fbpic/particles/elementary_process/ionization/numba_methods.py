@@ -7,10 +7,16 @@ It defines numba methods that are used in particle ionization.
 
 Apart from synthactic, this file is very close to cuda_methods.py
 """
+import numba
 from scipy.constants import c
 from fbpic.threading_utils import njit_parallel, prange
-from .inline_functions import get_ionization_probability_numba, \
-    get_E_amplitude_numba, copy_ionized_electrons_batch_numba
+# Import inline functions
+from .inline_functions import get_ionization_probability, \
+    get_E_amplitude, copy_ionized_electrons_batch
+# Compile the inline functions for CPU
+get_ionization_probability = numba.njit(get_ionization_probability)
+get_E_amplitude = numba.njit(get_E_amplitude)
+copy_ionized_electrons_batch = numba.njit(copy_ionized_electrons_batch)
 
 @njit_parallel
 def ionize_ions_numba( N_batch, batch_size, Ntot, level_max,
@@ -51,10 +57,10 @@ def ionize_ions_numba( N_batch, batch_size, Ntot, level_max,
             else:
                 # Calculate the amplitude of the electric field,
                 # in the frame of the electrons (device inline function)
-                E, gamma = get_E_amplitude_numba( ux[ip], uy[ip], uz[ip],
+                E, gamma = get_E_amplitude( ux[ip], uy[ip], uz[ip],
                         Ex[ip], Ey[ip], Ez[ip], c*Bx[ip], c*By[ip], c*Bz[ip] )
                 # Get ADK rate (device inline function)
-                p = get_ionization_probability_numba( E, gamma,
+                p = get_ionization_probability( E, gamma,
                   adk_prefactor[level], adk_power[level], adk_exp_prefactor[level])
                 # Ionize particles
                 if random_draw[ip] < p:
@@ -89,7 +95,7 @@ def copy_ionized_electrons_numba(
     """
     #  Loop over batches of particles (in parallel, if threading is enabled)
     for i_batch in prange( N_batch ):
-        copy_ionized_electrons_batch_numba(
+        copy_ionized_electrons_batch(
             i_batch, batch_size, elec_old_Ntot, ion_Ntot,
             cumulative_n_ionized, is_ionized,
             elec_x, elec_y, elec_z, elec_inv_gamma,

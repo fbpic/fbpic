@@ -9,8 +9,16 @@ Apart from synthactic details, this file is very close to numba_methods.py
 """
 from numba import cuda
 from scipy.constants import c
-from .inline_functions import get_ionization_probability_cuda, \
-    get_E_amplitude_cuda, copy_ionized_electrons_batch_cuda
+# Import inline functions
+from .inline_functions import get_ionization_probability, \
+    get_E_amplitude, copy_ionized_electrons_batch
+# Compile the inline functions for GPU
+get_ionization_probability = cuda.jit( get_ionization_probability,
+                                        device=True, inline=True )
+get_E_amplitude = cuda.jit( get_E_amplitude,
+                            device=True, inline=True )
+copy_ionized_electrons_batch = cuda.jit( copy_ionized_electrons_batch,
+                                            device=True, inline=True )
 
 @cuda.jit()
 def ionize_ions_cuda( N_batch, batch_size, Ntot, level_max,
@@ -50,10 +58,10 @@ def ionize_ions_cuda( N_batch, batch_size, Ntot, level_max,
 
             # Calculate the amplitude of the electric field,
             # in the frame of the electrons (device inline function)
-            E, gamma = get_E_amplitude_cuda( ux[ip], uy[ip], uz[ip],
+            E, gamma = get_E_amplitude( ux[ip], uy[ip], uz[ip],
                     Ex[ip], Ey[ip], Ez[ip], c*Bx[ip], c*By[ip], c*Bz[ip] )
             # Get ADK rate (device inline function)
-            p = get_ionization_probability_cuda( E, gamma,
+            p = get_ionization_probability( E, gamma,
               adk_prefactor[level], adk_power[level], adk_exp_prefactor[level])
             # Ionize particles
             if random_draw[ip] < p:
@@ -83,7 +91,7 @@ def copy_ionized_electrons_cuda(
     # Select the current batch
     i_batch = cuda.grid(1)
     if i_batch < N_batch:
-        copy_ionized_electrons_batch_cuda(
+        copy_ionized_electrons_batch(
             i_batch, batch_size, elec_old_Ntot, ion_Ntot,
             cumulative_n_ionized, is_ionized,
             elec_x, elec_y, elec_z, elec_inv_gamma,
