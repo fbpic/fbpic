@@ -14,10 +14,9 @@ from ..cuda_numba_utils import allocate_empty, reallocate_and_copy_old, \
 # Check if CUDA is available, then import CUDA functions
 from fbpic.cuda_utils import cuda_installed
 if cuda_installed:
-    from accelerate.cuda.rand import PRNG
     from fbpic.cuda_utils import cuda_tpb_bpg_1d
-    from .cuda_methods import determine_scatterings_cuda, \
-                            scatter_photons_electrons_cuda
+    from .cuda_methods import get_photon_density_gaussian_cuda, \
+        determine_scatterings_cuda, scatter_photons_electrons_cuda
 
 class ComptonScatterer(object):
     """
@@ -93,9 +92,6 @@ class ComptonScatterer(object):
         # Register a few other parameters
         self.batch_size = 10
         self.use_cuda = source_species.use_cuda
-        # Prepare random number generator
-        if self.use_cuda:
-            self.prng = PRNG()
 
     def handle_scattering( self, elec, t ):
         """
@@ -132,7 +128,11 @@ class ComptonScatterer(object):
         # For each electron, calculate the local density of photons
         # *in the frame of the simulation*
         if use_cuda:
-            raise
+            bpg, tpg = cuda_tpb_bpg_1d( elec.Ntot )
+            get_photon_density_gaussian_cuda[ bpg, tpg ]( photon_n, elec.Ntot,
+                elec.x, elec.y, elec.z, c*t, self.photon_n_lab_peak,
+                self.inv_laser_waist2, self.inv_laser_ctau2,
+                self.laser_initial_z0, self.gamma_boost, self.beta_boost  )
         else:
             get_photon_density_gaussian_numba( photon_n, elec.Ntot,
                 elec.x, elec.y, elec.z, c*t, self.photon_n_lab_peak,
