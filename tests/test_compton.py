@@ -24,13 +24,42 @@ from fbpic.particles import Particles
 from fbpic.lpa_utils.bunch import add_elec_bunch_gaussian
 from fbpic.openpmd_diag import ParticleDiagnostic
 
-# ----------
-# Parameters
-# ----------
+# ----------------------
+# Parameters of the test
+# ----------------------
 use_cuda = True
 
 write_hdf5 = False
 show_plots = True
+
+# -------------------------------
+# Parameters of the configuration
+# -------------------------------
+
+
+# The simulation box (in the lab frame)
+Nz = 200         # Number of gridpoints along z
+zmax_lab = 20.e-6    # Right end of the simulation box (meters)
+zmin_lab = -20.e-6   # Left end of the simulation box (meters)
+Nr = 50          # Number of gridpoints along r
+rmax = 20.e-6    # Length of the box along r (meters)
+Nm = 2           # Number of modes used
+
+# The electron bunch (in the lab frame)
+Q_bunch = 2080.5031144200598 * 30000 * e
+N_bunch = 300000   # Number of macroparticles
+gamma_bunch_mean = 30.205798028084185
+gamma_bunch_rms = 0.58182474907848347
+bunch_sigma_z = 1.e-6
+
+# The scattering laser (in the lab frame)
+laser_energy = 1. # Joule
+laser_radius = 33.e-6 # meters
+laser_duration = 2.e-12 # seconds
+laser_waist = laser_radius * (2.)**.5
+laser_ctau = c*laser_duration
+laser_wavelength = h*c/e # Corresponds to 1 eV photons
+laser_initial_z0 = c*4*laser_duration # meters
 
 def run_simulation( gamma_boost, show ):
     """
@@ -45,30 +74,6 @@ def run_simulation( gamma_boost, show ):
     """
     # Boosted frame
     boost = BoostConverter(gamma_boost)
-
-    # The simulation box (in the lab frame)
-    Nz = 200         # Number of gridpoints along z
-    zmax_lab = 20.e-6    # Right end of the simulation box (meters)
-    zmin_lab = -20.e-6   # Left end of the simulation box (meters)
-    Nr = 50          # Number of gridpoints along r
-    rmax = 20.e-6    # Length of the box along r (meters)
-    Nm = 2           # Number of modes used
-
-    # The electron bunch (in the lab frame)
-    Q_bunch = 2080.5031144200598 * 30000 * e
-    N_bunch = 300000   # Number of macroparticles
-    gamma_bunch_mean = 30.205798028084185
-    gamma_bunch_rms = 0.58182474907848347
-    bunch_sigma_z = 1.e-6
-
-    # The scattering laser (in the lab frame)
-    laser_energy = 1. # Joule
-    laser_radius = 33.e-6 # meters
-    laser_duration = 2.e-12 # seconds
-    laser_waist = laser_radius * (2.)**.5
-    laser_ctau = c*laser_duration
-    laser_wavelength = h*c/e # Corresponds to 1 eV photons
-    laser_initial_z0 = c*4*laser_duration # meters
 
     # The simulation timestep
     diag_period = 100
@@ -121,6 +126,11 @@ def run_simulation( gamma_boost, show ):
         sim.diags = [ ParticleDiagnostic( diag_period,
             species={'electrons': elec, 'photons': photons}, comm=sim.comm ) ]
 
+    # Get initial total momentum
+    initial_total_elec_px = (elec.w*elec.ux).sum() * m_e * c
+    initial_total_elec_py = (elec.w*elec.uy).sum() * m_e * c
+    initial_total_elec_pz = (elec.w*elec.uz).sum() * m_e * c
+
     ### Run the simulation
     for i_step in range( N_step ):
         for species in sim.ptcl:
@@ -139,28 +149,16 @@ def run_simulation( gamma_boost, show ):
             print( 'Iteration %d: Photon fraction per electron = %f' \
                        %(i_step, simulated_frac) )
 
+    # Check estimation of photon fraction
+    check_photon_fraction( simulated_frac )
+    # Check conservation of momentum
+    check_momentum_conservation( photons, elec,
+        initial_total_elec_px, initial_total_elec_py, initial_total_elec_pz )
+
     # Transform the photon momenta back into the lab frame
     photon_u = 1./photons.inv_gamma
     photon_lab_pz = boost.gamma0*( photons.uz + boost.beta0*photon_u )
     photon_lab_p = boost.gamma0*( photon_u + boost.beta0*photons.uz )
-
-    # Calculate the expected photon fraction
-    # - Total Klein-Nishina cross section in electron rest frame:
-    beta_bunch_mean = np.sqrt(1-1./gamma_bunch_mean**2)
-    photon_p_rest = gamma_bunch_mean*(1+beta_bunch_mean)*h/laser_wavelength
-    k = photon_p_rest / (m_e*c)
-    # For low k, the Klein-Nishina cross-section is essentially the
-    # Compton cross-section
-    assert (k<1.e-3)
-    r_e = 1./(4*np.pi*epsilon_0) * e**2/(m_e*c**2)
-    sigma = 8./3 * np.pi*r_e**2
-    # - Total number of photons that go through this cross-section
-    energy_per_surface = laser_energy / ( np.pi/2*laser_waist**2 )
-    nphoton_per_surface = energy_per_surface / ( h*c/laser_wavelength )
-    expected_frac = sigma * nphoton_per_surface
-    # Automatically check that the obtained fraction is within 10%
-    assert abs(simulated_frac-expected_frac) < 0.1*expected_frac
-    print( 'Test passed.' )
 
     # Plot the scaled angle and frequency
     if show:
@@ -196,6 +194,47 @@ def run_simulation( gamma_boost, show ):
         plt.plot( 1./( 1 + gammatheta_bins**2), gammatheta_bins, color='r' )
         plt.show()
         plt.clf()
+
+
+def check_momentum_conservation( photons, elec, px_init, py_init, pz_init ):
+    """Check conservation of momentum, i.e. that the current momentum of 
+    the electrons + the change in momentum of the photons is equal 
+    to the initial momentum of the electrons"""
+    
+    elec_px = (elec.w*elec.ux).sum() * m_e * c
+    elec_py = (elec.w*elec.uy).sum() * m_e * c
+    elec_pz = (elec.w*elec.uz).sum() * m_e * c
+
+    photons_delta_px = (photons.w*photons.ux).sum()
+    photons_delta_py = (photons.w*photons.uy).sum()
+    photons_delta_pz = (photons.w*(photons.uz+h/laser_wavelength)).sum()
+
+    assert np.allclose( elec_px + photons_delta_px, px_init )
+    assert np.allclose( elec_py + photons_delta_py, py_init )
+    assert np.allclose( elec_pz + photons_delta_pz, pz_init )
+
+
+def check_photon_fraction( simulated_frac ):
+    """Check that the photon fraction is close (within 10%) to 
+    the esimate, based on the Klein-Nishina formula"""
+    # Calculate the expected photon fraction
+    # - Total Klein-Nishina cross section in electron rest frame:
+    beta_bunch_mean = np.sqrt(1-1./gamma_bunch_mean**2)
+    photon_p_rest = gamma_bunch_mean*(1+beta_bunch_mean)*h/laser_wavelength
+    k = photon_p_rest / (m_e*c)
+    # For low k, the Klein-Nishina cross-section is essentially the
+    # Compton cross-section
+    assert (k<1.e-3)
+    r_e = 1./(4*np.pi*epsilon_0) * e**2/(m_e*c**2)
+    sigma = 8./3 * np.pi*r_e**2
+    # - Total number of photons that go through this cross-section
+    energy_per_surface = laser_energy / ( np.pi/2*laser_waist**2 )
+    nphoton_per_surface = energy_per_surface / ( h*c/laser_wavelength )
+    expected_frac = sigma * nphoton_per_surface
+    # Automatically check that the obtained fraction is within 10%
+    assert abs(simulated_frac-expected_frac) < 0.1*expected_frac
+    print( 'Test passed.' )
+
 
 
 def test_compton_labframe( show=False ):
