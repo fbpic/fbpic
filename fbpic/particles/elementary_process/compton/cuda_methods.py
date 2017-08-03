@@ -3,40 +3,39 @@
 # License: 3-Clause-BSD-LBNL
 """
 This file is part of the Fourier-Bessel Particle-In-Cell code (FB-PIC)
-It defines numba methods that are used in Compton scattering (on CPU).
+It defines cuda methods that are used in Compton scattering (on GPU).
 """
-import numba
-import math, random
-from fbpic.threading_utils import njit_parallel, prange
+import math
+from numba import cuda
+from numba.cuda.random import xoroshiro128p_uniform_float64
 # Import the inline functions
 from .inline_functions import lorentz_transform, get_scattering_probability, \
     get_photon_density_gaussian, INV_MC
-# Compile the inline functions for CPU
-lorentz_transform = numba.njit( lorentz_transform )
-get_scattering_probability = numba.njit( get_scattering_probability )
-get_photon_density_gaussian = numba.njit( get_photon_density_gaussian )
+# Compile the inline functions for GPU
+lorentz_transform = cuda.jit( lorentz_transform )
+get_scattering_probability = cuda.jit( get_scattering_probability )
+get_photon_density_gaussian = cuda.jit( get_photon_density_gaussian )
 
-@njit_parallel
+@cuda.jit
 def get_photon_density_gaussian_numba( photon_n, elec_Ntot,
     elec_x, elec_y, elec_z, ct, photon_n_lab_max, inv_laser_waist2,
     inv_laser_ctau2, laser_initial_z0, gamma_boost, beta_boost ):
     """
     # TODO
     """
-    # Loop over electrons (in parallel, if threading is enabled)
-    for i_elec in prange( elec_Ntot ):
+    # Loop over electrons
+    i_elec = cuda.grid(1)
+    if i_elec < elec_Ntot:
 
         photon_n[i_elec] = get_photon_density_gaussian(
             elec_x[i_elec], elec_y[i_elec], elec_z[i_elec], ct,
             photon_n_lab_max, inv_laser_waist2, inv_laser_ctau2,
             laser_initial_z0, gamma_boost, beta_boost )
 
-    return( photon_n )
 
-
-@njit_parallel
+@cuda.jit
 def determine_scatterings_numba( N_batch, batch_size, elec_Ntot,
-    nscatter_per_elec, nscatter_per_batch, random_draw, dt,
+    nscatter_per_elec, nscatter_per_batch, random_states, dt,
     elec_ux, elec_uy, elec_uz, elec_inv_gamma, ratio_w_electron_photon,
     photon_n, photon_p, photon_beta_x, photon_beta_y, photon_beta_z ):
     """
@@ -50,10 +49,10 @@ def determine_scatterings_numba( N_batch, batch_size, elec_Ntot,
     the total number of ionized particles in the current batch.
 
     # TODO: Parameters
-
     """
-    # Loop over batches of particles (in parallel, if threading is enabled)
-    for i_batch in prange( N_batch ):
+    # Loop over batches of particles
+    i_batch = cuda.grid(1)
+    if i_batch < N_batch:
 
         # Set the count of scattered particles in the batch to 0
         nscatter_per_batch[i_batch] = 0
@@ -74,9 +73,10 @@ def determine_scatterings_numba( N_batch, batch_size, elec_Ntot,
                 photon_p, photon_beta_x, photon_beta_y, photon_beta_z )
 
             # Determine the number of photons produced by this electron
-            nscatter = int(p * ratio_w_electron_photon + random_draw[ip])
+            r = xoroshiro128p_uniform_float64(random_states, i_batch)
+            nscatter = int(p * ratio_w_electron_photon + r)
             # Note: if p is 0, the above formula will return nscatter=0
-            # since random_draw is in [0, 1). Similarly, if p is very small,
+            # since r is in [0, 1). Similarly, if p is very small,
             # nscatter will be 1 with probabiliy p * ratio_w_electron_photon,
             # and 0 otherwise.
             nscatter_per_elec[ip] = nscatter
@@ -85,15 +85,11 @@ def determine_scatterings_numba( N_batch, batch_size, elec_Ntot,
             # Increment ip
             ip = ip + 1
 
-    return( nscatter_per_elec, nscatter_per_batch )
 
-
-# Note: This routine is necessarily serial on CPU, since there is
-# no available thread-safe implementation of on-the-fly random generator.
-@numba.njit
+@cuda.jit
 def scatter_photons_electrons_numba(
     N_batch, batch_size, photon_old_Ntot, elec_Ntot,
-    cumul_nscatter_per_batch, nscatter_per_elec,
+    cumul_nscatter_per_batch, nscatter_per_elec, random_states,
     photon_p, photon_px, photon_py, photon_pz,
     photon_x, photon_y, photon_z, photon_inv_gamma,
     photon_ux, photon_uy, photon_uz, photon_w,
@@ -102,8 +98,9 @@ def scatter_photons_electrons_numba(
     """
     # One should a random additional angle
     """
-    #  Loop over batches of particles
-    for i_batch in range( N_batch ):
+    # Loop over batches of particles
+    i_batch = cuda.grid(1)
+    if i_batch < N_batch:
 
         # Photon index: this is incremented each time
         # a scattered photon is identified
@@ -175,7 +172,7 @@ def scatter_photons_electrons_numba(
                 reject = True
                 while reject:
                     # - Draw x with an approximate probability distribution
-                    r1 = random.random()
+                    r1 = xoroshiro128p_uniform_float64(random_states, i_batch)
                     x = b - (b + 1.)*(0.5*c0)**r1
                     # - Calculate approximate probability distribution h
                     h = a/(b-x)
@@ -183,7 +180,7 @@ def scatter_photons_electrons_numba(
                     factor = 1 + k*(1-x)
                     f = ( (1+x**2)*factor + k**2*(1-x)**2 )/factor**3
                     # - Keep x according to rejection rule
-                    r2 = random.random()
+                    r2 = xoroshiro128p_uniform_float64(random_states, i_batch)
                     if r2 < f/h:
                         reject = False
 
@@ -192,7 +189,8 @@ def scatter_photons_electrons_numba(
                 # - First in a system of axes aligned with the incoming photon
                 cos_theta_s = x
                 sin_theta_s = math.sqrt( 1 - x**2 )
-                phi_s = 2*math.pi*random.random()
+                r3 = xoroshiro128p_uniform_float64(random_states, i_batch)
+                phi_s = 2*math.pi*r3
                 cos_phi_s = math.cos( phi_s )
                 sin_phi_s = math.sin( phi_s )
                 new_photon_rest_pX = new_photon_rest_p * sin_theta_s*cos_phi_s

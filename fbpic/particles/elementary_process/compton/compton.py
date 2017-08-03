@@ -15,6 +15,7 @@ from ..cuda_numba_utils import allocate_empty, reallocate_and_copy_old, \
 from fbpic.cuda_utils import cuda_installed
 if cuda_installed:
     from fbpic.cuda_utils import cuda_tpb_bpg_1d
+    from numba.cuda.random import create_xoroshiro128p_states
     from .cuda_methods import get_photon_density_gaussian_cuda, \
         determine_scatterings_cuda, scatter_photons_electrons_cuda
 
@@ -118,10 +119,10 @@ class ComptonScatterer(object):
         nscatter_per_batch = allocate_empty(N_batch, use_cuda, dtype=np.int64)
         nscatter_per_elec = allocate_empty(elec.Ntot, use_cuda, dtype=np.int64)
         photon_n = allocate_empty(elec.Ntot, use_cuda, dtype=np.float64)
-        # Draw random numbers
+        # Prepare random numbers
         if self.use_cuda:
-            random_draw = allocate_empty(elec.Ntot, use_cuda, dtype=np.float64)
-            self.prng.uniform( random_draw )
+            seed = np.random.randint( 256 )
+            random_states = create_xoroshiro128p_states( N_batch, seed )
         else:
             random_draw = np.random.rand( elec.Ntot )
 
@@ -145,7 +146,7 @@ class ComptonScatterer(object):
             batch_grid_1d, batch_block_1d = cuda_tpb_bpg_1d( N_batch )
             determine_scatterings_cuda[ batch_grid_1d, batch_block_1d ](
                 N_batch, self.batch_size, elec.Ntot,
-                nscatter_per_elec, nscatter_per_batch, random_draw,
+                nscatter_per_elec, nscatter_per_batch, random_states,
                 elec.dt, elec.ux, elec.uy, elec.uz, elec.inv_gamma,
                 self.ratio_w_electron_photon, photon_n, self.photon_p,
                 self.photon_beta_x, self.photon_beta_y, self.photon_beta_z )
@@ -174,13 +175,13 @@ class ComptonScatterer(object):
         new_Ntot = old_Ntot + cumul_nscatter_per_batch[-1]
         reallocate_and_copy_old( photons, use_cuda, old_Ntot, new_Ntot )
 
-        # Create the new photons from ionization (with a random angle)
-        # and add recoil momentum to the electrons
+        # Create the new photons from ionization (with a random
+        # scattering angle) and add recoil momentum to the electrons
         if use_cuda:
             cumul_nscatter_per_batch = cuda.to_device(cumul_nscatter_per_batch)
             scatter_photons_electrons_cuda[ batch_grid_1d, batch_block_1d ](
                 N_batch, self.batch_size, old_Ntot, elec.Ntot,
-                cumul_nscatter_per_batch, nscatter_per_elec,
+                cumul_nscatter_per_batch, nscatter_per_elec, random_states,
                 self.photon_p, self.photon_px, self.photon_py, self.photon_pz,
                 photons.x, photons.y, photons.z, photons.inv_gamma,
                 photons.ux, photons.uy, photons.uz, photons.w,
