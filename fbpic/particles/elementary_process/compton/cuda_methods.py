@@ -19,7 +19,7 @@ get_photon_density_gaussian = cuda.jit( get_photon_density_gaussian,
                                             device=True, inline=True )
 
 @cuda.jit
-def get_photon_density_gaussian_numba( photon_n, elec_Ntot,
+def get_photon_density_gaussian_cuda( photon_n, elec_Ntot,
     elec_x, elec_y, elec_z, ct, photon_n_lab_max, inv_laser_waist2,
     inv_laser_ctau2, laser_initial_z0, gamma_boost, beta_boost ):
     """
@@ -36,7 +36,7 @@ def get_photon_density_gaussian_numba( photon_n, elec_Ntot,
 
 
 @cuda.jit
-def determine_scatterings_numba( N_batch, batch_size, elec_Ntot,
+def determine_scatterings_cuda( N_batch, batch_size, elec_Ntot,
     nscatter_per_elec, nscatter_per_batch, random_states, dt,
     elec_ux, elec_uy, elec_uz, elec_inv_gamma, ratio_w_electron_photon,
     photon_n, photon_p, photon_beta_x, photon_beta_y, photon_beta_z ):
@@ -89,7 +89,7 @@ def determine_scatterings_numba( N_batch, batch_size, elec_Ntot,
 
 
 @cuda.jit
-def scatter_photons_electrons_numba(
+def scatter_photons_electrons_cuda(
     N_batch, batch_size, photon_old_Ntot, elec_Ntot,
     cumul_nscatter_per_batch, nscatter_per_elec, random_states,
     photon_p, photon_px, photon_py, photon_pz,

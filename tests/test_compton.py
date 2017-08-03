@@ -108,7 +108,8 @@ def run_simulation( gamma_boost, show ):
                     ux_m=0., uy_m=0., uz_m=0.,
                     ux_th=0., uy_th=0., uz_th=0.,
                     dens_func=None, continuous_injection=False,
-                    grid_shape=None, particle_shape='linear',
+                    grid_shape=sim.fld.interp[0].Ez.shape, 
+                    particle_shape='linear',
                     use_cuda=sim.use_cuda)
     sim.ptcl.append( photons )
     print( 'Initialized photons' )
@@ -132,6 +133,9 @@ def run_simulation( gamma_boost, show ):
     initial_total_elec_pz = (elec.w*elec.uz).sum() * m_e * c
 
     ### Run the simulation
+    for species in sim.ptcl:
+        species.send_particles_to_gpu()
+
     for i_step in range( N_step ):
         for species in sim.ptcl:
             species.halfpush_x()
@@ -145,9 +149,17 @@ def run_simulation( gamma_boost, show ):
             diag.write( sim.iteration )
         # Print fraction of photons produced
         if i_step%10 == 0:
+            for species in sim.ptcl:
+                species.receive_particles_from_gpu()
             simulated_frac = photons.w.sum()/elec.w.sum()
+            for species in sim.ptcl:
+                species.send_particles_to_gpu()
             print( 'Iteration %d: Photon fraction per electron = %f' \
                        %(i_step, simulated_frac) )
+
+    for species in sim.ptcl:
+        species.receive_particles_from_gpu()
+
 
     # Check estimation of photon fraction
     check_photon_fraction( simulated_frac )
