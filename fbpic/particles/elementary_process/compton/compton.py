@@ -123,8 +123,7 @@ class ComptonScatterer(object):
         if self.use_cuda:
             seed = np.random.randint( 256 )
             random_states = create_xoroshiro128p_states( N_batch, seed )
-        else:
-            random_draw = np.random.rand( elec.Ntot )
+
 
         # For each electron, calculate the local density of photons
         # *in the frame of the simulation*
@@ -153,7 +152,7 @@ class ComptonScatterer(object):
         else:
             determine_scatterings_numba(
                 N_batch, self.batch_size, elec.Ntot,
-                nscatter_per_elec, nscatter_per_batch, random_draw,
+                nscatter_per_elec, nscatter_per_batch,
                 elec.dt, elec.ux, elec.uy, elec.uz, elec.inv_gamma,
                 self.ratio_w_electron_photon, photon_n, self.photon_p,
                 self.photon_beta_x, self.photon_beta_y, self.photon_beta_z )

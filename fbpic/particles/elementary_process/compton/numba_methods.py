@@ -36,12 +36,16 @@ def get_photon_density_gaussian_numba( photon_n, elec_Ntot,
 
 @njit_parallel
 def determine_scatterings_numba( N_batch, batch_size, elec_Ntot,
-    nscatter_per_elec, nscatter_per_batch, random_draw, dt,
+    nscatter_per_elec, nscatter_per_batch, dt,
     elec_ux, elec_uy, elec_uz, elec_inv_gamma, ratio_w_electron_photon,
     photon_n, photon_p, photon_beta_x, photon_beta_y, photon_beta_z ):
     """
     For each electron macroparticle, decide whether it is going to
     scatter, using the integrated Klein-Nishina formula.
+
+    Note: this function uses a random generator within a `prange` loop.
+    This implies that an indenpendent seed and random generator will be
+    created for each thread.
 
     # TODO: Modify description below
     For the purpose of counting and creating the corresponding electrons,
@@ -74,7 +78,7 @@ def determine_scatterings_numba( N_batch, batch_size, elec_Ntot,
                 photon_p, photon_beta_x, photon_beta_y, photon_beta_z )
 
             # Determine the number of photons produced by this electron
-            nscatter = int(p * ratio_w_electron_photon + random_draw[ip])
+            nscatter = int( p * ratio_w_electron_photon + random.random() )
             # Note: if p is 0, the above formula will return nscatter=0
             # since random_draw is in [0, 1). Similarly, if p is very small,
             # nscatter will be 1 with probabiliy p * ratio_w_electron_photon,
@@ -88,9 +92,7 @@ def determine_scatterings_numba( N_batch, batch_size, elec_Ntot,
     return( nscatter_per_elec, nscatter_per_batch )
 
 
-# Note: This routine is necessarily serial on CPU, since there is
-# no available thread-safe implementation of on-the-fly random generator.
-@numba.njit
+@njit_parallel
 def scatter_photons_electrons_numba(
     N_batch, batch_size, photon_old_Ntot, elec_Ntot,
     cumul_nscatter_per_batch, nscatter_per_elec,
@@ -100,7 +102,12 @@ def scatter_photons_electrons_numba(
     elec_x, elec_y, elec_z, elec_inv_gamma,
     elec_ux, elec_uy, elec_uz, elec_w, inv_ratio_w_elec_photon ):
     """
-    # One should a random additional angle
+    Note: this function uses a random generator within a `prange` loop.
+    This implies that an indenpendent seed and random generator will be
+    created for each thread.
+
+    #TODO: write docstring
+
     """
     #  Loop over batches of particles
     for i_batch in range( N_batch ):
