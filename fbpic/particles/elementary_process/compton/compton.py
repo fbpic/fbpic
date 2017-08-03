@@ -30,7 +30,8 @@ class ComptonScatterer(object):
     # Reference Dave Grote
     """
     def __init__( self, source_species, target_species, laser_energy,
-        laser_wavelength, laser_waist, laser_ctau, laser_initial_z0, boost ):
+        laser_wavelength, laser_waist, laser_ctau, laser_initial_z0,
+        ratio_w_electron_photon, boost ):
         """
         Initialize a ComptonScatterer:
         Scattering on a uniform, monoenergetic, unidirectional flux of photons.
@@ -49,6 +50,8 @@ class ComptonScatterer(object):
         # Register the photons species
         assert target_species.q == 0
         self.target_species = target_species
+        self.ratio_w_electron_photon = ratio_w_electron_photon
+        self.inv_ratio_w_elec_photon = 1./ratio_w_electron_photon
 
         # Register parameters of the simulation boosted-frame
         if boost is not None:
@@ -116,9 +119,9 @@ class ComptonScatterer(object):
         use_cuda = self.use_cuda
 
         # Create temporary arrays (on CPU or GPU, depending on `use_cuda`)
-        does_scatter = allocate_empty( elec.Ntot, use_cuda, dtype=np.int16 )
-        photon_n = allocate_empty( elec.Ntot, use_cuda, dtype=np.float64 )
-        n_scatters = allocate_empty( N_batch, use_cuda, dtype=np.int64 )
+        nscatter_per_batch = allocate_empty(N_batch, use_cuda, dtype=np.int64)
+        nscatter_per_elec = allocate_empty(elec.Ntot, use_cuda, dtype=np.int64)
+        photon_n = allocate_empty(elec.Ntot, use_cuda, dtype=np.float64)
         # Draw random numbers
         if self.use_cuda:
             random_draw = allocate_empty(elec.Ntot, use_cuda, dtype=np.float64)
@@ -142,25 +145,25 @@ class ComptonScatterer(object):
             batch_grid_1d, batch_block_1d = cuda_tpb_bpg_1d( N_batch )
             determine_scatterings_cuda[ batch_grid_1d, batch_block_1d ](
                 N_batch, self.batch_size, elec.Ntot,
-                does_scatter, n_scatters, random_draw,
+                nscatter_per_elec, nscatter_per_batch, random_draw,
                 elec.dt, elec.ux, elec.uy, elec.uz, elec.inv_gamma,
-                photon_n, self.photon_p, self.photon_beta_x,
-                self.photon_beta_y, self.photon_beta_z )
+                self.ratio_w_electron_photon, photon_n, self.photon_p,
+                self.photon_beta_x, self.photon_beta_y, self.photon_beta_z )
         else:
             determine_scatterings_numba(
                 N_batch, self.batch_size, elec.Ntot,
-                does_scatter, n_scatters, random_draw,
+                nscatter_per_elec, nscatter_per_batch, random_draw,
                 elec.dt, elec.ux, elec.uy, elec.uz, elec.inv_gamma,
-                photon_n, self.photon_p, self.photon_beta_x,
-                self.photon_beta_y, self.photon_beta_z )
+                self.ratio_w_electron_photon, photon_n, self.photon_p,
+                self.photon_beta_x, self.photon_beta_y, self.photon_beta_z )
 
         # Count the total number of new photons (operation always performed
         # on the CPU, as this is typically difficult on the GPU)
         if use_cuda:
-            n_scatters = n_scatters.copy_to_host()
-        cumulative_n_scatters = perform_cumsum( n_scatters )
+            nscatter_per_batch = nscatter_per_batch.copy_to_host()
+        cumul_nscatter_per_batch = perform_cumsum( nscatter_per_batch )
         # If no new particle was created, skip the rest of this function
-        if cumulative_n_scatters[-1] == 0:
+        if cumul_nscatter_per_batch[-1] == 0:
             return
 
         # Reallocate photons species (on CPU or GPU depending on `use_cuda`),
@@ -168,31 +171,31 @@ class ComptonScatterer(object):
         # and copy the old photons to the new arrays
         photons = self.target_species
         old_Ntot = photons.Ntot
-        new_Ntot = old_Ntot + cumulative_n_scatters[-1]
+        new_Ntot = old_Ntot + cumul_nscatter_per_batch[-1]
         reallocate_and_copy_old( photons, use_cuda, old_Ntot, new_Ntot )
 
         # Create the new photons from ionization (with a random angle)
         # and add recoil momentum to the electrons
         if use_cuda:
-            cumulative_n_scatters = cuda.to_device( cumulative_n_scatters )
+            cumul_nscatter_per_batch = cuda.to_device(cumul_nscatter_per_batch)
             scatter_photons_electrons_cuda[ batch_grid_1d, batch_block_1d ](
                 N_batch, self.batch_size, old_Ntot, elec.Ntot,
-                cumulative_n_scatters, does_scatter,
+                cumul_nscatter_per_batch, nscatter_per_elec,
                 self.photon_p, self.photon_px, self.photon_py, self.photon_pz,
                 photons.x, photons.y, photons.z, photons.inv_gamma,
                 photons.ux, photons.uy, photons.uz, photons.w,
-                elec.x, elec.y, elec.z, elec.inv_gamma,
-                elec.ux, elec.uy, elec.uz, elec.w )
+                elec.x, elec.y, elec.z, elec.inv_gamma, elec.ux, elec.uy,
+                elec.uz, elec.w, self.inv_ratio_w_elec_photon )
             photons.sorted = False
         else:
             scatter_photons_electrons_numba(
                 N_batch, self.batch_size, old_Ntot, elec.Ntot,
-                cumulative_n_scatters, does_scatter,
+                cumul_nscatter_per_batch, nscatter_per_elec,
                 self.photon_p, self.photon_px, self.photon_py, self.photon_pz,
                 photons.x, photons.y, photons.z, photons.inv_gamma,
                 photons.ux, photons.uy, photons.uz, photons.w,
-                elec.x, elec.y, elec.z, elec.inv_gamma,
-                elec.ux, elec.uy, elec.uz, elec.w )
+                elec.x, elec.y, elec.z, elec.inv_gamma, elec.ux, elec.uy,
+                elec.uz, elec.w, self.inv_ratio_w_elec_photon )
 
         # If the photons are tracked, generate new ids
         # (on GPU or GPU depending on `use_cuda`)

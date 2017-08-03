@@ -331,13 +331,15 @@ class Particles(object) :
             self.int_sorting_buffer = np.empty( self.Ntot, dtype=np.uint64 )
 
     def activate_compton( self, target_species, laser_energy, laser_wavelength,
-        laser_waist, laser_ctau, laser_initial_z0, boost=None ):
+        laser_waist, laser_ctau, laser_initial_z0, ratio_w_electron_photon=1,
+        boost=None ):
         """
         # TODO
         """
         self.compton_scatterer = ComptonScatterer(
             self, target_species, laser_energy, laser_wavelength,
-            laser_waist, laser_ctau, laser_initial_z0, boost )
+            laser_waist, laser_ctau, laser_initial_z0,
+            ratio_w_electron_photon, boost )
 
 
     def make_ionizable( self, element, target_species,

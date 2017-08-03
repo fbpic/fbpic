@@ -112,7 +112,8 @@ def run_simulation( gamma_boost, show ):
     elec.activate_compton( target_species=photons,
         laser_energy=laser_energy, laser_wavelength=laser_wavelength,
         laser_waist=laser_waist, laser_ctau=laser_ctau,
-        laser_initial_z0=laser_initial_z0, boost=boost )
+        laser_initial_z0=laser_initial_z0, ratio_w_electron_photon=100,
+        boost=boost )
     print( 'Activated Compton' )
 
     # Add diagnostics
@@ -188,7 +189,7 @@ def run_simulation( gamma_boost, show ):
         grid /= dw * domega[np.newaxis, 1:] * elec.w.sum()
         grid = np.where( grid==0, np.nan, grid )
         plt.imshow( grid.T, origin='lower', extent=extent,
-                    cmap='gist_earth', aspect='auto' )
+                    cmap='gist_earth', aspect='auto', vmax=1.8e-16 )
         plt.title('Particles, $d^2N/d\omega \,d\Omega$')
         plt.xlabel('Scaled energy ($\omega/4\gamma^2\omega_\ell$)')
         plt.ylabel(r'$\gamma \theta$' )

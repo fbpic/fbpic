@@ -6,6 +6,7 @@ This file is part of the Fourier-Bessel Particle-In-Cell code (FB-PIC)
 It defines numba methods that are used in Compton scattering.
 """
 import numba
+from numba import int64
 import math, random
 from scipy.constants import c, m_e, physical_constants
 from fbpic.threading_utils import njit_parallel, prange
@@ -111,8 +112,8 @@ def get_photon_density_gaussian_numba( photon_n, elec_Ntot,
 
 @njit_parallel
 def determine_scatterings_numba( N_batch, batch_size, elec_Ntot,
-    does_scatter, n_scatters, random_draw, dt,
-    elec_ux, elec_uy, elec_uz, elec_inv_gamma,
+    nscatter_per_elec, nscatter_per_batch, random_draw, dt,
+    elec_ux, elec_uy, elec_uz, elec_inv_gamma, ratio_w_electron_photon,
     photon_n, photon_p, photon_beta_x, photon_beta_y, photon_beta_z ):
     """
     For each electron macroparticle, decide whether it is going to
@@ -131,7 +132,7 @@ def determine_scatterings_numba( N_batch, batch_size, elec_Ntot,
     for i_batch in prange( N_batch ):
 
         # Set the count of scattered particles in the batch to 0
-        n_scatters[i_batch] = 0
+        nscatter_per_batch[i_batch] = 0
 
         # Loop through the batch
         # (Note: a while loop is used here, because numba 0.34 does
@@ -140,35 +141,39 @@ def determine_scatterings_numba( N_batch, batch_size, elec_Ntot,
         ip = i_batch*batch_size
         while ip < N_max:
 
+            # Set the count of scattered photons for this electron to 0
+            nscatter_per_elec[ip] = 0
+
             # For each electron, calculate the probability of scattering
             p = get_scattering_probability( dt, elec_ux[ip], elec_uy[ip],
                 elec_uz[ip], elec_inv_gamma[ip], photon_n[ip],
                 photon_p, photon_beta_x, photon_beta_y, photon_beta_z )
 
-            # Determine whether the electron scatters
-            if random_draw[ip] < p:
-                # Set the corresponding flag and update particle count
-                does_scatter[ip] = 1
-                n_scatters[i_batch] += 1
-            else:
-                does_scatter[ip] = 0
+            # Determine the number of photons produced by this electron
+            nscatter = int64(p * ratio_w_electron_photon + random_draw[ip])
+            # Note: if p is 0, the above formula will return nscatter=0
+            # since random_draw is in [0, 1). Similarly, if p is very small,
+            # nscatter will be 1 with probabiliy p * ratio_w_electron_photon,
+            # and 0 otherwise.
+            nscatter_per_elec[ip] = nscatter
+            nscatter_per_batch[i_batch] += nscatter
 
             # Increment ip
             ip = ip + 1
 
-    return( does_scatter, n_scatters )
+    return( nscatter_per_elec, nscatter_per_batch )
 
 # Note: This routine is necessarily serial on CPU, since there is
 # no available thread-safe implementation of on-the-fly random generator.
 @numba.njit
 def scatter_photons_electrons_numba(
     N_batch, batch_size, photon_old_Ntot, elec_Ntot,
-    cumulative_n_scatters, does_scatter,
+    cumul_nscatter_per_batch, nscatter_per_elec,
     photon_p, photon_px, photon_py, photon_pz,
     photon_x, photon_y, photon_z, photon_inv_gamma,
     photon_ux, photon_uy, photon_uz, photon_w,
     elec_x, elec_y, elec_z, elec_inv_gamma,
-    elec_ux, elec_uy, elec_uz, elec_w ):
+    elec_ux, elec_uy, elec_uz, elec_w, inv_ratio_w_elec_photon ):
     """
     # One should a random additional angle
     """
@@ -177,18 +182,19 @@ def scatter_photons_electrons_numba(
 
         # Photon index: this is incremented each time
         # a scattered photon is identified
-        i_photon = photon_old_Ntot + cumulative_n_scatters[i_batch]
+        i_photon = photon_old_Ntot + cumul_nscatter_per_batch[i_batch]
 
         # Loop through the electrons in this batch
         N_max = min( (i_batch+1)*batch_size, elec_Ntot )
         for i_elec in range( i_batch*batch_size, N_max ):
 
-            if does_scatter[i_elec] == 1:
+            # Prepare calculation of scattered photons
+            if nscatter_per_elec[i_elec] > 0:
 
                 # Prepare Lorentz transformation to the electron rest frame
                 elec_gamma = 1./elec_inv_gamma[i_elec]
-                elec_u = math.sqrt( elec_ux[i_elec]**2 + \
-                                    elec_uy[i_elec]**2 + elec_uz[i_elec]**2 )
+                elec_u = math.sqrt(
+                  elec_ux[i_elec]**2 + elec_uy[i_elec]**2 + elec_uz[i_elec]**2)
                 elec_beta = elec_u * elec_inv_gamma[i_elec]
                 if elec_u != 0:
                     elec_inv_u = 1./elec_u
@@ -207,7 +213,6 @@ def scatter_photons_electrons_numba(
                     photon_rest_py, photon_rest_pz = lorentz_transform(
                             photon_p, photon_px, photon_py, photon_pz,
                             elec_gamma, elec_beta, elec_nx, elec_ny, elec_nz )
-
                 # Find cos and sin of the spherical angle that represent
                 # the direction of the incoming photon in the rest frame
                 cos_theta = photon_rest_pz/photon_rest_p
@@ -221,6 +226,9 @@ def scatter_photons_electrons_numba(
                     # for the phi angle (since theta is 0 or pi anyway)
                     cos_phi = 1.
                     sin_phi = 0.
+
+            # Loop through the number of scattering for this electron
+            for i_scat in range(nscatter_per_elec[i_elec]):
 
                 # Draw scattering angle in the rest frame, from the
                 # Klein-Nishina cross-section (See Ozmutl, E. N.
@@ -284,9 +292,10 @@ def scatter_photons_electrons_numba(
                 photon_uy[i_photon] = new_photon_py
                 photon_uz[i_photon] = new_photon_pz
                 # The photon's inv_gamma corresponds to 1./p (consistent
-                # with the code in the openPMD back-transformed diagnostics)
+                # with the code for the particle pusher and for the
+                # openPMD back-transformed diagnostics)
                 photon_inv_gamma[i_photon] = 1./new_photon_p
-                photon_w[i_photon] = elec_w[i_elec]
+                photon_w[i_photon] = elec_w[i_elec] * inv_ratio_w_elec_photon
 
                 # Update the photon index
                 i_photon += 1
