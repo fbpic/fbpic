@@ -142,7 +142,7 @@ def add_elec_bunch_gaussian( sim, sig_r, sig_z, n_emit, gamma0, sig_gamma,
         The absolute energy spread of the bunch.
 
     Q : float (in Coulomb)
-        The total charge of the bunch.
+        The total charge of the bunch (should be a positive number)
 
     N : int
         The number of particles the bunch should consist of.
@@ -187,7 +187,7 @@ def add_elec_bunch_gaussian( sim, sig_r, sig_z, n_emit, gamma0, sig_gamma,
     # Get inverse gamma
     inv_gamma = 1./gamma
     # Get weight of each particle
-    w = -1. * Q / N * np.ones_like(x)
+    w = Q / (N*e) * np.ones_like(x)
 
     # Propagate distribution to an out-of-focus position tf.
     # (without taking space charge effects into account)
@@ -223,7 +223,7 @@ def add_elec_bunch_file( sim, filename, Q_tot, z_off=0., boost=None,
         x [m]  y [m]  z [m]  ux [unitless]  uy [unitless]  uz [unitless]
 
     Q_tot : float (in Coulomb)
-        total charge in bunch
+        Total charge in bunch (should be a positive number)
 
     z_off: float (in meters)
         Shift the particle positions in z by z_off
@@ -251,9 +251,8 @@ def add_elec_bunch_file( sim, filename, Q_tot, z_off=0., boost=None,
     uz = particle_data[:,5]
     # Calculate weights (charge of macroparticle)
     # assuming equally weighted particles as used in particle tracking codes
-    # multiply by -1 to make them negatively charged
     N_part = len(x)
-    w = -1.*Q_tot/N_part * np.ones_like( x )
+    w = Q_tot/(N_part*e) * np.ones_like( x )
 
     # Add the electrons to the simulation
     add_elec_bunch_from_arrays( sim, x, y, z, ux, uy, uz, w,
@@ -382,8 +381,7 @@ def add_elec_bunch_from_arrays( sim, x, y, z, ux, uy, uz, w,
     relat_elec.uz[:] = uz[:]
     relat_elec.inv_gamma[:] = 1./np.sqrt( \
         1. + relat_elec.ux**2 + relat_elec.uy**2 + relat_elec.uz**2 )
-    # Convert number of particle weights to particle charge
-    relat_elec.w[:] = -e * w[:]
+    relat_elec.w[:] = w[:]
 
     # Transform particle distribution in
     # the Lorentz boosted frame, if gamma_boost != 1.
