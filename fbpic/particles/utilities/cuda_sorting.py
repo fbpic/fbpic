@@ -135,20 +135,13 @@ def incl_prefix_sum(cell_idx, prefix_sum):
             # until ci is i+1 (since i obeys python index, starting at 0)
             prefix_sum[ci] = i+1
             ci += 1
-    # The last "macroparticle" of the cell_idx array fills up the
-    # rest of the prefix sum array
-    if i == cell_idx.shape[0]-1:
-        # Get the cell_index of the last macroparticle
-        ci = cell_idx[i]
-        # Fill all the remaining entries of the prefix sum array
-        for empty_index in range(ci, prefix_sum.shape[0]):
-            prefix_sum[empty_index] = i+1
+
 
 @cuda.jit('void(int32[:])')
-def reset_prefix_sum(prefix_sum):
+def prefill_prefix_sum(cell_idx, prefix_sum):
     """
-    Resets the prefix sum. Sets all the values
-    to zero.
+    Resets the prefix sum.
+    # TODO
 
     Parameters
     ----------
@@ -156,9 +149,14 @@ def reset_prefix_sum(prefix_sum):
         Represents the cumulative sum of
         the particles per cell
     """
+    # One thread per cell
     i = cuda.grid(1)
     if i < prefix_sum.shape[0]:
-        prefix_sum[i] = 0
+        if i < cell_idx[0]:
+            prefix_sum[i] = 0
+        elif i >= cell_idx[-1]:
+            prefix_sum[i] = cell_idx.shape[0]
+
 
 @cuda.jit('void(uint32[:], float64[:], float64[:])')
 def write_sorting_buffer(sorted_idx, val, buf):
