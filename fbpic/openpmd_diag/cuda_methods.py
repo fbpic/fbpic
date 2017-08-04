@@ -53,7 +53,7 @@ def extract_slice_from_gpu( pref_sum_curr, N_area, species ):
     part_data = part_data.copy_to_host()
     particle_data = { 'x':part_data[0], 'y':part_data[1], 'z':part_data[2],
         'ux':part_data[3], 'uy':part_data[4], 'uz':part_data[5],
-        'w':part_data[6]*(1./species.q), 'inv_gamma':part_data[7] }
+        'w':part_data[6], 'inv_gamma':part_data[7] }
     if species.tracker is not None:
         particle_data['id'] = selected_particle_id.copy_to_host()
     if species.ionizer is not None:
