@@ -13,15 +13,7 @@ import math
 # Field gathering linear
 # -----------------------
 
-@cuda.jit('void(float64[:], float64[:], float64[:], \
-            float64, float64, int32, \
-            float64, float64, int32, \
-            complex128[:,:], complex128[:,:], complex128[:,:], \
-            complex128[:,:], complex128[:,:], complex128[:,:], \
-            complex128[:,:], complex128[:,:], complex128[:,:], \
-            complex128[:,:], complex128[:,:], complex128[:,:], \
-            float64[:], float64[:], float64[:], \
-            float64[:], float64[:], float64[:])')
+@cuda.jit
 def gather_field_gpu_linear(x, y, z,
                     invdz, zmin, Nz,
                     invdr, rmin, Nr,
@@ -337,15 +329,7 @@ def gather_field_gpu_linear(x, y, z,
 # Field gathering cubic
 # -----------------------
 
-@cuda.jit('void(float64[:], float64[:], float64[:], \
-            float64, float64, int32, \
-            float64, float64, int32, \
-            complex128[:,:], complex128[:,:], complex128[:,:], \
-            complex128[:,:], complex128[:,:], complex128[:,:], \
-            complex128[:,:], complex128[:,:], complex128[:,:], \
-            complex128[:,:], complex128[:,:], complex128[:,:], \
-            float64[:], float64[:], float64[:], \
-            float64[:], float64[:], float64[:])')
+@cuda.jit
 def gather_field_gpu_cubic(x, y, z,
                     invdz, zmin, Nz,
                     invdr, rmin, Nr,

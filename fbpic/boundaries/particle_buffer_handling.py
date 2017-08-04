@@ -637,7 +637,7 @@ if cuda_installed:
         elif i < n_left + n_stay + n_right:
             particle_array[i] = right_buffer[i-n_left-n_stay]
 
-    @cuda.jit('void(float64[:], float64, float64)')
+    @cuda.jit
     def shift_particles_periodic_cuda( z, zmin, zmax ):
         """
         Shift the particle positions by an integer number of box length,

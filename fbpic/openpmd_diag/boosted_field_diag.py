@@ -718,13 +718,7 @@ class SliceHandler:
 
 if cuda_installed:
 
-    @cuda.jit('void( int32, int32, float64, float64[:,:,:], \
-        complex128[:,:], complex128[:,:], complex128[:,:], \
-        complex128[:,:], complex128[:,:], complex128[:,:], \
-        complex128[:,:], complex128[:,:], complex128[:,:], complex128[:,:], \
-        complex128[:,:], complex128[:,:], complex128[:,:], \
-        complex128[:,:], complex128[:,:], complex128[:,:], \
-        complex128[:,:], complex128[:,:], complex128[:,:], complex128[:,:])')
+    @cuda.jit
     def extract_slice_cuda( Nr, iz, Sz, slice_arr,
         Er0, Et0, Ez0, Br0, Bt0, Bz0, Jr0, Jt0, Jz0, rho0,
         Er1, Et1, Ez1, Br1, Bt1, Bz1, Jr1, Jt1, Jz1, rho1 ):

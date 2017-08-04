@@ -7,12 +7,7 @@ It defines a set of generic functions that operate on a GPU.
 """
 from numba import cuda
 
-@cuda.jit('void( complex128[:,:,:], complex128[:,:,:], \
-                 complex128[:,:], complex128[:,:], complex128[:,:], \
-                 complex128[:,:], complex128[:,:], complex128[:,:], \
-                 complex128[:,:], complex128[:,:], complex128[:,:], \
-                 complex128[:,:], complex128[:,:], complex128[:,:], \
-                 int32, int32, int32 )')
+@cuda.jit
 def copy_EB_to_gpu_buffers( EB_left, EB_right,
                             Er0, Et0, Ez0, Br0, Bt0, Bz0,
                             Er1, Et1, Ez1, Br1, Bt1, Bz1,
@@ -88,12 +83,7 @@ def copy_EB_to_gpu_buffers( EB_left, EB_right,
                 EB_right[5+offset, iz, ir] = Bz1[ iz_right, ir ]
 
 
-@cuda.jit('void( complex128[:,:,:], complex128[:,:,:], \
-                 complex128[:,:], complex128[:,:], complex128[:,:], \
-                 complex128[:,:], complex128[:,:], complex128[:,:], \
-                 complex128[:,:], complex128[:,:], complex128[:,:], \
-                 complex128[:,:], complex128[:,:], complex128[:,:], \
-                 int32, int32, int32 )')
+@cuda.jit
 def copy_EB_from_gpu_buffers( EB_left, EB_right,
                             Er0, Et0, Ez0, Br0, Bt0, Bz0,
                             Er1, Et1, Ez1, Br1, Bt1, Bz1,
@@ -169,10 +159,7 @@ def copy_EB_from_gpu_buffers( EB_left, EB_right,
                 Bz1[ iz_right, ir ] = EB_right[5+offset, iz, ir]
 
 
-@cuda.jit('void( complex128[:,:,:], complex128[:,:,:], \
-                 complex128[:,:], complex128[:,:], complex128[:,:], \
-                 complex128[:,:], complex128[:,:], complex128[:,:], \
-                 int32, int32, int32 )')
+@cuda.jit
 def copy_J_to_gpu_buffers( J_left, J_right,
                             Jr0, Jt0, Jz0, Jr1, Jt1, Jz1,
                             copy_left, copy_right, ng ):
@@ -232,10 +219,7 @@ def copy_J_to_gpu_buffers( J_left, J_right,
                 J_right[2+offset, iz, ir] = Jz1[ iz_right, ir ]
 
 
-@cuda.jit('void( complex128[:,:,:], complex128[:,:,:], \
-                 complex128[:,:], complex128[:,:], complex128[:,:], \
-                 complex128[:,:], complex128[:,:], complex128[:,:], \
-                 int32, int32, int32 )')
+@cuda.jit
 def add_J_from_gpu_buffers( J_left, J_right,
                             Jr0, Jt0, Jz0, Jr1, Jt1, Jz1,
                             copy_left, copy_right, ng ):
@@ -294,9 +278,7 @@ def add_J_from_gpu_buffers( J_left, J_right,
                 Jz1[ iz_right, ir ] += J_right[2+offset, iz, ir]
 
 
-@cuda.jit('void( complex128[:,:,:], complex128[:,:,:], \
-                 complex128[:,:], complex128[:,:], \
-                 int32, int32, int32 )')
+@cuda.jit
 def copy_rho_to_gpu_buffers( rho_left, rho_right, rho0, rho1,
                             copy_left, copy_right, ng ):
     """
@@ -347,9 +329,7 @@ def copy_rho_to_gpu_buffers( rho_left, rho_right, rho0, rho1,
                 rho_right[0+offset, iz, ir] = rho1[ iz_right, ir ]
 
 
-@cuda.jit('void( complex128[:,:,:], complex128[:,:,:], \
-                 complex128[:,:], complex128[:,:], \
-                 int32, int32, int32 )')
+@cuda.jit
 def add_rho_from_gpu_buffers( rho_left, rho_right, rho0, rho1,
                             copy_left, copy_right, ng ):
     """
@@ -400,11 +380,7 @@ def add_rho_from_gpu_buffers( rho_left, rho_right, rho0, rho1,
 
 # CUDA damping kernels:
 # --------------------
-@cuda.jit('void(complex128[:,:], complex128[:,:], complex128[:,:], \
-                complex128[:,:], complex128[:,:], complex128[:,:], \
-                complex128[:,:], complex128[:,:], complex128[:,:], \
-                complex128[:,:], complex128[:,:], complex128[:,:], \
-                float64[:], int32, int32)')
+@cuda.jit
 def cuda_damp_EB_left( Er0, Et0, Ez0, Br0, Bt0, Bz0,
                   Er1, Et1, Ez1, Br1, Bt1, Bz1,
                   damp_array, n_guard, n_damp ) :
@@ -455,11 +431,7 @@ def cuda_damp_EB_left( Er0, Et0, Ez0, Br0, Bt0, Bz0,
             Bt1[iz, ir] *= damp_factor_left
             Bz1[iz, ir] *= damp_factor_left
 
-@cuda.jit('void(complex128[:,:], complex128[:,:], complex128[:,:], \
-                complex128[:,:], complex128[:,:], complex128[:,:], \
-                complex128[:,:], complex128[:,:], complex128[:,:], \
-                complex128[:,:], complex128[:,:], complex128[:,:], \
-                float64[:], int32, int32)')
+@cuda.jit
 def cuda_damp_EB_right( Er0, Et0, Ez0, Br0, Bt0, Bz0,
                   Er1, Et1, Ez1, Br1, Bt1, Bz1,
                   damp_array, n_guard, n_damp ) :

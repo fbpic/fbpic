@@ -14,10 +14,7 @@ import numpy as np
 # Sorting utilities - get_cell_idx / sort / prefix_sum
 # -----------------------------------------------------
 
-@cuda.jit('void(int32[:], uint32[:], \
-                float64[:], float64[:], float64[:], \
-                float64, float64, int32, \
-                float64, float64, int32)')
+@cuda.jit
 def get_cell_idx_per_particle(cell_idx, sorted_idx,
                               x, y, z,
                               invdz, zmin, Nz,
@@ -104,7 +101,7 @@ def sort_particles_per_cell(cell_idx, sorted_idx):
         sorter = sorting.RadixSort(Ntot, dtype = np.int32)
         sorter.sort(cell_idx, vals = sorted_idx)
 
-@cuda.jit('void(int32[:], int32[:])')
+@cuda.jit
 def incl_prefix_sum(cell_idx, prefix_sum):
     """
     Perform an inclusive parallel prefix sum on the sorted
@@ -137,7 +134,7 @@ def incl_prefix_sum(cell_idx, prefix_sum):
             ci += 1
 
 
-@cuda.jit('void(int32[:], int32[:], int64)')
+@cuda.jit
 def prefill_prefix_sum(cell_idx, prefix_sum, Ntot):
     """
     Prefill the prefix sum array so that:
@@ -172,7 +169,7 @@ def prefill_prefix_sum(cell_idx, prefix_sum, Ntot):
             # If this species has no particles, fill all cells with 0
             prefix_sum[i] = 0
 
-@cuda.jit('void(uint32[:], float64[:], float64[:])')
+@cuda.jit
 def write_sorting_buffer(sorted_idx, val, buf):
     """
     Writes the values of a particle array to a buffer,

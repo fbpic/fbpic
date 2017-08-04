@@ -13,7 +13,7 @@ c2 = c**2
 # Erasing functions
 # ------------------
 
-@cuda.jit('void(complex128[:,:], complex128[:,:])')
+@cuda.jit
 def cuda_erase_scalar( mode0, mode1 ) :
     """
     Set the two input arrays to 0
@@ -36,9 +36,7 @@ def cuda_erase_scalar( mode0, mode1 ) :
         mode0[iz, ir] = 0
         mode1[iz, ir] = 0
 
-@cuda.jit('void(complex128[:,:], complex128[:,:], \
-                complex128[:,:], complex128[:,:], \
-                complex128[:,:], complex128[:,:])')
+@cuda.jit
 def cuda_erase_vector(mode0r, mode1r, mode0t, mode1t, mode0z, mode1z) :
     """
     Set the two input arrays to 0
@@ -69,8 +67,7 @@ def cuda_erase_vector(mode0r, mode1r, mode0t, mode1t, mode0z, mode1z) :
 # Divide by volume functions
 # ---------------------------
 
-@cuda.jit('void(complex128[:,:], complex128[:,:], \
-           float64[:], float64[:] )')
+@cuda.jit
 def cuda_divide_scalar_by_volume( mode0, mode1, invvol0, invvol1 ) :
     """
     Multiply the input arrays by the corresponding invvol
@@ -98,10 +95,7 @@ def cuda_divide_scalar_by_volume( mode0, mode1, invvol0, invvol1 ) :
         mode1[iz, ir] = mode1[iz, ir] * invvol1[ir]
 
 
-@cuda.jit('void(complex128[:,:], complex128[:,:], \
-           complex128[:,:], complex128[:,:], \
-           complex128[:,:], complex128[:,:], \
-           float64[:], float64[:])')
+@cuda.jit
 def cuda_divide_vector_by_volume( mode0r, mode1r, mode0t, mode1t,
                     mode0z, mode1z, invvol0, invvol1 ) :
     """
@@ -137,10 +131,7 @@ def cuda_divide_vector_by_volume( mode0r, mode1r, mode0t, mode1t,
 # Methods of the SpectralGrid object
 # -----------------------------------
 
-@cuda.jit('void(complex128[:,:], complex128[:,:], \
-           complex128[:,:], complex128[:,:], complex128[:,:], \
-           float64[:,:], float64[:,:], float64[:,:], \
-           float64, int32, int32)')
+@cuda.jit
 def cuda_correct_currents_standard( rho_prev, rho_next, Jp, Jm, Jz,
                             kz, kr, inv_k2, inv_dt, Nz, Nr ):
     """
@@ -189,13 +180,7 @@ def cuda_correct_currents_comoving( rho_prev, rho_next, Jp, Jm, Jz,
         Jm[iz, ir] += -0.5 * kr[iz, ir] * F
         Jz[iz, ir] += -1.j * kz[iz, ir] * F
 
-@cuda.jit('void(complex128[:,:], complex128[:,:], complex128[:,:], \
-           complex128[:,:], complex128[:,:], complex128[:,:], \
-           complex128[:,:], complex128[:,:], complex128[:,:], \
-           complex128[:,:], complex128[:,:], \
-           float64[:,:], float64[:,:], float64[:,:], \
-           float64[:,:], float64[:,:], float64[:,:], float64[:,:], float64, \
-           int8, int32, int32)')
+@cuda.jit
 def cuda_push_eb_standard( Ep, Em, Ez, Bp, Bm, Bz, Jp, Jm, Jz,
                        rho_prev, rho_next,
                        rho_prev_coef, rho_next_coef, j_coef,
@@ -344,7 +329,7 @@ def cuda_push_eb_comoving( Ep, Em, Ez, Bp, Bm, Bz, Jp, Jm, Jz,
             + j_coef[iz, ir]*( 1.j*kr[iz, ir]*Jp[iz, ir] \
                         + 1.j*kr[iz, ir]*Jm[iz, ir] )
 
-@cuda.jit('void(complex128[:,:], complex128[:,:], int32, int32)')
+@cuda.jit
 def cuda_push_rho( rho_prev, rho_next, Nz, Nr ) :
     """
     Transfer the values of rho_next to rho_prev,
@@ -368,7 +353,7 @@ def cuda_push_rho( rho_prev, rho_next, Nz, Nr ) :
         rho_prev[iz, ir] = rho_next[iz, ir]
         rho_next[iz, ir] = 0.
 
-@cuda.jit('void(complex128[:,:], float64[:,:], int32, int32)')
+@cuda.jit
 def cuda_filter_scalar( field, filter_array, Nz, Nr) :
     """
     Multiply the input field by the filter_array
@@ -393,8 +378,7 @@ def cuda_filter_scalar( field, filter_array, Nz, Nr) :
 
         field[iz, ir] = filter_array[iz, ir]*field[iz, ir]
 
-@cuda.jit('void(complex128[:,:], complex128[:,:], complex128[:,:], \
-           float64[:,:], int32, int32)')
+@cuda.jit
 def cuda_filter_vector( fieldr, fieldt, fieldz, filter_array, Nz, Nr) :
     """
     Multiply the input field by the filter_array

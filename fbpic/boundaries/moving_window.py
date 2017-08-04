@@ -499,7 +499,7 @@ def shift_spect_array_cpu( field_array, shift_factor, n_move ):
 
 if cuda_installed:
 
-    @cuda.jit('void(complex128[:,:], complex128[:,:], int32)')
+    @cuda.jit
     def shift_interp_array_gpu( field_array, field_buffer, n_move ):
         """
         Shift a field array by reading the values from the field_array
@@ -529,7 +529,7 @@ if cuda_installed:
             if (iz+n_move) >= field_array.shape[0] or (iz+n_move) < 0:
                 field_buffer[iz, ir] = 0.
 
-    @cuda.jit('void(complex128[:,:], complex128[:], int32)')
+    @cuda.jit
     def shift_spect_array_gpu( field_array, shift_factor, n_move ):
         """
         Shift the field 'field_array' by n_move cells on the GPU.
