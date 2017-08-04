@@ -137,14 +137,22 @@ def incl_prefix_sum(cell_idx, prefix_sum):
             ci += 1
 
 
-@cuda.jit('void(int32[:])')
+@cuda.jit('void(int32[:], int32[:])')
 def prefill_prefix_sum(cell_idx, prefix_sum):
     """
-    Resets the prefix sum.
-    # TODO
+    Prefill the prefix sum array so that:
+        - the cells that have a lower index than the cell that contains
+        the first particle are set to 0
+        - the cells that have a higher index than the cell that contains
+        the last particle are set to the total number of particles (Ntot)
+
+    All the cells in between will have their value set by `incl_prefix_sum`
 
     Parameters
     ----------
+    cell_idx : 1darray of integers
+        The cell index of the particles
+
     prefix_sum : 1darray of integers
         Represents the cumulative sum of
         the particles per cell
@@ -152,8 +160,10 @@ def prefill_prefix_sum(cell_idx, prefix_sum):
     # One thread per cell
     i = cuda.grid(1)
     if i < prefix_sum.shape[0]:
+        # Fill the first cells with 0
         if i < cell_idx[0]:
             prefix_sum[i] = 0
+        # Fill the last cells with Ntot
         elif i >= cell_idx[-1]:
             prefix_sum[i] = cell_idx.shape[0]
 
