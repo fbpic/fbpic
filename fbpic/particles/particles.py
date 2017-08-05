@@ -35,7 +35,7 @@ if cuda_installed:
         gather_field_gpu_cubic
     from .utilities.cuda_sorting import write_sorting_buffer, \
         get_cell_idx_per_particle, sort_particles_per_cell, \
-        reset_prefix_sum, incl_prefix_sum
+        prefill_prefix_sum, incl_prefix_sum
 
 class Particles(object) :
     """
@@ -803,7 +803,8 @@ class Particles(object) :
         sort_particles_per_cell(self.cell_idx, self.sorted_idx)
         # Reset the old prefix sum
         fld.prefix_sum_shift = 0
-        reset_prefix_sum[dim_grid_2d_flat, dim_block_2d_flat](self.prefix_sum)
+        prefill_prefix_sum[dim_grid_2d_flat, dim_block_2d_flat](
+            self.cell_idx, self.prefix_sum)
         # Perform the inclusive parallel prefix sum
         incl_prefix_sum[dim_grid_1d, dim_block_1d](
             self.cell_idx, self.prefix_sum)
