@@ -4,10 +4,10 @@
 """
 This file is part of the Fourier-Bessel Particle-In-Cell code (FB-PIC)
 It defines the field gathering methods linear and cubic order shapes
-on the CPU with threading
+on the CPU with threading.
 """
-from numba import prange, int64
-import numba
+from numba import int64
+from fbpic.threading_utils import njit_parallel, prange
 import math
 import numpy as np
 
@@ -15,8 +15,8 @@ import numpy as np
 # Field gathering linear
 # -----------------------
 
-@numba.njit(parallel=True)
-def gather_field_prange_linear(x, y, z,
+@njit_parallel
+def gather_field_numba_linear(x, y, z,
                     invdz, zmin, Nz,
                     invdr, rmin, Nr,
                     Er_m0, Et_m0, Ez_m0,
@@ -330,8 +330,8 @@ def gather_field_prange_linear(x, y, z,
 # Field gathering cubic
 # -----------------------
 
-@numba.njit(parallel=True)
-def gather_field_prange_cubic(x, y, z,
+@njit_parallel
+def gather_field_numba_cubic(x, y, z,
                     invdz, zmin, Nz,
                     invdr, rmin, Nr,
                     Er_m0, Et_m0, Ez_m0,

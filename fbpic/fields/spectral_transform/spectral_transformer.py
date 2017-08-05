@@ -9,7 +9,7 @@ the fields from the interpolation grid to the spectral grid and vice-versa.
 from .hankel import DHT
 from .fourier import FFT
 
-from .threading_methods import numba_rt_to_pm, numba_pm_to_rt
+from .numba_methods import numba_rt_to_pm, numba_pm_to_rt
 # Check if CUDA is available, then import CUDA functions
 from fbpic.cuda_utils import cuda_installed
 if cuda_installed:
