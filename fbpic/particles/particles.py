@@ -804,7 +804,7 @@ class Particles(object) :
         # Reset the old prefix sum
         fld.prefix_sum_shift = 0
         prefill_prefix_sum[dim_grid_2d_flat, dim_block_2d_flat](
-            self.cell_idx, self.prefix_sum)
+            self.cell_idx, self.prefix_sum, self.Ntot )
         # Perform the inclusive parallel prefix sum
         incl_prefix_sum[dim_grid_1d, dim_block_1d](
             self.cell_idx, self.prefix_sum)
