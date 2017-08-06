@@ -137,8 +137,8 @@ def incl_prefix_sum(cell_idx, prefix_sum):
             ci += 1
 
 
-@cuda.jit('void(int32[:], int32[:])')
-def prefill_prefix_sum(cell_idx, prefix_sum):
+@cuda.jit('void(int32[:], int32[:], int64)')
+def prefill_prefix_sum(cell_idx, prefix_sum, Ntot):
     """
     Prefill the prefix sum array so that:
         - the cells that have a lower index than the cell that contains
@@ -152,21 +152,25 @@ def prefill_prefix_sum(cell_idx, prefix_sum):
     ----------
     cell_idx : 1darray of integers
         The cell index of the particles
-
     prefix_sum : 1darray of integers
         Represents the cumulative sum of
         the particles per cell
+    Ntot: int
+        The total number of particles in the current species
     """
     # One thread per cell
     i = cuda.grid(1)
     if i < prefix_sum.shape[0]:
-        # Fill the first cells with 0
-        if i < cell_idx[0]:
+        if Ntot > 0:
+            # Fill the first cells with 0
+            if i < cell_idx[0]:
+                prefix_sum[i] = 0
+            # Fill the last cells with Ntot
+            elif i >= cell_idx[Ntot-1]:
+                prefix_sum[i] = Ntot
+        else:
+            # If this species has no particles, fill all cells with 0
             prefix_sum[i] = 0
-        # Fill the last cells with Ntot
-        elif i >= cell_idx[-1]:
-            prefix_sum[i] = cell_idx.shape[0]
-
 
 @cuda.jit('void(uint32[:], float64[:], float64[:])')
 def write_sorting_buffer(sorted_idx, val, buf):
