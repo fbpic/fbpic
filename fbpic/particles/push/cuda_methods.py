@@ -50,9 +50,7 @@ def push_p_vay( ux_i, uy_i, uz_i, inv_gamma_i,
     return( ux_f, uy_f, uz_f, inv_gamma_f )
 
 
-@cuda.jit('void(float64[:], float64[:], float64[:], \
-            float64[:], float64[:], float64[:], \
-            float64[:], float64)')
+@cuda.jit
 def push_x_gpu( x, y, z, ux, uy, uz, inv_gamma, dt ) :
     """
     Advance the particles' positions over one half-timestep
@@ -87,10 +85,7 @@ def push_x_gpu( x, y, z, ux, uy, uz, inv_gamma, dt ) :
         y[i] += chdt*inv_g*uy[i]
         z[i] += chdt*inv_g*uz[i]
 
-@cuda.jit('void(float64[:], float64[:], float64[:], float64[:], \
-            float64[:], float64[:], float64[:], \
-            float64[:], float64[:], float64[:], \
-            float64, float64, int32, float64)')
+@cuda.jit
 def push_p_gpu( ux, uy, uz, inv_gamma,
                 Ex, Ey, Ez, Bx, By, Bz,
                 q, m, Ntot, dt ) :
@@ -137,10 +132,7 @@ def push_p_gpu( ux, uy, uz, inv_gamma,
             ux[ip], uy[ip], uz[ip], inv_gamma[ip],
             Ex[ip], Ey[ip], Ez[ip], Bx[ip], By[ip], Bz[ip], econst, bconst)
 
-@cuda.jit('void(float64[:], float64[:], float64[:], float64[:], \
-            float64[:], float64[:], float64[:], \
-            float64[:], float64[:], float64[:], \
-            float64, int32, float64, int16[:])')
+@cuda.jit
 def push_p_ioniz_gpu( ux, uy, uz, inv_gamma,
                 Ex, Ey, Ez, Bx, By, Bz,
                 m, Ntot, dt, ionization_level ) :
