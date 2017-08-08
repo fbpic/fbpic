@@ -538,6 +538,16 @@ class Particles(object) :
                                    but is `%s`" % self.particle_shape)
         # CPU version
         else:
+            # Divide particles in chunks (each chunk is handled by a different
+            # thread) and register the indices that bound each chunks
+            # (Note: when threading is disabled, then self.nthreads is 1)
+            n_avg_per_thread = int( self.Ntot/self.nthreads )
+            # Attribute n_avg_per_thread to each thread (except the last one)
+            ptcl_chunk_indices = np.array(
+                [ i_chk*n_avg_per_thread for i_chk in range(self.nthreads+1) ],
+                dtype=np.uint64 )
+            ptcl_chunk_indices[-1] = self.Ntot
+
             if self.particle_shape == 'linear':
                 gather_field_numba_linear(
                      self.x, self.y, self.z,
@@ -559,7 +569,8 @@ class Particles(object) :
                      grid[0].Br, grid[0].Bt, grid[0].Bz,
                      grid[1].Br, grid[1].Bt, grid[1].Bz,
                      self.Ex, self.Ey, self.Ez,
-                     self.Bx, self.By, self.Bz)
+                     self.Bx, self.By, self.Bz, 
+                     self.nthreads, ptcl_chunk_indices )
             else:
                 raise ValueError("`particle_shape` should be either \
                                   'linear' or 'cubic' \
