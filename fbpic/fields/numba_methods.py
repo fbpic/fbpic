@@ -141,8 +141,8 @@ def numba_push_eb_comoving( Ep, Em, Ez, Bp, Bm, Bz, Jp, Jm, Jz,
 
     See the documentation of SpectralGrid.push_eb_with
     """
-    # Loop over the grid
-    for iz in range(Nz):
+    # Loop over the grid (parallel in z, if threading is installed)
+    for iz in prange(Nz):
         for ir in range(Nr):
 
             # Save the electric fields, since it is needed for the B push
