@@ -384,14 +384,15 @@ def gather_field_numba_cubic(x, y, z,
         The magnetic fields acting on the particles
         (is modified by this function)
     """
-    ir = np.zeros( (nthreads, 4), dtype=int64) #[0,0,0,0]
-    Sr = np.zeros( (nthreads, 4) )
-    iz = np.zeros( (nthreads, 4), dtype=int64) #[0,0,0,0]
-    Sz = np.zeros( (nthreads, 4) )
-    
     # Gather the field per cell in parallel
     # (for threads < number of particles)
     for nt in prange( nthreads ):
+
+        ir = np.empty( 4, dtype=int64)
+        Sr = np.empty( 4 )
+        iz = np.empty( 4, dtype=int64)
+        Sz = np.empty( 4 )
+
         for i in range( ptcl_chunk_indices[nt],
                             ptcl_chunk_indices[nt+1] ):
 
@@ -421,38 +422,38 @@ def gather_field_numba_cubic(x, y, z,
             z_cell = invdz*(zj - zmin) - 0.5
 
             # Calculate the shape factors
-            ir[nt,0] = int64(math.floor(r_cell)) - 1
-            ir[nt,1] = ir[nt,0] + 1
-            ir[nt,2] = ir[nt,1] + 1
-            ir[nt,3] = ir[nt,2] + 1
-            Sr[nt,0] = -1./6. * ((r_cell-ir[nt,0])-2)**3
-            Sr[nt,1] = 1./6. * (3*((r_cell-ir[nt,1])**3)-6*((r_cell-ir[nt,1])**2)+4)
-            Sr[nt,2] = 1./6. * (3*((ir[nt,2]-r_cell)**3)-6*((ir[nt,2]-r_cell)**2)+4)
-            Sr[nt,3] = -1./6. * ((ir[nt,3]-r_cell)-2)**3
-            iz[nt,0] = int64(math.floor(z_cell)) - 1
-            iz[nt,1] = iz[nt,0] + 1
-            iz[nt,2] = iz[nt,1] + 1
-            iz[nt,3] = iz[nt,2] + 1
-            Sz[nt,0] = -1./6. * ((z_cell-iz[nt,0])-2)**3
-            Sz[nt,1] = 1./6. * (3*((z_cell-iz[nt,1])**3)-6*((z_cell-iz[nt,1])**2)+4)
-            Sz[nt,2] = 1./6. * (3*((iz[nt,2]-z_cell)**3)-6*((iz[nt,2]-z_cell)**2)+4)
-            Sz[nt,3] = -1./6. * ((iz[nt,3]-z_cell)-2)**3
+            ir[0] = int64(math.floor(r_cell)) - 1
+            ir[1] = ir[0] + 1
+            ir[2] = ir[1] + 1
+            ir[3] = ir[2] + 1
+            Sr[0] = -1./6. * ((r_cell-ir[0])-2)**3
+            Sr[1] = 1./6. * (3*((r_cell-ir[1])**3)-6*((r_cell-ir[1])**2)+4)
+            Sr[2] = 1./6. * (3*((ir[2]-r_cell)**3)-6*((ir[2]-r_cell)**2)+4)
+            Sr[3] = -1./6. * ((ir[3]-r_cell)-2)**3
+            iz[0] = int64(math.floor(z_cell)) - 1
+            iz[1] = iz[0] + 1
+            iz[2] = iz[1] + 1
+            iz[3] = iz[2] + 1
+            Sz[0] = -1./6. * ((z_cell-iz[0])-2)**3
+            Sz[1] = 1./6. * (3*((z_cell-iz[1])**3)-6*((z_cell-iz[1])**2)+4)
+            Sz[2] = 1./6. * (3*((iz[2]-z_cell)**3)-6*((iz[2]-z_cell)**2)+4)
+            Sz[3] = -1./6. * ((iz[3]-z_cell)-2)**3
             # Lower and upper periodic boundary for z
             index_z = 0
             while index_z < 4:
-                if iz[nt,index_z] < 0:
-                    iz[nt,index_z] += Nz
-                if iz[nt,index_z] > Nz - 1:
-                    iz[nt,index_z] -= Nz
+                if iz[index_z] < 0:
+                    iz[index_z] += Nz
+                if iz[index_z] > Nz - 1:
+                    iz[index_z] -= Nz
                 index_z += 1
             # Lower and upper boundary for r
             index_r = 0
             while index_r < 4:
-                if ir[nt,index_r] < 0:
-                    ir[nt,index_r] = abs(ir[nt,index_r])-1
-                    Sr[nt,index_r] = (-1.)*Sr[nt,index_r]
-                if ir[nt,index_r] > Nr - 1:
-                    ir[nt,index_r] = Nr - 1
+                if ir[index_r] < 0:
+                    ir[index_r] = abs(ir[index_r])-1
+                    Sr[index_r] = (-1.)*Sr[index_r]
+                if ir[index_r] > Nr - 1:
+                    ir[index_r] = Nr - 1
                 index_r += 1
 
             # E-Field
@@ -475,14 +476,14 @@ def gather_field_numba_cubic(x, y, z,
             while index_r < 4:
                 index_z = 0
                 while index_z < 4:
-                    Fr_m += Sz[nt,index_z]*Sr[nt,index_r]*Er_m0[iz[nt,index_z], ir[nt,index_r]]
-                    Ft_m += Sz[nt,index_z]*Sr[nt,index_r]*Et_m0[iz[nt,index_z], ir[nt,index_r]]
-                    if Sz[nt,index_z]*Sr[nt,index_r] < 0:
-                        Fz_m += (-1.)*Sz[nt,index_z]*Sr[nt,index_r]* \
-                            Ez_m0[iz[nt,index_z], ir[nt,index_r]]
+                    Fr_m += Sz[index_z]*Sr[index_r]*Er_m0[iz[index_z], ir[index_r]]
+                    Ft_m += Sz[index_z]*Sr[index_r]*Et_m0[iz[index_z], ir[index_r]]
+                    if Sz[index_z]*Sr[index_r] < 0:
+                        Fz_m += (-1.)*Sz[index_z]*Sr[index_r]* \
+                            Ez_m0[iz[index_z], ir[index_r]]
                     else:
-                        Fz_m += Sz[nt,index_z]*Sr[nt,index_r]* \
-                            Ez_m0[iz[nt,index_z], ir[nt,index_r]]
+                        Fz_m += Sz[index_z]*Sr[index_r]* \
+                            Ez_m0[iz[index_z], ir[index_r]]
                     index_z += 1
                 index_r += 1
 
@@ -502,17 +503,17 @@ def gather_field_numba_cubic(x, y, z,
             while index_r < 4:
                 index_z = 0
                 while index_z < 4:
-                    if Sz[nt,index_z]*Sr[nt,index_r] < 0:
-                        Fr_m += (-1.)*Sz[nt,index_z]*Sr[nt,index_r]* \
-                                    Er_m1[iz[nt,index_z], ir[nt,index_r]]
-                        Ft_m += (-1.)*Sz[nt,index_z]*Sr[nt,index_r]* \
-                                    Et_m1[iz[nt,index_z], ir[nt,index_r]]
+                    if Sz[index_z]*Sr[index_r] < 0:
+                        Fr_m += (-1.)*Sz[index_z]*Sr[index_r]* \
+                                    Er_m1[iz[index_z], ir[index_r]]
+                        Ft_m += (-1.)*Sz[index_z]*Sr[index_r]* \
+                                    Et_m1[iz[index_z], ir[index_r]]
                     else:
-                        Fr_m += Sz[nt,index_z]*Sr[nt,index_r]* \
-                                    Er_m1[iz[nt,index_z], ir[nt,index_r]]
-                        Ft_m += Sz[nt,index_z]*Sr[nt,index_r]* \
-                                    Et_m1[iz[nt,index_z], ir[nt,index_r]]
-                    Fz_m += Sz[nt,index_z]*Sr[nt,index_r]*Ez_m1[iz[nt,index_z], ir[nt,index_r]]
+                        Fr_m += Sz[index_z]*Sr[index_r]* \
+                                    Er_m1[iz[index_z], ir[index_r]]
+                        Ft_m += Sz[index_z]*Sr[index_r]* \
+                                    Et_m1[iz[index_z], ir[index_r]]
+                    Fz_m += Sz[index_z]*Sr[index_r]*Ez_m1[iz[index_z], ir[index_r]]
                     index_z += 1
                 index_r += 1
 
@@ -547,16 +548,16 @@ def gather_field_numba_cubic(x, y, z,
             while index_r < 4:
                 index_z = 0
                 while index_z < 4:
-                    Fr_m += Sz[nt,index_z]*Sr[nt,index_r]* \
-                        Br_m0[iz[nt,index_z], ir[nt,index_r]]
-                    Ft_m += Sz[nt,index_z]*Sr[nt,index_r]* \
-                        Bt_m0[iz[nt,index_z], ir[nt,index_r]]
-                    if Sz[nt,index_z]*Sr[nt,index_r] < 0:
-                        Fz_m += (-1.)*Sz[nt,index_z]*Sr[nt,index_r]* \
-                            Bz_m0[iz[nt,index_z], ir[nt,index_r]]
+                    Fr_m += Sz[index_z]*Sr[index_r]* \
+                        Br_m0[iz[index_z], ir[index_r]]
+                    Ft_m += Sz[index_z]*Sr[index_r]* \
+                        Bt_m0[iz[index_z], ir[index_r]]
+                    if Sz[index_z]*Sr[index_r] < 0:
+                        Fz_m += (-1.)*Sz[index_z]*Sr[index_r]* \
+                            Bz_m0[iz[index_z], ir[index_r]]
                     else:
-                        Fz_m += Sz[nt,index_z]*Sr[nt,index_r]* \
-                            Bz_m0[iz[nt,index_z], ir[nt,index_r]]
+                        Fz_m += Sz[index_z]*Sr[index_r]* \
+                            Bz_m0[iz[index_z], ir[index_r]]
                     index_z += 1
                 index_r += 1
 
@@ -578,17 +579,17 @@ def gather_field_numba_cubic(x, y, z,
             while index_r < 4:
                 index_z = 0
                 while index_z < 4:
-                    if Sz[nt,index_z]*Sr[nt,index_r] < 0:
-                        Fr_m += (-1.)*Sz[nt,index_z]*Sr[nt,index_r]* \
-                            Br_m1[iz[nt,index_z], ir[nt,index_r]]
-                        Ft_m += (-1.)*Sz[nt,index_z]*Sr[nt,index_r]* \
-                            Bt_m1[iz[nt,index_z], ir[nt,index_r]]
+                    if Sz[index_z]*Sr[index_r] < 0:
+                        Fr_m += (-1.)*Sz[index_z]*Sr[index_r]* \
+                            Br_m1[iz[index_z], ir[index_r]]
+                        Ft_m += (-1.)*Sz[index_z]*Sr[index_r]* \
+                            Bt_m1[iz[index_z], ir[index_r]]
                     else:
-                        Fr_m += Sz[nt,index_z]*Sr[nt,index_r]* \
-                            Br_m1[iz[nt,index_z], ir[nt,index_r]]
-                        Ft_m += Sz[nt,index_z]*Sr[nt,index_r]* \
-                            Bt_m1[iz[nt,index_z], ir[nt,index_r]]
-                    Fz_m += Sz[nt,index_z]*Sr[nt,index_r]*Bz_m1[iz[nt,index_z], ir[nt,index_r]]
+                        Fr_m += Sz[index_z]*Sr[index_r]* \
+                            Br_m1[iz[index_z], ir[index_r]]
+                        Ft_m += Sz[index_z]*Sr[index_r]* \
+                            Bt_m1[iz[index_z], ir[index_r]]
+                    Fz_m += Sz[index_z]*Sr[index_r]*Bz_m1[iz[index_z], ir[index_r]]
                     index_z += 1
                 index_r += 1
 
