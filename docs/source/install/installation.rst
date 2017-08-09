@@ -15,5 +15,5 @@ This page explains how to install FBPIC on different plateforms:
    install_titan
    install_jureca
    install_lawrencium
-   install_cori
+   install_cori_edison
 
