@@ -383,16 +383,25 @@ def gather_field_numba_cubic(x, y, z,
     Bx, By, Bz : 1darray of floats
         The magnetic fields acting on the particles
         (is modified by this function)
+
+    nthreads : int
+        Number of CPU threads used with numba prange
+
+    ptcl_chunk_indices : array of int, of size nthreads+1
+        The indices (of the particle array) between which each thread
+        should loop. (i.e. divisions of particle array between threads)
     """
     # Gather the field per cell in parallel
-    # (for threads < number of particles)
     for nt in prange( nthreads ):
 
+        # Create private arrays for each thread
+        # to store the particle index and shape
         ir = np.empty( 4, dtype=int64)
         Sr = np.empty( 4 )
         iz = np.empty( 4, dtype=int64)
         Sz = np.empty( 4 )
 
+        # Loop over all particles in thread chunk
         for i in range( ptcl_chunk_indices[nt],
                             ptcl_chunk_indices[nt+1] ):
 
@@ -476,8 +485,10 @@ def gather_field_numba_cubic(x, y, z,
             while index_r < 4:
                 index_z = 0
                 while index_z < 4:
-                    Fr_m += Sz[index_z]*Sr[index_r]*Er_m0[iz[index_z], ir[index_r]]
-                    Ft_m += Sz[index_z]*Sr[index_r]*Et_m0[iz[index_z], ir[index_r]]
+                    Fr_m += Sz[index_z]*Sr[index_r] * \
+                        Er_m0[iz[index_z], ir[index_r]]
+                    Ft_m += Sz[index_z]*Sr[index_r] * \
+                        Et_m0[iz[index_z], ir[index_r]]
                     if Sz[index_z]*Sr[index_r] < 0:
                         Fz_m += (-1.)*Sz[index_z]*Sr[index_r]* \
                             Ez_m0[iz[index_z], ir[index_r]]
@@ -513,7 +524,8 @@ def gather_field_numba_cubic(x, y, z,
                                     Er_m1[iz[index_z], ir[index_r]]
                         Ft_m += Sz[index_z]*Sr[index_r]* \
                                     Et_m1[iz[index_z], ir[index_r]]
-                    Fz_m += Sz[index_z]*Sr[index_r]*Ez_m1[iz[index_z], ir[index_r]]
+                    Fz_m += Sz[index_z]*Sr[index_r] * \
+                        Ez_m1[iz[index_z], ir[index_r]]
                     index_z += 1
                 index_r += 1
 

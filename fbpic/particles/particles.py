@@ -22,7 +22,7 @@ from .deposition.threading_methods import deposit_rho_numba_linear, \
         deposit_J_numba_cubic, sum_reduce_2d_array
 
 # Check if threading is enabled
-from fbpic.threading_utils import threading_enabled
+from fbpic.threading_utils import threading_enabled, get_chunk_indices
 # Check if CUDA is available, then import CUDA functions
 from fbpic.cuda_utils import cuda_installed
 if cuda_installed:
@@ -220,10 +220,9 @@ class Particles(object) :
                                         dtype=np.int32 )
             # Register boolean that records if the particles are sorted or not
             self.sorted = False
-        # Register variables when using multithreading
-        self.use_threading = threading_enabled
+
         # Register number of threads
-        if self.use_threading == True:
+        if threading_enabled:
             self.nthreads = numba.config.NUMBA_NUM_THREADS
         else:
             self.nthreads = 1
@@ -538,16 +537,6 @@ class Particles(object) :
                                    but is `%s`" % self.particle_shape)
         # CPU version
         else:
-            # Divide particles in chunks (each chunk is handled by a different
-            # thread) and register the indices that bound each chunks
-            # (Note: when threading is disabled, then self.nthreads is 1)
-            n_avg_per_thread = int( self.Ntot/self.nthreads )
-            # Attribute n_avg_per_thread to each thread (except the last one)
-            ptcl_chunk_indices = np.array(
-                [ i_chk*n_avg_per_thread for i_chk in range(self.nthreads+1) ],
-                dtype=np.uint64 )
-            ptcl_chunk_indices[-1] = self.Ntot
-
             if self.particle_shape == 'linear':
                 gather_field_numba_linear(
                      self.x, self.y, self.z,
@@ -560,6 +549,9 @@ class Particles(object) :
                      self.Ex, self.Ey, self.Ez,
                      self.Bx, self.By, self.Bz)
             elif self.particle_shape == 'cubic':
+                # Divide particles into chunks (each chunk is handled by a
+                # different thread) and return the indices that bound chunks
+                ptcl_chunk_indices = get_chunk_indices(self.Ntot, self.nthreads)
                 gather_field_numba_cubic(
                      self.x, self.y, self.z,
                      grid[0].invdz, grid[0].zmin, grid[0].Nz,
@@ -569,7 +561,7 @@ class Particles(object) :
                      grid[0].Br, grid[0].Bt, grid[0].Bz,
                      grid[1].Br, grid[1].Bt, grid[1].Bz,
                      self.Ex, self.Ey, self.Ez,
-                     self.Bx, self.By, self.Bz, 
+                     self.Bx, self.By, self.Bz,
                      self.nthreads, ptcl_chunk_indices )
             else:
                 raise ValueError("`particle_shape` should be either \
@@ -678,13 +670,7 @@ class Particles(object) :
         else:
             # Divide particles in chunks (each chunk is handled by a different
             # thread) and register the indices that bound each chunks
-            # (Note: when threading is disabled, then self.nthreads is 1)
-            n_avg_per_thread = int( self.Ntot/self.nthreads )
-            # Attribute n_avg_per_thread to each thread (except the last one)
-            ptcl_chunk_indices = np.array(
-                [ i_chk*n_avg_per_thread for i_chk in range(self.nthreads+1) ],
-                dtype=np.uint64 )
-            ptcl_chunk_indices[-1] = self.Ntot
+            ptcl_chunk_indices = get_chunk_indices(self.Ntot, self.nthreads)
 
             # Multithreading functions for the deposition of rho or J
             # for Mode 0 and 1 only.
