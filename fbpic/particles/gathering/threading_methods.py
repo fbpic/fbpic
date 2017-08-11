@@ -24,7 +24,7 @@ def gather_field_numba_linear(x, y, z,
                     Br_m0, Bt_m0, Bz_m0,
                     Br_m1, Bt_m1, Bz_m1,
                     Ex, Ey, Ez,
-                    Bx, By, Bz):
+                    Bx, By, Bz ):
     """
     Gathering of the fields (E and B) using numba with multi-threading.
     Iterates over the particles, calculates the weighted amount
@@ -339,7 +339,8 @@ def gather_field_numba_cubic(x, y, z,
                     Br_m0, Bt_m0, Bz_m0,
                     Br_m1, Bt_m1, Bz_m1,
                     Ex, Ey, Ez,
-                    Bx, By, Bz):
+                    Bx, By, Bz,
+                    nthreads, ptcl_chunk_indices):
     """
     Gathering of the fields (E and B) using numba with multi-threading.
     Iterates over the particles, calculates the weighted amount
@@ -382,220 +383,237 @@ def gather_field_numba_cubic(x, y, z,
     Bx, By, Bz : 1darray of floats
         The magnetic fields acting on the particles
         (is modified by this function)
+
+    nthreads : int
+        Number of CPU threads used with numba prange
+
+    ptcl_chunk_indices : array of int, of size nthreads+1
+        The indices (of the particle array) between which each thread
+        should loop. (i.e. divisions of particle array between threads)
     """
-    # Deposit the field per cell in parallel
-    # (for threads < number of particles)
-    for i in prange(x.shape[0]):
-        # Preliminary arrays for the cylindrical conversion
-        # --------------------------------------------
-        # Position
-        xj = x[i]
-        yj = y[i]
-        zj = z[i]
+    # Gather the field per cell in parallel
+    for nt in prange( nthreads ):
 
-        # Cylindrical conversion
-        rj = math.sqrt(xj**2 + yj**2)
-        if (rj != 0.):
-            invr = 1./rj
-            cos = xj*invr  # Cosine
-            sin = yj*invr  # Sine
-        else:
-            cos = 1.
-            sin = 0.
-        exptheta_m0 = 1.
-        exptheta_m1 = cos - 1.j*sin
+        # Create private arrays for each thread
+        # to store the particle index and shape
+        ir = np.empty( 4, dtype=int64)
+        Sr = np.empty( 4 )
+        iz = np.empty( 4, dtype=int64)
+        Sz = np.empty( 4 )
 
-        # Get weights for the deposition
-        # --------------------------------------------
-        # Positions of the particle, in the cell unit
-        r_cell = invdr*(rj - rmin) - 0.5
-        z_cell = invdz*(zj - zmin) - 0.5
+        # Loop over all particles in thread chunk
+        for i in range( ptcl_chunk_indices[nt],
+                            ptcl_chunk_indices[nt+1] ):
 
-        # Calculate the shape factors
-        ir = np.zeros(4, dtype=int64) #[0,0,0,0]
-        Sr = np.zeros(4) #[0.,0.,0.,0.]
-        ir[0] = int64(math.floor(r_cell)) - 1
-        ir[1] = ir[0] + 1
-        ir[2] = ir[1] + 1
-        ir[3] = ir[2] + 1
-        Sr[0] = -1./6. * ((r_cell-ir[0])-2)**3
-        Sr[1] = 1./6. * (3*((r_cell-ir[1])**3)-6*((r_cell-ir[1])**2)+4)
-        Sr[2] = 1./6. * (3*((ir[2]-r_cell)**3)-6*((ir[2]-r_cell)**2)+4)
-        Sr[3] = -1./6. * ((ir[3]-r_cell)-2)**3
-        iz = np.zeros(4, dtype=int64) #[0,0,0,0]
-        Sz = np.zeros(4) #[0.,0.,0.,0.]
-        iz[0] = int64(math.floor(z_cell)) - 1
-        iz[1] = iz[0] + 1
-        iz[2] = iz[1] + 1
-        iz[3] = iz[2] + 1
-        Sz[0] = -1./6. * ((z_cell-iz[0])-2)**3
-        Sz[1] = 1./6. * (3*((z_cell-iz[1])**3)-6*((z_cell-iz[1])**2)+4)
-        Sz[2] = 1./6. * (3*((iz[2]-z_cell)**3)-6*((iz[2]-z_cell)**2)+4)
-        Sz[3] = -1./6. * ((iz[3]-z_cell)-2)**3
-        # Lower and upper periodic boundary for z
-        index_z = 0
-        while index_z < 4:
-            if iz[index_z] < 0:
-                iz[index_z] += Nz
-            if iz[index_z] > Nz - 1:
-                iz[index_z] -= Nz
-            index_z += 1
-        # Lower and upper boundary for r
-        index_r = 0
-        while index_r < 4:
-            if ir[index_r] < 0:
-                ir[index_r] = abs(ir[index_r])-1
-                Sr[index_r] = (-1.)*Sr[index_r]
-            if ir[index_r] > Nr - 1:
-                ir[index_r] = Nr - 1
-            index_r += 1
+            # Preliminary arrays for the cylindrical conversion
+            # --------------------------------------------
+            # Position
+            xj = x[i]
+            yj = y[i]
+            zj = z[i]
 
-        # E-Field
-        # ----------------------------
-        # Define the initial placeholders for the
-        # gathered field for each coordinate
-        Fr = 0.
-        Ft = 0.
-        Fz = 0.
+            # Cylindrical conversion
+            rj = math.sqrt(xj**2 + yj**2)
+            if (rj != 0.):
+                invr = 1./rj
+                cos = xj*invr  # Cosine
+                sin = yj*invr  # Sine
+            else:
+                cos = 1.
+                sin = 0.
+            exptheta_m0 = 1.
+            exptheta_m1 = cos - 1.j*sin
 
-        # Mode 0
-        # ----------------------------
-        # Create temporary variables
-        # for the "per mode" gathering
-        Fr_m = 0.j
-        Ft_m = 0.j
-        Fz_m = 0.j
-        # Add the fields for mode 0
-        index_r = 0
-        while index_r < 4:
+            # Get weights for the deposition
+            # --------------------------------------------
+            # Positions of the particle, in the cell unit
+            r_cell = invdr*(rj - rmin) - 0.5
+            z_cell = invdz*(zj - zmin) - 0.5
+
+            # Calculate the shape factors
+            ir[0] = int64(math.floor(r_cell)) - 1
+            ir[1] = ir[0] + 1
+            ir[2] = ir[1] + 1
+            ir[3] = ir[2] + 1
+            Sr[0] = -1./6. * ((r_cell-ir[0])-2)**3
+            Sr[1] = 1./6. * (3*((r_cell-ir[1])**3)-6*((r_cell-ir[1])**2)+4)
+            Sr[2] = 1./6. * (3*((ir[2]-r_cell)**3)-6*((ir[2]-r_cell)**2)+4)
+            Sr[3] = -1./6. * ((ir[3]-r_cell)-2)**3
+            iz[0] = int64(math.floor(z_cell)) - 1
+            iz[1] = iz[0] + 1
+            iz[2] = iz[1] + 1
+            iz[3] = iz[2] + 1
+            Sz[0] = -1./6. * ((z_cell-iz[0])-2)**3
+            Sz[1] = 1./6. * (3*((z_cell-iz[1])**3)-6*((z_cell-iz[1])**2)+4)
+            Sz[2] = 1./6. * (3*((iz[2]-z_cell)**3)-6*((iz[2]-z_cell)**2)+4)
+            Sz[3] = -1./6. * ((iz[3]-z_cell)-2)**3
+            # Lower and upper periodic boundary for z
             index_z = 0
             while index_z < 4:
-                Fr_m += Sz[index_z]*Sr[index_r]*Er_m0[iz[index_z], ir[index_r]]
-                Ft_m += Sz[index_z]*Sr[index_r]*Et_m0[iz[index_z], ir[index_r]]
-                if Sz[index_z]*Sr[index_r] < 0:
-                    Fz_m += (-1.)*Sz[index_z]*Sr[index_r]* \
-                        Ez_m0[iz[index_z], ir[index_r]]
-                else:
-                    Fz_m += Sz[index_z]*Sr[index_r]* \
-                        Ez_m0[iz[index_z], ir[index_r]]
+                if iz[index_z] < 0:
+                    iz[index_z] += Nz
+                if iz[index_z] > Nz - 1:
+                    iz[index_z] -= Nz
                 index_z += 1
-            index_r += 1
+            # Lower and upper boundary for r
+            index_r = 0
+            while index_r < 4:
+                if ir[index_r] < 0:
+                    ir[index_r] = abs(ir[index_r])-1
+                    Sr[index_r] = (-1.)*Sr[index_r]
+                if ir[index_r] > Nr - 1:
+                    ir[index_r] = Nr - 1
+                index_r += 1
 
-        Fr += (Fr_m*exptheta_m0).real
-        Ft += (Ft_m*exptheta_m0).real
-        Fz += (Fz_m*exptheta_m0).real
+            # E-Field
+            # ----------------------------
+            # Define the initial placeholders for the
+            # gathered field for each coordinate
+            Fr = 0.
+            Ft = 0.
+            Fz = 0.
 
-        # Mode 1
-        # ----------------------------
-        # Clear the temporary variables
-        # for the "per mode" gathering
-        Fr_m = 0.j
-        Ft_m = 0.j
-        Fz_m = 0.j
-        # Add the fields for mode 1
-        index_r = 0
-        while index_r < 4:
-            index_z = 0
-            while index_z < 4:
-                if Sz[index_z]*Sr[index_r] < 0:
-                    Fr_m += (-1.)*Sz[index_z]*Sr[index_r]* \
-                                Er_m1[iz[index_z], ir[index_r]]
-                    Ft_m += (-1.)*Sz[index_z]*Sr[index_r]* \
-                                Et_m1[iz[index_z], ir[index_r]]
-                else:
+            # Mode 0
+            # ----------------------------
+            # Create temporary variables
+            # for the "per mode" gathering
+            Fr_m = 0.j
+            Ft_m = 0.j
+            Fz_m = 0.j
+            # Add the fields for mode 0
+            index_r = 0
+            while index_r < 4:
+                index_z = 0
+                while index_z < 4:
+                    Fr_m += Sz[index_z]*Sr[index_r] * \
+                        Er_m0[iz[index_z], ir[index_r]]
+                    Ft_m += Sz[index_z]*Sr[index_r] * \
+                        Et_m0[iz[index_z], ir[index_r]]
+                    if Sz[index_z]*Sr[index_r] < 0:
+                        Fz_m += (-1.)*Sz[index_z]*Sr[index_r]* \
+                            Ez_m0[iz[index_z], ir[index_r]]
+                    else:
+                        Fz_m += Sz[index_z]*Sr[index_r]* \
+                            Ez_m0[iz[index_z], ir[index_r]]
+                    index_z += 1
+                index_r += 1
+
+            Fr += (Fr_m*exptheta_m0).real
+            Ft += (Ft_m*exptheta_m0).real
+            Fz += (Fz_m*exptheta_m0).real
+
+            # Mode 1
+            # ----------------------------
+            # Clear the temporary variables
+            # for the "per mode" gathering
+            Fr_m = 0.j
+            Ft_m = 0.j
+            Fz_m = 0.j
+            # Add the fields for mode 1
+            index_r = 0
+            while index_r < 4:
+                index_z = 0
+                while index_z < 4:
+                    if Sz[index_z]*Sr[index_r] < 0:
+                        Fr_m += (-1.)*Sz[index_z]*Sr[index_r]* \
+                                    Er_m1[iz[index_z], ir[index_r]]
+                        Ft_m += (-1.)*Sz[index_z]*Sr[index_r]* \
+                                    Et_m1[iz[index_z], ir[index_r]]
+                    else:
+                        Fr_m += Sz[index_z]*Sr[index_r]* \
+                                    Er_m1[iz[index_z], ir[index_r]]
+                        Ft_m += Sz[index_z]*Sr[index_r]* \
+                                    Et_m1[iz[index_z], ir[index_r]]
+                    Fz_m += Sz[index_z]*Sr[index_r] * \
+                        Ez_m1[iz[index_z], ir[index_r]]
+                    index_z += 1
+                index_r += 1
+
+            # Add the fields from the mode 1
+            Fr += 2*(Fr_m*exptheta_m1).real
+            Ft += 2*(Ft_m*exptheta_m1).real
+            Fz += 2*(Fz_m*exptheta_m1).real
+
+            # Convert to Cartesian coordinates
+            # and write to particle field arrays
+            Ex[i] = (cos*Fr - sin*Ft)
+            Ey[i] = (sin*Fr + cos*Ft)
+            Ez[i] = Fz
+
+            # B-Field
+            # ----------------------------
+            # Clear the placeholders for the
+            # gathered field for each coordinate
+            Fr = 0.
+            Ft = 0.
+            Fz = 0.
+
+            # Mode 0
+            # ----------------------------
+            # Create temporary variables
+            # for the "per mode" gathering
+            Fr_m = 0.j
+            Ft_m = 0.j
+            Fz_m = 0.j
+            # Add the fields for mode 0
+            index_r = 0
+            while index_r < 4:
+                index_z = 0
+                while index_z < 4:
                     Fr_m += Sz[index_z]*Sr[index_r]* \
-                                Er_m1[iz[index_z], ir[index_r]]
+                        Br_m0[iz[index_z], ir[index_r]]
                     Ft_m += Sz[index_z]*Sr[index_r]* \
-                                Et_m1[iz[index_z], ir[index_r]]
-                Fz_m += Sz[index_z]*Sr[index_r]*Ez_m1[iz[index_z], ir[index_r]]
-                index_z += 1
-            index_r += 1
+                        Bt_m0[iz[index_z], ir[index_r]]
+                    if Sz[index_z]*Sr[index_r] < 0:
+                        Fz_m += (-1.)*Sz[index_z]*Sr[index_r]* \
+                            Bz_m0[iz[index_z], ir[index_r]]
+                    else:
+                        Fz_m += Sz[index_z]*Sr[index_r]* \
+                            Bz_m0[iz[index_z], ir[index_r]]
+                    index_z += 1
+                index_r += 1
 
-        # Add the fields from the mode 1
-        Fr += 2*(Fr_m*exptheta_m1).real
-        Ft += 2*(Ft_m*exptheta_m1).real
-        Fz += 2*(Fz_m*exptheta_m1).real
+            # Add the fields from the mode 0
+            Fr += (Fr_m*exptheta_m0).real
+            Ft += (Ft_m*exptheta_m0).real
+            Fz += (Fz_m*exptheta_m0).real
 
-        # Convert to Cartesian coordinates
-        # and write to particle field arrays
-        Ex[i] = (cos*Fr - sin*Ft)
-        Ey[i] = (sin*Fr + cos*Ft)
-        Ez[i] = Fz
+            # Mode 1
+            # ----------------------------
+            # Clear the temporary variables
+            # for the "per mode" gathering
+            Fr_m = 0.j
+            Ft_m = 0.j
+            Fz_m = 0.j
 
-        # B-Field
-        # ----------------------------
-        # Clear the placeholders for the
-        # gathered field for each coordinate
-        Fr = 0.
-        Ft = 0.
-        Fz = 0.
+            # Add the fields for mode 1
+            index_r = 0
+            while index_r < 4:
+                index_z = 0
+                while index_z < 4:
+                    if Sz[index_z]*Sr[index_r] < 0:
+                        Fr_m += (-1.)*Sz[index_z]*Sr[index_r]* \
+                            Br_m1[iz[index_z], ir[index_r]]
+                        Ft_m += (-1.)*Sz[index_z]*Sr[index_r]* \
+                            Bt_m1[iz[index_z], ir[index_r]]
+                    else:
+                        Fr_m += Sz[index_z]*Sr[index_r]* \
+                            Br_m1[iz[index_z], ir[index_r]]
+                        Ft_m += Sz[index_z]*Sr[index_r]* \
+                            Bt_m1[iz[index_z], ir[index_r]]
+                    Fz_m += Sz[index_z]*Sr[index_r]*Bz_m1[iz[index_z], ir[index_r]]
+                    index_z += 1
+                index_r += 1
 
-        # Mode 0
-        # ----------------------------
-        # Create temporary variables
-        # for the "per mode" gathering
-        Fr_m = 0.j
-        Ft_m = 0.j
-        Fz_m = 0.j
-        # Add the fields for mode 0
-        index_r = 0
-        while index_r < 4:
-            index_z = 0
-            while index_z < 4:
-                Fr_m += Sz[index_z]*Sr[index_r]* \
-                    Br_m0[iz[index_z], ir[index_r]]
-                Ft_m += Sz[index_z]*Sr[index_r]* \
-                    Bt_m0[iz[index_z], ir[index_r]]
-                if Sz[index_z]*Sr[index_r] < 0:
-                    Fz_m += (-1.)*Sz[index_z]*Sr[index_r]* \
-                        Bz_m0[iz[index_z], ir[index_r]]
-                else:
-                    Fz_m += Sz[index_z]*Sr[index_r]* \
-                        Bz_m0[iz[index_z], ir[index_r]]
-                index_z += 1
-            index_r += 1
+            # Add the fields from the mode 1
+            Fr += 2*(Fr_m*exptheta_m1).real
+            Ft += 2*(Ft_m*exptheta_m1).real
+            Fz += 2*(Fz_m*exptheta_m1).real
 
-        # Add the fields from the mode 0
-        Fr += (Fr_m*exptheta_m0).real
-        Ft += (Ft_m*exptheta_m0).real
-        Fz += (Fz_m*exptheta_m0).real
-
-        # Mode 1
-        # ----------------------------
-        # Clear the temporary variables
-        # for the "per mode" gathering
-        Fr_m = 0.j
-        Ft_m = 0.j
-        Fz_m = 0.j
-
-        # Add the fields for mode 1
-        index_r = 0
-        while index_r < 4:
-            index_z = 0
-            while index_z < 4:
-                if Sz[index_z]*Sr[index_r] < 0:
-                    Fr_m += (-1.)*Sz[index_z]*Sr[index_r]* \
-                        Br_m1[iz[index_z], ir[index_r]]
-                    Ft_m += (-1.)*Sz[index_z]*Sr[index_r]* \
-                        Bt_m1[iz[index_z], ir[index_r]]
-                else:
-                    Fr_m += Sz[index_z]*Sr[index_r]* \
-                        Br_m1[iz[index_z], ir[index_r]]
-                    Ft_m += Sz[index_z]*Sr[index_r]* \
-                        Bt_m1[iz[index_z], ir[index_r]]
-                Fz_m += Sz[index_z]*Sr[index_r]*Bz_m1[iz[index_z], ir[index_r]]
-                index_z += 1
-            index_r += 1
-
-        # Add the fields from the mode 1
-        Fr += 2*(Fr_m*exptheta_m1).real
-        Ft += 2*(Ft_m*exptheta_m1).real
-        Fz += 2*(Fz_m*exptheta_m1).real
-
-        # Convert to Cartesian coordinates
-        # and write to particle field arrays
-        Bx[i] = cos*Fr - sin*Ft
-        By[i] = sin*Fr + cos*Ft
-        Bz[i] = Fz
+            # Convert to Cartesian coordinates
+            # and write to particle field arrays
+            Bx[i] = cos*Fr - sin*Ft
+            By[i] = sin*Fr + cos*Ft
+            Bz[i] = Fz
 
     return Ex, Ey, Ez, Bx, By, Bz
