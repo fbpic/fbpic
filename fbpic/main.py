@@ -368,11 +368,6 @@ class Simulation(object):
             for ext_field in self.external_fields:
                 ext_field.apply_expression( self.ptcl, self.time )
 
-            # Ionize the particles at t = n dt
-            # (if the species is not ionizable, `handle_ionization` skips it)
-            for species in ptcl:
-                species.handle_ionization()
-
             # Push the particles' positions and velocities to t = (n+1/2) dt
             if move_momenta:
                 for species in ptcl:
@@ -390,6 +385,12 @@ class Simulation(object):
 
             # Get the current at t = (n+1/2) dt
             self.deposit('J')
+
+            # Handle elementary processes at t = (n + 1/2)dt
+            # i.e. when the particles' velocity and position are synchronized
+            # (e.g. ionization, Compton scattering, ...)
+            for species in ptcl:
+                species.handle_elementary_processes()
 
             # Push the particles' positions to t = (n+1) dt
             if move_positions:

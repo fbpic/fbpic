@@ -8,7 +8,7 @@ It defines the structure and methods associated with the particles.
 import numpy as np
 import numba
 from scipy.constants import e
-from .ionization import Ionizer
+from .elementary_process.ionization import Ionizer
 from .tracking import ParticleTracker
 
 # Load the utility methods
@@ -168,7 +168,7 @@ class Particles(object) :
 
         # By default, there is no particle tracking (see method track)
         self.tracker = None
-        # By default, the species is not ionizable (see method make_ionizable)
+        # By default, the species experiences no elementary processes
         self.ionizer = None
         # Total number of quantities (necessary in MPI communications)
         self.n_integer_quantities = 0
@@ -370,15 +370,13 @@ class Particles(object) :
         if hasattr( self, 'int_sorting_buffer' ) is False and self.use_cuda:
             self.int_sorting_buffer = np.empty( self.Ntot, dtype=np.uint64 )
 
-    def handle_ionization( self ):
+    def handle_elementary_processes( self ):
         """
-        Ionize this species, and add new macroparticles to the target species
+        Handle elementary processes for this species (e.g. ionization)
         """
+        # Ionization
         if self.ionizer is not None:
-            if self.use_cuda:
-                self.ionizer.handle_ionization_gpu( self )
-            else:
-                self.ionizer.handle_ionization_cpu( self )
+            self.ionizer.handle_ionization( self )
 
     def rearrange_particle_arrays( self ):
         """
@@ -433,6 +431,10 @@ class Particles(object) :
         half-timestep *behind* the positions (x, y, z), and it brings
         them one half-timestep *ahead* of the positions.
         """
+        # Skip push for neutral particles (e.g. photons)
+        if self.q == 0:
+            return
+
         # GPU (CUDA) version
         if self.use_cuda:
             # Get the threads per block and the blocks per grid
@@ -503,6 +505,10 @@ class Particles(object) :
              (one InterpolationGrid object per azimuthal mode)
              Contains the field values on the interpolation grid
         """
+        # Skip gathering for neutral particles (e.g. photons)
+        if self.q == 0:
+            return
+
         # GPU (CUDA) version
         if self.use_cuda:
             # Get the threads per block and the blocks per grid
@@ -585,6 +591,10 @@ class Particles(object) :
              Indicates which field to deposit
              Either 'J' or 'rho'
         """
+        # Skip deposition for neutral particles (e.g. photons)
+        if self.q == 0:
+            return
+
         # Shortcut for the list of InterpolationGrid objects
         grid = fld.interp
 
