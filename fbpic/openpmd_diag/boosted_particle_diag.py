@@ -662,16 +662,24 @@ class ParticleCatcher:
             dz = self.fld.interp[0].dz
             zmin = self.fld.interp[0].zmin
             pref_sum = species.prefix_sum
+            pref_sum_shift = self.fld.prefix_sum_shift
             Nz, Nr = species.grid_shape
             # Calculate cell area to get particles from
-            # (indices of the current and previous cell representing the
-            # boundaries of this area
-            cell_curr = int((current_z_boost - zmin - 0.5*dz)/dz)
-            cell_prev = int((previous_z_boost - zmin - 0.5*dz + dt*c)/dz)+1
-            # Get the prefix sum values for calculation
-            # of number of particles
-            pref_sum_curr = pref_sum.getitem(np.fmax( cell_curr*Nr-1, 0 ))
-            pref_sum_prev = pref_sum.getitem(np.fmin( cell_prev*Nr-1, Nz*Nr-1))
+            # - Get z indices of the slices in which to get the particles
+            iz_curr = int((current_z_boost - zmin - 0.5*dz)/dz)
+            iz_prev = int((previous_z_boost - zmin - 0.5*dz + dt*c)/dz) + 1
+            # - Get the prefix sum values that correspond to these indices
+            #   (Take into account potential shift due to the moving window)
+            z_cell_curr = iz_curr + pref_sum_shift
+            if z_cell_curr > 0:
+                pref_sum_curr = pref_sum.getitem( z_cell_curr*Nr - 1 )
+            else:
+                pref_sum_curr = 0
+            z_cell_prev = iz_prev + pref_sum_shift
+            if z_cell_prev <= Nz:
+                pref_sum_prev = pref_sum.getitem( z_cell_prev*Nr - 1 )
+            else:
+                pref_sum_prev = species.Ntot
             # Calculate number of particles in this area (N_area)
             N_area = pref_sum_prev - pref_sum_curr
             # Check if there are particles to extract
