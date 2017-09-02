@@ -1,5 +1,11 @@
 # Change Log / Release Log for fbpic
 
+## 0.5.1
+
+This is a bug-fix release, that solves an issue with the particle 
+boosted-frame diagnostics, in the case where both the GPU and a moving window
+were used.
+
 ## 0.5.0
 
 This version brings two majors changes to FBPIC:
