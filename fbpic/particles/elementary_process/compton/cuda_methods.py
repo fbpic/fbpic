@@ -115,13 +115,6 @@ def scatter_photons_electrons_cuda(
             # Prepare calculation of scattered photons from this electron
             if nscatter_per_elec[i_elec] > 0:
 
-                # Prepare recoil momentum (accumulated for the different
-                # photons that are emitted by this electron, and then added
-                # to the electron momentum)
-                recoil_px = 0
-                recoil_py = 0
-                recoil_pz = 0
-
                 # Prepare Lorentz transformation to the electron rest frame
                 elec_gamma = 1./elec_inv_gamma[i_elec]
                 elec_u = math.sqrt(
@@ -216,11 +209,6 @@ def scatter_photons_electrons_cuda(
                         new_photon_rest_py, new_photon_rest_pz,
                         elec_gamma, elec_beta, -elec_nx, -elec_ny, -elec_nz)
 
-                # Accumulate the recoil momentum from that photon
-                recoil_px += photon_px - new_photon_px
-                recoil_py += photon_py - new_photon_py
-                recoil_pz += photon_pz - new_photon_pz
-
                 # Create the new photon by copying the electron position
                 photon_x[i_photon] = elec_x[i_elec]
                 photon_y[i_photon] = elec_y[i_elec]
@@ -238,8 +226,19 @@ def scatter_photons_electrons_cuda(
                 # Update the photon index
                 i_photon += 1
 
-            # Add the total recoil momentum to the electron
+            # Add recoil to electrons
+            # Note: In order to reproduce the right distribution of electron
+            # momentum, the electrons should recoil with the momentum
+            # of *one single* photon, with a probability p (calculated by
+            # get_scattering_probability). Here we reuse the momentum of
+            # the last photon generated above. This requires that at least one
+            # photon be created for this electron, which occurs with a
+            # probability p*ratio_w_elec_photon. Thus, given that at least one
+            # photon has been created, we should add recoil to the corresponding
+            # electron only with a probability inv_ratio_w_elec_photon.
             if nscatter_per_elec[i_elec] > 0:
-                elec_ux[i_elec] += recoil_px * INV_MC * inv_ratio_w_elec_photon
-                elec_uy[i_elec] += recoil_py * INV_MC * inv_ratio_w_elec_photon
-                elec_uz[i_elec] += recoil_pz * INV_MC * inv_ratio_w_elec_photon
+                r = xoroshiro128p_uniform_float64(random_states, i_batch)
+                if r < inv_ratio_w_elec_photon:
+                    elec_ux[i_elec] += INV_MC * (photon_px - new_photon_px)
+                    elec_uy[i_elec] += INV_MC * (photon_py - new_photon_py)
+                    elec_uz[i_elec] += INV_MC * (photon_pz - new_photon_pz)

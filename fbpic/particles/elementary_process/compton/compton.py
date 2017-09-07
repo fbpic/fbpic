@@ -50,6 +50,7 @@ class ComptonScatterer(object):
         # Register the photons species
         assert target_species.q == 0
         self.target_species = target_species
+        assert ratio_w_electron_photon >= 1
         self.ratio_w_electron_photon = ratio_w_electron_photon
         self.inv_ratio_w_elec_photon = 1./ratio_w_electron_photon
 
