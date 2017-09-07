@@ -11,7 +11,6 @@ This test is performed in the lab frame and in the boosted frame.
 Note: This test does not exercise the full loop: only the
 Compton scattering and particle pusher are used.
 """
-
 # -------
 # Imports
 # -------
@@ -108,7 +107,7 @@ def run_simulation( gamma_boost, show ):
                     ux_m=0., uy_m=0., uz_m=0.,
                     ux_th=0., uy_th=0., uz_th=0.,
                     dens_func=None, continuous_injection=False,
-                    grid_shape=sim.fld.interp[0].Ez.shape, 
+                    grid_shape=sim.fld.interp[0].Ez.shape,
                     particle_shape='linear',
                     use_cuda=sim.use_cuda)
     sim.ptcl.append( photons )
@@ -163,9 +162,10 @@ def run_simulation( gamma_boost, show ):
 
     # Check estimation of photon fraction
     check_photon_fraction( simulated_frac )
-    # Check conservation of momentum
-    check_momentum_conservation( photons, elec,
-        initial_total_elec_px, initial_total_elec_py, initial_total_elec_pz )
+    # Check conservation of momentum (is only conserved )
+    if elec.compton_scatterer.ratio_w_electron_photon == 1:
+        check_momentum_conservation( gamma_boost, photons, elec,
+          initial_total_elec_px, initial_total_elec_py, initial_total_elec_pz )
 
     # Transform the photon momenta back into the lab frame
     photon_u = 1./photons.inv_gamma
@@ -208,26 +208,29 @@ def run_simulation( gamma_boost, show ):
         plt.clf()
 
 
-def check_momentum_conservation( photons, elec, px_init, py_init, pz_init ):
-    """Check conservation of momentum, i.e. that the current momentum of 
-    the electrons + the change in momentum of the photons is equal 
+def check_momentum_conservation( gamma_boost, photons, elec,
+                                 px_init, py_init, pz_init ):
+    """Check conservation of momentum, i.e. that the current momentum of
+    the electrons + the change in momentum of the photons is equal
     to the initial momentum of the electrons"""
-    
+
     elec_px = (elec.w*elec.ux).sum() * m_e * c
     elec_py = (elec.w*elec.uy).sum() * m_e * c
     elec_pz = (elec.w*elec.uz).sum() * m_e * c
 
     photons_delta_px = (photons.w*photons.ux).sum()
     photons_delta_py = (photons.w*photons.uy).sum()
-    photons_delta_pz = (photons.w*(photons.uz+h/laser_wavelength)).sum()
+    photons_delta_pz = \
+        (photons.w*(photons.uz+2*gamma_boost*h/laser_wavelength)).sum()
 
-    assert np.allclose( elec_px + photons_delta_px, px_init )
-    assert np.allclose( elec_py + photons_delta_py, py_init )
-    assert np.allclose( elec_pz + photons_delta_pz, pz_init )
+    atol = 1.e-9*abs(pz_init)
+    assert np.allclose( px_init, elec_px + photons_delta_px, atol=atol )
+    assert np.allclose( py_init, elec_py + photons_delta_py, atol=atol )
+    assert np.allclose( pz_init, elec_pz + photons_delta_pz, atol=atol )
 
 
 def check_photon_fraction( simulated_frac ):
-    """Check that the photon fraction is close (within 10%) to 
+    """Check that the photon fraction is close (within 10%) to
     the esimate, based on the Klein-Nishina formula"""
     # Calculate the expected photon fraction
     # - Total Klein-Nishina cross section in electron rest frame:
