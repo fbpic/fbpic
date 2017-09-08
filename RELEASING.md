@@ -17,19 +17,16 @@ PyPI and conda. In particular:
 ```
 [distutils]
 index-servers=
-	pypitest
 	pypi
-
-[pypitest]
-repository = https://testpypi.python.org/pypi
-username = <yourPypiUsername>
+	testpypi
 
 [pypi]
-repository = https://pypi.python.org/pypi
 username = <yourPypiUsername>
-```
 
-- you should have a registered account on [Anaconda.org](https://anaconda.org/)
+[testpypi]
+repository: https://test.pypi.org/legacy/
+username: <yourPypiUsername>
+```
 
 ## Creating a release on Github
 
