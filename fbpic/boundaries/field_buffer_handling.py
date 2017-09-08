@@ -51,71 +51,65 @@ class BufferHandler(object):
         # Allocate buffer arrays that are send via MPI to exchange
         # the fields between domains (either replacing or adding fields)
         # Buffers are allocated for the left and right side of the domain
-        # Replacing vector field buffers
-        self.vec_rep_send_l = np.empty((6, ng, Nr), dtype=np.complex128)
-        self.vec_rep_send_r = np.empty((6, ng, Nr), dtype=np.complex128)
-        self.vec_rep_recv_l = np.empty((6, ng, Nr), dtype=np.complex128)
-        self.vec_rep_recv_r = np.empty((6, ng, Nr), dtype=np.complex128)
-        # Adding vector field buffers
-        self.vec_add_send_l = np.empty((6, 2*ng, Nr), dtype=np.complex128)
-        self.vec_add_send_r = np.empty((6, 2*ng, Nr), dtype=np.complex128)
-        self.vec_add_recv_l = np.empty((6, 2*ng, Nr), dtype=np.complex128)
-        self.vec_add_recv_r = np.empty((6, 2*ng, Nr), dtype=np.complex128)
-        # Replacing scalar field buffers
-        self.scal_rep_send_l = np.empty((2, ng, Nr), dtype=np.complex128)
-        self.scal_rep_send_r = np.empty((2, ng, Nr), dtype=np.complex128)
-        self.scal_rep_recv_l = np.empty((2, ng, Nr), dtype=np.complex128)
-        self.scal_rep_recv_r = np.empty((2, ng, Nr), dtype=np.complex128)
-        # Adding scalar field buffers
-        self.scal_add_send_l = np.empty((2, 2*ng, Nr), dtype=np.complex128)
-        self.scal_add_send_r = np.empty((2, 2*ng, Nr), dtype=np.complex128)
-        self.scal_add_recv_l = np.empty((2, 2*ng, Nr), dtype=np.complex128)
-        self.scal_add_recv_r = np.empty((2, 2*ng, Nr), dtype=np.complex128)
-        # - Buffers on the GPU at right and left of the box
-        if cuda_installed:
+        if not cuda_installed:
+            # Allocate buffers on the CPU
+            # - Replacing vector field buffers
+            self.vec_rep_send_l = np.empty((6, ng, Nr), dtype=np.complex128)
+            self.vec_rep_send_r = np.empty((6, ng, Nr), dtype=np.complex128)
+            self.vec_rep_recv_l = np.empty((6, ng, Nr), dtype=np.complex128)
+            self.vec_rep_recv_r = np.empty((6, ng, Nr), dtype=np.complex128)
+            # - Adding vector field buffers
+            self.vec_add_send_l = np.empty((6, 2*ng, Nr), dtype=np.complex128)
+            self.vec_add_send_r = np.empty((6, 2*ng, Nr), dtype=np.complex128)
+            self.vec_add_recv_l = np.empty((6, 2*ng, Nr), dtype=np.complex128)
+            self.vec_add_recv_r = np.empty((6, 2*ng, Nr), dtype=np.complex128)
+            # - Replacing scalar field buffers
+            self.scal_rep_send_l = np.empty((2, ng, Nr), dtype=np.complex128)
+            self.scal_rep_send_r = np.empty((2, ng, Nr), dtype=np.complex128)
+            self.scal_rep_recv_l = np.empty((2, ng, Nr), dtype=np.complex128)
+            self.scal_rep_recv_r = np.empty((2, ng, Nr), dtype=np.complex128)
+            # - Adding scalar field buffers
+            self.scal_add_send_l = np.empty((2, 2*ng, Nr), dtype=np.complex128)
+            self.scal_add_send_r = np.empty((2, 2*ng, Nr), dtype=np.complex128)
+            self.scal_add_recv_l = np.empty((2, 2*ng, Nr), dtype=np.complex128)
+            self.scal_add_recv_r = np.empty((2, 2*ng, Nr), dtype=np.complex128)
+        else:
+            # Allocate buffers on the CPU and GPU
             # Use cuda.pinned_array so that CPU array is pagelocked.
             # (cannot be swapped out to disk and GPU can access it via DMA)
-            pin_ary = cuda.pinned_array # shortcut for cuda.pinned_array
-            # Allocate buffer arrays that are send via MPI to exchange
-            # the fields between domains (either replacing or adding fields)
-            # Buffers are allocated for the left and right side of the domain
-            # Replacing vector field buffers
+            pin_ary = cuda.pinned_array
+            # - Replacing vector field buffers
             self.vec_rep_send_l = pin_ary((6, ng, Nr), dtype=np.complex128)
             self.vec_rep_send_r = pin_ary((6, ng, Nr), dtype=np.complex128)
             self.vec_rep_recv_l = pin_ary((6, ng, Nr), dtype=np.complex128)
             self.vec_rep_recv_r = pin_ary((6, ng, Nr), dtype=np.complex128)
-            # Adding vector field buffers
-            self.vec_add_send_l = pin_ary((6, 2*ng, Nr), dtype=np.complex128)
-            self.vec_add_send_r = pin_ary((6, 2*ng, Nr), dtype=np.complex128)
-            self.vec_add_recv_l = pin_ary((6, 2*ng, Nr), dtype=np.complex128)
-            self.vec_add_recv_r = pin_ary((6, 2*ng, Nr), dtype=np.complex128)
-            # Replacing scalar field buffers
-            self.scal_rep_send_l = pin_ary((2, ng, Nr), dtype=np.complex128)
-            self.scal_rep_send_r = pin_ary((2, ng, Nr), dtype=np.complex128)
-            self.scal_rep_recv_l = pin_ary((2, ng, Nr), dtype=np.complex128)
-            self.scal_rep_recv_r = pin_ary((2, ng, Nr), dtype=np.complex128)
-            # Adding scalar field buffers
-            self.scal_add_send_l = pin_ary((2, 2*ng, Nr), dtype=np.complex128)
-            self.scal_add_send_r = pin_ary((2, 2*ng, Nr), dtype=np.complex128)
-            self.scal_add_recv_l = pin_ary((2, 2*ng, Nr), dtype=np.complex128)
-            self.scal_add_recv_r = pin_ary((2, 2*ng, Nr), dtype=np.complex128)
-
-            # Send arrays to GPU
             self.d_vec_rep_send_l = cuda.to_device( self.vec_rep_send_l )
             self.d_vec_rep_send_r = cuda.to_device( self.vec_rep_send_r )
             self.d_vec_rep_recv_l = cuda.to_device( self.vec_rep_recv_l )
             self.d_vec_rep_recv_r = cuda.to_device( self.vec_rep_recv_r )
-
+            # - Adding vector field buffers
+            self.vec_add_send_l = pin_ary((6, 2*ng, Nr), dtype=np.complex128)
+            self.vec_add_send_r = pin_ary((6, 2*ng, Nr), dtype=np.complex128)
+            self.vec_add_recv_l = pin_ary((6, 2*ng, Nr), dtype=np.complex128)
+            self.vec_add_recv_r = pin_ary((6, 2*ng, Nr), dtype=np.complex128)
             self.d_vec_add_send_l = cuda.to_device( self.vec_add_send_l )
             self.d_vec_add_send_r = cuda.to_device( self.vec_add_send_r )
             self.d_vec_add_recv_l = cuda.to_device( self.vec_add_recv_l )
             self.d_vec_add_recv_r = cuda.to_device( self.vec_add_recv_r )
-
+            # - Replacing scalar field buffers
+            self.scal_rep_send_l = pin_ary((2, ng, Nr), dtype=np.complex128)
+            self.scal_rep_send_r = pin_ary((2, ng, Nr), dtype=np.complex128)
+            self.scal_rep_recv_l = pin_ary((2, ng, Nr), dtype=np.complex128)
+            self.scal_rep_recv_r = pin_ary((2, ng, Nr), dtype=np.complex128)
             self.d_scal_rep_send_l = cuda.to_device( self.scal_rep_send_l )
             self.d_scal_rep_send_r = cuda.to_device( self.scal_rep_send_r )
             self.d_scal_rep_recv_l = cuda.to_device( self.scal_rep_recv_l )
             self.d_scal_rep_recv_r = cuda.to_device( self.scal_rep_recv_r )
-
+            # - Adding scalar field buffers
+            self.scal_add_send_l = pin_ary((2, 2*ng, Nr), dtype=np.complex128)
+            self.scal_add_send_r = pin_ary((2, 2*ng, Nr), dtype=np.complex128)
+            self.scal_add_recv_l = pin_ary((2, 2*ng, Nr), dtype=np.complex128)
+            self.scal_add_recv_r = pin_ary((2, 2*ng, Nr), dtype=np.complex128)
             self.d_scal_add_send_l = cuda.to_device( self.scal_add_send_l )
             self.d_scal_add_send_r = cuda.to_device( self.scal_add_send_r )
             self.d_scal_add_recv_l = cuda.to_device( self.scal_add_recv_l )
