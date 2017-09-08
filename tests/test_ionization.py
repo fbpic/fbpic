@@ -22,7 +22,7 @@ through external fields.
 # -------
 # Imports
 # -------
-import os, shutil, math
+import shutil, math
 import numpy as np
 from scipy.constants import c, m_e, m_p, e
 # Import the relevant structures in FBPIC
