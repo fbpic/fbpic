@@ -140,8 +140,8 @@ def test_cherenkov_instability( show=False ):
     else:
         # Check that, in the standard case, the electric field is
         # growing much faster, due to the Cherenkov instability
-        assert slope_Erms['standard'] > 4*slope_Erms['galilean']
-        assert slope_Erms['standard'] > 4*slope_Erms['pseudo-galilean']
+        assert slope_Erms['standard'] > 3.5*slope_Erms['galilean']
+        assert slope_Erms['standard'] > 3.5*slope_Erms['pseudo-galilean']
 
 if __name__ == '__main__':
 
