@@ -1,8 +1,13 @@
 # Change Log / Release Log for fbpic
 
+## 0.5.2
+
+This is a bug-fix release, that solves an issue when using
+openPMD-viewer >= 0.6.0 to read the checkpoint files (for a restart simulation).
+
 ## 0.5.1
 
-This is a bug-fix release, that solves an issue with the particle 
+This is a bug-fix release, that solves an issue with the particle
 boosted-frame diagnostics, in the case where both the GPU and a moving window
 were used.
 
