@@ -166,6 +166,7 @@ class BufferHandler(object):
         # Whether or not to send to the left or right neighbor
         copy_left = (self.left_proc is not None)
         copy_right = (self.right_proc is not None)
+        Nz = grid_0_r.shape[0]
 
         # When using the GPU
         if use_cuda:
@@ -247,12 +248,12 @@ class BufferHandler(object):
                         self.vec_rep_send_l[4,:,:]=grid_1_t[nz_start:nz_end,:]
                         self.vec_rep_send_l[5,:,:]=grid_1_z[nz_start:nz_end,:]
                     if copy_right:
-                        self.vec_rep_send_r[0,:,:]=grid_0_r[::-1][nz_start:nz_end,:][::-1]
-                        self.vec_rep_send_r[1,:,:]=grid_0_t[::-1][nz_start:nz_end,:][::-1]
-                        self.vec_rep_send_r[2,:,:]=grid_0_z[::-1][nz_start:nz_end,:][::-1]
-                        self.vec_rep_send_r[3,:,:]=grid_1_r[::-1][nz_start:nz_end,:][::-1]
-                        self.vec_rep_send_r[4,:,:]=grid_1_t[::-1][nz_start:nz_end,:][::-1]
-                        self.vec_rep_send_r[5,:,:]=grid_1_z[::-1][nz_start:nz_end,:][::-1]
+                        self.vec_rep_send_r[0,:,:]=grid_0_r[Nz-nz_end:Nz-nz_start,:]
+                        self.vec_rep_send_r[1,:,:]=grid_0_t[Nz-nz_end:Nz-nz_start,:]
+                        self.vec_rep_send_r[2,:,:]=grid_0_z[Nz-nz_end:Nz-nz_start,:]
+                        self.vec_rep_send_r[3,:,:]=grid_1_r[Nz-nz_end:Nz-nz_start,:]
+                        self.vec_rep_send_r[4,:,:]=grid_1_t[Nz-nz_end:Nz-nz_start,:]
+                        self.vec_rep_send_r[5,:,:]=grid_1_z[Nz-nz_end:Nz-nz_start,:]
 
                 if method == 'add':
                     # Copy the inner+guard regions of the domain to the buffers
@@ -264,12 +265,12 @@ class BufferHandler(object):
                         self.vec_add_send_l[4,:,:]=grid_1_t[nz_start:nz_end,:]
                         self.vec_add_send_l[5,:,:]=grid_1_z[nz_start:nz_end,:]
                     if copy_right:
-                        self.vec_add_send_r[0,:,:]=grid_0_r[::-1][nz_start:nz_end,:][::-1]
-                        self.vec_add_send_r[1,:,:]=grid_0_t[::-1][nz_start:nz_end,:][::-1]
-                        self.vec_add_send_r[2,:,:]=grid_0_z[::-1][nz_start:nz_end,:][::-1]
-                        self.vec_add_send_r[3,:,:]=grid_1_r[::-1][nz_start:nz_end,:][::-1]
-                        self.vec_add_send_r[4,:,:]=grid_1_t[::-1][nz_start:nz_end,:][::-1]
-                        self.vec_add_send_r[5,:,:]=grid_1_z[::-1][nz_start:nz_end,:][::-1]
+                        self.vec_add_send_r[0,:,:]=grid_0_r[Nz-nz_end:Nz-nz_start,:]
+                        self.vec_add_send_r[1,:,:]=grid_0_t[Nz-nz_end:Nz-nz_start,:]
+                        self.vec_add_send_r[2,:,:]=grid_0_z[Nz-nz_end:Nz-nz_start,:]
+                        self.vec_add_send_r[3,:,:]=grid_1_r[Nz-nz_end:Nz-nz_start,:]
+                        self.vec_add_send_r[4,:,:]=grid_1_t[Nz-nz_end:Nz-nz_start,:]
+                        self.vec_add_send_r[5,:,:]=grid_1_z[Nz-nz_end:Nz-nz_start,:]
 
             elif after_receiving:
                 if method == 'replace':
@@ -363,6 +364,7 @@ class BufferHandler(object):
 
         copy_left = (self.left_proc is not None)
         copy_right = (self.right_proc is not None)
+        Nz = grid_0.shape[0]
 
         # When using the GPU
         if use_cuda:
@@ -436,8 +438,8 @@ class BufferHandler(object):
                         self.scal_rep_send_l[0,:,:]=grid_0[nz_start:nz_end,:]
                         self.scal_rep_send_l[1,:,:]=grid_1[nz_start:nz_end,:]
                     if copy_right:
-                        self.scal_rep_send_r[0,:,:]=grid_0[::-1][nz_start:nz_end,:][::-1]
-                        self.scal_rep_send_r[1,:,:]=grid_1[::-1][nz_start:nz_end,:][::-1]
+                        self.scal_rep_send_r[0,:,:]=grid_0[Nz-nz_end:Nz-nz_start,:]
+                        self.scal_rep_send_r[1,:,:]=grid_1[Nz-nz_end:Nz-nz_start,:]
 
                 if method == 'add':
                     # Copy the inner+guard regions of the domain to the buffer
@@ -445,8 +447,8 @@ class BufferHandler(object):
                         self.scal_add_send_l[0,:,:]=grid_0[nz_start:nz_end,:]
                         self.scal_add_send_l[1,:,:]=grid_1[nz_start:nz_end,:]
                     if copy_right:
-                        self.scal_add_send_r[0,:,:]=grid_0[::-1][nz_start:nz_end,:][::-1]
-                        self.scal_add_send_r[1,:,:]=grid_1[::-1][nz_start:nz_end,:][::-1]
+                        self.scal_add_send_r[0,:,:]=grid_0[Nz-nz_end:Nz-nz_start,:]
+                        self.scal_add_send_r[1,:,:]=grid_1[Nz-nz_end:Nz-nz_start,:]
 
             elif after_receiving:
                 if method == 'replace':
