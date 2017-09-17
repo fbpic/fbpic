@@ -8,375 +8,360 @@ It defines a set of generic functions that operate on a GPU.
 from numba import cuda
 
 @cuda.jit
-def copy_EB_to_gpu_buffers( EB_left, EB_right,
-                            Er0, Et0, Ez0, Br0, Bt0, Bz0,
-                            Er1, Et1, Ez1, Br1, Bt1, Bz1,
-                            copy_left, copy_right, ng ):
+def copy_vec_to_gpu_buffer( vec_buffer_l, vec_buffer_r,
+                            grid_0_r, grid_0_t, grid_0_z,
+                            grid_1_r, grid_1_t, grid_1_z,
+                            copy_left, copy_right, nz_start, nz_end ):
     """
-    Copy the ng inner domain cells of Er0, ..., Bz1
-    to the GPU buffer EB_left and EB_right
+    Copy the ng inner domain cells of grid_0_r, ..., grid_1_z
+    to the GPU buffer vec_buffer_l and vec_buffer_r.
 
     Parameters
     ----------
-    EB_left, EB_right: ndarrays of complexs (device arrays)
-        Arrays of shape (12, ng, Nr), which serve as buffer for transmission
-        to CPU, and then sending via MPI. They are to hold the values of
-        E&B in the ng inner cells of the domain, to the left and right.
+    vec_buffer_l, vec_buffer_r: ndarrays of complexs (device arrays)
+        Arrays of shape (6, nz_end-nz_start, Nr), which serve as buffer
+        for transmission to CPU, and then sending via MPI. They hold the
+        values of a vector field in either the ng inner cells of the domain
+        or the ng outer + ng inner cells of the domain, to the left and right.
 
-    Er0, Et0, Ez0, Er1, Et1, Ez1: ndarrays of complexs (device arrays)
+    grid_m_x: ndarrays of complexs (device arrays)
         Arrays of shape (Nz, Nr), which contain the different component
-        of the E field, in the modes 0 and 1.
-
-    Br0, Bt0, Bz0, Br1, Bt1, Bz1: ndarrays of complexs (device arrays)
-        Arrays of shape (Nz, Nr), which contain the different component
-        of the B field, in the modes 0 and 1.
+        of the vector field (r, t, z), in the modes 0 and 1.
+        (m = mode, x = coordinate)
 
     copy_left, copy_right: bool
         Whether to copy the buffers to the left and right of the local domain
         (Buffers are not copied at the left end and right end of the
         global simulation box.)
 
-    ng: int
-        Number of guard cells in the longitudinal direction
+    nz_start: int
+        The start index in z, of the cell region which is copied to the
+        buffers. The start is defined as an offset from the most outer cell
+        on either the left or the right side of the enlarged domain.
+
+    nz_end: int
+        The end index in z, of the cell region which is copied to the
+        buffers. The end is defined as an offset from the most outer cell
+        on either the left or the right side of the enlarged domain.
     """
     # Dimension of the arrays
-    Nz, Nr = Er0.shape
+    Nz, Nr = grid_0_r.shape
 
     # Obtain Cuda grid
     iz, ir = cuda.grid(2)
 
-    # Offset between modes, for the EB buffer
-    offset = 6
-
     # Copy the inner regions of the domain to the buffer
     if ir < Nr:
-        if iz < ng:
+        if iz < (nz_end - nz_start):
             # At the left end
             if copy_left:
-                iz_left = ng + iz
-                EB_left[0, iz, ir] = Er0[ iz_left, ir ]
-                EB_left[1, iz, ir] = Et0[ iz_left, ir ]
-                EB_left[2, iz, ir] = Ez0[ iz_left, ir ]
-                EB_left[3, iz, ir] = Br0[ iz_left, ir ]
-                EB_left[4, iz, ir] = Bt0[ iz_left, ir ]
-                EB_left[5, iz, ir] = Bz0[ iz_left, ir ]
-                EB_left[0+offset, iz, ir] = Er1[ iz_left, ir ]
-                EB_left[1+offset, iz, ir] = Et1[ iz_left, ir ]
-                EB_left[2+offset, iz, ir] = Ez1[ iz_left, ir ]
-                EB_left[3+offset, iz, ir] = Br1[ iz_left, ir ]
-                EB_left[4+offset, iz, ir] = Bt1[ iz_left, ir ]
-                EB_left[5+offset, iz, ir] = Bz1[ iz_left, ir ]
+                iz_left = nz_start + iz
+                vec_buffer_l[0, iz, ir] = grid_0_r[ iz_left, ir ]
+                vec_buffer_l[1, iz, ir] = grid_0_t[ iz_left, ir ]
+                vec_buffer_l[2, iz, ir] = grid_0_z[ iz_left, ir ]
+                vec_buffer_l[3, iz, ir] = grid_1_r[ iz_left, ir ]
+                vec_buffer_l[4, iz, ir] = grid_1_t[ iz_left, ir ]
+                vec_buffer_l[5, iz, ir] = grid_1_z[ iz_left, ir ]
             # At the right end
             if copy_right:
-                iz_right = Nz - 2*ng + iz
-                EB_right[0, iz, ir] = Er0[ iz_right, ir ]
-                EB_right[1, iz, ir] = Et0[ iz_right, ir ]
-                EB_right[2, iz, ir] = Ez0[ iz_right, ir ]
-                EB_right[3, iz, ir] = Br0[ iz_right, ir ]
-                EB_right[4, iz, ir] = Bt0[ iz_right, ir ]
-                EB_right[5, iz, ir] = Bz0[ iz_right, ir ]
-                EB_right[0+offset, iz, ir] = Er1[ iz_right, ir ]
-                EB_right[1+offset, iz, ir] = Et1[ iz_right, ir ]
-                EB_right[2+offset, iz, ir] = Ez1[ iz_right, ir ]
-                EB_right[3+offset, iz, ir] = Br1[ iz_right, ir ]
-                EB_right[4+offset, iz, ir] = Bt1[ iz_right, ir ]
-                EB_right[5+offset, iz, ir] = Bz1[ iz_right, ir ]
-
+                iz_right = Nz - nz_end + iz
+                vec_buffer_r[0, iz, ir] = grid_0_r[ iz_right, ir ]
+                vec_buffer_r[1, iz, ir] = grid_0_t[ iz_right, ir ]
+                vec_buffer_r[2, iz, ir] = grid_0_z[ iz_right, ir ]
+                vec_buffer_r[3, iz, ir] = grid_1_r[ iz_right, ir ]
+                vec_buffer_r[4, iz, ir] = grid_1_t[ iz_right, ir ]
+                vec_buffer_r[5, iz, ir] = grid_1_z[ iz_right, ir ]
 
 @cuda.jit
-def copy_EB_from_gpu_buffers( EB_left, EB_right,
-                            Er0, Et0, Ez0, Br0, Bt0, Bz0,
-                            Er1, Et1, Ez1, Br1, Bt1, Bz1,
-                            copy_left, copy_right, ng ):
+def copy_scal_to_gpu_buffer( scal_buffer_l, scal_buffer_r,
+                             grid_0, grid_1,
+                             copy_left, copy_right, nz_start, nz_end ):
     """
-    Copy the GPU buffer EB_left and EB_right to the ng guards
-    cells of Er0, ..., Bz1
+    Copy the ng inner domain cells of grid_0, ..., grid_1
+    to the GPU buffer scal_buffer_l and scal_buffer_r.
 
     Parameters
     ----------
-    EB_left, EB_right: ndarrays of complexs (device arrays)
-        Arrays of shape (12, ng, Nr), which serve as buffer for transmission
-        from CPU, and after receiving via MPI. They hold the values of
-        E&B in the ng inner cells of the domain, to the left and right.
+    scal_buffer_l, scal_buffer_r: ndarrays of complexs (device arrays)
+        Arrays of shape (2, nz_end-nz_start, Nr), which serve as buffer
+        for transmission to CPU, and then sending via MPI. They hold the
+        values of a scalar field in either the ng inner cells of the domain
+        or the ng outer + ng inner cells of the domain, to the left and right.
 
-    Er0, Et0, Ez0, Er1, Et1, Ez1: ndarrays of complexs (device arrays)
-        Arrays of shape (Nz, Nr), which contain the different components
-        of the E field, in the modes 0 and 1.
-
-    Br0, Bt0, Bz0, Br1, Bt1, Bz1: ndarrays of complexs (device arrays)
-        Arrays of shape (Nz, Nr), which contain the different components
-        of the B field, in the modes 0 and 1.
+    grid_m: ndarrays of complexs (device arrays)
+        Arrays of shape (Nz, Nr), which contain the different modes 0 and 1
+        of the scalar field.
+        (m = mode)
 
     copy_left, copy_right: bool
         Whether to copy the buffers to the left and right of the local domain
         (Buffers are not copied at the left end and right end of the
         global simulation box.)
 
-    ng: int
-        Number of guard cells in the longitudinal direction
+    nz_start: int
+        The start index in z, of the cell region which is copied to the
+        buffers. The start is defined as an offset from the most outer cell
+        on either the left or the right side of the enlarged domain.
+
+    nz_end: int
+        The end index in z, of the cell region which is copied to the
+        buffers. The end is defined as an offset from the most outer cell
+        on either the left or the right side of the enlarged domain.
     """
     # Dimension of the arrays
-    Nz, Nr = Er0.shape
+    Nz, Nr = grid_0.shape
 
     # Obtain Cuda grid
     iz, ir = cuda.grid(2)
-
-    # Offset between modes, for the EB buffer
-    offset = 6
-
-    # Copy the GPU buffers to the guard cells of the domain
-    if ir < Nr:
-        if iz < ng:
-            # At the left end
-            if copy_left:
-                iz_left = iz
-                Er0[ iz_left, ir ] = EB_left[0, iz, ir]
-                Et0[ iz_left, ir ] = EB_left[1, iz, ir]
-                Ez0[ iz_left, ir ] = EB_left[2, iz, ir]
-                Br0[ iz_left, ir ] = EB_left[3, iz, ir]
-                Bt0[ iz_left, ir ] = EB_left[4, iz, ir]
-                Bz0[ iz_left, ir ] = EB_left[5, iz, ir]
-                Er1[ iz_left, ir ] = EB_left[0+offset, iz, ir]
-                Et1[ iz_left, ir ] = EB_left[1+offset, iz, ir]
-                Ez1[ iz_left, ir ] = EB_left[2+offset, iz, ir]
-                Br1[ iz_left, ir ] = EB_left[3+offset, iz, ir]
-                Bt1[ iz_left, ir ] = EB_left[4+offset, iz, ir]
-                Bz1[ iz_left, ir ] = EB_left[5+offset, iz, ir]
-            # At the right end
-            if copy_right:
-                iz_right = Nz - ng + iz
-                Er0[ iz_right, ir ] = EB_right[0, iz, ir]
-                Et0[ iz_right, ir ] = EB_right[1, iz, ir]
-                Ez0[ iz_right, ir ] = EB_right[2, iz, ir]
-                Br0[ iz_right, ir ] = EB_right[3, iz, ir]
-                Bt0[ iz_right, ir ] = EB_right[4, iz, ir]
-                Bz0[ iz_right, ir ] = EB_right[5, iz, ir]
-                Er1[ iz_right, ir ] = EB_right[0+offset, iz, ir]
-                Et1[ iz_right, ir ] = EB_right[1+offset, iz, ir]
-                Ez1[ iz_right, ir ] = EB_right[2+offset, iz, ir]
-                Br1[ iz_right, ir ] = EB_right[3+offset, iz, ir]
-                Bt1[ iz_right, ir ] = EB_right[4+offset, iz, ir]
-                Bz1[ iz_right, ir ] = EB_right[5+offset, iz, ir]
-
-
-@cuda.jit
-def copy_J_to_gpu_buffers( J_left, J_right,
-                            Jr0, Jt0, Jz0, Jr1, Jt1, Jz1,
-                            copy_left, copy_right, ng ):
-    """
-    Copy the 2*ng outermost cells of Jr0, ..., Jz1 to the GPU buffers
-    J_left and J_right
-
-    Parameters
-    ----------
-    J_left, J_right: ndarrays of complexs (device arrays)
-        Arrays of shape (6, 2*ng, Nr), which serve as buffer for transmission
-        to CPU, and then sending via MPI. They hold the values of
-        J in the ng inner cells of the domain, to the left and right.
-
-    Jr0, Jt0, Jz0, Jr1, Jt1, Jz1: ndarrays of complexs (device arrays)
-        Arrays of shape (Nz, Nr), which contain the different components
-        of the J field, in the modes 0 and 1.
-
-    copy_left, copy_right: bool
-        Whether to copy the buffers from the left and right of the local domain
-        (Buffers are not copied at the left end and right end of the
-        global simulation box.)
-
-    ng: int
-        Number of guard cells in the longitudinal direction
-    """
-    # Dimension of the arrays
-    Nz, Nr = Jr0.shape
-
-    # Obtain Cuda grid
-    iz, ir = cuda.grid(2)
-
-    # Offset between modes, for the J buffer
-    offset = 3
 
     # Copy the inner regions of the domain to the buffer
     if ir < Nr:
-        if iz < 2*ng:
+        if iz < (nz_end - nz_start):
             # At the left end
             if copy_left:
-                iz_left = iz
-                J_left[0, iz, ir] = Jr0[ iz_left, ir ]
-                J_left[1, iz, ir] = Jt0[ iz_left, ir ]
-                J_left[2, iz, ir] = Jz0[ iz_left, ir ]
-                J_left[0+offset, iz, ir] = Jr1[ iz_left, ir ]
-                J_left[1+offset, iz, ir] = Jt1[ iz_left, ir ]
-                J_left[2+offset, iz, ir] = Jz1[ iz_left, ir ]
-
+                iz_left = nz_start + iz
+                scal_buffer_l[0, iz, ir] = grid_0[ iz_left, ir ]
+                scal_buffer_l[1, iz, ir] = grid_1[ iz_left, ir ]
             # At the right end
             if copy_right:
-                iz_right = Nz - 2*ng + iz
-                J_right[0, iz, ir] = Jr0[ iz_right, ir ]
-                J_right[1, iz, ir] = Jt0[ iz_right, ir ]
-                J_right[2, iz, ir] = Jz0[ iz_right, ir ]
-                J_right[0+offset, iz, ir] = Jr1[ iz_right, ir ]
-                J_right[1+offset, iz, ir] = Jt1[ iz_right, ir ]
-                J_right[2+offset, iz, ir] = Jz1[ iz_right, ir ]
-
+                iz_right = Nz - nz_end + iz
+                scal_buffer_r[0, iz, ir] = grid_0[ iz_right, ir ]
+                scal_buffer_r[1, iz, ir] = grid_1[ iz_right, ir ]
 
 @cuda.jit
-def add_J_from_gpu_buffers( J_left, J_right,
-                            Jr0, Jt0, Jz0, Jr1, Jt1, Jz1,
-                            copy_left, copy_right, ng ):
+def replace_vec_from_gpu_buffer( vec_buffer_l, vec_buffer_r,
+                                 grid_0_r, grid_0_t, grid_0_z,
+                                 grid_1_r, grid_1_t, grid_1_z,
+                                 copy_left, copy_right, nz_start, nz_end ):
     """
-    Add the GPU buffer J_left and J_right to the 2*ng outermost
-    cells of Jr0, ..., Jz1
+    Replace a region (guard region) of grid_0_r, ..., grid_1_z
+    by the GPU buffer vec_buffer_l and vec_buffer_r.
 
     Parameters
     ----------
-    J_left, J_right: ndarrays of complexs (device arrays)
-        Arrays of shape (6, 2*ng, Nr), which serve as buffer for transmission
-        from CPU, and after receiving via MPI. They hold the values of
-        J in the ng inner cells of the domain, to the left and right.
+    vec_buffer_l, vec_buffer_r: ndarrays of complexs (device arrays)
+        Arrays of shape (6, nz_end-nz_start, Nr), which are the buffers
+        sent via MPI and received by the CPU.
 
-    Jr0, Jt0, Jz0, Jr1, Jt1, Jz1: ndarrays of complexs (device arrays)
-        Arrays of shape (Nz, Nr), which contain the different components
-        of the J field, in the modes 0 and 1.
-
-    copy_left, copy_right: bool
-        Whether to add the buffers to the left and right of the local domain
-        (Buffers are not added at the left end and right end of the
-        global simulation box.)
-
-    ng: int
-        Number of guard cells in the longitudinal direction
-    """
-    # Dimension of the arrays
-    Nz, Nr = Jr0.shape
-
-    # Obtain Cuda grid
-    iz, ir = cuda.grid(2)
-
-    # Offset between modes, for the J buffer
-    offset = 3
-
-    # Add the GPU buffer to the guard cells of the domain
-    if ir < Nr:
-        if iz < 2*ng:
-            # At the left end
-            if copy_left:
-                iz_left = iz
-                Jr0[ iz_left, ir ] += J_left[0, iz, ir]
-                Jt0[ iz_left, ir ] += J_left[1, iz, ir]
-                Jz0[ iz_left, ir ] += J_left[2, iz, ir]
-                Jr1[ iz_left, ir ] += J_left[0+offset, iz, ir]
-                Jt1[ iz_left, ir ] += J_left[1+offset, iz, ir]
-                Jz1[ iz_left, ir ] += J_left[2+offset, iz, ir]
-            # At the right end
-            if copy_right:
-                iz_right = Nz - 2*ng + iz
-                Jr0[ iz_right, ir ] += J_right[0, iz, ir]
-                Jt0[ iz_right, ir ] += J_right[1, iz, ir]
-                Jz0[ iz_right, ir ] += J_right[2, iz, ir]
-                Jr1[ iz_right, ir ] += J_right[0+offset, iz, ir]
-                Jt1[ iz_right, ir ] += J_right[1+offset, iz, ir]
-                Jz1[ iz_right, ir ] += J_right[2+offset, iz, ir]
-
-
-@cuda.jit
-def copy_rho_to_gpu_buffers( rho_left, rho_right, rho0, rho1,
-                            copy_left, copy_right, ng ):
-    """
-    Copy the 2*ng outermost cells of rho0, rho1 to the GPU buffers
-    rho_left and rho_right
-
-    Parameters
-    ----------
-    rho_left, rho_right: ndarrays of complexs (device arrays)
-        Arrays of shape (2, 2*ng, Nr), which serve as buffer for transmission
-        to CPU, and then sending via MPI. They hold the values of
-        rho in the ng inner cells of the domain, to the left and right.
-
-    rho0, rho1: ndarrays of complexs (device arrays)
-        Arrays of shape (Nz, Nr), which contain the rho field,
-        in the modes 0 and 1.
+    grid_m_x: ndarrays of complexs (device arrays)
+        Arrays of shape (Nz, Nr), which contain the different component
+        of the vector field (r, t, z), in the modes 0 and 1.
+        (m = mode, x = coordinate)
 
     copy_left, copy_right: bool
-        Whether to copy the buffers from the left and right of the local domain
+        Whether to copy the buffers to the left and right of the local domain
         (Buffers are not copied at the left end and right end of the
         global simulation box.)
 
-    ng: int
-        Number of guard cells in the longitudinal direction
+    nz_start: int
+        The start index in z, of the cell region which is copied to the
+        buffers. The start is defined as an offset from the most outer cell
+        on either the left or the right side of the enlarged domain.
+
+    nz_end: int
+        The end index in z, of the cell region which is copied to the
+        buffers. The end is defined as an offset from the most outer cell
+        on either the left or the right side of the enlarged domain.
     """
     # Dimension of the arrays
-    Nz, Nr = rho0.shape
+    Nz, Nr = grid_0_r.shape
 
     # Obtain Cuda grid
     iz, ir = cuda.grid(2)
-
-    # Offset between modes, for the rho buffer
-    offset = 1
 
     # Copy the inner regions of the domain to the buffer
     if ir < Nr:
-        if iz < 2*ng:
+        if iz < (nz_end - nz_start):
             # At the left end
             if copy_left:
                 iz_left = iz
-                rho_left[0, iz, ir] = rho0[ iz_left, ir ]
-                rho_left[0+offset, iz, ir] = rho1[ iz_left, ir ]
-
+                grid_0_r[ iz_left, ir ] = vec_buffer_l[0, iz, ir]
+                grid_0_t[ iz_left, ir ] = vec_buffer_l[1, iz, ir]
+                grid_0_z[ iz_left, ir ] = vec_buffer_l[2, iz, ir]
+                grid_1_r[ iz_left, ir ] = vec_buffer_l[3, iz, ir]
+                grid_1_t[ iz_left, ir ] = vec_buffer_l[4, iz, ir]
+                grid_1_z[ iz_left, ir ] = vec_buffer_l[5, iz, ir]
             # At the right end
             if copy_right:
-                iz_right = Nz - 2*ng + iz
-                rho_right[0, iz, ir] = rho0[ iz_right, ir ]
-                rho_right[0+offset, iz, ir] = rho1[ iz_right, ir ]
-
+                iz_right = Nz - (nz_end - nz_start) + iz
+                grid_0_r[ iz_right, ir ] = vec_buffer_r[0, iz, ir]
+                grid_0_t[ iz_right, ir ] = vec_buffer_r[1, iz, ir]
+                grid_0_z[ iz_right, ir ] = vec_buffer_r[2, iz, ir]
+                grid_1_r[ iz_right, ir ] = vec_buffer_r[3, iz, ir]
+                grid_1_t[ iz_right, ir ] = vec_buffer_r[4, iz, ir]
+                grid_1_z[ iz_right, ir ] = vec_buffer_r[5, iz, ir]
 
 @cuda.jit
-def add_rho_from_gpu_buffers( rho_left, rho_right, rho0, rho1,
-                            copy_left, copy_right, ng ):
+def replace_scal_from_gpu_buffer( scal_buffer_l, scal_buffer_r,
+                                 grid_0, grid_1,
+                                 copy_left, copy_right, nz_start, nz_end ):
     """
-    Add the GPU buffers rho_left and rho_right to the 2*ng outermost
-    cells of rho0, rho1
+    Replace a region (guard region) of grid_0, ..., grid_1
+    by the GPU buffer scal_buffer_l and scal_buffer_r.
 
     Parameters
     ----------
-    rho_left, rho_right: ndarrays of complexs (device arrays)
-        Arrays of shape (2, 2*ng, Nr), which serve as buffer for transmission
-        from CPU, after receiving via MPI. They hold the values of
-        rho in the ng inner cells of the domain, to the left and right.
+    scal_buffer_l, scal_buffer_r: ndarrays of complexs (device arrays)
+        Arrays of shape (2, nz_end-nz_start, Nr), which are the buffers
+        sent via MPI and received by the CPU.
 
-    rho0, rho1: ndarrays of complexs (device arrays)
-        Arrays of shape (Nz, Nr), which contain the rho field,
-        in the modes 0 and 1.
+    grid_m: ndarrays of complexs (device arrays)
+        Arrays of shape (Nz, Nr), which contain the different modes 0 and 1
+        of the scalar field.
+        (m = mode)
 
     copy_left, copy_right: bool
-        Whether to add the buffers from the left and right to the local domain
+        Whether to copy the buffers to the left and right of the local domain
         (Buffers are not copied at the left end and right end of the
         global simulation box.)
 
-    ng: int
-        Number of guard cells in the longitudinal direction
+    nz_start: int
+        The start index in z, of the cell region which is copied to the
+        buffers. The start is defined as an offset from the most outer cell
+        on either the left or the right side of the enlarged domain.
+
+    nz_end: int
+        The end index in z, of the cell region which is copied to the
+        buffers. The end is defined as an offset from the most outer cell
+        on either the left or the right side of the enlarged domain.
     """
     # Dimension of the arrays
-    Nz, Nr = rho0.shape
+    Nz, Nr = grid_0.shape
 
     # Obtain Cuda grid
     iz, ir = cuda.grid(2)
 
-    # Offset between modes, for the rho buffer
-    offset = 1
-
-    # Add the GPU buffer to the guard cells of the domain
+    # Copy the inner regions of the domain to the buffer
     if ir < Nr:
-        if iz < 2*ng:
+        if iz < (nz_end - nz_start):
             # At the left end
             if copy_left:
                 iz_left = iz
-                rho0[ iz_left, ir ] += rho_left[0, iz, ir]
-                rho1[ iz_left, ir ] += rho_left[0+offset, iz, ir]
+                grid_0[ iz_left, ir ] = scal_buffer_l[0, iz, ir]
+                grid_1[ iz_left, ir ] = scal_buffer_l[1, iz, ir]
             # At the right end
             if copy_right:
-                iz_right = Nz - 2*ng + iz
-                rho0[ iz_right, ir ] += rho_right[0, iz, ir]
-                rho1[ iz_right, ir ] += rho_right[0+offset, iz, ir]
+                iz_right = Nz - (nz_end - nz_start) + iz
+                grid_0[ iz_right, ir ] = scal_buffer_r[0, iz, ir]
+                grid_1[ iz_right, ir ] = scal_buffer_r[1, iz, ir]
+
+
+@cuda.jit
+def add_vec_from_gpu_buffer( vec_buffer_l, vec_buffer_r,
+                             grid_0_r, grid_0_t, grid_0_z,
+                             grid_1_r, grid_1_t, grid_1_z,
+                             copy_left, copy_right, nz_start, nz_end ):
+    """
+    Add the the GPU buffer vec_buffer_l and vec_buffer_r
+    to the vector field grids, grid_0_r, ..., grid_1_z.
+
+    Parameters
+    ----------
+    vec_buffer_l, vec_buffer_r: ndarrays of complexs (device arrays)
+        Arrays of shape (6, nz_end-nz_start, Nr), which are the buffers
+        sent via MPI and received by the CPU.
+
+    grid_m_x: ndarrays of complexs (device arrays)
+        Arrays of shape (Nz, Nr), which contain the different component
+        of the vector field (r, t, z), in the modes 0 and 1.
+        (m = mode, x = coordinate)
+
+    copy_left, copy_right: bool
+        Whether to copy the buffers to the left and right of the local domain
+        (Buffers are not copied at the left end and right end of the
+        global simulation box.)
+
+    nz_start: int
+        The start index in z, of the cell region which is copied to the
+        buffers. The start is defined as an offset from the most outer cell
+        on either the left or the right side of the enlarged domain.
+
+    nz_end: int
+        The end index in z, of the cell region which is copied to the
+        buffers. The end is defined as an offset from the most outer cell
+        on either the left or the right side of the enlarged domain.
+    """
+    # Dimension of the arrays
+    Nz, Nr = grid_0_r.shape
+
+    # Obtain Cuda grid
+    iz, ir = cuda.grid(2)
+
+    # Copy the inner regions of the domain to the buffer
+    if ir < Nr:
+        if iz < (nz_end - nz_start):
+            # At the left end
+            if copy_left:
+                iz_left = iz
+                grid_0_r[ iz_left, ir ] += vec_buffer_l[0, iz, ir]
+                grid_0_t[ iz_left, ir ] += vec_buffer_l[1, iz, ir]
+                grid_0_z[ iz_left, ir ] += vec_buffer_l[2, iz, ir]
+                grid_1_r[ iz_left, ir ] += vec_buffer_l[3, iz, ir]
+                grid_1_t[ iz_left, ir ] += vec_buffer_l[4, iz, ir]
+                grid_1_z[ iz_left, ir ] += vec_buffer_l[5, iz, ir]
+            # At the right end
+            if copy_right:
+                iz_right = Nz - (nz_end - nz_start) + iz
+                grid_0_r[ iz_right, ir ] += vec_buffer_r[0, iz, ir]
+                grid_0_t[ iz_right, ir ] += vec_buffer_r[1, iz, ir]
+                grid_0_z[ iz_right, ir ] += vec_buffer_r[2, iz, ir]
+                grid_1_r[ iz_right, ir ] += vec_buffer_r[3, iz, ir]
+                grid_1_t[ iz_right, ir ] += vec_buffer_r[4, iz, ir]
+                grid_1_z[ iz_right, ir ] += vec_buffer_r[5, iz, ir]
+
+@cuda.jit
+def add_scal_from_gpu_buffer( scal_buffer_l, scal_buffer_r,
+                              grid_0, grid_1,
+                              copy_left, copy_right, nz_start, nz_end ):
+    """
+    Add the the GPU buffer scal_buffer_l and scal_buffer_r
+    to the scalar field grids, grid_0_r, ..., grid_1_z.
+
+    Parameters
+    ----------
+    scal_buffer_l, scal_buffer_r: ndarrays of complexs (device arrays)
+        Arrays of shape (2, nz_end-nz_start, Nr), which are the buffers
+        sent via MPI and received by the CPU.
+
+    grid_m: ndarrays of complexs (device arrays)
+        Arrays of shape (Nz, Nr), which contain the different modes 0 and 1
+        of the scalar field.
+        (m = mode)
+
+    copy_left, copy_right: bool
+        Whether to copy the buffers to the left and right of the local domain
+        (Buffers are not copied at the left end and right end of the
+        global simulation box.)
+
+    nz_start: int
+        The start index in z, of the cell region which is copied to the
+        buffers. The start is defined as an offset from the most outer cell
+        on either the left or the right side of the enlarged domain.
+
+    nz_end: int
+        The end index in z, of the cell region which is copied to the
+        buffers. The end is defined as an offset from the most outer cell
+        on either the left or the right side of the enlarged domain.
+    """
+    # Dimension of the arrays
+    Nz, Nr = grid_0.shape
+
+    # Obtain Cuda grid
+    iz, ir = cuda.grid(2)
+
+    # Copy the inner regions of the domain to the buffer
+    if ir < Nr:
+        if iz < (nz_end - nz_start):
+            # At the left end
+            if copy_left:
+                iz_left = iz
+                grid_0[ iz_left, ir ] += scal_buffer_l[0, iz, ir]
+                grid_1[ iz_left, ir ] += scal_buffer_l[1, iz, ir]
+            # At the right end
+            if copy_right:
+                iz_right = Nz - (nz_end - nz_start) + iz
+                grid_0[ iz_right, ir ] += scal_buffer_r[0, iz, ir]
+                grid_1[ iz_right, ir ] += scal_buffer_r[1, iz, ir]
 
 # CUDA damping kernels:
 # --------------------

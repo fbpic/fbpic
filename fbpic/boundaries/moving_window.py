@@ -100,8 +100,12 @@ class MovingWindow(object):
             # Initialize plasma *ahead* of the right *physical* boundary of
             # the box so, after `exchange_period` iterations
             # (without adding new plasma), there will still be plasma
-            # inside the physical domain.
-            self.z_inject = interp[0].zmax - (ng+nd)*interp[0].dz + \
+            # inside the physical domain. ( -3 takes into account that 3 more
+            # cells need to be filled w.r.t the left edge of the physical box
+            # such that the last cell inside the box is always correct for
+            # 1st and 3rd order shape factor particles after the moving window
+            # shifted by exchange_period cells. ) 
+            self.z_inject = interp[0].zmax - (ng+nd-3)*interp[0].dz + \
                 comm.exchange_period * (v-self.v_end_plasma) * dt
             # Try to detect the position of the end of the plasma:
             # Find the maximal position of the particles which are
