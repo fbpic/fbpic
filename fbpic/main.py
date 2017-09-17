@@ -286,7 +286,7 @@ class Simulation(object):
             Whether to correct the divergence of E in spectral space
 
         use_true_rho: bool, optional
-            Wether to use the true rho deposited on the grid for the
+            Whether to use the true rho deposited on the grid for the
             field push or not. (requires initialize_ions = True)
 
         move_positions: bool, optional
@@ -301,6 +301,13 @@ class Simulation(object):
         # Shortcuts
         ptcl = self.ptcl
         fld = self.fld
+        # Sanity check
+        # (This is because the guard cells of rho are never exchanged.)
+        if self.comm.size > 1 and use_true_rho:
+            raise ValueError('use_true_rho cannot be used in multi-proc mode.')
+        if self.comm.size > 1 and correct_divE:
+            raise ValueError('correct_divE cannot be used in multi-proc mode.')
+
         # Measure the time taken by the PIC cycle
         measured_start = time.time()
 
@@ -385,7 +392,8 @@ class Simulation(object):
                 self.shift_galilean_boundaries()
 
             # Get the current at t = (n+1/2) dt
-            self.deposit('J')
+            # (Guard cell exchange done either now or after current correction)
+            self.deposit('J', exchange_J=(correct_currents is False))
 
             # Handle elementary processes at t = (n + 1/2)dt
             # i.e. when the particles' velocity and position are synchronized
@@ -411,6 +419,8 @@ class Simulation(object):
                 fld.correct_currents()
                 if self.comm.size > 1:
                     # Exchange the corrected J between domains
+                    # (If correct_currents is False, the exchange of J
+                    # is done in the function `deposit`)
                     fld.spect2interp('J')
                     self.comm.exchange_fields(fld.interp, 'J', 'add')
                     fld.interp2spect('J')
@@ -448,6 +458,7 @@ class Simulation(object):
         # Get the charge density and the current from spectral space.
         fld.spect2interp('J')
         fld.spect2interp('rho_prev')
+        self.comm.exchange_fields(self.fld.interp, 'rho', 'add')
 
         # Receive simulation data from GPU (if CUDA is used)
         if self.use_cuda:
@@ -460,7 +471,7 @@ class Simulation(object):
             h, m = divmod(m, 60)
             print('\n Time taken by the loop: %d:%02d:%02d\n' % (h, m, s))
 
-    def deposit( self, fieldtype ):
+    def deposit( self, fieldtype, exchange_J=False ):
         """
         Deposit the charge or the currents to the interpolation grid
         and then to the spectral grid.
@@ -471,6 +482,9 @@ class Simulation(object):
             The designation of the spectral field that
             should be changed by the deposition
             Either 'rho_prev', 'rho_next' or 'J'
+
+        exchange_J: bool
+            When depositing J, whether to do the guard cells exchange now
         """
         # Shortcut
         fld = self.fld
@@ -488,6 +502,8 @@ class Simulation(object):
                 antenna.deposit( fld, 'rho', self.comm )
             # Divide by cell volume
             fld.divide_by_volume('rho')
+            # The guard cells of rho are not exchanged (except for diagnostics)
+            # This is because rho is only used for current correction.
 
         # Currents
         elif fieldtype == 'J':
@@ -500,6 +516,9 @@ class Simulation(object):
                 antenna.deposit( fld, 'J', self.comm )
             # Divide by cell volume
             fld.divide_by_volume('J')
+            # Exchange guard cells
+            if exchange_J and self.comm.size > 1:
+                self.comm.exchange_fields(fld.interp, 'J', 'add')
 
         else:
             raise ValueError('Unknown fieldtype: %s' %fieldtype)
