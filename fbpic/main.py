@@ -302,9 +302,11 @@ class Simulation(object):
         ptcl = self.ptcl
         fld = self.fld
         # Sanity check
+        # (This is because the guard cells of rho are never exchanged.)
         if self.comm.size > 1 and use_true_rho:
             raise ValueError('use_true_rho cannot be used in multi-proc mode.')
-            # This is because the guard cells of rho are never exchanged.
+        if self.comm.size > 1 and correct_divE:
+            raise ValueError('correct_divE cannot be used in multi-proc mode.')
 
         # Measure the time taken by the PIC cycle
         measured_start = time.time()
@@ -456,6 +458,7 @@ class Simulation(object):
         # Get the charge density and the current from spectral space.
         fld.spect2interp('J')
         fld.spect2interp('rho_prev')
+        self.comm.exchange_fields(self.fld.interp, 'rho', 'add')
 
         # Receive simulation data from GPU (if CUDA is used)
         if self.use_cuda:
