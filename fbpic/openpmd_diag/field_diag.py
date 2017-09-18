@@ -72,6 +72,9 @@ class FieldDiagnostic(OpenPMDDiagnostic):
         if "rho" in self.fieldtypes:
             # Get 'rho_prev', since it correspond to rho at time n
             self.fld.spect2interp('rho_prev')
+            # Exchange rho in real space
+            # (rho is never exchanged during the PIC loop, while J is)
+            self.comm.exchange_fields(self.fld.interp, 'rho', 'add')
         if "J" in self.fieldtypes:
             self.fld.spect2interp('J')
 

@@ -192,9 +192,11 @@ class BoundaryCommunicator(object):
             # to the simulation or in case a galilean frame is used.
             cells_per_step = 2.*c*dt/self.dz
             # Maximum number of timesteps before a particle can reach the end
-            # of the guard region including the maximum number of cells (+/-3)
-            # it can affect with a "cubic" particle shape_factor.
-            self.exchange_period = int( (self.n_guard-3)/cells_per_step )
+            # of the half of guard region including the maximum number of cells
+            # (+/-3) it can affect with a "cubic" particle shape_factor.
+            # (Particles are only allowed to reside in half of the guard
+            # region as this is the stencil reach of the current correction)
+            self.exchange_period = int(((self.n_guard/2)-3)/cells_per_step)
             # Set exchange_period to 1 in the case of single-proc
             # and periodic boundary conditions.
             if self.size == 1 and boundaries == 'periodic':
@@ -215,7 +217,7 @@ class BoundaryCommunicator(object):
 
         # Initialize a buffer handler object, for MPI communications
         if self.size > 1:
-            self.mpi_buffers = BufferHandler( self.n_guard, Nr, Nm,
+            self.mpi_buffers = BufferHandler( self.n_guard, Nr,
                                       self.left_proc, self.right_proc )
 
         # Create damping arrays for the damping cells at the left
@@ -350,7 +352,8 @@ class BoundaryCommunicator(object):
         """
         self.moving_win.move_grids(fld, self, time)
 
-    def exchange_fields( self, interp, fieldtype ):
+
+    def exchange_fields( self, interp, fieldtype, method ):
         """
         Send and receive the proper fields, depending on fieldtype
         Copy/add them consistently to the local grid.
@@ -372,13 +375,13 @@ class BoundaryCommunicator(object):
         correct simulation data and has also a length of n_guard cells.
         This region overlaps with the guard cells of the neighboring domain.
 
-        Exchange of E and B fields:
+        Replacing of fields:
 
         - Copy the correct part "nc" of the local domain to the guard cells
           of the neighboring domain.
         - [The fields in the guard cells are then damped (separate method)]
 
-        Exchange of the currents J and the charge density rho:
+        Adding of fields:
 
         - Copy the guard cell region "ng" and the correct part "nc" and
           add it to the same region (ng + nc) of the neighboring domain.
@@ -391,53 +394,135 @@ class BoundaryCommunicator(object):
 
         fieldtype: str
             An identifier for the field to send
-            (Either 'EB', 'J' or 'rho')
+            (Either 'E', 'B', 'J' or 'rho')
+
+        method: str
+            Can either be 'replace' or 'add' depending on the type
+            of field exchange that is needed
         """
         # Only perform the exchange if there is more than 1 proc
         if self.size > 1:
-
-            if fieldtype == 'EB':
-
-                # Copy the inner part of the domain to the sending buffer
-                self.mpi_buffers.copy_EB_buffers(interp, before_sending=True)
-                # Copy the sending buffers to the receiving buffers via MPI
+            if fieldtype == 'E':
+                if method == 'replace':
+                    vec_send_left = self.mpi_buffers.vec_rep_send_l
+                    vec_send_right = self.mpi_buffers.vec_rep_send_r
+                    vec_recv_left = self.mpi_buffers.vec_rep_recv_l
+                    vec_recv_right = self.mpi_buffers.vec_rep_recv_r
+                if method == 'add':
+                    vec_send_left = self.mpi_buffers.vec_add_send_l
+                    vec_send_right = self.mpi_buffers.vec_add_send_r
+                    vec_recv_left = self.mpi_buffers.vec_add_recv_l
+                    vec_recv_right = self.mpi_buffers.vec_add_recv_r
+                # Handle the sending buffers
+                self.mpi_buffers.handle_vec_buffer(
+                    interp[0].Er, interp[0].Et, interp[0].Ez,
+                    interp[1].Er, interp[1].Et, interp[1].Ez,
+                    method, interp[0].use_cuda,
+                    before_sending=True )
+                # Send and receive the buffers via MPI
                 self.exchange_domains(
-                    self.mpi_buffers.EB_send_l, self.mpi_buffers.EB_send_r,
-                    self.mpi_buffers.EB_recv_l, self.mpi_buffers.EB_recv_r )
+                    vec_send_left, vec_send_right,
+                    vec_recv_left, vec_recv_right )
                 # An MPI barrier is needed here so that a single rank does not
                 # do two sends and receives before this exchange is completed.
                 self.mpi_comm.Barrier()
-                # Copy the receiving buffer to the guard cells of the domain
-                self.mpi_buffers.copy_EB_buffers(interp, after_receiving=True)
+                # Handle the received buffers
+                self.mpi_buffers.handle_vec_buffer(
+                    interp[0].Er, interp[0].Et, interp[0].Ez,
+                    interp[1].Er, interp[1].Et, interp[1].Ez,
+                    method, interp[0].use_cuda,
+                    after_receiving=True )
+
+            elif fieldtype == 'B':
+                if method == 'replace':
+                    vec_send_left = self.mpi_buffers.vec_rep_send_l
+                    vec_send_right = self.mpi_buffers.vec_rep_send_r
+                    vec_recv_left = self.mpi_buffers.vec_rep_recv_l
+                    vec_recv_right = self.mpi_buffers.vec_rep_recv_r
+                if method == 'add':
+                    vec_send_left = self.mpi_buffers.vec_add_send_l
+                    vec_send_right = self.mpi_buffers.vec_add_send_r
+                    vec_recv_left = self.mpi_buffers.vec_add_recv_l
+                    vec_recv_right = self.mpi_buffers.vec_add_recv_r
+                # Handle the sending buffers
+                self.mpi_buffers.handle_vec_buffer(
+                    interp[0].Br, interp[0].Bt, interp[0].Bz,
+                    interp[1].Br, interp[1].Bt, interp[1].Bz,
+                    method, interp[0].use_cuda,
+                    before_sending=True )
+                # Send and receive the buffers via MPI
+                self.exchange_domains(
+                    vec_send_left, vec_send_right,
+                    vec_recv_left, vec_recv_right )
+                # An MPI barrier is needed here so that a single rank does not
+                # do two sends and receives before this exchange is completed.
+                self.mpi_comm.Barrier()
+                # Handle the received buffers
+                self.mpi_buffers.handle_vec_buffer(
+                    interp[0].Br, interp[0].Bt, interp[0].Bz,
+                    interp[1].Br, interp[1].Bt, interp[1].Bz,
+                    method, interp[0].use_cuda,
+                    after_receiving=True )
 
             elif fieldtype == 'J':
-
-                # Copy the inner part of the domain to the sending buffer
-                self.mpi_buffers.copy_J_buffers(interp, before_sending=True)
-                # Copy the sending buffers to the receiving buffers via MPI
+                if method == 'replace':
+                    vec_send_left = self.mpi_buffers.vec_rep_send_l
+                    vec_send_right = self.mpi_buffers.vec_rep_send_r
+                    vec_recv_left = self.mpi_buffers.vec_rep_recv_l
+                    vec_recv_right = self.mpi_buffers.vec_rep_recv_r
+                if method == 'add':
+                    vec_send_left = self.mpi_buffers.vec_add_send_l
+                    vec_send_right = self.mpi_buffers.vec_add_send_r
+                    vec_recv_left = self.mpi_buffers.vec_add_recv_l
+                    vec_recv_right = self.mpi_buffers.vec_add_recv_r
+                # Handle the sending buffers
+                self.mpi_buffers.handle_vec_buffer(
+                    interp[0].Jr, interp[0].Jt, interp[0].Jz,
+                    interp[1].Jr, interp[1].Jt, interp[1].Jz,
+                    method, interp[0].use_cuda,
+                    before_sending=True )
+                # Send and receive the buffers via MPI
                 self.exchange_domains(
-                    self.mpi_buffers.J_send_l, self.mpi_buffers.J_send_r,
-                    self.mpi_buffers.J_recv_l, self.mpi_buffers.J_recv_r )
+                    vec_send_left, vec_send_right,
+                    vec_recv_left, vec_recv_right )
                 # An MPI barrier is needed here so that a single rank does not
                 # do two sends and receives before this exchange is completed.
                 self.mpi_comm.Barrier()
-                # Copy the receiving buffer to the guard cells of the domain
-                self.mpi_buffers.copy_J_buffers(interp, after_receiving=True)
+                # Handle the received buffers
+                self.mpi_buffers.handle_vec_buffer(
+                    interp[0].Jr, interp[0].Jt, interp[0].Jz,
+                    interp[1].Jr, interp[1].Jt, interp[1].Jz,
+                    method, interp[0].use_cuda,
+                    after_receiving=True )
 
             elif fieldtype == 'rho':
-
-                # Copy the inner part of the domain to the sending buffer
-                self.mpi_buffers.copy_rho_buffers(interp, before_sending=True)
-                # Copy the sending buffers to the receiving buffers via MPI
+                if method == 'replace':
+                    scal_send_left = self.mpi_buffers.scal_rep_send_l
+                    scal_send_right = self.mpi_buffers.scal_rep_send_r
+                    scal_recv_left = self.mpi_buffers.scal_rep_recv_l
+                    scal_recv_right = self.mpi_buffers.scal_rep_recv_r
+                if method == 'add':
+                    scal_send_left = self.mpi_buffers.scal_add_send_l
+                    scal_send_right = self.mpi_buffers.scal_add_send_r
+                    scal_recv_left = self.mpi_buffers.scal_add_recv_l
+                    scal_recv_right = self.mpi_buffers.scal_add_recv_r
+                # Handle the sending buffers
+                self.mpi_buffers.handle_scal_buffer(
+                    interp[0].rho, interp[1].rho,
+                    method, interp[0].use_cuda,
+                    before_sending=True )
+                # Send and receive the buffers via MPI
                 self.exchange_domains(
-                    self.mpi_buffers.rho_send_l, self.mpi_buffers.rho_send_r,
-                    self.mpi_buffers.rho_recv_l, self.mpi_buffers.rho_recv_r )
+                    scal_send_left, scal_send_right,
+                    scal_recv_left, scal_recv_right )
                 # An MPI barrier is needed here so that a single rank does not
                 # do two sends and receives before this exchange is completed.
                 self.mpi_comm.Barrier()
-                # Copy the receiving buffer to the guard cells of the domain
-                self.mpi_buffers.copy_rho_buffers(interp, after_receiving=True)
-
+                # Handle the received buffers
+                self.mpi_buffers.handle_scal_buffer(
+                    interp[0].rho, interp[1].rho,
+                    method, interp[0].use_cuda,
+                    after_receiving=True )
             else:
                 raise ValueError('Unknown fieldtype: %s' %fieldtype)
 

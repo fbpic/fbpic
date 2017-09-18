@@ -138,6 +138,9 @@ class BoostedFieldDiagnostic(FieldDiagnostic):
             # Get 'rho_prev', since it correspond to rho at time n
             self.fld.spect2interp('rho_prev')
             self.fld.spect2interp('J')
+            # Exchange rho in real space
+            # (rho is never exchanged during the PIC loop, while J is)
+            self.comm.exchange_fields(self.fld.interp, 'rho', 'add')
 
         # Find the limits of the local subdomain at this iteration
         zmin_boost = self.fld.interp[0].zmin
