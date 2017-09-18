@@ -11,7 +11,8 @@ from fbpic.utils.threading import njit_parallel, prange
 from scipy.constants import c, e
 
 @njit_parallel
-def push_x_numba( x, y, z, ux, uy, uz, inv_gamma, Ntot, dt ):
+def push_x_numba( x, y, z, ux, uy, uz, inv_gamma, Ntot, dt,
+                push_x, push_y, push_z ):
     """
     Advance the particles' positions over one half-timestep
 
@@ -24,9 +25,9 @@ def push_x_numba( x, y, z, ux, uy, uz, inv_gamma, Ntot, dt ):
 
     # Particle push (in parallel if threading is installed)
     for ip in prange(Ntot) :
-        x[ip] += chdt * inv_gamma[ip] * ux[ip]
-        y[ip] += chdt * inv_gamma[ip] * uy[ip]
-        z[ip] += chdt * inv_gamma[ip] * uz[ip]
+        x[ip] += chdt * inv_gamma[ip] * push_x * ux[ip]
+        y[ip] += chdt * inv_gamma[ip] * push_y * uy[ip]
+        z[ip] += chdt * inv_gamma[ip] * push_z * uz[ip]
 
     return x, y, z
 

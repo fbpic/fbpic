@@ -530,30 +530,39 @@ class Particles(object) :
                     self.Ex, self.Ey, self.Ez, self.Bx, self.By, self.Bz,
                     self.m, self.Ntot, self.dt, self.ionizer.ionization_level )
 
-    def halfpush_x( self ) :
+    def push_x( self, dt, x_push=1., y_push=1., z_push=1. ) :
         """
-        Advance the particles' positions over one half-timestep
+        Advance the particles' positions over `dt` using the current
+        momenta (ux, uy, uz).
 
-        This assumes that the positions (x, y, z) are initially either
-        one half-timestep *behind* the momenta (ux, uy, uz), or at the
-        same timestep as the momenta.
+        Parameters:
+        -----------
+        dt: float, seconds
+            The timestep that should be used for the push
+            (This can be typically be half of the simulation timestep)
+
+        x_push, y_push, z_push: float, dimensionless
+            Multiplying coefficient for the momenta in x, y and z
+            e.g. if x_push=1., the particles are pushed forward in x
+                 if x_push=-1., the particles are pushed backward in x
         """
         # GPU (CUDA) version
         if self.use_cuda:
             # Get the threads per block and the blocks per grid
             dim_grid_1d, dim_block_1d = cuda_tpb_bpg_1d( self.Ntot )
-            # Call the CUDA Kernel for halfpush in x
+            # Call the CUDA Kernel for push in x
             push_x_gpu[dim_grid_1d, dim_block_1d](
                 self.x, self.y, self.z,
                 self.ux, self.uy, self.uz,
-                self.inv_gamma, self.dt )
+                self.inv_gamma, dt, x_push, y_push, z_push )
             # The particle array is unsorted after the push in x
             self.sorted = False
         # CPU version
         else:
             push_x_numba( self.x, self.y, self.z,
                 self.ux, self.uy, self.uz,
-                self.inv_gamma, self.Ntot, self.dt )
+                self.inv_gamma, self.Ntot,
+                dt, x_push, y_push, z_push )
 
     def gather( self, grid ) :
         """
