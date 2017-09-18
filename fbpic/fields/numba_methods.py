@@ -5,22 +5,18 @@
 This file is part of the Fourier-Bessel Particle-In-Cell code (FB-PIC)
 It defines the optimized fields methods that use numba on a CPU
 """
-import numba
 from scipy.constants import c, epsilon_0, mu_0
 c2 = c**2
+from fbpic.threading_utils import njit_parallel, prange
 
-@numba.jit('void(complex128[:,:], complex128[:,:], \
-           complex128[:,:], complex128[:,:], complex128[:,:], \
-           float64[:,:], float64[:,:], float64[:,:], \
-           float64, int32, int32)')
-def numba_correct_currents_curlfree_standard( rho_prev, rho_next, Jp, Jm, Jz,
+@njit_parallel
+def numba_correct_currents_standard( rho_prev, rho_next, Jp, Jm, Jz,
                             kz, kr, inv_k2, inv_dt, Nz, Nr ):
     """
-    Correct the currents in spectral space, using the curl-free correction
-    which is adapted to the standard psatd
+    Correct the currents in spectral space, using the standard pstad
     """
-    # Loop over the 2D grid
-    for iz in range(Nz):
+    # Loop over the 2D grid (parallel in z, if threading is installed)
+    for iz in prange(Nz):
         for ir in range(Nr):
 
             # Calculate the intermediate variable F
@@ -34,45 +30,9 @@ def numba_correct_currents_curlfree_standard( rho_prev, rho_next, Jp, Jm, Jz,
             Jm[iz, ir] += -0.5 * kr[iz, ir] * F
             Jz[iz, ir] += -1.j * kz[iz, ir] * F
 
-@numba.jit('void(complex128[:,:], complex128[:,:], \
-           complex128[:,:], complex128[:,:], \
-           complex128[:,:], complex128[:,:], complex128[:,:], \
-           float64[:,:], float64[:,:], float64, int32, int32)')
-def numba_correct_currents_crossdeposition_standard( rho_prev, rho_next,
-        rho_next_z, rho_next_xy, Jp, Jm, Jz, kz, kr, inv_dt, Nz, Nr ):
-    """
-    Correct the currents in spectral space, using the cross-deposition
-    algorithm adapted to the standard psatd.
-    """
-    # Loop over the 2D grid
-    for iz in range(Nz):
-        for ir in range(Nr):
+    return
 
-            # Calculate the intermediate variable Dz and Dxy
-            # (Such that Dz + Dxy is the error in the continuity equation)
-            Dz = 1.j*kz[iz, ir]*Jz[iz, ir] + 0.5 * inv_dt * \
-                ( rho_next[iz, ir] - rho_next_xy[iz, ir] + \
-                  rho_next_z[iz, ir] - rho_prev[iz, ir] )
-            Dxy = kr[iz, ir]*( Jp[iz, ir] - Jm[iz, ir] ) + 0.5 * inv_dt * \
-                ( rho_next[iz, ir] - rho_next_z[iz, ir] + \
-                  rho_next_xy[iz, ir] - rho_prev[iz, ir] )
-
-            # Correct the currents accordingly
-            if kr[iz, ir] != 0:
-                inv_kr = 1./kr[iz, ir]
-                Jp[iz, ir] += -0.5 * Dxy * inv_kr
-                Jm[iz, ir] +=  0.5 * Dxy * inv_kr
-            if kz[iz, ir] != 0:
-                inv_kz = 1./kz[iz, ir]
-                Jz[iz, ir] += 1.j * Dz * inv_kz
-
-@numba.jit('void(complex128[:,:], complex128[:,:], complex128[:,:], \
-           complex128[:,:], complex128[:,:], complex128[:,:], \
-           complex128[:,:], complex128[:,:], complex128[:,:], \
-           complex128[:,:], complex128[:,:], \
-           float64[:,:], float64[:,:], float64[:,:], \
-           float64[:,:], float64[:,:], float64[:,:], float64[:,:], float64, \
-           int8, int32, int32)')
+@njit_parallel
 def numba_push_eb_standard( Ep, Em, Ez, Bp, Bm, Bz, Jp, Jm, Jz,
                        rho_prev, rho_next,
                        rho_prev_coef, rho_next_coef, j_coef,
@@ -83,8 +43,8 @@ def numba_push_eb_standard( Ep, Em, Ez, Bp, Bm, Bz, Jp, Jm, Jz,
 
     See the documentation of SpectralGrid.push_eb_with
     """
-    # Loop over the 2D grid
-    for iz in range(Nz):
+    # Loop over the 2D grid (parallel in z, if threading is installed)
+    for iz in prange(Nz):
         for ir in range(Nr):
 
             # Save the electric fields, since it is needed for the B push
@@ -139,7 +99,9 @@ def numba_push_eb_standard( Ep, Em, Ez, Bp, Bm, Bz, Jp, Jm, Jz,
                 + j_coef[iz, ir]*( 1.j*kr[iz, ir]*Jp[iz, ir] \
                             + 1.j*kr[iz, ir]*Jm[iz, ir] )
 
-@numba.jit
+    return
+
+@njit_parallel
 def numba_correct_currents_comoving( rho_prev, rho_next, Jp, Jm, Jz,
                             kz, kr, inv_k2,
                             j_corr_coef, T_eb, T_cc,
@@ -148,8 +110,8 @@ def numba_correct_currents_comoving( rho_prev, rho_next, Jp, Jm, Jz,
     Correct the currents in spectral space, using the assumption
     of comoving currents
     """
-    # Loop over the 2D grid
-    for iz in range(Nz):
+    # Loop over the 2D grid (parallel in z, if threading is installed)
+    for iz in prange(Nz):
         for ir in range(Nr):
 
             # Calculate the intermediate variable F
@@ -163,7 +125,9 @@ def numba_correct_currents_comoving( rho_prev, rho_next, Jp, Jm, Jz,
             Jm[iz, ir] += -0.5 * kr[iz, ir] * F
             Jz[iz, ir] += -1.j * kz[iz, ir] * F
 
-@numba.jit
+    return
+
+@njit_parallel
 def numba_push_eb_comoving( Ep, Em, Ez, Bp, Bm, Bz, Jp, Jm, Jz,
                        rho_prev, rho_next,
                        rho_prev_coef, rho_next_coef, j_coef,
@@ -177,8 +141,8 @@ def numba_push_eb_comoving( Ep, Em, Ez, Bp, Bm, Bz, Jp, Jm, Jz,
 
     See the documentation of SpectralGrid.push_eb_with
     """
-    # Loop over the grid
-    for iz in range(Nz):
+    # Loop over the grid (parallel in z, if threading is installed)
+    for iz in prange(Nz):
         for ir in range(Nr):
 
             # Save the electric fields, since it is needed for the B push
@@ -240,3 +204,5 @@ def numba_push_eb_comoving( Ep, Em, Ez, Bp, Bm, Bz, Jp, Jm, Jz,
                             + 1.j*kr[iz, ir]*Em_old ) \
                 + j_coef[iz, ir]*( 1.j*kr[iz, ir]*Jp[iz, ir] \
                             + 1.j*kr[iz, ir]*Jm[iz, ir] )
+
+    return

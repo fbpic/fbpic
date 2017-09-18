@@ -9,6 +9,7 @@ the fields from the interpolation grid to the spectral grid and vice-versa.
 from .hankel import DHT
 from .fourier import FFT
 
+from .numba_methods import numba_rt_to_pm, numba_pm_to_rt
 # Check if CUDA is available, then import CUDA functions
 from fbpic.cuda_utils import cuda_installed
 if cuda_installed:
@@ -139,12 +140,13 @@ class SpectralTransformer(object) :
                 self.spect_buffer_r, self.spect_buffer_t )
         else :
             # Combine them on the CPU
-            # (It is important to write the affectation in the following way,
-            # since self.spect_buffer_p and self.spect_buffer_r actually point
-            # to the same object, for memory economy)
-            self.spect_buffer_r[:,:], self.spect_buffer_t[:,:] = \
-                    ( self.spect_buffer_p + self.spect_buffer_m), \
-                1.j*( self.spect_buffer_p - self.spect_buffer_m)
+            # (self.spect_buffer_r and self.spect_buffer_t are
+            # passed in the following line, in order to make things
+            # explicit, but they actually point to the same object
+            # as self.spect_buffer_p, self.spect_buffer_m,
+            # for economy of memory)
+            numba_pm_to_rt( self.spect_buffer_p, self.spect_buffer_m,
+                            self.spect_buffer_r, self.spect_buffer_t )
 
         # Finally perform the FFT (along axis 0, which corresponds to z)
         self.fft.inverse_transform( self.spect_buffer_r, interp_array_r )
@@ -205,13 +207,14 @@ class SpectralTransformer(object) :
                 self.spect_buffer_r, self.spect_buffer_t,
                 self.spect_buffer_p, self.spect_buffer_m )
         else :
-            # Combine them on the CPU
-            # (It is important to write the affectation in the following way,
-            # since self.spect_buffer_p and self.spect_buffer_r actually point
-            # to the same object, for memory economy.)
-            self.spect_buffer_p[:,:], self.spect_buffer_m[:,:] = \
-                0.5*( self.spect_buffer_r - 1.j*self.spect_buffer_t ), \
-                0.5*( self.spect_buffer_r + 1.j*self.spect_buffer_t )
+            # Combine them on the GPU
+            # (self.spect_buffer_p and self.spect_buffer_m are
+            # passed in the following line, in order to make things
+            # explicit, but they actually point to the same object
+            # as self.spect_buffer_r, self.spect_buffer_t,
+            # for economy of memory)
+            numba_rt_to_pm( self.spect_buffer_r, self.spect_buffer_t,
+                            self.spect_buffer_p, self.spect_buffer_m )
 
         # Perform the inverse DHT (along axis -1, which corresponds to r)
         self.dhtp.transform( self.spect_buffer_p, spect_array_p )

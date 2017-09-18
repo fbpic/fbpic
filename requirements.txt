@@ -1,6 +1,6 @@
 numpy
 scipy
-numba
+numba<0.35
 h5py
 mpi4py
 pyfftw

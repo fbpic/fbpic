@@ -1,20 +1,46 @@
 # Change Log / Release Log for fbpic
 
+## 0.5.2
+
+This is a bug-fix release, that solves an issue when using
+openPMD-viewer >= 0.6.0 to read the checkpoint files (for a restart simulation).
+
+## 0.5.1
+
+This is a bug-fix release, that solves an issue with the particle
+boosted-frame diagnostics, in the case where both the GPU and a moving window
+were used.
+
+## 0.5.0
+
+This version brings two majors changes to FBPIC:
+
+- The code now supports **multi-threading** on CPU (when using numba>=0.34),
+and is therefore much faster then it used to be on multi-core CPU architectures.
+
+- The code does not rely on the proprietary library `accelerate` anymore, and
+uses the open-source library `pyculib` instead. As a consequence, **all** the
+dependencies of FBPIC are now open-source.
+
+In addition to these changes, several minor improvements have been made to the
+GPU code, including faster sorting routines (`prefix_sum`) and shorter
+compilation time (function signatures have been removed).
+
 ## 0.4.1
 
 This is a bug-fix release, to solve an issue with the particle boosted-frame
-diagnostics, in the case where the GPU is used. The particle 
+diagnostics, in the case where the GPU is used. The particle
 boosted-frame diagnostics now correctly run on the GPU.
 
 ## 0.4.0
 
-This version incorporates ionization (ADK model). The implementation is 
+This version incorporates ionization (ADK model). The implementation is
 Lorentz-invariant and thus works in the boosted-frame. The implementation
 is also fully compatible with GPU, MPI, openPMD diagnostics (including
 boosted openPMD diagnostics), and tracking (e.g. of the produced electrons)
 
 In addition, several improvements were made to the code in general:
-- External bunches can now be loaded to the simulation from openPMD files, 
+- External bunches can now be loaded to the simulation from openPMD files,
 or from numpy arrays.
 - Particle tracking is now compatible with the boosted openPMD diagnostics.
 - The laser can now be injected in the simulation with a temporal chirp.

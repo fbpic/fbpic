@@ -7,11 +7,12 @@ It defines the FFT object, which performs Fourier transforms along the axis 0,
 and is used in spectral_transformer.py
 """
 import numpy as np
+import numba
 import pyfftw
 # Check if CUDA is available, then import CUDA functions
 from fbpic.cuda_utils import cuda_installed
 if cuda_installed:
-    from accelerate.cuda import fft as cufft, blas as cublas
+    from pyculib import fft as cufft, blas as cublas
     from fbpic.cuda_utils import cuda, cuda_tpb_bpg_2d
     from .cuda_methods import cuda_copy_2d_to_1d, cuda_copy_1d_to_2d
 
@@ -23,7 +24,7 @@ class FFT(object):
     See the methods `transform` and `inverse transform` for more information
     """
 
-    def __init__(self, Nr, Nz, use_cuda=False, nthreads=4 ):
+    def __init__(self, Nr, Nz, use_cuda=False, nthreads=None ):
         """
         Initialize an FFT object
 
@@ -39,7 +40,9 @@ class FFT(object):
            Whether to perform the Fourier transform on the z axis
 
         nthreads : int, optional
-            Number of threads for the FFTW transform
+            Number of threads for the FFTW transform.
+            If None, the default number of threads of numba is used
+            (environment variable NUMBA_NUM_THREADS)
         """
         # Check whether to use cuda
         self.use_cuda = use_cuda
@@ -72,6 +75,12 @@ class FFT(object):
 
         # Initialize the object for calculation on the CPU
         else:
+
+            # Determine number of threads
+            if nthreads is None:
+                # Get the default number of threads for numba
+                nthreads = numba.config.NUMBA_NUM_THREADS
+
             # First buffer and FFTW transform
             self.interp_buffer_r = \
                 pyfftw.n_byte_align_empty( (Nz,Nr), 16, 'complex128' )

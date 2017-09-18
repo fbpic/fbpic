@@ -22,7 +22,7 @@ through external fields.
 # -------
 # Imports
 # -------
-import os, shutil, math
+import shutil, math
 import numpy as np
 from scipy.constants import c, m_e, m_p, e
 # Import the relevant structures in FBPIC
@@ -111,9 +111,6 @@ def run_simulation( gamma_boost ):
     # The diagnostics
     diag_period = N_step-1 # Period of the diagnostics in number of timesteps
 
-    # Move into directory `tests`
-    os.chdir('./tests')
-
     # Initialize the simulation object
     sim = Simulation( Nz, zmax, Nr, rmax, Nm, dt,
         p_zmax, p_zmax, # No electrons get created because we pass p_zmin=p_zmax
@@ -144,31 +141,33 @@ def run_simulation( gamma_boost ):
 
     # Add a field diagnostic
     sim.diags = [ ParticleDiagnostic( diag_period,
-                    {"ions":sim.ptcl[1]}, comm=sim.comm) ]
+        {"ions":sim.ptcl[1]}, write_dir='tests/diags', comm=sim.comm) ]
     if gamma_boost > 1:
         T_sim_lab = (2.*40.*lambda0_lab + zmax_lab-zmin_lab)/c
-        sim.diags.append( BoostedParticleDiagnostic(zmin_lab, zmax_lab, v_lab=0.,
-            dt_snapshots_lab=T_sim_lab/2., Ntot_snapshots_lab=3,
-            gamma_boost=gamma_boost, period=diag_period, fldobject=sim.fld,
-            species={"ions": sim.ptcl[1]}, comm=sim.comm) )
+        sim.diags.append(
+            BoostedParticleDiagnostic(zmin_lab, zmax_lab, v_lab=0.,
+                dt_snapshots_lab=T_sim_lab/2., Ntot_snapshots_lab=3,
+                gamma_boost=gamma_boost, period=diag_period,
+                fldobject=sim.fld, species={"ions": sim.ptcl[1]},
+                comm=sim.comm, write_dir='tests/lab_diags') )
 
     # Run the simulation
     sim.step( N_step, use_true_rho=True )
 
     # Check the fraction of N5+ ions at the end of the simulation
-    w_neutral = sim.ptcl[1].ionizer.neutral_weight
+    w = sim.ptcl[1].w
     ioniz_level = sim.ptcl[1].ionizer.ionization_level
     # Get the total number of N atoms/ions (all ionization levels together)
-    ntot = w_neutral.sum()
+    ntot = w.sum()
     # Get the total number of N5+ ions
-    n_N5 = w_neutral[ioniz_level == 5].sum()
+    n_N5 = w[ioniz_level == 5].sum()
     # Get the fraction of N5+ ions, and check that it is close to 0.32
     N5_fraction = n_N5 / ntot
     print('N5+ fraction: %.4f' %N5_fraction)
     assert ((N5_fraction > 0.30) and (N5_fraction < 0.34))
 
     # Check consistency in the regular openPMD diagnostics
-    ts = OpenPMDTimeSeries('./diags/hdf5/')
+    ts = OpenPMDTimeSeries('./tests/diags/hdf5/')
     last_iteration = ts.iterations[-1]
     w, q = ts.get_particle( ['w', 'charge'], species="ions",
                                 iteration=last_iteration )
@@ -176,11 +175,11 @@ def run_simulation( gamma_boost ):
     n_N5_openpmd = np.sum(w[ (4.5*e < q) & (q < 5.5*e) ])
     assert np.isclose( n_N5_openpmd, n_N5 )
     # Remove openPMD files
-    shutil.rmtree('./diags/')
+    shutil.rmtree('./tests/diags/')
 
     # Check consistency of the back-transformed openPMD diagnostics
     if gamma_boost > 1.:
-        ts = OpenPMDTimeSeries('./lab_diags/hdf5/')
+        ts = OpenPMDTimeSeries('./tests/lab_diags/hdf5/')
         last_iteration = ts.iterations[-1]
         w, q = ts.get_particle( ['w', 'charge'], species="ions",
                                 iteration=last_iteration )
@@ -188,9 +187,7 @@ def run_simulation( gamma_boost ):
         n_N5_openpmd = np.sum(w[ (4.5*e < q) & (q < 5.5*e) ])
         assert np.isclose( n_N5_openpmd, n_N5 )
         # Remove openPMD files
-        shutil.rmtree('./lab_diags/')
-
-    os.chdir('../')
+        shutil.rmtree('./tests/lab_diags/')
 
 def test_ionization_labframe():
     run_simulation(1.)

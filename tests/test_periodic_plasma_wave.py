@@ -6,6 +6,7 @@ This test file is part of FB-PIC (Fourier-Bessel Particle-In-Cell).
 
 It tests the global PIC loop by launching a linear periodic plasma wave,
 and letting it evolve in time. Its fields are then compared with theory.
+This tests is run both for linear and cubic shapes.
 
 No moving window is involved, and periodic conditions are userd.
 
@@ -93,13 +94,22 @@ N_step = int( 2*np.pi/(wp*dt)*0.75 )
 # Test function
 # -------------
 
-def test_periodic_plasma_wave(show=False):
-    "Function that is run by py.test, when doing `python setup.py test`"
+def test_periodic_plasma_wave_linear_shape( show=False ):
+    "Function that is run by py.test, when doing `python setup.py test"
+    simulate_periodic_plasma_wave( 'linear', show=show )
+
+def test_periodic_plasma_wave_cubic_shape( show=False ):
+    "Function that is run by py.test, when doing `python setup.py test"
+    simulate_periodic_plasma_wave( 'cubic', show=show )
+
+def simulate_periodic_plasma_wave( particle_shape, show=False ):
+    "Simulate a periodic plasma wave and check its fields"
 
     # Initialization of the simulation object
     sim = Simulation( Nz, zmax, Nr, rmax, Nm, dt,
                   p_zmin, p_zmax, p_rmin, p_rmax, p_nz, p_nr,
-                  p_nt, n_e, n_order=n_order, use_cuda=use_cuda )
+                  p_nt, n_e, n_order=n_order, use_cuda=use_cuda,
+                  particle_shape=particle_shape )
 
     # Save the initial density in spectral space, and consider it
     # to be the density of the (uninitialized) ions
@@ -303,4 +313,5 @@ def check_E_field( interp, epsilon, k0, w0, wp, t, field='Ez', show=False ):
 if __name__ == '__main__' :
 
     # Run the simulation and show the results to the user
-    test_periodic_plasma_wave(show=show)
+    test_periodic_plasma_wave_linear_shape(show=show)
+    test_periodic_plasma_wave_cubic_shape(show=show)

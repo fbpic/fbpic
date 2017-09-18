@@ -110,7 +110,8 @@ def restart_from_checkpoint( sim, iteration=None ):
     # Select the iteration, and its index
     if iteration is None:
         iteration = ts.iterations[-1]
-    i_iteration = ts.iterations.index( iteration )
+    # Find the index of the closest iteration
+    i_iteration = np.argmin( abs(np.array(ts.iterations) - iteration) )
 
     # Modify parameters of the simulation
     sim.iteration = iteration

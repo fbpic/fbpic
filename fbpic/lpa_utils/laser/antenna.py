@@ -10,8 +10,8 @@ import numpy as np
 from scipy.constants import e, c, epsilon_0, physical_constants
 r_e = physical_constants['classical electron radius'][0]
 from .profiles import gaussian_profile
-from fbpic.particles.utility_methods import weights
-from fbpic.particles.numba_methods import deposit_field_numba
+from fbpic.particles.utilities.utility_methods import weights
+from fbpic.particles.deposition.numba_methods import deposit_field_numba
 
 # Check if CUDA is available, then import CUDA functions
 from fbpic.cuda_utils import cuda_installed
@@ -188,27 +188,24 @@ class LaserAntenna( object ):
             self.d_Jt_buffer = cuda.device_array_like( self.Jt_buffer )
             self.d_Jz_buffer = cuda.device_array_like( self.Jz_buffer )
 
-    def push_x( self, dt, x_push=1., y_push=1., z_push=1. ):
+    def halfpush_x( self, dt ):
         """
         Push the position of the virtual particles in the antenna
-        over timestep `dt`, using their current velocity
+        over half a timestep, using their current velocity
 
-        Parameters:
-        -----------
-        dt: float, seconds
-            The timestep that should be used for the push
-            (This can be typically be half of the simulation timestep)
-
-        x_push, y_push, z_push: float, dimensionless
-            Multiplying coefficient for the velocities in x, y and z
-            e.g. if x_push=1., the particles are pushed forward in x
-                 if x_push=-1., the particles are pushed backward in x
+        Parameter
+        ---------
+        dt: float (seconds)
+            The (full) timestep of the simulation
         """
+        # Half timestep
+        hdt = 0.5*dt
+
         # Push transverse particle positions (element-wise array operation)
-        self.excursion_x += (dt * x_push) * self.vx
-        self.excursion_y += (dt * y_push) * self.vy
+        self.excursion_x += hdt * self.vx
+        self.excursion_y += hdt * self.vy
         # Move the position of the antenna (element-wise array operation)
-        self.baseline_z += (dt * z_push) * self.vz
+        self.baseline_z += hdt * self.vz
 
     def update_v( self, t ):
         """

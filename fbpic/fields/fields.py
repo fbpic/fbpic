@@ -8,9 +8,7 @@ It defines the structure and methods associated with the fields.
 import numpy as np
 from scipy.constants import c, mu_0, epsilon_0
 from .numba_methods import numba_push_eb_standard, numba_push_eb_comoving, \
-    numba_correct_currents_curlfree_standard, \
-    numba_correct_currents_crossdeposition_standard, \
-    numba_correct_currents_comoving
+    numba_correct_currents_standard, numba_correct_currents_comoving
 from .spectral_transform import SpectralTransformer
 from .utility_methods import get_filter_array, get_modified_k
 
@@ -216,21 +214,14 @@ class Fields(object) :
             self.spect[m].push_eb_with( self.psatd[m], use_true_rho )
             self.spect[m].push_rho()
 
-    def correct_currents(self, current_corr_type):
+    def correct_currents(self) :
         """
         Correct the currents so that they satisfy the
         charge conservation equation
-
-        Parameters
-        ----------
-        current_corr_type: string
-            The type of current correction applied.
-            Either 'curl-free' or 'cross-deposition'.
         """
         # Correct each azimuthal grid individually
         for m in range(self.Nm) :
-            self.spect[m].correct_currents(
-                self.dt, self.psatd[m], current_corr_type )
+            self.spect[m].correct_currents( self.dt, self.psatd[m] )
 
     def correct_divE(self) :
         """
@@ -277,13 +268,17 @@ class Fields(object) :
                 self.trans[m].interp2spect_vect(
                     self.interp[m].Jr, self.interp[m].Jt,
                     self.spect[m].Jp, self.spect[m].Jm )
-        elif fieldtype in ['rho_prev', 'rho_next', 'rho_next_z', 'rho_next_xy']:
+        elif fieldtype == 'rho_next' :
             # Transform each azimuthal grid individually
             for m in range(self.Nm) :
-                spectral_rho = getattr( self.spect[m], fieldtype )
                 self.trans[m].interp2spect_scal(
-                    self.interp[m].rho, spectral_rho )
-        else:
+                    self.interp[m].rho, self.spect[m].rho_next )
+        elif fieldtype == 'rho_prev' :
+            # Transform each azimuthal grid individually
+            for m in range(self.Nm) :
+                self.trans[m].interp2spect_scal(
+                    self.interp[m].rho, self.spect[m].rho_prev )
+        else :
             raise ValueError( 'Invalid string for fieldtype: %s' %fieldtype )
 
     def spect2interp(self, fieldtype) :
@@ -690,13 +685,10 @@ class SpectralGrid(object) :
         # - for filtering
         #   (use the true kz, so as to effectively filter the high k's)
         self.filter_array = get_filter_array( kz_true, kr, dz, dr )
-        # - for curl-free current correction
+        # - for current correction
         self.inv_k2 = 1./np.where( ( self.kz == 0 ) & (self.kr == 0),
                                    1., self.kz**2 + self.kr**2 )
         self.inv_k2[ ( self.kz == 0 ) & (self.kr == 0) ] = 0.
-        # - for cross-deposition current correction
-        self.rho_next_z = np.zeros( (Nz, Nr), dtype='complex' )
-        self.rho_next_xy = np.zeros( (Nz, Nr), dtype='complex' )
 
         # Register shift factor used for shifting the fields
         # in the spectral domain when using a moving window
@@ -752,21 +744,15 @@ class SpectralGrid(object) :
         self.rho_prev = self.rho_prev.copy_to_host()
         self.rho_next = self.rho_next.copy_to_host()
 
-    def correct_currents (self, dt, ps, current_corr_type):
+    def correct_currents (self, dt, ps) :
         """
         Correct the currents so that they satisfy the
         charge conservation equation
 
         Parameters
         ----------
-        dt: float
+        dt : float
             Timestep of the simulation
-
-        ps: a PSATDCoefs object
-            Contains coefficients that are used in the current correction
-
-        current_corr_type: string
-            The type of current correction performed
         """
         # Precalculate useful coefficient
         inv_dt = 1./dt
@@ -775,7 +761,6 @@ class SpectralGrid(object) :
             # Obtain the cuda grid
             dim_grid, dim_block = cuda_tpb_bpg_2d( self.Nz, self.Nr)
             # Correct the currents on the GPU
-            # WARNING: So far the cross-deposition is not implemented on GPU.
             if ps.V is None:
                 # With standard PSATD algorithm
                 cuda_correct_currents_standard[dim_grid, dim_block](
@@ -791,21 +776,11 @@ class SpectralGrid(object) :
                     inv_dt, self.Nz, self.Nr)
         else :
             # Correct the currents on the CPU
-            # WARNING: So far the cross-deposition is incompatible with Galilean
             if ps.V is None:
                 # With standard PSATD algorithm
-                # Method: curl-free
-                if current_corr_type == 'curl-free':
-                    numba_correct_currents_curlfree_standard(
-                        self.rho_prev, self.rho_next, self.Jp, self.Jm, self.Jz,
-                        self.kz, self.kr, self.inv_k2, inv_dt, self.Nz, self.Nr)
-                # Method: cross-deposition
-                elif current_corr_type == 'cross-deposition':
-                    numba_correct_currents_crossdeposition_standard(
-                        self.rho_prev, self.rho_next,
-                        self.rho_next_z, self.rho_next_xy,
-                        self.Jp, self.Jm, self.Jz,
-                        self.kz, self.kr, inv_dt, self.Nz, self.Nr)
+                numba_correct_currents_standard(
+                    self.rho_prev, self.rho_next, self.Jp, self.Jm, self.Jz,
+                    self.kz, self.kr, self.inv_k2, inv_dt, self.Nz, self.Nr )
             else:
                 # With Galilean/comoving algorithm
                 numba_correct_currents_comoving(
@@ -923,7 +898,13 @@ class SpectralGrid(object) :
             # Obtain the cuda grid
             dim_grid, dim_block = cuda_tpb_bpg_2d( self.Nz, self.Nr)
             # Filter fields on the GPU
-            if fieldtype == 'J' :
+            if fieldtype == 'rho_prev' :
+                cuda_filter_scalar[dim_grid, dim_block](
+                    self.rho_prev, self.d_filter_array, self.Nz, self.Nr )
+            elif fieldtype == 'rho_next' :
+                cuda_filter_scalar[dim_grid, dim_block](
+                    self.rho_next, self.d_filter_array, self.Nz, self.Nr )
+            elif fieldtype == 'J' :
                 cuda_filter_vector[dim_grid, dim_block]( self.Jp, self.Jm,
                         self.Jz, self.d_filter_array, self.Nz, self.Nr)
             elif fieldtype == 'E' :
@@ -932,31 +913,27 @@ class SpectralGrid(object) :
             elif fieldtype == 'B' :
                 cuda_filter_vector[dim_grid, dim_block]( self.Bp, self.Bm,
                         self.Bz, self.d_filter_array, self.Nz, self.Nr)
-            elif fieldtype in ['rho_prev', 'rho_next',
-                                'rho_next_z', 'rho_next_xy']:
-                spectral_rho = getattr( self, fieldtype )
-                cuda_filter_scalar[dim_grid, dim_block](
-                    spectral_rho, self.d_filter_array, self.Nz, self.Nr )
             else :
                 raise ValueError('Invalid string for fieldtype: %s'%fieldtype)
         else :
             # Filter fields on the CPU
-            if fieldtype == 'J':
+
+            if fieldtype == 'rho_prev' :
+                self.rho_prev = self.rho_prev * self.filter_array
+            elif fieldtype == 'rho_next' :
+                self.rho_next = self.rho_next * self.filter_array
+            elif fieldtype == 'J' :
                 self.Jp = self.Jp * self.filter_array
                 self.Jm = self.Jm * self.filter_array
                 self.Jz = self.Jz * self.filter_array
-            elif fieldtype == 'E':
+            elif fieldtype == 'E' :
                 self.Ep = self.Ep * self.filter_array
                 self.Em = self.Em * self.filter_array
                 self.Ez = self.Ez * self.filter_array
-            elif fieldtype == 'B':
+            elif fieldtype == 'B' :
                 self.Bp = self.Bp * self.filter_array
                 self.Bm = self.Bm * self.filter_array
                 self.Bz = self.Bz * self.filter_array
-            elif fieldtype in ['rho_prev', 'rho_next',
-                                'rho_next_z', 'rho_next_xy']:
-                spectral_rho = getattr( self, fieldtype )
-                spectral_rho *= self.filter_array
             else :
                 raise ValueError('Invalid string for fieldtype: %s'%fieldtype)
 

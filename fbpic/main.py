@@ -10,6 +10,9 @@ This file steers and controls the simulation.
 # (This needs to be done before the other imports,
 # as it sets the cuda context)
 from mpi4py import MPI
+import numba
+# Check if threading is available
+from .threading_utils import threading_enabled
 # Check if CUDA is available, then import CUDA functions
 from .cuda_utils import cuda_installed
 if cuda_installed:
@@ -41,12 +44,10 @@ class Simulation(object):
     def __init__(self, Nz, zmax, Nr, rmax, Nm, dt, p_zmin, p_zmax,
                  p_rmin, p_rmax, p_nz, p_nr, p_nt, n_e, zmin=0.,
                  n_order=-1, dens_func=None, filter_currents=True,
-                 v_comoving=None, use_galilean=False,
-                 initialize_ions=False, use_cuda=False,
-                 n_guard=None, n_damp=30, exchange_period=None,
-                 current_corr_type='cross-deposition', boundaries='periodic',
-                 gamma_boost=None, use_all_mpi_ranks=True,
-                 particle_shape='linear' ):
+                 v_comoving=None, use_galilean=False, initialize_ions=False,
+                 use_cuda=False, n_guard=None, n_damp=30, exchange_period=None,
+                 boundaries='periodic', gamma_boost=None,
+                 use_all_mpi_ranks=True, particle_shape='linear' ):
         """
         Initializes a simulation, by creating the following structures:
 
@@ -161,11 +162,6 @@ class Simulation(object):
             boundaries of the global simulation box.
             Either 'periodic' or 'open'
 
-        current_corr_type: string, optional
-            The method used in order to ensure that the continuity equation
-            is satisfied. Either `curl-free` or `cross-deposition`.
-            `curl-free` is faster but less local (should not be used with MPI)
-
         gamma_boost : float, optional
             When initializing the laser in a boosted frame, set the
             value of `gamma_boost` to the corresponding Lorentz factor.
@@ -186,29 +182,23 @@ class Simulation(object):
 
         particle_shape: str, optional
             Set the particle shape for the charge/current deposition.
-            Possible values are 'cubic', 'linear' and 'linear_non_atomic'.
-            While 'cubic' corresponds to third order shapes and 'linear'
-            to first order shapes, 'linear_non_atomic' uses an equivalent
-            deposition scheme to 'linear' which avoids atomics on the GPU.
+            Possible values are 'cubic', 'linear'. ('cubic' corresponds to
+            third order shapes and 'linear' to first order shapes).
         """
-        # Check whether to use cuda
+        # Check whether to use CUDA
         self.use_cuda = use_cuda
         if (use_cuda==True) and (cuda_installed==False):
             print('*** Cuda not available for the simulation.')
             print('*** Performing the simulation on CPU.')
             self.use_cuda = False
+        # CPU multi-threading
+        self.use_threading = threading_enabled
 
         # Register the comoving parameters
         self.v_comoving = v_comoving
         self.use_galilean = use_galilean
         if v_comoving is None:
             self.use_galilean = False
-
-        # Register the current correction type
-        if current_corr_type in ['curl-free', 'cross-deposition']:
-            self.current_corr_type = current_corr_type
-        else:
-            raise ValueError('Unkown current correction:%s' %current_corr_type)
 
         # When running the simulation in a boosted frame, convert the arguments
         uz_m = 0.   # Mean normalized momentum of the particles
@@ -223,7 +213,7 @@ class Simulation(object):
         self.comm = BoundaryCommunicator( Nz, zmin, zmax, Nr, rmax, Nm, dt,
             boundaries, n_order, n_guard, n_damp, exchange_period,
             use_all_mpi_ranks )
-        print_simulation_setup( self.comm, self.use_cuda )
+        print_simulation_setup( self.comm, self.use_cuda, self.use_threading )
         # Modify domain region
         zmin, zmax, p_zmin, p_zmax, Nz = \
               self.comm.divide_into_domain(zmin, zmax, p_zmin, p_zmax)
@@ -245,19 +235,18 @@ class Simulation(object):
         # Initialize the electrons and the ions
         grid_shape = self.fld.interp[0].Ez.shape
         self.ptcl = [
-            Particles( q=-e, m=m_e, n=n_e, Npz=Npz, zmin=p_zmin,
-                       zmax=p_zmax, Npr=Npr, rmin=p_rmin, rmax=p_rmax,
-                       Nptheta=p_nt, dt=dt, dens_func=dens_func,
-                       use_cuda=self.use_cuda, uz_m=uz_m,
-                       grid_shape=grid_shape, particle_shape=particle_shape) ]
+            Particles(q=-e, m=m_e, n=n_e, Npz=Npz, zmin=p_zmin,
+                      zmax=p_zmax, Npr=Npr, rmin=p_rmin, rmax=p_rmax,
+                      Nptheta=p_nt, dt=dt, dens_func=dens_func, uz_m=uz_m,
+                      grid_shape=grid_shape, particle_shape=particle_shape,
+                      use_cuda=self.use_cuda ) ]
         if initialize_ions :
             self.ptcl.append(
                 Particles(q=e, m=m_p, n=n_e, Npz=Npz, zmin=p_zmin,
                           zmax=p_zmax, Npr=Npr, rmin=p_rmin, rmax=p_rmax,
-                          Nptheta=p_nt, dt=dt, dens_func=dens_func,
-                          use_cuda=self.use_cuda, uz_m=uz_m,
-                          grid_shape=grid_shape,
-                          particle_shape=particle_shape ) )
+                          Nptheta=p_nt, dt=dt, dens_func=dens_func, uz_m=uz_m,
+                          grid_shape=grid_shape, particle_shape=particle_shape,
+                          use_cuda=self.use_cuda ) )
 
         # Register the number of particles per cell along z, and dt
         # (Necessary for the moving window)
@@ -297,7 +286,7 @@ class Simulation(object):
             Whether to correct the divergence of E in spectral space
 
         use_true_rho: bool, optional
-            Wether to use the true rho deposited on the grid for the
+            Whether to use the true rho deposited on the grid for the
             field push or not. (requires initialize_ions = True)
 
         move_positions: bool, optional
@@ -312,7 +301,13 @@ class Simulation(object):
         # Shortcuts
         ptcl = self.ptcl
         fld = self.fld
-        dt = self.dt
+        # Sanity check
+        # (This is because the guard cells of rho are never exchanged.)
+        if self.comm.size > 1 and use_true_rho:
+            raise ValueError('use_true_rho cannot be used in multi-proc mode.')
+        if self.comm.size > 1 and correct_divE:
+            raise ValueError('correct_divE cannot be used in multi-proc mode.')
+
         # Measure the time taken by the PIC cycle
         measured_start = time.time()
 
@@ -345,8 +340,9 @@ class Simulation(object):
             # Exchanges to prepare for this iteration
             # ---------------------------------------
 
-            # Exchange the fields (EB) in the guard cells between MPI domains
-            self.comm.exchange_fields(fld.interp, 'EB')
+            # Exchange the fields (E,B) in the guard cells between MPI domains
+            self.comm.exchange_fields(fld.interp, 'E', 'replace')
+            self.comm.exchange_fields(fld.interp, 'B', 'replace')
 
             # Check whether this iteration involves particle exchange.
             # Note: Particle exchange is imposed at the first iteration
@@ -380,39 +376,38 @@ class Simulation(object):
             for ext_field in self.external_fields:
                 ext_field.apply_expression( self.ptcl, self.time )
 
-            # Ionize the particles at t = n dt
-            # (if the species is not ionizable, `handle_ionization` skips it)
-            for species in ptcl:
-                species.handle_ionization()
-
             # Push the particles' positions and velocities to t = (n+1/2) dt
             if move_momenta:
                 for species in ptcl:
                     species.push_p()
             if move_positions:
                 for species in ptcl:
-                    species.push_x( 0.5*dt )
+                    species.halfpush_x()
             # Get positions/velocities for antenna particles at t = (n+1/2) dt
             for antenna in self.laser_antennas:
-                antenna.update_v( self.time + 0.5*dt )
-                antenna.push_x( 0.5*dt )
+                antenna.update_v( self.time + 0.5*self.dt )
+                antenna.halfpush_x( self.dt )
             # Shift the boundaries of the grid for the Galilean frame
             if self.use_galilean:
                 self.shift_galilean_boundaries()
 
             # Get the current at t = (n+1/2) dt
-            self.deposit('J')
-            # Perform cross-deposition if needed
-            if correct_currents and self.current_corr_type=='cross-deposition':
-                self.cross_deposit( move_positions )
+            # (Guard cell exchange done either now or after current correction)
+            self.deposit('J', exchange_J=(correct_currents is False))
+
+            # Handle elementary processes at t = (n + 1/2)dt
+            # i.e. when the particles' velocity and position are synchronized
+            # (e.g. ionization, Compton scattering, ...)
+            for species in ptcl:
+                species.handle_elementary_processes()
 
             # Push the particles' positions to t = (n+1) dt
             if move_positions:
                 for species in ptcl:
-                    species.push_x( 0.5*dt )
+                    species.halfpush_x()
             # Get positions for antenna particles at t = (n+1) dt
             for antenna in self.laser_antennas:
-                antenna.push_x( 0.5*dt )
+                antenna.halfpush_x( self.dt )
             # Shift the boundaries of the grid for the Galilean frame
             if self.use_galilean:
                 self.shift_galilean_boundaries()
@@ -421,7 +416,14 @@ class Simulation(object):
             self.deposit('rho_next')
             # Correct the currents (requires rho at t = (n+1) dt )
             if correct_currents:
-                fld.correct_currents( self.current_corr_type )
+                fld.correct_currents()
+                if self.comm.size > 1:
+                    # Exchange the corrected J between domains
+                    # (If correct_currents is False, the exchange of J
+                    # is done in the function `deposit`)
+                    fld.spect2interp('J')
+                    self.comm.exchange_fields(fld.interp, 'J', 'add')
+                    fld.interp2spect('J')
 
             # Damp the fields in the guard cells
             self.comm.damp_guard_EB( fld.interp )
@@ -436,13 +438,13 @@ class Simulation(object):
             if self.comm.moving_win is not None:
                 # Shift the fields is spectral space and update positions of
                 # the interpolation grids
-                self.comm.move_grids(fld, dt, self.time)
+                self.comm.move_grids(fld, self.dt, self.time)
             # Get the fields E and B on the interpolation grid at t = (n+1) dt
             fld.spect2interp('E')
             fld.spect2interp('B')
 
             # Increment the global time and iteration
-            self.time += dt
+            self.time += self.dt
             self.iteration += 1
 
             # Write the checkpoints if needed
@@ -456,6 +458,7 @@ class Simulation(object):
         # Get the charge density and the current from spectral space.
         fld.spect2interp('J')
         fld.spect2interp('rho_prev')
+        self.comm.exchange_fields(self.fld.interp, 'rho', 'add')
 
         # Receive simulation data from GPU (if CUDA is used)
         if self.use_cuda:
@@ -468,7 +471,7 @@ class Simulation(object):
             h, m = divmod(m, 60)
             print('\n Time taken by the loop: %d:%02d:%02d\n' % (h, m, s))
 
-    def deposit( self, fieldtype ):
+    def deposit( self, fieldtype, exchange_J=False ):
         """
         Deposit the charge or the currents to the interpolation grid
         and then to the spectral grid.
@@ -479,7 +482,9 @@ class Simulation(object):
             The designation of the spectral field that
             should be changed by the deposition
             Either 'rho_prev', 'rho_next' or 'J'
-            (or 'rho_next_xy' and 'rho_next_z' for cross-deposition)
+
+        exchange_J: bool
+            When depositing J, whether to do the guard cells exchange now
         """
         # Shortcut
         fld = self.fld
@@ -487,7 +492,7 @@ class Simulation(object):
         # Deposit charge or currents on the interpolation grid
 
         # Charge
-        if fieldtype in ['rho_prev', 'rho_next', 'rho_next_xy', 'rho_next_z']:
+        if fieldtype in ['rho_prev', 'rho_next']:
             fld.erase('rho')
             # Deposit the particle charge
             for species in self.ptcl:
@@ -497,8 +502,8 @@ class Simulation(object):
                 antenna.deposit( fld, 'rho', self.comm )
             # Divide by cell volume
             fld.divide_by_volume('rho')
-            # Exchange the charge density of the guard cells between domains
-            self.comm.exchange_fields(fld.interp, 'rho')
+            # The guard cells of rho are not exchanged (except for diagnostics)
+            # This is because rho is only used for current correction.
 
         # Currents
         elif fieldtype == 'J':
@@ -511,8 +516,10 @@ class Simulation(object):
                 antenna.deposit( fld, 'J', self.comm )
             # Divide by cell volume
             fld.divide_by_volume('J')
-            # Exchange the current of the guard cells between domains
-            self.comm.exchange_fields(fld.interp, 'J')
+            # Exchange guard cells
+            if exchange_J and self.comm.size > 1:
+                self.comm.exchange_fields(fld.interp, 'J', 'add')
+
         else:
             raise ValueError('Unknown fieldtype: %s' %fieldtype)
 
@@ -520,43 +527,6 @@ class Simulation(object):
         fld.interp2spect( fieldtype )
         if self.filter_currents:
             fld.filter_spect( fieldtype )
-
-    def cross_deposit( self, move_positions ):
-        """
-        Perform cross-deposition. This function should be called
-        when the particles are at time n+1/2.
-
-        Parameters
-        ----------
-        move_positions:bool
-            Whether to move the positions of regular particles
-        """
-        dt = self.dt
-
-        # Push the particles: z[n+1/2], x[n+1/2] => z[n], x[n+1]
-        if move_positions:
-            for species in self.ptcl:
-                species.push_x( 0.5*dt, x_push= 1., y_push= 1., z_push= -1. )
-        for antenna in self.laser_antennas:
-            antenna.push_x( 0.5*dt, x_push= 1., y_push= 1., z_push= -1. )
-        # Deposit rho_next_xy
-        self.deposit( 'rho_next_xy' )
-
-        # Push the particles: z[n], x[n+1] => z[n+1], x[n]
-        if move_positions:
-            for species in self.ptcl:
-                species.push_x(dt, x_push= -1., y_push= -1., z_push= 1.)
-        for antenna in self.laser_antennas:
-            antenna.push_x(dt, x_push= -1., y_push= -1., z_push= 1.)
-        # Deposit rho_next_z
-        self.deposit( 'rho_next_z' )
-
-        # Push the particles: z[n+1], x[n] => z[n+1/2], x[n+1/2]
-        if move_positions:
-            for species in self.ptcl:
-                species.push_x(0.5*dt, x_push= 1., y_push= 1., z_push= -1.)
-        for antenna in self.laser_antennas:
-            antenna.push_x(0.5*dt, x_push= 1., y_push= 1., z_push= -1.)
 
     def shift_galilean_boundaries(self):
         """
@@ -631,7 +601,7 @@ def progression_bar( i, Ntot, measured_start, Nbars=50, char='-'):
     sys.stdout.write(', %d:%02d:%02d left' % (h, m, s))
     sys.stdout.flush()
 
-def print_simulation_setup( comm, use_cuda ):
+def print_simulation_setup( comm, use_cuda, use_threading ):
     """
     Print message about the number of proc and
     whether it is using GPU or CPU.
@@ -643,13 +613,20 @@ def print_simulation_setup( comm, use_cuda ):
 
     use_cuda: bool
         Whether the simulation is set up to use CUDA
+
+    use_threading: bool
+        Whether the simulation is set up to use threads on CPU
     """
     if comm.rank == 0:
         if use_cuda:
             message = "\nRunning FBPIC on GPU "
         else:
             message = "\nRunning FBPIC on CPU "
-        message += "with %d proc.\n" %comm.size
+        message += "with %d proc" %comm.size
+        if use_threading and not use_cuda:
+            message += " (%d threads per proc)" %numba.config.NUMBA_NUM_THREADS
+        message += ".\n"
+
         print( message )
 
 def adapt_to_grid( x, p_xmin, p_xmax, p_nx, ncells_empty=0 ):

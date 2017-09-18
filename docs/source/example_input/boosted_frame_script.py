@@ -189,5 +189,5 @@ if __name__ == '__main__':
                     ]
 
     ### Run the simulation
-    sim.step( N_step, use_true_rho=True )
+    sim.step( N_step )
     print('')

@@ -10,7 +10,7 @@ It verifies the validity of the charge density deposition by:
   (i.e. this confirms that no Verboncoeur-type correction is needed)
 - Shifting this plasma by a small amount in r, and still verifying
   that the deposited density is uniform
- The tests are performed with different particle shapes: linear
+ The tests are performed with different particle shapes: linear, cubic
 
 Usage :
 from the top-level directory of FBPIC run
@@ -47,7 +47,7 @@ frac_shift = 0.01
 
 def test_uniform_electron_plasma(show=False):
     "Function that is run by py.test, when doing `python setup.py test`"
-    for shape in ['cubic', 'linear', 'linear_non_atomic']:
+    for shape in ['linear', 'cubic']:
         uniform_electron_plasma( shape, show )
 
 def uniform_electron_plasma(shape, show=False):
@@ -87,7 +87,7 @@ def uniform_electron_plasma(shape, show=False):
 
 def test_neutral_plasma_shifted(show=False):
     "Function that is run by py.test, when doing `python setup.py test`"
-    for shape in ['cubic', 'linear', 'linear_non_atomic']:
+    for shape in ['linear', 'cubic']:
         neutral_plasma_shifted( shape, show )
 
 def neutral_plasma_shifted(shape, show=False):

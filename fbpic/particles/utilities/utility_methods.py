@@ -3,7 +3,7 @@
 # License: 3-Clause-BSD-LBNL
 """
 This file is part of the Fourier-Bessel Particle-In-Cell code (FB-PIC)
-It defines the optimized particles methods that use numba on a CPU
+It defines particle utility methods.
 """
 import numpy as np
 

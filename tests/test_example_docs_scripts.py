@@ -38,12 +38,11 @@ def test_lpa_sim_singleproc():
     os.mkdir( temporary_dir )
     shutil.copy('./docs/source/example_input/lwfa_script.py',
                     temporary_dir )
-
-    # Enter the temporary directory and run the script
-    os.chdir( temporary_dir )
+    # Shortcut for the script file, which is repeatedly changed
+    script_filename = os.path.join( temporary_dir,'lwfa_script.py' )
 
     # Read the script and check that the targeted lines are present
-    with open('lwfa_script.py') as f:
+    with open(script_filename) as f:
         script = f.read()
         # Check that the targeted lines are present
         if script.find('save_checkpoints = False') == -1 \
@@ -55,10 +54,10 @@ def test_lpa_sim_singleproc():
     script = script.replace('save_checkpoints = False',
                                 'save_checkpoints = True')
     script = script.replace('N_step = 200', 'N_step = 101')
-    with open('lwfa_script.py', 'w') as f:
+    with open(script_filename, 'w') as f:
         f.write(script)
     # Launch the script from the OS
-    response = os.system( 'python lwfa_script.py' )
+    response = os.system( 'cd %s; python lwfa_script.py' %temporary_dir )
     assert response==0
 
     # Modify the script so as to enable restarts
@@ -66,14 +65,13 @@ def test_lpa_sim_singleproc():
                                 'use_restart = True')
     script = script.replace('save_checkpoints = True',
                                 'save_checkpoints = False')
-    with open('lwfa_script.py', 'w') as f:
+    with open(script_filename, 'w') as f:
         f.write(script)
     # Launch the modified script from the OS, with 2 proc
-    response = os.system( 'python lwfa_script.py' )
+    response = os.system( 'cd %s; python lwfa_script.py' %temporary_dir )
     assert response==0
 
-    # Exit the temporary directory and suppress it
-    os.chdir('../../')
+    # Suppress the temporary directory
     shutil.rmtree( temporary_dir )
 
 def test_lpa_sim_twoproc_restart():
@@ -86,12 +84,11 @@ def test_lpa_sim_twoproc_restart():
         shutil.rmtree( temporary_dir )
     os.mkdir( temporary_dir )
     shutil.copy('./docs/source/example_input/lwfa_script.py', temporary_dir )
-
-    # Enter the temporary directory
-    os.chdir( temporary_dir )
+    # Shortcut for the script file, which is repeatedly changed
+    script_filename = os.path.join( temporary_dir,'lwfa_script.py' )
 
     # Read the script and check that the targeted lines are present
-    with open('lwfa_script.py') as f:
+    with open( script_filename ) as f:
         script = f.read()
         # Check that the targeted lines are present
         if script.find('save_checkpoints = False') == -1 \
@@ -109,10 +106,11 @@ def test_lpa_sim_twoproc_restart():
     script = script.replace('N_step = 200', 'N_step = 101')
     script = script.replace('n_order = -1',
                                 'n_order = 16')
-    with open('lwfa_script.py', 'w') as f:
+    with open( script_filename, 'w' ) as f:
         f.write(script)
     # Launch the modified script from the OS, with 2 proc
-    response = os.system( 'mpirun -np 2 python lwfa_script.py' )
+    response = os.system(
+        'cd %s; mpirun -np 2 python lwfa_script.py' %temporary_dir )
     assert response==0
 
     # Modify the script so as to enable restarts
@@ -120,14 +118,15 @@ def test_lpa_sim_twoproc_restart():
                                 'use_restart = True')
     script = script.replace('save_checkpoints = True',
                                 'save_checkpoints = False')
-    with open('lwfa_script.py', 'w') as f:
+    with open( script_filename, 'w' ) as f:
         f.write(script)
     # Launch the modified script from the OS, with 2 proc
-    response = os.system( 'mpirun -np 2 python lwfa_script.py' )
+    response = os.system(
+        'cd %s; mpirun -np 2 python lwfa_script.py' %temporary_dir )
     assert response==0
 
     # Check that the particle ids are unique at each iterations
-    ts = OpenPMDTimeSeries('./diags/hdf5')
+    ts = OpenPMDTimeSeries( os.path.join( temporary_dir, 'diags/hdf5') )
     print('Checking particle ids...')
     start_time = time.time()
     for iteration in ts.iterations:
@@ -136,8 +135,7 @@ def test_lpa_sim_twoproc_restart():
     end_time = time.time()
     print( "%.2f seconds" %(end_time-start_time))
 
-   # Exit the temporary directory and suppress it
-    os.chdir('../../')
+    # Suppress the temporary directory
     shutil.rmtree( temporary_dir )
 
 def test_boosted_frame_sim_twoproc():
@@ -152,11 +150,11 @@ def test_boosted_frame_sim_twoproc():
     os.mkdir( temporary_dir )
     shutil.copy('./docs/source/example_input/boosted_frame_script.py',
                     temporary_dir )
-    # Enter the temporary directory
-    os.chdir( temporary_dir )
+    # Shortcut for the script file, which is repeatedly changed
+    script_filename = os.path.join( temporary_dir, 'boosted_frame_script.py' )
 
     # Read the script and check that the targeted lines are present
-    with open('boosted_frame_script.py') as f:
+    with open(script_filename) as f:
         script = f.read()
         # Check that the targeted lines are present
         if script.find('n_order = -1') == -1 \
@@ -167,15 +165,16 @@ def test_boosted_frame_sim_twoproc():
     # Modify the script so as to enable finite order
     script = script.replace('n_order = -1', 'n_order = 16')
     script = script.replace('track_bunch = False', 'track_bunch = True')
-    with open('boosted_frame_script.py', 'w') as f:
+    with open(script_filename, 'w') as f:
         f.write(script)
 
     # Launch the script from the OS
-    response = os.system( 'mpirun -np 2 python boosted_frame_script.py' )
+    response = os.system(
+        'cd %s; mpirun -np 2 python boosted_frame_script.py' %temporary_dir )
     assert response==0
 
     # Check that the particle ids are unique at each iterations
-    ts = OpenPMDTimeSeries('./lab_diags/hdf5')
+    ts = OpenPMDTimeSeries( os.path.join( temporary_dir, 'lab_diags/hdf5') )
     print('Checking particle ids...')
     start_time = time.time()
     for iteration in ts.iterations:
@@ -184,8 +183,7 @@ def test_boosted_frame_sim_twoproc():
     end_time = time.time()
     print( "%.2f seconds" %(end_time-start_time))
 
-    # Exit the temporary directory and suppress it
-    os.chdir('../../')
+    # Suppress the temporary directory
     shutil.rmtree( temporary_dir )
 
 def test_parametric_sim_twoproc():
@@ -200,12 +198,11 @@ def test_parametric_sim_twoproc():
     os.mkdir( temporary_dir )
     shutil.copy(
         './docs/source/example_input/parametric_script.py', temporary_dir )
-
-    # Enter the temporary directory
-    os.chdir( temporary_dir )
+    # Shortcut for the script file, which is repeatedly changed
+    script_filename = os.path.join( temporary_dir, 'parametric_script.py' )
 
     # Read the script and check that the targeted lines are present
-    with open('parametric_script.py') as f:
+    with open(script_filename) as f:
         script = f.read()
         # Check that the targeted lines are present
         if script.find('save_checkpoints = False') == -1 \
@@ -219,10 +216,11 @@ def test_parametric_sim_twoproc():
                                 'save_checkpoints = True')
     script = script.replace('n_order = -1',
                                 'n_order = 16')
-    with open('parametric_script.py', 'w') as f:
+    with open(script_filename, 'w') as f:
         f.write(script)
     # Launch the modified script from the OS, with 2 proc
-    response = os.system( 'mpirun -np 2 python parametric_script.py' )
+    response = os.system(
+        'cd %s; mpirun -np 2 python parametric_script.py' %temporary_dir )
     assert response==0
 
     # Modify the script so as to enable restarts
@@ -230,10 +228,11 @@ def test_parametric_sim_twoproc():
                                 'use_restart = True')
     script = script.replace('save_checkpoints = True',
                                 'save_checkpoints = False')
-    with open('parametric_script.py', 'w') as f:
+    with open(script_filename, 'w') as f:
         f.write(script)
     # Launch the modified script from the OS, with 2 proc
-    response = os.system( 'mpirun -np 2 python parametric_script.py' )
+    response = os.system(
+        'cd %s; mpirun -np 2 python parametric_script.py' %temporary_dir )
     assert response==0
 
     # Check that the simulation produced two output directories
@@ -241,15 +240,14 @@ def test_parametric_sim_twoproc():
     # a0 (this is done by checking the a0 of the laser, with openPMD-viewer)
     for a0 in [ 2.0, 4.0 ]:
         # Open the diagnotics
-        diag_folder = 'diags_a0_%.1f/hdf5' %a0
+        diag_folder = os.path.join( temporary_dir, 'diags_a0_%.2f/hdf5' %a0 )
         ts = LpaDiagnostics( diag_folder )
         # Check that the value of a0 in the diagnostics is the
         # expected one.
         a0_in_diag = ts.get_a0( iteration=80, pol='x' )
         assert abs( (a0 - a0_in_diag)/a0 ) < 1.e-2
 
-    # Exit the temporary directory and suppress it
-    os.chdir('../../')
+    # Suppress the temporary directory
     shutil.rmtree( temporary_dir )
 
 if __name__ == '__main__':

@@ -4,12 +4,6 @@ It defines inline functions that are compiled for both GPU and CPU, and
 used in the ionization code.
 """
 import math
-import numba
-from scipy.constants import e
-# Check if CUDA is available, then import CUDA functions
-from fbpic.cuda_utils import cuda_installed
-if cuda_installed:
-    from fbpic.cuda_utils import cuda
 
 # ----------------------------
 # Function for field amplitude
@@ -32,11 +26,6 @@ def get_E_amplitude( ux, uy, uz, Ex, Ey, Ez, cBx, cBy, cBz ):
 
     return( math.sqrt( E2_on_particle ), gamma )
 
-# Compile the function for CPU and GPU
-if cuda_installed:
-    get_E_amplitude_cuda = cuda.jit(get_E_amplitude, device=True, inline=True)
-get_E_amplitude_numba = numba.jit(get_E_amplitude, nopython=True)
-
 # ----------------------------
 # Function for ADK probability
 # ----------------------------
@@ -57,13 +46,6 @@ def get_ionization_probability( E, gamma, prefactor, power, exp_prefactor ):
     p = 1. - math.exp( - w_dtau )
     return( p )
 
-# Compile the function for CPU and GPU
-if cuda_installed:
-    get_ionization_probability_cuda = \
-        cuda.jit(get_ionization_probability, device=True, inline=True)
-get_ionization_probability_numba = \
-        numba.jit(get_ionization_probability, nopython=True)
-
 # -----------------
 # Copying functions
 # -----------------
@@ -75,7 +57,7 @@ def copy_ionized_electrons_batch(
     elec_ux, elec_uy, elec_uz, elec_w,
     elec_Ex, elec_Ey, elec_Ez, elec_Bx, elec_By, elec_Bz,
     ion_x, ion_y, ion_z, ion_inv_gamma,
-    ion_ux, ion_uy, ion_uz, ion_neutral_weight,
+    ion_ux, ion_uy, ion_uz, ion_w,
     ion_Ex, ion_Ey, ion_Ez, ion_Bx, ion_By, ion_Bz ):
     """
     Create the new electrons by copying the properties (position, momentum,
@@ -104,7 +86,7 @@ def copy_ionized_electrons_batch(
             elec_uy[elec_index] = ion_uy[ion_index]
             elec_uz[elec_index] = ion_uz[ion_index]
             elec_inv_gamma[elec_index] = ion_inv_gamma[ion_index]
-            elec_w[elec_index] = - e * ion_neutral_weight[ion_index]
+            elec_w[elec_index] = ion_w[ion_index]
             elec_Ex[elec_index] = ion_Ex[ion_index]
             elec_Ey[elec_index] = ion_Ey[ion_index]
             elec_Ez[elec_index] = ion_Ez[ion_index]
@@ -114,10 +96,3 @@ def copy_ionized_electrons_batch(
 
             # Update the electron_index
             elec_index += 1
-
-# Compile the function for CPU and GPU
-if cuda_installed:
-    copy_ionized_electrons_batch_cuda = \
-        cuda.jit(copy_ionized_electrons_batch, device=True, inline=True)
-copy_ionized_electrons_batch_numba = \
-        numba.jit(copy_ionized_electrons_batch, nopython=True)

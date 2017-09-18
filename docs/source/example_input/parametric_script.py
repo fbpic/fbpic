@@ -135,7 +135,7 @@ if __name__ == '__main__':
     # Add a field diagnostic
     # Parametric scan: each MPI rank should output its data to a
     # different directory
-    write_dir = 'diags_a0_%.1f' %a0
+    write_dir = 'diags_a0_%.2f' %a0
     sim.diags = [ FieldDiagnostic( diag_period, sim.fld,
                     comm=sim.comm, write_dir=write_dir ),
                 ParticleDiagnostic( diag_period, {"electrons" : sim.ptcl[0]},
