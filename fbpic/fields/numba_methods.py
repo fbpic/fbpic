@@ -5,6 +5,7 @@
 This file is part of the Fourier-Bessel Particle-In-Cell code (FB-PIC)
 It defines the optimized fields methods that use numba on a CPU
 """
+import numba
 from scipy.constants import c, epsilon_0, mu_0
 c2 = c**2
 from fbpic.threading_utils import njit_parallel, prange
@@ -33,7 +34,7 @@ def numba_correct_currents_curlfree_standard( rho_prev, rho_next, Jp, Jm, Jz,
 
     return
 
-@njit_parallel
+@numba.njit
 def numba_correct_currents_crossdeposition_standard( rho_prev, rho_next,
         rho_next_z, rho_next_xy, Jp, Jm, Jz, kz, kr, inv_dt, Nz, Nr ):
     """

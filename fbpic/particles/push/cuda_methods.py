@@ -54,11 +54,8 @@ def push_p_vay( ux_i, uy_i, uz_i, inv_gamma_i,
 def push_x_gpu( x, y, z, ux, uy, uz, inv_gamma, dt,
                 x_push, y_push, z_push ) :
     """
-    Advance the particles' positions over one half-timestep
-
-    This assumes that the positions (x, y, z) are initially either
-    one half-timestep *behind* the momenta (ux, uy, uz), or at the
-    same timestep as the momenta.
+    Advance the particles' positions over `dt` using the momenta ux, uy, uz,
+    multiplied by the scalar coefficients x_push, y_push, z_push.
 
     Parameters
     ----------
@@ -73,10 +70,15 @@ def push_x_gpu( x, y, z, ux, uy, uz, inv_gamma, dt,
         The inverse of the relativistic gamma factor
 
     dt : float (seconds)
-        The time by which the position is advanced
+        The timestep by which the position is advanced
+
+    x_push, y_push, z_push: float, dimensionless
+        Multiplying coefficient for the momenta in x, y and z
+        e.g. if x_push=1., the particles are pushed forward in x
+             if x_push=-1., the particles are pushed backward in x
     """
     # Half timestep, multiplied by c
-    chdt = c*0.5*dt
+    chdt = c*dt
 
     i = cuda.grid(1)
     if i < x.shape[0]:
