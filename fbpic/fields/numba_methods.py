@@ -45,6 +45,7 @@ def numba_correct_currents_crossdeposition_standard( rho_prev, rho_next,
         # Loop through the radial points
         # (Note: a while loop is used here, because numba 0.34 does
         # not support nested prange and range loops)
+        ir = 0
         while ir < Nr:
 
             # Calculate the intermediate variable Dz and Dxy
