@@ -11,22 +11,20 @@ from fbpic.threading_utils import njit_parallel, prange
 from scipy.constants import c, e
 
 @njit_parallel
-def push_x_numba( x, y, z, ux, uy, uz, inv_gamma, Ntot, dt ):
+def push_x_numba( x, y, z, ux, uy, uz, inv_gamma, Ntot, dt,
+                push_x, push_y, push_z ):
     """
-    Advance the particles' positions over one half-timestep
-
-    This assumes that the positions (x, y, z) are initially either
-    one half-timestep *behind* the momenta (ux, uy, uz), or at the
-    same timestep as the momenta.
+    Advance the particles' positions over `dt` using the momenta ux, uy, uz,
+    multiplied by the scalar coefficients x_push, y_push, z_push.
     """
     # Half timestep, multiplied by c
-    chdt = c*0.5*dt
+    chdt = c*dt
 
     # Particle push (in parallel if threading is installed)
     for ip in prange(Ntot) :
-        x[ip] += chdt * inv_gamma[ip] * ux[ip]
-        y[ip] += chdt * inv_gamma[ip] * uy[ip]
-        z[ip] += chdt * inv_gamma[ip] * uz[ip]
+        x[ip] += chdt * inv_gamma[ip] * push_x * ux[ip]
+        y[ip] += chdt * inv_gamma[ip] * push_y * uy[ip]
+        z[ip] += chdt * inv_gamma[ip] * push_z * uz[ip]
 
     return x, y, z
 

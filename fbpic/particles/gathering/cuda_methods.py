@@ -3,7 +3,7 @@
 # License: 3-Clause-BSD-LBNL
 """
 This file is part of the Fourier-Bessel Particle-In-Cell code (FB-PIC)
-It defines the field gathering methods linear and cubic order shapes 
+It defines the field gathering methods linear and cubic order shapes
 on the GPU using CUDA.
 """
 from numba import cuda, float64, int64

@@ -10,10 +10,11 @@ c2 = c**2
 from fbpic.threading_utils import njit_parallel, prange
 
 @njit_parallel
-def numba_correct_currents_standard( rho_prev, rho_next, Jp, Jm, Jz,
+def numba_correct_currents_curlfree_standard( rho_prev, rho_next, Jp, Jm, Jz,
                             kz, kr, inv_k2, inv_dt, Nz, Nr ):
     """
-    Correct the currents in spectral space, using the standard pstad
+    Correct the currents in spectral space, using the curl-free correction
+    which is adapted to the standard psatd
     """
     # Loop over the 2D grid (parallel in z, if threading is installed)
     for iz in prange(Nz):
@@ -29,6 +30,44 @@ def numba_correct_currents_standard( rho_prev, rho_next, Jp, Jm, Jz,
             Jp[iz, ir] +=  0.5 * kr[iz, ir] * F
             Jm[iz, ir] += -0.5 * kr[iz, ir] * F
             Jz[iz, ir] += -1.j * kz[iz, ir] * F
+
+    return
+
+@njit_parallel
+def numba_correct_currents_crossdeposition_standard( rho_prev, rho_next,
+        rho_next_z, rho_next_xy, Jp, Jm, Jz, kz, kr, inv_dt, Nz, Nr ):
+    """
+    Correct the currents in spectral space, using the cross-deposition
+    algorithm adapted to the standard psatd.
+    """
+    # Loop over the 2D grid
+    for iz in prange(Nz):
+        # Loop through the radial points
+        # (Note: a while loop is used here, because numba 0.34 does
+        # not support nested prange and range loops)
+        ir = 0
+        while ir < Nr:
+
+            # Calculate the intermediate variable Dz and Dxy
+            # (Such that Dz + Dxy is the error in the continuity equation)
+            Dz = 1.j*kz[iz, ir]*Jz[iz, ir] + 0.5 * inv_dt * \
+                ( rho_next[iz, ir] - rho_next_xy[iz, ir] + \
+                  rho_next_z[iz, ir] - rho_prev[iz, ir] )
+            Dxy = kr[iz, ir]*( Jp[iz, ir] - Jm[iz, ir] ) + 0.5 * inv_dt * \
+                ( rho_next[iz, ir] - rho_next_z[iz, ir] + \
+                  rho_next_xy[iz, ir] - rho_prev[iz, ir] )
+
+            # Correct the currents accordingly
+            if kr[iz, ir] != 0:
+                inv_kr = 1./kr[iz, ir]
+                Jp[iz, ir] += -0.5 * Dxy * inv_kr
+                Jm[iz, ir] +=  0.5 * Dxy * inv_kr
+            if kz[iz, ir] != 0:
+                inv_kz = 1./kz[iz, ir]
+                Jz[iz, ir] += 1.j * Dz * inv_kz
+
+            # Increment ir
+            ir += 1
 
     return
 
