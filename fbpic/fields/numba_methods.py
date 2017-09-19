@@ -5,7 +5,6 @@
 This file is part of the Fourier-Bessel Particle-In-Cell code (FB-PIC)
 It defines the optimized fields methods that use numba on a CPU
 """
-import numba
 from scipy.constants import c, epsilon_0, mu_0
 c2 = c**2
 from fbpic.threading_utils import njit_parallel, prange
@@ -34,7 +33,7 @@ def numba_correct_currents_curlfree_standard( rho_prev, rho_next, Jp, Jm, Jz,
 
     return
 
-@numba.njit
+@njit_parallel
 def numba_correct_currents_crossdeposition_standard( rho_prev, rho_next,
         rho_next_z, rho_next_xy, Jp, Jm, Jz, kz, kr, inv_dt, Nz, Nr ):
     """
@@ -42,8 +41,11 @@ def numba_correct_currents_crossdeposition_standard( rho_prev, rho_next,
     algorithm adapted to the standard psatd.
     """
     # Loop over the 2D grid
-    for iz in range(Nz):
-        for ir in range(Nr):
+    for iz in prange(Nz):
+        # Loop through the radial points
+        # (Note: a while loop is used here, because numba 0.34 does
+        # not support nested prange and range loops)
+        while ir < Nr:
 
             # Calculate the intermediate variable Dz and Dxy
             # (Such that Dz + Dxy is the error in the continuity equation)
@@ -62,6 +64,9 @@ def numba_correct_currents_crossdeposition_standard( rho_prev, rho_next,
             if kz[iz, ir] != 0:
                 inv_kz = 1./kz[iz, ir]
                 Jz[iz, ir] += 1.j * Dz * inv_kz
+
+            # Increment ir
+            ir += 1
 
     return
 
