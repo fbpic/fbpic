@@ -14,7 +14,7 @@ Python. If Anaconda is not your default Python distribution, download and instal
 
   ::
 
-     conda install numba scipy h5py
+     conda install numba=0.34 scipy h5py
      conda install -c conda-forge mpi4py pyfftw
 
 -  Install ``fbpic``

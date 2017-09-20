@@ -44,7 +44,7 @@ In order to download and install `Anaconda <https://www.continuum.io/downloads>`
 Then install the dependencies of FBPIC:
 ::
 
-   conda install numba
+   conda install numba=0.34
    conda install -c numba pyculib
    conda install -c conda-forge pyfftw
 
