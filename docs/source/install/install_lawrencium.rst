@@ -56,7 +56,7 @@ Installation of FBPIC and its dependencies
 
    ::
 
-       conda install -c conda-forge numba scipy h5py pyfftw mpi4py
+       conda install -c conda-forge numba=0.34 scipy h5py pyfftw mpi4py
        conda install -c numba pyculib
 
 

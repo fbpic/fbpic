@@ -57,7 +57,7 @@ Installation of FBPIC and its dependencies
 
   ::
 
-    conda install numba
+    conda install numba=0.34
     conda install -c conda-forge pyfftw
     conda install -c numba pyculib
 
