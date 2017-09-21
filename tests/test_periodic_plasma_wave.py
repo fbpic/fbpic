@@ -28,22 +28,52 @@ Theory:
 -------
 
 The fields are given by the analytical formulas :
-$$ \phi = \epsilon \,\frac{m c^2}{e} \exp\left(-\frac{r^2}{w_0^2}\right)
-\sin(k_0 z) \sin(\omega_p t)$$
+$$ \phi =
+\epsilon \,\frac{m c^2}{e}
+    \exp\left(-\frac{r^2}{w_0^2}\right) \sin(k_0 z) \sin(\omega_p t)
++ \epsilon_1 \,\frac{m c^2}{e} \frac{2\,r\cos(\theta)}{w_0}
+    \exp\left(-\frac{r^2}{w_0^2}\right)\sin(k_0 z) \sin(\omega_p t)$$
 
-$$ E_r = -\partial_r \phi = \epsilon \,\frac{mc^2}{e}\frac{2\,r}{w_0^2}
-\exp\left(-\frac{r^2}{w_0^2}\right) \sin(k_0 z) \sin(\omega_p t) $$
+$$ E_r = -\partial_r \phi =
+\epsilon \,\frac{mc^2}{e}\frac{2\,r}{w_0^2}
+    \exp\left(-\frac{r^2}{w_0^2}\right) \sin(k_0 z) \sin(\omega_p t)
+- \epsilon_1 \,\frac{m c^2}{e} \frac{2\cos(\theta)}{w_0}
+    \exp\left(-\frac{r^2}{w_0^2}\right)\sin(k_0 z) \sin(\omega_p t)
++ \epsilon_1 \,\frac{m c^2}{e} \frac{4\,r^2\cos(\theta)}{w_0^3}
+    \exp\left(-\frac{r^2}{w_0^2}\right)\sin(k_0 z) \sin(\omega_p t) $$
 
-$$ E_z = -\partial_z \phi = -\epsilon \,\frac{mc^2}{e}  k_0
-\exp\left(-\frac{r^2}{w_0^2}\right) \cos(k_0 z) \sin(\omega_p t) $$
+$$ E_theta = - \frac{1}{r} \partial_\theta \phi =
+ \epsilon_1 \,\frac{m c^2}{e} \frac{2\,\sin(\theta)}{w_0}
+    \exp\left(-\frac{r^2}{w_0^2}\right)\sin(k_0 z) \sin(\omega_p t) $$
 
-$$ v_r/c = \epsilon \, \frac{c}{\omega_p} \, \frac{2\,r}{w_0^2}
-\exp\left(-\frac{r^2}{w_0^2}\right) \sin(k_0 z) \cos(\omega_p t) $$
+$$ E_z = -\partial_z \phi =
+ - \epsilon \,\frac{mc^2}{e} k_0
+    \exp\left(-\frac{r^2}{w_0^2}\right) \cos(k_0 z) \sin(\omega_p t)
+ - \epsilon_1 \,\frac{m c^2}{e} \frac{2\,r\cos(\theta)}{w_0} k_0
+    \exp\left(-\frac{r^2}{w_0^2}\right)\cos(k_0 z) \sin(\omega_p t)$$
 
-$$ v_z/c = - \epsilon \, \frac{c}{\omega_p} \, k_0
-\exp\left(-\frac{r^2}{w_0^2}\right) \cos(k_0 z) \cos(\omega_p t) $$
+$$ v_x/c =
+ \epsilon \, \frac{c}{\omega_p} \, \frac{2\,x}{w_0^2}
+    \exp\left(-\frac{r^2}{w_0^2}\right) \sin(k_0 z) \cos(\omega_p t)
+ - \epsilon_1 \,\frac{c}{\omega_p} \frac{2}{w_0}
+    \exp\left(-\frac{r^2}{w_0^2}\right)\sin(k_0 z) \cos(\omega_p t)
+ + \epsilon_1 \,\frac{c}{\omega_p} \frac{4\,x^2}{w_0^3})
+    \exp\left(-\frac{r^2}{w_0^2}\right)\sin(k_0 z) \cos(\omega_p t) $$
 
-where $\epsilon$ is the dimensionless amplitude.
+$$ v_y/c =
+ \epsilon \, \frac{c}{\omega_p} \, \frac{2\,y}{w_0^2}
+    \exp\left(-\frac{r^2}{w_0^2}\right) \sin(k_0 z) \cos(\omega_p t)
+ + \epsilon_1 \,\frac{c}{\omega_p} \frac{4\,x y}{w_0^3})
+    \exp\left(-\frac{r^2}{w_0^2}\right)\sin(k_0 z) \cos(\omega_p t) $$
+
+$$ v_z/c =
+ - \epsilon \, \frac{c}{\omega_p} \, k_0
+    \exp\left(-\frac{r^2}{w_0^2}\right) \cos(k_0 z) \cos(\omega_p t)
+ - \epsilon_1 \,\frac{c}{\omega_p} \frac{2\,x}{w_0} k_0
+    \exp\left(-\frac{r^2}{w_0^2}\right) \cos(k_0 z) \cos(\omega_p t) $$
+
+where $\epsilon$ is the dimensionless amplitude of the mode 0 and
+$\epsilon_1$ is the dimensionless amplitude of the mode 1.
 """
 import numpy as np
 import matplotlib.pyplot as plt
@@ -80,7 +110,8 @@ p_nr = 2         # Number of particles per cell along r
 p_nt = 4         # Number of particles per cell along theta
 
 # The plasma wave
-epsilon = 0.001  # Dimensionless amplitude of the wave
+epsilon = 0.001    # Dimensionless amplitude of the wave in mode 0
+epsilon_1 = 0.001  # Dimensionless amplitude of the wave in mode 1
 w0 = 5.e-6      # The transverse size of the plasma wave
 N_periods = 3   # Number of periods in the box
 # Calculated quantities
@@ -121,20 +152,13 @@ def simulate_periodic_plasma_wave( particle_shape, show=False ):
     # Impart velocities to the electrons
     # (The electrons are initially homogeneous, but have an
     # intial non-zero velocity that develops into a plasma wave)
-    impart_momenta( sim.ptcl[0], epsilon, k0, w0, wp )
-
-    # Choose whether to correct the currents
-    if sim.comm.size == 1:
-        correct_currents = True
-    else:
-        correct_currents = False
+    impart_momenta( sim.ptcl[0], epsilon, epsilon_1, k0, w0, wp )
 
     # Run the simulation
-    sim.step( N_step, correct_currents=correct_currents )
+    sim.step( N_step, correct_currents=True )
 
     # Test check that div(E) - rho = 0 (directly in spectral space)
-    if correct_currents:
-        check_charge_conservation( sim, rho_ions )
+    check_charge_conservation( sim, rho_ions )
     # Plot the results and compare with analytical theory
     compare_fields( sim, show )
 
@@ -142,57 +166,84 @@ def simulate_periodic_plasma_wave( particle_shape, show=False ):
 # Analytical solutions for the plasma wave
 # -----------------------------------------
 
-def Er( z, r, epsilon, k0, w0, wp, t) :
+def Er( z, r, epsilon, epsilon_1, k0, w0, wp, t) :
     """
     Return the radial electric field as an array
-    of the same length as z and r
+    of the same length as z and r, in the half-plane theta=0
     """
-    Er_array = epsilon * m_e*c**2/e * 2*r/w0**2 * np.exp( -r**2/w0**2 ) * \
-      np.sin( k0*z ) * np.sin( wp*t )
+    Er_array = \
+        epsilon * m_e*c**2/e * 2*r/w0**2 * \
+            np.exp( -r**2/w0**2 ) * np.sin( k0*z ) * np.sin( wp*t ) \
+        - epsilon_1 * m_e*c**2/e * 2/w0 * \
+            np.exp( -r**2/w0**2 ) * np.sin( k0*z ) * np.sin( wp*t ) \
+        + epsilon_1 * m_e*c**2/e * 4*r**2/w0**3 * \
+            np.exp( -r**2/w0**2 ) * np.sin( k0*z ) * np.sin( wp*t )
     return( Er_array )
 
-def Ez( z, r, epsilon, k0, w0, wp, t) :
+def Ez( z, r, epsilon, epsilon_1, k0, w0, wp, t) :
     """
     Return the longitudinal electric field as an array
-    of the same length as z and r
+    of the same length as z and r, in the half-plane theta=0
     """
-    Ez_array = - epsilon * m_e*c**2/e * k0 * np.exp( -r**2/w0**2 ) * \
-      np.cos( k0*z ) * np.sin( wp*t )
+    Ez_array = \
+        - epsilon * m_e*c**2/e * k0 * \
+            np.exp( -r**2/w0**2 ) * np.cos( k0*z ) * np.sin( wp*t ) \
+        - epsilon_1 * m_e*c**2/e * k0 * 2*r/w0 * \
+            np.exp( -r**2/w0**2 ) * np.cos( k0*z ) * np.sin( wp*t )
     return( Ez_array )
 
-def ur( z, r, epsilon, k0, w0, wp, t) :
+def ux( z, r, x, y, epsilon, epsilon_1, k0, w0, wp, t) :
     """
     Return the radial normalized velocity as an array
-    of the same length as z and r
+    of the same length as z, r, x, y
     """
-    ur_array = epsilon * c/wp * 2*r/w0**2 * np.exp( -r**2/w0**2 ) * \
-      np.sin( k0*z ) * np.cos( wp*t )
-    return( ur_array )
+    ux_array = \
+        epsilon * c/wp * 2*x/w0**2 * \
+            np.exp( -r**2/w0**2 ) * np.sin( k0*z ) * np.cos( wp*t ) \
+        - epsilon_1 * c/wp * 2/w0 * \
+            np.exp( -r**2/w0**2 ) * np.sin( k0*z ) * np.cos( wp*t ) \
+        + epsilon_1 * c/wp * 4*x**2/w0**3 * \
+            np.exp( -r**2/w0**2 ) * np.sin( k0*z ) * np.cos( wp*t )
+    return( ux_array )
 
-def uz( z, r, epsilon, k0, w0, wp, t) :
+def uy( z, r, x, y, epsilon, epsilon_1, k0, w0, wp, t) :
+    """
+    Return the radial normalized velocity as an array
+    of the same length as z, r, x, y
+    """
+    uy_array = \
+        epsilon * c/wp * 2*y/w0**2 * \
+            np.exp( -r**2/w0**2 ) * np.sin( k0*z ) * np.cos( wp*t ) \
+        + epsilon_1 * c/wp * 4*x*y/w0**3 * \
+            np.exp( -r**2/w0**2 ) * np.sin( k0*z ) * np.cos( wp*t )
+    return( uy_array )
+
+def uz( z, r, x, y, epsilon, epsilon_1, k0, w0, wp, t) :
     """
     Return the longitudinal normalized velocity as an array
     of the same length as z and r
     """
-    uz_array = - epsilon * c/wp * k0 * np.exp( -r**2/w0**2 ) * \
-      np.cos( k0*z ) * np.cos( wp*t )
+    uz_array = \
+        - epsilon * c/wp * k0 * \
+            np.exp( -r**2/w0**2 ) * np.cos( k0*z ) * np.cos( wp*t ) \
+        - epsilon_1 * c/wp * k0 * 2*x/w0 * \
+            np.exp( -r**2/w0**2 ) * np.cos( k0*z ) * np.cos( wp*t )
     return( uz_array )
 
 # --------------------------------------------
 # Functions for initialization of the momenta
 # --------------------------------------------
 
-def impart_momenta( ptcl, epsilon, k0, w0, wp) :
+def impart_momenta( ptcl, epsilon, epsilon_1, k0, w0, wp) :
     """
     Modify the momenta of the input particle object,
     so that they correspond to a plasma wave at t=0
     """
     r = np.sqrt( ptcl.x**2 + ptcl.y**2 )
     # Impart the momenta
-    ptcl.uz = uz( ptcl.z, r, epsilon, k0, w0, wp, 0 )
-    Ur = ur( ptcl.z, r, epsilon, k0, w0, wp, 0 )
-    ptcl.ux = Ur * ptcl.x/r
-    ptcl.uy = Ur * ptcl.y/r
+    ptcl.ux = ux(ptcl.z, r, ptcl.x, ptcl.y, epsilon, epsilon_1, k0, w0, wp, 0)
+    ptcl.uy = uy(ptcl.z, r, ptcl.x, ptcl.y, epsilon, epsilon_1, k0, w0, wp, 0)
+    ptcl.uz = uz(ptcl.z, r, ptcl.x, ptcl.y, epsilon, epsilon_1, k0, w0, wp, 0)
     # Get the corresponding inverse gamma
     ptcl.inv_gamma = 1./np.sqrt( 1 + ptcl.ux**2 + ptcl.uy**2 + ptcl.uz**2 )
 
@@ -229,17 +280,24 @@ def compare_fields( sim, show ) :
     """
     Gathers the fields and compare them with the analytical theory
     """
-    gathered_grid = sim.comm.gather_grid(sim.fld.interp[0])
+    # Get the fields in the half-plane theta=0 (Sum mode 0 and mode 1)
+    gathered_grid0 = sim.comm.gather_grid(sim.fld.interp[0])
+    gathered_grid1 = sim.comm.gather_grid(sim.fld.interp[1])
 
     if sim.comm.rank == 0:
+        rgrid = gathered_grid0.r
+        zgrid = gathered_grid0.z
         # Check the Ez field
-        check_E_field( gathered_grid, epsilon, k0, w0, wp,
-                    sim.time, field='Ez', show=show )
+        Ez_simulated = (gathered_grid0.Ez + 2*gathered_grid1.Ez).real
+        check_E_field( Ez_simulated, rgrid, zgrid, epsilon, epsilon_1,
+                    k0, w0, wp, sim.time, field='Ez', show=show )
         # Check the Er field
-        check_E_field( gathered_grid, epsilon, k0, w0, wp,
-                    sim.time, field='Er', show=show )
+        Er_simulated = (gathered_grid0.Er + 2*gathered_grid1.Er).real
+        check_E_field( Er_simulated, rgrid, zgrid, epsilon, epsilon_1,
+                    k0, w0, wp, sim.time, field='Er', show=show )
 
-def check_E_field( interp, epsilon, k0, w0, wp, t, field='Ez', show=False ):
+def check_E_field( E_simulation, rgrid, zgrid, epsilon, epsilon_1,
+                    k0, w0, wp, t, field='Ez', show=False ):
     """
     Compare the longitudinal and radial field with the
     simulation.
@@ -248,13 +306,11 @@ def check_E_field( interp, epsilon, k0, w0, wp, t, field='Ez', show=False ):
     If show=False : compare the 2D maps automatically
     """
     # 2D maps of the field
-    r, z = np.meshgrid( interp.r, interp.z )
+    r, z = np.meshgrid( rgrid, zgrid )
     if field == 'Ez' :
-        E_analytical = Ez( z, r, epsilon, k0, w0, wp, t )
-        E_simulation = interp.Ez.real
+        E_analytical = Ez( z, r, epsilon, epsilon_1, k0, w0, wp, t )
     if field == 'Er' :
-        E_analytical = Er( z, r, epsilon, k0, w0, wp, t )
-        E_simulation = interp.Er.real
+        E_analytical = Er( z, r, epsilon, epsilon_1, k0, w0, wp, t )
 
     if show is False:
         # Automatically check that the fields agree,
@@ -269,16 +325,16 @@ def check_E_field( interp, epsilon, k0, w0, wp, t, field='Ez', show=False ):
         plt.figure(figsize=(8,10))
         plt.suptitle('%s field' %field)
 
+        extent = 1.e6*np.array([zgrid.min(), zgrid.max(),
+                                rgrid.min(), rgrid.max()])
         plt.subplot(221)
-        plt.imshow( E_analytical.T[::-1], extent=1.e6*np.array(
-        [interp.zmin, interp.zmax, interp.rmin, interp.rmax]), aspect='auto' )
+        plt.imshow( E_analytical.T[::-1], extent=extent, aspect='auto' )
         plt.colorbar()
         plt.title('Analytical')
         plt.xlabel('z (microns)')
         plt.ylabel('r (microns)')
         plt.subplot(222)
-        plt.imshow( E_simulation.T[::-1], extent=1.e6*np.array(
-        [interp.zmin, interp.zmax, interp.rmin, interp.rmax]), aspect='auto' )
+        plt.imshow( E_simulation.T[::-1], extent=extent, aspect='auto' )
         plt.colorbar()
         plt.title('Simulated')
         plt.xlabel('z (microns)')
@@ -286,8 +342,8 @@ def check_E_field( interp, epsilon, k0, w0, wp, t, field='Ez', show=False ):
 
         # On-axis plot
         plt.subplot(223)
-        plt.plot( 1.e6*interp.z, E_analytical[:,0], label='Analytical' )
-        plt.plot( 1.e6*interp.z, E_simulation[:,0].real, label='Simulated' )
+        plt.plot( 1.e6*zgrid, E_analytical[:,0], label='Analytical' )
+        plt.plot( 1.e6*zgrid, E_simulation[:,0], label='Simulated' )
         plt.xlabel('z (microns)')
         plt.ylabel('Ez')
         plt.legend(loc=0)
@@ -295,9 +351,9 @@ def check_E_field( interp, epsilon, k0, w0, wp, t, field='Ez', show=False ):
 
         # Plot at a radius w0
         plt.subplot(224)
-        ir = int(w0/interp.dr)
-        plt.plot( 1.e6*interp.z, E_analytical[:,ir], label='Analytical' )
-        plt.plot( 1.e6*interp.z, E_simulation[:,ir].real, label='Simulated' )
+        ir = np.argmin( abs(rgrid-w0) )
+        plt.plot( 1.e6*zgrid, E_analytical[:,ir], label='Analytical' )
+        plt.plot( 1.e6*zgrid, E_simulation[:,ir], label='Simulated' )
         plt.xlabel('z (microns)')
         plt.ylabel(field)
         plt.legend(loc=0)
