@@ -8,6 +8,7 @@ It defines a set of utilities for the initialization of an electron bunch.
 import numpy as np
 from scipy.constants import m_e, c, e, epsilon_0, mu_0
 from fbpic.main import adapt_to_grid
+from fbpic.fields import Fields
 from fbpic.particles import Particles
 
 def add_elec_bunch( sim, gamma0, n_e, p_zmin, p_zmax, p_rmin, p_rmax,
@@ -393,7 +394,7 @@ def add_elec_bunch_from_arrays( sim, x, y, z, ux, uy, uz, w,
 def get_space_charge_fields( sim, ptcl, gamma, check_gaminv=True,
                             direction='forward' ) :
     """
-    Calculate the space charge field on the grid
+    Calculate the space charge field on the interpolation grid
 
     This assumes that all the particles being passed have
     the same gamma factor.
@@ -428,7 +429,7 @@ def get_space_charge_fields( sim, ptcl, gamma, check_gaminv=True,
                             "a Lorentz factor matching gamma. Please check "
                             "that they have been properly initialized.")
 
-    # Project the charge and currents onto the grid
+    # Project the charge and currents onto the local subdomain
     sim.fld.erase('rho')
     sim.fld.erase('J')
     for species in ptcl :
@@ -436,25 +437,57 @@ def get_space_charge_fields( sim, ptcl, gamma, check_gaminv=True,
         species.deposit( sim.fld, 'J' )
     sim.fld.divide_by_volume('rho')
     sim.fld.divide_by_volume('J')
-    # Convert to the spectral grid
-    sim.fld.interp2spect('rho_next')
-    sim.fld.interp2spect('J')
-    # Filter the currents
+    # Exchange guard cells
+    sim.comm.exchange_fields( sim.fld.interp, 'rho', 'add' )
+    sim.comm.exchange_fields( sim.fld.interp, 'J', 'add')
+
+    # Create a global field object across all subdomains, and copy the sources
+    # (Space-charge calculation is a global operation)
+    if sim.comm.size > 1:
+        # Create the global_fld object
+        global_Nz = sim.comm.Nz
+        global_zmin, global_zmax = sim.comm.get_zmin_zmax(sim.fld, local=False)
+        global_fld = Fields( global_Nz, global_zmax,
+            sim.fld.Nr, sim.fld.rmax, sim.fld.Nm, sim.field.dt,
+            zmin=global_zmin, n_order=sim.fld.n_order, use_cuda=False)
+        # Gather the sources across all procs, on the interpolation grids
+        global_fld.interp = [ sim.comm.gather_grid( sim.fld.interp[m] ) \
+                                for m in range(sim.fld.Nm) ]
+    else:
+        global_fld = sim.fld
+
+    # Calculate the space-charge fields on the global grid
+    # For simplicity, and to reduce communications, each proc calculates
+    # the full space-charge field (redundance)
+    # - Convert the sources to spectral space
+    global_fld.interp2spect('rho_next')
+    global_fld.interp2spect('J')
     if sim.filter_currents:
-        sim.fld.filter_spect('rho_next')
-        sim.fld.filter_spect('J')
+        global_fld.filter_spect('rho_next')
+        global_fld.filter_spect('J')
+    # - Get the space charge fields in spectral space
+    for m in range(global_fld.Nm) :
+        get_space_charge_spect( global_fld.spect[m], gamma, direction )
+    # - Convert the fields back to real space
+    global_fld.spect2interp( 'E' )
+    global_fld.spect2interp( 'B' )
 
-    # Get the space charge field in spectral space
-    for m in range(sim.fld.Nm) :
-        get_space_charge_spect( sim.fld.spect[m], gamma, direction )
-
-    # Convert to the interpolation grid
-    sim.fld.spect2interp( 'E' )
-    sim.fld.spect2interp( 'B' )
-
-    # Move the charge density to rho_prev
-    for m in range(sim.fld.Nm) :
-        sim.fld.spect[m].push_rho()
+    # For multi-proc simulation, copy E and B from global grid to local grid
+    if sim.comm.size > 1:
+        # Find indices between which the copy should be done
+        i_min_global = sim.comm.iz_start
+        i_max_global = sim.comm.iz_start + sim.comm.Nz_domain
+        i_min_local = sim.comm.n_guard
+        if sim.comm.left_proc is None:
+            i_min_local += sim.comm.n_damp
+        i_max_local = i_min_local + sim.comm.Nz_domain
+        # Loop over modes and fields
+        for m in range(sim.fld.Nm):
+            for field in ['Er', 'Et', 'Ez', 'Br', 'Bt', 'Bz']:
+                local_values = getattr( sim.fld.interp, field )
+                global_values = getattr( global_fld.interp, field )
+                local_values[ i_min_local:i_max_local, : ] = \
+                    global_values[ i_min_global:i_max_global, : ]
 
 
 def get_space_charge_spect( spect, gamma, direction='forward' ) :
