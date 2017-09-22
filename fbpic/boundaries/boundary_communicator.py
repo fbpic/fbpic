@@ -358,8 +358,8 @@ class BoundaryCommunicator(object):
         # Calculate the global bounds if requested
         if not local:
             iz_start = self.iz_start_procs[self.rank]
-            zmin = zmin + iz_start*dz
-            zmax = zmin + self.Nz_domain*dz
+            zmin += iz_start*dz
+            zmax = zmin + self.Ltot
 
         return(zmin, zmax)
 
