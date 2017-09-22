@@ -326,6 +326,44 @@ class BoundaryCommunicator(object):
                 p_zmin_local_domain, p_zmax_local_domain,
                 self.Nz_enlarged )
 
+    def get_zmin_zmax( self, fld, local=True ):
+        """
+        Return the physical zmin and zmax (i.e. without guard and damp cells)
+        for the global domain (local=False) or local subdomain (local=True)
+
+        Parameters:
+        -----------
+        fld: an fbpic Fields object
+            Contains information about the local bounds
+        local: bool, optional
+            Whether return the global or local bounds
+
+        Returns:
+        --------
+        A tuple with zmin and zmax
+        """
+        # Get the enlarged local zmin and zmax
+        zmin_local_enlarged = fld.interp[0].zmin
+        zmax_local_enlarged = fld.interp[0].zmax
+        dz = fld.interp[0].dz
+
+        # Remove guard cells and damp cells
+        zmin = zmin_local_enlarged + self.n_guard*dz
+        zmax = zmax_local_enlarged - self.n_guard*dz
+        if self.left_proc is None:
+            zmin += self.n_damp*dz
+        if self.right_proc is None:
+            zmax -= self.n_damp*dz
+
+        # Calculate the global bounds if requested
+        if not local:
+            iz_start = self.iz_start_procs[self.rank]
+            zmin = zmin + iz_start*dz
+            zmax = zmin + self.Nz_domain*dz
+
+        return(zmin, zmax)
+
+
     # Exchange routines
     # -----------------
 
