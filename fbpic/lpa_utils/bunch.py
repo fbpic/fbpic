@@ -392,7 +392,7 @@ def add_elec_bunch_from_arrays( sim, x, y, z, ux, uy, uz, w,
 
 def get_space_charge_fields( sim, ptcl, gamma, direction='forward') :
     """
-    Calculate the space charge field on the interpolation grid
+    Add the space charge field from `ptcl` the interpolation grid
 
     This assumes that all the particles being passed have the same gamma.
 
@@ -414,8 +414,6 @@ def get_space_charge_fields( sim, ptcl, gamma, direction='forward') :
         Can be either "forward" or "backward".
         Propagation direction of the beam.
     """
-    print('Calculating initial space-charge fields...')
-
     # Project the charge and currents onto the local subdomain
     sim.fld.erase('rho')
     sim.fld.erase('J')
@@ -430,51 +428,52 @@ def get_space_charge_fields( sim, ptcl, gamma, direction='forward') :
 
     # Create a global field object across all subdomains, and copy the sources
     # (Space-charge calculation is a global operation)
-    if sim.comm.size > 1:
-        # Create the global_fld object
-        global_Nz = sim.comm.Nz
-        global_zmin, global_zmax = sim.comm.get_zmin_zmax(sim.fld, local=False)
-        global_fld = Fields( global_Nz, global_zmax,
+    # Note: in the single-proc case, this is also useful in order not to
+    # erase the pre-existing E and B field in sim.fld
+    global_Nz = sim.comm.Nz
+    global_zmin, global_zmax = sim.comm.get_zmin_zmax(sim.fld, local=False)
+    global_fld = Fields( global_Nz, global_zmax,
             sim.fld.Nr, sim.fld.rmax, sim.fld.Nm, sim.fld.dt,
             zmin=global_zmin, n_order=sim.fld.n_order, use_cuda=False)
-        # Gather the sources across all procs, on the interpolation grids
-        global_fld.interp = [ sim.comm.gather_grid( sim.fld.interp[m] ) \
-                                for m in range(sim.fld.Nm) ]
-    else:
-        global_fld = sim.fld
+    # Gather the sources on the interpolation grid of global_fld
+    for m in range(sim.fld.Nm):
+        for field in ['Jr', 'Jt', 'Jz', 'rho']:
+            local_array = getattr( sim.fld.interp[m], field )
+            gathered_array = sim.comm.gather_grid_array( local_array )
+            setattr( global_fld.interp[m], field, gathered_array )
 
     # Calculate the space-charge fields on the global grid
-    # For simplicity, and to reduce communications, each proc calculates
-    # the full space-charge field (redundance)
-    # - Convert the sources to spectral space
-    global_fld.interp2spect('rho_next')
-    global_fld.interp2spect('J')
-    if sim.filter_currents:
-        global_fld.filter_spect('rho_next')
-        global_fld.filter_spect('J')
-    # - Get the space charge fields in spectral space
-    for m in range(global_fld.Nm) :
-        get_space_charge_spect( global_fld.spect[m], gamma, direction )
-    # - Convert the fields back to real space
-    global_fld.spect2interp( 'E' )
-    global_fld.spect2interp( 'B' )
+    # (For a multi-proc simulation: only performed by the first proc)
+    if sim.comm.rank == 0:
+        # - Convert the sources to spectral space
+        global_fld.interp2spect('rho_prev')
+        global_fld.interp2spect('J')
+        if sim.filter_currents:
+            global_fld.filter_spect('rho_prev')
+            global_fld.filter_spect('J')
+        # - Get the space charge fields in spectral space
+        for m in range(global_fld.Nm) :
+            get_space_charge_spect( global_fld.spect[m], gamma, direction )
+        # - Convert the fields back to real space
+        global_fld.spect2interp( 'E' )
+        global_fld.spect2interp( 'B' )
 
-    # For multi-proc simulation, copy E and B from global grid to local grid
-    if sim.comm.size > 1:
-        # Find indices between which the copy should be done
-        i_min_global = sim.comm.iz_start_procs[ sim.comm.rank ]
-        i_min_local = sim.comm.n_guard
-        if sim.comm.left_proc is None:
-            i_min_local += sim.comm.n_damp
-        i_max_global = i_min_global + sim.comm.Nz_domain
-        i_max_local = i_min_local + sim.comm.Nz_domain
-        # Loop over modes and fields
-        for m in range(sim.fld.Nm):
-            for field in ['Er', 'Et', 'Ez', 'Br', 'Bt', 'Bz']:
-                local_values = getattr( sim.fld.interp[m], field )
-                global_values = getattr( global_fld.interp[m], field )
-                local_values[ i_min_local:i_max_local, : ] = \
-                    global_values[ i_min_global:i_max_global, : ]
+    # Communicate the results from proc 0 to the other procs
+    # and add it to the interpolation grid of sim.fld.
+    # - First find the indices at which the fields should be added
+    i_min_local = sim.comm.n_guard
+    if sim.comm.left_proc is None:
+        i_min_local += sim.comm.n_damp
+    i_max_local = i_min_local + sim.comm.Nz_domain
+    # - Then loop over modes and fields
+    for m in range(sim.fld.Nm):
+        for field in ['Er', 'Et', 'Ez', 'Br', 'Bt', 'Bz']:
+            # Get the local result from proc 0
+            global_array = getattr( global_fld.interp[m], field )
+            local_array = sim.comm.scatter_grid_array( global_array )
+            # Add it to the fields of sim.fld
+            local_field = getattr( sim.fld.interp[m], field )
+            local_field[ i_min_local:i_max_local, : ] += local_array
 
 
 def get_space_charge_spect( spect, gamma, direction='forward' ) :
@@ -511,7 +510,7 @@ def get_space_charge_spect( spect, gamma, direction='forward' ) :
     inv_K2 = np.where( K2 !=0, 1./K2_corrected, 0. )
 
     # Get the potentials
-    phi = spect.rho_next[:,:]*inv_K2[:,:]/epsilon_0
+    phi = spect.rho_prev[:,:]*inv_K2[:,:]/epsilon_0
     Ap = spect.Jp[:,:]*inv_K2[:,:]*mu_0
     Am = spect.Jm[:,:]*inv_K2[:,:]*mu_0
     Az = spect.Jz[:,:]*inv_K2[:,:]*mu_0
