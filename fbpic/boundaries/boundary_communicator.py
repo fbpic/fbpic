@@ -314,12 +314,11 @@ class BoundaryCommunicator(object):
 
         # Calculate the enlarged boundaries (i.e. including guard cells
         # and damp cells), which are passed to the fields object.
-        zmin_local_enlarged = zmin_local_domain - self.n_guard*dz
-        zmax_local_enlarged = zmax_local_domain + self.n_guard*dz
+        self.iz_start_domain = self.n_guard
         if self.left_proc is None:
-            zmin_local_enlarged -= self.n_damp*dz
-        if self.right_proc is None:
-            zmax_local_enlarged += self.n_damp*dz
+            self.iz_start_domain += self.n_damp
+        zmin_local_enlarged = zmin_local_domain - self.iz_start_domain*dz
+        zmax_local_enlarged = zmin_local_enlarged + self.Nz_enlarged*dz
 
         # Return the new boundaries to the simulation object
         return( zmin_local_enlarged, zmax_local_enlarged,
@@ -342,18 +341,13 @@ class BoundaryCommunicator(object):
         --------
         A tuple with zmin and zmax
         """
-        # Get the enlarged local zmin and zmax
+        # Get the enlarged local zmin
         zmin_local_enlarged = fld.interp[0].zmin
-        zmax_local_enlarged = fld.interp[0].zmax
-        dz = fld.interp[0].dz
 
-        # Remove guard cells and damp cells
-        zmin = zmin_local_enlarged + self.n_guard*dz
-        zmax = zmax_local_enlarged - self.n_guard*dz
-        if self.left_proc is None:
-            zmin += self.n_damp*dz
-        if self.right_proc is None:
-            zmax -= self.n_damp*dz
+        # Get the local zmin and zmax without guard cells and damp cells
+        dz = fld.interp[0].dz
+        zmin = zmin_local_enlarged + self.iz_start_domain*dz
+        zmax = zmin + self.Nz_domain*dz
 
         # Calculate the global bounds if requested
         if not local:
@@ -897,17 +891,9 @@ class BoundaryCommunicator(object):
             # Other processes do not need to initialize a new array
             gathered_array = None
 
-        # Guard region cells to be removed at the left and right
-        n_remove_l = self.n_guard
-        n_remove_r = self.n_guard
-        # Remove n_damp cells from the left proc's output region
-        if self.left_proc is None:
-            n_remove_l += self.n_damp
-        # Remove n_damp cells from the right proc's output region
-        if self.right_proc is None:
-            n_remove_r += self.n_damp
         # Select the physical region of the local box
-        local_array = array[n_remove_l:len(array)-n_remove_r,:]
+        local_array = \
+            array[self.iz_start_domain:self.iz_start_domain+self.Nz_domain,:]
 
         # Then send the arrays
         if self.size > 1:
