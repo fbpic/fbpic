@@ -388,16 +388,13 @@ def add_elec_bunch_from_arrays( sim, x, y, z, ux, uy, uz, w,
     # include a larger tolerance of the deviation of inv_gamma from 1./gamma0
     # to allow for energy spread
     gamma0 = 1. / np.mean(relat_elec.inv_gamma)
-    get_space_charge_fields( sim, [relat_elec], gamma0,
-                            check_gaminv=False, direction=direction)
+    get_space_charge_fields( sim, [relat_elec], gamma0, direction=direction)
 
-def get_space_charge_fields( sim, ptcl, gamma, check_gaminv=True,
-                            direction='forward' ) :
+def get_space_charge_fields( sim, ptcl, gamma, direction='forward') :
     """
     Calculate the space charge field on the interpolation grid
 
-    This assumes that all the particles being passed have
-    the same gamma factor.
+    This assumes that all the particles being passed have the same gamma.
 
     Parameters
     ----------
@@ -413,21 +410,11 @@ def get_space_charge_fields( sim, ptcl, gamma, check_gaminv=True,
     gamma : float
         The Lorentz factor of the particles
 
-    check_gaminv : bool, optional
-        Explicitly check that all particles have the same
-        gamma factor (assumed by the model)
-
     direction : string, optional
         Can be either "forward" or "backward".
         Propagation direction of the beam.
     """
-    # Check that all the particles have the right gamma
-    if check_gaminv:
-        for species in ptcl :
-            if np.allclose( species.inv_gamma, 1./gamma ) == False :
-                raise ValueError("The particles in ptcl do not have "
-                            "a Lorentz factor matching gamma. Please check "
-                            "that they have been properly initialized.")
+    print('Calculating initial space-charge fields...')
 
     # Project the charge and currents onto the local subdomain
     sim.fld.erase('rho')
@@ -448,7 +435,7 @@ def get_space_charge_fields( sim, ptcl, gamma, check_gaminv=True,
         global_Nz = sim.comm.Nz
         global_zmin, global_zmax = sim.comm.get_zmin_zmax(sim.fld, local=False)
         global_fld = Fields( global_Nz, global_zmax,
-            sim.fld.Nr, sim.fld.rmax, sim.fld.Nm, sim.field.dt,
+            sim.fld.Nr, sim.fld.rmax, sim.fld.Nm, sim.fld.dt,
             zmin=global_zmin, n_order=sim.fld.n_order, use_cuda=False)
         # Gather the sources across all procs, on the interpolation grids
         global_fld.interp = [ sim.comm.gather_grid( sim.fld.interp[m] ) \
@@ -475,17 +462,17 @@ def get_space_charge_fields( sim, ptcl, gamma, check_gaminv=True,
     # For multi-proc simulation, copy E and B from global grid to local grid
     if sim.comm.size > 1:
         # Find indices between which the copy should be done
-        i_min_global = sim.comm.iz_start
-        i_max_global = sim.comm.iz_start + sim.comm.Nz_domain
+        i_min_global = sim.comm.iz_start_procs[ sim.comm.rank ]
         i_min_local = sim.comm.n_guard
         if sim.comm.left_proc is None:
             i_min_local += sim.comm.n_damp
+        i_max_global = i_min_global + sim.comm.Nz_domain
         i_max_local = i_min_local + sim.comm.Nz_domain
         # Loop over modes and fields
         for m in range(sim.fld.Nm):
             for field in ['Er', 'Et', 'Ez', 'Br', 'Bt', 'Bz']:
-                local_values = getattr( sim.fld.interp, field )
-                global_values = getattr( global_fld.interp, field )
+                local_values = getattr( sim.fld.interp[m], field )
+                global_values = getattr( global_fld.interp[m], field )
                 local_values[ i_min_local:i_max_local, : ] = \
                     global_values[ i_min_global:i_max_global, : ]
 
