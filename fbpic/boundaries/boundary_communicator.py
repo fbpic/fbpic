@@ -314,10 +314,10 @@ class BoundaryCommunicator(object):
 
         # Calculate the enlarged boundaries (i.e. including guard cells
         # and damp cells), which are passed to the fields object.
-        self.iz_start_domain = self.n_guard
+        self.nz_start_domain = self.n_guard
         if self.left_proc is None:
-            self.iz_start_domain += self.n_damp
-        zmin_local_enlarged = zmin_local_domain - self.iz_start_domain*dz
+            self.nz_start_domain += self.n_damp
+        zmin_local_enlarged = zmin_local_domain - self.nz_start_domain*dz
         zmax_local_enlarged = zmin_local_enlarged + self.Nz_enlarged*dz
 
         # Return the new boundaries to the simulation object
@@ -346,7 +346,7 @@ class BoundaryCommunicator(object):
 
         # Get the local zmin and zmax without guard cells and damp cells
         dz = fld.interp[0].dz
-        zmin = zmin_local_enlarged + self.iz_start_domain*dz
+        zmin = zmin_local_enlarged + self.nz_start_domain*dz
         zmax = zmin + self.Nz_domain*dz
 
         # Calculate the global bounds if requested
@@ -893,7 +893,7 @@ class BoundaryCommunicator(object):
 
         # Select the physical region of the local box
         local_array = \
-            array[self.iz_start_domain:self.iz_start_domain+self.Nz_domain,:]
+            array[self.nz_start_domain:self.nz_start_domain+self.Nz_domain,:]
 
         # Then send the arrays
         if self.size > 1:
