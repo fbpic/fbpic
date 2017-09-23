@@ -872,7 +872,7 @@ class BoundaryCommunicator(object):
 
         Parameter:
         -----------
-        array: array (grid array)
+        array: 2darray (grid array)
             A grid array of the local domain
 
         root: int, optional
@@ -880,7 +880,7 @@ class BoundaryCommunicator(object):
 
         Returns:
         ---------
-        gathered_array: array (global grid array)
+        gathered_array: 2darray (global grid array)
             A gathered array that contains the global simulation data
         """
         if self.rank == root:
@@ -911,6 +911,46 @@ class BoundaryCommunicator(object):
         # Return the gathered_array only on process root
         if self.rank == root:
             return(gathered_array)
+
+
+    def scatter_grid_array(self, array, root = 0):
+        """
+        Scatter an array that has the size of the global physical domain
+        and is defined on the root process, into local arrays on each processes
+        (that have the size of the local physical domain)
+
+        Parameter:
+        -----------
+        array: 2darray (or None on processors different than root)
+            An array that has the size of the global physical domain
+
+        root: int, optional
+            Process that scatters the data
+
+        Returns:
+        ---------
+        local_array: 2darray (local grid array)
+            A local array that contains the local simulation data
+        """
+        # Create empty array having the shape of the local domain
+        scattered_array = np.zeros((self.Nz_domain, self.Nr), dtype=np.complex)
+
+        # Then send the arrays
+        if self.size > 1:
+            # First get the size and MPI type of the 2D arrays in each procs
+            i_start_procs = tuple( self.Nr*iz for iz in self.iz_start_procs )
+            N_domain_procs = tuple( self.Nr*nz for nz in self.Nz_domain_procs )
+            mpi_type = mpi_type_dict[ str(scattered_array.dtype) ]
+            recvbuf = [ scattered_array, N_domain_procs[self.rank] ]
+            sendbuf = [ array, N_domain_procs, i_start_procs, mpi_type ]
+            self.mpi_comm.Scatterv( sendbuf, recvbuf, root=root )
+        else:
+            iz_start = self.iz_start_procs[ self.rank ]
+            scattered_array[:,:] = array[iz_start:iz_start+self.Nz_domain]
+
+        # Return the scattered array
+        return( scattered_array )
+
 
     def gather_ptcl( self, ptcl, root = 0):
         """
