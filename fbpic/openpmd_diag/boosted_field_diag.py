@@ -143,17 +143,13 @@ class BoostedFieldDiagnostic(FieldDiagnostic):
             self.comm.exchange_fields(self.fld.interp, 'rho', 'add')
 
         # Find the limits of the local subdomain at this iteration
-        zmin_boost = self.fld.interp[0].zmin
-        zmax_boost = self.fld.interp[0].zmax
-        # If a communicator is provided, remove the guard cells
-        if self.comm is not None:
-            dz = self.fld.interp[0].dz
-            zmin_boost += dz*self.comm.n_guard
-            if self.comm.left_proc is None:
-                zmin_boost += dz*self.comm.n_damp
-            zmax_boost -= dz*self.comm.n_guard
-            if self.comm.right_proc is None:
-                zmax_boost -= dz*self.comm.n_damp
+        if self.comm is None:
+            zmin_boost = self.fld.interp[0].zmin
+            zmax_boost = self.fld.interp[0].zmax
+        else:
+            # If a communicator is provided, remove guard and damp cells
+            zmin_boost, zmax_boost = \
+                self.comm.get_zmin_zmax(self.fld, local=True)
 
         # Extract the current time in the boosted frame
         time = iteration * self.fld.dt

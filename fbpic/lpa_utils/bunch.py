@@ -360,6 +360,17 @@ def add_elec_bunch_from_arrays( sim, x, y, z, ux, uy, uz, w,
         Can be either "forward" or "backward".
         Propagation direction of the beam.
     """
+    # Select the particles that are in the local subdomain
+    zmin, zmax = sim.comm.get_zmin_zmax( sim.fld, local=True )
+    selected = (z >= zmin) & (z < zmax)
+    x = x[selected]
+    y = y[selected]
+    z = z[selected]
+    ux = ux[selected]
+    uy = uy[selected]
+    uz = uz[selected]
+    w = w[selected]
+
     # Extract the number of macroparticles
     N_part = len(x)
 
