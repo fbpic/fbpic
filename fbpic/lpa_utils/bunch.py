@@ -414,6 +414,8 @@ def get_space_charge_fields( sim, ptcl, gamma, direction='forward') :
         Can be either "forward" or "backward".
         Propagation direction of the beam.
     """
+    print("Calculating initial space charge field...")
+
     # Project the charge and currents onto the local subdomain
     sim.fld.erase('rho')
     sim.fld.erase('J')
@@ -474,6 +476,13 @@ def get_space_charge_fields( sim, ptcl, gamma, direction='forward') :
             # Add it to the fields of sim.fld
             local_field = getattr( sim.fld.interp[m], field )
             local_field[ i_min_local:i_max_local, : ] += local_array
+
+    # For consistency and diagnostics, redeposit the charge and current
+    # of the full simulation (since the last step erased these quantities)
+    sim.deposit('rho')
+    sim.deposit('J', exchange_J=True)
+
+    print("Done.")
 
 
 def get_space_charge_spect( spect, gamma, direction='forward' ) :
