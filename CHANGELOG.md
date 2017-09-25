@@ -1,5 +1,11 @@
 # Change Log / Release Log for fbpic
 
+## 0.5.3
+
+This is a bug-fix release. It ensures that threading is only used with the
+proper numba version (numba 0.34). It also fixes some issues with the MPI
+implementation (esp. in particle bunch initialization and charge conservation). 
+
 ## 0.5.2
 
 This is a bug-fix release, that solves an issue when using
