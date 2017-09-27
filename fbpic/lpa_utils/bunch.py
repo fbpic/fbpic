@@ -479,7 +479,7 @@ def get_space_charge_fields( sim, ptcl, gamma, direction='forward') :
 
     # For consistency and diagnostics, redeposit the charge and current
     # of the full simulation (since the last step erased these quantities)
-    sim.deposit('rho')
+    sim.deposit('rho_prev')
     sim.deposit('J', exchange_J=True)
 
     print("Done.")
