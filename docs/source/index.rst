@@ -24,9 +24,9 @@ simulations, running the code on GPU can be much faster than on CPU.
 
 .. note::
 
-   This is an Alpha release, and some parts of the code are not yet fully
-   functional. In particular, for **multi**-CPU and **multi**-GPU runs
-   (using MPI), the code is not yet production-ready.
+   Running simulations with **multiple** CPU nodes or **multiple** GPUs
+   (using **MPI**) is currently functional, but not yet officially supported.
+   Use this feature with caution for now.
 
 
 

@@ -39,9 +39,9 @@ Python. If Anaconda is not your default Python distribution, download and instal
 
 Potential issues
 --------------------------------
-       
+
 On Mac OSX, the package ``mpi4py`` can sometimes cause
-issues on Mac OSX. If you observe that the code crashes with an
+issues. If you observe that the code crashes with an
 MPI-related error, try installing ``mpi4py`` using MacPorts and
 ``pip``. To do so, first install `MacPorts <https://www.macports.org/>`_. Then execute the following commands:
 
@@ -51,8 +51,8 @@ MPI-related error, try installing ``mpi4py`` using MacPorts and
    sudo port install openmpi-gcc48
    sudo port select --set mpi openmpi-gcc48-fortran
    pip install mpi4py
-    
+
 Running simulations
 -------------------
 
-See the section :doc:`../how_to_run`, for instructions on how to run a simultion.
+See the section :doc:`../how_to_run`, for instructions on how to run a simulation.
