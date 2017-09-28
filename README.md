@@ -6,6 +6,8 @@
 [![License](https://img.shields.io/pypi/l/fbpic.svg)](LICENSE.txt)
 [![DOI](https://zenodo.org/badge/69215997.svg)](https://zenodo.org/badge/latestdoi/69215997)
 
+Online documentation: [http://fbpic.github.io](http://fbpic.github.io)
+
 ## Overview
 
 FBPIC is a
@@ -33,6 +35,21 @@ FBPIC is written entirely in Python, but uses
 performance. In addition, the code can run on **CPU** (with multi-threading)
 and on **GPU**. For large simulations, running the
 code on GPU can be much faster than on CPU.
+
+### Advanced features of laser-plasma acceleration
+
+FBPIC implements several useful features for laser-plasma acceleration, including:
+- Moving window
+- Cylindrical geometry (with azimuthal mode decomposition)
+- Calculation of space-charge fields at the beginning of the simulation
+- Intrinsic mitigation of Numerical Cherenkov Radiation (NCR) from relativistic bunches
+- Field ionization module (ADK model)
+
+In addition, FBPIC supports the **boosted-frame** technique (which can
+dramatically speed up simulations), and includes:
+- Utilities to convert input parameters from the lab frame to the boosted frame
+- On-the-fly conversion of simulation results from the boosted frame back to the lab frame
+- Suppression of the Numerical Cherenkov Instability (NCI) using the Galilean technique
 
 ## Installation
 

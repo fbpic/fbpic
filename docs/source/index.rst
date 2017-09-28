@@ -14,20 +14,26 @@ physics. It is especially well-suited for physical simulations of **laser-wakefi
 The distinctive feature of FBPIC, compared to *most* other PIC codes, is to use
 a **spectral cylindrical representation.** This makes the code both **fast**
 and **accurate**, for situations with **close-to-cylindrical
-symmetry**. Partly because of this representation, the code is
-**dispersion-free in all directions**, and avoids some **major interpolation
-artifacts** that other PIC codes may have. For a brief overview of the
+symmetry**. For a brief overview of the
 algorithm, its advantages and limitations, see the section :doc:`overview`.
 
-FBPIC can run on CPU (with multi-threading) or GPU. For large
+In addition, FBPIC implements several **useful features for laser-plasma acceleration**, including:
+
+    * Moving window
+    * Calculation of **space-charge fields** at the beginning of the simulation
+    * Intrinsic **mitigation of Numerical Cherenkov Radiation** (NCR) from relativistic bunches
+    * **Field ionization** module (ADK model)
+    * Support for **boosted-frame simulations** (including on-the-fly conversion of simulation results to the lab frame, and suppression of the Numerical Cherenkov Instability)
+
+
+FBPIC can run on **multi-core CPU** (with multi-threading) or **GPU**. For large
 simulations, running the code on GPU can be much faster than on CPU.
 
 .. note::
 
-   This is an Alpha release, and some parts of the code are not yet fully
-   functional. In particular, for **multi**-CPU and **multi**-GPU runs
-   (using MPI), the code is not yet production-ready.
-
+   Running simulations with **multiple** CPU nodes or **multiple** GPUs
+   (using **MPI**) is currently functional, but not yet officially supported.
+   Use this feature with caution for now.
 
 
 Contents of the documentation
