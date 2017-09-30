@@ -68,17 +68,16 @@ def check_identical_fields( folder1, folder2 ):
     ts1 = OpenPMDTimeSeries( folder1 )
     ts2 = OpenPMDTimeSeries( folder2 )
     # Check the vector fields
-    for field in ["J", "E", "B"]:
-        for coord in ["r", "t", "z"]:
-            print("Checking %s%s" %(field, coord))
-            field1, info = ts1.get_field(field, coord, iteration=0)
-            field2, info = ts2.get_field(field, coord, iteration=0)
-            # For 0 fields, do not use allclose
-            if abs(field1).max() == 0:
-                assert abs(field2).max() == 0
-            else:
-                assert np.allclose(
-                    field1/abs(field1).max(), field2/abs(field2).max() )
+    for field, coord in [("J", "z"), ("E","r"), ("E","z"), ("B","t")]:
+        print("Checking %s%s" %(field, coord))
+        field1, info = ts1.get_field(field, coord, iteration=0)
+        field2, info = ts2.get_field(field, coord, iteration=0)
+        # For 0 fields, do not use allclose
+        if abs(field1).max() == 0:
+            assert abs(field2).max() == 0
+        else:
+            assert np.allclose(
+                field1/abs(field1).max(), field2/abs(field2).max() )
     # Check the rho field
     print("Checking rho")
     field1, info = ts1.get_field("rho", iteration=0)
