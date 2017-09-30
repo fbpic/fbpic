@@ -21,7 +21,7 @@ from opmd_viewer import OpenPMDTimeSeries
 
 def run_sim_serial_and_parallel( script_file, data_file=None ):
     """Copy the script `script_file` from the `unautomated directory`
-    and run the simulation both in serial and paralllel. 
+    and run the simulation both in serial and paralllel.
 
     Then compare the results."""
 
@@ -77,7 +77,7 @@ def check_identical_fields( folder1, folder2 ):
             if abs(field1).max() == 0:
                 assert abs(field2).max() == 0
             else:
-                assert np.allclose( 
+                assert np.allclose(
                     field1/abs(field1).max(), field2/abs(field2).max() )
     # Check the rho field
     print("Checking rho")
@@ -89,9 +89,9 @@ def test_bunch_from_file():
     run_sim_serial_and_parallel( 'test_space_charge_file.py',
                                 'test_space_charge_file_data.txt')
 
-def test_bunch_from_file():
-    run_sim_serial_and_parallel( 'test_space_charge_file.py',
-                                'test_space_charge_file_data.txt')
+def test_bunch_gaussian():
+    run_sim_serial_and_parallel( 'test_space_charge_gaussian.py')
 
 if __name__ == '__main__':
     test_bunch_from_file()
+    test_bunch_gaussian()
