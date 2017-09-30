@@ -15,6 +15,7 @@ from fbpic.main import Simulation
 from fbpic.openpmd_diag import FieldDiagnostic
 from fbpic.lpa_utils.bunch import add_elec_bunch_gaussian
 
+# Set the seed since the gaussian is drawn randomly
 np.random.seed(0)
 
 # The simulation box
@@ -29,7 +30,7 @@ n_order = 32     # Order of the stencil
 sig_r = 3.e-6
 sig_z = 3.e-6
 n_emit = 1.e-6
-gamma0 = 5.
+gamma0 = 15.
 sig_gamma = 1.
 Q = 10.e-12
 N = 100000

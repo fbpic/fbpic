@@ -104,7 +104,7 @@ def add_elec_bunch( sim, gamma0, n_e, p_zmin, p_zmax, p_rmin, p_rmax,
     sim.ptcl.append( relat_elec )
 
     # Get the corresponding space-charge fields
-    get_space_charge_fields( sim, [relat_elec], gamma0, direction=direction)
+    get_space_charge_fields( sim, relat_elec, direction=direction)
 
 def add_elec_bunch_gaussian( sim, sig_r, sig_z, n_emit, gamma0, sig_gamma,
                         Q, N, tf=0., zf=0., boost=None, save_beam=None ):
@@ -385,12 +385,9 @@ def add_elec_bunch_from_arrays( sim, x, y, z, ux, uy, uz, w,
     sim.ptcl.append( relat_elec )
 
     # Get the corresponding space-charge fields
-    # include a larger tolerance of the deviation of inv_gamma from 1./gamma0
-    # to allow for energy spread
-    gamma0 = 1. / np.mean(relat_elec.inv_gamma)
-    get_space_charge_fields( sim, [relat_elec], gamma0, direction=direction)
+    get_space_charge_fields( sim, relat_elec, direction=direction)
 
-def get_space_charge_fields( sim, ptcl, gamma, direction='forward') :
+def get_space_charge_fields( sim, ptcl, direction='forward') :
     """
     Add the space charge field from `ptcl` the interpolation grid
 
@@ -401,14 +398,10 @@ def get_space_charge_fields( sim, ptcl, gamma, direction='forward') :
     sim : a Simulation object
         Contains the values of the fields, and the MPI communicator
 
-    ptcl : a list of Particles object
-        (one element per species)
+    ptcl : a Particles object
         The list of the species which are relativistic and
         will produce a space charge field. (Do not pass the
         particles which are at rest.)
-
-    gamma : float
-        The Lorentz factor of the particles
 
     direction : string, optional
         Can be either "forward" or "backward".
@@ -416,12 +409,20 @@ def get_space_charge_fields( sim, ptcl, gamma, direction='forward') :
     """
     print("Calculating initial space charge field...")
 
+    # Calculate the mean gamma by summing on each subdomain
+    gamma_sum_local = (1./ptcl.inv_gamma).sum()
+    if sim.comm.mpi_comm is None:
+        gamma = gamma_sum_local/ptcl.Ntot
+    else:
+        gamma_sum = sim.comm.mpi_comm.allreduce(gamma_sum_local)
+        Ntot = sim.comm.mpi_comm.allreduce(ptcl.Ntot)
+        gamma = gamma_sum/Ntot
+
     # Project the charge and currents onto the local subdomain
     sim.fld.erase('rho')
     sim.fld.erase('J')
-    for species in ptcl :
-        species.deposit( sim.fld, 'rho' )
-        species.deposit( sim.fld, 'J' )
+    ptcl.deposit( sim.fld, 'rho' )
+    ptcl.deposit( sim.fld, 'J' )
     sim.fld.divide_by_volume('rho')
     sim.fld.divide_by_volume('J')
     # Exchange guard cells
