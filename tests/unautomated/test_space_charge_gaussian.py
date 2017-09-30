@@ -20,7 +20,8 @@ np.random.seed(0)
 
 # The simulation box
 Nz = 400         # Number of gridpoints along z
-zmax = 40.e-6    # Length of the box along z (meters)
+zmax = 0.e-6     # Length of the box along z (meters)
+zmin = -40.e-6
 Nr = 100         # Number of gridpoints along r
 rmax = 100.e-6   # Length of the box along r (meters)
 Nm = 2           # Number of modes used
@@ -38,11 +39,11 @@ tf = 0
 zf = -20.e-6
 
 # The simulation timestep
-dt = zmax/Nz/c   # Timestep (seconds)
+dt = (zmax-zmin)/Nz/c   # Timestep (seconds)
 
 # Initialize the simulation object
 sim = Simulation( Nz, zmax, Nr, rmax, Nm, dt,
-    0, 0, 0, 0, 2, 2, 4, 0.,
+    0, 0, 0, 0, 2, 2, 4, 0., zmin=zmin,
     n_order=n_order, boundaries='open' )
 # Configure the moving window
 sim.set_moving_window( v=c )

@@ -93,5 +93,5 @@ def test_bunch_gaussian():
     run_sim_serial_and_parallel( 'test_space_charge_gaussian.py')
 
 if __name__ == '__main__':
-    test_bunch_from_file()
     test_bunch_gaussian()
+    test_bunch_from_file()
