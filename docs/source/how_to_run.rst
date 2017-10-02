@@ -14,6 +14,8 @@ to suit your needs):
 - Standard simulation of laser-wakefield acceleration: :download:`lwfa_script.py <example_input/lwfa_script.py>`
 - Boosted-frame simulation of laser-wakefield acceleration: :download:`boosted_frame_script.py <example_input/boosted_frame_script.py>`
 
+(See the section :doc:`advanced/boosted_frame` for more information on the above script.)
+
 The different FBPIC objects that are used in the simulation scripts are defined
 in the section :doc:`api_reference/api_reference`.
 

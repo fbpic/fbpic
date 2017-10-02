@@ -23,7 +23,7 @@ In addition, FBPIC implements several **useful features for laser-plasma acceler
     * Calculation of **space-charge fields** at the beginning of the simulation
     * Intrinsic **mitigation of Numerical Cherenkov Radiation** (NCR) from relativistic bunches
     * **Field ionization** module (ADK model)
-    * Support for **boosted-frame simulations** (including on-the-fly conversion of simulation results to the lab frame, and suppression of the Numerical Cherenkov Instability)
+    * Support for **boosted-frame simulations** (see :doc:`advanced/boosted_frame`)
 
 
 FBPIC can run on **multi-core CPU** (with multi-threading) or **GPU**. For large
