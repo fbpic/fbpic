@@ -1,10 +1,16 @@
 # Change Log / Release Log for fbpic
 
+## 0.5.4
+
+This is a bug-fix release. It fixes the initial space-charge calculation by ensuring that:
+- this calculation does not erase any pre-existing field (e.g. laser field)
+- this calculation gives correct results for multi-CPU/multi-GPU simulations as well
+
 ## 0.5.3
 
 This is a bug-fix release. It ensures that threading is only used with the
 proper numba version (numba 0.34). It also fixes some issues with the MPI
-implementation (esp. in particle bunch initialization and charge conservation). 
+implementation (esp. in particle bunch initialization and charge conservation).
 
 ## 0.5.2
 

@@ -1,4 +1,4 @@
-__version__ = '0.5.3'
+__version__ = '0.5.4'
 __doc__ = """
 Fourier-Bessel Particle-In-Cell code (FBPIC)
 
