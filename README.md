@@ -8,6 +8,7 @@
 
 Online documentation: [http://fbpic.github.io](http://fbpic.github.io)<br/> 
 Support: [Join slack](https://slack-fbpic.herokuapp.com)
+
 ## Overview
 
 FBPIC is a
