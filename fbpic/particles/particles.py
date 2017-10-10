@@ -619,7 +619,7 @@ class Particles(object) :
             # Get the threads per block and the blocks per grid
             dim_grid_2d_flat, dim_block_2d_flat = cuda_tpb_bpg_1d(
                                                     grid[0].Nz*grid[0].Nr,
-                                                    TPB = 64 )
+                                                    TPB=64 )
             dim_grid_2d, dim_block_2d = cuda_tpb_bpg_2d(
                                           grid[0].Nz, grid[0].Nr )
 
