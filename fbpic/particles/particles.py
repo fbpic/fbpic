@@ -512,7 +512,7 @@ class Particles(object) :
         # GPU (CUDA) version
         if self.use_cuda:
             # Get the threads per block and the blocks per grid
-            dim_grid_1d, dim_block_1d = cuda_tpb_bpg_1d( self.Ntot )
+            dim_grid_1d, dim_block_1d = cuda_tpb_bpg_1d( self.Ntot, TPB=64 )
             # Call the CUDA Kernel for the gathering of E and B Fields
             # for Mode 0 and 1 only.
             if self.particle_shape == 'linear':
@@ -618,7 +618,8 @@ class Particles(object) :
         if self.use_cuda:
             # Get the threads per block and the blocks per grid
             dim_grid_2d_flat, dim_block_2d_flat = cuda_tpb_bpg_1d(
-                                                    grid[0].Nz*grid[0].Nr )
+                                                    grid[0].Nz*grid[0].Nr,
+                                                    TPB=64 )
             dim_grid_2d, dim_block_2d = cuda_tpb_bpg_2d(
                                           grid[0].Nz, grid[0].Nr )
 
