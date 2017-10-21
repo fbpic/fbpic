@@ -138,13 +138,13 @@ class to a velocity close to `-c`. (Again, see the example in the section :doc:`
 
     .. math::
 
-        c\Delta t_{boosted} > \Delta r_{boosted}
+        c\Delta t_{boosted} < \Delta r_{boosted}
 
     or in terms of corresponding lab-frame quantities:
 
     .. math::
 
-        c\Delta t_{lab} > 2 \gamma_{b} \Delta r_{lab}
+        c\Delta t_{lab} < \frac{\Delta r_{lab}}{2\gamma_b}
 
     In the case where the above condition is not met, there is, to our
     knowledge, no existing solution to suppress the NCI. Note that FBPIC does
