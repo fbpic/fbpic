@@ -45,9 +45,9 @@ the number of required PIC iterations is reduced in the boosted frame:
 
     N_{iterations, boosted} = \frac{1}{2\gamma_{boost}^2} N_{iterations, lab}
 
-which can speed up the simulation by several orders of magnitude.
-For more details in the theory of boosted-frame simulations, see the original
-paper TODO
+which can speed up the simulation by orders of magnitude.
+For more details on the theory of boosted-frame simulations, see the `original
+paper on this technique <https://journals.aps.org/prl/abstract/10.1103/PhysRevLett.98.130405>`__.
 
 .. note::
 
@@ -67,40 +67,86 @@ When running a simulation in the boosted frame, all the parameters (e.g.
 laser wavelength, plasma density, etc.) **needed to be converted** from their known
 value in the lab frame to their corresponding value in the boosted frame.
 
-Fortunately, **most methods and classes in FBPIC can perform this conversion
+Fortunately, **most functions and classes in FBPIC can perform this conversion
 automatically**, so that the user only needs to pass the lab-frame values,
-along with the value of :math:`gamma_b`. For instance, the :class:`Simulation` class
+along with the value of :math:`\gamma_b`. For instance, the :class:`fbpic.main.Simulation` class
 will automatically convert the timestep and box size from typical lab-frame values
 to the corresponding boosted-frame values.
 
 .. note::
 
-    You still need to provide the number of iterations.
+    You will still need to adjust, by hand, the number of PIC iterations
+    (which is typically lower in the boosted frame than in the lab frame, as explained above).
 
-You can see an example in the corresponding script.
+For each function or class that you use, please look at the corresponding
+documentation in the section :doc:`../api_reference/api_reference` to see if it supports
+automatic parameter conversion. If it is not the case, you can instead use the
+:class:`fbpic.lpa_utils.boosted_frame.BoostConverter`, which implements the Lorentz transform
+formulas for the most common physical quantities.
+
+You can see an example of these different methods for parameter conversion
+in the boosted-frame example script of the section :doc:`../how_to_run`.
 
 Converting simulation results from the boosted frame to the lab frame
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
+Although the simulation runs in the boosted frame, it is desirable to have
+the results in the lab frame, since this is usually easier to interpret.
 
-
-.. note::
-
-    Diagnostics fill from right to left
+FBPIC implements **on-the-fly conversion** of the results,
+and can thus output the fields and macroparticles directly
+in the lab frame. See the documentation of the classes
+:class:`fbpic.openpmd_diag.BoostedFieldDiagnostic` and
+:class:`fbpic.openpmd_diag.BoostedParticleDiagnostic` in order to use this feature.
 
 .. warning::
 
-    If you use the regular diagnostics, then your results will appear directly
-    in the boosted-frame.
+    When using the regular classes :class:`fbpic.openpmd_diag.FieldDiagnostic`,
+    and :class:`fbpic.openpmd_diag.ParticleDiagnostic`, the corresponding
+    diagnostics will contain the fields and macroparticles in the boosted frame.
+
+.. note::
+
+    By default, the converted diagnostics (i.e. in the lab frame) are stored in the
+    folder ``lab_diags``, while the raw diagnostics (i.e. in the boosted frame) are
+    stored in the folder ``diags``.
+
+    Because of non-simultaneity between Lorentz frames, the files in ``lab_diags``
+    will be **filled progressively with data**, from the right-hand side of
+    the simulation box to its left-hand side, as the simulation runs.
+    If the chosen number of PIC iterations is insufficient, then some of these
+    files may be incomplete. (This typically shows up as the fields being zero
+    in the left-hand side of the box.)
 
 Avoiding the Numerical Cherenkov Instability (NCI)
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-TODO: Reference to the NCI papers
+When running simulations in the boosted frame, a **numerical instability** (known
+as the Numerical Cherenkov Instability, or NCI) can potentially affect the simulation
+and degrade its results.
 
+FBPIC suppresses this instability by using the **Galilean technique**. (See
+the original papers `here <http://aip.scitation.org/doi/full/10.1063/1.4964770>`__
+and `here <https://journals.aps.org/pre/abstract/10.1103/PhysRevE.94.053305>`__
+for more information on this technique.) In order to use this suppression algorithm,
+the user simply needs to set the argument ``v_comoving`` of the :class:`fbpic.main.Simulation`
+class to a velocity close to `-c`. (Again, see the example in the section :doc:`../how_to_run`)
 
 .. warning::
 
-    Should not use :math:`c\Delta t_{boosted} > \Delta r` TODO
+    The suppression of the NCI is only effective in the case where
 
-    This limits the efficiency in the case of PWFA
+    .. math::
+
+        c\Delta t_{boosted} > \Delta r_{boosted}
+
+    or in terms of corresponding lab-frame quantities:
+
+    .. math::
+
+        c\Delta t_{lab} > 2 \gamma_{b} \Delta r_{lab}
+
+    In the case where the above condition is not met, there is, to our
+    knowledge, no existing solution to suppress the NCI. Note that FBPIC does
+    not check whether the above condition is met in a given simulation ;
+    instead the user is responsible for ensuring this.
