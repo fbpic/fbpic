@@ -40,7 +40,6 @@ zmin = -20.e-6
 Nr = 75          # Number of gridpoints along r
 rmax = 150.e-6   # Length of the box along r (meters)
 Nm = 2           # Number of modes used
-
 # The simulation timestep
 dt = (zmax-zmin)/Nz/c   # Timestep (seconds)
 N_step = 101     # Number of iterations to perform
@@ -128,17 +127,14 @@ bunch_zmax = bunch_zmin + 4.e-6
 bunch_rmax = 10.e-6
 bunch_gamma = 400.
 bunch_n = 5.e23
-# Convert parameters to boosted frame
-bunch_beta = np.sqrt( 1. - 1./bunch_gamma**2 )
-bunch_zmin, bunch_zmax = \
-    boost.copropag_length( [ bunch_zmin, bunch_zmax ], beta_object=bunch_beta )
-bunch_n, = boost.copropag_density( [bunch_n], beta_object=bunch_beta )
-bunch_gamma, = boost.gamma( [bunch_gamma] )
 
 # The moving window (moves with the group velocity in a plasma)
 v_window = c*( 1 - 0.5*n_e/1.75e27 )
 # Convert parameter to boosted frame
 v_window, = boost.velocity( [ v_window ] )
+
+# Velocity of the Galilean frame (for suppression of the NCI)
+v_comoving = - c * np.sqrt( 1. - 1./gamma_boost**2 )
 
 # The diagnostics
 diag_period = 50        # Period of the diagnostics in number of timesteps
@@ -158,13 +154,12 @@ if __name__ == '__main__':
     sim = Simulation( Nz, zmax, Nr, rmax, Nm, dt,
         p_zmin, p_zmax, p_rmin, p_rmax, p_nz, p_nr, p_nt, n_e,
         dens_func=dens_func, zmin=zmin, initialize_ions=True,
-        v_comoving=-np.sqrt(gamma_boost**2-1.)/gamma_boost * c,
-        use_galilean=True, n_order = n_order,
-        gamma_boost=gamma_boost, boundaries='open', use_cuda=use_cuda )
+        v_comoving=v_comoving, gamma_boost=gamma_boost, n_order=n_order,
+        boundaries='open', use_cuda=use_cuda )
 
     # Add an electron bunch
     add_elec_bunch( sim, bunch_gamma, bunch_n, bunch_zmin,
-                bunch_zmax, 0, bunch_rmax )
+                bunch_zmax, 0, bunch_rmax, boost=boost )
     if track_bunch:
         sim.ptcl[2].track( sim.comm )
 

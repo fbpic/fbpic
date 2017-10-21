@@ -130,7 +130,13 @@ the original papers `here <http://aip.scitation.org/doi/full/10.1063/1.4964770>`
 and `here <https://journals.aps.org/pre/abstract/10.1103/PhysRevE.94.053305>`__
 for more information on this technique.) In order to use this suppression algorithm,
 the user simply needs to set the argument ``v_comoving`` of the :class:`fbpic.main.Simulation`
-class to a velocity close to `-c`. (Again, see the example in the section :doc:`../how_to_run`)
+class to a velocity close to:
+
+.. math::
+
+    v_{comoving} = -c \sqrt{1 - \frac{1}{\gamma_b^2}}
+
+(Again, see the example in the section :doc:`../how_to_run`)
 
 .. warning::
 
