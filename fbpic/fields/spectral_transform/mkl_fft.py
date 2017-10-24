@@ -7,13 +7,13 @@ It allows the use of the MKL library for FFT.
 
 # Copyright (c) 2016 Ivan Dokmanic, Robin Scheibler
 # Permission is hereby granted, free of charge, to any person obtaining a copy
-# of this software and associated documentation files (the "Software"), to 
-# deal in the Software without restriction, including without limitation the 
-# rights to use, copy, modify, merge, publish, distribute, sublicense, and/or 
-# sell copies of the Software, and to permit persons to whom the Software is 
+# of this software and associated documentation files (the "Software"), to
+# deal in the Software without restriction, including without limitation the
+# rights to use, copy, modify, merge, publish, distribute, sublicense, and/or
+# sell copies of the Software, and to permit persons to whom the Software is
 # furnished to do so, subject to the following conditions:
 
-# The above copyright notice and this permission notice shall be included in 
+# The above copyright notice and this permission notice shall be included in
 # all copies or substantial portions of the Software.
 
 import sys
@@ -21,14 +21,12 @@ import ctypes
 import numpy as np
 
 # Load the MKL Library for the current plateform
-if sys.platform in ['linux', 'linux2']:
+if sys.platform == 'linux':
     mkl = ctypes.CDLL('libmkl_rt.so')
 elif sys.platform == 'darwin':
     mkl = ctypes.CDLL('libmkl_rt.dylib')
 elif sys.platform == 'win32':
     mkl = ctypes.CDLL('libmkl_rt.dll')
-else:
-    raise ValueError("Unrecognized platform: %s" %sys.platform)
 
 # Define a set of flags that are passed to the MKL library
 # The values of these flags are copied from mkl_dfti.h
@@ -48,8 +46,8 @@ DFTI_NOT_INPLACE            = ctypes.c_int(44)
 
 class MKLFFT( object ):
     """
-    Minimal MKL FFT class that only performs the type of FFT relevant for FBPIC,
-    i.e. from complex128 to complex128, along the axis 0 of a 2D array
+    Minimal MKL FFT class that only performs the type of FFT relevant for
+    FBPIC, i.e. from complex128 to complex128, along the axis 0 of a 2D array
 
     Note: the number of thread used is determined by the environment variable
     MKL_NUM_THREADS
@@ -67,7 +65,6 @@ class MKLFFT( object ):
             Array of the same shape as the ones that will later be
             passed to the methods `transform` and `inverse_transform`
         """
-
         # Perform a few checks on the array type and shape
         assert a.ndim == 2
         assert a.dtype == np.complex128
@@ -96,7 +93,12 @@ class MKLFFT( object ):
 
     def transform( self, array_in, array_out ):
         """
-        TODO
+        Perform the Fourier transform of array_in,
+        and store the result in array_out
+
+        Parameters
+        ----------
+        array_in, array_out: 2darrays of complex128
         """
         # Perform a few checks
         assert array_in.shape == self.shape
@@ -111,7 +113,12 @@ class MKLFFT( object ):
 
     def inverse_transform( self, array_in, array_out ):
         """
-        TODO
+        Perform the inverse Fourier transform of array_in,
+        and store the result in array_out
+
+        Parameters
+        ----------
+        array_in, array_out: 2darrays of complex128
         """
         # Perform a few checks
         assert array_in.shape == self.shape
@@ -126,6 +133,6 @@ class MKLFFT( object ):
 
     def __del__( self ):
         """
-        TODO
+        Destroy the descriptor of the MKL FFT.
         """
         mkl.DftiFreeDescriptor( ctypes.byref(self.descriptor) )
