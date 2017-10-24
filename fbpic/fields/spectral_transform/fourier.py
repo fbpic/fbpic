@@ -8,13 +8,19 @@ and is used in spectral_transformer.py
 """
 import numpy as np
 import numba
-import pyfftw
 # Check if CUDA is available, then import CUDA functions
 from fbpic.cuda_utils import cuda_installed
 if cuda_installed:
     from pyculib import fft as cufft, blas as cublas
     from fbpic.cuda_utils import cuda, cuda_tpb_bpg_2d
     from .cuda_methods import cuda_copy_2d_to_1d, cuda_copy_1d_to_2d
+# Check if the MKL FFT is available
+try:
+    from .mkl_fft import MKLFFT
+    mkl_installed = True
+except ImportError:
+    import pyfftw
+    mkl_installed = False
 
 class FFT(object):
     """
@@ -51,6 +57,9 @@ class FFT(object):
             print('** Cuda not available for Fourier transform.')
             print('** Performing the Fourier transform on the CPU.')
 
+        # Check whether to use MKL
+        self.use_mkl = mkl_installed
+
         # Initialize the object for calculation on the GPU
         if self.use_cuda:
             # Initialize the dimension of the grid and blocks
@@ -73,7 +82,14 @@ class FFT(object):
             self.spect_buffer_t = cuda.device_array(
                 (Nz, Nr), dtype=np.complex128)
 
-        # Initialize the object for calculation on the CPU
+        # Initialize the object for calculation on the CPU using MKL
+        elif self.use_mkl:
+
+            self.spect_buffer_r = np.zeros( (Nz, Nr), dtype=np.complex128 )
+            self.spect_buffer_t = np.zeros( (Nz, Nr), dtype=np.complex128 )
+            self.mklfft = MKLFFT( self.spect_buffer_r )
+
+        # Initialize the object for calculation on the CPU using FFTW
         else:
 
             # Determine number of threads
@@ -135,8 +151,11 @@ class FFT(object):
             self.fft.forward( self.buffer1d_in, out=self.buffer1d_out )
             cuda_copy_1d_to_2d[self.dim_grid, self.dim_block](
                 self.buffer1d_out, array_out )
+        elif self.use_mkl:
+            # Perform the FFT on the CPU using MKL
+            self.mklfft.transform( array_in, array_out )
         else :
-            # Perform the FFT on the CPU
+            # Perform the FFT on the CPU using FFTW
             if array_out is self.spect_buffer_r:
                 # First copy the input array to the preallocated buffers
                 self.interp_buffer_r[:,:] = array_in
@@ -174,8 +193,11 @@ class FFT(object):
             self.blas.scal( self.inv_Nz, self.buffer1d_out ) # Normalization
             cuda_copy_1d_to_2d[self.dim_grid, self.dim_block](
                 self.buffer1d_out, array_out )
+        elif self.use_mkl:
+            # Perform the inverse FFT on the CPU using MKL
+            self.mklfft.inverse_transform( array_in, array_out )
         else :
-            # Perform the inverse FFT on the CPU, using preallocated buffers
+            # Perform the inverse FFT on the CPU using FFTW
             if array_in is self.spect_buffer_r:
                 # The following operation transforms from
                 # self.spect_buffer_r to self.interp_buffer_r
