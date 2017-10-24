@@ -21,12 +21,14 @@ import ctypes
 import numpy as np
 
 # Load the MKL Library for the current plateform
-if sys.platform == 'linux':
+if sys.platform in ['linux', 'linux2']:
     mkl = ctypes.CDLL('libmkl_rt.so')
 elif sys.platform == 'darwin':
     mkl = ctypes.CDLL('libmkl_rt.dylib')
 elif sys.platform == 'win32':
     mkl = ctypes.CDLL('libmkl_rt.dll')
+else:
+    raise ValueError('Unrecognized plateform: %s' %sys.platform)
 
 # Define a set of flags that are passed to the MKL library
 # The values of these flags are copied from mkl_dfti.h
