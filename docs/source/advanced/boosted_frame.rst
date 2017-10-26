@@ -15,7 +15,7 @@ how to handle three important aspects of boosted-frame simulations with FBPIC:
 Principle of the boosted-frame technique (for LWFA)
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-Instead of running the simulation in the **frame of the laboratory**
+Instead of running the simulation in the **reference frame of the laboratory**
 (or *lab frame* for short), this technique
 consists in running the simulation in a **different Lorentz frame**, which moves
 in the same direction as the laser (the *boosted frame*).
@@ -56,9 +56,13 @@ paper on this technique <https://journals.aps.org/prl/abstract/10.1103/PhysRevLe
     of this, and because of the larger cell size, **each plasma macroparticle typically
     represents more physical particles** in the boosted frame than in the lab frame
     (at least when keeping the same number of macroparticles per cell).
-    This implies that simulating e.g. self-injection in the boosted frame will
+
+    This implies that simulating **self-injection** in the boosted frame will
     result in less macroparticles in the injected beam than in the lab frame,
-    and therefore less statistics when evaluating e.g. the beam emittance and charge.
+    and therefore **less statistics** when evaluating e.g. the beam emittance and charge.
+    In extreme cases (when the number of physical particles per macroparticle is
+    comparable to the total number of self-injected particles),
+    self-injection may not occur at all in the boosted-frame simulation.
 
 Converting input parameters from the lab frame to the boosted frame
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
