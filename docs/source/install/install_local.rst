@@ -36,8 +36,7 @@ Python. If Anaconda is not your default Python distribution, download and instal
        conda install -c numba pyculib
 
 
--  **Optional:** In order to run on a CPU which is **not** an Intel model, you
-need to install `pyfftw`, in order to replace the MKL FFT:
+-  **Optional:** In order to run on a CPU which is **not** an Intel model, you need to install `pyfftw`, in order to replace the MKL FFT:
 
    ::
 

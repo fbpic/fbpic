@@ -4,14 +4,14 @@ Profiling the code
 Profiling the code consists in finding which parts of the algorithm **dominate
 the computational time**, for your particular simulation setup.
 
-Quick text-based profiling
---------------------------
+Profiling the code executed on CPU
+----------------------------------
 
-The tools below allow to dump timing statistics into a simple text file, so
-as to quickly profile the execution of a simulation.
+Getting the results in a simple text file
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-On CPU
-~~~~~~
+Getting the profiling results in a simple text file, allows you
+to quickly profile the execution of a simulation.
 
 Run the code with
 `cProfile <http://docs.python.org/2/library/profile.html>`__ :
@@ -22,9 +22,31 @@ Run the code with
 
 and then open the file ``cpu.log`` with a text editor.
 
+Using a visual profiler
+~~~~~~~~~~~~~~~~~~~~~~~
 
-On GPU
-~~~~~~
+For a more detailed analysis, you can use a visual profiler (i.e. profilers with
+a graphical user interface).
+
+Run the code with
+`cProfile <http://docs.python.org/2/library/profile.html>`__, using binary output:
+
+::
+
+   python -m cProfile -o cpu.prof fbpic_script.py
+
+and then open the file ``cpu.prof`` with `snakeviz <https://jiffyclub.github.io/snakeviz/>`__
+
+::
+
+   snakeviz cpu.prof
+
+
+Profiling the code executed on GPU
+----------------------------------
+
+Getting the results in a simple text file
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 Run the code with
 `nvprof <http://docs.nvidia.com/cuda/profiler-users-guide/index.html#nvprof-overview>`__ :
@@ -43,30 +65,9 @@ in order to simultaneously profile the device-side (i.e. GPU-side)
 and host-side (i.e. CPU-side) code.
 Then open the files ``gpu.log`` and/or ``cpu.log`` with a text editor.
 
-
 Using a visual profiler
------------------------
+~~~~~~~~~~~~~~~~~~~~~~~
 
-For a more detailed analysis, you can use visual profilers (i.e. profilers with
-a graphical user interface).
-
-On CPU
-~~~~~~
-Run the code with
-`cProfile <http://docs.python.org/2/library/profile.html>`__, using binary output:
-
-::
-
-   python -m cProfile -o cpu.prof fbpic_script.py
-
-and then open the file ``cpu.prof`` with `snakeviz <https://jiffyclub.github.io/snakeviz/>`__
-
-::
-
-   snakeviz cpu.prof
-
-On GPU
-~~~~~~
 Run the code with
 `nvprof <http://docs.nvidia.com/cuda/profiler-users-guide/index.html#nvprof-overview>`__,
 using binary output:
