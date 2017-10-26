@@ -10,7 +10,7 @@ Profiling the code executed on CPU
 Getting the results in a simple text file
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-Getting the profiling results in a simple text file, allows you
+Dumping the profiling results in a text file allows you
 to quickly profile the execution of a simulation.
 
 Run the code with
@@ -102,3 +102,54 @@ And click ``File > Open``, in order to select the file ``gpu.prof``.
     When profiling the code with **nvprof**, the profiling data can quickly
     become very large. Therefore we recommend to profile the code only
     on a small number of PIC iterations (<1000).
+
+Profiling MPI simulations (CPU-side only)
+-----------------------------------------
+
+One way to profile MPI simulations is to write **one file per MPI rank**. In
+this case, each file will contain only the profiling data of the corresponding
+MPI process.
+
+There is no simple way to create one file per MPI rank, from the command line.
+Instead, you need to **modify your FBPIC script**, in the following way:
+
+- Add the following lines at the beginning of the file:
+
+    ::
+
+        import cProfile, sys
+        from mpi4py.MPI import COMM_WORLD as comm
+
+- Replace the line:
+
+    ::
+
+        sim.step( N_step )
+
+  by the following set of lines:
+
+    ::
+
+        # First step: do not profile (includes just-in-time compilation)
+        sim.step(1)
+
+        # Profile the next N_step
+        pr = cProfile.Profile()
+        pr.enable()
+        sim.step( N_step )
+        pr.disable()
+
+        # Dump results:
+        # - for binary dump
+        pr.dump_stats('cpu_%d.prof' %comm.rank)
+        # - for text dump
+        with open( 'cpu_%d.txt' %comm.rank, 'w') as output_file:
+            sys.stdout = output_file
+            pr.print_stats( sort='time' )
+            sys.stdout = sys.__stdout__
+
+Then run your FBPIC script with MPI as usual, e.g. with 4 MPI ranks:
+
+    ::
+
+        mpirun -np 4 python fbpic_script.py
