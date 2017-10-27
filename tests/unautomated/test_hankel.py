@@ -259,28 +259,29 @@ if __name__ == '__main__' :
 
     Nr = 200
     Nz = 1000
-    pmax = 1
+    pmax = 2
     rmax = 4
 
     restricted_methods = \
       [ method for method in available_methods if method != 'MDHT(m-1,m)']
     methods = [ available_methods, restricted_methods ]
 
-    for p in range(pmax+1) :
-        compare_power_p( p, 1, Nr, rmax, Nz=Nz, methods=methods[p] )
+    for p in range(pmax+1) :        compare_power_p( p, 1, Nr, rmax, Nz=Nz, methods=methods[p] )
+
+        compare_power_p( p, 1, Nr, rmax, Nz=Nz, methods=available_methods, **kw )
 
     for p in range(pmax+1) :
         for n in range(2) :
-            compare_laguerre_gauss( p, n, Nr, rmax, methods=methods[p], Nz=Nz)
+            compare_laguerre_gauss( p, n, Nr, rmax, methods=available_methods, Nz=Nz)
 
     for p in range(pmax+1) :
         compare_bessel( p, p, int(Nr*0.3), Nr, rmax,
-                        methods=methods[p], Nz=Nz )
+                        methods=available_methods, Nz=Nz, **kw )
         compare_bessel( p, p, int(Nr*0.9), Nr, rmax,
-                        methods=methods[p], Nz=Nz )
+                        methods=available_methods, Nz=Nz, **kw )
 
     for p in range(pmax+1) :
         compare_bessel( p, p+1, int(Nr*0.3), Nr, rmax,
-                        methods=methods[p], Nz=Nz )
+                        methods=available_methods, Nz=Nz, **kw )
         compare_bessel( p, p+1, int(Nr*0.9), Nr, rmax,
-                        methods=methods[p], Nz=Nz )
+                        methods=available_methods, Nz=Nz, **kw )
