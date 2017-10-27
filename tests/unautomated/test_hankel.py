@@ -63,9 +63,9 @@ def compare_Hankel_methods( f_analytic, g_analytic, p, Nz, Nr,
         
         # Plot the results
         plt.subplot(121)
-        plt.plot( dht.r, f_dht[Nz/2].real, 'o', label=method )
+        plt.plot( dht.r, f_dht[int(Nz/2)].real, 'o', label=method )
         plt.subplot(122)
-        plt.plot( dht.nu, g_dht[Nz/2].real, 'o', label=method )
+        plt.plot( dht.nu, g_dht[int(Nz/2)].real, 'o', label=method )
         
         # Calculate the maximum error
         error_f = np.max( abs(f_dht-f) )
