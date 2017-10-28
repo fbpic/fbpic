@@ -81,14 +81,20 @@ def test_laser_periodic(show=False):
 
     print('')
     print('Testing mode m=0 with an annular beam')
-    propagate_pulse( Nz, Nr, Nm, zmin, zmax, Lr, L_prop, zf, dt,
+    propagate_pulse( Nz, Nr, 1, zmin, zmax, Lr, L_prop, zf, dt,
                       N_diag, w0, ctau, k0, E0, 0, N_show, n_order,
                       rtol, boundaries='periodic', v_window=0, show=show )
 
     print('')
     print('Testing mode m=1 with an gaussian beam')
-    propagate_pulse(Nz, Nr, Nm, zmin, zmax, Lr, L_prop, zf, dt,
+    propagate_pulse(Nz, Nr, 2, zmin, zmax, Lr, L_prop, zf, dt,
                      N_diag, w0, ctau, k0, E0, 1, N_show, n_order,
+                     rtol, boundaries='periodic', v_window=0, show=show )
+
+    print('')
+    print('Testing mode m=2 with an Laguerre-Gaussian beam')
+    propagate_pulse(Nz, Nr, 3, zmin, zmax, Lr, L_prop, zf, dt,
+                     N_diag, w0, ctau, k0, E0, 2, N_show, n_order,
                      rtol, boundaries='periodic', v_window=0, show=show )
 
     print('')
@@ -338,13 +344,23 @@ def init_fields( sim, w, ctau, k0, z0, zf, E0, m=1 ) :
     if m == 1 :
         add_laser( sim, E0*e/(m_e*c**2*k0), w, ctau, z0, zf=zf,
                    lambda0 = 2*np.pi/k0 )
-    if m == 0 :
+    elif m in [0, 2] :
         fld = sim.fld
         z = fld.interp[m].z
         r = fld.interp[m].r
         profile = annular_pulse( z, r, w, ctau, k0, z0, E0 )
-        fld.interp[m].Et[:,:] = profile
-        fld.interp[m].Br[:,:] = -1./c*profile
+        if m == 0:
+            # Annular pulse, radially polarized
+            fld.interp[m].Et[:,:] = profile
+            fld.interp[m].Br[:,:] = -1./c*profile
+        if m == 2:
+            # Laguerre-Gaussian pulse: contributions on mode 0 and 2
+            fld.interp[0].Er[:,:] = profile
+            fld.interp[2].Er[:,:] = profile
+            fld.interp[2].Et[:,:] = 1.j*profile
+            fld.interp[0].Bt[:,:] = -1./c*profile
+            fld.interp[2].Bt[:,:] = -1./c*profile
+            fld.interp[2].Bt[:,:] = -1./c*1.j*profile
 
 
 def gaussian_transverse_profile( r, w, E ) :
@@ -454,7 +470,7 @@ def fit_fields( fld, m ) :
         # Factor 2 on the amplitude, related to the factor 2
         # in the particle gather for the modes m > 0
         fit_result[0][1] = 2*fit_result[0][1]
-    elif m==0 : # Annular profile
+    elif m in [0,2]: # Annular profile, or Laguerre-Gaussian profile
         fit_result = curve_fit(annular_transverse_profile, r,
                             laser_profile, p0=np.array([w0,E0]) )
 
