@@ -38,7 +38,7 @@ def compare_Hankel_methods( f_analytic, g_analytic, p, Nz, Nr,
     plt.subplot(122)
     nu = np.linspace( 0.5*Nr/rmax/npts, 0.5*Nr/rmax, npts )
     plt.plot( nu, g_analytic(nu) )
-    
+
     # Test the different methods
     for method in methods :
 
@@ -54,19 +54,19 @@ def compare_Hankel_methods( f_analytic, g_analytic, p, Nz, Nr,
         # Initialize empty matrices
         f_dht = np.empty((Nz, Nr), dtype=np.complex128)
         g_dht = np.empty((Nz, Nr), dtype=np.complex128)
-        
+
         # Apply the forward and backward transform
         t1 = time.time()
-        dht.transform( f, g_dht )        
+        dht.transform( f, g_dht )
         dht.inverse_transform( g_dht, f_dht )
         t2 = time.time()
-        
+
         # Plot the results
         plt.subplot(121)
         plt.plot( dht.r, f_dht[int(Nz/2)].real, 'o', label=method )
         plt.subplot(122)
         plt.plot( dht.nu, g_dht[int(Nz/2)].real, 'o', label=method )
-        
+
         # Calculate the maximum error
         error_f = np.max( abs(f_dht-f) )
         error_g = np.max( abs(g_dht-g) )
@@ -75,7 +75,7 @@ def compare_Hankel_methods( f_analytic, g_analytic, p, Nz, Nr,
         # Finalization of the plots
         plt.legend(loc=0)
         plt.suptitle('Hankel transform of order %d' %p)
-            
+
         # Diagnostic
         print('')
         print(method + ' with %d points' % Nr )
@@ -86,7 +86,7 @@ def compare_Hankel_methods( f_analytic, g_analytic, p, Nz, Nr,
         after back and forth transform : %.3e""" % error_f)
 
     plt.show()
-        
+
 def compare_power_p( p, rcut, N, rmax, Nz=1, **kw ) :
     """
     Test the Hankel transforms for the test function :
@@ -94,13 +94,13 @@ def compare_power_p( p, rcut, N, rmax, Nz=1, **kw ) :
     x -> 0   for x > rcut
     The analytical transform is
     x -> rcut J_{p+1}(2\pi rcut x) / x
-    
+
     """
     print('')
     print('-------------------------------------------')
     print('Testing with power function, of exponent %d' %p )
     print('-------------------------------------------')
-    
+
     def power_p( x ) :
         return( np.where( x<rcut, (x/rcut)**p, 0. ) )
 
@@ -111,7 +111,7 @@ def compare_power_p( p, rcut, N, rmax, Nz=1, **kw ) :
                 rcut*jn( p+1, 2*np.pi*rcut*x[1:]) /x[1:] ) )
         else :
            ans =  rcut*jn( p+1, 2*np.pi*rcut*x) / x
-        return( ans )  
+        return( ans )
 
     compare_Hankel_methods( power_p, power_p_trans, p, Nz, N, rmax, **kw )
 
@@ -123,14 +123,14 @@ def compare_laguerre_gauss( p, n, N, rmax, Nz=1, **kw ) :
     x -> (-1)^n (2\pi) (2\pi x)^p L_n^p((2\pi x)^2) exp(-(2\pi x)^2/2)
 
     See Cavanagh et al., IEEE Transactions on Acoustics, Speech,
-    and Signal Processing, vol. assp-27, no. 4, August 1979 
+    and Signal Processing, vol. assp-27, no. 4, August 1979
     """
 
     print('')
     print('-----------------------------------------------------')
     print('Testing with Laguerre-Gauss polynomial of order %d %d' %(n,p) )
     print('-----------------------------------------------------')
-    
+
     def laguerre_n_p( x ) :
         return( x**p * eval_genlaguerre( n, p, x**2 ) * np.exp(-x**2/2) )
 
@@ -138,7 +138,7 @@ def compare_laguerre_gauss( p, n, N, rmax, Nz=1, **kw ) :
         return( (-1)**n * (2*np.pi) * (2*np.pi*x)**p * \
                 eval_genlaguerre( n, p, (2*np.pi*x)**2 ) * \
                 np.exp(-(2*np.pi*x)**2/2) )
-    
+
     compare_Hankel_methods( laguerre_n_p, laguerre_n_p_trans, p,
                             Nz, N, rmax, **kw )
 
@@ -152,9 +152,9 @@ def compare_bessel( p, m, n, N, rmax, Nz=1, **kw ) :
     print('-----------------------------------------------')
     print('Testing with Bessel mode order %d, with %d-th k' %(p,n) )
     print('-----------------------------------------------')
-    
+
     k = jn_zeros( m, n+1 )[-1]/rmax
-    
+
     def bessel_n_p( x ) :
         return( jn(p, k*x) )
 
@@ -165,9 +165,9 @@ def compare_bessel( p, m, n, N, rmax, Nz=1, **kw ) :
         if p != m :
             return( np.where( abs(x - k/(2*np.pi)) < 0.1,
                           np.pi*rmax**2*jn(p, k*rmax)**2 , 0.) )
-    
+
     compare_Hankel_methods( bessel_n_p, delta, p, Nz, N, rmax, **kw )
-    
+
 if __name__ == '__main__' :
 
     Nr = 200
@@ -179,7 +179,7 @@ if __name__ == '__main__' :
     restricted_methods = \
       [ method for method in available_methods if method != 'MDHT(m-1,m)']
     methods = [ available_methods, restricted_methods ]
-    
+
     for p in range(pmax+1) :
         compare_power_p( p, 1, Nr, rmax, Nz=Nz, methods=methods[p], **kw )
 
