@@ -273,12 +273,12 @@ def propagate_pulse( Nz, Nr, Nm, zmin, zmax, Lr, L_prop, zf, dt,
     # Get the analytical solution
     z_prop = c*dt*N_step*np.arange(N_diag)
     ZR = 0.5*k0*w0**2
-    if m == 0 : # zf is not implemented for m = 0
-        w_analytic = w0*np.sqrt( 1 + z_prop**2/ZR**2 )
-        E_analytic = E0/( 1 + z_prop**2/ZR**2 )**(1./2)
-    else :
+    if m == 1:
         w_analytic = w0*np.sqrt( 1 + (z_prop-zf)**2/ZR**2 )
         E_analytic = E0/( 1 + (z_prop-zf)**2/ZR**2 )**(1./2)
+    else : # zf is not implemented for the other modes
+        w_analytic = w0*np.sqrt( 1 + z_prop**2/ZR**2 )
+        E_analytic = E0/( 1 + z_prop**2/ZR**2 )**(1./2)
 
     # Either plot the results and check them manually
     if show is True:
@@ -355,12 +355,10 @@ def init_fields( sim, w, ctau, k0, z0, zf, E0, m=1 ) :
             fld.interp[m].Br[:,:] = -1./c*profile
         if m == 2:
             # Laguerre-Gaussian pulse: contributions on mode 0 and 2
-            fld.interp[0].Er[:,:] = profile
             fld.interp[2].Er[:,:] = profile
-            fld.interp[2].Et[:,:] = 1.j*profile
-            fld.interp[0].Bt[:,:] = -1./c*profile
-            fld.interp[2].Bt[:,:] = -1./c*profile
-            fld.interp[2].Bt[:,:] = -1./c*1.j*profile
+            fld.interp[2].Et[:,:] = -1.j*profile
+            fld.interp[2].Bt[:,:] = 1./c*profile
+            fld.interp[2].Br[:,:] = 1./c*1.j*profile
 
 
 def gaussian_transverse_profile( r, w, E ) :
