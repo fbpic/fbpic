@@ -13,10 +13,12 @@ $ python tests/test_hankel_dt.py
 
 import numpy as np
 import matplotlib.pyplot as plt
-from fbpic.fields.spectral_transform.hankel import DHT, available_methods
+from fbpic.fields.spectral_transform.hankel import DHT
 from scipy.special import jn, jn_zeros
 from scipy.special import eval_genlaguerre
 import time
+
+available_methods = [ 'QDHT', 'MDHT(m+1,m)', 'MDHT(m-1,m)', 'MDHT(m,m)']
 
 def compare_Hankel_methods( f_analytic, g_analytic, p, Nz, Nr,
                             rmax, npts=1000, methods=available_methods, **kw ) :
