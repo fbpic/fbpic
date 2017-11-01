@@ -79,23 +79,14 @@ def test_laser_periodic(show=False):
     # Choose a very long timestep to check the absence of Courant limit
     dt = L_prop*1./c/N_diag
 
-    print('')
-    print('Testing mode m=0 with an annular beam')
-    propagate_pulse( Nz, Nr, 1, zmin, zmax, Lr, L_prop, zf, dt,
-                      N_diag, w0, ctau, k0, E0, 0, N_show, n_order,
-                      rtol, boundaries='periodic', v_window=0, show=show )
+    # Test modes up to m=2
+    for m in range(3):
 
-    print('')
-    print('Testing mode m=1 with an gaussian beam')
-    propagate_pulse(Nz, Nr, 2, zmin, zmax, Lr, L_prop, zf, dt,
-                     N_diag, w0, ctau, k0, E0, 1, N_show, n_order,
-                     rtol, boundaries='periodic', v_window=0, show=show )
-
-    print('')
-    print('Testing mode m=2 with an Laguerre-Gaussian beam')
-    propagate_pulse(Nz, Nr, 3, zmin, zmax, Lr, L_prop, zf, dt,
-                     N_diag, w0, ctau, k0, E0, 2, N_show, n_order,
-                     rtol, boundaries='periodic', v_window=0, show=show )
+        print('')
+        print('Testing mode m=%d' %m)
+        propagate_pulse( Nz, Nr, m+1, zmin, zmax, Lr, L_prop, zf, dt,
+                          N_diag, w0, ctau, k0, E0, m, N_show, n_order,
+                          rtol, boundaries='periodic', v_window=0, show=show )
 
     print('')
 
@@ -107,17 +98,14 @@ def test_laser_moving_window(show=False):
     # Choose the regular timestep (required by moving window)
     dt = (zmax-zmin)*1./c/Nz
 
-    print('')
-    print('Testing mode m=0 with an annular beam')
-    propagate_pulse( Nz, Nr, Nm, zmin, zmax, Lr, L_prop, zf, dt,
-                      N_diag, w0, ctau, k0, E0, 0, N_show, n_order,
-                      rtol, boundaries='open', v_window=c, show=show )
+    # Test modes up to m=2
+    for m in range(3):
 
-    print('')
-    print('Testing mode m=1 with an gaussian beam')
-    propagate_pulse(Nz, Nr, Nm, zmin, zmax, Lr, L_prop, zf, dt,
-                     N_diag, w0, ctau, k0, E0, 1, N_show, n_order,
-                     rtol, boundaries='open', v_window=c, show=show )
+        print('')
+        print('Testing mode m=%d' %m)
+        propagate_pulse( Nz, Nr, m+1, zmin, zmax, Lr, L_prop, zf, dt,
+                          N_diag, w0, ctau, k0, E0, m, N_show, n_order,
+                          rtol, boundaries='open', v_window=c, show=show )
 
     print('')
 
@@ -129,19 +117,15 @@ def test_laser_galilean(show=False):
     # Choose the regular timestep (required by moving window)
     dt = L_prop*1./c/N_diag
 
-    print('')
-    print('Testing mode m=0 with an annular beam')
-    propagate_pulse( Nz, Nr, Nm, zmin, zmax, Lr, L_prop, zf, dt,
-                      N_diag, w0, ctau, k0, E0, 0, N_show, n_order,
+    # Test modes up to m=2
+    for m in range(3):
+
+        print('')
+        print('Testing mode m=%d' %m)
+        propagate_pulse( Nz, Nr, m+1, zmin, zmax, Lr, L_prop, zf, dt,
+                      N_diag, w0, ctau, k0, E0, m, N_show, n_order,
                       rtol, boundaries='open',
                       use_galilean=True, v_comoving=0.999*c, show=show )
-
-    print('')
-    print('Testing mode m=1 with an gaussian beam')
-    propagate_pulse(Nz, Nr, Nm, zmin, zmax, Lr, L_prop, zf, dt,
-                     N_diag, w0, ctau, k0, E0, 1, N_show, n_order,
-                     rtol, boundaries='open',
-                     use_galilean=True, v_comoving=0.999*c, show=show )
 
     print('')
 
