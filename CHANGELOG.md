@@ -1,5 +1,14 @@
 # Change Log / Release Log for fbpic
 
+## 0.6.0
+
+This version allows FBPIC to use the MKL library for FFTs, on CPU. In most cases,
+this will result in faster code execution compared to the FFTW library, especially
+on CPUs with a large number of cores. FFTW can still be used with FBPIC if MKL is unavailable.
+
+In addition, this version optimizes the number of thread per block on GPU for
+costly operations, which should also result faster code execution.
+
 ## 0.5.4
 
 This is a bug-fix release. It fixes the initial space-charge calculation by ensuring that:
