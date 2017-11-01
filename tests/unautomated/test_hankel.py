@@ -22,7 +22,7 @@ available_methods = [ 'QDHT', 'MDHT(m+1,m)', 'MDHT(m-1,m)', 'MDHT(m,m)']
 
 # Define a class for calculating the Hankel transform with the QDHT method
 # This method is never used in FBPIC, but is useful for comparison
-class QDHT(object)
+class QDHT(object):
 
     def __init__(self,p,N,rmax):
         """
@@ -77,7 +77,7 @@ class QDHT(object)
 
         return( G )
 
-    def inverse_transform( self, G ):
+    def inverse_transform( self, G, F ):
         """
         Performs the QDHT of G and returns the results.
         Reference: Guizar-Sicairos et al., J. Opt. Soc. Am. A 21 (2004)
@@ -124,13 +124,19 @@ def compare_Hankel_methods( f_analytic, g_analytic, p, Nz, Nr,
 
         # Initialize transform
         if method == 'QDHT':
-            dht = DHT( p, Nr, Nz, rmax, method )
+            dht = QDHT( p, Nr, rmax)
+        elif method == 'MDHT(m,m)':
+            dht = DHT( p, p, Nr, Nz, rmax )
+        elif method == 'MDHT(m-1,m)':
+            dht = DHT( p, p+1, Nr, Nz, rmax )
+        elif method == 'MDHT(m+1,m)':
+            dht = DHT( p, p-1, Nr, Nz, rmax )
 
         # Calculate f and g on the natural grid
         f = np.empty((Nz,Nr), dtype=np.complex128)
-        f[:,:] = f_analytic( dht.get_r() )[np.newaxis,:]
+        f[:,:] = f_analytic( dht.r )[np.newaxis,:]
         g = np.empty((Nz,Nr), dtype=np.complex128)
-        g[:,:] = g_analytic( dht.get_nu() )[np.newaxis,:]
+        g[:,:] = g_analytic( dht.nu )[np.newaxis,:]
 
         # Initialize empty matrices
         f_dht = np.empty((Nz, Nr), dtype=np.complex128)
@@ -255,14 +261,13 @@ if __name__ == '__main__' :
     Nz = 1000
     pmax = 1
     rmax = 4
-    kw = { 'use_cuda' : True,  'd' : 0.5, 'Fw' : 'inverse' }
 
     restricted_methods = \
       [ method for method in available_methods if method != 'MDHT(m-1,m)']
     methods = [ available_methods, restricted_methods ]
 
     for p in range(pmax+1) :
-        compare_power_p( p, 1, Nr, rmax, Nz=Nz, methods=methods[p], **kw )
+        compare_power_p( p, 1, Nr, rmax, Nz=Nz, methods=methods[p] )
 
     for p in range(pmax+1) :
         for n in range(2) :
@@ -270,12 +275,12 @@ if __name__ == '__main__' :
 
     for p in range(pmax+1) :
         compare_bessel( p, p, int(Nr*0.3), Nr, rmax,
-                        methods=methods[p], Nz=Nz, **kw )
+                        methods=methods[p], Nz=Nz )
         compare_bessel( p, p, int(Nr*0.9), Nr, rmax,
-                        methods=methods[p], Nz=Nz, **kw )
+                        methods=methods[p], Nz=Nz )
 
     for p in range(pmax+1) :
         compare_bessel( p, p+1, int(Nr*0.3), Nr, rmax,
-                        methods=methods[p], Nz=Nz, **kw )
+                        methods=methods[p], Nz=Nz )
         compare_bessel( p, p+1, int(Nr*0.9), Nr, rmax,
-                        methods=methods[p], Nz=Nz, **kw )
+                        methods=methods[p], Nz=Nz )

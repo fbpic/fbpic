@@ -49,7 +49,6 @@ class DHT(object):
 
         use_cuda: bool, optional
         Whether to use the GPU for the Hankel transform
-        (Only available for the MDHT method)
         """
         # Register whether to use the GPU.
         # If yes, initialize the corresponding cuda object
@@ -132,7 +131,7 @@ class DHT(object):
 
     def get_r(self):
         """
-        Return the natural, non-uniform r grid for the chosen method
+        Return the r grid
 
         Returns:
         ---------
@@ -143,7 +142,7 @@ class DHT(object):
 
     def get_nu(self):
         """
-        Return the natural, non-uniform nu grid for the chosen method
+        Return the natural, non-uniform nu grid
 
         Returns:
         ---------
