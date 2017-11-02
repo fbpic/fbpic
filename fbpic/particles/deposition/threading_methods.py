@@ -78,7 +78,7 @@ def r_shape_cubic(cell_position, index):
 def deposit_rho_numba_linear(x, y, z, w, q,
                            invdz, zmin, Nz,
                            invdr, rmin, Nr,
-                           rho_m0_global, rho_m1_global,
+                           rho_global, Nm,
                            nthreads, ptcl_chunk_indices):
     """
     Deposition of the charge density rho using numba prange on the CPU.
@@ -104,10 +104,13 @@ def deposit_rho_numba_linear(x, y, z, w, q,
         Charge of the species
         (For ionizable atoms: this is always the elementary charge e)
 
-    rho_m0_global, rho_m1_global : 3darrays of complexs (nthread, Nz, Nr)
+    rho_global : 4darrays of complexs (nthread, Nm, Nz, Nr)
         The global helper arrays to store the thread local charge densities
-        on the interpolation grid for mode 0 and 1.
+        on the interpolation grid for the different modes.
         (is modified by this function)
+
+    Nm : int
+        The number of azimuthal modes
 
     invdz, invdr : float (in meters^-1)
         Inverse of the grid step along the considered direction
@@ -220,17 +223,17 @@ def deposit_rho_numba_linear(x, y, z, w, q,
                 shift_z -= Nz
 
             # Write ptcl fields to thread-local part of global deposition array
-            rho_m0_global[i_thread, iz_cell, ir_cell] += R_m0_00
-            rho_m1_global[i_thread, iz_cell, ir_cell] += R_m1_00
+            rho_global[i_thread, 0, iz_cell, ir_cell] += R_m0_00
+            rho_global[i_thread, 1, iz_cell, ir_cell] += R_m1_00
 
-            rho_m0_global[i_thread,iz_cell+1 + shift_z, ir_cell] += R_m0_01
-            rho_m1_global[i_thread,iz_cell+1 + shift_z, ir_cell] += R_m1_01
+            rho_global[i_thread, 0, iz_cell+1 + shift_z, ir_cell] += R_m0_01
+            rho_global[i_thread, 1, iz_cell+1 + shift_z, ir_cell] += R_m1_01
 
-            rho_m0_global[i_thread,iz_cell, ir_cell+1 + shift_r] += R_m0_10
-            rho_m1_global[i_thread,iz_cell, ir_cell+1 + shift_r] += R_m1_10
+            rho_global[i_thread, 0, iz_cell, ir_cell+1 + shift_r] += R_m0_10
+            rho_global[i_thread, 1, iz_cell, ir_cell+1 + shift_r] += R_m1_10
 
-            rho_m0_global[i_thread,iz_cell+1 + shift_z, ir_cell+1 + shift_r] += R_m0_11
-            rho_m1_global[i_thread,iz_cell+1 + shift_z, ir_cell+1 + shift_r] += R_m1_11
+            rho_global[i_thread, 0, iz_cell+1 + shift_z, ir_cell+1 + shift_r] += R_m0_11
+            rho_global[i_thread, 1, iz_cell+1 + shift_z, ir_cell+1 + shift_r] += R_m1_11
 
     return
 
@@ -495,7 +498,7 @@ def deposit_J_numba_linear(x, y, z, w, q,
 def deposit_rho_numba_cubic(x, y, z, w, q,
                           invdz, zmin, Nz,
                           invdr, rmin, Nr,
-                          rho_m0_global, rho_m1_global,
+                          rho_global, Nm,
                           nthreads, ptcl_chunk_indices):
     """
     Deposition of the charge density rho using numba prange on the CPU.
@@ -521,10 +524,13 @@ def deposit_rho_numba_cubic(x, y, z, w, q,
         Charge of the species
         (For ionizable atoms: this is always the elementary charge e)
 
-    rho_m0_global, rho_m1_global : 3darrays of complexs (nthread, Nz, Nr)
+    rho_global : 4darrays of complexs (nthread, Nm, Nz, Nr)
         The global helper arrays to store the thread local charge densities
-        on the interpolation grid for mode 0 and 1.
+        on the interpolation grid for the different modes.
         (is modified by this function)
+
+    Nm : int
+        The number of azimuthal modes
 
     invdz, invdr : float (in meters^-1)
         Inverse of the grid step along the considered direction
@@ -786,38 +792,38 @@ def deposit_rho_numba_cubic(x, y, z, w, q,
                 srl = 1
 
             # Write ptcl fields to thread-local part of global deposition array
-            rho_m0_global[i_thread, iz_cell - 1 + szl, ir_cell - 1 + srl] += R_m0_00
-            rho_m1_global[i_thread, iz_cell - 1 + szl, ir_cell - 1 + srl] += R_m1_00
-            rho_m0_global[i_thread, iz_cell, ir_cell - 1 + srl] += R_m0_01
-            rho_m1_global[i_thread, iz_cell, ir_cell - 1 + srl] += R_m1_01
-            rho_m0_global[i_thread, iz_cell + 1 + szu, ir_cell - 1 + srl] += R_m0_02
-            rho_m1_global[i_thread, iz_cell + 1 + szu, ir_cell - 1 + srl] += R_m1_02
-            rho_m0_global[i_thread, iz_cell + 2 + szu2, ir_cell - 1 + srl] += R_m0_03
-            rho_m1_global[i_thread, iz_cell + 2 + szu2, ir_cell - 1 + srl] += R_m1_03
-            rho_m0_global[i_thread, iz_cell - 1 + szl, ir_cell] += R_m0_10
-            rho_m1_global[i_thread, iz_cell - 1 + szl, ir_cell] += R_m1_10
-            rho_m0_global[i_thread, iz_cell, ir_cell] += R_m0_11
-            rho_m1_global[i_thread, iz_cell, ir_cell] += R_m1_11
-            rho_m0_global[i_thread, iz_cell + 1 + szu, ir_cell] += R_m0_12
-            rho_m1_global[i_thread, iz_cell + 1 + szu, ir_cell] += R_m1_12
-            rho_m0_global[i_thread, iz_cell + 2 + szu2, ir_cell] += R_m0_13
-            rho_m1_global[i_thread, iz_cell + 2 + szu2, ir_cell] += R_m1_13
-            rho_m0_global[i_thread, iz_cell - 1 + szl, ir_cell + 1 + sru] += R_m0_20
-            rho_m1_global[i_thread, iz_cell - 1 + szl, ir_cell + 1 + sru] += R_m1_20
-            rho_m0_global[i_thread, iz_cell, ir_cell + 1 + sru] += R_m0_21
-            rho_m1_global[i_thread, iz_cell, ir_cell + 1 + sru] += R_m1_21
-            rho_m0_global[i_thread, iz_cell + 1 + szu, ir_cell + 1 + sru] += R_m0_22
-            rho_m1_global[i_thread, iz_cell + 1 + szu, ir_cell + 1 + sru] += R_m1_22
-            rho_m0_global[i_thread, iz_cell + 2 + szu2, ir_cell + 1 + sru] += R_m0_23
-            rho_m1_global[i_thread, iz_cell + 2 + szu2, ir_cell + 1 + sru] += R_m1_23
-            rho_m0_global[i_thread, iz_cell - 1 + szl, ir_cell + 2 + sru2] += R_m0_30
-            rho_m1_global[i_thread, iz_cell - 1 + szl, ir_cell + 2 + sru2] += R_m1_30
-            rho_m0_global[i_thread, iz_cell, ir_cell + 2 + sru2] += R_m0_31
-            rho_m1_global[i_thread, iz_cell, ir_cell + 2 + sru2] += R_m1_31
-            rho_m0_global[i_thread, iz_cell + 1 + szu, ir_cell + 2 + sru2] += R_m0_32
-            rho_m1_global[i_thread, iz_cell + 1 + szu, ir_cell + 2 + sru2] += R_m1_32
-            rho_m0_global[i_thread, iz_cell + 2 + szu2, ir_cell + 2 + sru2] += R_m0_33
-            rho_m1_global[i_thread, iz_cell + 2 + szu2, ir_cell + 2 + sru2] += R_m1_33
+            rho_global[i_thread, 0, iz_cell - 1 + szl, ir_cell - 1 + srl] += R_m0_00
+            rho_global[i_thread, 1, iz_cell - 1 + szl, ir_cell - 1 + srl] += R_m1_00
+            rho_global[i_thread, 0, iz_cell, ir_cell - 1 + srl] += R_m0_01
+            rho_global[i_thread, 1, iz_cell, ir_cell - 1 + srl] += R_m1_01
+            rho_global[i_thread, 0, iz_cell + 1 + szu, ir_cell - 1 + srl] += R_m0_02
+            rho_global[i_thread, 1, iz_cell + 1 + szu, ir_cell - 1 + srl] += R_m1_02
+            rho_global[i_thread, 0, iz_cell + 2 + szu2, ir_cell - 1 + srl] += R_m0_03
+            rho_global[i_thread, 1, iz_cell + 2 + szu2, ir_cell - 1 + srl] += R_m1_03
+            rho_global[i_thread, 0, iz_cell - 1 + szl, ir_cell] += R_m0_10
+            rho_global[i_thread, 1, iz_cell - 1 + szl, ir_cell] += R_m1_10
+            rho_global[i_thread, 0, iz_cell, ir_cell] += R_m0_11
+            rho_global[i_thread, 1, iz_cell, ir_cell] += R_m1_11
+            rho_global[i_thread, 0, iz_cell + 1 + szu, ir_cell] += R_m0_12
+            rho_global[i_thread, 1, iz_cell + 1 + szu, ir_cell] += R_m1_12
+            rho_global[i_thread, 0, iz_cell + 2 + szu2, ir_cell] += R_m0_13
+            rho_global[i_thread, 1, iz_cell + 2 + szu2, ir_cell] += R_m1_13
+            rho_global[i_thread, 0, iz_cell - 1 + szl, ir_cell + 1 + sru] += R_m0_20
+            rho_global[i_thread, 1, iz_cell - 1 + szl, ir_cell + 1 + sru] += R_m1_20
+            rho_global[i_thread, 0, iz_cell, ir_cell + 1 + sru] += R_m0_21
+            rho_global[i_thread, 1, iz_cell, ir_cell + 1 + sru] += R_m1_21
+            rho_global[i_thread, 0, iz_cell + 1 + szu, ir_cell + 1 + sru] += R_m0_22
+            rho_global[i_thread, 1, iz_cell + 1 + szu, ir_cell + 1 + sru] += R_m1_22
+            rho_global[i_thread, 0, iz_cell + 2 + szu2, ir_cell + 1 + sru] += R_m0_23
+            rho_global[i_thread, 1, iz_cell + 2 + szu2, ir_cell + 1 + sru] += R_m1_23
+            rho_global[i_thread, 0, iz_cell - 1 + szl, ir_cell + 2 + sru2] += R_m0_30
+            rho_global[i_thread, 1, iz_cell - 1 + szl, ir_cell + 2 + sru2] += R_m1_30
+            rho_global[i_thread, 0, iz_cell, ir_cell + 2 + sru2] += R_m0_31
+            rho_global[i_thread, 1, iz_cell, ir_cell + 2 + sru2] += R_m1_31
+            rho_global[i_thread, 0, iz_cell + 1 + szu, ir_cell + 2 + sru2] += R_m0_32
+            rho_global[i_thread, 1, iz_cell + 1 + szu, ir_cell + 2 + sru2] += R_m1_32
+            rho_global[i_thread, 0, iz_cell + 2 + szu2, ir_cell + 2 + sru2] += R_m0_33
+            rho_global[i_thread, 1, iz_cell + 2 + szu2, ir_cell + 2 + sru2] += R_m1_33
 
     return
 
@@ -1550,3 +1556,35 @@ def sum_reduce_2d_array( global_array, reduced_array ):
             for ir in range( Nr ):
 
                 reduced_array[ iz, ir ] +=  global_array[ it, iz, ir ]
+
+@njit_parallel
+def sum_reduce_2d_array_mode( global_array, reduced_array, m ):
+    """
+    Sum the array `global_array` along its first axis and
+    add it into `reduced_array`.
+
+    Parameters:
+    -----------
+    global_array: 4darray of complexs
+       Field array whose first dimension corresponds to the
+       reduction dimension (typically: the number of threads used
+       during the current deposition) and the second array corresponds
+       to the azimuthal mode
+
+    reduced array: 2darray of complex
+      Array of values for one given azimuthal mode
+
+    m: int
+       The azimuthal mode for which the reduction should be performed
+    """
+    # Extract size of each dimension
+    Nreduce, Nm, Nz, Nr = global_array.shape
+
+    # Parallel loop over iz
+    for iz in prange( Nz ):
+        # Loop over the reduction dimension (slow dimension)
+        for it in range( Nreduce ):
+            # Loop over ir (fast dimension)
+            for ir in range( Nr ):
+
+                reduced_array[ iz, ir ] +=  global_array[ it, m, iz, ir ]
