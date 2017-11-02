@@ -19,7 +19,7 @@ from .gathering.threading_methods import gather_field_numba_linear, \
         gather_field_numba_cubic
 from .deposition.threading_methods import deposit_rho_numba_linear, \
         deposit_J_numba_linear, deposit_rho_numba_cubic, \
-        deposit_J_numba_cubic, sum_reduce_2d_array, sum_reduce_2d_array_mode
+        deposit_J_numba_cubic, sum_reduce_2d_array
 
 # Check if threading is enabled
 from fbpic.threading_utils import threading_enabled, get_chunk_indices
@@ -710,28 +710,16 @@ class Particles(object) :
                                        but is `%s`" % self.particle_shape)
                 # Sum thread-local results to main field array
                 for m in range(fld.Nm):
-                    sum_reduce_2d_array_mode( rho_global, grid[m].rho, m )
+                    sum_reduce_2d_array( rho_global, grid[m].rho, m )
 
             elif fieldtype == 'J':
                 # Generate temporary arrays for J
-                Jr_m0_global = np.zeros(
-                    (self.nthreads, grid[0].Jr.shape[0], grid[0].Jr.shape[1]),
-                    dtype=grid[0].Jr.dtype )
-                Jt_m0_global = np.zeros(
-                    (self.nthreads, grid[0].Jt.shape[0], grid[0].Jt.shape[1]),
-                    dtype=grid[0].Jt.dtype )
-                Jz_m0_global = np.zeros(
-                    (self.nthreads, grid[0].Jz.shape[0], grid[0].Jz.shape[1]),
-                    dtype=grid[0].Jz.dtype )
-                Jr_m1_global = np.zeros(
-                    (self.nthreads, grid[1].Jr.shape[0], grid[1].Jr.shape[1]),
-                    dtype=grid[1].Jr.dtype )
-                Jt_m1_global = np.zeros(
-                    (self.nthreads, grid[1].Jt.shape[0], grid[1].Jt.shape[1]),
-                    dtype=grid[1].Jt.dtype )
-                Jz_m1_global = np.zeros(
-                    (self.nthreads, grid[1].Jz.shape[0], grid[1].Jz.shape[1]),
-                    dtype=grid[1].Jz.dtype )
+                Jr_global = np.zeros( (self.nthreads, fld.Nm, fld.Nz, fld.Nr),
+                                            dtype=grid[0].Jr.dtype )
+                Jt_global = np.zeros( (self.nthreads, fld.Nm, fld.Nz, fld.Nr),
+                                            dtype=grid[0].Jt.dtype )
+                Jz_global = np.zeros( (self.nthreads, fld.Nm, fld.Nz, fld.Nr),
+                                            dtype=grid[0].Jz.dtype )
                 # Deposit J using CPU threading
                 if self.particle_shape == 'linear':
                     deposit_J_numba_linear(
@@ -739,9 +727,7 @@ class Particles(object) :
                         self.ux, self.uy, self.uz, self.inv_gamma,
                         grid[0].invdz, grid[0].zmin, grid[0].Nz,
                         grid[0].invdr, grid[0].rmin, grid[0].Nr,
-                        Jr_m0_global, Jr_m1_global,
-                        Jt_m0_global, Jt_m1_global,
-                        Jz_m0_global, Jz_m1_global,
+                        Jr_global, Jt_global, Jz_global, fld.Nm,
                         self.nthreads, ptcl_chunk_indices )
                 elif self.particle_shape == 'cubic':
                     deposit_J_numba_cubic(
@@ -749,22 +735,17 @@ class Particles(object) :
                         self.ux, self.uy, self.uz, self.inv_gamma,
                         grid[0].invdz, grid[0].zmin, grid[0].Nz,
                         grid[0].invdr, grid[0].rmin, grid[0].Nr,
-                        Jr_m0_global, Jr_m1_global,
-                        Jt_m0_global, Jt_m1_global,
-                        Jz_m0_global, Jz_m1_global,
+                        Jr_global, Jt_global, Jz_global, fld.Nm,
                         self.nthreads, ptcl_chunk_indices )
                 else:
                     raise ValueError("`particle_shape` should be either \
                                       'linear' or 'cubic' \
                                        but is `%s`" % self.particle_shape)
                 # Sum thread-local results to main field array
-                sum_reduce_2d_array( Jr_m0_global, grid[0].Jr )
-                sum_reduce_2d_array( Jt_m0_global, grid[0].Jt )
-                sum_reduce_2d_array( Jz_m0_global, grid[0].Jz )
-                sum_reduce_2d_array( Jr_m1_global, grid[1].Jr )
-                sum_reduce_2d_array( Jt_m1_global, grid[1].Jt )
-                sum_reduce_2d_array( Jz_m1_global, grid[1].Jz )
-
+                for m in range(fld.Nm):
+                    sum_reduce_2d_array( Jr_global, grid[m].Jr, m )
+                    sum_reduce_2d_array( Jt_global, grid[m].Jt, m )
+                    sum_reduce_2d_array( Jz_global, grid[m].Jz, m )
             else:
                 raise ValueError("`fieldtype` should be either 'J' or \
                                   'rho', but is `%s`" % fieldtype)

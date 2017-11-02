@@ -246,9 +246,7 @@ def deposit_J_numba_linear(x, y, z, w, q,
                          ux, uy, uz, inv_gamma,
                          invdz, zmin, Nz,
                          invdr, rmin, Nr,
-                         j_r_m0_global, j_r_m1_global,
-                         j_t_m0_global, j_t_m1_global,
-                         j_z_m0_global, j_z_m1_global,
+                         j_r_global, j_t_global, j_z_global, Nm,
                          nthreads, ptcl_chunk_indices):
     """
     Deposition of the current density J using numba prange on the CPU.
@@ -280,10 +278,13 @@ def deposit_J_numba_linear(x, y, z, w, q,
     inv_gamma : 1darray of floats
         The inverse of the relativistic gamma factor
 
-    j_x_m0_global, j_x_m1_global : 3darrays of complexs (nthread, Nz, Nr)
+    j_x_global : 4darrays of complexs (nthread, Nm, Nz, Nr)
         The global helper arrays to store the thread local current component
-        in each direction (r, t, z) on the interpolation grid for mode 0 and 1.
+        in each direction (r, t, z) on the interpolation grid for each mode.
         (is modified by this function)
+
+    Nm : int
+        The number of azimuthal modes
 
     invdz, invdr : float (in meters^-1)
         Inverse of the grid step along the considered direction
@@ -451,41 +452,41 @@ def deposit_J_numba_linear(x, y, z, w, q,
                 shift_z -= Nz
 
             # Write ptcl fields to thread-local part of global deposition array
-            j_r_m0_global[i_thread,iz_cell, ir_cell] += J_r_m0_00
-            j_r_m1_global[i_thread,iz_cell, ir_cell] += J_r_m1_00
+            j_r_global[i_thread, 0,iz_cell, ir_cell] += J_r_m0_00
+            j_r_global[i_thread, 1,iz_cell, ir_cell] += J_r_m1_00
 
-            j_r_m0_global[i_thread,iz_cell+1 + shift_z, ir_cell] += J_r_m0_01
-            j_r_m1_global[i_thread,iz_cell+1 + shift_z, ir_cell] += J_r_m1_01
+            j_r_global[i_thread, 0,iz_cell+1 + shift_z, ir_cell] += J_r_m0_01
+            j_r_global[i_thread, 1,iz_cell+1 + shift_z, ir_cell] += J_r_m1_01
 
-            j_r_m0_global[i_thread,iz_cell, ir_cell+1 + shift_r] += J_r_m0_10
-            j_r_m1_global[i_thread,iz_cell, ir_cell+1 + shift_r] += J_r_m1_10
+            j_r_global[i_thread, 0,iz_cell, ir_cell+1 + shift_r] += J_r_m0_10
+            j_r_global[i_thread, 1,iz_cell, ir_cell+1 + shift_r] += J_r_m1_10
 
-            j_r_m0_global[i_thread,iz_cell+1 + shift_z, ir_cell+1 + shift_r] += J_r_m0_11
-            j_r_m1_global[i_thread,iz_cell+1 + shift_z, ir_cell+1 + shift_r] += J_r_m1_11
+            j_r_global[i_thread, 0,iz_cell+1 + shift_z, ir_cell+1 + shift_r] += J_r_m0_11
+            j_r_global[i_thread, 1,iz_cell+1 + shift_z, ir_cell+1 + shift_r] += J_r_m1_11
 
-            j_t_m0_global[i_thread,iz_cell, ir_cell] += J_t_m0_00
-            j_t_m1_global[i_thread,iz_cell, ir_cell] += J_t_m1_00
+            j_t_global[i_thread, 0,iz_cell, ir_cell] += J_t_m0_00
+            j_t_global[i_thread, 1,iz_cell, ir_cell] += J_t_m1_00
 
-            j_t_m0_global[i_thread,iz_cell+1 + shift_z, ir_cell] += J_t_m0_01
-            j_t_m1_global[i_thread,iz_cell+1 + shift_z, ir_cell] += J_t_m1_01
+            j_t_global[i_thread, 0,iz_cell+1 + shift_z, ir_cell] += J_t_m0_01
+            j_t_global[i_thread, 1,iz_cell+1 + shift_z, ir_cell] += J_t_m1_01
 
-            j_t_m0_global[i_thread,iz_cell, ir_cell+1 + shift_r] += J_t_m0_10
-            j_t_m1_global[i_thread,iz_cell, ir_cell+1 + shift_r] += J_t_m1_10
+            j_t_global[i_thread, 0,iz_cell, ir_cell+1 + shift_r] += J_t_m0_10
+            j_t_global[i_thread, 1,iz_cell, ir_cell+1 + shift_r] += J_t_m1_10
 
-            j_t_m0_global[i_thread,iz_cell+1 + shift_z, ir_cell+1 + shift_r] += J_t_m0_11
-            j_t_m1_global[i_thread,iz_cell+1 + shift_z, ir_cell+1 + shift_r] += J_t_m1_11
+            j_t_global[i_thread, 0,iz_cell+1 + shift_z, ir_cell+1 + shift_r] += J_t_m0_11
+            j_t_global[i_thread, 1,iz_cell+1 + shift_z, ir_cell+1 + shift_r] += J_t_m1_11
 
-            j_z_m0_global[i_thread,iz_cell, ir_cell] += J_z_m0_00
-            j_z_m1_global[i_thread,iz_cell, ir_cell] += J_z_m1_00
+            j_z_global[i_thread, 0,iz_cell, ir_cell] += J_z_m0_00
+            j_z_global[i_thread, 1,iz_cell, ir_cell] += J_z_m1_00
 
-            j_z_m0_global[i_thread,iz_cell+1 + shift_z, ir_cell] += J_z_m0_01
-            j_z_m1_global[i_thread,iz_cell+1 + shift_z, ir_cell] += J_z_m1_01
+            j_z_global[i_thread, 0,iz_cell+1 + shift_z, ir_cell] += J_z_m0_01
+            j_z_global[i_thread, 1,iz_cell+1 + shift_z, ir_cell] += J_z_m1_01
 
-            j_z_m0_global[i_thread,iz_cell, ir_cell+1 + shift_r] += J_z_m0_10
-            j_z_m1_global[i_thread,iz_cell, ir_cell+1 + shift_r] += J_z_m1_10
+            j_z_global[i_thread, 0,iz_cell, ir_cell+1 + shift_r] += J_z_m0_10
+            j_z_global[i_thread, 1,iz_cell, ir_cell+1 + shift_r] += J_z_m1_10
 
-            j_z_m0_global[i_thread,iz_cell+1 + shift_z, ir_cell+1 + shift_r] += J_z_m0_11
-            j_z_m1_global[i_thread,iz_cell+1 + shift_z, ir_cell+1 + shift_r] += J_z_m1_11
+            j_z_global[i_thread, 0,iz_cell+1 + shift_z, ir_cell+1 + shift_r] += J_z_m0_11
+            j_z_global[i_thread, 1,iz_cell+1 + shift_z, ir_cell+1 + shift_r] += J_z_m1_11
 
     return
 
@@ -836,9 +837,7 @@ def deposit_J_numba_cubic(x, y, z, w, q,
                         ux, uy, uz, inv_gamma,
                         invdz, zmin, Nz,
                         invdr, rmin, Nr,
-                        j_r_m0_global, j_r_m1_global,
-                        j_t_m0_global, j_t_m1_global,
-                        j_z_m0_global, j_z_m1_global,
+                        j_r_global, j_t_global, j_z_global, Nm,
                         nthreads, ptcl_chunk_indices):
     """
     Deposition of the current density J using numba prange on the CPU.
@@ -870,10 +869,13 @@ def deposit_J_numba_cubic(x, y, z, w, q,
     inv_gamma : 1darray of floats
         The inverse of the relativistic gamma factor
 
-    j_x_m0_global, j_x_m1_global : 3darrays of complexs (nthread, Nz, Nr)
+    j_x_global : 4darrays of complexs (nthread, Nm, Nz, Nr)
         The global helper arrays to store the thread local current component
-        in each direction (r, t, z) on the interpolation grid for mode 0 and 1.
+        in each direction (r, t, z) on the interpolation grid for each mode.
         (is modified by this function)
+
+    Nm : int
+        The number of azimuthal modes
 
     invdz, invdr : float (in meters^-1)
         Inverse of the grid step along the considered direction
@@ -1425,104 +1427,104 @@ def deposit_J_numba_cubic(x, y, z, w, q,
             if (ir_cell-1) < 0:
                 srl = 1
 
-            j_r_m0_global[i_thread, iz_cell - 1 + szl, ir_cell - 1 + srl] += J_r_m0_00
-            j_r_m1_global[i_thread, iz_cell - 1 + szl, ir_cell - 1 + srl] += J_r_m1_00
-            j_r_m0_global[i_thread, iz_cell, ir_cell - 1 + srl] += J_r_m0_01
-            j_r_m1_global[i_thread, iz_cell, ir_cell - 1 + srl] += J_r_m1_01
-            j_r_m0_global[i_thread, iz_cell + 1 + szu, ir_cell - 1 + srl] += J_r_m0_02
-            j_r_m1_global[i_thread, iz_cell + 1 + szu, ir_cell - 1 + srl] += J_r_m1_02
-            j_r_m0_global[i_thread, iz_cell + 2 + szu2, ir_cell - 1 + srl] += J_r_m0_03
-            j_r_m1_global[i_thread, iz_cell + 2 + szu2, ir_cell - 1 + srl] += J_r_m1_03
-            j_r_m0_global[i_thread, iz_cell - 1 + szl, ir_cell ] += J_r_m0_10
-            j_r_m1_global[i_thread, iz_cell - 1 + szl, ir_cell ] += J_r_m1_10
-            j_r_m0_global[i_thread, iz_cell, ir_cell] += J_r_m0_11
-            j_r_m1_global[i_thread, iz_cell, ir_cell] += J_r_m1_11
-            j_r_m0_global[i_thread, iz_cell + 1 + szu, ir_cell] += J_r_m0_12
-            j_r_m1_global[i_thread, iz_cell + 1 + szu, ir_cell] += J_r_m1_12
-            j_r_m0_global[i_thread, iz_cell + 2 + szu2, ir_cell] += J_r_m0_13
-            j_r_m1_global[i_thread, iz_cell + 2 + szu2, ir_cell] += J_r_m1_13
-            j_r_m0_global[i_thread, iz_cell - 1 + szl, ir_cell + 1 + sru] += J_r_m0_20
-            j_r_m1_global[i_thread, iz_cell - 1 + szl, ir_cell + 1 + sru] += J_r_m1_20
-            j_r_m0_global[i_thread, iz_cell, ir_cell + 1 + sru] += J_r_m0_21
-            j_r_m1_global[i_thread, iz_cell, ir_cell + 1 + sru] += J_r_m1_21
-            j_r_m0_global[i_thread, iz_cell + 1 + szu, ir_cell + 1 + sru] += J_r_m0_22
-            j_r_m1_global[i_thread, iz_cell + 1 + szu, ir_cell + 1 + sru] += J_r_m1_22
-            j_r_m0_global[i_thread, iz_cell + 2 + szu2, ir_cell + 1 + sru] += J_r_m0_23
-            j_r_m1_global[i_thread, iz_cell + 2 + szu2, ir_cell + 1 + sru] += J_r_m1_23
-            j_r_m0_global[i_thread, iz_cell - 1 + szl, ir_cell + 2 + sru2] += J_r_m0_30
-            j_r_m1_global[i_thread, iz_cell - 1 + szl, ir_cell + 2 + sru2] += J_r_m1_30
-            j_r_m0_global[i_thread, iz_cell, ir_cell + 2 + sru2] += J_r_m0_31
-            j_r_m1_global[i_thread, iz_cell, ir_cell + 2 + sru2] += J_r_m1_31
-            j_r_m0_global[i_thread, iz_cell + 1 + szu, ir_cell + 2 + sru2] += J_r_m0_32
-            j_r_m1_global[i_thread, iz_cell + 1 + szu, ir_cell + 2 + sru2] += J_r_m1_32
-            j_r_m0_global[i_thread, iz_cell + 2 + szu2, ir_cell + 2 + sru2] += J_r_m0_33
-            j_r_m1_global[i_thread, iz_cell + 2 + szu2, ir_cell + 2 + sru2] += J_r_m1_33
+            j_r_global[i_thread, 0, iz_cell - 1 + szl, ir_cell - 1 + srl] += J_r_m0_00
+            j_r_global[i_thread, 1, iz_cell - 1 + szl, ir_cell - 1 + srl] += J_r_m1_00
+            j_r_global[i_thread, 0, iz_cell, ir_cell - 1 + srl] += J_r_m0_01
+            j_r_global[i_thread, 1, iz_cell, ir_cell - 1 + srl] += J_r_m1_01
+            j_r_global[i_thread, 0, iz_cell + 1 + szu, ir_cell - 1 + srl] += J_r_m0_02
+            j_r_global[i_thread, 1, iz_cell + 1 + szu, ir_cell - 1 + srl] += J_r_m1_02
+            j_r_global[i_thread, 0, iz_cell + 2 + szu2, ir_cell - 1 + srl] += J_r_m0_03
+            j_r_global[i_thread, 1, iz_cell + 2 + szu2, ir_cell - 1 + srl] += J_r_m1_03
+            j_r_global[i_thread, 0, iz_cell - 1 + szl, ir_cell ] += J_r_m0_10
+            j_r_global[i_thread, 1, iz_cell - 1 + szl, ir_cell ] += J_r_m1_10
+            j_r_global[i_thread, 0, iz_cell, ir_cell] += J_r_m0_11
+            j_r_global[i_thread, 1, iz_cell, ir_cell] += J_r_m1_11
+            j_r_global[i_thread, 0, iz_cell + 1 + szu, ir_cell] += J_r_m0_12
+            j_r_global[i_thread, 1, iz_cell + 1 + szu, ir_cell] += J_r_m1_12
+            j_r_global[i_thread, 0, iz_cell + 2 + szu2, ir_cell] += J_r_m0_13
+            j_r_global[i_thread, 1, iz_cell + 2 + szu2, ir_cell] += J_r_m1_13
+            j_r_global[i_thread, 0, iz_cell - 1 + szl, ir_cell + 1 + sru] += J_r_m0_20
+            j_r_global[i_thread, 1, iz_cell - 1 + szl, ir_cell + 1 + sru] += J_r_m1_20
+            j_r_global[i_thread, 0, iz_cell, ir_cell + 1 + sru] += J_r_m0_21
+            j_r_global[i_thread, 1, iz_cell, ir_cell + 1 + sru] += J_r_m1_21
+            j_r_global[i_thread, 0, iz_cell + 1 + szu, ir_cell + 1 + sru] += J_r_m0_22
+            j_r_global[i_thread, 1, iz_cell + 1 + szu, ir_cell + 1 + sru] += J_r_m1_22
+            j_r_global[i_thread, 0, iz_cell + 2 + szu2, ir_cell + 1 + sru] += J_r_m0_23
+            j_r_global[i_thread, 1, iz_cell + 2 + szu2, ir_cell + 1 + sru] += J_r_m1_23
+            j_r_global[i_thread, 0, iz_cell - 1 + szl, ir_cell + 2 + sru2] += J_r_m0_30
+            j_r_global[i_thread, 1, iz_cell - 1 + szl, ir_cell + 2 + sru2] += J_r_m1_30
+            j_r_global[i_thread, 0, iz_cell, ir_cell + 2 + sru2] += J_r_m0_31
+            j_r_global[i_thread, 1, iz_cell, ir_cell + 2 + sru2] += J_r_m1_31
+            j_r_global[i_thread, 0, iz_cell + 1 + szu, ir_cell + 2 + sru2] += J_r_m0_32
+            j_r_global[i_thread, 1, iz_cell + 1 + szu, ir_cell + 2 + sru2] += J_r_m1_32
+            j_r_global[i_thread, 0, iz_cell + 2 + szu2, ir_cell + 2 + sru2] += J_r_m0_33
+            j_r_global[i_thread, 1, iz_cell + 2 + szu2, ir_cell + 2 + sru2] += J_r_m1_33
 
-            j_t_m0_global[i_thread, iz_cell - 1 + szl, ir_cell - 1 + srl] += J_t_m0_00
-            j_t_m1_global[i_thread, iz_cell - 1 + szl, ir_cell - 1 + srl] += J_t_m1_00
-            j_t_m0_global[i_thread, iz_cell, ir_cell - 1 + srl] += J_t_m0_01
-            j_t_m1_global[i_thread, iz_cell, ir_cell - 1 + srl] += J_t_m1_01
-            j_t_m0_global[i_thread, iz_cell + 1 + szu, ir_cell - 1 + srl] += J_t_m0_02
-            j_t_m1_global[i_thread, iz_cell + 1 + szu, ir_cell - 1 + srl] += J_t_m1_02
-            j_t_m0_global[i_thread, iz_cell + 2 + szu2, ir_cell - 1 + srl] += J_t_m0_03
-            j_t_m1_global[i_thread, iz_cell + 2 + szu2, ir_cell - 1 + srl] += J_t_m1_03
-            j_t_m0_global[i_thread, iz_cell - 1 + szl, ir_cell ] += J_t_m0_10
-            j_t_m1_global[i_thread, iz_cell - 1 + szl, ir_cell ] += J_t_m1_10
-            j_t_m0_global[i_thread, iz_cell, ir_cell] += J_t_m0_11
-            j_t_m1_global[i_thread, iz_cell, ir_cell] += J_t_m1_11
-            j_t_m0_global[i_thread, iz_cell + 1 + szu, ir_cell] += J_t_m0_12
-            j_t_m1_global[i_thread, iz_cell + 1 + szu, ir_cell] += J_t_m1_12
-            j_t_m0_global[i_thread, iz_cell + 2 + szu2, ir_cell] += J_t_m0_13
-            j_t_m1_global[i_thread, iz_cell + 2 + szu2, ir_cell] += J_t_m1_13
-            j_t_m0_global[i_thread, iz_cell - 1 + szl, ir_cell + 1 + sru] += J_t_m0_20
-            j_t_m1_global[i_thread, iz_cell - 1 + szl, ir_cell + 1 + sru] += J_t_m1_20
-            j_t_m0_global[i_thread, iz_cell, ir_cell + 1 + sru] += J_t_m0_21
-            j_t_m1_global[i_thread, iz_cell, ir_cell + 1 + sru] += J_t_m1_21
-            j_t_m0_global[i_thread, iz_cell + 1 + szu, ir_cell + 1 + sru] += J_t_m0_22
-            j_t_m1_global[i_thread, iz_cell + 1 + szu, ir_cell + 1 + sru] += J_t_m1_22
-            j_t_m0_global[i_thread, iz_cell + 2 + szu2, ir_cell + 1 + sru] += J_t_m0_23
-            j_t_m1_global[i_thread, iz_cell + 2 + szu2, ir_cell + 1 + sru] += J_t_m1_23
-            j_t_m0_global[i_thread, iz_cell - 1 + szl, ir_cell + 2 + sru2] += J_t_m0_30
-            j_t_m1_global[i_thread, iz_cell - 1 + szl, ir_cell + 2 + sru2] += J_t_m1_30
-            j_t_m0_global[i_thread, iz_cell, ir_cell + 2 + sru2] += J_t_m0_31
-            j_t_m1_global[i_thread, iz_cell, ir_cell + 2 + sru2] += J_t_m1_31
-            j_t_m0_global[i_thread, iz_cell + 1 + szu, ir_cell + 2 + sru2] += J_t_m0_32
-            j_t_m1_global[i_thread, iz_cell + 1 + szu, ir_cell + 2 + sru2] += J_t_m1_32
-            j_t_m0_global[i_thread, iz_cell + 2 + szu2, ir_cell + 2 + sru2] += J_t_m0_33
-            j_t_m1_global[i_thread, iz_cell + 2 + szu2, ir_cell + 2 + sru2] += J_t_m1_33
+            j_t_global[i_thread, 0, iz_cell - 1 + szl, ir_cell - 1 + srl] += J_t_m0_00
+            j_t_global[i_thread, 1, iz_cell - 1 + szl, ir_cell - 1 + srl] += J_t_m1_00
+            j_t_global[i_thread, 0, iz_cell, ir_cell - 1 + srl] += J_t_m0_01
+            j_t_global[i_thread, 1, iz_cell, ir_cell - 1 + srl] += J_t_m1_01
+            j_t_global[i_thread, 0, iz_cell + 1 + szu, ir_cell - 1 + srl] += J_t_m0_02
+            j_t_global[i_thread, 1, iz_cell + 1 + szu, ir_cell - 1 + srl] += J_t_m1_02
+            j_t_global[i_thread, 0, iz_cell + 2 + szu2, ir_cell - 1 + srl] += J_t_m0_03
+            j_t_global[i_thread, 1, iz_cell + 2 + szu2, ir_cell - 1 + srl] += J_t_m1_03
+            j_t_global[i_thread, 0, iz_cell - 1 + szl, ir_cell ] += J_t_m0_10
+            j_t_global[i_thread, 1, iz_cell - 1 + szl, ir_cell ] += J_t_m1_10
+            j_t_global[i_thread, 0, iz_cell, ir_cell] += J_t_m0_11
+            j_t_global[i_thread, 1, iz_cell, ir_cell] += J_t_m1_11
+            j_t_global[i_thread, 0, iz_cell + 1 + szu, ir_cell] += J_t_m0_12
+            j_t_global[i_thread, 1, iz_cell + 1 + szu, ir_cell] += J_t_m1_12
+            j_t_global[i_thread, 0, iz_cell + 2 + szu2, ir_cell] += J_t_m0_13
+            j_t_global[i_thread, 1, iz_cell + 2 + szu2, ir_cell] += J_t_m1_13
+            j_t_global[i_thread, 0, iz_cell - 1 + szl, ir_cell + 1 + sru] += J_t_m0_20
+            j_t_global[i_thread, 1, iz_cell - 1 + szl, ir_cell + 1 + sru] += J_t_m1_20
+            j_t_global[i_thread, 0, iz_cell, ir_cell + 1 + sru] += J_t_m0_21
+            j_t_global[i_thread, 1, iz_cell, ir_cell + 1 + sru] += J_t_m1_21
+            j_t_global[i_thread, 0, iz_cell + 1 + szu, ir_cell + 1 + sru] += J_t_m0_22
+            j_t_global[i_thread, 1, iz_cell + 1 + szu, ir_cell + 1 + sru] += J_t_m1_22
+            j_t_global[i_thread, 0, iz_cell + 2 + szu2, ir_cell + 1 + sru] += J_t_m0_23
+            j_t_global[i_thread, 1, iz_cell + 2 + szu2, ir_cell + 1 + sru] += J_t_m1_23
+            j_t_global[i_thread, 0, iz_cell - 1 + szl, ir_cell + 2 + sru2] += J_t_m0_30
+            j_t_global[i_thread, 1, iz_cell - 1 + szl, ir_cell + 2 + sru2] += J_t_m1_30
+            j_t_global[i_thread, 0, iz_cell, ir_cell + 2 + sru2] += J_t_m0_31
+            j_t_global[i_thread, 1, iz_cell, ir_cell + 2 + sru2] += J_t_m1_31
+            j_t_global[i_thread, 0, iz_cell + 1 + szu, ir_cell + 2 + sru2] += J_t_m0_32
+            j_t_global[i_thread, 1, iz_cell + 1 + szu, ir_cell + 2 + sru2] += J_t_m1_32
+            j_t_global[i_thread, 0, iz_cell + 2 + szu2, ir_cell + 2 + sru2] += J_t_m0_33
+            j_t_global[i_thread, 1, iz_cell + 2 + szu2, ir_cell + 2 + sru2] += J_t_m1_33
 
-            j_z_m0_global[i_thread, iz_cell - 1 + szl, ir_cell - 1 + srl] += J_z_m0_00
-            j_z_m1_global[i_thread, iz_cell - 1 + szl, ir_cell - 1 + srl] += J_z_m1_00
-            j_z_m0_global[i_thread, iz_cell, ir_cell - 1 + srl] += J_z_m0_01
-            j_z_m1_global[i_thread, iz_cell, ir_cell - 1 + srl] += J_z_m1_01
-            j_z_m0_global[i_thread, iz_cell + 1 + szu, ir_cell - 1 + srl] += J_z_m0_02
-            j_z_m1_global[i_thread, iz_cell + 1 + szu, ir_cell - 1 + srl] += J_z_m1_02
-            j_z_m0_global[i_thread, iz_cell + 2 + szu2, ir_cell - 1 + srl] += J_z_m0_03
-            j_z_m1_global[i_thread, iz_cell + 2 + szu2, ir_cell - 1 + srl] += J_z_m1_03
-            j_z_m0_global[i_thread, iz_cell - 1 + szl, ir_cell ] += J_z_m0_10
-            j_z_m1_global[i_thread, iz_cell - 1 + szl, ir_cell ] += J_z_m1_10
-            j_z_m0_global[i_thread, iz_cell, ir_cell] += J_z_m0_11
-            j_z_m1_global[i_thread, iz_cell, ir_cell] += J_z_m1_11
-            j_z_m0_global[i_thread, iz_cell + 1 + szu, ir_cell] += J_z_m0_12
-            j_z_m1_global[i_thread, iz_cell + 1 + szu, ir_cell] += J_z_m1_12
-            j_z_m0_global[i_thread, iz_cell + 2 + szu2, ir_cell] += J_z_m0_13
-            j_z_m1_global[i_thread, iz_cell + 2 + szu2, ir_cell] += J_z_m1_13
-            j_z_m0_global[i_thread, iz_cell - 1 + szl, ir_cell + 1 + sru] += J_z_m0_20
-            j_z_m1_global[i_thread, iz_cell - 1 + szl, ir_cell + 1 + sru] += J_z_m1_20
-            j_z_m0_global[i_thread, iz_cell, ir_cell + 1 + sru] += J_z_m0_21
-            j_z_m1_global[i_thread, iz_cell, ir_cell + 1 + sru] += J_z_m1_21
-            j_z_m0_global[i_thread, iz_cell + 1 + szu, ir_cell + 1 + sru] += J_z_m0_22
-            j_z_m1_global[i_thread, iz_cell + 1 + szu, ir_cell + 1 + sru] += J_z_m1_22
-            j_z_m0_global[i_thread, iz_cell + 2 + szu2, ir_cell + 1 + sru] += J_z_m0_23
-            j_z_m1_global[i_thread, iz_cell + 2 + szu2, ir_cell + 1 + sru] += J_z_m1_23
-            j_z_m0_global[i_thread, iz_cell - 1 + szl, ir_cell + 2 + sru2] += J_z_m0_30
-            j_z_m1_global[i_thread, iz_cell - 1 + szl, ir_cell + 2 + sru2] += J_z_m1_30
-            j_z_m0_global[i_thread, iz_cell, ir_cell + 2 + sru2] += J_z_m0_31
-            j_z_m1_global[i_thread, iz_cell, ir_cell + 2 + sru2] += J_z_m1_31
-            j_z_m0_global[i_thread, iz_cell + 1 + szu, ir_cell + 2 + sru2] += J_z_m0_32
-            j_z_m1_global[i_thread, iz_cell + 1 + szu, ir_cell + 2 + sru2] += J_z_m1_32
-            j_z_m0_global[i_thread, iz_cell + 2 + szu2, ir_cell + 2 + sru2] += J_z_m0_33
-            j_z_m1_global[i_thread, iz_cell + 2 + szu2, ir_cell + 2 + sru2] += J_z_m1_33
+            j_z_global[i_thread, 0, iz_cell - 1 + szl, ir_cell - 1 + srl] += J_z_m0_00
+            j_z_global[i_thread, 1, iz_cell - 1 + szl, ir_cell - 1 + srl] += J_z_m1_00
+            j_z_global[i_thread, 0, iz_cell, ir_cell - 1 + srl] += J_z_m0_01
+            j_z_global[i_thread, 1, iz_cell, ir_cell - 1 + srl] += J_z_m1_01
+            j_z_global[i_thread, 0, iz_cell + 1 + szu, ir_cell - 1 + srl] += J_z_m0_02
+            j_z_global[i_thread, 1, iz_cell + 1 + szu, ir_cell - 1 + srl] += J_z_m1_02
+            j_z_global[i_thread, 0, iz_cell + 2 + szu2, ir_cell - 1 + srl] += J_z_m0_03
+            j_z_global[i_thread, 1, iz_cell + 2 + szu2, ir_cell - 1 + srl] += J_z_m1_03
+            j_z_global[i_thread, 0, iz_cell - 1 + szl, ir_cell ] += J_z_m0_10
+            j_z_global[i_thread, 1, iz_cell - 1 + szl, ir_cell ] += J_z_m1_10
+            j_z_global[i_thread, 0, iz_cell, ir_cell] += J_z_m0_11
+            j_z_global[i_thread, 1, iz_cell, ir_cell] += J_z_m1_11
+            j_z_global[i_thread, 0, iz_cell + 1 + szu, ir_cell] += J_z_m0_12
+            j_z_global[i_thread, 1, iz_cell + 1 + szu, ir_cell] += J_z_m1_12
+            j_z_global[i_thread, 0, iz_cell + 2 + szu2, ir_cell] += J_z_m0_13
+            j_z_global[i_thread, 1, iz_cell + 2 + szu2, ir_cell] += J_z_m1_13
+            j_z_global[i_thread, 0, iz_cell - 1 + szl, ir_cell + 1 + sru] += J_z_m0_20
+            j_z_global[i_thread, 1, iz_cell - 1 + szl, ir_cell + 1 + sru] += J_z_m1_20
+            j_z_global[i_thread, 0, iz_cell, ir_cell + 1 + sru] += J_z_m0_21
+            j_z_global[i_thread, 1, iz_cell, ir_cell + 1 + sru] += J_z_m1_21
+            j_z_global[i_thread, 0, iz_cell + 1 + szu, ir_cell + 1 + sru] += J_z_m0_22
+            j_z_global[i_thread, 1, iz_cell + 1 + szu, ir_cell + 1 + sru] += J_z_m1_22
+            j_z_global[i_thread, 0, iz_cell + 2 + szu2, ir_cell + 1 + sru] += J_z_m0_23
+            j_z_global[i_thread, 1, iz_cell + 2 + szu2, ir_cell + 1 + sru] += J_z_m1_23
+            j_z_global[i_thread, 0, iz_cell - 1 + szl, ir_cell + 2 + sru2] += J_z_m0_30
+            j_z_global[i_thread, 1, iz_cell - 1 + szl, ir_cell + 2 + sru2] += J_z_m1_30
+            j_z_global[i_thread, 0, iz_cell, ir_cell + 2 + sru2] += J_z_m0_31
+            j_z_global[i_thread, 1, iz_cell, ir_cell + 2 + sru2] += J_z_m1_31
+            j_z_global[i_thread, 0, iz_cell + 1 + szu, ir_cell + 2 + sru2] += J_z_m0_32
+            j_z_global[i_thread, 1, iz_cell + 1 + szu, ir_cell + 2 + sru2] += J_z_m1_32
+            j_z_global[i_thread, 0, iz_cell + 2 + szu2, ir_cell + 2 + sru2] += J_z_m0_33
+            j_z_global[i_thread, 1, iz_cell + 2 + szu2, ir_cell + 2 + sru2] += J_z_m1_33
 
     return
 
@@ -1531,34 +1533,7 @@ def deposit_J_numba_cubic(x, y, z, w, q,
 # -----------------------------------------------------------------------
 
 @njit_parallel
-def sum_reduce_2d_array( global_array, reduced_array ):
-    """
-    Sum the array `global_array` along its first axis and
-    add it into `reduced_array`.
-
-    Parameters:
-    -----------
-    global_array: 3darray of complexs
-       Field array whose first dimension corresponds to the
-       reduction dimension (typically: the number of threads used
-       during the current deposition)
-
-    reduced array: 2darray of complexs
-    """
-    # Extract size of each dimension
-    Nreduce, Nz, Nr = global_array.shape
-
-    # Parallel loop over iz
-    for iz in prange( Nz ):
-        # Loop over the reduction dimension (slow dimension)
-        for it in range( Nreduce ):
-            # Loop over ir (fast dimension)
-            for ir in range( Nr ):
-
-                reduced_array[ iz, ir ] +=  global_array[ it, iz, ir ]
-
-@njit_parallel
-def sum_reduce_2d_array_mode( global_array, reduced_array, m ):
+def sum_reduce_2d_array( global_array, reduced_array, m ):
     """
     Sum the array `global_array` along its first axis and
     add it into `reduced_array`.
