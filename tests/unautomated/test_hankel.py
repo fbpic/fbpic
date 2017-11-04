@@ -13,13 +13,93 @@ $ python tests/test_hankel_dt.py
 
 import numpy as np
 import matplotlib.pyplot as plt
-from fbpic.fields.spectral_transform.hankel import DHT, available_methods
+from fbpic.fields.spectral_transform.hankel import DHT
 from scipy.special import jn, jn_zeros
 from scipy.special import eval_genlaguerre
 import time
 
+available_methods = [ 'QDHT', 'MDHT(m+1,m)', 'MDHT(m-1,m)', 'MDHT(m,m)']
+
+# Define a class for calculating the Hankel transform with the QDHT method
+# This method is never used in FBPIC, but is useful for comparison
+class QDHT(object):
+
+    def __init__(self,p,N,rmax):
+        """
+        Calculate r and nu for the QDHT.
+        Reference: Guizar-Sicairos et al., J. Opt. Soc. Am. A 21 (2004)
+
+        Also store the auxilary matrix T and vectors J and J_inv required for
+        the transform.
+
+        Grid: r_n = alpha_{p,n}*rmax/alpha_{p,N+1}
+        where alpha_{p,n} is the n^th zero of the p^th Bessel function
+        """
+        # Calculate the zeros of the Bessel function
+        zeros = jn_zeros(p,N+1)
+
+        # Calculate the grid
+        last_alpha = zeros[-1] # The N+1^{th} zero
+        alphas = zeros[:-1]    # The N first zeros
+        numax = last_alpha/(2*np.pi*rmax)
+        self.N = N
+        self.rmax = rmax
+        self.numax = numax
+        self.r = rmax*alphas/last_alpha
+        self.nu = numax*alphas/last_alpha
+
+        # Calculate and store the vector J
+        J = abs( jn(p+1,alphas) )
+        self.J = J
+        self.J_inv = 1./J
+
+        # Calculate and store the matrix T
+        denom = J[:,np.newaxis]*J[np.newaxis,:]*last_alpha
+        num = 2*jn( p, alphas[:,np.newaxis]*alphas[np.newaxis,:]/last_alpha )
+        self.T = num/denom
+
+    def transform( self, F, G ):
+        """
+        Performs the QDHT of F and returns the results.
+        Reference: Guizar-Sicairos et al., J. Opt. Soc. Am. A 21 (2004)
+
+        F: ndarray of real or complex values
+        Array containing the values from which to compute the FHT.
+        """
+        # Multiply the input function by the vector J_inv
+        F = F * (self.J_inv*self.rmax)[np.newaxis, :]
+
+        # Perform the matrix product with T
+        G[:,:] = np.dot( F, self.T )
+
+        # Multiply the result by the vector J
+        G[:,:] = G * (self.J / self.numax)[np.newaxis,:]
+
+        return( G )
+
+    def inverse_transform( self, G, F ):
+        """
+        Performs the QDHT of G and returns the results.
+        Reference: Guizar-Sicairos et al., J. Opt. Soc. Am. A 21 (2004)
+
+        G: ndarray of real or complex values
+        Array containing the values from which to compute the DHT.
+        """
+
+        # Multiply the input function by the vector J_inv
+        G = G * (self.J_inv*self.numax)[np.newaxis,:]
+
+        # Perform the matrix product with T
+        F[:,:] = np.dot( G, self.T )
+
+        # Multiply the result by the vector J
+        F[:,:] = F * (self.J / self.rmax)[np.newaxis,:]
+
+        return( F )
+
+
 def compare_Hankel_methods( f_analytic, g_analytic, p, Nz, Nr,
-                            rmax, npts=1000, methods=available_methods, **kw ) :
+                            rmax, npts=1000, methods=available_methods ) :
     """
     Compare the discrete Hankel transform of f_analytic to the
     analytical result g_analytic.
@@ -43,13 +123,20 @@ def compare_Hankel_methods( f_analytic, g_analytic, p, Nz, Nr,
     for method in methods :
 
         # Initialize transform
-        dht = DHT( p, Nr, Nz, rmax, method, **kw )
+        if method == 'QDHT':
+            dht = QDHT( p, Nr, rmax)
+        elif method == 'MDHT(m,m)':
+            dht = DHT( p, p, Nr, Nz, rmax )
+        elif method == 'MDHT(m-1,m)':
+            dht = DHT( p, p+1, Nr, Nz, rmax )
+        elif method == 'MDHT(m+1,m)':
+            dht = DHT( p, p-1, Nr, Nz, rmax )
 
         # Calculate f and g on the natural grid
         f = np.empty((Nz,Nr), dtype=np.complex128)
-        f[:,:] = f_analytic( dht.get_r() )[np.newaxis,:]
+        f[:,:] = f_analytic( dht.r )[np.newaxis,:]
         g = np.empty((Nz,Nr), dtype=np.complex128)
-        g[:,:] = g_analytic( dht.get_nu() )[np.newaxis,:]
+        g[:,:] = g_analytic( dht.nu )[np.newaxis,:]
 
         # Initialize empty matrices
         f_dht = np.empty((Nz, Nr), dtype=np.complex128)
@@ -174,14 +261,13 @@ if __name__ == '__main__' :
     Nz = 1000
     pmax = 1
     rmax = 4
-    kw = { 'use_cuda' : True,  'd' : 0.5, 'Fw' : 'inverse' }
 
     restricted_methods = \
       [ method for method in available_methods if method != 'MDHT(m-1,m)']
     methods = [ available_methods, restricted_methods ]
 
     for p in range(pmax+1) :
-        compare_power_p( p, 1, Nr, rmax, Nz=Nz, methods=methods[p], **kw )
+        compare_power_p( p, 1, Nr, rmax, Nz=Nz, methods=methods[p] )
 
     for p in range(pmax+1) :
         for n in range(2) :
@@ -189,12 +275,12 @@ if __name__ == '__main__' :
 
     for p in range(pmax+1) :
         compare_bessel( p, p, int(Nr*0.3), Nr, rmax,
-                        methods=methods[p], Nz=Nz, **kw )
+                        methods=methods[p], Nz=Nz )
         compare_bessel( p, p, int(Nr*0.9), Nr, rmax,
-                        methods=methods[p], Nz=Nz, **kw )
+                        methods=methods[p], Nz=Nz )
 
     for p in range(pmax+1) :
         compare_bessel( p, p+1, int(Nr*0.3), Nr, rmax,
-                        methods=methods[p], Nz=Nz, **kw )
+                        methods=methods[p], Nz=Nz )
         compare_bessel( p, p+1, int(Nr*0.9), Nr, rmax,
-                        methods=methods[p], Nz=Nz, **kw )
+                        methods=methods[p], Nz=Nz )
