@@ -140,8 +140,7 @@ def deposit_rho_numba_linear(x, y, z, w, q,
         # Loop over all particles in thread chunk
         for i_ptcl in range( ptcl_chunk_indices[i_thread],
                              ptcl_chunk_indices[i_thread+1] ):
-            # Preliminary arrays for the cylindrical conversion
-            # --------------------------------------------
+
             # Position
             xj = x[i_ptcl]
             yj = y[i_ptcl]
@@ -159,21 +158,20 @@ def deposit_rho_numba_linear(x, y, z, w, q,
             else:
                 cos = 1.
                 sin = 0.
-
-            # Positions of the particles, in the cell unit
-            r_cell = invdr*(rj - rmin) - 0.5
-            z_cell = invdz*(zj - zmin) - 0.5
-
             # Calculate contribution from this particle to each mode
             rho_scal[0] = wj
             for m in range(1,Nm):
                 rho_scal[m] = (cos + 1.j*sin)*rho_scal[m-1]
 
+            # Positions of the particles, in the cell unit
+            r_cell = invdr*(rj - rmin) - 0.5
+            z_cell = invdz*(zj - zmin) - 0.5
             # Index of the lowest cell of `global_array` that gets modified
             # by this particle (note: `global_array` has 2 guard cells)
             ir_cell = int(math.floor( r_cell )) + 2
             iz_cell = int(math.floor( z_cell )) + 2
 
+            # Add contribution of this particle to the global array
             for m in range(Nm):
                 rho_global[i_thread,m,iz_cell+0,ir_cell+0] += Sz_linear(z_cell, 0)*Sr_linear(r_cell, 0) * rho_scal[m]
                 rho_global[i_thread,m,iz_cell+0,ir_cell+1] += Sz_linear(z_cell, 0)*Sr_linear(r_cell, 1) * rho_scal[m]
@@ -260,8 +258,7 @@ def deposit_J_numba_linear(x, y, z, w, q,
         # Loop over all particles in thread chunk
         for i_ptcl in range( ptcl_chunk_indices[i_thread],
                              ptcl_chunk_indices[i_thread+1] ):
-            # Preliminary arrays for the cylindrical conversion
-            # --------------------------------------------
+
             # Position
             xj = x[i_ptcl]
             yj = y[i_ptcl]
@@ -285,13 +282,6 @@ def deposit_J_numba_linear(x, y, z, w, q,
             else:
                 cos = 1.
                 sin = 0.
-
-            # Get weights for the deposition
-            # --------------------------------------------
-            # Positions of the particles, in the cell unit
-            r_cell = invdr*(rj - rmin) - 0.5
-            z_cell = invdz*(zj - zmin) - 0.5
-
             # Calculate contribution from this particle to each mode
             jr_scal[0] = wj * c * inv_gammaj * (cos*uxj + sin*uyj)
             jt_scal[0] = wj * c * inv_gammaj * (cos*uyj - sin*uxj)
@@ -301,11 +291,15 @@ def deposit_J_numba_linear(x, y, z, w, q,
                 jt_scal[m] = (cos + 1.j*sin) * jt_scal[m-1]
                 jz_scal[m] = (cos + 1.j*sin) * jz_scal[m-1]
 
+            # Positions of the particles, in the cell unit
+            r_cell = invdr*(rj - rmin) - 0.5
+            z_cell = invdz*(zj - zmin) - 0.5
             # Index of the lowest cell of `global_array` that gets modified
             # by this particle (note: `global_array` has 2 guard cells)
             ir_cell = int(math.floor( r_cell )) + 2
             iz_cell = int(math.floor( z_cell )) + 2
 
+            # Add contribution of this particle to the global array
             for m in range(Nm):
                 j_r_global[i_thread,m,iz_cell+0,ir_cell+0] += Sz_linear(z_cell, 0)*Sr_linear(r_cell, 0) * jr_scal[m]
                 j_r_global[i_thread,m,iz_cell+0,ir_cell+1] += Sz_linear(z_cell, 0)*Sr_linear(r_cell, 1) * jr_scal[m]
@@ -395,8 +389,7 @@ def deposit_rho_numba_cubic(x, y, z, w, q,
         # Loop over all particles in thread chunk
         for i_ptcl in range( ptcl_chunk_indices[i_thread],
                              ptcl_chunk_indices[i_thread+1] ):
-            # Preliminary arrays for the cylindrical conversion
-            # --------------------------------------------
+
             # Position
             xj = x[i_ptcl]
             yj = y[i_ptcl]
@@ -414,21 +407,20 @@ def deposit_rho_numba_cubic(x, y, z, w, q,
             else:
                 cos = 1.
                 sin = 0.
-
-            # Positions of the particles, in the cell unit
-            r_cell = invdr*(rj - rmin) - 0.5
-            z_cell = invdz*(zj - zmin) - 0.5
-
             # Calculate contribution from this particle to each mode
             rho_scal[0] = wj
             for m in range(1,Nm):
                 rho_scal[m] = (cos + 1.j*sin)*rho_scal[m-1]
 
+            # Positions of the particles, in the cell unit
+            r_cell = invdr*(rj - rmin) - 0.5
+            z_cell = invdz*(zj - zmin) - 0.5
             # Index of the lowest cell of `global_array` that gets modified
             # by this particle (note: `global_array` has 2 guard cells)
             ir_cell = int(math.floor( r_cell )) + 1
             iz_cell = int(math.floor( z_cell )) + 1
 
+            # Add contribution of this particle to the global array
             for m in range(Nm):
                 rho_global[i_thread,m,iz_cell+0,ir_cell+0] += Sz_cubic(z_cell, 0)*Sr_cubic(r_cell, 0)*rho_scal[m]
                 rho_global[i_thread,m,iz_cell+0,ir_cell+1] += Sz_cubic(z_cell, 0)*Sr_cubic(r_cell, 1)*rho_scal[m]
@@ -531,8 +523,7 @@ def deposit_J_numba_cubic(x, y, z, w, q,
         # Loop over all particles in thread chunk
         for i_ptcl in range( ptcl_chunk_indices[i_thread],
                              ptcl_chunk_indices[i_thread+1] ):
-            # Preliminary arrays for the cylindrical conversion
-            # --------------------------------------------
+
             # Position
             xj = x[i_ptcl]
             yj = y[i_ptcl]
@@ -556,13 +547,6 @@ def deposit_J_numba_cubic(x, y, z, w, q,
             else:
                 cos = 1.
                 sin = 0.
-
-            # Get weights for the deposition
-            # --------------------------------------------
-            # Positions of the particles, in the cell unit
-            r_cell = invdr*(rj - rmin) - 0.5
-            z_cell = invdz*(zj - zmin) - 0.5
-
             # Calculate contribution from this particle to each mode
             jr_scal[0] = wj * c * inv_gammaj * (cos*uxj + sin*uyj)
             jt_scal[0] = wj * c * inv_gammaj * (cos*uyj - sin*uxj)
@@ -572,11 +556,15 @@ def deposit_J_numba_cubic(x, y, z, w, q,
                 jt_scal[m] = (cos + 1.j*sin) * jt_scal[m-1]
                 jz_scal[m] = (cos + 1.j*sin) * jz_scal[m-1]
 
+            # Positions of the particles, in the cell unit
+            r_cell = invdr*(rj - rmin) - 0.5
+            z_cell = invdz*(zj - zmin) - 0.5
             # Index of the lowest cell of `global_array` that gets modified
             # by this particle (note: `global_array` has 2 guard cells)
             ir_cell = int(math.floor( r_cell )) + 1
             iz_cell = int(math.floor( z_cell )) + 1
 
+            # Add contribution of this particle to the global array
             for m in range(Nm):
                 j_r_global[i_thread,m,iz_cell+0,ir_cell+0] += Sz_cubic(z_cell, 0)*Sr_cubic(r_cell, 0)*jr_scal[m]
                 j_r_global[i_thread,m,iz_cell+0,ir_cell+1] += Sz_cubic(z_cell, 0)*Sr_cubic(r_cell, 1)*jr_scal[m]
