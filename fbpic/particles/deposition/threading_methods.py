@@ -1103,7 +1103,7 @@ def deposit_J_numba_cubic(x, y, z, w, q,
 # Parallel reduction of the global arrays for threads into a single array
 # -----------------------------------------------------------------------
 
-@numba.njit
+@njit_parallel
 def sum_reduce_2d_array( global_array, reduced_array, m ):
     """
     Sum the array `global_array` along its first axis and
@@ -1124,28 +1124,35 @@ def sum_reduce_2d_array( global_array, reduced_array, m ):
        The azimuthal mode for which the reduction should be performed
     """
     # Extract size of each dimension
-    Nreduce = global_array.shape[0]
-    Nz, Nr = reduced_array.shape
+    Nz = reduced_array.shape[0]
 
-    # Parallel loop over z in global_array (includes deposition guard cells)
-    for iz_global in range(Nz+4):
-
+    # Parallel loop over z
+    for iz in prange(Nz):
         # Get index inside reduced_array
-        iz = iz_global - 2
-        if iz < 0:
-            iz = iz + Nz
-        elif iz >= Nz:
-            iz = iz - Nz
+        iz_global = iz + 2
+        reduce_slice( reduced_array, iz, global_array, iz_global, m )
+    # Handle deposition guard cells in z
+    reduce_slice( reduced_array, Nz-2, global_array, 0, m )
+    reduce_slice( reduced_array, Nz-1, global_array, 1, m )
+    reduce_slice( reduced_array, 0, global_array, Nz+2, m )
+    reduce_slice( reduced_array, 1, global_array, Nz+3, m )
 
-        # Loop over the reduction dimension (slow dimension)
-        for it in range( Nreduce ):
+@numba.njit
+def reduce_slice( reduced_array, iz, global_array, iz_global, m ):
+    """
+    Sum the array `global_array` into `reduced_array` for one given slice in z
+    """
+    Nreduce = global_array.shape[0]
+    Nr = reduced_array.shape[1]
+    # Loop over the reduction dimension (slow dimension)
+    for it in range( Nreduce ):
 
-            # First fold the low-radius deposition guard cells in
-            reduced_array[iz, 1] += global_array[it, m, iz_global, 0]
-            reduced_array[iz, 0] += global_array[it, m, iz_global, 1]
-            # Then loop over regular cells
-            for ir in range( Nr ):
-                reduced_array[iz, ir] +=  global_array[it, m, iz_global, ir+2]
-            # Finally fold the high-radius guard cells in
-            reduced_array[iz, Nr-1] += global_array[it, m, iz_global, Nr+2]
-            reduced_array[iz, Nr-1] += global_array[it, m, iz_global, Nr+3]
+        # First fold the low-radius deposition guard cells in
+        reduced_array[iz, 1] += global_array[it, m, iz_global, 0]
+        reduced_array[iz, 0] += global_array[it, m, iz_global, 1]
+        # Then loop over regular cells
+        for ir in range( Nr ):
+            reduced_array[iz, ir] +=  global_array[it, m, iz_global, ir+2]
+        # Finally fold the high-radius guard cells in
+        reduced_array[iz, Nr-1] += global_array[it, m, iz_global, Nr+2]
+        reduced_array[iz, Nr-1] += global_array[it, m, iz_global, Nr+3]
