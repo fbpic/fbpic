@@ -595,7 +595,7 @@ class Particles(object) :
         if self.q == 0:
             return
 
-        # Shortcut for the list of InterpolationGrid objects
+        # Shortcuts for the list of InterpolationGrid objects
         grid = fld.interp
 
         # When running on GPU: first sort the arrays of particles
@@ -687,8 +687,12 @@ class Particles(object) :
             # for Mode 0 and 1 only.
             if fieldtype == 'rho':
                 # Generate temporary arrays for rho
-                rho_global = np.zeros( (self.nthreads, fld.Nm, fld.Nz, fld.Nr),
-                                        dtype=grid[0].rho.dtype )
+                # (2 guard cells on each side in z and r, in order to store
+                # contributions from, at most, cubic shape factors ; these
+                # deposition guard cells are folded into the regular box
+                # inside `sum_reduce_2d_array`)
+                rho_global = np.zeros( dtype=np.complex128,
+                    shape=(self.nthreads, fld.Nm, fld.Nz+4, fld.Nr+4) )
                 # Deposit rho using CPU threading
                 if self.particle_shape == 'linear':
                     deposit_rho_numba_linear(
@@ -714,12 +718,16 @@ class Particles(object) :
 
             elif fieldtype == 'J':
                 # Generate temporary arrays for J
-                Jr_global = np.zeros( (self.nthreads, fld.Nm, fld.Nz, fld.Nr),
-                                            dtype=grid[0].Jr.dtype )
-                Jt_global = np.zeros( (self.nthreads, fld.Nm, fld.Nz, fld.Nr),
-                                            dtype=grid[0].Jt.dtype )
-                Jz_global = np.zeros( (self.nthreads, fld.Nm, fld.Nz, fld.Nr),
-                                            dtype=grid[0].Jz.dtype )
+                # (2 guard cells on each side in z and r, in order to store
+                # contributions from, at most, cubic shape factors ; these
+                # deposition guard cells are folded into the regular box
+                # inside `sum_reduce_2d_array`)
+                Jr_global = np.zeros( dtype=np.complex128,
+                    shape=(self.nthreads, fld.Nm, fld.Nz+4, fld.Nr+4) )
+                Jt_global = np.zeros( dtype=np.complex128,
+                    shape=(self.nthreads, fld.Nm, fld.Nz+4, fld.Nr+4) )
+                Jz_global = np.zeros( dtype=np.complex128,
+                    shape=(self.nthreads, fld.Nm, fld.Nz+4, fld.Nr+4) )
                 # Deposit J using CPU threading
                 if self.particle_shape == 'linear':
                     deposit_J_numba_linear(
