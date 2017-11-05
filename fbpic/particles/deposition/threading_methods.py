@@ -8,7 +8,6 @@ order shapes on the CPU with threading.
 """
 import numpy as np
 import numba
-from numba import int64
 from fbpic.threading_utils import njit_parallel, prange
 import math
 from scipy.constants import c
@@ -20,7 +19,7 @@ from scipy.constants import c
 # Linear shapes
 @numba.njit
 def Sz_linear(cell_position, index):
-    iz = int64(math.floor(cell_position))
+    iz = np.floor(cell_position)
     if index == 0:
         return iz+1.-cell_position
     if index == 1:
@@ -29,7 +28,7 @@ def Sz_linear(cell_position, index):
 @numba.njit
 def Sr_linear(cell_position, index):
     flip_factor = 1.
-    ir = int64(math.floor(cell_position))
+    ir = np.floor(cell_position)
     if index == 0:
         if ir < 0:
             flip_factor = -1.
@@ -40,7 +39,7 @@ def Sr_linear(cell_position, index):
 # Cubic shapes
 @numba.njit
 def Sz_cubic(cell_position, index):
-    iz = int64(math.floor(cell_position)) - 1
+    iz = np.floor(cell_position) - 1.
     if index == 0:
         return (-1./6.)*((cell_position-iz)-2)**3
     if index == 1:
@@ -53,7 +52,7 @@ def Sz_cubic(cell_position, index):
 @numba.njit
 def Sr_cubic(cell_position, index):
     flip_factor = 1.
-    ir = int64(math.floor(cell_position)) - 1
+    ir = np.floor(cell_position) - 1.
     if index == 0:
         if ir < 0:
             flip_factor = -1.
