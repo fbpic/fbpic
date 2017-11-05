@@ -543,15 +543,21 @@ class Particles(object) :
                                    but is `%s`" % self.particle_shape)
         # CPU version
         else:
+            # Stack the arrays for different azimuthal modes
+            Nm = len(grid)
+            Er_mesh = np.stack([ grid[m].Er for m in range(Nm) ], axis=0 )
+            Et_mesh = np.stack([ grid[m].Et for m in range(Nm) ], axis=0 )
+            Ez_mesh = np.stack([ grid[m].Ez for m in range(Nm) ], axis=0 )
+            Br_mesh = np.stack([ grid[m].Br for m in range(Nm) ], axis=0 )
+            Bt_mesh = np.stack([ grid[m].Bt for m in range(Nm) ], axis=0 )
+            Bz_mesh = np.stack([ grid[m].Bz for m in range(Nm) ], axis=0 )
             if self.particle_shape == 'linear':
                 gather_field_numba_linear(
                      self.x, self.y, self.z,
                      grid[0].invdz, grid[0].zmin, grid[0].Nz,
                      grid[0].invdr, grid[0].rmin, grid[0].Nr,
-                     grid[0].Er, grid[0].Et, grid[0].Ez,
-                     grid[1].Er, grid[1].Et, grid[1].Ez,
-                     grid[0].Br, grid[0].Bt, grid[0].Bz,
-                     grid[1].Br, grid[1].Bt, grid[1].Bz,
+                     Er_mesh, Et_mesh, Ez_mesh,
+                     Br_mesh, Bt_mesh, Bz_mesh, Nm,
                      self.Ex, self.Ey, self.Ez,
                      self.Bx, self.By, self.Bz)
             elif self.particle_shape == 'cubic':
@@ -562,10 +568,8 @@ class Particles(object) :
                      self.x, self.y, self.z,
                      grid[0].invdz, grid[0].zmin, grid[0].Nz,
                      grid[0].invdr, grid[0].rmin, grid[0].Nr,
-                     grid[0].Er, grid[0].Et, grid[0].Ez,
-                     grid[1].Er, grid[1].Et, grid[1].Ez,
-                     grid[0].Br, grid[0].Bt, grid[0].Bz,
-                     grid[1].Br, grid[1].Bt, grid[1].Bz,
+                     Er_mesh, Et_mesh, Ez_mesh,
+                     Br_mesh, Bt_mesh, Bz_mesh, Nm,
                      self.Ex, self.Ey, self.Ez,
                      self.Bx, self.By, self.Bz,
                      self.nthreads, ptcl_chunk_indices )
