@@ -173,22 +173,6 @@ def deposit_rho_numba_linear(x, y, z, w, q,
             ir_cell = int(math.floor( r_cell ))
             iz_cell = int(math.floor( z_cell ))
 
-            # Treat the boundary conditions
-            # guard cells in lower r
-            if ir_cell < 0:
-                ir_cell = 0
-            # absorbing in upper r
-            if ir_cell > Nr-1:
-                ir_cell = Nr-1
-            # periodic boundaries in z
-            if iz_cell < 0:
-                iz_cell += Nz
-            if iz_cell > Nz-1:
-                iz_cell -= Nz
-
-            # Boundary Region Shifts
-            ir_flip = int( math.floor(r_cell) )
-
             # Declare local field array
             R_m0_00 = 0.
             R_m0_01 = 0.
@@ -204,38 +188,23 @@ def deposit_rho_numba_linear(x, y, z, w, q,
             R_m0_01 += Sr_linear(r_cell, 0)*Sz_linear(z_cell, 1) * rho_scal[0]
             R_m1_00 += Sr_linear(r_cell, 0)*Sz_linear(z_cell, 0) * rho_scal[1]
             R_m1_01 += Sr_linear(r_cell, 0)*Sz_linear(z_cell, 1) * rho_scal[1]
-
-            if ir_flip == -1:
-                R_m0_00 += Sr_linear(r_cell, 1)*Sz_linear(z_cell, 0) * rho_scal[0]
-                R_m0_01 += Sr_linear(r_cell, 1)*Sz_linear(z_cell, 1) * rho_scal[0]
-                R_m1_00 += Sr_linear(r_cell, 1)*Sz_linear(z_cell, 0) * rho_scal[1]
-                R_m1_01 += Sr_linear(r_cell, 1)*Sz_linear(z_cell, 1) * rho_scal[1]
-            else:
-                R_m0_10 += Sr_linear(r_cell, 1)*Sz_linear(z_cell, 0) * rho_scal[0]
-                R_m0_11 += Sr_linear(r_cell, 1)*Sz_linear(z_cell, 1) * rho_scal[0]
-                R_m1_10 += Sr_linear(r_cell, 1)*Sz_linear(z_cell, 0) * rho_scal[1]
-                R_m1_11 += Sr_linear(r_cell, 1)*Sz_linear(z_cell, 1) * rho_scal[1]
-
-            # Cell shifts for the simulation boundaries
-            shift_r = 0
-            shift_z = 0
-            if ir_cell+1 > (Nr-1):
-                shift_r = -1
-            if iz_cell+1 > Nz-1:
-                shift_z -= Nz
+            R_m0_10 += Sr_linear(r_cell, 1)*Sz_linear(z_cell, 0) * rho_scal[0]
+            R_m0_11 += Sr_linear(r_cell, 1)*Sz_linear(z_cell, 1) * rho_scal[0]
+            R_m1_10 += Sr_linear(r_cell, 1)*Sz_linear(z_cell, 0) * rho_scal[1]
+            R_m1_11 += Sr_linear(r_cell, 1)*Sz_linear(z_cell, 1) * rho_scal[1]
 
             # Write ptcl fields to thread-local part of global deposition array
             rho_global[i_thread, 0, iz_cell+2, ir_cell+2] += R_m0_00
             rho_global[i_thread, 1, iz_cell+2, ir_cell+2] += R_m1_00
 
-            rho_global[i_thread, 0, iz_cell+1 + shift_z+2, ir_cell+2] += R_m0_01
-            rho_global[i_thread, 1, iz_cell+1 + shift_z+2, ir_cell+2] += R_m1_01
+            rho_global[i_thread, 0, iz_cell+1+2, ir_cell+2] += R_m0_01
+            rho_global[i_thread, 1, iz_cell+1+2, ir_cell+2] += R_m1_01
 
-            rho_global[i_thread, 0, iz_cell+2, ir_cell+1 + shift_r+2] += R_m0_10
-            rho_global[i_thread, 1, iz_cell+2, ir_cell+1 + shift_r+2] += R_m1_10
+            rho_global[i_thread, 0, iz_cell+2, ir_cell+1+2] += R_m0_10
+            rho_global[i_thread, 1, iz_cell+2, ir_cell+1+2] += R_m1_10
 
-            rho_global[i_thread, 0, iz_cell+1 + shift_z+2, ir_cell+1 + shift_r+2] += R_m0_11
-            rho_global[i_thread, 1, iz_cell+1 + shift_z+2, ir_cell+1 + shift_r+2] += R_m1_11
+            rho_global[i_thread, 0, iz_cell+1+2, ir_cell+1+2] += R_m0_11
+            rho_global[i_thread, 1, iz_cell+1+2, ir_cell+1+2] += R_m1_11
 
     return
 
@@ -598,22 +567,6 @@ def deposit_rho_numba_cubic(x, y, z, w, q,
             ir_cell = int(math.floor( r_cell ))
             iz_cell = int(math.floor( z_cell ))
 
-            # Treat the boundary conditions
-            # guard cells in lower r
-            if ir_cell < 0:
-                ir_cell = 0
-            # absorbing in upper r
-            if ir_cell > Nr-1:
-                ir_cell = Nr-1
-            # periodic boundaries in z
-            if iz_cell < 0:
-                iz_cell += Nz
-            if iz_cell > Nz-1:
-                iz_cell -= Nz
-
-            # Compute values in local copies and consider boundaries
-            ir_flip = int( math.floor(r_cell) ) - 1
-
             # Declare the local field value for
             # all possible deposition directions,
             # depending on the shape order and per mode.
@@ -665,172 +618,75 @@ def deposit_rho_numba_cubic(x, y, z, w, q,
             R_m0_33 = 0.
             R_m1_33 = 0. + 0.j
 
-            if (ir_flip == -2):
-                R_m0_20 += Sr_cubic(r_cell, 0)*Sz_cubic(z_cell, 0)*rho_scal[0]
-                R_m1_20 += Sr_cubic(r_cell, 0)*Sz_cubic(z_cell, 0)*rho_scal[1]
-                R_m0_21 += Sr_cubic(r_cell, 0)*Sz_cubic(z_cell, 1)*rho_scal[0]
-                R_m1_21 += Sr_cubic(r_cell, 0)*Sz_cubic(z_cell, 1)*rho_scal[1]
-                R_m0_22 += Sr_cubic(r_cell, 0)*Sz_cubic(z_cell, 2)*rho_scal[0]
-                R_m1_22 += Sr_cubic(r_cell, 0)*Sz_cubic(z_cell, 2)*rho_scal[1]
-                R_m0_23 += Sr_cubic(r_cell, 0)*Sz_cubic(z_cell, 3)*rho_scal[0]
-                R_m1_23 += Sr_cubic(r_cell, 0)*Sz_cubic(z_cell, 3)*rho_scal[1]
+            R_m0_00 += Sr_cubic(r_cell, 0)*Sz_cubic(z_cell, 0)*rho_scal[0]
+            R_m1_00 += Sr_cubic(r_cell, 0)*Sz_cubic(z_cell, 0)*rho_scal[1]
+            R_m0_01 += Sr_cubic(r_cell, 0)*Sz_cubic(z_cell, 1)*rho_scal[0]
+            R_m1_01 += Sr_cubic(r_cell, 0)*Sz_cubic(z_cell, 1)*rho_scal[1]
+            R_m0_02 += Sr_cubic(r_cell, 0)*Sz_cubic(z_cell, 2)*rho_scal[0]
+            R_m1_02 += Sr_cubic(r_cell, 0)*Sz_cubic(z_cell, 2)*rho_scal[1]
+            R_m0_03 += Sr_cubic(r_cell, 0)*Sz_cubic(z_cell, 3)*rho_scal[0]
+            R_m1_03 += Sr_cubic(r_cell, 0)*Sz_cubic(z_cell, 3)*rho_scal[1]
 
-                R_m0_10 += Sr_cubic(r_cell, 1)*Sz_cubic(z_cell, 0)*rho_scal[0]
-                R_m1_10 += Sr_cubic(r_cell, 1)*Sz_cubic(z_cell, 0)*rho_scal[1]
-                R_m0_11 += Sr_cubic(r_cell, 1)*Sz_cubic(z_cell, 1)*rho_scal[0]
-                R_m1_11 += Sr_cubic(r_cell, 1)*Sz_cubic(z_cell, 1)*rho_scal[1]
-                R_m0_12 += Sr_cubic(r_cell, 1)*Sz_cubic(z_cell, 2)*rho_scal[0]
-                R_m1_12 += Sr_cubic(r_cell, 1)*Sz_cubic(z_cell, 2)*rho_scal[1]
-                R_m0_13 += Sr_cubic(r_cell, 1)*Sz_cubic(z_cell, 3)*rho_scal[0]
-                R_m1_13 += Sr_cubic(r_cell, 1)*Sz_cubic(z_cell, 3)*rho_scal[1]
+            R_m0_10 += Sr_cubic(r_cell, 1)*Sz_cubic(z_cell, 0)*rho_scal[0]
+            R_m1_10 += Sr_cubic(r_cell, 1)*Sz_cubic(z_cell, 0)*rho_scal[1]
+            R_m0_11 += Sr_cubic(r_cell, 1)*Sz_cubic(z_cell, 1)*rho_scal[0]
+            R_m1_11 += Sr_cubic(r_cell, 1)*Sz_cubic(z_cell, 1)*rho_scal[1]
+            R_m0_12 += Sr_cubic(r_cell, 1)*Sz_cubic(z_cell, 2)*rho_scal[0]
+            R_m1_12 += Sr_cubic(r_cell, 1)*Sz_cubic(z_cell, 2)*rho_scal[1]
+            R_m0_13 += Sr_cubic(r_cell, 1)*Sz_cubic(z_cell, 3)*rho_scal[0]
+            R_m1_13 += Sr_cubic(r_cell, 1)*Sz_cubic(z_cell, 3)*rho_scal[1]
 
-                R_m0_10 += Sr_cubic(r_cell, 2)*Sz_cubic(z_cell, 0)*rho_scal[0]
-                R_m1_10 += Sr_cubic(r_cell, 2)*Sz_cubic(z_cell, 0)*rho_scal[1]
-                R_m0_11 += Sr_cubic(r_cell, 2)*Sz_cubic(z_cell, 1)*rho_scal[0]
-                R_m1_11 += Sr_cubic(r_cell, 2)*Sz_cubic(z_cell, 1)*rho_scal[1]
-                R_m0_12 += Sr_cubic(r_cell, 2)*Sz_cubic(z_cell, 2)*rho_scal[0]
-                R_m1_12 += Sr_cubic(r_cell, 2)*Sz_cubic(z_cell, 2)*rho_scal[1]
-                R_m0_13 += Sr_cubic(r_cell, 2)*Sz_cubic(z_cell, 3)*rho_scal[0]
-                R_m1_13 += Sr_cubic(r_cell, 2)*Sz_cubic(z_cell, 3)*rho_scal[1]
+            R_m0_20 += Sr_cubic(r_cell, 2)*Sz_cubic(z_cell, 0)*rho_scal[0]
+            R_m1_20 += Sr_cubic(r_cell, 2)*Sz_cubic(z_cell, 0)*rho_scal[1]
+            R_m0_21 += Sr_cubic(r_cell, 2)*Sz_cubic(z_cell, 1)*rho_scal[0]
+            R_m1_21 += Sr_cubic(r_cell, 2)*Sz_cubic(z_cell, 1)*rho_scal[1]
+            R_m0_22 += Sr_cubic(r_cell, 2)*Sz_cubic(z_cell, 2)*rho_scal[0]
+            R_m1_22 += Sr_cubic(r_cell, 2)*Sz_cubic(z_cell, 2)*rho_scal[1]
+            R_m0_23 += Sr_cubic(r_cell, 2)*Sz_cubic(z_cell, 3)*rho_scal[0]
+            R_m1_23 += Sr_cubic(r_cell, 2)*Sz_cubic(z_cell, 3)*rho_scal[1]
 
-                R_m0_20 += Sr_cubic(r_cell, 3)*Sz_cubic(z_cell, 0)*rho_scal[0]
-                R_m1_20 += Sr_cubic(r_cell, 3)*Sz_cubic(z_cell, 0)*rho_scal[1]
-                R_m0_21 += Sr_cubic(r_cell, 3)*Sz_cubic(z_cell, 1)*rho_scal[0]
-                R_m1_21 += Sr_cubic(r_cell, 3)*Sz_cubic(z_cell, 1)*rho_scal[1]
-                R_m0_22 += Sr_cubic(r_cell, 3)*Sz_cubic(z_cell, 2)*rho_scal[0]
-                R_m1_22 += Sr_cubic(r_cell, 3)*Sz_cubic(z_cell, 2)*rho_scal[1]
-                R_m0_23 += Sr_cubic(r_cell, 3)*Sz_cubic(z_cell, 3)*rho_scal[0]
-                R_m1_23 += Sr_cubic(r_cell, 3)*Sz_cubic(z_cell, 3)*rho_scal[1]
-
-            if (ir_flip == -1):
-                R_m0_10 += Sr_cubic(r_cell, 0)*Sz_cubic(z_cell, 0)*rho_scal[0]
-                R_m1_10 += Sr_cubic(r_cell, 0)*Sz_cubic(z_cell, 0)*rho_scal[1]
-                R_m0_11 += Sr_cubic(r_cell, 0)*Sz_cubic(z_cell, 1)*rho_scal[0]
-                R_m1_11 += Sr_cubic(r_cell, 0)*Sz_cubic(z_cell, 1)*rho_scal[1]
-                R_m0_12 += Sr_cubic(r_cell, 0)*Sz_cubic(z_cell, 2)*rho_scal[0]
-                R_m1_12 += Sr_cubic(r_cell, 0)*Sz_cubic(z_cell, 2)*rho_scal[1]
-                R_m0_13 += Sr_cubic(r_cell, 0)*Sz_cubic(z_cell, 3)*rho_scal[0]
-                R_m1_13 += Sr_cubic(r_cell, 0)*Sz_cubic(z_cell, 3)*rho_scal[1]
-
-                R_m0_10 += Sr_cubic(r_cell, 1)*Sz_cubic(z_cell, 0)*rho_scal[0]
-                R_m1_10 += Sr_cubic(r_cell, 1)*Sz_cubic(z_cell, 0)*rho_scal[1]
-                R_m0_11 += Sr_cubic(r_cell, 1)*Sz_cubic(z_cell, 1)*rho_scal[0]
-                R_m1_11 += Sr_cubic(r_cell, 1)*Sz_cubic(z_cell, 1)*rho_scal[1]
-                R_m0_12 += Sr_cubic(r_cell, 1)*Sz_cubic(z_cell, 2)*rho_scal[0]
-                R_m1_12 += Sr_cubic(r_cell, 1)*Sz_cubic(z_cell, 2)*rho_scal[1]
-                R_m0_13 += Sr_cubic(r_cell, 1)*Sz_cubic(z_cell, 3)*rho_scal[0]
-                R_m1_13 += Sr_cubic(r_cell, 1)*Sz_cubic(z_cell, 3)*rho_scal[1]
-
-                R_m0_20 += Sr_cubic(r_cell, 2)*Sz_cubic(z_cell, 0)*rho_scal[0]
-                R_m1_20 += Sr_cubic(r_cell, 2)*Sz_cubic(z_cell, 0)*rho_scal[1]
-                R_m0_21 += Sr_cubic(r_cell, 2)*Sz_cubic(z_cell, 1)*rho_scal[0]
-                R_m1_21 += Sr_cubic(r_cell, 2)*Sz_cubic(z_cell, 1)*rho_scal[1]
-                R_m0_22 += Sr_cubic(r_cell, 2)*Sz_cubic(z_cell, 2)*rho_scal[0]
-                R_m1_22 += Sr_cubic(r_cell, 2)*Sz_cubic(z_cell, 2)*rho_scal[1]
-                R_m0_23 += Sr_cubic(r_cell, 2)*Sz_cubic(z_cell, 3)*rho_scal[0]
-                R_m1_23 += Sr_cubic(r_cell, 2)*Sz_cubic(z_cell, 3)*rho_scal[1]
-
-                R_m0_30 += Sr_cubic(r_cell, 3)*Sz_cubic(z_cell, 0)*rho_scal[0]
-                R_m1_30 += Sr_cubic(r_cell, 3)*Sz_cubic(z_cell, 0)*rho_scal[1]
-                R_m0_31 += Sr_cubic(r_cell, 3)*Sz_cubic(z_cell, 1)*rho_scal[0]
-                R_m1_31 += Sr_cubic(r_cell, 3)*Sz_cubic(z_cell, 1)*rho_scal[1]
-                R_m0_32 += Sr_cubic(r_cell, 3)*Sz_cubic(z_cell, 2)*rho_scal[0]
-                R_m1_32 += Sr_cubic(r_cell, 3)*Sz_cubic(z_cell, 2)*rho_scal[1]
-                R_m0_33 += Sr_cubic(r_cell, 3)*Sz_cubic(z_cell, 3)*rho_scal[0]
-                R_m1_33 += Sr_cubic(r_cell, 3)*Sz_cubic(z_cell, 3)*rho_scal[1]
-            if (ir_flip >= 0):
-                R_m0_00 += Sr_cubic(r_cell, 0)*Sz_cubic(z_cell, 0)*rho_scal[0]
-                R_m1_00 += Sr_cubic(r_cell, 0)*Sz_cubic(z_cell, 0)*rho_scal[1]
-                R_m0_01 += Sr_cubic(r_cell, 0)*Sz_cubic(z_cell, 1)*rho_scal[0]
-                R_m1_01 += Sr_cubic(r_cell, 0)*Sz_cubic(z_cell, 1)*rho_scal[1]
-                R_m0_02 += Sr_cubic(r_cell, 0)*Sz_cubic(z_cell, 2)*rho_scal[0]
-                R_m1_02 += Sr_cubic(r_cell, 0)*Sz_cubic(z_cell, 2)*rho_scal[1]
-                R_m0_03 += Sr_cubic(r_cell, 0)*Sz_cubic(z_cell, 3)*rho_scal[0]
-                R_m1_03 += Sr_cubic(r_cell, 0)*Sz_cubic(z_cell, 3)*rho_scal[1]
-
-                R_m0_10 += Sr_cubic(r_cell, 1)*Sz_cubic(z_cell, 0)*rho_scal[0]
-                R_m1_10 += Sr_cubic(r_cell, 1)*Sz_cubic(z_cell, 0)*rho_scal[1]
-                R_m0_11 += Sr_cubic(r_cell, 1)*Sz_cubic(z_cell, 1)*rho_scal[0]
-                R_m1_11 += Sr_cubic(r_cell, 1)*Sz_cubic(z_cell, 1)*rho_scal[1]
-                R_m0_12 += Sr_cubic(r_cell, 1)*Sz_cubic(z_cell, 2)*rho_scal[0]
-                R_m1_12 += Sr_cubic(r_cell, 1)*Sz_cubic(z_cell, 2)*rho_scal[1]
-                R_m0_13 += Sr_cubic(r_cell, 1)*Sz_cubic(z_cell, 3)*rho_scal[0]
-                R_m1_13 += Sr_cubic(r_cell, 1)*Sz_cubic(z_cell, 3)*rho_scal[1]
-
-                R_m0_20 += Sr_cubic(r_cell, 2)*Sz_cubic(z_cell, 0)*rho_scal[0]
-                R_m1_20 += Sr_cubic(r_cell, 2)*Sz_cubic(z_cell, 0)*rho_scal[1]
-                R_m0_21 += Sr_cubic(r_cell, 2)*Sz_cubic(z_cell, 1)*rho_scal[0]
-                R_m1_21 += Sr_cubic(r_cell, 2)*Sz_cubic(z_cell, 1)*rho_scal[1]
-                R_m0_22 += Sr_cubic(r_cell, 2)*Sz_cubic(z_cell, 2)*rho_scal[0]
-                R_m1_22 += Sr_cubic(r_cell, 2)*Sz_cubic(z_cell, 2)*rho_scal[1]
-                R_m0_23 += Sr_cubic(r_cell, 2)*Sz_cubic(z_cell, 3)*rho_scal[0]
-                R_m1_23 += Sr_cubic(r_cell, 2)*Sz_cubic(z_cell, 3)*rho_scal[1]
-
-                R_m0_30 += Sr_cubic(r_cell, 3)*Sz_cubic(z_cell, 0)*rho_scal[0]
-                R_m1_30 += Sr_cubic(r_cell, 3)*Sz_cubic(z_cell, 0)*rho_scal[1]
-                R_m0_31 += Sr_cubic(r_cell, 3)*Sz_cubic(z_cell, 1)*rho_scal[0]
-                R_m1_31 += Sr_cubic(r_cell, 3)*Sz_cubic(z_cell, 1)*rho_scal[1]
-                R_m0_32 += Sr_cubic(r_cell, 3)*Sz_cubic(z_cell, 2)*rho_scal[0]
-                R_m1_32 += Sr_cubic(r_cell, 3)*Sz_cubic(z_cell, 2)*rho_scal[1]
-                R_m0_33 += Sr_cubic(r_cell, 3)*Sz_cubic(z_cell, 3)*rho_scal[0]
-                R_m1_33 += Sr_cubic(r_cell, 3)*Sz_cubic(z_cell, 3)*rho_scal[1]
-
-            # Index Shifting since local copies are centered around
-            # the current cell
-            srl = 0         # shift r lower
-            sru = 0         # shift r upper inner
-            sru2 = 0        # shift r upper outer
-            szl = 0         # shift z lower
-            szu = 0         # shift z upper inner
-            szu2 = 0        # shift z upper outer
-            if (iz_cell-1) < 0:
-                szl += Nz
-            if (iz_cell) == (Nz - 1):
-                szu -= Nz
-                szu2 -= Nz
-            if (iz_cell+1) == (Nz - 1):
-                szu2 -= Nz
-            if (ir_cell) >= (Nr - 1):
-                sru = -1
-                sru2 = -2
-            if (ir_cell+1) == (Nr - 1):
-                sru2 = -1
-            if (ir_cell-1) < 0:
-                srl = 1
+            R_m0_30 += Sr_cubic(r_cell, 3)*Sz_cubic(z_cell, 0)*rho_scal[0]
+            R_m1_30 += Sr_cubic(r_cell, 3)*Sz_cubic(z_cell, 0)*rho_scal[1]
+            R_m0_31 += Sr_cubic(r_cell, 3)*Sz_cubic(z_cell, 1)*rho_scal[0]
+            R_m1_31 += Sr_cubic(r_cell, 3)*Sz_cubic(z_cell, 1)*rho_scal[1]
+            R_m0_32 += Sr_cubic(r_cell, 3)*Sz_cubic(z_cell, 2)*rho_scal[0]
+            R_m1_32 += Sr_cubic(r_cell, 3)*Sz_cubic(z_cell, 2)*rho_scal[1]
+            R_m0_33 += Sr_cubic(r_cell, 3)*Sz_cubic(z_cell, 3)*rho_scal[0]
+            R_m1_33 += Sr_cubic(r_cell, 3)*Sz_cubic(z_cell, 3)*rho_scal[1]
 
             # Write ptcl fields to thread-local part of global deposition array
-            rho_global[i_thread, 0, iz_cell - 1 + szl+2, ir_cell - 1 + srl+2] += R_m0_00
-            rho_global[i_thread, 1, iz_cell - 1 + szl+2, ir_cell - 1 + srl+2] += R_m1_00
-            rho_global[i_thread, 0, iz_cell+2, ir_cell - 1 + srl+2] += R_m0_01
-            rho_global[i_thread, 1, iz_cell+2, ir_cell - 1 + srl+2] += R_m1_01
-            rho_global[i_thread, 0, iz_cell + 1 + szu+2, ir_cell - 1 + srl+2] += R_m0_02
-            rho_global[i_thread, 1, iz_cell + 1 + szu+2, ir_cell - 1 + srl+2] += R_m1_02
-            rho_global[i_thread, 0, iz_cell + 2 + szu2+2, ir_cell - 1 + srl+2] += R_m0_03
-            rho_global[i_thread, 1, iz_cell + 2 + szu2+2, ir_cell - 1 + srl+2] += R_m1_03
-            rho_global[i_thread, 0, iz_cell - 1 + szl+2, ir_cell+2] += R_m0_10
-            rho_global[i_thread, 1, iz_cell - 1 + szl+2, ir_cell+2] += R_m1_10
+            rho_global[i_thread, 0, iz_cell - 1 +2, ir_cell - 1 + 2] += R_m0_00
+            rho_global[i_thread, 1, iz_cell - 1 +2, ir_cell - 1 + 2] += R_m1_00
+            rho_global[i_thread, 0, iz_cell+2, ir_cell - 1 + 2] += R_m0_01
+            rho_global[i_thread, 1, iz_cell+2, ir_cell - 1 + 2] += R_m1_01
+            rho_global[i_thread, 0, iz_cell + 1 +2, ir_cell - 1 + 2] += R_m0_02
+            rho_global[i_thread, 1, iz_cell + 1 +2, ir_cell - 1 + 2] += R_m1_02
+            rho_global[i_thread, 0, iz_cell + 2 +2, ir_cell - 1 + 2] += R_m0_03
+            rho_global[i_thread, 1, iz_cell + 2 +2, ir_cell - 1 + 2] += R_m1_03
+            rho_global[i_thread, 0, iz_cell - 1 +2, ir_cell+2] += R_m0_10
+            rho_global[i_thread, 1, iz_cell - 1 +2, ir_cell+2] += R_m1_10
             rho_global[i_thread, 0, iz_cell+2, ir_cell+2] += R_m0_11
             rho_global[i_thread, 1, iz_cell+2, ir_cell+2] += R_m1_11
-            rho_global[i_thread, 0, iz_cell + 1 + szu+2, ir_cell+2] += R_m0_12
-            rho_global[i_thread, 1, iz_cell + 1 + szu+2, ir_cell+2] += R_m1_12
-            rho_global[i_thread, 0, iz_cell + 2 + szu2+2, ir_cell+2] += R_m0_13
-            rho_global[i_thread, 1, iz_cell + 2 + szu2+2, ir_cell+2] += R_m1_13
-            rho_global[i_thread, 0, iz_cell - 1 + szl+2, ir_cell + 1 + sru+2] += R_m0_20
-            rho_global[i_thread, 1, iz_cell - 1 + szl+2, ir_cell + 1 + sru+2] += R_m1_20
-            rho_global[i_thread, 0, iz_cell+2, ir_cell + 1 + sru+2] += R_m0_21
-            rho_global[i_thread, 1, iz_cell+2, ir_cell + 1 + sru+2] += R_m1_21
-            rho_global[i_thread, 0, iz_cell + 1 + szu+2, ir_cell + 1 + sru+2] += R_m0_22
-            rho_global[i_thread, 1, iz_cell + 1 + szu+2, ir_cell + 1 + sru+2] += R_m1_22
-            rho_global[i_thread, 0, iz_cell + 2 + szu2+2, ir_cell + 1 + sru+2] += R_m0_23
-            rho_global[i_thread, 1, iz_cell + 2 + szu2+2, ir_cell + 1 + sru+2] += R_m1_23
-            rho_global[i_thread, 0, iz_cell - 1 + szl+2, ir_cell + 2 + sru2+2] += R_m0_30
-            rho_global[i_thread, 1, iz_cell - 1 + szl+2, ir_cell + 2 + sru2+2] += R_m1_30
-            rho_global[i_thread, 0, iz_cell+2, ir_cell + 2 + sru2+2] += R_m0_31
-            rho_global[i_thread, 1, iz_cell+2, ir_cell + 2 + sru2+2] += R_m1_31
-            rho_global[i_thread, 0, iz_cell + 1 + szu+2, ir_cell + 2 + sru2+2] += R_m0_32
-            rho_global[i_thread, 1, iz_cell + 1 + szu+2, ir_cell + 2 + sru2+2] += R_m1_32
-            rho_global[i_thread, 0, iz_cell + 2 + szu2+2, ir_cell + 2 + sru2+2] += R_m0_33
-            rho_global[i_thread, 1, iz_cell + 2 + szu2+2, ir_cell + 2 + sru2+2] += R_m1_33
+            rho_global[i_thread, 0, iz_cell + 1 +2, ir_cell+2] += R_m0_12
+            rho_global[i_thread, 1, iz_cell + 1 +2, ir_cell+2] += R_m1_12
+            rho_global[i_thread, 0, iz_cell + 2 +2, ir_cell+2] += R_m0_13
+            rho_global[i_thread, 1, iz_cell + 2 +2, ir_cell+2] += R_m1_13
+            rho_global[i_thread, 0, iz_cell - 1 +2, ir_cell + 1 +2] += R_m0_20
+            rho_global[i_thread, 1, iz_cell - 1 +2, ir_cell + 1 +2] += R_m1_20
+            rho_global[i_thread, 0, iz_cell+2, ir_cell + 1 +2] += R_m0_21
+            rho_global[i_thread, 1, iz_cell+2, ir_cell + 1 +2] += R_m1_21
+            rho_global[i_thread, 0, iz_cell + 1 +2, ir_cell + 1 +2] += R_m0_22
+            rho_global[i_thread, 1, iz_cell + 1 +2, ir_cell + 1 +2] += R_m1_22
+            rho_global[i_thread, 0, iz_cell + 2 +2, ir_cell + 1 +2] += R_m0_23
+            rho_global[i_thread, 1, iz_cell + 2 +2, ir_cell + 1 +2] += R_m1_23
+            rho_global[i_thread, 0, iz_cell - 1 +2, ir_cell + 2 +2] += R_m0_30
+            rho_global[i_thread, 1, iz_cell - 1 +2, ir_cell + 2 +2] += R_m1_30
+            rho_global[i_thread, 0, iz_cell+2, ir_cell + 2 +2] += R_m0_31
+            rho_global[i_thread, 1, iz_cell+2, ir_cell + 2 +2] += R_m1_31
+            rho_global[i_thread, 0, iz_cell + 1 +2, ir_cell + 2 +2] += R_m0_32
+            rho_global[i_thread, 1, iz_cell + 1 +2, ir_cell + 2 +2] += R_m1_32
+            rho_global[i_thread, 0, iz_cell + 2 +2, ir_cell + 2 +2] += R_m0_33
+            rho_global[i_thread, 1, iz_cell + 2 +2, ir_cell + 2 +2] += R_m1_33
 
     return
 
@@ -1578,7 +1434,7 @@ def sum_reduce_2d_array( global_array, reduced_array, m ):
         # Loop over the reduction dimension (slow dimension)
         for it in range( Nreduce ):
 
-            # First fold the low-radius guard cells in
+            # First fold the low-radius deposition guard cells in
             reduced_array[iz, 1] += global_array[it, m, iz_global, 0]
             reduced_array[iz, 0] += global_array[it, m, iz_global, 1]
             # Then loop over regular cells
