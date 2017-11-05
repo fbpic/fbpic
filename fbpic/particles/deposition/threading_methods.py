@@ -105,10 +105,11 @@ def deposit_rho_numba_linear(x, y, z, w, q,
         Charge of the species
         (For ionizable atoms: this is always the elementary charge e)
 
-    rho_global : 4darrays of complexs (nthread, Nm, Nz, Nr)
-        The global helper arrays to store the thread local charge densities
-        on the interpolation grid for the different modes.
-        (is modified by this function)
+    rho_global : 4darrays of complexs
+        Global helper arrays of shape (nthreads, Nm, 2+Nz+2, 2+Nr+2) where the
+        additional 2's in z and r correspond to deposition guard cells.
+        This array stores the thread local charge density on the interpolation
+        grid for each mode. (is modified by this function)
 
     Nm : int
         The number of azimuthal modes
@@ -279,10 +280,11 @@ def deposit_J_numba_linear(x, y, z, w, q,
     inv_gamma : 1darray of floats
         The inverse of the relativistic gamma factor
 
-    j_x_global : 4darrays of complexs (nthread, Nm, Nz, Nr)
-        The global helper arrays to store the thread local current component
-        in each direction (r, t, z) on the interpolation grid for each mode.
-        (is modified by this function)
+    j_x_global : 4darrays of complexs
+        Global helper arrays of shape (nthreads, Nm, 2+Nz+2, 2+Nr+2) where the
+        additional 2's in z and r correspond to deposition guard cells.
+        This array stores the thread local charge density on the interpolation
+        grid for each mode. (is modified by this function)
 
     Nm : int
         The number of azimuthal modes
@@ -528,10 +530,11 @@ def deposit_rho_numba_cubic(x, y, z, w, q,
         Charge of the species
         (For ionizable atoms: this is always the elementary charge e)
 
-    rho_global : 4darrays of complexs (nthread, Nm, Nz, Nr)
-        The global helper arrays to store the thread local charge densities
-        on the interpolation grid for the different modes.
-        (is modified by this function)
+    rho_global : 4darray of complexs
+        Global helper arrays of shape (nthreads, Nm, 2+Nz+2, 2+Nr+2) where the
+        additional 2's in z and r correspond to deposition guard cells.
+        This array stores the thread local charge density on the interpolation
+        grid for each mode. (is modified by this function)
 
     Nm : int
         The number of azimuthal modes
@@ -872,9 +875,11 @@ def deposit_J_numba_cubic(x, y, z, w, q,
     inv_gamma : 1darray of floats
         The inverse of the relativistic gamma factor
 
-    j_x_global : 4darrays of complexs (nthread, Nm, Nz, Nr)
-        The global helper arrays to store the thread local current component
-        in each direction (r, t, z) on the interpolation grid for each mode.
+    j_x_global : 4darrays of complexs
+        Global helper arrays of shape (nthreads, Nm, 2+Nz+2, 2+Nr+2) where the
+        additional 2's in z and r correspond to deposition guard cells.
+        This array stores the thread local current component in each
+        direction (r, t, z) on the interpolation grid for each mode.
         (is modified by this function)
 
     Nm : int
@@ -1536,22 +1541,22 @@ def deposit_J_numba_cubic(x, y, z, w, q,
 # Parallel reduction of the global arrays for threads into a single array
 # -----------------------------------------------------------------------
 
-@njit_parallel
+@numba.njit
 def sum_reduce_2d_array( global_array, reduced_array, m ):
     """
     Sum the array `global_array` along its first axis and
-    add it into `reduced_array`.
+    add it into `reduced_array`, and fold the deposition guard cells of
+    global_array into the regular cells of reduced_array.
 
     Parameters:
     -----------
     global_array: 4darray of complexs
-       Field array whose first dimension corresponds to the
-       reduction dimension (typically: the number of threads used
-       during the current deposition) and the second array corresponds
-       to the azimuthal mode
+       Field array of shape (nthreads, Nm, 2+Nz+2, 2+Nr+2)
+       where the additional 2's in z and r correspond to deposition guard cells
+       that were used during the threaded deposition kernel.
 
     reduced array: 2darray of complex
-      Array of values for one given azimuthal mode
+      Field array of shape (Nz, Nr)
 
     m: int
        The azimuthal mode for which the reduction should be performed
@@ -1560,11 +1565,25 @@ def sum_reduce_2d_array( global_array, reduced_array, m ):
     Nreduce = global_array.shape[0]
     Nz, Nr = reduced_array.shape
 
-    # Parallel loop over iz
-    for iz in prange( Nz ):
+    # Parallel loop over z in global_array (includes deposition guard cells)
+    for iz_global in range(Nz+4):
+
+        # Get index inside reduced_array
+        iz = iz_global - 2
+        if iz < 0:
+            iz = iz + Nz
+        elif iz >= Nz:
+            iz = iz - Nz
+
         # Loop over the reduction dimension (slow dimension)
         for it in range( Nreduce ):
-            # Loop over ir (fast dimension)
-            for ir in range( Nr ):
 
-                reduced_array[ iz, ir ] +=  global_array[ it, m, iz+2, ir+2 ]
+            # First fold the low-radius guard cells in
+            reduced_array[iz, 1] += global_array[it, m, iz_global, 0]
+            reduced_array[iz, 0] += global_array[it, m, iz_global, 1]
+            # Then loop over regular cells
+            for ir in range( Nr ):
+                reduced_array[iz, ir] +=  global_array[it, m, iz_global, ir+2]
+            # Finally fold the high-radius guard cells in
+            reduced_array[iz, Nr-1] += global_array[it, m, iz_global, Nr+2]
+            reduced_array[iz, Nr-1] += global_array[it, m, iz_global, Nr+3]
