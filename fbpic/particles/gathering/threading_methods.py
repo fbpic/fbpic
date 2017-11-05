@@ -81,8 +81,6 @@ def gather_field_numba_linear(x, y, z,
         else :
             cos = 1.
             sin = 0.
-        exptheta_m0 = 1.
-        exptheta_m1 = cos - 1.j*sin
 
         # Get linear weights for the deposition
         # --------------------------------------------
@@ -126,7 +124,7 @@ def gather_field_numba_linear(x, y, z,
         if iz_upper > Nz-1:
             iz_upper -= Nz
 
-        #Precalculate Shapes
+        # Precalculate Shapes
         S_ll = Sz_lower*Sr_lower
         S_lu = Sz_lower*Sr_upper
         S_ul = Sz_upper*Sr_lower
@@ -141,84 +139,57 @@ def gather_field_numba_linear(x, y, z,
         Fr = 0.
         Ft = 0.
         Fz = 0.
+        # Calculate azimuthal phase (gets updated in the loop over modes)
+        exp_m_theta = 1.
 
-        # Mode 0
-        # ----------------------------
-        # Create temporary variables
-        # for the "per mode" gathering
-        Fr_m = 0.j
-        Ft_m = 0.j
-        Fz_m = 0.j
-        # Add the fields for mode 0
-        # Lower cell in z, Lower cell in r
-        Fr_m += S_ll * Er_mesh[0, iz_lower, ir_lower ]
-        Ft_m += S_ll * Et_mesh[0, iz_lower, ir_lower ]
-        Fz_m += S_ll * Ez_mesh[0, iz_lower, ir_lower ]
-        # Lower cell in z, Upper cell in r
-        Fr_m += S_lu * Er_mesh[0, iz_lower, ir_upper ]
-        Ft_m += S_lu * Et_mesh[0, iz_lower, ir_upper ]
-        Fz_m += S_lu * Ez_mesh[0, iz_lower, ir_upper ]
-        # Upper cell in z, Lower cell in r
-        Fr_m += S_ul * Er_mesh[0, iz_upper, ir_lower ]
-        Ft_m += S_ul * Et_mesh[0, iz_upper, ir_lower ]
-        Fz_m += S_ul * Ez_mesh[0, iz_upper, ir_lower ]
-        # Upper cell in z, Upper cell in r
-        Fr_m += S_uu * Er_mesh[0, iz_upper, ir_upper ]
-        Ft_m += S_uu * Et_mesh[0, iz_upper, ir_upper ]
-        Fz_m += S_uu * Ez_mesh[0, iz_upper, ir_upper ]
-        # Add the fields from the guard cells
-        if ir_lower == ir_upper == 0:
-            # Lower cell in z
-            Fr_m += -1. * S_lg * Er_mesh[0, iz_lower, 0]
-            Ft_m += -1. * S_lg * Et_mesh[0, iz_lower, 0]
-            Fz_m +=  1. * S_lg * Ez_mesh[0, iz_lower, 0]
-            # Upper cell in z
-            Fr_m += -1. * S_ug * Er_mesh[0, iz_upper, 0]
-            Ft_m += -1. * S_ug * Et_mesh[0, iz_upper, 0]
-            Fz_m +=  1. * S_ug * Ez_mesh[0, iz_upper, 0]
-        # Add the fields from the mode 0
-        Fr += (Fr_m*exptheta_m0).real
-        Ft += (Ft_m*exptheta_m0).real
-        Fz += (Fz_m*exptheta_m0).real
+        # Loop over modes
+        # ---------------
+        for m in range(Nm):
+            # Update exp_m_theta
+            if m > 0:
+                exp_m_theta = exp_m_theta * (cos - 1.j*sin)
+            # Create temporary variables
+            # for the "per mode" gathering
+            Fr_m = 0.j
+            Ft_m = 0.j
+            Fz_m = 0.j
+            # Add the fields for mode m
+            # Lower cell in z, Lower cell in r
+            Fr_m += S_ll * Er_mesh[m, iz_lower, ir_lower ]
+            Ft_m += S_ll * Et_mesh[m, iz_lower, ir_lower ]
+            Fz_m += S_ll * Ez_mesh[m, iz_lower, ir_lower ]
+            # Lower cell in z, Upper cell in r
+            Fr_m += S_lu * Er_mesh[m, iz_lower, ir_upper ]
+            Ft_m += S_lu * Et_mesh[m, iz_lower, ir_upper ]
+            Fz_m += S_lu * Ez_mesh[m, iz_lower, ir_upper ]
+            # Upper cell in z, Lower cell in r
+            Fr_m += S_ul * Er_mesh[m, iz_upper, ir_lower ]
+            Ft_m += S_ul * Et_mesh[m, iz_upper, ir_lower ]
+            Fz_m += S_ul * Ez_mesh[m, iz_upper, ir_lower ]
+            # Upper cell in z, Upper cell in r
+            Fr_m += S_uu * Er_mesh[m, iz_upper, ir_upper ]
+            Ft_m += S_uu * Et_mesh[m, iz_upper, ir_upper ]
+            Fz_m += S_uu * Ez_mesh[m, iz_upper, ir_upper ]
+            # Add the fields from the guard cells
+            if ir_lower == ir_upper == 0:
+                # Lower cell in z
+                Fr_m += -(-1.)**m * S_lg * Er_mesh[m, iz_lower, 0]
+                Ft_m += -(-1.)**m * S_lg * Et_mesh[m, iz_lower, 0]
+                Fz_m +=  (-1.)**m * S_lg * Ez_mesh[m, iz_lower, 0]
+                # Upper cell in z
+                Fr_m += -(-1.)**m * S_ug * Er_mesh[m, iz_upper, 0]
+                Ft_m += -(-1.)**m * S_ug * Et_mesh[m, iz_upper, 0]
+                Fz_m +=  (-1.)**m * S_ug * Ez_mesh[m, iz_upper, 0]
 
-        # Mode 1
-        # ----------------------------
-        # Clear the temporary variables
-        # for the "per mode" gathering
-        Fr_m = 0.j
-        Ft_m = 0.j
-        Fz_m = 0.j
-        # Add the fields for mode 1
-        # Lower cell in z, Lower cell in r
-        Fr_m += S_ll * Er_mesh[1, iz_lower, ir_lower ]
-        Ft_m += S_ll * Et_mesh[1, iz_lower, ir_lower ]
-        Fz_m += S_ll * Ez_mesh[1, iz_lower, ir_lower ]
-        # Lower cell in z, Upper cell in r
-        Fr_m += S_lu * Er_mesh[1, iz_lower, ir_upper ]
-        Ft_m += S_lu * Et_mesh[1, iz_lower, ir_upper ]
-        Fz_m += S_lu * Ez_mesh[1, iz_lower, ir_upper ]
-        # Upper cell in z, Lower cell in r
-        Fr_m += S_ul * Er_mesh[1, iz_upper, ir_lower ]
-        Ft_m += S_ul * Et_mesh[1, iz_upper, ir_lower ]
-        Fz_m += S_ul * Ez_mesh[1, iz_upper, ir_lower ]
-        # Upper cell in z, Upper cell in r
-        Fr_m += S_uu * Er_mesh[1, iz_upper, ir_upper ]
-        Ft_m += S_uu * Et_mesh[1, iz_upper, ir_upper ]
-        Fz_m += S_uu * Ez_mesh[1, iz_upper, ir_upper ]
-        # Add the fields from the guard cells
-        if ir_lower == ir_upper == 0:
-            # Lower cell in z
-            Fr_m +=  1. * S_lg * Er_mesh[1, iz_lower, 0]
-            Ft_m +=  1. * S_lg * Et_mesh[1, iz_lower, 0]
-            Fz_m += -1. * S_lg * Ez_mesh[1, iz_lower, 0]
-            # Upper cell in z
-            Fr_m +=  1. * S_ug * Er_mesh[1, iz_upper, 0]
-            Ft_m +=  1. * S_ug * Et_mesh[1, iz_upper, 0]
-            Fz_m += -1. * S_ug * Ez_mesh[1, iz_upper, 0]
-        # Add the fields from the mode 1
-        Fr += 2*(Fr_m*exptheta_m1).real
-        Ft += 2*(Ft_m*exptheta_m1).real
-        Fz += 2*(Fz_m*exptheta_m1).real
+            # Add the fields from the mode m
+            # Take into account normalization of modes m>0
+            if m==0:
+                factor = 1.
+            else:
+                factor = 2.
+            Fr += factor * (Fr_m*exp_m_theta).real
+            Ft += factor * (Ft_m*exp_m_theta).real
+            Fz += factor * (Fz_m*exp_m_theta).real
 
         # Convert to Cartesian coordinates
         # and write to particle field arrays
@@ -228,90 +199,62 @@ def gather_field_numba_linear(x, y, z,
 
         # B-Field
         # ----------------------------
-        # Clear the placeholders for the
+        # Define the initial placeholders for the
         # gathered field for each coordinate
         Fr = 0.
         Ft = 0.
         Fz = 0.
+        # Calculate azimuthal phase (gets updated in the loop over modes)
+        exp_m_theta = 1.
 
-        # Mode 0
-        # ----------------------------
-        # Create temporary variables
-        # for the "per mode" gathering
-        Fr_m = 0.j
-        Ft_m = 0.j
-        Fz_m = 0.j
-        # Add the fields for mode 0
-        # Lower cell in z, Lower cell in r
-        Fr_m += S_ll * Br_mesh[0, iz_lower, ir_lower ]
-        Ft_m += S_ll * Bt_mesh[0, iz_lower, ir_lower ]
-        Fz_m += S_ll * Bz_mesh[0, iz_lower, ir_lower ]
-        # Lower cell in z, Upper cell in r
-        Fr_m += S_lu * Br_mesh[0, iz_lower, ir_upper ]
-        Ft_m += S_lu * Bt_mesh[0, iz_lower, ir_upper ]
-        Fz_m += S_lu * Bz_mesh[0, iz_lower, ir_upper ]
-        # Upper cell in z, Lower cell in r
-        Fr_m += S_ul * Br_mesh[0, iz_upper, ir_lower ]
-        Ft_m += S_ul * Bt_mesh[0, iz_upper, ir_lower ]
-        Fz_m += S_ul * Bz_mesh[0, iz_upper, ir_lower ]
-        # Upper cell in z, Upper cell in r
-        Fr_m += S_uu * Br_mesh[0, iz_upper, ir_upper ]
-        Ft_m += S_uu * Bt_mesh[0, iz_upper, ir_upper ]
-        Fz_m += S_uu * Bz_mesh[0, iz_upper, ir_upper ]
-        # Add the fields from the guard cells
-        if ir_lower == ir_upper == 0:
-            # Lower cell in z
-            Fr_m += -1. * S_lg * Br_mesh[0, iz_lower, 0]
-            Ft_m += -1. * S_lg * Bt_mesh[0, iz_lower, 0]
-            Fz_m +=  1. * S_lg * Bz_mesh[0, iz_lower, 0]
-            # Upper cell in z
-            Fr_m += -1. * S_ug * Br_mesh[0, iz_upper, 0]
-            Ft_m += -1. * S_ug * Bt_mesh[0, iz_upper, 0]
-            Fz_m +=  1. * S_ug * Bz_mesh[0, iz_upper, 0]
-        # Add the fields from the mode 0
-        Fr += (Fr_m*exptheta_m0).real
-        Ft += (Ft_m*exptheta_m0).real
-        Fz += (Fz_m*exptheta_m0).real
+        # Loop over modes
+        # ---------------
+        for m in range(Nm):
+            # Update exp_m_theta
+            if m > 0:
+                exp_m_theta = exp_m_theta * (cos - 1.j*sin)
+            # Create temporary variables
+            # for the "per mode" gathering
+            Fr_m = 0.j
+            Ft_m = 0.j
+            Fz_m = 0.j
+            # Add the fields for mode m
+            # Lower cell in z, Lower cell in r
+            Fr_m += S_ll * Br_mesh[m, iz_lower, ir_lower ]
+            Ft_m += S_ll * Bt_mesh[m, iz_lower, ir_lower ]
+            Fz_m += S_ll * Bz_mesh[m, iz_lower, ir_lower ]
+            # Lower cell in z, Upper cell in r
+            Fr_m += S_lu * Br_mesh[m, iz_lower, ir_upper ]
+            Ft_m += S_lu * Bt_mesh[m, iz_lower, ir_upper ]
+            Fz_m += S_lu * Bz_mesh[m, iz_lower, ir_upper ]
+            # Upper cell in z, Lower cell in r
+            Fr_m += S_ul * Br_mesh[m, iz_upper, ir_lower ]
+            Ft_m += S_ul * Bt_mesh[m, iz_upper, ir_lower ]
+            Fz_m += S_ul * Bz_mesh[m, iz_upper, ir_lower ]
+            # Upper cell in z, Upper cell in r
+            Fr_m += S_uu * Br_mesh[m, iz_upper, ir_upper ]
+            Ft_m += S_uu * Bt_mesh[m, iz_upper, ir_upper ]
+            Fz_m += S_uu * Bz_mesh[m, iz_upper, ir_upper ]
+            # Add the fields from the guard cells
+            if ir_lower == ir_upper == 0:
+                # Lower cell in z
+                Fr_m += -(-1.)**m * S_lg * Br_mesh[m, iz_lower, 0]
+                Ft_m += -(-1.)**m * S_lg * Bt_mesh[m, iz_lower, 0]
+                Fz_m +=  (-1.)**m * S_lg * Bz_mesh[m, iz_lower, 0]
+                # Upper cell in z
+                Fr_m += -(-1.)**m * S_ug * Br_mesh[m, iz_upper, 0]
+                Ft_m += -(-1.)**m * S_ug * Bt_mesh[m, iz_upper, 0]
+                Fz_m +=  (-1.)**m * S_ug * Bz_mesh[m, iz_upper, 0]
 
-        # Mode 1
-        # ----------------------------
-        # Clear the temporary variables
-        # for the "per mode" gathering
-        Fr_m = 0.j
-        Ft_m = 0.j
-        Fz_m = 0.j
-        # Add the fields for mode 1
-        # Lower cell in z, Lower cell in r
-        Fr_m += S_ll * Br_mesh[1, iz_lower, ir_lower ]
-        Ft_m += S_ll * Bt_mesh[1, iz_lower, ir_lower ]
-        Fz_m += S_ll * Bz_mesh[1, iz_lower, ir_lower ]
-        # Lower cell in z, Upper cell in r
-        Fr_m += S_lu * Br_mesh[1, iz_lower, ir_upper ]
-        Ft_m += S_lu * Bt_mesh[1, iz_lower, ir_upper ]
-        Fz_m += S_lu * Bz_mesh[1, iz_lower, ir_upper ]
-        # Upper cell in z, Lower cell in r
-        Fr_m += S_ul * Br_mesh[1, iz_upper, ir_lower ]
-        Ft_m += S_ul * Bt_mesh[1, iz_upper, ir_lower ]
-        Fz_m += S_ul * Bz_mesh[1, iz_upper, ir_lower ]
-        # Upper cell in z, Upper cell in r
-        Fr_m += S_uu * Br_mesh[1, iz_upper, ir_upper ]
-        Ft_m += S_uu * Bt_mesh[1, iz_upper, ir_upper ]
-        Fz_m += S_uu * Bz_mesh[1, iz_upper, ir_upper ]
-
-        # Add the fields from the guard cells
-        if ir_lower == ir_upper == 0:
-            # Lower cell in z
-            Fr_m +=  1. * S_lg * Br_mesh[1, iz_lower, 0]
-            Ft_m +=  1. * S_lg * Bt_mesh[1, iz_lower, 0]
-            Fz_m += -1. * S_lg * Bz_mesh[1, iz_lower, 0]
-            # Upper cell in z
-            Fr_m +=  1. * S_ug * Br_mesh[1, iz_upper, 0]
-            Ft_m +=  1. * S_ug * Bt_mesh[1, iz_upper, 0]
-            Fz_m += -1. * S_ug * Bz_mesh[1, iz_upper, 0]
-        # Add the fields from the mode 1
-        Fr += 2*(Fr_m*exptheta_m1).real
-        Ft += 2*(Ft_m*exptheta_m1).real
-        Fz += 2*(Fz_m*exptheta_m1).real
+            # Add the fields from the mode m
+            # Take into account normalization of modes m>0
+            if m==0:
+                factor = 1.
+            else:
+                factor = 2.
+            Fr += factor * (Fr_m*exp_m_theta).real
+            Ft += factor * (Ft_m*exp_m_theta).real
+            Fz += factor * (Fz_m*exp_m_theta).real
 
         # Convert to Cartesian coordinates
         # and write to particle field arrays
@@ -466,6 +409,7 @@ def gather_field_numba_cubic(x, y, z,
             Fr = 0.
             Ft = 0.
             Fz = 0.
+            # Define
             # Loop over the azimuthal modes
             # ----------------------------
             for m in range(Nm):
