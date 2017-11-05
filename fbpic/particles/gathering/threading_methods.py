@@ -390,6 +390,8 @@ def gather_field_numba_cubic(x, y, z,
         Sr = np.empty( 4 )
         iz = np.empty( 4, dtype=int64)
         Sz = np.empty( 4 )
+        # Store phase of azimuthal mode
+        exp_theta = np.empty( Nm, dtype=np.complex128 )
 
         # Loop over all particles in thread chunk
         for i in range( ptcl_chunk_indices[nt],
@@ -412,8 +414,9 @@ def gather_field_numba_cubic(x, y, z,
                 cos = 1.
                 sin = 0.
             # Calculate azimuthal phase
-            exptheta_m0 = 1.
-            exptheta_m1 = cos - 1.j*sin
+            exp_theta[0] = 1.
+            for m in range(1,Nm):
+                exp_theta[m] = (cos - 1.j*sin)*exp_theta[m-1]
 
             # Get weights for the deposition
             # --------------------------------------------
@@ -463,67 +466,45 @@ def gather_field_numba_cubic(x, y, z,
             Fr = 0.
             Ft = 0.
             Fz = 0.
-
-            # Mode 0
+            # Loop over the azimuthal modes
             # ----------------------------
-            # Create temporary variables
-            # for the "per mode" gathering
-            Fr_m = 0.j
-            Ft_m = 0.j
-            Fz_m = 0.j
-            # Add the fields for mode 0
-            index_r = 0
-            while index_r < 4:
-                index_z = 0
-                while index_z < 4:
-                    Fr_m += Sz[index_z]*Sr[index_r] * \
-                        Er_mesh[0,iz[index_z], ir[index_r]]
-                    Ft_m += Sz[index_z]*Sr[index_r] * \
-                        Et_mesh[0,iz[index_z], ir[index_r]]
-                    if Sz[index_z]*Sr[index_r] < 0:
-                        Fz_m += (-1.)*Sz[index_z]*Sr[index_r]* \
-                            Ez_mesh[0,iz[index_z], ir[index_r]]
-                    else:
-                        Fz_m += Sz[index_z]*Sr[index_r]* \
-                            Ez_mesh[0,iz[index_z], ir[index_r]]
-                    index_z += 1
-                index_r += 1
+            for m in range(Nm):
 
-            Fr += (Fr_m*exptheta_m0).real
-            Ft += (Ft_m*exptheta_m0).real
-            Fz += (Fz_m*exptheta_m0).real
+                # Create temporary variables
+                # for the "per mode" gathering
+                Fr_m = 0.j
+                Ft_m = 0.j
+                Fz_m = 0.j
+                # Add the fields for mode 0
+                index_r = 0
+                while index_r < 4:
+                    index_z = 0
+                    while index_z < 4:
+                        if Sz[index_z]*Sr[index_r] < 0:
+                            Fr_m += (-1.)**m * Sz[index_z]*Sr[index_r] * \
+                                Er_mesh[m, iz[index_z], ir[index_r]]
+                            Ft_m += (-1.)**m * Sz[index_z]*Sr[index_r] * \
+                                Et_mesh[m, iz[index_z], ir[index_r]]
+                            Fz_m += -(-1.)**m * Sz[index_z]*Sr[index_r]* \
+                                Ez_mesh[m, iz[index_z], ir[index_r]]
+                        else:
+                            Fr_m += Sz[index_z]*Sr[index_r] * \
+                                Er_mesh[m, iz[index_z], ir[index_r]]
+                            Ft_m += Sz[index_z]*Sr[index_r] * \
+                                Et_mesh[m, iz[index_z], ir[index_r]]
+                            Fz_m += Sz[index_z]*Sr[index_r]* \
+                                Ez_mesh[m, iz[index_z], ir[index_r]]
+                        index_z += 1
+                    index_r += 1
 
-            # Mode 1
-            # ----------------------------
-            # Clear the temporary variables
-            # for the "per mode" gathering
-            Fr_m = 0.j
-            Ft_m = 0.j
-            Fz_m = 0.j
-            # Add the fields for mode 1
-            index_r = 0
-            while index_r < 4:
-                index_z = 0
-                while index_z < 4:
-                    if Sz[index_z]*Sr[index_r] < 0:
-                        Fr_m += (-1.)*Sz[index_z]*Sr[index_r]* \
-                                    Er_mesh[1,iz[index_z], ir[index_r]]
-                        Ft_m += (-1.)*Sz[index_z]*Sr[index_r]* \
-                                    Et_mesh[1,iz[index_z], ir[index_r]]
-                    else:
-                        Fr_m += Sz[index_z]*Sr[index_r]* \
-                                    Er_mesh[1,iz[index_z], ir[index_r]]
-                        Ft_m += Sz[index_z]*Sr[index_r]* \
-                                    Et_mesh[1,iz[index_z], ir[index_r]]
-                    Fz_m += Sz[index_z]*Sr[index_r] * \
-                        Ez_mesh[1,iz[index_z], ir[index_r]]
-                    index_z += 1
-                index_r += 1
-
-            # Add the fields from the mode 1
-            Fr += 2*(Fr_m*exptheta_m1).real
-            Ft += 2*(Ft_m*exptheta_m1).real
-            Fz += 2*(Fz_m*exptheta_m1).real
+                # Take into account normalization of modes m>0
+                if m==0:
+                    factor = 1.
+                else:
+                    factor = 2.
+                Fr += factor * (Fr_m*exp_theta[m]).real
+                Ft += factor * (Ft_m*exp_theta[m]).real
+                Fz += factor * (Fz_m*exp_theta[m]).real
 
             # Convert to Cartesian coordinates
             # and write to particle field arrays
@@ -533,78 +514,56 @@ def gather_field_numba_cubic(x, y, z,
 
             # B-Field
             # ----------------------------
-            # Clear the placeholders for the
+            # Define the initial placeholders for the
             # gathered field for each coordinate
             Fr = 0.
             Ft = 0.
             Fz = 0.
-
-            # Mode 0
+            # Loop over the azimuthal modes
             # ----------------------------
-            # Create temporary variables
-            # for the "per mode" gathering
-            Fr_m = 0.j
-            Ft_m = 0.j
-            Fz_m = 0.j
-            # Add the fields for mode 0
-            index_r = 0
-            while index_r < 4:
-                index_z = 0
-                while index_z < 4:
-                    Fr_m += Sz[index_z]*Sr[index_r]* \
-                        Br_mesh[0,iz[index_z], ir[index_r]]
-                    Ft_m += Sz[index_z]*Sr[index_r]* \
-                        Bt_mesh[0,iz[index_z], ir[index_r]]
-                    if Sz[index_z]*Sr[index_r] < 0:
-                        Fz_m += (-1.)*Sz[index_z]*Sr[index_r]* \
-                            Bz_mesh[0,iz[index_z], ir[index_r]]
-                    else:
-                        Fz_m += Sz[index_z]*Sr[index_r]* \
-                            Bz_mesh[0,iz[index_z], ir[index_r]]
-                    index_z += 1
-                index_r += 1
+            for m in range(Nm):
 
-            # Add the fields from the mode 0
-            Fr += (Fr_m*exptheta_m0).real
-            Ft += (Ft_m*exptheta_m0).real
-            Fz += (Fz_m*exptheta_m0).real
+                # Create temporary variables
+                # for the "per mode" gathering
+                Fr_m = 0.j
+                Ft_m = 0.j
+                Fz_m = 0.j
+                # Add the fields for mode 0
+                index_r = 0
+                while index_r < 4:
+                    index_z = 0
+                    while index_z < 4:
+                        if Sz[index_z]*Sr[index_r] < 0:
+                            Fr_m += (-1.)**m * Sz[index_z]*Sr[index_r] * \
+                                Br_mesh[m, iz[index_z], ir[index_r]]
+                            Ft_m += (-1.)**m * Sz[index_z]*Sr[index_r] * \
+                                Bt_mesh[m, iz[index_z], ir[index_r]]
+                            Fz_m += -(-1.)**m * Sz[index_z]*Sr[index_r]* \
+                                Bz_mesh[m, iz[index_z], ir[index_r]]
+                        else:
+                            Fr_m += Sz[index_z]*Sr[index_r] * \
+                                Br_mesh[m, iz[index_z], ir[index_r]]
+                            Ft_m += Sz[index_z]*Sr[index_r] * \
+                                Bt_mesh[m, iz[index_z], ir[index_r]]
+                            Fz_m += Sz[index_z]*Sr[index_r]* \
+                                Bz_mesh[m, iz[index_z], ir[index_r]]
+                        index_z += 1
+                    index_r += 1
 
-            # Mode 1
-            # ----------------------------
-            # Clear the temporary variables
-            # for the "per mode" gathering
-            Fr_m = 0.j
-            Ft_m = 0.j
-            Fz_m = 0.j
-
-            # Add the fields for mode 1
-            index_r = 0
-            while index_r < 4:
-                index_z = 0
-                while index_z < 4:
-                    if Sz[index_z]*Sr[index_r] < 0:
-                        Fr_m += (-1.)*Sz[index_z]*Sr[index_r]* \
-                            Br_mesh[1,iz[index_z], ir[index_r]]
-                        Ft_m += (-1.)*Sz[index_z]*Sr[index_r]* \
-                            Bt_mesh[1,iz[index_z], ir[index_r]]
-                    else:
-                        Fr_m += Sz[index_z]*Sr[index_r]* \
-                            Br_mesh[1,iz[index_z], ir[index_r]]
-                        Ft_m += Sz[index_z]*Sr[index_r]* \
-                            Bt_mesh[1,iz[index_z], ir[index_r]]
-                    Fz_m += Sz[index_z]*Sr[index_r]*Bz_mesh[1,iz[index_z], ir[index_r]]
-                    index_z += 1
-                index_r += 1
-
-            # Add the fields from the mode 1
-            Fr += 2*(Fr_m*exptheta_m1).real
-            Ft += 2*(Ft_m*exptheta_m1).real
-            Fz += 2*(Fz_m*exptheta_m1).real
+                # Take into account normalization of modes m>0
+                if m==0:
+                    factor = 1.
+                else:
+                    factor = 2.
+                Fr += factor * (Fr_m*exp_theta[m]).real
+                Ft += factor * (Ft_m*exp_theta[m]).real
+                Fz += factor * (Fz_m*exp_theta[m]).real
 
             # Convert to Cartesian coordinates
             # and write to particle field arrays
-            Bx[i] = cos*Fr - sin*Ft
-            By[i] = sin*Fr + cos*Ft
+            Bx[i] = (cos*Fr - sin*Ft)
+            By[i] = (sin*Fr + cos*Ft)
             Bz[i] = Fz
+
 
     return Ex, Ey, Ez, Bx, By, Bz
