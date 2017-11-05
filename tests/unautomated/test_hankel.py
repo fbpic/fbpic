@@ -174,7 +174,7 @@ def compare_Hankel_methods( f_analytic, g_analytic, p, Nz, Nr,
 
     plt.show()
 
-def compare_power_p( p, rcut, N, rmax, Nz=1, **kw ) :
+def compare_power_p( p, rcut, N, rmax, Nz=1) :
     """
     Test the Hankel transforms for the test function :
     x -> (x/rcut)^p for x < rcut
@@ -200,9 +200,9 @@ def compare_power_p( p, rcut, N, rmax, Nz=1, **kw ) :
            ans =  rcut*jn( p+1, 2*np.pi*rcut*x) / x
         return( ans )
 
-    compare_Hankel_methods( power_p, power_p_trans, p, Nz, N, rmax, **kw )
+    compare_Hankel_methods( power_p, power_p_trans, p, Nz, N, rmax)
 
-def compare_laguerre_gauss( p, n, N, rmax, Nz=1, **kw ) :
+def compare_laguerre_gauss( p, n, N, rmax, Nz=1) :
     """
     Test the Hankel transforms for the test function :
     x -> x^p L_n^p(x^2) exp(-x^2/2)
@@ -227,9 +227,9 @@ def compare_laguerre_gauss( p, n, N, rmax, Nz=1, **kw ) :
                 np.exp(-(2*np.pi*x)**2/2) )
 
     compare_Hankel_methods( laguerre_n_p, laguerre_n_p_trans, p,
-                            Nz, N, rmax, **kw )
+                            Nz, N, rmax)
 
-def compare_bessel( p, m, n, N, rmax, Nz=1, **kw ) :
+def compare_bessel( p, m, n, N, rmax, Nz=1) :
     """
     Test the Hankel transforms for the test function :
     x -> J_p( k_n^{m} x )
@@ -253,7 +253,7 @@ def compare_bessel( p, m, n, N, rmax, Nz=1, **kw ) :
             return( np.where( abs(x - k/(2*np.pi)) < 0.1,
                           np.pi*rmax**2*jn(p, k*rmax)**2 , 0.) )
 
-    compare_Hankel_methods( bessel_n_p, delta, p, Nz, N, rmax, **kw )
+    compare_Hankel_methods( bessel_n_p, delta, p, Nz, N, rmax)
 
 if __name__ == '__main__' :
 
@@ -269,7 +269,7 @@ if __name__ == '__main__' :
       [ method for method in available_methods if method != 'MDHT(m+1,m)']
 
     for p in range(pmax+1) :
-        compare_power_p( p, 1, Nr, rmax, Nz=Nz, methods=methods[p], **kw )
+        compare_power_p( p, 1, Nr, rmax, Nz=Nz, methods=methods[p])
 
     for p in range(pmax+1) :
         for n in range(2) :
@@ -277,12 +277,12 @@ if __name__ == '__main__' :
 
     for p in range(pmax+1) :
         compare_bessel( p, p, int(Nr*0.3), Nr, rmax,
-                        methods=methods[p], Nz=Nz, **kw )
+                        methods=methods[p], Nz=Nz)
         compare_bessel( p, p, int(Nr*0.9), Nr, rmax,
-                        methods=methods[p], Nz=Nz, **kw )
+                        methods=methods[p], Nz=Nz)
 
     for p in range(pmax+1) :
         compare_bessel( p, p+1, int(Nr*0.3), Nr, rmax,
-                        methods=methods[p], Nz=Nz, **kw )
+                        methods=methods[p], Nz=Nz)
         compare_bessel( p, p+1, int(Nr*0.9), Nr, rmax,
-                        methods=methods[p], Nz=Nz, **kw )
+                        methods=methods[p], Nz=Nz)

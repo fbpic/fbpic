@@ -121,7 +121,7 @@ class DHT(object):
             self.invM[:, :] = num[:, :] / denom[:, np.newaxis]
 
         # Calculate the matrix M
-        self.M = np.empty((N, N))
+        self.M = np.empty((Nr, Nr))
         if m !=0 and p != m-1 :
             self.M[:, 1:] = np.linalg.pinv( self.invM[1:, :] )
             self.M[:, 0] = 0.
