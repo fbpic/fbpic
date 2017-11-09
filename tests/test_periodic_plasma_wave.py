@@ -32,6 +32,8 @@ $$ \phi =
 \epsilon \,\frac{m c^2}{e}
     \exp\left(-\frac{r^2}{w_0^2}\right) \sin(k_0 z) \sin(\omega_p t)
 + \epsilon_1 \,\frac{m c^2}{e} \frac{2\,r\cos(\theta)}{w_0}
+    \exp\left(-\frac{r^2}{w_0^2}\right)\sin(k_0 z) \sin(\omega_p t)
++ \epsilon_2 \,\frac{m c^2}{e} \frac{4\,r^2\cos(2\theta)}{w_0^2}
     \exp\left(-\frac{r^2}{w_0^2}\right)\sin(k_0 z) \sin(\omega_p t)$$
 
 $$ E_r = -\partial_r \phi =
@@ -40,17 +42,47 @@ $$ E_r = -\partial_r \phi =
 - \epsilon_1 \,\frac{m c^2}{e} \frac{2\cos(\theta)}{w_0}
     \exp\left(-\frac{r^2}{w_0^2}\right)\sin(k_0 z) \sin(\omega_p t)
 + \epsilon_1 \,\frac{m c^2}{e} \frac{4\,r^2\cos(\theta)}{w_0^3}
+    \exp\left(-\frac{r^2}{w_0^2}\right)\sin(k_0 z) \sin(\omega_p t)
+- \epsilon_2 \,\frac{m c^2}{e} \frac{8\,r\cos(2\theta)}{w_0^2}
+    \exp\left(-\frac{r^2}{w_0^2}\right)\sin(k_0 z) \sin(\omega_p t)
++ \epsilon_2 \,\frac{m c^2}{e} \frac{8\,r^3\cos(2\theta)}{w_0^4}
     \exp\left(-\frac{r^2}{w_0^2}\right)\sin(k_0 z) \sin(\omega_p t) $$
 
-$$ E_theta = - \frac{1}{r} \partial_\theta \phi =
+$$ E_\theta = - \frac{1}{r} \partial_\theta \phi =
  \epsilon_1 \,\frac{m c^2}{e} \frac{2\,\sin(\theta)}{w_0}
+    \exp\left(-\frac{r^2}{w_0^2}\right)\sin(k_0 z) \sin(\omega_p t)
++ \epsilon_2 \,\frac{m c^2}{e} \frac{8\,r\sin(2\theta)}{w_0^2}
+    \exp\left(-\frac{r^2}{w_0^2}\right)\sin(k_0 z) \sin(\omega_p t) $$
+
+$$ E_x = \cos(\theta)E_r - \sin(\theta)E_\theta =
+\epsilon \,\frac{mc^2}{e}\frac{2\,x}{w_0^2}
+    \exp\left(-\frac{r^2}{w_0^2}\right) \sin(k_0 z) \sin(\omega_p t)
+- \epsilon_1 \,\frac{m c^2}{e} \frac{2}{w_0}
+    \exp\left(-\frac{r^2}{w_0^2}\right)\sin(k_0 z) \sin(\omega_p t)
++ \epsilon_1 \,\frac{m c^2}{e} \frac{4\,x^2}{w_0^3}
+    \exp\left(-\frac{r^2}{w_0^2}\right)\sin(k_0 z) \sin(\omega_p t)
+- \epsilon_2 \,\frac{m c^2}{e} \frac{8\,x}{w_0^2}
+    \exp\left(-\frac{r^2}{w_0^2}\right)\sin(k_0 z) \sin(\omega_p t)
++ \epsilon_2 \,\frac{m c^2}{e} \frac{8\,x(x^2-y^2)}{w_0^4}
+    \exp\left(-\frac{r^2}{w_0^2}\right)\sin(k_0 z) \sin(\omega_p t) $$
+
+$$ E_y = \sin(\theta)E_r + \cos(\theta)E_\theta =
+\epsilon \,\frac{mc^2}{e}\frac{2\,y}{w_0^2}
+    \exp\left(-\frac{r^2}{w_0^2}\right) \sin(k_0 z) \sin(\omega_p t)
++ \epsilon_1 \,\frac{m c^2}{e} \frac{4\,x y}{w_0^3}
+    \exp\left(-\frac{r^2}{w_0^2}\right)\sin(k_0 z) \sin(\omega_p t)
++ \epsilon_2 \,\frac{m c^2}{e} \frac{8\,y}{w_0^2}
+    \exp\left(-\frac{r^2}{w_0^2}\right)\sin(k_0 z) \sin(\omega_p t)
++ \epsilon_2 \,\frac{m c^2}{e} \frac{8\,y(x^2-y^2)}{w_0^4}
     \exp\left(-\frac{r^2}{w_0^2}\right)\sin(k_0 z) \sin(\omega_p t) $$
 
 $$ E_z = -\partial_z \phi =
  - \epsilon \,\frac{mc^2}{e} k_0
     \exp\left(-\frac{r^2}{w_0^2}\right) \cos(k_0 z) \sin(\omega_p t)
  - \epsilon_1 \,\frac{m c^2}{e} \frac{2\,r\cos(\theta)}{w_0} k_0
-    \exp\left(-\frac{r^2}{w_0^2}\right)\cos(k_0 z) \sin(\omega_p t)$$
+    \exp\left(-\frac{r^2}{w_0^2}\right)\cos(k_0 z) \sin(\omega_p t)
+ - \epsilon_2 \, \frac{m c^2}{e} \frac{4\,r^2\cos(\theta)}{w_0^2} k_0
+    \exp\left(-\frac{r^2}{w_0^2}\right)\cos(k_0 z) \sin(\omega_p t) $$
 
 $$ v_x/c =
  \epsilon \, \frac{c}{\omega_p} \, \frac{2\,x}{w_0^2}
@@ -58,22 +90,32 @@ $$ v_x/c =
  - \epsilon_1 \,\frac{c}{\omega_p} \frac{2}{w_0}
     \exp\left(-\frac{r^2}{w_0^2}\right)\sin(k_0 z) \cos(\omega_p t)
  + \epsilon_1 \,\frac{c}{\omega_p} \frac{4\,x^2}{w_0^3})
+    \exp\left(-\frac{r^2}{w_0^2}\right)\sin(k_0 z) \cos(\omega_p t)
+- \epsilon_2 \,\frac{c}{\omega_p} \frac{8\,x}{w_0^2}
+    \exp\left(-\frac{r^2}{w_0^2}\right)\sin(k_0 z) \cos(\omega_p t)
++ \epsilon_2 \,\frac{c}{\omega_p} \frac{8\,x(x^2-y^2)}{w_0^4}
     \exp\left(-\frac{r^2}{w_0^2}\right)\sin(k_0 z) \cos(\omega_p t) $$
 
 $$ v_y/c =
  \epsilon \, \frac{c}{\omega_p} \, \frac{2\,y}{w_0^2}
     \exp\left(-\frac{r^2}{w_0^2}\right) \sin(k_0 z) \cos(\omega_p t)
  + \epsilon_1 \,\frac{c}{\omega_p} \frac{4\,x y}{w_0^3})
+    \exp\left(-\frac{r^2}{w_0^2}\right)\sin(k_0 z) \cos(\omega_p t)
++ \epsilon_2 \,\frac{c}{\omega_p} \frac{8\,y}{w_0^2}
+    \exp\left(-\frac{r^2}{w_0^2}\right)\sin(k_0 z) \cos(\omega_p t)
++ \epsilon_2 \,\frac{c}{\omega_p} \frac{8\,y(x^2-y^2)}{w_0^4}
     \exp\left(-\frac{r^2}{w_0^2}\right)\sin(k_0 z) \cos(\omega_p t) $$
 
 $$ v_z/c =
  - \epsilon \, \frac{c}{\omega_p} \, k_0
     \exp\left(-\frac{r^2}{w_0^2}\right) \cos(k_0 z) \cos(\omega_p t)
  - \epsilon_1 \,\frac{c}{\omega_p} \frac{2\,x}{w_0} k_0
-    \exp\left(-\frac{r^2}{w_0^2}\right) \cos(k_0 z) \cos(\omega_p t) $$
+    \exp\left(-\frac{r^2}{w_0^2}\right) \cos(k_0 z) \cos(\omega_p t)
+ - \epsilon_2 \,\frac{c}{\omega_p} \frac{4\,(x^2-y^2)}{w_0^2} k_0
+    \exp\left(-\frac{r^2}{w_0^2}\right) \cos(k_0 z) \cos(\omega_p t)$$
 
 where $\epsilon$ is the dimensionless amplitude of the mode 0 and
-$\epsilon_1$ is the dimensionless amplitude of the mode 1.
+$\epsilon_1$, $\epsilon_2$ are the dimensionless amplitudes of modes 1 and 2.
 """
 import numpy as np
 import matplotlib.pyplot as plt
@@ -94,7 +136,7 @@ Nz = 200         # Number of gridpoints along z
 zmax = 40.e-6    # Length of the box along z (meters)
 Nr = 64          # Number of gridpoints along r
 rmax = 20.e-6    # Length of the box along r (meters)
-Nm = 2           # Number of modes used
+Nm = 3           # Number of modes used
 n_order = 16     # Order of the finite stencil
 # The simulation timestep
 dt = zmax/Nz/c   # Timestep (seconds)
@@ -112,6 +154,7 @@ p_nt = 4         # Number of particles per cell along theta
 # The plasma wave
 epsilon = 0.001    # Dimensionless amplitude of the wave in mode 0
 epsilon_1 = 0.001  # Dimensionless amplitude of the wave in mode 1
+epsilon_2 = 0.     # Dimensionless amplitude of the wave in mode 2
 w0 = 5.e-6      # The transverse size of the plasma wave
 N_periods = 3   # Number of periods in the box
 # Calculated quantities
@@ -152,7 +195,7 @@ def simulate_periodic_plasma_wave( particle_shape, show=False ):
     # Impart velocities to the electrons
     # (The electrons are initially homogeneous, but have an
     # intial non-zero velocity that develops into a plasma wave)
-    impart_momenta( sim.ptcl[0], epsilon, epsilon_1, k0, w0, wp )
+    impart_momenta( sim.ptcl[0], epsilon, epsilon_1, epsilon_2, k0, w0, wp )
 
     # Run the simulation
     sim.step( N_step, correct_currents=True )
@@ -177,6 +220,10 @@ def Er( z, r, epsilon, epsilon_1, k0, w0, wp, t) :
         - epsilon_1 * m_e*c**2/e * 2/w0 * \
             np.exp( -r**2/w0**2 ) * np.sin( k0*z ) * np.sin( wp*t ) \
         + epsilon_1 * m_e*c**2/e * 4*r**2/w0**3 * \
+            np.exp( -r**2/w0**2 ) * np.sin( k0*z ) * np.sin( wp*t ) \
+        - epsilon_2 * m_e*c**2/e * 8*r/w0**2 * \
+            np.exp( -r**2/w0**2 ) * np.sin( k0*z ) * np.sin( wp*t ) \
+        + epsilon_2 * m_e*c**2/e * 8*r**3/w0**4 * \
             np.exp( -r**2/w0**2 ) * np.sin( k0*z ) * np.sin( wp*t )
     return( Er_array )
 
@@ -189,6 +236,8 @@ def Ez( z, r, epsilon, epsilon_1, k0, w0, wp, t) :
         - epsilon * m_e*c**2/e * k0 * \
             np.exp( -r**2/w0**2 ) * np.cos( k0*z ) * np.sin( wp*t ) \
         - epsilon_1 * m_e*c**2/e * k0 * 2*r/w0 * \
+            np.exp( -r**2/w0**2 ) * np.cos( k0*z ) * np.sin( wp*t ) \
+        - epsilon_2 * m_e*c**2/e * k0 * 4*r**2/w0**2 * \
             np.exp( -r**2/w0**2 ) * np.cos( k0*z ) * np.sin( wp*t )
     return( Ez_array )
 
@@ -203,6 +252,10 @@ def ux( z, r, x, y, epsilon, epsilon_1, k0, w0, wp, t) :
         - epsilon_1 * c/wp * 2/w0 * \
             np.exp( -r**2/w0**2 ) * np.sin( k0*z ) * np.cos( wp*t ) \
         + epsilon_1 * c/wp * 4*x**2/w0**3 * \
+            np.exp( -r**2/w0**2 ) * np.sin( k0*z ) * np.cos( wp*t ) \
+        - epsilon_2 * c/wp * 8*x/w0**2 * \
+            np.exp( -r**2/w0**2 ) * np.sin( k0*z ) * np.cos( wp*t ) \
+        + epsilon_2 * c/wp * 8*x*(x**2-y**2)/w0**4 * \
             np.exp( -r**2/w0**2 ) * np.sin( k0*z ) * np.cos( wp*t )
     return( ux_array )
 
@@ -215,6 +268,10 @@ def uy( z, r, x, y, epsilon, epsilon_1, k0, w0, wp, t) :
         epsilon * c/wp * 2*y/w0**2 * \
             np.exp( -r**2/w0**2 ) * np.sin( k0*z ) * np.cos( wp*t ) \
         + epsilon_1 * c/wp * 4*x*y/w0**3 * \
+            np.exp( -r**2/w0**2 ) * np.sin( k0*z ) * np.cos( wp*t ) \
+        + epsilon_2 * c/wp * 8*y/w0**2 * \
+            np.exp( -r**2/w0**2 ) * np.sin( k0*z ) * np.cos( wp*t ) \
+        + epsilon_2 * c/wp * 8*y*(x**2-y**2)/w0**4 * \
             np.exp( -r**2/w0**2 ) * np.sin( k0*z ) * np.cos( wp*t )
     return( uy_array )
 
@@ -227,6 +284,8 @@ def uz( z, r, x, y, epsilon, epsilon_1, k0, w0, wp, t) :
         - epsilon * c/wp * k0 * \
             np.exp( -r**2/w0**2 ) * np.cos( k0*z ) * np.cos( wp*t ) \
         - epsilon_1 * c/wp * k0 * 2*x/w0 * \
+            np.exp( -r**2/w0**2 ) * np.cos( k0*z ) * np.cos( wp*t ) \
+        - epsilon_2 * c/wp * k0 * 4*(x**2-y**2)/w0**2 * \
             np.exp( -r**2/w0**2 ) * np.cos( k0*z ) * np.cos( wp*t )
     return( uz_array )
 
