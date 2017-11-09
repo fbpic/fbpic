@@ -149,7 +149,7 @@ p_rmax = 18.e-6  # Maximal radial position of the plasma (meters)
 n_e = 2.e24      # Density (electrons.meters^-3)
 p_nz = 2         # Number of particles per cell along z
 p_nr = 2         # Number of particles per cell along r
-p_nt = 4         # Number of particles per cell along theta
+p_nt = 8         # Number of particles per cell along theta
 
 # The plasma wave
 epsilon = 0.001    # Dimensionless amplitude of the wave in mode 0
