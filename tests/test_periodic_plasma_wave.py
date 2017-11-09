@@ -155,6 +155,7 @@ p_nt = 4         # Number of particles per cell along theta
 epsilon = 0.001    # Dimensionless amplitude of the wave in mode 0
 epsilon_1 = 0.001  # Dimensionless amplitude of the wave in mode 1
 epsilon_2 = 0.     # Dimensionless amplitude of the wave in mode 2
+epsilons = [ epsilon, epsilon_1, epsilon_2 ]
 w0 = 5.e-6      # The transverse size of the plasma wave
 N_periods = 3   # Number of periods in the box
 # Calculated quantities
@@ -195,7 +196,7 @@ def simulate_periodic_plasma_wave( particle_shape, show=False ):
     # Impart velocities to the electrons
     # (The electrons are initially homogeneous, but have an
     # intial non-zero velocity that develops into a plasma wave)
-    impart_momenta( sim.ptcl[0], epsilon, epsilon_1, epsilon_2, k0, w0, wp )
+    impart_momenta( sim.ptcl[0], epsilons, k0, w0, wp )
 
     # Run the simulation
     sim.step( N_step, correct_currents=True )
@@ -209,83 +210,83 @@ def simulate_periodic_plasma_wave( particle_shape, show=False ):
 # Analytical solutions for the plasma wave
 # -----------------------------------------
 
-def Er( z, r, epsilon, epsilon_1, k0, w0, wp, t) :
+def Er( z, r, epsilons, k0, w0, wp, t) :
     """
     Return the radial electric field as an array
     of the same length as z and r, in the half-plane theta=0
     """
     Er_array = \
-        epsilon * m_e*c**2/e * 2*r/w0**2 * \
+        epsilons[0] * m_e*c**2/e * 2*r/w0**2 * \
             np.exp( -r**2/w0**2 ) * np.sin( k0*z ) * np.sin( wp*t ) \
-        - epsilon_1 * m_e*c**2/e * 2/w0 * \
+        - epsilons[1] * m_e*c**2/e * 2/w0 * \
             np.exp( -r**2/w0**2 ) * np.sin( k0*z ) * np.sin( wp*t ) \
-        + epsilon_1 * m_e*c**2/e * 4*r**2/w0**3 * \
+        + epsilons[1] * m_e*c**2/e * 4*r**2/w0**3 * \
             np.exp( -r**2/w0**2 ) * np.sin( k0*z ) * np.sin( wp*t ) \
-        - epsilon_2 * m_e*c**2/e * 8*r/w0**2 * \
+        - epsilons[2] * m_e*c**2/e * 8*r/w0**2 * \
             np.exp( -r**2/w0**2 ) * np.sin( k0*z ) * np.sin( wp*t ) \
-        + epsilon_2 * m_e*c**2/e * 8*r**3/w0**4 * \
+        + epsilons[2] * m_e*c**2/e * 8*r**3/w0**4 * \
             np.exp( -r**2/w0**2 ) * np.sin( k0*z ) * np.sin( wp*t )
     return( Er_array )
 
-def Ez( z, r, epsilon, epsilon_1, k0, w0, wp, t) :
+def Ez( z, r, epsilons, k0, w0, wp, t) :
     """
     Return the longitudinal electric field as an array
     of the same length as z and r, in the half-plane theta=0
     """
     Ez_array = \
-        - epsilon * m_e*c**2/e * k0 * \
+        - epsilons[0] * m_e*c**2/e * k0 * \
             np.exp( -r**2/w0**2 ) * np.cos( k0*z ) * np.sin( wp*t ) \
-        - epsilon_1 * m_e*c**2/e * k0 * 2*r/w0 * \
+        - epsilons[1] * m_e*c**2/e * k0 * 2*r/w0 * \
             np.exp( -r**2/w0**2 ) * np.cos( k0*z ) * np.sin( wp*t ) \
-        - epsilon_2 * m_e*c**2/e * k0 * 4*r**2/w0**2 * \
+        - epsilons[2] * m_e*c**2/e * k0 * 4*r**2/w0**2 * \
             np.exp( -r**2/w0**2 ) * np.cos( k0*z ) * np.sin( wp*t )
     return( Ez_array )
 
-def ux( z, r, x, y, epsilon, epsilon_1, k0, w0, wp, t) :
+def ux( z, r, x, y, epsilons, k0, w0, wp, t) :
     """
     Return the radial normalized velocity as an array
     of the same length as z, r, x, y
     """
     ux_array = \
-        epsilon * c/wp * 2*x/w0**2 * \
+        epsilons[0] * c/wp * 2*x/w0**2 * \
             np.exp( -r**2/w0**2 ) * np.sin( k0*z ) * np.cos( wp*t ) \
-        - epsilon_1 * c/wp * 2/w0 * \
+        - epsilons[1] * c/wp * 2/w0 * \
             np.exp( -r**2/w0**2 ) * np.sin( k0*z ) * np.cos( wp*t ) \
-        + epsilon_1 * c/wp * 4*x**2/w0**3 * \
+        + epsilons[1] * c/wp * 4*x**2/w0**3 * \
             np.exp( -r**2/w0**2 ) * np.sin( k0*z ) * np.cos( wp*t ) \
-        - epsilon_2 * c/wp * 8*x/w0**2 * \
+        - epsilons[2] * c/wp * 8*x/w0**2 * \
             np.exp( -r**2/w0**2 ) * np.sin( k0*z ) * np.cos( wp*t ) \
-        + epsilon_2 * c/wp * 8*x*(x**2-y**2)/w0**4 * \
+        + epsilons[2] * c/wp * 8*x*(x**2-y**2)/w0**4 * \
             np.exp( -r**2/w0**2 ) * np.sin( k0*z ) * np.cos( wp*t )
     return( ux_array )
 
-def uy( z, r, x, y, epsilon, epsilon_1, k0, w0, wp, t) :
+def uy( z, r, x, y, epsilons, k0, w0, wp, t) :
     """
     Return the radial normalized velocity as an array
     of the same length as z, r, x, y
     """
     uy_array = \
-        epsilon * c/wp * 2*y/w0**2 * \
+        epsilons[0] * c/wp * 2*y/w0**2 * \
             np.exp( -r**2/w0**2 ) * np.sin( k0*z ) * np.cos( wp*t ) \
-        + epsilon_1 * c/wp * 4*x*y/w0**3 * \
+        + epsilons[1] * c/wp * 4*x*y/w0**3 * \
             np.exp( -r**2/w0**2 ) * np.sin( k0*z ) * np.cos( wp*t ) \
-        + epsilon_2 * c/wp * 8*y/w0**2 * \
+        + epsilons[2] * c/wp * 8*y/w0**2 * \
             np.exp( -r**2/w0**2 ) * np.sin( k0*z ) * np.cos( wp*t ) \
-        + epsilon_2 * c/wp * 8*y*(x**2-y**2)/w0**4 * \
+        + epsilons[2] * c/wp * 8*y*(x**2-y**2)/w0**4 * \
             np.exp( -r**2/w0**2 ) * np.sin( k0*z ) * np.cos( wp*t )
     return( uy_array )
 
-def uz( z, r, x, y, epsilon, epsilon_1, k0, w0, wp, t) :
+def uz( z, r, x, y, epsilons, k0, w0, wp, t) :
     """
     Return the longitudinal normalized velocity as an array
     of the same length as z and r
     """
     uz_array = \
-        - epsilon * c/wp * k0 * \
+        - epsilons[0] * c/wp * k0 * \
             np.exp( -r**2/w0**2 ) * np.cos( k0*z ) * np.cos( wp*t ) \
-        - epsilon_1 * c/wp * k0 * 2*x/w0 * \
+        - epsilons[1] * c/wp * k0 * 2*x/w0 * \
             np.exp( -r**2/w0**2 ) * np.cos( k0*z ) * np.cos( wp*t ) \
-        - epsilon_2 * c/wp * k0 * 4*(x**2-y**2)/w0**2 * \
+        - epsilons[2] * c/wp * k0 * 4*(x**2-y**2)/w0**2 * \
             np.exp( -r**2/w0**2 ) * np.cos( k0*z ) * np.cos( wp*t )
     return( uz_array )
 
@@ -293,16 +294,16 @@ def uz( z, r, x, y, epsilon, epsilon_1, k0, w0, wp, t) :
 # Functions for initialization of the momenta
 # --------------------------------------------
 
-def impart_momenta( ptcl, epsilon, epsilon_1, k0, w0, wp) :
+def impart_momenta( ptcl, epsilons, k0, w0, wp) :
     """
     Modify the momenta of the input particle object,
     so that they correspond to a plasma wave at t=0
     """
     r = np.sqrt( ptcl.x**2 + ptcl.y**2 )
     # Impart the momenta
-    ptcl.ux = ux(ptcl.z, r, ptcl.x, ptcl.y, epsilon, epsilon_1, k0, w0, wp, 0)
-    ptcl.uy = uy(ptcl.z, r, ptcl.x, ptcl.y, epsilon, epsilon_1, k0, w0, wp, 0)
-    ptcl.uz = uz(ptcl.z, r, ptcl.x, ptcl.y, epsilon, epsilon_1, k0, w0, wp, 0)
+    ptcl.ux = ux(ptcl.z, r, ptcl.x, ptcl.y, epsilons, k0, w0, wp, 0)
+    ptcl.uy = uy(ptcl.z, r, ptcl.x, ptcl.y, epsilons, k0, w0, wp, 0)
+    ptcl.uz = uz(ptcl.z, r, ptcl.x, ptcl.y, epsilons, k0, w0, wp, 0)
     # Get the corresponding inverse gamma
     ptcl.inv_gamma = 1./np.sqrt( 1 + ptcl.ux**2 + ptcl.uy**2 + ptcl.uz**2 )
 
@@ -348,14 +349,14 @@ def compare_fields( sim, show ) :
         zgrid = gathered_grid0.z
         # Check the Ez field
         Ez_simulated = (gathered_grid0.Ez + 2*gathered_grid1.Ez).real
-        check_E_field( Ez_simulated, rgrid, zgrid, epsilon, epsilon_1,
+        check_E_field( Ez_simulated, rgrid, zgrid, epsilons,
                     k0, w0, wp, sim.time, field='Ez', show=show )
         # Check the Er field
         Er_simulated = (gathered_grid0.Er + 2*gathered_grid1.Er).real
-        check_E_field( Er_simulated, rgrid, zgrid, epsilon, epsilon_1,
+        check_E_field( Er_simulated, rgrid, zgrid, epsilons,
                     k0, w0, wp, sim.time, field='Er', show=show )
 
-def check_E_field( E_simulation, rgrid, zgrid, epsilon, epsilon_1,
+def check_E_field( E_simulation, rgrid, zgrid, epsilons,
                     k0, w0, wp, t, field='Ez', show=False ):
     """
     Compare the longitudinal and radial field with the
@@ -367,9 +368,9 @@ def check_E_field( E_simulation, rgrid, zgrid, epsilon, epsilon_1,
     # 2D maps of the field
     r, z = np.meshgrid( rgrid, zgrid )
     if field == 'Ez' :
-        E_analytical = Ez( z, r, epsilon, epsilon_1, k0, w0, wp, t )
+        E_analytical = Ez( z, r, epsilons, k0, w0, wp, t )
     if field == 'Er' :
-        E_analytical = Er( z, r, epsilon, epsilon_1, k0, w0, wp, t )
+        E_analytical = Er( z, r, epsilons, k0, w0, wp, t )
 
     if show is False:
         # Automatically check that the fields agree,
