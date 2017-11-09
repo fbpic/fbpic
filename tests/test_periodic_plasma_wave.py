@@ -341,18 +341,22 @@ def compare_fields( sim, show ) :
     Gathers the fields and compare them with the analytical theory
     """
     # Get the fields in the half-plane theta=0 (Sum mode 0 and mode 1)
-    gathered_grid0 = sim.comm.gather_grid(sim.fld.interp[0])
-    gathered_grid1 = sim.comm.gather_grid(sim.fld.interp[1])
+    gathered_grids = [ sim.comm.gather_grid(sim.fld.interp[m]) \
+                           for m in range(Nm) ]
 
     if sim.comm.rank == 0:
-        rgrid = gathered_grid0.r
-        zgrid = gathered_grid0.z
+        rgrid = gathered_grids[0].r
+        zgrid = gathered_grids[0].z
         # Check the Ez field
-        Ez_simulated = (gathered_grid0.Ez + 2*gathered_grid1.Ez).real
+        Ez_simulated = gathered_grids[0].Ez.real
+        for m in range(1,Nm):
+            Ez_simulated += 2*gathered_grids[m].Ez.real
         check_E_field( Ez_simulated, rgrid, zgrid, epsilons,
                     k0, w0, wp, sim.time, field='Ez', show=show )
         # Check the Er field
-        Er_simulated = (gathered_grid0.Er + 2*gathered_grid1.Er).real
+        Er_simulated = gathered_grids[0].Er.real
+        for m in range(1,Nm):
+            Er_simulated += 2*gathered_grids[m].Er.real
         check_E_field( Er_simulated, rgrid, zgrid, epsilons,
                     k0, w0, wp, sim.time, field='Er', show=show )
 
