@@ -224,6 +224,12 @@ class Fields(object) :
         Correct the currents so that they satisfy the
         charge conservation equation
         """
+        # Ensure consistency (charge and current should
+        # not be exchanged via MPI before correction)
+        assert self.exchanged_source['rho_prev'] == False
+        assert self.exchanged_source['rho_next'] == False
+        assert self.exchanged_source['J'] == False
+
         # Correct each azimuthal grid individually
         for m in range(self.Nm) :
             self.spect[m].correct_currents( self.dt, self.psatd[m] )

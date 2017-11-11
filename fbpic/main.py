@@ -533,7 +533,7 @@ class Simulation(object):
         if self.filter_currents:
             fld.filter_spect( fieldtype )
         # Set the flag to indicate whether these fields have been exchanged
-        fld.exchanged_fields[ fieldtype ] = (exchange and self.comm.size > 1)
+        fld.exchanged_source[ fieldtype ] = (exchange and self.comm.size > 1)
 
     def shift_galilean_boundaries(self):
         """
