@@ -166,6 +166,11 @@ class Fields(object) :
                                 use_galilean=self.use_galilean,
                                 use_cuda=self.use_cuda ) )
 
+        # Record flags that indicates whether, for the sources *in
+        # spectral space*, the guard cells have been exchanged via MPI
+        self.exchanged_source = \
+            {'J': False, 'rho_prev': False, 'rho_new': False}
+
         # Initialize the needed prefix sum array for sorting
         if self.use_cuda:
             # Shift in the indices, induced by the moving window
