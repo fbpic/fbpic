@@ -2,5 +2,4 @@ numpy
 scipy
 numba
 h5py
-mpi4py
 python-dateutil

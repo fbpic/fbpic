@@ -11,7 +11,7 @@ import os, re
 import numpy as np
 from .field_diag import FieldDiagnostic
 from .particle_diag import ParticleDiagnostic
-from mpi4py.MPI import COMM_WORLD as comm
+from fbpic.mpi_utils import comm
 
 def set_periodic_checkpoint( sim, period ):
     """
