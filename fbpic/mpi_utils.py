@@ -28,6 +28,9 @@ except ImportError:
             self.rank = 0
             self.size = 1
 
+        def barrier(self):
+            pass
+
     class DummyMPI(object):
 
         def __init__(self):
