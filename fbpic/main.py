@@ -96,12 +96,15 @@ class Simulation(object):
            Peak density of the electrons
 
         n_order: int, optional
-           The order of the stencil for the z derivatives.
-           Use -1 for infinite order, otherwise use a positive, even
-           number. In this case, the stencil extends up to approx.
-           2*n_order cells on each side. (A finite order stencil
-           is required to have a localized field push that allows
-           to do simulations in parallel on multiple MPI ranks)
+           The order of the stencil for z derivatives in the Maxwell solver.
+           Use -1 for infinite order, i.e. for exact dispersion relation in
+           all direction (adviced for single-GPU/single-CPU simulation).
+           Use a positive number (and multiple of 2) for a finite-order stencil
+           (required for multi-GPU/multi-CPU with MPI). A large `n_order` leads
+           to more overhead in MPI communications, but also to a more accurate
+           dispersion relation for electromagnetic waves. (Typically,
+           `n_order = 32` is a good trade-off.) See `this article
+           <https://arxiv.org/abs/1611.05712>`_ for more information.
 
         zmin: float, optional
            The position of the edge of the simulation box.

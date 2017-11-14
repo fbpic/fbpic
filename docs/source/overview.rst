@@ -19,7 +19,7 @@ time steps**. At each timestep:
   - The fields E and B are pushed in time.
 
 .. image:: images/pic_loop.png
-	   
+
 The distinctive features of FBPIC
 -------------------------------------
 
@@ -97,7 +97,7 @@ fields from each grid.
    The diagnostics of an FBPIC simulation output the macroparticles
    along with their weights (denoted as `w`) ; be sure to take them into account in
    your post-analysis.
-   
+
 Analytical integration in spectral space
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -109,11 +109,11 @@ dispersion** in the propagation of electromagnetic waves, and
 
 By contrast, FBPIC performs the field solve in **spectral space**,
 where the derivatives can be more precisely evaluated, and where
-Maxwell's equations can be integrated analytically in time. This makes the
+Maxwell's equations can be integrated analytically in time. This can make the
 algorithm **dispersion-free in all directions**. For more details
 on the algorithm and the artifacts that it avoids, see the `original article
 <http://www.sciencedirect.com/science/article/pii/S0010465516300224>`_
-of FBPIC (arxiv version `here <https://arxiv.org/abs/1507.04790>`_). 
+of FBPIC (arxiv version `here <https://arxiv.org/abs/1507.04790>`_).
 
 .. note::
 
