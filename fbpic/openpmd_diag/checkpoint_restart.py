@@ -40,7 +40,7 @@ def set_periodic_checkpoint( sim, period ):
     if comm.rank == 0:
         if os.path.exists('./checkpoints') is False:
             os.mkdir('./checkpoints')
-    comm.Barrier()
+    comm.barrier()
 
     # Choose the name of the directory: one directory per processor
     write_dir = 'checkpoints/proc%d/' %comm.rank
@@ -101,7 +101,7 @@ def restart_from_checkpoint( sim, iteration=None ):
     # so that this also works for `use_all_ranks=False`)
     if comm.rank == 0:
         check_restart( sim, iteration )
-    comm.Barrier()
+    comm.barrier()
 
     # Choose the name of the directory from which to restart:
     # one directory per processor

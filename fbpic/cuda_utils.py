@@ -149,16 +149,19 @@ def print_current_gpu( mpi ):
     mpi: an mpi4py.MPI object
     """
     gpu = cuda.gpus.current
-    rank = mpi.COMM_WORLD.rank
-    node = mpi.Get_processor_name()
     # Convert bytestring to actual string
     try:
         gpu_name = gpu.name.decode()
     except AttributeError:
         gpu_name = gpu.name
     # Print the GPU that is being used
-    message = "MPI rank %d selected a %s GPU with id %s on node %s" %(
-        rank, gpu_name, gpu.id, node)
+    if mpi.COMM_WORLD.size > 1:
+        rank = mpi.COMM_WORLD.rank
+        node = mpi.Get_processor_name()
+        message = "MPI rank %d selected a %s GPU with id %s on node %s" %(
+            rank, gpu_name, gpu.id, node)
+    else:
+        message = "FBPIC selected a %s GPU with id %s" %( gpu_name, gpu.id )
     print(message)
 
 def mpi_select_gpus(mpi):
