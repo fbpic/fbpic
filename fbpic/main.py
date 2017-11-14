@@ -310,7 +310,8 @@ class Simulation(object):
 
         # Let the user know that the first step is much longer
         if show_progress and (self.comm.rank==0):
-            print('Just-In-Time compilation of the PIC loop (up to one minute)')
+            print('Performing %d PIC iterations:' %N )
+            print(' - Just-In-Time compilation (up to one minute) ...')
 
         # Measure the time taken by the PIC cycle
         measured_start = time.time()
@@ -595,7 +596,7 @@ def progression_bar( i, Ntot, measured_start, Nbars=50, char='-'):
     # First step completed: Show that the PIC loop runs
     # (This comes after the message on Just-In-Time compilation)
     if i==0:
-        print('\nRunning the PIC loop')
+        print(' - Running the PIC loop')
     # Print the progression bar
     nbars = int( (i+1)*1./Ntot*Nbars )
     sys.stdout.write('\r[' + nbars*char )
