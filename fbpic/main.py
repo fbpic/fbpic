@@ -308,6 +308,10 @@ class Simulation(object):
         if self.comm.size > 1 and correct_divE:
             raise ValueError('correct_divE cannot be used in multi-proc mode.')
 
+        # Let the user know that the first step is much longer
+        if show_progress and (self.comm.rank==0):
+            print('Just-In-Time compilation of the PIC loop (up to one minute)')
+
         # Measure the time taken by the PIC cycle
         measured_start = time.time()
 
@@ -321,12 +325,8 @@ class Simulation(object):
         # Loop over timesteps
         for i_step in range(N):
 
-            # Messages and diagnostics
-            # ------------------------
-
-            # Show a progression bar
-            if show_progress and self.comm.rank==0:
-                progression_bar( i_step, N, measured_start )
+            # Diagnostics
+            # -----------
 
             # Run the diagnostics
             # (E, B, rho, x are defined at time n; J, p at time n-1/2)
@@ -446,6 +446,9 @@ class Simulation(object):
             # Increment the global time and iteration
             self.time += self.dt
             self.iteration += 1
+            # Show a progression bar
+            if show_progress and self.comm.rank==0:
+                progression_bar( i_step, N, measured_start )
 
             # Write the checkpoints if needed
             for checkpoint in self.checkpoints:
@@ -469,7 +472,7 @@ class Simulation(object):
             measured_duration = time.time() - measured_start
             m, s = divmod(measured_duration, 60)
             h, m = divmod(m, 60)
-            print('\n Time taken by the loop: %d:%02d:%02d\n' % (h, m, s))
+            print('\nTime taken (with compilation): %d:%02d:%02d\n' %(h, m, s))
 
     def deposit( self, fieldtype, exchange_J=False ):
         """
@@ -589,6 +592,11 @@ def progression_bar( i, Ntot, measured_start, Nbars=50, char='-'):
     Shows a progression bar with Nbars and the remaining
     simulation time.
     """
+    # First step completed: Show that the PIC loop runs
+    # (This comes after the message on Just-In-Time compilation)
+    if i==0:
+        print('\nRunning the PIC loop')
+    # Print the progression bar
     nbars = int( (i+1)*1./Ntot*Nbars )
     sys.stdout.write('\r[' + nbars*char )
     sys.stdout.write((Nbars-nbars)*' ' + ']')
