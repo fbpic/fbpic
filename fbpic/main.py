@@ -459,8 +459,11 @@ class Simulation(object):
         # Finalize PIC loop
         # Get the charge density and the current from spectral space.
         fld.spect2interp('J')
+        if (not fld.exchanged_source['J']) and (self.comm.size > 1):
+            self.comm.exchange_fields(self.fld.interp, 'J', 'add')
         fld.spect2interp('rho_prev')
-        self.comm.exchange_fields(self.fld.interp, 'rho', 'add')
+        if (not fld.exchanged_source['rho_prev']) and (self.comm.size > 1):
+            self.comm.exchange_fields(self.fld.interp, 'rho', 'add')
 
         # Receive simulation data from GPU (if CUDA is used)
         if self.use_cuda:
