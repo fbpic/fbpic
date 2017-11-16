@@ -154,7 +154,7 @@ p_nt = 8         # Number of particles per cell along theta
 # The plasma wave
 epsilon = 0.001    # Dimensionless amplitude of the wave in mode 0
 epsilon_1 = 0.001  # Dimensionless amplitude of the wave in mode 1
-epsilon_2 = 0.     # Dimensionless amplitude of the wave in mode 2
+epsilon_2 = 0.001  # Dimensionless amplitude of the wave in mode 2
 epsilons = [ epsilon, epsilon_1, epsilon_2 ]
 w0 = 5.e-6      # The transverse size of the plasma wave
 N_periods = 3   # Number of periods in the box
