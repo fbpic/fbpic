@@ -105,18 +105,27 @@ class DHT(object):
         denom = np.pi * rmax**2 * jn( p_denom, alphas)**2
         num = jn( p, 2*np.pi* self.r[np.newaxis,:]*self.nu[:,np.newaxis] )
         # Get the inverse matrix
-        if m!=0 and p!=0:
-            self.invM[1:,:] = num[1:,:] / denom[1:, np.newaxis]
-            self.invM[0,:] = 0.
-        else:
-            self.invM[:,:] = num[:,:] / denom[:, np.newaxis]
+        if m!=0:
+            self.invM[1:, :] = num[1:, :] / denom[1:, np.newaxis]
+            # In this case, the functions are represented by Bessel functions
+            # *and* an additional mode (below) which satisfies the same
+            # algebric relations for curl/div/grad as the regular Bessel modes,
+            # with the value kperp=0.
+            # The normalization of this mode is arbitrary, and is chosen
+            # so that the condition number of invM is close to 1
+            if p==m-1:
+                self.invM[0, :] = self.r**(m-1) * 1./( np.pi * rmax**(m+1) )
+            else:
+                self.invM[0, :] = 0.
+        else :
+            self.invM[:, :] = num[:, :] / denom[:, np.newaxis]
 
-        # Calculate the matrix M by inverting invM
+        # Calculate the matrix M
         self.M = np.empty((Nr, Nr))
-        if m !=0 and p != 0:
-            self.M[:, 1:] = np.linalg.pinv( self.invM[1:,:] )
+        if m !=0 and p != m-1 :
+            self.M[:, 1:] = np.linalg.pinv( self.invM[1:, :] )
             self.M[:, 0] = 0.
-        else:
+        else :
             self.M = np.linalg.inv( self.invM )
 
         # Copy the arrays to the GPU if needed
