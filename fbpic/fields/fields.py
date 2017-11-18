@@ -166,6 +166,11 @@ class Fields(object) :
                                 use_galilean=self.use_galilean,
                                 use_cuda=self.use_cuda ) )
 
+        # Record flags that indicates whether, for the sources *in
+        # spectral space*, the guard cells have been exchanged via MPI
+        self.exchanged_source = \
+            {'J': False, 'rho_prev': False, 'rho_new': False}
+
         # Initialize the needed prefix sum array for sorting
         if self.use_cuda:
             # Shift in the indices, induced by the moving window
@@ -219,6 +224,12 @@ class Fields(object) :
         Correct the currents so that they satisfy the
         charge conservation equation
         """
+        # Ensure consistency (charge and current should
+        # not be exchanged via MPI before correction)
+        assert self.exchanged_source['rho_prev'] == False
+        assert self.exchanged_source['rho_next'] == False
+        assert self.exchanged_source['J'] == False
+
         # Correct each azimuthal grid individually
         for m in range(self.Nm) :
             self.spect[m].correct_currents( self.dt, self.psatd[m] )

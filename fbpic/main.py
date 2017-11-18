@@ -364,8 +364,9 @@ class Simulation(object):
 
                 # Reproject the charge on the interpolation grid
                 # (Since particles have been removed / added to the simulation;
-                # otherwise rho_prev is obtained from the previous iteration)
-                self.deposit('rho_prev')
+                # otherwise rho_prev is obtained from the previous iteration.
+                # Note that the guard cells of rho are never exchanged.)
+                self.deposit('rho_prev', exchange=False)
 
             # Main PIC iteration
             # ------------------
@@ -394,7 +395,7 @@ class Simulation(object):
 
             # Get the current at t = (n+1/2) dt
             # (Guard cell exchange done either now or after current correction)
-            self.deposit('J', exchange_J=(correct_currents is False))
+            self.deposit('J', exchange=(correct_currents is False))
 
             # Handle elementary processes at t = (n + 1/2)dt
             # i.e. when the particles' velocity and position are synchronized
@@ -414,17 +415,18 @@ class Simulation(object):
                 self.shift_galilean_boundaries()
 
             # Get the charge density at t = (n+1) dt
-            self.deposit('rho_next')
+            self.deposit('rho_next', exchange=False)
             # Correct the currents (requires rho at t = (n+1) dt )
             if correct_currents:
                 fld.correct_currents()
                 if self.comm.size > 1:
-                    # Exchange the corrected J between domains
+                    # Exchange the guard cells of corrected J between domains
                     # (If correct_currents is False, the exchange of J
                     # is done in the function `deposit`)
                     fld.spect2interp('J')
                     self.comm.exchange_fields(fld.interp, 'J', 'add')
                     fld.interp2spect('J')
+                    fld.exchanged_source['J'] = True
 
             # Damp the fields in the guard cells
             self.comm.damp_guard_EB( fld.interp )
@@ -461,8 +463,11 @@ class Simulation(object):
         # Finalize PIC loop
         # Get the charge density and the current from spectral space.
         fld.spect2interp('J')
+        if (not fld.exchanged_source['J']) and (self.comm.size > 1):
+            self.comm.exchange_fields(self.fld.interp, 'J', 'add')
         fld.spect2interp('rho_prev')
-        self.comm.exchange_fields(self.fld.interp, 'rho', 'add')
+        if (not fld.exchanged_source['rho_prev']) and (self.comm.size > 1):
+            self.comm.exchange_fields(self.fld.interp, 'rho', 'add')
 
         # Receive simulation data from GPU (if CUDA is used)
         if self.use_cuda:
@@ -475,7 +480,7 @@ class Simulation(object):
             h, m = divmod(m, 60)
             print('\nTime taken (with compilation): %d:%02d:%02d\n' %(h, m, s))
 
-    def deposit( self, fieldtype, exchange_J=False ):
+    def deposit( self, fieldtype, exchange=False ):
         """
         Deposit the charge or the currents to the interpolation grid
         and then to the spectral grid.
@@ -487,8 +492,10 @@ class Simulation(object):
             should be changed by the deposition
             Either 'rho_prev', 'rho_next' or 'J'
 
-        exchange_J: bool
-            When depositing J, whether to do the guard cells exchange now
+        exchange: bool
+            Whether to exchange guard cells via MPI before transforming
+            the fields to the spectral grid. (The corresponding flag in
+            fld.exchanged_source is set accordingly.)
         """
         # Shortcut
         fld = self.fld
@@ -506,8 +513,9 @@ class Simulation(object):
                 antenna.deposit( fld, 'rho', self.comm )
             # Divide by cell volume
             fld.divide_by_volume('rho')
-            # The guard cells of rho are not exchanged (except for diagnostics)
-            # This is because rho is only used for current correction.
+            # Exchange guard cells if requested by the user
+            if exchange and self.comm.size > 1:
+                self.comm.exchange_fields(fld.interp, 'rho', 'add')
 
         # Currents
         elif fieldtype == 'J':
@@ -520,8 +528,8 @@ class Simulation(object):
                 antenna.deposit( fld, 'J', self.comm )
             # Divide by cell volume
             fld.divide_by_volume('J')
-            # Exchange guard cells
-            if exchange_J and self.comm.size > 1:
+            # Exchange guard cells if requested by the user
+            if exchange and self.comm.size > 1:
                 self.comm.exchange_fields(fld.interp, 'J', 'add')
 
         else:
@@ -531,6 +539,8 @@ class Simulation(object):
         fld.interp2spect( fieldtype )
         if self.filter_currents:
             fld.filter_spect( fieldtype )
+        # Set the flag to indicate whether these fields have been exchanged
+        fld.exchanged_source[ fieldtype ] = (exchange and self.comm.size > 1)
 
     def shift_galilean_boundaries(self):
         """
@@ -550,6 +560,7 @@ class Simulation(object):
             self.fld.interp[m].zmin += shift_distance
             self.fld.interp[m].zmax += shift_distance
             self.fld.interp[m].z += shift_distance
+
 
     def set_moving_window( self, v=c, ux_m=0., uy_m=0., uz_m=0.,
                   ux_th=0., uy_th=0., uz_th=0., gamma_boost=None ):
