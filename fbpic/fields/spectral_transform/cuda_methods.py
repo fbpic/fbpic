@@ -13,7 +13,7 @@ from numba import cuda
 # ------------------
 
 @cuda.jit
-def cuda_copy_2d_to_2d( array_in, array_out ) :
+def cuda_copy_2dC_to_2dR( array_in, array_out ) :
     """
     Copy array_in to array_out, on the GPU
 
@@ -30,11 +30,38 @@ def cuda_copy_2d_to_2d( array_in, array_out ) :
 
     # Set up cuda grid
     iz, ir = cuda.grid(2)
+    Nz, Nr = array_in.shape
 
     # Copy from array_in to array_out
-    if (iz < array_in.shape[0]) and (ir < array_in.shape[1]) :
-        array_out[iz, ir] = array_in[iz, ir]
+    if (iz < Nz) and (ir < Nr) :
+        array_out[iz, ir] = array_in[iz, ir].real
+        array_out[iz+Nz, ir] = array_in[iz, ir].imag
 
+@cuda.jit
+def cuda_copy_2dR_to_2dC( array_in, array_out ) :
+    """
+    Copy array_in to array_out, on the GPU
+
+    This is typically done in cases where one of the two
+    arrays is in C-order and the other one is in Fortran order.
+    This conversion from C order to Fortran order is needed
+    before using cuBlas functions.
+
+    Parameters :
+    ------------
+    array_in, array_out : 2darray of complexs
+        Arrays of shape (Nz, Nr)
+    """
+
+    # Set up cuda grid
+    iz, ir = cuda.grid(2)
+    Nz, Nr = array_out.shape
+
+    # Copy from array_in to array_out
+    if (iz < Nz) and (ir < Nr) :
+        array_out[iz, ir] = array_in[iz, ir] + 1.j*array_in[iz+Nz, ir]
+
+        
 @cuda.jit
 def cuda_copy_2d_to_1d( array_2d, array_1d ) :
     """

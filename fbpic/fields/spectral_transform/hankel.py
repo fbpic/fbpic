@@ -17,7 +17,7 @@ from fbpic.cuda_utils import cuda_installed
 if cuda_installed:
     from pyculib import blas as cublas
     from fbpic.cuda_utils import cuda, cuda_tpb_bpg_2d
-    from .cuda_methods import cuda_copy_2d_to_2d
+    from .cuda_methods import cuda_copy_2dC_to_2dR, cuda_copy_2dR_to_2dC
 
 
 class DHT(object):
@@ -62,7 +62,7 @@ class DHT(object):
             self.blas = cublas.Blas()
             # Initialize two buffer arrays on the GPU
             # The cuBlas API requires that these arrays be in Fortran order
-            zero_array = np.zeros((Nz, Nr), dtype=np.complex128, order='F')
+            zero_array = np.zeros((2*Nz, Nr), dtype=np.float64, order='F')
             self.d_in = cuda.to_device( zero_array )
             self.d_out = cuda.to_device( zero_array )
             # Initialize the threads per block and block per grid
@@ -120,12 +120,12 @@ class DHT(object):
         else :
             self.invM[:, :] = num[:, :] / denom[:, np.newaxis]
 
-        # Calculate the matrix M
+        # Calculate the matrix M by inverting invM
         self.M = np.empty((Nr, Nr))
-        if m !=0 and p != m-1 :
-            self.M[:, 1:] = np.linalg.pinv( self.invM[1:, :] )
+        if m !=0 and p != m-1:
+            self.M[:, 1:] = np.linalg.pinv( self.invM[1:,:] )
             self.M[:, 0] = 0.
-        else :
+        else:
             self.M = np.linalg.inv( self.invM )
 
         # Copy the arrays to the GPU if needed
@@ -133,9 +133,9 @@ class DHT(object):
             # Conversion to complex and Fortran order
             # is needed for the cuBlas API
             self.d_M = cuda.to_device(
-                np.asfortranarray( self.M, dtype=np.complex128 ) )
+                np.asfortranarray( self.M, dtype=np.float64 ) )
             self.d_invM = cuda.to_device(
-                np.asfortranarray( self.invM, dtype=np.complex128 ) )
+                np.asfortranarray( self.invM, dtype=np.float64 ) )
 
 
     def get_r(self):
@@ -175,17 +175,13 @@ class DHT(object):
         """
         # Perform the matrix product with M
         if self.use_cuda:
-            # Check that the shapes agree
-            if (F.shape!=self.d_in.shape) or (G.shape!=self.d_out.shape):
-                raise ValueError('The shape of F or G is different from '
-                                 'the shape chosen at initialization.')
             # Convert the C-order F array to the Fortran-order d_in array
-            cuda_copy_2d_to_2d[self.dim_grid, self.dim_block]( F, self.d_in )
+            cuda_copy_2dC_to_2dR[self.dim_grid, self.dim_block]( F, self.d_in )
             # Perform the matrix product using cuBlas
-            self.blas.gemm( 'N', 'N', F.shape[0], F.shape[1],
-                   F.shape[1], 1.0, self.d_in, self.d_M, 0., self.d_out )
+            self.blas.gemm( 'N', 'N', self.d_in.shape[0], self.d_in.shape[1],
+                   self.d_in.shape[1], 1.0, self.d_in, self.d_M, 0., self.d_out )
             # Convert the Fortran-order d_out array to the C-order G array
-            cuda_copy_2d_to_2d[self.dim_grid, self.dim_block]( self.d_out, G )
+            cuda_copy_2dR_to_2dC[self.dim_grid, self.dim_block]( self.d_out, G )
 
         else:
             np.dot( F, self.M, out=G )
@@ -204,17 +200,13 @@ class DHT(object):
         """
         # Perform the matrix product with invM
         if self.use_cuda:
-            # Check that the shapes agree
-            if (G.shape!=self.d_in.shape) or (F.shape!=self.d_out.shape):
-                raise ValueError('The shape of F or G is different from '
-                                 'the shape chosen at initialization.')
             # Convert the C-order G array to the Fortran-order d_in array
-            cuda_copy_2d_to_2d[self.dim_grid, self.dim_block](G, self.d_in )
+            cuda_copy_2dC_to_2dR[self.dim_grid, self.dim_block](G, self.d_in )
             # Perform the matrix product using cuBlas
-            self.blas.gemm( 'N', 'N', G.shape[0], G.shape[1],
-                   G.shape[1], 1.0, self.d_in, self.d_invM, 0., self.d_out )
+            self.blas.gemm( 'N', 'N', self.d_in.shape[0], self.d_in.shape[1],
+                  self.d_in.shape[1], 1.0, self.d_in, self.d_invM, 0., self.d_out )
             # Convert the Fortran-order d_out array to the C-order G array
-            cuda_copy_2d_to_2d[self.dim_grid, self.dim_block]( self.d_out, F )
+            cuda_copy_2dR_to_2dC[self.dim_grid, self.dim_block]( self.d_out, F )
 
         else:
             np.dot( G, self.invM, out=F )
