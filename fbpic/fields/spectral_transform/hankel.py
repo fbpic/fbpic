@@ -14,6 +14,7 @@ from scipy.special import jn, jn_zeros
 
 # Check if CUDA is available, then import CUDA functions
 from fbpic.cuda_utils import cuda_installed
+from .numba_methods import numba_copy_2dC_to_2dR, numba_copy_2dR_to_2dC
 if cuda_installed:
     from pyculib import blas as cublas
     from fbpic.cuda_utils import cuda, cuda_tpb_bpg_2d
@@ -57,10 +58,15 @@ class DHT(object):
             self.use_cuda = False
             print('** Cuda not available for Hankel transform.')
             print('** Performing the Hankel transform on the CPU.')
+
+        # Initialize real buffer arrays on CPU (for faster Hankel transform)
+        zero_array = np.zeros((2*Nz, Nr), dtype=np.float64 )
+        self.array_in = zero_array.copy()
+        self.array_out = zero_array.copy()
         if self.use_cuda:
             # Initialize a cuda stream (required by cublas)
             self.blas = cublas.Blas()
-            # Initialize two buffer arrays on the GPU
+            # Initialize real buffer arrays on the GPU
             # The cuBlas API requires that these arrays be in Fortran order
             zero_array = np.zeros((2*Nz, Nr), dtype=np.float64, order='F')
             self.d_in = cuda.to_device( zero_array )
@@ -130,8 +136,7 @@ class DHT(object):
 
         # Copy the arrays to the GPU if needed
         if self.use_cuda:
-            # Conversion to complex and Fortran order
-            # is needed for the cuBlas API
+            # Conversion to Fortran order is needed for the cuBlas API
             self.d_M = cuda.to_device(
                 np.asfortranarray( self.M, dtype=np.float64 ) )
             self.d_invM = cuda.to_device(
@@ -184,7 +189,12 @@ class DHT(object):
             cuda_copy_2dR_to_2dC[self.dim_grid, self.dim_block]( self.d_out, G )
 
         else:
-            np.dot( F, self.M, out=G )
+            # Convert complex array to real array
+            numba_copy_2dC_to_2dR( F, self.array_in )
+            # Perform the matrix product
+            np.dot( self.array_in, self.M, out=self.array_out )
+            # Convert the real array to complex array
+            numba_copy_2dR_to_2dC( self.array_out, G )
 
 
     def inverse_transform( self, G, F ):

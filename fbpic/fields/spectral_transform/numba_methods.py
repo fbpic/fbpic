@@ -8,6 +8,51 @@ fields from interpolation grid to the spectral grid and vice-versa
 """
 from fbpic.threading_utils import prange, njit_parallel
 
+@njit_parallel
+def numba_copy_2dC_to_2dR( array_in, array_out ) :
+    """
+    Copy array_in to array_out, on the CPU
+
+    This is typically done in cases where one of the two
+    arrays is in C-order and the other one is in Fortran order.
+    This conversion from C order to Fortran order is needed
+    before using cuBlas functions.
+
+    Parameters :
+    ------------
+    array_in, array_out : 2darray of complexs
+        Arrays of shape (Nz, Nr)
+    """
+    Nz, Nr = array_in.shape
+
+    # Loop over the 2D grid (parallel in z, if threading is installed)
+    for iz in prange(Nz):
+        for ir in range(Nr):
+            array_out[iz, ir] = array_in[iz, ir].real
+            array_out[iz+Nz, ir] = array_in[iz, ir].imag
+
+@njit_parallel
+def numba_copy_2dR_to_2dC( array_in, array_out ) :
+    """
+    Copy array_in to array_out, on the CPU
+
+    This is typically done in cases where one of the two
+    arrays is in C-order and the other one is in Fortran order.
+    This conversion from C order to Fortran order is needed
+    before using cuBlas functions.
+
+    Parameters :
+    ------------
+    array_in, array_out : 2darray of complexs
+        Arrays of shape (Nz, Nr)
+    """
+    Nz, Nr = array_out.shape
+
+    # Loop over the 2D grid (parallel in z, if threading is installed)
+    for iz in prange(Nz):
+        for ir in range(Nr):
+            array_out[iz, ir] = array_in[iz, ir] + 1.j*array_in[iz+Nz, ir]
+
 # ----------------------------------------------------
 # Functions that combine components in spectral space
 # ----------------------------------------------------
