@@ -59,21 +59,6 @@ class DHT(object):
             print('** Cuda not available for Hankel transform.')
             print('** Performing the Hankel transform on the CPU.')
 
-        # Initialize real buffer arrays on CPU (for faster Hankel transform)
-        zero_array = np.zeros((2*Nz, Nr), dtype=np.float64 )
-        self.array_in = zero_array.copy()
-        self.array_out = zero_array.copy()
-        if self.use_cuda:
-            # Initialize a cuda stream (required by cublas)
-            self.blas = cublas.Blas()
-            # Initialize real buffer arrays on the GPU
-            # The cuBlas API requires that these arrays be in Fortran order
-            zero_array = np.zeros((2*Nz, Nr), dtype=np.float64, order='F')
-            self.d_in = cuda.to_device( zero_array )
-            self.d_out = cuda.to_device( zero_array )
-            # Initialize the threads per block and block per grid
-            self.dim_grid, self.dim_block = cuda_tpb_bpg_2d(Nz, Nr)
-
         # Check that m has a valid value
         if (m in [p-1, p, p+1]) == False:
             raise ValueError('m must be either p-1, p or p+1')
@@ -134,13 +119,33 @@ class DHT(object):
         else:
             self.M = np.linalg.inv( self.invM )
 
-        # Copy the arrays to the GPU if needed
+        # Copy the matrices to the GPU if needed
         if self.use_cuda:
             # Conversion to Fortran order is needed for the cuBlas API
             self.d_M = cuda.to_device(
                 np.asfortranarray( self.M, dtype=np.float64 ) )
             self.d_invM = cuda.to_device(
                 np.asfortranarray( self.invM, dtype=np.float64 ) )
+
+        # Initialize buffer arrays to store the complex Nz x Nr grid
+        # as a real 2Nz x Nr grid, before performing the matrix product
+        # (This is because a matrix product of reals is faster than a matrix
+        # product of complexs, and the real-complex conversion is negligible.)
+        if not self.use_cuda:
+            # Initialize real buffer arrays on the CPU
+            zero_array = np.zeros((2*Nz, Nr), dtype=np.float64 )
+            self.array_in = zero_array.copy()
+            self.array_out = zero_array.copy()
+        else:
+            # Initialize real buffer arrays on the GPU
+            # The cuBlas API requires that these arrays be in Fortran order
+            zero_array = np.zeros((2*Nz, Nr), dtype=np.float64, order='F')
+            self.d_in = cuda.to_device( zero_array )
+            self.d_out = cuda.to_device( zero_array )
+            # Initialize a cuda stream (required by cublas)
+            self.blas = cublas.Blas()
+            # Initialize the threads per block and block per grid
+            self.dim_grid, self.dim_block = cuda_tpb_bpg_2d(Nz, Nr)
 
 
     def get_r(self):
@@ -180,20 +185,19 @@ class DHT(object):
         """
         # Perform the matrix product with M
         if self.use_cuda:
-            # Convert the C-order F array to the Fortran-order d_in array
+            # Convert C-order, complex array `F` to F-order, real `d_in`
             cuda_copy_2dC_to_2dR[self.dim_grid, self.dim_block]( F, self.d_in )
-            # Perform the matrix product using cuBlas
-            self.blas.gemm( 'N', 'N', self.d_in.shape[0], self.d_in.shape[1],
-                   self.d_in.shape[1], 1.0, self.d_in, self.d_M, 0., self.d_out )
-            # Convert the Fortran-order d_out array to the C-order G array
+            # Perform real matrix product (faster than complex matrix product)
+            self.blas.gemm( 'N', 'N', F.shape[0], F.shape[1], F.shape[1],
+                1.0, self.d_in, self.d_M, 0., self.d_out)
+            # Convert F-order, real `d_out` to the C-order, complex `G`
             cuda_copy_2dR_to_2dC[self.dim_grid, self.dim_block]( self.d_out, G )
-
         else:
-            # Convert complex array to real array
+            # Convert complex array `F` to real array `array_in`
             numba_copy_2dC_to_2dR( F, self.array_in )
-            # Perform the matrix product
+            # Perform real matrix product (faster than complex matrix product)
             np.dot( self.array_in, self.M, out=self.array_out )
-            # Convert the real array to complex array
+            # Convert real array `array_out` to complex array `G`
             numba_copy_2dR_to_2dC( self.array_out, G )
 
 
@@ -210,13 +214,17 @@ class DHT(object):
         """
         # Perform the matrix product with invM
         if self.use_cuda:
-            # Convert the C-order G array to the Fortran-order d_in array
+            # Convert C-order, complex array `G` to F-order, real `d_in`
             cuda_copy_2dC_to_2dR[self.dim_grid, self.dim_block](G, self.d_in )
-            # Perform the matrix product using cuBlas
-            self.blas.gemm( 'N', 'N', self.d_in.shape[0], self.d_in.shape[1],
-                  self.d_in.shape[1], 1.0, self.d_in, self.d_invM, 0., self.d_out )
-            # Convert the Fortran-order d_out array to the C-order G array
+            # Perform real matrix product (faster than complex matrix product)
+            self.blas.gemm( 'N', 'N', G.shape[0], G.shape[1], G.shape[1],
+                            1.0, self.d_in, self.d_invM, 0., self.d_out )
+            # Convert the F-order d_out array to the C-order F array
             cuda_copy_2dR_to_2dC[self.dim_grid, self.dim_block]( self.d_out, F )
-
         else:
-            np.dot( G, self.invM, out=F )
+            # Convert complex array `G` to real array `array_in`
+            numba_copy_2dC_to_2dR( G, self.array_in )
+            # Perform real matrix product (faster than complex matrix product)
+            np.dot( self.array_in, self.invM, out=self.array_out )
+            # Convert real array `array_out` to complex array `F`
+            numba_copy_2dR_to_2dC( self.array_out, F )

@@ -11,17 +11,17 @@ from fbpic.threading_utils import prange, njit_parallel
 @njit_parallel
 def numba_copy_2dC_to_2dR( array_in, array_out ) :
     """
-    Copy array_in to array_out, on the CPU
-
-    This is typically done in cases where one of the two
-    arrays is in C-order and the other one is in Fortran order.
-    This conversion from C order to Fortran order is needed
-    before using cuBlas functions.
+    Store the complex Nz x Nr array `array_in`
+    into the real 2Nz x Nr array `array_out`,
+    by storing the real part in the first Nz elements of `array_out` along z,
+    and the imaginary part in the next Nz elements.
 
     Parameters :
     ------------
-    array_in, array_out : 2darray of complexs
-        Arrays of shape (Nz, Nr)
+    array_in: 2darray of complexs
+        Array of shape (Nz, Nr)
+    array_out: 2darray of reals
+        Array of shape (2*Nz, Nr)
     """
     Nz, Nr = array_in.shape
 
@@ -34,17 +34,17 @@ def numba_copy_2dC_to_2dR( array_in, array_out ) :
 @njit_parallel
 def numba_copy_2dR_to_2dC( array_in, array_out ) :
     """
-    Copy array_in to array_out, on the CPU
-
-    This is typically done in cases where one of the two
-    arrays is in C-order and the other one is in Fortran order.
-    This conversion from C order to Fortran order is needed
-    before using cuBlas functions.
+    Reconstruct the complex Nz x Nr array `array_out`,
+    from the real 2Nz x Nr array `array_in`,
+    by interpreting the first Nz elements of `array_in` along z as
+    the real part, and the next Nz elements as the imaginary part.
 
     Parameters :
     ------------
-    array_in, array_out : 2darray of complexs
-        Arrays of shape (Nz, Nr)
+    array_in: 2darray of reals
+        Array of shape (2*Nz, Nr)
+    array_out: 2darray of complexs
+        Array of shape (Nz, Nr)
     """
     Nz, Nr = array_out.shape
 
