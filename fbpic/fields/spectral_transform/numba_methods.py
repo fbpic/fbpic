@@ -8,6 +8,51 @@ fields from interpolation grid to the spectral grid and vice-versa
 """
 from fbpic.threading_utils import prange, njit_parallel
 
+@njit_parallel
+def numba_copy_2dC_to_2dR( array_in, array_out ) :
+    """
+    Store the complex Nz x Nr array `array_in`
+    into the real 2Nz x Nr array `array_out`,
+    by storing the real part in the first Nz elements of `array_out` along z,
+    and the imaginary part in the next Nz elements.
+
+    Parameters :
+    ------------
+    array_in: 2darray of complexs
+        Array of shape (Nz, Nr)
+    array_out: 2darray of reals
+        Array of shape (2*Nz, Nr)
+    """
+    Nz, Nr = array_in.shape
+
+    # Loop over the 2D grid (parallel in z, if threading is installed)
+    for iz in prange(Nz):
+        for ir in range(Nr):
+            array_out[iz, ir] = array_in[iz, ir].real
+            array_out[iz+Nz, ir] = array_in[iz, ir].imag
+
+@njit_parallel
+def numba_copy_2dR_to_2dC( array_in, array_out ) :
+    """
+    Reconstruct the complex Nz x Nr array `array_out`,
+    from the real 2Nz x Nr array `array_in`,
+    by interpreting the first Nz elements of `array_in` along z as
+    the real part, and the next Nz elements as the imaginary part.
+
+    Parameters :
+    ------------
+    array_in: 2darray of reals
+        Array of shape (2*Nz, Nr)
+    array_out: 2darray of complexs
+        Array of shape (Nz, Nr)
+    """
+    Nz, Nr = array_out.shape
+
+    # Loop over the 2D grid (parallel in z, if threading is installed)
+    for iz in prange(Nz):
+        for ir in range(Nr):
+            array_out[iz, ir] = array_in[iz, ir] + 1.j*array_in[iz+Nz, ir]
+
 # ----------------------------------------------------
 # Functions that combine components in spectral space
 # ----------------------------------------------------
