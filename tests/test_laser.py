@@ -79,17 +79,14 @@ def test_laser_periodic(show=False):
     # Choose a very long timestep to check the absence of Courant limit
     dt = L_prop*1./c/N_diag
 
-    print('')
-    print('Testing mode m=0 with an annular beam')
-    propagate_pulse( Nz, Nr, Nm, zmin, zmax, Lr, L_prop, zf, dt,
-                      N_diag, w0, ctau, k0, E0, 0, N_show, n_order,
-                      rtol, boundaries='periodic', v_window=0, show=show )
+    # Test modes up to m=2
+    for m in range(3):
 
-    print('')
-    print('Testing mode m=1 with an gaussian beam')
-    propagate_pulse(Nz, Nr, Nm, zmin, zmax, Lr, L_prop, zf, dt,
-                     N_diag, w0, ctau, k0, E0, 1, N_show, n_order,
-                     rtol, boundaries='periodic', v_window=0, show=show )
+        print('')
+        print('Testing mode m=%d' %m)
+        propagate_pulse( Nz, Nr, m+1, zmin, zmax, Lr, L_prop, zf, dt,
+                          N_diag, w0, ctau, k0, E0, m, N_show, n_order,
+                          rtol, boundaries='periodic', v_window=0, show=show )
 
     print('')
 
@@ -101,17 +98,14 @@ def test_laser_moving_window(show=False):
     # Choose the regular timestep (required by moving window)
     dt = (zmax-zmin)*1./c/Nz
 
-    print('')
-    print('Testing mode m=0 with an annular beam')
-    propagate_pulse( Nz, Nr, Nm, zmin, zmax, Lr, L_prop, zf, dt,
-                      N_diag, w0, ctau, k0, E0, 0, N_show, n_order,
-                      rtol, boundaries='open', v_window=c, show=show )
+    # Test modes up to m=2
+    for m in range(3):
 
-    print('')
-    print('Testing mode m=1 with an gaussian beam')
-    propagate_pulse(Nz, Nr, Nm, zmin, zmax, Lr, L_prop, zf, dt,
-                     N_diag, w0, ctau, k0, E0, 1, N_show, n_order,
-                     rtol, boundaries='open', v_window=c, show=show )
+        print('')
+        print('Testing mode m=%d' %m)
+        propagate_pulse( Nz, Nr, m+1, zmin, zmax, Lr, L_prop, zf, dt,
+                          N_diag, w0, ctau, k0, E0, m, N_show, n_order,
+                          rtol, boundaries='open', v_window=c, show=show )
 
     print('')
 
@@ -123,19 +117,15 @@ def test_laser_galilean(show=False):
     # Choose the regular timestep (required by moving window)
     dt = L_prop*1./c/N_diag
 
-    print('')
-    print('Testing mode m=0 with an annular beam')
-    propagate_pulse( Nz, Nr, Nm, zmin, zmax, Lr, L_prop, zf, dt,
-                      N_diag, w0, ctau, k0, E0, 0, N_show, n_order,
+    # Test modes up to m=2
+    for m in range(3):
+
+        print('')
+        print('Testing mode m=%d' %m)
+        propagate_pulse( Nz, Nr, m+1, zmin, zmax, Lr, L_prop, zf, dt,
+                      N_diag, w0, ctau, k0, E0, m, N_show, n_order,
                       rtol, boundaries='open',
                       use_galilean=True, v_comoving=0.999*c, show=show )
-
-    print('')
-    print('Testing mode m=1 with an gaussian beam')
-    propagate_pulse(Nz, Nr, Nm, zmin, zmax, Lr, L_prop, zf, dt,
-                     N_diag, w0, ctau, k0, E0, 1, N_show, n_order,
-                     rtol, boundaries='open',
-                     use_galilean=True, v_comoving=0.999*c, show=show )
 
     print('')
 
@@ -267,12 +257,12 @@ def propagate_pulse( Nz, Nr, Nm, zmin, zmax, Lr, L_prop, zf, dt,
     # Get the analytical solution
     z_prop = c*dt*N_step*np.arange(N_diag)
     ZR = 0.5*k0*w0**2
-    if m == 0 : # zf is not implemented for m = 0
-        w_analytic = w0*np.sqrt( 1 + z_prop**2/ZR**2 )
-        E_analytic = E0/( 1 + z_prop**2/ZR**2 )**(1./2)
-    else :
+    if m == 1:
         w_analytic = w0*np.sqrt( 1 + (z_prop-zf)**2/ZR**2 )
         E_analytic = E0/( 1 + (z_prop-zf)**2/ZR**2 )**(1./2)
+    else : # zf is not implemented for the other modes
+        w_analytic = w0*np.sqrt( 1 + z_prop**2/ZR**2 )
+        E_analytic = E0/( 1 + z_prop**2/ZR**2 )**(1./2)
 
     # Either plot the results and check them manually
     if show is True:
@@ -338,13 +328,21 @@ def init_fields( sim, w, ctau, k0, z0, zf, E0, m=1 ) :
     if m == 1 :
         add_laser( sim, E0*e/(m_e*c**2*k0), w, ctau, z0, zf=zf,
                    lambda0 = 2*np.pi/k0 )
-    if m == 0 :
+    elif m in [0, 2] :
         fld = sim.fld
         z = fld.interp[m].z
         r = fld.interp[m].r
         profile = annular_pulse( z, r, w, ctau, k0, z0, E0 )
-        fld.interp[m].Et[:,:] = profile
-        fld.interp[m].Br[:,:] = -1./c*profile
+        if m == 0:
+            # Annular pulse, radially polarized
+            fld.interp[m].Et[:,:] = profile
+            fld.interp[m].Br[:,:] = -1./c*profile
+        if m == 2:
+            # Laguerre-Gaussian pulse: contributions on mode 0 and 2
+            fld.interp[2].Er[:,:] = profile
+            fld.interp[2].Et[:,:] = -1.j*profile
+            fld.interp[2].Bt[:,:] = 1./c*profile
+            fld.interp[2].Br[:,:] = 1./c*1.j*profile
 
 
 def gaussian_transverse_profile( r, w, E ) :
@@ -454,7 +452,7 @@ def fit_fields( fld, m ) :
         # Factor 2 on the amplitude, related to the factor 2
         # in the particle gather for the modes m > 0
         fit_result[0][1] = 2*fit_result[0][1]
-    elif m==0 : # Annular profile
+    elif m in [0,2]: # Annular profile, or Laguerre-Gaussian profile
         fit_result = curve_fit(annular_transverse_profile, r,
                             laser_profile, p0=np.array([w0,E0]) )
 

@@ -7,7 +7,7 @@ It defines the structure necessary to implement the boundary exchanges.
 """
 import numpy as np
 from scipy.constants import c
-from mpi4py import MPI as mpi
+from fbpic.mpi_utils import comm, mpi_type_dict, mpi_installed
 from fbpic.fields.fields import InterpolationGrid
 from fbpic.fields.utility_methods import get_stencil_reach
 from fbpic.particles.particles import Particles
@@ -19,14 +19,6 @@ from fbpic.cuda_utils import cuda_installed
 if cuda_installed:
     from fbpic.cuda_utils import cuda, cuda_tpb_bpg_2d
     from .cuda_methods import cuda_damp_EB_left, cuda_damp_EB_right
-
-# Dictionary of correspondance between numpy types and mpi types
-# (Necessary when calling Gatherv)
-mpi_type_dict = { 'float32': mpi.REAL4,
-                  'float64': mpi.REAL8,
-                  'complex64': mpi.COMPLEX8,
-                  'complex128': mpi.COMPLEX16,
-                  'uint64': mpi.UINT64_T }
 
 class BoundaryCommunicator(object):
     """
@@ -123,8 +115,8 @@ class BoundaryCommunicator(object):
         self.dz = (zmax - zmin)/self.Nz
 
         # MPI Setup
-        if use_all_mpi_ranks:
-            self.mpi_comm = mpi.COMM_WORLD
+        if use_all_mpi_ranks and mpi_installed:
+            self.mpi_comm = comm
             self.rank = self.mpi_comm.rank
             self.size = self.mpi_comm.size
         else:
@@ -314,17 +306,49 @@ class BoundaryCommunicator(object):
 
         # Calculate the enlarged boundaries (i.e. including guard cells
         # and damp cells), which are passed to the fields object.
-        zmin_local_enlarged = zmin_local_domain - self.n_guard*dz
-        zmax_local_enlarged = zmax_local_domain + self.n_guard*dz
+        self.nz_start_domain = self.n_guard
         if self.left_proc is None:
-            zmin_local_enlarged -= self.n_damp*dz
-        if self.right_proc is None:
-            zmax_local_enlarged += self.n_damp*dz
+            self.nz_start_domain += self.n_damp
+        zmin_local_enlarged = zmin_local_domain - self.nz_start_domain*dz
+        zmax_local_enlarged = zmin_local_enlarged + self.Nz_enlarged*dz
 
         # Return the new boundaries to the simulation object
         return( zmin_local_enlarged, zmax_local_enlarged,
                 p_zmin_local_domain, p_zmax_local_domain,
                 self.Nz_enlarged )
+
+    def get_zmin_zmax( self, fld, local=True ):
+        """
+        Return the physical zmin and zmax (i.e. without guard and damp cells)
+        for the global domain (local=False) or local subdomain (local=True)
+
+        Parameters:
+        -----------
+        fld: an fbpic Fields object
+            Contains information about the local bounds
+        local: bool, optional
+            Whether return the global or local bounds
+
+        Returns:
+        --------
+        A tuple with zmin and zmax
+        """
+        # Get the enlarged local zmin
+        zmin_local_enlarged = fld.interp[0].zmin
+
+        # Get the local zmin and zmax without guard cells and damp cells
+        dz = fld.interp[0].dz
+        zmin = zmin_local_enlarged + self.nz_start_domain*dz
+        zmax = zmin + self.Nz_domain*dz
+
+        # Calculate the global bounds if requested
+        if not local:
+            iz_start = self.iz_start_procs[self.rank]
+            zmin += iz_start*dz
+            zmax = zmin + self.Ltot
+
+        return(zmin, zmax)
+
 
     # Exchange routines
     # -----------------
@@ -840,7 +864,7 @@ class BoundaryCommunicator(object):
 
         Parameter:
         -----------
-        array: array (grid array)
+        array: 2darray (grid array)
             A grid array of the local domain
 
         root: int, optional
@@ -848,7 +872,7 @@ class BoundaryCommunicator(object):
 
         Returns:
         ---------
-        gathered_array: array (global grid array)
+        gathered_array: 2darray (global grid array)
             A gathered array that contains the global simulation data
         """
         if self.rank == root:
@@ -859,17 +883,9 @@ class BoundaryCommunicator(object):
             # Other processes do not need to initialize a new array
             gathered_array = None
 
-        # Guard region cells to be removed at the left and right
-        n_remove_l = self.n_guard
-        n_remove_r = self.n_guard
-        # Remove n_damp cells from the left proc's output region
-        if self.left_proc is None:
-            n_remove_l += self.n_damp
-        # Remove n_damp cells from the right proc's output region
-        if self.right_proc is None:
-            n_remove_r += self.n_damp
         # Select the physical region of the local box
-        local_array = array[n_remove_l:len(array)-n_remove_r,:]
+        local_array = \
+            array[self.nz_start_domain:self.nz_start_domain+self.Nz_domain,:]
 
         # Then send the arrays
         if self.size > 1:
@@ -887,6 +903,46 @@ class BoundaryCommunicator(object):
         # Return the gathered_array only on process root
         if self.rank == root:
             return(gathered_array)
+
+
+    def scatter_grid_array(self, array, root = 0):
+        """
+        Scatter an array that has the size of the global physical domain
+        and is defined on the root process, into local arrays on each processes
+        (that have the size of the local physical domain)
+
+        Parameter:
+        -----------
+        array: 2darray (or None on processors different than root)
+            An array that has the size of the global physical domain
+
+        root: int, optional
+            Process that scatters the data
+
+        Returns:
+        ---------
+        local_array: 2darray (local grid array)
+            A local array that contains the local simulation data
+        """
+        # Create empty array having the shape of the local domain
+        scattered_array = np.zeros((self.Nz_domain, self.Nr), dtype=np.complex)
+
+        # Then send the arrays
+        if self.size > 1:
+            # First get the size and MPI type of the 2D arrays in each procs
+            i_start_procs = tuple( self.Nr*iz for iz in self.iz_start_procs )
+            N_domain_procs = tuple( self.Nr*nz for nz in self.Nz_domain_procs )
+            mpi_type = mpi_type_dict[ str(scattered_array.dtype) ]
+            recvbuf = [ scattered_array, N_domain_procs[self.rank] ]
+            sendbuf = [ array, N_domain_procs, i_start_procs, mpi_type ]
+            self.mpi_comm.Scatterv( sendbuf, recvbuf, root=root )
+        else:
+            iz_start = self.iz_start_procs[ self.rank ]
+            scattered_array[:,:] = array[iz_start:iz_start+self.Nz_domain]
+
+        # Return the scattered array
+        return( scattered_array )
+
 
     def gather_ptcl( self, ptcl, root = 0):
         """

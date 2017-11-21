@@ -4,14 +4,14 @@ Profiling the code
 Profiling the code consists in finding which parts of the algorithm **dominate
 the computational time**, for your particular simulation setup.
 
-Quick text-based profiling
---------------------------
+Profiling the code executed on CPU
+----------------------------------
 
-The tools below allow to dump timing statistics into a simple text file, so
-as to quickly profile the execution of a simulation.
+Getting the results in a simple text file
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-On CPU
-~~~~~~
+Dumping the profiling results in a text file allows you
+to quickly profile the execution of a simulation.
 
 Run the code with
 `cProfile <http://docs.python.org/2/library/profile.html>`__ :
@@ -22,9 +22,31 @@ Run the code with
 
 and then open the file ``cpu.log`` with a text editor.
 
+Using a visual profiler
+~~~~~~~~~~~~~~~~~~~~~~~
 
-On GPU
-~~~~~~
+For a more detailed analysis, you can use a visual profiler (i.e. profilers with
+a graphical user interface).
+
+Run the code with
+`cProfile <http://docs.python.org/2/library/profile.html>`__, using binary output:
+
+::
+
+   python -m cProfile -o cpu.prof fbpic_script.py
+
+and then open the file ``cpu.prof`` with `snakeviz <https://jiffyclub.github.io/snakeviz/>`__
+
+::
+
+   snakeviz cpu.prof
+
+
+Profiling the code executed on GPU
+----------------------------------
+
+Getting the results in a simple text file
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 Run the code with
 `nvprof <http://docs.nvidia.com/cuda/profiler-users-guide/index.html#nvprof-overview>`__ :
@@ -43,30 +65,9 @@ in order to simultaneously profile the device-side (i.e. GPU-side)
 and host-side (i.e. CPU-side) code.
 Then open the files ``gpu.log`` and/or ``cpu.log`` with a text editor.
 
-
 Using a visual profiler
------------------------
+~~~~~~~~~~~~~~~~~~~~~~~
 
-For a more detailed analysis, you can use visual profilers (i.e. profilers with
-a graphical user interface).
-
-On CPU
-~~~~~~
-Run the code with
-`cProfile <http://docs.python.org/2/library/profile.html>`__, using binary output:
-
-::
-
-   python -m cProfile -o cpu.prof fbpic_script.py
-
-and then open the file ``cpu.prof`` with `snakeviz <https://jiffyclub.github.io/snakeviz/>`__
-
-::
-
-   snakeviz cpu.prof
-
-On GPU
-~~~~~~
 Run the code with
 `nvprof <http://docs.nvidia.com/cuda/profiler-users-guide/index.html#nvprof-overview>`__,
 using binary output:
@@ -101,3 +102,54 @@ And click ``File > Open``, in order to select the file ``gpu.prof``.
     When profiling the code with **nvprof**, the profiling data can quickly
     become very large. Therefore we recommend to profile the code only
     on a small number of PIC iterations (<1000).
+
+Profiling MPI simulations (CPU-side only)
+-----------------------------------------
+
+One way to profile MPI simulations is to write **one file per MPI rank**. In
+this case, each file will contain only the profiling data of the corresponding
+MPI process.
+
+There is no simple way to create one file per MPI rank, from the command line.
+Instead, you need to **modify your FBPIC script**, in the following way:
+
+- Add the following lines at the beginning of the file:
+
+    ::
+
+        import cProfile, sys
+        from mpi4py.MPI import COMM_WORLD as comm
+
+- Replace the line:
+
+    ::
+
+        sim.step( N_step )
+
+  by the following set of lines:
+
+    ::
+
+        # First step: do not profile (includes just-in-time compilation)
+        sim.step(1)
+
+        # Profile the next N_step
+        pr = cProfile.Profile()
+        pr.enable()
+        sim.step( N_step )
+        pr.disable()
+
+        # Dump results:
+        # - for binary dump
+        pr.dump_stats('cpu_%d.prof' %comm.rank)
+        # - for text dump
+        with open( 'cpu_%d.txt' %comm.rank, 'w') as output_file:
+            sys.stdout = output_file
+            pr.print_stats( sort='time' )
+            sys.stdout = sys.__stdout__
+
+Then run your FBPIC script with MPI as usual, e.g. with 4 MPI ranks:
+
+    ::
+
+        mpirun -np 4 python fbpic_script.py

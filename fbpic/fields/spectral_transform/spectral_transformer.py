@@ -22,7 +22,7 @@ class SpectralTransformer(object) :
     spectral and interpolation grid.
 
     Attributes :
-    - dht0, dhtp, dhtp : the discrete Hankel transform objects
+    - dht0, dhtm, dhtp : the discrete Hankel transform objects
        that operates along r
     - fft : the discrete Fourier transform object that operates along z
 
@@ -62,12 +62,9 @@ class SpectralTransformer(object) :
             self.dim_grid, self.dim_block = cuda_tpb_bpg_2d( Nz, Nr)
 
         # Initialize the DHT (local implementation, see hankel.py)
-        self.dht0 = DHT(  m, Nr, Nz, rmax, 'MDHT(m,m)', d=0.5, Fw='inverse',
-                           use_cuda=self.use_cuda )
-        self.dhtp = DHT(m+1, Nr, Nz, rmax, 'MDHT(m+1,m)', d=0.5, Fw='inverse',
-                           use_cuda=self.use_cuda )
-        self.dhtm = DHT(m-1, Nr, Nz, rmax, 'MDHT(m-1,m)', d=0.5, Fw='inverse',
-                           use_cuda=self.use_cuda )
+        self.dht0 = DHT(  m, m, Nr, Nz, rmax, use_cuda=self.use_cuda )
+        self.dhtp = DHT(m+1, m, Nr, Nz, rmax, use_cuda=self.use_cuda )
+        self.dhtm = DHT(m-1, m, Nr, Nz, rmax, use_cuda=self.use_cuda )
 
         # Initialize the FFT
         self.fft = FFT( Nr, Nz, use_cuda=self.use_cuda )

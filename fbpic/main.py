@@ -9,7 +9,7 @@ This file steers and controls the simulation.
 # When cuda is available, select one GPU per mpi process
 # (This needs to be done before the other imports,
 # as it sets the cuda context)
-from mpi4py import MPI
+from fbpic.mpi_utils import MPI
 import numba
 # Check if threading is available
 from .threading_utils import threading_enabled
@@ -98,12 +98,15 @@ class Simulation(object):
            Peak density of the electrons
 
         n_order: int, optional
-           The order of the stencil for the z derivatives.
-           Use -1 for infinite order, otherwise use a positive, even
-           number. In this case, the stencil extends up to approx.
-           2*n_order cells on each side. (A finite order stencil
-           is required to have a localized field push that allows
-           to do simulations in parallel on multiple MPI ranks)
+           The order of the stencil for z derivatives in the Maxwell solver.
+           Use -1 for infinite order, i.e. for exact dispersion relation in
+           all direction (adviced for single-GPU/single-CPU simulation).
+           Use a positive number (and multiple of 2) for a finite-order stencil
+           (required for multi-GPU/multi-CPU with MPI). A large `n_order` leads
+           to more overhead in MPI communications, but also to a more accurate
+           dispersion relation for electromagnetic waves. (Typically,
+           `n_order = 32` is a good trade-off.) See `this article
+           <https://arxiv.org/abs/1611.05712>`_ for more information.
 
         zmin: float, optional
            The position of the edge of the simulation box.
@@ -322,6 +325,11 @@ class Simulation(object):
         if self.comm.size > 1 and correct_divE:
             raise ValueError('correct_divE cannot be used in multi-proc mode.')
 
+        # Let the user know that the first step is much longer
+        if show_progress and (self.comm.rank==0):
+            print('Performing %d PIC iterations:' %N )
+            print(' - Just-In-Time compilation (up to one minute) ...')
+
         # Measure the time taken by the PIC cycle
         measured_start = time.time()
 
@@ -335,12 +343,8 @@ class Simulation(object):
         # Loop over timesteps
         for i_step in range(N):
 
-            # Messages and diagnostics
-            # ------------------------
-
-            # Show a progression bar
-            if show_progress and self.comm.rank==0:
-                progression_bar( i_step, N, measured_start )
+            # Diagnostics
+            # -----------
 
             # Run the diagnostics
             # (E, B, rho, x are defined at time n; J, p at time n-1/2)
@@ -377,8 +381,9 @@ class Simulation(object):
 
                 # Reproject the charge on the interpolation grid
                 # (Since particles have been removed / added to the simulation;
-                # otherwise rho_prev is obtained from the previous iteration)
-                self.deposit('rho_prev')
+                # otherwise rho_prev is obtained from the previous iteration.
+                # Note that the guard cells of rho are never exchanged.)
+                self.deposit('rho_prev', exchange=False)
 
             # Main PIC iteration
             # ------------------
@@ -407,7 +412,7 @@ class Simulation(object):
 
             # Get the current at t = (n+1/2) dt
             # (Guard cell exchange done either now or after current correction)
-            self.deposit('J', exchange_J=(correct_currents is False))
+            self.deposit('J', exchange=(correct_currents is False))
 
             # Handle elementary processes at t = (n + 1/2)dt
             # i.e. when the particles' velocity and position are synchronized
@@ -431,17 +436,18 @@ class Simulation(object):
                 self.shift_galilean_boundaries()
 
             # Get the charge density at t = (n+1) dt
-            self.deposit('rho_next')
+            self.deposit('rho_next', exchange=False)
             # Correct the currents (requires rho at t = (n+1) dt )
             if correct_currents:
                 fld.correct_currents( self.current_corr_type )
                 if self.comm.size > 1:
-                    # Exchange the corrected J between domains
+                    # Exchange the guard cells of corrected J between domains
                     # (If correct_currents is False, the exchange of J
                     # is done in the function `deposit`)
                     fld.spect2interp('J')
                     self.comm.exchange_fields(fld.interp, 'J', 'add')
                     fld.interp2spect('J')
+                    fld.exchanged_source['J'] = True
 
             # Damp the fields in the guard cells
             self.comm.damp_guard_EB( fld.interp )
@@ -464,6 +470,9 @@ class Simulation(object):
             # Increment the global time and iteration
             self.time += dt
             self.iteration += 1
+            # Show a progression bar
+            if show_progress and self.comm.rank==0:
+                progression_bar( i_step, N, measured_start )
 
             # Write the checkpoints if needed
             for checkpoint in self.checkpoints:
@@ -475,8 +484,11 @@ class Simulation(object):
         # Finalize PIC loop
         # Get the charge density and the current from spectral space.
         fld.spect2interp('J')
+        if (not fld.exchanged_source['J']) and (self.comm.size > 1):
+            self.comm.exchange_fields(self.fld.interp, 'J', 'add')
         fld.spect2interp('rho_prev')
-        self.comm.exchange_fields(self.fld.interp, 'rho', 'add')
+        if (not fld.exchanged_source['rho_prev']) and (self.comm.size > 1):
+            self.comm.exchange_fields(self.fld.interp, 'rho', 'add')
 
         # Receive simulation data from GPU (if CUDA is used)
         if self.use_cuda:
@@ -487,9 +499,9 @@ class Simulation(object):
             measured_duration = time.time() - measured_start
             m, s = divmod(measured_duration, 60)
             h, m = divmod(m, 60)
-            print('\n Time taken by the loop: %d:%02d:%02d\n' % (h, m, s))
+            print('\nTime taken (with compilation): %d:%02d:%02d\n' %(h, m, s))
 
-    def deposit( self, fieldtype, exchange_J=False ):
+    def deposit( self, fieldtype, exchange=False ):
         """
         Deposit the charge or the currents to the interpolation grid
         and then to the spectral grid.
@@ -502,8 +514,10 @@ class Simulation(object):
             Either 'rho_prev', 'rho_next' or 'J'
             (or 'rho_next_xy' and 'rho_next_z' for cross-deposition)
 
-        exchange_J: bool
-            When depositing J, whether to do the guard cells exchange now
+        exchange: bool
+            Whether to exchange guard cells via MPI before transforming
+            the fields to the spectral grid. (The corresponding flag in
+            fld.exchanged_source is set accordingly.)
         """
         # Shortcut
         fld = self.fld
@@ -521,8 +535,9 @@ class Simulation(object):
                 antenna.deposit( fld, 'rho', self.comm )
             # Divide by cell volume
             fld.divide_by_volume('rho')
-            # The guard cells of rho are not exchanged (except for diagnostics)
-            # This is because rho is only used for current correction.
+            # Exchange guard cells if requested by the user
+            if exchange and self.comm.size > 1:
+                self.comm.exchange_fields(fld.interp, 'rho', 'add')
 
         # Currents
         elif fieldtype == 'J':
@@ -535,8 +550,8 @@ class Simulation(object):
                 antenna.deposit( fld, 'J', self.comm )
             # Divide by cell volume
             fld.divide_by_volume('J')
-            # Exchange guard cells
-            if exchange_J and self.comm.size > 1:
+            # Exchange guard cells if requested by the user
+            if exchange and self.comm.size > 1:
                 self.comm.exchange_fields(fld.interp, 'J', 'add')
 
         else:
@@ -546,6 +561,8 @@ class Simulation(object):
         fld.interp2spect( fieldtype )
         if self.filter_currents:
             fld.filter_spect( fieldtype )
+        # Set the flag to indicate whether these fields have been exchanged
+        fld.exchanged_source[ fieldtype ] = (exchange and self.comm.size > 1)
 
     def cross_deposit( self, move_positions ):
         """
@@ -603,6 +620,7 @@ class Simulation(object):
             self.fld.interp[m].zmax += shift_distance
             self.fld.interp[m].z += shift_distance
 
+
     def set_moving_window( self, v=c, ux_m=0., uy_m=0., uz_m=0.,
                   ux_th=0., uy_th=0., uz_th=0., gamma_boost=None ):
         """
@@ -645,6 +663,11 @@ def progression_bar( i, Ntot, measured_start, Nbars=50, char='-'):
     Shows a progression bar with Nbars and the remaining
     simulation time.
     """
+    # First step completed: Show that the PIC loop runs
+    # (This comes after the message on Just-In-Time compilation)
+    if i==0:
+        print(' - Running the PIC loop')
+    # Print the progression bar
     nbars = int( (i+1)*1./Ntot*Nbars )
     sys.stdout.write('\r[' + nbars*char )
     sys.stdout.write((Nbars-nbars)*' ' + ']')

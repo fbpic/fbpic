@@ -6,8 +6,8 @@ This file is part of the Fourier-Bessel Particle-In-Cell code (FB-PIC)
 It defines the deposition methods for rho and J for linear and cubic
 order shapes on the CPU with threading.
 """
+import numpy as np
 import numba
-from numba import int64
 from fbpic.threading_utils import njit_parallel, prange
 import math
 from scipy.constants import c
@@ -18,17 +18,17 @@ from scipy.constants import c
 
 # Linear shapes
 @numba.njit
-def z_shape_linear(cell_position, index):
-    iz = int64(math.floor(cell_position))
+def Sz_linear(cell_position, index):
+    iz = np.floor(cell_position)
     if index == 0:
         return iz+1.-cell_position
     if index == 1:
         return cell_position - iz
 
 @numba.njit
-def r_shape_linear(cell_position, index):
+def Sr_linear(cell_position, index):
     flip_factor = 1.
-    ir = int64(math.floor(cell_position))
+    ir = np.floor(cell_position)
     if index == 0:
         if ir < 0:
             flip_factor = -1.
@@ -38,8 +38,8 @@ def r_shape_linear(cell_position, index):
 
 # Cubic shapes
 @numba.njit
-def z_shape_cubic(cell_position, index):
-    iz = int64(math.floor(cell_position)) - 1
+def Sz_cubic(cell_position, index):
+    iz = np.floor(cell_position) - 1.
     if index == 0:
         return (-1./6.)*((cell_position-iz)-2)**3
     if index == 1:
@@ -50,9 +50,9 @@ def z_shape_cubic(cell_position, index):
         return (-1./6.)*(((iz+3)-cell_position)-2)**3
 
 @numba.njit
-def r_shape_cubic(cell_position, index):
+def Sr_cubic(cell_position, index):
     flip_factor = 1.
-    ir = int64(math.floor(cell_position)) - 1
+    ir = np.floor(cell_position) - 1.
     if index == 0:
         if ir < 0:
             flip_factor = -1.
@@ -78,7 +78,7 @@ def r_shape_cubic(cell_position, index):
 def deposit_rho_numba_linear(x, y, z, w, q,
                            invdz, zmin, Nz,
                            invdr, rmin, Nr,
-                           rho_m0_global, rho_m1_global,
+                           rho_global, Nm,
                            nthreads, ptcl_chunk_indices):
     """
     Deposition of the charge density rho using numba prange on the CPU.
@@ -104,10 +104,14 @@ def deposit_rho_numba_linear(x, y, z, w, q,
         Charge of the species
         (For ionizable atoms: this is always the elementary charge e)
 
-    rho_m0_global, rho_m1_global : 3darrays of complexs (nthread, Nz, Nr)
-        The global helper arrays to store the thread local charge densities
-        on the interpolation grid for mode 0 and 1.
-        (is modified by this function)
+    rho_global : 4darrays of complexs
+        Global helper arrays of shape (nthreads, Nm, 2+Nz+2, 2+Nr+2) where the
+        additional 2's in z and r correspond to deposition guard cells.
+        This array stores the thread local charge density on the interpolation
+        grid for each mode. (is modified by this function)
+
+    Nm : int
+        The number of azimuthal modes
 
     invdz, invdr : float (in meters^-1)
         Inverse of the grid step along the considered direction
@@ -128,11 +132,14 @@ def deposit_rho_numba_linear(x, y, z, w, q,
     """
     # Deposit the field per cell in parallel (for threads < number of cells)
     for i_thread in prange( nthreads ):
+
+        # Allocate thread-local array
+        rho_scal = np.zeros( Nm, dtype=np.complex128 )
+
         # Loop over all particles in thread chunk
         for i_ptcl in range( ptcl_chunk_indices[i_thread],
                              ptcl_chunk_indices[i_thread+1] ):
-            # Preliminary arrays for the cylindrical conversion
-            # --------------------------------------------
+
             # Position
             xj = x[i_ptcl]
             yj = y[i_ptcl]
@@ -150,87 +157,25 @@ def deposit_rho_numba_linear(x, y, z, w, q,
             else:
                 cos = 1.
                 sin = 0.
-            exptheta_m0 = 1.
-            exptheta_m1 = cos + 1.j*sin
+            # Calculate contribution from this particle to each mode
+            rho_scal[0] = wj
+            for m in range(1,Nm):
+                rho_scal[m] = (cos + 1.j*sin)*rho_scal[m-1]
 
             # Positions of the particles, in the cell unit
             r_cell = invdr*(rj - rmin) - 0.5
             z_cell = invdz*(zj - zmin) - 0.5
+            # Index of the lowest cell of `global_array` that gets modified
+            # by this particle (note: `global_array` has 2 guard cells)
+            ir_cell = int(math.floor( r_cell )) + 2
+            iz_cell = int(math.floor( z_cell )) + 2
 
-            # Calculate rho
-            # --------------------------------------------
-            # Mode 0
-            R_m0_scal = wj * exptheta_m0
-            # Mode 1
-            R_m1_scal = wj * exptheta_m1
-
-            # Original index of the uppper and lower cell
-            ir_cell = int(math.floor( r_cell ))
-            iz_cell = int(math.floor( z_cell ))
-
-            # Treat the boundary conditions
-            # guard cells in lower r
-            if ir_cell < 0:
-                ir_cell = 0
-            # absorbing in upper r
-            if ir_cell > Nr-1:
-                ir_cell = Nr-1
-            # periodic boundaries in z
-            if iz_cell < 0:
-                iz_cell += Nz
-            if iz_cell > Nz-1:
-                iz_cell -= Nz
-
-            # Boundary Region Shifts
-            ir_flip = int( math.floor(r_cell) )
-
-            # Declare local field array
-            R_m0_00 = 0.
-            R_m0_01 = 0.
-            R_m0_10 = 0.
-            R_m0_11 = 0.
-
-            R_m1_00 = 0. + 0.j
-            R_m1_01 = 0. + 0.j
-            R_m1_10 = 0. + 0.j
-            R_m1_11 = 0. + 0.j
-
-            R_m0_00 += r_shape_linear(r_cell, 0)*z_shape_linear(z_cell, 0) * R_m0_scal
-            R_m0_01 += r_shape_linear(r_cell, 0)*z_shape_linear(z_cell, 1) * R_m0_scal
-            R_m1_00 += r_shape_linear(r_cell, 0)*z_shape_linear(z_cell, 0) * R_m1_scal
-            R_m1_01 += r_shape_linear(r_cell, 0)*z_shape_linear(z_cell, 1) * R_m1_scal
-
-            if ir_flip == -1:
-                R_m0_00 += r_shape_linear(r_cell, 1)*z_shape_linear(z_cell, 0) * R_m0_scal
-                R_m0_01 += r_shape_linear(r_cell, 1)*z_shape_linear(z_cell, 1) * R_m0_scal
-                R_m1_00 += r_shape_linear(r_cell, 1)*z_shape_linear(z_cell, 0) * R_m1_scal
-                R_m1_01 += r_shape_linear(r_cell, 1)*z_shape_linear(z_cell, 1) * R_m1_scal
-            else:
-                R_m0_10 += r_shape_linear(r_cell, 1)*z_shape_linear(z_cell, 0) * R_m0_scal
-                R_m0_11 += r_shape_linear(r_cell, 1)*z_shape_linear(z_cell, 1) * R_m0_scal
-                R_m1_10 += r_shape_linear(r_cell, 1)*z_shape_linear(z_cell, 0) * R_m1_scal
-                R_m1_11 += r_shape_linear(r_cell, 1)*z_shape_linear(z_cell, 1) * R_m1_scal
-
-            # Cell shifts for the simulation boundaries
-            shift_r = 0
-            shift_z = 0
-            if ir_cell+1 > (Nr-1):
-                shift_r = -1
-            if iz_cell+1 > Nz-1:
-                shift_z -= Nz
-
-            # Write ptcl fields to thread-local part of global deposition array
-            rho_m0_global[i_thread, iz_cell, ir_cell] += R_m0_00
-            rho_m1_global[i_thread, iz_cell, ir_cell] += R_m1_00
-
-            rho_m0_global[i_thread,iz_cell+1 + shift_z, ir_cell] += R_m0_01
-            rho_m1_global[i_thread,iz_cell+1 + shift_z, ir_cell] += R_m1_01
-
-            rho_m0_global[i_thread,iz_cell, ir_cell+1 + shift_r] += R_m0_10
-            rho_m1_global[i_thread,iz_cell, ir_cell+1 + shift_r] += R_m1_10
-
-            rho_m0_global[i_thread,iz_cell+1 + shift_z, ir_cell+1 + shift_r] += R_m0_11
-            rho_m1_global[i_thread,iz_cell+1 + shift_z, ir_cell+1 + shift_r] += R_m1_11
+            # Add contribution of this particle to the global array
+            for m in range(Nm):
+                rho_global[i_thread,m,iz_cell+0,ir_cell+0] += Sz_linear(z_cell, 0)*Sr_linear(r_cell, 0) * rho_scal[m]
+                rho_global[i_thread,m,iz_cell+0,ir_cell+1] += Sz_linear(z_cell, 0)*Sr_linear(r_cell, 1) * rho_scal[m]
+                rho_global[i_thread,m,iz_cell+1,ir_cell+0] += Sz_linear(z_cell, 1)*Sr_linear(r_cell, 0) * rho_scal[m]
+                rho_global[i_thread,m,iz_cell+1,ir_cell+1] += Sz_linear(z_cell, 1)*Sr_linear(r_cell, 1) * rho_scal[m]
 
     return
 
@@ -243,9 +188,7 @@ def deposit_J_numba_linear(x, y, z, w, q,
                          ux, uy, uz, inv_gamma,
                          invdz, zmin, Nz,
                          invdr, rmin, Nr,
-                         j_r_m0_global, j_r_m1_global,
-                         j_t_m0_global, j_t_m1_global,
-                         j_z_m0_global, j_z_m1_global,
+                         j_r_global, j_t_global, j_z_global, Nm,
                          nthreads, ptcl_chunk_indices):
     """
     Deposition of the current density J using numba prange on the CPU.
@@ -277,10 +220,14 @@ def deposit_J_numba_linear(x, y, z, w, q,
     inv_gamma : 1darray of floats
         The inverse of the relativistic gamma factor
 
-    j_x_m0_global, j_x_m1_global : 3darrays of complexs (nthread, Nz, Nr)
-        The global helper arrays to store the thread local current component
-        in each direction (r, t, z) on the interpolation grid for mode 0 and 1.
-        (is modified by this function)
+    j_x_global : 4darrays of complexs
+        Global helper arrays of shape (nthreads, Nm, 2+Nz+2, 2+Nr+2) where the
+        additional 2's in z and r correspond to deposition guard cells.
+        This array stores the thread local charge density on the interpolation
+        grid for each mode. (is modified by this function)
+
+    Nm : int
+        The number of azimuthal modes
 
     invdz, invdr : float (in meters^-1)
         Inverse of the grid step along the considered direction
@@ -301,11 +248,16 @@ def deposit_J_numba_linear(x, y, z, w, q,
     """
     # Deposit the field per cell in parallel (for threads < number of cells)
     for i_thread in prange( nthreads ):
+
+        # Allocate thread-local array
+        jr_scal = np.zeros( Nm, dtype=np.complex128 )
+        jt_scal = np.zeros( Nm, dtype=np.complex128 )
+        jz_scal = np.zeros( Nm, dtype=np.complex128 )
+
         # Loop over all particles in thread chunk
         for i_ptcl in range( ptcl_chunk_indices[i_thread],
                              ptcl_chunk_indices[i_thread+1] ):
-            # Preliminary arrays for the cylindrical conversion
-            # --------------------------------------------
+
             # Position
             xj = x[i_ptcl]
             yj = y[i_ptcl]
@@ -329,160 +281,40 @@ def deposit_J_numba_linear(x, y, z, w, q,
             else:
                 cos = 1.
                 sin = 0.
-            exptheta_m0 = 1.
-            exptheta_m1 = cos + 1.j*sin
+            # Calculate contribution from this particle to each mode
+            jr_scal[0] = wj * c * inv_gammaj * (cos*uxj + sin*uyj)
+            jt_scal[0] = wj * c * inv_gammaj * (cos*uyj - sin*uxj)
+            jz_scal[0] = wj * c * inv_gammaj * uzj
+            for m in range(1,Nm):
+                jr_scal[m] = (cos + 1.j*sin) * jr_scal[m-1]
+                jt_scal[m] = (cos + 1.j*sin) * jt_scal[m-1]
+                jz_scal[m] = (cos + 1.j*sin) * jz_scal[m-1]
 
-            # Get weights for the deposition
-            # --------------------------------------------
             # Positions of the particles, in the cell unit
             r_cell = invdr*(rj - rmin) - 0.5
             z_cell = invdz*(zj - zmin) - 0.5
+            # Index of the lowest cell of `global_array` that gets modified
+            # by this particle (note: `global_array` has 2 guard cells)
+            ir_cell = int(math.floor( r_cell )) + 2
+            iz_cell = int(math.floor( z_cell )) + 2
 
-            # Calculate the currents
-            # --------------------------------------------
-            # Mode 0
-            J_r_m0_scal = wj * c * inv_gammaj*(cos*uxj + sin*uyj) * exptheta_m0
-            J_t_m0_scal = wj * c * inv_gammaj*(cos*uyj - sin*uxj) * exptheta_m0
-            J_z_m0_scal = wj * c * inv_gammaj*uzj * exptheta_m0
-            # Mode 1
-            J_r_m1_scal = wj * c * inv_gammaj*(cos*uxj + sin*uyj) * exptheta_m1
-            J_t_m1_scal = wj * c * inv_gammaj*(cos*uyj - sin*uxj) * exptheta_m1
-            J_z_m1_scal = wj * c * inv_gammaj*uzj * exptheta_m1
+            # Add contribution of this particle to the global array
+            for m in range(Nm):
+                j_r_global[i_thread,m,iz_cell+0,ir_cell+0] += Sz_linear(z_cell, 0)*Sr_linear(r_cell, 0) * jr_scal[m]
+                j_r_global[i_thread,m,iz_cell+0,ir_cell+1] += Sz_linear(z_cell, 0)*Sr_linear(r_cell, 1) * jr_scal[m]
+                j_r_global[i_thread,m,iz_cell+1,ir_cell+0] += Sz_linear(z_cell, 1)*Sr_linear(r_cell, 0) * jr_scal[m]
+                j_r_global[i_thread,m,iz_cell+1,ir_cell+1] += Sz_linear(z_cell, 1)*Sr_linear(r_cell, 1) * jr_scal[m]
 
-            # Original index of the uppper and lower cell
-            ir_cell = int(math.floor( r_cell ))
-            iz_cell = int(math.floor( z_cell ))
+                j_t_global[i_thread,m,iz_cell+0,ir_cell+0] += Sz_linear(z_cell, 0)*Sr_linear(r_cell, 0) * jt_scal[m]
+                j_t_global[i_thread,m,iz_cell+0,ir_cell+1] += Sz_linear(z_cell, 0)*Sr_linear(r_cell, 1) * jt_scal[m]
+                j_t_global[i_thread,m,iz_cell+1,ir_cell+0] += Sz_linear(z_cell, 1)*Sr_linear(r_cell, 0) * jt_scal[m]
+                j_t_global[i_thread,m,iz_cell+1,ir_cell+1] += Sz_linear(z_cell, 1)*Sr_linear(r_cell, 1) * jt_scal[m]
 
-            # Treat the boundary conditions
-            # guard cells in lower r
-            if ir_cell < 0:
-                ir_cell = 0
-            # absorbing in upper r
-            if ir_cell > Nr-1:
-                ir_cell = Nr-1
-            # periodic boundaries in z
-            if iz_cell < 0:
-                iz_cell += Nz
-            if iz_cell > Nz-1:
-                iz_cell -= Nz
+                j_z_global[i_thread,m,iz_cell+0,ir_cell+0] += Sz_linear(z_cell, 0)*Sr_linear(r_cell, 0) * jz_scal[m]
+                j_z_global[i_thread,m,iz_cell+0,ir_cell+1] += Sz_linear(z_cell, 0)*Sr_linear(r_cell, 1) * jz_scal[m]
+                j_z_global[i_thread,m,iz_cell+1,ir_cell+0] += Sz_linear(z_cell, 1)*Sr_linear(r_cell, 0) * jz_scal[m]
+                j_z_global[i_thread,m,iz_cell+1,ir_cell+1] += Sz_linear(z_cell, 1)*Sr_linear(r_cell, 1) * jz_scal[m]
 
-            # Boundary Region Shifts
-            ir_flip = int( math.floor(r_cell) )
-
-            # Declare local field arrays
-            J_r_m0_00 = 0.
-            J_r_m1_00 = 0. + 0.j
-            J_t_m0_00 = 0.
-            J_t_m1_00 = 0. + 0.j
-            J_z_m0_00 = 0.
-            J_z_m1_00 = 0. + 0.j
-
-            J_r_m0_01 = 0.
-            J_r_m1_01 = 0. + 0.j
-            J_t_m0_01 = 0.
-            J_t_m1_01 = 0. + 0.j
-            J_z_m0_01 = 0.
-            J_z_m1_01 = 0. + 0.j
-
-            J_r_m0_10 = 0.
-            J_r_m1_10 = 0. + 0.j
-            J_t_m0_10 = 0.
-            J_t_m1_10 = 0. + 0.j
-            J_z_m0_10 = 0.
-            J_z_m1_10 = 0. + 0.j
-
-            J_r_m0_11 = 0.
-            J_r_m1_11 = 0. + 0.j
-            J_t_m0_11 = 0.
-            J_t_m1_11 = 0. + 0.j
-            J_z_m0_11 = 0.
-            J_z_m1_11 = 0. + 0.j
-
-            J_r_m0_00 += r_shape_linear(r_cell, 0)*z_shape_linear(z_cell, 0) * J_r_m0_scal
-            J_t_m0_00 += r_shape_linear(r_cell, 0)*z_shape_linear(z_cell, 0) * J_t_m0_scal
-            J_z_m0_00 += r_shape_linear(r_cell, 0)*z_shape_linear(z_cell, 0) * J_z_m0_scal
-            J_r_m0_01 += r_shape_linear(r_cell, 0)*z_shape_linear(z_cell, 1) * J_r_m0_scal
-            J_t_m0_01 += r_shape_linear(r_cell, 0)*z_shape_linear(z_cell, 1) * J_t_m0_scal
-            J_z_m0_01 += r_shape_linear(r_cell, 0)*z_shape_linear(z_cell, 1) * J_z_m0_scal
-            J_r_m1_00 += r_shape_linear(r_cell, 0)*z_shape_linear(z_cell, 0) * J_r_m1_scal
-            J_t_m1_00 += r_shape_linear(r_cell, 0)*z_shape_linear(z_cell, 0) * J_t_m1_scal
-            J_z_m1_00 += r_shape_linear(r_cell, 0)*z_shape_linear(z_cell, 0) * J_z_m1_scal
-            J_r_m1_01 += r_shape_linear(r_cell, 0)*z_shape_linear(z_cell, 1) * J_r_m1_scal
-            J_t_m1_01 += r_shape_linear(r_cell, 0)*z_shape_linear(z_cell, 1) * J_t_m1_scal
-            J_z_m1_01 += r_shape_linear(r_cell, 0)*z_shape_linear(z_cell, 1) * J_z_m1_scal
-
-            # Take into account lower r flips
-            if ir_flip == -1:
-                J_r_m0_00 += r_shape_linear(r_cell, 1)*z_shape_linear(z_cell, 0) * J_r_m0_scal
-                J_t_m0_00 += r_shape_linear(r_cell, 1)*z_shape_linear(z_cell, 0) * J_t_m0_scal
-                J_z_m0_00 += r_shape_linear(r_cell, 1)*z_shape_linear(z_cell, 0) * J_z_m0_scal
-                J_r_m0_01 += r_shape_linear(r_cell, 1)*z_shape_linear(z_cell, 1) * J_r_m0_scal
-                J_t_m0_01 += r_shape_linear(r_cell, 1)*z_shape_linear(z_cell, 1) * J_t_m0_scal
-                J_z_m0_01 += r_shape_linear(r_cell, 1)*z_shape_linear(z_cell, 1) * J_z_m0_scal
-                J_r_m1_00 += r_shape_linear(r_cell, 1)*z_shape_linear(z_cell, 0) * J_r_m1_scal
-                J_t_m1_00 += r_shape_linear(r_cell, 1)*z_shape_linear(z_cell, 0) * J_t_m1_scal
-                J_z_m1_00 += r_shape_linear(r_cell, 1)*z_shape_linear(z_cell, 0) * J_z_m1_scal
-                J_r_m1_01 += r_shape_linear(r_cell, 1)*z_shape_linear(z_cell, 1) * J_r_m1_scal
-                J_t_m1_01 += r_shape_linear(r_cell, 1)*z_shape_linear(z_cell, 1) * J_t_m1_scal
-                J_z_m1_01 += r_shape_linear(r_cell, 1)*z_shape_linear(z_cell, 1) * J_z_m1_scal
-            else:
-                J_r_m0_10 += r_shape_linear(r_cell, 1)*z_shape_linear(z_cell, 0) * J_r_m0_scal
-                J_t_m0_10 += r_shape_linear(r_cell, 1)*z_shape_linear(z_cell, 0) * J_t_m0_scal
-                J_z_m0_10 += r_shape_linear(r_cell, 1)*z_shape_linear(z_cell, 0) * J_z_m0_scal
-                J_r_m0_11 += r_shape_linear(r_cell, 1)*z_shape_linear(z_cell, 1) * J_r_m0_scal
-                J_t_m0_11 += r_shape_linear(r_cell, 1)*z_shape_linear(z_cell, 1) * J_t_m0_scal
-                J_z_m0_11 += r_shape_linear(r_cell, 1)*z_shape_linear(z_cell, 1) * J_z_m0_scal
-                J_r_m1_10 += r_shape_linear(r_cell, 1)*z_shape_linear(z_cell, 0) * J_r_m1_scal
-                J_t_m1_10 += r_shape_linear(r_cell, 1)*z_shape_linear(z_cell, 0) * J_t_m1_scal
-                J_z_m1_10 += r_shape_linear(r_cell, 1)*z_shape_linear(z_cell, 0) * J_z_m1_scal
-                J_r_m1_11 += r_shape_linear(r_cell, 1)*z_shape_linear(z_cell, 1) * J_r_m1_scal
-                J_t_m1_11 += r_shape_linear(r_cell, 1)*z_shape_linear(z_cell, 1) * J_t_m1_scal
-                J_z_m1_11 += r_shape_linear(r_cell, 1)*z_shape_linear(z_cell, 1) * J_z_m1_scal
-
-            # Cell shifts for the simulation boundaries
-            shift_r = 0
-            shift_z = 0
-            if (ir_cell+1) > (Nr-1):
-                shift_r = -1
-            if (iz_cell+1) > Nz-1:
-                shift_z -= Nz
-
-            # Write ptcl fields to thread-local part of global deposition array
-            j_r_m0_global[i_thread,iz_cell, ir_cell] += J_r_m0_00
-            j_r_m1_global[i_thread,iz_cell, ir_cell] += J_r_m1_00
-
-            j_r_m0_global[i_thread,iz_cell+1 + shift_z, ir_cell] += J_r_m0_01
-            j_r_m1_global[i_thread,iz_cell+1 + shift_z, ir_cell] += J_r_m1_01
-
-            j_r_m0_global[i_thread,iz_cell, ir_cell+1 + shift_r] += J_r_m0_10
-            j_r_m1_global[i_thread,iz_cell, ir_cell+1 + shift_r] += J_r_m1_10
-
-            j_r_m0_global[i_thread,iz_cell+1 + shift_z, ir_cell+1 + shift_r] += J_r_m0_11
-            j_r_m1_global[i_thread,iz_cell+1 + shift_z, ir_cell+1 + shift_r] += J_r_m1_11
-
-            j_t_m0_global[i_thread,iz_cell, ir_cell] += J_t_m0_00
-            j_t_m1_global[i_thread,iz_cell, ir_cell] += J_t_m1_00
-
-            j_t_m0_global[i_thread,iz_cell+1 + shift_z, ir_cell] += J_t_m0_01
-            j_t_m1_global[i_thread,iz_cell+1 + shift_z, ir_cell] += J_t_m1_01
-
-            j_t_m0_global[i_thread,iz_cell, ir_cell+1 + shift_r] += J_t_m0_10
-            j_t_m1_global[i_thread,iz_cell, ir_cell+1 + shift_r] += J_t_m1_10
-
-            j_t_m0_global[i_thread,iz_cell+1 + shift_z, ir_cell+1 + shift_r] += J_t_m0_11
-            j_t_m1_global[i_thread,iz_cell+1 + shift_z, ir_cell+1 + shift_r] += J_t_m1_11
-
-            j_z_m0_global[i_thread,iz_cell, ir_cell] += J_z_m0_00
-            j_z_m1_global[i_thread,iz_cell, ir_cell] += J_z_m1_00
-
-            j_z_m0_global[i_thread,iz_cell+1 + shift_z, ir_cell] += J_z_m0_01
-            j_z_m1_global[i_thread,iz_cell+1 + shift_z, ir_cell] += J_z_m1_01
-
-            j_z_m0_global[i_thread,iz_cell, ir_cell+1 + shift_r] += J_z_m0_10
-            j_z_m1_global[i_thread,iz_cell, ir_cell+1 + shift_r] += J_z_m1_10
-
-            j_z_m0_global[i_thread,iz_cell+1 + shift_z, ir_cell+1 + shift_r] += J_z_m0_11
-            j_z_m1_global[i_thread,iz_cell+1 + shift_z, ir_cell+1 + shift_r] += J_z_m1_11
 
     return
 
@@ -495,7 +327,7 @@ def deposit_J_numba_linear(x, y, z, w, q,
 def deposit_rho_numba_cubic(x, y, z, w, q,
                           invdz, zmin, Nz,
                           invdr, rmin, Nr,
-                          rho_m0_global, rho_m1_global,
+                          rho_global, Nm,
                           nthreads, ptcl_chunk_indices):
     """
     Deposition of the charge density rho using numba prange on the CPU.
@@ -521,10 +353,14 @@ def deposit_rho_numba_cubic(x, y, z, w, q,
         Charge of the species
         (For ionizable atoms: this is always the elementary charge e)
 
-    rho_m0_global, rho_m1_global : 3darrays of complexs (nthread, Nz, Nr)
-        The global helper arrays to store the thread local charge densities
-        on the interpolation grid for mode 0 and 1.
-        (is modified by this function)
+    rho_global : 4darray of complexs
+        Global helper arrays of shape (nthreads, Nm, 2+Nz+2, 2+Nr+2) where the
+        additional 2's in z and r correspond to deposition guard cells.
+        This array stores the thread local charge density on the interpolation
+        grid for each mode. (is modified by this function)
+
+    Nm : int
+        The number of azimuthal modes
 
     invdz, invdr : float (in meters^-1)
         Inverse of the grid step along the considered direction
@@ -545,11 +381,14 @@ def deposit_rho_numba_cubic(x, y, z, w, q,
     """
     # Deposit the field per cell in parallel (for threads < number of cells)
     for i_thread in prange( nthreads ):
+
+        # Allocate thread-local array
+        rho_scal = np.zeros( Nm, dtype=np.complex128 )
+
         # Loop over all particles in thread chunk
         for i_ptcl in range( ptcl_chunk_indices[i_thread],
                              ptcl_chunk_indices[i_thread+1] ):
-            # Preliminary arrays for the cylindrical conversion
-            # --------------------------------------------
+
             # Position
             xj = x[i_ptcl]
             yj = y[i_ptcl]
@@ -567,257 +406,40 @@ def deposit_rho_numba_cubic(x, y, z, w, q,
             else:
                 cos = 1.
                 sin = 0.
-            exptheta_m0 = 1.
-            exptheta_m1 = cos + 1.j*sin
+            # Calculate contribution from this particle to each mode
+            rho_scal[0] = wj
+            for m in range(1,Nm):
+                rho_scal[m] = (cos + 1.j*sin)*rho_scal[m-1]
 
             # Positions of the particles, in the cell unit
             r_cell = invdr*(rj - rmin) - 0.5
             z_cell = invdz*(zj - zmin) - 0.5
+            # Index of the lowest cell of `global_array` that gets modified
+            # by this particle (note: `global_array` has 2 guard cells)
+            ir_cell = int(math.floor( r_cell )) + 1
+            iz_cell = int(math.floor( z_cell )) + 1
 
-            # Calculate rho
-            # --------------------------------------------
-            # Mode 0
-            R_m0_scal = wj * exptheta_m0
-            # Mode 1
-            R_m1_scal = wj * exptheta_m1
+            # Add contribution of this particle to the global array
+            for m in range(Nm):
+                rho_global[i_thread,m,iz_cell+0,ir_cell+0] += Sz_cubic(z_cell, 0)*Sr_cubic(r_cell, 0)*rho_scal[m]
+                rho_global[i_thread,m,iz_cell+0,ir_cell+1] += Sz_cubic(z_cell, 0)*Sr_cubic(r_cell, 1)*rho_scal[m]
+                rho_global[i_thread,m,iz_cell+0,ir_cell+2] += Sz_cubic(z_cell, 0)*Sr_cubic(r_cell, 2)*rho_scal[m]
+                rho_global[i_thread,m,iz_cell+0,ir_cell+3] += Sz_cubic(z_cell, 0)*Sr_cubic(r_cell, 3)*rho_scal[m]
 
-            # Original index of the uppper and lower cell
-            ir_cell = int(math.floor( r_cell ))
-            iz_cell = int(math.floor( z_cell ))
+                rho_global[i_thread,m,iz_cell+1,ir_cell+0] += Sz_cubic(z_cell, 1)*Sr_cubic(r_cell, 0)*rho_scal[m]
+                rho_global[i_thread,m,iz_cell+1,ir_cell+1] += Sz_cubic(z_cell, 1)*Sr_cubic(r_cell, 1)*rho_scal[m]
+                rho_global[i_thread,m,iz_cell+1,ir_cell+2] += Sz_cubic(z_cell, 1)*Sr_cubic(r_cell, 2)*rho_scal[m]
+                rho_global[i_thread,m,iz_cell+1,ir_cell+3] += Sz_cubic(z_cell, 1)*Sr_cubic(r_cell, 3)*rho_scal[m]
 
-            # Treat the boundary conditions
-            # guard cells in lower r
-            if ir_cell < 0:
-                ir_cell = 0
-            # absorbing in upper r
-            if ir_cell > Nr-1:
-                ir_cell = Nr-1
-            # periodic boundaries in z
-            if iz_cell < 0:
-                iz_cell += Nz
-            if iz_cell > Nz-1:
-                iz_cell -= Nz
+                rho_global[i_thread,m,iz_cell+2,ir_cell+0] += Sz_cubic(z_cell, 2)*Sr_cubic(r_cell, 0)*rho_scal[m]
+                rho_global[i_thread,m,iz_cell+2,ir_cell+1] += Sz_cubic(z_cell, 2)*Sr_cubic(r_cell, 1)*rho_scal[m]
+                rho_global[i_thread,m,iz_cell+2,ir_cell+2] += Sz_cubic(z_cell, 2)*Sr_cubic(r_cell, 2)*rho_scal[m]
+                rho_global[i_thread,m,iz_cell+2,ir_cell+3] += Sz_cubic(z_cell, 2)*Sr_cubic(r_cell, 3)*rho_scal[m]
 
-            # Compute values in local copies and consider boundaries
-            ir_flip = int( math.floor(r_cell) ) - 1
-
-            # Declare the local field value for
-            # all possible deposition directions,
-            # depending on the shape order and per mode.
-            R_m0_00 = 0.
-            R_m1_00 = 0. + 0.j
-
-            R_m0_01 = 0.
-            R_m1_01 = 0. + 0.j
-
-            R_m0_02 = 0.
-            R_m1_02 = 0. + 0.j
-
-            R_m0_03 = 0.
-            R_m1_03 = 0. + 0.j
-
-            R_m0_10 = 0.
-            R_m1_10 = 0. + 0.j
-
-            R_m0_11 = 0.
-            R_m1_11 = 0. + 0.j
-
-            R_m0_12 = 0.
-            R_m1_12 = 0. + 0.j
-
-            R_m0_13 = 0.
-            R_m1_13 = 0. + 0.j
-
-            R_m0_20 = 0.
-            R_m1_20 = 0. + 0.j
-
-            R_m0_21 = 0.
-            R_m1_21 = 0. + 0.j
-
-            R_m0_22 = 0.
-            R_m1_22 = 0. + 0.j
-
-            R_m0_23 = 0.
-            R_m1_23 = 0. + 0.j
-
-            R_m0_30 = 0.
-            R_m1_30 = 0. + 0.j
-
-            R_m0_31 = 0.
-            R_m1_31 = 0. + 0.j
-
-            R_m0_32 = 0.
-            R_m1_32 = 0. + 0.j
-
-            R_m0_33 = 0.
-            R_m1_33 = 0. + 0.j
-
-            if (ir_flip == -2):
-                R_m0_20 += r_shape_cubic(r_cell, 0)*z_shape_cubic(z_cell, 0)*R_m0_scal
-                R_m1_20 += r_shape_cubic(r_cell, 0)*z_shape_cubic(z_cell, 0)*R_m1_scal
-                R_m0_21 += r_shape_cubic(r_cell, 0)*z_shape_cubic(z_cell, 1)*R_m0_scal
-                R_m1_21 += r_shape_cubic(r_cell, 0)*z_shape_cubic(z_cell, 1)*R_m1_scal
-                R_m0_22 += r_shape_cubic(r_cell, 0)*z_shape_cubic(z_cell, 2)*R_m0_scal
-                R_m1_22 += r_shape_cubic(r_cell, 0)*z_shape_cubic(z_cell, 2)*R_m1_scal
-                R_m0_23 += r_shape_cubic(r_cell, 0)*z_shape_cubic(z_cell, 3)*R_m0_scal
-                R_m1_23 += r_shape_cubic(r_cell, 0)*z_shape_cubic(z_cell, 3)*R_m1_scal
-
-                R_m0_10 += r_shape_cubic(r_cell, 1)*z_shape_cubic(z_cell, 0)*R_m0_scal
-                R_m1_10 += r_shape_cubic(r_cell, 1)*z_shape_cubic(z_cell, 0)*R_m1_scal
-                R_m0_11 += r_shape_cubic(r_cell, 1)*z_shape_cubic(z_cell, 1)*R_m0_scal
-                R_m1_11 += r_shape_cubic(r_cell, 1)*z_shape_cubic(z_cell, 1)*R_m1_scal
-                R_m0_12 += r_shape_cubic(r_cell, 1)*z_shape_cubic(z_cell, 2)*R_m0_scal
-                R_m1_12 += r_shape_cubic(r_cell, 1)*z_shape_cubic(z_cell, 2)*R_m1_scal
-                R_m0_13 += r_shape_cubic(r_cell, 1)*z_shape_cubic(z_cell, 3)*R_m0_scal
-                R_m1_13 += r_shape_cubic(r_cell, 1)*z_shape_cubic(z_cell, 3)*R_m1_scal
-
-                R_m0_10 += r_shape_cubic(r_cell, 2)*z_shape_cubic(z_cell, 0)*R_m0_scal
-                R_m1_10 += r_shape_cubic(r_cell, 2)*z_shape_cubic(z_cell, 0)*R_m1_scal
-                R_m0_11 += r_shape_cubic(r_cell, 2)*z_shape_cubic(z_cell, 1)*R_m0_scal
-                R_m1_11 += r_shape_cubic(r_cell, 2)*z_shape_cubic(z_cell, 1)*R_m1_scal
-                R_m0_12 += r_shape_cubic(r_cell, 2)*z_shape_cubic(z_cell, 2)*R_m0_scal
-                R_m1_12 += r_shape_cubic(r_cell, 2)*z_shape_cubic(z_cell, 2)*R_m1_scal
-                R_m0_13 += r_shape_cubic(r_cell, 2)*z_shape_cubic(z_cell, 3)*R_m0_scal
-                R_m1_13 += r_shape_cubic(r_cell, 2)*z_shape_cubic(z_cell, 3)*R_m1_scal
-
-                R_m0_20 += r_shape_cubic(r_cell, 3)*z_shape_cubic(z_cell, 0)*R_m0_scal
-                R_m1_20 += r_shape_cubic(r_cell, 3)*z_shape_cubic(z_cell, 0)*R_m1_scal
-                R_m0_21 += r_shape_cubic(r_cell, 3)*z_shape_cubic(z_cell, 1)*R_m0_scal
-                R_m1_21 += r_shape_cubic(r_cell, 3)*z_shape_cubic(z_cell, 1)*R_m1_scal
-                R_m0_22 += r_shape_cubic(r_cell, 3)*z_shape_cubic(z_cell, 2)*R_m0_scal
-                R_m1_22 += r_shape_cubic(r_cell, 3)*z_shape_cubic(z_cell, 2)*R_m1_scal
-                R_m0_23 += r_shape_cubic(r_cell, 3)*z_shape_cubic(z_cell, 3)*R_m0_scal
-                R_m1_23 += r_shape_cubic(r_cell, 3)*z_shape_cubic(z_cell, 3)*R_m1_scal
-
-            if (ir_flip == -1):
-                R_m0_10 += r_shape_cubic(r_cell, 0)*z_shape_cubic(z_cell, 0)*R_m0_scal
-                R_m1_10 += r_shape_cubic(r_cell, 0)*z_shape_cubic(z_cell, 0)*R_m1_scal
-                R_m0_11 += r_shape_cubic(r_cell, 0)*z_shape_cubic(z_cell, 1)*R_m0_scal
-                R_m1_11 += r_shape_cubic(r_cell, 0)*z_shape_cubic(z_cell, 1)*R_m1_scal
-                R_m0_12 += r_shape_cubic(r_cell, 0)*z_shape_cubic(z_cell, 2)*R_m0_scal
-                R_m1_12 += r_shape_cubic(r_cell, 0)*z_shape_cubic(z_cell, 2)*R_m1_scal
-                R_m0_13 += r_shape_cubic(r_cell, 0)*z_shape_cubic(z_cell, 3)*R_m0_scal
-                R_m1_13 += r_shape_cubic(r_cell, 0)*z_shape_cubic(z_cell, 3)*R_m1_scal
-
-                R_m0_10 += r_shape_cubic(r_cell, 1)*z_shape_cubic(z_cell, 0)*R_m0_scal
-                R_m1_10 += r_shape_cubic(r_cell, 1)*z_shape_cubic(z_cell, 0)*R_m1_scal
-                R_m0_11 += r_shape_cubic(r_cell, 1)*z_shape_cubic(z_cell, 1)*R_m0_scal
-                R_m1_11 += r_shape_cubic(r_cell, 1)*z_shape_cubic(z_cell, 1)*R_m1_scal
-                R_m0_12 += r_shape_cubic(r_cell, 1)*z_shape_cubic(z_cell, 2)*R_m0_scal
-                R_m1_12 += r_shape_cubic(r_cell, 1)*z_shape_cubic(z_cell, 2)*R_m1_scal
-                R_m0_13 += r_shape_cubic(r_cell, 1)*z_shape_cubic(z_cell, 3)*R_m0_scal
-                R_m1_13 += r_shape_cubic(r_cell, 1)*z_shape_cubic(z_cell, 3)*R_m1_scal
-
-                R_m0_20 += r_shape_cubic(r_cell, 2)*z_shape_cubic(z_cell, 0)*R_m0_scal
-                R_m1_20 += r_shape_cubic(r_cell, 2)*z_shape_cubic(z_cell, 0)*R_m1_scal
-                R_m0_21 += r_shape_cubic(r_cell, 2)*z_shape_cubic(z_cell, 1)*R_m0_scal
-                R_m1_21 += r_shape_cubic(r_cell, 2)*z_shape_cubic(z_cell, 1)*R_m1_scal
-                R_m0_22 += r_shape_cubic(r_cell, 2)*z_shape_cubic(z_cell, 2)*R_m0_scal
-                R_m1_22 += r_shape_cubic(r_cell, 2)*z_shape_cubic(z_cell, 2)*R_m1_scal
-                R_m0_23 += r_shape_cubic(r_cell, 2)*z_shape_cubic(z_cell, 3)*R_m0_scal
-                R_m1_23 += r_shape_cubic(r_cell, 2)*z_shape_cubic(z_cell, 3)*R_m1_scal
-
-                R_m0_30 += r_shape_cubic(r_cell, 3)*z_shape_cubic(z_cell, 0)*R_m0_scal
-                R_m1_30 += r_shape_cubic(r_cell, 3)*z_shape_cubic(z_cell, 0)*R_m1_scal
-                R_m0_31 += r_shape_cubic(r_cell, 3)*z_shape_cubic(z_cell, 1)*R_m0_scal
-                R_m1_31 += r_shape_cubic(r_cell, 3)*z_shape_cubic(z_cell, 1)*R_m1_scal
-                R_m0_32 += r_shape_cubic(r_cell, 3)*z_shape_cubic(z_cell, 2)*R_m0_scal
-                R_m1_32 += r_shape_cubic(r_cell, 3)*z_shape_cubic(z_cell, 2)*R_m1_scal
-                R_m0_33 += r_shape_cubic(r_cell, 3)*z_shape_cubic(z_cell, 3)*R_m0_scal
-                R_m1_33 += r_shape_cubic(r_cell, 3)*z_shape_cubic(z_cell, 3)*R_m1_scal
-            if (ir_flip >= 0):
-                R_m0_00 += r_shape_cubic(r_cell, 0)*z_shape_cubic(z_cell, 0)*R_m0_scal
-                R_m1_00 += r_shape_cubic(r_cell, 0)*z_shape_cubic(z_cell, 0)*R_m1_scal
-                R_m0_01 += r_shape_cubic(r_cell, 0)*z_shape_cubic(z_cell, 1)*R_m0_scal
-                R_m1_01 += r_shape_cubic(r_cell, 0)*z_shape_cubic(z_cell, 1)*R_m1_scal
-                R_m0_02 += r_shape_cubic(r_cell, 0)*z_shape_cubic(z_cell, 2)*R_m0_scal
-                R_m1_02 += r_shape_cubic(r_cell, 0)*z_shape_cubic(z_cell, 2)*R_m1_scal
-                R_m0_03 += r_shape_cubic(r_cell, 0)*z_shape_cubic(z_cell, 3)*R_m0_scal
-                R_m1_03 += r_shape_cubic(r_cell, 0)*z_shape_cubic(z_cell, 3)*R_m1_scal
-
-                R_m0_10 += r_shape_cubic(r_cell, 1)*z_shape_cubic(z_cell, 0)*R_m0_scal
-                R_m1_10 += r_shape_cubic(r_cell, 1)*z_shape_cubic(z_cell, 0)*R_m1_scal
-                R_m0_11 += r_shape_cubic(r_cell, 1)*z_shape_cubic(z_cell, 1)*R_m0_scal
-                R_m1_11 += r_shape_cubic(r_cell, 1)*z_shape_cubic(z_cell, 1)*R_m1_scal
-                R_m0_12 += r_shape_cubic(r_cell, 1)*z_shape_cubic(z_cell, 2)*R_m0_scal
-                R_m1_12 += r_shape_cubic(r_cell, 1)*z_shape_cubic(z_cell, 2)*R_m1_scal
-                R_m0_13 += r_shape_cubic(r_cell, 1)*z_shape_cubic(z_cell, 3)*R_m0_scal
-                R_m1_13 += r_shape_cubic(r_cell, 1)*z_shape_cubic(z_cell, 3)*R_m1_scal
-
-                R_m0_20 += r_shape_cubic(r_cell, 2)*z_shape_cubic(z_cell, 0)*R_m0_scal
-                R_m1_20 += r_shape_cubic(r_cell, 2)*z_shape_cubic(z_cell, 0)*R_m1_scal
-                R_m0_21 += r_shape_cubic(r_cell, 2)*z_shape_cubic(z_cell, 1)*R_m0_scal
-                R_m1_21 += r_shape_cubic(r_cell, 2)*z_shape_cubic(z_cell, 1)*R_m1_scal
-                R_m0_22 += r_shape_cubic(r_cell, 2)*z_shape_cubic(z_cell, 2)*R_m0_scal
-                R_m1_22 += r_shape_cubic(r_cell, 2)*z_shape_cubic(z_cell, 2)*R_m1_scal
-                R_m0_23 += r_shape_cubic(r_cell, 2)*z_shape_cubic(z_cell, 3)*R_m0_scal
-                R_m1_23 += r_shape_cubic(r_cell, 2)*z_shape_cubic(z_cell, 3)*R_m1_scal
-
-                R_m0_30 += r_shape_cubic(r_cell, 3)*z_shape_cubic(z_cell, 0)*R_m0_scal
-                R_m1_30 += r_shape_cubic(r_cell, 3)*z_shape_cubic(z_cell, 0)*R_m1_scal
-                R_m0_31 += r_shape_cubic(r_cell, 3)*z_shape_cubic(z_cell, 1)*R_m0_scal
-                R_m1_31 += r_shape_cubic(r_cell, 3)*z_shape_cubic(z_cell, 1)*R_m1_scal
-                R_m0_32 += r_shape_cubic(r_cell, 3)*z_shape_cubic(z_cell, 2)*R_m0_scal
-                R_m1_32 += r_shape_cubic(r_cell, 3)*z_shape_cubic(z_cell, 2)*R_m1_scal
-                R_m0_33 += r_shape_cubic(r_cell, 3)*z_shape_cubic(z_cell, 3)*R_m0_scal
-                R_m1_33 += r_shape_cubic(r_cell, 3)*z_shape_cubic(z_cell, 3)*R_m1_scal
-
-            # Index Shifting since local copies are centered around
-            # the current cell
-            srl = 0         # shift r lower
-            sru = 0         # shift r upper inner
-            sru2 = 0        # shift r upper outer
-            szl = 0         # shift z lower
-            szu = 0         # shift z upper inner
-            szu2 = 0        # shift z upper outer
-            if (iz_cell-1) < 0:
-                szl += Nz
-            if (iz_cell) == (Nz - 1):
-                szu -= Nz
-                szu2 -= Nz
-            if (iz_cell+1) == (Nz - 1):
-                szu2 -= Nz
-            if (ir_cell) >= (Nr - 1):
-                sru = -1
-                sru2 = -2
-            if (ir_cell+1) == (Nr - 1):
-                sru2 = -1
-            if (ir_cell-1) < 0:
-                srl = 1
-
-            # Write ptcl fields to thread-local part of global deposition array
-            rho_m0_global[i_thread, iz_cell - 1 + szl, ir_cell - 1 + srl] += R_m0_00
-            rho_m1_global[i_thread, iz_cell - 1 + szl, ir_cell - 1 + srl] += R_m1_00
-            rho_m0_global[i_thread, iz_cell, ir_cell - 1 + srl] += R_m0_01
-            rho_m1_global[i_thread, iz_cell, ir_cell - 1 + srl] += R_m1_01
-            rho_m0_global[i_thread, iz_cell + 1 + szu, ir_cell - 1 + srl] += R_m0_02
-            rho_m1_global[i_thread, iz_cell + 1 + szu, ir_cell - 1 + srl] += R_m1_02
-            rho_m0_global[i_thread, iz_cell + 2 + szu2, ir_cell - 1 + srl] += R_m0_03
-            rho_m1_global[i_thread, iz_cell + 2 + szu2, ir_cell - 1 + srl] += R_m1_03
-            rho_m0_global[i_thread, iz_cell - 1 + szl, ir_cell] += R_m0_10
-            rho_m1_global[i_thread, iz_cell - 1 + szl, ir_cell] += R_m1_10
-            rho_m0_global[i_thread, iz_cell, ir_cell] += R_m0_11
-            rho_m1_global[i_thread, iz_cell, ir_cell] += R_m1_11
-            rho_m0_global[i_thread, iz_cell + 1 + szu, ir_cell] += R_m0_12
-            rho_m1_global[i_thread, iz_cell + 1 + szu, ir_cell] += R_m1_12
-            rho_m0_global[i_thread, iz_cell + 2 + szu2, ir_cell] += R_m0_13
-            rho_m1_global[i_thread, iz_cell + 2 + szu2, ir_cell] += R_m1_13
-            rho_m0_global[i_thread, iz_cell - 1 + szl, ir_cell + 1 + sru] += R_m0_20
-            rho_m1_global[i_thread, iz_cell - 1 + szl, ir_cell + 1 + sru] += R_m1_20
-            rho_m0_global[i_thread, iz_cell, ir_cell + 1 + sru] += R_m0_21
-            rho_m1_global[i_thread, iz_cell, ir_cell + 1 + sru] += R_m1_21
-            rho_m0_global[i_thread, iz_cell + 1 + szu, ir_cell + 1 + sru] += R_m0_22
-            rho_m1_global[i_thread, iz_cell + 1 + szu, ir_cell + 1 + sru] += R_m1_22
-            rho_m0_global[i_thread, iz_cell + 2 + szu2, ir_cell + 1 + sru] += R_m0_23
-            rho_m1_global[i_thread, iz_cell + 2 + szu2, ir_cell + 1 + sru] += R_m1_23
-            rho_m0_global[i_thread, iz_cell - 1 + szl, ir_cell + 2 + sru2] += R_m0_30
-            rho_m1_global[i_thread, iz_cell - 1 + szl, ir_cell + 2 + sru2] += R_m1_30
-            rho_m0_global[i_thread, iz_cell, ir_cell + 2 + sru2] += R_m0_31
-            rho_m1_global[i_thread, iz_cell, ir_cell + 2 + sru2] += R_m1_31
-            rho_m0_global[i_thread, iz_cell + 1 + szu, ir_cell + 2 + sru2] += R_m0_32
-            rho_m1_global[i_thread, iz_cell + 1 + szu, ir_cell + 2 + sru2] += R_m1_32
-            rho_m0_global[i_thread, iz_cell + 2 + szu2, ir_cell + 2 + sru2] += R_m0_33
-            rho_m1_global[i_thread, iz_cell + 2 + szu2, ir_cell + 2 + sru2] += R_m1_33
+                rho_global[i_thread,m,iz_cell+3,ir_cell+0] += Sz_cubic(z_cell, 3)*Sr_cubic(r_cell, 0)*rho_scal[m]
+                rho_global[i_thread,m,iz_cell+3,ir_cell+1] += Sz_cubic(z_cell, 3)*Sr_cubic(r_cell, 1)*rho_scal[m]
+                rho_global[i_thread,m,iz_cell+3,ir_cell+2] += Sz_cubic(z_cell, 3)*Sr_cubic(r_cell, 2)*rho_scal[m]
+                rho_global[i_thread,m,iz_cell+3,ir_cell+3] += Sz_cubic(z_cell, 3)*Sr_cubic(r_cell, 3)*rho_scal[m]
 
     return
 
@@ -830,9 +452,7 @@ def deposit_J_numba_cubic(x, y, z, w, q,
                         ux, uy, uz, inv_gamma,
                         invdz, zmin, Nz,
                         invdr, rmin, Nr,
-                        j_r_m0_global, j_r_m1_global,
-                        j_t_m0_global, j_t_m1_global,
-                        j_z_m0_global, j_z_m1_global,
+                        j_r_global, j_t_global, j_z_global, Nm,
                         nthreads, ptcl_chunk_indices):
     """
     Deposition of the current density J using numba prange on the CPU.
@@ -864,10 +484,15 @@ def deposit_J_numba_cubic(x, y, z, w, q,
     inv_gamma : 1darray of floats
         The inverse of the relativistic gamma factor
 
-    j_x_m0_global, j_x_m1_global : 3darrays of complexs (nthread, Nz, Nr)
-        The global helper arrays to store the thread local current component
-        in each direction (r, t, z) on the interpolation grid for mode 0 and 1.
+    j_x_global : 4darrays of complexs
+        Global helper arrays of shape (nthreads, Nm, 2+Nz+2, 2+Nr+2) where the
+        additional 2's in z and r correspond to deposition guard cells.
+        This array stores the thread local current component in each
+        direction (r, t, z) on the interpolation grid for each mode.
         (is modified by this function)
+
+    Nm : int
+        The number of azimuthal modes
 
     invdz, invdr : float (in meters^-1)
         Inverse of the grid step along the considered direction
@@ -888,11 +513,16 @@ def deposit_J_numba_cubic(x, y, z, w, q,
     """
     # Deposit the field per cell in parallel (for threads < number of cells)
     for i_thread in prange( nthreads ):
+
+        # Allocate thread-local array
+        jr_scal = np.zeros( Nm, dtype=np.complex128 )
+        jt_scal = np.zeros( Nm, dtype=np.complex128 )
+        jz_scal = np.zeros( Nm, dtype=np.complex128 )
+
         # Loop over all particles in thread chunk
         for i_ptcl in range( ptcl_chunk_indices[i_thread],
                              ptcl_chunk_indices[i_thread+1] ):
-            # Preliminary arrays for the cylindrical conversion
-            # --------------------------------------------
+
             # Position
             xj = x[i_ptcl]
             yj = y[i_ptcl]
@@ -916,606 +546,84 @@ def deposit_J_numba_cubic(x, y, z, w, q,
             else:
                 cos = 1.
                 sin = 0.
-            exptheta_m0 = 1.
-            exptheta_m1 = cos + 1.j*sin
+            # Calculate contribution from this particle to each mode
+            jr_scal[0] = wj * c * inv_gammaj * (cos*uxj + sin*uyj)
+            jt_scal[0] = wj * c * inv_gammaj * (cos*uyj - sin*uxj)
+            jz_scal[0] = wj * c * inv_gammaj * uzj
+            for m in range(1,Nm):
+                jr_scal[m] = (cos + 1.j*sin) * jr_scal[m-1]
+                jt_scal[m] = (cos + 1.j*sin) * jt_scal[m-1]
+                jz_scal[m] = (cos + 1.j*sin) * jz_scal[m-1]
 
-            # Get weights for the deposition
-            # --------------------------------------------
             # Positions of the particles, in the cell unit
             r_cell = invdr*(rj - rmin) - 0.5
             z_cell = invdz*(zj - zmin) - 0.5
+            # Index of the lowest cell of `global_array` that gets modified
+            # by this particle (note: `global_array` has 2 guard cells)
+            ir_cell = int(math.floor( r_cell )) + 1
+            iz_cell = int(math.floor( z_cell )) + 1
 
-            # Calculate the currents
-            # --------------------------------------------
-            # Mode 0
-            J_r_m0_scal = wj * c * inv_gammaj*(cos*uxj + sin*uyj) * exptheta_m0
-            J_t_m0_scal = wj * c * inv_gammaj*(cos*uyj - sin*uxj) * exptheta_m0
-            J_z_m0_scal = wj * c * inv_gammaj*uzj * exptheta_m0
-            # Mode 1
-            J_r_m1_scal = wj * c * inv_gammaj*(cos*uxj + sin*uyj) * exptheta_m1
-            J_t_m1_scal = wj * c * inv_gammaj*(cos*uyj - sin*uxj) * exptheta_m1
-            J_z_m1_scal = wj * c * inv_gammaj*uzj * exptheta_m1
+            # Add contribution of this particle to the global array
+            for m in range(Nm):
+                j_r_global[i_thread,m,iz_cell+0,ir_cell+0] += Sz_cubic(z_cell, 0)*Sr_cubic(r_cell, 0)*jr_scal[m]
+                j_r_global[i_thread,m,iz_cell+0,ir_cell+1] += Sz_cubic(z_cell, 0)*Sr_cubic(r_cell, 1)*jr_scal[m]
+                j_r_global[i_thread,m,iz_cell+0,ir_cell+2] += Sz_cubic(z_cell, 0)*Sr_cubic(r_cell, 2)*jr_scal[m]
+                j_r_global[i_thread,m,iz_cell+0,ir_cell+3] += Sz_cubic(z_cell, 0)*Sr_cubic(r_cell, 3)*jr_scal[m]
 
-            # Original index of the uppper and lower cell
-            ir_cell = int(math.floor( r_cell ))
-            iz_cell = int(math.floor( z_cell ))
+                j_r_global[i_thread,m,iz_cell+1,ir_cell+0] += Sz_cubic(z_cell, 1)*Sr_cubic(r_cell, 0)*jr_scal[m]
+                j_r_global[i_thread,m,iz_cell+1,ir_cell+1] += Sz_cubic(z_cell, 1)*Sr_cubic(r_cell, 1)*jr_scal[m]
+                j_r_global[i_thread,m,iz_cell+1,ir_cell+2] += Sz_cubic(z_cell, 1)*Sr_cubic(r_cell, 2)*jr_scal[m]
+                j_r_global[i_thread,m,iz_cell+1,ir_cell+3] += Sz_cubic(z_cell, 1)*Sr_cubic(r_cell, 3)*jr_scal[m]
 
-            # Treat the boundary conditions
-            # guard cells in lower r
-            if ir_cell < 0:
-                ir_cell = 0
-            # absorbing in upper r
-            if ir_cell > Nr-1:
-                ir_cell = Nr-1
-            # periodic boundaries in z
-            if iz_cell < 0:
-                iz_cell += Nz
-            if iz_cell > Nz-1:
-                iz_cell -= Nz
+                j_r_global[i_thread,m,iz_cell+2,ir_cell+0] += Sz_cubic(z_cell, 2)*Sr_cubic(r_cell, 0)*jr_scal[m]
+                j_r_global[i_thread,m,iz_cell+2,ir_cell+1] += Sz_cubic(z_cell, 2)*Sr_cubic(r_cell, 1)*jr_scal[m]
+                j_r_global[i_thread,m,iz_cell+2,ir_cell+2] += Sz_cubic(z_cell, 2)*Sr_cubic(r_cell, 2)*jr_scal[m]
+                j_r_global[i_thread,m,iz_cell+2,ir_cell+3] += Sz_cubic(z_cell, 2)*Sr_cubic(r_cell, 3)*jr_scal[m]
 
-            # Compute values in local copies and consider boundaries
-            ir_flip = int64(math.floor(r_cell)) - 1
+                j_r_global[i_thread,m,iz_cell+3,ir_cell+0] += Sz_cubic(z_cell, 3)*Sr_cubic(r_cell, 0)*jr_scal[m]
+                j_r_global[i_thread,m,iz_cell+3,ir_cell+1] += Sz_cubic(z_cell, 3)*Sr_cubic(r_cell, 1)*jr_scal[m]
+                j_r_global[i_thread,m,iz_cell+3,ir_cell+2] += Sz_cubic(z_cell, 3)*Sr_cubic(r_cell, 2)*jr_scal[m]
+                j_r_global[i_thread,m,iz_cell+3,ir_cell+3] += Sz_cubic(z_cell, 3)*Sr_cubic(r_cell, 3)*jr_scal[m]
 
-            # Declare the local field value for
-            # all possible deposition directions,
-            # depending on the shape order and per mode for r,t and z.
-            J_r_m0_00 = 0.
-            J_t_m0_00 = 0.
-            J_z_m0_00 = 0.
-            J_r_m1_00 = 0. + 0.j
-            J_t_m1_00 = 0. + 0.j
-            J_z_m1_00 = 0. + 0.j
+                j_t_global[i_thread,m,iz_cell+0,ir_cell+0] += Sz_cubic(z_cell, 0)*Sr_cubic(r_cell, 0)*jt_scal[m]
+                j_t_global[i_thread,m,iz_cell+0,ir_cell+1] += Sz_cubic(z_cell, 0)*Sr_cubic(r_cell, 1)*jt_scal[m]
+                j_t_global[i_thread,m,iz_cell+0,ir_cell+2] += Sz_cubic(z_cell, 0)*Sr_cubic(r_cell, 2)*jt_scal[m]
+                j_t_global[i_thread,m,iz_cell+0,ir_cell+3] += Sz_cubic(z_cell, 0)*Sr_cubic(r_cell, 3)*jt_scal[m]
 
-            J_r_m0_01 = 0.
-            J_t_m0_01 = 0.
-            J_z_m0_01 = 0.
-            J_r_m1_01 = 0. + 0.j
-            J_t_m1_01 = 0. + 0.j
-            J_z_m1_01 = 0. + 0.j
+                j_t_global[i_thread,m,iz_cell+1,ir_cell+0] += Sz_cubic(z_cell, 1)*Sr_cubic(r_cell, 0)*jt_scal[m]
+                j_t_global[i_thread,m,iz_cell+1,ir_cell+1] += Sz_cubic(z_cell, 1)*Sr_cubic(r_cell, 1)*jt_scal[m]
+                j_t_global[i_thread,m,iz_cell+1,ir_cell+2] += Sz_cubic(z_cell, 1)*Sr_cubic(r_cell, 2)*jt_scal[m]
+                j_t_global[i_thread,m,iz_cell+1,ir_cell+3] += Sz_cubic(z_cell, 1)*Sr_cubic(r_cell, 3)*jt_scal[m]
 
-            J_r_m0_02 = 0.
-            J_t_m0_02 = 0.
-            J_z_m0_02 = 0.
-            J_r_m1_02 = 0. + 0.j
-            J_t_m1_02 = 0. + 0.j
-            J_z_m1_02 = 0. + 0.j
+                j_t_global[i_thread,m,iz_cell+2,ir_cell+0] += Sz_cubic(z_cell, 2)*Sr_cubic(r_cell, 0)*jt_scal[m]
+                j_t_global[i_thread,m,iz_cell+2,ir_cell+1] += Sz_cubic(z_cell, 2)*Sr_cubic(r_cell, 1)*jt_scal[m]
+                j_t_global[i_thread,m,iz_cell+2,ir_cell+2] += Sz_cubic(z_cell, 2)*Sr_cubic(r_cell, 2)*jt_scal[m]
+                j_t_global[i_thread,m,iz_cell+2,ir_cell+3] += Sz_cubic(z_cell, 2)*Sr_cubic(r_cell, 3)*jt_scal[m]
 
-            J_r_m0_03 = 0.
-            J_t_m0_03 = 0.
-            J_z_m0_03 = 0.
-            J_r_m1_03 = 0. + 0.j
-            J_t_m1_03 = 0. + 0.j
-            J_z_m1_03 = 0. + 0.j
+                j_t_global[i_thread,m,iz_cell+3,ir_cell+0] += Sz_cubic(z_cell, 3)*Sr_cubic(r_cell, 0)*jt_scal[m]
+                j_t_global[i_thread,m,iz_cell+3,ir_cell+1] += Sz_cubic(z_cell, 3)*Sr_cubic(r_cell, 1)*jt_scal[m]
+                j_t_global[i_thread,m,iz_cell+3,ir_cell+2] += Sz_cubic(z_cell, 3)*Sr_cubic(r_cell, 2)*jt_scal[m]
+                j_t_global[i_thread,m,iz_cell+3,ir_cell+3] += Sz_cubic(z_cell, 3)*Sr_cubic(r_cell, 3)*jt_scal[m]
 
-            J_r_m0_10 = 0.
-            J_t_m0_10 = 0.
-            J_z_m0_10 = 0.
-            J_r_m1_10 = 0. + 0.j
-            J_t_m1_10 = 0. + 0.j
-            J_z_m1_10 = 0. + 0.j
+                j_z_global[i_thread,m,iz_cell+0,ir_cell+0] += Sz_cubic(z_cell, 0)*Sr_cubic(r_cell, 0)*jz_scal[m]
+                j_z_global[i_thread,m,iz_cell+0,ir_cell+1] += Sz_cubic(z_cell, 0)*Sr_cubic(r_cell, 1)*jz_scal[m]
+                j_z_global[i_thread,m,iz_cell+0,ir_cell+2] += Sz_cubic(z_cell, 0)*Sr_cubic(r_cell, 2)*jz_scal[m]
+                j_z_global[i_thread,m,iz_cell+0,ir_cell+3] += Sz_cubic(z_cell, 0)*Sr_cubic(r_cell, 3)*jz_scal[m]
 
-            J_r_m0_11 = 0.
-            J_t_m0_11 = 0.
-            J_z_m0_11 = 0.
-            J_r_m1_11 = 0. + 0.j
-            J_t_m1_11 = 0. + 0.j
-            J_z_m1_11 = 0. + 0.j
+                j_z_global[i_thread,m,iz_cell+1,ir_cell+0] += Sz_cubic(z_cell, 1)*Sr_cubic(r_cell, 0)*jz_scal[m]
+                j_z_global[i_thread,m,iz_cell+1,ir_cell+1] += Sz_cubic(z_cell, 1)*Sr_cubic(r_cell, 1)*jz_scal[m]
+                j_z_global[i_thread,m,iz_cell+1,ir_cell+2] += Sz_cubic(z_cell, 1)*Sr_cubic(r_cell, 2)*jz_scal[m]
+                j_z_global[i_thread,m,iz_cell+1,ir_cell+3] += Sz_cubic(z_cell, 1)*Sr_cubic(r_cell, 3)*jz_scal[m]
 
-            J_r_m0_12 = 0.
-            J_t_m0_12 = 0.
-            J_z_m0_12 = 0.
-            J_r_m1_12 = 0. + 0.j
-            J_t_m1_12 = 0. + 0.j
-            J_z_m1_12 = 0. + 0.j
+                j_z_global[i_thread,m,iz_cell+2,ir_cell+0] += Sz_cubic(z_cell, 2)*Sr_cubic(r_cell, 0)*jz_scal[m]
+                j_z_global[i_thread,m,iz_cell+2,ir_cell+1] += Sz_cubic(z_cell, 2)*Sr_cubic(r_cell, 1)*jz_scal[m]
+                j_z_global[i_thread,m,iz_cell+2,ir_cell+2] += Sz_cubic(z_cell, 2)*Sr_cubic(r_cell, 2)*jz_scal[m]
+                j_z_global[i_thread,m,iz_cell+2,ir_cell+3] += Sz_cubic(z_cell, 2)*Sr_cubic(r_cell, 3)*jz_scal[m]
 
-            J_r_m0_13 = 0.
-            J_t_m0_13 = 0.
-            J_z_m0_13 = 0.
-            J_r_m1_13 = 0. + 0.j
-            J_t_m1_13 = 0. + 0.j
-            J_z_m1_13 = 0. + 0.j
-
-            J_r_m0_20 = 0.
-            J_t_m0_20 = 0.
-            J_z_m0_20 = 0.
-            J_r_m1_20 = 0. + 0.j
-            J_t_m1_20 = 0. + 0.j
-            J_z_m1_20 = 0. + 0.j
-
-            J_r_m0_21 = 0.
-            J_t_m0_21 = 0.
-            J_z_m0_21 = 0.
-            J_r_m1_21 = 0. + 0.j
-            J_t_m1_21 = 0. + 0.j
-            J_z_m1_21 = 0. + 0.j
-
-            J_r_m0_22 = 0.
-            J_t_m0_22 = 0.
-            J_z_m0_22 = 0.
-            J_r_m1_22 = 0. + 0.j
-            J_t_m1_22 = 0. + 0.j
-            J_z_m1_22 = 0. + 0.j
-
-            J_r_m0_23 = 0.
-            J_t_m0_23 = 0.
-            J_z_m0_23 = 0.
-            J_r_m1_23 = 0. + 0.j
-            J_t_m1_23 = 0. + 0.j
-            J_z_m1_23 = 0. + 0.j
-
-            J_r_m0_30 = 0.
-            J_t_m0_30 = 0.
-            J_z_m0_30 = 0.
-            J_r_m1_30 = 0. + 0.j
-            J_t_m1_30 = 0. + 0.j
-            J_z_m1_30 = 0. + 0.j
-
-            J_r_m0_31 = 0.
-            J_t_m0_31 = 0.
-            J_z_m0_31 = 0.
-            J_r_m1_31 = 0. + 0.j
-            J_t_m1_31 = 0. + 0.j
-            J_z_m1_31 = 0. + 0.j
-
-            J_r_m0_32 = 0.
-            J_t_m0_32 = 0.
-            J_z_m0_32 = 0.
-            J_r_m1_32 = 0. + 0.j
-            J_t_m1_32 = 0. + 0.j
-            J_z_m1_32 = 0. + 0.j
-
-            J_r_m0_33 = 0.
-            J_t_m0_33 = 0.
-            J_z_m0_33 = 0.
-            J_r_m1_33 = 0. + 0.j
-            J_t_m1_33 = 0. + 0.j
-            J_z_m1_33 = 0. + 0.j
-
-            if (ir_flip == -2):
-                J_r_m0_20 += r_shape_cubic(r_cell, 0)*z_shape_cubic(z_cell, 0)*J_r_m0_scal
-                J_r_m1_20 += r_shape_cubic(r_cell, 0)*z_shape_cubic(z_cell, 0)*J_r_m1_scal
-                J_r_m0_21 += r_shape_cubic(r_cell, 0)*z_shape_cubic(z_cell, 1)*J_r_m0_scal
-                J_r_m1_21 += r_shape_cubic(r_cell, 0)*z_shape_cubic(z_cell, 1)*J_r_m1_scal
-                J_r_m0_22 += r_shape_cubic(r_cell, 0)*z_shape_cubic(z_cell, 2)*J_r_m0_scal
-                J_r_m1_22 += r_shape_cubic(r_cell, 0)*z_shape_cubic(z_cell, 2)*J_r_m1_scal
-                J_r_m0_23 += r_shape_cubic(r_cell, 0)*z_shape_cubic(z_cell, 3)*J_r_m0_scal
-                J_r_m1_23 += r_shape_cubic(r_cell, 0)*z_shape_cubic(z_cell, 3)*J_r_m1_scal
-
-                J_r_m0_10 += r_shape_cubic(r_cell, 1)*z_shape_cubic(z_cell, 0)*J_r_m0_scal
-                J_r_m1_10 += r_shape_cubic(r_cell, 1)*z_shape_cubic(z_cell, 0)*J_r_m1_scal
-                J_r_m0_11 += r_shape_cubic(r_cell, 1)*z_shape_cubic(z_cell, 1)*J_r_m0_scal
-                J_r_m1_11 += r_shape_cubic(r_cell, 1)*z_shape_cubic(z_cell, 1)*J_r_m1_scal
-                J_r_m0_12 += r_shape_cubic(r_cell, 1)*z_shape_cubic(z_cell, 2)*J_r_m0_scal
-                J_r_m1_12 += r_shape_cubic(r_cell, 1)*z_shape_cubic(z_cell, 2)*J_r_m1_scal
-                J_r_m0_13 += r_shape_cubic(r_cell, 1)*z_shape_cubic(z_cell, 3)*J_r_m0_scal
-                J_r_m1_13 += r_shape_cubic(r_cell, 1)*z_shape_cubic(z_cell, 3)*J_r_m1_scal
-
-                J_r_m0_10 += r_shape_cubic(r_cell, 2)*z_shape_cubic(z_cell, 0)*J_r_m0_scal
-                J_r_m1_10 += r_shape_cubic(r_cell, 2)*z_shape_cubic(z_cell, 0)*J_r_m1_scal
-                J_r_m0_11 += r_shape_cubic(r_cell, 2)*z_shape_cubic(z_cell, 1)*J_r_m0_scal
-                J_r_m1_11 += r_shape_cubic(r_cell, 2)*z_shape_cubic(z_cell, 1)*J_r_m1_scal
-                J_r_m0_12 += r_shape_cubic(r_cell, 2)*z_shape_cubic(z_cell, 2)*J_r_m0_scal
-                J_r_m1_12 += r_shape_cubic(r_cell, 2)*z_shape_cubic(z_cell, 2)*J_r_m1_scal
-                J_r_m0_13 += r_shape_cubic(r_cell, 2)*z_shape_cubic(z_cell, 3)*J_r_m0_scal
-                J_r_m1_13 += r_shape_cubic(r_cell, 2)*z_shape_cubic(z_cell, 3)*J_r_m1_scal
-
-                J_r_m0_20 += r_shape_cubic(r_cell, 3)*z_shape_cubic(z_cell, 0)*J_r_m0_scal
-                J_r_m1_20 += r_shape_cubic(r_cell, 3)*z_shape_cubic(z_cell, 0)*J_r_m1_scal
-                J_r_m0_21 += r_shape_cubic(r_cell, 3)*z_shape_cubic(z_cell, 1)*J_r_m0_scal
-                J_r_m1_21 += r_shape_cubic(r_cell, 3)*z_shape_cubic(z_cell, 1)*J_r_m1_scal
-                J_r_m0_22 += r_shape_cubic(r_cell, 3)*z_shape_cubic(z_cell, 2)*J_r_m0_scal
-                J_r_m1_22 += r_shape_cubic(r_cell, 3)*z_shape_cubic(z_cell, 2)*J_r_m1_scal
-                J_r_m0_23 += r_shape_cubic(r_cell, 3)*z_shape_cubic(z_cell, 3)*J_r_m0_scal
-                J_r_m1_23 += r_shape_cubic(r_cell, 3)*z_shape_cubic(z_cell, 3)*J_r_m1_scal
-                J_r_m0_20 += r_shape_cubic(r_cell, 0)*z_shape_cubic(z_cell, 0)*J_r_m0_scal
-
-                J_t_m1_20 += r_shape_cubic(r_cell, 0)*z_shape_cubic(z_cell, 0)*J_t_m1_scal
-                J_t_m0_21 += r_shape_cubic(r_cell, 0)*z_shape_cubic(z_cell, 1)*J_t_m0_scal
-                J_t_m1_21 += r_shape_cubic(r_cell, 0)*z_shape_cubic(z_cell, 1)*J_t_m1_scal
-                J_t_m0_22 += r_shape_cubic(r_cell, 0)*z_shape_cubic(z_cell, 2)*J_t_m0_scal
-                J_t_m1_22 += r_shape_cubic(r_cell, 0)*z_shape_cubic(z_cell, 2)*J_t_m1_scal
-                J_t_m0_23 += r_shape_cubic(r_cell, 0)*z_shape_cubic(z_cell, 3)*J_t_m0_scal
-                J_t_m1_23 += r_shape_cubic(r_cell, 0)*z_shape_cubic(z_cell, 3)*J_t_m1_scal
-
-                J_t_m0_10 += r_shape_cubic(r_cell, 1)*z_shape_cubic(z_cell, 0)*J_t_m0_scal
-                J_t_m1_10 += r_shape_cubic(r_cell, 1)*z_shape_cubic(z_cell, 0)*J_t_m1_scal
-                J_t_m0_11 += r_shape_cubic(r_cell, 1)*z_shape_cubic(z_cell, 1)*J_t_m0_scal
-                J_t_m1_11 += r_shape_cubic(r_cell, 1)*z_shape_cubic(z_cell, 1)*J_t_m1_scal
-                J_t_m0_12 += r_shape_cubic(r_cell, 1)*z_shape_cubic(z_cell, 2)*J_t_m0_scal
-                J_t_m1_12 += r_shape_cubic(r_cell, 1)*z_shape_cubic(z_cell, 2)*J_t_m1_scal
-                J_t_m0_13 += r_shape_cubic(r_cell, 1)*z_shape_cubic(z_cell, 3)*J_t_m0_scal
-                J_t_m1_13 += r_shape_cubic(r_cell, 1)*z_shape_cubic(z_cell, 3)*J_t_m1_scal
-
-                J_t_m0_10 += r_shape_cubic(r_cell, 2)*z_shape_cubic(z_cell, 0)*J_t_m0_scal
-                J_t_m1_10 += r_shape_cubic(r_cell, 2)*z_shape_cubic(z_cell, 0)*J_t_m1_scal
-                J_t_m0_11 += r_shape_cubic(r_cell, 2)*z_shape_cubic(z_cell, 1)*J_t_m0_scal
-                J_t_m1_11 += r_shape_cubic(r_cell, 2)*z_shape_cubic(z_cell, 1)*J_t_m1_scal
-                J_t_m0_12 += r_shape_cubic(r_cell, 2)*z_shape_cubic(z_cell, 2)*J_t_m0_scal
-                J_t_m1_12 += r_shape_cubic(r_cell, 2)*z_shape_cubic(z_cell, 2)*J_t_m1_scal
-                J_t_m0_13 += r_shape_cubic(r_cell, 2)*z_shape_cubic(z_cell, 3)*J_t_m0_scal
-                J_t_m1_13 += r_shape_cubic(r_cell, 2)*z_shape_cubic(z_cell, 3)*J_t_m1_scal
-
-                J_t_m0_20 += r_shape_cubic(r_cell, 3)*z_shape_cubic(z_cell, 0)*J_t_m0_scal
-                J_t_m1_20 += r_shape_cubic(r_cell, 3)*z_shape_cubic(z_cell, 0)*J_t_m1_scal
-                J_t_m0_21 += r_shape_cubic(r_cell, 3)*z_shape_cubic(z_cell, 1)*J_t_m0_scal
-                J_t_m1_21 += r_shape_cubic(r_cell, 3)*z_shape_cubic(z_cell, 1)*J_t_m1_scal
-                J_t_m0_22 += r_shape_cubic(r_cell, 3)*z_shape_cubic(z_cell, 2)*J_t_m0_scal
-                J_t_m1_22 += r_shape_cubic(r_cell, 3)*z_shape_cubic(z_cell, 2)*J_t_m1_scal
-                J_t_m0_23 += r_shape_cubic(r_cell, 3)*z_shape_cubic(z_cell, 3)*J_t_m0_scal
-                J_t_m1_23 += r_shape_cubic(r_cell, 3)*z_shape_cubic(z_cell, 3)*J_t_m1_scal
-
-                J_z_m1_20 += r_shape_cubic(r_cell, 0)*z_shape_cubic(z_cell, 0)*J_z_m1_scal
-                J_z_m0_21 += r_shape_cubic(r_cell, 0)*z_shape_cubic(z_cell, 1)*J_z_m0_scal
-                J_z_m1_21 += r_shape_cubic(r_cell, 0)*z_shape_cubic(z_cell, 1)*J_z_m1_scal
-                J_z_m0_22 += r_shape_cubic(r_cell, 0)*z_shape_cubic(z_cell, 2)*J_z_m0_scal
-                J_z_m1_22 += r_shape_cubic(r_cell, 0)*z_shape_cubic(z_cell, 2)*J_z_m1_scal
-                J_z_m0_23 += r_shape_cubic(r_cell, 0)*z_shape_cubic(z_cell, 3)*J_z_m0_scal
-                J_z_m1_23 += r_shape_cubic(r_cell, 0)*z_shape_cubic(z_cell, 3)*J_z_m1_scal
-
-                J_z_m0_10 += r_shape_cubic(r_cell, 1)*z_shape_cubic(z_cell, 0)*J_z_m0_scal
-                J_z_m1_10 += r_shape_cubic(r_cell, 1)*z_shape_cubic(z_cell, 0)*J_z_m1_scal
-                J_z_m0_11 += r_shape_cubic(r_cell, 1)*z_shape_cubic(z_cell, 1)*J_z_m0_scal
-                J_z_m1_11 += r_shape_cubic(r_cell, 1)*z_shape_cubic(z_cell, 1)*J_z_m1_scal
-                J_z_m0_12 += r_shape_cubic(r_cell, 1)*z_shape_cubic(z_cell, 2)*J_z_m0_scal
-                J_z_m1_12 += r_shape_cubic(r_cell, 1)*z_shape_cubic(z_cell, 2)*J_z_m1_scal
-                J_z_m0_13 += r_shape_cubic(r_cell, 1)*z_shape_cubic(z_cell, 3)*J_z_m0_scal
-                J_z_m1_13 += r_shape_cubic(r_cell, 1)*z_shape_cubic(z_cell, 3)*J_z_m1_scal
-
-                J_z_m0_10 += r_shape_cubic(r_cell, 2)*z_shape_cubic(z_cell, 0)*J_z_m0_scal
-                J_z_m1_10 += r_shape_cubic(r_cell, 2)*z_shape_cubic(z_cell, 0)*J_z_m1_scal
-                J_z_m0_11 += r_shape_cubic(r_cell, 2)*z_shape_cubic(z_cell, 1)*J_z_m0_scal
-                J_z_m1_11 += r_shape_cubic(r_cell, 2)*z_shape_cubic(z_cell, 1)*J_z_m1_scal
-                J_z_m0_12 += r_shape_cubic(r_cell, 2)*z_shape_cubic(z_cell, 2)*J_z_m0_scal
-                J_z_m1_12 += r_shape_cubic(r_cell, 2)*z_shape_cubic(z_cell, 2)*J_z_m1_scal
-                J_z_m0_13 += r_shape_cubic(r_cell, 2)*z_shape_cubic(z_cell, 3)*J_z_m0_scal
-                J_z_m1_13 += r_shape_cubic(r_cell, 2)*z_shape_cubic(z_cell, 3)*J_z_m1_scal
-
-                J_z_m0_20 += r_shape_cubic(r_cell, 3)*z_shape_cubic(z_cell, 0)*J_z_m0_scal
-                J_z_m1_20 += r_shape_cubic(r_cell, 3)*z_shape_cubic(z_cell, 0)*J_z_m1_scal
-                J_z_m0_21 += r_shape_cubic(r_cell, 3)*z_shape_cubic(z_cell, 1)*J_z_m0_scal
-                J_z_m1_21 += r_shape_cubic(r_cell, 3)*z_shape_cubic(z_cell, 1)*J_z_m1_scal
-                J_z_m0_22 += r_shape_cubic(r_cell, 3)*z_shape_cubic(z_cell, 2)*J_z_m0_scal
-                J_z_m1_22 += r_shape_cubic(r_cell, 3)*z_shape_cubic(z_cell, 2)*J_z_m1_scal
-                J_z_m0_23 += r_shape_cubic(r_cell, 3)*z_shape_cubic(z_cell, 3)*J_z_m0_scal
-                J_z_m1_23 += r_shape_cubic(r_cell, 3)*z_shape_cubic(z_cell, 3)*J_z_m1_scal
-            if (ir_flip == -1):
-                J_r_m0_10 += r_shape_cubic(r_cell, 0)*z_shape_cubic(z_cell, 0)*J_r_m0_scal
-                J_r_m1_10 += r_shape_cubic(r_cell, 0)*z_shape_cubic(z_cell, 0)*J_r_m1_scal
-                J_r_m0_11 += r_shape_cubic(r_cell, 0)*z_shape_cubic(z_cell, 1)*J_r_m0_scal
-                J_r_m1_11 += r_shape_cubic(r_cell, 0)*z_shape_cubic(z_cell, 1)*J_r_m1_scal
-                J_r_m0_12 += r_shape_cubic(r_cell, 0)*z_shape_cubic(z_cell, 2)*J_r_m0_scal
-                J_r_m1_12 += r_shape_cubic(r_cell, 0)*z_shape_cubic(z_cell, 2)*J_r_m1_scal
-                J_r_m0_13 += r_shape_cubic(r_cell, 0)*z_shape_cubic(z_cell, 3)*J_r_m0_scal
-                J_r_m1_13 += r_shape_cubic(r_cell, 0)*z_shape_cubic(z_cell, 3)*J_r_m1_scal
-
-                J_r_m0_10 += r_shape_cubic(r_cell, 1)*z_shape_cubic(z_cell, 0)*J_r_m0_scal
-                J_r_m1_10 += r_shape_cubic(r_cell, 1)*z_shape_cubic(z_cell, 0)*J_r_m1_scal
-                J_r_m0_11 += r_shape_cubic(r_cell, 1)*z_shape_cubic(z_cell, 1)*J_r_m0_scal
-                J_r_m1_11 += r_shape_cubic(r_cell, 1)*z_shape_cubic(z_cell, 1)*J_r_m1_scal
-                J_r_m0_12 += r_shape_cubic(r_cell, 1)*z_shape_cubic(z_cell, 2)*J_r_m0_scal
-                J_r_m1_12 += r_shape_cubic(r_cell, 1)*z_shape_cubic(z_cell, 2)*J_r_m1_scal
-                J_r_m0_13 += r_shape_cubic(r_cell, 1)*z_shape_cubic(z_cell, 3)*J_r_m0_scal
-                J_r_m1_13 += r_shape_cubic(r_cell, 1)*z_shape_cubic(z_cell, 3)*J_r_m1_scal
-
-                J_r_m0_20 += r_shape_cubic(r_cell, 2)*z_shape_cubic(z_cell, 0)*J_r_m0_scal
-                J_r_m1_20 += r_shape_cubic(r_cell, 2)*z_shape_cubic(z_cell, 0)*J_r_m1_scal
-                J_r_m0_21 += r_shape_cubic(r_cell, 2)*z_shape_cubic(z_cell, 1)*J_r_m0_scal
-                J_r_m1_21 += r_shape_cubic(r_cell, 2)*z_shape_cubic(z_cell, 1)*J_r_m1_scal
-                J_r_m0_22 += r_shape_cubic(r_cell, 2)*z_shape_cubic(z_cell, 2)*J_r_m0_scal
-                J_r_m1_22 += r_shape_cubic(r_cell, 2)*z_shape_cubic(z_cell, 2)*J_r_m1_scal
-                J_r_m0_23 += r_shape_cubic(r_cell, 2)*z_shape_cubic(z_cell, 3)*J_r_m0_scal
-                J_r_m1_23 += r_shape_cubic(r_cell, 2)*z_shape_cubic(z_cell, 3)*J_r_m1_scal
-
-                J_r_m0_30 += r_shape_cubic(r_cell, 3)*z_shape_cubic(z_cell, 0)*J_r_m0_scal
-                J_r_m1_30 += r_shape_cubic(r_cell, 3)*z_shape_cubic(z_cell, 0)*J_r_m1_scal
-                J_r_m0_31 += r_shape_cubic(r_cell, 3)*z_shape_cubic(z_cell, 1)*J_r_m0_scal
-                J_r_m1_31 += r_shape_cubic(r_cell, 3)*z_shape_cubic(z_cell, 1)*J_r_m1_scal
-                J_r_m0_32 += r_shape_cubic(r_cell, 3)*z_shape_cubic(z_cell, 2)*J_r_m0_scal
-                J_r_m1_32 += r_shape_cubic(r_cell, 3)*z_shape_cubic(z_cell, 2)*J_r_m1_scal
-                J_r_m0_33 += r_shape_cubic(r_cell, 3)*z_shape_cubic(z_cell, 3)*J_r_m0_scal
-                J_r_m1_33 += r_shape_cubic(r_cell, 3)*z_shape_cubic(z_cell, 3)*J_r_m1_scal
-
-                J_t_m0_10 += r_shape_cubic(r_cell, 0)*z_shape_cubic(z_cell, 0)*J_t_m0_scal
-                J_t_m1_10 += r_shape_cubic(r_cell, 0)*z_shape_cubic(z_cell, 0)*J_t_m1_scal
-                J_t_m0_11 += r_shape_cubic(r_cell, 0)*z_shape_cubic(z_cell, 1)*J_t_m0_scal
-                J_t_m1_11 += r_shape_cubic(r_cell, 0)*z_shape_cubic(z_cell, 1)*J_t_m1_scal
-                J_t_m0_12 += r_shape_cubic(r_cell, 0)*z_shape_cubic(z_cell, 2)*J_t_m0_scal
-                J_t_m1_12 += r_shape_cubic(r_cell, 0)*z_shape_cubic(z_cell, 2)*J_t_m1_scal
-                J_t_m0_13 += r_shape_cubic(r_cell, 0)*z_shape_cubic(z_cell, 3)*J_t_m0_scal
-                J_t_m1_13 += r_shape_cubic(r_cell, 0)*z_shape_cubic(z_cell, 3)*J_t_m1_scal
-
-                J_t_m0_10 += r_shape_cubic(r_cell, 1)*z_shape_cubic(z_cell, 0)*J_t_m0_scal
-                J_t_m1_10 += r_shape_cubic(r_cell, 1)*z_shape_cubic(z_cell, 0)*J_t_m1_scal
-                J_t_m0_11 += r_shape_cubic(r_cell, 1)*z_shape_cubic(z_cell, 1)*J_t_m0_scal
-                J_t_m1_11 += r_shape_cubic(r_cell, 1)*z_shape_cubic(z_cell, 1)*J_t_m1_scal
-                J_t_m0_12 += r_shape_cubic(r_cell, 1)*z_shape_cubic(z_cell, 2)*J_t_m0_scal
-                J_t_m1_12 += r_shape_cubic(r_cell, 1)*z_shape_cubic(z_cell, 2)*J_t_m1_scal
-                J_t_m0_13 += r_shape_cubic(r_cell, 1)*z_shape_cubic(z_cell, 3)*J_t_m0_scal
-                J_t_m1_13 += r_shape_cubic(r_cell, 1)*z_shape_cubic(z_cell, 3)*J_t_m1_scal
-
-                J_t_m0_20 += r_shape_cubic(r_cell, 2)*z_shape_cubic(z_cell, 0)*J_t_m0_scal
-                J_t_m1_20 += r_shape_cubic(r_cell, 2)*z_shape_cubic(z_cell, 0)*J_t_m1_scal
-                J_t_m0_21 += r_shape_cubic(r_cell, 2)*z_shape_cubic(z_cell, 1)*J_t_m0_scal
-                J_t_m1_21 += r_shape_cubic(r_cell, 2)*z_shape_cubic(z_cell, 1)*J_t_m1_scal
-                J_t_m0_22 += r_shape_cubic(r_cell, 2)*z_shape_cubic(z_cell, 2)*J_t_m0_scal
-                J_t_m1_22 += r_shape_cubic(r_cell, 2)*z_shape_cubic(z_cell, 2)*J_t_m1_scal
-                J_t_m0_23 += r_shape_cubic(r_cell, 2)*z_shape_cubic(z_cell, 3)*J_t_m0_scal
-                J_t_m1_23 += r_shape_cubic(r_cell, 2)*z_shape_cubic(z_cell, 3)*J_t_m1_scal
-
-                J_t_m0_30 += r_shape_cubic(r_cell, 3)*z_shape_cubic(z_cell, 0)*J_t_m0_scal
-                J_t_m1_30 += r_shape_cubic(r_cell, 3)*z_shape_cubic(z_cell, 0)*J_t_m1_scal
-                J_t_m0_31 += r_shape_cubic(r_cell, 3)*z_shape_cubic(z_cell, 1)*J_t_m0_scal
-                J_t_m1_31 += r_shape_cubic(r_cell, 3)*z_shape_cubic(z_cell, 1)*J_t_m1_scal
-                J_t_m0_32 += r_shape_cubic(r_cell, 3)*z_shape_cubic(z_cell, 2)*J_t_m0_scal
-                J_t_m1_32 += r_shape_cubic(r_cell, 3)*z_shape_cubic(z_cell, 2)*J_t_m1_scal
-                J_t_m0_33 += r_shape_cubic(r_cell, 3)*z_shape_cubic(z_cell, 3)*J_t_m0_scal
-                J_t_m1_33 += r_shape_cubic(r_cell, 3)*z_shape_cubic(z_cell, 3)*J_t_m1_scal
-
-                J_z_m0_10 += r_shape_cubic(r_cell, 0)*z_shape_cubic(z_cell, 0)*J_z_m0_scal
-                J_z_m1_10 += r_shape_cubic(r_cell, 0)*z_shape_cubic(z_cell, 0)*J_z_m1_scal
-                J_z_m0_11 += r_shape_cubic(r_cell, 0)*z_shape_cubic(z_cell, 1)*J_z_m0_scal
-                J_z_m1_11 += r_shape_cubic(r_cell, 0)*z_shape_cubic(z_cell, 1)*J_z_m1_scal
-                J_z_m0_12 += r_shape_cubic(r_cell, 0)*z_shape_cubic(z_cell, 2)*J_z_m0_scal
-                J_z_m1_12 += r_shape_cubic(r_cell, 0)*z_shape_cubic(z_cell, 2)*J_z_m1_scal
-                J_z_m0_13 += r_shape_cubic(r_cell, 0)*z_shape_cubic(z_cell, 3)*J_z_m0_scal
-                J_z_m1_13 += r_shape_cubic(r_cell, 0)*z_shape_cubic(z_cell, 3)*J_z_m1_scal
-
-                J_z_m0_10 += r_shape_cubic(r_cell, 1)*z_shape_cubic(z_cell, 0)*J_z_m0_scal
-                J_z_m1_10 += r_shape_cubic(r_cell, 1)*z_shape_cubic(z_cell, 0)*J_z_m1_scal
-                J_z_m0_11 += r_shape_cubic(r_cell, 1)*z_shape_cubic(z_cell, 1)*J_z_m0_scal
-                J_z_m1_11 += r_shape_cubic(r_cell, 1)*z_shape_cubic(z_cell, 1)*J_z_m1_scal
-                J_z_m0_12 += r_shape_cubic(r_cell, 1)*z_shape_cubic(z_cell, 2)*J_z_m0_scal
-                J_z_m1_12 += r_shape_cubic(r_cell, 1)*z_shape_cubic(z_cell, 2)*J_z_m1_scal
-                J_z_m0_13 += r_shape_cubic(r_cell, 1)*z_shape_cubic(z_cell, 3)*J_z_m0_scal
-                J_z_m1_13 += r_shape_cubic(r_cell, 1)*z_shape_cubic(z_cell, 3)*J_z_m1_scal
-
-                J_z_m0_20 += r_shape_cubic(r_cell, 2)*z_shape_cubic(z_cell, 0)*J_z_m0_scal
-                J_z_m1_20 += r_shape_cubic(r_cell, 2)*z_shape_cubic(z_cell, 0)*J_z_m1_scal
-                J_z_m0_21 += r_shape_cubic(r_cell, 2)*z_shape_cubic(z_cell, 1)*J_z_m0_scal
-                J_z_m1_21 += r_shape_cubic(r_cell, 2)*z_shape_cubic(z_cell, 1)*J_z_m1_scal
-                J_z_m0_22 += r_shape_cubic(r_cell, 2)*z_shape_cubic(z_cell, 2)*J_z_m0_scal
-                J_z_m1_22 += r_shape_cubic(r_cell, 2)*z_shape_cubic(z_cell, 2)*J_z_m1_scal
-                J_z_m0_23 += r_shape_cubic(r_cell, 2)*z_shape_cubic(z_cell, 3)*J_z_m0_scal
-                J_z_m1_23 += r_shape_cubic(r_cell, 2)*z_shape_cubic(z_cell, 3)*J_z_m1_scal
-
-                J_z_m0_30 += r_shape_cubic(r_cell, 3)*z_shape_cubic(z_cell, 0)*J_z_m0_scal
-                J_z_m1_30 += r_shape_cubic(r_cell, 3)*z_shape_cubic(z_cell, 0)*J_z_m1_scal
-                J_z_m0_31 += r_shape_cubic(r_cell, 3)*z_shape_cubic(z_cell, 1)*J_z_m0_scal
-                J_z_m1_31 += r_shape_cubic(r_cell, 3)*z_shape_cubic(z_cell, 1)*J_z_m1_scal
-                J_z_m0_32 += r_shape_cubic(r_cell, 3)*z_shape_cubic(z_cell, 2)*J_z_m0_scal
-                J_z_m1_32 += r_shape_cubic(r_cell, 3)*z_shape_cubic(z_cell, 2)*J_z_m1_scal
-                J_z_m0_33 += r_shape_cubic(r_cell, 3)*z_shape_cubic(z_cell, 3)*J_z_m0_scal
-                J_z_m1_33 += r_shape_cubic(r_cell, 3)*z_shape_cubic(z_cell, 3)*J_z_m1_scal
-            if (ir_flip >= 0):
-                J_r_m0_00 += r_shape_cubic(r_cell, 0)*z_shape_cubic(z_cell, 0)*J_r_m0_scal
-                J_r_m1_00 += r_shape_cubic(r_cell, 0)*z_shape_cubic(z_cell, 0)*J_r_m1_scal
-                J_r_m0_01 += r_shape_cubic(r_cell, 0)*z_shape_cubic(z_cell, 1)*J_r_m0_scal
-                J_r_m1_01 += r_shape_cubic(r_cell, 0)*z_shape_cubic(z_cell, 1)*J_r_m1_scal
-                J_r_m0_02 += r_shape_cubic(r_cell, 0)*z_shape_cubic(z_cell, 2)*J_r_m0_scal
-                J_r_m1_02 += r_shape_cubic(r_cell, 0)*z_shape_cubic(z_cell, 2)*J_r_m1_scal
-                J_r_m0_03 += r_shape_cubic(r_cell, 0)*z_shape_cubic(z_cell, 3)*J_r_m0_scal
-                J_r_m1_03 += r_shape_cubic(r_cell, 0)*z_shape_cubic(z_cell, 3)*J_r_m1_scal
-
-                J_r_m0_10 += r_shape_cubic(r_cell, 1)*z_shape_cubic(z_cell, 0)*J_r_m0_scal
-                J_r_m1_10 += r_shape_cubic(r_cell, 1)*z_shape_cubic(z_cell, 0)*J_r_m1_scal
-                J_r_m0_11 += r_shape_cubic(r_cell, 1)*z_shape_cubic(z_cell, 1)*J_r_m0_scal
-                J_r_m1_11 += r_shape_cubic(r_cell, 1)*z_shape_cubic(z_cell, 1)*J_r_m1_scal
-                J_r_m0_12 += r_shape_cubic(r_cell, 1)*z_shape_cubic(z_cell, 2)*J_r_m0_scal
-                J_r_m1_12 += r_shape_cubic(r_cell, 1)*z_shape_cubic(z_cell, 2)*J_r_m1_scal
-                J_r_m0_13 += r_shape_cubic(r_cell, 1)*z_shape_cubic(z_cell, 3)*J_r_m0_scal
-                J_r_m1_13 += r_shape_cubic(r_cell, 1)*z_shape_cubic(z_cell, 3)*J_r_m1_scal
-
-                J_r_m0_20 += r_shape_cubic(r_cell, 2)*z_shape_cubic(z_cell, 0)*J_r_m0_scal
-                J_r_m1_20 += r_shape_cubic(r_cell, 2)*z_shape_cubic(z_cell, 0)*J_r_m1_scal
-                J_r_m0_21 += r_shape_cubic(r_cell, 2)*z_shape_cubic(z_cell, 1)*J_r_m0_scal
-                J_r_m1_21 += r_shape_cubic(r_cell, 2)*z_shape_cubic(z_cell, 1)*J_r_m1_scal
-                J_r_m0_22 += r_shape_cubic(r_cell, 2)*z_shape_cubic(z_cell, 2)*J_r_m0_scal
-                J_r_m1_22 += r_shape_cubic(r_cell, 2)*z_shape_cubic(z_cell, 2)*J_r_m1_scal
-                J_r_m0_23 += r_shape_cubic(r_cell, 2)*z_shape_cubic(z_cell, 3)*J_r_m0_scal
-                J_r_m1_23 += r_shape_cubic(r_cell, 2)*z_shape_cubic(z_cell, 3)*J_r_m1_scal
-
-                J_r_m0_30 += r_shape_cubic(r_cell, 3)*z_shape_cubic(z_cell, 0)*J_r_m0_scal
-                J_r_m1_30 += r_shape_cubic(r_cell, 3)*z_shape_cubic(z_cell, 0)*J_r_m1_scal
-                J_r_m0_31 += r_shape_cubic(r_cell, 3)*z_shape_cubic(z_cell, 1)*J_r_m0_scal
-                J_r_m1_31 += r_shape_cubic(r_cell, 3)*z_shape_cubic(z_cell, 1)*J_r_m1_scal
-                J_r_m0_32 += r_shape_cubic(r_cell, 3)*z_shape_cubic(z_cell, 2)*J_r_m0_scal
-                J_r_m1_32 += r_shape_cubic(r_cell, 3)*z_shape_cubic(z_cell, 2)*J_r_m1_scal
-                J_r_m0_33 += r_shape_cubic(r_cell, 3)*z_shape_cubic(z_cell, 3)*J_r_m0_scal
-                J_r_m1_33 += r_shape_cubic(r_cell, 3)*z_shape_cubic(z_cell, 3)*J_r_m1_scal
-
-                J_t_m0_00 += r_shape_cubic(r_cell, 0)*z_shape_cubic(z_cell, 0)*J_t_m0_scal
-                J_t_m1_00 += r_shape_cubic(r_cell, 0)*z_shape_cubic(z_cell, 0)*J_t_m1_scal
-                J_t_m0_01 += r_shape_cubic(r_cell, 0)*z_shape_cubic(z_cell, 1)*J_t_m0_scal
-                J_t_m1_01 += r_shape_cubic(r_cell, 0)*z_shape_cubic(z_cell, 1)*J_t_m1_scal
-                J_t_m0_02 += r_shape_cubic(r_cell, 0)*z_shape_cubic(z_cell, 2)*J_t_m0_scal
-                J_t_m1_02 += r_shape_cubic(r_cell, 0)*z_shape_cubic(z_cell, 2)*J_t_m1_scal
-                J_t_m0_03 += r_shape_cubic(r_cell, 0)*z_shape_cubic(z_cell, 3)*J_t_m0_scal
-                J_t_m1_03 += r_shape_cubic(r_cell, 0)*z_shape_cubic(z_cell, 3)*J_t_m1_scal
-
-                J_t_m0_10 += r_shape_cubic(r_cell, 1)*z_shape_cubic(z_cell, 0)*J_t_m0_scal
-                J_t_m1_10 += r_shape_cubic(r_cell, 1)*z_shape_cubic(z_cell, 0)*J_t_m1_scal
-                J_t_m0_11 += r_shape_cubic(r_cell, 1)*z_shape_cubic(z_cell, 1)*J_t_m0_scal
-                J_t_m1_11 += r_shape_cubic(r_cell, 1)*z_shape_cubic(z_cell, 1)*J_t_m1_scal
-                J_t_m0_12 += r_shape_cubic(r_cell, 1)*z_shape_cubic(z_cell, 2)*J_t_m0_scal
-                J_t_m1_12 += r_shape_cubic(r_cell, 1)*z_shape_cubic(z_cell, 2)*J_t_m1_scal
-                J_t_m0_13 += r_shape_cubic(r_cell, 1)*z_shape_cubic(z_cell, 3)*J_t_m0_scal
-                J_t_m1_13 += r_shape_cubic(r_cell, 1)*z_shape_cubic(z_cell, 3)*J_t_m1_scal
-
-                J_t_m0_20 += r_shape_cubic(r_cell, 2)*z_shape_cubic(z_cell, 0)*J_t_m0_scal
-                J_t_m1_20 += r_shape_cubic(r_cell, 2)*z_shape_cubic(z_cell, 0)*J_t_m1_scal
-                J_t_m0_21 += r_shape_cubic(r_cell, 2)*z_shape_cubic(z_cell, 1)*J_t_m0_scal
-                J_t_m1_21 += r_shape_cubic(r_cell, 2)*z_shape_cubic(z_cell, 1)*J_t_m1_scal
-                J_t_m0_22 += r_shape_cubic(r_cell, 2)*z_shape_cubic(z_cell, 2)*J_t_m0_scal
-                J_t_m1_22 += r_shape_cubic(r_cell, 2)*z_shape_cubic(z_cell, 2)*J_t_m1_scal
-                J_t_m0_23 += r_shape_cubic(r_cell, 2)*z_shape_cubic(z_cell, 3)*J_t_m0_scal
-                J_t_m1_23 += r_shape_cubic(r_cell, 2)*z_shape_cubic(z_cell, 3)*J_t_m1_scal
-
-                J_t_m0_30 += r_shape_cubic(r_cell, 3)*z_shape_cubic(z_cell, 0)*J_t_m0_scal
-                J_t_m1_30 += r_shape_cubic(r_cell, 3)*z_shape_cubic(z_cell, 0)*J_t_m1_scal
-                J_t_m0_31 += r_shape_cubic(r_cell, 3)*z_shape_cubic(z_cell, 1)*J_t_m0_scal
-                J_t_m1_31 += r_shape_cubic(r_cell, 3)*z_shape_cubic(z_cell, 1)*J_t_m1_scal
-                J_t_m0_32 += r_shape_cubic(r_cell, 3)*z_shape_cubic(z_cell, 2)*J_t_m0_scal
-                J_t_m1_32 += r_shape_cubic(r_cell, 3)*z_shape_cubic(z_cell, 2)*J_t_m1_scal
-                J_t_m0_33 += r_shape_cubic(r_cell, 3)*z_shape_cubic(z_cell, 3)*J_t_m0_scal
-                J_t_m1_33 += r_shape_cubic(r_cell, 3)*z_shape_cubic(z_cell, 3)*J_t_m1_scal
-
-                J_z_m0_00 += r_shape_cubic(r_cell, 0)*z_shape_cubic(z_cell, 0)*J_z_m0_scal
-                J_z_m1_00 += r_shape_cubic(r_cell, 0)*z_shape_cubic(z_cell, 0)*J_z_m1_scal
-                J_z_m0_01 += r_shape_cubic(r_cell, 0)*z_shape_cubic(z_cell, 1)*J_z_m0_scal
-                J_z_m1_01 += r_shape_cubic(r_cell, 0)*z_shape_cubic(z_cell, 1)*J_z_m1_scal
-                J_z_m0_02 += r_shape_cubic(r_cell, 0)*z_shape_cubic(z_cell, 2)*J_z_m0_scal
-                J_z_m1_02 += r_shape_cubic(r_cell, 0)*z_shape_cubic(z_cell, 2)*J_z_m1_scal
-                J_z_m0_03 += r_shape_cubic(r_cell, 0)*z_shape_cubic(z_cell, 3)*J_z_m0_scal
-                J_z_m1_03 += r_shape_cubic(r_cell, 0)*z_shape_cubic(z_cell, 3)*J_z_m1_scal
-
-                J_z_m0_10 += r_shape_cubic(r_cell, 1)*z_shape_cubic(z_cell, 0)*J_z_m0_scal
-                J_z_m1_10 += r_shape_cubic(r_cell, 1)*z_shape_cubic(z_cell, 0)*J_z_m1_scal
-                J_z_m0_11 += r_shape_cubic(r_cell, 1)*z_shape_cubic(z_cell, 1)*J_z_m0_scal
-                J_z_m1_11 += r_shape_cubic(r_cell, 1)*z_shape_cubic(z_cell, 1)*J_z_m1_scal
-                J_z_m0_12 += r_shape_cubic(r_cell, 1)*z_shape_cubic(z_cell, 2)*J_z_m0_scal
-                J_z_m1_12 += r_shape_cubic(r_cell, 1)*z_shape_cubic(z_cell, 2)*J_z_m1_scal
-                J_z_m0_13 += r_shape_cubic(r_cell, 1)*z_shape_cubic(z_cell, 3)*J_z_m0_scal
-                J_z_m1_13 += r_shape_cubic(r_cell, 1)*z_shape_cubic(z_cell, 3)*J_z_m1_scal
-
-                J_z_m0_20 += r_shape_cubic(r_cell, 2)*z_shape_cubic(z_cell, 0)*J_z_m0_scal
-                J_z_m1_20 += r_shape_cubic(r_cell, 2)*z_shape_cubic(z_cell, 0)*J_z_m1_scal
-                J_z_m0_21 += r_shape_cubic(r_cell, 2)*z_shape_cubic(z_cell, 1)*J_z_m0_scal
-                J_z_m1_21 += r_shape_cubic(r_cell, 2)*z_shape_cubic(z_cell, 1)*J_z_m1_scal
-                J_z_m0_22 += r_shape_cubic(r_cell, 2)*z_shape_cubic(z_cell, 2)*J_z_m0_scal
-                J_z_m1_22 += r_shape_cubic(r_cell, 2)*z_shape_cubic(z_cell, 2)*J_z_m1_scal
-                J_z_m0_23 += r_shape_cubic(r_cell, 2)*z_shape_cubic(z_cell, 3)*J_z_m0_scal
-                J_z_m1_23 += r_shape_cubic(r_cell, 2)*z_shape_cubic(z_cell, 3)*J_z_m1_scal
-
-                J_z_m0_30 += r_shape_cubic(r_cell, 3)*z_shape_cubic(z_cell, 0)*J_z_m0_scal
-                J_z_m1_30 += r_shape_cubic(r_cell, 3)*z_shape_cubic(z_cell, 0)*J_z_m1_scal
-                J_z_m0_31 += r_shape_cubic(r_cell, 3)*z_shape_cubic(z_cell, 1)*J_z_m0_scal
-                J_z_m1_31 += r_shape_cubic(r_cell, 3)*z_shape_cubic(z_cell, 1)*J_z_m1_scal
-                J_z_m0_32 += r_shape_cubic(r_cell, 3)*z_shape_cubic(z_cell, 2)*J_z_m0_scal
-                J_z_m1_32 += r_shape_cubic(r_cell, 3)*z_shape_cubic(z_cell, 2)*J_z_m1_scal
-                J_z_m0_33 += r_shape_cubic(r_cell, 3)*z_shape_cubic(z_cell, 3)*J_z_m0_scal
-                J_z_m1_33 += r_shape_cubic(r_cell, 3)*z_shape_cubic(z_cell, 3)*J_z_m1_scal
-
-            # Index Shifting since local copies are centered around
-            # the current cell
-            srl = 0         # shift r lower
-            sru = 0         # shift r upper inner
-            sru2 = 0        # shift r upper outer
-            szl = 0         # shift z lower
-            szu = 0         # shift z upper inner
-            szu2 = 0        # shift z upper outer
-            if (iz_cell-1) < 0:
-                szl += Nz
-            if (iz_cell) == (Nz - 1):
-                szu -= Nz
-                szu2 -= Nz
-            if (iz_cell+1) == (Nz - 1):
-                szu2 -= Nz
-            if (ir_cell) >= (Nr - 1):
-                sru = -1
-                sru2 = -2
-            if (ir_cell+1) == (Nr - 1):
-                sru2 = -1
-            if (ir_cell-1) < 0:
-                srl = 1
-
-            j_r_m0_global[i_thread, iz_cell - 1 + szl, ir_cell - 1 + srl] += J_r_m0_00
-            j_r_m1_global[i_thread, iz_cell - 1 + szl, ir_cell - 1 + srl] += J_r_m1_00
-            j_r_m0_global[i_thread, iz_cell, ir_cell - 1 + srl] += J_r_m0_01
-            j_r_m1_global[i_thread, iz_cell, ir_cell - 1 + srl] += J_r_m1_01
-            j_r_m0_global[i_thread, iz_cell + 1 + szu, ir_cell - 1 + srl] += J_r_m0_02
-            j_r_m1_global[i_thread, iz_cell + 1 + szu, ir_cell - 1 + srl] += J_r_m1_02
-            j_r_m0_global[i_thread, iz_cell + 2 + szu2, ir_cell - 1 + srl] += J_r_m0_03
-            j_r_m1_global[i_thread, iz_cell + 2 + szu2, ir_cell - 1 + srl] += J_r_m1_03
-            j_r_m0_global[i_thread, iz_cell - 1 + szl, ir_cell ] += J_r_m0_10
-            j_r_m1_global[i_thread, iz_cell - 1 + szl, ir_cell ] += J_r_m1_10
-            j_r_m0_global[i_thread, iz_cell, ir_cell] += J_r_m0_11
-            j_r_m1_global[i_thread, iz_cell, ir_cell] += J_r_m1_11
-            j_r_m0_global[i_thread, iz_cell + 1 + szu, ir_cell] += J_r_m0_12
-            j_r_m1_global[i_thread, iz_cell + 1 + szu, ir_cell] += J_r_m1_12
-            j_r_m0_global[i_thread, iz_cell + 2 + szu2, ir_cell] += J_r_m0_13
-            j_r_m1_global[i_thread, iz_cell + 2 + szu2, ir_cell] += J_r_m1_13
-            j_r_m0_global[i_thread, iz_cell - 1 + szl, ir_cell + 1 + sru] += J_r_m0_20
-            j_r_m1_global[i_thread, iz_cell - 1 + szl, ir_cell + 1 + sru] += J_r_m1_20
-            j_r_m0_global[i_thread, iz_cell, ir_cell + 1 + sru] += J_r_m0_21
-            j_r_m1_global[i_thread, iz_cell, ir_cell + 1 + sru] += J_r_m1_21
-            j_r_m0_global[i_thread, iz_cell + 1 + szu, ir_cell + 1 + sru] += J_r_m0_22
-            j_r_m1_global[i_thread, iz_cell + 1 + szu, ir_cell + 1 + sru] += J_r_m1_22
-            j_r_m0_global[i_thread, iz_cell + 2 + szu2, ir_cell + 1 + sru] += J_r_m0_23
-            j_r_m1_global[i_thread, iz_cell + 2 + szu2, ir_cell + 1 + sru] += J_r_m1_23
-            j_r_m0_global[i_thread, iz_cell - 1 + szl, ir_cell + 2 + sru2] += J_r_m0_30
-            j_r_m1_global[i_thread, iz_cell - 1 + szl, ir_cell + 2 + sru2] += J_r_m1_30
-            j_r_m0_global[i_thread, iz_cell, ir_cell + 2 + sru2] += J_r_m0_31
-            j_r_m1_global[i_thread, iz_cell, ir_cell + 2 + sru2] += J_r_m1_31
-            j_r_m0_global[i_thread, iz_cell + 1 + szu, ir_cell + 2 + sru2] += J_r_m0_32
-            j_r_m1_global[i_thread, iz_cell + 1 + szu, ir_cell + 2 + sru2] += J_r_m1_32
-            j_r_m0_global[i_thread, iz_cell + 2 + szu2, ir_cell + 2 + sru2] += J_r_m0_33
-            j_r_m1_global[i_thread, iz_cell + 2 + szu2, ir_cell + 2 + sru2] += J_r_m1_33
-
-            j_t_m0_global[i_thread, iz_cell - 1 + szl, ir_cell - 1 + srl] += J_t_m0_00
-            j_t_m1_global[i_thread, iz_cell - 1 + szl, ir_cell - 1 + srl] += J_t_m1_00
-            j_t_m0_global[i_thread, iz_cell, ir_cell - 1 + srl] += J_t_m0_01
-            j_t_m1_global[i_thread, iz_cell, ir_cell - 1 + srl] += J_t_m1_01
-            j_t_m0_global[i_thread, iz_cell + 1 + szu, ir_cell - 1 + srl] += J_t_m0_02
-            j_t_m1_global[i_thread, iz_cell + 1 + szu, ir_cell - 1 + srl] += J_t_m1_02
-            j_t_m0_global[i_thread, iz_cell + 2 + szu2, ir_cell - 1 + srl] += J_t_m0_03
-            j_t_m1_global[i_thread, iz_cell + 2 + szu2, ir_cell - 1 + srl] += J_t_m1_03
-            j_t_m0_global[i_thread, iz_cell - 1 + szl, ir_cell ] += J_t_m0_10
-            j_t_m1_global[i_thread, iz_cell - 1 + szl, ir_cell ] += J_t_m1_10
-            j_t_m0_global[i_thread, iz_cell, ir_cell] += J_t_m0_11
-            j_t_m1_global[i_thread, iz_cell, ir_cell] += J_t_m1_11
-            j_t_m0_global[i_thread, iz_cell + 1 + szu, ir_cell] += J_t_m0_12
-            j_t_m1_global[i_thread, iz_cell + 1 + szu, ir_cell] += J_t_m1_12
-            j_t_m0_global[i_thread, iz_cell + 2 + szu2, ir_cell] += J_t_m0_13
-            j_t_m1_global[i_thread, iz_cell + 2 + szu2, ir_cell] += J_t_m1_13
-            j_t_m0_global[i_thread, iz_cell - 1 + szl, ir_cell + 1 + sru] += J_t_m0_20
-            j_t_m1_global[i_thread, iz_cell - 1 + szl, ir_cell + 1 + sru] += J_t_m1_20
-            j_t_m0_global[i_thread, iz_cell, ir_cell + 1 + sru] += J_t_m0_21
-            j_t_m1_global[i_thread, iz_cell, ir_cell + 1 + sru] += J_t_m1_21
-            j_t_m0_global[i_thread, iz_cell + 1 + szu, ir_cell + 1 + sru] += J_t_m0_22
-            j_t_m1_global[i_thread, iz_cell + 1 + szu, ir_cell + 1 + sru] += J_t_m1_22
-            j_t_m0_global[i_thread, iz_cell + 2 + szu2, ir_cell + 1 + sru] += J_t_m0_23
-            j_t_m1_global[i_thread, iz_cell + 2 + szu2, ir_cell + 1 + sru] += J_t_m1_23
-            j_t_m0_global[i_thread, iz_cell - 1 + szl, ir_cell + 2 + sru2] += J_t_m0_30
-            j_t_m1_global[i_thread, iz_cell - 1 + szl, ir_cell + 2 + sru2] += J_t_m1_30
-            j_t_m0_global[i_thread, iz_cell, ir_cell + 2 + sru2] += J_t_m0_31
-            j_t_m1_global[i_thread, iz_cell, ir_cell + 2 + sru2] += J_t_m1_31
-            j_t_m0_global[i_thread, iz_cell + 1 + szu, ir_cell + 2 + sru2] += J_t_m0_32
-            j_t_m1_global[i_thread, iz_cell + 1 + szu, ir_cell + 2 + sru2] += J_t_m1_32
-            j_t_m0_global[i_thread, iz_cell + 2 + szu2, ir_cell + 2 + sru2] += J_t_m0_33
-            j_t_m1_global[i_thread, iz_cell + 2 + szu2, ir_cell + 2 + sru2] += J_t_m1_33
-
-            j_z_m0_global[i_thread, iz_cell - 1 + szl, ir_cell - 1 + srl] += J_z_m0_00
-            j_z_m1_global[i_thread, iz_cell - 1 + szl, ir_cell - 1 + srl] += J_z_m1_00
-            j_z_m0_global[i_thread, iz_cell, ir_cell - 1 + srl] += J_z_m0_01
-            j_z_m1_global[i_thread, iz_cell, ir_cell - 1 + srl] += J_z_m1_01
-            j_z_m0_global[i_thread, iz_cell + 1 + szu, ir_cell - 1 + srl] += J_z_m0_02
-            j_z_m1_global[i_thread, iz_cell + 1 + szu, ir_cell - 1 + srl] += J_z_m1_02
-            j_z_m0_global[i_thread, iz_cell + 2 + szu2, ir_cell - 1 + srl] += J_z_m0_03
-            j_z_m1_global[i_thread, iz_cell + 2 + szu2, ir_cell - 1 + srl] += J_z_m1_03
-            j_z_m0_global[i_thread, iz_cell - 1 + szl, ir_cell ] += J_z_m0_10
-            j_z_m1_global[i_thread, iz_cell - 1 + szl, ir_cell ] += J_z_m1_10
-            j_z_m0_global[i_thread, iz_cell, ir_cell] += J_z_m0_11
-            j_z_m1_global[i_thread, iz_cell, ir_cell] += J_z_m1_11
-            j_z_m0_global[i_thread, iz_cell + 1 + szu, ir_cell] += J_z_m0_12
-            j_z_m1_global[i_thread, iz_cell + 1 + szu, ir_cell] += J_z_m1_12
-            j_z_m0_global[i_thread, iz_cell + 2 + szu2, ir_cell] += J_z_m0_13
-            j_z_m1_global[i_thread, iz_cell + 2 + szu2, ir_cell] += J_z_m1_13
-            j_z_m0_global[i_thread, iz_cell - 1 + szl, ir_cell + 1 + sru] += J_z_m0_20
-            j_z_m1_global[i_thread, iz_cell - 1 + szl, ir_cell + 1 + sru] += J_z_m1_20
-            j_z_m0_global[i_thread, iz_cell, ir_cell + 1 + sru] += J_z_m0_21
-            j_z_m1_global[i_thread, iz_cell, ir_cell + 1 + sru] += J_z_m1_21
-            j_z_m0_global[i_thread, iz_cell + 1 + szu, ir_cell + 1 + sru] += J_z_m0_22
-            j_z_m1_global[i_thread, iz_cell + 1 + szu, ir_cell + 1 + sru] += J_z_m1_22
-            j_z_m0_global[i_thread, iz_cell + 2 + szu2, ir_cell + 1 + sru] += J_z_m0_23
-            j_z_m1_global[i_thread, iz_cell + 2 + szu2, ir_cell + 1 + sru] += J_z_m1_23
-            j_z_m0_global[i_thread, iz_cell - 1 + szl, ir_cell + 2 + sru2] += J_z_m0_30
-            j_z_m1_global[i_thread, iz_cell - 1 + szl, ir_cell + 2 + sru2] += J_z_m1_30
-            j_z_m0_global[i_thread, iz_cell, ir_cell + 2 + sru2] += J_z_m0_31
-            j_z_m1_global[i_thread, iz_cell, ir_cell + 2 + sru2] += J_z_m1_31
-            j_z_m0_global[i_thread, iz_cell + 1 + szu, ir_cell + 2 + sru2] += J_z_m0_32
-            j_z_m1_global[i_thread, iz_cell + 1 + szu, ir_cell + 2 + sru2] += J_z_m1_32
-            j_z_m0_global[i_thread, iz_cell + 2 + szu2, ir_cell + 2 + sru2] += J_z_m0_33
-            j_z_m1_global[i_thread, iz_cell + 2 + szu2, ir_cell + 2 + sru2] += J_z_m1_33
+                j_z_global[i_thread,m,iz_cell+3,ir_cell+0] += Sz_cubic(z_cell, 3)*Sr_cubic(r_cell, 0)*jz_scal[m]
+                j_z_global[i_thread,m,iz_cell+3,ir_cell+1] += Sz_cubic(z_cell, 3)*Sr_cubic(r_cell, 1)*jz_scal[m]
+                j_z_global[i_thread,m,iz_cell+3,ir_cell+2] += Sz_cubic(z_cell, 3)*Sr_cubic(r_cell, 2)*jz_scal[m]
+                j_z_global[i_thread,m,iz_cell+3,ir_cell+3] += Sz_cubic(z_cell, 3)*Sr_cubic(r_cell, 3)*jz_scal[m]
 
     return
 
@@ -1524,28 +632,55 @@ def deposit_J_numba_cubic(x, y, z, w, q,
 # -----------------------------------------------------------------------
 
 @njit_parallel
-def sum_reduce_2d_array( global_array, reduced_array ):
+def sum_reduce_2d_array( global_array, reduced_array, m ):
     """
     Sum the array `global_array` along its first axis and
-    add it into `reduced_array`.
+    add it into `reduced_array`, and fold the deposition guard cells of
+    global_array into the regular cells of reduced_array.
 
     Parameters:
     -----------
-    global_array: 3darray of complexs
-       Field array whose first dimension corresponds to the
-       reduction dimension (typically: the number of threads used
-       during the current deposition)
+    global_array: 4darray of complexs
+       Field array of shape (nthreads, Nm, 2+Nz+2, 2+Nr+2)
+       where the additional 2's in z and r correspond to deposition guard cells
+       that were used during the threaded deposition kernel.
 
-    reduced array: 2darray of complexs
+    reduced array: 2darray of complex
+      Field array of shape (Nz, Nr)
+
+    m: int
+       The azimuthal mode for which the reduction should be performed
     """
     # Extract size of each dimension
-    Nreduce, Nz, Nr = global_array.shape
+    Nz = reduced_array.shape[0]
 
-    # Parallel loop over iz
-    for iz in prange( Nz ):
-        # Loop over the reduction dimension (slow dimension)
-        for it in range( Nreduce ):
-            # Loop over ir (fast dimension)
-            for ir in range( Nr ):
+    # Parallel loop over z
+    for iz in prange(Nz):
+        # Get index inside reduced_array
+        iz_global = iz + 2
+        reduce_slice( reduced_array, iz, global_array, iz_global, m )
+    # Handle deposition guard cells in z
+    reduce_slice( reduced_array, Nz-2, global_array, 0, m )
+    reduce_slice( reduced_array, Nz-1, global_array, 1, m )
+    reduce_slice( reduced_array, 0, global_array, Nz+2, m )
+    reduce_slice( reduced_array, 1, global_array, Nz+3, m )
 
-                reduced_array[ iz, ir ] +=  global_array[ it, iz, ir ]
+@numba.njit
+def reduce_slice( reduced_array, iz, global_array, iz_global, m ):
+    """
+    Sum the array `global_array` into `reduced_array` for one given slice in z
+    """
+    Nreduce = global_array.shape[0]
+    Nr = reduced_array.shape[1]
+    # Loop over the reduction dimension (slow dimension)
+    for it in range( Nreduce ):
+
+        # First fold the low-radius deposition guard cells in
+        reduced_array[iz, 1] += global_array[it, m, iz_global, 0]
+        reduced_array[iz, 0] += global_array[it, m, iz_global, 1]
+        # Then loop over regular cells
+        for ir in range( Nr ):
+            reduced_array[iz, ir] +=  global_array[it, m, iz_global, ir+2]
+        # Finally fold the high-radius guard cells in
+        reduced_array[iz, Nr-1] += global_array[it, m, iz_global, Nr+2]
+        reduced_array[iz, Nr-1] += global_array[it, m, iz_global, Nr+3]

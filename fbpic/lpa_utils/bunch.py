@@ -8,11 +8,12 @@ It defines a set of utilities for the initialization of an electron bunch.
 import numpy as np
 from scipy.constants import m_e, c, e, epsilon_0, mu_0
 from fbpic.main import adapt_to_grid
+from fbpic.fields import Fields
 from fbpic.particles import Particles
 
 def add_elec_bunch( sim, gamma0, n_e, p_zmin, p_zmax, p_rmin, p_rmax,
                 p_nr=2, p_nz=2, p_nt=4, dens_func=None, boost=None,
-                direction='forward', filter_currents=True ) :
+                direction='forward' ) :
     """
     Introduce a simple relativistic electron bunch in the simulation,
     along with its space charge field.
@@ -62,9 +63,6 @@ def add_elec_bunch( sim, gamma0, n_e, p_zmin, p_zmax, p_rmin, p_rmax,
         A BoostConverter object defining the Lorentz boost of
         the simulation.
 
-    filter_currents : bool, optional
-        Whether to filter the currents in k space (True by default)
-
     direction : string, optional
         Can be either "forward" or "backward".
         Propagation direction of the beam.
@@ -106,12 +104,10 @@ def add_elec_bunch( sim, gamma0, n_e, p_zmin, p_zmax, p_rmin, p_rmax,
     sim.ptcl.append( relat_elec )
 
     # Get the corresponding space-charge fields
-    get_space_charge_fields( sim.fld, [relat_elec], gamma0,
-                             filter_currents, direction=direction)
+    get_space_charge_fields( sim, relat_elec, direction=direction)
 
 def add_elec_bunch_gaussian( sim, sig_r, sig_z, n_emit, gamma0, sig_gamma,
-                        Q, N, tf=0., zf=0., boost=None,
-                        filter_currents=True, save_beam=None ):
+                        Q, N, tf=0., zf=0., boost=None, save_beam=None ):
     """
     Introduce a relativistic Gaussian electron bunch in the simulation,
     along with its space charge field.
@@ -157,9 +153,6 @@ def add_elec_bunch_gaussian( sim, sig_r, sig_z, n_emit, gamma0, sig_gamma,
         A BoostConverter object defining the Lorentz boost of
         the simulation.
 
-    filter_currents : bool, optional
-        Whether to filter the currents in k space (True by default)
-
     save_beam : string, optional
         Saves the generated beam distribution as an .npz file "string".npz
     """
@@ -202,12 +195,11 @@ def add_elec_bunch_gaussian( sim, sig_r, sig_z, n_emit, gamma0, sig_gamma,
             inv_gamma=inv_gamma, w=w)
 
     # Add the electrons to the simulation
-    add_elec_bunch_from_arrays( sim, x, y, z, ux, uy, uz, w,
-        boost=boost, filter_currents=filter_currents )
+    add_elec_bunch_from_arrays( sim, x, y, z, ux, uy, uz, w, boost=boost )
 
 
 def add_elec_bunch_file( sim, filename, Q_tot, z_off=0., boost=None,
-                    filter_currents=True, direction='forward' ):
+                        direction='forward' ):
     """
     Introduce a relativistic electron bunch in the simulation,
     along with its space charge field, loading particles from text file.
@@ -232,9 +224,6 @@ def add_elec_bunch_file( sim, filename, Q_tot, z_off=0., boost=None,
         A BoostConverter object defining the Lorentz boost of
         the simulation.
 
-    filter_currents : bool, optional
-        Whether to filter the currents in k space (True by default)
-
     direction : string, optional
         Can be either "forward" or "backward".
         Propagation direction of the beam.
@@ -256,11 +245,11 @@ def add_elec_bunch_file( sim, filename, Q_tot, z_off=0., boost=None,
 
     # Add the electrons to the simulation
     add_elec_bunch_from_arrays( sim, x, y, z, ux, uy, uz, w,
-        boost=boost, filter_currents=filter_currents, direction=direction )
+        boost=boost, direction=direction )
 
 
 def add_elec_bunch_openPMD( sim, ts_path, z_off=0., species=None, select=None,
-                            iteration=None, boost=None, filter_currents=True):
+                            iteration=None, boost=None ):
     """
     Introduce a relativistic electron bunch in the simulation,
     along with its space charge field, loading particles from an openPMD
@@ -299,9 +288,6 @@ def add_elec_bunch_openPMD( sim, ts_path, z_off=0., species=None, select=None,
     boost : a BoostConverter object, optional
         A BoostConverter object defining the Lorentz boost of
         the simulation.
-
-    filter_currents : bool, optional
-        Whether to filter the currents in k space (True by default)
     """
     # Import openPMD viewer
     try:
@@ -324,12 +310,11 @@ def add_elec_bunch_openPMD( sim, ts_path, z_off=0., species=None, select=None,
     z = z - (np.amax(z) + np.amin(z)) / 2 + z_off
 
     # Add the electrons to the simulation, and calculate the space charge
-    add_elec_bunch_from_arrays( sim, x, y, z, ux, uy, uz, w,
-                                boost=boost, filter_currents=filter_currents)
+    add_elec_bunch_from_arrays( sim, x, y, z, ux, uy, uz, w, boost=boost)
 
 
 def add_elec_bunch_from_arrays( sim, x, y, z, ux, uy, uz, w,
-                    boost=None, filter_currents=True, direction='forward' ):
+                    boost=None, direction='forward' ):
     """
     Introduce a relativistic electron bunch in the simulation,
     along with its space charge field, loading particles from numpy arrays.
@@ -353,13 +338,21 @@ def add_elec_bunch_from_arrays( sim, x, y, z, ux, uy, uz, w,
         A BoostConverter object defining the Lorentz boost of
         the simulation.
 
-    filter_currents : bool, optional
-        Whether to filter the currents in k space (True by default)
-
     direction : string, optional
         Can be either "forward" or "backward".
         Propagation direction of the beam.
     """
+    # Select the particles that are in the local subdomain
+    zmin, zmax = sim.comm.get_zmin_zmax( sim.fld, local=True )
+    selected = (z >= zmin) & (z < zmax)
+    x = x[selected]
+    y = y[selected]
+    z = z[selected]
+    ux = ux[selected]
+    uy = uy[selected]
+    uz = uz[selected]
+    w = w[selected]
+
     # Extract the number of macroparticles
     N_part = len(x)
 
@@ -392,80 +385,105 @@ def add_elec_bunch_from_arrays( sim, x, y, z, ux, uy, uz, w,
     sim.ptcl.append( relat_elec )
 
     # Get the corresponding space-charge fields
-    # include a larger tolerance of the deviation of inv_gamma from 1./gamma0
-    # to allow for energy spread
-    gamma0 = 1. / np.mean(relat_elec.inv_gamma)
-    get_space_charge_fields( sim.fld, [relat_elec], gamma0,
-      filter_currents=filter_currents, check_gaminv=False, direction=direction)
+    get_space_charge_fields( sim, relat_elec, direction=direction)
 
-def get_space_charge_fields( fld, ptcl, gamma, filter_currents=True,
-                             check_gaminv=True, direction='forward' ) :
+def get_space_charge_fields( sim, ptcl, direction='forward') :
     """
-    Calculate the space charge field on the grid
+    Add the space charge field from `ptcl` the interpolation grid
 
-    This assumes that all the particles being passed have
-    the same gamma factor.
+    This assumes that all the particles being passed have the same gamma.
 
     Parameters
     ----------
-    fld : a Fields object
-        Contains the values of the fields
+    sim : a Simulation object
+        Contains the values of the fields, and the MPI communicator
 
-    ptcl : a list of Particles object
-        (one element per species)
+    ptcl : a Particles object
         The list of the species which are relativistic and
         will produce a space charge field. (Do not pass the
         particles which are at rest.)
-
-    gamma : float
-        The Lorentz factor of the particles
-
-    filter_currents : bool, optional
-       Whether to filter the currents (in k space by default)
-
-    check_gaminv : bool, optional
-        Explicitly check that all particles have the same
-        gamma factor (assumed by the model)
 
     direction : string, optional
         Can be either "forward" or "backward".
         Propagation direction of the beam.
     """
-    # Check that all the particles have the right gamma
-    if check_gaminv:
-        for species in ptcl :
-            if np.allclose( species.inv_gamma, 1./gamma ) == False :
-                raise ValueError("The particles in ptcl do not have "
-                            "a Lorentz factor matching gamma. Please check "
-                            "that they have been properly initialized.")
+    print("Calculating initial space charge field...")
 
-    # Project the charge and currents onto the grid
-    fld.erase('rho')
-    fld.erase('J')
-    for species in ptcl :
-        species.deposit( fld, 'rho' )
-        species.deposit( fld, 'J' )
-    fld.divide_by_volume('rho')
-    fld.divide_by_volume('J')
-    # Convert to the spectral grid
-    fld.interp2spect('rho_next')
-    fld.interp2spect('J')
-    # Filter the currents
-    if filter_currents :
-        fld.filter_spect('rho_next')
-        fld.filter_spect('J')
+    # Calculate the mean gamma by summing on each subdomain
+    gamma_sum_local = (1./ptcl.inv_gamma).sum()
+    if sim.comm.mpi_comm is None:
+        gamma = gamma_sum_local/ptcl.Ntot
+    else:
+        gamma_sum = sim.comm.mpi_comm.allreduce(gamma_sum_local)
+        Ntot = sim.comm.mpi_comm.allreduce(ptcl.Ntot)
+        gamma = gamma_sum/Ntot
 
-    # Get the space charge field in spectral space
-    for m in range(fld.Nm) :
-        get_space_charge_spect( fld.spect[m], gamma, direction )
+    # Project the charge and currents onto the local subdomain
+    sim.fld.erase('rho')
+    sim.fld.erase('J')
+    ptcl.deposit( sim.fld, 'rho' )
+    ptcl.deposit( sim.fld, 'J' )
+    sim.fld.divide_by_volume('rho')
+    sim.fld.divide_by_volume('J')
+    # Exchange guard cells
+    sim.comm.exchange_fields( sim.fld.interp, 'rho', 'add' )
+    sim.comm.exchange_fields( sim.fld.interp, 'J', 'add')
 
-    # Convert to the interpolation grid
-    fld.spect2interp( 'E' )
-    fld.spect2interp( 'B' )
+    # Create a global field object across all subdomains, and copy the sources
+    # (Space-charge calculation is a global operation)
+    # Note: in the single-proc case, this is also useful in order not to
+    # erase the pre-existing E and B field in sim.fld
+    global_Nz = sim.comm.Nz
+    global_zmin, global_zmax = sim.comm.get_zmin_zmax(sim.fld, local=False)
+    global_fld = Fields( global_Nz, global_zmax,
+            sim.fld.Nr, sim.fld.rmax, sim.fld.Nm, sim.fld.dt,
+            zmin=global_zmin, n_order=sim.fld.n_order, use_cuda=False)
+    # Gather the sources on the interpolation grid of global_fld
+    for m in range(sim.fld.Nm):
+        for field in ['Jr', 'Jt', 'Jz', 'rho']:
+            local_array = getattr( sim.fld.interp[m], field )
+            gathered_array = sim.comm.gather_grid_array( local_array )
+            setattr( global_fld.interp[m], field, gathered_array )
 
-    # Move the charge density to rho_prev
-    for m in range(fld.Nm) :
-        fld.spect[m].push_rho()
+    # Calculate the space-charge fields on the global grid
+    # (For a multi-proc simulation: only performed by the first proc)
+    if sim.comm.rank == 0:
+        # - Convert the sources to spectral space
+        global_fld.interp2spect('rho_prev')
+        global_fld.interp2spect('J')
+        if sim.filter_currents:
+            global_fld.filter_spect('rho_prev')
+            global_fld.filter_spect('J')
+        # - Get the space charge fields in spectral space
+        for m in range(global_fld.Nm) :
+            get_space_charge_spect( global_fld.spect[m], gamma, direction )
+        # - Convert the fields back to real space
+        global_fld.spect2interp( 'E' )
+        global_fld.spect2interp( 'B' )
+
+    # Communicate the results from proc 0 to the other procs
+    # and add it to the interpolation grid of sim.fld.
+    # - First find the indices at which the fields should be added
+    i_min_local = sim.comm.n_guard
+    if sim.comm.left_proc is None:
+        i_min_local += sim.comm.n_damp
+    i_max_local = i_min_local + sim.comm.Nz_domain
+    # - Then loop over modes and fields
+    for m in range(sim.fld.Nm):
+        for field in ['Er', 'Et', 'Ez', 'Br', 'Bt', 'Bz']:
+            # Get the local result from proc 0
+            global_array = getattr( global_fld.interp[m], field )
+            local_array = sim.comm.scatter_grid_array( global_array )
+            # Add it to the fields of sim.fld
+            local_field = getattr( sim.fld.interp[m], field )
+            local_field[ i_min_local:i_max_local, : ] += local_array
+
+    # For consistency and diagnostics, redeposit the charge and current
+    # of the full simulation (since the last step erased these quantities)
+    sim.deposit('rho_prev')
+    sim.deposit('J', exchange=True)
+
+    print("Done.")
 
 
 def get_space_charge_spect( spect, gamma, direction='forward' ) :
@@ -502,7 +520,7 @@ def get_space_charge_spect( spect, gamma, direction='forward' ) :
     inv_K2 = np.where( K2 !=0, 1./K2_corrected, 0. )
 
     # Get the potentials
-    phi = spect.rho_next[:,:]*inv_K2[:,:]/epsilon_0
+    phi = spect.rho_prev[:,:]*inv_K2[:,:]/epsilon_0
     Ap = spect.Jp[:,:]*inv_K2[:,:]*mu_0
     Am = spect.Jm[:,:]*inv_K2[:,:]*mu_0
     Az = spect.Jz[:,:]*inv_K2[:,:]*mu_0

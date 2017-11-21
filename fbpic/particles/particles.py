@@ -521,7 +521,7 @@ class Particles(object) :
         # GPU (CUDA) version
         if self.use_cuda:
             # Get the threads per block and the blocks per grid
-            dim_grid_1d, dim_block_1d = cuda_tpb_bpg_1d( self.Ntot )
+            dim_grid_1d, dim_block_1d = cuda_tpb_bpg_1d( self.Ntot, TPB=64 )
             # Call the CUDA Kernel for the gathering of E and B Fields
             # for Mode 0 and 1 only.
             if self.particle_shape == 'linear':
@@ -604,7 +604,7 @@ class Particles(object) :
         if self.q == 0:
             return
 
-        # Shortcut for the list of InterpolationGrid objects
+        # Shortcuts for the list of InterpolationGrid objects
         grid = fld.interp
 
         # When running on GPU: first sort the arrays of particles
@@ -627,7 +627,8 @@ class Particles(object) :
         if self.use_cuda:
             # Get the threads per block and the blocks per grid
             dim_grid_2d_flat, dim_block_2d_flat = cuda_tpb_bpg_1d(
-                                                    grid[0].Nz*grid[0].Nr )
+                                                    grid[0].Nz*grid[0].Nr,
+                                                    TPB=64 )
             dim_grid_2d, dim_block_2d = cuda_tpb_bpg_2d(
                                           grid[0].Nz, grid[0].Nr )
 
@@ -695,55 +696,47 @@ class Particles(object) :
             # for Mode 0 and 1 only.
             if fieldtype == 'rho':
                 # Generate temporary arrays for rho
-                rho_m0_global = np.zeros(
-                    (self.nthreads, grid[0].rho.shape[0], grid[0].rho.shape[1]),
-                    dtype=grid[0].rho.dtype )
-                rho_m1_global = np.zeros(
-                    (self.nthreads, grid[1].rho.shape[0], grid[1].rho.shape[1]),
-                    dtype=grid[1].rho.dtype )
+                # (2 guard cells on each side in z and r, in order to store
+                # contributions from, at most, cubic shape factors ; these
+                # deposition guard cells are folded into the regular box
+                # inside `sum_reduce_2d_array`)
+                rho_global = np.zeros( dtype=np.complex128,
+                    shape=(self.nthreads, fld.Nm, fld.Nz+4, fld.Nr+4) )
                 # Deposit rho using CPU threading
                 if self.particle_shape == 'linear':
                     deposit_rho_numba_linear(
                         self.x, self.y, self.z, weight, self.q,
                         grid[0].invdz, grid[0].zmin, grid[0].Nz,
                         grid[0].invdr, grid[0].rmin, grid[0].Nr,
-                        rho_m0_global, rho_m1_global,
+                        rho_global, fld.Nm,
                         self.nthreads, ptcl_chunk_indices )
                 elif self.particle_shape == 'cubic':
                     deposit_rho_numba_cubic(
                         self.x, self.y, self.z, weight, self.q,
                         grid[0].invdz, grid[0].zmin, grid[0].Nz,
                         grid[0].invdr, grid[0].rmin, grid[0].Nr,
-                        rho_m0_global, rho_m1_global,
+                        rho_global, fld.Nm,
                         self.nthreads, ptcl_chunk_indices )
                 else:
                     raise ValueError("`particle_shape` should be either \
                                       'linear' or 'cubic' \
                                        but is `%s`" % self.particle_shape)
                 # Sum thread-local results to main field array
-                sum_reduce_2d_array( rho_m0_global, grid[0].rho )
-                sum_reduce_2d_array( rho_m1_global, grid[1].rho )
+                for m in range(fld.Nm):
+                    sum_reduce_2d_array( rho_global, grid[m].rho, m )
 
             elif fieldtype == 'J':
                 # Generate temporary arrays for J
-                Jr_m0_global = np.zeros(
-                    (self.nthreads, grid[0].Jr.shape[0], grid[0].Jr.shape[1]),
-                    dtype=grid[0].Jr.dtype )
-                Jt_m0_global = np.zeros(
-                    (self.nthreads, grid[0].Jt.shape[0], grid[0].Jt.shape[1]),
-                    dtype=grid[0].Jt.dtype )
-                Jz_m0_global = np.zeros(
-                    (self.nthreads, grid[0].Jz.shape[0], grid[0].Jz.shape[1]),
-                    dtype=grid[0].Jz.dtype )
-                Jr_m1_global = np.zeros(
-                    (self.nthreads, grid[1].Jr.shape[0], grid[1].Jr.shape[1]),
-                    dtype=grid[1].Jr.dtype )
-                Jt_m1_global = np.zeros(
-                    (self.nthreads, grid[1].Jt.shape[0], grid[1].Jt.shape[1]),
-                    dtype=grid[1].Jt.dtype )
-                Jz_m1_global = np.zeros(
-                    (self.nthreads, grid[1].Jz.shape[0], grid[1].Jz.shape[1]),
-                    dtype=grid[1].Jz.dtype )
+                # (2 guard cells on each side in z and r, in order to store
+                # contributions from, at most, cubic shape factors ; these
+                # deposition guard cells are folded into the regular box
+                # inside `sum_reduce_2d_array`)
+                Jr_global = np.zeros( dtype=np.complex128,
+                    shape=(self.nthreads, fld.Nm, fld.Nz+4, fld.Nr+4) )
+                Jt_global = np.zeros( dtype=np.complex128,
+                    shape=(self.nthreads, fld.Nm, fld.Nz+4, fld.Nr+4) )
+                Jz_global = np.zeros( dtype=np.complex128,
+                    shape=(self.nthreads, fld.Nm, fld.Nz+4, fld.Nr+4) )
                 # Deposit J using CPU threading
                 if self.particle_shape == 'linear':
                     deposit_J_numba_linear(
@@ -751,9 +744,7 @@ class Particles(object) :
                         self.ux, self.uy, self.uz, self.inv_gamma,
                         grid[0].invdz, grid[0].zmin, grid[0].Nz,
                         grid[0].invdr, grid[0].rmin, grid[0].Nr,
-                        Jr_m0_global, Jr_m1_global,
-                        Jt_m0_global, Jt_m1_global,
-                        Jz_m0_global, Jz_m1_global,
+                        Jr_global, Jt_global, Jz_global, fld.Nm,
                         self.nthreads, ptcl_chunk_indices )
                 elif self.particle_shape == 'cubic':
                     deposit_J_numba_cubic(
@@ -761,22 +752,17 @@ class Particles(object) :
                         self.ux, self.uy, self.uz, self.inv_gamma,
                         grid[0].invdz, grid[0].zmin, grid[0].Nz,
                         grid[0].invdr, grid[0].rmin, grid[0].Nr,
-                        Jr_m0_global, Jr_m1_global,
-                        Jt_m0_global, Jt_m1_global,
-                        Jz_m0_global, Jz_m1_global,
+                        Jr_global, Jt_global, Jz_global, fld.Nm,
                         self.nthreads, ptcl_chunk_indices )
                 else:
                     raise ValueError("`particle_shape` should be either \
                                       'linear' or 'cubic' \
                                        but is `%s`" % self.particle_shape)
                 # Sum thread-local results to main field array
-                sum_reduce_2d_array( Jr_m0_global, grid[0].Jr )
-                sum_reduce_2d_array( Jt_m0_global, grid[0].Jt )
-                sum_reduce_2d_array( Jz_m0_global, grid[0].Jz )
-                sum_reduce_2d_array( Jr_m1_global, grid[1].Jr )
-                sum_reduce_2d_array( Jt_m1_global, grid[1].Jt )
-                sum_reduce_2d_array( Jz_m1_global, grid[1].Jz )
-
+                for m in range(fld.Nm):
+                    sum_reduce_2d_array( Jr_global, grid[m].Jr, m )
+                    sum_reduce_2d_array( Jt_global, grid[m].Jt, m )
+                    sum_reduce_2d_array( Jz_global, grid[m].Jz, m )
             else:
                 raise ValueError("`fieldtype` should be either 'J' or \
                                   'rho', but is `%s`" % fieldtype)

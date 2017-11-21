@@ -72,11 +72,16 @@ class FieldDiagnostic(OpenPMDDiagnostic):
         if "rho" in self.fieldtypes:
             # Get 'rho_prev', since it correspond to rho at time n
             self.fld.spect2interp('rho_prev')
-            # Exchange rho in real space
-            # (rho is never exchanged during the PIC loop, while J is)
-            self.comm.exchange_fields(self.fld.interp, 'rho', 'add')
+            # Exchange rho in real space if needed
+            if (self.comm is not None) and (self.comm.size > 1) \
+                and (not self.fld.exchanged_source['rho_prev']):
+                    self.comm.exchange_fields(self.fld.interp, 'rho', 'add')
         if "J" in self.fieldtypes:
             self.fld.spect2interp('J')
+            # Exchange J in real space if needed
+            if (self.comm is not None) and (self.comm.size > 1) \
+                and (not self.fld.exchanged_source['J']):
+                    self.comm.exchange_fields(self.fld.interp, 'J', 'add')
 
         # If needed: Receive data from the GPU
         if self.fld.use_cuda :
@@ -91,15 +96,7 @@ class FieldDiagnostic(OpenPMDDiagnostic):
             zmin = self.fld.interp[0].zmin
             Nz = self.fld.interp[0].Nz
         else:
-            # Communicator: remove guard cells and combine subdomains
-            if self.comm.left_proc is None:
-                # Additionally remove damping cells
-                n_remove = self.comm.n_guard + self.comm.n_damp
-            else:
-                n_remove = self.comm.n_guard
-            # Calculate minimum z position of physical domain
-            zmin = self.fld.interp[0].zmin \
-                + (n_remove - self.comm.rank*self.comm.Nz)*dz
+            zmin, _ = self.comm.get_zmin_zmax( self.fld, local=False )
             Nz = self.comm.Nz
 
         # Create the file with these attributes

@@ -1,5 +1,26 @@
 # Change Log / Release Log for fbpic
 
+## 0.6.0
+
+This version allows FBPIC to use the MKL library for FFTs, on CPU. In most cases,
+this will result in faster code execution compared to the FFTW library, especially
+on CPUs with a large number of cores. FFTW can still be used with FBPIC if MKL is unavailable.
+
+In addition, this version optimizes the number of thread per block on GPU for
+costly operations, which should also result faster code execution.
+
+## 0.5.4
+
+This is a bug-fix release. It fixes the initial space-charge calculation by ensuring that:
+- this calculation does not erase any pre-existing field (e.g. laser field)
+- this calculation gives correct results for multi-CPU/multi-GPU simulations as well
+
+## 0.5.3
+
+This is a bug-fix release. It ensures that threading is only used with the
+proper numba version (numba 0.34). It also fixes some issues with the MPI
+implementation (esp. in particle bunch initialization and charge conservation).
+
 ## 0.5.2
 
 This is a bug-fix release, that solves an issue when using
