@@ -1,5 +1,16 @@
 # Change Log / Release Log for fbpic
 
+## 0.6.1
+
+This version allows FBPIC to run without `mpi4py` installed, in the case of
+single-proc simulations.
+
+In addition, the current deposition on CPU, as well as the Hankel transform
+on CPU and GPU have been optimized and should have significantly faster
+execution time.
+
+Finally, FBPIC now prints a message during just-in-time compilation.
+
 ## 0.6.0
 
 This version allows FBPIC to use the MKL library for FFTs, on CPU. In most cases,
