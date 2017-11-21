@@ -72,11 +72,16 @@ class FieldDiagnostic(OpenPMDDiagnostic):
         if "rho" in self.fieldtypes:
             # Get 'rho_prev', since it correspond to rho at time n
             self.fld.spect2interp('rho_prev')
-            # Exchange rho in real space
-            # (rho is never exchanged during the PIC loop, while J is)
-            self.comm.exchange_fields(self.fld.interp, 'rho', 'add')
+            # Exchange rho in real space if needed
+            if (self.comm is not None) and (self.comm.size > 1) \
+                and (not self.fld.exchanged_source['rho_prev']):
+                    self.comm.exchange_fields(self.fld.interp, 'rho', 'add')
         if "J" in self.fieldtypes:
             self.fld.spect2interp('J')
+            # Exchange J in real space if needed
+            if (self.comm is not None) and (self.comm.size > 1) \
+                and (not self.fld.exchanged_source['J']):
+                    self.comm.exchange_fields(self.fld.interp, 'J', 'add')
 
         # If needed: Receive data from the GPU
         if self.fld.use_cuda :

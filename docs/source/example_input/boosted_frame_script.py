@@ -45,13 +45,15 @@ dt = (zmax-zmin)/Nz/c   # Timestep (seconds)
 N_step = 101     # Number of iterations to perform
                  # (increase this number for a real simulation)
 
-# Order of accuracy of the spectral, Maxwell (PSATD) solver.
-# -1 correspond to infinite order, i.e. wave propagation is perfectly
-# dispersion-free in all directions. This is adviced for single GPU/CPU
-# simulations. For multi GPU/CPU simulations, choose n_order > 4
-# (and multiple of 2). A large n_order leads to more overhead in MPI
-# communications, but also to a more accurate dispersion for waves.
-# (Typically, n_order = 32 gives accurate physical results)
+# Order of the stencil for z derivatives in the Maxwell solver.
+# Use -1 for infinite order, i.e. for exact dispersion relation in
+# all direction (adviced for single-GPU/single-CPU simulation).
+# Use a positive number (and multiple of 2) for a finite-order stencil
+# (required for multi-GPU/multi-CPU with MPI). A large `n_order` leads
+# to more overhead in MPI communications, but also to a more accurate
+# dispersion relation for electromagnetic waves. (Typically,
+# `n_order = 32` is a good trade-off.)
+# See https://arxiv.org/abs/1611.05712 for more information.
 n_order = -1
 
 # Boosted frame

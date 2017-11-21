@@ -7,7 +7,7 @@ It defines the structure necessary to implement the boundary exchanges.
 """
 import numpy as np
 from scipy.constants import c
-from mpi4py import MPI as mpi
+from fbpic.mpi_utils import comm, mpi_type_dict, mpi_installed
 from fbpic.fields.fields import InterpolationGrid
 from fbpic.fields.utility_methods import get_stencil_reach
 from fbpic.particles.particles import Particles
@@ -19,14 +19,6 @@ from fbpic.cuda_utils import cuda_installed
 if cuda_installed:
     from fbpic.cuda_utils import cuda, cuda_tpb_bpg_2d
     from .cuda_methods import cuda_damp_EB_left, cuda_damp_EB_right
-
-# Dictionary of correspondance between numpy types and mpi types
-# (Necessary when calling Gatherv)
-mpi_type_dict = { 'float32': mpi.REAL4,
-                  'float64': mpi.REAL8,
-                  'complex64': mpi.COMPLEX8,
-                  'complex128': mpi.COMPLEX16,
-                  'uint64': mpi.UINT64_T }
 
 class BoundaryCommunicator(object):
     """
@@ -123,8 +115,8 @@ class BoundaryCommunicator(object):
         self.dz = (zmax - zmin)/self.Nz
 
         # MPI Setup
-        if use_all_mpi_ranks:
-            self.mpi_comm = mpi.COMM_WORLD
+        if use_all_mpi_ranks and mpi_installed:
+            self.mpi_comm = comm
             self.rank = self.mpi_comm.rank
             self.size = self.mpi_comm.size
         else:

@@ -138,9 +138,12 @@ class BoostedFieldDiagnostic(FieldDiagnostic):
             # Get 'rho_prev', since it correspond to rho at time n
             self.fld.spect2interp('rho_prev')
             self.fld.spect2interp('J')
-            # Exchange rho in real space
-            # (rho is never exchanged during the PIC loop, while J is)
-            self.comm.exchange_fields(self.fld.interp, 'rho', 'add')
+            # Exchange rho and J if needed
+            if (self.comm is not None) and (self.comm.size > 1):
+                if not self.fld.exchanged_source['J']:
+                    self.comm.exchange_fields(self.fld.interp, 'J', 'add')
+                if not self.fld.exchanged_source['rho_prev']:
+                    self.comm.exchange_fields(self.fld.interp, 'rho', 'add')
 
         # Find the limits of the local subdomain at this iteration
         if self.comm is None:
