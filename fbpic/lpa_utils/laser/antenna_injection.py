@@ -49,9 +49,8 @@ class LaserAntenna( object ):
     Note that the antenna always uses linear shape factors (even when the
     rest of the simulation uses cubic shape factors.)
     """
-    def __init__( self, E0, w0, ctau, z0, zf, k0, cep_phase,
-        phi2_chirp, theta_pol, z0_antenna, dr_grid, Nr_grid, Nm,
-        npr=2, nptheta=4, epsilon=0.01, boost=None ):
+    def __init__( self, profile, dr_grid, Nr_grid, Nm, boost,
+        npr=2, nptheta=4, epsilon=0.01 ):
         """
         Initialize a LaserAntenna object (see class docstring for more info)
 
@@ -86,9 +85,6 @@ class LaserAntenna( object ):
             Thus, a positive phi2 corresponds to positive chirp, i.e. red part
             of the spectrum in the front of the pulse and blue part of the
             spectrum in the back.
-
-        theta_pol: float (rad)
-            Polarization angle of the laser
 
         z0_antenna: float (m)
             Initial position of the antenna *in the lab frame*
@@ -163,16 +159,7 @@ class LaserAntenna( object ):
             self.baseline_z, = boost.static_length( [ self.baseline_z ] )
             self.vz, = boost.velocity( [ self.vz ] )
 
-        # Record laser properties
-        self.E0 = E0
-        self.w0 = w0
-        self.k0 = k0
-        self.ctau = ctau
-        self.z0 = z0
-        self.zf = zf
-        self.cep_phase = cep_phase
-        self.phi2_chirp = phi2_chirp
-        self.theta_pol = theta_pol
+        self.laser_profile = laser_profile
         self.boost = boost
 
         # Initialize small-size buffers where the particles charge and currents
@@ -224,16 +211,14 @@ class LaserAntenna( object ):
         # Eu is the amplitude along the polarization direction
         # Note that we neglect the (small) excursion of the particles when
         # calculating the electric field on the particles.
-        Eu = self.E0 * gaussian_profile( self.baseline_z, self.baseline_r, t,
-                        self.w0, self.ctau, self.z0, self.zf,
-                        self.k0, self.cep_phase, self.phi2_chirp,
-                        boost=self.boost, output_Ez_profile=False )
+        Ex, Ey = self.laser_profile.E_field(
+            self.baseline_x, self.baseline_y, self.baseline_z, t )
 
         # Calculate the corresponding velocity. This takes into account
         # lab-frame to boosted-frame conversion, through a modification
         # of the mobility coefficient: see the __init__ function
-        self.vx = ( self.mobility_coef * np.cos(self.theta_pol) ) * Eu
-        self.vy = ( self.mobility_coef * np.sin(self.theta_pol) ) * Eu
+        self.vx = self.mobility_coef * Ex
+        self.vy = self.mobility_coef * Ey
 
     def deposit( self, fld, fieldtype, comm ):
         """

@@ -8,8 +8,69 @@ It defines a set of utilities for laser initialization
 import numpy as np
 from scipy.constants import m_e, c, e
 from fbpic.lpa_utils.boosted_frame import BoostConverter
-from .profiles import gaussian_profile
-from .antenna import LaserAntenna
+from .laser_profiles import gaussian_profile
+from .direct_injection import add_laser_direct
+from .antenna_injection import LaserAntenna
+
+def add_laser_pulse( sim, laser_profile, gamma_boost=None,
+                    method='direct', z0_antenna=None, fw_propagating=True ):
+    """
+    Introduce a laser pulse in the simulation
+
+    The laser is either added directly to the interpolation grid initially
+    (method=`direct`) or it is progressively emitted by an antenna
+    (method=`antenna`)
+
+    Parameters
+    ----------
+    sim: a Simulation object
+       The structure that contains the simulation.
+
+    laser_profile: a valid laser profile object
+        Laser profiles can be imported from fbpic.lpa_utils.laser
+
+    gamma_boost: float, optional
+        When initializing the laser in a boosted frame, set the value of
+        `gamma_boost` to the corresponding Lorentz factor.
+
+    method: string, optional
+        Whether to initialize the laser directly in the box (method=`direct`)
+        or through a laser antenna (method=`antenna`)
+
+    fw_propagating: bool, optional
+       Only for the `direct` method: Wether the laser is propagating in the
+       forward or backward direction.
+
+    z0_antenna: float, optional (meters)
+       Only for the `antenna` method: initial position (in the lab frame)
+       of the antenna. If not provided, then the z0_antenna is set to zf.
+    """
+    # Prepare the boosted frame converter
+    if (gamma_boost is not None) and (fw_propagating==True):
+        boost = BoostConverter( gamma_boost )
+    else:
+        boost = None
+
+    # Handle the introduction method of the laser
+    if method == 'direct':
+        # Directly add the laser to the interpolation object
+        add_laser_direct( sim.fld, laser_profile, fw_propagating, boost )
+
+    elif method == 'antenna':
+        # Add a laser antenna to the simulation object
+        if z0_antenna is None:
+            raise ValueError('You need to provide `z0_antenna`.')
+        dr = sim.fld.interp[0].dr
+        Nr = sim.fld.interp[0].Nr
+        Nm = sim.fld.Nm
+        sim.laser_antennas.append(
+            LaserAntenna( laser_profile, z0_antenna, dr, Nr, Nm, boost ))
+
+    else:
+        raise ValueError('Unknown laser method: %s' %method)
+
+
+# The function below is kept for backward-compatibility
 
 def add_laser( sim, a0, w0, ctau, z0, zf=None, lambda0=0.8e-6,
                cep_phase=0., phi2_chirp=0., theta_pol=0.,
@@ -116,53 +177,3 @@ def add_laser( sim, a0, w0, ctau, z0, zf=None, lambda0=0.8e-6,
                 phi2_chirp, theta_pol, z0_antenna, dr, Nr, Nm, boost=boost ) )
     else:
         raise ValueError('Unknown laser method: %s' %method)
-
-
-def add_laser_direct( fld, E0, w0, ctau, z0, zf, k0, cep_phase,
-    phi2_chirp, theta_pol, fw_propagating, update_spectral, boost ):
-    """
-    Add a linearly-polarized, Gaussian laser pulse to the Fields object
-
-    Parameters:
-    -----------
-    See the parameters of add_laser
-    NB: all laser quantities are still given in the lab-frame at this point.
-    """
-    # Get the polarization component
-    # (Due to the Fourier transform along theta, the
-    # polarization angle becomes a complex phase in the fields)
-    exptheta = np.exp(1.j*theta_pol)
-    # Sign for the propagation (1 for forward propagation, and -1 otherwise)
-    prop = 2*int(fw_propagating) - 1.
-
-    # When running in the boosted frame, convert the value of the electric
-    # field (the other laser quantities are converted in 'gaussian_profile')
-    if boost is not None:
-        E0, = boost.wavenumber([ E0 ])
-
-    # Get the 2D mesh for z and r
-    # (When running a simulation in boosted frame, then z is the coordinate
-    # in the boosted frame -- if the Fields object was correctly initialized.)
-    r, z = np.meshgrid( fld.interp[1].r, fld.interp[1].z )
-    # Calculate the laser profile on the mesh
-    profile_Eperp, profile_Ez = gaussian_profile( z, r, 0,
-            w0, ctau, z0, zf, k0, cep_phase, phi2_chirp, prop=prop,
-            boost=boost, output_Ez_profile=True )
-
-    # Add the Er and Et fields to the mode m=1 (linearly polarized laser)
-    # (The factor 0.5 is related to the fact that there is a factor 2
-    # in the gathering function, for the particles)
-    fld.interp[1].Er +=  0.5  * E0 * exptheta * profile_Eperp
-    fld.interp[1].Et += -0.5j * E0 * exptheta * profile_Eperp
-    fld.interp[1].Br +=  0.5j * prop * E0/c * exptheta * profile_Eperp
-    fld.interp[1].Bt +=  0.5  * prop * E0/c * exptheta * profile_Eperp
-
-    # Add the Ez fields to the mode m=1 (linearly polarized laser)
-    fld.interp[1].Ez +=  0.5  * E0 * exptheta * profile_Ez
-    fld.interp[1].Bz +=  0.5j * prop * E0/c * exptheta * profile_Ez
-
-    # Up to now, only the interpolation grid was modified.
-    # Now convert the fields to spectral space.
-    if update_spectral:
-        fld.interp2spect('E')
-        fld.interp2spect('B')
