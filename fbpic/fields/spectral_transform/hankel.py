@@ -188,8 +188,8 @@ class DHT(object):
             # Convert C-order, complex array `F` to F-order, real `d_in`
             cuda_copy_2dC_to_2dR[self.dim_grid, self.dim_block]( F, self.d_in )
             # Perform real matrix product (faster than complex matrix product)
-            self.blas.gemm( 'N', 'N', F.shape[0], F.shape[1], F.shape[1],
-                1.0, self.d_in, self.d_M, 0., self.d_out)
+            self.blas.gemm( 'N', 'N', self.d_in.shape[0], self.d_in.shape[1],
+                self.d_in.shape[1], 1.0, self.d_in, self.d_M, 0., self.d_out)
             # Convert F-order, real `d_out` to the C-order, complex `G`
             cuda_copy_2dR_to_2dC[self.dim_grid, self.dim_block]( self.d_out, G )
         else:
@@ -217,8 +217,8 @@ class DHT(object):
             # Convert C-order, complex array `G` to F-order, real `d_in`
             cuda_copy_2dC_to_2dR[self.dim_grid, self.dim_block](G, self.d_in )
             # Perform real matrix product (faster than complex matrix product)
-            self.blas.gemm( 'N', 'N', G.shape[0], G.shape[1], G.shape[1],
-                            1.0, self.d_in, self.d_invM, 0., self.d_out )
+            self.blas.gemm( 'N', 'N', self.d_in.shape[0], self.d_in.shape[1],
+               self.d_in.shape[1], 1.0, self.d_in, self.d_invM, 0., self.d_out)
             # Convert the F-order d_out array to the C-order F array
             cuda_copy_2dR_to_2dC[self.dim_grid, self.dim_block]( self.d_out, F )
         else:
