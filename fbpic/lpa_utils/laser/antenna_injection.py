@@ -49,7 +49,7 @@ class LaserAntenna( object ):
     rest of the simulation uses cubic shape factors.)
     """
     def __init__( self, laser_profile, z0_antenna, dr_grid, Nr_grid,
-        Nm, boost, npr=2, nptheta=4, epsilon=0.01 ):
+        Nm, boost, npr=2, epsilon=0.01 ):
         """
         Initialize a LaserAntenna object (see class docstring for more info)
 
@@ -89,6 +89,9 @@ class LaserAntenna( object ):
         # Register the properties of the laser injection
         self.laser_profile = laser_profile
         self.boost = boost
+
+        # Initialize virtual particle with 2*Nm values of angle
+        nptheta = 2*Nm
 
         # Porportionality coefficient between the weight of a particle
         # and its transverse position (in cylindrical geometry, particles

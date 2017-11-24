@@ -53,7 +53,7 @@ def add_laser_pulse( sim, laser_profile, gamma_boost=None,
     # Handle the introduction method of the laser
     if method == 'direct':
         # Directly add the laser to the interpolation object
-        add_laser_direct( sim.fld, laser_profile, fw_propagating, boost )
+        add_laser_direct( sim, laser_profile, fw_propagating, boost )
 
     elif method == 'antenna':
         # Add a laser antenna to the simulation object

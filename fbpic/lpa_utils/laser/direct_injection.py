@@ -5,32 +5,88 @@
 This file is part of the Fourier-Bessel Particle-In-Cell code (FB-PIC)
 It defines methods to directly inject the laser in the Simulation box
 """
+import numpy as np
+from scipy.constants import c
 
-def add_laser_direct( fld, profile, fw_propagating, boost ):
+def add_laser_direct( sim, laser_profile, fw_propagating, boost ):
     """
-    Add a linearly-polarized laser pulse in the simulation
+    Add a laser pulse in the simulation, by directly adding it to the mesh
+
+    Note:
+    -----
+    Arbitrary laser profiles can be passed through `laser_profile`
+    (which must provide the *transverse electric field*)
+    For any profile:
+    - The field is automatically decomposed into azimuthal modes
+    - The Ez field is automatically calculated so as to ensure that div(E)=0
+    - The B field is automatically calculated so as to ensure propagation
+    in the right direction.
 
     Parameters:
     -----------
     TODO
     """
-    # (Should mirror the particle space charge calculation)
+    # Initialize a grid on which the laser amplitude should be calculated
+    # - Get the 1d arrays of the grid
+    z = sim.fld.interp[0].z
+    r = sim.fld.interp[0].r
+    # - Sample the field at 2*Nm values of theta, in order to
+    #   perform the azimuthal decomposition of the fields
+    ntheta = 2*sim.fld.Nm
+    theta = (2*np.pi/ntheta) * np.arange( ntheta )
+    # - Get corresponding 3d arrays
+    z_3d, r_3d, theta_3d = np.meshgrid( z, r, theta, indexing='ij' )
+    cos_theta_3d = np.cos(theta_3d)
+    sin_theta_3d = np.sin(theta_3d)
+    x_3d = r_3d * cos_theta_3d
+    y_3d = r_3d * sin_theta_3d
 
-    # Initialize a set of values to try in r and theta
+    # Evaluate the transverse Er and Et field at these position
+    Ex_3d, Ey_3d = laser_profile.E_field( x_3d, y_3d, z_3d, sim.time )
+    Er_3d = cos_theta_3d * Ex_3d + sin_theta_3d * Ey_3d
+    Et_3d = - sin_theta_3d * Ex_3d + cos_theta_3d * Ey_3d
 
-    # Calculate the Ex and Ey
+    # Perform the azimuthal decomposition of the Er and Et fields
+    # and add them to the mesh
+    Er_m_3d = np.fft.ifft(Er_3d, axis=-1)
+    Et_m_3d = np.fft.ifft(Et_3d, axis=-1)
+    for m in range(sim.fld.Nm):
+        sim.fld.interp[m].Er[:,:] = Er_m_3d[:,:,m]
+        sim.fld.interp[m].Et[:,:] = Et_m_3d[:,:,m]
 
-    # Transform them in azimuthally-decomposed Er and Etheta
+    # TODO: Gather value onto a single grid
 
-    # Gather value onto a single grid
-    # Go to spectral space
+    # Go to spectral space in order to calculate Ez and B
+    sim.fld.interp2spect('E')
+    spect = sim.fld.spect
 
-    # Calculate Ez, so that the field is divergence-free
+    # Calculate the Ez field by ensuring that div(E) = 0
+    for m in range(sim.fld.Nm):
+        inv_kz = 1./np.where( spect[m].kz==0, 1., spect[m].kz )
+        inv_kz = np.where( spect[m].kz==0, 0, inv_kz)
+        spect[m].Ez[:,:] = 1.j*spect[m].kr*(spect[m].Ep - spect[m].Em)*inv_kz
 
-    # Calculate B, from d_t B = curl(E)
+    # Calculate the B field by ensuring that d_t B = - curl(E)
+    # i.e. -i w B = - curl(E), where the sign of w is chosen so that
+    # the direction of propagation is given by the flag `fw_propagating`
+    for m in range(sim.fld.Nm):
+        # Calculate w with the right sign
+        w = c*np.sqrt( spect[m].kz**2 + spect[m].kr**2 )
+        w *= np.sign( spect[m].kz )
+        if not fw_propagating:
+            w *= -1.
+        inv_w = 1./np.where( w == 0, 1., w )
+        # Calculate the components of the curl in spectral cylindrical
+        spect[m].Bp[:,:] = -1.j*inv_w*( spect[m].kz * spect[m].Ep \
+                                 - 0.5j*spect[m].kr * spect[m].Ez )
+        spect[m].Bm[:,:] = -1.j*inv_w*( -spect[m].kz * spect[m].Em \
+                                 - 0.5j*spect[m].kr * spect[m].Ez )
+        spect[m].Bz[:,:] = inv_w * spect[m].kz * ( spect[m].Ep + spect[m].Em )
 
-    # Come back to real space
-    # Scatter the values to all procs
+    # Go back to interpolation space
+    sim.fld.spect2interp('E')
+    sim.fld.spect2interp('B')
+
+    # TODO: Scatter the values to all procs
     # Add the values to the local grid
     # Transform back to spectral space
-    pass
