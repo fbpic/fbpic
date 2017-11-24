@@ -5,10 +5,9 @@
 This file is part of the Fourier-Bessel Particle-In-Cell code (FB-PIC)
 It defines a set of utilities for laser initialization
 """
-import numpy as np
-from scipy.constants import m_e, c, e
+from scipy.constants import c
 from fbpic.lpa_utils.boosted_frame import BoostConverter
-from .laser_profiles import gaussian_profile
+from .laser_profiles import GaussianLaser
 from .direct_injection import add_laser_direct
 from .antenna_injection import LaserAntenna
 
@@ -146,34 +145,11 @@ def add_laser( sim, a0, w0, ctau, z0, zf=None, lambda0=0.8e-6,
        Only for the `antenna` method: initial position (in the lab frame)
        of the antenna. If not provided, then the z0_antenna is set to zf.
     """
-    # Set a number of parameters for the laser
-    k0 = 2*np.pi/lambda0
-    E0 = a0*m_e*c**2*k0/e      # Amplitude at focus
+    # Create a Gaussian laser profile
+    laser_profile = GaussianLaser( a0, waist=w0, tau=ctau/c, z0=z0,
+        zf=zf, theta_pol=theta_pol, lambda0=lambda0,
+        cep_phase=cep_phase, phi2_chirp=phi2_chirp )
 
-    # Set default focusing position and laser antenna position
-    if zf is None:
-        zf = z0
-    if z0_antenna is None:
-        z0_antenna = z0
-
-    # Prepare the boosted frame converter
-    if (gamma_boost is not None) and (fw_propagating==True):
-        boost = BoostConverter( gamma_boost )
-    else:
-        boost = None
-
-    # Handle the introduction method of the laser
-    if method == 'direct':
-        # Directly add the laser to the interpolation object
-        add_laser_direct( sim.fld, E0, w0, ctau, z0, zf, k0, cep_phase,
-            phi2_chirp, theta_pol, fw_propagating, update_spectral, boost )
-    elif method == 'antenna':
-        dr = sim.fld.interp[0].dr
-        Nr = sim.fld.interp[0].Nr
-        Nm = sim.fld.Nm
-        # Add a laser antenna to the simulation object
-        sim.laser_antennas.append(
-            LaserAntenna( E0, w0, ctau, z0, zf, k0, cep_phase,
-                phi2_chirp, theta_pol, z0_antenna, dr, Nr, Nm, boost=boost ) )
-    else:
-        raise ValueError('Unknown laser method: %s' %method)
+    # Add it to the simulation
+    add_laser_pulse( sim, laser_profile, gamma_boost=gamma_boost,
+        method=method, z0_antenna=z0_antenna, fw_propagating=fw_propagating )

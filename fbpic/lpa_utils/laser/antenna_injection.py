@@ -9,7 +9,6 @@ emit a laser during a simulation.
 import numpy as np
 from scipy.constants import e, c, epsilon_0, physical_constants
 r_e = physical_constants['classical electron radius'][0]
-from .profiles import gaussian_profile
 from fbpic.particles.utilities.utility_methods import weights
 from fbpic.particles.deposition.numba_methods import deposit_field_numba
 
@@ -49,42 +48,15 @@ class LaserAntenna( object ):
     Note that the antenna always uses linear shape factors (even when the
     rest of the simulation uses cubic shape factors.)
     """
-    def __init__( self, profile, dr_grid, Nr_grid, Nm, boost,
-        npr=2, nptheta=4, epsilon=0.01 ):
+    def __init__( self, laser_profile, z0_antenna, dr_grid, Nr_grid,
+        Nm, boost, npr=2, nptheta=4, epsilon=0.01 ):
         """
         Initialize a LaserAntenna object (see class docstring for more info)
 
         Parameters
         ----------
-        E0: float (V.m^-1)
-            The amplitude of the the electric field *in the lab frame*
-
-        w0: float (m)
-            The waist of the laser at focus
-
-        ctau: float (m)
-            The duration of the laser *in the lab frame*
-
-        z0: float (m)
-            The initial position of the laser centroid *in the lab frame*
-
-        zf: float (m)
-            The position of the focal plane *in the lab frame*
-
-        k0: float (m^-1)
-            Laser wavevector *in the lab frame*
-
-        cep_phase: float (rad)
-            Carrier Enveloppe Phase (CEP), i.e. the phase of the laser
-            oscillations, at the position where the laser enveloppe is maximum.
-
-        phi2_chirp: float (in second^2)
-            The amount of temporal chirp, at focus *in the lab frame*
-            Namely, a wave packet centered on the frequency (w0 + dw) will
-            reach its peak intensity at a time z(dw) = z0 - c*phi2*dw.
-            Thus, a positive phi2 corresponds to positive chirp, i.e. red part
-            of the spectrum in the front of the pulse and blue part of the
-            spectrum in the back.
+        profile: a valid laser profile object
+            Gives the value of the laser field in space and time
 
         z0_antenna: float (m)
             Initial position of the antenna *in the lab frame*
@@ -114,6 +86,10 @@ class LaserAntenna( object ):
         boost: a BoostConverter object or None
            Contains the information about the boost to be applied
         """
+        # Register the properties of the laser injection
+        self.laser_profile = laser_profile
+        self.boost = boost
+
         # Porportionality coefficient between the weight of a particle
         # and its transverse position (in cylindrical geometry, particles
         # that are further away from the axis have a larger weight)
@@ -158,9 +134,6 @@ class LaserAntenna( object ):
         if boost is not None:
             self.baseline_z, = boost.static_length( [ self.baseline_z ] )
             self.vz, = boost.velocity( [ self.vz ] )
-
-        self.laser_profile = laser_profile
-        self.boost = boost
 
         # Initialize small-size buffers where the particles charge and currents
         # will be deposited before being added to the regular, large-size array

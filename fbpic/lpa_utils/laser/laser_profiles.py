@@ -8,7 +8,7 @@ It defines a set of common laser profiles.
 import numpy as np
 from scipy.constants import c, m_e, e
 
-class GaussianLaser( LaserProfile ):
+class GaussianLaser( object ):
     """Class that calculates a Gaussian laser pulse."""
 
     def __init__( self, a0, waist, tau, z0, zf=None, theta_pol=0.,
@@ -67,7 +67,8 @@ class GaussianLaser( LaserProfile ):
 
         # Store the parameters
         self.k0 = k0
-        self.zr = zr
+        self.inv_zr = 1./zr
+        self.zf = zf
         self.z0 = z0
         self.E0x = E0 * np.cos(theta_pol)
         self.E0y = E0 * np.sin(theta_pol)
