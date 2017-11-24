@@ -62,8 +62,8 @@ def add_laser_direct( sim, laser_profile, fw_propagating, boost ):
 
     # Calculate the Ez field by ensuring that div(E) = 0
     for m in range(sim.fld.Nm):
-        inv_kz = 1./np.where( spect[m].kz==0, 1., spect[m].kz )
-        inv_kz = np.where( spect[m].kz==0, 0, inv_kz)
+        inv_kz = np.where( spect[m].kz==0, 0,
+                1./np.where( spect[m].kz==0, 1., spect[m].kz ) ) # Avoid nan
         spect[m].Ez[:,:] = 1.j*spect[m].kr*(spect[m].Ep - spect[m].Em)*inv_kz
 
     # Calculate the B field by ensuring that d_t B = - curl(E)
@@ -75,13 +75,13 @@ def add_laser_direct( sim, laser_profile, fw_propagating, boost ):
         w *= np.sign( spect[m].kz )
         if not fw_propagating:
             w *= -1.
-        inv_w = 1./np.where( w == 0, 1., w )
+        inv_w = np.where( w==0, 0., 1./np.where( w==0, 1., w ) ) # Avoid nan
         # Calculate the components of the curl in spectral cylindrical
         spect[m].Bp[:,:] = -1.j*inv_w*( spect[m].kz * spect[m].Ep \
                                  - 0.5j*spect[m].kr * spect[m].Ez )
         spect[m].Bm[:,:] = -1.j*inv_w*( -spect[m].kz * spect[m].Em \
                                  - 0.5j*spect[m].kr * spect[m].Ez )
-        spect[m].Bz[:,:] = inv_w * spect[m].kz * ( spect[m].Ep + spect[m].Em )
+        spect[m].Bz[:,:] = inv_w * spect[m].kr * ( spect[m].Ep + spect[m].Em )
 
     # Go back to interpolation space
     sim.fld.spect2interp('E')
