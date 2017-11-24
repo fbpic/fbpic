@@ -180,12 +180,23 @@ class LaserAntenna( object ):
         t: float (seconds)
             The time at which to calculate the velocities
         """
+        # When running in a boosted frame, convert the position and time at
+        # which to find the laser amplitude.
+        if self.boost is not None:
+            boost = self.boost
+            inv_c = 1./c
+            zlab = boost.gamma0*(  self.baseline_z + (c*boost.beta0)*t )
+            tlab = boost.gamma0*( t + (inv_c*boost.beta0)* self.baseline_z )
+        else:
+            zlab = self.baseline_z
+            tlab = t
+
         # Calculate the electric field to be emitted (in the lab-frame)
         # Eu is the amplitude along the polarization direction
         # Note that we neglect the (small) excursion of the particles when
         # calculating the electric field on the particles.
         Ex, Ey = self.laser_profile.E_field(
-            self.baseline_x, self.baseline_y, self.baseline_z, t )
+            self.baseline_x, self.baseline_y, zlab, tlab )
 
         # Calculate the corresponding velocity. This takes into account
         # lab-frame to boosted-frame conversion, through a modification

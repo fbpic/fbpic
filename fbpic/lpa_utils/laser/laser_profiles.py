@@ -86,7 +86,7 @@ class GaussianLaser( object ):
         x, y, z: ndarrays (meters)
             The positions at which to calculate the profile (in the lab frame)
 
-        t: float (seconds)
+        t: ndarray or float (seconds)
             The time at which to calculate the profile (in the lab frame)
 
         Returns:
