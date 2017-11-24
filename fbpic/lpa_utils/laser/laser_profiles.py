@@ -65,6 +65,10 @@ class GaussianLaser( object ):
         E0 = a0*m_e*c**2*k0/e
         zr = 0.5*k0*waist**2
 
+        # If no focal plane position is given, use z0
+        if zf is None:
+            zf = z0
+
         # Store the parameters
         self.k0 = k0
         self.inv_zr = 1./zr
