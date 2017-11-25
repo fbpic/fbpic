@@ -41,10 +41,25 @@ def add_laser_direct( sim, laser_profile, fw_propagating, boost ):
     x_3d = r_3d * cos_theta_3d
     y_3d = r_3d * sin_theta_3d
 
+    # For boosted-frame: convert time and position to the lab-frame
+    if boost is not None:
+        zlab_3d = boost.gamma0*( z_3d - boost.beta0 * c * sim.time )
+        tlab = boost.gamma0*( sim.time - boost.beta0 * 1./c * z_3d )
+    else:
+        zlab_3d = z_3d
+        tlab = sim.time
+
     # Evaluate the transverse Er and Et field at these position
-    Ex_3d, Ey_3d = laser_profile.E_field( x_3d, y_3d, z_3d, sim.time )
+    Ex_3d, Ey_3d = laser_profile.E_field( x_3d, y_3d, zlab_3d, tlab )
     Er_3d = cos_theta_3d * Ex_3d + sin_theta_3d * Ey_3d
     Et_3d = - sin_theta_3d * Ex_3d + cos_theta_3d * Ey_3d
+
+    # For boosted-frame: scale the lab-frame value of the fields to
+    # the corresponding boosted-frame value
+    if boost is not None:
+        scale_factor = 1./( boost.gamma0*(1+boost.beta0) )
+        Er_3d *= scale_factor
+        Et_3d *= scale_factor
 
     # Perform the azimuthal decomposition of the Er and Et fields
     # and add them to the mesh
