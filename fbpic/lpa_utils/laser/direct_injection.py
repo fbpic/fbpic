@@ -43,8 +43,8 @@ def add_laser_direct( sim, laser_profile, fw_propagating, boost ):
 
     # For boosted-frame: convert time and position to the lab-frame
     if boost is not None:
-        zlab_3d = boost.gamma0*( z_3d - boost.beta0 * c * sim.time )
-        tlab = boost.gamma0*( sim.time - boost.beta0 * 1./c * z_3d )
+        zlab_3d = boost.gamma0*( z_3d + boost.beta0 * c * sim.time )
+        tlab = boost.gamma0*( sim.time + (boost.beta0 * 1./c) * z_3d )
     else:
         zlab_3d = z_3d
         tlab = sim.time
