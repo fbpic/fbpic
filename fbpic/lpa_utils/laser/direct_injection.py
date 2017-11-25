@@ -59,6 +59,15 @@ def add_laser_direct( sim, laser_profile, fw_propagating, boost ):
     # Go to spectral space in order to calculate Ez and B
     sim.fld.interp2spect('E')
     spect = sim.fld.spect
+    # Filter the fields in spectral space (with smoother+compensator, otherwise
+    # the amplitude of the laser can significantly reduced for low resolution)
+    dz = sim.fld.interp[0].dz
+    kz_true = 2*np.pi* np.fft.fftfreq( sim.fld.Nz, dz )
+    filter_array = (1. - np.sin(0.5*kz_true*dz)**2) * \
+                   (1. + np.sin(0.5*kz_true*dz)**2)
+    for m in range(sim.fld.Nm):
+        spect[m].Ep *= filter_array[:, np.newaxis]
+        spect[m].Em *= filter_array[:, np.newaxis]
 
     # Calculate the Ez field by ensuring that div(E) = 0
     for m in range(sim.fld.Nm):
