@@ -27,6 +27,7 @@ from .particles import Particles
 from .lpa_utils.boosted_frame import BoostConverter
 from .fields import Fields
 from .boundaries import BoundaryCommunicator, MovingWindow
+from fbpic import __version__
 
 class Simulation(object):
     """
@@ -642,9 +643,9 @@ def print_simulation_setup( comm, use_cuda, use_threading ):
     """
     if comm.rank == 0:
         if use_cuda:
-            message = "\nRunning FBPIC on GPU "
+            message = "\nRunning fbpic-%s on GPU " %__version__
         else:
-            message = "\nRunning FBPIC on CPU "
+            message = "\nRunning fbpic-%s on CPU " %__version__
         message += "with %d proc" %comm.size
         if use_threading and not use_cuda:
             message += " (%d threads per proc)" %numba.config.NUMBA_NUM_THREADS
