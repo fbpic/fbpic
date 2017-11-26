@@ -643,9 +643,9 @@ def print_simulation_setup( comm, use_cuda, use_threading ):
     """
     if comm.rank == 0:
         if use_cuda:
-            message = "\nRunning FBPIC %s on GPU " %__version__
+            message = "\nRunning fbpic-%s on GPU " %__version__
         else:
-            message = "\nRunning FBPIC %s on CPU " %__version__
+            message = "\nRunning fbpic-%s on CPU " %__version__
         message += "with %d proc" %comm.size
         if use_threading and not use_cuda:
             message += " (%d threads per proc)" %numba.config.NUMBA_NUM_THREADS
