@@ -361,7 +361,7 @@ class BufferHandler(object):
                     for m in range(self.Nm):
                         copy_scal_to_gpu_buffer[ dim_grid_2d, dim_block_2d ](
                             self.d_scal_rep_buffer_l, self.d_scal_rep_buffer_r,
-                            grid[m], copy_left, copy_right, nz_start, nz_end )
+                            grid[m], m, copy_left, copy_right, nz_start, nz_end)
                     # Copy the GPU buffers to the sending CPU buffers
                     if copy_left:
                         self.d_scal_rep_buffer_l.copy_to_host(
@@ -375,7 +375,7 @@ class BufferHandler(object):
                     for m in range(self.Nm):
                         copy_scal_to_gpu_buffer[ dim_grid_2d, dim_block_2d ](
                             self.d_scal_add_buffer_l, self.d_scal_add_buffer_r,
-                            grid[m], copy_left, copy_right, nz_start, nz_end )
+                            grid[m], m, copy_left, copy_right, nz_start, nz_end)
                     # Copy the GPU buffers to the sending CPU buffers
                     if copy_left:
                         self.d_scal_add_buffer_l.copy_to_host(
@@ -397,7 +397,7 @@ class BufferHandler(object):
                     for m in range(self.Nm):
                         replace_scal_from_gpu_buffer[dim_grid_2d, dim_block_2d](
                             self.d_scal_rep_buffer_l, self.d_scal_rep_buffer_r,
-                            grid[m], copy_left, copy_right, nz_start, nz_end )
+                            grid[m], m, copy_left, copy_right, nz_start, nz_end)
 
                 if method == 'add':
                     # Copy the CPU receiving buffers to the GPU buffers
@@ -411,7 +411,7 @@ class BufferHandler(object):
                     for m in range(self.Nm):
                         add_scal_from_gpu_buffer[ dim_grid_2d, dim_block_2d ](
                             self.d_scal_add_buffer_l, self.d_scal_add_buffer_r,
-                            grid[m], copy_left, copy_right, nz_start, nz_end )
+                            grid[m], m, copy_left, copy_right, nz_start, nz_end)
         # Without GPU
         else:
             if before_sending:
