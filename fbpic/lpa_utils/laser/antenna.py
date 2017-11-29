@@ -428,9 +428,10 @@ class LaserAntenna( object ):
         grid: a list of InterpolationGrid objects
             Contains the full-size array rho
         """
+        Nm = len(grid)
         if type(grid[0].rho) is np.ndarray:
             # The large-size array rho is on the CPU
-            for m in range( len(grid) ):
+            for m in range( Nm ):
                 grid[m].rho[ iz_min:iz_min+2 ] += self.rho_buffer[m]
         else:
             # The large-size array rho is on the GPU
@@ -438,8 +439,9 @@ class LaserAntenna( object ):
             cuda.to_device( self.rho_buffer, to=self.d_rho_buffer )
             # On the GPU: add the small-size buffers to the large-size array
             dim_grid_1d, dim_block_1d = cuda_tpb_bpg_1d( grid[0].Nr, TPB=64 )
-            add_rho_to_gpu_array[dim_grid_1d, dim_block_1d]( iz_min,
-                            self.d_rho_buffer, grid[0].rho, grid[1].rho )
+            for m in range( Nm ):
+                add_rho_to_gpu_array[dim_grid_1d, dim_block_1d]( iz_min,
+                            self.d_rho_buffer, grid[m].rho, m )
 
     def copy_J_buffer( self, iz_min, grid ):
         """
@@ -456,9 +458,10 @@ class LaserAntenna( object ):
         grid: a list of InterpolationGrid objects
             Contains the full-size array Jr, Jt, Jz
         """
+        Nm = len(grid)
         if type(grid[0].Jr) is np.ndarray:
             # The large-size arrays for J are on the CPU
-            for m in range( len(grid) ):
+            for m in range( Nm ):
                 grid[m].Jr[ iz_min:iz_min+2 ] += self.Jr_buffer[m]
                 grid[m].Jt[ iz_min:iz_min+2 ] += self.Jt_buffer[m]
                 grid[m].Jz[ iz_min:iz_min+2 ] += self.Jz_buffer[m]
@@ -470,52 +473,73 @@ class LaserAntenna( object ):
             cuda.to_device( self.Jz_buffer, to=self.d_Jz_buffer )
             # On the GPU: add the small-size buffers to the large-size array
             dim_grid_1d, dim_block_1d = cuda_tpb_bpg_1d( grid[0].Nr, TPB=64 )
-            add_J_to_gpu_array[dim_grid_1d, dim_block_1d]( iz_min,
+            for m in range( Nm ):
+                add_J_to_gpu_array[dim_grid_1d, dim_block_1d]( iz_min,
                     self.d_Jr_buffer, self.d_Jt_buffer, self.d_Jz_buffer,
-                    grid[0].Jr, grid[1].Jr, grid[0].Jt, grid[1].Jt,
-                    grid[0].Jz, grid[1].Jz )
+                    grid[m].Jr, grid[m].Jt, grid[m].Jz, m )
 
 if cuda_installed:
 
     @cuda.jit()
-    def add_rho_to_gpu_array( iz_min, rho_buffer, rho0, rho1 ):
+    def add_rho_to_gpu_array( iz_min, rho_buffer, rho, m ):
         """
         Add the small-size array rho_buffer into the full-size array rho
         on the GPU
+
+        Parameters
+        ----------
+        iz_min: int
+            The index of the lowest cell in z that surrounds the antenna
+
+        rho_buffer: 3darray of complexs
+            Array of shape (Nm, 2, Nr) that stores the values of rho
+            in the 2 cells that surround the antenna (for each mode).
+
+        rho: 2darray of complexs
+            Array of shape (Nz, Nr) that contains rho in the mode m
+
+        m: int
+           The index of the azimuthal mode involved
         """
         # Use one thread per radial cell
         ir = cuda.grid(1)
 
         # Add the values
-        if ir < rho0.shape[1]:
-            rho0[iz_min, ir] += rho_buffer[0, 0, ir]
-            rho0[iz_min+1, ir] += rho_buffer[0, 1, ir]
-            rho1[iz_min, ir] += rho_buffer[1, 0, ir]
-            rho1[iz_min+1, ir] += rho_buffer[1, 1, ir]
+        if ir < rho.shape[1]:
+            rho[iz_min, ir] += rho_buffer[m, 0, ir]
+            rho[iz_min+1, ir] += rho_buffer[m, 1, ir]
 
     @cuda.jit()
-    def add_J_to_gpu_array( iz_min, Jr_buffer, Jt_buffer, Jz_buffer,
-            Jr0, Jr1, Jt0, Jt1, Jz0, Jz1 ):
+    def add_J_to_gpu_array( iz_min, Jr_buffer, Jt_buffer,
+                            Jz_buffer, Jr, Jt, Jz, m ):
         """
         Add the small-size arrays Jr_buffer, Jt_buffer, Jz_buffer into
         the full-size arrays Jr, Jt, Jz on the GPU
+
+        Parameters:
+        -----------
+        iz_min: int
+
+        Jr_buffer, Jt_buffer, Jz_buffer: 3darrays of complexs
+            Arrays of shape (Nm, 2, Nr) that store the values of rho
+            in the 2 cells that surround the antenna (for each mode).
+
+        Jr, Jt, Jz: 2darrays of complexs
+            Arrays of shape (Nz, Nr) that contain rho in the mode m
+
+        m: int
+           The index of the azimuthal mode involved
         """
         # Use one thread per radial cell
         ir = cuda.grid(1)
 
         # Add the values
-        if ir < Jr0.shape[1]:
-            Jr0[iz_min, ir] += Jr_buffer[0, 0, ir]
-            Jr0[iz_min+1, ir] += Jr_buffer[0, 1, ir]
-            Jr1[iz_min, ir] += Jr_buffer[1, 0, ir]
-            Jr1[iz_min+1, ir] += Jr_buffer[1, 1, ir]
+        if ir < Jr.shape[1]:
+            Jr[iz_min, ir] += Jr_buffer[m, 0, ir]
+            Jr[iz_min+1, ir] += Jr_buffer[m, 1, ir]
 
-            Jt0[iz_min, ir] += Jt_buffer[0, 0, ir]
-            Jt0[iz_min+1, ir] += Jt_buffer[0, 1, ir]
-            Jt1[iz_min, ir] += Jt_buffer[1, 0, ir]
-            Jt1[iz_min+1, ir] += Jt_buffer[1, 1, ir]
+            Jt[iz_min, ir] += Jt_buffer[m, 0, ir]
+            Jt[iz_min+1, ir] += Jt_buffer[m, 1, ir]
 
-            Jz0[iz_min, ir] += Jz_buffer[0, 0, ir]
-            Jz0[iz_min+1, ir] += Jz_buffer[0, 1, ir]
-            Jz1[iz_min, ir] += Jz_buffer[1, 0, ir]
-            Jz1[iz_min+1, ir] += Jz_buffer[1, 1, ir]
+            Jz[iz_min, ir] += Jz_buffer[m, 0, ir]
+            Jz[iz_min+1, ir] += Jz_buffer[m, 1, ir]

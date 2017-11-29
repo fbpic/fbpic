@@ -420,8 +420,8 @@ class Fields(object) :
         Parameter
         ---------
         fieldtype :
-            A string which represents the kind of field to be erased
-            (either 'rho' or 'J')
+            A string which represents the kind of field to be divided by
+            the volume (either 'rho' or 'J')
         """
         if self.use_cuda :
             # Perform division on the GPU
