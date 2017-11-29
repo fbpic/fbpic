@@ -209,7 +209,7 @@ class BoundaryCommunicator(object):
 
         # Initialize a buffer handler object, for MPI communications
         if self.size > 1:
-            self.mpi_buffers = BufferHandler( self.n_guard, Nr,
+            self.mpi_buffers = BufferHandler( self.n_guard, Nr, Nm,
                                       self.left_proc, self.right_proc )
 
         # Create damping arrays for the damping cells at the left
