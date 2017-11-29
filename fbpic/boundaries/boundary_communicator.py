@@ -725,13 +725,11 @@ class BoundaryCommunicator(object):
                     # Damp the fields on the GPU
                     dim_grid, dim_block = cuda_tpb_bpg_2d(
                         self.n_guard+self.n_damp, interp[0].Nr )
-
-                    cuda_damp_EB_left[dim_grid, dim_block](
-                        interp[0].Er, interp[0].Et, interp[0].Ez,
-                        interp[0].Br, interp[0].Bt, interp[0].Bz,
-                        interp[1].Er, interp[1].Et, interp[1].Ez,
-                        interp[1].Br, interp[1].Bt, interp[1].Bz,
-                        self.d_left_damp, self.n_guard, self.n_damp)
+                    for m in range(len(interp)):
+                        cuda_damp_EB_left[dim_grid, dim_block](
+                            interp[m].Er, interp[m].Et, interp[m].Ez,
+                            interp[m].Br, interp[m].Bt, interp[m].Bz,
+                            self.d_left_damp, self.n_guard, self.n_damp)
                 else:
                     # Damp the fields on the CPU
                     nd = self.n_guard + self.n_damp
@@ -750,13 +748,11 @@ class BoundaryCommunicator(object):
                     # Damp the fields on the GPU
                     dim_grid, dim_block = cuda_tpb_bpg_2d(
                         self.n_guard+self.n_damp, interp[0].Nr )
-
-                    cuda_damp_EB_right[dim_grid, dim_block](
-                        interp[0].Er, interp[0].Et, interp[0].Ez,
-                        interp[0].Br, interp[0].Bt, interp[0].Bz,
-                        interp[1].Er, interp[1].Et, interp[1].Ez,
-                        interp[1].Br, interp[1].Bt, interp[1].Bz,
-                        self.d_right_damp, self.n_guard, self.n_damp)
+                    for m in range(len(interp)):
+                        cuda_damp_EB_right[dim_grid, dim_block](
+                            interp[m].Er, interp[m].Et, interp[m].Ez,
+                            interp[m].Br, interp[m].Bt, interp[m].Bz,
+                            self.d_right_damp, self.n_guard, self.n_damp)
                 else:
                     # Damp the fields on the CPU
                     nd = self.n_guard + self.n_damp
