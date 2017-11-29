@@ -356,24 +356,21 @@ class Fields(object) :
             dim_grid, dim_block = cuda_tpb_bpg_2d( self.Nz, self.Nr )
 
             # Erase the arrays on the GPU
-            if fieldtype == 'rho' :
-                cuda_erase_scalar[dim_grid, dim_block](
-                    self.interp[0].rho, self.interp[1].rho )
-            elif fieldtype == 'J' :
-                cuda_erase_vector[dim_grid, dim_block](
-                    self.interp[0].Jr, self.interp[1].Jr,
-                    self.interp[0].Jt, self.interp[1].Jt,
-                    self.interp[0].Jz, self.interp[1].Jz )
-            elif fieldtype == 'E' :
-                cuda_erase_vector[dim_grid, dim_block](
-                    self.interp[0].Er, self.interp[1].Er,
-                    self.interp[0].Et, self.interp[1].Et,
-                    self.interp[0].Ez, self.interp[1].Ez )
-            elif fieldtype == 'B' :
-                cuda_erase_vector[dim_grid, dim_block](
-                    self.interp[0].Br, self.interp[1].Br,
-                    self.interp[0].Bt, self.interp[1].Bt,
-                    self.interp[0].Bz, self.interp[1].Bz )
+            if fieldtype == 'rho':
+                for m in range(self.Nm):
+                    cuda_erase_scalar[dim_grid, dim_block](self.interp[m].rho)
+            elif fieldtype == 'J':
+                for m in range(self.Nm):
+                    cuda_erase_vector[dim_grid, dim_block](
+                      self.interp[m].Jr, self.interp[m].Jt, self.interp[m].Jz)
+            elif fieldtype == 'E':
+                for m in range(self.Nm):
+                    cuda_erase_vector[dim_grid, dim_block](
+                      self.interp[m].Er, self.interp[m].Et, self.interp[m].Ez)
+            elif fieldtype == 'B':
+                for m in range(self.Nm):
+                    cuda_erase_vector[dim_grid, dim_block](
+                      self.interp[m].Br, self.interp[m].Bt, self.interp[m].Bz)
             else :
                 raise ValueError('Invalid string for fieldtype: %s'%fieldtype)
         else :
@@ -430,16 +427,15 @@ class Fields(object) :
             # Perform division on the GPU
             dim_grid, dim_block = cuda_tpb_bpg_2d( self.Nz, self.Nr )
 
-            if fieldtype == 'rho' :
-                cuda_divide_scalar_by_volume[dim_grid, dim_block](
-                    self.interp[0].rho, self.interp[1].rho,
-                    self.interp[0].d_invvol, self.interp[1].d_invvol )
-            elif fieldtype == 'J' :
-                cuda_divide_vector_by_volume[dim_grid, dim_block](
-                    self.interp[0].Jr, self.interp[1].Jr,
-                    self.interp[0].Jt, self.interp[1].Jt,
-                    self.interp[0].Jz, self.interp[1].Jz,
-                    self.interp[0].d_invvol, self.interp[1].d_invvol )
+            if fieldtype == 'rho':
+                for m in range(self.Nm):
+                    cuda_divide_scalar_by_volume[dim_grid, dim_block](
+                        self.interp[m].rho, self.interp[m].d_invvol )
+            elif fieldtype == 'J':
+                for m in range(self.Nm):
+                    cuda_divide_vector_by_volume[dim_grid, dim_block](
+                        self.interp[m].Jr, self.interp[m].Jt,
+                        self.interp[m].Jz, self.interp[m].d_invvol )
             else :
                 raise ValueError('Invalid string for fieldtype: %s'%fieldtype)
         else :

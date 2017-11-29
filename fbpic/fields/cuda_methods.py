@@ -14,17 +14,17 @@ c2 = c**2
 # ------------------
 
 @cuda.jit
-def cuda_erase_scalar( mode0, mode1 ) :
+def cuda_erase_scalar( array ):
     """
-    Set the two input arrays to 0
+    Set input array to 0
 
-    These arrays are typically interpolation grid arrays, and they
-    are set to zero before depositing the currents
+    The array is typically an interpolation grid array, and it
+    is set to zero before depositing the currents
 
-    Parameters :
+    Parameters:
     ------------
-    mode0, mode1 : 2darrays of complexs
-       Arrays that represent the fields on the grid
+    array: 2darrays of complexs
+       Array that represent the fields on the grid
        (The first axis corresponds to z and the second axis to r) d
     """
 
@@ -32,21 +32,20 @@ def cuda_erase_scalar( mode0, mode1 ) :
     iz, ir = cuda.grid(2)
 
     # Set the elements of the array to 0
-    if (iz < mode0.shape[0]) and (ir < mode0.shape[1]) :
-        mode0[iz, ir] = 0
-        mode1[iz, ir] = 0
+    if (iz < array.shape[0]) and (ir < array.shape[1]):
+        array[iz, ir] = 0
 
 @cuda.jit
-def cuda_erase_vector(mode0r, mode1r, mode0t, mode1t, mode0z, mode1z) :
+def cuda_erase_vector( array_r, array_t, array_z ):
     """
-    Set the two input arrays to 0
+    Set the input arrays to 0
 
     These arrays are typically interpolation grid arrays, and they
     are set to zero before depositing the currents
 
-    Parameters :
+    Parameters:
     ------------
-    mode0r, mode1r, mode0t, mode1t, mode0z, mode1z : 2darrays of complexs
+    array_r, array_t, array_z: 2darrays of complexs
        Arrays that represent the fields on the grid
        (The first axis corresponds to z and the second axis to r)
     """
@@ -55,77 +54,63 @@ def cuda_erase_vector(mode0r, mode1r, mode0t, mode1t, mode0z, mode1z) :
     iz, ir = cuda.grid(2)
 
     # Set the elements of the array to 0
-    if (iz < mode0r.shape[0]) and (ir < mode0r.shape[1]) :
-        mode0r[iz, ir] = 0
-        mode0t[iz, ir] = 0
-        mode0z[iz, ir] = 0
-        mode1r[iz, ir] = 0
-        mode1t[iz, ir] = 0
-        mode1z[iz, ir] = 0
+    if (iz < array_r.shape[0]) and (ir < array_r.shape[1]):
+        array_r[iz, ir] = 0
+        array_t[iz, ir] = 0
+        array_z[iz, ir] = 0
 
 # ---------------------------
 # Divide by volume functions
 # ---------------------------
 
 @cuda.jit
-def cuda_divide_scalar_by_volume( mode0, mode1, invvol0, invvol1 ) :
+def cuda_divide_scalar_by_volume( array, invvol ):
     """
-    Multiply the input arrays by the corresponding invvol
+    Multiply the input array by the corresponding invvol
 
-    Parameters :
+    Parameters:
     ------------
-    mode0, mode1 : 2darrays of complexs
-       Arrays that represent the fields on the grid
+    array: 2darray of complexs
+       Array that represent the fields on the grid
        (The first axis corresponds to z and the second axis to r)
 
-    invvol0, invvol1 : 1darrays of floats
-       Arrays that contain the inverse of the volume of the cell
+    invvol: 1darray of floats
+       Array that contain the inverse of the volume of the cell
        The axis corresponds to r
-
-    Nz, Nr : ints
-       The dimensions of the arrays
     """
 
     # Cuda 2D grid
     iz, ir = cuda.grid(2)
 
     # Multiply by inverse volume
-    if (iz < mode0.shape[0]) and (ir < mode0.shape[1]) :
-        mode0[iz, ir] = mode0[iz, ir] * invvol0[ir]
-        mode1[iz, ir] = mode1[iz, ir] * invvol1[ir]
+    if (iz < array.shape[0]) and (ir < array.shape[1]):
+        array[iz, ir] = array[iz, ir] * invvol[ir]
 
 
 @cuda.jit
-def cuda_divide_vector_by_volume( mode0r, mode1r, mode0t, mode1t,
-                    mode0z, mode1z, invvol0, invvol1 ) :
+def cuda_divide_vector_by_volume( array_r, array_t, array_z, invvol ):
     """
     Multiply the input arrays by the corresponding invvol
 
-    Parameters :
+    Parameters:
     ------------
-    mode0r, mode1r, mode0t, mode1t, mode0z, mode1z : 2darrays of complexs
+    array_r, array_t, array_z: 2darrays of complexs
        Arrays that represent the fields on the grid
        (The first axis corresponds to z and the second axis to r)
 
-    invvol0, invvol1 : 1darrays of floats
+    invvol: 1darray of floats
        Arrays that contain the inverse of the volume of the cell
        The axis corresponds to r
-
-    Nz, Nr : ints
-       The dimensions of the arrays
     """
 
     # Cuda 2D grid
     iz, ir = cuda.grid(2)
 
     # Multiply by inverse volume
-    if (iz < mode0r.shape[0]) and (ir < mode0r.shape[1]) :
-        mode0r[iz, ir] = mode0r[iz, ir] * invvol0[ir]
-        mode0t[iz, ir] = mode0t[iz, ir] * invvol0[ir]
-        mode0z[iz, ir] = mode0z[iz, ir] * invvol0[ir]
-        mode1r[iz, ir] = mode1r[iz, ir] * invvol1[ir]
-        mode1t[iz, ir] = mode1t[iz, ir] * invvol1[ir]
-        mode1z[iz, ir] = mode1z[iz, ir] * invvol1[ir]
+    if (iz < array_r.shape[0]) and (ir < array_r.shape[1]):
+        array_r[iz, ir] = array_r[iz, ir] * invvol[ir]
+        array_t[iz, ir] = array_t[iz, ir] * invvol[ir]
+        array_z[iz, ir] = array_z[iz, ir] * invvol[ir]
 
 # -----------------------------------
 # Methods of the SpectralGrid object
