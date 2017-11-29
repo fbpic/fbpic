@@ -439,8 +439,9 @@ class BoundaryCommunicator(object):
                     vec_recv_right = self.mpi_buffers.vec_add_recv_r
                 # Handle the sending buffers
                 self.mpi_buffers.handle_vec_buffer(
-                    interp[0].Er, interp[0].Et, interp[0].Ez,
-                    interp[1].Er, interp[1].Et, interp[1].Ez,
+                    [ interp[m].Er for m in range(Nm) ],
+                    [ interp[m].Et for m in range(Nm) ],
+                    [ interp[m].Ez for m in range(Nm) ],
                     method, interp[0].use_cuda,
                     before_sending=True )
                 # Send and receive the buffers via MPI
@@ -452,8 +453,9 @@ class BoundaryCommunicator(object):
                 self.mpi_comm.Barrier()
                 # Handle the received buffers
                 self.mpi_buffers.handle_vec_buffer(
-                    interp[0].Er, interp[0].Et, interp[0].Ez,
-                    interp[1].Er, interp[1].Et, interp[1].Ez,
+                    [ interp[m].Er for m in range(Nm) ],
+                    [ interp[m].Et for m in range(Nm) ],
+                    [ interp[m].Ez for m in range(Nm) ],
                     method, interp[0].use_cuda,
                     after_receiving=True )
 
@@ -470,8 +472,9 @@ class BoundaryCommunicator(object):
                     vec_recv_right = self.mpi_buffers.vec_add_recv_r
                 # Handle the sending buffers
                 self.mpi_buffers.handle_vec_buffer(
-                    interp[0].Br, interp[0].Bt, interp[0].Bz,
-                    interp[1].Br, interp[1].Bt, interp[1].Bz,
+                    [ interp[m].Br for m in range(Nm) ],
+                    [ interp[m].Bt for m in range(Nm) ],
+                    [ interp[m].Bz for m in range(Nm) ],
                     method, interp[0].use_cuda,
                     before_sending=True )
                 # Send and receive the buffers via MPI
@@ -483,8 +486,9 @@ class BoundaryCommunicator(object):
                 self.mpi_comm.Barrier()
                 # Handle the received buffers
                 self.mpi_buffers.handle_vec_buffer(
-                    interp[0].Br, interp[0].Bt, interp[0].Bz,
-                    interp[1].Br, interp[1].Bt, interp[1].Bz,
+                    [ interp[m].Br for m in range(Nm) ],
+                    [ interp[m].Bt for m in range(Nm) ],
+                    [ interp[m].Bz for m in range(Nm) ],
                     method, interp[0].use_cuda,
                     after_receiving=True )
 
@@ -501,10 +505,10 @@ class BoundaryCommunicator(object):
                     vec_recv_right = self.mpi_buffers.vec_add_recv_r
                 # Handle the sending buffers
                 self.mpi_buffers.handle_vec_buffer(
-                    interp[0].Jr, interp[0].Jt, interp[0].Jz,
-                    interp[1].Jr, interp[1].Jt, interp[1].Jz,
-                    method, interp[0].use_cuda,
-                    before_sending=True )
+                    [ interp[m].Jr for m in range(Nm) ],
+                    [ interp[m].Jt for m in range(Nm) ],
+                    [ interp[m].Jz for m in range(Nm) ],
+                    method, interp[0].use_cuda, before_sending=True )
                 # Send and receive the buffers via MPI
                 self.exchange_domains(
                     vec_send_left, vec_send_right,
@@ -514,10 +518,10 @@ class BoundaryCommunicator(object):
                 self.mpi_comm.Barrier()
                 # Handle the received buffers
                 self.mpi_buffers.handle_vec_buffer(
-                    interp[0].Jr, interp[0].Jt, interp[0].Jz,
-                    interp[1].Jr, interp[1].Jt, interp[1].Jz,
-                    method, interp[0].use_cuda,
-                    after_receiving=True )
+                    [ interp[m].Jr for m in range(Nm) ],
+                    [ interp[m].Jt for m in range(Nm) ],
+                    [ interp[m].Jz for m in range(Nm) ],
+                    method, interp[0].use_cuda, after_receiving=True )
 
             elif fieldtype == 'rho':
                 if method == 'replace':
@@ -532,7 +536,7 @@ class BoundaryCommunicator(object):
                     scal_recv_right = self.mpi_buffers.scal_add_recv_r
                 # Handle the sending buffers
                 self.mpi_buffers.handle_scal_buffer(
-                    interp[0].rho, interp[1].rho,
+                    [ interp[m].rho for m in range(Nm) ],
                     method, interp[0].use_cuda,
                     before_sending=True )
                 # Send and receive the buffers via MPI
@@ -544,7 +548,7 @@ class BoundaryCommunicator(object):
                 self.mpi_comm.Barrier()
                 # Handle the received buffers
                 self.mpi_buffers.handle_scal_buffer(
-                    interp[0].rho, interp[1].rho,
+                    [ interp[m].rho for m in range(Nm) ],
                     method, interp[0].use_cuda,
                     after_receiving=True )
             else:
