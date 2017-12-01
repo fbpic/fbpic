@@ -25,7 +25,17 @@ def add_laser_direct( sim, laser_profile, fw_propagating, boost ):
 
     Parameters:
     -----------
-    TODO
+    sim: a Simulation object
+        The structure that contains the simulation.
+
+    laser_profile: a valid laser profile object
+        Laser profiles can be imported from fbpic.lpa_utils.laser
+
+    fw_propagating: bool, optional
+       Whether the laser is propagating in the forward or backward direction.
+
+    boost: a BoostConverter object or None
+       Contains the information about the boost to be applied
     """
     print("Initializing laser pulse on the mesh...")
 
@@ -88,9 +98,27 @@ def add_laser_direct( sim, laser_profile, fw_propagating, boost ):
 
 def get_laser_Er_Et( sim, laser_profile, boost ):
     """
-    TODO
-    """
+    Calculate the laser Er and Et fields on the points of the interpolation
+    grid of sim, and decompose into azimuthal modes.
 
+    Parameters:
+    -----------
+    sim: a Simulation object
+        The structure that contains the simulation.
+
+    fw_propagating: bool
+       Whether the laser is propagating in the forward or backward direction.
+
+    boost: a BoostConverter object or None
+       Contains the information about the boost to be applied
+
+    Returns:
+    --------
+    Er_m, Er_t: 3d_arrays of complexs
+        Arrays of size (Nz, Nr, 2*Nm), that represent the
+        azimuthally-decomposed fields of the laser. The first Nm points
+        along the last axis correspond to the values in the modes m>= 0.
+    """
     # Initialize a grid on which the laser amplitude should be calculated
     # - Get the 1d arrays of the grid
     z = sim.fld.interp[0].z
@@ -136,7 +164,18 @@ def get_laser_Er_Et( sim, laser_profile, boost ):
 
 def calculate_laser_fields( fld, fw_propagating ):
     """
-    TODO
+    Given the fields Er and Et of the laser (in `fld`),
+    calculate the fields Ez and B in a self-consistent manner,
+    i.e. so that div(E) = 0 and B satisfies d_t B = -curl(E)
+
+    Parameters:
+    -----------
+    fld: a Fields object
+        Contains the fields of the global domain
+        (with the correct Er and Et of the laser on the interpolation grid)
+
+    fw_propagating: bool
+        Whether the laser is propagating in the forward or backward direction.
     """
     # Get the (filtered) E field in spectral space
     fld.interp2spect('E')

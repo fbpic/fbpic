@@ -37,7 +37,7 @@ def add_laser_pulse( sim, laser_profile, gamma_boost=None,
         or through a laser antenna (method=`antenna`)
 
     fw_propagating: bool, optional
-       Only for the `direct` method: Wether the laser is propagating in the
+       Only for the `direct` method: Whether the laser is propagating in the
        forward or backward direction.
 
     z0_antenna: float, optional (meters)
