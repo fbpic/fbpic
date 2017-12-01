@@ -483,7 +483,7 @@ def get_space_charge_fields( sim, ptcl, direction='forward') :
     sim.deposit('rho_prev')
     sim.deposit('J', exchange=True)
 
-    print("Done.")
+    print("Done.\n")
 
 
 def get_space_charge_spect( spect, gamma, direction='forward' ) :

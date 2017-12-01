@@ -7,7 +7,7 @@ It defines methods to directly inject the laser in the Simulation box
 """
 import numpy as np
 from scipy.constants import c
-#from fbpic.fields import Fields
+from fbpic.fields import Fields
 
 def add_laser_direct( sim, laser_profile, fw_propagating, boost ):
     """
@@ -29,20 +29,61 @@ def add_laser_direct( sim, laser_profile, fw_propagating, boost ):
     """
     print("Initializing laser pulse on the mesh...")
 
-    # Get the azimuthally-decomposed laser fields Er and Et
-    # on the interpolation grid of each local proc
-    Er_m, Et_m = get_laser_Er_Et( sim, laser_profile, boost )
-    # Overwrite previous values on the grid
+    # Get the local azimuthally-decomposed laser fields Er and Et on each proc
+    laser_Er, laser_Et = get_laser_Er_Et( sim, laser_profile, boost )
+    # Save previous values on the grid, and replace them with the laser fields
+    # (This is done in preparation for gathering among procs)
+    saved_Er = []
+    saved_Et = []
     for m in range(sim.fld.Nm):
-        sim.fld.interp[m].Er[:,:] = Er_m[:,:,m]
-        sim.fld.interp[m].Et[:,:] = Et_m[:,:,m]
+        saved_Er.append( sim.fld.interp[m].Er.copy() )
+        sim.fld.interp[m].Er[:,:] = laser_Er[:,:,m]
+        saved_Et.append( sim.fld.interp[m].Et.copy() )
+        sim.fld.interp[m].Et[:,:] = laser_Et[:,:,m]
+
+    # Create a global field object across all subdomains, and copy the fields
+    # (Calculating the self-consistent Ez and B is a global operation)
+    global_Nz = sim.comm.Nz
+    global_zmin, global_zmax = sim.comm.get_zmin_zmax(sim.fld, local=False)
+    global_fld = Fields( global_Nz, global_zmax,
+            sim.fld.Nr, sim.fld.rmax, sim.fld.Nm, sim.fld.dt,
+            zmin=global_zmin, n_order=sim.fld.n_order, use_cuda=False)
+    # Gather the fields of the interpolation grid
+    for m in range(sim.fld.Nm):
+        for field in ['Er', 'Et']:
+            local_array = getattr( sim.fld.interp[m], field )
+            gathered_array = sim.comm.gather_grid_array( local_array )
+            setattr( global_fld.interp[m], field, gathered_array )
+
+    # Now that the (gathered) laser fields are stored in global_fld,
+    # copy the saved field back into the local grid
+    for m in range(sim.fld.Nm):
+        sim.fld.interp[m].Er[:,:] = saved_Er[m]
+        sim.fld.interp[m].Et[:,:] = saved_Et[m]
 
     # Calculate the Ez and B fields on the global grid
     # (For a multi-proc simulation: only performed by the first proc)
     if sim.comm.rank == 0:
-        calculate_laser_fields( sim.fld, fw_propagating )
+        calculate_laser_fields( global_fld, fw_propagating )
 
-    print("Done.")
+    # Communicate the results from proc 0 to the other procs
+    # and add it to the interpolation grid of sim.fld.
+    # - First find the indices at which the fields should be added
+    i_min_local = sim.comm.n_guard
+    if sim.comm.left_proc is None:
+        i_min_local += sim.comm.n_damp
+    i_max_local = i_min_local + sim.comm.Nz_domain
+    # - Then loop over modes and fields
+    for m in range(sim.fld.Nm):
+        for field in ['Er', 'Et', 'Ez', 'Br', 'Bt', 'Bz']:
+            # Get the local result from proc 0
+            global_array = getattr( global_fld.interp[m], field )
+            local_array = sim.comm.scatter_grid_array( global_array )
+            # Add it to the fields of sim.fld
+            local_field = getattr( sim.fld.interp[m], field )
+            local_field[ i_min_local:i_max_local, : ] += local_array
+
+    print("Done.\n")
 
 
 def get_laser_Er_Et( sim, laser_profile, boost ):
