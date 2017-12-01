@@ -7,6 +7,7 @@ It defines methods to directly inject the laser in the Simulation box
 """
 import numpy as np
 from scipy.constants import c
+#from fbpic.fields import Fields
 
 def add_laser_direct( sim, laser_profile, fw_propagating, boost ):
     """
@@ -26,6 +27,29 @@ def add_laser_direct( sim, laser_profile, fw_propagating, boost ):
     -----------
     TODO
     """
+    print("Initializing laser pulse on the mesh...")
+
+    # Get the azimuthally-decomposed laser fields Er and Et
+    # on the interpolation grid of each local proc
+    Er_m, Et_m = get_laser_Er_Et( sim, laser_profile, boost )
+    # Overwrite previous values on the grid
+    for m in range(sim.fld.Nm):
+        sim.fld.interp[m].Er[:,:] = Er_m[:,:,m]
+        sim.fld.interp[m].Et[:,:] = Et_m[:,:,m]
+
+    # Calculate the Ez and B fields on the global grid
+    # (For a multi-proc simulation: only performed by the first proc)
+    if sim.comm.rank == 0:
+        calculate_laser_fields( sim.fld, fw_propagating )
+
+    print("Done.")
+
+
+def get_laser_Er_Et( sim, laser_profile, boost ):
+    """
+    TODO
+    """
+
     # Initialize a grid on which the laser amplitude should be calculated
     # - Get the 1d arrays of the grid
     z = sim.fld.interp[0].z
@@ -65,27 +89,29 @@ def add_laser_direct( sim, laser_profile, fw_propagating, boost ):
     # and add them to the mesh
     Er_m_3d = np.fft.ifft(Er_3d, axis=-1)
     Et_m_3d = np.fft.ifft(Et_3d, axis=-1)
-    for m in range(sim.fld.Nm):
-        sim.fld.interp[m].Er[:,:] = Er_m_3d[:,:,m]
-        sim.fld.interp[m].Et[:,:] = Et_m_3d[:,:,m]
 
-    # TODO: Gather value onto a single grid
+    return( Er_m_3d, Et_m_3d )
 
-    # Go to spectral space in order to calculate Ez and B
-    sim.fld.interp2spect('E')
-    spect = sim.fld.spect
+
+def calculate_laser_fields( fld, fw_propagating ):
+    """
+    TODO
+    """
+    # Get the (filtered) E field in spectral space
+    fld.interp2spect('E')
+    spect = fld.spect
     # Filter the fields in spectral space (with smoother+compensator, otherwise
     # the amplitude of the laser can significantly reduced for low resolution)
-    dz = sim.fld.interp[0].dz
-    kz_true = 2*np.pi* np.fft.fftfreq( sim.fld.Nz, dz )
+    dz = fld.interp[0].dz
+    kz_true = 2*np.pi* np.fft.fftfreq( fld.Nz, dz )
     filter_array = (1. - np.sin(0.5*kz_true*dz)**2) * \
                    (1. + np.sin(0.5*kz_true*dz)**2)
-    for m in range(sim.fld.Nm):
+    for m in range(fld.Nm):
         spect[m].Ep *= filter_array[:, np.newaxis]
         spect[m].Em *= filter_array[:, np.newaxis]
 
     # Calculate the Ez field by ensuring that div(E) = 0
-    for m in range(sim.fld.Nm):
+    for m in range(fld.Nm):
         inv_kz = np.where( spect[m].kz==0, 0,
                 1./np.where( spect[m].kz==0, 1., spect[m].kz ) ) # Avoid nan
         spect[m].Ez[:,:] = 1.j*spect[m].kr*(spect[m].Ep - spect[m].Em)*inv_kz
@@ -93,7 +119,7 @@ def add_laser_direct( sim, laser_profile, fw_propagating, boost ):
     # Calculate the B field by ensuring that d_t B = - curl(E)
     # i.e. -i w B = - curl(E), where the sign of w is chosen so that
     # the direction of propagation is given by the flag `fw_propagating`
-    for m in range(sim.fld.Nm):
+    for m in range(fld.Nm):
         # Calculate w with the right sign
         w = c*np.sqrt( spect[m].kz**2 + spect[m].kr**2 )
         w *= np.sign( spect[m].kz )
@@ -108,9 +134,5 @@ def add_laser_direct( sim, laser_profile, fw_propagating, boost ):
         spect[m].Bz[:,:] = inv_w * spect[m].kr * ( spect[m].Ep + spect[m].Em )
 
     # Go back to interpolation space
-    sim.fld.spect2interp('E')
-    sim.fld.spect2interp('B')
-
-    # TODO: Scatter the values to all procs
-    # Add the values to the local grid
-    # Transform back to spectral space
+    fld.spect2interp('E')
+    fld.spect2interp('B')
