@@ -20,7 +20,6 @@ try:
     mkl_installed = True
 except OSError:
     import pyfftw
-    print('\n Using FFTW\n')
     mkl_installed = False
 
 class FFT(object):
@@ -77,50 +76,29 @@ class FFT(object):
             self.blas = cublas.Blas()   # For normalization of the iFFT
             self.inv_Nz = 1./Nz         # For normalization of the iFFT
 
-            # Initialize the spectral buffers
-            self.spect_buffer_r = cuda.device_array(
-                (Nz, Nr), dtype=np.complex128)
-            self.spect_buffer_t = cuda.device_array(
-                (Nz, Nr), dtype=np.complex128)
-
-        # Initialize the object for calculation on the CPU using MKL
-        elif self.use_mkl:
-
-            self.spect_buffer_r = np.zeros( (Nz, Nr), dtype=np.complex128 )
-            self.spect_buffer_t = np.zeros( (Nz, Nr), dtype=np.complex128 )
-            self.mklfft = MKLFFT( self.spect_buffer_r )
-
-        # Initialize the object for calculation on the CPU using FFTW
+        # Initialize the object for calculation on the CPU
         else:
 
-            # Determine number of threads
-            if nthreads is None:
-                # Get the default number of threads for numba
-                nthreads = numba.config.NUMBA_NUM_THREADS
+            # For MKL FFT
+            if self.use_mkl:
+                # Initialize the MKL plan with dummy array
+                spect_buffer = np.zeros( (Nz, Nr), dtype=np.complex128 )
+                self.mklfft = MKLFFT( spect_buffer )
 
-            # Initialize buffer and FFTW transform
-            self.spect_buffer_r = np.zeros( (Nz, Nr), dtype=np.complex128 )
-            self.spect_buffer_t = np.zeros( (Nz, Nr), dtype=np.complex128 )
-            interp_buffer = np.zeros( (Nz, Nr), dtype=np.complex128 )
-            self.fft = pyfftw.FFTW( interp_buffer, self.spect_buffer_r,
-                    axes=(0,), direction='FFTW_FORWARD', threads=nthreads)
-            self.ifft = pyfftw.FFTW( self.spect_buffer_r, interp_buffer,
-                    axes=(0,), direction='FFTW_BACKWARD', threads=nthreads)
+            # For FFTW
+            else:
+                # Determine number of threads
+                if nthreads is None:
+                    # Get the default number of threads for numba
+                    nthreads = numba.config.NUMBA_NUM_THREADS
+                # Initialize the FFT plan with dummy arrays
+                interp_buffer = np.zeros( (Nz, Nr), dtype=np.complex128 )
+                spect_buffer = np.zeros( (Nz, Nr), dtype=np.complex128 )
+                self.fft = pyfftw.FFTW( interp_buffer, spect_buffer,
+                        axes=(0,), direction='FFTW_FORWARD', threads=nthreads)
+                self.ifft = pyfftw.FFTW( spect_buffer, interp_buffer,
+                        axes=(0,), direction='FFTW_BACKWARD', threads=nthreads)
 
-
-    def get_buffers( self ):
-        """
-        Return the spectral buffers which are typically used to store
-        information inbetween the Hankel transform and the Fourier transform
-
-        Returns
-        -------
-        A tuple with:
-        - Two cuda device arrays when using the GPU
-        - Two numpy arrays when using the CPU, which are tied to an FFTW plan
-        (Do no modify these arrays to make them point to another array)
-        """
-        return( self.spect_buffer_r, self.spect_buffer_t )
 
     def transform( self, array_in, array_out ):
         """
