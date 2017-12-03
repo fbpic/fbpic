@@ -20,6 +20,7 @@ try:
     mkl_installed = True
 except OSError:
     import pyfftw
+    print('\n Using FFTW\n')
     mkl_installed = False
 
 class FFT(object):
@@ -97,25 +98,15 @@ class FFT(object):
                 # Get the default number of threads for numba
                 nthreads = numba.config.NUMBA_NUM_THREADS
 
-            # First buffer and FFTW transform
-            self.interp_buffer_r = \
-                pyfftw.n_byte_align_empty( (Nz,Nr), 16, 'complex128' )
-            self.spect_buffer_r = \
-                pyfftw.n_byte_align_empty( (Nz,Nr), 16, 'complex128' )
-            self.fft_r= pyfftw.FFTW(self.interp_buffer_r, self.spect_buffer_r,
+            # Initialize buffer and FFTW transform
+            self.spect_buffer_r = np.zeros( (Nz, Nr), dtype=np.complex128 )
+            self.spect_buffer_t = np.zeros( (Nz, Nr), dtype=np.complex128 )
+            interp_buffer = np.zeros( (Nz, Nr), dtype=np.complex128 )
+            self.fft = pyfftw.FFTW( interp_buffer, self.spect_buffer_r,
                     axes=(0,), direction='FFTW_FORWARD', threads=nthreads)
-            self.ifft_r=pyfftw.FFTW(self.spect_buffer_r, self.interp_buffer_r,
+            self.ifft = pyfftw.FFTW( self.spect_buffer_r, interp_buffer,
                     axes=(0,), direction='FFTW_BACKWARD', threads=nthreads)
 
-            # Second buffer and FFTW transform
-            self.interp_buffer_t = \
-                pyfftw.n_byte_align_empty( (Nz,Nr), 16, 'complex128' )
-            self.spect_buffer_t = \
-                pyfftw.n_byte_align_empty( (Nz,Nr), 16, 'complex128' )
-            self.fft_t= pyfftw.FFTW(self.interp_buffer_t, self.spect_buffer_t,
-                    axes=(0,), direction='FFTW_FORWARD', threads=nthreads )
-            self.ifft_t=pyfftw.FFTW(self.spect_buffer_t, self.interp_buffer_t,
-                    axes=(0,), direction='FFTW_BACKWARD', threads=nthreads)
 
     def get_buffers( self ):
         """
@@ -156,21 +147,9 @@ class FFT(object):
             self.mklfft.transform( array_in, array_out )
         else :
             # Perform the FFT on the CPU using FFTW
-            if array_out is self.spect_buffer_r:
-                # First copy the input array to the preallocated buffers
-                self.interp_buffer_r[:,:] = array_in
-                # The following operation transforms from
-                # self.interp_buffer_r to self.spect_buffer_r
-                self.fft_r()
-            elif array_out is self.spect_buffer_t:
-                # First copy the input array to the preallocated buffers
-                self.interp_buffer_t[:,:] = array_in
-                # The following operation transforms from
-                # self.interp_buffer_t to self.spect_buffer_t
-                self.fft_t()
-            else:
-                raise ValueError('Invalid output array.The output array '
-                'must be either self.spect_buffer_r or self.spect_buffer_t.')
+            self.fft.update_arrays( new_input_array=array_in,
+                                    new_output_array=array_out )
+            self.fft()
 
     def inverse_transform( self, array_in, array_out ):
         """
@@ -198,18 +177,6 @@ class FFT(object):
             self.mklfft.inverse_transform( array_in, array_out )
         else :
             # Perform the inverse FFT on the CPU using FFTW
-            if array_in is self.spect_buffer_r:
-                # The following operation transforms from
-                # self.spect_buffer_r to self.interp_buffer_r
-                self.ifft_r()
-                # Copy to the output array
-                array_out[:,:] = self.interp_buffer_r[:,:]
-            elif array_in is self.spect_buffer_t:
-                # The following operation transforms from
-                # self.spect_buffer_t to self.interp_buffer_t
-                self.ifft_t()
-                # Copy to the output array
-                array_out[:,:] = self.interp_buffer_t[:,:]
-            else:
-                raise ValueError('Invalid input array.The input array must'
-                ' be either self.spect_buffer_r or self.spect_buffer_t.')
+            self.ifft.update_arrays( new_input_array=array_in,
+                                    new_output_array=array_out )
+            self.ifft()
