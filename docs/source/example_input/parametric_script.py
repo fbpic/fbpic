@@ -39,7 +39,7 @@ from mpi4py.MPI import COMM_WORLD as comm
 use_cuda = True
 
 # The simulation box
-Nz = 400         # Number of gridpoints along z
+Nz = 800         # Number of gridpoints along z
 zmax = 30.e-6    # Right end of the simulation box (meters)
 zmin = -10.e-6   # Left end of the simulation box (meters)
 Nr = 50          # Number of gridpoints along r

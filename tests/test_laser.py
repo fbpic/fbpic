@@ -51,7 +51,7 @@ show = True  # Whether to show the plots, and check them manually
 use_cuda = True
 
 # Simulation box
-Nz = 200
+Nz = 400
 zmin = -10.e-6
 zmax = 10.e-6
 Nr = 25

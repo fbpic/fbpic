@@ -9,7 +9,6 @@ emit a laser during a simulation.
 import numpy as np
 from scipy.constants import e, c, epsilon_0, physical_constants
 r_e = physical_constants['classical electron radius'][0]
-from .profiles import gaussian_profile
 from fbpic.particles.utilities.utility_methods import weights
 from fbpic.particles.deposition.numba_methods import deposit_field_numba
 
@@ -49,46 +48,15 @@ class LaserAntenna( object ):
     Note that the antenna always uses linear shape factors (even when the
     rest of the simulation uses cubic shape factors.)
     """
-    def __init__( self, E0, w0, ctau, z0, zf, k0, cep_phase,
-        phi2_chirp, theta_pol, z0_antenna, dr_grid, Nr_grid, Nm,
-        npr=2, nptheta=4, epsilon=0.01, boost=None ):
+    def __init__( self, laser_profile, z0_antenna, dr_grid, Nr_grid,
+        Nm, boost, npr=2, epsilon=0.01 ):
         """
         Initialize a LaserAntenna object (see class docstring for more info)
 
         Parameters
         ----------
-        E0: float (V.m^-1)
-            The amplitude of the the electric field *in the lab frame*
-
-        w0: float (m)
-            The waist of the laser at focus
-
-        ctau: float (m)
-            The duration of the laser *in the lab frame*
-
-        z0: float (m)
-            The initial position of the laser centroid *in the lab frame*
-
-        zf: float (m)
-            The position of the focal plane *in the lab frame*
-
-        k0: float (m^-1)
-            Laser wavevector *in the lab frame*
-
-        cep_phase: float (rad)
-            Carrier Enveloppe Phase (CEP), i.e. the phase of the laser
-            oscillations, at the position where the laser enveloppe is maximum.
-
-        phi2_chirp: float (in second^2)
-            The amount of temporal chirp, at focus *in the lab frame*
-            Namely, a wave packet centered on the frequency (w0 + dw) will
-            reach its peak intensity at a time z(dw) = z0 - c*phi2*dw.
-            Thus, a positive phi2 corresponds to positive chirp, i.e. red part
-            of the spectrum in the front of the pulse and blue part of the
-            spectrum in the back.
-
-        theta_pol: float (rad)
-            Polarization angle of the laser
+        profile: a valid laser profile object
+            Gives the value of the laser field in space and time
 
         z0_antenna: float (m)
             Initial position of the antenna *in the lab frame*
@@ -118,6 +86,13 @@ class LaserAntenna( object ):
         boost: a BoostConverter object or None
            Contains the information about the boost to be applied
         """
+        # Register the properties of the laser injection
+        self.laser_profile = laser_profile
+        self.boost = boost
+
+        # Initialize virtual particle with 2*Nm values of angle
+        nptheta = 2*Nm
+
         # Porportionality coefficient between the weight of a particle
         # and its transverse position (in cylindrical geometry, particles
         # that are further away from the axis have a larger weight)
@@ -162,18 +137,6 @@ class LaserAntenna( object ):
         if boost is not None:
             self.baseline_z, = boost.static_length( [ self.baseline_z ] )
             self.vz, = boost.velocity( [ self.vz ] )
-
-        # Record laser properties
-        self.E0 = E0
-        self.w0 = w0
-        self.k0 = k0
-        self.ctau = ctau
-        self.z0 = z0
-        self.zf = zf
-        self.cep_phase = cep_phase
-        self.phi2_chirp = phi2_chirp
-        self.theta_pol = theta_pol
-        self.boost = boost
 
         # Initialize small-size buffers where the particles charge and currents
         # will be deposited before being added to the regular, large-size array
@@ -220,20 +183,29 @@ class LaserAntenna( object ):
         t: float (seconds)
             The time at which to calculate the velocities
         """
+        # When running in a boosted frame, convert the position and time at
+        # which to find the laser amplitude.
+        if self.boost is not None:
+            boost = self.boost
+            inv_c = 1./c
+            zlab = boost.gamma0*(  self.baseline_z + (c*boost.beta0)*t )
+            tlab = boost.gamma0*( t + (inv_c*boost.beta0)* self.baseline_z )
+        else:
+            zlab = self.baseline_z
+            tlab = t
+
         # Calculate the electric field to be emitted (in the lab-frame)
         # Eu is the amplitude along the polarization direction
         # Note that we neglect the (small) excursion of the particles when
         # calculating the electric field on the particles.
-        Eu = self.E0 * gaussian_profile( self.baseline_z, self.baseline_r, t,
-                        self.w0, self.ctau, self.z0, self.zf,
-                        self.k0, self.cep_phase, self.phi2_chirp,
-                        boost=self.boost, output_Ez_profile=False )
+        Ex, Ey = self.laser_profile.E_field(
+            self.baseline_x, self.baseline_y, zlab, tlab )
 
         # Calculate the corresponding velocity. This takes into account
         # lab-frame to boosted-frame conversion, through a modification
         # of the mobility coefficient: see the __init__ function
-        self.vx = ( self.mobility_coef * np.cos(self.theta_pol) ) * Eu
-        self.vy = ( self.mobility_coef * np.sin(self.theta_pol) ) * Eu
+        self.vx = self.mobility_coef * Ex
+        self.vy = self.mobility_coef * Ey
 
     def deposit( self, fld, fieldtype, comm ):
         """
