@@ -7,6 +7,7 @@ It defines a set of generic functions for printing simulation information.
 """
 import sys, time
 import numba
+from numba import cuda
 from fbpic import __version__
 # Check availability of various computational setups
 from fbpic.fields.spectral_transform.fourier import mkl_installed
@@ -34,25 +35,23 @@ def print_simulation_setup( sim, level=1 ):
         1 (Default) - Print basic information
         2 - Print detailed information
     """
-    if level > 0:
-        if sim.comm.rank == 0:
+    if level > 0 and sim.comm.rank == 0:
         # Print version of FBPIC
-            message += '\nFBPIC (fbpic-%s)\n'%__version__
-            # Basic information
-            if level == 1:
-                # Print information about computational setup
-                if sim.use_cuda:
-                    message += "\nRunning on GPU "
-                else:
-                    message += "\nRunning on CPU "
-                if sim.comm.size > 1:
-                    message += "with %d MPI processes " %sim.comm.size
-                if sim.use_threading and not sim.use_cuda:
-                    message += "(%d threads per process) " \
-                        %numba.config.NUMBA_NUM_THREADS
+        message = '\nFBPIC (fbpic-%s)\n'%__version__
+        # Basic information
+        if level == 1:
+            # Print information about computational setup
+            if sim.use_cuda:
+                message += "\nRunning on GPU "
+            else:
+                message += "\nRunning on CPU "
+            if sim.comm.size > 1:
+                message += "with %d MPI processes " %sim.comm.size
+            if sim.use_threading and not sim.use_cuda:
+                message += "(%d threads per process) " \
+                    %numba.config.NUMBA_NUM_THREADS
         # Detailed information
         if level == 2:
-            if sim.comm.rank == 0:
                 if mpi_installed:
                     message += '\nMPI available: Yes'
                     message += '\nMPI processes: %d' %sim.comm.size
@@ -71,14 +70,8 @@ def print_simulation_setup( sim, level=1 ):
                         message += '\nFFT library: MKL'
                     else:
                         message += '\nFFT library: pyFFTW'
-            # Sync MPI processes before printing
-            sim.comm.mpi_comm.barrier()
-            if sim.use_cuda:
-                if not sim.comm.rank == 0:
-                    message = ''
-                message += print_current_gpu( sim.comm.mpi_comm )
-            sim.comm.mpi_comm.barrier()
-            if sim.comm.rank == 0:
+
+
                 if threading_enabled:
                     message += '\nCPU multi-threading enabled: Yes'
                     message += '\nThreads: %s' \
@@ -111,8 +104,12 @@ def print_simulation_setup( sim, level=1 ):
                 else:
                     message += '\nBoosted frame: False'
                 message += '\n'
-
         print( message )
+    if level == 2:
+        # Sync MPI processes before MPI GPU selection
+        sim.comm.mpi_comm.barrier()
+        if sim.use_cuda:
+            print_current_gpu( sim.comm.mpi_comm )
 
 def progression_bar( i, Ntot, avg_time_per_step, prev_time,
                      n_avg=20, Nbars=35, char=u'\u007C'):
@@ -226,4 +223,4 @@ def print_current_gpu( mpi ):
             rank, gpu_name, gpu.id, node)
     else:
         message = "FBPIC selected a %s GPU with id %s" %( gpu_name, gpu.id )
-    return message
+    print(message)
