@@ -135,10 +135,10 @@ def progression_bar( i, Ntot, avg_time_per_step, prev_time,
         sys.stdout.write('\r' + nbars*char )
         sys.stdout.write((Nbars-nbars)*' ')
         sys.stdout.write(' %d/%d' %(i+1, Ntot))
-        sys.stdout.write(', %d ms/step' %(time_per_step*1.e3))
+        sys.stdout.write(', %4d ms/step' %(time_per_step*1.e3))
         if i < n_avg:
             # Time estimation is only printed after n_avg timesteps
-            sys.stdout.write(', calculating ETA...')
+            sys.stdout.write(', calc. ETA...')
             sys.stdout.flush()
         else:
             # Estimated time in seconds until it will finish
