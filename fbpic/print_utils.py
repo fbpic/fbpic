@@ -37,9 +37,7 @@ def print_simulation_setup( sim, level=1 ):
     if level > 0:
         if sim.comm.rank == 0:
         # Print version of FBPIC
-            message = '\n' + u'\u007C' + u'\u007C' + u'\u007C'
-            message += '  FBPIC (fbpic-%s)  '%__version__
-            message += u'\u007C' + u'\u007C' + u'\u007C' + '\n'
+            message += '\nFBPIC (fbpic-%s)\n'%__version__
             # Basic information
             if level == 1:
                 # Print information about computational setup
