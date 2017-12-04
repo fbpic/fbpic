@@ -12,7 +12,7 @@ from fbpic import __version__
 # Check availability of various computational setups
 from fbpic.fields.spectral_transform.fourier import mkl_installed
 from fbpic.cuda_utils import cuda_installed
-from fbpic.mpi_utils import mpi_installed
+from fbpic.mpi_utils import MPI, mpi_installed
 from fbpic.threading_utils import threading_enabled
 
 def print_simulation_setup( sim, level=1 ):
@@ -63,7 +63,6 @@ def print_simulation_setup( sim, level=1 ):
                     message += '\nCUDA available: No'
                 if sim.use_cuda:
                     message += '\nCompute architecture: GPU (CUDA)'
-                    message += '\nSelected GPUs:\n'
                 else:
                     message += '\nCompute architecture: CPU'
                     if mkl_installed:
