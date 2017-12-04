@@ -53,7 +53,7 @@ def print_simulation_setup( sim, level=1 ):
         print( message )
 
 def progression_bar( i, Ntot, avg_time_per_step, prev_time,
-                     n_avg=20, Nbars=50, char=u'\u2588'):
+                     n_avg=20, Nbars=35, char=u'\u2588'):
     """
     Shows a progression bar with Nbars and the estimated
     remaining simulation time.
@@ -80,7 +80,7 @@ def progression_bar( i, Ntot, avg_time_per_step, prev_time,
         sys.stdout.write(', %d ms/step' %(time_per_step*1.e3))
         if i < n_avg:
             # Time estimation is only printed after n_avg timesteps
-            sys.stdout.write(', estimating time left...')
+            sys.stdout.write(', calculating ETA...')
             sys.stdout.flush()
         else:
             # Estimated time in seconds until it will finish
