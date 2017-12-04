@@ -37,9 +37,9 @@ def print_simulation_setup( sim, level=1 ):
     if level > 0:
         if sim.comm.rank == 0:
         # Print version of FBPIC
-            message = '\n' + u'\u2630' + u'\u2630' + u'\u2630'
+            message = '\n' + u'\u007C' + u'\u007C' + u'\u007C'
             message += '  FBPIC (fbpic-%s)  '%__version__
-            message += u'\u2630' + u'\u2630' + u'\u2630' + '\n'
+            message += u'\u007C' + u'\u007C' + u'\u007C' + '\n'
             # Basic information
             if level == 1:
                 # Print information about computational setup
@@ -115,7 +115,7 @@ def print_simulation_setup( sim, level=1 ):
         print( message )
 
 def progression_bar( i, Ntot, avg_time_per_step, prev_time,
-                     n_avg=20, Nbars=35, char=u'\u2588'):
+                     n_avg=20, Nbars=35, char=u'\u007C'):
     """
     Shows a progression bar with Nbars and the estimated
     remaining simulation time.
