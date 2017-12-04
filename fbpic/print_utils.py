@@ -37,7 +37,7 @@ def print_simulation_setup( sim, level=1 ):
     if level > 0:
         if sim.comm.rank == 0:
         # Print version of FBPIC
-            message = '\nFBPIC (fbpic-%s)\n'%__version__
+            message += '\nFBPIC (fbpic-%s)\n'%__version__
             # Basic information
             if level == 1:
                 # Print information about computational setup
@@ -74,6 +74,8 @@ def print_simulation_setup( sim, level=1 ):
             # Sync MPI processes before printing
             sim.comm.mpi_comm.barrier()
             if sim.use_cuda:
+                if not sim.comm.rank == 0:
+                    message = ''
                 message += print_current_gpu( sim.comm.mpi_comm )
             sim.comm.mpi_comm.barrier()
             if sim.comm.rank == 0:
