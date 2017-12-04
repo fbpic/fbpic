@@ -8,6 +8,11 @@ It defines a set of generic functions for printing simulation information.
 import sys, time
 import numba
 from fbpic import __version__
+# Check availability of various computational setups
+from fbpic.fields.spectral_transform.fourier import mkl_installed
+from fbpic.cuda_utils import cuda_installed
+from fbpic.mpi_utils import mpi_installed
+from fbpic.threading_utils import threading_enabled
 
 def print_simulation_setup( sim, level=1 ):
     """
@@ -29,26 +34,83 @@ def print_simulation_setup( sim, level=1 ):
         1 (Default) - Print basic information
         2 - Print detailed information
     """
-    if sim.comm.rank == 0 and level > 0:
+    if level > 0:
+        if sim.comm.rank == 0:
         # Print version of FBPIC
-        message = '\n' + u'\u2630' + u'\u2630' + u'\u2630'
-        message += '  FBPIC (fbpic-%s)  '%__version__
-        message += u'\u2630' + u'\u2630' + u'\u2630' + '\n'
-        # Basic information
-        if level == 1:
-            # Print information about computational setup
-            if sim.use_cuda:
-                message += "\nRunning on GPU "
-            else:
-                message += "\nRunning on CPU "
-            if sim.comm.size > 1:
-                message += "with %d MPI processes " %sim.comm.size
-            if sim.use_threading and not sim.use_cuda:
-                message += "(%d threads per process) " \
-                    %numba.config.NUMBA_NUM_THREADS
+            message = '\n' + u'\u2630' + u'\u2630' + u'\u2630'
+            message += '  FBPIC (fbpic-%s)  '%__version__
+            message += u'\u2630' + u'\u2630' + u'\u2630' + '\n'
+            # Basic information
+            if level == 1:
+                # Print information about computational setup
+                if sim.use_cuda:
+                    message += "\nRunning on GPU "
+                else:
+                    message += "\nRunning on CPU "
+                if sim.comm.size > 1:
+                    message += "with %d MPI processes " %sim.comm.size
+                if sim.use_threading and not sim.use_cuda:
+                    message += "(%d threads per process) " \
+                        %numba.config.NUMBA_NUM_THREADS
         # Detailed information
         if level == 2:
-            print('TBD...')
+            if sim.comm.rank == 0:
+                if mpi_installed:
+                    message += '\nMPI available: Yes'
+                    message += '\nMPI processes: %d' %sim.comm.size
+                else:
+                    message += '\nMPI available: No'
+                if cuda_installed:
+                    message += '\nCUDA available: Yes'
+                else:
+                    message += '\nCUDA available: No'
+                if sim.use_cuda:
+                    message += '\nCompute architecture: GPU (CUDA)'
+                    message += '\nSelected GPUs:\n'
+                else:
+                    message += '\nCompute architecture: CPU'
+                    if mkl_installed:
+                        message += '\nFFT library: MKL'
+                    else:
+                        message += '\nFFT library: pyFFTW'
+            # Sync MPI processes before printing
+            sim.comm.mpi_comm.barrier()
+            if sim.use_cuda:
+                message += print_current_gpu( sim.comm.mpi_comm )
+            sim.comm.mpi_comm.barrier()
+            if sim.comm.rank == 0:
+                if threading_enabled:
+                    message += '\nCPU multi-threading enabled: Yes'
+                    message += '\nThreads: %s' \
+                        %numba.config.NUMBA_NUM_THREADS
+                else:
+                    message += '\nCPU multi-threading enabled: No'
+                message += '\n'
+                if sim.fld.n_order == -1:
+                    message += '\nPSAOTD stencil order (accuracy): infinite'
+                else:
+                    message += '\nPSAOTD stencil order (accuracy): %d' \
+                        %sim.fld.n_order
+                message += '\nParticle shape: %s' %sim.particle_shape
+                message += '\nLongitudinal boundaries: %s' %sim.comm.boundaries
+                message += '\nTransverse boundaries: reflective'
+                message += '\nGuard region size: %d ' \
+                    %sim.comm.n_guard + 'cells'
+                message += '\nDamping region size: %d ' \
+                    %sim.comm.n_damp + 'cells'
+                message += '\nParticle exchange period: every %d ' \
+                    %sim.comm.exchange_period + 'step'
+                if sim.gamma_boost is not None:
+                    message += '\nBoosted frame: Yes'
+                    message += '\nBoosted frame gamma: %d' \
+                        %sim.comm.gamma_boost
+                    if sim.use_galilean:
+                        message += '\nGalilean frame: Yes'
+                    else:
+                        message += '\nGalilean frame: No'
+                else:
+                    message += '\nBoosted frame: False'
+                message += '\n'
 
         print( message )
 
@@ -113,3 +175,55 @@ def print_runtime_summary( N, duration ):
     print('\nTime taken (with compilation): %d:%02d:%02d' %(h, m, s))
     print('Average time per iteration ' \
           '(with compilation): %d ms\n' %(avg_tps))
+
+def print_gpu_meminfo(gpu):
+    """
+    Prints memory information about the GPU.
+
+    Parameters :
+    ------------
+    gpu : object
+        A numba cuda gpu context object.
+    """
+    with gpu:
+        meminfo = cuda.current_context().get_memory_info()
+        print("GPU: %s, free: %s Mbytes, total: %s Mbytes \
+              " % (gpu, meminfo[0]*1e-6, meminfo[1]*1e-6))
+
+def print_available_gpus():
+    """
+    Lists all available CUDA GPUs.
+    """
+    cuda.detect()
+
+def print_gpu_meminfo_all():
+    """
+    Prints memory information about all available CUDA GPUs.
+    """
+    gpus = cuda.gpus.lst
+    for gpu in gpus:
+        print_gpu_meminfo(gpu)
+
+def print_current_gpu( mpi ):
+    """
+    Prints information about the currently selected GPU.
+
+    Parameter:
+    ----------
+    mpi: an mpi4py.MPI object
+    """
+    gpu = cuda.gpus.current
+    # Convert bytestring to actual string
+    try:
+        gpu_name = gpu.name.decode()
+    except AttributeError:
+        gpu_name = gpu.name
+    # Print the GPU that is being used
+    if mpi.COMM_WORLD.size > 1:
+        rank = mpi.COMM_WORLD.rank
+        node = mpi.Get_processor_name()
+        message = "MPI rank %d selected a %s GPU with id %s on node %s" %(
+            rank, gpu_name, gpu.id, node)
+    else:
+        message = "FBPIC selected a %s GPU with id %s" %( gpu_name, gpu.id )
+    return message

@@ -213,9 +213,10 @@ class Simulation(object):
             self.use_galilean = False
 
         # When running the simulation in a boosted frame, convert the arguments
+        self.gamma_boost = gamma_boost
         uz_m = 0.   # Mean normalized momentum of the particles
-        if gamma_boost is not None:
-            boost = BoostConverter( gamma_boost )
+        if self.gamma_boost is not None:
+            boost = BoostConverter( self.gamma_boost )
             zmin, zmax, dt = boost.copropag_length([ zmin, zmax, dt ])
             p_zmin, p_zmax = boost.static_length([ p_zmin, p_zmax ])
             n_e, = boost.static_density([ n_e ])
@@ -244,19 +245,22 @@ class Simulation(object):
                                 p_rmin, p_rmax, p_nr )
 
         # Initialize the electrons and the ions
-        grid_shape = self.fld.interp[0].Ez.shape
+        self.grid_shape = self.fld.interp[0].Ez.shape
+        self.particle_shape = particle_shape
         self.ptcl = [
             Particles(q=-e, m=m_e, n=n_e, Npz=Npz, zmin=p_zmin,
                       zmax=p_zmax, Npr=Npr, rmin=p_rmin, rmax=p_rmax,
                       Nptheta=p_nt, dt=dt, dens_func=dens_func, uz_m=uz_m,
-                      grid_shape=grid_shape, particle_shape=particle_shape,
+                      grid_shape=self.grid_shape,
+                      particle_shape=self.particle_shape,
                       use_cuda=self.use_cuda ) ]
         if initialize_ions :
             self.ptcl.append(
                 Particles(q=e, m=m_p, n=n_e, Npz=Npz, zmin=p_zmin,
                           zmax=p_zmax, Npr=Npr, rmin=p_rmin, rmax=p_rmax,
                           Nptheta=p_nt, dt=dt, dens_func=dens_func, uz_m=uz_m,
-                          grid_shape=grid_shape, particle_shape=particle_shape,
+                          grid_shape=self.grid_shape,
+                          particle_shape=self.particle_shape,
                           use_cuda=self.use_cuda ) )
 
         # Register the number of particles per cell along z, and dt
