@@ -65,18 +65,17 @@ def print_simulation_setup( sim, level=1 ):
                     message += '\nCompute architecture: GPU (CUDA)'
                 else:
                     message += '\nCompute architecture: CPU'
+                    if threading_enabled:
+                        message += '\nCPU multi-threading enabled: Yes'
+                        message += '\nThreads: %s' \
+                            %numba.config.NUMBA_NUM_THREADS
+                    else:
+                        message += '\nCPU multi-threading enabled: No'
                     if mkl_installed:
                         message += '\nFFT library: MKL'
                     else:
                         message += '\nFFT library: pyFFTW'
 
-
-                if threading_enabled:
-                    message += '\nCPU multi-threading enabled: Yes'
-                    message += '\nThreads: %s' \
-                        %numba.config.NUMBA_NUM_THREADS
-                else:
-                    message += '\nCPU multi-threading enabled: No'
                 message += '\n'
                 if sim.fld.n_order == -1:
                     message += '\nPSAOTD stencil order (accuracy): infinite'
@@ -109,6 +108,7 @@ def print_simulation_setup( sim, level=1 ):
         sim.comm.mpi_comm.barrier()
         if sim.use_cuda:
             print_current_gpu( MPI )
+            print('')
 
 def progression_bar( i, Ntot, avg_time_per_step, prev_time,
                      n_avg=20, Nbars=35, char=u'\u007C'):
