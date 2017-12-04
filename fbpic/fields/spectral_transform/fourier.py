@@ -18,7 +18,7 @@ if cuda_installed:
 try:
     from .mkl_fft import MKLFFT
     mkl_installed = True
-except ImportError:
+except OSError:
     import pyfftw
     mkl_installed = False
 

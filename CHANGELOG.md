@@ -1,5 +1,9 @@
 # Change Log / Release Log for fbpic
 
+## 0.6.2
+
+This is a bug-fix release. It corrects an important bug that was introduced in version 0.6.1 for the Hankel transform on GPU.
+
 ## 0.6.1
 
 This version allows FBPIC to run without `mpi4py` installed, in the case of

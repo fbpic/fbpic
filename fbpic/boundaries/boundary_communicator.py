@@ -209,7 +209,7 @@ class BoundaryCommunicator(object):
 
         # Initialize a buffer handler object, for MPI communications
         if self.size > 1:
-            self.mpi_buffers = BufferHandler( self.n_guard, Nr,
+            self.mpi_buffers = BufferHandler( self.n_guard, Nr, Nm,
                                       self.left_proc, self.right_proc )
 
         # Create damping arrays for the damping cells at the left
@@ -439,10 +439,10 @@ class BoundaryCommunicator(object):
                     vec_recv_right = self.mpi_buffers.vec_add_recv_r
                 # Handle the sending buffers
                 self.mpi_buffers.handle_vec_buffer(
-                    interp[0].Er, interp[0].Et, interp[0].Ez,
-                    interp[1].Er, interp[1].Et, interp[1].Ez,
-                    method, interp[0].use_cuda,
-                    before_sending=True )
+                    [ interp[m].Er for m in range(self.Nm) ],
+                    [ interp[m].Et for m in range(self.Nm) ],
+                    [ interp[m].Ez for m in range(self.Nm) ],
+                    method, interp[0].use_cuda, before_sending=True )
                 # Send and receive the buffers via MPI
                 self.exchange_domains(
                     vec_send_left, vec_send_right,
@@ -452,10 +452,10 @@ class BoundaryCommunicator(object):
                 self.mpi_comm.Barrier()
                 # Handle the received buffers
                 self.mpi_buffers.handle_vec_buffer(
-                    interp[0].Er, interp[0].Et, interp[0].Ez,
-                    interp[1].Er, interp[1].Et, interp[1].Ez,
-                    method, interp[0].use_cuda,
-                    after_receiving=True )
+                    [ interp[m].Er for m in range(self.Nm) ],
+                    [ interp[m].Et for m in range(self.Nm) ],
+                    [ interp[m].Ez for m in range(self.Nm) ],
+                    method, interp[0].use_cuda, after_receiving=True )
 
             elif fieldtype == 'B':
                 if method == 'replace':
@@ -470,10 +470,10 @@ class BoundaryCommunicator(object):
                     vec_recv_right = self.mpi_buffers.vec_add_recv_r
                 # Handle the sending buffers
                 self.mpi_buffers.handle_vec_buffer(
-                    interp[0].Br, interp[0].Bt, interp[0].Bz,
-                    interp[1].Br, interp[1].Bt, interp[1].Bz,
-                    method, interp[0].use_cuda,
-                    before_sending=True )
+                    [ interp[m].Br for m in range(self.Nm) ],
+                    [ interp[m].Bt for m in range(self.Nm) ],
+                    [ interp[m].Bz for m in range(self.Nm) ],
+                    method, interp[0].use_cuda, before_sending=True )
                 # Send and receive the buffers via MPI
                 self.exchange_domains(
                     vec_send_left, vec_send_right,
@@ -483,10 +483,10 @@ class BoundaryCommunicator(object):
                 self.mpi_comm.Barrier()
                 # Handle the received buffers
                 self.mpi_buffers.handle_vec_buffer(
-                    interp[0].Br, interp[0].Bt, interp[0].Bz,
-                    interp[1].Br, interp[1].Bt, interp[1].Bz,
-                    method, interp[0].use_cuda,
-                    after_receiving=True )
+                    [ interp[m].Br for m in range(self.Nm) ],
+                    [ interp[m].Bt for m in range(self.Nm) ],
+                    [ interp[m].Bz for m in range(self.Nm) ],
+                    method, interp[0].use_cuda, after_receiving=True )
 
             elif fieldtype == 'J':
                 if method == 'replace':
@@ -501,10 +501,10 @@ class BoundaryCommunicator(object):
                     vec_recv_right = self.mpi_buffers.vec_add_recv_r
                 # Handle the sending buffers
                 self.mpi_buffers.handle_vec_buffer(
-                    interp[0].Jr, interp[0].Jt, interp[0].Jz,
-                    interp[1].Jr, interp[1].Jt, interp[1].Jz,
-                    method, interp[0].use_cuda,
-                    before_sending=True )
+                    [ interp[m].Jr for m in range(self.Nm) ],
+                    [ interp[m].Jt for m in range(self.Nm) ],
+                    [ interp[m].Jz for m in range(self.Nm) ],
+                    method, interp[0].use_cuda, before_sending=True )
                 # Send and receive the buffers via MPI
                 self.exchange_domains(
                     vec_send_left, vec_send_right,
@@ -514,10 +514,10 @@ class BoundaryCommunicator(object):
                 self.mpi_comm.Barrier()
                 # Handle the received buffers
                 self.mpi_buffers.handle_vec_buffer(
-                    interp[0].Jr, interp[0].Jt, interp[0].Jz,
-                    interp[1].Jr, interp[1].Jt, interp[1].Jz,
-                    method, interp[0].use_cuda,
-                    after_receiving=True )
+                    [ interp[m].Jr for m in range(self.Nm) ],
+                    [ interp[m].Jt for m in range(self.Nm) ],
+                    [ interp[m].Jz for m in range(self.Nm) ],
+                    method, interp[0].use_cuda, after_receiving=True )
 
             elif fieldtype == 'rho':
                 if method == 'replace':
@@ -532,9 +532,8 @@ class BoundaryCommunicator(object):
                     scal_recv_right = self.mpi_buffers.scal_add_recv_r
                 # Handle the sending buffers
                 self.mpi_buffers.handle_scal_buffer(
-                    interp[0].rho, interp[1].rho,
-                    method, interp[0].use_cuda,
-                    before_sending=True )
+                    [ interp[m].rho for m in range(self.Nm) ],
+                    method, interp[0].use_cuda, before_sending=True )
                 # Send and receive the buffers via MPI
                 self.exchange_domains(
                     scal_send_left, scal_send_right,
@@ -544,9 +543,8 @@ class BoundaryCommunicator(object):
                 self.mpi_comm.Barrier()
                 # Handle the received buffers
                 self.mpi_buffers.handle_scal_buffer(
-                    interp[0].rho, interp[1].rho,
-                    method, interp[0].use_cuda,
-                    after_receiving=True )
+                    [ interp[m].rho for m in range(self.Nm) ],
+                    method, interp[0].use_cuda, after_receiving=True )
             else:
                 raise ValueError('Unknown fieldtype: %s' %fieldtype)
 
@@ -725,13 +723,11 @@ class BoundaryCommunicator(object):
                     # Damp the fields on the GPU
                     dim_grid, dim_block = cuda_tpb_bpg_2d(
                         self.n_guard+self.n_damp, interp[0].Nr )
-
-                    cuda_damp_EB_left[dim_grid, dim_block](
-                        interp[0].Er, interp[0].Et, interp[0].Ez,
-                        interp[0].Br, interp[0].Bt, interp[0].Bz,
-                        interp[1].Er, interp[1].Et, interp[1].Ez,
-                        interp[1].Br, interp[1].Bt, interp[1].Bz,
-                        self.d_left_damp, self.n_guard, self.n_damp)
+                    for m in range(len(interp)):
+                        cuda_damp_EB_left[dim_grid, dim_block](
+                            interp[m].Er, interp[m].Et, interp[m].Ez,
+                            interp[m].Br, interp[m].Bt, interp[m].Bz,
+                            self.d_left_damp, self.n_guard, self.n_damp)
                 else:
                     # Damp the fields on the CPU
                     nd = self.n_guard + self.n_damp
@@ -750,13 +746,11 @@ class BoundaryCommunicator(object):
                     # Damp the fields on the GPU
                     dim_grid, dim_block = cuda_tpb_bpg_2d(
                         self.n_guard+self.n_damp, interp[0].Nr )
-
-                    cuda_damp_EB_right[dim_grid, dim_block](
-                        interp[0].Er, interp[0].Et, interp[0].Ez,
-                        interp[0].Br, interp[0].Bt, interp[0].Bz,
-                        interp[1].Er, interp[1].Et, interp[1].Ez,
-                        interp[1].Br, interp[1].Bt, interp[1].Bz,
-                        self.d_right_damp, self.n_guard, self.n_damp)
+                    for m in range(len(interp)):
+                        cuda_damp_EB_right[dim_grid, dim_block](
+                            interp[m].Er, interp[m].Et, interp[m].Ez,
+                            interp[m].Br, interp[m].Bt, interp[m].Bz,
+                            self.d_right_damp, self.n_guard, self.n_damp)
                 else:
                     # Damp the fields on the CPU
                     nd = self.n_guard + self.n_damp
