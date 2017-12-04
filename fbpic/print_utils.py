@@ -108,7 +108,7 @@ def print_simulation_setup( sim, level=1 ):
         # Sync MPI processes before MPI GPU selection
         sim.comm.mpi_comm.barrier()
         if sim.use_cuda:
-            print_current_gpu( sim.comm.mpi_comm )
+            print_current_gpu( MPI )
 
 def progression_bar( i, Ntot, avg_time_per_step, prev_time,
                      n_avg=20, Nbars=35, char=u'\u007C'):
