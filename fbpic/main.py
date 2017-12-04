@@ -10,7 +10,6 @@ This file steers and controls the simulation.
 # (This needs to be done before the other imports,
 # as it sets the cuda context)
 from fbpic.mpi_utils import MPI
-import numba
 # Check if threading is available
 from .threading_utils import threading_enabled
 # Check if CUDA is available, then import CUDA functions
