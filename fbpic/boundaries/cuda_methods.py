@@ -347,17 +347,14 @@ def add_scal_from_gpu_buffer( scal_buffer_l, scal_buffer_r, grid, m,
 # CUDA damping kernels:
 # --------------------
 @cuda.jit
-def cuda_damp_EB_left( Er0, Et0, Ez0, Br0, Bt0, Bz0,
-                  Er1, Et1, Ez1, Br1, Bt1, Bz1,
-                  damp_array, n_guard, n_damp ) :
+def cuda_damp_EB_left( Er, Et, Ez, Br, Bt, Bz, damp_array, n_guard, n_damp ):
     """
     Multiply the E and B fields in the left guard cells
     by damp_array.
 
     Parameters :
     ------------
-    Er0, Et0, Ez0, Br0, Bt0, Bz0,
-    Er1, Et1, Ez1, Br1, Bt1, Bz1 : 2darrays of complexs
+    Er, Et, Ez, Br, Bt, Bz: 2darrays of complexs
         Contain the fields to be damped
         The first axis corresponds to z and the second to r
 
@@ -375,7 +372,7 @@ def cuda_damp_EB_left( Er0, Et0, Ez0, Br0, Bt0, Bz0,
     iz, ir = cuda.grid(2)
 
     # Obtain the size of the array along z and r
-    Nz, Nr = Er0.shape
+    Nz, Nr = Er.shape
 
     # Modify the fields
     if ir < Nr :
@@ -384,31 +381,22 @@ def cuda_damp_EB_left( Er0, Et0, Ez0, Br0, Bt0, Bz0,
             damp_factor_left = damp_array[iz]
 
             # At the left end
-            Er0[iz, ir] *= damp_factor_left
-            Et0[iz, ir] *= damp_factor_left
-            Ez0[iz, ir] *= damp_factor_left
-            Br0[iz, ir] *= damp_factor_left
-            Bt0[iz, ir] *= damp_factor_left
-            Bz0[iz, ir] *= damp_factor_left
-            Er1[iz, ir] *= damp_factor_left
-            Et1[iz, ir] *= damp_factor_left
-            Ez1[iz, ir] *= damp_factor_left
-            Br1[iz, ir] *= damp_factor_left
-            Bt1[iz, ir] *= damp_factor_left
-            Bz1[iz, ir] *= damp_factor_left
+            Er[iz, ir] *= damp_factor_left
+            Et[iz, ir] *= damp_factor_left
+            Ez[iz, ir] *= damp_factor_left
+            Br[iz, ir] *= damp_factor_left
+            Bt[iz, ir] *= damp_factor_left
+            Bz[iz, ir] *= damp_factor_left
 
 @cuda.jit
-def cuda_damp_EB_right( Er0, Et0, Ez0, Br0, Bt0, Bz0,
-                  Er1, Et1, Ez1, Br1, Bt1, Bz1,
-                  damp_array, n_guard, n_damp ) :
+def cuda_damp_EB_right( Er, Et, Ez, Br, Bt, Bz, damp_array, n_guard, n_damp ):
     """
     Multiply the E and B fields in the right guard cells
     by damp_array.
 
     Parameters :
     ------------
-    Er0, Et0, Ez0, Br0, Bt0, Bz0,
-    Er1, Et1, Ez1, Br1, Bt1, Bz1 : 2darrays of complexs
+    Er, Et, Ez, Br, Bt, Bz : 2darrays of complexs
         Contain the fields to be damped
         The first axis corresponds to z and the second to r
 
@@ -426,7 +414,7 @@ def cuda_damp_EB_right( Er0, Et0, Ez0, Br0, Bt0, Bz0,
     iz, ir = cuda.grid(2)
 
     # Obtain the size of the array along z and r
-    Nz, Nr = Er0.shape
+    Nz, Nr = Er.shape
 
     # Modify the fields
     if ir < Nr :
@@ -436,15 +424,9 @@ def cuda_damp_EB_right( Er0, Et0, Ez0, Br0, Bt0, Bz0,
 
             # At the right end
             iz_right = Nz - iz - 1
-            Er0[iz_right, ir] *= damp_factor_right
-            Et0[iz_right, ir] *= damp_factor_right
-            Ez0[iz_right, ir] *= damp_factor_right
-            Br0[iz_right, ir] *= damp_factor_right
-            Bt0[iz_right, ir] *= damp_factor_right
-            Bz0[iz_right, ir] *= damp_factor_right
-            Er1[iz_right, ir] *= damp_factor_right
-            Et1[iz_right, ir] *= damp_factor_right
-            Ez1[iz_right, ir] *= damp_factor_right
-            Br1[iz_right, ir] *= damp_factor_right
-            Bt1[iz_right, ir] *= damp_factor_right
-            Bz1[iz_right, ir] *= damp_factor_right
+            Er[iz_right, ir] *= damp_factor_right
+            Et[iz_right, ir] *= damp_factor_right
+            Ez[iz_right, ir] *= damp_factor_right
+            Br[iz_right, ir] *= damp_factor_right
+            Bt[iz_right, ir] *= damp_factor_right
+            Bz[iz_right, ir] *= damp_factor_right
