@@ -101,7 +101,7 @@ def print_simulation_setup( sim, level=1 ):
                         message += '\nGalilean frame: No'
                 else:
                     message += '\nBoosted frame: False'
-        message += '\n'    
+        message += '\n'
         print( message )
     if level == 2:
         # Sync MPI processes before MPI GPU selection
@@ -109,6 +109,8 @@ def print_simulation_setup( sim, level=1 ):
         time.sleep(0.1)
         if sim.use_cuda:
             print_current_gpu( MPI )
+            sim.comm.mpi_comm.barrier()
+            time.sleep(0.1)
             if sim.comm.rank == 0:
                 print('')
 
