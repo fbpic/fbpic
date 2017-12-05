@@ -14,6 +14,11 @@ from fbpic.fields.spectral_transform.fourier import mkl_installed
 from fbpic.cuda_utils import cuda_installed
 from fbpic.mpi_utils import MPI, mpi_installed
 from fbpic.threading_utils import threading_enabled
+# Check if terminal is correctly set to UTF-8 and set progress character
+if sys.stdout.encoding == 'UTF-8':
+    progress_char = u'\u2588'
+else:
+    progress_char = '-'
 
 def print_simulation_setup( sim, level=1 ):
     """
@@ -52,59 +57,59 @@ def print_simulation_setup( sim, level=1 ):
                     %numba.config.NUMBA_NUM_THREADS
         # Detailed information
         if level == 2:
-                if mpi_installed:
-                    message += '\nMPI available: Yes'
-                    message += '\nMPI processes: %d' %sim.comm.size
+            if mpi_installed:
+                message += '\nMPI available: Yes'
+                message += '\nMPI processes: %d' %sim.comm.size
+            else:
+                message += '\nMPI available: No'
+            if cuda_installed:
+                message += '\nCUDA available: Yes'
+            else:
+                message += '\nCUDA available: No'
+            if sim.use_cuda:
+                message += '\nCompute architecture: GPU (CUDA)'
+            else:
+                message += '\nCompute architecture: CPU'
+                if threading_enabled:
+                    message += '\nCPU multi-threading enabled: Yes'
+                    message += '\nThreads: %s' \
+                        %numba.config.NUMBA_NUM_THREADS
                 else:
-                    message += '\nMPI available: No'
-                if cuda_installed:
-                    message += '\nCUDA available: Yes'
+                    message += '\nCPU multi-threading enabled: No'
+                if mkl_installed:
+                    message += '\nFFT library: MKL'
                 else:
-                    message += '\nCUDA available: No'
-                if sim.use_cuda:
-                    message += '\nCompute architecture: GPU (CUDA)'
-                else:
-                    message += '\nCompute architecture: CPU'
-                    if threading_enabled:
-                        message += '\nCPU multi-threading enabled: Yes'
-                        message += '\nThreads: %s' \
-                            %numba.config.NUMBA_NUM_THREADS
-                    else:
-                        message += '\nCPU multi-threading enabled: No'
-                    if mkl_installed:
-                        message += '\nFFT library: MKL'
-                    else:
-                        message += '\nFFT library: pyFFTW'
+                    message += '\nFFT library: pyFFTW'
 
-                message += '\n'
-                if sim.fld.n_order == -1:
-                    message += '\nPSAOTD stencil order (accuracy): infinite'
+            message += '\n'
+            if sim.fld.n_order == -1:
+                message += '\nPSAOTD stencil order: infinite'
+            else:
+                message += '\nPSAOTD stencil order: %d' \
+                    %sim.fld.n_order
+            message += '\nParticle shape: %s' %sim.particle_shape
+            message += '\nLongitudinal boundaries: %s' %sim.comm.boundaries
+            message += '\nTransverse boundaries: reflective'
+            message += '\nGuard region size: %d ' \
+                %sim.comm.n_guard + 'cells'
+            message += '\nDamping region size: %d ' \
+                %sim.comm.n_damp + 'cells'
+            message += '\nParticle exchange period: every %d ' \
+                %sim.comm.exchange_period + 'step'
+            if sim.gamma_boost is not None:
+                message += '\nBoosted frame: Yes'
+                message += '\nBoosted frame gamma: %d' \
+                    %sim.comm.gamma_boost
+                if sim.use_galilean:
+                    message += '\nGalilean frame: Yes'
                 else:
-                    message += '\nPSAOTD stencil order (accuracy): %d' \
-                        %sim.fld.n_order
-                message += '\nParticle shape: %s' %sim.particle_shape
-                message += '\nLongitudinal boundaries: %s' %sim.comm.boundaries
-                message += '\nTransverse boundaries: reflective'
-                message += '\nGuard region size: %d ' \
-                    %sim.comm.n_guard + 'cells'
-                message += '\nDamping region size: %d ' \
-                    %sim.comm.n_damp + 'cells'
-                message += '\nParticle exchange period: every %d ' \
-                    %sim.comm.exchange_period + 'step'
-                if sim.gamma_boost is not None:
-                    message += '\nBoosted frame: Yes'
-                    message += '\nBoosted frame gamma: %d' \
-                        %sim.comm.gamma_boost
-                    if sim.use_galilean:
-                        message += '\nGalilean frame: Yes'
-                    else:
-                        message += '\nGalilean frame: No'
-                else:
-                    message += '\nBoosted frame: False'
+                    message += '\nGalilean frame: No'
+            else:
+                message += '\nBoosted frame: False'
         message += '\n'
         print( message )
     if level == 2:
-        # Sync MPI processes before MPI GPU selection
+        # Sync MPI processes before printing MPI GPU selection
         sim.comm.mpi_comm.barrier()
         time.sleep(0.1)
         if sim.use_cuda:
@@ -115,7 +120,7 @@ def print_simulation_setup( sim, level=1 ):
                 print('')
 
 def progression_bar( i, Ntot, avg_time_per_step, prev_time,
-                     n_avg=20, Nbars=35, char=u'\u007C'):
+                     n_avg=20, Nbars=35, char=progress_char):
     """
     Shows a progression bar with Nbars and the estimated
     remaining simulation time.
@@ -130,7 +135,7 @@ def progression_bar( i, Ntot, avg_time_per_step, prev_time,
     # Print progress bar
     if i == 0:
         # Let the user know that the first step is much longer
-        sys.stdout.write('\r' + '1st iteration & ' + \
+        sys.stdout.write('\r' + \
             'Just-In-Time compilation (up to one minute) ...')
         sys.stdout.flush()
     else:
@@ -139,11 +144,9 @@ def progression_bar( i, Ntot, avg_time_per_step, prev_time,
         sys.stdout.write('\r' + nbars*char )
         sys.stdout.write((Nbars-nbars)*' ')
         sys.stdout.write(' %d/%d' %(i+1, Ntot))
-        sys.stdout.write(', %4d ms/step' %(time_per_step*1.e3))
         if i < n_avg:
             # Time estimation is only printed after n_avg timesteps
             sys.stdout.write(', calc. ETA...')
-            sys.stdout.flush()
         else:
             # Estimated time in seconds until it will finish
             eta = avg_time_per_step*(Ntot-i)
@@ -151,7 +154,9 @@ def progression_bar( i, Ntot, avg_time_per_step, prev_time,
             m, s = divmod(eta, 60)
             h, m = divmod(m, 60)
             sys.stdout.write(', %d:%02d:%02d left' % (h, m, s))
-            sys.stdout.flush()
+        # Time taken by the last step
+        sys.stdout.write(', %d ms/step' %(time_per_step*1.e3))
+        sys.stdout.flush()
     # Clear line
     sys.stdout.write('\033[K')
 
