@@ -125,13 +125,12 @@ def deposit_rho_gpu_linear(x, y, z, w, q,
         Represents the cumulative sum of
         the particles per cell
     """
-    # Get the 1D CUDA grid
-    i = cuda.grid(1)
-    # Deposit the field per cell in parallel (for threads < number of cells)
-    if i < prefix_sum.shape[0]:
-        # Calculate the cell index in 2D from the 1D threadIdx
-        iz_cell = int(i / Nr)
-        ir_cell = int(i - iz_cell * Nr)
+    # Get the 2D CUDA grid
+    iz_cell, ir_cell = cuda.grid(2)
+    # Deposit the field per cell in parallel
+    if (iz_cell < Nz) and (ir_cell < Nr):
+        # Calculate the flattened cell index
+        i = iz_cell * Nr + ir_cell
         # Calculate the inclusive offset for the current cell
         # It represents the number of particles contained in all other cells
         # with an index smaller than i + the total number of particles in the
@@ -308,13 +307,12 @@ def deposit_J_gpu_linear(x, y, z, w, q,
         Represents the cumulative sum of
         the particles per cell
     """
-    # Get the 1D CUDA grid
-    i = cuda.grid(1)
-    # Deposit the field per cell in parallel (for threads < number of cells)
-    if i < prefix_sum.shape[0]:
-        # Calculate the cell index in 2D from the 1D threadIdx
-        iz_cell = int(i/Nr)
-        ir_cell = int(i - iz_cell * Nr)
+    # Get the 2D CUDA grid
+    iz_cell, ir_cell = cuda.grid(2)
+    # Deposit the field per cell in parallel
+    if (iz_cell < Nz) and (ir_cell < Nr):
+        # Calculate the flattened cell index
+        i = iz_cell * Nr + ir_cell
         # Calculate the inclusive offset for the current cell
         # It represents the number of particles contained in all other cells
         # with an index smaller than i + the total number of particles in the
@@ -571,13 +569,12 @@ def deposit_rho_gpu_cubic(x, y, z, w, q,
         Represents the cumulative sum of
         the particles per cell
     """
-    # Get the 1D CUDA grid
-    i = cuda.grid(1)
-    # Deposit the field per cell in parallel (for threads < number of cells)
-    if i < prefix_sum.shape[0]:
-        # Calculate the cell index in 2D from the 1D threadIdx
-        iz_cell = int(i / Nr)
-        ir_cell = int(i - iz_cell * Nr)
+    # Get the 2D CUDA grid
+    iz_cell, ir_cell = cuda.grid(2)
+    # Deposit the field per cell in parallel
+    if (iz_cell < Nz) and (ir_cell < Nr):
+        # Calculate the flattened cell index
+        i = iz_cell * Nr + ir_cell
         # Calculate the inclusive offset for the current cell
         # It represents the number of particles contained in all other cells
         # with an index smaller than i + the total number of particles in the
@@ -947,13 +944,12 @@ def deposit_J_gpu_cubic(x, y, z, w, q,
         Represents the cumulative sum of
         the particles per cell
     """
-    # Get the 1D CUDA grid
-    i = cuda.grid(1)
-    # Deposit the field per cell in parallel (for threads < number of cells)
-    if i < prefix_sum.shape[0]:
-        # Calculate the cell index in 2D from the 1D threadIdx
-        iz_cell = int(i/Nr)
-        ir_cell = int(i - iz_cell * Nr)
+    # Get the 2D CUDA grid
+    iz_cell, ir_cell = cuda.grid(2)
+    # Deposit the field per cell in parallel
+    if (iz_cell < Nz) and (ir_cell < Nr):
+        # Calculate the flattened cell index
+        i = iz_cell * Nr + ir_cell
         # Calculate the inclusive offset for the current cell
         # It represents the number of particles contained in all other cells
         # with an index smaller than i + the total number of particles in the

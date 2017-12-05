@@ -617,26 +617,22 @@ class Particles(object) :
         # GPU (CUDA) version
         if self.use_cuda:
             # Get the threads per block and the blocks per grid
-            dim_grid_2d_flat, dim_block_2d_flat = cuda_tpb_bpg_1d(
-                                                    grid[0].Nz*grid[0].Nr,
-                                                    TPB=64 )
             dim_grid_2d, dim_block_2d = cuda_tpb_bpg_2d(
-                                          grid[0].Nz, grid[0].Nr )
-
+                grid[0].Nz, grid[0].Nr, TPBx=8, TPBy=8 )
             # Call the CUDA Kernel for the deposition of rho or J
             # for Mode 0 and 1 only.
             # Rho
             if fieldtype == 'rho':
                 # Deposit rho in each of four directions
                 if self.particle_shape == 'linear':
-                    deposit_rho_gpu_linear[dim_grid_2d_flat, dim_block_2d_flat](
+                    deposit_rho_gpu_linear[dim_grid_2d, dim_block_2d](
                         self.x, self.y, self.z, weight, self.q,
                         grid[0].invdz, grid[0].zmin, grid[0].Nz,
                         grid[0].invdr, grid[0].rmin, grid[0].Nr,
                         grid[0].rho, grid[1].rho,
                         self.cell_idx, self.prefix_sum)
                 elif self.particle_shape == 'cubic':
-                    deposit_rho_gpu_cubic[dim_grid_2d_flat, dim_block_2d_flat](
+                    deposit_rho_gpu_cubic[dim_grid_2d, dim_block_2d](
                         self.x, self.y, self.z, weight, self.q,
                         grid[0].invdz, grid[0].zmin, grid[0].Nz,
                         grid[0].invdr, grid[0].rmin, grid[0].Nr,
@@ -650,7 +646,7 @@ class Particles(object) :
             elif fieldtype == 'J':
                 # Deposit J in each of four directions
                 if self.particle_shape == 'linear':
-                    deposit_J_gpu_linear[dim_grid_2d_flat, dim_block_2d_flat](
+                    deposit_J_gpu_linear[dim_grid_2d, dim_block_2d](
                         self.x, self.y, self.z, weight, self.q,
                         self.ux, self.uy, self.uz, self.inv_gamma,
                         grid[0].invdz, grid[0].zmin, grid[0].Nz,
@@ -660,7 +656,7 @@ class Particles(object) :
                         grid[0].Jz, grid[1].Jz,
                         self.cell_idx, self.prefix_sum)
                 elif self.particle_shape == 'cubic':
-                    deposit_J_gpu_cubic[dim_grid_2d_flat, dim_block_2d_flat](
+                    deposit_J_gpu_cubic[dim_grid_2d, dim_block_2d](
                         self.x, self.y, self.z, weight, self.q,
                         self.ux, self.uy, self.uz, self.inv_gamma,
                         grid[0].invdz, grid[0].zmin, grid[0].Nz,
