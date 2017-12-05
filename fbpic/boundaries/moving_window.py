@@ -119,7 +119,7 @@ class MovingWindow(object):
                     break
             # Default value in the absence of continuously-injected particles
             if self.z_end_plasma is None:
-                self.z_end_plasma = self.z_inject
+                self.z_end_plasma = interp[0].zmax - (ng+nd)*interp[0].dz
             self.nz_inject = 0
             self.p_nz = p_nz
 
