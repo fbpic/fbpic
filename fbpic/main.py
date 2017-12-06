@@ -327,6 +327,9 @@ class Simulation(object):
         # Get the E and B fields in spectral space initially
         # (In the rest of the loop, E and B will only be transformed
         # from spectal space to real space, but never the other way around)
+        self.comm.exchange_fields(fld.interp, 'E', 'replace')
+        self.comm.exchange_fields(fld.interp, 'B', 'replace')
+        self.comm.damp_EB_open_boundary( fld.interp )
         fld.interp2spect('E')
         fld.interp2spect('B')
 
@@ -376,21 +379,6 @@ class Simulation(object):
 
             # Main PIC iteration
             # ------------------
-
-            # Get the (MPI-exchanged and damped) E and B field in both
-            # spectral space and interpolation space
-            # (Since exchange/damp operation is purely along z, spectral fields
-            # are updated by doing an FFT/iFFT instead of a full transform)
-            fld.spect2partial_interp('E')
-            fld.spect2partial_interp('B')
-            self.comm.exchange_fields(fld.interp, 'E', 'replace')
-            self.comm.exchange_fields(fld.interp, 'B', 'replace')
-            self.comm.damp_EB_open_boundary( fld.interp )
-            fld.partial_interp2spect('E')
-            fld.partial_interp2spect('B')
-            # Get the corresponding fields in interpolation space
-            fld.spect2interp('E')
-            fld.spect2interp('B')
 
             # Gather the fields from the grid at t = n dt
             for species in ptcl:
@@ -458,6 +446,21 @@ class Simulation(object):
                 # Shift the fields is spectral space and update positions of
                 # the interpolation grids
                 self.comm.move_grids(fld, self.dt, self.time)
+
+            # Get the (MPI-exchanged and damped) E and B field in both
+            # spectral space and interpolation space
+            # (Since exchange/damp operation is purely along z, spectral fields
+            # are updated by doing an FFT/iFFT instead of a full transform)
+            fld.spect2partial_interp('E')
+            fld.spect2partial_interp('B')
+            self.comm.exchange_fields(fld.interp, 'E', 'replace')
+            self.comm.exchange_fields(fld.interp, 'B', 'replace')
+            self.comm.damp_EB_open_boundary( fld.interp )
+            fld.partial_interp2spect('E')
+            fld.partial_interp2spect('B')
+            # Get the corresponding fields in interpolation space
+            fld.spect2interp('E')
+            fld.spect2interp('B')
 
             # Increment the global time and iteration
             self.time += self.dt
