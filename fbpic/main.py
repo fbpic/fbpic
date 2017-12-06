@@ -20,10 +20,9 @@ if cuda_installed:
     mpi_select_gpus( MPI )
 
 # Import the rest of the requirements
-import time
+import numba
 from scipy.constants import m_e, m_p, e, c
-from .print_utils import print_simulation_setup, \
-            print_runtime_summary, progression_bar
+from .print_utils import ProgressBar, print_simulation_setup
 from .particles import Particles
 from .lpa_utils.boosted_frame import BoostConverter
 from .fields import Fields
@@ -49,7 +48,7 @@ class Simulation(object):
                  use_cuda=False, n_guard=None, n_damp=30, exchange_period=None,
                  boundaries='periodic', gamma_boost=None,
                  use_all_mpi_ranks=True, particle_shape='linear',
-                 simulation_info=1 ):
+                 verbose_level=1 ):
         """
         Initializes a simulation, by creating the following structures:
 
@@ -190,21 +189,27 @@ class Simulation(object):
             Possible values are 'cubic', 'linear'. ('cubic' corresponds to
             third order shapes and 'linear' to first order shapes).
 
-        simulation_info: int, optional
-            Print information about the simulation setup.
+        verbose_level: int, optional
+            Print information about the simulation setup after
+            initialization of the Simulation class.
             0 - Print no information
             1 (Default) - Print basic information
             2 - Print detailed information
         """
         # Check whether to use CUDA
         self.use_cuda = use_cuda
-        if (use_cuda==True) and (cuda_installed==False):
+        self.cuda_installed = cuda_installed
+        if (self.use_cuda==True) and (self.cuda_installed==False):
             # Print warning if use_cuda = True but CUDA is not available
             print('*** Cuda not available for the simulation.')
             print('*** Performing the simulation on CPU.')
             self.use_cuda = False
         # CPU multi-threading
         self.use_threading = threading_enabled
+        if self.use_threading:
+            self.cpu_threads = numba.config.NUMBA_NUM_THREADS
+        else:
+            self.cpu_threads = 1
 
         # Register the comoving parameters
         self.v_comoving = v_comoving
@@ -213,14 +218,15 @@ class Simulation(object):
             self.use_galilean = False
 
         # When running the simulation in a boosted frame, convert the arguments
-        self.gamma_boost = gamma_boost
         uz_m = 0.   # Mean normalized momentum of the particles
-        if self.gamma_boost is not None:
-            boost = BoostConverter( self.gamma_boost )
-            zmin, zmax, dt = boost.copropag_length([ zmin, zmax, dt ])
-            p_zmin, p_zmax = boost.static_length([ p_zmin, p_zmax ])
-            n_e, = boost.static_density([ n_e ])
-            uz_m, = boost.longitudinal_momentum([ uz_m ])
+        if gamma_boost is not None:
+            self.boost = BoostConverter( gamma_boost )
+            zmin, zmax, dt = self.boost.copropag_length([ zmin, zmax, dt ])
+            p_zmin, p_zmax = self.boost.static_length([ p_zmin, p_zmax ])
+            n_e, = self.boost.static_density([ n_e ])
+            uz_m, = self.boost.longitudinal_momentum([ uz_m ])
+        else:
+            self.boost = None
 
         # Initialize the boundary communicator
         self.comm = BoundaryCommunicator( Nz, zmin, zmax, Nr, rmax, Nm, dt,
@@ -283,7 +289,7 @@ class Simulation(object):
         self.laser_antennas = []
 
         # Print simulation setup
-        print_simulation_setup( self, level=simulation_info )
+        print_simulation_setup( self, verbose_level=verbose_level )
 
     def step(self, N=1, correct_currents=True,
              correct_divE=False, use_true_rho=False,
@@ -328,9 +334,7 @@ class Simulation(object):
 
         # Initialize variables to measure the time taken by the simulation
         if show_progress and self.comm.rank==0:
-            start_time = time.time()
-            prev_time = start_time
-            avg_time_per_step = 0.
+            progress_bar = ProgressBar( N )
 
         # Send simulation data to GPU (if CUDA is used)
         if self.use_cuda:
@@ -344,8 +348,8 @@ class Simulation(object):
 
             # Show a progression bar and calculate ETA
             if show_progress and self.comm.rank==0:
-                avg_time_per_step, prev_time = progression_bar(
-                    i_step, N, avg_time_per_step, prev_time )
+                progress_bar.time( i_step )
+                progress_bar.print_progress()
 
             # Diagnostics
             # -----------
@@ -493,7 +497,7 @@ class Simulation(object):
 
         # Print the measured time taken by the PIC cycle
         if show_progress and (self.comm.rank==0):
-            print_runtime_summary(N, time.time() - start_time)
+            progress_bar.print_summary()
 
     def deposit( self, fieldtype, exchange=False ):
         """
