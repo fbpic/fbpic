@@ -6,12 +6,13 @@ This file is part of the Fourier-Bessel Particle-In-Cell code (FB-PIC)
 It defines the SpectralTransformer class, which handles conversion of
 the fields from the interpolation grid to the spectral grid and vice-versa.
 """
+import numpy as np
 from .hankel import DHT
 from .fourier import FFT
 
 from .numba_methods import numba_rt_to_pm, numba_pm_to_rt
 # Check if CUDA is available, then import CUDA functions
-from fbpic.cuda_utils import cuda_installed
+from fbpic.cuda_utils import cuda_installed, cuda
 if cuda_installed:
     from fbpic.cuda_utils import cuda_tpb_bpg_2d
     from .cuda_methods import cuda_rt_to_pm, cuda_pm_to_rt
@@ -69,13 +70,16 @@ class SpectralTransformer(object) :
         # Initialize the FFT
         self.fft = FFT( Nr, Nz, use_cuda=self.use_cuda )
 
-        # Extract the spectral buffers
-        # - In the case where the GPU is used, these buffers are cuda
-        #   device arrays.
-        # - In the case where the CPU is used, these buffers are tied to
-        #   the FFTW plan object (see the __init__ of the FFT object). Do
-        #   *not* modify these buffers to make them point to another array.
-        self.spect_buffer_r, self.spect_buffer_t = self.fft.get_buffers()
+        # Initialize the spectral buffers
+        if self.use_cuda:
+            self.spect_buffer_r = cuda.device_array(
+                (Nz, Nr), dtype=np.complex128)
+            self.spect_buffer_t = cuda.device_array(
+                (Nz, Nr), dtype=np.complex128)
+        else:
+            # Initialize the spectral buffers
+            self.spect_buffer_r = np.zeros( (Nz, Nr), dtype=np.complex128 )
+            self.spect_buffer_t = np.zeros( (Nz, Nr), dtype=np.complex128 )
 
         # Different names for same object (for economy of memory)
         self.spect_buffer_p = self.spect_buffer_r
