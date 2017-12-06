@@ -324,6 +324,12 @@ class Simulation(object):
         if self.use_cuda:
             send_data_to_gpu(self)
 
+        # Get the E and B fields in spectral space initially
+        # (In the rest of the loop, E and B will only be transformed
+        # from spectal space to real space, but never the other way around)
+        fld.interp2spect('E')
+        fld.interp2spect('B')
+
         # Beginning of the N iterations
         # -----------------------------
 
@@ -342,12 +348,8 @@ class Simulation(object):
                 # were smoothed/corrected, and copy the data from the GPU.)
                 diag.write( self.iteration )
 
-            # Exchanges to prepare for this iteration
-            # ---------------------------------------
-
-            # Exchange the fields (E,B) in the guard cells between MPI domains
-            self.comm.exchange_fields(fld.interp, 'E', 'replace')
-            self.comm.exchange_fields(fld.interp, 'B', 'replace')
+            # Particle exchanges to prepare for this iteration
+            # ------------------------------------------------
 
             # Check whether this iteration involves particle exchange.
             # Note: Particle exchange is imposed at the first iteration
@@ -374,6 +376,21 @@ class Simulation(object):
 
             # Main PIC iteration
             # ------------------
+
+            # Get the (MPI-exchanged and damped) E and B field in both
+            # spectral space and interpolation space
+            # (Since exchange/damp operation is purely along z, spectral fields
+            # are updated by doing an FFT/iFFT instead of a full transform)
+            fld.spect2partial_interp('E')
+            fld.spect2partial_interp('B')
+            self.comm.exchange_fields(fld.interp, 'E', 'replace')
+            self.comm.exchange_fields(fld.interp, 'B', 'replace')
+            self.comm.damp_EB_open_boundary( fld.interp )
+            fld.partial_interp2spect('E')
+            fld.partial_interp2spect('B')
+            # Get the corresponding fields in interpolation space
+            fld.spect2interp('E')
+            fld.spect2interp('B')
 
             # Gather the fields from the grid at t = n dt
             for species in ptcl:
@@ -432,11 +449,6 @@ class Simulation(object):
                     fld.interp2spect('J')
                     fld.exchanged_source['J'] = True
 
-            # Damp the fields in the guard cells
-            self.comm.damp_guard_EB( fld.interp )
-            # Get the damped fields on the spectral grid at t = n dt
-            fld.interp2spect('E')
-            fld.interp2spect('B')
             # Push the fields E and B on the spectral grid to t = (n+1) dt
             fld.push( use_true_rho )
             if correct_divE:
@@ -446,9 +458,6 @@ class Simulation(object):
                 # Shift the fields is spectral space and update positions of
                 # the interpolation grids
                 self.comm.move_grids(fld, self.dt, self.time)
-            # Get the fields E and B on the interpolation grid at t = (n+1) dt
-            fld.spect2interp('E')
-            fld.spect2interp('B')
 
             # Increment the global time and iteration
             self.time += self.dt
