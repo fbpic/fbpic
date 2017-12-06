@@ -432,9 +432,9 @@ class Simulation(object):
                     # Exchange the guard cells of corrected J between domains
                     # (If correct_currents is False, the exchange of J
                     # is done in the function `deposit`)
-                    fld.spect2interp('J')
+                    fld.spect2partial_interp('J')
                     self.comm.exchange_fields(fld.interp, 'J', 'add')
-                    fld.interp2spect('J')
+                    fld.partial_interp2spect('J')
                     fld.exchanged_source['J'] = True
 
             # Push the fields E and B on the spectral grid to t = (n+1) dt
@@ -447,10 +447,10 @@ class Simulation(object):
                 # the interpolation grids
                 self.comm.move_grids(fld, self.dt, self.time)
 
-            # Get the (MPI-exchanged and damped) E and B field in both
+            # Get the MPI-exchanged and damped E and B field in both
             # spectral space and interpolation space
             # (Since exchange/damp operation is purely along z, spectral fields
-            # are updated by doing an FFT/iFFT instead of a full transform)
+            # are updated by doing an iFFT/FFT instead of a full transform)
             fld.spect2partial_interp('E')
             fld.spect2partial_interp('B')
             self.comm.exchange_fields(fld.interp, 'E', 'replace')
