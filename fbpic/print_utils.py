@@ -178,7 +178,6 @@ def print_simulation_setup( sim, verbose_level=1 ):
                 message += '\nMPI available: No'
             if sim.cuda_installed:
                 message += '\nCUDA available: Yes'
-                message += '\nAvailable GPUs: \n%s' %cuda.detect()
             else:
                 message += '\nCUDA available: No'
             if sim.use_cuda:
@@ -197,9 +196,9 @@ def print_simulation_setup( sim, verbose_level=1 ):
 
             message += '\n'
             if sim.fld.n_order == -1:
-                message += '\nPSAOTD stencil order: infinite'
+                message += '\nPSATD stencil order: infinite'
             else:
-                message += '\nPSAOTD stencil order: %d' %sim.fld.n_order
+                message += '\nPSATD stencil order: %d' %sim.fld.n_order
             message += '\nParticle shape: %s' %sim.particle_shape
             message += '\nLongitudinal boundaries: %s' %sim.comm.boundaries
             message += '\nTransverse boundaries: reflective'
