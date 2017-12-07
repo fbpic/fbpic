@@ -10,7 +10,6 @@ This file steers and controls the simulation.
 # (This needs to be done before the other imports,
 # as it sets the cuda context)
 from fbpic.mpi_utils import MPI
-import numba
 # Check if threading is available
 from .threading_utils import threading_enabled
 # Check if CUDA is available, then import CUDA functions
@@ -21,13 +20,13 @@ if cuda_installed:
     mpi_select_gpus( MPI )
 
 # Import the rest of the requirements
-import sys, time
+import numba
 from scipy.constants import m_e, m_p, e, c
+from .print_utils import ProgressBar, print_simulation_setup
 from .particles import Particles
 from .lpa_utils.boosted_frame import BoostConverter
 from .fields import Fields
 from .boundaries import BoundaryCommunicator, MovingWindow
-from fbpic import __version__
 
 class Simulation(object):
     """
@@ -50,7 +49,8 @@ class Simulation(object):
                  n_guard=None, n_damp=30, exchange_period=None,
                  current_corr_type='cross-deposition', boundaries='periodic',
                  gamma_boost=None, use_all_mpi_ranks=True,
-                 particle_shape='linear' ):
+                 particle_shape='linear', verbose_level=1 ):
+                 
         """
         Initializes a simulation, by creating the following structures:
 
@@ -195,15 +195,27 @@ class Simulation(object):
             Set the particle shape for the charge/current deposition.
             Possible values are 'cubic', 'linear'. ('cubic' corresponds to
             third order shapes and 'linear' to first order shapes).
+
+        verbose_level: int, optional
+            Print information about the simulation setup after
+            initialization of the Simulation class.
+            0 - Print no information
+            1 (Default) - Print basic information
+            2 - Print detailed information
         """
         # Check whether to use CUDA
         self.use_cuda = use_cuda
-        if (use_cuda==True) and (cuda_installed==False):
+        if (self.use_cuda==True) and (cuda_installed==False):
+            # Print warning if use_cuda = True but CUDA is not available
             print('*** Cuda not available for the simulation.')
             print('*** Performing the simulation on CPU.')
             self.use_cuda = False
         # CPU multi-threading
         self.use_threading = threading_enabled
+        if self.use_threading:
+            self.cpu_threads = numba.config.NUMBA_NUM_THREADS
+        else:
+            self.cpu_threads = 1
 
         # Register the comoving parameters
         self.v_comoving = v_comoving
@@ -220,17 +232,18 @@ class Simulation(object):
         # When running the simulation in a boosted frame, convert the arguments
         uz_m = 0.   # Mean normalized momentum of the particles
         if gamma_boost is not None:
-            boost = BoostConverter( gamma_boost )
-            zmin, zmax, dt = boost.copropag_length([ zmin, zmax, dt ])
-            p_zmin, p_zmax = boost.static_length([ p_zmin, p_zmax ])
-            n_e, = boost.static_density([ n_e ])
-            uz_m, = boost.longitudinal_momentum([ uz_m ])
+            self.boost = BoostConverter( gamma_boost )
+            zmin, zmax, dt = self.boost.copropag_length([ zmin, zmax, dt ])
+            p_zmin, p_zmax = self.boost.static_length([ p_zmin, p_zmax ])
+            n_e, = self.boost.static_density([ n_e ])
+            uz_m, = self.boost.longitudinal_momentum([ uz_m ])
+        else:
+            self.boost = None
 
         # Initialize the boundary communicator
         self.comm = BoundaryCommunicator( Nz, zmin, zmax, Nr, rmax, Nm, dt,
             boundaries, n_order, n_guard, n_damp, exchange_period,
             use_all_mpi_ranks )
-        print_simulation_setup( self.comm, self.use_cuda, self.use_threading )
         # Modify domain region
         zmin, zmax, p_zmin, p_zmax, Nz = \
               self.comm.divide_into_domain(zmin, zmax, p_zmin, p_zmax)
@@ -250,19 +263,22 @@ class Simulation(object):
                                 p_rmin, p_rmax, p_nr )
 
         # Initialize the electrons and the ions
-        grid_shape = self.fld.interp[0].Ez.shape
+        self.grid_shape = self.fld.interp[0].Ez.shape
+        self.particle_shape = particle_shape
         self.ptcl = [
             Particles(q=-e, m=m_e, n=n_e, Npz=Npz, zmin=p_zmin,
                       zmax=p_zmax, Npr=Npr, rmin=p_rmin, rmax=p_rmax,
                       Nptheta=p_nt, dt=dt, dens_func=dens_func, uz_m=uz_m,
-                      grid_shape=grid_shape, particle_shape=particle_shape,
+                      grid_shape=self.grid_shape,
+                      particle_shape=self.particle_shape,
                       use_cuda=self.use_cuda ) ]
         if initialize_ions :
             self.ptcl.append(
                 Particles(q=e, m=m_p, n=n_e, Npz=Npz, zmin=p_zmin,
                           zmax=p_zmax, Npr=Npr, rmin=p_rmin, rmax=p_rmax,
                           Nptheta=p_nt, dt=dt, dens_func=dens_func, uz_m=uz_m,
-                          grid_shape=grid_shape, particle_shape=particle_shape,
+                          grid_shape=self.grid_shape,
+                          particle_shape=self.particle_shape,
                           use_cuda=self.use_cuda ) )
 
         # Register the number of particles per cell along z, and dt
@@ -284,9 +300,12 @@ class Simulation(object):
         # Initialize an empty list of laser antennas
         self.laser_antennas = []
 
+        # Print simulation setup
+        print_simulation_setup( self, verbose_level=verbose_level )
+
     def step(self, N=1, correct_currents=True,
-            correct_divE=False, use_true_rho=False,
-            move_positions=True, move_momenta=True, show_progress=True):
+             correct_divE=False, use_true_rho=False,
+             move_positions=True, move_momenta=True, show_progress=True):
         """
         Perform N PIC cycles.
 
@@ -326,13 +345,9 @@ class Simulation(object):
         if self.comm.size > 1 and correct_divE:
             raise ValueError('correct_divE cannot be used in multi-proc mode.')
 
-        # Let the user know that the first step is much longer
-        if show_progress and (self.comm.rank==0):
-            print('Performing %d PIC iterations:' %N )
-            print(' - Just-In-Time compilation (up to one minute) ...')
-
-        # Measure the time taken by the PIC cycle
-        measured_start = time.time()
+        # Initialize variables to measure the time taken by the simulation
+        if show_progress and self.comm.rank==0:
+            progress_bar = ProgressBar( N )
 
         # Send simulation data to GPU (if CUDA is used)
         if self.use_cuda:
@@ -343,6 +358,11 @@ class Simulation(object):
 
         # Loop over timesteps
         for i_step in range(N):
+
+            # Show a progression bar and calculate ETA
+            if show_progress and self.comm.rank==0:
+                progress_bar.time( i_step )
+                progress_bar.print_progress()
 
             # Diagnostics
             # -----------
@@ -471,9 +491,6 @@ class Simulation(object):
             # Increment the global time and iteration
             self.time += dt
             self.iteration += 1
-            # Show a progression bar
-            if show_progress and self.comm.rank==0:
-                progression_bar( i_step, N, measured_start )
 
             # Write the checkpoints if needed
             for checkpoint in self.checkpoints:
@@ -497,10 +514,7 @@ class Simulation(object):
 
         # Print the measured time taken by the PIC cycle
         if show_progress and (self.comm.rank==0):
-            measured_duration = time.time() - measured_start
-            m, s = divmod(measured_duration, 60)
-            h, m = divmod(m, 60)
-            print('\nTime taken (with compilation): %d:%02d:%02d\n' %(h, m, s))
+            progress_bar.print_summary()
 
     def deposit( self, fieldtype, exchange=False ):
         """
@@ -658,56 +672,6 @@ class Simulation(object):
         self.comm.moving_win = MovingWindow( self.fld.interp, self.comm,
             self.dt, self.ptcl, v, self.p_nz, self.time,
             ux_m, uy_m, uz_m, ux_th, uy_th, uz_th, gamma_boost )
-
-def progression_bar( i, Ntot, measured_start, Nbars=50, char='-'):
-    """
-    Shows a progression bar with Nbars and the remaining
-    simulation time.
-    """
-    # First step completed: Show that the PIC loop runs
-    # (This comes after the message on Just-In-Time compilation)
-    if i==0:
-        print(' - Running the PIC loop')
-    # Print the progression bar
-    nbars = int( (i+1)*1./Ntot*Nbars )
-    sys.stdout.write('\r[' + nbars*char )
-    sys.stdout.write((Nbars-nbars)*' ' + ']')
-    sys.stdout.write(' %d/%d' %(i,Ntot))
-    # Estimated time in seconds until it will finish (linear interpolation)
-    eta = (((float(Ntot)/(i+1.))-1.)*(time.time()-measured_start))
-    # Conversion to H:M:S
-    m, s = divmod(eta, 60)
-    h, m = divmod(m, 60)
-    sys.stdout.write(', %d:%02d:%02d left' % (h, m, s))
-    sys.stdout.flush()
-
-def print_simulation_setup( comm, use_cuda, use_threading ):
-    """
-    Print message about the number of proc and
-    whether it is using GPU or CPU.
-
-    Parameters
-    ----------
-    comm: an fbpic BoundaryCommunicator object
-        Contains the information on the MPI decomposition
-
-    use_cuda: bool
-        Whether the simulation is set up to use CUDA
-
-    use_threading: bool
-        Whether the simulation is set up to use threads on CPU
-    """
-    if comm.rank == 0:
-        if use_cuda:
-            message = "\nRunning fbpic-%s on GPU " %__version__
-        else:
-            message = "\nRunning fbpic-%s on CPU " %__version__
-        message += "with %d proc" %comm.size
-        if use_threading and not use_cuda:
-            message += " (%d threads per proc)" %numba.config.NUMBA_NUM_THREADS
-        message += ".\n"
-
-        print( message )
 
 def adapt_to_grid( x, p_xmin, p_xmax, p_nx, ncells_empty=0 ):
     """
