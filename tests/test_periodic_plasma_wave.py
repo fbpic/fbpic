@@ -122,6 +122,7 @@ import matplotlib.pyplot as plt
 from scipy.constants import c, e, m_e, epsilon_0
 # Import the relevant structures in FBPIC
 from fbpic.main import Simulation
+from fbpic.fields import Fields
 
 # Parameters
 # ----------
@@ -188,10 +189,11 @@ def simulate_periodic_plasma_wave( particle_shape, show=False ):
 
     # Save the initial density in spectral space, and consider it
     # to be the density of the (uninitialized) ions
-    sim.deposit('rho_prev')
+    sim.deposit('rho_prev', exchange=True)
+    sim.fld.spect2interp('rho_prev')
     rho_ions = [ ]
-    for m in range(len(sim.fld.spect)):
-        rho_ions.append( -sim.fld.spect[m].rho_prev.copy() )
+    for m in range(len(sim.fld.interp)):
+        rho_ions.append( -sim.fld.interp[m].rho.copy() )
 
     # Impart velocities to the electrons
     # (The electrons are initially homogeneous, but have an
@@ -323,18 +325,40 @@ def check_charge_conservation( sim, rho_ions ):
         The density of the ions (which are not explicitly present in the `sim`
         object, since they are motionless)
     """
-    # Loop over modes
-    for m in range( len(sim.fld.interp) ):
-        spect = sim.fld.spect[m]
-        # Calculate div(E) in spectral space
-        divE = spect.kr * ( spect.Ep - spect.Em ) + 1.j * spect.kz * spect.Ez
-        # Calculate rho/epsilon_0 in spectral space
-        rho_eps0 = (spect.rho_prev + rho_ions[m])/epsilon_0
-        # Calculate relative RMS error
-        rel_err = np.sqrt( np.sum(abs(divE - rho_eps0)**2) \
-            / np.sum(abs(rho_eps0)**2) )
-        print('Relative error on divE in mode %d: %e' %(m, rel_err) )
-        assert rel_err < 1.e-11
+    # Create a global field object across all subdomains, and copy the fields
+    global_Nz, _ = sim.comm.get_Nz_and_iz(
+            local=False, with_damp=False, with_guard=False )
+    global_zmin, global_zmax = sim.comm.get_zmin_zmax(
+            local=False, with_damp=False, with_guard=False )
+    global_fld = Fields( global_Nz, global_zmax,
+            sim.fld.Nr, sim.fld.rmax, sim.fld.Nm, sim.fld.dt,
+            zmin=global_zmin, n_order=sim.fld.n_order, use_cuda=False)
+    # Gather the fields of the interpolation grid
+    for m in range(sim.fld.Nm):
+        # Gather E
+        for field in ['Er', 'Et', 'Ez' ]:
+            local_array = getattr( sim.fld.interp[m], field )
+            gathered_array = sim.comm.gather_grid_array( local_array )
+            setattr( global_fld.interp[m], field, gathered_array )
+        # Gather rho
+        global_fld.interp[m].rho = \
+            sim.comm.gather_grid_array( sim.fld.interp[m].rho + rho_ions[m] )
+
+    # Loop over modes and check charge conservation in spectral space
+    if sim.comm.rank == 0:
+        global_fld.interp2spect('E')
+        global_fld.interp2spect('rho_prev')
+        for m in range( global_fld.Nm ):
+            spect = global_fld.spect[m]
+            # Calculate div(E) in spectral space
+            divE = spect.kr*( spect.Ep - spect.Em ) + 1.j*spect.kz*spect.Ez
+            # Calculate rho/epsilon_0 in spectral space
+            rho_eps0 = spect.rho_prev/epsilon_0
+            # Calculate relative RMS error
+            rel_err = np.sqrt( np.sum(abs(divE - rho_eps0)**2) \
+                / np.sum(abs(rho_eps0)**2) )
+            print('Relative error on divE in mode %d: %e' %(m, rel_err) )
+            assert rel_err < 1.e-11
 
 def compare_fields( sim, show ) :
     """
