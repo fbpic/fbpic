@@ -198,8 +198,7 @@ class Simulation(object):
         """
         # Check whether to use CUDA
         self.use_cuda = use_cuda
-        self.cuda_installed = cuda_installed
-        if (self.use_cuda==True) and (self.cuda_installed==False):
+        if (self.use_cuda==True) and (cuda_installed==False):
             # Print warning if use_cuda = True but CUDA is not available
             print('*** Cuda not available for the simulation.')
             print('*** Performing the simulation on CPU.')
