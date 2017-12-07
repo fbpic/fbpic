@@ -6,8 +6,9 @@ Fourier-Bessel Particle-In-Cell (FB-PIC) main file
 It defines a set of generic functions for printing simulation information.
 """
 import sys, time
-from numba import cuda
 from fbpic import __version__
+from fbpic.cuda_utils import cuda, cuda_installed
+from fbpic.mpi_utils import MPI, mpi_installed
 # Check if terminal is correctly set to UTF-8 and set progress character
 if sys.stdout.encoding == 'UTF-8':
     progress_char = u'\u2588'
@@ -101,9 +102,9 @@ class ProgressBar(object):
         else:
             # Print the progression bar
             nbars = int( (i+1)*1./self.N*self.Nbars )
-            sys.stdout.write('\r' + nbars*self.bar_char )
+            sys.stdout.write('\r|' + nbars*self.bar_char )
             sys.stdout.write((self.Nbars-nbars)*' ')
-            sys.stdout.write(' %d/%d' %(i+1,self.N))
+            sys.stdout.write('| %d/%d' %(i+1,self.N))
             if self.eta is None:
                 # Time estimation is only printed after n_avg timesteps
                 sys.stdout.write(', calc. ETA...')
@@ -169,14 +170,14 @@ def print_simulation_setup( sim, verbose_level=1 ):
                 message += "(%d threads per process) " %sim.cpu_threads
         # Detailed information
         if verbose_level == 2:
-            if sim.comm.mpi_installed:
+            if mpi_installed:
                 message += '\nMPI available: Yes'
                 message += '\nMPI Library Information: \n%s' \
                     %sim.comm.mpi.Get_library_version()
                 message += '\nMPI processes: %d' %sim.comm.size
             else:
                 message += '\nMPI available: No'
-            if sim.cuda_installed:
+            if cuda_installed:
                 message += '\nCUDA available: Yes'
             else:
                 message += '\nCUDA available: No'
@@ -223,7 +224,7 @@ def print_simulation_setup( sim, verbose_level=1 ):
         sim.comm.mpi_comm.barrier()
         time.sleep(0.1)
         if sim.use_cuda:
-            print_current_gpu( sim.comm.mpi )
+            print_current_gpu( MPI )
             sim.comm.mpi_comm.barrier()
             time.sleep(0.1)
             if sim.comm.rank == 0:

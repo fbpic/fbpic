@@ -7,7 +7,7 @@ It defines the structure necessary to implement the boundary exchanges.
 """
 import numpy as np
 from scipy.constants import c
-from fbpic.mpi_utils import comm, MPI, mpi_type_dict, mpi_installed
+from fbpic.mpi_utils import comm, mpi_type_dict, mpi_installed
 from fbpic.fields.fields import InterpolationGrid
 from fbpic.fields.utility_methods import get_stencil_reach
 from fbpic.particles.particles import Particles
@@ -116,14 +116,11 @@ class BoundaryCommunicator(object):
 
         # MPI Setup
         self.use_all_mpi_ranks = use_all_mpi_ranks
-        self.mpi_installed = mpi_installed
-        if self.use_all_mpi_ranks and self.mpi_installed:
-            self.mpi = MPI
+        if self.use_all_mpi_ranks and mpi_installed:
             self.mpi_comm = comm
             self.rank = self.mpi_comm.rank
             self.size = self.mpi_comm.size
         else:
-            self.mpi = MPI
             self.mpi_comm = None
             self.rank = 0
             self.size = 1
