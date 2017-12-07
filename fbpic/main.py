@@ -259,6 +259,8 @@ class Simulation(object):
         # Register the time and the iteration
         self.time = 0.
         self.iteration = 0
+        # Register variable that keeps track of restarting
+        self.is_restarted = False
         # Register the filtering flag
         self.filter_currents = filter_currents
 
@@ -337,10 +339,12 @@ class Simulation(object):
             # (E, B, rho, x are defined at time n; J, p at time n-1/2)
             for diag in self.diags:
                 # Check if the diagnostic should be written at this iteration
-                # and write it, if it is the case.
+                # and write it, if it is the case. (If the simulation has
+                # just been restarted, do not write at the first iteration)
                 # (If needed: bring rho/J from spectral space, where they
                 # were smoothed/corrected, and copy the data from the GPU.)
-                diag.write( self.iteration )
+                if not (self.is_restarted and i_step == 0):
+                    diag.write( self.iteration )
 
             # Exchanges to prepare for this iteration
             # ---------------------------------------
