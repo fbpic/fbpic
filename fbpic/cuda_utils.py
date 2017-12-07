@@ -109,60 +109,8 @@ def receive_data_from_gpu(simulation):
     simulation.fld.receive_fields_from_gpu()
 
 # -----------------------------------------------------
-# CUDA information
+# CUDA mpi management
 # -----------------------------------------------------
-
-def print_gpu_meminfo(gpu):
-    """
-    Prints memory information about the GPU.
-
-    Parameters :
-    ------------
-    gpu : object
-        A numba cuda gpu context object.
-    """
-    with gpu:
-        meminfo = cuda.current_context().get_memory_info()
-        print("GPU: %s, free: %s Mbytes, total: %s Mbytes \
-              " % (gpu, meminfo[0]*1e-6, meminfo[1]*1e-6))
-
-def print_available_gpus():
-    """
-    Lists all available CUDA GPUs.
-    """
-    cuda.detect()
-
-def print_gpu_meminfo_all():
-    """
-    Prints memory information about all available CUDA GPUs.
-    """
-    gpus = cuda.gpus.lst
-    for gpu in gpus:
-        print_gpu_meminfo(gpu)
-
-def print_current_gpu( mpi ):
-    """
-    Prints information about the currently selected GPU.
-
-    Parameter:
-    ----------
-    mpi: an mpi4py.MPI object
-    """
-    gpu = cuda.gpus.current
-    # Convert bytestring to actual string
-    try:
-        gpu_name = gpu.name.decode()
-    except AttributeError:
-        gpu_name = gpu.name
-    # Print the GPU that is being used
-    if mpi.COMM_WORLD.size > 1:
-        rank = mpi.COMM_WORLD.rank
-        node = mpi.Get_processor_name()
-        message = "MPI rank %d selected a %s GPU with id %s on node %s" %(
-            rank, gpu_name, gpu.id, node)
-    else:
-        message = "FBPIC selected a %s GPU with id %s" %( gpu_name, gpu.id )
-    print(message)
 
 def mpi_select_gpus(mpi):
     """
@@ -178,5 +126,3 @@ def mpi_select_gpus(mpi):
         if rank%n_gpus == i_gpu:
             cuda.select_device(i_gpu)
         mpi.COMM_WORLD.barrier()
-
-    print_current_gpu( mpi )

@@ -115,7 +115,8 @@ class BoundaryCommunicator(object):
         self.dz = (zmax - zmin)/self.Nz
 
         # MPI Setup
-        if use_all_mpi_ranks and mpi_installed:
+        self.use_all_mpi_ranks = use_all_mpi_ranks
+        if self.use_all_mpi_ranks and mpi_installed:
             self.mpi_comm = comm
             self.rank = self.mpi_comm.rank
             self.size = self.mpi_comm.size
@@ -127,13 +128,14 @@ class BoundaryCommunicator(object):
         self.left_proc = self.rank-1
         self.right_proc = self.rank+1
         # Correct these initial values by taking into account boundaries
-        if boundaries == 'periodic':
+        self.boundaries = boundaries
+        if self.boundaries == 'periodic':
             # Periodic boundary conditions for the domains
             if self.rank == 0:
                 self.left_proc = (self.size-1)
             if self.rank == self.size-1:
                 self.right_proc = 0
-        elif boundaries == 'open':
+        elif self.boundaries == 'open':
             # None means that the boundary is open
             if self.rank == 0:
                 self.left_proc = None
