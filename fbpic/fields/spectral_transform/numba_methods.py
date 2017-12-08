@@ -6,7 +6,7 @@ This file is part of the Fourier-Bessel Particle-In-Cell code (FB-PIC)
 It defines a set of functions that are useful when converting the
 fields from interpolation grid to the spectral grid and vice-versa
 """
-from fbpic.threading_utils import prange, njit_parallel
+from fbpic.utils.threading import prange, njit_parallel
 
 @njit_parallel
 def numba_copy_2dC_to_2dR( array_in, array_out ) :

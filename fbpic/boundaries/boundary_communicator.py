@@ -7,7 +7,7 @@ It defines the structure necessary to implement the boundary exchanges.
 """
 import numpy as np
 from scipy.constants import c
-from fbpic.mpi_utils import comm, mpi_type_dict, mpi_installed
+from fbpic.utils.mpi import comm, mpi_type_dict, mpi_installed
 from fbpic.fields.fields import InterpolationGrid
 from fbpic.fields.utility_methods import get_stencil_reach
 from fbpic.particles.particles import Particles
@@ -15,9 +15,9 @@ from .field_buffer_handling import BufferHandler
 from .particle_buffer_handling import remove_outside_particles, \
      add_buffers_to_particles, shift_particles_periodic_subdomain
 # Check if CUDA is available, then import CUDA functions
-from fbpic.cuda_utils import cuda_installed
+from fbpic.utils.cuda import cuda_installed
 if cuda_installed:
-    from fbpic.cuda_utils import cuda, cuda_tpb_bpg_2d
+    from fbpic.utils.cuda import cuda, cuda_tpb_bpg_2d
     from .cuda_methods import cuda_damp_EB_left, cuda_damp_EB_right
 
 class BoundaryCommunicator(object):

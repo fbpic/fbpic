@@ -7,7 +7,7 @@ It defines the field gathering methods linear and cubic order shapes
 on the CPU with threading.
 """
 from numba import int64
-from fbpic.threading_utils import njit_parallel, prange
+from fbpic.utils.threading import njit_parallel, prange
 import math
 import numpy as np
 

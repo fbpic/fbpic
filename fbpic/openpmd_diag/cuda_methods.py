@@ -6,7 +6,7 @@ This files contains cuda methods that are used in the boosted-frame
 diagnostics
 """
 import numpy as np
-from fbpic.cuda_utils import cuda, cuda_tpb_bpg_1d
+from fbpic.utils.cuda import cuda, cuda_tpb_bpg_1d
 
 def extract_slice_from_gpu( pref_sum_curr, N_area, species ):
     """

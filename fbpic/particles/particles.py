@@ -22,12 +22,12 @@ from .deposition.threading_methods import deposit_rho_numba_linear, \
         deposit_J_numba_cubic, sum_reduce_2d_array
 
 # Check if threading is enabled
-from fbpic.threading_utils import threading_enabled, get_chunk_indices
+from fbpic.utils.threading import threading_enabled, get_chunk_indices
 # Check if CUDA is available, then import CUDA functions
-from fbpic.cuda_utils import cuda_installed
+from fbpic.utils.cuda import cuda_installed
 if cuda_installed:
     # Load the CUDA methods
-    from fbpic.cuda_utils import cuda, cuda_tpb_bpg_1d, cuda_tpb_bpg_2d
+    from fbpic.utils.cuda import cuda, cuda_tpb_bpg_1d, cuda_tpb_bpg_2d
     from .push.cuda_methods import push_p_gpu, push_p_ioniz_gpu, push_x_gpu
     from .deposition.cuda_methods import deposit_rho_gpu_linear, \
         deposit_J_gpu_linear, deposit_rho_gpu_cubic, deposit_J_gpu_cubic

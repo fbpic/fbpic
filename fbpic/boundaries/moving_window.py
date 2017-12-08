@@ -9,11 +9,11 @@ import numpy as np
 from scipy.constants import c
 from fbpic.particles import Particles
 from fbpic.lpa_utils.boosted_frame import BoostConverter
-from fbpic.threading_utils import njit_parallel, prange
+from fbpic.utils.threading import njit_parallel, prange
 # Check if CUDA is available, then import CUDA functions
-from fbpic.cuda_utils import cuda_installed
+from fbpic.utils.cuda import cuda_installed
 if cuda_installed:
-    from fbpic.cuda_utils import cuda, cuda_tpb_bpg_2d
+    from fbpic.utils.cuda import cuda, cuda_tpb_bpg_2d
 
 class MovingWindow(object):
     """

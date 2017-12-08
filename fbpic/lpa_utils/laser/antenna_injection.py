@@ -13,9 +13,9 @@ from fbpic.particles.utilities.utility_methods import weights
 from fbpic.particles.deposition.numba_methods import deposit_field_numba
 
 # Check if CUDA is available, then import CUDA functions
-from fbpic.cuda_utils import cuda_installed
+from fbpic.utils.cuda import cuda_installed
 if cuda_installed:
-    from fbpic.cuda_utils import cuda, cuda_tpb_bpg_1d
+    from fbpic.utils.cuda import cuda, cuda_tpb_bpg_1d
 
 class LaserAntenna( object ):
     """
