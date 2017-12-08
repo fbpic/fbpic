@@ -200,10 +200,8 @@ class Ionizer(object):
                 N_batch, self.batch_size, ion.Ntot, self.level_max,
                 n_ionized, is_ionized, self.ionization_level, random_draw,
                 self.adk_prefactor, self.adk_power, self.adk_exp_prefactor,
-                ion.ux, ion.uy, ion.uz,
-                ion.Ex, ion.Ey, ion.Ez,
-                ion.Bx, ion.By, ion.Bz,
-                ion.w, self.w_times_level )
+                ion.ux, ion.uy, ion.uz, ion.Ex, ion.Ey, ion.Ez,
+                ion.Bx, ion.By, ion.Bz, ion.w, self.w_times_level )
 
         # Count the total number of new electrons (operation always performed
         # on the CPU, as this is typically difficult on the GPU)
@@ -250,7 +248,6 @@ class Ionizer(object):
         # If the electrons are tracked, generate new ids
         # (on GPU or GPU depending on `use_cuda`)
         generate_new_ids( elec, old_Ntot, new_Ntot )
-
 
     def send_to_gpu( self ):
         """
