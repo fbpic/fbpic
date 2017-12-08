@@ -154,7 +154,7 @@ def print_simulation_setup( sim, verbose_level=1 ):
         1 (Default) - Print basic information
         2 - Print detailed information
     """
-    if verbose_level > 0 and sim.comm.rank == 0:
+    if verbose_level > 0:
         # Print version of FBPIC
         message = '\nFBPIC (%s)\n'%__version__
         # Basic information
@@ -169,20 +169,30 @@ def print_simulation_setup( sim, verbose_level=1 ):
             if sim.use_threading and not sim.use_cuda:
                 message += "(%d threads per process) " %sim.cpu_threads
         # Detailed information
-        if verbose_level == 2:
+        elif verbose_level == 2:
+            # Information on MPI
             if mpi_installed:
                 message += '\nMPI available: Yes'
+                message += '\nMPI processes used: %d' %sim.comm.size
                 message += '\nMPI Library Information: \n%s' \
-                    %sim.comm.mpi.Get_library_version()
-                message += '\nMPI processes: %d' %sim.comm.size
+                    %MPI.Get_library_version()
             else:
                 message += '\nMPI available: No'
+            # Information on Cuda
             if cuda_installed:
                 message += '\nCUDA available: Yes'
             else:
                 message += '\nCUDA available: No'
             if sim.use_cuda:
                 message += '\nCompute architecture: GPU (CUDA)'
+                # Gather the model and id of each GPU in the local communicator
+                gpu_message = get_gpu_message()
+                if sim.comm.size > 1:
+                    gpu_messages = sim.comm.mpi_comm.gather( gpu_message )
+                    if sim.comm.rank == 0:
+                        gpu_message = ''.join( gpu_messages )
+                message += gpu_message
+            # Information on CPU
             else:
                 message += '\nCompute architecture: CPU'
                 if sim.use_threading:
@@ -196,6 +206,7 @@ def print_simulation_setup( sim, verbose_level=1 ):
                     message += '\nFFT library: pyFFTW'
 
             message += '\n'
+            # Information on the numerical algorithm
             if sim.fld.n_order == -1:
                 message += '\nPSATD stencil order: infinite'
             else:
@@ -217,18 +228,10 @@ def print_simulation_setup( sim, verbose_level=1 ):
             else:
                 message += '\nBoosted frame: False'
         message += '\n'
-        print( message )
-    # GPU selection by MPI processes
-    if verbose_level == 2:
-        # Sync MPI processes before printing
-        sim.comm.mpi_comm.barrier()
-        time.sleep(0.1)
-        if sim.use_cuda:
-            print_current_gpu( MPI )
-            sim.comm.mpi_comm.barrier()
-            time.sleep(0.1)
-            if sim.comm.rank == 0:
-                print('')
+
+        # Only processor 0 prints the message:
+        if sim.comm.rank == 0:
+            print( message )
 
 def print_available_gpus():
     """
@@ -236,13 +239,9 @@ def print_available_gpus():
     """
     cuda.detect()
 
-def print_current_gpu( mpi ):
+def get_gpu_message():
     """
-    Prints information about the currently selected GPU.
-
-    Parameter:
-    ----------
-    mpi: an mpi4py.MPI object
+    Returns a string with information about the currently selected GPU.
     """
     gpu = cuda.gpus.current
     # Convert bytestring to actual string
@@ -251,14 +250,14 @@ def print_current_gpu( mpi ):
     except AttributeError:
         gpu_name = gpu.name
     # Print the GPU that is being used
-    if mpi.COMM_WORLD.size > 1:
-        rank = mpi.COMM_WORLD.rank
-        node = mpi.Get_processor_name()
-        message = "MPI rank %d selected a %s GPU with id %s on node %s" %(
+    if MPI.COMM_WORLD.size > 1:
+        rank = MPI.COMM_WORLD.rank
+        node = MPI.Get_processor_name()
+        message = "\nMPI rank %d selected a %s GPU with id %s on node %s" %(
             rank, gpu_name, gpu.id, node)
     else:
-        message = "FBPIC selected a %s GPU with id %s" %( gpu_name, gpu.id )
-    print(message)
+        message = "\nFBPIC selected a %s GPU with id %s" %( gpu_name, gpu.id )
+    return(message)
 
 def print_gpu_meminfo_all():
     """
