@@ -31,7 +31,7 @@ if threading_enabled:
         threading_enabled = False
         print('*** Threading not available for the simulation.')
         print('*** (Please make sure that numba 0.34 or 0.36 is installed,')
-        print('***  e.g. by typing `conda install numba=0.36` in a terminal)')
+        print('***  e.g. by typing `conda install numba=0.34` in a terminal)')
 
 # Set the function njit_parallel and prange to the correct object
 if not threading_enabled:
