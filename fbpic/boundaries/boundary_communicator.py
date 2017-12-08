@@ -707,10 +707,10 @@ class BoundaryCommunicator(object):
         add_buffers_to_particles( species, float_recv_left, float_recv_right,
                                     uint_recv_left, uint_recv_right )
 
-    def damp_guard_EB( self, interp ):
+    def damp_EB_open_boundary( self, interp ):
         """
-        Apply the damping shape in the right and left guard cells.
-        Damp the fields E and B in the guard cells.
+        Damp the fields E and B in the damp cells, at the right and left
+        of the *global* simulation box.
 
         Parameter:
         -----------
@@ -768,9 +768,6 @@ class BoundaryCommunicator(object):
     def generate_damp_array( self, n_guard, n_damp ):
         """
         Create a 1d damping array of length n_guard.
-
-        The expression of the damping array depends on whether the guard cells
-        correspond to an open boundary or a boundary with another processor.
 
         Parameters
         ----------
