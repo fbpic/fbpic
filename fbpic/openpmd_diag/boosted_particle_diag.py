@@ -671,15 +671,19 @@ class ParticleCatcher:
             # - Get the prefix sum values that correspond to these indices
             #   (Take into account potential shift due to the moving window)
             z_cell_curr = iz_curr + pref_sum_shift
-            if z_cell_curr > 0:
-                pref_sum_curr = pref_sum.getitem( z_cell_curr*Nr - 1 )
-            else:
+            if z_cell_curr <= 0:
                 pref_sum_curr = 0
-            z_cell_prev = iz_prev + pref_sum_shift
-            if z_cell_prev <= Nz:
-                pref_sum_prev = pref_sum.getitem( z_cell_prev*Nr - 1 )
+            elif z_cell_curr > Nz:
+                pref_sum_curr = species.Ntot
             else:
+                pref_sum_curr = pref_sum.getitem( z_cell_curr*Nr - 1 )
+            z_cell_prev = iz_prev + pref_sum_shift
+            if z_cell_prev <= 0:
+                pref_sum_prev = 0  
+            elif z_cell_prev > Nz:
                 pref_sum_prev = species.Ntot
+            else:
+                pref_sum_prev = pref_sum.getitem( z_cell_prev*Nr - 1 )
             # Calculate number of particles in this area (N_area)
             N_area = pref_sum_prev - pref_sum_curr
             # Check if there are particles to extract
