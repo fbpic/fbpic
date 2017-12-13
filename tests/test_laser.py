@@ -39,7 +39,8 @@ import matplotlib.pyplot as plt
 from scipy.constants import c, m_e, e
 from scipy.optimize import curve_fit
 from fbpic.main import Simulation
-from fbpic.lpa_utils.laser import add_laser
+from fbpic.lpa_utils.laser import add_laser_pulse, \
+    GaussianLaser, LaguerreGaussLaser
 
 # Parameters
 # ----------
@@ -323,12 +324,11 @@ def init_fields( sim, w, ctau, k0, z0, zf, E0, m=1 ) :
         For m = 1 : gaussian profile, linearly polarized beam
         For m = 0 : annular profile, polarized in E_theta
     """
-
-    # Initialize the fields with the right value and phase
-    if m == 1 :
-        add_laser( sim, E0*e/(m_e*c**2*k0), w, ctau, z0, zf=zf,
-                   lambda0 = 2*np.pi/k0 )
-    elif m in [0, 2] :
+    # Initialize the fields
+    a0 = E0*e/(m_e*c**2*k0)
+    tau = ctau/c
+    lambda0 = 2*np.pi/k0
+    if m == 0:
         fld = sim.fld
         z = fld.interp[m].z
         r = fld.interp[m].r
@@ -337,13 +337,14 @@ def init_fields( sim, w, ctau, k0, z0, zf, E0, m=1 ) :
             # Annular pulse, radially polarized
             fld.interp[m].Et[:,:] = profile
             fld.interp[m].Br[:,:] = -1./c*profile
-        if m == 2:
-            # Laguerre-Gaussian pulse: contributions on mode 0 and 2
-            fld.interp[2].Er[:,:] = profile
-            fld.interp[2].Et[:,:] = -1.j*profile
-            fld.interp[2].Bt[:,:] = 1./c*profile
-            fld.interp[2].Br[:,:] = 1./c*1.j*profile
-
+    elif m == 1:
+        profile = GaussianLaser( a0=a0, waist=w, tau=tau,
+                    lambda0=lambda0, z0=z0, zf=zf )
+        add_laser_pulse( sim, profile )
+    elif m == 2:
+        profile = LaguerreGaussLaser( a0=a0, waist=w, tau=tau,
+                    lambda0=lambda0, z0=z0, zf=zf, p=0, m=1 )
+        add_laser_pulse( sim, profile )
 
 def gaussian_transverse_profile( r, w, E ) :
     """

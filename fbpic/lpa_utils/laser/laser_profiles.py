@@ -207,6 +207,7 @@ class LaguerreGaussLaser( object ):
         self.p = p
         self.m = m
         self.laguerre_pm = genlaguerre(self.p, self.m) # Laguerre polynomial
+        self.theta0 = theta0
         self.k0 = k0
         self.inv_zr = 1./zr
         self.zf = zf
@@ -245,12 +246,11 @@ class LaguerreGaussLaser( object ):
         exp_argument = 1j*self.cep_phase + 1j*self.k0*( c*t + self.z0 - z ) \
             - (x**2 + y**2) / (self.w0**2 * diffract_factor) \
             - self.inv_ctau2 * ( c*t  + self.z0 - z )**2 \
-            # Additional Gouy phase and azimuthal phase for Laguerre-Gauss pulse
-            + 1.j*(2*self.p + self.m)*psi
+            + 1.j*(2*self.p + self.m)*psi # *Additional* Gouy phase
         # Get the transverse profile
         profile = np.exp(exp_argument) / diffract_factor \
-                * scaled_radius**m * self.laguerre_pm(scaled_radius_squared) \
-                * np.cos( self.m*(theta-self.theta0) )
+            * scaled_radius**self.m * self.laguerre_pm(scaled_radius_squared) \
+            * np.cos( self.m*(theta-self.theta0) )
 
         # Get the projection along x and y, with the correct polarization
         Ex = self.E0x * profile
