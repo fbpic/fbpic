@@ -19,8 +19,8 @@ import numpy as np
 def gather_field_numba_linear(x, y, z,
                     invdz, zmin, Nz,
                     invdr, rmin, Nr,
-                    Er_mesh, Et_mesh, Ez_mesh,
-                    Br_mesh, Bt_mesh, Bz_mesh, Nm,
+                    Er_m, Et_m, Ez_m,
+                    Br_m, Bt_m, Bz_m, Nm,
                     Ex, Ey, Ez,
                     Bx, By, Bz ):
     """
@@ -46,11 +46,9 @@ def gather_field_numba_linear(x, y, z,
     Nz, Nr : int
         Number of gridpoints along the considered direction
 
-    Er_mesh, Et_mesh, Ez_mesh : 3darray of complexs
-        Arrays of size (Nm, Nz, Nr) that contain the field on the mesh
-
-    Br_mesh, Bt_mesh, Bz_mesh : 3darray of complexs
-        Arrays of size (Nm, Nz, Nr) that contain the field on the mesh
+    Er_m, Et_m, Ez_m, Br_m, Bt_m, Bz_m : tuples of 2darrays of complexs
+        Tuples with Nm elements each (one element per azimuthal mode).
+        Each element is a 2d array of complex of size (Nz, Nr)
 
     Nm : int
         Number of azimuthal modes
@@ -155,31 +153,31 @@ def gather_field_numba_linear(x, y, z,
             Fz_m = 0.j
             # Add the fields for mode m
             # Lower cell in z, Lower cell in r
-            Fr_m += S_ll * Er_mesh[m, iz_lower, ir_lower ]
-            Ft_m += S_ll * Et_mesh[m, iz_lower, ir_lower ]
-            Fz_m += S_ll * Ez_mesh[m, iz_lower, ir_lower ]
+            Fr_m += S_ll * Er_m[m][ iz_lower, ir_lower ]
+            Ft_m += S_ll * Et_m[m][ iz_lower, ir_lower ]
+            Fz_m += S_ll * Ez_m[m][ iz_lower, ir_lower ]
             # Lower cell in z, Upper cell in r
-            Fr_m += S_lu * Er_mesh[m, iz_lower, ir_upper ]
-            Ft_m += S_lu * Et_mesh[m, iz_lower, ir_upper ]
-            Fz_m += S_lu * Ez_mesh[m, iz_lower, ir_upper ]
+            Fr_m += S_lu * Er_m[m][ iz_lower, ir_upper ]
+            Ft_m += S_lu * Et_m[m][ iz_lower, ir_upper ]
+            Fz_m += S_lu * Ez_m[m][ iz_lower, ir_upper ]
             # Upper cell in z, Lower cell in r
-            Fr_m += S_ul * Er_mesh[m, iz_upper, ir_lower ]
-            Ft_m += S_ul * Et_mesh[m, iz_upper, ir_lower ]
-            Fz_m += S_ul * Ez_mesh[m, iz_upper, ir_lower ]
+            Fr_m += S_ul * Er_m[m][ iz_upper, ir_lower ]
+            Ft_m += S_ul * Et_m[m][ iz_upper, ir_lower ]
+            Fz_m += S_ul * Ez_m[m][ iz_upper, ir_lower ]
             # Upper cell in z, Upper cell in r
-            Fr_m += S_uu * Er_mesh[m, iz_upper, ir_upper ]
-            Ft_m += S_uu * Et_mesh[m, iz_upper, ir_upper ]
-            Fz_m += S_uu * Ez_mesh[m, iz_upper, ir_upper ]
+            Fr_m += S_uu * Er_m[m][ iz_upper, ir_upper ]
+            Ft_m += S_uu * Et_m[m][ iz_upper, ir_upper ]
+            Fz_m += S_uu * Ez_m[m][ iz_upper, ir_upper ]
             # Add the fields from the guard cells
             if ir_lower == ir_upper == 0:
                 # Lower cell in z
-                Fr_m += -(-1.)**m * S_lg * Er_mesh[m, iz_lower, 0]
-                Ft_m += -(-1.)**m * S_lg * Et_mesh[m, iz_lower, 0]
-                Fz_m +=  (-1.)**m * S_lg * Ez_mesh[m, iz_lower, 0]
+                Fr_m += -(-1.)**m * S_lg * Er_m[m][ iz_lower, 0]
+                Ft_m += -(-1.)**m * S_lg * Et_m[m][ iz_lower, 0]
+                Fz_m +=  (-1.)**m * S_lg * Ez_m[m][ iz_lower, 0]
                 # Upper cell in z
-                Fr_m += -(-1.)**m * S_ug * Er_mesh[m, iz_upper, 0]
-                Ft_m += -(-1.)**m * S_ug * Et_mesh[m, iz_upper, 0]
-                Fz_m +=  (-1.)**m * S_ug * Ez_mesh[m, iz_upper, 0]
+                Fr_m += -(-1.)**m * S_ug * Er_m[m][ iz_upper, 0]
+                Ft_m += -(-1.)**m * S_ug * Et_m[m][ iz_upper, 0]
+                Fz_m +=  (-1.)**m * S_ug * Ez_m[m][ iz_upper, 0]
 
             # Add the fields from the mode m
             # Take into account normalization of modes m>0
@@ -220,31 +218,31 @@ def gather_field_numba_linear(x, y, z,
             Fz_m = 0.j
             # Add the fields for mode m
             # Lower cell in z, Lower cell in r
-            Fr_m += S_ll * Br_mesh[m, iz_lower, ir_lower ]
-            Ft_m += S_ll * Bt_mesh[m, iz_lower, ir_lower ]
-            Fz_m += S_ll * Bz_mesh[m, iz_lower, ir_lower ]
+            Fr_m += S_ll * Br_m[m][ iz_lower, ir_lower ]
+            Ft_m += S_ll * Bt_m[m][ iz_lower, ir_lower ]
+            Fz_m += S_ll * Bz_m[m][ iz_lower, ir_lower ]
             # Lower cell in z, Upper cell in r
-            Fr_m += S_lu * Br_mesh[m, iz_lower, ir_upper ]
-            Ft_m += S_lu * Bt_mesh[m, iz_lower, ir_upper ]
-            Fz_m += S_lu * Bz_mesh[m, iz_lower, ir_upper ]
+            Fr_m += S_lu * Br_m[m][ iz_lower, ir_upper ]
+            Ft_m += S_lu * Bt_m[m][ iz_lower, ir_upper ]
+            Fz_m += S_lu * Bz_m[m][ iz_lower, ir_upper ]
             # Upper cell in z, Lower cell in r
-            Fr_m += S_ul * Br_mesh[m, iz_upper, ir_lower ]
-            Ft_m += S_ul * Bt_mesh[m, iz_upper, ir_lower ]
-            Fz_m += S_ul * Bz_mesh[m, iz_upper, ir_lower ]
+            Fr_m += S_ul * Br_m[m][ iz_upper, ir_lower ]
+            Ft_m += S_ul * Bt_m[m][ iz_upper, ir_lower ]
+            Fz_m += S_ul * Bz_m[m][ iz_upper, ir_lower ]
             # Upper cell in z, Upper cell in r
-            Fr_m += S_uu * Br_mesh[m, iz_upper, ir_upper ]
-            Ft_m += S_uu * Bt_mesh[m, iz_upper, ir_upper ]
-            Fz_m += S_uu * Bz_mesh[m, iz_upper, ir_upper ]
+            Fr_m += S_uu * Br_m[m][ iz_upper, ir_upper ]
+            Ft_m += S_uu * Bt_m[m][ iz_upper, ir_upper ]
+            Fz_m += S_uu * Bz_m[m][ iz_upper, ir_upper ]
             # Add the fields from the guard cells
             if ir_lower == ir_upper == 0:
                 # Lower cell in z
-                Fr_m += -(-1.)**m * S_lg * Br_mesh[m, iz_lower, 0]
-                Ft_m += -(-1.)**m * S_lg * Bt_mesh[m, iz_lower, 0]
-                Fz_m +=  (-1.)**m * S_lg * Bz_mesh[m, iz_lower, 0]
+                Fr_m += -(-1.)**m * S_lg * Br_m[m][ iz_lower, 0]
+                Ft_m += -(-1.)**m * S_lg * Bt_m[m][ iz_lower, 0]
+                Fz_m +=  (-1.)**m * S_lg * Bz_m[m][ iz_lower, 0]
                 # Upper cell in z
-                Fr_m += -(-1.)**m * S_ug * Br_mesh[m, iz_upper, 0]
-                Ft_m += -(-1.)**m * S_ug * Bt_mesh[m, iz_upper, 0]
-                Fz_m +=  (-1.)**m * S_ug * Bz_mesh[m, iz_upper, 0]
+                Fr_m += -(-1.)**m * S_ug * Br_m[m][ iz_upper, 0]
+                Ft_m += -(-1.)**m * S_ug * Bt_m[m][ iz_upper, 0]
+                Fz_m +=  (-1.)**m * S_ug * Bz_m[m][ iz_upper, 0]
 
             # Add the fields from the mode m
             # Take into account normalization of modes m>0
@@ -272,8 +270,8 @@ def gather_field_numba_linear(x, y, z,
 def gather_field_numba_cubic(x, y, z,
                     invdz, zmin, Nz,
                     invdr, rmin, Nr,
-                    Er_mesh, Et_mesh, Ez_mesh,
-                    Br_mesh, Bt_mesh, Bz_mesh, Nm,
+                    Er_m, Et_m, Ez_m,
+                    Br_m, Bt_m, Bz_m, Nm,
                     Ex, Ey, Ez,
                     Bx, By, Bz,
                     nthreads, ptcl_chunk_indices):
@@ -300,11 +298,9 @@ def gather_field_numba_cubic(x, y, z,
     Nz, Nr : int
         Number of gridpoints along the considered direction
 
-    Er_mesh, Et_mesh, Ez_mesh : 3darray of complexs
-        Arrays of size (Nm, Nz, Nr) that contain the field on the mesh
-
-    Br_mesh, Bt_mesh, Bz_mesh : 3darray of complexs
-        Arrays of size (Nm, Nz, Nr) that contain the field on the mesh
+    Er_m, Et_m, Ez_m, Br_m, Bt_m, Bz_m : tuples of 2darrays of complexs
+        Tuples with Nm elements each (one element per azimuthal mode).
+        Each element is a 2d array of complex of size (Nz, Nr)
 
     Nm : int
         Number of azimuthal modes
@@ -426,18 +422,18 @@ def gather_field_numba_cubic(x, y, z,
                     while index_z < 4:
                         if Sz[index_z]*Sr[index_r] < 0:
                             Fr_m += (-1.)**m * Sz[index_z]*Sr[index_r] * \
-                                Er_mesh[m, iz[index_z], ir[index_r]]
+                                Er_m[m][ iz[index_z], ir[index_r]]
                             Ft_m += (-1.)**m * Sz[index_z]*Sr[index_r] * \
-                                Et_mesh[m, iz[index_z], ir[index_r]]
+                                Et_m[m][ iz[index_z], ir[index_r]]
                             Fz_m += -(-1.)**m * Sz[index_z]*Sr[index_r]* \
-                                Ez_mesh[m, iz[index_z], ir[index_r]]
+                                Ez_m[m][ iz[index_z], ir[index_r]]
                         else:
                             Fr_m += Sz[index_z]*Sr[index_r] * \
-                                Er_mesh[m, iz[index_z], ir[index_r]]
+                                Er_m[m][ iz[index_z], ir[index_r]]
                             Ft_m += Sz[index_z]*Sr[index_r] * \
-                                Et_mesh[m, iz[index_z], ir[index_r]]
+                                Et_m[m][ iz[index_z], ir[index_r]]
                             Fz_m += Sz[index_z]*Sr[index_r]* \
-                                Ez_mesh[m, iz[index_z], ir[index_r]]
+                                Ez_m[m][ iz[index_z], ir[index_r]]
                         index_z += 1
                     index_r += 1
 
@@ -479,18 +475,18 @@ def gather_field_numba_cubic(x, y, z,
                     while index_z < 4:
                         if Sz[index_z]*Sr[index_r] < 0:
                             Fr_m += (-1.)**m * Sz[index_z]*Sr[index_r] * \
-                                Br_mesh[m, iz[index_z], ir[index_r]]
+                                Br_m[m][ iz[index_z], ir[index_r]]
                             Ft_m += (-1.)**m * Sz[index_z]*Sr[index_r] * \
-                                Bt_mesh[m, iz[index_z], ir[index_r]]
+                                Bt_m[m][ iz[index_z], ir[index_r]]
                             Fz_m += -(-1.)**m * Sz[index_z]*Sr[index_r]* \
-                                Bz_mesh[m, iz[index_z], ir[index_r]]
+                                Bz_m[m][ iz[index_z], ir[index_r]]
                         else:
                             Fr_m += Sz[index_z]*Sr[index_r] * \
-                                Br_mesh[m, iz[index_z], ir[index_r]]
+                                Br_m[m][ iz[index_z], ir[index_r]]
                             Ft_m += Sz[index_z]*Sr[index_r] * \
-                                Bt_mesh[m, iz[index_z], ir[index_r]]
+                                Bt_m[m][ iz[index_z], ir[index_r]]
                             Fz_m += Sz[index_z]*Sr[index_r]* \
-                                Bz_mesh[m, iz[index_z], ir[index_r]]
+                                Bz_m[m][ iz[index_z], ir[index_r]]
                         index_z += 1
                     index_r += 1
 

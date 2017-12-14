@@ -543,21 +543,20 @@ class Particles(object) :
                                    but is `%s`" % self.particle_shape)
         # CPU version
         else:
-            # Stack the arrays for different azimuthal modes
+            # Structure fields into tuples (this does not require a copy)
             Nm = len(grid)
-            Er_mesh = np.stack([ grid[m].Er for m in range(Nm) ], axis=0 )
-            Et_mesh = np.stack([ grid[m].Et for m in range(Nm) ], axis=0 )
-            Ez_mesh = np.stack([ grid[m].Ez for m in range(Nm) ], axis=0 )
-            Br_mesh = np.stack([ grid[m].Br for m in range(Nm) ], axis=0 )
-            Bt_mesh = np.stack([ grid[m].Bt for m in range(Nm) ], axis=0 )
-            Bz_mesh = np.stack([ grid[m].Bz for m in range(Nm) ], axis=0 )
+            Er_m = tuple( grid[m].Er for m in range(Nm) )
+            Et_m = tuple( grid[m].Et for m in range(Nm) )
+            Ez_m = tuple( grid[m].Ez for m in range(Nm) )
+            Br_m = tuple( grid[m].Br for m in range(Nm) )
+            Bt_m = tuple( grid[m].Bt for m in range(Nm) )
+            Bz_m = tuple( grid[m].Bz for m in range(Nm) )
             if self.particle_shape == 'linear':
                 gather_field_numba_linear(
                      self.x, self.y, self.z,
                      grid[0].invdz, grid[0].zmin, grid[0].Nz,
                      grid[0].invdr, grid[0].rmin, grid[0].Nr,
-                     Er_mesh, Et_mesh, Ez_mesh,
-                     Br_mesh, Bt_mesh, Bz_mesh, Nm,
+                     Er_m, Et_m, Ez_m, Br_m, Bt_m, Bz_m, Nm,
                      self.Ex, self.Ey, self.Ez,
                      self.Bx, self.By, self.Bz)
             elif self.particle_shape == 'cubic':
@@ -568,8 +567,7 @@ class Particles(object) :
                      self.x, self.y, self.z,
                      grid[0].invdz, grid[0].zmin, grid[0].Nz,
                      grid[0].invdr, grid[0].rmin, grid[0].Nr,
-                     Er_mesh, Et_mesh, Ez_mesh,
-                     Br_mesh, Bt_mesh, Bz_mesh, Nm,
+                     Er_m, Et_m, Ez_m, Br_m, Bt_m, Bz_m, Nm,
                      self.Ex, self.Ey, self.Ez,
                      self.Bx, self.By, self.Bz,
                      self.nthreads, ptcl_chunk_indices )
