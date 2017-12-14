@@ -258,7 +258,7 @@ def propagate_pulse( Nz, Nr, Nm, zmin, zmax, Lr, L_prop, zf, dt,
     # Get the analytical solution
     z_prop = c*dt*N_step*np.arange(N_diag)
     ZR = 0.5*k0*w0**2
-    if m == 1:
+    if m in [1, 2]:
         w_analytic = w0*np.sqrt( 1 + (z_prop-zf)**2/ZR**2 )
         E_analytic = E0/( 1 + (z_prop-zf)**2/ZR**2 )**(1./2)
     else : # zf is not implemented for the other modes
@@ -450,12 +450,13 @@ def fit_fields( fld, m ) :
     if m==1 :  # Gaussian profile
         fit_result = curve_fit(gaussian_transverse_profile, r,
                             laser_profile, p0=np.array([w0,E0]) )
+    else: # Annular profile, or Laguerre-Gaussian profile
+        fit_result = curve_fit(annular_transverse_profile, r,
+                            laser_profile, p0=np.array([w0,E0]) )
+    if m > 0:
         # Factor 2 on the amplitude, related to the factor 2
         # in the particle gather for the modes m > 0
         fit_result[0][1] = 2*fit_result[0][1]
-    elif m in [0,2]: # Annular profile, or Laguerre-Gaussian profile
-        fit_result = curve_fit(annular_transverse_profile, r,
-                            laser_profile, p0=np.array([w0,E0]) )
 
     return( fit_result[0] )
 

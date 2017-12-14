@@ -137,7 +137,7 @@ class LaguerreGaussLaser( object ):
         .. math::
             I(r, \theta, z) \propto \left( \frac{2r^2}{w(z)}^2 \right)^m
             L^m_p\left( \frac{2r^2}{w(z)}^2 \right)
-            \exp\left( -\frac{2r^2}{w(z)}^2 \right) \cos(m(\theta-\theta_0))
+            \exp\left( -\frac{2r^2}{w(z)}^2 \right) \cos^2[m(\theta-\theta_0)]
         where :math:`L^m_p` is a Laguerre polynomial, and where `w(z)` is
         the waist and has the same expression as for a Gaussian laser pulse.
         (See Siegman, Lasers (1986) Chapter 16: Wave optics and Gaussian beams)
@@ -149,8 +149,8 @@ class LaguerreGaussLaser( object ):
             number of "rings" in the radial intensity profile of the laser.)
 
         m: int
-            The azimuthal order of the pulse. (In the transverse plane,
-            the intensity of the pulse varies as cos(m*(theta-theta0)).)
+            The azimuthal order of the pulse. (In the transverse plane, the
+            intensity of the pulse varies as :math:`cos^2[m(\theta-\theta0)]`.)
 
             .. note::
                 In order to be properly resolved by the simulation,
@@ -188,7 +188,8 @@ class LaguerreGaussLaser( object ):
 
         theta0: float (rad)
             The azimuthal position of (one of) the maxima of intensity, in the
-            transverse plane. (The intensity varies as `cos(m*(theta-theta0))`)
+            transverse plane.
+            (The intensity varies as :math:`cos^2[m(\theta-\theta0)]`)
         """
         # Set a number of parameters for the laser
         k0 = 2*np.pi/lambda0
