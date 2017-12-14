@@ -9,25 +9,26 @@ from numba import cuda
 
 @cuda.jit
 def copy_vec_to_gpu_buffer( vec_buffer_l, vec_buffer_r,
-                            grid_0_r, grid_0_t, grid_0_z,
-                            grid_1_r, grid_1_t, grid_1_z,
+                            grid_r, grid_t, grid_z, m,
                             copy_left, copy_right, nz_start, nz_end ):
     """
-    Copy the ng inner domain cells of grid_0_r, ..., grid_1_z
+    Copy the ng inner domain cells of grid_r, ..., grid_z
     to the GPU buffer vec_buffer_l and vec_buffer_r.
 
     Parameters
     ----------
     vec_buffer_l, vec_buffer_r: ndarrays of complexs (device arrays)
-        Arrays of shape (6, nz_end-nz_start, Nr), which serve as buffer
+        Arrays of shape (3*Nm, nz_end-nz_start, Nr), which serve as buffer
         for transmission to CPU, and then sending via MPI. They hold the
         values of a vector field in either the ng inner cells of the domain
         or the ng outer + ng inner cells of the domain, to the left and right.
 
-    grid_m_x: ndarrays of complexs (device arrays)
+    grid_r, grid_t, grid_z: ndarrays of complexs (device arrays)
         Arrays of shape (Nz, Nr), which contain the different component
-        of the vector field (r, t, z), in the modes 0 and 1.
-        (m = mode, x = coordinate)
+        of the vector field (r, t, z), in the mode m
+
+    m: int
+        The index of the azimuthal mode involved
 
     copy_left, copy_right: bool
         Whether to copy the buffers to the left and right of the local domain
@@ -45,7 +46,7 @@ def copy_vec_to_gpu_buffer( vec_buffer_l, vec_buffer_r,
         on either the left or the right side of the enlarged domain.
     """
     # Dimension of the arrays
-    Nz, Nr = grid_0_r.shape
+    Nz, Nr = grid_r.shape
 
     # Obtain Cuda grid
     iz, ir = cuda.grid(2)
@@ -56,25 +57,19 @@ def copy_vec_to_gpu_buffer( vec_buffer_l, vec_buffer_r,
             # At the left end
             if copy_left:
                 iz_left = nz_start + iz
-                vec_buffer_l[0, iz, ir] = grid_0_r[ iz_left, ir ]
-                vec_buffer_l[1, iz, ir] = grid_0_t[ iz_left, ir ]
-                vec_buffer_l[2, iz, ir] = grid_0_z[ iz_left, ir ]
-                vec_buffer_l[3, iz, ir] = grid_1_r[ iz_left, ir ]
-                vec_buffer_l[4, iz, ir] = grid_1_t[ iz_left, ir ]
-                vec_buffer_l[5, iz, ir] = grid_1_z[ iz_left, ir ]
+                vec_buffer_l[3*m+0, iz, ir] = grid_r[ iz_left, ir ]
+                vec_buffer_l[3*m+1, iz, ir] = grid_t[ iz_left, ir ]
+                vec_buffer_l[3*m+2, iz, ir] = grid_z[ iz_left, ir ]
             # At the right end
             if copy_right:
                 iz_right = Nz - nz_end + iz
-                vec_buffer_r[0, iz, ir] = grid_0_r[ iz_right, ir ]
-                vec_buffer_r[1, iz, ir] = grid_0_t[ iz_right, ir ]
-                vec_buffer_r[2, iz, ir] = grid_0_z[ iz_right, ir ]
-                vec_buffer_r[3, iz, ir] = grid_1_r[ iz_right, ir ]
-                vec_buffer_r[4, iz, ir] = grid_1_t[ iz_right, ir ]
-                vec_buffer_r[5, iz, ir] = grid_1_z[ iz_right, ir ]
+                vec_buffer_r[3*m+0, iz, ir] = grid_r[ iz_right, ir ]
+                vec_buffer_r[3*m+1, iz, ir] = grid_t[ iz_right, ir ]
+                vec_buffer_r[3*m+2, iz, ir] = grid_z[ iz_right, ir ]
+
 
 @cuda.jit
-def copy_scal_to_gpu_buffer( scal_buffer_l, scal_buffer_r,
-                             grid_0, grid_1,
+def copy_scal_to_gpu_buffer( scal_buffer_l, scal_buffer_r, grid, m,
                              copy_left, copy_right, nz_start, nz_end ):
     """
     Copy the ng inner domain cells of grid_0, ..., grid_1
@@ -83,15 +78,16 @@ def copy_scal_to_gpu_buffer( scal_buffer_l, scal_buffer_r,
     Parameters
     ----------
     scal_buffer_l, scal_buffer_r: ndarrays of complexs (device arrays)
-        Arrays of shape (2, nz_end-nz_start, Nr), which serve as buffer
+        Arrays of shape (Nm, nz_end-nz_start, Nr), which serve as buffer
         for transmission to CPU, and then sending via MPI. They hold the
         values of a scalar field in either the ng inner cells of the domain
         or the ng outer + ng inner cells of the domain, to the left and right.
 
-    grid_m: ndarrays of complexs (device arrays)
-        Arrays of shape (Nz, Nr), which contain the different modes 0 and 1
-        of the scalar field.
-        (m = mode)
+    grid: ndarray of complexs (device arrays)
+        Arrays of shape (Nz, Nr), which contain the mode m of the scalar field.
+
+    m: int
+        The index of the azimuthal mode involved
 
     copy_left, copy_right: bool
         Whether to copy the buffers to the left and right of the local domain
@@ -109,7 +105,7 @@ def copy_scal_to_gpu_buffer( scal_buffer_l, scal_buffer_r,
         on either the left or the right side of the enlarged domain.
     """
     # Dimension of the arrays
-    Nz, Nr = grid_0.shape
+    Nz, Nr = grid.shape
 
     # Obtain Cuda grid
     iz, ir = cuda.grid(2)
@@ -120,18 +116,16 @@ def copy_scal_to_gpu_buffer( scal_buffer_l, scal_buffer_r,
             # At the left end
             if copy_left:
                 iz_left = nz_start + iz
-                scal_buffer_l[0, iz, ir] = grid_0[ iz_left, ir ]
-                scal_buffer_l[1, iz, ir] = grid_1[ iz_left, ir ]
+                scal_buffer_l[m, iz, ir] = grid[ iz_left, ir ]
             # At the right end
             if copy_right:
                 iz_right = Nz - nz_end + iz
-                scal_buffer_r[0, iz, ir] = grid_0[ iz_right, ir ]
-                scal_buffer_r[1, iz, ir] = grid_1[ iz_right, ir ]
+                scal_buffer_r[m, iz, ir] = grid[ iz_right, ir ]
+
 
 @cuda.jit
 def replace_vec_from_gpu_buffer( vec_buffer_l, vec_buffer_r,
-                                 grid_0_r, grid_0_t, grid_0_z,
-                                 grid_1_r, grid_1_t, grid_1_z,
+                                 grid_r, grid_t, grid_z, m,
                                  copy_left, copy_right, nz_start, nz_end ):
     """
     Replace a region (guard region) of grid_0_r, ..., grid_1_z
@@ -140,13 +134,15 @@ def replace_vec_from_gpu_buffer( vec_buffer_l, vec_buffer_r,
     Parameters
     ----------
     vec_buffer_l, vec_buffer_r: ndarrays of complexs (device arrays)
-        Arrays of shape (6, nz_end-nz_start, Nr), which are the buffers
+        Arrays of shape (3*Nm, nz_end-nz_start, Nr), which are the buffers
         sent via MPI and received by the CPU.
 
-    grid_m_x: ndarrays of complexs (device arrays)
+    grid_r, grid_t, grid_z: ndarrays of complexs (device arrays)
         Arrays of shape (Nz, Nr), which contain the different component
-        of the vector field (r, t, z), in the modes 0 and 1.
-        (m = mode, x = coordinate)
+        of the vector field (r, t, z), in the mode m
+
+    m: int
+        The index of the azimuthal mode involved
 
     copy_left, copy_right: bool
         Whether to copy the buffers to the left and right of the local domain
@@ -164,7 +160,7 @@ def replace_vec_from_gpu_buffer( vec_buffer_l, vec_buffer_r,
         on either the left or the right side of the enlarged domain.
     """
     # Dimension of the arrays
-    Nz, Nr = grid_0_r.shape
+    Nz, Nr = grid_r.shape
 
     # Obtain Cuda grid
     iz, ir = cuda.grid(2)
@@ -175,25 +171,18 @@ def replace_vec_from_gpu_buffer( vec_buffer_l, vec_buffer_r,
             # At the left end
             if copy_left:
                 iz_left = iz
-                grid_0_r[ iz_left, ir ] = vec_buffer_l[0, iz, ir]
-                grid_0_t[ iz_left, ir ] = vec_buffer_l[1, iz, ir]
-                grid_0_z[ iz_left, ir ] = vec_buffer_l[2, iz, ir]
-                grid_1_r[ iz_left, ir ] = vec_buffer_l[3, iz, ir]
-                grid_1_t[ iz_left, ir ] = vec_buffer_l[4, iz, ir]
-                grid_1_z[ iz_left, ir ] = vec_buffer_l[5, iz, ir]
+                grid_r[ iz_left, ir ] = vec_buffer_l[3*m+0, iz, ir]
+                grid_t[ iz_left, ir ] = vec_buffer_l[3*m+1, iz, ir]
+                grid_z[ iz_left, ir ] = vec_buffer_l[3*m+2, iz, ir]
             # At the right end
             if copy_right:
                 iz_right = Nz - (nz_end - nz_start) + iz
-                grid_0_r[ iz_right, ir ] = vec_buffer_r[0, iz, ir]
-                grid_0_t[ iz_right, ir ] = vec_buffer_r[1, iz, ir]
-                grid_0_z[ iz_right, ir ] = vec_buffer_r[2, iz, ir]
-                grid_1_r[ iz_right, ir ] = vec_buffer_r[3, iz, ir]
-                grid_1_t[ iz_right, ir ] = vec_buffer_r[4, iz, ir]
-                grid_1_z[ iz_right, ir ] = vec_buffer_r[5, iz, ir]
+                grid_r[ iz_right, ir ] = vec_buffer_r[3*m+0, iz, ir]
+                grid_t[ iz_right, ir ] = vec_buffer_r[3*m+1, iz, ir]
+                grid_z[ iz_right, ir ] = vec_buffer_r[3*m+2, iz, ir]
 
 @cuda.jit
-def replace_scal_from_gpu_buffer( scal_buffer_l, scal_buffer_r,
-                                 grid_0, grid_1,
+def replace_scal_from_gpu_buffer( scal_buffer_l, scal_buffer_r, grid, m,
                                  copy_left, copy_right, nz_start, nz_end ):
     """
     Replace a region (guard region) of grid_0, ..., grid_1
@@ -205,10 +194,11 @@ def replace_scal_from_gpu_buffer( scal_buffer_l, scal_buffer_r,
         Arrays of shape (2, nz_end-nz_start, Nr), which are the buffers
         sent via MPI and received by the CPU.
 
-    grid_m: ndarrays of complexs (device arrays)
-        Arrays of shape (Nz, Nr), which contain the different modes 0 and 1
-        of the scalar field.
-        (m = mode)
+    grid: ndarray of complexs (device arrays)
+        Arrays of shape (Nz, Nr), which contain the mode m of the scalar field.
+
+    m: int
+        The index of the azimuthal mode involved
 
     copy_left, copy_right: bool
         Whether to copy the buffers to the left and right of the local domain
@@ -226,7 +216,7 @@ def replace_scal_from_gpu_buffer( scal_buffer_l, scal_buffer_r,
         on either the left or the right side of the enlarged domain.
     """
     # Dimension of the arrays
-    Nz, Nr = grid_0.shape
+    Nz, Nr = grid.shape
 
     # Obtain Cuda grid
     iz, ir = cuda.grid(2)
@@ -237,34 +227,33 @@ def replace_scal_from_gpu_buffer( scal_buffer_l, scal_buffer_r,
             # At the left end
             if copy_left:
                 iz_left = iz
-                grid_0[ iz_left, ir ] = scal_buffer_l[0, iz, ir]
-                grid_1[ iz_left, ir ] = scal_buffer_l[1, iz, ir]
+                grid[ iz_left, ir ] = scal_buffer_l[m, iz, ir]
             # At the right end
             if copy_right:
                 iz_right = Nz - (nz_end - nz_start) + iz
-                grid_0[ iz_right, ir ] = scal_buffer_r[0, iz, ir]
-                grid_1[ iz_right, ir ] = scal_buffer_r[1, iz, ir]
+                grid[ iz_right, ir ] = scal_buffer_r[m, iz, ir]
 
 
 @cuda.jit
 def add_vec_from_gpu_buffer( vec_buffer_l, vec_buffer_r,
-                             grid_0_r, grid_0_t, grid_0_z,
-                             grid_1_r, grid_1_t, grid_1_z,
+                             grid_r, grid_t, grid_z, m,
                              copy_left, copy_right, nz_start, nz_end ):
     """
     Add the the GPU buffer vec_buffer_l and vec_buffer_r
-    to the vector field grids, grid_0_r, ..., grid_1_z.
+    to the vector field grids, grid_r, ..., grid_z.
 
     Parameters
     ----------
     vec_buffer_l, vec_buffer_r: ndarrays of complexs (device arrays)
-        Arrays of shape (6, nz_end-nz_start, Nr), which are the buffers
+        Arrays of shape (3*Nm, nz_end-nz_start, Nr), which are the buffers
         sent via MPI and received by the CPU.
 
-    grid_m_x: ndarrays of complexs (device arrays)
+    grid_r, grid_t, grid_z: ndarrays of complexs (device arrays)
         Arrays of shape (Nz, Nr), which contain the different component
-        of the vector field (r, t, z), in the modes 0 and 1.
-        (m = mode, x = coordinate)
+        of the vector field (r, t, z), in the mode m
+
+    m: int
+        The index of the azimuthal mode involved
 
     copy_left, copy_right: bool
         Whether to copy the buffers to the left and right of the local domain
@@ -282,7 +271,7 @@ def add_vec_from_gpu_buffer( vec_buffer_l, vec_buffer_r,
         on either the left or the right side of the enlarged domain.
     """
     # Dimension of the arrays
-    Nz, Nr = grid_0_r.shape
+    Nz, Nr = grid_r.shape
 
     # Obtain Cuda grid
     iz, ir = cuda.grid(2)
@@ -293,40 +282,34 @@ def add_vec_from_gpu_buffer( vec_buffer_l, vec_buffer_r,
             # At the left end
             if copy_left:
                 iz_left = iz
-                grid_0_r[ iz_left, ir ] += vec_buffer_l[0, iz, ir]
-                grid_0_t[ iz_left, ir ] += vec_buffer_l[1, iz, ir]
-                grid_0_z[ iz_left, ir ] += vec_buffer_l[2, iz, ir]
-                grid_1_r[ iz_left, ir ] += vec_buffer_l[3, iz, ir]
-                grid_1_t[ iz_left, ir ] += vec_buffer_l[4, iz, ir]
-                grid_1_z[ iz_left, ir ] += vec_buffer_l[5, iz, ir]
+                grid_r[ iz_left, ir ] += vec_buffer_l[3*m+0, iz, ir]
+                grid_t[ iz_left, ir ] += vec_buffer_l[3*m+1, iz, ir]
+                grid_z[ iz_left, ir ] += vec_buffer_l[3*m+2, iz, ir]
             # At the right end
             if copy_right:
                 iz_right = Nz - (nz_end - nz_start) + iz
-                grid_0_r[ iz_right, ir ] += vec_buffer_r[0, iz, ir]
-                grid_0_t[ iz_right, ir ] += vec_buffer_r[1, iz, ir]
-                grid_0_z[ iz_right, ir ] += vec_buffer_r[2, iz, ir]
-                grid_1_r[ iz_right, ir ] += vec_buffer_r[3, iz, ir]
-                grid_1_t[ iz_right, ir ] += vec_buffer_r[4, iz, ir]
-                grid_1_z[ iz_right, ir ] += vec_buffer_r[5, iz, ir]
+                grid_r[ iz_right, ir ] += vec_buffer_r[3*m+0, iz, ir]
+                grid_t[ iz_right, ir ] += vec_buffer_r[3*m+1, iz, ir]
+                grid_z[ iz_right, ir ] += vec_buffer_r[3*m+2, iz, ir]
 
 @cuda.jit
-def add_scal_from_gpu_buffer( scal_buffer_l, scal_buffer_r,
-                              grid_0, grid_1,
+def add_scal_from_gpu_buffer( scal_buffer_l, scal_buffer_r, grid, m,
                               copy_left, copy_right, nz_start, nz_end ):
     """
     Add the the GPU buffer scal_buffer_l and scal_buffer_r
-    to the scalar field grids, grid_0_r, ..., grid_1_z.
+    to the scalar field grids, grid_r, ..., grid_z.
 
     Parameters
     ----------
     scal_buffer_l, scal_buffer_r: ndarrays of complexs (device arrays)
-        Arrays of shape (2, nz_end-nz_start, Nr), which are the buffers
+        Arrays of shape (Nm, nz_end-nz_start, Nr), which are the buffers
         sent via MPI and received by the CPU.
 
-    grid_m: ndarrays of complexs (device arrays)
-        Arrays of shape (Nz, Nr), which contain the different modes 0 and 1
-        of the scalar field.
-        (m = mode)
+    grid: ndarray of complexs (device arrays)
+        Arrays of shape (Nz, Nr), which contain the mode m of the scalar field.
+
+    m: int
+        The index of the azimuthal mode involved
 
     copy_left, copy_right: bool
         Whether to copy the buffers to the left and right of the local domain
@@ -344,7 +327,7 @@ def add_scal_from_gpu_buffer( scal_buffer_l, scal_buffer_r,
         on either the left or the right side of the enlarged domain.
     """
     # Dimension of the arrays
-    Nz, Nr = grid_0.shape
+    Nz, Nr = grid.shape
 
     # Obtain Cuda grid
     iz, ir = cuda.grid(2)
@@ -355,28 +338,23 @@ def add_scal_from_gpu_buffer( scal_buffer_l, scal_buffer_r,
             # At the left end
             if copy_left:
                 iz_left = iz
-                grid_0[ iz_left, ir ] += scal_buffer_l[0, iz, ir]
-                grid_1[ iz_left, ir ] += scal_buffer_l[1, iz, ir]
+                grid[ iz_left, ir ] += scal_buffer_l[m, iz, ir]
             # At the right end
             if copy_right:
                 iz_right = Nz - (nz_end - nz_start) + iz
-                grid_0[ iz_right, ir ] += scal_buffer_r[0, iz, ir]
-                grid_1[ iz_right, ir ] += scal_buffer_r[1, iz, ir]
+                grid[ iz_right, ir ] += scal_buffer_r[m, iz, ir]
 
 # CUDA damping kernels:
 # --------------------
 @cuda.jit
-def cuda_damp_EB_left( Er0, Et0, Ez0, Br0, Bt0, Bz0,
-                  Er1, Et1, Ez1, Br1, Bt1, Bz1,
-                  damp_array, n_guard, n_damp ) :
+def cuda_damp_EB_left( Er, Et, Ez, Br, Bt, Bz, damp_array, n_guard, n_damp ):
     """
     Multiply the E and B fields in the left guard cells
     by damp_array.
 
     Parameters :
     ------------
-    Er0, Et0, Ez0, Br0, Bt0, Bz0,
-    Er1, Et1, Ez1, Br1, Bt1, Bz1 : 2darrays of complexs
+    Er, Et, Ez, Br, Bt, Bz: 2darrays of complexs
         Contain the fields to be damped
         The first axis corresponds to z and the second to r
 
@@ -394,7 +372,7 @@ def cuda_damp_EB_left( Er0, Et0, Ez0, Br0, Bt0, Bz0,
     iz, ir = cuda.grid(2)
 
     # Obtain the size of the array along z and r
-    Nz, Nr = Er0.shape
+    Nz, Nr = Er.shape
 
     # Modify the fields
     if ir < Nr :
@@ -403,31 +381,22 @@ def cuda_damp_EB_left( Er0, Et0, Ez0, Br0, Bt0, Bz0,
             damp_factor_left = damp_array[iz]
 
             # At the left end
-            Er0[iz, ir] *= damp_factor_left
-            Et0[iz, ir] *= damp_factor_left
-            Ez0[iz, ir] *= damp_factor_left
-            Br0[iz, ir] *= damp_factor_left
-            Bt0[iz, ir] *= damp_factor_left
-            Bz0[iz, ir] *= damp_factor_left
-            Er1[iz, ir] *= damp_factor_left
-            Et1[iz, ir] *= damp_factor_left
-            Ez1[iz, ir] *= damp_factor_left
-            Br1[iz, ir] *= damp_factor_left
-            Bt1[iz, ir] *= damp_factor_left
-            Bz1[iz, ir] *= damp_factor_left
+            Er[iz, ir] *= damp_factor_left
+            Et[iz, ir] *= damp_factor_left
+            Ez[iz, ir] *= damp_factor_left
+            Br[iz, ir] *= damp_factor_left
+            Bt[iz, ir] *= damp_factor_left
+            Bz[iz, ir] *= damp_factor_left
 
 @cuda.jit
-def cuda_damp_EB_right( Er0, Et0, Ez0, Br0, Bt0, Bz0,
-                  Er1, Et1, Ez1, Br1, Bt1, Bz1,
-                  damp_array, n_guard, n_damp ) :
+def cuda_damp_EB_right( Er, Et, Ez, Br, Bt, Bz, damp_array, n_guard, n_damp ):
     """
     Multiply the E and B fields in the right guard cells
     by damp_array.
 
     Parameters :
     ------------
-    Er0, Et0, Ez0, Br0, Bt0, Bz0,
-    Er1, Et1, Ez1, Br1, Bt1, Bz1 : 2darrays of complexs
+    Er, Et, Ez, Br, Bt, Bz : 2darrays of complexs
         Contain the fields to be damped
         The first axis corresponds to z and the second to r
 
@@ -445,7 +414,7 @@ def cuda_damp_EB_right( Er0, Et0, Ez0, Br0, Bt0, Bz0,
     iz, ir = cuda.grid(2)
 
     # Obtain the size of the array along z and r
-    Nz, Nr = Er0.shape
+    Nz, Nr = Er.shape
 
     # Modify the fields
     if ir < Nr :
@@ -455,15 +424,9 @@ def cuda_damp_EB_right( Er0, Et0, Ez0, Br0, Bt0, Bz0,
 
             # At the right end
             iz_right = Nz - iz - 1
-            Er0[iz_right, ir] *= damp_factor_right
-            Et0[iz_right, ir] *= damp_factor_right
-            Ez0[iz_right, ir] *= damp_factor_right
-            Br0[iz_right, ir] *= damp_factor_right
-            Bt0[iz_right, ir] *= damp_factor_right
-            Bz0[iz_right, ir] *= damp_factor_right
-            Er1[iz_right, ir] *= damp_factor_right
-            Et1[iz_right, ir] *= damp_factor_right
-            Ez1[iz_right, ir] *= damp_factor_right
-            Br1[iz_right, ir] *= damp_factor_right
-            Bt1[iz_right, ir] *= damp_factor_right
-            Bz1[iz_right, ir] *= damp_factor_right
+            Er[iz_right, ir] *= damp_factor_right
+            Et[iz_right, ir] *= damp_factor_right
+            Ez[iz_right, ir] *= damp_factor_right
+            Br[iz_right, ir] *= damp_factor_right
+            Bt[iz_right, ir] *= damp_factor_right
+            Bz[iz_right, ir] *= damp_factor_right

@@ -295,7 +295,7 @@ class Fields(object) :
     def spect2interp(self, fieldtype) :
         """
         Transform the fields `fieldtype` from the spectral grid
-        to the spectral grid
+        to the interpolation grid
 
         Parameter
         ---------
@@ -341,6 +341,114 @@ class Fields(object) :
         else :
             raise ValueError( 'Invalid string for fieldtype: %s' %fieldtype )
 
+    def spect2partial_interp(self, fieldtype) :
+        """
+        Transform the fields `fieldtype` from the spectral grid,
+        by only performing an inverse FFT in z (but no Hankel transform)
+
+        This is typically done before exchanging guard cells in z
+        (a full FFT+Hankel transform is not necessary in this case)
+
+        The result is stored in the interpolation grid (for economy of memory),
+        but one should be aware that these fields are not actually the
+        interpolation fields. These "incorrect" fields would however be
+        overwritten by subsequent calls to `spect2interp` (see `step` function)
+
+        Parameter
+        ---------
+        fieldtype :
+            A string which represents the kind of field to transform
+            (either 'E', 'B', 'J', 'rho_next', 'rho_prev')
+        """
+        # Use the appropriate transformation depending on the fieldtype.
+        if fieldtype == 'E' :
+            for m in range(self.Nm) :
+                self.trans[m].fft.inverse_transform(
+                    self.spect[m].Ez, self.interp[m].Ez )
+                self.trans[m].fft.inverse_transform(
+                    self.spect[m].Ep, self.interp[m].Er )
+                self.trans[m].fft.inverse_transform(
+                    self.spect[m].Em, self.interp[m].Et )
+        elif fieldtype == 'B' :
+            for m in range(self.Nm) :
+                self.trans[m].fft.inverse_transform(
+                    self.spect[m].Bz, self.interp[m].Bz )
+                self.trans[m].fft.inverse_transform(
+                    self.spect[m].Bp, self.interp[m].Br )
+                self.trans[m].fft.inverse_transform(
+                    self.spect[m].Bm, self.interp[m].Bt )
+        elif fieldtype == 'J' :
+            for m in range(self.Nm) :
+                self.trans[m].fft.inverse_transform(
+                    self.spect[m].Jz, self.interp[m].Jz )
+                self.trans[m].fft.inverse_transform(
+                    self.spect[m].Jp, self.interp[m].Jr )
+                self.trans[m].fft.inverse_transform(
+                    self.spect[m].Jm, self.interp[m].Jt )
+        elif fieldtype == 'rho_next' :
+            for m in range(self.Nm) :
+                self.trans[m].fft.inverse_transform(
+                    self.spect[m].rho_next, self.interp[m].rho )
+        elif fieldtype == 'rho_prev' :
+            for m in range(self.Nm) :
+                self.trans[m].fft.inverse_transform(
+                    self.spect[m].rho_prev, self.interp[m].rho )
+        else :
+            raise ValueError( 'Invalid string for fieldtype: %s' %fieldtype )
+
+
+    def partial_interp2spect(self, fieldtype) :
+        """
+        Transform the fields `fieldtype` from the partial representation
+        in interpolation space (obtained from `spect2partial_interp`)
+        to the spectral grid.
+
+        This is typically done after exchanging guard cells in z
+        (a full FFT+Hankel transform is not necessary in this case)
+
+        Parameter
+        ---------
+        fieldtype :
+            A string which represents the kind of field to transform
+            (either 'E', 'B', 'J', 'rho_next', 'rho_prev')
+        """
+        # Use the appropriate transformation depending on the fieldtype.
+        if fieldtype == 'E' :
+            for m in range(self.Nm) :
+                self.trans[m].fft.transform(
+                    self.interp[m].Ez, self.spect[m].Ez )
+                self.trans[m].fft.transform(
+                    self.interp[m].Er, self.spect[m].Ep )
+                self.trans[m].fft.transform(
+                    self.interp[m].Et, self.spect[m].Em )
+        elif fieldtype == 'B' :
+            for m in range(self.Nm) :
+                self.trans[m].fft.transform(
+                    self.interp[m].Bz, self.spect[m].Bz )
+                self.trans[m].fft.transform(
+                    self.interp[m].Br, self.spect[m].Bp )
+                self.trans[m].fft.transform(
+                    self.interp[m].Bt, self.spect[m].Bm )
+        elif fieldtype == 'J' :
+            for m in range(self.Nm) :
+                self.trans[m].fft.transform(
+                    self.interp[m].Jz, self.spect[m].Jz )
+                self.trans[m].fft.transform(
+                    self.interp[m].Jr, self.spect[m].Jp )
+                self.trans[m].fft.transform(
+                    self.interp[m].Jt, self.spect[m].Jm )
+        elif fieldtype == 'rho_next' :
+            for m in range(self.Nm) :
+                self.trans[m].fft.transform(
+                    self.interp[m].rho, self.spect[m].rho_next )
+        elif fieldtype == 'rho_prev' :
+            for m in range(self.Nm) :
+                self.trans[m].fft.transform(
+                    self.interp[m].rho, self.spect[m].rho_prev )
+        else :
+            raise ValueError( 'Invalid string for fieldtype: %s' %fieldtype )
+
+
     def erase(self, fieldtype ) :
         """
         Sets the field `fieldtype` to zero on the interpolation grid
@@ -356,24 +464,21 @@ class Fields(object) :
             dim_grid, dim_block = cuda_tpb_bpg_2d( self.Nz, self.Nr )
 
             # Erase the arrays on the GPU
-            if fieldtype == 'rho' :
-                cuda_erase_scalar[dim_grid, dim_block](
-                    self.interp[0].rho, self.interp[1].rho )
-            elif fieldtype == 'J' :
-                cuda_erase_vector[dim_grid, dim_block](
-                    self.interp[0].Jr, self.interp[1].Jr,
-                    self.interp[0].Jt, self.interp[1].Jt,
-                    self.interp[0].Jz, self.interp[1].Jz )
-            elif fieldtype == 'E' :
-                cuda_erase_vector[dim_grid, dim_block](
-                    self.interp[0].Er, self.interp[1].Er,
-                    self.interp[0].Et, self.interp[1].Et,
-                    self.interp[0].Ez, self.interp[1].Ez )
-            elif fieldtype == 'B' :
-                cuda_erase_vector[dim_grid, dim_block](
-                    self.interp[0].Br, self.interp[1].Br,
-                    self.interp[0].Bt, self.interp[1].Bt,
-                    self.interp[0].Bz, self.interp[1].Bz )
+            if fieldtype == 'rho':
+                for m in range(self.Nm):
+                    cuda_erase_scalar[dim_grid, dim_block](self.interp[m].rho)
+            elif fieldtype == 'J':
+                for m in range(self.Nm):
+                    cuda_erase_vector[dim_grid, dim_block](
+                      self.interp[m].Jr, self.interp[m].Jt, self.interp[m].Jz)
+            elif fieldtype == 'E':
+                for m in range(self.Nm):
+                    cuda_erase_vector[dim_grid, dim_block](
+                      self.interp[m].Er, self.interp[m].Et, self.interp[m].Ez)
+            elif fieldtype == 'B':
+                for m in range(self.Nm):
+                    cuda_erase_vector[dim_grid, dim_block](
+                      self.interp[m].Br, self.interp[m].Bt, self.interp[m].Bz)
             else :
                 raise ValueError('Invalid string for fieldtype: %s'%fieldtype)
         else :
@@ -423,23 +528,22 @@ class Fields(object) :
         Parameter
         ---------
         fieldtype :
-            A string which represents the kind of field to be erased
-            (either 'rho' or 'J')
+            A string which represents the kind of field to be divided by
+            the volume (either 'rho' or 'J')
         """
         if self.use_cuda :
             # Perform division on the GPU
             dim_grid, dim_block = cuda_tpb_bpg_2d( self.Nz, self.Nr )
 
-            if fieldtype == 'rho' :
-                cuda_divide_scalar_by_volume[dim_grid, dim_block](
-                    self.interp[0].rho, self.interp[1].rho,
-                    self.interp[0].d_invvol, self.interp[1].d_invvol )
-            elif fieldtype == 'J' :
-                cuda_divide_vector_by_volume[dim_grid, dim_block](
-                    self.interp[0].Jr, self.interp[1].Jr,
-                    self.interp[0].Jt, self.interp[1].Jt,
-                    self.interp[0].Jz, self.interp[1].Jz,
-                    self.interp[0].d_invvol, self.interp[1].d_invvol )
+            if fieldtype == 'rho':
+                for m in range(self.Nm):
+                    cuda_divide_scalar_by_volume[dim_grid, dim_block](
+                        self.interp[m].rho, self.interp[m].d_invvol )
+            elif fieldtype == 'J':
+                for m in range(self.Nm):
+                    cuda_divide_vector_by_volume[dim_grid, dim_block](
+                        self.interp[m].Jr, self.interp[m].Jt,
+                        self.interp[m].Jz, self.interp[m].d_invvol )
             else :
                 raise ValueError('Invalid string for fieldtype: %s'%fieldtype)
         else :

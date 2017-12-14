@@ -18,7 +18,7 @@ if cuda_installed:
 try:
     from .mkl_fft import MKLFFT
     mkl_installed = True
-except ImportError:
+except OSError:
     import pyfftw
     mkl_installed = False
 
@@ -76,60 +76,29 @@ class FFT(object):
             self.blas = cublas.Blas()   # For normalization of the iFFT
             self.inv_Nz = 1./Nz         # For normalization of the iFFT
 
-            # Initialize the spectral buffers
-            self.spect_buffer_r = cuda.device_array(
-                (Nz, Nr), dtype=np.complex128)
-            self.spect_buffer_t = cuda.device_array(
-                (Nz, Nr), dtype=np.complex128)
-
-        # Initialize the object for calculation on the CPU using MKL
-        elif self.use_mkl:
-
-            self.spect_buffer_r = np.zeros( (Nz, Nr), dtype=np.complex128 )
-            self.spect_buffer_t = np.zeros( (Nz, Nr), dtype=np.complex128 )
-            self.mklfft = MKLFFT( self.spect_buffer_r )
-
-        # Initialize the object for calculation on the CPU using FFTW
+        # Initialize the object for calculation on the CPU
         else:
 
-            # Determine number of threads
-            if nthreads is None:
-                # Get the default number of threads for numba
-                nthreads = numba.config.NUMBA_NUM_THREADS
+            # For MKL FFT
+            if self.use_mkl:
+                # Initialize the MKL plan with dummy array
+                spect_buffer = np.zeros( (Nz, Nr), dtype=np.complex128 )
+                self.mklfft = MKLFFT( spect_buffer )
 
-            # First buffer and FFTW transform
-            self.interp_buffer_r = \
-                pyfftw.n_byte_align_empty( (Nz,Nr), 16, 'complex128' )
-            self.spect_buffer_r = \
-                pyfftw.n_byte_align_empty( (Nz,Nr), 16, 'complex128' )
-            self.fft_r= pyfftw.FFTW(self.interp_buffer_r, self.spect_buffer_r,
-                    axes=(0,), direction='FFTW_FORWARD', threads=nthreads)
-            self.ifft_r=pyfftw.FFTW(self.spect_buffer_r, self.interp_buffer_r,
-                    axes=(0,), direction='FFTW_BACKWARD', threads=nthreads)
+            # For FFTW
+            else:
+                # Determine number of threads
+                if nthreads is None:
+                    # Get the default number of threads for numba
+                    nthreads = numba.config.NUMBA_NUM_THREADS
+                # Initialize the FFT plan with dummy arrays
+                interp_buffer = np.zeros( (Nz, Nr), dtype=np.complex128 )
+                spect_buffer = np.zeros( (Nz, Nr), dtype=np.complex128 )
+                self.fft = pyfftw.FFTW( interp_buffer, spect_buffer,
+                        axes=(0,), direction='FFTW_FORWARD', threads=nthreads)
+                self.ifft = pyfftw.FFTW( spect_buffer, interp_buffer,
+                        axes=(0,), direction='FFTW_BACKWARD', threads=nthreads)
 
-            # Second buffer and FFTW transform
-            self.interp_buffer_t = \
-                pyfftw.n_byte_align_empty( (Nz,Nr), 16, 'complex128' )
-            self.spect_buffer_t = \
-                pyfftw.n_byte_align_empty( (Nz,Nr), 16, 'complex128' )
-            self.fft_t= pyfftw.FFTW(self.interp_buffer_t, self.spect_buffer_t,
-                    axes=(0,), direction='FFTW_FORWARD', threads=nthreads )
-            self.ifft_t=pyfftw.FFTW(self.spect_buffer_t, self.interp_buffer_t,
-                    axes=(0,), direction='FFTW_BACKWARD', threads=nthreads)
-
-    def get_buffers( self ):
-        """
-        Return the spectral buffers which are typically used to store
-        information inbetween the Hankel transform and the Fourier transform
-
-        Returns
-        -------
-        A tuple with:
-        - Two cuda device arrays when using the GPU
-        - Two numpy arrays when using the CPU, which are tied to an FFTW plan
-        (Do no modify these arrays to make them point to another array)
-        """
-        return( self.spect_buffer_r, self.spect_buffer_t )
 
     def transform( self, array_in, array_out ):
         """
@@ -156,21 +125,9 @@ class FFT(object):
             self.mklfft.transform( array_in, array_out )
         else :
             # Perform the FFT on the CPU using FFTW
-            if array_out is self.spect_buffer_r:
-                # First copy the input array to the preallocated buffers
-                self.interp_buffer_r[:,:] = array_in
-                # The following operation transforms from
-                # self.interp_buffer_r to self.spect_buffer_r
-                self.fft_r()
-            elif array_out is self.spect_buffer_t:
-                # First copy the input array to the preallocated buffers
-                self.interp_buffer_t[:,:] = array_in
-                # The following operation transforms from
-                # self.interp_buffer_t to self.spect_buffer_t
-                self.fft_t()
-            else:
-                raise ValueError('Invalid output array.The output array '
-                'must be either self.spect_buffer_r or self.spect_buffer_t.')
+            self.fft.update_arrays( new_input_array=array_in,
+                                    new_output_array=array_out )
+            self.fft()
 
     def inverse_transform( self, array_in, array_out ):
         """
@@ -198,18 +155,6 @@ class FFT(object):
             self.mklfft.inverse_transform( array_in, array_out )
         else :
             # Perform the inverse FFT on the CPU using FFTW
-            if array_in is self.spect_buffer_r:
-                # The following operation transforms from
-                # self.spect_buffer_r to self.interp_buffer_r
-                self.ifft_r()
-                # Copy to the output array
-                array_out[:,:] = self.interp_buffer_r[:,:]
-            elif array_in is self.spect_buffer_t:
-                # The following operation transforms from
-                # self.spect_buffer_t to self.interp_buffer_t
-                self.ifft_t()
-                # Copy to the output array
-                array_out[:,:] = self.interp_buffer_t[:,:]
-            else:
-                raise ValueError('Invalid input array.The input array must'
-                ' be either self.spect_buffer_r or self.spect_buffer_t.')
+            self.ifft.update_arrays( new_input_array=array_in,
+                                    new_output_array=array_out )
+            self.ifft()
