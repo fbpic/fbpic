@@ -250,7 +250,7 @@ def propagate_pulse( Nz, Nr, Nm, zmin, zmax, Lr, L_prop, zf, dt,
         # Plot the fields during the simulation
         if show==True and it%N_show == 0 :
             plt.clf()
-            sim.fld.interp[m].show('Et')
+            sim.fld.interp[m].show('Er')
             plt.show()
         # Advance the Maxwell equations
         sim.step( N_step, show_progress=False )
@@ -328,23 +328,21 @@ def init_fields( sim, w, ctau, k0, z0, zf, E0, m=1 ) :
     a0 = E0*e/(m_e*c**2*k0)
     tau = ctau/c
     lambda0 = 2*np.pi/k0
+    # Create the relevant laser profile
     if m == 0:
-        fld = sim.fld
-        z = fld.interp[m].z
-        r = fld.interp[m].r
-        profile = annular_pulse( z, r, w, ctau, k0, z0, E0 )
-        if m == 0:
-            # Annular pulse, radially polarized
-            fld.interp[m].Et[:,:] = profile
-            fld.interp[m].Br[:,:] = -1./c*profile
+        # Build a radially-polarized pulse from 2 Laguerre-Gauss profiles
+        profile = LaguerreGaussLaser( 0, 1, a0, w, tau, z0, zf=zf,
+                    lambda0=lambda0, theta_pol=0., theta0=0. ) \
+                + LaguerreGaussLaser( 0, 1, a0, w, tau, z0, zf=zf,
+                    lambda0=lambda0, theta_pol=np.pi/2, theta0=np.pi/2 )
     elif m == 1:
         profile = GaussianLaser( a0=a0, waist=w, tau=tau,
                     lambda0=lambda0, z0=z0, zf=zf )
-        add_laser_pulse( sim, profile )
     elif m == 2:
-        profile = LaguerreGaussLaser( a0=a0, waist=w, tau=tau,
-                    lambda0=lambda0, z0=z0, zf=zf, p=0, m=1 )
-        add_laser_pulse( sim, profile )
+        profile = LaguerreGaussLaser( 0, 1, a0=a0, waist=w, tau=tau,
+                    lambda0=lambda0, z0=z0, zf=zf )
+    # Add the profiles to the simulation
+    add_laser_pulse( sim, profile )
 
 def gaussian_transverse_profile( r, w, E ) :
     """
@@ -441,7 +439,7 @@ def fit_fields( fld, m ) :
     """
     # Integrate the laser oscillations longitudinally
     dz = fld.interp[0].dz
-    laser_profile = np.sqrt( dz*(abs( fld.interp[m].Et )**2).sum(axis=0) )
+    laser_profile = np.sqrt( dz*(abs( fld.interp[m].Er )**2).sum(axis=0) )
     # Renormalize so that this gives the peak of the Gaussian
     laser_profile *= 2.**(3./4)/( np.pi**(1./4) * ctau**(1./2) )
 
