@@ -258,12 +258,8 @@ def propagate_pulse( Nz, Nr, Nm, zmin, zmax, Lr, L_prop, zf, dt,
     # Get the analytical solution
     z_prop = c*dt*N_step*np.arange(N_diag)
     ZR = 0.5*k0*w0**2
-    if m in [1, 2]:
-        w_analytic = w0*np.sqrt( 1 + (z_prop-zf)**2/ZR**2 )
-        E_analytic = E0/( 1 + (z_prop-zf)**2/ZR**2 )**(1./2)
-    else : # zf is not implemented for the other modes
-        w_analytic = w0*np.sqrt( 1 + z_prop**2/ZR**2 )
-        E_analytic = E0/( 1 + z_prop**2/ZR**2 )**(1./2)
+    w_analytic = w0*np.sqrt( 1 + (z_prop-zf)**2/ZR**2 )
+    E_analytic = E0/( 1 + (z_prop-zf)**2/ZR**2 )**(1./2)
 
     # Either plot the results and check them manually
     if show is True:
@@ -331,9 +327,9 @@ def init_fields( sim, w, ctau, k0, z0, zf, E0, m=1 ) :
     # Create the relevant laser profile
     if m == 0:
         # Build a radially-polarized pulse from 2 Laguerre-Gauss profiles
-        profile = LaguerreGaussLaser( 0, 1, a0, w, tau, z0, zf=zf,
+        profile = LaguerreGaussLaser( 0, 1, 0.5*a0, w, tau, z0, zf=zf,
                     lambda0=lambda0, theta_pol=0., theta0=0. ) \
-                + LaguerreGaussLaser( 0, 1, a0, w, tau, z0, zf=zf,
+                + LaguerreGaussLaser( 0, 1, 0.5*a0, w, tau, z0, zf=zf,
                     lambda0=lambda0, theta_pol=np.pi/2, theta0=np.pi/2 )
     elif m == 1:
         profile = GaussianLaser( a0=a0, waist=w, tau=tau,
