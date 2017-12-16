@@ -233,7 +233,7 @@ class Simulation(object):
             use_all_mpi_ranks )
         # Modify domain region
         zmin, zmax, p_zmin, p_zmax, Nz = \
-              self.comm.divide_into_domain(zmin, zmax, p_zmin, p_zmax)
+              self.comm.divide_into_domain( p_zmin, p_zmax )
 
         # Initialize the field structure
         self.fld = Fields( Nz, zmax, Nr, rmax, Nm, dt,
@@ -585,6 +585,8 @@ class Simulation(object):
         """
         # Calculate shift distance over a half timestep
         shift_distance = self.v_comoving * 0.5 * self.dt
+        # Shift the boundaries of the global domain
+        self.comm.shift_global_domain_positions( shift_distance )
         # Shift the boundaries of the grid
         for m in range(self.fld.Nm):
             self.fld.interp[m].zmin += shift_distance

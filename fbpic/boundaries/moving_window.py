@@ -86,26 +86,28 @@ class MovingWindow(object):
         # Attach moving window speed and period
         self.v = v
 
+        # Get the positions of the global physical domain
+        zmin_global_domain, zmax_global_domain = comm.get_zmin_zmax(
+                            local=False, with_damp=False, with_guard=False )
+
         # Attach reference position of moving window (only for the first proc)
         # (Determines by how many cells the window should be moved)
         if comm.rank == 0:
-            self.zmin = interp[0].zmin
+            self.zmin = zmin_global_domain
 
         # Attach injection position and speed (only for the last proc)
         if comm.rank == comm.size-1:
             self.v_end_plasma = \
                 c * self.uz_m / np.sqrt(1 + ux_m**2 + uy_m**2 + self.uz_m**2)
-            ng = comm.n_guard
-            nd = comm.n_damp
             # Initialize plasma *ahead* of the right *physical* boundary of
             # the box so, after `exchange_period` iterations
             # (without adding new plasma), there will still be plasma
-            # inside the physical domain. ( -3 takes into account that 3 more
+            # inside the physical domain. ( +3 takes into account that 3 more
             # cells need to be filled w.r.t the left edge of the physical box
             # such that the last cell inside the box is always correct for
             # 1st and 3rd order shape factor particles after the moving window
-            # shifted by exchange_period cells. ) 
-            self.z_inject = interp[0].zmax - (ng+nd-3)*interp[0].dz + \
+            # shifted by exchange_period cells. )
+            self.z_inject = zmax_global_domain + 3*comm.dz + \
                 comm.exchange_period * (v-self.v_end_plasma) * dt
             # Try to detect the position of the end of the plasma:
             # Find the maximal position of the particles which are
@@ -115,11 +117,11 @@ class MovingWindow(object):
                 if species.continuous_injection and species.Ntot != 0:
                     # Add half of the spacing between particles (the injection
                     # function itself will add a half-spacing again)
-                    self.z_end_plasma = species.z.max() + 0.5*interp[0].dz/p_nz
+                    self.z_end_plasma = species.z.max() + 0.5*comm.dz/p_nz
                     break
             # Default value in the absence of continuously-injected particles
             if self.z_end_plasma is None:
-                self.z_end_plasma = interp[0].zmax - (ng+nd)*interp[0].dz
+                self.z_end_plasma = zmax_global_domain
             self.nz_inject = 0
             self.p_nz = p_nz
 
@@ -155,12 +157,14 @@ class MovingWindow(object):
         """
         # To avoid discrepancies between processors, only the first proc
         # decides whether to send the data, and broadcasts the information.
-        dz = fld.interp[0].dz
+        dz = comm.dz
         if comm.rank==0:
             # Move the continuous position of the moving window object
             self.zmin += self.v * (time - self.t_last_move)
             # Find the number of cells by which the window should move
-            n_move = int( (self.zmin - fld.interp[0].zmin)/dz )
+            zmin_global_domain, zmax_global_domain = comm.get_zmin_zmax(
+                            local=False, with_damp=False, with_guard=False )
+            n_move = int( (self.zmin - zmin_global_domain)/dz )
         else:
             n_move = None
         # Broadcast the information to all proc
@@ -169,6 +173,8 @@ class MovingWindow(object):
 
         # Move the grids
         if n_move != 0:
+            # Move the global domain
+            comm.shift_global_domain_positions( n_move*dz )
             # Shift the fields
             Nm = len(fld.interp)
             for m in range(Nm):

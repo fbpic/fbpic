@@ -55,7 +55,8 @@ def add_laser_direct( sim, laser_profile, fw_propagating, boost ):
     # (Calculating the self-consistent Ez and B is a global operation)
     global_Nz, _ = sim.comm.get_Nz_and_iz(
                     local=False, with_guard=False, with_damp=False )
-    global_zmin, global_zmax = sim.comm.get_zmin_zmax(sim.fld, local=False)
+    global_zmin, global_zmax = sim.comm.get_zmin_zmax(
+                    local=False, with_guard=False, with_damp=False )
     global_fld = Fields( global_Nz, global_zmax,
             sim.fld.Nr, sim.fld.rmax, sim.fld.Nm, sim.fld.dt,
             zmin=global_zmin, n_order=sim.fld.n_order, use_cuda=False)

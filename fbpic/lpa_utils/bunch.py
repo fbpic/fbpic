@@ -343,7 +343,8 @@ def add_elec_bunch_from_arrays( sim, x, y, z, ux, uy, uz, w,
         Propagation direction of the beam.
     """
     # Select the particles that are in the local subdomain
-    zmin, zmax = sim.comm.get_zmin_zmax( sim.fld, local=True )
+    zmin, zmax = sim.comm.get_zmin_zmax(
+        local=True, with_damp=False, with_guard=False, rank=sim.comm.rank )
     selected = (z >= zmin) & (z < zmax)
     x = x[selected]
     y = y[selected]
@@ -435,7 +436,8 @@ def get_space_charge_fields( sim, ptcl, direction='forward') :
     # erase the pre-existing E and B field in sim.fld
     global_Nz, _ = sim.comm.get_Nz_and_iz(
                     local=False, with_guard=False, with_damp=False )
-    global_zmin, global_zmax = sim.comm.get_zmin_zmax(sim.fld, local=False)
+    global_zmin, global_zmax = sim.comm.get_zmin_zmax(
+                    local=False, with_guard=False, with_damp=False )
     global_fld = Fields( global_Nz, global_zmax,
             sim.fld.Nr, sim.fld.rmax, sim.fld.Nm, sim.fld.dt,
             zmin=global_zmin, n_order=sim.fld.n_order, use_cuda=False)

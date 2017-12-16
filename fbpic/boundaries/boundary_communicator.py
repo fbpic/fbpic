@@ -106,9 +106,10 @@ class BoundaryCommunicator(object):
               This can be useful when running parameter scans.
         """
         # Initialize global number of cells and modes
-        self._Nz_global_domain = Nz
         self.Nr = Nr
         self.Nm = Nm
+        self._Nz_global_domain = Nz
+        self._zmin_global_domain = zmin
         # Get the distance dz between the cells
         # (longitudinal spacing of the grid)
         self.dz = (zmax - zmin)/self._Nz_global_domain
@@ -230,7 +231,7 @@ class BoundaryCommunicator(object):
                 if cuda_installed:
                     self.d_right_damp = cuda.to_device( self.right_damp )
 
-    def divide_into_domain( self, zmin, zmax, p_zmin, p_zmax ):
+    def divide_into_domain( self, p_zmin, p_zmax ):
         """
         Divide the global simulation into domain and add local guard cells.
 
@@ -239,10 +240,6 @@ class BoundaryCommunicator(object):
 
         Parameters:
         ------------
-        zmin, zmax: floats
-            Positions of the edges of the global simulation box
-            (without guard cells)
-
         p_zmin, p_zmax: floats
             Positions between which the plasma will be initialized, in
             the global simulation box.
@@ -252,7 +249,7 @@ class BoundaryCommunicator(object):
         A tuple with
         zmin, zmax: floats
             Positions of the edges of the local simulation box
-            (with guard cells)
+            (with guard cells and damp cells)
 
         p_zmin, p_zmax: floats
            Positions between which the plasma will be initialized, in
@@ -260,63 +257,40 @@ class BoundaryCommunicator(object):
            (NB: no plasma will be initialized in the guard cells)
 
         Nz_enlarged: int
-           The number of cells in the local simulation box (with guard cells)
+           The number of cells in the local simulation box
+           (with guard cells and damp cells)
         """
-        # Initialize global box size
-        self.Ltot = (zmax-zmin)
-        # Get the distance dz between the cells
-        # (longitudinal spacing of the grid)
-        dz = (zmax - zmin)/self._Nz_global_domain
-
-        # Initialize the number of cells of each proc
-        Nz_and_iz = [ self.get_Nz_and_iz( local=True, with_guard=False,
-                        with_damp=False, rank=k) for k in range(self.size) ]
-        self.Nz_domain_procs = [ x[0] for x in Nz_and_iz ]
-        self.iz_start_procs = [ x[1] for x in Nz_and_iz ]
-        # Get the number of cells with guard cells
-        Nz_and_iz_d = [ self.get_Nz_and_iz( local=True,
-            with_guard=True, with_damp=True, rank=k) for k in range(self.size) ]
-        self.Nz_enlarged_procs = [ x[0] for x in Nz_and_iz_d ]
-        # Get the local values of the above arrays
-        self.Nz_domain = self.Nz_domain_procs[self.rank]
-        self.Nz_enlarged = self.Nz_enlarged_procs[self.rank]
-
-        # Check if the local domain size is large enough
-        if self.Nz_enlarged < 4*self.n_guard:
-            raise ValueError( 'Number of local cells in z is smaller \
-                               than 4 times n_guard. Use fewer domains or \
-                               a smaller number of guard cells.')
-
-        # Calculate the local boundaries,
-        # zmin_local_domain and zmax_local_domain,
-        # of this local simulation box.
-        iz_start = self.iz_start_procs[self.rank]
-        zmin_local_domain = zmin + iz_start*dz
-        zmax_local_domain = zmin_local_domain + self.Nz_domain*dz
         # Calculate the new limits (p_zmin and p_zmax)
         # for adding particles to this domain
+        zmin_local_domain, zmax_local_domain = self.get_zmin_zmax(
+            local=True, with_damp=False, with_guard=False, rank=self.rank )
         p_zmin_local_domain = max( zmin_local_domain, p_zmin)
         p_zmax_local_domain = min( zmax_local_domain, p_zmax)
 
         # Calculate the enlarged boundaries (i.e. including guard cells
         # and damp cells), which are passed to the fields object.
-        self.nz_start_domain = self.n_guard
-        if self.left_proc is None:
-            self.nz_start_domain += self.n_damp
-        zmin_local_enlarged = zmin_local_domain - self.nz_start_domain*dz
-        zmax_local_enlarged = zmin_local_enlarged + self.Nz_enlarged*dz
+        zmin_local_enlarged, zmax_local_enlarged = self.get_zmin_zmax(
+            local=True, with_damp=True, with_guard=True, rank=self.rank )
+        Nz_enlarged, _ = self.get_Nz_and_iz(
+            local=True, with_damp=True, with_guard=True, rank=self.rank )
+
+        # Check if the local domain size is large enough
+        if Nz_enlarged < 4*self.n_guard:
+            raise ValueError( 'Number of local cells in z is smaller \
+                               than 4 times n_guard. Use fewer domains or \
+                               a smaller number of guard cells.')
 
         # Return the new boundaries to the simulation object
         return( zmin_local_enlarged, zmax_local_enlarged,
-                p_zmin_local_domain, p_zmax_local_domain,
-                self.Nz_enlarged )
+                p_zmin_local_domain, p_zmax_local_domain, Nz_enlarged )
 
-    def get_Nz_and_iz( self, local, with_guard, with_damp, rank=None ):
+    def get_Nz_and_iz( self, local, with_damp, with_guard, rank=None ):
         """
-        TODO: start index is considered from the global physical cell (always)
+        # TODO: start index is considered from the global physical box (always);
+        (which is represented by zmin_global_domain)
         So for instance, the starting index can be negative
 
-        TODO: This function is fundamental to the way we do domain decomposition
+        # TODO: This function is fundamental to the way we do domain decomposition
         """
         if local and (rank is None):
             raise ValueError(
@@ -361,37 +335,25 @@ class BoundaryCommunicator(object):
         return( Nz, iz )
 
 
-    def get_zmin_zmax( self, fld, local=True ):
+    def get_zmin_zmax( self, local, with_damp, with_guard, rank=None ):
         """
-        Return the physical zmin and zmax (i.e. without guard and damp cells)
-        for the global domain (local=False) or local subdomain (local=True)
-
-        Parameters:
-        -----------
-        fld: an fbpic Fields object
-            Contains information about the local bounds
-        local: bool, optional
-            Whether return the global or local bounds
-
-        Returns:
-        --------
-        A tuple with zmin and zmax
+        # TODO
         """
-        # Get the enlarged local zmin
-        zmin_local_enlarged = fld.interp[0].zmin
-
-        # Get the local zmin and zmax without guard cells and damp cells
-        dz = fld.interp[0].dz
-        zmin = zmin_local_enlarged + self.nz_start_domain*dz
-        zmax = zmin + self.Nz_domain*dz
-
-        # Calculate the global bounds if requested
-        if not local:
-            iz_start = self.iz_start_procs[self.rank]
-            zmin += iz_start*dz
-            zmax = zmin + self.Ltot
+        # Get the corresponding number of cells and the index of
+        # the starting cell with respect to the edge of the global domain
+        Nz, iz_start = self.get_Nz_and_iz( local=local, with_damp=with_damp,
+                                        with_guard=with_guard, rank=rank )
+        # Get zmin and zmax
+        zmin = self._zmin_global_domain + iz_start*self.dz
+        zmax = zmin + Nz*self.dz
 
         return(zmin, zmax)
+
+    def shift_global_domain_positions( self, z_shift ):
+        """
+        # TODO
+        """
+        self._zmin_global_domain += z_shift
 
 
     # Exchange routines
@@ -736,13 +698,14 @@ class BoundaryCommunicator(object):
 
         # Periodic boundary conditions for exchanging particles
         # Particles received at the right (resp. left) end of the simulation
-        # box are shifted by Ltot (zmax-zmin) to the right (resp. left).
+        # box are shifted by zmax-zmin to the right (resp. left).
+        Ltot = self._Nz_global_domain * self.dz
         if self.right_proc == 0:
             # The index 2 corresponds to z
-            float_recv_right[2,:] = float_recv_right[2,:] + self.Ltot
+            float_recv_right[2,:] = float_recv_right[2,:] + Ltot
         if self.left_proc == self.size-1:
             # The index 2 corresponds to z
-            float_recv_left[2,:] = float_recv_left[2,:] - self.Ltot
+            float_recv_left[2,:] = float_recv_left[2,:] - Ltot
 
         # Add the exchanged buffers to the particles on the CPU or GPU
         # and resize the auxiliary field-on-particle and sorting arrays
