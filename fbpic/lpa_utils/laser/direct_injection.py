@@ -53,7 +53,8 @@ def add_laser_direct( sim, laser_profile, fw_propagating, boost ):
 
     # Create a global field object across all subdomains, and copy the fields
     # (Calculating the self-consistent Ez and B is a global operation)
-    global_Nz = sim.comm.Nz
+    global_Nz, _ = sim.comm.get_Nz_and_iz(
+                    local=False, with_guard=False, with_damp=False )
     global_zmin, global_zmax = sim.comm.get_zmin_zmax(sim.fld, local=False)
     global_fld = Fields( global_Nz, global_zmax,
             sim.fld.Nr, sim.fld.rmax, sim.fld.Nm, sim.fld.dt,

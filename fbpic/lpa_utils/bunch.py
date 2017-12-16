@@ -433,7 +433,8 @@ def get_space_charge_fields( sim, ptcl, direction='forward') :
     # (Space-charge calculation is a global operation)
     # Note: in the single-proc case, this is also useful in order not to
     # erase the pre-existing E and B field in sim.fld
-    global_Nz = sim.comm.Nz
+    global_Nz, _ = sim.comm.get_Nz_and_iz(
+                    local=False, with_guard=False, with_damp=False )
     global_zmin, global_zmax = sim.comm.get_zmin_zmax(sim.fld, local=False)
     global_fld = Fields( global_Nz, global_zmax,
             sim.fld.Nr, sim.fld.rmax, sim.fld.Nm, sim.fld.dt,

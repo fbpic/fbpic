@@ -842,7 +842,7 @@ class BoundaryCommunicator(object):
     # Gathering routines
     # ------------------
 
-    def gather_grid( self, grid, root = 0):
+    def gather_grid( self, grid, root=0):
         """
         Gather a grid object by combining the local domains
         without the guard regions to a new global grid object.
@@ -868,12 +868,15 @@ class BoundaryCommunicator(object):
                 n_remove += self.n_damp
             # Calculate the global zmin without the guard (and damp) region
             zmin_global = grid.zmin + self.dz * \
-                (n_remove - self.rank*self.Nz_domain)
+                    (n_remove - self.rank*self.Nz_domain)
             # Create new grid array that contains cell positions in z
-            z = zmin_global + self.dz*( 0.5 + np.arange(self.Nz) )
+            Nz_global, iz_start_global = self.get_Nz_and_iz( local=False,
+                                            with_guard=False, with_damp=False )
+            z = zmin_global + \
+                self.dz*( 0.5 + iz_start_global + np.arange(Nz_global) )
             # Initialize new InterpolationGrid object that
             # is used to gather the global grid data
-            gathered_grid = InterpolationGrid(z = z, r = grid.r, m = grid.m )
+            gathered_grid = InterpolationGrid(z=z, r=grid.r, m=grid.m )
         else:
             # Other processes do not need to initialize new InterpolationGrid
             gathered_grid = None
@@ -891,7 +894,7 @@ class BoundaryCommunicator(object):
         # Return the gathered grid
         return(gathered_grid)
 
-    def gather_grid_array(self, array, root = 0):
+    def gather_grid_array(self, array, root=0):
         """
         Gather a grid array on the root process by using the
         mpi4py routine Gatherv, that gathers arbitrary shape arrays
@@ -913,7 +916,9 @@ class BoundaryCommunicator(object):
         if self.rank == root:
             # Root process creates empty numpy array of the shape
             # (Nz, Nr), that is used to gather the data
-            gathered_array = np.zeros((self.Nz, self.Nr), dtype=array.dtype)
+            Nz_global, _ = self.get_Nz_and_iz( local=False,
+                                with_damp=False, with_guard=False)
+            gathered_array = np.zeros((Nz_global, self.Nr), dtype=array.dtype)
         else:
             # Other processes do not need to initialize a new array
             gathered_array = None
