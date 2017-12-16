@@ -44,20 +44,20 @@ class BoundaryCommunicator(object):
     # -----------------------
 
     def __init__( self, Nz, zmin, zmax, Nr, rmax, Nm, dt,
-            boundaries, n_order, n_guard = None, n_damp=30,
-            exchange_period = None, use_all_mpi_ranks=True ):
+            boundaries, n_order, n_guard=None, n_damp=30,
+            exchange_period=None, use_all_mpi_ranks=True ):
         """
         Initializes a communicator object.
 
         Parameters
         ----------
         Nz, Nr: int
-            The initial global number of cells
+            The number of cells in the global physical domain
+            (i.e. without damp cells and guard cells)
 
         zmin, zmax, rmax: float
-            The position of the edges of the simulation box in z and r
-            (More precisely, the position of the edge of the (first)
-             last cell)
+            The position of the edges of the global physical domain in z and r
+            (i.e. without damp cells and guard cells)
 
         Nm: int
             The total number of modes
@@ -82,9 +82,9 @@ class BoundaryCommunicator(object):
             Number of guard cells to use at the left and right of
             a domain, when using MPI.
 
-        n_damp : int
+        n_damp: int
             Number of damping guard cells at the left and right of a
-            simulation box if a moving window is attached. The guard
+            simulation box, for a simulation with open boundaries. The guard
             region at these areas (left / right of moving window) is
             extended by n_damp (N=n_guard+n_damp) in order to smoothly
             damp the fields such that they do not wrap around.
@@ -106,13 +106,12 @@ class BoundaryCommunicator(object):
               This can be useful when running parameter scans.
         """
         # Initialize global number of cells and modes
-        self.Nz = Nz
+        self._Nz_global_domain = Nz
         self.Nr = Nr
         self.Nm = Nm
-
         # Get the distance dz between the cells
         # (longitudinal spacing of the grid)
-        self.dz = (zmax - zmin)/self.Nz
+        self.dz = (zmax - zmin)/self._Nz_global_domain
 
         # MPI Setup
         self.use_all_mpi_ranks = use_all_mpi_ranks
@@ -161,7 +160,8 @@ class BoundaryCommunicator(object):
             else:
                 # Automatic calculation of the guard region size,
                 # depending on the stencil order (n_order)
-                stencil = get_stencil_reach( self.Nz, self.dz, c*dt, n_order )
+                stencil = get_stencil_reach(
+                        self._Nz_global_domain, self.dz, c*dt, n_order )
                 # approx 2*n_order (+1 because the moving window
                 # shifts the grid by one cell during the PIC loop
                 # and therefore, the guard region needs to be larger
@@ -266,25 +266,17 @@ class BoundaryCommunicator(object):
         self.Ltot = (zmax-zmin)
         # Get the distance dz between the cells
         # (longitudinal spacing of the grid)
-        dz = (zmax - zmin)/self.Nz
+        dz = (zmax - zmin)/self._Nz_global_domain
 
         # Initialize the number of cells of each proc
-        # (Splits the global simulation and
-        # adds guard cells to the local domain)
-        Nz_per_proc = int(self.Nz/self.size)
-        # Get the number of cells in each domain
-        # (The last proc gets extra cells, so as to have Nz cells in total)
-        Nz_domain_procs = [ Nz_per_proc for k in range(self.size) ]
-        Nz_domain_procs[-1] = Nz_domain_procs[-1] + (self.Nz)%(self.size)
-        self.Nz_domain_procs = Nz_domain_procs
-        # Get the starting index (for easy output)
-        self.iz_start_procs = [ k*Nz_per_proc for k in range(self.size) ]
-        # Get the enlarged number of cells in each domain (includes guards)
-        self.Nz_enlarged_procs = [ n+2*self.n_guard for n in Nz_domain_procs ]
-        # Add damping region to first and last domain
-        # (Note: self.n_damp is zero in case of 'periodic' boundaries)
-        self.Nz_enlarged_procs[0] += self.n_damp
-        self.Nz_enlarged_procs[-1] += self.n_damp
+        Nz_and_iz = [ self.get_Nz_and_iz( local=True, with_guard=False,
+                        with_damp=False, rank=k) for k in range(self.size) ]
+        self.Nz_domain_procs = [ x[0] for x in Nz_and_iz ]
+        self.iz_start_procs = [ x[1] for x in Nz_and_iz ]
+        # Get the number of cells with guard cells
+        Nz_and_iz_d = [ self.get_Nz_and_iz( local=True,
+            with_guard=True, with_damp=True, rank=k) for k in range(self.size) ]
+        self.Nz_enlarged_procs = [ x[0] for x in Nz_and_iz_d ]
         # Get the local values of the above arrays
         self.Nz_domain = self.Nz_domain_procs[self.rank]
         self.Nz_enlarged = self.Nz_enlarged_procs[self.rank]
@@ -318,6 +310,56 @@ class BoundaryCommunicator(object):
         return( zmin_local_enlarged, zmax_local_enlarged,
                 p_zmin_local_domain, p_zmax_local_domain,
                 self.Nz_enlarged )
+
+    def get_Nz_and_iz( self, local, with_guard, with_damp, rank=None ):
+        """
+        TODO: start index is considered from the global physical cell (always)
+        So for instance, the starting index can be negative
+
+        TODO: This function is fundamental to the way we do domain decomposition
+        """
+        if local and (rank is None):
+            raise ValueError(
+                'For a local number of cells, the rank considered is needed.')
+
+        # Get the local number of cells
+        if local:
+            # First: get the number of cells without guard cells and damp cells
+            # Divide the number of cells equally between procs
+            Nz_per_proc = int(self._Nz_global_domain/self.size)
+            Nz = Nz_per_proc
+            iz = rank * Nz_per_proc
+            # The last proc gets the extra cells
+            if rank == self.size-1:
+                Nz += (self._Nz_global_domain)%(self.size)
+            # Add damp cells if requested
+            if with_damp:
+                if rank == 0:
+                    Nz += self.n_damp
+                    iz -= self.n_damp
+                if rank == self.size-1:
+                    Nz += self.n_damp
+            # Add guard cells if requested
+            if with_guard:
+                Nz += 2*self.n_guard
+                iz -= self.n_guard
+
+        # Get the global number of cells
+        else:
+            # First: get the number of cells without guard cells and damp cells
+            Nz = self._Nz_global_domain
+            iz = 0
+            # Add damp cells if requested
+            if with_damp:
+                Nz += 2*self.n_damp
+                iz -= self.n_damp
+            # Add guard cells if requested
+            if with_guard:
+                Nz += 2*self.n_guard
+                iz -= self.n_guard
+
+        return( Nz, iz )
+
 
     def get_zmin_zmax( self, fld, local=True ):
         """
