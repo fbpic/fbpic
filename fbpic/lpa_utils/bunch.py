@@ -467,8 +467,11 @@ def get_space_charge_fields( sim, ptcl, direction='forward') :
     # Communicate the results from proc 0 to the other procs
     # and add it to the interpolation grid of sim.fld.
     # - First find the indices at which the fields should be added
-    Nz_local, iz_local = sim.comm.get_Nz_and_iz(
+    Nz_local, iz_local_domain = sim.comm.get_Nz_and_iz(
         local=True, with_damp=False, with_guard=False, rank=sim.comm.rank )
+    _, iz_local_array = sim.comm.get_Nz_and_iz(
+        local=True, with_damp=True, with_guard=True, rank=sim.comm.rank )
+    iz_in_array = iz_local_domain - iz_local_array
     # - Then loop over modes and fields
     for m in range(sim.fld.Nm):
         for field in ['Er', 'Et', 'Ez', 'Br', 'Bt', 'Bz']:
@@ -477,7 +480,7 @@ def get_space_charge_fields( sim, ptcl, direction='forward') :
             local_array = sim.comm.scatter_grid_array( global_array )
             # Add it to the fields of sim.fld
             local_field = getattr( sim.fld.interp[m], field )
-            local_field[ iz_local:iz_local+Nz_local, : ] += local_array
+            local_field[ iz_in_arrayl:iz_in_array+Nz_local, : ] += local_array
 
     # For consistency and diagnostics, redeposit the charge and current
     # of the full simulation (since the last step erased these quantities)
