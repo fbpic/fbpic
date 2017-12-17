@@ -480,7 +480,7 @@ def get_space_charge_fields( sim, ptcl, direction='forward') :
             local_array = sim.comm.scatter_grid_array( global_array )
             # Add it to the fields of sim.fld
             local_field = getattr( sim.fld.interp[m], field )
-            local_field[ iz_in_arrayl:iz_in_array+Nz_local, : ] += local_array
+            local_field[ iz_in_array:iz_in_array+Nz_local, : ] += local_array
 
     # For consistency and diagnostics, redeposit the charge and current
     # of the full simulation (since the last step erased these quantities)

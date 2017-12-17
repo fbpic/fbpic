@@ -825,21 +825,16 @@ class BoundaryCommunicator(object):
         """
         # Calculate global edges of the simulation box on root process
         if self.rank == root:
-            n_remove = self.n_guard
-            if self.left_proc is None:
-                # Add damp cells if root process is rank 0
-                n_remove += self.n_damp
-            # Calculate the global zmin without the guard (and damp) region
-            zmin_global = grid.zmin + self.dz * \
-                    (n_remove - self.rank*self.Nz_domain)
+            Nz_global, iz_start_global = self.get_Nz_and_iz( 
+                local=False, with_guard=False, with_damp=False )
+            zmin_global, zmax_global = self.get_zmin( 
+                local=False, with_guard=False, with_damp=False )
             # Create new grid array that contains cell positions in z
-            Nz_global, iz_start_global = self.get_Nz_and_iz( local=False,
-                                            with_guard=False, with_damp=False )
             z = zmin_global + \
                 self.dz*( 0.5 + iz_start_global + np.arange(Nz_global) )
             # Initialize new InterpolationGrid object that
             # is used to gather the global grid data
-            gathered_grid = InterpolationGrid(z=z, r=grid.r, m=grid.m )
+            gathered_grid = InterpolationGrid(z=z, r=grid.r, m=grid.m)
         else:
             # Other processes do not need to initialize new InterpolationGrid
             gathered_grid = None
