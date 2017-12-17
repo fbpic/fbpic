@@ -232,17 +232,8 @@ class LaserAntenna( object ):
         # Check if baseline_z is in the local physical domain
         # (This prevents out-of-bounds errors, and prevents 2 neighboring
         # processors from simultaneously depositing the laser antenna)
-        zmin_local = fld.interp[0].zmin
-        zmax_local = fld.interp[0].zmax
-        # If a communicator is provided, remove the guard cells
-        if comm is not None:
-            dz = fld.interp[0].dz
-            zmin_local += dz*comm.n_guard
-            if comm.left_proc is None:
-                zmin_local += dz*comm.n_damp
-            zmax_local -= dz*comm.n_guard
-            if comm.right_proc is None:
-                zmax_local -= dz*comm.n_damp
+        zmin_local, zmax_local = sim.comm.get_zmin_zmax(
+            local=True, with_damp=False, with_guard=False, rank=sim.comm.rank )
         # Interrupt this function if the antenna is not in the local domain
         z_antenna = self.baseline_z[0]
         if (z_antenna < zmin_local) or (z_antenna >= zmax_local):

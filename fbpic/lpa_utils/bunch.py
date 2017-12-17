@@ -467,10 +467,8 @@ def get_space_charge_fields( sim, ptcl, direction='forward') :
     # Communicate the results from proc 0 to the other procs
     # and add it to the interpolation grid of sim.fld.
     # - First find the indices at which the fields should be added
-    i_min_local = sim.comm.n_guard
-    if sim.comm.left_proc is None:
-        i_min_local += sim.comm.n_damp
-    i_max_local = i_min_local + sim.comm.Nz_domain
+    Nz_local, iz_local = sim.comm.get_Nz_and_iz(
+        local=True, with_damp=False, with_guard=False, rank=sim.comm.rank )
     # - Then loop over modes and fields
     for m in range(sim.fld.Nm):
         for field in ['Er', 'Et', 'Ez', 'Br', 'Bt', 'Bz']:
