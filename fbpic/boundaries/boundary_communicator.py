@@ -827,7 +827,7 @@ class BoundaryCommunicator(object):
         if self.rank == root:
             Nz_global, iz_start_global = self.get_Nz_and_iz( 
                 local=False, with_guard=False, with_damp=False )
-            zmin_global, zmax_global = self.get_zmin( 
+            zmin_global, zmax_global = self.get_zmin_zmax( 
                 local=False, with_guard=False, with_damp=False )
             # Create new grid array that contains cell positions in z
             z = zmin_global + \
