@@ -825,9 +825,9 @@ class BoundaryCommunicator(object):
         """
         # Calculate global edges of the simulation box on root process
         if self.rank == root:
-            Nz_global, iz_start_global = self.get_Nz_and_iz( 
+            Nz_global, iz_start_global = self.get_Nz_and_iz(
                 local=False, with_guard=False, with_damp=False )
-            zmin_global, zmax_global = self.get_zmin_zmax( 
+            zmin_global, zmax_global = self.get_zmin_zmax(
                 local=False, with_guard=False, with_damp=False )
             # Create new grid array that contains cell positions in z
             z = zmin_global + \
@@ -882,9 +882,12 @@ class BoundaryCommunicator(object):
             gathered_array = None
 
         # Select the physical region of the local box
-        Nz_local, iz_start_local = self.get_Nz_and_iz(
+        Nz_local, iz_start_domain = self.get_Nz_and_iz(
             local=True, with_damp=False, with_guard=False, rank=self.rank )
-        local_array = array[ iz_start_local:iz_start_local+Nz_local , : ]
+        _, iz_start_array = self.get_Nz_and_iz(
+            local=True, with_damp=True, with_guard=True, rank=self.rank )
+        iz_in_array = iz_start_domain - iz_start_array
+        local_array = array[ iz_in_array:iz_in_array+Nz_local, : ]
 
         # Then send the arrays
         if self.size > 1:
@@ -922,7 +925,7 @@ class BoundaryCommunicator(object):
         Returns:
         ---------
         local_array: 2darray (local grid array)
-            A local array that contains the local simulation data
+            A local array that contains the data of the local physical domain
         """
         # Create empty array having the shape of the local domain
         Nz_local, iz_start_local = self.get_Nz_and_iz(
