@@ -81,11 +81,11 @@ def add_laser_direct( sim, laser_profile, fw_propagating, boost ):
     # Communicate the results from proc 0 to the other procs
     # and add it to the interpolation grid of sim.fld.
     # - First find the indices at which the fields should be added
-    Nz_local, iz_local_domain = sim.comm.get_Nz_and_iz(
+    Nz_local, iz_start_local_domain = sim.comm.get_Nz_and_iz(
         local=True, with_damp=False, with_guard=False, rank=sim.comm.rank )
-    _, iz_local_array = sim.comm.get_Nz_and_iz(
+    _, iz_start_local_array = sim.comm.get_Nz_and_iz(
         local=True, with_damp=True, with_guard=True, rank=sim.comm.rank )
-    iz_in_array = iz_local_domain - iz_local_array
+    iz_in_array = iz_start_local_domain - iz_start_local_array
     # - Then loop over modes and fields
     for m in range(sim.fld.Nm):
         for field in ['Er', 'Et', 'Ez', 'Br', 'Bt', 'Bz']:

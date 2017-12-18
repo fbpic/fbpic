@@ -939,11 +939,11 @@ class BoundaryCommunicator(object):
             gathered_array = None
 
         # Select the physical region of the local box
-        Nz_local, iz_start_domain = self.get_Nz_and_iz(
+        Nz_local, iz_start_local_domain = self.get_Nz_and_iz(
             local=True, with_damp=False, with_guard=False, rank=self.rank )
-        _, iz_start_array = self.get_Nz_and_iz(
+        _, iz_start_local_array = self.get_Nz_and_iz(
             local=True, with_damp=True, with_guard=True, rank=self.rank )
-        iz_in_array = iz_start_domain - iz_start_array
+        iz_in_array = iz_start_local_domain - iz_start_local_array
         local_array = array[ iz_in_array:iz_in_array+Nz_local, : ]
 
         # Then send the arrays
