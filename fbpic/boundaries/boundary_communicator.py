@@ -993,10 +993,11 @@ class BoundaryCommunicator(object):
             A local array that contains the data of domain (without guard
             cells, but with damp cells if `with_damp` is True)
         """
-        # Check that the input array has the right size
+        # Get the global starting index, and the size of `array`
         Nz_global, iz_start_global = self.get_Nz_and_iz(
             local=False, with_damp=with_damp, with_guard=False )
-        assert array.shape[0] == Nz_global
+        if array is not None:
+            assert array.shape[0] == Nz_global
 
         # Create empty array having the shape of the local domain
         Nz_local, iz_start_local = self.get_Nz_and_iz(
