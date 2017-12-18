@@ -478,11 +478,6 @@ def get_space_charge_fields( sim, ptcl, direction='forward') :
             local_field = getattr( sim.fld.interp[m], field )
             local_field[ i_min_local:i_max_local, : ] += local_array
 
-    # For consistency and diagnostics, redeposit the charge and current
-    # of the full simulation (since the last step erased these quantities)
-    sim.deposit('rho_prev')
-    sim.deposit('J', exchange=True)
-
     print("Done.\n")
 
 
