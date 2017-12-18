@@ -931,11 +931,11 @@ class BoundaryCommunicator(object):
         gathered_array: 2darray (global grid array)
             A gathered array that contains the global simulation data
         """
+        Nz_global, iz_start_global = self.get_Nz_and_iz(
+                    local=False, with_damp=with_damp, with_guard=False)
         if self.rank == root:
             # Root process creates empty numpy array of the shape
             # (Nz, Nr), that is used to gather the data
-            Nz_global, _ = self.get_Nz_and_iz(
-                            local=False, with_damp=False, with_guard=False)
             gathered_array = np.zeros((Nz_global, self.Nr), dtype=array.dtype)
         else:
             # Other processes do not need to initialize a new array
@@ -943,7 +943,7 @@ class BoundaryCommunicator(object):
 
         # Select the physical region of the local box
         Nz_local, iz_start_local_domain = self.get_Nz_and_iz(
-            local=True, with_damp=False, with_guard=False, rank=self.rank )
+            local=True, with_damp=with_damp, with_guard=False, rank=self.rank )
         _, iz_start_local_array = self.get_Nz_and_iz(
             local=True, with_damp=True, with_guard=True, rank=self.rank )
         iz_in_array = iz_start_local_domain - iz_start_local_array
@@ -952,10 +952,11 @@ class BoundaryCommunicator(object):
         # Then send the arrays
         if self.size > 1:
             # First get the size and MPI type of the 2D arrays in each procs
-            Nz_iz_list = [ self.get_Nz_and_iz( local=True, with_damp=False,
+            Nz_iz_list = [ self.get_Nz_and_iz( local=True, with_damp=with_damp,
                          with_guard=False, rank=k ) for k in range(self.size) ]
             N_procs = tuple( self.Nr*x[0] for x in Nz_iz_list )
-            istart_procs = tuple( self.Nr*x[1] for x in Nz_iz_list )
+            istart_procs = tuple(
+                self.Nr*(x[1] - iz_start_global) for x in Nz_iz_list )
             mpi_type = mpi_type_dict[ str(array.dtype) ]
             sendbuf = [ local_array, N_procs[self.rank] ]
             recvbuf = [ gathered_array, N_procs, istart_procs, mpi_type ]
@@ -977,34 +978,46 @@ class BoundaryCommunicator(object):
         Parameter:
         -----------
         array: 2darray (or None on processors different than root)
-            An array that has the size of the global physical domain
+            An array that has the size of the global domain (without guard
+            cells, but with damp cells if `with_damp` is True)
 
         root: int, optional
             Process that scatters the data
 
+        with_damp: bool, optional
+            Whether to include the damp cells in the scattered array.
+
         Returns:
         ---------
         local_array: 2darray (local grid array)
-            A local array that contains the data of the local physical domain
+            A local array that contains the data of domain (without guard
+            cells, but with damp cells if `with_damp` is True)
         """
+        # Check that the input array has the right size
+        Nz_global, iz_start_global = self.get_Nz_and_iz(
+            local=False, with_damp=with_damp, with_guard=False )
+        assert array.shape[0] == Nz_global
+
         # Create empty array having the shape of the local domain
         Nz_local, iz_start_local = self.get_Nz_and_iz(
-            local=True, with_damp=False, with_guard=False, rank=self.rank )
+            local=True, with_damp=with_damp, with_guard=False, rank=self.rank )
         scattered_array = np.zeros((Nz_local, self.Nr), dtype=np.complex)
 
         # Then send the arrays
         if self.size > 1:
             # First get the size and MPI type of the 2D arrays in each procs
-            Nz_iz_list = [ self.get_Nz_and_iz( local=True, with_damp=False,
+            Nz_iz_list = [ self.get_Nz_and_iz( local=True, with_damp=with_damp,
                          with_guard=False, rank=k ) for k in range(self.size) ]
             N_procs = tuple( self.Nr*x[0] for x in Nz_iz_list )
-            istart_procs = tuple( self.Nr*x[1] for x in Nz_iz_list )
+            istart_procs = tuple(
+                self.Nr*(x[1] - iz_start_global) for x in Nz_iz_list )
             mpi_type = mpi_type_dict[ str(scattered_array.dtype) ]
             recvbuf = [ scattered_array, N_procs[self.rank] ]
             sendbuf = [ array, N_procs, istart_procs, mpi_type ]
             self.mpi_comm.Scatterv( sendbuf, recvbuf, root=root )
         else:
-            scattered_array[:,:] = array[iz_start_local:iz_start_local+Nz_local]
+            iz_in_array = iz_start_local - iz_start_global
+            scattered_array[:,:] = array[iz_in_array:iz_in_array+Nz_local]
 
         # Return the scattered array
         return( scattered_array )
