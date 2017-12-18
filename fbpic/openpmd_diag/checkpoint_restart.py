@@ -132,6 +132,12 @@ def restart_from_checkpoint( sim, iteration=None ):
                 load_fields( sim.fld.interp[m], fieldtype,
                              coord, ts, iteration )
 
+    # Register that simulation has been restarted
+    sim.is_restarted = True
+    # Notify the user that the simulation is restarted from checkpoints
+    if comm.rank == 0:
+        print('Restarting simulation at iteration %d.' %sim.iteration)
+
 def check_restart( sim, iteration ):
     """Verify that the restart is valid."""
 
@@ -252,8 +258,7 @@ def load_species( species, name, ts, iteration, comm ):
     species.ux, species.uy, species.uz = ts.get_particle(
         ['ux', 'uy', 'uz' ], iteration=iteration, species=name )
     # Get the weight (multiply it by the charge to conform with FBPIC)
-    w, = ts.get_particle( ['w'], iteration=iteration, species=name )
-    species.w = species.q * w
+    species.w, = ts.get_particle( ['w'], iteration=iteration, species=name )
     # Get the inverse gamma
     species.inv_gamma = 1./np.sqrt(
         1 + species.ux**2 + species.uy**2 + species.uz**2 )
