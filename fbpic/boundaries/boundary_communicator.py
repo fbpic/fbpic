@@ -909,7 +909,7 @@ class BoundaryCommunicator(object):
         # Return the gathered grid
         return(gathered_grid)
 
-    def gather_grid_array(self, array, root=0):
+    def gather_grid_array(self, array, root=0, with_damp=False):
         """
         Gather a grid array on the root process by using the
         mpi4py routine Gatherv, that gathers arbitrary shape arrays
@@ -918,10 +918,13 @@ class BoundaryCommunicator(object):
         Parameter:
         -----------
         array: 2darray (grid array)
-            A grid array of the local domain
+            The local grid of the current MPI rank (with guard and damp cells.)
 
         root: int, optional
             Process that gathers the data
+
+        with_damp: bool, optional
+            Whether to include the damp cells in the gathered array.
 
         Returns:
         ---------
@@ -965,7 +968,7 @@ class BoundaryCommunicator(object):
             return(gathered_array)
 
 
-    def scatter_grid_array(self, array, root = 0):
+    def scatter_grid_array(self, array, root=0, with_damp=False):
         """
         Scatter an array that has the size of the global physical domain
         and is defined on the root process, into local arrays on each processes
