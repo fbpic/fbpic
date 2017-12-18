@@ -286,12 +286,38 @@ class BoundaryCommunicator(object):
 
     def get_Nz_and_iz( self, local, with_damp, with_guard, rank=None ):
         """
-        # TODO: start index is considered from the global physical box (always);
-        (which is represented by zmin_global_domain)
-        So for instance, the starting index can be negative
+        Return the number of cells in z (`Nz`), and the index of the first
+        cell in z (`iz`) for either the globa grid, or for the local grid
+        owned by the MPI rank `rank`.
+        The grid considered can include or exclude damp/guard cells.
 
-        # TODO: This function is fundamental to the way we do domain decomposition
+        The index of the first cell (`iz`) is *always* counted from
+        the first cell of the *global* *physical* domain.
+        Therefore, the returned `iz` may be negative in some cases
+        (e.g. for local=False, with_damp=True, with_guard=True)
+
+        Parameters:
+        -----------
+        local: bool
+            Whether to consider the global grid, or a local grid.
+            (In the latter case, `rank` must be provided.)
+        with_damp, with_guard: bool
+            Whether to include the damp cells and guard cells in
+            the considered grid.
+        rank: int
+            Required when `local` is True: the MPI rank that owns the
+            considered local grid.
+
+        Returns:
+        --------
+        Nz, iz: integers
+            Number of cells and index of starting cell, for the considered grid
         """
+        # Note: this function is the one that determines the way in which the
+        # domain is decomposed, in FBPIC. All the other routines that use
+        # domain decomposition eventually call this function.
+
+        # Check that the rank is provided whenever needed
         if local and (rank is None):
             raise ValueError(
                 'For a local number of cells, the rank considered is needed.')
@@ -306,7 +332,7 @@ class BoundaryCommunicator(object):
             # The last proc gets the extra cells
             if rank == self.size-1:
                 Nz += (self._Nz_global_domain)%(self.size)
-            # Add damp cells if requested
+            # Add damp cells if requested (only for first and last sub-domain)
             if with_damp:
                 if rank == 0:
                     Nz += self.n_damp
@@ -337,7 +363,31 @@ class BoundaryCommunicator(object):
 
     def get_zmin_zmax( self, local, with_damp, with_guard, rank=None ):
         """
-        # TODO
+        Return the positions in z of the edges of either the global grid,
+        or of the local grid owned by the MPI rank `rank`.
+        The grid considered can include or exclude damp/guard cells.
+
+        Parameters:
+        -----------
+        local: bool
+            Whether to consider the global grid, or a local grid.
+            (In the latter case, `rank` must be provided.)
+        with_damp, with_guard: bool
+            Whether to include the damp cells and guard cells in
+            the considered grid.
+        rank: int
+            Required when `local` is True: the MPI rank that owns the
+            considered local grid.
+
+        Returns:
+        --------
+        zmin, zmax: floats (in meters)
+            The positions of the edges of the considered grid.
+            Here *edges* means the left edge of the left-most cell, and
+            right edge of the right-most cell.
+            (Note that the actual gridpoints - on which the field is typically
+            calculated - are located in the middle of the cells, and
+            are thus not directly returned by this function.)
         """
         # Get the corresponding number of cells and the index of
         # the starting cell with respect to the edge of the global domain
@@ -349,9 +399,16 @@ class BoundaryCommunicator(object):
 
         return(zmin, zmax)
 
+
     def shift_global_domain_positions( self, z_shift ):
         """
-        # TODO
+        Shift the (internally-recorded) position of the global domain
+        by `z_shift`, in the positive z direction.
+
+        Parameters:
+        -----------
+        z_shift: float (in meters)
+            The length by which the global domain should be shifted.
         """
         self._zmin_global_domain += z_shift
 
