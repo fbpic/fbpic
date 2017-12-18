@@ -252,8 +252,7 @@ def load_species( species, name, ts, iteration, comm ):
     species.ux, species.uy, species.uz = ts.get_particle(
         ['ux', 'uy', 'uz' ], iteration=iteration, species=name )
     # Get the weight (multiply it by the charge to conform with FBPIC)
-    w, = ts.get_particle( ['w'], iteration=iteration, species=name )
-    species.w = species.q * w
+    species.w, = ts.get_particle( ['w'], iteration=iteration, species=name )
     # Get the inverse gamma
     species.inv_gamma = 1./np.sqrt(
         1 + species.ux**2 + species.uy**2 + species.uz**2 )
