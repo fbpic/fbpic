@@ -157,14 +157,14 @@ def add_elec_bunch_gaussian( sim, sig_r, sig_z, n_emit, gamma0, sig_gamma,
         Saves the generated beam distribution as an .npz file "string".npz
     """
     # Get Gaussian particle distribution in x,y,z
-    x = np.random.normal(0., sig_r, N)
-    y = np.random.normal(0., sig_r, N)
-    z = np.random.normal(zf, sig_z, N) # with offset in z
+    x = sig_r * np.random.normal(0., 1., N)
+    y = sig_r * np.random.normal(0., 1., N)
+    z = zf + sig_z * np.random.normal(0., 1., N) # with offset in z
     # Define sigma of ux and uy based on normalized emittance
     sig_ur = (n_emit/sig_r)
     # Get Gaussian distribution of transverse normalized momenta ux, uy
-    ux = np.random.normal(0., sig_ur, N)
-    uy = np.random.normal(0., sig_ur, N)
+    ux = sig_ur * np.random.normal(0., 1., N)
+    uy = sig_ur * np.random.normal(0., 1., N)
     # Now we imprint an energy spread on the gammas of each particle
     if sig_gamma > 0.:
         gamma = np.random.normal(gamma0, sig_gamma, N)
