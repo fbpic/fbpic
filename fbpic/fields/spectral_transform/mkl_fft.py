@@ -26,7 +26,7 @@ if sys.platform in ['linux', 'linux2']:
 elif sys.platform == 'darwin':
     mkl = ctypes.CDLL('libmkl_rt.dylib')
 elif sys.platform == 'win32':
-    mkl = ctypes.CDLL('libmkl_rt.dll')
+    mkl = ctypes.CDLL('mkl_rt.dll')
 else:
     raise ValueError('Unrecognized plateform: %s' %sys.platform)
 
