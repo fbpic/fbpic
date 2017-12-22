@@ -53,8 +53,10 @@ def add_laser_direct( sim, laser_profile, fw_propagating, boost ):
 
     # Create a global field object across all subdomains, and copy the fields
     # (Calculating the self-consistent Ez and B is a global operation)
-    global_Nz = sim.comm.Nz
-    global_zmin, global_zmax = sim.comm.get_zmin_zmax(sim.fld, local=False)
+    global_Nz, _ = sim.comm.get_Nz_and_iz(
+                    local=False, with_guard=False, with_damp=False )
+    global_zmin, global_zmax = sim.comm.get_zmin_zmax(
+                    local=False, with_guard=False, with_damp=False )
     global_fld = Fields( global_Nz, global_zmax,
             sim.fld.Nr, sim.fld.rmax, sim.fld.Nm, sim.fld.dt,
             zmin=global_zmin, n_order=sim.fld.n_order, use_cuda=False)
@@ -79,10 +81,11 @@ def add_laser_direct( sim, laser_profile, fw_propagating, boost ):
     # Communicate the results from proc 0 to the other procs
     # and add it to the interpolation grid of sim.fld.
     # - First find the indices at which the fields should be added
-    i_min_local = sim.comm.n_guard
-    if sim.comm.left_proc is None:
-        i_min_local += sim.comm.n_damp
-    i_max_local = i_min_local + sim.comm.Nz_domain
+    Nz_local, iz_start_local_domain = sim.comm.get_Nz_and_iz(
+        local=True, with_damp=False, with_guard=False, rank=sim.comm.rank )
+    _, iz_start_local_array = sim.comm.get_Nz_and_iz(
+        local=True, with_damp=True, with_guard=True, rank=sim.comm.rank )
+    iz_in_array = iz_start_local_domain - iz_start_local_array
     # - Then loop over modes and fields
     for m in range(sim.fld.Nm):
         for field in ['Er', 'Et', 'Ez', 'Br', 'Bt', 'Bz']:
@@ -91,7 +94,7 @@ def add_laser_direct( sim, laser_profile, fw_propagating, boost ):
             local_array = sim.comm.scatter_grid_array( global_array )
             # Add it to the fields of sim.fld
             local_field = getattr( sim.fld.interp[m], field )
-            local_field[ i_min_local:i_max_local, : ] += local_array
+            local_field[ iz_in_array:iz_in_array+Nz_local, : ] += local_array
 
     print("Done.\n")
 

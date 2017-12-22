@@ -96,8 +96,10 @@ class FieldDiagnostic(OpenPMDDiagnostic):
             zmin = self.fld.interp[0].zmin
             Nz = self.fld.interp[0].Nz
         else:
-            zmin, _ = self.comm.get_zmin_zmax( self.fld, local=False )
-            Nz = self.comm.Nz
+            zmin, _ = self.comm.get_zmin_zmax(
+                    local=False, with_damp=False, with_guard=False )
+            Nz, _ = self.comm.get_Nz_and_iz(
+                    local=False, with_damp=False, with_guard=False )
 
         # Create the file with these attributes
         filename = "data%08d.h5" %iteration

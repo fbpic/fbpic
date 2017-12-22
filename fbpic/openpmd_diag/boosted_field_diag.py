@@ -151,8 +151,8 @@ class BoostedFieldDiagnostic(FieldDiagnostic):
             zmax_boost = self.fld.interp[0].zmax
         else:
             # If a communicator is provided, remove guard and damp cells
-            zmin_boost, zmax_boost = \
-                self.comm.get_zmin_zmax(self.fld, local=True)
+            zmin_boost, zmax_boost = self.comm.get_zmin_zmax(
+                local=True, with_damp=False, with_guard=False, rank=self.rank )
 
         # Extract the current time in the boosted frame
         time = iteration * self.fld.dt
