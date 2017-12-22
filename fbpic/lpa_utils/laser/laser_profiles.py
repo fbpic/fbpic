@@ -9,7 +9,88 @@ import numpy as np
 from scipy.constants import c, m_e, e
 from scipy.special import factorial, genlaguerre
 
-class GaussianLaser( object ):
+# Generic classes
+# ---------------
+
+class LaserProfile( object ):
+    """
+    Base class for all laser profiles.
+
+    Any new laser profile should inherit from this class, and define its own
+    `E_field` method, using the same signature as the method below.
+
+    Profiles that inherit from this base class can be summed,
+    using the overloaded + operator.
+    """
+
+    def E_field( self, x, y, z, t ):
+        """
+        Return the electric field of the laser
+
+        Parameters:
+        -----------
+        x, y, z: ndarrays (meters)
+            The positions at which to calculate the profile (in the lab frame)
+        t: ndarray or float (seconds)
+            The time at which to calculate the profile (in the lab frame)
+
+        Returns:
+        --------
+        Ex, Ey: ndarrays (V/m)
+            Arrays of the same shape as x, y, z, containing the fields
+        """
+        # The base class only defines dummy fields
+        # (This should be replaced by any class that inherits from this one.)
+        return( np.zeros_like(x), np.zeros_like(x) )
+
+    def __add__( self, other ):
+        """
+        Overload the + operations for laser profiles
+        """
+        return( SummedLaserProfile( self, other ) )
+
+
+class SummedLaserProfile( LaserProfile ):
+    """
+    Class that represents the sum of two instances of LaserProfile
+    """
+    def __init__( self, profile1, profile2 ):
+        """
+        Initialize the sum of two instances of LaserProfile
+
+        Parameters:
+        -----------
+        profile1, profile2: instances of LaserProfile
+        """
+        # Register the profiles from which the sum should be calculated
+        self.profile1 = profile1
+        self.profile2 = profile2
+
+    def E_field( self, x, y, z, t ):
+        """
+        Return the electric field of the laser
+
+        Parameters:
+        -----------
+        x, y, z: ndarrays (meters)
+            The positions at which to calculate the profile (in the lab frame)
+        t: ndarray or float (seconds)
+            The time at which to calculate the profile (in the lab frame)
+
+        Returns:
+        --------
+        Ex, Ey: ndarrays (V/m)
+            Arrays of the same shape as x, y, z, containing the fields
+        """
+        Ex1, Ey1 = self.profile1.E_field( x, y, z, t )
+        Ex2, Ey2 = self.profile2.E_field( x, y, z, t )
+        return( Ex1+Ex2, Ey1+Ey2 )
+
+
+# Particular classes for each laser profile
+# -----------------------------------------
+
+class GaussianLaser( LaserProfile ):
     """Class that calculates a Gaussian laser pulse."""
 
     def __init__( self, a0, waist, tau, z0, zf=None, theta_pol=0.,
@@ -90,13 +171,13 @@ class GaussianLaser( object ):
         -----------
         x, y, z: ndarrays (meters)
             The positions at which to calculate the profile (in the lab frame)
-
         t: ndarray or float (seconds)
             The time at which to calculate the profile (in the lab frame)
 
         Returns:
         --------
-        Ex, Ey: ndarrays of the same shape as x, y, z
+        Ex, Ey: ndarrays (V/m)
+            Arrays of the same shape as x, y, z, containing the fields
         """
         # Note: this formula is expressed with complex numbers for compactness
         # and simplicity, but only the real part is used in the end
@@ -125,7 +206,7 @@ class GaussianLaser( object ):
         return( Ex.real, Ey.real )
 
 
-class LaguerreGaussLaser( object ):
+class LaguerreGaussLaser( LaserProfile ):
     """Class that calculates a Laguerre-Gauss pulse."""
 
     def __init__( self, p, m, a0, waist, tau, z0, zf=None, theta_pol=0.,
@@ -227,13 +308,13 @@ class LaguerreGaussLaser( object ):
         -----------
         x, y, z: ndarrays (meters)
             The positions at which to calculate the profile (in the lab frame)
-
         t: ndarray or float (seconds)
             The time at which to calculate the profile (in the lab frame)
 
         Returns:
         --------
-        Ex, Ey: ndarrays of the same shape as x, y, z
+        Ex, Ey: ndarrays (V/m)
+            Arrays of the same shape as x, y, z, containing the fields
         """
         # Diffraction factor, waist and Gouy phase
         diffract_factor = 1. - 1j * ( z - self.zf ) * self.inv_zr

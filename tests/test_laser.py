@@ -250,7 +250,7 @@ def propagate_pulse( Nz, Nr, Nm, zmin, zmax, Lr, L_prop, zf, dt,
         # Plot the fields during the simulation
         if show==True and it%N_show == 0 :
             plt.clf()
-            sim.fld.interp[m].show('Et')
+            sim.fld.interp[m].show('Er')
             plt.show()
         # Advance the Maxwell equations
         sim.step( N_step, show_progress=False )
@@ -258,12 +258,8 @@ def propagate_pulse( Nz, Nr, Nm, zmin, zmax, Lr, L_prop, zf, dt,
     # Get the analytical solution
     z_prop = c*dt*N_step*np.arange(N_diag)
     ZR = 0.5*k0*w0**2
-    if m in [1, 2]:
-        w_analytic = w0*np.sqrt( 1 + (z_prop-zf)**2/ZR**2 )
-        E_analytic = E0/( 1 + (z_prop-zf)**2/ZR**2 )**(1./2)
-    else : # zf is not implemented for the other modes
-        w_analytic = w0*np.sqrt( 1 + z_prop**2/ZR**2 )
-        E_analytic = E0/( 1 + z_prop**2/ZR**2 )**(1./2)
+    w_analytic = w0*np.sqrt( 1 + (z_prop-zf)**2/ZR**2 )
+    E_analytic = E0/( 1 + (z_prop-zf)**2/ZR**2 )**(1./2)
 
     # Either plot the results and check them manually
     if show is True:
@@ -287,6 +283,7 @@ def propagate_pulse( Nz, Nr, Nm, zmin, zmax, Lr, L_prop, zf, dt,
     # of w and E are close
     else:
         assert np.allclose( w, w_analytic, rtol=rtol )
+        assert np.allclose( E, E_analytic, rtol=5.e-3 )
         print('The simulation results agree with the theory to %e.' %rtol)
 
     # Return a dictionary of the results
@@ -328,23 +325,21 @@ def init_fields( sim, w, ctau, k0, z0, zf, E0, m=1 ) :
     a0 = E0*e/(m_e*c**2*k0)
     tau = ctau/c
     lambda0 = 2*np.pi/k0
+    # Create the relevant laser profile
     if m == 0:
-        fld = sim.fld
-        z = fld.interp[m].z
-        r = fld.interp[m].r
-        profile = annular_pulse( z, r, w, ctau, k0, z0, E0 )
-        if m == 0:
-            # Annular pulse, radially polarized
-            fld.interp[m].Et[:,:] = profile
-            fld.interp[m].Br[:,:] = -1./c*profile
+        # Build a radially-polarized pulse from 2 Laguerre-Gauss profiles
+        profile = LaguerreGaussLaser( 0, 1, 0.5*a0, w, tau, z0, zf=zf,
+                    lambda0=lambda0, theta_pol=0., theta0=0. ) \
+                + LaguerreGaussLaser( 0, 1, 0.5*a0, w, tau, z0, zf=zf,
+                    lambda0=lambda0, theta_pol=np.pi/2, theta0=np.pi/2 )
     elif m == 1:
         profile = GaussianLaser( a0=a0, waist=w, tau=tau,
                     lambda0=lambda0, z0=z0, zf=zf )
-        add_laser_pulse( sim, profile )
     elif m == 2:
-        profile = LaguerreGaussLaser( a0=a0, waist=w, tau=tau,
-                    lambda0=lambda0, z0=z0, zf=zf, p=0, m=1 )
-        add_laser_pulse( sim, profile )
+        profile = LaguerreGaussLaser( 0, 1, a0=a0, waist=w, tau=tau,
+                    lambda0=lambda0, z0=z0, zf=zf )
+    # Add the profiles to the simulation
+    add_laser_pulse( sim, profile )
 
 def gaussian_transverse_profile( r, w, E ) :
     """
@@ -441,7 +436,7 @@ def fit_fields( fld, m ) :
     """
     # Integrate the laser oscillations longitudinally
     dz = fld.interp[0].dz
-    laser_profile = np.sqrt( dz*(abs( fld.interp[m].Et )**2).sum(axis=0) )
+    laser_profile = np.sqrt( dz*(abs( fld.interp[m].Er )**2).sum(axis=0) )
     # Renormalize so that this gives the peak of the Gaussian
     laser_profile *= 2.**(3./4)/( np.pi**(1./4) * ctau**(1./2) )
 
