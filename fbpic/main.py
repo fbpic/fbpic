@@ -359,18 +359,6 @@ class Simulation(object):
                 progress_bar.time( i_step )
                 progress_bar.print_progress()
 
-            # Diagnostics
-            # -----------
-
-            # Run the diagnostics
-            # (E, B, rho, x are defined at time n; J, p at time n-1/2)
-            for diag in self.diags:
-                # Check if the diagnostic should be written at this iteration
-                # and write it, if it is the case.
-                # (If needed: bring rho/J from spectral space, where they
-                # were smoothed/corrected, and copy the data from the GPU.)
-                diag.write( self.iteration )
-
             # Particle exchanges to prepare for this iteration
             # ------------------------------------------------
 
@@ -396,6 +384,23 @@ class Simulation(object):
                 # otherwise rho_prev is obtained from the previous iteration.
                 # Note that the guard cells of rho are never exchanged.)
                 self.deposit('rho_prev', exchange=False)
+
+            # For the field diagnostics of the first step: deposit J
+            # (Note however that this is not the *corrected* current)
+            if i_step == 0:
+                self.deposit('J', exchange=True)
+
+            # Diagnostics
+            # -----------
+
+            # Run the diagnostics
+            # (E, B, rho, x are defined at time n; J, p at time n-1/2)
+            for diag in self.diags:
+                # Check if the diagnostic should be written at this iteration
+                # and write it, if it is the case.
+                # (If needed: bring rho/J from spectral space, where they
+                # were smoothed/corrected, and copy the data from the GPU.)
+                diag.write( self.iteration )
 
             # Main PIC iteration
             # ------------------
