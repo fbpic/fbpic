@@ -17,9 +17,9 @@ from scipy.constants import c
 from .field_diag import FieldDiagnostic
 
 # Check if CUDA is available, then import CUDA functions
-from fbpic.cuda_utils import cuda_installed
+from fbpic.utils.cuda import cuda_installed
 if cuda_installed:
-    from fbpic.cuda_utils import cuda, cuda_tpb_bpg_1d
+    from fbpic.utils.cuda import cuda, cuda_tpb_bpg_1d
 
 class BoostedFieldDiagnostic(FieldDiagnostic):
     """

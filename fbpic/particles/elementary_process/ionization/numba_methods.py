@@ -9,7 +9,7 @@ Apart from synthactic, this file is very close to cuda_methods.py
 """
 import numba
 from scipy.constants import c
-from fbpic.threading_utils import njit_parallel, prange
+from fbpic.utils.threading import njit_parallel, prange
 # Import inline functions
 from .inline_functions import get_ionization_probability, \
     get_E_amplitude, copy_ionized_electrons_batch

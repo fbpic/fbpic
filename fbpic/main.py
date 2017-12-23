@@ -9,20 +9,20 @@ This file steers and controls the simulation.
 # When cuda is available, select one GPU per mpi process
 # (This needs to be done before the other imports,
 # as it sets the cuda context)
-from fbpic.mpi_utils import MPI
+from fbpic.utils.mpi import MPI
 # Check if threading is available
-from .threading_utils import threading_enabled
+from .utils.threading import threading_enabled
 # Check if CUDA is available, then import CUDA functions
-from .cuda_utils import cuda_installed
+from .utils.cuda import cuda_installed
 if cuda_installed:
-    from .cuda_utils import send_data_to_gpu, \
+    from .utils.cuda import send_data_to_gpu, \
                 receive_data_from_gpu, mpi_select_gpus
     mpi_select_gpus( MPI )
 
 # Import the rest of the requirements
 import numba
 from scipy.constants import m_e, m_p, e, c
-from .print_utils import ProgressBar, print_simulation_setup
+from .utils.printing import ProgressBar, print_simulation_setup
 from .particles import Particles
 from .lpa_utils.boosted_frame import BoostConverter
 from .fields import Fields
