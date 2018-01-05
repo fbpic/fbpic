@@ -9,20 +9,20 @@ This file steers and controls the simulation.
 # When cuda is available, select one GPU per mpi process
 # (This needs to be done before the other imports,
 # as it sets the cuda context)
-from fbpic.mpi_utils import MPI
+from fbpic.utils.mpi import MPI
 # Check if threading is available
-from .threading_utils import threading_enabled
+from .utils.threading import threading_enabled
 # Check if CUDA is available, then import CUDA functions
-from .cuda_utils import cuda_installed
+from .utils.cuda import cuda_installed
 if cuda_installed:
-    from .cuda_utils import send_data_to_gpu, \
+    from .utils.cuda import send_data_to_gpu, \
                 receive_data_from_gpu, mpi_select_gpus
     mpi_select_gpus( MPI )
 
 # Import the rest of the requirements
 import numba
 from scipy.constants import m_e, m_p, e, c
-from .print_utils import ProgressBar, print_simulation_setup
+from .utils.printing import ProgressBar, print_simulation_setup
 from .particles import Particles
 from .lpa_utils.boosted_frame import BoostConverter
 from .fields import Fields
@@ -233,7 +233,7 @@ class Simulation(object):
             use_all_mpi_ranks )
         # Modify domain region
         zmin, zmax, p_zmin, p_zmax, Nz = \
-              self.comm.divide_into_domain(zmin, zmax, p_zmin, p_zmax)
+              self.comm.divide_into_domain( p_zmin, p_zmax )
 
         # Initialize the field structure
         self.fld = Fields( Nz, zmax, Nr, rmax, Nm, dt,
@@ -359,18 +359,6 @@ class Simulation(object):
                 progress_bar.time( i_step )
                 progress_bar.print_progress()
 
-            # Diagnostics
-            # -----------
-
-            # Run the diagnostics
-            # (E, B, rho, x are defined at time n; J, p at time n-1/2)
-            for diag in self.diags:
-                # Check if the diagnostic should be written at this iteration
-                # and write it, if it is the case.
-                # (If needed: bring rho/J from spectral space, where they
-                # were smoothed/corrected, and copy the data from the GPU.)
-                diag.write( self.iteration )
-
             # Particle exchanges to prepare for this iteration
             # ------------------------------------------------
 
@@ -396,6 +384,23 @@ class Simulation(object):
                 # otherwise rho_prev is obtained from the previous iteration.
                 # Note that the guard cells of rho are never exchanged.)
                 self.deposit('rho_prev', exchange=False)
+
+            # For the field diagnostics of the first step: deposit J
+            # (Note however that this is not the *corrected* current)
+            if i_step == 0:
+                self.deposit('J', exchange=True)
+
+            # Diagnostics
+            # -----------
+
+            # Run the diagnostics
+            # (E, B, rho, x are defined at time n; J, p at time n-1/2)
+            for diag in self.diags:
+                # Check if the diagnostic should be written at this iteration
+                # and write it, if it is the case.
+                # (If needed: bring rho/J from spectral space, where they
+                # were smoothed/corrected, and copy the data from the GPU.)
+                diag.write( self.iteration )
 
             # Main PIC iteration
             # ------------------
@@ -585,6 +590,8 @@ class Simulation(object):
         """
         # Calculate shift distance over a half timestep
         shift_distance = self.v_comoving * 0.5 * self.dt
+        # Shift the boundaries of the global domain
+        self.comm.shift_global_domain_positions( shift_distance )
         # Shift the boundaries of the grid
         for m in range(self.fld.Nm):
             self.fld.interp[m].zmin += shift_distance

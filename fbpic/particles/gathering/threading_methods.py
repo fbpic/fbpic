@@ -6,10 +6,17 @@ This file is part of the Fourier-Bessel Particle-In-Cell code (FB-PIC)
 It defines the field gathering methods linear and cubic order shapes
 on the CPU with threading.
 """
+import numba
 from numba import int64
-from fbpic.threading_utils import njit_parallel, prange
+from fbpic.utils.threading import njit_parallel, prange
 import math
 import numpy as np
+# Import inline functions
+from .inline_functions import \
+    add_linear_gather_for_mode, add_cubic_gather_for_mode
+# Compile the inline functions for CPU
+add_linear_gather_for_mode = numba.njit( add_linear_gather_for_mode )
+add_cubic_gather_for_mode = numba.njit( add_cubic_gather_for_mode )
 
 # -----------------------
 # Field gathering linear
@@ -81,7 +88,7 @@ def gather_field_numba_linear(x, y, z,
             sin = 0.
 
         # Get linear weights for the deposition
-        # --------------------------------------------
+        # -------------------------------------
         # Positions of the particles, in the cell unit
         r_cell =  invdr*(rj - rmin) - 0.5
         z_cell =  invdz*(zj - zmin) - 0.5
@@ -99,7 +106,7 @@ def gather_field_numba_linear(x, y, z,
         Sr_guard = 0.
 
         # Treat the boundary conditions
-        # --------------------------------------------
+        # -----------------------------
         # guard cells in lower r
         if ir_lower < 0:
             Sr_guard = Sr_lower
@@ -131,64 +138,18 @@ def gather_field_numba_linear(x, y, z,
         S_ug = Sz_upper*Sr_guard
 
         # E-Field
-        # ----------------------------
-        # Define the initial placeholders for the
-        # gathered field for each coordinate
+        # -------
         Fr = 0.
         Ft = 0.
         Fz = 0.
-        # Calculate azimuthal phase (gets updated in the loop over modes)
-        exp_m_theta = 1.
-
-        # Loop over modes
-        # ---------------
+        # Loop over the modes
         for m in range(Nm):
-            # Update exp_m_theta
-            if m > 0:
-                exp_m_theta = exp_m_theta * (cos - 1.j*sin)
-            # Create temporary variables
-            # for the "per mode" gathering
-            Fr_m = 0.j
-            Ft_m = 0.j
-            Fz_m = 0.j
-            # Add the fields for mode m
-            # Lower cell in z, Lower cell in r
-            Fr_m += S_ll * Er_m[m][ iz_lower, ir_lower ]
-            Ft_m += S_ll * Et_m[m][ iz_lower, ir_lower ]
-            Fz_m += S_ll * Ez_m[m][ iz_lower, ir_lower ]
-            # Lower cell in z, Upper cell in r
-            Fr_m += S_lu * Er_m[m][ iz_lower, ir_upper ]
-            Ft_m += S_lu * Et_m[m][ iz_lower, ir_upper ]
-            Fz_m += S_lu * Ez_m[m][ iz_lower, ir_upper ]
-            # Upper cell in z, Lower cell in r
-            Fr_m += S_ul * Er_m[m][ iz_upper, ir_lower ]
-            Ft_m += S_ul * Et_m[m][ iz_upper, ir_lower ]
-            Fz_m += S_ul * Ez_m[m][ iz_upper, ir_lower ]
-            # Upper cell in z, Upper cell in r
-            Fr_m += S_uu * Er_m[m][ iz_upper, ir_upper ]
-            Ft_m += S_uu * Et_m[m][ iz_upper, ir_upper ]
-            Fz_m += S_uu * Ez_m[m][ iz_upper, ir_upper ]
-            # Add the fields from the guard cells
-            if ir_lower == ir_upper == 0:
-                # Lower cell in z
-                Fr_m += -(-1.)**m * S_lg * Er_m[m][ iz_lower, 0]
-                Ft_m += -(-1.)**m * S_lg * Et_m[m][ iz_lower, 0]
-                Fz_m +=  (-1.)**m * S_lg * Ez_m[m][ iz_lower, 0]
-                # Upper cell in z
-                Fr_m += -(-1.)**m * S_ug * Er_m[m][ iz_upper, 0]
-                Ft_m += -(-1.)**m * S_ug * Et_m[m][ iz_upper, 0]
-                Fz_m +=  (-1.)**m * S_ug * Ez_m[m][ iz_upper, 0]
-
-            # Add the fields from the mode m
-            # Take into account normalization of modes m>0
-            if m==0:
-                factor = 1.
-            else:
-                factor = 2.
-            Fr += factor * (Fr_m*exp_m_theta).real
-            Ft += factor * (Ft_m*exp_m_theta).real
-            Fz += factor * (Fz_m*exp_m_theta).real
-
+            exptheta_m = (cos - 1.j*sin)**m
+            # Add contribution from mode m
+            Fr, Ft, Fz = add_linear_gather_for_mode( 0,
+                Fr, Ft, Fz, exptheta_m, Er_m[m], Et_m[m], Ez_m[m],
+                iz_lower, iz_upper, ir_lower, ir_upper,
+                S_ll, S_lu, S_lg, S_ul, S_uu, S_ug )
         # Convert to Cartesian coordinates
         # and write to particle field arrays
         Ex[i] = cos*Fr - sin*Ft
@@ -196,64 +157,18 @@ def gather_field_numba_linear(x, y, z,
         Ez[i] = Fz
 
         # B-Field
-        # ----------------------------
-        # Define the initial placeholders for the
-        # gathered field for each coordinate
+        # -------
         Fr = 0.
         Ft = 0.
         Fz = 0.
-        # Calculate azimuthal phase (gets updated in the loop over modes)
-        exp_m_theta = 1.
-
-        # Loop over modes
-        # ---------------
+        # Loop over the modes
         for m in range(Nm):
-            # Update exp_m_theta
-            if m > 0:
-                exp_m_theta = exp_m_theta * (cos - 1.j*sin)
-            # Create temporary variables
-            # for the "per mode" gathering
-            Fr_m = 0.j
-            Ft_m = 0.j
-            Fz_m = 0.j
-            # Add the fields for mode m
-            # Lower cell in z, Lower cell in r
-            Fr_m += S_ll * Br_m[m][ iz_lower, ir_lower ]
-            Ft_m += S_ll * Bt_m[m][ iz_lower, ir_lower ]
-            Fz_m += S_ll * Bz_m[m][ iz_lower, ir_lower ]
-            # Lower cell in z, Upper cell in r
-            Fr_m += S_lu * Br_m[m][ iz_lower, ir_upper ]
-            Ft_m += S_lu * Bt_m[m][ iz_lower, ir_upper ]
-            Fz_m += S_lu * Bz_m[m][ iz_lower, ir_upper ]
-            # Upper cell in z, Lower cell in r
-            Fr_m += S_ul * Br_m[m][ iz_upper, ir_lower ]
-            Ft_m += S_ul * Bt_m[m][ iz_upper, ir_lower ]
-            Fz_m += S_ul * Bz_m[m][ iz_upper, ir_lower ]
-            # Upper cell in z, Upper cell in r
-            Fr_m += S_uu * Br_m[m][ iz_upper, ir_upper ]
-            Ft_m += S_uu * Bt_m[m][ iz_upper, ir_upper ]
-            Fz_m += S_uu * Bz_m[m][ iz_upper, ir_upper ]
-            # Add the fields from the guard cells
-            if ir_lower == ir_upper == 0:
-                # Lower cell in z
-                Fr_m += -(-1.)**m * S_lg * Br_m[m][ iz_lower, 0]
-                Ft_m += -(-1.)**m * S_lg * Bt_m[m][ iz_lower, 0]
-                Fz_m +=  (-1.)**m * S_lg * Bz_m[m][ iz_lower, 0]
-                # Upper cell in z
-                Fr_m += -(-1.)**m * S_ug * Br_m[m][ iz_upper, 0]
-                Ft_m += -(-1.)**m * S_ug * Bt_m[m][ iz_upper, 0]
-                Fz_m +=  (-1.)**m * S_ug * Bz_m[m][ iz_upper, 0]
-
-            # Add the fields from the mode m
-            # Take into account normalization of modes m>0
-            if m==0:
-                factor = 1.
-            else:
-                factor = 2.
-            Fr += factor * (Fr_m*exp_m_theta).real
-            Ft += factor * (Ft_m*exp_m_theta).real
-            Fz += factor * (Fz_m*exp_m_theta).real
-
+            exptheta_m = (cos - 1.j*sin)**m
+            # Add contribution from mode m
+            Fr, Ft, Fz = add_linear_gather_for_mode( 0,
+                Fr, Ft, Fz, exptheta_m, Br_m[m], Bt_m[m], Bz_m[m],
+                iz_lower, iz_upper, ir_lower, ir_upper,
+                S_ll, S_lu, S_lg, S_ul, S_uu, S_ug )
         # Convert to Cartesian coordinates
         # and write to particle field arrays
         Bx[i] = cos*Fr - sin*Ft
@@ -325,12 +240,8 @@ def gather_field_numba_cubic(x, y, z,
 
         # Create private arrays for each thread
         # to store the particle index and shape
-        ir = np.empty( 4, dtype=int64)
         Sr = np.empty( 4 )
-        iz = np.empty( 4, dtype=int64)
         Sz = np.empty( 4 )
-        # Store phase of azimuthal mode
-        exp_theta = np.empty( Nm, dtype=np.complex128 )
 
         # Loop over all particles in thread chunk
         for i in range( ptcl_chunk_indices[nt],
@@ -352,10 +263,6 @@ def gather_field_numba_cubic(x, y, z,
             else:
                 cos = 1.
                 sin = 0.
-            # Calculate azimuthal phase
-            exp_theta[0] = 1.
-            for m in range(1,Nm):
-                exp_theta[m] = (cos - 1.j*sin)*exp_theta[m-1]
 
             # Get weights for the deposition
             # --------------------------------------------
@@ -364,146 +271,55 @@ def gather_field_numba_cubic(x, y, z,
             z_cell = invdz*(zj - zmin) - 0.5
 
             # Calculate the shape factors
-            ir[0] = int64(math.floor(r_cell)) - 1
-            ir[1] = ir[0] + 1
-            ir[2] = ir[1] + 1
-            ir[3] = ir[2] + 1
-            Sr[0] = -1./6. * ((r_cell-ir[0])-2)**3
-            Sr[1] = 1./6. * (3*((r_cell-ir[1])**3)-6*((r_cell-ir[1])**2)+4)
-            Sr[2] = 1./6. * (3*((ir[2]-r_cell)**3)-6*((ir[2]-r_cell)**2)+4)
-            Sr[3] = -1./6. * ((ir[3]-r_cell)-2)**3
-            iz[0] = int64(math.floor(z_cell)) - 1
-            iz[1] = iz[0] + 1
-            iz[2] = iz[1] + 1
-            iz[3] = iz[2] + 1
-            Sz[0] = -1./6. * ((z_cell-iz[0])-2)**3
-            Sz[1] = 1./6. * (3*((z_cell-iz[1])**3)-6*((z_cell-iz[1])**2)+4)
-            Sz[2] = 1./6. * (3*((iz[2]-z_cell)**3)-6*((iz[2]-z_cell)**2)+4)
-            Sz[3] = -1./6. * ((iz[3]-z_cell)-2)**3
-            # Lower and upper periodic boundary for z
-            index_z = 0
-            while index_z < 4:
-                if iz[index_z] < 0:
-                    iz[index_z] += Nz
-                if iz[index_z] > Nz - 1:
-                    iz[index_z] -= Nz
-                index_z += 1
-            # Lower and upper boundary for r
-            index_r = 0
-            while index_r < 4:
-                if ir[index_r] < 0:
-                    ir[index_r] = abs(ir[index_r])-1
-                    Sr[index_r] = (-1.)*Sr[index_r]
-                if ir[index_r] > Nr - 1:
-                    ir[index_r] = Nr - 1
-                index_r += 1
+            ir_lowest = int64(math.floor(r_cell)) - 1
+            r_local = r_cell-ir_lowest
+            Sr[0] = -1./6. * (r_local-2.)**3
+            Sr[1] = 1./6. * (3.*(r_local-1.)**3 - 6.*(r_local-1.)**2 + 4.)
+            Sr[2] = 1./6. * (3.*(2.-r_local)**3 - 6.*(2.-r_local)**2 + 4.)
+            Sr[3] = -1./6. * (1.-r_local)**3
+            iz_lowest = int64(math.floor(z_cell)) - 1
+            z_local = z_cell-iz_lowest
+            Sz[0] = -1./6. * (z_local-2.)**3
+            Sz[1] = 1./6. * (3.*(z_local-1.)**3 - 6.*(z_local-1.)**2 + 4.)
+            Sz[2] = 1./6. * (3.*(2.-z_local)**3 - 6.*(2.-z_local)**2 + 4.)
+            Sz[3] = -1./6. * (1.-z_local)**3
 
             # E-Field
-            # ----------------------------
-            # Define the initial placeholders for the
-            # gathered field for each coordinate
+            # -------
             Fr = 0.
             Ft = 0.
             Fz = 0.
-            # Define
-            # Loop over the azimuthal modes
-            # ----------------------------
+            # Loop over the modes
             for m in range(Nm):
-
-                # Create temporary variables
-                # for the "per mode" gathering
-                Fr_m = 0.j
-                Ft_m = 0.j
-                Fz_m = 0.j
-                # Add the fields for mode 0
-                index_r = 0
-                while index_r < 4:
-                    index_z = 0
-                    while index_z < 4:
-                        if Sz[index_z]*Sr[index_r] < 0:
-                            Fr_m += (-1.)**m * Sz[index_z]*Sr[index_r] * \
-                                Er_m[m][ iz[index_z], ir[index_r]]
-                            Ft_m += (-1.)**m * Sz[index_z]*Sr[index_r] * \
-                                Et_m[m][ iz[index_z], ir[index_r]]
-                            Fz_m += -(-1.)**m * Sz[index_z]*Sr[index_r]* \
-                                Ez_m[m][ iz[index_z], ir[index_r]]
-                        else:
-                            Fr_m += Sz[index_z]*Sr[index_r] * \
-                                Er_m[m][ iz[index_z], ir[index_r]]
-                            Ft_m += Sz[index_z]*Sr[index_r] * \
-                                Et_m[m][ iz[index_z], ir[index_r]]
-                            Fz_m += Sz[index_z]*Sr[index_r]* \
-                                Ez_m[m][ iz[index_z], ir[index_r]]
-                        index_z += 1
-                    index_r += 1
-
-                # Take into account normalization of modes m>0
-                if m==0:
-                    factor = 1.
-                else:
-                    factor = 2.
-                Fr += factor * (Fr_m*exp_theta[m]).real
-                Ft += factor * (Ft_m*exp_theta[m]).real
-                Fz += factor * (Fz_m*exp_theta[m]).real
-
+                exptheta_m = (cos - 1.j*sin)**m
+                # Add contribution from mode m
+                Fr, Ft, Fz = add_cubic_gather_for_mode( 0,
+                    Fr, Ft, Fz, exptheta_m, Er_m[m], Et_m[m], Ez_m[m],
+                    iz_lower, iz_upper, ir_lower, ir_upper,
+                    S_ll, S_lu, S_lg, S_ul, S_uu, S_ug )
             # Convert to Cartesian coordinates
             # and write to particle field arrays
-            Ex[i] = (cos*Fr - sin*Ft)
-            Ey[i] = (sin*Fr + cos*Ft)
+            Ex[i] = cos*Fr - sin*Ft
+            Ey[i] = sin*Fr + cos*Ft
             Ez[i] = Fz
 
             # B-Field
-            # ----------------------------
-            # Define the initial placeholders for the
-            # gathered field for each coordinate
+            # -------
             Fr = 0.
             Ft = 0.
             Fz = 0.
-            # Loop over the azimuthal modes
-            # ----------------------------
+            # Loop over the modes
             for m in range(Nm):
-
-                # Create temporary variables
-                # for the "per mode" gathering
-                Fr_m = 0.j
-                Ft_m = 0.j
-                Fz_m = 0.j
-                # Add the fields for mode 0
-                index_r = 0
-                while index_r < 4:
-                    index_z = 0
-                    while index_z < 4:
-                        if Sz[index_z]*Sr[index_r] < 0:
-                            Fr_m += (-1.)**m * Sz[index_z]*Sr[index_r] * \
-                                Br_m[m][ iz[index_z], ir[index_r]]
-                            Ft_m += (-1.)**m * Sz[index_z]*Sr[index_r] * \
-                                Bt_m[m][ iz[index_z], ir[index_r]]
-                            Fz_m += -(-1.)**m * Sz[index_z]*Sr[index_r]* \
-                                Bz_m[m][ iz[index_z], ir[index_r]]
-                        else:
-                            Fr_m += Sz[index_z]*Sr[index_r] * \
-                                Br_m[m][ iz[index_z], ir[index_r]]
-                            Ft_m += Sz[index_z]*Sr[index_r] * \
-                                Bt_m[m][ iz[index_z], ir[index_r]]
-                            Fz_m += Sz[index_z]*Sr[index_r]* \
-                                Bz_m[m][ iz[index_z], ir[index_r]]
-                        index_z += 1
-                    index_r += 1
-
-                # Take into account normalization of modes m>0
-                if m==0:
-                    factor = 1.
-                else:
-                    factor = 2.
-                Fr += factor * (Fr_m*exp_theta[m]).real
-                Ft += factor * (Ft_m*exp_theta[m]).real
-                Fz += factor * (Fz_m*exp_theta[m]).real
-
+                exptheta_m = (cos - 1.j*sin)**m
+                # Add contribution from mode m
+                Fr, Ft, Fz = add_cubic_gather_for_mode( 0,
+                    Fr, Ft, Fz, exptheta_m, Br_m[m], Bt_m[m], Bz_m[m],
+                    iz_lower, iz_upper, ir_lower, ir_upper,
+                    S_ll, S_lu, S_lg, S_ul, S_uu, S_ug )
             # Convert to Cartesian coordinates
             # and write to particle field arrays
-            Bx[i] = (cos*Fr - sin*Ft)
-            By[i] = (sin*Fr + cos*Ft)
+            Bx[i] = cos*Fr - sin*Ft
+            By[i] = sin*Fr + cos*Ft
             Bz[i] = Fz
-
 
     return Ex, Ey, Ez, Bx, By, Bz

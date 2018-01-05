@@ -8,7 +8,7 @@ order shapes on the CPU with threading.
 """
 import numpy as np
 import numba
-from fbpic.threading_utils import njit_parallel, prange
+from fbpic.utils.threading import njit_parallel, prange
 import math
 from scipy.constants import c
 

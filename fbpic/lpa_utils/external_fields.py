@@ -4,7 +4,7 @@
 from numba import vectorize, float64
 import numpy as np
 # Check if CUDA is available, then import CUDA functions
-from fbpic.cuda_utils import cuda_installed
+from fbpic.utils.cuda import cuda_installed
 
 class ExternalField( object ):
 

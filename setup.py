@@ -34,7 +34,7 @@ setup(
     maintainer='Remi Lehe',
     maintainer_email='remi.lehe@normalesup.org',
     license='BSD-3-Clause-LBNL',
-    packages=find_packages('./'),
+    packages=find_packages('.'),
     tests_require=['pytest', 'matplotlib', 'openpmd_viewer'],
     cmdclass={'test': PyTest},
     install_requires=install_requires,

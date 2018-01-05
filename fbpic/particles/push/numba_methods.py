@@ -7,7 +7,7 @@ It defines the particle push methods on the CPU with numba.
 """
 import math
 import numba
-from fbpic.threading_utils import njit_parallel, prange
+from fbpic.utils.threading import njit_parallel, prange
 from scipy.constants import c, e
 
 @njit_parallel

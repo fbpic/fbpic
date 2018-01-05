@@ -5,12 +5,14 @@
 This file is part of the Fourier-Bessel Particle-In-Cell code (FB-PIC)
 It defines a set of generic functions for multithreaded CPU execution.
 """
-import os
+import os, sys
 import numpy as np
 from numba import njit
 
-# By default threading is enabled
+# By default threading is enabled, except on Windows (not supported by Numba)
 threading_enabled = True
+if sys.platform == 'win32':
+    threading_enabled = False
 
 # Check if the environment variable FBPIC_DISABLE_THREADING is set to 1
 # and in that case, disable threading

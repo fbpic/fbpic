@@ -13,11 +13,11 @@ import numpy as np
 from scipy.special import jn, jn_zeros
 
 # Check if CUDA is available, then import CUDA functions
-from fbpic.cuda_utils import cuda_installed
+from fbpic.utils.cuda import cuda_installed
 from .numba_methods import numba_copy_2dC_to_2dR, numba_copy_2dR_to_2dC
 if cuda_installed:
     from pyculib import blas as cublas
-    from fbpic.cuda_utils import cuda, cuda_tpb_bpg_2d
+    from fbpic.utils.cuda import cuda, cuda_tpb_bpg_2d
     from .cuda_methods import cuda_copy_2dC_to_2dR, cuda_copy_2dR_to_2dC
 
 
