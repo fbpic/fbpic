@@ -283,24 +283,28 @@ def gather_field_gpu_cubic(x, y, z,
         # Calculate the shape factors
         ir = cuda.local.array((4,), dtype=int64)
         Sr = cuda.local.array((4,), dtype=float64)
-        ir[0] = int64(math.floor(r_cell)) - 1
+        ir_lowest = int64(math.floor(r_cell)) - 1
+        ir[0] = ir_lowest
         ir[1] = ir[0] + 1
         ir[2] = ir[1] + 1
         ir[3] = ir[2] + 1
-        Sr[0] = -1./6. * ((r_cell-ir[0])-2)**3
-        Sr[1] = 1./6. * (3*((r_cell-ir[1])**3)-6*((r_cell-ir[1])**2)+4)
-        Sr[2] = 1./6. * (3*((ir[2]-r_cell)**3)-6*((ir[2]-r_cell)**2)+4)
-        Sr[3] = -1./6. * ((ir[3]-r_cell)-2)**3
+        r_local = r_cell-ir_lowest
+        Sr[0] = -1./6. * (r_local-2.)**3
+        Sr[1] = 1./6. * (3.*(r_local-1.)**3 - 6.*(r_local-1.)**2 + 4.)
+        Sr[2] = 1./6. * (3.*(2.-r_local)**3 - 6.*(2.-r_local)**2 + 4.)
+        Sr[3] = -1./6. * (1.-r_local)**3
         iz = cuda.local.array((4,), dtype=int64)
         Sz = cuda.local.array((4,), dtype=float64)
-        iz[0] = int64(math.floor(z_cell)) - 1
+        iz_lowest = int64(math.floor(z_cell)) - 1
+        iz[0] = iz_lowest
         iz[1] = iz[0] + 1
         iz[2] = iz[1] + 1
         iz[3] = iz[2] + 1
-        Sz[0] = -1./6. * ((z_cell-iz[0])-2)**3
-        Sz[1] = 1./6. * (3*((z_cell-iz[1])**3)-6*((z_cell-iz[1])**2)+4)
-        Sz[2] = 1./6. * (3*((iz[2]-z_cell)**3)-6*((iz[2]-z_cell)**2)+4)
-        Sz[3] = -1./6. * ((iz[3]-z_cell)-2)**3
+        z_local = z_cell-iz_lowest
+        Sz[0] = -1./6. * (z_local-2.)**3
+        Sz[1] = 1./6. * (3.*(z_local-1.)**3 - 6.*(z_local-1.)**2 + 4.)
+        Sz[2] = 1./6. * (3.*(2.-z_local)**3 - 6.*(2.-z_local)**2 + 4.)
+        Sz[3] = -1./6. * (1.-z_local)**3
         # Lower and upper periodic boundary for z
         for index_z in range(4):
             if iz[index_z] < 0:
