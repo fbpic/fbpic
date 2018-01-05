@@ -56,3 +56,40 @@ def add_linear_gather_for_mode( m,
     Fz += factor*(Fz_m*exptheta_m).real
 
     return(Fr, Ft, Fz)
+
+
+def add_cubic_gather_for_mode( m,
+    Fr, Ft, Fz, exptheta_m, Fr_grid, Ft_grid, Fz_grid,
+    ir, iz, Sr, Sz ):
+    """
+    # TODO
+    """
+    # Create temporary variables
+    # for the "per mode" gathering
+    Fr_m = 0.j
+    Ft_m = 0.j
+    Fz_m = 0.j
+    # Add the fields for mode 0
+    for index_r in range(4):
+        for index_z in range(4):
+            weight = Sz[index_z]*Sr[index_r]
+            if weight < 0:
+                flip_factor = (-1)**m
+                Fr_m +=  flip_factor*weight*Fr_grid[iz[index_z], ir[index_r]]
+                Ft_m +=  flip_factor*weight*Ft_grid[iz[index_z], ir[index_r]]
+                Fz_m += -flip_factor*weight*Fz_grid[iz[index_z], ir[index_r]]
+            else:
+                Fr_m += weight*Fr_grid[iz[index_z], ir[index_r]]
+                Ft_m += weight*Ft_grid[iz[index_z], ir[index_r]]
+                Fz_m += weight*Fz_grid[iz[index_z], ir[index_r]]
+    # Add the contribution from mode m to Fr, Ft, Fz
+    # (Take into account factor 2 in the definition of azimuthal modes)
+    if m == 0:
+        factor = 1.
+    else:
+        factor = 2.
+    Fr += factor*(Fr_m*exptheta_m).real
+    Ft += factor*(Ft_m*exptheta_m).real
+    Fz += factor*(Fz_m*exptheta_m).real
+
+    return(Fr, Ft, Fz)

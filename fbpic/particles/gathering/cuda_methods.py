@@ -9,9 +9,12 @@ on the GPU using CUDA.
 from numba import cuda, float64, int64
 import math
 # Import inline functions
-from .inline_functions import add_linear_gather_for_mode
+from .inline_functions import \
+    add_linear_gather_for_mode, add_cubic_gather_for_mode
 # Compile the inline functions for GPU
 add_linear_gather_for_mode = cuda.jit( add_linear_gather_for_mode,
+                                        device=True, inline=True )
+add_cubic_gather_for_mode = cuda.jit( add_cubic_gather_for_mode,
                                         device=True, inline=True )
 
 # -----------------------
@@ -167,7 +170,7 @@ def gather_field_gpu_linear(x, y, z,
         Ez[i] = Fz
 
         # B-Field
-        # ----------------------------
+        # -------
         # Clear the placeholders for the
         # gathered field for each coordinate
         Fr = 0.
@@ -313,131 +316,39 @@ def gather_field_gpu_cubic(x, y, z,
                 ir[index_r] = Nr - 1
 
         # E-Field
-        # ----------------------------
-        # Define the initial placeholders for the
-        # gathered field for each coordinate
+        # -------
         Fr = 0.
         Ft = 0.
         Fz = 0.
-
-        # Mode 0
-        # ----------------------------
-        # Create temporary variables
-        # for the "per mode" gathering
-        Fr_m = 0.j
-        Ft_m = 0.j
-        Fz_m = 0.j
-        # Add the fields for mode 0
-        for index_r in range(4):
-            for index_z in range(4):
-                Fr_m += Sz[index_z]*Sr[index_r]*Er_m0[iz[index_z], ir[index_r]]
-                Ft_m += Sz[index_z]*Sr[index_r]*Et_m0[iz[index_z], ir[index_r]]
-                if Sz[index_z]*Sr[index_r] < 0:
-                    Fz_m += (-1.)*Sz[index_z]*Sr[index_r]* \
-                        Ez_m0[iz[index_z], ir[index_r]]
-                else:
-                    Fz_m += Sz[index_z]*Sr[index_r]* \
-                        Ez_m0[iz[index_z], ir[index_r]]
-
-        Fr += (Fr_m*exptheta_m0).real
-        Ft += (Ft_m*exptheta_m0).real
-        Fz += (Fz_m*exptheta_m0).real
-
-        # Mode 1
-        # ----------------------------
-        # Clear the temporary variables
-        # for the "per mode" gathering
-        Fr_m = 0.j
-        Ft_m = 0.j
-        Fz_m = 0.j
-        # Add the fields for mode 1
-        for index_r in range(4):
-            for index_z in range(4):
-                if Sz[index_z]*Sr[index_r] < 0:
-                    Fr_m += (-1.)*Sz[index_z]*Sr[index_r]* \
-                                Er_m1[iz[index_z], ir[index_r]]
-                    Ft_m += (-1.)*Sz[index_z]*Sr[index_r]* \
-                                Et_m1[iz[index_z], ir[index_r]]
-                else:
-                    Fr_m += Sz[index_z]*Sr[index_r]* \
-                                Er_m1[iz[index_z], ir[index_r]]
-                    Ft_m += Sz[index_z]*Sr[index_r]* \
-                                Et_m1[iz[index_z], ir[index_r]]
-                Fz_m += Sz[index_z]*Sr[index_r]*Ez_m1[iz[index_z], ir[index_r]]
-
-        # Add the fields from the mode 1
-        Fr += 2*(Fr_m*exptheta_m1).real
-        Ft += 2*(Ft_m*exptheta_m1).real
-        Fz += 2*(Fz_m*exptheta_m1).real
-
+        # Add contribution from mode 0
+        Fr, Ft, Fz = add_cubic_gather_for_mode( 0,
+            Fr, Ft, Fz, exptheta_m0, Er_m0, Et_m0, Ez_m0,
+            ir, iz, Sr, Sz )
+        # Add contribution from mode 1
+        Fr, Ft, Fz = add_cubic_gather_for_mode( 1,
+            Fr, Ft, Fz, exptheta_m1, Er_m1, Et_m1, Ez_m1,
+            ir, iz, Sr, Sz )
         # Convert to Cartesian coordinates
         # and write to particle field arrays
-        Ex[i] = (cos*Fr - sin*Ft)
-        Ey[i] = (sin*Fr + cos*Ft)
+        Ex[i] = cos*Fr - sin*Ft
+        Ey[i] = sin*Fr + cos*Ft
         Ez[i] = Fz
 
         # B-Field
-        # ----------------------------
+        # -------
         # Clear the placeholders for the
         # gathered field for each coordinate
         Fr = 0.
         Ft = 0.
         Fz = 0.
-
-        # Mode 0
-        # ----------------------------
-        # Create temporary variables
-        # for the "per mode" gathering
-        Fr_m = 0.j
-        Ft_m = 0.j
-        Fz_m = 0.j
-        # Add the fields for mode 0
-        for index_r in range(4):
-            for index_z in range(4):
-                Fr_m += Sz[index_z]*Sr[index_r]* \
-                    Br_m0[iz[index_z], ir[index_r]]
-                Ft_m += Sz[index_z]*Sr[index_r]* \
-                    Bt_m0[iz[index_z], ir[index_r]]
-                if Sz[index_z]*Sr[index_r] < 0:
-                    Fz_m += (-1.)*Sz[index_z]*Sr[index_r]* \
-                        Bz_m0[iz[index_z], ir[index_r]]
-                else:
-                    Fz_m += Sz[index_z]*Sr[index_r]* \
-                        Bz_m0[iz[index_z], ir[index_r]]
-
-        # Add the fields from the mode 0
-        Fr += (Fr_m*exptheta_m0).real
-        Ft += (Ft_m*exptheta_m0).real
-        Fz += (Fz_m*exptheta_m0).real
-
-        # Mode 1
-        # ----------------------------
-        # Clear the temporary variables
-        # for the "per mode" gathering
-        Fr_m = 0.j
-        Ft_m = 0.j
-        Fz_m = 0.j
-
-        # Add the fields for mode 1
-        for index_r in range(4):
-            for index_z in range(4):
-                if Sz[index_z]*Sr[index_r] < 0:
-                    Fr_m += (-1.)*Sz[index_z]*Sr[index_r]* \
-                        Br_m1[iz[index_z], ir[index_r]]
-                    Ft_m += (-1.)*Sz[index_z]*Sr[index_r]* \
-                        Bt_m1[iz[index_z], ir[index_r]]
-                else:
-                    Fr_m += Sz[index_z]*Sr[index_r]* \
-                        Br_m1[iz[index_z], ir[index_r]]
-                    Ft_m += Sz[index_z]*Sr[index_r]* \
-                        Bt_m1[iz[index_z], ir[index_r]]
-                Fz_m += Sz[index_z]*Sr[index_r]*Bz_m1[iz[index_z], ir[index_r]]
-
-        # Add the fields from the mode 1
-        Fr += 2*(Fr_m*exptheta_m1).real
-        Ft += 2*(Ft_m*exptheta_m1).real
-        Fz += 2*(Fz_m*exptheta_m1).real
-
+        # Add contribution from mode 0
+        Fr, Ft, Fz =  add_cubic_gather_for_mode( 0,
+            Fr, Ft, Fz, exptheta_m0, Br_m0, Bt_m0, Bz_m0,
+            ir, iz, Sr, Sz )
+        # Add contribution from mode 1
+        Fr, Ft, Fz =  add_cubic_gather_for_mode( 1,
+            Fr, Ft, Fz, exptheta_m1, Br_m1, Bt_m1, Bz_m1,
+            ir, iz, Sr, Sz )
         # Convert to Cartesian coordinates
         # and write to particle field arrays
         Bx[i] = cos*Fr - sin*Ft
