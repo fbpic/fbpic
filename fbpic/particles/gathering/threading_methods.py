@@ -303,7 +303,6 @@ def gather_field_numba_cubic(x, y, z,
             Sr[1] = 1./6. * (3.*(r_local-1.)**3 - 6.*(r_local-1.)**2 + 4.)
             Sr[2] = 1./6. * (3.*(2.-r_local)**3 - 6.*(2.-r_local)**2 + 4.)
             Sr[3] = -1./6. * (1.-r_local)**3
-            Sz = cuda.local.array((4,), dtype=float64)
             iz_lowest = int64(math.floor(z_cell)) - 1
             z_local = z_cell-iz_lowest
             Sz[0] = -1./6. * (z_local-2.)**3
