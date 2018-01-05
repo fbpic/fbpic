@@ -293,10 +293,9 @@ def gather_field_numba_cubic(x, y, z,
             for m in range(Nm):
                 exptheta_m = (cos - 1.j*sin)**m
                 # Add contribution from mode m
-                Fr, Ft, Fz = add_cubic_gather_for_mode( 0,
+                Fr, Ft, Fz = add_cubic_gather_for_mode( m,
                     Fr, Ft, Fz, exptheta_m, Er_m[m], Et_m[m], Ez_m[m],
-                    iz_lower, iz_upper, ir_lower, ir_upper,
-                    S_ll, S_lu, S_lg, S_ul, S_uu, S_ug )
+                    ir_lowest, iz_lowest, Sr, Sz, Nr, Nz )
             # Convert to Cartesian coordinates
             # and write to particle field arrays
             Ex[i] = cos*Fr - sin*Ft
@@ -312,10 +311,9 @@ def gather_field_numba_cubic(x, y, z,
             for m in range(Nm):
                 exptheta_m = (cos - 1.j*sin)**m
                 # Add contribution from mode m
-                Fr, Ft, Fz = add_cubic_gather_for_mode( 0,
+                Fr, Ft, Fz = add_cubic_gather_for_mode( m,
                     Fr, Ft, Fz, exptheta_m, Br_m[m], Bt_m[m], Bz_m[m],
-                    iz_lower, iz_upper, ir_lower, ir_upper,
-                    S_ll, S_lu, S_lg, S_ul, S_uu, S_ug )
+                    ir_lowest, iz_lowest, Sr, Sz, Nr, Nz )
             # Convert to Cartesian coordinates
             # and write to particle field arrays
             Bx[i] = cos*Fr - sin*Ft
