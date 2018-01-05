@@ -11,7 +11,39 @@ def add_linear_gather_for_mode( m,
     iz_lower, iz_upper, ir_lower, ir_upper,
     S_ll, S_lu, S_lg, S_ul, S_uu, S_ug ):
     """
-    # TODO
+    Add the contribution of the gathered field from azimuthal mode `m` to the
+    fields felt by one macroparticle (`Fr`, `Ft`, `Fz`), using linear weights.
+
+    Parameters:
+    -----------
+    m: int
+        The index of the azimuthal mode that is added.
+
+    Fr, Ft, Fz: floats
+        The fields felt by one macroparticle, which represent either E or B
+        (before the contribution of mode `m` has been added)
+
+    exptheta_m: complex
+        The complex azimuthal factor $e^{-i m \theta}$ where $\theta$ is
+        the azimuthal position of the macroparticle considered.
+
+    Fr_grid, Ft_grid, Fz_grid: 2darrays of complexs
+        The fields on the interpolation grid for mode `m`
+
+    iz_lower, iz_upper, ir_lower, ir_upper: ints
+        Lower and upper index in z and r from which the macroparticle
+        considered should gather the fields (in the arrays F*_grid)
+
+    S_ll, S_lu, S_lg, S_ul, S_uu, S_ug: floats
+        The weights with which the fields are gathered, for the macroparticle
+        considered. `S_lg` and `S_ug` are used for fields gathered from below
+        the axis.
+
+    Returns:
+    --------
+    Fr, Ft, Fz: floats
+        The fields felt by one macroparticle, which represent either E or B
+        (after the contribution of mode `m` has been added)
     """
     # Create temporary variables
     # for the "per mode" gathering
@@ -62,7 +94,38 @@ def add_cubic_gather_for_mode( m,
     Fr, Ft, Fz, exptheta_m, Fr_grid, Ft_grid, Fz_grid,
     ir, iz, Sr, Sz ):
     """
-    # TODO
+    Add the contribution of the gathered field from azimuthal mode `m` to the
+    fields felt by one macroparticle (`Fr`, `Ft`, `Fz`), using cubic weights.
+
+    Parameters:
+    -----------
+    m: int
+        The index of the azimuthal mode that is added.
+
+    Fr, Ft, Fz: floats
+        The fields felt by one macroparticle, which represent either E or B
+        (before the contribution of mode `m` has been added)
+
+    exptheta_m: complex
+        The complex azimuthal factor $e^{-i m \theta}$ where $\theta$ is
+        the azimuthal position of the macroparticle considered.
+
+    Fr_grid, Ft_grid, Fz_grid: 2darrays of complexs
+        The fields on the interpolation grid for mode `m`
+
+    ir, iz: 1darrays containing 4 ints
+        The indices in r and z from which the macroparticle
+        considered should gather the fields (in the arrays F*_grid)
+
+    Sr, Sz: 1darrays containing 4 floats
+        The weights in r and z with which the macroparticle
+        considered should gather the fields (in the arrays F*_grid)
+
+    Returns:
+    --------
+    Fr, Ft, Fz: floats
+        The fields felt by one macroparticle, which represent either E or B
+        (after the contribution of mode `m` has been added)
     """
     # Create temporary variables
     # for the "per mode" gathering
