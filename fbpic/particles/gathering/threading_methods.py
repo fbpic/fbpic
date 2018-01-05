@@ -262,9 +262,7 @@ def gather_field_numba_cubic(x, y, z,
 
         # Create private arrays for each thread
         # to store the particle index and shape
-        ir = np.empty( 4, dtype=int64)
         Sr = np.empty( 4 )
-        iz = np.empty( 4, dtype=int64)
         Sz = np.empty( 4 )
 
         # Loop over all particles in thread chunk
