@@ -113,13 +113,19 @@ def add_cubic_gather_for_mode( m,
     Fr_grid, Ft_grid, Fz_grid: 2darrays of complexs
         The fields on the interpolation grid for mode `m`
 
-    ir_lowest, iz_lowest: 1darrays containing 4 ints
-        The indices in r and z from which the macroparticle
+    ir_lowest, iz_lowest: ints
+        The lowest indices in r and z from which the macroparticle
         considered should gather the fields (in the arrays F*_grid)
+        These indices can in fact be negative and out-of-bound
+        (e.g. for particles close to the axis) but get corrected within
+        this function.
 
     Sr_arr, Sz_arr: 1darrays containing 4 floats
         The weights in r and z with which the macroparticle
         considered should gather the fields (in the arrays F*_grid)
+
+    Nr, Nz: ints
+        Dimensions of the field arrays.
 
     Returns:
     --------
