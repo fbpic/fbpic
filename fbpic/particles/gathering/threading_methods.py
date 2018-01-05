@@ -297,39 +297,19 @@ def gather_field_numba_cubic(x, y, z,
             z_cell = invdz*(zj - zmin) - 0.5
 
             # Calculate the shape factors
-            ir[0] = int64(math.floor(r_cell)) - 1
-            ir[1] = ir[0] + 1
-            ir[2] = ir[1] + 1
-            ir[3] = ir[2] + 1
-            Sr[0] = -1./6. * ((r_cell-ir[0])-2)**3
-            Sr[1] = 1./6. * (3*((r_cell-ir[1])**3)-6*((r_cell-ir[1])**2)+4)
-            Sr[2] = 1./6. * (3*((ir[2]-r_cell)**3)-6*((ir[2]-r_cell)**2)+4)
-            Sr[3] = -1./6. * ((ir[3]-r_cell)-2)**3
-            iz[0] = int64(math.floor(z_cell)) - 1
-            iz[1] = iz[0] + 1
-            iz[2] = iz[1] + 1
-            iz[3] = iz[2] + 1
-            Sz[0] = -1./6. * ((z_cell-iz[0])-2)**3
-            Sz[1] = 1./6. * (3*((z_cell-iz[1])**3)-6*((z_cell-iz[1])**2)+4)
-            Sz[2] = 1./6. * (3*((iz[2]-z_cell)**3)-6*((iz[2]-z_cell)**2)+4)
-            Sz[3] = -1./6. * ((iz[3]-z_cell)-2)**3
-            # Lower and upper periodic boundary for z
-            index_z = 0
-            while index_z < 4:
-                if iz[index_z] < 0:
-                    iz[index_z] += Nz
-                if iz[index_z] > Nz - 1:
-                    iz[index_z] -= Nz
-                index_z += 1
-            # Lower and upper boundary for r
-            index_r = 0
-            while index_r < 4:
-                if ir[index_r] < 0:
-                    ir[index_r] = abs(ir[index_r])-1
-                    Sr[index_r] = (-1.)*Sr[index_r]
-                if ir[index_r] > Nr - 1:
-                    ir[index_r] = Nr - 1
-                index_r += 1
+            ir_lowest = int64(math.floor(r_cell)) - 1
+            r_local = r_cell-ir_lowest
+            Sr[0] = -1./6. * (r_local-2.)**3
+            Sr[1] = 1./6. * (3.*(r_local-1.)**3 - 6.*(r_local-1.)**2 + 4.)
+            Sr[2] = 1./6. * (3.*(2.-r_local)**3 - 6.*(2.-r_local)**2 + 4.)
+            Sr[3] = -1./6. * (1.-r_local)**3
+            Sz = cuda.local.array((4,), dtype=float64)
+            iz_lowest = int64(math.floor(z_cell)) - 1
+            z_local = z_cell-iz_lowest
+            Sz[0] = -1./6. * (z_local-2.)**3
+            Sz[1] = 1./6. * (3.*(z_local-1.)**3 - 6.*(z_local-1.)**2 + 4.)
+            Sz[2] = 1./6. * (3.*(2.-z_local)**3 - 6.*(2.-z_local)**2 + 4.)
+            Sz[3] = -1./6. * (1.-z_local)**3
 
             # E-Field
             # -------
@@ -339,11 +319,11 @@ def gather_field_numba_cubic(x, y, z,
             # Add contribution from mode 0
             Fr, Ft, Fz = add_cubic_gather_for_mode( 0,
                 Fr, Ft, Fz, exptheta_m0, Er_m0, Et_m0, Ez_m0,
-                ir, iz, Sr, Sz )
+                ir_lowest, iz_lowest, Sr, Sz, Nr, Nz )
             # Add contribution from mode 1
             Fr, Ft, Fz = add_cubic_gather_for_mode( 1,
                 Fr, Ft, Fz, exptheta_m1, Er_m1, Et_m1, Ez_m1,
-                ir, iz, Sr, Sz )
+                ir_lowest, iz_lowest, Sr, Sz, Nr, Nz )
             # Convert to Cartesian coordinates
             # and write to particle field arrays
             Ex[i] = cos*Fr - sin*Ft
@@ -360,11 +340,11 @@ def gather_field_numba_cubic(x, y, z,
             # Add contribution from mode 0
             Fr, Ft, Fz =  add_cubic_gather_for_mode( 0,
                 Fr, Ft, Fz, exptheta_m0, Br_m0, Bt_m0, Bz_m0,
-                ir, iz, Sr, Sz )
+                ir_lowest, iz_lowest, Sr, Sz, Nr, Nz )
             # Add contribution from mode 1
             Fr, Ft, Fz =  add_cubic_gather_for_mode( 1,
                 Fr, Ft, Fz, exptheta_m1, Br_m1, Bt_m1, Bz_m1,
-                ir, iz, Sr, Sz )
+                ir_lowest, iz_lowest, Sr, Sz, Nr, Nz )
             # Convert to Cartesian coordinates
             # and write to particle field arrays
             Bx[i] = cos*Fr - sin*Ft

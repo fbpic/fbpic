@@ -92,7 +92,7 @@ def add_linear_gather_for_mode( m,
 
 def add_cubic_gather_for_mode( m,
     Fr, Ft, Fz, exptheta_m, Fr_grid, Ft_grid, Fz_grid,
-    ir, iz, Sr, Sz ):
+    ir_lowest, iz_lowest, Sr_arr, Sz_arr, Nr, Nz ):
     """
     Add the contribution of the gathered field from azimuthal mode `m` to the
     fields felt by one macroparticle (`Fr`, `Ft`, `Fz`), using cubic weights.
@@ -113,11 +113,11 @@ def add_cubic_gather_for_mode( m,
     Fr_grid, Ft_grid, Fz_grid: 2darrays of complexs
         The fields on the interpolation grid for mode `m`
 
-    ir, iz: 1darrays containing 4 ints
+    ir_lowest, iz_lowest: 1darrays containing 4 ints
         The indices in r and z from which the macroparticle
         considered should gather the fields (in the arrays F*_grid)
 
-    Sr, Sz: 1darrays containing 4 floats
+    Sr_arr, Sz_arr: 1darrays containing 4 floats
         The weights in r and z with which the macroparticle
         considered should gather the fields (in the arrays F*_grid)
 
@@ -132,19 +132,42 @@ def add_cubic_gather_for_mode( m,
     Fr_m = 0.j
     Ft_m = 0.j
     Fz_m = 0.j
-    # Add the fields for mode 0
+
+    # Loop over the 4x4 cells from which to gather fields
     for index_r in range(4):
+
+        # Radial index
+        ir = ir_lowest + index_r
+        # Calculate shape factor for the longitudinal
+        # and transverse components of the field
+        Sr_long = Sr_arr[ index_r ]
+        Sr_perp = Sr_long
+        if ir < 0:
+            Sr_long *= (-1)**m
+            Sr_perp *= -(-1)**m
+        # Adjust radial index to avoid out of bound
+        if ir < 0:
+            ir = abs(ir) - 1
+        elif ir > Nr - 1:
+            ir = Nr - 1
+
         for index_z in range(4):
-            weight = Sz[index_z]*Sr[index_r]
-            if weight < 0:
-                flip_factor = (-1)**m
-                Fr_m +=  flip_factor*weight*Fr_grid[iz[index_z], ir[index_r]]
-                Ft_m +=  flip_factor*weight*Ft_grid[iz[index_z], ir[index_r]]
-                Fz_m += -flip_factor*weight*Fz_grid[iz[index_z], ir[index_r]]
-            else:
-                Fr_m += weight*Fr_grid[iz[index_z], ir[index_r]]
-                Ft_m += weight*Ft_grid[iz[index_z], ir[index_r]]
-                Fz_m += weight*Fz_grid[iz[index_z], ir[index_r]]
+
+            # Longitudinal index
+            iz = iz_lowest + index_z
+            # Get shape factor
+            Sz = Sz_arr[index_z]
+            # Adjust longitudinal index to avoid out of bound
+            if iz < 0:
+                iz += Nz
+            elif iz > Nz-1:
+                iz -= Nz
+
+            # Get the fields
+            Fr_m += Sz*Sr_perp*Fr_grid[iz, ir]
+            Ft_m += Sz*Sr_perp*Ft_grid[iz, ir]
+            Fz_m += Sz*Sr_long*Fz_grid[iz, ir]
+
     # Add the contribution from mode m to Fr, Ft, Fz
     # (Take into account factor 2 in the definition of azimuthal modes)
     if m == 0:
