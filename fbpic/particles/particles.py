@@ -27,7 +27,7 @@ from fbpic.utils.threading import threading_enabled, get_chunk_indices
 from fbpic.utils.cuda import cuda_installed
 if cuda_installed:
     # Load the CUDA methods
-    from fbpic.utils.cuda import cuda, cuda_tpb_bpg_1d, cuda_tpb_bpg_2d
+    from fbpic.utils.cuda import cuda, cuda_tpb_bpg_1d
     from .push.cuda_methods import push_p_gpu, push_p_ioniz_gpu, push_x_gpu
     from .deposition.cuda_methods import deposit_rho_gpu_linear, \
         deposit_J_gpu_linear, deposit_rho_gpu_cubic, deposit_J_gpu_cubic
@@ -216,8 +216,8 @@ class Particles(object) :
             self.cell_idx = np.empty( Ntot, dtype=np.int32)
             self.sorted_idx = np.empty( Ntot, dtype=np.uint32)
             self.sorting_buffer = np.empty( Ntot, dtype=np.float64 )
-            self.prefix_sum = np.empty( grid_shape[0]*grid_shape[1],
-                                        dtype=np.int32 )
+            Nz, Nr = grid_shape
+            self.prefix_sum = np.empty( Nz*(Nr+1), dtype=np.int32 )
             # Register boolean that records if the particles are sorted or not
             self.sorted = False
 
@@ -617,11 +617,8 @@ class Particles(object) :
         # GPU (CUDA) version
         if self.use_cuda:
             # Get the threads per block and the blocks per grid
-            dim_grid_2d_flat, dim_block_2d_flat = cuda_tpb_bpg_1d(
-                                                    grid[0].Nz*grid[0].Nr,
-                                                    TPB=64 )
-            dim_grid_2d, dim_block_2d = cuda_tpb_bpg_2d(
-                                          grid[0].Nz, grid[0].Nr )
+            dim_grid_2d_flat, dim_block_2d_flat = \
+                cuda_tpb_bpg_1d( self.prefix_sum.shape[0], TPB=64 )
 
             # Call the CUDA Kernel for the deposition of rho or J
             # for Mode 0 and 1 only.
@@ -776,8 +773,9 @@ class Particles(object) :
         grid = fld.interp
         # Get the threads per block and the blocks per grid
         dim_grid_1d, dim_block_1d = cuda_tpb_bpg_1d( self.Ntot )
-        dim_grid_2d_flat, dim_block_2d_flat = cuda_tpb_bpg_1d(
-                                                grid[0].Nz*grid[0].Nr )
+        dim_grid_2d_flat, dim_block_2d_flat = \
+                cuda_tpb_bpg_1d( self.prefix_sum.shape[0] )
+
         # ------------------------
         # Sorting of the particles
         # ------------------------

@@ -61,26 +61,27 @@ def get_cell_idx_per_particle(cell_idx, sorted_idx,
             z_cell =  invdz*(zj - zmin) - 0.5
 
             # Original index of the uppper and lower cell
-            ir_lower = int(math.floor( r_cell ))
+            ir_upper = int(math.floor( r_cell )) + 1
             iz_lower = int(math.floor( z_cell ))
 
             # Treat the boundary conditions
-            # guard cells in lower r
-            if ir_lower < 0:
-                ir_lower = 0
             # absorbing in upper r
-            if ir_lower > Nr-1:
-                ir_lower = Nr-1
+            if ir_upper > Nr:
+                ir_upper = Nr
             # periodic boundaries in z
             if iz_lower < 0:
                 iz_lower += Nz
-            if iz_lower > Nz-1:
+            elif iz_lower > Nz-1:
                 iz_lower -= Nz
+            # iz_lower has values between 0 and Nz-1.
+            # ir_upper has values between 0 and Nr (included).
+            # This corresponds to the Nz*(Nr+1) different inter-gridpoint
+            # areas in a box that is periodic in z but aperiodic in r.
 
             # Reset sorted_idx array
             sorted_idx[i] = i
-            # Calculate the 1D cell_idx by cell_idx_ir + cell_idx_iz * Nr
-            cell_idx[i] = ir_lower + iz_lower * Nr
+            # Calculate the 1D cell_idx
+            cell_idx[i] = ir_upper + iz_lower * (Nr+1)
 
 def sort_particles_per_cell(cell_idx, sorted_idx):
     """
