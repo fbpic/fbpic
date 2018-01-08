@@ -11,6 +11,7 @@ Major features:
   not to write to disk at every timestep
 """
 import os
+import math
 import numpy as np
 from scipy.constants import c, e
 from .particle_diag import ParticleDiagnostic
@@ -666,8 +667,8 @@ class ParticleCatcher:
             Nz, Nr = species.grid_shape
             # Calculate cell area to get particles from
             # - Get z indices of the slices in which to get the particles
-            iz_curr = int((current_z_boost - zmin - 0.5*dz)/dz)
-            iz_prev = int((previous_z_boost - zmin - 0.5*dz + dt*c)/dz) + 1
+            iz_curr = math.ceil((current_z_boost-zmin-0.5*dz)/dz)
+            iz_prev = math.ceil((previous_z_boost-zmin-0.5*dz + dt*c)/dz) + 1
             # - Get the prefix sum values that correspond to these indices
             #   (Take into account potential shift due to the moving window)
             z_cell_curr = iz_curr + pref_sum_shift

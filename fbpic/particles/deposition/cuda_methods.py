@@ -129,10 +129,10 @@ def deposit_rho_gpu_linear(x, y, z, w, q,
     i = cuda.grid(1)
     # Deposit the field per cell in parallel (for threads < number of cells)
     if i < prefix_sum.shape[0]:
-        # Calculate the lowest cell index in 2D where the particle
+        # Calculate the upper cell index in 2D where the particle
         # deposits charge, from the 1D threadIdx
-        iz_lowest = int( i / (Nr+1) )
-        ir_lowest = int( i - iz_lowest * (Nr+1) ) - 1
+        iz_upper = int( i / (Nr+1) )
+        ir_upper = int( i - iz_upper * (Nr+1) )
         # Calculate the inclusive offset for the current cell
         # It represents the number of particles contained in all other cells
         # with an index smaller than i + the total number of particles in the
@@ -205,13 +205,13 @@ def deposit_rho_gpu_linear(x, y, z, w, q,
             R_m1_11 += r_shape_linear(r_cell, 1)*z_shape_linear(z_cell, 1) * R_m1_scal
 
         # Calculate longitudinal indices at which to add charge
-        iz0 = iz_lowest
-        iz1 = iz_lowest + 1
-        if iz1 > Nz-1:
-            iz1 -= Nz
+        iz0 = iz_upper - 1
+        iz1 = iz_upper
+        if iz0 < 0:
+            iz0 += Nz
         # Calculate radial indices at which to add charge
-        ir0 = ir_lowest
-        ir1 = min( ir_lowest + 1, Nr-1 )
+        ir0 = ir_upper - 1
+        ir1 = min( ir_upper, Nr-1 )
         if ir0 < 0:
             # Deposition below the axis: fold index into physical region
             ir0 = -(1 + ir0)
@@ -304,10 +304,10 @@ def deposit_J_gpu_linear(x, y, z, w, q,
     i = cuda.grid(1)
     # Deposit the field per cell in parallel (for threads < number of cells)
     if i < prefix_sum.shape[0]:
-        # Calculate the lowest cell index in 2D where the particle
+        # Calculate the upper cell index in 2D where the particle
         # deposits charge, from the 1D threadIdx
-        iz_lowest = int( i / (Nr+1) )
-        ir_lowest = int( i - iz_lowest * (Nr+1) ) - 1
+        iz_upper = int( i / (Nr+1) )
+        ir_upper = int( i - iz_upper * (Nr+1) )
         # Calculate the inclusive offset for the current cell
         # It represents the number of particles contained in all other cells
         # with an index smaller than i + the total number of particles in the
@@ -433,13 +433,13 @@ def deposit_J_gpu_linear(x, y, z, w, q,
             J_z_m1_11 += r_shape_linear(r_cell, 1)*z_shape_linear(z_cell, 1) * J_z_m1_scal
 
         # Calculate longitudinal indices at which to add charge
-        iz0 = iz_lowest
-        iz1 = iz_lowest + 1
-        if iz1 > Nz-1:
-            iz1 -= Nz
+        iz0 = iz_upper - 1
+        iz1 = iz_upper
+        if iz0 < 0:
+            iz0 += Nz
         # Calculate radial indices at which to add charge
-        ir0 = ir_lowest
-        ir1 = min( ir_lowest + 1, Nr-1 )
+        ir0 = ir_upper - 1
+        ir1 = min( ir_upper, Nr-1 )
         if ir0 < 0:
             # Deposition below the axis: fold index into physical region
             ir0 = -(1 + ir0)
@@ -548,10 +548,10 @@ def deposit_rho_gpu_cubic(x, y, z, w, q,
     i = cuda.grid(1)
     # Deposit the field per cell in parallel (for threads < number of cells)
     if i < prefix_sum.shape[0]:
-        # Calculate the lowest cell index in 2D where the particle
+        # Calculate the upper cell index in 2D where the particle
         # deposits charge, from the 1D threadIdx
-        iz_lowest = int( i / (Nr+1) ) - 1
-        ir_lowest = int( i - (iz_lowest+1) * (Nr+1) ) - 2
+        iz_upper = int( i / (Nr+1) )
+        ir_upper = int( i - iz_upper * (Nr+1) )
         # Calculate the inclusive offset for the current cell
         # It represents the number of particles contained in all other cells
         # with an index smaller than i + the total number of particles in the
@@ -690,21 +690,21 @@ def deposit_rho_gpu_cubic(x, y, z, w, q,
             R_m1_33 += r_shape_cubic(r_cell, 3)*z_shape_cubic(z_cell, 3)*R_m1_scal
 
         # Calculate longitudinal indices at which to add charge
-        iz0 = iz_lowest
-        iz1 = iz_lowest + 1
-        iz2 = iz_lowest + 2
-        iz3 = iz_lowest + 3
+        iz0 = iz_upper - 2
+        iz1 = iz_upper - 1
+        iz2 = iz_upper
+        iz3 = iz_upper + 1
         if iz0 < 0:
             iz0 += Nz
-        if iz2 > Nz-1:
-            iz2 -= Nz
+        if iz1 < 0:
+            iz1 += Nz
         if iz3 > Nz-1:
             iz3 -= Nz
         # Calculate radial indices at which to add charge
-        ir0 = ir_lowest
-        ir1 = min( ir_lowest + 1, Nr-1 )
-        ir2 = min( ir_lowest + 2, Nr-1 )
-        ir3 = min( ir_lowest + 3, Nr-1 )
+        ir0 = ir_upper - 2
+        ir1 = min( ir_upper - 1, Nr-1 )
+        ir2 = min( ir_upper    , Nr-1 )
+        ir3 = min( ir_upper + 1, Nr-1 )
         if ir0 < 0:
             # Deposition below the axis: fold index into physical region
             ir0 = -(1 + ir0)
@@ -835,8 +835,8 @@ def deposit_J_gpu_cubic(x, y, z, w, q,
     # Deposit the field per cell in parallel (for threads < number of cells)
     if i < prefix_sum.shape[0]:
         # Calculate the cell index in 2D from the 1D threadIdx
-        iz_lowest = int( i / (Nr+1) ) - 1
-        ir_lowest = int( i - (iz_lowest+1) * (Nr+1) ) - 2
+        iz_upper = int( i / (Nr+1) )
+        ir_upper = int( i - iz_upper * (Nr+1) )
         # Calculate the inclusive offset for the current cell
         # It represents the number of particles contained in all other cells
         # with an index smaller than i + the total number of particles in the
@@ -1126,21 +1126,21 @@ def deposit_J_gpu_cubic(x, y, z, w, q,
             J_z_m1_33 += r_shape_cubic(r_cell, 3)*z_shape_cubic(z_cell, 3)*J_z_m1_scal
 
         # Calculate longitudinal indices at which to add charge
-        iz0 = iz_lowest
-        iz1 = iz_lowest + 1
-        iz2 = iz_lowest + 2
-        iz3 = iz_lowest + 3
+        iz0 = iz_upper - 2
+        iz1 = iz_upper - 1
+        iz2 = iz_upper
+        iz3 = iz_upper + 1
         if iz0 < 0:
             iz0 += Nz
-        if iz2 > Nz-1:
-            iz2 -= Nz
+        if iz1 < 0:
+            iz1 += Nz
         if iz3 > Nz-1:
             iz3 -= Nz
         # Calculate radial indices at which to add charge
-        ir0 = ir_lowest
-        ir1 = min( ir_lowest + 1, Nr-1 )
-        ir2 = min( ir_lowest + 2, Nr-1 )
-        ir3 = min( ir_lowest + 3, Nr-1 )
+        ir0 = ir_upper - 2
+        ir1 = min( ir_upper - 1, Nr-1 )
+        ir2 = min( ir_upper    , Nr-1 )
+        ir3 = min( ir_upper + 1, Nr-1 )
         if ir0 < 0:
             # Deposition below the axis: fold index into physical region
             ir0 = -(1 + ir0)
