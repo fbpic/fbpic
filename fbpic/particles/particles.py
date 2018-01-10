@@ -17,6 +17,8 @@ from .utilities.utility_methods import unalign_angles
 from .push.numba_methods import push_p_numba, push_p_ioniz_numba, push_x_numba
 from .gathering.threading_methods import gather_field_numba_linear, \
         gather_field_numba_cubic
+from .gathering.threading_methods_one_mode import erase_eb_numba, \
+    gather_field_numba_linear_one_mode, gather_field_numba_cubic_one_mode
 from .deposition.threading_methods import deposit_rho_numba_linear, \
         deposit_J_numba_linear, deposit_rho_numba_cubic, \
         deposit_J_numba_cubic, sum_reduce_2d_array
@@ -509,6 +511,9 @@ class Particles(object) :
         if self.q == 0:
             return
 
+        # Number of modes
+        Nm = len(grid)
+
         # GPU (CUDA) version
         if self.use_cuda:
             # Get the threads per block and the blocks per grid
@@ -544,31 +549,63 @@ class Particles(object) :
         # CPU version
         else:
             if self.particle_shape == 'linear':
-                gather_field_numba_linear(
-                     self.x, self.y, self.z,
-                     grid[0].invdz, grid[0].zmin, grid[0].Nz,
-                     grid[0].invdr, grid[0].rmin, grid[0].Nr,
-                     grid[0].Er, grid[0].Et, grid[0].Ez,
-                     grid[1].Er, grid[1].Et, grid[1].Ez,
-                     grid[0].Br, grid[0].Bt, grid[0].Bz,
-                     grid[1].Br, grid[1].Bt, grid[1].Bz,
-                     self.Ex, self.Ey, self.Ez,
-                     self.Bx, self.By, self.Bz)
+                if Nm == 2:
+                    # Optimized version for 2 modes
+                    gather_field_numba_linear(
+                        self.x, self.y, self.z,
+                        grid[0].invdz, grid[0].zmin, grid[0].Nz,
+                        grid[0].invdr, grid[0].rmin, grid[0].Nr,
+                        grid[0].Er, grid[0].Et, grid[0].Ez,
+                        grid[1].Er, grid[1].Et, grid[1].Ez,
+                        grid[0].Br, grid[0].Bt, grid[0].Bz,
+                        grid[1].Br, grid[1].Bt, grid[1].Bz,
+                        self.Ex, self.Ey, self.Ez,
+                        self.Bx, self.By, self.Bz)
+                else:
+                    # Generic version for arbitrary number of modes
+                    erase_eb_numba( self.Ex, self.Ey, self.Ez,
+                                    self.Bx, self.By, self.Bz)
+                    for m in range(Nm):
+                        gather_field_numba_linear_one_mode(
+                            self.x, self.y, self.z,
+                            grid[m].invdz, grid[m].zmin, grid[m].Nz,
+                            grid[m].invdr, grid[m].rmin, grid[m].Nr,
+                            grid[m].Er, grid[m].Et, grid[m].Ez,
+                            grid[m].Br, grid[m].Bt, grid[m].Bz, m,
+                            self.Ex, self.Ey, self.Ez,
+                            self.Bx, self.By, self.Bz
+                        )
             elif self.particle_shape == 'cubic':
                 # Divide particles into chunks (each chunk is handled by a
                 # different thread) and return the indices that bound chunks
                 ptcl_chunk_indices = get_chunk_indices(self.Ntot, self.nthreads)
-                gather_field_numba_cubic(
-                     self.x, self.y, self.z,
-                     grid[0].invdz, grid[0].zmin, grid[0].Nz,
-                     grid[0].invdr, grid[0].rmin, grid[0].Nr,
-                     grid[0].Er, grid[0].Et, grid[0].Ez,
-                     grid[1].Er, grid[1].Et, grid[1].Ez,
-                     grid[0].Br, grid[0].Bt, grid[0].Bz,
-                     grid[1].Br, grid[1].Bt, grid[1].Bz,
-                     self.Ex, self.Ey, self.Ez,
-                     self.Bx, self.By, self.Bz,
-                     self.nthreads, ptcl_chunk_indices )
+                if Nm == 2:
+                    # Optimized version for 2 modes
+                    gather_field_numba_cubic(
+                        self.x, self.y, self.z,
+                        grid[0].invdz, grid[0].zmin, grid[0].Nz,
+                        grid[0].invdr, grid[0].rmin, grid[0].Nr,
+                        grid[0].Er, grid[0].Et, grid[0].Ez,
+                        grid[1].Er, grid[1].Et, grid[1].Ez,
+                        grid[0].Br, grid[0].Bt, grid[0].Bz,
+                        grid[1].Br, grid[1].Bt, grid[1].Bz,
+                        self.Ex, self.Ey, self.Ez,
+                        self.Bx, self.By, self.Bz,
+                        self.nthreads, ptcl_chunk_indices )
+                else:
+                    # Generic version for arbitrary number of modes
+                    erase_eb_numba( self.Ex, self.Ey, self.Ez,
+                                    self.Bx, self.By, self.Bz )
+                    for m in range(Nm):
+                        gather_field_numba_cubic_one_mode(
+                            self.x, self.y, self.z,
+                            grid[m].invdz, grid[m].zmin, grid[m].Nz,
+                            grid[m].invdr, grid[m].rmin, grid[m].Nr,
+                            grid[m].Er, grid[m].Et, grid[m].Ez,
+                            grid[m].Br, grid[m].Bt, grid[m].Bz, m,
+                            self.Ex, self.Ey, self.Ez,
+                            self.Bx, self.By, self.Bz,
+                            self.nthreads, ptcl_chunk_indices )
             else:
                 raise ValueError("`particle_shape` should be either \
                                   'linear' or 'cubic' \
