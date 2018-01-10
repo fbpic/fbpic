@@ -26,10 +26,8 @@ add_cubic_gather_for_mode = numba.njit( add_cubic_gather_for_mode )
 def gather_field_numba_linear(x, y, z,
                     invdz, zmin, Nz,
                     invdr, rmin, Nr,
-                    Er_m0, Et_m0, Ez_m0,
-                    Er_m1, Et_m1, Ez_m1,
-                    Br_m0, Bt_m0, Bz_m0,
-                    Br_m1, Bt_m1, Bz_m1,
+                    Er_m, Et_m, Ez_m,
+                    Br_m, Bt_m, Bz_m, Nm,
                     Ex, Ey, Ez,
                     Bx, By, Bz ):
     """
@@ -55,17 +53,12 @@ def gather_field_numba_linear(x, y, z,
     Nz, Nr : int
         Number of gridpoints along the considered direction
 
-    Er_m0, Et_m0, Ez_m0 : 2darray of complexs
-        The electric fields on the interpolation grid for the mode 0
+    Er_m, Et_m, Ez_m, Br_m, Bt_m, Bz_m : tuples of 2darrays of complexs
+        Tuples with Nm elements each (one element per azimuthal mode).
+        Each element is a 2d array of complex of size (Nz, Nr)
 
-    Er_m1, Et_m1, Ez_m1 : 2darray of complexs
-        The electric fields on the interpolation grid for the mode 1
-
-    Br_m0, Bt_m0, Bz_m0 : 2darray of complexs
-        The magnetic fields on the interpolation grid for the mode 0
-
-    Br_m1, Bt_m1, Bz_m1 : 2darray of complexs
-        The magnetic fields on the interpolation grid for the mode 1
+    Nm : int
+        Number of azimuthal modes
 
     Ex, Ey, Ez : 1darray of floats
         The electric fields acting on the particles
@@ -93,8 +86,6 @@ def gather_field_numba_linear(x, y, z,
         else :
             cos = 1.
             sin = 0.
-        exptheta_m0 = 1.
-        exptheta_m1 = cos - 1.j*sin
 
         # Get linear weights for the deposition
         # -------------------------------------
@@ -151,16 +142,14 @@ def gather_field_numba_linear(x, y, z,
         Fr = 0.
         Ft = 0.
         Fz = 0.
-        # Add contribution from mode 0
-        Fr, Ft, Fz = add_linear_gather_for_mode( 0,
-            Fr, Ft, Fz, exptheta_m0, Er_m0, Et_m0, Ez_m0,
-            iz_lower, iz_upper, ir_lower, ir_upper,
-            S_ll, S_lu, S_lg, S_ul, S_uu, S_ug )
-        # Add contribution from mode 1
-        Fr, Ft, Fz = add_linear_gather_for_mode( 1,
-            Fr, Ft, Fz, exptheta_m1, Er_m1, Et_m1, Ez_m1,
-            iz_lower, iz_upper, ir_lower, ir_upper,
-            S_ll, S_lu, S_lg, S_ul, S_uu, S_ug )
+        # Loop over the modes
+        for m in range(Nm):
+            exptheta_m = (cos - 1.j*sin)**m
+            # Add contribution from mode m
+            Fr, Ft, Fz = add_linear_gather_for_mode( m,
+                Fr, Ft, Fz, exptheta_m, Er_m[m], Et_m[m], Ez_m[m],
+                iz_lower, iz_upper, ir_lower, ir_upper,
+                S_ll, S_lu, S_lg, S_ul, S_uu, S_ug )
         # Convert to Cartesian coordinates
         # and write to particle field arrays
         Ex[i] = cos*Fr - sin*Ft
@@ -169,21 +158,17 @@ def gather_field_numba_linear(x, y, z,
 
         # B-Field
         # -------
-        # Clear the placeholders for the
-        # gathered field for each coordinate
         Fr = 0.
         Ft = 0.
         Fz = 0.
-        # Add contribution from mode 0
-        Fr, Ft, Fz = add_linear_gather_for_mode( 0,
-            Fr, Ft, Fz, exptheta_m0, Br_m0, Bt_m0, Bz_m0,
-            iz_lower, iz_upper, ir_lower, ir_upper,
-            S_ll, S_lu, S_lg, S_ul, S_uu, S_ug )
-        # Add contribution from mode 1
-        Fr, Ft, Fz = add_linear_gather_for_mode( 1,
-            Fr, Ft, Fz, exptheta_m1, Br_m1, Bt_m1, Bz_m1,
-            iz_lower, iz_upper, ir_lower, ir_upper,
-            S_ll, S_lu, S_lg, S_ul, S_uu, S_ug )
+        # Loop over the modes
+        for m in range(Nm):
+            exptheta_m = (cos - 1.j*sin)**m
+            # Add contribution from mode m
+            Fr, Ft, Fz = add_linear_gather_for_mode( m,
+                Fr, Ft, Fz, exptheta_m, Br_m[m], Bt_m[m], Bz_m[m],
+                iz_lower, iz_upper, ir_lower, ir_upper,
+                S_ll, S_lu, S_lg, S_ul, S_uu, S_ug )
         # Convert to Cartesian coordinates
         # and write to particle field arrays
         Bx[i] = cos*Fr - sin*Ft
@@ -200,10 +185,8 @@ def gather_field_numba_linear(x, y, z,
 def gather_field_numba_cubic(x, y, z,
                     invdz, zmin, Nz,
                     invdr, rmin, Nr,
-                    Er_m0, Et_m0, Ez_m0,
-                    Er_m1, Et_m1, Ez_m1,
-                    Br_m0, Bt_m0, Bz_m0,
-                    Br_m1, Bt_m1, Bz_m1,
+                    Er_m, Et_m, Ez_m,
+                    Br_m, Bt_m, Bz_m, Nm,
                     Ex, Ey, Ez,
                     Bx, By, Bz,
                     nthreads, ptcl_chunk_indices):
@@ -230,17 +213,12 @@ def gather_field_numba_cubic(x, y, z,
     Nz, Nr : int
         Number of gridpoints along the considered direction
 
-    Er_m0, Et_m0, Ez_m0 : 2darray of complexs
-        The electric fields on the interpolation grid for the mode 0
+    Er_m, Et_m, Ez_m, Br_m, Bt_m, Bz_m : tuples of 2darrays of complexs
+        Tuples with Nm elements each (one element per azimuthal mode).
+        Each element is a 2d array of complex of size (Nz, Nr)
 
-    Er_m1, Et_m1, Ez_m1 : 2darray of complexs
-        The electric fields on the interpolation grid for the mode 1
-
-    Br_m0, Bt_m0, Bz_m0 : 2darray of complexs
-        The magnetic fields on the interpolation grid for the mode 0
-
-    Br_m1, Bt_m1, Bz_m1 : 2darray of complexs
-        The magnetic fields on the interpolation grid for the mode 1
+    Nm : int
+        Number of azimuthal modes
 
     Ex, Ey, Ez : 1darray of floats
         The electric fields acting on the particles
@@ -285,8 +263,6 @@ def gather_field_numba_cubic(x, y, z,
             else:
                 cos = 1.
                 sin = 0.
-            exptheta_m0 = 1.
-            exptheta_m1 = cos - 1.j*sin
 
             # Get weights for the deposition
             # --------------------------------------------
@@ -313,14 +289,13 @@ def gather_field_numba_cubic(x, y, z,
             Fr = 0.
             Ft = 0.
             Fz = 0.
-            # Add contribution from mode 0
-            Fr, Ft, Fz = add_cubic_gather_for_mode( 0,
-                Fr, Ft, Fz, exptheta_m0, Er_m0, Et_m0, Ez_m0,
-                ir_lowest, iz_lowest, Sr, Sz, Nr, Nz )
-            # Add contribution from mode 1
-            Fr, Ft, Fz = add_cubic_gather_for_mode( 1,
-                Fr, Ft, Fz, exptheta_m1, Er_m1, Et_m1, Ez_m1,
-                ir_lowest, iz_lowest, Sr, Sz, Nr, Nz )
+            # Loop over the modes
+            for m in range(Nm):
+                exptheta_m = (cos - 1.j*sin)**m
+                # Add contribution from mode m
+                Fr, Ft, Fz = add_cubic_gather_for_mode( m,
+                    Fr, Ft, Fz, exptheta_m, Er_m[m], Et_m[m], Ez_m[m],
+                    ir_lowest, iz_lowest, Sr, Sz, Nr, Nz )
             # Convert to Cartesian coordinates
             # and write to particle field arrays
             Ex[i] = cos*Fr - sin*Ft
@@ -329,19 +304,16 @@ def gather_field_numba_cubic(x, y, z,
 
             # B-Field
             # -------
-            # Clear the placeholders for the
-            # gathered field for each coordinate
             Fr = 0.
             Ft = 0.
             Fz = 0.
-            # Add contribution from mode 0
-            Fr, Ft, Fz =  add_cubic_gather_for_mode( 0,
-                Fr, Ft, Fz, exptheta_m0, Br_m0, Bt_m0, Bz_m0,
-                ir_lowest, iz_lowest, Sr, Sz, Nr, Nz )
-            # Add contribution from mode 1
-            Fr, Ft, Fz =  add_cubic_gather_for_mode( 1,
-                Fr, Ft, Fz, exptheta_m1, Br_m1, Bt_m1, Bz_m1,
-                ir_lowest, iz_lowest, Sr, Sz, Nr, Nz )
+            # Loop over the modes
+            for m in range(Nm):
+                exptheta_m = (cos - 1.j*sin)**m
+                # Add contribution from mode m
+                Fr, Ft, Fz = add_cubic_gather_for_mode( m,
+                    Fr, Ft, Fz, exptheta_m, Br_m[m], Bt_m[m], Bz_m[m],
+                    ir_lowest, iz_lowest, Sr, Sz, Nr, Nz )
             # Convert to Cartesian coordinates
             # and write to particle field arrays
             Bx[i] = cos*Fr - sin*Ft

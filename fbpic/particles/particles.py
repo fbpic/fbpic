@@ -509,21 +509,26 @@ class Particles(object) :
         if self.q == 0:
             return
 
+        # Structure fields into tuples (this does not require a copy)
+        Nm = len(grid)
+        Er_m = tuple( grid[m].Er for m in range(Nm) )
+        Et_m = tuple( grid[m].Et for m in range(Nm) )
+        Ez_m = tuple( grid[m].Ez for m in range(Nm) )
+        Br_m = tuple( grid[m].Br for m in range(Nm) )
+        Bt_m = tuple( grid[m].Bt for m in range(Nm) )
+        Bz_m = tuple( grid[m].Bz for m in range(Nm) )
+
         # GPU (CUDA) version
         if self.use_cuda:
             # Get the threads per block and the blocks per grid
             dim_grid_1d, dim_block_1d = cuda_tpb_bpg_1d( self.Ntot, TPB=64 )
             # Call the CUDA Kernel for the gathering of E and B Fields
-            # for Mode 0 and 1 only.
             if self.particle_shape == 'linear':
                 gather_field_gpu_linear[dim_grid_1d, dim_block_1d](
                      self.x, self.y, self.z,
                      grid[0].invdz, grid[0].zmin, grid[0].Nz,
                      grid[0].invdr, grid[0].rmin, grid[0].Nr,
-                     grid[0].Er, grid[0].Et, grid[0].Ez,
-                     grid[1].Er, grid[1].Et, grid[1].Ez,
-                     grid[0].Br, grid[0].Bt, grid[0].Bz,
-                     grid[1].Br, grid[1].Bt, grid[1].Bz,
+                     Er_m, Et_m, Ez_m, Br_m, Bt_m, Bz_m, Nm,
                      self.Ex, self.Ey, self.Ez,
                      self.Bx, self.By, self.Bz)
             elif self.particle_shape == 'cubic':
@@ -531,10 +536,7 @@ class Particles(object) :
                      self.x, self.y, self.z,
                      grid[0].invdz, grid[0].zmin, grid[0].Nz,
                      grid[0].invdr, grid[0].rmin, grid[0].Nr,
-                     grid[0].Er, grid[0].Et, grid[0].Ez,
-                     grid[1].Er, grid[1].Et, grid[1].Ez,
-                     grid[0].Br, grid[0].Bt, grid[0].Bz,
-                     grid[1].Br, grid[1].Bt, grid[1].Bz,
+                     Er_m, Et_m, Ez_m, Br_m, Bt_m, Bz_m, Nm,
                      self.Ex, self.Ey, self.Ez,
                      self.Bx, self.By, self.Bz)
             else:
@@ -548,10 +550,7 @@ class Particles(object) :
                      self.x, self.y, self.z,
                      grid[0].invdz, grid[0].zmin, grid[0].Nz,
                      grid[0].invdr, grid[0].rmin, grid[0].Nr,
-                     grid[0].Er, grid[0].Et, grid[0].Ez,
-                     grid[1].Er, grid[1].Et, grid[1].Ez,
-                     grid[0].Br, grid[0].Bt, grid[0].Bz,
-                     grid[1].Br, grid[1].Bt, grid[1].Bz,
+                     Er_m, Et_m, Ez_m, Br_m, Bt_m, Bz_m, Nm,
                      self.Ex, self.Ey, self.Ez,
                      self.Bx, self.By, self.Bz)
             elif self.particle_shape == 'cubic':
@@ -562,10 +561,7 @@ class Particles(object) :
                      self.x, self.y, self.z,
                      grid[0].invdz, grid[0].zmin, grid[0].Nz,
                      grid[0].invdr, grid[0].rmin, grid[0].Nr,
-                     grid[0].Er, grid[0].Et, grid[0].Ez,
-                     grid[1].Er, grid[1].Et, grid[1].Ez,
-                     grid[0].Br, grid[0].Bt, grid[0].Bz,
-                     grid[1].Br, grid[1].Bt, grid[1].Bz,
+                     Er_m, Et_m, Ez_m, Br_m, Bt_m, Bz_m, Nm,
                      self.Ex, self.Ey, self.Ez,
                      self.Bx, self.By, self.Bz,
                      self.nthreads, ptcl_chunk_indices )
