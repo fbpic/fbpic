@@ -129,8 +129,8 @@ def deposit_rho_gpu_linear(x, y, z, w, q,
     i = cuda.grid(1)
     # Deposit the field per cell in parallel (for threads < number of cells)
     if i < prefix_sum.shape[0]:
-        # Calculate the upper cell index in 2D where the particle
-        # deposits charge, from the 1D threadIdx
+        # Retrieve index of upper grid point (in z and r) from prefix-sum index
+        # (See calculation of prefix-sum index in `get_cell_idx_per_particle`)
         iz_upper = int( i / (Nr+1) )
         ir_upper = int( i - iz_upper * (Nr+1) )
         # Calculate the inclusive offset for the current cell
@@ -304,8 +304,8 @@ def deposit_J_gpu_linear(x, y, z, w, q,
     i = cuda.grid(1)
     # Deposit the field per cell in parallel (for threads < number of cells)
     if i < prefix_sum.shape[0]:
-        # Calculate the upper cell index in 2D where the particle
-        # deposits charge, from the 1D threadIdx
+        # Retrieve index of upper grid point (in z and r) from prefix-sum index
+        # (See calculation of prefix-sum index in `get_cell_idx_per_particle`)
         iz_upper = int( i / (Nr+1) )
         ir_upper = int( i - iz_upper * (Nr+1) )
         # Calculate the inclusive offset for the current cell
@@ -548,8 +548,8 @@ def deposit_rho_gpu_cubic(x, y, z, w, q,
     i = cuda.grid(1)
     # Deposit the field per cell in parallel (for threads < number of cells)
     if i < prefix_sum.shape[0]:
-        # Calculate the upper cell index in 2D where the particle
-        # deposits charge, from the 1D threadIdx
+        # Retrieve index of upper grid point (in z and r) from prefix-sum index
+        # (See calculation of prefix-sum index in `get_cell_idx_per_particle`)
         iz_upper = int( i / (Nr+1) )
         ir_upper = int( i - iz_upper * (Nr+1) )
         # Calculate the inclusive offset for the current cell
@@ -834,7 +834,8 @@ def deposit_J_gpu_cubic(x, y, z, w, q,
     i = cuda.grid(1)
     # Deposit the field per cell in parallel (for threads < number of cells)
     if i < prefix_sum.shape[0]:
-        # Calculate the cell index in 2D from the 1D threadIdx
+        # Retrieve index of upper grid point (in z and r) from prefix-sum index
+        # (See calculation of prefix-sum index in `get_cell_idx_per_particle`)
         iz_upper = int( i / (Nr+1) )
         ir_upper = int( i - iz_upper * (Nr+1) )
         # Calculate the inclusive offset for the current cell

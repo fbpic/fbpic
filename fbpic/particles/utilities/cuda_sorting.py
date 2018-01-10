@@ -60,7 +60,7 @@ def get_cell_idx_per_particle(cell_idx, sorted_idx,
             r_cell =  invdr*(rj - rmin) - 0.5
             z_cell =  invdz*(zj - zmin) - 0.5
 
-            # Original index of the uppper and upper cell
+            # Original index of the uppper grid point in z and r
             ir_upper = int(math.ceil( r_cell ))
             iz_upper = int(math.ceil( z_cell ))
 
