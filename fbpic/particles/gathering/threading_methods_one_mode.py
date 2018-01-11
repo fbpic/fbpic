@@ -31,6 +31,7 @@ def erase_eb_numba( Ex, Ey, Ez, Bx, By, Bz, Ntot ):
         Bx[i] = 0
         By[i] = 0
         Bz[i] = 0
+    return  Ex, Ey, Ez, Bx, By, Bz
 
 # -----------------------
 # Field gathering linear
