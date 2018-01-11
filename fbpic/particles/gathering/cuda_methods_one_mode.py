@@ -4,27 +4,26 @@
 """
 This file is part of the Fourier-Bessel Particle-In-Cell code (FB-PIC)
 It defines the field gathering methods linear and cubic order shapes
-on the CPU with threading, for one azimuthal mode at a time
+on the GPU using CUDA, for one azimuthal mode at a time
 """
-import numba
-from numba import int64
-from fbpic.utils.threading import njit_parallel, prange
+from numba import cuda, float64, int64
 import math
-import numpy as np
 # Import inline functions
 from .inline_functions import \
     add_linear_gather_for_mode, add_cubic_gather_for_mode
-# Compile the inline functions for CPU
-add_linear_gather_for_mode = numba.njit( add_linear_gather_for_mode )
-add_cubic_gather_for_mode = numba.njit( add_cubic_gather_for_mode )
+# Compile the inline functions for GPU
+add_linear_gather_for_mode = cuda.jit( add_linear_gather_for_mode,
+                                        device=True, inline=True )
+add_cubic_gather_for_mode = cuda.jit( add_cubic_gather_for_mode,
+                                        device=True, inline=True )
 
-
-@njit_parallel
-def erase_eb_numba( Ex, Ey, Ez, Bx, By, Bz, Ntot ):
+@cuda.jit
+def erase_eb_cuda( Ex, Ey, Ez, Bx, By, Bz, Ntot ):
     """
     #TODO
     """
-    for i in prange(Ntot):
+    i = cuda.grid(1)
+    if i < Ntot:
         Ex[i] = 0
         Ey[i] = 0
         Ez[i] = 0
@@ -36,20 +35,21 @@ def erase_eb_numba( Ex, Ey, Ez, Bx, By, Bz, Ntot ):
 # Field gathering linear
 # -----------------------
 
-@njit_parallel
-def gather_field_numba_linear_one_mode(x, y, z,
+@cuda.jit
+def gather_field_gpu_linear_one_mode(x, y, z,
                     invdz, zmin, Nz,
                     invdr, rmin, Nr,
                     Er_m, Et_m, Ez_m,
                     Br_m, Bt_m, Bz_m, m,
                     Ex, Ey, Ez,
-                    Bx, By, Bz ):
+                    Bx, By, Bz):
     """
-    Gathering of the fields (E and B) using numba with multi-threading.
+    Gathering of the fields (E and B) using numba on the GPU.
     Iterates over the particles, calculates the weighted amount
     of fields acting on each particle based on its shape (linear).
     Fields are gathered in cylindrical coordinates and then
-    transformed to cartesian coordinates.s
+    transformed to cartesian coordinates.
+    Supports only mode 0 and 1.
 
     Parameters
     ----------
@@ -83,8 +83,11 @@ def gather_field_numba_linear_one_mode(x, y, z,
         The magnetic fields acting on the particles
         (is modified by this function)
     """
+    # Get the 1D CUDA grid
+    i = cuda.grid(1)
     # Deposit the field per cell in parallel
-    for i in prange(x.shape[0]):
+    # (for threads < number of particles)
+    if i < x.shape[0]:
         # Preliminary arrays for the cylindrical conversion
         # --------------------------------------------
         # Position
@@ -101,10 +104,13 @@ def gather_field_numba_linear_one_mode(x, y, z,
         else :
             cos = 1.
             sin = 0.
-        exptheta_m = (cos - 1.j*sin)**m
+        # Calculate azimuthal complex factor
+        exptheta_m = 1.
+        for _ in range(m):
+            exptheta_m *= (cos - 1.j*sin)
 
         # Get linear weights for the deposition
-        # -------------------------------------
+        # --------------------------------------------
         # Positions of the particles, in the cell unit
         r_cell =  invdr*(rj - rmin) - 0.5
         z_cell =  invdz*(zj - zmin) - 0.5
@@ -122,7 +128,7 @@ def gather_field_numba_linear_one_mode(x, y, z,
         Sr_guard = 0.
 
         # Treat the boundary conditions
-        # -----------------------------
+        # --------------------------------------------
         # guard cells in lower r
         if ir_lower < 0:
             Sr_guard = Sr_lower
@@ -187,23 +193,20 @@ def gather_field_numba_linear_one_mode(x, y, z,
         By[i] += sin*Fr + cos*Ft
         Bz[i] += Fz
 
-    return Ex, Ey, Ez, Bx, By, Bz
-
 # -----------------------
 # Field gathering cubic
 # -----------------------
 
-@njit_parallel
-def gather_field_numba_cubic_one_mode(x, y, z,
+@cuda.jit
+def gather_field_gpu_cubic_one_mode(x, y, z,
                     invdz, zmin, Nz,
                     invdr, rmin, Nr,
                     Er_m, Et_m, Ez_m,
                     Br_m, Bt_m, Bz_m, m,
                     Ex, Ey, Ez,
-                    Bx, By, Bz,
-                    nthreads, ptcl_chunk_indices):
+                    Bx, By, Bz):
     """
-    Gathering of the fields (E and B) using numba with multi-threading.
+    Gathering of the fields (E and B) using numba on the GPU.
     Iterates over the particles, calculates the weighted amount
     of fields acting on each particle based on its shape (cubic).
     Fields are gathered in cylindrical coordinates and then
@@ -241,94 +244,84 @@ def gather_field_numba_cubic_one_mode(x, y, z,
     Bx, By, Bz : 1darray of floats
         The magnetic fields acting on the particles
         (is modified by this function)
-
-    nthreads : int
-        Number of CPU threads used with numba prange
-
-    ptcl_chunk_indices : array of int, of size nthreads+1
-        The indices (of the particle array) between which each thread
-        should loop. (i.e. divisions of particle array between threads)
     """
-    # Gather the field per cell in parallel
-    for nt in prange( nthreads ):
 
-        # Create private arrays for each thread
-        # to store the particle index and shape
-        Sr = np.empty( 4 )
-        Sz = np.empty( 4 )
+    # Get the 1D CUDA grid
+    i = cuda.grid(1)
+    # Deposit the field per cell in parallel
+    # (for threads < number of particles)
+    if i < x.shape[0]:
+        # Preliminary arrays for the cylindrical conversion
+        # --------------------------------------------
+        # Position
+        xj = x[i]
+        yj = y[i]
+        zj = z[i]
 
-        # Loop over all particles in thread chunk
-        for i in range( ptcl_chunk_indices[nt],
-                            ptcl_chunk_indices[nt+1] ):
+        # Cylindrical conversion
+        rj = math.sqrt(xj**2 + yj**2)
+        if (rj != 0.):
+            invr = 1./rj
+            cos = xj*invr  # Cosine
+            sin = yj*invr  # Sine
+        else:
+            cos = 1.
+            sin = 0.
+        # Calculate azimuthal complex factor
+        exptheta_m = 1.
+        for _ in range(m):
+            exptheta_m *= (cos - 1.j*sin)
 
-            # Preliminary arrays for the cylindrical conversion
-            # --------------------------------------------
-            # Position
-            xj = x[i]
-            yj = y[i]
-            zj = z[i]
+        # Get weights for the deposition
+        # --------------------------------------------
+        # Positions of the particle, in the cell unit
+        r_cell = invdr*(rj - rmin) - 0.5
+        z_cell = invdz*(zj - zmin) - 0.5
 
-            # Cylindrical conversion
-            rj = math.sqrt(xj**2 + yj**2)
-            if (rj != 0.):
-                invr = 1./rj
-                cos = xj*invr  # Cosine
-                sin = yj*invr  # Sine
-            else:
-                cos = 1.
-                sin = 0.
-            exptheta_m = (cos - 1.j*sin)**m
+        # Calculate the shape factors
+        Sr = cuda.local.array((4,), dtype=float64)
+        ir_lowest = int64(math.floor(r_cell)) - 1
+        r_local = r_cell-ir_lowest
+        Sr[0] = -1./6. * (r_local-2.)**3
+        Sr[1] = 1./6. * (3.*(r_local-1.)**3 - 6.*(r_local-1.)**2 + 4.)
+        Sr[2] = 1./6. * (3.*(2.-r_local)**3 - 6.*(2.-r_local)**2 + 4.)
+        Sr[3] = -1./6. * (1.-r_local)**3
+        Sz = cuda.local.array((4,), dtype=float64)
+        iz_lowest = int64(math.floor(z_cell)) - 1
+        z_local = z_cell-iz_lowest
+        Sz[0] = -1./6. * (z_local-2.)**3
+        Sz[1] = 1./6. * (3.*(z_local-1.)**3 - 6.*(z_local-1.)**2 + 4.)
+        Sz[2] = 1./6. * (3.*(2.-z_local)**3 - 6.*(2.-z_local)**2 + 4.)
+        Sz[3] = -1./6. * (1.-z_local)**3
 
-            # Get weights for the deposition
-            # --------------------------------------------
-            # Positions of the particle, in the cell unit
-            r_cell = invdr*(rj - rmin) - 0.5
-            z_cell = invdz*(zj - zmin) - 0.5
+        # E-Field
+        # -------
+        Fr = 0.
+        Ft = 0.
+        Fz = 0.
+        # Add contribution from mode m
+        Fr, Ft, Fz = add_cubic_gather_for_mode( m,
+            Fr, Ft, Fz, exptheta_m, Er_m, Et_m, Ez_m,
+            ir_lowest, iz_lowest, Sr, Sz, Nr, Nz )
+        # Convert to Cartesian coordinates
+        # and write to particle field arrays
+        Ex[i] += cos*Fr - sin*Ft
+        Ey[i] += sin*Fr + cos*Ft
+        Ez[i] += Fz
 
-            # Calculate the shape factors
-            ir_lowest = int64(math.floor(r_cell)) - 1
-            r_local = r_cell-ir_lowest
-            Sr[0] = -1./6. * (r_local-2.)**3
-            Sr[1] = 1./6. * (3.*(r_local-1.)**3 - 6.*(r_local-1.)**2 + 4.)
-            Sr[2] = 1./6. * (3.*(2.-r_local)**3 - 6.*(2.-r_local)**2 + 4.)
-            Sr[3] = -1./6. * (1.-r_local)**3
-            iz_lowest = int64(math.floor(z_cell)) - 1
-            z_local = z_cell-iz_lowest
-            Sz[0] = -1./6. * (z_local-2.)**3
-            Sz[1] = 1./6. * (3.*(z_local-1.)**3 - 6.*(z_local-1.)**2 + 4.)
-            Sz[2] = 1./6. * (3.*(2.-z_local)**3 - 6.*(2.-z_local)**2 + 4.)
-            Sz[3] = -1./6. * (1.-z_local)**3
-
-            # E-Field
-            # -------
-            Fr = 0.
-            Ft = 0.
-            Fz = 0.
-            # Add contribution from mode m
-            Fr, Ft, Fz = add_cubic_gather_for_mode( m,
-                Fr, Ft, Fz, exptheta_m, Er_m, Et_m, Ez_m,
-                ir_lowest, iz_lowest, Sr, Sz, Nr, Nz )
-            # Convert to Cartesian coordinates
-            # and write to particle field arrays
-            Ex[i] += cos*Fr - sin*Ft
-            Ey[i] += sin*Fr + cos*Ft
-            Ez[i] += Fz
-
-            # B-Field
-            # -------
-            # Clear the placeholders for the
-            # gathered field for each coordinate
-            Fr = 0.
-            Ft = 0.
-            Fz = 0.
-            # Add contribution from mode m
-            Fr, Ft, Fz = add_cubic_gather_for_mode( m,
-                Fr, Ft, Fz, exptheta_m, Br_m, Bt_m, Bz_m,
-                ir_lowest, iz_lowest, Sr, Sz, Nr, Nz )
-            # Convert to Cartesian coordinates
-            # and write to particle field arrays
-            Bx[i] += cos*Fr - sin*Ft
-            By[i] += sin*Fr + cos*Ft
-            Bz[i] += Fz
-
-    return Ex, Ey, Ez, Bx, By, Bz
+        # B-Field
+        # -------
+        # Clear the placeholders for the
+        # gathered field for each coordinate
+        Fr = 0.
+        Ft = 0.
+        Fz = 0.
+        # Add contribution from mode m
+        Fr, Ft, Fz =  add_cubic_gather_for_mode( m,
+            Fr, Ft, Fz, exptheta_m, Br_m, Bt_m, Bz_m,
+            ir_lowest, iz_lowest, Sr, Sz, Nr, Nz )
+        # Convert to Cartesian coordinates
+        # and write to particle field arrays
+        Bx[i] += cos*Fr - sin*Ft
+        By[i] += sin*Fr + cos*Ft
+        Bz[i] += Fz
