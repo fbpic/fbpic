@@ -229,15 +229,15 @@ def remove_particles_gpu(species, fld, n_guard, left_proc, right_proc):
     # Find the z index of the first cell for which particles are kept
     iz_min = max( n_guard + fld.prefix_sum_shift, 0 )
     # Find the z index of the first cell for which particles are removed again
-    iz_max = min( Nz - n_guard + fld.prefix_sum_shift, Nz )
+    iz_max = min( Nz - n_guard + fld.prefix_sum_shift + 1, Nz )
     # Find the corresponding indices in the particle array
     # Reminder: prefix_sum[i] is the cumulative sum of the number of particles
     # in cells 0 to i (where cell i is included)
-    if iz_min*Nr - 1 >= 0:
-        i_min = prefix_sum.getitem( iz_min*Nr - 1 )
+    if iz_min*(Nr+1) - 1 >= 0:
+        i_min = prefix_sum.getitem( iz_min*(Nr+1) - 1 )
     else:
         i_min = 0
-    i_max = prefix_sum.getitem( iz_max*Nr - 1 )
+    i_max = prefix_sum.getitem( iz_max*(Nr+1) - 1 )
     # Because of the way in which the prefix_sum is calculated, if the
     # cell that was requested for i_max is beyond the last non-empty cell,
     # i_max will be zero, but should in fact be species.Ntot
