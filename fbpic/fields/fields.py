@@ -15,9 +15,9 @@ from .spectral_transform import SpectralTransformer
 from .utility_methods import get_filter_array, get_modified_k
 
 # Check if CUDA is available, then import CUDA functions
-from fbpic.cuda_utils import cuda_installed
+from fbpic.utils.cuda import cuda_installed
 if cuda_installed:
-    from fbpic.cuda_utils import cuda_tpb_bpg_2d
+    from fbpic.utils.cuda import cuda_tpb_bpg_2d
     from .cuda_methods import cuda, \
     cuda_correct_currents_curlfree_standard, \
     cuda_correct_currents_crossdeposition_standard, \

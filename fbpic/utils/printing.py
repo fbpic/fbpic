@@ -7,8 +7,8 @@ It defines a set of generic functions for printing simulation information.
 """
 import sys, time
 from fbpic import __version__
-from fbpic.cuda_utils import cuda, cuda_installed
-from fbpic.mpi_utils import MPI, mpi_installed
+from fbpic.utils.cuda import cuda, cuda_installed
+from fbpic.utils.mpi import MPI, mpi_installed
 # Check if terminal is correctly set to UTF-8 and set progress character
 if sys.stdout.encoding == 'UTF-8':
     progress_char = u'\u2588'

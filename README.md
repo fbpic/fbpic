@@ -67,7 +67,7 @@ it from [here](https://www.continuum.io/downloads).
 
 - Install the dependencies of FBPIC. This can be done in two lines:
 ```
-conda install numba=0.34 scipy h5py mkl
+conda install numba scipy h5py mkl
 conda install -c conda-forge mpi4py
 ```
 - Download and install FBPIC:

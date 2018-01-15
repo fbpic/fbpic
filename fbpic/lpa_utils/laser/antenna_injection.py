@@ -13,9 +13,9 @@ from fbpic.particles.utilities.utility_methods import weights
 from fbpic.particles.deposition.numba_methods import deposit_field_numba
 
 # Check if CUDA is available, then import CUDA functions
-from fbpic.cuda_utils import cuda_installed
+from fbpic.utils.cuda import cuda_installed
 if cuda_installed:
-    from fbpic.cuda_utils import cuda, cuda_tpb_bpg_1d
+    from fbpic.utils.cuda import cuda, cuda_tpb_bpg_1d
 
 class LaserAntenna( object ):
     """
@@ -235,17 +235,8 @@ class LaserAntenna( object ):
         # Check if baseline_z is in the local physical domain
         # (This prevents out-of-bounds errors, and prevents 2 neighboring
         # processors from simultaneously depositing the laser antenna)
-        zmin_local = fld.interp[0].zmin
-        zmax_local = fld.interp[0].zmax
-        # If a communicator is provided, remove the guard cells
-        if comm is not None:
-            dz = fld.interp[0].dz
-            zmin_local += dz*comm.n_guard
-            if comm.left_proc is None:
-                zmin_local += dz*comm.n_damp
-            zmax_local -= dz*comm.n_guard
-            if comm.right_proc is None:
-                zmax_local -= dz*comm.n_damp
+        zmin_local, zmax_local = comm.get_zmin_zmax(
+            local=True, with_damp=False, with_guard=False, rank=comm.rank )
         # Interrupt this function if the antenna is not in the local domain
         z_antenna = self.baseline_z[0]
         if (z_antenna < zmin_local) or (z_antenna >= zmax_local):

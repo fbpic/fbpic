@@ -38,10 +38,10 @@ from ..cuda_numba_utils import allocate_empty, reallocate_and_copy_old, \
                                 perform_cumsum, generate_new_ids
 
 # Check if CUDA is available, then import CUDA functions
-from fbpic.cuda_utils import cuda_installed
+from fbpic.utils.cuda import cuda_installed
 if cuda_installed:
     from pyculib.rand import PRNG
-    from fbpic.cuda_utils import cuda_tpb_bpg_1d
+    from fbpic.utils.cuda import cuda_tpb_bpg_1d
     from .cuda_methods import ionize_ions_cuda, copy_ionized_electrons_cuda
 
 class Ionizer(object):

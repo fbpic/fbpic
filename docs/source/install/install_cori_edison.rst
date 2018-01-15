@@ -20,54 +20,28 @@ On the other hand, Cori has two types of nodes:
     nodes is poor. It is strongly recommended to use the Haswell nodes
     when running FBPIC on Cori.
 
-Installation of FBPIC
----------------------
-
-Installation of Anaconda
-~~~~~~~~~~~~~~~~~~~~~~~~
-
-In order to download and install Anaconda and FBPIC, follow the steps below:
-
--  Download Miniconda:
-
-   ::
-
-       wget https://repo.continuum.io/miniconda/Miniconda3-latest-Linux-x86_64.sh
-
--  Execute the Miniconda installation script
-
-   ::
-
-       bash Miniconda3-latest-Linux-x86_64.sh -p $SCRATCH/miniconda3
-
--  Add the following lines at the end of your ``.bashrc.ext``
-
-   ::
-
-       export PATH=$SCRATCH/miniconda3/bin:$PATH
-       export PYTHONPATH=$SCRATCH/miniconda3/lib:$PYTHONPATH
-
-   and then type
-
-   ::
-
-       source .bashrc
-
 Installation of FBPIC and its dependencies
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+------------------------------------------
 
--  Install the dependencies of ``fbpic``
+In order to install FBPIC, follow the steps below:
 
-   ::
-
-       conda install numba=0.34 scipy h5py mkl
-       conda install -c conda-forge mpi4py
-
--  Install ``fbpic``
+-  Set your environment to use the Anaconda distribution:
 
    ::
 
-      pip install fbpic
+    module load python/2.7-anaconda
+
+-  Install the missing dependencies of FBPIC
+
+   ::
+
+       pip install --upgrade numba llvmlite --user
+
+-  Install FBPIC
+
+   ::
+
+       pip install fbpic --user
 
 Running simulations
 -------------------
@@ -83,19 +57,19 @@ the above-mentioned directory, and copy your input script there.
 Interactive jobs
 ~~~~~~~~~~~~~~~~
 
-In order to request a Haswell node on Cori:
+In order to request a Haswell node on Cori, use the following command.
+(For Edison, simply remove the ``-C haswell`` option.)
 
 ::
 
     salloc --time=00:30:00 --nodes=1 --partition debug  -C haswell
-
-(For Edison, simply remove the `-C haswell` option.)
 
 Once the job has started, you will directly be logged into the node. Then
 ``cd`` to the directory where you prepared your input script and type
 
 ::
 
+    module load python/2.7-anaconda
     python <fbpic_script.py>
 
 Batch job
@@ -103,8 +77,10 @@ Batch job
 
 Create a new file named ``submission_file`` in the same directory as
 your input script (typically this directory is a subdirectory of
-``$SCRATCH``). Within this new file, copy the following text
-(and replace the bracketed text by the proper values).
+``$SCRATCH``). Within this new file, copy the following text,
+and replace the bracketed text by the proper values.
+(The line ``#SBATCH -C haswell`` is specific to Cori. When running on
+Edison, simply remove this line.)
 
 ::
 
@@ -112,20 +88,37 @@ your input script (typically this directory is a subdirectory of
     #SBATCH -J my_job
     #SBATCH --partition=regular
     #SBATCH -C haswell
-    #SBATCH --time <requestedTime>
-    #SBATCH --nodes 1
+    #SBATCH --time <requested time>
+    #SBATCH --nodes <n_nodes>
 
-    export NUMBA_NUM_THREADS=<Number of threads per MPI rank>
-    export MKL_NUM_THREADS=<Number of threads per MPI rank>
+    module load python/2.7-anaconda
+    export NUMBA_NUM_THREADS=<n_threads>
+    export MKL_NUM_THREADS=<n_threads>
 
-    mpirun -np <Number of MPI ranks> python <fbpic_script.py>
+    srun -n <n_mpi> -c <n_logical_cores_per_mpi> --cpu_bind=cores python <fbpic_script.py>
 
-(The line ``#SBATCH -C haswell`` is specific to Cori. When running on
-Edison, simply remove this line.) Then run:
+Then run:
 
-::
+    ::
 
-    sbatch submission_file
+        sbatch submission_file
+
+.. note::
+
+    In order to have a favorable scaling, it is recommended to use 2 MPI ranks
+    per node (i.e. ``<n_mpi> = 2 * <n_nodes>``), and to use the following values:
+
+    - For Cori:
+
+        ``<n_threads> = 16``
+
+        ``<n_logical_cores_per_mpi> = 32``
+
+    - For Edison:
+
+        ``<n_threads> = 12``
+
+        ``<n_logical_cores_per_mpi> = 24``
 
 Visualizing the results through Jupyter
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~

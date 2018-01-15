@@ -157,14 +157,14 @@ def add_elec_bunch_gaussian( sim, sig_r, sig_z, n_emit, gamma0, sig_gamma,
         Saves the generated beam distribution as an .npz file "string".npz
     """
     # Get Gaussian particle distribution in x,y,z
-    x = np.random.normal(0., sig_r, N)
-    y = np.random.normal(0., sig_r, N)
-    z = np.random.normal(zf, sig_z, N) # with offset in z
+    x = sig_r * np.random.normal(0., 1., N)
+    y = sig_r * np.random.normal(0., 1., N)
+    z = zf + sig_z * np.random.normal(0., 1., N) # with offset in z
     # Define sigma of ux and uy based on normalized emittance
     sig_ur = (n_emit/sig_r)
     # Get Gaussian distribution of transverse normalized momenta ux, uy
-    ux = np.random.normal(0., sig_ur, N)
-    uy = np.random.normal(0., sig_ur, N)
+    ux = sig_ur * np.random.normal(0., 1., N)
+    uy = sig_ur * np.random.normal(0., 1., N)
     # Now we imprint an energy spread on the gammas of each particle
     if sig_gamma > 0.:
         gamma = np.random.normal(gamma0, sig_gamma, N)
@@ -343,7 +343,8 @@ def add_elec_bunch_from_arrays( sim, x, y, z, ux, uy, uz, w,
         Propagation direction of the beam.
     """
     # Select the particles that are in the local subdomain
-    zmin, zmax = sim.comm.get_zmin_zmax( sim.fld, local=True )
+    zmin, zmax = sim.comm.get_zmin_zmax(
+        local=True, with_damp=False, with_guard=False, rank=sim.comm.rank )
     selected = (z >= zmin) & (z < zmax)
     x = x[selected]
     y = y[selected]
@@ -433,8 +434,10 @@ def get_space_charge_fields( sim, ptcl, direction='forward') :
     # (Space-charge calculation is a global operation)
     # Note: in the single-proc case, this is also useful in order not to
     # erase the pre-existing E and B field in sim.fld
-    global_Nz = sim.comm.Nz
-    global_zmin, global_zmax = sim.comm.get_zmin_zmax(sim.fld, local=False)
+    global_Nz, _ = sim.comm.get_Nz_and_iz(
+                    local=False, with_damp=True, with_guard=False )
+    global_zmin, global_zmax = sim.comm.get_zmin_zmax(
+                    local=False, with_damp=True, with_guard=False )
     global_fld = Fields( global_Nz, global_zmax,
             sim.fld.Nr, sim.fld.rmax, sim.fld.Nm, sim.fld.dt,
             zmin=global_zmin, n_order=sim.fld.n_order, use_cuda=False)
@@ -442,7 +445,8 @@ def get_space_charge_fields( sim, ptcl, direction='forward') :
     for m in range(sim.fld.Nm):
         for field in ['Jr', 'Jt', 'Jz', 'rho']:
             local_array = getattr( sim.fld.interp[m], field )
-            gathered_array = sim.comm.gather_grid_array( local_array )
+            gathered_array = sim.comm.gather_grid_array(
+                                            local_array, with_damp=True )
             setattr( global_fld.interp[m], field, gathered_array )
 
     # Calculate the space-charge fields on the global grid
@@ -464,24 +468,21 @@ def get_space_charge_fields( sim, ptcl, direction='forward') :
     # Communicate the results from proc 0 to the other procs
     # and add it to the interpolation grid of sim.fld.
     # - First find the indices at which the fields should be added
-    i_min_local = sim.comm.n_guard
-    if sim.comm.left_proc is None:
-        i_min_local += sim.comm.n_damp
-    i_max_local = i_min_local + sim.comm.Nz_domain
+    Nz_local, iz_start_local_domain = sim.comm.get_Nz_and_iz(
+        local=True, with_damp=True, with_guard=False, rank=sim.comm.rank )
+    _, iz_start_local_array = sim.comm.get_Nz_and_iz(
+        local=True, with_damp=True, with_guard=True, rank=sim.comm.rank )
+    iz_in_array = iz_start_local_domain - iz_start_local_array
     # - Then loop over modes and fields
     for m in range(sim.fld.Nm):
         for field in ['Er', 'Et', 'Ez', 'Br', 'Bt', 'Bz']:
             # Get the local result from proc 0
             global_array = getattr( global_fld.interp[m], field )
-            local_array = sim.comm.scatter_grid_array( global_array )
+            local_array = sim.comm.scatter_grid_array(
+                                    global_array, with_damp=True )
             # Add it to the fields of sim.fld
             local_field = getattr( sim.fld.interp[m], field )
-            local_field[ i_min_local:i_max_local, : ] += local_array
-
-    # For consistency and diagnostics, redeposit the charge and current
-    # of the full simulation (since the last step erased these quantities)
-    sim.deposit('rho_prev')
-    sim.deposit('J', exchange=True)
+            local_field[ iz_in_array:iz_in_array+Nz_local, : ] += local_array
 
     print("Done.\n")
 
