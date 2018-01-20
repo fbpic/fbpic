@@ -9,20 +9,20 @@ This file steers and controls the simulation.
 # When cuda is available, select one GPU per mpi process
 # (This needs to be done before the other imports,
 # as it sets the cuda context)
-from mpi4py import MPI
-import numba
+from fbpic.utils.mpi import MPI
 # Check if threading is available
-from .threading_utils import threading_enabled
+from .utils.threading import threading_enabled
 # Check if CUDA is available, then import CUDA functions
-from .cuda_utils import cuda_installed
+from .utils.cuda import cuda_installed
 if cuda_installed:
-    from .cuda_utils import send_data_to_gpu, \
+    from .utils.cuda import send_data_to_gpu, \
                 receive_data_from_gpu, mpi_select_gpus
     mpi_select_gpus( MPI )
 
 # Import the rest of the requirements
-import sys, time
+import numba
 from scipy.constants import m_e, m_p, e, c
+from .utils.printing import ProgressBar, print_simulation_setup
 from .particles import Particles
 from .lpa_utils.boosted_frame import BoostConverter
 from .fields import Fields
@@ -44,10 +44,11 @@ class Simulation(object):
     def __init__(self, Nz, zmax, Nr, rmax, Nm, dt, p_zmin, p_zmax,
                  p_rmin, p_rmax, p_nz, p_nr, p_nt, n_e, zmin=0.,
                  n_order=-1, dens_func=None, filter_currents=True,
-                 v_comoving=None, use_galilean=False, initialize_ions=False,
+                 v_comoving=None, use_galilean=True, initialize_ions=False,
                  use_cuda=False, n_guard=None, n_damp=30, exchange_period=None,
                  boundaries='periodic', gamma_boost=None,
-                 use_all_mpi_ranks=True, particle_shape='linear' ):
+                 use_all_mpi_ranks=True, particle_shape='linear',
+                 verbose_level=1 ):
         """
         Initializes a simulation, by creating the following structures:
 
@@ -96,12 +97,15 @@ class Simulation(object):
            Peak density of the electrons
 
         n_order: int, optional
-           The order of the stencil for the z derivatives.
-           Use -1 for infinite order, otherwise use a positive, even
-           number. In this case, the stencil extends up to approx.
-           2*n_order cells on each side. (A finite order stencil
-           is required to have a localized field push that allows
-           to do simulations in parallel on multiple MPI ranks)
+           The order of the stencil for z derivatives in the Maxwell solver.
+           Use -1 for infinite order, i.e. for exact dispersion relation in
+           all direction (adviced for single-GPU/single-CPU simulation).
+           Use a positive number (and multiple of 2) for a finite-order stencil
+           (required for multi-GPU/multi-CPU with MPI). A large `n_order` leads
+           to more overhead in MPI communications, but also to a more accurate
+           dispersion relation for electromagnetic waves. (Typically,
+           `n_order = 32` is a good trade-off.) See `this article
+           <https://arxiv.org/abs/1611.05712>`_ for more information.
 
         zmin: float, optional
            The position of the edge of the simulation box.
@@ -184,15 +188,27 @@ class Simulation(object):
             Set the particle shape for the charge/current deposition.
             Possible values are 'cubic', 'linear'. ('cubic' corresponds to
             third order shapes and 'linear' to first order shapes).
+
+        verbose_level: int, optional
+            Print information about the simulation setup after
+            initialization of the Simulation class.
+            0 - Print no information
+            1 (Default) - Print basic information
+            2 - Print detailed information
         """
         # Check whether to use CUDA
         self.use_cuda = use_cuda
-        if (use_cuda==True) and (cuda_installed==False):
+        if (self.use_cuda==True) and (cuda_installed==False):
+            # Print warning if use_cuda = True but CUDA is not available
             print('*** Cuda not available for the simulation.')
             print('*** Performing the simulation on CPU.')
             self.use_cuda = False
         # CPU multi-threading
         self.use_threading = threading_enabled
+        if self.use_threading:
+            self.cpu_threads = numba.config.NUMBA_NUM_THREADS
+        else:
+            self.cpu_threads = 1
 
         # Register the comoving parameters
         self.v_comoving = v_comoving
@@ -203,20 +219,21 @@ class Simulation(object):
         # When running the simulation in a boosted frame, convert the arguments
         uz_m = 0.   # Mean normalized momentum of the particles
         if gamma_boost is not None:
-            boost = BoostConverter( gamma_boost )
-            zmin, zmax, dt = boost.copropag_length([ zmin, zmax, dt ])
-            p_zmin, p_zmax = boost.static_length([ p_zmin, p_zmax ])
-            n_e, = boost.static_density([ n_e ])
-            uz_m, = boost.longitudinal_momentum([ uz_m ])
+            self.boost = BoostConverter( gamma_boost )
+            zmin, zmax, dt = self.boost.copropag_length([ zmin, zmax, dt ])
+            p_zmin, p_zmax = self.boost.static_length([ p_zmin, p_zmax ])
+            n_e, = self.boost.static_density([ n_e ])
+            uz_m, = self.boost.longitudinal_momentum([ uz_m ])
+        else:
+            self.boost = None
 
         # Initialize the boundary communicator
         self.comm = BoundaryCommunicator( Nz, zmin, zmax, Nr, rmax, Nm, dt,
             boundaries, n_order, n_guard, n_damp, exchange_period,
             use_all_mpi_ranks )
-        print_simulation_setup( self.comm, self.use_cuda, self.use_threading )
         # Modify domain region
         zmin, zmax, p_zmin, p_zmax, Nz = \
-              self.comm.divide_into_domain(zmin, zmax, p_zmin, p_zmax)
+              self.comm.divide_into_domain( p_zmin, p_zmax )
 
         # Initialize the field structure
         self.fld = Fields( Nz, zmax, Nr, rmax, Nm, dt,
@@ -233,19 +250,22 @@ class Simulation(object):
                                 p_rmin, p_rmax, p_nr )
 
         # Initialize the electrons and the ions
-        grid_shape = self.fld.interp[0].Ez.shape
+        self.grid_shape = self.fld.interp[0].Ez.shape
+        self.particle_shape = particle_shape
         self.ptcl = [
             Particles(q=-e, m=m_e, n=n_e, Npz=Npz, zmin=p_zmin,
                       zmax=p_zmax, Npr=Npr, rmin=p_rmin, rmax=p_rmax,
                       Nptheta=p_nt, dt=dt, dens_func=dens_func, uz_m=uz_m,
-                      grid_shape=grid_shape, particle_shape=particle_shape,
+                      grid_shape=self.grid_shape,
+                      particle_shape=self.particle_shape,
                       use_cuda=self.use_cuda ) ]
         if initialize_ions :
             self.ptcl.append(
                 Particles(q=e, m=m_p, n=n_e, Npz=Npz, zmin=p_zmin,
                           zmax=p_zmax, Npr=Npr, rmin=p_rmin, rmax=p_rmax,
                           Nptheta=p_nt, dt=dt, dens_func=dens_func, uz_m=uz_m,
-                          grid_shape=grid_shape, particle_shape=particle_shape,
+                          grid_shape=self.grid_shape,
+                          particle_shape=self.particle_shape,
                           use_cuda=self.use_cuda ) )
 
         # Register the number of particles per cell along z, and dt
@@ -267,9 +287,12 @@ class Simulation(object):
         # Initialize an empty list of laser antennas
         self.laser_antennas = []
 
+        # Print simulation setup
+        print_simulation_setup( self, verbose_level=verbose_level )
+
     def step(self, N=1, correct_currents=True,
-            correct_divE=False, use_true_rho=False,
-            move_positions=True, move_momenta=True, show_progress=True):
+             correct_divE=False, use_true_rho=False,
+             move_positions=True, move_momenta=True, show_progress=True):
         """
         Perform N PIC cycles.
 
@@ -308,12 +331,22 @@ class Simulation(object):
         if self.comm.size > 1 and correct_divE:
             raise ValueError('correct_divE cannot be used in multi-proc mode.')
 
-        # Measure the time taken by the PIC cycle
-        measured_start = time.time()
+        # Initialize variables to measure the time taken by the simulation
+        if show_progress and self.comm.rank==0:
+            progress_bar = ProgressBar( N )
 
         # Send simulation data to GPU (if CUDA is used)
         if self.use_cuda:
             send_data_to_gpu(self)
+
+        # Get the E and B fields in spectral space initially
+        # (In the rest of the loop, E and B will only be transformed
+        # from spectal space to real space, but never the other way around)
+        self.comm.exchange_fields(fld.interp, 'E', 'replace')
+        self.comm.exchange_fields(fld.interp, 'B', 'replace')
+        self.comm.damp_EB_open_boundary( fld.interp )
+        fld.interp2spect('E')
+        fld.interp2spect('B')
 
         # Beginning of the N iterations
         # -----------------------------
@@ -321,28 +354,13 @@ class Simulation(object):
         # Loop over timesteps
         for i_step in range(N):
 
-            # Messages and diagnostics
-            # ------------------------
-
-            # Show a progression bar
+            # Show a progression bar and calculate ETA
             if show_progress and self.comm.rank==0:
-                progression_bar( i_step, N, measured_start )
+                progress_bar.time( i_step )
+                progress_bar.print_progress()
 
-            # Run the diagnostics
-            # (E, B, rho, x are defined at time n; J, p at time n-1/2)
-            for diag in self.diags:
-                # Check if the diagnostic should be written at this iteration
-                # and write it, if it is the case.
-                # (If needed: bring rho/J from spectral space, where they
-                # were smoothed/corrected, and copy the data from the GPU.)
-                diag.write( self.iteration )
-
-            # Exchanges to prepare for this iteration
-            # ---------------------------------------
-
-            # Exchange the fields (E,B) in the guard cells between MPI domains
-            self.comm.exchange_fields(fld.interp, 'E', 'replace')
-            self.comm.exchange_fields(fld.interp, 'B', 'replace')
+            # Particle exchanges to prepare for this iteration
+            # ------------------------------------------------
 
             # Check whether this iteration involves particle exchange.
             # Note: Particle exchange is imposed at the first iteration
@@ -363,8 +381,26 @@ class Simulation(object):
 
                 # Reproject the charge on the interpolation grid
                 # (Since particles have been removed / added to the simulation;
-                # otherwise rho_prev is obtained from the previous iteration)
-                self.deposit('rho_prev')
+                # otherwise rho_prev is obtained from the previous iteration.
+                # Note that the guard cells of rho are never exchanged.)
+                self.deposit('rho_prev', exchange=False)
+
+            # For the field diagnostics of the first step: deposit J
+            # (Note however that this is not the *corrected* current)
+            if i_step == 0:
+                self.deposit('J', exchange=True)
+
+            # Diagnostics
+            # -----------
+
+            # Run the diagnostics
+            # (E, B, rho, x are defined at time n; J, p at time n-1/2)
+            for diag in self.diags:
+                # Check if the diagnostic should be written at this iteration
+                # and write it, if it is the case.
+                # (If needed: bring rho/J from spectral space, where they
+                # were smoothed/corrected, and copy the data from the GPU.)
+                diag.write( self.iteration )
 
             # Main PIC iteration
             # ------------------
@@ -393,7 +429,7 @@ class Simulation(object):
 
             # Get the current at t = (n+1/2) dt
             # (Guard cell exchange done either now or after current correction)
-            self.deposit('J', exchange_J=(correct_currents is False))
+            self.deposit('J', exchange=(correct_currents is False))
 
             # Handle elementary processes at t = (n + 1/2)dt
             # i.e. when the particles' velocity and position are synchronized
@@ -413,23 +449,19 @@ class Simulation(object):
                 self.shift_galilean_boundaries()
 
             # Get the charge density at t = (n+1) dt
-            self.deposit('rho_next')
+            self.deposit('rho_next', exchange=False)
             # Correct the currents (requires rho at t = (n+1) dt )
             if correct_currents:
                 fld.correct_currents()
                 if self.comm.size > 1:
-                    # Exchange the corrected J between domains
+                    # Exchange the guard cells of corrected J between domains
                     # (If correct_currents is False, the exchange of J
                     # is done in the function `deposit`)
-                    fld.spect2interp('J')
+                    fld.spect2partial_interp('J')
                     self.comm.exchange_fields(fld.interp, 'J', 'add')
-                    fld.interp2spect('J')
+                    fld.partial_interp2spect('J')
+                    fld.exchanged_source['J'] = True
 
-            # Damp the fields in the guard cells
-            self.comm.damp_guard_EB( fld.interp )
-            # Get the damped fields on the spectral grid at t = n dt
-            fld.interp2spect('E')
-            fld.interp2spect('B')
             # Push the fields E and B on the spectral grid to t = (n+1) dt
             fld.push( use_true_rho )
             if correct_divE:
@@ -439,7 +471,19 @@ class Simulation(object):
                 # Shift the fields is spectral space and update positions of
                 # the interpolation grids
                 self.comm.move_grids(fld, self.dt, self.time)
-            # Get the fields E and B on the interpolation grid at t = (n+1) dt
+
+            # Get the MPI-exchanged and damped E and B field in both
+            # spectral space and interpolation space
+            # (Since exchange/damp operation is purely along z, spectral fields
+            # are updated by doing an iFFT/FFT instead of a full transform)
+            fld.spect2partial_interp('E')
+            fld.spect2partial_interp('B')
+            self.comm.exchange_fields(fld.interp, 'E', 'replace')
+            self.comm.exchange_fields(fld.interp, 'B', 'replace')
+            self.comm.damp_EB_open_boundary( fld.interp )
+            fld.partial_interp2spect('E')
+            fld.partial_interp2spect('B')
+            # Get the corresponding fields in interpolation space
             fld.spect2interp('E')
             fld.spect2interp('B')
 
@@ -457,8 +501,11 @@ class Simulation(object):
         # Finalize PIC loop
         # Get the charge density and the current from spectral space.
         fld.spect2interp('J')
+        if (not fld.exchanged_source['J']) and (self.comm.size > 1):
+            self.comm.exchange_fields(self.fld.interp, 'J', 'add')
         fld.spect2interp('rho_prev')
-        self.comm.exchange_fields(self.fld.interp, 'rho', 'add')
+        if (not fld.exchanged_source['rho_prev']) and (self.comm.size > 1):
+            self.comm.exchange_fields(self.fld.interp, 'rho', 'add')
 
         # Receive simulation data from GPU (if CUDA is used)
         if self.use_cuda:
@@ -466,12 +513,9 @@ class Simulation(object):
 
         # Print the measured time taken by the PIC cycle
         if show_progress and (self.comm.rank==0):
-            measured_duration = time.time() - measured_start
-            m, s = divmod(measured_duration, 60)
-            h, m = divmod(m, 60)
-            print('\n Time taken by the loop: %d:%02d:%02d\n' % (h, m, s))
+            progress_bar.print_summary()
 
-    def deposit( self, fieldtype, exchange_J=False ):
+    def deposit( self, fieldtype, exchange=False ):
         """
         Deposit the charge or the currents to the interpolation grid
         and then to the spectral grid.
@@ -483,8 +527,10 @@ class Simulation(object):
             should be changed by the deposition
             Either 'rho_prev', 'rho_next' or 'J'
 
-        exchange_J: bool
-            When depositing J, whether to do the guard cells exchange now
+        exchange: bool
+            Whether to exchange guard cells via MPI before transforming
+            the fields to the spectral grid. (The corresponding flag in
+            fld.exchanged_source is set accordingly.)
         """
         # Shortcut
         fld = self.fld
@@ -502,8 +548,9 @@ class Simulation(object):
                 antenna.deposit( fld, 'rho', self.comm )
             # Divide by cell volume
             fld.divide_by_volume('rho')
-            # The guard cells of rho are not exchanged (except for diagnostics)
-            # This is because rho is only used for current correction.
+            # Exchange guard cells if requested by the user
+            if exchange and self.comm.size > 1:
+                self.comm.exchange_fields(fld.interp, 'rho', 'add')
 
         # Currents
         elif fieldtype == 'J':
@@ -516,8 +563,8 @@ class Simulation(object):
                 antenna.deposit( fld, 'J', self.comm )
             # Divide by cell volume
             fld.divide_by_volume('J')
-            # Exchange guard cells
-            if exchange_J and self.comm.size > 1:
+            # Exchange guard cells if requested by the user
+            if exchange and self.comm.size > 1:
                 self.comm.exchange_fields(fld.interp, 'J', 'add')
 
         else:
@@ -527,6 +574,8 @@ class Simulation(object):
         fld.interp2spect( fieldtype )
         if self.filter_currents:
             fld.filter_spect( fieldtype )
+        # Set the flag to indicate whether these fields have been exchanged
+        fld.exchanged_source[ fieldtype ] = (exchange and self.comm.size > 1)
 
     def shift_galilean_boundaries(self):
         """
@@ -541,11 +590,14 @@ class Simulation(object):
         """
         # Calculate shift distance over a half timestep
         shift_distance = self.v_comoving * 0.5 * self.dt
+        # Shift the boundaries of the global domain
+        self.comm.shift_global_domain_positions( shift_distance )
         # Shift the boundaries of the grid
         for m in range(self.fld.Nm):
             self.fld.interp[m].zmin += shift_distance
             self.fld.interp[m].zmax += shift_distance
             self.fld.interp[m].z += shift_distance
+
 
     def set_moving_window( self, v=c, ux_m=0., uy_m=0., uz_m=0.,
                   ux_th=0., uy_th=0., uz_th=0., gamma_boost=None ):
@@ -583,51 +635,6 @@ class Simulation(object):
         self.comm.moving_win = MovingWindow( self.fld.interp, self.comm,
             self.dt, self.ptcl, v, self.p_nz, self.time,
             ux_m, uy_m, uz_m, ux_th, uy_th, uz_th, gamma_boost )
-
-def progression_bar( i, Ntot, measured_start, Nbars=50, char='-'):
-    """
-    Shows a progression bar with Nbars and the remaining
-    simulation time.
-    """
-    nbars = int( (i+1)*1./Ntot*Nbars )
-    sys.stdout.write('\r[' + nbars*char )
-    sys.stdout.write((Nbars-nbars)*' ' + ']')
-    sys.stdout.write(' %d/%d' %(i,Ntot))
-    # Estimated time in seconds until it will finish (linear interpolation)
-    eta = (((float(Ntot)/(i+1.))-1.)*(time.time()-measured_start))
-    # Conversion to H:M:S
-    m, s = divmod(eta, 60)
-    h, m = divmod(m, 60)
-    sys.stdout.write(', %d:%02d:%02d left' % (h, m, s))
-    sys.stdout.flush()
-
-def print_simulation_setup( comm, use_cuda, use_threading ):
-    """
-    Print message about the number of proc and
-    whether it is using GPU or CPU.
-
-    Parameters
-    ----------
-    comm: an fbpic BoundaryCommunicator object
-        Contains the information on the MPI decomposition
-
-    use_cuda: bool
-        Whether the simulation is set up to use CUDA
-
-    use_threading: bool
-        Whether the simulation is set up to use threads on CPU
-    """
-    if comm.rank == 0:
-        if use_cuda:
-            message = "\nRunning FBPIC on GPU "
-        else:
-            message = "\nRunning FBPIC on CPU "
-        message += "with %d proc" %comm.size
-        if use_threading and not use_cuda:
-            message += " (%d threads per proc)" %numba.config.NUMBA_NUM_THREADS
-        message += ".\n"
-
-        print( message )
 
 def adapt_to_grid( x, p_xmin, p_xmax, p_nx, ncells_empty=0 ):
     """

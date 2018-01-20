@@ -6,6 +6,9 @@
 [![License](https://img.shields.io/pypi/l/fbpic.svg)](LICENSE.txt)
 [![DOI](https://zenodo.org/badge/69215997.svg)](https://zenodo.org/badge/latestdoi/69215997)
 
+Online documentation: [http://fbpic.github.io](http://fbpic.github.io)<br/>
+Support: [Join slack](https://slack-fbpic.herokuapp.com)
+
 ## Overview
 
 FBPIC is a
@@ -30,9 +33,24 @@ the [documentation](http://fbpic.github.io).
 
 FBPIC is written entirely in Python, but uses
 [Numba](http://numba.pydata.org/) Just-In-Time compiler for high
-performance. In addition, the code can run on **CPU** (with multi-threading) 
-and on **GPU**. For large simulations, running the 
+performance. In addition, the code can run on **CPU** (with multi-threading)
+and on **GPU**. For large simulations, running the
 code on GPU can be much faster than on CPU.
+
+### Advanced features of laser-plasma acceleration
+
+FBPIC implements several useful features for laser-plasma acceleration, including:
+- Moving window
+- Cylindrical geometry (with azimuthal mode decomposition)
+- Calculation of space-charge fields at the beginning of the simulation
+- Intrinsic mitigation of Numerical Cherenkov Radiation (NCR) from relativistic bunches
+- Field ionization module (ADK model)
+
+In addition, FBPIC supports the **boosted-frame** technique (which can
+dramatically speed up simulations), and includes:
+- Utilities to convert input parameters from the lab frame to the boosted frame
+- On-the-fly conversion of simulation results from the boosted frame back to the lab frame
+- Suppression of the Numerical Cherenkov Instability (NCI) using the Galilean technique
 
 ## Installation
 
@@ -49,8 +67,8 @@ it from [here](https://www.continuum.io/downloads).
 
 - Install the dependencies of FBPIC. This can be done in two lines:
 ```
-conda install numba scipy h5py
-conda install -c conda-forge mpi4py pyfftw
+conda install numba scipy h5py mkl
+conda install -c conda-forge mpi4py
 ```
 - Download and install FBPIC:
 ```
@@ -61,6 +79,12 @@ pip install fbpic
 `pyculib`:
 ```
 conda install -c numba pyculib
+```
+
+- **Optional:** in order to run on a CPU which is **not** an Intel model, you
+need to install `pyfftw`, in order to replace the MKL FFT:
+```
+conda install -c conda-forge pyfftw
 ```
 
 ## Running simulations

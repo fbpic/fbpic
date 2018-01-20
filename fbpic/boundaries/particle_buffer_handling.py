@@ -8,9 +8,9 @@ It defines the structure necessary to handle mpi buffers for the particles
 import numpy as np
 import numba
 # Check if CUDA is available, then import CUDA functions
-from fbpic.cuda_utils import cuda_installed
+from fbpic.utils.cuda import cuda_installed
 if cuda_installed:
-    from fbpic.cuda_utils import cuda, cuda_tpb_bpg_1d
+    from fbpic.utils.cuda import cuda, cuda_tpb_bpg_1d
 
 def remove_outside_particles(species, fld, n_guard, left_proc, right_proc):
     """
@@ -229,15 +229,15 @@ def remove_particles_gpu(species, fld, n_guard, left_proc, right_proc):
     # Find the z index of the first cell for which particles are kept
     iz_min = max( n_guard + fld.prefix_sum_shift, 0 )
     # Find the z index of the first cell for which particles are removed again
-    iz_max = min( Nz - n_guard + fld.prefix_sum_shift, Nz )
+    iz_max = min( Nz - n_guard + fld.prefix_sum_shift + 1, Nz )
     # Find the corresponding indices in the particle array
     # Reminder: prefix_sum[i] is the cumulative sum of the number of particles
     # in cells 0 to i (where cell i is included)
-    if iz_min*Nr - 1 >= 0:
-        i_min = prefix_sum.getitem( iz_min*Nr - 1 )
+    if iz_min*(Nr+1) - 1 >= 0:
+        i_min = prefix_sum.getitem( iz_min*(Nr+1) - 1 )
     else:
         i_min = 0
-    i_max = prefix_sum.getitem( iz_max*Nr - 1 )
+    i_max = prefix_sum.getitem( iz_max*(Nr+1) - 1 )
     # Because of the way in which the prefix_sum is calculated, if the
     # cell that was requested for i_max is beyond the last non-empty cell,
     # i_max will be zero, but should in fact be species.Ntot
@@ -454,11 +454,15 @@ def add_buffers_gpu( species, float_recv_left, float_recv_right,
         These arrays are always on the CPU (since they were used for MPI)
     """
     # Get the new number of particles
-    new_Ntot = species.Ntot + float_recv_left.shape[1] \
-                            + float_recv_right.shape[1]
+    old_Ntot = species.Ntot
+    n_left = float_recv_left.shape[1]
+    n_right = float_recv_right.shape[1]
+    new_Ntot = old_Ntot + n_left + n_right
 
     # Get the threads per block and the blocks per grid
-    dim_grid_1d, dim_block_1d = cuda_tpb_bpg_1d( new_Ntot )
+    n_left_grid, n_left_block = cuda_tpb_bpg_1d( n_left )
+    n_right_grid, n_right_block = cuda_tpb_bpg_1d( n_right )
+    n_old_grid, n_old_block = cuda_tpb_bpg_1d( old_Ntot )
 
     # Iterate over particle attributes
     # Build list of float attributes to copy
@@ -476,8 +480,15 @@ def add_buffers_gpu( species, float_recv_left, float_recv_right,
         particle_array = cuda.device_array( (new_Ntot,), dtype=np.float64)
         # Merge the arrays on the GPU
         stay_buffer = getattr( attr_list[i_attr][0], attr_list[i_attr][1])
-        merge_buffers_to_particles[dim_grid_1d, dim_block_1d](
-            particle_array, left_buffer, stay_buffer, right_buffer)
+        if n_left != 0:
+            copy_particles[n_left_grid, n_left_block](
+                n_left, left_buffer, 0, particle_array, 0 )
+        if old_Ntot != 0:
+            copy_particles[n_old_grid, n_old_block](
+                old_Ntot, stay_buffer, 0, particle_array, n_left )
+        if n_right != 0:
+            copy_particles[n_right_grid, n_right_block](
+                n_right, right_buffer, 0, particle_array, n_left+old_Ntot )
         # Assign the stay_buffer to the initial particle data array
         # and fill the sending buffers (if needed for MPI)
         setattr(attr_list[i_attr][0], attr_list[i_attr][1], particle_array)
@@ -497,8 +508,15 @@ def add_buffers_gpu( species, float_recv_left, float_recv_right,
         particle_array = cuda.device_array( (new_Ntot,), dtype=np.uint64)
         # Merge the arrays on the GPU
         stay_buffer = getattr( attr_list[i_attr][0], attr_list[i_attr][1])
-        merge_buffers_to_particles[dim_grid_1d, dim_block_1d](
-            particle_array, left_buffer, stay_buffer, right_buffer)
+        if n_left != 0:
+            copy_particles[n_left_grid, n_left_block](
+                n_left, left_buffer, 0, particle_array, 0 )
+        if old_Ntot != 0:
+            copy_particles[n_old_grid, n_old_block](
+                old_Ntot, stay_buffer, 0, particle_array, n_left )
+        if n_right != 0:
+            copy_particles[n_right_grid, n_right_block](
+                n_right, right_buffer, 0, particle_array, n_left+old_Ntot )
         # Assign the stay_buffer to the initial particle data array
         # and fill the sending buffers (if needed for MPI)
         setattr(attr_list[i_attr][0], attr_list[i_attr][1], particle_array)
@@ -603,39 +621,31 @@ if cuda_installed:
                 right_buffer[i-i_max] = particle_array[i]
 
     @cuda.jit
-    def merge_buffers_to_particles( particle_array,
-                    left_buffer, stay_buffer, right_buffer ):
+    def copy_particles( N_elements, source_array, source_start,
+                                    target_array, target_start ):
         """
-        Copy left_buffer, stay_buffer and right_buffers into a single, larger
-        array `particle_array`
+        Copy `N_elements` elements from `source_array` to `target_array`
 
         Parameters:
         ------------
-        particle_array: 1d device arrays of floats
-            Final array of particles
+        N_elements: int
+            The number of elements to copy
+
+        source_array, target_array: 1d device arrays of floats
+            The arrays from/to which the data should be copied
             (represents *one* of the particle quantities)
 
-        left_buffer, right_buffer: 1d device arrays of floats
-            Contain the particles received from the neighbor processors
-
-        stay_buffer: 1d device array of floats
-            Contain the particles that remained in the present processor
+        source_start, target_start: ints
+            The indices at which to start the copy, in both the
+            source and the target.
         """
         # Get a 1D CUDA grid (the index corresponds to a particle index)
         i = cuda.grid(1)
 
-        # Define a few variables
-        n_left = left_buffer.shape[0]
-        n_stay = stay_buffer.shape[0]
-        n_right = right_buffer.shape[0]
-
         # Copy the particles into the right buffer
-        if i < n_left:
-            particle_array[i] = left_buffer[i]
-        elif i < n_left + n_stay:
-            particle_array[i] = stay_buffer[i-n_left]
-        elif i < n_left + n_stay + n_right:
-            particle_array[i] = right_buffer[i-n_left-n_stay]
+        if i < N_elements:
+            target_array[i+target_start] = source_array[i+source_start]
+
 
     @cuda.jit
     def shift_particles_periodic_cuda( z, zmin, zmax ):

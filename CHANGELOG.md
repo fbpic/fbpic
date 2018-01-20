@@ -1,5 +1,76 @@
 # Change Log / Release Log for fbpic
 
+## 0.7.0
+
+This version incorporates various new features, optimizations and bug fixes.
+See below for a details.
+
+New features:
+- The messages printed by FBPIC to the terminal have been improved.
+The `Simulation` class now supports a `verbose_level` argument, in order to
+choose the desired level of information [#158](https://github.com/fbpic/fbpic/pull/158).
+- More self-consistent initialization of the laser field [#150](https://github.com/fbpic/fbpic/pull/150).
+The laser initialization now supports arbitrary laser profiles and is always exactly
+divergence-free, even for MPI-decomposed simulations. More laser profiles
+will be implemented and documented in the next release.
+
+New optimizations:
+- The code performs fewer Hankel transforms per iteration, and is thus faster [#161](https://github.com/fbpic/fbpic/pull/161).
+- Faster functions for removal/addition of particles on GPU [#179](https://github.com/fbpic/fbpic/pull/179)
+
+Bug fixes:
+- The position where plasma starts to be injected (for simulations with moving window,
+featuring no plasma initially in the box) has been corrected. This mainly affects boosted-frame
+simulations. [#160](https://github.com/fbpic/fbpic/pull/160)
+- When restarting simulations from checkpoints, there was a bug in the particle
+weights, which is now fixed. [#178](https://github.com/fbpic/fbpic/pull/178)
+- The current and charge density are now written in the fields diagnostics
+for iteration 0, whereas they were previously set to 0 in the diagnostics for this iteration.
+[#178](https://github.com/fbpic/fbpic/pull/178)
+- The boosted-frame particle diagnostics used to fail in some cases on GPU
+due to an out-of-bound access, which is now fixed. [#169](https://github.com/fbpic/fbpic/pull/169)
+
+Changes related to the installation process:
+- FBPIC can now use numba 0.36 with threading [#167](https://github.com/fbpic/fbpic/pull/167) and [#170](https://github.com/fbpic/fbpic/pull/170).
+- FBPIC is now able to load MKL on Windows [#177](https://github.com/fbpic/fbpic/pull/177) and has better support when MKL fails to load [#154](https://github.com/fbpic/fbpic/pull/154).
+- FBPIC can now run without having MPI installed (for single-GPU or single-CPU node simulations) [#143](https://github.com/fbpic/fbpic/pull/143)
+
+## 0.6.2
+
+This is a bug-fix release. It corrects an important bug that was introduced in version 0.6.1 for the Hankel transform on GPU.
+
+## 0.6.1
+
+This version allows FBPIC to run without `mpi4py` installed, in the case of
+single-proc simulations.
+
+In addition, the current deposition on CPU, as well as the Hankel transform
+on CPU and GPU have been optimized and should have significantly faster
+execution time.
+
+Finally, FBPIC now prints a message during just-in-time compilation.
+
+## 0.6.0
+
+This version allows FBPIC to use the MKL library for FFTs, on CPU. In most cases,
+this will result in faster code execution compared to the FFTW library, especially
+on CPUs with a large number of cores. FFTW can still be used with FBPIC if MKL is unavailable.
+
+In addition, this version optimizes the number of thread per block on GPU for
+costly operations, which should also result faster code execution.
+
+## 0.5.4
+
+This is a bug-fix release. It fixes the initial space-charge calculation by ensuring that:
+- this calculation does not erase any pre-existing field (e.g. laser field)
+- this calculation gives correct results for multi-CPU/multi-GPU simulations as well
+
+## 0.5.3
+
+This is a bug-fix release. It ensures that threading is only used with the
+proper numba version (numba 0.34). It also fixes some issues with the MPI
+implementation (esp. in particle bunch initialization and charge conservation).
+
 ## 0.5.2
 
 This is a bug-fix release, that solves an issue when using

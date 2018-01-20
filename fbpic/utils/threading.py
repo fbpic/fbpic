@@ -5,12 +5,14 @@
 This file is part of the Fourier-Bessel Particle-In-Cell code (FB-PIC)
 It defines a set of generic functions for multithreaded CPU execution.
 """
-import os
+import os, sys
 import numpy as np
 from numba import njit
 
-# By default threading is enabled
+# By default threading is enabled, except on Windows (not supported by Numba)
 threading_enabled = True
+if sys.platform == 'win32':
+    threading_enabled = False
 
 # Check if the environment variable FBPIC_DISABLE_THREADING is set to 1
 # and in that case, disable threading
@@ -23,10 +25,15 @@ if threading_enabled:
     try:
         # Try to import the threading function prange
         from numba import prange as numba_prange
-    except ImportError:
+        # Check that numba is version 0.34 or 0.36 (other versions fail)
+        import numba
+        assert ( numba.__version__.startswith('0.34') or \
+            numba.__version__.startswith('0.36') )
+    except (ImportError, AssertionError):
         threading_enabled = False
         print('*** Threading not available for the simulation.')
-        print('*** (Please make sure that numba>0.34 is installed)')
+        print('*** (Please make sure that numba 0.34 or 0.36 is installed,')
+        print('***  e.g. by typing `conda install numba=0.34` in a terminal)')
 
 # Set the function njit_parallel and prange to the correct object
 if not threading_enabled:

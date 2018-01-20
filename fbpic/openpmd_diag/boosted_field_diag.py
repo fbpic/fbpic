@@ -17,9 +17,9 @@ from scipy.constants import c
 from .field_diag import FieldDiagnostic
 
 # Check if CUDA is available, then import CUDA functions
-from fbpic.cuda_utils import cuda_installed
+from fbpic.utils.cuda import cuda_installed
 if cuda_installed:
-    from fbpic.cuda_utils import cuda, cuda_tpb_bpg_1d
+    from fbpic.utils.cuda import cuda, cuda_tpb_bpg_1d
 
 class BoostedFieldDiagnostic(FieldDiagnostic):
     """
@@ -138,22 +138,21 @@ class BoostedFieldDiagnostic(FieldDiagnostic):
             # Get 'rho_prev', since it correspond to rho at time n
             self.fld.spect2interp('rho_prev')
             self.fld.spect2interp('J')
-            # Exchange rho in real space
-            # (rho is never exchanged during the PIC loop, while J is)
-            self.comm.exchange_fields(self.fld.interp, 'rho', 'add')
+            # Exchange rho and J if needed
+            if (self.comm is not None) and (self.comm.size > 1):
+                if not self.fld.exchanged_source['J']:
+                    self.comm.exchange_fields(self.fld.interp, 'J', 'add')
+                if not self.fld.exchanged_source['rho_prev']:
+                    self.comm.exchange_fields(self.fld.interp, 'rho', 'add')
 
         # Find the limits of the local subdomain at this iteration
-        zmin_boost = self.fld.interp[0].zmin
-        zmax_boost = self.fld.interp[0].zmax
-        # If a communicator is provided, remove the guard cells
-        if self.comm is not None:
-            dz = self.fld.interp[0].dz
-            zmin_boost += dz*self.comm.n_guard
-            if self.comm.left_proc is None:
-                zmin_boost += dz*self.comm.n_damp
-            zmax_boost -= dz*self.comm.n_guard
-            if self.comm.right_proc is None:
-                zmax_boost -= dz*self.comm.n_damp
+        if self.comm is None:
+            zmin_boost = self.fld.interp[0].zmin
+            zmax_boost = self.fld.interp[0].zmax
+        else:
+            # If a communicator is provided, remove guard and damp cells
+            zmin_boost, zmax_boost = self.comm.get_zmin_zmax(
+                local=True, with_damp=False, with_guard=False, rank=self.rank )
 
         # Extract the current time in the boosted frame
         time = iteration * self.fld.dt
@@ -593,14 +592,12 @@ class SliceHandler:
             dim_grid_1d, dim_block_1d = cuda_tpb_bpg_1d( Nr )
 
             # Extract the slices
-            slice_array = extract_slice_cuda[ dim_grid_1d, dim_block_1d ](
-                Nr, iz, Sz, slice_array,
-                interp[0].Er, interp[0].Et, interp[0].Ez,
-                interp[0].Br, interp[0].Bt, interp[0].Bz,
-                interp[0].Jr, interp[0].Jt, interp[0].Jz, interp[0].rho,
-                interp[1].Er, interp[1].Et, interp[1].Ez,
-                interp[1].Br, interp[1].Bt, interp[1].Bz,
-                interp[1].Jr, interp[1].Jt, interp[1].Jz, interp[1].rho )
+            for m in range(fld.Nm):
+                extract_slice_cuda[ dim_grid_1d, dim_block_1d ](
+                    Nr, iz, Sz, slice_array,
+                    interp[m].Er, interp[m].Et, interp[m].Ez,
+                    interp[m].Br, interp[m].Bt, interp[m].Bz,
+                    interp[m].Jr, interp[m].Jt, interp[m].Jz, interp[m].rho, m)
 
     def extract_slice_cpu( self, fld, iz, Sz, slice_array ):
         """
@@ -661,7 +658,7 @@ class SliceHandler:
         output_array[0,:] = getattr(fld.interp[0], quantity)[iz_slice,:].real
         # Get the higher modes
         # There is a factor 2 here so as to comply with the convention in
-        # Lifschitz et al., which is also the convention adopted in Warp Circ
+        # Lifschitz et al., which is also the convention adopted in FBPIC
         for m in range(1,fld.Nm):
             higher_mode_slice = 2*getattr(fld.interp[m], quantity)[iz_slice,:]
             output_array[2*m-1, :] = higher_mode_slice.real
@@ -723,8 +720,7 @@ if cuda_installed:
 
     @cuda.jit
     def extract_slice_cuda( Nr, iz, Sz, slice_arr,
-        Er0, Et0, Ez0, Br0, Bt0, Bz0, Jr0, Jt0, Jz0, rho0,
-        Er1, Et1, Ez1, Br1, Bt1, Bz1, Jr1, Jt1, Jz1, rho1 ):
+        Er, Et, Ez, Br, Bt, Bz, Jr, Jt, Jz, rho, m ):
         """
         Extract a slice of the fields at iz and iz+1, and interpolated
         between those two points using Sz and (1-Sz)
@@ -743,60 +739,56 @@ if cuda_installed:
         slice_arr: cuda.device_array
             Array of floats of shape (10, 2*Nm-1, Nr)
 
-        Er0, Et0, etc...: cuda.device_array
-            Array of complexs of shape (Nz, Nr)
+        Er, Et, etc...: cuda.device_array
+            Array of complexs of shape (Nz, Nr), for the azimuthal mode m
+
+        m: int
+            Index of the azimuthal mode involved
         """
         # One thread per radial position
         ir = cuda.grid(1)
         # Intermediate variables
         izp = iz+1
-        Szp = 1 - Sz
+        Szp = 1. - Sz
 
         if ir < Nr:
             # Interpolate the field in the longitudinal direction
             # and store it into pre-packed arrays
 
-            # Mode 0
-            slice_arr[0,0,ir] = Sz*Er0[iz,ir].real + Szp*Er0[izp,ir].real
-            slice_arr[1,0,ir] = Sz*Et0[iz,ir].real + Szp*Et0[izp,ir].real
-            slice_arr[2,0,ir] = Sz*Ez0[iz,ir].real + Szp*Ez0[izp,ir].real
-            slice_arr[3,0,ir] = Sz*Br0[iz,ir].real + Szp*Br0[izp,ir].real
-            slice_arr[4,0,ir] = Sz*Bt0[iz,ir].real + Szp*Bt0[izp,ir].real
-            slice_arr[5,0,ir] = Sz*Bz0[iz,ir].real + Szp*Bz0[izp,ir].real
-            slice_arr[6,0,ir] = Sz*Jr0[iz,ir].real + Szp*Jr0[izp,ir].real
-            slice_arr[7,0,ir] = Sz*Jt0[iz,ir].real + Szp*Jt0[izp,ir].real
-            slice_arr[8,0,ir] = Sz*Jz0[iz,ir].real + Szp*Jz0[izp,ir].real
-            slice_arr[9,0,ir] = Sz*rho0[iz,ir].real + \
-                                    Szp*rho0[izp,ir].real
-            # Get the higher modes
+            # For the higher modes:
             # There is a factor 2 here so as to comply with the convention in
-            # Lifschitz et al., which is also the convention of Warp
-            # For better performance, this factor is included in the shape
-            # factors ('t' stands for 'twice' below)
-            tSz = 2*Sz
-            tSzp = 2*Szp
+            # Lifschitz et al., which is also the convention of FBPIC
+            # For performance, this is included in the shape factor.
+            if m > 0:
+                Sz = 2*Sz
+                Szp = 2*Szp
+                # Index at which the mode should be added
+                # in the array `slice_arr`
+                im = 2*m-1
+            else:
+                im = 0
 
-            # Mode 1 (real part)
-            slice_arr[0,1,ir] = tSz*Er1[iz,ir].real + tSzp*Er1[izp,ir].real
-            slice_arr[1,1,ir] = tSz*Et1[iz,ir].real + tSzp*Et1[izp,ir].real
-            slice_arr[2,1,ir] = tSz*Ez1[iz,ir].real + tSzp*Ez1[izp,ir].real
-            slice_arr[3,1,ir] = tSz*Br1[iz,ir].real + tSzp*Br1[izp,ir].real
-            slice_arr[4,1,ir] = tSz*Bt1[iz,ir].real + tSzp*Bt1[izp,ir].real
-            slice_arr[5,1,ir] = tSz*Bz1[iz,ir].real + tSzp*Bz1[izp,ir].real
-            slice_arr[6,1,ir] = tSz*Jr1[iz,ir].real + tSzp*Jr1[izp,ir].real
-            slice_arr[7,1,ir] = tSz*Jt1[iz,ir].real + tSzp*Jt1[izp,ir].real
-            slice_arr[8,1,ir] = tSz*Jz1[iz,ir].real + tSzp*Jz1[izp,ir].real
-            slice_arr[9,1,ir] = tSz*rho1[iz,ir].real + \
-                                    tSzp*rho1[izp,ir].real
-            # Mode 1 (imaginary part)
-            slice_arr[0,2,ir] = tSz*Er1[iz,ir].imag + tSzp*Er1[izp,ir].imag
-            slice_arr[1,2,ir] = tSz*Et1[iz,ir].imag + tSzp*Et1[izp,ir].imag
-            slice_arr[2,2,ir] = tSz*Ez1[iz,ir].imag + tSzp*Ez1[izp,ir].imag
-            slice_arr[3,2,ir] = tSz*Br1[iz,ir].imag + tSzp*Br1[izp,ir].imag
-            slice_arr[4,2,ir] = tSz*Bt1[iz,ir].imag + tSzp*Bt1[izp,ir].imag
-            slice_arr[5,2,ir] = tSz*Bz1[iz,ir].imag + tSzp*Bz1[izp,ir].imag
-            slice_arr[6,2,ir] = tSz*Jr1[iz,ir].imag + tSzp*Jr1[izp,ir].imag
-            slice_arr[7,2,ir] = tSz*Jt1[iz,ir].imag + tSzp*Jt1[izp,ir].imag
-            slice_arr[8,2,ir] = tSz*Jz1[iz,ir].imag + tSzp*Jz1[izp,ir].imag
-            slice_arr[9,2,ir] = tSz*rho1[iz,ir].imag + \
-                                    tSzp*rho1[izp,ir].imag
+            # Real part
+            slice_arr[0,im,ir] = Sz*Er[iz,ir].real + Szp*Er[izp,ir].real
+            slice_arr[1,im,ir] = Sz*Et[iz,ir].real + Szp*Et[izp,ir].real
+            slice_arr[2,im,ir] = Sz*Ez[iz,ir].real + Szp*Ez[izp,ir].real
+            slice_arr[3,im,ir] = Sz*Br[iz,ir].real + Szp*Br[izp,ir].real
+            slice_arr[4,im,ir] = Sz*Bt[iz,ir].real + Szp*Bt[izp,ir].real
+            slice_arr[5,im,ir] = Sz*Bz[iz,ir].real + Szp*Bz[izp,ir].real
+            slice_arr[6,im,ir] = Sz*Jr[iz,ir].real + Szp*Jr[izp,ir].real
+            slice_arr[7,im,ir] = Sz*Jt[iz,ir].real + Szp*Jt[izp,ir].real
+            slice_arr[8,im,ir] = Sz*Jz[iz,ir].real + Szp*Jz[izp,ir].real
+            slice_arr[9,im,ir] = Sz*rho[iz,ir].real + Szp*rho[izp,ir].real
+
+            if m > 0:
+                # Imaginary part
+                slice_arr[0,im+1,ir] = Sz*Er[iz,ir].imag + Szp*Er[izp,ir].imag
+                slice_arr[1,im+1,ir] = Sz*Et[iz,ir].imag + Szp*Et[izp,ir].imag
+                slice_arr[2,im+1,ir] = Sz*Ez[iz,ir].imag + Szp*Ez[izp,ir].imag
+                slice_arr[3,im+1,ir] = Sz*Br[iz,ir].imag + Szp*Br[izp,ir].imag
+                slice_arr[4,im+1,ir] = Sz*Bt[iz,ir].imag + Szp*Bt[izp,ir].imag
+                slice_arr[5,im+1,ir] = Sz*Bz[iz,ir].imag + Szp*Bz[izp,ir].imag
+                slice_arr[6,im+1,ir] = Sz*Jr[iz,ir].imag + Szp*Jr[izp,ir].imag
+                slice_arr[7,im+1,ir] = Sz*Jt[iz,ir].imag + Szp*Jt[izp,ir].imag
+                slice_arr[8,im+1,ir] = Sz*Jz[iz,ir].imag + Szp*Jz[izp,ir].imag
+                slice_arr[9,im+1,ir] = Sz*rho[iz,ir].imag + Szp*rho[izp,ir].imag

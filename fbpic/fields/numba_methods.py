@@ -7,7 +7,7 @@ It defines the optimized fields methods that use numba on a CPU
 """
 from scipy.constants import c, epsilon_0, mu_0
 c2 = c**2
-from fbpic.threading_utils import njit_parallel, prange
+from fbpic.utils.threading import njit_parallel, prange
 
 @njit_parallel
 def numba_correct_currents_standard( rho_prev, rho_next, Jp, Jm, Jz,

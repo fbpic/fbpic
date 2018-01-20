@@ -11,7 +11,7 @@ import os, re
 import numpy as np
 from .field_diag import FieldDiagnostic
 from .particle_diag import ParticleDiagnostic
-from mpi4py.MPI import COMM_WORLD as comm
+from fbpic.utils.mpi import comm
 
 def set_periodic_checkpoint( sim, period ):
     """
@@ -40,7 +40,7 @@ def set_periodic_checkpoint( sim, period ):
     if comm.rank == 0:
         if os.path.exists('./checkpoints') is False:
             os.mkdir('./checkpoints')
-    comm.Barrier()
+    comm.barrier()
 
     # Choose the name of the directory: one directory per processor
     write_dir = 'checkpoints/proc%d/' %comm.rank
@@ -101,7 +101,7 @@ def restart_from_checkpoint( sim, iteration=None ):
     # so that this also works for `use_all_ranks=False`)
     if comm.rank == 0:
         check_restart( sim, iteration )
-    comm.Barrier()
+    comm.barrier()
 
     # Choose the name of the directory from which to restart:
     # one directory per processor
@@ -252,8 +252,7 @@ def load_species( species, name, ts, iteration, comm ):
     species.ux, species.uy, species.uz = ts.get_particle(
         ['ux', 'uy', 'uz' ], iteration=iteration, species=name )
     # Get the weight (multiply it by the charge to conform with FBPIC)
-    w, = ts.get_particle( ['w'], iteration=iteration, species=name )
-    species.w = species.q * w
+    species.w, = ts.get_particle( ['w'], iteration=iteration, species=name )
     # Get the inverse gamma
     species.inv_gamma = 1./np.sqrt(
         1 + species.ux**2 + species.uy**2 + species.uz**2 )

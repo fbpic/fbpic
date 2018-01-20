@@ -11,3 +11,4 @@ more performance and faster results from the code.
 
    profiling
    parameter_scans
+   boosted_frame

@@ -11,12 +11,13 @@ Major features:
   not to write to disk at every timestep
 """
 import os
+import math
 import numpy as np
 from scipy.constants import c, e
 from .particle_diag import ParticleDiagnostic
 
 # Check if CUDA is available, then import CUDA functions
-from fbpic.cuda_utils import cuda_installed
+from fbpic.utils.cuda import cuda_installed
 if cuda_installed:
     from .cuda_methods import extract_slice_from_gpu
 
@@ -666,20 +667,25 @@ class ParticleCatcher:
             Nz, Nr = species.grid_shape
             # Calculate cell area to get particles from
             # - Get z indices of the slices in which to get the particles
-            iz_curr = int((current_z_boost - zmin - 0.5*dz)/dz)
-            iz_prev = int((previous_z_boost - zmin - 0.5*dz + dt*c)/dz) + 1
+            # (mirrors the index calculation in `get_cell_idx_per_particle`)
+            iz_curr = math.ceil((current_z_boost-zmin-0.5*dz)/dz)
+            iz_prev = math.ceil((previous_z_boost-zmin-0.5*dz + dt*c)/dz) + 1
             # - Get the prefix sum values that correspond to these indices
             #   (Take into account potential shift due to the moving window)
             z_cell_curr = iz_curr + pref_sum_shift
-            if z_cell_curr > 0:
-                pref_sum_curr = pref_sum.getitem( z_cell_curr*Nr - 1 )
-            else:
+            if z_cell_curr <= 0:
                 pref_sum_curr = 0
-            z_cell_prev = iz_prev + pref_sum_shift
-            if z_cell_prev <= Nz:
-                pref_sum_prev = pref_sum.getitem( z_cell_prev*Nr - 1 )
+            elif z_cell_curr > Nz:
+                pref_sum_curr = species.Ntot
             else:
+                pref_sum_curr = pref_sum.getitem( z_cell_curr*(Nr+1) - 1 )
+            z_cell_prev = iz_prev + pref_sum_shift
+            if z_cell_prev <= 0:
+                pref_sum_prev = 0
+            elif z_cell_prev > Nz:
                 pref_sum_prev = species.Ntot
+            else:
+                pref_sum_prev = pref_sum.getitem( z_cell_prev*(Nr+1) - 1 )
             # Calculate number of particles in this area (N_area)
             N_area = pref_sum_prev - pref_sum_curr
             # Check if there are particles to extract

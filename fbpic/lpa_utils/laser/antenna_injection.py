@@ -9,14 +9,13 @@ emit a laser during a simulation.
 import numpy as np
 from scipy.constants import e, c, epsilon_0, physical_constants
 r_e = physical_constants['classical electron radius'][0]
-from .profiles import gaussian_profile
 from fbpic.particles.utilities.utility_methods import weights
 from fbpic.particles.deposition.numba_methods import deposit_field_numba
 
 # Check if CUDA is available, then import CUDA functions
-from fbpic.cuda_utils import cuda_installed
+from fbpic.utils.cuda import cuda_installed
 if cuda_installed:
-    from fbpic.cuda_utils import cuda, cuda_tpb_bpg_1d
+    from fbpic.utils.cuda import cuda, cuda_tpb_bpg_1d
 
 class LaserAntenna( object ):
     """
@@ -49,46 +48,15 @@ class LaserAntenna( object ):
     Note that the antenna always uses linear shape factors (even when the
     rest of the simulation uses cubic shape factors.)
     """
-    def __init__( self, E0, w0, ctau, z0, zf, k0, cep_phase,
-        phi2_chirp, theta_pol, z0_antenna, dr_grid, Nr_grid, Nm,
-        npr=2, nptheta=4, epsilon=0.01, boost=None ):
+    def __init__( self, laser_profile, z0_antenna, dr_grid, Nr_grid,
+        Nm, boost, npr=2, epsilon=0.01 ):
         """
         Initialize a LaserAntenna object (see class docstring for more info)
 
         Parameters
         ----------
-        E0: float (V.m^-1)
-            The amplitude of the the electric field *in the lab frame*
-
-        w0: float (m)
-            The waist of the laser at focus
-
-        ctau: float (m)
-            The duration of the laser *in the lab frame*
-
-        z0: float (m)
-            The initial position of the laser centroid *in the lab frame*
-
-        zf: float (m)
-            The position of the focal plane *in the lab frame*
-
-        k0: float (m^-1)
-            Laser wavevector *in the lab frame*
-
-        cep_phase: float (rad)
-            Carrier Enveloppe Phase (CEP), i.e. the phase of the laser
-            oscillations, at the position where the laser enveloppe is maximum.
-
-        phi2_chirp: float (in second^2)
-            The amount of temporal chirp, at focus *in the lab frame*
-            Namely, a wave packet centered on the frequency (w0 + dw) will
-            reach its peak intensity at a time z(dw) = z0 - c*phi2*dw.
-            Thus, a positive phi2 corresponds to positive chirp, i.e. red part
-            of the spectrum in the front of the pulse and blue part of the
-            spectrum in the back.
-
-        theta_pol: float (rad)
-            Polarization angle of the laser
+        profile: a valid laser profile object
+            Gives the value of the laser field in space and time
 
         z0_antenna: float (m)
             Initial position of the antenna *in the lab frame*
@@ -118,6 +86,13 @@ class LaserAntenna( object ):
         boost: a BoostConverter object or None
            Contains the information about the boost to be applied
         """
+        # Register the properties of the laser injection
+        self.laser_profile = laser_profile
+        self.boost = boost
+
+        # Initialize virtual particle with 2*Nm values of angle
+        nptheta = 2*Nm
+
         # Porportionality coefficient between the weight of a particle
         # and its transverse position (in cylindrical geometry, particles
         # that are further away from the axis have a larger weight)
@@ -162,18 +137,6 @@ class LaserAntenna( object ):
         if boost is not None:
             self.baseline_z, = boost.static_length( [ self.baseline_z ] )
             self.vz, = boost.velocity( [ self.vz ] )
-
-        # Record laser properties
-        self.E0 = E0
-        self.w0 = w0
-        self.k0 = k0
-        self.ctau = ctau
-        self.z0 = z0
-        self.zf = zf
-        self.cep_phase = cep_phase
-        self.phi2_chirp = phi2_chirp
-        self.theta_pol = theta_pol
-        self.boost = boost
 
         # Initialize small-size buffers where the particles charge and currents
         # will be deposited before being added to the regular, large-size array
@@ -220,20 +183,29 @@ class LaserAntenna( object ):
         t: float (seconds)
             The time at which to calculate the velocities
         """
+        # When running in a boosted frame, convert the position and time at
+        # which to find the laser amplitude.
+        if self.boost is not None:
+            boost = self.boost
+            inv_c = 1./c
+            zlab = boost.gamma0*(  self.baseline_z + (c*boost.beta0)*t )
+            tlab = boost.gamma0*( t + (inv_c*boost.beta0)* self.baseline_z )
+        else:
+            zlab = self.baseline_z
+            tlab = t
+
         # Calculate the electric field to be emitted (in the lab-frame)
         # Eu is the amplitude along the polarization direction
         # Note that we neglect the (small) excursion of the particles when
         # calculating the electric field on the particles.
-        Eu = self.E0 * gaussian_profile( self.baseline_z, self.baseline_r, t,
-                        self.w0, self.ctau, self.z0, self.zf,
-                        self.k0, self.cep_phase, self.phi2_chirp,
-                        boost=self.boost, output_Ez_profile=False )
+        Ex, Ey = self.laser_profile.E_field(
+            self.baseline_x, self.baseline_y, zlab, tlab )
 
         # Calculate the corresponding velocity. This takes into account
         # lab-frame to boosted-frame conversion, through a modification
         # of the mobility coefficient: see the __init__ function
-        self.vx = ( self.mobility_coef * np.cos(self.theta_pol) ) * Eu
-        self.vy = ( self.mobility_coef * np.sin(self.theta_pol) ) * Eu
+        self.vx = self.mobility_coef * Ex
+        self.vy = self.mobility_coef * Ey
 
     def deposit( self, fld, fieldtype, comm ):
         """
@@ -260,17 +232,8 @@ class LaserAntenna( object ):
         # Check if baseline_z is in the local physical domain
         # (This prevents out-of-bounds errors, and prevents 2 neighboring
         # processors from simultaneously depositing the laser antenna)
-        zmin_local = fld.interp[0].zmin
-        zmax_local = fld.interp[0].zmax
-        # If a communicator is provided, remove the guard cells
-        if comm is not None:
-            dz = fld.interp[0].dz
-            zmin_local += dz*comm.n_guard
-            if comm.left_proc is None:
-                zmin_local += dz*comm.n_damp
-            zmax_local -= dz*comm.n_guard
-            if comm.right_proc is None:
-                zmax_local -= dz*comm.n_damp
+        zmin_local, zmax_local = comm.get_zmin_zmax(
+            local=True, with_damp=False, with_guard=False, rank=comm.rank )
         # Interrupt this function if the antenna is not in the local domain
         z_antenna = self.baseline_z[0]
         if (z_antenna < zmin_local) or (z_antenna >= zmax_local):
@@ -428,9 +391,10 @@ class LaserAntenna( object ):
         grid: a list of InterpolationGrid objects
             Contains the full-size array rho
         """
+        Nm = len(grid)
         if type(grid[0].rho) is np.ndarray:
             # The large-size array rho is on the CPU
-            for m in range( len(grid) ):
+            for m in range( Nm ):
                 grid[m].rho[ iz_min:iz_min+2 ] += self.rho_buffer[m]
         else:
             # The large-size array rho is on the GPU
@@ -438,8 +402,9 @@ class LaserAntenna( object ):
             cuda.to_device( self.rho_buffer, to=self.d_rho_buffer )
             # On the GPU: add the small-size buffers to the large-size array
             dim_grid_1d, dim_block_1d = cuda_tpb_bpg_1d( grid[0].Nr, TPB=64 )
-            add_rho_to_gpu_array[dim_grid_1d, dim_block_1d]( iz_min,
-                            self.d_rho_buffer, grid[0].rho, grid[1].rho )
+            for m in range( Nm ):
+                add_rho_to_gpu_array[dim_grid_1d, dim_block_1d]( iz_min,
+                            self.d_rho_buffer, grid[m].rho, m )
 
     def copy_J_buffer( self, iz_min, grid ):
         """
@@ -456,9 +421,10 @@ class LaserAntenna( object ):
         grid: a list of InterpolationGrid objects
             Contains the full-size array Jr, Jt, Jz
         """
+        Nm = len(grid)
         if type(grid[0].Jr) is np.ndarray:
             # The large-size arrays for J are on the CPU
-            for m in range( len(grid) ):
+            for m in range( Nm ):
                 grid[m].Jr[ iz_min:iz_min+2 ] += self.Jr_buffer[m]
                 grid[m].Jt[ iz_min:iz_min+2 ] += self.Jt_buffer[m]
                 grid[m].Jz[ iz_min:iz_min+2 ] += self.Jz_buffer[m]
@@ -470,52 +436,73 @@ class LaserAntenna( object ):
             cuda.to_device( self.Jz_buffer, to=self.d_Jz_buffer )
             # On the GPU: add the small-size buffers to the large-size array
             dim_grid_1d, dim_block_1d = cuda_tpb_bpg_1d( grid[0].Nr, TPB=64 )
-            add_J_to_gpu_array[dim_grid_1d, dim_block_1d]( iz_min,
+            for m in range( Nm ):
+                add_J_to_gpu_array[dim_grid_1d, dim_block_1d]( iz_min,
                     self.d_Jr_buffer, self.d_Jt_buffer, self.d_Jz_buffer,
-                    grid[0].Jr, grid[1].Jr, grid[0].Jt, grid[1].Jt,
-                    grid[0].Jz, grid[1].Jz )
+                    grid[m].Jr, grid[m].Jt, grid[m].Jz, m )
 
 if cuda_installed:
 
     @cuda.jit()
-    def add_rho_to_gpu_array( iz_min, rho_buffer, rho0, rho1 ):
+    def add_rho_to_gpu_array( iz_min, rho_buffer, rho, m ):
         """
         Add the small-size array rho_buffer into the full-size array rho
         on the GPU
+
+        Parameters
+        ----------
+        iz_min: int
+            The index of the lowest cell in z that surrounds the antenna
+
+        rho_buffer: 3darray of complexs
+            Array of shape (Nm, 2, Nr) that stores the values of rho
+            in the 2 cells that surround the antenna (for each mode).
+
+        rho: 2darray of complexs
+            Array of shape (Nz, Nr) that contains rho in the mode m
+
+        m: int
+           The index of the azimuthal mode involved
         """
         # Use one thread per radial cell
         ir = cuda.grid(1)
 
         # Add the values
-        if ir < rho0.shape[1]:
-            rho0[iz_min, ir] += rho_buffer[0, 0, ir]
-            rho0[iz_min+1, ir] += rho_buffer[0, 1, ir]
-            rho1[iz_min, ir] += rho_buffer[1, 0, ir]
-            rho1[iz_min+1, ir] += rho_buffer[1, 1, ir]
+        if ir < rho.shape[1]:
+            rho[iz_min, ir] += rho_buffer[m, 0, ir]
+            rho[iz_min+1, ir] += rho_buffer[m, 1, ir]
 
     @cuda.jit()
-    def add_J_to_gpu_array( iz_min, Jr_buffer, Jt_buffer, Jz_buffer,
-            Jr0, Jr1, Jt0, Jt1, Jz0, Jz1 ):
+    def add_J_to_gpu_array( iz_min, Jr_buffer, Jt_buffer,
+                            Jz_buffer, Jr, Jt, Jz, m ):
         """
         Add the small-size arrays Jr_buffer, Jt_buffer, Jz_buffer into
         the full-size arrays Jr, Jt, Jz on the GPU
+
+        Parameters:
+        -----------
+        iz_min: int
+
+        Jr_buffer, Jt_buffer, Jz_buffer: 3darrays of complexs
+            Arrays of shape (Nm, 2, Nr) that store the values of rho
+            in the 2 cells that surround the antenna (for each mode).
+
+        Jr, Jt, Jz: 2darrays of complexs
+            Arrays of shape (Nz, Nr) that contain rho in the mode m
+
+        m: int
+           The index of the azimuthal mode involved
         """
         # Use one thread per radial cell
         ir = cuda.grid(1)
 
         # Add the values
-        if ir < Jr0.shape[1]:
-            Jr0[iz_min, ir] += Jr_buffer[0, 0, ir]
-            Jr0[iz_min+1, ir] += Jr_buffer[0, 1, ir]
-            Jr1[iz_min, ir] += Jr_buffer[1, 0, ir]
-            Jr1[iz_min+1, ir] += Jr_buffer[1, 1, ir]
+        if ir < Jr.shape[1]:
+            Jr[iz_min, ir] += Jr_buffer[m, 0, ir]
+            Jr[iz_min+1, ir] += Jr_buffer[m, 1, ir]
 
-            Jt0[iz_min, ir] += Jt_buffer[0, 0, ir]
-            Jt0[iz_min+1, ir] += Jt_buffer[0, 1, ir]
-            Jt1[iz_min, ir] += Jt_buffer[1, 0, ir]
-            Jt1[iz_min+1, ir] += Jt_buffer[1, 1, ir]
+            Jt[iz_min, ir] += Jt_buffer[m, 0, ir]
+            Jt[iz_min+1, ir] += Jt_buffer[m, 1, ir]
 
-            Jz0[iz_min, ir] += Jz_buffer[0, 0, ir]
-            Jz0[iz_min+1, ir] += Jz_buffer[0, 1, ir]
-            Jz1[iz_min, ir] += Jz_buffer[1, 0, ir]
-            Jz1[iz_min+1, ir] += Jz_buffer[1, 1, ir]
+            Jz[iz_min, ir] += Jz_buffer[m, 0, ir]
+            Jz[iz_min+1, ir] += Jz_buffer[m, 1, ir]
