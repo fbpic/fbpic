@@ -7,7 +7,7 @@ It defines numba methods that are used in Compton scattering (on CPU).
 """
 import numba
 import math, random
-from fbpic.threading_utils import njit_parallel, prange
+from fbpic.utils.threading import njit_parallel, prange
 # Import the inline functions
 from .inline_functions import lorentz_transform, get_scattering_probability, \
     get_photon_density_gaussian, INV_MC

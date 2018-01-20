@@ -12,9 +12,9 @@ from .numba_methods import get_photon_density_gaussian_numba, \
 from ..cuda_numba_utils import allocate_empty, reallocate_and_copy_old, \
                                 perform_cumsum, generate_new_ids
 # Check if CUDA is available, then import CUDA functions
-from fbpic.cuda_utils import cuda_installed
+from fbpic.utils.cuda import cuda_installed
 if cuda_installed:
-    from fbpic.cuda_utils import cuda_tpb_bpg_1d
+    from fbpic.utils.cuda import cuda_tpb_bpg_1d
     from numba.cuda.random import create_xoroshiro128p_states
     from .cuda_methods import get_photon_density_gaussian_cuda, \
         determine_scatterings_cuda, scatter_photons_electrons_cuda
