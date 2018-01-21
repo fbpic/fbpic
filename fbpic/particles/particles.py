@@ -334,7 +334,43 @@ class Particles(object) :
         laser_waist, laser_ctau, laser_initial_z0, ratio_w_electron_photon=1,
         boost=None ):
         """
-        # TODO
+        Activate Compton scattering.
+
+        This considers a counterpropagating Gaussian laser pulse (which is not
+        represented on the grid, for compatibility with the boosted-frame,
+        but is instead assumed to propagate rigidly along the z axis).
+        Interaction between this laser and the current species results
+        in the generation of photons, according to the Klein-Nishina formula.
+
+        See the docstring of the class `ComptonScatterer` for more information
+        on the physical model used, and its domain of validity.
+
+        The API of this function is not stable, and may change in the future.
+
+        Parameters:
+        -----------
+        target_species: a `Particles` object
+            The photons species, to which new macroparticles will be added.
+
+        laser_energy: float (in Joules)
+            The energy of the counterpropagating laser pulse (in the lab frame)
+
+        laser_wavelength: float (in meters)
+            The wavelength of the laser pulse (in the lab frame)
+
+        laser_waist, laser_ctau: floats (in meters)
+            The waist and duration of the laser pulse (in the lab frame)
+            Both defined as the distance, from the laser peak, where
+            the *field* envelope reaches 1/e of its peak value.
+
+        laser_initial_z0: float (in meters)
+            The initial position of the laser pulse (in the lab frame)
+
+        ratio_w_electron_photon: float
+            The ratio of the weight of an electron macroparticle to the
+            weight of the photon macroparticles that it will emit.
+            Increasing this ratio increases the number of photon macroparticles
+            that will be emitted and therefore improves statistics.
         """
         self.compton_scatterer = ComptonScatterer(
             self, target_species, laser_energy, laser_wavelength,

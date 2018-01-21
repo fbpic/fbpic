@@ -1,8 +1,9 @@
-# Copyright 2016, FBPIC contributors
+# Copyright 2017, FBPIC contributors
 # Authors: Remi Lehe, Manuel Kirchen
 # License: 3-Clause-BSD-LBNL
 """
-# TODO: Describe file
+This file is part of the Fourier-Bessel Particle-In-Cell code (FBPIC)
+It defines the class that preforms calculation of Compton scattering.
 """
 import numpy as np
 from numba import cuda
@@ -21,22 +22,40 @@ if cuda_installed:
 
 class ComptonScatterer(object):
     """
-    Simulate Compton scattering for a Gaussian laser
+    Simulate Compton scattering for a counterpropagating Gaussian laser
+    (not represented on the grid, for compatibility with the boosted-frame,
+    but is instead assumed to propagate rigidly along the z axis)
 
-    # Insist: for now, this assumes that the laser propagates along
-    # the z axis
+    The calculation considers the counterpropagating laser as a monoenergetic,
+    unidirectional flux of photons, and generates scattered photon
+    macroparticles, using the Klein-Nishina formula. (Monte-Carlo sampling)
 
-    # TODO: Describe method for ComptonScattering
-    # Reference Dave Grote
+    Because of the limitations of the Klein-Nishina cross-section,
+    this does not take into account:
+    - Non-linear effects for a0>1. (Photons will only be emitted at the
+    Compton frequency, and not at harmonics thereof ; the divergence of the
+    emitted photons in the polarization direction will not increase with a0 ;
+    the reduced longitudinal velocity of the electrons due to transverse
+    wiggling is not taken into account).
+    - Broadening of the emitted radiation due to finite duration of the laser
+    (i.e. The laser is considered to be strictly monochromatic.)
+    - Polarization effects, even for a0<<1. (The anisotropic emission with
+    respect to the polarization direction is not implemented.)
+
+    On the other hand:
+    - This is fully compatible with the boosted-frame technique.
+    - This takes into account electron recoil.
+    (Conservation of momentum is however not exactly satisfied when
+    `ratio_w_electron_photon` is different than 1.)
+
+    The implementation is largely inspired by David Grote's implementation
+    of Comton scattering in Warp.
     """
     def __init__( self, source_species, target_species, laser_energy,
         laser_wavelength, laser_waist, laser_ctau, laser_initial_z0,
         ratio_w_electron_photon, boost ):
         """
-        Initialize a ComptonScatterer:
-        Scattering on a uniform, monoenergetic, unidirectional flux of photons.
-
-        # TODO : describe parameters
+        Initialize Compton scattering.
 
         Parameters
         ----------
@@ -46,6 +65,25 @@ class ComptonScatterer(object):
         target species: an fbpic Particles object
             The species that will store the produced photons
 
+        laser_energy: float (in Joules)
+            The energy of the counterpropagating laser pulse (in the lab frame)
+
+        laser_wavelength: float (in meters)
+            The wavelength of the laser pulse (in the lab frame)
+
+        laser_waist, laser_ctau: floats (in meters)
+            The waist and duration of the laser pulse (in the lab frame)
+            Both defined as the distance, from the laser peak, where
+            the *field* envelope reaches 1/e of its peak value.
+
+        laser_initial_z0: float (in meters)
+            The initial position of the laser pulse (in the lab frame)
+
+        ratio_w_electron_photon: float
+            The ratio of the weight of an electron macroparticle to the
+            weight of the photon macroparticles that it will emit.
+            Increasing this ratio increases the number of photon macroparticles
+            that will be emitted and therefore improves statistics.
         """
         # Register the photons species
         assert target_species.q == 0
