@@ -435,7 +435,7 @@ class Simulation(object):
             # i.e. when the particles' velocity and position are synchronized
             # (e.g. ionization, Compton scattering, ...)
             for species in ptcl:
-                species.handle_elementary_processes()
+                species.handle_elementary_processes( self.time + 0.5*self.dt )
 
             # Push the particles' positions to t = (n+1) dt
             if move_positions:

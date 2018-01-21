@@ -8,9 +8,9 @@ It defines the structure and methods associated with the particles.
 import numpy as np
 import numba
 from scipy.constants import e
-from .elementary_process.ionization import Ionizer
 from .tracking import ParticleTracker
-
+from .elementary_process.ionization import Ionizer
+from .elementary_process.compton import ComptonScatterer
 # Load the utility methods
 from .utilities.utility_methods import unalign_angles
 # Load the numba methods
@@ -169,7 +169,9 @@ class Particles(object) :
         # By default, there is no particle tracking (see method track)
         self.tracker = None
         # By default, the species experiences no elementary processes
+        # (see method make_ionizable and activate_compton)
         self.ionizer = None
+        self.compton_scatterer = None
         # Total number of quantities (necessary in MPI communications)
         self.n_integer_quantities = 0
         self.n_float_quantities = 8 # x, y, z, ux, uy, uz, inv_gamma, w
@@ -328,6 +330,54 @@ class Particles(object) :
         if hasattr( self, 'int_sorting_buffer' ) is False and self.use_cuda:
             self.int_sorting_buffer = np.empty( self.Ntot, dtype=np.uint64 )
 
+    def activate_compton( self, target_species, laser_energy, laser_wavelength,
+        laser_waist, laser_ctau, laser_initial_z0, ratio_w_electron_photon=1,
+        boost=None ):
+        """
+        Activate Compton scattering.
+
+        This considers a counterpropagating Gaussian laser pulse (which is not
+        represented on the grid, for compatibility with the boosted-frame,
+        but is instead assumed to propagate rigidly along the z axis).
+        Interaction between this laser and the current species results
+        in the generation of photons, according to the Klein-Nishina formula.
+
+        See the docstring of the class `ComptonScatterer` for more information
+        on the physical model used, and its domain of validity.
+
+        The API of this function is not stable, and may change in the future.
+
+        Parameters:
+        -----------
+        target_species: a `Particles` object
+            The photons species, to which new macroparticles will be added.
+
+        laser_energy: float (in Joules)
+            The energy of the counterpropagating laser pulse (in the lab frame)
+
+        laser_wavelength: float (in meters)
+            The wavelength of the laser pulse (in the lab frame)
+
+        laser_waist, laser_ctau: floats (in meters)
+            The waist and duration of the laser pulse (in the lab frame)
+            Both defined as the distance, from the laser peak, where
+            the *field* envelope reaches 1/e of its peak value.
+
+        laser_initial_z0: float (in meters)
+            The initial position of the laser pulse (in the lab frame)
+
+        ratio_w_electron_photon: float
+            The ratio of the weight of an electron macroparticle to the
+            weight of the photon macroparticles that it will emit.
+            Increasing this ratio increases the number of photon macroparticles
+            that will be emitted and therefore improves statistics.
+        """
+        self.compton_scatterer = ComptonScatterer(
+            self, target_species, laser_energy, laser_wavelength,
+            laser_waist, laser_ctau, laser_initial_z0,
+            ratio_w_electron_photon, boost )
+
+
     def make_ionizable( self, element, target_species,
                         level_start=0, full_initialization=True ):
         """
@@ -370,13 +420,19 @@ class Particles(object) :
         if hasattr( self, 'int_sorting_buffer' ) is False and self.use_cuda:
             self.int_sorting_buffer = np.empty( self.Ntot, dtype=np.uint64 )
 
-    def handle_elementary_processes( self ):
+
+    def handle_elementary_processes( self, t ):
         """
-        Handle elementary processes for this species (e.g. ionization)
+        Handle elementary processes for this species (e.g. ionization,
+        Compton scattering) at simulation time t.
         """
         # Ionization
         if self.ionizer is not None:
             self.ionizer.handle_ionization( self )
+        # Compton scattering
+        if self.compton_scatterer is not None:
+            self.compton_scatterer.handle_scattering( self, t )
+
 
     def rearrange_particle_arrays( self ):
         """

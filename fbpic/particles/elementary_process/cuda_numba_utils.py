@@ -4,7 +4,7 @@
 """
 This file is part of the Fourier-Bessel Particle-In-Cell code (FB-PIC)
 It defines a number of methods that are useful for elementary processes
-(e.g. ionization) on CPU and GPU
+(e.g. ionization, Compton scattering) on CPU and GPU
 """
 import numpy as np
 from fbpic.utils.threading import njit_parallel, prange
@@ -91,7 +91,6 @@ def reallocate_and_copy_old( species, use_cuda, old_Ntot, new_Ntot ):
 
     # Modify the total number of particles
     species.Ntot = new_Ntot
-
 
 def generate_new_ids( species, old_Ntot, new_Ntot ):
     """
