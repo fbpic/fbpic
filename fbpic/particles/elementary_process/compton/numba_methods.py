@@ -21,7 +21,23 @@ def get_photon_density_gaussian_numba( photon_n, elec_Ntot,
     elec_x, elec_y, elec_z, ct, photon_n_lab_max, inv_laser_waist2,
     inv_laser_ctau2, laser_initial_z0, gamma_boost, beta_boost ):
     """
-    # TODO
+    Fill the array `photon_n` with the values of the photon density
+    (in the simulation frame) in the scattering laser pulse, at
+    the position of the electron macroparticles.
+
+    Parameters
+    ----------
+    elec_x, elec_y, elec_z: 1d arrays of floats
+        The position of the electrons (in the frame of the simulation)
+    ct: float
+        Current time in the simulation frame (multiplied by c)
+    photon_n_lab_max: float
+        Peak photon density (in the lab frame)
+        (i.e. at the peak of the Gaussian pulse)
+    inv_laser_waist2, inv_laser_ctau2, laser_initial_z0: floats
+        Properties of the Gaussian laser pulse (in the lab frame)
+    gamma_boost, beta_boost: floats
+        Properties of the Lorentz boost between the lab and simulation frame.
     """
     # Loop over electrons (in parallel, if threading is enabled)
     for i_elec in prange( elec_Ntot ):
@@ -40,21 +56,16 @@ def determine_scatterings_numba( N_batch, batch_size, elec_Ntot,
     elec_ux, elec_uy, elec_uz, elec_inv_gamma, ratio_w_electron_photon,
     photon_n, photon_p, photon_beta_x, photon_beta_y, photon_beta_z ):
     """
-    For each electron macroparticle, decide whether it is going to
-    scatter, using the integrated Klein-Nishina formula.
+    For each electron macroparticle, decide how many photon macroparticles
+    it will emit during `dt`, using the integrated Klein-Nishina formula.
 
     Note: this function uses a random generator within a `prange` loop.
     This implies that an indenpendent seed and random generator will be
     created for each thread.
 
-    # TODO: Modify description below
-    For the purpose of counting and creating the corresponding electrons,
-    `is_ionized` (one element per macroparticle) is set to 1 at the position
-    of the ionized ions, and `n_ionized` (one element per batch) counts
-    the total number of ionized particles in the current batch.
-
-    # TODO: Parameters
-
+    Electrons are processed in batches of size `batch_size`, with a parallel
+    loop over batches. The batching allows quicker calculation of the
+    total number of photons to be created.
     """
     # Loop over batches of particles (in parallel, if threading is enabled)
     for i_batch in prange( N_batch ):
@@ -102,12 +113,15 @@ def scatter_photons_electrons_numba(
     elec_x, elec_y, elec_z, elec_inv_gamma,
     elec_ux, elec_uy, elec_uz, elec_w, inv_ratio_w_elec_photon ):
     """
+    Given the number of photons that are emitted by each electron
+    macroparticle, determine the properties (momentum, energy) of
+    each scattered photon and fill the arrays `photon_*` accordingly.
+
+    Also, apply a recoil on the electrons.
+
     Note: this function uses a random generator within a `prange` loop.
     This implies that an indenpendent seed and random generator will be
     created for each thread.
-
-    #TODO: write docstring
-
     """
     #  Loop over batches of particles
     for i_batch in range( N_batch ):

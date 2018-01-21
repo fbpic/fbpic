@@ -44,8 +44,23 @@ def get_scattering_probability(
     dt, elec_ux, elec_uy, elec_uz, elec_inv_gamma,
     photon_n, photon_p, photon_beta_x, photon_beta_y, photon_beta_z ):
     """
-    # TODO:
-    Write transformations
+    Return the probability of Comton scattering, for a given electron,
+    during `dt` (taken in the frame of the simulation).
+
+    The actual calculation is done in the rest frame of the electron,
+    in order to apply the Klein-Nishina formula ; therefore `dt` is converted
+    to the corresponding proper time, and the properties of the incoming photon
+    flux are Lorentz-transformed.
+
+    Parameters:
+    -----------
+    dt: float (in seconds)
+        Time interval considered, in the frame of the simulation.
+    elec_ux, elec_uy, elec_uz, elec_inv_gamma: floats (dimensionless)
+        The momenta and inverse gamma factor of the emitting electron
+        (in the frame of the simulation)
+    photon_n, photon_p, photon_beta_x, photon_beta_y, photon_beta_z
+        Properties of the photon flux (in the frame of the simulation)
     """
     # Get electron intermediate variable
     elec_gamma = 1./elec_inv_gamma
@@ -73,7 +88,27 @@ def get_photon_density_gaussian(
     elec_x, elec_y, elec_z, ct, photon_n_lab_max, inv_laser_waist2,
     inv_laser_ctau2, laser_initial_z0, gamma_boost, beta_boost ):
     """
-    # TODO
+    Get the photon density in the scattering Gaussian laser pulse,
+    at the position of a given electron, and at the current time.
+
+    Parameters
+    ----------
+    elec_x, elec_y, elec_z: floats
+        The position of the given electron (in the frame of the simulation)
+    ct: float
+        Current time in the simulation frame (multiplied by c)
+    photon_n_lab_max: float
+        Peak photon density (in the lab frame)
+        (i.e. at the peak of the Gaussian pulse)
+    inv_laser_waist2, inv_laser_ctau2, laser_initial_z0: floats
+        Properties of the Gaussian laser pulse (in the lab frame)
+    gamma_boost, beta_boost: floats
+        Properties of the Lorentz boost between the lab and simulation frame.
+
+    Returns
+    -------
+    photon_n_sim: float
+        The photon density in the frame of the simulation
     """
     # Transform electrons coordinates from simulation frame to lab frame
     elec_zlab = gamma_boost*( elec_z + beta_boost*ct )
