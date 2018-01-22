@@ -536,7 +536,8 @@ class Particles(object) :
                          self.Bx, self.By, self.Bz)
                 else:
                     # Generic version for arbitrary number of modes
-                    erase_eb_cuda( self.Ex, self.Ey, self.Ez,
+                    erase_eb_cuda[dim_grid_1d, dim_block_1d](
+                                    self.Ex, self.Ey, self.Ez,
                                     self.Bx, self.By, self.Bz, self.Ntot )
                     for m in range(Nm):
                         gather_field_gpu_linear_one_mode[
@@ -563,7 +564,8 @@ class Particles(object) :
                          self.Bx, self.By, self.Bz)
                 else:
                     # Generic version for arbitrary number of modes
-                    erase_eb_cuda( self.Ex, self.Ey, self.Ez,
+                    erase_eb_cuda[dim_grid_1d, dim_block_1d](
+                                    self.Ex, self.Ey, self.Ez,
                                     self.Bx, self.By, self.Bz, self.Ntot )
                     for m in range(Nm):
                         gather_field_gpu_cubic_one_mode[
