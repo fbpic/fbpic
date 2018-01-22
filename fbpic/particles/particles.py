@@ -539,14 +539,15 @@ class Particles(object) :
                     erase_eb_cuda( self.Ex, self.Ey, self.Ez,
                                     self.Bx, self.By, self.Bz, self.Ntot )
                     for m in range(Nm):
-                        gather_field_gpu_linear_one_mode[dim_grid_1d, dim_block_1d](
-                             self.x, self.y, self.z,
-                             grid[m].invdz, grid[m].zmin, grid[m].Nz,
-                             grid[m].invdr, grid[m].rmin, grid[m].Nr,
-                             grid[m].Er, grid[m].Et, grid[m].Ez,
-                             grid[m].Br, grid[m].Bt, grid[m].Bz, m,
-                             self.Ex, self.Ey, self.Ez,
-                             self.Bx, self.By, self.Bz)
+                        gather_field_gpu_linear_one_mode[
+                            dim_grid_1d, dim_block_1d](
+                            self.x, self.y, self.z,
+                            grid[m].invdz, grid[m].zmin, grid[m].Nz,
+                            grid[m].invdr, grid[m].rmin, grid[m].Nr,
+                            grid[m].Er, grid[m].Et, grid[m].Ez,
+                            grid[m].Br, grid[m].Bt, grid[m].Bz, m,
+                            self.Ex, self.Ey, self.Ez,
+                            self.Bx, self.By, self.Bz)
             elif self.particle_shape == 'cubic':
                 if Nm == 2:
                     # Optimized version for 2 modes
@@ -565,7 +566,8 @@ class Particles(object) :
                     erase_eb_cuda( self.Ex, self.Ey, self.Ez,
                                     self.Bx, self.By, self.Bz, self.Ntot )
                     for m in range(Nm):
-                        gather_field_gpu_cubic_one_mode[dim_grid_1d, dim_block_1d](
+                        gather_field_gpu_cubic_one_mode[
+                            dim_grid_1d, dim_block_1d](
                             self.x, self.y, self.z,
                             grid[m].invdz, grid[m].zmin, grid[m].Nz,
                             grid[m].invdr, grid[m].rmin, grid[m].Nr,
