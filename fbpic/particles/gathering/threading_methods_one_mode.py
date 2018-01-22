@@ -22,7 +22,13 @@ add_cubic_gather_for_mode = numba.njit( add_cubic_gather_for_mode )
 @njit_parallel
 def erase_eb_numba( Ex, Ey, Ez, Bx, By, Bz, Ntot ):
     """
-    #TODO
+    Reset the arrays of fields (i.e. set them to 0)
+
+    Parameters
+    ----------
+    Ex, Ey, Ez, Bx, By, Bz: 1d arrays of floats
+        (One element per macroparticle)
+        Represents the fields on the macroparticles
     """
     for i in prange(Ntot):
         Ex[i] = 0

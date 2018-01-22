@@ -20,7 +20,13 @@ add_cubic_gather_for_mode = cuda.jit( add_cubic_gather_for_mode,
 @cuda.jit
 def erase_eb_cuda( Ex, Ey, Ez, Bx, By, Bz, Ntot ):
     """
-    #TODO
+    Reset the arrays of fields (i.e. set them to 0)
+
+    Parameters
+    ----------
+    Ex, Ey, Ez, Bx, By, Bz: 1d arrays of floats
+        (One element per macroparticle)
+        Represents the fields on the macroparticles
     """
     i = cuda.grid(1)
     if i < Ntot:
