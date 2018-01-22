@@ -440,7 +440,7 @@ def deposit_J_gpu_linear_one_mode(x, y, z, w, q,
 # -------------------------------
 
 @cuda.jit
-def deposit_rho_gpu_cubic(x, y, z, w, q,
+def deposit_rho_gpu_cubic_one_mode(x, y, z, w, q,
                           invdz, zmin, Nz,
                           invdr, rmin, Nr,
                           rho_m, m,
