@@ -167,7 +167,8 @@ def deposit_rho_numba_linear(x, y, z, w, q,
             z_cell = invdz*(zj - zmin) - 0.5
             # Index of the lowest cell of `global_array` that gets modified
             # by this particle (note: `global_array` has 2 guard cells)
-            ir_cell = int(math.floor( r_cell )) + 2
+            # (`min` function avoids out-of-bounds access at high r)
+            ir_cell = min( int(math.floor(r_cell))+2, Nr+2 )
             iz_cell = int(math.floor( z_cell )) + 2
 
             # Add contribution of this particle to the global array
@@ -295,7 +296,8 @@ def deposit_J_numba_linear(x, y, z, w, q,
             z_cell = invdz*(zj - zmin) - 0.5
             # Index of the lowest cell of `global_array` that gets modified
             # by this particle (note: `global_array` has 2 guard cells)
-            ir_cell = int(math.floor( r_cell )) + 2
+            # (`min` function avoids out-of-bounds access at high r)
+            ir_cell = min( int(math.floor(r_cell))+2, Nr+2 )
             iz_cell = int(math.floor( z_cell )) + 2
 
             # Add contribution of this particle to the global array
@@ -416,7 +418,8 @@ def deposit_rho_numba_cubic(x, y, z, w, q,
             z_cell = invdz*(zj - zmin) - 0.5
             # Index of the lowest cell of `global_array` that gets modified
             # by this particle (note: `global_array` has 2 guard cells)
-            ir_cell = int(math.floor( r_cell )) + 1
+            # (`min` function avoids out-of-bounds access at high r)
+            ir_cell = min( int(math.floor(r_cell))+1, Nr+1 )
             iz_cell = int(math.floor( z_cell )) + 1
 
             # Add contribution of this particle to the global array
@@ -560,7 +563,8 @@ def deposit_J_numba_cubic(x, y, z, w, q,
             z_cell = invdz*(zj - zmin) - 0.5
             # Index of the lowest cell of `global_array` that gets modified
             # by this particle (note: `global_array` has 2 guard cells)
-            ir_cell = int(math.floor( r_cell )) + 1
+            # (`min` function avoids out-of-bounds access at high r)
+            ir_cell = min( int(math.floor(r_cell))+1, Nr+1 )
             iz_cell = int(math.floor( z_cell )) + 1
 
             # Add contribution of this particle to the global array
