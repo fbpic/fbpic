@@ -123,6 +123,9 @@ def restart_from_checkpoint( sim, iteration=None ):
         name = 'species %d' %i
         load_species( sim.ptcl[i], name, ts, iteration, sim.comm )
 
+    # Record position of grid before restart
+    zmin_old = sim.fld.interp[0].zmin
+
     # Load the fields
     # Loop through the different modes
     for m in range( sim.fld.Nm ):
@@ -131,6 +134,10 @@ def restart_from_checkpoint( sim, iteration=None ):
             for coord in ['r', 't', 'z']:
                 load_fields( sim.fld.interp[m], fieldtype,
                              coord, ts, iteration )
+    # Record position after restart (`zmin` is modified by `load_fields`)
+    # and shift the global domain position in the BoundaryCommunicator
+    zmin_new = sim.fld.interp[0].zmin
+    sim.comm.shift_global_domain_positions( zmin_new - zmin_old )
 
 def check_restart( sim, iteration ):
     """Verify that the restart is valid."""
