@@ -1,5 +1,17 @@
 # Change Log / Release Log for fbpic
 
+## 0.7.1
+
+This is bug-fix release. It fixes two bugs that were introduced in version
+0.7.0:
+- The first bug **only affected simulations performed on CPU** (not on GPU), and
+typically lead to spuriously high charge density on the axis
+(see [#191](https://github.com/fbpic/fbpic/pull/191)).
+- The second bug affected restarts from a simulation checkpoint, and typically
+lead to incorrect continuous injection of plasma and/or simulations crashing at
+restart time (see [#192](https://github.com/fbpic/fbpic/pull/192)).
+These two bugs are fixed in version 0.7.1.
+
 ## 0.7.0
 
 This version incorporates various new features, optimizations and bug fixes.
