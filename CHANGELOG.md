@@ -10,6 +10,7 @@ typically lead to spuriously high charge density on the axis
 - The second bug affected restarts from a simulation checkpoint, and typically
 lead to incorrect continuous injection of plasma and/or simulations crashing at
 restart time (see [#192](https://github.com/fbpic/fbpic/pull/192)).
+
 These two bugs are fixed in version 0.7.1.
 
 ## 0.7.0
