@@ -16,7 +16,7 @@ Theory:
 This test considers a laser of the form
 $$ \vec{a} = a_0 e^{-(xi-xi_0)^2/(c\tau)^2}\vec{f}(r, \theta) $$
 where $f$ represents the transverse profile of the laser, and is either
-a radially polarized annular beam, or a linear polarized Laguerre-Gauss pulse.
+a azimuthally polarized annular beam, or linear polarized Laguerre-Gauss pulse
 
 Then, in the linear regime, the pseudo-potential is given by:
 $$ \psi = \frac{k_p}{2}\int^xi_{-\infty} \langle \vec{a}^2 \rangle
@@ -70,7 +70,7 @@ def Ez( z, r, t) :
                         args = ( z[iz]-c*t,), limit=30 )[0]
     # Transverse profile
     if Nm in [1, 3]:
-        trans_profile = 2 * (r/w0)**2 * np.exp( -2*r**2/w0**2 )
+        trans_profile = 4 * (r/w0)**2 * np.exp( -2*r**2/w0**2 )
     elif Nm == 2:
         trans_profile = np.exp( -2*r**2/w0**2 )
 
@@ -99,7 +99,7 @@ def Er( z, r, t) :
                         args = (z[iz]-c*t,), limit=200 )[0]
     # Transverse profile: gradient of transverse intensity
     if Nm in [1, 3]:
-        trans_profile = 4*(r/w0**2) * (1-2*r**2/w0**2) * np.exp(-2*r**2/w0**2)
+        trans_profile = 8*(r/w0**2) * (1-2*r**2/w0**2) * np.exp(-2*r**2/w0**2)
     elif Nm == 2:
         trans_profile = -4*r/w0**2 * np.exp(-2*r**2/w0**2)
 
@@ -221,8 +221,8 @@ use_cuda = True
 # The simulation box
 Nz = 800         # Number of gridpoints along z
 zmax = 40.e-6    # Length of the box along z (meters)
-Nr = 50          # Number of gridpoints along r
-rmax = 50.e-6    # Length of the box along r (meters)
+Nr = 60          # Number of gridpoints along r
+rmax = 60.e-6    # Length of the box along r (meters)
 Nm = 1           # Number of modes used
 # The simulation timestep
 dt = zmax/Nz/c   # Timestep (seconds)
@@ -233,7 +233,7 @@ N_step = 1500
 p_zmin = 39.e-6  # Position of the beginning of the plasma (meters)
 p_zmax = 41.e-6  # Position of the end of the plasma (meters)
 p_rmin = 0.      # Minimal radial position of the plasma (meters)
-p_rmax = 45.e-6  # Maximal radial position of the plasma (meters)
+p_rmax = 55.e-6  # Maximal radial position of the plasma (meters)
 n_e = 8.e24      # Density (electrons.meters^-3)
 p_nz = 2         # Number of particles per cell along z
 p_nr = 2         # Number of particles per cell along r
@@ -249,7 +249,7 @@ z0 = 27.e-6      # Laser centroid
 # Diagnostics
 write_fields = False
 write_particles = False
-diag_period = 5
+diag_period = 50
 
 # Plasma and laser wavenumber
 kp = 1./c * np.sqrt( n_e * e**2 / (m_e * epsilon_0) )
@@ -262,11 +262,11 @@ sim = Simulation( Nz, zmax, Nr, rmax, Nm, dt,
 
 # Create the relevant laser profile
 if Nm == 1:
-    # Build a radially-polarized pulse from 2 Laguerre-Gauss profiles
-    profile = LaguerreGaussLaser( 0, 1, 0.5*a0, w0, tau, z0,
-                                  theta_pol=0., theta0=0. ) \
-            + LaguerreGaussLaser( 0, 1, 0.5*a0, w0, tau, z0,
-                                  theta_pol=np.pi/2, theta0=np.pi/2 )
+    # Build an azimuthally-polarized pulse from 2 Laguerre-Gauss profiles
+    profile = LaguerreGaussLaser( 0, 1, a0, w0, tau, z0,
+                                  theta_pol=np.pi/2, theta0=0. ) \
+            + LaguerreGaussLaser( 0, 1, a0, w0, tau, z0,
+                                  theta_pol=0., theta0=-np.pi/2 )
 elif Nm == 2:
     profile = GaussianLaser(a0=a0, waist=w0, tau=tau, z0=z0 )
 elif Nm == 3:
