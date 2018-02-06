@@ -10,6 +10,23 @@ Usage :
 -----
 from the top-level directory of FBPIC run
 $ python tests/test_linear_wakefield.py
+
+Theory:
+-------
+This test considers a laser of the form
+$$ \vec{a} = a_0 e^{-(xi-xi_0)^2/(c\tau)^2}\vec{f}(r, \theta) $$
+where $f$ represents the transverse profile of the laser, and is either
+a radially polarized annular beam, or a linear polarized Laguerre-Gauss pulse.
+
+Then, in the linear regime, the pseudo-potential is given by:
+$$ \psi = \frac{k_p}{2}\int^xi_{-\infty} \langle \vec{a}^2 \rangle
+\sin(kp(xi-xi'))dxi' $$
+$$ \psi = \frac{k_p a_0^2}{4} f^2(r, \theta)\left[ \int^xi_{-\infty}
+e^{-2(xi-xi_0)^2/(c\tau)^2}\sin(kp(xi-xi'))dxi'\right] $$
+$$ E_z = \frac{m c^2 k_p^2 a_0^2}{4e} f^2(r, \theta)\left[ \int^xi_{-\infty}
+e^{-2(xi-xi_0)^2/(c\tau)^2}\cos(kp(xi-xi'))dxi'\right] $$
+$$ E_r = -\frac{m c^2 k_p a_0^2}{4e} \partial_r f^2(r, \theta) \left[ \int^
+xi_{-\infty} e^{-2(xi-xi_0)^2/(c\tau)^2}\sin(kp(xi-xi'))dxi'\right] $$
 """
 import numpy as np
 import matplotlib.pyplot as plt
@@ -17,7 +34,8 @@ from scipy.constants import c, e, m_e, epsilon_0
 from scipy.integrate import quad
 # Import the relevant structures in FBPIC
 from fbpic.main import Simulation
-from fbpic.lpa_utils.laser import add_laser
+from fbpic.lpa_utils.laser import add_laser_pulse, \
+    GaussianLaser, LaguerreGaussLaser
 
 from fbpic.openpmd_diag import FieldDiagnostic, ParticleDiagnostic
 
@@ -25,18 +43,13 @@ from fbpic.openpmd_diag import FieldDiagnostic, ParticleDiagnostic
 # Analytical solution
 # ---------------------------
 
-# Laser field
-def a2( xi, r ) :
-    """Average of a^2 ; envelope of the intensity of the laser"""
-    return( 0.5*a0**2*np.exp( -2*(xi - z0)**2/ctau**2 )*np.exp(-2*r**2/w0**2) )
+def kernel_Ez( xi0, xi) :
+    """Longitudinal integration kernel for Ez"""
+    return( np.cos( kp*(xi-xi0) )*np.exp( -2*(xi - z0)**2/ctau**2 ) )
 
-def kernel_Ez( xi0, xi, r) :
-    """Integration kernel for Ez"""
-    return( m_e*c**2/e * kp**2/2 * np.cos( kp*(xi-xi0) )*a2( xi0, r ) )
-
-def kernel_Er( xi0, xi, r) :
+def kernel_Er( xi0, xi) :
     """Integration kernel for Er"""
-    return( - m_e*c**2/e * 2*kp*r/w0**2 * np.sin( kp*(xi-xi0) )*a2( xi0, r ) )
+    return( np.sin( kp*(xi-xi0) )*np.exp( -2*(xi - z0)**2/ctau**2 ) )
 
 def Ez( z, r, t) :
     """
@@ -44,18 +57,25 @@ def Ez( z, r, t) :
 
     Parameters
     ----------
-    z : 1darray
-    t, r : float
+    z, r : 1darray
+    t : float
     """
     Nz = len(z)
-    Nr = len(r)
     window_zmax = z.max()
 
-    ez = np.zeros((Nz, Nr))
-    for iz in range(Nz) :
-        for ir in range(Nr) :
-          ez[iz, ir] = quad( kernel_Ez, z[iz]-c*t, window_zmax-c*t,
-            args = ( z[iz]-c*t, r[ir] ), limit=30 )[0]
+    # Longitudinal profile of the wakefield
+    long_profile = np.zeros(Nz)
+    for iz in range(Nz):
+        long_profile[iz] = quad( kernel_Ez, z[iz]-c*t, window_zmax-c*t,
+                        args = ( z[iz]-c*t,), limit=30 )[0]
+    # Transverse profile
+    if Nm == 2:
+        trans_profile = np.exp( -2*r**2/w0**2 )
+
+    # Combine longitudinal and transverse profile
+    ez = m_e*c**2*kp**2*a0**2/(4.*e) * \
+        trans_profile[np.newaxis, :] * long_profile[:, np.newaxis]
+
     return( ez )
 
 def Er( z, r, t) :
@@ -64,18 +84,24 @@ def Er( z, r, t) :
 
     Parameters
     ----------
-    z : 1darray
-    t, r : float
+    z, r : 1darray
+    t : float
     """
     Nz = len(z)
-    Nr = len(r)
     window_zmax = z.max()
 
-    er = np.zeros((Nz, Nr))
-    for iz in range(Nz) :
-        for ir in range(Nr) :
-          er[iz, ir] = quad( kernel_Er, z[iz]-c*t, window_zmax-c*t,
-            args = ( z[iz]-c*t, r[ir] ), limit=200 )[0]
+    # Longitudinal profile of the wakefield
+    long_profile = np.zeros(Nz)
+    for iz in range(Nz):
+        long_profile[iz] = quad( kernel_Er, z[iz]-c*t, window_zmax-c*t,
+                        args = (z[iz]-c*t,), limit=200 )[0]
+    # Transverse profile: gradient of transverse intensity
+    if Nm == 2:
+        trans_profile = -4*r/w0**2 * np.exp( -2*r**2/w0**2 )
+
+    # Combine longitudinal and transverse profile
+    er = m_e*c**2*kp*a0**2/(4.*e) * \
+        trans_profile[np.newaxis, :] * long_profile[:, np.newaxis]
 
     return( er )
 
@@ -207,12 +233,13 @@ p_rmax = 50.e-6  # Maximal radial position of the plasma (meters)
 n_e = 8.e24      # Density (electrons.meters^-3)
 p_nz = 2         # Number of particles per cell along z
 p_nr = 2         # Number of particles per cell along r
-p_nt = 4         # Number of particles per cell along theta
+p_nt = 2*Nm      # Number of particles per cell along theta
 
 # The laser
 a0 = 0.01        # Laser amplitude
 w0 = 20.e-6       # Laser waist
 ctau = 6.e-6     # Laser duration
+tau = ctau/c
 z0 = 27.e-6      # Laser centroid
 
 # Diagnostics
@@ -229,8 +256,19 @@ sim = Simulation( Nz, zmax, Nr, rmax, Nm, dt,
                   p_zmin, p_zmax, p_rmin, p_rmax, p_nz, p_nr, p_nt, n_e,
                   use_cuda=use_cuda, boundaries='open' )
 
-# Add a laser to the fields of the simulation
-add_laser( sim, a0, w0, ctau, z0 )
+# Create the relevant laser profile
+if Nm == 1:
+    # Build a radially-polarized pulse from 2 Laguerre-Gauss profiles
+    profile = LaguerreGaussLaser( 0, 1, 0.5*a0, w, tau, z0,
+                lambda0=lambda0, theta_pol=0., theta0=0. ) \
+            + LaguerreGaussLaser( 0, 1, 0.5*a0, w, tau, z0,
+                lambda0=lambda0, theta_pol=np.pi/2, theta0=np.pi/2 )
+elif Nm == 2:
+    profile = GaussianLaser(a0=a0, waist=w0, tau=tau, z0=z0 )
+elif Nm == 3:
+    profile = LaguerreGaussLaser(0, 1, a0=a0, waist=w0, tau=tau, z0=z0 )
+
+add_laser_pulse( sim, profile )
 
 # Configure the moving window
 sim.set_moving_window( v=c )
