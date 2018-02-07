@@ -36,12 +36,83 @@ from scipy.integrate import quad
 from fbpic.main import Simulation
 from fbpic.lpa_utils.laser import add_laser_pulse, \
     GaussianLaser, LaguerreGaussLaser
-
 from fbpic.openpmd_diag import FieldDiagnostic, ParticleDiagnostic
 
-# ---------------------------
+# Parameters for running the test
+# -------------------------------
+# Diagnostics
+write_fields = False
+write_particles = False
+diag_period = 50
+# Pop-up plots
+show = True
+
+# Main test function
+# ------------------
+
+def test_linear_wakefield( Nm=1, show=False ):
+    """
+    Run a simulation of linear laser-wakefield and compare the fields
+    with the analytical solution.
+
+    Parameters
+    ----------
+    Nm: int
+        The number of azimuthal modes used in the simulation (Use 1, 2 or 3)
+        This also determines the profile of the driving laser:
+        - Nm=1: azimuthally-polarized annular laser (entirely in mode m=0)
+        - Nm=2: linearly-polarized Gaussian laser (entirely in mode m=1)
+        - Nm=3: linearly-polarized Laguerre-Gauss laser (in mode m=0 and m=2)
+
+    show: bool
+        Whether to have pop-up windows show the comparison between
+        analytical and simulated results
+    """
+    # Initialize the simulation object
+    sim = Simulation( Nz, zmax, Nr, rmax, Nm, dt,
+                      p_zmin, p_zmax, p_rmin, p_rmax, p_nz, p_nr, p_nt, n_e,
+                      use_cuda=use_cuda, boundaries='open' )
+
+    # Create the relevant laser profile
+    if Nm == 1:
+        # Build an azimuthally-polarized pulse from 2 Laguerre-Gauss profiles
+        profile = LaguerreGaussLaser( 0, 1, a0=a0, waist=w0, tau=tau, z0=z0,
+                                      theta_pol=np.pi/2, theta0=0. ) \
+                + LaguerreGaussLaser( 0, 1, a0=a0, waist=w0, tau=tau, z0=z0,
+                                      theta_pol=0., theta0=-np.pi/2 )
+    elif Nm == 2:
+        profile = GaussianLaser(a0=a0, waist=w0, tau=tau, z0=z0,
+                                      theta_pol=np.pi/2 )
+    elif Nm == 3:
+        profile = LaguerreGaussLaser(0, 1, a0=a0, waist=w0, tau=tau, z0=z0,
+                                      theta_pol=np.pi/2 )
+    add_laser_pulse( sim, profile )
+
+    # Configure the moving window
+    sim.set_moving_window( v=c )
+
+    # Add diagnostics
+    if write_fields:
+        sim.diags.append( FieldDiagnostic(diag_period, sim.fld, sim.comm ) )
+    if write_particles:
+        sim.diags.append( ParticleDiagnostic(diag_period,
+                        {'electrons': sim.ptcl[0]}, sim.comm ) )
+
+    # Prevent current correction for MPI simulation
+    if sim.comm.size > 1:
+        correct_currents=False
+    else:
+        correct_currents=True
+
+    # Run the simulation
+    sim.step(N_step, correct_currents=correct_currents)
+
+    # Compare the fields
+    compare_fields(sim, Nm, show)
+
+# -------------------
 # Analytical solution
-# ---------------------------
+# -------------------
 
 def kernel_Ez( xi0, xi) :
     """Longitudinal integration kernel for Ez"""
@@ -62,7 +133,6 @@ def Ez( z, r, t) :
     """
     Nz = len(z)
     window_zmax = z.max()
-
     # Longitudinal profile of the wakefield
     long_profile = np.zeros(Nz)
     for iz in range(Nz):
@@ -77,7 +147,6 @@ def Ez( z, r, t) :
     # Combine longitudinal and transverse profile
     ez = m_e*c**2*kp**2*a0**2/(4.*e) * \
         trans_profile[np.newaxis, :] * long_profile[:, np.newaxis]
-
     return( ez )
 
 def Er( z, r, t) :
@@ -91,7 +160,6 @@ def Er( z, r, t) :
     """
     Nz = len(z)
     window_zmax = z.max()
-
     # Longitudinal profile of the wakefield
     long_profile = np.zeros(Nz)
     for iz in range(Nz):
@@ -106,7 +174,6 @@ def Er( z, r, t) :
     # Combine longitudinal and transverse profile
     er = m_e*c**2*kp*a0**2/(4.*e) * \
         trans_profile[np.newaxis, :] * long_profile[:, np.newaxis]
-
     return( er )
 
 # ---------------------------
@@ -236,7 +303,6 @@ Nz = 800         # Number of gridpoints along z
 zmax = 40.e-6    # Length of the box along z (meters)
 Nr = 60          # Number of gridpoints along r
 rmax = 60.e-6    # Length of the box along r (meters)
-Nm = 1           # Number of modes used
 # The simulation timestep
 dt = zmax/Nz/c   # Timestep (seconds)
 # The number of steps
@@ -259,57 +325,12 @@ ctau = 6.e-6     # Laser duration
 tau = ctau/c
 z0 = 27.e-6      # Laser centroid
 
-# Diagnostics
-write_fields = False
-write_particles = False
-diag_period = 50
-
 # Plasma and laser wavenumber
 kp = 1./c * np.sqrt( n_e * e**2 / (m_e * epsilon_0) )
 k0 = 2*np.pi/0.8e-6
 
-# Initialize the simulation object
-sim = Simulation( Nz, zmax, Nr, rmax, Nm, dt,
-                  p_zmin, p_zmax, p_rmin, p_rmax, p_nz, p_nr, p_nt, n_e,
-                  use_cuda=use_cuda, boundaries='open' )
-
-# Create the relevant laser profile
-if Nm == 1:
-    # Build an azimuthally-polarized pulse from 2 Laguerre-Gauss profiles
-    profile = LaguerreGaussLaser( 0, 1, a0=a0, waist=w0, tau=tau, z0=z0,
-                                  theta_pol=np.pi/2, theta0=0. ) \
-            + LaguerreGaussLaser( 0, 1, a0=a0, waist=w0, tau=tau, z0=z0,
-                                  theta_pol=0., theta0=-np.pi/2 )
-elif Nm == 2:
-    profile = GaussianLaser(a0=a0, waist=w0, tau=tau, z0=z0,
-                                  theta_pol=np.pi/2 )
-elif Nm == 3:
-    profile = LaguerreGaussLaser(0, 1, a0=a0, waist=w0, tau=tau, z0=z0,
-                                  theta_pol=np.pi/2 )
-
-add_laser_pulse( sim, profile )
-
-# Configure the moving window
-sim.set_moving_window( v=c )
-
-# Add diagnostics
-if write_fields:
-    sim.diags.append( FieldDiagnostic(diag_period, sim.fld, sim.comm ) )
-    sim.diags.append( FieldDiagnostic(diag_period, sim.fld, None,
-                                      write_dir='proc%d' %sim.comm.rank) )
-if write_particles:
-    sim.diags.append( ParticleDiagnostic(diag_period,
-                    {'electrons': sim.ptcl[0]}, sim.comm ) )
-
 if __name__ == '__main__' :
-    # Prevent current correction for MPI simulation
-    if sim.comm.size > 1:
-        correct_currents=False
-    else:
-        correct_currents=True
-
-    # Run the simulation
-    sim.step(N_step, correct_currents=correct_currents)
-
-    # Plot the fields
-    compare_fields(sim)
+    # Run the test for the 1, 2 and 3 azimuthal modes
+    test_linear_wakefield( Nm=1, show=show )
+    test_linear_wakefield( Nm=2, show=show )
+    test_linear_wakefield( Nm=3, show=show )
