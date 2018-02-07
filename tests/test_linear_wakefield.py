@@ -209,7 +209,7 @@ def compare_fields(sim) :
     Gather the results and compare them with the analytical predicitions
     """
     # Gather all the modes
-    gathered_grids = [ sim.comm.gather_grid(sim.fld.interp[0]) \
+    gathered_grids = [ sim.comm.gather_grid(sim.fld.interp[m]) \
                            for m in range(Nm) ]
     if sim.comm.rank==0 :
         z = gathered_grids[0].z
