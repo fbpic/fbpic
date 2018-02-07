@@ -5,11 +5,15 @@
 This file tests the whole PIC-Cycle by simulating a
 linear, laser-driven plasma wakefield and comparing
 it to the analytical solution.
+The test can be done for different number of azimuthal modes
 
 Usage :
 -----
-from the top-level directory of FBPIC run
-$ python tests/test_linear_wakefield.py
+- In order to run the tests for Nm=1, Nm=2 and Nm=3 azimuthal modes,
+and show the comparison as pop-up plots:
+$ python test_linear_wakefield.py
+- In order to run the tests for only Nm=1:
+$ py.test -q test_linear_wakefield.py
 
 Theory:
 -------
@@ -68,6 +72,8 @@ def test_linear_wakefield( Nm=1, show=False ):
         Whether to have pop-up windows show the comparison between
         analytical and simulated results
     """
+    # Automatically choose higher number of macroparticles along theta
+    p_nt = 2*Nm
     # Initialize the simulation object
     sim = Simulation( Nz, zmax, Nr, rmax, Nm, dt,
                       p_zmin, p_zmax, p_rmin, p_rmax, p_nz, p_nr, p_nt, n_e,
@@ -110,6 +116,38 @@ def test_linear_wakefield( Nm=1, show=False ):
     # Compare the fields
     compare_fields(sim, Nm, show)
 
+def compare_fields(sim, Nm, show) :
+    """
+    Gather the results and compare them with the analytical predicitions
+    """
+    # Gather all the modes
+    gathered_grids = [ sim.comm.gather_grid(sim.fld.interp[m]) \
+                           for m in range(Nm) ]
+    if sim.comm.rank==0 :
+        z = gathered_grids[0].z
+        r = gathered_grids[0].r
+
+        # Analytical solution
+        print( 'Calculate analytical solution for Ez' )
+        Ez_analytical = Ez(z, r, sim.time, Nm)
+        print( 'Calculate analytical solution for Er' )
+        Er_analytical = Er(z, r, sim.time, Nm)
+
+        # Simulation results
+        # (sum all the modes; this is valid for results in the theta=0 plane)
+        Ez_sim = gathered_grids[0].Ez.real.copy()
+        for m in range(1,Nm):
+            Ez_sim += 2 * gathered_grids[m].Ez.real
+            # The factor 2 comes from the definitions in FBPIC
+        Er_sim = gathered_grids[0].Er.real.copy()
+        for m in range(1,Nm):
+            Er_sim += 2 * gathered_grids[m].Er.real
+            # The factor 2 comes from the definitions in FBPIC
+
+        if show:
+            plot_compare_wakefields(Ez_analytical, Er_analytical,
+                                    Ez_sim, Er_sim, gathered_grids[0])
+
 # -------------------
 # Analytical solution
 # -------------------
@@ -122,7 +160,7 @@ def kernel_Er( xi0, xi) :
     """Integration kernel for Er"""
     return( np.sin( kp*(xi-xi0) )*np.exp( -2*(xi0 - z0)**2/ctau**2 ) )
 
-def Ez( z, r, t) :
+def Ez( z, r, t, Nm) :
     """
     Get the 2d Ez field
 
@@ -149,7 +187,7 @@ def Ez( z, r, t) :
         trans_profile[np.newaxis, :] * long_profile[:, np.newaxis]
     return( ez )
 
-def Er( z, r, t) :
+def Er( z, r, t, Nm) :
     """
     Get the 2d Ez field
 
@@ -180,20 +218,19 @@ def Er( z, r, t) :
 # Comparison plots
 # ---------------------------
 
-def compare_wakefields(Ez_analytic, Er_analytic, grids):
+def plot_compare_wakefields(Ez_analytic, Er_analytic, Ez_sim, Er_sim, grid):
     """
     Draws a series of plots to compare the analytical and theoretical results
     """
     # Get extent from grid object
-    grid = grids[0] # First mode
     extent = np.array([ grid.zmin-0.5*grid.dz, grid.zmax+0.5*grid.dz,
                         -0.5*grid.dr, grid.rmax + 0.5*grid.dr ])
+    z = grid.z
     # Rescale extent to microns
     extent = extent/1.e-6
 
     # Create figure
-    plt.figure(figsize=(8,7))
-
+    plt.figure(figsize=(10,7))
     plt.suptitle('Analytical vs. PIC Simulation for Ez and Er')
 
     # Plot analytic Ez in 2D
@@ -217,11 +254,6 @@ def compare_wakefields(Ez_analytic, Er_analytic, grids):
 
     # Plot simulated Ez in 2D
     plt.subplot(323)
-    # Sum all the modes (this is valid for results in the theta=0 plane)
-    Ez_sim = grids[0].Ez.real.copy()
-    for m in range(1,Nm):
-        Ez_sim += 2 * grids[m].Ez.real
-        # The factor 2 comes from the definitions in FBPIC
     plt.imshow( Ez_sim.T, extent=extent, origin='lower',
         aspect='auto', interpolation='nearest')
     plt.xlabel('z')
@@ -230,16 +262,8 @@ def compare_wakefields(Ez_analytic, Er_analytic, grids):
     cb.set_label('Ez')
     plt.title('Simulated Ez')
 
-    # Get z
-    z = grid.z
-
     # Plot simulated Er in 2D
     plt.subplot(324)
-    # Sum all the modes (this is valid for results in the theta=0 plane)
-    Er_sim = grids[0].Er.real.copy()
-    for m in range(1,Nm):
-        Er_sim += 2 * grids[m].Er.real
-        # The factor 2 comes from the definitions in FBPIC
     plt.imshow(Er_sim.T, extent=extent, origin='lower',
         aspect='auto', interpolation='nearest')
     plt.xlabel('z')
@@ -269,29 +293,8 @@ def compare_wakefields(Ez_analytic, Er_analytic, grids):
     plt.title('PIC vs. Analytical - Off-axis lineout of Er')
 
     # Show plots
+    plt.tight_layout()
     plt.show()
-
-def compare_fields(sim) :
-    """
-    Gather the results and compare them with the analytical predicitions
-    """
-    # Gather all the modes
-    gathered_grids = [ sim.comm.gather_grid(sim.fld.interp[m]) \
-                           for m in range(Nm) ]
-    if sim.comm.rank==0 :
-        z = gathered_grids[0].z
-        r = gathered_grids[0].r
-
-        # Analytical solution
-        print( 'Calculate analytical solution for Ez' )
-        ez = Ez(z, r, sim.time)
-        print( 'Done...\n' )
-
-        print( 'Calculate analytical solution for Er' )
-        er = Er(z, r, sim.time)
-        print('Done...\n')
-
-        compare_wakefields(ez, er, gathered_grids)
 
 # ---------------------------
 # Setup simulation & parameters
@@ -316,7 +319,6 @@ p_rmax = 55.e-6  # Maximal radial position of the plasma (meters)
 n_e = 8.e24      # Density (electrons.meters^-3)
 p_nz = 2         # Number of particles per cell along z
 p_nr = 2         # Number of particles per cell along r
-p_nt = 2*Nm      # Number of particles per cell along theta
 
 # The laser
 a0 = 0.01        # Laser amplitude
