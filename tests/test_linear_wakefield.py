@@ -113,11 +113,12 @@ def Er( z, r, t) :
 # Comparison plots
 # ---------------------------
 
-def compare_wakefields(Ez_analytic, Er_analytic, grid):
+def compare_wakefields(Ez_analytic, Er_analytic, grids):
     """
     Draws a series of plots to compare the analytical and theoretical results
     """
     # Get extent from grid object
+    grid = grids[0] # First mode
     extent = np.array([ grid.zmin-0.5*grid.dz, grid.zmax+0.5*grid.dz,
                         -0.5*grid.dr, grid.rmax + 0.5*grid.dr ])
     # Rescale extent to microns
@@ -149,7 +150,12 @@ def compare_wakefields(Ez_analytic, Er_analytic, grid):
 
     # Plot simulated Ez in 2D
     plt.subplot(323)
-    plt.imshow(grid.Ez.real.T, extent=extent, origin='lower',
+    # Sum all the modes (this is valid for results in the theta=0 plane)
+    Ez_sim = grids[0].Ez.real.copy()
+    for m in range(1,Nm):
+        Ez_sim += 2 * grids[m].Ez.real
+        # The factor 2 comes from the definitions in FBPIC
+    plt.imshow( Ez_sim.T, extent=extent, origin='lower',
         aspect='auto', interpolation='nearest')
     plt.xlabel('z')
     plt.ylabel('r')
@@ -162,7 +168,12 @@ def compare_wakefields(Ez_analytic, Er_analytic, grid):
 
     # Plot simulated Er in 2D
     plt.subplot(324)
-    plt.imshow(grid.Er.real.T, extent=extent, origin='lower',
+    # Sum all the modes (this is valid for results in the theta=0 plane)
+    Er_sim = grids[0].Er.real.copy()
+    for m in range(1,Nm):
+        Er_sim += 2 * grids[m].Er.real
+        # The factor 2 comes from the definitions in FBPIC
+    plt.imshow(Er_sim.T, extent=extent, origin='lower',
         aspect='auto', interpolation='nearest')
     plt.xlabel('z')
     plt.ylabel('r')
@@ -172,7 +183,7 @@ def compare_wakefields(Ez_analytic, Er_analytic, grid):
 
     # Plot lineouts of Ez (simulation and analytical solution)
     plt.subplot(325)
-    plt.plot(1.e6*z, grid.Ez[:,0].real,
+    plt.plot(1.e6*z, Ez_sim[:,0].real,
         color = 'b', label = 'Simulation')
     plt.plot(1.e6*z, Ez_analytic[:,0], color = 'r', label = 'Analytical')
     plt.xlabel('z')
@@ -182,7 +193,7 @@ def compare_wakefields(Ez_analytic, Er_analytic, grid):
 
     # Plot lineouts of Er (simulation and analytical solution)
     plt.subplot(326)
-    plt.plot(1.e6*z, grid.Er[:,5].real,
+    plt.plot(1.e6*z, Er_sim[:,5].real,
         color = 'b', label = 'Simulation')
     plt.plot(1.e6*z, Er_analytic[:,5], color = 'r', label = 'Analytical')
     plt.xlabel('z')
@@ -197,10 +208,12 @@ def compare_fields(sim) :
     """
     Gather the results and compare them with the analytical predicitions
     """
-    gathered_grid = sim.comm.gather_grid(sim.fld.interp[0])
+    # Gather all the modes
+    gathered_grids = [ sim.comm.gather_grid(sim.fld.interp[0]) \
+                           for m in range(Nm) ]
     if sim.comm.rank==0 :
-        z = gathered_grid.z
-        r = gathered_grid.r
+        z = gathered_grids[0].z
+        r = gathered_grids[0].r
 
         # Analytical solution
         print( 'Calculate analytical solution for Ez' )
@@ -211,7 +224,7 @@ def compare_fields(sim) :
         er = Er(z, r, sim.time)
         print('Done...\n')
 
-        compare_wakefields(ez, er, gathered_grid)
+        compare_wakefields(ez, er, gathered_grids)
 
 # ---------------------------
 # Setup simulation & parameters
@@ -263,14 +276,16 @@ sim = Simulation( Nz, zmax, Nr, rmax, Nm, dt,
 # Create the relevant laser profile
 if Nm == 1:
     # Build an azimuthally-polarized pulse from 2 Laguerre-Gauss profiles
-    profile = LaguerreGaussLaser( 0, 1, a0, w0, tau, z0,
+    profile = LaguerreGaussLaser( 0, 1, a0=a0, waist=w0, tau=tau, z0=z0,
                                   theta_pol=np.pi/2, theta0=0. ) \
-            + LaguerreGaussLaser( 0, 1, a0, w0, tau, z0,
+            + LaguerreGaussLaser( 0, 1, a0=a0, waist=w0, tau=tau, z0=z0,
                                   theta_pol=0., theta0=-np.pi/2 )
 elif Nm == 2:
-    profile = GaussianLaser(a0=a0, waist=w0, tau=tau, z0=z0 )
+    profile = GaussianLaser(a0=a0, waist=w0, tau=tau, z0=z0,
+                                  theta_pol=np.pi/2 )
 elif Nm == 3:
-    profile = LaguerreGaussLaser(0, 1, a0=a0, waist=w0, tau=tau, z0=z0 )
+    profile = LaguerreGaussLaser(0, 1, a0=a0, waist=w0, tau=tau, z0=z0,
+                                  theta_pol=np.pi/2 )
 
 add_laser_pulse( sim, profile )
 
