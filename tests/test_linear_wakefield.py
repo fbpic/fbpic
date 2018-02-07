@@ -304,7 +304,7 @@ use_cuda = True
 # The simulation box
 Nz = 800         # Number of gridpoints along z
 zmax = 40.e-6    # Length of the box along z (meters)
-Nr = 60          # Number of gridpoints along r
+Nr = 120          # Number of gridpoints along r
 rmax = 60.e-6    # Length of the box along r (meters)
 # The simulation timestep
 dt = zmax/Nz/c   # Timestep (seconds)
@@ -325,7 +325,7 @@ a0 = 0.01        # Laser amplitude
 w0 = 20.e-6       # Laser waist
 ctau = 6.e-6     # Laser duration
 tau = ctau/c
-z0 = 27.e-6      # Laser centroid
+z0 = 22.e-6      # Laser centroid
 
 # Plasma and laser wavenumber
 kp = 1./c * np.sqrt( n_e * e**2 / (m_e * epsilon_0) )
