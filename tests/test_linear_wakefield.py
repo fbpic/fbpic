@@ -144,9 +144,15 @@ def compare_fields(sim, Nm, show) :
             Er_sim += 2 * gathered_grids[m].Er.real
             # The factor 2 comes from the definitions in FBPIC
 
+        # Show the fields if required by the user
         if show:
             plot_compare_wakefields(Ez_analytical, Er_analytical,
                                     Ez_sim, Er_sim, gathered_grids[0])
+        # Automatically check the accuracy
+        assert np.allclose( Ez_sim, Ez_analytical,
+                            atol=0.08*abs(Ez_analytical).max() )
+        assert np.allclose( Er_sim, Er_analytical,
+                            atol=0.11*abs(Er_analytical).max() )
 
 # -------------------
 # Analytical solution
