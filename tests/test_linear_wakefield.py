@@ -280,19 +280,19 @@ def plot_compare_wakefields(Ez_analytic, Er_analytic, Ez_sim, Er_sim, grid):
 
     # Plot lineouts of Ez (simulation and analytical solution)
     plt.subplot(325)
-    plt.plot(1.e6*z, Ez_sim[:,0].real,
+    plt.plot(1.e6*z, Ez_sim[:,10].real,
         color = 'b', label = 'Simulation')
-    plt.plot(1.e6*z, Ez_analytic[:,0], color = 'r', label = 'Analytical')
+    plt.plot(1.e6*z, Ez_analytic[:,10], color = 'r', label = 'Analytical')
     plt.xlabel('z')
     plt.ylabel('Ez')
     plt.legend(loc=0)
-    plt.title('PIC vs. Analytical - On-axis lineout of Ez')
+    plt.title('PIC vs. Analytical - Off-axis lineout of Ez')
 
     # Plot lineouts of Er (simulation and analytical solution)
     plt.subplot(326)
-    plt.plot(1.e6*z, Er_sim[:,5].real,
+    plt.plot(1.e6*z, Er_sim[:,10].real,
         color = 'b', label = 'Simulation')
-    plt.plot(1.e6*z, Er_analytic[:,5], color = 'r', label = 'Analytical')
+    plt.plot(1.e6*z, Er_analytic[:,10], color = 'r', label = 'Analytical')
     plt.xlabel('z')
     plt.ylabel('Er')
     plt.legend(loc=0)
