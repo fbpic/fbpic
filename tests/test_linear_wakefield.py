@@ -64,9 +64,12 @@ def test_linear_wakefield( Nm=1, show=False ):
     Nm: int
         The number of azimuthal modes used in the simulation (Use 1, 2 or 3)
         This also determines the profile of the driving laser:
-        - Nm=1: azimuthally-polarized annular laser (entirely in mode m=0)
-        - Nm=2: linearly-polarized Gaussian laser (entirely in mode m=1)
-        - Nm=3: linearly-polarized Laguerre-Gauss laser (in mode m=0 and m=2)
+        - Nm=1: azimuthally-polarized annular laser 
+          (laser in mode m=0, wakefield in mode m=0)
+        - Nm=2: linearly-polarized Gaussian laser
+          (laser in mode m=1, wakefield in mode m=0)
+        - Nm=3: linearly-polarized Laguerre-Gauss laser
+          (laser in mode m=0 and m=2, wakefield in mode m=0 and m=2, 
 
     show: bool
         Whether to have pop-up windows show the comparison between
