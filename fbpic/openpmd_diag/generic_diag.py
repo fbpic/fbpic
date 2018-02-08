@@ -12,6 +12,7 @@ import datetime
 from dateutil.tz import tzlocal
 import numpy as np
 import h5py
+from fbpic import __version__ as fbpic_version
 
 # Dictionaries of correspondance for openPMD
 from .data_dict import unit_dimension_dict
@@ -160,7 +161,7 @@ class OpenPMDDiagnostic(object) :
         # General attributes
         f.attrs["openPMD"] = np.string_("1.0.0")
         f.attrs["openPMDextension"] = np.uint32(1)
-        f.attrs["software"] = np.string_("fbpic")
+        f.attrs["software"] = np.string_("fbpic " + fbpic_version)
         f.attrs["date"] = np.string_(
             datetime.datetime.now(tzlocal()).strftime('%Y-%m-%d %H:%M:%S %z'))
         f.attrs["meshesPath"] = np.string_("fields/")
