@@ -934,6 +934,7 @@ class SpectralGrid(object) :
                     cuda_correct_currents_crossdeposition_comoving \
                         [dim_grid, dim_block](
                             self.rho_prev, self.rho_next,
+                            self.rho_next_z, self.rho_next_xy,
                             self.Jp, self.Jm, self.Jz,
                             self.d_kz, self.d_kr, self.d_inv_k2,
                             ps.d_j_corr_coef, ps.d_T_eb, ps.d_T_cc,
@@ -970,6 +971,7 @@ class SpectralGrid(object) :
                 elif current_corr_type == 'cross-deposition':
                     numba_correct_currents_crossdeposition_comoving(
                         self.rho_prev, self.rho_next,
+                        self.rho_next_z, self.rho_next_xy,
                         self.Jp, self.Jm, self.Jz,
                         self.kz, self.kr, self.inv_k2,
                         ps.j_corr_coef, ps.T_eb, ps.T_cc,
