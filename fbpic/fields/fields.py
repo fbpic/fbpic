@@ -849,6 +849,9 @@ class SpectralGrid(object) :
         self.Jz = cuda.to_device( self.Jz )
         self.rho_prev = cuda.to_device( self.rho_prev )
         self.rho_next = cuda.to_device( self.rho_next )
+        self.rho_next_z = cuda.to_device( self.rho_next_z )
+        self.rho_next_xy = cuda.to_device( self.rho_next_xy )        
+
 
     def receive_fields_from_gpu( self ):
         """
@@ -868,7 +871,10 @@ class SpectralGrid(object) :
         self.Jz = self.Jz.copy_to_host()
         self.rho_prev = self.rho_prev.copy_to_host()
         self.rho_next = self.rho_next.copy_to_host()
+        self.rho_next_z = self.rho_next_z.copy_to_host()
+        self.rho_next_xy = self.rho_next_xy.copy_to_host()
 
+        
     def correct_currents (self, dt, ps, current_corr_type):
         """
         Correct the currents so that they satisfy the
