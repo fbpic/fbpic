@@ -137,10 +137,10 @@ def run_simulation( gamma_boost, show ):
 
     for i_step in range( N_step ):
         for species in sim.ptcl:
-            species.halfpush_x()
+            species.push_x( 0.5*sim.dt )
         elec.handle_elementary_processes( sim.time + 0.5*sim.dt )
         for species in sim.ptcl:
-            species.halfpush_x()
+            species.push_x( 0.5*sim.dt )
         # Increment time and run diagnostics
         sim.time += sim.dt
         sim.iteration += 1
