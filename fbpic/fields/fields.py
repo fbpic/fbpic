@@ -674,66 +674,6 @@ class InterpolationGrid(object) :
         self.Jz = self.Jz.copy_to_host()
         self.rho = self.rho.copy_to_host()
 
-    def show(self, fieldtype, below_axis=True, scale=1,
-             gridscale=1.e-6, **kw) :
-        """
-        Show the field `fieldtype` on the interpolation grid
-
-        Parameters
-        ----------
-        fieldtype : string
-            Name of the field to be plotted.
-            (either 'Er', 'Et', 'Ez', 'Br', 'Bt', 'Bz',
-            'Jr', 'Jt', 'Jz', 'rho')
-
-        scale : float, optional
-            Value by which the field should be divided before plotting
-
-        gridscale : float, optional
-            Value by which to scale the z and r axis
-            Default : scale it in microns
-
-        kw : dictionary
-            Options to be passed to matplotlib's imshow
-        """
-        # matplotlib only needs to be imported if this function is called
-        try:
-            import matplotlib.pyplot as plt
-        except ImportError:
-            raise ImportError(
-        'The package `matplotlib` is required to show the fields.'
-        '\nPlease install it: `conda install matplotlib`')
-
-        # Select the field to plot
-        plotted_field = getattr( self, fieldtype)
-        # Show the field also below the axis for a more realistic picture
-        if below_axis == True :
-            plotted_field = np.hstack( (plotted_field[:,::-1],plotted_field) )
-            extent = np.array([self.zmin, self.zmax, -self.rmax, self.rmax])
-        else :
-            extent = np.array([self.zmin, self.zmax, self.rmin, self.rmax])
-        extent = extent/gridscale
-        # Title
-        plt.suptitle(
-            '%s on the interpolation grid, for mode %d' %(fieldtype, self.m) )
-
-        # Plot the real part
-        plt.subplot(211)
-        plt.imshow( plotted_field.real.T[::-1]/scale, aspect='auto',
-                    interpolation='nearest', extent = extent, **kw )
-        plt.xlabel('z')
-        plt.ylabel('r')
-        cb = plt.colorbar()
-        cb.set_label('Real part')
-
-        # Plot the imaginary part
-        plt.subplot(212)
-        plt.imshow( plotted_field.imag.T[::-1]/scale, aspect='auto',
-                    interpolation='nearest', extent = extent, **kw )
-        plt.xlabel('z')
-        plt.ylabel('r')
-        cb = plt.colorbar()
-        cb.set_label('Imaginary part')
 
 class SpectralGrid(object) :
     """
@@ -774,12 +714,6 @@ class SpectralGrid(object) :
         self.Nz = Nz
         self.m = m
 
-        # Find the limits of the grid (useful for plotting ; use the true kz)
-        self.kzmin = kz_true.min()
-        self.kzmax = kz_true.max()
-        self.krmin = kr.min()
-        self.krmax = kr.max()
-
         # Allocate the fields arrays
         self.Ep = np.zeros( (Nz, Nr), dtype='complex' )
         self.Em = np.zeros( (Nz, Nr), dtype='complex' )
@@ -819,7 +753,7 @@ class SpectralGrid(object) :
             self.d_kz = cuda.to_device( self.kz )
             self.d_kr = cuda.to_device( self.kr )
             self.d_field_shift = cuda.to_device( self.field_shift )
-            # NB: F is not needed on the GPU (on-the-fly variables)
+
 
     def send_fields_to_gpu( self ):
         """
@@ -1052,61 +986,6 @@ class SpectralGrid(object) :
             else :
                 raise ValueError('Invalid string for fieldtype: %s'%fieldtype)
 
-    def show(self, fieldtype, below_axis=True, scale=1, **kw) :
-        """
-        Show the field `fieldtype` on the spectral grid
-
-        Parameters
-        ----------
-        fieldtype : string
-            Name of the field to be plotted.
-            (either 'Ep', 'Em', 'Ez', 'Bp', 'Bm', 'Bz',
-            'Jp', 'Jm', 'Jz', 'rho_prev', 'rho_next')
-
-        scale : float
-            Value by which the field should be divide before plotting
-
-        kw : dictionary
-            Options to be passed to matplotlib's imshow
-        """
-        # matplotlib only needs to be imported if this function is called
-        try:
-            import matplotlib.pyplot as plt
-        except ImportError:
-            raise ImportError(
-        'The package `matplotlib` is required to show the fields.'
-        '\nPlease install it: `conda install matplotlib`')
-
-        # Select the field to plot
-        plotted_field = getattr( self, fieldtype)
-        # Fold it so as to center the 0 frequency
-        plotted_field = np.fft.fftshift( plotted_field, axes=0 )
-        if below_axis == True :
-            plotted_field = np.hstack((plotted_field[:,::-1], plotted_field))
-            extent = [ self.kzmin, self.kzmax, -self.krmax, self.krmax ]
-        else :
-            extent = [ self.kzmin, self.kzmax, self.krmin, self.krmax ]
-        # Title
-        plt.suptitle(
-            '%s on the spectral grid, for mode %d' %(fieldtype, self.m) )
-
-        # Plot the real part
-        plt.subplot(211)
-        plt.imshow( plotted_field.real.T[::-1]/scale, aspect='auto',
-                    interpolation='nearest', extent = extent, **kw )
-        plt.xlabel('kz')
-        plt.ylabel('kr')
-        cb = plt.colorbar()
-        cb.set_label('Real part')
-
-        # Plot the imaginary part
-        plt.subplot(212)
-        plt.imshow( plotted_field.imag.T[::-1]/scale, aspect='auto',
-                    interpolation='nearest', extent = extent, **kw )
-        plt.xlabel('kz')
-        plt.ylabel('kr')
-        cb = plt.colorbar()
-        cb.set_label('Imaginary part')
 
 class PsatdCoeffs(object) :
     """
