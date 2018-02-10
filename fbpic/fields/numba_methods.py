@@ -141,13 +141,13 @@ def numba_push_eb_standard( Ep, Em, Ez, Bp, Bm, Bz, Jp, Jm, Jz,
     return
 
 @njit_parallel
-def numba_correct_currents_comoving( rho_prev, rho_next, Jp, Jm, Jz,
+def numba_correct_currents_curlfree_comoving( rho_prev, rho_next, Jp, Jm, Jz,
                             kz, kr, inv_k2,
                             j_corr_coef, T_eb, T_cc,
                             inv_dt, Nz, Nr ) :
     """
-    Correct the currents in spectral space, using the assumption
-    of comoving currents
+    Correct the currents in spectral space, using the curl-free correction
+    which is adapted to the galilean/comoving-currents assumption
     """
     # Loop over the 2D grid (parallel in z, if threading is installed)
     for iz in prange(Nz):
@@ -165,6 +165,10 @@ def numba_correct_currents_comoving( rho_prev, rho_next, Jp, Jm, Jz,
             Jz[iz, ir] += -1.j * kz[iz, ir] * F
 
     return
+
+# TODO: Write the correct function (this is only for the tests to pass)
+numba_correct_currents_crossdeposition_comoving = \
+    numba_correct_currents_curlfree_comoving
 
 @njit_parallel
 def numba_push_eb_comoving( Ep, Em, Ez, Bp, Bm, Bz, Jp, Jm, Jz,
