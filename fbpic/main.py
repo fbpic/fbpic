@@ -438,7 +438,7 @@ class Simulation(object):
                 antenna.push_x( 0.5*dt )
             # Shift the boundaries of the grid for the Galilean frame
             if self.use_galilean:
-                self.shift_galilean_boundaries()
+                self.shift_galilean_boundaries( 0.5*dt )
 
             # Get the current at t = (n+1/2) dt
             # (Guard cell exchange done either now or after current correction)
@@ -462,7 +462,7 @@ class Simulation(object):
                 antenna.push_x( 0.5*dt )
             # Shift the boundaries of the grid for the Galilean frame
             if self.use_galilean:
-                self.shift_galilean_boundaries()
+                self.shift_galilean_boundaries( 0.5*dt )
 
             # Get the charge density at t = (n+1) dt
             self.deposit('rho_next', exchange=False)
@@ -612,6 +612,9 @@ class Simulation(object):
                 species.push_x( 0.5*dt, x_push= 1., y_push= 1., z_push= -1. )
         for antenna in self.laser_antennas:
             antenna.push_x( 0.5*dt, x_push= 1., y_push= 1., z_push= -1. )
+        # Shift the boundaries of the grid for the Galilean frame
+        if self.use_galilean:
+            self.shift_galilean_boundaries( -0.5*dt )
         # Deposit rho_next_xy
         self.deposit( 'rho_next_xy' )
 
@@ -621,6 +624,9 @@ class Simulation(object):
                 species.push_x(dt, x_push= -1., y_push= -1., z_push= 1.)
         for antenna in self.laser_antennas:
             antenna.push_x(dt, x_push= -1., y_push= -1., z_push= 1.)
+        # Shift the boundaries of the grid for the Galilean frame
+        if self.use_galilean:
+            self.shift_galilean_boundaries( dt )
         # Deposit rho_next_z
         self.deposit( 'rho_next_z' )
 
@@ -630,12 +636,14 @@ class Simulation(object):
                 species.push_x(0.5*dt, x_push= 1., y_push= 1., z_push= -1.)
         for antenna in self.laser_antennas:
             antenna.push_x(0.5*dt, x_push= 1., y_push= 1., z_push= -1.)
+        # Shift the boundaries of the grid for the Galilean frame
+        if self.use_galilean:
+            self.shift_galilean_boundaries( -0.5*dt )
 
-    def shift_galilean_boundaries(self):
+    def shift_galilean_boundaries(self, dt):
         """
-        Shift the interpolation grids by v_comoving over
-        a half-timestep. (The arrays of values are unchanged,
-        only position attributes are changed.)
+        Shift the interpolation grids by v_comoving * dt.
+        (The field arrays are unchanged, only position attributes are changed.)
 
         With the Galilean frame, in principle everything should
         be solved in variables xi = z - v_comoving t, and -v_comoving
@@ -643,7 +651,7 @@ class Simulation(object):
         is equivalent to, instead, shift the boundaries of the grid.
         """
         # Calculate shift distance over a half timestep
-        shift_distance = self.v_comoving * 0.5 * self.dt
+        shift_distance = self.v_comoving * dt
         # Shift the boundaries of the global domain
         self.comm.shift_global_domain_positions( shift_distance )
         # Shift the boundaries of the grid
