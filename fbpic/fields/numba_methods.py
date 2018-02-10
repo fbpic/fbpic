@@ -166,6 +166,48 @@ def numba_correct_currents_curlfree_comoving( rho_prev, rho_next, Jp, Jm, Jz,
 
     return
 
+@njit_parallel
+def numba_correct_currents_crossdeposition_comoving(
+            rho_prev, rho_next, Jp, Jm, Jz,
+            kz, kr, inv_k2, j_corr_coef, T_eb, T_cc, inv_dt, Nz, Nr ) :
+    """
+    Correct the currents in spectral space, using the cross-deposition
+    algorithm adapted to the galilean/comoving-currents assumption.
+    """
+    # Loop over the 2D grid
+    for iz in prange(Nz):
+        # Loop through the radial points
+        # (Note: a while loop is used here, because numba 0.34 does
+        # not support nested prange and range loops)
+        ir = 0
+        while ir < Nr:
+
+            # Calculate the intermediate variable Dz and Dxy
+            # (Such that Dz + Dxy is the error in the continuity equation)
+
+            Dz = 1.j*kz[iz, ir]*Jz[iz, ir] \
+                + 0.5 * T_cc[iz, ir]*j_corr_coef[iz, ir] * \
+                ( rho_next[iz, ir] - T_eb[iz, ir] * rho_next_xy[iz, ir] \
+                  + rho_next_z[iz, ir] - T_eb[iz, ir] * rho_prev[iz, ir] )
+            Dxy = kr[iz, ir]*( Jp[iz, ir] - Jm[iz, ir] ) \
+                + 0.5 * T_cc[iz, ir]*j_corr_coef[iz, ir] * \
+                ( rho_next[iz, ir] + T_eb[iz, ir] * rho_next_xy[iz, ir] \
+                - rho_next_z[iz, ir] -  T_eb[iz, ir] * rho_prev[iz, ir] )
+
+            # Correct the currents accordingly
+            if kr[iz, ir] != 0:
+                inv_kr = 1./kr[iz, ir]
+                Jp[iz, ir] += -0.5 * Dxy * inv_kr
+                Jm[iz, ir] +=  0.5 * Dxy * inv_kr
+            if kz[iz, ir] != 0:
+                inv_kz = 1./kz[iz, ir]
+                Jz[iz, ir] += 1.j * Dz * inv_kz
+
+            # Increment ir
+            ir += 1
+
+    return
+
 # TODO: Write the correct function (this is only for the tests to pass)
 numba_correct_currents_crossdeposition_comoving = \
     numba_correct_currents_curlfree_comoving
