@@ -62,13 +62,17 @@ decomposition, see the `original paper <http://www.sciencedirect.com/science/art
 code Calder Circ.
 
 .. note::
-   In practice, FBPIC currently only uses **two modes** (:math:`m=0` and
-   :math:`m=1`). This is generally sufficient to model e.g. laser-wakefield
-   acceleration with a round laser spot.
 
-   The fact that only two 2D grids are used, instead of a full 3D grid,
-   implies that the code uses **vastly less memory**, and runs **faster by
-   orders of magnitude**.
+   The user chooses the number of azimuthal modes used in an FBPIC simulation.
+   Thus, you should make sure that you choose **enough modes** to resolve the 
+   physics at stake (e.g. typically 2 modes for idealized laser-wakefield 
+   acceleration).
+
+   The fact that only a few 2D grids are used (one per azimuthal mode),
+   instead of a full 3D grid, implies that the code uses **vastly less memory**,
+   and runs **faster by orders of magnitude** compared to a 3D Cartesian code.
+   Nonetheless, the computational cost of an FBPIC simulation does of course
+   **increase with the number of azimuthal modes** used.
 
 As suggested in the above image, the macroparticles deposit their
 charge and current on each radial grid, and gather the sum of the
