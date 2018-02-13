@@ -73,7 +73,8 @@ class Simulation(object):
             cell)
 
         Nm: int
-            The number of azimuthal modes taken into account
+            The number of azimuthal modes taken into account. (The simulation
+            uses the modes from `m=0` to `m=(Nm-1)`.)
 
         dt: float
             The timestep of the simulation

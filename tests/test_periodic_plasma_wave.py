@@ -203,10 +203,11 @@ def simulate_periodic_plasma_wave( particle_shape, show=False ):
     # Run the simulation
     sim.step( N_step, correct_currents=True )
 
-    # Test check that div(E) - rho = 0 (directly in spectral space)
-    check_charge_conservation( sim, rho_ions )
     # Plot the results and compare with analytical theory
     compare_fields( sim, show )
+    # Test check that div(E) - rho = 0 (directly in spectral space)
+    check_charge_conservation( sim, rho_ions )
+
 
 # -----------------------------------------
 # Analytical solutions for the plasma wave
