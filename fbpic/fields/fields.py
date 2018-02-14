@@ -213,6 +213,12 @@ class Fields(object) :
             on the grid is used only to correct the currents, and
             the simulation can be run without the neutralizing ions.
         """
+        # Ensure consistency: fields should be exchanged
+        assert self.exchanged_source['J'] == True
+        if use_true_rho:
+            assert self.exchanged_source['rho_prev'] == True
+            assert self.exchanged_source['rho_next'] == True
+
         # Push each azimuthal grid individually, by passing the
         # corresponding psatd coefficients
         for m in range(self.Nm) :

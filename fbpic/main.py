@@ -325,10 +325,6 @@ class Simulation(object):
         # Shortcuts
         ptcl = self.ptcl
         fld = self.fld
-        # Sanity check
-        # (This is because the guard cells of rho are never exchanged.)
-        if self.comm.size > 1 and use_true_rho:
-            raise ValueError('use_true_rho cannot be used in multi-proc mode.')
         if self.comm.size > 1 and correct_divE:
             raise ValueError('correct_divE cannot be used in multi-proc mode.')
 
@@ -382,9 +378,8 @@ class Simulation(object):
 
                 # Reproject the charge on the interpolation grid
                 # (Since particles have been removed / added to the simulation;
-                # otherwise rho_prev is obtained from the previous iteration.
-                # Note that the guard cells of rho are never exchanged.)
-                self.deposit('rho_prev', exchange=False)
+                # otherwise rho_prev is obtained from the previous iteration.)
+                self.deposit('rho_prev', exchange=(correct_currents is False))
 
             # For the field diagnostics of the first step: deposit J
             # (Note however that this is not the *corrected* current)
@@ -450,7 +445,7 @@ class Simulation(object):
                 self.shift_galilean_boundaries()
 
             # Get the charge density at t = (n+1) dt
-            self.deposit('rho_next', exchange=False)
+            self.deposit('rho_next', exchange=(correct_currents is False))
             # Correct the currents (requires rho at t = (n+1) dt )
             if correct_currents:
                 fld.correct_currents()
@@ -461,7 +456,7 @@ class Simulation(object):
                     fld.spect2partial_interp('J')
                     self.comm.exchange_fields(fld.interp, 'J', 'add')
                     fld.partial_interp2spect('J')
-                    fld.exchanged_source['J'] = True
+                fld.exchanged_source['J'] = True
 
             # Push the fields E and B on the spectral grid to t = (n+1) dt
             fld.push( use_true_rho )
@@ -576,7 +571,7 @@ class Simulation(object):
         if self.filter_currents:
             fld.filter_spect( fieldtype )
         # Set the flag to indicate whether these fields have been exchanged
-        fld.exchanged_source[ fieldtype ] = (exchange and self.comm.size > 1)
+        fld.exchanged_source[ fieldtype ] = exchange
 
     def shift_galilean_boundaries(self):
         """
