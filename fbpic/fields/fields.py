@@ -200,11 +200,13 @@ class Fields(object) :
                 self.interp[m].receive_fields_from_gpu()
                 self.spect[m].receive_fields_from_gpu()
 
-    def push(self, use_true_rho=False) :
+    def push(self, use_true_rho=False, check_exchanges=False):
         """
         Push the different azimuthal modes over one timestep,
         in spectral space.
 
+        Parameters
+        ----------
         use_true_rho : bool, optional
             Whether to use the rho projected on the grid.
             If set to False, this will use div(E) and div(J)
@@ -212,12 +214,16 @@ class Fields(object) :
             In the case use_true_rho==False, the rho projected
             on the grid is used only to correct the currents, and
             the simulation can be run without the neutralizing ions.
+        check_exchanges: bool, optional
+            Check whether the fields rho and J have been properly
+            exchanged via MPI
         """
-        # Ensure consistency: fields should be exchanged
-        assert self.exchanged_source['J'] == True
-        if use_true_rho:
-            assert self.exchanged_source['rho_prev'] == True
-            assert self.exchanged_source['rho_next'] == True
+        if check_exchanges:
+            # Ensure consistency: fields should be exchanged
+            assert self.exchanged_source['J'] == True
+            if use_true_rho:
+                assert self.exchanged_source['rho_prev'] == True
+                assert self.exchanged_source['rho_next'] == True
 
         # Push each azimuthal grid individually, by passing the
         # corresponding psatd coefficients
@@ -225,16 +231,23 @@ class Fields(object) :
             self.spect[m].push_eb_with( self.psatd[m], use_true_rho )
             self.spect[m].push_rho()
 
-    def correct_currents(self) :
+    def correct_currents(self, check_exchanges=False) :
         """
         Correct the currents so that they satisfy the
         charge conservation equation
+
+        Parameter
+        ---------
+        check_exchanges: bool
+            Check whether the fields rho and J have been properly
+            exchanged via MPI
         """
-        # Ensure consistency (charge and current should
-        # not be exchanged via MPI before correction)
-        assert self.exchanged_source['rho_prev'] == False
-        assert self.exchanged_source['rho_next'] == False
-        assert self.exchanged_source['J'] == False
+        if check_exchanges:
+            # Ensure consistency (charge and current should
+            # not be exchanged via MPI before correction)
+            assert self.exchanged_source['rho_prev'] == False
+            assert self.exchanged_source['rho_next'] == False
+            assert self.exchanged_source['J'] == False
 
         # Correct each azimuthal grid individually
         for m in range(self.Nm) :

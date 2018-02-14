@@ -325,8 +325,12 @@ class Simulation(object):
         # Shortcuts
         ptcl = self.ptcl
         fld = self.fld
+        # Add a few safeguards
         if self.comm.size > 1 and correct_divE:
             raise ValueError('correct_divE cannot be used in multi-proc mode.')
+        if self.comm.size > 1 and use_true_rho and correct_currents:
+            raise ValueError('use_true cannot be used together '
+                            'with correct_currents in multi-proc mode.')
 
         # Initialize variables to measure the time taken by the simulation
         if show_progress and self.comm.rank==0:
@@ -448,7 +452,7 @@ class Simulation(object):
             self.deposit('rho_next', exchange=(correct_currents is False))
             # Correct the currents (requires rho at t = (n+1) dt )
             if correct_currents:
-                fld.correct_currents()
+                fld.correct_currents( check_exchanges=(self.comm > 1) )
                 if self.comm.size > 1:
                     # Exchange the guard cells of corrected J between domains
                     # (If correct_currents is False, the exchange of J
@@ -459,7 +463,7 @@ class Simulation(object):
                 fld.exchanged_source['J'] = True
 
             # Push the fields E and B on the spectral grid to t = (n+1) dt
-            fld.push( use_true_rho )
+            fld.push( use_true_rho, check_exchanges=(self.comm > 1) )
             if correct_divE:
                 fld.correct_divE()
             # Move the grids if needed
