@@ -37,15 +37,17 @@ class ExternalField( object ):
             - amplitude and length_scale: floats that can be used within
               the function expression
 
-            **WARNING:** In the PIC loop, this function is called after
-            the field gathering. Thus this function can potentially
-            overwrite the fields that were gathered on the grid.
-            To avoid this, use "return(F + external_field) " inside
-            the definition of `field_func` instead of "return(external_field)"
+            .. warning::
+                In the PIC loop, this function is called after
+                the field gathering. Thus this function can potentially
+                overwrite the fields that were gathered on the grid. To avoid 
+                this, use "return(F + external_field) " inside the definition 
+                of `field_func` instead of "return(external_field)"
 
-            **WARNING:** Inside the definition of `field_func` please use
-            the `math` module for mathematical functions, instead of numpy.
-            This will allow the function to be compiled for GPU.
+            .. warning::
+                Inside the definition of `field_func` please use
+                the `math` module for mathematical functions, instead of numpy.
+                This will allow the function to be compiled for GPU.
 
         fieldtype: string
             Specifies on which field `field_func` will be applied.
