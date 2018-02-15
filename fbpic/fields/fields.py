@@ -215,8 +215,8 @@ class Fields(object) :
             on the grid is used only to correct the currents, and
             the simulation can be run without the neutralizing ions.
         check_exchanges: bool, optional
-            Check whether the fields rho and J have been properly
-            exchanged via MPI
+            Check whether the guard cells of the fields rho and J
+            have been properly exchanged via MPI
         """
         if check_exchanges:
             # Ensure consistency: fields should be exchanged
@@ -239,8 +239,8 @@ class Fields(object) :
         Parameter
         ---------
         check_exchanges: bool
-            Check whether the fields rho and J have been properly
-            exchanged via MPI
+            Check whether the guard cells of the fields rho and J
+            have been properly exchanged via MPI
         """
         if check_exchanges:
             # Ensure consistency (charge and current should
