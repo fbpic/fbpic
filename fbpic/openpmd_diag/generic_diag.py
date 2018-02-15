@@ -56,7 +56,7 @@ class OpenPMDDiagnostic(object) :
             self.rank = 0
 
         # Register the arguments
-        self.period = period
+        self.period = int(round(period))  # Impose integer period
         self.iteration_min = iteration_min
         self.iteration_max = iteration_max
         self.comm = comm
