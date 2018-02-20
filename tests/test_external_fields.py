@@ -11,7 +11,6 @@ $ python tests/test_external_fields.py
 
 """
 import numpy as np
-import matplotlib.pyplot as plt
 from scipy.constants import e, m_e, c
 from fbpic.main import Simulation
 from fbpic.lpa_utils.external_fields import ExternalField
@@ -102,6 +101,7 @@ def test_external_laser_field(show=False):
 
     # Show the results
     if show:
+        import matplotlib.pyplot as plt
         plt.figure(figsize=(10,5))
 
         plt.subplot(211)
