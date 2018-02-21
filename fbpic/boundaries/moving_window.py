@@ -374,11 +374,15 @@ def shift_spect_array_cpu( field_array, shift_factor, n_move ):
 
     # Loop over the 2D array (in parallel over z if threading is enabled)
     for iz in prange( Nz ):
-        power_shift = shift_factor[iz]
-        # Calculate the shift factor (raising to the power n_move)
-        for i in range(1,n_move):
+        power_shift = 1. + 0.j
+        # Calculate the shift factor (raising to the power n_move ;
+        # for negative n_move, we take the complex conjugate, since
+        # shift_factor is of the form e^{i k dz})
+        for i in range( abs(n_move) ):
             power_shift *= shift_factor[iz]
-        # Shift fields backwards
+        if n_move < 0:
+            power_shift = power_shift.conjugate()
+        # Shift the fields
         for ir in range( Nr ):
             field_array[iz, ir] *= power_shift
 
@@ -410,9 +414,13 @@ if cuda_installed:
 
         # Only access values that are actually in the array
         if ir < field_array.shape[1] and iz < field_array.shape[0]:
-            # Calculate the shift factor (raising to the power n_move)
-            power_shift = shift_factor[iz]
-            for i in range(1,n_move):
+            power_shift = 1. + 0.j
+            # Calculate the shift factor (raising to the power n_move ;
+            # for negative n_move, we take the complex conjugate, since
+            # shift_factor is of the form e^{i k dz})
+            for i in range( abs(n_move) ):
                 power_shift *= shift_factor[iz]
-            # Shift fields backwards
+            if n_move < 0:
+                power_shift = power_shift.conjugate()
+            # Shift fields
             field_array[iz, ir] *= power_shift
