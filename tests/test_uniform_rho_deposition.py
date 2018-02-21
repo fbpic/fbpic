@@ -18,7 +18,6 @@ $ python tests/test_uniform_rho_deposition.py
 """
 from scipy.constants import c, e
 from fbpic.main import Simulation
-import matplotlib.pyplot as plt
 import numpy as np
 
 # Parameters
@@ -78,6 +77,7 @@ def uniform_electron_plasma(shape, show=False):
 
     # Show the results
     else:
+        import matplotlib.pyplot as plt
         plt.title('Uniform plasma, mode 0')
         sim.fld.interp[0].show('rho')
         plt.show()
@@ -124,6 +124,7 @@ def neutral_plasma_shifted(shape, show=False):
 
     # Show the results
     else:
+        import matplotlib.pyplot as plt
         plt.title('Shifted plasma, mode 0')
         sim.fld.interp[0].show('rho')
         plt.show()

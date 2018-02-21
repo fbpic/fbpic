@@ -26,7 +26,6 @@ or
 $ python setup.py test
 """
 import numpy as np
-import matplotlib.pyplot as plt
 from scipy.optimize import curve_fit
 from scipy.constants import c, m_e, e
 from fbpic.main import Simulation
@@ -125,6 +124,7 @@ def run_and_check_laser_antenna(gamma_b, show, write_files):
         sim.step( N_step, show_progress=False )
         # Plot the fields during the simulation
         if show==True :
+            import matplotlib.pyplot as plt
             plt.clf()
             sim.fld.interp[1].show('Et')
             plt.show()
@@ -196,6 +196,7 @@ def check_fields( interp1_complex, z, r, info_in_real_part, gamma_b,
                                         z0_b+Lprop_b, ctau_b, lambda0_b )
     # Plot the difference
     if show_difference:
+        import matplotlib.pyplot as plt
         plt.subplot(311)
         plt.imshow( interp1.T )
         plt.colorbar()

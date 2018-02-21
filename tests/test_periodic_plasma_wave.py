@@ -118,7 +118,6 @@ where $\epsilon$ is the dimensionless amplitude of the mode 0 and
 $\epsilon_1$, $\epsilon_2$ are the dimensionless amplitudes of modes 1 and 2.
 """
 import numpy as np
-import matplotlib.pyplot as plt
 from scipy.constants import c, e, m_e, epsilon_0
 # Import the relevant structures in FBPIC
 from fbpic.main import Simulation
@@ -411,6 +410,7 @@ def check_E_field( E_simulation, rgrid, zgrid, epsilons,
                'over the whole simulation box.'  )
     else:
         # Show the images to the user
+        import matplotlib.pyplot as plt
         plt.figure(figsize=(8,10))
         plt.suptitle('%s field' %field)
 
