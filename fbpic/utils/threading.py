@@ -25,15 +25,16 @@ if threading_enabled:
     try:
         # Try to import the threading function prange
         from numba import prange as numba_prange
-        # Check that numba is version 0.34 or 0.36 (other versions fail)
+        # Check that numba is version 0.34 or higher than 0.36 
+        # (other versions fail)
         import numba
-        assert ( numba.__version__.startswith('0.34') or \
-            numba.__version__.startswith('0.36') )
+        numba_minor_version = int(numba.__version__.split('.')[1])
+        assert ( numba_minor_version==34 or numba_minor_version >= 36 )
     except (ImportError, AssertionError):
         threading_enabled = False
         print('*** Threading not available for the simulation.')
-        print('*** (Please make sure that numba 0.34 or 0.36 is installed,')
-        print('***  e.g. by typing `conda install numba=0.34` in a terminal)')
+        print('*** (Please ensure that numba 0.34 or >=0.36 is installed,')
+        print('***  e.g. by typing `conda update numba` in a terminal)')
 
 # Set the function njit_parallel and prange to the correct object
 if not threading_enabled:

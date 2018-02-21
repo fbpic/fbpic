@@ -19,7 +19,6 @@ $ python tests/test_continuous_injection.py
 """
 from scipy.constants import c, e
 from fbpic.main import Simulation
-import matplotlib.pyplot as plt
 import numpy as np
 
 # Parameters
@@ -134,6 +133,7 @@ def check_density( sim, gamma_boost, dens_func, show ):
 
     # Show the results
     if show:
+        import matplotlib.pyplot as plt
         extent = 1.e6*np.array([ gathered_grid.zmin, gathered_grid.zmax,
                    gathered_grid.rmin, gathered_grid.rmax ])
 

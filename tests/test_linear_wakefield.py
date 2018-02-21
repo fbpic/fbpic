@@ -33,7 +33,6 @@ $$ E_r = -\frac{m c^2 k_p a_0^2}{4e} \partial_r f^2(r, \theta) \left[ \int^
 xi_{-\infty} e^{-2(xi-xi_0)^2/(c\tau)^2}\sin(kp(xi-xi'))dxi'\right] $$
 """
 import numpy as np
-import matplotlib.pyplot as plt
 from scipy.constants import c, e, m_e, epsilon_0
 from scipy.integrate import quad
 # Import the relevant structures in FBPIC
@@ -239,6 +238,7 @@ def plot_compare_wakefields(Ez_analytic, Er_analytic, Ez_sim, Er_sim, grid):
     extent = extent/1.e-6
 
     # Create figure
+    import matplotlib.pyplot as plt
     plt.figure(figsize=(10,7))
     plt.suptitle('Analytical vs. PIC Simulation for Ez and Er')
 

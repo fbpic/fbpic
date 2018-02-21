@@ -35,7 +35,6 @@ or
 $ python setup.py test
 """
 import numpy as np
-import matplotlib.pyplot as plt
 from scipy.constants import c, m_e, e
 from scipy.optimize import curve_fit
 from fbpic.main import Simulation
@@ -249,6 +248,7 @@ def propagate_pulse( Nz, Nr, Nm, zmin, zmax, Lr, L_prop, zf, dt,
         w[it], E[it] = fit_fields( sim.fld, m )
         # Plot the fields during the simulation
         if show==True and it%N_show == 0 :
+            import matplotlib.pyplot as plt
             plt.clf()
             sim.fld.interp[m].show('Er')
             plt.show()
@@ -263,6 +263,7 @@ def propagate_pulse( Nz, Nr, Nm, zmin, zmax, Lr, L_prop, zf, dt,
 
     # Either plot the results and check them manually
     if show is True:
+        import matplotlib.pyplot as plt
         plt.suptitle('Diffraction of a pulse in the mode %d' %m)
         plt.subplot(121)
         plt.plot( 1.e6*z_prop, 1.e6*w, 'o', label='Simulation' )
