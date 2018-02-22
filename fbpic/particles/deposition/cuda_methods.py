@@ -184,9 +184,9 @@ def deposit_rho_gpu_linear(x, y, z, w, q,
             exptheta_m0 = 1.
             exptheta_m1 = cos + 1.j*sin
 
-            # Positions of the particles, in the cell unit
-            r_cell = invdr*(rj - rmin) - 0.5
-            z_cell = invdz*(zj - zmin) - 0.5
+            # Position of the particle, with respect to its cell's lower edge
+            r_in_cell = (invdr*(rj - rmin) - 0.5) - (ir_upper-1)
+            z_in_cell = (invdz*(zj - zmin) - 0.5) - (iz_upper-1)
 
             # Calculate rho
             # --------------------------------------------
@@ -391,9 +391,9 @@ def deposit_J_gpu_linear(x, y, z, w, q,
 
             # Get weights for the deposition
             # --------------------------------------------
-            # Positions of the particles, in the cell unit
-            r_cell = invdr*(rj - rmin) - 0.5
-            z_cell = invdz*(zj - zmin) - 0.5
+            # Position of the particle, with respect to its cell's lower edge
+            r_in_cell = (invdr*(rj - rmin) - 0.5) - (ir_upper-1)
+            z_in_cell = (invdz*(zj - zmin) - 0.5) - (iz_upper-1)
 
             # Calculate the currents
             # ----------------------
@@ -642,9 +642,9 @@ def deposit_rho_gpu_cubic(x, y, z, w, q,
             exptheta_m0 = 1.
             exptheta_m1 = cos + 1.j*sin
 
-            # Positions of the particles, in the cell unit
-            r_cell = invdr*(rj - rmin) - 0.5
-            z_cell = invdz*(zj - zmin) - 0.5
+            # Position of the particle, with respect to its cell's lower edge
+            r_in_cell = (invdr*(rj - rmin) - 0.5) - (ir_upper-1)
+            z_in_cell = (invdz*(zj - zmin) - 0.5) - (iz_upper-1)
 
             # Calculate rho
             # -------------
@@ -1003,9 +1003,9 @@ def deposit_J_gpu_cubic(x, y, z, w, q,
 
             # Get weights for the deposition
             # --------------------------------------------
-            # Positions of the particles, in the cell unit
-            r_cell = invdr*(rj - rmin) - 0.5
-            z_cell = invdz*(zj - zmin) - 0.5
+            # Position of the particle, with respect to its cell's lower edge
+            r_in_cell = (invdr*(rj - rmin) - 0.5) - (ir_upper-1)
+            z_in_cell = (invdz*(zj - zmin) - 0.5) - (iz_upper-1)
 
             # Calculate the currents
             # --------------------------------------------
