@@ -183,16 +183,10 @@ def print_simulation_setup( sim, verbose_level=1 ):
                 message += '\nCUDA available: Yes'
             else:
                 message += '\nCUDA available: No'
+            # Information about the architecture and the node used
             if sim.use_cuda:
                 message += '\nCompute architecture: GPU (CUDA)'
-                # Gather the model and id of each GPU in the local communicator
-                gpu_message = get_gpu_message()
-                if sim.comm.size > 1:
-                    gpu_messages = sim.comm.mpi_comm.gather( gpu_message )
-                    if sim.comm.rank == 0:
-                        gpu_message = ''.join( gpu_messages )
-                message += gpu_message
-            # Information on CPU
+                node_message = get_gpu_message()
             else:
                 message += '\nCompute architecture: CPU'
                 if sim.use_threading:
@@ -204,6 +198,13 @@ def print_simulation_setup( sim, verbose_level=1 ):
                     message += '\nFFT library: MKL'
                 else:
                     message += '\nFFT library: pyFFTW'
+                node_message = get_cpu_message()
+            # Gather the information about where each node runs
+            if sim.comm.size > 1:
+                node_messages = sim.comm.mpi_comm.gather( node_message )
+                if sim.comm.rank == 0:
+                    node_message = ''.join( node_messages )
+            message += node_message
 
             message += '\n'
             # Information on the numerical algorithm
@@ -257,6 +258,19 @@ def get_gpu_message():
             rank, gpu_name, gpu.id, node)
     else:
         message = "\nFBPIC selected a %s GPU with id %s" %( gpu_name, gpu.id )
+    return(message)
+
+def get_cpu_message():
+    """
+    Returns a string with information about the node of each MPI rank
+    """
+    # Print the node that is being used
+    if MPI.COMM_WORLD.size > 1:
+        rank = MPI.COMM_WORLD.rank
+        node = MPI.Get_processor_name()
+        message = "\nMPI rank %d runs on node %s" %(rank, node)
+    else:
+        message = ""
     return(message)
 
 def print_gpu_meminfo_all():
