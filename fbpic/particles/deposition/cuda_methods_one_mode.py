@@ -131,6 +131,8 @@ def deposit_rho_gpu_linear_one_mode(x, y, z, w, q,
             # Position of the particle, with respect to its cell's lower edge
             r_in_cell = (invdr*(rj - rmin) - 0.5) - (ir_upper-1)
             z_in_cell = (invdz*(zj - zmin) - 0.5) - (iz_upper-1)
+            # Handle periodicity
+            z_in_cell = (z_in_cell + 0.5*Nz)%Nz - 0.5*Nz
 
             # Calculate rho
             # --------------------------------------------
@@ -312,6 +314,8 @@ def deposit_J_gpu_linear_one_mode(x, y, z, w, q,
             # Position of the particle, with respect to its cell's lower edge
             r_in_cell = (invdr*(rj - rmin) - 0.5) - (ir_upper-1)
             z_in_cell = (invdz*(zj - zmin) - 0.5) - (iz_upper-1)
+            # Handle periodicity
+            z_in_cell = (z_in_cell + 0.5*Nz)%Nz - 0.5*Nz
 
             # Calculate the currents
             # ----------------------
@@ -508,6 +512,8 @@ def deposit_rho_gpu_cubic_one_mode(x, y, z, w, q,
             # Position of the particle, with respect to its cell's lower edge
             r_in_cell = (invdr*(rj - rmin) - 0.5) - (ir_upper-1)
             z_in_cell = (invdz*(zj - zmin) - 0.5) - (iz_upper-1)
+            # Handle periodicity
+            z_in_cell = (z_in_cell + 0.5*Nz)%Nz - 0.5*Nz
 
             # Calculate rho
             # -------------
@@ -789,6 +795,8 @@ def deposit_J_gpu_cubic_one_mode(x, y, z, w, q,
             # Position of the particle, with respect to its cell's lower edge
             r_in_cell = (invdr*(rj - rmin) - 0.5) - (ir_upper-1)
             z_in_cell = (invdz*(zj - zmin) - 0.5) - (iz_upper-1)
+            # Handle periodicity
+            z_in_cell = (z_in_cell + 0.5*Nz)%Nz - 0.5*Nz
 
             # Calculate the currents
             # --------------------------------------------
