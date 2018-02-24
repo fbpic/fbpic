@@ -504,7 +504,7 @@ class BoundaryCommunicator(object):
         if self.size > 1:
             if fieldtype == 'E':
                 if method == 'replace':
-                    if gpudirect:
+                    if self.use_gpudirect:
                         vec_send_left = self.mpi_buffers.d_vec_rep_send_l
                         vec_send_right = self.mpi_buffers.d_vec_rep_send_r
                         vec_recv_left = self.mpi_buffers.d_vec_rep_recv_l
@@ -546,7 +546,7 @@ class BoundaryCommunicator(object):
 
             elif fieldtype == 'B':
                 if method == 'replace':
-                    if gpudirect:
+                    if self.use_gpudirect:
                         vec_send_left = self.mpi_buffers.d_vec_rep_send_l
                         vec_send_right = self.mpi_buffers.d_vec_rep_send_r
                         vec_recv_left = self.mpi_buffers.d_vec_rep_recv_l
@@ -557,7 +557,7 @@ class BoundaryCommunicator(object):
                         vec_recv_left = self.mpi_buffers.vec_rep_recv_l
                         vec_recv_right = self.mpi_buffers.vec_rep_recv_r
                 if method == 'add':
-                    if gpudirect:
+                    if self.use_gpudirect:
                         vec_send_left = self.mpi_buffers.d_vec_add_send_l
                         vec_send_right = self.mpi_buffers.d_vec_add_send_r
                         vec_recv_left = self.mpi_buffers.d_vec_add_recv_l
@@ -588,7 +588,7 @@ class BoundaryCommunicator(object):
 
             elif fieldtype == 'J':
                 if method == 'replace':
-                    if gpudirect:
+                    if self.use_gpudirect:
                         vec_send_left = self.mpi_buffers.d_vec_rep_send_l
                         vec_send_right = self.mpi_buffers.d_vec_rep_send_r
                         vec_recv_left = self.mpi_buffers.d_vec_rep_recv_l
@@ -599,7 +599,7 @@ class BoundaryCommunicator(object):
                         vec_recv_left = self.mpi_buffers.vec_rep_recv_l
                         vec_recv_right = self.mpi_buffers.vec_rep_recv_r
                 if method == 'add':
-                    if gpudirect:
+                    if self.use_gpudirect:
                         vec_send_left = self.mpi_buffers.d_vec_add_send_l
                         vec_send_right = self.mpi_buffers.d_vec_add_send_r
                         vec_recv_left = self.mpi_buffers.d_vec_add_recv_l
@@ -630,7 +630,7 @@ class BoundaryCommunicator(object):
 
             elif fieldtype == 'rho':
                 if method == 'replace':
-                    if gpudirect:
+                    if self.use_gpudirect:
                         scal_send_left = self.mpi_buffers.d_scal_rep_send_l
                         scal_send_right = self.mpi_buffers.d_scal_rep_send_r
                         scal_recv_left = self.mpi_buffers.d_scal_rep_recv_l
@@ -641,7 +641,7 @@ class BoundaryCommunicator(object):
                         scal_recv_left = self.mpi_buffers.scal_rep_recv_l
                         scal_recv_right = self.mpi_buffers.scal_rep_recv_r
                 if method == 'add':
-                    if gpudirect:
+                    if self.use_gpudirect:
                         scal_send_left = self.mpi_buffers.d_scal_add_send_l
                         scal_send_right = self.mpi_buffers.d_scal_add_send_r
                         scal_recv_left = self.mpi_buffers.d_scal_add_recv_l
