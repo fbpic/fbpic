@@ -87,32 +87,41 @@ class BufferHandler(object):
             self.vec_rep_send_r = pin_ary((3*Nm,ng,Nr), dtype=np.complex128)
             self.vec_rep_recv_l = pin_ary((3*Nm,ng,Nr), dtype=np.complex128)
             self.vec_rep_recv_r = pin_ary((3*Nm,ng,Nr), dtype=np.complex128)
-            self.d_vec_rep_buffer_l = cuda.to_device( self.vec_rep_send_l )
-            self.d_vec_rep_buffer_r = cuda.to_device( self.vec_rep_send_r )
+            self.d_vec_rep_send_l = cuda.to_device( self.vec_rep_send_l )
+            self.d_vec_rep_send_r = cuda.to_device( self.vec_rep_send_r )
+            self.d_vec_rep_recv_l = cuda.to_device( self.vec_rep_recv_l )
+            self.d_vec_rep_recv_r = cuda.to_device( self.vec_rep_recv_r )
             # - Adding vector field buffers
             self.vec_add_send_l = pin_ary((3*Nm,2*ng,Nr), dtype=np.complex128)
             self.vec_add_send_r = pin_ary((3*Nm,2*ng,Nr), dtype=np.complex128)
             self.vec_add_recv_l = pin_ary((3*Nm,2*ng,Nr), dtype=np.complex128)
             self.vec_add_recv_r = pin_ary((3*Nm,2*ng,Nr), dtype=np.complex128)
-            self.d_vec_add_buffer_l = cuda.to_device( self.vec_add_send_l )
-            self.d_vec_add_buffer_r = cuda.to_device( self.vec_add_send_r )
+            self.d_vec_add_send_l = cuda.to_device( self.vec_add_send_l )
+            self.d_vec_add_send_r = cuda.to_device( self.vec_add_send_r )
+            self.d_vec_add_recv_l = cuda.to_device( self.vec_add_recv_l )
+            self.d_vec_add_recv_r = cuda.to_device( self.vec_add_recv_r )
             # - Replacing scalar field buffers
             self.scal_rep_send_l = pin_ary((Nm,ng,Nr), dtype=np.complex128)
             self.scal_rep_send_r = pin_ary((Nm,ng,Nr), dtype=np.complex128)
             self.scal_rep_recv_l = pin_ary((Nm,ng,Nr), dtype=np.complex128)
             self.scal_rep_recv_r = pin_ary((Nm,ng,Nr), dtype=np.complex128)
-            self.d_scal_rep_buffer_l = cuda.to_device( self.scal_rep_send_l )
-            self.d_scal_rep_buffer_r = cuda.to_device( self.scal_rep_send_r )
+            self.d_scal_rep_send_l = cuda.to_device( self.scal_rep_send_l )
+            self.d_scal_rep_send_r = cuda.to_device( self.scal_rep_send_r )
+            self.d_scal_rep_recv_l = cuda.to_device( self.scal_rep_recv_l )
+            self.d_scal_rep_recv_r = cuda.to_device( self.scal_rep_recv_r )
             # - Adding scalar field buffers
             self.scal_add_send_l = pin_ary((Nm,2*ng,Nr), dtype=np.complex128)
             self.scal_add_send_r = pin_ary((Nm,2*ng,Nr), dtype=np.complex128)
             self.scal_add_recv_l = pin_ary((Nm,2*ng,Nr), dtype=np.complex128)
             self.scal_add_recv_r = pin_ary((Nm,2*ng,Nr), dtype=np.complex128)
-            self.d_scal_add_buffer_l = cuda.to_device( self.scal_add_send_l )
-            self.d_scal_add_buffer_r = cuda.to_device( self.scal_add_send_r )
+            self.d_scal_add_send_l = cuda.to_device( self.scal_add_send_l )
+            self.d_scal_add_send_r = cuda.to_device( self.scal_add_send_r )
+            self.d_scal_add_recv_l = cuda.to_device( self.scal_add_recv_l )
+            self.d_scal_add_recv_r = cuda.to_device( self.scal_add_recv_r )
 
     def handle_vec_buffer( self, grid_r, grid_t, grid_z, method, use_cuda,
-                           before_sending=False, after_receiving=False):
+                           before_sending=False, after_receiving=False,
+                           gpudirect=False ):
         """
         Vector field buffer handling
 
@@ -180,60 +189,72 @@ class BufferHandler(object):
                     # Copy the inner regions of the domain to the buffers
                     for m in range(self.Nm):
                         copy_vec_to_gpu_buffer[ dim_grid_2d, dim_block_2d ](
-                            self.d_vec_rep_buffer_l, self.d_vec_rep_buffer_r,
+                            self.d_vec_rep_send_l,
+                            self.d_vec_rep_send_r,
                             grid_r[m], grid_t[m], grid_z[m], m,
                             copy_left, copy_right, nz_start, nz_end )
-                    # Copy the GPU buffers to the sending CPU buffers
-                    if copy_left:
-                        self.d_vec_rep_buffer_l.copy_to_host(
-                            self.vec_rep_send_l )
-                    if copy_right:
-                        self.d_vec_rep_buffer_r.copy_to_host(
-                            self.vec_rep_send_r )
+                    # If GPUDirect with CUDA-aware MPI is not use_cuda
+                    if not gpudirect:
+                        # Copy the GPU buffers to the sending CPU buffers
+                        if copy_left:
+                                self.d_vec_rep_send_l.copy_to_host(
+                                    self.vec_rep_send_l )
+                        if copy_right:
+                                self.d_vec_rep_send_r.copy_to_host(
+                                    self.vec_rep_send_r )
 
                 if method == 'add':
                     # Copy the inner+guard regions of the domain to the buffers
                     for m in range(self.Nm):
                         copy_vec_to_gpu_buffer[ dim_grid_2d, dim_block_2d ](
-                        self.d_vec_add_buffer_l, self.d_vec_add_buffer_r,
+                            self.d_vec_add_send_l,
+                            self.d_vec_add_send_r,
                             grid_r[m], grid_t[m], grid_z[m], m,
                             copy_left, copy_right, nz_start, nz_end )
-                    # Copy the GPU buffers to the sending CPU buffers
-                    if copy_left:
-                        self.d_vec_add_buffer_l.copy_to_host(
-                            self.vec_add_send_l )
-                    if copy_right:
-                        self.d_vec_add_buffer_r.copy_to_host(
-                            self.vec_add_send_r )
+                    # If GPUDirect with CUDA-aware MPI is not use_cuda
+                    if not gpudirect:
+                        # Copy the GPU buffers to the sending CPU buffers
+                        if copy_left:
+                            self.d_vec_add_send_l.copy_to_host(
+                                self.vec_add_send_l )
+                        if copy_right:
+                            self.d_vec_add_send_r.copy_to_host(
+                                self.vec_add_send_r )
 
             elif after_receiving:
                 if method == 'replace':
-                    # Copy the CPU receiving buffers to the GPU buffers
-                    if copy_left:
-                        self.d_vec_rep_buffer_l.copy_to_device(
-                            self.vec_rep_recv_l )
-                    if copy_right:
-                        self.d_vec_rep_buffer_r.copy_to_device(
-                            self.vec_rep_recv_r )
+                    # If GPUDirect with CUDA-aware MPI is not use_cuda
+                    if not gpudirect:
+                        # Copy the CPU receiving buffers to the GPU buffers
+                        if copy_left:
+                            self.d_vec_rep_recv_l.copy_to_device(
+                                self.vec_rep_recv_l )
+                        if copy_right:
+                            self.d_vec_rep_recv_r.copy_to_device(
+                                self.vec_rep_recv_r )
                     # Replace the guard cells of the domain with the buffers
                     for m in range(self.Nm):
                         replace_vec_from_gpu_buffer[dim_grid_2d, dim_block_2d](
-                            self.d_vec_rep_buffer_l, self.d_vec_rep_buffer_r,
+                            self.d_vec_rep_recv_l,
+                            self.d_vec_rep_recv_r,
                             grid_r[m], grid_t[m], grid_z[m], m,
                             copy_left, copy_right, nz_start, nz_end )
 
                 if method == 'add':
-                    # Copy the CPU receiving buffers to the GPU buffers
-                    if copy_left:
-                        self.d_vec_add_buffer_l.copy_to_device(
-                            self.vec_add_recv_l )
-                    if copy_right:
-                        self.d_vec_add_buffer_r.copy_to_device(
-                            self.vec_add_recv_r )
+                    # If GPUDirect with CUDA-aware MPI is not use_cuda
+                    if not gpudirect:
+                        # Copy the CPU receiving buffers to the GPU buffers
+                        if copy_left:
+                            self.d_vec_add_recv_l.copy_to_device(
+                                self.vec_add_recv_l )
+                        if copy_right:
+                            self.d_vec_add_recv_r.copy_to_device(
+                                self.vec_add_recv_r )
                     # Add the buffers to the domain
                     for m in range(self.Nm):
                         add_vec_from_gpu_buffer[ dim_grid_2d, dim_block_2d ](
-                            self.d_vec_add_buffer_l, self.d_vec_add_buffer_r,
+                            self.d_vec_add_recv_l,
+                            self.d_vec_add_recv_r,
                             grid_r[m], grid_t[m], grid_z[m], m,
                             copy_left, copy_right, nz_start, nz_end )
         # Without GPU
@@ -294,7 +315,8 @@ class BufferHandler(object):
 
 
     def handle_scal_buffer( self, grid, method, use_cuda,
-                            before_sending=False, after_receiving=False):
+                            before_sending=False, after_receiving=False,
+                            gpudirect=False ):
         """
         Scalar field buffer handling
 
@@ -360,57 +382,69 @@ class BufferHandler(object):
                     # Copy the inner regions of the domain to the GPU buffers
                     for m in range(self.Nm):
                         copy_scal_to_gpu_buffer[ dim_grid_2d, dim_block_2d ](
-                            self.d_scal_rep_buffer_l, self.d_scal_rep_buffer_r,
+                            self.d_scal_rep_send_l,
+                            self.d_scal_rep_send_r,
                             grid[m], m, copy_left, copy_right, nz_start, nz_end)
-                    # Copy the GPU buffers to the sending CPU buffers
-                    if copy_left:
-                        self.d_scal_rep_buffer_l.copy_to_host(
-                            self.scal_rep_send_l )
-                    if copy_right:
-                        self.d_scal_rep_buffer_r.copy_to_host(
-                            self.scal_rep_send_r )
+                    # If GPUDirect with CUDA-aware MPI is not use_cuda
+                    if not gpudirect:
+                        # Copy the GPU buffers to the sending CPU buffers
+                        if copy_left:
+                            self.d_scal_rep_send_l.copy_to_host(
+                                self.scal_rep_send_l )
+                        if copy_right:
+                            self.d_scal_rep_send_r.copy_to_host(
+                                self.scal_rep_send_r )
 
                 if method == 'add':
                     # Copy the inner+guard regions of the domain to the buffers
                     for m in range(self.Nm):
                         copy_scal_to_gpu_buffer[ dim_grid_2d, dim_block_2d ](
-                            self.d_scal_add_buffer_l, self.d_scal_add_buffer_r,
+                            self.d_scal_add_send_l,
+                            self.d_scal_add_send_r,
                             grid[m], m, copy_left, copy_right, nz_start, nz_end)
-                    # Copy the GPU buffers to the sending CPU buffers
-                    if copy_left:
-                        self.d_scal_add_buffer_l.copy_to_host(
-                            self.scal_add_send_l )
-                    if copy_right:
-                        self.d_scal_add_buffer_r.copy_to_host(
-                            self.scal_add_send_r )
+                    # If GPUDirect with CUDA-aware MPI is not use_cuda
+                    if not gpudirect:
+                        # Copy the GPU buffers to the sending CPU buffers
+                        if copy_left:
+                            self.d_scal_add_send_l.copy_to_host(
+                                self.scal_add_send_l )
+                        if copy_right:
+                            self.d_scal_add_send_r.copy_to_host(
+                                self.scal_add_send_r )
 
             elif after_receiving:
                 if method == 'replace':
-                    # Copy the CPU receiving buffers to the GPU buffers
-                    if copy_left:
-                        self.d_scal_rep_buffer_l.copy_to_device(
-                            self.scal_rep_recv_l )
-                    if copy_right:
-                        self.d_scal_rep_buffer_r.copy_to_device(
-                            self.scal_rep_recv_r )
+                    # If GPUDirect with CUDA-aware MPI is not use_cuda
+                    if not gpudirect:
+                        # Copy the CPU receiving buffers to the GPU buffers
+                        if copy_left:
+                            self.d_scal_rep_recv_l.copy_to_device(
+                                self.scal_rep_recv_l )
+                        if copy_right:
+                            self.d_scal_rep_recv_r.copy_to_device(
+                                self.scal_rep_recv_r )
                     # Replace the guard cells of the domain with the buffers
                     for m in range(self.Nm):
                         replace_scal_from_gpu_buffer[dim_grid_2d, dim_block_2d](
-                            self.d_scal_rep_buffer_l, self.d_scal_rep_buffer_r,
+                            self.d_scal_rep_recv_l,
+                            self.d_scal_rep_recv_r,
                             grid[m], m, copy_left, copy_right, nz_start, nz_end)
 
                 if method == 'add':
-                    # Copy the CPU receiving buffers to the GPU buffers
-                    if copy_left:
-                        self.d_scal_add_buffer_l.copy_to_device(
-                            self.scal_add_recv_l )
-                    if copy_right:
-                        self.d_scal_add_buffer_r.copy_to_device(
-                            self.scal_add_recv_r )
+                    # If GPUDirect with CUDA-aware MPI is not use_cuda
+                    if not gpudirect:
+                        # Copy the CPU receiving buffers to the GPU buffers
+                        if copy_left:
+                            self.d_scal_add_recv_l.copy_to_device(
+                                self.scal_add_recv_l )
+                        if copy_right:
+                            self.d_scal_add_recv_r.copy_to_device(
+                                self.scal_add_recv_r )
                     # Add the GPU buffers to the domain
                     for m in range(self.Nm):
                         add_scal_from_gpu_buffer[ dim_grid_2d, dim_block_2d ](
-                            self.d_scal_add_buffer_l, self.d_scal_add_buffer_r,
+                            self.d_scal_add_recv_l,
+                            self.d_scal_add_recv_r,
                             grid[m], m, copy_left, copy_right, nz_start, nz_end)
         # Without GPU
         else:
