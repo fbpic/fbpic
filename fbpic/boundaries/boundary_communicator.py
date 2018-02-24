@@ -626,23 +626,31 @@ class BoundaryCommunicator(object):
         """
         # MPI-Exchange: Uses non-blocking send and receive,
         # which return directly and need to be synchronized later.
-        # Send to left domain and receive from right domain
+        # Send to left domain and receive from left domain
         if self.left_proc is not None :
-            self.mpi_comm.Isend(send_left, dest=self.left_proc, tag=1)
+            req_sl = self.mpi_comm.Isend(
+                send_left, dest=self.left_proc, tag=1 )
+            req_rl = self.mpi_comm.Irecv(
+                recv_left, source=self.left_proc, tag=2 )
+        # Send to right domain and receive from right domain
         if self.right_proc is not None :
-            req_1 = self.mpi_comm.Irecv(recv_right,
-                                        source=self.right_proc, tag=1)
-        # Send to right domain and receive from left domain
-        if self.right_proc is not None :
-            self.mpi_comm.Isend(send_right, dest=self.right_proc, tag=2)
-        if self.left_proc is not None :
-            req_2 = self.mpi_comm.Irecv(recv_left,
-                                        source=self.left_proc, tag=2)
+            req_sr = self.mpi_comm.Isend(
+                send_right, dest=self.right_proc, tag=2 )
+            req_rr = self.mpi_comm.Irecv(
+                recv_right, source=self.right_proc, tag=1 )
+
         # Wait for the non-blocking sends to be received (synchronization)
-        if self.right_proc is not None :
-            req_1.Wait()
         if self.left_proc is not None :
-            req_2.Wait()
+            req_sl.Wait()
+            req_rl.Wait()
+        if self.right_proc is not None :
+            req_sr.Wait()
+            req_rr.Wait()
+
+        # if self.left_proc is not None:
+        #     self.mpi_comm.Sendrecv_replace(ghost_left, dest=self.left_proc, sendtag=1, source=self.left_proc, recvtag=2)
+        # if self.right_proc is not None:
+        #     self.mpi_comm.Sendrecv_replace(ghost_right, dest=self.right_proc, sendtag=2, source=self.right_proc, recvtag=1)
 
     def exchange_particles(self, species, fld, time ):
         """
