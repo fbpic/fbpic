@@ -98,24 +98,25 @@ class GaussianLaser( LaserProfile ):
         """
         Define a linearly-polarized Gaussian laser profile.
 
-        Parameters:
-        -----------
+        Parameters
+        ----------
+
         a0: float (dimensionless)
             The peak normalized vector potential, in the focal plane
 
         waist: float (in meters)
             Laser waist in the focal plane, defined as :math:`w_0` below:
 
-            ..math:
+            .. math::
 
-                E(\boldsymbol{x},t) \propto \exp\left( -\frac{\boldsymbol{x}_\perp^2}{w_0^2} \right)
+                E(\\boldsymbol{x},t) \propto \exp\left( -\\frac{\\boldsymbol{x}_\perp^2}{w_0^2} \\right)
 
         tau: float (in meters^-1)
-            The duration of the laser, defined as :math:`\tau` below:
+            The duration of the laser, defined as :math:`\\tau` below:
 
             .. math::
 
-                E(\boldsymbol{x},t) \propto \exp\left( -\frac{(t-z_0/c)^2}{\tau^2} \right)
+                E(\\boldsymbol{x},t) \propto \exp\left( -\\frac{(t-z_0/c)^2}{\\tau^2} \\right)
 
         z0: float (m)
             The initial position of the centroid of the laser (in the lab frame)
@@ -167,15 +168,15 @@ class GaussianLaser( LaserProfile ):
         """
         Return the electric field of the laser
 
-        Parameters:
-        -----------
+        Parameters
+        ----------
         x, y, z: ndarrays (meters)
             The positions at which to calculate the profile (in the lab frame)
         t: ndarray or float (seconds)
             The time at which to calculate the profile (in the lab frame)
 
-        Returns:
-        --------
+        Returns
+        -------
         Ex, Ey: ndarrays (V/m)
             Arrays of the same shape as x, y, z, containing the fields
         """
@@ -215,27 +216,34 @@ class LaguerreGaussLaser( LaserProfile ):
         Define a linearly-polarized Laguerre-Gauss laser profile.
 
         The intensity profile of the pulse is given by
+
         .. math::
-            I(r, \theta, z) \propto \left( \frac{2r^2}{w(z)}^2 \right)^m
-            L^m_p\left( \frac{2r^2}{w(z)}^2 \right)
-            \exp\left( -\frac{2r^2}{w(z)}^2 \right) \cos^2[m(\theta-\theta_0)]
+
+            I(r, \\theta, z) \propto \left( \\frac{2r^2}{w(z)}^2\\right)^m
+            L^m_p\left( \\frac{2r^2}{w(z)}^2 \\right)\exp\left(
+            -\\frac{2r^2}{w(z)}^2 \\right)\cos^2[m(\\theta-\\theta_0)]
+
         where :math:`L^m_p` is a Laguerre polynomial, and where `w(z)` is
         the waist and has the same expression as for a Gaussian laser pulse.
+
         (See Siegman, Lasers (1986) Chapter 16: Wave optics and Gaussian beams)
 
-        Parameters:
-        -----------
+        Parameters
+        ----------
+
         p: int
             The order of the Laguerre polynomial. (Increasing p increases the
             number of "rings" in the radial intensity profile of the laser.)
 
         m: int
-            The azimuthal order of the pulse. (In the transverse plane, the
-            intensity of the pulse varies as :math:`cos^2[m(\theta-\theta0)]`.)
+            The azimuthal order of the pulse.
+            (In the transverse plane, the intensity of the pulse varies as
+            :math:`cos^2[m(\\theta-\\theta_0)]`.)
 
             .. note::
                 In order to be properly resolved by the simulation,
-                this laser profile requires the azimuthal modes up to ``m+1``.
+                this laser profile requires the azimuthal modes from
+                `0` to `m+1`.
                 (i.e. the number of required azimuthal modes is ``Nm=m+2``)
 
         a0: float (dimensionless)
@@ -270,7 +278,7 @@ class LaguerreGaussLaser( LaserProfile ):
         theta0: float (rad)
             The azimuthal position of (one of) the maxima of intensity, in the
             transverse plane.
-            (The intensity varies as :math:`cos^2[m(\theta-\theta0)]`)
+            (The intensity varies as :math:`cos^2[m(\\theta-\\theta0)]`)
         """
         # Set a number of parameters for the laser
         k0 = 2*np.pi/lambda0
