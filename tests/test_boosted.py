@@ -27,7 +27,6 @@ $ python setup.py test
 # -------
 import numpy as np
 from scipy.constants import c
-import matplotlib.pyplot as plt
 # Import the relevant structures in FBPIC
 from fbpic.main import Simulation
 
@@ -125,6 +124,7 @@ def test_cherenkov_instability( show=False ):
 
         # Check/plot the results
         if show:
+            import matplotlib.pyplot as plt
             # Add a plot
             plt.semilogy( t, Er_rms, '-', label=scheme )
             plt.ylabel('RMS(Er)')

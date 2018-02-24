@@ -26,6 +26,6 @@ install:
   - python setup.py install
 before_script:
   - python -m pyflakes .
-  - pip install matplotlib openPMD-viewer
+  - pip install openPMD-viewer
 script:
   - "python setup.py test"
