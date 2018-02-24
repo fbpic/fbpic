@@ -510,9 +510,6 @@ class BoundaryCommunicator(object):
                 self.exchange_domains(
                     vec_send_left, vec_send_right,
                     vec_recv_left, vec_recv_right )
-                # An MPI barrier is needed here so that a single rank does not
-                # do two sends and receives before this exchange is completed.
-                self.mpi_comm.Barrier()
                 # Handle the received buffers
                 self.mpi_buffers.handle_vec_buffer(
                     [ interp[m].Er for m in range(self.Nm) ],
@@ -541,9 +538,6 @@ class BoundaryCommunicator(object):
                 self.exchange_domains(
                     vec_send_left, vec_send_right,
                     vec_recv_left, vec_recv_right )
-                # An MPI barrier is needed here so that a single rank does not
-                # do two sends and receives before this exchange is completed.
-                self.mpi_comm.Barrier()
                 # Handle the received buffers
                 self.mpi_buffers.handle_vec_buffer(
                     [ interp[m].Br for m in range(self.Nm) ],
@@ -572,9 +566,6 @@ class BoundaryCommunicator(object):
                 self.exchange_domains(
                     vec_send_left, vec_send_right,
                     vec_recv_left, vec_recv_right )
-                # An MPI barrier is needed here so that a single rank does not
-                # do two sends and receives before this exchange is completed.
-                self.mpi_comm.Barrier()
                 # Handle the received buffers
                 self.mpi_buffers.handle_vec_buffer(
                     [ interp[m].Jr for m in range(self.Nm) ],
@@ -601,9 +592,6 @@ class BoundaryCommunicator(object):
                 self.exchange_domains(
                     scal_send_left, scal_send_right,
                     scal_recv_left, scal_recv_right )
-                # An MPI barrier is needed here so that a single rank does not
-                # do two sends and receives before this exchange is completed.
-                self.mpi_comm.Barrier()
                 # Handle the received buffers
                 self.mpi_buffers.handle_scal_buffer(
                     [ interp[m].rho for m in range(self.Nm) ],
@@ -641,16 +629,11 @@ class BoundaryCommunicator(object):
 
         # Wait for the non-blocking sends to be received (synchronization)
         if self.left_proc is not None :
-            req_sl.Wait()
             req_rl.Wait()
+            req_sl.Wait()
         if self.right_proc is not None :
-            req_sr.Wait()
             req_rr.Wait()
-
-        # if self.left_proc is not None:
-        #     self.mpi_comm.Sendrecv_replace(ghost_left, dest=self.left_proc, sendtag=1, source=self.left_proc, recvtag=2)
-        # if self.right_proc is not None:
-        #     self.mpi_comm.Sendrecv_replace(ghost_right, dest=self.right_proc, sendtag=2, source=self.right_proc, recvtag=1)
+            req_sr.Wait()
 
     def exchange_particles(self, species, fld, time ):
         """
@@ -731,8 +714,6 @@ class BoundaryCommunicator(object):
         self.exchange_domains(N_send_l, N_send_r, N_recv_l, N_recv_r)
         # Note: if left_proc or right_proc is None, the
         # corresponding N_recv remains 0 (no exchange)
-        if self.size > 1:
-            self.mpi_comm.Barrier()
 
         # Allocate the receiving buffers and exchange particles
         n_float = float_send_left.shape[0]
@@ -754,12 +735,6 @@ class BoundaryCommunicator(object):
         if (self.moving_win is not None) and (self.rank == self.size-1):
             float_recv_right, uint_recv_right = \
               self.moving_win.generate_particles(species,fld.interp[0].dz,time)
-
-        # An MPI barrier is needed here so that a single rank
-        # does not perform two sends and receives before all
-        # the other MPI connections within this exchange are completed.
-        if self.size > 1:
-            self.mpi_comm.Barrier()
 
         # Periodic boundary conditions for exchanging particles
         # Particles received at the right (resp. left) end of the simulation
