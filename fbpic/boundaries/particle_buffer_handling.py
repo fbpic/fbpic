@@ -9,6 +9,7 @@ import numpy as np
 import numba
 # Check if CUDA is available, then import CUDA functions
 from fbpic.utils.cuda import cuda_installed
+from fbpic.utils.printing import catch_gpu_memory_error
 if cuda_installed:
     from fbpic.utils.cuda import cuda, cuda_tpb_bpg_1d
 
@@ -180,6 +181,7 @@ def remove_particles_cpu(species, fld, n_guard, left_proc, right_proc):
     # Return the sending buffers
     return(float_send_left, float_send_right, uint_send_left, uint_send_right)
 
+@catch_gpu_memory_error
 def remove_particles_gpu(species, fld, n_guard, left_proc, right_proc):
     """
     Remove the particles that are outside of the physical domain (i.e.
@@ -434,7 +436,7 @@ def add_buffers_cpu( species, float_recv_left, float_recv_right,
     species.Ntot = species.Ntot + float_recv_left.shape[1] \
                                 + float_recv_right.shape[1]
 
-
+@catch_gpu_memory_error
 def add_buffers_gpu( species, float_recv_left, float_recv_right,
                             uint_recv_left, uint_recv_right):
     """
