@@ -39,6 +39,7 @@ from ..cuda_numba_utils import allocate_empty, reallocate_and_copy_old, \
 
 # Check if CUDA is available, then import CUDA functions
 from fbpic.utils.cuda import cuda_installed
+from fbpic.utils.printing import catch_gpu_memory_error
 if cuda_installed:
     from pyculib.rand import PRNG
     from fbpic.utils.cuda import cuda_tpb_bpg_1d
@@ -157,6 +158,7 @@ class Ionizer(object):
         if self.use_cuda:
             self.prng = PRNG()
 
+    @catch_gpu_memory_error
     def handle_ionization( self, ion ):
         """
         Handle ionization, either on CPU or GPU

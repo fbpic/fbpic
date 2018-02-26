@@ -183,16 +183,10 @@ def print_simulation_setup( sim, verbose_level=1 ):
                 message += '\nCUDA available: Yes'
             else:
                 message += '\nCUDA available: No'
+            # Information about the architecture and the node used
             if sim.use_cuda:
                 message += '\nCompute architecture: GPU (CUDA)'
-                # Gather the model and id of each GPU in the local communicator
-                gpu_message = get_gpu_message()
-                if sim.comm.size > 1:
-                    gpu_messages = sim.comm.mpi_comm.gather( gpu_message )
-                    if sim.comm.rank == 0:
-                        gpu_message = ''.join( gpu_messages )
-                message += gpu_message
-            # Information on CPU
+                node_message = get_gpu_message()
             else:
                 message += '\nCompute architecture: CPU'
                 if sim.use_threading:
@@ -204,6 +198,13 @@ def print_simulation_setup( sim, verbose_level=1 ):
                     message += '\nFFT library: MKL'
                 else:
                     message += '\nFFT library: pyFFTW'
+                node_message = get_cpu_message()
+            # Gather the information about where each node runs
+            if sim.comm.size > 1:
+                node_messages = sim.comm.mpi_comm.gather( node_message )
+                if sim.comm.rank == 0:
+                    node_message = ''.join( node_messages )
+            message += node_message
 
             message += '\n'
             # Information on the numerical algorithm
@@ -259,6 +260,19 @@ def get_gpu_message():
         message = "\nFBPIC selected a %s GPU with id %s" %( gpu_name, gpu.id )
     return(message)
 
+def get_cpu_message():
+    """
+    Returns a string with information about the node of each MPI rank
+    """
+    # Print the node that is being used
+    if MPI.COMM_WORLD.size > 1:
+        rank = MPI.COMM_WORLD.rank
+        node = MPI.Get_processor_name()
+        message = "\nMPI rank %d runs on node %s" %(rank, node)
+    else:
+        message = ""
+    return(message)
+
 def print_gpu_meminfo_all():
     """
     Prints memory information about all available CUDA GPUs.
@@ -280,3 +294,38 @@ def print_gpu_meminfo(gpu):
         meminfo = cuda.current_context().get_memory_info()
         print("GPU: %s, free: %s Mbytes, total: %s Mbytes \
               " % (gpu, meminfo[0]*1e-6, meminfo[1]*1e-6))
+
+def catch_gpu_memory_error( f ):
+    """
+    Decorator that calls the function `f` and catches any GPU memory
+    error, during the execution of f.
+
+    If a memory error occurs, this decorator prints a corresponding message
+    and aborts the simulation (using MPI abort if needed)
+    """
+    # Redefine the original function by calling it within a try/except
+    def g(*args, **kwargs):
+        try:
+            return f(*args, **kwargs)
+        except cuda.cudadrv.driver.CudaAPIError as e:
+            handle_cuda_memory_error( e, f.__name__ )
+    # Decorator: return the new function
+    return(g)
+
+def handle_cuda_memory_error( exception, function_name ):
+    """
+    Print a message indicating which GPU went out of memory,
+    and abort the simulation (using MPI Abort if needed)
+    """
+    # Print a useful message
+    message = '\nERROR: GPU reached OUT_OF_MEMORY'
+    if MPI.COMM_WORLD.size > 1:
+        message += ' on MPI rank %d' %MPI.COMM_WORLD.rank
+    message += '\n(Error occured in fbpic function `%s`)\n' %function_name
+    sys.stdout.write(message)
+    sys.stdout.flush()
+    # Abort the simulation
+    if MPI.COMM_WORLD.size > 1:
+        MPI.COMM_WORLD.Abort()
+    else:
+        raise( exception )
