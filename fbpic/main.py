@@ -44,7 +44,7 @@ class Simulation(object):
     def __init__(self, Nz, zmax, Nr, rmax, Nm, dt, p_zmin, p_zmax,
                  p_rmin, p_rmax, p_nz, p_nr, p_nt, n_e, zmin=0.,
                  n_order=-1, dens_func=None, filter_currents=True,
-                 v_comoving=None, use_galilean=False,
+                 v_comoving=None, use_galilean=True,
                  initialize_ions=False, use_cuda=False,
                  n_guard=None, n_damp=30, exchange_period=None,
                  current_corr_type='cross-deposition', boundaries='periodic',
