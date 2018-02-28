@@ -14,6 +14,7 @@ from ..cuda_numba_utils import allocate_empty, reallocate_and_copy_old, \
                                 perform_cumsum, generate_new_ids
 # Check if CUDA is available, then import CUDA functions
 from fbpic.utils.cuda import cuda_installed
+from fbpic.utils.printing import catch_gpu_memory_error
 if cuda_installed:
     from fbpic.utils.cuda import cuda_tpb_bpg_1d
     from numba.cuda.random import create_xoroshiro128p_states
@@ -133,6 +134,7 @@ class ComptonScatterer(object):
         self.batch_size = 10
         self.use_cuda = source_species.use_cuda
 
+    @catch_gpu_memory_error
     def handle_scattering( self, elec, t ):
         """
         Handle Compton scattering, either on CPU or GPU

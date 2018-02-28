@@ -339,11 +339,13 @@ class Simulation(object):
         fld = self.fld
         dt = self.dt
         # Sanity check
-        # (This is because the guard cells of rho are never exchanged.)
-        if self.comm.size > 1 and use_true_rho:
-            raise ValueError('use_true_rho cannot be used in multi-proc mode.')
         if self.comm.size > 1 and correct_divE:
             raise ValueError('correct_divE cannot be used in multi-proc mode.')
+        if self.comm.size > 1 and use_true_rho and correct_currents:
+            raise ValueError('`use_true_rho` cannot be used together '
+                            'with `correct_currents` in multi-proc mode.')
+            # This is because use_true_rho requires the guard cells of
+            # rho to be exchanged while correct_currents requires the opposite.
 
         # Initialize variables to measure the time taken by the simulation
         if show_progress and self.comm.rank==0:
@@ -395,9 +397,8 @@ class Simulation(object):
 
                 # Reproject the charge on the interpolation grid
                 # (Since particles have been removed / added to the simulation;
-                # otherwise rho_prev is obtained from the previous iteration.
-                # Note that the guard cells of rho are never exchanged.)
-                self.deposit('rho_prev', exchange=False)
+                # otherwise rho_prev is obtained from the previous iteration.)
+                self.deposit('rho_prev', exchange=(use_true_rho is True))
 
             # For the field diagnostics of the first step: deposit J
             # (Note however that this is not the *corrected* current)
@@ -466,10 +467,11 @@ class Simulation(object):
                 self.shift_galilean_boundaries( 0.5*dt )
 
             # Get the charge density at t = (n+1) dt
-            self.deposit('rho_next', exchange=False)
+            self.deposit('rho_next', exchange=(use_true_rho is True))
             # Correct the currents (requires rho at t = (n+1) dt )
             if correct_currents:
-                fld.correct_currents( self.current_corr_type )
+                fld.correct_currents( self.current_corr_type,
+                                    check_exchanges=(self.comm.size > 1) )
                 if self.comm.size > 1:
                     # Exchange the guard cells of corrected J between domains
                     # (If correct_currents is False, the exchange of J
@@ -477,10 +479,10 @@ class Simulation(object):
                     fld.spect2partial_interp('J')
                     self.comm.exchange_fields(fld.interp, 'J', 'add')
                     fld.partial_interp2spect('J')
-                    fld.exchanged_source['J'] = True
+                fld.exchanged_source['J'] = True
 
             # Push the fields E and B on the spectral grid to t = (n+1) dt
-            fld.push( use_true_rho )
+            fld.push( use_true_rho, check_exchanges=(self.comm.size > 1) )
             if correct_divE:
                 fld.correct_divE()
             # Move the grids if needed
@@ -593,7 +595,7 @@ class Simulation(object):
         if self.filter_currents:
             fld.filter_spect( fieldtype )
         # Set the flag to indicate whether these fields have been exchanged
-        fld.exchanged_source[ fieldtype ] = (exchange and self.comm.size > 1)
+        fld.exchanged_source[ fieldtype ] = exchange
 
     def cross_deposit( self, move_positions ):
         """
