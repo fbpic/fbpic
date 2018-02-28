@@ -47,7 +47,7 @@ class Simulation(object):
                  v_comoving=None, use_galilean=True,
                  initialize_ions=False, use_cuda=False,
                  n_guard=None, n_damp=30, exchange_period=None,
-                 current_corr_type='cross-deposition', boundaries='periodic',
+                 current_correction='cross-deposition', boundaries='periodic',
                  gamma_boost=None, use_all_mpi_ranks=True,
                  particle_shape='linear', verbose_level=1 ):
         """
@@ -168,7 +168,7 @@ class Simulation(object):
             boundaries of the global simulation box.
             Either 'periodic' or 'open'
 
-        current_corr_type: string, optional
+        current_correction: string, optional
             The method used in order to ensure that the continuity equation
             is satisfied. Either `curl-free` or `cross-deposition`.
             `curl-free` is faster but less local (should not be used with MPI)
@@ -223,12 +223,6 @@ class Simulation(object):
         if v_comoving is None:
             self.use_galilean = False
 
-        # Register the current correction type
-        if current_corr_type in ['curl-free', 'cross-deposition']:
-            self.current_corr_type = current_corr_type
-        else:
-            raise ValueError('Unkown current correction:%s' %current_corr_type)
-
         # When running the simulation in a boosted frame, convert the arguments
         uz_m = 0.   # Mean normalized momentum of the particles
         if gamma_boost is not None:
@@ -253,6 +247,7 @@ class Simulation(object):
                     n_order=n_order, zmin=zmin,
                     v_comoving=v_comoving,
                     use_galilean=use_galilean,
+                    current_correction=current_correction,
                     use_cuda=self.use_cuda )
 
         # Modify the input parameters p_zmin, p_zmax, r_zmin, r_zmax, so that
@@ -446,14 +441,14 @@ class Simulation(object):
             # (Guard cell exchange done either now or after current correction)
             self.deposit('J', exchange=(correct_currents is False))
             # Perform cross-deposition if needed
-            if correct_currents and self.current_corr_type=='cross-deposition':
+            if correct_currents and fld.current_correction=='cross-deposition':
                 self.cross_deposit( move_positions )
 
             # Handle elementary processes at t = (n + 1/2)dt
             # i.e. when the particles' velocity and position are synchronized
             # (e.g. ionization, Compton scattering, ...)
             for species in ptcl:
-                species.handle_elementary_processes( self.time + 0.5*self.dt )
+                species.handle_elementary_processes( self.time + 0.5*dt )
 
             # Push the particles' positions to t = (n+1) dt
             if move_positions:
@@ -470,8 +465,7 @@ class Simulation(object):
             self.deposit('rho_next', exchange=(use_true_rho is True))
             # Correct the currents (requires rho at t = (n+1) dt )
             if correct_currents:
-                fld.correct_currents( self.current_corr_type,
-                                    check_exchanges=(self.comm.size > 1) )
+                fld.correct_currents( check_exchanges=(self.comm.size > 1) )
                 if self.comm.size > 1:
                     # Exchange the guard cells of corrected J between domains
                     # (If correct_currents is False, the exchange of J
