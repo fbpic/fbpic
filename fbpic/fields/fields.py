@@ -898,7 +898,7 @@ class SpectralGrid(object) :
                             self.rho_prev, self.rho_next,
                             self.rho_next_z, self.rho_next_xy,
                             self.Jp, self.Jm, self.Jz,
-                            self.d_kz, self.d_kr, self.d_inv_k2,
+                            self.d_kz, self.d_kr,
                             ps.d_j_corr_coef, ps.d_T_eb, ps.d_T_cc,
                             inv_dt, self.Nz, self.Nr)
         else :
@@ -935,7 +935,7 @@ class SpectralGrid(object) :
                         self.rho_prev, self.rho_next,
                         self.rho_next_z, self.rho_next_xy,
                         self.Jp, self.Jm, self.Jz,
-                        self.kz, self.kr, self.inv_k2,
+                        self.kz, self.kr,
                         ps.j_corr_coef, ps.T_eb, ps.T_cc,
                         inv_dt, self.Nz, self.Nr)
 

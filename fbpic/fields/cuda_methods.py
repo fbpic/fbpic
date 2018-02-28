@@ -198,7 +198,7 @@ def cuda_correct_currents_curlfree_comoving( rho_prev, rho_next, Jp, Jm, Jz,
 @cuda.jit
 def cuda_correct_currents_crossdeposition_comoving(
         rho_prev, rho_next, rho_next_z, rho_next_xy, Jp, Jm, Jz,
-        kz, kr, inv_k2, j_corr_coef, T_eb, T_cc, inv_dt, Nz, Nr ) :
+        kz, kr, j_corr_coef, T_eb, T_cc, inv_dt, Nz, Nr ) :
     """
     Correct the currents in spectral space, using the cross-deposition
     algorithm adapted to the galilean/comoving-currents assumption.
