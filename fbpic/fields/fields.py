@@ -109,7 +109,6 @@ class Fields(object) :
         current_correction: string, optional
             The method used in order to ensure that the continuity equation
             is satisfied. Either `curl-free` or `cross-deposition`.
-            `curl-free` is faster but less local (should not be used with MPI)
 
         use_cuda : bool, optional
             Wether to use the GPU or not
@@ -176,7 +175,7 @@ class Fields(object) :
             # Create the object
             self.spect.append( SpectralGrid( kz_modified, kr, m,
                 kz_true, self.interp[m].dz, self.interp[m].dr,
-                use_cuda=self.use_cuda ) )
+                current_correction, use_cuda=self.use_cuda ) )
             self.psatd.append( PsatdCoeffs( self.spect[m].kz,
                                 self.spect[m].kr, m, dt, Nz, Nr,
                                 V=self.v_comoving,
@@ -717,7 +716,8 @@ class SpectralGrid(object) :
     Contains the fields and coordinates of the spectral grid.
     """
 
-    def __init__(self, kz_modified, kr, m, kz_true, dz, dr, use_cuda=False ) :
+    def __init__(self, kz_modified, kr, m, kz_true, dz, dr,
+                        current_correction, use_cuda=False ) :
         """
         Allocates the matrices corresponding to the spectral grid
 
@@ -741,6 +741,10 @@ class SpectralGrid(object) :
             The grid spacings (needed to calculate
             precisely the filtering function in spectral space)
 
+        current_correction: string, optional
+            The method used in order to ensure that the continuity equation
+            is satisfied. Either `curl-free` or `cross-deposition`.
+
         use_cuda : bool, optional
             Wether to use the GPU or not
         """
@@ -763,6 +767,9 @@ class SpectralGrid(object) :
         self.Jz = np.zeros( (Nz, Nr), dtype='complex' )
         self.rho_prev = np.zeros( (Nz, Nr), dtype='complex' )
         self.rho_next = np.zeros( (Nz, Nr), dtype='complex' )
+        if current_correction == 'cross-deposition':
+            self.rho_next_z = np.zeros( (Nz, Nr), dtype='complex' )
+            self.rho_next_xy = np.zeros( (Nz, Nr), dtype='complex' )
 
         # Auxiliary arrays
         # - for the field solve
@@ -772,12 +779,10 @@ class SpectralGrid(object) :
         #   (use the true kz, so as to effectively filter the high k's)
         self.filter_array = get_filter_array( kz_true, kr, dz, dr )
         # - for curl-free current correction
-        self.inv_k2 = 1./np.where( ( self.kz == 0 ) & (self.kr == 0),
-                                   1., self.kz**2 + self.kr**2 )
-        self.inv_k2[ ( self.kz == 0 ) & (self.kr == 0) ] = 0.
-        # - for cross-deposition current correction
-        self.rho_next_z = np.zeros( (Nz, Nr), dtype='complex' )
-        self.rho_next_xy = np.zeros( (Nz, Nr), dtype='complex' )
+        if current_correction == 'curl-free':
+            self.inv_k2 = 1./np.where( ( self.kz == 0 ) & (self.kr == 0),
+                                       1., self.kz**2 + self.kr**2 )
+            self.inv_k2[ ( self.kz == 0 ) & (self.kr == 0) ] = 0.
 
         # Register shift factor used for shifting the fields
         # in the spectral domain when using a moving window
@@ -789,10 +794,11 @@ class SpectralGrid(object) :
         # Transfer the auxiliary arrays on the GPU
         if self.use_cuda :
             self.d_filter_array = cuda.to_device( self.filter_array )
-            self.d_inv_k2 = cuda.to_device( self.inv_k2 )
             self.d_kz = cuda.to_device( self.kz )
             self.d_kr = cuda.to_device( self.kr )
             self.d_field_shift = cuda.to_device( self.field_shift )
+            if current_correction == 'curl-free':
+                self.d_inv_k2 = cuda.to_device( self.inv_k2 )
 
 
     def send_fields_to_gpu( self ):
@@ -813,8 +819,10 @@ class SpectralGrid(object) :
         self.Jz = cuda.to_device( self.Jz )
         self.rho_prev = cuda.to_device( self.rho_prev )
         self.rho_next = cuda.to_device( self.rho_next )
-        self.rho_next_z = cuda.to_device( self.rho_next_z )
-        self.rho_next_xy = cuda.to_device( self.rho_next_xy )
+        # Only when using the cross-deposition
+        if hasattr( self, 'rho_next_z' ):
+            self.rho_next_z = cuda.to_device( self.rho_next_z )
+            self.rho_next_xy = cuda.to_device( self.rho_next_xy )
 
 
     def receive_fields_from_gpu( self ):
@@ -835,8 +843,10 @@ class SpectralGrid(object) :
         self.Jz = self.Jz.copy_to_host()
         self.rho_prev = self.rho_prev.copy_to_host()
         self.rho_next = self.rho_next.copy_to_host()
-        self.rho_next_z = self.rho_next_z.copy_to_host()
-        self.rho_next_xy = self.rho_next_xy.copy_to_host()
+        # Only when using the cross-deposition
+        if hasattr( self, 'rho_next_z' ):
+            self.rho_next_z = self.rho_next_z.copy_to_host()
+            self.rho_next_xy = self.rho_next_xy.copy_to_host()
 
 
     def correct_currents (self, dt, ps, current_correction ):
