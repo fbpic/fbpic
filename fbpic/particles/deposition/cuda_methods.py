@@ -6,7 +6,7 @@ This file is part of the Fourier-Bessel Particle-In-Cell code (FB-PIC)
 It defines the deposition methods for rho and J for linear and cubic
 order shapes on the GPU using CUDA.
 """
-from numba import cuda, int64
+from numba import cuda
 import math
 from scipy.constants import c
 import numpy as np
@@ -18,7 +18,7 @@ import numpy as np
 # Linear shapes
 @cuda.jit(device=True, inline=True)
 def z_shape_linear(cell_position, index):
-    iz = int64(math.floor(cell_position))
+    iz = int(math.ceil(cell_position)) - 1
     if index == 0:
         return iz+1.-cell_position
     if index == 1:
@@ -27,7 +27,7 @@ def z_shape_linear(cell_position, index):
 @cuda.jit(device=True, inline=True)
 def r_shape_linear(cell_position, index):
     flip_factor = 1.
-    ir = int64(math.floor(cell_position))
+    ir = int(math.ceil(cell_position)) - 1
     if index == 0:
         if ir < 0:
             flip_factor = -1.
@@ -38,7 +38,7 @@ def r_shape_linear(cell_position, index):
 # Cubic shapes
 @cuda.jit(device=True, inline=True)
 def z_shape_cubic(cell_position, index):
-    iz = int64(math.floor(cell_position)) - 1
+    iz = int(math.ceil(cell_position)) - 2
     if index == 0:
         return (-1./6.)*((cell_position-iz)-2)**3
     if index == 1:
@@ -51,7 +51,7 @@ def z_shape_cubic(cell_position, index):
 @cuda.jit(device=True, inline=True)
 def r_shape_cubic(cell_position, index):
     flip_factor = 1.
-    ir = int64(math.floor(cell_position)) - 1
+    ir = int(math.ceil(cell_position)) - 2
     if index == 0:
         if ir < 0:
             flip_factor = -1.
