@@ -6,7 +6,7 @@ This file is part of the Fourier-Bessel Particle-In-Cell code (FB-PIC)
 It defines the deposition methods for rho and J for linear and cubic
 order shapes on the GPU using CUDA, for one azimuthal mode only
 """
-from numba import cuda, int64
+from numba import cuda
 import math
 from scipy.constants import c
 import numpy as np
@@ -18,7 +18,7 @@ import numpy as np
 # Linear shapes
 @cuda.jit(device=True, inline=True)
 def z_shape_linear(cell_position, index):
-    iz = int64(math.floor(cell_position))
+    iz = int(math.ceil(cell_position)) - 1
     if index == 0:
         return iz+1.-cell_position
     if index == 1:
@@ -27,7 +27,7 @@ def z_shape_linear(cell_position, index):
 @cuda.jit(device=True, inline=True)
 def r_shape_linear(cell_position, index):
     flip_factor = 1.
-    ir = int64(math.floor(cell_position))
+    ir = int(math.ceil(cell_position)) - 1
     if index == 0:
         if ir < 0:
             flip_factor = -1.
@@ -38,7 +38,7 @@ def r_shape_linear(cell_position, index):
 # Cubic shapes
 @cuda.jit(device=True, inline=True)
 def z_shape_cubic(cell_position, index):
-    iz = int64(math.floor(cell_position)) - 1
+    iz = int(math.ceil(cell_position)) - 2
     if index == 0:
         return (-1./6.)*((cell_position-iz)-2)**3
     if index == 1:
@@ -51,7 +51,7 @@ def z_shape_cubic(cell_position, index):
 @cuda.jit(device=True, inline=True)
 def r_shape_cubic(cell_position, index):
     flip_factor = 1.
-    ir = int64(math.floor(cell_position)) - 1
+    ir = int(math.ceil(cell_position)) - 2
     if index == 0:
         if ir < 0:
             flip_factor = -1.
@@ -77,7 +77,7 @@ def r_shape_cubic(cell_position, index):
 def deposit_rho_gpu_linear_one_mode(x, y, z, w, q,
                            invdz, zmin, Nz,
                            invdr, rmin, Nr,
-                           rho_m, m, 
+                           rho_m, m,
                            cell_idx, prefix_sum):
     """
     Deposition of the charge density rho using numba on the GPU.
@@ -219,7 +219,7 @@ def deposit_rho_gpu_linear_one_mode(x, y, z, w, q,
                 # For azimuthal modes beyond m=0: add imaginary part
                 cuda.atomic.add(rho_m.imag, (iz0, ir0), R_m_00.imag)
                 cuda.atomic.add(rho_m.imag, (iz0, ir1), R_m_10.imag)
-                cuda.atomic.add(rho_m.imag, (iz1, ir0), R_m_01.imag)            
+                cuda.atomic.add(rho_m.imag, (iz1, ir0), R_m_01.imag)
                 cuda.atomic.add(rho_m.imag, (iz1, ir1), R_m_11.imag)
 
 
@@ -270,7 +270,7 @@ def deposit_J_gpu_linear_one_mode(x, y, z, w, q,
         on the interpolation grid for mode m.
         (is modified by this function)
 
-    m: int 
+    m: int
         The index of the azimuthal mode considered
 
     invdz, invdr : float (in meters^-1)
@@ -423,7 +423,7 @@ def deposit_J_gpu_linear_one_mode(x, y, z, w, q,
                 cuda.atomic.add(j_t_m.imag, (iz0, ir0), J_t_m_00.imag)
                 cuda.atomic.add(j_t_m.imag, (iz0, ir1), J_t_m_10.imag)
                 cuda.atomic.add(j_t_m.imag, (iz1, ir0), J_t_m_01.imag)
-                cuda.atomic.add(j_t_m.imag, (iz1, ir1), J_t_m_11.imag)                
+                cuda.atomic.add(j_t_m.imag, (iz1, ir1), J_t_m_11.imag)
             # jz
             cuda.atomic.add(j_z_m.real, (iz0, ir0), J_z_m_00.real)
             cuda.atomic.add(j_z_m.real, (iz0, ir1), J_z_m_10.real)
@@ -695,7 +695,7 @@ def deposit_J_gpu_cubic_one_mode(x, y, z, w, q,
         The current component in each direction (r, t, z)
         on the interpolation grid for mode 0 and 1.
         (is modified by this function)
-        
+
     m: int
         Index of the azimuthal mode considered
 
