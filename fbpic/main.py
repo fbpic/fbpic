@@ -48,7 +48,7 @@ class Simulation(object):
                  use_cuda=False, n_guard=None, n_damp=30, exchange_period=None,
                  boundaries='periodic', gamma_boost=None,
                  use_all_mpi_ranks=True, particle_shape='linear',
-                 verbose_level=1, use_gpudirect=False):
+                 verbose_level=1):
         """
         Initializes a simulation, by creating the following structures:
 
@@ -196,16 +196,6 @@ class Simulation(object):
             0 - Print no information
             1 (Default) - Print basic information
             2 - Print detailed information
-
-        use_gpudirect: bool, optional
-            - if `use_gpudirect` is True:
-              Enables the use of the CUDA GPUDirect feature on clusters
-              that have a working CUDA-aware MPI implementation. Use with
-              caution!
-            - if `use_gpudirect` is False: (default)
-              Standard MPI communication is performed when using Cuda
-              for computation. This involves a manual GPU to CPU memory
-              copy before exchanging information between MPI domains.
         """
         # Check whether to use CUDA
         self.use_cuda = use_cuda
@@ -241,7 +231,7 @@ class Simulation(object):
         # Initialize the boundary communicator
         self.comm = BoundaryCommunicator( Nz, zmin, zmax, Nr, rmax, Nm, dt,
             boundaries, n_order, n_guard, n_damp, exchange_period,
-            use_all_mpi_ranks, use_gpudirect )
+            use_all_mpi_ranks )
         # Modify domain region
         zmin, zmax, p_zmin, p_zmax, Nz = \
               self.comm.divide_into_domain( p_zmin, p_zmax )

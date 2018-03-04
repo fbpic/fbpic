@@ -164,6 +164,15 @@ class BufferHandler(object):
 
         after_receiving: bool
             Whether to copy the receiving buffer to the guard cells
+
+        gpudirect: bool
+            - if `gpudirect` is True:
+              Uses the CUDA GPUDirect feature on clusters
+              that have a working CUDA-aware MPI implementation.
+            - if `gpudirect` is False: (default)
+              Standard MPI communication is performed when using CUDA
+              for computation. This involves a manual GPU to CPU memory
+              copy before exchanging information between MPI domains.
         """
         # Define region that is copied to or from the buffer
         # depending on the method used.
@@ -193,7 +202,7 @@ class BufferHandler(object):
                             self.d_vec_rep_send_r,
                             grid_r[m], grid_t[m], grid_z[m], m,
                             copy_left, copy_right, nz_start, nz_end )
-                    # If GPUDirect with CUDA-aware MPI is not use_cuda
+                    # If GPUDirect with CUDA-aware MPI is not used
                     if not gpudirect:
                         # Copy the GPU buffers to the sending CPU buffers
                         if copy_left:
@@ -211,7 +220,7 @@ class BufferHandler(object):
                             self.d_vec_add_send_r,
                             grid_r[m], grid_t[m], grid_z[m], m,
                             copy_left, copy_right, nz_start, nz_end )
-                    # If GPUDirect with CUDA-aware MPI is not use_cuda
+                    # If GPUDirect with CUDA-aware MPI is not used
                     if not gpudirect:
                         # Copy the GPU buffers to the sending CPU buffers
                         if copy_left:
@@ -223,7 +232,7 @@ class BufferHandler(object):
 
             elif after_receiving:
                 if method == 'replace':
-                    # If GPUDirect with CUDA-aware MPI is not use_cuda
+                    # If GPUDirect with CUDA-aware MPI is not used
                     if not gpudirect:
                         # Copy the CPU receiving buffers to the GPU buffers
                         if copy_left:
@@ -241,7 +250,7 @@ class BufferHandler(object):
                             copy_left, copy_right, nz_start, nz_end )
 
                 if method == 'add':
-                    # If GPUDirect with CUDA-aware MPI is not use_cuda
+                    # If GPUDirect with CUDA-aware MPI is not used
                     if not gpudirect:
                         # Copy the CPU receiving buffers to the GPU buffers
                         if copy_left:
@@ -359,6 +368,15 @@ class BufferHandler(object):
 
         after_receiving: bool
             Whether to copy the receiving buffer to the guard cells
+
+        gpudirect: bool
+            - if `gpudirect` is True:
+              Uses the CUDA GPUDirect feature on clusters
+              that have a working CUDA-aware MPI implementation.
+            - if `gpudirect` is False: (default)
+              Standard MPI communication is performed when using CUDA
+              for computation. This involves a manual GPU to CPU memory
+              copy before exchanging information between MPI domains.
         """
         if method == 'replace':
             nz_start = self.n_guard
@@ -385,7 +403,7 @@ class BufferHandler(object):
                             self.d_scal_rep_send_l,
                             self.d_scal_rep_send_r,
                             grid[m], m, copy_left, copy_right, nz_start, nz_end)
-                    # If GPUDirect with CUDA-aware MPI is not use_cuda
+                    # If GPUDirect with CUDA-aware MPI is not used
                     if not gpudirect:
                         # Copy the GPU buffers to the sending CPU buffers
                         if copy_left:
@@ -402,7 +420,7 @@ class BufferHandler(object):
                             self.d_scal_add_send_l,
                             self.d_scal_add_send_r,
                             grid[m], m, copy_left, copy_right, nz_start, nz_end)
-                    # If GPUDirect with CUDA-aware MPI is not use_cuda
+                    # If GPUDirect with CUDA-aware MPI is not used
                     if not gpudirect:
                         # Copy the GPU buffers to the sending CPU buffers
                         if copy_left:
@@ -414,7 +432,7 @@ class BufferHandler(object):
 
             elif after_receiving:
                 if method == 'replace':
-                    # If GPUDirect with CUDA-aware MPI is not use_cuda
+                    # If GPUDirect with CUDA-aware MPI is not used
                     if not gpudirect:
                         # Copy the CPU receiving buffers to the GPU buffers
                         if copy_left:
@@ -431,7 +449,7 @@ class BufferHandler(object):
                             grid[m], m, copy_left, copy_right, nz_start, nz_end)
 
                 if method == 'add':
-                    # If GPUDirect with CUDA-aware MPI is not use_cuda
+                    # If GPUDirect with CUDA-aware MPI is not used
                     if not gpudirect:
                         # Copy the CPU receiving buffers to the GPU buffers
                         if copy_left:

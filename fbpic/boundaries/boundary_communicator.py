@@ -7,7 +7,8 @@ It defines the structure necessary to implement the boundary exchanges.
 """
 import numpy as np
 from scipy.constants import c
-from fbpic.utils.mpi import MPI, comm, mpi_type_dict, mpi_installed
+from fbpic.utils.mpi import MPI, comm, mpi_type_dict, \
+    mpi_installed, gpudirect_enabled
 from fbpic.fields.fields import InterpolationGrid
 from fbpic.fields.utility_methods import get_stencil_reach
 from fbpic.particles.particles import Particles
@@ -45,8 +46,7 @@ class BoundaryCommunicator(object):
 
     def __init__( self, Nz, zmin, zmax, Nr, rmax, Nm, dt,
             boundaries, n_order, n_guard=None, n_damp=30,
-            exchange_period=None, use_all_mpi_ranks=True,
-            use_gpudirect=False ):
+            exchange_period=None, use_all_mpi_ranks=True):
         """
         Initializes a communicator object.
 
@@ -105,16 +105,6 @@ class BoundaryCommunicator(object):
             - if `use_all_mpi_ranks` is False:
               Each MPI rank will run an independent simulation.
               This can be useful when running parameter scans.
-
-        use_gpudirect: bool, optional
-            - if `use_gpudirect` is True:
-              Enables the use of the CUDA GPUDirect feature on clusters
-              that have a working CUDA-aware MPI implementation. Use with
-              caution!
-            - if `use_gpudirect` is False: (default)
-              Standard MPI communication is performed when using Cuda
-              for computation. This involves a manual GPU to CPU memory
-              copy before exchanging information between MPI domains.
         """
         # Initialize global number of cells and modes
         self.Nr = Nr
@@ -135,8 +125,6 @@ class BoundaryCommunicator(object):
             self.mpi_comm = None
             self.rank = 0
             self.size = 1
-        # CUDA GPUDirect MPI communication
-        self.use_gpudirect = use_gpudirect
         # Get the rank of the left and the right domain
         self.left_proc = self.rank-1
         self.right_proc = self.rank+1
@@ -504,7 +492,7 @@ class BoundaryCommunicator(object):
         if self.size > 1:
             if fieldtype == 'E':
                 if method == 'replace':
-                    if self.use_gpudirect:
+                    if gpudirect_enabled:
                         vec_send_left = self.mpi_buffer(
                             self.mpi_buffers.d_vec_rep_send_l )
                         vec_send_right = self.mpi_buffer(
@@ -539,7 +527,7 @@ class BoundaryCommunicator(object):
                     [ interp[m].Et for m in range(self.Nm) ],
                     [ interp[m].Ez for m in range(self.Nm) ],
                     method, interp[0].use_cuda, before_sending=True,
-                    gpudirect=self.use_gpudirect )
+                    gpudirect=gpudirect_enabled )
                 # Send and receive the buffers via MPI
                 self.exchange_domains(
                     vec_send_left, vec_send_right,
@@ -550,11 +538,11 @@ class BoundaryCommunicator(object):
                     [ interp[m].Et for m in range(self.Nm) ],
                     [ interp[m].Ez for m in range(self.Nm) ],
                     method, interp[0].use_cuda, after_receiving=True,
-                    gpudirect=self.use_gpudirect )
+                    gpudirect=gpudirect_enabled )
 
             elif fieldtype == 'B':
                 if method == 'replace':
-                    if self.use_gpudirect:
+                    if gpudirect_enabled:
                         vec_send_left = self.mpi_buffer(
                             self.mpi_buffers.d_vec_rep_send_l )
                         vec_send_right = self.mpi_buffer(
@@ -569,7 +557,7 @@ class BoundaryCommunicator(object):
                         vec_recv_left = self.mpi_buffers.vec_rep_recv_l
                         vec_recv_right = self.mpi_buffers.vec_rep_recv_r
                 if method == 'add':
-                    if self.use_gpudirect:
+                    if gpudirect_enabled:
                         vec_send_left = self.mpi_buffer(
                             self.mpi_buffers.d_vec_add_send_l )
                         vec_send_right = self.mpi_buffer(
@@ -589,7 +577,7 @@ class BoundaryCommunicator(object):
                     [ interp[m].Bt for m in range(self.Nm) ],
                     [ interp[m].Bz for m in range(self.Nm) ],
                     method, interp[0].use_cuda, before_sending=True,
-                    gpudirect=self.use_gpudirect )
+                    gpudirect=gpudirect_enabled )
                 # Send and receive the buffers via MPI
                 self.exchange_domains(
                     vec_send_left, vec_send_right,
@@ -600,11 +588,11 @@ class BoundaryCommunicator(object):
                     [ interp[m].Bt for m in range(self.Nm) ],
                     [ interp[m].Bz for m in range(self.Nm) ],
                     method, interp[0].use_cuda, after_receiving=True,
-                    gpudirect=self.use_gpudirect )
+                    gpudirect=gpudirect_enabled )
 
             elif fieldtype == 'J':
                 if method == 'replace':
-                    if self.use_gpudirect:
+                    if gpudirect_enabled:
                         vec_send_left = self.mpi_buffer(
                             self.mpi_buffers.d_vec_rep_send_l )
                         vec_send_right = self.mpi_buffer(
@@ -619,7 +607,7 @@ class BoundaryCommunicator(object):
                         vec_recv_left = self.mpi_buffers.vec_rep_recv_l
                         vec_recv_right = self.mpi_buffers.vec_rep_recv_r
                 if method == 'add':
-                    if self.use_gpudirect:
+                    if gpudirect_enabled:
                         vec_send_left = self.mpi_buffer(
                             self.mpi_buffers.d_vec_add_send_l )
                         vec_send_right = self.mpi_buffer(
@@ -639,7 +627,7 @@ class BoundaryCommunicator(object):
                     [ interp[m].Jt for m in range(self.Nm) ],
                     [ interp[m].Jz for m in range(self.Nm) ],
                     method, interp[0].use_cuda, before_sending=True,
-                    gpudirect=self.use_gpudirect )
+                    gpudirect=gpudirect_enabled )
                 # Send and receive the buffers via MPI
                 self.exchange_domains(
                     vec_send_left, vec_send_right,
@@ -650,11 +638,11 @@ class BoundaryCommunicator(object):
                     [ interp[m].Jt for m in range(self.Nm) ],
                     [ interp[m].Jz for m in range(self.Nm) ],
                     method, interp[0].use_cuda, after_receiving=True,
-                    gpudirect=self.use_gpudirect )
+                    gpudirect=gpudirect_enabled )
 
             elif fieldtype == 'rho':
                 if method == 'replace':
-                    if self.use_gpudirect:
+                    if gpudirect_enabled:
                         scal_send_left = self.mpi_buffer(
                             self.mpi_buffers.d_scal_rep_send_l )
                         scal_send_right = self.mpi_buffer(
@@ -669,7 +657,7 @@ class BoundaryCommunicator(object):
                         scal_recv_left = self.mpi_buffers.scal_rep_recv_l
                         scal_recv_right = self.mpi_buffers.scal_rep_recv_r
                 if method == 'add':
-                    if self.use_gpudirect:
+                    if gpudirect_enabled:
                         scal_send_left = self.mpi_buffer(
                             self.mpi_buffers.d_scal_add_send_l )
                         scal_send_right = self.mpi_buffer(
@@ -687,7 +675,7 @@ class BoundaryCommunicator(object):
                 self.mpi_buffers.handle_scal_buffer(
                     [ interp[m].rho for m in range(self.Nm) ],
                     method, interp[0].use_cuda, before_sending=True,
-                    gpudirect=self.use_gpudirect )
+                    gpudirect=gpudirect_enabled )
                 # Send and receive the buffers via MPI
                 self.exchange_domains(
                     scal_send_left, scal_send_right,
@@ -696,7 +684,7 @@ class BoundaryCommunicator(object):
                 self.mpi_buffers.handle_scal_buffer(
                     [ interp[m].rho for m in range(self.Nm) ],
                     method, interp[0].use_cuda, after_receiving=True,
-                    gpudirect=self.use_gpudirect )
+                    gpudirect=gpudirect_enabled )
             else:
                 raise ValueError('Unknown fieldtype: %s' %fieldtype)
 
