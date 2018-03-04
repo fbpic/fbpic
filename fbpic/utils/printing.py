@@ -299,3 +299,38 @@ def print_gpu_meminfo(gpu):
         meminfo = cuda.current_context().get_memory_info()
         print("GPU: %s, free: %s Mbytes, total: %s Mbytes \
               " % (gpu, meminfo[0]*1e-6, meminfo[1]*1e-6))
+
+def catch_gpu_memory_error( f ):
+    """
+    Decorator that calls the function `f` and catches any GPU memory
+    error, during the execution of f.
+
+    If a memory error occurs, this decorator prints a corresponding message
+    and aborts the simulation (using MPI abort if needed)
+    """
+    # Redefine the original function by calling it within a try/except
+    def g(*args, **kwargs):
+        try:
+            return f(*args, **kwargs)
+        except cuda.cudadrv.driver.CudaAPIError as e:
+            handle_cuda_memory_error( e, f.__name__ )
+    # Decorator: return the new function
+    return(g)
+
+def handle_cuda_memory_error( exception, function_name ):
+    """
+    Print a message indicating which GPU went out of memory,
+    and abort the simulation (using MPI Abort if needed)
+    """
+    # Print a useful message
+    message = '\nERROR: GPU reached OUT_OF_MEMORY'
+    if MPI.COMM_WORLD.size > 1:
+        message += ' on MPI rank %d' %MPI.COMM_WORLD.rank
+    message += '\n(Error occured in fbpic function `%s`)\n' %function_name
+    sys.stdout.write(message)
+    sys.stdout.flush()
+    # Abort the simulation
+    if MPI.COMM_WORLD.size > 1:
+        MPI.COMM_WORLD.Abort()
+    else:
+        raise( exception )

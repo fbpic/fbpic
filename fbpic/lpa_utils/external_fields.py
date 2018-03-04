@@ -37,15 +37,17 @@ class ExternalField( object ):
             - amplitude and length_scale: floats that can be used within
               the function expression
 
-            **WARNING:** In the PIC loop, this function is called after
-            the field gathering. Thus this function can potentially
-            overwrite the fields that were gathered on the grid.
-            To avoid this, use "return(F + external_field) " inside
-            the definition of `field_func` instead of "return(external_field)"
+            .. warning::
+                In the PIC loop, this function is called after
+                the field gathering. Thus this function can potentially
+                overwrite the fields that were gathered on the grid. To avoid 
+                this, use "return(F + external_field) " inside the definition 
+                of `field_func` instead of "return(external_field)"
 
-            **WARNING:** Inside the definition of `field_func` please use
-            the `math` module for mathematical functions, instead of numpy.
-            This will allow the function to be compiled for GPU.
+            .. warning::
+                Inside the definition of `field_func` please use
+                the `math` module for mathematical functions, instead of numpy.
+                This will allow the function to be compiled for GPU.
 
         fieldtype: string
             Specifies on which field `field_func` will be applied.
@@ -61,10 +63,12 @@ class ExternalField( object ):
         In order to define a magnetic undulator, polarized along y, with
         a field of 1 Tesla and a period of 1 cm :
 
-        >>> def field_func( F, x, y, z, t , amplitude, length_scale ):
+        ::
+
+            def field_func( F, x, y, z, t , amplitude, length_scale ):
                 return( F + amplitude * math.cos( 2*np.pi*z/length_scale ) )
-        >>> sim.external_fields = [
-                ExternalField( field_func, 'By', 1., 1.e-2 ) ]
+
+            sim.external_fields = [ ExternalField( field_func, 'By', 1., 1.e-2 ) ]
         """
         # Check that fieldtype is a correct field
         if (fieldtype in ['Ex', 'Ey', 'Ez', 'Bx', 'By', 'Bz']) is False:

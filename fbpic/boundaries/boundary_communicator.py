@@ -695,7 +695,6 @@ class BoundaryCommunicator(object):
         Receive the arrays from the neighboring processes into recv_left
         and recv_right.
         Sending and receiving is done from CPU to CPU.
-
         Parameters :
         ------------
         - send_left, send_right, recv_left, recv_right : arrays
@@ -820,10 +819,9 @@ class BoundaryCommunicator(object):
         N_send_r = np.array( float_send_right.shape[1], dtype=np.uint32 )
         N_recv_l = np.array( 0, dtype=np.uint32 )
         N_recv_r = np.array( 0, dtype=np.uint32 )
-        self.exchange_domains(N_send_l, N_send_r, N_recv_l, N_recv_r)
         # Note: if left_proc or right_proc is None, the
         # corresponding N_recv remains 0 (no exchange)
-
+        self.exchange_domains(N_send_l, N_send_r, N_recv_l, N_recv_r)
         # Allocate the receiving buffers and exchange particles
         n_float = float_send_left.shape[0]
         float_recv_left = np.zeros((n_float, N_recv_l), dtype=np.float64)

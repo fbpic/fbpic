@@ -598,7 +598,6 @@ class Simulation(object):
         for m in range(self.fld.Nm):
             self.fld.interp[m].zmin += shift_distance
             self.fld.interp[m].zmax += shift_distance
-            self.fld.interp[m].z += shift_distance
 
 
     def set_moving_window( self, v=c, ux_m=0., uy_m=0., uz_m=0.,

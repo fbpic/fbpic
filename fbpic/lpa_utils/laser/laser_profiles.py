@@ -27,7 +27,7 @@ class LaserProfile( object ):
         """
         Return the electric field of the laser
 
-        Parameters:
+        Parameters
         -----------
         x, y, z: ndarrays (meters)
             The positions at which to calculate the profile (in the lab frame)
@@ -58,7 +58,7 @@ class SummedLaserProfile( LaserProfile ):
         """
         Initialize the sum of two instances of LaserProfile
 
-        Parameters:
+        Parameters
         -----------
         profile1, profile2: instances of LaserProfile
         """
@@ -70,7 +70,7 @@ class SummedLaserProfile( LaserProfile ):
         """
         Return the electric field of the laser
 
-        Parameters:
+        Parameters
         -----------
         x, y, z: ndarrays (meters)
             The positions at which to calculate the profile (in the lab frame)
@@ -98,49 +98,70 @@ class GaussianLaser( LaserProfile ):
         """
         Define a linearly-polarized Gaussian laser profile.
 
-        Parameters:
-        -----------
+        More precisely, the electric field **near the focal plane**
+        is given by:
+
+        .. math::
+
+            E(\\boldsymbol{x},t) = a_0\\times E_0\,
+            \exp\left( -\\frac{r^2}{w_0^2} - \\frac{(z-z_0-ct)^2}{c^2\\tau^2} \\right)
+            \cos[ k_0( z - z_0 - ct ) - \phi_{cep} ]
+
+        where :math:`k_0 = 2\pi/\\lambda_0` is the wavevector and where
+        :math:`E_0 = m_e c^2 k_0 / q_e` is the field amplitude for :math:`a_0=1`.
+
+        .. note::
+
+            The additional terms that arise **far from the focal plane**
+            (Gouy phase, wavefront curvature, ...) are not included in the above
+            formula for simplicity, but are of course taken into account by
+            the code, when initializing the laser pulse away from the focal plane.
+
+        Parameters
+        ----------
+
         a0: float (dimensionless)
-            The peak normalized vector potential, in the focal plane
+            The peak normalized vector potential at the focal plane, defined
+            as :math:`a_0` in the above formula.
 
-        waist: float (in meters)
-            Laser waist in the focal plane, defined as :math:`w_0` below:
+        waist: float (in meter)
+            Laser waist at the focal plane, defined as :math:`w_0` in the
+            above formula.
 
-            ..math:
+        tau: float (in second)
+            The duration of the laser (in the lab frame),
+            defined as :math:`\\tau` in the above formula.
 
-                E(\boldsymbol{x},t) \propto \exp\left( -\frac{\boldsymbol{x}_\perp^2}{w_0^2} \right)
+        z0: float (in meter)
+            The initial position of the centroid of the laser
+            (in the lab frame), defined as :math:`z_0` in the above formula.
 
-        tau: float (in meters^-1)
-            The duration of the laser, defined as :math:`\tau` below:
+        zf: float (in meter), optional
+            The position of the focal plane (in the lab frame).
+            If ``zf`` is not provided, the code assumes that ``zf=z0``, i.e.
+            that the laser pulse is at the focal plane initially.
 
-            .. math::
-
-                E(\boldsymbol{x},t) \propto \exp\left( -\frac{(t-z_0/c)^2}{\tau^2} \right)
-
-        z0: float (m)
-            The initial position of the centroid of the laser (in the lab frame)
-
-        zf: float (m), optional
-            The position of the focal plane (in the lab frame)
-
-        theta_pol: float (in radians), optional
+        theta_pol: float (in radian), optional
            The angle of polarization with respect to the x axis.
-           Default: 0 rad.
 
-        lambda0: float (m)
-            The wavelength of the laser (in the lab frame)
+        lambda0: float (in meter), optional
+            The wavelength of the laser (in the lab frame), defined as
+            :math:`\\lambda_0` in the above formula.
+            Default: 0.8 microns (Ti:Sapph laser).
 
-        cep_phase: float (rad)
-            The Carrier Enveloppe Phase (CEP), i.e. the phase of the laser
-            oscillation, at the position where the laser enveloppe is maximum.
+        cep_phase: float (in radian), optional
+            The Carrier Enveloppe Phase (CEP), defined as :math:`\phi_{cep}`
+            in the above formula (i.e. the phase of the laser
+            oscillation, at the position where the laser enveloppe is maximum)
 
         phi2_chirp: float (in second^2)
             The amount of temporal chirp, at focus (in the lab frame)
-            Namely, a wave packet centered on the frequency (w0 + dw) will
-            reach its peak intensity at a time z(dw) = z0 - c*phi2*dw.
-            Thus, a positive phi2 corresponds to positive chirp, i.e. red part
-            of the spectrum in the front of the pulse and blue part of the
-            spectrum in the back.
+            Namely, a wave packet centered on the frequency
+            :math:`(\omega_0 + \delta \omega)` will reach its peak intensity
+            at :math:`z(\delta \omega) = z_0 - c \phi^{(2)} \, \delta \omega`.
+            Thus, a positive :math:`\phi^{(2)}` corresponds to positive chirp,
+            i.e. red part of the spectrum in the front of the pulse and blue
+            part of the spectrum in the back.
         """
         # Set a number of parameters for the laser
         k0 = 2*np.pi/lambda0
@@ -167,15 +188,15 @@ class GaussianLaser( LaserProfile ):
         """
         Return the electric field of the laser
 
-        Parameters:
-        -----------
+        Parameters
+        ----------
         x, y, z: ndarrays (meters)
             The positions at which to calculate the profile (in the lab frame)
         t: ndarray or float (seconds)
             The time at which to calculate the profile (in the lab frame)
 
-        Returns:
-        --------
+        Returns
+        -------
         Ex, Ey: ndarrays (V/m)
             Arrays of the same shape as x, y, z, containing the fields
         """
@@ -214,63 +235,96 @@ class LaguerreGaussLaser( LaserProfile ):
         """
         Define a linearly-polarized Laguerre-Gauss laser profile.
 
-        The intensity profile of the pulse is given by
-        .. math::
-            I(r, \theta, z) \propto \left( \frac{2r^2}{w(z)}^2 \right)^m
-            L^m_p\left( \frac{2r^2}{w(z)}^2 \right)
-            \exp\left( -\frac{2r^2}{w(z)}^2 \right) \cos^2[m(\theta-\theta_0)]
-        where :math:`L^m_p` is a Laguerre polynomial, and where `w(z)` is
-        the waist and has the same expression as for a Gaussian laser pulse.
-        (See Siegman, Lasers (1986) Chapter 16: Wave optics and Gaussian beams)
+        More precisely, the electric field **near the focal plane**
+        is given by:
 
-        Parameters:
-        -----------
+        .. math::
+
+            E(\\boldsymbol{x},t) = a_0\\times E_0 \, f(r, \\theta) \,
+            \exp\left( -\\frac{r^2}{w_0^2} - \\frac{(z-z_0-ct)^2}{c^2\\tau^2}
+            \\right) \cos[ k_0( z - z_0 - ct ) - \phi_{cep} ]
+
+            \mathrm{with} \qquad f(r, \\theta) =
+            \sqrt{\\frac{p!(2-\delta_{m,0})}{(m+p)!}}
+            \\left( \\frac{\sqrt{2}r}{w_0} \\right)^m
+            L^m_p\\left( \\frac{2 r^2}{w_0^2} \\right)
+            \cos[ m(\\theta - \\theta_0)]
+
+        where :math:`L^m_p` is a Laguerre polynomial,
+        :math:`k_0 = 2\pi/\\lambda_0` is the wavevector and where
+        :math:`E_0 = m_e c^2 k_0 / q_e`.
+
+        (For more info, see
+        `Siegman, Lasers (1986) <https://www.osapublishing.org/books/bookshelf/lasers.cfm>`_,
+        Chapter 16: Wave optics and Gaussian beams)
+
+        .. note::
+
+            The additional terms that arise **far from the focal plane**
+            (Gouy phase, wavefront curvature, ...) are not included in the above
+            formula for simplicity, but are of course taken into account by
+            the code, when initializing the laser pulse away from the focal plane.
+
+        .. warning::
+            The above formula depends on a parameter :math:`m`
+            (see documentation below). In order to be properly resolved by
+            the simulation, a Laguerre-Gauss profile with a given :math:`m`
+            requires the azimuthal modes from :math:`0` to :math:`m+1`.
+            (i.e. the number of required azimuthal modes is ``Nm=m+2``)
+
+        Parameters
+        ----------
+
         p: int
-            The order of the Laguerre polynomial. (Increasing p increases the
-            number of "rings" in the radial intensity profile of the laser.)
+            The order of the Laguerre polynomial. (Increasing ``p`` increases
+            the number of "rings" in the radial intensity profile of the laser.)
 
         m: int
-            The azimuthal order of the pulse. (In the transverse plane, the
-            intensity of the pulse varies as :math:`cos^2[m(\theta-\theta0)]`.)
-
-            .. note::
-                In order to be properly resolved by the simulation,
-                this laser profile requires the azimuthal modes up to ``m+1``.
-                (i.e. the number of required azimuthal modes is ``Nm=m+2``)
+            The azimuthal order of the pulse.
+            (In the transverse plane, the field of the pulse varies as
+            :math:`\cos[m(\\theta-\\theta_0)]`.)
 
         a0: float (dimensionless)
             The amplitude of the pulse, defined so that the total
             energy of the pulse is the same as that of a Gaussian pulse
-            with the same a0, waist and tau. (i.e. The energy of the pulse
-            is independent of p and m, here.)
+            with the same :math:`a_0`, :math:`w_0` and :math:`\\tau`.
+            (i.e. The energy of the pulse is independent of ``p`` and ``m``.)
 
-        waist: float (in meters)
-            Laser waist in the focal plane
+        waist: float (in meter)
+            Laser waist at the focal plane, defined as :math:`w_0` in the
+            above formula.
 
-        tau: float (in meters^-1)
-            The duration of the laser (in the lab frame)
+        tau: float (in second)
+            The duration of the laser (in the lab frame),
+            defined as :math:`\\tau` in the above formula.
 
-        z0: float (m)
-            The initial position of the centroid of the laser (in the lab frame)
+        z0: float (in meter)
+            The initial position of the centroid of the laser
+            (in the lab frame), defined as :math:`z_0` in the above formula.
 
-        zf: float (m), optional
-            The position of the focal plane (in the lab frame)
+        zf: float (in meter), optional
+            The position of the focal plane (in the lab frame).
+            If ``zf`` is not provided, the code assumes that ``zf=z0``, i.e.
+            that the laser pulse is at the focal plane initially.
 
-        theta_pol: float (in radians), optional
+        theta_pol: float (in radian), optional
            The angle of polarization with respect to the x axis.
-           Default: 0 rad.
 
-        lambda0: float (m)
-            The wavelength of the laser (in the lab frame)
+        lambda0: float (in meter), optional
+            The wavelength of the laser (in the lab frame), defined as
+            :math:`\\lambda_0` in the above formula.
+            Default: 0.8 microns (Ti:Sapph laser).
 
-        cep_phase: float (rad)
-            The Carrier Enveloppe Phase (CEP), i.e. the phase of the laser
-            oscillation, at the position where the laser enveloppe is maximum.
+        cep_phase: float (in radian), optional
+            The Carrier Enveloppe Phase (CEP), defined as :math:`\phi_{cep}`
+            in the above formula (i.e. the phase of the laser
+            oscillation, at the position where the laser enveloppe is maximum)
 
-        theta0: float (rad)
+        theta0: float (in radian), optional
             The azimuthal position of (one of) the maxima of intensity, in the
             transverse plane.
-            (The intensity varies as :math:`cos^2[m(\theta-\theta0)]`)
+            (In the transverse plane, the field of the pulse varies as
+            :math:`\cos[m(\\theta-\\theta_0)]`.)
         """
         # Set a number of parameters for the laser
         k0 = 2*np.pi/lambda0
@@ -304,8 +358,8 @@ class LaguerreGaussLaser( LaserProfile ):
         """
         Return the electric field of the laser
 
-        Parameters:
-        -----------
+        Parameters
+        ----------
         x, y, z: ndarrays (meters)
             The positions at which to calculate the profile (in the lab frame)
         t: ndarray or float (seconds)

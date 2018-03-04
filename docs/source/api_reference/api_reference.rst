@@ -10,7 +10,7 @@ the ``fbpic`` package, and which are used to set up a simulation.
    simulation
    diagnostics
    checkpoint_restart
-   lpa_utilities
+   lpa_utilities/lpa_utilities
    boost_converter
 
 If you are looking for a specific class or function, see the
