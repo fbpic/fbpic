@@ -100,4 +100,7 @@ look at how the existing laser profiles that are implemented `here
 Compact function for a Gaussian pulse
 -------------------------------------
 
+Using this function is equivalent to using the more generic ``add_laser_pulse``
+function, with a ``GaussianLaser`` profile.
+
 .. autofunction:: fbpic.lpa_utils.laser.add_laser

@@ -97,51 +97,75 @@ def add_laser( sim, a0, w0, ctau, z0, zf=None, lambda0=0.8e-6,
     """
     Introduce a linearly-polarized, Gaussian laser in the simulation.
 
+    More precisely, the electric field **near the focal plane**
+    is given by:
+
+    .. math::
+
+        E(\\boldsymbol{x},t) = a_0\\times E_0\,
+        \exp\left( -\\frac{r^2}{w_0^2} - \\frac{(z-z_0-ct)^2}{c^2\\tau^2} \\right)
+        \cos[ k_0( z - z_0 - ct ) - \phi_{cep} ]
+
+    where :math:`k_0 = 2\pi/\\lambda_0` is the wavevector and where
+    :math:`E_0 = m_e c^2 k_0 / q_e` is the field amplitude for :math:`a_0=1`.
+
+    .. note::
+
+        The additional terms that arise **far from the focal plane**
+        (Gouy phase, wavefront curvature, ...) are not included in the above
+        formula for simplicity, but are of course taken into account by
+        the code, when initializing the laser pulse away from the focal plane.
+
     The laser is either added directly to the interpolation grid initially
-    (method=``direct``) or it is progressively emitted by an antenna
-    (method=``antenna``).
+    (method= ``direct``) or it is progressively emitted by an antenna
+    (method= ``antenna``).
 
     Parameters
     ----------
     sim: a Simulation object
        The structure that contains the simulation.
 
-    a0: float (unitless)
-       The a0 of the pulse at focus (in the lab-frame).
+    a0: float (dimensionless)
+        The peak normalized vector potential at the focal plane, defined
+        as :math:`a_0` in the above formula.
 
-    w0: float (in meters)
-       The waist of the pulse at focus.
+    w0: float (in meter)
+        Laser waist at the focal plane, defined as :math:`w_0` in the
+        above formula.
 
-    ctau: float (in meters)
-       The pulse length (in the lab-frame), defined as:
-       E_laser ~ exp( - (z-ct)**2 / ctau**2 )
+    ctau: float (in meter)
+        The duration of the laser (in the lab frame),
+        defined as :math:`c\\tau` in the above formula.
 
-    z0: float (in meters)
-       The position of the laser centroid relative to z=0 (in the lab-frame).
+    z0: float (in meter)
+        The initial position of the centroid of the laser
+        (in the lab frame), defined as :math:`z_0` in the above formula.
 
-    zf: float (in meters), optional
-       The position of the laser focus relative to z=0 (in the lab-frame).
-       Default: the laser focus is at z0.
+    zf: float (in meter), optional
+        The position of the focal plane (in the lab frame).
+        If ``zf`` is not provided, the code assumes that ``zf=z0``, i.e.
+        that the laser pulse is at the focal plane initially.
 
-    lambda0: float (in meters), optional
-       The central wavelength of the laser (in the lab-frame).
-       Default: 0.8 microns (Ti:Sapph laser).
+    theta_pol: float (in radian), optional
+       The angle of polarization with respect to the x axis.
 
-    cep_phase: float (rad)
-        Carrier Enveloppe Phase (CEP), i.e. the phase of the laser
-        oscillations, at the position where the laser enveloppe is maximum.
+    lambda0: float (in meter), optional
+        The wavelength of the laser (in the lab frame), defined as
+        :math:`\\lambda_0` in the above formula.
+
+    cep_phase: float (in radian), optional
+        The Carrier Enveloppe Phase (CEP), defined as :math:`\phi_{cep}`
+        in the above formula (i.e. the phase of the laser
+        oscillation, at the position where the laser enveloppe is maximum)
 
     phi2_chirp: float (in second^2)
-        The amount of temporal chirp, at focus *in the lab frame*
-        Namely, a wave packet centered on the frequency (w0 + dw) will
-        reach its peak intensity at a time z(dw) = z0 - c*phi2*dw.
-        Thus, a positive phi2 corresponds to positive chirp, i.e. red part
-        of the spectrum in the front of the pulse and blue part of the
-        spectrum in the back.
-
-    theta_pol: float (in radians), optional
-       The angle of polarization with respect to the x axis.
-       Default: 0 rad.
+        The amount of temporal chirp, at focus (in the lab frame)
+        Namely, a wave packet centered on the frequency
+        :math:`(\omega_0 + \delta \omega)` will reach its peak intensity
+        at :math:`z(\delta \omega) = z_0 - c \phi^{(2)} \, \delta \omega`.
+        Thus, a positive :math:`\phi^{(2)}` corresponds to positive chirp,
+        i.e. red part of the spectrum in the front of the pulse and blue
+        part of the spectrum in the back.
 
     gamma_boost: float, optional
         When initializing the laser in a boosted frame, set the value of

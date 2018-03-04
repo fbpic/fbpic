@@ -128,7 +128,7 @@ class GaussianLaser( LaserProfile ):
             Laser waist at the focal plane, defined as :math:`w_0` in the
             above formula.
 
-        tau: float (in meter^-1)
+        tau: float (in second)
             The duration of the laser (in the lab frame),
             defined as :math:`\\tau` in the above formula.
 
@@ -147,6 +147,7 @@ class GaussianLaser( LaserProfile ):
         lambda0: float (in meter), optional
             The wavelength of the laser (in the lab frame), defined as
             :math:`\\lambda_0` in the above formula.
+            Default: 0.8 microns (Ti:Sapph laser).
 
         cep_phase: float (in radian), optional
             The Carrier Enveloppe Phase (CEP), defined as :math:`\phi_{cep}`
@@ -293,7 +294,7 @@ class LaguerreGaussLaser( LaserProfile ):
             Laser waist at the focal plane, defined as :math:`w_0` in the
             above formula.
 
-        tau: float (in meter^-1)
+        tau: float (in second)
             The duration of the laser (in the lab frame),
             defined as :math:`\\tau` in the above formula.
 
@@ -312,6 +313,7 @@ class LaguerreGaussLaser( LaserProfile ):
         lambda0: float (in meter), optional
             The wavelength of the laser (in the lab frame), defined as
             :math:`\\lambda_0` in the above formula.
+            Default: 0.8 microns (Ti:Sapph laser).
 
         cep_phase: float (in radian), optional
             The Carrier Enveloppe Phase (CEP), defined as :math:`\phi_{cep}`
