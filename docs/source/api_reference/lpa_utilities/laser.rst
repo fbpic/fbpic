@@ -48,7 +48,8 @@ Laser profiles
 ---------------
 
 This section lists the available laser profiles in FBPIC. Note that you can
-also create your own custom laser profiles (see the end of this section).
+also combine these laser profiles (by summing them), or even create your
+own custom laser profiles (see the end of this section).
 
 Gaussian profile
 ****************
@@ -90,7 +91,10 @@ way:
 Creating your own custom laser profile
 **************************************
 
-
+If you have some experience with Python programming, you can also define
+your own laser profile, inside your input script. To do so, you can have a
+look at how the existing laser profiles that are implemented `here
+<https://github.com/fbpic/fbpic/blob/dev/fbpic/lpa_utils/laser/laser_profiles.py>`_.
 
 
 Compact function for a Gaussian pulse
