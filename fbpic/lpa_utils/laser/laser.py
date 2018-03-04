@@ -31,10 +31,15 @@ def add_laser_pulse( sim, laser_profile, gamma_boost=None,
     gamma_boost: float, optional
         When initializing the laser in a boosted frame, set the value of
         ``gamma_boost`` to the corresponding Lorentz factor.
+        In this case, ``laser_profile`` should be initialized with all its
+        physical quantities (wavelength, etc...) given in the lab frame,
+        and the function ``add_laser_pulse`` will automatically convert
+        these properties to their boosted-frame value.
 
     method: string, optional
         Whether to initialize the laser directly in the box
-        (method= ``direct``) or through a laser antenna (method= ``antenna``)
+        (method= ``direct``) or through a laser antenna (method= ``antenna``).
+        Default: ``direct``
 
     fw_propagating: bool, optional
        Only for the ``direct`` method: Whether the laser is propagating
@@ -47,13 +52,14 @@ def add_laser_pulse( sim, laser_profile, gamma_boost=None,
     Example
     -------
     In order to initialize a Laguerre-Gauss profile with a waist of
-    5 microns and a duration of 30 femtoseconds:
+    5 microns and a duration of 30 femtoseconds, centered at :math:`z=3`
+    microns initially:
 
     ::
 
         from fbpic.lpa_utils.laser import add_laser_pulse, LaguerreGaussLaser
 
-        profile = LaguerreGaussLaser(a0=0.5, waist=5.e-6, tau=30.e-15, p=1, m=0)
+        profile = LaguerreGaussLaser(a0=0.5, waist=5.e-6, tau=30.e-15, z0=3.e-6, p=1, m=0)
 
         add_laser_pulse( sim, profile )
     """
@@ -89,11 +95,11 @@ def add_laser( sim, a0, w0, ctau, z0, zf=None, lambda0=0.8e-6,
                gamma_boost=None, method='direct',
                fw_propagating=True, update_spectral=True, z0_antenna=None ):
     """
-    Introduce a linearly-polarized, Gaussian laser in the simulation
+    Introduce a linearly-polarized, Gaussian laser in the simulation.
 
     The laser is either added directly to the interpolation grid initially
-    (method=`direct`) or it is progressively emitted by an antenna
-    (method=`antenna`)
+    (method=``direct``) or it is progressively emitted by an antenna
+    (method=``antenna``).
 
     Parameters
     ----------
