@@ -507,7 +507,7 @@ class BoundaryCommunicator(object):
                         vec_recv_left = self.mpi_buffers.vec_rep_recv_l
                         vec_recv_right = self.mpi_buffers.vec_rep_recv_r
                 if method == 'add':
-                    if gpu_direct:
+                    if gpudirect_enabled:
                         vec_send_left = self.mpi_buffer(
                             self.mpi_buffers.d_vec_add_send_l )
                         vec_send_right = self.mpi_buffer(
