@@ -1,5 +1,39 @@
 # Change Log / Release Log for fbpic
 
+## 0.8.0
+
+This version allows FBPIC to run with an arbitrary number of azimuthal modes.
+(The previous versions only worked with 2 modes: m=0 and m=1.)
+
+This version also includes various improvements:
+
+New features:
+- Threading (on CPU) was only activated for numba 0.34 and numba 0.36. It
+is now also activated for versions above 0.36.
+(See [#199](https://github.com/fbpic/fbpic/pull/199))
+- The code can now run in parallel with the `use_true_rho` option
+(See [#210](https://github.com/fbpic/fbpic/pull/210))
+- When using `verbose_level=2`, multi-CPU simulations now print the node
+on which each MPI rank is running.
+(See [#209](https://github.com/fbpic/fbpic/pull/209))
+
+Bug fixes:
+- The moving window used to only work in one direction. It can now work in both.
+(See [#206](https://github.com/fbpic/fbpic/pull/206))
+- In a multi-GPU run, the out-of-memory errors will stop the whole simulation,
+instead of having other GPUs waiting indefinitely for the one GPU that crashed.
+(See [#212](https://github.com/fbpic/fbpic/pull/212))
+- Version 0.7.1 introduced a minor bug in the GPU current deposition, which
+lead to slight differences between the CPU and GPU results.
+This has now been fixed. (See [#216](https://github.com/fbpic/fbpic/pull/216))
+- There was a minor bug in the restart code, which did not update the arrays
+of positions of the grid. This was only likely to affect restarts followed
+by the initialization of a laser (a rare case). This now fixed by calculating
+these arrays on the fly. (See [#215](https://github.com/fbpic/fbpic/pull/215))
+- The field and particle diagnostics will now automatically convert the input
+`period` to an integer, which avoids erratic behavior if a float was provided.
+(See [#198](https://github.com/fbpic/fbpic/pull/198))
+
 ## 0.7.1
 
 This is bug-fix release. It fixes two bugs that were introduced in version
