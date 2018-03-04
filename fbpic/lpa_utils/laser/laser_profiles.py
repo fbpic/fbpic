@@ -283,36 +283,43 @@ class LaguerreGaussLaser( LaserProfile ):
         a0: float (dimensionless)
             The amplitude of the pulse, defined so that the total
             energy of the pulse is the same as that of a Gaussian pulse
-            with the same a0, waist and tau. (i.e. The energy of the pulse
-            is independent of p and m, here.)
+            with the same :math:`a_0`, :math:`w_0` and :math:`\\tau`.
+            (i.e. The energy of the pulse is independent of ``p`` and ``m``.)
 
-        waist: float (in meters)
-            Laser waist in the focal plane
+        waist: float (in meter)
+            Laser waist at the focal plane, defined as :math:`w_0` in the
+            above formula.
 
-        tau: float (in meters^-1)
-            The duration of the laser (in the lab frame)
+        tau: float (in meter^-1)
+            The duration of the laser (in the lab frame),
+            defined as :math:`\\tau` in the above formula.
 
-        z0: float (m)
-            The initial position of the centroid of the laser (in the lab frame)
+        z0: float (in meter)
+            The initial position of the centroid of the laser
+            (in the lab frame), defined as :math:`z_0` in the above formula.
 
-        zf: float (m), optional
-            The position of the focal plane (in the lab frame)
+        zf: float (in meter), optional
+            The position of the focal plane (in the lab frame).
+            If ``zf`` is not provided, the code assumes that ``zf=z0``, i.e.
+            that the laser pulse is at the focal plane initially.
 
-        theta_pol: float (in radians), optional
+        theta_pol: float (in radian), optional
            The angle of polarization with respect to the x axis.
-           Default: 0 rad.
 
-        lambda0: float (m)
-            The wavelength of the laser (in the lab frame)
+        lambda0: float (in meter), optional
+            The wavelength of the laser (in the lab frame), defined as
+            :math:`\\lambda_0` in the above formula.
 
-        cep_phase: float (rad)
-            The Carrier Enveloppe Phase (CEP), i.e. the phase of the laser
-            oscillation, at the position where the laser enveloppe is maximum.
+        cep_phase: float (in radian), optional
+            The Carrier Enveloppe Phase (CEP), defined as :math:`\phi_{cep}`
+            in the above formula (i.e. the phase of the laser
+            oscillation, at the position where the laser enveloppe is maximum)
 
-        theta0: float (rad)
+        theta0: float (in radian), optional
             The azimuthal position of (one of) the maxima of intensity, in the
             transverse plane.
-            (The intensity varies as :math:`cos^2[m(\\theta-\\theta0)]`)
+            (In the transverse plane, the field of the pulse varies as
+            :math:`cos[m(\\theta-\\theta_0)]`.)
         """
         # Set a number of parameters for the laser
         k0 = 2*np.pi/lambda0
