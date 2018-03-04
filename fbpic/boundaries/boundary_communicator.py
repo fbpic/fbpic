@@ -510,9 +510,6 @@ class BoundaryCommunicator(object):
                 self.exchange_domains(
                     vec_send_left, vec_send_right,
                     vec_recv_left, vec_recv_right )
-                # An MPI barrier is needed here so that a single rank does not
-                # do two sends and receives before this exchange is completed.
-                self.mpi_comm.Barrier()
                 # Handle the received buffers
                 self.mpi_buffers.handle_vec_buffer(
                     [ interp[m].Er for m in range(self.Nm) ],
@@ -541,9 +538,6 @@ class BoundaryCommunicator(object):
                 self.exchange_domains(
                     vec_send_left, vec_send_right,
                     vec_recv_left, vec_recv_right )
-                # An MPI barrier is needed here so that a single rank does not
-                # do two sends and receives before this exchange is completed.
-                self.mpi_comm.Barrier()
                 # Handle the received buffers
                 self.mpi_buffers.handle_vec_buffer(
                     [ interp[m].Br for m in range(self.Nm) ],
@@ -572,9 +566,6 @@ class BoundaryCommunicator(object):
                 self.exchange_domains(
                     vec_send_left, vec_send_right,
                     vec_recv_left, vec_recv_right )
-                # An MPI barrier is needed here so that a single rank does not
-                # do two sends and receives before this exchange is completed.
-                self.mpi_comm.Barrier()
                 # Handle the received buffers
                 self.mpi_buffers.handle_vec_buffer(
                     [ interp[m].Jr for m in range(self.Nm) ],
@@ -601,9 +592,6 @@ class BoundaryCommunicator(object):
                 self.exchange_domains(
                     scal_send_left, scal_send_right,
                     scal_recv_left, scal_recv_right )
-                # An MPI barrier is needed here so that a single rank does not
-                # do two sends and receives before this exchange is completed.
-                self.mpi_comm.Barrier()
                 # Handle the received buffers
                 self.mpi_buffers.handle_scal_buffer(
                     [ interp[m].rho for m in range(self.Nm) ],
@@ -618,7 +606,6 @@ class BoundaryCommunicator(object):
         Receive the arrays from the neighboring processes into recv_left
         and recv_right.
         Sending and receiving is done from CPU to CPU.
-
         Parameters :
         ------------
         - send_left, send_right, recv_left, recv_right : arrays
@@ -626,23 +613,26 @@ class BoundaryCommunicator(object):
         """
         # MPI-Exchange: Uses non-blocking send and receive,
         # which return directly and need to be synchronized later.
-        # Send to left domain and receive from right domain
+        # Send to left domain and receive from left domain
         if self.left_proc is not None :
-            self.mpi_comm.Isend(send_left, dest=self.left_proc, tag=1)
+            req_sl = self.mpi_comm.Isend(
+                send_left, dest=self.left_proc, tag=1 )
+            req_rl = self.mpi_comm.Irecv(
+                recv_left, source=self.left_proc, tag=2 )
+        # Send to right domain and receive from right domain
         if self.right_proc is not None :
-            req_1 = self.mpi_comm.Irecv(recv_right,
-                                        source=self.right_proc, tag=1)
-        # Send to right domain and receive from left domain
-        if self.right_proc is not None :
-            self.mpi_comm.Isend(send_right, dest=self.right_proc, tag=2)
-        if self.left_proc is not None :
-            req_2 = self.mpi_comm.Irecv(recv_left,
-                                        source=self.left_proc, tag=2)
+            req_sr = self.mpi_comm.Isend(
+                send_right, dest=self.right_proc, tag=2 )
+            req_rr = self.mpi_comm.Irecv(
+                recv_right, source=self.right_proc, tag=1 )
+
         # Wait for the non-blocking sends to be received (synchronization)
-        if self.right_proc is not None :
-            req_1.Wait()
         if self.left_proc is not None :
-            req_2.Wait()
+            req_rl.Wait()
+            req_sl.Wait()
+        if self.right_proc is not None :
+            req_rr.Wait()
+            req_sr.Wait()
 
     def exchange_particles(self, species, fld, time ):
         """
@@ -720,12 +710,9 @@ class BoundaryCommunicator(object):
         N_send_r = np.array( float_send_right.shape[1], dtype=np.uint32 )
         N_recv_l = np.array( 0, dtype=np.uint32 )
         N_recv_r = np.array( 0, dtype=np.uint32 )
-        self.exchange_domains(N_send_l, N_send_r, N_recv_l, N_recv_r)
         # Note: if left_proc or right_proc is None, the
         # corresponding N_recv remains 0 (no exchange)
-        if self.size > 1:
-            self.mpi_comm.Barrier()
-
+        self.exchange_domains(N_send_l, N_send_r, N_recv_l, N_recv_r)
         # Allocate the receiving buffers and exchange particles
         n_float = float_send_left.shape[0]
         float_recv_left = np.zeros((n_float, N_recv_l), dtype=np.float64)
@@ -746,12 +733,6 @@ class BoundaryCommunicator(object):
         if (self.moving_win is not None) and (self.rank == self.size-1):
             float_recv_right, uint_recv_right = \
               self.moving_win.generate_particles(species,fld.interp[0].dz,time)
-
-        # An MPI barrier is needed here so that a single rank
-        # does not perform two sends and receives before all
-        # the other MPI connections within this exchange are completed.
-        if self.size > 1:
-            self.mpi_comm.Barrier()
 
         # Periodic boundary conditions for exchanging particles
         # Particles received at the right (resp. left) end of the simulation
