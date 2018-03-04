@@ -7,8 +7,8 @@ There are two functions that allow to introduce a laser pulse in an FBPIC simula
 - The compact function ``add_laser``, which can only introduce a Gaussian profile.
 
 The generic function is presented first here. This page also explains how
-to define laser profiles that differ from a standard Gaussian profile.
-Finally the compact function is described at the end of this page.
+to define laser profiles in FBPIC. Finally the compact function is described
+at the end of this page.
 
 Both of the above functions support two types of methods, in order to introduce
 the laser in the simulation box:
@@ -47,8 +47,8 @@ Generic function for arbitrary laser profile
 Laser profiles
 ---------------
 
-Mention that laser profiles can be summed.
-Mention how to create new laser profiles.
+This section lists the available laser profiles in FBPIC. Note that you can
+also create your own custom laser profiles (see the end of this section).
 
 Gaussian profile
 ****************
@@ -60,8 +60,37 @@ Laguerre-Gauss profile
 
 .. autoclass:: fbpic.lpa_utils.laser.LaguerreGaussLaser
 
-Creating your own laser profile
-*******************************
+Combining (summing) laser profiles
+**********************************
+
+Laser profiles can be combined by **summing them together**, so as to create
+new laser profiles.
+
+For instance, one might want to use a **circularly-polarized
+laser pulse**, but FBPIC only provides linearly-polarized laser profiles.
+However, it turns out that a circularly-polarized pulse can be decomposed
+as the sum of two linearly-polarized pulses, with orthogonal polarization
+and a :math:`\pi/2` phase shift. In FBPIC, this can be done in the following
+way:
+
+::
+
+    import math
+    from fbpic.lpa_utils.laser import add_laser_pulse, GaussianLaser
+    w0 = 5.e-6; z0 = 3.e-6; tau = 30.e-15; a0 = 1
+
+    linear_profile1 = GaussianLaser( a0/math.sqrt(2), waist, tau, z0,
+                                theta_pol=0., cep_phase=0. )
+    linear_profile2 = GaussianLaser( a0/math.sqrt(2), waist, tau, z0,
+                                theta_pol=math.pi/2, cep_phase=math.pi/2 )
+
+    circular_profile = linear_profile1 + linear_profile2
+    add_laser_pulse( sim, circular_profile )
+
+Creating your own custom laser profile
+**************************************
+
+
 
 
 Compact function for a Gaussian pulse

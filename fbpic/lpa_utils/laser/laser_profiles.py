@@ -103,11 +103,12 @@ class GaussianLaser( LaserProfile ):
 
         .. math::
 
-            E(\\boldsymbol{x},t) \propto a_0
+            E(\\boldsymbol{x},t) = a_0\\times E_0\,
             \exp\left( -\\frac{r^2}{w_0^2} - \\frac{(z-z_0-ct)^2}{c^2\\tau^2} \\right)
             \cos[ k_0( z - z_0 - ct ) - \phi_{cep} ]
 
-        where :math:`k_0 = 2\pi/\\lambda_0`.
+        where :math:`k_0 = 2\pi/\\lambda_0` is the wavevector and where
+        :math:`E_0 = m_e c^2 k_0 / q_e` is the field amplitude for :math:`a_0=1`.
 
         .. note::
 
@@ -238,17 +239,19 @@ class LaguerreGaussLaser( LaserProfile ):
 
         .. math::
 
-            E(\\boldsymbol{x},t) \propto a_0 \, f(r, \\theta) \,
+            E(\\boldsymbol{x},t) = a_0\\times E_0 \, f(r, \\theta) \,
             \exp\left( -\\frac{r^2}{w_0^2} - \\frac{(z-z_0-ct)^2}{c^2\\tau^2}
             \\right) \cos[ k_0( z - z_0 - ct ) - \phi_{cep} ]
 
             \mathrm{with} \qquad f(r, \\theta) =
+            \sqrt{\\frac{p!(2-\delta_{m,0})}{(m+p)!}}
             \\left( \\frac{\sqrt{2}r}{w_0} \\right)^m
             L^m_p\\left( \\frac{2 r^2}{w_0^2} \\right)
             \cos[ m(\\theta - \\theta_0)]
 
-        where :math:`L^m_p` is a Laguerre polynomial and
-        :math:`k_0 = 2\pi/\\lambda_0`.
+        where :math:`L^m_p` is a Laguerre polynomial,
+        :math:`k_0 = 2\pi/\\lambda_0` is the wavevector and where
+        :math:`E_0 = m_e c^2 k_0 / q_e`.
 
         (For more info, see
         `Siegman, Lasers (1986) <https://www.osapublishing.org/books/bookshelf/lasers.cfm>`_,
@@ -278,7 +281,7 @@ class LaguerreGaussLaser( LaserProfile ):
         m: int
             The azimuthal order of the pulse.
             (In the transverse plane, the field of the pulse varies as
-            :math:`cos[m(\\theta-\\theta_0)]`.)
+            :math:`\cos[m(\\theta-\\theta_0)]`.)
 
         a0: float (dimensionless)
             The amplitude of the pulse, defined so that the total
@@ -319,7 +322,7 @@ class LaguerreGaussLaser( LaserProfile ):
             The azimuthal position of (one of) the maxima of intensity, in the
             transverse plane.
             (In the transverse plane, the field of the pulse varies as
-            :math:`cos[m(\\theta-\\theta_0)]`.)
+            :math:`\cos[m(\\theta-\\theta_0)]`.)
         """
         # Set a number of parameters for the laser
         k0 = 2*np.pi/lambda0
