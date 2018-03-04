@@ -6,6 +6,7 @@ This file is part of the Fourier-Bessel Particle-In-Cell code (FB-PIC)
 It imports a set of MPI objects - or a set of dummy replacements when MPI
 is not installed
 """
+import os
 try:
     # Try to import MPI objects
     from mpi4py import MPI
