@@ -27,7 +27,7 @@ class LaserProfile( object ):
         """
         Return the electric field of the laser
 
-        Parameters:
+        Parameters
         -----------
         x, y, z: ndarrays (meters)
             The positions at which to calculate the profile (in the lab frame)
@@ -58,7 +58,7 @@ class SummedLaserProfile( LaserProfile ):
         """
         Initialize the sum of two instances of LaserProfile
 
-        Parameters:
+        Parameters
         -----------
         profile1, profile2: instances of LaserProfile
         """
@@ -70,7 +70,7 @@ class SummedLaserProfile( LaserProfile ):
         """
         Return the electric field of the laser
 
-        Parameters:
+        Parameters
         -----------
         x, y, z: ndarrays (meters)
             The positions at which to calculate the profile (in the lab frame)
@@ -312,8 +312,8 @@ class LaguerreGaussLaser( LaserProfile ):
         """
         Return the electric field of the laser
 
-        Parameters:
-        -----------
+        Parameters
+        ----------
         x, y, z: ndarrays (meters)
             The positions at which to calculate the profile (in the lab frame)
         t: ndarray or float (seconds)

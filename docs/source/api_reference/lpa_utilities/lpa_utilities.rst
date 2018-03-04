@@ -10,6 +10,7 @@ FBPIC was designed specifically for simulations of **laser-wakefield acceleratio
 See the sections below for the corresponding documentation:
 
 .. toctree::
+	:maxdepth: 1
 
 	laser
 	beam

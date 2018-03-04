@@ -14,11 +14,11 @@ from .antenna_injection import LaserAntenna
 def add_laser_pulse( sim, laser_profile, gamma_boost=None,
                     method='direct', z0_antenna=None, fw_propagating=True ):
     """
-    Introduce a laser pulse in the simulation
+    Introduce a laser pulse in the simulation.
 
     The laser is either added directly to the interpolation grid initially
-    (method=`direct`) or it is progressively emitted by an antenna
-    (method=`antenna`)
+    (method= ``direct``) or it is progressively emitted by an antenna
+    (method= ``antenna``).
 
     Parameters
     ----------
@@ -26,23 +26,36 @@ def add_laser_pulse( sim, laser_profile, gamma_boost=None,
        The structure that contains the simulation.
 
     laser_profile: a valid laser profile object
-        Laser profiles can be imported from fbpic.lpa_utils.laser
+        Laser profiles can be imported from ``fbpic.lpa_utils.laser``
 
     gamma_boost: float, optional
         When initializing the laser in a boosted frame, set the value of
-        `gamma_boost` to the corresponding Lorentz factor.
+        ``gamma_boost`` to the corresponding Lorentz factor.
 
     method: string, optional
-        Whether to initialize the laser directly in the box (method=`direct`)
-        or through a laser antenna (method=`antenna`)
+        Whether to initialize the laser directly in the box
+        (method= ``direct``) or through a laser antenna (method= ``antenna``)
 
     fw_propagating: bool, optional
-       Only for the `direct` method: Whether the laser is propagating in the
-       forward or backward direction.
+       Only for the ``direct`` method: Whether the laser is propagating
+       in the forward or backward direction.
 
     z0_antenna: float, optional (meters)
-       Only for the `antenna` method: initial position (in the lab frame)
-       of the antenna. If not provided, then the z0_antenna is set to zf.
+       Required for the ``antenna`` method: initial position
+       (in the lab frame) of the antenna.
+
+    Example
+    -------
+    In order to initialize a Laguerre-Gauss profile with a waist of
+    5 microns and a duration of 30 femtoseconds:
+
+    ::
+
+        from fbpic.lpa_utils.laser import add_laser_pulse, LaguerreGaussLaser
+
+        profile = LaguerreGaussLaser(a0=0.5, waist=5.e-6, tau=30.e-15, p=1, m=0)
+
+        add_laser_pulse( sim, profile )
     """
     # Prepare the boosted frame converter
     if (gamma_boost is not None) and (fw_propagating==True):
