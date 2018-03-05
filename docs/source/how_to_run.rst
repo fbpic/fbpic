@@ -62,12 +62,12 @@ Python script: either ``lwfa_script.py`` or
   feature requires a CUDA-aware MPI implementation that supports GPUDirect,
   it is disabled by default and should be used with care.
 
-  - To activate this feature, the user needs to set the following
+  To activate this feature, the user needs to set the following
   environment variable:
 
   ::
 
-  export FBPIC_ENABLE_GPUDIRECT=1
+    export FBPIC_ENABLE_GPUDIRECT=1
 
 
 Visualizing the simulation results
