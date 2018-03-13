@@ -165,7 +165,7 @@ class Particles(object) :
             w = n * r * dtheta*dr*dz
             # Modulate it by the density profile
             if dens_func is not None :
-                w *= dens_func( self.z, r )
+                w *= dens_func( z, r )
 
             # Select the particles that have a non-zero weight
             selected = (w != 0)
