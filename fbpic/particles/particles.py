@@ -137,9 +137,53 @@ class Particles(object) :
             print('*** Performing the particle operations on the CPU.')
             self.use_cuda = False
 
+        # Generate the particles and eliminate the ones that have zero weight ;
+        # infer the number of particles Ntot
+        if Npz*Npr*Nptheta > 0:
+            # Get the 1d arrays of evenly-spaced positions for the particles
+            dz = (zmax-zmin)*1./Npz
+            z_reg =  zmin + dz*( np.arange(Npz) + 0.5 )
+            dr = (rmax-rmin)*1./Npr
+            r_reg =  rmin + dr*( np.arange(Npr) + 0.5 )
+            dtheta = 2*np.pi/Nptheta
+            theta_reg = dtheta * np.arange(Nptheta)
+
+            # Get the corresponding particles positions
+            # (copy=True is important here, since it allows to
+            # change the angles individually)
+            zp, rp, thetap = np.meshgrid( z_reg, r_reg, theta_reg,
+                                        copy=True, indexing='ij' )
+            # Prevent the particles from being aligned along any direction
+            unalign_angles( thetap, Npz, Npr, method='random' )
+            # Flatten them (This performs a memory copy)
+            r = rp.flatten()
+            x = r * np.cos( thetap.flatten() )
+            y = r * np.sin( thetap.flatten() )
+            z = zp.flatten()
+            # Get the weights (i.e. charge of each macroparticle), which
+            # are equal to the density times the volume r d\theta dr dz
+            w = n * r * dtheta*dr*dz
+            # Modulate it by the density profile
+            if dens_func is not None :
+                w *= dens_func( self.z, r )
+
+            # Select the particles that have a non-zero weight
+            selected = (w != 0)
+            Ntot = int(selected.sum())
+            self.x = x[ selected ]
+            self.y = y[ selected ]
+            self.z = z[ selected ]
+            self.w = w[ selected ]
+        else:
+            # No particles are initialized ; the arrays are still created
+            Ntot = 0
+            self.x = np.empty( 0 )
+            self.y = np.empty( 0 )
+            self.z = np.empty( 0 )
+            self.w = np.empty( 0 )
+
         # Register the properties of the particles
         # (Necessary for the pusher, and when adding more particles later, )
-        Ntot = Npz*Npr*Nptheta
         self.Ntot = Ntot
         self.q = q
         self.m = m
@@ -158,20 +202,13 @@ class Particles(object) :
         self.inv_gamma = 1./np.sqrt(
             1 + self.ux**2 + self.uy**2 + self.uz**2 )
 
-        # Initilialize the fields array (at the positions of the particles)
+        # Initialize the fields array (at the positions of the particles)
         self.Ez = np.zeros( Ntot )
         self.Ex = np.zeros( Ntot )
         self.Ey = np.zeros( Ntot )
         self.Bz = np.zeros( Ntot )
         self.Bx = np.zeros( Ntot )
         self.By = np.zeros( Ntot )
-
-        # Allocate the positions and weights of the particles,
-        # and fill them with values if the array is not empty
-        self.x = np.empty( Ntot )
-        self.y = np.empty( Ntot )
-        self.z = np.empty( Ntot )
-        self.w = np.empty( Ntot )
 
         # By default, there is no particle tracking (see method track)
         self.tracker = None
@@ -182,34 +219,6 @@ class Particles(object) :
         # Total number of quantities (necessary in MPI communications)
         self.n_integer_quantities = 0
         self.n_float_quantities = 8 # x, y, z, ux, uy, uz, inv_gamma, w
-
-        if Ntot > 0:
-            # Get the 1d arrays of evenly-spaced positions for the particles
-            dz = (zmax-zmin)*1./Npz
-            z_reg =  zmin + dz*( np.arange(Npz) + 0.5 )
-            dr = (rmax-rmin)*1./Npr
-            r_reg =  rmin + dr*( np.arange(Npr) + 0.5 )
-            dtheta = 2*np.pi/Nptheta
-            theta_reg = dtheta * np.arange(Nptheta)
-
-            # Get the corresponding particles positions
-            # (copy=True is important here, since it allows to
-            # change the angles individually)
-            zp, rp, thetap = np.meshgrid( z_reg, r_reg, theta_reg,
-                                        copy=True, indexing='ij' )
-            # Prevent the particles from being aligned along any direction
-            unalign_angles( thetap, Npz, Npr, method='random' )
-            # Flatten them (This performs a memory copy)
-            r = rp.flatten()
-            self.x[:] = r * np.cos( thetap.flatten() )
-            self.y[:] = r * np.sin( thetap.flatten() )
-            self.z[:] = zp.flatten()
-            # Get the weights (i.e. charge of each macroparticle), which
-            # are equal to the density times the volume r d\theta dr dz
-            self.w[:] = n * r * dtheta*dr*dz
-            # Modulate it by the density profile
-            if dens_func is not None :
-                self.w[:] = self.w * dens_func( self.z, r )
 
         # Register particle shape
         self.particle_shape = particle_shape
