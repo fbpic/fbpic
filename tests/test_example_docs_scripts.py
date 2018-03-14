@@ -6,8 +6,7 @@ This test file is part of FB-PIC (Fourier-Bessel Particle-In-Cell).
 
 It makes sure that the example input scripts in `docs/source/example_input`
 runs **without crashing**. It runs the following scripts:
-- lwfa_script.py with a single proc
-- lwfa_script.py with two proc using checkpoint and restart
+- lwfa_script.py with a single proc and two proc, using checkpoint and restart
 - boosted_frame_script.py with two procs
 - parametric_script.py with two procs
 **It does not actually check the validity of the physics involved.**
@@ -21,14 +20,32 @@ $ python setup.py test
 """
 import time
 import os
+import re
 import shutil
 import numpy as np
 from opmd_viewer import OpenPMDTimeSeries
 from opmd_viewer.addons import LpaDiagnostics
 
-def test_lpa_sim_singleproc():
+def test_lpa_sim_singleproc_restart():
     "Test the example input script with one proc in `docs/source/example_input`"
+    run_lpa_sim( n_MPI=1 )
 
+def test_lpa_sim_twoproc_restart():
+    "Test the example input script with two proc in `docs/source/example_input`"
+    run_lpa_sim( n_MPI=2 )
+
+def run_lpa_sim( n_MPI ):
+    """
+    Runs the standard lwfa script from the folder docs/source/example_input,
+    with `n_MPI` MPI processes. The simulation is then restarted with
+    the same number of processes ; the code checks that the restarted results
+    are identical.
+
+    More precisely:
+    - The first simulation is run for N_step, then the random seed is reset
+        (for reproducibility) and the code runs for N_step more steps.
+    - Then a second simulation is launched, which reruns the last N_step.
+    """
     temporary_dir = './tests/tmp_test_dir'
 
     # Create a temporary directory for the simulation
@@ -41,96 +58,77 @@ def test_lpa_sim_singleproc():
     # Shortcut for the script file, which is repeatedly changed
     script_filename = os.path.join( temporary_dir,'lwfa_script.py' )
 
-    # Read the script and check that the targeted lines are present
+    # Read the script and check
     with open(script_filename) as f:
         script = f.read()
-        # Check that the targeted lines are present
-        if script.find('save_checkpoints = False') == -1 \
-            or script.find('use_restart = False') == -1 \
-            or script.find('N_step = 200') == -1:
-            raise RuntimeError('Did not find expected lines in lwfa_script.py')
 
+    # For MPI simulations: modify the script to use finite-order
+    if n_MPI > 1:
+        script = replace_string( script, 'n_order = -1', 'n_order = 16')
     # Modify the script so as to enable checkpoints
-    script = script.replace('save_checkpoints = False',
+    script = replace_string( script, 'save_checkpoints = False',
                                 'save_checkpoints = True')
-    script = script.replace('N_step = 200', 'N_step = 101')
-    with open(script_filename, 'w') as f:
-        f.write(script)
-    # Launch the script from the OS
-    response = os.system( 'cd %s; python lwfa_script.py' %temporary_dir )
-    assert response==0
-
-    # Modify the script so as to enable restarts
-    script = script.replace('use_restart = False',
-                                'use_restart = True')
-    script = script.replace('save_checkpoints = True',
-                                'save_checkpoints = False')
-    with open(script_filename, 'w') as f:
-        f.write(script)
-    # Launch the modified script from the OS, with 2 proc
-    response = os.system( 'cd %s; python lwfa_script.py' %temporary_dir )
-    assert response==0
-
-    # Suppress the temporary directory
-    shutil.rmtree( temporary_dir )
-
-def test_lpa_sim_twoproc_restart():
-    "Test the checkpoint/restart mechanism with two proc"
-    temporary_dir = './tests/tmp_test_dir'
-
-    # Create a temporary directory for the simulation
-    # and copy the example script into this directory
-    if os.path.exists( temporary_dir ):
-        shutil.rmtree( temporary_dir )
-    os.mkdir( temporary_dir )
-    shutil.copy('./docs/source/example_input/lwfa_script.py', temporary_dir )
-    # Shortcut for the script file, which is repeatedly changed
-    script_filename = os.path.join( temporary_dir,'lwfa_script.py' )
-
-    # Read the script and check that the targeted lines are present
-    with open( script_filename ) as f:
-        script = f.read()
-        # Check that the targeted lines are present
-        if script.find('save_checkpoints = False') == -1 \
-            or script.find('use_restart = False') == -1 \
-            or script.find('track_electrons = False') == -1 \
-            or script.find('n_order = -1') == -1 \
-            or script.find('N_step = 200') == -1:
-            raise RuntimeError('Did not find expected lines in lwfa_script.py')
-
-    # Modify the script so as to enable checkpoints and particle tracking
-    script = script.replace('save_checkpoints = False',
-                                'save_checkpoints = True')
-    script = script.replace('track_electrons = False',
+    script = replace_string( script, 'track_electrons = False',
                                 'track_electrons = True')
-    script = script.replace('N_step = 200', 'N_step = 101')
-    script = script.replace('n_order = -1',
-                                'n_order = 16')
-    with open( script_filename, 'w' ) as f:
+    # Modify the script to perform N_step, enforce the random seed
+    # (should be the same when restarting, for exact comparison),
+    # and perform again N_step.
+    script = replace_string( script, 'sim.step( N_step )',
+           'sim.step( N_step ); np.random.seed(0); sim.step( N_step )' )
+    with open(script_filename, 'w') as f:
         f.write(script)
-    # Launch the modified script from the OS, with 2 proc
-    response = os.system(
-        'cd %s; mpirun -np 2 python lwfa_script.py' %temporary_dir )
+
+    # Launch the script from the OS
+    command_line = 'cd %s' %temporary_dir
+    if n_MPI == 1:
+        command_line += '; python lwfa_script.py'
+    else:
+        command_line += '; mpirun -np %d python lwfa_script.py' %n_MPI
+    response = os.system( command_line )
     assert response==0
+
+    # Move diagnostics (for later comparison with the restarted simulation)
+    shutil.move( os.path.join( temporary_dir, 'diags'),
+                 os.path.join( temporary_dir, 'original_diags') )
+    # Keep only the checkpoints from the first N_step
+    N_step = int( get_string( 'N_step = (\d+)', script ) )
+    period = int( get_string( 'checkpoint_period = (\d+)', script ) )
+    for i_MPI in range(n_MPI):
+        for step in range( N_step + period, 2*N_step + period, period ):
+            os.remove( os.path.join( temporary_dir,
+                     'checkpoints/proc%d/hdf5/data%08d.h5' %(i_MPI,step) ))
 
     # Modify the script so as to enable restarts
-    script = script.replace('use_restart = False',
+    script = replace_string( script, 'use_restart = False',
                                 'use_restart = True')
-    script = script.replace('save_checkpoints = True',
-                                'save_checkpoints = False')
-    with open( script_filename, 'w' ) as f:
+    # Redo only the last N_step
+    script = replace_string( script,
+           'sim.step( N_step ); np.random.seed(0); sim.step( N_step )',
+           'np.random.seed(0); sim.step( N_step )',)
+    with open(script_filename, 'w') as f:
         f.write(script)
+
     # Launch the modified script from the OS, with 2 proc
-    response = os.system(
-        'cd %s; mpirun -np 2 python lwfa_script.py' %temporary_dir )
+    response = os.system( command_line )
     assert response==0
 
-    # Check that the particle ids are unique at each iterations
-    ts = OpenPMDTimeSeries( os.path.join( temporary_dir, 'diags/hdf5') )
+    # Check that restarted simulation gives the same results
+    # as the original simulation
+    print('Checking restarted simulation...')
+    start_time = time.time()
+    ts1 = OpenPMDTimeSeries(
+        os.path.join( temporary_dir, 'diags/hdf5') )
+    ts2 = OpenPMDTimeSeries(
+        os.path.join( temporary_dir, 'original_diags/hdf5') )
+    compare_simulations( ts1, ts2 )
+    end_time = time.time()
+    print( "%.2f seconds" %(end_time-start_time))
+
+    # Check that the particle IDs are unique
     print('Checking particle ids...')
     start_time = time.time()
-    for iteration in ts.iterations:
-        pid, = ts.get_particle(["id"], iteration=iteration)
+    for iteration in ts1.iterations:
+        pid, = ts1.get_particle(["id"], iteration=iteration)
         assert len(np.unique(pid)) == len(pid)
     end_time = time.time()
     print( "%.2f seconds" %(end_time-start_time))
@@ -153,18 +151,13 @@ def test_boosted_frame_sim_twoproc():
     # Shortcut for the script file, which is repeatedly changed
     script_filename = os.path.join( temporary_dir, 'boosted_frame_script.py' )
 
-    # Read the script and check that the targeted lines are present
+    # Read the script
     with open(script_filename) as f:
         script = f.read()
-        # Check that the targeted lines are present
-        if script.find('n_order = -1') == -1 \
-            or script.find('track_bunch = False') == -1:
-            raise RuntimeError('Did not find expected lines in \
-                boosted_frame_script.py')
 
     # Modify the script so as to enable finite order
-    script = script.replace('n_order = -1', 'n_order = 16')
-    script = script.replace('track_bunch = False', 'track_bunch = True')
+    script = replace_string( script, 'n_order = -1', 'n_order = 16')
+    script = replace_string(script, 'track_bunch = False', 'track_bunch = True')
     with open(script_filename, 'w') as f:
         f.write(script)
 
@@ -201,32 +194,26 @@ def test_parametric_sim_twoproc():
     # Shortcut for the script file, which is repeatedly changed
     script_filename = os.path.join( temporary_dir, 'parametric_script.py' )
 
-    # Read the script and check that the targeted lines are present
+    # Read the script
     with open(script_filename) as f:
         script = f.read()
-        # Check that the targeted lines are present
-        if script.find('save_checkpoints = False') == -1 \
-            or script.find('n_order = -1') == -1 \
-            or script.find('use_restart = False') == -1:
-            raise RuntimeError(
-            'Did not find expected lines in parametric_script.py')
 
     # Modify the script so as to enable checkpoints
-    script = script.replace('save_checkpoints = False',
+    script = replace_string( script, 'save_checkpoints = False',
                                 'save_checkpoints = True')
-    script = script.replace('n_order = -1',
-                                'n_order = 16')
+    script = replace_string( script, 'n_order = -1', 'n_order = 16')
     with open(script_filename, 'w') as f:
         f.write(script)
+
     # Launch the modified script from the OS, with 2 proc
     response = os.system(
         'cd %s; mpirun -np 2 python parametric_script.py' %temporary_dir )
     assert response==0
 
     # Modify the script so as to enable restarts
-    script = script.replace('use_restart = False',
+    script = replace_string( script, 'use_restart = False',
                                 'use_restart = True')
-    script = script.replace('save_checkpoints = True',
+    script = replace_string( script, 'save_checkpoints = True',
                                 'save_checkpoints = False')
     with open(script_filename, 'w') as f:
         f.write(script)
@@ -250,8 +237,60 @@ def test_parametric_sim_twoproc():
     # Suppress the temporary directory
     shutil.rmtree( temporary_dir )
 
+
+def replace_string( text, old_string, new_string ):
+    """
+    Check that `old_string` is in `text`, and replace it by `new_string`
+    """
+    # Check that the target line is present
+    if text.find(old_string) == -1:
+        raise RuntimeError('Did not find expected string: %s' %old_string)
+    # Return the modified text
+    return text.replace( old_string, new_string )
+
+def get_string( regex, text ):
+    """
+    Match `regex` in `text` and returns the corresponding group
+    (`regex` should be a regex string that contains a captured group)
+    """
+    match = re.search( regex, text )
+    return( match.groups(1)[0] )
+
+def compare_simulations( ts1, ts2 ):
+    """
+    Compare the fields of the simulations `ts1` and `ts2` and
+    make sure that they agree within a given precision
+    """
+    # Fields are checked with a finite tolerance, because the
+    # continuous injection does not occur exactly at the same time
+    # in the original and restarted simulation, and results in small
+    # differences in the simulations
+    checked_fields = [ ('E', 'x', 2.e-5), ('E', 'z', 2.e-5),
+                        ('B', 'y', 2.e-5), ('rho', None, 1.e-2) ]
+    for iteration in ts1.iterations:
+        for field, coord, tolerance in checked_fields:
+            print( field, coord )
+            F1, info1 = ts1.get_field( field, coord, iteration=iteration )
+            F2, info2 = ts2.get_field( field, coord, iteration=iteration )
+            # Fields may be shifted by one cell, because, due to round-off
+            # errors, the moving window may not be called at the same time
+            # in the original and restarted simulation.
+            n_diff = int(round( (info2.zmin-info1.zmin)/info1.dz ))
+            # Round-off errors in the moving window
+            # can never create shifts of more than 1 cell
+            assert abs(n_diff) <= 1
+            # Restrict the fields to the overlapping part
+            if n_diff > 0:
+                F1 = F1[:,n_diff:]
+                F2 = F2[:,:-n_diff]
+            elif n_diff < 0:
+                F2 = F2[:,abs(n_diff):]
+                F1 = F1[:,:-abs(n_diff)]
+            assert np.allclose( F1, F2, atol=tolerance*abs(F1).max() )
+
+
 if __name__ == '__main__':
-    test_parametric_sim_twoproc()
-    test_lpa_sim_singleproc()
+    test_lpa_sim_singleproc_restart()
     test_lpa_sim_twoproc_restart()
+    test_parametric_sim_twoproc()
     test_boosted_frame_sim_twoproc()
