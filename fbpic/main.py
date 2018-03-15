@@ -48,7 +48,7 @@ class Simulation(object):
                  use_cuda=False, n_guard=None, n_damp=30, exchange_period=None,
                  boundaries='periodic', gamma_boost=None,
                  use_all_mpi_ranks=True, particle_shape='linear',
-                 verbose_level=1 ):
+                 verbose_level=1):
         """
         Initializes a simulation, by creating the following structures:
 
