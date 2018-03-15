@@ -53,23 +53,6 @@ Python script: either ``lwfa_script.py`` or
 	export FBPIC_DISABLE_THREADING=1
 	python fbpic_script.py
 
-.. note::
-
-  When running on GPU with MPI domain decomposition, it is possible to enable
-  the CUDA GPUDirect technology. GPUDirect enables direct communication of
-  CUDA device arrays between GPUs over MPI without explicitly copying the data
-  to CPU first, resulting in reduced latencies and increased bandwidth. As this
-  feature requires a CUDA-aware MPI implementation that supports GPUDirect,
-  it is disabled by default and should be used with care.
-
-  To activate this feature, the user needs to set the following
-  environment variable:
-
-  ::
-
-    export FBPIC_ENABLE_GPUDIRECT=1
-
-
 Visualizing the simulation results
 ----------------------------------
 

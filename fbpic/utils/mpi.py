@@ -6,7 +6,6 @@ This file is part of the Fourier-Bessel Particle-In-Cell code (FB-PIC)
 It imports a set of MPI objects - or a set of dummy replacements when MPI
 is not installed
 """
-import os
 try:
     # Try to import MPI objects
     from mpi4py import MPI
@@ -19,17 +18,6 @@ try:
                       'complex128': MPI.COMPLEX16,
                       'uint64': MPI.UINT64_T }
     mpi_installed = True
-
-    # Check if the environment variable FBPIC_ENABLE_GPUDIRECT is set to 1
-    # and in that case, enable direct MPI communication of CUDA GPU arrays
-    # with a CUDA-aware MPI Implementation
-    if 'FBPIC_ENABLE_GPUDIRECT' in os.environ:
-        if int(os.environ['FBPIC_ENABLE_GPUDIRECT']) == 1:
-            gpudirect_enabled = True
-        else:
-            gpudirect_enabled = False
-    else:
-        gpudirect_enabled = False
 
 except ImportError:
     # If MPI is not installed, define dummy replacements
@@ -57,4 +45,3 @@ except ImportError:
     comm = DummyCommunicator()
     mpi_type_dict = {}
     mpi_installed = False
-    gpudirect_enabled = False
