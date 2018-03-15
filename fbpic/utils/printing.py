@@ -8,7 +8,7 @@ It defines a set of generic functions for printing simulation information.
 import sys, time
 from fbpic import __version__
 from fbpic.utils.cuda import cuda, cuda_installed
-from fbpic.utils.mpi import MPI, mpi_installed, gpudirect_enabled
+from fbpic.utils.mpi import MPI, mpi_installed
 # Check if terminal is correctly set to UTF-8 and set progress character
 if sys.stdout.encoding == 'UTF-8':
     progress_char = u'\u2588'
@@ -186,11 +186,6 @@ def print_simulation_setup( sim, verbose_level=1 ):
             # Information about the architecture and the node used
             if sim.use_cuda:
                 message += '\nCompute architecture: GPU (CUDA)'
-                if mpi_installed:
-                    if gpudirect_enabled:
-                        message += '\nCUDA GPUDirect (MPI) enabled: Yes'
-                    else:
-                        message += '\nCUDA GPUDirect (MPI) enabled: No'
                 node_message = get_gpu_message()
             else:
                 message += '\nCompute architecture: CPU'
