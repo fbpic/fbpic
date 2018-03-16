@@ -9,6 +9,7 @@ See the fbpic.main.Simulation class to set up a simulation.
 
 # Change the default formatting for warnings within fbpic
 import warnings
-warnings.showwarning = \
-    lambda message, category, filename, lineno, *args, **kwargs: \
-    print('\nWarning: %s:%s:\n%s\n' %(filename, lineno, message))
+def modified_formatting(message, category, filename, lineno, line=None):
+    """Format a warning so that the code line `line` is not shown`."""
+    return('\nWarning: %s:%s:\n%s\n' %(filename, lineno, message))
+warnings.formatwarning = modified_formatting
