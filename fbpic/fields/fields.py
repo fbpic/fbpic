@@ -5,6 +5,7 @@
 This file is part of the Fourier-Bessel Particle-In-Cell code (FB-PIC)
 It defines the structure and methods associated with the fields.
 """
+import warnings
 import numpy as np
 from scipy.constants import c, mu_0, epsilon_0
 from .numba_methods import numba_push_eb_standard, numba_push_eb_comoving, \
@@ -116,8 +117,9 @@ class Fields(object) :
         # Define wether or not to use the GPU
         self.use_cuda = use_cuda
         if (self.use_cuda==True) and (cuda_installed==False) :
-            print('*** Cuda not available for the fields.')
-            print('*** Performing the field operations on the CPU.')
+            warnings.warn(
+                'Cuda not available for the fields.\n'
+                'Performing the field operations on the CPU.' )
             self.use_cuda = False
 
         # Infer the values of the z and kz grid

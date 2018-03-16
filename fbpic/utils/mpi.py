@@ -21,9 +21,12 @@ try:
 
 except ImportError:
     # If MPI is not installed, define dummy replacements
-    print("*** MPI is not properly installed.")
-    print("*** In order to diagnose the problem, type:")
-    print("*** `mpirun -np 2 python -c `from mpi4py.MPI import COMM_WORLD`")
+    import warnings
+    warnings.warn(
+        'MPI is not properly installed.\n'
+        'Simulations without domain decomposition will still run properly.\n'
+        'In order to diagnose the problem, type:\n'
+        'mpirun -np 2 python -c "from mpi4py.MPI import COMM_WORLD"')
 
     class DummyCommunicator(object):
         """Dummy replacement for COMM_WORLD when mpi4py is not installed."""
