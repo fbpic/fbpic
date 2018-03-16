@@ -223,9 +223,9 @@ def load_fields( grid, fieldtype, coord, ts, iteration ):
     # Get the new positions of the bounds of the simulation
     # (and check that the box keeps the same length)
     length_old = grid.zmax - grid.zmin
-    dz = length_old/grid.Nz
-    grid.zmin = info.zmin
-    grid.zmax = info.zmax+dz
+    dz = info.dz
+    grid.zmin = info.zmin - 0.5*dz
+    grid.zmax = info.zmax + 0.5*dz
     length_new = grid.zmax - grid.zmin
     assert np.allclose( length_old, length_new )
 
