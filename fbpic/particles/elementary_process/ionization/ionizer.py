@@ -63,8 +63,7 @@ class Ionizer(object):
       whenever further ionization happens, and is passed to the deposition
       kernel as the effective weight of the particles)
     """
-    def __init__( self, element, ionizable_species, target_species,
-                    level_start, full_initialization=True ):
+    def __init__(self, element, ionizable_species, target_species, level_start):
         """
         Initialize an Ionizer instance
 
@@ -86,11 +85,6 @@ class Ionizer(object):
         level_start: int
             The ionization level at which the macroparticles are initially
             (e.g. 0 for initially neutral atoms)
-
-        full_initialization: bool
-            If True: initialize the parameters needed for the calculation
-            of the ADK ionization rate. This is not needed when adding
-            new particles to the same species (e.g. with the moving window).
         """
         # Register a few parameters
         self.target_species = target_species
@@ -100,8 +94,7 @@ class Ionizer(object):
         self.batch_size = 10
 
         # Initialize ionization-relevant meta-data
-        if full_initialization:
-            self.initialize_ADK_parameters( element, ionizable_species.dt )
+        self.initialize_ADK_parameters( element, ionizable_species.dt )
 
         # Initialize the required arrays
         Ntot = ionizable_species.Ntot

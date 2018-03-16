@@ -245,9 +245,6 @@ class Simulation(object):
                               p_zmin=p_zmin, p_zmax=p_zmax,
                               p_rmin=p_rmin, p_rmax=p_rmax )
 
-        # Register the number of particles per cell along z, and dt
-        # (Necessary for the moving window)
-        self.p_nz = p_nz
         # Register the time and the iteration
         self.time = 0.
         self.iteration = 0
@@ -348,15 +345,11 @@ class Simulation(object):
             if self.iteration % self.comm.exchange_period == 0 or i_step == 0:
                 # Particle exchange includes MPI exchange of particles, removal
                 # of out-of-box particles and (if there is a moving window)
-                # injection of new particles by the moving window.
+                # continuous injection of new particles by the moving window.
                 # (In the case of single-proc periodic simulations, particles
                 # are shifted by one box length, so they remain inside the box)
                 for species in self.ptcl:
                     self.comm.exchange_particles(species, fld, self.time)
-                # Set again the number of cells to be injected to 0
-                # (This number is incremented when `move_grids` is called)
-                if self.comm.moving_win is not None:
-                    self.comm.moving_win.nz_inject = 0
 
                 # Reproject the charge on the interpolation grid
                 # (Since particles have been removed / added to the simulation;
@@ -451,7 +444,7 @@ class Simulation(object):
             if self.comm.moving_win is not None:
                 # Shift the fields is spectral space and update positions of
                 # the interpolation grids
-                self.comm.move_grids(fld, dt, self.time)
+                self.comm.move_grids(fld, ptcl, dt, self.time)
 
             # Get the MPI-exchanged and damped E and B field in both
             # spectral space and interpolation space
@@ -780,7 +773,7 @@ class Simulation(object):
         """
         # Attach the moving window to the boundary communicator
         self.comm.moving_win = MovingWindow( self.fld.interp, self.comm,
-            self.dt, self.ptcl, v, self.p_nz, self.time,
+            self.dt, self.ptcl, v, self.time,
             ux_m, uy_m, uz_m, ux_th, uy_th, uz_th, gamma_boost )
 
 def adapt_to_grid( x, p_xmin, p_xmax, p_nx, ncells_empty=0 ):

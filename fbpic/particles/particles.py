@@ -12,10 +12,9 @@ from scipy.constants import e
 from .tracking import ParticleTracker
 from .elementary_process.ionization import Ionizer
 from .elementary_process.compton import ComptonScatterer
-from .injection import BallisticBeforePlane
+from .injection import BallisticBeforePlane, ContinuousInjector, \
+                        generate_evenly_spaced
 
-# Load the utility methods
-from .utilities.utility_methods import unalign_angles
 # Load the numba methods
 from .push.numba_methods import push_p_numba, push_p_ioniz_numba, \
                                 push_p_after_plane_numba, push_x_numba
@@ -68,7 +67,7 @@ class Particles(object) :
                     ux_th=0., uy_th=0., uz_th=0.,
                     dens_func=None, continuous_injection=True,
                     grid_shape=None, particle_shape='linear',
-                    use_cuda=False ) :
+                    use_cuda=False ):
         """
         Initialize a uniform set of particles
 
@@ -132,9 +131,6 @@ class Particles(object) :
         use_cuda : bool, optional
             Wether to use the GPU or not.
         """
-        # Register the timestep
-        self.dt = dt
-
         # Define whether or not to use the GPU
         self.use_cuda = use_cuda
         if (self.use_cuda==True) and (cuda_installed==False) :
@@ -143,79 +139,27 @@ class Particles(object) :
                 'Performing the particle operations on the CPU.')
             self.use_cuda = False
 
-        # Generate the particles and eliminate the ones that have zero weight ;
-        # infer the number of particles Ntot
-        if Npz*Npr*Nptheta > 0:
-            # Get the 1d arrays of evenly-spaced positions for the particles
-            dz = (zmax-zmin)*1./Npz
-            z_reg =  zmin + dz*( np.arange(Npz) + 0.5 )
-            dr = (rmax-rmin)*1./Npr
-            r_reg =  rmin + dr*( np.arange(Npr) + 0.5 )
-            dtheta = 2*np.pi/Nptheta
-            theta_reg = dtheta * np.arange(Nptheta)
-
-            # Get the corresponding particles positions
-            # (copy=True is important here, since it allows to
-            # change the angles individually)
-            zp, rp, thetap = np.meshgrid( z_reg, r_reg, theta_reg,
-                                        copy=True, indexing='ij' )
-            # Prevent the particles from being aligned along any direction
-            unalign_angles( thetap, Npz, Npr, method='random' )
-            # Flatten them (This performs a memory copy)
-            r = rp.flatten()
-            x = r * np.cos( thetap.flatten() )
-            y = r * np.sin( thetap.flatten() )
-            z = zp.flatten()
-            # Get the weights (i.e. charge of each macroparticle), which
-            # are equal to the density times the volume r d\theta dr dz
-            w = n * r * dtheta*dr*dz
-            # Modulate it by the density profile
-            if dens_func is not None :
-                w *= dens_func( z, r )
-
-            # Select the particles that have a positive weight
-            selected = (w > 0)
-            Ntot = int(selected.sum())
-            self.x = x[ selected ]
-            self.y = y[ selected ]
-            self.z = z[ selected ]
-            self.w = w[ selected ]
-            if np.any(w < 0):
-                warnings.warn(
-                'The specified particle density returned negative densities.\n'
-                'No particles were generated in areas of negative density.\n'
-                'Please check the validity of the `dens_func`.')
-
-        else:
-            # No particles are initialized ; the arrays are still created
-            Ntot = 0
-            self.x = np.empty( 0 )
-            self.y = np.empty( 0 )
-            self.z = np.empty( 0 )
-            self.w = np.empty( 0 )
+        # Generate evenly-spaced particles
+        Ntot, x, y, z, ux, uy, uz, inv_gamma, w = generate_evenly_spaced(
+            Npz, zmin, zmax, Npr, rmin, rmax, Nptheta, n, dens_func,
+            ux_m, uy_m, uz_m, ux_th, uy_th, uz_th )
 
         # Register the properties of the particles
         # (Necessary for the pusher, and when adding more particles later, )
         self.Ntot = Ntot
         self.q = q
         self.m = m
-        self.n = n
-        self.rmin = rmin
-        self.rmax = rmax
-        self.Npr = Npr
-        self.Nptheta = Nptheta
-        self.dens_func = dens_func
-        self.continuous_injection = continuous_injection
-        # The particle injector stores information that is useful in order
-        # to continuously inject particles during the simulation
-        self.injector = None
+        self.dt = dt
 
-        # Initialize the momenta
-        self.uz = uz_m * np.ones(Ntot) + uz_th * np.random.normal(size=Ntot)
-        self.ux = ux_m * np.ones(Ntot) + ux_th * np.random.normal(size=Ntot)
-        self.uy = uy_m * np.ones(Ntot) + uy_th * np.random.normal(size=Ntot)
-        self.inv_gamma = 1./np.sqrt(
-            1 + self.ux**2 + self.uy**2 + self.uz**2 )
+        # Register the particle arrarys
+        self.x = x
+        self.y = y
+        self.z = z
+        self.ux = ux
+        self.uy = uy
+        self.uz = uz
+        self.inv_gamma = inv_gamma
+        self.w = w
 
         # Initialize the fields array (at the positions of the particles)
         self.Ez = np.zeros( Ntot )
@@ -224,6 +168,18 @@ class Particles(object) :
         self.Bz = np.zeros( Ntot )
         self.Bx = np.zeros( Ntot )
         self.By = np.zeros( Ntot )
+
+        # The particle injector stores information that is useful in order
+        # continuously inject particles in the simulation, with moving window
+        self.continuous_injection = continuous_injection
+        if continuous_injection:
+            self.injector = ContinuousInjector( Npz, zmin, zmax,
+                                                Npr, rmin, rmax,
+                                                Nptheta, n, dens_func,
+                                                ux_m, uy_m, uz_m,
+                                                ux_th, uy_th, uz_th )
+        else:
+            self.injector = None
 
         # By default, there is no particle tracking (see method track)
         self.tracker = None
@@ -343,6 +299,46 @@ class Particles(object) :
             if self.ionizer is not None:
                 self.ionizer.receive_from_gpu()
 
+    def generate_continuously_injected_particles( self, time ):
+        """
+        TODO
+
+        Mention that the continuous injector keeps track of injected positions
+        """
+        # This function should only be called if continuous injection is activated
+        assert self.continuous_injection == True
+
+        # Have the continuous injector generate the new particles
+        Ntot, x, y, z, ux, uy, uz, inv_gamma, w = \
+                            self.injector.generate_particles(time)
+
+        # Convert them to a particle buffer
+        # - Float buffer
+        float_buffer = np.empty((self.n_float_quantities,Ntot),dtype=np.float64)
+        float_buffer[0,:] = x
+        float_buffer[1,:] = y
+        float_buffer[2,:] = z
+        float_buffer[3,:] = ux
+        float_buffer[4,:] = uy
+        float_buffer[5,:] = uz
+        float_buffer[6,:] = inv_gamma
+        float_buffer[7,:] = w
+        if self.ionizer is not None:
+            # All new particles start at the default ionization level
+            float_buffer[8,:] = w * self.ionizer.level_start
+        # - Integer buffer
+        uint_buffer = np.empty((self.n_integer_quantities,Ntot),dtype=np.uint64)
+        i_int = 0
+        if self.tracker is not None:
+            uint_buffer[i_int,:] = self.tracker.generate_new_ids( Ntot )
+            i_int += 1
+        if self.ionizer is not None:
+            # All new particles start at the default ionization level
+            uint_buffer[i_int,:] = self.ionizer.level_start
+
+        return( float_buffer, uint_buffer )
+
+
     def track( self, comm ):
         """
         Activate particle tracking for the current species
@@ -409,8 +405,7 @@ class Particles(object) :
             ratio_w_electron_photon, boost )
 
 
-    def make_ionizable( self, element, target_species,
-                        level_start=0, full_initialization=True ):
+    def make_ionizable( self, element, target_species, level_start=0):
         """
         Make this species ionizable
 
@@ -431,15 +426,9 @@ class Particles(object) :
         level_start: int
             The ionization level at which the macroparticles are initially
             (e.g. 0 for initially neutral atoms)
-
-        full_initialization: bool
-            If True: initialize the parameters needed for the calculation
-            of the ADK ionization rate. This is not needed when adding
-            new particles to the same species (e.g. with the moving window).
         """
         # Initialize the ionizer module
-        self.ionizer = Ionizer( element, self, target_species,
-                                level_start, full_initialization )
+        self.ionizer = Ionizer( element, self, target_species, level_start )
         # Set charge to the elementary charge e (assumed by deposition kernel,
         # when using self.ionizer.w_times_level as the effective weight)
         self.q = e

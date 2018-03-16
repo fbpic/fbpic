@@ -5,10 +5,6 @@
 This file is part of the Fourier-Bessel Particle-In-Cell code (FB-PIC)
 It defines the structure necessary to implement the moving window.
 """
-import numpy as np
-from scipy.constants import c
-from fbpic.particles import Particles
-from fbpic.lpa_utils.boosted_frame import BoostConverter
 from fbpic.utils.threading import njit_parallel, prange
 # Check if CUDA is available, then import CUDA functions
 from fbpic.utils.cuda import cuda_installed
@@ -51,17 +47,14 @@ class MovingWindow(object):
             The time (in the simulation) at which the moving
             window was initialized
 
-        ux_m, uy_m, uz_m: floats (dimensionless)
-           Normalized mean momenta of the injected particles in each direction
+        ux_m, uy_m, uz_m: None
+            Unused ; kept for backward compatibility
 
-        ux_th, uy_th, uz_th: floats (dimensionless)
-           Normalized thermal momenta in each direction
+        ux_th, uy_th, uz_th: None
+            Unused ; kept for backward compatibility
 
-        gamma_boost : float, optional
-            When initializing the laser in a boosted frame, set the
-            value of `gamma_boost` to the corresponding Lorentz factor.
-            (uz_m is to be given in the lab frame ; for the moment, this
-            will not work if any of ux_th, uy_th, uz_th, ux_m, uy_m is nonzero)
+        gamma_boost : None
+            Unused ; kept for backward compatibility
         """
         # Check that the boundaries are open
         if ((comm.rank == comm.size-1) and (comm.right_proc is not None)) \
@@ -70,21 +63,10 @@ class MovingWindow(object):
                     'the boundaries are periodic.\n Please select open '
                     'boundaries when initializing the Simulation object.')
 
-        # Momenta parameters
-        self.ux_m = ux_m
-        self.uy_m = uy_m
-        self.uz_m = uz_m
-        self.ux_th = ux_th
-        self.uy_th = uy_th
-        self.uz_th = uz_th
-
-        # When running the simulation in boosted frame, convert the arguments
-        if gamma_boost is not None:
-            boost = BoostConverter( gamma_boost )
-            self.uz_m, = boost.longitudinal_momentum([ self.uz_m ])
-
-        # Attach moving window speed and period
+        # Attach moving window speed
         self.v = v
+        # Attach time of last move
+        self.t_last_move = time - dt
 
         # Get the positions of the global physical domain
         zmin_global_domain, zmax_global_domain = comm.get_zmin_zmax(
@@ -95,52 +77,50 @@ class MovingWindow(object):
         if comm.rank == 0:
             self.zmin = zmin_global_domain
 
-        # Attach injection position and speed (only for the last proc)
+        # Attach injection position for each species
         if comm.rank == comm.size-1:
-            self.v_end_plasma = \
-                c * self.uz_m / np.sqrt(1 + ux_m**2 + uy_m**2 + self.uz_m**2)
-            # Initialize plasma *ahead* of the right *physical* boundary of
-            # the box so, after `exchange_period` iterations
-            # (without adding new plasma), there will still be plasma
-            # inside the physical domain. ( +3 takes into account that 3 more
-            # cells need to be filled w.r.t the left edge of the physical box
-            # such that the last cell inside the box is always correct for
-            # 1st and 3rd order shape factor particles after the moving window
-            # shifted by exchange_period cells. )
-            self.z_inject = zmax_global_domain + 3*comm.dz + \
-                comm.exchange_period * (v-self.v_end_plasma) * dt
-            # Try to detect the position of the end of the plasma:
-            # Find the maximal position of the particles which are
-            # continously injected.
-            self.z_end_plasma = None
             for species in ptcl:
-                if species.continuous_injection and species.Ntot != 0:
-                    # Add half of the spacing between particles (the injection
-                    # function itself will add a half-spacing again)
-                    self.z_end_plasma = species.z.max() + 0.5*comm.dz/p_nz
-                    break
-            # Default value in the absence of continuously-injected particles
-            if self.z_end_plasma is None:
-                self.z_end_plasma = zmax_global_domain
-            self.nz_inject = 0
-            self.p_nz = p_nz
+                if species.continuous_injection:
+                    # TODO: Use dedicated methods of the injector here
 
-        # Attach time of last move
-        self.t_last_move = time - dt
+                    # Initialize plasma *ahead* of the right *physical* boundary of
+                    # the box so, after `exchange_period` iterations
+                    # (without adding new plasma), there will still be plasma
+                    # inside the physical domain. ( +3 takes into account that 3 more
+                    # cells need to be filled w.r.t the left edge of the physical box
+                    # such that the last cell inside the box is always correct for
+                    # 1st and 3rd order shape factor particles after the moving window
+                    # shifted by exchange_period cells. )
+                    species.injector.z_inject = zmax_global_domain + 3*comm.dz + \
+                        comm.exchange_period*(v-species.injector.v_end_plasma)*dt
+                    species.injector.nz_inject = 0
+                    # Try to detect the position of the end of the plasma:
+                    # Find the maximal position of the particles which are
+                    # continously injected.
+                    if species.Ntot != 0:
+                        # Add half of the spacing between particles (the
+                        # injection function itself will add a half-spacing again)
+                        species.injector.z_end_plasma = species.z.max() + 0.5*comm.dz/p_nz
+                    else:
+                        # Default value for empty species
+                        species.injector.z_end_plasma = zmax_global_domain
 
-    def move_grids(self, fld, comm, time):
+
+    def move_grids(self, fld, ptcl, comm, time):
         """
         Calculate by how many cells the moving window should be moved.
         If this is non-zero, shift the fields on the interpolation grid,
-        and add new particles.
-
-        NB: the spectral grid is not modified, as it is automatically
-        updated after damping the fields (see main.py)
+        and increment the positions between which the continuously-injected
+        particles will be generated.
 
         Parameters
         ----------
         fld: a Fields object
             Contains the fields data of the simulation
+
+        ptcl: a list of Particles object
+            This is passed in order to increment the positions between
+            which the continuously-injection particles will be generated
 
         comm: an fbpic BoundaryCommunicator object
             Contains the information on the MPI decomposition
@@ -188,105 +168,16 @@ class MovingWindow(object):
         # (The actual creation of particles is done when the routine
         # exchange_particles of boundary_communicator.py is called)
         if comm.rank == comm.size-1:
-            # Move the injection position
-            self.z_inject += self.v * (time - self.t_last_move)
-            # Take into account the motion of the end of the plasma
-            self.z_end_plasma += self.v_end_plasma * (time - self.t_last_move)
-            # Increment the number of particle cells to add
-            nz_new = int( (self.z_inject - self.z_end_plasma)/dz )
-            self.nz_inject += nz_new
-            # Increment the virtual position of the end of the plasma
-            # (When `generate_particles` is called, then the plasma
-            # is injected between z_end_plasma - nz_inject*dz and z_end_plasma,
-            # and afterwards nz_inject is set to 0.)
-            self.z_end_plasma += nz_new*dz
+            for species in ptcl:
+                if species.continuous_injection:
+                    # Increment the positions for the generation of particles
+                    # (Particles are generated when `generate_particles` is called)
+                    species.injector.increment_injection_positions(
+                            self.v, time-self.t_last_move )
 
         # Change the time of the last move
         self.t_last_move = time
 
-    def generate_particles( self, species, dz, time ) :
-        """
-        Generate new particles at the right end of the plasma
-        (i.e. between z_end_plasma - nz_inject*dz and z_end_plasma)
-
-        Return them in the form of a particle buffer of shape (8, Nptcl)
-
-        Parameters
-        ----------
-        species: a Particles object
-            Contains data about the existing particles
-
-        dz: float (meters)
-            The grid spacing along see on the grid
-
-        time: float (seconds)
-            The global time of the simulation
-            (Needed in order to infer how much the plasma has moved)
-
-        Returns
-        -------
-        - float_buffer: An array of floats of shape (n_float, Nptcl)
-            that contain the float properties of the particles
-        - uint_buffer: An array of uints of shape (n_int, Nptcl)
-            that contain the integer properties of the particles (e.g. id)
-        """
-        # Shortcut for the number of integer quantities
-        n_int = species.n_integer_quantities
-        n_float = species.n_float_quantities
-
-        # Create new particle cells
-        if (self.nz_inject > 0) and (species.continuous_injection == True):
-            # Create a temporary density function that takes into
-            # account the fact that the plasma has moved
-            if species.dens_func is not None:
-                def dens_func( z, r ):
-                    return( species.dens_func( z-self.v_end_plasma*time, r ) )
-            else:
-                dens_func = None
-            # Create the particles that will be added
-            zmax = self.z_end_plasma
-            zmin = self.z_end_plasma - self.nz_inject*dz
-            Npz = self.nz_inject * self.p_nz
-            new_ptcl = Particles( species.q, species.m, species.n,
-                Npz, zmin, zmax, species.Npr, species.rmin, species.rmax,
-                species.Nptheta, species.dt, dens_func=dens_func,
-                ux_m=self.ux_m, uy_m=self.uy_m, uz_m=self.uz_m,
-                ux_th=self.ux_th, uy_th=self.uy_th, uz_th=self.uz_th)
-
-            # Initialize ionization-relevant arrays if species is ionizable
-            if species.ionizer is not None:
-                new_ptcl.make_ionizable( element=species.ionizer.element,
-                    target_species=species.ionizer.target_species,
-                    level_start=species.ionizer.level_start,
-                    full_initialization=False )
-            # Convert them to a particle buffer
-            # - Float buffer
-            float_buffer = np.empty( (n_float, new_ptcl.Ntot), dtype=np.float64 )
-            float_buffer[0,:] = new_ptcl.x
-            float_buffer[1,:] = new_ptcl.y
-            float_buffer[2,:] = new_ptcl.z
-            float_buffer[3,:] = new_ptcl.ux
-            float_buffer[4,:] = new_ptcl.uy
-            float_buffer[5,:] = new_ptcl.uz
-            float_buffer[6,:] = new_ptcl.inv_gamma
-            float_buffer[7,:] = new_ptcl.w
-            if species.ionizer is not None:
-                float_buffer[8,:] = new_ptcl.ionizer.w_times_level
-            # - Integer buffer
-            uint_buffer = np.empty( (n_int, new_ptcl.Ntot), dtype=np.uint64 )
-            i_int = 0
-            if species.tracker is not None:
-                uint_buffer[i_int,:] = \
-                    species.tracker.generate_new_ids(new_ptcl.Ntot)
-                i_int += 1
-            if species.ionizer is not None:
-                uint_buffer[i_int,:] = new_ptcl.ionizer.ionization_level
-        else:
-            # No new particles: initialize empty arrays
-            float_buffer = np.empty( (n_float, 0), dtype=np.float64 )
-            uint_buffer = np.empty( (n_int, 0), dtype=np.uint64 )
-
-        return( float_buffer, uint_buffer )
 
     def shift_spect_grid( self, grid, n_move,
                           shift_rho=True, shift_currents=True ):
