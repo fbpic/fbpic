@@ -169,13 +169,19 @@ class Particles(object) :
             if dens_func is not None :
                 w *= dens_func( z, r )
 
-            # Select the particles that have a non-zero weight
-            selected = (w != 0)
+            # Select the particles that have a positive weight
+            selected = (w > 0)
             Ntot = int(selected.sum())
             self.x = x[ selected ]
             self.y = y[ selected ]
             self.z = z[ selected ]
             self.w = w[ selected ]
+            if np.any(w < 0):
+                warnings.warn(
+                'The specified particle density returned negative densities.\n'
+                'No particles were generated in areas of negative density.\n'
+                'Please check the validity of the `dens_func`.')
+
         else:
             # No particles are initialized ; the arrays are still created
             Ntot = 0
