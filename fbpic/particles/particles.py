@@ -11,10 +11,13 @@ from scipy.constants import e
 from .tracking import ParticleTracker
 from .elementary_process.ionization import Ionizer
 from .elementary_process.compton import ComptonScatterer
+from .injection import BallisticBeforePlane
+
 # Load the utility methods
 from .utilities.utility_methods import unalign_angles
 # Load the numba methods
-from .push.numba_methods import push_p_numba, push_p_ioniz_numba, push_x_numba
+from .push.numba_methods import push_p_numba, push_p_ioniz_numba, \
+                                push_p_after_plane_numba, push_x_numba
 from .gathering.threading_methods import gather_field_numba_linear, \
         gather_field_numba_cubic
 from .gathering.threading_methods_one_mode import erase_eb_numba, \
@@ -30,7 +33,8 @@ from fbpic.utils.cuda import cuda_installed
 if cuda_installed:
     # Load the CUDA methods
     from fbpic.utils.cuda import cuda, cuda_tpb_bpg_1d
-    from .push.cuda_methods import push_p_gpu, push_p_ioniz_gpu, push_x_gpu
+    from .push.cuda_methods import push_p_gpu, push_p_ioniz_gpu, \
+                                push_p_after_plane_gpu, push_x_gpu
     from .deposition.cuda_methods import deposit_rho_gpu_linear, \
         deposit_J_gpu_linear, deposit_rho_gpu_cubic, deposit_J_gpu_cubic
     from .deposition.cuda_methods_one_mode import \
@@ -194,6 +198,9 @@ class Particles(object) :
         self.Nptheta = Nptheta
         self.dens_func = dens_func
         self.continuous_injection = continuous_injection
+        # The particle injector stores information that is useful in order
+        # to continuously inject particles during the simulation
+        self.injector = None
 
         # Initialize the momenta
         self.uz = uz_m * np.ones(Ntot) + uz_th * np.random.normal(size=Ntot)
@@ -494,7 +501,7 @@ class Particles(object) :
             # Assign the old particle data array to the particle buffer
             self.int_sorting_buffer = particle_array
 
-    def push_p( self ) :
+    def push_p( self, t ) :
         """
         Advance the particles' momenta over one timestep, using the Vay pusher
         Reference : Vay, Physics of Plasmas 15, 056701 (2008)
@@ -502,23 +509,32 @@ class Particles(object) :
         This assumes that the momenta (ux, uy, uz) are initially one
         half-timestep *behind* the positions (x, y, z), and it brings
         them one half-timestep *ahead* of the positions.
+
+        Parameters
+        ----------
+        t: float
+            The current simulation time
+            (Useful for particles that are ballistic before a given plane)
         """
         # Skip push for neutral particles (e.g. photons)
         if self.q == 0:
             return
+        # For particles that are ballistic before a plane,
+        # get the current position of the plane
+        if isinstance( self.injector, BallisticBeforePlane ):
+            z_plane = self.injector.get_current_plane_position( t )
+            if self.ionizer is not None:
+                raise NotImplementedError('Ballistic injection before a plane '
+                    'is not implemented for ionizable particles.')
+        else:
+            z_plane = None
 
         # GPU (CUDA) version
         if self.use_cuda:
             # Get the threads per block and the blocks per grid
             dim_grid_1d, dim_block_1d = cuda_tpb_bpg_1d( self.Ntot )
             # Call the CUDA Kernel for the particle push
-            if self.ionizer is None:
-                push_p_gpu[dim_grid_1d, dim_block_1d](
-                    self.ux, self.uy, self.uz, self.inv_gamma,
-                    self.Ex, self.Ey, self.Ez,
-                    self.Bx, self.By, self.Bz,
-                    self.q, self.m, self.Ntot, self.dt )
-            else:
+            if self.ionizer is not None:
                 # Ionizable species can have a charge that depends on the
                 # macroparticle, and hence require a different function
                 push_p_ioniz_gpu[dim_grid_1d, dim_block_1d](
@@ -526,18 +542,46 @@ class Particles(object) :
                     self.Ex, self.Ey, self.Ez,
                     self.Bx, self.By, self.Bz,
                     self.m, self.Ntot, self.dt, self.ionizer.ionization_level )
-        # CPU version
-        else:
-            if self.ionizer is None:
-                push_p_numba(self.ux, self.uy, self.uz, self.inv_gamma,
-                    self.Ex, self.Ey, self.Ez, self.Bx, self.By, self.Bz,
+            elif z_plane is not None:
+                # Particles that are ballistic before a plane also
+                # require a different pusher
+                push_p_after_plane_gpu[dim_grid_1d, dim_block_1d](
+                    self.z, z_plane,
+                    self.ux, self.uy, self.uz, self.inv_gamma,
+                    self.Ex, self.Ey, self.Ez,
+                    self.Bx, self.By, self.Bz,
                     self.q, self.m, self.Ntot, self.dt )
             else:
+                # Standard pusher
+                push_p_gpu[dim_grid_1d, dim_block_1d](
+                    self.ux, self.uy, self.uz, self.inv_gamma,
+                    self.Ex, self.Ey, self.Ez,
+                    self.Bx, self.By, self.Bz,
+                    self.q, self.m, self.Ntot, self.dt )
+
+        # CPU version
+        else:
+            if self.ionizer is not None:
                 # Ionizable species can have a charge that depends on the
                 # macroparticle, and hence require a different function
                 push_p_ioniz_numba(self.ux, self.uy, self.uz, self.inv_gamma,
                     self.Ex, self.Ey, self.Ez, self.Bx, self.By, self.Bz,
                     self.m, self.Ntot, self.dt, self.ionizer.ionization_level )
+            elif z_plane is not None:
+                # Particles that are ballistic before a plane also
+                # require a different pusher
+                push_p_after_plane_numba(
+                    self.z, z_plane,
+                    self.ux, self.uy, self.uz, self.inv_gamma,
+                    self.Ex, self.Ey, self.Ez,
+                    self.Bx, self.By, self.Bz,
+                    self.q, self.m, self.Ntot, self.dt )
+            else:
+                # Standard pusher
+                push_p_numba(self.ux, self.uy, self.uz, self.inv_gamma,
+                    self.Ex, self.Ey, self.Ez, self.Bx, self.By, self.Bz,
+                    self.q, self.m, self.Ntot, self.dt )
+
 
     def halfpush_x( self ) :
         """

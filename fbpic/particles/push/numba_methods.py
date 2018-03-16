@@ -49,6 +49,26 @@ def push_p_numba( ux, uy, uz, inv_gamma,
     return ux, uy, uz, inv_gamma
 
 @njit_parallel
+def push_p_after_plane_numba( z, z_plane, ux, uy, uz, inv_gamma,
+                Ex, Ey, Ez, Bx, By, Bz, q, m, Ntot, dt ) :
+    """
+    Advance the particles' momenta, using numba.
+    Only the particles that are located beyond the plane z=z_plane 
+    have their momentum modified ; the others particles move ballistically.
+    """
+    # Set a few constants
+    econst = q*dt/(m*c)
+    bconst = 0.5*q*dt/m
+
+    # Loop over the particles (in parallel if threading is installed)
+    for ip in prange(Ntot) :
+        if z[ip] > z_plane:
+            ux[ip], uy[ip], uz[ip], inv_gamma[ip] = push_p_vay(
+                ux[ip], uy[ip], uz[ip], inv_gamma[ip],
+                Ex[ip], Ey[ip], Ez[ip], Bx[ip], By[ip], Bz[ip], econst, bconst)
+
+
+@njit_parallel
 def push_p_ioniz_numba( ux, uy, uz, inv_gamma,
                 Ex, Ey, Ez, Bx, By, Bz, m, Ntot, dt, ionization_level ) :
     """

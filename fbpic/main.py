@@ -417,7 +417,7 @@ class Simulation(object):
             # Push the particles' positions and velocities to t = (n+1/2) dt
             if move_momenta:
                 for species in ptcl:
-                    species.push_p()
+                    species.push_p( self.time + 0.5*self.dt )
             if move_positions:
                 for species in ptcl:
                     species.halfpush_x()
