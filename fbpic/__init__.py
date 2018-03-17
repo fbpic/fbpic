@@ -11,5 +11,5 @@ See the fbpic.main.Simulation class to set up a simulation.
 import warnings
 def modified_formatting(message, category, filename, lineno, line=None):
     """Format a warning so that the code line `line` is not shown`."""
-    return('\nWarning: %s:%s:\n%s\n' %(filename, lineno, message))
+    return('\n%s: %s:%s:\n%s\n'%(category.__name__, filename, lineno, message))
 warnings.formatwarning = modified_formatting
