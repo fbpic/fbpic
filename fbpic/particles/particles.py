@@ -5,6 +5,7 @@
 This file is part of the Fourier-Bessel Particle-In-Cell code (FB-PIC)
 It defines the structure and methods associated with the particles.
 """
+import warnings
 import numpy as np
 import numba
 from scipy.constants import e
@@ -137,8 +138,9 @@ class Particles(object) :
         # Define whether or not to use the GPU
         self.use_cuda = use_cuda
         if (self.use_cuda==True) and (cuda_installed==False) :
-            print('*** Cuda not available for the particles.')
-            print('*** Performing the particle operations on the CPU.')
+            warnings.warn(
+                'Cuda not available for the particles.\n'
+                'Performing the particle operations on the CPU.')
             self.use_cuda = False
 
         # Generate the particles and eliminate the ones that have zero weight ;
@@ -171,13 +173,19 @@ class Particles(object) :
             if dens_func is not None :
                 w *= dens_func( z, r )
 
-            # Select the particles that have a non-zero weight
-            selected = (w != 0)
+            # Select the particles that have a positive weight
+            selected = (w > 0)
             Ntot = int(selected.sum())
             self.x = x[ selected ]
             self.y = y[ selected ]
             self.z = z[ selected ]
             self.w = w[ selected ]
+            if np.any(w < 0):
+                warnings.warn(
+                'The specified particle density returned negative densities.\n'
+                'No particles were generated in areas of negative density.\n'
+                'Please check the validity of the `dens_func`.')
+
         else:
             # No particles are initialized ; the arrays are still created
             Ntot = 0

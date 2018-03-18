@@ -20,6 +20,7 @@ if cuda_installed:
     mpi_select_gpus( MPI )
 
 # Import the rest of the requirements
+import warnings
 import numba
 from scipy.constants import m_e, m_p, e, c
 from .utils.printing import ProgressBar, print_simulation_setup
@@ -200,9 +201,9 @@ class Simulation(object):
         # Check whether to use CUDA
         self.use_cuda = use_cuda
         if (self.use_cuda==True) and (cuda_installed==False):
-            # Print warning if use_cuda = True but CUDA is not available
-            print('*** Cuda not available for the simulation.')
-            print('*** Performing the simulation on CPU.')
+            warnings.warn(
+                'Cuda not available for the simulation.\n'
+                'Performing the simulation on CPU.' )
             self.use_cuda = False
         # CPU multi-threading
         self.use_threading = threading_enabled
