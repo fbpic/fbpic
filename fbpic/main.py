@@ -771,10 +771,11 @@ class Simulation(object):
             (uz_m is to be given in the lab frame ; for the moment, this
             will not work if any of ux_th, uy_th, uz_th, ux_m, uy_m is nonzero)
         """
+        # TODO: Add deprecation warnings
+
         # Attach the moving window to the boundary communicator
         self.comm.moving_win = MovingWindow( self.fld.interp, self.comm,
-            self.dt, self.ptcl, v, self.time,
-            ux_m, uy_m, uz_m, ux_th, uy_th, uz_th, gamma_boost )
+            self.dt, self.ptcl, v, self.time )
 
 def adapt_to_grid( x, p_xmin, p_xmax, p_nx, ncells_empty=0 ):
     """

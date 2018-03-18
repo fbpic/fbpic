@@ -42,18 +42,31 @@ class ContinuousInjector( object ):
         # Register variables that define the positions
         # where the plasma is injected.
         self.v_end_plasma = c * uz_m / np.sqrt(1 + ux_m**2 + uy_m**2 + uz_m**2)
-        # These variables are set by the method `finalize_initialization`
+        # These variables are set by `initialize_injection_positions`
         self.nz_inject = None
         self.z_inject = None
         self.z_end_plasma = None
 
-    def finalize_initialization(self):
+    def initialize_injection_positions( self, z_inject,
+                                        zmax_global_domain, species_z ):
         """
         TODO
+
+        Note: this function is typically called when initializing the
+        moving window.
         """
+        self.z_inject = z_inject
         self.nz_inject = 0
-        #TODO: Complete + add documentation on the meaning of z_inject
-        # z_end_plasma, etc.
+        # Try to detect the position of the end of the plasma:
+        # Find the maximal position of the continously-injected particles
+        if len( species_z ) > 0:
+            # Add half of the spacing between particles (the
+            # injection function itself will add a half-spacing again)
+            self.z_end_plasma = species_z.max() + 0.5*self.dz_particles
+        else:
+            # Default value for empty species
+            self.z_end_plasma = zmax_global_domain
+
 
     def increment_injection_positions( self, v_moving_window, duration ):
         """
@@ -91,7 +104,7 @@ class ContinuousInjector( object ):
 
         # Create new particle cells
         # Determine the positions between which new particles will be created
-        Npz = self.nz_inject * self.p_nz
+        Npz = self.nz_inject
         zmax = self.z_end_plasma
         zmin = self.z_end_plasma - self.nz_inject*self.dz_particles
         # Create the particles

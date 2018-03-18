@@ -15,9 +15,7 @@ class MovingWindow(object):
     """
     Class that contains the moving window's variables and methods
     """
-    def __init__( self, interp, comm, dt, ptcl, v, p_nz, time,
-                  ux_m=0., uy_m=0., uz_m=0., ux_th=0., uy_th=0., uz_th=0.,
-                  gamma_boost=None ) :
+    def __init__( self, interp, comm, dt, ptcl, v, time ):
         """
         Initializes a moving window object.
 
@@ -40,21 +38,9 @@ class MovingWindow(object):
         v: float (meters per seconds), optional
             The speed of the moving window
 
-        p_nz: int
-            Number of macroparticles per cell along the z direction
-
         time: float (seconds)
             The time (in the simulation) at which the moving
             window was initialized
-
-        ux_m, uy_m, uz_m: None
-            Unused ; kept for backward compatibility
-
-        ux_th, uy_th, uz_th: None
-            Unused ; kept for backward compatibility
-
-        gamma_boost : None
-            Unused ; kept for backward compatibility
         """
         # Check that the boundaries are open
         if ((comm.rank == comm.size-1) and (comm.right_proc is not None)) \
@@ -81,29 +67,21 @@ class MovingWindow(object):
         if comm.rank == comm.size-1:
             for species in ptcl:
                 if species.continuous_injection:
-                    # TODO: Use dedicated methods of the injector here
-
-                    # Initialize plasma *ahead* of the right *physical* boundary of
-                    # the box so, after `exchange_period` iterations
+                    # Initialize plasma *ahead* of the right *physical*
+                    # boundary of the box so, after `exchange_period` iterations
                     # (without adding new plasma), there will still be plasma
-                    # inside the physical domain. ( +3 takes into account that 3 more
-                    # cells need to be filled w.r.t the left edge of the physical box
-                    # such that the last cell inside the box is always correct for
-                    # 1st and 3rd order shape factor particles after the moving window
+                    # inside the physical domain. ( +3 takes into account that
+                    # 3 more cells need to be filled w.r.t the left edge of the
+                    # physical box such that the last cell inside the box is
+                    # always correct for 1st and 3rd order shape factor
+                    # particles after the moving window
                     # shifted by exchange_period cells. )
-                    species.injector.z_inject = zmax_global_domain + 3*comm.dz + \
-                        comm.exchange_period*(v-species.injector.v_end_plasma)*dt
-                    species.injector.nz_inject = 0
-                    # Try to detect the position of the end of the plasma:
-                    # Find the maximal position of the particles which are
-                    # continously injected.
-                    if species.Ntot != 0:
-                        # Add half of the spacing between particles (the
-                        # injection function itself will add a half-spacing again)
-                        species.injector.z_end_plasma = species.z.max() + 0.5*comm.dz/p_nz
-                    else:
-                        # Default value for empty species
-                        species.injector.z_end_plasma = zmax_global_domain
+                    z_inject = zmax_global_domain + 3*comm.dz + \
+                      comm.exchange_period*(v-species.injector.v_end_plasma)*dt
+                    # Pass the injection position to the injector and
+                    # try to detect the end of the plasma, by passing species.z
+                    species.injector.initialize_injection_positions(
+                        z_inject, zmax_global_domain, species.z )
 
 
     def move_grids(self, fld, ptcl, comm, time):
