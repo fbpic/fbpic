@@ -716,6 +716,7 @@ class Simulation(object):
                                 p_zmin, p_zmax, p_nz )
             p_rmin, p_rmax, Npr = adapt_to_grid( self.fld.interp[0].r,
                                 p_rmin, p_rmax, p_nr )
+            dz_particles = self.comm.dz/p_nz
 
         else:
             # Convert arguments to acceptable arguments for `Particles`
@@ -724,6 +725,7 @@ class Simulation(object):
             p_zmin = p_zmax = p_rmin = p_rmax = 0
             Npz = Npr = p_nt = 0
             continuous_injection = False
+            dz_particles = 0.
 
         # Create the new species
         new_species = Particles( q=q, m=m, n=n, dens_func=dens_func,
@@ -732,7 +734,8 @@ class Simulation(object):
                         Nptheta=p_nt, dt=self.dt, uz_m=uz_m,
                         particle_shape=self.particle_shape,
                         use_cuda=self.use_cuda, grid_shape=self.grid_shape,
-                        continuous_injection=continuous_injection )
+                        continuous_injection=continuous_injection,
+                        dz_particles=dz_particles )
 
         # Add it to the list of species and return it to the user
         self.ptcl.append( new_species )

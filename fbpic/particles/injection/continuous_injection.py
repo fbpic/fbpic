@@ -14,8 +14,8 @@ class ContinuousInjector( object ):
     TODO
     """
 
-    def __init__(self, Npz, zmin, zmax, Npr, rmin, rmax, Nptheta, n,
-                    dens_func, ux_m, uy_m, uz_m, ux_th, uy_th, uz_th):
+    def __init__(self, Npz, zmin, zmax, dz_particles, Npr, rmin, rmax,
+                Nptheta, n, dens_func, ux_m, uy_m, uz_m, ux_th, uy_th, uz_th ):
         """
         TODO
         """
@@ -37,7 +37,10 @@ class ContinuousInjector( object ):
         if Npz != 0:
             self.dz_particles = (zmax - zmin)/Npz
         else:
-            self.dz_particles = None
+            # Fall back to the user-provided `dz_particles`.
+            # Note: this is an optional argument of `Particles` and so
+            # it is not always available.
+            self.dz_particles = dz_particles
 
         # Register variables that define the positions
         # where the plasma is injected.
@@ -66,6 +69,15 @@ class ContinuousInjector( object ):
         else:
             # Default value for empty species
             self.z_end_plasma = zmax_global_domain
+
+        # Check that the particle spacing has been properly calculated
+        if self.dz_particles is None:
+            raise ValueError(
+                'The simulation uses continuous injection of particles, \n'
+                'but was unable to calculate the spacing between particles.\n'
+                'This may be because you used the `Particles` API directly.\n'
+                'In this case, please pass the argument `dz_particles` \n'
+                'initializing the `Particles` object.')
 
 
     def increment_injection_positions( self, v_moving_window, duration ):
