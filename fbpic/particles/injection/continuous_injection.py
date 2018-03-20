@@ -11,13 +11,18 @@ from scipy.constants import c
 
 class ContinuousInjector( object ):
     """
-    TODO
+    Class that stores a number of attributes that are needed for
+    continuous injection by a moving window.
     """
 
     def __init__(self, Npz, zmin, zmax, dz_particles, Npr, rmin, rmax,
                 Nptheta, n, dens_func, ux_m, uy_m, uz_m, ux_th, uy_th, uz_th ):
         """
-        TODO
+        Initialize continuous injection
+
+        Parameters
+        ----------
+        See the docstring of the `Particles` object
         """
         # Register properties of the injected plasma
         self.Npr = Npr
@@ -50,13 +55,25 @@ class ContinuousInjector( object ):
         self.z_inject = None
         self.z_end_plasma = None
 
+
     def initialize_injection_positions( self, z_inject,
                                         zmax_global_domain, species_z ):
         """
-        TODO
+        Initialize the positions that keep track of the injection of particles.
+        This is automatically called when initializing the moving window.
 
-        Note: this function is typically called when initializing the
-        moving window.
+        Parameters
+        ----------
+        z_inject: float (in meter)
+            The initial position up to which the plasma gets injected.
+
+        zmax_global_domain: float (in meter)
+            The right edge of the physical domain
+
+        species_z: 1darray of floats (in meter)
+            The positions of the macroparticles for this species.
+            (one element per macroparticles). This is used in order to
+            find the right edge of the plasma.
         """
         self.z_inject = z_inject
         self.nz_inject = 0
@@ -82,7 +99,17 @@ class ContinuousInjector( object ):
 
     def increment_injection_positions( self, v_moving_window, duration ):
         """
-        TODO
+        Update the positions between which the new particles will be generated,
+        the next time when `generate_particles` is called.
+        This function is automatically called when the moving window moves.
+
+        Parameters
+        ----------
+        v_moving_window: float (in m/s)
+            The speed of the moving window
+
+        duration: float (in seconds)
+            The duration since the last time that the moving window moved.
         """
         # Move the injection position
         self.z_inject += v_moving_window * duration
@@ -104,7 +131,10 @@ class ContinuousInjector( object ):
         Generate new particles at the right end of the plasma
         (i.e. between z_end_plasma - nz_inject*dz and z_end_plasma)
 
-        TODO
+        Parameters
+        ----------
+        time: float (in second)
+            The current physical time of the simulation
         """
         # Create a temporary density function that takes into
         # account the fact that the plasma has moved
@@ -138,9 +168,13 @@ class ContinuousInjector( object ):
 def generate_evenly_spaced( Npz, zmin, zmax, Npr, rmin, rmax,
     Nptheta, n, dens_func, ux_m, uy_m, uz_m, ux_th, uy_th, uz_th ):
     """
-    TODO
-    """
+    Generate evenly-spaced particles, according to the density function
+    `dens_func`, and with the momenta given by the `ux/y/z` arguments.
 
+    Parameters
+    ----------
+    See the docstring of the `Particles` object
+    """
     # Generate the particles and eliminate the ones that have zero weight ;
     # infer the number of particles Ntot
     if Npz*Npr*Nptheta > 0:
