@@ -308,16 +308,18 @@ class Particles(object) :
 
     def generate_continuously_injected_particles( self, time ):
         """
-        TODO
+        Generate particles at the right end of the simulation boundary.
+        (Typically, in the presence of a moving window.)
 
-        Mention that the continuous injector keeps track of injected positions
+        Note that the `ContinuousInjector` object keeps track of the
+        positions and number of macroparticles to be injected.
         """
         # This function should only be called if continuous injection is activated
         assert self.continuous_injection == True
 
         # Have the continuous injector generate the new particles
         Ntot, x, y, z, ux, uy, uz, inv_gamma, w = \
-                            self.injector.generate_particles(time)
+                            self.injector.generate_particles( time )
 
         # Convert them to a particle buffer
         # - Float buffer
