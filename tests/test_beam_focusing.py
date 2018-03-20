@@ -126,7 +126,7 @@ def simulate_beam_focusing( z_injection_plane, write_dir ):
         z_injection_plane=z_injection_plane )
 
     # Configure the moving window
-    sim.set_moving_window( v=c, gamma_boost=gamma_boost )
+    sim.set_moving_window( v=c )
 
     # Add a field diagnostic
     sim.diags = [

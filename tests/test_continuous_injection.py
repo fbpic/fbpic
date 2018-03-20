@@ -109,7 +109,7 @@ def run_continuous_injection( gamma_boost, dens_func,
     # Set the moving window, which handles the continuous injection
     # The moving window has an arbitrary velocity (0.7*c) so as to check
     # that the injection is correct in this case also
-    sim.set_moving_window( v=c, gamma_boost=gamma_boost )
+    sim.set_moving_window( v=c )
 
     # Check that the density is correct after different timesteps
     N_step = int( Nz/N_check/2 )

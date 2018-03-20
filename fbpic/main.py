@@ -742,8 +742,8 @@ class Simulation(object):
         return new_species
 
 
-    def set_moving_window( self, v=c, ux_m=0., uy_m=0., uz_m=0.,
-                  ux_th=0., uy_th=0., uz_th=0., gamma_boost=None ):
+    def set_moving_window( self, v=c, ux_m=None, uy_m=None, uz_m=None,
+                  ux_th=None, uy_th=None, uz_th=None, gamma_boost=None ):
         """
         Initializes a moving window for the simulation.
 
@@ -752,29 +752,22 @@ class Simulation(object):
         v: float (in meters per seconds), optional
             The speed of the moving window
 
-        ux_m: float (dimensionless), optional
-           Normalized mean momenta of the injected particles along x
-        uy_m: float (dimensionless), optional
-           Normalized mean momenta of the injected particles along y
-        uz_m: float (dimensionless), optional
-           Normalized mean momenta of the injected particles along z
-
-        ux_th: float (dimensionless), optional
-           Normalized thermal momenta of the injected particles along x
-        uy_th: float (dimensionless), optional
-           Normalized thermal momenta of the injected particles along y
-        uz_th: float (dimensionless), optional
-           Normalized thermal momenta of the injected particles along z
-
+        ux_m, uy_m, uz_m: float (dimensionless), optional
+            Unused, kept for backward-compatibility
+        ux_th, uy_th, uz_th: float (dimensionless), optional
+            Unused, kept for backward-compatibility
         gamma_boost : float, optional
-            When initializing a moving window in a boosted frame, set the
-            value of `gamma_boost` to the corresponding Lorentz factor.
-            Quantities like uz_m of the injected particles will be
-            automatically Lorentz-transformed.
-            (uz_m is to be given in the lab frame ; for the moment, this
-            will not work if any of ux_th, uy_th, uz_th, ux_m, uy_m is nonzero)
+            Unused; kept for backward compatibility
         """
-        # TODO: Add deprecation warnings
+        # Raise deprecation warning
+        for arg in [ux_m, uy_m, uz_m, ux_th, uy_th, uz_th, gamma_boost ]:
+            if arg is not None:
+                warnings.warn(
+                'The arguments `u*_m`, `u*_th` and `gamma_boost` of '
+                'the method `set_moving_window` are deprecated.\n'
+                'They will not be used.\nTo suppress this message, '
+                'stop passing these arguments to `set_moving_window`',
+                DeprecationWarning)
 
         # Attach the moving window to the boundary communicator
         self.comm.moving_win = MovingWindow( self.fld.interp, self.comm,
