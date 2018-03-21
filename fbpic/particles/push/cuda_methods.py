@@ -77,16 +77,16 @@ def push_x_gpu( x, y, z, ux, uy, uz, inv_gamma, dt,
         e.g. if x_push=1., the particles are pushed forward in x
              if x_push=-1., the particles are pushed backward in x
     """
-    # Half timestep, multiplied by c
-    chdt = c*dt
+    # Timestep multiplied by c
+    cdt = c*dt
 
     i = cuda.grid(1)
     if i < x.shape[0]:
         # Particle push
         inv_g = inv_gamma[i]
-        x[i] += chdt*x_push*inv_g*ux[i]
-        y[i] += chdt*y_push*inv_g*uy[i]
-        z[i] += chdt*z_push*inv_g*uz[i]
+        x[i] += cdt*x_push*inv_g*ux[i]
+        y[i] += cdt*y_push*inv_g*uy[i]
+        z[i] += cdt*z_push*inv_g*uz[i]
 
 @cuda.jit
 def push_p_gpu( ux, uy, uz, inv_gamma,
