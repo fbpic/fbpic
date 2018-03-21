@@ -528,6 +528,11 @@ class BoundaryCommunicator(object):
                     [ interp[m].Ez for m in range(self.Nm) ],
                     method, interp[0].use_cuda, before_sending=True,
                     gpudirect=gpudirect_enabled )
+                # Synchronize GPU execution (break asynchroneous kernel
+                # execution to make sure that writing the buffer arrays
+                # completed before sendind via MPI directly)
+                if gpudirect_enabled:
+                    cuda.synchronize()
                 # Send and receive the buffers via MPI
                 self.exchange_domains(
                     vec_send_left, vec_send_right,
@@ -578,6 +583,11 @@ class BoundaryCommunicator(object):
                     [ interp[m].Bz for m in range(self.Nm) ],
                     method, interp[0].use_cuda, before_sending=True,
                     gpudirect=gpudirect_enabled )
+                # Synchronize GPU execution (break asynchroneous kernel
+                # execution to make sure that writing the buffer arrays
+                # completed before sendind via MPI directly)
+                if gpudirect_enabled:
+                    cuda.synchronize()
                 # Send and receive the buffers via MPI
                 self.exchange_domains(
                     vec_send_left, vec_send_right,
@@ -628,6 +638,11 @@ class BoundaryCommunicator(object):
                     [ interp[m].Jz for m in range(self.Nm) ],
                     method, interp[0].use_cuda, before_sending=True,
                     gpudirect=gpudirect_enabled )
+                # Synchronize GPU execution (break asynchroneous kernel
+                # execution to make sure that writing the buffer arrays
+                # completed before sendind via MPI directly)
+                if gpudirect_enabled:
+                    cuda.synchronize()
                 # Send and receive the buffers via MPI
                 self.exchange_domains(
                     vec_send_left, vec_send_right,
@@ -676,6 +691,11 @@ class BoundaryCommunicator(object):
                     [ interp[m].rho for m in range(self.Nm) ],
                     method, interp[0].use_cuda, before_sending=True,
                     gpudirect=gpudirect_enabled )
+                # Synchronize GPU execution (break asynchroneous kernel
+                # execution to make sure that writing the buffer arrays
+                # completed before sendind via MPI directly)
+                if gpudirect_enabled:
+                    cuda.synchronize()
                 # Send and receive the buffers via MPI
                 self.exchange_domains(
                     scal_send_left, scal_send_right,
