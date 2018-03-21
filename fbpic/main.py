@@ -20,6 +20,7 @@ if cuda_installed:
     mpi_select_gpus( MPI )
 
 # Import the rest of the requirements
+import warnings
 import numba
 from scipy.constants import m_e, m_p, e, c
 from .utils.printing import ProgressBar, print_simulation_setup
@@ -206,9 +207,9 @@ class Simulation(object):
         # Check whether to use CUDA
         self.use_cuda = use_cuda
         if (self.use_cuda==True) and (cuda_installed==False):
-            # Print warning if use_cuda = True but CUDA is not available
-            print('*** Cuda not available for the simulation.')
-            print('*** Performing the simulation on CPU.')
+            warnings.warn(
+                'Cuda not available for the simulation.\n'
+                'Performing the simulation on CPU.' )
             self.use_cuda = False
         # CPU multi-threading
         self.use_threading = threading_enabled
@@ -425,7 +426,7 @@ class Simulation(object):
             # Push the particles' positions and velocities to t = (n+1/2) dt
             if move_momenta:
                 for species in ptcl:
-                    species.push_p()
+                    species.push_p( self.time + 0.5*self.dt )
             if move_positions:
                 for species in ptcl:
                     species.push_x( 0.5*dt )
@@ -655,7 +656,6 @@ class Simulation(object):
         for m in range(self.fld.Nm):
             self.fld.interp[m].zmin += shift_distance
             self.fld.interp[m].zmax += shift_distance
-            self.fld.interp[m].z += shift_distance
 
 
     def set_moving_window( self, v=c, ux_m=0., uy_m=0., uz_m=0.,

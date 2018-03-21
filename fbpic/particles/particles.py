@@ -5,16 +5,20 @@
 This file is part of the Fourier-Bessel Particle-In-Cell code (FB-PIC)
 It defines the structure and methods associated with the particles.
 """
+import warnings
 import numpy as np
 import numba
 from scipy.constants import e
 from .tracking import ParticleTracker
 from .elementary_process.ionization import Ionizer
 from .elementary_process.compton import ComptonScatterer
+from .injection import BallisticBeforePlane
+
 # Load the utility methods
 from .utilities.utility_methods import unalign_angles
 # Load the numba methods
-from .push.numba_methods import push_p_numba, push_p_ioniz_numba, push_x_numba
+from .push.numba_methods import push_p_numba, push_p_ioniz_numba, \
+                                push_p_after_plane_numba, push_x_numba
 from .gathering.threading_methods import gather_field_numba_linear, \
         gather_field_numba_cubic
 from .gathering.threading_methods_one_mode import erase_eb_numba, \
@@ -30,7 +34,8 @@ from fbpic.utils.cuda import cuda_installed
 if cuda_installed:
     # Load the CUDA methods
     from fbpic.utils.cuda import cuda, cuda_tpb_bpg_1d
-    from .push.cuda_methods import push_p_gpu, push_p_ioniz_gpu, push_x_gpu
+    from .push.cuda_methods import push_p_gpu, push_p_ioniz_gpu, \
+                                push_p_after_plane_gpu, push_x_gpu
     from .deposition.cuda_methods import deposit_rho_gpu_linear, \
         deposit_J_gpu_linear, deposit_rho_gpu_cubic, deposit_J_gpu_cubic
     from .deposition.cuda_methods_one_mode import \
@@ -133,57 +138,14 @@ class Particles(object) :
         # Define whether or not to use the GPU
         self.use_cuda = use_cuda
         if (self.use_cuda==True) and (cuda_installed==False) :
-            print('*** Cuda not available for the particles.')
-            print('*** Performing the particle operations on the CPU.')
+            warnings.warn(
+                'Cuda not available for the particles.\n'
+                'Performing the particle operations on the CPU.')
             self.use_cuda = False
 
-        # Register the properties of the particles
-        # (Necessary for the pusher, and when adding more particles later, )
-        Ntot = Npz*Npr*Nptheta
-        self.Ntot = Ntot
-        self.q = q
-        self.m = m
-        self.n = n
-        self.rmin = rmin
-        self.rmax = rmax
-        self.Npr = Npr
-        self.Nptheta = Nptheta
-        self.dens_func = dens_func
-        self.continuous_injection = continuous_injection
-
-        # Initialize the momenta
-        self.uz = uz_m * np.ones(Ntot) + uz_th * np.random.normal(size=Ntot)
-        self.ux = ux_m * np.ones(Ntot) + ux_th * np.random.normal(size=Ntot)
-        self.uy = uy_m * np.ones(Ntot) + uy_th * np.random.normal(size=Ntot)
-        self.inv_gamma = 1./np.sqrt(
-            1 + self.ux**2 + self.uy**2 + self.uz**2 )
-
-        # Initilialize the fields array (at the positions of the particles)
-        self.Ez = np.zeros( Ntot )
-        self.Ex = np.zeros( Ntot )
-        self.Ey = np.zeros( Ntot )
-        self.Bz = np.zeros( Ntot )
-        self.Bx = np.zeros( Ntot )
-        self.By = np.zeros( Ntot )
-
-        # Allocate the positions and weights of the particles,
-        # and fill them with values if the array is not empty
-        self.x = np.empty( Ntot )
-        self.y = np.empty( Ntot )
-        self.z = np.empty( Ntot )
-        self.w = np.empty( Ntot )
-
-        # By default, there is no particle tracking (see method track)
-        self.tracker = None
-        # By default, the species experiences no elementary processes
-        # (see method make_ionizable and activate_compton)
-        self.ionizer = None
-        self.compton_scatterer = None
-        # Total number of quantities (necessary in MPI communications)
-        self.n_integer_quantities = 0
-        self.n_float_quantities = 8 # x, y, z, ux, uy, uz, inv_gamma, w
-
-        if Ntot > 0:
+        # Generate the particles and eliminate the ones that have zero weight ;
+        # infer the number of particles Ntot
+        if Npz*Npr*Nptheta > 0:
             # Get the 1d arrays of evenly-spaced positions for the particles
             dz = (zmax-zmin)*1./Npz
             z_reg =  zmin + dz*( np.arange(Npz) + 0.5 )
@@ -201,15 +163,77 @@ class Particles(object) :
             unalign_angles( thetap, Npz, Npr, method='random' )
             # Flatten them (This performs a memory copy)
             r = rp.flatten()
-            self.x[:] = r * np.cos( thetap.flatten() )
-            self.y[:] = r * np.sin( thetap.flatten() )
-            self.z[:] = zp.flatten()
+            x = r * np.cos( thetap.flatten() )
+            y = r * np.sin( thetap.flatten() )
+            z = zp.flatten()
             # Get the weights (i.e. charge of each macroparticle), which
             # are equal to the density times the volume r d\theta dr dz
-            self.w[:] = n * r * dtheta*dr*dz
+            w = n * r * dtheta*dr*dz
             # Modulate it by the density profile
             if dens_func is not None :
-                self.w[:] = self.w * dens_func( self.z, r )
+                w *= dens_func( z, r )
+
+            # Select the particles that have a positive weight
+            selected = (w > 0)
+            Ntot = int(selected.sum())
+            self.x = x[ selected ]
+            self.y = y[ selected ]
+            self.z = z[ selected ]
+            self.w = w[ selected ]
+            if np.any(w < 0):
+                warnings.warn(
+                'The specified particle density returned negative densities.\n'
+                'No particles were generated in areas of negative density.\n'
+                'Please check the validity of the `dens_func`.')
+
+        else:
+            # No particles are initialized ; the arrays are still created
+            Ntot = 0
+            self.x = np.empty( 0 )
+            self.y = np.empty( 0 )
+            self.z = np.empty( 0 )
+            self.w = np.empty( 0 )
+
+        # Register the properties of the particles
+        # (Necessary for the pusher, and when adding more particles later, )
+        self.Ntot = Ntot
+        self.q = q
+        self.m = m
+        self.n = n
+        self.rmin = rmin
+        self.rmax = rmax
+        self.Npr = Npr
+        self.Nptheta = Nptheta
+        self.dens_func = dens_func
+        self.continuous_injection = continuous_injection
+        # The particle injector stores information that is useful in order
+        # to continuously inject particles during the simulation
+        self.injector = None
+
+        # Initialize the momenta
+        self.uz = uz_m * np.ones(Ntot) + uz_th * np.random.normal(size=Ntot)
+        self.ux = ux_m * np.ones(Ntot) + ux_th * np.random.normal(size=Ntot)
+        self.uy = uy_m * np.ones(Ntot) + uy_th * np.random.normal(size=Ntot)
+        self.inv_gamma = 1./np.sqrt(
+            1 + self.ux**2 + self.uy**2 + self.uz**2 )
+
+        # Initialize the fields array (at the positions of the particles)
+        self.Ez = np.zeros( Ntot )
+        self.Ex = np.zeros( Ntot )
+        self.Ey = np.zeros( Ntot )
+        self.Bz = np.zeros( Ntot )
+        self.Bx = np.zeros( Ntot )
+        self.By = np.zeros( Ntot )
+
+        # By default, there is no particle tracking (see method track)
+        self.tracker = None
+        # By default, the species experiences no elementary processes
+        # (see method make_ionizable and activate_compton)
+        self.ionizer = None
+        self.compton_scatterer = None
+        # Total number of quantities (necessary in MPI communications)
+        self.n_integer_quantities = 0
+        self.n_float_quantities = 8 # x, y, z, ux, uy, uz, inv_gamma, w
 
         # Register particle shape
         self.particle_shape = particle_shape
@@ -485,7 +509,7 @@ class Particles(object) :
             # Assign the old particle data array to the particle buffer
             self.int_sorting_buffer = particle_array
 
-    def push_p( self ) :
+    def push_p( self, t ) :
         """
         Advance the particles' momenta over one timestep, using the Vay pusher
         Reference : Vay, Physics of Plasmas 15, 056701 (2008)
@@ -493,23 +517,32 @@ class Particles(object) :
         This assumes that the momenta (ux, uy, uz) are initially one
         half-timestep *behind* the positions (x, y, z), and it brings
         them one half-timestep *ahead* of the positions.
+
+        Parameters
+        ----------
+        t: float
+            The current simulation time
+            (Useful for particles that are ballistic before a given plane)
         """
         # Skip push for neutral particles (e.g. photons)
         if self.q == 0:
             return
+        # For particles that are ballistic before a plane,
+        # get the current position of the plane
+        if isinstance( self.injector, BallisticBeforePlane ):
+            z_plane = self.injector.get_current_plane_position( t )
+            if self.ionizer is not None:
+                raise NotImplementedError('Ballistic injection before a plane '
+                    'is not implemented for ionizable particles.')
+        else:
+            z_plane = None
 
         # GPU (CUDA) version
         if self.use_cuda:
             # Get the threads per block and the blocks per grid
             dim_grid_1d, dim_block_1d = cuda_tpb_bpg_1d( self.Ntot )
             # Call the CUDA Kernel for the particle push
-            if self.ionizer is None:
-                push_p_gpu[dim_grid_1d, dim_block_1d](
-                    self.ux, self.uy, self.uz, self.inv_gamma,
-                    self.Ex, self.Ey, self.Ez,
-                    self.Bx, self.By, self.Bz,
-                    self.q, self.m, self.Ntot, self.dt )
-            else:
+            if self.ionizer is not None:
                 # Ionizable species can have a charge that depends on the
                 # macroparticle, and hence require a different function
                 push_p_ioniz_gpu[dim_grid_1d, dim_block_1d](
@@ -517,18 +550,46 @@ class Particles(object) :
                     self.Ex, self.Ey, self.Ez,
                     self.Bx, self.By, self.Bz,
                     self.m, self.Ntot, self.dt, self.ionizer.ionization_level )
-        # CPU version
-        else:
-            if self.ionizer is None:
-                push_p_numba(self.ux, self.uy, self.uz, self.inv_gamma,
-                    self.Ex, self.Ey, self.Ez, self.Bx, self.By, self.Bz,
+            elif z_plane is not None:
+                # Particles that are ballistic before a plane also
+                # require a different pusher
+                push_p_after_plane_gpu[dim_grid_1d, dim_block_1d](
+                    self.z, z_plane,
+                    self.ux, self.uy, self.uz, self.inv_gamma,
+                    self.Ex, self.Ey, self.Ez,
+                    self.Bx, self.By, self.Bz,
                     self.q, self.m, self.Ntot, self.dt )
             else:
+                # Standard pusher
+                push_p_gpu[dim_grid_1d, dim_block_1d](
+                    self.ux, self.uy, self.uz, self.inv_gamma,
+                    self.Ex, self.Ey, self.Ez,
+                    self.Bx, self.By, self.Bz,
+                    self.q, self.m, self.Ntot, self.dt )
+
+        # CPU version
+        else:
+            if self.ionizer is not None:
                 # Ionizable species can have a charge that depends on the
                 # macroparticle, and hence require a different function
                 push_p_ioniz_numba(self.ux, self.uy, self.uz, self.inv_gamma,
                     self.Ex, self.Ey, self.Ez, self.Bx, self.By, self.Bz,
                     self.m, self.Ntot, self.dt, self.ionizer.ionization_level )
+            elif z_plane is not None:
+                # Particles that are ballistic before a plane also
+                # require a different pusher
+                push_p_after_plane_numba(
+                    self.z, z_plane,
+                    self.ux, self.uy, self.uz, self.inv_gamma,
+                    self.Ex, self.Ey, self.Ez,
+                    self.Bx, self.By, self.Bz,
+                    self.q, self.m, self.Ntot, self.dt )
+            else:
+                # Standard pusher
+                push_p_numba(self.ux, self.uy, self.uz, self.inv_gamma,
+                    self.Ex, self.Ey, self.Ez, self.Bx, self.By, self.Bz,
+                    self.q, self.m, self.Ntot, self.dt )
+
 
     def push_x( self, dt, x_push=1., y_push=1., z_push=1. ) :
         """

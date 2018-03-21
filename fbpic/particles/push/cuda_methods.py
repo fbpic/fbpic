@@ -135,6 +135,39 @@ def push_p_gpu( ux, uy, uz, inv_gamma,
             ux[ip], uy[ip], uz[ip], inv_gamma[ip],
             Ex[ip], Ey[ip], Ez[ip], Bx[ip], By[ip], Bz[ip], econst, bconst)
 
+
+@cuda.jit
+def push_p_after_plane_gpu( z, z_plane, ux, uy, uz, inv_gamma,
+                Ex, Ey, Ez, Bx, By, Bz, q, m, Ntot, dt ) :
+    """
+    Advance the particles' momenta, using cuda on the GPU.
+    Only the particles that are located beyond the plane z=z_plane 
+    have their momentum modified ; the others particles move ballistically.
+
+    Parameters
+    ----------
+    z: 1darray of floats
+        The position of the particles in the z direction
+        
+    z_plane: float
+        Position beyond which the particles should be 
+        
+    For the other parameters, see the docstring of push_p_gpu
+    """
+    # Set a few constants
+    econst = q*dt/(m*c)
+    bconst = 0.5*q*dt/m
+
+    # Cuda 1D grid
+    ip = cuda.grid(1)
+
+    # Loop over the particles
+    if ip < Ntot and z[ip] > z_plane:
+        ux[ip], uy[ip], uz[ip], inv_gamma[ip] = push_p_vay(
+            ux[ip], uy[ip], uz[ip], inv_gamma[ip],
+            Ex[ip], Ey[ip], Ez[ip], Bx[ip], By[ip], Bz[ip], econst, bconst)
+
+
 @cuda.jit
 def push_p_ioniz_gpu( ux, uy, uz, inv_gamma,
                 Ex, Ey, Ez, Bx, By, Bz,
@@ -146,31 +179,11 @@ def push_p_ioniz_gpu( ux, uy, uz, inv_gamma,
 
     Parameters
     ----------
-    ux, uy, uz : 1darray of floats
-        The velocity of the particles
-        (is modified by this function)
-
-    inv_gamma : 1darray of floats
-        The inverse of the relativistic gamma factor
-
-    Ex, Ey, Ez : 1darray of floats
-        The electric fields acting on the particles
-
-    Bx, By, Bz : 1darray of floats
-        The magnetic fields acting on the particles
-
-    m : float
-        The mass of the particle species
-
-    Ntot : int
-        The total number of particles
-
-    dt : float
-        The time by which the momenta is advanced
-
     ionization_level : 1darray of ints
         The number of electrons that each ion is missing
         (compared to a neutral atom)
+        
+    For the other parameters, see the docstring of push_p_gpu
     """
     #Cuda 1D grid
     ip = cuda.grid(1)

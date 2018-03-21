@@ -173,7 +173,6 @@ class MovingWindow(object):
             Nm = len(fld.interp)
             for m in range(Nm):
                 # Modify the values of the corresponding z's
-                fld.interp[m].z += n_move*fld.interp[m].dz
                 fld.interp[m].zmin += n_move*fld.interp[m].dz
                 fld.interp[m].zmax += n_move*fld.interp[m].dz
                 # Shift/move fields by n_move cells in spectral space

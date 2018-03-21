@@ -5,6 +5,7 @@
 This file is part of the Fourier-Bessel Particle-In-Cell code (FB-PIC)
 It defines the structure and methods associated with the fields.
 """
+import warnings
 import numpy as np
 from scipy.constants import c, mu_0, epsilon_0
 from .numba_methods import numba_push_eb_standard, numba_push_eb_comoving, \
@@ -126,8 +127,9 @@ class Fields(object) :
         # Define wether or not to use the GPU
         self.use_cuda = use_cuda
         if (self.use_cuda==True) and (cuda_installed==False) :
-            print('*** Cuda not available for the fields.')
-            print('*** Performing the field operations on the CPU.')
+            warnings.warn(
+                'Cuda not available for the fields.\n'
+                'Performing the field operations on the CPU.' )
             self.use_cuda = False
 
         # Infer the values of the z and kz grid
@@ -633,9 +635,7 @@ class InterpolationGrid(object) :
         Nz = len(z)
         Nr = len(r)
         self.Nz = Nz
-        self.z = z.copy()
         self.Nr = Nr
-        self.r = r.copy()
         self.m = m
 
         # Register a few grid properties
@@ -646,10 +646,10 @@ class InterpolationGrid(object) :
         self.invdr = 1./dr
         self.invdz = 1./dz
         # rmin, rmax, zmin, zmax correspond to the edge of cells
-        self.rmin = self.r.min() - 0.5*dr
-        self.rmax = self.r.max() + 0.5*dr
-        self.zmin = self.z.min() - 0.5*dz
-        self.zmax = self.z.max() + 0.5*dz
+        self.rmin = r.min() - 0.5*dr
+        self.rmax = r.max() + 0.5*dr
+        self.zmin = z.min() - 0.5*dz
+        self.zmax = z.max() + 0.5*dz
         # Cell volume (assuming an evenly-spaced grid)
         vol = np.pi*dz*( (r+0.5*dr)**2 - (r-0.5*dr)**2 )
         # NB : No Verboncoeur-type correction required
@@ -673,6 +673,16 @@ class InterpolationGrid(object) :
         # Replace the invvol array by an array on the GPU, when using cuda
         if self.use_cuda :
             self.d_invvol = cuda.to_device( self.invvol )
+
+    @property
+    def z(self):
+        """Returns the 1d array of z, when the user queries self.z"""
+        return( self.zmin + (0.5+np.arange(self.Nz))*self.dz )
+
+    @property
+    def r(self):
+        """Returns the 1d array of r, when the user queries self.r"""
+        return( self.rmin + (0.5+np.arange(self.Nr))*self.dr )
 
     def send_fields_to_gpu( self ):
         """
