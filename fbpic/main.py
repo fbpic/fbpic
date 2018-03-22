@@ -22,6 +22,7 @@ if cuda_installed:
 # Import the rest of the requirements
 import warnings
 import numba
+import numpy as np
 from scipy.constants import m_e, m_p, e, c
 from .utils.printing import ProgressBar, print_simulation_setup
 from .particles import Particles
@@ -57,6 +58,12 @@ class Simulation(object):
         - a set of electrons
         - a set of ions (if initialize_ions is True)
 
+        .. note::
+
+            For the arguments `p_rmin`, `p_rmax`, `p_nz`, `p_nr`, `p_nt`,
+            `n_e`, and `dens_func`, see the docstring of the method
+            `add_new_species`.
+
         Parameters
         ----------
         Nz: int
@@ -79,25 +86,6 @@ class Simulation(object):
         dt: float
             The timestep of the simulation
 
-        p_zmin: float
-            The minimal z position above which the particles are initialized
-        p_zmax: float
-            The maximal z position below which the particles are initialized
-        p_rmin: float
-            The minimal r position above which the particles are initialized
-        p_rmax: float
-            The maximal r position below which the particles are initialized
-
-        p_nz: int
-            The number of macroparticles per cell along the z direction
-        p_nr: int
-            The number of macroparticles per cell along the r direction
-        p_nt: int
-            The number of macroparticles along the theta direction
-
-        n_e: float (in particles per m^3)
-           Peak density of the electrons
-
         n_order: int, optional
            The order of the stencil for z derivatives in the Maxwell solver.
            Use -1 for infinite order, i.e. for exact dispersion relation in
@@ -112,13 +100,6 @@ class Simulation(object):
         zmin: float, optional
            The position of the edge of the simulation box.
            (More precisely, the position of the edge of the first cell)
-
-        dens_func: callable, optional
-           A function of the form:
-           def dens_func( z, r ) ...
-           where z and r are 1d arrays, and which returns
-           a 1d array containing the density *relative to n*
-           (i.e. a number between 0 and 1) at the given positions
 
         initialize_ions: bool, optional
            Whether to initialize the neutralizing ions
@@ -219,24 +200,20 @@ class Simulation(object):
             self.use_galilean = False
 
         # When running the simulation in a boosted frame, convert the arguments
-        uz_m = 0.   # Mean normalized momentum of the particles
         if gamma_boost is not None:
             self.boost = BoostConverter( gamma_boost )
             zmin, zmax, dt = self.boost.copropag_length([ zmin, zmax, dt ])
-            p_zmin, p_zmax = self.boost.static_length([ p_zmin, p_zmax ])
-            n_e, = self.boost.static_density([ n_e ])
-            uz_m, = self.boost.longitudinal_momentum([ uz_m ])
         else:
             self.boost = None
+        # Register time step
+        self.dt = dt
 
         # Initialize the boundary communicator
         self.comm = BoundaryCommunicator( Nz, zmin, zmax, Nr, rmax, Nm, dt,
             boundaries, n_order, n_guard, n_damp, exchange_period,
             use_all_mpi_ranks )
         # Modify domain region
-        zmin, zmax, p_zmin, p_zmax, Nz = \
-              self.comm.divide_into_domain( p_zmin, p_zmax )
-
+        zmin, zmax, Nz = self.comm.divide_into_domain()
         # Initialize the field structure
         self.fld = Fields( Nz, zmax, Nr, rmax, Nm, dt,
                     n_order=n_order, zmin=zmin,
@@ -244,35 +221,24 @@ class Simulation(object):
                     use_galilean=use_galilean,
                     use_cuda=self.use_cuda )
 
-        # Modify the input parameters p_zmin, p_zmax, r_zmin, r_zmax, so that
-        # they fall exactly on the grid, and infer the number of particles
-        p_zmin, p_zmax, Npz = adapt_to_grid( self.fld.interp[0].z,
-                                p_zmin, p_zmax, p_nz )
-        p_rmin, p_rmax, Npr = adapt_to_grid( self.fld.interp[0].r,
-                                p_rmin, p_rmax, p_nr )
-
         # Initialize the electrons and the ions
         self.grid_shape = self.fld.interp[0].Ez.shape
         self.particle_shape = particle_shape
-        self.ptcl = [
-            Particles(q=-e, m=m_e, n=n_e, Npz=Npz, zmin=p_zmin,
-                      zmax=p_zmax, Npr=Npr, rmin=p_rmin, rmax=p_rmax,
-                      Nptheta=p_nt, dt=dt, dens_func=dens_func, uz_m=uz_m,
-                      grid_shape=self.grid_shape,
-                      particle_shape=self.particle_shape,
-                      use_cuda=self.use_cuda ) ]
-        if initialize_ions :
-            self.ptcl.append(
-                Particles(q=e, m=m_p, n=n_e, Npz=Npz, zmin=p_zmin,
-                          zmax=p_zmax, Npr=Npr, rmin=p_rmin, rmax=p_rmax,
-                          Nptheta=p_nt, dt=dt, dens_func=dens_func, uz_m=uz_m,
-                          grid_shape=self.grid_shape,
-                          particle_shape=self.particle_shape,
-                          use_cuda=self.use_cuda ) )
+        self.ptcl = []
+        # - Initialize the electrons
+        self.add_new_species( q=-e, m=m_e, n=n_e, dens_func=dens_func,
+                              p_nz=p_nz, p_nr=p_nr, p_nt=p_nt,
+                              p_zmin=p_zmin, p_zmax=p_zmax,
+                              p_rmin=p_rmin, p_rmax=p_rmax )
+        # - Initialize the ions
+        if initialize_ions:
+            self.add_new_species( q=e, m=m_p, n=n_e, dens_func=dens_func,
+                              p_nz=p_nz, p_nr=p_nr, p_nt=p_nt,
+                              p_zmin=p_zmin, p_zmax=p_zmax,
+                              p_rmin=p_rmin, p_rmax=p_rmax )
 
         # Register the number of particles per cell along z, and dt
         # (Necessary for the moving window)
-        self.dt = dt
         self.p_nz = p_nz
         # Register the time and the iteration
         self.time = 0.
@@ -518,6 +484,7 @@ class Simulation(object):
         if show_progress and (self.comm.rank==0):
             progress_bar.print_summary()
 
+
     def deposit( self, fieldtype, exchange=False ):
         """
         Deposit the charge or the currents to the interpolation grid
@@ -599,6 +566,120 @@ class Simulation(object):
         for m in range(self.fld.Nm):
             self.fld.interp[m].zmin += shift_distance
             self.fld.interp[m].zmax += shift_distance
+
+
+    def add_new_species( self, q, m, n=None, dens_func=None,
+                            p_nz=None, p_nr=None, p_nt=None,
+                            p_zmin=-np.inf, p_zmax=np.inf,
+                            p_rmin=0, p_rmax=np.inf,
+                            ux_m=0., uy_m=0., uz_m=0.,
+                            continuous_injection=True ):
+        """
+        Create a new species with charge `q` and mass `m`,
+        add it to the simulation (i.e. to the list `Simulation.ptcl`), and
+        return it, so that the specific methods of that species can be used.
+
+        In addition, if `n` is set, then new macroparticles will be created
+        within this species (in an evenly-spaced manner).
+
+        For boosted-frame simulations (i.e. where `gamma_boost`
+        as been passed to the `Simulation` object), all quantities that
+        are explicitly mentioned to be in the lab frame below are
+        automatically converted to the boosted frame.
+
+        Parameters
+        ----------
+        q : float (in Coulombs)
+           Charge of the particle species
+
+        m : float (in kg)
+           Mass of the particle species
+
+        n : float (in particles per m^3) or `None`, optional
+           Density of physical particles (in the lab frame).
+           If this is `None`, no macroparticles will be created.
+           If `n` is not None, evenly-spaced macroparticles will be generated.
+
+        dens_func : callable, optional
+           A function of the form :
+           def dens_func( z, r ) ...
+           where z and r are 1d arrays, and which returns
+           a 1d array containing the density *relative to n*
+           (i.e. a number between 0 and 1) at the given positions
+
+        p_nz: int, optional
+            The number of macroparticles per cell along the z direction
+        p_nr: int, optional
+            The number of macroparticles per cell along the r direction
+        p_nt: int, optional
+            The number of macroparticles along the theta direction
+
+        p_zmin, p_zmax: floats (in meters), optional
+           Positions in z between which the particles are initialized
+           (in the lab frame). Default: particles fill the simulation box.
+        p_rmin, p_rmax: floats (in meters), optional
+           Positions in r between which the particles are initialized.
+
+        ux_m, uy_m, uz_m: floats (dimensionless), optional
+           Normalized mean momenta (in the lab frame)
+           of the injected particles in each direction
+
+        continuous_injection : bool, optional
+           Whether to continuously inject the particles,
+           in the case of a moving window
+        """
+        # Check if any macroparticle need to be injected
+        if n is not None:
+            # Check that all required arguments are passed
+            for var in [p_nz, p_nr, p_nt]:
+                if var is None:
+                    raise ValueError(
+                    'If the density `n` is passed to `add_new_species`,\n'
+                    'then the arguments `p_nz`, `p_nr` and `p_nt` need'
+                    'to be passed too.')
+
+            # Automatically convert input quantities to the boosted frame
+            if self.boost is not None:
+                p_zmin, p_zmax = self.boost.static_length([ p_zmin, p_zmax ])
+                n, = self.boost.static_density([ n ])
+                uz_m, = self.boost.longitudinal_momentum([ uz_m ])
+
+            # Modify input particle bounds, in order to only initialize the
+            # particles in the local sub-domain
+            zmin_local_domain, zmax_local_domain = self.comm.get_zmin_zmax(
+                                        local=True, rank=self.comm.rank,
+                                        with_damp=False, with_guard=False )
+            p_zmin = max( zmin_local_domain, p_zmin )
+            p_zmax = min( zmax_local_domain, p_zmax )
+
+            # Modify again the input particle bounds, so that
+            # they fall exactly on the grid, and infer the number of particles
+            p_zmin, p_zmax, Npz = adapt_to_grid( self.fld.interp[0].z,
+                                p_zmin, p_zmax, p_nz )
+            p_rmin, p_rmax, Npr = adapt_to_grid( self.fld.interp[0].r,
+                                p_rmin, p_rmax, p_nr )
+
+        else:
+            # Convert arguments to acceptable arguments for `Particles`
+            # but which will result in no macroparticles being injected
+            n = 0
+            p_zmin = p_zmax = p_rmin = p_rmax = 0
+            Npz = Npr = 0
+            continuous_injection = False
+
+        # Create the new species
+        new_species = Particles( q=q, m=m, n=n, dens_func=dens_func,
+                        Npz=Npz, zmin=p_zmin, zmax=p_zmax,
+                        Npr=Npr, rmin=p_rmin, rmax=p_rmax,
+                        Nptheta=p_nt, dt=self.dt,
+                        ux_m=ux_m, uy_m=uy_m, uz_m=uz_m,
+                        particle_shape=self.particle_shape,
+                        use_cuda=self.use_cuda, grid_shape=self.grid_shape,
+                        continuous_injection=continuous_injection )
+
+        # Add it to the list of species and return it to the user
+        self.ptcl.append( new_species )
+        return new_species
 
 
     def set_moving_window( self, v=c, ux_m=0., uy_m=0., uz_m=0.,

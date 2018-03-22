@@ -12,4 +12,4 @@ the simulation data, and has the high-level methods to perform the PIC cycle.
     - `comm`, a `BoundaryCommunicator`, which contains the MPI decomposition
 
 .. autoclass:: fbpic.main.Simulation
-   :members: step, set_moving_window
+   :members: step, set_moving_window, add_new_species

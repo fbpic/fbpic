@@ -232,18 +232,11 @@ class BoundaryCommunicator(object):
                 if cuda_installed:
                     self.d_right_damp = cuda.to_device( self.right_damp )
 
-    def divide_into_domain( self, p_zmin, p_zmax ):
+    def divide_into_domain( self ):
         """
         Divide the global simulation into domain and add local guard cells.
 
-        Return the new size of the local domain (zmin, zmax) and the
-        boundaries of the initial plasma (p_zmin, p_zmax)
-
-        Parameters:
-        ------------
-        p_zmin, p_zmax: floats
-            Positions between which the plasma will be initialized, in
-            the global simulation box.
+        Return the new size of the local domain (zmin, zmax)
 
         Returns:
         ---------
@@ -251,23 +244,10 @@ class BoundaryCommunicator(object):
         zmin, zmax: floats
             Positions of the edges of the local simulation box
             (with guard cells and damp cells)
-
-        p_zmin, p_zmax: floats
-           Positions between which the plasma will be initialized, in
-           the local simulation box.
-           (NB: no plasma will be initialized in the guard cells)
-
         Nz_enlarged: int
            The number of cells in the local simulation box
            (with guard cells and damp cells)
         """
-        # Calculate the new limits (p_zmin and p_zmax)
-        # for adding particles to this domain
-        zmin_local_domain, zmax_local_domain = self.get_zmin_zmax(
-            local=True, with_damp=False, with_guard=False, rank=self.rank )
-        p_zmin_local_domain = max( zmin_local_domain, p_zmin)
-        p_zmax_local_domain = min( zmax_local_domain, p_zmax)
-
         # Calculate the enlarged boundaries (i.e. including guard cells
         # and damp cells), which are passed to the fields object.
         zmin_local_enlarged, zmax_local_enlarged = self.get_zmin_zmax(
@@ -282,8 +262,7 @@ class BoundaryCommunicator(object):
                                a smaller number of guard cells.')
 
         # Return the new boundaries to the simulation object
-        return( zmin_local_enlarged, zmax_local_enlarged,
-                p_zmin_local_domain, p_zmax_local_domain, Nz_enlarged )
+        return( zmin_local_enlarged, zmax_local_enlarged, Nz_enlarged )
 
     def get_Nz_and_iz( self, local, with_damp, with_guard, rank=None ):
         """
