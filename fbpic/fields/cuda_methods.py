@@ -117,7 +117,7 @@ def cuda_divide_vector_by_volume( array_r, array_t, array_z, invvol ):
 # -----------------------------------
 
 @cuda.jit
-def cuda_correct_currents_standard( rho_prev, rho_next, Jp, Jm, Jz,
+def cuda_correct_currents_curlfree_standard( rho_prev, rho_next, Jp, Jm, Jz,
                             kz, kr, inv_k2, inv_dt, Nz, Nr ):
     """
     Correct the currents in spectral space, using the standard pstad
@@ -140,13 +140,43 @@ def cuda_correct_currents_standard( rho_prev, rho_next, Jp, Jm, Jz,
         Jz[iz, ir] += -1.j * kz[iz, ir] * F
 
 @cuda.jit
-def cuda_correct_currents_comoving( rho_prev, rho_next, Jp, Jm, Jz,
+def cuda_correct_currents_crossdeposition_standard( rho_prev, rho_next,
+        rho_next_z, rho_next_xy, Jp, Jm, Jz, kz, kr, inv_dt, Nz, Nr ):
+    """
+    Correct the currents in spectral space, using the cross-deposition
+    algorithm adapted to the standard psatd.
+    """
+    # Cuda 2D grid
+    iz, ir = cuda.grid(2)
+
+    # Perform the current correction
+    if (iz < Nz) and (ir < Nr) :
+        # Calculate the intermediate variable Dz and Dxy
+        # (Such that Dz + Dxy is the error in the continuity equation)
+        Dz = 1.j*kz[iz, ir]*Jz[iz, ir] + 0.5 * inv_dt * \
+            ( rho_next[iz, ir] - rho_next_xy[iz, ir] + \
+              rho_next_z[iz, ir] - rho_prev[iz, ir] )
+        Dxy = kr[iz, ir]*( Jp[iz, ir] - Jm[iz, ir] ) + 0.5 * inv_dt * \
+            ( rho_next[iz, ir] - rho_next_z[iz, ir] + \
+              rho_next_xy[iz, ir] - rho_prev[iz, ir] )
+
+        # Correct the currents accordingly
+        if kr[iz, ir] != 0:
+            inv_kr = 1./kr[iz, ir]
+            Jp[iz, ir] += -0.5 * Dxy * inv_kr
+            Jm[iz, ir] +=  0.5 * Dxy * inv_kr
+        if kz[iz, ir] != 0:
+            inv_kz = 1./kz[iz, ir]
+            Jz[iz, ir] += 1.j * Dz * inv_kz
+
+@cuda.jit
+def cuda_correct_currents_curlfree_comoving( rho_prev, rho_next, Jp, Jm, Jz,
                             kz, kr, inv_k2,
                             j_corr_coef, T_eb, T_cc,
                             inv_dt, Nz, Nr ) :
     """
-    Correct the currents in spectral space, using the assumption
-    of comoving currents
+    Correct the currents in spectral space, using the curl-free correction
+    which is adapted to the galilean/comoving-currents assumption
     """
     # Cuda 2D grid
     iz, ir = cuda.grid(2)
@@ -164,6 +194,41 @@ def cuda_correct_currents_comoving( rho_prev, rho_next, Jp, Jm, Jz,
         Jp[iz, ir] +=  0.5 * kr[iz, ir] * F
         Jm[iz, ir] += -0.5 * kr[iz, ir] * F
         Jz[iz, ir] += -1.j * kz[iz, ir] * F
+
+@cuda.jit
+def cuda_correct_currents_crossdeposition_comoving(
+        rho_prev, rho_next, rho_next_z, rho_next_xy, Jp, Jm, Jz,
+        kz, kr, j_corr_coef, T_eb, T_cc, inv_dt, Nz, Nr ) :
+    """
+    Correct the currents in spectral space, using the cross-deposition
+    algorithm adapted to the galilean/comoving-currents assumption.
+    """
+    # Cuda 2D grid
+    iz, ir = cuda.grid(2)
+
+    # Perform the current correction
+    if (iz < Nz) and (ir < Nr) :
+
+        # Calculate the intermediate variable Dz and Dxy
+        # (Such that Dz + Dxy is the error in the continuity equation)
+        Dz = 1.j*kz[iz, ir]*Jz[iz, ir] \
+            + 0.5 * T_cc[iz, ir]*j_corr_coef[iz, ir] * \
+            ( rho_next[iz, ir] - T_eb[iz, ir] * rho_next_xy[iz, ir] \
+              + rho_next_z[iz, ir] - T_eb[iz, ir] * rho_prev[iz, ir] )
+        Dxy = kr[iz, ir]*( Jp[iz, ir] - Jm[iz, ir] ) \
+            + 0.5 * T_cc[iz, ir]*j_corr_coef[iz, ir] * \
+            ( rho_next[iz, ir] + T_eb[iz, ir] * rho_next_xy[iz, ir] \
+            - rho_next_z[iz, ir] -  T_eb[iz, ir] * rho_prev[iz, ir] )
+
+        # Correct the currents accordingly
+        if kr[iz, ir] != 0:
+            inv_kr = 1./kr[iz, ir]
+            Jp[iz, ir] += -0.5 * Dxy * inv_kr
+            Jm[iz, ir] +=  0.5 * Dxy * inv_kr
+        if kz[iz, ir] != 0:
+            inv_kz = 1./kz[iz, ir]
+            Jz[iz, ir] += 1.j * Dz * inv_kz
+
 
 @cuda.jit
 def cuda_push_eb_standard( Ep, Em, Ez, Bp, Bm, Bz, Jp, Jm, Jz,

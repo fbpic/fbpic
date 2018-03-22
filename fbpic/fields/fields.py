@@ -9,7 +9,10 @@ import warnings
 import numpy as np
 from scipy.constants import c, mu_0, epsilon_0
 from .numba_methods import numba_push_eb_standard, numba_push_eb_comoving, \
-    numba_correct_currents_standard, numba_correct_currents_comoving
+    numba_correct_currents_curlfree_standard, \
+    numba_correct_currents_crossdeposition_standard, \
+    numba_correct_currents_curlfree_comoving, \
+    numba_correct_currents_crossdeposition_comoving
 from .spectral_transform import SpectralTransformer
 from .utility_methods import get_filter_array, get_modified_k
 
@@ -18,7 +21,10 @@ from fbpic.utils.cuda import cuda_installed
 if cuda_installed:
     from fbpic.utils.cuda import cuda_tpb_bpg_2d
     from .cuda_methods import cuda, \
-    cuda_correct_currents_standard, cuda_correct_currents_comoving, \
+    cuda_correct_currents_curlfree_standard, \
+    cuda_correct_currents_crossdeposition_standard, \
+    cuda_correct_currents_curlfree_comoving, \
+    cuda_correct_currents_crossdeposition_comoving, \
     cuda_divide_scalar_by_volume, cuda_divide_vector_by_volume, \
     cuda_erase_scalar, cuda_erase_vector, \
     cuda_filter_scalar, cuda_filter_vector, \
@@ -55,8 +61,8 @@ class Fields(object) :
         Contains the coefficients to solve the Maxwell equations
     """
     def __init__( self, Nz, zmax, Nr, rmax, Nm, dt, zmin=0.,
-                  n_order=-1, v_comoving=None,
-                  use_galilean=True, use_cuda=False ) :
+                  n_order=-1, v_comoving=None, use_galilean=True,
+                  current_correction='cross-deposition', use_cuda=False ) :
         """
         Initialize the components of the Fields object
 
@@ -101,6 +107,10 @@ class Fields(object) :
            Otherwise use a positive, even number. In this case
            the stencil extends up to n_order/2 cells on each side.
 
+        current_correction: string, optional
+            The method used in order to ensure that the continuity equation
+            is satisfied. Either `curl-free` or `cross-deposition`.
+
         use_cuda : bool, optional
             Wether to use the GPU or not
         """
@@ -125,6 +135,12 @@ class Fields(object) :
         # Infer the values of the z and kz grid
         dz = (zmax-zmin)/Nz
         z = dz * ( np.arange( 0, Nz ) + 0.5 ) + zmin
+
+        # Register the current correction type
+        if current_correction in ['curl-free', 'cross-deposition']:
+            self.current_correction = current_correction
+        else:
+            raise ValueError('Unkown current correction:%s'%current_correction)
 
         # Create the list of the transformers, which convert the fields
         # back and forth between the spatial and spectral grid
@@ -161,7 +177,7 @@ class Fields(object) :
             # Create the object
             self.spect.append( SpectralGrid( kz_modified, kr, m,
                 kz_true, self.interp[m].dz, self.interp[m].dr,
-                use_cuda=self.use_cuda ) )
+                current_correction, use_cuda=self.use_cuda ) )
             self.psatd.append( PsatdCoeffs( self.spect[m].kz,
                                 self.spect[m].kr, m, dt, Nz, Nr,
                                 V=self.v_comoving,
@@ -171,7 +187,8 @@ class Fields(object) :
         # Record flags that indicates whether, for the sources *in
         # spectral space*, the guard cells have been exchanged via MPI
         self.exchanged_source = \
-            {'J': False, 'rho_prev': False, 'rho_new': False}
+            {'J': False, 'rho_prev': False, 'rho_new': False,
+                'rho_next_xy': False, 'rho_next_z': False }
 
         # Initialize the needed prefix sum array for sorting
         if self.use_cuda:
@@ -250,10 +267,14 @@ class Fields(object) :
             assert self.exchanged_source['rho_prev'] == False
             assert self.exchanged_source['rho_next'] == False
             assert self.exchanged_source['J'] == False
+            if self.current_correction == 'cross-deposition':
+                assert self.exchanged_source['rho_next_xy'] == False
+                assert self.exchanged_source['rho_next_z'] == False
 
         # Correct each azimuthal grid individually
         for m in range(self.Nm) :
-            self.spect[m].correct_currents( self.dt, self.psatd[m] )
+            self.spect[m].correct_currents(
+                self.dt, self.psatd[m], self.current_correction )
 
     def correct_divE(self) :
         """
@@ -300,17 +321,13 @@ class Fields(object) :
                 self.trans[m].interp2spect_vect(
                     self.interp[m].Jr, self.interp[m].Jt,
                     self.spect[m].Jp, self.spect[m].Jm )
-        elif fieldtype == 'rho_next' :
+        elif fieldtype in ['rho_prev', 'rho_next', 'rho_next_z', 'rho_next_xy']:
             # Transform each azimuthal grid individually
             for m in range(self.Nm) :
+                spectral_rho = getattr( self.spect[m], fieldtype )
                 self.trans[m].interp2spect_scal(
-                    self.interp[m].rho, self.spect[m].rho_next )
-        elif fieldtype == 'rho_prev' :
-            # Transform each azimuthal grid individually
-            for m in range(self.Nm) :
-                self.trans[m].interp2spect_scal(
-                    self.interp[m].rho, self.spect[m].rho_prev )
-        else :
+                    self.interp[m].rho, spectral_rho )
+        else:
             raise ValueError( 'Invalid string for fieldtype: %s' %fieldtype )
 
     def spect2interp(self, fieldtype) :
@@ -709,7 +726,8 @@ class SpectralGrid(object) :
     Contains the fields and coordinates of the spectral grid.
     """
 
-    def __init__(self, kz_modified, kr, m, kz_true, dz, dr, use_cuda=False ) :
+    def __init__(self, kz_modified, kr, m, kz_true, dz, dr,
+                        current_correction, use_cuda=False ) :
         """
         Allocates the matrices corresponding to the spectral grid
 
@@ -733,6 +751,10 @@ class SpectralGrid(object) :
             The grid spacings (needed to calculate
             precisely the filtering function in spectral space)
 
+        current_correction: string, optional
+            The method used in order to ensure that the continuity equation
+            is satisfied. Either `curl-free` or `cross-deposition`.
+
         use_cuda : bool, optional
             Wether to use the GPU or not
         """
@@ -755,6 +777,9 @@ class SpectralGrid(object) :
         self.Jz = np.zeros( (Nz, Nr), dtype='complex' )
         self.rho_prev = np.zeros( (Nz, Nr), dtype='complex' )
         self.rho_next = np.zeros( (Nz, Nr), dtype='complex' )
+        if current_correction == 'cross-deposition':
+            self.rho_next_z = np.zeros( (Nz, Nr), dtype='complex' )
+            self.rho_next_xy = np.zeros( (Nz, Nr), dtype='complex' )
 
         # Auxiliary arrays
         # - for the field solve
@@ -763,10 +788,11 @@ class SpectralGrid(object) :
         # - for filtering
         #   (use the true kz, so as to effectively filter the high k's)
         self.filter_array = get_filter_array( kz_true, kr, dz, dr )
-        # - for current correction
-        self.inv_k2 = 1./np.where( ( self.kz == 0 ) & (self.kr == 0),
-                                   1., self.kz**2 + self.kr**2 )
-        self.inv_k2[ ( self.kz == 0 ) & (self.kr == 0) ] = 0.
+        # - for curl-free current correction
+        if current_correction == 'curl-free':
+            self.inv_k2 = 1./np.where( ( self.kz == 0 ) & (self.kr == 0),
+                                       1., self.kz**2 + self.kr**2 )
+            self.inv_k2[ ( self.kz == 0 ) & (self.kr == 0) ] = 0.
 
         # Register shift factor used for shifting the fields
         # in the spectral domain when using a moving window
@@ -778,10 +804,11 @@ class SpectralGrid(object) :
         # Transfer the auxiliary arrays on the GPU
         if self.use_cuda :
             self.d_filter_array = cuda.to_device( self.filter_array )
-            self.d_inv_k2 = cuda.to_device( self.inv_k2 )
             self.d_kz = cuda.to_device( self.kz )
             self.d_kr = cuda.to_device( self.kr )
             self.d_field_shift = cuda.to_device( self.field_shift )
+            if current_correction == 'curl-free':
+                self.d_inv_k2 = cuda.to_device( self.inv_k2 )
 
 
     def send_fields_to_gpu( self ):
@@ -802,6 +829,11 @@ class SpectralGrid(object) :
         self.Jz = cuda.to_device( self.Jz )
         self.rho_prev = cuda.to_device( self.rho_prev )
         self.rho_next = cuda.to_device( self.rho_next )
+        # Only when using the cross-deposition
+        if hasattr( self, 'rho_next_z' ):
+            self.rho_next_z = cuda.to_device( self.rho_next_z )
+            self.rho_next_xy = cuda.to_device( self.rho_next_xy )
+
 
     def receive_fields_from_gpu( self ):
         """
@@ -821,16 +853,27 @@ class SpectralGrid(object) :
         self.Jz = self.Jz.copy_to_host()
         self.rho_prev = self.rho_prev.copy_to_host()
         self.rho_next = self.rho_next.copy_to_host()
+        # Only when using the cross-deposition
+        if hasattr( self, 'rho_next_z' ):
+            self.rho_next_z = self.rho_next_z.copy_to_host()
+            self.rho_next_xy = self.rho_next_xy.copy_to_host()
 
-    def correct_currents (self, dt, ps) :
+
+    def correct_currents (self, dt, ps, current_correction ):
         """
         Correct the currents so that they satisfy the
         charge conservation equation
 
         Parameters
         ----------
-        dt : float
+        dt: float
             Timestep of the simulation
+
+        ps: a PSATDCoefs object
+            Contains coefficients that are used in the current correction
+
+        current_correction: string
+            The type of current correction performed
         """
         # Precalculate useful coefficient
         inv_dt = 1./dt
@@ -841,31 +884,81 @@ class SpectralGrid(object) :
             # Correct the currents on the GPU
             if ps.V is None:
                 # With standard PSATD algorithm
-                cuda_correct_currents_standard[dim_grid, dim_block](
-                    self.rho_prev, self.rho_next, self.Jp, self.Jm, self.Jz,
-                    self.d_kz, self.d_kr, self.d_inv_k2,
-                    inv_dt, self.Nz, self.Nr )
+                # Method: curl-free
+                if current_correction == 'curl-free':
+                    cuda_correct_currents_curlfree_standard \
+                        [dim_grid, dim_block](
+                            self.rho_prev, self.rho_next,
+                            self.Jp, self.Jm, self.Jz,
+                            self.d_kz, self.d_kr, self.d_inv_k2,
+                            inv_dt, self.Nz, self.Nr )
+                # Method: cross-deposition
+                elif current_correction == 'cross-deposition':
+                    cuda_correct_currents_crossdeposition_standard \
+                        [dim_grid, dim_block](
+                            self.rho_prev, self.rho_next,
+                            self.rho_next_z, self.rho_next_xy,
+                            self.Jp, self.Jm, self.Jz,
+                            self.d_kz, self.d_kr, inv_dt, self.Nz, self.Nr)
             else:
                 # With Galilean/comoving algorithm
-                cuda_correct_currents_comoving[dim_grid, dim_block](
-                    self.rho_prev, self.rho_next, self.Jp, self.Jm, self.Jz,
-                    self.d_kz, self.d_kr, self.d_inv_k2,
-                    ps.d_j_corr_coef, ps.d_T_eb, ps.d_T_cc,
-                    inv_dt, self.Nz, self.Nr)
+                # Method: curl-free
+                if current_correction == 'curl-free':
+                    cuda_correct_currents_curlfree_comoving \
+                        [dim_grid, dim_block](
+                            self.rho_prev, self.rho_next,
+                            self.Jp, self.Jm, self.Jz,
+                            self.d_kz, self.d_kr, self.d_inv_k2,
+                            ps.d_j_corr_coef, ps.d_T_eb, ps.d_T_cc,
+                            inv_dt, self.Nz, self.Nr)
+                # Method: cross-deposition
+                elif current_correction == 'cross-deposition':
+                    cuda_correct_currents_crossdeposition_comoving \
+                        [dim_grid, dim_block](
+                            self.rho_prev, self.rho_next,
+                            self.rho_next_z, self.rho_next_xy,
+                            self.Jp, self.Jm, self.Jz,
+                            self.d_kz, self.d_kr,
+                            ps.d_j_corr_coef, ps.d_T_eb, ps.d_T_cc,
+                            inv_dt, self.Nz, self.Nr)
         else :
             # Correct the currents on the CPU
             if ps.V is None:
                 # With standard PSATD algorithm
-                numba_correct_currents_standard(
-                    self.rho_prev, self.rho_next, self.Jp, self.Jm, self.Jz,
-                    self.kz, self.kr, self.inv_k2, inv_dt, self.Nz, self.Nr )
+                # Method: curl-free
+                if current_correction == 'curl-free':
+                    numba_correct_currents_curlfree_standard(
+                        self.rho_prev, self.rho_next,
+                        self.Jp, self.Jm, self.Jz,
+                        self.kz, self.kr, self.inv_k2,
+                        inv_dt, self.Nz, self.Nr)
+                # Method: cross-deposition
+                elif current_correction == 'cross-deposition':
+                    numba_correct_currents_crossdeposition_standard(
+                        self.rho_prev, self.rho_next,
+                        self.rho_next_z, self.rho_next_xy,
+                        self.Jp, self.Jm, self.Jz,
+                        self.kz, self.kr, inv_dt, self.Nz, self.Nr)
             else:
                 # With Galilean/comoving algorithm
-                numba_correct_currents_comoving(
-                    self.rho_prev, self.rho_next, self.Jp, self.Jm, self.Jz,
-                    self.kz, self.kr, self.inv_k2,
-                    ps.j_corr_coef, ps.T_eb, ps.T_cc,
-                    inv_dt, self.Nz, self.Nr)
+                # Method: curl-free
+                if current_correction == 'curl-free':
+                    numba_correct_currents_curlfree_comoving(
+                        self.rho_prev, self.rho_next,
+                        self.Jp, self.Jm, self.Jz,
+                        self.kz, self.kr, self.inv_k2,
+                        ps.j_corr_coef, ps.T_eb, ps.T_cc,
+                        inv_dt, self.Nz, self.Nr)
+                # Method: cross-deposition
+                elif current_correction == 'cross-deposition':
+                    numba_correct_currents_crossdeposition_comoving(
+                        self.rho_prev, self.rho_next,
+                        self.rho_next_z, self.rho_next_xy,
+                        self.Jp, self.Jm, self.Jz,
+                        self.kz, self.kr,
+                        ps.j_corr_coef, ps.T_eb, ps.T_cc,
+                        inv_dt, self.Nz, self.Nr)
+
 
     def correct_divE(self) :
         """
@@ -976,13 +1069,7 @@ class SpectralGrid(object) :
             # Obtain the cuda grid
             dim_grid, dim_block = cuda_tpb_bpg_2d( self.Nz, self.Nr)
             # Filter fields on the GPU
-            if fieldtype == 'rho_prev' :
-                cuda_filter_scalar[dim_grid, dim_block](
-                    self.rho_prev, self.d_filter_array, self.Nz, self.Nr )
-            elif fieldtype == 'rho_next' :
-                cuda_filter_scalar[dim_grid, dim_block](
-                    self.rho_next, self.d_filter_array, self.Nz, self.Nr )
-            elif fieldtype == 'J' :
+            if fieldtype == 'J' :
                 cuda_filter_vector[dim_grid, dim_block]( self.Jp, self.Jm,
                         self.Jz, self.d_filter_array, self.Nz, self.Nr)
             elif fieldtype == 'E' :
@@ -991,27 +1078,31 @@ class SpectralGrid(object) :
             elif fieldtype == 'B' :
                 cuda_filter_vector[dim_grid, dim_block]( self.Bp, self.Bm,
                         self.Bz, self.d_filter_array, self.Nz, self.Nr)
+            elif fieldtype in ['rho_prev', 'rho_next',
+                                'rho_next_z', 'rho_next_xy']:
+                spectral_rho = getattr( self, fieldtype )
+                cuda_filter_scalar[dim_grid, dim_block](
+                    spectral_rho, self.d_filter_array, self.Nz, self.Nr )
             else :
                 raise ValueError('Invalid string for fieldtype: %s'%fieldtype)
         else :
             # Filter fields on the CPU
-
-            if fieldtype == 'rho_prev' :
-                self.rho_prev = self.rho_prev * self.filter_array
-            elif fieldtype == 'rho_next' :
-                self.rho_next = self.rho_next * self.filter_array
-            elif fieldtype == 'J' :
+            if fieldtype == 'J':
                 self.Jp = self.Jp * self.filter_array
                 self.Jm = self.Jm * self.filter_array
                 self.Jz = self.Jz * self.filter_array
-            elif fieldtype == 'E' :
+            elif fieldtype == 'E':
                 self.Ep = self.Ep * self.filter_array
                 self.Em = self.Em * self.filter_array
                 self.Ez = self.Ez * self.filter_array
-            elif fieldtype == 'B' :
+            elif fieldtype == 'B':
                 self.Bp = self.Bp * self.filter_array
                 self.Bm = self.Bm * self.filter_array
                 self.Bz = self.Bz * self.filter_array
+            elif fieldtype in ['rho_prev', 'rho_next',
+                                'rho_next_z', 'rho_next_xy']:
+                spectral_rho = getattr( self, fieldtype )
+                spectral_rho *= self.filter_array
             else :
                 raise ValueError('Invalid string for fieldtype: %s'%fieldtype)
 

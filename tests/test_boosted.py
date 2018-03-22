@@ -47,7 +47,7 @@ rmax = 7.86      # Length of the box along r (meters)
 Nm = 2           # Number of modes used
 # The simulation timestep
 dt = (zmax-zmin)/Nz/c   # Timestep (seconds)
-N_step = 300     # Number of iterations to perform
+N_step = 600     # Number of iterations to perform
 
 # The boost
 gamma_boost = 130.
