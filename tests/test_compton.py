@@ -19,7 +19,6 @@ from scipy.constants import e, c, h, m_e, epsilon_0
 # Import the relevant structures in FBPIC
 from fbpic.lpa_utils.boosted_frame import BoostConverter
 from fbpic.main import Simulation
-from fbpic.particles import Particles
 from fbpic.lpa_utils.bunch import add_elec_bunch_gaussian
 from fbpic.openpmd_diag import ParticleDiagnostic
 
@@ -102,15 +101,7 @@ def run_simulation( gamma_boost, show ):
     elec = sim.ptcl[0]
     print( 'Initialized electron bunch' )
     # Add a photon species
-    photons = Particles( q=0, m=0, n=0, Npz=1, zmin=0, zmax=0,
-                    Npr=1, rmin=0, rmax=0, Nptheta=1, dt=sim.dt,
-                    ux_m=0., uy_m=0., uz_m=0.,
-                    ux_th=0., uy_th=0., uz_th=0.,
-                    dens_func=None, continuous_injection=False,
-                    grid_shape=sim.fld.interp[0].Ez.shape,
-                    particle_shape='linear',
-                    use_cuda=sim.use_cuda)
-    sim.ptcl.append( photons )
+    sim.add_new_species( q=0, m=0 )
     print( 'Initialized photons' )
 
     # Activate Compton scattering for electrons of the bunch

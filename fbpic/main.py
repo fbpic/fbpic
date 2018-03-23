@@ -571,8 +571,7 @@ class Simulation(object):
     def add_new_species( self, q, m, n=None, dens_func=None,
                             p_nz=None, p_nr=None, p_nt=None,
                             p_zmin=-np.inf, p_zmax=np.inf,
-                            p_rmin=0, p_rmax=np.inf,
-                            ux_m=0., uy_m=0., uz_m=0.,
+                            p_rmin=0, p_rmax=np.inf, uz_m=0.,
                             continuous_injection=True ):
         """
         Create a new species with charge `q` and mass `m`,
@@ -614,15 +613,22 @@ class Simulation(object):
         p_nt: int, optional
             The number of macroparticles along the theta direction
 
-        p_zmin, p_zmax: floats (in meters), optional
-           Positions in z between which the particles are initialized
-           (in the lab frame). Default: particles fill the simulation box.
-        p_rmin, p_rmax: floats (in meters), optional
-           Positions in r between which the particles are initialized.
+        p_zmin: float (in meters), optional
+            The minimal z position above which the particles are initialized
+            (in the lab frame). Default: left edge of the simulation box.
+        p_zmax: float (in meters), optional
+            The maximal z position below which the particles are initialized
+            (in the lab frame). Default: right edge of the simulation box.
+        p_rmin: float (in meters), optional
+            The minimal r position above which the particles are initialized
+            (in the lab frame). Default: 0
+        p_rmax: floats (in meters), optional
+            The maximal r position below which the particles are initialized
+            (in the lab frame). Default: upper edge of the simulation box.
 
-        ux_m, uy_m, uz_m: floats (dimensionless), optional
-           Normalized mean momenta (in the lab frame)
-           of the injected particles in each direction
+        uz_m: float (dimensionless), optional
+           Normalized momentum (in the lab frame)
+           of the injected particles in the z direction
 
         continuous_injection : bool, optional
            Whether to continuously inject the particles,
@@ -640,8 +646,9 @@ class Simulation(object):
 
             # Automatically convert input quantities to the boosted frame
             if self.boost is not None:
+                beta0 = uz_m/( 1.+uz_m**2 )**0.5
                 p_zmin, p_zmax = self.boost.static_length([ p_zmin, p_zmax ])
-                n, = self.boost.static_density([ n ])
+                n, = self.boost.copropag_density([ n ], beta_object=beta0 )
                 uz_m, = self.boost.longitudinal_momentum([ uz_m ])
 
             # Modify input particle bounds, in order to only initialize the
@@ -671,8 +678,7 @@ class Simulation(object):
         new_species = Particles( q=q, m=m, n=n, dens_func=dens_func,
                         Npz=Npz, zmin=p_zmin, zmax=p_zmax,
                         Npr=Npr, rmin=p_rmin, rmax=p_rmax,
-                        Nptheta=p_nt, dt=self.dt,
-                        ux_m=ux_m, uy_m=uy_m, uz_m=uz_m,
+                        Nptheta=p_nt, dt=self.dt, uz_m=uz_m,
                         particle_shape=self.particle_shape,
                         use_cuda=self.use_cuda, grid_shape=self.grid_shape,
                         continuous_injection=continuous_injection )
