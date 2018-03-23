@@ -48,7 +48,7 @@ class Simulation(object):
                  n_order=-1, dens_func=None, filter_currents=True,
                  v_comoving=None, use_galilean=True,
                  initialize_ions=False, use_cuda=False,
-                 n_guard=None, n_damp=30, exchange_period=None,
+                 n_guard=None, n_damp=64, exchange_period=None,
                  current_correction='curl-free', boundaries='periodic',
                  gamma_boost=None, use_all_mpi_ranks=True,
                  particle_shape='linear', verbose_level=1 ):
@@ -136,7 +136,7 @@ class Simulation(object):
             region at these areas (left / right of moving window) is
             extended by n_damp (N=n_guard+n_damp) in order to smoothly
             damp the fields such that they do not wrap around.
-            (Defaults to 30)
+            (Defaults to 64)
         exchange_period: int, optional
             Number of iterations before which the particles are exchanged.
             If set to None, the maximum exchange period is calculated

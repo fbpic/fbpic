@@ -89,7 +89,7 @@ class BoundaryCommunicator(object):
             region at these areas (left / right of moving window) is
             extended by n_damp (N=n_guard+n_damp) in order to smoothly
             damp the fields such that they do not wrap around.
-            (Defaults to 30)
+            (Defaults to 64)
 
         exchange_period: int, optional
             Number of iterations before which the particles are exchanged.
@@ -150,10 +150,10 @@ class BoundaryCommunicator(object):
         # for given order (n_order)
         if n_guard == None:
             if n_order == -1:
-                # Set n_guard to fixed value of 30 in case of
+                # Set n_guard to fixed value of 64 in case of
                 # open boundaries and infinite order stencil
                 # (if not defined otherwise by user)
-                self.n_guard = 30
+                self.n_guard = 64
                 # Raise error if user tries to use parallel MPI computation
                 # with an infinite order stencil. This would give wrong results
                 if self.size != 1:
