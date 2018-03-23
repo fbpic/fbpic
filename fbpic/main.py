@@ -671,7 +671,7 @@ class Simulation(object):
             # but which will result in no macroparticles being injected
             n = 0
             p_zmin = p_zmax = p_rmin = p_rmax = 0
-            Npz = Npr = 0
+            Npz = Npr = p_nt = 0
             continuous_injection = False
 
         # Create the new species
