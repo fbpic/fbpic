@@ -354,8 +354,8 @@ class Particles(object) :
         (i.e. allocates an array of ids, that is communicated through MPI
         and sorting, and is output in the openPMD file)
 
-        Parameters:
-        -----------
+        Parameters
+        ----------
         comm: an fbpic.BoundaryCommunicator object
             Contains information about the number of processors
         """
