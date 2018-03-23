@@ -419,7 +419,9 @@ class Particles(object) :
         Make this species ionizable
 
         The implemented ionization model is the ADK model.
-        See Chen, JCP 236 (2013), equation (2)
+        See `Chen, JCP 236 (2013)
+        <https://www.sciencedirect.com/science/article/pii/S0021999112007097>`_,
+        equation (2)
 
         Parameters
         ----------

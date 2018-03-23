@@ -119,7 +119,7 @@ def run_simulation( gamma_boost ):
         boundaries='open', use_cuda=use_cuda )
     elec = sim.ptcl[0]
     # Add the N atoms
-    atoms = sim.add_new_species( q=e, m=14.*m_p, n=0.2*n_e,
+    atoms = sim.add_new_species( q=0, m=14.*m_p, n=0.2*n_e,
                         p_nz=p_nz, p_nr=p_nr, p_nt=p_nt,
                         p_zmin=p_zmin, p_zmax=p_zmax,
                         p_rmin=p_rmin, p_rmax=p_rmax,
