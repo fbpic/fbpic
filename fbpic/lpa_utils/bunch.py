@@ -7,7 +7,6 @@ It defines a set of utilities for the initialization of an electron bunch.
 """
 import numpy as np
 from scipy.constants import m_e, c, e, epsilon_0, mu_0
-from fbpic.main import adapt_to_grid
 from fbpic.fields import Fields
 from fbpic.particles import Particles
 from fbpic.particles.injection import BallisticBeforePlane
@@ -67,58 +66,35 @@ def add_elec_bunch( sim, gamma0, n_e, p_zmin, p_zmax, p_rmin, p_rmax,
     direction : string, optional
         Can be either "forward" or "backward".
         Propagation direction of the beam.
-        
+
     z_injection_plane: float (in meters) or None
         When `z_injection_plane` is not None, then particles have a ballistic
-        motion for z<z_injection_plane. This is sometimes useful in 
+        motion for z<z_injection_plane. This is sometimes useful in
         boosted-frame simulations.
         `z_injection_plane` is always given in the lab frame.
     """
-    # Convert parameters to boosted frame
-    if boost is not None:
-        beta0 = np.sqrt( 1. - 1./gamma0**2 )
-        p_zmin, p_zmax = boost.copropag_length(
-            [ p_zmin, p_zmax ], beta_object=beta0 )
-        n_e, = boost.copropag_density( [n_e], beta_object=beta0 )
-        gamma0, = boost.gamma( [gamma0] )
-
-    # Modify the input parameters p_zmin, p_zmax, r_zmin, r_zmax, so that
-    # they fall exactly on the grid, and infer the number of particles
-    p_zmin, p_zmax, Npz = adapt_to_grid( sim.fld.interp[0].z,
-                                p_zmin, p_zmax, p_nz )
-    p_rmin, p_rmax, Npr = adapt_to_grid( sim.fld.interp[0].r,
-                                p_rmin, p_rmax, p_nr )
-
-    # Create the electrons
-    relat_elec = Particles( q=-e, m=m_e, n=n_e,
-                            Npz=Npz, zmin=p_zmin, zmax=p_zmax,
-                            Npr=Npr, rmin=p_rmin, rmax=p_rmax,
-                            Nptheta=p_nt, dt=sim.dt,
-                            continuous_injection=False,
-                            dens_func=dens_func, use_cuda=sim.use_cuda,
-                            grid_shape=sim.fld.interp[0].Ez.shape )
-
-    # Give them the right velocity
-    relat_elec.inv_gamma[:] = 1./gamma0
-    relat_elec.uz[:] = np.sqrt( gamma0**2 -1.)
-
-    # Electron beam moving in the background direction
+    # Calculate the electron momentum
+    uz_m = ( gamma0**2 - 1. )**0.5
     if direction == 'backward':
-        relat_elec.uz[:] *= -1.
+        uz_m *= -1.
+    # Create the electron species
+    relat_elec = sim.add_new_species( q=-e, m=m_e, n=n_e,
+                            p_nz=p_nz, p_nr=p_nr, p_nt=p_nt,
+                            p_zmin=p_zmin, p_zmax=p_zmax,
+                            p_rmin=p_rmin, p_rmax=p_rmax,
+                            continuous_injection=False,
+                            dens_func=dens_func, uz_m=uz_m )
 
     # Initialize the injection plane for the particles
     if z_injection_plane is not None:
         assert relat_elec.injector is None #Don't overwrite a previous injector
         relat_elec.injector = BallisticBeforePlane( z_injection_plane, boost )
 
-    # Add them to the particles of the simulation
-    sim.ptcl.append( relat_elec )
-
     # Get the corresponding space-charge fields
     get_space_charge_fields( sim, relat_elec, direction=direction )
 
-def add_elec_bunch_gaussian( sim, sig_r, sig_z, n_emit, gamma0, 
-                        sig_gamma, Q, N, tf=0., zf=0., boost=None, 
+def add_elec_bunch_gaussian( sim, sig_r, sig_z, n_emit, gamma0,
+                        sig_gamma, Q, N, tf=0., zf=0., boost=None,
                         save_beam=None, z_injection_plane=None ):
     """
     Introduce a relativistic Gaussian electron bunch in the simulation,
@@ -167,10 +143,10 @@ def add_elec_bunch_gaussian( sim, sig_r, sig_z, n_emit, gamma0,
 
     save_beam : string, optional
         Saves the generated beam distribution as an .npz file "string".npz
-        
+
     z_injection_plane: float (in meters) or None
         When `z_injection_plane` is not None, then particles have a ballistic
-        motion for z<z_injection_plane. This is sometimes useful in 
+        motion for z<z_injection_plane. This is sometimes useful in
         boosted-frame simulations.
         `z_injection_plane` is always given in the lab frame.
     """
@@ -213,7 +189,7 @@ def add_elec_bunch_gaussian( sim, sig_r, sig_z, n_emit, gamma0,
             inv_gamma=inv_gamma, w=w)
 
     # Add the electrons to the simulation
-    add_elec_bunch_from_arrays( sim, x, y, z, ux, uy, uz, w, 
+    add_elec_bunch_from_arrays( sim, x, y, z, ux, uy, uz, w,
                 boost=boost, z_injection_plane=z_injection_plane )
 
 
@@ -246,10 +222,10 @@ def add_elec_bunch_file( sim, filename, Q_tot, z_off=0., boost=None,
     direction : string, optional
         Can be either "forward" or "backward".
         Propagation direction of the beam.
-        
+
     z_injection_plane: float (in meters) or None
         When `z_injection_plane` is not None, then particles have a ballistic
-        motion for z<z_injection_plane. This is sometimes useful in 
+        motion for z<z_injection_plane. This is sometimes useful in
         boosted-frame simulations.
         `z_injection_plane` is always given in the lab frame.
     """
@@ -313,10 +289,10 @@ def add_elec_bunch_openPMD( sim, ts_path, z_off=0., species=None, select=None,
     boost : a BoostConverter object, optional
         A BoostConverter object defining the Lorentz boost of
         the simulation.
-        
+
     z_injection_plane: float (in meters) or None
         When `z_injection_plane` is not None, then particles have a ballistic
-        motion for z<z_injection_plane. This is sometimes useful in 
+        motion for z<z_injection_plane. This is sometimes useful in
         boosted-frame simulations.
         `z_injection_plane` is always given in the lab frame.
     """
@@ -341,7 +317,7 @@ def add_elec_bunch_openPMD( sim, ts_path, z_off=0., species=None, select=None,
     z = z - np.average(z, weights=w) + z_off
 
     # Add the electrons to the simulation, and calculate the space charge
-    add_elec_bunch_from_arrays( sim, x, y, z, ux, uy, uz, w, 
+    add_elec_bunch_from_arrays( sim, x, y, z, ux, uy, uz, w,
                             boost=boost, z_injection_plane=z_injection_plane )
 
 
@@ -376,7 +352,7 @@ def add_elec_bunch_from_arrays( sim, x, y, z, ux, uy, uz, w,
 
     z_injection_plane: float (in meters) or None
         When `z_injection_plane` is not None, then particles have a ballistic
-        motion for z<z_injection_plane. This is sometimes useful in 
+        motion for z<z_injection_plane. This is sometimes useful in
         boosted-frame simulations.
         `z_injection_plane` is always given in the lab frame.
     """
