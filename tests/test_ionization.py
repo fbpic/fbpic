@@ -26,7 +26,7 @@ import shutil, math
 import numpy as np
 from scipy.constants import c, m_e, m_p, e
 # Import the relevant structures in FBPIC
-from fbpic.main import Simulation, adapt_to_grid
+from fbpic.main import Simulation
 from fbpic.lpa_utils.external_fields import ExternalField
 from fbpic.lpa_utils.boosted_frame import BoostConverter
 from fbpic.openpmd_diag import ParticleDiagnostic, BoostedParticleDiagnostic
@@ -111,9 +111,8 @@ def run_simulation( gamma_boost ):
     diag_period = N_step-1 # Period of the diagnostics in number of timesteps
 
     # Initialize the simulation object, with the electrons
+    # No macroparticles created because we do not pass n, p_nz, p_nr, etc
     sim = Simulation( Nz, zmax, Nr, rmax, Nm, dt,
-        p_zmax, p_zmax, # No particles get created because we do not pass n,
-        p_rmin, p_rmax, p_nz, p_nr, p_nt, n_e,
         zmin=zmin, initialize_ions=False,
         v_comoving=v_plasma, use_galilean=False,
         boundaries='open', use_cuda=use_cuda )

@@ -43,8 +43,9 @@ class Simulation(object):
     - `comm`, a `BoundaryCommunicator`, which contains the MPI decomposition
     """
 
-    def __init__(self, Nz, zmax, Nr, rmax, Nm, dt, p_zmin, p_zmax,
-                 p_rmin, p_rmax, p_nz, p_nr, p_nt, n_e, zmin=0.,
+    def __init__(self, Nz, zmax, Nr, rmax, Nm, dt,
+                 p_zmin=-np.inf, p_zmax=np.inf, p_rmin=0, p_rmax=np.inf,
+                 p_nz=None, p_nr=None, p_nt=None, n_e=None, zmin=0.,
                  n_order=-1, dens_func=None, filter_currents=True,
                  v_comoving=None, use_galilean=True,
                  initialize_ions=False, use_cuda=False,
