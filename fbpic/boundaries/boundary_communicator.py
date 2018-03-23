@@ -396,19 +396,20 @@ class BoundaryCommunicator(object):
     # Exchange routines
     # -----------------
 
-    def move_grids( self, fld, dt, time ):
+    def move_grids( self, fld, ptcl, dt, time ):
         """
         Calculate by how many cells the moving window should be moved.
         If this is non-zero, shift the fields on the interpolation grid,
         and add new particles.
 
-        NB: the spectral grid is not modified, as it is automatically
-        updated after damping the fields (see main.py)
-
         Parameters
         ----------
         fld: a Fields object
             Contains the fields data of the simulation
+
+        ptcl: a list of Particles object
+            This is passed in order to increment the positions between
+            which the continuously-injection particles will be generated
 
         dt: float (in seconds)
             Timestep of the simulation
@@ -417,7 +418,7 @@ class BoundaryCommunicator(object):
             The global time in the simulation
             This is used in order to determine how much the window should move
         """
-        self.moving_win.move_grids(fld, self, time)
+        self.moving_win.move_grids(fld, ptcl, self, time)
 
 
     def exchange_fields( self, interp, fieldtype, method ):
@@ -838,9 +839,11 @@ class BoundaryCommunicator(object):
         # When using a moving window, create new particles in recv_right
         # (Overlap this with the exchange of domains, since recv_right
         # will not be affected by the exchange at this open boundary)
-        if (self.moving_win is not None) and (self.rank == self.size-1):
+        if (self.moving_win is not None) \
+            and (self.rank == self.size-1) \
+            and species.continuous_injection:
             float_recv_right, uint_recv_right = \
-              self.moving_win.generate_particles(species,fld.interp[0].dz,time)
+                species.generate_continuously_injected_particles( time )
 
         # Periodic boundary conditions for exchanging particles
         # Particles received at the right (resp. left) end of the simulation

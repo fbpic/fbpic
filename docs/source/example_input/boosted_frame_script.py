@@ -170,7 +170,7 @@ if __name__ == '__main__':
            zf=zfoc, gamma_boost=gamma_boost )
 
     # Configure the moving window
-    sim.set_moving_window( v=v_window, gamma_boost=gamma_boost )
+    sim.set_moving_window( v=v_window )
 
     # Add a field diagnostic
     sim.diags = [ FieldDiagnostic(diag_period, sim.fld, sim.comm ),

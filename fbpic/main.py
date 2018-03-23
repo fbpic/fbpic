@@ -245,9 +245,6 @@ class Simulation(object):
                               p_zmin=p_zmin, p_zmax=p_zmax,
                               p_rmin=p_rmin, p_rmax=p_rmax )
 
-        # Register the number of particles per cell along z, and dt
-        # (Necessary for the moving window)
-        self.p_nz = p_nz
         # Register the time and the iteration
         self.time = 0.
         self.iteration = 0
@@ -348,15 +345,11 @@ class Simulation(object):
             if self.iteration % self.comm.exchange_period == 0 or i_step == 0:
                 # Particle exchange includes MPI exchange of particles, removal
                 # of out-of-box particles and (if there is a moving window)
-                # injection of new particles by the moving window.
+                # continuous injection of new particles by the moving window.
                 # (In the case of single-proc periodic simulations, particles
                 # are shifted by one box length, so they remain inside the box)
                 for species in self.ptcl:
                     self.comm.exchange_particles(species, fld, self.time)
-                # Set again the number of cells to be injected to 0
-                # (This number is incremented when `move_grids` is called)
-                if self.comm.moving_win is not None:
-                    self.comm.moving_win.nz_inject = 0
 
                 # Reproject the charge on the interpolation grid
                 # (Since particles have been removed / added to the simulation;
@@ -451,7 +444,7 @@ class Simulation(object):
             if self.comm.moving_win is not None:
                 # Shift the fields is spectral space and update positions of
                 # the interpolation grids
-                self.comm.move_grids(fld, dt, self.time)
+                self.comm.move_grids(fld, ptcl, dt, self.time)
 
             # Get the MPI-exchanged and damped E and B field in both
             # spectral space and interpolation space
@@ -723,6 +716,7 @@ class Simulation(object):
                                 p_zmin, p_zmax, p_nz )
             p_rmin, p_rmax, Npr = adapt_to_grid( self.fld.interp[0].r,
                                 p_rmin, p_rmax, p_nr )
+            dz_particles = self.comm.dz/p_nz
 
         else:
             # Convert arguments to acceptable arguments for `Particles`
@@ -731,6 +725,7 @@ class Simulation(object):
             p_zmin = p_zmax = p_rmin = p_rmax = 0
             Npz = Npr = p_nt = 0
             continuous_injection = False
+            dz_particles = 0.
 
         # Create the new species
         new_species = Particles( q=q, m=m, n=n, dens_func=dens_func,
@@ -739,15 +734,16 @@ class Simulation(object):
                         Nptheta=p_nt, dt=self.dt, uz_m=uz_m,
                         particle_shape=self.particle_shape,
                         use_cuda=self.use_cuda, grid_shape=self.grid_shape,
-                        continuous_injection=continuous_injection )
+                        continuous_injection=continuous_injection,
+                        dz_particles=dz_particles )
 
         # Add it to the list of species and return it to the user
         self.ptcl.append( new_species )
         return new_species
 
 
-    def set_moving_window( self, v=c, ux_m=0., uy_m=0., uz_m=0.,
-                  ux_th=0., uy_th=0., uz_th=0., gamma_boost=None ):
+    def set_moving_window( self, v=c, ux_m=None, uy_m=None, uz_m=None,
+                  ux_th=None, uy_th=None, uz_th=None, gamma_boost=None ):
         """
         Initializes a moving window for the simulation.
 
@@ -756,32 +752,26 @@ class Simulation(object):
         v: float (in meters per seconds), optional
             The speed of the moving window
 
-        ux_m: float (dimensionless), optional
-           Normalized mean momenta of the injected particles along x
-        uy_m: float (dimensionless), optional
-           Normalized mean momenta of the injected particles along y
-        uz_m: float (dimensionless), optional
-           Normalized mean momenta of the injected particles along z
-
-        ux_th: float (dimensionless), optional
-           Normalized thermal momenta of the injected particles along x
-        uy_th: float (dimensionless), optional
-           Normalized thermal momenta of the injected particles along y
-        uz_th: float (dimensionless), optional
-           Normalized thermal momenta of the injected particles along z
-
+        ux_m, uy_m, uz_m: float (dimensionless), optional
+            Unused, kept for backward-compatibility
+        ux_th, uy_th, uz_th: float (dimensionless), optional
+            Unused, kept for backward-compatibility
         gamma_boost : float, optional
-            When initializing a moving window in a boosted frame, set the
-            value of `gamma_boost` to the corresponding Lorentz factor.
-            Quantities like uz_m of the injected particles will be
-            automatically Lorentz-transformed.
-            (uz_m is to be given in the lab frame ; for the moment, this
-            will not work if any of ux_th, uy_th, uz_th, ux_m, uy_m is nonzero)
+            Unused; kept for backward compatibility
         """
+        # Raise deprecation warning
+        for arg in [ux_m, uy_m, uz_m, ux_th, uy_th, uz_th, gamma_boost ]:
+            if arg is not None:
+                warnings.warn(
+                'The arguments `u*_m`, `u*_th` and `gamma_boost` of '
+                'the method `set_moving_window` are deprecated.\n'
+                'They will not be used.\nTo suppress this message, '
+                'stop passing these arguments to `set_moving_window`',
+                DeprecationWarning)
+
         # Attach the moving window to the boundary communicator
         self.comm.moving_win = MovingWindow( self.fld.interp, self.comm,
-            self.dt, self.ptcl, v, self.p_nz, self.time,
-            ux_m, uy_m, uz_m, ux_th, uy_th, uz_th, gamma_boost )
+            self.dt, self.ptcl, v, self.time )
 
 def adapt_to_grid( x, p_xmin, p_xmax, p_nx, ncells_empty=0 ):
     """

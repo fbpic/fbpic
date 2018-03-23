@@ -17,7 +17,7 @@ Usage :
 from the top-level directory of FBPIC run
 $ python tests/test_continuous_injection.py
 """
-from scipy.constants import c, e
+from scipy.constants import c, e, m_e
 from fbpic.main import Simulation
 import numpy as np
 
@@ -102,14 +102,19 @@ def run_continuous_injection( gamma_boost, dens_func,
 
     # Initialize the different structures
     sim = Simulation( Nz, zmax, Nr, rmax, Nm, dt,
-        p_zmin, p_zmax, 0, p_rmax, p_nz, p_nr, p_nt, n,
+        p_zmin, p_zmax, 0, p_rmax, p_nz, p_nr, p_nt, 0.5*n,
         dens_func=dens_func, initialize_ions=False, zmin=zmin,
         use_cuda=use_cuda, gamma_boost=gamma_boost, boundaries='open' )
+
+    # Add another species with a different number of particles per cell
+    sim.add_new_species( -e, m_e, 0.5*n, dens_func,
+                            2*p_nz, 2*p_nr, 2*p_nt,
+                            p_zmin, p_zmax, 0, p_rmax )
 
     # Set the moving window, which handles the continuous injection
     # The moving window has an arbitrary velocity (0.7*c) so as to check
     # that the injection is correct in this case also
-    sim.set_moving_window( v=c, gamma_boost=gamma_boost )
+    sim.set_moving_window( v=c )
 
     # Check that the density is correct after different timesteps
     N_step = int( Nz/N_check/2 )
