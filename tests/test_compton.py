@@ -101,7 +101,7 @@ def run_simulation( gamma_boost, show ):
     elec = sim.ptcl[0]
     print( 'Initialized electron bunch' )
     # Add a photon species
-    sim.add_new_species( q=0, m=0 )
+    photons = sim.add_new_species( q=0, m=0 )
     print( 'Initialized photons' )
 
     # Activate Compton scattering for electrons of the bunch
