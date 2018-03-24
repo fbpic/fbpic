@@ -5,9 +5,7 @@ laser-wakefield acceleration using FBPIC.
 Usage
 -----
 - Modify the parameters below to suit your needs
-- Type "python -i lwfa_script.py" in a terminal
-- When the simulation finishes, the python session will *not* quit.
-    Therefore the simulation can be continued by running sim.step()
+- Type "python lwfa_script.py" in a terminal
 
 Help
 ----
@@ -59,7 +57,7 @@ n_order = -1
 
 # The particles
 p_zmin = 25.e-6  # Position of the beginning of the plasma (meters)
-p_zmax = 31.e-6  # Position of the end of the plasma (meters)
+p_zmax = 500.e-6 # Position of the end of the plasma (meters)
 p_rmin = 0.      # Minimal radial position of the plasma (meters)
 p_rmax = 18.e-6  # Maximal radial position of the plasma (meters)
 n_e = 4.e18*1.e6 # Density (electrons.meters^-3)
@@ -102,7 +100,7 @@ def dens_func( z, r ) :
 # ---------------------------
 
 # NB: The code below is only executed when running the script,
-# (`python -i lpa_sim.py`), but not when importing it (`import lpa_sim`).
+# (`python lwfa_script.py`), but not when importing it (`import lwfa_script`).
 if __name__ == '__main__':
 
     # Initialize the simulation object
@@ -126,7 +124,7 @@ if __name__ == '__main__':
     # Configure the moving window
     sim.set_moving_window( v=v_window )
 
-    # Add a field diagnostic
+    # Add diagnostics
     sim.diags = [ FieldDiagnostic( diag_period, sim.fld, comm=sim.comm ),
                 ParticleDiagnostic( diag_period, {"electrons" : sim.ptcl[0]},
                                 select={"uz" : [1., None ]}, comm=sim.comm ) ]

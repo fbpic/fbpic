@@ -12,6 +12,7 @@ You can download examples of FBPIC scripts below (which you can then modify
 to suit your needs):
 
 - Standard simulation of laser-wakefield acceleration: :download:`lwfa_script.py <example_input/lwfa_script.py>`
+- Laser-wakefield acceleration with ionization: :download:`ionization_script.py <example_input/ionization_script.py>`
 - Boosted-frame simulation of laser-wakefield acceleration: :download:`boosted_frame_script.py <example_input/boosted_frame_script.py>`
 
 (See the section :doc:`advanced/boosted_frame` for more information on the above script.)
