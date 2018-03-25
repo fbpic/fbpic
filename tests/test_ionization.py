@@ -26,8 +26,7 @@ import shutil, math
 import numpy as np
 from scipy.constants import c, m_e, m_p, e
 # Import the relevant structures in FBPIC
-from fbpic.main import Simulation, adapt_to_grid
-from fbpic.particles import Particles
+from fbpic.main import Simulation
 from fbpic.lpa_utils.external_fields import ExternalField
 from fbpic.lpa_utils.boosted_frame import BoostConverter
 from fbpic.openpmd_diag import ParticleDiagnostic, BoostedParticleDiagnostic
@@ -111,28 +110,22 @@ def run_simulation( gamma_boost ):
     # The diagnostics
     diag_period = N_step-1 # Period of the diagnostics in number of timesteps
 
-    # Initialize the simulation object
+    # Initialize the simulation object, with the electrons
+    # No macroparticles created because we do not pass n, p_nz, p_nr, etc
     sim = Simulation( Nz, zmax, Nr, rmax, Nm, dt,
-        p_zmax, p_zmax, # No electrons get created because we pass p_zmin=p_zmax
-        p_rmin, p_rmax, p_nz, p_nr, p_nt, n_e,
         zmin=zmin, initialize_ions=False,
         v_comoving=v_plasma, use_galilean=False,
         boundaries='open', use_cuda=use_cuda )
-    sim.set_moving_window( v=v_plasma )
-
+    elec = sim.ptcl[0]
     # Add the N atoms
-    p_zmin, p_zmax, Npz = adapt_to_grid( sim.fld.interp[0].z,
-                                         p_zmin, p_zmax, p_nz )
-    p_rmin, p_rmax, Npr = adapt_to_grid( sim.fld.interp[0].r,
-                                         p_rmin, p_rmax, p_nr )
-    sim.ptcl.append(
-        Particles(q=e, m=14.*m_p, n=0.2*n_e, Npz=Npz, zmin=p_zmin,
-                  zmax=p_zmax, Npr=Npr, rmin=p_rmin, rmax=p_rmax,
-                  Nptheta=p_nt, dt=dt, use_cuda=use_cuda, uz_m=uz_m,
-                  grid_shape=sim.fld.interp[0].Ez.shape,
-                  continuous_injection=False ) )
-    sim.ptcl[1].make_ionizable(element='N', level_start=0,
-                               target_species=sim.ptcl[0])
+    atoms = sim.add_new_species( q=0, m=14.*m_p, n=0.2*n_e,
+                        p_nz=p_nz, p_nr=p_nr, p_nt=p_nt,
+                        p_zmin=p_zmin, p_zmax=p_zmax,
+                        p_rmin=p_rmin, p_rmax=p_rmax,
+                        continuous_injection=False, uz_m=uz_m )
+    atoms.make_ionizable(element='N', level_start=0, target_species=elec)
+    # Set the moving window
+    sim.set_moving_window( v=v_plasma )
 
     # Add a laser to the fields of the simulation (external fields)
     sim.external_fields = [

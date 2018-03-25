@@ -9,7 +9,7 @@ import re, os
 import numpy as np
 from scipy.constants import e
 
-cashed_ionization_energies = {}
+cached_ionization_energies = {}
 
 def get_ionization_energies( element ):
     """
@@ -17,7 +17,7 @@ def get_ionization_energies( element ):
     array element per ionization state.
 
     If the same element was requested previously, the ionization energy
-    is obtained from a cashed dictionary (`cashed_ionization_energies`)
+    is obtained from a cached dictionary (`cached_ionization_energies`)
     otherwise the energies are read from a data file.
 
     Parameters
@@ -32,14 +32,13 @@ def get_ionization_energies( element ):
     ionization energy in Joules, or None if the element was not found in
     the file.
     """
-    # Lookup in the cashed dictionary
-    if element in cashed_ionization_energies.keys():
-        print('Getting cashed ionization energy for %s.' %element )
-        return( cashed_ionization_energies[element] )
+    # Lookup in the cached dictionary
+    if element in cached_ionization_energies.keys():
+        return( cached_ionization_energies[element] )
     else:
         energies = read_ionization_energies(element)
-        # Record energies in the cashed dictionary
-        cashed_ionization_energies[element] = energies
+        # Record energies in the cached dictionary
+        cached_ionization_energies[element] = energies
         return( energies )
 
 def read_ionization_energies( element ):

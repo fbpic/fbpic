@@ -351,11 +351,11 @@ class Particles(object) :
     def track( self, comm ):
         """
         Activate particle tracking for the current species
-        (i.e. allocates an array of ids, that is communicated through MPI
-        and sorting, and is output in the openPMD file)
+        (i.e. allocates an array of unique IDs for each macroparticle;
+        these IDs are written in the openPMD file)
 
-        Parameters:
-        -----------
+        Parameters
+        ----------
         comm: an fbpic.BoundaryCommunicator object
             Contains information about the number of processors
         """
@@ -416,10 +416,19 @@ class Particles(object) :
 
     def make_ionizable( self, element, target_species, level_start=0):
         """
-        Make this species ionizable
+        Make this species ionizable.
 
-        The implemented ionization model is the ADK model.
-        See Chen, JCP 236 (2013), equation (2)
+        The implemented ionization model is the **ADK model**
+        (using the **instantaneous** electric field, i.e. **without** averaging
+        over the laser period).
+
+        The expression of the ionization rate can be found in
+        `Chen, JCP 236 (2013), equation 2
+        <https://www.sciencedirect.com/science/article/pii/S0021999112007097>`_.
+
+        Note that the implementation in FBPIC evaluates this ionization rate
+        *in the reference frame of each macroparticle*, and is thus valid
+        in lab-frame simulations as well as boosted-frame simulation.
 
         Parameters
         ----------
@@ -428,9 +437,8 @@ class Particles(object) :
             (e.g. 'He', 'N' ;  do not use 'Helium' or 'Nitrogen')
 
         target_species: an fbpic.Particles object
-            This object is not modified when creating the class, but
-            it is modified when ionization occurs
-            (i.e. more particles are created)
+            Stores the electron macroparticles that are created in
+            the ionization process.
 
         level_start: int
             The ionization level at which the macroparticles are initially
