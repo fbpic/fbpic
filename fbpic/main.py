@@ -54,11 +54,13 @@ class Simulation(object):
                  gamma_boost=None, use_all_mpi_ranks=True,
                  particle_shape='linear', verbose_level=1 ):
         """
-        Initializes a simulation, by creating the following structures:
+        Initializes a simulation.
 
-        - the `Fields` object, which contains the field data on the grids
-        - a set of electrons
-        - a set of ions (if initialize_ions is True)
+        By default the simulation contains:
+        - an electron species
+        - (if ``initialize_ions`` is True) an ion species (Hydrogen 1+)
+        These species are stored in the attribute ``ptcl`` of ``Simulation``
+        (which is a Python list, containing the different species).
 
         .. note::
 
@@ -626,9 +628,10 @@ class Simulation(object):
                             p_rmin=0, p_rmax=np.inf, uz_m=0.,
                             continuous_injection=True ):
         """
-        Create a new species with charge `q` and mass `m`,
-        add it to the simulation (i.e. to the list `Simulation.ptcl`), and
-        return it, so that the specific methods of that species can be used.
+        Create a new species (i.e. an instance of `Particles`) with
+        charge `q` and mass `m`. Add it to the simulation (i.e. to the list
+        `Simulation.ptcl`), and return it, so that the methods of the
+        `Particles` class can be used, for this particular species.
 
         In addition, if `n` is set, then new macroparticles will be created
         within this species (in an evenly-spaced manner).
@@ -685,6 +688,10 @@ class Simulation(object):
         continuous_injection : bool, optional
            Whether to continuously inject the particles,
            in the case of a moving window
+
+        Returns
+        -------
+        new_species: an instance of the `Particles` class
         """
         # Check if any macroparticle need to be injected
         if n is not None:
