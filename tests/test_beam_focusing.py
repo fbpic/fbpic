@@ -111,11 +111,11 @@ def simulate_beam_focusing( z_injection_plane, write_dir ):
         The directory where the boosted diagnostics are written.
     """
     # Initialize the simulation object
-    sim = Simulation( Nz, zmax, Nr, rmax, Nm, dt,
-        p_zmin=0., p_zmax=0., p_rmin=0., p_rmax=0.,
-        p_nz=0, p_nr=0, p_nt=0, n_e=0., zmin=zmin,
+    sim = Simulation( Nz, zmax, Nr, rmax, Nm, dt, zmin=zmin,
         gamma_boost=gamma_boost, boundaries='open',
         use_cuda=use_cuda, v_comoving=v_comoving )
+    # Note: no macroparticles get created because we do not pass 
+    # the density and number of particle per cell
 
     # Remove the plasma particles
     sim.ptcl = []
