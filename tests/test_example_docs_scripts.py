@@ -201,7 +201,6 @@ def test_parametric_sim_twoproc():
     # Modify the script so as to enable checkpoints
     script = replace_string( script, 'save_checkpoints = False',
                                 'save_checkpoints = True')
-    script = replace_string( script, 'n_order = -1', 'n_order = 16')
     with open(script_filename, 'w') as f:
         f.write(script)
 
@@ -233,6 +232,37 @@ def test_parametric_sim_twoproc():
         # expected one.
         a0_in_diag = ts.get_a0( iteration=80, pol='x' )
         assert abs( (a0 - a0_in_diag)/a0 ) < 1.e-2
+
+    # Suppress the temporary directory
+    shutil.rmtree( temporary_dir )
+
+def test_ionization_script_twoproc():
+    "Test the example script with two proc in `docs/source/example_input`"
+
+    temporary_dir = './tests/tmp_test_dir'
+
+    # Create a temporary directory for the simulation
+    # and copy the example script into this directory
+    if os.path.exists( temporary_dir ):
+        shutil.rmtree( temporary_dir )
+    os.mkdir( temporary_dir )
+    shutil.copy(
+        './docs/source/example_input/ionization_script.py', temporary_dir )
+    script_filename = os.path.join( temporary_dir, 'ionization_script.py' )
+
+    # Read the script
+    with open(script_filename) as f:
+        script = f.read()
+    # Modify the script so as to enable MPI simulation
+    script = replace_string( script, 'n_order = -1', 'n_order = 16')
+    # Write the script
+    with open(script_filename, 'w') as f:
+        f.write(script)
+
+    # Launch the modified script from the OS, with 2 proc
+    response = os.system(
+        'cd %s; mpirun -np 2 python ionization_script.py' %temporary_dir )
+    assert response==0
 
     # Suppress the temporary directory
     shutil.rmtree( temporary_dir )
@@ -290,6 +320,7 @@ def compare_simulations( ts1, ts2 ):
 
 
 if __name__ == '__main__':
+    test_ionization_script_twoproc()
     test_lpa_sim_singleproc_restart()
     test_lpa_sim_twoproc_restart()
     test_parametric_sim_twoproc()

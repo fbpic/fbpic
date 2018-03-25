@@ -45,7 +45,7 @@ Nm = 2           # Number of modes used
 
 # The simulation timestep
 dt = (zmax-zmin)/Nz/c   # Timestep (seconds)
-N_step = 200     # Number of iterations to perform
+N_step = 100     # Number of iterations to perform
 
 # Order of the stencil for z derivatives in the Maxwell solver.
 # Use -1 for infinite order, i.e. for exact dispersion relation in
