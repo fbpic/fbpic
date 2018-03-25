@@ -11,7 +11,7 @@ the list ``Simulation.ptcl``.
     Instead, use the method :any:`Simulation.add_new_species`. This will
     append a new instance of :any:`Particles` to the list ``Simulation.ptcl``.
     This new instance will also be directly returned by the function, so
-    that so that you can use its methods below.
+    that you can use its methods below.
 
 .. py:class:: fbpic.particles.Particles
 
