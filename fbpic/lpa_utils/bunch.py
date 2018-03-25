@@ -8,7 +8,8 @@ It defines a set of utilities for the initialization of an electron bunch.
 import numpy as np
 from scipy.constants import m_e, c, e, epsilon_0, mu_0
 from fbpic.fields import Fields
-from fbpic.particles import Particles
+from fbpic.particles.elementary_process.cuda_numba_utils import \
+    reallocate_and_copy_old
 from fbpic.particles.injection import BallisticBeforePlane
 
 def add_elec_bunch( sim, gamma0, n_e, p_zmin, p_zmax, p_rmin, p_rmax,
@@ -368,19 +369,14 @@ def add_elec_bunch_from_arrays( sim, x, y, z, ux, uy, uz, w,
     uz = uz[selected]
     w = w[selected]
 
-    # Extract the number of macroparticles
-    N_part = len(x)
+    # Create electron species with no macroparticles
+    relat_elec = sim.add_new_species( q=-e, m=m_e )
 
-    # Create dummy electrons with the correct number of particles
-    relat_elec = Particles( q=-e, m=m_e, n=1.,
-                        Npz=N_part, zmin=1., zmax=2.,
-                        Npr=1, rmin=0., rmax=1.,
-                        Nptheta=1, dt=sim.dt,
-                        continuous_injection=False,
-                        dens_func=None, use_cuda=sim.use_cuda,
-                        grid_shape=sim.fld.interp[0].Ez.shape )
+    # Reallocate the arrays with the right number of electrons
+    Ntot = len(x)
+    reallocate_and_copy_old( relat_elec, relat_elec.use_cuda, 0, Ntot )
 
-    # Replace dummy particle parameters with the provided arrays
+    # Fill the empty particle arrays with the right values
     relat_elec.x[:] = x[:]
     relat_elec.y[:] = y[:]
     relat_elec.z[:] = z[:]
@@ -400,9 +396,6 @@ def add_elec_bunch_from_arrays( sim, x, y, z, ux, uy, uz, w,
     if z_injection_plane is not None:
         assert relat_elec.injector is None #Don't overwrite a previous injector
         relat_elec.injector = BallisticBeforePlane( z_injection_plane, boost )
-
-    # Add them to the particles of the simulation
-    sim.ptcl.append( relat_elec )
 
     # Get the corresponding space-charge fields
     get_space_charge_fields( sim, relat_elec, direction=direction )
