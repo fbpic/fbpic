@@ -219,7 +219,7 @@ class BoostConverter( object ):
 
         return( boosted_frame_vars )
 
-    def boost_particles( self, particles ):
+    def boost_particle_arrays( self, x, y, z, ux, uy, uz, inv_gamma ):
         """
         Transforms particles to the boosted frame and propagates
         them to a fixed time t_boost = 0. without taking any electromagnetic
@@ -228,12 +228,20 @@ class BoostConverter( object ):
 
         Parameters
         ----------
-        particles: a Particles object
-            A Particles object that contains the particles in the lab frame.
-        """
-        # Shortcut for Particles object
-        part = particles
+        x, y, z: 1darray of float (in meter)
+            The position of the particles in the lab frame
+            (One element per macroparticle)
+        ux, uy, uz: 1darray of floats (dimensionless)
+            The momenta of the particles
+            (One element per macroparticle)
+        inv_gamma: 1darray of floats (dimensionless)
+            The inverse of the Lorentz factor
+            (One element per macroparticle)
 
+        Returns
+        -------
+        The same arrays (in the same order) but in the boosted frame
+        """
         # Apply a Lorentz boost to the particle distribution.
         # In the Lorentz boosted frame, particles will not be defined
         # at a single time t'. Therefore, move of all particles to
@@ -242,13 +250,13 @@ class BoostConverter( object ):
 
         # Transform particle times and longitudinal positions
         # to the boosted frame. Assumes a lab time t = 0.
-        t_boost = -uz_boost*part.z/c
-        z_boost = self.gamma0*part.z
+        t_boost = -uz_boost*z/c
+        z_boost = self.gamma0*z
 
         # Get particle Lab velocities
-        vx = part.ux*part.inv_gamma*c
-        vy = part.uy*part.inv_gamma*c
-        vz = part.uz*part.inv_gamma*c
+        vx = ux*inv_gamma*c
+        vy = uy*inv_gamma*c
+        vz = uz*inv_gamma*c
 
         # Calculate boost factor for velocities
         boost_fact = 1./(1.-self.beta0*vz/c)
@@ -261,12 +269,14 @@ class BoostConverter( object ):
         # Correct for shift in t_boost, which comes from transformation
         # into boosted frame. Particles are moved with transformed
         # velocities to a boosted time t'=0.
-        part.x = part.x - t_boost * vx_boost
-        part.y = part.y - t_boost * vy_boost
-        part.z = z_boost - t_boost * vz_boost
+        new_x = x - t_boost * vx_boost
+        new_y = y - t_boost * vy_boost
+        new_z = z_boost - t_boost * vz_boost
 
         # Get final quantities
-        part.inv_gamma = np.sqrt(1.-(vx_boost**2+vy_boost**2+vz_boost**2)/c**2)
-        part.ux = vx_boost / (part.inv_gamma * c)
-        part.uy = vy_boost / (part.inv_gamma * c)
-        part.uz = vz_boost / (part.inv_gamma * c)
+        new_inv_gamma = np.sqrt(1.-(vx_boost**2+vy_boost**2+vz_boost**2)/c**2)
+        new_ux = vx_boost / (new_inv_gamma * c)
+        new_uy = vy_boost / (new_inv_gamma * c)
+        new_uz = vz_boost / (new_inv_gamma * c)
+
+        return( new_x, new_y, new_z, new_ux, new_uy, new_uz, new_inv_gamma )

@@ -357,6 +357,12 @@ def add_elec_bunch_from_arrays( sim, x, y, z, ux, uy, uz, w,
         boosted-frame simulations.
         `z_injection_plane` is always given in the lab frame.
     """
+    inv_gamma = 1./np.sqrt( 1. + ux**2 + uy**2 + uz**2 )
+    # Convert the particles to the boosted-frame
+    if boost is not None:
+        x, y, z, ux, uy, uz, inv_gamma = boost.boost_particle_arrays(
+                                        x, y, z, ux, uy, uz, inv_gamma )
+
     # Select the particles that are in the local subdomain
     zmin, zmax = sim.comm.get_zmin_zmax(
         local=True, with_damp=False, with_guard=False, rank=sim.comm.rank )
@@ -368,11 +374,12 @@ def add_elec_bunch_from_arrays( sim, x, y, z, ux, uy, uz, w,
     uy = uy[selected]
     uz = uz[selected]
     w = w[selected]
+    inv_gamma = inv_gamma[selected]
 
     # Create electron species with no macroparticles
     relat_elec = sim.add_new_species( q=-e, m=m_e )
 
-    # Reallocate the arrays with the right number of electrons
+    # Reallocate empty arrays with the right number of electrons
     Ntot = len(x)
     reallocate_and_copy_old( relat_elec, relat_elec.use_cuda, 0, Ntot )
 
@@ -383,14 +390,8 @@ def add_elec_bunch_from_arrays( sim, x, y, z, ux, uy, uz, w,
     relat_elec.ux[:] = ux[:]
     relat_elec.uy[:] = uy[:]
     relat_elec.uz[:] = uz[:]
-    relat_elec.inv_gamma[:] = 1./np.sqrt( \
-        1. + relat_elec.ux**2 + relat_elec.uy**2 + relat_elec.uz**2 )
+    relat_elec.inv_gamma[:] = inv_gamma[:]
     relat_elec.w[:] = w[:]
-
-    # Transform particle distribution in
-    # the Lorentz boosted frame, if gamma_boost != 1.
-    if boost is not None:
-        boost.boost_particles( relat_elec )
 
     # Initialize the injection plane for the particles
     if z_injection_plane is not None:
@@ -399,6 +400,7 @@ def add_elec_bunch_from_arrays( sim, x, y, z, ux, uy, uz, w,
 
     # Get the corresponding space-charge fields
     get_space_charge_fields( sim, relat_elec, direction=direction )
+
 
 def get_space_charge_fields( sim, ptcl, direction='forward') :
     """
