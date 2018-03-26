@@ -706,7 +706,8 @@ class Simulation(object):
             # Automatically convert input quantities to the boosted frame
             if self.boost is not None:
                 beta0 = uz_m/( 1.+uz_m**2 )**0.5
-                p_zmin, p_zmax = self.boost.static_length([ p_zmin, p_zmax ])
+                p_zmin, p_zmax = self.boost.copropag_length(
+                    [ p_zmin, p_zmax ], beta_object=beta0 )
                 n, = self.boost.copropag_density([ n ], beta_object=beta0 )
                 uz_m, = self.boost.longitudinal_momentum([ uz_m ])
 
