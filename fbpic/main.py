@@ -310,6 +310,13 @@ class Simulation(object):
             # This is because use_true_rho requires the guard cells of
             # rho to be exchanged while correct_currents requires the opposite.
 
+        # Initialize the positions for continuous injection by moving window
+        if self.comm.moving_win is not None:
+            for species in self.ptcl:
+                if species.continuous_injection:
+                    species.injector.initialize_injection_positions(
+                        self.comm, self.comm.moving_win.v, species.z, self.dt )
+
         # Initialize variables to measure the time taken by the simulation
         if show_progress and self.comm.rank==0:
             progress_bar = ProgressBar( N )
@@ -778,8 +785,7 @@ class Simulation(object):
                 DeprecationWarning)
 
         # Attach the moving window to the boundary communicator
-        self.comm.moving_win = MovingWindow( self.fld.interp, self.comm,
-            self.dt, self.ptcl, v, self.time )
+        self.comm.moving_win = MovingWindow( self.comm, self.dt, v, self.time )
 
 def adapt_to_grid( x, p_xmin, p_xmax, p_nx, ncells_empty=0 ):
     """

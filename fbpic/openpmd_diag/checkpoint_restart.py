@@ -273,6 +273,10 @@ def load_species( species, name, ts, iteration, comm ):
         species.track( comm )
         species.tracker.overwrite_ids( pid, comm )
 
+    # Reset the injection positions (for continuous injection)
+    if species.continuous_injection:
+        species.injector.reset_injection_positions()
+
     # As a safe-guard, check that the loaded data is in float64
     for attr in ['x', 'y', 'z', 'ux', 'uy', 'uz', 'w', 'inv_gamma' ]:
         assert getattr( species, attr ).dtype == np.float64
