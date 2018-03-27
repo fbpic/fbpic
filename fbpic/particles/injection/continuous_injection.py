@@ -56,26 +56,43 @@ class ContinuousInjector( object ):
         self.z_end_plasma = None
 
 
-    def initialize_injection_positions( self, z_inject,
-                                        zmax_global_domain, species_z ):
+    def initialize_injection_positions( self, comm, v_moving_window,
+                                        species_z, dt ):
         """
         Initialize the positions that keep track of the injection of particles.
-        This is automatically called when initializing the moving window.
+        This is automatically called at the beginning of `step`.
 
         Parameters
         ----------
-        z_inject: float (in meter)
-            The initial position up to which the plasma gets injected.
-
-        zmax_global_domain: float (in meter)
-            The right edge of the physical domain
-
-        species_z: 1darray of floats (in meter)
-            The positions of the macroparticles for this species.
-            (one element per macroparticles). This is used in order to
-            find the right edge of the plasma.
+        comm: a BoundaryCommunicator object
+            Contains information about grid MPI decomposition
+        v_moving_window: float (in m/s)
+            The speed of the moving window
+        species_z: 1darray of float (in m)
+            (One element per macroparticle)
+            Used in order to infer the position of the end of the plasma
+        dt: float (in s)
+            Timestep of the simulation
         """
-        self.z_inject = z_inject
+        # The injection position is only ini
+        if comm.rank != comm.size-1:
+            return
+        # Initialize the injection position only if it has not be initialized
+        if self.z_inject is not None:
+            return
+
+        # Initialize plasma *ahead* of the right *physical*
+        # boundary of the box so that, after `exchange_period` iterations
+        # (without adding new plasma), there will still be plasma
+        # inside the physical domain. ( +3 takes into account that
+        # 3 more cells need to be filled w.r.t the left edge of the
+        # physical box such that the last cell inside the box is
+        # always correct for 1st and 3rd order shape factor
+        # particles after the moving window shifted by exchange_period cells.)
+        _, zmax_global_domain = comm.get_zmin_zmax( local=False,
+                                    with_damp=False, with_guard=False )
+        self.z_inject = zmax_global_domain + 3*comm.dz + \
+                comm.exchange_period*dt*(v_moving_window-self.v_end_plasma)
         self.nz_inject = 0
         # Try to detect the position of the end of the plasma:
         # Find the maximal position of the continously-injected particles
@@ -96,6 +113,14 @@ class ContinuousInjector( object ):
                 'In this case, please pass the argument `dz_particles` \n'
                 'initializing the `Particles` object.')
 
+    def reset_injection_positions( self ):
+        """
+        Reset the variables that keep track of continuous injection to `None`
+        This is typically called when restarting a simulation from a checkpoint
+        """
+        self.nz_inject = None
+        self.z_inject = None
+        self.z_end_plasma = None
 
     def increment_injection_positions( self, v_moving_window, duration ):
         """

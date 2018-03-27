@@ -15,25 +15,18 @@ class MovingWindow(object):
     """
     Class that contains the moving window's variables and methods
     """
-    def __init__( self, interp, comm, dt, ptcl, v, time ):
+    def __init__( self, comm, dt, v, time ):
         """
         Initializes a moving window object.
 
         Parameters
         ----------
-        interp: a list of Interpolation objects
-            Contains the positions of the boundaries
-
         comm: a BoundaryCommunicator object
             Contains information about the MPI decomposition
             and about the longitudinal boundaries
 
         dt: float
             The timestep of the simulation.
-
-        ptcl: a list of Particle objects
-            Needed in order to infer the position of injection
-            of the particles by the moving window.
 
         v: float (meters per seconds), optional
             The speed of the moving window
@@ -62,26 +55,6 @@ class MovingWindow(object):
         # (Determines by how many cells the window should be moved)
         if comm.rank == 0:
             self.zmin = zmin_global_domain
-
-        # Attach injection position for each species
-        if comm.rank == comm.size-1:
-            for species in ptcl:
-                if species.continuous_injection:
-                    # Initialize plasma *ahead* of the right *physical*
-                    # boundary of the box so, after `exchange_period` iterations
-                    # (without adding new plasma), there will still be plasma
-                    # inside the physical domain. ( +3 takes into account that
-                    # 3 more cells need to be filled w.r.t the left edge of the
-                    # physical box such that the last cell inside the box is
-                    # always correct for 1st and 3rd order shape factor
-                    # particles after the moving window
-                    # shifted by exchange_period cells. )
-                    z_inject = zmax_global_domain + 3*comm.dz + \
-                      comm.exchange_period*(v-species.injector.v_end_plasma)*dt
-                    # Pass the injection position to the injector and
-                    # try to detect the end of the plasma, by passing species.z
-                    species.injector.initialize_injection_positions(
-                        z_inject, zmax_global_domain, species.z )
 
 
     def move_grids(self, fld, ptcl, comm, time):
