@@ -37,7 +37,7 @@ def perform_cumsum( input_array ):
 def reallocate_and_copy_old( species, use_cuda, old_Ntot, new_Ntot ):
     """
     Copy the particle quantities of `species` from arrays of size `old_Ntot`
-    into arrays of size `new_Ntot`. Set these arrays as attributes of `species`.
+    into arrays of size `new_Ntot`. Set these arrays as attributes of `species.
 
     (The first `old_Ntot` elements of the new arrays are copied from the old
     arrays ; the last elements are left empty and expected to be filled later.)
@@ -54,16 +54,19 @@ def reallocate_and_copy_old( species, use_cuda, old_Ntot, new_Ntot ):
     old_Ntot, new_Ntot: int
         Size of the old and new arrays (with old_Ntot < new_Ntot)
     """
+    # Check if the data is on the GPU
+    data_on_gpu = (type(species.w) is not np.ndarray)
+    
     # On GPU, use one thread per particle
-    if use_cuda:
+    if data_on_gpu:
         ptcl_grid_1d, ptcl_block_1d = cuda_tpb_bpg_1d( old_Ntot )
 
     # Iterate over particle attributes and copy the old particles
     for attr in ['x', 'y', 'z', 'ux', 'uy', 'uz', 'w', 'inv_gamma',
                     'Ex', 'Ey', 'Ez', 'Bx', 'By', 'Bz']:
         old_array = getattr(species, attr)
-        new_array = allocate_empty( new_Ntot, use_cuda, dtype=np.float64 )
-        if use_cuda:
+        new_array = allocate_empty( new_Ntot, data_on_gpu, dtype=np.float64 )
+        if data_on_gpu:
             copy_particle_data_cuda[ ptcl_grid_1d, ptcl_block_1d ](
                 old_Ntot, old_array, new_array )
         else:
@@ -73,7 +76,7 @@ def reallocate_and_copy_old( species, use_cuda, old_Ntot, new_Ntot ):
     if species.tracker is not None:
         old_array = species.tracker.id
         new_array = allocate_empty( new_Ntot, use_cuda, dtype=np.uint64 )
-        if use_cuda:
+        if data_on_gpu:
             copy_particle_data_cuda[ ptcl_grid_1d, ptcl_block_1d ](
                 old_Ntot, old_array, new_array )
         else:
