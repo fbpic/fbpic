@@ -1,5 +1,48 @@
 # Change Log / Release Log for fbpic
 
+## 0.9.0
+
+This version improves several features related to creation and continuous injection of particles.
+
+New features:
+- New species can now be created with the new method `add_new_species` of the
+`Simulation` object. (See [228](https://github.com/fbpic/fbpic/pull/228))
+This is particularly useful for simulations involving ionization.
+(See [231](https://github.com/fbpic/fbpic/pull/231))
+- Macroparticles with zero weight will not be created anymore. This saves time
+and memory when running simulations where the plasma `dens_func` is 0 over
+long distances ([223](https://github.com/fbpic/fbpic/pull/223)). In addition,
+a warning is now printed if the `dens_func` returns negative values
+([227](https://github.com/fbpic/fbpic/pull/227)).
+- Electron bunches can now be injected through a plane, in order to avoid
+space charge effects over long distances in the boosted frame
+([186](https://github.com/fbpic/fbpic/pull/186)).
+- MPI communications involve less synchronization
+([#217](https://github.com/fbpic/fbpic/pull/217)) and include support for
+GPUDirect ([226](https://github.com/fbpic/fbpic/pull/226)). Note that this is
+for testing purposes for the moment. Multi-GPU/multi-CPU are still not
+officially supported.
+- The default number of guard cells and damp cells has been increased.
+([229](https://github.com/fbpic/fbpic/pull/229))
+
+Miscellaneous:
+- The style of warnings has been changed ([227](https://github.com/fbpic/fbpic/pull/227)).
+- This new release includes the cross-deposition scheme ([202](https://github.com/fbpic/fbpic/pull/202)).
+This is for testing purposes for the moment.
+- The arrays `z` and `r` of the interpolation grid are now calculated on the fly.
+([215](https://github.com/fbpic/fbpic/pull/215))
+
+Bug fixes:
+- The restart from checkpoint were slightly incorrect, due to an incorrect
+size of the grid, by one cell size ([224](https://github.com/fbpic/fbpic/pull/224)).
+This is now fixed.
+- Continuous injection (with moving window) used to be incorrect for particles
+with different number of particles per cell in z. This is now fixed.
+([230](https://github.com/fbpic/fbpic/pull/230))
+- Injection of a Gaussian bunch in the boosted frame did not involve checking
+that the particles are in the correct local subdomain. This is now fixed.
+([232](https://github.com/fbpic/fbpic/pull/232))
+
 ## 0.8.0
 
 This version allows FBPIC to run with an arbitrary number of azimuthal modes.
