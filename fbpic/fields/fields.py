@@ -8,11 +8,13 @@ It defines the structure and methods associated with the fields.
 import warnings
 import numpy as np
 from scipy.constants import c, mu_0, epsilon_0
+from fbpic.utils.threading import nthreads
 from .numba_methods import numba_push_eb_standard, numba_push_eb_comoving, \
     numba_correct_currents_curlfree_standard, \
     numba_correct_currents_crossdeposition_standard, \
     numba_correct_currents_curlfree_comoving, \
-    numba_correct_currents_crossdeposition_comoving
+    numba_correct_currents_crossdeposition_comoving, \
+    sum_reduce_2d_array
 from .spectral_transform import SpectralTransformer
 from .utility_methods import get_filter_array, get_modified_k
 
@@ -62,7 +64,8 @@ class Fields(object) :
     """
     def __init__( self, Nz, zmax, Nr, rmax, Nm, dt, zmin=0.,
                   n_order=-1, v_comoving=None, use_galilean=True,
-                  current_correction='cross-deposition', use_cuda=False ) :
+                  current_correction='cross-deposition', use_cuda=False,
+                  create_threading_buffers=False ):
         """
         Initialize the components of the Fields object
 
@@ -113,6 +116,11 @@ class Fields(object) :
 
         use_cuda : bool, optional
             Wether to use the GPU or not
+
+        create_threading_buffers: bool, optional
+            Whether to create the buffers used in order to perform
+            charge/current deposition with threading on CPU
+            (buffers are duplicated with the number of threads)
         """
         # Register the arguments inside the object
         self.Nz = Nz
@@ -194,6 +202,22 @@ class Fields(object) :
         if self.use_cuda:
             # Shift in the indices, induced by the moving window
             self.prefix_sum_shift = 0
+
+        # Generate duplicated deposition arrays, when using threading
+        # (One copy per thread ; 2 guard cells on each side in z and r,
+        # in order to store contributions from, at most, cubic shape factors ;
+        # these deposition guard cells are folded into the regular box
+        # inside `sum_reduce_2d_array`)
+        if create_threading_buffers:
+            self.rho_global = np.zeros( dtype=np.complex128,
+                shape=(nthreads, self.Nm, self.Nz+4, self.Nr+4) )
+            self.Jr_global = np.zeros( dtype=np.complex128,
+                    shape=(nthreads, self.Nm, self.Nz+4, self.Nr+4) )
+            self.Jt_global = np.zeros( dtype=np.complex128,
+                    shape=(nthreads, self.Nm, self.Nz+4, self.Nr+4) )
+            self.Jz_global = np.zeros( dtype=np.complex128,
+                    shape=(nthreads, self.Nm, self.Nz+4, self.Nr+4) )
+
 
     def send_fields_to_gpu( self ):
         """
@@ -491,6 +515,9 @@ class Fields(object) :
         """
         Sets the field `fieldtype` to zero on the interpolation grid
 
+        (For 'rho' and 'J', on CPU, this also erases the duplicated
+        deposition buffer, with one copy per thread)
+
         Parameter
         ---------
         fieldtype : string
@@ -521,11 +548,15 @@ class Fields(object) :
                 raise ValueError('Invalid string for fieldtype: %s'%fieldtype)
         else :
             # Erase the arrays on the CPU
-            if fieldtype == 'rho' :
+            if fieldtype == 'rho':
+                self.rho_global[:,:,:,:] = 0.
                 for m in range(self.Nm) :
                     self.interp[m].rho[:,:] = 0.
-            elif fieldtype == 'J' :
-                for m in range(self.Nm) :
+            elif fieldtype == 'J':
+                self.Jr_global[:,:,:,:] = 0.
+                self.Jt_global[:,:,:,:] = 0.
+                self.Jz_global[:,:,:,:] = 0.
+                for m in range(self.Nm):
                     self.interp[m].Jr[:,:] = 0.
                     self.interp[m].Jt[:,:] = 0.
                     self.interp[m].Jz[:,:] = 0.
@@ -541,6 +572,37 @@ class Fields(object) :
                     self.interp[m].Bz[:,:] = 0.
             else :
                 raise ValueError('Invalid string for fieldtype: %s'%fieldtype)
+
+
+    def sum_reduce_deposition_array(self, fieldtype):
+        """
+        Sum the duplicated array for rho and J deposition on CPU
+        into a single array.
+
+        This function does nothing when running on GPU
+
+        Parameters
+        ----------
+        fieldtype : string
+            A string which represents the kind of field to be erased
+            (either 'J' or 'rho')
+        """
+        # Skip this function when running on GPU
+        if self.use_cuda:
+            return
+
+        # Sum thread-local results to main field array
+        if fieldtype == 'rho':
+            for m in range(self.Nm):
+                sum_reduce_2d_array( self.rho_global, self.interp[m].rho, m )
+        elif fieldtype == 'J':
+            for m in range(self.Nm):
+                sum_reduce_2d_array( self.Jr_global, self.interp[m].Jr, m )
+                sum_reduce_2d_array( self.Jt_global, self.interp[m].Jt, m )
+                sum_reduce_2d_array( self.Jz_global, self.interp[m].Jz, m )
+        else :
+            raise ValueError('Invalid string for fieldtype: %s'%fieldtype)
+
 
     def filter_spect( self, fieldtype ) :
         """

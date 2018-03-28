@@ -44,10 +44,12 @@ if not threading_enabled:
     # Use regular serial compilation function
     njit_parallel = njit
     prange = range
+    nthreads = 1
 else:
     # Use the parallel compilation function
     njit_parallel = njit( parallel=True )
     prange = numba_prange
+    nthreads = numba.config.NUMBA_NUM_THREADS
 
 
 def get_chunk_indices( Ntot, nthreads ):
