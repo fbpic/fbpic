@@ -13,7 +13,9 @@ the same GPU, while the other GPUs will be left idle.
 Therefore, FBPIC provides the possibility to launch these different simulations
 as a single command with ``mpirun``, whereby each MPI rank will perform a separate
 PIC simulation, and FBPIC will make sure that each simulation runs on a separate
-GPU.
+GPU. This feature is activated by setting ``use_all_mpi_ranks=False`` in the
+:any:`Simulation` object, in order to instruct FBPIC to use only one MPI rank per
+simulation instead of *all* MPI ranks for a single simulation.
 
 Here is an example on how to structure the input script and specify the parameter
 to be varied between the separate simulations:

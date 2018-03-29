@@ -57,8 +57,10 @@ class Simulation(object):
         Initializes a simulation.
 
         By default the simulation contains:
-        - an electron species
-        - (if ``initialize_ions`` is True) an ion species (Hydrogen 1+)
+
+            - an electron species
+            - (if ``initialize_ions`` is True) an ion species (Hydrogen 1+)
+
         These species are stored in the attribute ``ptcl`` of ``Simulation``
         (which is a Python list, containing the different species).
 
@@ -647,6 +649,13 @@ class Simulation(object):
         as been passed to the `Simulation` object), all quantities that
         are explicitly mentioned to be in the lab frame below are
         automatically converted to the boosted frame.
+
+        .. note::
+
+            For the arguments below, it is recommended to have at least
+            ``p_nt = 4*Nm``, i.e. the required number of macroparticles
+            along `theta` (in order for the simulation to be properly resolved)
+            increases with the number of azimuthal modes used.
 
         Parameters
         ----------
