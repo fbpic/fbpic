@@ -7,7 +7,6 @@ It defines the structure and methods associated with the particles.
 """
 import warnings
 import numpy as np
-import numba
 from scipy.constants import e
 from .tracking import ParticleTracker
 from .elementary_process.ionization import Ionizer
@@ -22,12 +21,12 @@ from .gathering.threading_methods import gather_field_numba_linear, \
         gather_field_numba_cubic
 from .gathering.threading_methods_one_mode import erase_eb_numba, \
     gather_field_numba_linear_one_mode, gather_field_numba_cubic_one_mode
-from .deposition.threading_methods import deposit_rho_numba_linear, \
-        deposit_J_numba_linear, deposit_rho_numba_cubic, \
-        deposit_J_numba_cubic, sum_reduce_2d_array
+from .deposition.threading_methods import \
+        deposit_rho_numba_linear, deposit_rho_numba_cubic, \
+        deposit_J_numba_linear, deposit_J_numba_cubic
 
 # Check if threading is enabled
-from fbpic.utils.threading import threading_enabled, get_chunk_indices
+from fbpic.utils.threading import nthreads, get_chunk_indices
 # Check if CUDA is available, then import CUDA functions
 from fbpic.utils.cuda import cuda_installed
 if cuda_installed:
@@ -217,11 +216,6 @@ class Particles(object) :
             # Register boolean that records if the particles are sorted or not
             self.sorted = False
 
-        # Register number of threads
-        if threading_enabled:
-            self.nthreads = numba.config.NUMBA_NUM_THREADS
-        else:
-            self.nthreads = 1
 
     def send_particles_to_gpu( self ):
         """
@@ -748,7 +742,7 @@ class Particles(object) :
             elif self.particle_shape == 'cubic':
                 # Divide particles into chunks (each chunk is handled by a
                 # different thread) and return the indices that bound chunks
-                ptcl_chunk_indices = get_chunk_indices(self.Ntot, self.nthreads)
+                ptcl_chunk_indices = get_chunk_indices(self.Ntot, nthreads)
                 if Nm == 2:
                     # Optimized version for 2 modes
                     gather_field_numba_cubic(
@@ -761,7 +755,7 @@ class Particles(object) :
                         grid[1].Br, grid[1].Bt, grid[1].Bz,
                         self.Ex, self.Ey, self.Ez,
                         self.Bx, self.By, self.Bz,
-                        self.nthreads, ptcl_chunk_indices )
+                        nthreads, ptcl_chunk_indices )
                 else:
                     # Generic version for arbitrary number of modes
                     erase_eb_numba( self.Ex, self.Ey, self.Ez,
@@ -775,7 +769,7 @@ class Particles(object) :
                             grid[m].Br, grid[m].Bt, grid[m].Bz, m,
                             self.Ex, self.Ey, self.Ez,
                             self.Bx, self.By, self.Bz,
-                            self.nthreads, ptcl_chunk_indices )
+                            nthreads, ptcl_chunk_indices )
             else:
                 raise ValueError("`particle_shape` should be either \
                                   'linear' or 'cubic' \
@@ -921,49 +915,28 @@ class Particles(object) :
         else:
             # Divide particles in chunks (each chunk is handled by a different
             # thread) and register the indices that bound each chunks
-            ptcl_chunk_indices = get_chunk_indices(self.Ntot, self.nthreads)
+            ptcl_chunk_indices = get_chunk_indices(self.Ntot, nthreads)
 
             # Multithreading functions for the deposition of rho or J
             # for Mode 0 and 1 only.
             if fieldtype == 'rho':
-                # Generate temporary arrays for rho
-                # (2 guard cells on each side in z and r, in order to store
-                # contributions from, at most, cubic shape factors ; these
-                # deposition guard cells are folded into the regular box
-                # inside `sum_reduce_2d_array`)
-                rho_global = np.zeros( dtype=np.complex128,
-                    shape=(self.nthreads, fld.Nm, fld.Nz+4, fld.Nr+4) )
                 # Deposit rho using CPU threading
                 if self.particle_shape == 'linear':
                     deposit_rho_numba_linear(
                         self.x, self.y, self.z, weight, self.q,
                         grid[0].invdz, grid[0].zmin, grid[0].Nz,
                         grid[0].invdr, grid[0].rmin, grid[0].Nr,
-                        rho_global, fld.Nm,
-                        self.nthreads, ptcl_chunk_indices )
+                        fld.rho_global, fld.Nm,
+                        nthreads, ptcl_chunk_indices )
                 elif self.particle_shape == 'cubic':
                     deposit_rho_numba_cubic(
                         self.x, self.y, self.z, weight, self.q,
                         grid[0].invdz, grid[0].zmin, grid[0].Nz,
                         grid[0].invdr, grid[0].rmin, grid[0].Nr,
-                        rho_global, fld.Nm,
-                        self.nthreads, ptcl_chunk_indices )
-                # Sum thread-local results to main field array
-                for m in range(fld.Nm):
-                    sum_reduce_2d_array( rho_global, grid[m].rho, m )
+                        fld.rho_global, fld.Nm,
+                        nthreads, ptcl_chunk_indices )
 
             elif fieldtype == 'J':
-                # Generate temporary arrays for J
-                # (2 guard cells on each side in z and r, in order to store
-                # contributions from, at most, cubic shape factors ; these
-                # deposition guard cells are folded into the regular box
-                # inside `sum_reduce_2d_array`)
-                Jr_global = np.zeros( dtype=np.complex128,
-                    shape=(self.nthreads, fld.Nm, fld.Nz+4, fld.Nr+4) )
-                Jt_global = np.zeros( dtype=np.complex128,
-                    shape=(self.nthreads, fld.Nm, fld.Nz+4, fld.Nr+4) )
-                Jz_global = np.zeros( dtype=np.complex128,
-                    shape=(self.nthreads, fld.Nm, fld.Nz+4, fld.Nr+4) )
                 # Deposit J using CPU threading
                 if self.particle_shape == 'linear':
                     deposit_J_numba_linear(
@@ -971,21 +944,16 @@ class Particles(object) :
                         self.ux, self.uy, self.uz, self.inv_gamma,
                         grid[0].invdz, grid[0].zmin, grid[0].Nz,
                         grid[0].invdr, grid[0].rmin, grid[0].Nr,
-                        Jr_global, Jt_global, Jz_global, fld.Nm,
-                        self.nthreads, ptcl_chunk_indices )
+                        fld.Jr_global, fld.Jt_global, fld.Jz_global, fld.Nm,
+                        nthreads, ptcl_chunk_indices )
                 elif self.particle_shape == 'cubic':
                     deposit_J_numba_cubic(
                         self.x, self.y, self.z, weight, self.q,
                         self.ux, self.uy, self.uz, self.inv_gamma,
                         grid[0].invdz, grid[0].zmin, grid[0].Nz,
                         grid[0].invdr, grid[0].rmin, grid[0].Nr,
-                        Jr_global, Jt_global, Jz_global, fld.Nm,
-                        self.nthreads, ptcl_chunk_indices )
-                # Sum thread-local results to main field array
-                for m in range(fld.Nm):
-                    sum_reduce_2d_array( Jr_global, grid[m].Jr, m )
-                    sum_reduce_2d_array( Jt_global, grid[m].Jt, m )
-                    sum_reduce_2d_array( Jz_global, grid[m].Jz, m )
+                        fld.Jr_global, fld.Jt_global, fld.Jz_global, fld.Nm,
+                        nthreads, ptcl_chunk_indices )
 
 
     def sort_particles(self, fld):

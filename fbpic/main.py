@@ -230,7 +230,9 @@ class Simulation(object):
                     v_comoving=v_comoving,
                     use_galilean=use_galilean,
                     current_correction=current_correction,
-                    use_cuda=self.use_cuda )
+                    use_cuda=self.use_cuda,
+                    # Only create threading buffers when running on CPU
+                    create_threading_buffers=(self.use_cuda is False) )
 
         # Initialize the electrons and the ions
         self.grid_shape = self.fld.interp[0].Ez.shape
@@ -532,6 +534,8 @@ class Simulation(object):
             # Deposit the charge of the virtual particles in the antenna
             for antenna in self.laser_antennas:
                 antenna.deposit( fld, 'rho', self.comm )
+            # Sum contribution from each CPU threads (skipped on GPU)
+            fld.sum_reduce_deposition_array('rho')
             # Divide by cell volume
             fld.divide_by_volume('rho')
             # Exchange guard cells if requested by the user
@@ -547,6 +551,8 @@ class Simulation(object):
             # Deposit the current of the virtual particles in the antenna
             for antenna in self.laser_antennas:
                 antenna.deposit( fld, 'J', self.comm )
+            # Sum contribution from each CPU threads (skipped on GPU)
+            fld.sum_reduce_deposition_array('J')
             # Divide by cell volume
             fld.divide_by_volume('J')
             # Exchange guard cells if requested by the user
