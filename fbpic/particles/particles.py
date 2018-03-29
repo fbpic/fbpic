@@ -213,6 +213,9 @@ class Particles(object) :
             self.sorting_buffer = np.empty( Ntot, dtype=np.float64 )
             Nz, Nr = grid_shape
             self.prefix_sum = np.empty( Nz*(Nr+1), dtype=np.int32 )
+            # Register integer thta records shift in the indices,
+            # induced by the moving window
+            self.prefix_sum_shift = 0
             # Register boolean that records if the particles are sorted or not
             self.sorted = False
 
@@ -994,7 +997,7 @@ class Particles(object) :
         # arrays.
         sort_particles_per_cell(self.cell_idx, self.sorted_idx)
         # Reset the old prefix sum
-        fld.prefix_sum_shift = 0
+        self.prefix_sum_shift = 0
         prefill_prefix_sum[dim_grid_2d_flat, dim_block_2d_flat](
             self.cell_idx, self.prefix_sum, self.Ntot )
         # Perform the inclusive parallel prefix sum
