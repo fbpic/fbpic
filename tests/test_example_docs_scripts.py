@@ -155,7 +155,7 @@ def run_sim( script_name, n_MPI, checked_fields ):
     print('Checking particle ids...')
     start_time = time.time()
     for iteration in ts1.iterations:
-        pid, = ts1.get_particle(["id"], iteration=iteration)
+        pid, = ts1.get_particle(["id"], iteration=iteration, species="electrons")
         assert len(np.unique(pid)) == len(pid)
     end_time = time.time()
     print( "%.2f seconds" %(end_time-start_time))
@@ -198,7 +198,7 @@ def test_boosted_frame_sim_twoproc():
     print('Checking particle ids...')
     start_time = time.time()
     for iteration in ts.iterations:
-        pid, = ts.get_particle(["id"], iteration=iteration)
+        pid, = ts.get_particle(["id"], iteration=iteration )
         assert len(np.unique(pid)) == len(pid)
     end_time = time.time()
     print( "%.2f seconds" %(end_time-start_time))

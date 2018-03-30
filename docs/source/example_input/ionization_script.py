@@ -148,9 +148,12 @@ if __name__ == '__main__':
     sim.set_moving_window( v=v_window )
 
     # Add a diagnostics
-    sim.diags = [ FieldDiagnostic( diag_period, sim.fld, comm=sim.comm ),
+    sim.diags = [
+                FieldDiagnostic( diag_period, sim.fld, comm=sim.comm ),
                 ParticleDiagnostic( diag_period,
-                    {"e- from N": elec_from_N, "e-": elec}, comm=sim.comm ) ]
+                    {"electrons from N": elec_from_N, "electrons": elec},
+                    comm=sim.comm )
+                ]
     # Add checkpoints
     if save_checkpoints:
         set_periodic_checkpoint( sim, checkpoint_period )
