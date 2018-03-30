@@ -663,7 +663,7 @@ class ParticleCatcher:
             dz = self.fld.interp[0].dz
             zmin = self.fld.interp[0].zmin
             pref_sum = species.prefix_sum
-            pref_sum_shift = self.fld.prefix_sum_shift
+            pref_sum_shift = species.prefix_sum_shift
             Nz, Nr = species.grid_shape
             # Calculate cell area to get particles from
             # - Get z indices of the slices in which to get the particles

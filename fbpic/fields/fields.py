@@ -198,11 +198,6 @@ class Fields(object) :
             {'J': False, 'rho_prev': False, 'rho_new': False,
                 'rho_next_xy': False, 'rho_next_z': False }
 
-        # Initialize the needed prefix sum array for sorting
-        if self.use_cuda:
-            # Shift in the indices, induced by the moving window
-            self.prefix_sum_shift = 0
-
         # Generate duplicated deposition arrays, when using threading
         # (One copy per thread ; 2 guard cells on each side in z and r,
         # in order to store contributions from, at most, cubic shape factors ;
