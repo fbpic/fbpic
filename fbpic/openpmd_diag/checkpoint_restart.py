@@ -279,7 +279,7 @@ def load_species( species, name, ts, iteration, comm ):
         # Reallocate the ionization_level, and reset it with the right value
         species.ionizer.ionization_level = np.empty( Ntot, dtype=np.uint64 )
         q, = ts.get_particle( ['charge'], iteration=iteration, species=name)
-        ionization_level[:] = np.uint64( np.round( q/e ) )
+        species.ionizer.ionization_level[:] = np.uint64( np.round( q/e ) )
         # Set the auxiliary array
         species.ionizer.w_times_level = \
                     species.w * species.ionizer.ionization_level
