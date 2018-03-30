@@ -28,13 +28,40 @@ from opmd_viewer.addons import LpaDiagnostics
 
 def test_lpa_sim_singleproc_restart():
     "Test the example input script with one proc in `docs/source/example_input`"
-    run_sim( 'lwfa_script.py', n_MPI=1 )
+    # In the tuples below, the float number indicates the relative tolerance
+    # with which the fields are checked.
+    # Fields are checked with a finite tolerance, because the
+    # continuous injection does not occur exactly at the same time
+    # in the original and restarted simulation, and results in small
+    # differences in the simulations
+    checked_fields = [ ('E', 'x', 2.e-5), ('E', 'z', 2.e-5),
+                        ('B', 'y', 2.e-5), ('rho', None, 1.e-2) ]
+    run_sim( 'lwfa_script.py', n_MPI=1, checked_fields=checked_fields )
 
 def test_lpa_sim_twoproc_restart():
     "Test the example input script with two proc in `docs/source/example_input`"
-    run_sim( 'lwfa_script.py', n_MPI=2 )
+    # In the tuples below, the float number indicates the relative tolerance
+    # with which the fields are checked.
+    # Fields are checked with a finite tolerance, because the
+    # continuous injection does not occur exactly at the same time
+    # in the original and restarted simulation, and results in small
+    # differences in the simulations
+    checked_fields = [ ('E', 'x', 2.e-5), ('E', 'z', 2.e-5),
+                        ('B', 'y', 2.e-5), ('rho', None, 1.e-2) ]
+    run_sim( 'lwfa_script.py', n_MPI=2, checked_fields=checked_fields )
 
-def run_sim( script_name, n_MPI ):
+def test_ionization_script_twoproc():
+    "Test the example script with two proc in `docs/source/example_input`"
+    # In the tuples below, the float number indicates the relative tolerance
+    # with which the fields are checked.
+    # Ionization involves random events, which are not controlled by
+    # numpy's seed ; therefore the tolerance (when checking the fields)
+    # is lower than the previous cases.
+    checked_fields = [ ('E', 'x', 1.e-4), ('E', 'z', 1.e-2),
+                        ('B', 'y', 1.e-4), ('rho', None, 0.4) ]
+    run_sim( 'ionization_script.py', n_MPI=2, checked_fields=checked_fields )
+
+def run_sim( script_name, n_MPI, checked_fields ):
     """
     Runs the script `script_name` from the folder docs/source/example_input,
     with `n_MPI` MPI processes. The simulation is then restarted with
@@ -120,7 +147,7 @@ def run_sim( script_name, n_MPI ):
         os.path.join( temporary_dir, 'diags/hdf5') )
     ts2 = OpenPMDTimeSeries(
         os.path.join( temporary_dir, 'original_diags/hdf5') )
-    compare_simulations( ts1, ts2 )
+    compare_simulations( ts1, ts2, checked_fields )
     end_time = time.time()
     print( "%.2f seconds" %(end_time-start_time))
 
@@ -236,11 +263,6 @@ def test_parametric_sim_twoproc():
     # Suppress the temporary directory
     shutil.rmtree( temporary_dir )
 
-def test_ionization_script_twoproc():
-    "Test the example script with two proc in `docs/source/example_input`"
-    run_sim( 'ionization_script.py', n_MPI=2 )
-
-
 def replace_string( text, old_string, new_string ):
     """
     Check that `old_string` is in `text`, and replace it by `new_string`
@@ -259,17 +281,11 @@ def get_string( regex, text ):
     match = re.search( regex, text )
     return( match.groups(1)[0] )
 
-def compare_simulations( ts1, ts2 ):
+def compare_simulations( ts1, ts2, checked_fields ):
     """
     Compare the fields of the simulations `ts1` and `ts2` and
     make sure that they agree within a given precision
     """
-    # Fields are checked with a finite tolerance, because the
-    # continuous injection does not occur exactly at the same time
-    # in the original and restarted simulation, and results in small
-    # differences in the simulations
-    checked_fields = [ ('E', 'x', 2.e-5), ('E', 'z', 2.e-5),
-                        ('B', 'y', 2.e-5), ('rho', None, 1.e-2) ]
     for iteration in ts1.iterations:
         for field, coord, tolerance in checked_fields:
             print( field, coord )
