@@ -38,8 +38,12 @@ zmin = -20.e-6
 Nr = 75          # Number of gridpoints along r
 rmax = 150.e-6   # Length of the box along r (meters)
 Nm = 2           # Number of modes used
+# Boosted frame
+gamma_boost = 15.
 # The simulation timestep
-dt = (zmax-zmin)/Nz/c   # Timestep (seconds)
+dt = min( rmax/(2*gamma_boost*Nr), (zmax-zmin)/Nz/c )  # Timestep (seconds)
+# (See the section Advanced use > Running boosted-frame simulation
+# of the FBPIC documentation for an explanation of the above calculation of dt)
 N_step = 101     # Number of iterations to perform
                  # (increase this number for a real simulation)
 
@@ -54,8 +58,7 @@ N_step = 101     # Number of iterations to perform
 # See https://arxiv.org/abs/1611.05712 for more information.
 n_order = -1
 
-# Boosted frame
-gamma_boost = 15.
+# Boosted frame converter
 boost = BoostConverter(gamma_boost)
 
 # The laser (conversion to boosted frame is done inside 'add_laser')

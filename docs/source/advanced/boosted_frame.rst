@@ -64,6 +64,30 @@ paper on this technique <https://journals.aps.org/prl/abstract/10.1103/PhysRevLe
     comparable to the total number of self-injected particles),
     self-injection may not occur at all in the boosted-frame simulation.
 
+    More generally, for simulations involving injection, it is good practice
+    to occasionally compare the results with different :math:`\gamma_b`,
+    in order to make sure that the simulation is properly converged.
+
+
+.. warning::
+
+    In lab-frame simulations, the ions are essentially motionless and the
+    current :math:`\boldsymbol{j}` that they produce is negligeable compared to
+    that of the electrons. For this reason (and because the PIC algorithm
+    essentially only uses the current :math:`\boldsymbol{j}` in order to update the
+    fields: see :doc:`../overview`), the ions are often omitted from the simulation,
+    in order to save computational time. (And in fact, the argument
+    ``initialize_ions`` in the :any:`Simulation` object is set to
+    ``False`` by default.)
+
+    However, this is no longer valid in boosted-frame simulation, because
+    in this case the ions move with relativistic speed and do produce a
+    non-negligible current :math:`\boldsymbol{j}`. Therefore, **in boosted-frame
+    simulations, the ions are required**. Make sure to include them, either
+    by setting the flag ``initialize_ions=True`` in the :any:`Simulation`
+    object, or by adding them separately with :any:`add_new_species`.
+
+
 Converting input parameters from the lab frame to the boosted frame
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
