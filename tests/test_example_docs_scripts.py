@@ -28,15 +28,42 @@ from opmd_viewer.addons import LpaDiagnostics
 
 def test_lpa_sim_singleproc_restart():
     "Test the example input script with one proc in `docs/source/example_input`"
-    run_lpa_sim( n_MPI=1 )
+    # In the tuples below, the float number indicates the relative tolerance
+    # with which the fields are checked.
+    # Fields are checked with a finite tolerance, because the
+    # continuous injection does not occur exactly at the same time
+    # in the original and restarted simulation, and results in small
+    # differences in the simulations
+    checked_fields = [ ('E', 'x', 2.e-5), ('E', 'z', 2.e-5),
+                        ('B', 'y', 2.e-5), ('rho', None, 1.e-2) ]
+    run_sim( 'lwfa_script.py', n_MPI=1, checked_fields=checked_fields )
 
 def test_lpa_sim_twoproc_restart():
     "Test the example input script with two proc in `docs/source/example_input`"
-    run_lpa_sim( n_MPI=2 )
+    # In the tuples below, the float number indicates the relative tolerance
+    # with which the fields are checked.
+    # Fields are checked with a finite tolerance, because the
+    # continuous injection does not occur exactly at the same time
+    # in the original and restarted simulation, and results in small
+    # differences in the simulations
+    checked_fields = [ ('E', 'x', 2.e-5), ('E', 'z', 2.e-5),
+                        ('B', 'y', 2.e-5), ('rho', None, 1.e-2) ]
+    run_sim( 'lwfa_script.py', n_MPI=2, checked_fields=checked_fields )
 
-def run_lpa_sim( n_MPI ):
+def test_ionization_script_twoproc():
+    "Test the example script with two proc in `docs/source/example_input`"
+    # In the tuples below, the float number indicates the relative tolerance
+    # with which the fields are checked.
+    # Ionization involves random events, which are not controlled by
+    # numpy's seed ; therefore the tolerance (when checking the fields)
+    # is lower than the previous cases.
+    checked_fields = [ ('E', 'x', 1.e-4), ('E', 'z', 1.e-2),
+                        ('B', 'y', 1.e-4), ('rho', None, 0.4) ]
+    run_sim( 'ionization_script.py', n_MPI=2, checked_fields=checked_fields )
+
+def run_sim( script_name, n_MPI, checked_fields ):
     """
-    Runs the standard lwfa script from the folder docs/source/example_input,
+    Runs the script `script_name` from the folder docs/source/example_input,
     with `n_MPI` MPI processes. The simulation is then restarted with
     the same number of processes ; the code checks that the restarted results
     are identical.
@@ -53,10 +80,10 @@ def run_lpa_sim( n_MPI ):
     if os.path.exists( temporary_dir ):
         shutil.rmtree( temporary_dir )
     os.mkdir( temporary_dir )
-    shutil.copy('./docs/source/example_input/lwfa_script.py',
+    shutil.copy('./docs/source/example_input/%s' %script_name,
                     temporary_dir )
     # Shortcut for the script file, which is repeatedly changed
-    script_filename = os.path.join( temporary_dir,'lwfa_script.py' )
+    script_filename = os.path.join( temporary_dir, script_name )
 
     # Read the script and check
     with open(script_filename) as f:
@@ -81,9 +108,9 @@ def run_lpa_sim( n_MPI ):
     # Launch the script from the OS
     command_line = 'cd %s' %temporary_dir
     if n_MPI == 1:
-        command_line += '; python lwfa_script.py'
+        command_line += '; python %s' %script_name
     else:
-        command_line += '; mpirun -np %d python lwfa_script.py' %n_MPI
+        command_line += '; mpirun -np %d python %s' %(n_MPI, script_name)
     response = os.system( command_line )
     assert response==0
 
@@ -120,7 +147,7 @@ def run_lpa_sim( n_MPI ):
         os.path.join( temporary_dir, 'diags/hdf5') )
     ts2 = OpenPMDTimeSeries(
         os.path.join( temporary_dir, 'original_diags/hdf5') )
-    compare_simulations( ts1, ts2 )
+    compare_simulations( ts1, ts2, checked_fields )
     end_time = time.time()
     print( "%.2f seconds" %(end_time-start_time))
 
@@ -128,7 +155,7 @@ def run_lpa_sim( n_MPI ):
     print('Checking particle ids...')
     start_time = time.time()
     for iteration in ts1.iterations:
-        pid, = ts1.get_particle(["id"], iteration=iteration)
+        pid, = ts1.get_particle(["id"], iteration=iteration, species="electrons")
         assert len(np.unique(pid)) == len(pid)
     end_time = time.time()
     print( "%.2f seconds" %(end_time-start_time))
@@ -171,7 +198,7 @@ def test_boosted_frame_sim_twoproc():
     print('Checking particle ids...')
     start_time = time.time()
     for iteration in ts.iterations:
-        pid, = ts.get_particle(["id"], iteration=iteration)
+        pid, = ts.get_particle(["id"], iteration=iteration )
         assert len(np.unique(pid)) == len(pid)
     end_time = time.time()
     print( "%.2f seconds" %(end_time-start_time))
@@ -236,38 +263,6 @@ def test_parametric_sim_twoproc():
     # Suppress the temporary directory
     shutil.rmtree( temporary_dir )
 
-def test_ionization_script_twoproc():
-    "Test the example script with two proc in `docs/source/example_input`"
-
-    temporary_dir = './tests/tmp_test_dir'
-
-    # Create a temporary directory for the simulation
-    # and copy the example script into this directory
-    if os.path.exists( temporary_dir ):
-        shutil.rmtree( temporary_dir )
-    os.mkdir( temporary_dir )
-    shutil.copy(
-        './docs/source/example_input/ionization_script.py', temporary_dir )
-    script_filename = os.path.join( temporary_dir, 'ionization_script.py' )
-
-    # Read the script
-    with open(script_filename) as f:
-        script = f.read()
-    # Modify the script so as to enable MPI simulation
-    script = replace_string( script, 'n_order = -1', 'n_order = 16')
-    # Write the script
-    with open(script_filename, 'w') as f:
-        f.write(script)
-
-    # Launch the modified script from the OS, with 2 proc
-    response = os.system(
-        'cd %s; mpirun -np 2 python ionization_script.py' %temporary_dir )
-    assert response==0
-
-    # Suppress the temporary directory
-    shutil.rmtree( temporary_dir )
-
-
 def replace_string( text, old_string, new_string ):
     """
     Check that `old_string` is in `text`, and replace it by `new_string`
@@ -286,17 +281,11 @@ def get_string( regex, text ):
     match = re.search( regex, text )
     return( match.groups(1)[0] )
 
-def compare_simulations( ts1, ts2 ):
+def compare_simulations( ts1, ts2, checked_fields ):
     """
     Compare the fields of the simulations `ts1` and `ts2` and
     make sure that they agree within a given precision
     """
-    # Fields are checked with a finite tolerance, because the
-    # continuous injection does not occur exactly at the same time
-    # in the original and restarted simulation, and results in small
-    # differences in the simulations
-    checked_fields = [ ('E', 'x', 2.e-5), ('E', 'z', 2.e-5),
-                        ('B', 'y', 2.e-5), ('rho', None, 1.e-2) ]
     for iteration in ts1.iterations:
         for field, coord, tolerance in checked_fields:
             print( field, coord )

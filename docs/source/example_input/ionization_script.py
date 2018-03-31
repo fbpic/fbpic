@@ -26,7 +26,8 @@ from scipy.constants import c, e, m_e, m_p
 # Import the relevant structures from fbpic
 from fbpic.main import Simulation
 from fbpic.lpa_utils.laser import add_laser
-from fbpic.openpmd_diag import FieldDiagnostic, ParticleDiagnostic
+from fbpic.openpmd_diag import FieldDiagnostic, ParticleDiagnostic, \
+     set_periodic_checkpoint, restart_from_checkpoint
 
 # ----------
 # Parameters
@@ -78,8 +79,13 @@ v_window = c       # Speed of the window
 
 # The diagnostics and the checkpoints/restarts
 diag_period = 10         # Period of the diagnostics in number of timesteps
-ramp_length = 20.e-6
+save_checkpoints = False # Whether to write checkpoint files
+checkpoint_period = 50   # Period for writing the checkpoints
+use_restart = False      # Whether to restart from a previous checkpoint
+track_electrons = False  # Whether to track and write particle ids
+
 # The density profile
+ramp_length = 20.e-6
 def dens_func( z, r ) :
     """Returns relative density at position z and r"""
     # Allocate relative density
@@ -130,13 +136,27 @@ if __name__ == '__main__':
     # Add a laser to the fields of the simulation
     add_laser( sim, a0, w0, ctau, z0, zf=z_foc )
 
+    if use_restart is False:
+        # Track electrons if required (species 0 correspond to the electrons)
+        if track_electrons:
+            elec.track( sim.comm )
+    else:
+        # Load the fields and particles from the latest checkpoint file
+        restart_from_checkpoint( sim )
+
     # Configure the moving window
     sim.set_moving_window( v=v_window )
 
     # Add a diagnostics
-    sim.diags = [ FieldDiagnostic( diag_period, sim.fld, comm=sim.comm ),
+    sim.diags = [
+                FieldDiagnostic( diag_period, sim.fld, comm=sim.comm ),
                 ParticleDiagnostic( diag_period,
-                    {"e- from N": elec_from_N, "e-": elec}, comm=sim.comm ) ]
+                    {"electrons from N": elec_from_N, "electrons": elec},
+                    comm=sim.comm )
+                ]
+    # Add checkpoints
+    if save_checkpoints:
+        set_periodic_checkpoint( sim, checkpoint_period )
 
     ### Run the simulation
     sim.step( N_step )

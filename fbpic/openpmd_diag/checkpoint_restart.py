@@ -9,6 +9,7 @@ as well as reload a simulation from a set of checkpoints.
 """
 import os, re
 import numpy as np
+from scipy.constants import e
 from .field_diag import FieldDiagnostic
 from .particle_diag import ParticleDiagnostic
 from fbpic.utils.mpi import comm
@@ -272,6 +273,16 @@ def load_species( species, name, ts, iteration, comm ):
         pid, = ts.get_particle( ['id'], iteration=iteration, species=name )
         species.track( comm )
         species.tracker.overwrite_ids( pid, comm )
+
+    # If the species is ionizable, set the proper arrays
+    if species.ionizer is not None:
+        # Reallocate the ionization_level, and reset it with the right value
+        species.ionizer.ionization_level = np.empty( Ntot, dtype=np.uint64 )
+        q, = ts.get_particle( ['charge'], iteration=iteration, species=name)
+        species.ionizer.ionization_level[:] = np.uint64( np.round( q/e ) )
+        # Set the auxiliary array
+        species.ionizer.w_times_level = \
+                    species.w * species.ionizer.ionization_level
 
     # Reset the injection positions (for continuous injection)
     if species.continuous_injection:
