@@ -45,7 +45,7 @@ Then install the dependencies of FBPIC:
 ::
 
    conda install numba mkl
-   conda install -c numba pyculib
+   conda install pyculib
 
 It is important that the following packages are **NOT** installed
 directly with Anaconda: ``mpich``, ``mpi4py``, ``hdf5`` and ``h5py``
