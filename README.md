@@ -78,7 +78,7 @@ pip install fbpic
 - **Optional:** in order to run on GPU, install the additional package
 `pyculib`:
 ```
-conda install -c numba pyculib
+conda install pyculib
 ```
 
 - **Optional:** in order to run on a CPU which is **not** an Intel model, you
