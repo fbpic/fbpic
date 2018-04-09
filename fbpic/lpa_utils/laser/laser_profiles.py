@@ -7,7 +7,7 @@ It defines a set of common laser profiles.
 """
 import numpy as np
 from scipy.constants import c, m_e, e
-from scipy.special import factorial, genlaguerre
+from scipy.special import factorial, genlaguerre, binom
 
 # Generic classes
 # ---------------
@@ -393,3 +393,63 @@ class LaguerreGaussLaser( LaserProfile ):
         Ey = self.E0y * profile
 
         return( Ex.real, Ey.real )
+
+
+class FocusedFlattenedLaser( LaserProfile ):
+    """Class that calculates a focused flattened Gaussian"""
+
+    def __init__( self, a0, w0_over_f, N_flat, tau, z0, zf=None, theta_pol=0.,
+                    lambda0=0.8e-6, cep_phase=0. ):
+        """
+        TODO: Write description (flat in the near field, rings in the far field)
+        TODO: Fix normalization
+
+        See `Santarsiero et al., J. Modern Optics, 1997 <http://doi.org/10.1080/09500349708232927>`_.
+
+        This assumes that the focal length is longer than the Rayleigh length.
+
+        w0_over_f: ratio of radius of pulse at the focusing optic,
+        to the focal length
+        N_flat: int, controls how sharp the pulse boundaries are
+        """
+        # Set a number of parameters for the laser
+        k0 = 2*np.pi/lambda0
+        # Calculate waist at focus
+        w_foc = 2.*(N_flat+1.)**.5/(k0*w0_over_f)
+
+        # Sum the Laguerre-Gauss modes that constitute this pulse
+        # See equation 2 and 3 in Santarsiero et al.
+        for n in range(N_flat+1):
+            cep_phase_n = cep_phase + (2*n+1)*np.pi/2
+            m_values = np.arange(n, N_flat+1)
+            cn = (-1)**n * np.sum( 1./2**m_values * binom(m_values,n) )
+            profile = LaguerreGaussLaser( p=n, m=0, a0=cn*a0,
+                            cep_phase=cep_phase_n, waist=w_foc,
+                            tau=tau, z0=z0, zf=zf,
+                            theta_pol=theta_pol, lambda0=lambda0, theta0=0. )
+            if n==0:
+                summed_profile = profile
+            else:
+                summed_profile += profile
+
+        # Register the summed_profile
+        self.summed_profile = summed_profile
+
+
+    def E_field( self, x, y, z, t ):
+        """
+        Return the electric field of the laser
+
+        Parameters
+        ----------
+        x, y, z: ndarrays (meters)
+            The positions at which to calculate the profile (in the lab frame)
+        t: ndarray or float (seconds)
+            The time at which to calculate the profile (in the lab frame)
+
+        Returns:
+        --------
+        Ex, Ey: ndarrays (V/m)
+            Arrays of the same shape as x, y, z, containing the fields
+        """
+        return self.summed_profile.E_field( x, y, z, t )
