@@ -222,8 +222,8 @@ class Simulation(object):
 
         # Initialize the boundary communicator
         self.comm = BoundaryCommunicator( Nz, zmin, zmax, Nr, rmax, Nm, dt,
-            boundaries, n_order, n_guard, n_damp, exchange_period,
-            use_all_mpi_ranks )
+            self.v_comoving, self.use_galilean, boundaries, n_order,
+            n_guard, n_damp, exchange_period, use_all_mpi_ranks )
         # Modify domain region
         zmin, zmax, Nz = self.comm.divide_into_domain()
         # Initialize the field structure
