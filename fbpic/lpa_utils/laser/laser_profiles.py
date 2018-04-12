@@ -395,34 +395,69 @@ class LaguerreGaussLaser( LaserProfile ):
         return( Ex.real, Ey.real )
 
 
-class FocusedFlattenedLaser( LaserProfile ):
+class FlattenedGaussianLaser( LaserProfile ):
     """Class that calculates a focused flattened Gaussian"""
 
-    def __init__( self, a0, w0_over_f, N_flat, tau, z0, zf=None, theta_pol=0.,
+    def __init__( self, a0, w0, tau, z0, N=10, zf=None, theta_pol=0.,
                     lambda0=0.8e-6, cep_phase=0. ):
         """
-        TODO: Write description (flat in the near field, rings in the far field)
-        TODO: Fix normalization
+        Define a linearly-polarized laser such that the transverse intensity
+        profile is a flattened Gaussian **far from focus**, and distribution
+        with rings **in the focal plane**.
 
-        See `Santarsiero et al., J. Modern Optics, 1997 <http://doi.org/10.1080/09500349708232927>`_.
+        Increasing the parameter ``N`` increases the
+        flatness of transverse profile **far from focus**, and increases the
+        number of rings **in the focal plane**.
 
-        This assumes that the focal length is longer than the Rayleigh length.
+        More precisely, the expression **in the focal plane** uses the
+        Laguerre polynomials :math:`L^0_n`:
 
-        w0_over_f: ratio of radius of pulse at the focusing optic,
-        to the focal length
-        N_flat: int, controls how sharp the pulse boundaries are
+        .. math::
+
+            E(\\boldsymbol{x},t)\propto\exp\left(-\\frac{r^2}{(N+1)w_0^2}\right)
+            \sum_{n=0}^N c_n L^0_n\left(\\frac{2\,r^2}{(N+1)w_0^2}\right)
+
+            \mathrm{with} \qquad c_n = \sum_{m=n}^{N}\frac{1}{2^m}
+
+        For :math:`N=0`, this is a Gaussian profile:
+        :math:`E\propto\exp\left(-\\frac{r^2}{w_0^2}\right)`.
+        For :math:`N\rightarrow\infty`, this is a Jinc profile:
+        :math:`E\propto \\frac{J_1(r/w_0)}{r/w_0}`.
+
+        The expression **far from focus** is
+
+        .. math::
+
+            E(\\boldsymbol{x},t)\propto\exp\left(-\\frac{(N+1)r^2}{w(z)^2}\right)
+            \sum_{n=0}^N \\frac{1}{n!}\left(\\frac{(N+1)\,r^2}{w(z)^2}\right)^n
+
+            \mathrm{with} \qquad w(z) = \\frac{\lambda_0}{\pi w_0^2}|z|
+
+        For :math:`N=0`, this is a Gaussian profile:
+        :math:`E\propto\exp\left(-\\frac{r^2}{w_(z)^2}\right)`.
+        For :math:`N\rightarrow\infty`, this is a flat profile:
+        :math:`E\propto \\Theta(w(z)-r)`, where :math:`\\Theta` is
+        the Heaviside function.
+
+        For more details, see
+        `Santarsiero et al., J. Modern Optics, 1997 <http://doi.org/10.1080/09500349708232927>`_.
+
+        Parameters:
+        -----------
+        TODO
+
         """
         # Set a number of parameters for the laser
         k0 = 2*np.pi/lambda0
-        # Calculate waist at focus
-        w_foc = 2.*(N_flat+1.)**.5/(k0*w0_over_f)
+        # Calculate effective waist of the Laguerre-Gauss modes, at focus
+        w_foc = w0*(N+1)**.5
 
         # Sum the Laguerre-Gauss modes that constitute this pulse
         # See equation 2 and 3 in Santarsiero et al.
-        for n in range(N_flat+1):
+        for n in range(N+1):
             cep_phase_n = cep_phase + (2*n+1)*np.pi/2
-            m_values = np.arange(n, N_flat+1)
-            cn = (-1)**n * np.sum( 1./2**m_values * binom(m_values,n) )
+            m_values = np.arange(n, N+1)
+            cn = (-1)**n * np.sum( 1./2**m_values * binom(m_values,n) ) /(N+1)
             profile = LaguerreGaussLaser( p=n, m=0, a0=cn*a0,
                             cep_phase=cep_phase_n, waist=w_foc,
                             tau=tau, z0=z0, zf=zf,
