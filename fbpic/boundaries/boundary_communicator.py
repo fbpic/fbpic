@@ -44,8 +44,8 @@ class BoundaryCommunicator(object):
     # Initialization routines
     # -----------------------
 
-    def __init__( self, Nz, zmin, zmax, Nr, rmax, Nm, dt,
-            boundaries, n_order, n_guard=None, n_damp=30,
+    def __init__( self, Nz, zmin, zmax, Nr, rmax, Nm, dt, v_comoving,
+            use_galilean, boundaries, n_order, n_guard=None, n_damp=30,
             exchange_period=None, use_all_mpi_ranks=True):
         """
         Initializes a communicator object.
@@ -65,6 +65,19 @@ class BoundaryCommunicator(object):
 
         dt: float
             The timestep of the simulation
+
+        v_comoving: float or None, optional
+            If this variable is None, the standard PSATD is used (default).
+            Otherwise, the current is assumed to be "comoving",
+            i.e. constant with respect to (z - v_comoving * t).
+            This can be done in two ways: either by
+            - Using a PSATD scheme that takes this hypothesis into account
+            - Solving the PSATD scheme in a Galilean frame
+
+        use_galilean: bool, optional
+            Determines which one of the two above schemes is used
+            When use_galilean is true, the whole grid moves
+            with a speed v_comoving
 
         boundaries: str
             Indicates how to exchange the fields at the left and right
@@ -163,7 +176,8 @@ class BoundaryCommunicator(object):
                 # Automatic calculation of the guard region size,
                 # depending on the stencil order (n_order)
                 stencil = get_stencil_reach(
-                        self._Nz_global_domain, self.dz, c*dt, n_order )
+                        self._Nz_global_domain, self.dz, c*dt, n_order,
+                        v_comoving, use_galilean )
                 # approx 2*n_order (+1 because the moving window
                 # shifts the grid by one cell during the PIC loop
                 # and therefore, the guard region needs to be larger

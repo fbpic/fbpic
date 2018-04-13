@@ -6,6 +6,7 @@ This file is part of the Fourier-Bessel Particle-In-Cell code (FB-PIC)
 It defines the structure and methods associated with the fields.
 """
 import numpy as np
+from scipy.constants import c
 
 def get_filter_array( kz, kr, dz, dr ) :
     """
@@ -101,7 +102,8 @@ def get_modified_k(k, n_order, dz):
 
     return( k_array )
 
-def stencil_reach(kz, kperp, cdt):
+
+def stencil_reach(kz, kperp, cdt, v_comoving, use_galilean):
     """
     Return the stencil reach (in spatial space) for a given modified kz
     (finite order stencil in the spectral domain) at a single kperp.
@@ -120,19 +122,37 @@ def stencil_reach(kz, kperp, cdt):
     cdt: float
         Timestep times speed of light
 
+    v_comoving: float or None, optional
+        If this variable is None, the standard PSATD is used (default).
+        Otherwise, the current is assumed to be "comoving",
+        i.e. constant with respect to (z - v_comoving * t).
+        This can be done in two ways: either by
+        - Using a PSATD scheme that takes this hypothesis into account
+        - Solving the PSATD scheme in a Galilean frame
+
+    use_galilean: bool, optional
+        Determines which one of the two above schemes is used
+        When use_galilean is true, the whole grid moves
+        with a speed v_comoving
+
     Returns:
     -------
     Number of cells needed for the stencil to decrease to machine precision
     """
     k = np.sqrt(kz**2 + kperp**2)
+    # Calculation of the Theta coefficient if the Galilean scheme is used
+    if use_galilean is True:
+        theta = np.exp(1.j * v_comoving * kz * cdt / c / 2)
+    else:
+        theta = np.ones_like(kz)
     # Calculation of the stencils for the three C/S coefficients
     # in the cylindrical PSATD equations
     cos_stencil = np.fft.ifft(
-        np.cos( k * cdt) )
+        theta ** 2 * np.cos( k * cdt) )
     sin_z_stencil = np.fft.ifft(
-        np.where(k == 0, kz, np.sin(k * cdt) / (k) * kz) )
+        np.where(k == 0, kz, theta ** 2 * np.sin(k * cdt) / (k) * kz) )
     sin_perp_stencil = np.fft.ifft(
-        np.where(k == 0, kperp, np.sin(k * cdt) / (k) * kperp) )
+        np.where(k == 0, kperp, theta ** 2 * np.sin(k * cdt) / (k) * kperp) )
 
     # Combination of the stencil function of all three C/S coefficients
     alpha = np.sqrt(np.abs(cos_stencil)**2 +
@@ -144,7 +164,8 @@ def stencil_reach(kz, kperp, cdt):
 
     return int(stencil_reach)
 
-def get_stencil_reach(Nz, dz, cdt, n_order):
+
+def get_stencil_reach(Nz, dz, cdt, n_order, v_comoving, use_galilean):
     """
     Return the stencil reach (in spatial space) for a given finite order
     stencil and for a given simulation setup with Nz cells and spacing dz.
@@ -167,6 +188,19 @@ def get_stencil_reach(Nz, dz, cdt, n_order):
         The (finite) order of the arbitrary order spectral,
         Maxwell (PSATD) solver, which defines the stencil reach.
 
+    v_comoving: float or None, optional
+        If this variable is None, the standard PSATD is used (default).
+        Otherwise, the current is assumed to be "comoving",
+        i.e. constant with respect to (z - v_comoving * t).
+        This can be done in two ways: either by
+        - Using a PSATD scheme that takes this hypothesis into account
+        - Solving the PSATD scheme in a Galilean frame
+
+    use_galilean: bool, optional
+        Determines which one of the two above schemes is used
+        When use_galilean is true, the whole grid moves
+        with a speed v_comoving
+
     Returns:
     -------
     Number of cells needed for the stencil to decrease to
@@ -179,4 +213,4 @@ def get_stencil_reach(Nz, dz, cdt, n_order):
 
     # Calculate the stencil reach at an arbitrary kperp = 0.5
     # (Note: The stencil reach depends only weakly on kperp)
-    return stencil_reach(kz, 0.5, cdt)
+    return stencil_reach(kz, 0.5, cdt, v_comoving, use_galilean)
