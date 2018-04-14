@@ -1,5 +1,17 @@
 # Change Log / Release Log for fbpic
 
+## 0.9.1
+
+This is a minor release, which includes miscellaneous improvements to fbpic:
+
+Bug fixes:
+- The restart mechanism now works with ionizable particles. (See [#237](https://github.com/fbpic/fbpic/pull/237))
+- For multi-CPU/GPU simulations using the Galilean scheme, the stencil extent and corresponding number of guard cells is now properly calculated. (See [#240](https://github.com/fbpic/fbpic/pull/241))
+
+In addition, various improvements have been made to the documentation. (See [#239](https://github.com/fbpic/fbpic/pull/239) and [#240](https://github.com/fbpic/fbpic/pull/240).)
+
+Finally, the charge/current deposition is now more efficient on CPU, when multiple species are used (See [#234](https://github.com/fbpic/fbpic/pull/234))
+
 ## 0.9.0
 
 This version improves several features related to creation and continuous injection of particles.
