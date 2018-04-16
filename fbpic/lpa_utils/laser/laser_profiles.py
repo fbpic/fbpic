@@ -402,53 +402,52 @@ class FlattenedGaussianLaser( LaserProfile ):
                     lambda0=0.8e-6, cep_phase=0. ):
         """
         Define a linearly-polarized laser such that the transverse intensity
-        profile is a flattened Gaussian **far from focus**, and distribution
-        with rings **in the focal plane**.
+        profile is a flattened Gaussian **far from focus**, and a distribution
+        with rings **in the focal plane**. (See `Santarsiero et al., J.
+        Modern Optics, 1997 <http://doi.org/10.1080/09500349708232927>`_)
 
         Increasing the parameter ``N`` increases the
-        flatness of transverse profile **far from focus**, and increases the
-        number of rings **in the focal plane**.
+        flatness of the transverse profile **far from focus**,
+        and increases the number of rings **in the focal plane**.
 
         More precisely, the expression **in the focal plane** uses the
-        Laguerre polynomials :math:`L^0_n`:
+        Laguerre polynomials :math:`L^0_n`, and reads:
 
         .. math::
 
-            E(\\boldsymbol{x},t)\propto\exp\left(-\\frac{r^2}{(N+1)w_0^2}\right)
-            \sum_{n=0}^N c_n L^0_n\left(\\frac{2\,r^2}{(N+1)w_0^2}\right)
+            E(\\boldsymbol{x},t)\propto
+            \exp\\left(-\\frac{r^2}{(N+1)w_0^2}\\right)
+            \sum_{n=0}^N c'_n L^0_n\\left(\\frac{2\,r^2}{(N+1)w_0^2}\\right)
 
-            \mathrm{with} \qquad c_n = \sum_{m=n}^{N}\frac{1}{2^m}
+            \mathrm{with} \qquad c'_n = \sum_{m=n}^{N}\\frac{1}{2^m}
+            \\left( \\begin{array}{c}m \\ n\end{array} \\right)
 
-        For :math:`N=0`, this is a Gaussian profile:
-        :math:`E\propto\exp\left(-\\frac{r^2}{w_0^2}\right)`.
-        For :math:`N\rightarrow\infty`, this is a Jinc profile:
-        :math:`E\propto \\frac{J_1(r/w_0)}{r/w_0}`.
+        - For :math:`N=0`, this is a Gaussian profile: :math:`E\propto\exp\\left(-\\frac{r^2}{w_0^2}\\right)`.
+
+        - For :math:`N\\rightarrow\infty`, this is a Jinc profile: :math:`E\propto \\frac{J_1(r/w_0)}{r/w_0}`.
 
         The expression **far from focus** is
 
         .. math::
 
-            E(\\boldsymbol{x},t)\propto\exp\left(-\\frac{(N+1)r^2}{w(z)^2}\right)
-            \sum_{n=0}^N \\frac{1}{n!}\left(\\frac{(N+1)\,r^2}{w(z)^2}\right)^n
+            E(\\boldsymbol{x},t)\propto
+            \exp\\left(-\\frac{(N+1)r^2}{w(z)^2}\\right)
+            \sum_{n=0}^N \\frac{1}{n!}\left(\\frac{(N+1)\,r^2}{w(z)^2}\\right)^n
 
-            \mathrm{with} \qquad w(z) = \\frac{\lambda_0}{\pi w_0^2}|z|
+            \mathrm{with} \qquad w(z) = \\frac{\lambda_0}{\pi w_0^2}|z-z_{foc}|
 
-        For :math:`N=0`, this is a Gaussian profile:
-        :math:`E\propto\exp\left(-\\frac{r^2}{w_(z)^2}\right)`.
-        For :math:`N\rightarrow\infty`, this is a flat profile:
-        :math:`E\propto \\Theta(w(z)-r)`, where :math:`\\Theta` is
-        the Heaviside function.
+        - For :math:`N=0`, this is a Gaussian profile: :math:`E\propto\exp\\left(-\\frac{r^2}{w_(z)^2}\\right)`.
 
-        For more details, see
-        `Santarsiero et al., J. Modern Optics, 1997 <http://doi.org/10.1080/09500349708232927>`_.
+        - For :math:`N\\rightarrow\infty`, this is a flat profile: :math:`E\propto \\Theta(w(z)-r)`.
 
-        Parameters:
-        -----------
-        TODO
+        Parameters
+        ----------
+        a0: float (dimensionless)
+            The peak normalized vector potential at the focal plane.
+
+        w0: float
 
         """
-        # Set a number of parameters for the laser
-        k0 = 2*np.pi/lambda0
         # Calculate effective waist of the Laguerre-Gauss modes, at focus
         w_foc = w0*(N+1)**.5
 

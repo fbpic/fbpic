@@ -61,10 +61,10 @@ Laguerre-Gauss profile
 
 .. autoclass:: fbpic.lpa_utils.laser.LaguerreGaussLaser
 
-Focused Flattened Gaussian profile
-**********************************
+Flattened Gaussian profile
+**************************
 
-.. autoclass:: fbpic.lpa_utils.laser.FocusedFlattenedLaser
+.. autoclass:: fbpic.lpa_utils.laser.FlattenedGaussianLaser
 
 Combining (summing) laser profiles
 **********************************
