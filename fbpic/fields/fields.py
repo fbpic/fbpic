@@ -292,7 +292,7 @@ class Fields(object) :
         ---------
         fieldtype :
             A string which represents the kind of field to transform
-            (either 'E', 'B', 'J', 'rho_next', 'rho_prev')
+            (either 'E', 'B', 'J', 'rho_next', 'rho_prev’, ‘A’)
         """
         # Use the appropriate transformation depending on the fieldtype.
         if fieldtype == 'E' :
@@ -325,6 +325,11 @@ class Fields(object) :
                 spectral_rho = getattr( self.spect[m], fieldtype )
                 self.trans[m].interp2spect_scal(
                     self.interp[m].rho, spectral_rho )
+        elif fieldtype == 'A':
+            # Transform each azimuthal grid individually
+            for m in range(self.Nm) :
+                self.trans[m].interp2spect_scal(
+                    self.interp[m].A, self.spect[m].A )
         else:
             raise ValueError( 'Invalid string for fieldtype: %s' %fieldtype )
 
@@ -337,7 +342,7 @@ class Fields(object) :
         ---------
         fieldtype :
             A string which represents the kind of field to transform
-            (either 'E', 'B', 'J', 'rho_next', 'rho_prev')
+            (either 'E', 'B', 'J', 'rho_next', 'rho_prev’, ‘A’)
         """
         # Use the appropriate transformation depending on the fieldtype.
         if fieldtype == 'E' :
@@ -374,6 +379,11 @@ class Fields(object) :
             for m in range(self.Nm) :
                 self.trans[m].spect2interp_scal(
                     self.spect[m].rho_prev, self.interp[m].rho )
+        elif fieldtype == 'A' :
+            # Transform each azimuthal grid individually
+            for m in range(self.Nm) :
+                self.trans[m].spect2interp_scal(
+                    self.spect[m].A, self.interp[m].A )
         else :
             raise ValueError( 'Invalid string for fieldtype: %s' %fieldtype )
 
@@ -394,7 +404,7 @@ class Fields(object) :
         ---------
         fieldtype :
             A string which represents the kind of field to transform
-            (either 'E', 'B', 'J', 'rho_next', 'rho_prev')
+            (either 'E', 'B', 'J', 'rho_next', 'rho_prev’, ‘A’)
         """
         # Use the appropriate transformation depending on the fieldtype.
         if fieldtype == 'E' :
@@ -429,6 +439,10 @@ class Fields(object) :
             for m in range(self.Nm) :
                 self.trans[m].fft.inverse_transform(
                     self.spect[m].rho_prev, self.interp[m].rho )
+        elif fieldtype == 'A' :
+            for m in range(self.Nm) :
+                self.trans[m].fft.inverse_transform(
+                    self.spect[m].A, self.interp[m].A )
         else :
             raise ValueError( 'Invalid string for fieldtype: %s' %fieldtype )
 
@@ -446,7 +460,7 @@ class Fields(object) :
         ---------
         fieldtype :
             A string which represents the kind of field to transform
-            (either 'E', 'B', 'J', 'rho_next', 'rho_prev')
+            (either 'E', 'B', 'J', 'rho_next', 'rho_prev’, ‘A’)
         """
         # Use the appropriate transformation depending on the fieldtype.
         if fieldtype == 'E' :
@@ -481,6 +495,10 @@ class Fields(object) :
             for m in range(self.Nm) :
                 self.trans[m].fft.transform(
                     self.interp[m].rho, self.spect[m].rho_prev )
+        elif fieldtype == 'A' :
+            for m in range(self.Nm) :
+                self.trans[m].fft.transform(
+                    self.interp[m].A, self.spect[m].A )
         else :
             raise ValueError( 'Invalid string for fieldtype: %s' %fieldtype )
 
@@ -496,7 +514,7 @@ class Fields(object) :
         ---------
         fieldtype : string
             A string which represents the kind of field to be erased
-            (either 'E', 'B', 'J', 'rho')
+            (either 'E', 'B', 'J', 'rho' or ‘A’)
         """
         # Erase the fields in the interpolation grid
         for m in range(self.Nm):
@@ -549,7 +567,7 @@ class Fields(object) :
         ---------
         fieldtype : string
             A string which represents the kind of field to be filtered
-            (either 'E', 'B', 'J', 'rho_next' or 'rho_prev')
+            (either 'E', 'B', 'J', 'rho_next’, ‘rho_prev' or ‘A’)
         """
         for m in range(self.Nm) :
             self.spect[m].filter( fieldtype )

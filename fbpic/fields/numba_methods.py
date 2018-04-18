@@ -74,7 +74,7 @@ def numba_correct_currents_crossdeposition_standard( rho_prev, rho_next,
 
 @njit_parallel
 def numba_push_eb_standard( Ep, Em, Ez, Bp, Bm, Bz, Jp, Jm, Jz,
-                       rho_prev, rho_next,
+                       rho_prev, rho_next, A, dtA,
                        rho_prev_coef, rho_next_coef, j_coef,
                        C, S_w, kr, kz, dt,
                        use_true_rho, Nz, Nr) :
@@ -138,6 +138,27 @@ def numba_push_eb_standard( Ep, Em, Ez, Bp, Bm, Bz, Jp, Jm, Jz,
                             + 1.j*kr[iz, ir]*Em_old ) \
                 + j_coef[iz, ir]*( 1.j*kr[iz, ir]*Jp[iz, ir] \
                             + 1.j*kr[iz, ir]*Jm[iz, ir] )
+
+            w1 = 2*c*np.pi/ (0.8e-6) 
+            w2 = c*np.sqrt(kr[iz, ir]**2 + kz[iz, ir]**2)
+            w3 = np.sqrt(w1**2 + w2**2)
+            invw3 = np.where(w3 == 0, 1, 1./w3)
+            SA, CA= np.sin(w3*dt), np.cos(w3*dt)
+            S2 = 1j * w1 * invw3 * SA
+            Exp = np.exp(1j * w1 * dt) 
+            
+            oldA = A[iz, ir]
+            A[iz, ir] = (invw3 * SA * dtA[iz,ir] \
+                   + (CA - S2) * A[iz, ir]) * Exp
+     
+            dtA[iz, ir] = Exp *( (CA + S2)*dtA[iz, ir]\
+                       + c * w2**2 * invw3 * SA * oldA ) 
+
+
+
+
+
+
 
     return
 
