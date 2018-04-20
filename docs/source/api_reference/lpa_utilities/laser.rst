@@ -49,22 +49,14 @@ Laser profiles
 
 This section lists the available laser profiles in FBPIC. Note that you can
 also combine these laser profiles (by summing them), or even create your
-own custom laser profiles (see the end of this section).
+own custom laser profiles.
 
-Gaussian profile
-****************
+.. toctree::
+    :maxdepth: 1
 
-.. autoclass:: fbpic.lpa_utils.laser.GaussianLaser
-
-Laguerre-Gauss profile
-**********************
-
-.. autoclass:: fbpic.lpa_utils.laser.LaguerreGaussLaser
-
-Flattened Gaussian profile
-**************************
-
-.. autoclass:: fbpic.lpa_utils.laser.FlattenedGaussianLaser
+    laser_profiles/gaussian
+    laser_profiles/laguerre
+    laser_profiles/flattened
 
 Combining (summing) laser profiles
 **********************************
