@@ -140,10 +140,6 @@ class Fields(object) :
                 'Performing the field operations on the CPU.' )
             self.use_cuda = False
 
-        # Infer the values of the z and kz grid
-        dz = (zmax-zmin)/Nz
-        z = dz * ( np.arange( 0, Nz ) + 0.5 ) + zmin
-
         # Register the current correction type
         if current_correction in ['curl-free', 'cross-deposition']:
             self.current_correction = current_correction
@@ -162,15 +158,14 @@ class Fields(object) :
         # (one grid per azimuthal mode)
         self.interp = [ ]
         for m in range(Nm) :
-            # Extract the radial grid for mode m
-            r = self.trans[m].dht0.get_r()
             # Create the object
-            self.interp.append( InterpolationGrid( z, r, m,
-                                        use_cuda=self.use_cuda ) )
+            self.interp.append( InterpolationGrid(
+                Nz, Nr, m, zmin, zmax, rmax, use_cuda=self.use_cuda ) )
 
         # Get the kz and (finite-order) modified kz arrays
         # (According to FFT conventions, the kz array starts with
         # positive frequencies and ends with negative frequency.)
+        dz = (zmax-zmin)/Nz
         kz_true = 2*np.pi* np.fft.fftfreq( Nz, dz )
         kz_modified = get_modified_k( kz_true, n_order, dz )
 
@@ -669,17 +664,13 @@ class InterpolationGrid(object) :
       2darrays containing the fields.
     """
 
-    def __init__(self, z, r, m, use_cuda=False ) :
+    def __init__(self, Nz, Nr, m, zmin, zmax, rmax, use_cuda=False ) :
         """
         Allocates the matrices corresponding to the spatial grid
 
         Parameters
         ----------
-        z : 1darray of float
-            The positions of the longitudinal, spatial grid
-
-        r : 1darray of float
-            The positions of the radial, spatial grid
+        TODO
 
         m : int
             The index of the mode
@@ -687,27 +678,25 @@ class InterpolationGrid(object) :
         use_cuda : bool, optional
             Wether to use the GPU or not
         """
-
-        # Register the arrays and their length
-        Nz = len(z)
-        Nr = len(r)
+        # Register the size of the arrays
         self.Nz = Nz
         self.Nr = Nr
         self.m = m
 
         # Register a few grid properties
-        dr = r[1] - r[0]
-        dz = z[1] - z[0]
+        dr = rmax/Nr
+        dz = (zmax-zmin)/Nz
         self.dr = dr
         self.dz = dz
         self.invdr = 1./dr
         self.invdz = 1./dz
         # rmin, rmax, zmin, zmax correspond to the edge of cells
-        self.rmin = r.min() - 0.5*dr
-        self.rmax = r.max() + 0.5*dr
-        self.zmin = z.min() - 0.5*dz
-        self.zmax = z.max() + 0.5*dz
+        self.rmin = 0.
+        self.rmax = rmax
+        self.zmin = zmin
+        self.zmax = zmax
         # Cell volume (assuming an evenly-spaced grid)
+        r = (0.5 + np.arange(Nr))*dr
         vol = np.pi*dz*( (r+0.5*dr)**2 - (r-0.5*dr)**2 )
         # NB : No Verboncoeur-type correction required
         self.invvol = 1./vol
