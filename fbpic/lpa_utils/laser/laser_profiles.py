@@ -398,7 +398,7 @@ class LaguerreGaussLaser( LaserProfile ):
 class FlattenedGaussianLaser( LaserProfile ):
     """Class that calculates a focused flattened Gaussian"""
 
-    def __init__( self, a0, w0, tau, z0, N=10, zf=None, theta_pol=0.,
+    def __init__( self, a0, w0, tau, z0, N=6, zf=None, theta_pol=0.,
                     lambda0=0.8e-6, cep_phase=0. ):
         """
         Define a linearly-polarized laser such that the transverse intensity
@@ -419,8 +419,7 @@ class FlattenedGaussianLaser( LaserProfile ):
             \exp\\left(-\\frac{r^2}{(N+1)w_0^2}\\right)
             \sum_{n=0}^N c'_n L^0_n\\left(\\frac{2\,r^2}{(N+1)w_0^2}\\right)
 
-            \mathrm{with} \qquad c'_n = \sum_{m=n}^{N}\\frac{1}{2^m}
-            \\left( \\begin{array}{c}m \\ n\end{array} \\right)
+            \mathrm{with} \qquad c'_n = \sum_{m=n}^{N}\\frac{1}{2^m}\\binom{m}{n}
 
         - For :math:`N=0`, this is a Gaussian profile: :math:`E\propto\exp\\left(-\\frac{r^2}{w_0^2}\\right)`.
 
@@ -445,9 +444,40 @@ class FlattenedGaussianLaser( LaserProfile ):
         a0: float (dimensionless)
             The peak normalized vector potential at the focal plane.
 
-        w0: float
+        w0: float (in meter)
+            Laser spot size in the focal plane, defined as :math:`w_0` in the
+            above formula.
 
+        tau: float (in second)
+            The duration of the laser (in the lab frame)
+
+        z0: float (in meter)
+            The initial position of the centroid of the laser
+            (in the lab frame)
+
+        N: int
+            Determines the "flatness" of the transverse profile, far from
+            focus (see the above formula).
+            Default: ``N=6`` ; somewhat close to an 8th order supergaussian.
+
+        zf: float (in meter), optional
+            The position of the focal plane (in the lab frame).
+            If ``zf`` is not provided, the code assumes that ``zf=z0``, i.e.
+            that the laser pulse is at the focal plane initially.
+
+        theta_pol: float (in radian), optional
+           The angle of polarization with respect to the x axis.
+
+        lambda0: float (in meter), optional
+            The wavelength of the laser (in the lab frame)
+            Default: 0.8 microns (Ti:Sapph laser).
+
+        cep_phase: float (in radian), optional
+            The Carrier Enveloppe Phase (CEP, i.e. the phase of the laser
+            oscillation, at the position where the laser enveloppe is maximum)
         """
+        # Ensure that N is an integer
+        N = int(round(N))
         # Calculate effective waist of the Laguerre-Gauss modes, at focus
         w_foc = w0*(N+1)**.5
 
