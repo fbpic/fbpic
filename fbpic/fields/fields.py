@@ -670,10 +670,18 @@ class InterpolationGrid(object) :
 
         Parameters
         ----------
-        TODO
+        Nz, Nr : int
+            The number of gridpoints in z and r
 
         m : int
             The index of the mode
+
+        zmin, zmax : float (zmin, optional)
+            The initial position of the left and right
+            edge of the box along z
+
+        rmax : float
+            The position of the edge of the box along r
 
         use_cuda : bool, optional
             Wether to use the GPU or not
