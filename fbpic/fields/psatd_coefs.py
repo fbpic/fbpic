@@ -2,7 +2,8 @@
 # Authors: Remi Lehe, Manuel Kirchen
 # License: 3-Clause-BSD-LBNL
 """
-TODO
+This file is part of the Fourier-Bessel Particle-In-Cell code (FB-PIC)
+It defines the PsatdCoeffs class.
 """
 import numpy as np
 from scipy.constants import c, mu_0, epsilon_0

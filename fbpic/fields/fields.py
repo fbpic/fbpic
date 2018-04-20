@@ -3,7 +3,7 @@
 # License: 3-Clause-BSD-LBNL
 """
 This file is part of the Fourier-Bessel Particle-In-Cell code (FB-PIC)
-It defines the structure and methods associated with the fields.
+It defines the high-level Fields class.
 """
 import warnings
 import numpy as np
@@ -14,14 +14,7 @@ from .spectral_transform import SpectralTransformer
 from .interpolation_grid import InterpolationGrid
 from .spectral_grid import SpectralGrid
 from .psatd_coefs import PsatdCoeffs
-# Check if CUDA is available, then import CUDA functions
 from fbpic.utils.cuda import cuda_installed
-if cuda_installed:
-    from fbpic.utils.cuda import cuda_tpb_bpg_2d
-    from .cuda_methods import \
-        cuda_erase_scalar, cuda_erase_vector, \
-        cuda_divide_scalar_by_volume, cuda_divide_vector_by_volume
-
 
 class Fields(object) :
     """
@@ -505,55 +498,18 @@ class Fields(object) :
             A string which represents the kind of field to be erased
             (either 'E', 'B', 'J', 'rho')
         """
-        if self.use_cuda :
-            # Obtain the cuda grid
-            dim_grid, dim_block = cuda_tpb_bpg_2d( self.Nz, self.Nr )
+        # Erase the fields in the interpolation grid
+        for m in range(self.Nm):
+            self.interp[m].erase(fieldtype)
 
-            # Erase the arrays on the GPU
-            if fieldtype == 'rho':
-                for m in range(self.Nm):
-                    cuda_erase_scalar[dim_grid, dim_block](self.interp[m].rho)
-            elif fieldtype == 'J':
-                for m in range(self.Nm):
-                    cuda_erase_vector[dim_grid, dim_block](
-                      self.interp[m].Jr, self.interp[m].Jt, self.interp[m].Jz)
-            elif fieldtype == 'E':
-                for m in range(self.Nm):
-                    cuda_erase_vector[dim_grid, dim_block](
-                      self.interp[m].Er, self.interp[m].Et, self.interp[m].Ez)
-            elif fieldtype == 'B':
-                for m in range(self.Nm):
-                    cuda_erase_vector[dim_grid, dim_block](
-                      self.interp[m].Br, self.interp[m].Bt, self.interp[m].Bz)
-            else :
-                raise ValueError('Invalid string for fieldtype: %s'%fieldtype)
-        else :
-            # Erase the arrays on the CPU
+        # Erase the duplicated deposition buffer
+        if not self.use_cuda:
             if fieldtype == 'rho':
                 self.rho_global[:,:,:,:] = 0.
-                for m in range(self.Nm) :
-                    self.interp[m].rho[:,:] = 0.
             elif fieldtype == 'J':
                 self.Jr_global[:,:,:,:] = 0.
                 self.Jt_global[:,:,:,:] = 0.
                 self.Jz_global[:,:,:,:] = 0.
-                for m in range(self.Nm):
-                    self.interp[m].Jr[:,:] = 0.
-                    self.interp[m].Jt[:,:] = 0.
-                    self.interp[m].Jz[:,:] = 0.
-            elif fieldtype == 'E' :
-                for m in range(self.Nm) :
-                    self.interp[m].Er[:,:] = 0.
-                    self.interp[m].Et[:,:] = 0.
-                    self.interp[m].Ez[:,:] = 0.
-            elif fieldtype == 'B' :
-                for m in range(self.Nm) :
-                    self.interp[m].Br[:,:] = 0.
-                    self.interp[m].Bt[:,:] = 0.
-                    self.interp[m].Bz[:,:] = 0.
-            else :
-                raise ValueError('Invalid string for fieldtype: %s'%fieldtype)
-
 
     def sum_reduce_deposition_array(self, fieldtype):
         """
@@ -598,6 +554,7 @@ class Fields(object) :
         for m in range(self.Nm) :
             self.spect[m].filter( fieldtype )
 
+
     def divide_by_volume( self, fieldtype ) :
         """
         Divide the field `fieldtype` in each cell by the cell volume,
@@ -612,34 +569,5 @@ class Fields(object) :
             A string which represents the kind of field to be divided by
             the volume (either 'rho' or 'J')
         """
-        if self.use_cuda :
-            # Perform division on the GPU
-            dim_grid, dim_block = cuda_tpb_bpg_2d( self.Nz, self.Nr )
-
-            if fieldtype == 'rho':
-                for m in range(self.Nm):
-                    cuda_divide_scalar_by_volume[dim_grid, dim_block](
-                        self.interp[m].rho, self.interp[m].d_invvol )
-            elif fieldtype == 'J':
-                for m in range(self.Nm):
-                    cuda_divide_vector_by_volume[dim_grid, dim_block](
-                        self.interp[m].Jr, self.interp[m].Jt,
-                        self.interp[m].Jz, self.interp[m].d_invvol )
-            else :
-                raise ValueError('Invalid string for fieldtype: %s'%fieldtype)
-        else :
-            # Perform division on the CPU
-            if fieldtype == 'rho' :
-                for m in range(self.Nm) :
-                    self.interp[m].rho = \
-                    self.interp[m].rho * self.interp[m].invvol[np.newaxis,:]
-            elif fieldtype == 'J' :
-                for m in range(self.Nm) :
-                    self.interp[m].Jr = \
-                    self.interp[m].Jr * self.interp[m].invvol[np.newaxis,:]
-                    self.interp[m].Jt = \
-                    self.interp[m].Jt * self.interp[m].invvol[np.newaxis,:]
-                    self.interp[m].Jz = \
-                    self.interp[m].Jz * self.interp[m].invvol[np.newaxis,:]
-            else :
-                raise ValueError('Invalid string for fieldtype: %s'%fieldtype)
+        for m in range(self.Nm):
+            self.interp[m].divide_by_volume( fieldtype )
