@@ -992,12 +992,10 @@ class BoundaryCommunicator(object):
                 local=False, with_guard=False, with_damp=False )
             zmin_global, zmax_global = self.get_zmin_zmax(
                 local=False, with_guard=False, with_damp=False )
-            # Create new grid array that contains cell positions in z
-            z = zmin_global + \
-                self.dz*( 0.5 + iz_start_global + np.arange(Nz_global) )
             # Initialize new InterpolationGrid object that
             # is used to gather the global grid data
-            gathered_grid = InterpolationGrid(z=z, r=grid.r, m=grid.m)
+            gathered_grid = InterpolationGrid( Nz_global, grid.Nr, grid.m,
+                                    zmin_global, zmax_global, grid.rmax )
         else:
             # Other processes do not need to initialize new InterpolationGrid
             gathered_grid = None
