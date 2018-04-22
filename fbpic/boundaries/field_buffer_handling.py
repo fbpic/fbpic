@@ -109,8 +109,6 @@ class BufferHandler(object):
         -- or --
         2) Replaces or adds MPI sending buffers to the field grids
 
-        TODO: Update the docstring
-
         For method 'replace':
 
         Either copy the inner part of the domain to the sending buffer
@@ -136,6 +134,10 @@ class BufferHandler(object):
         method: str
             Can either be 'replace' or 'add' depending on the type
             of field exchange that is needed
+
+        exchange_type: str
+            Can either be 'E:replace', 'B:replace', 'J:add' or 'rho:add'
+            Determines which buffer array is used.
 
         use_cuda: bool
             Whether the simulation runs on GPUs. If True,
