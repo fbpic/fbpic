@@ -501,13 +501,13 @@ class BoundaryCommunicator(object):
             grid_t = [ getattr(interp[m], fieldtype+'t') for m in range(Nm) ]
             grid_z = [ getattr(interp[m], fieldtype+'z') for m in range(Nm) ]
             self.mpi_buffers.handle_vec_buffer(
-                    grid_r, grid_t, grid_z, method, use_cuda,
+                    grid_r, grid_t, grid_z, method, exchange_type, use_cuda,
                     before_sending=True, gpudirect=gpudirect_enabled )
         else:
             # Scalar field
             grid = [ getattr(interp[m], fieldtype) for m in range(Nm) ]
             self.mpi_buffers.handle_scal_buffer(
-                    grid, method, use_cuda,
+                    grid, method, exchange_type, use_cuda,
                     before_sending=True, gpudirect=gpudirect_enabled )
         if gpudirect_enabled:
             # Synchronize GPU execution (break asynchroneous kernel
@@ -540,12 +540,12 @@ class BoundaryCommunicator(object):
         if fieldtype in ('E', 'B', 'J'):
             # Vector field
             self.mpi_buffers.handle_vec_buffer(
-                    grid_r, grid_t, grid_z, method, use_cuda,
+                    grid_r, grid_t, grid_z, method, exchange_type, use_cuda,
                     after_receiving=True, gpudirect=gpudirect_enabled )
         else:
             # Scalar field
             self.mpi_buffers.handle_scal_buffer(
-                    grid, method, use_cuda,
+                    grid, method, exchange_type, use_cuda,
                     after_receiving=True, gpudirect=gpudirect_enabled )
 
 
