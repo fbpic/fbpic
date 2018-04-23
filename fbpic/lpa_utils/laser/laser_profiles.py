@@ -433,7 +433,7 @@ class FlattenedGaussianLaser( LaserProfile ):
             \exp\\left(-\\frac{(N+1)r^2}{w(z)^2}\\right)
             \sum_{n=0}^N \\frac{1}{n!}\left(\\frac{(N+1)\,r^2}{w(z)^2}\\right)^n
 
-            \mathrm{with} \qquad w(z) = \\frac{\lambda_0}{\pi w_0^2}|z-z_{foc}|
+            \mathrm{with} \qquad w(z) = \\frac{\lambda_0}{\pi w_0}|z-z_{foc}|
 
         - For :math:`N=0`, this is a Gaussian profile: :math:`E\propto\exp\\left(-\\frac{r^2}{w_(z)^2}\\right)`.
 

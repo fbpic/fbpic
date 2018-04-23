@@ -217,8 +217,7 @@ def propagate_pulse( Nz, Nr, Nm, zmin, zmax, Lr, L_prop, zf, dt,
     """
 
     # Initialize the simulation object
-    sim = Simulation( Nz, zmax, Nr, Lr, Nm, dt, p_zmin=0, p_zmax=0,
-                    p_rmin=0, p_rmax=0, p_nz=2, p_nr=2, p_nt=2, n_e=0.,
+    sim = Simulation( Nz, zmax, Nr, Lr, Nm, dt,
                     n_order=n_order, zmin=zmin, use_cuda=use_cuda,
                     boundaries=boundaries, v_comoving=v_comoving,
                     exchange_period = 1, use_galilean=use_galilean )
