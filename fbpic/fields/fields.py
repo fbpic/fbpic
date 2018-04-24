@@ -246,6 +246,13 @@ class Fields(object) :
         # corresponding psatd coefficients
         for m in range(self.Nm) :
             self.spect[m].push_eb_with( self.psatd[m], use_true_rho )
+
+            # Placeholder for determining if one should use the envelope model
+            use_envelope_model_bool = True
+            if (use_envelope_model_bool):
+                self.spect[m].push_envelope_with(self.psatd[m])
+
+
             self.spect[m].push_rho()
 
     def correct_currents(self, check_exchanges=False) :
@@ -330,6 +337,8 @@ class Fields(object) :
             for m in range(self.Nm) :
                 self.trans[m].interp2spect_scal(
                     self.interp[m].A, self.spect[m].A )
+                self.trans[m].interp2spect_scal(
+                    self.interp[m].dtA, self.spect[m].dtA )
         else:
             raise ValueError( 'Invalid string for fieldtype: %s' %fieldtype )
 
@@ -384,6 +393,8 @@ class Fields(object) :
             for m in range(self.Nm) :
                 self.trans[m].spect2interp_scal(
                     self.spect[m].A, self.interp[m].A )
+                self.trans[m].spect2interp_scal(
+                    self.spect[m].dtA, self.interp[m].dtA )
         else :
             raise ValueError( 'Invalid string for fieldtype: %s' %fieldtype )
 
@@ -443,6 +454,8 @@ class Fields(object) :
             for m in range(self.Nm) :
                 self.trans[m].fft.inverse_transform(
                     self.spect[m].A, self.interp[m].A )
+                self.trans[m].fft.inverse_transform(
+                    self.spect[m].dtA, self.interp[m].dtA )
         else :
             raise ValueError( 'Invalid string for fieldtype: %s' %fieldtype )
 
@@ -499,6 +512,8 @@ class Fields(object) :
             for m in range(self.Nm) :
                 self.trans[m].fft.transform(
                     self.interp[m].A, self.spect[m].A )
+                self.trans[m].fft.transform(
+                    self.interp[m].dtA, self.spect[m].dtA )
         else :
             raise ValueError( 'Invalid string for fieldtype: %s' %fieldtype )
 

@@ -74,7 +74,7 @@ def numba_correct_currents_crossdeposition_standard( rho_prev, rho_next,
 
 @njit_parallel
 def numba_push_eb_standard( Ep, Em, Ez, Bp, Bm, Bz, Jp, Jm, Jz,
-                       rho_prev, rho_next, A, dtA,
+                       rho_prev, rho_next,
                        rho_prev_coef, rho_next_coef, j_coef,
                        C, S_w, kr, kz, dt,
                        use_true_rho, Nz, Nr) :
@@ -139,28 +139,33 @@ def numba_push_eb_standard( Ep, Em, Ez, Bp, Bm, Bz, Jp, Jm, Jz,
                 + j_coef[iz, ir]*( 1.j*kr[iz, ir]*Jp[iz, ir] \
                             + 1.j*kr[iz, ir]*Jm[iz, ir] )
 
-            w1 = 2*c*np.pi/ (0.8e-6) 
-            w2 = c*np.sqrt(kr[iz, ir]**2 + kz[iz, ir]**2)
-            w3 = np.sqrt(w1**2 + w2**2)
-            invw3 = np.where(w3 == 0, 1, 1./w3)
-            SA, CA= np.sin(w3*dt), np.cos(w3*dt)
-            S2 = 1j * w1 * invw3 * SA
-            Exp = np.exp(1j * w1 * dt) 
-            
-            oldA = A[iz, ir]
-            A[iz, ir] = (invw3 * SA * dtA[iz,ir] \
-                   + (CA - S2) * A[iz, ir]) * Exp
-     
-            dtA[iz, ir] = Exp *( (CA + S2)*dtA[iz, ir]\
-                       + c * w2**2 * invw3 * SA * oldA ) 
-
-
-
-
-
-
 
     return
+    
+@njit_parallel
+def numba_push_envelope_standard(A, dtA, w2_square, invw_tot, S_env, C_env,
+                            sinc_env, A_coef, Nz, Nr):
+                    
+    #print(Nz, Nr, A_coef, S_env[Nz//2, Nr//2], C_env[Nz//2, Nr//2], sinc_env[Nz//2, Nr//2], invw_tot[Nz//2, Nr//2])        
+    #print(w2_square[Nz//2, Nr//2])
+    for iz in prange(Nz):
+        for ir in range(Nr):
+            A_old = A[iz, ir]
+            dtA_old = dtA[iz, ir]
+            A[iz, ir] = A_coef * (invw_tot[iz, ir] * S_env[iz, ir] * dtA[iz, ir]\
+                    + (C_env[iz, ir] - sinc_env[iz, ir]) * A[iz, ir])
+            dtA[iz, ir] = A_coef * ( (C_env[iz, ir] + sinc_env[iz, ir]) * dtA[iz, ir] \
+                        - w2_square[iz, ir] * invw_tot[iz, ir] * S_env[iz, ir] * A_old )
+                        
+            #if (iz == Nz//2 and ir == Nr//2):
+                #print(A_old, A[iz, ir], A_coef * (invw_tot[iz, ir] * S_env[iz, ir] * dtA_old ), A_coef * (C_env[iz, ir] - sinc_env[iz, ir]) * A_old)
+                #print('')
+                #print(dtA_old, dtA[iz,ir], A_coef * (C_env[iz, ir] + sinc_env[iz, ir]) * dtA_old,
+                         #w2_square[iz, ir] * invw_tot[iz, ir] * S_env[iz, ir] * A_old * A_coef )
+                #print('')
+    return
+
+
 
 @njit_parallel
 def numba_correct_currents_curlfree_comoving( rho_prev, rho_next, Jp, Jm, Jz,

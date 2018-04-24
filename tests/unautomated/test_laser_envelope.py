@@ -6,10 +6,9 @@ This test file is part of FB-PIC (Fourier-Bessel Particle-In-Cell).
 
 It tests the structures implemented in fields.py,
 by studying the propagation of a laser in vacuum:
-- The mode 0 is tested by using an annular, radial beam,
+- The mode 0 is tested by using a linearly polarized gaussian beam,
    which propagates to the right.
-- The mode 1 is tested by using a linearly polarized beam,
-   which propagates to the right
+- The mode 1 is tested by ????
 
 In both cases, the evolution of the a0 and w0 are compared
 with theoretical results from diffraction theory.
@@ -21,6 +20,8 @@ These tests are performed in 3 cases:
   in order to leave time for the moving window to shift/damp the fields
 - In a galilean frame : in this case again, large timestep can be taken
 
+WARNING: Only Periodic box for mode 0 test is implemented for now
+
 Usage :
 -------
 In order to show the images of the laser, and manually check the
@@ -28,11 +29,6 @@ agreement between the simulation and the theory:
 $ python tests/test_laser.py
 (except when setting show to False in the parameters below)
 
-In order to let Python check the agreement between the curve without
-having to look at the plots
-$ py.test -q tests/test_fields.py
-or
-$ python setup.py test
 """
 import numpy as np
 from scipy.constants import c, m_e, e
@@ -210,7 +206,7 @@ def propagate_pulse( Nz, Nr, Nm, zmin, zmax, Lr, L_prop, zf, dt,
     Returns
     -------
     A dictionary containing :
-    - 'E' : 1d array containing the values of the amplitude
+    - 'A' : 1d array containing the values of the amplitude
     - 'w' : 1d array containing the values of waist
     - 'fld' : the Fields object at the end of the simulation.
     """
@@ -349,7 +345,7 @@ def gaussian_transverse_profile( r, w, E ) :
        The initial waist of the laser (in microns)
 
     E : float
-       The a0 of the pulse
+       The E0 of the pulse
     """
     return( E*np.exp( -r**2/w**2 ) )
 

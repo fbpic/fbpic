@@ -179,6 +179,7 @@ class GaussianLaser( LaserProfile ):
         self.z0 = z0
         self.E0x = E0 * np.cos(theta_pol)
         self.E0y = E0 * np.sin(theta_pol)
+        self.a0 = a0
         self.w0 = waist
         self.cep_phase = cep_phase
         self.phi2_chirp = phi2_chirp
@@ -225,7 +226,37 @@ class GaussianLaser( LaserProfile ):
         Ey = self.E0y * profile
 
         return( Ex.real, Ey.real )
+        
+    def A_field(self, x, y, z, t):
+        """
+        Return the electric field of the laser
 
+        Parameters
+        ----------
+        x, y, z: ndarrays (meters)
+            The positions at which to calculate the profile (in the lab frame)
+        t: ndarray or float (seconds)
+            The time at which to calculate the profile (in the lab frame)
+
+        Returns
+        -------
+        A, dtA: ndarrays (adimensionnal for A, s-1 for dtA)
+            Arrays of the same shape as x, y, z, containing the fields
+        """
+        diffract_factor = 1. + 1j * ( z - self.zf ) * self.inv_zr
+        stretch_factor = 1 - 2j * self.phi2_chirp * c**2 * self.inv_ctau2
+        # Calculate the argument of the complex exponential
+        exp_argument = -1j*self.cep_phase  \
+            - (x**2 + y**2) / (self.w0**2 * diffract_factor) \
+            - 1./stretch_factor * self.inv_ctau2 * ( c*t  + self.z0 - z )**2
+        # Get the transverse profile
+        profile = np.exp(exp_argument) / ( diffract_factor * stretch_factor**0.5 )
+        
+        A = self.a0 * profile
+        dtA = - self.a0 * 1./stretch_factor * self.inv_ctau2 * c * ( c*t + self.z0 - z) * profile
+        
+        return A, dtA 
+        
 
 class LaguerreGaussLaser( LaserProfile ):
     """Class that calculates a Laguerre-Gauss pulse."""
