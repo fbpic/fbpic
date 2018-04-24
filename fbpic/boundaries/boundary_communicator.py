@@ -7,7 +7,7 @@ It defines the structure necessary to implement the boundary exchanges.
 """
 import numpy as np
 from scipy.constants import c
-from fbpic.utils.mpi import MPI, comm, mpi_type_dict, \
+from fbpic.utils.mpi import comm, mpi_type_dict, \
     mpi_installed, gpudirect_enabled
 from fbpic.fields.fields import InterpolationGrid
 from fbpic.fields.utility_methods import get_stencil_reach
@@ -254,7 +254,8 @@ class BoundaryCommunicator(object):
         # Initialize a buffer handler object, for MPI communications
         if self.size > 1:
             self.mpi_buffers = BufferHandler( self.n_guard, Nr, Nm,
-                                      self.left_proc, self.right_proc )
+                                            self.left_proc, self.right_proc,
+                                            self.mpi_comm, gpudirect_enabled )
 
         # Create damping arrays for the damping cells at the left
         # and right of the box in the case of "open" boundaries.
@@ -541,26 +542,24 @@ class BoundaryCommunicator(object):
             # completed before sendind via MPI directly)
             cuda.synchronize()
 
-        # Prepare MPI call by pointing to the correct sending/receiving buffers
-        if gpudirect_enabled:
-            # Create create pointers to GPU array, for cuda-aware MPI
-            send_l = get_gpu_mpi_buffer(
-                        self.mpi_buffers.d_send_l[exchange_type] )
-            send_r = get_gpu_mpi_buffer(
-                        self.mpi_buffers.d_send_r[exchange_type] )
-            recv_l = get_gpu_mpi_buffer(
-                        self.mpi_buffers.d_recv_l[exchange_type] )
-            recv_r = get_gpu_mpi_buffer(
-                        self.mpi_buffers.d_recv_r[exchange_type] )
-        else:
-            # Use arrays that are on the CPU
-            send_l = self.mpi_buffers.send_l[ exchange_type ]
-            send_r = self.mpi_buffers.send_r[ exchange_type ]
-            recv_l = self.mpi_buffers.recv_l[ exchange_type ]
-            recv_r = self.mpi_buffers.recv_r[ exchange_type ]
+        # MPI-Exchange: Uses non-blocking persistent communications requests
+        # which return directly and need to be synchronized later.
+        # Send to left domain and receive from left domain
+        if self.left_proc is not None:
+            self.mpi_buffers.request_send_l[exchange_type].Start()
+            self.mpi_buffers.request_recv_l[exchange_type].Start()
+        # Send to right domain and receive from right domain
+        if self.right_proc is not None:
+            self.mpi_buffers.request_send_r[exchange_type].Start()
+            self.mpi_buffers.request_recv_r[exchange_type].Start()
 
-        # Send and receive the buffers via MPI
-        self.exchange_domains( send_l, send_r, recv_l, recv_r )
+        # Wait for the non-blocking sends to be received (synchronization)
+        if self.left_proc is not None:
+            self.mpi_buffers.request_send_l[exchange_type].Wait()
+            self.mpi_buffers.request_recv_l[exchange_type].Wait()
+        if self.right_proc is not None:
+            self.mpi_buffers.request_send_r[exchange_type].Wait()
+            self.mpi_buffers.request_recv_r[exchange_type].Wait()
 
         # Copy/Add the received buffers to the interpolation grid
         if fieldtype in ('E', 'B', 'J'):
@@ -1080,24 +1079,3 @@ class BoundaryCommunicator(object):
         # Return the gathered_array only on process root
         if self.rank == root:
             return(gathered_array)
-
-
-def get_gpu_mpi_buffer(gpu_array):
-    """
-    Prepare a GPU array to be send via GPUDirect with CUDA-aware MPI by
-    creating an MPI buffer object with mpi4py.
-
-    Parameters:
-    ------------
-    gpu_array: a numba GPU device array
-        The GPU array for which an MPI buffer is created
-
-    Returns:
-    --------
-    mpi_buffer: an MPI buffer object
-        A buffer that can be send via GPUDirect with CUDA-aware MPI
-    """
-    gpu_mpi_buffer = MPI.memory.fromaddress(
-        gpu_array.device_ctypes_pointer.value,
-        gpu_array.alloc_size )
-    return gpu_mpi_buffer

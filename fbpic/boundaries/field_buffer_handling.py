@@ -6,6 +6,7 @@ This file is part of the Fourier-Bessel Particle-In-Cell code (FB-PIC)
 It defines the structure necessary to handle mpi buffers for the fields
 """
 import numpy as np
+from fbpic.utils.mpi import MPI
 # Check if CUDA is available, then import CUDA functions
 from fbpic.utils.cuda import cuda_installed
 if cuda_installed:
@@ -24,7 +25,8 @@ class BufferHandler(object):
     between MPI domains.
     """
 
-    def __init__( self, n_guard, Nr, Nm, left_proc, right_proc ):
+    def __init__( self, n_guard, Nr, Nm, left_proc, right_proc,
+                        mpi_comm, gpudirect_enabled ):
         """
         Initialize the guard cell buffers for the fields.
         These buffers are used in order to group the MPI exchanges.
@@ -43,6 +45,12 @@ class BufferHandler(object):
         left_proc, right_proc: int or None
            Rank of the proc to the right and to the left
            (None for open boundary)
+
+        mpi_comm: an mpi4py.Comm object (typically COMM_WORLD)
+           Is used in order to initialize the MPI persistent communications.
+
+        gpudirect_enabled: bool
+           Whether direct GPU-to-GPU communications are used.
         """
         # Register parameters
         self.Nr = Nr
@@ -97,6 +105,40 @@ class BufferHandler(object):
                                 self.recv_l.items() }
             self.d_recv_r = { key: cuda.to_device(value) for key, value in \
                                 self.recv_r.items() }
+
+        # Describe the MPI communications that are done at each iteration
+        # (Use persistent MPI communication)
+        self.request_send_l = {}
+        self.request_recv_l = {}
+        self.request_send_r = {}
+        self.request_recv_r = {}
+        for i, exchange_type in enumerate( self.send_l.keys() ):
+            if gpudirect_enabled:
+                # Use pointers to GPU array, for cuda-aware MPI
+                send_l = get_gpu_mpi_buffer( self.d_send_l[exchange_type] )
+                send_r = get_gpu_mpi_buffer( self.d_send_r[exchange_type] )
+                recv_l = get_gpu_mpi_buffer( self.d_recv_l[exchange_type] )
+                recv_r = get_gpu_mpi_buffer( self.d_recv_r[exchange_type] )
+            else:
+                # Use arrays that are on the CPU
+                send_l = self.send_l[ exchange_type ]
+                send_r = self.send_r[ exchange_type ]
+                recv_l = self.recv_l[ exchange_type ]
+                recv_r = self.recv_r[ exchange_type ]
+
+            # Prepare the persistent MPI communication requests
+            if left_proc is not None:
+                # Use a different tag for each type of exchange
+                self.request_send_l[exchange_type] = mpi_comm.Send_init(
+                             send_l, left_proc, tag=2*i )
+                self.request_recv_l[exchange_type] = mpi_comm.Recv_init(
+                             recv_l, left_proc, tag=2*i+1 )
+            if right_proc is not None:
+                # Use a matching tag for each type of communication
+                self.request_send_r[exchange_type] = mpi_comm.Send_init(
+                             send_r, right_proc, tag=2*i+1 )
+                self.request_recv_r[exchange_type] = mpi_comm.Recv_init(
+                             recv_r, right_proc, tag=2*i )
 
 
     def handle_vec_buffer(self, grid_r, grid_t, grid_z, method, exchange_type,
@@ -424,3 +466,24 @@ class BufferHandler(object):
                     if copy_right:
                         for m in range(self.Nm):
                             grid[m][-(nz_end-nz_start):,:]+=recv_r[m,:,:]
+
+
+def get_gpu_mpi_buffer(gpu_array):
+    """
+    Prepare a GPU array to be send via GPUDirect with CUDA-aware MPI by
+    creating an MPI buffer object with mpi4py.
+
+    Parameters:
+    ------------
+    gpu_array: a numba GPU device array
+        The GPU array for which an MPI buffer is created
+
+    Returns:
+    --------
+    mpi_buffer: an MPI buffer object
+        A buffer that can be send via GPUDirect with CUDA-aware MPI
+    """
+    gpu_mpi_buffer = MPI.memory.fromaddress(
+        gpu_array.device_ctypes_pointer.value,
+        gpu_array.alloc_size )
+    return gpu_mpi_buffer
