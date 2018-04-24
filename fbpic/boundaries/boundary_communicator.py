@@ -9,7 +9,7 @@ import numpy as np
 from scipy.constants import c
 from fbpic.utils.mpi import MPI, comm, mpi_type_dict, \
     mpi_installed, gpudirect_enabled
-from fbpic.fields.fields import InterpolationGrid
+from fbpic.fields.fields import FieldInterpolationGrid
 from fbpic.fields.utility_methods import get_stencil_reach
 from fbpic.particles.particles import Particles
 from .field_buffer_handling import BufferHandler
@@ -471,7 +471,7 @@ class BoundaryCommunicator(object):
         Parameters:
         ------------
         interp: list
-            A list of InterpolationGrid objects
+            A list of FieldInterpolationGrid objects
             (one element per azimuthal mode)
 
         fieldtype: str
@@ -710,7 +710,7 @@ class BoundaryCommunicator(object):
 
         Parameter:
         -----------
-        interp: list of InterpolationGrid objects (one per azimuthal mode)
+        interp: list of FieldInterpolationGrid objects (one per azimuthal mode)
             Objects that contain the fields to be damped.
         """
         # Do not damp the fields for 0 n_damp cells (periodic)
@@ -803,7 +803,7 @@ class BoundaryCommunicator(object):
 
         Parameter:
         -----------
-        grid: Grid object (InterpolationGrid)
+        grid: Grid object (FieldInterpolationGrid)
             A grid object that is gathered on the root process
 
         root: int, optional
@@ -811,7 +811,7 @@ class BoundaryCommunicator(object):
 
         Returns:
         ---------
-        gathered_grid: Grid object (InterpolationGrid)
+        gathered_grid: Grid object (FieldInterpolationGrid)
             A gathered grid that contains the global simulation data
         """
         # Calculate global edges of the simulation box on root process
@@ -820,12 +820,12 @@ class BoundaryCommunicator(object):
                 local=False, with_guard=False, with_damp=False )
             zmin_global, zmax_global = self.get_zmin_zmax(
                 local=False, with_guard=False, with_damp=False )
-            # Initialize new InterpolationGrid object that
+            # Initialize new FieldInterpolationGrid object that
             # is used to gather the global grid data
-            gathered_grid = InterpolationGrid( Nz_global, grid.Nr, grid.m,
+            gathered_grid = FieldInterpolationGrid( Nz_global, grid.Nr, grid.m,
                                     zmin_global, zmax_global, grid.rmax )
         else:
-            # Other processes do not need to initialize new InterpolationGrid
+            # Other processes do not need to initialize new FieldInterpolationGrid
             gathered_grid = None
         # Loop over fields that need to be gathered
         for field in ['Er', 'Et', 'Ez',

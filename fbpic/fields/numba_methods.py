@@ -146,8 +146,7 @@ def numba_push_eb_standard( Ep, Em, Ez, Bp, Bm, Bz, Jp, Jm, Jz,
 def numba_push_envelope_standard(A, dtA, w2_square, invw_tot, S_env, C_env,
                             sinc_env, A_coef, Nz, Nr):
                     
-    #print(Nz, Nr, A_coef, S_env[Nz//2, Nr//2], C_env[Nz//2, Nr//2], sinc_env[Nz//2, Nr//2], invw_tot[Nz//2, Nr//2])        
-    #print(w2_square[Nz//2, Nr//2])
+                    
     for iz in prange(Nz):
         for ir in range(Nr):
             A_old = A[iz, ir]
@@ -157,12 +156,6 @@ def numba_push_envelope_standard(A, dtA, w2_square, invw_tot, S_env, C_env,
             dtA[iz, ir] = A_coef * ( (C_env[iz, ir] + sinc_env[iz, ir]) * dtA[iz, ir] \
                         - w2_square[iz, ir] * invw_tot[iz, ir] * S_env[iz, ir] * A_old )
                         
-            #if (iz == Nz//2 and ir == Nr//2):
-                #print(A_old, A[iz, ir], A_coef * (invw_tot[iz, ir] * S_env[iz, ir] * dtA_old ), A_coef * (C_env[iz, ir] - sinc_env[iz, ir]) * A_old)
-                #print('')
-                #print(dtA_old, dtA[iz,ir], A_coef * (C_env[iz, ir] + sinc_env[iz, ir]) * dtA_old,
-                         #w2_square[iz, ir] * invw_tot[iz, ir] * S_env[iz, ir] * A_old * A_coef )
-                #print('')
     return
 
 

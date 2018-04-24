@@ -70,18 +70,6 @@ class InterpolationGrid(object) :
         # Note: No Verboncoeur-type correction required
         self.invvol = 1./vol
 
-        # Allocate the fields arrays
-        self.Er = np.zeros( (Nz, Nr), dtype='complex' )
-        self.Et = np.zeros( (Nz, Nr), dtype='complex' )
-        self.Ez = np.zeros( (Nz, Nr), dtype='complex' )
-        self.Br = np.zeros( (Nz, Nr), dtype='complex' )
-        self.Bt = np.zeros( (Nz, Nr), dtype='complex' )
-        self.Bz = np.zeros( (Nz, Nr), dtype='complex' )
-        self.Jr = np.zeros( (Nz, Nr), dtype='complex' )
-        self.Jt = np.zeros( (Nz, Nr), dtype='complex' )
-        self.Jz = np.zeros( (Nz, Nr), dtype='complex' )
-        self.rho = np.zeros( (Nz, Nr), dtype='complex' )
-
         # Check whether the GPU should be used
         self.use_cuda = use_cuda
 
@@ -99,6 +87,29 @@ class InterpolationGrid(object) :
         """Returns the 1d array of r, when the user queries self.r"""
         return( self.rmin + (0.5+np.arange(self.Nr))*self.dr )
 
+   
+                
+                
+                
+class FieldInterpolationGrid(InterpolationGrid):
+    
+    
+    def __init__(self, Nz, Nr, m, zmin, zmax, rmax, use_cuda=False ) :
+        
+        InterpolationGrid.__init__(self, Nz, Nr, m, zmin, zmax, rmax, use_cuda=False)
+        
+        # Allocate the fields arrays
+        self.Er = np.zeros( (Nz, Nr), dtype='complex' )
+        self.Et = np.zeros( (Nz, Nr), dtype='complex' )
+        self.Ez = np.zeros( (Nz, Nr), dtype='complex' )
+        self.Br = np.zeros( (Nz, Nr), dtype='complex' )
+        self.Bt = np.zeros( (Nz, Nr), dtype='complex' )
+        self.Bz = np.zeros( (Nz, Nr), dtype='complex' )
+        self.Jr = np.zeros( (Nz, Nr), dtype='complex' )
+        self.Jt = np.zeros( (Nz, Nr), dtype='complex' )
+        self.Jz = np.zeros( (Nz, Nr), dtype='complex' )
+        self.rho = np.zeros( (Nz, Nr), dtype='complex' )
+        
     def send_fields_to_gpu( self ):
         """
         Copy the fields to the GPU.
@@ -218,3 +229,24 @@ class InterpolationGrid(object) :
                 self.Jz *= self.invvol[np.newaxis,:]
             else:
                 raise ValueError('Invalid string for fieldtype: %s'%fieldtype)
+    
+    
+    
+class EnvelopeInterpolationGrid(InterpolationGrid):
+    
+    def __init__(self, Nz, Nr, m, zmin, zmax, rmax, use_cuda=False ) :
+        
+        InterpolationGrid.__init__(self, Nz, Nr, m, zmin, zmax, rmax, use_cuda=False)
+        
+        # Allocate the fields arrays
+        self.A = np.zeros( (Nz, Nr), dtype='complex' )
+        self.dtA = np.zeros( (Nz, Nr), dtype='complex' )
+    
+    def erase(self):
+        """
+        Sets the envelope fields A and dtA to zero on the interpolation grid
+
+        """
+        
+        self.A[:,:] = 0.
+        self.dtA[:,:] = 0.

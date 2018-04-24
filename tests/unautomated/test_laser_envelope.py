@@ -41,7 +41,7 @@ from fbpic.lpa_utils.laser import add_laser_pulse, \
 # ----------
 # (See the documentation of the function propagate_pulse
 # below for their definition)
-show = True  # Whether to show the plots, and check them manually
+show = False  # Whether to show the plots, and check them manually
 
 use_cuda = False
 
@@ -245,7 +245,7 @@ def propagate_pulse( Nz, Nr, Nm, zmin, zmax, Lr, L_prop, zf, dt,
         if show==True and it%N_show == 0 :
             import matplotlib.pyplot as plt
             plt.clf()
-            plt.plot(sim.fld.interp[m].r,  (abs( sim.fld.interp[m].A )**2).sum(axis=0))
+            plt.plot(sim.fld.envelope_interp[m].r,  (abs( sim.fld.envelope_interp[m].A )**2).sum(axis=0))
             plt.show()
         # Advance the Maxwell equations
         sim.step( N_step, show_progress= False )
@@ -425,7 +425,7 @@ def fit_fields( fld, m ) :
     """
     # Integrate the laser oscillations longitudinally
     dz = fld.interp[0].dz
-    laser_profile = np.sqrt(dz*(abs( fld.interp[m].A )**2).sum(axis=0)) 
+    laser_profile = np.sqrt(dz*(abs( fld.envelope_interp[m].A )**2).sum(axis=0)) 
     # Renormalize so that this gives the peak of the Gaussian
     laser_profile *= 2.**(-3./4)/( np.pi**(1./4) * ctau**(1./2) )
 

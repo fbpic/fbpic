@@ -159,6 +159,15 @@ class PsatdCoeffs(object) :
             self.rho_next_coef = c**2/epsilon_0*(xi_2)
         # Enforce the right value for w==0
         self.rho_next_coef[ w==0 ] = c**2/epsilon_0*(1./6*dt**2)
+        
+        # Calculate all necessary coefficients for propagation of A field
+        w_laser = 2*c*np.pi/ (0.8e-6)
+        self.w2_square = c**2*(kr**2 + kz**2 + 2 * kz * w_laser/c)
+        w_tot = np.sqrt(w_laser**2 + self.w2_square)
+        self.invw_tot = np.where(w_tot == 0, 1, 1./w_tot)
+        self.S_env, self.C_env = np.sin(w_tot*dt), np.cos(w_tot*dt)
+        self.sinc_env = 1j * w_laser * self.invw_tot * self.S_env
+        self.A_coef = np.exp(-1j * w_laser * dt)
 
         # Replace these array by arrays on the GPU, when using cuda
         if use_cuda:

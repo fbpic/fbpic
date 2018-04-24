@@ -33,9 +33,9 @@ def add_laser_direct_envelope( sim, laser_profile, boost ):
 
     # Get the local azimuthally-decomposed laser fields A and dtA on each proc
     laser_A, laser_dtA = get_laser_A_dtA( sim, laser_profile, boost )
-    for m in range(sim.fld.Nm):
-        sim.fld.interp[m].A[:,:] = laser_A[:,:,m]
-        sim.fld.interp[m].dtA[:,:] = laser_dtA[:,:,m]
+    for m in range(2 * sim.fld.Nm - 1):
+        sim.fld.envelope_interp[m].A[:,:] = laser_A[:,:,m]
+        sim.fld.envelope_interp[m].dtA[:,:] = laser_dtA[:,:,m]
 
     # Create a global field object across all subdomains, and copy the fields
     # (Calculating the self-consistent Ez and B is a global operation)
@@ -47,12 +47,12 @@ def add_laser_direct_envelope( sim, laser_profile, boost ):
             sim.fld.Nr, sim.fld.rmax, sim.fld.Nm, sim.fld.dt,
             zmin=global_zmin, n_order=sim.fld.n_order, use_cuda=False)
     # Gather the fields of the interpolation grid
-    for m in range(sim.fld.Nm):
+    for m in range(2*sim.fld.Nm-1):
         for field in ['A', 'dtA']:
-            local_array = getattr( sim.fld.interp[m], field )
+            local_array = getattr( sim.fld.envelope_interp[m], field )
             gathered_array = sim.comm.gather_grid_array(
                                 local_array, with_damp=True)
-            setattr( global_fld.interp[m], field, gathered_array )
+            setattr( global_fld.envelope_interp[m], field, gathered_array )
 
 
     # Communicate the results from proc 0 to the other procs
@@ -67,11 +67,11 @@ def add_laser_direct_envelope( sim, laser_profile, boost ):
     for m in range(sim.fld.Nm):
         for field in ['A', 'dtA']:
             # Get the local result from proc 0
-            global_array = getattr( global_fld.interp[m], field )
+            global_array = getattr( global_fld.envelope_interp[m], field )
             local_array = sim.comm.scatter_grid_array(
                                     global_array, with_damp=True)
             # Add it to the fields of sim.fld
-            local_field = getattr( sim.fld.interp[m], field )
+            local_field = getattr( sim.fld.envelope_interp[m], field )
             local_field[ iz_in_array:iz_in_array+Nz_local, : ] += local_array
 
     print("Done.\n")
