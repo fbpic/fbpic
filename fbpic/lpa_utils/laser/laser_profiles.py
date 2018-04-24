@@ -7,7 +7,7 @@ It defines a set of common laser profiles.
 """
 import numpy as np
 from scipy.constants import c, m_e, e
-from scipy.special import factorial, genlaguerre
+from scipy.special import factorial, genlaguerre, binom
 
 # Generic classes
 # ---------------
@@ -393,3 +393,127 @@ class LaguerreGaussLaser( LaserProfile ):
         Ey = self.E0y * profile
 
         return( Ex.real, Ey.real )
+
+
+class FlattenedGaussianLaser( LaserProfile ):
+    """Class that calculates a focused flattened Gaussian"""
+
+    def __init__( self, a0, w0, tau, z0, N=6, zf=None, theta_pol=0.,
+                    lambda0=0.8e-6, cep_phase=0. ):
+        """
+        Define a linearly-polarized laser such that the transverse intensity
+        profile is a flattened Gaussian **far from focus**, and a distribution
+        with rings **in the focal plane**. (See `Santarsiero et al., J.
+        Modern Optics, 1997 <http://doi.org/10.1080/09500349708232927>`_)
+
+        Increasing the parameter ``N`` increases the
+        flatness of the transverse profile **far from focus**,
+        and increases the number of rings **in the focal plane**.
+
+        More precisely, the expression **in the focal plane** uses the
+        Laguerre polynomials :math:`L^0_n`, and reads:
+
+        .. math::
+
+            E(\\boldsymbol{x},t)\propto
+            \exp\\left(-\\frac{r^2}{(N+1)w_0^2}\\right)
+            \sum_{n=0}^N c'_n L^0_n\\left(\\frac{2\,r^2}{(N+1)w_0^2}\\right)
+
+            \mathrm{with} \qquad c'_n = \sum_{m=n}^{N}\\frac{1}{2^m}\\binom{m}{n}
+
+        - For :math:`N=0`, this is a Gaussian profile: :math:`E\propto\exp\\left(-\\frac{r^2}{w_0^2}\\right)`.
+
+        - For :math:`N\\rightarrow\infty`, this is a Jinc profile: :math:`E\propto \\frac{J_1(r/w_0)}{r/w_0}`.
+
+        The expression **far from focus** is
+
+        .. math::
+
+            E(\\boldsymbol{x},t)\propto
+            \exp\\left(-\\frac{(N+1)r^2}{w(z)^2}\\right)
+            \sum_{n=0}^N \\frac{1}{n!}\left(\\frac{(N+1)\,r^2}{w(z)^2}\\right)^n
+
+            \mathrm{with} \qquad w(z) = \\frac{\lambda_0}{\pi w_0}|z-z_{foc}|
+
+        - For :math:`N=0`, this is a Gaussian profile: :math:`E\propto\exp\\left(-\\frac{r^2}{w_(z)^2}\\right)`.
+
+        - For :math:`N\\rightarrow\infty`, this is a flat profile: :math:`E\propto \\Theta(w(z)-r)`.
+
+        Parameters
+        ----------
+        a0: float (dimensionless)
+            The peak normalized vector potential at the focal plane.
+
+        w0: float (in meter)
+            Laser spot size in the focal plane, defined as :math:`w_0` in the
+            above formula.
+
+        tau: float (in second)
+            The duration of the laser (in the lab frame)
+
+        z0: float (in meter)
+            The initial position of the centroid of the laser
+            (in the lab frame)
+
+        N: int
+            Determines the "flatness" of the transverse profile, far from
+            focus (see the above formula).
+            Default: ``N=6`` ; somewhat close to an 8th order supergaussian.
+
+        zf: float (in meter), optional
+            The position of the focal plane (in the lab frame).
+            If ``zf`` is not provided, the code assumes that ``zf=z0``, i.e.
+            that the laser pulse is at the focal plane initially.
+
+        theta_pol: float (in radian), optional
+           The angle of polarization with respect to the x axis.
+
+        lambda0: float (in meter), optional
+            The wavelength of the laser (in the lab frame)
+            Default: 0.8 microns (Ti:Sapph laser).
+
+        cep_phase: float (in radian), optional
+            The Carrier Enveloppe Phase (CEP, i.e. the phase of the laser
+            oscillation, at the position where the laser enveloppe is maximum)
+        """
+        # Ensure that N is an integer
+        N = int(round(N))
+        # Calculate effective waist of the Laguerre-Gauss modes, at focus
+        w_foc = w0*(N+1)**.5
+
+        # Sum the Laguerre-Gauss modes that constitute this pulse
+        # See equation 2 and 3 in Santarsiero et al.
+        for n in range(N+1):
+            cep_phase_n = cep_phase + (2*n+1)*np.pi/2
+            m_values = np.arange(n, N+1)
+            cn = (-1)**n * np.sum( 1./2**m_values * binom(m_values,n) ) /(N+1)
+            profile = LaguerreGaussLaser( p=n, m=0, a0=cn*a0,
+                            cep_phase=cep_phase_n, waist=w_foc,
+                            tau=tau, z0=z0, zf=zf,
+                            theta_pol=theta_pol, lambda0=lambda0, theta0=0. )
+            if n==0:
+                summed_profile = profile
+            else:
+                summed_profile += profile
+
+        # Register the summed_profile
+        self.summed_profile = summed_profile
+
+
+    def E_field( self, x, y, z, t ):
+        """
+        Return the electric field of the laser
+
+        Parameters
+        ----------
+        x, y, z: ndarrays (meters)
+            The positions at which to calculate the profile (in the lab frame)
+        t: ndarray or float (seconds)
+            The time at which to calculate the profile (in the lab frame)
+
+        Returns:
+        --------
+        Ex, Ey: ndarrays (V/m)
+            Arrays of the same shape as x, y, z, containing the fields
+        """
+        return self.summed_profile.E_field( x, y, z, t )
