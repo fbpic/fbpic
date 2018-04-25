@@ -150,7 +150,6 @@ def numba_push_envelope_standard(A, dtA, w2_square, invw_tot, S_env, C_env,
     for iz in prange(Nz):
         for ir in range(Nr):
             A_old = A[iz, ir]
-            dtA_old = dtA[iz, ir]
             A[iz, ir] = A_coef * (invw_tot[iz, ir] * S_env[iz, ir] * dtA[iz, ir]\
                     + (C_env[iz, ir] - sinc_env[iz, ir]) * A[iz, ir])
             dtA[iz, ir] = A_coef * ( (C_env[iz, ir] + sinc_env[iz, ir]) * dtA[iz, ir] \

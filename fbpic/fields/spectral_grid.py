@@ -472,9 +472,7 @@ class EnvelopeSpectralGrid(SpectralGrid):
         Filter the envelope field
 
         """
-        if (fieldtype == 'A'):
-            self.A = self.A * self.filter_array
-            self.dtA = self.dtA * self.filter_array
-        else :
-            raise ValueError('Invalid string for fieldtype: %s'%fieldtype)
+        self.A = self.A * self.filter_array
+        self.dtA = self.dtA * self.filter_array
+
         
