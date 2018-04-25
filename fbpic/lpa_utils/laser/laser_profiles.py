@@ -208,18 +208,18 @@ class GaussianLaser( LaserProfile ):
         # multiplying the Fourier transform of the laser at focus
         # E(k_x,k_y,\omega) = exp( -(\omega-\omega_0)^2(\tau^2/4 + \phi^(2)/2)
         # - (k_x^2 + k_y^2)w_0^2/4 ) by the paraxial propagator
-        # e^(i(\omega/c - (k_x^2 +k_y^2)/2k0)(z-z_foc))
+        # e^(-i(\omega/c - (k_x^2 +k_y^2)/2k0)(z-z_foc))
         # and then by taking the inverse Fourier transform in x, y, and t
 
         # Diffraction and stretch_factor
-        diffract_factor = 1. - 1j * ( z - self.zf ) * self.inv_zr
-        stretch_factor = 1 + 2j * self.phi2_chirp * c**2 * self.inv_ctau2
+        diffract_factor = 1. + 1j * ( z - self.zf ) * self.inv_zr
+        stretch_factor = 1 - 2j * self.phi2_chirp * c**2 * self.inv_ctau2
         # Calculate the argument of the complex exponential
-        exp_argument = 1j*self.cep_phase + 1j*self.k0*( c*t + self.z0 - z ) \
+        exp_argument = 1j*self.k0*( z - self.z0 - c*t ) - 1j*self.cep_phase \
             - (x**2 + y**2) / (self.w0**2 * diffract_factor) \
-            - 1./stretch_factor * self.inv_ctau2 * ( c*t  + self.z0 - z )**2
+            - 1./stretch_factor * self.inv_ctau2 * ( z - self.z0 - c*t )**2
         # Get the transverse profile
-        profile = np.exp(exp_argument) / ( diffract_factor * stretch_factor**0.5 )
+        profile = np.exp(exp_argument) /(diffract_factor * stretch_factor**0.5)
 
         # Get the projection along x and y, with the correct polarization
         Ex = self.E0x * profile
@@ -402,17 +402,17 @@ class LaguerreGaussLaser( LaserProfile ):
             Arrays of the same shape as x, y, z, containing the fields
         """
         # Diffraction factor, waist and Gouy phase
-        diffract_factor = 1. - 1j * ( z - self.zf ) * self.inv_zr
+        diffract_factor = 1. + 1j * ( z - self.zf ) * self.inv_zr
         w = self.w0 * abs( diffract_factor )
-        psi = - np.angle( diffract_factor )
+        psi = np.angle( diffract_factor )
         # Calculate the scaled radius and azimuthal angle
         scaled_radius_squared = 2*( x**2 + y**2 ) / w**2
         scaled_radius = np.sqrt( scaled_radius_squared )
         theta = np.angle( x + 1.j*y )
         # Calculate the argument of the complex exponential
-        exp_argument = 1j*self.cep_phase + 1j*self.k0*( c*t + self.z0 - z ) \
+        exp_argument = 1j*self.k0*( z - self.z0 - c*t ) - 1j*self.cep_phase \
             - (x**2 + y**2) / (self.w0**2 * diffract_factor) \
-            - self.inv_ctau2 * ( c*t  + self.z0 - z )**2 \
+            - self.inv_ctau2 * ( z - self.z0 - c*t )**2 \
             + 1.j*(2*self.p + self.m)*psi # *Additional* Gouy phase
         # Get the transverse profile
         profile = np.exp(exp_argument) / diffract_factor \
