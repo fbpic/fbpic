@@ -248,12 +248,12 @@ class GaussianLaser( LaserProfile ):
         # Calculate the argument of the complex exponential
         exp_argument = -1j*self.cep_phase  \
             - (x**2 + y**2) / (self.w0**2 * diffract_factor) \
-            - 1./stretch_factor * self.inv_ctau2 * ( c*t  + self.z0 - z )**2
+            - 1./stretch_factor * self.inv_ctau2 * ( z - self.z0 - c*t)**2
         # Get the transverse profile
         profile = np.exp(exp_argument) / ( diffract_factor * stretch_factor**0.5 )
         
         A = self.a0 * profile
-        dtA = - self.a0 * 1./stretch_factor * self.inv_ctau2 * c * ( c*t + self.z0 - z) * profile
+        dtA = self.a0 * 1./stretch_factor * self.inv_ctau2 * c * ( z - self.z0 - c*t)) * profile
         
         return A, dtA 
         
