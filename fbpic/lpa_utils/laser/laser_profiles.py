@@ -253,7 +253,7 @@ class GaussianLaser( LaserProfile ):
         profile = np.exp(exp_argument) / ( diffract_factor * stretch_factor**0.5 )
         
         A = self.a0 * profile
-        dtA = self.a0 * 1./stretch_factor * self.inv_ctau2 * c * ( z - self.z0 - c*t)) * profile
+        dtA = self.a0 * 1./stretch_factor * self.inv_ctau2 * c * ( z - self.z0 - c*t) * profile
         
         return A, dtA 
         
