@@ -646,7 +646,7 @@ class Fields(object) :
         
         """
         if m >= self.Nm :
-            mode = m - 2*Nm + 1
+            mode = m - 2*self.Nm + 1
         else:
             mode = m
         return mode

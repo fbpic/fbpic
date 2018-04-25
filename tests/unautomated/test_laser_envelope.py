@@ -41,7 +41,7 @@ from fbpic.lpa_utils.laser import add_laser_pulse, \
 # ----------
 # (See the documentation of the function propagate_pulse
 # below for their definition)
-show = False  # Whether to show the plots, and check them manually
+show = True  # Whether to show the plots, and check them manually
 
 use_cuda = False
 
@@ -75,7 +75,7 @@ def test_laser_periodic(show=False):
     dt = L_prop*1./c/N_diag
     print('dt = %d', dt)
     # Test modes up to m=2
-    for m in range(1):
+    for m in range(1, 2):
 
         print('')
         print('Testing mode m=%d' %m)
@@ -104,25 +104,6 @@ def test_laser_moving_window(show=False):
 
     print('')
 
-def test_laser_galilean(show=False):
-    """
-    Function that is run by py.test, when doing `python setup.py test`
-    Test the propagation of a laser with a galilean change of frame
-    """
-    # Choose the regular timestep (required by moving window)
-    dt = L_prop*1./c/N_diag
-
-    # Test modes up to m=2
-    for m in range(3):
-
-        print('')
-        print('Testing mode m=%d' %m)
-        propagate_pulse( Nz, Nr, m+1, zmin, zmax, Lr, L_prop, zf, dt,
-                      N_diag, w0, ctau, k0, E0, m, N_show, n_order,
-                      rtol, boundaries='open',
-                      use_galilean=True, v_comoving=0.999*c, show=show )
-
-    print('')
 
 def propagate_pulse( Nz, Nr, Nm, zmin, zmax, Lr, L_prop, zf, dt,
         N_diag, w0, ctau, k0, E0, m, N_show, n_order, rtol,
@@ -314,8 +295,8 @@ def init_fields( sim, w, ctau, k0, z0, zf, E0, m=1 ) :
 
     m: int, optional
         The mode on which to imprint the profile
-        For m = 1 : gaussian profile, linearly polarized beam
-        For m = 0 : annular profile, polarized in E_theta
+        For m = 0 : gaussian profile, linearly polarized beam
+        For m = 1 : annular profile
     """
     # Initialize the fields
     a0 = E0*e/(m_e*c**2*k0)
@@ -325,6 +306,9 @@ def init_fields( sim, w, ctau, k0, z0, zf, E0, m=1 ) :
 
     if m == 0:
         profile = GaussianLaser( a0=a0, waist=w, tau=tau,
+                    lambda0=lambda0, z0=z0, zf=zf )
+    elif m == 1:
+        profile = LaguerreGaussLaser( 0, 1, a0=a0, waist=w, tau=tau,
                     lambda0=lambda0, z0=z0, zf=zf )
    
     # Add the profiles to the simulation
@@ -427,6 +411,7 @@ def fit_fields( fld, m ) :
     dz = fld.interp[0].dz
     laser_profile = np.sqrt(dz*(abs( fld.envelope_interp[m].A )**2).sum(axis=0)) 
     # Renormalize so that this gives the peak of the Gaussian
+    print(laser_profile)
     laser_profile *= 2.**(-3./4)/( np.pi**(1./4) * ctau**(1./2) )
 
     # Do the fit
