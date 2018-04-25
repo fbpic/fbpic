@@ -35,7 +35,7 @@ from scipy.constants import c, m_e, e
 from scipy.optimize import curve_fit
 from fbpic.main import Simulation
 from fbpic.lpa_utils.laser import add_laser_pulse, \
-    GaussianLaser, LaguerreGaussLaser
+    GaussianLaser
 
 # Parameters
 # ----------
