@@ -406,7 +406,7 @@ class Fields(object) :
         ---------
         fieldtype :
             A string which represents the kind of field to transform
-            (either 'E', 'B', 'J', 'rho_next', 'rho_prev’, ‘A’)
+            (either 'E', 'B', 'J', 'rho_next', 'rho_prev', 'A')
         """
         # Use the appropriate transformation depending on the fieldtype.
         if fieldtype == 'E' :
