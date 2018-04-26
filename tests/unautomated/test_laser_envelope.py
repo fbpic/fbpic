@@ -35,13 +35,13 @@ from scipy.constants import c, m_e, e
 from scipy.optimize import curve_fit
 from fbpic.main import Simulation
 from fbpic.lpa_utils.laser import add_laser_pulse, \
-    GaussianLaser
+    GaussianLaser, LaguerreGaussLaser
 
 # Parameters
 # ----------
 # (See the documentation of the function propagate_pulse
 # below for their definition)
-show = True  # Whether to show the plots, and check them manually
+show = False # Whether to show the plots, and check them manually
 
 use_cuda = False
 
@@ -75,7 +75,7 @@ def test_laser_periodic(show=False):
     dt = L_prop*1./c/N_diag
     print('dt = %d', dt)
     # Test modes up to m=2
-    for m in range(1, 2):
+    for m in range( 2):
 
         print('')
         print('Testing mode m=%d' %m)
@@ -353,47 +353,6 @@ def annular_transverse_profile( r, w, E ) :
     """
     return( E*(r/w)*np.exp( -r**2/w**2 ) )
 
-def annular_pulse( z, r, w0, ctau, k0, z0, E0 ) :
-    """
-    Calculate the profile of an annular beam.
-    This is used to initialize the beam
-
-    Parameters
-    ----------
-    z: 1darray
-       Represents the positions of the grid in z
-
-    r: 1darray
-       Represents the positions of the grid in r
-
-    w0 : float
-       The initial waist of the laser (in microns)
-
-    ctau : float
-       The initial temporal waist of the laser (in microns)
-
-    k0 : flat
-       The central wavevector of the laser (in microns^-1)
-
-    z0 : float
-       The position of the centroid on the z axis
-
-    E0 : float
-       The initial E0 of the pulse
-
-    Return
-    ------
-       A 2d array with z as the first axis and r as the second axis,
-       which contains the values of the
-
-    """
-    longitudinal = np.exp( -(z-z0)**2/ctau**2 )*np.cos(k0*(z-z0))
-    transverse = annular_transverse_profile( r, w0, E0 )
-    profile = longitudinal[:,np.newaxis]*transverse[np.newaxis,:]
-
-    return(profile)
-
-
 def fit_fields( fld, m ) :
     """
     Extracts the waist and a0 of the pulse through a transverse Gaussian fit.
@@ -411,7 +370,6 @@ def fit_fields( fld, m ) :
     dz = fld.interp[0].dz
     laser_profile = np.sqrt(dz*(abs( fld.envelope_interp[m].A )**2).sum(axis=0)) 
     # Renormalize so that this gives the peak of the Gaussian
-    print(laser_profile)
     laser_profile *= 2.**(-3./4)/( np.pi**(1./4) * ctau**(1./2) )
 
     # Do the fit
@@ -425,7 +383,7 @@ def fit_fields( fld, m ) :
     if m > 0:
         # Factor 2 on the amplitude, related to the factor 2
         # in the particle gather for the modes m > 0
-        fit_result[0][1] = 2*fit_result[0][1]
+        fit_result[0][1] = fit_result[0][1]
     return( fit_result[0] )
 
 if __name__ == '__main__' :

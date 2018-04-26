@@ -159,15 +159,6 @@ class PsatdCoeffs(object) :
             self.rho_next_coef = c**2/epsilon_0*(xi_2)
         # Enforce the right value for w==0
         self.rho_next_coef[ w==0 ] = c**2/epsilon_0*(1./6*dt**2)
-        
-        # Calculate all necessary coefficients for propagation of A field
-        w_laser = 2*c*np.pi/ (0.8e-6)
-        self.w2_square = c**2*(kr**2 + kz**2 + 2 * kz * w_laser/c)
-        w_tot = np.sqrt(w_laser**2 + self.w2_square)
-        self.invw_tot = np.where(w_tot == 0, 1, 1./w_tot)
-        self.S_env, self.C_env = np.sin(w_tot*dt), np.cos(w_tot*dt)
-        self.sinc_env = 1j * w_laser * self.invw_tot * self.S_env
-        self.A_coef = np.exp(-1j * w_laser * dt)
 
         # Replace these array by arrays on the GPU, when using cuda
         if use_cuda:
@@ -182,3 +173,37 @@ class PsatdCoeffs(object) :
                 self.d_T_cc = cuda.to_device(self.T_cc)
                 self.d_T_rho = cuda.to_device(self.T_rho)
                 self.d_j_corr_coef = cuda.to_device(self.j_corr_coef)
+                
+                
+    def compute_envelope_coefs(self, kz, kr, m, dt, Nz, Nr, k0):
+        
+        """
+        Allocates the coefficients matrices for the envelope scheme.
+
+        Parameters
+        ----------
+        kz : 2darray of float
+            The positions of the longitudinal, spectral grid
+
+        kr : 2darray of float
+            The positions of the radial, spectral grid
+
+        m : int
+            Index of the mode
+
+        dt : float
+            The timestep of the simulation
+        
+        k0: float
+            Wavenumber of the beam represented by the envelope model
+        """
+        
+        # Calculate all necessary coefficients for propagation of A field
+        w_laser = c * k0
+        self.w2_square = c**2 * (kr**2 + kz**2 + 2 * kz * w_laser/c)
+        w_tot = np.sqrt( (w_laser + c * kz)**2 + c**2 * kr**2)
+        self.invw_tot = np.where(w_tot == 0, 1, 1./w_tot)
+        self.S_env, self.C_env = np.sin(w_tot*dt), np.cos(w_tot*dt)
+        self.sinc_env = 1j * w_laser * self.invw_tot * self.S_env
+        self.A_coef = np.exp(-1j * w_laser * dt)
+        

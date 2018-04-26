@@ -466,7 +466,8 @@ class EnvelopeSpectralGrid(SpectralGrid):
         
             numba_push_envelope_standard(self.A, self.dtA, ps.w2_square, ps.invw_tot, ps.S_env,
                 ps.C_env, ps.sinc_env, ps.A_coef, self.Nz, self.Nr)
-                
+
+
     def filter(self) :
         """
         Filter the envelope field

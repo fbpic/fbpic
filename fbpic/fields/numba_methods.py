@@ -154,7 +154,7 @@ def numba_push_envelope_standard(A, dtA, w2_square, invw_tot, S_env, C_env,
                     + (C_env[iz, ir] - sinc_env[iz, ir]) * A[iz, ir])
             dtA[iz, ir] = A_coef * ( (C_env[iz, ir] + sinc_env[iz, ir]) * dtA[iz, ir] \
                         - w2_square[iz, ir] * invw_tot[iz, ir] * S_env[iz, ir] * A_old )
-            print(A[iz, ir], dtA[iz, ir], dtA_old)
+            
                         
     return
 

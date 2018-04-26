@@ -30,6 +30,11 @@ def add_laser_direct_envelope( sim, laser_profile, boost ):
        Contains the information about the boost to be applied
     """
     print("Initializing laser pulse envelope on the mesh...")
+    
+    # Check that no other laser simulation has been already added
+    if sim.fld.use_envelope:
+        raise ValueError("Another laser profile has already been added")
+    sim.fld.activate_envelope_model(laser_profile.k0)
 
     # Get the local azimuthally-decomposed laser fields A and dtA on each proc
     laser_A, laser_dtA = get_laser_A_dtA( sim, laser_profile, boost )
@@ -46,6 +51,7 @@ def add_laser_direct_envelope( sim, laser_profile, boost ):
     global_fld = Fields( global_Nz, global_zmax,
             sim.fld.Nr, sim.fld.rmax, sim.fld.Nm, sim.fld.dt,
             zmin=global_zmin, n_order=sim.fld.n_order, use_cuda=False)
+    global_fld.activate_envelope_model(laser_profile.k0)
     # Gather the fields of the interpolation grid
     for m in range(2*sim.fld.Nm-1):
         for field in ['A', 'dtA']:
