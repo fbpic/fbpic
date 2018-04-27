@@ -112,7 +112,7 @@ class BufferHandler(object):
         self.request_recv_l = {}
         self.request_send_r = {}
         self.request_recv_r = {}
-        for i, exchange_type in enumerate( self.send_l.keys() ):
+        for i, exchange_type in enumerate( sorted(self.send_l.keys()) ):
             if gpudirect_enabled:
                 # Use pointers to GPU array, for cuda-aware MPI
                 send_l = get_gpu_mpi_buffer( self.d_send_l[exchange_type] )
