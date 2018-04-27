@@ -472,7 +472,7 @@ class Fields(object) :
         ---------
         fieldtype :
             A string which represents the kind of field to transform
-            (either 'E', 'B', 'J', 'rho_next', 'rho_prev’, ‘A’)
+            (either 'E', 'B', 'J', 'rho_next', 'rho_prev', 'A')
         """
         # Use the appropriate transformation depending on the fieldtype.
         if fieldtype == 'E' :
@@ -532,7 +532,7 @@ class Fields(object) :
         ---------
         fieldtype :
             A string which represents the kind of field to transform
-            (either 'E', 'B', 'J', 'rho_next', 'rho_prev’, ‘A’)
+            (either 'E', 'B', 'J', 'rho_next', 'rho_prev', 'A')
         """
         # Use the appropriate transformation depending on the fieldtype.
         if fieldtype == 'E' :
@@ -590,7 +590,7 @@ class Fields(object) :
         ---------
         fieldtype : string
             A string which represents the kind of field to be erased
-            (either 'E', 'B', 'J', 'rho' or ‘A’)
+            (either 'E', 'B', 'J', 'rho' or 'A')
         """
         # Erase the fields in the interpolation grid    
         if (fieldtype == 'A'):
@@ -647,7 +647,7 @@ class Fields(object) :
         ---------
         fieldtype : string
             A string which represents the kind of field to be filtered
-            (either 'E', 'B', 'J', 'rho_next’, ‘rho_prev' or ‘A’)
+            (either 'E', 'B', 'J', 'rho_next', 'rho_prev' or 'A')
         """
         if fieldtype == 'A':
             assert(self.use_envelope)
