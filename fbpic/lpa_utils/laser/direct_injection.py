@@ -37,7 +37,8 @@ def add_laser_direct( sim, laser_profile, fw_propagating, boost ):
     boost: a BoostConverter object or None
        Contains the information about the boost to be applied
     """
-    print("Initializing laser pulse on the mesh...")
+    if sim.comm.rank == 0:
+        print("Initializing laser pulse on the mesh...")
 
     # Get the local azimuthally-decomposed laser fields Er and Et on each proc
     laser_Er, laser_Et = get_laser_Er_Et( sim, laser_profile, boost )
@@ -98,7 +99,8 @@ def add_laser_direct( sim, laser_profile, fw_propagating, boost ):
             local_field = getattr( sim.fld.interp[m], field )
             local_field[ iz_in_array:iz_in_array+Nz_local, : ] += local_array
 
-    print("Done.\n")
+    if sim.comm.rank == 0:
+        print("Done.\n")
 
 
 def get_laser_Er_Et( sim, laser_profile, boost ):
