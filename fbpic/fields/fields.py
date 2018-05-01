@@ -195,29 +195,29 @@ class Fields(object) :
                     shape=(nthreads, self.Nm, self.Nz+4, self.Nr+4) )
             self.Jz_global = np.zeros( dtype=np.complex128,
                     shape=(nthreads, self.Nm, self.Nz+4, self.Nr+4) )
-             
+
         # By default will not use the envelope model
         self.use_envelope = False
-        
-    
+
+
     def activate_envelope_model(self, k0):
         """
         Initializes anything needed for the envelope model
-        
+
         Attribute use_envelope can be changed to true only there,
         and thus guarantees the existence of all the attributes relevant
         to the envelope model.
-        
+
         Parameters
         ----------
         k0: float
             Wavenumber of the beam represented by the envelope model
             It is important to have only one well-defined wavelength
-            in this model     
+            in this model
         """
-        
+
         self.use_envelope = True
-        
+
         #Create the envelope interpolation grids for each modes
         #The envelope modes range from -Nm + 1 to Nm - 1
         self.envelope_interp = []
@@ -228,7 +228,7 @@ class Fields(object) :
             self.envelope_interp.append(EnvelopeInterpolationGrid(
                 self.Nz, self.Nr, m, self.zmin, self.zmax,
                 self.rmax, use_cuda = self.use_cuda ) )
-               
+
         #Create the envelope spectral grids for each modes
         self.envelope_spect = []
         dz = (self.zmax-self.zmin)/self.Nz
@@ -240,10 +240,10 @@ class Fields(object) :
             self.envelope_spect.append( EnvelopeSpectralGrid( kz_modified, kr,
                  m, kz_true, self.envelope_interp[m].dz,
                  self.envelope_interp[m].dr, use_cuda=self.use_cuda ) )
-        
-        # Create the psatd coefficients relevant only 
+
+        # Create the psatd coefficients relevant only
         # to the envelope model for each positive mode
-        for m in range(self.Nm):        
+        for m in range(self.Nm):
             self.psatd[m].compute_envelope_coefs(self.spect[m].kz,
              self.spect[m].kr, m, self.dt, self.Nz, self.Nr, k0)
 
@@ -259,6 +259,10 @@ class Fields(object) :
             for m in range(self.Nm) :
                 self.interp[m].send_fields_to_gpu()
                 self.spect[m].send_fields_to_gpu()
+            if self.use_envelope:
+                for m in self.envelope_mode_numbers:
+                    self.envelope_interp[m].send_fields_to_gpu()
+                    self.envelope_spect[m].send_fields_to_gpu()
 
     def receive_fields_from_gpu( self ):
         """
@@ -271,6 +275,10 @@ class Fields(object) :
             for m in range(self.Nm) :
                 self.interp[m].receive_fields_from_gpu()
                 self.spect[m].receive_fields_from_gpu()
+            if self.use_envelope:
+                for m in self.envelope_mode_numbers:
+                    self.envelope_interp[m].receive_fields_to_gpu()
+                    self.envelope_spect[m].receive_fields_to_gpu()
 
     def push(self, use_true_rho=False, check_exchanges=False):
         """
@@ -302,7 +310,7 @@ class Fields(object) :
         for m in range(self.Nm) :
             self.spect[m].push_eb_with( self.psatd[m], use_true_rho )
 
-        # Check if the envelope model is used then 
+        # Check if the envelope model is used then
         # push each azimuthal mode individually
         if self.use_envelope:
             for m in self.envelope_mode_numbers :
@@ -457,7 +465,7 @@ class Fields(object) :
             for m in self.envelope_mode_numbers:
                 self.trans[abs(m)].spect2interp_scal(
                     self.envelope_spect[m].dtA, self.envelope_interp[m].dtA )
-                
+
         else :
             raise ValueError( 'Invalid string for fieldtype: %s' %fieldtype )
 
@@ -602,7 +610,7 @@ class Fields(object) :
             A string which represents the kind of field to be erased
             (either 'E', 'B', 'J', 'rho')
         """
-        # Erase the fields in the interpolation grid    
+        # Erase the fields in the interpolation grid
         if (fieldtype == 'A' or fieldtype == 'dtA'):
             raise ValueError("erase method not implemented for A field")
         else:

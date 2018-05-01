@@ -239,7 +239,7 @@ def cuda_push_eb_standard( Ep, Em, Ez, Bp, Bm, Bz, Jp, Jm, Jz,
     """
     Push the fields over one timestep, using the standard psatd algorithm
 
-    See the documentation of SpectralGrid.push_eb_with
+    See the documentation of FieldSpectralGrid.push_eb_with
     """
     # Cuda 2D grid
     iz, ir = cuda.grid(2)
@@ -300,6 +300,30 @@ def cuda_push_eb_standard( Ep, Em, Ez, Bp, Bm, Bz, Jp, Jm, Jz,
                         + 1.j*kr[iz, ir]*Jm[iz, ir] )
 
 @cuda.jit
+def cuda_push_envelope_standard(A, dtA, w2_square, S_env_over_w, C_env,
+                            w_laser, A_coef, Nz, Nr) :
+    """
+    Push the envelope over one timestep, using the envelope model equations
+
+    See the documentation of EnvelopeSpectralGrid.push_envelope_with
+    """
+    # Cuda 2D grid
+    iz, ir = cuda.grid(2)
+
+
+    if (iz < Nz) and (ir < Nr) :
+
+        A_old = A[iz, ir]
+        # Push the envelope
+        A[iz, ir] = A_coef * (S_env_over_w[iz, ir] * dtA[iz, ir]\
+                 + (C_env[iz, ir] - 1j * w_laser * S_env_over_w[iz, ir]) \
+                 * A[iz, ir])
+        dtA[iz, ir] = A_coef * ( (C_env[iz, ir] + 1j * w_laser \
+                    * S_env_over_w[iz, ir])  * dtA[iz, ir] \
+                    - w2_square[iz, ir] * S_env_over_w[iz, ir] * A_old )
+
+
+@cuda.jit
 def cuda_push_eb_comoving( Ep, Em, Ez, Bp, Bm, Bz, Jp, Jm, Jz,
                        rho_prev, rho_next,
                        rho_prev_coef, rho_next_coef, j_coef,
@@ -311,7 +335,7 @@ def cuda_push_eb_comoving( Ep, Em, Ez, Bp, Bm, Bz, Jp, Jm, Jz,
     (either with the galilean scheme or comoving scheme, depending on
     the values of the coefficients that are passed)
 
-    See the documentation of SpectralGrid.push_eb_with
+    See the documentation of FieldSpectralGrid.push_eb_with
     """
     # Cuda 2D grid
     iz, ir = cuda.grid(2)
