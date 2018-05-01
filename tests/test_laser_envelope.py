@@ -83,24 +83,7 @@ def test_laser_periodic(show=False):
 
     print('')
 
-def test_laser_moving_window(show=False):
-    """
-    Function that is run by py.test, when doing `python setup.py test`
-    Test the propagation of a laser in a moving window
-    """
-    # Choose the regular timestep (required by moving window)
-    dt = (zmax-zmin)*1./c/Nz
 
-    # Test modes up to m=2
-    for m in range(3):
-
-        print('')
-        print('Testing mode m=%d' %m)
-        propagate_pulse( Nz, Nr, m+1, zmin, zmax, Lr, L_prop, zf, dt,
-                          N_diag, w0, ctau, k0, a0, m, N_show, n_order,
-                          rtol, boundaries='open', v_window=c, show=show )
-
-    print('')
 
 
 def propagate_pulse( Nz, Nr, Nm, zmin, zmax, Lr, L_prop, zf, dt,

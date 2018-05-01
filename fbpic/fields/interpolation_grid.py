@@ -102,6 +102,12 @@ class FieldInterpolationGrid(InterpolationGrid):
     """
     
     def __init__(self, Nz, Nr, m, zmin, zmax, rmax, use_cuda=False ) :
+        """
+        Initialize a 'FieldInterpolationGrid' object
+
+        See the docstring of the parent class 'InterpolationGrid' 
+        for the meaning of the different parameters.
+        """
         
         InterpolationGrid.__init__(self, Nz, Nr, m, zmin, zmax, rmax, use_cuda=False)
         
@@ -250,6 +256,12 @@ class EnvelopeInterpolationGrid(InterpolationGrid):
     """
     
     def __init__(self, Nz, Nr, m, zmin, zmax, rmax, use_cuda=False ) :
+        """
+        Initialize a 'EnvelopeInterpolationGrid' object
+
+        See the docstring of the parent class 'InterpolationGrid' 
+        for the meaning of the different parameters.
+        """
         
         InterpolationGrid.__init__(self, Nz, Nr, m, zmin, zmax, rmax, use_cuda=False)
         

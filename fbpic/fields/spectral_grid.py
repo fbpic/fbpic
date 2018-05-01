@@ -29,7 +29,10 @@ if cuda_installed:
 
 class SpectralGrid(object) :
     """
-    Contains the fields and coordinates of the spectral grid.
+    Contains the coordinates of the spectral grid.
+    
+    It is a base class, that both FieldSpectralGrid 
+    and EnvelopeSpectralGrid inherit.
     """
 
     def __init__(self, kz_modified, kr, m, kz_true, dz, dr,
@@ -102,10 +105,24 @@ class SpectralGrid(object) :
                 
 
 class FieldSpectralGrid(SpectralGrid):
+    """
+    Contains the coordinates and fields of the spectral grid.
+    
+    Main attributes:
+    - kz,kr : 1darrays containing the positions of the grid
+    - Ep, Em, Ez, Bp, Bm, Bz, Jp, Jm, Jz, rho_prev, rho_next :
+      2darrays containing the fields.
+    """
+    
 
     def __init__(self, kz_modified, kr, m, kz_true, dz, dr,
                         current_correction, use_cuda=False ) :
-        
+        """
+        Initialize a 'FieldSpectralGrid' object
+
+        See the docstring of the parent class 'SpectralGrid' 
+        for the meaning of the different parameters.
+        """
         SpectralGrid.__init__(self, kz_modified, kr, m, kz_true, dz, dr,
                         use_cuda=False )
                         
@@ -438,9 +455,23 @@ class FieldSpectralGrid(SpectralGrid):
         
         
 class EnvelopeSpectralGrid(SpectralGrid):
+    """
+    Contains the coordinates and envelope of the spectral grid.
+    
+    Main attributes:
+    - kz,kr : 1darrays containing the positions of the grid
+    - A, dtA:
+      2darrays containing the envelope amplitude.
+    """
     
     def __init__(self, kz_modified, kr, m, kz_true, dz, dr,
                         use_cuda=False ) :
+        """
+        Initialize a 'EnvelopeSpectralGrid' object
+
+        See the docstring of the parent class 'SpectralGrid' 
+        for the meaning of the different parameters.
+        """
         
         SpectralGrid.__init__(self, kz_modified, kr, m, kz_true, dz, dr,
                         use_cuda=False )
@@ -451,21 +482,21 @@ class EnvelopeSpectralGrid(SpectralGrid):
         
     def push_envelope_with(self, ps):
         
-            """
-            Push the A and dtA envelope fields over one timestep, 
-            using the psatd coefficients.
-        
-            WARNING: currently only implemented for non-comoving simulations,
-            with only CPU usage
-        
-            Parameters
-            ----------
-            ps : PsatdCoeffs object
-                psatd object corresponding to the same m mode
-            """
-            assert (ps.V is None or ps.V == 0)
-            assert( abs(self.m) == ps.m )
-        
-            numba_push_envelope_standard(self.A, self.dtA, ps.w2_square,
-                                    ps.S_env_over_w, ps.C_env, ps.w_laser,
-                                    ps.A_coef, self.Nz, self.Nr)
+        """
+        Push the A and dtA envelope fields over one timestep, 
+        using the psatd coefficients.
+    
+        WARNING: currently only implemented for non-comoving simulations,
+        with only CPU usage
+    
+        Parameters
+        ----------
+        ps : PsatdCoeffs object
+            psatd object corresponding to the same m mode
+        """
+        assert (ps.V is None or ps.V == 0)
+        assert( abs(self.m) == ps.m )
+    
+        numba_push_envelope_standard(self.A, self.dtA, ps.w2_square,
+                                ps.S_env_over_w, ps.C_env, ps.w_laser,
+                                ps.A_coef, self.Nz, self.Nr)
