@@ -6,17 +6,10 @@ This file is part of the Fourier-Bessel Particle-In-Cell code (FB-PIC)
 It defines methods to directly inject the laser in the Simulation box
 """
 import numpy as np
-from scipy.constants import c
-from fbpic.fields import Fields
 
 def add_laser_direct_envelope( sim, laser_profile, boost ):
     """
     Add a laser pulse envelope in the simulation, by directly replacing any other A field.
-
-    Note:
-    -----
-    Currently only Gaussian profile can be used
-    (which must provide the *transverse electric field*)
 
     Parameters:
     -----------
@@ -38,47 +31,9 @@ def add_laser_direct_envelope( sim, laser_profile, boost ):
 
     # Get the local azimuthally-decomposed laser fields A and dtA on each proc
     laser_A, laser_dtA = get_laser_A_dtA( sim, laser_profile, boost )
-    for m in range(2 * sim.fld.Nm - 1):
+    for m in sim.fld.envelope_mode_numbers:
         sim.fld.envelope_interp[m].A[:,:] = laser_A[:,:,m]
         sim.fld.envelope_interp[m].dtA[:,:] = laser_dtA[:,:,m]
-
-    # Create a global field object across all subdomains, and copy the fields
-    # (Calculating the self-consistent Ez and B is a global operation)
-    global_Nz, _ = sim.comm.get_Nz_and_iz(
-                    local=False, with_damp=True, with_guard=False )
-    global_zmin, global_zmax = sim.comm.get_zmin_zmax(
-                    local=False, with_damp=True, with_guard=False )
-    global_fld = Fields( global_Nz, global_zmax,
-            sim.fld.Nr, sim.fld.rmax, sim.fld.Nm, sim.fld.dt,
-            zmin=global_zmin, n_order=sim.fld.n_order, use_cuda=False)
-    global_fld.activate_envelope_model(laser_profile.k0)
-    # Gather the fields of the interpolation grid
-    for m in range(2*sim.fld.Nm-1):
-        for field in ['A', 'dtA']:
-            local_array = getattr( sim.fld.envelope_interp[m], field )
-            gathered_array = sim.comm.gather_grid_array(
-                                local_array, with_damp=True)
-            setattr( global_fld.envelope_interp[m], field, gathered_array )
-
-
-    # Communicate the results from proc 0 to the other procs
-    # and add it to the interpolation grid of sim.fld.
-    # - First find the indices at which the fields should be added
-    Nz_local, iz_start_local_domain = sim.comm.get_Nz_and_iz(
-        local=True, with_damp=True, with_guard=False, rank=sim.comm.rank )
-    _, iz_start_local_array = sim.comm.get_Nz_and_iz(
-        local=True, with_damp=True, with_guard=True, rank=sim.comm.rank )
-    iz_in_array = iz_start_local_domain - iz_start_local_array
-    # - Then loop over modes and fields
-    for m in range(sim.fld.Nm):
-        for field in ['A', 'dtA']:
-            # Get the local result from proc 0
-            global_array = getattr( global_fld.envelope_interp[m], field )
-            local_array = sim.comm.scatter_grid_array(
-                                    global_array, with_damp=True)
-            # Add it to the fields of sim.fld
-            local_field = getattr( sim.fld.envelope_interp[m], field )
-            local_field[ iz_in_array:iz_in_array+Nz_local, : ] += local_array
 
     print("Done.\n")
 
@@ -121,8 +76,8 @@ def get_laser_A_dtA( sim, laser_profile, boost ):
 
     # For boosted-frame: convert time and position to the lab-frame
     if boost is not None:
-        zlab_3d = boost.gamma0*( z_3d + boost.beta0 * c * sim.time )
-        tlab = boost.gamma0*( sim.time + (boost.beta0 * 1./c) * z_3d )
+        raise NotImplementedError("The envelope model is not implemented \
+                            for boosted-frame simulations.")
     else:
         zlab_3d = z_3d
         tlab = sim.time

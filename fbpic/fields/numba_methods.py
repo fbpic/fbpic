@@ -81,7 +81,7 @@ def numba_push_eb_standard( Ep, Em, Ez, Bp, Bm, Bz, Jp, Jm, Jz,
     """
     Push the fields over one timestep, using the standard psatd algorithm
 
-    See the documentation of SpectralGrid.push_eb_with
+    See the documentation of FieldSpectralGrid.push_eb_with
     """
     # Loop over the 2D grid (parallel in z, if threading is installed)
     for iz in prange(Nz):
@@ -143,17 +143,23 @@ def numba_push_eb_standard( Ep, Em, Ez, Bp, Bm, Bz, Jp, Jm, Jz,
     return
     
 @njit_parallel
-def numba_push_envelope_standard(A, dtA, w2_square, invw_tot, S_env, C_env,
-                            sinc_env, A_coef, Nz, Nr):
-                    
+def numba_push_envelope_standard(A, dtA, w2_square, S_env_over_w, C_env,
+                            w_laser, A_coef, Nz, Nr):
+    """
+    Push the envelope over one timestep, using the envelope model equations
+
+    See the documentation of EnvelopeSpectralGrid.push_envelope_with
+    """  
                     
     for iz in prange(Nz):
         for ir in range(Nr):
             A_old = A[iz, ir]
-            A[iz, ir] = A_coef * (invw_tot[iz, ir] * S_env[iz, ir] * dtA[iz, ir]\
-                    + (C_env[iz, ir] - sinc_env[iz, ir]) * A[iz, ir])
-            dtA[iz, ir] = A_coef * ( (C_env[iz, ir] + sinc_env[iz, ir]) * dtA[iz, ir] \
-                        - w2_square[iz, ir] * invw_tot[iz, ir] * S_env[iz, ir] * A_old )
+            A[iz, ir] = A_coef * (S_env_over_w[iz, ir] * dtA[iz, ir]\
+                     + (C_env[iz, ir] - 1j * w_laser * S_env_over_w[iz, ir]) \
+                     * A[iz, ir])
+            dtA[iz, ir] = A_coef * ( (C_env[iz, ir] + 1j * w_laser \
+                        * S_env_over_w[iz, ir])  * dtA[iz, ir] \
+                        - w2_square[iz, ir] * S_env_over_w[iz, ir] * A_old )
             
                         
     return

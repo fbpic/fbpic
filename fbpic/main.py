@@ -337,7 +337,7 @@ class Simulation(object):
         self.comm.damp_EB_open_boundary( fld.interp )
         fld.interp2spect('E')
         fld.interp2spect('B')
-        if (fld.use_envelope):
+        if fld.use_envelope:
             fld.interp2spect('A')
 
         # Beginning of the N iterations
@@ -478,7 +478,7 @@ class Simulation(object):
             # Get the corresponding fields in interpolation space
             fld.spect2interp('E')
             fld.spect2interp('B')
-            if (fld.use_envelope):
+            if fld.use_envelope:
                 fld.spect2interp('A')
 
             # Increment the global time and iteration

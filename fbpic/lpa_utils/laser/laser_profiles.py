@@ -229,7 +229,7 @@ class GaussianLaser( LaserProfile ):
         
     def A_field(self, x, y, z, t):
         """
-        Return the electric field of the laser
+        Return the envelope of the (dimensionless) vector potential of the laser 
 
         Parameters
         ----------
@@ -373,7 +373,7 @@ class LaguerreGaussLaser( LaserProfile ):
         # Store the parameters
         self.p = p
         self.m = m
-        self.laguerre_pm = genlaguerre(self.p, abs(self.m)) # Laguerre polynomial
+        self.laguerre_pm = genlaguerre(self.p, self.m) # Laguerre polynomial
         self.theta0 = theta0
         self.k0 = k0
         self.inv_zr = 1./zr
@@ -428,7 +428,7 @@ class LaguerreGaussLaser( LaserProfile ):
         
     def A_field( self, x, y, z, t ):
         """
-        Return the envelope of the laser
+        Return the envelope of the (dimensionless) vector potential of the laser
 
         Parameters
         ----------
@@ -454,7 +454,7 @@ class LaguerreGaussLaser( LaserProfile ):
         exp_argument = - 1j*self.cep_phase \
             - (x**2 + y**2) / (self.w0**2 * diffract_factor) \
             - self.inv_ctau2 * ( z - self.z0 - c*t )**2 \
-            + 1j*(2*self.p + abs(self.m))*psi # *Additional* Gouy phase
+            + 1j*(2*self.p + self.m)*psi # *Additional* Gouy phase
         # Get the transverse profile
         profile = np.exp(exp_argument) / diffract_factor \
             * scaled_radius**self.m * self.laguerre_pm(scaled_radius_squared) \

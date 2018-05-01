@@ -200,10 +200,10 @@ class PsatdCoeffs(object) :
         
         # Calculate all necessary coefficients for propagation of A field
         w_laser = c * k0
-        self.w2_square = c**2 * (kr**2 + kz**2 + 2 * kz * w_laser/c)
+        self.w2_square = c**2 * (kr**2 + kz**2 + 2 * kz * k0)
         w_tot = np.sqrt( (w_laser + c * kz)**2 + c**2 * kr**2)
-        self.invw_tot = np.where(w_tot == 0, 1, 1./w_tot)
-        self.S_env, self.C_env = np.sin(w_tot*dt), np.cos(w_tot*dt)
-        self.sinc_env = 1j * w_laser * self.invw_tot * self.S_env
+        self.C_env = np.cos(w_tot*dt)
+        self.S_env_over_w = np.sin(w_tot*dt) / np.where( w_tot == 0, 1, w_tot )
+        #self.S_env_over_w[ w_tot==0 ] = dt
+        self.w_laser = w_laser
         self.A_coef = np.exp(-1j * w_laser * dt)
-        

@@ -221,28 +221,31 @@ class Fields(object) :
         #Create the envelope interpolation grids for each modes
         #The envelope modes range from -Nm + 1 to Nm - 1
         self.envelope_interp = []
-        for m in range(2 * self.Nm - 1):
+        self.envelope_mode_numbers = [ m for m in range(self.Nm) ] + \
+                                     [ m for m in range(-self.Nm+1, 0)]
+        for m in self.envelope_mode_numbers:
             #Modes are listed in order: 0, 1, ..., Nm - 1, -Nm + 1, ..., -1
-            mode = self.get_mode(m)
             self.envelope_interp.append(EnvelopeInterpolationGrid(
-                self.Nz, self.Nr, mode, self.zmin, self.zmax, self.rmax, use_cuda=self.use_cuda ) )
+                self.Nz, self.Nr, m, self.zmin, self.zmax,
+                self.rmax, use_cuda = self.use_cuda ) )
                
         #Create the envelope spectral grids for each modes
         self.envelope_spect = []
         dz = (self.zmax-self.zmin)/self.Nz
         kz_true = 2*np.pi* np.fft.fftfreq( self.Nz, dz )
         kz_modified = get_modified_k( kz_true, self.n_order, dz )
-        for m in range(2 * self.Nm - 1):
+        for m in self.envelope_mode_numbers:
             #Modes are listed in order: 0, 1, ..., Nm - 1, -Nm + 1, ..., -1
-            mode = self.get_mode(m)
-            kr = 2*np.pi * self.trans[abs(mode)].dht0.get_nu()
-            self.envelope_spect.append( EnvelopeSpectralGrid( kz_modified, kr, mode,
-                kz_true, self.envelope_interp[m].dz, self.envelope_interp[m].dr,
-                use_cuda=self.use_cuda ) )
+            kr = 2*np.pi * self.trans[abs(m)].dht0.get_nu()
+            self.envelope_spect.append( EnvelopeSpectralGrid( kz_modified, kr,
+                 m, kz_true, self.envelope_interp[m].dz,
+                 self.envelope_interp[m].dr, use_cuda=self.use_cuda ) )
         
-        # Create the psatd coefficients relevant only to the envelope model for each positive mode
+        # Create the psatd coefficients relevant only 
+        # to the envelope model for each positive mode
         for m in range(self.Nm):        
-            self.psatd[m].compute_envelope_coefs(self.spect[m].kz, self.spect[m].kr, m, self.dt, self.Nz, self.Nr, k0)
+            self.psatd[m].compute_envelope_coefs(self.spect[m].kz,
+             self.spect[m].kr, m, self.dt, self.Nz, self.Nr, k0)
 
 
     def send_fields_to_gpu( self ):
@@ -301,10 +304,9 @@ class Fields(object) :
 
         # Check if the envelope model is used then 
         # push each azimuthal mode individually
-        if (self.use_envelope):
-            for m in range(2*self.Nm - 1) :
-                mode = self.get_mode(m)
-                self.envelope_spect[m].push_envelope_with(self.psatd[abs(mode)])
+        if self.use_envelope:
+            for m in self.envelope_mode_numbers :
+                self.envelope_spect[m].push_envelope_with(self.psatd[abs(m)])
 
         for m in range(self.Nm) :
             self.spect[m].push_rho()
@@ -353,7 +355,7 @@ class Fields(object) :
         ---------
         fieldtype :
             A string which represents the kind of field to transform
-            (either 'E', 'B', 'J', 'rho_next', 'rho_prev', 'A')
+            (either 'E', 'B', 'J', 'rho_next', 'rho_prev', 'A', 'dtA')
         """
         # Use the appropriate transformation depending on the fieldtype.
         if fieldtype == 'E' :
@@ -388,11 +390,13 @@ class Fields(object) :
                     self.interp[m].rho, spectral_rho )
         elif fieldtype == 'A' and self.use_envelope:
             # Transform each azimuthal grid individually
-            for m in range(2*self.Nm - 1) :
-                mode = self.get_mode(m)
-                self.trans[abs(mode)].interp2spect_scal(
+            for m in self.envelope_mode_numbers:
+                self.trans[abs(m)].interp2spect_scal(
                     self.envelope_interp[m].A, self.envelope_spect[m].A )
-                self.trans[abs(mode)].interp2spect_scal(
+        elif fieldtype == 'dtA' and self.use_envelope:
+            # Transform each azimuthal grid individually
+            for m in self.envelope_mode_numbers:
+                self.trans[abs(m)].interp2spect_scal(
                     self.envelope_interp[m].dtA, self.envelope_spect[m].dtA )
         else:
             raise ValueError( 'Invalid string for fieldtype: %s' %fieldtype )
@@ -406,7 +410,7 @@ class Fields(object) :
         ---------
         fieldtype :
             A string which represents the kind of field to transform
-            (either 'E', 'B', 'J', 'rho_next', 'rho_prev', 'A')
+            (either 'E', 'B', 'J', 'rho_next', 'rho_prev', 'A', 'dtA')
         """
         # Use the appropriate transformation depending on the fieldtype.
         if fieldtype == 'E' :
@@ -445,11 +449,13 @@ class Fields(object) :
                     self.spect[m].rho_prev, self.interp[m].rho )
         elif fieldtype == 'A' and self.use_envelope:
             # Transform each azimuthal grid individually
-            for m in range(2*self.Nm - 1) :
-                mode = self.get_mode(m)
-                self.trans[abs(mode)].spect2interp_scal(
+            for m in self.envelope_mode_numbers :
+                self.trans[abs(m)].spect2interp_scal(
                     self.envelope_spect[m].A, self.envelope_interp[m].A )
-                self.trans[abs(mode)].spect2interp_scal(
+        elif fieldtype == 'dtA' and self.use_envelope:
+            # Transform each azimuthal grid individually
+            for m in self.envelope_mode_numbers:
+                self.trans[abs(m)].spect2interp_scal(
                     self.envelope_spect[m].dtA, self.envelope_interp[m].dtA )
                 
         else :
@@ -472,7 +478,7 @@ class Fields(object) :
         ---------
         fieldtype :
             A string which represents the kind of field to transform
-            (either 'E', 'B', 'J', 'rho_next', 'rho_prev', 'A')
+            (either 'E', 'B', 'J', 'rho_next', 'rho_prev', 'A', 'dtA)
         """
         # Use the appropriate transformation depending on the fieldtype.
         if fieldtype == 'E' :
@@ -508,11 +514,13 @@ class Fields(object) :
                 self.trans[m].fft.inverse_transform(
                     self.spect[m].rho_prev, self.interp[m].rho )
         elif fieldtype == 'A' and self.use_envelope:
-            for m in range(2*self.Nm - 1) :
-                mode = self.get_mode(m)
-                self.trans[abs(mode)].fft.inverse_transform(
+            for m in self.envelope_mode_numbers :
+                self.trans[abs(m)].fft.inverse_transform(
                     self.envelope_spect[m].A, self.envelope_interp[m].A )
-                self.trans[abs(mode)].fft.inverse_transform(
+        elif fieldtype == 'dtA' and self.use_envelope:
+            # Transform each azimuthal grid individually
+            for m in self.envelope_mode_numbers:
+                self.trans[abs(m)].fft.inverse_transform(
                     self.envelope_spect[m].dtA, self.envelope_interp[m].dtA )
 
         else :
@@ -532,7 +540,7 @@ class Fields(object) :
         ---------
         fieldtype :
             A string which represents the kind of field to transform
-            (either 'E', 'B', 'J', 'rho_next', 'rho_prev', 'A')
+            (either 'E', 'B', 'J', 'rho_next', 'rho_prev', 'A', 'dtA')
         """
         # Use the appropriate transformation depending on the fieldtype.
         if fieldtype == 'E' :
@@ -568,11 +576,13 @@ class Fields(object) :
                 self.trans[m].fft.transform(
                     self.interp[m].rho, self.spect[m].rho_prev )
         elif fieldtype == 'A' and self.use_envelope:
-            for m in range(2*self.Nm - 1) :
-                mode = self.get_mode(m)
-                self.trans[abs(mode)].fft.transform(
+            for m in self.envelope_mode_numbers :
+                self.trans[abs(m)].fft.transform(
                     self.envelope_interp[m].A, self.envelope_spect[m].A )
-                self.trans[abs(mode)].fft.transform(
+        elif fieldtype == 'dtA' and self.use_envelope:
+            # Transform each azimuthal grid individually
+            for m in self.envelope_mode_numbers:
+                self.trans[abs(m)].fft.transform(
                     self.envelope_interp[m].dtA, self.envelope_spect[m].dtA )
 
         else :
@@ -590,13 +600,11 @@ class Fields(object) :
         ---------
         fieldtype : string
             A string which represents the kind of field to be erased
-            (either 'E', 'B', 'J', 'rho' or 'A')
+            (either 'E', 'B', 'J', 'rho')
         """
         # Erase the fields in the interpolation grid    
-        if (fieldtype == 'A'):
-            assert(self.use_envelope)
-            for m in range(2*self.Nm - 1):
-                self.envelope_interp[m].erase()
+        if (fieldtype == 'A' or fieldtype == 'dtA'):
+            raise ValueError("erase method not implemented for A field")
         else:
             for m in range(self.Nm):
                 self.interp[m].erase(fieldtype)
@@ -647,14 +655,10 @@ class Fields(object) :
         ---------
         fieldtype : string
             A string which represents the kind of field to be filtered
-            (either 'E', 'B', 'J', 'rho_next', 'rho_prev' or 'A')
+            (either 'E', 'B', 'J', 'rho_next' or 'rho_prev')
         """
-        if fieldtype == 'A':
-            assert(self.use_envelope)
-            for m in range(2 * self.Nm - 1):
-                self.envelope_spect[m].filter()
-        else:
-            for m in range(self.Nm) :
+
+        for m in range(self.Nm) :
                 self.spect[m].filter( fieldtype )
 
     def divide_by_volume( self, fieldtype ) :
@@ -673,15 +677,3 @@ class Fields(object) :
         """
         for m in range(self.Nm):
             self.interp[m].divide_by_volume( fieldtype )
-
-    def get_mode(self, m):
-        """
-        Returns the true mode equivalent of the index m
-        #Modes are listed in order: 0, 1, ..., Nm - 1, -Nm + 1, ..., -1
-        
-        """
-        if m >= self.Nm :
-            mode = m - 2*self.Nm + 1
-        else:
-            mode = m
-        return mode

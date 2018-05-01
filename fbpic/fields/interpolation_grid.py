@@ -17,12 +17,12 @@ if cuda_installed:
 
 class InterpolationGrid(object) :
     """
-    Contains the fields and coordinates of the spatial grid.
+    Contains the coordinates of the spatial grid.
+    It is a base class, that both FieldInterpolationGrid 
+    and EnvelopeInterpolationGrid inherit.
 
     Main attributes :
     - z,r : 1darrays containing the positions of the grid
-    - Er, Et, Ez, Br, Bt, Bz, Jr, Jt, Jz, rho :
-      2darrays containing the fields.
     """
 
     def __init__(self, Nz, Nr, m, zmin, zmax, rmax, use_cuda=False ) :
@@ -92,7 +92,14 @@ class InterpolationGrid(object) :
                 
                 
 class FieldInterpolationGrid(InterpolationGrid):
+    """
+    Contains the coordinates and fields of the spatial grid.
     
+    Main attributes:
+    - z,r : 1darrays containing the positions of the grid
+    - Er, Et, Ez, Br, Bt, Bz, Jr, Jt, Jz, rho :
+      2darrays containing the fields.
+    """
     
     def __init__(self, Nz, Nr, m, zmin, zmax, rmax, use_cuda=False ) :
         
@@ -233,6 +240,14 @@ class FieldInterpolationGrid(InterpolationGrid):
     
     
 class EnvelopeInterpolationGrid(InterpolationGrid):
+    """
+    Contains the coordinates and envelope of the spatial grid.
+    
+    Main attributes:
+    - z,r : 1darrays containing the positions of the grid
+    - A, dtA:
+      2darrays containing the envelope amplitude.
+    """
     
     def __init__(self, Nz, Nr, m, zmin, zmax, rmax, use_cuda=False ) :
         
@@ -242,11 +257,3 @@ class EnvelopeInterpolationGrid(InterpolationGrid):
         self.A = np.zeros( (Nz, Nr), dtype='complex' )
         self.dtA = np.zeros( (Nz, Nr), dtype='complex' )
     
-    def erase(self):
-        """
-        Sets the envelope fields A and dtA to zero on the interpolation grid
-
-        """
-        
-        self.A[:,:] = 0.
-        self.dtA[:,:] = 0.

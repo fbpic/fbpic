@@ -452,9 +452,11 @@ class EnvelopeSpectralGrid(SpectralGrid):
     def push_envelope_with(self, ps):
         
             """
-            Push the A and dtA envelope fields over one timestep, using the psatd coefficients.
+            Push the A and dtA envelope fields over one timestep, 
+            using the psatd coefficients.
         
-            WARNING: currently only implemented for non-comoving simulations, with only CPU usage
+            WARNING: currently only implemented for non-comoving simulations,
+            with only CPU usage
         
             Parameters
             ----------
@@ -464,16 +466,7 @@ class EnvelopeSpectralGrid(SpectralGrid):
             assert (ps.V is None or ps.V == 0)
             assert( abs(self.m) == ps.m )
         
-            numba_push_envelope_standard(self.A, self.dtA, ps.w2_square, ps.invw_tot, ps.S_env,
-                ps.C_env, ps.sinc_env, ps.A_coef, self.Nz, self.Nr)
-
-
-    def filter(self) :
-        """
-        Filter the envelope field
-
-        """
-        self.A = self.A * self.filter_array
-        self.dtA = self.dtA * self.filter_array
-
-        
+            numba_push_envelope_standard(self.A, self.dtA, ps.w2_square,
+                                    ps.S_env_over_w, ps.C_env, ps.w_laser,
+                                    ps.A_coef, self.Nz, self.Nr)
+    
