@@ -263,7 +263,7 @@ def propagate_pulse( Nz, Nr, Nm, zmin, zmax, Lr, L_prop, zf, dt,
     # of w and A are close
     else:
         assert np.allclose( w, w_analytic, rtol=rtol )
-        #assert np.allclose( A, A_analytic, rtol=5.e-3 )
+        assert np.allclose( A, A_analytic, rtol=5.e-3 )
         print('The simulation results agree with the theory to %e.' %rtol)
 
     # Return a dictionary of the results

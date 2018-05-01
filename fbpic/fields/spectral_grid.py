@@ -469,4 +469,3 @@ class EnvelopeSpectralGrid(SpectralGrid):
             numba_push_envelope_standard(self.A, self.dtA, ps.w2_square,
                                     ps.S_env_over_w, ps.C_env, ps.w_laser,
                                     ps.A_coef, self.Nz, self.Nr)
-    

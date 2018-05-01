@@ -204,6 +204,6 @@ class PsatdCoeffs(object) :
         w_tot = np.sqrt( (w_laser + c * kz)**2 + c**2 * kr**2)
         self.C_env = np.cos(w_tot*dt)
         self.S_env_over_w = np.sin(w_tot*dt) / np.where( w_tot == 0, 1, w_tot )
-        #self.S_env_over_w[ w_tot==0 ] = dt
+        self.S_env_over_w[ w_tot==0 ] = dt
         self.w_laser = w_laser
         self.A_coef = np.exp(-1j * w_laser * dt)

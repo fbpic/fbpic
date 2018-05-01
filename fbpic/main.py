@@ -339,6 +339,7 @@ class Simulation(object):
         fld.interp2spect('B')
         if fld.use_envelope:
             fld.interp2spect('A')
+            fld.interp2spect('dtA')
 
         # Beginning of the N iterations
         # -----------------------------
@@ -480,6 +481,7 @@ class Simulation(object):
             fld.spect2interp('B')
             if fld.use_envelope:
                 fld.spect2interp('A')
+                fld.spect2interp('dtA')
 
             # Increment the global time and iteration
             self.time += dt
