@@ -42,7 +42,7 @@ from fbpic.lpa_utils.laser import add_laser_pulse, \
 # below for their definition)
 show = False # Whether to show the plots, and check them manually
 
-use_cuda = False
+use_cuda = True
 
 # Simulation box
 Nz = 50
@@ -203,7 +203,7 @@ def propagate_pulse( Nz, Nr, Nm, zmin, zmax, Lr, L_prop, zf, dt,
     print('Running the simulation...')
     for it in range(N_diag) :
         print( 'Diagnostic point %d/%d' %(it, N_diag) )
-        
+
         izref = int( (z0 + it * N_step * c * dt - zmin) / dz ) % Nz
         # Fit the fields to find the waist and a0
         w[it], A[it] = fit_fields( sim.fld, m, izref )
@@ -296,7 +296,7 @@ def init_fields( sim, w, ctau, k0, z0, zf, a0, m=1 ) :
     elif m == 1 or m == -1:
         profile = LaguerreGaussLaser( 0, 1, a0=a0, waist=w, tau=tau,
                     lambda0=lambda0, z0=z0, zf=zf )
-   
+
     # Add the profiles to the simulation
     add_laser_pulse( sim, profile, method = 'direct_envelope' )
 
