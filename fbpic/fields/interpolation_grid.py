@@ -109,7 +109,11 @@ class FieldInterpolationGrid(InterpolationGrid):
         for the meaning of the different parameters.
         """
 
+<<<<<<< HEAD
         InterpolationGrid.__init__(self, Nz, Nr, m, zmin, zmax, rmax, use_cuda=False)
+=======
+        InterpolationGrid.__init__(self, Nz, Nr, m, zmin, zmax, rmax, use_cuda=use_cuda)
+>>>>>>> merged_envelope
 
         # Allocate the fields arrays
         self.Er = np.zeros( (Nz, Nr), dtype='complex' )
@@ -263,11 +267,16 @@ class EnvelopeInterpolationGrid(InterpolationGrid):
         for the meaning of the different parameters.
         """
 
+<<<<<<< HEAD
         InterpolationGrid.__init__(self, Nz, Nr, m, zmin, zmax, rmax, use_cuda=False)
+=======
+        InterpolationGrid.__init__(self, Nz, Nr, m, zmin, zmax, rmax, use_cuda=use_cuda)
+>>>>>>> merged_envelope
 
         # Allocate the fields arrays
         self.A = np.zeros( (Nz, Nr), dtype='complex' )
         self.dtA = np.zeros( (Nz, Nr), dtype='complex' )
+<<<<<<< HEAD
 
 
     def send_fields_to_gpu( self ):
@@ -289,3 +298,5 @@ class EnvelopeInterpolationGrid(InterpolationGrid):
         """
         self.A = self.A.copy_to_host()
         self.dtA = self.dtA.copy_to_host()
+=======
+>>>>>>> merged_envelope
