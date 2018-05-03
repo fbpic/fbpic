@@ -125,11 +125,7 @@ class FieldSpectralGrid(SpectralGrid):
         for the meaning of the different parameters.
         """
         SpectralGrid.__init__(self, kz_modified, kr, m, kz_true, dz, dr,
-<<<<<<< HEAD
-                        use_cuda=False )
-=======
                         use_cuda=use_cuda )
->>>>>>> merged_envelope
 
         Nr, Nz = self.Nr, self.Nz
 
@@ -502,7 +498,6 @@ class EnvelopeSpectralGrid(SpectralGrid):
         assert (ps.V is None or ps.V == 0)
         assert( abs(self.m) == ps.m )
 
-<<<<<<< HEAD
         if self.use_cuda :
             # Obtain the cuda grid
             dim_grid, dim_block = cuda_tpb_bpg_2d( self.Nz, self.Nr)
@@ -539,8 +534,3 @@ class EnvelopeSpectralGrid(SpectralGrid):
         """
         self.A = self.A.copy_to_host()
         self.dtA = self.dtA.copy_to_host()
-=======
-        numba_push_envelope_standard(self.A, self.dtA, ps.w2_square,
-                                ps.S_env_over_w, ps.C_env, ps.w_laser,
-                                ps.A_coef, self.Nz, self.Nr)
->>>>>>> merged_envelope
