@@ -277,8 +277,8 @@ class Fields(object) :
                 self.spect[m].receive_fields_from_gpu()
             if self.use_envelope:
                 for m in self.envelope_mode_numbers:
-                    self.envelope_interp[m].receive_fields_to_gpu()
-                    self.envelope_spect[m].receive_fields_to_gpu()
+                    self.envelope_interp[m].receive_fields_from_gpu()
+                    self.envelope_spect[m].receive_fields_from_gpu()
 
     def push(self, use_true_rho=False, check_exchanges=False):
         """
