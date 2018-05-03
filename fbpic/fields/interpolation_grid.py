@@ -18,7 +18,7 @@ if cuda_installed:
 class InterpolationGrid(object) :
     """
     Contains the coordinates of the spatial grid.
-    It is a base class, that both FieldInterpolationGrid 
+    It is a base class, that both FieldInterpolationGrid
     and EnvelopeInterpolationGrid inherit.
 
     Main attributes :
@@ -87,30 +87,30 @@ class InterpolationGrid(object) :
         """Returns the 1d array of r, when the user queries self.r"""
         return( self.rmin + (0.5+np.arange(self.Nr))*self.dr )
 
-   
-                
-                
-                
+
+
+
+
 class FieldInterpolationGrid(InterpolationGrid):
     """
     Contains the coordinates and fields of the spatial grid.
-    
+
     Main attributes:
     - z,r : 1darrays containing the positions of the grid
     - Er, Et, Ez, Br, Bt, Bz, Jr, Jt, Jz, rho :
       2darrays containing the fields.
     """
-    
+
     def __init__(self, Nz, Nr, m, zmin, zmax, rmax, use_cuda=False ) :
         """
         Initialize a 'FieldInterpolationGrid' object
 
-        See the docstring of the parent class 'InterpolationGrid' 
+        See the docstring of the parent class 'InterpolationGrid'
         for the meaning of the different parameters.
         """
-        
-        InterpolationGrid.__init__(self, Nz, Nr, m, zmin, zmax, rmax, use_cuda=False)
-        
+
+        InterpolationGrid.__init__(self, Nz, Nr, m, zmin, zmax, rmax, use_cuda=use_cuda)
+
         # Allocate the fields arrays
         self.Er = np.zeros( (Nz, Nr), dtype='complex' )
         self.Et = np.zeros( (Nz, Nr), dtype='complex' )
@@ -122,7 +122,7 @@ class FieldInterpolationGrid(InterpolationGrid):
         self.Jt = np.zeros( (Nz, Nr), dtype='complex' )
         self.Jz = np.zeros( (Nz, Nr), dtype='complex' )
         self.rho = np.zeros( (Nz, Nr), dtype='complex' )
-        
+
     def send_fields_to_gpu( self ):
         """
         Copy the fields to the GPU.
@@ -242,30 +242,29 @@ class FieldInterpolationGrid(InterpolationGrid):
                 self.Jz *= self.invvol[np.newaxis,:]
             else:
                 raise ValueError('Invalid string for fieldtype: %s'%fieldtype)
-    
-    
-    
+
+
+
 class EnvelopeInterpolationGrid(InterpolationGrid):
     """
     Contains the coordinates and envelope of the spatial grid.
-    
+
     Main attributes:
     - z,r : 1darrays containing the positions of the grid
     - A, dtA:
       2darrays containing the envelope amplitude.
     """
-    
+
     def __init__(self, Nz, Nr, m, zmin, zmax, rmax, use_cuda=False ) :
         """
         Initialize a 'EnvelopeInterpolationGrid' object
 
-        See the docstring of the parent class 'InterpolationGrid' 
+        See the docstring of the parent class 'InterpolationGrid'
         for the meaning of the different parameters.
         """
-        
-        InterpolationGrid.__init__(self, Nz, Nr, m, zmin, zmax, rmax, use_cuda=False)
-        
+
+        InterpolationGrid.__init__(self, Nz, Nr, m, zmin, zmax, rmax, use_cuda=use_cuda)
+
         # Allocate the fields arrays
         self.A = np.zeros( (Nz, Nr), dtype='complex' )
         self.dtA = np.zeros( (Nz, Nr), dtype='complex' )
-    
