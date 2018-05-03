@@ -438,6 +438,8 @@ def get_space_charge_fields( sim, ptcl, direction='forward') :
     sim.fld.erase('J')
     ptcl.deposit( sim.fld, 'rho' )
     ptcl.deposit( sim.fld, 'J' )
+    sim.fld.sum_reduce_deposition_array('rho')
+    sim.fld.sum_reduce_deposition_array('J')
     sim.fld.divide_by_volume('rho')
     sim.fld.divide_by_volume('J')
     # Exchange guard cells
