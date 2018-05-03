@@ -220,7 +220,7 @@ class MovingWindow(object):
         if grid.use_cuda:
             shift = grid.d_field_shift
             # Get a 2D CUDA grid of the size of the grid
-            tpb, bpg = cuda_tpb_bpg_2d( grid.Ep.shape[0], grid.Ep.shape[1] )
+            tpb, bpg = cuda_tpb_bpg_2d( grid.A.shape[0], grid.A.shape[1] )
             # Shift all the fields on the GPU
             shift_spect_array_gpu[tpb, bpg]( grid.A, shift, n_move )
             shift_spect_array_gpu[tpb, bpg]( grid.dtA, shift, n_move )
