@@ -422,7 +422,8 @@ def get_space_charge_fields( sim, ptcl, direction='forward') :
         Can be either "forward" or "backward".
         Propagation direction of the beam.
     """
-    print("Calculating initial space charge field...")
+    if sim.comm.rank == 0:
+        print("Calculating initial space charge field...")
 
     # Calculate the mean gamma by summing on each subdomain
     gamma_sum_local = (1./ptcl.inv_gamma).sum()
@@ -500,7 +501,8 @@ def get_space_charge_fields( sim, ptcl, direction='forward') :
             local_field = getattr( sim.fld.interp[m], field )
             local_field[ iz_in_array:iz_in_array+Nz_local, : ] += local_array
 
-    print("Done.\n")
+    if sim.comm.rank == 0:
+        print("Done.\n")
 
 
 def get_space_charge_spect( spect, gamma, direction='forward' ) :
