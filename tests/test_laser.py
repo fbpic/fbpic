@@ -336,7 +336,7 @@ def init_fields( sim, w, ctau, k0, z0, zf, E0, m=1 ) :
         profile = GaussianLaser( a0=a0, waist=w, tau=tau,
                     lambda0=lambda0, z0=z0, zf=zf )
     elif m == 2:
-        profile = DonutLikeLaguerreGaussLaser( 0, 1, a0=a0, 
+        profile = DonutLikeLaguerreGaussLaser( 0, -1, a0=a0, 
                    waist=w, tau=tau, lambda0=lambda0, z0=z0, zf=zf )
     # Add the profiles to the simulation
     add_laser_pulse( sim, profile )

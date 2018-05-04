@@ -405,9 +405,9 @@ class DonutLikeLaguerreGaussLaser( LaserProfile ):
             \\right) \cos[ k_0( z - z_0 - ct ) - m\\theta - \phi_{cep} ]
 
             \mathrm{with} \qquad f(r) =
-            \sqrt{\\frac{p!}{(m+p)!}}
-            \\left( \\frac{\sqrt{2}r}{w_0} \\right)^m
-            L^m_p\\left( \\frac{2 r^2}{w_0^2} \\right)
+            \sqrt{\\frac{p!}{(|m|+p)!}}
+            \\left( \\frac{\sqrt{2}r}{w_0} \\right)^{|m|}
+            L^{|m|}_p\\left( \\frac{2 r^2}{w_0^2} \\right)
 
         where :math:`L^m_p` is a Laguerre polynomial,
         :math:`k_0 = 2\pi/\\lambda_0` is the wavevector and where
@@ -428,8 +428,8 @@ class DonutLikeLaguerreGaussLaser( LaserProfile ):
             The above formula depends on a parameter :math:`m`
             (see documentation below). In order to be properly resolved by
             the simulation, a Laguerre-Gauss profile with a given :math:`m`
-            requires the azimuthal modes from :math:`0` to :math:`m+1`.
-            (i.e. the number of required azimuthal modes is ``Nm=m+2``)
+            requires the azimuthal modes from :math:`0` to :math:`|m|+1`.
+            (i.e. the number of required azimuthal modes is ``Nm=|m|+2``)
 
         Parameters
         ----------
@@ -482,7 +482,7 @@ class DonutLikeLaguerreGaussLaser( LaserProfile ):
         k0 = 2*np.pi/lambda0
         zr = 0.5*k0*waist**2
         # Scaling factor, so that the pulse energy is independent of p and m.
-        scaled_amplitude = np.sqrt( factorial(p)/factorial(m+p) )
+        scaled_amplitude = np.sqrt( factorial(p)/factorial(abs(m)+p) )
         E0 = scaled_amplitude * a0 * m_e*c**2 * k0/e
 
         # If no focal plane position is given, use z0
@@ -492,7 +492,7 @@ class DonutLikeLaguerreGaussLaser( LaserProfile ):
         # Store the parameters
         self.p = p
         self.m = m
-        self.laguerre_pm = genlaguerre(self.p, self.m) # Laguerre polynomial
+        self.laguerre_pm = genlaguerre(self.p, abs(m)) # Laguerre polynomial
         self.k0 = k0
         self.inv_zr = 1./zr
         self.zf = zf
@@ -520,10 +520,11 @@ class DonutLikeLaguerreGaussLaser( LaserProfile ):
             - 1j*self.cep_phase - 1.j*self.m*theta \
             - (x**2 + y**2) / (self.w0**2 * diffract_factor) \
             - self.inv_ctau2 * ( z - self.z0 - c*t )**2 \
-            + 1.j*(2*self.p + self.m)*psi # *Additional* Gouy phase
+            + 1.j*(2*self.p + abs(self.m))*psi # *Additional* Gouy phase
         # Get the transverse profile
         profile = np.exp(exp_argument) / diffract_factor \
-            * scaled_radius**self.m * self.laguerre_pm(scaled_radius_squared)
+            * scaled_radius**abs(self.m) \
+            * self.laguerre_pm(scaled_radius_squared)
 
         # Get the projection along x and y, with the correct polarization
         Ex = self.E0x * profile
