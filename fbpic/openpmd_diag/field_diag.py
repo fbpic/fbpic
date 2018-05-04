@@ -218,10 +218,13 @@ class FieldDiagnostic(OpenPMDDiagnostic):
             if self.rank == 0:
                 real_mode = real_mode.T
                 imag_mode = imag_mode.T
-                dset_real[2*m-1,:,:] = real_mode[:,:].real
-                dset_real[2*m,:,:] = real_mode[:,:].imag
-                dset_imag[2*m-1,:,:] = imag_mode[:,:].real
-                dset_imag[2*m,:,:] = imag_mode[:,:].imag
+                # There is a factor 2 here so as to comply with the convention
+                # in Lifschitz et al., which is also the convention
+                # adopted in Warp Circ
+                dset_real[2*m-1,:,:] = 2*real_mode[:,:].real
+                dset_real[2*m,:,:] = 2*real_mode[:,:].imag
+                dset_imag[2*m-1,:,:] = 2*imag_mode[:,:].real
+                dset_imag[2*m,:,:] = 2*imag_mode[:,:].imag
 
 
     def get_dataset( self, quantity, m, envelope = False ):
