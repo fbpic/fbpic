@@ -337,6 +337,9 @@ class Simulation(object):
         self.comm.damp_EB_open_boundary( fld.interp )
         fld.interp2spect('E')
         fld.interp2spect('B')
+        if fld.use_envelope:
+            fld.interp2spect('A')
+            fld.interp2spect('dtA')
 
         # Beginning of the N iterations
         # -----------------------------
@@ -464,6 +467,7 @@ class Simulation(object):
             # spectral space and interpolation space
             # (Since exchange/damp operation is purely along z, spectral fields
             # are updated by doing an iFFT/FFT instead of a full transform)
+
             fld.spect2partial_interp('E')
             fld.spect2partial_interp('B')
             self.comm.exchange_fields(fld.interp, 'E', 'replace')
@@ -471,9 +475,13 @@ class Simulation(object):
             self.comm.damp_EB_open_boundary( fld.interp )
             fld.partial_interp2spect('E')
             fld.partial_interp2spect('B')
+
             # Get the corresponding fields in interpolation space
             fld.spect2interp('E')
             fld.spect2interp('B')
+            if fld.use_envelope:
+                fld.spect2interp('A')
+                fld.spect2interp('dtA')
 
             # Increment the global time and iteration
             self.time += dt

@@ -173,3 +173,37 @@ class PsatdCoeffs(object) :
                 self.d_T_cc = cuda.to_device(self.T_cc)
                 self.d_T_rho = cuda.to_device(self.T_rho)
                 self.d_j_corr_coef = cuda.to_device(self.j_corr_coef)
+                
+                
+    def compute_envelope_coefs(self, kz, kr, m, dt, Nz, Nr, k0):
+        
+        """
+        Allocates the coefficients matrices for the envelope scheme.
+
+        Parameters
+        ----------
+        kz : 2darray of float
+            The positions of the longitudinal, spectral grid
+
+        kr : 2darray of float
+            The positions of the radial, spectral grid
+
+        m : int
+            Index of the mode
+
+        dt : float
+            The timestep of the simulation
+        
+        k0: float
+            Wavenumber of the beam represented by the envelope model
+        """
+        
+        # Calculate all necessary coefficients for propagation of A field
+        w_laser = c * k0
+        self.w2_square = c**2 * (kr**2 + kz**2 + 2 * kz * k0)
+        w_tot = np.sqrt( (w_laser + c * kz)**2 + c**2 * kr**2)
+        self.C_env = np.cos(w_tot*dt)
+        self.S_env_over_w = np.sin(w_tot*dt) / np.where( w_tot == 0, 1, w_tot )
+        self.S_env_over_w[ w_tot==0 ] = dt
+        self.w_laser = w_laser
+        self.A_coef = np.exp(-1j * w_laser * dt)

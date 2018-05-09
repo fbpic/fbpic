@@ -179,6 +179,7 @@ class GaussianLaser( LaserProfile ):
         self.z0 = z0
         self.E0x = E0 * np.cos(theta_pol)
         self.E0y = E0 * np.sin(theta_pol)
+        self.a0 = a0
         self.w0 = waist
         self.cep_phase = cep_phase
         self.phi2_chirp = phi2_chirp
@@ -207,25 +208,55 @@ class GaussianLaser( LaserProfile ):
         # multiplying the Fourier transform of the laser at focus
         # E(k_x,k_y,\omega) = exp( -(\omega-\omega_0)^2(\tau^2/4 + \phi^(2)/2)
         # - (k_x^2 + k_y^2)w_0^2/4 ) by the paraxial propagator
-        # e^(i(\omega/c - (k_x^2 +k_y^2)/2k0)(z-z_foc))
+        # e^(-i(\omega/c - (k_x^2 +k_y^2)/2k0)(z-z_foc))
         # and then by taking the inverse Fourier transform in x, y, and t
 
         # Diffraction and stretch_factor
-        diffract_factor = 1. - 1j * ( z - self.zf ) * self.inv_zr
-        stretch_factor = 1 + 2j * self.phi2_chirp * c**2 * self.inv_ctau2
+        diffract_factor = 1. + 1j * ( z - self.zf ) * self.inv_zr
+        stretch_factor = 1 - 2j * self.phi2_chirp * c**2 * self.inv_ctau2
         # Calculate the argument of the complex exponential
-        exp_argument = 1j*self.cep_phase + 1j*self.k0*( c*t + self.z0 - z ) \
+        exp_argument = 1j*self.k0*( z - self.z0 - c*t ) - 1j*self.cep_phase \
             - (x**2 + y**2) / (self.w0**2 * diffract_factor) \
-            - 1./stretch_factor * self.inv_ctau2 * ( c*t  + self.z0 - z )**2
+            - 1./stretch_factor * self.inv_ctau2 * ( z - self.z0 - c*t )**2
         # Get the transverse profile
-        profile = np.exp(exp_argument) / ( diffract_factor * stretch_factor**0.5 )
+        profile = np.exp(exp_argument) /(diffract_factor * stretch_factor**0.5)
 
         # Get the projection along x and y, with the correct polarization
         Ex = self.E0x * profile
         Ey = self.E0y * profile
 
         return( Ex.real, Ey.real )
+        
+    def A_field(self, x, y, z, t):
+        """
+        Return the envelope of the (dimensionless) vector potential of the laser 
 
+        Parameters
+        ----------
+        x, y, z: ndarrays (meters)
+            The positions at which to calculate the profile (in the lab frame)
+        t: ndarray or float (seconds)
+            The time at which to calculate the profile (in the lab frame)
+
+        Returns
+        -------
+        A, dtA: ndarrays (adimensionnal for A, s-1 for dtA)
+            Arrays of the same shape as x, y, z, containing the fields
+        """
+        diffract_factor = 1. + 1j * ( z - self.zf ) * self.inv_zr
+        stretch_factor = 1 - 2j * self.phi2_chirp * c**2 * self.inv_ctau2
+        # Calculate the argument of the complex exponential
+        exp_argument = -1j*self.cep_phase  \
+            - (x**2 + y**2) / (self.w0**2 * diffract_factor) \
+            - 1./stretch_factor * self.inv_ctau2 * ( z - self.z0 - c*t)**2
+        # Get the transverse profile
+        profile = np.exp(exp_argument) / ( diffract_factor * stretch_factor**0.5 )
+        
+        A = self.a0 * profile
+        dtA = self.a0 * 1./stretch_factor * self.inv_ctau2 * c * ( z - self.z0 - c*t) * profile
+        
+        return A, dtA 
+        
 
 class LaguerreGaussLaser( LaserProfile ):
     """Class that calculates a Laguerre-Gauss pulse."""
@@ -350,6 +381,7 @@ class LaguerreGaussLaser( LaserProfile ):
         self.z0 = z0
         self.E0x = E0 * np.cos(theta_pol)
         self.E0y = E0 * np.sin(theta_pol)
+        self.a0 = a0 * scaled_amplitude
         self.w0 = waist
         self.cep_phase = cep_phase
         self.inv_ctau2 = 1./(c*tau)**2
@@ -371,17 +403,17 @@ class LaguerreGaussLaser( LaserProfile ):
             Arrays of the same shape as x, y, z, containing the fields
         """
         # Diffraction factor, waist and Gouy phase
-        diffract_factor = 1. - 1j * ( z - self.zf ) * self.inv_zr
+        diffract_factor = 1. + 1j * ( z - self.zf ) * self.inv_zr
         w = self.w0 * abs( diffract_factor )
-        psi = - np.angle( diffract_factor )
+        psi = np.angle( diffract_factor )
         # Calculate the scaled radius and azimuthal angle
         scaled_radius_squared = 2*( x**2 + y**2 ) / w**2
         scaled_radius = np.sqrt( scaled_radius_squared )
         theta = np.angle( x + 1.j*y )
         # Calculate the argument of the complex exponential
-        exp_argument = 1j*self.cep_phase + 1j*self.k0*( c*t + self.z0 - z ) \
+        exp_argument = 1j*self.k0*( z - self.z0 - c*t ) - 1j*self.cep_phase \
             - (x**2 + y**2) / (self.w0**2 * diffract_factor) \
-            - self.inv_ctau2 * ( c*t  + self.z0 - z )**2 \
+            - self.inv_ctau2 * ( z - self.z0 - c*t )**2 \
             + 1.j*(2*self.p + self.m)*psi # *Additional* Gouy phase
         # Get the transverse profile
         profile = np.exp(exp_argument) / diffract_factor \
@@ -393,6 +425,46 @@ class LaguerreGaussLaser( LaserProfile ):
         Ey = self.E0y * profile
 
         return( Ex.real, Ey.real )
+        
+    def A_field( self, x, y, z, t ):
+        """
+        Return the envelope of the (dimensionless) vector potential of the laser
+
+        Parameters
+        ----------
+        x, y, z: ndarrays (meters)
+            The positions at which to calculate the profile (in the lab frame)
+        t: ndarray or float (seconds)
+            The time at which to calculate the profile (in the lab frame)
+
+        Returns:
+        --------
+        Ex, Ey: ndarrays (V/m)
+            Arrays of the same shape as x, y, z, containing the fields
+        """
+        # Diffraction factor, waist and Gouy phase
+        diffract_factor = 1. + 1j * ( z - self.zf ) * self.inv_zr
+        w = self.w0 * abs( diffract_factor )
+        psi = np.angle( diffract_factor )
+        # Calculate the scaled radius and azimuthal angle
+        scaled_radius_squared = 2*( x**2 + y**2 ) / w**2
+        scaled_radius = np.sqrt( scaled_radius_squared )
+        theta = np.angle( x + 1.j*y )
+        # Calculate the argument of the complex exponential
+        exp_argument = - 1j*self.cep_phase \
+            - (x**2 + y**2) / (self.w0**2 * diffract_factor) \
+            - self.inv_ctau2 * ( z - self.z0 - c*t )**2 \
+            + 1j*(2*self.p + self.m)*psi # *Additional* Gouy phase
+        # Get the transverse profile
+        profile = np.exp(exp_argument) / diffract_factor \
+            * scaled_radius**self.m * self.laguerre_pm(scaled_radius_squared) \
+            * np.cos( self.m*(theta-self.theta0) )
+
+        # Get the projection along x and y, with the correct polarization
+        A = self.a0 * profile
+        dtA = self.a0 * self.inv_ctau2 * c * ( z - self.z0 - c*t) * profile
+
+        return( A, dtA )
 
 
 class FlattenedGaussianLaser( LaserProfile ):

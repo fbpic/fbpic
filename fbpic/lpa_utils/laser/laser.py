@@ -10,6 +10,7 @@ from fbpic.lpa_utils.boosted_frame import BoostConverter
 from .laser_profiles import GaussianLaser
 from .direct_injection import add_laser_direct
 from .antenna_injection import LaserAntenna
+from .direct_envelope_injection import add_laser_direct_envelope
 
 def add_laser_pulse( sim, laser_profile, gamma_boost=None,
                     method='direct', z0_antenna=None, fw_propagating=True ):
@@ -18,7 +19,8 @@ def add_laser_pulse( sim, laser_profile, gamma_boost=None,
 
     The laser is either added directly to the interpolation grid initially
     (method= ``direct``) or it is progressively emitted by an antenna
-    (method= ``antenna``).
+    (method= ``antenna``) or its envelope is added to the interpolation grid
+    A fields (method= ''direct_envelope'')
 
     Parameters
     ----------
@@ -83,6 +85,10 @@ def add_laser_pulse( sim, laser_profile, gamma_boost=None,
         Nm = sim.fld.Nm
         sim.laser_antennas.append(
             LaserAntenna( laser_profile, z0_antenna, dr, Nr, Nm, boost ))
+            
+    elif method == 'direct_envelope':
+        
+        add_laser_direct_envelope(sim, laser_profile, boost)
 
     else:
         raise ValueError('Unknown laser method: %s' %method)

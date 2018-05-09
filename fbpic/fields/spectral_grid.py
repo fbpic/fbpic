@@ -9,6 +9,7 @@ import numpy as np
 from scipy.constants import epsilon_0
 from .utility_methods import get_filter_array
 from .numba_methods import numba_push_eb_standard, numba_push_eb_comoving, \
+    numba_push_envelope_standard, \
     numba_correct_currents_curlfree_standard, \
     numba_correct_currents_crossdeposition_standard, \
     numba_correct_currents_curlfree_comoving, \
@@ -28,11 +29,14 @@ if cuda_installed:
 
 class SpectralGrid(object) :
     """
-    Contains the fields and coordinates of the spectral grid.
+    Contains the coordinates of the spectral grid.
+
+    It is a base class, that both FieldSpectralGrid
+    and EnvelopeSpectralGrid inherit.
     """
 
     def __init__(self, kz_modified, kr, m, kz_true, dz, dr,
-                        current_correction, use_cuda=False ) :
+                        use_cuda=False ) :
         """
         Allocates the matrices corresponding to the spectral grid
 
@@ -70,6 +74,60 @@ class SpectralGrid(object) :
         self.Nz = Nz
         self.m = m
 
+
+
+        # Auxiliary arrays
+        # - for the field solve
+        #   (use the modified kz, since this corresponds to the stencil)
+        self.kz, self.kr = np.meshgrid( kz_modified, kr, indexing='ij' )
+        # - for filtering
+        #   (use the true kz, so as to effectively filter the high k's)
+        self.filter_array = get_filter_array( kz_true, kr, dz, dr )
+
+
+        # Register shift factor used for shifting the fields
+        # in the spectral domain when using a moving window
+        self.field_shift = np.exp(1.j*kz_true*dz)
+
+        # Check whether to use the GPU
+        self.use_cuda = use_cuda
+
+        # Transfer the auxiliary arrays on the GPU
+        if self.use_cuda :
+            self.d_filter_array = cuda.to_device( self.filter_array )
+            self.d_kz = cuda.to_device( self.kz )
+            self.d_kr = cuda.to_device( self.kr )
+            self.d_field_shift = cuda.to_device( self.field_shift )
+
+
+
+
+
+
+class FieldSpectralGrid(SpectralGrid):
+    """
+    Contains the coordinates and fields of the spectral grid.
+
+    Main attributes:
+    - kz,kr : 1darrays containing the positions of the grid
+    - Ep, Em, Ez, Bp, Bm, Bz, Jp, Jm, Jz, rho_prev, rho_next :
+      2darrays containing the fields.
+    """
+
+
+    def __init__(self, kz_modified, kr, m, kz_true, dz, dr,
+                        current_correction, use_cuda=False ) :
+        """
+        Initialize a 'FieldSpectralGrid' object
+
+        See the docstring of the parent class 'SpectralGrid'
+        for the meaning of the different parameters.
+        """
+        SpectralGrid.__init__(self, kz_modified, kr, m, kz_true, dz, dr,
+                        use_cuda=use_cuda )
+
+        Nr, Nz = self.Nr, self.Nz
+
         # Allocate the fields arrays
         self.Ep = np.zeros( (Nz, Nr), dtype='complex' )
         self.Em = np.zeros( (Nz, Nr), dtype='complex' )
@@ -86,35 +144,15 @@ class SpectralGrid(object) :
             self.rho_next_z = np.zeros( (Nz, Nr), dtype='complex' )
             self.rho_next_xy = np.zeros( (Nz, Nr), dtype='complex' )
 
-        # Auxiliary arrays
-        # - for the field solve
-        #   (use the modified kz, since this corresponds to the stencil)
-        self.kz, self.kr = np.meshgrid( kz_modified, kr, indexing='ij' )
-        # - for filtering
-        #   (use the true kz, so as to effectively filter the high k's)
-        self.filter_array = get_filter_array( kz_true, kr, dz, dr )
         # - for curl-free current correction
         if current_correction == 'curl-free':
             self.inv_k2 = 1./np.where( ( self.kz == 0 ) & (self.kr == 0),
                                        1., self.kz**2 + self.kr**2 )
             self.inv_k2[ ( self.kz == 0 ) & (self.kr == 0) ] = 0.
 
-        # Register shift factor used for shifting the fields
-        # in the spectral domain when using a moving window
-        self.field_shift = np.exp(1.j*kz_true*dz)
-
-        # Check whether to use the GPU
-        self.use_cuda = use_cuda
-
-        # Transfer the auxiliary arrays on the GPU
         if self.use_cuda :
-            self.d_filter_array = cuda.to_device( self.filter_array )
-            self.d_kz = cuda.to_device( self.kz )
-            self.d_kr = cuda.to_device( self.kr )
-            self.d_field_shift = cuda.to_device( self.field_shift )
             if current_correction == 'curl-free':
                 self.d_inv_k2 = cuda.to_device( self.inv_k2 )
-
 
     def send_fields_to_gpu( self ):
         """
@@ -138,7 +176,6 @@ class SpectralGrid(object) :
         if hasattr( self, 'rho_next_z' ):
             self.rho_next_z = cuda.to_device( self.rho_next_z )
             self.rho_next_xy = cuda.to_device( self.rho_next_xy )
-
 
     def receive_fields_from_gpu( self ):
         """
@@ -360,6 +397,8 @@ class SpectralGrid(object) :
             self.rho_prev[:,:] = self.rho_next[:,:]
             self.rho_next[:,:] = 0.
 
+
+
     def filter(self, fieldtype) :
         """
         Filter the field `fieldtype`
@@ -410,3 +449,54 @@ class SpectralGrid(object) :
                 spectral_rho *= self.filter_array
             else :
                 raise ValueError('Invalid string for fieldtype: %s'%fieldtype)
+
+
+
+
+
+class EnvelopeSpectralGrid(SpectralGrid):
+    """
+    Contains the coordinates and envelope of the spectral grid.
+
+    Main attributes:
+    - kz,kr : 1darrays containing the positions of the grid
+    - A, dtA:
+      2darrays containing the envelope amplitude.
+    """
+
+    def __init__(self, kz_modified, kr, m, kz_true, dz, dr,
+                        use_cuda=False ) :
+        """
+        Initialize a 'EnvelopeSpectralGrid' object
+
+        See the docstring of the parent class 'SpectralGrid'
+        for the meaning of the different parameters.
+        """
+
+        SpectralGrid.__init__(self, kz_modified, kr, m, kz_true, dz, dr,
+                        use_cuda= use_cuda )
+        Nr, Nz = self.Nr, self.Nz
+        self.A  = np.zeros( (Nz, Nr), dtype='complex' )
+        self.dtA  = np.zeros( (Nz, Nr), dtype='complex' )
+
+
+    def push_envelope_with(self, ps):
+
+        """
+        Push the A and dtA envelope fields over one timestep,
+        using the psatd coefficients.
+
+        WARNING: currently only implemented for non-comoving simulations,
+        with only CPU usage
+
+        Parameters
+        ----------
+        ps : PsatdCoeffs object
+            psatd object corresponding to the same m mode
+        """
+        assert (ps.V is None or ps.V == 0)
+        assert( abs(self.m) == ps.m )
+
+        numba_push_envelope_standard(self.A, self.dtA, ps.w2_square,
+                                ps.S_env_over_w, ps.C_env, ps.w_laser,
+                                ps.A_coef, self.Nz, self.Nr)
