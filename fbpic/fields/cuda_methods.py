@@ -310,7 +310,6 @@ def cuda_push_envelope_standard(A, dtA, w2_square, S_env_over_w, C_env,
     # Cuda 2D grid
     iz, ir = cuda.grid(2)
 
-
     if (iz < Nz) and (ir < Nr) :
 
         A_old = A[iz, ir]

@@ -504,10 +504,9 @@ class EnvelopeSpectralGrid(SpectralGrid):
             # Push the fields on the GPU
 
             cuda_push_envelope_standard[dim_grid, dim_block](self.A, self.dtA,
-                                        ps.w2_square, ps.S_env_over_w,
-                                        ps.C_env, ps.w_laser, ps.A_coef,
+                                        ps.d_w2_square, ps.d_S_env_over_w,
+                                        ps.d_C_env, ps.d_w_laser, ps.d_A_coef,
                                         self.Nz, self.Nr )
-
 
         else:
             numba_push_envelope_standard(self.A, self.dtA, ps.w2_square,
