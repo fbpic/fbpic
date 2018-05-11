@@ -56,6 +56,12 @@ class FieldDiagnostic(OpenPMDDiagnostic):
         # Register the arguments
         self.fld = fldobject
         self.fieldtypes = fieldtypes
+        if not self.fld.use_envelope:
+            # Remove diagnostics involving non-existing fields
+            if 'A' in self.fieldtypes:
+                self.fieldtypes.remove('A')
+            if 'dtA' in self.fieldtypes:
+                self.fieldtypes.remove('dtA')
         self.coords = ['r', 't', 'z']
 
     def write_hdf5( self, iteration ) :
