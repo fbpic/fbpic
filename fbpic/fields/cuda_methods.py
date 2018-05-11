@@ -314,10 +314,10 @@ def cuda_push_envelope_standard(A, dtA, w2_square, S_env_over_w, C_env,
 
         A_old = A[iz, ir]
         # Push the envelope
-        A[iz, ir] = A_coef * (S_env_over_w[iz, ir] * dtA[iz, ir]\
-                 + (C_env[iz, ir] - 1j * w_laser * S_env_over_w[iz, ir]) \
+        A[iz, ir] = A_coef[iz, ir] * (S_env_over_w[iz, ir] * dtA[iz, ir]\
+                 + (C_env[iz, ir] - 1j * w_laser[iz, ir] * S_env_over_w[iz, ir]) \
                  * A[iz, ir])
-        dtA[iz, ir] = A_coef * ( (C_env[iz, ir] + 1j * w_laser \
+        dtA[iz, ir] = A_coef[iz, ir] * ( (C_env[iz, ir] + 1j * w_laser[iz, ir] \
                     * S_env_over_w[iz, ir])  * dtA[iz, ir] \
                     - w2_square[iz, ir] * S_env_over_w[iz, ir] * A_old )
 
