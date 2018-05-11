@@ -59,6 +59,8 @@ class PsatdCoeffs(object) :
         inv_dt = 1./dt
         # Register velocity of galilean/comoving frame
         self.V = V
+        # Register the use of GPU
+        self.use_cuda = use_cuda
 
         # Construct the omega and inverse omega array
         w = c*np.sqrt( kz**2 + kr**2 )
@@ -209,7 +211,7 @@ class PsatdCoeffs(object) :
         self.A_coef = np.exp(-1j * w_laser * dt)
 
         # Replace these array by arrays on the GPU, when using cuda
-        if use_cuda:
+        if self.use_cuda:
             self.d_w2_square = cuda.to_device(self.w2_square )
             self.d_S_env_over_w = cuda.to_device(self.S_env_over_w)
             self.d_C_env = cuda.to_device(self.C_env)
