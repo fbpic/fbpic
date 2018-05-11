@@ -195,8 +195,8 @@ class FieldDiagnostic(OpenPMDDiagnostic):
             Describes which envelope is being written.
             (Either A or dtA)
         """
-        path_real = "%s_real" %(path)
-        path_imag = "%s_imag" %(path)
+        path_real = "%s_real" %(quantity)
+        path_imag = "%s_imag" %(quantity)
         if field_grp is not None:
             dset_real = field_grp[path_real]
             dset_imag = field_grp[path_imag]
@@ -204,18 +204,25 @@ class FieldDiagnostic(OpenPMDDiagnostic):
             dset_real = None
             dset_imag = None
 
-        mode0 = self.get_dataset(quantity, 0, envelope = True)
+        # The envelope (`A`) is a complex field ; however openPMD can only save real fields
+        # (and represents them as an azimuthal decomposition, involving complex coefficients)
+        # Therefore, here we need to save the real part and imaginary part of A separately,
+        # and we need to reconstruct their azimuthal decomposition:
+        # (A_{real})_m = (A_m + A_{-m}^*)/2    (A_{imaginary})_m = (A_m - A_{-m}^*)/(2i)
+        # Note that for m=0, this simply gives
+        # (A_{real})_0 = Re[ A_m ]        (A_{imaginary})_0 = Im[ A_m ]
+        mode0 = self.get_dataset(quantity, 0)
         if self.rank == 0:
             mode0 = mode0.T
             dset_real[0,:,:] = mode0[:,:].real
             dset_imag[0,:,:] = mode0[:,:].imag
 
         for m in range(1,self.fld.Nm):
-            modep = self.get_dataset( quantity, m, envelope = True)
-            modem = self.get_dataset( quantity, -m, envelope = True)
-            real_mode = 0.5 * (modep + modem.conjugate())
-            imag_mode = -0.5 * 1j * (modep - modem.conjugate())
+            modep = self.get_dataset( quantity, m)
+            modem = self.get_dataset( quantity, -m)
             if self.rank == 0:
+                real_mode = 0.5 * (modep + modem.conjugate())
+                imag_mode = -0.5j * (modep - modem.conjugate())
                 real_mode = real_mode.T
                 imag_mode = imag_mode.T
                 # There is a factor 2 here so as to comply with the convention
@@ -227,7 +234,7 @@ class FieldDiagnostic(OpenPMDDiagnostic):
                 dset_imag[2*m,:,:] = 2*imag_mode[:,:].imag
 
 
-    def get_dataset( self, quantity, m, envelope = False ):
+    def get_dataset( self, quantity, m):
         """
         Get the field `quantity` in the mode `m`
         Gathers it on the first proc, in MPI mode
@@ -240,13 +247,9 @@ class FieldDiagnostic(OpenPMDDiagnostic):
 
         m: int
             The index of the mode that is being written
-
-        envelope: bool
-            Describes if we want to extract from FieldInterpolationGrid
-            or EnvelopeInterpolationGrid
         """
         # Get the data on each individual proc
-        if envelope:
+        if quantity in ['A', 'dtA']:
             data_one_proc = getattr( self.fld.envelope_interp[m], quantity )
         else:
             data_one_proc = getattr( self.fld.interp[m], quantity )
@@ -335,6 +338,9 @@ class FieldDiagnostic(OpenPMDDiagnostic):
                     self.setup_openpmd_mesh_record(
                         field_grp[fieldtype], fieldtype, dz, zmin )
                 elif fieldtype in ["A", "dtA"]:
+                    # The envelope field is complex, but openPMD
+                    # supports only real fields. Therefore, we need to save
+                    # the real part and imaginary part separately.
                     fieldtype_real = "%s_real" %(fieldtype)
                     fieldtype_imag = "%s_imag" %(fieldtype)
                     dset_real = field_grp.require_dataset(
