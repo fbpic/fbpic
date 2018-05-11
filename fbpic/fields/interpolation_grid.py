@@ -268,3 +268,24 @@ class EnvelopeInterpolationGrid(InterpolationGrid):
         # Allocate the fields arrays
         self.A = np.zeros( (Nz, Nr), dtype='complex' )
         self.dtA = np.zeros( (Nz, Nr), dtype='complex' )
+
+
+    def send_fields_to_gpu( self ):
+        """
+        Copy the envelope to the GPU.
+
+        After this function is called, the array attributes
+        point to GPU arrays.
+        """
+        self.A = cuda.to_device( self.A )
+        self.dtA = cuda.to_device( self.dtA )
+
+    def receive_fields_from_gpu( self ):
+        """
+        Receive the envelope from the GPU.
+
+        After this function is called, the array attributes
+        are accessible by the CPU again.
+        """
+        self.A = self.A.copy_to_host()
+        self.dtA = self.dtA.copy_to_host()

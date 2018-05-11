@@ -24,7 +24,8 @@ if cuda_installed:
     cuda_correct_currents_curlfree_comoving, \
     cuda_correct_currents_crossdeposition_comoving, \
     cuda_filter_scalar, cuda_filter_vector, \
-    cuda_push_eb_standard, cuda_push_eb_comoving, cuda_push_rho
+    cuda_push_eb_standard, cuda_push_eb_comoving, cuda_push_rho, \
+    cuda_push_envelope_standard
 
 
 class SpectralGrid(object) :
@@ -497,6 +498,38 @@ class EnvelopeSpectralGrid(SpectralGrid):
         assert (ps.V is None or ps.V == 0)
         assert( abs(self.m) == ps.m )
 
-        numba_push_envelope_standard(self.A, self.dtA, ps.w2_square,
-                                ps.S_env_over_w, ps.C_env, ps.w_laser,
-                                ps.A_coef, self.Nz, self.Nr)
+        if self.use_cuda :
+            # Obtain the cuda grid
+            dim_grid, dim_block = cuda_tpb_bpg_2d( self.Nz, self.Nr)
+            # Push the fields on the GPU
+
+            cuda_push_envelope_standard[dim_grid, dim_block](self.A, self.dtA,
+                                        ps.d_w2_square, ps.d_S_env_over_w,
+                                        ps.d_C_env, ps.w_laser, ps.A_coef,
+                                        self.Nz, self.Nr )
+
+        else:
+            numba_push_envelope_standard(self.A, self.dtA, ps.w2_square,
+                                    ps.S_env_over_w, ps.C_env, ps.w_laser,
+                                    ps.A_coef, self.Nz, self.Nr)
+
+
+    def send_fields_to_gpu( self ):
+        """
+        Copy the envelope to the GPU.
+
+        After this function is called, the array attributes
+        point to GPU arrays.
+        """
+        self.A = cuda.to_device( self.A )
+        self.dtA = cuda.to_device( self.dtA)
+
+    def receive_fields_from_gpu( self ):
+        """
+        Receive the envelope from the GPU.
+
+        After this function is called, the array attributes
+        are accessible by the CPU again.
+        """
+        self.A = self.A.copy_to_host()
+        self.dtA = self.dtA.copy_to_host()
