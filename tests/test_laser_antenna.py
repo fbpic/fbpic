@@ -35,9 +35,8 @@ from fbpic.lpa_utils.boosted_frame import BoostConverter
 
 # Parameters
 # ----------
-show = True
+show = True # Whether to show the plots, and check them manually
 write_files = True
-# Whether to show the plots, and check them manually
 use_cuda = True
 
 # Simulation box
@@ -58,7 +57,7 @@ z0 = -5.e-6
 # Propagation
 Lprop = 10.5e-6
 Ntot_step = int(Lprop/(c*dt))
-N_show = 3 # Number of instants in which to show the plots (during propagation)
+N_show = 5 # Number of instants in which to show the plots (during propagation)
 
 # The boost in the case of the boosted frame run
 gamma_boost = 10.
@@ -70,6 +69,13 @@ def test_antenna_labframe(show=False, write_files=False):
     """
     run_and_check_laser_antenna(None, show, write_files)
 
+def test_antenna_labframe_moving( show=False, write_files=False ):
+    """
+    Function that is run by py.test, when doing `python setup.py test`
+    Test the emission of a laser by a moving antenna, in the lab frame
+    """
+    run_and_check_laser_antenna( None, show, write_files, v=-c )
+
 def test_antenna_boostedframe(show=False, write_files=False):
     """
     Function that is run by py.test, when doing `python setup.py test`
@@ -77,7 +83,7 @@ def test_antenna_boostedframe(show=False, write_files=False):
     """
     run_and_check_laser_antenna(gamma_boost, show, write_files)
 
-def run_and_check_laser_antenna(gamma_b, show, write_files):
+def run_and_check_laser_antenna(gamma_b, show, write_files, v=0):
     """
     Generic function, which runs and check the laser antenna for
     both boosted frame and lab frame
@@ -92,6 +98,9 @@ def run_and_check_laser_antenna(gamma_b, show, write_files):
 
     write_files: bool
         Whether to output openPMD data of the laser
+
+    v: float (m/s)
+        Speed of the laser antenna
     """
     # Initialize the simulation object
     sim = Simulation( Nz, zmax, Nr, rmax, Nm, dt, p_zmin=0, p_zmax=0,
@@ -103,8 +112,8 @@ def run_and_check_laser_antenna(gamma_b, show, write_files):
     sim.ptcl = []
 
     # Add the laser
-    add_laser( sim, a0, w0, ctau, z0, zf=zf,
-        method='antenna', z0_antenna=z0_antenna, gamma_boost=gamma_b)
+    add_laser( sim, a0, w0, ctau, z0, zf=zf, method='antenna',
+        z0_antenna=z0_antenna, v_antenna=v, gamma_boost=gamma_b)
 
     for antenna in sim.laser_antennas:
         print(antenna.laser_profile.propag_direction)
@@ -272,4 +281,5 @@ if __name__ == '__main__' :
 
     # Run the testing functions
     test_antenna_labframe(show, write_files)
+    test_antenna_labframe_moving(show, write_files)
     test_antenna_boostedframe(show, write_files)
