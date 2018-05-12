@@ -36,9 +36,9 @@ class FieldDiagnostic(OpenPMDDiagnostic):
             (Make sure to use different write_dir in this case.)
 
         fieldtypes : a list of strings, optional
-            The strings are either "rho", "E", "B" or "J"
+            The strings are either "rho", "E", "B", "J" or "A"
             and indicate which field should be written.
-            Default : all fields are written
+            Default : all fields except "A" are written
 
         write_dir : string, optional
             The POSIX path to the directory where the results are
@@ -56,6 +56,12 @@ class FieldDiagnostic(OpenPMDDiagnostic):
         # Register the arguments
         self.fld = fldobject
         self.fieldtypes = fieldtypes
+        if not self.fld.use_envelope:
+            # Remove diagnostics involving non-existing fields
+            if 'A' in self.fieldtypes:
+                self.fieldtypes.remove('A')
+            if 'dtA' in self.fieldtypes:
+                self.fieldtypes.remove('dtA')
         self.coords = ['r', 't', 'z']
 
     def write_hdf5( self, iteration ) :
@@ -127,6 +133,8 @@ class FieldDiagnostic(OpenPMDDiagnostic):
                     quantity = "%s%s" %(fieldtype, coord)
                     path = "%s/%s" %(fieldtype, coord)
                     self.write_dataset( field_grp, path, quantity )
+            elif fieldtype in ["A", "dtA"]:
+                self.write_dataset_envelope( field_grp, fieldtype, fieldtype )
             else :
                 raise ValueError("Invalid string in fieldtypes: %s" %fieldtype)
 
@@ -163,7 +171,7 @@ class FieldDiagnostic(OpenPMDDiagnostic):
             dset = None
 
         # Write the mode 0 : only the real part is non-zero
-        mode0 = self.get_dataset( quantity, 0 )
+        mode0 = self.get_dataset( quantity, 0)
         if self.rank == 0:
             mode0 = mode0.T
             dset[0,:,:] = mode0[:,:].real
@@ -171,13 +179,68 @@ class FieldDiagnostic(OpenPMDDiagnostic):
         # There is a factor 2 here so as to comply with the convention in
         # Lifschitz et al., which is also the convention adopted in Warp Circ
         for m in range(1,self.fld.Nm):
-            mode = self.get_dataset( quantity, m )
+            mode = self.get_dataset( quantity, m)
             if self.rank == 0:
                 mode = mode.T
                 dset[2*m-1,:,:] = 2*mode[:,:].real
                 dset[2*m,:,:] = 2*mode[:,:].imag
 
-    def get_dataset( self, quantity, m ):
+    def write_dataset_envelope( self, field_grp, path, quantity):
+        """
+        Write a given dataset
+
+        Parameters
+        ----------
+        field_grp : an h5py.Group object
+            The group that corresponds to the path indicated in meshesPath
+
+        path : string
+            The relative path where to write the dataset, in field_grp
+
+        quantity : string
+            Describes which envelope is being written.
+            (Either A or dtA)
+        """
+        path_real = "%s_real" %(quantity)
+        path_imag = "%s_imag" %(quantity)
+        if field_grp is not None:
+            dset_real = field_grp[path_real]
+            dset_imag = field_grp[path_imag]
+        else:
+            dset_real = None
+            dset_imag = None
+
+        # The envelope (`A`) is a complex field ; however openPMD can only save real fields
+        # (and represents them as an azimuthal decomposition, involving complex coefficients)
+        # Therefore, here we need to save the real part and imaginary part of A separately,
+        # and we need to reconstruct their azimuthal decomposition:
+        # (A_{real})_m = (A_m + A_{-m}^*)/2    (A_{imaginary})_m = (A_m - A_{-m}^*)/(2i)
+        # Note that for m=0, this simply gives
+        # (A_{real})_0 = Re[ A_m ]        (A_{imaginary})_0 = Im[ A_m ]
+        mode0 = self.get_dataset(quantity, 0)
+        if self.rank == 0:
+            mode0 = mode0.T
+            dset_real[0,:,:] = mode0[:,:].real
+            dset_imag[0,:,:] = mode0[:,:].imag
+
+        for m in range(1,self.fld.Nm):
+            modep = self.get_dataset( quantity, m)
+            modem = self.get_dataset( quantity, -m)
+            if self.rank == 0:
+                real_mode = 0.5 * (modep + modem.conjugate())
+                imag_mode = -0.5j * (modep - modem.conjugate())
+                real_mode = real_mode.T
+                imag_mode = imag_mode.T
+                # There is a factor 2 here so as to comply with the convention
+                # in Lifschitz et al., which is also the convention
+                # adopted in Warp Circ
+                dset_real[2*m-1,:,:] = 2*real_mode[:,:].real
+                dset_real[2*m,:,:] = 2*real_mode[:,:].imag
+                dset_imag[2*m-1,:,:] = 2*imag_mode[:,:].real
+                dset_imag[2*m,:,:] = 2*imag_mode[:,:].imag
+
+
+    def get_dataset( self, quantity, m):
         """
         Get the field `quantity` in the mode `m`
         Gathers it on the first proc, in MPI mode
@@ -192,7 +255,10 @@ class FieldDiagnostic(OpenPMDDiagnostic):
             The index of the mode that is being written
         """
         # Get the data on each individual proc
-        data_one_proc = getattr( self.fld.interp[m], quantity )
+        if quantity in ['A', 'dtA']:
+            data_one_proc = getattr( self.fld.envelope_interp[m], quantity )
+        else:
+            data_one_proc = getattr( self.fld.interp[m], quantity )
 
         # Gather the data
         if self.comm is not None:
@@ -277,7 +343,22 @@ class FieldDiagnostic(OpenPMDDiagnostic):
                     # Setup the record to which they belong
                     self.setup_openpmd_mesh_record(
                         field_grp[fieldtype], fieldtype, dz, zmin )
-
+                elif fieldtype in ["A", "dtA"]:
+                    # The envelope field is complex, but openPMD
+                    # supports only real fields. Therefore, we need to save
+                    # the real part and imaginary part separately.
+                    fieldtype_real = "%s_real" %(fieldtype)
+                    fieldtype_imag = "%s_imag" %(fieldtype)
+                    dset_real = field_grp.require_dataset(
+                        fieldtype_real, data_shape, dtype='f8')
+                    dset_imag = field_grp.require_dataset(
+                        fieldtype_imag, data_shape, dtype='f8')
+                    self.setup_openpmd_mesh_component( dset_real, fieldtype)
+                    self.setup_openpmd_mesh_component( dset_imag, fieldtype)
+                    self.setup_openpmd_mesh_record(
+                        dset_real, fieldtype, dz, zmin )
+                    self.setup_openpmd_mesh_record(
+                        dset_imag, fieldtype, dz, zmin )
                 # Unknown field
                 else:
                     raise ValueError(
