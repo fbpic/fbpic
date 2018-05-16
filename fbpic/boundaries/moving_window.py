@@ -108,6 +108,15 @@ class MovingWindow(object):
                 fld.interp[m].zmax += n_move*fld.interp[m].dz
                 # Shift/move fields by n_move cells in spectral space
                 self.shift_spect_grid( fld.spect[m], n_move )
+            if fld.use_envelope:
+                for m in fld.envelope_mode_numbers:
+                    # Modify the values of the corresponding z's
+                    fld.envelope_interp[m].zmin += \
+                                    n_move*fld.envelope_interp[m].dz
+                    fld.envelope_interp[m].zmax += \
+                                    n_move*fld.envelope_interp[m].dz
+                    # Shift/move fields by n_move cells in spectral space
+                    self.shift_envelope_spect_grid(fld.envelope_spect[m],n_move)
 
         # Because the grids have just been shifted, there is a shift
         # in the cell indices that are used for the prefix sum.
@@ -141,7 +150,7 @@ class MovingWindow(object):
 
         Parameters
         ----------
-        grid: an SpectralGrid corresponding to one given azimuthal mode
+        grid: an FieldSpectralGrid corresponding to one given azimuthal mode
             Contains the values of the fields in spectral space,
             and is modified by this function.
 
@@ -190,6 +199,38 @@ class MovingWindow(object):
                 shift_spect_array_cpu( grid.Jp, shift, n_move )
                 shift_spect_array_cpu( grid.Jm, shift, n_move )
                 shift_spect_array_cpu( grid.Jz, shift, n_move )
+
+
+    def shift_envelope_spect_grid( self, grid, n_move):
+        """
+        Shift the spectral envelope by n_move cells (with respect to the
+        spatial grid). Shifting is done either on the CPU or the GPU,
+        if use_cuda is True. (Typically n_move is positive, and the
+        fields are shifted backwards)
+
+        Parameters
+        ----------
+        grid: an EnvelopeSpectralGrid corresponding to one given azimuthal mode
+            Contains the values of the envelope in spectral space,
+            and is modified by this function.
+
+        n_move: int
+            The number of cells by which the grid should be shifted
+        """
+        if grid.use_cuda:
+            shift = grid.d_field_shift
+            # Get a 2D CUDA grid of the size of the grid
+            tpb, bpg = cuda_tpb_bpg_2d( grid.A.shape[0], grid.A.shape[1] )
+            # Shift all the fields on the GPU
+            shift_spect_array_gpu[tpb, bpg]( grid.A, shift, n_move )
+            shift_spect_array_gpu[tpb, bpg]( grid.dtA, shift, n_move )
+
+        else:
+            shift = grid.field_shift
+            # Shift all the fields on the CPU
+            shift_spect_array_cpu( grid.A, shift, n_move )
+            shift_spect_array_cpu( grid.dtA, shift, n_move )
+
 
 @njit_parallel
 def shift_spect_array_cpu( field_array, shift_factor, n_move ):

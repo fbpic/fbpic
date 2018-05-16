@@ -72,7 +72,7 @@ def test_laser_periodic(show=False):
     """
     # Choose a very long timestep to check the absence of Courant limit
     dt = L_prop*1./c/N_diag
-    # Test modes up to m=2
+    # Test modes up to m=1
     for m in range(-1, 2):
 
         print('')
@@ -83,7 +83,23 @@ def test_laser_periodic(show=False):
 
     print('')
 
+def test_laser_moving_window(show=False):
+    """
+    Function that is run by py.test, when doing `python setup.py test`
+    Test the propagation of a laser in a moving window
+    """
+    # Choose the regular timestep (required by moving window)
+    dt = (zmax-zmin)*1./c/Nz
+    # Test modes up to m=1
+    for m in range(-1, 2):
 
+        print('')
+        print('Testing mode m=%d' %m)
+        propagate_pulse( Nz, Nr, abs(m)+1, zmin, zmax, Lr, L_prop, zf, dt,
+                          N_diag, w0, ctau, k0, a0, m, N_show, n_order,
+                          rtol, boundaries='open', v_window=c, show=show )
+
+    print('')
 
 
 def propagate_pulse( Nz, Nr, Nm, zmin, zmax, Lr, L_prop, zf, dt,
@@ -204,18 +220,22 @@ def propagate_pulse( Nz, Nr, Nm, zmin, zmax, Lr, L_prop, zf, dt,
     for it in range(N_diag) :
         print( 'Diagnostic point %d/%d' %(it, N_diag) )
 
-        izref = int( (z0 + it * N_step * c * dt - zmin) / dz ) % Nz
+        #Obtain values of zmin and Nz including the guard regions
+        zmin, Nz = sim.fld.zmin, sim.fld.Nz
+        # Obtain the index of the center of the beam
+        izref = int( (z0 + it * N_step * (c - v_window) * dt - zmin) / dz ) % Nz
         # Fit the fields to find the waist and a0
         w[it], A[it] = fit_fields( sim.fld, m, izref )
         # Plot the fields during the simulation
         if show==True and it%N_show == 0 :
             import matplotlib.pyplot as plt
             plt.clf()
-            plt.plot(sim.fld.envelope_interp[m].r,  (abs( sim.fld.envelope_interp[m].A )**2).sum(axis=0))
+            plt.plot(sim.fld.envelope_interp[m].r,
+                (abs(sim.fld.envelope_interp[m].A)**2 ).sum(axis = 0))
+
             plt.show()
         # Advance the Maxwell equations
         sim.step( N_step, show_progress= False )
-        izref = (izref + int(N_step*c*dt/dz))
 
     # Get the analytical solution
     z_prop = c*dt*N_step*np.arange(N_diag)
@@ -246,7 +266,7 @@ def propagate_pulse( Nz, Nr, Nm, zmin, zmax, Lr, L_prop, zf, dt,
     # of w and A are close
     else:
         assert np.allclose( w, w_analytic, rtol=rtol )
-        assert np.allclose( A, A_analytic, rtol=5.e-3 )
+        assert np.allclose( A, A_analytic, rtol=6.e-3 )
         print('The simulation results agree with the theory to %e.' %rtol)
 
     # Return a dictionary of the results
@@ -351,9 +371,11 @@ def fit_fields( fld, m, izref ) :
 
     m : int, optional
        The index of the mode to be fitted
-    """
 
-    laser_profile = abs(fld.envelope_interp[m].A[izref])
+    izref : int
+        The indice at which the center of the beam is located
+    """
+    laser_profile = abs( fld.envelope_interp[m].A[izref] )
     # Do the fit
     r = fld.interp[m].r
     if m==0 :  # Gaussian profile
@@ -370,4 +392,4 @@ if __name__ == '__main__' :
     # Run the testing function
     test_laser_periodic(show=show)
 
-    #test_laser_moving_window(show=show)
+    test_laser_moving_window(show=show)
