@@ -254,7 +254,7 @@ class LaserAntenna( object ):
         # (This prevents out-of-bounds errors, and prevents 2 neighboring
         # processors from simultaneously depositing the laser antenna)
         zmin_local, zmax_local = comm.get_zmin_zmax(
-            local=True, with_damp=False, with_guard=False, rank=comm.rank )
+            local=True, with_damp=True, with_guard=False, rank=comm.rank )
         # Interrupt this function if the antenna is not in the local domain
         z_antenna = self.baseline_z[0]
         if (z_antenna < zmin_local) or (z_antenna >= zmax_local):
