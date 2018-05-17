@@ -40,9 +40,9 @@ from fbpic.lpa_utils.laser import add_laser_pulse, \
 # ----------
 # (See the documentation of the function propagate_pulse
 # below for their definition)
-show = False # Whether to show the plots, and check them manually
+show = True # Whether to show the plots, and check them manually
 
-use_cuda = True
+use_cuda = False
 
 # Simulation box
 Nz = 50
@@ -62,7 +62,7 @@ L_prop = 30.e-6
 zf = 25.e-6
 N_diag = 10   # Number of diagnostic points along the propagation
 # Checking the results
-N_show = 2
+N_show = 5
 rtol = 1.e-4
 
 def test_laser_periodic(show=False):
@@ -72,6 +72,7 @@ def test_laser_periodic(show=False):
     """
     # Choose a very long timestep to check the absence of Courant limit
     dt = L_prop*1./c/N_diag
+    print(c*dt)
     # Test modes up to m=1
     for m in range(-1, 2):
 
@@ -184,7 +185,7 @@ def propagate_pulse( Nz, Nr, Nm, zmin, zmax, Lr, L_prop, zf, dt,
     Returns
     -------
     A dictionary containing :
-    - 'A' : 1d array containing the values of the amplitude
+    - 'a' : 1d array containing the values of the amplitude
     - 'w' : 1d array containing the values of waist
     - 'fld' : the Fields object at the end of the simulation.
     """
@@ -207,7 +208,7 @@ def propagate_pulse( Nz, Nr, Nm, zmin, zmax, Lr, L_prop, zf, dt,
 
     # Create the arrays to get the waist and amplitude
     w = np.zeros(N_diag)
-    A = np.zeros(N_diag)
+    a = np.zeros(N_diag)
 
     # Calculate the number of steps to run between each diagnostic
     Ntot_step = int( round( L_prop/(c*dt) ) )
@@ -225,15 +226,11 @@ def propagate_pulse( Nz, Nr, Nm, zmin, zmax, Lr, L_prop, zf, dt,
         # Obtain the index of the center of the beam
         izref = int( (z0 + it * N_step * (c - v_window) * dt - zmin) / dz ) % Nz
         # Fit the fields to find the waist and a0
-        w[it], A[it] = fit_fields( sim.fld, m, izref )
+        w[it], a[it] = fit_fields( sim.fld, m, izref )
         # Plot the fields during the simulation
         if show==True and it%N_show == 0 :
-            import matplotlib.pyplot as plt
-            plt.clf()
-            plt.plot(sim.fld.envelope_interp[m].r,
-                (abs(sim.fld.envelope_interp[m].A)**2 ).sum(axis = 0))
+            show_fields(sim.fld.envelope_interp[m], 'a')
 
-            plt.show()
         # Advance the Maxwell equations
         sim.step( N_step, show_progress= False )
 
@@ -241,7 +238,7 @@ def propagate_pulse( Nz, Nr, Nm, zmin, zmax, Lr, L_prop, zf, dt,
     z_prop = c*dt*N_step*np.arange(N_diag)
     ZR = 0.5*k0*w0**2
     w_analytic = w0*np.sqrt( 1 + (z_prop-zf)**2/ZR**2 )
-    A_analytic = a0 /( 1 + (z_prop-zf)**2/ZR**2 )**(1./2)
+    a_analytic = a0 /( 1 + (z_prop-zf)**2/ZR**2 )**(1./2)
 
     # Either plot the results and check them manually
     if show is True:
@@ -255,10 +252,10 @@ def propagate_pulse( Nz, Nr, Nm, zmin, zmax, Lr, L_prop, zf, dt,
         plt.title('Waist')
         plt.legend(loc=0)
         plt.subplot(122)
-        plt.plot( 1.e6*z_prop, A, 'o', label='Simulation' )
-        plt.plot( 1.e6*z_prop, A_analytic, '--', label='Theory' )
+        plt.plot( 1.e6*z_prop, a, 'o', label='Simulation' )
+        plt.plot( 1.e6*z_prop, a_analytic, '--', label='Theory' )
         plt.xlabel('z (microns)')
-        plt.ylabel('A')
+        plt.ylabel('a')
         plt.legend(loc=0)
         plt.title('Amplitude')
         plt.show()
@@ -266,11 +263,11 @@ def propagate_pulse( Nz, Nr, Nm, zmin, zmax, Lr, L_prop, zf, dt,
     # of w and A are close
     else:
         assert np.allclose( w, w_analytic, rtol=rtol )
-        assert np.allclose( A, A_analytic, rtol=6.e-3 )
+        assert np.allclose( a, a_analytic, rtol=6.e-3 )
         print('The simulation results agree with the theory to %e.' %rtol)
 
     # Return a dictionary of the results
-    return( { 'A' : A, 'w' : w, 'fld' : sim.fld } )
+    return( { 'a' : a, 'w' : w, 'fld' : sim.fld } )
 
 
 def init_fields( sim, w, ctau, k0, z0, zf, a0, m=1 ) :
@@ -320,7 +317,7 @@ def init_fields( sim, w, ctau, k0, z0, zf, a0, m=1 ) :
     # Add the profiles to the simulation
     add_laser_pulse( sim, profile, method = 'direct_envelope' )
 
-def gaussian_transverse_profile( r, w, A ) :
+def gaussian_transverse_profile( r, w, a) :
     """
     Calculte the Gaussian transverse profile.
 
@@ -334,12 +331,12 @@ def gaussian_transverse_profile( r, w, A ) :
     w : float
        The initial waist of the laser (in microns)
 
-    A : float
+    a : float
        The a0 of the pulse
     """
-    return( A*np.exp( -r**2/w**2 ) )
+    return( a*np.exp( -r**2/w**2 ) )
 
-def annular_transverse_profile( r, w, A ) :
+def annular_transverse_profile( r, w, a ) :
     """
     Calculte the annular transverse profile.
 
@@ -354,10 +351,10 @@ def annular_transverse_profile( r, w, A ) :
     w : float
        The initial waist of the laser (in microns)
 
-    A : float
+    a : float
        The a0 of the pulse
     """
-    return( A*(r/w)*np.exp( -r**2/w**2 ) )
+    return( a*(r/w)*np.exp( -r**2/w**2 ) )
 
 def fit_fields( fld, m, izref ) :
     """
@@ -375,7 +372,7 @@ def fit_fields( fld, m, izref ) :
     izref : int
         The indice at which the center of the beam is located
     """
-    laser_profile = abs( fld.envelope_interp[m].A[izref] )
+    laser_profile = abs( fld.envelope_interp[m].a[izref] )
     # Do the fit
     r = fld.interp[m].r
     if m==0 :  # Gaussian profile
@@ -387,9 +384,55 @@ def fit_fields( fld, m, izref ) :
 
     return( fit_result[0] )
 
+def show_fields( grid, fieldtype ):
+    """
+    Show the field `fieldtype` on the interpolation grid
+
+    Parameters
+    ----------
+    grid: an instance of FieldInterpolationGrid
+        Contains the field on the interpolation grid for
+        on particular azimuthal mode
+
+    fieldtype : string
+        Name of the field to be plotted.
+        (either 'Er', 'Et', 'Ez', 'Br', 'Bt', 'Bz',
+        'Jr', 'Jt', 'Jz', 'rho')
+    """
+    # matplotlib only needs to be imported if this function is called
+    import matplotlib.pyplot as plt
+
+    # Select the field to plot
+    plotted_field = getattr( grid, fieldtype)
+    # Show the field also below the axis for a more realistic picture
+    plotted_field = np.hstack( (plotted_field[:,::-1],plotted_field) )
+    extent = 1.e6*np.array([grid.zmin, grid.zmax, -grid.rmax, grid.rmax])
+    plt.clf()
+    plt.suptitle('%s, for mode %d' %(fieldtype, grid.m) )
+
+    # Plot the real part
+    plt.subplot(211)
+    plt.imshow( plotted_field.real.T[::-1], aspect='auto',
+                interpolation='nearest', extent=extent )
+    plt.xlabel('z')
+    plt.ylabel('r')
+    cb = plt.colorbar()
+    cb.set_label('Real part')
+
+    # Plot the imaginary part
+    plt.subplot(212)
+    plt.imshow( plotted_field.imag.T[::-1], aspect='auto',
+                interpolation='nearest', extent = extent )
+    plt.xlabel('z')
+    plt.ylabel('r')
+    cb = plt.colorbar()
+    cb.set_label('Imaginary part')
+
+    plt.show()
+
 if __name__ == '__main__' :
 
     # Run the testing function
     test_laser_periodic(show=show)
 
-    test_laser_moving_window(show=show)
+    #test_laser_moving_window(show=show)

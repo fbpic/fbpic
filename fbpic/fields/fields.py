@@ -363,7 +363,7 @@ class Fields(object) :
         ---------
         fieldtype :
             A string which represents the kind of field to transform
-            (either 'E', 'B', 'J', 'rho_next', 'rho_prev', 'A', 'dtA')
+            (either 'E', 'B', 'J', 'rho_next', 'rho_prev', 'a')
         """
         # Use the appropriate transformation depending on the fieldtype.
         if fieldtype == 'E' :
@@ -396,16 +396,13 @@ class Fields(object) :
                 spectral_rho = getattr( self.spect[m], fieldtype )
                 self.trans[m].interp2spect_scal(
                     self.interp[m].rho, spectral_rho )
-        elif fieldtype == 'A' and self.use_envelope:
+        elif fieldtype == 'a' and self.use_envelope:
             # Transform each azimuthal grid individually
             for m in self.envelope_mode_numbers:
                 self.trans[abs(m)].interp2spect_scal(
-                    self.envelope_interp[m].A, self.envelope_spect[m].A )
-        elif fieldtype == 'dtA' and self.use_envelope:
-            # Transform each azimuthal grid individually
-            for m in self.envelope_mode_numbers:
+                    self.envelope_interp[m].a, self.envelope_spect[m].a )
                 self.trans[abs(m)].interp2spect_scal(
-                    self.envelope_interp[m].dtA, self.envelope_spect[m].dtA )
+                    self.envelope_interp[m].a_old, self.envelope_spect[m].a_old)
         else:
             raise ValueError( 'Invalid string for fieldtype: %s' %fieldtype )
 
@@ -418,7 +415,7 @@ class Fields(object) :
         ---------
         fieldtype :
             A string which represents the kind of field to transform
-            (either 'E', 'B', 'J', 'rho_next', 'rho_prev', 'A', 'dtA')
+            (either 'E', 'B', 'J', 'rho_next', 'rho_prev', 'a')
         """
         # Use the appropriate transformation depending on the fieldtype.
         if fieldtype == 'E' :
@@ -455,16 +452,13 @@ class Fields(object) :
             for m in range(self.Nm) :
                 self.trans[m].spect2interp_scal(
                     self.spect[m].rho_prev, self.interp[m].rho )
-        elif fieldtype == 'A' and self.use_envelope:
+        elif fieldtype == 'a' and self.use_envelope:
             # Transform each azimuthal grid individually
             for m in self.envelope_mode_numbers :
                 self.trans[abs(m)].spect2interp_scal(
-                    self.envelope_spect[m].A, self.envelope_interp[m].A )
-        elif fieldtype == 'dtA' and self.use_envelope:
-            # Transform each azimuthal grid individually
-            for m in self.envelope_mode_numbers:
+                    self.envelope_spect[m].a, self.envelope_interp[m].a )
                 self.trans[abs(m)].spect2interp_scal(
-                    self.envelope_spect[m].dtA, self.envelope_interp[m].dtA )
+                    self.envelope_spect[m].a_old, self.envelope_interp[m].a_old )
 
         else :
             raise ValueError( 'Invalid string for fieldtype: %s' %fieldtype )
@@ -486,7 +480,7 @@ class Fields(object) :
         ---------
         fieldtype :
             A string which represents the kind of field to transform
-            (either 'E', 'B', 'J', 'rho_next', 'rho_prev', 'A', 'dtA)
+            (either 'E', 'B', 'J', 'rho_next', 'rho_prev', 'a')
         """
         # Use the appropriate transformation depending on the fieldtype.
         if fieldtype == 'E' :
@@ -521,15 +515,12 @@ class Fields(object) :
             for m in range(self.Nm) :
                 self.trans[m].fft.inverse_transform(
                     self.spect[m].rho_prev, self.interp[m].rho )
-        elif fieldtype == 'A' and self.use_envelope:
+        elif fieldtype == 'a' and self.use_envelope:
             for m in self.envelope_mode_numbers :
                 self.trans[abs(m)].fft.inverse_transform(
-                    self.envelope_spect[m].A, self.envelope_interp[m].A )
-        elif fieldtype == 'dtA' and self.use_envelope:
-            # Transform each azimuthal grid individually
-            for m in self.envelope_mode_numbers:
+                    self.envelope_spect[m].a, self.envelope_interp[m].a )
                 self.trans[abs(m)].fft.inverse_transform(
-                    self.envelope_spect[m].dtA, self.envelope_interp[m].dtA )
+                    self.envelope_spect[m].a_old, self.envelope_interp[m].a_old )
 
         else :
             raise ValueError( 'Invalid string for fieldtype: %s' %fieldtype )
@@ -548,7 +539,7 @@ class Fields(object) :
         ---------
         fieldtype :
             A string which represents the kind of field to transform
-            (either 'E', 'B', 'J', 'rho_next', 'rho_prev', 'A', 'dtA')
+            (either 'E', 'B', 'J', 'rho_next', 'rho_prev', 'a')
         """
         # Use the appropriate transformation depending on the fieldtype.
         if fieldtype == 'E' :
@@ -583,15 +574,12 @@ class Fields(object) :
             for m in range(self.Nm) :
                 self.trans[m].fft.transform(
                     self.interp[m].rho, self.spect[m].rho_prev )
-        elif fieldtype == 'A' and self.use_envelope:
+        elif fieldtype == 'a' and self.use_envelope:
             for m in self.envelope_mode_numbers :
                 self.trans[abs(m)].fft.transform(
-                    self.envelope_interp[m].A, self.envelope_spect[m].A )
-        elif fieldtype == 'dtA' and self.use_envelope:
-            # Transform each azimuthal grid individually
-            for m in self.envelope_mode_numbers:
+                    self.envelope_interp[m].a, self.envelope_spect[m].a )
                 self.trans[abs(m)].fft.transform(
-                    self.envelope_interp[m].dtA, self.envelope_spect[m].dtA )
+                    self.envelope_interp[m].a_old, self.envelope_spect[m].a_old )
 
         else :
             raise ValueError( 'Invalid string for fieldtype: %s' %fieldtype )
@@ -611,7 +599,7 @@ class Fields(object) :
             (either 'E', 'B', 'J', 'rho')
         """
         # Erase the fields in the interpolation grid
-        if (fieldtype == 'A' or fieldtype == 'dtA'):
+        if (fieldtype == 'a'):
             raise ValueError("erase method not implemented for A field")
         else:
             for m in range(self.Nm):

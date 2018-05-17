@@ -202,16 +202,18 @@ class PsatdCoeffs(object) :
 
         # Calculate all necessary coefficients for propagation of A field
         w_laser = c * k0
-        self.w2_square = c**2 * (kr**2 + kz**2 + 2 * kz * k0)
+        #self.w2_square = c**2 * (kr**2 + kz**2 + 2 * kz * k0)
         w_tot = np.sqrt( (w_laser + c * kz)**2 + c**2 * kr**2)
-        self.C_env = np.cos(w_tot*dt)
-        self.S_env_over_w = np.sin(w_tot*dt) / np.where( w_tot == 0, 1, w_tot )
-        self.S_env_over_w[ w_tot==0 ] = dt
+        #self.C_env = np.cos(w_tot*dt)
+        self.C_env = np.cos(w_laser*dt)
+        self.S2_env_over_S_env = np.sin(2*w_tot*dt)/ np.sin(w_tot*dt)
+        self.S2_env_over_S_env[np.sin(w_tot*dt) == 0] = 2
+        #self.S_env_over_w = np.sin(w_tot*dt) / np.where( w_tot == 0, 1, w_tot )
+        #self.S_env_over_w[ w_tot==0 ] = dt
         self.w_laser = w_laser
-        self.A_coef = np.exp(-1j * w_laser * dt)
+        self.A_coef = np.exp(1j * w_laser * dt)
 
         # Replace these array by arrays on the GPU, when using cuda
         if self.use_cuda:
-            self.d_w2_square = cuda.to_device(self.w2_square )
-            self.d_S_env_over_w = cuda.to_device(self.S_env_over_w)
+            self.d_S2_env_over_S_env = cuda.to_device(self.S2_env_over_S_env)
             self.d_C_env = cuda.to_device(self.C_env)

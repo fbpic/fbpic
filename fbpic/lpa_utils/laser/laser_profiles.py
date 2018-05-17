@@ -226,10 +226,10 @@ class GaussianLaser( LaserProfile ):
         Ey = self.E0y * profile
 
         return( Ex.real, Ey.real )
-        
-    def A_field(self, x, y, z, t):
+
+    def a_field(self, x, y, z, t):
         """
-        Return the envelope of the (dimensionless) vector potential of the laser 
+        Return the envelope of the (dimensionless) vector potential of the laser
 
         Parameters
         ----------
@@ -240,8 +240,8 @@ class GaussianLaser( LaserProfile ):
 
         Returns
         -------
-        A, dtA: ndarrays (adimensionnal for A, s-1 for dtA)
-            Arrays of the same shape as x, y, z, containing the fields
+        a: ndarrays (adimensionnal)
+            Array of the same shape as x, y, z, containing the fields
         """
         diffract_factor = 1. + 1j * ( z - self.zf ) * self.inv_zr
         stretch_factor = 1 - 2j * self.phi2_chirp * c**2 * self.inv_ctau2
@@ -251,12 +251,9 @@ class GaussianLaser( LaserProfile ):
             - 1./stretch_factor * self.inv_ctau2 * ( z - self.z0 - c*t)**2
         # Get the transverse profile
         profile = np.exp(exp_argument) / ( diffract_factor * stretch_factor**0.5 )
-        
-        A = self.a0 * profile
-        dtA = self.a0 * 1./stretch_factor * self.inv_ctau2 * c * ( z - self.z0 - c*t) * profile
-        
-        return A, dtA 
-        
+        a = self.a0 * profile
+        return a
+
 
 class LaguerreGaussLaser( LaserProfile ):
     """Class that calculates a Laguerre-Gauss pulse."""
@@ -425,8 +422,8 @@ class LaguerreGaussLaser( LaserProfile ):
         Ey = self.E0y * profile
 
         return( Ex.real, Ey.real )
-        
-    def A_field( self, x, y, z, t ):
+
+    def a_field( self, x, y, z, t ):
         """
         Return the envelope of the (dimensionless) vector potential of the laser
 
@@ -439,8 +436,8 @@ class LaguerreGaussLaser( LaserProfile ):
 
         Returns:
         --------
-        Ex, Ey: ndarrays (V/m)
-            Arrays of the same shape as x, y, z, containing the fields
+        a: ndarray (dimensionless)
+            Array of the same shape as x, y, z, containing the fields
         """
         # Diffraction factor, waist and Gouy phase
         diffract_factor = 1. + 1j * ( z - self.zf ) * self.inv_zr
@@ -461,10 +458,9 @@ class LaguerreGaussLaser( LaserProfile ):
             * np.cos( self.m*(theta-self.theta0) )
 
         # Get the projection along x and y, with the correct polarization
-        A = self.a0 * profile
-        dtA = self.a0 * self.inv_ctau2 * c * ( z - self.z0 - c*t) * profile
+        a = self.a0 * profile
 
-        return( A, dtA )
+        return a
 
 
 class FlattenedGaussianLaser( LaserProfile ):
