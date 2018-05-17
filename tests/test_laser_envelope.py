@@ -46,8 +46,8 @@ use_cuda = True
 
 # Simulation box
 Nz = 200
-zmin = -10.e-6
-zmax = 10.e-6
+zmin = -20.e-6
+zmax = 20.e-6
 Nr = 25
 Lr = 40.e-6
 Nm = 2
@@ -62,7 +62,7 @@ L_prop = 30.e-6
 zf = 25.e-6
 N_diag = 10   # Number of diagnostic points along the propagation
 # Checking the results
-N_show = 1
+N_show = 2
 rtol = 1.e-4
 
 def test_laser_periodic(show=False):
@@ -414,6 +414,7 @@ def show_fields( grid, fieldtype ):
     plt.subplot(211)
     plt.imshow( plotted_field.real.T[::-1], aspect='auto',
                 interpolation='nearest', extent=extent )
+                #interpolation='nearest')
     plt.xlabel('z')
     plt.ylabel('r')
     cb = plt.colorbar()
@@ -423,6 +424,7 @@ def show_fields( grid, fieldtype ):
     plt.subplot(212)
     plt.imshow( plotted_field.imag.T[::-1], aspect='auto',
                 interpolation='nearest', extent = extent )
+                #interpolation='nearest')
     plt.xlabel('z')
     plt.ylabel('r')
     cb = plt.colorbar()
@@ -435,4 +437,4 @@ if __name__ == '__main__' :
     # Run the testing function
     test_laser_periodic(show=show)
 
-    #test_laser_moving_window(show=show)
+    test_laser_moving_window(show=show)
