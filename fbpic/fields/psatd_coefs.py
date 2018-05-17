@@ -205,9 +205,10 @@ class PsatdCoeffs(object) :
         #self.w2_square = c**2 * (kr**2 + kz**2 + 2 * kz * k0)
         w_tot = np.sqrt( (w_laser + c * kz)**2 + c**2 * kr**2)
         #self.C_env = np.cos(w_tot*dt)
-        self.C_env = np.cos(w_laser*dt)
-        self.S2_env_over_S_env = np.sin(2*w_tot*dt)/ np.sin(w_tot*dt)
-        self.S2_env_over_S_env[np.sin(w_tot*dt) == 0] = 2
+        self.C_w_laser_env = np.cos(w_laser*dt)
+        self.C_w_tot_env = np.cos(w_tot*dt)
+        #self.S2_env_over_S_env = np.sin(2*w_tot*dt)/ np.sin(w_tot*dt)
+        #self.S2_env_over_S_env[np.sin(w_tot*dt) == 0] = 2
         #self.S_env_over_w = np.sin(w_tot*dt) / np.where( w_tot == 0, 1, w_tot )
         #self.S_env_over_w[ w_tot==0 ] = dt
         self.w_laser = w_laser
@@ -215,5 +216,5 @@ class PsatdCoeffs(object) :
 
         # Replace these array by arrays on the GPU, when using cuda
         if self.use_cuda:
-            self.d_S2_env_over_S_env = cuda.to_device(self.S2_env_over_S_env)
-            self.d_C_env = cuda.to_device(self.C_env)
+            self.d_C_w_laser_env = cuda.to_device(self.C_w_laser_env)
+            self.d_C_w_tot_env = cuda.to_device(self.C_w_tot_env)

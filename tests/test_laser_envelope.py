@@ -40,14 +40,14 @@ from fbpic.lpa_utils.laser import add_laser_pulse, \
 # ----------
 # (See the documentation of the function propagate_pulse
 # below for their definition)
-show = False # Whether to show the plots, and check them manually
+show = True # Whether to show the plots, and check them manually
 
 use_cuda = True
 
 # Simulation box
 Nz = 200
-zmin = -40.e-6
-zmax = 40.e-6
+zmin = -10.e-6
+zmax = 10.e-6
 Nr = 25
 Lr = 40.e-6
 Nm = 2
@@ -62,7 +62,7 @@ L_prop = 30.e-6
 zf = 25.e-6
 N_diag = 10   # Number of diagnostic points along the propagation
 # Checking the results
-N_show = 5
+N_show = 1
 rtol = 1.e-4
 
 def test_laser_periodic(show=False):
@@ -435,4 +435,4 @@ if __name__ == '__main__' :
     # Run the testing function
     test_laser_periodic(show=show)
 
-    test_laser_moving_window(show=show)
+    #test_laser_moving_window(show=show)

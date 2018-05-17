@@ -300,7 +300,7 @@ def cuda_push_eb_standard( Ep, Em, Ez, Bp, Bm, Bz, Jp, Jm, Jz,
                         + 1.j*kr[iz, ir]*Jm[iz, ir] )
 
 @cuda.jit
-def cuda_push_envelope_standard(a, a_old, S2_env_over_S_env, C_env,
+def cuda_push_envelope_standard(a, a_old, C_w_laser_env, C_w_tot_env,
                             A_coef, Nz, Nr) :
     """
     Push the envelope over one timestep, using the envelope model equations
@@ -315,7 +315,7 @@ def cuda_push_envelope_standard(a, a_old, S2_env_over_S_env, C_env,
         a_temp = a[iz, ir]
         # Push the envelope
         a[iz, ir] = A_coef * ( - A_coef * a_old[iz,ir] \
-                + S2_env_over_S_env[iz, ir] * a[iz, ir] )
+                + 2 * C_w_tot_env[iz, ir] * a[iz, ir] )
         a_old[iz, ir] = a_temp
 
 
