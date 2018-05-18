@@ -61,7 +61,7 @@ def add_laser_pulse( sim, laser_profile, gamma_boost=None,
     """
     # Prepare the boosted frame converter
     if (gamma_boost is not None) and (gamma_boost != 1.):
-        if laser_profile.forward_propagating:
+        if laser_profile.propag_direction == 1:
             boost = BoostConverter( gamma_boost )
         else:
             raise ValueError('For now, backward-propagating lasers '
