@@ -195,7 +195,8 @@ def propagate_pulse( Nz, Nr, Nm, zmin, zmax, Lr, L_prop, zf, dt,
                     p_rmin=0, p_rmax=0, p_nz=2, p_nr=2, p_nt=2, n_e=0.,
                     n_order=n_order, zmin=zmin, use_cuda=use_cuda,
                     boundaries=boundaries, v_comoving=v_comoving,
-                    exchange_period = 1, use_galilean=use_galilean )
+                    exchange_period = 1, use_galilean=use_galilean,
+                    use_envelope = True )
     # Remove the particles
     sim.ptcl = []
     # Set the moving window object
