@@ -12,7 +12,7 @@ from .direct_injection import add_laser_direct
 from .antenna_injection import LaserAntenna
 
 def add_laser_pulse( sim, laser_profile, gamma_boost=None,
-                    method='direct', z0_antenna=None, fw_propagating=True ):
+                    method='direct', z0_antenna=None ):
     """
     Introduce a laser pulse in the simulation.
 
@@ -41,10 +41,6 @@ def add_laser_pulse( sim, laser_profile, gamma_boost=None,
         (method= ``direct``) or through a laser antenna (method= ``antenna``).
         Default: ``direct``
 
-    fw_propagating: bool, optional
-       Only for the ``direct`` method: Whether the laser is propagating
-       in the forward or backward direction.
-
     z0_antenna: float, optional (meters)
        Required for the ``antenna`` method: initial position
        (in the lab frame) of the antenna.
@@ -64,15 +60,19 @@ def add_laser_pulse( sim, laser_profile, gamma_boost=None,
         add_laser_pulse( sim, profile )
     """
     # Prepare the boosted frame converter
-    if (gamma_boost is not None) and (fw_propagating==True):
-        boost = BoostConverter( gamma_boost )
+    if (gamma_boost is not None) and (gamma_boost != 1.):
+        if laser_profile.propag_direction == 1:
+            boost = BoostConverter( gamma_boost )
+        else:
+            raise ValueError('For now, backward-propagating lasers '
+                         'cannot be used in the boosted-frame.')
     else:
         boost = None
 
     # Handle the introduction method of the laser
     if method == 'direct':
         # Directly add the laser to the interpolation object
-        add_laser_direct( sim, laser_profile, fw_propagating, boost )
+        add_laser_direct( sim, laser_profile, boost )
 
     elif method == 'antenna':
         # Add a laser antenna to the simulation object
@@ -177,8 +177,7 @@ def add_laser( sim, a0, w0, ctau, z0, zf=None, lambda0=0.8e-6,
         or through a laser antenna (method=`antenna`)
 
     fw_propagating: bool, optional
-       Only for the `direct` method: Wether the laser is propagating in the
-       forward or backward direction.
+       Whether the laser is propagating in the forward or backward direction.
 
     update_spectral: bool, optional
        Only for the `direct` method: Wether to update the fields in spectral
@@ -188,11 +187,18 @@ def add_laser( sim, a0, w0, ctau, z0, zf=None, lambda0=0.8e-6,
        Only for the `antenna` method: initial position (in the lab frame)
        of the antenna. If not provided, then the z0_antenna is set to zf.
     """
+    # Pick the propagation direction
+    if fw_propagating:
+        propagation_direction = 1
+    else:
+        propagation_direction = -1
+
     # Create a Gaussian laser profile
     laser_profile = GaussianLaser( a0, waist=w0, tau=ctau/c, z0=z0,
         zf=zf, theta_pol=theta_pol, lambda0=lambda0,
-        cep_phase=cep_phase, phi2_chirp=phi2_chirp )
+        cep_phase=cep_phase, phi2_chirp=phi2_chirp,
+        propagation_direction=propagation_direction )
 
     # Add it to the simulation
     add_laser_pulse( sim, laser_profile, gamma_boost=gamma_boost,
-        method=method, z0_antenna=z0_antenna, fw_propagating=fw_propagating )
+        method=method, z0_antenna=z0_antenna )
