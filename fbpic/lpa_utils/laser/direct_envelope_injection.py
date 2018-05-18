@@ -25,9 +25,9 @@ def add_laser_direct_envelope( sim, laser_profile, boost ):
     print("Initializing laser pulse envelope on the mesh...")
 
     # Check that no other laser simulation has been already added
-    if sim.fld.use_envelope:
+    if sim.fld.envelope_wavelength_obtained:
         raise ValueError("Another laser profile has already been added")
-    sim.fld.activate_envelope_model(laser_profile.k0)
+    sim.fld.compute_envelope_coefs(laser_profile.k0)
 
     # Get the local azimuthally-decomposed laser fields a and a_old on each proc
     laser_a, laser_a_old = get_laser_a( sim, laser_profile, boost )

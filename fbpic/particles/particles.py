@@ -66,7 +66,8 @@ class Particles(object) :
                     ux_th=0., uy_th=0., uz_th=0.,
                     dens_func=None, continuous_injection=True,
                     grid_shape=None, particle_shape='linear',
-                    use_cuda=False, dz_particles=None ):
+                    use_cuda=False, dz_particles=None,
+                    use_envelope = False ):
         """
         Initialize a uniform set of particles
 
@@ -136,6 +137,9 @@ class Particles(object) :
             from the arguments `zmin`, `zmax` and `Npz`. However, when
             there are no particles in the initial box (`Npz = 0`),
             `dz_particles` needs to be explicitly passed.
+
+        use_envelope: bool, optional
+            Whether to use the envelope approximation of the fields or not
         """
         # Define whether or not to use the GPU
         self.use_cuda = use_cuda
@@ -174,6 +178,8 @@ class Particles(object) :
         self.Bz = np.zeros( Ntot )
         self.Bx = np.zeros( Ntot )
         self.By = np.zeros( Ntot )
+
+        self.use_envelope = use_envelope
 
         # The particle injector stores information that is useful in order
         # continuously inject particles in the simulation, with moving window
