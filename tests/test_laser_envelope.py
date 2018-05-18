@@ -40,7 +40,7 @@ from fbpic.lpa_utils.laser import add_laser_pulse, \
 # ----------
 # (See the documentation of the function propagate_pulse
 # below for their definition)
-show = True # Whether to show the plots, and check them manually
+show = False # Whether to show the plots, and check them manually
 
 use_cuda = True
 
@@ -72,7 +72,8 @@ def test_laser_periodic(show=False):
     """
     # Choose a very long timestep to check the absence of Courant limit
     dt = L_prop*1./c/N_diag
-    print(c*dt)
+    # Replace the long timestep by a short timestep due to a recent problem
+    dt = (zmax-zmin)*1./c/Nz
     # Test modes up to m=1
     for m in range(-1, 2):
 
