@@ -51,7 +51,7 @@ class Fields(object) :
     def __init__( self, Nz, zmax, Nr, rmax, Nm, dt, zmin=0.,
                   n_order=-1, v_comoving=None, use_galilean=True,
                   current_correction='cross-deposition', use_cuda=False,
-                  create_threading_buffers=False ):
+                  create_threading_buffers=False, use_envelope = False ):
         """
         Initialize the components of the Fields object
 
@@ -107,6 +107,9 @@ class Fields(object) :
             Whether to create the buffers used in order to perform
             charge/current deposition with threading on CPU
             (buffers are duplicated with the number of threads)
+
+        use_envelope: bool, optional
+            Whether to use the envelope approximation of the fields or not
         """
         # Register the arguments inside the object
         self.Nz = Nz
@@ -197,14 +200,34 @@ class Fields(object) :
                     shape=(nthreads, self.Nm, self.Nz+4, self.Nr+4) )
 
         # By default will not use the envelope model
-        self.use_envelope = False
+        self.use_envelope = use_envelope
+        self.envelope_wavelength_obtained = False
+        if self.use_envelope:
+            #Create the envelope interpolation grids for each modes
+            #The envelope modes range from -Nm + 1 to Nm - 1
+            self.envelope_interp = []
+            self.envelope_mode_numbers = [ m for m in range(self.Nm) ] + \
+                                         [ m for m in range(-self.Nm+1, 0)]
+            for m in self.envelope_mode_numbers:
+                #Modes are listed in order: 0, 1, ..., Nm - 1, -Nm + 1, ..., -1
+                self.envelope_interp.append(EnvelopeInterpolationGrid(
+                    self.Nz, self.Nr, m, self.zmin, self.zmax,
+                    self.rmax, use_cuda = self.use_cuda ) )
 
+            #Create the envelope spectral grids for each modes
+            self.envelope_spect = []
+            for m in self.envelope_mode_numbers:
+                #Modes are listed in order: 0, 1, ..., Nm - 1, -Nm + 1, ..., -1
+                kr = 2*np.pi * self.trans[abs(m)].dht0.get_nu()
+                self.envelope_spect.append( EnvelopeSpectralGrid( kz_modified, kr,
+                     m, kz_true, self.envelope_interp[m].dz,
+                     self.envelope_interp[m].dr, use_cuda=self.use_cuda ) )
 
-    def activate_envelope_model(self, k0):
+    def compute_envelope_coefs(self, k0):
         """
-        Initializes anything needed for the envelope model
+        Initializes all coefficients needed for the envelope model
 
-        Attribute use_envelope can be changed to true only there,
+        Attribute envelope_wavelength_obtained can be changed to true only there,
         and thus guarantees the existence of all the attributes relevant
         to the envelope model.
 
@@ -216,30 +239,8 @@ class Fields(object) :
             in this model
         """
 
-        self.use_envelope = True
-
-        #Create the envelope interpolation grids for each modes
-        #The envelope modes range from -Nm + 1 to Nm - 1
-        self.envelope_interp = []
-        self.envelope_mode_numbers = [ m for m in range(self.Nm) ] + \
-                                     [ m for m in range(-self.Nm+1, 0)]
-        for m in self.envelope_mode_numbers:
-            #Modes are listed in order: 0, 1, ..., Nm - 1, -Nm + 1, ..., -1
-            self.envelope_interp.append(EnvelopeInterpolationGrid(
-                self.Nz, self.Nr, m, self.zmin, self.zmax,
-                self.rmax, use_cuda = self.use_cuda ) )
-
-        #Create the envelope spectral grids for each modes
-        self.envelope_spect = []
-        dz = (self.zmax-self.zmin)/self.Nz
-        kz_true = 2*np.pi* np.fft.fftfreq( self.Nz, dz )
-        kz_modified = get_modified_k( kz_true, self.n_order, dz )
-        for m in self.envelope_mode_numbers:
-            #Modes are listed in order: 0, 1, ..., Nm - 1, -Nm + 1, ..., -1
-            kr = 2*np.pi * self.trans[abs(m)].dht0.get_nu()
-            self.envelope_spect.append( EnvelopeSpectralGrid( kz_modified, kr,
-                 m, kz_true, self.envelope_interp[m].dz,
-                 self.envelope_interp[m].dr, use_cuda=self.use_cuda ) )
+        assert self.use_envelope
+        self.envelope_wavelength_obtained = True
 
         # Create the psatd coefficients relevant only
         # to the envelope model for each positive mode
@@ -313,6 +314,7 @@ class Fields(object) :
         # Check if the envelope model is used then
         # push each azimuthal mode individually
         if self.use_envelope:
+            assert self.envelope_wavelength_obtained
             for m in self.envelope_mode_numbers :
                 self.envelope_spect[m].push_envelope_with(self.psatd[abs(m)])
 
