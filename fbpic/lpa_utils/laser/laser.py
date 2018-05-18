@@ -187,11 +187,17 @@ def add_laser( sim, a0, w0, ctau, z0, zf=None, lambda0=0.8e-6,
        Only for the `antenna` method: initial position (in the lab frame)
        of the antenna. If not provided, then the z0_antenna is set to zf.
     """
+    # Pick the propagation direction
+    if fw_propagating:
+        propagation_direction = 1
+    else:
+        propagation_direction = -1
+
     # Create a Gaussian laser profile
     laser_profile = GaussianLaser( a0, waist=w0, tau=ctau/c, z0=z0,
         zf=zf, theta_pol=theta_pol, lambda0=lambda0,
         cep_phase=cep_phase, phi2_chirp=phi2_chirp,
-        forward_propagating=fw_propagating )
+        propagation_direction=propagation_direction )
 
     # Add it to the simulation
     add_laser_pulse( sim, laser_profile, gamma_boost=gamma_boost,

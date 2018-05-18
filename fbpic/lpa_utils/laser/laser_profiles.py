@@ -22,22 +22,20 @@ class LaserProfile( object ):
     Profiles that inherit from this base class can be summed,
     using the overloaded + operator.
     """
-    def __init__( self, forward_propagating ):
+    def __init__( self, propagation_direction ):
         """
         Initialize the propagation direction of the laser.
         (Each subclass should call this method at initialization.)
 
         Parameter
         ---------
-        forward_propagating: bool, optional
-            Whether this laser is propagating towards positive z.
-            (If False, this laser is propagating towards negative z.)
+        propagation_direction: int
+            Indicates in which direction the laser propagates.
+            This should be either 1 (laser propagates towards positive z)
+            or -1 (laser propagates towards negative z).
         """
-        self.forward_propagating = forward_propagating
-        if forward_propagating:
-            self.propag_direction = 1.
-        else:
-            self.propag_direction = -1.
+        assert propagation_direction in [-1, 1]
+        self.propag_direction = float(propagation_direction)
 
     def E_field( self, x, y, z, t ):
         """
@@ -79,8 +77,8 @@ class SummedLaserProfile( LaserProfile ):
         profile1, profile2: instances of LaserProfile
         """
         # Check that both profiles propagate in the same direction
-        assert profile1.forward_propagating == profile2.forward_propagating
-        LaserProfile.__init__(self, profile1.forward_propagating)
+        assert profile1.propag_direction == profile2.propag_direction
+        LaserProfile.__init__(self, profile1.propag_direction)
 
         # Register the profiles from which the sum should be calculated
         self.profile1 = profile1
@@ -103,7 +101,7 @@ class GaussianLaser( LaserProfile ):
 
     def __init__( self, a0, waist, tau, z0, zf=None, theta_pol=0.,
                     lambda0=0.8e-6, cep_phase=0., phi2_chirp=0.,
-                    forward_propagating=True ):
+                    propagation_direction=1 ):
         """
         Define a linearly-polarized Gaussian laser profile.
 
@@ -172,12 +170,13 @@ class GaussianLaser( LaserProfile ):
             i.e. red part of the spectrum in the front of the pulse and blue
             part of the spectrum in the back.
 
-        forward_propagating: bool, optional
-            Whether this laser is propagating towards positive z.
-            (If False, this laser is propagating towards negative z.)
+        propagation_direction: int, optional
+            Indicates in which direction the laser propagates.
+            This should be either 1 (laser propagates towards positive z)
+            or -1 (laser propagates towards negative z).
         """
         # Initialize propagation direction
-        LaserProfile.__init__(self, forward_propagating)
+        LaserProfile.__init__(self, propagation_direction)
 
         # Set a number of parameters for the laser
         k0 = 2*np.pi/lambda0
@@ -239,7 +238,7 @@ class LaguerreGaussLaser( LaserProfile ):
 
     def __init__( self, p, m, a0, waist, tau, z0, zf=None, theta_pol=0.,
                     lambda0=0.8e-6, cep_phase=0., theta0=0.,
-                    forward_propagating=True ):
+                    propagation_direction=1 ):
         """
         Define a linearly-polarized Laguerre-Gauss laser profile.
 
@@ -343,12 +342,13 @@ class LaguerreGaussLaser( LaserProfile ):
             (In the transverse plane, the field of the pulse varies as
             :math:`\cos[m(\\theta-\\theta_0)]`.)
 
-        forward_propagating: bool, optional
-            Whether this laser is propagating towards positive z.
-            (If False, this laser is propagating towards negative z.)
+        propagation_direction: int, optional
+            Indicates in which direction the laser propagates.
+            This should be either 1 (laser propagates towards positive z)
+            or -1 (laser propagates towards negative z).
         """
         # Initialize propagation direction
-        LaserProfile.__init__(self, forward_propagating)
+        LaserProfile.__init__(self, propagation_direction)
 
         # Set a number of parameters for the laser
         k0 = 2*np.pi/lambda0
@@ -415,7 +415,7 @@ class DonutLikeLaguerreGaussLaser( LaserProfile ):
     """Class that calculates a donut-like Laguerre-Gauss pulse."""
 
     def __init__( self, p, m, a0, waist, tau, z0, zf=None, theta_pol=0.,
-                    lambda0=0.8e-6, cep_phase=0., forward_propagating=True ):
+                    lambda0=0.8e-6, cep_phase=0., propagation_direction=1 ):
         """
         Define a linearly-polarized donut-like Laguerre-Gauss laser profile.
 
@@ -507,12 +507,13 @@ class DonutLikeLaguerreGaussLaser( LaserProfile ):
             in the above formula (i.e. the phase of the laser
             oscillation, at the position where the laser enveloppe is maximum)
 
-        forward_propagating: bool, optional
-            Whether this laser is propagating towards positive z.
-            (If False, this laser is propagating towards negative z.)
+        propagation_direction: int, optional
+            Indicates in which direction the laser propagates.
+            This should be either 1 (laser propagates towards positive z)
+            or -1 (laser propagates towards negative z).
         """
         # Initialize propagation direction
-        LaserProfile.__init__(self, forward_propagating)
+        LaserProfile.__init__(self, propagation_direction)
 
         # Set a number of parameters for the laser
         k0 = 2*np.pi/lambda0
@@ -574,7 +575,7 @@ class FlattenedGaussianLaser( LaserProfile ):
     """Class that calculates a focused flattened Gaussian"""
 
     def __init__( self, a0, w0, tau, z0, N=6, zf=None, theta_pol=0.,
-                    lambda0=0.8e-6, cep_phase=0., forward_propagating=True ):
+                    lambda0=0.8e-6, cep_phase=0., propagation_direction=1 ):
         """
         Define a linearly-polarized laser such that the transverse intensity
         profile is a flattened Gaussian **far from focus**, and a distribution
@@ -651,12 +652,13 @@ class FlattenedGaussianLaser( LaserProfile ):
             The Carrier Enveloppe Phase (CEP, i.e. the phase of the laser
             oscillation, at the position where the laser enveloppe is maximum)
 
-        forward_propagating: bool, optional
-            Whether this laser is propagating towards positive z.
-            (If False, this laser is propagating towards negative z.)
+        propagation_direction: int, optional
+            Indicates in which direction the laser propagates.
+            This should be either 1 (laser propagates towards positive z)
+            or -1 (laser propagates towards negative z).
         """
         # Initialize propagation direction
-        LaserProfile.__init__(self, forward_propagating)
+        LaserProfile.__init__(self, propagation_direction)
 
         # Ensure that N is an integer
         N = int(round(N))
@@ -673,7 +675,7 @@ class FlattenedGaussianLaser( LaserProfile ):
                             cep_phase=cep_phase_n, waist=w_foc,
                             tau=tau, z0=z0, zf=zf, theta_pol=theta_pol,
                             lambda0=lambda0, theta0=0.,
-                            forward_propagating=forward_propagating )
+                            propagation_direction=propagation_direction )
             if n==0:
                 summed_profile = profile
             else:
