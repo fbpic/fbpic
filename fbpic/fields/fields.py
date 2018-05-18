@@ -363,7 +363,7 @@ class Fields(object) :
         ---------
         fieldtype :
             A string which represents the kind of field to transform
-            (either 'E', 'B', 'J', 'rho_next', 'rho_prev', 'a')
+            (either 'E', 'B', 'J', 'rho_next', 'rho_prev', 'a', 'grad_a')
         """
         # Use the appropriate transformation depending on the fieldtype.
         if fieldtype == 'E' :
@@ -403,6 +403,17 @@ class Fields(object) :
                     self.envelope_interp[m].a, self.envelope_spect[m].a )
                 self.trans[abs(m)].interp2spect_scal(
                     self.envelope_interp[m].a_old, self.envelope_spect[m].a_old)
+        elif fieldtype == 'grad_a' and self.use_envelope:
+            # Transform each azimuthal grid individually
+            for m in self.envelope_mode_numbers :
+                self.trans[m].interp2spect_scal(
+                    self.envelope_interp[m].grad_a_z,
+                     self.envelope_spect[m].grad_a_z )
+                self.trans[m].interp2spect_vect(
+                    self.envelope_interp[m].grad_a_r,
+                    self.envelope_interp[m].grad_a_t,
+                    self.envelope_spect[m].grad_a_p,
+                    self.envelope_spect[m].grad_a_m )
         else:
             raise ValueError( 'Invalid string for fieldtype: %s' %fieldtype )
 
@@ -415,7 +426,7 @@ class Fields(object) :
         ---------
         fieldtype :
             A string which represents the kind of field to transform
-            (either 'E', 'B', 'J', 'rho_next', 'rho_prev', 'a')
+            (either 'E', 'B', 'J', 'rho_next', 'rho_prev', 'a', 'grad_a')
         """
         # Use the appropriate transformation depending on the fieldtype.
         if fieldtype == 'E' :
@@ -459,7 +470,17 @@ class Fields(object) :
                     self.envelope_spect[m].a, self.envelope_interp[m].a )
                 self.trans[abs(m)].spect2interp_scal(
                     self.envelope_spect[m].a_old, self.envelope_interp[m].a_old )
-
+        elif fieldtype == 'grad_a' and self.use_envelope :
+            # Transform each azimuthal grid individually
+            for m in in self.envelope_mode_numbers :
+                self.trans[m].spect2interp_scal(
+                    self.envelope_spect[m].grad_a_z,
+                    self.envelope_interp[m].grad_a_z )
+                self.trans[m].spect2interp_vect(
+                    self.envelope_spect[m].grad_a_p,
+                    self.envelope_spect[m].grad_a_m,
+                    self.envelope_interp[m].grad_a_r,
+                    self.envelope_interp[m].grad_a_t )
         else :
             raise ValueError( 'Invalid string for fieldtype: %s' %fieldtype )
 
@@ -480,7 +501,7 @@ class Fields(object) :
         ---------
         fieldtype :
             A string which represents the kind of field to transform
-            (either 'E', 'B', 'J', 'rho_next', 'rho_prev', 'a')
+            (either 'E', 'B', 'J', 'rho_next', 'rho_prev', 'a', 'grad_a')
         """
         # Use the appropriate transformation depending on the fieldtype.
         if fieldtype == 'E' :
@@ -521,6 +542,17 @@ class Fields(object) :
                     self.envelope_spect[m].a, self.envelope_interp[m].a )
                 self.trans[abs(m)].fft.inverse_transform(
                     self.envelope_spect[m].a_old, self.envelope_interp[m].a_old )
+        elif fieldtype == 'grad_a' :
+            for m in self.envelope_mode_numbers  :
+                self.trans[m].fft.inverse_transform(
+                    self.envelope_spect[m].grad_a_z,
+                    self.envelope_interp[m].grad_a_z )
+                self.trans[m].fft.inverse_transform(
+                    self.envelope_spect[m].grad_a_p,
+                    self.envelope_interp[m].grad_a_r )
+                self.trans[m].fft.inverse_transform(
+                    self.envelope_spect[m].grad_a_m,
+                    self.envelope_interp[m].grad_a_t )
 
         else :
             raise ValueError( 'Invalid string for fieldtype: %s' %fieldtype )
@@ -539,7 +571,7 @@ class Fields(object) :
         ---------
         fieldtype :
             A string which represents the kind of field to transform
-            (either 'E', 'B', 'J', 'rho_next', 'rho_prev', 'a')
+            (either 'E', 'B', 'J', 'rho_next', 'rho_prev', 'a', 'grad_a')
         """
         # Use the appropriate transformation depending on the fieldtype.
         if fieldtype == 'E' :
@@ -579,7 +611,18 @@ class Fields(object) :
                 self.trans[abs(m)].fft.transform(
                     self.envelope_interp[m].a, self.envelope_spect[m].a )
                 self.trans[abs(m)].fft.transform(
-                    self.envelope_interp[m].a_old, self.envelope_spect[m].a_old )
+                    self.envelope_interp[m].a_old, self.envelope_spect[m].a_old)
+        elif fieldtype == 'grad_a' :
+            for m in self.envelope_mode_numbers :
+                self.trans[m].fft.transform(
+                    self.envelope_interp[m].grad_a_z,
+                    self.envelope_spect[m].grad_a_z )
+                self.trans[m].fft.transform(
+                    self.envelope_interp[m].grad_a_r,
+                    self.envelope_spect[m].grad_a_p )
+                self.trans[m].fft.transform(
+                    self.envelope_interp[m].grad_a_t,
+                    self.envelope_spect[m].grad_a_m )
 
         else :
             raise ValueError( 'Invalid string for fieldtype: %s' %fieldtype )
@@ -673,3 +716,15 @@ class Fields(object) :
         """
         for m in range(self.Nm):
             self.interp[m].divide_by_volume( fieldtype )
+
+    def compute_grad_a(self):
+        """
+        Compute the diffent grad_a scalars in spectral space from the current
+        'a' field, then converts them to interpolation space.
+
+        After this function is called, grad_a fields in both spectral and
+        interpolation space are up to date.
+        """
+        for m in self.envelope_mode_numbers:
+            self.envelope_spect[m].compute_grad_a()
+        self.spect2interp('grad_a')

@@ -268,6 +268,9 @@ class EnvelopeInterpolationGrid(InterpolationGrid):
         # Allocate the fields arrays
         self.a = np.zeros( (Nz, Nr), dtype='complex' )
         self.a_old = np.zeros( (Nz, Nr), dtype='complex' )
+        self.grad_a_r = np.zeros( (Nz, Nr), dtype='complex' )
+        self.grad_a_t = np.zeros( (Nz, Nr), dtype='complex' )
+        self.grad_a_z = np.zeros( (Nz, Nr), dtype='complex' )
 
 
     def send_fields_to_gpu( self ):
@@ -279,6 +282,9 @@ class EnvelopeInterpolationGrid(InterpolationGrid):
         """
         self.a = cuda.to_device( self.a )
         self.a_old = cuda.to_device( self.a_old )
+        self.grad_a_r = cuda.to_device(self.grad_a_r)
+        self.grad_a_t = cuda.to_device(self.grad_a_t)
+        self.grad_a_z = cuda.to_device(self.grad_a_z)
 
     def receive_fields_from_gpu( self ):
         """
@@ -289,3 +295,6 @@ class EnvelopeInterpolationGrid(InterpolationGrid):
         """
         self.a = self.a.copy_to_host()
         self.a_old = self.a_old.copy_to_host()
+        self.grad_a_r = self.grad_a_r.copy_to_host()
+        self.grad_a_t = self.grad_a_t.copy_to_host()
+        self.grad_a_z = self.grad_a_z.copy_to_host()

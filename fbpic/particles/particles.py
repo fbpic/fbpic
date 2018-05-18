@@ -174,6 +174,12 @@ class Particles(object) :
         self.Bz = np.zeros( Ntot )
         self.Bx = np.zeros( Ntot )
         self.By = np.zeros( Ntot )
+        self.ENVELOPE_FLAG = True
+        if self.ENVELOPE_FLAG:
+            self.a2 = np.zeros( Ntot )
+            self.grad_a2_z = np.zeros( Ntot )
+            self.grad_a2_x = np.zeros( Ntot )
+            self.grad_a2_y = np.zeros( Ntot )
 
         # The particle injector stores information that is useful in order
         # continuously inject particles in the simulation, with moving window
@@ -245,6 +251,11 @@ class Particles(object) :
             self.Bx = cuda.to_device(self.Bx)
             self.By = cuda.to_device(self.By)
             self.Bz = cuda.to_device(self.Bz)
+            if self.ENVELOPE_FLAG:
+                self.a2 = cuda.to_device( self.a2 )
+                self.grad_a2_z = cuda.to_device( self.grad_a2_z )
+                self.grad_a2_x = cuda.to_device( self.grad_a2_x )
+                self.grad_a2_y = cuda.to_device( self.grad_a2_y )
 
             # Copy arrays on the GPU for the sorting
             self.cell_idx = cuda.to_device(self.cell_idx)
@@ -286,6 +297,11 @@ class Particles(object) :
             self.Bx = self.Bx.copy_to_host()
             self.By = self.By.copy_to_host()
             self.Bz = self.Bz.copy_to_host()
+            if self.ENVELOPE_FLAG:
+                self.a2 = self.a2.copy_to_host()
+                self.grad_a2_z = self.grad_a2_z.copy_to_host()
+                self.grad_a2_x = self.grad_a2_x.copy_to_host()
+                self.grad_a2_y = self.grad_a2_y.copy_to_host()
 
             # Copy arrays on the CPU
             # that represent the sorting arrays
@@ -628,7 +644,7 @@ class Particles(object) :
                 self.inv_gamma, self.Ntot,
                 dt, x_push, y_push, z_push )
 
-    def gather( self, grid ) :
+    def gather( self, grid, envelope_grid = None ) :
         """
         Gather the fields onto the macroparticles
 
@@ -647,7 +663,9 @@ class Particles(object) :
 
         # Number of modes
         Nm = len(grid)
-
+        if self.ENVELOPE_FLAG:
+            envelope_mode_numbers = [ m for m in range(Nm) ] + \
+                                     [ m for m in range(-Nm+1, 0)]
         # GPU (CUDA) version
         if self.use_cuda:
             # Get the threads per block and the blocks per grid
@@ -681,6 +699,26 @@ class Particles(object) :
                             grid[m].Br, grid[m].Bt, grid[m].Bz, m,
                             self.Ex, self.Ey, self.Ez,
                             self.Bx, self.By, self.Bz)
+
+                if self.ENVELOPE_FLAG:
+                    erase_a_cuda[dim_grid_1d, dim_block_1d](self.a2,
+                                self.grad_a2_x, self.grad_a2_y,
+                                self.grad_a2_z, self.Ntot)
+                    for m in envelope_mode_numbers:
+                        gather_envelope_field_gpu_linear_one_mode[
+                            dim_grid_1d, dim_block_1d](
+                            self.x, self.y, self.z,
+                            envelope_grid[0].invdz, envelope_grid[0].zmin,
+                            envelope_grid[0].Nz, envelope_grid[0].invdr,
+                            envelope_grid[0].rmin, envelope_grid[0].Nr,
+                            envelope_grid[m].a, envelope_grid[m].grad_a_r,
+                            envelope_grid[m].grad_a_t,
+                            envelope_grid[m].grad_a_z, m, self.a2,
+                            self.grad_a2_x, self.grad_a2_y, self.grad_a2_z )
+                    convert_a_to_a2_gpu[dim_grid_1d, dim_block_1d](
+                                    self.a2, self.grad_a2_x, self.grad_a2_y,
+                                    self.grad_a2_z, self.Ntot )
+
             elif self.particle_shape == 'cubic':
                 if Nm == 2:
                     # Optimized version for 2 modes
@@ -709,6 +747,26 @@ class Particles(object) :
                             grid[m].Br, grid[m].Bt, grid[m].Bz, m,
                             self.Ex, self.Ey, self.Ez,
                             self.Bx, self.By, self.Bz)
+
+                if self.ENVELOPE_FLAG:
+                    erase_a_cuda[dim_grid_1d, dim_block_1d](self.a2,
+                                self.grad_a2_x, self.grad_a2_y, 
+                                self.grad_a2_z, self.Ntot)
+                    for m in envelope_mode_numbers:
+                        gather_envelope_field_gpu_cubic_one_mode[
+                            dim_grid_1d, dim_block_1d](
+                            self.x, self.y, self.z,
+                            envelope_grid[0].invdz, envelope_grid[0].zmin,
+                            envelope_grid[0].Nz, envelope_grid[0].invdr,
+                            envelope_grid[0].rmin, envelope_grid[0].Nr,
+                            envelope_grid[m].a, envelope_grid[m].grad_a_r,
+                            envelope_grid[m].grad_a_t,
+                            envelope_grid[m].grad_a_z, m, self.a2,
+                            self.grad_a2_x, self.grad_a2_y, self.grad_a2_z )
+                    convert_a_to_a2_gpu[dim_grid_1d, dim_block_1d](
+                                    self.a2, self.grad_a2_x, self.grad_a2_y,
+                                    self.grad_a2_z, self.Ntot )
+
             else:
                 raise ValueError("`particle_shape` should be either \
                                   'linear' or 'cubic' \

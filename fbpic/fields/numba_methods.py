@@ -312,6 +312,14 @@ def numba_push_eb_comoving( Ep, Em, Ez, Bp, Bm, Bz, Jp, Jm, Jz,
 
     return
 
+@njit_parallel
+def numna_compute_grad_a( a, grad_a_p, grad_a_m, grad_a_z, d_kr, d_kz, Nz, Nr):
+    """
+    Compute the new grad_a components in spectral space.
+    """
+    self.grad_a_p = - 0.5 * self.a * self.kr
+    self.grad_a_m = 0.5 * self.a * self.kr
+    self.grad_a_z = 1j * self.a * self.kz
 
 # -----------------------------------------------------------------------
 # Parallel reduction of the global arrays for threads into a single array
