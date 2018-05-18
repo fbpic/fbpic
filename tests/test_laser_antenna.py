@@ -118,9 +118,6 @@ def run_and_check_laser_antenna(gamma_b, show, write_files,
         z0_antenna=z0_antenna, v_antenna=v, gamma_boost=gamma_b,
         fw_propagating=forward_propagating )
 
-    for antenna in sim.laser_antennas:
-        print(antenna.laser_profile.propag_direction)
-
     # Calculate the number of steps between each output
     N_step = int( round( Ntot_step/N_show ) )
 
