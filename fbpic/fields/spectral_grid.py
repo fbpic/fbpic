@@ -537,7 +537,7 @@ class EnvelopeSpectralGrid(SpectralGrid):
             # Compute the new grad_a on CPU
             numba_compute_grad_a(self.a, self.grad_a_p, self.grad_a_m,
                             self.grad_a_z, self.kr, self.kz, self.Nz, self.Nr)
-            
+
 
     def send_fields_to_gpu( self ):
         """

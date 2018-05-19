@@ -20,7 +20,10 @@ from .push.numba_methods import push_p_numba, push_p_ioniz_numba, \
 from .gathering.threading_methods import gather_field_numba_linear, \
         gather_field_numba_cubic
 from .gathering.threading_methods_one_mode import erase_eb_numba, \
-    gather_field_numba_linear_one_mode, gather_field_numba_cubic_one_mode
+    erase_a_numba, gather_field_numba_linear_one_mode, \
+    gather_field_numba_cubic_one_mode, \
+    gather_envelope_field_numba_linear_one_mode, \
+    gather_envelope_field_numba_cubic_one_mode, convert_a_to_a2_numba
 from .deposition.threading_methods import \
         deposit_rho_numba_linear, deposit_rho_numba_cubic, \
         deposit_J_numba_linear, deposit_J_numba_cubic
@@ -41,8 +44,11 @@ if cuda_installed:
         deposit_rho_gpu_cubic_one_mode, deposit_J_gpu_cubic_one_mode
     from .gathering.cuda_methods import gather_field_gpu_linear, \
         gather_field_gpu_cubic
-    from .gathering.cuda_methods_one_mode import erase_eb_cuda, \
-        gather_field_gpu_linear_one_mode, gather_field_gpu_cubic_one_mode
+    from .gathering.cuda_methods_one_mode import erase_eb_cuda, erase_a_cuda, \
+        gather_field_gpu_linear_one_mode, gather_field_gpu_cubic_one_mode, \
+        gather_envelope_field_gpu_linear_one_mode, \
+        gather_envelope_field_gpu_cubic_one_mode, \
+        convert_a_to_a2_gpu
     from .utilities.cuda_sorting import write_sorting_buffer, \
         get_cell_idx_per_particle, sort_particles_per_cell, \
         prefill_prefix_sum, incl_prefix_sum
@@ -178,14 +184,15 @@ class Particles(object) :
         self.Bz = np.zeros( Ntot )
         self.Bx = np.zeros( Ntot )
         self.By = np.zeros( Ntot )
-        self.ENVELOPE_FLAG = True
-        if self.ENVELOPE_FLAG:
+
+        self.use_envelope = use_envelope
+        if self.use_envelope:
             self.a2 = np.zeros( Ntot )
             self.grad_a2_z = np.zeros( Ntot )
             self.grad_a2_x = np.zeros( Ntot )
             self.grad_a2_y = np.zeros( Ntot )
 
-        self.use_envelope = use_envelope
+
 
         # The particle injector stores information that is useful in order
         # continuously inject particles in the simulation, with moving window
@@ -257,7 +264,7 @@ class Particles(object) :
             self.Bx = cuda.to_device(self.Bx)
             self.By = cuda.to_device(self.By)
             self.Bz = cuda.to_device(self.Bz)
-            if self.ENVELOPE_FLAG:
+            if self.use_envelope:
                 self.a2 = cuda.to_device( self.a2 )
                 self.grad_a2_z = cuda.to_device( self.grad_a2_z )
                 self.grad_a2_x = cuda.to_device( self.grad_a2_x )
@@ -303,7 +310,7 @@ class Particles(object) :
             self.Bx = self.Bx.copy_to_host()
             self.By = self.By.copy_to_host()
             self.Bz = self.Bz.copy_to_host()
-            if self.ENVELOPE_FLAG:
+            if self.use_envelope:
                 self.a2 = self.a2.copy_to_host()
                 self.grad_a2_z = self.grad_a2_z.copy_to_host()
                 self.grad_a2_x = self.grad_a2_x.copy_to_host()
@@ -669,7 +676,7 @@ class Particles(object) :
 
         # Number of modes
         Nm = len(grid)
-        if self.ENVELOPE_FLAG:
+        if self.use_envelope:
             envelope_mode_numbers = [ m for m in range(Nm) ] + \
                                      [ m for m in range(-Nm+1, 0)]
         # GPU (CUDA) version
@@ -706,7 +713,7 @@ class Particles(object) :
                             self.Ex, self.Ey, self.Ez,
                             self.Bx, self.By, self.Bz)
 
-                if self.ENVELOPE_FLAG:
+                if self.use_envelope:
                     erase_a_cuda[dim_grid_1d, dim_block_1d](self.a2,
                                 self.grad_a2_x, self.grad_a2_y,
                                 self.grad_a2_z, self.Ntot)
@@ -754,9 +761,9 @@ class Particles(object) :
                             self.Ex, self.Ey, self.Ez,
                             self.Bx, self.By, self.Bz)
 
-                if self.ENVELOPE_FLAG:
+                if self.use_envelope:
                     erase_a_cuda[dim_grid_1d, dim_block_1d](self.a2,
-                                self.grad_a2_x, self.grad_a2_y, 
+                                self.grad_a2_x, self.grad_a2_y,
                                 self.grad_a2_z, self.Ntot)
                     for m in envelope_mode_numbers:
                         gather_envelope_field_gpu_cubic_one_mode[
@@ -806,6 +813,23 @@ class Particles(object) :
                             self.Ex, self.Ey, self.Ez,
                             self.Bx, self.By, self.Bz
                         )
+
+                if self.use_envelope:
+                    erase_a_numba(self.a2, self.grad_a2_x, self.grad_a2_y,
+                                self.grad_a2_z, self.Ntot)
+                    for m in envelope_mode_numbers:
+                        gather_envelope_field_numba_linear_one_mode(
+                            self.x, self.y, self.z,
+                            envelope_grid[0].invdz, envelope_grid[0].zmin,
+                            envelope_grid[0].Nz, envelope_grid[0].invdr,
+                            envelope_grid[0].rmin, envelope_grid[0].Nr,
+                            envelope_grid[m].a, envelope_grid[m].grad_a_r,
+                            envelope_grid[m].grad_a_t,
+                            envelope_grid[m].grad_a_z, m, self.a2,
+                            self.grad_a2_x, self.grad_a2_y, self.grad_a2_z )
+                    convert_a_to_a2_numba(
+                                    self.a2, self.grad_a2_x, self.grad_a2_y,
+                                    self.grad_a2_z, self.Ntot )
             elif self.particle_shape == 'cubic':
                 # Divide particles into chunks (each chunk is handled by a
                 # different thread) and return the indices that bound chunks
@@ -837,10 +861,28 @@ class Particles(object) :
                             self.Ex, self.Ey, self.Ez,
                             self.Bx, self.By, self.Bz,
                             nthreads, ptcl_chunk_indices )
+
+                if self.use_envelope:
+                    erase_a_numba(self.a2, self.grad_a2_x, self.grad_a2_y,
+                                self.grad_a2_z, self.Ntot)
+                    for m in envelope_mode_numbers:
+                        gather_envelope_field_numba_cubic_one_mode(
+                            self.x, self.y, self.z,
+                            envelope_grid[0].invdz, envelope_grid[0].zmin,
+                            envelope_grid[0].Nz, envelope_grid[0].invdr,
+                            envelope_grid[0].rmin, envelope_grid[0].Nr,
+                            envelope_grid[m].a, envelope_grid[m].grad_a_r,
+                            envelope_grid[m].grad_a_t,
+                            envelope_grid[m].grad_a_z, m, self.a2,
+                            self.grad_a2_x, self.grad_a2_y, self.grad_a2_z )
+                    convert_a_to_a2_numba(
+                                    self.a2, self.grad_a2_x, self.grad_a2_y,
+                                    self.grad_a2_z, self.Ntot )
             else:
                 raise ValueError("`particle_shape` should be either \
                                   'linear' or 'cubic' \
                                    but is `%s`" % self.particle_shape)
+
 
     def deposit( self, fld, fieldtype ) :
         """

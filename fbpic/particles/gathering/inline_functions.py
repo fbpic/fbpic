@@ -89,28 +89,32 @@ def add_linear_gather_for_mode( m,
 
     return(Fr, Ft, Fz)
 
-def add_linear_envelope_gather_for_mode( m, F
+def add_linear_envelope_gather_for_mode( m, F,
     Fr, Ft, Fz, exptheta_m, F_grid, Fr_grid, Ft_grid, Fz_grid,
     iz_lower, iz_upper, ir_lower, ir_upper,
     S_ll, S_lu, S_lg, S_ul, S_uu, S_ug ):
     """
-    Add the contribution of the gathered field from azimuthal mode `m` to the
-    fields felt by one macroparticle (`Fr`, `Ft`, `Fz`), using linear weights.
+    Add the contribution of the gathered scalar field and vector field
+    from azimuthal mode `m` to the fields felt by one macroparticle
+    ('F', `Fr`, `Ft`, `Fz`), using linear weights.
 
     Parameters:
     -----------
     m: int
-        The index of the azimuthal mode that is added.
+        The index of the azimuthal mode that is added, which represent a
+        (before the contribution of mode `m` has been added)
 
+    F: float
+        The scalar field felt by one macroparticle
     Fr, Ft, Fz: floats
-        The fields felt by one macroparticle, which represent either E or B
+        The fields felt by one macroparticle, which represent grad_a
         (before the contribution of mode `m` has been added)
 
     exptheta_m: complex
         The complex azimuthal factor $e^{-i m \theta}$ where $\theta$ is
         the azimuthal position of the macroparticle considered.
 
-    Fr_grid, Ft_grid, Fz_grid: 2darrays of complexs
+    F_grid, Fr_grid, Ft_grid, Fz_grid: 2darrays of complexs
         The fields on the interpolation grid for mode `m`
 
     iz_lower, iz_upper, ir_lower, ir_upper: ints
@@ -124,8 +128,8 @@ def add_linear_envelope_gather_for_mode( m, F
 
     Returns:
     --------
-    Fr, Ft, Fz: floats
-        The fields felt by one macroparticle, which represent either E or B
+    F, Fr, Ft, Fz: floats
+        The fields felt by one macroparticle, which represent a and grad_a
         (after the contribution of mode `m` has been added)
     """
     # Create temporary variables
@@ -271,3 +275,100 @@ def add_cubic_gather_for_mode( m,
     Fz += factor*(Fz_m*exptheta_m).real
 
     return(Fr, Ft, Fz)
+
+
+
+def add_cubic_envelope_gather_for_mode( m, F,
+    Fr, Ft, Fz, exptheta_m, F_grid, Fr_grid, Ft_grid, Fz_grid,
+    ir_lowest, iz_lowest, Sr_arr, Sz_arr, Nr, Nz ):
+    """
+    Add the contribution of the gathered scalar field and vector field
+    from azimuthal mode `m` to the fields felt by one macroparticle
+    ('F', `Fr`, `Ft`, `Fz`), using linear weights.
+
+    Parameters:
+    -----------
+    m: int
+        The index of the azimuthal mode that is added, which represent a
+        (before the contribution of mode `m` has been added)
+
+    F: float
+        The scalar field felt by one macroparticle
+    Fr, Ft, Fz: floats
+        The fields felt by one macroparticle, which represent grad_a
+        (before the contribution of mode `m` has been added)
+
+    exptheta_m: complex
+        The complex azimuthal factor $e^{-i m \theta}$ where $\theta$ is
+        the azimuthal position of the macroparticle considered.
+
+    F_grid, Fr_grid, Ft_grid, Fz_grid: 2darrays of complexs
+        The fields on the interpolation grid for mode `m`
+
+    iz_lower, iz_upper, ir_lower, ir_upper: ints
+        Lower and upper index in z and r from which the macroparticle
+        considered should gather the fields (in the arrays F*_grid)
+
+    S_ll, S_lu, S_lg, S_ul, S_uu, S_ug: floats
+        The weights with which the fields are gathered, for the macroparticle
+        considered. `S_lg` and `S_ug` are used for fields gathered from below
+        the axis.
+
+    Returns:
+    --------
+    F, Fr, Ft, Fz: floats
+        The fields felt by one macroparticle, which represent a and grad_a
+        (after the contribution of mode `m` has been added)
+    """
+    # Create temporary variables
+    # for the "per mode" gathering
+    F_m = 0.j
+    Fr_m = 0.j
+    Ft_m = 0.j
+    Fz_m = 0.j
+
+    # Loop over the 4x4 cells from which to gather fields
+    for index_r in range(4):
+
+        # Radial index
+        ir = ir_lowest + index_r
+        # Calculate shape factor for the longitudinal
+        # and transverse components of the field
+        Sr_long = Sr_arr[ index_r ]
+        Sr_perp = Sr_long
+        if ir < 0:
+            Sr_long *= (-1)**m
+            Sr_perp *= -(-1)**m
+        # Adjust radial index to avoid out of bound
+        if ir < 0:
+            ir = abs(ir) - 1
+        elif ir > Nr - 1:
+            ir = Nr - 1
+
+        for index_z in range(4):
+
+            # Longitudinal index
+            iz = iz_lowest + index_z
+            # Get shape factor
+            Sz = Sz_arr[index_z]
+            # Adjust longitudinal index to avoid out of bound
+            if iz < 0:
+                iz += Nz
+            elif iz > Nz-1:
+                iz -= Nz
+
+            # Get the fields
+            F_m += Sz*Sr_perp*F_grid[iz, ir]
+            Fr_m += Sz*Sr_perp*Fr_grid[iz, ir]
+            Ft_m += Sz*Sr_perp*Ft_grid[iz, ir]
+            Fz_m += Sz*Sr_long*Fz_grid[iz, ir]
+
+    # Add the contribution from mode m to Fr, Ft, Fz
+    # (Take into account factor 2 in the definition of azimuthal modes)
+
+    F += F_m*exptheta_m
+    Fr += Fr_m*exptheta_m
+    Ft += Ft_m*exptheta_m
+    Fz += Fz_m*exptheta_m
+
+    return(F, Fr, Ft, Fz)

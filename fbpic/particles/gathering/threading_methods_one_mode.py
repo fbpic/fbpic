@@ -13,10 +13,15 @@ import math
 import numpy as np
 # Import inline functions
 from .inline_functions import \
-    add_linear_gather_for_mode, add_cubic_gather_for_mode
+    add_linear_gather_for_mode, add_cubic_gather_for_mode, \
+    add_linear_envelope_gather_for_mode, add_cubic_envelope_gather_for_mode
 # Compile the inline functions for CPU
 add_linear_gather_for_mode = numba.njit( add_linear_gather_for_mode )
 add_cubic_gather_for_mode = numba.njit( add_cubic_gather_for_mode )
+add_linear_envelope_gather_for_mode = numba.njit(
+                                        add_linear_envelope_gather_for_mode )
+add_cubic_envelope_gather_for_mode = numba.njit(
+                                        add_cubic_envelope_gather_for_mode )
 
 
 @njit_parallel
@@ -38,6 +43,46 @@ def erase_eb_numba( Ex, Ey, Ez, Bx, By, Bz, Ntot ):
         By[i] = 0
         Bz[i] = 0
     return  Ex, Ey, Ez, Bx, By, Bz
+
+@njit_parallel
+def erase_a_numba( a2, grad_a2_x, grad_a2_y, grad_a2_z, Ntot ):
+    """
+    Reset the arrays of envelope fields (i.e. set them to 0)
+
+    Parameters
+    ----------
+    a2, grad_a2_x, grad_a2_y, grad_a2_z: 1d arrays of floats
+        (One element per macroparticle)
+        Represents the envelope fields on the macroparticles
+    """
+    for i in prange(Ntot):
+        a2[i] = 0
+        grad_a2_x[i] = 0
+        grad_a2_y[i] = 0
+        grad_a2_z[i] = 0
+
+@njit_parallel
+def convert_a_to_a2_numba(a2, grad_a2_x, grad_a2_y, grad_a2_z, Ntot ):
+    """
+    Compute a^2 and the components of grad_a^2 from a and the components
+    of grad_a that were temporarily stored in those variables.
+
+    Parameters
+    ----------
+    a2, grad_a2_x, grad_a2_y, grad_a2_z: 1d arrays of floats
+        (One element per macroparticle)
+        Initially contains respectively a and the components of grad_a,
+        at the end contains the a^2 and grad_a^2 fields that are necessary
+        for pushing the particle momentum
+    """
+    for i in prange(Ntot):
+        grad_a2_x[i] = 2 * (grad_a2_x[i] *\
+                                    a2[i].conjugate()).real
+        grad_a2_y[i] = 2 * (grad_a2_y[i] *\
+                                    a2[i].conjugate()).real
+        grad_a2_z[i] = 2 * (grad_a2_z[i] *\
+                                    a2[i].conjugate()).real
+        a2[i] = a2[i] * a2[i].conjugate()
 
 # -----------------------
 # Field gathering linear
@@ -196,6 +241,134 @@ def gather_field_numba_linear_one_mode(x, y, z,
 
     return Ex, Ey, Ez, Bx, By, Bz
 
+@njit_parallel
+def gather_envelope_field_numba_linear_one_mode(x, y, z,
+                    invdz, zmin, Nz,
+                    invdr, rmin, Nr,
+                    a_m, grad_a_r_m, grad_a_t_m, grad_a_z_m, m,
+                    a, grad_a_x, grad_a_y, grad_a_z):
+    """
+    Gathering of the fields a and grad_a using numba with multi-threading.
+    Iterates over the particles, calculates the weighted amount
+    of fields acting on each particle based on its shape (linear).
+    Fields are gathered in cylindrical coordinates and then
+    transformed to cartesian coordinates.
+
+    Parameters
+    ----------
+    x, y, z : 1darray of floats (in meters)
+        The position of the particles
+
+    invdz, invdr : float (in meters^-1)
+        Inverse of the grid step along the considered direction
+
+    zmin, rmin : float (in meters)
+        Position of the edge of the simulation box along the
+        direction considered
+
+    Nz, Nr : int
+        Number of gridpoints along the considered direction
+
+    a_m, grad_a_r_m, grad_a_t_m, grad_a_z_m : 2darray of complexs
+        The relevant fields on the interpolation grid for the mode m
+
+    m: int
+        Index of the azimuthal mode
+
+    a, grad_a_x, grad_a_y, grad_a_z : 1darray of floats
+        The relevant fields acting on the particles
+        (is modified by this function)
+
+    """
+    # Deposit the field per cell in parallel
+    for i in prange(x.shape[0]):
+        # Preliminary arrays for the cylindrical conversion
+        # --------------------------------------------
+        # Position
+        xj = x[i]
+        yj = y[i]
+        zj = z[i]
+
+        # Cylindrical conversion
+        rj = math.sqrt( xj**2 + yj**2 )
+        if (rj !=0. ) :
+            invr = 1./rj
+            cos = xj*invr  # Cosine
+            sin = yj*invr  # Sine
+        else :
+            cos = 1.
+            sin = 0.
+        exptheta_m = (cos - 1.j*sin)**m
+
+        # Get linear weights for the deposition
+        # -------------------------------------
+        # Positions of the particles, in the cell unit
+        r_cell =  invdr*(rj - rmin) - 0.5
+        z_cell =  invdz*(zj - zmin) - 0.5
+        # Original index of the uppper and lower cell
+        ir_lower = int(math.floor( r_cell ))
+        ir_upper = ir_lower + 1
+        iz_lower = int(math.floor( z_cell ))
+        iz_upper = iz_lower + 1
+        # Linear weight
+        Sr_lower = ir_upper - r_cell
+        Sr_upper = r_cell - ir_lower
+        Sz_lower = iz_upper - z_cell
+        Sz_upper = z_cell - iz_lower
+        # Set guard weights to zero
+        Sr_guard = 0.
+
+        # Treat the boundary conditions
+        # -----------------------------
+        # guard cells in lower r
+        if ir_lower < 0:
+            Sr_guard = Sr_lower
+            Sr_lower = 0.
+            ir_lower = 0
+        # absorbing in upper r
+        if ir_lower > Nr-1:
+            ir_lower = Nr-1
+        if ir_upper > Nr-1:
+            ir_upper = Nr-1
+        # periodic boundaries in z
+        # lower z boundaries
+        if iz_lower < 0:
+            iz_lower += Nz
+        if iz_upper < 0:
+            iz_upper += Nz
+        # upper z boundaries
+        if iz_lower > Nz-1:
+            iz_lower -= Nz
+        if iz_upper > Nz-1:
+            iz_upper -= Nz
+
+        # Precalculate Shapes
+        S_ll = Sz_lower*Sr_lower
+        S_lu = Sz_lower*Sr_upper
+        S_ul = Sz_upper*Sr_lower
+        S_uu = Sz_upper*Sr_upper
+        S_lg = Sz_lower*Sr_guard
+        S_ug = Sz_upper*Sr_guard
+
+        # Envelope field
+        # -------
+        F = 0
+        Fr = 0.
+        Ft = 0.
+        Fz = 0.
+        # Add contribution from mode m
+        F, Fr, Ft, Fz = add_linear_envelope_gather_for_mode( m, F,
+            Fr, Ft, Fz, exptheta_m, a_m, grad_a_r_m, grad_a_t_m, grad_a_z_m,
+            iz_lower, iz_upper, ir_lower, ir_upper,
+            S_ll, S_lu, S_lg, S_ul, S_uu, S_ug )
+        # Convert to Cartesian coordinates
+        # and write to particle field arrays
+        a[i] += F
+        grad_a_x[i] += cos*Fr - sin*Ft
+        grad_a_y[i] += sin*Fr + cos*Ft
+        grad_a_z[i] += Fz
+
+
 # -----------------------
 # Field gathering cubic
 # -----------------------
@@ -339,3 +512,109 @@ def gather_field_numba_cubic_one_mode(x, y, z,
             Bz[i] += Fz
 
     return Ex, Ey, Ez, Bx, By, Bz
+
+@njit_parallel
+def gather_envelope_field_numba_cubic_one_mode(x, y, z,
+                    invdz, zmin, Nz,
+                    invdr, rmin, Nr,
+                    a_m, grad_a_r_m, grad_a_t_m, grad_a_z_m, m,
+                    a, grad_a_x, grad_a_y, grad_a_z):
+    """
+    Gathering of the field a and grad_a using numba with multi-threading.
+    Iterates over the particles, calculates the weighted amount
+    of fields acting on each particle based on its shape (cubic).
+    Fields are gathered in cylindrical coordinates and then
+    transformed to cartesian coordinates.
+
+    Parameters
+    ----------
+    x, y, z : 1darray of floats (in meters)
+        The position of the particles
+
+    invdz, invdr : float (in meters^-1)
+        Inverse of the grid step along the considered direction
+
+    zmin, rmin : float (in meters)
+        Position of the edge of the simulation box along the
+        direction considered
+
+    Nz, Nr : int
+        Number of gridpoints along the considered direction
+
+    a_m, grad_a_r_m, grad_a_t_m, grad_a_z_m : 2darray of complexs
+        The relevant fields on the interpolation grid for the mode m
+
+    m: int
+        Index of the azimuthal mode
+
+    a, grad_a_x, grad_a_y, grad_a_z : 1darray of floats
+        The relevant fields acting on the particles
+        (is modified by this function)
+
+    """
+    # Gather the field per cell in parallel
+    for nt in prange( nthreads ):
+
+        # Create private arrays for each thread
+        # to store the particle index and shape
+        Sr = np.empty( 4 )
+        Sz = np.empty( 4 )
+
+        # Loop over all particles in thread chunk
+        for i in range( ptcl_chunk_indices[nt],
+                            ptcl_chunk_indices[nt+1] ):
+
+            # Preliminary arrays for the cylindrical conversion
+            # --------------------------------------------
+            # Position
+            xj = x[i]
+            yj = y[i]
+            zj = z[i]
+
+            # Cylindrical conversion
+            rj = math.sqrt(xj**2 + yj**2)
+            if (rj != 0.):
+                invr = 1./rj
+                cos = xj*invr  # Cosine
+                sin = yj*invr  # Sine
+            else:
+                cos = 1.
+                sin = 0.
+            exptheta_m = (cos - 1.j*sin)**m
+
+            # Get weights for the deposition
+            # --------------------------------------------
+            # Positions of the particle, in the cell unit
+            r_cell = invdr*(rj - rmin) - 0.5
+            z_cell = invdz*(zj - zmin) - 0.5
+
+            # Calculate the shape factors
+            ir_lowest = int64(math.floor(r_cell)) - 1
+            r_local = r_cell-ir_lowest
+            Sr[0] = -1./6. * (r_local-2.)**3
+            Sr[1] = 1./6. * (3.*(r_local-1.)**3 - 6.*(r_local-1.)**2 + 4.)
+            Sr[2] = 1./6. * (3.*(2.-r_local)**3 - 6.*(2.-r_local)**2 + 4.)
+            Sr[3] = -1./6. * (1.-r_local)**3
+            iz_lowest = int64(math.floor(z_cell)) - 1
+            z_local = z_cell-iz_lowest
+            Sz[0] = -1./6. * (z_local-2.)**3
+            Sz[1] = 1./6. * (3.*(z_local-1.)**3 - 6.*(z_local-1.)**2 + 4.)
+            Sz[2] = 1./6. * (3.*(2.-z_local)**3 - 6.*(2.-z_local)**2 + 4.)
+            Sz[3] = -1./6. * (1.-z_local)**3
+
+            # Envelope fields
+            # -------
+            F = 0.
+            Fr = 0.
+            Ft = 0.
+            Fz = 0.
+            # Add contribution from mode m
+            F, Fr, Ft, Fz = add_cubic_envelope_gather_for_mode( m, F,
+                Fr, Ft, Fz, exptheta_m, a_m, grad_a_r_m, grad_a_t_m, grad_a_z_m,
+                ir_lowest, iz_lowest, Sr, Sz, Nr, Nz )
+            # Convert to Cartesian coordinates
+            # and write to particle field arrays
+            a[i] += F
+            grad_a_x[i] += cos*Fr - sin*Ft
+            grad_a_y[i] += sin*Fr + cos*Ft
+            grad_a_z[i] += Fz

@@ -474,7 +474,7 @@ class Fields(object) :
                     self.envelope_spect[m].a_old, self.envelope_interp[m].a_old )
         elif fieldtype == 'grad_a' and self.use_envelope :
             # Transform each azimuthal grid individually
-            for m in in self.envelope_mode_numbers :
+            for m in self.envelope_mode_numbers :
                 self.trans[m].spect2interp_scal(
                     self.envelope_spect[m].grad_a_z,
                     self.envelope_interp[m].grad_a_z )
