@@ -518,7 +518,8 @@ def gather_envelope_field_numba_cubic_one_mode(x, y, z,
                     invdz, zmin, Nz,
                     invdr, rmin, Nr,
                     a_m, grad_a_r_m, grad_a_t_m, grad_a_z_m, m,
-                    a, grad_a_x, grad_a_y, grad_a_z):
+                    a, grad_a_x, grad_a_y, grad_a_z,
+                    nthreads, ptcl_chunk_indices):
     """
     Gathering of the field a and grad_a using numba with multi-threading.
     Iterates over the particles, calculates the weighted amount

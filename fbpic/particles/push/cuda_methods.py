@@ -345,8 +345,10 @@ def push_p_ioniz_envelope_gpu( ux, uy, uz, inv_gamma,
             # Set a few constants
             econst = ionization_level[ip] * e * dt/(m*c)
             bconst = 0.5 * ionization_level[ip] * e * dt/m
+            scale_factor = 0.5 ( ionization_level[ip] * e * m_e / (e * m) )**2
+            aconst = c * scale_factor * dt * 0.25
             # Use the Vay pusher
-            if keep_envelope:
+            if keep_momentum:
                 ux[ip], uy[ip], uz[ip], inv_gamma[ip] = push_p_vay_envelope(
                     ux[ip], uy[ip], uz[ip], inv_gamma[ip],
                     Ex[ip], Ey[ip], Ez[ip], Bx[ip], By[ip], Bz[ip], a2[ip],
