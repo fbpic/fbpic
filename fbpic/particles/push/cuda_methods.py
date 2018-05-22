@@ -231,6 +231,10 @@ def push_p_envelope_gpu( ux, uy, uz, inv_gamma,
     Bx, By, Bz : 1darray of floats
         The magnetic fields acting on the particles
 
+    a2, grad_a2_x, grad_a2_y, grad_a2_z : 1d array of floats
+        The envelope fields acting on the particle for ponderomotive force and
+        quiver motion
+
     q : float
         The charge of the particle species
 
@@ -242,6 +246,10 @@ def push_p_envelope_gpu( ux, uy, uz, inv_gamma,
 
     dt : float
         The time by which the momenta is advanced
+
+    keep_momentum : boolean
+        Whether or not to register the new momentum obtained in the particles,
+        or only the new gamma.
     """
     # Set a few constants
     econst = q*dt/(m*c)

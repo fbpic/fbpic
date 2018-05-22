@@ -142,7 +142,7 @@ def push_p_vay( ux_i, uy_i, uz_i, inv_gamma_i,
 @njit_parallel
 def push_p_envelope_numba( ux, uy, uz, inv_gamma,
                 Ex, Ey, Ez, Bx, By, Bz, a2, grad_a2_x, grad_a2_y, grad_a2_z,
-                q, m, Ntot, dt ) :
+                q, m, Ntot, dt , keep_momentum = True) :
     """
     Advance the particles' momenta, using numba
     """
@@ -152,16 +152,17 @@ def push_p_envelope_numba( ux, uy, uz, inv_gamma,
 
     # Loop over the particles (in parallel if threading is installed)
     for ip in prange(Ntot) :
-        ux[ip], uy[ip], uz[ip], inv_gamma[ip] = push_p_vay(
+        aux_x, aux_y, aux_z, inv_gamma[ip] = push_p_vay(
             ux[ip], uy[ip], uz[ip], inv_gamma[ip],
             Ex[ip], Ey[ip], Ez[ip], Bx[ip], By[ip], Bz[ip], econst, bconst )
-
+        if keep_momentum:
+            ux[ip], uy[ip], uz[ip] = aux_x, aux_y, aux_y
     return ux, uy, uz, inv_gamma
 
 @njit_parallel
 def push_p_after_plane_envelope_numba( z, z_plane, ux, uy, uz, inv_gamma,
                 Ex, Ey, Ez, Bx, By, Bz, a2, grad_a2_x, grad_a2_y, grad_a2_z,
-                q, m, Ntot, dt ) :
+                q, m, Ntot, dt, keep_momentum = True ) :
     """
     Advance the particles' momenta, using numba.
     Only the particles that are located beyond the plane z=z_plane
@@ -182,7 +183,7 @@ def push_p_after_plane_envelope_numba( z, z_plane, ux, uy, uz, inv_gamma,
 @njit_parallel
 def push_p_ioniz_envelope_numba( ux, uy, uz, inv_gamma,
                 Ex, Ey, Ez, Bx, By, Bz, a2, grad_a2_x, grad_a2_y, grad_a2_z,
-                m, Ntot, dt, ionization_level ) :
+                m, Ntot, dt, ionization_level, keep_momentum = True ) :
     """
     Advance the particles' momenta, using numba
     """
