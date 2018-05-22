@@ -409,7 +409,11 @@ class Simulation(object):
             # Push the particles' positions and velocities to t = (n+1/2) dt
             if move_momenta:
                 for species in ptcl:
-                    species.push_p( self.time + 0.5*self.dt )
+                    if self.use_envelope:
+                        species.push_p_with_envelope(self.time + 0.5 * dt)
+                    else:
+                        species.push_p( self.time + 0.5*self.dt )
+
             if move_positions:
                 for species in ptcl:
                     species.push_x( 0.5*dt )

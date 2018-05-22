@@ -622,6 +622,8 @@ class Particles(object) :
                     self.Ex, self.Ey, self.Ez, self.Bx, self.By, self.Bz,
                     self.q, self.m, self.Ntot, self.dt )
 
+    def push_p_with_envelope(self, t):
+
 
     def push_x( self, dt, x_push=1., y_push=1., z_push=1. ) :
         """
