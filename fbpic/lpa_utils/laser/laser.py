@@ -12,7 +12,7 @@ from .direct_injection import add_laser_direct
 from .antenna_injection import LaserAntenna
 
 def add_laser_pulse( sim, laser_profile, gamma_boost=None,
-                    method='direct', z0_antenna=None ):
+                method='direct', z0_antenna=None, v_antenna=0.):
     """
     Introduce a laser pulse in the simulation.
 
@@ -44,6 +44,10 @@ def add_laser_pulse( sim, laser_profile, gamma_boost=None,
     z0_antenna: float, optional (meters)
        Required for the ``antenna`` method: initial position
        (in the lab frame) of the antenna.
+
+    v_antenna: float, optional (meters per second)
+       Only used for the ``antenna`` method: velocity of the antenna
+       (in the lab frame)
 
     Example
     -------
@@ -82,7 +86,8 @@ def add_laser_pulse( sim, laser_profile, gamma_boost=None,
         Nr = sim.fld.interp[0].Nr
         Nm = sim.fld.Nm
         sim.laser_antennas.append(
-            LaserAntenna( laser_profile, z0_antenna, dr, Nr, Nm, boost ))
+            LaserAntenna( laser_profile, z0_antenna, v_antenna,
+                            dr, Nr, Nm, boost ) )
 
     else:
         raise ValueError('Unknown laser method: %s' %method)
@@ -93,7 +98,8 @@ def add_laser_pulse( sim, laser_profile, gamma_boost=None,
 def add_laser( sim, a0, w0, ctau, z0, zf=None, lambda0=0.8e-6,
                cep_phase=0., phi2_chirp=0., theta_pol=0.,
                gamma_boost=None, method='direct',
-               fw_propagating=True, update_spectral=True, z0_antenna=None ):
+               fw_propagating=True, update_spectral=True,
+               z0_antenna=None, v_antenna=0. ):
     """
     Introduce a linearly-polarized, Gaussian laser in the simulation.
 
@@ -186,6 +192,10 @@ def add_laser( sim, a0, w0, ctau, z0, zf=None, lambda0=0.8e-6,
     z0_antenna: float, optional (meters)
        Only for the `antenna` method: initial position (in the lab frame)
        of the antenna. If not provided, then the z0_antenna is set to zf.
+
+    v_antenna: float, optional (meters per second)
+       Only used for the ``antenna`` method: velocity of the antenna
+       (in the lab frame)
     """
     # Pick the propagation direction
     if fw_propagating:
@@ -201,4 +211,4 @@ def add_laser( sim, a0, w0, ctau, z0, zf=None, lambda0=0.8e-6,
 
     # Add it to the simulation
     add_laser_pulse( sim, laser_profile, gamma_boost=gamma_boost,
-        method=method, z0_antenna=z0_antenna )
+        method=method, z0_antenna=z0_antenna, v_antenna=v_antenna )
