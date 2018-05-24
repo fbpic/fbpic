@@ -339,6 +339,7 @@ class Simulation(object):
         fld.interp2spect('B')
         if fld.use_envelope:
             fld.interp2spect('a')
+            fld.interp2spect('a_old')
 
         # Beginning of the N iterations
         # -----------------------------
@@ -481,6 +482,7 @@ class Simulation(object):
             if fld.use_envelope:
                 fld.spect2interp('a')
 
+
             # Increment the global time and iteration
             self.time += dt
             self.iteration += 1
@@ -501,6 +503,8 @@ class Simulation(object):
         if (not fld.exchanged_source['rho_prev']) and (self.comm.size > 1):
             self.comm.exchange_fields(self.fld.interp, 'rho', 'add')
 
+        if self.use_envelope:
+            fld.spect2interp('a_old')
         # Receive simulation data from GPU (if CUDA is used)
         if self.use_cuda:
             receive_data_from_gpu(self)
