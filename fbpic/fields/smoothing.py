@@ -35,7 +35,7 @@ class BinomialSmoother( object ):
             raise ValueError('Invalid argument `compensator`')
 
 
-    def calculate_filter_array( kz, kr, dz, dr ) :
+    def get_filter_array( kz, kr, dz, dr ) :
         """
         Return the array that multiplies the fields in k space
 

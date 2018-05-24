@@ -15,6 +15,7 @@ from .interpolation_grid import InterpolationGrid
 from .spectral_grid import SpectralGrid
 from .psatd_coefs import PsatdCoeffs
 from fbpic.utils.cuda import cuda_installed
+from .smoothing import BinomialSmoother
 
 class Fields(object) :
     """
@@ -49,7 +50,7 @@ class Fields(object) :
     def __init__( self, Nz, zmax, Nr, rmax, Nm, dt, zmin=0.,
                   n_order=-1, v_comoving=None, use_galilean=True,
                   current_correction='cross-deposition', use_cuda=False,
-                  create_threading_buffers=False ):
+                  smoother=None, create_threading_buffers=False ):
         """
         Initialize the components of the Fields object
 
@@ -101,6 +102,10 @@ class Fields(object) :
         use_cuda : bool, optional
             Wether to use the GPU or not
 
+        smoother: an instance of BinomialSmoother, optional
+            Determines how the charge and currents are smoothed.
+            (Default: one-pass binomial filter and no compensator.)
+
         create_threading_buffers: bool, optional
             Whether to create the buffers used in order to perform
             charge/current deposition with threading on CPU
@@ -115,6 +120,10 @@ class Fields(object) :
         self.n_order = n_order
         self.v_comoving = v_comoving
         self.use_galilean = use_galilean
+
+        # Set the default smoother
+        if smoother is None:
+            smoother = BinomialSmoother( n_smoothing_passes=1 )
 
         # Define wether or not to use the GPU
         self.use_cuda = use_cuda
@@ -164,7 +173,7 @@ class Fields(object) :
             # Create the object
             self.spect.append( SpectralGrid( kz_modified, kr, m,
                 kz_true, self.interp[m].dz, self.interp[m].dr,
-                current_correction, use_cuda=self.use_cuda ) )
+                current_correction, smoother, use_cuda=self.use_cuda ) )
             self.psatd.append( PsatdCoeffs( self.spect[m].kz,
                                 self.spect[m].kr, m, dt, Nz, Nr,
                                 V=self.v_comoving,

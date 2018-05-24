@@ -12,7 +12,8 @@ from .numba_methods import numba_push_eb_standard, numba_push_eb_comoving, \
     numba_correct_currents_curlfree_standard, \
     numba_correct_currents_crossdeposition_standard, \
     numba_correct_currents_curlfree_comoving, \
-    numba_correct_currents_crossdeposition_comoving
+    numba_correct_currents_crossdeposition_comoving, \
+    numba_filter_scalar, numba_filter_vector
 # Check if CUDA is available, then import CUDA functions
 from fbpic.utils.cuda import cuda_installed
 if cuda_installed:
@@ -32,7 +33,7 @@ class SpectralGrid(object) :
     """
 
     def __init__(self, kz_modified, kr, m, kz_true, dz, dr,
-                        current_correction, use_cuda=False ) :
+                        current_correction, smoother, use_cuda=False ) :
         """
         Allocates the matrices corresponding to the spectral grid
 
@@ -56,9 +57,13 @@ class SpectralGrid(object) :
             The grid spacings (needed to calculate
             precisely the filtering function in spectral space)
 
-        current_correction: string, optional
+        current_correction: string
             The method used in order to ensure that the continuity equation
             is satisfied. Either `curl-free` or `cross-deposition`.
+
+        smoother: an instance of BinomialSmoother
+            Determines how the charge and currents are smoothed.
+            (Default: one-pass binomial filter and no compensator.)
 
         use_cuda : bool, optional
             Wether to use the GPU or not
@@ -90,9 +95,10 @@ class SpectralGrid(object) :
         # - for the field solve
         #   (use the modified kz, since this corresponds to the stencil)
         self.kz, self.kr = np.meshgrid( kz_modified, kr, indexing='ij' )
-        # - for filtering
+        # - for filtering: create two 1D arrays
         #   (use the true kz, so as to effectively filter the high k's)
-        self.filter_array = get_filter_array( kz_true, kr, dz, dr )
+        self.filter_array_z, self.filter_array_r = \
+                smoother.get_filter_array( kz_true, kr, dz, dr )
         # - for curl-free current correction
         if current_correction == 'curl-free':
             self.inv_k2 = 1./np.where( ( self.kz == 0 ) & (self.kr == 0),
@@ -108,7 +114,8 @@ class SpectralGrid(object) :
 
         # Transfer the auxiliary arrays on the GPU
         if self.use_cuda :
-            self.d_filter_array = cuda.to_device( self.filter_array )
+            self.d_filter_array_z = cuda.to_device( self.filter_array_z )
+            self.d_filter_array_r = cuda.to_device( self.filter_array_r )
             self.d_kz = cuda.to_device( self.kz )
             self.d_kr = cuda.to_device( self.kr )
             self.d_field_shift = cuda.to_device( self.field_shift )
@@ -372,41 +379,47 @@ class SpectralGrid(object) :
         """
         if self.use_cuda :
             # Obtain the cuda grid
-            dim_grid, dim_block = cuda_tpb_bpg_2d( self.Nz, self.Nr)
+            dim_grid, dim_block = cuda_tpb_bpg_2d( self.Nz, self.Nr )
             # Filter fields on the GPU
             if fieldtype == 'J' :
-                cuda_filter_vector[dim_grid, dim_block]( self.Jp, self.Jm,
-                        self.Jz, self.d_filter_array, self.Nz, self.Nr)
+                cuda_filter_vector[dim_grid, dim_block](
+                        self.Jp, self.Jm, self.Jz, self.Nz, self.Nr,
+                        self.d_filter_array_z, self.d_filter_array_r )
             elif fieldtype == 'E' :
-                cuda_filter_vector[dim_grid, dim_block]( self.Ep, self.Em,
-                        self.Ez, self.d_filter_array, self.Nz, self.Nr)
+                cuda_filter_vector[dim_grid, dim_block](
+                        self.Ep, self.Em, self.Ez, self.Nz, self.Nr,
+                        self.d_filter_array_z, self.d_filter_array_r )
             elif fieldtype == 'B' :
-                cuda_filter_vector[dim_grid, dim_block]( self.Bp, self.Bm,
-                        self.Bz, self.d_filter_array, self.Nz, self.Nr)
+                cuda_filter_vector[dim_grid, dim_block](
+                        self.Bp, self.Bm, self.Bz, self.Nz, self.Nr,
+                        self.d_filter_array_z, self.d_filter_array_r )
             elif fieldtype in ['rho_prev', 'rho_next',
                                 'rho_next_z', 'rho_next_xy']:
                 spectral_rho = getattr( self, fieldtype )
                 cuda_filter_scalar[dim_grid, dim_block](
-                    spectral_rho, self.d_filter_array, self.Nz, self.Nr )
+                        spectral_rho, self.Nz, self.Nr,
+                        self.d_filter_array_z, self.d_filter_array_r )
             else :
                 raise ValueError('Invalid string for fieldtype: %s'%fieldtype)
         else :
             # Filter fields on the CPU
-            if fieldtype == 'J':
-                self.Jp = self.Jp * self.filter_array
-                self.Jm = self.Jm * self.filter_array
-                self.Jz = self.Jz * self.filter_array
-            elif fieldtype == 'E':
-                self.Ep = self.Ep * self.filter_array
-                self.Em = self.Em * self.filter_array
-                self.Ez = self.Ez * self.filter_array
-            elif fieldtype == 'B':
-                self.Bp = self.Bp * self.filter_array
-                self.Bm = self.Bm * self.filter_array
-                self.Bz = self.Bz * self.filter_array
+            if fieldtype == 'J' :
+                numba_filter_vector(
+                        self.Jp, self.Jm, self.Jz, self.Nz, self.Nr,
+                        self.filter_array_z, self.filter_array_r )
+            elif fieldtype == 'E' :
+                numba_filter_vector(
+                        self.Ep, self.Em, self.Ez, self.Nz, self.Nr,
+                        self.filter_array_z, self.filter_array_r )
+            elif fieldtype == 'B' :
+                numba_filter_vector(
+                        self.Bp, self.Bm, self.Bz, self.Nz, self.Nr,
+                        self.filter_array_z, self.filter_array_r )
             elif fieldtype in ['rho_prev', 'rho_next',
                                 'rho_next_z', 'rho_next_xy']:
                 spectral_rho = getattr( self, fieldtype )
-                spectral_rho *= self.filter_array
+                numba_filter_scalar(
+                        spectral_rho, self.Nz, self.Nr,
+                        self.filter_array_z, self.filter_array_r )
             else :
                 raise ValueError('Invalid string for fieldtype: %s'%fieldtype)
