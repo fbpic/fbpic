@@ -26,7 +26,7 @@ class BinomialSmoother( object ):
             raise ValueError('Invalid argument `n_smoothing_passes`')
 
         # Register compensator
-        if type(compensator) is int:
+        if type(compensator) is bool:
             self.compensator = {'z': compensator,
                                 'r': compensator}
         elif type(compensator) is dict:
