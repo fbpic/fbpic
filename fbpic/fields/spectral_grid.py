@@ -7,7 +7,6 @@ It defines the SpectralGrid class.
 """
 import numpy as np
 from scipy.constants import epsilon_0
-from .utility_methods import get_filter_array
 from .numba_methods import numba_push_eb_standard, numba_push_eb_comoving, \
     numba_correct_currents_curlfree_standard, \
     numba_correct_currents_crossdeposition_standard, \

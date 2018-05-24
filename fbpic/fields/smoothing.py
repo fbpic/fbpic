@@ -21,7 +21,7 @@ class BinomialSmoother( object ):
             self.n_smoothing_passes = {'z': n_smoothing_passes,
                                        'r': n_smoothing_passes}
         elif type(n_smoothing_passes) is dict:
-            self.n_smoothing_passes = smoothing_passes
+            self.n_smoothing_passes = n_smoothing_passes
         else:
             raise ValueError('Invalid argument `n_smoothing_passes`')
 
@@ -35,7 +35,7 @@ class BinomialSmoother( object ):
             raise ValueError('Invalid argument `compensator`')
 
 
-    def get_filter_array( kz, kr, dz, dr ) :
+    def get_filter_array( self, kz, kr, dz, dr ) :
         """
         Return the array that multiplies the fields in k space
 
@@ -61,7 +61,7 @@ class BinomialSmoother( object ):
         nz = self.n_smoothing_passes['z']
         filt_z = ( 1. - sz2 )**nz
         # Add compensator
-        if self.compensator['z'] = True:
+        if self.compensator['z']:
             filt_z *= ( 1. + nz*sz2 )
 
         # Equivalent to nr passes of binomial filter in real space
@@ -69,7 +69,7 @@ class BinomialSmoother( object ):
         nr = self.n_smoothing_passes['r']
         filt_r = ( 1. - sr2 )**nr
         # Add compensator
-        if self.compensator['r'] = True:
+        if self.compensator['r']:
             filt_r *= ( 1. + nr*sr2 )
 
         return( filt_z, filt_r )
