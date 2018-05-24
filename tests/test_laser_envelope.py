@@ -45,9 +45,9 @@ show = False # Whether to show the plots, and check them manually
 use_cuda = False
 
 # Simulation box
-Nz = 200
-zmin = -20.e-6
-zmax = 20.e-6
+Nz = 50
+zmin = -10.e-6
+zmax = 10.e-6
 Nr = 25
 Lr = 40.e-6
 Nm = 2
