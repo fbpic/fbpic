@@ -42,7 +42,7 @@ from fbpic.lpa_utils.laser import add_laser_pulse, \
 # below for their definition)
 show = False # Whether to show the plots, and check them manually
 
-use_cuda = True
+use_cuda = False
 
 # Simulation box
 Nz = 200

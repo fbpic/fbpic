@@ -8,7 +8,7 @@ It defines the particle push methods on the CPU with numba.
 import math
 import numba
 from fbpic.utils.threading import njit_parallel, prange
-from scipy.constants import c, e
+from scipy.constants import c, e, m_e
 
 @njit_parallel
 def push_x_numba( x, y, z, ux, uy, uz, inv_gamma, Ntot, dt,
@@ -149,12 +149,15 @@ def push_p_envelope_numba( ux, uy, uz, inv_gamma,
     # Set a few constants
     econst = q*dt/(m*c)
     bconst = 0.5*q*dt/m
-
+    scale_factor = 0.5 * ( q * m_e / (e * m) )**2
+    aconst = c * scale_factor * dt * 0.25
     # Loop over the particles (in parallel if threading is installed)
     for ip in prange(Ntot) :
-        aux_x, aux_y, aux_z, inv_gamma[ip] = push_p_vay(
+        aux_x, aux_y, aux_z, inv_gamma[ip] = push_p_vay_envelope(
             ux[ip], uy[ip], uz[ip], inv_gamma[ip],
-            Ex[ip], Ey[ip], Ez[ip], Bx[ip], By[ip], Bz[ip], econst, bconst )
+            Ex[ip], Ey[ip], Ez[ip], Bx[ip], By[ip], Bz[ip], a2[ip],
+            grad_a2_x[ip], grad_a2_y[ip], grad_a2_z[ip], econst, bconst,
+            aconst, scale_factor)
         if keep_momentum:
             ux[ip], uy[ip], uz[ip] = aux_x, aux_y, aux_y
     return ux, uy, uz, inv_gamma
@@ -171,13 +174,19 @@ def push_p_after_plane_envelope_numba( z, z_plane, ux, uy, uz, inv_gamma,
     # Set a few constants
     econst = q*dt/(m*c)
     bconst = 0.5*q*dt/m
+    scale_factor = 0.5 * ( q * m_e / (e * m) )**2
+    aconst = c * scale_factor * dt * 0.25
 
     # Loop over the particles (in parallel if threading is installed)
     for ip in prange(Ntot) :
         if z[ip] > z_plane:
-            ux[ip], uy[ip], uz[ip], inv_gamma[ip] = push_p_vay(
+            aux_x, aux_y, aux_z, inv_gamma[ip] = push_p_vay_envelope(
                 ux[ip], uy[ip], uz[ip], inv_gamma[ip],
-                Ex[ip], Ey[ip], Ez[ip], Bx[ip], By[ip], Bz[ip], econst, bconst)
+                Ex[ip], Ey[ip], Ez[ip], Bx[ip], By[ip], Bz[ip], a2[ip],
+                grad_a2_x[ip], grad_a2_y[ip], grad_a2_z[ip], econst, bconst,
+                aconst, scale_factor)
+            if keep_momentum:
+                ux[ip], uy[ip], uz[ip] = aux_x, aux_y, aux_y
 
 
 @njit_parallel
@@ -201,11 +210,17 @@ def push_p_ioniz_envelope_numba( ux, uy, uz, inv_gamma,
         # Calculate the charge dependent constants
         econst = prefactor_econst * ionization_level[ip]
         bconst = prefactor_bconst * ionization_level[ip]
+        scale_factor = 0.5 * ( ionization_level[ip] * e * m_e / (e * m) )**2
+        aconst = c * scale_factor * dt * 0.25
+
         # Perform the push
-        ux[ip], uy[ip], uz[ip], inv_gamma[ip] = push_p_vay(
+        aux_x, aux_y, aux_z, inv_gamma[ip] = push_p_vay_envelope(
             ux[ip], uy[ip], uz[ip], inv_gamma[ip],
-            Ex[ip], Ey[ip], Ez[ip], Bx[ip], By[ip], Bz[ip],
-            econst, bconst )
+            Ex[ip], Ey[ip], Ez[ip], Bx[ip], By[ip], Bz[ip], a2[ip],
+            grad_a2_x[ip], grad_a2_y[ip], grad_a2_z[ip], econst, bconst,
+            aconst, scale_factor)
+        if keep_momentum:
+            ux[ip], uy[ip], uz[ip] = aux_x, aux_y, aux_y
 
     return ux, uy, uz, inv_gamma
 
@@ -223,8 +238,6 @@ def push_p_vay_envelope( ux_i, uy_i, uz_i, inv_gamma_i,
     ux1 = ux_i - aconst * inv_gamma_temp * grad_a2_x_i
     uy1 = uy_i - aconst * inv_gamma_temp * grad_a2_y_i
     uz1 = uz_i - aconst * inv_gamma_temp * grad_a2_z_i
-
-
     inv_gamma_temp = 1. / math.sqrt(1 + ux1**2 + uy1**2 + uz1**2 + scale_factor * a2_i)
 
     # Get the magnetic rotation vector
@@ -262,7 +275,29 @@ def push_p_vay_envelope( ux_i, uy_i, uz_i, inv_gamma_i,
     ux_f -= aconst * inv_gamma_f * grad_a2_x_i
     uy_f -= aconst * inv_gamma_f * grad_a2_y_i
     uz_f -= aconst * inv_gamma_f * grad_a2_z_i
-
     inv_gamma_f = 1. / math.sqrt(1 + ux_f**2 + uy_f**2 + uz_f**2 + scale_factor * a2_i)
-
     return( ux_f, uy_f, uz_f, inv_gamma_f )
+
+@njit_parallel
+def update_inv_gamma_numba(a2, ux, uy, uz, inv_gamma, q, m, Ntot):
+    """
+    Recompute the gamma factor of the particles, including the quiver motion
+    created by the 'a' field.
+    Parameters
+    ----------
+    a2: 1d array of floats, dimensionless
+        Envelope field acting on the particle
+
+    ux, uy, uz : 1darray of floats (in meters * second^-1)
+        The velocity of the particles
+
+    inv_gamma : 1darray of floats
+        The inverse of the relativistic gamma factor
+
+    q : float
+        The charge of the particle species
+    """
+    scale_factor = 0.5 * ( q * m_e / (e * m) )**2
+    for ip in prange(Ntot) :
+        inv_gamma[ip] = math.sqrt(1 + ux[ip]**2 + uy[ip]**2 + uz[ip]**2 \
+                                + scale_factor * a2[ip] )

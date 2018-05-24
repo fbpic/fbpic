@@ -313,13 +313,22 @@ class Fields(object) :
 
         # Check if the envelope model is used then
         # push each azimuthal mode individually
-        if self.use_envelope:
+        '''if self.use_envelope:
             assert self.envelope_wavelength_obtained
             for m in self.envelope_mode_numbers :
-                self.envelope_spect[m].push_envelope_with(self.psatd[abs(m)])
+                self.envelope_spect[m].push_envelope_with(self.psatd[abs(m)])'''
 
         for m in range(self.Nm) :
             self.spect[m].push_rho()
+
+    def push_envelope(self):
+        """
+        Push the different azimuthal modes over one timestep,
+        in spectral space.
+        """
+        assert self.envelope_wavelength_obtained
+        for m in self.envelope_mode_numbers :
+            self.envelope_spect[m].push_envelope_with(self.psatd[abs(m)])
 
     def correct_currents(self, check_exchanges=False) :
         """

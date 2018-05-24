@@ -34,6 +34,7 @@ def add_laser_direct_envelope( sim, laser_profile, boost ):
     for m in sim.fld.envelope_mode_numbers:
         sim.fld.envelope_interp[m].a[:,:] = laser_a[:,:,m]
         sim.fld.envelope_interp[m].a_old[:,:] = laser_a_old[:,:,m]
+    sim.fld.compute_grad_a()
 
     print("Done.\n")
 

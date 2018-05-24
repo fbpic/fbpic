@@ -93,6 +93,7 @@ def push_x_gpu( x, y, z, ux, uy, uz, inv_gamma, dt,
         z[i] += cdt*z_push*inv_g*uz[i]
 
 
+
 @cuda.jit
 def push_p_gpu( ux, uy, uz, inv_gamma,
                 Ex, Ey, Ez, Bx, By, Bz,
@@ -254,7 +255,7 @@ def push_p_envelope_gpu( ux, uy, uz, inv_gamma,
     # Set a few constants
     econst = q*dt/(m*c)
     bconst = 0.5*q*dt/m
-    scale_factor = 0.5 ( q * m_e / (e * m) )**2
+    scale_factor = 0.5 * ( q * m_e / (e * m) )**2
     aconst = c * scale_factor * dt * 0.25
 
     #Cuda 1D grid
@@ -297,7 +298,7 @@ def push_p_after_plane_envelope_gpu( z, z_plane, ux, uy, uz, inv_gamma,
     # Set a few constants
     econst = q*dt/(m*c)
     bconst = 0.5*q*dt/m
-    scale_factor = 0.5 ( q * m_e / (e * m) )**2
+    scale_factor = 0.5 * ( q * m_e / (e * m) )**2
     aconst = c * scale_factor * dt * 0.25
 
     # Cuda 1D grid
@@ -345,7 +346,7 @@ def push_p_ioniz_envelope_gpu( ux, uy, uz, inv_gamma,
             # Set a few constants
             econst = ionization_level[ip] * e * dt/(m*c)
             bconst = 0.5 * ionization_level[ip] * e * dt/m
-            scale_factor = 0.5 ( ionization_level[ip] * e * m_e / (e * m) )**2
+            scale_factor = 0.5 * ( ionization_level[ip] * e * m_e / (e * m) )**2
             aconst = c * scale_factor * dt * 0.25
             # Use the Vay pusher
             if keep_momentum:
@@ -370,14 +371,16 @@ def push_p_vay_envelope( ux_i, uy_i, uz_i, inv_gamma_i,
     Push at single macroparticle, using the Vay pusher
     """
     # First step, modelling first half of the ponderomotive force
-    inv_gamma_temp = 1. / math.sqrt(1 + ux_i**2 + uy_i**2 + uz_i**2 + scale_factor * a2_i)
+    inv_gamma_temp = 1. / math.sqrt(1 + ux_i**2 + uy_i**2 + uz_i**2 \
+                                    + scale_factor * a2_i)
 
     ux1 = ux_i - aconst * inv_gamma_temp * grad_a2_x_i
     uy1 = uy_i - aconst * inv_gamma_temp * grad_a2_y_i
     uz1 = uz_i - aconst * inv_gamma_temp * grad_a2_z_i
 
 
-    inv_gamma_temp = 1. / math.sqrt(1 + ux1**2 + uy1**2 + uz1**2 + scale_factor * a2_i)
+    inv_gamma_temp = 1. / math.sqrt(1 + ux1**2 + uy1**2 + uz1**2 \
+                                    + scale_factor * a2_i)
 
     # Get the magnetic rotation vector
     taux = bconst*Bx
@@ -397,7 +400,8 @@ def push_p_vay_envelope( ux_i, uy_i, uz_i, inv_gamma_i,
 
     # Get the new 1./gamma
     inv_gamma_f = math.sqrt(
-        2./( sigma + math.sqrt( sigma**2 + 4*(tau2*(1 + scale_factor * a2_i) + utau**2 ) ) ) )
+        2./( sigma + math.sqrt( sigma**2 + 4*(tau2*(1 + scale_factor * a2_i) \
+                                                + utau**2 ) ) ) )
 
     # Reuse the tau and utau arrays to save memory
     tx = inv_gamma_f*taux
@@ -418,3 +422,28 @@ def push_p_vay_envelope( ux_i, uy_i, uz_i, inv_gamma_i,
     inv_gamma_f = 1. / math.sqrt(1 + ux_f**2 + uy_f**2 + uz_f**2 + scale_factor * a2_i)
 
     return( ux_f, uy_f, uz_f, inv_gamma_f )
+
+@cuda.jit
+def update_inv_gamma_gpu(a2, ux, uy, uz, inv_gamma, q, m):
+    """
+    Recompute the gamma factor of the particles, including the quiver motion
+    created by the 'a' field.
+    Parameters
+    ----------
+    a2: 1d array of floats, dimensionless
+        Envelope field acting on the particle
+
+    ux, uy, uz : 1darray of floats (dimensionless)
+        The velocity of the particles
+
+    inv_gamma : 1darray of floats
+        The inverse of the relativistic gamma factor
+
+    q : float
+        The charge of the particle species
+    """
+    scale_factor = 0.5 * ( q * m_e / (e * m) )**2
+    i = cuda.grid(1)
+    if i < ux.shape[0]:
+        inv_gamma[i] = math.sqrt(1 + ux[i]**2 + uy[i]**2 + uz[i]**2 \
+                                + scale_factor * a2[i] )
