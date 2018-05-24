@@ -8,43 +8,6 @@ It defines the structure and methods associated with the fields.
 import numpy as np
 from scipy.constants import c
 
-def get_filter_array( kz, kr, dz, dr ) :
-    """
-    Return the array that multiplies the fields in k space
-
-    The filtering function is 1-sin( k/kmax * pi/2 )**2.
-    (equivalent to a one-pass binomial filter in real space,
-    for the longitudinal direction)
-
-    Parameters
-    ----------
-    kz: 1darray
-        The true wavevectors of the longitudinal, spectral grid
-        (i.e. not the kz modified by finite order)
-
-    kr: 1darray
-        The transverse wavevectors on the spectral grid
-
-    dz, dr: float
-        The grid spacings (needed to calculate
-        precisely the filtering function in spectral space)
-
-    Returns
-    -------
-    A 2darray of shape ( len(kz), len(kr) )
-    """
-    # Find the 1D filter in z
-    filt_z = 1. - np.sin( 0.5 * kz * dz )**2
-
-    # Find the 1D filter in r
-    filt_r = 1. - np.sin( 0.5 * kr * dr )**2
-
-    # Build the 2D filter by takin the product
-    filter_array = filt_z[:, np.newaxis] * filt_r[np.newaxis, :]
-
-    return( filter_array )
-
-
 def get_modified_k(k, n_order, dz):
     """
     Calculate the modified k that corresponds to a finite-order stencil
