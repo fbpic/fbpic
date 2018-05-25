@@ -412,9 +412,6 @@ class Fields(object) :
             for m in self.envelope_mode_numbers:
                 self.trans[abs(m)].interp2spect_scal(
                     self.envelope_interp[m].a, self.envelope_spect[m].a )
-        elif fieldtype == 'a_old' and self.use_envelope:
-            # Transform each azimuthal grid individually
-            for m in self.envelope_mode_numbers:
                 self.trans[abs(m)].interp2spect_scal(
                     self.envelope_interp[m].a_old, self.envelope_spect[m].a_old)
         elif fieldtype == 'grad_a' and self.use_envelope:
@@ -482,9 +479,6 @@ class Fields(object) :
             for m in self.envelope_mode_numbers :
                 self.trans[abs(m)].spect2interp_scal(
                     self.envelope_spect[m].a, self.envelope_interp[m].a )
-        elif fieldtype == 'a_old' and self.use_envelope:
-            # Transform each azimuthal grid individually
-            for m in self.envelope_mode_numbers:
                 self.trans[abs(m)].spect2interp_scal(
                     self.envelope_spect[m].a_old, self.envelope_interp[m].a_old )
         elif fieldtype == 'grad_a' and self.use_envelope :
@@ -557,9 +551,6 @@ class Fields(object) :
             for m in self.envelope_mode_numbers :
                 self.trans[abs(m)].fft.inverse_transform(
                     self.envelope_spect[m].a, self.envelope_interp[m].a )
-        elif fieldtype == 'a_old' and self.use_envelope:
-            # Transform each azimuthal grid individually
-            for m in self.envelope_mode_numbers:
                 self.trans[abs(m)].fft.inverse_transform(
                     self.envelope_spect[m].a_old, self.envelope_interp[m].a_old )
         elif fieldtype == 'grad_a' :
@@ -630,9 +621,6 @@ class Fields(object) :
             for m in self.envelope_mode_numbers :
                 self.trans[abs(m)].fft.transform(
                     self.envelope_interp[m].a, self.envelope_spect[m].a )
-        elif fieldtype == 'a_old' and self.use_envelope:
-            # Transform each azimuthal grid individually
-            for m in self.envelope_mode_numbers:
                 self.trans[abs(m)].fft.transform(
                     self.envelope_interp[m].a_old, self.envelope_spect[m].a_old)
         elif fieldtype == 'grad_a' :
@@ -665,8 +653,11 @@ class Fields(object) :
             (either 'E', 'B', 'J', 'rho')
         """
         # Erase the fields in the interpolation grid
-        for m in range(self.Nm):
-            self.interp[m].erase(fieldtype)
+        if (fieldtype == 'a'):
+            raise ValueError("erase method not implemented for A field")
+        else:
+            for m in range(self.Nm):
+                self.interp[m].erase(fieldtype)
         # Erase the duplicated deposition buffer
         if not self.use_cuda:
             if fieldtype == 'rho':
