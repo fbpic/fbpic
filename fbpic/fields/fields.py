@@ -102,7 +102,7 @@ class Fields(object) :
         use_cuda : bool, optional
             Wether to use the GPU or not
 
-        smoother: an instance of BinomialSmoother, optional
+        smoother: an fbpic.fields.smoothing.BinomialSmoother, optional
             Determines how the charge and currents are smoothed.
             (Default: one-pass binomial filter and no compensator.)
 
@@ -123,7 +123,7 @@ class Fields(object) :
 
         # Set the default smoother
         if smoother is None:
-            smoother = BinomialSmoother( n_smoothing_passes=1 )
+            smoother = BinomialSmoother( n_passes=1, compensator=False )
 
         # Define wether or not to use the GPU
         self.use_cuda = use_cuda

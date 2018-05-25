@@ -9,26 +9,45 @@ import numpy as np
 
 class BinomialSmoother( object ):
     """
-    TODO
+    Class that defines a binomial smoother on a grid,
+    potentially with compensator.
     """
 
-    def __init__( self, n_smoothing_passes, compensator=False):
+    def __init__( self, n_passes=1, compensator=False):
         """
-        TODO
+        Initialize a binomial smoother
+
+        Parameters
+        ----------
+        n_passes: int or dictionary of ints
+            Number of passes of binomial smoothing in r and z.
+            (More passes results in smoother fields)
+            If `n_passes` is an integer, than the same number of passes
+            are applied in r and z.
+            If `n_passes` is a dictionary, it should be of the form
+            {'z': <int>, 'r': <int>} to indicate the number of passes
+            in each direction.
+
+        compensator: bool, or dictionary of bools
+            Whether to apply a compensator in r and z.
+            (Applying a compensator mitigates the impact of the smoother
+            on low and intermediate frequencies)
+            If `compensator` is a boolean, than this applies to r and z.
+            If `n_passes` is a dictionary, it should be of the form
+            {'z': <bool>, 'r': <bool>} to indicate whether a compensator
+            is applied in r and/or in z.
         """
         # Register smoothing parameters
-        if type(n_smoothing_passes) is int:
-            self.n_smoothing_passes = {'z': n_smoothing_passes,
-                                       'r': n_smoothing_passes}
-        elif type(n_smoothing_passes) is dict:
-            self.n_smoothing_passes = n_smoothing_passes
+        if type(n_passes) is int:
+            self.n_passes = {'z': n_passes, 'r': n_passes}
+        elif type(n_passes) is dict:
+            self.n_passes = n_passes
         else:
-            raise ValueError('Invalid argument `n_smoothing_passes`')
+            raise ValueError('Invalid argument `n_passes`')
 
         # Register compensator
         if type(compensator) is bool:
-            self.compensator = {'z': compensator,
-                                'r': compensator}
+            self.compensator = {'z': compensator, 'r': compensator}
         elif type(compensator) is dict:
             self.compensator = compensator
         else:
@@ -58,7 +77,7 @@ class BinomialSmoother( object ):
         """
         # Equivalent to nz passes of binomial filter in real space
         sz2 = np.sin( 0.5 * kz * dz )**2
-        nz = self.n_smoothing_passes['z']
+        nz = self.n_passes['z']
         filt_z = ( 1. - sz2 )**nz
         # Add compensator
         if self.compensator['z']:
@@ -66,7 +85,7 @@ class BinomialSmoother( object ):
 
         # Equivalent to nr passes of binomial filter in real space
         sr2 = np.sin( 0.5 * kr * dr )**2
-        nr = self.n_smoothing_passes['r']
+        nr = self.n_passes['r']
         filt_r = ( 1. - sr2 )**nr
         # Add compensator
         if self.compensator['r']:
