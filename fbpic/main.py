@@ -503,7 +503,7 @@ class Simulation(object):
         if (not fld.exchanged_source['rho_prev']) and (self.comm.size > 1):
             self.comm.exchange_fields(self.fld.interp, 'rho', 'add')
 
-        if self.use_envelope:
+        if fld.use_envelope:
             fld.spect2interp('a_old')
         # Receive simulation data from GPU (if CUDA is used)
         if self.use_cuda:
