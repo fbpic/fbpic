@@ -58,10 +58,8 @@ class FieldDiagnostic(OpenPMDDiagnostic):
         self.fieldtypes = fieldtypes
         if not self.fld.use_envelope:
             # Remove diagnostics involving non-existing fields
-            if 'A' in self.fieldtypes:
-                self.fieldtypes.remove('A')
-            if 'dtA' in self.fieldtypes:
-                self.fieldtypes.remove('dtA')
+            if 'a' in self.fieldtypes:
+                self.fieldtypes.remove('a')
         self.coords = ['r', 't', 'z']
 
     def write_hdf5( self, iteration ) :
@@ -133,7 +131,7 @@ class FieldDiagnostic(OpenPMDDiagnostic):
                     quantity = "%s%s" %(fieldtype, coord)
                     path = "%s/%s" %(fieldtype, coord)
                     self.write_dataset( field_grp, path, quantity )
-            elif fieldtype in ["A", "dtA"]:
+            elif fieldtype == "a":
                 self.write_dataset_envelope( field_grp, fieldtype, fieldtype )
             else :
                 raise ValueError("Invalid string in fieldtypes: %s" %fieldtype)
@@ -199,7 +197,7 @@ class FieldDiagnostic(OpenPMDDiagnostic):
 
         quantity : string
             Describes which envelope is being written.
-            (Either A or dtA)
+            Should be just 'a'
         """
         path_real = "%s_real" %(quantity)
         path_imag = "%s_imag" %(quantity)
@@ -210,11 +208,13 @@ class FieldDiagnostic(OpenPMDDiagnostic):
             dset_real = None
             dset_imag = None
 
-        # The envelope (`A`) is a complex field ; however openPMD can only save real fields
-        # (and represents them as an azimuthal decomposition, involving complex coefficients)
-        # Therefore, here we need to save the real part and imaginary part of A separately,
-        # and we need to reconstruct their azimuthal decomposition:
-        # (A_{real})_m = (A_m + A_{-m}^*)/2    (A_{imaginary})_m = (A_m - A_{-m}^*)/(2i)
+        # The envelope ('a') is a complex field ; however openPMD can only save
+        # real fields (and represents them as an azimuthal decomposition,
+        # involving complex coefficients).
+        # Therefore, here we need to save the real part and imaginary part of A
+        # separately, and we need to reconstruct their azimuthal decomposition:
+        # (A_{real})_m = (A_m + A_{-m}^*)/2
+        # (A_{imaginary})_m = (A_m - A_{-m}^*)/(2i)
         # Note that for m=0, this simply gives
         # (A_{real})_0 = Re[ A_m ]        (A_{imaginary})_0 = Im[ A_m ]
         mode0 = self.get_dataset(quantity, 0)
@@ -255,8 +255,8 @@ class FieldDiagnostic(OpenPMDDiagnostic):
             The index of the mode that is being written
         """
         # Get the data on each individual proc
-        if quantity in ['A', 'dtA']:
-            data_one_proc = getattr( self.fld.envelope_interp[m], quantity )
+        if quantity == 'a':
+            data_one_proc = self.fld.envelope_interp[m].a
         else:
             data_one_proc = getattr( self.fld.interp[m], quantity )
 
@@ -343,7 +343,7 @@ class FieldDiagnostic(OpenPMDDiagnostic):
                     # Setup the record to which they belong
                     self.setup_openpmd_mesh_record(
                         field_grp[fieldtype], fieldtype, dz, zmin )
-                elif fieldtype in ["A", "dtA"]:
+                elif fieldtype == 'a':
                     # The envelope field is complex, but openPMD
                     # supports only real fields. Therefore, we need to save
                     # the real part and imaginary part separately.

@@ -300,8 +300,8 @@ def cuda_push_eb_standard( Ep, Em, Ez, Bp, Bm, Bz, Jp, Jm, Jz,
                         + 1.j*kr[iz, ir]*Jm[iz, ir] )
 
 @cuda.jit
-def cuda_push_envelope_standard(A, dtA, w2_square, S_env_over_w, C_env,
-                            w_laser, A_coef, Nz, Nr) :
+def cuda_push_envelope_standard(a, a_old, C_w_laser_env, C_w_tot_env,
+                            A_coef, Nz, Nr) :
     """
     Push the envelope over one timestep, using the envelope model equations
 
@@ -311,15 +311,12 @@ def cuda_push_envelope_standard(A, dtA, w2_square, S_env_over_w, C_env,
     iz, ir = cuda.grid(2)
 
     if (iz < Nz) and (ir < Nr) :
-
-        A_old = A[iz, ir]
+        # Store the field that will be a_old
+        a_temp = a[iz, ir]
         # Push the envelope
-        A[iz, ir] = A_coef * (S_env_over_w[iz, ir] * dtA[iz, ir]\
-                 + (C_env[iz, ir] - 1j * w_laser * S_env_over_w[iz, ir]) \
-                 * A[iz, ir])
-        dtA[iz, ir] = A_coef * ( (C_env[iz, ir] + 1j * w_laser \
-                    * S_env_over_w[iz, ir])  * dtA[iz, ir] \
-                    - w2_square[iz, ir] * S_env_over_w[iz, ir] * A_old )
+        a[iz, ir] = A_coef * ( - A_coef * a_old[iz,ir] \
+                + 2 * C_w_tot_env[iz, ir] * a[iz, ir] )
+        a_old[iz, ir] = a_temp
 
 
 @cuda.jit
