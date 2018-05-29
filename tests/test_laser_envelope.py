@@ -40,12 +40,12 @@ from fbpic.lpa_utils.laser import add_laser_pulse, \
 # ----------
 # (See the documentation of the function propagate_pulse
 # below for their definition)
-show = False # Whether to show the plots, and check them manually
+show = True # Whether to show the plots, and check them manually
 
 use_cuda = False
 
 # Simulation box
-Nz = 200
+Nz = 100
 zmin = -20.e-6
 zmax = 20.e-6
 Nr = 25
@@ -75,7 +75,7 @@ def test_laser_periodic(show=False):
     # Replace the long timestep by a short timestep due to a recent problem
     dt = (zmax-zmin)*1./c/Nz
     # Test modes up to m=1
-    for m in range(-1, 2):
+    for m in range(0, 1):
 
         print('')
         print('Testing mode m=%d' %m)
@@ -93,7 +93,7 @@ def test_laser_moving_window(show=False):
     # Choose the regular timestep (required by moving window)
     dt = (zmax-zmin)*1./c/Nz
     # Test modes up to m=1
-    for m in range(-1, 2):
+    for m in range(0, 1):
 
         print('')
         print('Testing mode m=%d' %m)
@@ -214,6 +214,7 @@ def propagate_pulse( Nz, Nr, Nm, zmin, zmax, Lr, L_prop, zf, dt,
 
     # Calculate the number of steps to run between each diagnostic
     Ntot_step = int( round( L_prop/(c*dt) ) )
+    print(Ntot_step)
     N_step = int( round( Ntot_step/N_diag ) )
 
     dz = sim.fld.interp[0].dz
@@ -237,6 +238,7 @@ def propagate_pulse( Nz, Nr, Nm, zmin, zmax, Lr, L_prop, zf, dt,
         sim.step( N_step, show_progress= False )
 
     # Get the analytical solution
+    show_fields(sim.fld.envelope_interp[m], 'a')
     z_prop = c*dt*N_step*np.arange(N_diag)
     ZR = 0.5*k0*w0**2
     w_analytic = w0*np.sqrt( 1 + (z_prop-zf)**2/ZR**2 )
@@ -437,6 +439,6 @@ def show_fields( grid, fieldtype ):
 if __name__ == '__main__' :
 
     # Run the testing function
-    test_laser_periodic(show=show)
+    #test_laser_periodic(show=show)
 
     test_laser_moving_window(show=show)

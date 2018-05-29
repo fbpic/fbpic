@@ -140,8 +140,12 @@ class Fields(object) :
         # Create the list of the transformers, which convert the fields
         # back and forth between the spatial and spectral grid
         # (one object per azimuthal mode)
+        if use_envelope:
+            N_transformers = 2*Nm -1
+        else:
+            N_transformers = Nm
         self.trans = []
-        for m in range(Nm) :
+        for m in range(N_transformers) :
             self.trans.append( SpectralTransformer(
                 Nz, Nr, m, rmax, use_cuda=self.use_cuda ) )
 
@@ -310,14 +314,6 @@ class Fields(object) :
         # corresponding psatd coefficients
         for m in range(self.Nm) :
             self.spect[m].push_eb_with( self.psatd[m], use_true_rho )
-
-        # Check if the envelope model is used then
-        # push each azimuthal mode individually
-        '''if self.use_envelope:
-            assert self.envelope_wavelength_obtained
-            for m in self.envelope_mode_numbers :
-                self.envelope_spect[m].push_envelope_with(self.psatd[abs(m)])'''
-
         for m in range(self.Nm) :
             self.spect[m].push_rho()
 
@@ -327,6 +323,7 @@ class Fields(object) :
         in spectral space.
         """
         assert self.envelope_wavelength_obtained
+        # push each azimuthal mode individually
         for m in self.envelope_mode_numbers :
             self.envelope_spect[m].push_envelope_with(self.psatd[abs(m)])
 
@@ -412,6 +409,9 @@ class Fields(object) :
             for m in self.envelope_mode_numbers:
                 self.trans[abs(m)].interp2spect_scal(
                     self.envelope_interp[m].a, self.envelope_spect[m].a )
+        elif fieldtype == 'a_old' and self.use_envelope:
+            # Transform each azimuthal grid individually
+            for m in self.envelope_mode_numbers:
                 self.trans[abs(m)].interp2spect_scal(
                     self.envelope_interp[m].a_old, self.envelope_spect[m].a_old)
         elif fieldtype == 'grad_a' and self.use_envelope:
@@ -479,6 +479,9 @@ class Fields(object) :
             for m in self.envelope_mode_numbers :
                 self.trans[abs(m)].spect2interp_scal(
                     self.envelope_spect[m].a, self.envelope_interp[m].a )
+        elif fieldtype == 'a_old' and self.use_envelope:
+            # Transform each azimuthal grid individually
+            for m in self.envelope_mode_numbers:
                 self.trans[abs(m)].spect2interp_scal(
                     self.envelope_spect[m].a_old, self.envelope_interp[m].a_old )
         elif fieldtype == 'grad_a' and self.use_envelope :
@@ -551,6 +554,9 @@ class Fields(object) :
             for m in self.envelope_mode_numbers :
                 self.trans[abs(m)].fft.inverse_transform(
                     self.envelope_spect[m].a, self.envelope_interp[m].a )
+        elif fieldtype == 'a_old' and self.use_envelope:
+            # Transform each azimuthal grid individually
+            for m in self.envelope_mode_numbers:
                 self.trans[abs(m)].fft.inverse_transform(
                     self.envelope_spect[m].a_old, self.envelope_interp[m].a_old )
         elif fieldtype == 'grad_a' :
@@ -621,6 +627,9 @@ class Fields(object) :
             for m in self.envelope_mode_numbers :
                 self.trans[abs(m)].fft.transform(
                     self.envelope_interp[m].a, self.envelope_spect[m].a )
+        elif fieldtype == 'a_old' and self.use_envelope:
+            # Transform each azimuthal grid individually
+            for m in self.envelope_mode_numbers:
                 self.trans[abs(m)].fft.transform(
                     self.envelope_interp[m].a_old, self.envelope_spect[m].a_old)
         elif fieldtype == 'grad_a' :
@@ -653,11 +662,8 @@ class Fields(object) :
             (either 'E', 'B', 'J', 'rho')
         """
         # Erase the fields in the interpolation grid
-        if (fieldtype == 'a'):
-            raise ValueError("erase method not implemented for A field")
-        else:
-            for m in range(self.Nm):
-                self.interp[m].erase(fieldtype)
+        for m in range(self.Nm):
+            self.interp[m].erase(fieldtype)
         # Erase the duplicated deposition buffer
         if not self.use_cuda:
             if fieldtype == 'rho':

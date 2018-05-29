@@ -26,14 +26,14 @@ ctau = 5.e-6
 k0 = 2*np.pi/0.8e-6
 a0 = 0.001
 # Propagation
-L_prop = 40.e-6
+L_prop = 30.e-6
 zf = 25.e-6
-N_diag = 1  # Number of diagnostic points along the propagation
+N_diag = 200 # Number of diagnostic points along the propagation
 # Checking the results
 N_show = 2
 rtol = 1.e-4
 
-p_zmin = 20.e-6
+p_zmin = 15.e-6
 dz = (zmax - zmin)/Nz
 p_zmax = p_zmin + dz
 p_rmin = 0
@@ -172,20 +172,20 @@ init_fields( sim, w0, ctau, k0, z0, zf, a0, m )
 # Calculate the number of steps to run between each diagnostic
 Ntot_step = int( round( L_prop/(c*dt) ) )
 N_step = int( round( Ntot_step/N_diag ) )
-print(Ntot_step, N_step, N_diag, N_diag*N_step)
 for it in range(N_diag) :
     sim.step( N_step, show_progress= False )
 
 
-#show_fields(sim.fld.envelope_interp[m], 'a')
+show_fields(sim.fld.envelope_interp[m], 'a')
+show_fields(sim.fld.envelope_interp[m], 'a_old')
 import matplotlib.pyplot as plt
 
-plt.plot(np.sqrt(sim.ptcl[0].x**2 + sim.ptcl[0].y**2), np.sqrt(sim.ptcl[0].ux**2 + sim.ptcl[0].uy**2), label='Simulated')
 
 
 radial_distance = np.sqrt(sim.ptcl[0].x**2 + sim.ptcl[0].y**2)
 radial_momentum = np.sqrt(sim.ptcl[0].ux**2 + sim.ptcl[0].uy**2)
 
+plt.plot(radial_distance, radial_momentum, label='Simulated')
 
 def radial_momentum_profile(r, A, sigma):
     return A * r * np.exp(-r**2/(2*sigma**2))
@@ -200,7 +200,7 @@ Sigma = waist * 0.5
 r = radial_distance[0:10]
 u = radial_momentum[0:10]
 fit_result = curve_fit(radial_momentum_profile, r,
-                    u ) #, p0=np.array([Amplitude, Sigma])
+                    u, p0=np.array([Amplitude, Sigma]) )
 A, S = fit_result[0]
 print('Amplitude expected and calculated', Amplitude, A)
 print('Sigma expected and calculated', Sigma, S)
