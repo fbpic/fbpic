@@ -140,12 +140,8 @@ class Fields(object) :
         # Create the list of the transformers, which convert the fields
         # back and forth between the spatial and spectral grid
         # (one object per azimuthal mode)
-        if use_envelope:
-            N_transformers = 2*Nm -1
-        else:
-            N_transformers = Nm
         self.trans = []
-        for m in range(N_transformers) :
+        for m in range(Nm) :
             self.trans.append( SpectralTransformer(
                 Nz, Nr, m, rmax, use_cuda=self.use_cuda ) )
 

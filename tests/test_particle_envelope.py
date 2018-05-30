@@ -28,7 +28,7 @@ a0 = 0.001
 # Propagation
 L_prop = 30.e-6
 zf = 25.e-6
-N_diag = 200 # Number of diagnostic points along the propagation
+N_diag = 150 # Number of diagnostic points along the propagation
 # Checking the results
 N_show = 2
 rtol = 1.e-4

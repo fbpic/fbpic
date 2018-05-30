@@ -527,7 +527,6 @@ class Simulation(object):
             fld.spect2interp('B')
             if self.use_envelope:
                 fld.spect2interp('a')
-                fld.spect2interp('a_old')
 
             # Increment the global time and iteration
             self.time += dt
@@ -551,7 +550,8 @@ class Simulation(object):
         fld.spect2interp('rho_prev')
         if (not fld.exchanged_source['rho_prev']) and (self.comm.size > 1):
             self.comm.exchange_fields(self.fld.interp, 'rho', 'add')
-
+        if self.use_envelope:
+            fld.spect2interp('a_old')
 
         # Receive simulation data from GPU (if CUDA is used)
         if self.use_cuda:
