@@ -51,7 +51,8 @@ class Fields(object) :
     def __init__( self, Nz, zmax, Nr, rmax, Nm, dt, zmin=0.,
                   n_order=-1, v_comoving=None, use_galilean=True,
                   current_correction='cross-deposition', use_cuda=False,
-                  create_threading_buffers=False, use_envelope = False ):
+                  create_threading_buffers=False, use_envelope=False,
+                  lambda0=0.8e-6 ):
         """
         Initialize the components of the Fields object
 
@@ -201,8 +202,8 @@ class Fields(object) :
 
         # By default will not use the envelope model
         self.use_envelope = use_envelope
-        self.envelope_wavelength_obtained = False
         if self.use_envelope:
+            self.lambda0 = lambda0
             #Create the envelope interpolation grids for each modes
             #The envelope modes range from -Nm + 1 to Nm - 1
             self.envelope_interp = []
@@ -215,7 +216,7 @@ class Fields(object) :
                 #Modes are listed in order: 0, 1, ..., Nm - 1, -Nm + 1, ..., -1
                 self.envelope_interp.append(EnvelopeInterpolationGrid(
                     self.Nz, self.Nr, m, self.zmin, self.zmax,
-                    self.rmax, use_cuda = self.use_cuda ) )
+                    self.rmax, use_cuda=self.use_cuda ) )
 
             #Create the envelope spectral grids for each modes
             self.envelope_spect = []
@@ -226,31 +227,12 @@ class Fields(object) :
                      m, kz_true, self.envelope_interp[m].dz,
                      self.envelope_interp[m].dr, use_cuda=self.use_cuda ) )
 
-    def compute_envelope_coefs(self, k0):
-        """
-        Initializes all coefficients needed for the envelope model
-
-        Attribute envelope_wavelength_obtained can be changed to true only there,
-        and thus guarantees the existence of all the attributes relevant
-        to the envelope model.
-
-        Parameters
-        ----------
-        k0: float
-            Wavenumber of the beam represented by the envelope model
-            It is important to have only one well-defined wavelength
-            in this model
-        """
-
-        assert self.use_envelope
-        self.envelope_wavelength_obtained = True
-
-        # Create the psatd coefficients relevant only
-        # to the envelope model for each positive mode
-        for m in range(self.Nm):
-            self.psatd[m].compute_envelope_coefs(self.spect[m].kz,
-             self.spect[m].kr, m, self.dt, self.Nz, self.Nr, k0)
-
+            # Create the psatd coefficients relevant only
+            # to the envelope model for each positive mode
+            for m in range(self.Nm):
+                self.psatd[m].compute_envelope_coefs(self.spect[m].kz,
+                            self.spect[m].kr, m, self.dt, self.Nz,
+                            self.Nr, 2*np.pi/lambda0)
 
     def send_fields_to_gpu( self ):
         """
@@ -321,7 +303,6 @@ class Fields(object) :
         Push the different azimuthal modes over one timestep,
         in spectral space.
         """
-        assert self.envelope_wavelength_obtained
         # push each azimuthal mode individually
         for m in self.envelope_mode_numbers :
             self.envelope_spect[m].push_envelope_with(self.psatd[abs(m)])

@@ -19,8 +19,6 @@ These tests are performed in 3 cases:
 - Moving window : in this case, the timestep has to be reduced,
   in order to leave time for the moving window to shift/damp the fields
 
-WARNING: Only Periodic box test is implemented for now
-
 Usage :
 -------
 In order to show the images of the laser, and manually check the
@@ -45,7 +43,7 @@ show = True # Whether to show the plots, and check them manually
 use_cuda = False
 
 # Simulation box
-Nz = 100
+Nz = 200
 zmin = -20.e-6
 zmax = 20.e-6
 Nr = 25
@@ -70,12 +68,11 @@ def test_laser_periodic(show=False):
     Function that is run by py.test, when doing `python setup.py test`
     Test the propagation of a laser in a periodic box.
     """
-    # Choose a very long timestep to check the absence of Courant limit
-    dt = L_prop*1./c/N_diag
-    # Replace the long timestep by a short timestep due to a recent problem
+    # Choose the regular timestep, not an arbitrarily long timestep
+    # (because the envelope uses a_old, which might not fit inside the window)
     dt = (zmax-zmin)*1./c/Nz
     # Test modes up to m=1
-    for m in range(0, 1):
+    for m in [-1, 0, 1]:
 
         print('')
         print('Testing mode m=%d' %m)
@@ -93,7 +90,7 @@ def test_laser_moving_window(show=False):
     # Choose the regular timestep (required by moving window)
     dt = (zmax-zmin)*1./c/Nz
     # Test modes up to m=1
-    for m in range(0, 1):
+    for m in [-1, 0, 1]:
 
         print('')
         print('Testing mode m=%d' %m)

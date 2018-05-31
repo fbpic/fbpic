@@ -53,7 +53,7 @@ class Simulation(object):
                  current_correction='curl-free', boundaries='periodic',
                  gamma_boost=None, use_all_mpi_ranks=True,
                  particle_shape='linear', verbose_level=1,
-                 use_envelope = False ):
+                 use_envelope=False, lambda0=0.8e-6 ):
         """
         Initializes a simulation.
 
@@ -194,6 +194,10 @@ class Simulation(object):
 
         use_envelope: bool, optional
             Whether to use the envelope approximation of the fields or not
+
+        lambda0 : float, in meters, optional
+            To be used only with the envelope approximation, the wavelength of
+            the laser pulse
         """
         # Check whether to use CUDA
         self.use_cuda = use_cuda
@@ -241,7 +245,7 @@ class Simulation(object):
                     use_cuda=self.use_cuda,
                     # Only create threading buffers when running on CPU
                     create_threading_buffers=(self.use_cuda is False),
-                    use_envelope = self.use_envelope )
+                    use_envelope=self.use_envelope, lambda0=0.8e-6  )
 
         # Initialize the electrons and the ions
         self.grid_shape = self.fld.interp[0].Ez.shape
