@@ -51,7 +51,8 @@ class Fields(object) :
     def __init__( self, Nz, zmax, Nr, rmax, Nm, dt, zmin=0.,
                   n_order=-1, v_comoving=None, use_galilean=True,
                   current_correction='cross-deposition', use_cuda=False,
-                  create_threading_buffers=False, use_envelope = False ):
+                  create_threading_buffers=False, use_envelope=False,
+                  lambda0=0.8e-6 ):
         """
         Initialize the components of the Fields object
 
@@ -201,53 +202,37 @@ class Fields(object) :
 
         # By default will not use the envelope model
         self.use_envelope = use_envelope
-        self.envelope_wavelength_obtained = False
         if self.use_envelope:
+            self.lambda0 = lambda0
             #Create the envelope interpolation grids for each modes
             #The envelope modes range from -Nm + 1 to Nm - 1
             self.envelope_interp = []
             self.envelope_mode_numbers = [ m for m in range(self.Nm) ] + \
                                          [ m for m in range(-self.Nm+1, 0)]
+            for m in self.envelope_mode_numbers[self.Nm:]:
+                self.trans.append( SpectralTransformer(
+                    Nz, Nr, m, rmax, use_cuda=self.use_cuda ) )
             for m in self.envelope_mode_numbers:
                 #Modes are listed in order: 0, 1, ..., Nm - 1, -Nm + 1, ..., -1
                 self.envelope_interp.append(EnvelopeInterpolationGrid(
                     self.Nz, self.Nr, m, self.zmin, self.zmax,
-                    self.rmax, use_cuda = self.use_cuda ) )
+                    self.rmax, use_cuda=self.use_cuda ) )
 
             #Create the envelope spectral grids for each modes
             self.envelope_spect = []
             for m in self.envelope_mode_numbers:
                 #Modes are listed in order: 0, 1, ..., Nm - 1, -Nm + 1, ..., -1
-                kr = 2*np.pi * self.trans[abs(m)].dht0.get_nu()
+                kr = 2*np.pi * self.trans[m].dht0.get_nu()
                 self.envelope_spect.append( EnvelopeSpectralGrid( kz_modified, kr,
                      m, kz_true, self.envelope_interp[m].dz,
                      self.envelope_interp[m].dr, use_cuda=self.use_cuda ) )
 
-    def compute_envelope_coefs(self, k0):
-        """
-        Initializes all coefficients needed for the envelope model
-
-        Attribute envelope_wavelength_obtained can be changed to true only there,
-        and thus guarantees the existence of all the attributes relevant
-        to the envelope model.
-
-        Parameters
-        ----------
-        k0: float
-            Wavenumber of the beam represented by the envelope model
-            It is important to have only one well-defined wavelength
-            in this model
-        """
-
-        assert self.use_envelope
-        self.envelope_wavelength_obtained = True
-
-        # Create the psatd coefficients relevant only
-        # to the envelope model for each positive mode
-        for m in range(self.Nm):
-            self.psatd[m].compute_envelope_coefs(self.spect[m].kz,
-             self.spect[m].kr, m, self.dt, self.Nz, self.Nr, k0)
-
+            # Create the psatd coefficients relevant only
+            # to the envelope model for each positive mode
+            for m in range(self.Nm):
+                self.psatd[m].compute_envelope_coefs(self.spect[m].kz,
+                            self.spect[m].kr, m, self.dt, self.Nz,
+                            self.Nr, 2*np.pi/lambda0)
 
     def send_fields_to_gpu( self ):
         """
@@ -314,7 +299,6 @@ class Fields(object) :
         # Check if the envelope model is used then
         # push each azimuthal mode individually
         if self.use_envelope:
-            assert self.envelope_wavelength_obtained
             for m in self.envelope_mode_numbers :
                 self.envelope_spect[m].push_envelope_with(self.psatd[abs(m)])
 
@@ -401,9 +385,12 @@ class Fields(object) :
         elif fieldtype == 'a' and self.use_envelope:
             # Transform each azimuthal grid individually
             for m in self.envelope_mode_numbers:
-                self.trans[abs(m)].interp2spect_scal(
+                self.trans[m].interp2spect_scal(
                     self.envelope_interp[m].a, self.envelope_spect[m].a )
-                self.trans[abs(m)].interp2spect_scal(
+        elif fieldtype == 'a_old' and self.use_envelope:
+            # Transform each azimuthal grid individually
+            for m in self.envelope_mode_numbers:
+                self.trans[m].interp2spect_scal(
                     self.envelope_interp[m].a_old, self.envelope_spect[m].a_old)
         elif fieldtype == 'grad_a' and self.use_envelope:
             # Transform each azimuthal grid individually
@@ -468,9 +455,12 @@ class Fields(object) :
         elif fieldtype == 'a' and self.use_envelope:
             # Transform each azimuthal grid individually
             for m in self.envelope_mode_numbers :
-                self.trans[abs(m)].spect2interp_scal(
+                self.trans[m].spect2interp_scal(
                     self.envelope_spect[m].a, self.envelope_interp[m].a )
-                self.trans[abs(m)].spect2interp_scal(
+        elif fieldtype == 'a_old' and self.use_envelope:
+            # Transform each azimuthal grid individually
+            for m in self.envelope_mode_numbers:
+                self.trans[m].spect2interp_scal(
                     self.envelope_spect[m].a_old, self.envelope_interp[m].a_old )
         elif fieldtype == 'grad_a' and self.use_envelope :
             # Transform each azimuthal grid individually
@@ -540,9 +530,12 @@ class Fields(object) :
                     self.spect[m].rho_prev, self.interp[m].rho )
         elif fieldtype == 'a' and self.use_envelope:
             for m in self.envelope_mode_numbers :
-                self.trans[abs(m)].fft.inverse_transform(
+                self.trans[m].fft.inverse_transform(
                     self.envelope_spect[m].a, self.envelope_interp[m].a )
-                self.trans[abs(m)].fft.inverse_transform(
+        elif fieldtype == 'a_old' and self.use_envelope:
+            # Transform each azimuthal grid individually
+            for m in self.envelope_mode_numbers:
+                self.trans[m].fft.inverse_transform(
                     self.envelope_spect[m].a_old, self.envelope_interp[m].a_old )
         elif fieldtype == 'grad_a' :
             for m in self.envelope_mode_numbers  :
@@ -610,8 +603,11 @@ class Fields(object) :
                     self.interp[m].rho, self.spect[m].rho_prev )
         elif fieldtype == 'a' and self.use_envelope:
             for m in self.envelope_mode_numbers :
-                self.trans[abs(m)].fft.transform(
+                self.trans[m].fft.transform(
                     self.envelope_interp[m].a, self.envelope_spect[m].a )
+        elif fieldtype == 'a_old' and self.use_envelope:
+            # Transform each azimuthal grid individually
+            for m in self.envelope_mode_numbers:
                 self.trans[abs(m)].fft.transform(
                     self.envelope_interp[m].a_old, self.envelope_spect[m].a_old)
         elif fieldtype == 'grad_a' :
@@ -644,11 +640,8 @@ class Fields(object) :
             (either 'E', 'B', 'J', 'rho')
         """
         # Erase the fields in the interpolation grid
-        if (fieldtype == 'a'):
-            raise ValueError("erase method not implemented for A field")
-        else:
-            for m in range(self.Nm):
-                self.interp[m].erase(fieldtype)
+        for m in range(self.Nm):
+            self.interp[m].erase(fieldtype)
         # Erase the duplicated deposition buffer
         if not self.use_cuda:
             if fieldtype == 'rho':
