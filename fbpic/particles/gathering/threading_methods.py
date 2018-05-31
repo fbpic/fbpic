@@ -311,20 +311,20 @@ def gather_envelope_field_numba_linear(x, y, z,
         S_uu = Sz_upper*Sr_upper
         S_lg = Sz_lower*Sr_guard
         S_ug = Sz_upper*Sr_guard
-
         # Envelope field
         # -------
         F = 0
         Fr = 0.
         Ft = 0.
         Fz = 0.
-        for m in m_tuple:
-            # Add contribution from mode m
-            a_m = a_tuple[m]
-            grad_a_r_m = grad_a_r_tuple[m]
-            grad_a_t_m = grad_a_t_tuple[m]
-            grad_a_z_m = grad_a_z_tuple[m]
+        for it in range(len(m_tuple)):
+            m = m_tuple[it]
+            a_m = a_tuple[it]
+            grad_a_r_m = grad_a_r_tuple[it]
+            grad_a_t_m = grad_a_t_tuple[it]
+            grad_a_z_m = grad_a_z_tuple[it]
             exptheta_m = (cos - 1.j*sin)**m
+            # Add contribution from mode m
             F, Fr, Ft, Fz = add_linear_envelope_gather_for_mode( m, F, Fr, Ft,
                                 Fz, exptheta_m, a_m, grad_a_r_m, grad_a_t_m,
                                 grad_a_z_m, iz_lower, iz_upper, ir_lower,
@@ -343,9 +343,9 @@ def gather_envelope_field_numba_linear(x, y, z,
         # Register in the particle arrays
         if averaging:
             a2[i] = (0.5 * (a2[i] + F)).real
-            grad_a2_x[i] = (0.5 * (grad_a2_x[i] + Fx)).real
-            grad_a2_y[i] = (0.5 * (grad_a2_y[i] + Fy)).real
-            grad_a2_z[i] = (0.5 * (grad_a2_z[i] + Fz)).real
+            #grad_a2_x[i] = (0.5 * (grad_a2_x[i] + Fx)).real
+            #grad_a2_y[i] = (0.5 * (grad_a2_y[i] + Fy)).real
+            #grad_a2_z[i] = (0.5 * (grad_a2_z[i] + Fz)).real
         else:
             a2[i] = F.real
             grad_a2_x[i] = Fx.real

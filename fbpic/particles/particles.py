@@ -825,25 +825,6 @@ class Particles(object) :
                             self.Ex, self.Ey, self.Ez,
                             self.Bx, self.By, self.Bz)
 
-                '''if self.use_envelope:
-                    erase_a_cuda[dim_grid_1d, dim_block_1d](self.a2,
-                                self.grad_a2_x, self.grad_a2_y,
-                                self.grad_a2_z, self.Ntot)
-                    for m in envelope_mode_numbers:
-                        gather_envelope_field_gpu_linear_one_mode[
-                            dim_grid_1d, dim_block_1d](
-                            self.x, self.y, self.z,
-                            envelope_grid[0].invdz, envelope_grid[0].zmin,
-                            envelope_grid[0].Nz, envelope_grid[0].invdr,
-                            envelope_grid[0].rmin, envelope_grid[0].Nr,
-                            envelope_grid[m].a, envelope_grid[m].grad_a_r,
-                            envelope_grid[m].grad_a_t,
-                            envelope_grid[m].grad_a_z, m, self.a2,
-                            self.grad_a2_x, self.grad_a2_y, self.grad_a2_z )
-                    convert_a_to_a2_gpu[dim_grid_1d, dim_block_1d](
-                                    self.a2, self.grad_a2_x, self.grad_a2_y,
-                                    self.grad_a2_z, self.Ntot )'''
-
             elif self.particle_shape == 'cubic':
                 if Nm == 2:
                     # Optimized version for 2 modes
@@ -872,25 +853,6 @@ class Particles(object) :
                             grid[m].Br, grid[m].Bt, grid[m].Bz, m,
                             self.Ex, self.Ey, self.Ez,
                             self.Bx, self.By, self.Bz)
-
-                '''if self.use_envelope:
-                    erase_a_cuda[dim_grid_1d, dim_block_1d](self.a2,
-                                self.grad_a2_x, self.grad_a2_y,
-                                self.grad_a2_z, self.Ntot)
-                    for m in envelope_mode_numbers:
-                        gather_envelope_field_gpu_cubic_one_mode[
-                            dim_grid_1d, dim_block_1d](
-                            self.x, self.y, self.z,
-                            envelope_grid[0].invdz, envelope_grid[0].zmin,
-                            envelope_grid[0].Nz, envelope_grid[0].invdr,
-                            envelope_grid[0].rmin, envelope_grid[0].Nr,
-                            envelope_grid[m].a, envelope_grid[m].grad_a_r,
-                            envelope_grid[m].grad_a_t,
-                            envelope_grid[m].grad_a_z, m, self.a2,
-                            self.grad_a2_x, self.grad_a2_y, self.grad_a2_z )
-                    convert_a_to_a2_gpu[dim_grid_1d, dim_block_1d](
-                                    self.a2, self.grad_a2_x, self.grad_a2_y,
-                                    self.grad_a2_z, self.Ntot )'''
 
             else:
                 raise ValueError("`particle_shape` should be either \
@@ -925,23 +887,6 @@ class Particles(object) :
                             self.Ex, self.Ey, self.Ez,
                             self.Bx, self.By, self.Bz
                         )
-
-                '''if self.use_envelope:
-                    erase_a_numba(self.a2, self.grad_a2_x, self.grad_a2_y,
-                                self.grad_a2_z, self.Ntot)
-                    for m in envelope_mode_numbers:
-                        gather_envelope_field_numba_linear_one_mode(
-                            self.x, self.y, self.z,
-                            envelope_grid[0].invdz, envelope_grid[0].zmin,
-                            envelope_grid[0].Nz, envelope_grid[0].invdr,
-                            envelope_grid[0].rmin, envelope_grid[0].Nr,
-                            envelope_grid[m].a, envelope_grid[m].grad_a_r,
-                            envelope_grid[m].grad_a_t,
-                            envelope_grid[m].grad_a_z, m, self.a2,
-                            self.grad_a2_x, self.grad_a2_y, self.grad_a2_z )
-                    convert_a_to_a2_numba(
-                                    self.a2, self.grad_a2_x, self.grad_a2_y,
-                                    self.grad_a2_z, self.Ntot )'''
             elif self.particle_shape == 'cubic':
                 # Divide particles into chunks (each chunk is handled by a
                 # different thread) and return the indices that bound chunks
@@ -973,23 +918,6 @@ class Particles(object) :
                             self.Ex, self.Ey, self.Ez,
                             self.Bx, self.By, self.Bz,
                             nthreads, ptcl_chunk_indices )
-
-                '''if self.use_envelope:
-                    erase_a_numba(self.a2, self.grad_a2_x, self.grad_a2_y,
-                                self.grad_a2_z, self.Ntot)
-                    for m in envelope_mode_numbers:
-                        gather_envelope_field_numba_cubic_one_mode(
-                            self.x, self.y, self.z,
-                            envelope_grid[0].invdz, envelope_grid[0].zmin,
-                            envelope_grid[0].Nz, envelope_grid[0].invdr,
-                            envelope_grid[0].rmin, envelope_grid[0].Nr,
-                            envelope_grid[m].a, envelope_grid[m].grad_a_r,
-                            envelope_grid[m].grad_a_t,
-                            envelope_grid[m].grad_a_z, m, self.a2,
-                            self.grad_a2_x, self.grad_a2_y, self.grad_a2_z )
-                    convert_a_to_a2_numba(
-                                    self.a2, self.grad_a2_x, self.grad_a2_y,
-                                    self.grad_a2_z, self.Ntot )'''
             else:
                 raise ValueError("`particle_shape` should be either \
                                   'linear' or 'cubic' \
@@ -1019,7 +947,7 @@ class Particles(object) :
             return
 
         # Number of modes
-        Nm = len(envelope_grid)
+        Nm = (len(envelope_grid) + 1) // 2
         envelope_mode_numbers = [ m for m in range(Nm) ] + \
                                 [ m for m in range(-Nm+1, 0)]
         # Using tuples for compatibility with numba

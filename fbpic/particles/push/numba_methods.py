@@ -247,12 +247,12 @@ def push_p_vay_envelope( ux_i, uy_i, uz_i, inv_gamma_i,
     tau2 = taux**2 + tauy**2 + tauz**2
 
     # Get the momenta at the half timestep
-    uxp = ux_i + econst*Ex \
-    + inv_gamma_temp*( uy_i*tauz - uz_i*tauy )
-    uyp = uy_i + econst*Ey \
-    + inv_gamma_temp*( uz_i*taux - ux_i*tauz )
-    uzp = uz_i + econst*Ez \
-    + inv_gamma_temp*( ux_i*tauy - uy_i*taux )
+    uxp = ux1 + econst*Ex \
+    + inv_gamma_temp*( uy1*tauz - uz1*tauy )
+    uyp = uy1 + econst*Ey \
+    + inv_gamma_temp*( uz1*taux - ux1*tauz )
+    uzp = uz1 + econst*Ez \
+    + inv_gamma_temp*( ux1*tauy - uy1*taux )
     sigma = 1 + uxp**2 + uyp**2 + uzp**2 + scale_factor * a2_i - tau2
     utau = uxp*taux + uyp*tauy + uzp*tauz
 
