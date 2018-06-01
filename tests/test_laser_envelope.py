@@ -38,7 +38,7 @@ from fbpic.lpa_utils.laser import add_laser_pulse, \
 # ----------
 # (See the documentation of the function propagate_pulse
 # below for their definition)
-show = True # Whether to show the plots, and check them manually
+show = False # Whether to show the plots, and check them manually
 
 use_cuda = False
 
