@@ -67,7 +67,7 @@ class Particles(object) :
                     dens_func=None, continuous_injection=True,
                     grid_shape=None, particle_shape='linear',
                     use_cuda=False, dz_particles=None,
-                    use_envelope = False ):
+                    use_envelope=False ):
         """
         Initialize a uniform set of particles
 
