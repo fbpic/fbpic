@@ -1035,7 +1035,15 @@ class Particles(object) :
 
         # Shortcuts and safe-guards
         grid = fld.interp
-        assert fieldtype in ['rho', 'J']
+        if self.use_envelope:
+            envelope_grid = fld.envelope_interp
+            Nm = (len(envelope_grid) + 1) // 2
+            envelope_mode_numbers = [ m for m in range(Nm) ] + \
+                                    [ m for m in range(-Nm+1, 0)]
+            # Using tuples for compatibility with numba
+            chi_tuple = tuple(envelope_grid[m].chi for m in envelope_mode_numbers)
+            m_tuple = tuple(envelope_mode_numbers)
+        assert fieldtype in ['rho', 'J', 'chi']
         assert self.particle_shape in ['linear', 'cubic']
 
         # When running on GPU: first sort the arrays of particles
@@ -1148,6 +1156,17 @@ class Particles(object) :
                                 grid[m].Jr, grid[m].Jt, grid[m].Jz, m,
                                 self.cell_idx, self.prefix_sum)
 
+            elif fieldtype == 'chi':
+                if self.particle_shape == 'linear':
+                    deposit_chi_gpu_linear[
+                        dim_grid_2d_flat, dim_block_2d_flat](
+                        self.x, self.y, self.z, weight, self.q, self.m, self.inv_gamma,
+                        grid[0].invdz, grid[0].zmin, grid[0].Nz,
+                        grid[0].invdr, grid[0].rmin, grid[0].Nr,
+                        chi_tuple, m_tuple,
+                        self.cell_idx, self.prefix_sum)
+                elif self.particle_shape == 'cubic':
+
         # CPU version
         else:
             # Divide particles in chunks (each chunk is handled by a different
@@ -1191,6 +1210,7 @@ class Particles(object) :
                         grid[0].invdr, grid[0].rmin, grid[0].Nr,
                         fld.Jr_global, fld.Jt_global, fld.Jz_global, fld.Nm,
                         nthreads, ptcl_chunk_indices )
+
 
 
     def sort_particles(self, fld):
