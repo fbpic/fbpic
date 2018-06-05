@@ -22,6 +22,20 @@ class LaserProfile( object ):
     Profiles that inherit from this base class can be summed,
     using the overloaded + operator.
     """
+    def __init__( self, propagation_direction ):
+        """
+        Initialize the propagation direction of the laser.
+        (Each subclass should call this method at initialization.)
+
+        Parameter
+        ---------
+        propagation_direction: int
+            Indicates in which direction the laser propagates.
+            This should be either 1 (laser propagates towards positive z)
+            or -1 (laser propagates towards negative z).
+        """
+        assert propagation_direction in [-1, 1]
+        self.propag_direction = float(propagation_direction)
 
     def E_field( self, x, y, z, t ):
         """
@@ -43,6 +57,26 @@ class LaserProfile( object ):
         # (This should be replaced by any class that inherits from this one.)
         return( np.zeros_like(x), np.zeros_like(x) )
 
+    def a_field( self, x, y, z, t ):
+        """
+        Return the envelope of the (dimensionless) vector potential of the laser
+
+        Parameters
+        ----------
+        x, y, z: ndarrays (meters)
+            The positions at which to calculate the profile (in the lab frame)
+        t: ndarray or float (seconds)
+            The time at which to calculate the profile (in the lab frame)
+
+        Returns
+        -------
+        a: ndarrays (adimensionnal)
+            Array of the same shape as x, y, z, containing the fields
+        """
+        # The base class only defines dummy fields
+        # (This should be replaced by any class that inherits from this one.)
+        return( np.zeros_like(x) )
+
     def __add__( self, other ):
         """
         Overload the + operations for laser profiles
@@ -62,25 +96,17 @@ class SummedLaserProfile( LaserProfile ):
         -----------
         profile1, profile2: instances of LaserProfile
         """
+        # Check that both profiles propagate in the same direction
+        assert profile1.propag_direction == profile2.propag_direction
+        LaserProfile.__init__(self, profile1.propag_direction)
+
         # Register the profiles from which the sum should be calculated
         self.profile1 = profile1
         self.profile2 = profile2
 
     def E_field( self, x, y, z, t ):
         """
-        Return the electric field of the laser
-
-        Parameters
-        -----------
-        x, y, z: ndarrays (meters)
-            The positions at which to calculate the profile (in the lab frame)
-        t: ndarray or float (seconds)
-            The time at which to calculate the profile (in the lab frame)
-
-        Returns:
-        --------
-        Ex, Ey: ndarrays (V/m)
-            Arrays of the same shape as x, y, z, containing the fields
+        See the docstring of LaserProfile.E_field
         """
         Ex1, Ey1 = self.profile1.E_field( x, y, z, t )
         Ex2, Ey2 = self.profile2.E_field( x, y, z, t )
@@ -94,7 +120,8 @@ class GaussianLaser( LaserProfile ):
     """Class that calculates a Gaussian laser pulse."""
 
     def __init__( self, a0, waist, tau, z0, zf=None, theta_pol=0.,
-                    lambda0=0.8e-6, cep_phase=0., phi2_chirp=0. ):
+                    lambda0=0.8e-6, cep_phase=0., phi2_chirp=0.,
+                    propagation_direction=1 ):
         """
         Define a linearly-polarized Gaussian laser profile.
 
@@ -162,7 +189,15 @@ class GaussianLaser( LaserProfile ):
             Thus, a positive :math:`\phi^{(2)}` corresponds to positive chirp,
             i.e. red part of the spectrum in the front of the pulse and blue
             part of the spectrum in the back.
+
+        propagation_direction: int, optional
+            Indicates in which direction the laser propagates.
+            This should be either 1 (laser propagates towards positive z)
+            or -1 (laser propagates towards negative z).
         """
+        # Initialize propagation direction
+        LaserProfile.__init__(self, propagation_direction)
+
         # Set a number of parameters for the laser
         k0 = 2*np.pi/lambda0
         E0 = a0*m_e*c**2*k0/e
@@ -187,19 +222,7 @@ class GaussianLaser( LaserProfile ):
 
     def E_field( self, x, y, z, t ):
         """
-        Return the electric field of the laser
-
-        Parameters
-        ----------
-        x, y, z: ndarrays (meters)
-            The positions at which to calculate the profile (in the lab frame)
-        t: ndarray or float (seconds)
-            The time at which to calculate the profile (in the lab frame)
-
-        Returns
-        -------
-        Ex, Ey: ndarrays (V/m)
-            Arrays of the same shape as x, y, z, containing the fields
+        See the docstring of LaserProfile.E_field
         """
         # Note: this formula is expressed with complex numbers for compactness
         # and simplicity, but only the real part is used in the end
@@ -212,12 +235,15 @@ class GaussianLaser( LaserProfile ):
         # and then by taking the inverse Fourier transform in x, y, and t
 
         # Diffraction and stretch_factor
-        diffract_factor = 1. + 1j * ( z - self.zf ) * self.inv_zr
+        prop_dir = self.propag_direction
+        diffract_factor = 1. + 1j * prop_dir*(z - self.zf) * self.inv_zr
         stretch_factor = 1 - 2j * self.phi2_chirp * c**2 * self.inv_ctau2
         # Calculate the argument of the complex exponential
-        exp_argument = 1j*self.k0*( z - self.z0 - c*t ) - 1j*self.cep_phase \
+        exp_argument = - 1j*self.cep_phase \
+            + 1j*self.k0*( prop_dir*(z - self.z0) - c*t ) \
             - (x**2 + y**2) / (self.w0**2 * diffract_factor) \
-            - 1./stretch_factor * self.inv_ctau2 * ( z - self.z0 - c*t )**2
+            - 1./stretch_factor*self.inv_ctau2 * \
+                                    ( prop_dir*(z - self.z0) - c*t )**2
         # Get the transverse profile
         profile = np.exp(exp_argument) /(diffract_factor * stretch_factor**0.5)
 
@@ -229,19 +255,7 @@ class GaussianLaser( LaserProfile ):
 
     def a_field(self, x, y, z, t):
         """
-        Return the envelope of the (dimensionless) vector potential of the laser
-
-        Parameters
-        ----------
-        x, y, z: ndarrays (meters)
-            The positions at which to calculate the profile (in the lab frame)
-        t: ndarray or float (seconds)
-            The time at which to calculate the profile (in the lab frame)
-
-        Returns
-        -------
-        a: ndarrays (adimensionnal)
-            Array of the same shape as x, y, z, containing the fields
+        See the docstring of LaserProfile.a_field
         """
         diffract_factor = 1. + 1j * ( z - self.zf ) * self.inv_zr
         stretch_factor = 1 - 2j * self.phi2_chirp * c**2 * self.inv_ctau2
@@ -259,9 +273,15 @@ class LaguerreGaussLaser( LaserProfile ):
     """Class that calculates a Laguerre-Gauss pulse."""
 
     def __init__( self, p, m, a0, waist, tau, z0, zf=None, theta_pol=0.,
-                    lambda0=0.8e-6, cep_phase=0., theta0=0. ):
+                    lambda0=0.8e-6, cep_phase=0., theta0=0.,
+                    propagation_direction=1 ):
         """
         Define a linearly-polarized Laguerre-Gauss laser profile.
+
+        Unlike the :any:`DonutLikeLaguerreGaussLaser` profile, this
+        profile has a phase which is independent of the azimuthal angle
+        :math:`theta`, and an intensity profile which does depend on
+        :math:`theta`.
 
         More precisely, the electric field **near the focal plane**
         is given by:
@@ -300,14 +320,18 @@ class LaguerreGaussLaser( LaserProfile ):
             requires the azimuthal modes from :math:`0` to :math:`m+1`.
             (i.e. the number of required azimuthal modes is ``Nm=m+2``)
 
+            The non-linear plasma response for this profile (e.g.
+            wakefield driven by the ponderomotive force) may require
+            even more azimuthal modes.
+
         Parameters
         ----------
 
-        p: int
+        p: int (positive)
             The order of the Laguerre polynomial. (Increasing ``p`` increases
             the number of "rings" in the radial intensity profile of the laser.)
 
-        m: int
+        m: int (positive)
             The azimuthal order of the pulse.
             (In the transverse plane, the field of the pulse varies as
             :math:`\cos[m(\\theta-\\theta_0)]`.)
@@ -353,7 +377,15 @@ class LaguerreGaussLaser( LaserProfile ):
             transverse plane.
             (In the transverse plane, the field of the pulse varies as
             :math:`\cos[m(\\theta-\\theta_0)]`.)
+
+        propagation_direction: int, optional
+            Indicates in which direction the laser propagates.
+            This should be either 1 (laser propagates towards positive z)
+            or -1 (laser propagates towards negative z).
         """
+        # Initialize propagation direction
+        LaserProfile.__init__(self, propagation_direction)
+
         # Set a number of parameters for the laser
         k0 = 2*np.pi/lambda0
         zr = 0.5*k0*waist**2
@@ -368,6 +400,8 @@ class LaguerreGaussLaser( LaserProfile ):
             zf = z0
 
         # Store the parameters
+        if m < 0 or type(m) is not int:
+            raise ValueError("m should be an integer positive number.")
         self.p = p
         self.m = m
         self.laguerre_pm = genlaguerre(self.p, self.m) # Laguerre polynomial
@@ -385,22 +419,11 @@ class LaguerreGaussLaser( LaserProfile ):
 
     def E_field( self, x, y, z, t ):
         """
-        Return the electric field of the laser
-
-        Parameters
-        ----------
-        x, y, z: ndarrays (meters)
-            The positions at which to calculate the profile (in the lab frame)
-        t: ndarray or float (seconds)
-            The time at which to calculate the profile (in the lab frame)
-
-        Returns:
-        --------
-        Ex, Ey: ndarrays (V/m)
-            Arrays of the same shape as x, y, z, containing the fields
+        See the docstring of LaserProfile.E_field
         """
         # Diffraction factor, waist and Gouy phase
-        diffract_factor = 1. + 1j * ( z - self.zf ) * self.inv_zr
+        prop_dir = self.propag_direction
+        diffract_factor = 1. + 1j * prop_dir * (z - self.zf) * self.inv_zr
         w = self.w0 * abs( diffract_factor )
         psi = np.angle( diffract_factor )
         # Calculate the scaled radius and azimuthal angle
@@ -408,9 +431,10 @@ class LaguerreGaussLaser( LaserProfile ):
         scaled_radius = np.sqrt( scaled_radius_squared )
         theta = np.angle( x + 1.j*y )
         # Calculate the argument of the complex exponential
-        exp_argument = 1j*self.k0*( z - self.z0 - c*t ) - 1j*self.cep_phase \
+        exp_argument = - 1j*self.cep_phase \
+            + 1j*self.k0*( prop_dir*(z - self.z0) - c*t ) \
             - (x**2 + y**2) / (self.w0**2 * diffract_factor) \
-            - self.inv_ctau2 * ( z - self.z0 - c*t )**2 \
+            - self.inv_ctau2 * ( prop_dir*(z - self.z0) - c*t )**2 \
             + 1.j*(2*self.p + self.m)*psi # *Additional* Gouy phase
         # Get the transverse profile
         profile = np.exp(exp_argument) / diffract_factor \
@@ -425,19 +449,7 @@ class LaguerreGaussLaser( LaserProfile ):
 
     def a_field( self, x, y, z, t ):
         """
-        Return the envelope of the (dimensionless) vector potential of the laser
-
-        Parameters
-        ----------
-        x, y, z: ndarrays (meters)
-            The positions at which to calculate the profile (in the lab frame)
-        t: ndarray or float (seconds)
-            The time at which to calculate the profile (in the lab frame)
-
-        Returns:
-        --------
-        a: ndarray (dimensionless)
-            Array of the same shape as x, y, z, containing the fields
+        See the docstring of LaserProfile.a_field
         """
         # Diffraction factor, waist and Gouy phase
         diffract_factor = 1. + 1j * ( z - self.zf ) * self.inv_zr
@@ -457,17 +469,203 @@ class LaguerreGaussLaser( LaserProfile ):
             * scaled_radius**self.m * self.laguerre_pm(scaled_radius_squared) \
             * np.cos( self.m*(theta-self.theta0) )
 
-        # Get the projection along x and y, with the correct polarization
         a = self.a0 * profile
 
         return a
+    
 
+class DonutLikeLaguerreGaussLaser( LaserProfile ):
+    """Class that calculates a donut-like Laguerre-Gauss pulse."""
+
+    def __init__( self, p, m, a0, waist, tau, z0, zf=None, theta_pol=0.,
+                    lambda0=0.8e-6, cep_phase=0., propagation_direction=1 ):
+        """
+        Define a linearly-polarized donut-like Laguerre-Gauss laser profile.
+
+        Unlike the :any:`LaguerreGaussLaser` profile, this
+        profile has a phase which depends on the azimuthal angle
+        :math:`\\theta` (cork-screw pattern), and an intensity profile which
+        is independent on :math:`\\theta` (donut-like).
+
+        More precisely, the electric field **near the focal plane**
+        is given by:
+
+        .. math::
+
+            E(\\boldsymbol{x},t) = a_0\\times E_0 \, f(r) \,
+            \exp\left( -\\frac{r^2}{w_0^2} - \\frac{(z-z_0-ct)^2}{c^2\\tau^2}
+            \\right) \cos[ k_0( z - z_0 - ct ) - m\\theta - \phi_{cep} ]
+
+            \mathrm{with} \qquad f(r) =
+            \sqrt{\\frac{p!}{(|m|+p)!}}
+            \\left( \\frac{\sqrt{2}r}{w_0} \\right)^{|m|}
+            L^{|m|}_p\\left( \\frac{2 r^2}{w_0^2} \\right)
+
+        where :math:`L^m_p` is a Laguerre polynomial,
+        :math:`k_0 = 2\pi/\\lambda_0` is the wavevector and where
+        :math:`E_0 = m_e c^2 k_0 / q_e`.
+
+        (For more info, see
+        `Siegman, Lasers (1986) <https://www.osapublishing.org/books/bookshelf/lasers.cfm>`_,
+        Chapter 16: Wave optics and Gaussian beams)
+
+        .. note::
+
+            The additional terms that arise **far from the focal plane**
+            (Gouy phase, wavefront curvature, ...) are not included in the above
+            formula for simplicity, but are of course taken into account by
+            the code, when initializing the laser pulse away from the focal plane.
+
+        .. warning::
+            The above formula depends on a parameter :math:`m`
+            (see documentation below). In order to be properly resolved by
+            the simulation, a Laguerre-Gauss profile with a given :math:`m`
+            requires the azimuthal modes from :math:`0` to :math:`|m|+1`.
+            (i.e. the number of required azimuthal modes is ``Nm=|m|+2``)
+
+        Parameters
+        ----------
+
+        p: int
+            The order of the Laguerre polynomial. (Increasing ``p`` increases
+            the number of "rings" in the radial intensity profile of the laser.)
+
+        m: int (positive or negative)
+            The azimuthal order of the pulse. The laser phase in a given
+            transverse plane varies as :math:`m \\theta`.
+
+        a0: float (dimensionless)
+            The amplitude of the pulse, defined so that the total
+            energy of the pulse is the same as that of a Gaussian pulse
+            with the same :math:`a_0`, :math:`w_0` and :math:`\\tau`.
+            (i.e. The energy of the pulse is independent of ``p`` and ``m``.)
+
+        waist: float (in meter)
+            Laser waist at the focal plane, defined as :math:`w_0` in the
+            above formula.
+
+        tau: float (in second)
+            The duration of the laser (in the lab frame),
+            defined as :math:`\\tau` in the above formula.
+
+        z0: float (in meter)
+            The initial position of the centroid of the laser
+            (in the lab frame), defined as :math:`z_0` in the above formula.
+
+        zf: float (in meter), optional
+            The position of the focal plane (in the lab frame).
+            If ``zf`` is not provided, the code assumes that ``zf=z0``, i.e.
+            that the laser pulse is at the focal plane initially.
+
+        theta_pol: float (in radian), optional
+           The angle of polarization with respect to the x axis.
+
+        lambda0: float (in meter), optional
+            The wavelength of the laser (in the lab frame), defined as
+            :math:`\\lambda_0` in the above formula.
+            Default: 0.8 microns (Ti:Sapph laser).
+
+        cep_phase: float (in radian), optional
+            The Carrier Enveloppe Phase (CEP), defined as :math:`\phi_{cep}`
+            in the above formula (i.e. the phase of the laser
+            oscillation, at the position where the laser enveloppe is maximum)
+
+        propagation_direction: int, optional
+            Indicates in which direction the laser propagates.
+            This should be either 1 (laser propagates towards positive z)
+            or -1 (laser propagates towards negative z).
+        """
+        # Initialize propagation direction
+        LaserProfile.__init__(self, propagation_direction)
+
+        # Set a number of parameters for the laser
+        k0 = 2*np.pi/lambda0
+        zr = 0.5*k0*waist**2
+        # Scaling factor, so that the pulse energy is independent of p and m.
+        scaled_amplitude = np.sqrt( factorial(p)/factorial(abs(m)+p) )
+        E0 = scaled_amplitude * a0 * m_e*c**2 * k0/e
+
+        # If no focal plane position is given, use z0
+        if zf is None:
+            zf = z0
+
+        # Store the parameters
+        self.p = p
+        self.m = m
+        self.laguerre_pm = genlaguerre(self.p, abs(m)) # Laguerre polynomial
+        self.k0 = k0
+        self.inv_zr = 1./zr
+        self.zf = zf
+        self.z0 = z0
+        self.E0x = E0 * np.cos(theta_pol)
+        self.E0y = E0 * np.sin(theta_pol)
+        self.a0 = scaled_amplitude * a0
+        self.w0 = waist
+        self.cep_phase = cep_phase
+        self.inv_ctau2 = 1./(c*tau)**2
+
+    def E_field( self, x, y, z, t ):
+        """
+        See the docstring of LaserProfile.E_field
+        """
+        # Diffraction factor, waist and Gouy phase
+        prop_dir = self.propag_direction
+        diffract_factor = 1. + 1j * prop_dir * ( z - self.zf ) * self.inv_zr
+        w = self.w0 * abs( diffract_factor )
+        psi = np.angle( diffract_factor )
+        # Calculate the scaled radius and azimuthal angle
+        scaled_radius_squared = 2*( x**2 + y**2 ) / w**2
+        scaled_radius = np.sqrt( scaled_radius_squared )
+        theta = np.angle( x + 1.j*y )
+        # Calculate the argument of the complex exponential
+        exp_argument = 1j*self.k0*( prop_dir*(z - self.z0) - c*t ) \
+            - 1j*self.cep_phase - 1.j*self.m*theta \
+            - (x**2 + y**2) / (self.w0**2 * diffract_factor) \
+            - self.inv_ctau2 * ( prop_dir*(z - self.z0) - c*t )**2 \
+            + 1.j*(2*self.p + abs(self.m))*psi # *Additional* Gouy phase
+        # Get the transverse profile
+        profile = np.exp(exp_argument) / diffract_factor \
+            * scaled_radius**abs(self.m) \
+            * self.laguerre_pm(scaled_radius_squared)
+
+        # Get the projection along x and y, with the correct polarization
+        Ex = self.E0x * profile
+        Ey = self.E0y * profile
+
+        return( Ex.real, Ey.real )
+
+    def a_field( self, x, y, z, t ):
+        """
+        See the docstring of LaserProfile.a_field
+        """
+        # Diffraction factor, waist and Gouy phase
+        diffract_factor = 1. + 1j * ( z - self.zf ) * self.inv_zr
+        w = self.w0 * abs( diffract_factor )
+        psi = np.angle( diffract_factor )
+        # Calculate the scaled radius and azimuthal angle
+        scaled_radius_squared = 2*( x**2 + y**2 ) / w**2
+        scaled_radius = np.sqrt( scaled_radius_squared )
+        theta = np.angle( x + 1.j*y )
+        # Calculate the argument of the complex exponential
+        exp_argument = \
+            - 1j*self.cep_phase - 1.j*self.m*theta \
+            - (x**2 + y**2) / (self.w0**2 * diffract_factor) \
+            - self.inv_ctau2 * ( z - self.z0 - c*t )**2 \
+            + 1.j*(2*self.p + abs(self.m))*psi # *Additional* Gouy phase
+        # Get the transverse profile
+        profile = np.exp(exp_argument) / diffract_factor \
+            * scaled_radius**abs(self.m) \
+            * self.laguerre_pm(scaled_radius_squared)
+
+        a = self.a0 * profile
+
+        return a
 
 class FlattenedGaussianLaser( LaserProfile ):
     """Class that calculates a focused flattened Gaussian"""
 
     def __init__( self, a0, w0, tau, z0, N=6, zf=None, theta_pol=0.,
-                    lambda0=0.8e-6, cep_phase=0. ):
+                    lambda0=0.8e-6, cep_phase=0., propagation_direction=1 ):
         """
         Define a linearly-polarized laser such that the transverse intensity
         profile is a flattened Gaussian **far from focus**, and a distribution
@@ -543,7 +741,15 @@ class FlattenedGaussianLaser( LaserProfile ):
         cep_phase: float (in radian), optional
             The Carrier Enveloppe Phase (CEP, i.e. the phase of the laser
             oscillation, at the position where the laser enveloppe is maximum)
+
+        propagation_direction: int, optional
+            Indicates in which direction the laser propagates.
+            This should be either 1 (laser propagates towards positive z)
+            or -1 (laser propagates towards negative z).
         """
+        # Initialize propagation direction
+        LaserProfile.__init__(self, propagation_direction)
+
         # Ensure that N is an integer
         N = int(round(N))
         # Calculate effective waist of the Laguerre-Gauss modes, at focus
@@ -557,8 +763,9 @@ class FlattenedGaussianLaser( LaserProfile ):
             cn = (-1)**n * np.sum( 1./2**m_values * binom(m_values,n) ) /(N+1)
             profile = LaguerreGaussLaser( p=n, m=0, a0=cn*a0,
                             cep_phase=cep_phase_n, waist=w_foc,
-                            tau=tau, z0=z0, zf=zf,
-                            theta_pol=theta_pol, lambda0=lambda0, theta0=0. )
+                            tau=tau, z0=z0, zf=zf, theta_pol=theta_pol,
+                            lambda0=lambda0, theta0=0.,
+                            propagation_direction=propagation_direction )
             if n==0:
                 summed_profile = profile
             else:
@@ -570,18 +777,6 @@ class FlattenedGaussianLaser( LaserProfile ):
 
     def E_field( self, x, y, z, t ):
         """
-        Return the electric field of the laser
-
-        Parameters
-        ----------
-        x, y, z: ndarrays (meters)
-            The positions at which to calculate the profile (in the lab frame)
-        t: ndarray or float (seconds)
-            The time at which to calculate the profile (in the lab frame)
-
-        Returns:
-        --------
-        Ex, Ey: ndarrays (V/m)
-            Arrays of the same shape as x, y, z, containing the fields
+        See the docstring of LaserProfile.E_field
         """
         return self.summed_profile.E_field( x, y, z, t )

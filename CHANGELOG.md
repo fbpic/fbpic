@@ -1,5 +1,16 @@
 # Change Log / Release Log for fbpic
 
+## 0.9.2
+
+This is a bug-fix release. It fixes a bug in the initial space-charge 
+calculation, that was introduced in version 0.9.1. (Previous versions do 
+not have this bug ; see [#254](https://github.com/fbpic/fbpic/pull/254) for 
+more details.)
+
+In additional more laser profiles were added. This includes:
+- Donut-like Laguerre-Gauss laser profile [#257](https://github.com/fbpic/fbpic/pull/257)
+- Flattened Gaussian laser profile [#244](https://github.com/fbpic/fbpic/pull/244)
+
 ## 0.9.1
 
 This is a minor release, which includes miscellaneous improvements to fbpic:

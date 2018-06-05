@@ -18,15 +18,24 @@ import os
 import shutil
 import numpy as np
 from opmd_viewer import OpenPMDTimeSeries
+from scipy.constants import epsilon_0, c
 
-def run_sim_serial_and_parallel( script_file, data_file=None ):
+# Parameters of the simulated bunch
+sig_r = 3.e-6
+sig_z = 3.e-6
+gamma0 = 15.
+Q = 10.e-12
+zf = -20.e-6
+
+temporary_dir = './tests/tmp_test_dir'
+origin_dir = './tests/unautomated'
+
+def run_sim_serial_and_parallel( script_file, data_file=None, 
+                                 check_gaussian=False ):
     """Copy the script `script_file` from the `unautomated directory`
     and run the simulation both in serial and paralllel.
 
     Then compare the results."""
-
-    temporary_dir = './tests/tmp_test_dir'
-    origin_dir = './tests/unautomated'
 
     # Create a temporary directory for the simulation
     # and copy the testing script into this directory
@@ -61,6 +70,10 @@ def run_sim_serial_and_parallel( script_file, data_file=None ):
         os.path.join(temporary_dir, 'diags_serial/hdf5/'),
         os.path.join(temporary_dir, 'diags_parallel/hdf5/') )
 
+    # Check the validity
+    if check_gaussian:
+        check_theory_gaussian()
+
     # Suppress the temporary directory
     shutil.rmtree( temporary_dir )
 
@@ -84,12 +97,32 @@ def check_identical_fields( folder1, folder2 ):
     field2, info = ts2.get_field("rho", iteration=0)
     assert np.allclose( field1/abs(field1).max(), field2/abs(field2).max() )
 
+
+def check_theory_gaussian():
+    """
+    Check that the transverse E and B field are close to the high-gamma
+    theory for a gaussian bunch
+    """
+    ts = OpenPMDTimeSeries( os.path.join(temporary_dir, 'diags_serial/hdf5/') )
+    Ex, info = ts.get_field( 'E', 'x', iteration=0 )
+    By, info = ts.get_field( 'B', 'y', iteration=0 )
+    r, z = np.meshgrid( info.r, info.z, indexing='ij' )
+    # High-gamma theory for Gaussian bunch
+    Eth = -Q/(2*np.pi)**1.5/sig_z/epsilon_0/r * \
+        (1 - np.exp(-0.5*r**2/sig_r**2)) * \
+        np.exp( -0.5*(z-zf)**2/sig_z**2)
+    Bth = Eth/c
+    # Check that the fields agree
+    assert np.allclose( Ex, Eth, atol=0.1*Eth.max() )
+    assert np.allclose( By, Bth, atol=0.1*Bth.max() )
+
 def test_bunch_from_file():
     run_sim_serial_and_parallel( 'test_space_charge_file.py',
                                 'test_space_charge_file_data.txt')
 
 def test_bunch_gaussian():
-    run_sim_serial_and_parallel( 'test_space_charge_gaussian.py')
+    run_sim_serial_and_parallel( 'test_space_charge_gaussian.py', 
+                                 check_gaussian=True )
 
 if __name__ == '__main__':
     test_bunch_gaussian()
