@@ -25,7 +25,6 @@ import numpy as np
 from scipy.constants import c, e, m_e, pi
 from scipy.optimize import curve_fit
 from scipy.special import genlaguerre
-import matplotlib.pyplot as plt
 from fbpic.main import Simulation
 from fbpic.lpa_utils.laser import add_laser_pulse, \
     GaussianLaser, LaguerreGaussLaser
@@ -239,6 +238,7 @@ def propagate_pulse( Nz, Nr, Nm, zmin, zmax, Lr, L_prop, zf, dt,
                         / (1 + ((z_particles - zf)/ZR)**2 )
 
         if show:
+            import matplotlib.pyplot as plt
             radial_distance = np.sqrt(sim.ptcl[0].x**2 + sim.ptcl[0].y**2)
             radial_momentum = (sim.ptcl[0].ux*sim.ptcl[0].x + \
                             sim.ptcl[0].uy*sim.ptcl[0].y) / radial_distance
