@@ -623,6 +623,17 @@ class Simulation(object):
             if exchange and self.comm.size > 1:
                 self.comm.exchange_fields(fld.interp, 'J', 'add')
 
+        # Plasma susceptibility
+    elif fieldtype == 'chi' and self.use_envelope:
+        fld.erase('chi')
+        # Deposit the susceptibility
+        for species in self.ptcl:
+            species.deposit(fld, 'chi')
+        # Sum contribution from each CPU threads (skipped on GPU)
+        fld.sum_reduce_deposition_array('chi')
+        # Divide by cell volume
+        fld.divide_by_volume('chi')
+
         else:
             raise ValueError('Unknown fieldtype: %s' %fieldtype)
 

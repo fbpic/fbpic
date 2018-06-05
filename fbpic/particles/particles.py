@@ -1166,6 +1166,13 @@ class Particles(object) :
                         chi_tuple, m_tuple,
                         self.cell_idx, self.prefix_sum)
                 elif self.particle_shape == 'cubic':
+                    deposit_chi_gpu_linear[
+                        dim_grid_2d_flat, dim_block_2d_flat](
+                        self.x, self.y, self.z, weight, self.q, self.m, self.inv_gamma,
+                        grid[0].invdz, grid[0].zmin, grid[0].Nz,
+                        grid[0].invdr, grid[0].rmin, grid[0].Nr,
+                        chi_tuple, m_tuple,
+                        self.cell_idx, self.prefix_sum)
 
         # CPU version
         else:

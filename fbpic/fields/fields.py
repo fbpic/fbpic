@@ -199,6 +199,9 @@ class Fields(object) :
                     shape=(nthreads, self.Nm, self.Nz+4, self.Nr+4) )
             self.Jz_global = np.zeros( dtype=np.complex128,
                     shape=(nthreads, self.Nm, self.Nz+4, self.Nr+4) )
+            if self.use_envelope:
+                self.chi_global = np.zeros(dtype=np.complex128,
+                    shape=(nthreads, 2*self.Nm-1, self.Nz+4, self.Nr+4))
 
         # By default will not use the envelope model
         self.use_envelope = use_envelope
@@ -642,8 +645,12 @@ class Fields(object) :
             (either 'E', 'B', 'J', 'rho')
         """
         # Erase the fields in the interpolation grid
-        for m in range(self.Nm):
-            self.interp[m].erase(fieldtype)
+        if fieldtype == 'chi':
+            for m in self.envelope_mode_numbers:
+                self.envelope_interp[m].erase(fieldtype)
+        else:
+            for m in range(self.Nm):
+                self.interp[m].erase(fieldtype)
         # Erase the duplicated deposition buffer
         if not self.use_cuda:
             if fieldtype == 'rho':
@@ -652,6 +659,8 @@ class Fields(object) :
                 self.Jr_global[:,:,:,:] = 0.
                 self.Jt_global[:,:,:,:] = 0.
                 self.Jz_global[:,:,:,:] = 0.
+            elif fieldtype == 'chi':
+                self.chi_global[:,:,:,:] = 0.
 
     def sum_reduce_deposition_array(self, fieldtype):
         """
@@ -679,6 +688,9 @@ class Fields(object) :
                 sum_reduce_2d_array( self.Jr_global, self.interp[m].Jr, m )
                 sum_reduce_2d_array( self.Jt_global, self.interp[m].Jt, m )
                 sum_reduce_2d_array( self.Jz_global, self.interp[m].Jz, m )
+        elif fieldtype == 'chi':
+            for m in self.envelope_mode_numbers:
+                sum_reduce_2d_array(self.chi_global, self.envelope_interp[m].chi, m)
         else :
             raise ValueError('Invalid string for fieldtype: %s'%fieldtype)
 
