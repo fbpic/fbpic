@@ -14,7 +14,7 @@ Connecting to Lawrencium
 Lawrencium uses a one-time password (OTP) system. Before being able to
 connect to Lawrencium via ssh, you need to configure an OTP Token, using
 `these
-instructions <https://commons.lbl.gov/display/itfaq/Installing+and+Configuring+the+OTP+Token>`__.
+instructions <https://sites.google.com/a/lbl.gov/high-performance-computing-services-group/getting-started/new-user-information>`__.
 
 Once your OTP token is configured, you can connect by using
 
@@ -58,7 +58,7 @@ Installation of FBPIC and its dependencies
 
        conda install numba scipy h5py mkl
        conda install -c conda-forge mpi4py
-       conda install pyculib
+       conda install cudatoolkit=8 pyculib
 
 
 -  Install ``fbpic``
@@ -115,12 +115,21 @@ following text (and replace the bracketed text by the proper values).
     #!/bin/bash
     #SBATCH -J my_job
     #SBATCH --partition=lr_manycore
-    #SBATCH --constraint lr_kepler
+    #SBATCH --constraint <gpuConstraint>
     #SBATCH --time <requestedTime>
     #SBATCH --nodes 1
     #SBATCH --qos lr_normal
 
     python <fbpic_script.py>
+
+where ```<gpuConstraint>`` should be either:
+
+    - ``lr_k20`` for a node with a single K20 GPU
+    - ``lr_k80`` for a node with four K80 GPUs
+    - ``lr_pascal`` for a node with four GTX 1080Ti GPUs
+
+for more information on the available nodes, see
+`this page <https://sites.google.com/a/lbl.gov/high-performance-computing-services-group/lbnl-supercluster/lawrencium>`__.
 
 Then run:
 

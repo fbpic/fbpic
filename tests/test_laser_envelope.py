@@ -32,7 +32,7 @@ from scipy.constants import c
 from scipy.optimize import curve_fit
 from fbpic.main import Simulation
 from fbpic.lpa_utils.laser import add_laser_pulse, \
-    GaussianLaser, LaguerreGaussLaser
+    GaussianLaser, LaguerreGaussLaser, DonutLikeLaguerreGaussLaser
 
 # Parameters
 # ----------
@@ -309,9 +309,12 @@ def init_fields( sim, w, ctau, k0, z0, zf, a0, m=1 ) :
     if m == 0:
         profile = GaussianLaser( a0=a0, waist=w, tau=tau,
                     lambda0=lambda0, z0=z0, zf=zf )
-    elif m == 1 or m == -1:
+    elif m == 1:
         profile = LaguerreGaussLaser( 0, 1, a0=a0, waist=w, tau=tau,
                     lambda0=lambda0, z0=z0, zf=zf )
+    elif m == -1:
+        profile = DonutLikeLaguerreGaussLaser( 0, -1, a0=a0/2**.5,
+                    waist=w, tau=tau, lambda0=lambda0, z0=z0, zf=zf )
 
     # Add the profiles to the simulation
     add_laser_pulse( sim, profile, method = 'direct_envelope' )
