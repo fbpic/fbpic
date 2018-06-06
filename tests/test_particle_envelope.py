@@ -27,7 +27,7 @@ from scipy.optimize import curve_fit
 from scipy.special import genlaguerre
 from fbpic.main import Simulation
 from fbpic.lpa_utils.laser import add_laser_pulse, \
-    GaussianLaser, LaguerreGaussLaser, DonutLikeLaguerreGaussLaser
+    GaussianLaser, LaguerreGaussLaser
 
 # Parameters
 # ----------
