@@ -368,10 +368,10 @@ class BufferHandler(object):
                 # copy the CPU receiving buffers to the GPU buffers
                 if not gpudirect:
                     if copy_left:
-                        self.d_recv_l[exchange_type].copy_to_host(
+                        self.d_recv_l[exchange_type].copy_to_device(
                             self.recv_l[exchange_type] )
                     if copy_right:
-                        self.d_recv_r[exchange_type].copy_to_host(
+                        self.d_recv_r[exchange_type].copy_to_device(
                             self.recv_r[exchange_type] )
                 if method == 'replace':
                     # Replace the guard cells of the domain with the buffers

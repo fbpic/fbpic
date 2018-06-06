@@ -32,7 +32,7 @@ from scipy.constants import c
 from scipy.optimize import curve_fit
 from fbpic.main import Simulation
 from fbpic.lpa_utils.laser import add_laser_pulse, \
-    GaussianLaser, LaguerreGaussLaser
+    GaussianLaser, LaguerreGaussLaser, DonutLikeLaguerreGaussLaser
 
 # Parameters
 # ----------
@@ -235,7 +235,6 @@ def propagate_pulse( Nz, Nr, Nm, zmin, zmax, Lr, L_prop, zf, dt,
         sim.step( N_step, show_progress= False )
 
     # Get the analytical solution
-    show_fields(sim.fld.envelope_interp[m], 'a')
     z_prop = c*dt*N_step*np.arange(N_diag)
     ZR = 0.5*k0*w0**2
     w_analytic = w0*np.sqrt( 1 + (z_prop-zf)**2/ZR**2 )
@@ -311,9 +310,12 @@ def init_fields( sim, w, ctau, k0, z0, zf, a0, m=1 ) :
     if m == 0:
         profile = GaussianLaser( a0=a0, waist=w, tau=tau,
                     lambda0=lambda0, z0=z0, zf=zf )
-    elif m == 1 or m == -1:
+    elif m == 1:
         profile = LaguerreGaussLaser( 0, 1, a0=a0, waist=w, tau=tau,
                     lambda0=lambda0, z0=z0, zf=zf )
+    elif m == -1:
+        profile = DonutLikeLaguerreGaussLaser( 0, -1, a0=a0/2**.5,
+                    waist=w, tau=tau, lambda0=lambda0, z0=z0, zf=zf )
 
     # Add the profiles to the simulation
     add_laser_pulse( sim, profile, method = 'direct_envelope' )

@@ -26,12 +26,19 @@ def add_laser_direct_envelope( sim, laser_profile, boost ):
 
     # Check that no other laser simulation has been already added
     if not sim.fld.use_envelope:
-        raise ValueError("The envelope model is not used for the simulation")
+        raise ValueError(
+            "To use the `direct-envelope` injection, you need to pass "
+            "`use_envelope=True` to the `Simulation` object.")
     laser_wavelength = 2*np.pi/laser_profile.k0
     rtol = 1.e-3
-    if abs(laser_wavelength - sim.fld.lambda0 ) > rtol * laser_wavelength:
-        raise ValueError("Wavelengths passed to the simulation and the \
-                    laser profile are different")
+    if abs(laser_wavelength - sim.fld.lambda_envelope) > rtol*laser_wavelength:
+        raise ValueError("Wavelengths passed to the simulation and the "
+                    "laser profile are different")
+    # Check that the propagation direction is correct
+    if not laser_profile.propag_direction == 1.:
+        raise ValueError(
+            "The envelope model only works for forward-propagating lasers.\n"
+            "Set the `propagation_direction` argument to 1.")
 
     # Get the local azimuthally-decomposed laser fields a and a_old on each proc
     laser_a, laser_a_old = get_laser_a( sim, laser_profile, boost )

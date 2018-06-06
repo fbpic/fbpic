@@ -25,7 +25,6 @@ import numpy as np
 from scipy.constants import c, e, m_e, pi
 from scipy.optimize import curve_fit
 from scipy.special import genlaguerre
-import matplotlib.pyplot as plt
 from fbpic.main import Simulation
 from fbpic.lpa_utils.laser import add_laser_pulse, \
     GaussianLaser, LaguerreGaussLaser
@@ -233,12 +232,15 @@ def propagate_pulse( Nz, Nr, Nm, zmin, zmax, Lr, L_prop, zf, dt,
         # The waist is calculated at the position of the particles
         w = w0 * np.sqrt(1 + ((z_particles - zf)/ZR)**2 )
 
-        # Amplitude of the momentum surprisingly doesn't depend on the mode,
-        # although the profile does.
         A = 0.5 * np.sqrt(2*pi) * ctau * a0**2 \
                         / (1 + ((z_particles - zf)/ZR)**2 )
+        if m == 1:
+            # Taking into account the scale factor from LaguerreGaussLaser when
+            # m is not 0
+            A *= 2
 
         if show:
+            import matplotlib.pyplot as plt
             radial_distance = np.sqrt(sim.ptcl[0].x**2 + sim.ptcl[0].y**2)
             radial_momentum = (sim.ptcl[0].ux*sim.ptcl[0].x + \
                             sim.ptcl[0].uy*sim.ptcl[0].y) / radial_distance
@@ -255,11 +257,11 @@ def propagate_pulse( Nz, Nr, Nm, zmin, zmax, Lr, L_prop, zf, dt,
             plt.legend(loc=0)
             plt.show()
         A_analytic, w_analytic = fit_momentum(sim.ptcl[0], m, A, w)
-        assert np.allclose(A_analytic, A, rtol=rtol)
-        assert np.allclose(w_analytic, w, rtol=rtol)
+        assert np.allclose(A_analytic, A, rtol=5.e-3, atol=0)
+        assert np.allclose(w_analytic, w, rtol=rtol, atol=0)
         print('The simulation results agree with the theory to %e.' %rtol)
 
-def init_fields( sim, w, ctau, k0, z0, zf, a0, m=1 ) :
+def init_fields( sim, w0, ctau, k0, z0, zf, a0, m=1 ) :
     """
     Imprints the appropriate profile on the fields of the simulation.
 
@@ -267,7 +269,7 @@ def init_fields( sim, w, ctau, k0, z0, zf, a0, m=1 ) :
     ----------
     sim: Simulation object from fbpic
 
-    w : float
+    w0 : float
        The initial waist of the laser (in microns)
 
     ctau : float
@@ -297,11 +299,11 @@ def init_fields( sim, w, ctau, k0, z0, zf, a0, m=1 ) :
     # Create the relevant laser profile
 
     if m == 0:
-        profile = GaussianLaser( a0=a0, waist=w, tau=tau,
+        profile = GaussianLaser( a0=a0, waist=w0, tau=tau,
                     lambda0=lambda0, z0=z0, zf=zf )
     elif m == 1 or m == -1:
-        profile = LaguerreGaussLaser( 0, 1, a0=a0, waist=w, tau=tau,
-                    lambda0=lambda0, z0=z0, zf=zf )
+        profile = LaguerreGaussLaser( 0, 1, a0, w0, tau,
+                    z0, lambda0=lambda0, zf=zf )
 
     # Add the profiles to the simulation
     add_laser_pulse( sim, profile, method = 'direct_envelope' )
@@ -348,7 +350,7 @@ def radial_momentum_profile_laguerre(r, A, w):
     # Constant equal to one, but is written down
     # for the sake of clarity and consistency
     laguerre_pol = genlaguerre(0,1)
-    return A*r**2/w**2*(2*r/w**2 - 1/r) * laguerre_pol(2*r**2/w**2) \
+    return A*r**2/w**2*(2*r/w**2 - 1/r) * laguerre_pol(2*r**2/w**2)**2 \
                 * np.exp(-2*r**2/(w**2))
 
 
