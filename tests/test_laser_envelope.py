@@ -235,7 +235,6 @@ def propagate_pulse( Nz, Nr, Nm, zmin, zmax, Lr, L_prop, zf, dt,
         sim.step( N_step, show_progress= False )
 
     # Get the analytical solution
-    show_fields(sim.fld.envelope_interp[m], 'a')
     z_prop = c*dt*N_step*np.arange(N_diag)
     ZR = 0.5*k0*w0**2
     w_analytic = w0*np.sqrt( 1 + (z_prop-zf)**2/ZR**2 )
