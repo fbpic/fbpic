@@ -170,6 +170,11 @@ def remove_particles_cpu(species, fld, n_guard, left_proc, right_proc):
     species.uz = species.uz[selec_stay]
     species.inv_gamma = species.inv_gamma[selec_stay]
     species.w = species.w[selec_stay]
+    if species.use_envelope:
+        species.a2 = species.a2[selec_stay]
+        species.grad_a2_x = species.grad_a2_x[selec_stay]
+        species.grad_a2_y = species.grad_a2_y[selec_stay]
+        species.grad_a2_z = species.grad_a2_z[selec_stay]
     if species.tracker is not None:
         species.tracker.id = species.tracker.id[selec_stay]
     if species.ionizer is not None:
@@ -380,6 +385,11 @@ def add_buffers_to_particles( species, float_recv_left, float_recv_right,
         if species.n_integer_quantities > 0:
             species.int_sorting_buffer = \
                 cuda.device_array( shape, dtype=np.uint64 )
+        if species.use_envelope:
+            species.a2 = cuda.device_array( shape, dtype=np.float64 )
+            species.grad_a2_x = cuda.device_array( shape, dtype=np.float64 )
+            species.grad_a2_y = cuda.device_array( shape, dtype=np.float64 )
+            species.grad_a2_z = cuda.device_array( shape, dtype=np.float64 )
     else:
         # Reallocate empty field-on-particle arrays on the CPU
         species.Ex = np.empty(species.Ntot, dtype=np.float64)
@@ -388,6 +398,11 @@ def add_buffers_to_particles( species, float_recv_left, float_recv_right,
         species.Bx = np.empty(species.Ntot, dtype=np.float64)
         species.By = np.empty(species.Ntot, dtype=np.float64)
         species.Bz = np.empty(species.Ntot, dtype=np.float64)
+        if species.use_envelope:
+            species.a2 = np.empty(species.Ntot, dtype=np.float64)
+            species.grad_a2_x = np.empty(species.Ntot, dtype=np.float64)
+            species.grad_a2_y = np.empty(species.Ntot, dtype=np.float64)
+            species.grad_a2_z = np.empty(species.Ntot, dtype=np.float64)
 
     # The particles are unsorted after adding new particles.
     species.sorted = False

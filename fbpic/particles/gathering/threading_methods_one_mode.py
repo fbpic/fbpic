@@ -552,6 +552,12 @@ def gather_envelope_field_numba_cubic_one_mode(x, y, z,
         The relevant fields acting on the particles
         (is modified by this function)
 
+    nthreads : int
+        Number of CPU threads used with numba prange
+
+    ptcl_chunk_indices : array of int, of size nthreads+1
+        The indices (of the particle array) between which each thread
+        should loop. (i.e. divisions of particle array between threads)
     """
     # Gather the field per cell in parallel
     for nt in prange( nthreads ):
