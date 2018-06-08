@@ -9,8 +9,7 @@ packages, some of the steps below will be automatized.
 Make sure that your local environment is ready for a full release on
 PyPI and conda. In particular:
 
-- you should install the packages
-[`pypandoc`](https://pypi.python.org/pypi/pypandoc/),
+- you should install the package
 [`twine`](https://pypi.python.org/pypi/twine))
 - you should have a registered account on [PyPI](https://pypi.python.org/pypi) and [test PyPI](https://testpypi.python.org/pypi), and your `$HOME` should contain a file `.pypirc` which contains the following text:
 
