@@ -115,7 +115,8 @@ def test_particles_moving_window(show=False):
 def propagate_pulse( Nz, Nr, Nm, zmin, zmax, Lr, L_prop, zf, dt,
         p_zmin, p_zmax, p_rmin, p_rmax, n_e,
         w0, ctau, k0, a0, m, N_show, n_order, rtol,
-        boundaries, v_window=0, use_galilean=False, v_comoving=0, show=False ):
+        boundaries=boundaries, v_window=0,
+        use_galilean=False, v_comoving=0, show=False ):
         """
         Propagate the beam over a distance L_prop in Nt steps,
         and extracts the radial momentum of each particle at the end.
@@ -203,7 +204,7 @@ def propagate_pulse( Nz, Nr, Nm, zmin, zmax, Lr, L_prop, zf, dt,
         # Initialize the simulation object
         sim = Simulation( Nz, zmax, Nr, Lr, Nm, dt, p_zmin=p_zmin,
                         p_zmax=p_zmax, p_rmin=p_rmin, p_rmax=p_rmax, p_nz=1,
-                        p_nr=1, p_nt=1, n_e=n_e, n_order=n_order, zmin=zmin,
+                        p_nr=1, p_nt=Nm+1, n_e=n_e, n_order=n_order, zmin=zmin,
                         use_cuda=use_cuda, boundaries=boundaries,
                         v_comoving=v_comoving, exchange_period = 1,
                         use_galilean=use_galilean, use_envelope = True )

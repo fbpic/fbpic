@@ -143,7 +143,7 @@ def numba_push_eb_standard( Ep, Em, Ez, Bp, Bm, Bz, Jp, Jm, Jz,
     return
 
 @njit_parallel
-def numba_push_envelope_standard(a, a_old, C_w_laser_env, C_w_tot_env,
+def numba_push_envelope_standard(a, a_old, chi_a, C_w_laser_env, C_w_tot_env,
                             A_coef, Nz, Nr):
     """
     Push the envelope over one timestep, using the envelope model equations
@@ -157,7 +157,8 @@ def numba_push_envelope_standard(a, a_old, C_w_laser_env, C_w_tot_env,
             a_temp = a[iz, ir]
             # Push the envelope
             a[iz, ir] = A_coef * ( - A_coef * a_old[iz,ir] \
-                    + 2*C_w_tot_env[iz, ir] * a[iz, ir] )
+                    + 2 * C_w_tot_env[iz, ir] * a[iz, ir] \
+                    + 2 * (C_w_laser_env - C_w_tot_env[iz, ir]) * chi_a[iz, ir])
             a_old[iz, ir] = a_temp
 
     return
@@ -380,3 +381,10 @@ def reduce_slice( reduced_array, iz, global_array, iz_global, m ):
         # Finally fold the high-radius guard cells in
         reduced_array[iz, Nr-1] += global_array[it, m, iz_global, Nr+2]
         reduced_array[iz, Nr-1] += global_array[it, m, iz_global, Nr+3]
+
+@njit_parallel
+def numba_convolve( chi_a, chi, a):
+    Nz, Nr = chi_a.shape
+    for iz in prange(Nz):
+        for ir in range(Nr):
+            chi_a[iz, ir] += chi[iz, ir] * a[iz, ir]

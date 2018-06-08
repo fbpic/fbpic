@@ -27,8 +27,8 @@ from .gathering.threading_methods_one_mode import erase_eb_numba, \
     gather_field_numba_linear_one_mode, gather_field_numba_cubic_one_mode
 from .deposition.threading_methods import \
         deposit_rho_numba_linear, deposit_rho_numba_cubic, \
-        deposit_J_numba_linear, deposit_J_numba_cubic
-
+        deposit_J_numba_linear, deposit_J_numba_cubic, \
+        deposit_chi_numba_linear, deposit_chi_numba_cubic
 # Check if threading is enabled
 from fbpic.utils.threading import nthreads, get_chunk_indices
 # Check if CUDA is available, then import CUDA functions
@@ -41,7 +41,8 @@ if cuda_installed:
                         push_p_envelope_gpu, push_p_ioniz_envelope_gpu, \
                         push_p_after_plane_envelope_gpu, update_inv_gamma_gpu
     from .deposition.cuda_methods import deposit_rho_gpu_linear, \
-        deposit_J_gpu_linear, deposit_rho_gpu_cubic, deposit_J_gpu_cubic
+        deposit_J_gpu_linear, deposit_rho_gpu_cubic, deposit_J_gpu_cubic, \
+        deposit_chi_gpu_cubic, deposit_chi_gpu_linear
     from .deposition.cuda_methods_one_mode import \
         deposit_rho_gpu_linear_one_mode, deposit_J_gpu_linear_one_mode, \
         deposit_rho_gpu_cubic_one_mode, deposit_J_gpu_cubic_one_mode
@@ -1037,12 +1038,6 @@ class Particles(object) :
         grid = fld.interp
         if self.use_envelope:
             envelope_grid = fld.envelope_interp
-            Nm = (len(envelope_grid) + 1) // 2
-            envelope_mode_numbers = [ m for m in range(Nm) ] + \
-                                    [ m for m in range(-Nm+1, 0)]
-            # Using tuples for compatibility with numba
-            chi_tuple = tuple(envelope_grid[m].chi for m in envelope_mode_numbers)
-            m_tuple = tuple(envelope_mode_numbers)
         assert fieldtype in ['rho', 'J', 'chi']
         assert self.particle_shape in ['linear', 'cubic']
 
@@ -1157,20 +1152,31 @@ class Particles(object) :
                                 self.cell_idx, self.prefix_sum)
 
             elif fieldtype == 'chi':
+                envelope_grid = fld.envelope_interp
+                Nm = (len(envelope_grid) + 1) // 2
+                envelope_mode_numbers = [ m for m in range(Nm) ] + \
+                                        [ m for m in range(-Nm+1, 0)]
+                # Using tuples for compatibility with numba
+                chi_tuple = tuple(envelope_grid[m].chi for m in envelope_mode_numbers)
+                m_tuple = tuple(envelope_mode_numbers)
                 if self.particle_shape == 'linear':
                     deposit_chi_gpu_linear[
                         dim_grid_2d_flat, dim_block_2d_flat](
-                        self.x, self.y, self.z, weight, self.q, self.m, self.inv_gamma,
-                        grid[0].invdz, grid[0].zmin, grid[0].Nz,
-                        grid[0].invdr, grid[0].rmin, grid[0].Nr,
+                        self.x, self.y, self.z, weight, self.q,
+                        self.m, self.inv_gamma,
+                        envelope_grid[0].invdz, envelope_grid[0].zmin,
+                        envelope_grid[0].Nz, envelope_grid[0].invdr,
+                        envelope_grid[0].rmin, envelope_grid[0].Nr,
                         chi_tuple, m_tuple,
                         self.cell_idx, self.prefix_sum)
                 elif self.particle_shape == 'cubic':
-                    deposit_chi_gpu_linear[
+                    deposit_chi_gpu_cubic[
                         dim_grid_2d_flat, dim_block_2d_flat](
-                        self.x, self.y, self.z, weight, self.q, self.m, self.inv_gamma,
-                        grid[0].invdz, grid[0].zmin, grid[0].Nz,
-                        grid[0].invdr, grid[0].rmin, grid[0].Nr,
+                        self.x, self.y, self.z, weight, self.q,
+                        self.m, self.inv_gamma,
+                        envelope_grid[0].invdz, envelope_grid[0].zmin,
+                        envelope_grid[0].Nz, envelope_grid[0].invdr,
+                        envelope_grid[0].rmin, envelope_grid[0].Nr,
                         chi_tuple, m_tuple,
                         self.cell_idx, self.prefix_sum)
 
@@ -1217,6 +1223,29 @@ class Particles(object) :
                         grid[0].invdr, grid[0].rmin, grid[0].Nr,
                         fld.Jr_global, fld.Jt_global, fld.Jz_global, fld.Nm,
                         nthreads, ptcl_chunk_indices )
+
+            elif fieldtype == 'chi':
+                # Deposit chi using CPU threading
+                if self.particle_shape == 'linear':
+                    print("LINEAR")
+                    deposit_chi_numba_linear(
+                        self.x, self.y, self.z, weight, self.q,
+                        self.m, self.inv_gamma,
+                        envelope_grid[0].invdz, envelope_grid[0].zmin,
+                        envelope_grid[0].Nz, envelope_grid[0].invdr,
+                        envelope_grid[0].rmin, envelope_grid[0].Nr,
+                        fld.chi_global, fld.Nm,
+                        nthreads, ptcl_chunk_indices )
+                elif self.particle_shape == 'cubic':
+                    deposit_chi_numba_cubic(
+                        self.x, self.y, self.z, weight, self.q,
+                        self.m, self.inv_gamma,
+                        envelope_grid[0].invdz, envelope_grid[0].zmin,
+                        envelope_grid[0].Nz, envelope_grid[0].invdr,
+                        envelope_grid[0].rmin, envelope_grid[0].Nr,
+                        fld.chi_global, fld.Nm,
+                        nthreads, ptcl_chunk_indices )
+
 
 
 

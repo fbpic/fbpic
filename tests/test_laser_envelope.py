@@ -211,7 +211,6 @@ def propagate_pulse( Nz, Nr, Nm, zmin, zmax, Lr, L_prop, zf, dt,
 
     # Calculate the number of steps to run between each diagnostic
     Ntot_step = int( round( L_prop/(c*dt) ) )
-    print(Ntot_step)
     N_step = int( round( Ntot_step/N_diag ) )
 
     dz = sim.fld.interp[0].dz

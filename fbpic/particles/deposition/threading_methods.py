@@ -251,7 +251,7 @@ def deposit_chi_numba_linear(x, y, z, w, q, M, inv_gamma,
     for i_thread in prange( nthreads ):
 
         # Allocate thread-local array
-        rho_scal = np.zeros(2*Nm-1, dtype=np.complex128 )
+        chi_scal = np.zeros(2*Nm-1, dtype=np.complex128 )
 
         # Loop over all particles in thread chunk
         for i_ptcl in range( ptcl_chunk_indices[i_thread],
@@ -450,7 +450,7 @@ def deposit_J_numba_linear(x, y, z, w, q,
 def deposit_rho_numba_cubic(x, y, z, w, q,
                           invdz, zmin, Nz,
                           invdr, rmin, Nr,
-                          chi_global, Nm,
+                          rho_global, Nm,
                           nthreads, ptcl_chunk_indices):
     """
     Deposition of the charge density chi using numba prange on the CPU.
@@ -476,14 +476,8 @@ def deposit_rho_numba_cubic(x, y, z, w, q,
         Charge of the species
         (For ionizable atoms: this is always the elementary charge e)
 
-    M : float
-        Mass of the species
-
-    inv_gamma : float
-        Inverse of the gamma factor of the particles
-
-    chi_global : 4darrays of complexs
-        Global helper arrays of shape (nthreads, 2*Nm-1, 2+Nz+2, 2+Nr+2) where the
+    rho_global : 4darrays of complexs
+        Global helper arrays of shape (nthreads, Nm, 2+Nz+2, 2+Nr+2) where the
         additional 2's in z and r correspond to deposition guard cells.
         This array stores the thread local charge density on the interpolation
         grid for each mode. (is modified by this function)
@@ -512,7 +506,7 @@ def deposit_rho_numba_cubic(x, y, z, w, q,
     for i_thread in prange( nthreads ):
 
         # Allocate thread-local array
-        chi_scal = np.zeros( 2*Nm-1, dtype=np.complex128 )
+        rho_scal = np.zeros( Nm, dtype=np.complex128 )
 
         # Loop over all particles in thread chunk
         for i_ptcl in range( ptcl_chunk_indices[i_thread],
@@ -578,7 +572,7 @@ def deposit_rho_numba_cubic(x, y, z, w, q,
 # -------------------------------
 
 @njit_parallel
-def deposit_chi_numba_cubic(x, y, z, w, q,
+def deposit_chi_numba_cubic(x, y, z, w, q, M, inv_gamma,
                           invdz, zmin, Nz,
                           invdr, rmin, Nr,
                           chi_global, Nm,
@@ -607,8 +601,14 @@ def deposit_chi_numba_cubic(x, y, z, w, q,
         Charge of the species
         (For ionizable atoms: this is always the elementary charge e)
 
+    M : float
+        Mass of the species
+
+    inv_gamma : float
+        Inverse of the gamma factor of the particles
+
     chi_global : 4darray of complexs
-        Global helper arrays of shape (nthreads, Nm, 2+Nz+2, 2+Nr+2) where the
+        Global helper arrays of shape (nthreads, 2*Nm-1, 2+Nz+2, 2+Nr+2) where the
         additional 2's in z and r correspond to deposition guard cells.
         This array stores the thread local charge density on the interpolation
         grid for each mode. (is modified by this function)
@@ -637,7 +637,7 @@ def deposit_chi_numba_cubic(x, y, z, w, q,
     for i_thread in prange( nthreads ):
 
         # Allocate thread-local array
-        rho_scal = np.zeros( Nm, dtype=np.complex128 )
+        chi_scal = np.zeros( 2*Nm-1, dtype=np.complex128 )
 
         # Loop over all particles in thread chunk
         for i_ptcl in range( ptcl_chunk_indices[i_thread],

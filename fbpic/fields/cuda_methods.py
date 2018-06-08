@@ -300,7 +300,7 @@ def cuda_push_eb_standard( Ep, Em, Ez, Bp, Bm, Bz, Jp, Jm, Jz,
                         + 1.j*kr[iz, ir]*Jm[iz, ir] )
 
 @cuda.jit
-def cuda_push_envelope_standard(a, a_old, C_w_laser_env, C_w_tot_env,
+def cuda_push_envelope_standard(a, a_old, chi_a, C_w_laser_env, C_w_tot_env,
                             A_coef, Nz, Nr) :
     """
     Push the envelope over one timestep, using the envelope model equations
@@ -315,7 +315,8 @@ def cuda_push_envelope_standard(a, a_old, C_w_laser_env, C_w_tot_env,
         a_temp = a[iz, ir]
         # Push the envelope
         a[iz, ir] = A_coef * ( - A_coef * a_old[iz,ir] \
-                + 2 * C_w_tot_env[iz, ir] * a[iz, ir] )
+                + 2 * C_w_tot_env[iz, ir] * a[iz, ir] \
+                + 2 * (C_w_laser_env - C_w_tot_env[iz, ir]) * chi_a[iz, ir])
         a_old[iz, ir] = a_temp
 
 
@@ -488,3 +489,12 @@ def cuda_compute_grad_a( a, grad_a_p, grad_a_m, grad_a_z, d_kr, d_kz, Nz, Nr ):
         grad_a_p[iz, ir] = - 0.5 * a[iz, ir] * d_kr[iz, ir]
         grad_a_m[iz, ir] = 0.5 * a[iz, ir] * d_kr[iz, ir]
         grad_a_z[iz, ir] = 1j * a[iz, ir] * d_kz[iz, ir]
+
+@cuda.jit
+def cuda_convolve(chi_a, chi, a):
+
+    # Cuda 2D grid
+    iz, ir = cuda.grid(2)
+
+    if (iz < chi.shape[0]) and (ir < chi.shape[1]):
+        chi_a[iz, ir] += chi[iz, ir] * a[iz, ir]

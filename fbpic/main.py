@@ -358,8 +358,8 @@ class Simulation(object):
 
         # Loop over timesteps
         for i_step in range(N):
-            # print("beginning step")
-            # print('AIDE MEMOIRE1', self.ptcl[0].Ntot, len(self.ptcl[0].z))
+            print("BEGINNING STEP NUMBER", i_step)
+            print('Nb elec BEGIN', len(self.ptcl[0].x), len(self.ptcl[0].a2))
             # Show a progression bar and calculate ETA
             if show_progress and self.comm.rank==0:
                 progress_bar.time( i_step )
@@ -407,18 +407,17 @@ class Simulation(object):
             # ------------------
 
             # Gather the fields from the grid at t = n dt
-            # print('Before Gathering', self.ptcl[0].Ntot, len(self.ptcl[0].z))
             for species in ptcl:
+                print('Nb elec BEFORE GATHER', len(self.ptcl[0].x), len(self.ptcl[0].a2))
                 species.gather( fld.interp )
                 if self.use_envelope:
                     species.gather_envelope(fld.envelope_interp)
-            # print("gathering finished")
             # Apply the external fields at t = n dt
             for ext_field in self.external_fields:
+                print('Nb elec', len(self.ptcl[0].x), len(self.ptcl[0].a2))
                 ext_field.apply_expression( self.ptcl, self.time )
 
             if self.use_envelope:
-                # print('AIDE MEMOIRE2', self.ptcl[0].Ntot, len(self.ptcl[0].z))
                 if move_momenta:
                     # Virtually push the particles momenta to t = n dt to obtain
                     # the gamma used for pushing the 'a' field
@@ -428,7 +427,14 @@ class Simulation(object):
                         species.push_p_with_envelope(self.time + 0.5 * dt,
                                     timestep = self.dt/2, keep_momentum = False)
                 # Deposition of chi at time n dt
-                # print('particles_pushed')
+                print('Nb elec', len(self.ptcl[0].x), len(self.ptcl[0].a2))
+                print("BEFORE DEPOSITION")
+                self.deposit('chi')
+                print('AFTER DEPOSITION')
+                # Obtain the convolution product of chi by the envelope field
+                fld.convolve_a_chi()
+                fld.interp2spect('chi_a')
+                print('CHI_A EFFECTIVE')
                 # Push the envelope fields to time (n+1) dt
                 fld.push_envelope()
                 fld.spect2interp('a')
@@ -536,10 +542,6 @@ class Simulation(object):
             # Increment the global time and iteration
             self.time += dt
             self.iteration += 1
-            # print('AIDE MEMOIRE3', self.ptcl[0].Ntot, len(self.ptcl[0].z))
-            #print('z', self.ptcl[0].z)
-            #print('x',self.ptcl[0].x)
-            #print('ux', self.ptcl[0].ux)
             # Write the checkpoints if needed
             for checkpoint in self.checkpoints:
                 checkpoint.write( self.iteration )
@@ -565,6 +567,8 @@ class Simulation(object):
         # Print the measured time taken by the PIC cycle
         if show_progress and (self.comm.rank==0):
             progress_bar.print_summary()
+
+        print('Nb elec END LOOP', len(self.ptcl[0].x), len(self.ptcl[0].a2))
 
 
     def deposit( self, fieldtype, exchange=False ):
@@ -625,23 +629,26 @@ class Simulation(object):
                 self.comm.exchange_fields(fld.interp, 'J', 'add')
 
         # Plasma susceptibility
-    elif fieldtype == 'chi' and self.use_envelope:
-        fld.erase('chi')
-        # Deposit the susceptibility
-        for species in self.ptcl:
-            species.deposit(fld, 'chi')
-        # Sum contribution from each CPU threads (skipped on GPU)
-        fld.sum_reduce_deposition_array('chi')
-        # Divide by cell volume
-        fld.divide_by_volume('chi')
+        elif fieldtype == 'chi':
+            assert self.use_envelope
+            fld.erase('chi')
+            fld.erase('chi_a')
+            # Deposit the susceptibility
+            for species in self.ptcl:
+                species.deposit(fld, 'chi')
+            # Sum contribution from each CPU threads (skipped on GPU)
+            fld.sum_reduce_deposition_array('chi')
+            # Divide by cell volume
+            fld.divide_by_volume_and_e0('chi')
 
         else:
             raise ValueError('Unknown fieldtype: %s' %fieldtype)
 
         # Get the charge or currents on the spectral grid
-        fld.interp2spect( fieldtype )
-        if self.filter_currents:
-            fld.filter_spect( fieldtype )
+        if fieldtype != 'chi':
+            fld.interp2spect( fieldtype )
+            if self.filter_currents:
+                fld.filter_spect( fieldtype )
         # Set the flag to indicate whether these fields have been exchanged
         fld.exchanged_source[ fieldtype ] = exchange
 
