@@ -53,23 +53,9 @@ class MovingWindow(object):
 
         # Attach reference position of moving window
         # (Determines by how many cells the window should be moved)
+        # Note: this quantity should always be exactly the same for each
+        # MPI rank *at the machine precision*.
         self.zmin = zmin_global_domain
-
-
-    def check_mpi_synchronized_grids( self, comm ):
-        """
-        TODO
-        """
-        # Broadcast the information to all proc
-        if comm.size > 1:
-            zmin_window_list = comm.mpi_comm.gather( self.zmin )
-            zmin_global_domain, _ = comm.get_zmin_zmax(
-                            local=False, with_damp=False, with_guard=False )
-            zmin_box_list = comm.mpi_comm.gather( zmin_global_domain )
-        if comm.rank == 0:
-            for i in range(comm.size):
-                assert zmin_window_list[i] == zmin_window_list[0]
-                assert zmin_box_list[i] == zmin_box_list[0]
 
 
     def move_grids(self, fld, ptcl, comm, time):
