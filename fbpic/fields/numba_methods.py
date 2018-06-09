@@ -10,6 +10,7 @@ c2 = c**2
 import numba
 from fbpic.utils.threading import njit_parallel, prange
 
+
 @njit_parallel
 def numba_correct_currents_curlfree_standard( rho_prev, rho_next, Jp, Jm, Jz,
                             kz, kr, inv_k2, inv_dt, Nz, Nr ):
@@ -293,6 +294,26 @@ def numba_push_eb_comoving( Ep, Em, Ez, Bp, Bm, Bz, Jp, Jm, Jz,
 # -----------------------------------------------------------------------
 # Parallel reduction of the global arrays for threads into a single array
 # -----------------------------------------------------------------------
+
+@njit_parallel
+def numba_erase_threading_buffer( global_array ):
+    """
+    Set the threading buffer `global_array` to 0
+
+    Parameter:
+    ----------
+    global_array: 4darray of complexs
+        An array that contains the duplicated charge/current for each thread
+    """
+    nthreads, Nm, Nz, Nr = global_array.shape
+    # Loop in parallel along nthreads
+    for i_thread in prange(nthreads):
+        # Loop through the modes and the grid
+        for m in range(Nm):
+            for iz in range(Nz):
+                for ir in range(Nr):
+                    # Erase values
+                    global_array[i_thread, m, iz, ir] = 0.
 
 @njit_parallel
 def sum_reduce_2d_array( global_array, reduced_array, m ):
