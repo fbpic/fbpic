@@ -445,5 +445,5 @@ def update_inv_gamma_gpu(a2, ux, uy, uz, inv_gamma, q, m):
     scale_factor = 0.5 * ( q * m_e / (e * m) )**2
     i = cuda.grid(1)
     if i < ux.shape[0]:
-        inv_gamma[i] = math.sqrt(1 + ux[i]**2 + uy[i]**2 + uz[i]**2 \
+        inv_gamma[i] = 1./math.sqrt(1 + ux[i]**2 + uy[i]**2 + uz[i]**2 \
                                 + scale_factor * a2[i] )
