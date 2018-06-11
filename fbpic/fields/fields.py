@@ -788,7 +788,7 @@ class Fields(object) :
         """
 
         for m in self.envelope_mode_numbers:
-            for i in range(-self.Nm +1 + max(m,0), self.Nm - 1 + min(m, 0)):
+            for i in range(-self.Nm +1 + max(m,0), self.Nm + min(m, 0)):
                 if self.use_cuda :
                     # Obtain the cuda grid
                     dim_grid, dim_block = cuda_tpb_bpg_2d( self.Nz, self.Nr)

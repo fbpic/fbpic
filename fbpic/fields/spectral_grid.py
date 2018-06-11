@@ -511,12 +511,14 @@ class EnvelopeSpectralGrid(SpectralGrid):
                                         self.a, self.a_old, self.chi_a,
                                         ps.d_C_w_laser_env,
                                         ps.d_C_w_tot_env, ps.A_coef,
+                                        ps.d_w_transform_2,
                                         self.Nz, self.Nr )
 
         else:
             numba_push_envelope_standard(self.a, self.a_old, self.chi_a,
                                     ps.C_w_laser_env, ps.C_w_tot_env,
-                                    ps.A_coef, self.Nz, self.Nr)
+                                    ps.A_coef, ps.w_transform_2,
+                                    self.Nz, self.Nr)
 
     def compute_grad_a(self):
         """
@@ -567,7 +569,7 @@ class EnvelopeSpectralGrid(SpectralGrid):
         self.grad_a_m  = self.grad_a_m.copy_to_host()
         self.grad_a_z  = self.grad_a_z.copy_to_host()
         self.chi_a = self.chi_a.copy_to_host()
-        
+
     def filter(self, fieldtype) :
         """
         Filter the field `fieldtype`

@@ -358,8 +358,7 @@ class Simulation(object):
 
         # Loop over timesteps
         for i_step in range(N):
-            print("BEGINNING STEP NUMBER", i_step)
-            print('Nb elec BEGIN', len(self.ptcl[0].x), len(self.ptcl[0].a2))
+            print("STEP NUMBER", i_step)
             # Show a progression bar and calculate ETA
             if show_progress and self.comm.rank==0:
                 progress_bar.time( i_step )
@@ -408,13 +407,11 @@ class Simulation(object):
 
             # Gather the fields from the grid at t = n dt
             for species in ptcl:
-                print('Nb elec BEFORE GATHER', len(self.ptcl[0].x), len(self.ptcl[0].a2))
                 species.gather( fld.interp )
                 if self.use_envelope:
                     species.gather_envelope(fld.envelope_interp)
             # Apply the external fields at t = n dt
             for ext_field in self.external_fields:
-                print('Nb elec', len(self.ptcl[0].x), len(self.ptcl[0].a2))
                 ext_field.apply_expression( self.ptcl, self.time )
 
             if self.use_envelope:
@@ -427,14 +424,11 @@ class Simulation(object):
                         species.push_p_with_envelope(self.time + 0.5 * dt,
                                     timestep = self.dt/2, keep_momentum = False)
                 # Deposition of chi at time n dt
-                print('Nb elec', len(self.ptcl[0].x), len(self.ptcl[0].a2))
-                print("BEFORE DEPOSITION")
                 self.deposit('chi')
-                print('AFTER DEPOSITION')
                 # Obtain the convolution product of chi by the envelope field
                 fld.convolve_a_chi()
                 fld.interp2spect('chi_a')
-                print('CHI_A EFFECTIVE')
+                fld.filter_spect('chi_a')
                 # Push the envelope fields to time (n+1) dt
                 fld.push_envelope()
                 fld.spect2interp('a')
@@ -489,6 +483,7 @@ class Simulation(object):
             if move_positions:
                 for species in ptcl:
                     species.push_x( 0.5*dt )
+
             # Get positions for antenna particles at t = (n+1) dt
             for antenna in self.laser_antennas:
                 antenna.push_x( 0.5*dt )
@@ -568,8 +563,6 @@ class Simulation(object):
         if show_progress and (self.comm.rank==0):
             progress_bar.print_summary()
 
-        print('Nb elec END LOOP', len(self.ptcl[0].x), len(self.ptcl[0].a2))
-
 
     def deposit( self, fieldtype, exchange=False ):
         """
@@ -615,11 +608,13 @@ class Simulation(object):
         elif fieldtype == 'J':
             fld.erase('J')
             # Deposit the particle current
+            print("juste before J deposit")
             for species in self.ptcl:
                 species.deposit( fld, 'J' )
             # Deposit the current of the virtual particles in the antenna
             for antenna in self.laser_antennas:
                 antenna.deposit( fld, 'J', self.comm )
+            print("just after deposit")
             # Sum contribution from each CPU threads (skipped on GPU)
             fld.sum_reduce_deposition_array('J')
             # Divide by cell volume

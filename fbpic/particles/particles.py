@@ -1227,7 +1227,6 @@ class Particles(object) :
             elif fieldtype == 'chi':
                 # Deposit chi using CPU threading
                 if self.particle_shape == 'linear':
-                    print("LINEAR")
                     deposit_chi_numba_linear(
                         self.x, self.y, self.z, weight, self.q,
                         self.m, self.inv_gamma,

@@ -299,5 +299,5 @@ def update_inv_gamma_numba(a2, ux, uy, uz, inv_gamma, q, m, Ntot):
     """
     scale_factor = 0.5 * ( q * m_e / (e * m) )**2
     for ip in prange(Ntot) :
-        inv_gamma[ip] = math.sqrt(1 + ux[ip]**2 + uy[ip]**2 + uz[ip]**2 \
+        inv_gamma[ip] = 1./math.sqrt(1 + ux[ip]**2 + uy[ip]**2 + uz[ip]**2 \
                                 + scale_factor * a2[ip] )

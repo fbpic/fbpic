@@ -40,7 +40,8 @@ p_zmin = 15.e-6  # Position of the beginning of the plasma (meters)
 p_zmax = 500.e-6 # Position of the end of the plasma (meters)
 p_rmin = 0.      # Minimal radial position of the plasma (meters)
 p_rmax = 40.e-6  # Maximal radial position of the plasma (meters)
-n_e = n_critical * 0.1     # Density (electrons.meters^-3)
+n_e = n_critical * 0.1  # Density (electrons.meters^-3)
+#n_e = 4.e18*1.e6
 p_nz = 2         # Number of particles per cell along z
 p_nr = 2         # Number of particles per cell along r
 v_in_plasma = c * np.sqrt(1- n_e/n_critical )
@@ -152,9 +153,13 @@ def show_fields( grid, fieldtype ):
 
     plt.show()
 
+
+def longitudinal_profile(z, A, z_center):
+    return A * np.exp(-(z-z_center)**2/ctau**2)
+import matplotlib.pyplot as plt
 # Changing parameters
 Nm = 1
-dt = (zmax-zmin)*1./c/Nz
+dt = (zmax-zmin)*1./c/Nz*0.1
 
 
 
@@ -166,19 +171,45 @@ sim = Simulation( Nz, zmax, Nr, rmax, Nm, dt,
     dens_func=dens_func, boundaries='open',
     use_cuda=use_cuda, use_envelope=True )
 
-
 sim.set_moving_window(v=c)
 
 init_fields( sim, w0, ctau, k0, zf, a0)
 
 Ntot_step_init = int( round( L_prop_init/(c*dt) ) )
-print(Ntot_step_init)
-for it in range(10):
-    sim.step( Ntot_step_init//25, show_progress= False )
+k_iter = 1
+for it in range(k_iter):
+    sim.step( Ntot_step_init//k_iter, show_progress= False )
     show_fields(sim.fld.envelope_interp[0], 'a')
 
-Ntot_step = int( round( L_prop_in_plasma/(v_in_plasma*dt) ) )
+Ntot_step = int( round( L_prop_in_plasma/(c*dt) ) )
 N_step = int( round( Ntot_step/N_diag ) )
+z_list = []
 for it in range(N_diag):
     sim.step( N_step, show_progress= False )
+    print("ITERATION", it)
+    #show_fields(sim.fld.envelope_interp[0], 'a')
+    Nz = sim.fld.envelope_interp[0].Nz
+    z = sim.fld.envelope_interp[0].z
+    profile = abs(sim.fld.envelope_interp[0].a).sum(axis=1)
+    #print(z, profile)
+    import matplotlib.pyplot as plt
+
+    a = curve_fit(longitudinal_profile, z, profile, p0=(0.35, 0.00005 + c*N_diag*dt*(it+1)))
+    A, z_center = a[0]
+    #plt.plot(z, longitudinal_profile(z, A,z_center))
+    plt.plot(z, profile)
+    plt.plot(z, longitudinal_profile(z, A, z_center))
+    plt.show()
     show_fields(sim.fld.envelope_interp[0], 'a')
+    print(z_center)
+    z_list.append(z_center)
+
+def linear_profile(t, z0, v):
+    return z0 + v * t
+print(z_list)
+time = [dt*N_step*i for i in range(N_diag)]
+fit = curve_fit(linear_profile, time, z_list, p0=(z_list[0], c))
+z0, vg = fit[0]
+print(vg, c, v_in_plasma)
+plt.plot(time, z_list)
+plt.show()

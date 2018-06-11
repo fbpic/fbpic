@@ -207,8 +207,10 @@ class PsatdCoeffs(object) :
         self.C_w_tot_env = np.cos(w_tot*dt)
         self.w_laser = w_laser
         self.A_coef = np.exp(1j * w_laser * dt)
+        self.w_transform_2 = c**2 * (kr**2 + kz**2 + 2*k0*kz)
 
         # Replace these array by arrays on the GPU, when using cuda
         if self.use_cuda:
             self.d_C_w_laser_env = cuda.to_device(self.C_w_laser_env)
             self.d_C_w_tot_env = cuda.to_device(self.C_w_tot_env)
+            self.d_w_transform_2 = cuda.to_device(self.w_transform_2)
