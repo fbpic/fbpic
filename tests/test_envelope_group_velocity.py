@@ -178,7 +178,7 @@ init_fields( sim, w0, ctau, k0, zf, a0)
 Ntot_step_init = int( round( L_prop_init/(c*dt) ) )
 k_iter = 1
 for it in range(k_iter):
-    sim.step( Ntot_step_init//k_iter, show_progress= False )
+    sim.step( Ntot_step_init//k_iter, show_progress= True )
     show_fields(sim.fld.envelope_interp[0], 'a')
 
 Ntot_step = int( round( L_prop_in_plasma/(c*dt) ) )

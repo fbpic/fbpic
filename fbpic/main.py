@@ -358,7 +358,6 @@ class Simulation(object):
 
         # Loop over timesteps
         for i_step in range(N):
-            print("STEP NUMBER", i_step)
             # Show a progression bar and calculate ETA
             if show_progress and self.comm.rank==0:
                 progress_bar.time( i_step )
@@ -608,13 +607,11 @@ class Simulation(object):
         elif fieldtype == 'J':
             fld.erase('J')
             # Deposit the particle current
-            print("juste before J deposit")
             for species in self.ptcl:
                 species.deposit( fld, 'J' )
             # Deposit the current of the virtual particles in the antenna
             for antenna in self.laser_antennas:
                 antenna.deposit( fld, 'J', self.comm )
-            print("just after deposit")
             # Sum contribution from each CPU threads (skipped on GPU)
             fld.sum_reduce_deposition_array('J')
             # Divide by cell volume
