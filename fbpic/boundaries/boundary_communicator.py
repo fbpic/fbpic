@@ -318,21 +318,23 @@ class BoundaryCommunicator(object):
 
         # Get the local number of cells
         if local:
-            # First: get the number of cells without guard cells and damp cells
+            # First: get the number of cells without guard cells and 
+            # but with damp cells
             # Divide the number of cells equally between procs
-            Nz_per_proc = int(self._Nz_global_domain/self.size)
+            Nz_per_proc = int((self._Nz_global_domain+2*self.n_damp)/self.size)
             Nz = Nz_per_proc
             iz = rank * Nz_per_proc
             # The last proc gets the extra cells
             if rank == self.size-1:
-                Nz += (self._Nz_global_domain)%(self.size)
-            # Add damp cells if requested (only for first and last sub-domain)
-            if with_damp:
+                Nz += (self._Nz_global_domain+2*self.n_damp)%(self.size)
+            # Add remove damp cells if requested 
+            # (only for first and last sub-domain)
+            if not with_damp:
                 if rank == 0:
-                    Nz += self.n_damp
-                    iz -= self.n_damp
+                    Nz -= self.n_damp
+                    iz += self.n_damp
                 if rank == self.size-1:
-                    Nz += self.n_damp
+                    Nz -= self.n_damp
             # Add guard cells if requested
             if with_guard:
                 Nz += 2*self.n_guard
