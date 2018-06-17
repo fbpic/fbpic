@@ -1,10 +1,27 @@
 # Change Log / Release Log for fbpic
 
+## 0.9.3
+
+This is a minor release.
+
+It fixes a few bugs:
+- the restart mechanism for an arbitrary number of azimuthal modes ; see
+[#275](https://github.com/fbpic/fbpic/pull/275). Before this, restarting
+simulations worked only when using up to 2 azimuthal modes.
+- the diagnostics of `rho` for multi-GPU simulations ; see [#265](https://github.com/fbpic/fbpic/pull/265)
+
+In addition, this release introduces the possibility to inject a laser from
+a moving antenna ; see [#262](https://github.com/fbpic/fbpic/pull/262).
+
+It also introduces a minor change in the `LaserProfile` API:
+the user should now pass the propagation direction (i.e. forward-propagating
+or backward propagating) to the laser profile directly ; see [#260](https://github.com/fbpic/fbpic/pull/260).
+
 ## 0.9.2
 
-This is a bug-fix release. It fixes a bug in the initial space-charge 
-calculation, that was introduced in version 0.9.1. (Previous versions do 
-not have this bug ; see [#254](https://github.com/fbpic/fbpic/pull/254) for 
+This is a bug-fix release. It fixes a bug in the initial space-charge
+calculation, that was introduced in version 0.9.1. (Previous versions do
+not have this bug ; see [#254](https://github.com/fbpic/fbpic/pull/254) for
 more details.)
 
 In additional more laser profiles were added. This includes:

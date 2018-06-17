@@ -197,12 +197,12 @@ def load_fields( grid, fieldtype, coord, ts, iteration ):
                                          m=m, iteration=iteration )
         # Select a half-plane and transpose it to conform to FBPIC format
         field_data = field_data[Nr:,:].T
-    elif m==1:
+    else:
         # Extract the real and imaginary part by selecting the angle
         field_data_real, info = ts.get_field( fieldtype, coord,
                             iteration=iteration, m=m, theta=0)
         field_data_imag, _ = ts.get_field( fieldtype, coord,
-                            iteration=iteration, m=m, theta=np.pi/2)
+                            iteration=iteration, m=m, theta=np.pi/(2*m))
         # Select a half-plane and transpose it to conform to FBPIC format
         field_data_real = field_data_real[Nr:,:].T
         field_data_imag = field_data_imag[Nr:,:].T
