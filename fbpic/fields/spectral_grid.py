@@ -13,7 +13,8 @@ from .numba_methods import numba_push_eb_standard, numba_push_eb_comoving, \
     numba_correct_currents_curlfree_standard, \
     numba_correct_currents_crossdeposition_standard, \
     numba_correct_currents_curlfree_comoving, \
-    numba_correct_currents_crossdeposition_comoving
+    numba_correct_currents_crossdeposition_comoving, \
+    numba_compute_grad_a
 # Check if CUDA is available, then import CUDA functions
 from fbpic.utils.cuda import cuda_installed
 if cuda_installed:
@@ -25,7 +26,7 @@ if cuda_installed:
     cuda_correct_currents_crossdeposition_comoving, \
     cuda_filter_scalar, cuda_filter_vector, \
     cuda_push_eb_standard, cuda_push_eb_comoving, cuda_push_rho, \
-    cuda_push_envelope_standard
+    cuda_push_envelope_standard, cuda_compute_grad_a
 
 
 class SpectralGrid(object) :
@@ -479,6 +480,9 @@ class EnvelopeSpectralGrid(SpectralGrid):
         Nr, Nz = self.Nr, self.Nz
         self.a  = np.zeros( (Nz, Nr), dtype='complex' )
         self.a_old  = np.zeros( (Nz, Nr), dtype='complex' )
+        self.grad_a_p  = np.zeros( (Nz, Nr), dtype='complex' )
+        self.grad_a_m  = np.zeros( (Nz, Nr), dtype='complex' )
+        self.grad_a_z  = np.zeros( (Nz, Nr), dtype='complex' )
 
 
     def push_envelope_with(self, ps):
@@ -513,6 +517,27 @@ class EnvelopeSpectralGrid(SpectralGrid):
                                     ps.C_w_laser_env, ps.C_w_tot_env,
                                     ps.A_coef, self.Nz, self.Nr)
 
+    def compute_grad_a(self):
+        """
+        Compute the diffent grad_a scalars in spectral space from the a fields
+
+        After this function is called, grad_a fields are located in the same
+        time as the a field that is registered currently.
+        """
+
+        if self.use_cuda :
+            # Obtain the cuda grid
+            dim_grid, dim_block = cuda_tpb_bpg_2d( self.Nz, self.Nr)
+            cuda_compute_grad_a[dim_grid, dim_block](self.a,
+                                        self.grad_a_p, self.grad_a_m,
+                                        self.grad_a_z, self.d_kr, self.d_kz,
+                                        self.Nz, self.Nr )
+
+        else:
+            # Compute the new grad_a on CPU
+            numba_compute_grad_a(self.a, self.grad_a_p, self.grad_a_m,
+                            self.grad_a_z, self.kr, self.kz, self.Nz, self.Nr)
+
 
     def send_fields_to_gpu( self ):
         """
@@ -522,7 +547,10 @@ class EnvelopeSpectralGrid(SpectralGrid):
         point to GPU arrays.
         """
         self.a = cuda.to_device( self.a )
-        self.a_old = cuda.to_device( self.a_old)
+        self.a_old = cuda.to_device( self.a_old )
+        self.grad_a_p  = cuda.to_device( self.grad_a_p )
+        self.grad_a_m  = cuda.to_device( self.grad_a_m )
+        self.grad_a_z  = cuda.to_device( self.grad_a_z )
 
     def receive_fields_from_gpu( self ):
         """
@@ -533,3 +561,6 @@ class EnvelopeSpectralGrid(SpectralGrid):
         """
         self.a = self.a.copy_to_host()
         self.a_old = self.a_old.copy_to_host()
+        self.grad_a_p  = self.grad_a_p.copy_to_host()
+        self.grad_a_m  = self.grad_a_m.copy_to_host()
+        self.grad_a_z  = self.grad_a_z.copy_to_host()

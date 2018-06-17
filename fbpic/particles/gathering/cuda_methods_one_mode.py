@@ -55,7 +55,6 @@ def gather_field_gpu_linear_one_mode(x, y, z,
     of fields acting on each particle based on its shape (linear).
     Fields are gathered in cylindrical coordinates and then
     transformed to cartesian coordinates.
-    Supports only mode 0 and 1.
 
     Parameters
     ----------
@@ -217,7 +216,6 @@ def gather_field_gpu_cubic_one_mode(x, y, z,
     of fields acting on each particle based on its shape (cubic).
     Fields are gathered in cylindrical coordinates and then
     transformed to cartesian coordinates.
-    Supports only mode 0 and 1.
 
     Parameters
     ----------

@@ -18,7 +18,6 @@ from .inline_functions import \
 add_linear_gather_for_mode = numba.njit( add_linear_gather_for_mode )
 add_cubic_gather_for_mode = numba.njit( add_cubic_gather_for_mode )
 
-
 @njit_parallel
 def erase_eb_numba( Ex, Ey, Ez, Bx, By, Bz, Ntot ):
     """

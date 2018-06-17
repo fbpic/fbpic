@@ -10,11 +10,18 @@ from numba import cuda, float64, int64
 import math
 # Import inline functions
 from .inline_functions import \
-    add_linear_gather_for_mode, add_cubic_gather_for_mode
+    add_linear_gather_for_mode, add_cubic_gather_for_mode, \
+    add_linear_envelope_gather_for_mode, add_cubic_envelope_gather_for_mode
 # Compile the inline functions for GPU
 add_linear_gather_for_mode = cuda.jit( add_linear_gather_for_mode,
                                         device=True, inline=True )
 add_cubic_gather_for_mode = cuda.jit( add_cubic_gather_for_mode,
+                                        device=True, inline=True )
+add_linear_envelope_gather_for_mode = cuda.jit(
+                                        add_linear_envelope_gather_for_mode,
+                                        device=True, inline=True )
+add_cubic_envelope_gather_for_mode = cuda.jit(
+                                        add_cubic_envelope_gather_for_mode,
                                         device=True, inline=True )
 
 # -----------------------
@@ -192,6 +199,171 @@ def gather_field_gpu_linear(x, y, z,
         By[i] = sin*Fr + cos*Ft
         Bz[i] = Fz
 
+@cuda.jit
+def gather_envelope_field_gpu_linear(x, y, z,
+                    invdz, zmin, Nz,
+                    invdr, rmin, Nr,
+                    a_tuple,
+                    grad_a_r_tuple, grad_a_t_tuple, grad_a_z_tuple, m_tuple,
+                    a2, grad_a2_x, grad_a2_y, grad_a2_z,
+                    averaging=False ):
+    """
+    Gathering of the envelope field a and grad_a using numba on the GPU.
+    Iterates over the particles, calculates the weighted amount
+    of fields acting on each particle based on its shape (linear).
+    Fields are gathered in cylindrical coordinates and then
+    transformed to cartesian coordinates.
+
+    Parameters
+    ----------
+    x, y, z : 1darray of floats (in meters)
+        The position of the particles
+
+    invdz, invdr : float (in meters^-1)
+        Inverse of the grid step along the considered direction
+
+    zmin, rmin : float (in meters)
+        Position of the edge of the simulation box along the
+        direction considered
+
+    Nz, Nr : int
+        Number of gridpoints along the considered direction
+
+    a_tuple, grad_a_r_tuple, grad_a_t_tuple, grad_a_z_tuple :
+        tuple of 2darray of complexs
+        The relevant fields on the interpolation grid for all the different modes
+
+    m: tuple
+        Indices of the azimuthal mode
+
+    a, grad_a_x, grad_a_y, grad_a_z : 1darray of floats
+        The relevant fields acting on the particles
+        (is modified by this function)
+
+    averaging : boolean, optional
+        Whether to average the new values with the old ones or to
+        discard the old values.
+    """
+    # Get the 1D CUDA grid
+    i = cuda.grid(1)
+    # Deposit the field per cell in parallel
+    # (for threads < number of particles)
+    if i < x.shape[0]:
+        # Preliminary arrays for the cylindrical conversion
+        # --------------------------------------------
+        # Position
+        xj = x[i]
+        yj = y[i]
+        zj = z[i]
+
+        # Cylindrical conversion
+        rj = math.sqrt( xj**2 + yj**2 )
+        if (rj !=0. ) :
+            invr = 1./rj
+            cos = xj*invr  # Cosine
+            sin = yj*invr  # Sine
+        else :
+            cos = 1.
+            sin = 0.
+
+
+        # Get linear weights for the deposition
+        # --------------------------------------------
+        # Positions of the particles, in the cell unit
+        r_cell =  invdr*(rj - rmin) - 0.5
+        z_cell =  invdz*(zj - zmin) - 0.5
+        # Original index of the uppper and lower cell
+        ir_lower = int(math.floor( r_cell ))
+        ir_upper = ir_lower + 1
+        iz_lower = int(math.floor( z_cell ))
+        iz_upper = iz_lower + 1
+        # Linear weight
+        Sr_lower = ir_upper - r_cell
+        Sr_upper = r_cell - ir_lower
+        Sz_lower = iz_upper - z_cell
+        Sz_upper = z_cell - iz_lower
+        # Set guard weights to zero
+        Sr_guard = 0.
+
+        # Treat the boundary conditions
+        # --------------------------------------------
+        # guard cells in lower r
+        if ir_lower < 0:
+            Sr_guard = Sr_lower
+            Sr_lower = 0.
+            ir_lower = 0
+        # absorbing in upper r
+        if ir_lower > Nr-1:
+            ir_lower = Nr-1
+        if ir_upper > Nr-1:
+            ir_upper = Nr-1
+        # periodic boundaries in z
+        # lower z boundaries
+        if iz_lower < 0:
+            iz_lower += Nz
+        if iz_upper < 0:
+            iz_upper += Nz
+        # upper z boundaries
+        if iz_lower > Nz-1:
+            iz_lower -= Nz
+        if iz_upper > Nz-1:
+            iz_upper -= Nz
+
+        # Precalculate Shapes
+        S_ll = Sz_lower*Sr_lower
+        S_lu = Sz_lower*Sr_upper
+        S_ul = Sz_upper*Sr_lower
+        S_uu = Sz_upper*Sr_upper
+        S_lg = Sz_lower*Sr_guard
+        S_ug = Sz_upper*Sr_guard
+
+        # Envelope fields
+        # -------
+        F = 0.j
+        Fr = 0.j
+        Ft = 0.j
+        Fz = 0.j
+
+        for m in m_tuple:
+            # Add contribution from mode m
+            a_m = a_tuple[m]
+            grad_a_r_m = grad_a_r_tuple[m]
+            grad_a_t_m = grad_a_t_tuple[m]
+            grad_a_z_m = grad_a_z_tuple[m]
+            # Calculate azimuthal complex factor
+            exptheta_m = 1.
+            for _ in range(abs(m)):
+                exptheta_m *= (cos - 1.j*sin)
+            if m < 0:
+                exptheta_m = exptheta_m.conjugate()
+            F, Fr, Ft, Fz = add_linear_envelope_gather_for_mode( m, F, Fr, Ft,
+                        Fz, exptheta_m, a_m, grad_a_r_m, grad_a_t_m, grad_a_z_m,
+                        iz_lower, iz_upper, ir_lower, ir_upper,
+                        S_ll, S_lu, S_lg, S_ul, S_uu, S_ug )
+
+        # Convert to Cartesian coordinates
+        Fx = cos*Fr - sin*Ft
+        Fy = sin*Fr + cos*Ft
+
+        # Convert to grad_a^2 and a^2
+        Fx = 2 * (Fx * F.conjugate() ).real
+        Fy = 2 * (Fy * F.conjugate() ).real
+        Fz = 2 * (Fz * F.conjugate() ).real
+        F = F * F.conjugate()
+
+        # Register in the particle arrays
+        if averaging:
+            a2[i] = (0.5 * (a2[i] + F)).real
+            grad_a2_x[i] = (0.5 * (grad_a2_x[i] + Fx)).real
+            grad_a2_y[i] = (0.5 * (grad_a2_y[i] + Fy)).real
+            grad_a2_z[i] = (0.5 * (grad_a2_z[i] + Fz)).real
+        else:
+            a2[i] = F.real
+            grad_a2_x[i] = Fx.real
+            grad_a2_y[i] = Fy.real
+            grad_a2_z[i] = Fz.real
+
+
 # -----------------------
 # Field gathering cubic
 # -----------------------
@@ -335,3 +507,140 @@ def gather_field_gpu_cubic(x, y, z,
         Bx[i] = cos*Fr - sin*Ft
         By[i] = sin*Fr + cos*Ft
         Bz[i] = Fz
+
+
+@cuda.jit
+def gather_envelope_field_gpu_cubic(x, y, z,
+                    invdz, zmin, Nz,
+                    invdr, rmin, Nr,
+                    a_tuple,
+                    grad_a_r_tuple, grad_a_t_tuple, grad_a_z_tuple, m_tuple,
+                    a2, grad_a2_x, grad_a2_y, grad_a2_z,
+                    averaging = False):
+    """
+    Gathering of the envelope field a and grad_a using numba on the GPU.
+    Iterates over the particles, calculates the weighted amount
+    of fields acting on each particle based on its shape (cubic).
+    Fields are gathered in cylindrical coordinates and then
+    transformed to cartesian coordinates.
+
+    Parameters
+    ----------
+    x, y, z : 1darray of floats (in meters)
+        The position of the particles
+
+    invdz, invdr : float (in meters^-1)
+        Inverse of the grid step along the considered direction
+
+    zmin, rmin : float (in meters)
+        Position of the edge of the simulation box along the
+        direction considered
+
+    Nz, Nr : int
+        Number of gridpoints along the considered direction
+
+    a_tuple, grad_a_r_tuple, grad_a_t_tuple, grad_a_z_tuple :
+        tuple of 2darray of complexs
+        The relevant fields on the interpolation grid for all the different modes
+
+    m: tuple
+        Indices of the azimuthal mode
+
+    a, grad_a_x, grad_a_y, grad_a_z : 1darray of floats
+        The relevant fields acting on the particles
+        (is modified by this function)
+
+    averaging : boolean, optional
+        Whether to average the new values with the old ones or to
+        discard the old values.
+    """
+
+
+    # Get the 1D CUDA grid
+    i = cuda.grid(1)
+    # Deposit the field per cell in parallel
+    # (for threads < number of particles)
+    if i < x.shape[0]:
+        # Preliminary arrays for the cylindrical conversion
+        # --------------------------------------------
+        # Position
+        xj = x[i]
+        yj = y[i]
+        zj = z[i]
+
+        # Cylindrical conversion
+        rj = math.sqrt(xj**2 + yj**2)
+        if (rj != 0.):
+            invr = 1./rj
+            cos = xj*invr  # Cosine
+            sin = yj*invr  # Sine
+        else:
+            cos = 1.
+            sin = 0.
+
+        # Get weights for the deposition
+        # --------------------------------------------
+        # Positions of the particle, in the cell unit
+        r_cell = invdr*(rj - rmin) - 0.5
+        z_cell = invdz*(zj - zmin) - 0.5
+
+        # Calculate the shape factors
+        Sr = cuda.local.array((4,), dtype=float64)
+        ir_lowest = int64(math.floor(r_cell)) - 1
+        r_local = r_cell-ir_lowest
+        Sr[0] = -1./6. * (r_local-2.)**3
+        Sr[1] = 1./6. * (3.*(r_local-1.)**3 - 6.*(r_local-1.)**2 + 4.)
+        Sr[2] = 1./6. * (3.*(2.-r_local)**3 - 6.*(2.-r_local)**2 + 4.)
+        Sr[3] = -1./6. * (1.-r_local)**3
+        Sz = cuda.local.array((4,), dtype=float64)
+        iz_lowest = int64(math.floor(z_cell)) - 1
+        z_local = z_cell-iz_lowest
+        Sz[0] = -1./6. * (z_local-2.)**3
+        Sz[1] = 1./6. * (3.*(z_local-1.)**3 - 6.*(z_local-1.)**2 + 4.)
+        Sz[2] = 1./6. * (3.*(2.-z_local)**3 - 6.*(2.-z_local)**2 + 4.)
+        Sz[3] = -1./6. * (1.-z_local)**3
+
+        # Envelope fields
+        # -------
+        F = 0.j
+        Fr = 0.j
+        Ft = 0.j
+        Fz = 0.j
+        for m in m_tuple:
+            # Add contribution from mode m
+            a_m = a_tuple[m]
+            grad_a_r_m = grad_a_r_tuple[m]
+            grad_a_t_m = grad_a_t_tuple[m]
+            grad_a_z_m = grad_a_z_tuple[m]
+            # Calculate azimuthal complex factor
+            exptheta_m = 1.
+            for _ in range(abs(m)):
+                exptheta_m *= (cos - 1.j*sin)
+            if m < 0:
+                exptheta_m = exptheta_m.conjugate()
+            F, Fr, Ft, Fz = add_cubic_envelope_gather_for_mode( m, F, Fr, Ft,
+                                Fz, exptheta_m, a_m,
+                                grad_a_r_m, grad_a_t_m, grad_a_z_m,
+                                ir_lowest, iz_lowest, Sr, Sz, Nr, Nz  )
+
+        # Convert to Cartesian coordinates
+        Fx = cos*Fr - sin*Ft
+        Fy = sin*Fr + cos*Ft
+
+        # Convert to grad_a^2 and a^2
+        Fx = 2 * (Fx * F.conjugate() ).real
+        Fy = 2 * (Fy * F.conjugate() ).real
+        Fz = 2 * (Fz * F.conjugate() ).real
+        F = F * F.conjugate()
+
+        # Register in the particle arrays
+        if averaging:
+            a2[i] = (0.5 * (a2[i] + F)).real
+            grad_a2_x[i] = (0.5 * (grad_a2_x[i] + Fx)).real
+            grad_a2_y[i] = (0.5 * (grad_a2_y[i] + Fy)).real
+            grad_a2_z[i] = (0.5 * (grad_a2_z[i] + Fz)).real
+        else:
+            a2[i] = F.real
+            grad_a2_x[i] = Fx.real
+            grad_a2_y[i] = Fy.real
+            grad_a2_z[i] = Fz.real

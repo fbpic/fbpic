@@ -16,9 +16,10 @@ from .injection import BallisticBeforePlane, ContinuousInjector, \
 
 # Load the numba methods
 from .push.numba_methods import push_p_numba, push_p_ioniz_numba, \
-                                push_p_after_plane_numba, push_x_numba
+                            push_p_after_plane_numba, push_x_numba
 from .gathering.threading_methods import gather_field_numba_linear, \
-        gather_field_numba_cubic
+        gather_field_numba_cubic, gather_envelope_field_numba_linear, \
+        gather_envelope_field_numba_cubic
 from .gathering.threading_methods_one_mode import erase_eb_numba, \
     gather_field_numba_linear_one_mode, gather_field_numba_cubic_one_mode
 from .deposition.threading_methods import \
@@ -33,14 +34,15 @@ if cuda_installed:
     # Load the CUDA methods
     from fbpic.utils.cuda import cuda, cuda_tpb_bpg_1d
     from .push.cuda_methods import push_p_gpu, push_p_ioniz_gpu, \
-                                push_p_after_plane_gpu, push_x_gpu
+                        push_p_after_plane_gpu, push_x_gpu
     from .deposition.cuda_methods import deposit_rho_gpu_linear, \
         deposit_J_gpu_linear, deposit_rho_gpu_cubic, deposit_J_gpu_cubic
     from .deposition.cuda_methods_one_mode import \
         deposit_rho_gpu_linear_one_mode, deposit_J_gpu_linear_one_mode, \
         deposit_rho_gpu_cubic_one_mode, deposit_J_gpu_cubic_one_mode
     from .gathering.cuda_methods import gather_field_gpu_linear, \
-        gather_field_gpu_cubic
+        gather_field_gpu_cubic, gather_envelope_field_gpu_linear, \
+        gather_envelope_field_gpu_cubic
     from .gathering.cuda_methods_one_mode import erase_eb_cuda, \
         gather_field_gpu_linear_one_mode, gather_field_gpu_cubic_one_mode
     from .utilities.cuda_sorting import write_sorting_buffer, \
@@ -180,6 +182,13 @@ class Particles(object) :
         self.By = np.zeros( Ntot )
 
         self.use_envelope = use_envelope
+        if self.use_envelope:
+            self.a2 = np.zeros( Ntot )
+            self.grad_a2_z = np.zeros( Ntot )
+            self.grad_a2_x = np.zeros( Ntot )
+            self.grad_a2_y = np.zeros( Ntot )
+
+
 
         # The particle injector stores information that is useful in order
         # continuously inject particles in the simulation, with moving window
@@ -251,6 +260,11 @@ class Particles(object) :
             self.Bx = cuda.to_device(self.Bx)
             self.By = cuda.to_device(self.By)
             self.Bz = cuda.to_device(self.Bz)
+            if self.use_envelope:
+                self.a2 = cuda.to_device( self.a2 )
+                self.grad_a2_z = cuda.to_device( self.grad_a2_z )
+                self.grad_a2_x = cuda.to_device( self.grad_a2_x )
+                self.grad_a2_y = cuda.to_device( self.grad_a2_y )
 
             # Copy arrays on the GPU for the sorting
             self.cell_idx = cuda.to_device(self.cell_idx)
@@ -292,6 +306,11 @@ class Particles(object) :
             self.Bx = self.Bx.copy_to_host()
             self.By = self.By.copy_to_host()
             self.Bz = self.Bz.copy_to_host()
+            if self.use_envelope:
+                self.a2 = self.a2.copy_to_host()
+                self.grad_a2_z = self.grad_a2_z.copy_to_host()
+                self.grad_a2_x = self.grad_a2_x.copy_to_host()
+                self.grad_a2_y = self.grad_a2_y.copy_to_host()
 
             # Copy arrays on the CPU
             # that represent the sorting arrays
@@ -599,7 +618,6 @@ class Particles(object) :
                     self.Ex, self.Ey, self.Ez, self.Bx, self.By, self.Bz,
                     self.q, self.m, self.Ntot, self.dt )
 
-
     def push_x( self, dt, x_push=1., y_push=1., z_push=1. ) :
         """
         Advance the particles' positions over `dt` using the current
@@ -634,7 +652,7 @@ class Particles(object) :
                 self.inv_gamma, self.Ntot,
                 dt, x_push, y_push, z_push )
 
-    def gather( self, grid ) :
+    def gather( self, grid ):
         """
         Gather the fields onto the macroparticles
 
@@ -653,7 +671,6 @@ class Particles(object) :
 
         # Number of modes
         Nm = len(grid)
-
         # GPU (CUDA) version
         if self.use_cuda:
             # Get the threads per block and the blocks per grid
@@ -687,6 +704,7 @@ class Particles(object) :
                             grid[m].Br, grid[m].Bt, grid[m].Bz, m,
                             self.Ex, self.Ey, self.Ez,
                             self.Bx, self.By, self.Bz)
+
             elif self.particle_shape == 'cubic':
                 if Nm == 2:
                     # Optimized version for 2 modes
@@ -715,6 +733,7 @@ class Particles(object) :
                             grid[m].Br, grid[m].Bt, grid[m].Bz, m,
                             self.Ex, self.Ey, self.Ez,
                             self.Bx, self.By, self.Bz)
+
             else:
                 raise ValueError("`particle_shape` should be either \
                                   'linear' or 'cubic' \
@@ -748,6 +767,7 @@ class Particles(object) :
                             self.Ex, self.Ey, self.Ez,
                             self.Bx, self.By, self.Bz
                         )
+
             elif self.particle_shape == 'cubic':
                 # Divide particles into chunks (each chunk is handled by a
                 # different thread) and return the indices that bound chunks
@@ -779,10 +799,94 @@ class Particles(object) :
                             self.Ex, self.Ey, self.Ez,
                             self.Bx, self.By, self.Bz,
                             nthreads, ptcl_chunk_indices )
+
             else:
                 raise ValueError("`particle_shape` should be either \
                                   'linear' or 'cubic' \
                                    but is `%s`" % self.particle_shape)
+
+
+    def gather_envelope(self, envelope_grid, averaging=False):
+        """
+        Gather the envelope fields onto the macroparticles
+
+        This assumes that the particle positions are currently at
+        the same timestep as the field that is to be gathered.
+
+        Parameter
+        ----------
+        envelope_grid : a list of EnvelopeInterpolationGrid objects
+             (one object per azimuthal mode)
+             Contains the field values on the interpolation grid
+
+        averaging : boolean, optional
+            Whether to average the new field values with the old ones or to
+            discard the old values.
+        """
+        # Skip gathering for neutral particles (e.g. photons)
+        if self.q == 0:
+            return
+
+        # Using tuples for compatibility with numba
+        a_tuple = tuple( grid.a for grid in envelope_grid )
+        grad_a_r_tuple = tuple( grid.grad_a_r for grid in envelope_grid )
+        grad_a_t_tuple = tuple( grid.grad_a_t for grid in envelope_grid )
+        grad_a_z_tuple = tuple( grid.grad_a_z for grid in envelope_grid )
+        m_tuple = tuple( grid.m for grid in envelope_grid )
+
+        # GPU (CUDA) version
+        if self.use_cuda:
+            # Get the threads per block and the blocks per grid
+            dim_grid_1d, dim_block_1d = cuda_tpb_bpg_1d( self.Ntot, TPB=64 )
+            # Call the CUDA Kernel for the gathering of E and B Fields
+            if self.particle_shape == 'linear':
+                gather_envelope_field_gpu_linear[
+                    dim_grid_1d, dim_block_1d](
+                    self.x, self.y, self.z,
+                    envelope_grid[0].invdz, envelope_grid[0].zmin,
+                    envelope_grid[0].Nz, envelope_grid[0].invdr,
+                    envelope_grid[0].rmin, envelope_grid[0].Nr,
+                    a_tuple, grad_a_r_tuple, grad_a_t_tuple, grad_a_z_tuple,
+                    m_tuple, self.a2,
+                    self.grad_a2_x, self.grad_a2_y, self.grad_a2_z,
+                    averaging=averaging )
+            elif self.particle_shape == 'cubic':
+                gather_envelope_field_gpu_cubic[
+                    dim_grid_1d, dim_block_1d](
+                    self.x, self.y, self.z,
+                    envelope_grid[0].invdz, envelope_grid[0].zmin,
+                    envelope_grid[0].Nz, envelope_grid[0].invdr,
+                    envelope_grid[0].rmin, envelope_grid[0].Nr,
+                    a_tuple, grad_a_r_tuple, grad_a_t_tuple, grad_a_z_tuple,
+                    m_tuple, self.a2,
+                    self.grad_a2_x, self.grad_a2_y, self.grad_a2_z,
+                    averaging=averaging )
+        else:
+            if self.particle_shape == 'linear':
+                gather_envelope_field_numba_linear(
+                    self.x, self.y, self.z,
+                    envelope_grid[0].invdz, envelope_grid[0].zmin,
+                    envelope_grid[0].Nz, envelope_grid[0].invdr,
+                    envelope_grid[0].rmin, envelope_grid[0].Nr,
+                    a_tuple, grad_a_r_tuple, grad_a_t_tuple, grad_a_z_tuple,
+                    m_tuple, self.a2,
+                    self.grad_a2_x, self.grad_a2_y, self.grad_a2_z,
+                    averaging=averaging )
+            elif self.particle_shape == 'cubic':
+                # Divide particles into chunks (each chunk is handled by a
+                # different thread) and return the indices that bound chunks
+                ptcl_chunk_indices = get_chunk_indices(self.Ntot, nthreads)
+                gather_envelope_field_numba_cubic(
+                    self.x, self.y, self.z,
+                    envelope_grid[0].invdz, envelope_grid[0].zmin,
+                    envelope_grid[0].Nz, envelope_grid[0].invdr,
+                    envelope_grid[0].rmin, envelope_grid[0].Nr,
+                    a_tuple, grad_a_r_tuple, grad_a_t_tuple, grad_a_z_tuple,
+                    m_tuple, self.a2,
+                    self.grad_a2_x, self.grad_a2_y, self.grad_a2_z,
+                    nthreads, ptcl_chunk_indices,
+                    averaging=averaging )
+
 
     def deposit( self, fld, fieldtype ) :
         """

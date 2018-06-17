@@ -474,3 +474,17 @@ def cuda_filter_vector( fieldr, fieldt, fieldz, filter_array, Nz, Nr) :
         fieldr[iz, ir] = filter_array[iz, ir]*fieldr[iz, ir]
         fieldt[iz, ir] = filter_array[iz, ir]*fieldt[iz, ir]
         fieldz[iz, ir] = filter_array[iz, ir]*fieldz[iz, ir]
+
+@cuda.jit
+def cuda_compute_grad_a( a, grad_a_p, grad_a_m, grad_a_z, d_kr, d_kz, Nz, Nr ):
+    """
+    Compute the new grad_a components in spectral space.
+    """
+
+    # Cuda 2D grid
+    iz, ir = cuda.grid(2)
+
+    if (iz < Nz) and (ir < Nr) :
+        grad_a_p[iz, ir] = - 0.5 * a[iz, ir] * d_kr[iz, ir]
+        grad_a_m[iz, ir] = 0.5 * a[iz, ir] * d_kr[iz, ir]
+        grad_a_z[iz, ir] = 1j * a[iz, ir] * d_kz[iz, ir]

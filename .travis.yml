@@ -21,7 +21,7 @@ before_install:
 # Install packages
 install:
   - conda install --yes numba scipy h5py mkl
-  - conda install --yes -c conda-forge mpi4py
+  - conda install --yes -c conda-forge mpi4py mpich
   - pip install pyflakes
   - python setup.py install
 before_script:
