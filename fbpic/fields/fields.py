@@ -8,7 +8,7 @@ It defines the high-level Fields class.
 import warnings
 import numpy as np
 from fbpic.utils.threading import nthreads
-from .numba_methods import sum_reduce_2d_array
+from .numba_methods import sum_reduce_2d_array, numba_erase_threading_buffer
 from .utility_methods import get_modified_k
 from .spectral_transform import SpectralTransformer
 from .interpolation_grid import InterpolationGrid
@@ -505,11 +505,12 @@ class Fields(object) :
         # Erase the duplicated deposition buffer
         if not self.use_cuda:
             if fieldtype == 'rho':
-                self.rho_global[:,:,:,:] = 0.
+                numba_erase_threading_buffer( self.rho_global )
             elif fieldtype == 'J':
-                self.Jr_global[:,:,:,:] = 0.
-                self.Jt_global[:,:,:,:] = 0.
-                self.Jz_global[:,:,:,:] = 0.
+                numba_erase_threading_buffer( self.Jr_global )
+                numba_erase_threading_buffer( self.Jt_global )
+                numba_erase_threading_buffer( self.Jz_global )
+
 
     def sum_reduce_deposition_array(self, fieldtype):
         """
