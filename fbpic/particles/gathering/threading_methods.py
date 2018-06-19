@@ -313,17 +313,20 @@ def gather_envelope_field_numba_linear(x, y, z,
         S_ug = Sz_upper*Sr_guard
         # Envelope field
         # -------
-        F = 0
-        Fr = 0.
-        Ft = 0.
-        Fz = 0.
+        F = 0.j
+        Fr = 0.j
+        Ft = 0.j
+        Fz = 0.j
         for it in range(len(m_tuple)):
             m = m_tuple[it]
             a_m = a_tuple[it]
             grad_a_r_m = grad_a_r_tuple[it]
             grad_a_t_m = grad_a_t_tuple[it]
             grad_a_z_m = grad_a_z_tuple[it]
-            exptheta_m = (cos - 1.j*sin)**m
+            # Calculate complex factor ; avoid division by using conjugate
+            exptheta_m = (cos - 1.j*sin)**abs(m)
+            if m < 0:
+                exptheta_m = exptheta_m.conjugate()
             # Add contribution from mode m
             F, Fr, Ft, Fz = add_linear_envelope_gather_for_mode( m, F, Fr, Ft,
                                 Fz, exptheta_m, a_m, grad_a_r_m, grad_a_t_m,
@@ -609,17 +612,20 @@ def gather_envelope_field_numba_cubic(x, y, z,
 
             # Envelope fields
             # -------
-            F = 0.
-            Fr = 0.
-            Ft = 0.
-            Fz = 0.
+            F = 0.j
+            Fr = 0.j
+            Ft = 0.j
+            Fz = 0.j
             for m in m_tuple:
                 # Add contribution from mode m
                 a_m = a_tuple[m]
                 grad_a_r_m = grad_a_r_tuple[m]
                 grad_a_t_m = grad_a_t_tuple[m]
                 grad_a_z_m = grad_a_z_tuple[m]
-                exptheta_m = (cos - 1.j*sin)**m
+                # Calculate complex factor ; avoid division by using conjugate
+                exptheta_m = (cos - 1.j*sin)**abs(m)
+                if m < 0:
+                    exptheta_m = exptheta_m.conjugate()
                 F, Fr, Ft, Fz = add_cubic_envelope_gather_for_mode( m, F, Fr,
                             Ft, Fz, exptheta_m, a_m, grad_a_r_m, grad_a_t_m,
                             grad_a_z_m, ir_lowest, iz_lowest, Sr, Sz, Nr, Nz  )
