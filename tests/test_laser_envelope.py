@@ -40,7 +40,7 @@ from fbpic.lpa_utils.laser import add_laser_pulse, \
 # below for their definition)
 show = False # Whether to show the plots, and check them manually
 
-use_cuda = False
+use_cuda = True
 
 # Simulation box
 Nz = 200
@@ -211,7 +211,6 @@ def propagate_pulse( Nz, Nr, Nm, zmin, zmax, Lr, L_prop, zf, dt,
 
     # Calculate the number of steps to run between each diagnostic
     Ntot_step = int( round( L_prop/(c*dt) ) )
-    print(Ntot_step)
     N_step = int( round( Ntot_step/N_diag ) )
 
     dz = sim.fld.interp[0].dz
@@ -438,6 +437,6 @@ def show_fields( grid, fieldtype ):
 if __name__ == '__main__' :
 
     # Run the testing function
-    #test_laser_periodic(show=show)
+    test_laser_periodic(show=show)
 
     test_laser_moving_window(show=show)

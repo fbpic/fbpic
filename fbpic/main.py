@@ -358,8 +358,6 @@ class Simulation(object):
 
         # Loop over timesteps
         for i_step in range(N):
-            # print("beginning step")
-            # print('AIDE MEMOIRE1', self.ptcl[0].Ntot, len(self.ptcl[0].z))
             # Show a progression bar and calculate ETA
             if show_progress and self.comm.rank==0:
                 progress_bar.time( i_step )
@@ -407,18 +405,15 @@ class Simulation(object):
             # ------------------
 
             # Gather the fields from the grid at t = n dt
-            # print('Before Gathering', self.ptcl[0].Ntot, len(self.ptcl[0].z))
             for species in ptcl:
                 species.gather( fld.interp )
                 if self.use_envelope:
                     species.gather_envelope(fld.envelope_interp)
-            # print("gathering finished")
             # Apply the external fields at t = n dt
             for ext_field in self.external_fields:
                 ext_field.apply_expression( self.ptcl, self.time )
 
             if self.use_envelope:
-                # print('AIDE MEMOIRE2', self.ptcl[0].Ntot, len(self.ptcl[0].z))
                 if move_momenta:
                     # Virtually push the particles momenta to t = n dt to obtain
                     # the gamma used for pushing the 'a' field
@@ -428,7 +423,6 @@ class Simulation(object):
                         species.push_p_with_envelope(self.time + 0.5 * dt,
                                     timestep = self.dt/2, keep_momentum = False)
                 # Deposition of chi at time n dt
-                # print('particles_pushed')
                 # Push the envelope fields to time (n+1) dt
                 fld.push_envelope()
                 fld.spect2interp('a')
@@ -536,10 +530,6 @@ class Simulation(object):
             # Increment the global time and iteration
             self.time += dt
             self.iteration += 1
-            # print('AIDE MEMOIRE3', self.ptcl[0].Ntot, len(self.ptcl[0].z))
-            #print('z', self.ptcl[0].z)
-            #print('x',self.ptcl[0].x)
-            #print('ux', self.ptcl[0].ux)
             # Write the checkpoints if needed
             for checkpoint in self.checkpoints:
                 checkpoint.write( self.iteration )
