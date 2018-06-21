@@ -640,7 +640,9 @@ class Simulation(object):
     def add_new_species( self, q, m, n=None, dens_func=None,
                             p_nz=None, p_nr=None, p_nt=None,
                             p_zmin=-np.inf, p_zmax=np.inf,
-                            p_rmin=0, p_rmax=np.inf, uz_m=0.,
+                            p_rmin=0, p_rmax=np.inf,
+                            uz_m=0., ux_m=0., uy_m=0.,
+                            uz_th=0., ux_th=0., uy_th=0.,
                             continuous_injection=True ):
         """
         Create a new species (i.e. an instance of `Particles`) with
@@ -703,9 +705,13 @@ class Simulation(object):
             The maximal r position below which the particles are initialized
             (in the lab frame). Default: upper edge of the simulation box.
 
-        uz_m: float (dimensionless), optional
-           Normalized momentum (in the lab frame)
-           of the injected particles in the z direction
+        uz_m, ux_m, uy_m: floats (dimensionless), optional
+           Normalized mean momenta (in the lab frame)
+           of the injected particles in each direction
+
+        uz_th, ux_th, uy_th: floats (dimensionless), optional
+           Normalized thermal momenta (in the lab frame)
+           in each direction
 
         continuous_injection : bool, optional
            Whether to continuously inject the particles,
@@ -765,6 +771,8 @@ class Simulation(object):
                         Nptheta=p_nt, dt=self.dt, uz_m=uz_m,
                         particle_shape=self.particle_shape,
                         use_cuda=self.use_cuda, grid_shape=self.grid_shape,
+                        ux_m=ux_m, uy_m=uy_m, uz_m=uz_m,
+                        ux_th=ux_th, uy_th=uy_th, uz_th=uz_th,
                         continuous_injection=continuous_injection,
                         dz_particles=dz_particles )
 
