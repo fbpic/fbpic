@@ -768,7 +768,7 @@ class Simulation(object):
         new_species = Particles( q=q, m=m, n=n, dens_func=dens_func,
                         Npz=Npz, zmin=p_zmin, zmax=p_zmax,
                         Npr=Npr, rmin=p_rmin, rmax=p_rmax,
-                        Nptheta=p_nt, dt=self.dt, uz_m=uz_m,
+                        Nptheta=p_nt, dt=self.dt,
                         particle_shape=self.particle_shape,
                         use_cuda=self.use_cuda, grid_shape=self.grid_shape,
                         ux_m=ux_m, uy_m=uy_m, uz_m=uz_m,
