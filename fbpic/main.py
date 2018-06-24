@@ -733,11 +733,32 @@ class Simulation(object):
 
             # Automatically convert input quantities to the boosted frame
             if self.boost is not None:
-                beta0 = uz_m/( 1.+uz_m**2 )**0.5
+                gamma_m = np.sqrt(1. + uz_m**2 + ux_m**2 + uy_m**2)
+                beta_m = uz_m/gamma_m
+                # Transform positions and density
                 p_zmin, p_zmax = self.boost.copropag_length(
-                    [ p_zmin, p_zmax ], beta_object=beta0 )
-                n, = self.boost.copropag_density([ n ], beta_object=beta0 )
-                uz_m, = self.boost.longitudinal_momentum([ uz_m ])
+                    [ p_zmin, p_zmax ], beta_object=beta_m )
+                n, = self.boost.copropag_density([ n ], beta_object=beta_m )
+                # Transform longitudinal thermal velocity
+                # The formulas below are approximate, and are obtained
+                # by perturbation of the Lorentz transform for uz
+                if uz_m == 0:
+                    if uz_th > 0.1:
+                        warnings.warn(
+                        "The thermal distribution is approximate in "
+                        "boosted-frame simulations, and may not be accurate "
+                        "enough for uz_th > 0.1")
+                    uz_th = self.boost.gamma0 * uz_th
+                else:
+                    if uz_th > 0.1 * uz_m:
+                        warnings.warn(
+                        "The thermal distribution is approximate in "
+                        "boosted-frame simulations, and may not be accurate "
+                        "enough for uz_th > 0.1 * uz_m")
+                    uz_th = self.boost.gamma0 * \
+                            (1. - self.boost.beta0*beta_m) * uz_th
+                # Finally transform the longitudinal momentum
+                uz_m = self.boost.gamma0*( uz_m - self.boost.beta0*gamma_m )
 
             # Modify input particle bounds, in order to only initialize the
             # particles in the local sub-domain
