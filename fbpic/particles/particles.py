@@ -968,7 +968,7 @@ class Particles(object) :
                     a, grad_a_r, grad_a_t, grad_a_z,
                     m_array, self.a2,
                     self.grad_a2_x, self.grad_a2_y, self.grad_a2_z,
-                    averaging=averaging )
+                    averaging )
             elif self.particle_shape == 'cubic':
                 gather_envelope_field_gpu_cubic[
                     dim_grid_1d, dim_block_1d](
@@ -979,7 +979,7 @@ class Particles(object) :
                     a, grad_a_r, grad_a_t, grad_a_z,
                     m_array, self.a2,
                     self.grad_a2_x, self.grad_a2_y, self.grad_a2_z,
-                    averaging=averaging )
+                    averaging )
         else:
             if self.particle_shape == 'linear':
                 gather_envelope_field_numba_linear(

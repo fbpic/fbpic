@@ -490,7 +490,7 @@ def cuda_compute_grad_a( a, grad_a_p, grad_a_m, grad_a_z, d_kr, d_kz, Nz, Nr ):
         grad_a_z[iz, ir] = 1j * a[iz, ir] * d_kz[iz, ir]
 
 @cuda.jit
-def cuda_copy_arrays(copy,m, array, Nz, Nr):
+def cuda_copy_arrays(copy, array, Nz, Nr):
     """
     Copy the array components to the copy
     """
@@ -498,4 +498,4 @@ def cuda_copy_arrays(copy,m, array, Nz, Nr):
     iz, ir = cuda.grid(2)
 
     if (iz < Nz) and (ir < Nr) :
-        copy[m, iz, ir] = array[iz, ir]
+        copy[iz, ir] = array[iz, ir]

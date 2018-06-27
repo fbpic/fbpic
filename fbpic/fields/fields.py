@@ -746,10 +746,10 @@ class Fields(object) :
         """
         if self.use_cuda:
             for m in self.envelope_mode_numbers:
-                cuda_copy_arrays(self.a_global, m, self.envelope_interp[m].a)
-                cuda_copy_arrays(self.grad_a_r_global, m, self.envelope_interp[m].grad_a_r)
-                cuda_copy_arrays(self.grad_a_t_global, m, self.envelope_interp[m].grad_a_t)
-                cuda_copy_arrays(self.grad_a_z_global, m, self.envelope_interp[m].grad_a_z)
+                cuda_copy_arrays(self.a_global[m], self.envelope_interp[m].a, self.Nz, self.Nr)
+                cuda_copy_arrays(self.grad_a_r_global[m], self.envelope_interp[m].grad_a_r, self.Nz, self.Nr)
+                cuda_copy_arrays(self.grad_a_t_global[m], self.envelope_interp[m].grad_a_t, self.Nz, self.Nr)
+                cuda_copy_arrays(self.grad_a_z_global[m], self.envelope_interp[m].grad_a_z, self.Nz, self.Nr)
         else:
             for m in self.envelope_mode_numbers:
                 self.a_global[m,:,:] = self.envelope_interp[m].a

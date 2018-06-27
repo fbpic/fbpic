@@ -206,7 +206,7 @@ def gather_envelope_field_gpu_linear(x, y, z,
                     a,
                     grad_a_r, grad_a_t, grad_a_z, m_array,
                     a2, grad_a2_x, grad_a2_y, grad_a2_z,
-                    averaging=False ):
+                    averaging):
     """
     Gathering of the envelope field a and grad_a using numba on the GPU.
     Iterates over the particles, calculates the weighted amount
@@ -240,7 +240,7 @@ def gather_envelope_field_gpu_linear(x, y, z,
         The relevant fields acting on the particles
         (is modified by this function)
 
-    averaging : boolean, optional
+    averaging : boolean
         Whether to average the new values with the old ones or to
         discard the old values.
     """
@@ -516,7 +516,7 @@ def gather_envelope_field_gpu_cubic(x, y, z,
                     a,
                     grad_a_r, grad_a_t, grad_a_z, m_array,
                     a2, grad_a2_x, grad_a2_y, grad_a2_z,
-                    averaging = False):
+                    averaging):
     """
     Gathering of the envelope field a and grad_a using numba on the GPU.
     Iterates over the particles, calculates the weighted amount
@@ -550,7 +550,7 @@ def gather_envelope_field_gpu_cubic(x, y, z,
         The relevant fields acting on the particles
         (is modified by this function)
 
-    averaging : boolean, optional
+    averaging : boolean
         Whether to average the new values with the old ones or to
         discard the old values.
     """
