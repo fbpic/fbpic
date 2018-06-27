@@ -55,7 +55,7 @@ def set_periodic_checkpoint( sim, period ):
     particle_dict = {}
     for i in range(len(sim.ptcl)):
         particle_dict[ 'species %d' %i ] = sim.ptcl[i]
-        
+
     if len(particle_dict)>0:
         sim.checkpoints.append(
             ParticleDiagnostic( period, particle_dict, write_dir=write_dir ) )
@@ -120,17 +120,23 @@ def restart_from_checkpoint( sim, iteration=None ):
     sim.iteration = iteration
     sim.time = ts.t[ i_iteration ]
 
+    # Export available species as a list
+    avail_species = ts.avail_species
+    if avail_species is None:
+        avail_species = []
+
     # Load the particles
     # Loop through the different species
-    if ts.avail_species is not None:
+    if len(avail_species) == len(sim.ptcl):
         for i in range(len(sim.ptcl)):
             name = 'species %d' %i
             load_species( sim.ptcl[i], name, ts, iteration, sim.comm )
-    else:  # i.e. if ts.avail_species is None
-        import warnings
-        warnings.warn('The checkpoint file does not contain particle data.\n' 
-                      'Particles from new simulation are preserved if any.')
-
+    else:
+        raise RunTimeError( \
+"""Species numbers in checkpoint and simulation should be same, but
+got {:d} and {:d}. Use add_new_species method to add species to
+simulation or sim.ptcl = [] to remove them""".format(len(avail_species),
+                                                     len(sim.ptcl)) )
     # Record position of grid before restart
     zmin_old = sim.fld.interp[0].zmin
 
