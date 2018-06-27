@@ -132,7 +132,7 @@ def restart_from_checkpoint( sim, iteration=None ):
             name = 'species %d' %i
             load_species( sim.ptcl[i], name, ts, iteration, sim.comm )
     else:
-        raise RunTimeError( \
+        raise RuntimeError( \
 """Species numbers in checkpoint and simulation should be same, but
 got {:d} and {:d}. Use add_new_species method to add species to
 simulation or sim.ptcl = [] to remove them""".format(len(avail_species),
