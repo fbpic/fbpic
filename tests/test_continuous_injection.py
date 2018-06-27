@@ -68,7 +68,7 @@ def test_rest_continuous_injection(show=False):
         return( dens )
 
     # Run the test
-    uth = 0.001
+    uth = 0.0001
     run_continuous_injection(None, dens_func, uth, p_zmin, p_zmax, show)
 
 def test_boosted_continuous_injection(show=False):
@@ -93,7 +93,7 @@ def test_boosted_continuous_injection(show=False):
         return( dens )
 
     # Run the test
-    uth = 0.001
+    uth = 0.0001
     run_continuous_injection(gamma_boost, dens_func, uth, p_zmin, p_zmax, show)
 
 
