@@ -201,8 +201,8 @@ def gather_field_numba_linear(x, y, z,
 def gather_envelope_field_numba_linear(x, y, z,
                     invdz, zmin, Nz,
                     invdr, rmin, Nr,
-                    a_tuple,
-                    grad_a_r_tuple, grad_a_t_tuple, grad_a_z_tuple, m_tuple,
+                    a,
+                    grad_a_r, grad_a_t, grad_a_z, m_array,
                     a2, grad_a2_x, grad_a2_y, grad_a2_z,
                     averaging = False):
     """
@@ -227,11 +227,11 @@ def gather_envelope_field_numba_linear(x, y, z,
     Nz, Nr : int
         Number of gridpoints along the considered direction
 
-    a_tuple, grad_a_r_tuple, grad_a_t_tuple, grad_a_z_tuple :
-        tuple of 2darray of complexs
+    a, grad_a_r, grad_a_t, grad_a_z :
+        Arrays of dimension (2*Nm-1, Nz, Nr) of complexs
         The relevant fields on the interpolation grid for all the different modes
 
-    m: tuple
+    m_array: Array
         Indices of the azimuthal mode
 
     a, grad_a_x, grad_a_y, grad_a_z : 1darray of floats
@@ -317,12 +317,12 @@ def gather_envelope_field_numba_linear(x, y, z,
         Fr = 0.j
         Ft = 0.j
         Fz = 0.j
-        for it in range(len(m_tuple)):
-            m = m_tuple[it]
-            a_m = a_tuple[it]
-            grad_a_r_m = grad_a_r_tuple[it]
-            grad_a_t_m = grad_a_t_tuple[it]
-            grad_a_z_m = grad_a_z_tuple[it]
+        for it in range(len(m_array)):
+            m = m_array[it]
+            a_m = a[m]
+            grad_a_r_m = grad_a_r[m]
+            grad_a_t_m = grad_a_t[m]
+            grad_a_z_m = grad_a_z[m]
             # Calculate complex factor ; avoid division by using conjugate
             exptheta_m = (cos - 1.j*sin)**abs(m)
             if m < 0:
@@ -519,8 +519,8 @@ def gather_field_numba_cubic(x, y, z,
 def gather_envelope_field_numba_cubic(x, y, z,
                     invdz, zmin, Nz,
                     invdr, rmin, Nr,
-                    a_tuple,
-                    grad_a_r_tuple, grad_a_t_tuple, grad_a_z_tuple, m_tuple,
+                    a,
+                    grad_a_r, grad_a_t, grad_a_z, m_array,
                     a2, grad_a2_x, grad_a2_y, grad_a2_z,
                     nthreads, ptcl_chunk_indices, averaging = False):
     """
@@ -546,11 +546,11 @@ def gather_envelope_field_numba_cubic(x, y, z,
     Nz, Nr : int
         Number of gridpoints along the considered direction
 
-    a_tuple, grad_a_r_tuple, grad_a_t_tuple, grad_a_z_tuple :
-        tuple of 2darray of complexs
+    a, grad_a_r, grad_a_t, grad_a_z :
+        Arrays of dimension (2*Nm-1, Nz, Nr) of complexs
         The relevant fields on the interpolation grid for all the different modes
 
-    m: tuple
+    m_array: Array
         Indices of the azimuthal mode
 
     a, grad_a_x, grad_a_y, grad_a_z : 1darray of floats
@@ -616,12 +616,12 @@ def gather_envelope_field_numba_cubic(x, y, z,
             Fr = 0.j
             Ft = 0.j
             Fz = 0.j
-            for m in m_tuple:
-                # Add contribution from mode m
-                a_m = a_tuple[m]
-                grad_a_r_m = grad_a_r_tuple[m]
-                grad_a_t_m = grad_a_t_tuple[m]
-                grad_a_z_m = grad_a_z_tuple[m]
+            for it in range(len(m_array)):
+                m = m_array[it]
+                a_m = a[m]
+                grad_a_r_m = grad_a_r[m]
+                grad_a_t_m = grad_a_t[m]
+                grad_a_z_m = grad_a_z[m]
                 # Calculate complex factor ; avoid division by using conjugate
                 exptheta_m = (cos - 1.j*sin)**abs(m)
                 if m < 0:

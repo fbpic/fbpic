@@ -924,7 +924,7 @@ class Particles(object) :
                                    but is `%s`" % self.particle_shape)
 
 
-    def gather_envelope(self, envelope_grid, averaging=False):
+    def gather_envelope(self, fld, averaging=False):
         """
         Gather the envelope fields onto the macroparticles
 
@@ -933,8 +933,7 @@ class Particles(object) :
 
         Parameter
         ----------
-        envelope_grid : a list of EnvelopeInterpolationGrid objects
-             (one object per azimuthal mode)
+        fld : a Fields object
              Contains the field values on the interpolation grid
 
         averaging : boolean, optional
@@ -944,13 +943,15 @@ class Particles(object) :
         # Skip gathering for neutral particles (e.g. photons)
         if self.q == 0:
             return
-
-        # Using tuples for compatibility with numba
-        a_tuple = tuple( grid.a for grid in envelope_grid )
-        grad_a_r_tuple = tuple( grid.grad_a_r for grid in envelope_grid )
-        grad_a_t_tuple = tuple( grid.grad_a_t for grid in envelope_grid )
-        grad_a_z_tuple = tuple( grid.grad_a_z for grid in envelope_grid )
-        m_tuple = tuple( grid.m for grid in envelope_grid )
+        # Obtain the global arrays so we can use a single array
+        fld.globalize_arrays()
+        # Using global arrays for compatibility with numba and GPU
+        a = fld.a_global
+        grad_a_r = fld.grad_a_r_global
+        grad_a_t = fld.grad_a_t_global
+        grad_a_z = fld.grad_a_z_global
+        m_array= fld.envelope_mode_numbers
+        envelope_grid = fld.envelope_interp
 
         # GPU (CUDA) version
         if self.use_cuda:
@@ -964,8 +965,8 @@ class Particles(object) :
                     envelope_grid[0].invdz, envelope_grid[0].zmin,
                     envelope_grid[0].Nz, envelope_grid[0].invdr,
                     envelope_grid[0].rmin, envelope_grid[0].Nr,
-                    a_tuple, grad_a_r_tuple, grad_a_t_tuple, grad_a_z_tuple,
-                    m_tuple, self.a2,
+                    a, grad_a_r, grad_a_t, grad_a_z,
+                    m_array, self.a2,
                     self.grad_a2_x, self.grad_a2_y, self.grad_a2_z,
                     averaging=averaging )
             elif self.particle_shape == 'cubic':
@@ -975,8 +976,8 @@ class Particles(object) :
                     envelope_grid[0].invdz, envelope_grid[0].zmin,
                     envelope_grid[0].Nz, envelope_grid[0].invdr,
                     envelope_grid[0].rmin, envelope_grid[0].Nr,
-                    a_tuple, grad_a_r_tuple, grad_a_t_tuple, grad_a_z_tuple,
-                    m_tuple, self.a2,
+                    a, grad_a_r, grad_a_t, grad_a_z,
+                    m_array, self.a2,
                     self.grad_a2_x, self.grad_a2_y, self.grad_a2_z,
                     averaging=averaging )
         else:
@@ -986,8 +987,8 @@ class Particles(object) :
                     envelope_grid[0].invdz, envelope_grid[0].zmin,
                     envelope_grid[0].Nz, envelope_grid[0].invdr,
                     envelope_grid[0].rmin, envelope_grid[0].Nr,
-                    a_tuple, grad_a_r_tuple, grad_a_t_tuple, grad_a_z_tuple,
-                    m_tuple, self.a2,
+                    a, grad_a_r, grad_a_t, grad_a_z,
+                    m_array, self.a2,
                     self.grad_a2_x, self.grad_a2_y, self.grad_a2_z,
                     averaging=averaging )
             elif self.particle_shape == 'cubic':
@@ -999,8 +1000,8 @@ class Particles(object) :
                     envelope_grid[0].invdz, envelope_grid[0].zmin,
                     envelope_grid[0].Nz, envelope_grid[0].invdr,
                     envelope_grid[0].rmin, envelope_grid[0].Nr,
-                    a_tuple, grad_a_r_tuple, grad_a_t_tuple, grad_a_z_tuple,
-                    m_tuple, self.a2,
+                    a, grad_a_r, grad_a_t, grad_a_z,
+                    m_array, self.a2,
                     self.grad_a2_x, self.grad_a2_y, self.grad_a2_z,
                     nthreads, ptcl_chunk_indices,
                     averaging=averaging )
