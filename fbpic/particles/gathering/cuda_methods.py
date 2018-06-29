@@ -324,12 +324,13 @@ def gather_envelope_field_gpu_linear(x, y, z,
         Ft = 0.j
         Fz = 0.j
 
-        for m in m_array:
+        for it in range(len(m_array)):
             # Add contribution from mode m
-            a_m = a[m]
-            grad_a_r_m = grad_a_r[m]
-            grad_a_t_m = grad_a_t[m]
-            grad_a_z_m = grad_a_z[m]
+            m = m_array[it]
+            a_m = a[it]
+            grad_a_r_m = grad_a_r[it]
+            grad_a_t_m = grad_a_t[it]
+            grad_a_z_m = grad_a_z[it]
             # Calculate azimuthal complex factor
             exptheta_m = 1.
             for _ in range(abs(m)):
@@ -606,9 +607,9 @@ def gather_envelope_field_gpu_cubic(x, y, z,
         Fr = 0.j
         Ft = 0.j
         Fz = 0.j
-        for m in m_array:
+        for it in range(len(m_array)):
             # Add contribution from mode m
-            a_m = a[m]
+            m = m_array[it]
             grad_a_r_m = grad_a_r[m]
             grad_a_t_m = grad_a_t[m]
             grad_a_z_m = grad_a_z[m]
