@@ -376,7 +376,8 @@ def push_p_vay_envelope( ux_i, uy_i, uz_i, inv_gamma_i,
 
     ux1 = ux_i - aconst * inv_gamma_temp * grad_a2_x_i
     uy1 = uy_i - aconst * inv_gamma_temp * grad_a2_y_i
-    uz1 = uz_i - aconst * inv_gamma_temp * grad_a2_z_i
+    #uz1 = uz_i - aconst * inv_gamma_temp * grad_a2_z_i
+    uz1 = uz_i
 
 
     inv_gamma_temp = 1. / math.sqrt(1 + ux1**2 + uy1**2 + uz1**2 \
@@ -417,7 +418,7 @@ def push_p_vay_envelope( ux_i, uy_i, uz_i, inv_gamma_i,
 
     ux_f -= aconst * inv_gamma_f * grad_a2_x_i
     uy_f -= aconst * inv_gamma_f * grad_a2_y_i
-    uz_f -= aconst * inv_gamma_f * grad_a2_z_i
+    #uz_f -= aconst * inv_gamma_f * grad_a2_z_i
 
     inv_gamma_f = 1. / math.sqrt(1 + ux_f**2 + uy_f**2 + uz_f**2 + scale_factor * a2_i)
 

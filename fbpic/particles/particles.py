@@ -773,7 +773,7 @@ class Particles(object) :
                 self.inv_gamma, self.Ntot,
                 dt, x_push, y_push, z_push )
 
-    def gather( self, grid, envelope_grid = None ) :
+    def gather( self, grid ):
         """
         Gather the fields onto the macroparticles
 
@@ -925,7 +925,7 @@ class Particles(object) :
                                    but is `%s`" % self.particle_shape)
 
 
-    def gather_envelope(self, envelope_grid, averaging = False):
+    def gather_envelope(self, fld, averaging=False):
         """
         Gather the envelope fields onto the macroparticles
 
@@ -934,29 +934,25 @@ class Particles(object) :
 
         Parameter
         ----------
-        envelope_grid : a list of EnvelopeInterpolationGrid objects
-             (one object per azimuthal mode)
+        fld : a Fields object
              Contains the field values on the interpolation grid
 
         averaging : boolean, optional
             Whether to average the new field values with the old ones or to
             discard the old values.
         """
-        assert self.use_envelope
         # Skip gathering for neutral particles (e.g. photons)
         if self.q == 0:
             return
-
-        # Number of modes
-        Nm = (len(envelope_grid) + 1) // 2
-        envelope_mode_numbers = [ m for m in range(Nm) ] + \
-                                [ m for m in range(-Nm+1, 0)]
-        # Using tuples for compatibility with numba
-        a_tuple = tuple(envelope_grid[m].a for m in envelope_mode_numbers)
-        grad_a_r_tuple = tuple(envelope_grid[m].grad_a_r for m in envelope_mode_numbers)
-        grad_a_t_tuple = tuple(envelope_grid[m].grad_a_t for m in envelope_mode_numbers)
-        grad_a_z_tuple = tuple(envelope_grid[m].grad_a_z for m in envelope_mode_numbers)
-        m_tuple = tuple(envelope_mode_numbers)
+        # Obtain the global arrays so we can use a single array
+        fld.globalize_arrays()
+        # Using global arrays for compatibility with numba and GPU
+        a = fld.a_global
+        grad_a_r = fld.grad_a_r_global
+        grad_a_t = fld.grad_a_t_global
+        grad_a_z = fld.grad_a_z_global
+        m_array= fld.envelope_mode_numbers
+        envelope_grid = fld.envelope_interp
 
         # GPU (CUDA) version
         if self.use_cuda:
@@ -970,10 +966,10 @@ class Particles(object) :
                     envelope_grid[0].invdz, envelope_grid[0].zmin,
                     envelope_grid[0].Nz, envelope_grid[0].invdr,
                     envelope_grid[0].rmin, envelope_grid[0].Nr,
-                    a_tuple,grad_a_r_tuple, grad_a_t_tuple, grad_a_z_tuple,
-                    m_tuple, self.a2,
+                    a, grad_a_r, grad_a_t, grad_a_z,
+                    m_array, self.a2,
                     self.grad_a2_x, self.grad_a2_y, self.grad_a2_z,
-                    averaging = averaging )
+                    averaging )
             elif self.particle_shape == 'cubic':
                 gather_envelope_field_gpu_cubic[
                     dim_grid_1d, dim_block_1d](
@@ -981,10 +977,10 @@ class Particles(object) :
                     envelope_grid[0].invdz, envelope_grid[0].zmin,
                     envelope_grid[0].Nz, envelope_grid[0].invdr,
                     envelope_grid[0].rmin, envelope_grid[0].Nr,
-                    a_tuple,grad_a_r_tuple, grad_a_t_tuple, grad_a_z_tuple,
-                    m_tuple, self.a2,
+                    a, grad_a_r, grad_a_t, grad_a_z,
+                    m_array, self.a2,
                     self.grad_a2_x, self.grad_a2_y, self.grad_a2_z,
-                    averaging = averaging )
+                    averaging )
         else:
             if self.particle_shape == 'linear':
                 gather_envelope_field_numba_linear(
@@ -992,10 +988,10 @@ class Particles(object) :
                     envelope_grid[0].invdz, envelope_grid[0].zmin,
                     envelope_grid[0].Nz, envelope_grid[0].invdr,
                     envelope_grid[0].rmin, envelope_grid[0].Nr,
-                    a_tuple,grad_a_r_tuple, grad_a_t_tuple, grad_a_z_tuple,
-                    m_tuple, self.a2,
+                    a, grad_a_r, grad_a_t, grad_a_z,
+                    m_array, self.a2,
                     self.grad_a2_x, self.grad_a2_y, self.grad_a2_z,
-                    averaging = averaging )
+                    averaging=averaging )
             elif self.particle_shape == 'cubic':
                 # Divide particles into chunks (each chunk is handled by a
                 # different thread) and return the indices that bound chunks
@@ -1005,12 +1001,11 @@ class Particles(object) :
                     envelope_grid[0].invdz, envelope_grid[0].zmin,
                     envelope_grid[0].Nz, envelope_grid[0].invdr,
                     envelope_grid[0].rmin, envelope_grid[0].Nr,
-                    a_tuple,grad_a_r_tuple, grad_a_t_tuple, grad_a_z_tuple,
-                    m_tuple, self.a2,
+                    a, grad_a_r, grad_a_t, grad_a_z,
+                    m_array, self.a2,
                     self.grad_a2_x, self.grad_a2_y, self.grad_a2_z,
                     nthreads, ptcl_chunk_indices,
-                    averaging = averaging )
-
+                    averaging=averaging )
 
 
     def deposit( self, fld, fieldtype ) :
