@@ -38,17 +38,17 @@ from scipy.integrate import quad
 # Import the relevant structures in FBPIC
 from fbpic.main import Simulation
 from fbpic.lpa_utils.laser import add_laser_pulse, \
-    GaussianLaser, LaguerreGaussLaser
+    GaussianLaser
 from fbpic.openpmd_diag import FieldDiagnostic, ParticleDiagnostic
 
 # Parameters for running the test
 # -------------------------------
 # Diagnostics
-write_fields = True
-write_particles = True
+write_fields = False
+write_particles = False
 diag_period = 50
 # Pop-up plots
-show = True
+show = False
 
 # Main test function
 # ------------------
@@ -102,9 +102,6 @@ def test_linear_wakefield( Nm=1, show=False ):
 
     # Run the simulation
     sim.step(N_step, correct_currents=correct_currents)
-    import matplotlib.pyplot as plt
-    plt.plot(sim.ptcl[0].inv_gamma)
-    plt.show()
 
     # Compare the fields
     compare_fields(sim, Nm, show)
