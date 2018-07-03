@@ -19,7 +19,8 @@ from .particle_buffer_handling import remove_outside_particles, \
 from fbpic.utils.cuda import cuda_installed
 if cuda_installed:
     from fbpic.utils.cuda import cuda, cuda_tpb_bpg_2d
-    from .cuda_methods import cuda_damp_EB_left, cuda_damp_EB_right
+    from .cuda_methods import cuda_damp_EB_left, cuda_damp_EB_right, \
+         cuda_damp_envelope_left, cuda_damp_envelope_right
 
 class BoundaryCommunicator(object):
     """
@@ -760,6 +761,55 @@ class BoundaryCommunicator(object):
                         interp[m].Br[-nd:,:]*=self.right_damp[::-1,np.newaxis]
                         interp[m].Bt[-nd:,:]*=self.right_damp[::-1,np.newaxis]
                         interp[m].Bz[-nd:,:]*=self.right_damp[::-1,np.newaxis]
+
+
+    def damp_envelope_open_boundary( self, interp ):
+        """
+        Damp the envelope fields in the damp cells, at the right and left
+        of the *global* simulation box.
+
+        Parameter:
+        -----------
+        interp: list of EnvelopeInterpolationGrid objects (one per azimuthal mode)
+            Objects that contain the fields to be damped.
+        """
+        # Do not damp the fields for 0 n_damp cells (periodic)
+        if self.n_damp != 0:
+            if self.left_proc is None:
+                # Damp the fields on the CPU or the GPU
+                if interp[0].use_cuda:
+                    # Damp the fields on the GPU
+                    dim_grid, dim_block = cuda_tpb_bpg_2d(
+                        self.n_guard+self.n_damp, interp[0].Nr )
+                    for m in range(len(interp)):
+                        cuda_damp_envelope_left[dim_grid, dim_block](
+                            interp[m].a, interp[m].a_old,
+                            self.d_left_damp, self.n_guard, self.n_damp)
+                else:
+                    # Damp the fields on the CPU
+                    nd = self.n_guard + self.n_damp
+                    for m in range(len(interp)):
+                        # Damp the fields in left guard cells
+                        interp[m].a[:nd,:]*=self.left_damp[:,np.newaxis]
+                        interp[m].a_old[:nd,:]*=self.left_damp[:,np.newaxis]
+
+            if self.right_proc is None:
+                # Damp the fields on the CPU or the GPU
+                if interp[0].use_cuda:
+                    # Damp the fields on the GPU
+                    dim_grid, dim_block = cuda_tpb_bpg_2d(
+                        self.n_guard+self.n_damp, interp[0].Nr )
+                    for m in range(len(interp)):
+                        cuda_damp_envelope_right[dim_grid, dim_block](
+                            interp[m].a, interp[m].a_old,
+                            self.d_right_damp, self.n_guard, self.n_damp)
+                else:
+                    # Damp the fields on the CPU
+                    nd = self.n_guard + self.n_damp
+                    for m in range(len(interp)):
+                        # Damp the fields in left guard cells
+                        interp[m].a[-nd:,:]*=self.right_damp[::-1,np.newaxis]
+                        interp[m].a_old[-nd:,:]*=self.right_damp[::-1,np.newaxis]
 
     def generate_damp_array( self, n_guard, n_damp ):
         """

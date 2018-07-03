@@ -102,9 +102,6 @@ def test_linear_wakefield( Nm=1, show=False ):
 
     # Run the simulation
     sim.step(N_step, correct_currents=correct_currents)
-    import matplotlib.pyplot as plt
-    plt.plot(sim.ptcl[0].inv_gamma)
-    plt.show()
 
     # Compare the fields
     compare_fields(sim, Nm, show)

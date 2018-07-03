@@ -350,6 +350,7 @@ class Simulation(object):
         fld.interp2spect('E')
         fld.interp2spect('B')
         if fld.use_envelope:
+            self.comm.damp_envelope_open_boundary(fld.envelope_interp)
             fld.interp2spect('a')
             fld.interp2spect('a_old')
 
@@ -530,7 +531,16 @@ class Simulation(object):
             # Get the corresponding fields in interpolation space
             fld.spect2interp('E')
             fld.spect2interp('B')
+
+
             if self.use_envelope:
+
+                fld.spect2partial_interp('a')
+                fld.spect2partial_interp('a_old')
+                self.comm.damp_envelope_open_boundary(fld.envelope_interp)
+                fld.partial_interp2spect('a')
+                fld.partial_interp2spect('a_old')
+
                 fld.spect2interp('a')
 
             # Increment the global time and iteration

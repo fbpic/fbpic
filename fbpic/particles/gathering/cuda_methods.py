@@ -610,6 +610,7 @@ def gather_envelope_field_gpu_cubic(x, y, z,
         for it in range(len(m_array)):
             # Add contribution from mode m
             m = m_array[it]
+            a_m = a[m]
             grad_a_r_m = grad_a_r[m]
             grad_a_t_m = grad_a_t[m]
             grad_a_z_m = grad_a_z[m]
