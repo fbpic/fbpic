@@ -44,11 +44,11 @@ from fbpic.openpmd_diag import FieldDiagnostic, ParticleDiagnostic
 # Parameters for running the test
 # -------------------------------
 # Diagnostics
-write_fields = True
-write_particles = True
+write_fields = False
+write_particles = False
 diag_period = 50
 # Pop-up plots
-show = True
+show = False
 
 # Main test function
 # ------------------
@@ -81,6 +81,9 @@ def test_linear_wakefield( Nm=1, show=False ):
     if Nm == 1:
         profile = GaussianLaser(a0=a0, waist=w0, tau=tau, z0=z0,
                                       theta_pol=np.pi/2 )
+    elif Nm == 3:
+        profile = LaguerreGaussLaser(0, 1, a0=a0, waist=w0, tau=tau, z0=z0,
+                                      theta_pol=np.pi/2)
     add_laser_pulse( sim, profile, method = 'direct_envelope' )
 
     # Configure the moving window
@@ -88,7 +91,8 @@ def test_linear_wakefield( Nm=1, show=False ):
 
     # Add diagnostics
     if write_fields:
-        sim.diags.append( FieldDiagnostic(diag_period, sim.fld, sim.comm, fieldtypes=["rho", "E", "B", "J","a"]) )
+        sim.diags.append( FieldDiagnostic(diag_period, sim.fld, sim.comm,
+                                fieldtypes=["rho", "E", "B", "J","a"]) )
     if write_particles:
         sim.diags.append( ParticleDiagnostic(diag_period,
                         {'electrons': sim.ptcl[0]}, sim.comm ) )
@@ -98,7 +102,6 @@ def test_linear_wakefield( Nm=1, show=False ):
         correct_currents=False
     else:
         correct_currents=True
-    correct_currents = False
 
     # Run the simulation
     sim.step(N_step, correct_currents=correct_currents)
@@ -175,6 +178,8 @@ def Ez( z, r, t, Nm) :
     # Transverse profile
     if Nm == 1:
         trans_profile = np.exp( -2*r**2/w0**2 )
+    elif Nm == 3:
+        trans_profile = 4 * (r/w0)**2 * np.exp( -2*r**2/w0**2 )
 
     # Combine longitudinal and transverse profile
     ez = m_e*c**2*kp**2*a0**2/(4.*e) * \
@@ -200,7 +205,8 @@ def Er( z, r, t, Nm) :
     # Transverse profile: gradient of transverse intensity
     if Nm == 1:
         trans_profile = -4*r/w0**2 * np.exp(-2*r**2/w0**2)
-
+    if Nm == 3:
+        trans_profile = 8*(r/w0**2) * (1-2*r**2/w0**2) * np.exp(-2*r**2/w0**2)
     # Combine longitudinal and transverse profile
     er = m_e*c**2*kp*a0**2/(4.*e) * \
         trans_profile[np.newaxis, :] * long_profile[:, np.newaxis]
@@ -327,3 +333,4 @@ k0 = 2*np.pi/0.8e-6
 if __name__ == '__main__' :
     # Run the test for the 1, 2 and 3 azimuthal modes
     test_linear_wakefield( Nm=1, show=show )
+    test_linear_wakefield( Nm=3, show=show )
