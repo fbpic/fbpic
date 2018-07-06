@@ -718,7 +718,10 @@ class Simulation(object):
         for m in range(self.fld.Nm):
             self.fld.interp[m].zmin += shift_distance
             self.fld.interp[m].zmax += shift_distance
-
+        if self.use_envelope:
+            for m in range(2 * self.fld.Nm - 1):
+                self.fld.envelope_interp[m].zmin += shift_distance
+                self.fld.envelope_interp[m].zmax += shift_distance
 
     def add_new_species( self, q, m, n=None, dens_func=None,
                             p_nz=None, p_nr=None, p_nt=None,

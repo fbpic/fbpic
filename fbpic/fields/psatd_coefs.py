@@ -59,6 +59,7 @@ class PsatdCoeffs(object) :
         inv_dt = 1./dt
         # Register velocity of galilean/comoving frame
         self.V = V
+        self.use_galilean = use_galilean
         # Register the use of GPU
         self.use_cuda = use_cuda
 
@@ -203,14 +204,22 @@ class PsatdCoeffs(object) :
         # Calculate all necessary coefficients for propagation of A field
         w_laser = c * k0
         w_tot = np.sqrt( (w_laser + c * kz)**2 + c**2 * kr**2)
-        self.C_w_laser_env = np.cos(w_laser*dt)
-        self.C_w_tot_env = np.cos(w_tot*dt)
-        self.w_laser = w_laser
-        self.A_coef = np.exp(1j * w_laser * dt)
-        self.w_transform_2 = c**2 * (kr**2 + kz**2 + 2*k0*kz)
+        if self.use_galilean:
+            w1 = w_laser + self.V*kz
+            self.w_transform_2 = c**2 * (kr**2 + kz**2 + 2*k0*kz) \
+                                - self.V**2*kz**2 - 2*self.V*c*k0*kz
+        else:
+            w1 = w_laser
+            self.w_transform_2 = c**2 * (kr**2 + kz**2 + 2*k0*kz)
+
         self.w_transform_2[self.w_transform_2 == 0] = 1
+        self.C_w_1_env = np.cos(w1*dt)
+        self.C_w_tot_env = np.cos(w_tot*dt)
+        self.A_coef = np.exp(1j * w1 * dt)
+
         # Replace these array by arrays on the GPU, when using cuda
         if self.use_cuda:
-            self.d_C_w_laser_env = cuda.to_device(self.C_w_laser_env)
+            self.d_C_w_1_env = cuda.to_device(self.C_w_1_env)
             self.d_C_w_tot_env = cuda.to_device(self.C_w_tot_env)
             self.d_w_transform_2 = cuda.to_device(self.w_transform_2)
+            self.d_A_coef = cuda.to_device(self.A_coef)

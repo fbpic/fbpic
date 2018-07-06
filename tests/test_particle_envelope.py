@@ -33,7 +33,7 @@ from fbpic.lpa_utils.laser import add_laser_pulse, \
 # ----------
 # (See the documentation of the function propagate_pulse
 # below for their definition)
-show = False # Whether to show the plots, and check them manually
+show = True # Whether to show the plots, and check them manually
 
 use_cuda = True
 
@@ -109,6 +109,26 @@ def test_particles_moving_window(show=False):
                         p_zmin, p_zmax, p_rmin, p_rmax, n_e,
                         w0, ctau, k0, a0, m, N_show, n_order,
                         rtol, boundaries='open', v_window=c, show=show )
+
+    print('')
+
+def test_particles_galilean(show=False):
+    """
+    Function that is run by py.test, when doing `python setup.py test`
+    Test the basic movements of particles in a moving window
+    """
+    # Choose the regular timestep (required by moving window)
+    dt = (zmax-zmin)*1./c/Nz
+    # Test modes up to m=1
+    for m in [0, 1]:
+
+        print('')
+        print('Testing mode m=%d' %m)
+        propagate_pulse( Nz, Nr, abs(m)+1, zmin, zmax, Lr, L_prop, zf, dt,
+                        p_zmin, p_zmax, p_rmin, p_rmax, n_e,
+                        w0, ctau, k0, a0, m, N_show, n_order,
+                        rtol, boundaries='open', v_window=c, show=show,
+                        use_galilean = True, v_comoving = c )
 
     print('')
 
@@ -246,6 +266,7 @@ def propagate_pulse( Nz, Nr, Nm, zmin, zmax, Lr, L_prop, zf, dt,
             radial_momentum = (sim.ptcl[0].ux*sim.ptcl[0].x + \
                             sim.ptcl[0].uy*sim.ptcl[0].y) / radial_distance
             cos_theta = sim.ptcl[0].x / radial_distance
+
             if m == 0:
                 plt.plot(1e6*radial_distance, radial_momentum, 'o', label='Simulated')
                 plt.plot(1e6*radial_distance, radial_momentum_profile_gaussian(radial_distance, A, w), '--', label = 'Theoretical')
@@ -437,3 +458,5 @@ if __name__ == '__main__' :
     test_particles_periodic(show=show)
 
     test_particles_moving_window(show=show)
+
+    test_particles_galilean(show=show)

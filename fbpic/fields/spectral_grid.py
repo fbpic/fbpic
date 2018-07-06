@@ -14,7 +14,7 @@ from .numba_methods import numba_push_eb_standard, numba_push_eb_comoving, \
     numba_correct_currents_crossdeposition_standard, \
     numba_correct_currents_curlfree_comoving, \
     numba_correct_currents_crossdeposition_comoving, \
-    numba_compute_grad_a
+    numba_compute_grad_a, numba_push_envelope_galilean
 # Check if CUDA is available, then import CUDA functions
 from fbpic.utils.cuda import cuda_installed
 if cuda_installed:
@@ -26,7 +26,8 @@ if cuda_installed:
     cuda_correct_currents_crossdeposition_comoving, \
     cuda_filter_scalar, cuda_filter_vector, \
     cuda_push_eb_standard, cuda_push_eb_comoving, cuda_push_rho, \
-    cuda_push_envelope_standard, cuda_compute_grad_a
+    cuda_push_envelope_standard, cuda_compute_grad_a, \
+    cuda_push_envelope_galilean
 
 
 class SpectralGrid(object) :
@@ -499,24 +500,39 @@ class EnvelopeSpectralGrid(SpectralGrid):
         ps : PsatdCoeffs object
             psatd object corresponding to the same m mode
         """
-        assert (ps.V is None or ps.V == 0)
+        #assert (ps.V is None or ps.V == 0)
         assert( abs(self.m) == ps.m )
 
         if self.use_cuda :
             # Obtain the cuda grid
             dim_grid, dim_block = cuda_tpb_bpg_2d( self.Nz, self.Nr)
             # Push the fields on the GPU
-
-            cuda_push_envelope_standard[dim_grid, dim_block](
+            if ps.V is None or ps.V == 0:
+                cuda_push_envelope_standard[dim_grid, dim_block](
                                         self.a, self.a_old, self.chi_a,
-                                        ps.d_C_w_laser_env,
+                                        ps.C_w_1_env,
                                         ps.d_C_w_tot_env, ps.A_coef,
+                                        ps.d_w_transform_2,
+                                        self.Nz, self.Nr )
+            else:
+                assert ps.use_galilean
+                cuda_push_envelope_galilean[dim_grid, dim_block](
+                                        self.a, self.a_old, self.chi_a,
+                                        ps.d_C_w_1_env,
+                                        ps.d_C_w_tot_env, ps.d_A_coef,
                                         ps.d_w_transform_2,
                                         self.Nz, self.Nr )
 
         else:
-            numba_push_envelope_standard(self.a, self.a_old, self.chi_a,
-                                    ps.C_w_laser_env, ps.C_w_tot_env,
+            if ps.V is None or ps.V == 0:
+                numba_push_envelope_standard(self.a, self.a_old, self.chi_a,
+                                    ps.C_w_1_env, ps.C_w_tot_env,
+                                    ps.A_coef, ps.w_transform_2,
+                                    self.Nz, self.Nr)
+            else:
+                assert ps.use_galilean
+                numba_push_envelope_galilean(self.a, self.a_old, self.chi_a,
+                                    ps.C_w_1_env, ps.C_w_tot_env,
                                     ps.A_coef, ps.w_transform_2,
                                     self.Nz, self.Nr)
 

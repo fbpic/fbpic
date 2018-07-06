@@ -148,88 +148,6 @@ def show_transform( grid, fieldtype ):
 
     plt.show()
 
-def show_coefs( grid, fieldtype, ps ):
-    """
-    Show the field `fieldtype` on the interpolation grid
-
-    Parameters
-    ----------
-    grid: an instance of FieldInterpolationGrid
-        Contains the field on the interpolation grid for
-        on particular azimuthal mode
-
-    fieldtype : string
-        Name of the field to be plotted.
-        (either 'Er', 'Et', 'Ez', 'Br', 'Bt', 'Bz',
-        'Jr', 'Jt', 'Jz', 'rho')
-    """
-    # matplotlib only needs to be imported if this function is called
-    import matplotlib.pyplot as plt
-
-    # Select the field to plot
-    plotted_field = 2 * (ps.C_w_laser_env - ps.C_w_tot_env) * \
-     grid.chi_a / ps.w_transform_2
-    # Show the field also below the axis for a more realistic picture
-    #plotted_field = np.hstack( (plotted_field[:,::-1],plotted_field) )
-    #extent = 1.e6*np.array([grid.kz[Nz//2-1,0], grid.kz[Nz//2 +1,0], grid.kr[0,0], grid.kr[-1,-1]])
-    plt.clf()
-    plt.suptitle('chi_a, for mode %d' %(grid.m) )
-
-    # Plot the real part
-    plt.subplot(211)
-    plt.imshow( plotted_field.real.T[::-1], aspect='auto',
-                #interpolation='nearest', extent=extent )
-                interpolation='nearest')
-    plt.xlabel('z')
-    plt.ylabel('r')
-    cb = plt.colorbar()
-    cb.set_label('Real part')
-
-    # Plot the imaginary part
-    plt.subplot(212)
-    plt.imshow( plotted_field.imag.T[::-1], aspect='auto',
-                #interpolation='nearest', extent = extent )
-                interpolation='nearest')
-    plt.xlabel('z')
-    plt.ylabel('r')
-    cb = plt.colorbar()
-    cb.set_label('Imaginary part')
-
-    plt.show()
-
-def show_coefs2( grid, fieldtype, ps ):
-    """
-    Show the field `fieldtype` on the interpolation grid
-
-    Parameters
-    ----------
-    grid: an instance of FieldInterpolationGrid
-        Contains the field on the interpolation grid for
-        on particular azimuthal mode
-
-    fieldtype : string
-        Name of the field to be plotted.
-        (either 'Er', 'Et', 'Ez', 'Br', 'Bt', 'Bz',
-        'Jr', 'Jt', 'Jz', 'rho')
-    """
-    # matplotlib only needs to be imported if this function is called
-    import matplotlib.pyplot as plt
-
-    # Select the field to plot
-    plotted_field = 2 * ps.C_w_tot_env[:,0]
-    # Show the field also below the axis for a more realistic picture
-
-    #extent = 1.e6*np.array([grid.kz[Nz//2-1,0], grid.kz[Nz//2 +1,0], grid.kr[0,0], grid.kr[-1,-1]])
-    plt.clf()
-    plt.suptitle('%s, for mode %d' %(fieldtype, grid.m) )
-
-    # Plot the real part
-    plt.subplot(211)
-    plt.plot(grid.kz[:,0], plotted_field)
-    plt.xlabel('z')
-    plt.ylabel('r')
-
-    plt.show()
 
 Nm = 1
 dt = (zmax-zmin)*1./c/Nz
@@ -274,7 +192,7 @@ for it in range(k_iter):
     show_fields(sim.fld.envelope_interp[0], 'a')
     show_fields(sim.fld.interp[0], 'rho')
     show_fields(sim.fld.envelope_interp[0], 'chi')
-    show_coefs(sim.fld.envelope_spect[0], 'a', sim.fld.psatd[0])
+    show_transform(sim.fld.envelope_spect[0], 'a')
     i, j = np.unravel_index(np.argmax(np.abs(sim.fld.envelope_spect[0].a)), np.abs(sim.fld.envelope_spect[0].a).shape)
     print(i,j)
     print(kz[i][j], kr[i][j])
