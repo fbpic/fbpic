@@ -75,8 +75,8 @@ def test_linear_wakefield( Nm=1, show=False ):
     # Initialize the simulation object
     sim = Simulation( Nz, zmax, Nr, rmax, Nm, dt,
                       p_zmin, p_zmax, p_rmin, p_rmax, p_nz, p_nr, p_nt, n_e,
-                      use_cuda=use_cuda, boundaries='open', use_envelope = True,
-                      v_comoving = c, use_galilean = True)
+                      use_cuda=use_cuda, boundaries='open', use_envelope=True,
+                      v_comoving=c, use_galilean=True, initialize_ions=True)
 
     # Create the relevant laser profile
     if Nm == 1:
@@ -106,57 +106,8 @@ def test_linear_wakefield( Nm=1, show=False ):
 
     # Run the simulation
     sim.step(N_step, correct_currents=correct_currents)
-    show_fields(sim.fld.envelope_interp[0], 'grad_a_z')
     # Compare the fields
     compare_fields(sim, Nm, show)
-
-def show_fields( grid, fieldtype ):
-    """
-    Show the field `fieldtype` on the interpolation grid
-
-    Parameters
-    ----------
-    grid: an instance of FieldInterpolationGrid
-        Contains the field on the interpolation grid for
-        on particular azimuthal mode
-
-    fieldtype : string
-        Name of the field to be plotted.
-        (either 'Er', 'Et', 'Ez', 'Br', 'Bt', 'Bz',
-        'Jr', 'Jt', 'Jz', 'rho')
-    """
-    # matplotlib only needs to be imported if this function is called
-    import matplotlib.pyplot as plt
-
-    # Select the field to plot
-    plotted_field = getattr( grid, fieldtype)
-    # Show the field also below the axis for a more realistic picture
-    plotted_field = np.hstack( (plotted_field[:,::-1],plotted_field) )
-    extent = 1.e6*np.array([grid.zmin, grid.zmax, -grid.rmax, grid.rmax])
-    plt.clf()
-    plt.suptitle('%s, for mode %d' %(fieldtype, grid.m) )
-
-    # Plot the real part
-    plt.subplot(211)
-    plt.imshow( plotted_field.real.T[::-1], aspect='auto',
-                interpolation='nearest', extent=extent )
-                #interpolation='nearest')
-    plt.xlabel('z')
-    plt.ylabel('r')
-    cb = plt.colorbar()
-    cb.set_label('Real part')
-
-    # Plot the imaginary part
-    plt.subplot(212)
-    plt.imshow( plotted_field.imag.T[::-1], aspect='auto',
-                interpolation='nearest', extent = extent )
-                #interpolation='nearest')
-    plt.xlabel('z')
-    plt.ylabel('r')
-    cb = plt.colorbar()
-    cb.set_label('Imaginary part')
-
-    plt.show()
 
 def compare_fields(sim, Nm, show) :
     """
@@ -192,7 +143,7 @@ def compare_fields(sim, Nm, show) :
                                     Ez_sim, Er_sim, gathered_grids[0])
         # Automatically check the accuracy
         assert np.allclose( Ez_sim, Ez_analytical,
-                            atol=0.08*abs(Ez_analytical).max() )
+                            atol=0.13*abs(Ez_analytical).max() )
         assert np.allclose( Er_sim, Er_analytical,
                             atol=0.11*abs(Er_analytical).max() )
 

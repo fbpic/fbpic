@@ -15,9 +15,9 @@ show = False # Whether to show the plots, and check them manually
 use_cuda = False
 
 # Simulation box
-Nz = 500
-zmin = -25.e-6
-zmax = 25.e-6
+Nz = 150
+zmin = -20.e-6
+zmax = 10.e-6
 Nr = 60
 rmax = 6
 n_order = -1
@@ -151,7 +151,7 @@ def show_transform( grid, fieldtype ):
 
 Nm = 1
 dt = (zmax-zmin)*1./c/Nz
-dt = 0.08e-6/c
+dt = 0.13e-6/c
 print(c*dt)
 print(L_prop)
 print(L_prop / c / dt)
@@ -160,7 +160,7 @@ print(L_prop / c / dt)
 sim = Simulation( Nz, zmax, Nr, rmax, Nm, dt,
     p_zmin=p_zmin, p_zmax=p_zmax, p_rmin=p_rmin, p_rmax=p_rmax, p_nz=p_nz,
     p_nr=p_nr, p_nt=Nm+1, n_e=n_e, n_order=n_order, zmin=zmin,
-    boundaries='open',
+    boundaries='open', v_comoving=0.999*c, use_galilean=True, initialize_ions=True,
     use_cuda=use_cuda, use_envelope=True )
 sim.set_moving_window(v=c)
 tau = ctau/c
@@ -177,7 +177,7 @@ add_laser_pulse( sim, profile, method = 'direct_envelope' )
 
 
 Ntot_step_init = int( round( L_prop/(c*dt) ) )
-k_iter = 20
+k_iter = 10
 kz = sim.fld.envelope_spect[0].kz
 kr = sim.fld.envelope_spect[0].kr
 show_fields(sim.fld.envelope_interp[0], 'a')
@@ -188,7 +188,7 @@ plt.show()
 #show_coefs2(sim.fld.envelope_spect[0], 'a', sim.fld.psatd[0])
 
 for it in range(k_iter):
-    sim.step( Ntot_step_init//k_iter, show_progress= True )
+    sim.step( Ntot_step_init//k_iter, show_progress= True)
     show_fields(sim.fld.envelope_interp[0], 'a')
     show_fields(sim.fld.interp[0], 'rho')
     show_fields(sim.fld.envelope_interp[0], 'chi')
