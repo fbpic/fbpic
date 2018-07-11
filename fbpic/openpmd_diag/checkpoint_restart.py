@@ -135,7 +135,7 @@ def restart_from_checkpoint( sim, iteration=None, reverse_time=False ):
         for i in range(len(sim.ptcl)):
             name = 'species %d' %i
             load_species( sim.ptcl[i], name, ts, iteration,
-                          sim.comm, reverse_uz=reverse_time )
+                          sim.comm, reverse_u=reverse_time )
     else:
         raise RuntimeError( \
 """Species numbers in checkpoint and simulation should be same, but
@@ -258,7 +258,7 @@ def load_fields( grid, fieldtype, coord, ts, iteration, inverse_sign ):
     length_new = grid.zmax - grid.zmin
     assert np.allclose( length_old, length_new )
 
-def load_species( species, name, ts, iteration, comm, reverse_uz ):
+def load_species( species, name, ts, iteration, comm, reverse_u ):
     """
     Read the species data from the checkpoint `ts`
     and load it into the Species object `species`
@@ -290,8 +290,10 @@ def load_species( species, name, ts, iteration, comm, reverse_uz ):
     # Get the particles' momenta
     species.ux, species.uy, species.uz = ts.get_particle(
         ['ux', 'uy', 'uz' ], iteration=iteration, species=name )
-    # Inverse propagation in z-direction if needed
-    if reverse_uz:
+    # Inverse particles propagation if needed
+    if reverse_u:
+        species.ux *= -1
+        species.uy *= -1
         species.uz *= -1
     # Get the weight (multiply it by the charge to conform with FBPIC)
     species.w, = ts.get_particle( ['w'], iteration=iteration, species=name )
