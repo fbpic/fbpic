@@ -295,10 +295,6 @@ def add_cubic_envelope_gather_for_mode( m, F,
     # Create temporary variables
     # for the "per mode" gathering
     F_m = 0.j
-    Fr_m = 0.j
-    Ft_m = 0.j
-    Fz_m = 0.j
-
     # Loop over the 4x4 cells from which to gather fields
     for index_r in range(4):
 
