@@ -22,7 +22,6 @@ $ python tests/test_particle_envelope.py
 """
 import numpy as np
 from scipy.constants import c, e, m_e, pi
-from scipy.optimize import curve_fit
 from scipy.special import genlaguerre
 from fbpic.main import Simulation
 from fbpic.lpa_utils.laser import add_laser_pulse, \
