@@ -151,7 +151,7 @@ def show_transform( grid, fieldtype ):
 
 Nm = 1
 dt = (zmax-zmin)*1./c/Nz
-dt = 0.075e-6/c
+dt = 0.13e-6/c
 print(c*dt)
 print(L_prop)
 print(L_prop / c / dt)
@@ -189,20 +189,20 @@ kr = sim.fld.envelope_spect[0].kr
 #show_coefs2(sim.fld.envelope_spect[0], 'a', sim.fld.psatd[0])
 
 for it in range(k_iter):
-    sim.step( Ntot_step_init//k_iter, show_progress=show)
+    sim.step( Ntot_step_init//k_iter, show_progress=True)
     if show:
-    show_fields(sim.fld.envelope_interp[0], 'a')
-    show_fields(sim.fld.interp[0], 'rho')
-    show_fields(sim.fld.envelope_interp[0], 'chi')
-    show_transform(sim.fld.envelope_spect[0], 'a')
-    i, j = np.unravel_index(np.argmax(np.abs(sim.fld.envelope_spect[0].a)), np.abs(sim.fld.envelope_spect[0].a).shape)
-    print(i,j)
-    print(kz[i][j], kr[i][j])
-    print(abs(sim.fld.envelope_spect[0].a[i][j]))
-    show_coefs2(sim.fld.envelope_spect[0], 'a', sim.fld.psatd[0])
-    plt.plot(np.abs(sim.fld.envelope_interp[0].a[:,0]))
-    plt.show()
-    plt.plot(np.abs(sim.fld.envelope_interp[0].a[:,0]))
-    plt.plot(sim.fld.envelope_interp[0].a.real[:,0])
-    plt.plot(sim.fld.envelope_interp[0].a.imag[:,0])
-    plt.show()
+        show_fields(sim.fld.envelope_interp[0], 'a')
+        show_fields(sim.fld.interp[0], 'rho')
+        show_fields(sim.fld.envelope_interp[0], 'chi')
+        show_transform(sim.fld.envelope_spect[0], 'a')
+        i, j = np.unravel_index(np.argmax(np.abs(sim.fld.envelope_spect[0].a)), np.abs(sim.fld.envelope_spect[0].a).shape)
+        print(i,j)
+        print(kz[i][j], kr[i][j])
+        print(abs(sim.fld.envelope_spect[0].a[i][j]))
+        show_coefs2(sim.fld.envelope_spect[0], 'a', sim.fld.psatd[0])
+        plt.plot(np.abs(sim.fld.envelope_interp[0].a[:,0]))
+        plt.show()
+        plt.plot(np.abs(sim.fld.envelope_interp[0].a[:,0]))
+        plt.plot(sim.fld.envelope_interp[0].a.real[:,0])
+        plt.plot(sim.fld.envelope_interp[0].a.imag[:,0])
+        plt.show()
