@@ -944,13 +944,13 @@ class Particles(object) :
         if self.q == 0:
             return
         # Obtain the global arrays so we can use a single array
-        fld.globalize_arrays()
+        fld.copy_envelope_modes_to_global_arrays()
         # Using global arrays for compatibility with numba and GPU
         a = fld.a_global
         grad_a_r = fld.grad_a_r_global
         grad_a_t = fld.grad_a_t_global
         grad_a_z = fld.grad_a_z_global
-        m_array= fld.envelope_mode_numbers
+        m_array = fld.envelope_mode_numbers
         envelope_grid = fld.envelope_interp
 
         # GPU (CUDA) version

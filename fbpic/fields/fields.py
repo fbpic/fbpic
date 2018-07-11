@@ -7,6 +7,7 @@ It defines the high-level Fields class.
 """
 import warnings
 import numpy as np
+from numba import cuda
 from fbpic.utils.threading import nthreads
 from .numba_methods import sum_reduce_2d_array
 from .cuda_methods import cuda_copy_arrays
@@ -237,14 +238,26 @@ class Fields(object) :
                             self.spect[m].kr, m, self.dt, self.Nz,
                             self.Nr, 2*np.pi/lambda_envelope)
 
-            self.a_global = np.zeros(dtype=np.complex128,
-                shape=(2*Nm-1, Nz, Nr))
-            self.grad_a_r_global = np.zeros(dtype=np.complex128,
-                shape=(2*Nm-1, Nz, Nr))
-            self.grad_a_t_global = np.zeros(dtype=np.complex128,
-                shape=(2*Nm-1, Nz, Nr))
-            self.grad_a_z_global  = np.zeros(dtype=np.complex128,
-                shape=(2*Nm-1, Nz, Nr))
+            # Create intermediate arrays that store the different
+            # azimuthal modes in a contiguous manner
+            # (Necessary because passing tuples of arrays to numba
+            # is not supported on GPU)
+            # See the function `copy_envelope_modes_to_global_arrays`
+            self.a_global = np.zeros(
+                (2*Nm-1, Nz, Nr), dtype=np.complex128)
+            self.grad_a_r_global = np.zeros(
+                (2*Nm-1, Nz, Nr), dtype=np.complex128)
+            self.grad_a_t_global = np.zeros(
+                (2*Nm-1, Nz, Nr), dtype=np.complex128)
+            self.grad_a_z_global = np.zeros(
+                (2*Nm-1, Nz, Nr), dtype=np.complex128)
+            if self.use_cuda:
+                # Copy these arrays to the GPU
+                self.a_global = cuda.to_device( self.a_global )
+                self.grad_a_r_global = cuda.to_device( self.grad_a_r_global )
+                self.grad_a_t_global = cuda.to_device( self.grad_a_t_global )
+                self.grad_a_z_global = cuda.to_device( self.grad_a_z_global )
+
 
     def send_fields_to_gpu( self ):
         """
@@ -738,18 +751,22 @@ class Fields(object) :
             self.envelope_spect[m].compute_grad_a()
         self.spect2interp('grad_a')
 
-    def globalize_arrays(self):
+    def copy_envelope_modes_to_global_arrays(self):
         """
-        Copies the data on the a and grad_a fields that we have scattered in the
-        different EnvelopeInterpolationGrid in 4 global arrays that are used for
-        the gathering on the particles.
+        Copy the data on the a and grad_a fields that were scattered in the
+        different EnvelopeInterpolationGrid into corresponding global arrays,
+        where all the modes are in the same array
         """
         if self.use_cuda:
             for m in self.envelope_mode_numbers:
-                cuda_copy_arrays(self.a_global[m], self.envelope_interp[m].a, self.Nz, self.Nr)
-                cuda_copy_arrays(self.grad_a_r_global[m], self.envelope_interp[m].grad_a_r, self.Nz, self.Nr)
-                cuda_copy_arrays(self.grad_a_t_global[m], self.envelope_interp[m].grad_a_t, self.Nz, self.Nr)
-                cuda_copy_arrays(self.grad_a_z_global[m], self.envelope_interp[m].grad_a_z, self.Nz, self.Nr)
+                cuda_copy_arrays(self.a_global[m],
+                    self.envelope_interp[m].a, self.Nz, self.Nr)
+                cuda_copy_arrays(self.grad_a_r_global[m],
+                    self.envelope_interp[m].grad_a_r, self.Nz, self.Nr)
+                cuda_copy_arrays(self.grad_a_t_global[m],
+                    self.envelope_interp[m].grad_a_t, self.Nz, self.Nr)
+                cuda_copy_arrays(self.grad_a_z_global[m],
+                    self.envelope_interp[m].grad_a_z, self.Nz, self.Nr)
         else:
             for m in self.envelope_mode_numbers:
                 self.a_global[m,:,:] = self.envelope_interp[m].a
