@@ -337,27 +337,38 @@ def gather_envelope_field_gpu_linear(x, y, z,
                 exptheta_m *= (cos - 1.j*sin)
             if m < 0:
                 exptheta_m = exptheta_m.conjugate()
-            F, Fr, Ft, Fz = add_linear_envelope_gather_for_mode( m, F, Fr, Ft,
-                        Fz, exptheta_m, a_m, grad_a_r_m, grad_a_t_m, grad_a_z_m,
+            F = add_linear_envelope_gather_for_mode( m, F,
+                        exptheta_m, a_m,
                         iz_lower, iz_upper, ir_lower, ir_upper,
                         S_ll, S_lu, S_lg, S_ul, S_uu, S_ug )
+            if not averaging:
+                Fr = add_linear_envelope_gather_for_mode( m, Fr,
+                            exptheta_m, grad_a_r_m,
+                            iz_lower, iz_upper, ir_lower, ir_upper,
+                            S_ll, S_lu, S_lg, S_ul, S_uu, S_ug )
+                Ft = add_linear_envelope_gather_for_mode( m, Ft,
+                            exptheta_m, grad_a_t_m,
+                            iz_lower, iz_upper, ir_lower, ir_upper,
+                            S_ll, S_lu, S_lg, S_ul, S_uu, S_ug )
+                Fz = add_linear_envelope_gather_for_mode( m, Fz,
+                            exptheta_m, grad_a_z_m,
+                            iz_lower, iz_upper, ir_lower, ir_upper,
+                            S_ll, S_lu, S_lg, S_ul, S_uu, S_ug )
 
-        # Convert to Cartesian coordinates
-        Fx = cos*Fr - sin*Ft
-        Fy = sin*Fr + cos*Ft
+        if not averaging:
+            # Convert to Cartesian coordinates
+            Fx = cos*Fr - sin*Ft
+            Fy = sin*Fr + cos*Ft
 
-        # Convert to grad_a^2 and a^2
-        Fx = 2 * (Fx * F.conjugate() ).real
-        Fy = 2 * (Fy * F.conjugate() ).real
-        Fz = 2 * (Fz * F.conjugate() ).real
+            # Convert to grad_a^2 and a^2
+            Fx = 2 * (Fx * F.conjugate() ).real
+            Fy = 2 * (Fy * F.conjugate() ).real
+            Fz = 2 * (Fz * F.conjugate() ).real
         F = F * F.conjugate()
 
         # Register in the particle arrays
         if averaging:
             a2[i] = (0.5 * (a2[i] + F)).real
-            grad_a2_x[i] = (0.5 * (grad_a2_x[i] + Fx)).real
-            grad_a2_y[i] = (0.5 * (grad_a2_y[i] + Fy)).real
-            grad_a2_z[i] = (0.5 * (grad_a2_z[i] + Fz)).real
         else:
             a2[i] = F.real
             grad_a2_x[i] = Fx.real
@@ -620,27 +631,33 @@ def gather_envelope_field_gpu_cubic(x, y, z,
                 exptheta_m *= (cos - 1.j*sin)
             if m < 0:
                 exptheta_m = exptheta_m.conjugate()
-            F, Fr, Ft, Fz = add_cubic_envelope_gather_for_mode( m, F, Fr, Ft,
-                                Fz, exptheta_m, a_m,
-                                grad_a_r_m, grad_a_t_m, grad_a_z_m,
+            F = add_cubic_envelope_gather_for_mode( m, F, exptheta_m, a_m,
                                 ir_lowest, iz_lowest, Sr, Sz, Nr, Nz  )
+            if not averaging:
+                Fr = add_cubic_envelope_gather_for_mode( m, Fr, exptheta_m,
+                                    grad_a_r_m,
+                                    ir_lowest, iz_lowest, Sr, Sz, Nr, Nz  )
+                Ft = add_cubic_envelope_gather_for_mode( m, Ft,
+                                    exptheta_m, grad_a_t_m,
+                                    ir_lowest, iz_lowest, Sr, Sz, Nr, Nz  )
+                Fz = add_cubic_envelope_gather_for_mode( m, Fz, exptheta_m,
+                                    grad_a_z_m,
+                                    ir_lowest, iz_lowest, Sr, Sz, Nr, Nz  )
 
-        # Convert to Cartesian coordinates
-        Fx = cos*Fr - sin*Ft
-        Fy = sin*Fr + cos*Ft
+        if not averaging:
+            # Convert to Cartesian coordinates
+            Fx = cos*Fr - sin*Ft
+            Fy = sin*Fr + cos*Ft
 
-        # Convert to grad_a^2 and a^2
-        Fx = 2 * (Fx * F.conjugate() ).real
-        Fy = 2 * (Fy * F.conjugate() ).real
-        Fz = 2 * (Fz * F.conjugate() ).real
+            # Convert to grad_a^2 and a^2
+            Fx = 2 * (Fx * F.conjugate() ).real
+            Fy = 2 * (Fy * F.conjugate() ).real
+            Fz = 2 * (Fz * F.conjugate() ).real
         F = F * F.conjugate()
 
         # Register in the particle arrays
         if averaging:
             a2[i] = (0.5 * (a2[i] + F)).real
-            grad_a2_x[i] = (0.5 * (grad_a2_x[i] + Fx)).real
-            grad_a2_y[i] = (0.5 * (grad_a2_y[i] + Fy)).real
-            grad_a2_z[i] = (0.5 * (grad_a2_z[i] + Fz)).real
         else:
             a2[i] = F.real
             grad_a2_x[i] = Fx.real
