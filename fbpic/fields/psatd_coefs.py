@@ -204,7 +204,7 @@ class PsatdCoeffs(object) :
         # Calculate all necessary coefficients for propagation of A field
         w_laser = c * k0
         w_tot = np.sqrt( (w_laser + c * kz)**2 + c**2 * kr**2)
-        if self.use_galilean:
+        if self.use_galilean and self.V is not None:
             w1 = w_laser + self.V*kz
             self.w_transform_2 = c**2 * (kr**2 + kz**2 + 2*k0*kz) \
                                 - self.V**2*kz**2 - 2*self.V*c*k0*kz

@@ -433,7 +433,8 @@ class Simulation(object):
                 fld.push_envelope()
                 fld.spect2interp('a')
                 fld.compute_grad_a()
-
+                if self.use_galilean:
+                    self.shift_galilean_boundaries(dt )
 
             # Push the particles' positions and velocities to t = (n+1/2) dt
             if move_momenta:
@@ -454,7 +455,8 @@ class Simulation(object):
                 for species in ptcl:
                     species.gather_envelope(fld, averaging = True)
                     species.update_inv_gamma()
-
+                if self.use_galilean:
+                    self.shift_galilean_boundaries( -dt )
             if move_positions:
                 for species in ptcl:
                     species.push_x( 0.5*dt )
