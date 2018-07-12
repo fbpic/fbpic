@@ -68,7 +68,7 @@ class Simulation(object):
 
             For the arguments `p_rmin`, `p_rmax`, `p_nz`, `p_nr`, `p_nt`,
             `n_e`, and `dens_func`, see the docstring of the method
-            `add_new_species`.
+            `add_new_species` (where `n_e` has been re-labeled as `n`).
 
         Parameters
         ----------
@@ -728,7 +728,7 @@ class Simulation(object):
                 if var is None:
                     raise ValueError(
                     'If the density `n` is passed to `add_new_species`,\n'
-                    'then the arguments `p_nz`, `p_nr` and `p_nt` need'
+                    'then the arguments `p_nz`, `p_nr` and `p_nt` need '
                     'to be passed too.')
 
             # Automatically convert input quantities to the boosted frame
@@ -777,6 +777,14 @@ class Simulation(object):
             dz_particles = self.comm.dz/p_nz
 
         else:
+            # Check consistency of arguments
+            if (dens_func is not None) or (p_nz is not None) or \
+                (p_nr is not None) or (p_nt is not None):
+                warnings.warn(
+                    'It seems that you provided the arguments `dens_func`, '
+                    '`p_nz`, `p_nr` or `p_nz`\nHowever no particle density '
+                    '(`n` or `n_e`) was given.\nTherefore, no particles will'
+                    'be created.')
             # Convert arguments to acceptable arguments for `Particles`
             # but which will result in no macroparticles being injected
             n = 0
