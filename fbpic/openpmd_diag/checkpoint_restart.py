@@ -60,7 +60,7 @@ def set_periodic_checkpoint( sim, period ):
         sim.checkpoints.append(
             ParticleDiagnostic( period, particle_dict, write_dir=write_dir ) )
 
-def restart_from_checkpoint( sim, iteration=None ):
+def restart_from_checkpoint( sim, iteration=None, reverse_time=False ):
     """
     Fills the Simulation object `sim` with data saved in a checkpoint.
 
@@ -90,6 +90,10 @@ def restart_from_checkpoint( sim, iteration=None ):
     iteration: integer (optional)
        The iteration number of the checkpoint from which to restart
        If None, the latest checkpoint available will be used.
+
+    reverse_time: bool (optional)
+        Option to _time reverse_, i.e. to reverse the laser and particle
+        beam propagation direction at restart
     """
     # Import openPMD-viewer
     try:
@@ -130,7 +134,8 @@ def restart_from_checkpoint( sim, iteration=None ):
     if len(avail_species) == len(sim.ptcl):
         for i in range(len(sim.ptcl)):
             name = 'species %d' %i
-            load_species( sim.ptcl[i], name, ts, iteration, sim.comm )
+            load_species( sim.ptcl[i], name, ts, iteration,
+                          sim.comm, reverse_u=reverse_time )
     else:
         raise RuntimeError( \
 """Species numbers in checkpoint and simulation should be same, but
@@ -143,11 +148,14 @@ simulation or sim.ptcl = [] to remove them""".format(len(avail_species),
     # Load the fields
     # Loop through the different modes
     for m in range( sim.fld.Nm ):
-        # Load the fields E and B
-        for fieldtype in ['E', 'B']:
-            for coord in ['r', 't', 'z']:
-                load_fields( sim.fld.interp[m], fieldtype,
-                             coord, ts, iteration )
+        for coord in ['r', 't', 'z']:
+            # Load field E
+            load_fields( sim.fld.interp[m], 'E',
+                coord, ts, iteration, inverse_sign=False )
+            # Load field B with reverse_time option
+            load_fields( sim.fld.interp[m], 'B',
+                coord, ts, iteration, inverse_sign=reverse_time )
+
     # Record position after restart (`zmin` is modified by `load_fields`)
     # and shift the global domain position in the BoundaryCommunicator
     zmin_new = sim.fld.interp[0].zmin
@@ -179,7 +187,7 @@ def check_restart( sim, iteration ):
         'calling `restart_from_checkpoint`.')
 
 
-def load_fields( grid, fieldtype, coord, ts, iteration ):
+def load_fields( grid, fieldtype, coord, ts, iteration, inverse_sign ):
     """
     Load the field information from the checkpoint `ts` into
     the InterpolationGrid `grid`.
@@ -200,6 +208,9 @@ def load_fields( grid, fieldtype, coord, ts, iteration ):
 
     iteration: integer
        The iteration of the checkpoint to be loaded.
+
+    inverse_sign: bool
+        If True, the sign of the field is inversed (for `reverse_time`)
     """
     Nr = grid.Nr
     m = grid.m
@@ -225,6 +236,10 @@ def load_fields( grid, fieldtype, coord, ts, iteration ):
         # to FBPIC's field representation (see field_diag.py)
         field_data *= 0.5
 
+    # Inverse field sign if needed for time_inverse option
+    if inverse_sign:
+        field_data *= -1
+
     # Affect the extracted field to the simulation
     if coord is not None:
         field_name = fieldtype+coord
@@ -243,7 +258,7 @@ def load_fields( grid, fieldtype, coord, ts, iteration ):
     length_new = grid.zmax - grid.zmin
     assert np.allclose( length_old, length_new )
 
-def load_species( species, name, ts, iteration, comm ):
+def load_species( species, name, ts, iteration, comm, reverse_u ):
     """
     Read the species data from the checkpoint `ts`
     and load it into the Species object `species`
@@ -264,6 +279,9 @@ def load_species( species, name, ts, iteration, comm ):
 
     comm: an fbpic.BoundaryCommunicator object
         Contains information about the number of procs
+
+    reverse_uz: bool
+        If True, the sign of `uz` is inversed (for `reverse_time`)
     """
     # Get the particles' positions (convert to meters)
     x, y, z = ts.get_particle(
@@ -272,6 +290,11 @@ def load_species( species, name, ts, iteration, comm ):
     # Get the particles' momenta
     species.ux, species.uy, species.uz = ts.get_particle(
         ['ux', 'uy', 'uz' ], iteration=iteration, species=name )
+    # Inverse particles propagation if needed
+    if reverse_u:
+        species.ux *= -1
+        species.uy *= -1
+        species.uz *= -1
     # Get the weight (multiply it by the charge to conform with FBPIC)
     species.w, = ts.get_particle( ['w'], iteration=iteration, species=name )
     # Get the inverse gamma
