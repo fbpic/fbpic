@@ -252,7 +252,7 @@ class Ionizer(object):
         # Reallocate electron species (on CPU or GPU depending on `use_cuda`),
         # to accomodate the electrons produced by ionization,
         # and copy the old electrons to the new arrays
-        assert len(self.target_species == n_levels)
+        assert len(self.target_species) == n_levels
         for i_level, elec in enumerate(self.target_species):
             old_Ntot = elec.Ntot
             new_Ntot = old_Ntot + cumulative_n_ionized[i_level,-1]
