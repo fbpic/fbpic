@@ -52,7 +52,8 @@ def get_ionization_probability( E, gamma, prefactor, power, exp_prefactor ):
 
 def copy_ionized_electrons_batch(
     i_batch, batch_size, elec_old_Ntot, ion_Ntot,
-    cumulative_n_ionized, is_ionized,
+    cumulative_n_ionized, ionized_from,
+    i_level, store_electrons_per_level,
     elec_x, elec_y, elec_z, elec_inv_gamma,
     elec_ux, elec_uy, elec_uz, elec_w,
     elec_Ex, elec_Ey, elec_Ez, elec_Bx, elec_By, elec_Bz,
@@ -65,14 +66,16 @@ def copy_ionized_electrons_batch(
 
     Particles are handled by batch: this functions goes through one batch
     of ion macroparticles and checks which macroparticles have been ionized
-    during the present timestep (using the flag `is_ionized`).
+    during the present timestep (using the flag `ionized_from`, which
+    is -1 if the ion is not ionized, and has the value of the original level
+    otherwise).
     In order to know at which position, in the electron array, this data
     should be copied, the cumulated number of electrons `cumulative_n_ionized`
     (one element per batch) is used.
     """
     # Electron index: this is incremented each time
     # an ionized electron is identified
-    elec_index = elec_old_Ntot + cumulative_n_ionized[i_batch]
+    elec_index = elec_old_Ntot + cumulative_n_ionized[i_level, i_batch]
     # Loop through the ions in this batch
     N_max = min( (i_batch+1)*batch_size, ion_Ntot )
     for ion_index in range( i_batch*batch_size, N_max ):

@@ -31,7 +31,7 @@ def perform_cumsum( input_array ):
     element is 0 and its last element is the total sum of `input_array`)
     """
     cumulative_array = np.zeros( len(input_array)+1, dtype=np.int64 )
-    np.cumsum( input_array, out=cumulative_array[1:] )
+    np.cumsum( input_array, out=cumulative_array[1:], axis=-1 )
     return( cumulative_array )
 
 def reallocate_and_copy_old( species, use_cuda, old_Ntot, new_Ntot ):
@@ -56,7 +56,7 @@ def reallocate_and_copy_old( species, use_cuda, old_Ntot, new_Ntot ):
     """
     # Check if the data is on the GPU
     data_on_gpu = (type(species.w) is not np.ndarray)
-    
+
     # On GPU, use one thread per particle
     if data_on_gpu:
         ptcl_grid_1d, ptcl_block_1d = cuda_tpb_bpg_1d( old_Ntot )
