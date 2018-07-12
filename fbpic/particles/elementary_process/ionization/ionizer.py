@@ -35,7 +35,7 @@ from scipy.special import gamma
 from .read_atomic_data import get_ionization_energies
 from .numba_methods import ionize_ions_numba, copy_ionized_electrons_numba
 from ..cuda_numba_utils import allocate_empty, reallocate_and_copy_old, \
-                                perform_cumsum, generate_new_ids
+                                perform_cumsum_2d, generate_new_ids
 
 # Check if CUDA is available, then import CUDA functions
 from fbpic.utils.cuda import cuda_installed
@@ -218,7 +218,6 @@ class Ionizer(object):
         # Determine the ions that are ionized, and count them in each batch
         # (one thread per batch on GPU; parallel loop over batches on CPU)
         if use_cuda:
-            # TODO: Update cuda function
             batch_grid_1d, batch_block_1d = cuda_tpb_bpg_1d( N_batch )
             ionize_ions_cuda[ batch_grid_1d, batch_block_1d ](
                 N_batch, self.batch_size, ion.Ntot,
@@ -240,7 +239,7 @@ class Ionizer(object):
         # on the CPU, as this is typically difficult on the GPU)
         if use_cuda:
             n_ionized = n_ionized.copy_to_host()
-        cumulative_n_ionized = perform_cumsum( n_ionized ) # TODO: Fix function
+        cumulative_n_ionized = perform_cumsum_2d( n_ionized )
         # If no new particle was created, skip the rest of this function
         if np.all( cumulative_n_ionized[:,-1] == 0 ):
             return
@@ -260,7 +259,6 @@ class Ionizer(object):
             reallocate_and_copy_old( elec, use_cuda, old_Ntot, new_Ntot )
             # Create the new electrons from ionization (one thread per batch)
             if use_cuda:
-                # TODO Update cuda function
                 copy_ionized_electrons_cuda[ batch_grid_1d, batch_block_1d ](
                     N_batch, self.batch_size, old_Ntot, ion.Ntot,
                     cumulative_n_ionized, ionized_from,

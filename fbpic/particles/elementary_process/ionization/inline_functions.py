@@ -80,7 +80,17 @@ def copy_ionized_electrons_batch(
     N_max = min( (i_batch+1)*batch_size, ion_Ntot )
     for ion_index in range( i_batch*batch_size, N_max ):
 
-        if is_ionized[ion_index] == 1:
+        # Determine if a new electron should be created from this ion
+        create_electron = False
+        # If electrons are not distinguished by level, take all ionized ions
+        if (not store_electrons_per_level) and ionized_from[ion_index] >=0:
+            create_electron = True
+        # If electrons are to be distinguished by level, take only those
+        # of the corresponding i_level
+        if store_electrons_per_level and ionized_from[ion_index] == i_level:
+            create_electron = True
+
+        if create_electron:
             # Copy the ion data to the current electron_index
             elec_x[elec_index] = ion_x[ion_index]
             elec_y[elec_index] = ion_y[ion_index]
