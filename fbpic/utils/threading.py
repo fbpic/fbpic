@@ -42,7 +42,8 @@ if threading_enabled:
 # Set the function njit_parallel and prange to the correct object
 if not threading_enabled:
     # Use regular serial compilation function
-    njit_parallel = njit
+    # Uses `cache=True` to avoid re-compilation (not available with threading)
+    njit_parallel = njit( cache=True )
     prange = range
     nthreads = 1
 else:
