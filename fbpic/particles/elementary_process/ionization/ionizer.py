@@ -275,7 +275,7 @@ class Ionizer(object):
             else:
                 copy_ionized_electrons_numba(
                     N_batch, self.batch_size, old_Ntot, ion.Ntot,
-                    d_cumulative_n_ionized, ionized_from,
+                    cumulative_n_ionized, ionized_from,
                     i_level, self.store_electrons_per_level,
                     elec.x, elec.y, elec.z, elec.inv_gamma,
                     elec.ux, elec.uy, elec.uz, elec.w,
