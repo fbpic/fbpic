@@ -13,15 +13,18 @@ from fbpic.utils.cuda import cuda_installed
 if cuda_installed:
     from fbpic.utils.cuda import cuda, cuda_tpb_bpg_1d
 
-def allocate_empty( N, use_cuda, dtype ):
+def allocate_empty( shape, use_cuda, dtype ):
     """
     Allocate and return an empty array, of size `N` and type `dtype`,
     either on GPU or CPU, depending on whether `use_cuda` is True or False
     """
+    if type(shape) is not tuple:
+        # Convert single scalar to tuple
+        shape = (shape,)
     if use_cuda:
-        return( cuda.device_array( (N,), dtype=dtype ) )
+        return( cuda.device_array( shape, dtype=dtype ) )
     else:
-        return( np.empty( N, dtype=dtype ) )
+        return( np.empty( shape, dtype=dtype ) )
 
 def perform_cumsum( input_array ):
     """

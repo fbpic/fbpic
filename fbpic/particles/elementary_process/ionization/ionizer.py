@@ -210,7 +210,7 @@ class Ionizer(object):
                                     dtype=np.int64 )
         # Draw random numbers
         if self.use_cuda:
-            random_draw = allocate_empty(ion.Ntot, use_cuda, dtype=np.float32)
+            random_draw = allocate_empty( ion.Ntot, use_cuda, dtype=np.float32)
             self.prng.uniform( random_draw )
         else:
             random_draw = np.random.rand( ion.Ntot )
@@ -244,8 +244,9 @@ class Ionizer(object):
         if np.all( cumulative_n_ionized[:,-1] == 0 ):
             return
         # Copy the cumulated number of electrons back on GPU
+        # (Keep a copy on the CPU)
         if use_cuda:
-            cumulative_n_ionized = cuda.to_device( cumulative_n_ionized )
+            d_cumulative_n_ionized = cuda.to_device( cumulative_n_ionized )
 
         # Loop over the electron species associated to each level
         # (when store_electrons_per_level is False, there is a single species)
@@ -261,7 +262,7 @@ class Ionizer(object):
             if use_cuda:
                 copy_ionized_electrons_cuda[ batch_grid_1d, batch_block_1d ](
                     N_batch, self.batch_size, old_Ntot, ion.Ntot,
-                    cumulative_n_ionized, ionized_from,
+                    d_cumulative_n_ionized, ionized_from,
                     i_level, self.store_electrons_per_level,
                     elec.x, elec.y, elec.z, elec.inv_gamma,
                     elec.ux, elec.uy, elec.uz, elec.w,
@@ -274,7 +275,7 @@ class Ionizer(object):
             else:
                 copy_ionized_electrons_numba(
                     N_batch, self.batch_size, old_Ntot, ion.Ntot,
-                    cumulative_n_ionized, ionized_from,
+                    d_cumulative_n_ionized, ionized_from,
                     i_level, self.store_electrons_per_level,
                     elec.x, elec.y, elec.z, elec.inv_gamma,
                     elec.ux, elec.uy, elec.uz, elec.w,
