@@ -136,11 +136,9 @@ def run_simulation( gamma_boost, use_separate_electron_species ):
     # Add the target electrons
     if use_separate_electron_species:
         # Use a dictionary of electron species: one per ionizable level
-        elec_species_dict = {}
+        target_species = {}
         for i_level in range(level_start, 7): # N can go up to N7+
-            elec_species_dict[i_level] = sim.add_new_species( q=-e, m=m_e )
-        target_species = [ elec_species_dict[i_level] \
-                            for i_level in range(level_start, 7) ]
+            target_species[i_level] = sim.add_new_species( q=-e, m=m_e )
     else:
         # Use the pre-existing, charge-neutralizing electrons
         target_species = elec
@@ -187,7 +185,7 @@ def run_simulation( gamma_boost, use_separate_electron_species ):
     if use_separate_electron_species:
         for i_level in range(level_start, 7):
             n_N = w[ioniz_level == i_level].sum()
-            assert np.allclose( elec_species_dict[i_level].w.sum(), n_N )
+            assert np.allclose( target_species[i_level].w.sum(), n_N )
 
     # Check consistency in the regular openPMD diagnostics
     ts = OpenPMDTimeSeries('./tests/diags/hdf5/')

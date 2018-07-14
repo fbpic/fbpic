@@ -109,20 +109,34 @@ class Ionizer(object):
 
         # Check if electrons from different ionization levels should
         # be stored into separate species
-        if type(target_species) is list:
-            # Check that there is one target species per ionizable level
-            n_levels = self.level_max - self.level_start
-            if len(target_species) != n_levels:
-                raise ValueError(
-                    'When passing a list for `target_species`, it should \n'
-                    'have as many elements as the number of ionizable levels\n'
-                    ' (i.e. %d for %s with `level_start`=%d).' %(
-                    n_levels, element, self.level_start))
+        if type(target_species) is dict:
+            # When passing a dictionary
+            # Check that the keys are the right integers
+            for level in range(self.level_start, self.level_max):
+                if level not in target_species.keys():
+                    raise ValueError(
+                    'When passing a dictionary for `target_species`, its keys '
+                    'should be\nthe integers corresponding to the ionizable '
+                    'levels.\n (i.e. the integers from %d to %d'
+                    'for %s with level_start=%d.)' %(self.level_start,
+                    self.level_max, element, self.level_start))
+                # Check that the dictionary contains Particles objects
+                assert isinstance(target_species[level], type(ionizable_species))
+            # Convert to a list internally: the dictionary input is
+            # just for less error-prone user input.
+            self.target_species = [ target_species[level] \
+                for level in range(self.level_start, self.level_max) ]
             self.store_electrons_per_level = True
-            self.target_species = target_species
-        else:
-            self.store_electrons_per_level = False
+        elif isinstance(target_species, type(ionizable_species)):
+            # When passing a single Particles object
             self.target_species = [target_species]  # List of one element
+            self.store_electrons_per_level = False
+        else:
+            raise ValueError(
+                "Unexpected type for target_species: %s\n"
+                "Please pass a `Particles` object, or a dictionary"
+                %type(target_species))
+
         # Check that the target species are indeed electrons
         for species in self.target_species:
             assert species.q == -e
