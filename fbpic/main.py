@@ -408,7 +408,8 @@ class Simulation(object):
             for species in ptcl:
                 species.gather( fld.interp )
                 if self.use_envelope:
-                    species.gather_envelope(fld)
+                    species.gather_envelope(fld, gather_gradient=True,
+                                                 average_a2=False)
             # Apply the external fields at t = n dt
             for ext_field in self.external_fields:
                 ext_field.apply_expression( self.ptcl, self.time )
@@ -446,7 +447,8 @@ class Simulation(object):
                 # envelope at time (n+1/2)*dt (average of times n and n+1)
                 # to compute the gamma for pushing the positions.
                 for species in ptcl:
-                    species.gather_envelope(fld, averaging = True)
+                    species.gather_envelope(fld, gather_gradient=False,
+                                                 average_a2=True)
                     species.update_inv_gamma()
 
             if move_positions:

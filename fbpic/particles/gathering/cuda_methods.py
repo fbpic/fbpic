@@ -203,10 +203,9 @@ def gather_field_gpu_linear(x, y, z,
 def gather_envelope_field_gpu_linear(x, y, z,
                     invdz, zmin, Nz,
                     invdr, rmin, Nr,
-                    a,
-                    grad_a_r, grad_a_t, grad_a_z, m_array,
+                    a, grad_a_r, grad_a_t, grad_a_z, m_array,
                     a2, grad_a2_x, grad_a2_y, grad_a2_z,
-                    averaging):
+                    gather_gradient, average_a2):
     """
     Gathering of the envelope field a and grad_a using numba on the GPU.
     Iterates over the particles, calculates the weighted amount
@@ -240,9 +239,12 @@ def gather_envelope_field_gpu_linear(x, y, z,
         The relevant fields acting on the particles
         (is modified by this function)
 
-    averaging : boolean
-        Whether to average the new values with the old ones or to
-        discard the old values.
+    gather_gradient: bool
+        Whether to gather the gradient of a, in addition to a
+
+    average_a2 : bool
+        Whether to average the gathered value of a^2 with
+        the pre-existing value in the corresponding particle array
     """
     # Get the 1D CUDA grid
     i = cuda.grid(1)
@@ -265,7 +267,6 @@ def gather_envelope_field_gpu_linear(x, y, z,
         else :
             cos = 1.
             sin = 0.
-
 
         # Get linear weights for the deposition
         # --------------------------------------------
@@ -320,17 +321,19 @@ def gather_envelope_field_gpu_linear(x, y, z,
         # Envelope fields
         # -------
         F = 0.j
-        Fr = 0.j
-        Ft = 0.j
-        Fz = 0.j
+        if gather_gradient:
+            Fr = 0.j
+            Ft = 0.j
+            Fz = 0.j
 
         for it in range(len(m_array)):
             # Add contribution from mode m
             m = m_array[it]
             a_m = a[it]
-            grad_a_r_m = grad_a_r[it]
-            grad_a_t_m = grad_a_t[it]
-            grad_a_z_m = grad_a_z[it]
+            if gather_gradient:
+                grad_a_r_m = grad_a_r[it]
+                grad_a_t_m = grad_a_t[it]
+                grad_a_z_m = grad_a_z[it]
             # Calculate azimuthal complex factor
             exptheta_m = 1.
             for _ in range(abs(m)):
@@ -341,7 +344,7 @@ def gather_envelope_field_gpu_linear(x, y, z,
                         exptheta_m, a_m,
                         iz_lower, iz_upper, ir_lower, ir_upper,
                         S_ll, S_lu, S_lg, S_ul, S_uu, S_ug )
-            if not averaging:
+            if gather_gradient:
                 Fr = add_linear_envelope_gather_for_mode( m, Fr,
                             exptheta_m, grad_a_r_m,
                             iz_lower, iz_upper, ir_lower, ir_upper,
@@ -355,26 +358,26 @@ def gather_envelope_field_gpu_linear(x, y, z,
                             iz_lower, iz_upper, ir_lower, ir_upper,
                             S_ll, S_lu, S_lg, S_ul, S_uu, S_ug )
 
-        if not averaging:
+        if gather_gradient:
             # Convert to Cartesian coordinates
             Fx = cos*Fr - sin*Ft
             Fy = sin*Fr + cos*Ft
-
             # Convert to grad_a^2 and a^2
             Fx = 2 * (Fx * F.conjugate() ).real
             Fy = 2 * (Fy * F.conjugate() ).real
             Fz = 2 * (Fz * F.conjugate() ).real
+        # Convert a to a^2
         F = F * F.conjugate()
 
         # Register in the particle arrays
-        if averaging:
-            a2[i] = (0.5 * (a2[i] + F)).real
-        else:
-            a2[i] = F.real
+        if gather_gradient:
             grad_a2_x[i] = Fx.real
             grad_a2_y[i] = Fy.real
             grad_a2_z[i] = Fz.real
-
+        if average_a2:
+            a2[i] = (0.5 * (a2[i] + F)).real
+        else:
+            a2[i] = F.real
 
 # -----------------------
 # Field gathering cubic
@@ -525,10 +528,9 @@ def gather_field_gpu_cubic(x, y, z,
 def gather_envelope_field_gpu_cubic(x, y, z,
                     invdz, zmin, Nz,
                     invdr, rmin, Nr,
-                    a,
-                    grad_a_r, grad_a_t, grad_a_z, m_array,
+                    a, grad_a_r, grad_a_t, grad_a_z, m_array,
                     a2, grad_a2_x, grad_a2_y, grad_a2_z,
-                    averaging):
+                    gather_gradient, average_a2):
     """
     Gathering of the envelope field a and grad_a using numba on the GPU.
     Iterates over the particles, calculates the weighted amount
@@ -562,11 +564,13 @@ def gather_envelope_field_gpu_cubic(x, y, z,
         The relevant fields acting on the particles
         (is modified by this function)
 
-    averaging : boolean
-        Whether to average the new values with the old ones or to
-        discard the old values.
-    """
+    gather_gradient: bool
+        Whether to gather the gradient of a, in addition to a
 
+    average_a2 : bool
+        Whether to average the gathered value of a^2 with
+        the pre-existing value in the corresponding particle array
+    """
 
     # Get the 1D CUDA grid
     i = cuda.grid(1)
@@ -615,16 +619,18 @@ def gather_envelope_field_gpu_cubic(x, y, z,
         # Envelope fields
         # -------
         F = 0.j
-        Fr = 0.j
-        Ft = 0.j
-        Fz = 0.j
+        if gather_gradient:
+            Fr = 0.j
+            Ft = 0.j
+            Fz = 0.j
         for it in range(len(m_array)):
             # Add contribution from mode m
             m = m_array[it]
             a_m = a[it]
-            grad_a_r_m = grad_a_r[it]
-            grad_a_t_m = grad_a_t[it]
-            grad_a_z_m = grad_a_z[it]
+            if gather_gradient:
+                grad_a_r_m = grad_a_r[it]
+                grad_a_t_m = grad_a_t[it]
+                grad_a_z_m = grad_a_z[it]
             # Calculate azimuthal complex factor
             exptheta_m = 1.
             for _ in range(abs(m)):
@@ -633,7 +639,7 @@ def gather_envelope_field_gpu_cubic(x, y, z,
                 exptheta_m = exptheta_m.conjugate()
             F = add_cubic_envelope_gather_for_mode( m, F, exptheta_m, a_m,
                                 ir_lowest, iz_lowest, Sr, Sz, Nr, Nz  )
-            if not averaging:
+            if gather_gradient:
                 Fr = add_cubic_envelope_gather_for_mode( m, Fr, exptheta_m,
                                     grad_a_r_m,
                                     ir_lowest, iz_lowest, Sr, Sz, Nr, Nz  )
@@ -644,22 +650,23 @@ def gather_envelope_field_gpu_cubic(x, y, z,
                                     grad_a_z_m,
                                     ir_lowest, iz_lowest, Sr, Sz, Nr, Nz  )
 
-        if not averaging:
+        if gather_gradient:
             # Convert to Cartesian coordinates
             Fx = cos*Fr - sin*Ft
             Fy = sin*Fr + cos*Ft
-
             # Convert to grad_a^2 and a^2
             Fx = 2 * (Fx * F.conjugate() ).real
             Fy = 2 * (Fy * F.conjugate() ).real
             Fz = 2 * (Fz * F.conjugate() ).real
+        # Convert a to a^2
         F = F * F.conjugate()
 
         # Register in the particle arrays
-        if averaging:
-            a2[i] = (0.5 * (a2[i] + F)).real
-        else:
-            a2[i] = F.real
+        if gather_gradient:
             grad_a2_x[i] = Fx.real
             grad_a2_y[i] = Fy.real
             grad_a2_z[i] = Fz.real
+        if average_a2:
+            a2[i] = (0.5 * (a2[i] + F)).real
+        else:
+            a2[i] = F.real

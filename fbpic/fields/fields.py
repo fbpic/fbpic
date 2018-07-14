@@ -751,25 +751,32 @@ class Fields(object) :
             self.envelope_spect[m].compute_grad_a()
         self.spect2interp('grad_a')
 
-    def copy_envelope_modes_to_global_arrays(self):
+    def copy_envelope_modes_to_global_arrays(self, copy_gradient):
         """
         Copy the data on the a and grad_a fields that were scattered in the
         different EnvelopeInterpolationGrid into corresponding global arrays,
         where all the modes are in the same array
+
+        Parameter
+        ---------
+        copy_gradient: bool
+            Whether to also copy the gradients
         """
         if self.use_cuda:
             for m in self.envelope_mode_numbers:
                 cuda_copy_arrays(self.a_global[m],
                     self.envelope_interp[m].a, self.Nz, self.Nr)
-                cuda_copy_arrays(self.grad_a_r_global[m],
-                    self.envelope_interp[m].grad_a_r, self.Nz, self.Nr)
-                cuda_copy_arrays(self.grad_a_t_global[m],
-                    self.envelope_interp[m].grad_a_t, self.Nz, self.Nr)
-                cuda_copy_arrays(self.grad_a_z_global[m],
-                    self.envelope_interp[m].grad_a_z, self.Nz, self.Nr)
+                if copy_gradient:
+                    cuda_copy_arrays(self.grad_a_r_global[m],
+                        self.envelope_interp[m].grad_a_r, self.Nz, self.Nr)
+                    cuda_copy_arrays(self.grad_a_t_global[m],
+                        self.envelope_interp[m].grad_a_t, self.Nz, self.Nr)
+                    cuda_copy_arrays(self.grad_a_z_global[m],
+                        self.envelope_interp[m].grad_a_z, self.Nz, self.Nr)
         else:
             for m in self.envelope_mode_numbers:
                 self.a_global[m,:,:] = self.envelope_interp[m].a
-                self.grad_a_r_global[m,:,:] = self.envelope_interp[m].grad_a_r
-                self.grad_a_t_global[m,:,:] = self.envelope_interp[m].grad_a_t
-                self.grad_a_z_global[m,:,:] = self.envelope_interp[m].grad_a_z
+                if copy_gradient:
+                    self.grad_a_r_global[m,:,:] = self.envelope_interp[m].grad_a_r
+                    self.grad_a_t_global[m,:,:] = self.envelope_interp[m].grad_a_t
+                    self.grad_a_z_global[m,:,:] = self.envelope_interp[m].grad_a_z
