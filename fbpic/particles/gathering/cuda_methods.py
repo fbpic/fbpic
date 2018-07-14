@@ -336,27 +336,33 @@ def gather_envelope_field_gpu_linear(x, y, z,
                 grad_a_z_m = grad_a_z[it]
             # Calculate azimuthal complex factor
             exptheta_m = 1.
+            minus_one_m = 1.
             for _ in range(abs(m)):
                 exptheta_m *= (cos - 1.j*sin)
+                minus_one_m *= -1.
             if m < 0:
                 exptheta_m = exptheta_m.conjugate()
             F = add_linear_envelope_gather_for_mode( m, F,
                         exptheta_m, a_m,
                         iz_lower, iz_upper, ir_lower, ir_upper,
-                        S_ll, S_lu, S_lg, S_ul, S_uu, S_ug )
+                        S_ll, S_lu, S_lg, S_ul, S_uu, S_ug,
+                        flip_factor=minus_one_m )
             if gather_gradient:
                 Fr = add_linear_envelope_gather_for_mode( m, Fr,
                             exptheta_m, grad_a_r_m,
                             iz_lower, iz_upper, ir_lower, ir_upper,
-                            S_ll, S_lu, S_lg, S_ul, S_uu, S_ug )
+                            S_ll, S_lu, S_lg, S_ul, S_uu, S_ug,
+                            flip_factor=-minus_one_m )
                 Ft = add_linear_envelope_gather_for_mode( m, Ft,
                             exptheta_m, grad_a_t_m,
                             iz_lower, iz_upper, ir_lower, ir_upper,
-                            S_ll, S_lu, S_lg, S_ul, S_uu, S_ug )
+                            S_ll, S_lu, S_lg, S_ul, S_uu, S_ug,
+                            flip_factor=-minus_one_m )
                 Fz = add_linear_envelope_gather_for_mode( m, Fz,
                             exptheta_m, grad_a_z_m,
                             iz_lower, iz_upper, ir_lower, ir_upper,
-                            S_ll, S_lu, S_lg, S_ul, S_uu, S_ug )
+                            S_ll, S_lu, S_lg, S_ul, S_uu, S_ug,
+                            flip_factor=minus_one_m )
 
         if gather_gradient:
             # Convert to Cartesian coordinates
@@ -631,24 +637,27 @@ def gather_envelope_field_gpu_cubic(x, y, z,
                 grad_a_r_m = grad_a_r[it]
                 grad_a_t_m = grad_a_t[it]
                 grad_a_z_m = grad_a_z[it]
-            # Calculate azimuthal complex factor
+            # Calculate azimuthal complex factor and -1 to the power m
             exptheta_m = 1.
+            minus_one_m = 1.
             for _ in range(abs(m)):
                 exptheta_m *= (cos - 1.j*sin)
+                minus_one_m *= -1.
             if m < 0:
                 exptheta_m = exptheta_m.conjugate()
-            F = add_cubic_envelope_gather_for_mode( m, F, exptheta_m, a_m,
-                                ir_lowest, iz_lowest, Sr, Sz, Nr, Nz  )
+            F = add_cubic_envelope_gather_for_mode( m, F, exptheta_m,
+                            a_m, ir_lowest, iz_lowest, Sr, Sz, Nr, Nz,
+                            flip_factor=minus_one_m )
             if gather_gradient:
                 Fr = add_cubic_envelope_gather_for_mode( m, Fr, exptheta_m,
-                                    grad_a_r_m,
-                                    ir_lowest, iz_lowest, Sr, Sz, Nr, Nz  )
-                Ft = add_cubic_envelope_gather_for_mode( m, Ft,
-                                    exptheta_m, grad_a_t_m,
-                                    ir_lowest, iz_lowest, Sr, Sz, Nr, Nz  )
+                        grad_a_r_m, ir_lowest, iz_lowest,
+                        Sr, Sz, Nr, Nz, flip_factor=-minus_one_m )
+                Ft = add_cubic_envelope_gather_for_mode( m, Ft, exptheta_m,
+                        grad_a_t_m, ir_lowest, iz_lowest,
+                        Sr, Sz, Nr, Nz, flip_factor=-minus_one_m )
                 Fz = add_cubic_envelope_gather_for_mode( m, Fz, exptheta_m,
-                                    grad_a_z_m,
-                                    ir_lowest, iz_lowest, Sr, Sz, Nr, Nz  )
+                        grad_a_z_m, ir_lowest, iz_lowest,
+                        Sr, Sz, Nr, Nz, flip_factor=minus_one_m )
 
         if gather_gradient:
             # Convert to Cartesian coordinates

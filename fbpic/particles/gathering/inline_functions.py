@@ -92,7 +92,7 @@ def add_linear_gather_for_mode( m,
 def add_linear_envelope_gather_for_mode( m, F,
     exptheta_m, F_grid,
     iz_lower, iz_upper, ir_lower, ir_upper,
-    S_ll, S_lu, S_lg, S_ul, S_uu, S_ug ):
+    S_ll, S_lu, S_lg, S_ul, S_uu, S_ug, flip_factor ):
     """
     Add the contribution of the gathered scalar field and vector field
     from azimuthal mode `m` to the fields felt by one macroparticle
@@ -124,6 +124,9 @@ def add_linear_envelope_gather_for_mode( m, F,
         considered. `S_lg` and `S_ug` are used for fields gathered from below
         the axis.
 
+    flip_factor: float
+        The factor (+1 or -1) to use for the values below the axis
+
     Returns:
     --------
     F: float
@@ -143,11 +146,10 @@ def add_linear_envelope_gather_for_mode( m, F,
     F_m += S_uu * F_grid[ iz_upper, ir_upper ]
     # Add the fields from the guard cells
     if ir_lower == ir_upper == 0:
-        flip_factor = (-1.)**m
         # Lower cell in z
-        F_m += -flip_factor * S_lg * F_grid[ iz_lower, 0]
+        F_m += flip_factor * S_lg * F_grid[ iz_lower, 0]
         # Upper cell in z
-        F_m += -flip_factor * S_ug * F_grid[ iz_upper, 0]
+        F_m += flip_factor * S_ug * F_grid[ iz_upper, 0]
     # Add the contribution from mode m to Fr, Ft, Fz
     F += F_m * exptheta_m
 
@@ -254,7 +256,7 @@ def add_cubic_gather_for_mode( m,
 
 def add_cubic_envelope_gather_for_mode( m, F,
     exptheta_m, F_grid,
-    ir_lowest, iz_lowest, Sr_arr, Sz_arr, Nr, Nz ):
+    ir_lowest, iz_lowest, Sr_arr, Sz_arr, Nr, Nz, flip_factor ):
     """
     Add the contribution of the gathered scalar field and vector field
     from azimuthal mode `m` to the fields felt by one macroparticle
@@ -286,6 +288,9 @@ def add_cubic_envelope_gather_for_mode( m, F,
         considered. `S_lg` and `S_ug` are used for fields gathered from below
         the axis.
 
+    flip_factor: float
+        The factor (+1 or -1) to use for the values below the axis
+
     Returns:
     --------
     F: float
@@ -302,11 +307,9 @@ def add_cubic_envelope_gather_for_mode( m, F,
         ir = ir_lowest + index_r
         # Calculate shape factor for the longitudinal
         # and transverse components of the field
-        Sr_long = Sr_arr[ index_r ]
-        Sr_perp = Sr_long
+        Sr = Sr_arr[ index_r ]
         if ir < 0:
-            Sr_long *= (-1)**m
-            Sr_perp *= -(-1)**m
+            Sr *= flip_factor
         # Adjust radial index to avoid out of bound
         if ir < 0:
             ir = abs(ir) - 1
@@ -326,7 +329,7 @@ def add_cubic_envelope_gather_for_mode( m, F,
                 iz -= Nz
 
             # Get the fields
-            F_m += Sz*Sr_perp*F_grid[iz, ir]
+            F_m += Sz*Sr*F_grid[iz, ir]
 
     # Add the contribution from mode m to Fr, Ft, Fz
     # (Take into account factor 2 in the definition of azimuthal modes)
