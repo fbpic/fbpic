@@ -77,15 +77,20 @@ class Ionizer(object):
             This object is not modified or registered.
             It is only used in order to pass a number of additional argument.
 
-        target_species: a `Particles` object or a list of `Particles` objects
+        target_species: a `Particles` object, or a dictionary of `Particles`
             Stores the electron macroparticles that are created in
-            the ionization process. If a single `Particles` object is
-            passed, than electrons from all ionization levels are stored
-            into this object. If a list is passed, then it needs to contain
-            as many `Particles` object as the number of ionizable levels
-            (starting from `level_start`). In this case, the electrons from
-            each distinct ionizable level will be stored into these
-            separate objects.
+            the ionization process.
+
+            - If a single `Particles` object is passed, than electrons from all
+            ionization levels are stored into this object.
+
+            - If a dictionary is passed, then its keys should be integers
+            (corresponding to the ionizable levels of `element`, starting
+            at `level_start`), and its values should be `Particles` objects.
+            In this case, the electrons from each distinct ionizable level
+            will be stored into these separate objects. Note that using
+            separate objects will typically require longer computing time.
+
             These objects are not modified when creating the class, but
             they are when ionization occurs (i.e. more particles are created)
 
