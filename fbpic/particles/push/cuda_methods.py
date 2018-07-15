@@ -427,8 +427,9 @@ def push_p_vay_envelope( ux_i, uy_i, uz_i, inv_gamma_i,
 @cuda.jit
 def update_inv_gamma_gpu(a2, ux, uy, uz, inv_gamma, q, m):
     """
-    Recompute the gamma factor of the particles, including the quiver motion
-    created by the 'a' field.
+    Recompute the gamma factor of the particles, taking into account
+    the quiver motion from the envelope 'a' field.
+
     Parameters
     ----------
     a2: 1d array of floats, dimensionless

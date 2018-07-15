@@ -624,7 +624,7 @@ class Particles(object) :
                     self.q, self.m, self.Ntot, self.dt )
 
 
-    def push_p_with_envelope( self , t, timestep = None, keep_momentum = True):
+    def push_p_with_envelope( self , t, timestep=None, keep_momentum=True):
         """
         Advance the particles' momenta over one timestep, using a slightly
         modified Vay pusher to comply with the fact that gamma has to include
@@ -640,6 +640,13 @@ class Particles(object) :
         t: float
             The current simulation time
             (Useful for particles that are ballistic before a given plane)
+
+        timestep : float
+            The timestep by which the momenta is advanced
+
+        keep_momentum : boolean
+            Whether or not to register the new momentum obtained in the
+            particles, or only the new gamma.
         """
         # Skip push for neutral particles (e.g. photons)
         if self.q == 0:
@@ -724,7 +731,10 @@ class Particles(object) :
                     keep_momentum = keep_momentum )
 
     def update_inv_gamma(self):
-
+        """
+        Recompute the gamma factor of the particles, taking into account
+        the quiver motion from the envelope 'a' field.
+        """
         # GPU (CUDA) version
         if self.use_cuda:
             # Get the threads per block and the blocks per grid
