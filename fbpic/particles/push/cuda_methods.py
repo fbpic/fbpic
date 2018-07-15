@@ -7,7 +7,11 @@ It defines the particle push methods on the GPU using CUDA.
 """
 from numba import cuda
 import math
-from scipy.constants import c, e
+from scipy.constants import c, e, m_e
+
+# -----------------------
+# Pusher without envelope
+# -----------------------
 
 @cuda.jit(device=True, inline=True)
 def push_p_vay( ux_i, uy_i, uz_i, inv_gamma_i,
@@ -88,6 +92,8 @@ def push_x_gpu( x, y, z, ux, uy, uz, inv_gamma, dt,
         y[i] += cdt*y_push*inv_g*uy[i]
         z[i] += cdt*z_push*inv_g*uz[i]
 
+
+
 @cuda.jit
 def push_p_gpu( ux, uy, uz, inv_gamma,
                 Ex, Ey, Ez, Bx, By, Bz,
@@ -141,17 +147,17 @@ def push_p_after_plane_gpu( z, z_plane, ux, uy, uz, inv_gamma,
                 Ex, Ey, Ez, Bx, By, Bz, q, m, Ntot, dt ) :
     """
     Advance the particles' momenta, using cuda on the GPU.
-    Only the particles that are located beyond the plane z=z_plane 
+    Only the particles that are located beyond the plane z=z_plane
     have their momentum modified ; the others particles move ballistically.
 
     Parameters
     ----------
     z: 1darray of floats
         The position of the particles in the z direction
-        
+
     z_plane: float
-        Position beyond which the particles should be 
-        
+        Position beyond which the particles should be
+
     For the other parameters, see the docstring of push_p_gpu
     """
     # Set a few constants
@@ -182,7 +188,7 @@ def push_p_ioniz_gpu( ux, uy, uz, inv_gamma,
     ionization_level : 1darray of ints
         The number of electrons that each ion is missing
         (compared to a neutral atom)
-        
+
     For the other parameters, see the docstring of push_p_gpu
     """
     #Cuda 1D grid
@@ -198,3 +204,251 @@ def push_p_ioniz_gpu( ux, uy, uz, inv_gamma,
             ux[ip], uy[ip], uz[ip], inv_gamma[ip] = push_p_vay(
                 ux[ip], uy[ip], uz[ip], inv_gamma[ip],
                 Ex[ip], Ey[ip], Ez[ip], Bx[ip], By[ip], Bz[ip], econst, bconst)
+
+# -----------------------
+# Pusher with envelope
+# -----------------------
+
+
+@cuda.jit
+def push_p_envelope_gpu( ux, uy, uz, inv_gamma,
+                Ex, Ey, Ez, Bx, By, Bz, a2, grad_a2_x, grad_a2_y, grad_a2_z,
+                q, m, Ntot, dt, keep_momentum=True) :
+    """
+    Advance the particles' momenta, using cuda on the GPU
+
+    Parameters
+    ----------
+    ux, uy, uz : 1darray of floats
+        The velocity of the particles
+        (is modified by this function)
+
+    inv_gamma : 1darray of floats
+        The inverse of the relativistic gamma factor
+
+    Ex, Ey, Ez : 1darray of floats
+        The electric fields acting on the particles
+
+    Bx, By, Bz : 1darray of floats
+        The magnetic fields acting on the particles
+
+    a2, grad_a2_x, grad_a2_y, grad_a2_z : 1d array of floats
+        The envelope fields acting on the particle for ponderomotive force and
+        quiver motion
+
+    q : float
+        The charge of the particle species
+
+    m : float
+        The mass of the particle species
+
+    Ntot : int
+        The total number of particles
+
+    dt : float
+        The time by which the momenta is advanced
+
+    keep_momentum : boolean
+        Whether or not to register the new momentum obtained in the particles,
+        or only the new gamma.
+    """
+    # Set a few constants
+    econst = q*dt/(m*c)
+    bconst = 0.5*q*dt/m
+    # In order to update gamma
+    scale_factor = 0.5 * ( q * m_e / (e * m) )**2
+    # In order to push with the ponderomotive force over half a timestep
+    aconst = 0.25 * ( q * m_e / (e * m) )**2 * c * 0.5 * dt
+
+    # Cuda 1D grid
+    ip = cuda.grid(1)
+    # Loop over the particles
+    if ip < Ntot:
+        if keep_momentum:
+            ux[ip], uy[ip], uz[ip], inv_gamma[ip] = push_p_vay_envelope(
+                ux[ip], uy[ip], uz[ip], inv_gamma[ip],
+                Ex[ip], Ey[ip], Ez[ip], Bx[ip], By[ip], Bz[ip], a2[ip],
+                grad_a2_x[ip], grad_a2_y[ip], grad_a2_z[ip], econst, bconst,
+                aconst, scale_factor)
+        else:
+            _, _, _, inv_gamma[ip] = push_p_vay_envelope(
+                ux[ip], uy[ip], uz[ip], inv_gamma[ip],
+                Ex[ip], Ey[ip], Ez[ip], Bx[ip], By[ip], Bz[ip], a2[ip],
+                grad_a2_x[ip], grad_a2_y[ip], grad_a2_z[ip], econst, bconst,
+                aconst, scale_factor)
+
+@cuda.jit
+def push_p_after_plane_envelope_gpu( z, z_plane, ux, uy, uz, inv_gamma,
+                Ex, Ey, Ez, Bx, By, Bz, a2, grad_a2_x, grad_a2_y, grad_a2_z,
+                q, m, Ntot, dt, keep_momentum=True ) :
+    """
+    Advance the particles' momenta, using cuda on the GPU.
+    Only the particles that are located beyond the plane z=z_plane
+    have their momentum modified ; the others particles move ballistically.
+
+    Parameters
+    ----------
+    z: 1darray of floats
+        The position of the particles in the z direction
+
+    z_plane: float
+        Position beyond which the particles should be
+
+    For the other parameters, see the docstring of push_p_gpu
+    """
+    # Set a few constants
+    econst = q*dt/(m*c)
+    bconst = 0.5*q*dt/m
+    # In order to update gamma
+    scale_factor = 0.5 * ( q * m_e / (e * m) )**2
+    # In order to push with the ponderomotive force over half a timestep
+    aconst = 0.25 * ( q * m_e / (e * m) )**2 * c * 0.5 * dt
+
+    # Cuda 1D grid
+    ip = cuda.grid(1)
+    # Loop over the particles
+    if ip < Ntot and z[ip] > z_plane:
+        if keep_momentum:
+            ux[ip], uy[ip], uz[ip], inv_gamma[ip] = push_p_vay_envelope(
+                ux[ip], uy[ip], uz[ip], inv_gamma[ip],
+                Ex[ip], Ey[ip], Ez[ip], Bx[ip], By[ip], Bz[ip], a2[ip],
+                grad_a2_x[ip], grad_a2_y[ip], grad_a2_z[ip], econst, bconst,
+                aconst, scale_factor)
+        else:
+            _, _, _, inv_gamma[ip] = push_p_vay_envelope(
+                ux[ip], uy[ip], uz[ip], inv_gamma[ip],
+                Ex[ip], Ey[ip], Ez[ip], Bx[ip], By[ip], Bz[ip], a2[ip],
+                grad_a2_x[ip], grad_a2_y[ip], grad_a2_z[ip], econst, bconst,
+                aconst, scale_factor)
+
+
+@cuda.jit
+def push_p_ioniz_envelope_gpu( ux, uy, uz, inv_gamma,
+                Ex, Ey, Ez, Bx, By, Bz, a2, grad_a2_x, grad_a2_y, grad_a2_z,
+                m, Ntot, dt, ionization_level, keep_momentum = True ) :
+    """
+    Advance the particles' momenta, using numba on the GPU
+    This take into account that the particles are ionizable, and thus
+    that their charge is determined by `ionization_level`
+
+    Parameters
+    ----------
+    ionization_level : 1darray of ints
+        The number of electrons that each ion is missing
+        (compared to a neutral atom)
+
+    For the other parameters, see the docstring of push_p_gpu
+    """
+    # Cuda 1D grid
+    ip = cuda.grid(1)
+    # Loop over the particles
+    if ip < Ntot:
+        if ionization_level[ip] != 0:
+            # Set a few constants
+            q = ionization_level[ip] * e
+            econst = q * dt/(m*c)
+            bconst = 0.5 * q * dt/m
+            # In order to update gamma
+            scale_factor = 0.5 * ( q * m_e / (e * m) )**2
+            # In order to push with the ponderomotive force over half timestep
+            aconst = 0.25 * ( q * m_e / (e * m) )**2 * c * 0.5 * dt
+            # Use the Vay pusher
+            if keep_momentum:
+                ux[ip], uy[ip], uz[ip], inv_gamma[ip] = push_p_vay_envelope(
+                    ux[ip], uy[ip], uz[ip], inv_gamma[ip],
+                    Ex[ip], Ey[ip], Ez[ip], Bx[ip], By[ip], Bz[ip], a2[ip],
+                    grad_a2_x[ip], grad_a2_y[ip], grad_a2_z[ip], econst, bconst,
+                    aconst, scale_factor)
+            else:
+                _, _, _, inv_gamma[ip] = push_p_vay_envelope(
+                    ux[ip], uy[ip], uz[ip], inv_gamma[ip],
+                    Ex[ip], Ey[ip], Ez[ip], Bx[ip], By[ip], Bz[ip], a2[ip],
+                    grad_a2_x[ip], grad_a2_y[ip], grad_a2_z[ip], econst, bconst,
+                    aconst, scale_factor)
+
+
+@cuda.jit(device=True, inline=True)
+def push_p_vay_envelope( ux_i, uy_i, uz_i, inv_gamma_i,
+    Ex, Ey, Ez, Bx, By, Bz, a2_i, grad_a2_x_i, grad_a2_y_i, grad_a2_z_i,
+    econst, bconst, aconst, scale_factor ):
+    """
+    Push at single macroparticle, using the Vay pusher
+    """
+    # First step: first half of the ponderomotive force
+    inv_gamma_temp = 1. / math.sqrt(1 + ux_i**2 + uy_i**2 + uz_i**2 \
+                                    + scale_factor * a2_i)
+    ux1 = ux_i - aconst * inv_gamma_temp * grad_a2_x_i
+    uy1 = uy_i - aconst * inv_gamma_temp * grad_a2_y_i
+    uz1 = uz_i - aconst * inv_gamma_temp * grad_a2_z_i
+    # Update gamma accordingly
+    inv_gamma_temp = 1. / math.sqrt(1 + ux1**2 + uy1**2 + uz1**2 \
+                                    + scale_factor * a2_i)
+
+    # Get the magnetic rotation vector
+    taux = bconst*Bx
+    tauy = bconst*By
+    tauz = bconst*Bz
+    tau2 = taux**2 + tauy**2 + tauz**2
+
+    # Get the momenta at the half timestep
+    uxp = ux1 + econst*Ex \
+    + inv_gamma_temp*( uy1*tauz - uz1*tauy )
+    uyp = uy1 + econst*Ey \
+    + inv_gamma_temp*( uz1*taux - ux1*tauz )
+    uzp = uz1 + econst*Ez \
+    + inv_gamma_temp*( ux1*tauy - uy1*taux )
+    sigma = 1 + uxp**2 + uyp**2 + uzp**2 + scale_factor * a2_i - tau2
+    utau = uxp*taux + uyp*tauy + uzp*tauz
+
+    # Get the new 1./gamma
+    inv_gamma_f = math.sqrt(
+        2./( sigma + math.sqrt( sigma**2 + 4*(tau2*(1 + scale_factor * a2_i) \
+                                                + utau**2 ) ) ) )
+
+    # Reuse the tau and utau arrays to save memory
+    tx = inv_gamma_f*taux
+    ty = inv_gamma_f*tauy
+    tz = inv_gamma_f*tauz
+    ut = inv_gamma_f*utau
+    s = 1./( 1 + tau2*inv_gamma_f**2 )
+
+    # Get the new u
+    ux_f = s*( uxp + tx*ut + uyp*tz - uzp*ty )
+    uy_f = s*( uyp + ty*ut + uzp*tx - uxp*tz )
+    uz_f = s*( uzp + tz*ut + uxp*ty - uyp*tx )
+
+    # Last step: second half of the ponderomotive force
+    ux_f -= aconst * inv_gamma_f * grad_a2_x_i
+    uy_f -= aconst * inv_gamma_f * grad_a2_y_i
+    uz_f -= aconst * inv_gamma_f * grad_a2_z_i
+    # Update gamma accordingly
+    inv_gamma_f = 1. / math.sqrt(1 + ux_f**2 + uy_f**2 + uz_f**2 \
+                                    + scale_factor * a2_i)
+
+    return( ux_f, uy_f, uz_f, inv_gamma_f )
+
+@cuda.jit
+def update_inv_gamma_gpu(a2, ux, uy, uz, inv_gamma, q, m):
+    """
+    Recompute the gamma factor of the particles, taking into account
+    the quiver motion from the envelope 'a' field.
+
+    Parameters
+    ----------
+    a2: 1d array of floats, dimensionless
+        Envelope field acting on the particle
+
+    ux, uy, uz : 1darray of floats (dimensionless)
+        The velocity of the particles
+
+    inv_gamma : 1darray of floats
+        The inverse of the relativistic gamma factor
+
+    q : float
+        The charge of the particle species
+    """
+    scale_factor = 0.5 * ( q * m_e / (e * m) )**2
+    i = cuda.grid(1)
+    if i < ux.shape[0]:
+        inv_gamma[i] = 1./math.sqrt(1 + ux[i]**2 + uy[i]**2 + uz[i]**2 \
+                                + scale_factor * a2[i] )

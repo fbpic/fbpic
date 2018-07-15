@@ -7,8 +7,10 @@ It defines the high-level Fields class.
 """
 import warnings
 import numpy as np
+from numba import cuda
 from fbpic.utils.threading import nthreads
 from .numba_methods import sum_reduce_2d_array
+from .cuda_methods import cuda_copy_arrays
 from .utility_methods import get_modified_k
 from .spectral_transform import SpectralTransformer
 from .interpolation_grid import FieldInterpolationGrid, \
@@ -236,6 +238,27 @@ class Fields(object) :
                             self.spect[m].kr, m, self.dt, self.Nz,
                             self.Nr, 2*np.pi/lambda_envelope)
 
+            # Create intermediate arrays that store the different
+            # azimuthal modes in a contiguous manner
+            # (Necessary because passing tuples of arrays to numba
+            # is not supported on GPU)
+            # See the function `copy_envelope_modes_to_global_arrays`
+            self.a_global = np.zeros(
+                (2*Nm-1, Nz, Nr), dtype=np.complex128)
+            self.grad_a_r_global = np.zeros(
+                (2*Nm-1, Nz, Nr), dtype=np.complex128)
+            self.grad_a_t_global = np.zeros(
+                (2*Nm-1, Nz, Nr), dtype=np.complex128)
+            self.grad_a_z_global = np.zeros(
+                (2*Nm-1, Nz, Nr), dtype=np.complex128)
+            if self.use_cuda:
+                # Copy these arrays to the GPU
+                self.a_global = cuda.to_device( self.a_global )
+                self.grad_a_r_global = cuda.to_device( self.grad_a_r_global )
+                self.grad_a_t_global = cuda.to_device( self.grad_a_t_global )
+                self.grad_a_z_global = cuda.to_device( self.grad_a_z_global )
+
+
     def send_fields_to_gpu( self ):
         """
         Copy the fields to the GPU.
@@ -297,15 +320,17 @@ class Fields(object) :
         # corresponding psatd coefficients
         for m in range(self.Nm) :
             self.spect[m].push_eb_with( self.psatd[m], use_true_rho )
-
-        # Check if the envelope model is used then
-        # push each azimuthal mode individually
-        if self.use_envelope:
-            for m in self.envelope_mode_numbers :
-                self.envelope_spect[m].push_envelope_with(self.psatd[abs(m)])
-
         for m in range(self.Nm) :
             self.spect[m].push_rho()
+
+    def push_envelope(self):
+        """
+        Push the different azimuthal modes over one timestep,
+        in spectral space.
+        """
+        # push each azimuthal mode individually
+        for m in self.envelope_mode_numbers :
+            self.envelope_spect[m].push_envelope_with(self.psatd[abs(m)])
 
     def correct_currents(self, check_exchanges=False) :
         """
@@ -610,7 +635,7 @@ class Fields(object) :
         elif fieldtype == 'a_old' and self.use_envelope:
             # Transform each azimuthal grid individually
             for m in self.envelope_mode_numbers:
-                self.trans[abs(m)].fft.transform(
+                self.trans[m].fft.transform(
                     self.envelope_interp[m].a_old, self.envelope_spect[m].a_old)
         elif fieldtype == 'grad_a' :
             for m in self.envelope_mode_numbers :
@@ -725,3 +750,33 @@ class Fields(object) :
         for m in self.envelope_mode_numbers:
             self.envelope_spect[m].compute_grad_a()
         self.spect2interp('grad_a')
+
+    def copy_envelope_modes_to_global_arrays(self, copy_gradient):
+        """
+        Copy the data on the a and grad_a fields that were scattered in the
+        different EnvelopeInterpolationGrid into corresponding global arrays,
+        where all the modes are in the same array
+
+        Parameter
+        ---------
+        copy_gradient: bool
+            Whether to also copy the gradients
+        """
+        if self.use_cuda:
+            for m in self.envelope_mode_numbers:
+                cuda_copy_arrays(self.a_global[m],
+                    self.envelope_interp[m].a, self.Nz, self.Nr)
+                if copy_gradient:
+                    cuda_copy_arrays(self.grad_a_r_global[m],
+                        self.envelope_interp[m].grad_a_r, self.Nz, self.Nr)
+                    cuda_copy_arrays(self.grad_a_t_global[m],
+                        self.envelope_interp[m].grad_a_t, self.Nz, self.Nr)
+                    cuda_copy_arrays(self.grad_a_z_global[m],
+                        self.envelope_interp[m].grad_a_z, self.Nz, self.Nr)
+        else:
+            for m in self.envelope_mode_numbers:
+                self.a_global[m,:,:] = self.envelope_interp[m].a
+                if copy_gradient:
+                    self.grad_a_r_global[m,:,:] = self.envelope_interp[m].grad_a_r
+                    self.grad_a_t_global[m,:,:] = self.envelope_interp[m].grad_a_t
+                    self.grad_a_z_global[m,:,:] = self.envelope_interp[m].grad_a_z

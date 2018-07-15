@@ -256,7 +256,7 @@ class Simulation(object):
         self.add_new_species( q=-e, m=m_e, n=n_e, dens_func=dens_func,
                               p_nz=p_nz, p_nr=p_nr, p_nt=p_nt,
                               p_zmin=p_zmin, p_zmax=p_zmax,
-                              p_rmin=p_rmin, p_rmax=p_rmax )
+                              p_rmin=p_rmin, p_rmax=p_rmax)
         # - Initialize the ions
         if initialize_ions:
             self.add_new_species( q=e, m=m_p, n=n_e, dens_func=dens_func,
@@ -358,7 +358,6 @@ class Simulation(object):
 
         # Loop over timesteps
         for i_step in range(N):
-
             # Show a progression bar and calculate ETA
             if show_progress and self.comm.rank==0:
                 progress_bar.time( i_step )
@@ -408,14 +407,50 @@ class Simulation(object):
             # Gather the fields from the grid at t = n dt
             for species in ptcl:
                 species.gather( fld.interp )
+                if self.use_envelope:
+                    species.gather_envelope(fld, gather_gradient=True,
+                                                 average_a2=False)
             # Apply the external fields at t = n dt
             for ext_field in self.external_fields:
                 ext_field.apply_expression( self.ptcl, self.time )
 
+            if self.use_envelope:
+                if move_momenta:
+                    # Virtually push the particles momenta to t = n dt to obtain
+                    # the gamma used for pushing the 'a' field
+                    # Discard the changes in momentum (roll back to time (n-1/2)
+                    # dt) since this pusher is a bigger approximation
+                    for species in ptcl:
+                        species.push_p_with_envelope(self.time + 0.5 * dt,
+                                    timestep = self.dt/2, keep_momentum = False)
+                # Deposition of chi at time n dt
+                # Push the envelope fields to time (n+1) dt
+                fld.push_envelope()
+                fld.spect2interp('a')
+                fld.compute_grad_a()
+
+
             # Push the particles' positions and velocities to t = (n+1/2) dt
             if move_momenta:
                 for species in ptcl:
-                    species.push_p( self.time + 0.5*self.dt )
+                    if self.use_envelope:
+                        # Note: it still uses the envelope fields at time n even
+                        # though we just pushed it to (n+1) dt since we have
+                        # not made another gather
+                        species.push_p_with_envelope(self.time + 0.5 * dt)
+                    else:
+                        species.push_p( self.time + 0.5*self.dt )
+
+
+            if self.use_envelope:
+                # Now that the momentum has been pushed, we can gather the
+                # envelope at time (n+1/2)*dt (average of times n and n+1)
+                # to compute the gamma for pushing the positions.
+                for species in ptcl:
+                    species.gather_envelope(fld, gather_gradient=False,
+                                                 average_a2=True)
+                    species.update_inv_gamma()
+
             if move_positions:
                 for species in ptcl:
                     species.push_x( 0.5*dt )
@@ -491,14 +526,12 @@ class Simulation(object):
             # Get the corresponding fields in interpolation space
             fld.spect2interp('E')
             fld.spect2interp('B')
-            if fld.use_envelope:
+            if self.use_envelope:
                 fld.spect2interp('a')
-
 
             # Increment the global time and iteration
             self.time += dt
             self.iteration += 1
-
             # Write the checkpoints if needed
             for checkpoint in self.checkpoints:
                 checkpoint.write( self.iteration )
@@ -514,9 +547,9 @@ class Simulation(object):
         fld.spect2interp('rho_prev')
         if (not fld.exchanged_source['rho_prev']) and (self.comm.size > 1):
             self.comm.exchange_fields(self.fld.interp, 'rho', 'add')
-
-        if fld.use_envelope:
+        if self.use_envelope:
             fld.spect2interp('a_old')
+
         # Receive simulation data from GPU (if CUDA is used)
         if self.use_cuda:
             receive_data_from_gpu(self)
