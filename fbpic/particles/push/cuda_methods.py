@@ -213,7 +213,7 @@ def push_p_ioniz_gpu( ux, uy, uz, inv_gamma,
 @cuda.jit
 def push_p_envelope_gpu( ux, uy, uz, inv_gamma,
                 Ex, Ey, Ez, Bx, By, Bz, a2, grad_a2_x, grad_a2_y, grad_a2_z,
-                q, m, Ntot, dt , keep_momentum = True) :
+                q, m, Ntot, dt, keep_momentum=True) :
     """
     Advance the particles' momenta, using cuda on the GPU
 
@@ -255,12 +255,13 @@ def push_p_envelope_gpu( ux, uy, uz, inv_gamma,
     # Set a few constants
     econst = q*dt/(m*c)
     bconst = 0.5*q*dt/m
+    # In order to update gamma
     scale_factor = 0.5 * ( q * m_e / (e * m) )**2
-    aconst = c * scale_factor * dt * 0.25
+    # In order to push with the ponderomotive force over half a timestep
+    aconst = 0.25 * ( q * m_e / (e * m) )**2 * c * 0.5 * dt
 
-    #Cuda 1D grid
+    # Cuda 1D grid
     ip = cuda.grid(1)
-
     # Loop over the particles
     if ip < Ntot:
         if keep_momentum:
@@ -279,7 +280,7 @@ def push_p_envelope_gpu( ux, uy, uz, inv_gamma,
 @cuda.jit
 def push_p_after_plane_envelope_gpu( z, z_plane, ux, uy, uz, inv_gamma,
                 Ex, Ey, Ez, Bx, By, Bz, a2, grad_a2_x, grad_a2_y, grad_a2_z,
-                q, m, Ntot, dt , keep_momentum = True ) :
+                q, m, Ntot, dt, keep_momentum=True ) :
     """
     Advance the particles' momenta, using cuda on the GPU.
     Only the particles that are located beyond the plane z=z_plane
@@ -298,12 +299,13 @@ def push_p_after_plane_envelope_gpu( z, z_plane, ux, uy, uz, inv_gamma,
     # Set a few constants
     econst = q*dt/(m*c)
     bconst = 0.5*q*dt/m
+    # In order to update gamma
     scale_factor = 0.5 * ( q * m_e / (e * m) )**2
-    aconst = c * scale_factor * dt * 0.25
+    # In order to push with the ponderomotive force over half a timestep
+    aconst = 0.25 * ( q * m_e / (e * m) )**2 * c * 0.5 * dt
 
     # Cuda 1D grid
     ip = cuda.grid(1)
-
     # Loop over the particles
     if ip < Ntot and z[ip] > z_plane:
         if keep_momentum:
@@ -337,17 +339,19 @@ def push_p_ioniz_envelope_gpu( ux, uy, uz, inv_gamma,
 
     For the other parameters, see the docstring of push_p_gpu
     """
-    #Cuda 1D grid
+    # Cuda 1D grid
     ip = cuda.grid(1)
-
     # Loop over the particles
     if ip < Ntot:
         if ionization_level[ip] != 0:
             # Set a few constants
-            econst = ionization_level[ip] * e * dt/(m*c)
-            bconst = 0.5 * ionization_level[ip] * e * dt/m
-            scale_factor = 0.5 * ( ionization_level[ip] * e * m_e / (e * m) )**2
-            aconst = c * scale_factor * dt * 0.25
+            q = ionization_level[ip] * e
+            econst = q * dt/(m*c)
+            bconst = 0.5 * q * dt/m
+            # In order to update gamma
+            scale_factor = 0.5 * ( q * m_e / (e * m) )**2
+            # In order to push with the ponderomotive force over half timestep
+            aconst = 0.25 * ( q * m_e / (e * m) )**2 * c * 0.5 * dt
             # Use the Vay pusher
             if keep_momentum:
                 ux[ip], uy[ip], uz[ip], inv_gamma[ip] = push_p_vay_envelope(
@@ -370,16 +374,13 @@ def push_p_vay_envelope( ux_i, uy_i, uz_i, inv_gamma_i,
     """
     Push at single macroparticle, using the Vay pusher
     """
-    # First step, modelling first half of the ponderomotive force
+    # First step: first half of the ponderomotive force
     inv_gamma_temp = 1. / math.sqrt(1 + ux_i**2 + uy_i**2 + uz_i**2 \
                                     + scale_factor * a2_i)
-
     ux1 = ux_i - aconst * inv_gamma_temp * grad_a2_x_i
     uy1 = uy_i - aconst * inv_gamma_temp * grad_a2_y_i
     uz1 = uz_i - aconst * inv_gamma_temp * grad_a2_z_i
-
-
-
+    # Update gamma accordingly
     inv_gamma_temp = 1. / math.sqrt(1 + ux1**2 + uy1**2 + uz1**2 \
                                     + scale_factor * a2_i)
 
@@ -416,11 +417,13 @@ def push_p_vay_envelope( ux_i, uy_i, uz_i, inv_gamma_i,
     uy_f = s*( uyp + ty*ut + uzp*tx - uxp*tz )
     uz_f = s*( uzp + tz*ut + uxp*ty - uyp*tx )
 
+    # Last step: second half of the ponderomotive force
     ux_f -= aconst * inv_gamma_f * grad_a2_x_i
     uy_f -= aconst * inv_gamma_f * grad_a2_y_i
     uz_f -= aconst * inv_gamma_f * grad_a2_z_i
-
-    inv_gamma_f = 1. / math.sqrt(1 + ux_f**2 + uy_f**2 + uz_f**2 + scale_factor * a2_i)
+    # Update gamma accordingly
+    inv_gamma_f = 1. / math.sqrt(1 + ux_f**2 + uy_f**2 + uz_f**2 \
+                                    + scale_factor * a2_i)
 
     return( ux_f, uy_f, uz_f, inv_gamma_f )
 
