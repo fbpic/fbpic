@@ -840,6 +840,36 @@ class Simulation(object):
         # Attach the moving window to the boundary communicator
         self.comm.moving_win = MovingWindow( self.comm, self.dt, v, self.time )
 
+    def reverse_time(self):
+        fld = self.fld.spect
+        use_cuda = self.fld.use_cuda
+
+        if self.use_cuda :
+            self.fld.receive_fields_from_gpu()
+
+        fld.spect.Bp *= -1
+        fld.spect.Bm *= -1
+        fld.spect.Bz *= -1
+
+        fld.interp.Br *= -1
+        fld.interp.Bt *= -1
+        fld.interp.Bz *= -1
+
+        if self.use_cuda :
+            self.fld.send_fields_to_gpu()
+
+        for species in sim.ptcl:
+            if self.use_cuda:
+                species.receive_particles_from_gpu()
+
+            species.ux *= -1
+            species.uy *= -1
+            species.uz *= -1
+
+            if self.use_cuda:
+                species.send_particles_to_gpu()
+
+
 def adapt_to_grid( x, p_xmin, p_xmax, p_nx, ncells_empty=0 ):
     """
     Adapt p_xmin and p_xmax, so that they fall exactly on the grid x
