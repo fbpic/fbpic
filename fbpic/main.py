@@ -841,34 +841,27 @@ class Simulation(object):
         self.comm.moving_win = MovingWindow( self.comm, self.dt, v, self.time )
 
     def reverse_time(self):
-        fld = self.fld.spect
-        use_cuda = self.fld.use_cuda
+        """
+        Convenience method to reverse the direction of electromagnetic waves
+        and particles propagation. Essentially this method inverses the signs of
+        magnetic fields and particles momenta.
+        """
 
-        if self.use_cuda :
-            self.fld.receive_fields_from_gpu()
+        # Inverse the signs of magnetic fields in spectral in real spaces
+        for m in range(self.fld.Nm) :
+            self.fld.spect[m].Bp *= -1
+            self.fld.spect[m].Bm *= -1
+            self.fld.spect[m].Bz *= -1
 
-        fld.spect.Bp *= -1
-        fld.spect.Bm *= -1
-        fld.spect.Bz *= -1
+            self.fld.interp[m].Br *= -1
+            self.fld.interp[m].Bt *= -1
+            self.fld.interp[m].Bz *= -1
 
-        fld.interp.Br *= -1
-        fld.interp.Bt *= -1
-        fld.interp.Bz *= -1
-
-        if self.use_cuda :
-            self.fld.send_fields_to_gpu()
-
-        for species in sim.ptcl:
-            if self.use_cuda:
-                species.receive_particles_from_gpu()
-
+        # Inverse the signs of particles momenta
+        for species in self.ptcl:
             species.ux *= -1
             species.uy *= -1
             species.uz *= -1
-
-            if self.use_cuda:
-                species.send_particles_to_gpu()
-
 
 def adapt_to_grid( x, p_xmin, p_xmax, p_nx, ncells_empty=0 ):
     """
