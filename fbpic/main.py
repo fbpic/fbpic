@@ -846,8 +846,7 @@ class Simulation(object):
         and particles propagation. Essentially this method inverses the signs of
         magnetic fields and particles momenta.
         """
-
-        # Inverse the signs of magnetic fields in spectral in real spaces
+        # Inverse the signs of magnetic fields in spectral and real space
         for m in range(self.fld.Nm) :
             self.fld.spect[m].Bp *= -1
             self.fld.spect[m].Bm *= -1
