@@ -103,6 +103,9 @@ class SummedLaserProfile( LaserProfile ):
         # Register the profiles from which the sum should be calculated
         self.profile1 = profile1
         self.profile2 = profile2
+        if hasattr(profile1, 'k0') and hasattr(profile2, 'k0'):
+            if profile1.k0 == profile2.k0:
+                self.k0 = profile1.k0
 
     def E_field( self, x, y, z, t ):
         """
@@ -111,6 +114,14 @@ class SummedLaserProfile( LaserProfile ):
         Ex1, Ey1 = self.profile1.E_field( x, y, z, t )
         Ex2, Ey2 = self.profile2.E_field( x, y, z, t )
         return( Ex1+Ex2, Ey1+Ey2 )
+
+    def a_field(self, x, y, z, t):
+        """
+        See the docstring of LaserProfile.a_field
+        """
+        a1 = self.profile1.a_field(x, y, z, t)
+        a2 = self.profile2.a_field( x, y, z, t)
+        return a1 + a2
 
 
 # Particular classes for each laser profile
@@ -472,7 +483,7 @@ class LaguerreGaussLaser( LaserProfile ):
         a = self.a0 * profile
 
         return a
-    
+
 
 class DonutLikeLaguerreGaussLaser( LaserProfile ):
     """Class that calculates a donut-like Laguerre-Gauss pulse."""

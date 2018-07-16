@@ -1,9 +1,8 @@
 """
 This test file is part of FB-PIC (Fourier-Bessel Particle-In-Cell).
 
-It tests the structures implemented in particles.py to push the particles
-position and momentum, by driving a very weak laser pulse through a "sheet" of
-particles.
+It tests the implementation of the ponderomotive force (for the envelope)
+by driving a very weak laser pulse through a "sheet" of particles.
 - The mode 0 is tested by using a linearly polarized gaussian beam,
    which propagates to the right.
 - The mode 1 is tested by using a linearly-polarized Laguerre-Gauss beam
@@ -18,12 +17,11 @@ These tests are performed in 2 cases:
 Usage :
 --------
 In order to show the obtained radial momentum compared to the theory:
-$ python tests/test_laser_envelope.py
+$ python tests/test_particle_envelope.py
 (Set the 'show' parameter to True for the graphs to show)
 """
 import numpy as np
 from scipy.constants import c, e, m_e, pi
-from scipy.optimize import curve_fit
 from scipy.special import genlaguerre
 from fbpic.main import Simulation
 from fbpic.lpa_utils.laser import add_laser_pulse, \
@@ -34,7 +32,6 @@ from fbpic.lpa_utils.laser import add_laser_pulse, \
 # (See the documentation of the function propagate_pulse
 # below for their definition)
 show = False # Whether to show the plots, and check them manually
-
 use_cuda = True
 
 # Simulation box
@@ -45,17 +42,16 @@ Nr = 50
 Lr = 40.e-6
 n_order = -1
 # Laser pulse
-w0 = 4.e-6
+w0 = 8.e-6
 ctau = 5.e-6
 k0 = 2*np.pi/0.8e-6
 a0 = 0.001
 # Propagation
 L_prop = 30.e-6
 zf = 25.e-6
-N_diag = 150 # Number of diagnostic points along the propagation
 # Checking the results
 N_show = 2
-rtol = 1.e-3
+rtol = 1.e-2
 
 p_zmin = 15.e-6
 dz = (zmax - zmin)/Nz
@@ -63,15 +59,7 @@ p_zmax = p_zmin + dz
 p_rmin = 0
 p_rmax = 40.e-6
 n_e = 1.
-dens_func = None
 
-boundaries = 'open'
-v_comoving = 0
-use_galilean = False
-v_window = c
-dt = (zmax-zmin)*1./c/Nz*1
-m = 0
-Nm = abs(m)+1
 
 def test_particles_periodic(show=False):
     """
@@ -115,8 +103,7 @@ def test_particles_moving_window(show=False):
 def propagate_pulse( Nz, Nr, Nm, zmin, zmax, Lr, L_prop, zf, dt,
         p_zmin, p_zmax, p_rmin, p_rmax, n_e,
         w0, ctau, k0, a0, m, N_show, n_order, rtol,
-        boundaries=boundaries, v_window=0,
-        use_galilean=False, v_comoving=0, show=False ):
+        boundaries, v_window=0, use_galilean=False, v_comoving=0, show=False ):
         """
         Propagate the beam over a distance L_prop in Nt steps,
         and extracts the radial momentum of each particle at the end.
@@ -202,16 +189,15 @@ def propagate_pulse( Nz, Nr, Nm, zmin, zmax, Lr, L_prop, zf, dt,
         - 'fld' : the Fields object at the end of the simulation.
         """
         # Initialize the simulation object
-        sim = Simulation( Nz, zmax, Nr, Lr, Nm, dt, p_zmin=p_zmin,
-                        p_zmax=p_zmax, p_rmin=p_rmin, p_rmax=p_rmax, p_nz=1,
-                        p_nr=1, p_nt=Nm+1, n_e=n_e, n_order=n_order, zmin=zmin,
+        sim = Simulation( Nz, zmax, Nr, Lr, Nm, dt, n_order=n_order, zmin=zmin,
                         use_cuda=use_cuda, boundaries=boundaries,
-                        v_comoving=v_comoving, exchange_period = 1,
-                        use_galilean=use_galilean, use_envelope = True )
+                        v_comoving=v_comoving, exchange_period=1,
+                        use_galilean=use_galilean, use_envelope=True )
+        sim.ptcl = []  # Remove the empty electron species
 
         # Add our thin "sheet" of electrons
         sim.ptcl = []
-        sim.add_new_species( q=-e, m=m_e, n=n_e, dens_func=dens_func,
+        sim.add_new_species( q=-e, m=m_e, n=n_e,
                               p_nz=1, p_nr=1, p_nt=1,
                               p_zmin=p_zmin, p_zmax=p_zmax,
                               p_rmin=p_rmin, p_rmax=p_rmax,
@@ -232,7 +218,6 @@ def propagate_pulse( Nz, Nr, Nm, zmin, zmax, Lr, L_prop, zf, dt,
         ZR = 0.5*k0*w0**2
         # The waist is calculated at the position of the particles
         w = w0 * np.sqrt(1 + ((z_particles - zf)/ZR)**2 )
-
         A = 0.5 * np.sqrt(2*pi) * ctau * a0**2 \
                         / (1 + ((z_particles - zf)/ZR)**2 )
         if m == 1:
@@ -240,26 +225,42 @@ def propagate_pulse( Nz, Nr, Nm, zmin, zmax, Lr, L_prop, zf, dt,
             # m is not 0
             A *= 2
 
+        # Calculate the radial momentum of particles
+        radial_distance = np.sqrt(sim.ptcl[0].x**2 + sim.ptcl[0].y**2)
+        radial_momentum = (sim.ptcl[0].ux*sim.ptcl[0].x + \
+                        sim.ptcl[0].uy*sim.ptcl[0].y) / radial_distance
+        if m == 1:
+            # The pulse is at pi/4
+            cos_theta = (sim.ptcl[0].x + sim.ptcl[0].y)/2**.5 /radial_distance
+
         if show:
             import matplotlib.pyplot as plt
-            radial_distance = np.sqrt(sim.ptcl[0].x**2 + sim.ptcl[0].y**2)
-            radial_momentum = (sim.ptcl[0].ux*sim.ptcl[0].x + \
-                            sim.ptcl[0].uy*sim.ptcl[0].y) / radial_distance
-            cos_theta = sim.ptcl[0].x / radial_distance
             if m == 0:
-                plt.plot(1e6*radial_distance, radial_momentum, 'o', label='Simulated')
-                plt.plot(1e6*radial_distance, radial_momentum_profile_gaussian(radial_distance, A, w), '--', label = 'Theoretical')
+                plt.plot(1e6*radial_distance, radial_momentum,
+                    'o', label='Simulated')
+                plt.plot(1e6*radial_distance,
+                    radial_momentum_profile_gaussian(radial_distance, A, w),
+                    '--', label = 'Theoretical')
             else:
-                plt.plot(1e6*radial_distance, radial_momentum/cos_theta**2, 'o', label='Simulated')
-                plt.plot(1e6*radial_distance, radial_momentum_profile_laguerre(radial_distance, A, w), '--', label = 'Theoretical')
+                plt.plot(1e6*radial_distance, radial_momentum/cos_theta**2,
+                    'o', label='Simulated')
+                plt.plot(1e6*radial_distance,
+                    radial_momentum_profile_laguerre(radial_distance, A, w),
+                    '--', label = 'Theoretical')
             plt.xlabel('r (microns)')
             plt.ylabel('ur(kg.m/s)')
             plt.title('Radial momentum')
             plt.legend(loc=0)
             plt.show()
-        A_analytic, w_analytic = fit_momentum(sim.ptcl[0], m, A, w)
-        assert np.allclose(A_analytic, A, rtol=5.e-3, atol=0)
-        assert np.allclose(w_analytic, w, rtol=rtol, atol=0)
+        # Check the accuracy of the results
+        if m == 0:
+            assert np.allclose( radial_momentum,
+                radial_momentum_profile_gaussian(radial_distance, A, w),
+                atol=rtol*radial_momentum.max() )
+        elif m == 1:
+            assert np.allclose( radial_momentum/cos_theta**2,
+                radial_momentum_profile_laguerre(radial_distance, A, w),
+                atol=rtol*radial_momentum.max() )
         print('The simulation results agree with the theory to %e.' %rtol)
 
 def init_fields( sim, w0, ctau, k0, z0, zf, a0, m=1 ) :
@@ -290,21 +291,19 @@ def init_fields( sim, w0, ctau, k0, z0, zf, a0, m=1 ) :
 
     m: int, optional
         The mode on which to imprint the profile
-        For m = 0 : gaussian profile, linearly polarized beam
-        For m = 1 : annular profile
     """
     # Initialize the fields
-
     tau = ctau/c
     lambda0 = 2*np.pi/k0
     # Create the relevant laser profile
-
     if m == 0:
         profile = GaussianLaser( a0=a0, waist=w0, tau=tau,
                     lambda0=lambda0, z0=z0, zf=zf )
-    elif m == 1 or m == -1:
+    elif m == 1:
+        # Put the peak of the Laguerre-Gauss at pi/4 to check that the
+        # angular dependency is correctly captured
         profile = LaguerreGaussLaser( 0, 1, a0, w0, tau,
-                    z0, lambda0=lambda0, zf=zf )
+                    z0, lambda0=lambda0, zf=zf, theta0=np.pi/4 )
 
     # Add the profiles to the simulation
     add_laser_pulse( sim, profile, method = 'direct_envelope' )
@@ -353,82 +352,6 @@ def radial_momentum_profile_laguerre(r, A, w):
     laguerre_pol = genlaguerre(0,1)
     return A*r**2/w**2*(2*r/w**2 - 1/r) * laguerre_pol(2*r**2/w**2)**2 \
                 * np.exp(-2*r**2/(w**2))
-
-
-def fit_momentum(species, m, amplitude, waist):
-    """
-    Extracts the waist and amplitude of the radial momentum through a
-    profile fit after the laser has gone through the layer of particles.
-
-    Parameters
-    ----------
-    species : Particles object from fbpic
-
-    m : int
-       The index of the mode to be fitted
-
-    amplitude, waist : float
-        The theoretical values serving as a first estimation
-    """
-    r = np.sqrt(species.x**2 + species.y**2)
-    cos_theta = species.x / r
-    u = (species.ux*species.x + species.uy*species.y) / r
-    if m == 0:
-        fit_result = curve_fit(radial_momentum_profile_gaussian, r,
-                            u, p0=np.array([amplitude, waist]) )
-    else:
-        fit_result = curve_fit(radial_momentum_profile_laguerre, r,
-                            u/cos_theta**2, p0=np.array([amplitude, waist]) )
-    return fit_result[0]
-
-
-def show_fields( grid, fieldtype ):
-    """
-    Show the field `fieldtype` on the interpolation grid
-
-    Parameters
-    ----------
-    grid: an instance of FieldInterpolationGrid
-        Contains the field on the interpolation grid for
-        on particular azimuthal mode
-
-    fieldtype : string
-        Name of the field to be plotted.
-        (either 'Er', 'Et', 'Ez', 'Br', 'Bt', 'Bz',
-        'Jr', 'Jt', 'Jz', 'rho')
-    """
-    # matplotlib only needs to be imported if this function is called
-    import matplotlib.pyplot as plt
-
-    # Select the field to plot
-    plotted_field = getattr( grid, fieldtype)
-    # Show the field also below the axis for a more realistic picture
-    plotted_field = np.hstack( (plotted_field[:,::-1],plotted_field) )
-    extent = 1.e6*np.array([grid.zmin, grid.zmax, -grid.rmax, grid.rmax])
-    plt.clf()
-    plt.suptitle('%s, for mode %d' %(fieldtype, grid.m) )
-
-    # Plot the real part
-    plt.subplot(211)
-    plt.imshow( plotted_field.real.T[::-1], aspect='auto',
-                interpolation='nearest', extent=extent )
-                #interpolation='nearest')
-    plt.xlabel('z')
-    plt.ylabel('r')
-    cb = plt.colorbar()
-    cb.set_label('Real part')
-
-    # Plot the imaginary part
-    plt.subplot(212)
-    plt.imshow( plotted_field.imag.T[::-1], aspect='auto',
-                interpolation='nearest', extent = extent )
-                #interpolation='nearest')
-    plt.xlabel('z')
-    plt.ylabel('r')
-    cb = plt.colorbar()
-    cb.set_label('Imaginary part')
-
-    plt.show()
 
 
 if __name__ == '__main__' :
