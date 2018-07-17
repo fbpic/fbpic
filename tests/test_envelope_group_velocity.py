@@ -5,12 +5,11 @@ from fbpic.main import Simulation
 from fbpic.lpa_utils.laser import add_laser_pulse, \
     GaussianLaser, LaguerreGaussLaser
 
-
 # Parameters
 # ----------
 # (See the documentation of the function propagate_pulse
 # below for their definition)
-show = True # Whether to show the plots, and check them manually
+show = False # Whether to show the plots, and check them manually
 if show:
     import matplotlib.pyplot as plt
 
@@ -20,12 +19,12 @@ use_cuda = False
 Nz = 300
 zmin = -30.e-6
 zmax = 30.e-6
-Nr = 90
-rmax = 45.e-6
+Nr = 120
+rmax = 60.e-6
 n_order = -1
 dt = 0.13e-6/c
 # Laser pulse
-w0 = 20.e-6
+w0 = 15.e-6
 ctau = 10.e-6
 k0 = 2*np.pi/0.8e-6
 a0 = 0.01
@@ -34,16 +33,16 @@ L_prop_init = 50.e-6
 L_prop_in_plasma = 50.e-6
 zf = 25.e-6
 # Data analysis
-N_diag = 10
-
+N_points = 10
+diag_period = 25
+N_show = 2
 # The particles
 n_critical = k0**2 * m_e / (mu_0 * e**2) # Theoretical critical density
 p_zmin = 15.e-6  # Position of the beginning of the plasma (meters)
 p_zmax = 500.e-6 # Position of the end of the plasma (meters)
 p_rmin = 0.      # Minimal radial position of the plasma (meters)
 p_rmax = 40.e-6  # Maximal radial position of the plasma (meters)
-n_e = n_critical * 0.05  # Density (electrons.meters^-3)
-#n_e = 4.e18*1.e6
+n_e = n_critical * 0.02  # Density (electrons.meters^-3)
 p_nz = 2         # Number of particles per cell along z
 p_nr = 2         # Number of particles per cell along r
 v_in_plasma = c * np.sqrt(1- n_e/n_critical )
@@ -159,8 +158,20 @@ def show_fields( grid, fieldtype ):
 def longitudinal_profile(z, A, z_center):
     return A * np.exp(-(z-z_center)**2/ctau**2)
 
-def test_for_mode(m):
-    Nm = m + 1
+def test_for_mode(Nm):
+    """
+    Run a simulation of a laser propagation in a plasma in a linear regime
+    and compares the estimated velocity to the theoretical one.
+
+    Parameters
+    ----------
+    Nm: int
+        The number of azimuthal modes used in the simulation (Use 1, 2 or 3)
+        This also determines the profile of the driving laser:
+        - Nm=1: linearly-polarized Gaussian laser
+        - Nm=2: Laguerre-gaussian laser
+    """
+    m = Nm - 1
     # Initialize the simulation
     sim = Simulation( Nz, zmax, Nr, rmax, Nm, dt,
         p_zmin=p_zmin, p_zmax=p_zmax, p_rmin=p_rmin, p_rmax=p_rmax, p_nz=p_nz,
@@ -176,28 +187,32 @@ def test_for_mode(m):
     sim.step( Ntot_step_init, show_progress=show )
 
     Ntot_step = int( round( L_prop_in_plasma/(c*dt) ) )
-    N_step = int( round( Ntot_step/N_diag ) )
+    N_step = int( round( Ntot_step/N_points ) )
     z_list = []
-    for it in range(N_diag):
-        sim.step( N_step, show_progress= False )
-        z = sim.fld.envelope_interp[0].z
-        profile = abs(sim.fld.envelope_interp[0].a).sum(axis=1)
-        a = curve_fit(longitudinal_profile, z, profile, p0=(0.35, 0.00005 + c*N_diag*dt*(it+1)))
+    for it in range(N_points):
+        sim.step( N_step, show_progress=show)
+        z = sim.fld.envelope_interp[m].z
+        if show and it % N_show == 0:
+            show_fields(sim.fld.envelope_interp[m], 'a')
+        profile = abs(sim.fld.envelope_interp[m].a).sum(axis=1)
+        a = curve_fit(longitudinal_profile, z, profile, p0=(0.35, L_prop_init
+                                                        + c*N_points*dt*(it+1)))
         A, z_center = a[0]
         z_list.append(z_center)
 
-    time = [dt*N_step*i for i in range(N_diag)]
+    time = np.array([dt*N_step*i for i in range(N_points)])
     vg, b = np.polyfit(time, z_list, 1)
-    print(vg, c, v_in_plasma)
     if show:
         plt.plot(time, z_list)
+        plt.plot(time, vg*time + b)
+        plt.plot(time, z_list[0] + v_in_plasma*time)
         plt.show()
 
-    #assert np.allclose(vg, v_in_plasma, rtol = 5e-3)
+    assert np.allclose(vg, v_in_plasma, rtol = 5e-3)
 
 if __name__ == '__main__' :
 
     # Run the testing function
-    test_for_mode(0)
-
     test_for_mode(1)
+
+    test_for_mode(2)

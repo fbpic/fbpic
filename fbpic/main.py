@@ -425,6 +425,11 @@ class Simulation(object):
                         species.push_p_with_envelope(self.time + 0.5 * dt,
                                     timestep = self.dt/2, keep_momentum = False)
                 # Deposition of chi at time n dt
+                self.deposit('chi')
+                #Obtain the convolution product of  chi by the envelope field
+                fld.convolve_a_chi()
+                fld.interp2spect('chi_a')
+                fld.filter_spect('chi_a')
                 # Push the envelope fields to time (n+1) dt
                 fld.push_envelope()
                 fld.spect2interp('a')
