@@ -3,14 +3,16 @@ from scipy.constants import c, mu_0, m_e, e
 from scipy.optimize import curve_fit
 from fbpic.main import Simulation
 from fbpic.lpa_utils.laser import add_laser_pulse, \
-    GaussianLaser, LaguerreGaussLaser, DonutLikeLaguerreGaussLaser
+    GaussianLaser, LaguerreGaussLaser
 
 
 # Parameters
 # ----------
 # (See the documentation of the function propagate_pulse
 # below for their definition)
-show = False # Whether to show the plots, and check them manually
+show = True # Whether to show the plots, and check them manually
+if show:
+    import matplotlib.pyplot as plt
 
 use_cuda = False
 
@@ -21,6 +23,7 @@ zmax = 30.e-6
 Nr = 90
 rmax = 45.e-6
 n_order = -1
+dt = 0.13e-6/c
 # Laser pulse
 w0 = 20.e-6
 ctau = 10.e-6
@@ -32,7 +35,6 @@ L_prop_in_plasma = 50.e-6
 zf = 25.e-6
 # Data analysis
 N_diag = 10
-N_show = 2
 
 # The particles
 n_critical = k0**2 * m_e / (mu_0 * e**2) # Theoretical critical density
@@ -40,7 +42,7 @@ p_zmin = 15.e-6  # Position of the beginning of the plasma (meters)
 p_zmax = 500.e-6 # Position of the end of the plasma (meters)
 p_rmin = 0.      # Minimal radial position of the plasma (meters)
 p_rmax = 40.e-6  # Maximal radial position of the plasma (meters)
-n_e = n_critical * 0.1  # Density (electrons.meters^-3)
+n_e = n_critical * 0.05  # Density (electrons.meters^-3)
 #n_e = 4.e18*1.e6
 p_nz = 2         # Number of particles per cell along z
 p_nr = 2         # Number of particles per cell along r
@@ -156,60 +158,46 @@ def show_fields( grid, fieldtype ):
 
 def longitudinal_profile(z, A, z_center):
     return A * np.exp(-(z-z_center)**2/ctau**2)
-import matplotlib.pyplot as plt
-# Changing parameters
-Nm = 1
-dt = (zmax-zmin)*1./c/Nz*0.1
 
+def test_for_mode(m):
+    Nm = m + 1
+    # Initialize the simulation
+    sim = Simulation( Nz, zmax, Nr, rmax, Nm, dt,
+        p_zmin=p_zmin, p_zmax=p_zmax, p_rmin=p_rmin, p_rmax=p_rmax, p_nz=p_nz,
+        p_nr=p_nr, p_nt=Nm+1, n_e=n_e, n_order=n_order, zmin=zmin,
+        dens_func=dens_func, boundaries='open',
+        use_cuda=use_cuda, use_envelope=True )
 
+    sim.set_moving_window(v=c)
 
-# Initialize the simulation
+    init_fields( sim, w0, ctau, k0, zf, a0, m=Nm-1)
 
-sim = Simulation( Nz, zmax, Nr, rmax, Nm, dt,
-    p_zmin=p_zmin, p_zmax=p_zmax, p_rmin=p_rmin, p_rmax=p_rmax, p_nz=p_nz,
-    p_nr=p_nr, p_nt=Nm+1, n_e=n_e, n_order=n_order, zmin=zmin,
-    dens_func=dens_func, boundaries='open',
-    use_cuda=use_cuda, use_envelope=True )
+    Ntot_step_init = int( round( L_prop_init/(c*dt) ) )
+    sim.step( Ntot_step_init, show_progress=show )
 
-sim.set_moving_window(v=c)
+    Ntot_step = int( round( L_prop_in_plasma/(c*dt) ) )
+    N_step = int( round( Ntot_step/N_diag ) )
+    z_list = []
+    for it in range(N_diag):
+        sim.step( N_step, show_progress= False )
+        z = sim.fld.envelope_interp[0].z
+        profile = abs(sim.fld.envelope_interp[0].a).sum(axis=1)
+        a = curve_fit(longitudinal_profile, z, profile, p0=(0.35, 0.00005 + c*N_diag*dt*(it+1)))
+        A, z_center = a[0]
+        z_list.append(z_center)
 
-init_fields( sim, w0, ctau, k0, zf, a0)
+    time = [dt*N_step*i for i in range(N_diag)]
+    vg, b = np.polyfit(time, z_list, 1)
+    print(vg, c, v_in_plasma)
+    if show:
+        plt.plot(time, z_list)
+        plt.show()
 
-Ntot_step_init = int( round( L_prop_init/(c*dt) ) )
-k_iter = 1
-for it in range(k_iter):
-    sim.step( Ntot_step_init//k_iter, show_progress= True )
-    show_fields(sim.fld.envelope_interp[0], 'a')
+    #assert np.allclose(vg, v_in_plasma, rtol = 5e-3)
 
-Ntot_step = int( round( L_prop_in_plasma/(c*dt) ) )
-N_step = int( round( Ntot_step/N_diag ) )
-z_list = []
-for it in range(N_diag):
-    sim.step( N_step, show_progress= False )
-    print("ITERATION", it)
-    #show_fields(sim.fld.envelope_interp[0], 'a')
-    Nz = sim.fld.envelope_interp[0].Nz
-    z = sim.fld.envelope_interp[0].z
-    profile = abs(sim.fld.envelope_interp[0].a).sum(axis=1)
-    #print(z, profile)
-    import matplotlib.pyplot as plt
+if __name__ == '__main__' :
 
-    a = curve_fit(longitudinal_profile, z, profile, p0=(0.35, 0.00005 + c*N_diag*dt*(it+1)))
-    A, z_center = a[0]
-    #plt.plot(z, longitudinal_profile(z, A,z_center))
-    plt.plot(z, profile)
-    plt.plot(z, longitudinal_profile(z, A, z_center))
-    plt.show()
-    show_fields(sim.fld.envelope_interp[0], 'a')
-    print(z_center)
-    z_list.append(z_center)
+    # Run the testing function
+    test_for_mode(0)
 
-def linear_profile(t, z0, v):
-    return z0 + v * t
-print(z_list)
-time = [dt*N_step*i for i in range(N_diag)]
-fit = curve_fit(linear_profile, time, z_list, p0=(z_list[0], c))
-z0, vg = fit[0]
-print(vg, c, v_in_plasma)
-plt.plot(time, z_list)
-plt.show()
+    test_for_mode(1)
