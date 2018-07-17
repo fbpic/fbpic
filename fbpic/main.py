@@ -504,7 +504,8 @@ class Simulation(object):
             progress_bar.print_summary()
 
 
-    def deposit( self, fieldtype, exchange=False ):
+    def deposit( self, fieldtype, exchange=False,
+                update_spectral=True, species_list=None ):
         """
         Deposit the charge or the currents to the interpolation grid
         and then to the spectral grid.
@@ -521,20 +522,29 @@ class Simulation(object):
             Whether to exchange guard cells via MPI before transforming
             the fields to the spectral grid. (The corresponding flag in
             fld.exchanged_source is set accordingly.)
+
+        TODO
         """
         # Shortcut
         fld = self.fld
+        # If no species_list is provided, all species and antennas deposit
+        if species_list is None:
+            species_list = self.ptcl
+            antennas_list = self.laser_antennas
+        else:
+            # Otherwise only the specified species deposit
+            antennas_list = []
 
         # Deposit charge or currents on the interpolation grid
 
         # Charge
-        if fieldtype in ['rho_prev', 'rho_next', 'rho_next_xy', 'rho_next_z']:
+        if fieldtype.startswith('rho'):  # e.g. rho_next, rho_prev, etc.
             fld.erase('rho')
             # Deposit the particle charge
-            for species in self.ptcl:
+            for species in species_list:
                 species.deposit( fld, 'rho' )
             # Deposit the charge of the virtual particles in the antenna
-            for antenna in self.laser_antennas:
+            for antenna in antennas_list:
                 antenna.deposit( fld, 'rho', self.comm )
             # Sum contribution from each CPU threads (skipped on GPU)
             fld.sum_reduce_deposition_array('rho')
@@ -548,10 +558,10 @@ class Simulation(object):
         elif fieldtype == 'J':
             fld.erase('J')
             # Deposit the particle current
-            for species in self.ptcl:
+            for species in species_list:
                 species.deposit( fld, 'J' )
             # Deposit the current of the virtual particles in the antenna
-            for antenna in self.laser_antennas:
+            for antenna in antennas_list:
                 antenna.deposit( fld, 'J', self.comm )
             # Sum contribution from each CPU threads (skipped on GPU)
             fld.sum_reduce_deposition_array('J')
@@ -560,16 +570,16 @@ class Simulation(object):
             # Exchange guard cells if requested by the user
             if exchange and self.comm.size > 1:
                 self.comm.exchange_fields(fld.interp, 'J', 'add')
-
         else:
             raise ValueError('Unknown fieldtype: %s' %fieldtype)
 
         # Get the charge or currents on the spectral grid
-        fld.interp2spect( fieldtype )
-        if self.filter_currents:
-            fld.filter_spect( fieldtype )
-        # Set the flag to indicate whether these fields have been exchanged
-        fld.exchanged_source[ fieldtype ] = exchange
+        if update_spectral:
+            fld.interp2spect( fieldtype )
+            if self.filter_currents:
+                fld.filter_spect( fieldtype )
+            # Set the flag to indicate whether these fields have been exchanged
+            fld.exchanged_source[ fieldtype ] = exchange
 
     def cross_deposit( self, move_positions ):
         """

@@ -435,17 +435,10 @@ def get_space_charge_fields( sim, ptcl, direction='forward') :
         gamma = gamma_sum/Ntot
 
     # Project the charge and currents onto the local subdomain
-    sim.fld.erase('rho')
-    sim.fld.erase('J')
-    ptcl.deposit( sim.fld, 'rho' )
-    ptcl.deposit( sim.fld, 'J' )
-    sim.fld.sum_reduce_deposition_array('rho')
-    sim.fld.sum_reduce_deposition_array('J')
-    sim.fld.divide_by_volume('rho')
-    sim.fld.divide_by_volume('J')
-    # Exchange guard cells
-    sim.comm.exchange_fields( sim.fld.interp, 'rho', 'add' )
-    sim.comm.exchange_fields( sim.fld.interp, 'J', 'add')
+    sim.deposit( 'rho', exchange=True, species_list=[ptcl],
+                    update_spectral=False )
+    sim.deposit( 'J', exchange=True, species_list=[ptcl],
+                    update_spectral=False )
 
     # Create a global field object across all subdomains, and copy the sources
     # (Space-charge calculation is a global operation)
