@@ -48,7 +48,7 @@ write_fields = False
 write_particles = False
 diag_period = 50
 # Pop-up plots
-show = True
+show = False
 
 # Main test function
 # ------------------
@@ -333,4 +333,4 @@ k0 = 2*np.pi/0.8e-6
 if __name__ == '__main__' :
     # Run the test for the 1 and 3 azimuthal modes
     test_linear_wakefield( Nm=1, show=show )
-    #test_linear_wakefield( Nm=3, show=show )
+    test_linear_wakefield( Nm=3, show=show )

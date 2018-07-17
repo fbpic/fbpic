@@ -142,15 +142,18 @@ def push_p_vay( ux_i, uy_i, uz_i, inv_gamma_i,
 @njit_parallel
 def push_p_envelope_numba( ux, uy, uz, inv_gamma,
                 Ex, Ey, Ez, Bx, By, Bz, a2, grad_a2_x, grad_a2_y, grad_a2_z,
-                q, m, Ntot, dt , keep_momentum = True) :
+                q, m, Ntot, dt, keep_momentum=True) :
     """
     Advance the particles' momenta, using numba
     """
     # Set a few constants
     econst = q*dt/(m*c)
     bconst = 0.5*q*dt/m
+    # In order to update gamma
     scale_factor = 0.5 * ( q * m_e / (e * m) )**2
-    aconst = c * scale_factor * dt * 0.25
+    # In order to push with the ponderomotive force over half a timestep
+    aconst = 0.25 * ( q * m_e / (e * m) )**2 * c * 0.5 * dt
+
     # Loop over the particles (in parallel if threading is installed)
     for ip in prange(Ntot) :
         aux_x, aux_y, aux_z, inv_gamma[ip] = push_p_vay_envelope(
@@ -196,10 +199,6 @@ def push_p_ioniz_envelope_numba( ux, uy, uz, inv_gamma,
     """
     Advance the particles' momenta, using numba
     """
-    # Set a few constants
-    prefactor_econst = e*dt/(m*c)
-    prefactor_bconst = 0.5*e*dt/m
-
     # Loop over the particles (in parallel if threading is installed)
     for ip in prange(Ntot) :
 
@@ -207,11 +206,14 @@ def push_p_ioniz_envelope_numba( ux, uy, uz, inv_gamma,
         if ionization_level[ip] == 0:
             continue
 
-        # Calculate the charge dependent constants
-        econst = prefactor_econst * ionization_level[ip]
-        bconst = prefactor_bconst * ionization_level[ip]
-        scale_factor = 0.5 * ( ionization_level[ip] * e * m_e / (e * m) )**2
-        aconst = c * scale_factor * dt * 0.25
+        # Set a few constants
+        q = ionization_level[ip] * e
+        econst = q * dt/(m*c)
+        bconst = 0.5 * q * dt/m
+        # In order to update gamma
+        scale_factor = 0.5 * ( q * m_e / (e * m) )**2
+        # In order to push with the ponderomotive force over half timestep
+        aconst = 0.25 * ( q * m_e / (e * m) )**2 * c * 0.5 * dt
 
         # Perform the push
         aux_x, aux_y, aux_z, inv_gamma[ip] = push_p_vay_envelope(
@@ -232,14 +234,15 @@ def push_p_vay_envelope( ux_i, uy_i, uz_i, inv_gamma_i,
     """
     Push at single macroparticle, using the Vay pusher
     """
-    # First step, modelling first half of the ponderomotive force
-    inv_gamma_temp = 1. / math.sqrt(1 + ux_i**2 + uy_i**2 + uz_i**2 + scale_factor * a2_i)
-
+    # First step: first half of the ponderomotive force
+    inv_gamma_temp = 1. / math.sqrt( 1 + ux_i**2 + uy_i**2 + uz_i**2 \
+                                    + scale_factor * a2_i)
     ux1 = ux_i - aconst * inv_gamma_temp * grad_a2_x_i
     uy1 = uy_i - aconst * inv_gamma_temp * grad_a2_y_i
     uz1 = uz_i - aconst * inv_gamma_temp * grad_a2_z_i
-
-    inv_gamma_temp = 1. / math.sqrt(1 + ux1**2 + uy1**2 + uz1**2 + scale_factor * a2_i)
+    # Update gamma accordingly
+    inv_gamma_temp = 1. / math.sqrt(1 + ux1**2 + uy1**2 + uz1**2 \
+                                    + scale_factor * a2_i)
 
     # Get the magnetic rotation vector
     taux = bconst*Bx
@@ -259,7 +262,8 @@ def push_p_vay_envelope( ux_i, uy_i, uz_i, inv_gamma_i,
 
     # Get the new 1./gamma
     inv_gamma_f = math.sqrt(
-        2./( sigma + math.sqrt( sigma**2 + 4*(tau2*(1 + scale_factor * a2_i) + utau**2 ) ) ) )
+        2./( sigma + math.sqrt( sigma**2 + 4*(tau2*(1 + scale_factor * a2_i) \
+                                                + utau**2 ) ) ) )
 
     # Reuse the tau and utau arrays to save memory
     tx = inv_gamma_f*taux
@@ -273,18 +277,22 @@ def push_p_vay_envelope( ux_i, uy_i, uz_i, inv_gamma_i,
     uy_f = s*( uyp + ty*ut + uzp*tx - uxp*tz )
     uz_f = s*( uzp + tz*ut + uxp*ty - uyp*tx )
 
+    # Last step: second half of the ponderomotive force
     ux_f -= aconst * inv_gamma_f * grad_a2_x_i
     uy_f -= aconst * inv_gamma_f * grad_a2_y_i
     uz_f -= aconst * inv_gamma_f * grad_a2_z_i
+    # Update gamma accordingly
+    inv_gamma_f = 1. / math.sqrt(1 + ux_f**2 + uy_f**2 + uz_f**2 \
+                                + scale_factor * a2_i)
 
-    inv_gamma_f = 1. / math.sqrt(1 + ux_f**2 + uy_f**2 + uz_f**2 + scale_factor * a2_i)
     return( ux_f, uy_f, uz_f, inv_gamma_f )
 
 @njit_parallel
 def update_inv_gamma_numba(a2, ux, uy, uz, inv_gamma, q, m, Ntot):
     """
-    Recompute the gamma factor of the particles, including the quiver motion
-    created by the 'a' field.
+    Recompute the gamma factor of the particles, taking into account
+    the quiver motion from the envelope 'a' field.
+
     Parameters
     ----------
     a2: 1d array of floats, dimensionless

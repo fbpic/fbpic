@@ -625,7 +625,7 @@ class Particles(object) :
                     self.q, self.m, self.Ntot, self.dt )
 
 
-    def push_p_with_envelope( self , t, timestep = None, keep_momentum = True):
+    def push_p_with_envelope( self, t, timestep=None, keep_momentum=True):
         """
         Advance the particles' momenta over one timestep, using a slightly
         modified Vay pusher to comply with the fact that gamma has to include
@@ -641,6 +641,13 @@ class Particles(object) :
         t: float
             The current simulation time
             (Useful for particles that are ballistic before a given plane)
+
+        timestep : float
+            The timestep by which the momenta is advanced
+
+        keep_momentum : boolean
+            Whether or not to register the new momentum obtained in the
+            particles, or only the new gamma.
         """
         # Skip push for neutral particles (e.g. photons)
         if self.q == 0:
@@ -725,7 +732,10 @@ class Particles(object) :
                     keep_momentum = keep_momentum )
 
     def update_inv_gamma(self):
-
+        """
+        Recompute the gamma factor of the particles, taking into account
+        the quiver motion from the envelope 'a' field.
+        """
         # GPU (CUDA) version
         if self.use_cuda:
             # Get the threads per block and the blocks per grid
@@ -925,7 +935,7 @@ class Particles(object) :
                                    but is `%s`" % self.particle_shape)
 
 
-    def gather_envelope(self, fld, averaging=False):
+    def gather_envelope(self, fld, gather_gradient, average_a2):
         """
         Gather the envelope fields onto the macroparticles
 
@@ -937,21 +947,24 @@ class Particles(object) :
         fld : a Fields object
              Contains the field values on the interpolation grid
 
-        averaging : boolean, optional
-            Whether to average the new field values with the old ones or to
-            discard the old values.
+        gather_gradient: bool
+            Whether to gather the gradient of a, in addition to a
+
+        average_a2 : bool
+            Whether to average the gathered value of a^2 with
+            the pre-existing value in the corresponding particle array
         """
         # Skip gathering for neutral particles (e.g. photons)
         if self.q == 0:
             return
         # Obtain the global arrays so we can use a single array
-        fld.globalize_arrays()
+        fld.copy_envelope_modes_to_global_arrays(copy_gradient=gather_gradient)
         # Using global arrays for compatibility with numba and GPU
         a = fld.a_global
         grad_a_r = fld.grad_a_r_global
         grad_a_t = fld.grad_a_t_global
         grad_a_z = fld.grad_a_z_global
-        m_array= fld.envelope_mode_numbers
+        m_array = fld.envelope_mode_numbers
         envelope_grid = fld.envelope_interp
 
         # GPU (CUDA) version
@@ -969,7 +982,7 @@ class Particles(object) :
                     a, grad_a_r, grad_a_t, grad_a_z,
                     m_array, self.a2,
                     self.grad_a2_x, self.grad_a2_y, self.grad_a2_z,
-                    averaging )
+                    gather_gradient, average_a2)
             elif self.particle_shape == 'cubic':
                 gather_envelope_field_gpu_cubic[
                     dim_grid_1d, dim_block_1d](
@@ -980,7 +993,7 @@ class Particles(object) :
                     a, grad_a_r, grad_a_t, grad_a_z,
                     m_array, self.a2,
                     self.grad_a2_x, self.grad_a2_y, self.grad_a2_z,
-                    averaging )
+                    gather_gradient, average_a2)
         else:
             if self.particle_shape == 'linear':
                 gather_envelope_field_numba_linear(
@@ -991,7 +1004,7 @@ class Particles(object) :
                     a, grad_a_r, grad_a_t, grad_a_z,
                     m_array, self.a2,
                     self.grad_a2_x, self.grad_a2_y, self.grad_a2_z,
-                    averaging=averaging )
+                    gather_gradient, average_a2)
             elif self.particle_shape == 'cubic':
                 # Divide particles into chunks (each chunk is handled by a
                 # different thread) and return the indices that bound chunks
@@ -1005,7 +1018,7 @@ class Particles(object) :
                     m_array, self.a2,
                     self.grad_a2_x, self.grad_a2_y, self.grad_a2_z,
                     nthreads, ptcl_chunk_indices,
-                    averaging=averaging )
+                    gather_gradient, average_a2)
 
 
     def deposit( self, fld, fieldtype ) :

@@ -69,7 +69,7 @@ class Simulation(object):
 
             For the arguments `p_rmin`, `p_rmax`, `p_nz`, `p_nr`, `p_nt`,
             `n_e`, and `dens_func`, see the docstring of the method
-            `add_new_species`.
+            `add_new_species` (where `n_e` has been re-labeled as `n`).
 
         Parameters
         ----------
@@ -409,7 +409,8 @@ class Simulation(object):
             for species in ptcl:
                 species.gather( fld.interp )
                 if self.use_envelope:
-                    species.gather_envelope(fld)
+                    species.gather_envelope(fld, gather_gradient=True,
+                                                 average_a2=False)
             # Apply the external fields at t = n dt
             for ext_field in self.external_fields:
                 ext_field.apply_expression( self.ptcl, self.time )
@@ -424,11 +425,6 @@ class Simulation(object):
                         species.push_p_with_envelope(self.time + 0.5 * dt,
                                     timestep = self.dt/2, keep_momentum = False)
                 # Deposition of chi at time n dt
-                self.deposit('chi')
-                # Obtain the convolution product of chi by the envelope field
-                fld.convolve_a_chi()
-                fld.interp2spect('chi_a')
-                fld.filter_spect('chi_a')
                 # Push the envelope fields to time (n+1) dt
                 fld.push_envelope()
                 fld.spect2interp('a')
@@ -453,7 +449,8 @@ class Simulation(object):
                 # envelope at time (n+1/2)*dt (average of times n and n+1)
                 # to compute the gamma for pushing the positions.
                 for species in ptcl:
-                    species.gather_envelope(fld, averaging = True)
+                    species.gather_envelope(fld, gather_gradient=False,
+                                                 average_a2=True)
                     species.update_inv_gamma()
                 if self.use_galilean:
                     self.shift_galilean_boundaries( -dt )
@@ -533,7 +530,6 @@ class Simulation(object):
             # Get the corresponding fields in interpolation space
             fld.spect2interp('E')
             fld.spect2interp('B')
-
 
             if self.use_envelope:
 
@@ -728,7 +724,9 @@ class Simulation(object):
     def add_new_species( self, q, m, n=None, dens_func=None,
                             p_nz=None, p_nr=None, p_nt=None,
                             p_zmin=-np.inf, p_zmax=np.inf,
-                            p_rmin=0, p_rmax=np.inf, uz_m=0.,
+                            p_rmin=0, p_rmax=np.inf,
+                            uz_m=0., ux_m=0., uy_m=0.,
+                            uz_th=0., ux_th=0., uy_th=0.,
                             continuous_injection=True ):
         """
         Create a new species (i.e. an instance of `Particles`) with
@@ -791,9 +789,13 @@ class Simulation(object):
             The maximal r position below which the particles are initialized
             (in the lab frame). Default: upper edge of the simulation box.
 
-        uz_m: float (dimensionless), optional
-           Normalized momentum (in the lab frame)
-           of the injected particles in the z direction
+        uz_m, ux_m, uy_m: floats (dimensionless), optional
+           Normalized mean momenta (in the lab frame)
+           of the injected particles in each direction
+
+        uz_th, ux_th, uy_th: floats (dimensionless), optional
+           Normalized thermal momenta (in the lab frame)
+           in each direction
 
         continuous_injection : bool, optional
            Whether to continuously inject the particles,
@@ -810,16 +812,37 @@ class Simulation(object):
                 if var is None:
                     raise ValueError(
                     'If the density `n` is passed to `add_new_species`,\n'
-                    'then the arguments `p_nz`, `p_nr` and `p_nt` need'
+                    'then the arguments `p_nz`, `p_nr` and `p_nt` need '
                     'to be passed too.')
 
             # Automatically convert input quantities to the boosted frame
             if self.boost is not None:
-                beta0 = uz_m/( 1.+uz_m**2 )**0.5
+                gamma_m = np.sqrt(1. + uz_m**2 + ux_m**2 + uy_m**2)
+                beta_m = uz_m/gamma_m
+                # Transform positions and density
                 p_zmin, p_zmax = self.boost.copropag_length(
-                    [ p_zmin, p_zmax ], beta_object=beta0 )
-                n, = self.boost.copropag_density([ n ], beta_object=beta0 )
-                uz_m, = self.boost.longitudinal_momentum([ uz_m ])
+                    [ p_zmin, p_zmax ], beta_object=beta_m )
+                n, = self.boost.copropag_density([ n ], beta_object=beta_m )
+                # Transform longitudinal thermal velocity
+                # The formulas below are approximate, and are obtained
+                # by perturbation of the Lorentz transform for uz
+                if uz_m == 0:
+                    if uz_th > 0.1:
+                        warnings.warn(
+                        "The thermal distribution is approximate in "
+                        "boosted-frame simulations, and may not be accurate "
+                        "enough for uz_th > 0.1")
+                    uz_th = self.boost.gamma0 * uz_th
+                else:
+                    if uz_th > 0.1 * uz_m:
+                        warnings.warn(
+                        "The thermal distribution is approximate in "
+                        "boosted-frame simulations, and may not be accurate "
+                        "enough for uz_th > 0.1 * uz_m")
+                    uz_th = self.boost.gamma0 * \
+                            (1. - self.boost.beta0*beta_m) * uz_th
+                # Finally transform the longitudinal momentum
+                uz_m = self.boost.gamma0*( uz_m - self.boost.beta0*gamma_m )
 
             # Modify input particle bounds, in order to only initialize the
             # particles in the local sub-domain
@@ -838,6 +861,14 @@ class Simulation(object):
             dz_particles = self.comm.dz/p_nz
 
         else:
+            # Check consistency of arguments
+            if (dens_func is not None) or (p_nz is not None) or \
+                (p_nr is not None) or (p_nt is not None):
+                warnings.warn(
+                    'It seems that you provided the arguments `dens_func`, '
+                    '`p_nz`, `p_nr` or `p_nz`\nHowever no particle density '
+                    '(`n` or `n_e`) was given.\nTherefore, no particles will'
+                    'be created.')
             # Convert arguments to acceptable arguments for `Particles`
             # but which will result in no macroparticles being injected
             n = 0
@@ -850,9 +881,11 @@ class Simulation(object):
         new_species = Particles( q=q, m=m, n=n, dens_func=dens_func,
                         Npz=Npz, zmin=p_zmin, zmax=p_zmax,
                         Npr=Npr, rmin=p_rmin, rmax=p_rmax,
-                        Nptheta=p_nt, dt=self.dt, uz_m=uz_m,
+                        Nptheta=p_nt, dt=self.dt,
                         particle_shape=self.particle_shape,
                         use_cuda=self.use_cuda, grid_shape=self.grid_shape,
+                        ux_m=ux_m, uy_m=uy_m, uz_m=uz_m,
+                        ux_th=ux_th, uy_th=uy_th, uz_th=uz_th,
                         continuous_injection=continuous_injection,
                         dz_particles=dz_particles,
                         use_envelope=self.use_envelope )

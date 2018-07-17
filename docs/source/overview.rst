@@ -64,9 +64,10 @@ code Calder Circ.
 .. note::
 
    The user chooses the number of azimuthal modes used in an FBPIC simulation.
-   Thus, you should make sure that you choose **enough modes** to resolve the 
-   physics at stake (e.g. typically 2 modes for idealized laser-wakefield 
-   acceleration).
+   Thus, you should make sure that you choose **enough modes** to resolve the
+   physics at stake (e.g. typically 2 modes for idealized laser-wakefield
+   acceleration - although non-linear effects such as self-injection
+   may sometimes require 3 modes).
 
    The fact that only a few 2D grids are used (one per azimuthal mode),
    instead of a full 3D grid, implies that the code uses **vastly less memory**,

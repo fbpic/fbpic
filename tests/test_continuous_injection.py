@@ -68,7 +68,8 @@ def test_rest_continuous_injection(show=False):
         return( dens )
 
     # Run the test
-    run_continuous_injection( None, dens_func, p_zmin, p_zmax, show )
+    uth = 0.0001
+    run_continuous_injection(None, dens_func, uth, p_zmin, p_zmax, show)
 
 def test_boosted_continuous_injection(show=False):
     "Function that is run by py.test, when doing `python setup.py test`"
@@ -92,10 +93,11 @@ def test_boosted_continuous_injection(show=False):
         return( dens )
 
     # Run the test
-    run_continuous_injection( gamma_boost, dens_func, p_zmin, p_zmax, show )
+    uth = 0.0001
+    run_continuous_injection(gamma_boost, dens_func, uth, p_zmin, p_zmax, show)
 
 
-def run_continuous_injection( gamma_boost, dens_func,
+def run_continuous_injection( gamma_boost, dens_func, uth,
                               p_zmin, p_zmax, show, N_check=3 ):
     # Chose the time step
     dt = (zmax-zmin)/Nz/c
@@ -107,9 +109,11 @@ def run_continuous_injection( gamma_boost, dens_func,
         use_cuda=use_cuda, gamma_boost=gamma_boost, boundaries='open' )
 
     # Add another species with a different number of particles per cell
+    # and with a finite temperature
     sim.add_new_species( -e, m_e, 0.5*n, dens_func,
                             2*p_nz, 2*p_nr, 2*p_nt,
-                            p_zmin, p_zmax, 0, p_rmax )
+                            p_zmin, p_zmax, 0, p_rmax,
+                            ux_th=uth, uy_th=uth, uz_th=uth )
 
     # Set the moving window, which handles the continuous injection
     # The moving window has an arbitrary velocity (0.7*c) so as to check
