@@ -10,13 +10,13 @@ import matplotlib.pyplot as plt
 # ----------
 # (See the documentation of the function propagate_pulse
 # below for their definition)
-show = False # Whether to show the plots, and check them manually
+show = True # Whether to show the plots, and check them manually
 
 use_cuda = False
 
 # Simulation box
-Nz = 175
-zmin = -25.e-6
+Nz = 150
+zmin = -20.e-6
 zmax = 10.e-6
 Nr = 60
 rmax = 6
@@ -151,7 +151,7 @@ def show_transform( grid, fieldtype ):
 
 Nm = 1
 dt = (zmax-zmin)*1./c/Nz
-dt = 0.13e-6/c
+dt = 0.06e-6/c
 print(c*dt)
 print(L_prop)
 print(L_prop / c / dt)
@@ -199,7 +199,6 @@ for it in range(k_iter):
         print(i,j)
         print(kz[i][j], kr[i][j])
         print(abs(sim.fld.envelope_spect[0].a[i][j]))
-        show_coefs2(sim.fld.envelope_spect[0], 'a', sim.fld.psatd[0])
         plt.plot(np.abs(sim.fld.envelope_interp[0].a[:,0]))
         plt.show()
         plt.plot(np.abs(sim.fld.envelope_interp[0].a[:,0]))
