@@ -16,21 +16,21 @@ if show:
 use_cuda = False
 
 # Simulation box
-Nz = 300
-zmin = -30.e-6
-zmax = 30.e-6
+Nz = 150
+zmin = -15.e-6
+zmax = 15.e-6
 Nr = 120
 rmax = 60.e-6
 n_order = -1
 dt = 0.13e-6/c
 # Laser pulse
 w0 = 15.e-6
-ctau = 10.e-6
+ctau = 5.e-6
 k0 = 2*np.pi/0.8e-6
 a0 = 0.01
 # Propagation
-L_prop_init = 50.e-6
-L_prop_in_plasma = 50.e-6
+L_prop_init = 30.e-6
+L_prop_in_plasma = 40.e-6
 zf = 25.e-6
 # Data analysis
 N_points = 10
@@ -163,12 +163,14 @@ def test_gaussian_laser():
     Wrapper function defined so that pytest has the intended behaviour
     """
     propagate_for_mode(1)
+    print('')
 
 def test_laguerre_gaussian_laser():
     """
     Wrapper function defined so that pytest has the intended behaviour
     """
     propagate_for_mode(2)
+    print('')
 
 
 def propagate_for_mode(Nm):
