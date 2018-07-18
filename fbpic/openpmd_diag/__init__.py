@@ -13,4 +13,5 @@ from .checkpoint_restart import set_periodic_checkpoint, \
 
 __all__ = ['FieldDiagnostic', 'ParticleDiagnostic',
 	'BoostedFieldDiagnostic', 'BoostedParticleDiagnostic',
-    'set_periodic_checkpoint', 'restart_from_checkpoint']
+        'ParticleDensityDiagnostic',
+        'set_periodic_checkpoint', 'restart_from_checkpoint']
