@@ -158,7 +158,20 @@ def show_fields( grid, fieldtype ):
 def longitudinal_profile(z, A, z_center):
     return A * np.exp(-(z-z_center)**2/ctau**2)
 
-def test_for_mode(Nm):
+def test_gaussian_laser():
+    """
+    Wrapper function defined so that pytest has the intended behaviour
+    """
+    propagate_for_mode(1)
+
+def test_laguerre_gaussian_laser():
+    """
+    Wrapper function defined so that pytest has the intended behaviour
+    """
+    propagate_for_mode(2)
+
+
+def propagate_for_mode(Nm):
     """
     Run a simulation of a laser propagation in a plasma in a linear regime
     and compares the estimated velocity to the theoretical one.
@@ -213,6 +226,6 @@ def test_for_mode(Nm):
 if __name__ == '__main__' :
 
     # Run the testing function
-    test_for_mode(1)
+    test_gaussian_laser()
 
-    test_for_mode(2)
+    test_laguerre_gaussian_laser()
