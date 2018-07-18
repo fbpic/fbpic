@@ -262,7 +262,7 @@ class FieldDiagnostic(OpenPMDDiagnostic):
                 if fieldtype.startswith("rho"):
                     # Setup the dataset
                     dset = field_grp.require_dataset(
-                        "rho", data_shape, dtype='f8')
+                        fieldtype, data_shape, dtype='f8')
                     self.setup_openpmd_mesh_component( dset, fieldtype )
                     # Setup the record to which it belongs
                     self.setup_openpmd_mesh_record( dset, fieldtype, dz, zmin )

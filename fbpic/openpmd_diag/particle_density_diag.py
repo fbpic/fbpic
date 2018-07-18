@@ -13,19 +13,25 @@ class ParticleDensityDiagnostic(FieldDiagnostic):
     Class that defines a diagnostic for particle density
     """
 
-    def __init__(self, period, sim, species={}, write_dir=None,
-                 iteration_min=0, iteration_max=np.inf ) :
+    def __init__(self, period, sim, species={"electrons":None},
+                write_dir=None, iteration_min=0, iteration_max=np.inf ) :
         """
-        Initialize the field diagnostic.
+        Writes the charge density of the specified species in the
+        openPMD file (one dataset per species)
 
         Parameters
         ----------
-        period : int
+        period: int
             The period of the diagnostics, in number of timesteps.
             (i.e. the diagnostics are written whenever the number
             of iterations is divisible by `period`)
 
-        TODO
+        sim: an fbpic `Simulation` object
+            Contains the information of the simulation
+
+        species: a dictionary of Particle objects
+            Similar to the corresponding object for `ParticleDiagnostic`
+            Specifies the density of which species should be written
 
         write_dir : string, optional
             The POSIX path to the directory where the results are
@@ -61,6 +67,21 @@ class ParticleDensityDiagnostic(FieldDiagnostic):
         """
         sim = self.sim
 
+        # Extract information needed for the openPMD attributes
+        dt = self.fld.dt
+        time = iteration * dt
+        dz = self.fld.interp[0].dz
+        zmin, _ = self.comm.get_zmin_zmax(
+                local=False, with_damp=False, with_guard=False )
+        Nz, _ = self.comm.get_Nz_and_iz(
+                local=False, with_damp=False, with_guard=False )
+
+        # Create the file with these attributes
+        filename = "data%08d.h5" %iteration
+        fullpath = os.path.join( self.write_dir, "hdf5", filename )
+        self.create_file_empty_meshes(
+            fullpath, iteration, time, Nz, zmin, dz, dt )
+
         # Loop over the requested species
         for species_name in self.species.keys():
 
@@ -75,21 +96,6 @@ class ParticleDensityDiagnostic(FieldDiagnostic):
             if self.fld.use_cuda :
                 self.fld.receive_fields_from_gpu()
 
-            # Extract information needed for the openPMD attributes
-            dt = self.fld.dt
-            time = iteration * dt
-            dz = self.fld.interp[0].dz
-            zmin, _ = self.comm.get_zmin_zmax(
-                    local=False, with_damp=False, with_guard=False )
-            Nz, _ = self.comm.get_Nz_and_iz(
-                    local=False, with_damp=False, with_guard=False )
-
-            # Create the file with these attributes
-            filename = "data%08d.h5" %iteration
-            fullpath = os.path.join( self.write_dir, "hdf5", filename )
-            self.create_file_empty_meshes(
-                fullpath, iteration, time, Nz, zmin, dz, dt )
-
             # Open the file again, and get the field path
             f = self.open_file( fullpath )
             # (f is None if this processor does not participate in writing data)
@@ -101,7 +107,7 @@ class ParticleDensityDiagnostic(FieldDiagnostic):
 
             # Loop over the different quantities that should be written
             fieldtype = "rho_%s" %species_name
-            self.write_dataset( field_grp, "rho", fieldtype )
+            self.write_dataset( field_grp, fieldtype, "rho" )
 
             # Close the file (only the first proc does this)
             if f is not None:
