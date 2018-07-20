@@ -453,7 +453,7 @@ class Particles(object) :
             (e.g. 0 for initially neutral atoms)
 
         level_max: int, optional
-            If not None, defines the maxumum ionization level that
+            If not None, defines the maximum ionization level that
             macroparticles can reach. Should not exceed the physical
             limit for the chosen element.
         """
