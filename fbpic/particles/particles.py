@@ -411,7 +411,7 @@ class Particles(object) :
             ratio_w_electron_photon, boost )
 
 
-    def make_ionizable( self, element, target_species, level_start=0):
+    def make_ionizable(self, element, target_species, level_start=0):
         """
         Make this species ionizable.
 
@@ -433,9 +433,19 @@ class Particles(object) :
             The atomic symbol of the considered ionizable species
             (e.g. 'He', 'N' ;  do not use 'Helium' or 'Nitrogen')
 
-        target_species: an fbpic.Particles object
+        target_species: a `Particles` object, or a dictionary of `Particles`
             Stores the electron macroparticles that are created in
             the ionization process.
+
+            - If a single `Particles` object is passed, than electrons from all
+            ionization levels are stored into this object.
+
+            - If a dictionary is passed, then its keys should be integers
+            (corresponding to the ionizable levels of `element`, starting
+            at `level_start`), and its values should be `Particles` objects.
+            In this case, the electrons from each distinct ionizable level
+            will be stored into these separate objects. Note that using
+            separate objects will typically require longer computing time.
 
         level_start: int
             The ionization level at which the macroparticles are initially
