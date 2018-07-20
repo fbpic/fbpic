@@ -63,7 +63,8 @@ class Ionizer(object):
       whenever further ionization happens, and is passed to the deposition
       kernel as the effective weight of the particles)
     """
-    def __init__(self, element, ionizable_species, target_species, level_start):
+    def __init__(self, element, ionizable_species, target_species,
+                 level_start, level_max=None):
         """
         Initialize an Ionizer instance
 
@@ -97,9 +98,16 @@ class Ionizer(object):
         level_start: int
             The ionization level at which the macroparticles are initially
             (e.g. 0 for initially neutral atoms)
+
+        level_max: int (optional)
+            If not None, defines the maxumum ionization level that
+            macroparticles can reach. Should not exceed the physical
+            limit for the chosen element.
         """
         # Register a few parameters
+
         self.level_start = level_start
+        self.level_max = level_max
         self.use_cuda = ionizable_species.use_cuda
         # Process ionized particles into batches
         self.batch_size = 10
@@ -173,8 +181,14 @@ class Ionizer(object):
         else:
             self.element = element
 
-        # Determine the maximum level of ionization
-        self.level_max = len(Uion)
+        # Determine and set the maximum level of ionization
+        if self.level_max is None:
+            self.level_max = len(Uion)
+        else:
+            assert type(self.level_max) is int, "level_max must be integer"
+            if self.level_max>=len(Uion):
+                raise ValueError("Chosen level_max for {}".format(element) + \
+                                 " cannot exceed {}".format(len(Uion)))
 
         # Calculate the ADK prefactors (See Chen, JCP 236 (2013), equation (2))
         # - Scalars
