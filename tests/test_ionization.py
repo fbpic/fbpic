@@ -143,7 +143,7 @@ def run_simulation( gamma_boost, use_separate_electron_species ):
     else:
         # Use the pre-existing, charge-neutralizing electrons
         target_species = elec
-        level_max = None # Default is going up to N6+
+        level_max = None # Default is going up to N7+
     # Define ionization
     ions.make_ionizable( element='N', level_start=level_start,
                          level_max=level_max, target_species=target_species )
