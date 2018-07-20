@@ -27,7 +27,7 @@ from scipy.constants import c, e, m_e, m_p
 from fbpic.main import Simulation
 from fbpic.lpa_utils.laser import add_laser
 from fbpic.openpmd_diag import FieldDiagnostic, \
-    ParticleDiagnostic, ParticleDensityDiagnostic, \
+    ParticleDiagnostic, ParticleChargeDensityDiagnostic, \
     set_periodic_checkpoint, restart_from_checkpoint
 
 # ----------
@@ -157,7 +157,7 @@ if __name__ == '__main__':
                 # Since rho from `FieldDiagnostic` is 0 almost everywhere
                 # (neutral plasma), it is useful to see the charge density
                 # of individual particles
-                ParticleDensityDiagnostic( diag_period, sim,
+                ParticleChargeDensityDiagnostic( diag_period, sim,
                     {"electrons": elec} )
                 ]
     # Add checkpoints

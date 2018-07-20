@@ -523,7 +523,13 @@ class Simulation(object):
             the fields to the spectral grid. (The corresponding flag in
             fld.exchanged_source is set accordingly.)
 
-        TODO
+        update_spectral: bool
+            Whether to update the value of the deposited field in
+            spectral space.
+
+        species_list: list of `Particles` objects, or None
+            The species which that should deposit their charge/current.
+            If this is None, all species (and antennas) deposit.
         """
         # Shortcut
         fld = self.fld

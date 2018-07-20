@@ -8,7 +8,7 @@ import os
 import numpy as np
 from .field_diag import FieldDiagnostic
 
-class ParticleDensityDiagnostic(FieldDiagnostic):
+class ParticleChargeDensityDiagnostic(FieldDiagnostic):
     """
     Class that defines a diagnostic for particle density
     """
