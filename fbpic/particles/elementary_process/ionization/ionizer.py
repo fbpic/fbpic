@@ -99,13 +99,12 @@ class Ionizer(object):
             The ionization level at which the macroparticles are initially
             (e.g. 0 for initially neutral atoms)
 
-        level_max: int (optional)
+        level_max: int, optional
             If not None, defines the maxumum ionization level that
             macroparticles can reach. Should not exceed the physical
             limit for the chosen element.
         """
         # Register a few parameters
-
         self.level_start = level_start
         self.level_max = level_max
         self.use_cuda = ionizable_species.use_cuda
@@ -186,7 +185,7 @@ class Ionizer(object):
             self.level_max = len(Uion)
         else:
             assert type(self.level_max) is int, "level_max must be integer"
-            if self.level_max>=len(Uion):
+            if self.level_max>len(Uion):
                 raise ValueError("Chosen level_max for {}".format(element) + \
                                  " cannot exceed {}".format(len(Uion)))
 
