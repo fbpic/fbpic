@@ -433,15 +433,15 @@ def cuda_damp_EB_right( Er, Et, Ez, Br, Bt, Bz, damp_array, n_guard, n_damp ):
 
 
 @cuda.jit
-def cuda_damp_envelope_left( a, a_old, damp_array, n_guard, n_damp ):
+def cuda_damp_envelope_left( a, damp_array, n_guard, n_damp ):
     """
     Multiply the 'a' fields in the left guard cells
     by damp_array.
 
     Parameters :
     ------------
-    a, a_old: 2darrays of complexs
-        Contain the fields to be damped
+    a: 2darrays of complexs
+        Contain the field to be damped
         The first axis corresponds to z and the second to r
 
     damp_array : 1darray of floats
@@ -468,18 +468,17 @@ def cuda_damp_envelope_left( a, a_old, damp_array, n_guard, n_damp ):
 
             # At the left end
             a[iz, ir] *= damp_factor_left
-            a_old[iz, ir] *= damp_factor_left
 
 @cuda.jit
-def cuda_damp_envelope_right(  a, a_old, damp_array, n_guard, n_damp ):
+def cuda_damp_envelope_right(  a, damp_array, n_guard, n_damp ):
     """
     Multiply the 'a' fields in the right guard cells
     by damp_array.
 
     Parameters :
     ------------
-    a, a_old: 2darrays of complexs
-        Contain the fields to be damped
+    a: 2darray of complexs
+        Contain the field to be damped
         The first axis corresponds to z and the second to r
 
     damp_array : 1darray of floats
@@ -507,4 +506,3 @@ def cuda_damp_envelope_right(  a, a_old, damp_array, n_guard, n_damp ):
             # At the right end
             iz_right = Nz - iz - 1
             a[iz_right, ir] *= damp_factor_right
-            a_old[iz_right, ir] *= damp_factor_right

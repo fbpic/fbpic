@@ -783,7 +783,7 @@ class BoundaryCommunicator(object):
                         self.n_guard+self.n_damp, interp[0].Nr )
                     for m in range(len(interp)):
                         cuda_damp_envelope_left[dim_grid, dim_block](
-                            interp[m].a, interp[m].a_old,
+                            interp[m].a,
                             self.d_left_damp, self.n_guard, self.n_damp)
                 else:
                     # Damp the fields on the CPU
@@ -791,7 +791,6 @@ class BoundaryCommunicator(object):
                     for m in range(len(interp)):
                         # Damp the fields in left guard cells
                         interp[m].a[:nd,:]*=self.left_damp[:,np.newaxis]
-                        interp[m].a_old[:nd,:]*=self.left_damp[:,np.newaxis]
 
             if self.right_proc is None:
                 # Damp the fields on the CPU or the GPU
@@ -801,7 +800,7 @@ class BoundaryCommunicator(object):
                         self.n_guard+self.n_damp, interp[0].Nr )
                     for m in range(len(interp)):
                         cuda_damp_envelope_right[dim_grid, dim_block](
-                            interp[m].a, interp[m].a_old,
+                            interp[m].a,
                             self.d_right_damp, self.n_guard, self.n_damp)
                 else:
                     # Damp the fields on the CPU
@@ -809,7 +808,6 @@ class BoundaryCommunicator(object):
                     for m in range(len(interp)):
                         # Damp the fields in left guard cells
                         interp[m].a[-nd:,:]*=self.right_damp[::-1,np.newaxis]
-                        interp[m].a_old[-nd:,:]*=self.right_damp[::-1,np.newaxis]
 
     def generate_damp_array( self, n_guard, n_damp ):
         """
