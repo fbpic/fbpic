@@ -856,6 +856,28 @@ class Simulation(object):
         # Attach the moving window to the boundary communicator
         self.comm.moving_win = MovingWindow( self.comm, self.dt, v, self.time )
 
+    def reverse_time(self):
+        """
+        Convenience method to reverse the direction of electromagnetic waves
+        and particles propagation. Essentially this method inverses the signs of
+        magnetic fields and particles momenta.
+        """
+        # Inverse the signs of magnetic fields in spectral and real space
+        for m in range(self.fld.Nm) :
+            self.fld.spect[m].Bp *= -1
+            self.fld.spect[m].Bm *= -1
+            self.fld.spect[m].Bz *= -1
+
+            self.fld.interp[m].Br *= -1
+            self.fld.interp[m].Bt *= -1
+            self.fld.interp[m].Bz *= -1
+
+        # Inverse the signs of particles momenta
+        for species in self.ptcl:
+            species.ux *= -1
+            species.uy *= -1
+            species.uz *= -1
+
 def adapt_to_grid( x, p_xmin, p_xmax, p_nx, ncells_empty=0 ):
     """
     Adapt p_xmin and p_xmax, so that they fall exactly on the grid x
