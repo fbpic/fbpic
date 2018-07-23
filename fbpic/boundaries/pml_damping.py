@@ -6,11 +6,9 @@ This file is part of the Fourier-Bessel Particle-In-Cell code (FB-PIC)
 It defines the structure that damps the fields in the guard cells.
 """
 import numpy as np
-try:
-    from fbpic.cuda_utils import cuda_tpb_bpg_2d, cuda
-    cuda_installed = cuda.is_available()
-except ImportError:
-    cuda_installed = False
+from fbpic.utils.cuda import cuda_installed
+if cuda_installed:
+    from fbpic.utils.cuda import cuda_tpb_bpg_2d, cuda
 
 class PMLDamper(object):
     """
