@@ -1,7 +1,7 @@
 The openPMD diagnostics
 =======================
 
-During a simulation, FBPIC outputs diagnostics of fields and 
+During a simulation, FBPIC outputs diagnostics of fields and
 particles in the form of `openPMD files <https://github.com/openPMD>`__.
 
 A diagnostic can be directly added to simulation (or removed) by
@@ -24,6 +24,11 @@ Particle diagnostic
 ~~~~~~~~~~~~~~~~~~~
 
 .. autoclass:: fbpic.openpmd_diag.ParticleDiagnostic
+
+Particle density diagnostic
+~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+.. autoclass:: fbpic.openpmd_diag.ParticleDensityDiagnostic
 
 Back-transformed diagnostics (boosted-frame simulations)
 --------------------------------------------------------
