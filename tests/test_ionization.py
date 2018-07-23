@@ -137,14 +137,16 @@ def run_simulation( gamma_boost, use_separate_electron_species ):
     if use_separate_electron_species:
         # Use a dictionary of electron species: one per ionizable level
         target_species = {}
-        for i_level in range(level_start, 7): # N can go up to N7+
+        level_max = 6 # N can go up to N7+, but here we stop at N6+
+        for i_level in range(level_start, level_max): 
             target_species[i_level] = sim.add_new_species( q=-e, m=m_e )
     else:
         # Use the pre-existing, charge-neutralizing electrons
         target_species = elec
+        level_max = None # Default is going up to N7+
     # Define ionization
     ions.make_ionizable( element='N', level_start=level_start,
-                        target_species=target_species )
+                         level_max=level_max, target_species=target_species )
     # Set the moving window
     sim.set_moving_window( v=v_plasma )
 
@@ -183,7 +185,7 @@ def run_simulation( gamma_boost, use_separate_electron_species ):
     # When different electron species are created, check the fraction of
     # each electron species
     if use_separate_electron_species:
-        for i_level in range(level_start, 7):
+        for i_level in range(level_start, level_max):
             n_N = w[ioniz_level == i_level].sum()
             assert np.allclose( target_species[i_level].w.sum(), n_N )
 
