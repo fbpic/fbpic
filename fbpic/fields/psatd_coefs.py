@@ -206,20 +206,14 @@ class PsatdCoeffs(object) :
         w_tot = np.sqrt( (w_laser + c * kz)**2 + c**2 * kr**2)
         if self.use_galilean and self.V is not None:
             w1 = w_laser + self.V*kz
-            self.w_transform_2 = c**2 * (kr**2 + kz**2 + 2*k0*kz) \
-                                - self.V**2*kz**2 - 2*self.V*c*k0*kz
         else:
             w1 = w_laser
-            self.w_transform_2 = c**2 * (kr**2 + kz**2 + 2*k0*kz)
-
-        self.w_transform_2[self.w_transform_2 == 0] = 1
-        self.C_w_1_env = np.cos(w1*dt)
         self.C_w_tot_env = np.cos(w_tot*dt)
         self.A_coef = np.exp(1j * w1 * dt)
-
+        self.w_laser = w_laser
+        self.chi_coef = -dt**2 * np.sinc((w_tot - w1)*0.5*dt / np.pi)\
+                                    * np.sinc((w_tot + w1)*0.5*dt / np.pi)
         # Replace these array by arrays on the GPU, when using cuda
         if self.use_cuda:
-            self.d_C_w_1_env = cuda.to_device(self.C_w_1_env)
             self.d_C_w_tot_env = cuda.to_device(self.C_w_tot_env)
-            self.d_w_transform_2 = cuda.to_device(self.w_transform_2)
-            self.d_A_coef = cuda.to_device(self.A_coef)
+            self.d_chi_coef = cuda.to_device(self.chi_coef)

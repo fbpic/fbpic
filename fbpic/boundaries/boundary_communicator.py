@@ -783,8 +783,13 @@ class BoundaryCommunicator(object):
                         self.n_guard+self.n_damp, interp[0].Nr )
                     for m in range(len(interp)):
                         cuda_damp_envelope_left[dim_grid, dim_block](
+<<<<<<< HEAD
                             interp[m].a, self.d_left_damp,
                             self.n_guard, self.n_damp)
+=======
+                            interp[m].a,
+                            self.d_left_damp, self.n_guard, self.n_damp)
+>>>>>>> chi_gathering
                 else:
                     # Damp the fields on the CPU
                     nd = self.n_guard + self.n_damp
@@ -800,8 +805,13 @@ class BoundaryCommunicator(object):
                         self.n_guard+self.n_damp, interp[0].Nr )
                     for m in range(len(interp)):
                         cuda_damp_envelope_right[dim_grid, dim_block](
+<<<<<<< HEAD
                             interp[m].a, self.d_right_damp,
                             self.n_guard, self.n_damp)
+=======
+                            interp[m].a,
+                            self.d_right_damp, self.n_guard, self.n_damp)
+>>>>>>> chi_gathering
                 else:
                     # Damp the fields on the CPU
                     nd = self.n_guard + self.n_damp
