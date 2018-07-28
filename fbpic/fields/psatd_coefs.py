@@ -217,3 +217,4 @@ class PsatdCoeffs(object) :
         if self.use_cuda:
             self.d_C_w_tot_env = cuda.to_device(self.C_w_tot_env)
             self.d_chi_coef = cuda.to_device(self.chi_coef)
+            self.d_A_coef = cuda.to_device(self.A_coef)
