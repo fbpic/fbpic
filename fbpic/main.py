@@ -457,6 +457,7 @@ class Simulation(object):
                     species.gather_envelope(fld, gather_gradient=False,
                                                  average_a2=True)
                     species.update_inv_gamma()
+                    species.finish_push_p()
                 if self.use_galilean:
                     self.shift_galilean_boundaries( -dt )
             if move_positions:

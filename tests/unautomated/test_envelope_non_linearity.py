@@ -15,10 +15,10 @@ show = True # Whether to show the plots, and check them manually
 use_cuda = False
 
 # Simulation box
-Nz = 150
-zmin = -20.e-6
+Nz = 500
+zmin = -15.e-6
 zmax = 10.e-6
-Nr = 60
+Nr = 120
 rmax = 6
 n_order = -1
 # Laser pulse
@@ -151,7 +151,7 @@ def show_transform( grid, fieldtype ):
 
 Nm = 1
 dt = (zmax-zmin)*1./c/Nz
-dt = 0.06e-6/c
+dt = 0.05e-6/c
 print(c*dt)
 print(L_prop)
 print(L_prop / c / dt)

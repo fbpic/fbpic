@@ -19,7 +19,7 @@ from .push.numba_methods import push_p_numba, push_p_ioniz_numba, \
                             push_p_after_plane_numba, push_x_numba,\
                             push_p_envelope_numba, push_p_ioniz_envelope_numba,\
                             push_p_after_plane_envelope_numba,\
-                            update_inv_gamma_numba
+                            update_inv_gamma_numba, finish_push_p_envelope_numba
 from .gathering.threading_methods import gather_field_numba_linear, \
         gather_field_numba_cubic, gather_envelope_field_numba_linear, \
         gather_envelope_field_numba_cubic
@@ -623,6 +623,10 @@ class Particles(object) :
                 push_p_numba(self.ux, self.uy, self.uz, self.inv_gamma,
                     self.Ex, self.Ey, self.Ez, self.Bx, self.By, self.Bz,
                     self.q, self.m, self.Ntot, self.dt )
+
+    def finish_push_p(self):
+        finish_push_p_envelope_numba(self.ux, self.uy, self.uz, self.inv_gamma,self.grad_a2_x, self.grad_a2_y, self.grad_a2_z,
+            self.q, self.m, self.Ntot, self.dt )
 
 
     def push_p_with_envelope( self, t, timestep=None, keep_momentum=True):
