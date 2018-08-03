@@ -25,7 +25,7 @@ def cuda_erase_scalar( array ):
     ------------
     array: 2darrays of complexs
        Array that represent the fields on the grid
-       (The first axis corresponds to z and the second axis to r) d
+       (The first axis corresponds to z and the second axis to r)
     """
 
     # Cuda 2D grid
@@ -491,7 +491,6 @@ def cuda_compute_grad_a( a, grad_a_p, grad_a_m, grad_a_z, d_kr, d_kz, Nz, Nr ):
         grad_a_z[iz, ir] = 1j * a[iz, ir] * d_kz[iz, ir]
 
 @cuda.jit
-
 def cuda_convolve(chi_a, chi, a):
     # Cuda 2D grid
     iz, ir = cuda.grid(2)
@@ -499,9 +498,10 @@ def cuda_convolve(chi_a, chi, a):
     if (iz < chi.shape[0]) and (ir < chi.shape[1]):
         chi_a[iz, ir] += chi[iz, ir] * a[iz, ir]
 
-def cuda_copy_arrays(copy, array, Nz, Nr):
+@cuda.jit
+def cuda_copy_arrays(copy, array, Nz, Nr, m):
     # Cuda 2D grid
     iz, ir = cuda.grid(2)
 
     if (iz < Nz) and (ir < Nr) :
-        copy[iz, ir] = array[iz, ir]
+        copy[m, iz, ir] = array[iz, ir]

@@ -680,7 +680,7 @@ class Particles(object) :
                     self.Bx, self.By, self.Bz,
                     self.a2, self.grad_a2_x, self.grad_a2_y, self.grad_a2_z,
                     self.m, self.Ntot, timestep, self.ionizer.ionization_level,
-                    keep_momentum = keep_momentum )
+                    keep_momentum )
             elif z_plane is not None:
                 # Particles that are ballistic before a plane also
                 # require a different pusher
@@ -691,7 +691,7 @@ class Particles(object) :
                     self.Bx, self.By, self.Bz,
                     self.a2, self.grad_a2_x, self.grad_a2_y, self.grad_a2_z,
                     self.q, self.m, self.Ntot, timestep,
-                    keep_momentum = keep_momentum )
+                    keep_momentum )
             else:
                 # Standard pusher
                 push_p_envelope_gpu[dim_grid_1d, dim_block_1d](
@@ -700,7 +700,7 @@ class Particles(object) :
                     self.Bx, self.By, self.Bz,
                     self.a2, self.grad_a2_x, self.grad_a2_y, self.grad_a2_z,
                     self.q, self.m, self.Ntot, timestep,
-                    keep_momentum = keep_momentum)
+                    keep_momentum)
 
         # CPU version
         else:
