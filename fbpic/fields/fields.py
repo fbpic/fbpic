@@ -7,7 +7,6 @@ It defines the high-level Fields class.
 """
 import warnings
 import numpy as np
-from numba import cuda
 from fbpic.utils.threading import nthreads
 from .numba_methods import sum_reduce_2d_array, numba_erase_threading_buffer
 from .utility_methods import get_modified_k
@@ -17,8 +16,9 @@ from .interpolation_grid import FieldInterpolationGrid, \
 from .spectral_grid import FieldSpectralGrid, \
                          EnvelopeSpectralGrid
 from .psatd_coefs import PsatdCoeffs
-from fbpic.utils.cuda import cuda_installed
+from fbpic.utils.cuda import cuda_installed, cuda_tpb_bpg_2d
 if cuda_installed:
+    from numba import cuda
     from .cuda_methods import cuda_copy_arrays
 
 class Fields(object) :
@@ -210,8 +210,8 @@ class Fields(object) :
             #Create the envelope interpolation grids for each modes
             #The envelope modes range from -Nm + 1 to Nm - 1
             self.envelope_interp = []
-            self.envelope_mode_numbers = [ m for m in range(self.Nm) ] + \
-                                         [ m for m in range(-self.Nm+1, 0)]
+            self.envelope_mode_numbers = np.array(
+              [m for m in range(self.Nm)] + [m for m in range(-self.Nm+1,0)])
             for m in self.envelope_mode_numbers[self.Nm:]:
                 self.trans.append( SpectralTransformer(
                     Nz, Nr, m, rmax, use_cuda=self.use_cuda ) )
@@ -765,16 +765,17 @@ class Fields(object) :
             Whether to also copy the gradients
         """
         if self.use_cuda:
+            dim_grid, dim_block = cuda_tpb_bpg_2d( self.Nz, self.Nr )
             for m in self.envelope_mode_numbers:
-                cuda_copy_arrays(self.a_global[m],
-                    self.envelope_interp[m].a, self.Nz, self.Nr)
+                cuda_copy_arrays[dim_grid, dim_block](self.a_global,
+                    self.envelope_interp[m].a, self.Nz, self.Nr, m)
                 if copy_gradient:
-                    cuda_copy_arrays(self.grad_a_r_global[m],
-                        self.envelope_interp[m].grad_a_r, self.Nz, self.Nr)
-                    cuda_copy_arrays(self.grad_a_t_global[m],
-                        self.envelope_interp[m].grad_a_t, self.Nz, self.Nr)
-                    cuda_copy_arrays(self.grad_a_z_global[m],
-                        self.envelope_interp[m].grad_a_z, self.Nz, self.Nr)
+                    cuda_copy_arrays[dim_grid, dim_block](self.grad_a_r_global,
+                        self.envelope_interp[m].grad_a_r, self.Nz, self.Nr, m)
+                    cuda_copy_arrays[dim_grid, dim_block](self.grad_a_t_global,
+                        self.envelope_interp[m].grad_a_t, self.Nz, self.Nr, m)
+                    cuda_copy_arrays[dim_grid, dim_block](self.grad_a_z_global,
+                        self.envelope_interp[m].grad_a_z, self.Nz, self.Nr, m)
         else:
             for m in self.envelope_mode_numbers:
                 self.a_global[m,:,:] = self.envelope_interp[m].a

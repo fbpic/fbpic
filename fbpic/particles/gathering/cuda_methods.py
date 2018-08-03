@@ -346,23 +346,23 @@ def gather_envelope_field_gpu_linear(x, y, z,
                         exptheta_m, a_m,
                         iz_lower, iz_upper, ir_lower, ir_upper,
                         S_ll, S_lu, S_lg, S_ul, S_uu, S_ug,
-                        flip_factor=minus_one_m )
+                        minus_one_m )
             if gather_gradient:
                 Fr = add_linear_envelope_gather_for_mode( m, Fr,
                             exptheta_m, grad_a_r_m,
                             iz_lower, iz_upper, ir_lower, ir_upper,
                             S_ll, S_lu, S_lg, S_ul, S_uu, S_ug,
-                            flip_factor=-minus_one_m )
+                            -minus_one_m )
                 Ft = add_linear_envelope_gather_for_mode( m, Ft,
                             exptheta_m, grad_a_t_m,
                             iz_lower, iz_upper, ir_lower, ir_upper,
                             S_ll, S_lu, S_lg, S_ul, S_uu, S_ug,
-                            flip_factor=-minus_one_m )
+                            -minus_one_m )
                 Fz = add_linear_envelope_gather_for_mode( m, Fz,
                             exptheta_m, grad_a_z_m,
                             iz_lower, iz_upper, ir_lower, ir_upper,
                             S_ll, S_lu, S_lg, S_ul, S_uu, S_ug,
-                            flip_factor=minus_one_m )
+                            minus_one_m )
 
         if gather_gradient:
             # Convert to Cartesian coordinates
