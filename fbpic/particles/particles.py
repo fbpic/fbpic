@@ -1160,33 +1160,28 @@ class Particles(object) :
                                 self.cell_idx, self.prefix_sum)
 
             elif fieldtype == 'chi':
-                envelope_grid = fld.envelope_interp
-                Nm = (len(envelope_grid) + 1) // 2
-                envelope_mode_numbers = [ m for m in range(Nm) ] + \
-                                        [ m for m in range(-Nm+1, 0)]
-                # Using tuples for compatibility with numba
-                chi_tuple = tuple(envelope_grid[m].chi for m in envelope_mode_numbers)
-                m_tuple = tuple(envelope_mode_numbers)
-                if self.particle_shape == 'linear':
-                    deposit_chi_gpu_linear[
-                        dim_grid_2d_flat, dim_block_2d_flat](
-                        self.x, self.y, self.z, weight, self.q,
-                        self.m, self.inv_gamma,
-                        envelope_grid[0].invdz, envelope_grid[0].zmin,
-                        envelope_grid[0].Nz, envelope_grid[0].invdr,
-                        envelope_grid[0].rmin, envelope_grid[0].Nr,
-                        chi_tuple, m_tuple,
-                        self.cell_idx, self.prefix_sum)
-                elif self.particle_shape == 'cubic':
-                    deposit_chi_gpu_cubic[
-                        dim_grid_2d_flat, dim_block_2d_flat](
-                        self.x, self.y, self.z, weight, self.q,
-                        self.m, self.inv_gamma,
-                        envelope_grid[0].invdz, envelope_grid[0].zmin,
-                        envelope_grid[0].Nz, envelope_grid[0].invdr,
-                        envelope_grid[0].rmin, envelope_grid[0].Nr,
-                        chi_tuple, m_tuple,
-                        self.cell_idx, self.prefix_sum)
+                for m in self.envelope_mode_numbers:
+                    envelope_grid = fld.envelope_interp[m]
+                    if self.particle_shape == 'linear':
+                        deposit_chi_gpu_linear_one_mode[
+                            dim_grid_2d_flat, dim_block_2d_flat](
+                            self.x, self.y, self.z, weight, self.q,
+                            self.m, self.inv_gamma,
+                            envelope_grid.invdz, envelope_grid.zmin,
+                            envelope_grid.Nz, envelope_grid.invdr,
+                            envelope_grid.rmin, envelope_grid.Nr,
+                            envelope_grid.chi, m,
+                            self.cell_idx, self.prefix_sum)
+                    elif self.particle_shape == 'cubic':
+                        deposit_chi_gpu_cubic_one_mode[
+                            dim_grid_2d_flat, dim_block_2d_flat](
+                            self.x, self.y, self.z, weight, self.q,
+                            self.m, self.inv_gamma,
+                            envelope_grid.invdz, envelope_grid.zmin,
+                            envelope_grid.Nz, envelope_grid.invdr,
+                            envelope_grid.rmin, envelope_grid.Nr,
+                            envelope_grid.chi, m,
+                            self.cell_idx, self.prefix_sum)
 
         # CPU version
         else:
