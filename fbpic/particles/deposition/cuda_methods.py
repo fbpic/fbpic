@@ -535,7 +535,7 @@ def deposit_chi_gpu_linear(x, y, z, w, q, M, inv_gamma,
         The charge density on the interpolation grid for
         every mode. (is modified by this function)
 
-    m: tuple of int
+    m: int
         The index of the azimuthal mode (can be negative)
 
     invdz, invdr : float (in meters^-1)
@@ -1475,7 +1475,7 @@ def deposit_J_gpu_cubic(x, y, z, w, q,
 def deposit_chi_gpu_cubic(x, y, z, w, q,  M, inv_gamma,
                           invdz, zmin, Nz,
                           invdr, rmin, Nr,
-                          chi_tuple, m_tuple,
+                          chi_m, m,
                           cell_idx, prefix_sum):
     """
     Deposition of the charge density rho using numba on the GPU.
@@ -1507,12 +1507,12 @@ def deposit_chi_gpu_cubic(x, y, z, w, q,  M, inv_gamma,
     inv_gamma : float
         Inverse of the gamma factor of the particles
 
-    chi_tuple: tuple of 2darray of complexs
+    chi_m: 2darray of complexs
         The charge density on the interpolation grid for
         every mode. (is modified by this function)
 
-    m_tuple: tuple of int
-        The indices of the azimuthal mode
+    m: int
+        The index of the azimuthal mode (can be negative)
 
     invdz, invdr : float (in meters^-1)
         Inverse of the grid step along the considered direction
@@ -1551,144 +1551,142 @@ def deposit_chi_gpu_cubic(x, y, z, w, q,  M, inv_gamma,
         if i == 0:
             frequency_per_cell = np.int32(incl_offset)
 
-        for it in range(len(m_tuple)):
+        # Declare local field arrays
+        R_m_00 = 0. + 0.j
+        R_m_01 = 0. + 0.j
+        R_m_02 = 0. + 0.j
+        R_m_03 = 0. + 0.j
+        R_m_10 = 0. + 0.j
+        R_m_11 = 0. + 0.j
+        R_m_12 = 0. + 0.j
+        R_m_13 = 0. + 0.j
+        R_m_20 = 0. + 0.j
+        R_m_21 = 0. + 0.j
+        R_m_22 = 0. + 0.j
+        R_m_23 = 0. + 0.j
+        R_m_30 = 0. + 0.j
+        R_m_31 = 0. + 0.j
+        R_m_32 = 0. + 0.j
+        R_m_33 = 0. + 0.j
 
-            m = m_tuple[it]
-            chi_m = chi_tuple[it]
-            # Declare local field arrays
-            R_m_00 = 0. + 0.j
-            R_m_01 = 0. + 0.j
-            R_m_02 = 0. + 0.j
-            R_m_03 = 0. + 0.j
-            R_m_10 = 0. + 0.j
-            R_m_11 = 0. + 0.j
-            R_m_12 = 0. + 0.j
-            R_m_13 = 0. + 0.j
-            R_m_20 = 0. + 0.j
-            R_m_21 = 0. + 0.j
-            R_m_22 = 0. + 0.j
-            R_m_23 = 0. + 0.j
-            R_m_30 = 0. + 0.j
-            R_m_31 = 0. + 0.j
-            R_m_32 = 0. + 0.j
-            R_m_33 = 0. + 0.j
+        for j in range(frequency_per_cell):
+            # Get the particle index before the sorting
+            # --------------------------------------------
+            # (Since incl_offset is a cumulative sum of particle number,
+            # and since python index starts at 0, one has to add -1)
+            ptcl_idx = incl_offset-1-j
 
-            for j in range(frequency_per_cell):
-                # Get the particle index before the sorting
-                # --------------------------------------------
-                # (Since incl_offset is a cumulative sum of particle number,
-                # and since python index starts at 0, one has to add -1)
-                ptcl_idx = incl_offset-1-j
+            # Preliminary arrays for the cylindrical conversion
+            # --------------------------------------------
+            # Position
+            xj = x[ptcl_idx]
+            yj = y[ptcl_idx]
+            zj = z[ptcl_idx]
+            # Gamma factor
+            inv_gammaj = inv_gamma[ptcl_idx]
+            # Weights
+            wj = q**2 / M * inv_gammaj * w[ptcl_idx]
 
-                # Preliminary arrays for the cylindrical conversion
-                # --------------------------------------------
-                # Position
-                xj = x[ptcl_idx]
-                yj = y[ptcl_idx]
-                zj = z[ptcl_idx]
-                # Gamma factor
-                inv_gammaj = inv_gamma[ptcl_idx]
-                # Weights
-                wj = q**2 / M * inv_gammaj * w[ptcl_idx]
+            # Cylindrical conversion
+            rj = math.sqrt(xj**2 + yj**2)
+            # Avoid division by 0.
+            if (rj != 0.):
+                invr = 1./rj
+                cos = xj*invr  # Cosine
+                sin = yj*invr  # Sine
+            else:
+                cos = 1.
+                sin = 0.
+            # Calculate azimuthal factor
+            exptheta_m = 1. + 0.j
+            for _ in range(abs(m)):
+                exptheta_m *= (cos + 1.j*sin)
+            if m < 0:
+                exptheta_m = exptheta_m.conjugate()
 
-                # Cylindrical conversion
-                rj = math.sqrt(xj**2 + yj**2)
-                # Avoid division by 0.
-                if (rj != 0.):
-                    invr = 1./rj
-                    cos = xj*invr  # Cosine
-                    sin = yj*invr  # Sine
-                else:
-                    cos = 1.
-                    sin = 0.
-                # Calculate azimuthal factor
-                exptheta_m = 1. + 0.j
-                for _ in range(m):
-                    exptheta_m *= (cos + 1.j*sin)
+            # Positions of the particles, in the cell unit
+            r_cell = invdr*(rj - rmin) - 0.5
+            z_cell = invdz*(zj - zmin) - 0.5
 
-                # Positions of the particles, in the cell unit
-                r_cell = invdr*(rj - rmin) - 0.5
-                z_cell = invdz*(zj - zmin) - 0.5
+            # Calculate rho
+            # -------------
+            R_m_scal = wj * exptheta_m
 
-                # Calculate rho
-                # -------------
-                R_m_scal = wj * exptheta_m
+            R_m_00 += r_shape_cubic(r_cell, 0)*z_shape_cubic(z_cell, 0)*R_m_scal
+            R_m_01 += r_shape_cubic(r_cell, 0)*z_shape_cubic(z_cell, 1)*R_m_scal
+            R_m_02 += r_shape_cubic(r_cell, 0)*z_shape_cubic(z_cell, 2)*R_m_scal
+            R_m_03 += r_shape_cubic(r_cell, 0)*z_shape_cubic(z_cell, 3)*R_m_scal
 
-                R_m_00 += r_shape_cubic(r_cell, 0)*z_shape_cubic(z_cell, 0)*R_m_scal
-                R_m_01 += r_shape_cubic(r_cell, 0)*z_shape_cubic(z_cell, 1)*R_m_scal
-                R_m_02 += r_shape_cubic(r_cell, 0)*z_shape_cubic(z_cell, 2)*R_m_scal
-                R_m_03 += r_shape_cubic(r_cell, 0)*z_shape_cubic(z_cell, 3)*R_m_scal
+            R_m_10 += r_shape_cubic(r_cell, 1)*z_shape_cubic(z_cell, 0)*R_m_scal
+            R_m_11 += r_shape_cubic(r_cell, 1)*z_shape_cubic(z_cell, 1)*R_m_scal
+            R_m_12 += r_shape_cubic(r_cell, 1)*z_shape_cubic(z_cell, 2)*R_m_scal
+            R_m_13 += r_shape_cubic(r_cell, 1)*z_shape_cubic(z_cell, 3)*R_m_scal
 
-                R_m_10 += r_shape_cubic(r_cell, 1)*z_shape_cubic(z_cell, 0)*R_m_scal
-                R_m_11 += r_shape_cubic(r_cell, 1)*z_shape_cubic(z_cell, 1)*R_m_scal
-                R_m_12 += r_shape_cubic(r_cell, 1)*z_shape_cubic(z_cell, 2)*R_m_scal
-                R_m_13 += r_shape_cubic(r_cell, 1)*z_shape_cubic(z_cell, 3)*R_m_scal
+            R_m_20 += r_shape_cubic(r_cell, 2)*z_shape_cubic(z_cell, 0)*R_m_scal
+            R_m_21 += r_shape_cubic(r_cell, 2)*z_shape_cubic(z_cell, 1)*R_m_scal
+            R_m_22 += r_shape_cubic(r_cell, 2)*z_shape_cubic(z_cell, 2)*R_m_scal
+            R_m_23 += r_shape_cubic(r_cell, 2)*z_shape_cubic(z_cell, 3)*R_m_scal
 
-                R_m_20 += r_shape_cubic(r_cell, 2)*z_shape_cubic(z_cell, 0)*R_m_scal
-                R_m_21 += r_shape_cubic(r_cell, 2)*z_shape_cubic(z_cell, 1)*R_m_scal
-                R_m_22 += r_shape_cubic(r_cell, 2)*z_shape_cubic(z_cell, 2)*R_m_scal
-                R_m_23 += r_shape_cubic(r_cell, 2)*z_shape_cubic(z_cell, 3)*R_m_scal
+            R_m_30 += r_shape_cubic(r_cell, 3)*z_shape_cubic(z_cell, 0)*R_m_scal
+            R_m_31 += r_shape_cubic(r_cell, 3)*z_shape_cubic(z_cell, 1)*R_m_scal
+            R_m_32 += r_shape_cubic(r_cell, 3)*z_shape_cubic(z_cell, 2)*R_m_scal
+            R_m_33 += r_shape_cubic(r_cell, 3)*z_shape_cubic(z_cell, 3)*R_m_scal
 
-                R_m_30 += r_shape_cubic(r_cell, 3)*z_shape_cubic(z_cell, 0)*R_m_scal
-                R_m_31 += r_shape_cubic(r_cell, 3)*z_shape_cubic(z_cell, 1)*R_m_scal
-                R_m_32 += r_shape_cubic(r_cell, 3)*z_shape_cubic(z_cell, 2)*R_m_scal
-                R_m_33 += r_shape_cubic(r_cell, 3)*z_shape_cubic(z_cell, 3)*R_m_scal
+        # Calculate longitudinal indices at which to add charge
+        iz0 = iz_upper - 2
+        iz1 = iz_upper - 1
+        iz2 = iz_upper
+        iz3 = iz_upper + 1
+        if iz0 < 0:
+            iz0 += Nz
+        if iz1 < 0:
+            iz1 += Nz
+        if iz3 > Nz-1:
+            iz3 -= Nz
+        # Calculate radial indices at which to add charge
+        ir0 = ir_upper - 2
+        ir1 = min( ir_upper - 1, Nr-1 )
+        ir2 = min( ir_upper    , Nr-1 )
+        ir3 = min( ir_upper + 1, Nr-1 )
+        if ir0 < 0:
+            # Deposition below the axis: fold index into physical region
+            ir0 = -(1 + ir0)
+        if ir1 < 0:
+            # Deposition below the axis: fold index into physical region
+            ir1 = -(1 + ir1)
 
-            # Calculate longitudinal indices at which to add charge
-            iz0 = iz_upper - 2
-            iz1 = iz_upper - 1
-            iz2 = iz_upper
-            iz3 = iz_upper + 1
-            if iz0 < 0:
-                iz0 += Nz
-            if iz1 < 0:
-                iz1 += Nz
-            if iz3 > Nz-1:
-                iz3 -= Nz
-            # Calculate radial indices at which to add charge
-            ir0 = ir_upper - 2
-            ir1 = min( ir_upper - 1, Nr-1 )
-            ir2 = min( ir_upper    , Nr-1 )
-            ir3 = min( ir_upper + 1, Nr-1 )
-            if ir0 < 0:
-                # Deposition below the axis: fold index into physical region
-                ir0 = -(1 + ir0)
-            if ir1 < 0:
-                # Deposition below the axis: fold index into physical region
-                ir1 = -(1 + ir1)
-
-            # Atomically add the registers to global memory
-            if frequency_per_cell > 0:
-                cuda.atomic.add(chi_m.real, (iz0, ir0), R_m_00.real)
-                cuda.atomic.add(chi_m.real, (iz0, ir1), R_m_10.real)
-                cuda.atomic.add(chi_m.real, (iz0, ir2), R_m_20.real)
-                cuda.atomic.add(chi_m.real, (iz0, ir3), R_m_30.real)
-                cuda.atomic.add(chi_m.real, (iz1, ir0), R_m_01.real)
-                cuda.atomic.add(chi_m.real, (iz1, ir1), R_m_11.real)
-                cuda.atomic.add(chi_m.real, (iz1, ir2), R_m_21.real)
-                cuda.atomic.add(chi_m.real, (iz1, ir3), R_m_31.real)
-                cuda.atomic.add(chi_m.real, (iz2, ir0), R_m_02.real)
-                cuda.atomic.add(chi_m.real, (iz2, ir1), R_m_12.real)
-                cuda.atomic.add(chi_m.real, (iz2, ir2), R_m_22.real)
-                cuda.atomic.add(chi_m.real, (iz2, ir3), R_m_32.real)
-                cuda.atomic.add(chi_m.real, (iz3, ir0), R_m_03.real)
-                cuda.atomic.add(chi_m.real, (iz3, ir1), R_m_13.real)
-                cuda.atomic.add(chi_m.real, (iz3, ir2), R_m_23.real)
-                cuda.atomic.add(chi_m.real, (iz3, ir3), R_m_33.real)
-                if m > 0:
-                    cuda.atomic.add(chi_m.imag, (iz0, ir0), R_m_00.imag)
-                    cuda.atomic.add(chi_m.imag, (iz0, ir1), R_m_10.imag)
-                    cuda.atomic.add(chi_m.imag, (iz0, ir2), R_m_20.imag)
-                    cuda.atomic.add(chi_m.imag, (iz0, ir3), R_m_30.imag)
-                    cuda.atomic.add(chi_m.imag, (iz1, ir0), R_m_01.imag)
-                    cuda.atomic.add(chi_m.imag, (iz1, ir1), R_m_11.imag)
-                    cuda.atomic.add(chi_m.imag, (iz1, ir2), R_m_21.imag)
-                    cuda.atomic.add(chi_m.imag, (iz1, ir3), R_m_31.imag)
-                    cuda.atomic.add(chi_m.imag, (iz2, ir0), R_m_02.imag)
-                    cuda.atomic.add(chi_m.imag, (iz2, ir1), R_m_12.imag)
-                    cuda.atomic.add(chi_m.imag, (iz2, ir2), R_m_22.imag)
-                    cuda.atomic.add(chi_m.imag, (iz2, ir3), R_m_32.imag)
-                    cuda.atomic.add(chi_m.imag, (iz3, ir0), R_m_03.imag)
-                    cuda.atomic.add(chi_m.imag, (iz3, ir1), R_m_13.imag)
-                    cuda.atomic.add(chi_m.imag, (iz3, ir2), R_m_23.imag)
-                    cuda.atomic.add(chi_m.imag, (iz3, ir3), R_m_33.imag)
+        # Atomically add the registers to global memory
+        if frequency_per_cell > 0:
+            cuda.atomic.add(chi_m.real, (iz0, ir0), R_m_00.real)
+            cuda.atomic.add(chi_m.real, (iz0, ir1), R_m_10.real)
+            cuda.atomic.add(chi_m.real, (iz0, ir2), R_m_20.real)
+            cuda.atomic.add(chi_m.real, (iz0, ir3), R_m_30.real)
+            cuda.atomic.add(chi_m.real, (iz1, ir0), R_m_01.real)
+            cuda.atomic.add(chi_m.real, (iz1, ir1), R_m_11.real)
+            cuda.atomic.add(chi_m.real, (iz1, ir2), R_m_21.real)
+            cuda.atomic.add(chi_m.real, (iz1, ir3), R_m_31.real)
+            cuda.atomic.add(chi_m.real, (iz2, ir0), R_m_02.real)
+            cuda.atomic.add(chi_m.real, (iz2, ir1), R_m_12.real)
+            cuda.atomic.add(chi_m.real, (iz2, ir2), R_m_22.real)
+            cuda.atomic.add(chi_m.real, (iz2, ir3), R_m_32.real)
+            cuda.atomic.add(chi_m.real, (iz3, ir0), R_m_03.real)
+            cuda.atomic.add(chi_m.real, (iz3, ir1), R_m_13.real)
+            cuda.atomic.add(chi_m.real, (iz3, ir2), R_m_23.real)
+            cuda.atomic.add(chi_m.real, (iz3, ir3), R_m_33.real)
+            if m > 0:
+                cuda.atomic.add(chi_m.imag, (iz0, ir0), R_m_00.imag)
+                cuda.atomic.add(chi_m.imag, (iz0, ir1), R_m_10.imag)
+                cuda.atomic.add(chi_m.imag, (iz0, ir2), R_m_20.imag)
+                cuda.atomic.add(chi_m.imag, (iz0, ir3), R_m_30.imag)
+                cuda.atomic.add(chi_m.imag, (iz1, ir0), R_m_01.imag)
+                cuda.atomic.add(chi_m.imag, (iz1, ir1), R_m_11.imag)
+                cuda.atomic.add(chi_m.imag, (iz1, ir2), R_m_21.imag)
+                cuda.atomic.add(chi_m.imag, (iz1, ir3), R_m_31.imag)
+                cuda.atomic.add(chi_m.imag, (iz2, ir0), R_m_02.imag)
+                cuda.atomic.add(chi_m.imag, (iz2, ir1), R_m_12.imag)
+                cuda.atomic.add(chi_m.imag, (iz2, ir2), R_m_22.imag)
+                cuda.atomic.add(chi_m.imag, (iz2, ir3), R_m_32.imag)
+                cuda.atomic.add(chi_m.imag, (iz3, ir0), R_m_03.imag)
+                cuda.atomic.add(chi_m.imag, (iz3, ir1), R_m_13.imag)
+                cuda.atomic.add(chi_m.imag, (iz3, ir2), R_m_23.imag)
+                cuda.atomic.add(chi_m.imag, (iz3, ir3), R_m_33.imag)
