@@ -7,7 +7,7 @@ It defines the structure and methods associated with the particles.
 """
 import warnings
 import numpy as np
-from scipy.constants import e
+from scipy.constants import e, epsilon_0
 from .tracking import ParticleTracker
 from .elementary_process.ionization import Ionizer
 from .elementary_process.compton import ComptonScatterer
@@ -1160,13 +1160,14 @@ class Particles(object) :
                                 self.cell_idx, self.prefix_sum)
 
             elif fieldtype == 'chi':
-                for m in self.envelope_mode_numbers:
+                for m in fld.envelope_mode_numbers:
                     envelope_grid = fld.envelope_interp[m]
                     if self.particle_shape == 'linear':
                         deposit_chi_gpu_linear_one_mode[
                             dim_grid_2d_flat, dim_block_2d_flat](
-                            self.x, self.y, self.z, weight, self.q,
-                            self.m, self.inv_gamma,
+                            self.x, self.y, self.z, weight,
+                            self.q**2/(self.m*epsilon_0),
+                            self.inv_gamma,
                             envelope_grid.invdz, envelope_grid.zmin,
                             envelope_grid.Nz, envelope_grid.invdr,
                             envelope_grid.rmin, envelope_grid.Nr,
@@ -1175,8 +1176,9 @@ class Particles(object) :
                     elif self.particle_shape == 'cubic':
                         deposit_chi_gpu_cubic_one_mode[
                             dim_grid_2d_flat, dim_block_2d_flat](
-                            self.x, self.y, self.z, weight, self.q,
-                            self.m, self.inv_gamma,
+                            self.x, self.y, self.z, weight,
+                            self.q**2/(self.m*epsilon_0),
+                            self.inv_gamma,
                             envelope_grid.invdz, envelope_grid.zmin,
                             envelope_grid.Nz, envelope_grid.invdr,
                             envelope_grid.rmin, envelope_grid.Nr,
@@ -1231,8 +1233,8 @@ class Particles(object) :
                 # Deposit chi using CPU threading
                 if self.particle_shape == 'linear':
                     deposit_chi_numba_linear(
-                        self.x, self.y, self.z, weight, self.q,
-                        self.m, self.inv_gamma,
+                        self.x, self.y, self.z, weight,
+                        self.q**2/(self.m*epsilon_0), self.inv_gamma,
                         envelope_grid[0].invdz, envelope_grid[0].zmin,
                         envelope_grid[0].Nz, envelope_grid[0].invdr,
                         envelope_grid[0].rmin, envelope_grid[0].Nr,
@@ -1240,8 +1242,8 @@ class Particles(object) :
                         nthreads, ptcl_chunk_indices )
                 elif self.particle_shape == 'cubic':
                     deposit_chi_numba_cubic(
-                        self.x, self.y, self.z, weight, self.q,
-                        self.m, self.inv_gamma,
+                        self.x, self.y, self.z, weight,
+                        self.q**2/(self.m*epsilon_0), self.inv_gamma,
                         envelope_grid[0].invdz, envelope_grid[0].zmin,
                         envelope_grid[0].Nz, envelope_grid[0].invdr,
                         envelope_grid[0].rmin, envelope_grid[0].Nr,

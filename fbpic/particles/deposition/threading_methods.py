@@ -186,7 +186,7 @@ def deposit_rho_numba_linear(x, y, z, w, q,
 # -------------------------------
 
 @njit_parallel
-def deposit_chi_numba_linear(x, y, z, w, q, M, inv_gamma,
+def deposit_chi_numba_linear(x, y, z, w, q2_over_m_e0, inv_gamma,
                            invdz, zmin, Nz,
                            invdr, rmin, Nr,
                            chi_global, Nm,
@@ -211,12 +211,10 @@ def deposit_chi_numba_linear(x, y, z, w, q, M, inv_gamma,
         The weights of the particles
         (For ionizable atoms: weight times the ionization level)
 
-    q : float
-        Charge of the species
-        (For ionizable atoms: this is always the elementary charge e)
-
-    M : float
-        Mass of the species
+    q2_over_m_e0 : float
+        The ratio of the charge squared over the mass of the species,
+        divided by epsilon0
+        (For ionizable atoms: the charge is always the elementary charge e)
 
     inv_gamma : float
         Inverse of the gamma factor of the particles
@@ -261,10 +259,8 @@ def deposit_chi_numba_linear(x, y, z, w, q, M, inv_gamma,
             xj = x[i_ptcl]
             yj = y[i_ptcl]
             zj = z[i_ptcl]
-            # Gamma factor
-            inv_gammaj = inv_gamma[i_ptcl]
-            # Weights
-            wj = q**2 / M * inv_gammaj *  w[i_ptcl]
+            # Weighted contribution of this particle
+            wj = q2_over_m_e0 * inv_gamma[i_ptcl] *  w[i_ptcl]
 
             # Cylindrical conversion
             rj = math.sqrt(xj**2 + yj**2)
@@ -572,7 +568,7 @@ def deposit_rho_numba_cubic(x, y, z, w, q,
 # -------------------------------
 
 @njit_parallel
-def deposit_chi_numba_cubic(x, y, z, w, q, M, inv_gamma,
+def deposit_chi_numba_cubic(x, y, z, w, q2_over_m_e0, inv_gamma,
                           invdz, zmin, Nz,
                           invdr, rmin, Nr,
                           chi_global, Nm,
@@ -597,12 +593,9 @@ def deposit_chi_numba_cubic(x, y, z, w, q, M, inv_gamma,
         The weights of the particles
         (For ionizable atoms: weight times the ionization level)
 
-    q : float
-        Charge of the species
-        (For ionizable atoms: this is always the elementary charge e)
-
-    M : float
-        Mass of the species
+    q2_over_m_e0 : float
+        The ratio of the charge squared over the mass of the species,
+        divided by epsilon0
 
     inv_gamma : float
         Inverse of the gamma factor of the particles
@@ -647,10 +640,8 @@ def deposit_chi_numba_cubic(x, y, z, w, q, M, inv_gamma,
             xj = x[i_ptcl]
             yj = y[i_ptcl]
             zj = z[i_ptcl]
-            # Gamma factor
-            inv_gammaj = inv_gamma[i_ptcl]
-            # Weights
-            wj = q**2 / M * inv_gammaj *  w[i_ptcl]
+            # Weighted contribution of this macroparticle
+            wj = q2_over_m_e0 * inv_gamma[i_ptcl] *  w[i_ptcl]
 
             # Cylindrical conversion
             rj = math.sqrt(xj**2 + yj**2)

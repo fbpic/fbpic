@@ -777,10 +777,10 @@ class Fields(object) :
         for m in range(self.Nm):
             self.interp[m].divide_by_volume( fieldtype )
 
-    def divide_by_volume_and_e0( self, fieldtype ) :
+    def divide_by_volume_envelope( self, fieldtype ) :
         """
-        Divide the field `fieldtype` in each cell by the cell volume times
-        epsilon_0, on the interpolation grid.
+        Divide the field `fieldtype` in each cell by the cell volume,
+        on the envelope interpolation grid.
 
         This is typically done for chi, after the deposition.
 
@@ -791,7 +791,7 @@ class Fields(object) :
             the volume ('chi')
         """
         for m in self.envelope_mode_numbers:
-            self.envelope_interp[m].divide_by_volume_and_e0( fieldtype )
+            self.envelope_interp[m].divide_by_volume_envelope( fieldtype )
 
     def compute_grad_a(self):
         """

@@ -495,7 +495,7 @@ def deposit_J_gpu_linear(x, y, z, w, q,
 
 
 @cuda.jit
-def deposit_chi_gpu_linear_one_mode(x, y, z, w, q, M, inv_gamma,
+def deposit_chi_gpu_linear_one_mode(x, y, z, w, q2_over_m_e0, inv_gamma,
                            invdz, zmin, Nz,
                            invdr, rmin, Nr,
                            chi_m, m,
@@ -521,12 +521,9 @@ def deposit_chi_gpu_linear_one_mode(x, y, z, w, q, M, inv_gamma,
         The weights of the particles
         (For ionizable atoms: weight times the ionization level)
 
-    q : float
-        Charge of the species
-        (For ionizable atoms: this is always the elementary charge e)
-
-    M : float
-        Mass of the species
+    q2_over_m_e0 : float
+        The ratio of the charge squared over the mass of the species,
+        divided by epsilon0
 
     inv_gamma : float
         Inverse of the gamma factor of the particles
@@ -594,10 +591,8 @@ def deposit_chi_gpu_linear_one_mode(x, y, z, w, q, M, inv_gamma,
             xj = x[ptcl_idx]
             yj = y[ptcl_idx]
             zj = z[ptcl_idx]
-            # Gamma factor
-            inv_gammaj = inv_gamma[ptcl_idx]
-            # Weights
-            wj = q**2 / M * inv_gammaj * w[ptcl_idx]
+            # Weighted contribution for this macroparticle
+            wj = q2_over_m_e0 * inv_gamma[ptcl_idx] * w[ptcl_idx]
 
             # Cylindrical conversion
             rj = math.sqrt(xj**2 + yj**2)
@@ -1472,7 +1467,7 @@ def deposit_J_gpu_cubic(x, y, z, w, q,
 # -------------------------------
 
 @cuda.jit
-def deposit_chi_gpu_cubic_one_mode(x, y, z, w, q,  M, inv_gamma,
+def deposit_chi_gpu_cubic_one_mode(x, y, z, w, q2_over_m_e0, inv_gamma,
                           invdz, zmin, Nz,
                           invdr, rmin, Nr,
                           chi_m, m,
@@ -1497,12 +1492,10 @@ def deposit_chi_gpu_cubic_one_mode(x, y, z, w, q,  M, inv_gamma,
         The weights of the particles
         (For ionizable atoms: weight times the ionization level)
 
-    q : float
-        Charge of the species
-        (For ionizable atoms: this is always the elementary charge e)
-
-    M : float
-        Mass of the species
+    q2_over_m_e0 : float
+        The ratio of the charge squared over the mass of the species,
+        divided by epsilon0
+        (For ionizable atoms: the charge is always the elementary charge e)
 
     inv_gamma : float
         Inverse of the gamma factor of the particles
@@ -1582,10 +1575,8 @@ def deposit_chi_gpu_cubic_one_mode(x, y, z, w, q,  M, inv_gamma,
             xj = x[ptcl_idx]
             yj = y[ptcl_idx]
             zj = z[ptcl_idx]
-            # Gamma factor
-            inv_gammaj = inv_gamma[ptcl_idx]
-            # Weights
-            wj = q**2 / M * inv_gammaj * w[ptcl_idx]
+            # Weighted contribution for this particle
+            wj = q2_over_m_e0 * inv_gamma[ptcl_idx] * w[ptcl_idx]
 
             # Cylindrical conversion
             rj = math.sqrt(xj**2 + yj**2)

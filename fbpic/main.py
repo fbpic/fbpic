@@ -642,7 +642,7 @@ class Simulation(object):
             # Sum contribution from each CPU threads (skipped on GPU)
             fld.sum_reduce_deposition_array('chi')
             # Divide by cell volume
-            fld.divide_by_volume_and_e0('chi')
+            fld.divide_by_volume_envelope('chi')
 
         else:
             raise ValueError('Unknown fieldtype: %s' %fieldtype)
