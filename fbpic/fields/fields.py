@@ -17,7 +17,7 @@ from .interpolation_grid import FieldInterpolationGrid, \
 from .spectral_grid import FieldSpectralGrid, \
                          EnvelopeSpectralGrid
 from .psatd_coefs import PsatdCoeffs
-from fbpic.utils.cuda import cuda_installed, cuda_tpb_bpg_2d
+from fbpic.utils.cuda import cuda_installed
 if cuda_installed:
     from numba import cuda
     from fbpic.utils.cuda import cuda_tpb_bpg_2d
