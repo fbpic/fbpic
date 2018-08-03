@@ -495,7 +495,7 @@ def deposit_J_gpu_linear(x, y, z, w, q,
 
 
 @cuda.jit
-def deposit_chi_gpu_linear(x, y, z, w, q, M, inv_gamma,
+def deposit_chi_gpu_linear_one_mode(x, y, z, w, q, M, inv_gamma,
                            invdz, zmin, Nz,
                            invdr, rmin, Nr,
                            chi_m, m,
@@ -1472,7 +1472,7 @@ def deposit_J_gpu_cubic(x, y, z, w, q,
 # -------------------------------
 
 @cuda.jit
-def deposit_chi_gpu_cubic(x, y, z, w, q,  M, inv_gamma,
+def deposit_chi_gpu_cubic_one_mode(x, y, z, w, q,  M, inv_gamma,
                           invdz, zmin, Nz,
                           invdr, rmin, Nr,
                           chi_m, m,

@@ -42,7 +42,7 @@ if cuda_installed:
                         push_p_after_plane_envelope_gpu, update_inv_gamma_gpu
     from .deposition.cuda_methods import deposit_rho_gpu_linear, \
         deposit_J_gpu_linear, deposit_rho_gpu_cubic, deposit_J_gpu_cubic, \
-        deposit_chi_gpu_cubic, deposit_chi_gpu_linear
+        deposit_chi_gpu_cubic_one_mode, deposit_chi_gpu_linear_one_mode
     from .deposition.cuda_methods_one_mode import \
         deposit_rho_gpu_linear_one_mode, deposit_J_gpu_linear_one_mode, \
         deposit_rho_gpu_cubic_one_mode, deposit_J_gpu_cubic_one_mode
