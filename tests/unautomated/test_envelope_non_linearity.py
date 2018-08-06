@@ -15,8 +15,8 @@ show = True # Whether to show the plots, and check them manually
 use_cuda = False
 
 # Simulation box
-Nz = 500
-zmin = -15.e-6
+Nz = 350
+zmin = -25.e-6
 zmax = 10.e-6
 Nr = 120
 rmax = 6
@@ -25,7 +25,7 @@ n_order = -1
 w0 = 2
 k0 = 2*np.pi/0.8e-6
 kp = k0 / 20
-ctau = np.sqrt(2)/kp
+ctau = 2/kp
 print(ctau)
 
 a0 = 1.5
@@ -39,7 +39,7 @@ n_critical = k0**2 * m_e / (mu_0 * e**2) # Theoretical critical density
 p_zmin = -15.e-6  # Position of the beginning of the plasma (meters)
 p_zmax = 500.e-6 # Position of the end of the plasma (meters)
 p_rmin = 0.      # Minimal radial position of the plasma (meters)
-p_rmax = 6  # Maximal radial position of the plasma (meters)
+p_rmax = 6000  # Maximal radial position of the plasma (meters)
 n_e = n_critical /400 # Density (electrons.meters^-3)
 print(n_e)
 p_nz = 2         # Number of particles per cell along z
@@ -151,7 +151,6 @@ def show_transform( grid, fieldtype ):
 
 Nm = 1
 dt = (zmax-zmin)*1./c/Nz
-dt = 0.05e-6/c
 print(c*dt)
 print(L_prop)
 print(L_prop / c / dt)
