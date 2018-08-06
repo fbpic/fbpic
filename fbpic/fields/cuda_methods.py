@@ -493,6 +493,9 @@ def cuda_compute_grad_a( a, grad_a_p, grad_a_m, grad_a_z, d_kr, d_kz, Nz, Nr ):
 @cuda.jit
 
 def cuda_convolve(chi_a, chi, a):
+    """
+    Multiply the arrays `a` and `chi` element-wise, and store the result in `chi_a`
+    """
     # Cuda 2D grid
     iz, ir = cuda.grid(2)
 
@@ -500,6 +503,9 @@ def cuda_convolve(chi_a, chi, a):
         chi_a[iz, ir] += chi[iz, ir] * a[iz, ir]
 
 def cuda_copy_arrays(copy, array, Nz, Nr):
+    """
+    Copy the array components to the copy
+    """
     # Cuda 2D grid
     iz, ir = cuda.grid(2)
 

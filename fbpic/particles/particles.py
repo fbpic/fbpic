@@ -1044,8 +1044,6 @@ class Particles(object) :
 
         # Shortcuts and safe-guards
         grid = fld.interp
-        if self.use_envelope:
-            envelope_grid = fld.envelope_interp
         assert fieldtype in ['rho', 'J', 'chi']
         assert self.particle_shape in ['linear', 'cubic']
 

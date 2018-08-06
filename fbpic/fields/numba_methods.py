@@ -405,6 +405,9 @@ def reduce_slice( reduced_array, iz, global_array, iz_global, m ):
 
 @njit_parallel
 def numba_convolve( chi_a, chi, a):
+    """
+    Multiply the arrays `a` and `chi` element-wise, and store the result in `chi_a`
+    """
     Nz, Nr = chi_a.shape
     for iz in prange(Nz):
         for ir in range(Nr):
