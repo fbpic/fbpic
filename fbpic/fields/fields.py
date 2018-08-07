@@ -808,7 +808,7 @@ class Fields(object) :
     def convolve_a_chi(self):
         """
         Obtain the product chi * a in the different azimuthal modes instead
-        of only chi and replace chi in the InterpolationGrid by this product
+        of only chi and store the result in the `chi_a`
         """
         for m in self.envelope_mode_numbers:
             for i in range(-self.Nm +1 + max(m,0), self.Nm + min(m, 0)):

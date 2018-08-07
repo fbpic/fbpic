@@ -425,11 +425,7 @@ class Simulation(object):
                         species.push_p_with_envelope(self.time + 0.5 * dt,
                                     timestep = self.dt/2, keep_momentum = False)
                 # Deposition of chi at time n dt
-                self.deposit('chi')
-                #Obtain the convolution product of  chi by the envelope field
-                fld.convolve_a_chi()
-                fld.interp2spect('chi_a')
-                fld.filter_spect('chi_a')
+                self.deposit('chi_a')
                 # Push the envelope fields to time (n+1) dt
                 fld.push_envelope()
                 fld.spect2interp('a')
@@ -632,7 +628,7 @@ class Simulation(object):
                 self.comm.exchange_fields(fld.interp, 'J', 'add')
 
         # Plasma susceptibility
-        elif fieldtype == 'chi':
+        elif fieldtype == 'chi_a':
             assert self.use_envelope
             fld.erase('chi')
             fld.erase('chi_a')
@@ -643,15 +639,17 @@ class Simulation(object):
             fld.sum_reduce_deposition_array('chi')
             # Divide by cell volume
             fld.divide_by_volume_envelope('chi')
+            fld.divide_by_volume_and_e0('chi')
+            # Obtain the convolution product of  chi by the envelope field
+            fld.convolve_a_chi()
 
         else:
             raise ValueError('Unknown fieldtype: %s' %fieldtype)
 
         # Get the charge or currents on the spectral grid
-        if fieldtype != 'chi':
-            fld.interp2spect( fieldtype )
-            if self.filter_currents:
-                fld.filter_spect( fieldtype )
+        fld.interp2spect( fieldtype )
+        if self.filter_currents:
+            fld.filter_spect( fieldtype )
         # Set the flag to indicate whether these fields have been exchanged
         fld.exchanged_source[ fieldtype ] = exchange
 
