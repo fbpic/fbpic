@@ -7,7 +7,6 @@ It defines the high-level Fields class.
 """
 import warnings
 import numpy as np
-from numba import cuda
 from fbpic.utils.threading import nthreads
 from .numba_methods import sum_reduce_2d_array, numba_erase_threading_buffer, \
                             numba_convolve
@@ -20,6 +19,7 @@ from .spectral_grid import FieldSpectralGrid, \
 from .psatd_coefs import PsatdCoeffs
 from fbpic.utils.cuda import cuda_installed
 if cuda_installed:
+    from numba import cuda
     from fbpic.utils.cuda import cuda_tpb_bpg_2d
     from .cuda_methods import cuda_convolve, cuda_copy_arrays
 
@@ -216,8 +216,8 @@ class Fields(object) :
             #Create the envelope interpolation grids for each modes
             #The envelope modes range from -Nm + 1 to Nm - 1
             self.envelope_interp = []
-            self.envelope_mode_numbers = [ m for m in range(self.Nm) ] + \
-                                         [ m for m in range(-self.Nm+1, 0)]
+            self.envelope_mode_numbers = np.array(
+              [m for m in range(self.Nm)] + [m for m in range(-self.Nm+1,0)])
             for m in self.envelope_mode_numbers[self.Nm:]:
                 self.trans.append( SpectralTransformer(
                     Nz, Nr, m, rmax, use_cuda=self.use_cuda ) )
@@ -777,10 +777,10 @@ class Fields(object) :
         for m in range(self.Nm):
             self.interp[m].divide_by_volume( fieldtype )
 
-    def divide_by_volume_and_e0( self, fieldtype ) :
+    def divide_by_volume_envelope( self, fieldtype ) :
         """
-        Divide the field `fieldtype` in each cell by the cell volume times
-        epsilon_0, on the interpolation grid.
+        Divide the field `fieldtype` in each cell by the cell volume,
+        on the envelope interpolation grid.
 
         This is typically done for chi, after the deposition.
 
@@ -791,7 +791,7 @@ class Fields(object) :
             the volume ('chi')
         """
         for m in self.envelope_mode_numbers:
-            self.envelope_interp[m].divide_by_volume_and_e0( fieldtype )
+            self.envelope_interp[m].divide_by_volume_envelope( fieldtype )
 
     def compute_grad_a(self):
         """
@@ -808,7 +808,7 @@ class Fields(object) :
     def convolve_a_chi(self):
         """
         Obtain the product chi * a in the different azimuthal modes instead
-        of only chi and replace chi in the InterpolationGrid by this product
+        of only chi and store the result in the `chi_a`
         """
         for m in self.envelope_mode_numbers:
             for i in range(-self.Nm +1 + max(m,0), self.Nm + min(m, 0)):
@@ -838,16 +838,17 @@ class Fields(object) :
             Whether to also copy the gradients
         """
         if self.use_cuda:
+            dim_grid, dim_block = cuda_tpb_bpg_2d( self.Nz, self.Nr )
             for m in self.envelope_mode_numbers:
-                cuda_copy_arrays(self.a_global[m],
-                    self.envelope_interp[m].a, self.Nz, self.Nr)
+                cuda_copy_arrays[dim_grid, dim_block](self.a_global,
+                    self.envelope_interp[m].a, self.Nz, self.Nr, m)
                 if copy_gradient:
-                    cuda_copy_arrays(self.grad_a_r_global[m],
-                        self.envelope_interp[m].grad_a_r, self.Nz, self.Nr)
-                    cuda_copy_arrays(self.grad_a_t_global[m],
-                        self.envelope_interp[m].grad_a_t, self.Nz, self.Nr)
-                    cuda_copy_arrays(self.grad_a_z_global[m],
-                        self.envelope_interp[m].grad_a_z, self.Nz, self.Nr)
+                    cuda_copy_arrays[dim_grid, dim_block](self.grad_a_r_global,
+                        self.envelope_interp[m].grad_a_r, self.Nz, self.Nr, m)
+                    cuda_copy_arrays[dim_grid, dim_block](self.grad_a_t_global,
+                        self.envelope_interp[m].grad_a_t, self.Nz, self.Nr, m)
+                    cuda_copy_arrays[dim_grid, dim_block](self.grad_a_z_global,
+                        self.envelope_interp[m].grad_a_z, self.Nz, self.Nr, m)
         else:
             for m in self.envelope_mode_numbers:
                 self.a_global[m,:,:] = self.envelope_interp[m].a
