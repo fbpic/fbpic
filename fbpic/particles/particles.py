@@ -1159,7 +1159,7 @@ class Particles(object) :
 
             elif fieldtype == 'chi':
                 for m in fld.envelope_mode_numbers:
-                    envelope_grid = fld.envelope_interp[m]
+                    envelope_grid = fld.envelope_interp
                     if self.particle_shape == 'linear':
                         deposit_chi_gpu_linear_one_mode[
                             dim_grid_2d_flat, dim_block_2d_flat](
