@@ -1,3 +1,7 @@
+"""
+This test reproduces the test simulation from
+Benedetti, PPCF, 2018, using the envelope solver
+"""
 import numpy as np
 from scipy.constants import c, mu_0, m_e, e
 from fbpic.main import Simulation
@@ -25,14 +29,12 @@ n_order = -1
 w0 = 2
 k0 = 2*np.pi/0.8e-6
 kp = k0 / 20
-ctau = np.sqrt(2)/kp
-print(ctau)
+ctau = 2./kp
 
 a0 = 1.5
 # Propagation
 L_prop = 1500/kp
 zf = 25.e-6
-print(L_prop)
 
 # The particles
 n_critical = k0**2 * m_e / (mu_0 * e**2) # Theoretical critical density
@@ -41,7 +43,6 @@ p_zmax = 500.e-6 # Position of the end of the plasma (meters)
 p_rmin = 0.      # Minimal radial position of the plasma (meters)
 p_rmax = 6  # Maximal radial position of the plasma (meters)
 n_e = n_critical /400 # Density (electrons.meters^-3)
-print(n_e)
 p_nz = 2         # Number of particles per cell along z
 p_nr = 2         # Number of particles per cell along r
 
@@ -169,9 +170,6 @@ def show_coefs( grid, fieldtype, ps ):
     # Select the field to plot
     plotted_field = 2 * (ps.C_w_laser_env - ps.C_w_tot_env) * \
      grid.chi_a / ps.w_transform_2
-    # Show the field also below the axis for a more realistic picture
-    #plotted_field = np.hstack( (plotted_field[:,::-1],plotted_field) )
-    #extent = 1.e6*np.array([grid.kz[Nz//2-1,0], grid.kz[Nz//2 +1,0], grid.kr[0,0], grid.kr[-1,-1]])
     plt.clf()
     plt.suptitle('chi_a, for mode %d' %(grid.m) )
 
@@ -234,10 +232,6 @@ def show_coefs2( grid, fieldtype, ps ):
 Nm = 1
 dt = (zmax-zmin)*1./c/Nz
 dt = 0.08e-6/c
-print(c*dt)
-print(L_prop)
-print(L_prop / c / dt)
-
 
 sim = Simulation( Nz, zmax, Nr, rmax, Nm, dt,
     p_zmin=p_zmin, p_zmax=p_zmax, p_rmin=p_rmin, p_rmax=p_rmax, p_nz=p_nz,
@@ -267,7 +261,6 @@ show_fields(sim.fld.envelope_interp[0], 'a')
 plt.plot(sim.fld.envelope_interp[0].a.real[:,0])
 plt.plot(sim.fld.envelope_interp[0].a.imag[:,0])
 plt.show()
-#show_coefs2(sim.fld.envelope_spect[0], 'a', sim.fld.psatd[0])
 
 for it in range(k_iter):
     sim.step( Ntot_step_init//k_iter, show_progress= True )
@@ -276,10 +269,6 @@ for it in range(k_iter):
     show_fields(sim.fld.envelope_interp[0], 'chi')
     show_coefs(sim.fld.envelope_spect[0], 'a', sim.fld.psatd[0])
     i, j = np.unravel_index(np.argmax(np.abs(sim.fld.envelope_spect[0].a)), np.abs(sim.fld.envelope_spect[0].a).shape)
-    print(i,j)
-    print(kz[i][j], kr[i][j])
-    print(abs(sim.fld.envelope_spect[0].a[i][j]))
-    #show_coefs2(sim.fld.envelope_spect[0], 'a', sim.fld.psatd[0])
     plt.plot(np.abs(sim.fld.envelope_interp[0].a[:,0]))
     plt.show()
     plt.plot(np.abs(sim.fld.envelope_interp[0].a[:,0]))

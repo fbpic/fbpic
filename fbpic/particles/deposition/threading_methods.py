@@ -192,7 +192,7 @@ def deposit_chi_numba_linear(x, y, z, w, q2_over_m_e0, inv_gamma,
                            chi_global, Nm,
                            nthreads, ptcl_chunk_indices):
     """
-    Deposition of the charge density chi using numba prange on the CPU.
+    Deposition of the susceptibility chi using numba prange on the CPU.
     Iterates over the threads in parallel, while each thread iterates
     over a batch of particles. Intermediate results for each threads are
     stored in copies of the global grid. At the end of the parallel loop,
@@ -449,14 +449,14 @@ def deposit_rho_numba_cubic(x, y, z, w, q,
                           rho_global, Nm,
                           nthreads, ptcl_chunk_indices):
     """
-    Deposition of the charge density chi using numba prange on the CPU.
+    Deposition of the charge density rho using numba prange on the CPU.
     Iterates over the threads in parallel, while each thread iterates
     over a batch of particles. Intermediate results for each threads are
     stored in copies of the global grid. At the end of the parallel loop,
     the thread-local field arrays are combined (summed) to the global array.
     (This final reduction is *not* done in this function)
 
-    Calculates the weighted amount of chi that is deposited to the
+    Calculates the weighted amount of rho that is deposited to the
     16 cells surounding the particle based on its shape (cubic).
 
     Parameters
@@ -574,14 +574,14 @@ def deposit_chi_numba_cubic(x, y, z, w, q2_over_m_e0, inv_gamma,
                           chi_global, Nm,
                           nthreads, ptcl_chunk_indices):
     """
-    Deposition of the charge density rho using numba prange on the CPU.
+    Deposition of the susceptibility chi using numba prange on the CPU.
     Iterates over the threads in parallel, while each thread iterates
     over a batch of particles. Intermediate results for each threads are
     stored in copies of the global grid. At the end of the parallel loop,
     the thread-local field arrays are combined (summed) to the global array.
     (This final reduction is *not* done in this function)
 
-    Calculates the weighted amount of rho that is deposited to the
+    Calculates the weighted amount of chi that is deposited to the
     16 cells surounding the particle based on its shape (cubic).
 
     Parameters
