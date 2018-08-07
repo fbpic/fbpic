@@ -7,7 +7,6 @@ It defines the InterpolationGrid class.
 """
 import numpy as np
 from numba import cuda
-from scipy.constants import epsilon_0
 # Check if CUDA is available, then import CUDA functions
 from fbpic.utils.cuda import cuda_installed
 if cuda_installed:
@@ -334,10 +333,10 @@ class EnvelopeInterpolationGrid(InterpolationGrid):
             else :
                 raise ValueError('Invalid string for fieldtype: %s'%fieldtype)
 
-    def divide_by_volume_and_e0( self, fieldtype ) :
+    def divide_by_volume_envelope( self, fieldtype ) :
         """
-        Divide the field `fieldtype` in each cell by the cell volume and
-        epsilon_0, on the interpolation grid.
+        Divide the field `fieldtype` in each cell by the cell volume
+        on the interpolation grid.
 
         This is typically done for chi, after the deposition.
 
@@ -353,12 +352,12 @@ class EnvelopeInterpolationGrid(InterpolationGrid):
 
             if fieldtype == 'chi':
                 cuda_divide_scalar_by_volume[dim_grid, dim_block](
-                        self.chi, self.d_invvol / epsilon_0 )
+                        self.chi, self.d_invvol )
             else:
                 raise ValueError('Invalid string for fieldtype: %s'%fieldtype)
         else :
             # Perform division on the CPU
             if fieldtype == 'chi':
-                self.chi *= self.invvol[np.newaxis,:] / epsilon_0
+                self.chi *= self.invvol[np.newaxis,:]
             else:
                 raise ValueError('Invalid string for fieldtype: %s'%fieldtype)

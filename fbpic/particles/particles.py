@@ -7,7 +7,7 @@ It defines the structure and methods associated with the particles.
 """
 import warnings
 import numpy as np
-from scipy.constants import e
+from scipy.constants import e, epsilon_0
 from .tracking import ParticleTracker
 from .elementary_process.ionization import Ionizer
 from .elementary_process.compton import ComptonScatterer
@@ -42,7 +42,7 @@ if cuda_installed:
                         push_p_after_plane_envelope_gpu, update_inv_gamma_gpu
     from .deposition.cuda_methods import deposit_rho_gpu_linear, \
         deposit_J_gpu_linear, deposit_rho_gpu_cubic, deposit_J_gpu_cubic, \
-        deposit_chi_gpu_cubic, deposit_chi_gpu_linear
+        deposit_chi_gpu_cubic_one_mode, deposit_chi_gpu_linear_one_mode
     from .deposition.cuda_methods_one_mode import \
         deposit_rho_gpu_linear_one_mode, deposit_J_gpu_linear_one_mode, \
         deposit_rho_gpu_cubic_one_mode, deposit_J_gpu_cubic_one_mode
@@ -680,7 +680,7 @@ class Particles(object) :
                     self.Bx, self.By, self.Bz,
                     self.a2, self.grad_a2_x, self.grad_a2_y, self.grad_a2_z,
                     self.m, self.Ntot, timestep, self.ionizer.ionization_level,
-                    keep_momentum = keep_momentum )
+                    keep_momentum )
             elif z_plane is not None:
                 # Particles that are ballistic before a plane also
                 # require a different pusher
@@ -691,7 +691,7 @@ class Particles(object) :
                     self.Bx, self.By, self.Bz,
                     self.a2, self.grad_a2_x, self.grad_a2_y, self.grad_a2_z,
                     self.q, self.m, self.Ntot, timestep,
-                    keep_momentum = keep_momentum )
+                    keep_momentum )
             else:
                 # Standard pusher
                 push_p_envelope_gpu[dim_grid_1d, dim_block_1d](
@@ -700,7 +700,7 @@ class Particles(object) :
                     self.Bx, self.By, self.Bz,
                     self.a2, self.grad_a2_x, self.grad_a2_y, self.grad_a2_z,
                     self.q, self.m, self.Ntot, timestep,
-                    keep_momentum = keep_momentum)
+                    keep_momentum)
 
         # CPU version
         else:
@@ -1158,33 +1158,30 @@ class Particles(object) :
                                 self.cell_idx, self.prefix_sum)
 
             elif fieldtype == 'chi':
-                envelope_grid = fld.envelope_interp
-                Nm = (len(envelope_grid) + 1) // 2
-                envelope_mode_numbers = [ m for m in range(Nm) ] + \
-                                        [ m for m in range(-Nm+1, 0)]
-                # Using tuples for compatibility with numba
-                chi_tuple = tuple(envelope_grid[m].chi for m in envelope_mode_numbers)
-                m_tuple = tuple(envelope_mode_numbers)
-                if self.particle_shape == 'linear':
-                    deposit_chi_gpu_linear[
-                        dim_grid_2d_flat, dim_block_2d_flat](
-                        self.x, self.y, self.z, weight, self.q,
-                        self.m, self.inv_gamma,
-                        envelope_grid[0].invdz, envelope_grid[0].zmin,
-                        envelope_grid[0].Nz, envelope_grid[0].invdr,
-                        envelope_grid[0].rmin, envelope_grid[0].Nr,
-                        chi_tuple, m_tuple,
-                        self.cell_idx, self.prefix_sum)
-                elif self.particle_shape == 'cubic':
-                    deposit_chi_gpu_cubic[
-                        dim_grid_2d_flat, dim_block_2d_flat](
-                        self.x, self.y, self.z, weight, self.q,
-                        self.m, self.inv_gamma,
-                        envelope_grid[0].invdz, envelope_grid[0].zmin,
-                        envelope_grid[0].Nz, envelope_grid[0].invdr,
-                        envelope_grid[0].rmin, envelope_grid[0].Nr,
-                        chi_tuple, m_tuple,
-                        self.cell_idx, self.prefix_sum)
+                for m in fld.envelope_mode_numbers:
+                    envelope_grid = fld.envelope_interp[m]
+                    if self.particle_shape == 'linear':
+                        deposit_chi_gpu_linear_one_mode[
+                            dim_grid_2d_flat, dim_block_2d_flat](
+                            self.x, self.y, self.z, weight,
+                            self.q**2/(self.m*epsilon_0),
+                            self.inv_gamma,
+                            envelope_grid.invdz, envelope_grid.zmin,
+                            envelope_grid.Nz, envelope_grid.invdr,
+                            envelope_grid.rmin, envelope_grid.Nr,
+                            envelope_grid.chi, m,
+                            self.cell_idx, self.prefix_sum)
+                    elif self.particle_shape == 'cubic':
+                        deposit_chi_gpu_cubic_one_mode[
+                            dim_grid_2d_flat, dim_block_2d_flat](
+                            self.x, self.y, self.z, weight,
+                            self.q**2/(self.m*epsilon_0),
+                            self.inv_gamma,
+                            envelope_grid.invdz, envelope_grid.zmin,
+                            envelope_grid.Nz, envelope_grid.invdr,
+                            envelope_grid.rmin, envelope_grid.Nr,
+                            envelope_grid.chi, m,
+                            self.cell_idx, self.prefix_sum)
 
         # CPU version
         else:
@@ -1234,8 +1231,8 @@ class Particles(object) :
                 # Deposit chi using CPU threading
                 if self.particle_shape == 'linear':
                     deposit_chi_numba_linear(
-                        self.x, self.y, self.z, weight, self.q,
-                        self.m, self.inv_gamma,
+                        self.x, self.y, self.z, weight,
+                        self.q**2/(self.m*epsilon_0), self.inv_gamma,
                         envelope_grid[0].invdz, envelope_grid[0].zmin,
                         envelope_grid[0].Nz, envelope_grid[0].invdr,
                         envelope_grid[0].rmin, envelope_grid[0].Nr,
@@ -1243,8 +1240,8 @@ class Particles(object) :
                         nthreads, ptcl_chunk_indices )
                 elif self.particle_shape == 'cubic':
                     deposit_chi_numba_cubic(
-                        self.x, self.y, self.z, weight, self.q,
-                        self.m, self.inv_gamma,
+                        self.x, self.y, self.z, weight,
+                        self.q**2/(self.m*epsilon_0), self.inv_gamma,
                         envelope_grid[0].invdz, envelope_grid[0].zmin,
                         envelope_grid[0].Nz, envelope_grid[0].invdr,
                         envelope_grid[0].rmin, envelope_grid[0].Nr,

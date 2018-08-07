@@ -638,6 +638,7 @@ class Simulation(object):
             # Sum contribution from each CPU threads (skipped on GPU)
             fld.sum_reduce_deposition_array('chi')
             # Divide by cell volume
+            fld.divide_by_volume_envelope('chi')
             fld.divide_by_volume_and_e0('chi')
             # Obtain the convolution product of  chi by the envelope field
             fld.convolve_a_chi()
