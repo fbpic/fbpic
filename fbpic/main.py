@@ -350,6 +350,7 @@ class Simulation(object):
         fld.interp2spect('E')
         fld.interp2spect('B')
         if fld.use_envelope:
+            self.comm.damp_envelope_open_boundary(fld.envelope_interp)
             fld.interp2spect('a')
             fld.interp2spect('a_old')
 
@@ -424,6 +425,7 @@ class Simulation(object):
                         species.push_p_with_envelope(self.time + 0.5 * dt,
                                     timestep = self.dt/2, keep_momentum = False)
                 # Deposition of chi at time n dt
+                self.deposit('chi_a')
                 # Push the envelope fields to time (n+1) dt
                 fld.push_envelope()
                 fld.spect2interp('a')
@@ -479,6 +481,7 @@ class Simulation(object):
             if move_positions:
                 for species in ptcl:
                     species.push_x( 0.5*dt )
+
             # Get positions for antenna particles at t = (n+1) dt
             for antenna in self.laser_antennas:
                 antenna.push_x( 0.5*dt )
@@ -526,7 +529,15 @@ class Simulation(object):
             # Get the corresponding fields in interpolation space
             fld.spect2interp('E')
             fld.spect2interp('B')
+
             if self.use_envelope:
+
+                fld.spect2partial_interp('a')
+                fld.spect2partial_interp('a_old')
+                self.comm.damp_envelope_open_boundary(fld.envelope_interp)
+                fld.partial_interp2spect('a')
+                fld.partial_interp2spect('a_old')
+
                 fld.spect2interp('a')
 
             # Increment the global time and iteration
@@ -615,6 +626,21 @@ class Simulation(object):
             # Exchange guard cells if requested by the user
             if exchange and self.comm.size > 1:
                 self.comm.exchange_fields(fld.interp, 'J', 'add')
+
+        # Plasma susceptibility
+        elif fieldtype == 'chi_a':
+            assert self.use_envelope
+            fld.erase('chi')
+            fld.erase('chi_a')
+            # Deposit the susceptibility
+            for species in self.ptcl:
+                species.deposit(fld, 'chi')
+            # Sum contribution from each CPU threads (skipped on GPU)
+            fld.sum_reduce_deposition_array('chi')
+            # Divide by cell volume
+            fld.divide_by_volume_envelope('chi')
+            # Obtain the convolution product of  chi by the envelope field
+            fld.convolve_a_chi()
 
         else:
             raise ValueError('Unknown fieldtype: %s' %fieldtype)

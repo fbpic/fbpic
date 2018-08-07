@@ -430,3 +430,79 @@ def cuda_damp_EB_right( Er, Et, Ez, Br, Bt, Bz, damp_array, n_guard, n_damp ):
             Br[iz_right, ir] *= damp_factor_right
             Bt[iz_right, ir] *= damp_factor_right
             Bz[iz_right, ir] *= damp_factor_right
+
+
+@cuda.jit
+def cuda_damp_envelope_left( a, damp_array, n_guard, n_damp ):
+    """
+    Multiply the 'a' fields in the left guard cells
+    by damp_array.
+
+    Parameters :
+    ------------
+    a: 2darrays of complexs
+        Contain the field to be damped
+        The first axis corresponds to z and the second to r
+
+    damp_array : 1darray of floats
+        An array of length n_guard+n_damp,
+        which contains the damping factors.
+
+    n_guard: int
+        Number of guard cells
+
+    n_damp: int
+        Number of damping cells
+    """
+    # Obtain Cuda grid
+    iz, ir = cuda.grid(2)
+
+    # Obtain the size of the array along z and r
+    Nz, Nr = a.shape
+
+    # Modify the fields
+    if ir < Nr :
+        # Apply the damping arrays
+        if iz < n_guard+n_damp:
+            damp_factor_left = damp_array[iz]
+
+            # At the left end
+            a[iz, ir] *= damp_factor_left
+
+@cuda.jit
+def cuda_damp_envelope_right(  a, damp_array, n_guard, n_damp ):
+    """
+    Multiply the 'a' fields in the right guard cells
+    by damp_array.
+
+    Parameters :
+    ------------
+    a: 2darray of complexs
+        Contain the field to be damped
+        The first axis corresponds to z and the second to r
+
+    damp_array : 1darray of floats
+        An array of length n_guard+n_damp,
+        which contains the damping factors.
+
+    n_guard: int
+        Number of guard cells
+
+    n_damp: int
+        Number of damping cells
+    """
+    # Obtain Cuda grid
+    iz, ir = cuda.grid(2)
+
+    # Obtain the size of the array along z and r
+    Nz, Nr = a.shape
+
+    # Modify the fields
+    if ir < Nr :
+        # Apply the damping arrays
+        if iz < n_guard+n_damp:
+            damp_factor_right = damp_array[iz]
+
+            # At the right end
+            iz_right = Nz - iz - 1
+            a[iz_right, ir] *= damp_factor_right

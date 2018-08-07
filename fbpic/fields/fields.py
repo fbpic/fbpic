@@ -8,7 +8,8 @@ It defines the high-level Fields class.
 import warnings
 import numpy as np
 from fbpic.utils.threading import nthreads
-from .numba_methods import sum_reduce_2d_array, numba_erase_threading_buffer
+from .numba_methods import sum_reduce_2d_array, numba_erase_threading_buffer, \
+                            numba_convolve
 from .utility_methods import get_modified_k
 from .spectral_transform import SpectralTransformer
 from .interpolation_grid import FieldInterpolationGrid, \
@@ -16,10 +17,11 @@ from .interpolation_grid import FieldInterpolationGrid, \
 from .spectral_grid import FieldSpectralGrid, \
                          EnvelopeSpectralGrid
 from .psatd_coefs import PsatdCoeffs
-from fbpic.utils.cuda import cuda_installed, cuda_tpb_bpg_2d
+from fbpic.utils.cuda import cuda_installed
 if cuda_installed:
     from numba import cuda
-    from .cuda_methods import cuda_copy_arrays
+    from fbpic.utils.cuda import cuda_tpb_bpg_2d
+    from .cuda_methods import cuda_convolve, cuda_copy_arrays
 
 class Fields(object) :
     """
@@ -135,6 +137,9 @@ class Fields(object) :
                 'Performing the field operations on the CPU.' )
             self.use_cuda = False
 
+        # By default will not use the envelope model
+        self.use_envelope = use_envelope
+
         # Register the current correction type
         if current_correction in ['curl-free', 'cross-deposition']:
             self.current_correction = current_correction
@@ -202,9 +207,10 @@ class Fields(object) :
                     shape=(nthreads, self.Nm, self.Nz+4, self.Nr+4) )
             self.Jz_global = np.zeros( dtype=np.complex128,
                     shape=(nthreads, self.Nm, self.Nz+4, self.Nr+4) )
+            if self.use_envelope:
+                self.chi_global = np.zeros(dtype=np.complex128,
+                    shape=(nthreads, 2*self.Nm-1, self.Nz+4, self.Nr+4))
 
-        # By default will not use the envelope model
-        self.use_envelope = use_envelope
         if self.use_envelope:
             self.lambda_envelope = lambda_envelope
             #Create the envelope interpolation grids for each modes
@@ -431,6 +437,12 @@ class Fields(object) :
                     self.envelope_interp[m].grad_a_t,
                     self.envelope_spect[m].grad_a_p,
                     self.envelope_spect[m].grad_a_m )
+        elif fieldtype == 'chi_a' and self.use_envelope:
+            # Transform each azimuthal grid individually
+            for m in self.envelope_mode_numbers:
+                self.trans[m].interp2spect_scal(
+                    self.envelope_interp[m].chi_a, self.envelope_spect[m].chi_a)
+
         else:
             raise ValueError( 'Invalid string for fieldtype: %s' %fieldtype )
 
@@ -489,7 +501,7 @@ class Fields(object) :
             # Transform each azimuthal grid individually
             for m in self.envelope_mode_numbers:
                 self.trans[m].spect2interp_scal(
-                    self.envelope_spect[m].a_old, self.envelope_interp[m].a_old )
+                    self.envelope_spect[m].a_old, self.envelope_interp[m].a_old)
         elif fieldtype == 'grad_a' and self.use_envelope :
             # Transform each azimuthal grid individually
             for m in self.envelope_mode_numbers :
@@ -501,6 +513,11 @@ class Fields(object) :
                     self.envelope_spect[m].grad_a_m,
                     self.envelope_interp[m].grad_a_r,
                     self.envelope_interp[m].grad_a_t )
+        elif fieldtype == 'chi_a' and self.use_envelope:
+            # Transform each azimuthal grid individually
+            for m in self.envelope_mode_numbers :
+                self.trans[m].spect2interp_scal(
+                    self.envelope_spect[m].chi_a, self.envelope_interp[m].chi_a)
         else :
             raise ValueError( 'Invalid string for fieldtype: %s' %fieldtype )
 
@@ -576,6 +593,10 @@ class Fields(object) :
                 self.trans[m].fft.inverse_transform(
                     self.envelope_spect[m].grad_a_m,
                     self.envelope_interp[m].grad_a_t )
+        elif fieldtype == 'chi_a':
+            for m in self.envelope_mode_numbers:
+                self.trans[m].fft.inverse_transform(
+                    self.envelope_spect[m].chi_a, self.envelope_interp[m].chi_a)
 
         else :
             raise ValueError( 'Invalid string for fieldtype: %s' %fieldtype )
@@ -649,6 +670,10 @@ class Fields(object) :
                 self.trans[m].fft.transform(
                     self.envelope_interp[m].grad_a_t,
                     self.envelope_spect[m].grad_a_m )
+        elif fieldtype == 'chi_a':
+            for m in self.envelope_mode_numbers :
+                self.trans[m].fft.transform(
+                    self.envelope_interp[m].chi_a, self.envelope_spect[m].chi_a)
 
         else :
             raise ValueError( 'Invalid string for fieldtype: %s' %fieldtype )
@@ -665,11 +690,15 @@ class Fields(object) :
         ---------
         fieldtype : string
             A string which represents the kind of field to be erased
-            (either 'E', 'B', 'J', 'rho')
+            (either 'E', 'B', 'J', 'rho', 'chi', 'chi_a')
         """
         # Erase the fields in the interpolation grid
-        for m in range(self.Nm):
-            self.interp[m].erase(fieldtype)
+        if fieldtype in ['chi', 'chi_a']:
+            for m in self.envelope_mode_numbers:
+                self.envelope_interp[m].erase(fieldtype)
+        else:
+            for m in range(self.Nm):
+                self.interp[m].erase(fieldtype)
         # Erase the duplicated deposition buffer
         if not self.use_cuda:
             if fieldtype == 'rho':
@@ -678,7 +707,8 @@ class Fields(object) :
                 numba_erase_threading_buffer( self.Jr_global )
                 numba_erase_threading_buffer( self.Jt_global )
                 numba_erase_threading_buffer( self.Jz_global )
-
+            elif fieldtype == 'chi':
+                numba_erase_threading_buffer( self.chi_global )
 
     def sum_reduce_deposition_array(self, fieldtype):
         """
@@ -706,6 +736,9 @@ class Fields(object) :
                 sum_reduce_2d_array( self.Jr_global, self.interp[m].Jr, m )
                 sum_reduce_2d_array( self.Jt_global, self.interp[m].Jt, m )
                 sum_reduce_2d_array( self.Jz_global, self.interp[m].Jz, m )
+        elif fieldtype == 'chi':
+            for m in self.envelope_mode_numbers:
+                sum_reduce_2d_array(self.chi_global, self.envelope_interp[m].chi, m)
         else :
             raise ValueError('Invalid string for fieldtype: %s'%fieldtype)
 
@@ -720,8 +753,11 @@ class Fields(object) :
             A string which represents the kind of field to be filtered
             (either 'E', 'B', 'J', 'rho_next' or 'rho_prev')
         """
-
-        for m in range(self.Nm) :
+        if fieldtype == 'chi_a':
+            for m in self.envelope_mode_numbers:
+                self.envelope_spect[m].filter(fieldtype)
+        else:
+            for m in range(self.Nm) :
                 self.spect[m].filter( fieldtype )
 
     def divide_by_volume( self, fieldtype ) :
@@ -741,6 +777,22 @@ class Fields(object) :
         for m in range(self.Nm):
             self.interp[m].divide_by_volume( fieldtype )
 
+    def divide_by_volume_envelope( self, fieldtype ) :
+        """
+        Divide the field `fieldtype` in each cell by the cell volume,
+        on the envelope interpolation grid.
+
+        This is typically done for chi, after the deposition.
+
+        Parameter
+        ---------
+        fieldtype :
+            A string which represents the kind of field to be divided by
+            the volume ('chi')
+        """
+        for m in self.envelope_mode_numbers:
+            self.envelope_interp[m].divide_by_volume_envelope( fieldtype )
+
     def compute_grad_a(self):
         """
         Compute the diffent grad_a scalars in spectral space from the current
@@ -752,6 +804,27 @@ class Fields(object) :
         for m in self.envelope_mode_numbers:
             self.envelope_spect[m].compute_grad_a()
         self.spect2interp('grad_a')
+
+    def convolve_a_chi(self):
+        """
+        Obtain the product chi * a in the different azimuthal modes instead
+        of only chi and store the result in the `chi_a`
+        """
+        for m in self.envelope_mode_numbers:
+            for i in range(-self.Nm +1 + max(m,0), self.Nm + min(m, 0)):
+                if self.use_cuda :
+                    # Obtain the cuda grid
+                    dim_grid, dim_block = cuda_tpb_bpg_2d( self.Nz, self.Nr)
+                    cuda_convolve[dim_grid, dim_block](
+                        self.envelope_interp[m].chi_a,
+                        self.envelope_interp[i].chi,
+                        self.envelope_interp[m-i].a)
+
+                else:
+                    # Compute the new grad_a on CPU
+                    numba_convolve(self.envelope_interp[m].chi_a,
+                        self.envelope_interp[i].chi,
+                        self.envelope_interp[m-i].a)
 
     def copy_envelope_modes_to_global_arrays(self, copy_gradient):
         """

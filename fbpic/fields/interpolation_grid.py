@@ -271,7 +271,8 @@ class EnvelopeInterpolationGrid(InterpolationGrid):
         self.grad_a_r = np.zeros( (Nz, Nr), dtype='complex' )
         self.grad_a_t = np.zeros( (Nz, Nr), dtype='complex' )
         self.grad_a_z = np.zeros( (Nz, Nr), dtype='complex' )
-
+        self.chi = np.zeros( (Nz, Nr), dtype = 'complex')
+        self.chi_a = np.zeros( (Nz, Nr), dtype = 'complex')
 
     def send_fields_to_gpu( self ):
         """
@@ -285,6 +286,8 @@ class EnvelopeInterpolationGrid(InterpolationGrid):
         self.grad_a_r = cuda.to_device(self.grad_a_r)
         self.grad_a_t = cuda.to_device(self.grad_a_t)
         self.grad_a_z = cuda.to_device(self.grad_a_z)
+        self.chi = cuda.to_device(self.chi)
+        self.chi_a = cuda.to_device(self.chi_a)
 
     def receive_fields_from_gpu( self ):
         """
@@ -298,3 +301,63 @@ class EnvelopeInterpolationGrid(InterpolationGrid):
         self.grad_a_r = self.grad_a_r.copy_to_host()
         self.grad_a_t = self.grad_a_t.copy_to_host()
         self.grad_a_z = self.grad_a_z.copy_to_host()
+        self.chi = self.chi.copy_to_host()
+        self.chi_a = self.chi_a.copy_to_host()
+
+    def erase( self, fieldtype ):
+        """
+        Sets the field `fieldtype` to zero on the interpolation grid
+
+        Parameter
+        ---------
+        fieldtype : string
+            A string which represents the kind of field to be erased
+            (in this class 'chi' or 'chi_a')
+        """
+        if self.use_cuda:
+            # Obtain the cuda grid
+            dim_grid, dim_block = cuda_tpb_bpg_2d( self.Nz, self.Nr )
+            # Erase the arrays on the GPU
+            if fieldtype == 'chi':
+                cuda_erase_scalar[dim_grid, dim_block](self.chi)
+            elif fieldtype == 'chi_a':
+                cuda_erase_scalar[dim_grid, dim_block](self.chi_a)
+            else:
+                raise ValueError('Invalid string for fieldtype: %s'%fieldtype)
+        else :
+            # Erase the arrays on the CPU
+            if fieldtype == 'chi':
+                self.chi[:,:] = 0.
+            elif fieldtype == 'chi_a':
+                self.chi_a[:,:] = 0.
+            else :
+                raise ValueError('Invalid string for fieldtype: %s'%fieldtype)
+
+    def divide_by_volume_envelope( self, fieldtype ) :
+        """
+        Divide the field `fieldtype` in each cell by the cell volume
+        on the interpolation grid.
+
+        This is typically done for chi, after the deposition.
+
+        Parameter
+        ---------
+        fieldtype :
+            A string which represents the kind of field to be divided by
+            the volume (in this class 'chi' only)
+        """
+        if self.use_cuda :
+            # Perform division on the GPU
+            dim_grid, dim_block = cuda_tpb_bpg_2d( self.Nz, self.Nr )
+
+            if fieldtype == 'chi':
+                cuda_divide_scalar_by_volume[dim_grid, dim_block](
+                        self.chi, self.d_invvol )
+            else:
+                raise ValueError('Invalid string for fieldtype: %s'%fieldtype)
+        else :
+            # Perform division on the CPU
+            if fieldtype == 'chi':
+                self.chi *= self.invvol[np.newaxis,:]
+            else:
+                raise ValueError('Invalid string for fieldtype: %s'%fieldtype)

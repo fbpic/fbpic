@@ -44,7 +44,6 @@ def deposit_field_numba(Fptcl, Fgrid,
 
     # Get the total number of particles
     Ntot = len(Fptcl)
-
     # Loop over all particles
     for ip in range(Ntot):
         # Loop over adjacent cells (given by shape order)

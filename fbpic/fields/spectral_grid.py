@@ -455,7 +455,6 @@ class FieldSpectralGrid(SpectralGrid):
 
 
 
-
 class EnvelopeSpectralGrid(SpectralGrid):
     """
     Contains the coordinates and envelope of the spectral grid.
@@ -483,6 +482,7 @@ class EnvelopeSpectralGrid(SpectralGrid):
         self.grad_a_p  = np.zeros( (Nz, Nr), dtype='complex' )
         self.grad_a_m  = np.zeros( (Nz, Nr), dtype='complex' )
         self.grad_a_z  = np.zeros( (Nz, Nr), dtype='complex' )
+        self.chi_a = np.zeros( (Nz, Nr), dtype='complex')
 
 
     def push_envelope_with(self, ps):
@@ -507,15 +507,17 @@ class EnvelopeSpectralGrid(SpectralGrid):
             dim_grid, dim_block = cuda_tpb_bpg_2d( self.Nz, self.Nr)
             # Push the fields on the GPU
 
-            cuda_push_envelope_standard[dim_grid, dim_block](self.a, self.a_old,
-                                        ps.d_C_w_laser_env,
+            cuda_push_envelope_standard[dim_grid, dim_block](
+                                        self.a, self.a_old, self.chi_a,
                                         ps.d_C_w_tot_env, ps.A_coef,
+                                        ps.d_chi_coef,
                                         self.Nz, self.Nr )
 
         else:
-            numba_push_envelope_standard(self.a, self.a_old,
-                                    ps.C_w_laser_env, ps.C_w_tot_env,
-                                    ps.A_coef, self.Nz, self.Nr)
+            numba_push_envelope_standard(self.a, self.a_old, self.chi_a,
+                                    ps.C_w_tot_env,
+                                    ps.A_coef, ps.chi_coef,
+                                    self.Nz, self.Nr)
 
     def compute_grad_a(self):
         """
@@ -551,6 +553,7 @@ class EnvelopeSpectralGrid(SpectralGrid):
         self.grad_a_p  = cuda.to_device( self.grad_a_p )
         self.grad_a_m  = cuda.to_device( self.grad_a_m )
         self.grad_a_z  = cuda.to_device( self.grad_a_z )
+        self.chi_a = cuda.to_device(self.chi_a)
 
     def receive_fields_from_gpu( self ):
         """
@@ -564,3 +567,29 @@ class EnvelopeSpectralGrid(SpectralGrid):
         self.grad_a_p  = self.grad_a_p.copy_to_host()
         self.grad_a_m  = self.grad_a_m.copy_to_host()
         self.grad_a_z  = self.grad_a_z.copy_to_host()
+        self.chi_a = self.chi_a.copy_to_host()
+
+    def filter(self, fieldtype) :
+        """
+        Filter the field `fieldtype`
+
+        Parameter
+        ---------
+        fieldtype : string
+            A string which represents the kind of field to be filtered
+            ('chi_a' in this class')
+        """
+        if self.use_cuda :
+            # Obtain the cuda grid
+            dim_grid, dim_block = cuda_tpb_bpg_2d( self.Nz, self.Nr)
+            if fieldtype == 'chi_a':
+                cuda_filter_scalar[dim_grid, dim_block](
+                    self.chi_a, self.d_filter_array, self.Nz, self.Nr )
+            else :
+                raise ValueError('Invalid string for fieldtype: %s'%fieldtype)
+        else :
+            # Filter fields on the CPU
+            if fieldtype == 'chi_a':
+                self.chi_a *= self.filter_array
+            else :
+                raise ValueError('Invalid string for fieldtype: %s'%fieldtype)

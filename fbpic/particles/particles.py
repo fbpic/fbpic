@@ -7,7 +7,7 @@ It defines the structure and methods associated with the particles.
 """
 import warnings
 import numpy as np
-from scipy.constants import e
+from scipy.constants import e, epsilon_0
 from .tracking import ParticleTracker
 from .elementary_process.ionization import Ionizer
 from .elementary_process.compton import ComptonScatterer
@@ -27,8 +27,8 @@ from .gathering.threading_methods_one_mode import erase_eb_numba, \
     gather_field_numba_linear_one_mode, gather_field_numba_cubic_one_mode
 from .deposition.threading_methods import \
         deposit_rho_numba_linear, deposit_rho_numba_cubic, \
-        deposit_J_numba_linear, deposit_J_numba_cubic
-
+        deposit_J_numba_linear, deposit_J_numba_cubic, \
+        deposit_chi_numba_linear, deposit_chi_numba_cubic
 # Check if threading is enabled
 from fbpic.utils.threading import nthreads, get_chunk_indices
 # Check if CUDA is available, then import CUDA functions
@@ -41,7 +41,8 @@ if cuda_installed:
                         push_p_envelope_gpu, push_p_ioniz_envelope_gpu, \
                         push_p_after_plane_envelope_gpu, update_inv_gamma_gpu
     from .deposition.cuda_methods import deposit_rho_gpu_linear, \
-        deposit_J_gpu_linear, deposit_rho_gpu_cubic, deposit_J_gpu_cubic
+        deposit_J_gpu_linear, deposit_rho_gpu_cubic, deposit_J_gpu_cubic, \
+        deposit_chi_gpu_cubic_one_mode, deposit_chi_gpu_linear_one_mode
     from .deposition.cuda_methods_one_mode import \
         deposit_rho_gpu_linear_one_mode, deposit_J_gpu_linear_one_mode, \
         deposit_rho_gpu_cubic_one_mode, deposit_J_gpu_cubic_one_mode
@@ -624,7 +625,7 @@ class Particles(object) :
                     self.q, self.m, self.Ntot, self.dt )
 
 
-    def push_p_with_envelope( self , t, timestep=None, keep_momentum=True):
+    def push_p_with_envelope( self, t, timestep=None, keep_momentum=True):
         """
         Advance the particles' momenta over one timestep, using a slightly
         modified Vay pusher to comply with the fact that gamma has to include
@@ -1043,7 +1044,7 @@ class Particles(object) :
 
         # Shortcuts and safe-guards
         grid = fld.interp
-        assert fieldtype in ['rho', 'J']
+        assert fieldtype in ['rho', 'J', 'chi']
         assert self.particle_shape in ['linear', 'cubic']
 
         # When running on GPU: first sort the arrays of particles
@@ -1156,6 +1157,32 @@ class Particles(object) :
                                 grid[m].Jr, grid[m].Jt, grid[m].Jz, m,
                                 self.cell_idx, self.prefix_sum)
 
+            elif fieldtype == 'chi':
+                for m in fld.envelope_mode_numbers:
+                    envelope_grid = fld.envelope_interp[m]
+                    if self.particle_shape == 'linear':
+                        deposit_chi_gpu_linear_one_mode[
+                            dim_grid_2d_flat, dim_block_2d_flat](
+                            self.x, self.y, self.z, weight,
+                            self.q**2/(self.m*epsilon_0),
+                            self.inv_gamma,
+                            envelope_grid.invdz, envelope_grid.zmin,
+                            envelope_grid.Nz, envelope_grid.invdr,
+                            envelope_grid.rmin, envelope_grid.Nr,
+                            envelope_grid.chi, m,
+                            self.cell_idx, self.prefix_sum)
+                    elif self.particle_shape == 'cubic':
+                        deposit_chi_gpu_cubic_one_mode[
+                            dim_grid_2d_flat, dim_block_2d_flat](
+                            self.x, self.y, self.z, weight,
+                            self.q**2/(self.m*epsilon_0),
+                            self.inv_gamma,
+                            envelope_grid.invdz, envelope_grid.zmin,
+                            envelope_grid.Nz, envelope_grid.invdr,
+                            envelope_grid.rmin, envelope_grid.Nr,
+                            envelope_grid.chi, m,
+                            self.cell_idx, self.prefix_sum)
+
         # CPU version
         else:
             # Divide particles in chunks (each chunk is handled by a different
@@ -1199,6 +1226,30 @@ class Particles(object) :
                         grid[0].invdr, grid[0].rmin, grid[0].Nr,
                         fld.Jr_global, fld.Jt_global, fld.Jz_global, fld.Nm,
                         nthreads, ptcl_chunk_indices )
+
+            elif fieldtype == 'chi':
+                # Deposit chi using CPU threading
+                envelope_grid = fld.envelope_interp
+                if self.particle_shape == 'linear':
+                    deposit_chi_numba_linear(
+                        self.x, self.y, self.z, weight,
+                        self.q**2/(self.m*epsilon_0), self.inv_gamma,
+                        envelope_grid[0].invdz, envelope_grid[0].zmin,
+                        envelope_grid[0].Nz, envelope_grid[0].invdr,
+                        envelope_grid[0].rmin, envelope_grid[0].Nr,
+                        fld.chi_global, fld.Nm,
+                        nthreads, ptcl_chunk_indices )
+                elif self.particle_shape == 'cubic':
+                    deposit_chi_numba_cubic(
+                        self.x, self.y, self.z, weight,
+                        self.q**2/(self.m*epsilon_0), self.inv_gamma,
+                        envelope_grid[0].invdz, envelope_grid[0].zmin,
+                        envelope_grid[0].Nz, envelope_grid[0].invdr,
+                        envelope_grid[0].rmin, envelope_grid[0].Nr,
+                        fld.chi_global, fld.Nm,
+                        nthreads, ptcl_chunk_indices )
+
+
 
 
     def sort_particles(self, fld):

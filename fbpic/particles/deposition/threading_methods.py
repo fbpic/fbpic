@@ -180,6 +180,123 @@ def deposit_rho_numba_linear(x, y, z, w, q,
 
     return
 
+
+# -------------------------------
+# Field deposition - linear - chi
+# -------------------------------
+
+@njit_parallel
+def deposit_chi_numba_linear(x, y, z, w, q2_over_m_e0, inv_gamma,
+                           invdz, zmin, Nz,
+                           invdr, rmin, Nr,
+                           chi_global, Nm,
+                           nthreads, ptcl_chunk_indices):
+    """
+    Deposition of the susceptibility chi using numba prange on the CPU.
+    Iterates over the threads in parallel, while each thread iterates
+    over a batch of particles. Intermediate results for each threads are
+    stored in copies of the global grid. At the end of the parallel loop,
+    the thread-local field arrays are combined (summed) to a global array.
+    (This final reduction is *not* done in this function)
+
+    Calculates the weighted amount of chi that is deposited to the
+    4 cells surounding the particle based on its shape (linear).
+
+    Parameters
+    ----------
+    x, y, z : 1darray of floats (in meters)
+        The position of the particles
+
+    w : 1d array of floats
+        The weights of the particles
+        (For ionizable atoms: weight times the ionization level)
+
+    q2_over_m_e0 : float
+        The ratio of the charge squared over the mass of the species,
+        divided by epsilon0
+        (For ionizable atoms: the charge is always the elementary charge e)
+
+    inv_gamma : float
+        Inverse of the gamma factor of the particles
+
+    chi_global : 4darrays of complexs
+        Global helper arrays of shape (nthreads, 2*Nm-1, 2+Nz+2, 2+Nr+2) where the
+        additional 2's in z and r correspond to deposition guard cells.
+        This array stores the thread local charge density on the interpolation
+        grid for each mode. (is modified by this function)
+
+    Nm : int
+        The number of azimuthal modes
+
+    invdz, invdr : float (in meters^-1)
+        Inverse of the grid step along the considered direction
+
+    zmin, rmin : float (in meters)
+        Position of the edge of the simulation box,
+        along the considered direction
+
+    Nz, Nr : int
+        Number of gridpoints along the considered direction
+
+    nthreads : int
+        Number of CPU threads used with numba prange
+
+    ptcl_chunk_indices : array of int, of size nthreads+1
+        The indices (of the particle array) between which each thread
+        should loop. (i.e. divisions of particle array between threads)
+    """
+    # Deposit the field per cell in parallel (for threads < number of cells)
+    for i_thread in prange( nthreads ):
+
+        # Allocate thread-local array
+        chi_scal = np.zeros(2*Nm-1, dtype=np.complex128 )
+
+        # Loop over all particles in thread chunk
+        for i_ptcl in range( ptcl_chunk_indices[i_thread],
+                             ptcl_chunk_indices[i_thread+1] ):
+
+            # Position
+            xj = x[i_ptcl]
+            yj = y[i_ptcl]
+            zj = z[i_ptcl]
+            # Weighted contribution of this particle
+            wj = q2_over_m_e0 * inv_gamma[i_ptcl] *  w[i_ptcl]
+
+            # Cylindrical conversion
+            rj = math.sqrt(xj**2 + yj**2)
+            # Avoid division by 0.
+            if (rj != 0.):
+                invr = 1./rj
+                cos = xj*invr  # Cosine
+                sin = yj*invr  # Sine
+            else:
+                cos = 1.
+                sin = 0.
+            # Calculate contribution from this particle to each mode
+            chi_scal[0] = wj
+            for m in range(1,Nm):
+                chi_scal[m] = (cos + 1.j*sin)*chi_scal[m-1]
+            for m in range(-1, -Nm, -1):
+                chi_scal[m] = (cos - 1.j*sin)*chi_scal[m+1]
+            # Positions of the particles, in the cell unit
+            r_cell = invdr*(rj - rmin) - 0.5
+            z_cell = invdz*(zj - zmin) - 0.5
+            # Index of the lowest cell of `global_array` that gets modified
+            # by this particle (note: `global_array` has 2 guard cells)
+            # (`min` function avoids out-of-bounds access at high r)
+            ir_cell = min( int(math.floor(r_cell))+2, Nr+2 )
+            iz_cell = int(math.floor( z_cell )) + 2
+
+            # Add contribution of this particle to the global array
+            for m in range(Nm):
+                chi_global[i_thread,m,iz_cell+0,ir_cell+0] += Sz_linear(z_cell, 0)*Sr_linear(r_cell, 0) * chi_scal[m]
+                chi_global[i_thread,m,iz_cell+0,ir_cell+1] += Sz_linear(z_cell, 0)*Sr_linear(r_cell, 1) * chi_scal[m]
+                chi_global[i_thread,m,iz_cell+1,ir_cell+0] += Sz_linear(z_cell, 1)*Sr_linear(r_cell, 0) * chi_scal[m]
+                chi_global[i_thread,m,iz_cell+1,ir_cell+1] += Sz_linear(z_cell, 1)*Sr_linear(r_cell, 1) * chi_scal[m]
+
+    return
+
+
 # -------------------------------
 # Field deposition - linear - J
 # -------------------------------
@@ -355,7 +472,7 @@ def deposit_rho_numba_cubic(x, y, z, w, q,
         Charge of the species
         (For ionizable atoms: this is always the elementary charge e)
 
-    rho_global : 4darray of complexs
+    rho_global : 4darrays of complexs
         Global helper arrays of shape (nthreads, Nm, 2+Nz+2, 2+Nr+2) where the
         additional 2's in z and r correspond to deposition guard cells.
         This array stores the thread local charge density on the interpolation
@@ -443,6 +560,136 @@ def deposit_rho_numba_cubic(x, y, z, w, q,
                 rho_global[i_thread,m,iz_cell+3,ir_cell+1] += Sz_cubic(z_cell, 3)*Sr_cubic(r_cell, 1)*rho_scal[m]
                 rho_global[i_thread,m,iz_cell+3,ir_cell+2] += Sz_cubic(z_cell, 3)*Sr_cubic(r_cell, 2)*rho_scal[m]
                 rho_global[i_thread,m,iz_cell+3,ir_cell+3] += Sz_cubic(z_cell, 3)*Sr_cubic(r_cell, 3)*rho_scal[m]
+
+    return
+
+# -------------------------------
+# Field deposition - cubic - chi
+# -------------------------------
+
+@njit_parallel
+def deposit_chi_numba_cubic(x, y, z, w, q2_over_m_e0, inv_gamma,
+                          invdz, zmin, Nz,
+                          invdr, rmin, Nr,
+                          chi_global, Nm,
+                          nthreads, ptcl_chunk_indices):
+    """
+    Deposition of the susceptibility chi using numba prange on the CPU.
+    Iterates over the threads in parallel, while each thread iterates
+    over a batch of particles. Intermediate results for each threads are
+    stored in copies of the global grid. At the end of the parallel loop,
+    the thread-local field arrays are combined (summed) to the global array.
+    (This final reduction is *not* done in this function)
+
+    Calculates the weighted amount of chi that is deposited to the
+    16 cells surounding the particle based on its shape (cubic).
+
+    Parameters
+    ----------
+    x, y, z : 1darray of floats (in meters)
+        The position of the particles
+
+    w : 1d array of floats
+        The weights of the particles
+        (For ionizable atoms: weight times the ionization level)
+
+    q2_over_m_e0 : float
+        The ratio of the charge squared over the mass of the species,
+        divided by epsilon0
+
+    inv_gamma : float
+        Inverse of the gamma factor of the particles
+
+    chi_global : 4darray of complexs
+        Global helper arrays of shape (nthreads, 2*Nm-1, 2+Nz+2, 2+Nr+2) where the
+        additional 2's in z and r correspond to deposition guard cells.
+        This array stores the thread local charge density on the interpolation
+        grid for each mode. (is modified by this function)
+
+    Nm : int
+        The number of azimuthal modes
+
+    invdz, invdr : float (in meters^-1)
+        Inverse of the grid step along the considered direction
+
+    zmin, rmin : float (in meters)
+        Position of the edge of the simulation box,
+        along the considered direction
+
+    Nz, Nr : int
+        Number of gridpoints along the considered direction
+
+    nthreads : int
+        Number of CPU threads used with numba prange
+
+    ptcl_chunk_indices : array of int, of size nthreads+1
+        The indices (of the particle array) between which each thread
+        should loop. (i.e. divisions of particle array between threads)
+    """
+    # Deposit the field per cell in parallel (for threads < number of cells)
+    for i_thread in prange( nthreads ):
+
+        # Allocate thread-local array
+        chi_scal = np.zeros( 2*Nm-1, dtype=np.complex128 )
+
+        # Loop over all particles in thread chunk
+        for i_ptcl in range( ptcl_chunk_indices[i_thread],
+                             ptcl_chunk_indices[i_thread+1] ):
+
+            # Position
+            xj = x[i_ptcl]
+            yj = y[i_ptcl]
+            zj = z[i_ptcl]
+            # Weighted contribution of this macroparticle
+            wj = q2_over_m_e0 * inv_gamma[i_ptcl] *  w[i_ptcl]
+
+            # Cylindrical conversion
+            rj = math.sqrt(xj**2 + yj**2)
+            # Avoid division by 0.
+            if (rj != 0.):
+                invr = 1./rj
+                cos = xj*invr  # Cosine
+                sin = yj*invr  # Sine
+            else:
+                cos = 1.
+                sin = 0.
+            # Calculate contribution from this particle to each mode
+            chi_scal[0] = wj
+            for m in range(1,Nm):
+                chi_scal[m] = (cos + 1.j*sin)*chi_scal[m-1]
+            for m in range(-1, -Nm, -1):
+                chi_scal[m] = (cos - 1.j*sin)*chi_scal[m+1]
+
+            # Positions of the particles, in the cell unit
+            r_cell = invdr*(rj - rmin) - 0.5
+            z_cell = invdz*(zj - zmin) - 0.5
+            # Index of the lowest cell of `global_array` that gets modified
+            # by this particle (note: `global_array` has 2 guard cells)
+            # (`min` function avoids out-of-bounds access at high r)
+            ir_cell = min( int(math.floor(r_cell))+1, Nr+1 )
+            iz_cell = int(math.floor( z_cell )) + 1
+
+            # Add contribution of this particle to the global array
+            for m in range(Nm):
+                chi_global[i_thread,m,iz_cell+0,ir_cell+0] += Sz_cubic(z_cell, 0)*Sr_cubic(r_cell, 0)*chi_scal[m]
+                chi_global[i_thread,m,iz_cell+0,ir_cell+1] += Sz_cubic(z_cell, 0)*Sr_cubic(r_cell, 1)*chi_scal[m]
+                chi_global[i_thread,m,iz_cell+0,ir_cell+2] += Sz_cubic(z_cell, 0)*Sr_cubic(r_cell, 2)*chi_scal[m]
+                chi_global[i_thread,m,iz_cell+0,ir_cell+3] += Sz_cubic(z_cell, 0)*Sr_cubic(r_cell, 3)*chi_scal[m]
+
+                chi_global[i_thread,m,iz_cell+1,ir_cell+0] += Sz_cubic(z_cell, 1)*Sr_cubic(r_cell, 0)*chi_scal[m]
+                chi_global[i_thread,m,iz_cell+1,ir_cell+1] += Sz_cubic(z_cell, 1)*Sr_cubic(r_cell, 1)*chi_scal[m]
+                chi_global[i_thread,m,iz_cell+1,ir_cell+2] += Sz_cubic(z_cell, 1)*Sr_cubic(r_cell, 2)*chi_scal[m]
+                chi_global[i_thread,m,iz_cell+1,ir_cell+3] += Sz_cubic(z_cell, 1)*Sr_cubic(r_cell, 3)*chi_scal[m]
+
+                chi_global[i_thread,m,iz_cell+2,ir_cell+0] += Sz_cubic(z_cell, 2)*Sr_cubic(r_cell, 0)*chi_scal[m]
+                chi_global[i_thread,m,iz_cell+2,ir_cell+1] += Sz_cubic(z_cell, 2)*Sr_cubic(r_cell, 1)*chi_scal[m]
+                chi_global[i_thread,m,iz_cell+2,ir_cell+2] += Sz_cubic(z_cell, 2)*Sr_cubic(r_cell, 2)*chi_scal[m]
+                chi_global[i_thread,m,iz_cell+2,ir_cell+3] += Sz_cubic(z_cell, 2)*Sr_cubic(r_cell, 3)*chi_scal[m]
+
+                chi_global[i_thread,m,iz_cell+3,ir_cell+0] += Sz_cubic(z_cell, 3)*Sr_cubic(r_cell, 0)*chi_scal[m]
+                chi_global[i_thread,m,iz_cell+3,ir_cell+1] += Sz_cubic(z_cell, 3)*Sr_cubic(r_cell, 1)*chi_scal[m]
+                chi_global[i_thread,m,iz_cell+3,ir_cell+2] += Sz_cubic(z_cell, 3)*Sr_cubic(r_cell, 2)*chi_scal[m]
+                chi_global[i_thread,m,iz_cell+3,ir_cell+3] += Sz_cubic(z_cell, 3)*Sr_cubic(r_cell, 3)*chi_scal[m]
 
     return
 
