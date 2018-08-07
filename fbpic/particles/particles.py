@@ -1233,6 +1233,7 @@ class Particles(object) :
 
             elif fieldtype == 'chi':
                 # Deposit chi using CPU threading
+                envelope_grid = fld.envelope_interp[m]
                 if self.particle_shape == 'linear':
                     deposit_chi_numba_linear(
                         self.x, self.y, self.z, weight,
