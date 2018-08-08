@@ -39,7 +39,8 @@ if cuda_installed:
     from .push.cuda_methods import push_p_gpu, push_p_ioniz_gpu, \
                         push_p_after_plane_gpu, push_x_gpu,\
                         push_p_envelope_gpu, push_p_ioniz_envelope_gpu, \
-                        push_p_after_plane_envelope_gpu, update_inv_gamma_gpu
+                        push_p_after_plane_envelope_gpu, update_inv_gamma_gpu,\
+                        finish_push_p_envelope_gpu
     from .deposition.cuda_methods import deposit_rho_gpu_linear, \
         deposit_J_gpu_linear, deposit_rho_gpu_cubic, deposit_J_gpu_cubic, \
         deposit_chi_gpu_cubic_one_mode, deposit_chi_gpu_linear_one_mode
@@ -624,9 +625,27 @@ class Particles(object) :
                     self.Ex, self.Ey, self.Ez, self.Bx, self.By, self.Bz,
                     self.q, self.m, self.Ntot, self.dt )
 
-    def finish_push_p(self):
-        finish_push_p_envelope_numba(self.ux, self.uy, self.uz, self.inv_gamma,self.grad_a2_x, self.grad_a2_y, self.grad_a2_z,
-            self.q, self.m, self.Ntot, self.dt )
+    def complete_push_p_envelope(self):
+        """
+        The method push_p_with_envelope doesn't include half of the
+        ponderomotive force push in order to account for the difference in
+        position between the momentum and the 'a' field in the evaluation of
+        gamma, for example when pushin the positions. This method thus finishes
+        this push with the other half of the ponderomotive force being added to
+        the momentum.
+        """
+
+        if self.use_cuda:
+            # Get the threads per block and the blocks per grid
+            dim_grid_1d, dim_block_1d = cuda_tpb_bpg_1d( self.Ntot )
+            finish_push_p_envelope_gpu[dim_grid_1d, dim_block_1d](self.ux,
+                self.uy, self.uz, self.inv_gamma,
+                self.grad_a2_x, self.grad_a2_y, self.grad_a2_z,
+                self.q, self.m, self.Ntot, self.dt )
+        else:
+            finish_push_p_envelope_numba(self.ux, self.uy, self.uz, self.inv_gamma,
+                self.grad_a2_x, self.grad_a2_y, self.grad_a2_z,
+                self.q, self.m, self.Ntot, self.dt )
 
 
     def push_p_with_envelope( self, t, timestep=None, keep_momentum=True):
@@ -639,6 +658,9 @@ class Particles(object) :
         This assumes that the momenta (ux, uy, uz) are initially one
         half-timestep *behind* the positions (x, y, z), and it brings
         them one half-timestep *ahead* of the positions.
+
+        Warning: This method doesn't include half of the
+        ponderomotive force push, see complete_push_p_envelope for more details.
 
         Parameters
         ----------

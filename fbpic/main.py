@@ -431,6 +431,8 @@ class Simulation(object):
                 fld.spect2interp('a')
                 fld.compute_grad_a()
                 if self.use_galilean:
+                    # The envelope gathering made afterwards gathers
+                    # fields at time (n+1)dt
                     self.shift_galilean_boundaries(dt )
 
             # Push the particles' positions and velocities to t = (n+1/2) dt
@@ -453,7 +455,8 @@ class Simulation(object):
                     species.gather_envelope(fld, gather_gradient=False,
                                                  average_a2=True)
                     species.update_inv_gamma()
-                    species.finish_push_p()
+                    species.complete_push_p_envelope()
+                #  We go back to the time n dt for the deposition of J and rho
                 if self.use_galilean:
                     self.shift_galilean_boundaries( -dt )
             if move_positions:

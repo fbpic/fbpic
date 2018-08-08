@@ -440,13 +440,8 @@ def cuda_damp_envelope_left( a, damp_array, n_guard, n_damp ):
 
     Parameters :
     ------------
-<<<<<<< HEAD
-    a: 2darray of complex
-        Contain the fields to be damped
-=======
     a: 2darrays of complexs
         Contain the field to be damped
->>>>>>> chi_gathering
         The first axis corresponds to z and the second to r
 
     damp_array : 1darray of floats
@@ -483,11 +478,7 @@ def cuda_damp_envelope_right(  a, damp_array, n_guard, n_damp ):
     Parameters :
     ------------
     a: 2darray of complexs
-<<<<<<< HEAD
-        Contain the fields to be damped
-=======
         Contain the field to be damped
->>>>>>> chi_gathering
         The first axis corresponds to z and the second to r
 
     damp_array : 1darray of floats

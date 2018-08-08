@@ -491,16 +491,12 @@ class EnvelopeSpectralGrid(SpectralGrid):
         """
         Push the a and a_old envelope fields over one timestep,
         using the psatd coefficients.
-
-        WARNING: currently only implemented for non-comoving simulations,
-        with only CPU usage
-
+        
         Parameters
         ----------
         ps : PsatdCoeffs object
             psatd object corresponding to the same m mode
         """
-        #assert (ps.V is None or ps.V == 0)
         assert( abs(self.m) == ps.m )
 
         if self.use_cuda :

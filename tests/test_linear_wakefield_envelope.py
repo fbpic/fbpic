@@ -48,7 +48,7 @@ write_fields = False
 write_particles = False
 diag_period = 50
 # Pop-up plots
-show = False
+show = True
 
 # Main test function
 # ------------------
@@ -76,7 +76,8 @@ def test_linear_wakefield( Nm=1, show=False ):
     sim = Simulation( Nz, zmax, Nr, rmax, Nm, dt,
                       p_zmin, p_zmax, p_rmin, p_rmax, p_nz, p_nr, p_nt, n_e,
                       use_cuda=use_cuda, boundaries='open', use_envelope=True,
-                      v_comoving=c, use_galilean=True, initialize_ions=True)
+                      v_comoving=c, use_galilean=True,
+                      initialize_ions=True)
 
     # Create the relevant laser profile
     if Nm == 1:
@@ -306,9 +307,9 @@ zmax = 40.e-6    # Length of the box along z (meters)
 Nr = 120          # Number of gridpoints along r
 rmax = 60.e-6    # Length of the box along r (meters)
 # The simulation timestep
-dt = zmax/Nz/c *0.8  # Timestep (seconds)
+dt = zmax/Nz/c  # Timestep (seconds)
 # The number of steps
-N_step = int(1500/4 / 0.8)
+N_step = int(1500/4 )
 
 # The particles
 p_zmin = 39.e-6  # Position of the beginning of the plasma (meters)

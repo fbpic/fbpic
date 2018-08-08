@@ -284,13 +284,17 @@ def push_p_vay_envelope( ux_i, uy_i, uz_i, inv_gamma_i,
 @njit_parallel
 def finish_push_p_envelope_numba( ux, uy, uz, inv_gamma, grad_a2_x, grad_a2_y, grad_a2_z,
                 q, m, Ntot, dt) :
+    """
+    Finishes advancing the particle momenta with the other half of the
+    ponderomotive force push.
+    See complete_push_p_envelope.
+    """
     scale_factor = 0.5 * ( q * m_e / (e * m) )**2
     aconst = c * scale_factor * dt * 0.25
     for ip in prange(Ntot) :
         ux[ip] -= aconst * inv_gamma[ip] * grad_a2_x[ip]
         uy[ip] -= aconst * inv_gamma[ip] * grad_a2_y[ip]
         uz[ip] -= aconst * inv_gamma[ip] * grad_a2_z[ip]
-    return ux, uy, uz
 
 @njit_parallel
 def update_inv_gamma_numba(a2, ux, uy, uz, inv_gamma, q, m, Ntot):

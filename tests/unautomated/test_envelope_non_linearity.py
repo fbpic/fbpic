@@ -10,7 +10,7 @@ import matplotlib.pyplot as plt
 # ----------
 # (See the documentation of the function propagate_pulse
 # below for their definition)
-show = True # Whether to show the plots, and check them manually
+show = False # Whether to show the plots, and check them manually
 
 use_cuda = False
 
@@ -18,7 +18,7 @@ use_cuda = False
 Nz = 350
 zmin = -25.e-6
 zmax = 10.e-6
-Nr = 120
+Nr = 90
 rmax = 6
 n_order = -1
 # Laser pulse
@@ -39,7 +39,7 @@ n_critical = k0**2 * m_e / (mu_0 * e**2) # Theoretical critical density
 p_zmin = -15.e-6  # Position of the beginning of the plasma (meters)
 p_zmax = 500.e-6 # Position of the end of the plasma (meters)
 p_rmin = 0.      # Minimal radial position of the plasma (meters)
-p_rmax = 6000  # Maximal radial position of the plasma (meters)
+p_rmax = 6  # Maximal radial position of the plasma (meters)
 n_e = n_critical /400 # Density (electrons.meters^-3)
 print(n_e)
 p_nz = 2         # Number of particles per cell along z
@@ -180,12 +180,6 @@ Ntot_step_init = int( round( L_prop/(c*dt) ) )
 k_iter = 1
 kz = sim.fld.envelope_spect[0].kz
 kr = sim.fld.envelope_spect[0].kr
-#show_fields(sim.fld.envelope_interp[0], 'a')
-
-#plt.plot(sim.fld.envelope_interp[0].a.real[:,0])
-#plt.plot(sim.fld.envelope_interp[0].a.imag[:,0])
-#plt.show()
-#show_coefs2(sim.fld.envelope_spect[0], 'a', sim.fld.psatd[0])
 
 for it in range(k_iter):
     sim.step( Ntot_step_init//k_iter, show_progress=True)
@@ -193,11 +187,6 @@ for it in range(k_iter):
         show_fields(sim.fld.envelope_interp[0], 'a')
         show_fields(sim.fld.interp[0], 'rho')
         show_fields(sim.fld.envelope_interp[0], 'chi')
-        show_transform(sim.fld.envelope_spect[0], 'a')
-        i, j = np.unravel_index(np.argmax(np.abs(sim.fld.envelope_spect[0].a)), np.abs(sim.fld.envelope_spect[0].a).shape)
-        print(i,j)
-        print(kz[i][j], kr[i][j])
-        print(abs(sim.fld.envelope_spect[0].a[i][j]))
         plt.plot(np.abs(sim.fld.envelope_interp[0].a[:,0]))
         plt.show()
         plt.plot(np.abs(sim.fld.envelope_interp[0].a[:,0]))

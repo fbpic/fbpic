@@ -103,7 +103,8 @@ def test_particles_moving_window(show=False):
 def test_particles_galilean(show=False):
     """
     Function that is run by py.test, when doing `python setup.py test`
-    Test the basic movements of particles in a moving window
+    Test the basic movements of particles using a galilean referential moving at
+    almost c.
     """
     # Choose the regular timestep (required by moving window)
     dt = (zmax-zmin)*1./c/Nz

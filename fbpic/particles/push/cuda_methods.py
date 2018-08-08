@@ -420,6 +420,24 @@ def push_p_vay_envelope( ux_i, uy_i, uz_i, inv_gamma_i,
     return( ux_f, uy_f, uz_f, inv_gamma_f )
 
 @cuda.jit
+def finish_push_p_envelope_gpu( ux, uy, uz, inv_gamma, grad_a2_x, grad_a2_y, grad_a2_z,
+                q, m, Ntot, dt) :
+    """
+    Finishes advancing the particle momenta with the other half of the
+    ponderomotive force push.
+    See complete_push_p_envelope.
+    """
+    # Cuda 1D grid
+    ip = cuda.grid(1)
+    # Loop over the particles
+    if ip < Ntot:
+        scale_factor = 0.5 * ( q * m_e / (e * m) )**2
+        aconst = c * scale_factor * dt * 0.25
+        ux[ip] -= aconst * inv_gamma[ip] * grad_a2_x[ip]
+        uy[ip] -= aconst * inv_gamma[ip] * grad_a2_y[ip]
+        uz[ip] -= aconst * inv_gamma[ip] * grad_a2_z[ip]
+
+@cuda.jit
 def update_inv_gamma_gpu(a2, ux, uy, uz, inv_gamma, q, m):
     """
     Recompute the gamma factor of the particles, taking into account
