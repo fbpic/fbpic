@@ -647,17 +647,17 @@ def gather_envelope_field_gpu_cubic(x, y, z,
                 exptheta_m = exptheta_m.conjugate()
             F = add_cubic_envelope_gather_for_mode( m, F, exptheta_m,
                             a_m, ir_lowest, iz_lowest, Sr, Sz, Nr, Nz,
-                            flip_factor=minus_one_m )
+                            minus_one_m )
             if gather_gradient:
                 Fr = add_cubic_envelope_gather_for_mode( m, Fr, exptheta_m,
                         grad_a_r_m, ir_lowest, iz_lowest,
-                        Sr, Sz, Nr, Nz, flip_factor=-minus_one_m )
+                        Sr, Sz, Nr, Nz, -minus_one_m )
                 Ft = add_cubic_envelope_gather_for_mode( m, Ft, exptheta_m,
                         grad_a_t_m, ir_lowest, iz_lowest,
-                        Sr, Sz, Nr, Nz, flip_factor=-minus_one_m )
+                        Sr, Sz, Nr, Nz, -minus_one_m )
                 Fz = add_cubic_envelope_gather_for_mode( m, Fz, exptheta_m,
                         grad_a_z_m, ir_lowest, iz_lowest,
-                        Sr, Sz, Nr, Nz, flip_factor=minus_one_m )
+                        Sr, Sz, Nr, Nz, minus_one_m )
 
         if gather_gradient:
             # Convert to Cartesian coordinates
