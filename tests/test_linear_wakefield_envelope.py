@@ -76,7 +76,7 @@ def test_linear_wakefield( Nm=1, show=False ):
     sim = Simulation( Nz, zmax, Nr, rmax, Nm, dt,
                       p_zmin, p_zmax, p_rmin, p_rmax, p_nz, p_nr, p_nt, n_e,
                       use_cuda=use_cuda, boundaries='open', use_envelope=True,
-                      v_comoving=c, use_galilean=True,
+                      v_comoving=0.99*c, use_galilean=True,
                       initialize_ions=True)
 
     # Create the relevant laser profile
