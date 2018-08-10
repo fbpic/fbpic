@@ -1,3 +1,9 @@
+"""
+This test file is part of FB-PIC (Fourier-Bessel Particle-In-Cell).
+
+It checks that the envelope solver produces the right group velocity,
+when propagating in a uniform, underdense plasmas.
+"""
 import numpy as np
 from scipy.constants import c, mu_0, m_e, e
 from scipy.optimize import curve_fit
