@@ -144,7 +144,7 @@ def compare_fields(sim, Nm, show) :
                                     Ez_sim, Er_sim, gathered_grids[0])
         # Automatically check the accuracy
         assert np.allclose( Ez_sim, Ez_analytical,
-                            atol=0.13*abs(Ez_analytical).max() )
+                            atol=0.11*abs(Ez_analytical).max() )
         assert np.allclose( Er_sim, Er_analytical,
                             atol=0.11*abs(Er_analytical).max() )
 
@@ -307,9 +307,9 @@ zmax = 40.e-6    # Length of the box along z (meters)
 Nr = 120          # Number of gridpoints along r
 rmax = 60.e-6    # Length of the box along r (meters)
 # The simulation timestep
-dt = zmax/Nz/c  # Timestep (seconds)
+dt = zmax/Nz/c*0.8  # Timestep (seconds)
 # The number of steps
-N_step = int(1500/4 )
+N_step = int(375/0.8 )
 
 # The particles
 p_zmin = 39.e-6  # Position of the beginning of the plasma (meters)
