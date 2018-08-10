@@ -1,3 +1,7 @@
+"""
+This test reproduces the test simulation from
+Benedetti, PPCF, 2018, using the envelope solver
+"""
 import numpy as np
 from scipy.constants import c, mu_0, m_e, e
 from fbpic.main import Simulation
@@ -25,14 +29,12 @@ n_order = -1
 w0 = 2
 k0 = 2*np.pi/0.8e-6
 kp = k0 / 20
-ctau = 2/kp
-print(ctau)
+ctau = 2./kp
 
 a0 = 1.5
 # Propagation
 L_prop = 1500/kp
 zf = 25.e-6
-print(L_prop)
 
 # The particles
 n_critical = k0**2 * m_e / (mu_0 * e**2) # Theoretical critical density
@@ -41,7 +43,6 @@ p_zmax = 500.e-6 # Position of the end of the plasma (meters)
 p_rmin = 0.      # Minimal radial position of the plasma (meters)
 p_rmax = 6  # Maximal radial position of the plasma (meters)
 n_e = n_critical /400 # Density (electrons.meters^-3)
-print(n_e)
 p_nz = 2         # Number of particles per cell along z
 p_nr = 2         # Number of particles per cell along r
 
@@ -148,13 +149,11 @@ def show_transform( grid, fieldtype ):
 
     plt.show()
 
-
 Nm = 1
 dt = (zmax-zmin)*1./c/Nz
 print(c*dt)
 print(L_prop)
 print(L_prop / c / dt)
-
 
 sim = Simulation( Nz, zmax, Nr, rmax, Nm, dt,
     p_zmin=p_zmin, p_zmax=p_zmax, p_rmin=p_rmin, p_rmax=p_rmax, p_nz=p_nz,
