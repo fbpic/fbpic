@@ -506,18 +506,14 @@ class EnvelopeSpectralGrid(SpectralGrid):
             # Obtain the cuda grid
             dim_grid, dim_block = cuda_tpb_bpg_2d( self.Nz, self.Nr)
             # Push the fields on the GPU
-
             cuda_push_envelope_standard[dim_grid, dim_block](
                                         self.a, self.a_old, self.chi_a,
-                                        ps.d_C_w_tot_env, ps.A_coef,
-                                        ps.d_chi_coef,
-                                        self.Nz, self.Nr )
-
+                                        ps.d_a_prev_coef, ps.d_a_inv_coef,
+                                        ps.dt**2, self.Nz, self.Nr )
         else:
             numba_push_envelope_standard(self.a, self.a_old, self.chi_a,
-                                    ps.C_w_tot_env,
-                                    ps.A_coef, ps.chi_coef,
-                                    self.Nz, self.Nr)
+                                    ps.a_prev_coef, ps.a_inv_coef,
+                                    ps.dt**2, self.Nz, self.Nr)
 
     def compute_grad_a(self):
         """
