@@ -213,4 +213,7 @@ def get_stencil_reach(Nz, dz, cdt, n_order, v_comoving, use_galilean):
 
     # Calculate the stencil reach at an arbitrary kperp = 0.5
     # (Note: The stencil reach depends only weakly on kperp)
-    return stencil_reach(kz, 0.5, cdt, v_comoving, use_galilean)
+    # When using the galilean scheme the stencil reach is always larger
+    # in the direction of v_comoving. Use abs(v_comoving) to have the
+    # required guard region size
+    return stencil_reach(kz, 0.5, cdt, np.abs(v_comoving), use_galilean)
