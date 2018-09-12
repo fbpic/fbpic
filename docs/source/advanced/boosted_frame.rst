@@ -43,11 +43,85 @@ the number of required PIC iterations is reduced in the boosted frame:
 
 .. math::
 
-    N_{iterations, boosted} = \frac{1}{2\gamma_{boost}^2} N_{iterations, lab}
+    N_{iterations, boosted} \approx \frac{1}{(1+\beta_{boost})^2 \gamma_{boost}^2} N_{iterations, lab}
 
-which can speed up the simulation by orders of magnitude.
-For more details on the theory of boosted-frame simulations, see the `original
-paper on this technique <https://journals.aps.org/prl/abstract/10.1103/PhysRevLett.98.130405>`__.
+which can speed up the simulation by orders of magnitude. However, the above formula is
+only an approximation (valid for :math:`\gamma \ll \gamma_{wake}`) and the calculation of the
+correct number of timesteps in practice is explained below. Moreover, it is noteworthy
+that the theoretical speedup for a given simulation setup can be at maximum
+:math:`2 \gamma_{wake}^2` for :math:`\gamma_{boost} \to \infty` in the case of
+plasma wakefield acceleration. Here, :math:`\gamma_{wake}` is the Lorentz factor
+associated with the phase velocity of the plasma wake (group velocity of the laser
+pulse in the case of laser-wakefield acceleration). However, for most
+simulation setups, much lower values than :math:`\gamma_{wake}` are favorable.
+For more details on the theory of boosted-frame simulations,
+see the `original paper on this technique
+<https://journals.aps.org/prl/abstract/10.1103/PhysRevLett.98.130405>`__ or read a
+`more detailed description of the speedup
+<https://aip.scitation.org/doi/pdf/10.1063/1.3663841>`__.
+
+.. note::
+
+    In order to calculate the required number of timesteps in a boosted frame simulation
+    in practice, we can calculate and compare the total interaction time of
+    the elements in space. In a lab frame simulation, the total interaction time
+    :math:`T_{interact}` can be defined as the time needed for the moving window
+    with length :math:`l_{window}` to cross the plasma with length :math:`L_{plasma}`.
+
+    .. math::
+        T_{interact} = \frac{L_{plasma} + l_{window}}{v_{window}-v_{plasma}}
+
+    Here :math:`v_{window} = \beta_{window}c` is speed of the moving window (which is typically
+    set to the phase velocity of the plasma wake :math:`\beta_{window} = \beta_{wake}`)
+    and :math:`v_{plasma} = \beta_{plasma}c` is the speed of the plasma, which would
+    be :math:`v_{plasma} = 0` in the lab frame.
+
+    Consequently, the number of iterations in the lab frame are given by:
+
+    .. math::
+      N_{lab} = \frac{T_{interact}}{\Delta t}
+
+    When using the boosted frame technique, FBPIC will transform all those
+    quantities into the new frame of reference:
+
+    .. math::
+      L_{plasma}' = \frac{L_{plasma}}{\gamma}
+    .. math::
+      l_{window}' = l_{window}\gamma(1+\beta)
+    .. math::
+      v_{window}' = c( (\beta_{window}-\beta)/(1-\beta_{window}\beta) )
+    .. math::
+      v_{plasma}' = -\beta c
+
+    and using the above formula we can calculate the interaction time in the
+    boosted frame. The number of required iterations are then given by:
+
+    .. math::
+      N_{boost} = \frac{T_{interact}'}{\gamma (1+\beta) \Delta t}
+
+    using :math:`\Delta t' = \gamma (1+\beta) \Delta t` for
+    the timestep in the boosted frame.
+
+    Here, FBPIC defines the simulation box to move with the speed of light
+    (although the moving window velocity can be slower) in the direction of the
+    laser, thus the length of the simulation box, as well
+    as the spatial resoltion scales :math:`\propto \gamma(1+\beta)`.
+
+    Of course, the above formula can be used to immediately estimate the expected
+    speedup of the boosted frame simulation. In practice, however, the theoretical
+    speedup can be different. As the number of particles are reduced in the boosted frame,
+    the computational execution time of a single timestep can be reduced,
+    resulting in an even higher speedup. In contrast, the online diagnostics
+    (see :ref:`boosted_frame_lab_diagnostics`) will decrease the expected speedup
+    in practice.
+
+    Please also note that, in practice and according to the above formula,
+    there is an optimum :math:`\gamma_{boost}` for which the interaction time is
+    minimized for a given simulation setup. The speed up of a boosted frame
+    simulation will reverse for too high values of :math:`\gamma_{boost}`.
+    In practice, it is often advisable to choose :math:`\gamma_{boost}` such that
+    :math:`L_{plasma}' \approx l_{window}'` in the boosted frame,
+    i.e. the plasma entirely fits into the simulation box.
 
 .. note::
 
@@ -101,19 +175,17 @@ along with the value of :math:`\gamma_b`. For instance, the :class:`fbpic.main.S
 will automatically convert the timestep and box size from typical lab-frame values
 to the corresponding boosted-frame values.
 
-.. note::
-
-    You will still need to adjust, by hand, the number of PIC iterations
-    (which is typically lower in the boosted frame than in the lab frame, as explained above).
-
 For each function or class that you use, please look at the corresponding
 documentation in the section :doc:`../api_reference/api_reference` to see if it supports
 automatic parameter conversion. If it is not the case, you can instead use the
 :class:`fbpic.lpa_utils.boosted_frame.BoostConverter`, which implements the Lorentz transform
-formulas for the most common physical quantities.
+formulas for the most common physical quantities. Additionally, a function is provided
+to automatically estimate the required PIC iterations in the boosted frame.
 
 You can see an example of these different methods for parameter conversion
 in the boosted-frame example script of the section :doc:`../how_to_run`.
+
+.. _boosted_frame_lab_diagnostics:
 
 Converting simulation results from the boosted frame to the lab frame
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
