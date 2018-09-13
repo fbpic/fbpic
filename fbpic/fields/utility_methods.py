@@ -142,7 +142,11 @@ def stencil_reach(kz, kperp, cdt, v_comoving, use_galilean):
     k = np.sqrt(kz**2 + kperp**2)
     # Calculation of the Theta coefficient if the Galilean scheme is used
     if use_galilean is True:
-        theta = np.exp(1.j * v_comoving * kz * cdt / c / 2)
+        # When using the galilean scheme the stencil reach is always larger
+        # in the direction of v_comoving. Use abs(v_comoving) to have the
+        # maximum stencil extent
+        abs_v_comoving = np.abs(v_comoving)
+        theta = np.exp(1.j * abs_v_comoving * kz * cdt / c / 2)
     else:
         theta = np.ones_like(kz)
     # Calculation of the stencils for the three C/S coefficients
@@ -160,7 +164,8 @@ def stencil_reach(kz, kperp, cdt, v_comoving, use_galilean):
                     np.abs(sin_perp_stencil)**2)
     # Reach of the stencil defined at the position, when the signal
     # decreased to machine precision
-    stencil_reach = np.where(np.abs(alpha)[:int(alpha.shape[0]/2)] < 1.e-16)[0][0]
+    stencil_reach = np.where(np.abs(alpha)
+                             [:int(alpha.shape[0] / 2)] < 1.e-16)[0][0]
 
     return int(stencil_reach)
 
@@ -213,4 +218,5 @@ def get_stencil_reach(Nz, dz, cdt, n_order, v_comoving, use_galilean):
 
     # Calculate the stencil reach at an arbitrary kperp = 0.5
     # (Note: The stencil reach depends only weakly on kperp)
+
     return stencil_reach(kz, 0.5, cdt, v_comoving, use_galilean)

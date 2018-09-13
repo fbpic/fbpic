@@ -436,12 +436,9 @@ class Particles(object) :
 
         target_species: a `Particles` object, or a dictionary of `Particles`
             Stores the electron macroparticles that are created in
-            the ionization process.
-
-            - If a single `Particles` object is passed, than electrons from all
-            ionization levels are stored into this object.
-
-            - If a dictionary is passed, then its keys should be integers
+            the ionization process. If a single `Particles` object is passed, 
+            then electrons from all ionization levels are stored into this 
+            object. If a dictionary is passed, then its keys should be integers
             (corresponding to the ionizable levels of `element`, starting
             at `level_start`), and its values should be `Particles` objects.
             In this case, the electrons from each distinct ionizable level

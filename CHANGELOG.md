@@ -1,5 +1,42 @@
 # Change Log / Release Log for fbpic
 
+## 0.9.4
+
+This release introduces various improvements to FBPIC:
+
+- The initial space-charge calculation produced unphysical fields for
+high-energy beams with space-charge. This is now fixed ; see
+[#289](https://github.com/fbpic/fbpic/pull/289)
+
+- More flexible ionization API: The user can now store the electrons from
+different ionization levels into different species. In addition, the user
+can now set a maximum level of ionization ; see
+[#288](https://github.com/fbpic/fbpic/pull/288) and
+[#283](https://github.com/fbpic/fbpic/pull/283)
+
+- Improved restart from checkpoints: for safer use, the restart now requires
+that the number of species is the same in the simulation
+(when calling `restart_from_checkpoint`) and in the checkpoint file.
+(New species can nonetheless be added after calling `restart_from_checkpoint`.)
+; see [#278](https://github.com/fbpic/fbpic/pull/278)
+
+- The plasma can now be initialized with a non-zero temperature
+(see the documentation of the method `add_new_species`) ; see
+[#277](https://github.com/fbpic/fbpic/pull/277)
+
+- There is a new diagnostic (`SpeciesChargeDensityDiagnostic`), which allows
+to have the charge density of *one given* species ; see
+[#287](https://github.com/fbpic/fbpic/pull/287)
+
+Minor fixes:
+- More efficient CPU execution by treading the `erase` function ;
+see [#276](https://github.com/fbpic/fbpic/pull/276)
+- When using `FBPIC_DISABLE_THREADING=1`, the code will not need to compile
+for each execution, thereby allowing faster turnaround ; see
+[#279](https://github.com/fbpic/fbpic/pull/279)
+
+
+
 ## 0.9.3
 
 This is a minor release.
