@@ -13,7 +13,7 @@ class BinomialSmoother( object ):
     potentially with compensator.
     """
 
-    def __init__( self, n_passes=1, compensation=False):
+    def __init__( self, n_passes=1, compensator=False):
         """
         Initialize a binomial smoother
 
@@ -28,7 +28,7 @@ class BinomialSmoother( object ):
             {'z': <int>, 'r': <int>} to indicate the number of passes
             in each direction.
 
-        compensation: bool, or dictionary of bools
+        compensator: bool, or dictionary of bools
             Whether to apply a compensator in r and z.
             (Applying a compensator mitigates the impact of the smoother
             on low and intermediate frequencies)
