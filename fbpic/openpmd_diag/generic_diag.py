@@ -188,6 +188,9 @@ class OpenPMDDiagnostic(object) :
         quantity : string
            The name of the record considered
         """
+        if quantity.startswith('rho'): # particle density such as rho_electrons
+            quantity = 'rho'
+
         dset.attrs["unitDimension"] = unit_dimension_dict[quantity]
         # No time offset (approximation)
         dset.attrs["timeOffset"] = 0.

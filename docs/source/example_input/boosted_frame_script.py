@@ -41,7 +41,7 @@ Nm = 2           # Number of modes used
 # Boosted frame
 gamma_boost = 15.
 # The simulation timestep
-dt = min( rmax/(2*gamma_boost*Nr), (zmax-zmin)/Nz/c )  # Timestep (seconds)
+dt = min( rmax/(2*gamma_boost*Nr)/c, (zmax-zmin)/Nz/c )  # Timestep (seconds)
 # (See the section Advanced use > Running boosted-frame simulation
 # of the FBPIC documentation for an explanation of the above calculation of dt)
 N_step = 101     # Number of iterations to perform
