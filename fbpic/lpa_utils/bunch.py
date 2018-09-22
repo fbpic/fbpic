@@ -127,7 +127,9 @@ def add_elec_bunch_gaussian( sim, sig_r, sig_z, n_emit, gamma0,
         The absolute energy spread of the bunch.
 
     Q : float (in Coulomb)
-        The total charge of the bunch (should be a positive number)
+        The total charge of the bunch (in absolute value)
+        (if a negative number is given, its absolute value will
+        automatically be taken)
 
     N : int
         The number of particles the bunch should consist of.
@@ -175,7 +177,7 @@ def add_elec_bunch_gaussian( sim, sig_r, sig_z, n_emit, gamma0,
     # Get inverse gamma
     inv_gamma = 1./gamma
     # Get weight of each particle
-    w = Q / (N*e) * np.ones_like(x)
+    w = abs(Q) / (N*e) * np.ones_like(x)
 
     # Propagate distribution to an out-of-focus position tf.
     # (without taking space charge effects into account)
@@ -555,7 +557,7 @@ def get_space_charge_spect( spect, gamma, direction='forward',
 
     # Deduce the B field
     spect.Bp[:,:] += -0.5j*spect.kr * Az
-    spect.Bm[:,:] += -0.5j*spect.kr * Az    
+    spect.Bm[:,:] += -0.5j*spect.kr * Az
     if not neglect_transverse_currents:
         spect.Bp[:,:] += spect.kz * Ap
         spect.Bm[:,:] -= spect.kz * Am
