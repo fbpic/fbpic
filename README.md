@@ -29,7 +29,7 @@ those of **finite-difference cylindrical** PIC codes
 For more details on the algorithm, its advantages and limitations, see
 the [documentation](http://fbpic.github.io).
 
-### Language and harware
+### Language and hardware
 
 FBPIC is written entirely in Python, but uses
 [Numba](http://numba.pydata.org/) Just-In-Time compiler for high
