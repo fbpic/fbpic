@@ -7,7 +7,7 @@ from setuptools.command.test import test as TestCommand
 import fbpic # In order to extract the version number
 
 # Obtain the long description from README.md
-with open('./README.md', encoding='utf-8') as f:
+with open('./README.md') as f:
     long_description = f.read()
 # Get the package requirements from the requirements.txt file
 with open('requirements.txt') as f:
