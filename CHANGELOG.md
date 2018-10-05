@@ -1,5 +1,12 @@
 # Change Log / Release Log for fbpic
 
+## 0.9.5
+
+This is bug-fix release. 
+It corrects a bug that was happening exclusively for *cubic shape* deposition,
+when using the CPU (i.e. the bug does not occur on GPU) ; see [#297](https://github.com/fbpic/fbpic/pull/297)
+In addition, this release adds a safe-guard for the sign of the charge, for Gaussian beams [#295](https://github.com/fbpic/fbpic/pull/295), and for the sign of the Galilean velocity [#293](https://github.com/fbpic/fbpic/pull/293).
+
 ## 0.9.4
 
 This release introduces various improvements to FBPIC:
