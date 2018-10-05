@@ -419,7 +419,7 @@ def deposit_rho_numba_cubic(x, y, z, w, q,
             # Index of the lowest cell of `global_array` that gets modified
             # by this particle (note: `global_array` has 2 guard cells)
             # (`min` function avoids out-of-bounds access at high r)
-            ir_cell = min( int(math.floor(r_cell))+1, Nr+1 )
+            ir_cell = min( int(math.floor(r_cell))+1, Nr )
             iz_cell = int(math.floor( z_cell )) + 1
 
             # Add contribution of this particle to the global array
@@ -564,7 +564,7 @@ def deposit_J_numba_cubic(x, y, z, w, q,
             # Index of the lowest cell of `global_array` that gets modified
             # by this particle (note: `global_array` has 2 guard cells)
             # (`min` function avoids out-of-bounds access at high r)
-            ir_cell = min( int(math.floor(r_cell))+1, Nr+1 )
+            ir_cell = min( int(math.floor(r_cell))+1, Nr )
             iz_cell = int(math.floor( z_cell )) + 1
 
             # Add contribution of this particle to the global array
