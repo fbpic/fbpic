@@ -323,7 +323,7 @@ class BoundaryCommunicator(object):
             # Divide the number of cells equally between procs
             Nz_per_proc = int((self._Nz_global_domain+2*self.n_damp)/self.size)
             Nz = Nz_per_proc
-            iz = rank * Nz_per_proc
+            iz = rank * Nz_per_proc - self.n_damp
             # The last proc gets the extra cells
             if rank == self.size-1:
                 Nz += (self._Nz_global_domain+2*self.n_damp)%(self.size)
