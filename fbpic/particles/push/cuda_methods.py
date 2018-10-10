@@ -5,50 +5,12 @@
 This file is part of the Fourier-Bessel Particle-In-Cell code (FB-PIC)
 It defines the particle push methods on the GPU using CUDA.
 """
-from numba import cuda
-import math
 from scipy.constants import c, e
-
-@cuda.jit(device=True, inline=True)
-def push_p_vay( ux_i, uy_i, uz_i, inv_gamma_i,
-    Ex, Ey, Ez, Bx, By, Bz, econst, bconst ):
-    """
-    Push at single macroparticle, using the Vay pusher
-    """
-    # Get the magnetic rotation vector
-    taux = bconst*Bx
-    tauy = bconst*By
-    tauz = bconst*Bz
-    tau2 = taux**2 + tauy**2 + tauz**2
-
-    # Get the momenta at the half timestep
-    uxp = ux_i + econst*Ex \
-    + inv_gamma_i*( uy_i*tauz - uz_i*tauy )
-    uyp = uy_i + econst*Ey \
-    + inv_gamma_i*( uz_i*taux - ux_i*tauz )
-    uzp = uz_i + econst*Ez \
-    + inv_gamma_i*( ux_i*tauy - uy_i*taux )
-    sigma = 1 + uxp**2 + uyp**2 + uzp**2 - tau2
-    utau = uxp*taux + uyp*tauy + uzp*tauz
-
-    # Get the new 1./gamma
-    inv_gamma_f = math.sqrt(
-        2./( sigma + math.sqrt( sigma**2 + 4*(tau2 + utau**2 ) ) ) )
-
-    # Reuse the tau and utau arrays to save memory
-    tx = inv_gamma_f*taux
-    ty = inv_gamma_f*tauy
-    tz = inv_gamma_f*tauz
-    ut = inv_gamma_f*utau
-    s = 1./( 1 + tau2*inv_gamma_f**2 )
-
-    # Get the new u
-    ux_f = s*( uxp + tx*ut + uyp*tz - uzp*ty )
-    uy_f = s*( uyp + ty*ut + uzp*tx - uxp*tz )
-    uz_f = s*( uzp + tz*ut + uxp*ty - uyp*tx )
-
-    return( ux_f, uy_f, uz_f, inv_gamma_f )
-
+from numba import cuda
+# Import inline function
+from .inline_functions import push_p_vay
+# Compile the inline function for GPU
+push_p_vay = cuda.jit( push_p_vay, device=True, inline=True )
 
 @cuda.jit
 def push_x_gpu( x, y, z, ux, uy, uz, inv_gamma, dt,
@@ -141,17 +103,17 @@ def push_p_after_plane_gpu( z, z_plane, ux, uy, uz, inv_gamma,
                 Ex, Ey, Ez, Bx, By, Bz, q, m, Ntot, dt ) :
     """
     Advance the particles' momenta, using cuda on the GPU.
-    Only the particles that are located beyond the plane z=z_plane 
+    Only the particles that are located beyond the plane z=z_plane
     have their momentum modified ; the others particles move ballistically.
 
     Parameters
     ----------
     z: 1darray of floats
         The position of the particles in the z direction
-        
+
     z_plane: float
-        Position beyond which the particles should be 
-        
+        Position beyond which the particles should be
+
     For the other parameters, see the docstring of push_p_gpu
     """
     # Set a few constants
@@ -182,7 +144,7 @@ def push_p_ioniz_gpu( ux, uy, uz, inv_gamma,
     ionization_level : 1darray of ints
         The number of electrons that each ion is missing
         (compared to a neutral atom)
-        
+
     For the other parameters, see the docstring of push_p_gpu
     """
     #Cuda 1D grid
