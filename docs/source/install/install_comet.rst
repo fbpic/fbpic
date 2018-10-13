@@ -29,7 +29,7 @@ below:
 
    when asked whether to append the path of ``miniconda``
    to your ``.bashrc``, answer yes.
-       
+
 
 Installation of FBPIC and its dependencies
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -37,7 +37,7 @@ Installation of FBPIC and its dependencies
 -  Install the dependencies of ``fbpic`` (except ``mpi4py``)
 
    ::
-      
+
       conda install -c conda-forge numba scipy h5py mkl cudatoolkit=8.0 pyculib
 
 -  Install ``mpi4py``
@@ -46,10 +46,10 @@ Installation of FBPIC and its dependencies
 
       module purge
       module load gnutools
-      module load gnu openmpi_ib 
+      module load gnu openmpi_ib
       env MPICC=/opt/openmpi/gnu/ib/bin/mpicc pip install mpi4py --user
-      
-       
+
+
 -  Install ``fbpic``
 
    ::
@@ -58,6 +58,9 @@ Installation of FBPIC and its dependencies
 
 Running simulations
 -------------------
+
+This section briefly describes how to submit simulations. For more information,
+see `Comet's User Guide <http://www.sdsc.edu/support/user_guides/comet.html>`__.
 
 Preparing a new simulation
 ~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -68,17 +71,17 @@ the above-mentioned directory, and copy your input script there.
 Interactive jobs
 ~~~~~~~~~~~~~~~~
 
-In order to request a node with a GPU:
+In order to request a node with 4 K80 GPUs:
 
 ::
 
-    salloc --time=00:30:00 --nodes=1 --partition lr_manycore  --constraint=lr_kepler --qos=lr_normal
+    salloc -p gpu --gres=gpu:k80:4 -t 00:30:00
 
 Once the job has started, type
 
 ::
 
-    srun --pty -u 
+    srun --pty /bin/bash
 
 in order to connect to the node that has been allocated. Then ``cd`` to
 the directory where you prepared your input script and type
@@ -91,63 +94,30 @@ Batch job
 ~~~~~~~~~
 
 Create a new file named ``submission_file`` in the same directory as
-your input script (typically this directory is a subdirectory of
-``/global/scratch/<yourUsername>``). Within this new file, copy the
+your input script. Within this new file, copy the
 following text (and replace the bracketed text by the proper values).
 
 ::
 
     #!/bin/bash
     #SBATCH -J my_job
-    #SBATCH --partition=lr_manycore
-    #SBATCH --constraint <gpuConstraint>
+    #SBATCH --nodes <requestedNode>
     #SBATCH --time <requestedTime>
-    #SBATCH --nodes 1
-    #SBATCH --qos lr_normal
+    #SBATCH --export=ALL
+    #SBATCH -p gpu
+    #SBATCH --gres=gpu:<gpuType>:4
+    #SBATCH --ntasks-per-node=<coresPerGPU>
 
-    python <fbpic_script.py>
+    srun --mpi=pmi2 -n <nMPI> python fbpic_script.py
 
-where ```<gpuConstraint>`` should be either:
+where ``<nMPI>`` should be 4 times ``<requestedNode>``
+(since there are 4 GPUs per node on Comet), and where:
 
-    - ``lr_k20`` for a node with a single K20 GPU
-    - ``lr_k80`` for a node with four K80 GPUs
-    - ``lr_pascal`` for a node with four GTX 1080Ti GPUs
-
-for more information on the available nodes, see
-`this page <https://sites.google.com/a/lbl.gov/high-performance-computing-services-group/lbnl-supercluster/lawrencium>`__.
+    - For a K80 node: ``<gpuType>`` should be ``k80`` and ``coresPerGPU`` should be ``6``
+    - For a P100 node: ``<gpuType>`` should be ``p100`` and ``coresPerGPU`` should be ``7``
 
 Then run:
 
 ::
 
     sbatch submission_file
-
-In order to see the queue:
-
-::
-
-    squeue -p lr_manycore
-
-Visualizing the results through Jupyter
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-Lawrencium provides access to the cluster via Jupyter, at `https://lrc-jupyter.lbl.gov <https://lrc-jupyter.lbl.gov>`__. Once you logged in and opened a Jupyter notebook, you can type in a cell:
-
-::
-
-	!pip install openPMD-viewer --user
-
-in order to install `openPMD-viewer <https://github.com/openPMD/openPMD-viewer>`__.
-
-
-Transfering data to your local computer
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-In order to transfer your data to your local machine, you need to
-connect to the transfer node. From a Lawrencium login node, type:
-
-::
-
-    ssh lrc-xfer.scs00
-
-You can then use for instance ``rsync`` to transfer data to your local
-computer.
