@@ -766,7 +766,7 @@ class BoundaryCommunicator(object):
                         interp[m].Bt[-nd:,:]*=self.right_damp[::-1,np.newaxis]
                         interp[m].Bz[-nd:,:]*=self.right_damp[::-1,np.newaxis]
 
-    def generate_damp_array( n_guard, n_damp ):
+    def generate_damp_array( self, n_guard, n_damp ):
         """
         Create a 1d damping array of length n_guard.
 
