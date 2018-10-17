@@ -194,6 +194,11 @@ class BoundaryCommunicator(object):
         # For periodic boundaries, no need for damping cells
         if boundaries=='periodic':
             self.n_damp = 0
+        else:
+            if self.n_damp < 8:
+                raise ValueError('Damping region is too small. n_damp should \
+                    be at least 8 cells to correctly initialize the \
+                    damping region.')
 
         # Initialize the period of the particle exchange and moving window
         if exchange_period is None:
@@ -761,7 +766,7 @@ class BoundaryCommunicator(object):
                         interp[m].Bt[-nd:,:]*=self.right_damp[::-1,np.newaxis]
                         interp[m].Bz[-nd:,:]*=self.right_damp[::-1,np.newaxis]
 
-    def generate_damp_array( self, n_guard, n_damp ):
+    def generate_damp_array( n_guard, n_damp ):
         """
         Create a 1d damping array of length n_guard.
 
@@ -781,15 +786,20 @@ class BoundaryCommunicator(object):
         # Array of cell indices
         i_cell = np.arange( n_guard+n_damp )
 
-        # Perform narrow damping, with the first n_guard of the cells at 0,
-        # then 1/3*n_damp cells with a sinusoidal**2 rise, and finally
-        # 2/3*n_damp cells at 1 (the damping array is defined such that it
+        # Perform narrow damping, with the first n_guard of the cells at 0.
+        # Additionally, the first 4 cells of the damping area are set to 0.
+        # This area is part of the injection area at the right side of the box
+        # and there should be no field seen by the injected particles.
+        # (For max. 3rd order particle shapes we need 3 + 1 cells = 4 cells),
+        # Damping: 1/2*(n_damp-4) cells with a sinusoidal**2 rise, and finally
+        # 1/2*(n_damp-4) cells at 1 (the damping array is defined such that it
         # can directly be multiplied with the fields at the left boundary of
         # the box - and needs to be inverted (damping_array[::-1]) before being
         # applied to the right boundary of the box.)
-        damping_array = np.where( i_cell < n_guard+n_damp/3.,
-                np.sin((i_cell - n_guard)*np.pi/(2*n_damp/3.))**2, 1. )
-        damping_array = np.where( i_cell < n_guard, 0., damping_array )
+        # (The minimum number of damping cells is forced to 8)
+        damping_array = np.where( i_cell < n_guard+4+(n_damp-4)/2.,
+                np.sin((i_cell - (n_guard+4))*np.pi/(2*(n_damp-4)/2.))**2, 1. )
+        damping_array = np.where( i_cell < n_guard+4, 0., damping_array )
 
         return( damping_array )
 
