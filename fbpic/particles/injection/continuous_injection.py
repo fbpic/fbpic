@@ -95,7 +95,7 @@ class ContinuousInjector( object ):
         # damping region), do not see any fields. (3 cells for a maximum of
         # 3rd order shapes factors + 1 extra cell = 4 cells)
         _, zmax_global_domain = comm.get_zmin_zmax( local=False,
-                                    with_damp=False, with_guard=False )
+                                    with_damp=True, with_guard=False )
         self.z_inject = zmax_global_domain - 1*comm.dz + \
                 comm.exchange_period*dt*(v_moving_window-self.v_end_plasma)
         self.nz_inject = 0
