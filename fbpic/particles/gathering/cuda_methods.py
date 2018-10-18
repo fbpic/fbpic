@@ -92,7 +92,7 @@ def gather_field_gpu_linear(x, y, z,
 
         # Skip this particle if it is outside the allowed bounds
         if (zj < zmin_global) or (zj >= zmax_global):
-            continue
+            return
 
         # Cylindrical conversion
         rj = math.sqrt( xj**2 + yj**2 )
@@ -276,7 +276,7 @@ def gather_field_gpu_cubic(x, y, z,
 
         # Skip this particle if it is outside the allowed bounds
         if (zj < zmin_global) or (zj >= zmax_global):
-            continue
+            return
 
         # Cylindrical conversion
         rj = math.sqrt(xj**2 + yj**2)
