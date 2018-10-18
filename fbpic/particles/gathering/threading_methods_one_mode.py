@@ -45,6 +45,7 @@ def erase_eb_numba( Ex, Ey, Ez, Bx, By, Bz, Ntot ):
 
 @njit_parallel
 def gather_field_numba_linear_one_mode(x, y, z,
+                    zmin_global, zmax_global,
                     invdz, zmin, Nz,
                     invdr, rmin, Nr,
                     Er_m, Et_m, Ez_m,
@@ -63,11 +64,14 @@ def gather_field_numba_linear_one_mode(x, y, z,
     x, y, z : 1darray of floats (in meters)
         The position of the particles
 
+    zmin_global, zmax_global:
+        The positions between which particles are allowed to gather fields.
+
     invdz, invdr : float (in meters^-1)
         Inverse of the grid step along the considered direction
 
     zmin, rmin : float (in meters)
-        Position of the edge of the simulation box along the
+        Position of the edge of the local simulation box along the
         direction considered
 
     Nz, Nr : int
@@ -98,6 +102,10 @@ def gather_field_numba_linear_one_mode(x, y, z,
         xj = x[i]
         yj = y[i]
         zj = z[i]
+
+        # Skip this particle if it is outside the allowed bounds
+        if (zj < zmin_global) or (zj >= zmax_global):
+            continue
 
         # Cylindrical conversion
         rj = math.sqrt( xj**2 + yj**2 )
@@ -202,6 +210,7 @@ def gather_field_numba_linear_one_mode(x, y, z,
 
 @njit_parallel
 def gather_field_numba_cubic_one_mode(x, y, z,
+                    zmin_global, zmax_global,
                     invdz, zmin, Nz,
                     invdr, rmin, Nr,
                     Er_m, Et_m, Ez_m,
@@ -222,11 +231,14 @@ def gather_field_numba_cubic_one_mode(x, y, z,
     x, y, z : 1darray of floats (in meters)
         The position of the particles
 
+    zmin_global, zmax_global:
+        The positions between which particles are allowed to gather fields.
+
     invdz, invdr : float (in meters^-1)
         Inverse of the grid step along the considered direction
 
     zmin, rmin : float (in meters)
-        Position of the edge of the simulation box along the
+        Position of the edge of the local simulation box along the
         direction considered
 
     Nz, Nr : int
@@ -274,6 +286,10 @@ def gather_field_numba_cubic_one_mode(x, y, z,
             xj = x[i]
             yj = y[i]
             zj = z[i]
+
+            # Skip this particle if it is outside the allowed bounds
+            if (zj < zmin_global) or (zj >= zmax_global):
+                continue
 
             # Cylindrical conversion
             rj = math.sqrt(xj**2 + yj**2)
