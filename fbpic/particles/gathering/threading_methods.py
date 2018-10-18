@@ -88,6 +88,10 @@ def gather_field_numba_linear(x, y, z,
         yj = y[i]
         zj = z[i]
 
+        # Skip this particle if it is outside the allowed bounds
+        if (zj < zmin_global) or (zj >= zmax_global):
+            continue
+
         # Cylindrical conversion
         rj = math.sqrt( xj**2 + yj**2 )
         if (rj !=0. ) :
@@ -283,6 +287,10 @@ def gather_field_numba_cubic(x, y, z,
             xj = x[i]
             yj = y[i]
             zj = z[i]
+
+            # Skip this particle if it is outside the allowed bounds
+            if (zj < zmin_global) or (zj >= zmax_global):
+                continue
 
             # Cylindrical conversion
             rj = math.sqrt(xj**2 + yj**2)
