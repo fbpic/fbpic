@@ -24,6 +24,7 @@ add_cubic_gather_for_mode = numba.njit( add_cubic_gather_for_mode )
 
 @njit_parallel
 def gather_field_numba_linear(x, y, z,
+                    zmin_global, zmax_global,
                     invdz, zmin, Nz,
                     invdr, rmin, Nr,
                     Er_m0, Et_m0, Ez_m0,
@@ -45,11 +46,14 @@ def gather_field_numba_linear(x, y, z,
     x, y, z : 1darray of floats (in meters)
         The position of the particles
 
+    zmin_global, zmax_global:
+        The positions between which particles are allowed to gather fields.
+
     invdz, invdr : float (in meters^-1)
         Inverse of the grid step along the considered direction
 
     zmin, rmin : float (in meters)
-        Position of the edge of the simulation box along the
+        Position of the edge of the local simulation box along the
         direction considered
 
     Nz, Nr : int
@@ -198,6 +202,7 @@ def gather_field_numba_linear(x, y, z,
 
 @njit_parallel
 def gather_field_numba_cubic(x, y, z,
+                    zmin_global, zmax_global,
                     invdz, zmin, Nz,
                     invdr, rmin, Nr,
                     Er_m0, Et_m0, Ez_m0,
@@ -220,11 +225,14 @@ def gather_field_numba_cubic(x, y, z,
     x, y, z : 1darray of floats (in meters)
         The position of the particles
 
+    zmin_global, zmax_global:
+        The positions between which particles are allowed to gather fields.
+
     invdz, invdr : float (in meters^-1)
         Inverse of the grid step along the considered direction
 
     zmin, rmin : float (in meters)
-        Position of the edge of the simulation box along the
+        Position of the edge of the local simulation box along the
         direction considered
 
     Nz, Nr : int
