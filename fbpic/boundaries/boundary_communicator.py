@@ -189,11 +189,6 @@ class BoundaryCommunicator(object):
         # For single proc and periodic boundaries, no need for guard cells
         if boundaries=='periodic' and self.size==1:
             self.n_guard = 0
-        # Register damping cells
-        self.n_damp = n_damp
-        # For periodic boundaries, no need for damping cells
-        if boundaries=='periodic':
-            self.n_damp = 0
 
         # Initialize the period of the particle exchange and moving window
         if exchange_period is None:
@@ -220,6 +215,24 @@ class BoundaryCommunicator(object):
         else:
             # User-defined exchange_period. Choose carefully.
             self.exchange_period = exchange_period
+
+        # Register damping cells
+        self.n_damp = n_damp
+        # For periodic boundaries, no need for damping cells
+        if boundaries=='periodic':
+            self.n_damp = 0
+        else:
+            # Check that the damping region is large enough for the given
+            # exchange_period. This is to ensure that new particles are only
+            # injected in the damping region and not in the guard region
+            # at the right boundary of the box.
+            if self.n_damp <= int(self.exchange_period*(2.*c*dt/self.dz)+3):
+                raise ValueError('The size of the damping region is n_damp = \
+                    %i cells. It is too small for the current exchange_period \
+                    of %i iterations. Please increase the value of n_damp to \
+                    at least %i in the Simulation object.' \
+                    %(self.n_damp, self.exchange_period,
+                      int(self.exchange_period*(2.*c*dt/self.dz)+3)+1))
 
         # Initialize the moving window to None (See the method
         # set_moving_window in main.py to initialize a proper moving window)
