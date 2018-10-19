@@ -215,7 +215,7 @@ class BoundaryCommunicator(object):
         else:
             # Register additional injection cells that are part of the
             # damping region and of size n_guard/2.
-            if self.n_inject == None:
+            if n_inject == None:
                 self.n_inject = int(self.n_guard/2)
             else:
                 # User-defined injection cells. Choose carefully.
