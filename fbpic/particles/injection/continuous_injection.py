@@ -82,21 +82,17 @@ class ContinuousInjector( object ):
             return
 
         # Initialize plasma *ahead* of the right *physical*
-        # boundary of the box plus the damping region so that
-        # after `exchange_period` iterations
+        # boundary of the box in the damping region (including the
+        # injection area) so that after `exchange_period` iterations
         # (without adding new plasma), there will still be plasma
-        # inside the physical domain minus one cell. This ensures that
-        # there are no particles in the rightmost guard region before the
-        # next exchange period. (Otherwise those particles would get removed).
-        # As a consequence, the fields in first 4 cells of the damping
-        # region are always set to zero by the damping function (see
-        # the BoundaryCommunicator class). This ensures that new particles,
-        # which are injected in the one extra cell (the last cell of the
-        # damping region), do not see any fields. (3 cells for a maximum of
-        # 3rd order shapes factors + 1 extra cell = 4 cells)
+        # inside the physical domain and the damping region (without the
+        # injection area). This ensures that there are never particles in the
+        # rightmost guard region and that there are always particles inside
+        # the damped region, where the field can be non-zero. New particles,
+        # which are injected in the Injection region, do not see any fields.
         _, zmax_global_domain = comm.get_zmin_zmax( local=False,
                                     with_damp=True, with_guard=False )
-        self.z_inject = zmax_global_domain - 1*comm.dz + \
+        self.z_inject = zmax_global_domain + (3-comm.n_inject)*comm.dz + \
                 comm.exchange_period*dt*(v_moving_window-self.v_end_plasma)
         self.nz_inject = 0
         # Try to detect the position of the end of the plasma:
