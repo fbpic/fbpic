@@ -436,8 +436,8 @@ class Particles(object) :
 
         target_species: a `Particles` object, or a dictionary of `Particles`
             Stores the electron macroparticles that are created in
-            the ionization process. If a single `Particles` object is passed, 
-            then electrons from all ionization levels are stored into this 
+            the ionization process. If a single `Particles` object is passed,
+            then electrons from all ionization levels are stored into this
             object. If a dictionary is passed, then its keys should be integers
             (corresponding to the ionizable levels of `element`, starting
             at `level_start`), and its values should be `Particles` objects.
@@ -642,7 +642,7 @@ class Particles(object) :
                 self.inv_gamma, self.Ntot,
                 dt, x_push, y_push, z_push )
 
-    def gather( self, grid ) :
+    def gather( self, grid, comm ) :
         """
         Gather the fields onto the macroparticles
 
@@ -654,6 +654,10 @@ class Particles(object) :
         grid : a list of InterpolationGrid objects
              (one InterpolationGrid object per azimuthal mode)
              Contains the field values on the interpolation grid
+
+        comm: an fbpic.BoundaryCommunicator object
+            Contains information about the number of processors
+            and the local and global box dimensions.
         """
         # Skip gathering for neutral particles (e.g. photons)
         if self.q == 0:
@@ -661,6 +665,16 @@ class Particles(object) :
 
         # Number of modes
         Nm = len(grid)
+
+        # Restrict field gathering to physical domain
+        zmin_global, zmax_global = comm.get_zmin_zmax( local=False,
+                                with_damp=False, with_guard=False )
+        # For periodic boundaries, allow particle to gather even if outside
+        # the physical domain by one box length
+        if comm.boundaries == 'periodic':
+            Lbox = zmax_global - zmin_global
+            zmax_global += Lbox
+            zmin_global -= Lbox
 
         # GPU (CUDA) version
         if self.use_cuda:
@@ -671,7 +685,7 @@ class Particles(object) :
                 if Nm == 2:
                     # Optimized version for 2 modes
                     gather_field_gpu_linear[dim_grid_1d, dim_block_1d](
-                         self.x, self.y, self.z,
+                         self.x, self.y, self.z, zmin_global, zmax_global,
                          grid[0].invdz, grid[0].zmin, grid[0].Nz,
                          grid[0].invdr, grid[0].rmin, grid[0].Nr,
                          grid[0].Er, grid[0].Et, grid[0].Ez,
@@ -688,7 +702,7 @@ class Particles(object) :
                     for m in range(Nm):
                         gather_field_gpu_linear_one_mode[
                             dim_grid_1d, dim_block_1d](
-                            self.x, self.y, self.z,
+                            self.x, self.y, self.z, zmin_global, zmax_global,
                             grid[m].invdz, grid[m].zmin, grid[m].Nz,
                             grid[m].invdr, grid[m].rmin, grid[m].Nr,
                             grid[m].Er, grid[m].Et, grid[m].Ez,
@@ -699,7 +713,7 @@ class Particles(object) :
                 if Nm == 2:
                     # Optimized version for 2 modes
                     gather_field_gpu_cubic[dim_grid_1d, dim_block_1d](
-                         self.x, self.y, self.z,
+                         self.x, self.y, self.z, zmin_global, zmax_global,
                          grid[0].invdz, grid[0].zmin, grid[0].Nz,
                          grid[0].invdr, grid[0].rmin, grid[0].Nr,
                          grid[0].Er, grid[0].Et, grid[0].Ez,
@@ -716,7 +730,7 @@ class Particles(object) :
                     for m in range(Nm):
                         gather_field_gpu_cubic_one_mode[
                             dim_grid_1d, dim_block_1d](
-                            self.x, self.y, self.z,
+                            self.x, self.y, self.z, zmin_global, zmax_global,
                             grid[m].invdz, grid[m].zmin, grid[m].Nz,
                             grid[m].invdr, grid[m].rmin, grid[m].Nr,
                             grid[m].Er, grid[m].Et, grid[m].Ez,
@@ -733,7 +747,7 @@ class Particles(object) :
                 if Nm == 2:
                     # Optimized version for 2 modes
                     gather_field_numba_linear(
-                        self.x, self.y, self.z,
+                        self.x, self.y, self.z, zmin_global, zmax_global,
                         grid[0].invdz, grid[0].zmin, grid[0].Nz,
                         grid[0].invdr, grid[0].rmin, grid[0].Nr,
                         grid[0].Er, grid[0].Et, grid[0].Ez,
@@ -748,7 +762,7 @@ class Particles(object) :
                                     self.Bx, self.By, self.Bz, self.Ntot )
                     for m in range(Nm):
                         gather_field_numba_linear_one_mode(
-                            self.x, self.y, self.z,
+                            self.x, self.y, self.z, zmin_global, zmax_global,
                             grid[m].invdz, grid[m].zmin, grid[m].Nz,
                             grid[m].invdr, grid[m].rmin, grid[m].Nr,
                             grid[m].Er, grid[m].Et, grid[m].Ez,
@@ -763,7 +777,7 @@ class Particles(object) :
                 if Nm == 2:
                     # Optimized version for 2 modes
                     gather_field_numba_cubic(
-                        self.x, self.y, self.z,
+                        self.x, self.y, self.z, zmin_global, zmax_global,
                         grid[0].invdz, grid[0].zmin, grid[0].Nz,
                         grid[0].invdr, grid[0].rmin, grid[0].Nr,
                         grid[0].Er, grid[0].Et, grid[0].Ez,
@@ -779,7 +793,7 @@ class Particles(object) :
                                     self.Bx, self.By, self.Bz, self.Ntot )
                     for m in range(Nm):
                         gather_field_numba_cubic_one_mode(
-                            self.x, self.y, self.z,
+                            self.x, self.y, self.z, zmin_global, zmax_global,
                             grid[m].invdz, grid[m].zmin, grid[m].Nz,
                             grid[m].invdr, grid[m].rmin, grid[m].Nr,
                             grid[m].Er, grid[m].Et, grid[m].Ez,
