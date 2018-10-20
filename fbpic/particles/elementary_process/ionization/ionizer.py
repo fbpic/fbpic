@@ -35,7 +35,7 @@ from scipy.special import gamma
 from .read_atomic_data import get_ionization_energies
 from .numba_methods import ionize_ions_numba, copy_ionized_electrons_numba
 from ..cuda_numba_utils import allocate_empty, reallocate_and_copy_old, \
-                                perform_cumsum, generate_new_ids
+                                perform_cumsum_2d, generate_new_ids
 
 # Check if CUDA is available, then import CUDA functions
 from fbpic.utils.cuda import cuda_installed
@@ -63,7 +63,8 @@ class Ionizer(object):
       whenever further ionization happens, and is passed to the deposition
       kernel as the effective weight of the particles)
     """
-    def __init__(self, element, ionizable_species, target_species, level_start):
+    def __init__(self, element, ionizable_species, target_species,
+                 level_start, level_max=None):
         """
         Initialize an Ionizer instance
 
@@ -77,18 +78,35 @@ class Ionizer(object):
             This object is not modified or registered.
             It is only used in order to pass a number of additional argument.
 
-        target_species: an fbpic.Particles object
-            This object is not modified when creating the class, but
-            it is modified when ionization occurs
-            (i.e. more particles are created)
+        target_species: a `Particles` object, or a dictionary of `Particles`
+            Stores the electron macroparticles that are created in
+            the ionization process.
+
+            - If a single `Particles` object is passed, than electrons from all
+            ionization levels are stored into this object.
+
+            - If a dictionary is passed, then its keys should be integers
+            (corresponding to the ionizable levels of `element`, starting
+            at `level_start`), and its values should be `Particles` objects.
+            In this case, the electrons from each distinct ionizable level
+            will be stored into these separate objects. Note that using
+            separate objects will typically require longer computing time.
+
+            These objects are not modified when creating the class, but
+            they are when ionization occurs (i.e. more particles are created)
 
         level_start: int
             The ionization level at which the macroparticles are initially
             (e.g. 0 for initially neutral atoms)
+
+        level_max: int, optional
+            If not None, defines the maximum ionization level that
+            macroparticles can reach. Should not exceed the physical
+            limit for the chosen element.
         """
         # Register a few parameters
-        self.target_species = target_species
         self.level_start = level_start
+        self.level_max = level_max
         self.use_cuda = ionizable_species.use_cuda
         # Process ionized particles into batches
         self.batch_size = 10
@@ -100,6 +118,42 @@ class Ionizer(object):
         Ntot = ionizable_species.Ntot
         self.ionization_level = np.ones( Ntot, dtype=np.uint64 ) * level_start
         self.w_times_level = ionizable_species.w * self.ionization_level
+
+        # Check if electrons from different ionization levels should
+        # be stored into separate species
+        if type(target_species) is dict:
+            # When passing a dictionary
+            # Check that the keys are the right integers
+            for level in range(self.level_start, self.level_max):
+                if level not in target_species.keys():
+                    raise ValueError(
+                    'When passing a dictionary for `target_species`, its keys '
+                    'should be\nthe integers corresponding to the ionizable '
+                    'levels.\n (i.e. the integers from %d to %d'
+                    'for %s with level_start=%d.)' %(self.level_start,
+                    self.level_max, element, self.level_start))
+                # Check that the dictionary contains Particles objects
+                assert isinstance(target_species[level], type(ionizable_species))
+            # Convert to a list internally: the dictionary input is
+            # just for less error-prone user input.
+            self.target_species = [ target_species[level] \
+                for level in range(self.level_start, self.level_max) ]
+            self.store_electrons_per_level = True
+        elif isinstance(target_species, type(ionizable_species)):
+            # When passing a single Particles object
+            self.target_species = [target_species]  # List of one element
+            self.store_electrons_per_level = False
+        else:
+            raise ValueError(
+                "Unexpected type for target_species: %s\n"
+                "Please pass a `Particles` object, or a dictionary"
+                %type(target_species))
+
+        # Check that the target species are indeed electrons
+        for species in self.target_species:
+            assert species.q == -e
+            assert species.m == m_e
+
 
     def initialize_ADK_parameters( self, element, dt ):
         """
@@ -126,8 +180,14 @@ class Ionizer(object):
         else:
             self.element = element
 
-        # Determine the maximum level of ionization
-        self.level_max = len(Uion)
+        # Determine and set the maximum level of ionization
+        if self.level_max is None:
+            self.level_max = len(Uion)
+        else:
+            assert type(self.level_max) is int, "level_max must be integer"
+            if self.level_max>len(Uion):
+                raise ValueError("Chosen level_max for {}".format(element) + \
+                                 " cannot exceed {}".format(len(Uion)))
 
         # Calculate the ADK prefactors (See Chen, JCP 236 (2013), equation (2))
         # - Scalars
@@ -167,15 +227,22 @@ class Ionizer(object):
         """
         # Process particles in batches (of typically 10, 20 particles)
         N_batch = int( ion.Ntot / self.batch_size ) + 1
-        # Short-cut for use_cuda
+        # Short-cuts
         use_cuda = self.use_cuda
 
+        # Set the number of levels that should be distinguished
+        if self.store_electrons_per_level:
+            n_levels = self.level_max - self.level_start
+        else:
+            n_levels = 1
+
         # Create temporary arrays (on CPU or GPU, depending on `use_cuda`)
-        is_ionized = allocate_empty( ion.Ntot, use_cuda, dtype=np.int16 )
-        n_ionized = allocate_empty( N_batch, use_cuda, dtype=np.int64 )
+        ionized_from = allocate_empty( ion.Ntot, use_cuda, dtype=np.int16 )
+        n_ionized = allocate_empty( (n_levels, N_batch), use_cuda,
+                                    dtype=np.int64 )
         # Draw random numbers
         if self.use_cuda:
-            random_draw = allocate_empty(ion.Ntot, use_cuda, dtype=np.float32)
+            random_draw = allocate_empty( ion.Ntot, use_cuda, dtype=np.float32)
             self.prng.uniform( random_draw )
         else:
             random_draw = np.random.rand( ion.Ntot )
@@ -185,15 +252,17 @@ class Ionizer(object):
         if use_cuda:
             batch_grid_1d, batch_block_1d = cuda_tpb_bpg_1d( N_batch )
             ionize_ions_cuda[ batch_grid_1d, batch_block_1d ](
-                N_batch, self.batch_size, ion.Ntot, self.level_max,
-                n_ionized, is_ionized, self.ionization_level, random_draw,
+                N_batch, self.batch_size, ion.Ntot,
+                self.level_start, self.level_max, n_levels,
+                n_ionized, ionized_from, self.ionization_level, random_draw,
                 self.adk_prefactor, self.adk_power, self.adk_exp_prefactor,
                 ion.ux, ion.uy, ion.uz, ion.Ex, ion.Ey, ion.Ez,
                 ion.Bx, ion.By, ion.Bz, ion.w, self.w_times_level )
         else:
             ionize_ions_numba(
-                N_batch, self.batch_size, ion.Ntot, self.level_max,
-                n_ionized, is_ionized, self.ionization_level, random_draw,
+                N_batch, self.batch_size, ion.Ntot,
+                self.level_start, self.level_max, n_levels,
+                n_ionized, ionized_from, self.ionization_level, random_draw,
                 self.adk_prefactor, self.adk_power, self.adk_exp_prefactor,
                 ion.ux, ion.uy, ion.uz, ion.Ex, ion.Ey, ion.Ez,
                 ion.Bx, ion.By, ion.Bz, ion.w, self.w_times_level )
@@ -202,47 +271,55 @@ class Ionizer(object):
         # on the CPU, as this is typically difficult on the GPU)
         if use_cuda:
             n_ionized = n_ionized.copy_to_host()
-        cumulative_n_ionized = perform_cumsum( n_ionized )
+        cumulative_n_ionized = perform_cumsum_2d( n_ionized )
         # If no new particle was created, skip the rest of this function
-        if cumulative_n_ionized[-1] == 0:
+        if np.all( cumulative_n_ionized[:,-1] == 0 ):
             return
+        # Copy the cumulated number of electrons back on GPU
+        # (Keep a copy on the CPU)
+        if use_cuda:
+            d_cumulative_n_ionized = cuda.to_device( cumulative_n_ionized )
 
+        # Loop over the electron species associated to each level
+        # (when store_electrons_per_level is False, there is a single species)
         # Reallocate electron species (on CPU or GPU depending on `use_cuda`),
         # to accomodate the electrons produced by ionization,
         # and copy the old electrons to the new arrays
-        elec = self.target_species
-        old_Ntot = elec.Ntot
-        new_Ntot = old_Ntot + cumulative_n_ionized[-1]
-        reallocate_and_copy_old( elec, use_cuda, old_Ntot, new_Ntot )
+        assert len(self.target_species) == n_levels
+        for i_level, elec in enumerate(self.target_species):
+            old_Ntot = elec.Ntot
+            new_Ntot = old_Ntot + cumulative_n_ionized[i_level,-1]
+            reallocate_and_copy_old( elec, use_cuda, old_Ntot, new_Ntot )
+            # Create the new electrons from ionization (one thread per batch)
+            if use_cuda:
+                copy_ionized_electrons_cuda[ batch_grid_1d, batch_block_1d ](
+                    N_batch, self.batch_size, old_Ntot, ion.Ntot,
+                    d_cumulative_n_ionized, ionized_from,
+                    i_level, self.store_electrons_per_level,
+                    elec.x, elec.y, elec.z, elec.inv_gamma,
+                    elec.ux, elec.uy, elec.uz, elec.w,
+                    elec.Ex, elec.Ey, elec.Ez, elec.Bx, elec.By, elec.Bz,
+                    ion.x, ion.y, ion.z, ion.inv_gamma,
+                    ion.ux, ion.uy, ion.uz, ion.w,
+                    ion.Ex, ion.Ey, ion.Ez, ion.Bx, ion.By, ion.Bz )
+                # Mark the new electrons as unsorted
+                elec.sorted = False
+            else:
+                copy_ionized_electrons_numba(
+                    N_batch, self.batch_size, old_Ntot, ion.Ntot,
+                    cumulative_n_ionized, ionized_from,
+                    i_level, self.store_electrons_per_level,
+                    elec.x, elec.y, elec.z, elec.inv_gamma,
+                    elec.ux, elec.uy, elec.uz, elec.w,
+                    elec.Ex, elec.Ey, elec.Ez, elec.Bx, elec.By, elec.Bz,
+                    ion.x, ion.y, ion.z, ion.inv_gamma,
+                    ion.ux, ion.uy, ion.uz, ion.w,
+                    ion.Ex, ion.Ey, ion.Ez, ion.Bx, ion.By, ion.Bz )
 
-        # Create the new electrons from ionization (one thread per batch)
-        if use_cuda:
-            cumulative_n_ionized = cuda.to_device( cumulative_n_ionized )
-            copy_ionized_electrons_cuda[ batch_grid_1d, batch_block_1d ](
-                N_batch, self.batch_size, old_Ntot, ion.Ntot,
-                cumulative_n_ionized, is_ionized,
-                elec.x, elec.y, elec.z, elec.inv_gamma,
-                elec.ux, elec.uy, elec.uz, elec.w,
-                elec.Ex, elec.Ey, elec.Ez, elec.Bx, elec.By, elec.Bz,
-                ion.x, ion.y, ion.z, ion.inv_gamma,
-                ion.ux, ion.uy, ion.uz, ion.w,
-                ion.Ex, ion.Ey, ion.Ez, ion.Bx, ion.By, ion.Bz )
-            # Mark the new electrons as unsorted
-            elec.sorted = False
-        else:
-            copy_ionized_electrons_numba(
-                N_batch, self.batch_size, old_Ntot, ion.Ntot,
-                cumulative_n_ionized, is_ionized,
-                elec.x, elec.y, elec.z, elec.inv_gamma,
-                elec.ux, elec.uy, elec.uz, elec.w,
-                elec.Ex, elec.Ey, elec.Ez, elec.Bx, elec.By, elec.Bz,
-                ion.x, ion.y, ion.z, ion.inv_gamma,
-                ion.ux, ion.uy, ion.uz, ion.w,
-                ion.Ex, ion.Ey, ion.Ez, ion.Bx, ion.By, ion.Bz )
+            # If the electrons are tracked, generate new ids
+            # (on GPU or GPU depending on `use_cuda`)
+            generate_new_ids( elec, old_Ntot, new_Ntot )
 
-        # If the electrons are tracked, generate new ids
-        # (on GPU or GPU depending on `use_cuda`)
-        generate_new_ids( elec, old_Ntot, new_Ntot )
 
     def send_to_gpu( self ):
         """

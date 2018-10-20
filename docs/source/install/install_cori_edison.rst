@@ -35,7 +35,7 @@ In order to install FBPIC, follow the steps below:
 
    ::
 
-       pip install --upgrade numba llvmlite --user
+       pip install --upgrade numba llvmlite tbb --user
 
 -  Install FBPIC
 
@@ -92,6 +92,7 @@ Edison, simply remove this line.)
     #SBATCH --nodes <n_nodes>
 
     module load python/2.7-anaconda
+    export NUMBA_THREADING_LAYER=tbb
     export NUMBA_NUM_THREADS=<n_threads>
     export MKL_NUM_THREADS=<n_threads>
 

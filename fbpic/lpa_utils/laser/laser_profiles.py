@@ -401,7 +401,10 @@ class LaguerreGaussLaser( LaserProfile ):
         k0 = 2*np.pi/lambda0
         zr = 0.5*k0*waist**2
         # Scaling factor, so that the pulse energy is independent of p and m.
-        scaled_amplitude = np.sqrt( factorial(p)/factorial(m+p) )
+        if m ==0:
+            scaled_amplitude = 1.
+        else:
+            scaled_amplitude = np.sqrt( factorial(p)/factorial(m+p) )
         if m != 0:
             scaled_amplitude *= 2**.5
         E0 = scaled_amplitude * a0 * m_e*c**2 * k0/e
@@ -771,7 +774,7 @@ class FlattenedGaussianLaser( LaserProfile ):
         for n in range(N+1):
             cep_phase_n = cep_phase + (2*n+1)*np.pi/2
             m_values = np.arange(n, N+1)
-            cn = (-1)**n * np.sum( 1./2**m_values * binom(m_values,n) ) /(N+1)
+            cn = (-1)**n * np.sum((1./2)**m_values * binom(m_values,n)) / (N+1)
             profile = LaguerreGaussLaser( p=n, m=0, a0=cn*a0,
                             cep_phase=cep_phase_n, waist=w_foc,
                             tau=tau, z0=z0, zf=zf, theta_pol=theta_pol,
