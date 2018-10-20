@@ -10,9 +10,10 @@ import numba
 from fbpic.utils.threading import njit_parallel, prange
 from scipy.constants import c, e, m_e
 # Import inline functions
-from .inline_functions import push_p_vay
+from .inline_functions import push_p_vay, push_p_vay_envelope
 # Compile the inline functions for CPU
 push_p_vay = numba.njit(push_p_vay)
+push_p_vay_envelope = numba.njit(push_p_vay_envelope)
 
 @njit_parallel
 def push_x_numba( x, y, z, ux, uy, uz, inv_gamma, Ntot, dt,
@@ -188,67 +189,6 @@ def push_p_ioniz_envelope_numba( ux, uy, uz, inv_gamma,
             ux[ip], uy[ip], uz[ip] = aux_x, aux_y, aux_z
 
     return ux, uy, uz, inv_gamma
-
-
-@numba.njit
-def push_p_vay_envelope( ux_i, uy_i, uz_i, inv_gamma_i,
-    Ex, Ey, Ez, Bx, By, Bz, a2_i, grad_a2_x_i, grad_a2_y_i, grad_a2_z_i,
-    econst, bconst, aconst, scale_factor ):
-    """
-    Push at single macroparticle, using the Vay pusher
-    """
-    # First step: first half of the ponderomotive force
-    inv_gamma_temp = 1. / math.sqrt( 1 + ux_i**2 + uy_i**2 + uz_i**2 \
-                                    + scale_factor * a2_i)
-    ux1 = ux_i - aconst * inv_gamma_temp * grad_a2_x_i
-    uy1 = uy_i - aconst * inv_gamma_temp * grad_a2_y_i
-    uz1 = uz_i - aconst * inv_gamma_temp * grad_a2_z_i
-    # Update gamma accordingly
-    inv_gamma_temp = 1. / math.sqrt(1 + ux1**2 + uy1**2 + uz1**2 \
-                                    + scale_factor * a2_i)
-
-    # Get the magnetic rotation vector
-    taux = bconst*Bx
-    tauy = bconst*By
-    tauz = bconst*Bz
-    tau2 = taux**2 + tauy**2 + tauz**2
-
-    # Get the momenta at the half timestep
-    uxp = ux1 + econst*Ex \
-    + inv_gamma_temp*( uy1*tauz - uz1*tauy )
-    uyp = uy1 + econst*Ey \
-    + inv_gamma_temp*( uz1*taux - ux1*tauz )
-    uzp = uz1 + econst*Ez \
-    + inv_gamma_temp*( ux1*tauy - uy1*taux )
-    sigma = 1 + uxp**2 + uyp**2 + uzp**2 + scale_factor * a2_i - tau2
-    utau = uxp*taux + uyp*tauy + uzp*tauz
-
-    # Get the new 1./gamma
-    inv_gamma_f = math.sqrt(
-        2./( sigma + math.sqrt( sigma**2 + 4*(tau2*(1 + scale_factor * a2_i) \
-                                                + utau**2 ) ) ) )
-
-    # Reuse the tau and utau arrays to save memory
-    tx = inv_gamma_f*taux
-    ty = inv_gamma_f*tauy
-    tz = inv_gamma_f*tauz
-    ut = inv_gamma_f*utau
-    s = 1./( 1 + tau2*inv_gamma_f**2 )
-
-    # Get the new u
-    ux_f = s*( uxp + tx*ut + uyp*tz - uzp*ty )
-    uy_f = s*( uyp + ty*ut + uzp*tx - uxp*tz )
-    uz_f = s*( uzp + tz*ut + uxp*ty - uyp*tx )
-
-    # Last step: second half of the ponderomotive force
-    ux_f -= aconst * inv_gamma_f * grad_a2_x_i
-    uy_f -= aconst * inv_gamma_f * grad_a2_y_i
-    uz_f -= aconst * inv_gamma_f * grad_a2_z_i
-    # Update gamma accordingly
-    inv_gamma_f = 1. / math.sqrt(1 + ux_f**2 + uy_f**2 + uz_f**2 \
-                                + scale_factor * a2_i)
-
-    return( ux_f, uy_f, uz_f, inv_gamma_f )
 
 @njit_parallel
 def update_inv_gamma_numba(a2, ux, uy, uz, inv_gamma, q, m, Ntot):

@@ -5,7 +5,7 @@
 This test file is part of FB-PIC (Fourier-Bessel Particle-In-Cell).
 
 It tests the flattened Gaussian laser profile by initializing the laser
-in the focal plane, and letting it propagate for many Rayleigh lengths.
+before the focal plane, and letting it propagate for many Rayleigh lengths.
 This test then automatically checks that the transverse profile at this
 point corresponds to a flattened Gaussian.
 
@@ -49,7 +49,8 @@ ctau = 10.e-6
 k0 = 2*np.pi/0.8e-6
 a0 = 1.
 # Propagation
-Lprop = 2400.e-6 # Corresponds to many Rayleigh lengths
+zfoc = 400.e-6
+Lprop = 2800.e-6 # Corresponds to many Rayleigh lengths
 
 # Checking the results
 rtol = 1.5e-2
@@ -78,7 +79,8 @@ def test_laser_periodic(show=False):
                 n_order=n_order, zmin=zmin, boundaries='periodic' )
 
     # Initialize the laser fields
-    profile = FlattenedGaussianLaser(a0=a0, w0=w0, N=N, tau=ctau/c, z0=0, zf=0)
+    profile = FlattenedGaussianLaser(a0=a0, w0=w0, N=N, 
+                                     tau=ctau/c, z0=0, zf=zfoc)
     add_laser_pulse( sim, profile )
 
     # Propagate the pulse
@@ -89,7 +91,7 @@ def test_laser_periodic(show=False):
     trans_profile = np.sqrt( np.average(sim.fld.interp[1].Er.real**2, axis=0) )
     # Calculate the theortical profile out-of-focus
     Zr = k0*w0**2/2
-    w_th = w0*Lprop/Zr
+    w_th = w0*(Lprop-zfoc)/Zr
     r = sim.fld.interp[1].r
     th_profile = trans_profile[0]*flat_gauss( r/w_th, N )
     # Plot the profile, if requested by the user

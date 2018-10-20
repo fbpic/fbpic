@@ -449,7 +449,7 @@ class LaguerreGaussLaser( LaserProfile ):
             + 1j*self.k0*( prop_dir*(z - self.z0) - c*t ) \
             - (x**2 + y**2) / (self.w0**2 * diffract_factor) \
             - self.inv_ctau2 * ( prop_dir*(z - self.z0) - c*t )**2 \
-            + 1.j*(2*self.p + self.m)*psi # *Additional* Gouy phase
+            - 1.j*(2*self.p + self.m)*psi # *Additional* Gouy phase
         # Get the transverse profile
         profile = np.exp(exp_argument) / diffract_factor \
             * scaled_radius**self.m * self.laguerre_pm(scaled_radius_squared) \
@@ -477,7 +477,7 @@ class LaguerreGaussLaser( LaserProfile ):
         exp_argument = - 1j*self.cep_phase \
             - (x**2 + y**2) / (self.w0**2 * diffract_factor) \
             - self.inv_ctau2 * ( z - self.z0 - c*t )**2 \
-            + 1j*(2*self.p + self.m)*psi # *Additional* Gouy phase
+            - 1j*(2*self.p + self.m)*psi # *Additional* Gouy phase
         # Get the transverse profile
         profile = np.exp(exp_argument) / diffract_factor \
             * scaled_radius**self.m * self.laguerre_pm(scaled_radius_squared) \
