@@ -207,6 +207,12 @@ class BoundaryCommunicator(object):
             # (Particles are only allowed to reside in half of the guard
             # region as this is the stencil reach of the current correction)
             self.exchange_period = int(((self.n_guard/2)-3)/cells_per_step)
+            # When using continuous injection of plasma, the exchange_period
+            # should be small enough that the damp cells are never empty of
+            # injected particles
+            if boundaries == 'open':
+                self.exchange_period = min( self.exchange_period,
+                                        int((self.n_damp-3)/cells_per_step) )
             # Set exchange_period to 1 in the case of single-proc
             # and periodic boundary conditions.
             if self.size == 1 and boundaries == 'periodic':
