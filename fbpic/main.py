@@ -49,7 +49,7 @@ class Simulation(object):
                  n_order=-1, dens_func=None, filter_currents=True,
                  v_comoving=None, use_galilean=True,
                  initialize_ions=False, use_cuda=False,
-                 n_guard=None, n_damp=64, n_inject=None, exchange_period=None,
+                 n_guard=None, n_damp=64, exchange_period=None,
                  current_correction='curl-free', boundaries='periodic',
                  gamma_boost=None, use_all_mpi_ranks=True,
                  particle_shape='linear', verbose_level=1 ):
@@ -139,18 +139,10 @@ class Simulation(object):
             Number of damping guard cells at the left and right of a
             simulation box if a moving window is attached. The guard
             region at these areas (left / right of moving window) is
-            extended by n_damp in order to smoothly
-            damp the fields such that they do not wrap around.
+            extended by n_damp in order to smoothly damp the fields such
+            that they do not wrap around. Additionally, this region is
+            extended by an injection area of size n_guard/2 automatically.
             (Defaults to 64)
-        n_inject: int, optional
-            Number of injection cells (at the left and right) of a simulation
-            box, for a simulation with open boundaries. The damping region
-            needs to be additionally extended by n_inject cells at the
-            outer edges to have a region with zero fields where new particles
-            can be injected. For symmetry reasons those cells are added at
-            both sides of the simulation box, although particles are typically
-            injected only at the right side of the box.
-            (Defaults to None and is set to n_guard/2 automatically)
         exchange_period: int, optional
             Number of iterations before which the particles are exchanged.
             If set to None, the maximum exchange period is calculated
@@ -232,7 +224,7 @@ class Simulation(object):
         # Initialize the boundary communicator
         self.comm = BoundaryCommunicator( Nz, zmin, zmax, Nr, rmax, Nm, dt,
             self.v_comoving, self.use_galilean, boundaries, n_order,
-            n_guard, n_damp, n_inject, exchange_period, use_all_mpi_ranks )
+            n_guard, n_damp, None, exchange_period, use_all_mpi_ranks )
         # Modify domain region
         zmin, zmax, Nz = self.comm.divide_into_domain()
         # Initialize the field structure
