@@ -36,6 +36,8 @@ def set_periodic_checkpoint( sim, period, checkpoint_dir='./checkpoints' ):
 
     checkpoint_dir: string, optional
         The path to the directory in which the checkpoints are stored
+        (When running a simulation with several MPI ranks, use the 
+        same path for all ranks.)
     """
     # Only processor 0 creates a directory where checkpoints will be stored
     # Make sure that all processors wait until this directory is created
@@ -96,7 +98,9 @@ def restart_from_checkpoint( sim, iteration=None,
        If None, the latest checkpoint available will be used.
 
     checkpoint_dir: string, optional
-        The path to the directory that contains the checkpoints to be loaded
+        The path to the directory that contains the checkpoints to be loaded.
+        (When running a simulation with several MPI ranks, use the 
+        same path for all ranks.)
     """
     # Import openPMD-viewer
     try:
