@@ -52,7 +52,8 @@ class Simulation(object):
                  n_guard=None, n_damp=64, exchange_period=None,
                  current_correction='curl-free', boundaries='periodic',
                  gamma_boost=None, use_all_mpi_ranks=True,
-                 particle_shape='linear', verbose_level=1 ):
+                 particle_shape='linear', verbose_level=1,
+                 smoother=None ):
         """
         Initializes a simulation.
 
@@ -190,6 +191,10 @@ class Simulation(object):
             0 - Print no information
             1 (Default) - Print basic information
             2 - Print detailed information
+
+        smoother: an instance of :any:`BinomialSmoother`, optional
+            Determines how the charge and currents are smoothed.
+            (Default: one-pass binomial filter and no compensator.)
         """
         # Check whether to use CUDA
         self.use_cuda = use_cuda
@@ -233,6 +238,7 @@ class Simulation(object):
                     use_galilean=use_galilean,
                     current_correction=current_correction,
                     use_cuda=self.use_cuda,
+                    smoother=smoother,
                     # Only create threading buffers when running on CPU
                     create_threading_buffers=(self.use_cuda is False) )
 
