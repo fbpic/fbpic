@@ -259,7 +259,7 @@ resulting in an even higher speedup. In contrast, the online diagnostics
 in practice.
 
 The :any:`BoostConverter` object exposes the above formula for :math:`T_{interact}'`
-as function :any:`estimate_interaction_time` that can be used to calculate the
+as function :any:`interaction_time` that can be used to calculate the
 required number of timesteps in the boosted frame for a given moving window sliding
 across an initially static object with length :math:`L_{interact}` (e.g.
 the plasma :math:`L_{interact}=L_{plasma}`).
