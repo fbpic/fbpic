@@ -57,8 +57,8 @@ def test_ionization_script_twoproc():
     # Ionization involves random events, which are not controlled by
     # numpy's seed ; therefore the tolerance (when checking the fields)
     # is lower than the previous cases.
-    checked_fields = [ ('E', 'x', 1.e-4), ('E', 'z', 1.e-2),
-                        ('B', 'y', 1.e-4), ('rho', None, 0.4) ]
+    checked_fields = [ ('E', 'x', 1.e-3), ('E', 'z', 1.e-2),
+                        ('B', 'y', 1.e-3), ('rho', None, 0.3) ]
     run_sim( 'ionization_script.py', n_MPI=2, checked_fields=checked_fields )
 
 def run_sim( script_name, n_MPI, checked_fields ):
@@ -88,6 +88,14 @@ def run_sim( script_name, n_MPI, checked_fields ):
     # Read the script and check
     with open(script_filename) as f:
         script = f.read()
+
+    # Change default N_step, diag_period and checkpoint_period
+    script = replace_string( script,
+        'N_step = int(T_interact/sim.dt)', 'N_step = 200')
+    script = replace_string( script,
+        'diag_period = 50', 'diag_period = 10')
+    script = replace_string( script,
+        'checkpoint_period = 100', 'checkpoint_period = 50')
 
     # For MPI simulations: modify the script to use finite-order
     if n_MPI > 1:
@@ -182,6 +190,10 @@ def test_boosted_frame_sim_twoproc():
     with open(script_filename) as f:
         script = f.read()
 
+    # Change default N_step
+    script = replace_string( script,
+        'N_step = int(T_interact/sim.dt)', 'N_step = 101')
+
     # Modify the script so as to enable finite order
     script = replace_string( script, 'n_order = -1', 'n_order = 16')
     script = replace_string(script, 'track_bunch = False', 'track_bunch = True')
@@ -224,6 +236,14 @@ def test_parametric_sim_twoproc():
     # Read the script
     with open(script_filename) as f:
         script = f.read()
+
+    # Change default N_step, diag_period and checkpoint_period
+    script = replace_string( script,
+        'N_step = int(T_interact/sim.dt)', 'N_step = 200')
+    script = replace_string( script,
+        'diag_period = 50', 'diag_period = 10')
+    script = replace_string( script,
+        'checkpoint_period = 100', 'checkpoint_period = 50')
 
     # Modify the script so as to enable checkpoints
     script = replace_string( script, 'save_checkpoints = False',
