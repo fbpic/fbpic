@@ -201,9 +201,11 @@ class PsatdCoeffs(object) :
         """
 
         # Calculate all necessary coefficients for propagation of A field
-        w1 = w_laser = c * k0
+        w_laser = c * k0
+        w1 = w_laser + c*kz
         w_tot = np.sqrt( (w_laser + c * kz)**2 + c**2 * kr**2)
-        self.a_prev_coef = 1. + 1.j*w1*dt + 0.5*(w_tot**2-w1**2)*dt**2
+        self.a_prev_coef = np.exp(-1.j*kz*c*dt) * \
+            (1. + 1.j*w1*dt + 0.5*(w_tot**2-w1**2)*dt**2)
         self.a_inv_coef = 1./np.conjugate( self.a_prev_coef )
         # Replace these array by arrays on the GPU, when using cuda
         if self.use_cuda:
