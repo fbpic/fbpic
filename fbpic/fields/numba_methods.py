@@ -12,6 +12,55 @@ from fbpic.utils.threading import njit_parallel, prange
 
 
 @njit_parallel
+def numba_filter_scalar( field, Nz, Nr, filter_array_z, filter_array_r ) :
+    """
+    Multiply the input field by the filter_array
+
+    Parameters :
+    ------------
+    field : 2darray of complexs
+        An array that represent the fields in spectral space
+
+    filter_array_z, filter_array_r : 1darray of reals
+        An array that damps the fields at high k, in z and r respectively
+
+    Nz, Nr : ints
+        Dimensions of the arrays
+    """
+    # Loop over the 2D grid (parallel in z, if threading is installed)
+    for iz in prange(Nz):
+        for ir in range(Nr):
+
+            field[iz,ir] = filter_array_z[iz]*filter_array_r[ir]*field[iz,ir]
+
+
+@njit_parallel
+def numba_filter_vector( fieldr, fieldt, fieldz, Nz, Nr,
+                        filter_array_z, filter_array_r ):
+    """
+    Multiply the input field by the filter_array
+
+    Parameters :
+    ------------
+    field : 2darray of complexs
+        An array that represent the fields in spectral space
+
+    filter_array_z, filter_array_r : 1darray of reals
+        An array that damps the fields at high k, in z and r respectively
+
+    Nz, Nr : ints
+        Dimensions of the arrays
+    """
+    # Loop over the 2D grid (parallel in z, if threading is installed)
+    for iz in prange(Nz):
+        for ir in range(Nr):
+
+            fieldr[iz,ir] = filter_array_z[iz]*filter_array_r[ir]*fieldr[iz,ir]
+            fieldt[iz,ir] = filter_array_z[iz]*filter_array_r[ir]*fieldt[iz,ir]
+            fieldz[iz,ir] = filter_array_z[iz]*filter_array_r[ir]*fieldz[iz,ir]
+
+
+@njit_parallel
 def numba_correct_currents_curlfree_standard( rho_prev, rho_next, Jp, Jm, Jz,
                             kz, kr, inv_k2, inv_dt, Nz, Nr ):
     """

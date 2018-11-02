@@ -573,12 +573,11 @@ class SliceHandler:
         if comm is not None:
             iz += comm.n_guard
             if comm.left_proc is None:
-                iz += comm.n_damp
+                iz += comm.n_damp+comm.n_inject
 
         # Extract the slice directly on the CPU
         # Fill the pre-allocated CPU array slice_array
         if fld.use_cuda is False :
-
             # Extract a slice of the fields *in the boosted frame*
             # at z_boost, using interpolation, and store them in slice_array
             self.extract_slice_cpu( fld, iz, Sz, slice_array )
