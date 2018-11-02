@@ -18,10 +18,12 @@ from .spectral_grid import FieldSpectralGrid, \
                          EnvelopeSpectralGrid
 from .psatd_coefs import PsatdCoeffs
 from fbpic.utils.cuda import cuda_installed
+from .smoothing import BinomialSmoother
 if cuda_installed:
     from numba import cuda
     from fbpic.utils.cuda import cuda_tpb_bpg_2d
     from .cuda_methods import cuda_convolve, cuda_copy_arrays
+
 
 class Fields(object) :
     """
@@ -56,8 +58,8 @@ class Fields(object) :
     def __init__( self, Nz, zmax, Nr, rmax, Nm, dt, zmin=0.,
                   n_order=-1, v_comoving=None, use_galilean=True,
                   current_correction='cross-deposition', use_cuda=False,
-                  create_threading_buffers=False, use_envelope=False,
-                  lambda_envelope=0.8e-6 ):
+                  smoother=None, create_threading_buffers=False,
+                  use_envelope=False, lambda_envelope=0.8e-6 ):
         """
         Initialize the components of the Fields object
 
@@ -109,6 +111,10 @@ class Fields(object) :
         use_cuda : bool, optional
             Wether to use the GPU or not
 
+        smoother: an fbpic.fields.smoothing.BinomialSmoother, optional
+            Determines how the charge and currents are smoothed.
+            (Default: one-pass binomial filter and no compensator.)
+
         create_threading_buffers: bool, optional
             Whether to create the buffers used in order to perform
             charge/current deposition with threading on CPU
@@ -128,6 +134,10 @@ class Fields(object) :
         self.use_galilean = use_galilean
         self.zmin = zmin
         self.zmax = zmax
+
+        # Set the default smoother
+        if smoother is None:
+            smoother = BinomialSmoother( n_passes=1, compensator=False )
 
         # Define wether or not to use the GPU
         self.use_cuda = use_cuda
@@ -180,7 +190,7 @@ class Fields(object) :
             # Create the object
             self.spect.append( FieldSpectralGrid( kz_modified, kr, m,
                 kz_true, self.interp[m].dz, self.interp[m].dr,
-                current_correction, use_cuda=self.use_cuda ) )
+                current_correction, smoother, use_cuda=self.use_cuda ) )
             self.psatd.append( PsatdCoeffs( self.spect[m].kz,
                                 self.spect[m].kr, m, dt, Nz, Nr,
                                 V=self.v_comoving,
@@ -236,7 +246,8 @@ class Fields(object) :
                 self.envelope_spect.append(
                     EnvelopeSpectralGrid( kz_modified, kr,
                         m, kz_true, self.envelope_interp[m].dz,
-                        self.envelope_interp[m].dr, use_cuda=self.use_cuda ) )
+                        self.envelope_interp[m].dr, smoother,
+                        use_cuda=self.use_cuda ) )
 
             # Create the psatd coefficients relevant only
             # to the envelope model for each positive mode

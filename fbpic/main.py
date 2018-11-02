@@ -53,7 +53,7 @@ class Simulation(object):
                  current_correction='curl-free', boundaries='periodic',
                  gamma_boost=None, use_all_mpi_ranks=True,
                  particle_shape='linear', verbose_level=1,
-                 use_envelope=False, lambda_envelope=0.8e-6 ):
+                 smoother=None, use_envelope=False, lambda_envelope=0.8e-6 ):
         """
         Initializes a simulation.
 
@@ -135,26 +135,27 @@ class Simulation(object):
             calculates the required guard cells for n_order
             automatically (approx 2*n_order). If no MPI is used and
             in the case of open boundaries with an infinite order stencil,
-            n_guard defaults to 30, if not set otherwise.
+            n_guard defaults to 64, if not set otherwise.
         n_damp : int, optional
             Number of damping guard cells at the left and right of a
             simulation box if a moving window is attached. The guard
             region at these areas (left / right of moving window) is
-            extended by n_damp (N=n_guard+n_damp) in order to smoothly
-            damp the fields such that they do not wrap around.
+            extended by n_damp in order to smoothly damp the fields such
+            that they do not wrap around. Additionally, this region is
+            extended by an injection area of size n_guard/2 automatically.
             (Defaults to 64)
         exchange_period: int, optional
             Number of iterations before which the particles are exchanged.
             If set to None, the maximum exchange period is calculated
             automatically: Within exchange_period timesteps, the
             particles should never be able to travel more than
-            (n_guard - particle_shape order) cells. (Setting exchange_period
+            (n_guard/2 - particle_shape order) cells. (Setting exchange_period
             to small values can substantially affect the performance)
 
         boundaries: string, optional
             Indicates how to exchange the fields at the left and right
             boundaries of the global simulation box.
-            Either 'periodic' or 'open'
+            (Either 'periodic' or 'open')
 
         current_correction: string, optional
             The method used in order to ensure that the continuity equation
@@ -198,6 +199,10 @@ class Simulation(object):
         lambda_envelope : float, in meters, optional
             To be used only with the envelope approximation, the wavelength of
             the laser pulse
+
+        smoother: an instance of :any:`BinomialSmoother`, optional
+            Determines how the charge and currents are smoothed.
+            (Default: one-pass binomial filter and no compensator.)
         """
         # Check whether to use CUDA
         self.use_cuda = use_cuda
@@ -233,7 +238,7 @@ class Simulation(object):
         # Initialize the boundary communicator
         self.comm = BoundaryCommunicator( Nz, zmin, zmax, Nr, rmax, Nm, dt,
             self.v_comoving, self.use_galilean, boundaries, n_order,
-            n_guard, n_damp, exchange_period, use_all_mpi_ranks )
+            n_guard, n_damp, None, exchange_period, use_all_mpi_ranks )
         # Modify domain region
         zmin, zmax, Nz = self.comm.divide_into_domain()
         # Initialize the field structure
@@ -243,6 +248,7 @@ class Simulation(object):
                     use_galilean=use_galilean,
                     current_correction=current_correction,
                     use_cuda=self.use_cuda,
+                    smoother=smoother,
                     # Only create threading buffers when running on CPU
                     create_threading_buffers=(self.use_cuda is False),
                     use_envelope=self.use_envelope,
@@ -430,10 +436,6 @@ class Simulation(object):
                 fld.push_envelope()
                 fld.spect2interp('a')
                 fld.compute_grad_a()
-                if self.use_galilean:
-                    # The envelope gathering made afterwards gathers
-                    # fields at time (n+1)dt
-                    self.shift_galilean_boundaries(dt )
 
             # Push the particles' positions and velocities to t = (n+1/2) dt
             if move_momenta:
@@ -446,19 +448,23 @@ class Simulation(object):
                     else:
                         species.push_p( self.time + 0.5*self.dt )
 
-
             if self.use_envelope:
                 # Now that the momentum has been pushed, we can gather the
                 # envelope at time (n+1/2)*dt (average of times n and n+1)
                 # to compute the gamma for pushing the positions.
+
+                # The envelope gathering made afterwards gathers
+                # fields at time (n+1)dt
+                if self.use_galilean:
+                    self.shift_galilean_boundaries( dt )
                 for species in ptcl:
                     species.gather_envelope(fld, gather_gradient=False,
                                                  average_a2=True)
                     species.update_inv_gamma()
-                    species.complete_push_p_envelope()
                 #  We go back to the time n dt for the deposition of J and rho
                 if self.use_galilean:
                     self.shift_galilean_boundaries( -dt )
+
             if move_positions:
                 for species in ptcl:
                     species.push_x( 0.5*dt )
@@ -576,7 +582,8 @@ class Simulation(object):
             progress_bar.print_summary()
 
 
-    def deposit( self, fieldtype, exchange=False ):
+    def deposit( self, fieldtype, exchange=False,
+                update_spectral=True, species_list=None ):
         """
         Deposit the charge or the currents to the interpolation grid
         and then to the spectral grid.
@@ -593,20 +600,35 @@ class Simulation(object):
             Whether to exchange guard cells via MPI before transforming
             the fields to the spectral grid. (The corresponding flag in
             fld.exchanged_source is set accordingly.)
+
+        update_spectral: bool
+            Whether to update the value of the deposited field in
+            spectral space.
+
+        species_list: list of `Particles` objects, or None
+            The species which that should deposit their charge/current.
+            If this is None, all species (and antennas) deposit.
         """
         # Shortcut
         fld = self.fld
+        # If no species_list is provided, all species and antennas deposit
+        if species_list is None:
+            species_list = self.ptcl
+            antennas_list = self.laser_antennas
+        else:
+            # Otherwise only the specified species deposit
+            antennas_list = []
 
         # Deposit charge or currents on the interpolation grid
 
         # Charge
-        if fieldtype in ['rho_prev', 'rho_next', 'rho_next_xy', 'rho_next_z']:
+        if fieldtype.startswith('rho'):  # e.g. rho_next, rho_prev, etc.
             fld.erase('rho')
             # Deposit the particle charge
-            for species in self.ptcl:
+            for species in species_list:
                 species.deposit( fld, 'rho' )
             # Deposit the charge of the virtual particles in the antenna
-            for antenna in self.laser_antennas:
+            for antenna in antennas_list:
                 antenna.deposit( fld, 'rho', self.comm )
             # Sum contribution from each CPU threads (skipped on GPU)
             fld.sum_reduce_deposition_array('rho')
@@ -620,10 +642,10 @@ class Simulation(object):
         elif fieldtype == 'J':
             fld.erase('J')
             # Deposit the particle current
-            for species in self.ptcl:
+            for species in species_list:
                 species.deposit( fld, 'J' )
             # Deposit the current of the virtual particles in the antenna
-            for antenna in self.laser_antennas:
+            for antenna in antennas_list:
                 antenna.deposit( fld, 'J', self.comm )
             # Sum contribution from each CPU threads (skipped on GPU)
             fld.sum_reduce_deposition_array('J')
@@ -652,11 +674,12 @@ class Simulation(object):
             raise ValueError('Unknown fieldtype: %s' %fieldtype)
 
         # Get the charge or currents on the spectral grid
-        fld.interp2spect( fieldtype )
-        if self.filter_currents:
-            fld.filter_spect( fieldtype )
-        # Set the flag to indicate whether these fields have been exchanged
-        fld.exchanged_source[ fieldtype ] = exchange
+        if update_spectral:
+            fld.interp2spect( fieldtype )
+            if self.filter_currents:
+                fld.filter_spect( fieldtype )
+            # Set the flag to indicate whether these fields have been exchanged
+            fld.exchanged_source[ fieldtype ] = exchange
 
     def cross_deposit( self, move_positions ):
         """
@@ -930,6 +953,28 @@ class Simulation(object):
 
         # Attach the moving window to the boundary communicator
         self.comm.moving_win = MovingWindow( self.comm, self.dt, v, self.time )
+
+    def reverse_time(self):
+        """
+        Convenience method to reverse the direction of electromagnetic waves
+        and particles propagation. Essentially this method inverses the signs of
+        magnetic fields and particles momenta.
+        """
+        # Inverse the signs of magnetic fields in spectral and real space
+        for m in range(self.fld.Nm) :
+            self.fld.spect[m].Bp *= -1
+            self.fld.spect[m].Bm *= -1
+            self.fld.spect[m].Bz *= -1
+
+            self.fld.interp[m].Br *= -1
+            self.fld.interp[m].Bt *= -1
+            self.fld.interp[m].Bz *= -1
+
+        # Inverse the signs of particles momenta
+        for species in self.ptcl:
+            species.ux *= -1
+            species.uy *= -1
+            species.uz *= -1
 
 def adapt_to_grid( x, p_xmin, p_xmax, p_nx, ncells_empty=0 ):
     """

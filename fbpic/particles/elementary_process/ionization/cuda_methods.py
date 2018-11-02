@@ -21,29 +21,33 @@ copy_ionized_electrons_batch = cuda.jit( copy_ionized_electrons_batch,
                                             device=True, inline=True )
 
 @cuda.jit()
-def ionize_ions_cuda( N_batch, batch_size, Ntot, level_max,
-    n_ionized, is_ionized, ionization_level, random_draw,
+def ionize_ions_cuda( N_batch, batch_size, Ntot,
+    level_start, level_max, n_levels,
+    n_ionized, ionized_from, ionization_level, random_draw,
     adk_prefactor, adk_power, adk_exp_prefactor,
     ux, uy, uz, Ex, Ey, Ez, Bx, By, Bz, w, w_times_level ):
     """
     For each ion macroparticle, decide whether it is going to
     be further ionized during this timestep, based on the ADK rate.
 
-    Increment the elements in `ionization_level` accordingly, and update the
+    Increment the elements in `ionization_level` accordingly, and update
     `w_times_level` of the ions to take into account the change in level
     of the corresponding macroparticle.
 
     For the purpose of counting and creating the corresponding electrons,
-    `is_ionized` (one element per macroparticle) is set to 1 at the position
-    of the ionized ions, and `n_ionized` (one element per batch) counts
-    the total number of ionized particles in the current batch.
+    `ionized_from` (one element per macroparticle) is set to -1 at the position
+    of the unionized ions, and to the level (before ionization) otherwise
+    `n_ionized` (one element per batch, and per ionizable level that needs
+    to be distinguished) counts the total number of ionized particles
+    in the current batch.
     """
     # Loop over batches of particles
     i_batch = cuda.grid(1)
     if i_batch < N_batch:
 
         # Set the count of ionized particles in the batch to 0
-        n_ionized[i_batch] = 0
+        for i_level in range(n_levels):
+            n_ionized[i_level, i_batch] = 0
 
         # Loop through the batch
         N_max = min( (i_batch+1)*batch_size, Ntot )
@@ -53,7 +57,7 @@ def ionize_ions_cuda( N_batch, batch_size, Ntot, level_max,
             # has already been reached for this macroparticle
             level = ionization_level[ip]
             if level >= level_max:
-                is_ionized[ip] = 0
+                ionized_from[ip] = -1
                 continue
 
             # Calculate the amplitude of the electric field,
@@ -66,18 +70,24 @@ def ionize_ions_cuda( N_batch, batch_size, Ntot, level_max,
             # Ionize particles
             if random_draw[ip] < p:
                 # Set the corresponding flag and update particle count
-                is_ionized[ip] = 1
-                n_ionized[i_batch] += 1
+                ionized_from[ip] = level-level_start
+                if n_levels == 1:
+                    # No need to distinguish ionization levels
+                    n_ionized[0, i_batch] += 1
+                else:
+                    # Distinguish count for each ionizable level
+                    n_ionized[level-level_start, i_batch] += 1
                 # Update the ionization level and the corresponding weight
                 ionization_level[ip] += 1
                 w_times_level[ip] = w[ip] * ionization_level[ip]
             else:
-                is_ionized[ip] = 0
+                ionized_from[ip] = -1
 
 @cuda.jit()
 def copy_ionized_electrons_cuda(
     N_batch, batch_size, elec_old_Ntot, ion_Ntot,
-    cumulative_n_ionized, is_ionized,
+    cumulative_n_ionized, ionized_from,
+    i_level, store_electrons_per_level,
     elec_x, elec_y, elec_z, elec_inv_gamma,
     elec_ux, elec_uy, elec_uz, elec_w,
     elec_Ex, elec_Ey, elec_Ez, elec_Bx, elec_By, elec_Bz,
@@ -93,7 +103,8 @@ def copy_ionized_electrons_cuda(
     if i_batch < N_batch:
         copy_ionized_electrons_batch(
             i_batch, batch_size, elec_old_Ntot, ion_Ntot,
-            cumulative_n_ionized, is_ionized,
+            cumulative_n_ionized, ionized_from,
+            i_level, store_electrons_per_level,
             elec_x, elec_y, elec_z, elec_inv_gamma,
             elec_ux, elec_uy, elec_uz, elec_w,
             elec_Ex, elec_Ey, elec_Ez, elec_Bx, elec_By, elec_Bz,

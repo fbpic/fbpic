@@ -151,6 +151,7 @@ def show_transform( grid, fieldtype ):
 
 Nm = 1
 dt = (zmax-zmin)*1./c/Nz
+dt = 0.06e-6/c
 print(c*dt)
 print(L_prop)
 print(L_prop / c / dt)

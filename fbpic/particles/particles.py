@@ -19,7 +19,7 @@ from .push.numba_methods import push_p_numba, push_p_ioniz_numba, \
                             push_p_after_plane_numba, push_x_numba,\
                             push_p_envelope_numba, push_p_ioniz_envelope_numba,\
                             push_p_after_plane_envelope_numba,\
-                            update_inv_gamma_numba, finish_push_p_envelope_numba
+                            update_inv_gamma_numba
 from .gathering.threading_methods import gather_field_numba_linear, \
         gather_field_numba_cubic, gather_envelope_field_numba_linear, \
         gather_envelope_field_numba_cubic
@@ -39,8 +39,7 @@ if cuda_installed:
     from .push.cuda_methods import push_p_gpu, push_p_ioniz_gpu, \
                         push_p_after_plane_gpu, push_x_gpu,\
                         push_p_envelope_gpu, push_p_ioniz_envelope_gpu, \
-                        push_p_after_plane_envelope_gpu, update_inv_gamma_gpu,\
-                        finish_push_p_envelope_gpu
+                        push_p_after_plane_envelope_gpu, update_inv_gamma_gpu
     from .deposition.cuda_methods import deposit_rho_gpu_linear, \
         deposit_J_gpu_linear, deposit_rho_gpu_cubic, deposit_J_gpu_cubic, \
         deposit_chi_gpu_cubic_one_mode, deposit_chi_gpu_linear_one_mode
@@ -443,7 +442,8 @@ class Particles(object) :
             ratio_w_electron_photon, boost )
 
 
-    def make_ionizable( self, element, target_species, level_start=0):
+    def make_ionizable(self, element, target_species,
+                       level_start=0, level_max=None):
         """
         Make this species ionizable.
 
@@ -465,16 +465,29 @@ class Particles(object) :
             The atomic symbol of the considered ionizable species
             (e.g. 'He', 'N' ;  do not use 'Helium' or 'Nitrogen')
 
-        target_species: an fbpic.Particles object
+        target_species: a `Particles` object, or a dictionary of `Particles`
             Stores the electron macroparticles that are created in
-            the ionization process.
+            the ionization process. If a single `Particles` object is passed,
+            then electrons from all ionization levels are stored into this
+            object. If a dictionary is passed, then its keys should be integers
+            (corresponding to the ionizable levels of `element`, starting
+            at `level_start`), and its values should be `Particles` objects.
+            In this case, the electrons from each distinct ionizable level
+            will be stored into these separate objects. Note that using
+            separate objects will typically require longer computing time.
 
         level_start: int
             The ionization level at which the macroparticles are initially
             (e.g. 0 for initially neutral atoms)
+
+        level_max: int, optional
+            If not None, defines the maximum ionization level that
+            macroparticles can reach. Should not exceed the physical
+            limit for the chosen element.
         """
         # Initialize the ionizer module
-        self.ionizer = Ionizer( element, self, target_species, level_start )
+        self.ionizer = Ionizer( element, self, target_species,
+                                level_start, level_max=level_max )
         # Set charge to the elementary charge e (assumed by deposition kernel,
         # when using self.ionizer.w_times_level as the effective weight)
         self.q = e
@@ -624,28 +637,6 @@ class Particles(object) :
                 push_p_numba(self.ux, self.uy, self.uz, self.inv_gamma,
                     self.Ex, self.Ey, self.Ez, self.Bx, self.By, self.Bz,
                     self.q, self.m, self.Ntot, self.dt )
-
-    def complete_push_p_envelope(self):
-        """
-        The method push_p_with_envelope doesn't include half of the
-        ponderomotive force push in order to account for the difference in
-        position between the momentum and the 'a' field in the evaluation of
-        gamma, for example when pushin the positions. This method thus finishes
-        this push with the other half of the ponderomotive force being added to
-        the momentum.
-        """
-
-        if self.use_cuda:
-            # Get the threads per block and the blocks per grid
-            dim_grid_1d, dim_block_1d = cuda_tpb_bpg_1d( self.Ntot )
-            finish_push_p_envelope_gpu[dim_grid_1d, dim_block_1d](self.ux,
-                self.uy, self.uz, self.inv_gamma,
-                self.grad_a2_x, self.grad_a2_y, self.grad_a2_z,
-                self.q, self.m, self.Ntot, self.dt )
-        else:
-            finish_push_p_envelope_numba(self.ux, self.uy, self.uz, self.inv_gamma,
-                self.grad_a2_x, self.grad_a2_y, self.grad_a2_z,
-                self.q, self.m, self.Ntot, self.dt )
 
 
     def push_p_with_envelope( self, t, timestep=None, keep_momentum=True):

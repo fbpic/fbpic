@@ -26,8 +26,9 @@ from scipy.constants import c, e, m_e, m_p
 # Import the relevant structures from fbpic
 from fbpic.main import Simulation
 from fbpic.lpa_utils.laser import add_laser
-from fbpic.openpmd_diag import FieldDiagnostic, ParticleDiagnostic, \
-     set_periodic_checkpoint, restart_from_checkpoint
+from fbpic.openpmd_diag import FieldDiagnostic, \
+    ParticleDiagnostic, ParticleChargeDensityDiagnostic, \
+    set_periodic_checkpoint, restart_from_checkpoint
 
 # ----------
 # Parameters
@@ -147,12 +148,17 @@ if __name__ == '__main__':
     # Configure the moving window
     sim.set_moving_window( v=v_window )
 
-    # Add a diagnostics
+    # Add diagnostics
     sim.diags = [
                 FieldDiagnostic( diag_period, sim.fld, comm=sim.comm ),
                 ParticleDiagnostic( diag_period,
                     {"electrons from N": elec_from_N, "electrons": elec},
-                    comm=sim.comm )
+                    comm=sim.comm ),
+                # Since rho from `FieldDiagnostic` is 0 almost everywhere
+                # (neutral plasma), it is useful to see the charge density
+                # of individual particles
+                ParticleChargeDensityDiagnostic( diag_period, sim,
+                    {"electrons": elec} )
                 ]
     # Add checkpoints
     if save_checkpoints:

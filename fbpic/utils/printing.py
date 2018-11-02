@@ -220,8 +220,9 @@ def print_simulation_setup( sim, verbose_level=1 ):
             message += '\nParticle shape: %s' %sim.particle_shape
             message += '\nLongitudinal boundaries: %s' %sim.comm.boundaries
             message += '\nTransverse boundaries: reflective'
-            message += '\nGuard region size: %d ' %sim.comm.n_guard + 'cells'
-            message += '\nDamping region size: %d ' %sim.comm.n_damp + 'cells'
+            message += '\nGuard region size: %d ' %sim.comm.n_guard+'cells'
+            message += '\nDamping region size: %d ' %sim.comm.n_damp+'cells'
+            message += '\nInjection region size: %d ' %sim.comm.n_inject+'cells'
             message += '\nParticle exchange period: every %d ' \
                 %sim.comm.exchange_period + 'step'
             if sim.boost is not None:

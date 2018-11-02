@@ -20,6 +20,7 @@ import os, shutil
 from scipy.constants import c
 # Import the relevant structures in FBPIC
 from fbpic.main import Simulation
+from fbpic.lpa_utils.bunch import add_elec_bunch_gaussian
 from fbpic.openpmd_diag import FieldDiagnostic
 from fbpic.utils.cuda import cuda_installed
 from opmd_viewer import OpenPMDTimeSeries
@@ -38,23 +39,21 @@ Nm = 2           # Number of modes used
 dt = (zmax-zmin)/Nz/c   # Timestep (seconds)
 N_step = 3     # Number of iterations to perform
 
-# The particles: initialized only in a narrow ring
-p_zmin = 0.e-6  # Position of the beginning of the plasma (meters)
-p_zmax = (zmax-zmin)/Nz  # Position of the end of the plasma (meters)
-p_rmin = 10*rmax/Nr      # Minimal radial position of the plasma (meters)
-p_rmax = 11*rmax/Nr  # Maximal radial position of the plasma (meters)
-n_e = 4.e18*1.e6 # Density (electrons.meters^-3)
-p_nz = 1         # Number of particles per cell along z
-p_nr = 1         # Number of particles per cell along r
-p_nt = 4         # Number of particles per cell along theta
+# The particles: gaussian bunch
+gamma0 = 10
+sig_r = 20.e-6
+sig_z = 10.e-6
+sig_gamma = 0.
+n_emit = 10.e-6
+Q = 10.e-12
+N = 2000
 
 # The diagnostics and the checkpoints
 diag_period = 1
 
 # Test function
 # -------------
-def test_cpu_gpu_deposition(show=False):
-    "Function that is run by py.test, when doing `python setup.py test`"
+def run_cpu_gpu_deposition(show=False, particle_shape='cubic'):
 
     # Skip this test if cuda is not installed
     if not cuda_installed:
@@ -69,17 +68,13 @@ def test_cpu_gpu_deposition(show=False):
 
         # Initialize the simulation object
         sim = Simulation( Nz, zmax, Nr, rmax, Nm, dt,
-            p_zmin, p_zmax, p_rmin, p_rmax, p_nz, p_nr, p_nt, n_e,
-            zmin=zmin, use_cuda=use_cuda )
+            zmin=zmin, use_cuda=use_cuda, particle_shape=particle_shape )
+        sim.ptcl = []
 
-        # Tweak the velocity of the electron bunch
-        gamma0 = 10.
-        sim.ptcl[0].ux = sim.ptcl[0].x
-        sim.ptcl[0].uy = sim.ptcl[0].y
-        sim.ptcl[0].uz = np.sqrt(
-            gamma0**2 - sim.ptcl[0].ux**2 - sim.ptcl[0].uy**2 - 1 )
-        sim.ptcl[0].inv_gamma = 1./gamma0 * np.ones_like( sim.ptcl[0].x )
-        sim.ptcl[0].m = 1e10
+        # Add an electron bunch (set the random seed first)
+        np.random.seed(0)
+        add_elec_bunch_gaussian(
+            sim, sig_r, sig_z, n_emit, gamma0, sig_gamma, Q, N )
 
         # Add a field diagnostic
         sim.diags = [ FieldDiagnostic( diag_period, sim.fld,
@@ -110,6 +105,14 @@ def test_cpu_gpu_deposition(show=False):
     shutil.rmtree('tests/cpu')
     shutil.rmtree('tests/gpu')
 
+def test_linear_deposition(show=False):
+    """Test run by py.test"""
+    run_cpu_gpu_deposition(show=show, particle_shape='linear')
+
+def test_cubic_deposition(show=False):
+    """Test run by py.test"""
+    run_cpu_gpu_deposition(show=show, particle_shape='cubic')
+
 def plot_difference( field, coord, iteration, F_cpu, F_gpu, info ):
     """
     Plots the simulation results on CPU and GPU
@@ -138,4 +141,5 @@ def plot_difference( field, coord, iteration, F_cpu, F_gpu, info ):
 
 if __name__ == '__main__' :
 
-    test_cpu_gpu_deposition(show=True)
+    test_linear_deposition(show=True)
+    test_cubic_deposition(show=True)
