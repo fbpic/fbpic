@@ -650,9 +650,6 @@ class Particles(object) :
         half-timestep *behind* the positions (x, y, z), and it brings
         them one half-timestep *ahead* of the positions.
 
-        Warning: This method doesn't include half of the
-        ponderomotive force push, see complete_push_p_envelope for more details.
-
         Parameters
         ----------
         t: float
