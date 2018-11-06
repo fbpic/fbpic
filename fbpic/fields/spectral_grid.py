@@ -507,9 +507,10 @@ class EnvelopeSpectralGrid(SpectralGrid):
             if ps.V is None or ps.V == 0:
                 cuda_push_envelope_standard[dim_grid, dim_block](
                                         self.a, self.a_old, self.chi_a,
-                                        ps.d_C_w_tot_env, ps.d_A_coef,
+                                        ps.d_C_w_tot_env, ps.A_coef,
                                         ps.d_chi_coef,
                                         self.Nz, self.Nr )
+                # Note: in this case A_coef is a simple scalar
             else:
                 assert ps.use_galilean
                 cuda_push_envelope_galilean[dim_grid, dim_block](

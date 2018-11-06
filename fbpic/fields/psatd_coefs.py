@@ -217,4 +217,9 @@ class PsatdCoeffs(object) :
         if self.use_cuda:
             self.d_C_w_tot_env = cuda.to_device(self.C_w_tot_env)
             self.d_chi_coef = cuda.to_device(self.chi_coef)
-            self.d_A_coef = cuda.to_device(self.A_coef)
+            if self.use_galilean and self.V is not None:
+                # In this case A_coef is an array
+                self.d_A_coef = cuda.to_device(self.A_coef)
+            else:
+                # Otherwise A_coef is a simple scalar
+                assert type(self.A_coef) is np.complex128
