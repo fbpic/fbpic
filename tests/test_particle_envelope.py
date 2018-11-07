@@ -100,6 +100,27 @@ def test_particles_moving_window(show=False):
 
     print('')
 
+def test_particles_galilean(show=False):
+    """
+    Function that is run by py.test, when doing `python setup.py test`
+    Test the basic movements of particles using a galilean referential moving at
+    almost c.
+    """
+    # Choose the regular timestep (required by moving window)
+    dt = (zmax-zmin)*1./c/Nz
+    # Test modes up to m=1
+    for m in [0, 1]:
+
+        print('')
+        print('Testing mode m=%d' %m)
+        propagate_pulse( Nz, Nr, abs(m)+1, zmin, zmax, Lr, L_prop, zf, dt,
+                        p_zmin, p_zmax, p_rmin, p_rmax, n_e,
+                        w0, ctau, k0, a0, m, N_show, n_order,
+                        rtol, boundaries='open', v_window=c, show=show,
+                        use_galilean = True, v_comoving = c )
+
+    print('')
+
 def propagate_pulse( Nz, Nr, Nm, zmin, zmax, Lr, L_prop, zf, dt,
         p_zmin, p_zmax, p_rmin, p_rmax, n_e,
         w0, ctau, k0, a0, m, N_show, n_order, rtol,
@@ -360,3 +381,5 @@ if __name__ == '__main__' :
     test_particles_periodic(show=show)
 
     test_particles_moving_window(show=show)
+
+    test_particles_galilean(show=show)

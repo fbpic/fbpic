@@ -8,43 +8,6 @@ It defines the structure and methods associated with the fields.
 import numpy as np
 from scipy.constants import c
 
-def get_filter_array( kz, kr, dz, dr ) :
-    """
-    Return the array that multiplies the fields in k space
-
-    The filtering function is 1-sin( k/kmax * pi/2 )**2.
-    (equivalent to a one-pass binomial filter in real space,
-    for the longitudinal direction)
-
-    Parameters
-    ----------
-    kz: 1darray
-        The true wavevectors of the longitudinal, spectral grid
-        (i.e. not the kz modified by finite order)
-
-    kr: 1darray
-        The transverse wavevectors on the spectral grid
-
-    dz, dr: float
-        The grid spacings (needed to calculate
-        precisely the filtering function in spectral space)
-
-    Returns
-    -------
-    A 2darray of shape ( len(kz), len(kr) )
-    """
-    # Find the 1D filter in z
-    filt_z = 1. - np.sin( 0.5 * kz * dz )**2
-
-    # Find the 1D filter in r
-    filt_r = 1. - np.sin( 0.5 * kr * dr )**2
-
-    # Build the 2D filter by takin the product
-    filter_array = filt_z[:, np.newaxis] * filt_r[np.newaxis, :]
-
-    return( filter_array )
-
-
 def get_modified_k(k, n_order, dz):
     """
     Calculate the modified k that corresponds to a finite-order stencil
@@ -142,7 +105,11 @@ def stencil_reach(kz, kperp, cdt, v_comoving, use_galilean):
     k = np.sqrt(kz**2 + kperp**2)
     # Calculation of the Theta coefficient if the Galilean scheme is used
     if use_galilean is True:
-        theta = np.exp(1.j * v_comoving * kz * cdt / c / 2)
+        # When using the galilean scheme the stencil reach is always larger
+        # in the direction of v_comoving. Use abs(v_comoving) to have the
+        # maximum stencil extent
+        abs_v_comoving = np.abs(v_comoving)
+        theta = np.exp(1.j * abs_v_comoving * kz * cdt / c / 2)
     else:
         theta = np.ones_like(kz)
     # Calculation of the stencils for the three C/S coefficients
@@ -160,7 +127,8 @@ def stencil_reach(kz, kperp, cdt, v_comoving, use_galilean):
                     np.abs(sin_perp_stencil)**2)
     # Reach of the stencil defined at the position, when the signal
     # decreased to machine precision
-    stencil_reach = np.where(np.abs(alpha)[:int(alpha.shape[0]/2)] < 1.e-16)[0][0]
+    stencil_reach = np.where(np.abs(alpha)
+                             [:int(alpha.shape[0] / 2)] < 1.e-16)[0][0]
 
     return int(stencil_reach)
 
@@ -213,4 +181,5 @@ def get_stencil_reach(Nz, dz, cdt, n_order, v_comoving, use_galilean):
 
     # Calculate the stencil reach at an arbitrary kperp = 0.5
     # (Note: The stencil reach depends only weakly on kperp)
+
     return stencil_reach(kz, 0.5, cdt, v_comoving, use_galilean)

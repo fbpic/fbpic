@@ -12,6 +12,55 @@ from fbpic.utils.threading import njit_parallel, prange
 
 
 @njit_parallel
+def numba_filter_scalar( field, Nz, Nr, filter_array_z, filter_array_r ) :
+    """
+    Multiply the input field by the filter_array
+
+    Parameters :
+    ------------
+    field : 2darray of complexs
+        An array that represent the fields in spectral space
+
+    filter_array_z, filter_array_r : 1darray of reals
+        An array that damps the fields at high k, in z and r respectively
+
+    Nz, Nr : ints
+        Dimensions of the arrays
+    """
+    # Loop over the 2D grid (parallel in z, if threading is installed)
+    for iz in prange(Nz):
+        for ir in range(Nr):
+
+            field[iz,ir] = filter_array_z[iz]*filter_array_r[ir]*field[iz,ir]
+
+
+@njit_parallel
+def numba_filter_vector( fieldr, fieldt, fieldz, Nz, Nr,
+                        filter_array_z, filter_array_r ):
+    """
+    Multiply the input field by the filter_array
+
+    Parameters :
+    ------------
+    field : 2darray of complexs
+        An array that represent the fields in spectral space
+
+    filter_array_z, filter_array_r : 1darray of reals
+        An array that damps the fields at high k, in z and r respectively
+
+    Nz, Nr : ints
+        Dimensions of the arrays
+    """
+    # Loop over the 2D grid (parallel in z, if threading is installed)
+    for iz in prange(Nz):
+        for ir in range(Nr):
+
+            fieldr[iz,ir] = filter_array_z[iz]*filter_array_r[ir]*fieldr[iz,ir]
+            fieldt[iz,ir] = filter_array_z[iz]*filter_array_r[ir]*fieldt[iz,ir]
+            fieldz[iz,ir] = filter_array_z[iz]*filter_array_r[ir]*fieldz[iz,ir]
+
+
+@njit_parallel
 def numba_correct_currents_curlfree_standard( rho_prev, rho_next, Jp, Jm, Jz,
                             kz, kr, inv_k2, inv_dt, Nz, Nr ):
     """
@@ -144,14 +193,13 @@ def numba_push_eb_standard( Ep, Em, Ez, Bp, Bm, Bz, Jp, Jm, Jz,
     return
 
 @njit_parallel
-def numba_push_envelope_standard(a, a_old, chi_a, a_prev_coef,
-                                a_inv_coef, dt2, Nz, Nr):
+def numba_push_envelope(a, a_old, chi_a, a_prev_coef,
+                        a_inv_coef, dt2, Nz, Nr):
     """
     Push the envelope over one timestep, using the envelope model equations
 
     See the documentation of EnvelopeSpectralGrid.push_envelope_with
     """
-
     for iz in prange(Nz):
         for ir in range(Nr):
             # Store the field that will be a_old
@@ -162,8 +210,6 @@ def numba_push_envelope_standard(a, a_old, chi_a, a_prev_coef,
             a_old[iz, ir] = a_temp
 
     return
-
-
 
 @njit_parallel
 def numba_correct_currents_curlfree_comoving( rho_prev, rho_next, Jp, Jm, Jz,

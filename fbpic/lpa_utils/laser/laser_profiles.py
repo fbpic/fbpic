@@ -401,7 +401,10 @@ class LaguerreGaussLaser( LaserProfile ):
         k0 = 2*np.pi/lambda0
         zr = 0.5*k0*waist**2
         # Scaling factor, so that the pulse energy is independent of p and m.
-        scaled_amplitude = np.sqrt( factorial(p)/factorial(m+p) )
+        if m ==0:
+            scaled_amplitude = 1.
+        else:
+            scaled_amplitude = np.sqrt( factorial(p)/factorial(m+p) )
         if m != 0:
             scaled_amplitude *= 2**.5
         E0 = scaled_amplitude * a0 * m_e*c**2 * k0/e
@@ -446,7 +449,7 @@ class LaguerreGaussLaser( LaserProfile ):
             + 1j*self.k0*( prop_dir*(z - self.z0) - c*t ) \
             - (x**2 + y**2) / (self.w0**2 * diffract_factor) \
             - self.inv_ctau2 * ( prop_dir*(z - self.z0) - c*t )**2 \
-            + 1.j*(2*self.p + self.m)*psi # *Additional* Gouy phase
+            - 1.j*(2*self.p + self.m)*psi # *Additional* Gouy phase
         # Get the transverse profile
         profile = np.exp(exp_argument) / diffract_factor \
             * scaled_radius**self.m * self.laguerre_pm(scaled_radius_squared) \
@@ -474,7 +477,7 @@ class LaguerreGaussLaser( LaserProfile ):
         exp_argument = - 1j*self.cep_phase \
             - (x**2 + y**2) / (self.w0**2 * diffract_factor) \
             - self.inv_ctau2 * ( z - self.z0 - c*t )**2 \
-            + 1j*(2*self.p + self.m)*psi # *Additional* Gouy phase
+            - 1j*(2*self.p + self.m)*psi # *Additional* Gouy phase
         # Get the transverse profile
         profile = np.exp(exp_argument) / diffract_factor \
             * scaled_radius**self.m * self.laguerre_pm(scaled_radius_squared) \
@@ -771,7 +774,7 @@ class FlattenedGaussianLaser( LaserProfile ):
         for n in range(N+1):
             cep_phase_n = cep_phase + (2*n+1)*np.pi/2
             m_values = np.arange(n, N+1)
-            cn = (-1)**n * np.sum( 1./2**m_values * binom(m_values,n) ) /(N+1)
+            cn = (-1)**n * np.sum((1./2)**m_values * binom(m_values,n)) / (N+1)
             profile = LaguerreGaussLaser( p=n, m=0, a0=cn*a0,
                             cep_phase=cep_phase_n, waist=w_foc,
                             tau=tau, z0=z0, zf=zf, theta_pol=theta_pol,

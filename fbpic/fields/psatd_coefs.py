@@ -59,6 +59,7 @@ class PsatdCoeffs(object) :
         inv_dt = 1./dt
         # Register velocity of galilean/comoving frame
         self.V = V
+        self.use_galilean = use_galilean
         # Register the use of GPU
         self.use_cuda = use_cuda
 
@@ -204,7 +205,11 @@ class PsatdCoeffs(object) :
         w_laser = c * k0
         w1 = w_laser + c*kz
         w_tot = np.sqrt( (w_laser + c * kz)**2 + c**2 * kr**2)
-        self.a_prev_coef = np.exp(-1.j*kz*c*dt) * \
+        if self.use_galilean and self.V is not None:
+            v_gal = self.V
+        else:
+            v_gal = 0
+        self.a_prev_coef = np.exp(1.j*kz*(v_gal - c)*dt) * \
             (1. + 1.j*w1*dt + 0.5*(w_tot**2-w1**2)*dt**2)
         self.a_inv_coef = 1./np.conjugate( self.a_prev_coef )
         # Replace these array by arrays on the GPU, when using cuda
