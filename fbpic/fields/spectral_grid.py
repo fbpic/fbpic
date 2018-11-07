@@ -13,7 +13,8 @@ from .numba_methods import numba_push_eb_standard, numba_push_eb_comoving, \
     numba_correct_currents_crossdeposition_standard, \
     numba_correct_currents_curlfree_comoving, \
     numba_correct_currents_crossdeposition_comoving, \
-    numba_compute_grad_a, numba_filter_scalar, numba_filter_vector
+    numba_compute_grad_a, numba_push_envelope_galilean, \
+    numba_filter_scalar, numba_filter_vector
 
 # Check if CUDA is available, then import CUDA functions
 from fbpic.utils.cuda import cuda_installed
@@ -26,7 +27,8 @@ if cuda_installed:
     cuda_correct_currents_crossdeposition_comoving, \
     cuda_filter_scalar, cuda_filter_vector, \
     cuda_push_eb_standard, cuda_push_eb_comoving, cuda_push_rho, \
-    cuda_push_envelope_standard, cuda_compute_grad_a
+    cuda_push_envelope_standard, cuda_compute_grad_a, \
+    cuda_push_envelope_galilean
 
 
 class SpectralGrid(object) :
@@ -491,32 +493,41 @@ class EnvelopeSpectralGrid(SpectralGrid):
         Push the a and a_old envelope fields over one timestep,
         using the psatd coefficients.
 
-        WARNING: currently only implemented for non-comoving simulations,
-        with only CPU usage
-
         Parameters
         ----------
         ps : PsatdCoeffs object
             psatd object corresponding to the same m mode
         """
-        assert (ps.V is None or ps.V == 0)
         assert( abs(self.m) == ps.m )
 
         if self.use_cuda :
             # Obtain the cuda grid
             dim_grid, dim_block = cuda_tpb_bpg_2d( self.Nz, self.Nr)
             # Push the fields on the GPU
-
-            cuda_push_envelope_standard[dim_grid, dim_block](
+            if ps.V is None or ps.V == 0:
+                cuda_push_envelope_standard[dim_grid, dim_block](
                                         self.a, self.a_old, self.chi_a,
                                         ps.d_C_w_tot_env, ps.A_coef,
                                         ps.d_chi_coef,
                                         self.Nz, self.Nr )
+                # Note: in this case A_coef is a simple scalar
+            else:
+                assert ps.use_galilean
+                cuda_push_envelope_galilean[dim_grid, dim_block](
+                                        self.a, self.a_old, self.chi_a,
+                                        ps.d_C_w_tot_env, ps.d_A_coef,
+                                        ps.d_chi_coef,
+                                        self.Nz, self.Nr )
 
         else:
-            numba_push_envelope_standard(self.a, self.a_old, self.chi_a,
-                                    ps.C_w_tot_env,
-                                    ps.A_coef, ps.chi_coef,
+            if ps.V is None or ps.V == 0:
+                numba_push_envelope_standard(self.a, self.a_old, self.chi_a,
+                                    ps.C_w_tot_env, ps.A_coef, ps.chi_coef,
+                                    self.Nz, self.Nr)
+            else:
+                assert ps.use_galilean
+                numba_push_envelope_galilean(self.a, self.a_old, self.chi_a,
+                                    ps.C_w_tot_env, ps.A_coef, ps.chi_coef,
                                     self.Nz, self.Nr)
 
     def compute_grad_a(self):

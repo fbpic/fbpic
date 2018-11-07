@@ -190,6 +190,7 @@ def push_p_ioniz_envelope_numba( ux, uy, uz, inv_gamma,
 
     return ux, uy, uz, inv_gamma
 
+
 @njit_parallel
 def update_inv_gamma_numba(a2, ux, uy, uz, inv_gamma, q, m, Ntot):
     """

@@ -59,6 +59,7 @@ class PsatdCoeffs(object) :
         inv_dt = 1./dt
         # Register velocity of galilean/comoving frame
         self.V = V
+        self.use_galilean = use_galilean
         # Register the use of GPU
         self.use_cuda = use_cuda
 
@@ -202,14 +203,23 @@ class PsatdCoeffs(object) :
 
         # Calculate all necessary coefficients for propagation of A field
         w_laser = c * k0
-        w1 = w_laser
         w_tot = np.sqrt( (w_laser + c * kz)**2 + c**2 * kr**2)
+        if self.use_galilean and self.V is not None:
+            w1 = w_laser + self.V*kz
+        else:
+            w1 = w_laser
         self.C_w_tot_env = np.cos(w_tot*dt)
+        self.A_coef = np.exp(1j * w1 * dt)
         self.w_laser = w_laser
-        self.A_coef = np.exp(1j * w_laser * dt)
         self.chi_coef = -dt**2 * np.sinc((w_tot - w1)*0.5*dt / np.pi)\
                                     * np.sinc((w_tot + w1)*0.5*dt / np.pi)
         # Replace these array by arrays on the GPU, when using cuda
         if self.use_cuda:
             self.d_C_w_tot_env = cuda.to_device(self.C_w_tot_env)
             self.d_chi_coef = cuda.to_device(self.chi_coef)
+            if self.use_galilean and self.V is not None:
+                # In this case A_coef is an array
+                self.d_A_coef = cuda.to_device(self.A_coef)
+            else:
+                # Otherwise A_coef is a simple scalar
+                assert type(self.A_coef) is np.complex128

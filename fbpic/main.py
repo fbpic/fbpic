@@ -437,7 +437,6 @@ class Simulation(object):
                 fld.spect2interp('a')
                 fld.compute_grad_a()
 
-
             # Push the particles' positions and velocities to t = (n+1/2) dt
             if move_momenta:
                 for species in ptcl:
@@ -449,15 +448,22 @@ class Simulation(object):
                     else:
                         species.push_p( self.time + 0.5*self.dt )
 
-
             if self.use_envelope:
                 # Now that the momentum has been pushed, we can gather the
                 # envelope at time (n+1/2)*dt (average of times n and n+1)
                 # to compute the gamma for pushing the positions.
+
+                # The envelope gathering made afterwards gathers
+                # fields at time (n+1)dt
+                if self.use_galilean:
+                    self.shift_galilean_boundaries( dt )
                 for species in ptcl:
                     species.gather_envelope(fld, gather_gradient=False,
                                                  average_a2=True)
                     species.update_inv_gamma()
+                #  We go back to the time n dt for the deposition of J and rho
+                if self.use_galilean:
+                    self.shift_galilean_boundaries( -dt )
 
             if move_positions:
                 for species in ptcl:
@@ -739,7 +745,10 @@ class Simulation(object):
         for m in range(self.fld.Nm):
             self.fld.interp[m].zmin += shift_distance
             self.fld.interp[m].zmax += shift_distance
-
+        if self.use_envelope:
+            for m in range(2 * self.fld.Nm - 1):
+                self.fld.envelope_interp[m].zmin += shift_distance
+                self.fld.envelope_interp[m].zmax += shift_distance
 
     def add_new_species( self, q, m, n=None, dens_func=None,
                             p_nz=None, p_nr=None, p_nt=None,

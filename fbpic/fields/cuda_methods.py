@@ -319,6 +319,26 @@ def cuda_push_envelope_standard(a, a_old, chi_a, C_w_tot_env,
                 + chi_coef[iz, ir] * chi_a[iz, ir])
         a_old[iz, ir] = a_temp
 
+@cuda.jit
+def cuda_push_envelope_galilean(a, a_old, chi_a, C_w_tot_env,
+                            A_coef, chi_coef, Nz, Nr) :
+    """
+    Push the envelope over one timestep, using the envelope model equations
+
+    See the documentation of EnvelopeSpectralGrid.push_envelope_with
+    """
+    # Cuda 2D grid
+    iz, ir = cuda.grid(2)
+
+    if (iz < Nz) and (ir < Nr) :
+        # Store the field that will be a_old
+        a_temp = a[iz, ir]
+        # Push the envelope
+        a[iz, ir] = A_coef[iz, ir] * ( - A_coef[iz, ir] * a_old[iz,ir] \
+                + 2 * C_w_tot_env[iz, ir] * a[iz, ir] \
+                + chi_coef[iz, ir] * chi_a[iz, ir])
+        a_old[iz, ir] = a_temp
+
 
 @cuda.jit
 def cuda_push_eb_comoving( Ep, Em, Ez, Bp, Bm, Bz, Jp, Jm, Jz,

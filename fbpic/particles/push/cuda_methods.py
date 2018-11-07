@@ -12,7 +12,7 @@ from numba import cuda
 from .inline_functions import push_p_vay, push_p_vay_envelope
 # Compile the inline function for GPU
 push_p_vay = cuda.jit( push_p_vay, device=True, inline=True )
-push_p_vay_envelope = cuda.jit( push_p_vay_envelope, 
+push_p_vay_envelope = cuda.jit( push_p_vay_envelope,
                                 device=True, inline=True )
 
 @cuda.jit
@@ -326,7 +326,6 @@ def push_p_ioniz_envelope_gpu( ux, uy, uz, inv_gamma,
                     Ex[ip], Ey[ip], Ez[ip], Bx[ip], By[ip], Bz[ip], a2[ip],
                     grad_a2_x[ip], grad_a2_y[ip], grad_a2_z[ip], econst, bconst,
                     aconst, scale_factor)
-
 
 @cuda.jit
 def update_inv_gamma_gpu(a2, ux, uy, uz, inv_gamma, q, m):
