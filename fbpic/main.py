@@ -52,7 +52,8 @@ class Simulation(object):
                  n_guard=None, n_damp=64, exchange_period=None,
                  current_correction='curl-free', boundaries='periodic',
                  gamma_boost=None, use_all_mpi_ranks=True,
-                 particle_shape='linear', verbose_level=1 ):
+                 particle_shape='linear', verbose_level=1,
+                 smoother=None ):
         """
         Initializes a simulation.
 
@@ -134,26 +135,27 @@ class Simulation(object):
             calculates the required guard cells for n_order
             automatically (approx 2*n_order). If no MPI is used and
             in the case of open boundaries with an infinite order stencil,
-            n_guard defaults to 30, if not set otherwise.
+            n_guard defaults to 64, if not set otherwise.
         n_damp : int, optional
             Number of damping guard cells at the left and right of a
             simulation box if a moving window is attached. The guard
             region at these areas (left / right of moving window) is
-            extended by n_damp (N=n_guard+n_damp) in order to smoothly
-            damp the fields such that they do not wrap around.
+            extended by n_damp in order to smoothly damp the fields such
+            that they do not wrap around. Additionally, this region is
+            extended by an injection area of size n_guard/2 automatically.
             (Defaults to 64)
         exchange_period: int, optional
             Number of iterations before which the particles are exchanged.
             If set to None, the maximum exchange period is calculated
             automatically: Within exchange_period timesteps, the
             particles should never be able to travel more than
-            (n_guard - particle_shape order) cells. (Setting exchange_period
+            (n_guard/2 - particle_shape order) cells. (Setting exchange_period
             to small values can substantially affect the performance)
 
         boundaries: string, optional
             Indicates how to exchange the fields at the left and right
             boundaries of the global simulation box.
-            Either 'periodic' or 'open'
+            (Either 'periodic' or 'open')
 
         current_correction: string, optional
             The method used in order to ensure that the continuity equation
@@ -190,6 +192,10 @@ class Simulation(object):
             0 - Print no information
             1 (Default) - Print basic information
             2 - Print detailed information
+
+        smoother: an instance of :any:`BinomialSmoother`, optional
+            Determines how the charge and currents are smoothed.
+            (Default: one-pass binomial filter and no compensator.)
         """
         # Check whether to use CUDA
         self.use_cuda = use_cuda
@@ -223,7 +229,7 @@ class Simulation(object):
         # Initialize the boundary communicator
         self.comm = BoundaryCommunicator( Nz, zmin, zmax, Nr, rmax, Nm, dt,
             self.v_comoving, self.use_galilean, boundaries, n_order,
-            n_guard, n_damp, exchange_period, use_all_mpi_ranks )
+            n_guard, n_damp, None, exchange_period, use_all_mpi_ranks )
         # Modify domain region
         zmin, zmax, Nz = self.comm.divide_into_domain()
         # Initialize the field structure
@@ -233,6 +239,7 @@ class Simulation(object):
                     use_galilean=use_galilean,
                     current_correction=current_correction,
                     use_cuda=self.use_cuda,
+                    smoother=smoother,
                     # Only create threading buffers when running on CPU
                     create_threading_buffers=(self.use_cuda is False) )
 
