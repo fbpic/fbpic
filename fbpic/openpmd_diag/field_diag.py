@@ -36,9 +36,9 @@ class FieldDiagnostic(OpenPMDDiagnostic):
             (Make sure to use different write_dir in this case.)
 
         fieldtypes : a list of strings, optional
-            The strings are either "rho", "E", "B", "J" or "A"
+            The strings are either "rho", "E", "B", "J" or "a"
             and indicate which field should be written.
-            Default : all fields except "A" are written
+            Default : all fields except "a" are written
 
         write_dir : string, optional
             The POSIX path to the directory where the results are
