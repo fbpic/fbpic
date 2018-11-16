@@ -7,7 +7,7 @@ FBPIC documentation
 ======================================================
 
 FBPIC (Fourier-Bessel Particle-In-Cell) is a `Particle-In-Cell (PIC)
-code <http://en.wikipedia.org/wiki/Particle-in-cell)>`_ for
+code <http://en.wikipedia.org/wiki/Particle-in-cell>`_ for
 relativistic plasma
 physics. It is especially well-suited for physical simulations of **laser-wakefield acceleration** and **plasma-wakefield acceleration**.
 
