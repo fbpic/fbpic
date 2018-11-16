@@ -119,8 +119,8 @@ class SummedLaserProfile( LaserProfile ):
         """
         See the docstring of LaserProfile.a_field
         """
-        a1 = self.profile1.a_field(x, y, z, t)
-        a2 = self.profile2.a_field( x, y, z, t)
+        a1 = self.profile1.a_field( x, y, z, t )
+        a2 = self.profile2.a_field( x, y, z, t )
         return a1 + a2
 
 
@@ -787,6 +787,7 @@ class FlattenedGaussianLaser( LaserProfile ):
 
         # Register the summed_profile
         self.summed_profile = summed_profile
+        self.k0 = summed_profile.k0
 
 
     def E_field( self, x, y, z, t ):
@@ -794,3 +795,10 @@ class FlattenedGaussianLaser( LaserProfile ):
         See the docstring of LaserProfile.E_field
         """
         return self.summed_profile.E_field( x, y, z, t )
+
+
+    def a_field( self, x, y, z, t ):
+        """
+        See the docstring of LaserProfile.E_field
+        """
+        return self.summed_profile.a_field( x, y, z, t )
