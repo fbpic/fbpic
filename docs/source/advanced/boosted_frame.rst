@@ -274,8 +274,10 @@ slows down again.
     :math:`\gamma_b` for which the interaction time is minimized for a
     given simulation setup. The speed up of a boosted frame
     simulation will reverse for too high values of :math:`\gamma_b`.
-    In practice, it is often advisable to choose :math:`\gamma_b < \gamma_{wake}/2`
-    - as explained in the next section.
+    In practice, it is often advisable to fulfil
+    :math:`\gamma_b^2 < L_{plasma}/l_{window}` for maximum efficiency and
+    :math:`\gamma_b < \gamma_{wake}/2` to properly resolve the physical
+    objects (see next section).
 
 .. _boosted_frame_resolution:
 

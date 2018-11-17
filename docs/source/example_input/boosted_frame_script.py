@@ -144,10 +144,11 @@ Ntot_snapshot_lab = 15
 dt_snapshot_lab = 10*(zmax-zmin)/c
 track_bunch = False  # Whether to tag and track the particles of the bunch
 
-# The interaction time of the Simulation
-# (i.e. time it takes for the moving window to slide across the plasma)
-L_interact = (p_zmax-p_zmin) # The interaction length (plasma length)
+# The interaction length of the simulation (meters)
+L_interact = (p_zmax-p_zmin) # the plasma length
+# Interaction time (seconds) (to calculate number of PIC iterations)
 T_interact = boost.interaction_time( L_interact, (zmax-zmin), v_window )
+# (i.e. the time it takes for the moving window to slide across the plasma)
 
 # ---------------------------
 # Carrying out the simulation

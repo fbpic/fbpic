@@ -94,11 +94,11 @@ def dens_func( z, r ) :
     n = np.where( z<ramp_start, 0., n )
     return(n)
 
-# The interaction time of the Simulation
-# (i.e. time it takes for the moving window to slide across the plasma)
-L_interact = 0.1*(p_zmax-p_zmin) # The interaction length (10% of plasma length)
-# ( increase the above value to simulate a longer distance! )
+# The interaction length of the simulation (meters)
+L_interact = 50.e-6 # increase to simulate longer distance!
+# Interaction time (seconds) (to calculate number of PIC iterations)
 T_interact = ( L_interact + (zmax-zmin) ) / v_window
+# (i.e. the time it takes for the moving window to slide across the plasma)
 
 # ---------------------------
 # Carrying out the simulation
