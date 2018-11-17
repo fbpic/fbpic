@@ -86,6 +86,10 @@ p_nt = 6         # Number of particles per cell along theta
 uz_m = 0.        # Initial momentum of the electrons in the lab frame
 
 # Density profile
+# Convert parameters to boosted frame
+# (NB: the density is converted inside the Simulation object)
+ramp_up_b, plateau_b, ramp_down_b = \
+    boost.static_length( [ ramp_up, plateau, ramp_down ] )
 # Relative change divided by w_matched^2 that allows guiding
 rel_delta_n_over_w2 = 1./( np.pi * 2.81e-15 * w_matched**4 * n_e )
 # Define the density function
@@ -105,19 +109,17 @@ def dens_func( z, r ):
     n : 1d array of floats
         Array of relative density, with one element per macroparticles
     """
-    # Convert longitudinal coordinates from boosted frame to lab frame
-    # (NB: the density is Lorentz-transformed inside the Simulation object)
-    z = z*boost.gamma0
     # Allocate relative density
     n = np.ones_like(z)
-    # Make ramp up
-    inv_ramp_up = 1./ramp_up
-    n = np.where( z<ramp_up, z*inv_ramp_up, n )
+    # Make ramp up (note: use boosted-frame values of the ramp length)
+    inv_ramp_up_b = 1./ramp_up_b
+    n = np.where( z<ramp_up_b, z*inv_ramp_up_b, n )
     # Make ramp down
-    inv_ramp_down = 1./ramp_down
-    n = np.where( (z >= ramp_up+plateau) & (z < ramp_up+plateau+ramp_down),
-              - (z - (ramp_up+plateau+ramp_down) )*inv_ramp_down, n )
-    n = np.where( z >= ramp_up+plateau+ramp_down, 0, n)
+    inv_ramp_down_b = 1./ramp_down_b
+    n = np.where( (z >= ramp_up_b+plateau_b) & \
+                  (z < ramp_up_b+plateau_b+ramp_down_b),
+              - (z - (ramp_up_b+plateau_b+ramp_down_b) )*inv_ramp_down_b, n )
+    n = np.where( z >= ramp_up_b+plateau_b+ramp_down_b, 0, n)
     # Add transverse guiding parabolic profile
     n = n * ( 1. + rel_delta_n_over_w2 * r**2 )
     return(n)
