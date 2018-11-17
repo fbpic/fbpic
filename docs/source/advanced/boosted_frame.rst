@@ -6,11 +6,13 @@ which can speed up certain types of PIC simulations by orders of magnitude.
 
 After explaining the principle of this technique
 (in the case of laser-wakefield acceleration, or LWFA), this page discusses
-how to handle three important aspects of boosted-frame simulations with FBPIC:
+how to handle the most important aspects of boosted-frame simulations with FBPIC:
 
     - Converting the input parameters from the lab frame to the boosted frame
     - Converting simulation results from the boosted frame to the lab frame
     - Avoiding the numerical Cherenkov instability (NCI)
+    - Estimating the number of iterations to use in the boosted frame
+    - Understanding the transformation and resolution of physical objects in the boosted frame
 
 Principle of the boosted-frame technique (for LWFA)
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -43,11 +45,24 @@ the number of required PIC iterations is reduced in the boosted frame:
 
 .. math::
 
-    N_{iterations, boosted} = \frac{1}{2\gamma_{boost}^2} N_{iterations, lab}
+    N_{iterations, boosted} \approx \frac{1}{(1+\beta_b)^2 \gamma_b^2} N_{iterations, lab}
 
-which can speed up the simulation by orders of magnitude.
-For more details on the theory of boosted-frame simulations, see the `original
-paper on this technique <https://journals.aps.org/prl/abstract/10.1103/PhysRevLett.98.130405>`__.
+which can speed up the simulation by orders of magnitude. However, the above formula is
+only an approximation and the calculation of the correct number of timesteps
+in practice is discussed below (see :ref:`boosted_frame_speedup`).
+Note also that, in theory, the optimal value of :math:`\gamma_b` is
+close to :math:`\gamma_{wake}`, i.e. the Lorentz factor
+associated with the phase velocity of the plasma wake (group velocity of the laser
+pulse in the case of laser-wakefield acceleration). However, for most
+simulation setups and due to limits on the spatial and temporal resolution in
+the boosted frame in FBPIC, values lower than :math:`\gamma_{wake}` are favorable
+(see :ref:`boosted_frame_resolution`).
+
+For more details on the general theory of boosted-frame simulations,
+see the `original paper on this technique
+<https://journals.aps.org/prl/abstract/10.1103/PhysRevLett.98.130405>`__
+or read a `more detailed description of the speedup
+<https://aip.scitation.org/doi/pdf/10.1063/1.3663841>`__.
 
 .. note::
 
@@ -101,19 +116,17 @@ along with the value of :math:`\gamma_b`. For instance, the :class:`fbpic.main.S
 will automatically convert the timestep and box size from typical lab-frame values
 to the corresponding boosted-frame values.
 
-.. note::
-
-    You will still need to adjust, by hand, the number of PIC iterations
-    (which is typically lower in the boosted frame than in the lab frame, as explained above).
-
 For each function or class that you use, please look at the corresponding
 documentation in the section :doc:`../api_reference/api_reference` to see if it supports
 automatic parameter conversion. If it is not the case, you can instead use the
 :class:`fbpic.lpa_utils.boosted_frame.BoostConverter`, which implements the Lorentz transform
-formulas for the most common physical quantities.
+formulas for the most common physical quantities. Additionally, a function is provided
+to automatically estimate the required PIC iterations in the boosted frame (see :ref:`boosted_frame_speedup`).
 
 You can see an example of these different methods for parameter conversion
 in the boosted-frame example script of the section :doc:`../how_to_run`.
+
+.. _boosted_frame_lab_diagnostics:
 
 Converting simulation results from the boosted frame to the lab frame
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -184,3 +197,138 @@ class to a velocity close to:
     knowledge, no existing solution to suppress the NCI. Note that FBPIC does
     not check whether the above condition is met in a given simulation ;
     instead the user is responsible for ensuring this.
+
+.. _boosted_frame_speedup:
+
+Estimating the number of PIC iterations for boosted frame simulations
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+In order to calculate the required number of timesteps in a boosted frame simulation
+in practice, we can calculate and compare the total interaction time of
+the physical objects in space. In a lab frame simulation, the total interaction time
+:math:`T_{interact}` can be defined as the time needed for the moving window
+with length :math:`l_{window}` to cross the plasma with length :math:`L_{plasma}`.
+
+.. math::
+    T_{interact} = \frac{L_{plasma} + l_{window}}{v_{window}-v_{plasma}}
+
+Here :math:`v_{window} = \beta_{window}c` is speed of the moving window (which is typically
+set to the phase velocity of the plasma wake :math:`\beta_{window} = \beta_{wake}`)
+and :math:`v_{plasma} = \beta_{plasma}c` is the speed of the plasma, which would
+be :math:`v_{plasma} = 0` in the lab frame.
+
+Consequently, the number of iterations in the lab frame are given by:
+
+.. math::
+  N_{lab} = \frac{T_{interact}}{\Delta t}
+
+When using the boosted frame technique, FBPIC will transform all those
+quantities into the new frame of reference:
+
+.. math::
+  L_{plasma}' = \frac{L_{plasma}}{\gamma}
+.. math::
+  l_{window}' = l_{window}\gamma(1+\beta)
+.. math::
+  v_{window}' = c( (\beta_{window}-\beta)/(1-\beta_{window}\beta) )
+.. math::
+  v_{plasma}' = -\beta c
+
+and using the above formula we can calculate the interaction time in the
+boosted frame. The number of required iterations are then given by:
+
+.. math::
+  N_{boost} = \frac{T_{interact}'}{\Delta t'}
+
+where :math:`\Delta t' = \gamma (1+\beta) \Delta t` is
+the timestep in the boosted frame.
+
+The :any:`BoostConverter` object exposes the above formula for :math:`T_{interact}'`
+as function :any:`interaction_time` that can be used to calculate the
+required number of timesteps in the boosted frame for a given moving window sliding
+across an initially static object with length :math:`L_{interact}` (e.g.
+the plasma :math:`L_{interact}=L_{plasma}`). In addition, the timestep in
+the boosted frame :math:`\Delta t'` can be accessed through ``sim.dt`` in
+FBPIC (see the boosted-frame script in :doc:`../how_to_run`).
+
+The following figure shows the calculation of the expected speedup
+(defined as the reduction in the number of PIC iterations, :math:`N_{lab}/N_{boost}`)
+of a typical laser-plasma acceleration case. Lets assume a simulation box
+(moving window) of length :math:`l_{window} = 100 \, \mu m` interacting with a
+plasma of length :math:`L_{plasma} = 12 \, mm`. Assuming a plasma density of
+:math:`n_{e}=10^{24} \, m^{-3}`, we set the velocity of the moving window to match
+the plasma wake phase velocity, i.e. :math:`\gamma_{wake} \approx 42`.
+
+.. image:: ../images/boosted_frame_speedup_example.svg
+
+This simple example highlights two important aspects of choosing the right
+:math:`\gamma_b` in practice. First, it can be seen that the speedup does
+only follow the simple scaling law :math:`(1+\beta_b^2)\gamma_b^2`
+for :math:`\gamma_b \ll \gamma_{wake}`, and second, that the optimum speedup
+occurs at a :math:`\gamma_b < \gamma_{wake}` before the simulation
+slows down again.
+
+.. note::
+
+    As highlighted in the above example, there is an optimum
+    :math:`\gamma_b` for which the interaction time is minimized for a
+    given simulation setup. The speed up of a boosted frame
+    simulation will reverse for too high values of :math:`\gamma_b`.
+    In practice, it is often advisable to fulfil
+    :math:`\gamma_b^2 < L_{plasma}/l_{window}` for maximum efficiency and
+    :math:`\gamma_b < \gamma_{wake}/2` to properly resolve the physical
+    objects (see next section).
+
+.. _boosted_frame_resolution:
+
+Transformation and resolution of physical objects in the boosted frame
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Although the basic principles of boosted frame simulations have been covered
+already in the previous sections, understanding the transformation of
+physical quantities in the boosted frame can be more tricky and will be explained
+in more detail in the following. We will restrict ourselves to the use case
+of laser-plasma acceleration where a simple laser propagates through a homogeneous
+plasma.
+
+Fundamentally, the spatial and temporal scales that need to be resolved are
+the laser and the plasma wavelength, :math:`\lambda_{l}` and :math:`\lambda_{p}`
+(spatial scale), the period of time oscillations of the laser and the plasma
+:math:`\tau_{l}` and :math:`\tau_{p}` (temporal scale) and finally the spatial scale
+of the plasma itself (:math:`L_{p}`). The following figure shows the normalized
+transformation of these quantities for different values of
+:math:`\gamma_b` normalized to :math:`\gamma_{wake}`.
+
+.. image:: ../images/boosted_frame_transformation_of_physical_objects.svg
+
+For low boosting factors :math:`\gamma_b \ll \gamma_{wake}`,
+the spatial and temporal scales of the laser and the plasma will equally increase
+:math:`\propto  \gamma_b (1+\beta_b)` and the plasma will contract
+as :math:`L_{p} \gamma^{-1}`.
+
+For higher boosting factors, however, the difference in phase velocity between
+the laser and the plasma wave becomes apparent in the spatial and temporal scalings.
+The laser phase velocity is supra-luminic in plasma
+:math:`\beta_{supra} = 1 + n_{e}/(2 n_{c})` compared to the sub-luminic
+phase velocity of the plasma wake :math:`\beta_{sub} = 1 - n_{e}/(2 n_{c})`.
+Here :math:`n_{c}` is the critical plasma density.
+
+In practice, this discrepancy in the Lorentz transformation of both quantities
+can cause diverging spatial and temporal resolutions in the simulation if
+:math:`\gamma_b` approaches :math:`\gamma_{wake}`. In FBPIC, the
+longitudinal resolution is transformed by default as
+:math:`\Delta z'=\Delta z \gamma_b (1+\beta_b)`.
+As shown in the next figure, this will cause a decrease in
+spatial resolution of the plasma wave, as well as a decrease in temporal
+resolution of the laser oscillations, for :math:`\gamma_b \gtrsim \gamma_{wake}/2`.
+
+.. image:: ../images/boosted_frame_resolution_of_physical_objects_in_fbpic.svg
+
+.. warning::
+
+      As explained in the section above, the spatial and temporal scales of
+      the physical objects in the simulation transform differently in the
+      boosted frame. Therefore, the relativistic factor of the boosted frame
+      should always be much smaller than the plasma wake velocity.
+      :math:`\gamma_b < \gamma_{wake}/2` should be satisfied at least
+      for a typical laser-plasma acceleration simulation.

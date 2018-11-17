@@ -38,6 +38,15 @@ from mpi4py.MPI import COMM_WORLD as comm
 # Whether to use the GPU
 use_cuda = True
 
+# Order of accuracy of the spectral, Maxwell (PSATD) solver.
+# -1 correspond to infinite order, i.e. wave propagation is perfectly
+# dispersion-free in all directions. This is adviced for single GPU/CPU
+# simulations. For multi GPU/CPU simulations, choose n_order > 4
+# (and multiple of 2). A large n_order leads to more overhead in MPI
+# communications, but also to a more accurate dispersion for waves.
+# (Typically, n_order = 32 gives accurate physical results)
+n_order = -1
+
 # The simulation box
 Nz = 800         # Number of gridpoints along z
 zmax = 30.e-6    # Right end of the simulation box (meters)
@@ -48,20 +57,10 @@ Nm = 2           # Number of modes used
 
 # The simulation timestep
 dt = (zmax-zmin)/Nz/c   # Timestep (seconds)
-N_step = 51     # Number of iterations to perform
-
-# Order of accuracy of the spectral, Maxwell (PSATD) solver.
-# -1 correspond to infinite order, i.e. wave propagation is perfectly
-# dispersion-free in all directions. This is adviced for single GPU/CPU
-# simulations. For multi GPU/CPU simulations, choose n_order > 4
-# (and multiple of 2). A large n_order leads to more overhead in MPI
-# communications, but also to a more accurate dispersion for waves.
-# (Typically, n_order = 32 gives accurate physical results)
-n_order = -1
 
 # The particles
 p_zmin = 25.e-6  # Position of the beginning of the plasma (meters)
-p_zmax = 31.e-6  # Position of the end of the plasma (meters)
+p_zmax = 500.e-6 # Position of the end of the plasma (meters)
 p_rmin = 0.      # Minimal radial position of the plasma (meters)
 p_rmax = 18.e-6  # Maximal radial position of the plasma (meters)
 n_e = 4.e18*1.e6 # Density (electrons.meters^-3)
@@ -86,9 +85,9 @@ a0 = a0_list[ comm.rank ]
 v_window = c       # Speed of the window
 
 # The diagnostics and the checkpoints/restarts
-diag_period = 10         # Period of the diagnostics in number of timesteps
+diag_period = 50         # Period of the diagnostics in number of timesteps
 save_checkpoints = False # Whether to write checkpoint files
-checkpoint_period = 50   # Period for writing the checkpoints
+checkpoint_period = 100  # Period for writing the checkpoints
 use_restart = False      # Whether to restart from a previous checkpoint
 
 # The density profile
@@ -104,6 +103,12 @@ def dens_func( z, r ) :
     # Supress density before the ramp
     n = np.where( z<ramp_start, 0., n )
     return(n)
+
+# The interaction length of the simulation (meters)
+L_interact = 50.e-6 # increase to simulate longer distance!
+# Interaction time (seconds) (to calculate number of PIC iterations)
+T_interact = ( L_interact + (zmax-zmin) ) / v_window
+# (i.e. the time it takes for the moving window to slide across the plasma)
 
 # ---------------------------
 # Carrying out the simulation
@@ -145,6 +150,9 @@ if __name__ == '__main__':
     # Add checkpoints
     if save_checkpoints:
         set_periodic_checkpoint( sim, checkpoint_period )
+
+    # Number of iterations to perform
+    N_step = int(T_interact/sim.dt)
 
     ### Run the simulation
     sim.step( N_step )
