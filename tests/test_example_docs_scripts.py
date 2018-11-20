@@ -248,7 +248,7 @@ def test_parametric_sim_twoproc():
 
     # Launch the modified script from the OS, with 2 proc
     command_line = 'cd %s; NUMBA_NUM_THREADS=1 MKL_NUM_THREADS=1 '%temporary_dir
-    command_line += 'mpirun -np 2 python boosted_frame_script.py'
+    command_line += 'mpirun -np 2 python parametric_script.py'
     response = os.system( command_line )
     assert response==0
 
