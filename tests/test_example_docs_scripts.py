@@ -48,7 +48,7 @@ def test_lpa_sim_twoproc_restart():
     # differences in the simulations
     checked_fields = [ ('E', 'x', 2.e-5), ('E', 'z', 2.e-5),
                         ('B', 'y', 2.e-5), ('rho', None, 1.e-2) ]
-    run_sim( 'lwfa_script.py', n_MPI=2, checked_fields=checked_fields, 
+    run_sim( 'lwfa_script.py', n_MPI=2, checked_fields=checked_fields,
              test_checkpoint_dir=True )
 
 def test_ionization_script_twoproc():
@@ -99,7 +99,7 @@ def run_sim( script_name, n_MPI, checked_fields, test_checkpoint_dir=False ):
     if test_checkpoint_dir:
         # Try to change the name of the checkpoint directory
         checkpoint_dir = './test_chkpt'
-        script = replace_string( script, 
+        script = replace_string( script,
             'set_periodic_checkpoint( sim, checkpoint_period )',
             'set_periodic_checkpoint( sim, checkpoint_period, checkpoint_dir="%s" )'%checkpoint_dir)
         script = replace_string( script, 'restart_from_checkpoint( sim )',
@@ -122,7 +122,9 @@ def run_sim( script_name, n_MPI, checked_fields, test_checkpoint_dir=False ):
     if n_MPI == 1:
         command_line += '; python %s' %script_name
     else:
-        command_line += '; mpirun -np %d python %s' %(n_MPI, script_name)
+        # Use only one thread for multiple MPI
+        command_line += '; NUMBA_NUM_THREADS=1 MKL_NUM_THREADS=1 '
+        command_line += 'mpirun -np %d python %s' %(n_MPI, script_name)
     response = os.system( command_line )
     assert response==0
 
@@ -201,8 +203,9 @@ def test_boosted_frame_sim_twoproc():
         f.write(script)
 
     # Launch the script from the OS
-    response = os.system(
-        'cd %s; mpirun -np 2 python boosted_frame_script.py' %temporary_dir )
+    command_line = 'cd %s; NUMBA_NUM_THREADS=1 MKL_NUM_THREADS=1 '%temporary_dir
+    command_line += 'mpirun -np 2 python boosted_frame_script.py'
+    response = os.system( command_line )
     assert response==0
 
     # Check that the particle ids are unique at each iterations
@@ -244,8 +247,9 @@ def test_parametric_sim_twoproc():
         f.write(script)
 
     # Launch the modified script from the OS, with 2 proc
-    response = os.system(
-        'cd %s; mpirun -np 2 python parametric_script.py' %temporary_dir )
+    command_line = 'cd %s; NUMBA_NUM_THREADS=1 MKL_NUM_THREADS=1 '%temporary_dir
+    command_line += 'mpirun -np 2 python boosted_frame_script.py'
+    response = os.system( command_line )
     assert response==0
 
     # Modify the script so as to enable restarts
@@ -256,8 +260,7 @@ def test_parametric_sim_twoproc():
     with open(script_filename, 'w') as f:
         f.write(script)
     # Launch the modified script from the OS, with 2 proc
-    response = os.system(
-        'cd %s; mpirun -np 2 python parametric_script.py' %temporary_dir )
+    response = os.system( command_line )
     assert response==0
 
     # Check that the simulation produced two output directories
