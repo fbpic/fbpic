@@ -385,6 +385,8 @@ class Simulation(object):
                 # are shifted by one box length, so they remain inside the box)
                 for species in self.ptcl:
                     self.comm.exchange_particles(species, fld, self.time)
+                for antenna in self.laser_antennas:
+                    antenna.update_current_rank(self.comm)
 
                 # Reproject the charge on the interpolation grid
                 # (Since particles have been removed / added to the simulation;
@@ -629,7 +631,7 @@ class Simulation(object):
                 species.deposit( fld, 'rho' )
             # Deposit the charge of the virtual particles in the antenna
             for antenna in antennas_list:
-                antenna.deposit( fld, 'rho', self.comm )
+                antenna.deposit( fld, 'rho' )
             # Sum contribution from each CPU threads (skipped on GPU)
             fld.sum_reduce_deposition_array('rho')
             # Divide by cell volume
@@ -646,7 +648,7 @@ class Simulation(object):
                 species.deposit( fld, 'J' )
             # Deposit the current of the virtual particles in the antenna
             for antenna in antennas_list:
-                antenna.deposit( fld, 'J', self.comm )
+                antenna.deposit( fld, 'J' )
             # Sum contribution from each CPU threads (skipped on GPU)
             fld.sum_reduce_deposition_array('J')
             # Divide by cell volume
