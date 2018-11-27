@@ -130,7 +130,8 @@ def deposit_rho_gpu_linear(x, y, z, w, q,
     # Deposit the field per cell in parallel
     if (iz_upper < Nz) and (ir_upper < Nr+1):
         # Calculate the flattened cell index
-        i = iz_upper * Nr + ir_upper
+        # (See calculation of prefix-sum index in `get_cell_idx_per_particle`)
+        i = iz_upper * (Nr+1) + ir_upper
         # Calculate the inclusive offset for the current cell
         # It represents the number of particles contained in all other cells
         # with an index smaller than i + the total number of particles in the
@@ -303,7 +304,8 @@ def deposit_J_gpu_linear(x, y, z, w, q,
     # Deposit the field per cell in parallel
     if (iz_upper < Nz) and (ir_upper < Nr+1):
         # Calculate the flattened cell index
-        i = iz_upper * Nr + ir_upper
+        # (See calculation of prefix-sum index in `get_cell_idx_per_particle`)
+        i = iz_upper * (Nr+1) + ir_upper
         # Calculate the inclusive offset for the current cell
         # It represents the number of particles contained in all other cells
         # with an index smaller than i + the total number of particles in the
@@ -545,7 +547,8 @@ def deposit_rho_gpu_cubic(x, y, z, w, q,
     # Deposit the field per cell in parallel
     if (iz_upper < Nz) and (ir_upper < Nr):
         # Calculate the flattened cell index
-        i = iz_upper * Nr + ir_upper
+        # (See calculation of prefix-sum index in `get_cell_idx_per_particle`)
+        i = iz_upper * (Nr+1) + ir_upper
         # Calculate the inclusive offset for the current cell
         # It represents the number of particles contained in all other cells
         # with an index smaller than i + the total number of particles in the
@@ -829,7 +832,8 @@ def deposit_J_gpu_cubic(x, y, z, w, q,
     # Deposit the field per cell in parallel
     if (iz_upper < Nz) and (ir_upper < Nr):
         # Calculate the flattened cell index
-        i = iz_upper * Nr + ir_upper
+        # (See calculation of prefix-sum index in `get_cell_idx_per_particle`)
+        i = iz_upper * (Nr+1) + ir_upper
         # Calculate the inclusive offset for the current cell
         # It represents the number of particles contained in all other cells
         # with an index smaller than i + the total number of particles in the
