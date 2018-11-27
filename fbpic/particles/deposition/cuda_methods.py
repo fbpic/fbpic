@@ -545,7 +545,7 @@ def deposit_rho_gpu_cubic(x, y, z, w, q,
     # Get the 2D CUDA grid
     iz_upper, ir_upper = cuda.grid(2)
     # Deposit the field per cell in parallel
-    if (iz_upper < Nz) and (ir_upper < Nr):
+    if (iz_upper < Nz) and (ir_upper < Nr+1):
         # Calculate the flattened cell index
         # (See calculation of prefix-sum index in `get_cell_idx_per_particle`)
         i = iz_upper * (Nr+1) + ir_upper
@@ -830,7 +830,7 @@ def deposit_J_gpu_cubic(x, y, z, w, q,
     # Get the 2D CUDA grid
     iz_upper, ir_upper = cuda.grid(2)
     # Deposit the field per cell in parallel
-    if (iz_upper < Nz) and (ir_upper < Nr):
+    if (iz_upper < Nz) and (ir_upper < Nr+1):
         # Calculate the flattened cell index
         # (See calculation of prefix-sum index in `get_cell_idx_per_particle`)
         i = iz_upper * (Nr+1) + ir_upper
