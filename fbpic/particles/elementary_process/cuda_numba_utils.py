@@ -4,24 +4,27 @@
 """
 This file is part of the Fourier-Bessel Particle-In-Cell code (FB-PIC)
 It defines a number of methods that are useful for elementary processes
-(e.g. ionization) on CPU and GPU
+(e.g. ionization, Compton scattering) on CPU and GPU
 """
 import numpy as np
-from fbpic.threading_utils import njit_parallel, prange
+from fbpic.utils.threading import njit_parallel, prange
 # Check if CUDA is available, then import CUDA functions
-from fbpic.cuda_utils import cuda_installed
+from fbpic.utils.cuda import cuda_installed
 if cuda_installed:
-    from fbpic.cuda_utils import cuda, cuda_tpb_bpg_1d
+    from fbpic.utils.cuda import cuda, cuda_tpb_bpg_1d
 
-def allocate_empty( N, use_cuda, dtype ):
+def allocate_empty( shape, use_cuda, dtype ):
     """
     Allocate and return an empty array, of size `N` and type `dtype`,
     either on GPU or CPU, depending on whether `use_cuda` is True or False
     """
+    if type(shape) is not tuple:
+        # Convert single scalar to tuple
+        shape = (shape,)
     if use_cuda:
-        return( cuda.device_array( (N,), dtype=dtype ) )
+        return( cuda.device_array( shape, dtype=dtype ) )
     else:
-        return( np.empty( N, dtype=dtype ) )
+        return( np.empty( shape, dtype=dtype ) )
 
 def perform_cumsum( input_array ):
     """
@@ -34,10 +37,24 @@ def perform_cumsum( input_array ):
     np.cumsum( input_array, out=cumulative_array[1:] )
     return( cumulative_array )
 
+def perform_cumsum_2d( input_array ):
+    """
+    Return an array containing the cumulative sum of the 2darray `input_array`,
+    where the cumsum is taken along the last axis.
+
+    (The returned array has one more element than `input_array` along the
+    last axis; its first element is 0 and its last element is the
+    total sum of `input_array`)
+    """
+    new_shape = (input_array.shape[0], input_array.shape[1]+1)
+    cumulative_array = np.zeros( new_shape, dtype=np.int64 )
+    np.cumsum( input_array, out=cumulative_array[:,1:], axis=-1 )
+    return( cumulative_array )
+
 def reallocate_and_copy_old( species, use_cuda, old_Ntot, new_Ntot ):
     """
     Copy the particle quantities of `species` from arrays of size `old_Ntot`
-    into arrays of size `new_Ntot`. Set these arrays as attributes of `species`.
+    into arrays of size `new_Ntot`. Set these arrays as attributes of `species.
 
     (The first `old_Ntot` elements of the new arrays are copied from the old
     arrays ; the last elements are left empty and expected to be filled later.)
@@ -54,16 +71,19 @@ def reallocate_and_copy_old( species, use_cuda, old_Ntot, new_Ntot ):
     old_Ntot, new_Ntot: int
         Size of the old and new arrays (with old_Ntot < new_Ntot)
     """
+    # Check if the data is on the GPU
+    data_on_gpu = (type(species.w) is not np.ndarray)
+
     # On GPU, use one thread per particle
-    if use_cuda:
+    if data_on_gpu:
         ptcl_grid_1d, ptcl_block_1d = cuda_tpb_bpg_1d( old_Ntot )
 
     # Iterate over particle attributes and copy the old particles
     for attr in ['x', 'y', 'z', 'ux', 'uy', 'uz', 'w', 'inv_gamma',
                     'Ex', 'Ey', 'Ez', 'Bx', 'By', 'Bz']:
         old_array = getattr(species, attr)
-        new_array = allocate_empty( new_Ntot, use_cuda, dtype=np.float64 )
-        if use_cuda:
+        new_array = allocate_empty( new_Ntot, data_on_gpu, dtype=np.float64 )
+        if data_on_gpu:
             copy_particle_data_cuda[ ptcl_grid_1d, ptcl_block_1d ](
                 old_Ntot, old_array, new_array )
         else:
@@ -73,7 +93,7 @@ def reallocate_and_copy_old( species, use_cuda, old_Ntot, new_Ntot ):
     if species.tracker is not None:
         old_array = species.tracker.id
         new_array = allocate_empty( new_Ntot, use_cuda, dtype=np.uint64 )
-        if use_cuda:
+        if data_on_gpu:
             copy_particle_data_cuda[ ptcl_grid_1d, ptcl_block_1d ](
                 old_Ntot, old_array, new_array )
         else:
@@ -91,7 +111,6 @@ def reallocate_and_copy_old( species, use_cuda, old_Ntot, new_Ntot ):
 
     # Modify the total number of particles
     species.Ntot = new_Ntot
-
 
 def generate_new_ids( species, old_Ntot, new_Ntot ):
     """

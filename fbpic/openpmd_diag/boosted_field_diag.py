@@ -17,9 +17,9 @@ from scipy.constants import c
 from .field_diag import FieldDiagnostic
 
 # Check if CUDA is available, then import CUDA functions
-from fbpic.cuda_utils import cuda_installed
+from fbpic.utils.cuda import cuda_installed
 if cuda_installed:
-    from fbpic.cuda_utils import cuda, cuda_tpb_bpg_1d
+    from fbpic.utils.cuda import cuda, cuda_tpb_bpg_1d
 
 class BoostedFieldDiagnostic(FieldDiagnostic):
     """
@@ -151,8 +151,8 @@ class BoostedFieldDiagnostic(FieldDiagnostic):
             zmax_boost = self.fld.interp[0].zmax
         else:
             # If a communicator is provided, remove guard and damp cells
-            zmin_boost, zmax_boost = \
-                self.comm.get_zmin_zmax(self.fld, local=True)
+            zmin_boost, zmax_boost = self.comm.get_zmin_zmax(
+                local=True, with_damp=False, with_guard=False, rank=self.rank )
 
         # Extract the current time in the boosted frame
         time = iteration * self.fld.dt
@@ -573,12 +573,11 @@ class SliceHandler:
         if comm is not None:
             iz += comm.n_guard
             if comm.left_proc is None:
-                iz += comm.n_damp
+                iz += comm.n_damp+comm.n_inject
 
         # Extract the slice directly on the CPU
         # Fill the pre-allocated CPU array slice_array
         if fld.use_cuda is False :
-
             # Extract a slice of the fields *in the boosted frame*
             # at z_boost, using interpolation, and store them in slice_array
             self.extract_slice_cpu( fld, iz, Sz, slice_array )

@@ -96,8 +96,10 @@ class FieldDiagnostic(OpenPMDDiagnostic):
             zmin = self.fld.interp[0].zmin
             Nz = self.fld.interp[0].Nz
         else:
-            zmin, _ = self.comm.get_zmin_zmax( self.fld, local=False )
-            Nz = self.comm.Nz
+            zmin, _ = self.comm.get_zmin_zmax(
+                    local=False, with_damp=False, with_guard=False )
+            Nz, _ = self.comm.get_Nz_and_iz(
+                    local=False, with_damp=False, with_guard=False )
 
         # Create the file with these attributes
         filename = "data%08d.h5" %iteration
@@ -255,13 +257,15 @@ class FieldDiagnostic(OpenPMDDiagnostic):
             for fieldtype in self.fieldtypes:
 
                 # Scalar field
-                if fieldtype == "rho":
+                # e.g. 'rho', but also 'rho_electron' in the case of
+                # the sub-class ParticleDensityDiagnostic
+                if fieldtype.startswith("rho"):
                     # Setup the dataset
                     dset = field_grp.require_dataset(
-                        "rho", data_shape, dtype='f8')
-                    self.setup_openpmd_mesh_component( dset, "rho" )
+                        fieldtype, data_shape, dtype='f8')
+                    self.setup_openpmd_mesh_component( dset, fieldtype )
                     # Setup the record to which it belongs
-                    self.setup_openpmd_mesh_record( dset, "rho", dz, zmin )
+                    self.setup_openpmd_mesh_record( dset, fieldtype, dz, zmin )
 
                 # Vector field
                 elif fieldtype in ["E", "B", "J"]:

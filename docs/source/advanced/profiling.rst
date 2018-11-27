@@ -41,7 +41,6 @@ and then open the file ``cpu.prof`` with `snakeviz <https://jiffyclub.github.io/
 
    snakeviz cpu.prof
 
-
 Profiling the code executed on GPU
 ----------------------------------
 
@@ -103,15 +102,18 @@ And click ``File > Open``, in order to select the file ``gpu.prof``.
     become very large. Therefore we recommend to profile the code only
     on a small number of PIC iterations (<1000).
 
-Profiling MPI simulations (CPU-side only)
------------------------------------------
+Profiling MPI simulations
+-------------------------
 
 One way to profile MPI simulations is to write **one file per MPI rank**. In
 this case, each file will contain only the profiling data of the corresponding
 MPI process.
 
-There is no simple way to create one file per MPI rank, from the command line.
-Instead, you need to **modify your FBPIC script**, in the following way:
+Profiling the CPU code
+~~~~~~~~~~~~~~~~~~~~~~
+
+One way to create one file per MPI rank is to **modify your FBPIC script**,
+in the following way:
 
 - Add the following lines at the beginning of the file:
 
@@ -153,3 +155,26 @@ Then run your FBPIC script with MPI as usual, e.g. with 4 MPI ranks:
     ::
 
         mpirun -np 4 python fbpic_script.py
+
+
+Profiling the GPU code
+~~~~~~~~~~~~~~~~~~~~~~
+
+Use the following command:
+
+::
+
+    mpirun -np 2 nvprof -o gpu_%q{<RANK>}.prof python fbpic_script.py
+
+where ``<RANK>`` should be replaced by the following name depending on
+your MPI distribution:
+
+    - For openmpi: ``OMPI_COMM_WORLD_RANK``
+    - For mpich: ``PMI_RANK``
+
+(If you are unsure which name to use, type ``mpirun -np 2 printenv | grep RANK``.)
+
+``nvprof`` will then create one profile file per MPI rank. You can load these
+files on the same timeline within ``nvvp`` by clicking
+``File > Import > Nvprof > Multiple processes > Browse``. For more information,
+see `this page <https://devblogs.nvidia.com/cuda-pro-tip-profiling-mpi-applications/>`__.

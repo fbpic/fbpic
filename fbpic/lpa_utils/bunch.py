@@ -7,13 +7,14 @@ It defines a set of utilities for the initialization of an electron bunch.
 """
 import numpy as np
 from scipy.constants import m_e, c, e, epsilon_0, mu_0
-from fbpic.main import adapt_to_grid
 from fbpic.fields import Fields
-from fbpic.particles import Particles
+from fbpic.particles.elementary_process.cuda_numba_utils import \
+    reallocate_and_copy_old
+from fbpic.particles.injection import BallisticBeforePlane
 
 def add_elec_bunch( sim, gamma0, n_e, p_zmin, p_zmax, p_rmin, p_rmax,
                 p_nr=2, p_nz=2, p_nt=4, dens_func=None, boost=None,
-                direction='forward' ) :
+                direction='forward', z_injection_plane=None ) :
     """
     Introduce a simple relativistic electron bunch in the simulation,
     along with its space charge field.
@@ -66,48 +67,36 @@ def add_elec_bunch( sim, gamma0, n_e, p_zmin, p_zmax, p_rmin, p_rmax,
     direction : string, optional
         Can be either "forward" or "backward".
         Propagation direction of the beam.
+
+    z_injection_plane: float (in meters) or None
+        When `z_injection_plane` is not None, then particles have a ballistic
+        motion for z<z_injection_plane. This is sometimes useful in
+        boosted-frame simulations.
+        `z_injection_plane` is always given in the lab frame.
     """
-
-    # Convert parameters to boosted frame
-    if boost is not None:
-        beta0 = np.sqrt( 1. - 1./gamma0**2 )
-        p_zmin, p_zmax = boost.copropag_length(
-            [ p_zmin, p_zmax ], beta_object=beta0 )
-        n_e, = boost.copropag_density( [n_e], beta_object=beta0 )
-        gamma0, = boost.gamma( [gamma0] )
-
-    # Modify the input parameters p_zmin, p_zmax, r_zmin, r_zmax, so that
-    # they fall exactly on the grid, and infer the number of particles
-    p_zmin, p_zmax, Npz = adapt_to_grid( sim.fld.interp[0].z,
-                                p_zmin, p_zmax, p_nz )
-    p_rmin, p_rmax, Npr = adapt_to_grid( sim.fld.interp[0].r,
-                                p_rmin, p_rmax, p_nr )
-
-    # Create the electrons
-    relat_elec = Particles( q=-e, m=m_e, n=n_e,
-                            Npz=Npz, zmin=p_zmin, zmax=p_zmax,
-                            Npr=Npr, rmin=p_rmin, rmax=p_rmax,
-                            Nptheta=p_nt, dt=sim.dt,
-                            continuous_injection=False,
-                            dens_func=dens_func, use_cuda=sim.use_cuda,
-                            grid_shape=sim.fld.interp[0].Ez.shape )
-
-    # Give them the right velocity
-    relat_elec.inv_gamma[:] = 1./gamma0
-    relat_elec.uz[:] = np.sqrt( gamma0**2 -1.)
-
-    # Electron beam moving in the background direction
+    # Calculate the electron momentum
+    uz_m = ( gamma0**2 - 1. )**0.5
     if direction == 'backward':
-        relat_elec.uz[:] *= -1.
+        uz_m *= -1.
+    # Create the electron species
+    relat_elec = sim.add_new_species( q=-e, m=m_e, n=n_e,
+                            p_nz=p_nz, p_nr=p_nr, p_nt=p_nt,
+                            p_zmin=p_zmin, p_zmax=p_zmax,
+                            p_rmin=p_rmin, p_rmax=p_rmax,
+                            continuous_injection=False,
+                            dens_func=dens_func, uz_m=uz_m )
 
-    # Add them to the particles of the simulation
-    sim.ptcl.append( relat_elec )
+    # Initialize the injection plane for the particles
+    if z_injection_plane is not None:
+        assert relat_elec.injector is None #Don't overwrite a previous injector
+        relat_elec.injector = BallisticBeforePlane( z_injection_plane, boost )
 
     # Get the corresponding space-charge fields
-    get_space_charge_fields( sim, relat_elec, direction=direction)
+    get_space_charge_fields( sim, relat_elec, direction=direction )
 
-def add_elec_bunch_gaussian( sim, sig_r, sig_z, n_emit, gamma0, sig_gamma,
-                        Q, N, tf=0., zf=0., boost=None, save_beam=None ):
+def add_elec_bunch_gaussian( sim, sig_r, sig_z, n_emit, gamma0,
+                        sig_gamma, Q, N, tf=0., zf=0., boost=None,
+                        save_beam=None, z_injection_plane=None ):
     """
     Introduce a relativistic Gaussian electron bunch in the simulation,
     along with its space charge field.
@@ -138,7 +127,9 @@ def add_elec_bunch_gaussian( sim, sig_r, sig_z, n_emit, gamma0, sig_gamma,
         The absolute energy spread of the bunch.
 
     Q : float (in Coulomb)
-        The total charge of the bunch (should be a positive number)
+        The total charge of the bunch (in absolute value)
+        (if a negative number is given, its absolute value will
+        automatically be taken)
 
     N : int
         The number of particles the bunch should consist of.
@@ -155,16 +146,22 @@ def add_elec_bunch_gaussian( sim, sig_r, sig_z, n_emit, gamma0, sig_gamma,
 
     save_beam : string, optional
         Saves the generated beam distribution as an .npz file "string".npz
+
+    z_injection_plane: float (in meters) or None
+        When `z_injection_plane` is not None, then particles have a ballistic
+        motion for z<z_injection_plane. This is sometimes useful in
+        boosted-frame simulations.
+        `z_injection_plane` is always given in the lab frame.
     """
     # Get Gaussian particle distribution in x,y,z
-    x = np.random.normal(0., sig_r, N)
-    y = np.random.normal(0., sig_r, N)
-    z = np.random.normal(zf, sig_z, N) # with offset in z
+    x = sig_r * np.random.normal(0., 1., N)
+    y = sig_r * np.random.normal(0., 1., N)
+    z = zf + sig_z * np.random.normal(0., 1., N) # with offset in z
     # Define sigma of ux and uy based on normalized emittance
     sig_ur = (n_emit/sig_r)
     # Get Gaussian distribution of transverse normalized momenta ux, uy
-    ux = np.random.normal(0., sig_ur, N)
-    uy = np.random.normal(0., sig_ur, N)
+    ux = sig_ur * np.random.normal(0., 1., N)
+    uy = sig_ur * np.random.normal(0., 1., N)
     # Now we imprint an energy spread on the gammas of each particle
     if sig_gamma > 0.:
         gamma = np.random.normal(gamma0, sig_gamma, N)
@@ -180,7 +177,7 @@ def add_elec_bunch_gaussian( sim, sig_r, sig_z, n_emit, gamma0, sig_gamma,
     # Get inverse gamma
     inv_gamma = 1./gamma
     # Get weight of each particle
-    w = Q / (N*e) * np.ones_like(x)
+    w = abs(Q) / (N*e) * np.ones_like(x)
 
     # Propagate distribution to an out-of-focus position tf.
     # (without taking space charge effects into account)
@@ -195,11 +192,12 @@ def add_elec_bunch_gaussian( sim, sig_r, sig_z, n_emit, gamma0, sig_gamma,
             inv_gamma=inv_gamma, w=w)
 
     # Add the electrons to the simulation
-    add_elec_bunch_from_arrays( sim, x, y, z, ux, uy, uz, w, boost=boost )
+    add_elec_bunch_from_arrays( sim, x, y, z, ux, uy, uz, w,
+                boost=boost, z_injection_plane=z_injection_plane )
 
 
 def add_elec_bunch_file( sim, filename, Q_tot, z_off=0., boost=None,
-                        direction='forward' ):
+                        direction='forward', z_injection_plane=None ):
     """
     Introduce a relativistic electron bunch in the simulation,
     along with its space charge field, loading particles from text file.
@@ -227,6 +225,12 @@ def add_elec_bunch_file( sim, filename, Q_tot, z_off=0., boost=None,
     direction : string, optional
         Can be either "forward" or "backward".
         Propagation direction of the beam.
+
+    z_injection_plane: float (in meters) or None
+        When `z_injection_plane` is not None, then particles have a ballistic
+        motion for z<z_injection_plane. This is sometimes useful in
+        boosted-frame simulations.
+        `z_injection_plane` is always given in the lab frame.
     """
     # Load particle data to numpy array
     particle_data = np.loadtxt(filename)
@@ -245,11 +249,11 @@ def add_elec_bunch_file( sim, filename, Q_tot, z_off=0., boost=None,
 
     # Add the electrons to the simulation
     add_elec_bunch_from_arrays( sim, x, y, z, ux, uy, uz, w,
-        boost=boost, direction=direction )
+        boost=boost, direction=direction, z_injection_plane=z_injection_plane )
 
 
 def add_elec_bunch_openPMD( sim, ts_path, z_off=0., species=None, select=None,
-                            iteration=None, boost=None ):
+                        iteration=None, boost=None, z_injection_plane=None ):
     """
     Introduce a relativistic electron bunch in the simulation,
     along with its space charge field, loading particles from an openPMD
@@ -288,6 +292,12 @@ def add_elec_bunch_openPMD( sim, ts_path, z_off=0., species=None, select=None,
     boost : a BoostConverter object, optional
         A BoostConverter object defining the Lorentz boost of
         the simulation.
+
+    z_injection_plane: float (in meters) or None
+        When `z_injection_plane` is not None, then particles have a ballistic
+        motion for z<z_injection_plane. This is sometimes useful in
+        boosted-frame simulations.
+        `z_injection_plane` is always given in the lab frame.
     """
     # Import openPMD viewer
     try:
@@ -307,14 +317,15 @@ def add_elec_bunch_openPMD( sim, ts_path, z_off=0., species=None, select=None,
     y *= 1.e-6
     z *= 1.e-6
     # Shift the center of the phasespace to z_off
-    z = z - (np.amax(z) + np.amin(z)) / 2 + z_off
+    z = z - np.average(z, weights=w) + z_off
 
     # Add the electrons to the simulation, and calculate the space charge
-    add_elec_bunch_from_arrays( sim, x, y, z, ux, uy, uz, w, boost=boost)
+    add_elec_bunch_from_arrays( sim, x, y, z, ux, uy, uz, w,
+                            boost=boost, z_injection_plane=z_injection_plane )
 
 
 def add_elec_bunch_from_arrays( sim, x, y, z, ux, uy, uz, w,
-                    boost=None, direction='forward' ):
+                    boost=None, direction='forward', z_injection_plane=None ):
     """
     Introduce a relativistic electron bunch in the simulation,
     along with its space charge field, loading particles from numpy arrays.
@@ -341,9 +352,22 @@ def add_elec_bunch_from_arrays( sim, x, y, z, ux, uy, uz, w,
     direction : string, optional
         Can be either "forward" or "backward".
         Propagation direction of the beam.
+
+    z_injection_plane: float (in meters) or None
+        When `z_injection_plane` is not None, then particles have a ballistic
+        motion for z<z_injection_plane. This is sometimes useful in
+        boosted-frame simulations.
+        `z_injection_plane` is always given in the lab frame.
     """
+    inv_gamma = 1./np.sqrt( 1. + ux**2 + uy**2 + uz**2 )
+    # Convert the particles to the boosted-frame
+    if boost is not None:
+        x, y, z, ux, uy, uz, inv_gamma = boost.boost_particle_arrays(
+                                        x, y, z, ux, uy, uz, inv_gamma )
+
     # Select the particles that are in the local subdomain
-    zmin, zmax = sim.comm.get_zmin_zmax( sim.fld, local=True )
+    zmin, zmax = sim.comm.get_zmin_zmax(
+        local=True, with_damp=False, with_guard=False, rank=sim.comm.rank )
     selected = (z >= zmin) & (z < zmax)
     x = x[selected]
     y = y[selected]
@@ -352,42 +376,35 @@ def add_elec_bunch_from_arrays( sim, x, y, z, ux, uy, uz, w,
     uy = uy[selected]
     uz = uz[selected]
     w = w[selected]
+    inv_gamma = inv_gamma[selected]
 
-    # Extract the number of macroparticles
-    N_part = len(x)
+    # Create electron species with no macroparticles
+    relat_elec = sim.add_new_species( q=-e, m=m_e )
 
-    # Create dummy electrons with the correct number of particles
-    relat_elec = Particles( q=-e, m=m_e, n=1.,
-                        Npz=N_part, zmin=1., zmax=2.,
-                        Npr=1, rmin=0., rmax=1.,
-                        Nptheta=1, dt=sim.dt,
-                        continuous_injection=False,
-                        dens_func=None, use_cuda=sim.use_cuda,
-                        grid_shape=sim.fld.interp[0].Ez.shape )
+    # Reallocate empty arrays with the right number of electrons
+    Ntot = len(x)
+    reallocate_and_copy_old( relat_elec, relat_elec.use_cuda, 0, Ntot )
 
-    # Replace dummy particle parameters with the provided arrays
+    # Fill the empty particle arrays with the right values
     relat_elec.x[:] = x[:]
     relat_elec.y[:] = y[:]
     relat_elec.z[:] = z[:]
     relat_elec.ux[:] = ux[:]
     relat_elec.uy[:] = uy[:]
     relat_elec.uz[:] = uz[:]
-    relat_elec.inv_gamma[:] = 1./np.sqrt( \
-        1. + relat_elec.ux**2 + relat_elec.uy**2 + relat_elec.uz**2 )
+    relat_elec.inv_gamma[:] = inv_gamma[:]
     relat_elec.w[:] = w[:]
 
-    # Transform particle distribution in
-    # the Lorentz boosted frame, if gamma_boost != 1.
-    if boost is not None:
-        boost.boost_particles( relat_elec )
-
-    # Add them to the particles of the simulation
-    sim.ptcl.append( relat_elec )
+    # Initialize the injection plane for the particles
+    if z_injection_plane is not None:
+        assert relat_elec.injector is None #Don't overwrite a previous injector
+        relat_elec.injector = BallisticBeforePlane( z_injection_plane, boost )
 
     # Get the corresponding space-charge fields
-    get_space_charge_fields( sim, relat_elec, direction=direction)
+    get_space_charge_fields( sim, relat_elec, direction=direction )
 
-def get_space_charge_fields( sim, ptcl, direction='forward') :
+
+def get_space_charge_fields( sim, ptcl, direction='forward' ):
     """
     Add the space charge field from `ptcl` the interpolation grid
 
@@ -407,7 +424,8 @@ def get_space_charge_fields( sim, ptcl, direction='forward') :
         Can be either "forward" or "backward".
         Propagation direction of the beam.
     """
-    print("Calculating initial space charge field...")
+    if sim.comm.rank == 0:
+        print("Calculating initial space charge field...")
 
     # Calculate the mean gamma by summing on each subdomain
     gamma_sum_local = (1./ptcl.inv_gamma).sum()
@@ -419,22 +437,19 @@ def get_space_charge_fields( sim, ptcl, direction='forward') :
         gamma = gamma_sum/Ntot
 
     # Project the charge and currents onto the local subdomain
-    sim.fld.erase('rho')
-    sim.fld.erase('J')
-    ptcl.deposit( sim.fld, 'rho' )
-    ptcl.deposit( sim.fld, 'J' )
-    sim.fld.divide_by_volume('rho')
-    sim.fld.divide_by_volume('J')
-    # Exchange guard cells
-    sim.comm.exchange_fields( sim.fld.interp, 'rho', 'add' )
-    sim.comm.exchange_fields( sim.fld.interp, 'J', 'add')
+    sim.deposit( 'rho', exchange=True, species_list=[ptcl],
+                    update_spectral=False )
+    sim.deposit( 'J', exchange=True, species_list=[ptcl],
+                    update_spectral=False )
 
     # Create a global field object across all subdomains, and copy the sources
     # (Space-charge calculation is a global operation)
     # Note: in the single-proc case, this is also useful in order not to
     # erase the pre-existing E and B field in sim.fld
-    global_Nz = sim.comm.Nz
-    global_zmin, global_zmax = sim.comm.get_zmin_zmax(sim.fld, local=False)
+    global_Nz, _ = sim.comm.get_Nz_and_iz(
+                    local=False, with_damp=True, with_guard=False )
+    global_zmin, global_zmax = sim.comm.get_zmin_zmax(
+                    local=False, with_damp=True, with_guard=False )
     global_fld = Fields( global_Nz, global_zmax,
             sim.fld.Nr, sim.fld.rmax, sim.fld.Nm, sim.fld.dt,
             zmin=global_zmin, n_order=sim.fld.n_order, use_cuda=False)
@@ -442,7 +457,8 @@ def get_space_charge_fields( sim, ptcl, direction='forward') :
     for m in range(sim.fld.Nm):
         for field in ['Jr', 'Jt', 'Jz', 'rho']:
             local_array = getattr( sim.fld.interp[m], field )
-            gathered_array = sim.comm.gather_grid_array( local_array )
+            gathered_array = sim.comm.gather_grid_array(
+                                            local_array, with_damp=True )
             setattr( global_fld.interp[m], field, gathered_array )
 
     # Calculate the space-charge fields on the global grid
@@ -464,29 +480,28 @@ def get_space_charge_fields( sim, ptcl, direction='forward') :
     # Communicate the results from proc 0 to the other procs
     # and add it to the interpolation grid of sim.fld.
     # - First find the indices at which the fields should be added
-    i_min_local = sim.comm.n_guard
-    if sim.comm.left_proc is None:
-        i_min_local += sim.comm.n_damp
-    i_max_local = i_min_local + sim.comm.Nz_domain
+    Nz_local, iz_start_local_domain = sim.comm.get_Nz_and_iz(
+        local=True, with_damp=True, with_guard=False, rank=sim.comm.rank )
+    _, iz_start_local_array = sim.comm.get_Nz_and_iz(
+        local=True, with_damp=True, with_guard=True, rank=sim.comm.rank )
+    iz_in_array = iz_start_local_domain - iz_start_local_array
     # - Then loop over modes and fields
     for m in range(sim.fld.Nm):
         for field in ['Er', 'Et', 'Ez', 'Br', 'Bt', 'Bz']:
             # Get the local result from proc 0
             global_array = getattr( global_fld.interp[m], field )
-            local_array = sim.comm.scatter_grid_array( global_array )
+            local_array = sim.comm.scatter_grid_array(
+                                    global_array, with_damp=True )
             # Add it to the fields of sim.fld
             local_field = getattr( sim.fld.interp[m], field )
-            local_field[ i_min_local:i_max_local, : ] += local_array
+            local_field[ iz_in_array:iz_in_array+Nz_local, : ] += local_array
 
-    # For consistency and diagnostics, redeposit the charge and current
-    # of the full simulation (since the last step erased these quantities)
-    sim.deposit('rho_prev')
-    sim.deposit('J', exchange=True)
-
-    print("Done.\n")
+    if sim.comm.rank == 0:
+        print("Done.\n")
 
 
-def get_space_charge_spect( spect, gamma, direction='forward' ) :
+def get_space_charge_spect( spect, gamma, direction='forward',
+                             neglect_transverse_currents=True ) :
     """
     Determine the space charge field in spectral space
 
@@ -506,6 +521,12 @@ def get_space_charge_spect( spect, gamma, direction='forward' ) :
     direction : string, optional
         Can be either "forward" or "backward".
         Propagation direction of the beam.
+
+    neglect_transverse_currents: bool
+        Whether to neglect the fields generated by the transverse components
+        of the current. This approximation is very often made when calculating
+        space charge. Also, when this is False, spurious fields were sometimes
+        observed in the modes m>0, for high-energy particle bunches.
     """
     # Speed of the beam
     beta = np.sqrt(1.-1./gamma**2)
@@ -521,16 +542,23 @@ def get_space_charge_spect( spect, gamma, direction='forward' ) :
 
     # Get the potentials
     phi = spect.rho_prev[:,:]*inv_K2[:,:]/epsilon_0
-    Ap = spect.Jp[:,:]*inv_K2[:,:]*mu_0
-    Am = spect.Jm[:,:]*inv_K2[:,:]*mu_0
+    if not neglect_transverse_currents:
+        Ap = spect.Jp[:,:]*inv_K2[:,:]*mu_0
+        Am = spect.Jm[:,:]*inv_K2[:,:]*mu_0
     Az = spect.Jz[:,:]*inv_K2[:,:]*mu_0
 
     # Deduce the E field
-    spect.Ep[:,:] += 0.5*spect.kr * phi + 1.j*beta*c*spect.kz * Ap
-    spect.Em[:,:] += -0.5*spect.kr * phi + 1.j*beta*c*spect.kz * Am
+    spect.Ep[:,:] += 0.5*spect.kr * phi
+    spect.Em[:,:] += -0.5*spect.kr * phi
     spect.Ez[:,:] += -1.j*spect.kz * phi + 1.j*beta*c*spect.kz * Az
+    if not neglect_transverse_currents:
+        spect.Ep[:,:] += 1.j*beta*c*spect.kz * Ap
+        spect.Em[:,:] += 1.j*beta*c*spect.kz * Am
 
     # Deduce the B field
-    spect.Bp[:,:] += -0.5j*spect.kr * Az + spect.kz * Ap
-    spect.Bm[:,:] += -0.5j*spect.kr * Az - spect.kz * Am
-    spect.Bz[:,:] += 1.j*spect.kr * Ap + 1.j*spect.kr * Am
+    spect.Bp[:,:] += -0.5j*spect.kr * Az
+    spect.Bm[:,:] += -0.5j*spect.kr * Az
+    if not neglect_transverse_currents:
+        spect.Bp[:,:] += spect.kz * Ap
+        spect.Bm[:,:] -= spect.kz * Am
+        spect.Bz[:,:] += 1.j*spect.kr * Ap + 1.j*spect.kr * Am

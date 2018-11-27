@@ -18,7 +18,6 @@ $ python tests/test_uniform_rho_deposition.py
 """
 from scipy.constants import c, e
 from fbpic.main import Simulation
-import matplotlib.pyplot as plt
 import numpy as np
 
 # Parameters
@@ -60,6 +59,7 @@ def uniform_electron_plasma(shape, show=False):
     sim.fld.erase('rho')
     for species in sim.ptcl :
         species.deposit( sim.fld, 'rho')
+    sim.fld.sum_reduce_deposition_array('rho')
     sim.fld.divide_by_volume('rho')
 
     # Check that the density has the correct value
@@ -78,11 +78,14 @@ def uniform_electron_plasma(shape, show=False):
 
     # Show the results
     else:
-        plt.title('Uniform plasma, mode 0')
-        sim.fld.interp[0].show('rho')
+        import matplotlib.pyplot as plt
+        plt.title('Shifted plasma, mode 0')
+        plt.imshow( sim.fld.interp[0].rho.real, aspect='auto' )
+        plt.colorbar()
         plt.show()
-        plt.title('Uniform plasma, mode 1')
-        sim.fld.interp[1].show('rho')
+        plt.title('Shifted plasma, mode 1')
+        plt.imshow( sim.fld.interp[1].rho.real, aspect='auto' )
+        plt.colorbar()
         plt.show()
 
 def test_neutral_plasma_shifted(show=False):
@@ -104,6 +107,7 @@ def neutral_plasma_shifted(shape, show=False):
     sim.fld.erase('rho')
     for species in sim.ptcl :
         species.deposit( sim.fld, 'rho')
+    sim.fld.sum_reduce_deposition_array('rho')
     sim.fld.divide_by_volume('rho')
 
     # Check that the density has the correct value
@@ -124,11 +128,14 @@ def neutral_plasma_shifted(shape, show=False):
 
     # Show the results
     else:
+        import matplotlib.pyplot as plt
         plt.title('Shifted plasma, mode 0')
-        sim.fld.interp[0].show('rho')
+        plt.imshow( sim.fld.interp[0].rho.real, aspect='auto' )
+        plt.colorbar()
         plt.show()
         plt.title('Shifted plasma, mode 1')
-        sim.fld.interp[1].show('rho')
+        plt.imshow( sim.fld.interp[1].rho.real, aspect='auto' )
+        plt.colorbar()
         plt.show()
 
 if __name__ == '__main__' :

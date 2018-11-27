@@ -6,14 +6,14 @@ dist: precise
 language: python
 python:
     - "2.7"
-    - "3.5"
+    - "3.6"
 
 before_install:
   # Setup miniconda
-  - wget http://repo.continuum.io/miniconda/Miniconda-latest-Linux-x86_64.sh -O miniconda.sh
+  - wget http://repo.continuum.io/miniconda/Miniconda3-latest-Linux-x86_64.sh -O miniconda.sh
   - chmod +x miniconda.sh
   - ./miniconda.sh -b
-  - export PATH=$HOME/miniconda2/bin:$PATH
+  - export PATH=$HOME/miniconda3/bin:$PATH
   # Create a virtual environment with the right version of python
   - conda create -n testing python=$TRAVIS_PYTHON_VERSION --yes
   - source activate testing
@@ -21,11 +21,11 @@ before_install:
 # Install packages
 install:
   - conda install --yes numba scipy h5py mkl
-  - conda install --yes -c conda-forge mpi4py
+  - conda install --yes -c conda-forge mpi4py mpich
   - pip install pyflakes
   - python setup.py install
 before_script:
   - python -m pyflakes .
-  - pip install matplotlib openPMD-viewer
+  - pip install openPMD-viewer
 script:
   - "python setup.py test"

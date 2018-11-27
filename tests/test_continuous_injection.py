@@ -17,9 +17,8 @@ Usage :
 from the top-level directory of FBPIC run
 $ python tests/test_continuous_injection.py
 """
-from scipy.constants import c, e
+from scipy.constants import c, e, m_e
 from fbpic.main import Simulation
-import matplotlib.pyplot as plt
 import numpy as np
 
 # Parameters
@@ -36,81 +35,74 @@ Nm = 2
 zmin = -10.e-6
 zmax = 5.e-6
 rmax = 20.e-6
+dz = (zmax-zmin)/Nz
 # Particles
 p_nr = 2
 p_nz = 2
 p_nt = 4
 p_rmax = rmax
-p_zmin = 0.e-6 # Chosen so that there is initially some plasma inside the box
 p_zmax = 1e6
 n = 1.e24
-
-ramp = 7.e-6 # linear density upramp in z
+ramp0 = 7.e-6 # linear density upramp in z
 smooth_r = rmax*0.5 # smooth cos**2 decrease of density in r (towards rmax)
 
 # -------------
 # Test function
 # -------------
 
-def test_rest_continuous_injection(show=False):
-    "Function that is run by py.test, when doing `python setup.py test`"
+def test_labframe_with_preexisting_plasma(show=False):
+    "Run test in lab frame with some plasma at t=0"
+    p_zmin = 0.e-6 # Chosen so there is some plasma inside the box at t=0
+    run_continuous_injection(None, ramp0, p_zmin, p_zmax, show)
 
-    # Plasma at rest, non-uniform density
-    def dens_func( z, r ):
-        dens = np.ones_like( z )
-        # Make the density smooth at rmax
-        dens = np.where( r > rmax-smooth_r,
-            np.cos(0.5*np.pi*(r-smooth_r)/smooth_r)**2, dens)
-        # Make the density 0 below p_zmin
-        dens = np.where( z < p_zmin, 0., dens )
-        # Make a linear ramp
-        dens = np.where( (z>=p_zmin) & (z<p_zmin+ramp),
-                         (z-p_zmin)/ramp*dens, dens )
-        return( dens )
-
-    # Run the test
-    run_continuous_injection( None, dens_func, p_zmin, p_zmax, show )
-
-def test_boosted_continuous_injection(show=False):
-    "Function that is run by py.test, when doing `python setup.py test`"
-    # Moving plasma (boosted frame), non-uniform density
+def test_boosted_with_preexisting_plasma(show=False):
+    "Run test in boosted frame with some plasma at t=0"
     gamma_boost = 15.
-
-    global ramp
     # The ramp is made longer so as to still resolve it in the boosted frame
-    ramp = 2*gamma_boost*ramp
+    ramp = 2*gamma_boost*ramp0
+    p_zmin = 0.e-6 # Chosen so there is some plasma inside the box at t=0
+    run_continuous_injection(gamma_boost, ramp, p_zmin, p_zmax, show)
 
-    def dens_func( z, r ):
-        dens = np.ones_like( z )
-        # Make the density smooth at rmax
-        dens = np.where( r > rmax-smooth_r,
-            np.cos(0.5*np.pi*(r-smooth_r)/smooth_r)**2, dens)
-        # Make the density 0 below p_zmin
-        dens = np.where( z < p_zmin, 0., dens )
-        # Make a linear ramp
-        dens = np.where( (z>=p_zmin) & (z<p_zmin+ramp),
-                         (z-p_zmin)/ramp*dens, dens )
-        return( dens )
+def test_labframe_without_preexisting_plasma(show=False):
+    "Run test in lab frame without some plasma at t=0"
+    p_zmin = zmax + 2*dz # Chosen outside the physical box
+    run_continuous_injection(None, ramp0, p_zmin, p_zmax, show)
 
-    # Run the test
-    run_continuous_injection( gamma_boost, dens_func, p_zmin, p_zmax, show )
-
-
-def run_continuous_injection( gamma_boost, dens_func,
-                              p_zmin, p_zmax, show, N_check=3 ):
+def run_continuous_injection( gamma_boost, ramp, p_zmin, p_zmax,
+                              show, N_check=2 ):
     # Chose the time step
     dt = (zmax-zmin)/Nz/c
 
+    def dens_func( z, r ):
+        dens = np.ones_like( z )
+        # Make the density smooth at rmax
+        dens = np.where( r > rmax-smooth_r,
+            np.cos(0.5*np.pi*(r-smooth_r)/smooth_r)**2, dens)
+        # Make the density 0 below p_zmin
+        dens = np.where( z < p_zmin, 0., dens )
+        # Make a linear ramp
+        dens = np.where( (z>=p_zmin) & (z<p_zmin+ramp),
+                         (z-p_zmin)/ramp*dens, dens )
+        return( dens )
+
     # Initialize the different structures
     sim = Simulation( Nz, zmax, Nr, rmax, Nm, dt,
-        p_zmin, p_zmax, 0, p_rmax, p_nz, p_nr, p_nt, n,
+        p_zmin, p_zmax, 0, p_rmax, p_nz, p_nr, p_nt, 0.5*n,
         dens_func=dens_func, initialize_ions=False, zmin=zmin,
         use_cuda=use_cuda, gamma_boost=gamma_boost, boundaries='open' )
+
+    # Add another species with a different number of particles per cell
+    # and with a finite temperature
+    uth = 0.0001
+    sim.add_new_species( -e, m_e, 0.5*n, dens_func,
+                            2*p_nz, 2*p_nr, 2*p_nt,
+                            p_zmin, p_zmax, 0, p_rmax,
+                            ux_th=uth, uy_th=uth, uz_th=uth )
 
     # Set the moving window, which handles the continuous injection
     # The moving window has an arbitrary velocity (0.7*c) so as to check
     # that the injection is correct in this case also
-    sim.set_moving_window( v=c, gamma_boost=gamma_boost )
+    sim.set_moving_window( v=c )
 
     # Check that the density is correct after different timesteps
     N_step = int( Nz/N_check/2 )
@@ -134,6 +126,7 @@ def check_density( sim, gamma_boost, dens_func, show ):
 
     # Show the results
     if show:
+        import matplotlib.pyplot as plt
         extent = 1.e6*np.array([ gathered_grid.zmin, gathered_grid.zmax,
                    gathered_grid.rmin, gathered_grid.rmax ])
 
@@ -170,6 +163,6 @@ def check_density( sim, gamma_boost, dens_func, show ):
 
 
 if __name__ == '__main__' :
-
-    test_rest_continuous_injection(show)
-    test_boosted_continuous_injection(show)
+    test_labframe_with_preexisting_plasma(show)
+    test_boosted_with_preexisting_plasma(show)
+    test_labframe_without_preexisting_plasma(show)

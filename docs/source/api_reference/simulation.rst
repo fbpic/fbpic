@@ -1,15 +1,12 @@
 The Simulation class
 ======================
 
-The `Simulation` class is top-level class in FBPIC. It contains all
-the simulation data, and has the high-level methods to perform the PIC cycle.
+The :any:`Simulation` class is top-level class in FBPIC. It contains all
+the simulation data, and has the high-level method :any:`step`
+that performs the PIC cycle.
 
-    The `Simulation` class has several important attributes:
-
-    - `fld`, a `Fields` object which contains the field information
-    - `ptcl`, a list of `Particles` objects (one per species)
-    - `diags`, a list of diagnostics to be run during the simulation
-    - `comm`, a `BoundaryCommunicator`, which contains the MPI decomposition
+In addition, its method :any:`add_new_species` allows to create new particle
+species, and its method :any:`set_moving_window` activates the moving window.
 
 .. autoclass:: fbpic.main.Simulation
-   :members: step, set_moving_window
+   :members: step, add_new_species, set_moving_window

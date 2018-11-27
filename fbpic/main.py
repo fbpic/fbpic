@@ -9,20 +9,22 @@ This file steers and controls the simulation.
 # When cuda is available, select one GPU per mpi process
 # (This needs to be done before the other imports,
 # as it sets the cuda context)
-from fbpic.mpi_utils import MPI
+from fbpic.utils.mpi import MPI
 # Check if threading is available
-from .threading_utils import threading_enabled
+from .utils.threading import threading_enabled
 # Check if CUDA is available, then import CUDA functions
-from .cuda_utils import cuda_installed
+from .utils.cuda import cuda_installed
 if cuda_installed:
-    from .cuda_utils import send_data_to_gpu, \
+    from .utils.cuda import send_data_to_gpu, \
                 receive_data_from_gpu, mpi_select_gpus
     mpi_select_gpus( MPI )
 
 # Import the rest of the requirements
+import warnings
 import numba
+import numpy as np
 from scipy.constants import m_e, m_p, e, c
-from .print_utils import ProgressBar, print_simulation_setup
+from .utils.printing import ProgressBar, print_simulation_setup
 from .particles import Particles
 from .lpa_utils.boosted_frame import BoostConverter
 from .fields import Fields
@@ -41,20 +43,33 @@ class Simulation(object):
     - `comm`, a `BoundaryCommunicator`, which contains the MPI decomposition
     """
 
-    def __init__(self, Nz, zmax, Nr, rmax, Nm, dt, p_zmin, p_zmax,
-                 p_rmin, p_rmax, p_nz, p_nr, p_nt, n_e, zmin=0.,
+    def __init__(self, Nz, zmax, Nr, rmax, Nm, dt,
+                 p_zmin=-np.inf, p_zmax=np.inf, p_rmin=0, p_rmax=np.inf,
+                 p_nz=None, p_nr=None, p_nt=None, n_e=None, zmin=0.,
                  n_order=-1, dens_func=None, filter_currents=True,
-                 v_comoving=None, use_galilean=True, initialize_ions=False,
-                 use_cuda=False, n_guard=None, n_damp=30, exchange_period=None,
-                 boundaries='periodic', gamma_boost=None,
-                 use_all_mpi_ranks=True, particle_shape='linear',
-                 verbose_level=1 ):
+                 v_comoving=None, use_galilean=True,
+                 initialize_ions=False, use_cuda=False,
+                 n_guard=None, n_damp=64, exchange_period=None,
+                 current_correction='curl-free', boundaries='periodic',
+                 gamma_boost=None, use_all_mpi_ranks=True,
+                 particle_shape='linear', verbose_level=1,
+                 smoother=None ):
         """
-        Initializes a simulation, by creating the following structures:
+        Initializes a simulation.
 
-        - the `Fields` object, which contains the field data on the grids
-        - a set of electrons
-        - a set of ions (if initialize_ions is True)
+        By default the simulation contains:
+
+            - an electron species
+            - (if ``initialize_ions`` is True) an ion species (Hydrogen 1+)
+
+        These species are stored in the attribute ``ptcl`` of ``Simulation``
+        (which is a Python list, containing the different species).
+
+        .. note::
+
+            For the arguments `p_rmin`, `p_rmax`, `p_nz`, `p_nr`, `p_nt`,
+            `n_e`, and `dens_func`, see the docstring of the method
+            `add_new_species` (where `n_e` has been re-labeled as `n`).
 
         Parameters
         ----------
@@ -72,29 +87,11 @@ class Simulation(object):
             cell)
 
         Nm: int
-            The number of azimuthal modes taken into account
+            The number of azimuthal modes taken into account. (The simulation
+            uses the modes from `m=0` to `m=(Nm-1)`.)
 
         dt: float
             The timestep of the simulation
-
-        p_zmin: float
-            The minimal z position above which the particles are initialized
-        p_zmax: float
-            The maximal z position below which the particles are initialized
-        p_rmin: float
-            The minimal r position above which the particles are initialized
-        p_rmax: float
-            The maximal r position below which the particles are initialized
-
-        p_nz: int
-            The number of macroparticles per cell along the z direction
-        p_nr: int
-            The number of macroparticles per cell along the r direction
-        p_nt: int
-            The number of macroparticles along the theta direction
-
-        n_e: float (in particles per m^3)
-           Peak density of the electrons
 
         n_order: int, optional
            The order of the stencil for z derivatives in the Maxwell solver.
@@ -110,13 +107,6 @@ class Simulation(object):
         zmin: float, optional
            The position of the edge of the simulation box.
            (More precisely, the position of the edge of the first cell)
-
-        dens_func: callable, optional
-           A function of the form:
-           def dens_func( z, r ) ...
-           where z and r are 1d arrays, and which returns
-           a 1d array containing the density *relative to n*
-           (i.e. a number between 0 and 1) at the given positions
 
         initialize_ions: bool, optional
            Whether to initialize the neutralizing ions
@@ -145,26 +135,33 @@ class Simulation(object):
             calculates the required guard cells for n_order
             automatically (approx 2*n_order). If no MPI is used and
             in the case of open boundaries with an infinite order stencil,
-            n_guard defaults to 30, if not set otherwise.
+            n_guard defaults to 64, if not set otherwise.
         n_damp : int, optional
             Number of damping guard cells at the left and right of a
             simulation box if a moving window is attached. The guard
             region at these areas (left / right of moving window) is
-            extended by n_damp (N=n_guard+n_damp) in order to smoothly
-            damp the fields such that they do not wrap around.
-            (Defaults to 30)
+            extended by n_damp in order to smoothly damp the fields such
+            that they do not wrap around. Additionally, this region is
+            extended by an injection area of size n_guard/2 automatically.
+            (Defaults to 64)
         exchange_period: int, optional
             Number of iterations before which the particles are exchanged.
             If set to None, the maximum exchange period is calculated
             automatically: Within exchange_period timesteps, the
             particles should never be able to travel more than
-            (n_guard - particle_shape order) cells. (Setting exchange_period
+            (n_guard/2 - particle_shape order) cells. (Setting exchange_period
             to small values can substantially affect the performance)
 
         boundaries: string, optional
             Indicates how to exchange the fields at the left and right
             boundaries of the global simulation box.
-            Either 'periodic' or 'open'
+            (Either 'periodic' or 'open')
+
+        current_correction: string, optional
+            The method used in order to ensure that the continuity equation
+            is satisfied. Either `curl-free` or `cross-deposition`.
+            `curl-free` is faster but less local (should not be used with MPI).
+            For the moment, `cross-deposition` is still experimental.
 
         gamma_boost : float, optional
             When initializing the laser in a boosted frame, set the
@@ -195,13 +192,17 @@ class Simulation(object):
             0 - Print no information
             1 (Default) - Print basic information
             2 - Print detailed information
+
+        smoother: an instance of :any:`BinomialSmoother`, optional
+            Determines how the charge and currents are smoothed.
+            (Default: one-pass binomial filter and no compensator.)
         """
         # Check whether to use CUDA
         self.use_cuda = use_cuda
         if (self.use_cuda==True) and (cuda_installed==False):
-            # Print warning if use_cuda = True but CUDA is not available
-            print('*** Cuda not available for the simulation.')
-            print('*** Performing the simulation on CPU.')
+            warnings.warn(
+                'Cuda not available for the simulation.\n'
+                'Performing the simulation on CPU.' )
             self.use_cuda = False
         # CPU multi-threading
         self.use_threading = threading_enabled
@@ -217,61 +218,47 @@ class Simulation(object):
             self.use_galilean = False
 
         # When running the simulation in a boosted frame, convert the arguments
-        uz_m = 0.   # Mean normalized momentum of the particles
         if gamma_boost is not None:
             self.boost = BoostConverter( gamma_boost )
             zmin, zmax, dt = self.boost.copropag_length([ zmin, zmax, dt ])
-            p_zmin, p_zmax = self.boost.static_length([ p_zmin, p_zmax ])
-            n_e, = self.boost.static_density([ n_e ])
-            uz_m, = self.boost.longitudinal_momentum([ uz_m ])
         else:
             self.boost = None
+        # Register time step
+        self.dt = dt
 
         # Initialize the boundary communicator
         self.comm = BoundaryCommunicator( Nz, zmin, zmax, Nr, rmax, Nm, dt,
-            boundaries, n_order, n_guard, n_damp, exchange_period,
-            use_all_mpi_ranks )
+            self.v_comoving, self.use_galilean, boundaries, n_order,
+            n_guard, n_damp, None, exchange_period, use_all_mpi_ranks )
         # Modify domain region
-        zmin, zmax, p_zmin, p_zmax, Nz = \
-              self.comm.divide_into_domain(zmin, zmax, p_zmin, p_zmax)
-
+        zmin, zmax, Nz = self.comm.divide_into_domain()
         # Initialize the field structure
         self.fld = Fields( Nz, zmax, Nr, rmax, Nm, dt,
                     n_order=n_order, zmin=zmin,
                     v_comoving=v_comoving,
                     use_galilean=use_galilean,
-                    use_cuda=self.use_cuda )
-
-        # Modify the input parameters p_zmin, p_zmax, r_zmin, r_zmax, so that
-        # they fall exactly on the grid, and infer the number of particles
-        p_zmin, p_zmax, Npz = adapt_to_grid( self.fld.interp[0].z,
-                                p_zmin, p_zmax, p_nz )
-        p_rmin, p_rmax, Npr = adapt_to_grid( self.fld.interp[0].r,
-                                p_rmin, p_rmax, p_nr )
+                    current_correction=current_correction,
+                    use_cuda=self.use_cuda,
+                    smoother=smoother,
+                    # Only create threading buffers when running on CPU
+                    create_threading_buffers=(self.use_cuda is False) )
 
         # Initialize the electrons and the ions
         self.grid_shape = self.fld.interp[0].Ez.shape
         self.particle_shape = particle_shape
-        self.ptcl = [
-            Particles(q=-e, m=m_e, n=n_e, Npz=Npz, zmin=p_zmin,
-                      zmax=p_zmax, Npr=Npr, rmin=p_rmin, rmax=p_rmax,
-                      Nptheta=p_nt, dt=dt, dens_func=dens_func, uz_m=uz_m,
-                      grid_shape=self.grid_shape,
-                      particle_shape=self.particle_shape,
-                      use_cuda=self.use_cuda ) ]
-        if initialize_ions :
-            self.ptcl.append(
-                Particles(q=e, m=m_p, n=n_e, Npz=Npz, zmin=p_zmin,
-                          zmax=p_zmax, Npr=Npr, rmin=p_rmin, rmax=p_rmax,
-                          Nptheta=p_nt, dt=dt, dens_func=dens_func, uz_m=uz_m,
-                          grid_shape=self.grid_shape,
-                          particle_shape=self.particle_shape,
-                          use_cuda=self.use_cuda ) )
+        self.ptcl = []
+        # - Initialize the electrons
+        self.add_new_species( q=-e, m=m_e, n=n_e, dens_func=dens_func,
+                              p_nz=p_nz, p_nr=p_nr, p_nt=p_nt,
+                              p_zmin=p_zmin, p_zmax=p_zmax,
+                              p_rmin=p_rmin, p_rmax=p_rmax )
+        # - Initialize the ions
+        if initialize_ions:
+            self.add_new_species( q=e, m=m_p, n=n_e, dens_func=dens_func,
+                              p_nz=p_nz, p_nr=p_nr, p_nt=p_nt,
+                              p_zmin=p_zmin, p_zmax=p_zmax,
+                              p_rmin=p_rmin, p_rmax=p_rmax )
 
-        # Register the number of particles per cell along z, and dt
-        # (Necessary for the moving window)
-        self.dt = dt
-        self.p_nz = p_nz
         # Register the time and the iteration
         self.time = 0.
         self.iteration = 0
@@ -324,12 +311,22 @@ class Simulation(object):
         # Shortcuts
         ptcl = self.ptcl
         fld = self.fld
+        dt = self.dt
         # Sanity check
-        # (This is because the guard cells of rho are never exchanged.)
-        if self.comm.size > 1 and use_true_rho:
-            raise ValueError('use_true_rho cannot be used in multi-proc mode.')
         if self.comm.size > 1 and correct_divE:
             raise ValueError('correct_divE cannot be used in multi-proc mode.')
+        if self.comm.size > 1 and use_true_rho and correct_currents:
+            raise ValueError('`use_true_rho` cannot be used together '
+                            'with `correct_currents` in multi-proc mode.')
+            # This is because use_true_rho requires the guard cells of
+            # rho to be exchanged while correct_currents requires the opposite.
+
+        # Initialize the positions for continuous injection by moving window
+        if self.comm.moving_win is not None:
+            for species in self.ptcl:
+                if species.continuous_injection:
+                    species.injector.initialize_injection_positions(
+                        self.comm, self.comm.moving_win.v, species.z, self.dt )
 
         # Initialize variables to measure the time taken by the simulation
         if show_progress and self.comm.rank==0:
@@ -359,6 +356,34 @@ class Simulation(object):
                 progress_bar.time( i_step )
                 progress_bar.print_progress()
 
+            # Particle exchanges to prepare for this iteration
+            # ------------------------------------------------
+
+            # Check whether this iteration involves particle exchange.
+            # Note: Particle exchange is imposed at the first iteration
+            # of this loop (i_step == 0) in order to ensure that all
+            # particles are inside the box, and that 'rho_prev' is correct
+            if self.iteration % self.comm.exchange_period == 0 or i_step == 0:
+                # Particle exchange includes MPI exchange of particles, removal
+                # of out-of-box particles and (if there is a moving window)
+                # continuous injection of new particles by the moving window.
+                # (In the case of single-proc periodic simulations, particles
+                # are shifted by one box length, so they remain inside the box)
+                for species in self.ptcl:
+                    self.comm.exchange_particles(species, fld, self.time)
+                for antenna in self.laser_antennas:
+                    antenna.update_current_rank(self.comm)
+
+                # Reproject the charge on the interpolation grid
+                # (Since particles have been removed / added to the simulation;
+                # otherwise rho_prev is obtained from the previous iteration.)
+                self.deposit('rho_prev', exchange=(use_true_rho is True))
+
+            # For the field diagnostics of the first step: deposit J
+            # (Note however that this is not the *corrected* current)
+            if i_step == 0:
+                self.deposit('J', exchange=True)
+
             # Diagnostics
             # -----------
 
@@ -370,32 +395,6 @@ class Simulation(object):
                 # (If needed: bring rho/J from spectral space, where they
                 # were smoothed/corrected, and copy the data from the GPU.)
                 diag.write( self.iteration )
-
-            # Particle exchanges to prepare for this iteration
-            # ------------------------------------------------
-
-            # Check whether this iteration involves particle exchange.
-            # Note: Particle exchange is imposed at the first iteration
-            # of this loop (i_step == 0) in order to ensure that all
-            # particles are inside the box, and that 'rho_prev' is correct
-            if self.iteration % self.comm.exchange_period == 0 or i_step == 0:
-                # Particle exchange includes MPI exchange of particles, removal
-                # of out-of-box particles and (if there is a moving window)
-                # injection of new particles by the moving window.
-                # (In the case of single-proc periodic simulations, particles
-                # are shifted by one box length, so they remain inside the box)
-                for species in self.ptcl:
-                    self.comm.exchange_particles(species, fld, self.time)
-                # Set again the number of cells to be injected to 0
-                # (This number is incremented when `move_grids` is called)
-                if self.comm.moving_win is not None:
-                    self.comm.moving_win.nz_inject = 0
-
-                # Reproject the charge on the interpolation grid
-                # (Since particles have been removed / added to the simulation;
-                # otherwise rho_prev is obtained from the previous iteration.
-                # Note that the guard cells of rho are never exchanged.)
-                self.deposit('rho_prev', exchange=False)
 
             # Main PIC iteration
             # ------------------
@@ -410,44 +409,47 @@ class Simulation(object):
             # Push the particles' positions and velocities to t = (n+1/2) dt
             if move_momenta:
                 for species in ptcl:
-                    species.push_p()
+                    species.push_p( self.time + 0.5*self.dt )
             if move_positions:
                 for species in ptcl:
-                    species.halfpush_x()
+                    species.push_x( 0.5*dt )
             # Get positions/velocities for antenna particles at t = (n+1/2) dt
             for antenna in self.laser_antennas:
-                antenna.update_v( self.time + 0.5*self.dt )
-                antenna.halfpush_x( self.dt )
+                antenna.update_v( self.time + 0.5*dt )
+                antenna.push_x( 0.5*dt )
             # Shift the boundaries of the grid for the Galilean frame
             if self.use_galilean:
-                self.shift_galilean_boundaries()
+                self.shift_galilean_boundaries( 0.5*dt )
 
             # Get the current at t = (n+1/2) dt
             # (Guard cell exchange done either now or after current correction)
             self.deposit('J', exchange=(correct_currents is False))
+            # Perform cross-deposition if needed
+            if correct_currents and fld.current_correction=='cross-deposition':
+                self.cross_deposit( move_positions )
 
             # Handle elementary processes at t = (n + 1/2)dt
             # i.e. when the particles' velocity and position are synchronized
             # (e.g. ionization, Compton scattering, ...)
             for species in ptcl:
-                species.handle_elementary_processes()
+                species.handle_elementary_processes( self.time + 0.5*dt )
 
             # Push the particles' positions to t = (n+1) dt
             if move_positions:
                 for species in ptcl:
-                    species.halfpush_x()
+                    species.push_x( 0.5*dt )
             # Get positions for antenna particles at t = (n+1) dt
             for antenna in self.laser_antennas:
-                antenna.halfpush_x( self.dt )
+                antenna.push_x( 0.5*dt )
             # Shift the boundaries of the grid for the Galilean frame
             if self.use_galilean:
-                self.shift_galilean_boundaries()
+                self.shift_galilean_boundaries( 0.5*dt )
 
             # Get the charge density at t = (n+1) dt
-            self.deposit('rho_next', exchange=False)
+            self.deposit('rho_next', exchange=(use_true_rho is True))
             # Correct the currents (requires rho at t = (n+1) dt )
             if correct_currents:
-                fld.correct_currents()
+                fld.correct_currents( check_exchanges=(self.comm.size > 1) )
                 if self.comm.size > 1:
                     # Exchange the guard cells of corrected J between domains
                     # (If correct_currents is False, the exchange of J
@@ -455,17 +457,17 @@ class Simulation(object):
                     fld.spect2partial_interp('J')
                     self.comm.exchange_fields(fld.interp, 'J', 'add')
                     fld.partial_interp2spect('J')
-                    fld.exchanged_source['J'] = True
+                fld.exchanged_source['J'] = True
 
             # Push the fields E and B on the spectral grid to t = (n+1) dt
-            fld.push( use_true_rho )
+            fld.push( use_true_rho, check_exchanges=(self.comm.size > 1) )
             if correct_divE:
                 fld.correct_divE()
             # Move the grids if needed
             if self.comm.moving_win is not None:
                 # Shift the fields is spectral space and update positions of
                 # the interpolation grids
-                self.comm.move_grids(fld, self.dt, self.time)
+                self.comm.move_grids(fld, ptcl, dt, self.time)
 
             # Get the MPI-exchanged and damped E and B field in both
             # spectral space and interpolation space
@@ -483,7 +485,7 @@ class Simulation(object):
             fld.spect2interp('B')
 
             # Increment the global time and iteration
-            self.time += self.dt
+            self.time += dt
             self.iteration += 1
 
             # Write the checkpoints if needed
@@ -510,7 +512,9 @@ class Simulation(object):
         if show_progress and (self.comm.rank==0):
             progress_bar.print_summary()
 
-    def deposit( self, fieldtype, exchange=False ):
+
+    def deposit( self, fieldtype, exchange=False,
+                update_spectral=True, species_list=None ):
         """
         Deposit the charge or the currents to the interpolation grid
         and then to the spectral grid.
@@ -521,26 +525,44 @@ class Simulation(object):
             The designation of the spectral field that
             should be changed by the deposition
             Either 'rho_prev', 'rho_next' or 'J'
+            (or 'rho_next_xy' and 'rho_next_z' for cross-deposition)
 
         exchange: bool
             Whether to exchange guard cells via MPI before transforming
             the fields to the spectral grid. (The corresponding flag in
             fld.exchanged_source is set accordingly.)
+
+        update_spectral: bool
+            Whether to update the value of the deposited field in
+            spectral space.
+
+        species_list: list of `Particles` objects, or None
+            The species which that should deposit their charge/current.
+            If this is None, all species (and antennas) deposit.
         """
         # Shortcut
         fld = self.fld
+        # If no species_list is provided, all species and antennas deposit
+        if species_list is None:
+            species_list = self.ptcl
+            antennas_list = self.laser_antennas
+        else:
+            # Otherwise only the specified species deposit
+            antennas_list = []
 
         # Deposit charge or currents on the interpolation grid
 
         # Charge
-        if fieldtype in ['rho_prev', 'rho_next']:
+        if fieldtype.startswith('rho'):  # e.g. rho_next, rho_prev, etc.
             fld.erase('rho')
             # Deposit the particle charge
-            for species in self.ptcl:
+            for species in species_list:
                 species.deposit( fld, 'rho' )
             # Deposit the charge of the virtual particles in the antenna
-            for antenna in self.laser_antennas:
-                antenna.deposit( fld, 'rho', self.comm )
+            for antenna in antennas_list:
+                antenna.deposit( fld, 'rho' )
+            # Sum contribution from each CPU threads (skipped on GPU)
+            fld.sum_reduce_deposition_array('rho')
             # Divide by cell volume
             fld.divide_by_volume('rho')
             # Exchange guard cells if requested by the user
@@ -551,32 +573,79 @@ class Simulation(object):
         elif fieldtype == 'J':
             fld.erase('J')
             # Deposit the particle current
-            for species in self.ptcl:
+            for species in species_list:
                 species.deposit( fld, 'J' )
             # Deposit the current of the virtual particles in the antenna
-            for antenna in self.laser_antennas:
-                antenna.deposit( fld, 'J', self.comm )
+            for antenna in antennas_list:
+                antenna.deposit( fld, 'J' )
+            # Sum contribution from each CPU threads (skipped on GPU)
+            fld.sum_reduce_deposition_array('J')
             # Divide by cell volume
             fld.divide_by_volume('J')
             # Exchange guard cells if requested by the user
             if exchange and self.comm.size > 1:
                 self.comm.exchange_fields(fld.interp, 'J', 'add')
-
         else:
             raise ValueError('Unknown fieldtype: %s' %fieldtype)
 
         # Get the charge or currents on the spectral grid
-        fld.interp2spect( fieldtype )
-        if self.filter_currents:
-            fld.filter_spect( fieldtype )
-        # Set the flag to indicate whether these fields have been exchanged
-        fld.exchanged_source[ fieldtype ] = (exchange and self.comm.size > 1)
+        if update_spectral:
+            fld.interp2spect( fieldtype )
+            if self.filter_currents:
+                fld.filter_spect( fieldtype )
+            # Set the flag to indicate whether these fields have been exchanged
+            fld.exchanged_source[ fieldtype ] = exchange
 
-    def shift_galilean_boundaries(self):
+    def cross_deposit( self, move_positions ):
         """
-        Shift the interpolation grids by v_comoving over
-        a half-timestep. (The arrays of values are unchanged,
-        only position attributes are changed.)
+        Perform cross-deposition. This function should be called
+        when the particles are at time n+1/2.
+
+        Parameters
+        ----------
+        move_positions:bool
+            Whether to move the positions of regular particles
+        """
+        dt = self.dt
+
+        # Push the particles: z[n+1/2], x[n+1/2] => z[n], x[n+1]
+        if move_positions:
+            for species in self.ptcl:
+                species.push_x( 0.5*dt, x_push= 1., y_push= 1., z_push= -1. )
+        for antenna in self.laser_antennas:
+            antenna.push_x( 0.5*dt, x_push= 1., y_push= 1., z_push= -1. )
+        # Shift the boundaries of the grid for the Galilean frame
+        if self.use_galilean:
+            self.shift_galilean_boundaries( -0.5*dt )
+        # Deposit rho_next_xy
+        self.deposit( 'rho_next_xy' )
+
+        # Push the particles: z[n], x[n+1] => z[n+1], x[n]
+        if move_positions:
+            for species in self.ptcl:
+                species.push_x(dt, x_push= -1., y_push= -1., z_push= 1.)
+        for antenna in self.laser_antennas:
+            antenna.push_x(dt, x_push= -1., y_push= -1., z_push= 1.)
+        # Shift the boundaries of the grid for the Galilean frame
+        if self.use_galilean:
+            self.shift_galilean_boundaries( dt )
+        # Deposit rho_next_z
+        self.deposit( 'rho_next_z' )
+
+        # Push the particles: z[n+1], x[n] => z[n+1/2], x[n+1/2]
+        if move_positions:
+            for species in self.ptcl:
+                species.push_x(0.5*dt, x_push= 1., y_push= 1., z_push= -1.)
+        for antenna in self.laser_antennas:
+            antenna.push_x(0.5*dt, x_push= 1., y_push= 1., z_push= -1.)
+        # Shift the boundaries of the grid for the Galilean frame
+        if self.use_galilean:
+            self.shift_galilean_boundaries( -0.5*dt )
+
+    def shift_galilean_boundaries(self, dt):
+        """
+        Shift the interpolation grids by v_comoving * dt.
+        (The field arrays are unchanged, only position attributes are changed.)
 
         With the Galilean frame, in principle everything should
         be solved in variables xi = z - v_comoving t, and -v_comoving
@@ -584,16 +653,190 @@ class Simulation(object):
         is equivalent to, instead, shift the boundaries of the grid.
         """
         # Calculate shift distance over a half timestep
-        shift_distance = self.v_comoving * 0.5 * self.dt
+        shift_distance = self.v_comoving * dt
+        # Shift the boundaries of the global domain
+        self.comm.shift_global_domain_positions( shift_distance )
         # Shift the boundaries of the grid
         for m in range(self.fld.Nm):
             self.fld.interp[m].zmin += shift_distance
             self.fld.interp[m].zmax += shift_distance
-            self.fld.interp[m].z += shift_distance
 
 
-    def set_moving_window( self, v=c, ux_m=0., uy_m=0., uz_m=0.,
-                  ux_th=0., uy_th=0., uz_th=0., gamma_boost=None ):
+    def add_new_species( self, q, m, n=None, dens_func=None,
+                            p_nz=None, p_nr=None, p_nt=None,
+                            p_zmin=-np.inf, p_zmax=np.inf,
+                            p_rmin=0, p_rmax=np.inf,
+                            uz_m=0., ux_m=0., uy_m=0.,
+                            uz_th=0., ux_th=0., uy_th=0.,
+                            continuous_injection=True ):
+        """
+        Create a new species (i.e. an instance of `Particles`) with
+        charge `q` and mass `m`. Add it to the simulation (i.e. to the list
+        `Simulation.ptcl`), and return it, so that the methods of the
+        `Particles` class can be used, for this particular species.
+
+        In addition, if `n` is set, then new macroparticles will be created
+        within this species (in an evenly-spaced manner).
+
+        For boosted-frame simulations (i.e. where `gamma_boost`
+        as been passed to the `Simulation` object), all quantities that
+        are explicitly mentioned to be in the lab frame below are
+        automatically converted to the boosted frame.
+
+        .. note::
+
+            For the arguments below, it is recommended to have at least
+            ``p_nt = 4*Nm``, i.e. the required number of macroparticles
+            along `theta` (in order for the simulation to be properly resolved)
+            increases with the number of azimuthal modes used.
+
+        Parameters
+        ----------
+        q : float (in Coulombs)
+           Charge of the particle species
+
+        m : float (in kg)
+           Mass of the particle species
+
+        n : float (in particles per m^3) or `None`, optional
+           Density of physical particles (in the lab frame).
+           If this is `None`, no macroparticles will be created.
+           If `n` is not None, evenly-spaced macroparticles will be generated.
+
+        dens_func : callable, optional
+           A function of the form :
+           def dens_func( z, r ) ...
+           where z and r are 1d arrays, and which returns
+           a 1d array containing the density *relative to n*
+           (i.e. a number between 0 and 1) at the given positions
+
+        p_nz: int, optional
+            The number of macroparticles per cell along the z direction
+        p_nr: int, optional
+            The number of macroparticles per cell along the r direction
+        p_nt: int, optional
+            The number of macroparticles along the theta direction
+
+        p_zmin: float (in meters), optional
+            The minimal z position above which the particles are initialized
+            (in the lab frame). Default: left edge of the simulation box.
+        p_zmax: float (in meters), optional
+            The maximal z position below which the particles are initialized
+            (in the lab frame). Default: right edge of the simulation box.
+        p_rmin: float (in meters), optional
+            The minimal r position above which the particles are initialized
+            (in the lab frame). Default: 0
+        p_rmax: floats (in meters), optional
+            The maximal r position below which the particles are initialized
+            (in the lab frame). Default: upper edge of the simulation box.
+
+        uz_m, ux_m, uy_m: floats (dimensionless), optional
+           Normalized mean momenta (in the lab frame)
+           of the injected particles in each direction
+
+        uz_th, ux_th, uy_th: floats (dimensionless), optional
+           Normalized thermal momenta (in the lab frame)
+           in each direction
+
+        continuous_injection : bool, optional
+           Whether to continuously inject the particles,
+           in the case of a moving window
+
+        Returns
+        -------
+        new_species: an instance of the `Particles` class
+        """
+        # Check if any macroparticle need to be injected
+        if n is not None:
+            # Check that all required arguments are passed
+            for var in [p_nz, p_nr, p_nt]:
+                if var is None:
+                    raise ValueError(
+                    'If the density `n` is passed to `add_new_species`,\n'
+                    'then the arguments `p_nz`, `p_nr` and `p_nt` need '
+                    'to be passed too.')
+
+            # Automatically convert input quantities to the boosted frame
+            if self.boost is not None:
+                gamma_m = np.sqrt(1. + uz_m**2 + ux_m**2 + uy_m**2)
+                beta_m = uz_m/gamma_m
+                # Transform positions and density
+                p_zmin, p_zmax = self.boost.copropag_length(
+                    [ p_zmin, p_zmax ], beta_object=beta_m )
+                n, = self.boost.copropag_density([ n ], beta_object=beta_m )
+                # Transform longitudinal thermal velocity
+                # The formulas below are approximate, and are obtained
+                # by perturbation of the Lorentz transform for uz
+                if uz_m == 0:
+                    if uz_th > 0.1:
+                        warnings.warn(
+                        "The thermal distribution is approximate in "
+                        "boosted-frame simulations, and may not be accurate "
+                        "enough for uz_th > 0.1")
+                    uz_th = self.boost.gamma0 * uz_th
+                else:
+                    if uz_th > 0.1 * uz_m:
+                        warnings.warn(
+                        "The thermal distribution is approximate in "
+                        "boosted-frame simulations, and may not be accurate "
+                        "enough for uz_th > 0.1 * uz_m")
+                    uz_th = self.boost.gamma0 * \
+                            (1. - self.boost.beta0*beta_m) * uz_th
+                # Finally transform the longitudinal momentum
+                uz_m = self.boost.gamma0*( uz_m - self.boost.beta0*gamma_m )
+
+            # Modify input particle bounds, in order to only initialize the
+            # particles in the local sub-domain
+            zmin_local_domain, zmax_local_domain = self.comm.get_zmin_zmax(
+                                        local=True, rank=self.comm.rank,
+                                        with_damp=False, with_guard=False )
+            p_zmin = max( zmin_local_domain, p_zmin )
+            p_zmax = min( zmax_local_domain, p_zmax )
+
+            # Modify again the input particle bounds, so that
+            # they fall exactly on the grid, and infer the number of particles
+            p_zmin, p_zmax, Npz = adapt_to_grid( self.fld.interp[0].z,
+                                p_zmin, p_zmax, p_nz )
+            p_rmin, p_rmax, Npr = adapt_to_grid( self.fld.interp[0].r,
+                                p_rmin, p_rmax, p_nr )
+            dz_particles = self.comm.dz/p_nz
+
+        else:
+            # Check consistency of arguments
+            if (dens_func is not None) or (p_nz is not None) or \
+                (p_nr is not None) or (p_nt is not None):
+                warnings.warn(
+                    'It seems that you provided the arguments `dens_func`, '
+                    '`p_nz`, `p_nr` or `p_nz`\nHowever no particle density '
+                    '(`n` or `n_e`) was given.\nTherefore, no particles will'
+                    'be created.')
+            # Convert arguments to acceptable arguments for `Particles`
+            # but which will result in no macroparticles being injected
+            n = 0
+            p_zmin = p_zmax = p_rmin = p_rmax = 0
+            Npz = Npr = p_nt = 0
+            continuous_injection = False
+            dz_particles = 0.
+
+        # Create the new species
+        new_species = Particles( q=q, m=m, n=n, dens_func=dens_func,
+                        Npz=Npz, zmin=p_zmin, zmax=p_zmax,
+                        Npr=Npr, rmin=p_rmin, rmax=p_rmax,
+                        Nptheta=p_nt, dt=self.dt,
+                        particle_shape=self.particle_shape,
+                        use_cuda=self.use_cuda, grid_shape=self.grid_shape,
+                        ux_m=ux_m, uy_m=uy_m, uz_m=uz_m,
+                        ux_th=ux_th, uy_th=uy_th, uz_th=uz_th,
+                        continuous_injection=continuous_injection,
+                        dz_particles=dz_particles )
+
+        # Add it to the list of species and return it to the user
+        self.ptcl.append( new_species )
+        return new_species
+
+
+    def set_moving_window( self, v=c, ux_m=None, uy_m=None, uz_m=None,
+                  ux_th=None, uy_th=None, uz_th=None, gamma_boost=None ):
         """
         Initializes a moving window for the simulation.
 
@@ -602,32 +845,47 @@ class Simulation(object):
         v: float (in meters per seconds), optional
             The speed of the moving window
 
-        ux_m: float (dimensionless), optional
-           Normalized mean momenta of the injected particles along x
-        uy_m: float (dimensionless), optional
-           Normalized mean momenta of the injected particles along y
-        uz_m: float (dimensionless), optional
-           Normalized mean momenta of the injected particles along z
-
-        ux_th: float (dimensionless), optional
-           Normalized thermal momenta of the injected particles along x
-        uy_th: float (dimensionless), optional
-           Normalized thermal momenta of the injected particles along y
-        uz_th: float (dimensionless), optional
-           Normalized thermal momenta of the injected particles along z
-
+        ux_m, uy_m, uz_m: float (dimensionless), optional
+            Unused, kept for backward-compatibility
+        ux_th, uy_th, uz_th: float (dimensionless), optional
+            Unused, kept for backward-compatibility
         gamma_boost : float, optional
-            When initializing a moving window in a boosted frame, set the
-            value of `gamma_boost` to the corresponding Lorentz factor.
-            Quantities like uz_m of the injected particles will be
-            automatically Lorentz-transformed.
-            (uz_m is to be given in the lab frame ; for the moment, this
-            will not work if any of ux_th, uy_th, uz_th, ux_m, uy_m is nonzero)
+            Unused; kept for backward compatibility
         """
+        # Raise deprecation warning
+        for arg in [ux_m, uy_m, uz_m, ux_th, uy_th, uz_th, gamma_boost ]:
+            if arg is not None:
+                warnings.warn(
+                'The arguments `u*_m`, `u*_th` and `gamma_boost` of '
+                'the method `set_moving_window` are deprecated.\n'
+                'They will not be used.\nTo suppress this message, '
+                'stop passing these arguments to `set_moving_window`',
+                DeprecationWarning)
+
         # Attach the moving window to the boundary communicator
-        self.comm.moving_win = MovingWindow( self.fld.interp, self.comm,
-            self.dt, self.ptcl, v, self.p_nz, self.time,
-            ux_m, uy_m, uz_m, ux_th, uy_th, uz_th, gamma_boost )
+        self.comm.moving_win = MovingWindow( self.comm, self.dt, v, self.time )
+
+    def reverse_time(self):
+        """
+        Convenience method to reverse the direction of electromagnetic waves
+        and particles propagation. Essentially this method inverses the signs of
+        magnetic fields and particles momenta.
+        """
+        # Inverse the signs of magnetic fields in spectral and real space
+        for m in range(self.fld.Nm) :
+            self.fld.spect[m].Bp *= -1
+            self.fld.spect[m].Bm *= -1
+            self.fld.spect[m].Bz *= -1
+
+            self.fld.interp[m].Br *= -1
+            self.fld.interp[m].Bt *= -1
+            self.fld.interp[m].Bz *= -1
+
+        # Inverse the signs of particles momenta
+        for species in self.ptcl:
+            species.ux *= -1
+            species.uy *= -1
+            species.uz *= -1
 
 def adapt_to_grid( x, p_xmin, p_xmax, p_nx, ncells_empty=0 ):
     """

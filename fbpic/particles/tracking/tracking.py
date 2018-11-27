@@ -8,9 +8,9 @@ It defines the structure and methods associated with particle tracking.
 import numpy as np
 from numba import cuda
 # Check if CUDA is available, then import CUDA functions
-from fbpic.cuda_utils import cuda_installed
+from fbpic.utils.cuda import cuda_installed
 if cuda_installed:
-    from fbpic.cuda_utils import cuda_tpb_bpg_1d
+    from fbpic.utils.cuda import cuda_tpb_bpg_1d
 
 class ParticleTracker(object):
     """

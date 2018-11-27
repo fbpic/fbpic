@@ -347,7 +347,7 @@ def add_scal_from_gpu_buffer( scal_buffer_l, scal_buffer_r, grid, m,
 # CUDA damping kernels:
 # --------------------
 @cuda.jit
-def cuda_damp_EB_left( Er, Et, Ez, Br, Bt, Bz, damp_array, n_guard, n_damp ):
+def cuda_damp_EB_left( Er, Et, Ez, Br, Bt, Bz, damp_array, nd ):
     """
     Multiply the E and B fields in the left guard cells
     by damp_array.
@@ -359,14 +359,11 @@ def cuda_damp_EB_left( Er, Et, Ez, Br, Bt, Bz, damp_array, n_guard, n_damp ):
         The first axis corresponds to z and the second to r
 
     damp_array : 1darray of floats
-        An array of length n_guard+n_damp,
+        An array of length n_guard+n_damp+n_inject,
         which contains the damping factors.
 
-    n_guard: int
-        Number of guard cells
-
-    n_damp: int
-        Number of damping cells
+    nd: int
+        Number of damping and guard cells
     """
     # Obtain Cuda grid
     iz, ir = cuda.grid(2)
@@ -377,7 +374,7 @@ def cuda_damp_EB_left( Er, Et, Ez, Br, Bt, Bz, damp_array, n_guard, n_damp ):
     # Modify the fields
     if ir < Nr :
         # Apply the damping arrays
-        if iz < n_guard+n_damp:
+        if iz < nd:
             damp_factor_left = damp_array[iz]
 
             # At the left end
@@ -389,7 +386,7 @@ def cuda_damp_EB_left( Er, Et, Ez, Br, Bt, Bz, damp_array, n_guard, n_damp ):
             Bz[iz, ir] *= damp_factor_left
 
 @cuda.jit
-def cuda_damp_EB_right( Er, Et, Ez, Br, Bt, Bz, damp_array, n_guard, n_damp ):
+def cuda_damp_EB_right( Er, Et, Ez, Br, Bt, Bz, damp_array, nd ):
     """
     Multiply the E and B fields in the right guard cells
     by damp_array.
@@ -401,14 +398,11 @@ def cuda_damp_EB_right( Er, Et, Ez, Br, Bt, Bz, damp_array, n_guard, n_damp ):
         The first axis corresponds to z and the second to r
 
     damp_array : 1darray of floats
-        An array of length n_guard+n_damp,
+        An array of length n_guard+n_damp+n_inject,
         which contains the damping factors.
 
-    n_guard: int
-        Number of guard cells
-
-    n_damp: int
-        Number of damping cells
+    nd: int
+        Number of damping and guard cells
     """
     # Obtain Cuda grid
     iz, ir = cuda.grid(2)
@@ -419,7 +413,7 @@ def cuda_damp_EB_right( Er, Et, Ez, Br, Bt, Bz, damp_array, n_guard, n_damp ):
     # Modify the fields
     if ir < Nr :
         # Apply the damping arrays
-        if iz < n_guard+n_damp:
+        if iz < nd:
             damp_factor_right = damp_array[iz]
 
             # At the right end

@@ -27,7 +27,6 @@ $ python setup.py test
 # -------
 import numpy as np
 from scipy.constants import c
-import matplotlib.pyplot as plt
 # Import the relevant structures in FBPIC
 from fbpic.main import Simulation
 
@@ -48,7 +47,7 @@ rmax = 7.86      # Length of the box along r (meters)
 Nm = 2           # Number of modes used
 # The simulation timestep
 dt = (zmax-zmin)/Nz/c   # Timestep (seconds)
-N_step = 300     # Number of iterations to perform
+N_step = 600     # Number of iterations to perform
 
 # The boost
 gamma_boost = 130.
@@ -125,6 +124,7 @@ def test_cherenkov_instability( show=False ):
 
         # Check/plot the results
         if show:
+            import matplotlib.pyplot as plt
             # Add a plot
             plt.semilogy( t, Er_rms, '-', label=scheme )
             plt.ylabel('RMS(Er)')

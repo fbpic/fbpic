@@ -118,10 +118,10 @@ where $\epsilon$ is the dimensionless amplitude of the mode 0 and
 $\epsilon_1$, $\epsilon_2$ are the dimensionless amplitudes of modes 1 and 2.
 """
 import numpy as np
-import matplotlib.pyplot as plt
 from scipy.constants import c, e, m_e, epsilon_0
 # Import the relevant structures in FBPIC
 from fbpic.main import Simulation
+from fbpic.fields import Fields
 
 # Parameters
 # ----------
@@ -136,7 +136,7 @@ Nz = 200         # Number of gridpoints along z
 zmax = 40.e-6    # Length of the box along z (meters)
 Nr = 64          # Number of gridpoints along r
 rmax = 20.e-6    # Length of the box along r (meters)
-Nm = 2           # Number of modes used
+Nm = 3           # Number of modes used
 n_order = 16     # Order of the finite stencil
 # The simulation timestep
 dt = zmax/Nz/c   # Timestep (seconds)
@@ -154,7 +154,7 @@ p_nt = 8         # Number of particles per cell along theta
 # The plasma wave
 epsilon = 0.001    # Dimensionless amplitude of the wave in mode 0
 epsilon_1 = 0.001  # Dimensionless amplitude of the wave in mode 1
-epsilon_2 = 0.     # Dimensionless amplitude of the wave in mode 2
+epsilon_2 = 0.001  # Dimensionless amplitude of the wave in mode 2
 epsilons = [ epsilon, epsilon_1, epsilon_2 ]
 w0 = 5.e-6      # The transverse size of the plasma wave
 N_periods = 3   # Number of periods in the box
@@ -188,10 +188,11 @@ def simulate_periodic_plasma_wave( particle_shape, show=False ):
 
     # Save the initial density in spectral space, and consider it
     # to be the density of the (uninitialized) ions
-    sim.deposit('rho_prev')
+    sim.deposit('rho_prev', exchange=True)
+    sim.fld.spect2interp('rho_prev')
     rho_ions = [ ]
-    for m in range(len(sim.fld.spect)):
-        rho_ions.append( -sim.fld.spect[m].rho_prev.copy() )
+    for m in range(len(sim.fld.interp)):
+        rho_ions.append( -sim.fld.interp[m].rho.copy() )
 
     # Impart velocities to the electrons
     # (The electrons are initially homogeneous, but have an
@@ -201,10 +202,11 @@ def simulate_periodic_plasma_wave( particle_shape, show=False ):
     # Run the simulation
     sim.step( N_step, correct_currents=True )
 
-    # Test check that div(E) - rho = 0 (directly in spectral space)
-    check_charge_conservation( sim, rho_ions )
     # Plot the results and compare with analytical theory
     compare_fields( sim, show )
+    # Test check that div(E) - rho = 0 (directly in spectral space)
+    check_charge_conservation( sim, rho_ions )
+
 
 # -----------------------------------------
 # Analytical solutions for the plasma wave
@@ -323,18 +325,40 @@ def check_charge_conservation( sim, rho_ions ):
         The density of the ions (which are not explicitly present in the `sim`
         object, since they are motionless)
     """
-    # Loop over modes
-    for m in range( len(sim.fld.interp) ):
-        spect = sim.fld.spect[m]
-        # Calculate div(E) in spectral space
-        divE = spect.kr * ( spect.Ep - spect.Em ) + 1.j * spect.kz * spect.Ez
-        # Calculate rho/epsilon_0 in spectral space
-        rho_eps0 = (spect.rho_prev + rho_ions[m])/epsilon_0
-        # Calculate relative RMS error
-        rel_err = np.sqrt( np.sum(abs(divE - rho_eps0)**2) \
-            / np.sum(abs(rho_eps0)**2) )
-        print('Relative error on divE in mode %d: %e' %(m, rel_err) )
-        assert rel_err < 1.e-11
+    # Create a global field object across all subdomains, and copy the fields
+    global_Nz, _ = sim.comm.get_Nz_and_iz(
+            local=False, with_damp=False, with_guard=False )
+    global_zmin, global_zmax = sim.comm.get_zmin_zmax(
+            local=False, with_damp=False, with_guard=False )
+    global_fld = Fields( global_Nz, global_zmax,
+            sim.fld.Nr, sim.fld.rmax, sim.fld.Nm, sim.fld.dt,
+            zmin=global_zmin, n_order=sim.fld.n_order, use_cuda=False)
+    # Gather the fields of the interpolation grid
+    for m in range(sim.fld.Nm):
+        # Gather E
+        for field in ['Er', 'Et', 'Ez' ]:
+            local_array = getattr( sim.fld.interp[m], field )
+            gathered_array = sim.comm.gather_grid_array( local_array )
+            setattr( global_fld.interp[m], field, gathered_array )
+        # Gather rho
+        global_fld.interp[m].rho = \
+            sim.comm.gather_grid_array( sim.fld.interp[m].rho + rho_ions[m] )
+
+    # Loop over modes and check charge conservation in spectral space
+    if sim.comm.rank == 0:
+        global_fld.interp2spect('E')
+        global_fld.interp2spect('rho_prev')
+        for m in range( global_fld.Nm ):
+            spect = global_fld.spect[m]
+            # Calculate div(E) in spectral space
+            divE = spect.kr*( spect.Ep - spect.Em ) + 1.j*spect.kz*spect.Ez
+            # Calculate rho/epsilon_0 in spectral space
+            rho_eps0 = spect.rho_prev/epsilon_0
+            # Calculate relative RMS error
+            rel_err = np.sqrt( np.sum(abs(divE - rho_eps0)**2) \
+                / np.sum(abs(rho_eps0)**2) )
+            print('Relative error on divE in mode %d: %e' %(m, rel_err) )
+            assert rel_err < 1.e-11
 
 def compare_fields( sim, show ) :
     """
@@ -386,6 +410,7 @@ def check_E_field( E_simulation, rgrid, zgrid, epsilons,
                'over the whole simulation box.'  )
     else:
         # Show the images to the user
+        import matplotlib.pyplot as plt
         plt.figure(figsize=(8,10))
         plt.suptitle('%s field' %field)
 

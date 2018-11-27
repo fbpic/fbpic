@@ -1,5 +1,214 @@
 # Change Log / Release Log for fbpic
 
+## 0.9.5
+
+This is bug-fix release. 
+It corrects a bug that was happening exclusively for *cubic shape* deposition,
+when using the CPU (i.e. the bug does not occur on GPU) ; see [#297](https://github.com/fbpic/fbpic/pull/297)
+In addition, this release adds a safe-guard for the sign of the charge, for Gaussian beams [#295](https://github.com/fbpic/fbpic/pull/295), and for the sign of the Galilean velocity [#293](https://github.com/fbpic/fbpic/pull/293).
+
+## 0.9.4
+
+This release introduces various improvements to FBPIC:
+
+- The initial space-charge calculation produced unphysical fields for
+high-energy beams with space-charge. This is now fixed ; see
+[#289](https://github.com/fbpic/fbpic/pull/289)
+
+- More flexible ionization API: The user can now store the electrons from
+different ionization levels into different species. In addition, the user
+can now set a maximum level of ionization ; see
+[#288](https://github.com/fbpic/fbpic/pull/288) and
+[#283](https://github.com/fbpic/fbpic/pull/283)
+
+- Improved restart from checkpoints: for safer use, the restart now requires
+that the number of species is the same in the simulation
+(when calling `restart_from_checkpoint`) and in the checkpoint file.
+(New species can nonetheless be added after calling `restart_from_checkpoint`.)
+; see [#278](https://github.com/fbpic/fbpic/pull/278)
+
+- The plasma can now be initialized with a non-zero temperature
+(see the documentation of the method `add_new_species`) ; see
+[#277](https://github.com/fbpic/fbpic/pull/277)
+
+- There is a new diagnostic (`SpeciesChargeDensityDiagnostic`), which allows
+to have the charge density of *one given* species ; see
+[#287](https://github.com/fbpic/fbpic/pull/287)
+
+Minor fixes:
+- More efficient CPU execution by treading the `erase` function ;
+see [#276](https://github.com/fbpic/fbpic/pull/276)
+- When using `FBPIC_DISABLE_THREADING=1`, the code will not need to compile
+for each execution, thereby allowing faster turnaround ; see
+[#279](https://github.com/fbpic/fbpic/pull/279)
+
+
+
+## 0.9.3
+
+This is a minor release.
+
+It fixes a few bugs:
+- the restart mechanism for an arbitrary number of azimuthal modes ; see
+[#275](https://github.com/fbpic/fbpic/pull/275). Before this, restarting
+simulations worked only when using up to 2 azimuthal modes.
+- the diagnostics of `rho` for multi-GPU simulations ; see [#265](https://github.com/fbpic/fbpic/pull/265)
+
+In addition, this release introduces the possibility to inject a laser from
+a moving antenna ; see [#262](https://github.com/fbpic/fbpic/pull/262).
+
+It also introduces a minor change in the `LaserProfile` API:
+the user should now pass the propagation direction (i.e. forward-propagating
+or backward propagating) to the laser profile directly ; see [#260](https://github.com/fbpic/fbpic/pull/260).
+
+## 0.9.2
+
+This is a bug-fix release. It fixes a bug in the initial space-charge
+calculation, that was introduced in version 0.9.1. (Previous versions do
+not have this bug ; see [#254](https://github.com/fbpic/fbpic/pull/254) for
+more details.)
+
+In additional more laser profiles were added. This includes:
+- Donut-like Laguerre-Gauss laser profile [#257](https://github.com/fbpic/fbpic/pull/257)
+- Flattened Gaussian laser profile [#244](https://github.com/fbpic/fbpic/pull/244)
+
+## 0.9.1
+
+This is a minor release, which includes miscellaneous improvements to fbpic:
+
+Bug fixes:
+- The restart mechanism now works with ionizable particles. (See [#237](https://github.com/fbpic/fbpic/pull/237))
+- For multi-CPU/GPU simulations using the Galilean scheme, the stencil extent and corresponding number of guard cells is now properly calculated. (See [#240](https://github.com/fbpic/fbpic/pull/241))
+
+In addition, various improvements have been made to the documentation. (See [#239](https://github.com/fbpic/fbpic/pull/239) and [#240](https://github.com/fbpic/fbpic/pull/240).)
+
+Finally, the charge/current deposition is now more efficient on CPU, when multiple species are used (See [#234](https://github.com/fbpic/fbpic/pull/234))
+
+## 0.9.0
+
+This version improves several features related to creation and continuous injection of particles.
+
+New features:
+- New species can now be created with the new method `add_new_species` of the
+`Simulation` object. (See [228](https://github.com/fbpic/fbpic/pull/228))
+This is particularly useful for simulations involving ionization.
+(See [231](https://github.com/fbpic/fbpic/pull/231))
+- Macroparticles with zero weight will not be created anymore. This saves time
+and memory when running simulations where the plasma `dens_func` is 0 over
+long distances ([223](https://github.com/fbpic/fbpic/pull/223)). In addition,
+a warning is now printed if the `dens_func` returns negative values
+([227](https://github.com/fbpic/fbpic/pull/227)).
+- Electron bunches can now be injected through a plane, in order to avoid
+space charge effects over long distances in the boosted frame
+([186](https://github.com/fbpic/fbpic/pull/186)).
+- MPI communications involve less synchronization
+([#217](https://github.com/fbpic/fbpic/pull/217)) and include support for
+GPUDirect ([226](https://github.com/fbpic/fbpic/pull/226)). Note that this is
+for testing purposes for the moment. Multi-GPU/multi-CPU are still not
+officially supported.
+- The default number of guard cells and damp cells has been increased.
+([229](https://github.com/fbpic/fbpic/pull/229))
+
+Miscellaneous:
+- The style of warnings has been changed ([227](https://github.com/fbpic/fbpic/pull/227)).
+- This new release includes the cross-deposition scheme ([202](https://github.com/fbpic/fbpic/pull/202)).
+This is for testing purposes for the moment.
+- The arrays `z` and `r` of the interpolation grid are now calculated on the fly.
+([215](https://github.com/fbpic/fbpic/pull/215))
+
+Bug fixes:
+- The restart from checkpoint were slightly incorrect, due to an incorrect
+size of the grid, by one cell size ([224](https://github.com/fbpic/fbpic/pull/224)).
+This is now fixed.
+- Continuous injection (with moving window) used to be incorrect for particles
+with different number of particles per cell in z. This is now fixed.
+([230](https://github.com/fbpic/fbpic/pull/230))
+- Injection of a Gaussian bunch in the boosted frame did not involve checking
+that the particles are in the correct local subdomain. This is now fixed.
+([232](https://github.com/fbpic/fbpic/pull/232))
+
+## 0.8.0
+
+This version allows FBPIC to run with an arbitrary number of azimuthal modes.
+(The previous versions only worked with 2 modes: m=0 and m=1.)
+
+This version also includes various improvements:
+
+New features:
+- Threading (on CPU) was only activated for numba 0.34 and numba 0.36. It
+is now also activated for versions above 0.36.
+(See [#199](https://github.com/fbpic/fbpic/pull/199))
+- The code can now run in parallel with the `use_true_rho` option
+(See [#210](https://github.com/fbpic/fbpic/pull/210))
+- When using `verbose_level=2`, multi-CPU simulations now print the node
+on which each MPI rank is running.
+(See [#209](https://github.com/fbpic/fbpic/pull/209))
+
+Bug fixes:
+- The moving window used to only work in one direction. It can now work in both.
+(See [#206](https://github.com/fbpic/fbpic/pull/206))
+- In a multi-GPU run, the out-of-memory errors will stop the whole simulation,
+instead of having other GPUs waiting indefinitely for the one GPU that crashed.
+(See [#212](https://github.com/fbpic/fbpic/pull/212))
+- Version 0.7.1 introduced a minor bug in the GPU current deposition, which
+lead to slight differences between the CPU and GPU results.
+This has now been fixed. (See [#216](https://github.com/fbpic/fbpic/pull/216))
+- There was a minor bug in the restart code, which did not update the arrays
+of positions of the grid. This was only likely to affect restarts followed
+by the initialization of a laser (a rare case). This now fixed by calculating
+these arrays on the fly. (See [#215](https://github.com/fbpic/fbpic/pull/215))
+- The field and particle diagnostics will now automatically convert the input
+`period` to an integer, which avoids erratic behavior if a float was provided.
+(See [#198](https://github.com/fbpic/fbpic/pull/198))
+
+## 0.7.1
+
+This is bug-fix release. It fixes two bugs that were introduced in version
+0.7.0:
+- The first bug **only affected simulations performed on CPU** (not on GPU), and
+typically lead to spuriously high charge density on the axis
+(see [#191](https://github.com/fbpic/fbpic/pull/191)).
+- The second bug affected restarts from a simulation checkpoint, and typically
+lead to incorrect continuous injection of plasma and/or simulations crashing at
+restart time (see [#192](https://github.com/fbpic/fbpic/pull/192)).
+
+These two bugs are fixed in version 0.7.1.
+
+## 0.7.0
+
+This version incorporates various new features, optimizations and bug fixes.
+See below for a details.
+
+New features:
+- The messages printed by FBPIC to the terminal have been improved.
+The `Simulation` class now supports a `verbose_level` argument, in order to
+choose the desired level of information [#158](https://github.com/fbpic/fbpic/pull/158).
+- More self-consistent initialization of the laser field [#150](https://github.com/fbpic/fbpic/pull/150).
+The laser initialization now supports arbitrary laser profiles and is always exactly
+divergence-free, even for MPI-decomposed simulations. More laser profiles
+will be implemented and documented in the next release.
+
+New optimizations:
+- The code performs fewer Hankel transforms per iteration, and is thus faster [#161](https://github.com/fbpic/fbpic/pull/161).
+- Faster functions for removal/addition of particles on GPU [#179](https://github.com/fbpic/fbpic/pull/179)
+
+Bug fixes:
+- The position where plasma starts to be injected (for simulations with moving window,
+featuring no plasma initially in the box) has been corrected. This mainly affects boosted-frame
+simulations. [#160](https://github.com/fbpic/fbpic/pull/160)
+- When restarting simulations from checkpoints, there was a bug in the particle
+weights, which is now fixed. [#178](https://github.com/fbpic/fbpic/pull/178)
+- The current and charge density are now written in the fields diagnostics
+for iteration 0, whereas they were previously set to 0 in the diagnostics for this iteration.
+[#178](https://github.com/fbpic/fbpic/pull/178)
+- The boosted-frame particle diagnostics used to fail in some cases on GPU
+due to an out-of-bound access, which is now fixed. [#169](https://github.com/fbpic/fbpic/pull/169)
+
+Changes related to the installation process:
+- FBPIC can now use numba 0.36 with threading [#167](https://github.com/fbpic/fbpic/pull/167) and [#170](https://github.com/fbpic/fbpic/pull/170).
+- FBPIC is now able to load MKL on Windows [#177](https://github.com/fbpic/fbpic/pull/177) and has better support when MKL fails to load [#154](https://github.com/fbpic/fbpic/pull/154).
+- FBPIC can now run without having MPI installed (for single-GPU or single-CPU node simulations) [#143](https://github.com/fbpic/fbpic/pull/143)
+
 ## 0.6.2
 
 This is a bug-fix release. It corrects an important bug that was introduced in version 0.6.1 for the Hankel transform on GPU.

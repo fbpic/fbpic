@@ -7,9 +7,9 @@ It defines the structure necessary to handle mpi buffers for the fields
 """
 import numpy as np
 # Check if CUDA is available, then import CUDA functions
-from fbpic.cuda_utils import cuda_installed
+from fbpic.utils.cuda import cuda_installed
 if cuda_installed:
-    from fbpic.cuda_utils import cuda, cuda_tpb_bpg_2d
+    from fbpic.utils.cuda import cuda, cuda_tpb_bpg_2d
     from .cuda_methods import \
         copy_vec_to_gpu_buffer, \
         replace_vec_from_gpu_buffer, \
@@ -52,67 +52,56 @@ class BufferHandler(object):
         self.right_proc = right_proc
         # Shortcut
         ng = self.n_guard
+
         # Allocate buffer arrays that are send via MPI to exchange
         # the fields between domains (either replacing or adding fields)
         # Buffers are allocated for the left and right side of the domain
-        if not cuda_installed:
-            # Allocate buffers on the CPU
-            # - Replacing vector field buffers
-            self.vec_rep_send_l = np.empty((3*Nm,ng,Nr), dtype=np.complex128)
-            self.vec_rep_send_r = np.empty((3*Nm,ng,Nr), dtype=np.complex128)
-            self.vec_rep_recv_l = np.empty((3*Nm,ng,Nr), dtype=np.complex128)
-            self.vec_rep_recv_r = np.empty((3*Nm,ng,Nr), dtype=np.complex128)
-            # - Adding vector field buffers
-            self.vec_add_send_l = np.empty((3*Nm,2*ng,Nr), dtype=np.complex128)
-            self.vec_add_send_r = np.empty((3*Nm,2*ng,Nr), dtype=np.complex128)
-            self.vec_add_recv_l = np.empty((3*Nm,2*ng,Nr), dtype=np.complex128)
-            self.vec_add_recv_r = np.empty((3*Nm,2*ng,Nr), dtype=np.complex128)
-            # - Replacing scalar field buffers
-            self.scal_rep_send_l = np.empty((Nm,ng,Nr), dtype=np.complex128)
-            self.scal_rep_send_r = np.empty((Nm,ng,Nr), dtype=np.complex128)
-            self.scal_rep_recv_l = np.empty((Nm,ng,Nr), dtype=np.complex128)
-            self.scal_rep_recv_r = np.empty((Nm,ng,Nr), dtype=np.complex128)
-            # - Adding scalar field buffers
-            self.scal_add_send_l = np.empty((Nm,2*ng,Nr), dtype=np.complex128)
-            self.scal_add_send_r = np.empty((Nm,2*ng,Nr), dtype=np.complex128)
-            self.scal_add_recv_l = np.empty((Nm,2*ng,Nr), dtype=np.complex128)
-            self.scal_add_recv_r = np.empty((Nm,2*ng,Nr), dtype=np.complex128)
-        else:
-            # Allocate buffers on the CPU and GPU
+
+        # Allocate buffers on the CPU
+        if cuda_installed:
             # Use cuda.pinned_array so that CPU array is pagelocked.
             # (cannot be swapped out to disk and GPU can access it via DMA)
-            pin_ary = cuda.pinned_array
-            # - Replacing vector field buffers
-            self.vec_rep_send_l = pin_ary((3*Nm,ng,Nr), dtype=np.complex128)
-            self.vec_rep_send_r = pin_ary((3*Nm,ng,Nr), dtype=np.complex128)
-            self.vec_rep_recv_l = pin_ary((3*Nm,ng,Nr), dtype=np.complex128)
-            self.vec_rep_recv_r = pin_ary((3*Nm,ng,Nr), dtype=np.complex128)
-            self.d_vec_rep_buffer_l = cuda.to_device( self.vec_rep_send_l )
-            self.d_vec_rep_buffer_r = cuda.to_device( self.vec_rep_send_r )
-            # - Adding vector field buffers
-            self.vec_add_send_l = pin_ary((3*Nm,2*ng,Nr), dtype=np.complex128)
-            self.vec_add_send_r = pin_ary((3*Nm,2*ng,Nr), dtype=np.complex128)
-            self.vec_add_recv_l = pin_ary((3*Nm,2*ng,Nr), dtype=np.complex128)
-            self.vec_add_recv_r = pin_ary((3*Nm,2*ng,Nr), dtype=np.complex128)
-            self.d_vec_add_buffer_l = cuda.to_device( self.vec_add_send_l )
-            self.d_vec_add_buffer_r = cuda.to_device( self.vec_add_send_r )
-            # - Replacing scalar field buffers
-            self.scal_rep_send_l = pin_ary((Nm,ng,Nr), dtype=np.complex128)
-            self.scal_rep_send_r = pin_ary((Nm,ng,Nr), dtype=np.complex128)
-            self.scal_rep_recv_l = pin_ary((Nm,ng,Nr), dtype=np.complex128)
-            self.scal_rep_recv_r = pin_ary((Nm,ng,Nr), dtype=np.complex128)
-            self.d_scal_rep_buffer_l = cuda.to_device( self.scal_rep_send_l )
-            self.d_scal_rep_buffer_r = cuda.to_device( self.scal_rep_send_r )
-            # - Adding scalar field buffers
-            self.scal_add_send_l = pin_ary((Nm,2*ng,Nr), dtype=np.complex128)
-            self.scal_add_send_r = pin_ary((Nm,2*ng,Nr), dtype=np.complex128)
-            self.scal_add_recv_l = pin_ary((Nm,2*ng,Nr), dtype=np.complex128)
-            self.scal_add_recv_r = pin_ary((Nm,2*ng,Nr), dtype=np.complex128)
-            self.d_scal_add_buffer_l = cuda.to_device( self.scal_add_send_l )
-            self.d_scal_add_buffer_r = cuda.to_device( self.scal_add_send_r )
+            alloc_cpu = cuda.pinned_array
+        else:
+            # Use regular numpy arrays
+            alloc_cpu = np.empty
+        # Allocate buffers of different size, for the different exchange types
+        self.send_l = {
+            'E:replace': alloc_cpu( (3*Nm,   ng, Nr), dtype=np.complex128),
+            'B:replace': alloc_cpu( (3*Nm,   ng, Nr), dtype=np.complex128),
+            'J:add'    : alloc_cpu( (3*Nm, 2*ng, Nr), dtype=np.complex128),
+            'rho:add'  : alloc_cpu( (  Nm, 2*ng, Nr), dtype=np.complex128) }
+        self.send_r = {
+            'E:replace': alloc_cpu( (3*Nm,   ng, Nr), dtype=np.complex128),
+            'B:replace': alloc_cpu( (3*Nm,   ng, Nr), dtype=np.complex128),
+            'J:add'    : alloc_cpu( (3*Nm, 2*ng, Nr), dtype=np.complex128),
+            'rho:add'  : alloc_cpu( (  Nm, 2*ng, Nr), dtype=np.complex128) }
+        self.recv_l = {
+            'E:replace': alloc_cpu( (3*Nm,   ng, Nr), dtype=np.complex128),
+            'B:replace': alloc_cpu( (3*Nm,   ng, Nr), dtype=np.complex128),
+            'J:add'    : alloc_cpu( (3*Nm, 2*ng, Nr), dtype=np.complex128),
+            'rho:add'  : alloc_cpu( (  Nm, 2*ng, Nr), dtype=np.complex128) }
+        self.recv_r = {
+            'E:replace': alloc_cpu( (3*Nm,   ng, Nr), dtype=np.complex128),
+            'B:replace': alloc_cpu( (3*Nm,   ng, Nr), dtype=np.complex128),
+            'J:add'    : alloc_cpu( (3*Nm, 2*ng, Nr), dtype=np.complex128),
+            'rho:add'  : alloc_cpu( (  Nm, 2*ng, Nr), dtype=np.complex128) }
 
-    def handle_vec_buffer( self, grid_r, grid_t, grid_z, method, use_cuda,
-                           before_sending=False, after_receiving=False):
+        # Allocate buffers on the GPU, for the different exchange types
+        if cuda_installed:
+            self.d_send_l = { key: cuda.to_device(value) for key, value in \
+                                self.send_l.items() }
+            self.d_send_r = { key: cuda.to_device(value) for key, value in \
+                                self.send_r.items() }
+            self.d_recv_l = { key: cuda.to_device(value) for key, value in \
+                                self.recv_l.items() }
+            self.d_recv_r = { key: cuda.to_device(value) for key, value in \
+                                self.recv_r.items() }
+
+
+    def handle_vec_buffer(self, grid_r, grid_t, grid_z, method, exchange_type,
+                            use_cuda, before_sending=False,
+                            after_receiving=False, gpudirect=False ):
         """
         Vector field buffer handling
 
@@ -146,6 +135,10 @@ class BufferHandler(object):
             Can either be 'replace' or 'add' depending on the type
             of field exchange that is needed
 
+        exchange_type: str
+            Can either be 'E:replace', 'B:replace', 'J:add' or 'rho:add'
+            Determines which buffer array is used.
+
         use_cuda: bool
             Whether the simulation runs on GPUs. If True,
             the buffers are copied to the GPU arrays after the MPI exchange.
@@ -155,6 +148,15 @@ class BufferHandler(object):
 
         after_receiving: bool
             Whether to copy the receiving buffer to the guard cells
+
+        gpudirect: bool
+            - if `gpudirect` is True:
+              Uses the CUDA GPUDirect feature on clusters
+              that have a working CUDA-aware MPI implementation.
+            - if `gpudirect` is False: (default)
+              Standard MPI communication is performed when using CUDA
+              for computation. This involves a manual GPU to CPU memory
+              copy before exchanging information between MPI domains.
         """
         # Define region that is copied to or from the buffer
         # depending on the method used.
@@ -171,130 +173,108 @@ class BufferHandler(object):
 
         # When using the GPU
         if use_cuda:
+
             # Calculate the number of blocks and threads per block
             dim_grid_2d, dim_block_2d = cuda_tpb_bpg_2d(
                 nz_end - nz_start, self.Nr )
 
             if before_sending:
-                if method == 'replace':
-                    # Copy the inner regions of the domain to the buffers
-                    for m in range(self.Nm):
-                        copy_vec_to_gpu_buffer[ dim_grid_2d, dim_block_2d ](
-                            self.d_vec_rep_buffer_l, self.d_vec_rep_buffer_r,
+                # Copy the inner regions of the domain to the buffers
+                for m in range(self.Nm):
+                    copy_vec_to_gpu_buffer[ dim_grid_2d, dim_block_2d ](
+                            self.d_send_l[exchange_type],
+                            self.d_send_r[exchange_type],
                             grid_r[m], grid_t[m], grid_z[m], m,
                             copy_left, copy_right, nz_start, nz_end )
-                    # Copy the GPU buffers to the sending CPU buffers
+                # If GPUDirect with CUDA-aware MPI is not used,
+                # copy the GPU buffers to the sending CPU buffers
+                if not gpudirect:
                     if copy_left:
-                        self.d_vec_rep_buffer_l.copy_to_host(
-                            self.vec_rep_send_l )
+                        self.d_send_l[exchange_type].copy_to_host(
+                            self.send_l[exchange_type] )
                     if copy_right:
-                        self.d_vec_rep_buffer_r.copy_to_host(
-                            self.vec_rep_send_r )
-
-                if method == 'add':
-                    # Copy the inner+guard regions of the domain to the buffers
-                    for m in range(self.Nm):
-                        copy_vec_to_gpu_buffer[ dim_grid_2d, dim_block_2d ](
-                        self.d_vec_add_buffer_l, self.d_vec_add_buffer_r,
-                            grid_r[m], grid_t[m], grid_z[m], m,
-                            copy_left, copy_right, nz_start, nz_end )
-                    # Copy the GPU buffers to the sending CPU buffers
-                    if copy_left:
-                        self.d_vec_add_buffer_l.copy_to_host(
-                            self.vec_add_send_l )
-                    if copy_right:
-                        self.d_vec_add_buffer_r.copy_to_host(
-                            self.vec_add_send_r )
+                        self.d_send_r[exchange_type].copy_to_host(
+                            self.send_r[exchange_type] )
 
             elif after_receiving:
-                if method == 'replace':
-                    # Copy the CPU receiving buffers to the GPU buffers
+                # If GPUDirect with CUDA-aware MPI is not used,
+                # copy the CPU receiving buffers to the GPU buffers
+                if not gpudirect:
                     if copy_left:
-                        self.d_vec_rep_buffer_l.copy_to_device(
-                            self.vec_rep_recv_l )
+                        self.d_recv_l[exchange_type].copy_to_device(
+                            self.recv_l[exchange_type] )
                     if copy_right:
-                        self.d_vec_rep_buffer_r.copy_to_device(
-                            self.vec_rep_recv_r )
+                        self.d_recv_r[exchange_type].copy_to_device(
+                            self.recv_r[exchange_type] )
+                if method == 'replace':
                     # Replace the guard cells of the domain with the buffers
                     for m in range(self.Nm):
                         replace_vec_from_gpu_buffer[dim_grid_2d, dim_block_2d](
-                            self.d_vec_rep_buffer_l, self.d_vec_rep_buffer_r,
+                            self.d_recv_l[exchange_type],
+                            self.d_recv_r[exchange_type],
                             grid_r[m], grid_t[m], grid_z[m], m,
                             copy_left, copy_right, nz_start, nz_end )
-
-                if method == 'add':
-                    # Copy the CPU receiving buffers to the GPU buffers
-                    if copy_left:
-                        self.d_vec_add_buffer_l.copy_to_device(
-                            self.vec_add_recv_l )
-                    if copy_right:
-                        self.d_vec_add_buffer_r.copy_to_device(
-                            self.vec_add_recv_r )
+                elif method == 'add':
                     # Add the buffers to the domain
                     for m in range(self.Nm):
                         add_vec_from_gpu_buffer[ dim_grid_2d, dim_block_2d ](
-                            self.d_vec_add_buffer_l, self.d_vec_add_buffer_r,
+                            self.d_recv_l[exchange_type],
+                            self.d_recv_r[exchange_type],
                             grid_r[m], grid_t[m], grid_z[m], m,
                             copy_left, copy_right, nz_start, nz_end )
+
         # Without GPU
         else:
-            if before_sending:
-                if method == 'replace':
-                    # Copy the inner regions of the domain to the buffers
-                    if copy_left:
-                        for m in range(self.Nm):
-                            self.vec_rep_send_l[3*m+0,:,:]=grid_r[m][nz_start:nz_end,:]
-                            self.vec_rep_send_l[3*m+1,:,:]=grid_t[m][nz_start:nz_end,:]
-                            self.vec_rep_send_l[3*m+2,:,:]=grid_z[m][nz_start:nz_end,:]
-                    if copy_right:
-                        for m in range(self.Nm):
-                            self.vec_rep_send_r[3*m+0,:,:]=grid_r[m][Nz-nz_end:Nz-nz_start,:]
-                            self.vec_rep_send_r[3*m+1,:,:]=grid_t[m][Nz-nz_end:Nz-nz_start,:]
-                            self.vec_rep_send_r[3*m+2,:,:]=grid_z[m][Nz-nz_end:Nz-nz_start,:]
 
-                if method == 'add':
-                    # Copy the inner+guard regions of the domain to the buffers
-                    if copy_left:
-                        for m in range(self.Nm):
-                            self.vec_add_send_l[3*m+0,:,:]=grid_r[m][nz_start:nz_end,:]
-                            self.vec_add_send_l[3*m+1,:,:]=grid_t[m][nz_start:nz_end,:]
-                            self.vec_add_send_l[3*m+2,:,:]=grid_z[m][nz_start:nz_end,:]
-                    if copy_right:
-                        for m in range(self.Nm):
-                            self.vec_add_send_r[3*m+0,:,:]=grid_r[m][Nz-nz_end:Nz-nz_start,:]
-                            self.vec_add_send_r[3*m+1,:,:]=grid_t[m][Nz-nz_end:Nz-nz_start,:]
-                            self.vec_add_send_r[3*m+2,:,:]=grid_z[m][Nz-nz_end:Nz-nz_start,:]
+            if before_sending:
+
+                send_l = self.send_l[exchange_type]
+                send_r = self.send_r[exchange_type]
+                # Copy the inner regions of the domain to the buffers
+                if copy_left:
+                    for m in range(self.Nm):
+                        send_l[3*m+0,:,:]=grid_r[m][nz_start:nz_end,:]
+                        send_l[3*m+1,:,:]=grid_t[m][nz_start:nz_end,:]
+                        send_l[3*m+2,:,:]=grid_z[m][nz_start:nz_end,:]
+                if copy_right:
+                    for m in range(self.Nm):
+                        send_r[3*m+0,:,:]=grid_r[m][Nz-nz_end:Nz-nz_start,:]
+                        send_r[3*m+1,:,:]=grid_t[m][Nz-nz_end:Nz-nz_start,:]
+                        send_r[3*m+2,:,:]=grid_z[m][Nz-nz_end:Nz-nz_start,:]
 
             elif after_receiving:
+
+                recv_l = self.recv_l[exchange_type]
+                recv_r = self.recv_r[exchange_type]
                 if method == 'replace':
                     # Replace the guard cells of the domain with the buffers
                     if copy_left:
                         for m in range(self.Nm):
-                            grid_r[m][:nz_end-nz_start,:]=self.vec_rep_recv_l[3*m+0,:,:]
-                            grid_t[m][:nz_end-nz_start,:]=self.vec_rep_recv_l[3*m+1,:,:]
-                            grid_z[m][:nz_end-nz_start,:]=self.vec_rep_recv_l[3*m+2,:,:]
+                            grid_r[m][:nz_end-nz_start,:]=recv_l[3*m+0,:,:]
+                            grid_t[m][:nz_end-nz_start,:]=recv_l[3*m+1,:,:]
+                            grid_z[m][:nz_end-nz_start,:]=recv_l[3*m+2,:,:]
                     if copy_right:
                         for m in range(self.Nm):
-                            grid_r[m][-(nz_end-nz_start):,:]=self.vec_rep_recv_r[3*m+0,:,:]
-                            grid_t[m][-(nz_end-nz_start):,:]=self.vec_rep_recv_r[3*m+1,:,:]
-                            grid_z[m][-(nz_end-nz_start):,:]=self.vec_rep_recv_r[3*m+2,:,:]
-
-                if method == 'add':
+                            grid_r[m][-(nz_end-nz_start):,:]=recv_r[3*m+0,:,:]
+                            grid_t[m][-(nz_end-nz_start):,:]=recv_r[3*m+1,:,:]
+                            grid_z[m][-(nz_end-nz_start):,:]=recv_r[3*m+2,:,:]
+                elif method == 'add':
                     # Add buffers to the domain
                     if copy_left:
                         for m in range(self.Nm):
-                            grid_r[m][:nz_end-nz_start,:]+=self.vec_add_recv_l[3*m+0,:,:]
-                            grid_t[m][:nz_end-nz_start,:]+=self.vec_add_recv_l[3*m+1,:,:]
-                            grid_z[m][:nz_end-nz_start,:]+=self.vec_add_recv_l[3*m+2,:,:]
+                            grid_r[m][:nz_end-nz_start,:]+=recv_l[3*m+0,:,:]
+                            grid_t[m][:nz_end-nz_start,:]+=recv_l[3*m+1,:,:]
+                            grid_z[m][:nz_end-nz_start,:]+=recv_l[3*m+2,:,:]
                     if copy_right:
                         for m in range(self.Nm):
-                            grid_r[m][-(nz_end-nz_start):,:]+=self.vec_add_recv_r[3*m+0,:,:]
-                            grid_t[m][-(nz_end-nz_start):,:]+=self.vec_add_recv_r[3*m+1,:,:]
-                            grid_z[m][-(nz_end-nz_start):,:]+=self.vec_add_recv_r[3*m+2,:,:]
+                            grid_r[m][-(nz_end-nz_start):,:]+=recv_r[3*m+0,:,:]
+                            grid_t[m][-(nz_end-nz_start):,:]+=recv_r[3*m+1,:,:]
+                            grid_z[m][-(nz_end-nz_start):,:]+=recv_r[3*m+2,:,:]
 
 
-    def handle_scal_buffer( self, grid, method, use_cuda,
-                            before_sending=False, after_receiving=False):
+    def handle_scal_buffer( self, grid, method, exchange_type, use_cuda,
+                            before_sending=False, after_receiving=False,
+                            gpudirect=False ):
         """
         Scalar field buffer handling
 
@@ -337,14 +317,25 @@ class BufferHandler(object):
 
         after_receiving: bool
             Whether to copy the receiving buffer to the guard cells
+
+        gpudirect: bool
+            - if `gpudirect` is True:
+              Uses the CUDA GPUDirect feature on clusters
+              that have a working CUDA-aware MPI implementation.
+            - if `gpudirect` is False: (default)
+              Standard MPI communication is performed when using CUDA
+              for computation. This involves a manual GPU to CPU memory
+              copy before exchanging information between MPI domains.
         """
+        # Define region that is copied to or from the buffer
+        # depending on the method used.
         if method == 'replace':
             nz_start = self.n_guard
             nz_end = 2*self.n_guard
         if method == 'add':
             nz_start = 0
             nz_end = 2*self.n_guard
-
+        # Whether or not to send to the left or right neighbor
         copy_left = (self.left_proc is not None)
         copy_right = (self.right_proc is not None)
         Nz = grid[0].shape[0]
@@ -356,98 +347,80 @@ class BufferHandler(object):
                 nz_end - nz_start, self.Nr )
 
             if before_sending:
-                if method == 'replace':
-                    # Copy the inner regions of the domain to the GPU buffers
-                    for m in range(self.Nm):
-                        copy_scal_to_gpu_buffer[ dim_grid_2d, dim_block_2d ](
-                            self.d_scal_rep_buffer_l, self.d_scal_rep_buffer_r,
-                            grid[m], m, copy_left, copy_right, nz_start, nz_end)
-                    # Copy the GPU buffers to the sending CPU buffers
+                # Copy the inner regions of the domain to the buffers
+                for m in range(self.Nm):
+                    copy_scal_to_gpu_buffer[ dim_grid_2d, dim_block_2d ](
+                        self.d_send_l[exchange_type],
+                        self.d_send_r[exchange_type],
+                        grid[m], m, copy_left, copy_right, nz_start, nz_end)
+                # If GPUDirect with CUDA-aware MPI is not used,
+                # copy the GPU buffers to the sending CPU buffers
+                if not gpudirect:
                     if copy_left:
-                        self.d_scal_rep_buffer_l.copy_to_host(
-                            self.scal_rep_send_l )
+                        self.d_send_l[exchange_type].copy_to_host(
+                            self.send_l[exchange_type] )
                     if copy_right:
-                        self.d_scal_rep_buffer_r.copy_to_host(
-                            self.scal_rep_send_r )
-
-                if method == 'add':
-                    # Copy the inner+guard regions of the domain to the buffers
-                    for m in range(self.Nm):
-                        copy_scal_to_gpu_buffer[ dim_grid_2d, dim_block_2d ](
-                            self.d_scal_add_buffer_l, self.d_scal_add_buffer_r,
-                            grid[m], m, copy_left, copy_right, nz_start, nz_end)
-                    # Copy the GPU buffers to the sending CPU buffers
-                    if copy_left:
-                        self.d_scal_add_buffer_l.copy_to_host(
-                            self.scal_add_send_l )
-                    if copy_right:
-                        self.d_scal_add_buffer_r.copy_to_host(
-                            self.scal_add_send_r )
+                        self.d_send_r[exchange_type].copy_to_host(
+                            self.send_r[exchange_type] )
 
             elif after_receiving:
-                if method == 'replace':
-                    # Copy the CPU receiving buffers to the GPU buffers
+                # If GPUDirect with CUDA-aware MPI is not used,
+                # copy the CPU receiving buffers to the GPU buffers
+                if not gpudirect:
                     if copy_left:
-                        self.d_scal_rep_buffer_l.copy_to_device(
-                            self.scal_rep_recv_l )
+                        self.d_recv_l[exchange_type].copy_to_device(
+                            self.recv_l[exchange_type] )
                     if copy_right:
-                        self.d_scal_rep_buffer_r.copy_to_device(
-                            self.scal_rep_recv_r )
+                        self.d_recv_r[exchange_type].copy_to_device(
+                            self.recv_r[exchange_type] )
+                if method == 'replace':
                     # Replace the guard cells of the domain with the buffers
                     for m in range(self.Nm):
                         replace_scal_from_gpu_buffer[dim_grid_2d, dim_block_2d](
-                            self.d_scal_rep_buffer_l, self.d_scal_rep_buffer_r,
+                            self.d_recv_l[exchange_type],
+                            self.d_recv_r[exchange_type],
                             grid[m], m, copy_left, copy_right, nz_start, nz_end)
-
-                if method == 'add':
-                    # Copy the CPU receiving buffers to the GPU buffers
-                    if copy_left:
-                        self.d_scal_add_buffer_l.copy_to_device(
-                            self.scal_add_recv_l )
-                    if copy_right:
-                        self.d_scal_add_buffer_r.copy_to_device(
-                            self.scal_add_recv_r )
-                    # Add the GPU buffers to the domain
+                elif method == 'add':
+                    # Add the buffers to the domain
                     for m in range(self.Nm):
                         add_scal_from_gpu_buffer[ dim_grid_2d, dim_block_2d ](
-                            self.d_scal_add_buffer_l, self.d_scal_add_buffer_r,
+                            self.d_recv_l[exchange_type],
+                            self.d_recv_r[exchange_type],
                             grid[m], m, copy_left, copy_right, nz_start, nz_end)
+
         # Without GPU
         else:
-            if before_sending:
-                if method == 'replace':
-                    # Copy the inner regions of the domain to the buffer
-                    if copy_left:
-                        for m in range(self.Nm):
-                            self.scal_rep_send_l[m,:,:]=grid[m][nz_start:nz_end,:]
-                    if copy_right:
-                        for m in range(self.Nm):
-                            self.scal_rep_send_r[m,:,:]=grid[m][Nz-nz_end:Nz-nz_start,:]
 
-                if method == 'add':
-                    # Copy the inner+guard regions of the domain to the buffer
-                    if copy_left:
-                        for m in range(self.Nm):
-                            self.scal_add_send_l[m,:,:]=grid[m][nz_start:nz_end,:]
-                    if copy_right:
-                        for m in range(self.Nm):
-                            self.scal_add_send_r[m,:,:]=grid[m][Nz-nz_end:Nz-nz_start,:]
+            if before_sending:
+
+                send_l = self.send_l[exchange_type]
+                send_r = self.send_r[exchange_type]
+                # Copy the inner regions of the domain to the buffer
+                if copy_left:
+                    for m in range(self.Nm):
+                        send_l[m,:,:]=grid[m][nz_start:nz_end,:]
+                if copy_right:
+                    for m in range(self.Nm):
+                        send_r[m,:,:]=grid[m][Nz-nz_end:Nz-nz_start,:]
 
             elif after_receiving:
+
+                recv_l = self.recv_l[exchange_type]
+                recv_r = self.recv_r[exchange_type]
                 if method == 'replace':
                     # Replace the guard cells of the domain with the buffers
                     if copy_left:
                         for m in range(self.Nm):
-                            grid[m][:nz_end-nz_start,:]=self.scal_rep_recv_l[m,:,:]
+                            grid[m][:nz_end-nz_start,:]=recv_l[m,:,:]
                     if copy_right:
                         for m in range(self.Nm):
-                            grid[m][-(nz_end-nz_start):,:]=self.scal_rep_recv_r[m,:,:]
+                            grid[m][-(nz_end-nz_start):,:]=recv_r[m,:,:]
 
                 if method == 'add':
                     # Add buffers to the domain
                     if copy_left:
                         for m in range(self.Nm):
-                            grid[m][:nz_end-nz_start,:]+=self.scal_add_recv_l[m,:,:]
+                            grid[m][:nz_end-nz_start,:]+=recv_l[m,:,:]
                     if copy_right:
                         for m in range(self.Nm):
-                            grid[m][-(nz_end-nz_start):,:]+=self.scal_add_recv_r[m,:,:]
+                            grid[m][-(nz_end-nz_start):,:]+=recv_r[m,:,:]

@@ -7,13 +7,65 @@ It defines the optimized fields methods that use numba on a CPU
 """
 from scipy.constants import c, epsilon_0, mu_0
 c2 = c**2
-from fbpic.threading_utils import njit_parallel, prange
+import numba
+from fbpic.utils.threading import njit_parallel, prange
+
 
 @njit_parallel
-def numba_correct_currents_standard( rho_prev, rho_next, Jp, Jm, Jz,
+def numba_filter_scalar( field, Nz, Nr, filter_array_z, filter_array_r ) :
+    """
+    Multiply the input field by the filter_array
+
+    Parameters :
+    ------------
+    field : 2darray of complexs
+        An array that represent the fields in spectral space
+
+    filter_array_z, filter_array_r : 1darray of reals
+        An array that damps the fields at high k, in z and r respectively
+
+    Nz, Nr : ints
+        Dimensions of the arrays
+    """
+    # Loop over the 2D grid (parallel in z, if threading is installed)
+    for iz in prange(Nz):
+        for ir in range(Nr):
+
+            field[iz,ir] = filter_array_z[iz]*filter_array_r[ir]*field[iz,ir]
+
+
+@njit_parallel
+def numba_filter_vector( fieldr, fieldt, fieldz, Nz, Nr,
+                        filter_array_z, filter_array_r ):
+    """
+    Multiply the input field by the filter_array
+
+    Parameters :
+    ------------
+    field : 2darray of complexs
+        An array that represent the fields in spectral space
+
+    filter_array_z, filter_array_r : 1darray of reals
+        An array that damps the fields at high k, in z and r respectively
+
+    Nz, Nr : ints
+        Dimensions of the arrays
+    """
+    # Loop over the 2D grid (parallel in z, if threading is installed)
+    for iz in prange(Nz):
+        for ir in range(Nr):
+
+            fieldr[iz,ir] = filter_array_z[iz]*filter_array_r[ir]*fieldr[iz,ir]
+            fieldt[iz,ir] = filter_array_z[iz]*filter_array_r[ir]*fieldt[iz,ir]
+            fieldz[iz,ir] = filter_array_z[iz]*filter_array_r[ir]*fieldz[iz,ir]
+
+
+@njit_parallel
+def numba_correct_currents_curlfree_standard( rho_prev, rho_next, Jp, Jm, Jz,
                             kz, kr, inv_k2, inv_dt, Nz, Nr ):
     """
-    Correct the currents in spectral space, using the standard pstad
+    Correct the currents in spectral space, using the curl-free correction
+    which is adapted to the standard psatd
     """
     # Loop over the 2D grid (parallel in z, if threading is installed)
     for iz in prange(Nz):
@@ -29,6 +81,44 @@ def numba_correct_currents_standard( rho_prev, rho_next, Jp, Jm, Jz,
             Jp[iz, ir] +=  0.5 * kr[iz, ir] * F
             Jm[iz, ir] += -0.5 * kr[iz, ir] * F
             Jz[iz, ir] += -1.j * kz[iz, ir] * F
+
+    return
+
+@njit_parallel
+def numba_correct_currents_crossdeposition_standard( rho_prev, rho_next,
+        rho_next_z, rho_next_xy, Jp, Jm, Jz, kz, kr, inv_dt, Nz, Nr ):
+    """
+    Correct the currents in spectral space, using the cross-deposition
+    algorithm adapted to the standard psatd.
+    """
+    # Loop over the 2D grid
+    for iz in prange(Nz):
+        # Loop through the radial points
+        # (Note: a while loop is used here, because numba 0.34 does
+        # not support nested prange and range loops)
+        ir = 0
+        while ir < Nr:
+
+            # Calculate the intermediate variable Dz and Dxy
+            # (Such that Dz + Dxy is the error in the continuity equation)
+            Dz = 1.j*kz[iz, ir]*Jz[iz, ir] + 0.5 * inv_dt * \
+                ( rho_next[iz, ir] - rho_next_xy[iz, ir] + \
+                  rho_next_z[iz, ir] - rho_prev[iz, ir] )
+            Dxy = kr[iz, ir]*( Jp[iz, ir] - Jm[iz, ir] ) + 0.5 * inv_dt * \
+                ( rho_next[iz, ir] - rho_next_z[iz, ir] + \
+                  rho_next_xy[iz, ir] - rho_prev[iz, ir] )
+
+            # Correct the currents accordingly
+            if kr[iz, ir] != 0:
+                inv_kr = 1./kr[iz, ir]
+                Jp[iz, ir] += -0.5 * Dxy * inv_kr
+                Jm[iz, ir] +=  0.5 * Dxy * inv_kr
+            if kz[iz, ir] != 0:
+                inv_kz = 1./kz[iz, ir]
+                Jz[iz, ir] += 1.j * Dz * inv_kz
+
+            # Increment ir
+            ir += 1
 
     return
 
@@ -102,13 +192,13 @@ def numba_push_eb_standard( Ep, Em, Ez, Bp, Bm, Bz, Jp, Jm, Jz,
     return
 
 @njit_parallel
-def numba_correct_currents_comoving( rho_prev, rho_next, Jp, Jm, Jz,
+def numba_correct_currents_curlfree_comoving( rho_prev, rho_next, Jp, Jm, Jz,
                             kz, kr, inv_k2,
                             j_corr_coef, T_eb, T_cc,
                             inv_dt, Nz, Nr ) :
     """
-    Correct the currents in spectral space, using the assumption
-    of comoving currents
+    Correct the currents in spectral space, using the curl-free correction
+    which is adapted to the galilean/comoving-currents assumption
     """
     # Loop over the 2D grid (parallel in z, if threading is installed)
     for iz in prange(Nz):
@@ -124,6 +214,48 @@ def numba_correct_currents_comoving( rho_prev, rho_next, Jp, Jm, Jz,
             Jp[iz, ir] +=  0.5 * kr[iz, ir] * F
             Jm[iz, ir] += -0.5 * kr[iz, ir] * F
             Jz[iz, ir] += -1.j * kz[iz, ir] * F
+
+    return
+
+@njit_parallel
+def numba_correct_currents_crossdeposition_comoving(
+        rho_prev, rho_next, rho_next_z, rho_next_xy, Jp, Jm, Jz,
+        kz, kr, j_corr_coef, T_eb, T_cc, inv_dt, Nz, Nr ) :
+    """
+    Correct the currents in spectral space, using the cross-deposition
+    algorithm adapted to the galilean/comoving-currents assumption.
+    """
+    # Loop over the 2D grid
+    for iz in prange(Nz):
+        # Loop through the radial points
+        # (Note: a while loop is used here, because numba 0.34 does
+        # not support nested prange and range loops)
+        ir = 0
+        while ir < Nr:
+
+            # Calculate the intermediate variable Dz and Dxy
+            # (Such that Dz + Dxy is the error in the continuity equation)
+
+            Dz = 1.j*kz[iz, ir]*Jz[iz, ir] \
+                + 0.5 * T_cc[iz, ir]*j_corr_coef[iz, ir] * \
+                ( rho_next[iz, ir] - T_eb[iz, ir] * rho_next_xy[iz, ir] \
+                  + rho_next_z[iz, ir] - T_eb[iz, ir] * rho_prev[iz, ir] )
+            Dxy = kr[iz, ir]*( Jp[iz, ir] - Jm[iz, ir] ) \
+                + 0.5 * T_cc[iz, ir]*j_corr_coef[iz, ir] * \
+                ( rho_next[iz, ir] + T_eb[iz, ir] * rho_next_xy[iz, ir] \
+                - rho_next_z[iz, ir] -  T_eb[iz, ir] * rho_prev[iz, ir] )
+
+            # Correct the currents accordingly
+            if kr[iz, ir] != 0:
+                inv_kr = 1./kr[iz, ir]
+                Jp[iz, ir] += -0.5 * Dxy * inv_kr
+                Jm[iz, ir] +=  0.5 * Dxy * inv_kr
+            if kz[iz, ir] != 0:
+                inv_kz = 1./kz[iz, ir]
+                Jz[iz, ir] += 1.j * Dz * inv_kz
+
+            # Increment ir
+            ir += 1
 
     return
 
@@ -206,3 +338,82 @@ def numba_push_eb_comoving( Ep, Em, Ez, Bp, Bm, Bz, Jp, Jm, Jz,
                             + 1.j*kr[iz, ir]*Jm[iz, ir] )
 
     return
+
+
+# -----------------------------------------------------------------------
+# Parallel reduction of the global arrays for threads into a single array
+# -----------------------------------------------------------------------
+
+@njit_parallel
+def numba_erase_threading_buffer( global_array ):
+    """
+    Set the threading buffer `global_array` to 0
+
+    Parameter:
+    ----------
+    global_array: 4darray of complexs
+        An array that contains the duplicated charge/current for each thread
+    """
+    nthreads, Nm, Nz, Nr = global_array.shape
+    # Loop in parallel along nthreads
+    for i_thread in prange(nthreads):
+        # Loop through the modes and the grid
+        for m in range(Nm):
+            for iz in range(Nz):
+                for ir in range(Nr):
+                    # Erase values
+                    global_array[i_thread, m, iz, ir] = 0.
+
+@njit_parallel
+def sum_reduce_2d_array( global_array, reduced_array, m ):
+    """
+    Sum the array `global_array` along its first axis and
+    add it into `reduced_array`, and fold the deposition guard cells of
+    global_array into the regular cells of reduced_array.
+
+    Parameters:
+    -----------
+    global_array: 4darray of complexs
+       Field array of shape (nthreads, Nm, 2+Nz+2, 2+Nr+2)
+       where the additional 2's in z and r correspond to deposition guard cells
+       that were used during the threaded deposition kernel.
+
+    reduced array: 2darray of complex
+      Field array of shape (Nz, Nr)
+
+    m: int
+       The azimuthal mode for which the reduction should be performed
+    """
+    # Extract size of each dimension
+    Nz = reduced_array.shape[0]
+
+    # Parallel loop over z
+    for iz in prange(Nz):
+        # Get index inside reduced_array
+        iz_global = iz + 2
+        reduce_slice( reduced_array, iz, global_array, iz_global, m )
+    # Handle deposition guard cells in z
+    reduce_slice( reduced_array, Nz-2, global_array, 0, m )
+    reduce_slice( reduced_array, Nz-1, global_array, 1, m )
+    reduce_slice( reduced_array, 0, global_array, Nz+2, m )
+    reduce_slice( reduced_array, 1, global_array, Nz+3, m )
+
+@numba.njit
+def reduce_slice( reduced_array, iz, global_array, iz_global, m ):
+    """
+    Sum the array `global_array` into `reduced_array` for one given slice in z
+    """
+    Nreduce = global_array.shape[0]
+    Nr = reduced_array.shape[1]
+    # Loop over the reduction dimension (slow dimension)
+    for it in range( Nreduce ):
+
+        # First fold the low-radius deposition guard cells in
+        reduced_array[iz, 1] += global_array[it, m, iz_global, 0]
+        reduced_array[iz, 0] += global_array[it, m, iz_global, 1]
+        # Then loop over regular cells
+        for ir in range( Nr ):
+            reduced_array[iz, ir] +=  global_array[it, m, iz_global, ir+2]
+        # Finally fold the high-radius guard cells in
+        reduced_array[iz, Nr-1] += global_array[it, m, iz_global, Nr+2]
+        reduced_array[iz, Nr-1] += global_array[it, m, iz_global, Nr+3]

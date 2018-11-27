@@ -12,6 +12,7 @@ import datetime
 from dateutil.tz import tzlocal
 import numpy as np
 import h5py
+from fbpic import __version__ as fbpic_version
 
 # Dictionaries of correspondance for openPMD
 from .data_dict import unit_dimension_dict
@@ -55,7 +56,7 @@ class OpenPMDDiagnostic(object) :
             self.rank = 0
 
         # Register the arguments
-        self.period = period
+        self.period = int(round(period))  # Impose integer period
         self.iteration_min = iteration_min
         self.iteration_max = iteration_max
         self.comm = comm
@@ -160,7 +161,7 @@ class OpenPMDDiagnostic(object) :
         # General attributes
         f.attrs["openPMD"] = np.string_("1.0.0")
         f.attrs["openPMDextension"] = np.uint32(1)
-        f.attrs["software"] = np.string_("fbpic")
+        f.attrs["software"] = np.string_("fbpic " + fbpic_version)
         f.attrs["date"] = np.string_(
             datetime.datetime.now(tzlocal()).strftime('%Y-%m-%d %H:%M:%S %z'))
         f.attrs["meshesPath"] = np.string_("fields/")
@@ -187,6 +188,9 @@ class OpenPMDDiagnostic(object) :
         quantity : string
            The name of the record considered
         """
+        if quantity.startswith('rho'): # particle density such as rho_electrons
+            quantity = 'rho'
+
         dset.attrs["unitDimension"] = unit_dimension_dict[quantity]
         # No time offset (approximation)
         dset.attrs["timeOffset"] = 0.
