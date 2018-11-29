@@ -156,6 +156,10 @@ class LaserAntenna( object ):
         elif v_antenna != 0:
             self.vz += v_antenna
 
+        # Register whether the antenna deposits on the local domain
+        # (gets updated by `update_current_rank`)
+        self.deposit_on_this_rank = False
+
         # Initialize small-size buffers where the particles charge and currents
         # will be deposited before being added to the regular, large-size array
         # (esp. useful when running on GPU, for memory transfer)
@@ -168,6 +172,35 @@ class LaserAntenna( object ):
             self.d_Jr_buffer = cuda.device_array_like( self.Jr_buffer )
             self.d_Jt_buffer = cuda.device_array_like( self.Jt_buffer )
             self.d_Jz_buffer = cuda.device_array_like( self.Jz_buffer )
+
+    def update_current_rank(self, comm):
+        """
+        Determine whether the antenna deposits on the local domain
+        of this MPI rank.
+
+        This function is typically called at the same as the
+        particle exchange (i.e. at the beginning a PIC iteration).
+
+        One alternative would be to check the antenna position before
+        each call to `deposit` ; however this could result in rho^n and
+        rho^{n+1} being deposited on different MPI rank, during the same
+        PIC iteration - which would lead to spurious effects on the
+        current correction.
+
+        Parameters:
+        -----------
+        comm: a BoundaryCommunicator object
+            Contains information on the local boundaries
+        """
+        # Check if the antenna is in the local physical domain
+        # and update the flag `deposit_on_this_rank` accordingly
+        zmin_local, zmax_local = comm.get_zmin_zmax(
+            local=True, with_damp=True, with_guard=False, rank=comm.rank )
+        z_antenna = self.baseline_z[0]
+        if (z_antenna >= zmin_local) and (z_antenna < zmax_local):
+            self.deposit_on_this_rank = True
+        else:
+            self.deposit_on_this_rank = False
 
     def push_x( self, dt, x_push=1., y_push=1., z_push=1. ):
         """
@@ -228,7 +261,7 @@ class LaserAntenna( object ):
         self.vx = self.mobility_coef * Ex
         self.vy = self.mobility_coef * Ey
 
-    def deposit( self, fld, fieldtype, comm ):
+    def deposit( self, fld, fieldtype ):
         """
         Deposit the charge or current of the virtual particles onto the grid
 
@@ -246,18 +279,10 @@ class LaserAntenna( object ):
         fieldtype : string
              Indicates which field to deposit
              Either 'J' or 'rho'
-
-        comm : a BoundaryCommunicator object
-             Allows to extract the boundaries of the physical domain
         """
-        # Check if baseline_z is in the local physical domain
-        # (This prevents out-of-bounds errors, and prevents 2 neighboring
-        # processors from simultaneously depositing the laser antenna)
-        zmin_local, zmax_local = comm.get_zmin_zmax(
-            local=True, with_damp=True, with_guard=False, rank=comm.rank )
-        # Interrupt this function if the antenna is not in the local domain
-        z_antenna = self.baseline_z[0]
-        if (z_antenna < zmin_local) or (z_antenna >= zmax_local):
+        # Interrupt this function if the antenna does not currently
+        # deposit on the local domain (as determined by `update_current_rank`)
+        if not self.deposit_on_this_rank:
             return
 
         # Shortcut for the list of InterpolationGrid objects
