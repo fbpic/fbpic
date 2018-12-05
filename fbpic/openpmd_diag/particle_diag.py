@@ -349,7 +349,7 @@ class ParticleDiagnostic(OpenPMDDiagnostic) :
                 # subsampling selector
                 if quantity == 'subsampling':
                     sampling_array = np.mod(np.arange(species.Ntot),
-                        self.select[quantity][0]) == 0
+                        self.select[quantity]) == 0
                     select_array = np.logical_and(sampling_array,select_array)
                     continue
 
