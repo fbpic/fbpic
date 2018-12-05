@@ -346,6 +346,11 @@ class ParticleDiagnostic(OpenPMDDiagnostic) :
         if self.select is not None :
             # Go through the quantities on which a rule applies
             for quantity in self.select.keys() :
+		# subsampling selector
+                if quantity == 'subsampling' :
+                    sampling_array = np.mod(np.arange( species.Ntot ), self.select[quantity][0])==0
+                    select_array = np.logical_and(sampling_array,select_array)
+                    continue
 
                 quantity_array = getattr( species, quantity )
                 # Lower bound
