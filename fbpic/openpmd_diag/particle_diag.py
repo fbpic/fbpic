@@ -338,6 +338,9 @@ class ParticleDiagnostic(OpenPMDDiagnostic) :
         A 1d array of the same shape as that particle array
         containing True for the particles that satify all
         the rules of self.select
+
+        can include "subsampling_fraction" < 1, which returns a fraction
+        of the particles, randomly sampled.
         """
         # Initialize an array filled with True
         select_array = np.ones( species.Ntot, dtype='bool' )
@@ -347,9 +350,9 @@ class ParticleDiagnostic(OpenPMDDiagnostic) :
             # Go through the quantities on which a rule applies
             for quantity in self.select.keys() :
                 # subsampling selector
-                if quantity == 'subsampling':
-                    sampling_array = np.mod(np.arange(species.Ntot),
-                        self.select[quantity]) == 0
+                if quantity == 'subsampling_fraction':
+                    sampling_array = np.random.rand(species.Ntot) < \
+                        self.select[quantity]
                     select_array = np.logical_and(sampling_array,select_array)
                     continue
 
