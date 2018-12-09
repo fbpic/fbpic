@@ -18,7 +18,8 @@ class ParticleDiagnostic(OpenPMDDiagnostic) :
 
     def __init__(self, period, species = {"electrons": None}, comm=None,
         particle_data=["position", "momentum", "weighting"],
-        select=None, write_dir=None, iteration_min=0, iteration_max=np.inf ) :
+        select=None, write_dir=None, iteration_min=0, iteration_max=np.inf, 
+        subsampling_fraction=None ) :
         """
         Initialize the particle diagnostics.
 
@@ -61,6 +62,10 @@ class ParticleDiagnostic(OpenPMDDiagnostic) :
         iteration_min, iteration_max: ints
             The iterations between which data should be written
             (`iteration_min` is inclusive, `iteration_max` is exclusive)
+
+        subsampling_fraction : float, optional
+            If this is not None, the particle data is subsampled with 
+            subsampling_fraction probability
         """
         # General setup
         OpenPMDDiagnostic.__init__(self, period, comm, write_dir,
@@ -69,6 +74,8 @@ class ParticleDiagnostic(OpenPMDDiagnostic) :
         # Register the arguments
         self.species_dict = species
         self.select = select
+        self.subsampling_fraction = subsampling_fraction
+
         # Build an ordered list of species. (This is needed since the order
         # of the keys is not well defined, so each MPI rank could go through
         # the species in a different order, if species_dict.keys() is used.)
@@ -327,7 +334,8 @@ class ParticleDiagnostic(OpenPMDDiagnostic) :
     def apply_selection( self, species ) :
         """
         Apply the rules of self.select to determine which
-        particles should be written
+        particles should be written, Apply random subsampling using
+        the property subsampling_fraction.
 
         Parameters
         ----------
@@ -338,24 +346,19 @@ class ParticleDiagnostic(OpenPMDDiagnostic) :
         A 1d array of the same shape as that particle array
         containing True for the particles that satify all
         the rules of self.select
-
-        can include "subsampling_fraction" < 1, which returns a fraction
-        of the particles, randomly sampled.
         """
         # Initialize an array filled with True
         select_array = np.ones( species.Ntot, dtype='bool' )
+        # subsampling selector
+        if self.subsampling_fraction is not None :
+            subsampling_array = np.random.rand(species.Ntot) < \
+                self.subsampling_fraction
+            select_array = np.logical_and(subsampling_array,select_array)
 
         # Apply the rules successively
         if self.select is not None :
             # Go through the quantities on which a rule applies
             for quantity in self.select.keys() :
-                # subsampling selector
-                if quantity == 'subsampling_fraction':
-                    sampling_array = np.random.rand(species.Ntot) < \
-                        self.select[quantity]
-                    select_array = np.logical_and(sampling_array,select_array)
-                    continue
-
                 quantity_array = getattr( species, quantity )
                 # Lower bound
                 if self.select[quantity][0] is not None :
