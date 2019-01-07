@@ -92,7 +92,7 @@ class ParticleDiagnostic(OpenPMDDiagnostic) :
                 if quantity == "position":
                     self.array_quantities_dict[species_name] += ['x','y','z']
                 elif quantity == "momentum":
-                    self.array_quantities_dict[species_name] += ['ux','uy','uz']
+                    self.array_quantities_dict[species_name] += ['ux','uy','uz','gamma']
                 elif quantity == "weighting":
                     self.array_quantities_dict[species_name].append('w')
                 else:
@@ -307,7 +307,7 @@ class ParticleDiagnostic(OpenPMDDiagnostic) :
                 self.write_dataset( species_grp, species, quantity_path,
                         quantity, n_rank, Ntot, select_array )
 
-            elif quantity in ["w", "id", "charge"]:
+            elif quantity in ["w", "id", "charge", "gamma"]:
                 if quantity == "w":
                     quantity_path = "weighting"
                 else:
@@ -359,7 +359,10 @@ class ParticleDiagnostic(OpenPMDDiagnostic) :
         if self.select is not None :
             # Go through the quantities on which a rule applies
             for quantity in self.select.keys() :
-                quantity_array = getattr( species, quantity )
+                if quantity == "gamma":
+                    quantity_array = 1.0/getattr( species, "inv_gamma" )
+                else:
+                    quantity_array = getattr( species, quantity )
                 # Lower bound
                 if self.select[quantity][0] is not None :
                     select_array = np.logical_and(
@@ -393,7 +396,7 @@ class ParticleDiagnostic(OpenPMDDiagnostic) :
 
         quantity : string
             Describes which quantity is written
-            x, y, z, ux, uy, uz, w, id
+            x, y, z, ux, uy, uz, w, id, gamma
 
         n_rank : list of ints
             A list containing the number of particles to send on each proc
@@ -455,6 +458,8 @@ class ParticleDiagnostic(OpenPMDDiagnostic) :
             quantity_one_proc = constants.e * species.ionizer.ionization_level
         elif quantity == "w":
             quantity_one_proc = species.w
+        elif quantity == "gamma":
+            quantity_one_proc = 1.0/getattr( species, "inv_gamma" )
         else:
             quantity_one_proc = getattr( species, quantity )
 
