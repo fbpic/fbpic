@@ -14,12 +14,12 @@ from .field_diag import FieldDiagnostic
 from .particle_diag import ParticleDiagnostic
 from fbpic.utils.mpi import comm
 
-def set_periodic_checkpoint( sim, period ):
+def set_periodic_checkpoint( sim, period, checkpoint_dir='./checkpoints' ):
     """
     Set up periodic checkpoints of the simulation
 
-    The checkpoints are saved in openPMD format, in the directory
-    `./checkpoints`, with one subdirectory per process.
+    The checkpoints are saved in openPMD format, in the specified
+    directory, with one subdirectory per process.
     The E and B fields and particle information of each processor is saved.
 
     NB: Checkpoints are registered in the list `checkpoints` of the Simulation
@@ -33,18 +33,23 @@ def set_periodic_checkpoint( sim, period ):
 
     period: integer
        The number of PIC iteration between each checkpoint.
+
+    checkpoint_dir: string, optional
+        The path to the directory in which the checkpoints are stored
+        (When running a simulation with several MPI ranks, use the 
+        same path for all ranks.)
     """
     # Only processor 0 creates a directory where checkpoints will be stored
     # Make sure that all processors wait until this directory is created
     # (Use the global MPI communicator instead of the `BoundaryCommunicator`
     # so that this still works in the case `use_all_ranks=False`)
     if comm.rank == 0:
-        if os.path.exists('./checkpoints') is False:
-            os.mkdir('./checkpoints')
+        if os.path.exists(checkpoint_dir) is False:
+            os.mkdir(checkpoint_dir)
     comm.barrier()
 
     # Choose the name of the directory: one directory per processor
-    write_dir = 'checkpoints/proc%d/' %comm.rank
+    write_dir = os.path.join(checkpoint_dir, 'proc%d/' %comm.rank)
 
     # Register a periodic FieldDiagnostic in the diagnostics of the simulation
     sim.checkpoints.append( FieldDiagnostic( period, sim.fld,
@@ -55,10 +60,13 @@ def set_periodic_checkpoint( sim, period ):
     particle_dict = {}
     for i in range(len(sim.ptcl)):
         particle_dict[ 'species %d' %i ] = sim.ptcl[i]
-    sim.checkpoints.append(
-        ParticleDiagnostic( period, particle_dict, write_dir=write_dir ) )
 
-def restart_from_checkpoint( sim, iteration=None ):
+    if len(particle_dict)>0:
+        sim.checkpoints.append(
+            ParticleDiagnostic( period, particle_dict, write_dir=write_dir ) )
+
+def restart_from_checkpoint( sim, iteration=None,
+                            checkpoint_dir='./checkpoints' ):
     """
     Fills the Simulation object `sim` with data saved in a checkpoint.
 
@@ -85,9 +93,14 @@ def restart_from_checkpoint( sim, iteration=None ):
     sim: a Simulation object
        The Simulation object into which the checkpoint should be loaded
 
-    iteration: integer (optional)
+    iteration: integer, optional
        The iteration number of the checkpoint from which to restart
        If None, the latest checkpoint available will be used.
+
+    checkpoint_dir: string, optional
+        The path to the directory that contains the checkpoints to be loaded.
+        (When running a simulation with several MPI ranks, use the 
+        same path for all ranks.)
     """
     # Import openPMD-viewer
     try:
@@ -101,13 +114,13 @@ def restart_from_checkpoint( sim, iteration=None ):
     # (Use the global MPI communicator instead of the `BoundaryCommunicator`,
     # so that this also works for `use_all_ranks=False`)
     if comm.rank == 0:
-        check_restart( sim, iteration )
+        check_restart( sim, iteration, checkpoint_dir )
     comm.barrier()
 
     # Choose the name of the directory from which to restart:
     # one directory per processor
-    checkpoint_dir = 'checkpoints/proc%d/hdf5' %comm.rank
-    ts = OpenPMDTimeSeries( checkpoint_dir )
+    data_dir = os.path.join( checkpoint_dir, 'proc%d/hdf5' %comm.rank )
+    ts = OpenPMDTimeSeries( data_dir )
     # Select the iteration, and its index
     if iteration is None:
         iteration = ts.iterations[-1]
@@ -118,12 +131,23 @@ def restart_from_checkpoint( sim, iteration=None ):
     sim.iteration = iteration
     sim.time = ts.t[ i_iteration ]
 
+    # Export available species as a list
+    avail_species = ts.avail_species
+    if avail_species is None:
+        avail_species = []
+
     # Load the particles
     # Loop through the different species
-    for i in range(len(sim.ptcl)):
-        name = 'species %d' %i
-        load_species( sim.ptcl[i], name, ts, iteration, sim.comm )
-
+    if len(avail_species) == len(sim.ptcl):
+        for i in range(len(sim.ptcl)):
+            name = 'species %d' %i
+            load_species( sim.ptcl[i], name, ts, iteration, sim.comm )
+    else:
+        raise RuntimeError( \
+"""Species numbers in checkpoint and simulation should be same, but
+got {:d} and {:d}. Use add_new_species method to add species to
+simulation or sim.ptcl = [] to remove them""".format(len(avail_species),
+                                                     len(sim.ptcl)) )
     # Record position of grid before restart
     zmin_old = sim.fld.interp[0].zmin
 
@@ -140,19 +164,19 @@ def restart_from_checkpoint( sim, iteration=None ):
     zmin_new = sim.fld.interp[0].zmin
     sim.comm.shift_global_domain_positions( zmin_new - zmin_old )
 
-def check_restart( sim, iteration ):
+def check_restart( sim, iteration, checkpoint_dir ):
     """Verify that the restart is valid."""
 
     # Check that the checkpoint directory exists
-    if os.path.exists('./checkpoints') is False:
-        raise RuntimeError('The directory ./checkpoints, which is '
-         'required to restart a simulation, does not exist.')
+    if os.path.exists(checkpoint_dir) is False:
+        raise RuntimeError('The directory %s, which is '
+         'required to restart a simulation, does not exist.' %checkpoint_dir)
 
     # Infer the number of processors that were used for the checkpoint
     # and check that it is the same as the current number of processors
     nproc = 0
     regex_matcher = re.compile('proc\d+')
-    for directory in os.listdir('./checkpoints'):
+    for directory in os.listdir(checkpoint_dir):
         if regex_matcher.match(directory) is not None:
             nproc += 1
     if nproc != comm.size:
@@ -197,12 +221,12 @@ def load_fields( grid, fieldtype, coord, ts, iteration ):
                                          m=m, iteration=iteration )
         # Select a half-plane and transpose it to conform to FBPIC format
         field_data = field_data[Nr:,:].T
-    elif m==1:
+    else:
         # Extract the real and imaginary part by selecting the angle
         field_data_real, info = ts.get_field( fieldtype, coord,
                             iteration=iteration, m=m, theta=0)
         field_data_imag, _ = ts.get_field( fieldtype, coord,
-                            iteration=iteration, m=m, theta=np.pi/2)
+                            iteration=iteration, m=m, theta=np.pi/(2*m))
         # Select a half-plane and transpose it to conform to FBPIC format
         field_data_real = field_data_real[Nr:,:].T
         field_data_imag = field_data_imag[Nr:,:].T

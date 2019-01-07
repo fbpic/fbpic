@@ -48,8 +48,8 @@ class LaserAntenna( object ):
     Note that the antenna always uses linear shape factors (even when the
     rest of the simulation uses cubic shape factors.)
     """
-    def __init__( self, laser_profile, z0_antenna, dr_grid, Nr_grid,
-        Nm, boost, npr=2, epsilon=0.01 ):
+    def __init__( self, laser_profile, z0_antenna, v_antenna,
+                    dr_grid, Nr_grid, Nm, boost, npr=2, epsilon=0.01 ):
         """
         Initialize a LaserAntenna object (see class docstring for more info)
 
@@ -60,6 +60,10 @@ class LaserAntenna( object ):
 
         z0_antenna: float (m)
             Initial position of the antenna *in the lab frame*
+
+        v_antenna: float (m/s)
+            Only used for the ``antenna`` method: velocity of the antenna
+            (in the lab frame)
 
         dr_grid: float (m)
            Resolution of the grid which contains the fields
@@ -90,6 +94,12 @@ class LaserAntenna( object ):
         self.laser_profile = laser_profile
         self.boost = boost
 
+        # For now, boost and non-zero velocity are incompatible
+        if (v_antenna != 0) and (boost is not None):
+            if boost.gamma0 != 1.:
+                raise ValueError("For now, the boosted frame is incompatible "
+                    "with non-zero v_antenna.")
+
         # Initialize virtual particle with 2*Nm values of angle
         nptheta = 2*Nm
 
@@ -103,8 +113,13 @@ class LaserAntenna( object ):
         # velocity of the particles and the electric field to be emitted
         self.mobility_coef = 2*np.pi * \
           dr_grid**2 / ( nptheta*npr*alpha_weights ) * epsilon_0 * c
+        # Tune the mobility for the boosted-frame
         if boost is not None:
             self.mobility_coef = self.mobility_coef / boost.gamma0
+        # Tune the mobility for a moving antenna
+        elif v_antenna is not None:
+            self.mobility_coef *= \
+                (1. - laser_profile.propag_direction*v_antenna/c)
 
         # Get total number of virtual particles
         Npr = Nr_grid * npr
@@ -137,6 +152,13 @@ class LaserAntenna( object ):
         if boost is not None:
             self.baseline_z, = boost.static_length( [ self.baseline_z ] )
             self.vz, = boost.velocity( [ self.vz ] )
+        # If there is a moving antenna, assign velocity
+        elif v_antenna != 0:
+            self.vz += v_antenna
+
+        # Register whether the antenna deposits on the local domain
+        # (gets updated by `update_current_rank`)
+        self.deposit_on_this_rank = False
 
         # Initialize small-size buffers where the particles charge and currents
         # will be deposited before being added to the regular, large-size array
@@ -150,6 +172,35 @@ class LaserAntenna( object ):
             self.d_Jr_buffer = cuda.device_array_like( self.Jr_buffer )
             self.d_Jt_buffer = cuda.device_array_like( self.Jt_buffer )
             self.d_Jz_buffer = cuda.device_array_like( self.Jz_buffer )
+
+    def update_current_rank(self, comm):
+        """
+        Determine whether the antenna deposits on the local domain
+        of this MPI rank.
+
+        This function is typically called at the same as the
+        particle exchange (i.e. at the beginning a PIC iteration).
+
+        One alternative would be to check the antenna position before
+        each call to `deposit` ; however this could result in rho^n and
+        rho^{n+1} being deposited on different MPI rank, during the same
+        PIC iteration - which would lead to spurious effects on the
+        current correction.
+
+        Parameters:
+        -----------
+        comm: a BoundaryCommunicator object
+            Contains information on the local boundaries
+        """
+        # Check if the antenna is in the local physical domain
+        # and update the flag `deposit_on_this_rank` accordingly
+        zmin_local, zmax_local = comm.get_zmin_zmax(
+            local=True, with_damp=True, with_guard=False, rank=comm.rank )
+        z_antenna = self.baseline_z[0]
+        if (z_antenna >= zmin_local) and (z_antenna < zmax_local):
+            self.deposit_on_this_rank = True
+        else:
+            self.deposit_on_this_rank = False
 
     def push_x( self, dt, x_push=1., y_push=1., z_push=1. ):
         """
@@ -210,7 +261,7 @@ class LaserAntenna( object ):
         self.vx = self.mobility_coef * Ex
         self.vy = self.mobility_coef * Ey
 
-    def deposit( self, fld, fieldtype, comm ):
+    def deposit( self, fld, fieldtype ):
         """
         Deposit the charge or current of the virtual particles onto the grid
 
@@ -228,18 +279,10 @@ class LaserAntenna( object ):
         fieldtype : string
              Indicates which field to deposit
              Either 'J' or 'rho'
-
-        comm : a BoundaryCommunicator object
-             Allows to extract the boundaries of the physical domain
         """
-        # Check if baseline_z is in the local physical domain
-        # (This prevents out-of-bounds errors, and prevents 2 neighboring
-        # processors from simultaneously depositing the laser antenna)
-        zmin_local, zmax_local = comm.get_zmin_zmax(
-            local=True, with_damp=False, with_guard=False, rank=comm.rank )
-        # Interrupt this function if the antenna is not in the local domain
-        z_antenna = self.baseline_z[0]
-        if (z_antenna < zmin_local) or (z_antenna >= zmax_local):
+        # Interrupt this function if the antenna does not currently
+        # deposit on the local domain (as determined by `update_current_rank`)
+        if not self.deposit_on_this_rank:
             return
 
         # Shortcut for the list of InterpolationGrid objects

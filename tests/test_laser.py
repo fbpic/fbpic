@@ -241,16 +241,13 @@ def propagate_pulse( Nz, Nr, Nm, zmin, zmax, Lr, L_prop, zf, dt,
 
     # Loop over the iterations
     print('Running the simulation...')
-    for it in range(N_diag) :
+    for it in range(N_diag):
         print( 'Diagnostic point %d/%d' %(it, N_diag) )
         # Fit the fields to find the waist and a0
         w[it], E[it] = fit_fields( sim.fld, m )
         # Plot the fields during the simulation
-        if show==True and it%N_show == 0 :
-            import matplotlib.pyplot as plt
-            plt.clf()
-            sim.fld.interp[m].show('Er')
-            plt.show()
+        if show==True and it%N_show == 0:
+            show_fields( sim.fld.interp[m], 'Er' )
         # Advance the Maxwell equations
         sim.step( N_step, show_progress=False )
 
@@ -279,6 +276,7 @@ def propagate_pulse( Nz, Nr, Nm, zmin, zmax, Lr, L_prop, zf, dt,
         plt.legend(loc=0)
         plt.title('Amplitude')
         plt.show()
+
     # or automatically check that the theoretical and simulated curves
     # of w and E are close
     else:
@@ -336,7 +334,7 @@ def init_fields( sim, w, ctau, k0, z0, zf, E0, m=1 ) :
         profile = GaussianLaser( a0=a0, waist=w, tau=tau,
                     lambda0=lambda0, z0=z0, zf=zf )
     elif m == 2:
-        profile = DonutLikeLaguerreGaussLaser( 0, -1, a0=a0, 
+        profile = DonutLikeLaguerreGaussLaser( 0, -1, a0=a0,
                    waist=w, tau=tau, lambda0=lambda0, z0=z0, zf=zf )
     # Add the profiles to the simulation
     add_laser_pulse( sim, profile )
@@ -454,6 +452,53 @@ def fit_fields( fld, m ) :
         fit_result[0][1] = 2*fit_result[0][1]
 
     return( fit_result[0] )
+
+def show_fields( grid, fieldtype ):
+    """
+    Show the field `fieldtype` on the interpolation grid
+
+    Parameters
+    ----------
+    grid: an instance of FieldInterpolationGrid
+        Contains the field on the interpolation grid for
+        on particular azimuthal mode
+
+    fieldtype : string
+        Name of the field to be plotted.
+        (either 'Er', 'Et', 'Ez', 'Br', 'Bt', 'Bz',
+        'Jr', 'Jt', 'Jz', 'rho')
+    """
+    # matplotlib only needs to be imported if this function is called
+    import matplotlib.pyplot as plt
+
+    # Select the field to plot
+    plotted_field = getattr( grid, fieldtype)
+    # Show the field also below the axis for a more realistic picture
+    plotted_field = np.hstack( (plotted_field[:,::-1],plotted_field) )
+    extent = 1.e6*np.array([grid.zmin, grid.zmax, -grid.rmax, grid.rmax])
+    plt.clf()
+    plt.suptitle('%s, for mode %d' %(fieldtype, grid.m) )
+
+    # Plot the real part
+    plt.subplot(211)
+    plt.imshow( plotted_field.real.T[::-1], aspect='auto',
+                interpolation='nearest', extent=extent )
+    plt.xlabel('z')
+    plt.ylabel('r')
+    cb = plt.colorbar()
+    cb.set_label('Real part')
+
+    # Plot the imaginary part
+    plt.subplot(212)
+    plt.imshow( plotted_field.imag.T[::-1], aspect='auto',
+                interpolation='nearest', extent = extent )
+    plt.xlabel('z')
+    plt.ylabel('r')
+    cb = plt.colorbar()
+    cb.set_label('Imaginary part')
+
+    plt.show()
+
 
 if __name__ == '__main__' :
 

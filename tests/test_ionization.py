@@ -38,7 +38,7 @@ from opmd_viewer import OpenPMDTimeSeries
 # ----------
 use_cuda = True
 
-def run_simulation( gamma_boost ):
+def run_simulation( gamma_boost, use_separate_electron_species ):
     """
     Run a simulation with a laser pulse going through a gas jet of ionizable
     N5+ atoms, and check the fraction of atoms that are in the N5+ state.
@@ -47,6 +47,9 @@ def run_simulation( gamma_boost ):
     ----------
     gamma_boost: float
         The Lorentz factor of the frame in which the simulation is carried out.
+    use_separate_electron_species: bool
+        Whether to use separate electron species for each level, or
+        a single electron species for all levels.
     """
     # The simulation box
     zmax_lab = 20.e-6    # Length of the box along z (meters)
@@ -60,7 +63,7 @@ def run_simulation( gamma_boost ):
     p_zmax = 15.e-6
     p_rmin = 0.      # Minimal radial position of the plasma (meters)
     p_rmax = 100.e-6 # Maximal radial position of the plasma (meters)
-    n_e = 1.         # The plasma density is chosen very low,
+    n_atoms = 0.2    # The atomic density is chosen very low,
                      # to avoid collective effects
     p_nz = 2         # Number of particles per cell along z
     p_nr = 1         # Number of particles per cell along r
@@ -72,7 +75,7 @@ def run_simulation( gamma_boost ):
     beta_boost = np.sqrt( 1. - 1./gamma_boost**2 )
     zmin, zmax = boost.static_length( [zmin_lab, zmax_lab] )
     p_zmin, p_zmax = boost.static_length( [p_zmin, p_zmax] )
-    n_e, = boost.static_density( [n_e] )
+    n_atoms, = boost.static_density( [n_atoms] )
     # Increase the number of particles per cell in order to keep sufficient
     # statistics for the evaluation of the ionization fraction
     if gamma_boost > 1:
@@ -110,20 +113,40 @@ def run_simulation( gamma_boost ):
     # The diagnostics
     diag_period = N_step-1 # Period of the diagnostics in number of timesteps
 
-    # Initialize the simulation object, with the electrons
-    # No macroparticles created because we do not pass n, p_nz, p_nr, etc
-    sim = Simulation( Nz, zmax, Nr, rmax, Nm, dt,
-        zmin=zmin, initialize_ions=False,
-        v_comoving=v_plasma, use_galilean=False,
-        boundaries='open', use_cuda=use_cuda )
-    elec = sim.ptcl[0]
-    # Add the N atoms
-    atoms = sim.add_new_species( q=0, m=14.*m_p, n=0.2*n_e,
+    # Initial ionization level of the Nitrogen atoms
+    level_start = 2
+    # Initialize the simulation object, with the neutralizing electrons
+    # No particles are created because we do not pass the density
+    sim = Simulation( Nz, zmax, Nr, rmax, Nm, dt, zmin=zmin,
+        initialize_ions=False, v_comoving=v_plasma,
+        use_galilean=False, boundaries='open', use_cuda=use_cuda )
+    sim.ptcl = []
+    # Add the charge-neutralizing electrons
+    elec = sim.add_new_species( q=-e, m=m_e, n=level_start*n_atoms,
                         p_nz=p_nz, p_nr=p_nr, p_nt=p_nt,
                         p_zmin=p_zmin, p_zmax=p_zmax,
                         p_rmin=p_rmin, p_rmax=p_rmax,
                         continuous_injection=False, uz_m=uz_m )
-    atoms.make_ionizable(element='N', level_start=0, target_species=elec)
+    # Add the N atoms
+    ions = sim.add_new_species( q=0, m=14.*m_p, n=n_atoms,
+                        p_nz=p_nz, p_nr=p_nr, p_nt=p_nt,
+                        p_zmin=p_zmin, p_zmax=p_zmax,
+                        p_rmin=p_rmin, p_rmax=p_rmax,
+                        continuous_injection=False, uz_m=uz_m )
+    # Add the target electrons
+    if use_separate_electron_species:
+        # Use a dictionary of electron species: one per ionizable level
+        target_species = {}
+        level_max = 6 # N can go up to N7+, but here we stop at N6+
+        for i_level in range(level_start, level_max): 
+            target_species[i_level] = sim.add_new_species( q=-e, m=m_e )
+    else:
+        # Use the pre-existing, charge-neutralizing electrons
+        target_species = elec
+        level_max = None # Default is going up to N7+
+    # Define ionization
+    ions.make_ionizable( element='N', level_start=level_start,
+                         level_max=level_max, target_species=target_species )
     # Set the moving window
     sim.set_moving_window( v=v_plasma )
 
@@ -132,24 +155,24 @@ def run_simulation( gamma_boost ):
         ExternalField( laser_func, 'Ex', E0, 0. ),
         ExternalField( laser_func, 'By', B0, 0. ) ]
 
-    # Add a field diagnostic
+    # Add a particle diagnostic
     sim.diags = [ ParticleDiagnostic( diag_period,
-        {"ions":sim.ptcl[1]}, write_dir='tests/diags', comm=sim.comm) ]
+        {"ions":ions}, write_dir='tests/diags', comm=sim.comm) ]
     if gamma_boost > 1:
         T_sim_lab = (2.*40.*lambda0_lab + zmax_lab-zmin_lab)/c
         sim.diags.append(
             BoostedParticleDiagnostic(zmin_lab, zmax_lab, v_lab=0.,
                 dt_snapshots_lab=T_sim_lab/2., Ntot_snapshots_lab=3,
                 gamma_boost=gamma_boost, period=diag_period,
-                fldobject=sim.fld, species={"ions": sim.ptcl[1]},
+                fldobject=sim.fld, species={"ions":ions},
                 comm=sim.comm, write_dir='tests/lab_diags') )
 
     # Run the simulation
     sim.step( N_step, use_true_rho=True )
 
     # Check the fraction of N5+ ions at the end of the simulation
-    w = sim.ptcl[1].w
-    ioniz_level = sim.ptcl[1].ionizer.ionization_level
+    w = ions.w
+    ioniz_level = ions.ionizer.ionization_level
     # Get the total number of N atoms/ions (all ionization levels together)
     ntot = w.sum()
     # Get the total number of N5+ ions
@@ -158,6 +181,13 @@ def run_simulation( gamma_boost ):
     N5_fraction = n_N5 / ntot
     print('N5+ fraction: %.4f' %N5_fraction)
     assert ((N5_fraction > 0.30) and (N5_fraction < 0.34))
+
+    # When different electron species are created, check the fraction of
+    # each electron species
+    if use_separate_electron_species:
+        for i_level in range(level_start, level_max):
+            n_N = w[ioniz_level == i_level].sum()
+            assert np.allclose( target_species[i_level].w.sum(), n_N )
 
     # Check consistency in the regular openPMD diagnostics
     ts = OpenPMDTimeSeries('./tests/diags/hdf5/')
@@ -183,10 +213,10 @@ def run_simulation( gamma_boost ):
         shutil.rmtree('./tests/lab_diags/')
 
 def test_ionization_labframe():
-    run_simulation(1.)
+    run_simulation(1., use_separate_electron_species=True)
 
 def test_ionization_boostedframe():
-    run_simulation(2.)
+    run_simulation(2., use_separate_electron_species=False)
 
 # Run the tests
 if __name__ == '__main__':

@@ -29,7 +29,7 @@ those of **finite-difference cylindrical** PIC codes
 For more details on the algorithm, its advantages and limitations, see
 the [documentation](http://fbpic.github.io).
 
-### Language and harware
+### Language and hardware
 
 FBPIC is written entirely in Python, but uses
 [Numba](http://numba.pydata.org/) Just-In-Time compiler for high
@@ -78,7 +78,7 @@ pip install fbpic
 - **Optional:** in order to run on GPU, install the additional package
 `pyculib`:
 ```
-conda install pyculib
+conda install cudatoolkit=8.0 pyculib
 ```
 
 - **Optional:** in order to run on a CPU which is **not** an Intel model, you
@@ -115,8 +115,8 @@ We welcome contributions to the code! Please read [this page](https://github.com
 FBPIC was originally developed by Remi Lehe at [Berkeley Lab](http://www.lbl.gov/),
 and Manuel Kirchen at
 [CFEL, Hamburg University](http://lux.cfel.de/). The code also
-benefitted from the contributions of Soeren Jalas, Kevin Peters and
-Irene Dornmair (CFEL).
+benefitted from the contributions of Soeren Jalas (CFEL), Kevin Peters (CFEL),
+Irene Dornmair (CFEL) and Igor Andriyash (Weizmann Institute).
 
 If you use FBPIC for your research project: that's great! We are
 very pleased that the code is useful to you!

@@ -35,9 +35,8 @@ from fbpic.lpa_utils.boosted_frame import BoostConverter
 
 # Parameters
 # ----------
-show = True
+show = True # Whether to show the plots, and check them manually
 write_files = True
-# Whether to show the plots, and check them manually
 use_cuda = True
 
 # Simulation box
@@ -52,13 +51,12 @@ dt = (zmax-zmin)/Nz/c
 w0 = 128.e-6
 ctau = 5.e-6
 a0 = 1.
-z0_antenna = 0.e-6
 zf = 0.e-6
-z0 = -5.e-6
+z0_antenna = 0.e-6
 # Propagation
 Lprop = 10.5e-6
 Ntot_step = int(Lprop/(c*dt))
-N_show = 3 # Number of instants in which to show the plots (during propagation)
+N_show = 5 # Number of instants in which to show the plots (during propagation)
 
 # The boost in the case of the boosted frame run
 gamma_boost = 10.
@@ -68,16 +66,26 @@ def test_antenna_labframe(show=False, write_files=False):
     Function that is run by py.test, when doing `python setup.py test`
     Test the emission of a laser by an antenna, in the lab frame
     """
-    run_and_check_laser_antenna(None, show, write_files)
+    run_and_check_laser_antenna(None, show, write_files, z0=z0_antenna-ctau)
+
+def test_antenna_labframe_moving( show=False, write_files=False ):
+    """
+    Function that is run by py.test, when doing `python setup.py test`
+    Test the emission of a laser by a moving antenna, in the lab frame
+    """
+    run_and_check_laser_antenna( None, show, write_files, z0=z0_antenna+ctau,
+                                    v=c, forward_propagating=False )
 
 def test_antenna_boostedframe(show=False, write_files=False):
     """
     Function that is run by py.test, when doing `python setup.py test`
     Test the emission of a laser by an antenna, in the boosted frame
     """
-    run_and_check_laser_antenna(gamma_boost, show, write_files)
+    run_and_check_laser_antenna(gamma_boost, show, write_files,
+                                z0=z0_antenna-ctau)
 
-def run_and_check_laser_antenna(gamma_b, show, write_files):
+def run_and_check_laser_antenna(gamma_b, show, write_files,
+                            z0, v=0, forward_propagating=True ):
     """
     Generic function, which runs and check the laser antenna for
     both boosted frame and lab frame
@@ -92,6 +100,9 @@ def run_and_check_laser_antenna(gamma_b, show, write_files):
 
     write_files: bool
         Whether to output openPMD data of the laser
+
+    v: float (m/s)
+        Speed of the laser antenna
     """
     # Initialize the simulation object
     sim = Simulation( Nz, zmax, Nr, rmax, Nm, dt, p_zmin=0, p_zmax=0,
@@ -103,8 +114,9 @@ def run_and_check_laser_antenna(gamma_b, show, write_files):
     sim.ptcl = []
 
     # Add the laser
-    add_laser( sim, a0, w0, ctau, z0, zf=zf,
-        method='antenna', z0_antenna=z0_antenna, gamma_boost=gamma_b)
+    add_laser( sim, a0, w0, ctau, z0, zf=zf, method='antenna',
+        z0_antenna=z0_antenna, v_antenna=v, gamma_boost=gamma_b,
+        fw_propagating=forward_propagating )
 
     # Calculate the number of steps between each output
     N_step = int( round( Ntot_step/N_show ) )
@@ -123,17 +135,15 @@ def run_and_check_laser_antenna(gamma_b, show, write_files):
         # Advance the Maxwell equations
         sim.step( N_step, show_progress=False )
         # Plot the fields during the simulation
-        if show==True :
-            import matplotlib.pyplot as plt
-            plt.clf()
-            sim.fld.interp[1].show('Et')
-            plt.show()
+        if show==True:
+            show_fields( sim.fld.interp[1], 'Er' )
     # Finish the remaining iterations
     sim.step( Ntot_step - N_show*N_step, show_progress=False )
 
     # Check the transverse E and B field
     Nz_half = int(sim.fld.interp[1].Nz/2) + 2
-    z = sim.fld.interp[1].z[Nz_half:-(sim.comm.n_guard+sim.comm.n_damp)]
+    z = sim.fld.interp[1].z[Nz_half:-(sim.comm.n_guard+sim.comm.n_damp+\
+                            sim.comm.n_inject)]
     r = sim.fld.interp[1].r
     # Loop through the different fields
     for fieldtype, info_in_real_part, factor in [ ('Er', True, 2.), \
@@ -142,13 +152,15 @@ def run_and_check_laser_antenna(gamma_b, show, write_files):
         # in order to get a value which is comparable to an electric field
         # (Because of the definition of the interpolation grid, the )
         field = getattr(sim.fld.interp[1], fieldtype)\
-                            [Nz_half:-(sim.comm.n_guard+sim.comm.n_damp)]
+                            [Nz_half:-(sim.comm.n_guard+sim.comm.n_damp+\
+                             sim.comm.n_inject)]
         print( 'Checking %s' %fieldtype )
-        check_fields( factor*field, z, r, info_in_real_part, gamma_b )
+        check_fields( factor*field, z, r, info_in_real_part,
+                        z0, gamma_b, forward_propagating )
         print( 'OK' )
 
-def check_fields( interp1_complex, z, r, info_in_real_part, gamma_b,
-                    show_difference=False ):
+def check_fields( interp1_complex, z, r, info_in_real_part, z0, gamma_b,
+                    forward_propagating, show_difference=False ):
     """
     Check the real and imaginary part of the interpolation grid agree
     with the theory by:
@@ -177,6 +189,9 @@ def check_fields( interp1_complex, z, r, info_in_real_part, gamma_b,
         boost = BoostConverter(gamma_b)
     ctau_b, lambda0_b, Lprop_b, z0_b = \
         boost.copropag_length([ctau, 0.8e-6, Lprop, z0])
+    # Take into account whether the pulse is propagating forward or backward
+    if not forward_propagating:
+        Lprop_b = - Lprop_b
 
     # Fit the on-axis profile to extract a0
     def fit_function(z, a0, z0_phase):
@@ -219,8 +234,58 @@ def gaussian_laser( z, r, a0, z0_phase, z0_prop, ctau, lambda0 ):
     return( E0*np.exp( -r**2/w0**2 - (z-z0_prop)**2/ctau**2 ) \
                 *np.cos( k0*(z-z0_phase) ) )
 
+
+def show_fields( grid, fieldtype ):
+    """
+    Show the field `fieldtype` on the interpolation grid
+
+    Parameters
+    ----------
+    grid: an instance of FieldInterpolationGrid
+        Contains the field on the interpolation grid for
+        on particular azimuthal mode
+
+    fieldtype : string
+        Name of the field to be plotted.
+        (either 'Er', 'Et', 'Ez', 'Br', 'Bt', 'Bz',
+        'Jr', 'Jt', 'Jz', 'rho')
+    """
+    # matplotlib only needs to be imported if this function is called
+    import matplotlib.pyplot as plt
+
+    # Select the field to plot
+    plotted_field = getattr( grid, fieldtype)
+    # Show the field also below the axis for a more realistic picture
+    plotted_field = np.hstack( (plotted_field[:,::-1],plotted_field) )
+    extent = 1.e6*np.array([grid.zmin, grid.zmax, -grid.rmax, grid.rmax])
+    plt.clf()
+    plt.suptitle('%s, for mode %d' %(fieldtype, grid.m) )
+
+    # Plot the real part
+    plt.subplot(211)
+    plt.imshow( plotted_field.real.T[::-1], aspect='auto',
+                interpolation='nearest', extent=extent )
+    plt.xlabel('z')
+    plt.ylabel('r')
+    cb = plt.colorbar()
+    cb.set_label('Real part')
+
+    # Plot the imaginary part
+    plt.subplot(212)
+    plt.imshow( plotted_field.imag.T[::-1], aspect='auto',
+                interpolation='nearest', extent = extent )
+    plt.xlabel('z')
+    plt.ylabel('r')
+    cb = plt.colorbar()
+    cb.set_label('Imaginary part')
+
+    plt.show()
+
+
+
 if __name__ == '__main__' :
 
     # Run the testing functions
     test_antenna_labframe(show, write_files)
+    test_antenna_labframe_moving(show, write_files)
     test_antenna_boostedframe(show, write_files)

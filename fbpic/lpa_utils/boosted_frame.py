@@ -280,3 +280,46 @@ class BoostConverter( object ):
         new_uz = vz_boost / (new_inv_gamma * c)
 
         return( new_x, new_y, new_z, new_ux, new_uy, new_uz, new_inv_gamma )
+
+    # Miscellaneous
+    # -------------
+
+    def interaction_time( self, L_interact, l_window, v_window ):
+        """
+        Calculates the interaction time in the boosted frame:
+        (Time it takes for the moving window to slide once across the
+        total interaction length, i.e. the plasma)
+
+        L_interact' = L_interact / gamma0
+        l_window' = l_window * gamma0 * ( 1 + beta0 )
+        v_window' = ( v_window - c * beta0 )/( 1 - beta0*v_window/c )
+        v_plasma' = -beta0 * c
+
+        T_interact' = L_interact' + l_window' / ( v_window' - v_plasma' )
+
+        Parameters
+        ----------
+        L_interact: float (in meter)
+            The total interaction length (typically the length of the plasma)
+            in the lab frame.
+
+        l_window: float (in meter)
+            The length of the moving window in the lab frame.
+
+        v_window: float (in meter/second)
+            The velocity of the moving window in the lab frame.
+
+        Returns
+        -------
+        T_interact : float (in seconds)
+            The interaction time in the boosted frame.
+        """
+        # Boost lab quantities
+        L_i, = self.static_length( [L_interact] )
+        l_w, = self.copropag_length( [l_window] )
+        v_w, = self.velocity( [v_window] )
+        v_p = -self.beta0*c
+        # Interaction time
+        T_interact = (L_i+l_w)/(v_w-v_p)
+
+        return( T_interact )

@@ -8,13 +8,14 @@ It defines the high-level Fields class.
 import warnings
 import numpy as np
 from fbpic.utils.threading import nthreads
-from .numba_methods import sum_reduce_2d_array
+from .numba_methods import sum_reduce_2d_array, numba_erase_threading_buffer
 from .utility_methods import get_modified_k
 from .spectral_transform import SpectralTransformer
 from .interpolation_grid import InterpolationGrid
 from .spectral_grid import SpectralGrid
 from .psatd_coefs import PsatdCoeffs
 from fbpic.utils.cuda import cuda_installed
+from .smoothing import BinomialSmoother
 
 class Fields(object) :
     """
@@ -49,7 +50,7 @@ class Fields(object) :
     def __init__( self, Nz, zmax, Nr, rmax, Nm, dt, zmin=0.,
                   n_order=-1, v_comoving=None, use_galilean=True,
                   current_correction='cross-deposition', use_cuda=False,
-                  create_threading_buffers=False ):
+                  smoother=None, create_threading_buffers=False ):
         """
         Initialize the components of the Fields object
 
@@ -101,6 +102,10 @@ class Fields(object) :
         use_cuda : bool, optional
             Wether to use the GPU or not
 
+        smoother: an fbpic.fields.smoothing.BinomialSmoother, optional
+            Determines how the charge and currents are smoothed.
+            (Default: one-pass binomial filter and no compensator.)
+
         create_threading_buffers: bool, optional
             Whether to create the buffers used in order to perform
             charge/current deposition with threading on CPU
@@ -115,6 +120,10 @@ class Fields(object) :
         self.n_order = n_order
         self.v_comoving = v_comoving
         self.use_galilean = use_galilean
+
+        # Set the default smoother
+        if smoother is None:
+            smoother = BinomialSmoother( n_passes=1, compensator=False )
 
         # Define wether or not to use the GPU
         self.use_cuda = use_cuda
@@ -164,7 +173,7 @@ class Fields(object) :
             # Create the object
             self.spect.append( SpectralGrid( kz_modified, kr, m,
                 kz_true, self.interp[m].dz, self.interp[m].dr,
-                current_correction, use_cuda=self.use_cuda ) )
+                current_correction, smoother, use_cuda=self.use_cuda ) )
             self.psatd.append( PsatdCoeffs( self.spect[m].kz,
                                 self.spect[m].kr, m, dt, Nz, Nr,
                                 V=self.v_comoving,
@@ -505,11 +514,12 @@ class Fields(object) :
         # Erase the duplicated deposition buffer
         if not self.use_cuda:
             if fieldtype == 'rho':
-                self.rho_global[:,:,:,:] = 0.
+                numba_erase_threading_buffer( self.rho_global )
             elif fieldtype == 'J':
-                self.Jr_global[:,:,:,:] = 0.
-                self.Jt_global[:,:,:,:] = 0.
-                self.Jz_global[:,:,:,:] = 0.
+                numba_erase_threading_buffer( self.Jr_global )
+                numba_erase_threading_buffer( self.Jt_global )
+                numba_erase_threading_buffer( self.Jz_global )
+
 
     def sum_reduce_deposition_array(self, fieldtype):
         """

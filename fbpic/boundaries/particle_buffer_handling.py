@@ -18,10 +18,6 @@ def remove_outside_particles(species, fld, n_guard, left_proc, right_proc):
     Remove the particles that are outside of the physical domain (i.e.
     in the guard cells). Store them in sending buffers, which are returned.
 
-    When the boundaries are open, only the particles that are in the
-    outermost half of the guard cells are removed. The particles that
-    are in the innermost half are kept.
-
     Parameters
     ----------
     species: a Particles object
@@ -62,10 +58,6 @@ def remove_particles_cpu(species, fld, n_guard, left_proc, right_proc):
     """
     Remove the particles that are outside of the physical domain (i.e.
     in the guard cells). Store them in sending buffers, which are returned.
-
-    When the boundaries are open, only the particles that are in the
-    outermost half of the guard cells are removed. The particles that
-    are in the innermost half are kept.
 
     Parameters
     ----------
@@ -186,10 +178,6 @@ def remove_particles_gpu(species, fld, n_guard, left_proc, right_proc):
     """
     Remove the particles that are outside of the physical domain (i.e.
     in the guard cells). Store them in sending buffers, which are returned.
-
-    When the boundaries are open, only the particles that are in the
-    outermost half of the guard cells are removed. The particles that
-    are in the innermost half are kept.
 
     Parameters
     ----------
