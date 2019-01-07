@@ -43,7 +43,7 @@ class ParticleDiagnostic(OpenPMDDiagnostic) :
 
         particle_data : a list of strings, optional
             The particle properties are given by:
-            ["position", "momentum", "weighting"]
+            ["position", "momentum", "weighting", "gamma"]
             for the coordinates x,y,z.
             By default, if a particle is tracked, its id is always written.
 
@@ -92,7 +92,7 @@ class ParticleDiagnostic(OpenPMDDiagnostic) :
                 if quantity == "position":
                     self.array_quantities_dict[species_name] += ['x','y','z']
                 elif quantity == "momentum":
-                    self.array_quantities_dict[species_name] += ['ux','uy','uz','gamma']
+                    self.array_quantities_dict[species_name] += ['ux','uy','uz']
                 elif quantity == "weighting":
                     self.array_quantities_dict[species_name].append('w')
                 else:
