@@ -8,6 +8,7 @@ It defines a set of generic functions for multithreaded CPU execution.
 import os, sys
 import warnings
 import numpy as np
+import numba
 from numba import njit
 
 # By default threading is enabled, except on Windows (not supported by Numba)
@@ -28,7 +29,6 @@ if threading_enabled:
         from numba import prange as numba_prange
         # Check that numba is version 0.34 or higher than 0.36
         # (other versions fail)
-        import numba
         numba_minor_version = int(numba.__version__.split('.')[1])
         assert ( numba_minor_version==34 or numba_minor_version >= 36 )
     except (ImportError, AssertionError):

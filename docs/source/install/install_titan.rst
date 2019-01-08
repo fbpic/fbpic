@@ -57,7 +57,7 @@ Installation of FBPIC and its dependencies
 
   ::
 
-    conda install numba scipy h5py mkl
+    conda install numba==0.42 scipy h5py mkl
     conda install cudatoolkit=8.0 pyculib
 
 -  Clone and install the ``fbpic`` repository using git

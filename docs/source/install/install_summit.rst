@@ -37,7 +37,7 @@ Installation of FBPIC and its dependencies
 
     ::
 
-        conda install -c conda-forge numba scipy h5py cython cudatoolkit=8.0
+        conda install -c conda-forge numba=0.42 scipy h5py cython cudatoolkit=8.0
 
 - Install ``pyfftw``
 
