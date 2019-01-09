@@ -73,7 +73,8 @@ FBPIC was originally developed by Remi Lehe at `Berkeley Lab <http://www.lbl.gov
 and Manuel Kirchen at
 `CFEL, Hamburg University <http://lux.cfel.de/>`_. The code also
 benefitted from the contributions of Soeren Jalas (CFEL), Kevin Peters (CFEL),
-Irene Dornmair (CFEL) and Igor Andriyash (Weizmann Institute).
+Irene Dornmair (CFEL), Igor Andriyash (Weizmann Institute) and 
+Omri Seemann (Weizmann Institute).
 
 FBPIC's algorithms are documented in following scientific publications:
 
