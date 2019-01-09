@@ -78,12 +78,12 @@ Irene Dornmair (CFEL) and Igor Andriyash (Weizmann Institute).
 FBPIC's algorithms are documented in following scientific publications:
 
     * General description of FBPIC and it's algorithm (original paper):
-      `R. Lehe et al., CPC, 2016 <http://www.sciencedirect.com/science/article/pii/S0010465516300224>`_ (`arxiV <https://arxiv.org/abs/1507.04790>`_)
+      `R. Lehe et al., CPC, 2016 <http://www.sciencedirect.com/science/article/pii/S0010465516300224>`_ (`arXiv <https://arxiv.org/abs/1507.04790>`__)
     * Boosted-frame technique with Galilean algorithm:
-      `M. Kirchen et al., PoP, 2016 <https://aip.scitation.org/doi/10.1063/1.4964770>`_ (`arxiV <https://arxiv.org/abs/1608.00215>`_) and
-      `Lehe et al., PRE, 2016 <https://journals.aps.org/pre/abstract/10.1103/PhysRevE.94.053305>`_ (`arxiV <https://arxiv.org/abs/1608.00227>`_)
+      `M. Kirchen et al., PoP, 2016 <https://aip.scitation.org/doi/10.1063/1.4964770>`_ (`arXiv <https://arxiv.org/abs/1608.00215>`__) and
+      `Lehe et al., PRE, 2016 <https://journals.aps.org/pre/abstract/10.1103/PhysRevE.94.053305>`_ (`arXiv <https://arxiv.org/abs/1608.00227>`__)
     * Parallel finite-order solver for multi-CPU/GPU simulations:
-      `S. Jalas et al., PoP, 2017 <https://aip.scitation.org/doi/abs/10.1063/1.4978569>`_ (`arxiV <https://arxiv.org/abs/1611.05712>`_)
+      `S. Jalas et al., PoP, 2017 <https://aip.scitation.org/doi/abs/10.1063/1.4978569>`_ (`arXiv <https://arxiv.org/abs/1611.05712>`__)
 
 If you use FBPIC for your research project: that's great! We are
 very pleased that the code is useful to you!
