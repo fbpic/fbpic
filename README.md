@@ -110,7 +110,7 @@ The code outputs HDF5 files, that comply with the
 
 We welcome contributions to the code! Please read [this page](https://github.com/fbpic/fbpic/blob/master/CONTRIBUTING.md) for guidelines on how to contribute.
 
-## Attribution
+## Research & Attribution
 
 FBPIC was originally developed by Remi Lehe at [Berkeley Lab](http://www.lbl.gov/),
 and Manuel Kirchen at
@@ -118,10 +118,13 @@ and Manuel Kirchen at
 benefitted from the contributions of Soeren Jalas (CFEL), Kevin Peters (CFEL),
 Irene Dornmair (CFEL) and Igor Andriyash (Weizmann Institute).
 
+FBPIC's algorithms are documented in following scientific publications:
+
+* General description of FBPIC and it's algorithm (original paper): [R. Lehe et al., CPC, 2016](http://www.sciencedirect.com/science/article/pii/S0010465516300224) ([arxiV](https://arxiv.org/abs/1507.04790))
+* Boosted-frame technique with Galilean algorithm: [M. Kirchen et al., PoP, 2016](https://aip.scitation.org/doi/10.1063/1.4964770) ([arxiV](https://arxiv.org/abs/1608.00215)) and [Lehe et al., PRE, 2016](https://journals.aps.org/pre/abstract/10.1103/PhysRevE.94.053305) ([arxiV](https://arxiv.org/abs/1608.00227))
+* Parallel finite-order solver for multi-CPU/GPU simulations: [S. Jalas et al., PoP, 2017](https://aip.scitation.org/doi/abs/10.1063/1.4978569) ([arxiV](https://arxiv.org/abs/1611.05712))
+
 If you use FBPIC for your research project: that's great! We are
 very pleased that the code is useful to you!
 
-If your project even leads to a scientific publication, please
-consider citing FBPIC's original paper, which can be found
-[here](http://www.sciencedirect.com/science/article/pii/S0010465516300224)
-(see [this link](https://arxiv.org/abs/1507.04790) for the arxiv version).
+If your project even leads to a scientific publication, please consider citing at least FBPIC's original paper. If your project uses the more advanced algorithms, please consider citing the respective publications in addition.
