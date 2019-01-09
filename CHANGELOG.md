@@ -1,5 +1,15 @@
 # Change Log / Release Log for fbpic
 
+## 0.10.1
+
+This is a bug-fix release.
+
+It deals with the fact that FBPIC happens to be incompatible with Numba version 0.42.
+FBPIC will now raise an error when Numba 0.42 is detected, and the user
+will be prompted to install Numba 0.41.
+
+In addition, the code can now perform particle sub-sampling in the openPMD diagnostic.
+
 ## 0.10.0
 
 This release introduces various improvements to FBPIC:
