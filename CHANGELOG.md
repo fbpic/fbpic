@@ -1,8 +1,42 @@
 # Change Log / Release Log for fbpic
 
+## 0.10.1
+
+This is a bug-fix release.
+
+It deals with the fact that FBPIC happens to be incompatible with Numba version 0.42.
+FBPIC will now raise an error when Numba 0.42 is detected, and the user
+will be prompted to install Numba 0.41.
+
+In addition, the code can now perform particle sub-sampling in the openPMD diagnostic.
+
+## 0.10.0
+
+This release introduces various improvements to FBPIC:
+
+New features:
+- It is now possible to tune the amount of smoothing applied on the
+charge and currents produced by the macroparticles; see [#268](https://github.com/fbpic/fbpic/pull/268).
+- The documentation of the boosted-frame technique has been expanded. A
+new function allows to easily compute the number of PIC iterations that
+need to be performed in the boosted frame ; see
+[#294](https://github.com/fbpic/fbpic/pull/294).
+- The user can now set the name of the folder where the checkpoints are saved ; see
+[#305](https://github.com/fbpic/fbpic/pull/305).
+- The continuous injection of plasma (with moving window) is now more robust.
+This can in particular suppress noise that some users might have observed in the
+up-stream, continuously injected plasma, for very long simulations.
+
+Bug-fixes:
+- There was a bug in the laser antenna when using multiple CPUs/GPUs. This bug
+has been fixed ; see [#309](https://github.com/fbpic/fbpic/pull/309).
+- The `FlattenedGaussianLaser` had bugs, esp. when initializing it out of focus.
+This is now fixed ; see [#305](https://github.com/fbpic/fbpic/pull/305) and
+[ #299](https://github.com/fbpic/fbpic/pull/299).
+
 ## 0.9.5
 
-This is bug-fix release. 
+This is bug-fix release.
 It corrects a bug that was happening exclusively for *cubic shape* deposition,
 when using the CPU (i.e. the bug does not occur on GPU) ; see [#297](https://github.com/fbpic/fbpic/pull/297)
 In addition, this release adds a safe-guard for the sign of the charge, for Gaussian beams [#295](https://github.com/fbpic/fbpic/pull/295), and for the sign of the Galilean velocity [#293](https://github.com/fbpic/fbpic/pull/293).

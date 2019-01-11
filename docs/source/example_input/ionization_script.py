@@ -37,18 +37,6 @@ from fbpic.openpmd_diag import FieldDiagnostic, \
 # Whether to use the GPU
 use_cuda = True
 
-# The simulation box
-Nz = 800         # Number of gridpoints along z
-zmax = 10.e-6     # Right end of the simulation box (meters)
-zmin = -30.e-6   # Left end of the simulation box (meters)
-Nr = 50          # Number of gridpoints along r
-rmax = 20.e-6    # Length of the box along r (meters)
-Nm = 2           # Number of modes used
-
-# The simulation timestep
-dt = (zmax-zmin)/Nz/c   # Timestep (seconds)
-N_step = 100     # Number of iterations to perform
-
 # Order of the stencil for z derivatives in the Maxwell solver.
 # Use -1 for infinite order, i.e. for exact dispersion relation in
 # all direction (adviced for single-GPU/single-CPU simulation).
@@ -59,6 +47,17 @@ N_step = 100     # Number of iterations to perform
 # `n_order = 32` is a good trade-off.)
 # See https://arxiv.org/abs/1611.05712 for more information.
 n_order = -1
+
+# The simulation box
+Nz = 800         # Number of gridpoints along z
+zmax = 10.e-6     # Right end of the simulation box (meters)
+zmin = -30.e-6   # Left end of the simulation box (meters)
+Nr = 50          # Number of gridpoints along r
+rmax = 20.e-6    # Length of the box along r (meters)
+Nm = 2           # Number of modes used
+
+# The simulation timestep
+dt = (zmax-zmin)/Nz/c   # Timestep (seconds)
 
 # The particles
 p_zmin = 0.e-6   # Position of the beginning of the plasma (meters)
@@ -79,9 +78,9 @@ z_foc = 20.e-6   # Focal position
 v_window = c       # Speed of the window
 
 # The diagnostics and the checkpoints/restarts
-diag_period = 10         # Period of the diagnostics in number of timesteps
+diag_period = 50         # Period of the diagnostics in number of timesteps
 save_checkpoints = False # Whether to write checkpoint files
-checkpoint_period = 50   # Period for writing the checkpoints
+checkpoint_period = 100  # Period for writing the checkpoints
 use_restart = False      # Whether to restart from a previous checkpoint
 track_electrons = False  # Whether to track and write particle ids
 
@@ -97,9 +96,16 @@ def dens_func( z, r ) :
     n = np.where( z<0, 0., n )
     return(n)
 
+# The interaction length of the simulation (meters)
+L_interact = 50.e-6 # increase to simulate longer distance!
+# Interaction time (seconds) (to calculate number of PIC iterations)
+T_interact = ( L_interact + (zmax-zmin) ) / v_window
+# (i.e. the time it takes for the moving window to slide across the plasma)
+
 # ---------------------------
 # Carrying out the simulation
 # ---------------------------
+
 if __name__ == '__main__':
 
     # Initialize the simulation object
@@ -164,5 +170,9 @@ if __name__ == '__main__':
     if save_checkpoints:
         set_periodic_checkpoint( sim, checkpoint_period )
 
+    # Number of iterations to perform
+    N_step = int(T_interact/sim.dt)
+
     ### Run the simulation
     sim.step( N_step )
+    print('')

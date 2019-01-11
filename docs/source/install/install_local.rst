@@ -14,7 +14,7 @@ Python. If Anaconda is not your default Python distribution, download and instal
 
   ::
 
-     conda install numba scipy h5py mkl
+     conda install numba==0.41 scipy h5py mkl
      conda install -c conda-forge mpi4py
 
 -  Install ``fbpic``
@@ -33,8 +33,10 @@ Python. If Anaconda is not your default Python distribution, download and instal
 
    ::
 
-       conda install pyculib
+       conda install cudatoolkit=8.0 pyculib
 
+   (If your GPU driver supports a newer version of CUDA than 8.0, you can
+   modify the above number accordingly.)
 
 -  **Optional:** In order to run on a CPU which is **not** an Intel model, you need to install `pyfftw`, in order to replace the MKL FFT:
 
