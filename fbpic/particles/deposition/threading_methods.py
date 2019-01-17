@@ -22,8 +22,10 @@ def Sz_linear(cell_position, index):
     iz = np.floor(cell_position)
     if index == 0:
         return iz+1.-cell_position
-    if index == 1:
+    elif index == 1:
         return cell_position - iz
+    else:
+        return 0.
 
 @numba.njit
 def Sr_linear(cell_position, index):
@@ -33,8 +35,10 @@ def Sr_linear(cell_position, index):
         if ir < 0:
             flip_factor = -1.
         return flip_factor*(ir+1.-cell_position)
-    if index == 1:
+    elif index == 1:
         return flip_factor*(cell_position - ir)
+    else:
+        return 0.
 
 # Cubic shapes
 @numba.njit
@@ -42,12 +46,14 @@ def Sz_cubic(cell_position, index):
     iz = np.floor(cell_position) - 1.
     if index == 0:
         return (-1./6.)*((cell_position-iz)-2)**3
-    if index == 1:
+    elif index == 1:
         return (1./6.)*(3*((cell_position-(iz+1))**3)-6*((cell_position-(iz+1))**2)+4)
-    if index == 2:
+    elif index == 2:
         return (1./6.)*(3*(((iz+2)-cell_position)**3)-6*(((iz+2)-cell_position)**2)+4)
-    if index == 3:
+    elif index == 3:
         return (-1./6.)*(((iz+3)-cell_position)-2)**3
+    else:
+        return 0.
 
 @numba.njit
 def Sr_cubic(cell_position, index):
@@ -57,18 +63,20 @@ def Sr_cubic(cell_position, index):
         if ir < 0:
             flip_factor = -1.
         return flip_factor*(-1./6.)*((cell_position-ir)-2)**3
-    if index == 1:
+    elif index == 1:
         if ir+1 < 0:
             flip_factor = -1.
         return flip_factor*(1./6.)*(3*((cell_position-(ir+1))**3)-6*((cell_position-(ir+1))**2)+4)
-    if index == 2:
+    elif index == 2:
         if ir+2 < 0:
             flip_factor = -1.
         return flip_factor*(1./6.)*(3*(((ir+2)-cell_position)**3)-6*(((ir+2)-cell_position)**2)+4)
-    if index == 3:
+    elif index == 3:
         if ir+3 < 0:
             flip_factor = -1.
         return flip_factor*(-1./6.)*(((ir+3)-cell_position)-2)**3
+    else:
+        return 0.
 
 # -------------------------------
 # Field deposition - linear - rho
