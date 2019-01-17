@@ -44,7 +44,7 @@ In order to download and install `Anaconda <https://www.continuum.io/downloads>`
 Then install the dependencies of FBPIC:
 ::
 
-   conda install numba==0.41 mkl
+   conda install numba mkl
    conda install pyculib
 
 It is important that the following packages are **NOT** installed
