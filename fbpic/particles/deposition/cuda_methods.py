@@ -1030,7 +1030,7 @@ def deposit_J_gpu_cubic(x, y, z, w, q,
             J_r_m1_00 += r_shape_cubic(r_cell, 0, 1)*z_shape_cubic(z_cell, 0)*J_r_m1_scal
             J_r_m0_01 += r_shape_cubic(r_cell, 0,-1)*z_shape_cubic(z_cell, 1)*J_r_m0_scal
             J_r_m1_01 += r_shape_cubic(r_cell, 0, 1)*z_shape_cubic(z_cell, 1)*J_r_m1_scal
-            J_r_m0_02 += r_shape_cubic(r_cell, 0,-1*z_shape_cubic(z_cell, 2)*J_r_m0_scal
+            J_r_m0_02 += r_shape_cubic(r_cell, 0,-1)*z_shape_cubic(z_cell, 2)*J_r_m0_scal
             J_r_m1_02 += r_shape_cubic(r_cell, 0, 1)*z_shape_cubic(z_cell, 2)*J_r_m1_scal
             J_r_m0_03 += r_shape_cubic(r_cell, 0,-1)*z_shape_cubic(z_cell, 3)*J_r_m0_scal
             J_r_m1_03 += r_shape_cubic(r_cell, 0, 1)*z_shape_cubic(z_cell, 3)*J_r_m1_scal
