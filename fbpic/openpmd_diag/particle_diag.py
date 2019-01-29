@@ -43,9 +43,11 @@ class ParticleDiagnostic(OpenPMDDiagnostic) :
 
         particle_data : a list of strings, optional
             The particle properties are given by:
-            ["position", "momentum", "weighting"]
+            ["position", "momentum", "weighting","fields"]
             for the coordinates x,y,z.
             By default, if a particle is tracked, its id is always written.
+            "fields" writes the electric and magnetic fields at the particle position. 
+            It is not activated by default
 
         select : dict, optional
             Either None or a dictionary of rules
@@ -93,6 +95,8 @@ class ParticleDiagnostic(OpenPMDDiagnostic) :
                     self.array_quantities_dict[species_name] += ['x','y','z']
                 elif quantity == "momentum":
                     self.array_quantities_dict[species_name] += ['ux','uy','uz']
+                elif quantity == "fields":
+                    self.array_quantities_dict[species_name] += ['Ex','Ey','Ez','Bx','By','Bz']                    
                 elif quantity == "weighting":
                     self.array_quantities_dict[species_name].append('w')
                 else:
@@ -306,6 +310,12 @@ class ParticleDiagnostic(OpenPMDDiagnostic) :
                 quantity_path = "momentum/%s" %(quantity[-1])
                 self.write_dataset( species_grp, species, quantity_path,
                         quantity, n_rank, Ntot, select_array )
+
+            elif quantity in ["Ex" , "Ey" , "Ez" , "Bx" , "By" , "Bz" ]:
+                quantity_path = "fields/%s" %(quantity)
+                self.write_dataset( species_grp, species, quantity_path,
+                        quantity, n_rank, Ntot, select_array )
+
 
             elif quantity in ["w", "id", "charge"]:
                 if quantity == "w":
