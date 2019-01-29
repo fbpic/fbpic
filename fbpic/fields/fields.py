@@ -50,7 +50,8 @@ class Fields(object) :
     def __init__( self, Nz, zmax, Nr, rmax, Nm, dt, zmin=0.,
                   n_order=-1, v_comoving=None, use_galilean=True,
                   current_correction='cross-deposition', use_cuda=False,
-                  smoother=None, create_threading_buffers=False ):
+                  smoother=None, create_threading_buffers=False,
+                  verboncoeur_correction=False ):
         """
         Initialize the components of the Fields object
 
@@ -153,7 +154,8 @@ class Fields(object) :
         for m in range(Nm) :
             # Create the object
             self.interp.append( InterpolationGrid(
-                Nz, Nr, m, zmin, zmax, rmax, use_cuda=self.use_cuda ) )
+                Nz, Nr, m, zmin, zmax, rmax, use_cuda=self.use_cuda,
+                verboncoeur_correction=verboncoeur_correction ) )
 
         # Get the kz and (finite-order) modified kz arrays
         # (According to FFT conventions, the kz array starts with

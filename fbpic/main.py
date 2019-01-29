@@ -53,7 +53,7 @@ class Simulation(object):
                  current_correction='curl-free', boundaries='periodic',
                  gamma_boost=None, use_all_mpi_ranks=True,
                  particle_shape='linear', verbose_level=1,
-                 smoother=None ):
+                 smoother=None, verboncoeur_correction=False ):
         """
         Initializes a simulation.
 
@@ -241,7 +241,8 @@ class Simulation(object):
                     use_cuda=self.use_cuda,
                     smoother=smoother,
                     # Only create threading buffers when running on CPU
-                    create_threading_buffers=(self.use_cuda is False) )
+                    create_threading_buffers=(self.use_cuda is False),
+                    verboncoeur_correction=verboncoeur_correction )
 
         # Initialize the electrons and the ions
         self.grid_shape = self.fld.interp[0].Ez.shape

@@ -25,7 +25,8 @@ class InterpolationGrid(object) :
       2darrays containing the fields.
     """
 
-    def __init__(self, Nz, Nr, m, zmin, zmax, rmax, use_cuda=False ) :
+    def __init__(self, Nz, Nr, m, zmin, zmax, rmax, use_cuda=False,
+                 verboncoeur_correction=False ) :
         """
         Allocates the matrices corresponding to the spatial grid
 
@@ -68,6 +69,8 @@ class InterpolationGrid(object) :
         r = (0.5 + np.arange(Nr))*dr
         vol = np.pi*dz*( (r+0.5*dr)**2 - (r-0.5*dr)**2 )
         # Note: No Verboncoeur-type correction required
+        if verboncoeur_correction == True:
+            vol[0] = 13./12*vol[0] # Verboncoeur-type correction
         self.invvol = 1./vol
 
         # Allocate the fields arrays
