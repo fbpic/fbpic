@@ -23,6 +23,7 @@ class ParticleDiagnostic(OpenPMDDiagnostic) :
         """
         Initialize the particle diagnostics.
 
+
         Parameters
         ----------
         period : int
