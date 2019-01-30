@@ -76,6 +76,14 @@ Installation of FBPIC and its dependencies
 Running simulations
 -------------------
 
+In order to create a new simulation, create a new directory in
+``$MEMBERWORK/`` and copy your input script there:
+
+::
+
+    mkdir $MEMBERWORK/<project_id>/<simulation name>
+    cp fbpic_script.py $MEMBERWORK/<project_id>/<simulation name>
+
 Interactive jobs
 ~~~~~~~~~~~~~~~~
 
@@ -94,31 +102,31 @@ Then ``cd`` to the directory where you prepared your input script and type
 Batch job
 ~~~~~~~~~
 
-Create a new file named ``submission_file`` in the same directory as
+Create a new file named ``submission_script`` in the same directory as
 your input script. Within this new file, copy the
 following text (and replace the bracketed text by the proper values).
 
 ::
 
     #!/bin/bash
-    #SBATCH -J my_job
-    #SBATCH --nodes <requestedNode>
-    #SBATCH --time <requestedTime>
-    #SBATCH --export=ALL
-    #SBATCH -p gpu
-    #SBATCH --gres=gpu:<gpuType>:4
-    #SBATCH --ntasks-per-node=<coresPerGPU>
+    #BSUB -J my_job
+    #BSUB -W <requestedTime>
+    #BSUB -nnodes <requestedNode>
+    #BSUB -P <accountNumber>
 
-    srun --mpi=pmi2 -n <nMPI> python fbpic_script.py
+    module purge
+    module load gcc/4.8.5
+    module load spectrum-mpi/10.2.0.10-20181214
+    module load python/3.7.0-anaconda3-5.3.0
+    module load py-mpi4py/3.0.0-py3
+    source activate fbpic
 
-where ``<nMPI>`` should be 4 times ``<requestedNode>``
-(since there are 4 GPUs per node on Comet), and where:
-
-    - For a K80 node: ``<gpuType>`` should be ``k80`` and ``coresPerGPU`` should be ``6``
-    - For a P100 node: ``<gpuType>`` should be ``p100`` and ``coresPerGPU`` should be ``7``
+    jsrun -n <requestedNode> -a 6 -c 6 -g 6 python fbpic_script.py > cpu.log
 
 Then run:
 
 ::
 
-    sbatch submission_file
+    bsub submission_script
+
+Use ``bjobs`` to monitor the job.
