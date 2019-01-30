@@ -15,47 +15,47 @@ Preparing the Anaconda environment
 
 First create a new `conda` environment
 
-   ::
+::
 
-        module load python/3.7.0-anaconda3-5.3.0
-        conda create -n fbpic python=3
+    module load python/3.7.0-anaconda3-5.3.0
+    conda create -n fbpic python=3
 
 Then add the following lines in your `.bashrc`
 
-   ::
+::
 
-        module purge
-        module load gcc/4.8.5
-        module load spectrum-mpi/10.2.0.10-20181214
-        module load python/3.7.0-anaconda3-5.3.0
-        module load py-mpi4py/3.0.0-py3
-        source activate fbpic
+    module purge
+    module load gcc/4.8.5
+    module load spectrum-mpi/10.2.0.10-20181214
+    module load fftw/3.3.8
+    module load python/3.7.0-anaconda3-5.3.0
+    module load py-mpi4py/3.0.0-py3
+    source activate fbpic
 
 Then type
 
-    ::
+::
 
-        . .bashrc
+    . .bashrc
 
 Installation of FBPIC and its dependencies
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 -  Install the dependencies of ``fbpic``
 
-   ::
+    ::
 
-        conda install -c conda-forge numba scipy h5py cudatoolkit=8.0
+        conda install -c conda-forge numba scipy h5py cython cudatoolkit=8.0
 
 - Install ``pyfftw``
 
     ::
 
-        module load fftw
         pip install pyfftw
 
 - Install ``pyculib``
 
-   ::
+    ::
 
         git clone https://github.com/dzhoshkun/pyculib_sorting.git
         cd pyculib_sorting
@@ -69,7 +69,7 @@ Installation of FBPIC and its dependencies
 
 -  Install ``fbpic``
 
-   ::
+    ::
 
         pip install fbpic
 
@@ -117,6 +117,7 @@ following text (and replace the bracketed text by the proper values).
     module purge
     module load gcc/4.8.5
     module load spectrum-mpi/10.2.0.10-20181214
+    module load fftw/3.3.8
     module load python/3.7.0-anaconda3-5.3.0
     module load py-mpi4py/3.0.0-py3
     source activate fbpic

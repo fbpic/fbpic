@@ -12,8 +12,8 @@ This page explains how to install FBPIC on different plateforms:
    :maxdepth: 1
 
    install_local
-   install_titan
    install_summit
+   install_titan
    install_jureca
    install_lawrencium
    install_comet
