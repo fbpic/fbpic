@@ -8,6 +8,7 @@ It defines a class for continuous particle injection with a moving window.
 import warnings
 import numpy as np
 from scipy.constants import c
+from inspect import signature
 
 class ContinuousInjector( object ):
     """
@@ -37,6 +38,13 @@ class ContinuousInjector( object ):
         self.ux_th = ux_th
         self.uy_th = uy_th
         self.uz_th = uz_th
+
+        if self.dens_func is not None:
+            self.dens_func_dim = len(signature(self.dens_func).parameters)
+            if self.dens_func_dim not in (2, 3):
+                raise ValueError(
+                "Density function can have 2 or 3 arguments, " + \
+                "but got {:d} instead".format(self.dens_func_dim) )
 
         # Register spacing between evenly-spaced particles in z
         if Npz != 0:
@@ -168,8 +176,12 @@ class ContinuousInjector( object ):
         # Create a temporary density function that takes into
         # account the fact that the plasma has moved
         if self.dens_func is not None:
-            def dens_func( z, r ):
-                return( self.dens_func( z-self.v_end_plasma*time, r ) )
+            if self.dens_func_dim==2:
+                def dens_func( z, r ):
+                    return( self.dens_func( z-self.v_end_plasma*time, r ) )
+            elif self.dens_func_dim==3:
+                def dens_func( x, y, z ):
+                    return( self.dens_func(x,y, z-self.v_end_plasma*time ) )
         else:
             dens_func = None
 
@@ -232,7 +244,11 @@ def generate_evenly_spaced( Npz, zmin, zmax, Npr, rmin, rmax,
         w = n * r * dtheta*dr*dz
         # Modulate it by the density profile
         if dens_func is not None :
-            w *= dens_func( z, r )
+            dens_func_dim = len(signature(dens_func).parameters)
+            if dens_func_dim==2:
+                w *= dens_func( z, r )
+            elif dens_func_dim==3:
+                w *= dens_func( x,y,z )
 
         # Select the particles that have a non-zero weight
         selected = (w > 0)
