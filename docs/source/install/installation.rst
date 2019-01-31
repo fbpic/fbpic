@@ -10,11 +10,11 @@ This page explains how to install FBPIC on different plateforms:
 
 .. toctree::
    :maxdepth: 1
-   
+
    install_local
+   install_summit
    install_titan
    install_jureca
    install_lawrencium
    install_comet
    install_cori_edison
-
