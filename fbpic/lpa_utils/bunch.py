@@ -94,6 +94,7 @@ def add_elec_bunch( sim, gamma0, n_e, p_zmin, p_zmax, p_rmin, p_rmax,
     # Get the corresponding space-charge fields
     get_space_charge_fields( sim, relat_elec, direction=direction )
 
+
 def add_elec_bunch_gaussian( sim, sig_r, sig_z, n_emit, gamma0,
                         sig_gamma, Q, N, tf=0., zf=0., boost=None,
                         save_beam=None, z_injection_plane=None ):
@@ -153,38 +154,59 @@ def add_elec_bunch_gaussian( sim, sig_r, sig_z, n_emit, gamma0,
         boosted-frame simulations.
         `z_injection_plane` is always given in the lab frame.
     """
-    # Get Gaussian particle distribution in x,y,z
-    x = sig_r * np.random.normal(0., 1., N)
-    y = sig_r * np.random.normal(0., 1., N)
-    z = zf + sig_z * np.random.normal(0., 1., N) # with offset in z
-    # Define sigma of ux and uy based on normalized emittance
-    sig_ur = (n_emit/sig_r)
-    # Get Gaussian distribution of transverse normalized momenta ux, uy
-    ux = sig_ur * np.random.normal(0., 1., N)
-    uy = sig_ur * np.random.normal(0., 1., N)
-    # Now we imprint an energy spread on the gammas of each particle
+    # Generate Gaussian gamma distribution of the beam
     if sig_gamma > 0.:
         gamma = np.random.normal(gamma0, sig_gamma, N)
     else:
-        # Or set it to zero
+        # Zero energy spread beam
         gamma = np.full(N, gamma0)
         if sig_gamma < 0.:
             print("Warning: Negative energy spread sig_gamma detected."
                   " sig_gamma will be set to zero. \n")
+    # Get inverse gamma
+    inv_gamma = 1. / gamma
+    # Get Gaussian particle distribution in x,y,z
+    x = sig_r * np.random.normal(0., 1., N)
+    y = sig_r * np.random.normal(0., 1., N)
+    z = zf + sig_z * np.random.normal(0., 1., N)  # with offset in z
+
+    # Define sigma of ux and uy based on normalized emittance
+    sig_ur = (n_emit / sig_r)
+    # Get Gaussian distribution of transverse normalized momenta ux, uy
+    ux = sig_ur * np.random.normal(0., 1., N)
+    uy = sig_ur * np.random.normal(0., 1., N)
+
     # Finally we calculate the uz of each particle
     # from the gamma and the transverse momenta ux, uy
-    uz = np.sqrt((gamma**2-1) - ux**2 - uy**2)
-    # Get inverse gamma
-    inv_gamma = 1./gamma
-    # Get weight of each particle
-    w = abs(Q) / (N*e) * np.ones_like(x)
+    uz_sqr = (gamma ** 2 - 1) - ux ** 2 - uy ** 2
 
+    # Check for unphysical particles with uz**2 < 0
+    mask = uz_sqr <= 0
+    N_remove = np.count_nonzero(mask)
+    if N_remove != 0:
+        print("Warning: Particles with uz**2<0 detected."
+              " %d Particles will be removed from the beam. \n"
+              "This will truncate the distribution of the beam"
+              " at gamma ~= 1. \n"
+              "However, the charge will be kept constant. \n" % N_remove)
+        # Remove unphysical particles with uz**2 < 0
+        x = x[~mask]
+        y = y[~mask]
+        z = z[~mask]
+        ux = ux[~mask]
+        uy = uy[~mask]
+        inv_gamma = inv_gamma[~mask]
+        uz_sqr = uz_sqr[~mask]
+    # Calculate longitudinal momentum of the bunch
+    uz = np.sqrt(uz_sqr)
+    # Get weight of each particle
+    w = abs(Q) / ((N - N_remove) * e) * np.ones_like(x)
     # Propagate distribution to an out-of-focus position tf.
     # (without taking space charge effects into account)
     if tf != 0.:
-        x = x - ux*inv_gamma*c*tf
-        y = y - uy*inv_gamma*c*tf
-        z = z - uz*inv_gamma*c*tf
+        x = x - ux * inv_gamma * c * tf
+        y = y - uy * inv_gamma * c * tf
+        z = z - uz * inv_gamma * c * tf
 
     # Save beam distribution to an .npz file
     if save_beam is not None:
