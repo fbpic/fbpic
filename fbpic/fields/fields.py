@@ -124,6 +124,7 @@ class Fields(object) :
         # Set the default smoother
         if smoother is None:
             smoother = BinomialSmoother( n_passes=1, compensator=False )
+        self.smoother = smoother
 
         # Define wether or not to use the GPU
         self.use_cuda = use_cuda
