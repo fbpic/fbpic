@@ -39,6 +39,7 @@ class ContinuousInjector( object ):
         self.uy_th = uy_th
         self.uz_th = uz_th
 
+        # Define and register dimensions number for density profile
         if self.dens_func is not None:
             self.dens_func_dim = len(signature(self.dens_func).parameters)
             if self.dens_func_dim not in (2, 3):
@@ -62,7 +63,6 @@ class ContinuousInjector( object ):
         self.nz_inject = None
         self.z_inject = None
         self.z_end_plasma = None
-
 
     def initialize_injection_positions( self, comm, v_moving_window,
                                         species_z, dt ):
@@ -162,7 +162,6 @@ class ContinuousInjector( object ):
         # and z_end_plasma, and afterwards nz_inject is set to 0.)
         self.z_end_plasma += nz_new * self.dz_particles
 
-
     def generate_particles( self, time ):
         """
         Generate new particles at the right end of the plasma
@@ -181,7 +180,7 @@ class ContinuousInjector( object ):
                     return( self.dens_func( z-self.v_end_plasma*time, r ) )
             elif self.dens_func_dim==3:
                 def dens_func( x, y, z ):
-                    return( self.dens_func(x,y, z-self.v_end_plasma*time ) )
+                    return( self.dens_func(x, y, z-self.v_end_plasma*time ) )
         else:
             dens_func = None
 
@@ -248,7 +247,7 @@ def generate_evenly_spaced( Npz, zmin, zmax, Npr, rmin, rmax,
             if dens_func_dim==2:
                 w *= dens_func( z, r )
             elif dens_func_dim==3:
-                w *= dens_func( x,y,z )
+                w *= dens_func( x, y, z )
 
         # Select the particles that have a non-zero weight
         selected = (w > 0)

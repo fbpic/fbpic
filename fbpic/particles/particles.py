@@ -106,9 +106,11 @@ class Particles(object) :
            Normalized thermal momenta in each direction
 
         dens_func : callable, optional
-           A function of the form :
+           A function of two of three arguments of the form :
            def dens_func( z, r ) ...
-           where z and r are 1d arrays, and which returns
+           or
+           def dens_func( x, y, z ) ...
+           where x, y, z and r are 1d arrays, and which returns
            a 1d array containing the density *relative to n*
            (i.e. a number between 0 and 1) at the given positions
 
