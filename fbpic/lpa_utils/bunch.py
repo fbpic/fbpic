@@ -11,6 +11,7 @@ from fbpic.fields import Fields
 from fbpic.particles.elementary_process.cuda_numba_utils import \
     reallocate_and_copy_old
 from fbpic.particles.injection import BallisticBeforePlane
+import warnings
 
 def add_elec_bunch( sim, gamma0, n_e, p_zmin, p_zmax, p_rmin, p_rmax,
                 p_nr=2, p_nz=2, p_nt=4, dens_func=None, boost=None,
@@ -161,8 +162,9 @@ def add_elec_bunch_gaussian( sim, sig_r, sig_z, n_emit, gamma0,
         # Zero energy spread beam
         gamma = np.full(N, gamma0)
         if sig_gamma < 0.:
-            print("Warning: Negative energy spread sig_gamma detected."
-                  " sig_gamma will be set to zero. \n")
+            warnings.warn(
+                "Negative energy spread sig_gamma detected."
+                " sig_gamma will be set to zero. \n")
     # Get inverse gamma
     inv_gamma = 1. / gamma
     # Get Gaussian particle distribution in x,y,z
@@ -181,26 +183,27 @@ def add_elec_bunch_gaussian( sim, sig_r, sig_z, n_emit, gamma0,
     uz_sqr = (gamma ** 2 - 1) - ux ** 2 - uy ** 2
 
     # Check for unphysical particles with uz**2 < 0
-    mask = uz_sqr <= 0
-    N_remove = np.count_nonzero(mask)
-    if N_remove != 0:
-        print("Warning: Particles with uz**2<0 detected."
+    mask = uz_sqr >= 0
+    N_new = np.count_nonzero(mask)
+    if N_new < N:
+        warnings.warn(
+              "Particles with uz**2<0 detected."
               " %d Particles will be removed from the beam. \n"
               "This will truncate the distribution of the beam"
               " at gamma ~= 1. \n"
-              "However, the charge will be kept constant. \n" % N_remove)
+              "However, the charge will be kept constant. \n" % (N-N_new))
         # Remove unphysical particles with uz**2 < 0
-        x = x[~mask]
-        y = y[~mask]
-        z = z[~mask]
-        ux = ux[~mask]
-        uy = uy[~mask]
-        inv_gamma = inv_gamma[~mask]
-        uz_sqr = uz_sqr[~mask]
+        x = x[mask]
+        y = y[mask]
+        z = z[mask]
+        ux = ux[mask]
+        uy = uy[mask]
+        inv_gamma = inv_gamma[mask]
+        uz_sqr = uz_sqr[mask]
     # Calculate longitudinal momentum of the bunch
     uz = np.sqrt(uz_sqr)
     # Get weight of each particle
-    w = abs(Q) / ((N - N_remove) * e) * np.ones_like(x)
+    w = abs(Q) / (N_new * e) * np.ones_like(x)
     # Propagate distribution to an out-of-focus position tf.
     # (without taking space charge effects into account)
     if tf != 0.:
