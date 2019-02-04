@@ -28,7 +28,7 @@ Particle diagnostic
 Particle density diagnostic
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-.. autoclass:: fbpic.openpmd_diag.ParticleDensityDiagnostic
+.. autoclass:: fbpic.openpmd_diag.ParticleChargeDensityDiagnostic
 
 Back-transformed diagnostics (boosted-frame simulations)
 --------------------------------------------------------

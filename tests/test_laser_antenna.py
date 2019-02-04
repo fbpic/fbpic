@@ -142,7 +142,8 @@ def run_and_check_laser_antenna(gamma_b, show, write_files,
 
     # Check the transverse E and B field
     Nz_half = int(sim.fld.interp[1].Nz/2) + 2
-    z = sim.fld.interp[1].z[Nz_half:-(sim.comm.n_guard+sim.comm.n_damp)]
+    z = sim.fld.interp[1].z[Nz_half:-(sim.comm.n_guard+sim.comm.n_damp+\
+                            sim.comm.n_inject)]
     r = sim.fld.interp[1].r
     # Loop through the different fields
     for fieldtype, info_in_real_part, factor in [ ('Er', True, 2.), \
@@ -151,7 +152,8 @@ def run_and_check_laser_antenna(gamma_b, show, write_files,
         # in order to get a value which is comparable to an electric field
         # (Because of the definition of the interpolation grid, the )
         field = getattr(sim.fld.interp[1], fieldtype)\
-                            [Nz_half:-(sim.comm.n_guard+sim.comm.n_damp)]
+                            [Nz_half:-(sim.comm.n_guard+sim.comm.n_damp+\
+                             sim.comm.n_inject)]
         print( 'Checking %s' %fieldtype )
         check_fields( factor*field, z, r, info_in_real_part,
                         z0, gamma_b, forward_propagating )

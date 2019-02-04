@@ -74,7 +74,7 @@ class ContinuousInjector( object ):
         dt: float (in s)
             Timestep of the simulation
         """
-        # The injection position is only ini
+        # The injection position is only initialized for the last proc
         if comm.rank != comm.size-1:
             return
         # Initialize the injection position only if it has not be initialized
@@ -82,17 +82,19 @@ class ContinuousInjector( object ):
             return
 
         # Initialize plasma *ahead* of the right *physical*
-        # boundary of the box so that, after `exchange_period` iterations
+        # boundary of the box in the damping region (including the
+        # injection area) so that after `exchange_period` iterations
         # (without adding new plasma), there will still be plasma
-        # inside the physical domain. ( +3 takes into account that
-        # 3 more cells need to be filled w.r.t the left edge of the
-        # physical box such that the last cell inside the box is
-        # always correct for 1st and 3rd order shape factor
-        # particles after the moving window shifted by exchange_period cells.)
-        _, zmax_global_domain = comm.get_zmin_zmax( local=False,
-                                    with_damp=False, with_guard=False )
-        self.z_inject = zmax_global_domain + 3*comm.dz + \
-                comm.exchange_period*dt*(v_moving_window-self.v_end_plasma)
+        # inside the physical domain and the damping region (without the
+        # injection area). This ensures that there are never particles in the
+        # rightmost guard region and that there are always particles inside
+        # the damped region, where the field can be non-zero. New particles,
+        # which are injected in the Injection region, do not see any fields.
+        _, zmax_global_domain_with_damp = comm.get_zmin_zmax( local=False,
+                                    with_damp=True, with_guard=False )
+        self.z_inject = zmax_global_domain_with_damp \
+                + (3-comm.n_inject)*comm.dz \
+                + comm.exchange_period*dt*(v_moving_window-self.v_end_plasma)
         self.nz_inject = 0
         # Try to detect the position of the end of the plasma:
         # Find the maximal position of the continously-injected particles
@@ -102,7 +104,9 @@ class ContinuousInjector( object ):
             self.z_end_plasma = species_z.max() + 0.5*self.dz_particles
         else:
             # Default value for empty species
-            self.z_end_plasma = zmax_global_domain
+            _, zmax_global_physical_domain = comm.get_zmin_zmax( local=False,
+                                    with_damp=False, with_guard=False )
+            self.z_end_plasma = zmax_global_physical_domain
 
         # Check that the particle spacing has been properly calculated
         if self.dz_particles is None:

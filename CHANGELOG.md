@@ -1,5 +1,83 @@
 # Change Log / Release Log for fbpic
 
+## 0.10.1
+
+This is a bug-fix release.
+
+It deals with the fact that FBPIC happens to be incompatible with Numba version 0.42.
+FBPIC will now raise an error when Numba 0.42 is detected, and the user
+will be prompted to install Numba 0.41.
+
+In addition, the code can now perform particle sub-sampling in the openPMD diagnostic.
+
+## 0.10.0
+
+This release introduces various improvements to FBPIC:
+
+New features:
+- It is now possible to tune the amount of smoothing applied on the
+charge and currents produced by the macroparticles; see [#268](https://github.com/fbpic/fbpic/pull/268).
+- The documentation of the boosted-frame technique has been expanded. A
+new function allows to easily compute the number of PIC iterations that
+need to be performed in the boosted frame ; see
+[#294](https://github.com/fbpic/fbpic/pull/294).
+- The user can now set the name of the folder where the checkpoints are saved ; see
+[#305](https://github.com/fbpic/fbpic/pull/305).
+- The continuous injection of plasma (with moving window) is now more robust.
+This can in particular suppress noise that some users might have observed in the
+up-stream, continuously injected plasma, for very long simulations.
+
+Bug-fixes:
+- There was a bug in the laser antenna when using multiple CPUs/GPUs. This bug
+has been fixed ; see [#309](https://github.com/fbpic/fbpic/pull/309).
+- The `FlattenedGaussianLaser` had bugs, esp. when initializing it out of focus.
+This is now fixed ; see [#305](https://github.com/fbpic/fbpic/pull/305) and
+[ #299](https://github.com/fbpic/fbpic/pull/299).
+
+## 0.9.5
+
+This is bug-fix release.
+It corrects a bug that was happening exclusively for *cubic shape* deposition,
+when using the CPU (i.e. the bug does not occur on GPU) ; see [#297](https://github.com/fbpic/fbpic/pull/297)
+In addition, this release adds a safe-guard for the sign of the charge, for Gaussian beams [#295](https://github.com/fbpic/fbpic/pull/295), and for the sign of the Galilean velocity [#293](https://github.com/fbpic/fbpic/pull/293).
+
+## 0.9.4
+
+This release introduces various improvements to FBPIC:
+
+- The initial space-charge calculation produced unphysical fields for
+high-energy beams with space-charge. This is now fixed ; see
+[#289](https://github.com/fbpic/fbpic/pull/289)
+
+- More flexible ionization API: The user can now store the electrons from
+different ionization levels into different species. In addition, the user
+can now set a maximum level of ionization ; see
+[#288](https://github.com/fbpic/fbpic/pull/288) and
+[#283](https://github.com/fbpic/fbpic/pull/283)
+
+- Improved restart from checkpoints: for safer use, the restart now requires
+that the number of species is the same in the simulation
+(when calling `restart_from_checkpoint`) and in the checkpoint file.
+(New species can nonetheless be added after calling `restart_from_checkpoint`.)
+; see [#278](https://github.com/fbpic/fbpic/pull/278)
+
+- The plasma can now be initialized with a non-zero temperature
+(see the documentation of the method `add_new_species`) ; see
+[#277](https://github.com/fbpic/fbpic/pull/277)
+
+- There is a new diagnostic (`SpeciesChargeDensityDiagnostic`), which allows
+to have the charge density of *one given* species ; see
+[#287](https://github.com/fbpic/fbpic/pull/287)
+
+Minor fixes:
+- More efficient CPU execution by treading the `erase` function ;
+see [#276](https://github.com/fbpic/fbpic/pull/276)
+- When using `FBPIC_DISABLE_THREADING=1`, the code will not need to compile
+for each execution, thereby allowing faster turnaround ; see
+[#279](https://github.com/fbpic/fbpic/pull/279)
+
+
+
 ## 0.9.3
 
 This is a minor release.
