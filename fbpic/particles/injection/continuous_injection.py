@@ -8,7 +8,14 @@ It defines a class for continuous particle injection with a moving window.
 import warnings
 import numpy as np
 from scipy.constants import c
-from inspect import signature
+import sys, inspect
+
+# convenience method retrieve arguments number of a function
+if sys.version_info[0] < 3:
+    get_args_len = lambda fu: len(inspect.getargspec(fu)[0])
+else:
+    get_args_len = lambda fu: len(inspect.signature(fu).parameters)
+
 
 class ContinuousInjector( object ):
     """
@@ -41,7 +48,7 @@ class ContinuousInjector( object ):
 
         # Define and register dimensions number for density profile
         if self.dens_func is not None:
-            self.dens_func_dim = len(signature(self.dens_func).parameters)
+            self.dens_func_dim = get_args_len(self.dens_func)
             if self.dens_func_dim not in (2, 3):
                 raise ValueError(
                 "Density function can have 2 or 3 arguments, " + \
@@ -243,7 +250,7 @@ def generate_evenly_spaced( Npz, zmin, zmax, Npr, rmin, rmax,
         w = n * r * dtheta*dr*dz
         # Modulate it by the density profile
         if dens_func is not None :
-            dens_func_dim = len(signature(dens_func).parameters)
+            dens_func_dim = get_args_len(dens_func)
             if dens_func_dim==2:
                 w *= dens_func( z, r )
             elif dens_func_dim==3:
