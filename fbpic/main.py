@@ -400,7 +400,7 @@ class Simulation(object):
             # Diagnostics
             # -----------
             # Run the diagnostics after gathering the fields to allow tracking
-            # of the fields along the trajectory, 
+            # of the fields along the trajectory,
             # and also see the external fields at the particle position
             # (E, B, rho, x are defined at time n; J, p at time n-1/2)
             for diag in self.diags:
