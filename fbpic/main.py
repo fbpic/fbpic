@@ -384,17 +384,7 @@ class Simulation(object):
             if i_step == 0:
                 self.deposit('J', exchange=True)
 
-            # Diagnostics
-            # -----------
 
-            # Run the diagnostics
-            # (E, B, rho, x are defined at time n; J, p at time n-1/2)
-            for diag in self.diags:
-                # Check if the diagnostic should be written at this iteration
-                # and write it, if it is the case.
-                # (If needed: bring rho/J from spectral space, where they
-                # were smoothed/corrected, and copy the data from the GPU.)
-                diag.write( self.iteration )
 
             # Main PIC iteration
             # ------------------
@@ -405,6 +395,25 @@ class Simulation(object):
             # Apply the external fields at t = n dt
             for ext_field in self.external_fields:
                 ext_field.apply_expression( self.ptcl, self.time )
+
+
+            # Diagnostics
+            # -----------
+            # Run the diagnostics after gathering the fields to allow tracking
+            # of the fields along the trajectory, 
+            # and also see the external fields at the particle position
+            # (E, B, rho, x are defined at time n; J, p at time n-1/2)
+            for diag in self.diags:
+                # Check if the diagnostic should be written at this iteration
+                # and write it, if it is the case.
+                # (If needed: bring rho/J from spectral space, where they
+                # were smoothed/corrected, and copy the data from the GPU.)
+                diag.write( self.iteration )
+
+
+            # Continue Main PIC iteration
+            # ---------------------------
+
 
             # Push the particles' positions and velocities to t = (n+1/2) dt
             if move_momenta:
