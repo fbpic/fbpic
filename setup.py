@@ -31,7 +31,7 @@ setup(
     maintainer_email='remi.lehe@normalesup.org',
     license='BSD-3-Clause-LBNL',
     packages=find_packages('.'),
-    tests_require=['pytest', 'openpmd_viewer'],
+    tests_require=['more-itertools<6.0.0', 'pytest', 'openpmd_viewer'],
     cmdclass={'test': PyTest},
     install_requires=install_requires,
     include_package_data=True,
