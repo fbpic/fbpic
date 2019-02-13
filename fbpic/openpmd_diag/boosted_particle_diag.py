@@ -48,8 +48,14 @@ class BoostedParticleDiagnostic(ParticleDiagnostic):
         within a virtual moving window defined by zmin_lab, zmax_lab, v_lab.
 
         The parameters defined below are specific to the back-transformed
-        diagnostics. See the documentation of `FieldDiagnostic` for
+        diagnostics. See the documentation of `ParticleDiagnostic` for
         the other parameters.
+
+        .. warning::
+
+            The output of the gathered fields on the particles
+            (``particle_data=["fields"]``) is not currently supported
+            for ``BoostedParticleDiagnostic``.
 
         Parameters
         ----------
