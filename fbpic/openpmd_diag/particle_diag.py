@@ -18,7 +18,7 @@ class ParticleDiagnostic(OpenPMDDiagnostic) :
 
     def __init__(self, period, species = {"electrons": None}, comm=None,
         particle_data=["position", "momentum", "weighting"],
-        select=None, write_dir=None, iteration_min=0, iteration_max=np.inf, 
+        select=None, write_dir=None, iteration_min=0, iteration_max=np.inf,
         subsampling_fraction=None ) :
         """
         Initialize the particle diagnostics.
@@ -43,12 +43,11 @@ class ParticleDiagnostic(OpenPMDDiagnostic) :
             (Make sure to use different write_dir in this case.)
 
         particle_data : a list of strings, optional
-            The particle properties are given by:
-            ["position", "momentum", "weighting","fields"]
-            for the coordinates x,y,z.
+            Possible values are:
+            ["position", "momentum", "weighting", "fields"]
+            "fields" writes the E and B fields at the particles' positions,
+            but is turned off by default.
             By default, if a particle is tracked, its id is always written.
-            "fields" writes the electric and magnetic fields at the particle position. 
-            It is not activated by default
 
         select : dict, optional
             Either None or a dictionary of rules
@@ -67,7 +66,7 @@ class ParticleDiagnostic(OpenPMDDiagnostic) :
             (`iteration_min` is inclusive, `iteration_max` is exclusive)
 
         subsampling_fraction : float, optional
-            If this is not None, the particle data is subsampled with 
+            If this is not None, the particle data is subsampled with
             subsampling_fraction probability
         """
         # General setup
@@ -97,7 +96,8 @@ class ParticleDiagnostic(OpenPMDDiagnostic) :
                 elif quantity == "momentum":
                     self.array_quantities_dict[species_name] += ['ux','uy','uz']
                 elif quantity == "fields":
-                    self.array_quantities_dict[species_name] += ['Ex','Ey','Ez','Bx','By','Bz']                    
+                    self.array_quantities_dict[species_name] += \
+                        ['Ex','Ey','Ez','Bx','By','Bz']
                 elif quantity == "weighting":
                     self.array_quantities_dict[species_name].append('w')
                 else:
@@ -312,11 +312,15 @@ class ParticleDiagnostic(OpenPMDDiagnostic) :
                 self.write_dataset( species_grp, species, quantity_path,
                         quantity, n_rank, Ntot, select_array )
 
-            elif quantity in ["Ex" , "Ey" , "Ez" , "Bx" , "By" , "Bz" ]:
-                quantity_path = "fields/%s" %(quantity)
+            elif quantity in ["Ex" , "Ey" , "Ez"]:
+                quantity_path = "E/%s" %(quantity[-1])
                 self.write_dataset( species_grp, species, quantity_path,
                         quantity, n_rank, Ntot, select_array )
 
+            elif quantity in ["Bx", "By", "Bz"]:
+                quantity_path = "B/%s" %(quantity[-1])
+                self.write_dataset( species_grp, species, quantity_path,
+                        quantity, n_rank, Ntot, select_array )
 
             elif quantity in ["w", "id", "charge"]:
                 if quantity == "w":
@@ -333,7 +337,7 @@ class ParticleDiagnostic(OpenPMDDiagnostic) :
                 raise ValueError("Invalid string in %s of species"
                     				 %(quantity))
 
-        # Setup the hdf5 groups for the quantities "position" and "momentum"
+        # Setup the hdf5 groups for "position", "momentum", "fields"
         if self.rank == 0:
             if "x" in particle_data:
                 self.setup_openpmd_species_record(
@@ -341,6 +345,13 @@ class ParticleDiagnostic(OpenPMDDiagnostic) :
             if "ux" in particle_data:
                 self.setup_openpmd_species_record(
                     species_grp["momentum"], "momentum" )
+            if "Ex" in particle_data:
+                self.setup_openpmd_species_record(
+                    species_grp["E"], "E" )
+            if "Bx" in particle_data:
+                self.setup_openpmd_species_record(
+                    species_grp["B"], "B" )
+
 
     def apply_selection( self, species ) :
         """
