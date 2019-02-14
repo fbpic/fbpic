@@ -44,9 +44,10 @@ class ParticleDiagnostic(OpenPMDDiagnostic) :
 
         particle_data : a list of strings, optional
             Possible values are:
-            ["position", "momentum", "weighting", "E" , "B"]
+            ["position", "momentum", "weighting", "E" , "B", "gamma"]
             "E" and "B" writes the E and B fields at the particles' positions,
             respectively, but is turned off by default.
+            "gamma" writes the particles' Lorentz factor.
             By default, if a particle is tracked, its id is always written.
 
         select : dict, optional
@@ -323,7 +324,7 @@ class ParticleDiagnostic(OpenPMDDiagnostic) :
                 self.write_dataset( species_grp, species, quantity_path,
                         quantity, n_rank, Ntot, select_array )
 
-            elif quantity in ["w", "id", "charge"]:
+            elif quantity in ["w", "id", "charge", "gamma"]:
                 if quantity == "w":
                     quantity_path = "weighting"
                 else:
@@ -382,7 +383,10 @@ class ParticleDiagnostic(OpenPMDDiagnostic) :
         if self.select is not None :
             # Go through the quantities on which a rule applies
             for quantity in self.select.keys() :
-                quantity_array = getattr( species, quantity )
+                if quantity == "gamma":
+                    quantity_array = 1.0/getattr( species, "inv_gamma" )
+                else:
+                    quantity_array = getattr( species, quantity )
                 # Lower bound
                 if self.select[quantity][0] is not None :
                     select_array = np.logical_and(
@@ -416,7 +420,7 @@ class ParticleDiagnostic(OpenPMDDiagnostic) :
 
         quantity : string
             Describes which quantity is written
-            x, y, z, ux, uy, uz, w, id
+            x, y, z, ux, uy, uz, w, id, gamma
 
         n_rank : list of ints
             A list containing the number of particles to send on each proc
@@ -478,6 +482,8 @@ class ParticleDiagnostic(OpenPMDDiagnostic) :
             quantity_one_proc = constants.e * species.ionizer.ionization_level
         elif quantity == "w":
             quantity_one_proc = species.w
+        elif quantity == "gamma":
+            quantity_one_proc = 1.0/getattr( species, "inv_gamma" )
         else:
             quantity_one_proc = getattr( species, quantity )
 

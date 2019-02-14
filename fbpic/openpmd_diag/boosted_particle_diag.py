@@ -54,7 +54,8 @@ class BoostedParticleDiagnostic(ParticleDiagnostic):
         .. warning::
 
             The output of the gathered fields on the particles
-            (``particle_data=["fields"]``) is not currently supported
+            (``particle_data=["E", "B"]``) and of the Lorentz factor
+            (``particle_data=["gamma"]``) is not currently supported
             for ``BoostedParticleDiagnostic``.
 
         Parameters
