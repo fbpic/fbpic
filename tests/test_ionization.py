@@ -157,7 +157,7 @@ def run_simulation( gamma_boost, use_separate_electron_species ):
 
     # Add a particle diagnostic
     sim.diags = [ ParticleDiagnostic( diag_period, {"ions":ions},
-        particle_data=["position", "momentum", "weighting", "fields"],
+        particle_data=["position", "momentum", "weighting", "E", "B"],
         # Test fields output for standard (non-boosted) particle diagnostics
         write_dir='tests/diags', comm=sim.comm) ]
     if gamma_boost > 1:

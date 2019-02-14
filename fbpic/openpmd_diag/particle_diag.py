@@ -338,7 +338,7 @@ class ParticleDiagnostic(OpenPMDDiagnostic) :
                 raise ValueError("Invalid string in %s of species"
                     				 %(quantity))
 
-        # Setup the hdf5 groups for "position", "momentum", "fields"
+        # Setup the hdf5 groups for "position", "momentum", "E", "B"
         if self.rank == 0:
             if "x" in particle_data:
                 self.setup_openpmd_species_record(
