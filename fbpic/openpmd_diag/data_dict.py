@@ -31,6 +31,8 @@ macro_weighted_dict = {
     "position": np.uint32(0),
     "positionOffset": np.uint32(0),
     "momentum" : np.uint32(0),
+    "E": np.uint32(0),
+    "B": np.uint32(0),
     "id" : np.uint32(0) }
 weighting_power_dict = {
     "charge": 1.,
@@ -39,4 +41,6 @@ weighting_power_dict = {
     "position": 0.,
     "positionOffset": 0.,
     "momentum": 1.,
+    "E": 0.,
+    "B": 0.,
     "id": 0. }
