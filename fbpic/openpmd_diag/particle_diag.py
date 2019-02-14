@@ -44,9 +44,9 @@ class ParticleDiagnostic(OpenPMDDiagnostic) :
 
         particle_data : a list of strings, optional
             Possible values are:
-            ["position", "momentum", "weighting", "fields"]
-            "fields" writes the E and B fields at the particles' positions,
-            but is turned off by default.
+            ["position", "momentum", "weighting", "E" , "B"]
+            "E" and "B" writes the E and B fields at the particles' positions,
+            respectively, but is turned off by default.
             By default, if a particle is tracked, its id is always written.
 
         select : dict, optional
@@ -95,9 +95,10 @@ class ParticleDiagnostic(OpenPMDDiagnostic) :
                     self.array_quantities_dict[species_name] += ['x','y','z']
                 elif quantity == "momentum":
                     self.array_quantities_dict[species_name] += ['ux','uy','uz']
-                elif quantity == "fields":
-                    self.array_quantities_dict[species_name] += \
-                        ['Ex','Ey','Ez','Bx','By','Bz']
+                elif quantity == "E":
+                    self.array_quantities_dict[species_name] += ['Ex','Ey','Ez']
+                elif quantity == "B":
+                    self.array_quantities_dict[species_name] += ['Bx','By','Bz']
                 elif quantity == "weighting":
                     self.array_quantities_dict[species_name].append('w')
                 else:
