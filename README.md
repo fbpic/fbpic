@@ -67,7 +67,7 @@ it from [here](https://www.continuum.io/downloads).
 
 - Install the dependencies of FBPIC. This can be done in two lines:
 ```
-conda install numba==0.41 scipy h5py mkl
+conda install numba scipy h5py mkl
 conda install -c conda-forge mpi4py
 ```
 - Download and install FBPIC:
@@ -116,7 +116,8 @@ FBPIC was originally developed by Remi Lehe at [Berkeley Lab](http://www.lbl.gov
 and Manuel Kirchen at
 [CFEL, Hamburg University](http://lux.cfel.de/). The code also
 benefitted from the contributions of Soeren Jalas (CFEL), Kevin Peters (CFEL),
-Irene Dornmair (CFEL) and Igor Andriyash (Weizmann Institute).
+Irene Dornmair (CFEL), Igor Andriyash (Weizmann Institute) and Omri Seemann 
+(Weizmann Institute).
 
 FBPIC's algorithms are documented in following scientific publications:
 

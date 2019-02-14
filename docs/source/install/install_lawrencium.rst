@@ -56,9 +56,8 @@ Installation of FBPIC and its dependencies
 
    ::
 
-       conda install numba==0.41 scipy h5py mkl
-       conda install -c conda-forge mpi4py
-       conda install cudatoolkit=8 pyculib
+       conda install -c conda-forge numba scipy h5py mkl mpi4py
+       conda install -c conda-forge cudatoolkit=8 pyculib
 
 
 -  Install ``fbpic``
@@ -114,19 +113,20 @@ following text (and replace the bracketed text by the proper values).
 
     #!/bin/bash
     #SBATCH -J my_job
-    #SBATCH --partition=lr_manycore
+    #SBATCH --partition lr_manycore
+    #SBATCH --qos lr_normal
     #SBATCH --constraint <gpuConstraint>
     #SBATCH --time <requestedTime>
-    #SBATCH --nodes 1
-    #SBATCH --qos lr_normal
+    #SBATCH --ntasks <requestedRanks>
+    #SBATCH --ntasks-per-node <gpuPerNode>
 
-    python <fbpic_script.py>
+    mpirun -np <requestedRanks> python fbpic_script.py
 
-where ```<gpuConstraint>`` should be either:
+where ``<gpuConstraint>`` and ``<gpuPerNode>`` should be:
 
-    - ``lr_k20`` for a node with a single K20 GPU
-    - ``lr_k80`` for a node with four K80 GPUs
-    - ``lr_pascal`` for a node with four GTX 1080Ti GPUs
+    - For the nodes with a single K20 GPU, ``gpuConstraint=lr_k20`` and ``gpuPerNode=1``
+    - For the nodes with four K80 GPUs, ``gpuConstraint=lr_k80`` and ``gpuPerNode=4``
+    - For the nodes with four GTX 1080Ti GPUs, ``gpuConstraint=lr_pascal`` and ``gpuPerNode=4``
 
 for more information on the available nodes, see
 `this page <https://sites.google.com/a/lbl.gov/high-performance-computing-services-group/lbnl-supercluster/lawrencium>`__.
