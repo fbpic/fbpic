@@ -452,14 +452,23 @@ def get_space_charge_fields( sim, ptcl, direction='forward' ):
     if sim.comm.rank == 0:
         print("Calculating initial space charge field...")
 
-    # Calculate the mean gamma by summing on each subdomain
-    gamma_sum_local = (1./ptcl.inv_gamma).sum()
+    # Calculate the mean gamma by computing weighted sum on each subdomain
+    w_sum_local = ptcl.w.sum()
+    w_gamma_sum_local = (ptcl.w*1./ptcl.inv_gamma).sum()
     if sim.comm.mpi_comm is None:
-        gamma = gamma_sum_local/ptcl.Ntot
+        w_sum = w_sum_local
+        w_gamma_sum = w_gamma_sum_local
     else:
-        gamma_sum = sim.comm.mpi_comm.allreduce(gamma_sum_local)
-        Ntot = sim.comm.mpi_comm.allreduce(ptcl.Ntot)
-        gamma = gamma_sum/Ntot
+        w_sum = sim.comm.mpi_comm.allreduce(w_sum_local)
+        w_gamma_sum = sim.comm.mpi_comm.allreduce(w_gamma_sum_local)
+    # Check that the number of particles is not 0
+    if w_sum == 0:
+        warnings.warn(
+            "Tried to calculate space charge, but found 0 macroparticles in \n"
+            "the corresponding species. Skipping space charge calculation...\n")
+        return
+    else:
+        gamma = w_gamma_sum/w_sum
 
     # Project the charge and currents onto the local subdomain
     sim.deposit( 'rho', exchange=True, species_list=[ptcl],
