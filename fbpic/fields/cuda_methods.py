@@ -404,7 +404,7 @@ def cuda_push_rho( rho_prev, rho_next, Nz, Nr ) :
         rho_next[iz, ir] = 0.
 
 @cuda.jit
-def cuda_filter_scalar( field, filter_array, Nz, Nr) :
+def cuda_filter_scalar( field, Nz, Nr, filter_array_z, filter_array_r ) :
     """
     Multiply the input field by the filter_array
 
@@ -413,8 +413,8 @@ def cuda_filter_scalar( field, filter_array, Nz, Nr) :
     field : 2darray of complexs
         An array that represent the fields in spectral space
 
-    filter_array : 2darray of reals
-        An array that damps the fields at high k
+    filter_array_z, filter_array_r : 1darray of reals
+        An array that damps the fields at high k, in z and r respectively
 
     Nz, Nr : ints
         Dimensions of the arrays
@@ -426,10 +426,11 @@ def cuda_filter_scalar( field, filter_array, Nz, Nr) :
     # Filter the field
     if (iz < Nz) and (ir < Nr) :
 
-        field[iz, ir] = filter_array[iz, ir]*field[iz, ir]
+        field[iz, ir] = filter_array_z[iz]*filter_array_r[ir]*field[iz, ir]
 
 @cuda.jit
-def cuda_filter_vector( fieldr, fieldt, fieldz, filter_array, Nz, Nr) :
+def cuda_filter_vector( fieldr, fieldt, fieldz, Nz, Nr,
+                        filter_array_z, filter_array_r ):
     """
     Multiply the input field by the filter_array
 
@@ -438,8 +439,8 @@ def cuda_filter_vector( fieldr, fieldt, fieldz, filter_array, Nz, Nr) :
     field : 2darray of complexs
         An array that represent the fields in spectral space
 
-    filter_array : 2darray of reals
-        An array that damps the fields at high k
+    filter_array_z, filter_array_r : 1darray of reals
+        An array that damps the fields at high k, in z and r respectively
 
     Nz, Nr : ints
         Dimensions of the arrays
@@ -451,6 +452,6 @@ def cuda_filter_vector( fieldr, fieldt, fieldz, filter_array, Nz, Nr) :
     # Filter the field
     if (iz < Nz) and (ir < Nr) :
 
-        fieldr[iz, ir] = filter_array[iz, ir]*fieldr[iz, ir]
-        fieldt[iz, ir] = filter_array[iz, ir]*fieldt[iz, ir]
-        fieldz[iz, ir] = filter_array[iz, ir]*fieldz[iz, ir]
+        fieldr[iz, ir] = filter_array_z[iz]*filter_array_r[ir]*fieldr[iz, ir]
+        fieldt[iz, ir] = filter_array_z[iz]*filter_array_r[ir]*fieldt[iz, ir]
+        fieldz[iz, ir] = filter_array_z[iz]*filter_array_r[ir]*fieldz[iz, ir]

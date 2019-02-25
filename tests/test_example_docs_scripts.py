@@ -48,7 +48,8 @@ def test_lpa_sim_twoproc_restart():
     # differences in the simulations
     checked_fields = [ ('E', 'x', 2.e-5), ('E', 'z', 2.e-5),
                         ('B', 'y', 2.e-5), ('rho', None, 1.e-2) ]
-    run_sim( 'lwfa_script.py', n_MPI=2, checked_fields=checked_fields )
+    run_sim( 'lwfa_script.py', n_MPI=2, checked_fields=checked_fields,
+             test_checkpoint_dir=True )
 
 def test_ionization_script_twoproc():
     "Test the example script with two proc in `docs/source/example_input`"
@@ -57,11 +58,11 @@ def test_ionization_script_twoproc():
     # Ionization involves random events, which are not controlled by
     # numpy's seed ; therefore the tolerance (when checking the fields)
     # is lower than the previous cases.
-    checked_fields = [ ('E', 'x', 1.e-4), ('E', 'z', 1.e-2),
-                        ('B', 'y', 1.e-4), ('rho', None, 0.4) ]
+    checked_fields = [ ('E', 'x', 1.e-3), ('E', 'z', 1.e-2),
+                        ('B', 'y', 1.e-3), ('rho', None, 0.3) ]
     run_sim( 'ionization_script.py', n_MPI=2, checked_fields=checked_fields )
 
-def run_sim( script_name, n_MPI, checked_fields ):
+def run_sim( script_name, n_MPI, checked_fields, test_checkpoint_dir=False ):
     """
     Runs the script `script_name` from the folder docs/source/example_input,
     with `n_MPI` MPI processes. The simulation is then restarted with
@@ -89,12 +90,31 @@ def run_sim( script_name, n_MPI, checked_fields ):
     with open(script_filename) as f:
         script = f.read()
 
+    # Change default N_step, diag_period and checkpoint_period
+    script = replace_string( script,
+        'N_step = int(T_interact/sim.dt)', 'N_step = 200')
+    script = replace_string( script,
+        'diag_period = 50', 'diag_period = 10')
+    script = replace_string( script,
+        'checkpoint_period = 100', 'checkpoint_period = 50')
+
     # For MPI simulations: modify the script to use finite-order
     if n_MPI > 1:
         script = replace_string( script, 'n_order = -1', 'n_order = 16')
     # Modify the script so as to enable checkpoints
     script = replace_string( script, 'save_checkpoints = False',
                                 'save_checkpoints = True')
+    if test_checkpoint_dir:
+        # Try to change the name of the checkpoint directory
+        checkpoint_dir = './test_chkpt'
+        script = replace_string( script,
+            'set_periodic_checkpoint( sim, checkpoint_period )',
+            'set_periodic_checkpoint( sim, checkpoint_period, checkpoint_dir="%s" )'%checkpoint_dir)
+        script = replace_string( script, 'restart_from_checkpoint( sim )',
+         'restart_from_checkpoint( sim, checkpoint_dir="%s" )'%checkpoint_dir)
+    else:
+        checkpoint_dir = './checkpoints'
+
     script = replace_string( script, 'track_electrons = False',
                                 'track_electrons = True')
     # Modify the script to perform N_step, enforce the random seed
@@ -110,7 +130,9 @@ def run_sim( script_name, n_MPI, checked_fields ):
     if n_MPI == 1:
         command_line += '; python %s' %script_name
     else:
-        command_line += '; mpirun -np %d python %s' %(n_MPI, script_name)
+        # Use only one thread for multiple MPI
+        command_line += '; NUMBA_NUM_THREADS=1 MKL_NUM_THREADS=1 '
+        command_line += 'mpirun -np %d python %s' %(n_MPI, script_name)
     response = os.system( command_line )
     assert response==0
 
@@ -123,7 +145,7 @@ def run_sim( script_name, n_MPI, checked_fields ):
     for i_MPI in range(n_MPI):
         for step in range( N_step + period, 2*N_step + period, period ):
             os.remove( os.path.join( temporary_dir,
-                     'checkpoints/proc%d/hdf5/data%08d.h5' %(i_MPI,step) ))
+                     '%s/proc%d/hdf5/data%08d.h5' %(checkpoint_dir,i_MPI,step) ))
 
     # Modify the script so as to enable restarts
     script = replace_string( script, 'use_restart = False',
@@ -182,6 +204,10 @@ def test_boosted_frame_sim_twoproc():
     with open(script_filename) as f:
         script = f.read()
 
+    # Change default N_step
+    script = replace_string( script,
+        'N_step = int(T_interact/sim.dt)', 'N_step = 101')
+
     # Modify the script so as to enable finite order
     script = replace_string( script, 'n_order = -1', 'n_order = 16')
     script = replace_string(script, 'track_bunch = False', 'track_bunch = True')
@@ -189,8 +215,9 @@ def test_boosted_frame_sim_twoproc():
         f.write(script)
 
     # Launch the script from the OS
-    response = os.system(
-        'cd %s; mpirun -np 2 python boosted_frame_script.py' %temporary_dir )
+    command_line = 'cd %s; NUMBA_NUM_THREADS=1 MKL_NUM_THREADS=1 '%temporary_dir
+    command_line += 'mpirun -np 2 python boosted_frame_script.py'
+    response = os.system( command_line )
     assert response==0
 
     # Check that the particle ids are unique at each iterations
@@ -225,6 +252,14 @@ def test_parametric_sim_twoproc():
     with open(script_filename) as f:
         script = f.read()
 
+    # Change default N_step, diag_period and checkpoint_period
+    script = replace_string( script,
+        'N_step = int(T_interact/sim.dt)', 'N_step = 200')
+    script = replace_string( script,
+        'diag_period = 50', 'diag_period = 10')
+    script = replace_string( script,
+        'checkpoint_period = 100', 'checkpoint_period = 50')
+
     # Modify the script so as to enable checkpoints
     script = replace_string( script, 'save_checkpoints = False',
                                 'save_checkpoints = True')
@@ -232,8 +267,9 @@ def test_parametric_sim_twoproc():
         f.write(script)
 
     # Launch the modified script from the OS, with 2 proc
-    response = os.system(
-        'cd %s; mpirun -np 2 python parametric_script.py' %temporary_dir )
+    command_line = 'cd %s; NUMBA_NUM_THREADS=1 MKL_NUM_THREADS=1 '%temporary_dir
+    command_line += 'mpirun -np 2 python parametric_script.py'
+    response = os.system( command_line )
     assert response==0
 
     # Modify the script so as to enable restarts
@@ -244,8 +280,7 @@ def test_parametric_sim_twoproc():
     with open(script_filename, 'w') as f:
         f.write(script)
     # Launch the modified script from the OS, with 2 proc
-    response = os.system(
-        'cd %s; mpirun -np 2 python parametric_script.py' %temporary_dir )
+    response = os.system( command_line )
     assert response==0
 
     # Check that the simulation produced two output directories
@@ -309,8 +344,8 @@ def compare_simulations( ts1, ts2, checked_fields ):
 
 
 if __name__ == '__main__':
+    test_lpa_sim_twoproc_restart()
     test_ionization_script_twoproc()
     test_lpa_sim_singleproc_restart()
-    test_lpa_sim_twoproc_restart()
     test_parametric_sim_twoproc()
     test_boosted_frame_sim_twoproc()

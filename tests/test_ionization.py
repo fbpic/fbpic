@@ -138,7 +138,7 @@ def run_simulation( gamma_boost, use_separate_electron_species ):
         # Use a dictionary of electron species: one per ionizable level
         target_species = {}
         level_max = 6 # N can go up to N7+, but here we stop at N6+
-        for i_level in range(level_start, level_max): 
+        for i_level in range(level_start, level_max):
             target_species[i_level] = sim.add_new_species( q=-e, m=m_e )
     else:
         # Use the pre-existing, charge-neutralizing electrons
@@ -156,8 +156,11 @@ def run_simulation( gamma_boost, use_separate_electron_species ):
         ExternalField( laser_func, 'By', B0, 0. ) ]
 
     # Add a particle diagnostic
-    sim.diags = [ ParticleDiagnostic( diag_period,
-        {"ions":ions}, write_dir='tests/diags', comm=sim.comm) ]
+    sim.diags = [ ParticleDiagnostic( diag_period, {"ions":ions},
+        particle_data=["position", "gamma", "weighting", "E", "B"],
+        # Test output of fields and gamma for standard 
+        # (non-boosted) particle diagnostics
+        write_dir='tests/diags', comm=sim.comm) ]
     if gamma_boost > 1:
         T_sim_lab = (2.*40.*lambda0_lab + zmax_lab-zmin_lab)/c
         sim.diags.append(

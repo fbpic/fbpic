@@ -7,7 +7,8 @@ from setuptools.command.test import test as TestCommand
 import fbpic # In order to extract the version number
 
 # Obtain the long description from README.md
-long_description = open('./README.md').read()
+with open('./README.md') as f:
+    long_description = f.read()
 # Get the package requirements from the requirements.txt file
 with open('requirements.txt') as f:
     install_requires = [ line.strip('\n') for line in f.readlines() ]
@@ -25,12 +26,12 @@ setup(
     version=fbpic.__version__,
     description='Spectral, quasi-3D Particle-In-Cell for CPU and GPU',
     long_description=long_description,
-    long_description_content_type="text/markdown",
+    long_description_content_type='text/markdown',
     maintainer='Remi Lehe',
     maintainer_email='remi.lehe@normalesup.org',
     license='BSD-3-Clause-LBNL',
     packages=find_packages('.'),
-    tests_require=['pytest', 'openpmd_viewer'],
+    tests_require=['more-itertools<6.0.0', 'pytest', 'openpmd_viewer'],
     cmdclass={'test': PyTest},
     install_requires=install_requires,
     include_package_data=True,
