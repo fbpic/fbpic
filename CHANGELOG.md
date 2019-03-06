@@ -1,5 +1,40 @@
 # Change Log / Release Log for fbpic
 
+## 0.11
+
+This release makes several improvements to FBPIC:
+
+New features:
+- It is now possible for the `ParticleDiagnostic` to output the gathered
+E and B field (on the macroparticles), as well as the particles' Lorentz factor
+to the openPMD files ; see the docstring of `ParticleDiagnostic`, and
+[#330](https://github.com/fbpic/fbpic/pull/330),
+[#316](https://github.com/fbpic/fbpic/pull/316).
+
+Miscellaneous:
+- It is now possible to use FBPIC with Numba 0.42 ;
+see [#319](https://github.com/fbpic/fbpic/pull/319)
+- The installation documentation now includes information for Summit, as
+well as updated information for Lawrencium ; see
+[#322](https://github.com/fbpic/fbpic/pull/322)
+
+Bug-fixes:
+- There was a bug in MPI communications on GPU (in the rare case where all
+particles of a given species are located in the guard cells), that typically
+resulted in a `CudaAPIError`. This is now fixed ; see
+[##333](https://github.com/fbpic/fbpic/pull/333).
+- Calling `add_gaussian_bunch` with erroneous parameters (e.g. such that
+the bunch is not located inside the simulation box) used to produce `NaN`
+in the simulation. This is now fixed ; see
+[#331](https://github.com/fbpic/fbpic/pull/331).
+- When using custom smoothers for the charge/current, although the Maxwell
+solver did take into this custom smoother, the initial space-charge calculator
+still used the default one. This is now fixed ; see
+[#326](https://github.com/fbpic/fbpic/pull/326).
+- The function `add_gaussian_bunch` could potentially generate electrons
+with negative `gamma` (when initializing a bunch with a large energy spread).
+This is now fixed ; see [#325](https://github.com/fbpic/fbpic/pull/325)
+
 ## 0.10.1
 
 This is a bug-fix release.
