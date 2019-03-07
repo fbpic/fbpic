@@ -144,15 +144,15 @@ T_interact = boost.interaction_time( L_interact, (zmax-zmin), v_window )
 # (i.e. the time it takes for the moving window to slide across the plasma)
 
 ## The diagnostics
-# Period of the boosted frame diagnostics in timesteps
-diag_period = 50
 
-# Number of diagnostics to write in the lab frame
-Ntot_snapshot_lab = 15
-# Time interval for the diagnostics in the lab frame
-dt_snapshot_lab = L_interact / (Ntot_snapshot_lab-1) / v_window
-# Period of records for the lab-frame diagnostics
-record_period = 50
+# Number of diagnostics to output (including first output at t=0)
+N_diag = 10+1
+# Time interval between diagnostics (first at t=0, last at t=T_interact)
+dt_diag = (L_interact + (zmax-zmin)) / v_window / (N_diag - 1)
+# Period of the (boosted frame) diagnostics in timesteps
+diag_period = T_interact / (N_diag - 1)
+# Period of writing the cached, backtransformed lab frame diagnostics to disk 
+write_period = 50
 
 # Whether to tag and track the particles of the bunch
 track_bunch = False
@@ -190,18 +190,18 @@ if __name__ == '__main__':
     sim.diags = [ FieldDiagnostic(diag_period, sim.fld, sim.comm ),
                   ParticleDiagnostic(diag_period,
                     {"electrons":sim.ptcl[0], "bunch":sim.ptcl[2]}, sim.comm),
-                  BoostedFieldDiagnostic( zmin, zmax, v_window, dt_snapshot_lab,
+                  BoostedFieldDiagnostic( zmin, zmax, v_window, dt_diag,
                     Ntot_snapshot_lab, boost.gamma0, fieldtypes=['rho','E','B'],
-                    period=record_period, fldobject=sim.fld, comm=sim.comm),
+                    period=write_period, fldobject=sim.fld, comm=sim.comm),
                   BoostedParticleDiagnostic( zmin, zmax, v_window,
-                    dt_snapshot_lab, Ntot_snapshot_lab, boost.gamma0,
-                    record_period, sim.fld, select={'uz':[0.,None]},
+                    dt_diag, Ntot_snapshot_lab, boost.gamma0,
+                    write_period, sim.fld, select={'uz':[0.,None]},
                     species={'electrons':sim.ptcl[2]}, comm=sim.comm )
                     ]
 
     # Number of iterations to perform
-    N_step = int(T_interact/sim.dt)
+    N_step = int(T_interact/sim.dt + 1)
 
     ### Run the simulation
-    sim.step( N_step  )
+    sim.step( N_step )
     print('')
