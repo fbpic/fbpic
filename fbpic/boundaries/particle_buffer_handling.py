@@ -228,11 +228,6 @@ def remove_particles_gpu(species, fld, n_guard, left_proc, right_proc):
     else:
         i_min = 0
     i_max = prefix_sum.getitem( iz_max*(Nr+1) - 1 )
-    # Because of the way in which the prefix_sum is calculated, if the
-    # cell that was requested for i_max is beyond the last non-empty cell,
-    # i_max will be zero, but should in fact be species.Ntot
-    if i_max == 0:
-        i_max = species.Ntot
 
     # Total number of particles in each particle group
     N_send_l = i_min
