@@ -137,18 +137,25 @@ v_window = c*( 1 - 0.5*n_e/1.75e27 )
 # Velocity of the Galilean frame (for suppression of the NCI)
 v_comoving = - c * np.sqrt( 1. - 1./boost.gamma0**2 )
 
-# The diagnostics
-diag_period = 50        # Period of the diagnostics in number of timesteps
-# Whether to write the fields in the lab frame
-Ntot_snapshot_lab = 15
-dt_snapshot_lab = 10*(zmax-zmin)/c
-track_bunch = False  # Whether to tag and track the particles of the bunch
-
 # The interaction length of the simulation (meters)
 L_interact = (p_zmax-p_zmin) # the plasma length
 # Interaction time (seconds) (to calculate number of PIC iterations)
 T_interact = boost.interaction_time( L_interact, (zmax-zmin), v_window )
 # (i.e. the time it takes for the moving window to slide across the plasma)
+
+## The diagnostics
+# Period of the boosted frame diagnostics in timesteps
+diag_period = 50
+
+# Number of diagnostics to write in the lab frame
+Ntot_snapshot_lab = 15
+# Time interval for the diagnostics in the lab frame
+dt_snapshot_lab = L_interact / (Ntot_snapshot_lab-1) / v_window
+# Period of records for the lab-frame diagnostics
+record_period = 50
+
+# Whether to tag and track the particles of the bunch
+track_bunch = False
 
 # ---------------------------
 # Carrying out the simulation
@@ -175,21 +182,21 @@ if __name__ == '__main__':
            zf=zfoc, gamma_boost=boost.gamma0 )
 
     # Convert parameter to boosted frame
-    v_window, = boost.velocity( [ v_window ] )
+    v_window_boosted, = boost.velocity( [ v_window ] )
     # Configure the moving window
-    sim.set_moving_window( v=v_window )
+    sim.set_moving_window( v=v_window_boosted )
 
     # Add a field diagnostic
     sim.diags = [ FieldDiagnostic(diag_period, sim.fld, sim.comm ),
                   ParticleDiagnostic(diag_period,
                     {"electrons":sim.ptcl[0], "bunch":sim.ptcl[2]}, sim.comm),
-                  BoostedFieldDiagnostic( zmin, zmax, c, dt_snapshot_lab,
+                  BoostedFieldDiagnostic( zmin, zmax, v_window, dt_snapshot_lab,
                     Ntot_snapshot_lab, boost.gamma0, fieldtypes=['rho','E','B'],
-                    period=diag_period, fldobject=sim.fld, comm=sim.comm),
-                  BoostedParticleDiagnostic( zmin, zmax, c, dt_snapshot_lab,
-                    Ntot_snapshot_lab, boost.gamma0, diag_period, sim.fld,
-                    select={'uz':[0.,None]}, species={'electrons':sim.ptcl[2]},
-                    comm=sim.comm )
+                    period=record_period, fldobject=sim.fld, comm=sim.comm),
+                  BoostedParticleDiagnostic( zmin, zmax, v_window,
+                    dt_snapshot_lab, Ntot_snapshot_lab, boost.gamma0,
+                    record_period, sim.fld, select={'uz':[0.,None]},
+                    species={'electrons':sim.ptcl[2]}, comm=sim.comm )
                     ]
 
     # Number of iterations to perform
