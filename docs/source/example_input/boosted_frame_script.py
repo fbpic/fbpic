@@ -191,10 +191,10 @@ if __name__ == '__main__':
                   ParticleDiagnostic(diag_period,
                     {"electrons":sim.ptcl[0], "bunch":sim.ptcl[2]}, sim.comm),
                   BoostedFieldDiagnostic( zmin, zmax, v_window, dt_diag,
-                    Ntot_snapshot_lab, boost.gamma0, fieldtypes=['rho','E','B'],
+                    N_diag, boost.gamma0, fieldtypes=['rho','E','B'],
                     period=write_period, fldobject=sim.fld, comm=sim.comm),
                   BoostedParticleDiagnostic( zmin, zmax, v_window,
-                    dt_diag, Ntot_snapshot_lab, boost.gamma0,
+                    dt_diag, N_diag, boost.gamma0,
                     write_period, sim.fld, select={'uz':[0.,None]},
                     species={'electrons':sim.ptcl[2]}, comm=sim.comm )
                     ]
