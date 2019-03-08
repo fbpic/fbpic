@@ -206,7 +206,7 @@ def test_boosted_frame_sim_twoproc():
 
     # Change default N_step
     script = replace_string( script,
-        'N_step = int(T_interact/sim.dt)', 'N_step = 101')
+        'N_step = int(T_interact/sim.dt + 1)', 'N_step = 101')
 
     # Modify the script so as to enable finite order
     script = replace_string( script, 'n_order = -1', 'n_order = 16')
@@ -344,8 +344,9 @@ def compare_simulations( ts1, ts2, checked_fields ):
 
 
 if __name__ == '__main__':
+    test_boosted_frame_sim_twoproc()
     test_lpa_sim_twoproc_restart()
     test_ionization_script_twoproc()
     test_lpa_sim_singleproc_restart()
     test_parametric_sim_twoproc()
-    test_boosted_frame_sim_twoproc()
+
