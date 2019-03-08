@@ -143,6 +143,11 @@ L_interact = (p_zmax-p_zmin) # the plasma length
 T_interact = boost.interaction_time( L_interact, (zmax-zmin), v_window )
 # (i.e. the time it takes for the moving window to slide across the plasma)
 
+# time-step in the boosted frame
+dt_boost, = boost.copropag_length([ dt ])
+# Number of iterations to perform
+N_step = int(T_interact/dt_boost + 1)
+
 ## The diagnostics
 
 # Number of diagnostics to output (including first output at t=0)
@@ -150,8 +155,8 @@ N_diag = 10+1
 # Time interval between diagnostics (first at t=0, last at t=T_interact)
 dt_diag = (L_interact + (zmax-zmin)) / v_window / (N_diag - 1)
 # Period of the (boosted frame) diagnostics in timesteps
-diag_period = T_interact / (N_diag - 1)
-# Period of writing the cached, backtransformed lab frame diagnostics to disk 
+diag_period = int( (N_step-1) / (N_diag - 1) )
+# Period of writing the cached, backtransformed lab frame diagnostics to disk
 write_period = 50
 
 # Whether to tag and track the particles of the bunch
@@ -198,9 +203,6 @@ if __name__ == '__main__':
                     write_period, sim.fld, select={'uz':[0.,None]},
                     species={'electrons':sim.ptcl[2]}, comm=sim.comm )
                     ]
-
-    # Number of iterations to perform
-    N_step = int(T_interact/sim.dt + 1)
 
     ### Run the simulation
     sim.step( N_step )
