@@ -16,25 +16,29 @@ class ParticleDiagnostic(OpenPMDDiagnostic) :
     Class that defines the particle diagnostics to be performed.
     """
 
-    def __init__(self, period, species = {"electrons": None}, comm=None,
+    def __init__(self, period=None, species={}, comm=None,
         particle_data=["position", "momentum", "weighting"],
         select=None, write_dir=None, iteration_min=0, iteration_max=np.inf,
-        subsampling_fraction=None ) :
+        subsampling_fraction=None, dt_period=None ) :
         """
         Initialize the particle diagnostics.
 
-
         Parameters
         ----------
-        period : int
+        period : int, optional
             The period of the diagnostics, in number of timesteps.
             (i.e. the diagnostics are written whenever the number
-            of iterations is divisible by `period`)
+            of iterations is divisible by `period`). Specify either this or
+            `dt_period`.
 
-        species : a dictionary of Particle objects
+        dt_period : float (in seconds), optional
+            The period of the diagnostics, in physical time of the simulation.
+            Specify either this or `period`
+
+        species : a dictionary of :any:`Particles` objects
             The object that is written (e.g. elec)
-            is assigned to the particleName of this species.
-            (e.g. {"electrons" : elec })
+            is assigned to the particle name of this species.
+            (e.g. {"electrons": elec })
 
         comm : an fbpic BoundaryCommunicator object or None
             If this is not None, the data is gathered by the communicator, and
@@ -70,19 +74,26 @@ class ParticleDiagnostic(OpenPMDDiagnostic) :
             If this is not None, the particle data is subsampled with
             subsampling_fraction probability
         """
-        # General setup
+        # Check input
+        if len(species) == 0:
+            raise ValueError("You need to pass an non-empty `species_dict`.")
+        # Build an ordered list of species. (This is needed since the order
+        # of the keys is not well defined, so each MPI rank could go through
+        # the species in a different order, if species_dict.keys() is used.)
+        self.species_names_list = sorted( species.keys() )
+        # Extract the timestep from the first species
+        first_species = species[self.species_names_list[0]]
+        self.dt = first_species.dt
+
+        # General setup (uses the above timestep)
         OpenPMDDiagnostic.__init__(self, period, comm, write_dir,
-                                    iteration_min, iteration_max )
+                        iteration_min, iteration_max,
+                        dt_period=dt_period, dt_sim=self.dt )
 
         # Register the arguments
         self.species_dict = species
         self.select = select
         self.subsampling_fraction = subsampling_fraction
-
-        # Build an ordered list of species. (This is needed since the order
-        # of the keys is not well defined, so each MPI rank could go through
-        # the species in a different order, if species_dict.keys() is used.)
-        self.species_names_list = sorted( self.species_dict.keys() )
 
         # For each species, get the particle arrays to be written
         self.array_quantities_dict = {}
@@ -115,9 +126,6 @@ class ParticleDiagnostic(OpenPMDDiagnostic) :
             else:
                 self.constant_quantities_dict[species_name] += ["charge"]
 
-        # Extract the timestep from a given species
-        random_species = self.species_names_list[0]
-        self.dt = self.species_dict[random_species].dt
 
     def setup_openpmd_species_group( self, grp, species, constant_quantities ) :
         """
