@@ -24,16 +24,18 @@ class OpenPMDDiagnostic(object) :
     """
 
     def __init__(self, period, comm, write_dir=None,
-                        iteration_min=0, iteration_max=np.inf ):
+                iteration_min=0, iteration_max=np.inf,
+                dt_period=None, dt_sim=None ):
         """
         General setup of the diagnostic
 
         Parameters
         ----------
-        period : int
+        period : int, optional
             The period of the diagnostics, in number of timesteps.
             (i.e. the diagnostics are written whenever the number
-            of iterations is divisible by `period`)
+            of iterations is divisible by `period`). Specify either this or
+            `dt_period`.
 
         comm : an fbpic BoundaryCommunicator object or None
             If this is not None, the data is gathered on the first proc
@@ -48,6 +50,14 @@ class OpenPMDDiagnostic(object) :
         iteration_min, iteration_max: ints
             The iterations between which data should be written
             (`iteration_min` is inclusive, `iteration_max` is exclusive)
+
+        dt_period : float (in seconds), optional
+            The period of the diagnostics, in physical time of the simulation.
+            Specify either this or `period`
+
+        dt_sim : float (in seconds), optional
+            The timestep of the simulation.
+            Only needed if `dt_period` is not None.
         """
         # Get the rank of this processor
         if comm is not None :
@@ -55,8 +65,20 @@ class OpenPMDDiagnostic(object) :
         else :
             self.rank = 0
 
+        # Check period argument
+        if ((period is None) and (dt_period is None)):
+            raise ValueError("You need to pass either `period` or `dt_period`"
+                "to the diagnostics.")
+        if ((period is not None) and (dt_period is not None)):
+            raise ValueError("You need to pass either `period` or `dt_period`"
+                "to the diagnostics, \nbut do not pass both.")
+
+        # Get the diagnostic period
+        if period is None:
+            period = dt_period/dt_sim  # Extract it from `dt_period`
+        self.period = max(1, int(round(period))) # Impose non-zero integer
+
         # Register the arguments
-        self.period = int(round(period))  # Impose integer period
         self.iteration_min = iteration_min
         self.iteration_max = iteration_max
         self.comm = comm
@@ -98,6 +120,7 @@ class OpenPMDDiagnostic(object) :
 
         return(f)
 
+
     def write( self, iteration ) :
         """
         Check if the data should be written at this iteration
@@ -106,7 +129,7 @@ class OpenPMDDiagnostic(object) :
         Parameter
         ---------
         iteration : int
-             The current iteration number of the simulation.
+            The current iteration number of the simulation.
         """
         # Check if the fields should be written at this iteration
         if iteration % self.period == 0 \
@@ -115,6 +138,7 @@ class OpenPMDDiagnostic(object) :
 
             # Write the hdf5 file if needed
             self.write_hdf5( iteration )
+
 
     def create_dir( self, dir_path) :
         """
