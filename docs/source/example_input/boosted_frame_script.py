@@ -137,25 +137,21 @@ v_window = c*( 1 - 0.5*n_e/1.75e27 )
 # Velocity of the Galilean frame (for suppression of the NCI)
 v_comoving = - c * np.sqrt( 1. - 1./boost.gamma0**2 )
 
-# The interaction length of the simulation (meters)
+# The interaction length of the simulation, in the lab frame (meters)
 L_interact = (p_zmax-p_zmin) # the plasma length
-# Interaction time (seconds) (to calculate number of PIC iterations)
+# Interaction time, in the boosted frame (seconds)
 T_interact = boost.interaction_time( L_interact, (zmax-zmin), v_window )
 # (i.e. the time it takes for the moving window to slide across the plasma)
-
-# time-step in the boosted frame
-dt_boost, = boost.copropag_length([ dt ])
-# Number of iterations to perform
-N_step = int(T_interact/dt_boost + 1)
 
 ## The diagnostics
 
 # Number of diagnostics to output (including first output at t=0)
 N_diag = 10+1
-# Time interval between diagnostics (first at t=0, last at t=T_interact)
-dt_diag = (L_interact + (zmax-zmin)) / v_window / (N_diag - 1)
-# Period of the (boosted frame) diagnostics in timesteps
-diag_period = int( (N_step-1) / (N_diag - 1) )
+# Time interval between diagnostics *in the lab frame*
+# (first at t=0, last at t=T_interact)
+dt_lab_diag_period = (L_interact + (zmax-zmin)) / v_window / (N_diag - 1)
+# Time interval between diagnostics *in the boosted frame*
+dt_boosted_diag_period = T_interact / (N_diag - 1)
 # Period of writing the cached, backtransformed lab frame diagnostics to disk
 write_period = 50
 
@@ -192,17 +188,26 @@ if __name__ == '__main__':
     sim.set_moving_window( v=v_window_boosted )
 
     # Add a field diagnostic
-    sim.diags = [ FieldDiagnostic(diag_period, sim.fld, sim.comm ),
-                  ParticleDiagnostic(diag_period,
-                    {"electrons":sim.ptcl[0], "bunch":sim.ptcl[2]}, sim.comm),
-                  BoostedFieldDiagnostic( zmin, zmax, v_window, dt_diag,
-                    N_diag, boost.gamma0, fieldtypes=['rho','E','B'],
-                    period=write_period, fldobject=sim.fld, comm=sim.comm),
+    sim.diags = [
+                  # Diagnostics in the boosted frame
+                  FieldDiagnostic( dt_period=dt_boosted_diag_period,
+                                   fldobject=sim.fld, comm=sim.comm ),
+                  ParticleDiagnostic( dt_period=dt_boosted_diag_period,
+                        species={"electrons":sim.ptcl[0], "bunch":sim.ptcl[2]},
+                        comm=sim.comm),
+                  # Diagnostics in the lab frame (back-transformed)
+                  BoostedFieldDiagnostic( zmin, zmax, v_window,
+                    dt_lab_diag_period, N_diag, boost.gamma0,
+                    fieldtypes=['rho','E','B'], period=write_period,
+                    fldobject=sim.fld, comm=sim.comm ),
                   BoostedParticleDiagnostic( zmin, zmax, v_window,
-                    dt_diag, N_diag, boost.gamma0,
+                    dt_lab_diag_period, N_diag, boost.gamma0,
                     write_period, sim.fld, select={'uz':[0.,None]},
                     species={'electrons':sim.ptcl[2]}, comm=sim.comm )
-                    ]
+                ]
+
+    # Number of iterations to perform
+    N_step = int(T_interact/sim.dt)
 
     ### Run the simulation
     sim.step( N_step )
