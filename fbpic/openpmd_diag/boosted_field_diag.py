@@ -21,7 +21,7 @@ from fbpic.utils.cuda import cuda_installed
 if cuda_installed:
     from fbpic.utils.cuda import cuda, cuda_tpb_bpg_1d
 
-class BoostedFieldDiagnostic(FieldDiagnostic):
+class BackTransformedFieldDiagnostic(FieldDiagnostic):
     """
     Class that writes the fields *in the lab frame*, from
     a simulation in the boosted frame
@@ -791,3 +791,7 @@ if cuda_installed:
                 slice_arr[7,im+1,ir] = Sz*Jt[iz,ir].imag + Szp*Jt[izp,ir].imag
                 slice_arr[8,im+1,ir] = Sz*Jz[iz,ir].imag + Szp*Jz[izp,ir].imag
                 slice_arr[9,im+1,ir] = Sz*rho[iz,ir].imag + Szp*rho[izp,ir].imag
+
+
+# Alias, for backward compatibility
+BoostedFieldDiagnostic = BackTransformedFieldDiagnostic
