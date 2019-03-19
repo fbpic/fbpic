@@ -145,13 +145,16 @@ T_interact = boost.interaction_time( L_interact, (zmax-zmin), v_window )
 
 ## The diagnostics
 
-# Number of diagnostics to output (including first output at t=0)
-N_diag = 10+1
-# Time interval between diagnostics *in the lab frame*
+# Number of discrete diagnostic snapshots, for the diagnostics in the 
+# boosted frame (i.e. simulation frame) and in the lab frame
+# (i.e. back-transformed from the simulation frame to the lab frame)
+N_boosted_diag = 15+1
+N_lab_diag = 10+1
+# Time interval between diagnostic snapshots *in the lab frame*
 # (first at t=0, last at t=T_interact)
-dt_lab_diag_period = (L_interact + (zmax-zmin)) / v_window / (N_diag - 1)
-# Time interval between diagnostics *in the boosted frame*
-dt_boosted_diag_period = T_interact / (N_diag - 1)
+dt_lab_diag_period = (L_interact + (zmax-zmin)) / v_window / (N_lab_diag - 1)
+# Time interval between diagnostic snapshots *in the boosted frame*
+dt_boosted_diag_period = T_interact / (N_boosted_diag - 1)
 # Period of writing the cached, backtransformed lab frame diagnostics to disk
 write_period = 50
 
@@ -197,11 +200,11 @@ if __name__ == '__main__':
                         comm=sim.comm),
                   # Diagnostics in the lab frame (back-transformed)
                   BoostedFieldDiagnostic( zmin, zmax, v_window,
-                    dt_lab_diag_period, N_diag, boost.gamma0,
+                    dt_lab_diag_period, N_lab_diag, boost.gamma0,
                     fieldtypes=['rho','E','B'], period=write_period,
                     fldobject=sim.fld, comm=sim.comm ),
                   BoostedParticleDiagnostic( zmin, zmax, v_window,
-                    dt_lab_diag_period, N_diag, boost.gamma0,
+                    dt_lab_diag_period, N_lab_diag, boost.gamma0,
                     write_period, sim.fld, select={'uz':[0.,None]},
                     species={'electrons':sim.ptcl[2]}, comm=sim.comm )
                 ]
