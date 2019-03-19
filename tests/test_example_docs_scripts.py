@@ -342,8 +342,9 @@ def compare_simulations( ts1, ts2, checked_fields ):
 
 
 if __name__ == '__main__':
+    test_boosted_frame_sim_twoproc()
     test_lpa_sim_twoproc_restart()
     test_ionization_script_twoproc()
     test_lpa_sim_singleproc_restart()
     test_parametric_sim_twoproc()
-    test_boosted_frame_sim_twoproc()
+
