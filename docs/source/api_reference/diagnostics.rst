@@ -41,7 +41,26 @@ Field diagnostic
 
 .. autoclass:: fbpic.openpmd_diag.BackTransformedFieldDiagnostic
 
+.. warning::
+
+    The former class ``BoostedFieldDiagnostic`` has been renamed as
+    ``BackTransformedFieldDiagnostic``.
+
+    Although the name ``BoostedFieldDiagnostic`` can still be used
+    (for backward compatibility), we recommend using
+    ``BackTransformedFieldDiagnostic`` instead.
+
+
 Particle diagnostic
 ~~~~~~~~~~~~~~~~~~~
 
 .. autoclass:: fbpic.openpmd_diag.BackTransformedParticleDiagnostic
+
+.. warning::
+
+    The former class ``BoostedParticleDiagnostic`` has been renamed as
+    ``BackTransformedParticleDiagnostic``.
+
+    Although the name ``BoostedParticleDiagnostic`` can still be used
+    (for backward compatibility), we recommend using
+    ``BackTransformedParticleDiagnostic`` instead.

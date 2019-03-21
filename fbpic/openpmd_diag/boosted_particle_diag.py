@@ -56,7 +56,7 @@ class BackTransformedParticleDiagnostic(ParticleDiagnostic):
             The output of the gathered fields on the particles
             (``particle_data=["E", "B"]``) and of the Lorentz factor
             (``particle_data=["gamma"]``) is not currently supported
-            for ``BoostedParticleDiagnostic``.
+            for ``BackTransformedParticleDiagnostic``.
 
         Parameters
         ----------

@@ -2,7 +2,7 @@
 # Authors: Remi Lehe, Manuel Kirchen
 # License: 3-Clause-BSD-LBNL
 """
-This file defines the class BoostedFieldDiagnostic
+This file defines the class BackTransformedFieldDiagnostic
 
 Major features:
 - The class reuses the existing methods of FieldDiagnostic
