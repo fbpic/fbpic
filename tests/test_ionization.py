@@ -29,7 +29,8 @@ from scipy.constants import c, m_e, m_p, e
 from fbpic.main import Simulation
 from fbpic.lpa_utils.external_fields import ExternalField
 from fbpic.lpa_utils.boosted_frame import BoostConverter
-from fbpic.openpmd_diag import ParticleDiagnostic, BoostedParticleDiagnostic
+from fbpic.openpmd_diag import ParticleDiagnostic, \
+    BackTransformedParticleDiagnostic
 # Import openPMD-viewer for checking output files
 from opmd_viewer import OpenPMDTimeSeries
 
@@ -158,13 +159,13 @@ def run_simulation( gamma_boost, use_separate_electron_species ):
     # Add a particle diagnostic
     sim.diags = [ ParticleDiagnostic( diag_period, {"ions":ions},
         particle_data=["position", "gamma", "weighting", "E", "B"],
-        # Test output of fields and gamma for standard 
+        # Test output of fields and gamma for standard
         # (non-boosted) particle diagnostics
         write_dir='tests/diags', comm=sim.comm) ]
     if gamma_boost > 1:
         T_sim_lab = (2.*40.*lambda0_lab + zmax_lab-zmin_lab)/c
         sim.diags.append(
-            BoostedParticleDiagnostic(zmin_lab, zmax_lab, v_lab=0.,
+            BackTransformedParticleDiagnostic(zmin_lab, zmax_lab, v_lab=0.,
                 dt_snapshots_lab=T_sim_lab/2., Ntot_snapshots_lab=3,
                 gamma_boost=gamma_boost, period=diag_period,
                 fldobject=sim.fld, species={"ions":ions},

@@ -39,9 +39,9 @@ during a boosted-frame simulation.
 Field diagnostic
 ~~~~~~~~~~~~~~~~
 
-.. autoclass:: fbpic.openpmd_diag.BoostedFieldDiagnostic
+.. autoclass:: fbpic.openpmd_diag.BackTransformedFieldDiagnostic
 
 Particle diagnostic
 ~~~~~~~~~~~~~~~~~~~
 
-.. autoclass:: fbpic.openpmd_diag.BoostedParticleDiagnostic
+.. autoclass:: fbpic.openpmd_diag.BackTransformedParticleDiagnostic

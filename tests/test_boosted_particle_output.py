@@ -19,7 +19,7 @@ from scipy.constants import c
 from fbpic.main import Simulation
 from fbpic.lpa_utils.boosted_frame import BoostConverter
 from fbpic.lpa_utils.bunch import add_elec_bunch_gaussian
-from fbpic.openpmd_diag import BoostedParticleDiagnostic
+from fbpic.openpmd_diag import BackTransformedParticleDiagnostic
 # Import openPMD-viewer for checking output files
 from opmd_viewer import OpenPMDTimeSeries
 
@@ -76,7 +76,7 @@ def test_boosted_output( gamma_boost=10. ):
 
     # openPMD diagnostics
     sim.diags = [
-        BoostedParticleDiagnostic( zmin_lab, zmax_lab, v_lab=c,
+        BackTransformedParticleDiagnostic( zmin_lab, zmax_lab, v_lab=c,
             dt_snapshots_lab=T_sim_lab/3., Ntot_snapshots_lab=3,
             gamma_boost=gamma_boost, period=diag_period, fldobject=sim.fld,
             species={"bunch": sim.ptcl[0]}, comm=sim.comm) ]

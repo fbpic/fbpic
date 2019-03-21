@@ -8,7 +8,7 @@ from .particle_diag import ParticleDiagnostic
 from .particle_density_diag import ParticleChargeDensityDiagnostic
 from .boosted_field_diag import BoostedFieldDiagnostic, \
                                 BackTransformedFieldDiagnostic
-from .boosted_particle_diag import BoostedParticleDiagnostic \
+from .boosted_particle_diag import BoostedParticleDiagnostic, \
                                 BackTransformedParticleDiagnostic
 from .checkpoint_restart import set_periodic_checkpoint, \
      restart_from_checkpoint
