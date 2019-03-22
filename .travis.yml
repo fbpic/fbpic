@@ -28,7 +28,7 @@ before_script:
   - python -m pyflakes .
   - pip install openPMD-viewer
 script:
-  - "python setup.py test"
+#  - "python setup.py test"
 
   # Automatically upload the documentation for the dev branch
   - ./deploy.sh
