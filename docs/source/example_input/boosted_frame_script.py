@@ -83,7 +83,6 @@ n_e = 3.e24      # The density in the labframe (electrons.meters^-3)
 p_nz = 2         # Number of particles per cell along z
 p_nr = 2         # Number of particles per cell along r
 p_nt = 6         # Number of particles per cell along theta
-uz_m = 0.        # Initial momentum of the electrons in the lab frame
 
 # Density profile
 # Convert parameters to boosted frame
