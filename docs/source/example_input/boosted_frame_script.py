@@ -25,7 +25,7 @@ from fbpic.lpa_utils.laser import add_laser
 from fbpic.lpa_utils.bunch import add_elec_bunch
 from fbpic.lpa_utils.boosted_frame import BoostConverter
 from fbpic.openpmd_diag import FieldDiagnostic, ParticleDiagnostic, \
-                  BoostedFieldDiagnostic, BoostedParticleDiagnostic
+        BackTransformedFieldDiagnostic, BackTransformedParticleDiagnostic
 # ----------
 # Parameters
 # ----------
@@ -145,7 +145,7 @@ T_interact = boost.interaction_time( L_interact, (zmax-zmin), v_window )
 
 ## The diagnostics
 
-# Number of discrete diagnostic snapshots, for the diagnostics in the 
+# Number of discrete diagnostic snapshots, for the diagnostics in the
 # boosted frame (i.e. simulation frame) and in the lab frame
 # (i.e. back-transformed from the simulation frame to the lab frame)
 N_boosted_diag = 15+1
@@ -199,11 +199,11 @@ if __name__ == '__main__':
                         species={"electrons":sim.ptcl[0], "bunch":sim.ptcl[2]},
                         comm=sim.comm),
                   # Diagnostics in the lab frame (back-transformed)
-                  BoostedFieldDiagnostic( zmin, zmax, v_window,
+                  BackTransformedFieldDiagnostic( zmin, zmax, v_window,
                     dt_lab_diag_period, N_lab_diag, boost.gamma0,
                     fieldtypes=['rho','E','B'], period=write_period,
                     fldobject=sim.fld, comm=sim.comm ),
-                  BoostedParticleDiagnostic( zmin, zmax, v_window,
+                  BackTransformedParticleDiagnostic( zmin, zmax, v_window,
                     dt_lab_diag_period, N_lab_diag, boost.gamma0,
                     write_period, sim.fld, select={'uz':[0.,None]},
                     species={'electrons':sim.ptcl[2]}, comm=sim.comm )
