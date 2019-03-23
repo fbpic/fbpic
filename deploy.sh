@@ -4,10 +4,10 @@
 # See https://gist.github.com/domenic/ec8b0fc8ab45f39403dd
 
 # Only push when updating master (i.e. new releases)
-#if [ "$TRAVIS_PULL_REQUEST" != "false" -o "$TRAVIS_BRANCH" != "master" ]; then
-#    echo "Skipping deploy; just doing a build."
-#    exit 0
-#fi
+if [ "$TRAVIS_PULL_REQUEST" != "false" -o "$TRAVIS_BRANCH" != "master" ]; then
+    echo "Skipping deploy; just doing a build."
+    exit 0
+fi
 
 SHA=`git rev-parse --verify HEAD`
 
