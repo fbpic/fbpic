@@ -2,7 +2,7 @@
 # Authors: Remi Lehe, Manuel Kirchen
 # License: 3-Clause-BSD-LBNL
 """
-This file tests the particle pusher and the external fields by 
+This file tests the particle pusher and the external fields by
 by studying the motion of particles in plane laser wave.
 
 Usage :
@@ -48,7 +48,7 @@ p_rmax = rmax/Nr
 p_nt = 1
 p_nr = 1
 p_nz = 1
-n = 0. # Pure test particles
+n = 1.
 
 def test_external_laser_field(show=False):
     "Function that is run by py.test, when doing `python setup.py test`"
@@ -123,7 +123,7 @@ def test_external_laser_field(show=False):
 
 def laser_func( F, x, y, z, t, amplitude, length_scale ):
     """
-    Function to be called at each timestep on the particles 
+    Function to be called at each timestep on the particles
     """
     return( F + amplitude*math.cos( 2*np.pi*(z-c*t)/length_scale ) )
 
