@@ -29,3 +29,7 @@ before_script:
   - pip install openPMD-viewer
 script:
   - "python setup.py test"
+
+after_success:
+  # Automatically upload the documentation when updating the master branch
+  - ./deploy.sh
