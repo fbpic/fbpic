@@ -93,10 +93,10 @@ class ExternalField( object ):
             However, **when running the simulation in a boosted frame**
             (i.e. when setting the above argument ``gamma_boost``),
             the expression of the external fields **needs to be proportional
-            to ``amplitude``**. This is because, internally, the automatic
+            to** ``amplitude``. This is because, internally, the automatic
             conversion of the external fields to the boosted frame relies
-            on this variable. (There is no such constraint for ``length_scale``,
-            though.)
+            on this variable. (There is no similar constraint for
+            ``length_scale``, however.)
         """
         # Register the arguments
         self.length_scale = length_scale
