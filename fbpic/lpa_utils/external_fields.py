@@ -28,14 +28,15 @@ class ExternalField( object ):
         field_func: callable
             Function of the form `field_func( F, x, y, z, t, amplitude,
             length_scale )` and which returns the modified field F'
+            (in the lab frame)
 
             This function will be called at each timestep, with:
 
             - F: 1d array of shape (N_ptcl,), containing the field
               designated by fieldtype, gathered on the particles
             - x, y, z: 1d arrays of shape (N_ptcl), containing the
-              positions of the particles
-            - t: float, the time in the simulation
+              positions of the particles (in the lab frame)
+            - t: float, the time in the simulation (in the lab frame)
             - amplitude and length_scale: floats that can be used within
               the function expression
 
@@ -60,9 +61,11 @@ class ExternalField( object ):
             If no species is specified, the external field is applied
             to all particles.
 
-TODO: gamma_boost
-TODO: explain that, when using the boost, the field
-should be proportional to the amplitude
+        gamma_boost: float, optional
+            When running the simulation in a boosted frame, set the
+            value of `gamma_boost` to the corresponding Lorentz factor.
+            The external fields will be automatically converted to the
+            boosted frame.
 
         Example
         -------
@@ -75,6 +78,25 @@ should be proportional to the amplitude
                 return( F + amplitude * math.cos( 2*np.pi*z/length_scale ) )
 
             sim.external_fields = [ ExternalField( field_func, 'By', 1., 1.e-2 ) ]
+
+        .. warning::
+
+            Note that, in principle, ``field_func`` does not necessarily need
+            to use the arguments ``amplitude`` and ``length_scale``.
+            For instance, in the above example, we could have used
+
+            ::
+
+                def field_func( F, x, y, z, t , amplitude, length_scale ):
+                    return( F + 1. * math.cos( 2*np.pi*z/1.e-2 ) )
+
+            However, **when running the simulation in a boosted frame**
+            (i.e. when setting the above argument ``gamma_boost``),
+            the expression of the external fields **needs to be proportional
+            to ``amplitude``**. This is because, internally, the automatic
+            conversion of the external fields to the boosted frame relies
+            on this variable. (There is no such constraint for ``length_scale``,
+            though.)
         """
         # Register the arguments
         self.length_scale = length_scale
@@ -83,12 +105,16 @@ should be proportional to the amplitude
         if (fieldtype in ['Ex', 'Ey', 'Ez', 'Bx', 'By', 'Bz']) is False:
             raise ValueError("`fieldtype` must be one of Ex, Ey, Ez, Bx, By, Bz")
 
-# TODO: Explain: when performing a boost:
-# 1. the field is computed in the lab frame at the current position/time of particle
-# 2. it is converted back to the boosted frame
+        # Note: when `gamma_boost` is passed, the fields are evaluated in
+        # the boosted frame, even though the user-provided function corresponds
+        # to the lab frame. This is done (conceptually) in 2 steps:
+        # - the field is computed in the lab frame, by transforming
+        #   the current position/time of particles to the lab frame
+        # - the field is converted back to the boosted frame, by using
+        #   Lorentz transform formulas for E and B
 
-        # Modify user-input function, so as to apply it in boosted frame
-        if (gamma_boost is not None):
+        # Modify user-input function, so as to evaluate field in the lab frame
+        if (gamma_boost is not None) and (gamma_boost != 1.):
             beta_boost = np.sqrt(1. - 1./gamma_boost**2)
             field_func = njit(field_func)
             def func( F, x, y, z, t, amplitude, length_scale ):
@@ -107,28 +133,26 @@ should be proportional to the amplitude
             gpu_compiler = vectorize( signature, target='cuda' )
             self.gpu_func = gpu_compiler( func )
 
-        # Boost the field back to the boosted frame
-        if (gamma_boost is not None):
+        # Convert the field back to the boosted frame
+        if (gamma_boost is not None) and (gamma_boost != 1.):
             g = gamma_boost
             gb = gamma_boost*beta_boost
             if fieldtype == 'Ex':
-                self.fieldtypes = ('Ex', 'By')
-                self.amplitudes = (g*amplitude, -gb*inv_c*amplitude)
+                self.fieldtypes_and_amplitudes = (('Ex', g*amplitude),
+                                                  ('By', -gb*inv_c*amplitude))
             elif fieldtype == 'Ey':
-                self.fieldtypes = ('Ey', 'Bx')
-                self.amplitudes = (g*amplitude, gb*inv_c*amplitude)
+                self.fieldtypes_and_amplitudes = (('Ey', g*amplitude),
+                                                  ('Bx', gb*inv_c*amplitude))
             elif fieldtype == 'Bx':
-                self.fieldtypes = ('Bx', 'Ey')
-                self.amplitudes = (g*amplitude, gb*c*amplitude)
+                self.fieldtypes_and_amplitudes = (('Bx', g*amplitude),
+                                                  ('Ey', gb*c*amplitude))
             elif fieldtype == 'By':
-                self.fieldtypes = ('By', 'Ex')
-                self.amplitudes = (g*amplitude, -gb*c*amplitude)
+                self.fieldtypes_and_amplitudes = (('By', g*amplitude),
+                                                  ('Ex', -gb*c*amplitude))
             elif (fieldtype == 'Ez') or (fieldtype == 'Bz'):
-                self.fieldtypes = (fieldtype,)
-                self.amplitudes = (amplitude,)
+                self.fieldtypes_and_amplitudes = ((fieldtype, amplitude),)
         else:
-            self.fieldtypes = (fieldtype,)
-            self.amplitudes = (amplitude,)
+            self.fieldtypes_and_amplitudes = ((fieldtype, amplitude),)
 
 
     def apply_expression( self, ptcl, t ):
@@ -158,7 +182,7 @@ should be proportional to the amplitude
                     return
 
                 # Loop over the different fields involved
-                for (fieldtype, amplitude) in zip(self.fieldtypes, self.amplitudes):
+                for (fieldtype, amplitude) in self.fieldtypes_and_amplitudes:
 
                     field = getattr( species, fieldtype )
 
