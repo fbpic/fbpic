@@ -38,13 +38,7 @@ a0 = 1.
 lambda0 = 0.8e-6
 k0 = 2*np.pi/lambda0
 
-# Time parameters
-dt = lambda0/c/200  # 200 points per laser period
-N_step = 400        # Two laser periods
-
 # Particles (one per cell, only initialized near the axis)
-p_zmin = zmin
-p_zmax = zmax
 p_rmax = rmax/Nr
 p_nt = 1
 p_nr = 1
@@ -65,17 +59,35 @@ def run_external_laser_field_simulation(show, gamma_boost=None):
     ux = a0 sin ( k0 gamma0 (1-beta0) (z-ct) )
     uz = - gamma0 beta0 + gamma0 (1-beta0) ux^2 / 2
     """
+    # Time parameters
+    dt = lambda0/c/200  # 200 points per laser period
+    N_step = 400        # Two laser periods
+
+    # Initialize BoostConverter object
+    if gamma_boost is None:
+        boost = BoostConverter(gamma0=1.)
+    else:
+        boost = BoostConverter(gamma_boost)
+    # Reduce time resolution, for the case of a boosted simulation
+    if gamma_boost is not None:
+        dt = dt*(1.+boost.beta0)/boost.gamma0
+
     # Initialize the simulation
     sim = Simulation( Nz, zmax, Nr, rmax, Nm, dt,
-        p_zmin, p_zmax, 0, p_rmax, p_nz, p_nr, p_nt, n,
         initialize_ions=False, zmin=zmin,
         use_cuda=use_cuda, boundaries='periodic',
         gamma_boost=gamma_boost )
+    # Add electrons
+    sim.ptcl = []
+    sim.add_new_species( -e, m_e, n=n, p_rmax=p_rmax,
+                          p_nz=p_nz, p_nr=p_nr, p_nt=p_nt )
 
     # Add the external fields
     sim.external_fields = [
-        ExternalField(laser_func, 'Ex', a0*m_e*c**2*k0/e, lambda0, gamma_boost),
-        ExternalField(laser_func, 'By', a0*m_e*c*k0/e, lambda0, gamma_boost)
+        ExternalField(laser_func, 'Ex', a0*m_e*c**2*k0/e,
+                      lambda0, gamma_boost=gamma_boost),
+        ExternalField(laser_func, 'By', a0*m_e*c*k0/e,
+                      lambda0, gamma_boost=gamma_boost)
     ]
 
     # Prepare the arrays for the time history of the pusher
@@ -86,12 +98,6 @@ def run_external_laser_field_simulation(show, gamma_boost=None):
     ux = np.zeros( (N_step, Nptcl) )
     uy = np.zeros( (N_step, Nptcl) )
     uz = np.zeros( (N_step, Nptcl) )
-
-    # Initialize BoostConverter object
-    if gamma_boost is None:
-        boost = BoostConverter(gamma0=1.)
-    else:
-        boost = BoostConverter(gamma_boost)
 
     # Prepare the particles with proper transverse and longitudinal momentum,
     # at t=0 in the simulation frame

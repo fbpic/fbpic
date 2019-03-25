@@ -1,7 +1,9 @@
 # Copyright 2016, FBPIC contributors
 # Authors: Remi Lehe, Manuel Kirchen
 # License: 3-Clause-BSD-LBNL
-from numba import vectorize, float64
+from numba import vectorize, float64, njit
+from scipy.constants import c
+inv_c = 1./c
 import numpy as np
 # Check if CUDA is available, then import CUDA functions
 from fbpic.utils.cuda import cuda_installed
@@ -9,7 +11,7 @@ from fbpic.utils.cuda import cuda_installed
 class ExternalField( object ):
 
     def __init__(self, field_func, fieldtype, amplitude,
-                 length_scale, species=None ):
+                 length_scale, species=None, gamma_boost=None ):
         """
         Initialize an ExternalField object, so that the function
         `field_func` is called at each time step on the field `fieldtype`
@@ -40,8 +42,8 @@ class ExternalField( object ):
             .. warning::
                 In the PIC loop, this function is called after
                 the field gathering. Thus this function can potentially
-                overwrite the fields that were gathered on the grid. To avoid 
-                this, use "return(F + external_field) " inside the definition 
+                overwrite the fields that were gathered on the grid. To avoid
+                this, use "return(F + external_field) " inside the definition
                 of `field_func` instead of "return(external_field)"
 
             .. warning::
@@ -58,6 +60,10 @@ class ExternalField( object ):
             If no species is specified, the external field is applied
             to all particles.
 
+TODO: gamma_boost
+TODO: explain that, when using the boost, the field
+should be proportional to the amplitude
+
         Example
         -------
         In order to define a magnetic undulator, polarized along y, with
@@ -70,25 +76,59 @@ class ExternalField( object ):
 
             sim.external_fields = [ ExternalField( field_func, 'By', 1., 1.e-2 ) ]
         """
-        # Check that fieldtype is a correct field
-        if (fieldtype in ['Ex', 'Ey', 'Ez', 'Bx', 'By', 'Bz']) is False:
-            raise ValueError()
-        else:
-            self.fieldtype = fieldtype
-
         # Register the arguments
-        self.amplitude = amplitude
         self.length_scale = length_scale
         self.species = species
+        # Check that fieldtype is a correct field
+        if (fieldtype in ['Ex', 'Ey', 'Ez', 'Bx', 'By', 'Bz']) is False:
+            raise ValueError("`fieldtype` must be one of Ex, Ey, Ez, Bx, By, Bz")
+
+# TODO: Explain: when performing a boost:
+# 1. the field is computed in the lab frame at the current position/time of particle
+# 2. it is converted back to the boosted frame
+
+        # Modify user-input function, so as to apply it in boosted frame
+        if (gamma_boost is not None):
+            beta_boost = np.sqrt(1. - 1./gamma_boost**2)
+            field_func = njit(field_func)
+            def func( F, x, y, z, t, amplitude, length_scale ):
+                zlab = gamma_boost*(z + beta_boost*c*t)
+                tlab = gamma_boost*(t + beta_boost*inv_c*z)
+                return field_func(F, x, y, zlab, tlab, amplitude, length_scale)
+        else:
+            func = field_func
 
         # Compile the field_func for cpu and gpu
         signature = [ float64( float64, float64, float64,
                                float64, float64, float64, float64 ) ]
         cpu_compiler = vectorize( signature, target='cpu', nopython=True )
-        self.cpu_func = cpu_compiler( field_func )
+        self.cpu_func = cpu_compiler( func )
         if cuda_installed:
             gpu_compiler = vectorize( signature, target='cuda' )
-            self.gpu_func = gpu_compiler( field_func )
+            self.gpu_func = gpu_compiler( func )
+
+        # Boost the field back to the boosted frame
+        if (gamma_boost is not None):
+            g = gamma_boost
+            gb = gamma_boost*beta_boost
+            if fieldtype == 'Ex':
+                self.fieldtypes = ('Ex', 'By')
+                self.amplitudes = (g*amplitude, -gb*inv_c*amplitude)
+            elif fieldtype == 'Ey':
+                self.fieldtypes = ('Ey', 'Bx')
+                self.amplitudes = (g*amplitude, gb*inv_c*amplitude)
+            elif fieldtype == 'Bx':
+                self.fieldtypes = ('Bx', 'Ey')
+                self.amplitudes = (g*amplitude, gb*c*amplitude)
+            elif fieldtype == 'By':
+                self.fieldtypes = ('By', 'Ex')
+                self.amplitudes = (g*amplitude, -gb*c*amplitude)
+            elif (fieldtype == 'Ez') or (fieldtype == 'Bz'):
+                self.fieldtypes = (fieldtype,)
+                self.amplitudes = (amplitude,)
+        else:
+            self.fieldtypes = (fieldtype,)
+            self.amplitudes = (amplitude,)
 
 
     def apply_expression( self, ptcl, t ):
@@ -114,15 +154,19 @@ class ExternalField( object ):
 
                 # Only apply the field if there are macroparticles
                 # in this species
-                if species.Ntot > 0:
+                if species.Ntot <= 0:
+                    return
 
-                    field = getattr( species, self.fieldtype )
+                # Loop over the different fields involved
+                for (fieldtype, amplitude) in zip(self.fieldtypes, self.amplitudes):
+
+                    field = getattr( species, fieldtype )
 
                     if type( field ) is np.ndarray:
                         # Call the CPU function
                         self.cpu_func( field, species.x, species.y, species.z,
-                              t, self.amplitude, self.length_scale, out=field )
+                              t, amplitude, self.length_scale, out=field )
                     else:
                         # Call the GPU function
                         self.gpu_func( field, species.x, species.y, species.z,
-                              t, self.amplitude, self.length_scale, out=field )
+                              t, amplitude, self.length_scale, out=field )
