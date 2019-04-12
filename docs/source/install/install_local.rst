@@ -35,8 +35,10 @@ Python. If Anaconda is not your default Python distribution, download and instal
 
        conda install cudatoolkit=8.0 pyculib
 
-   (If your GPU driver supports a newer version of CUDA than 8.0, you can
-   modify the above number accordingly.)
+   If your GPU driver supports a newer version of CUDA than 8.0, you can
+   modify the above number accordingly. See
+   `this page <https://docs.anaconda.com/anaconda/user-guide/tasks/gpu-packages/#software-requirements>`__
+   for more information.
 
 -  **Optional:** In order to run on a CPU which is **not** an Intel model, you need to install `pyfftw`, in order to replace the MKL FFT:
 
