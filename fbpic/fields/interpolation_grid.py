@@ -6,6 +6,8 @@ This file is part of the Fourier-Bessel Particle-In-Cell code (FB-PIC)
 It defines the InterpolationGrid class.
 """
 import numpy as np
+from fbpic.fields.spectral_transform.hankel import DHT
+from scipy.special import j0, j1, jn_zeros
 from numba import cuda
 # Check if CUDA is available, then import CUDA functions
 from fbpic.utils.cuda import cuda_installed
@@ -67,7 +69,13 @@ class InterpolationGrid(object) :
         # Cell volume (assuming an evenly-spaced grid)
         r = (0.5 + np.arange(Nr))*dr
         vol = np.pi*dz*( (r+0.5*dr)**2 - (r-0.5*dr)**2 )
-        # Note: No Verboncoeur-type correction required
+        # Cell volume (assuming Hankel correction correct charge density)
+        p = np.arange(Nr)
+        alphas = jn_zeros(0,Nr)
+        d = DHT( 0, 0, Nr, Nz, rmax, use_cuda=False )
+        vol = [( d.M[p,:]*2./(alphas*j1(alphas)) ).sum() for p in p_vals]
+        vol = np.array(vol)
+        # Inverse of cell volume
         self.invvol = 1./vol
 
         # Allocate the fields arrays
