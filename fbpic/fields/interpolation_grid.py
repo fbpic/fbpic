@@ -70,11 +70,11 @@ class InterpolationGrid(object) :
         r = (0.5 + np.arange(Nr))*dr
         vol = np.pi*dz*( (r+0.5*dr)**2 - (r-0.5*dr)**2 )
         # Cell volume (assuming Hankel correction correct charge density)
-        p = np.arange(Nr)
+        p_vals = np.arange(Nr)
         alphas = jn_zeros(0,Nr)
         d = DHT( 0, 0, Nr, Nz, rmax, use_cuda=False )
         vol = [( d.M[p,:]*2./(alphas*j1(alphas)) ).sum() for p in p_vals]
-        vol = np.array(vol)
+        vol = dz*np.array(vol)
         # Inverse of cell volume
         self.invvol = 1./vol
 
