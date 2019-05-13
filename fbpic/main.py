@@ -164,7 +164,7 @@ class Simulation(object):
             For the moment, `cross-deposition` is still experimental.
 
         gamma_boost : float, optional
-            When initializing the laser in a boosted frame, set the
+            When running the simulation in a boosted frame, set the
             value of `gamma_boost` to the corresponding Lorentz factor.
             All the other quantities (zmin, zmax, n_e, etc.) are to be given
             in the lab frame.
