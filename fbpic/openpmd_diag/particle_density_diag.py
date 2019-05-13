@@ -109,7 +109,7 @@ class ParticleChargeDensityDiagnostic(FieldDiagnostic):
             # Bring filtered particle density back to the intermediate grid
             self.fld.spect2interp('rho_next')
             # Exchange (add) the particle density between domains
-            if (sim.comm is not None) and (sim.comm.size > 1) \
+            if (sim.comm is not None) and (sim.comm.size > 1):
                 sim.comm.exchange_fields(sim.fld.interp, 'rho', 'add')
 
             # If needed: Receive data from the GPU
