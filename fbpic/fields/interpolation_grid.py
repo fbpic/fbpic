@@ -7,7 +7,7 @@ It defines the InterpolationGrid class.
 """
 import numpy as np
 from fbpic.fields.spectral_transform.hankel import DHT
-from scipy.special import j0, j1, jn_zeros
+from scipy.special import j1, jn_zeros
 from numba import cuda
 # Check if CUDA is available, then import CUDA functions
 from fbpic.utils.cuda import cuda_installed
@@ -66,10 +66,7 @@ class InterpolationGrid(object) :
         self.rmax = rmax
         self.zmin = zmin
         self.zmax = zmax
-        # Cell volume (assuming an evenly-spaced grid)
-        r = (0.5 + np.arange(Nr))*dr
-        vol = np.pi*dz*( (r+0.5*dr)**2 - (r-0.5*dr)**2 )
-        # Cell volume (assuming Hankel correction correct charge density)
+        # Cell volume (assuming Hankel-transform corrected volumes)
         p_vals = np.arange(Nr)
         alphas = jn_zeros(0,Nr)
         d = DHT( 0, 0, Nr, Nz, rmax, use_cuda=False )
