@@ -37,6 +37,21 @@ where ``fbpic_script.py`` should be replaced by the name of your
 Python script: either ``lwfa_script.py`` or
 ``boosted_frame_script.py`` for the above examples.
 
+If an MPI implementation is available within the compute environment and
+the ``mpi4py`` package is installed, the computation can be scaled to multiple
+processes (e.g. 4) by running
+
+::
+
+  mpirun -n 4 python fbpic_script.py
+
+.. warning::
+
+    Running distributed simulation via MPI requires using a finite order
+    (e.g. ``n_order=32``) for the field solver. Please carefully read the
+    documentation on the :doc:`parallelisation of FBPIC
+    <overview/parallelisation>` before using this feature.
+
 .. note::
 
    When running on CPU, **multi-threading** is enabled by default, and the
