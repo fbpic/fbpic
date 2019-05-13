@@ -433,9 +433,6 @@ class BoundaryCommunicator(object):
         self._zmin_global_domain += z_shift
 
 
-    # Exchange routines
-    # -----------------
-
     def move_grids( self, fld, ptcl, dt, time ):
         """
         Calculate by how many cells the moving window should be moved.
@@ -460,6 +457,36 @@ class BoundaryCommunicator(object):
         """
         self.moving_win.move_grids(fld, ptcl, self, time)
 
+
+    def check_mpi_synchronized_grids( self ):
+        """
+        Check that the positions of the grid is synchronized for all MPI ranks
+
+        This is because each MPI rank updates the position of the grid
+        independently (either with the moving window or Galilean scheme)
+        If this is not performed carefully, this could lead to
+        slight mismatch, at the machine precision level - which in turn could
+        result in some ranks moving the moving windows while others do not.
+        """
+        if self.size > 1:
+            # Check that the `zmin_global_domain` is the same for all ranks
+            zmin_global_domain, _ = self.get_zmin_zmax(
+                            local=False, with_damp=False, with_guard=False )
+            zmin_box_list = self.mpi_comm.gather( zmin_global_domain )
+            # If a moving window is present, check that the
+            # continuously-varying `zmin` is the same for all ranks
+            if self.moving_win is not None:
+                zmin_window_list = self.mpi_comm.gather( self.moving_win.zmin )
+            if self.rank == 0:
+                # Only rank 0 performs the check
+                for i in range(1, self.size):
+                    assert zmin_box_list[i] == zmin_box_list[0]
+                    if self.moving_win is not None:
+                        assert zmin_window_list[i] == zmin_window_list[0]
+
+
+    # Exchange routines
+    # -----------------
 
     def exchange_fields( self, interp, fieldtype, method ):
         """

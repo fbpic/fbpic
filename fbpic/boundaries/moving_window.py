@@ -51,10 +51,11 @@ class MovingWindow(object):
         zmin_global_domain, zmax_global_domain = comm.get_zmin_zmax(
                             local=False, with_damp=False, with_guard=False )
 
-        # Attach reference position of moving window (only for the first proc)
+        # Attach reference position of moving window
         # (Determines by how many cells the window should be moved)
-        if comm.rank == 0:
-            self.zmin = zmin_global_domain
+        # Note: this quantity should always be exactly the same for each
+        # MPI rank *at the machine precision*.
+        self.zmin = zmin_global_domain
 
 
     def move_grids(self, fld, ptcl, comm, time):
@@ -80,18 +81,13 @@ class MovingWindow(object):
             The global time in the simulation
             This is used in order to determine how much the window should move
         """
-        # To avoid discrepancies between processors, only the first proc
-        # decides whether to send the data, and broadcasts the information.
-        dz = comm.dz
-        if comm.rank==0:
-            # Move the continuous position of the moving window object
-            self.zmin += self.v * (time - self.t_last_move)
-            # Find the number of cells by which the window should move
-            zmin_global_domain, zmax_global_domain = comm.get_zmin_zmax(
-                            local=False, with_damp=False, with_guard=False )
-            n_move = int( (self.zmin - zmin_global_domain)/dz )
-        else:
-            n_move = None
+        # Move the continuous position of the moving window object
+        self.zmin += self.v * (time - self.t_last_move)
+        # Find the number of cells by which the window should move
+        zmin_global_domain, zmax_global_domain = comm.get_zmin_zmax(
+                        local=False, with_damp=False, with_guard=False )
+        n_move = int( (self.zmin - zmin_global_domain)/comm.dz )
+
         # Broadcast the information to all proc
         if comm.size > 1:
             n_move = comm.mpi_comm.bcast( n_move )
@@ -99,7 +95,7 @@ class MovingWindow(object):
         # Move the grids
         if n_move != 0:
             # Move the global domain
-            comm.shift_global_domain_positions( n_move*dz )
+            comm.shift_global_domain_positions( n_move*comm.dz )
             # Shift the fields
             Nm = len(fld.interp)
             for m in range(Nm):

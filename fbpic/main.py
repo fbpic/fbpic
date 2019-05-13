@@ -364,6 +364,9 @@ class Simulation(object):
             # of this loop (i_step == 0) in order to ensure that all
             # particles are inside the box, and that 'rho_prev' is correct
             if self.iteration % self.comm.exchange_period == 0 or i_step == 0:
+                # Check that the positions of all grids are synchronized
+                self.comm.check_mpi_synchronized_grids()
+
                 # Particle exchange includes MPI exchange of particles, removal
                 # of out-of-box particles and (if there is a moving window)
                 # continuous injection of new particles by the moving window.
