@@ -436,8 +436,8 @@ class Particles(object) :
 
         target_species: a `Particles` object, or a dictionary of `Particles`
             Stores the electron macroparticles that are created in
-            the ionization process. If a single `Particles` object is passed, 
-            then electrons from all ionization levels are stored into this 
+            the ionization process. If a single `Particles` object is passed,
+            then electrons from all ionization levels are stored into this
             object. If a dictionary is passed, then its keys should be integers
             (corresponding to the ionizable levels of `element`, starting
             at `level_start`), and its values should be `Particles` objects.
@@ -852,7 +852,8 @@ class Particles(object) :
                             grid[0].invdz, grid[0].zmin, grid[0].Nz,
                             grid[0].invdr, grid[0].rmin, grid[0].Nr,
                             grid[0].rho, grid[1].rho,
-                            self.cell_idx, self.prefix_sum)
+                            self.cell_idx, self.prefix_sum,
+                            grid[0].beta_n)
                     else:
                         for m in range(Nm):
                             deposit_rho_gpu_linear_one_mode[
@@ -861,7 +862,8 @@ class Particles(object) :
                                 grid[m].invdz, grid[m].zmin, grid[m].Nz,
                                 grid[m].invdr, grid[m].rmin, grid[m].Nr,
                                 grid[m].rho, m,
-                                self.cell_idx, self.prefix_sum)
+                                self.cell_idx, self.prefix_sum,
+                                grid[m].beta_n)
                 elif self.particle_shape == 'cubic':
                     if Nm == 2:
                         deposit_rho_gpu_cubic[
@@ -894,7 +896,8 @@ class Particles(object) :
                             grid[0].Jr, grid[1].Jr,
                             grid[0].Jt, grid[1].Jt,
                             grid[0].Jz, grid[1].Jz,
-                            self.cell_idx, self.prefix_sum)
+                            self.cell_idx, self.prefix_sum,
+                            grid[0].beta_n)
                     else:
                         for m in range(Nm):
                             deposit_J_gpu_linear_one_mode[
@@ -904,7 +907,8 @@ class Particles(object) :
                                 grid[m].invdz, grid[m].zmin, grid[m].Nz,
                                 grid[m].invdr, grid[m].rmin, grid[m].Nr,
                                 grid[m].Jr, grid[m].Jt, grid[m].Jz, m,
-                                self.cell_idx, self.prefix_sum)
+                                self.cell_idx, self.prefix_sum,
+                                grid[m].beta_n)
                 elif self.particle_shape == 'cubic':
                     if Nm == 2:
                         deposit_J_gpu_cubic[
@@ -935,7 +939,7 @@ class Particles(object) :
             ptcl_chunk_indices = get_chunk_indices(self.Ntot, nthreads)
 
             # Multithreading functions for the deposition of rho or J
-            # for Mode 0 and 1 only.
+            # All modes at once.
             if fieldtype == 'rho':
                 # Deposit rho using CPU threading
                 if self.particle_shape == 'linear':
@@ -944,7 +948,8 @@ class Particles(object) :
                         grid[0].invdz, grid[0].zmin, grid[0].Nz,
                         grid[0].invdr, grid[0].rmin, grid[0].Nr,
                         fld.rho_global, fld.Nm,
-                        nthreads, ptcl_chunk_indices )
+                        nthreads, ptcl_chunk_indices,
+                        grid[0].beta_n )
                 elif self.particle_shape == 'cubic':
                     deposit_rho_numba_cubic(
                         self.x, self.y, self.z, weight, self.q,
@@ -962,7 +967,8 @@ class Particles(object) :
                         grid[0].invdz, grid[0].zmin, grid[0].Nz,
                         grid[0].invdr, grid[0].rmin, grid[0].Nr,
                         fld.Jr_global, fld.Jt_global, fld.Jz_global, fld.Nm,
-                        nthreads, ptcl_chunk_indices )
+                        nthreads, ptcl_chunk_indices,
+                        grid[0].beta_n )
                 elif self.particle_shape == 'cubic':
                     deposit_J_numba_cubic(
                         self.x, self.y, self.z, weight, self.q,

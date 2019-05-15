@@ -66,6 +66,7 @@ class InterpolationGrid(object) :
         self.rmax = rmax
         self.zmin = zmin
         self.zmax = zmax
+
         # Cell volume (assuming Hankel-transform corrected volumes)
         p_vals = np.arange(Nr)
         alphas = jn_zeros(0,Nr)
@@ -74,6 +75,10 @@ class InterpolationGrid(object) :
         vol = dz*np.array(vol)
         # Inverse of cell volume
         self.invvol = 1./vol
+
+        # Ruyten-corrected particle shape factor coefficients (linear)
+        i_n = np.cumsum(vol)/(2*np.pi*self.dr**2*self.dz)-0.5*(p_vals+0.5)**2
+        self.beta_n = 6./(p_vals+1)*( i_n -0.5*(p_vals+5./6))
 
         # Allocate the fields arrays
         self.Er = np.zeros( (Nz, Nr), dtype='complex' )
