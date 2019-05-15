@@ -142,4 +142,4 @@ def plot_difference( field, coord, iteration, F_cpu, F_gpu, info ):
 if __name__ == '__main__' :
 
     test_linear_deposition(show=True)
-    test_cubic_deposition(show=True)
+    #test_cubic_deposition(show=True)

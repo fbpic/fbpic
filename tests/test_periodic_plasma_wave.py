@@ -459,4 +459,4 @@ if __name__ == '__main__' :
 
     # Run the simulation and show the results to the user
     test_periodic_plasma_wave_linear_shape(show=show)
-    test_periodic_plasma_wave_cubic_shape(show=show)
+    #test_periodic_plasma_wave_cubic_shape(show=show)
