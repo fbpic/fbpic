@@ -15,6 +15,7 @@ from fbpic.main import Simulation as FBPICSimulation
 from fbpic.fields.smoothing import BinomialSmoother
 from fbpic.lpa_utils.laser import add_laser_pulse, GaussianLaser
 from fbpic.lpa_utils.bunch import add_elec_bunch_gaussian
+from fbpic.openpmd_diag import FieldDiagnostic, ParticleDiagnostic
 
 # Import picmi base class
 from picmistandard import PICMI_Simulation, PICMI_CylindricalGrid
@@ -22,6 +23,7 @@ from picmistandard import PICMI_AnalyticDistribution, PICMI_GriddedLayout
 from picmistandard import PICMI_PseudoRandomLayout, PICMI_GaussianBunchDistribution
 from picmistandard import PICMI_LaserAntenna, PICMI_GaussianLaser
 from picmistandard import PICMI_Species, PICMI_MultiSpecies
+from picmistandard import PICMI_FieldDiagnostic, PICMI_ParticleDiagnostic
 
 # Define a new simulation object for picmi, that derives from PICMI_Simulation
 class Simulation( PICMI_Simulation ):
@@ -169,6 +171,52 @@ class Simulation( PICMI_Simulation ):
             # Register a pointer to the FBPIC species in the PICMI species itself
             # (Useful for particle diagnostics later on)
             s.fbpic_species = fbpic_species
+
+
+    # Redefine the method `add_diagnostic` of the parent class
+    def add_diagnostic(self, diagnostic):
+        # Call method of parent class
+        PICMI_Simulation.add_diagnostic( self, diagnostic )
+
+        # Handle diagnostic
+        if diagnostic.step_min is None:
+            iteration_min = 0
+        else:
+            iteration_min = diagnostic.step_min
+        if diagnostic.step_max is None:
+            iteration_max = np.inf
+        else:
+            iteration_max = diagnostic.step_max
+        # Register field diagnostic
+        if type(diagnostic) == PICMI_FieldDiagnostic:
+            diag = FieldDiagnostic(
+                    period=diagnostic.period,
+                    fldobject=self.fbpic_sim.fld,
+                    comm=self.fbpic_sim.comm,
+                    fieldtypes=diagnostic.data_list,
+                    write_dir=diagnostic.write_dir,
+                    iteration_min=iteration_min,
+                    iteration_max=iteration_max)
+        # Register particle diagnostic
+        elif type(diagnostic) == PICMI_ParticleDiagnostic:
+            species_dict = {}
+            for s in diagnostic.species:
+                if s.name is None:
+                    raise ValueError('When using a species in a diagnostic, '
+                                      'its name must be set.')
+                species_dict[s.name] = s.fbpic_species
+            diag = ParticleDiagnostic(
+                    period=diagnostic.period,
+                    species=species_dict,
+                    comm=self.fbpic_sim.comm,
+                    particle_data=diagnostic.data_list,
+                    write_dir=diagnostic.write_dir,
+                    iteration_min=iteration_min,
+                    iteration_max=iteration_max)
+
+        # Add it to the FBPIC simulation
+        self.fbpic_sim.diags.append( diag )
+
 
     # Redefine the method `step` of the parent class
     def step(self, nsteps):
