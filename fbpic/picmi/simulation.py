@@ -26,8 +26,11 @@ class Simulation( PICMI_Simulation ):
         if not type(grid) == PICMI_CylindricalGrid:
             raise ValueError('When using fbpic with PICMI, '
                 'the grid needs to be a CylindricalGrid object.')
-        # Check rmin and boundary conditionds TODO: raise warnings
+        # Check rmin and boundary conditions
         assert grid.rmin == 0.
+        assert grid.bc_zmin == grid.bc_zmax
+        assert grid.bc_zmax in ['periodic', 'open']
+        assert grid.bc_rmax == 'reflective'
 
         # TODO: Check that the solver is EM / PSATD
 
@@ -46,7 +49,7 @@ class Simulation( PICMI_Simulation ):
         self.fbpic_sim = FBPICSimulation(
             Nz=int(grid.nz), zmin=grid.zmin, zmax=grid.zmax,
             Nr=int(grid.nr), rmax=grid.rmax, Nm=grid.n_azimuthal_modes,
-            dt=dt, use_cuda=True )
+            dt=dt, use_cuda=True, boundaries=grid.bc_zmax )
         # Remove default electron species
         self.fbpic_sim.ptcl = []
         # Set the moving window
