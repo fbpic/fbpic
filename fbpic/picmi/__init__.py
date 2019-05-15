@@ -26,3 +26,6 @@ from picmistandard import PICMI_GaussianBunchDistribution as GaussianBunchDistri
 from picmistandard import PICMI_AnalyticDistribution as AnalyticDistribution
 from picmistandard import PICMI_BinomialSmoother as BinomialSmoother
 from picmistandard import PICMI_ElectromagneticSolver as ElectromagneticSolver
+
+
+from .simulation import Simulation
