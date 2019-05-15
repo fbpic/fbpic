@@ -22,7 +22,7 @@ import numpy as np
 
 # Parameters
 # ----------
-show = True     # Whether to show the results to the user, or to
+show = False     # Whether to show the results to the user, or to
                 # automatically determine if they are correct.
 
 # Dimensions of the box
@@ -32,8 +32,8 @@ Nr = 50
 rmax= 20.e-6
 Nm = 2
 # Particles
-p_nr = 3
-p_nz = 2
+p_nr = 8
+p_nz = 1
 p_nt = 4
 p_rmax = 10.e-6
 n = 9.e24
@@ -68,10 +68,10 @@ def uniform_electron_plasma(shape, show=False):
         Nrmax = int( Nr * p_rmax * 1./rmax  )
         # Check that the density is correct in mode 0, below this index
         assert np.allclose( -n*e,
-            sim.fld.interp[0].rho[:,:Nrmax-2], 1.e-3 )
+            sim.fld.interp[0].rho[:,:Nrmax-2], 2.e-3 )
         # Check that the density is correct in mode 0, above this index
         assert np.allclose( 0,
-            sim.fld.interp[0].rho[:,Nrmax+2:], 1. )
+            sim.fld.interp[0].rho[:,Nrmax+2:], 1.e-10 )
         # Check the density in the mode 1
         assert np.allclose( 0,
             sim.fld.interp[1].rho[:,:], 1.e-10 )
@@ -116,9 +116,9 @@ def neutral_plasma_shifted(shape, show=False):
         Nrmax = int( Nr * p_rmax * 1./rmax  )
         # Check that the density is correct in mode 0, below this index
         assert np.allclose( 0,
-            sim.fld.interp[0].rho[:,:Nrmax-2], atol=n*e*1.e-3 )
+            sim.fld.interp[0].rho[:,:Nrmax-2], atol=n*e*1.e-4 )
         assert np.allclose( 0,
-            sim.fld.interp[1].rho[:,:Nrmax-2], atol=n*e*1.e-3 )
+            sim.fld.interp[1].rho[:,:Nrmax-2], atol=n*e*1.e-4 )
         # Check that the density is correct in mode 0, above this index
         assert np.allclose( 0,
             sim.fld.interp[0].rho[:,Nrmax+2:], 1.e-10 )
