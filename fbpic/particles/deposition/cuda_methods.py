@@ -143,7 +143,11 @@ def deposit_rho_gpu_linear(x, y, z, w, q,
             z_cell = invdz*(zj - zmin) - 0.5
 
             # Ruyten-corrected shape factor coefficient
-            bn = beta_n[min( int(math.ceil(r_cell)-1, Nr-2 )]
+            ir = min( int(math.ceil(r_cell))-1, Nr-1 )
+            if ir < 0:
+                bn = 0
+            else:
+                bn = beta_n[ir]
 
             # Calculate rho
             # --------------------------------------------
@@ -357,7 +361,11 @@ def deposit_J_gpu_linear(x, y, z, w, q,
             z_cell = invdz*(zj - zmin) - 0.5
 
             # Ruyten-corrected shape factor coefficient
-            bn = beta_n[min( int(math.ceil(r_cell)-1, Nr-2 )]
+            ir = min( int(math.ceil(r_cell))-1, Nr-1 )
+            if ir < 0:
+                bn = 0
+            else:
+                bn = beta_n[ir]
 
             # Calculate the currents
             # ----------------------

@@ -126,7 +126,11 @@ def deposit_rho_numba_linear(x, y, z, w, q,
             iz_cell = int(math.ceil( z_cell )) + 1
 
             # Ruyten-corrected shape factor coefficient
-            bn = beta_n[min( int(math.ceil(r_cell)-1, Nr-2 )]
+            ir = min( int(math.ceil(r_cell))-1, Nr-1 )
+            if ir < 0:
+                bn = 0
+            else:
+                bn = beta_n[ir]
 
             # Add contribution of this particle to the global array
             for m in range(Nm):
@@ -262,7 +266,11 @@ def deposit_J_numba_linear(x, y, z, w, q,
             iz_cell = int(math.ceil( z_cell )) + 1
 
             # Ruyten-corrected shape factor coefficient
-            bn = beta_n[min( int(math.ceil(r_cell)-1, Nr-2 )]
+            ir = min( int(math.ceil(r_cell))-1, Nr-1 )
+            if ir < 0:
+                bn = 0
+            else:
+                bn = beta_n[ir]
 
             # Add contribution of this particle to the global array
             for m in range(Nm):
