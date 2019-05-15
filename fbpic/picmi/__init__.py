@@ -15,17 +15,29 @@ except ImportError:
 
 # Define general variables that each PICMI code should define
 codename = 'fbpic'
+from picmistandard.base import register_codename
+register_codename(codename)
 
 # Import picmi objects
+# - For general setup
 from picmistandard import PICMI_CylindricalGrid as CylindricalGrid
+from picmistandard import PICMI_BinomialSmoother as BinomialSmoother
+from picmistandard import PICMI_ElectromagneticSolver as ElectromagneticSolver
+# - For the species
 from picmistandard import PICMI_Species as Species
 from picmistandard import PICMI_MultiSpecies as MultiSpecies
 MultiSpecies.Species_class = Species # Set the Species class, as required by PICMI
+# - For laser initialization
+from picmistandard import PICMI_LaserAntenna as LaserAntenna
 from picmistandard import PICMI_GaussianLaser as GaussianLaser
+# - For particle initialization
+from picmistandard import PICMI_GriddedLayout as GriddedLayout
+from picmistandard import PICMI_PseudoRandomLayout as PseudoRandomLayout
 from picmistandard import PICMI_GaussianBunchDistribution as GaussianBunchDistribution
 from picmistandard import PICMI_AnalyticDistribution as AnalyticDistribution
-from picmistandard import PICMI_BinomialSmoother as BinomialSmoother
-from picmistandard import PICMI_ElectromagneticSolver as ElectromagneticSolver
+# - For diagnostics
+from picmistandard import PICMI_FieldDiagnostic as FieldDiagnostic
+from picmistandard import PICMI_ParticleDiagnostic as ParticleDiagnostic
 
-
+# Import the PICMI Simulation object redefined in FBPIC
 from .simulation import Simulation
