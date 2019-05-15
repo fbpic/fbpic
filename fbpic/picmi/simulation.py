@@ -6,6 +6,7 @@ This file is part of the Fourier-Bessel Particle-In-Cell code (FB-PIC)
 
 It defines the picmi Simulation interface
 """
+import numpy as np
 from scipy.constants import c, e
 from .particle_charge_and_mass import particle_charge, particle_mass
 
@@ -13,10 +14,12 @@ from .particle_charge_and_mass import particle_charge, particle_mass
 from fbpic.main import Simulation as FBPICSimulation
 from fbpic.fields.smoothing import BinomialSmoother
 from fbpic.lpa_utils.laser import add_laser_pulse, GaussianLaser
+from fbpic.lpa_utils.bunch import add_elec_bunch_gaussian
 
 # Import picmi base class
 from picmistandard import PICMI_Simulation, PICMI_CylindricalGrid
 from picmistandard import PICMI_AnalyticDistribution, PICMI_GriddedLayout
+from picmistandard import PICMI_PseudoRandomLayout, PICMI_GaussianBunchDistribution
 from picmistandard import PICMI_LaserAntenna, PICMI_GaussianLaser
 from picmistandard import PICMI_Species, PICMI_MultiSpecies
 
@@ -82,10 +85,13 @@ class Simulation( PICMI_Simulation ):
             assert laser.propagation_direction[1] == 0.
             assert (laser.zeta is None) or (laser.zeta == 0)
             assert (laser.beta is None) or (laser.beta == 0)
+            phi2_chirp = laser.phi2
+            if phi2_chirp is None:
+                phi2_chirp = 0
             laser_profile = GaussianLaser( a0=laser.a0, waist=laser.waist,
                 z0=laser.centroid_position[-1], zf=laser.focal_position[-1],
                 tau=laser.duration, theta_pol=laser.polarization_angle,
-                phi2_chirp=laser.phi2 )
+                phi2_chirp=phi2_chirp )
         else:
             raise ValueError('Unknown laser profile: %s' %type(injection_method))
 
@@ -133,8 +139,37 @@ class Simulation( PICMI_Simulation ):
                 p_nz = layout.n_macroparticle_per_cell['z']
                 p_nr = layout.n_macroparticle_per_cell['r']
                 p_nt = layout.n_macroparticle_per_cell['theta']
-                self.fbpic_sim.add_new_species( q=q, m=m, n=1.,
+                fbpic_species = self.fbpic_sim.add_new_species( q=q, m=m, n=1.,
                     dens_func=dens_func, p_nz=p_nz, p_nr=p_nr, p_nt=p_nt,
                     continuous_injection=s.initial_distribution.fill_in )
 
-            # Register in dictionary (useful later for diagnostics)
+            # - For the case of a Gaussian beam
+            elif (type(s.initial_distribution)==PICMI_GaussianBunchDistribution) and \
+                (type(layout) == PICMI_PseudoRandomLayout):
+                assert q == -e
+                assert initialize_self_field
+                dist = s.initial_distribution
+                Q = dist.n_physical_particles * e
+                sig_r = dist.rms_bunch_size[0]
+                sig_z = dist.rms_bunch_size[-1]
+                gamma0_beta0 = dist.centroid_velocity[-1]
+                gamma0 = np.sqrt( 1 + gamma0_beta0**2 )
+                n_emit = sig_r * dist.rms_velocity[0]
+                sig_gamma = dist.rms_velocity[-1]/c
+                zf = dist.centroid_position[-1]
+                add_elec_bunch_gaussian( self.fbpic_sim,
+                    gamma0=gamma0, sig_gamma=sig_gamma,
+                    sig_r=sig_r, sig_z=sig_z, n_emit=n_emit, Q=Q,
+                    N=layout.n_macroparticles, zf=zf )
+                fbpic_species = self.fbpic_sim.ptcl[-1]
+
+            else:
+                raise ValueError('Unknown combination of layout and distribution')
+
+            # Register a pointer to the FBPIC species in the PICMI species itself
+            # (Useful for particle diagnostics later on)
+            s.fbpic_species = fbpic_species
+
+    # Redefine the method `step` of the parent class
+    def step(self, nsteps):
+        self.fbpic_sim.step( nsteps )
