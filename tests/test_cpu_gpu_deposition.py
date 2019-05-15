@@ -109,9 +109,9 @@ def test_linear_deposition(show=False):
     """Test run by py.test"""
     run_cpu_gpu_deposition(show=show, particle_shape='linear')
 
-def test_cubic_deposition(show=False):
-    """Test run by py.test"""
-    run_cpu_gpu_deposition(show=show, particle_shape='cubic')
+#def test_cubic_deposition(show=False):
+#    """Test run by py.test"""
+#    run_cpu_gpu_deposition(show=show, particle_shape='cubic')
 
 def plot_difference( field, coord, iteration, F_cpu, F_gpu, info ):
     """
