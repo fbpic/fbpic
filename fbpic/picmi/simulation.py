@@ -6,7 +6,8 @@ This file is part of the Fourier-Bessel Particle-In-Cell code (FB-PIC)
 
 It defines the picmi Simulation interface
 """
-from scipy.constants import c
+from scipy.constants import c, e
+from .particle_charge_and_mass import particle_charge, particle_mass
 
 # Import relevant fbpic object
 from fbpic.main import Simulation as FBPICSimulation
@@ -14,9 +15,10 @@ from fbpic.fields.smoothing import BinomialSmoother
 from fbpic.lpa_utils.laser import add_laser_pulse, GaussianLaser
 
 # Import picmi base class
-from picmistandard import PICMI_Simulation
-from picmistandard import PICMI_CylindricalGrid
+from picmistandard import PICMI_Simulation, PICMI_CylindricalGrid
+from picmistandard import PICMI_AnalyticDistribution, PICMI_GriddedLayout
 from picmistandard import PICMI_LaserAntenna, PICMI_GaussianLaser
+from picmistandard import PICMI_Species, PICMI_MultiSpecies
 
 # Define a new simulation object for picmi, that derives from PICMI_Simulation
 class Simulation( PICMI_Simulation ):
@@ -34,8 +36,6 @@ class Simulation( PICMI_Simulation ):
         assert grid.bc_zmin == grid.bc_zmax
         assert grid.bc_zmax in ['periodic', 'open']
         assert grid.bc_rmax == 'reflective'
-
-        # TODO: Check that the solver is EM / PSATD
 
         # Determine timestep
         if self.solver.cfl is not None:
@@ -92,3 +92,49 @@ class Simulation( PICMI_Simulation ):
         # Inject the laser
         add_laser_pulse( self.fbpic_sim, laser_profile, method='antenna',
             z0_antenna=injection_method.position[-1] )
+
+
+    # Redefine the method `add_species` from the PICMI Simulation class
+    def add_species( self, species, layout, initialize_self_field=False ):
+        # Call method of parent class
+        PICMI_Simulation.add_species( self, species, layout,
+                                      initialize_self_field )
+
+        # Extract list of species
+        if type(species) == PICMI_Species:
+            species_instances_list = [species]
+        elif type(species) == PICMI_MultiSpecies:
+            species_instances_list = species.species_instances_list
+        else:
+            raise ValueError('Unknown type: %s' %type(species))
+        # Loop over species
+        for s in species_instances_list:
+
+            # Get their charge and mass
+            if s.particle_type is not None:
+                q = particle_charge[s.particle_type]
+                m = particle_mass[s.particle_type]
+            else:
+                q = s.charge
+                m = s.mass
+            # If `charge_state` is set, redefine the charge
+            if s.charge_state is not None:
+                q = s.charge_state*e
+
+            # Add the species to the simulation
+
+            # - For the case of a plasma defined in a gridded layout
+            if (type(s.initial_distribution)==PICMI_AnalyticDistribution) and \
+                (type(layout) == PICMI_GriddedLayout):
+                import numexpr
+                def dens_func(z, r):
+                    n = numexpr.evaluate(s.initial_distribution.density_expression)
+                    return n
+                p_nz = layout.n_macroparticle_per_cell['z']
+                p_nr = layout.n_macroparticle_per_cell['r']
+                p_nt = layout.n_macroparticle_per_cell['theta']
+                self.fbpic_sim.add_new_species( q=q, m=m, n=1.,
+                    dens_func=dens_func, p_nz=p_nz, p_nr=p_nr, p_nt=p_nt,
+                    continuous_injection=s.initial_distribution.fill_in )
+
+            # Register in dictionary (useful later for diagnostics)
