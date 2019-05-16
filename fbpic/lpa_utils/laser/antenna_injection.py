@@ -299,7 +299,7 @@ class LaserAntenna( object ):
         # Indices and weights in z:
         # same for both the negative and positive virtual particles
         iz, Sz = weights(self.baseline_z, grid[0].invdz, grid[0].zmin, grid[0].Nz,
-                         direction='z', shape_order=1)
+                         direction='z', shape_order=1, beta_n=grid[0].beta_n)
         # Find the z index where the small-size buffers should be added
         # to the large-size arrays rho, Jr, Jt, Jz
         iz_min = iz.min()
@@ -373,7 +373,7 @@ class LaserAntenna( object ):
 
         # Indices and weights in r
         ir, Sr = weights(r, grid[0].invdr, grid[0].rmin, grid[0].Nr,
-                         direction='r', shape_order=1)
+                         direction='r', shape_order=1, beta_n=grid[0].beta_n)
 
         if fieldtype == 'rho' :
             # ---------------------------------------
@@ -393,7 +393,7 @@ class LaserAntenna( object ):
                 # (The sign -1 with which the guards are added is not
                 # trivial to derive but avoids artifacts on the axis)
                 deposit_field_numba( w*exptheta, self.rho_buffer[m,:],
-                    iz, ir, Sz, Sr, -1.)
+                    iz, ir, Sz, Sr, (-1)**m )
 
         elif fieldtype == 'J' :
             # ----------------------------------------
@@ -417,11 +417,11 @@ class LaserAntenna( object ):
                 # (The sign -1 with which the guards are added is not
                 # trivial to derive but avoids artifacts on the axis)
                 deposit_field_numba( Jr*exptheta, self.Jr_buffer[m,:],
-                                     iz, ir, Sz, Sr, -1.)
+                                     iz, ir, Sz, Sr, (-1)**m )
                 deposit_field_numba( Jt*exptheta, self.Jt_buffer[m,:],
-                                     iz, ir, Sz, Sr, -1.)
+                                     iz, ir, Sz, Sr, (-1)**m )
                 deposit_field_numba( Jz*exptheta, self.Jz_buffer[m,:],
-                                     iz, ir, Sz, Sr, -1.)
+                                     iz, ir, Sz, Sr, (-1)**m )
 
     def copy_rho_buffer( self, iz_min, grid ):
         """

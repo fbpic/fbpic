@@ -11,7 +11,7 @@ import numpy as np
 # Particle shapes utility
 # -----------------------
 
-def weights(x, invdx, offset, Nx, direction, shape_order):
+def weights(x, invdx, offset, Nx, direction, shape_order, beta_n):
     """
     Return the array of cell indices and corresponding shape factors
     for current/charge deposition and field gathering
@@ -38,6 +38,9 @@ def weights(x, invdx, offset, Nx, direction, shape_order):
     shape_order : int
         Order of the shape factor.
         Either 1 or 3
+
+    beta_n : 1darray of floats
+        Ruyten-corrected particle shape factor coefficients
 
     Returns:
     --------
@@ -67,11 +70,17 @@ def weights(x, invdx, offset, Nx, direction, shape_order):
 
     # Indices and shapes
     if shape_order == 1:
-        i[0,:] = np.floor(x_cell).astype('int')
+        i[0,:] = np.ceil(x_cell).astype('int')-1
         i[1,:] = i[0,:] + 1
-        # Linear weight
-        S[0,:] = i[1,:] - x_cell
-        S[1,:] = x_cell - i[0,:]
+        # Linear weight z
+        if direction == 'z':
+            S[0,:] = i[1,:] - x_cell
+            S[1,:] = 1 - S[0,:]
+        # Linear weight r
+        elif direction == 'r':
+            bn = beta_n[max(i[0,:], 0)]
+            S[0,:] = (i[1,:] - x_cell) * (1.+bn*( x_cell - i[0,:] ))
+            S[1,:] = 1 - S[0,:]
     elif shape_order == 3:
         i[0,:] = np.floor(x_cell).astype('int') - 1
         i[1,:] = i[0,:] + 1
