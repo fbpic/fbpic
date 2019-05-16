@@ -17,10 +17,8 @@ from .injection import BallisticBeforePlane, ContinuousInjector, \
 # Load the numba methods
 from .push.numba_methods import push_p_numba, push_p_ioniz_numba, \
                                 push_p_after_plane_numba, push_x_numba
-from .gathering.threading_methods import gather_field_numba_linear, \
-        gather_field_numba_cubic
-from .gathering.threading_methods_one_mode import erase_eb_numba, \
-    gather_field_numba_linear_one_mode, gather_field_numba_cubic_one_mode
+from .gathering.threading_methods import erase_eb_numba, \
+    gather_field_numba_linear, gather_field_numba_cubic
 from .deposition.threading_methods import \
         deposit_rho_numba_linear, deposit_rho_numba_cubic, \
         deposit_J_numba_linear, deposit_J_numba_cubic
@@ -34,15 +32,11 @@ if cuda_installed:
     from fbpic.utils.cuda import cuda, cuda_tpb_bpg_1d
     from .push.cuda_methods import push_p_gpu, push_p_ioniz_gpu, \
                                 push_p_after_plane_gpu, push_x_gpu
-    from .deposition.cuda_methods import deposit_rho_gpu_linear, \
-        deposit_J_gpu_linear, deposit_rho_gpu_cubic, deposit_J_gpu_cubic
-    from .deposition.cuda_methods_one_mode import \
-        deposit_rho_gpu_linear_one_mode, deposit_J_gpu_linear_one_mode, \
-        deposit_rho_gpu_cubic_one_mode, deposit_J_gpu_cubic_one_mode
-    from .gathering.cuda_methods import gather_field_gpu_linear, \
-        gather_field_gpu_cubic
-    from .gathering.cuda_methods_one_mode import erase_eb_cuda, \
-        gather_field_gpu_linear_one_mode, gather_field_gpu_cubic_one_mode
+    from .deposition.cuda_methods import \
+        deposit_rho_gpu_linear, deposit_J_gpu_linear, \
+        deposit_rho_gpu_cubic, deposit_J_gpu_cubic
+    from .gathering.cuda_methods import erase_eb_cuda, \
+        gather_field_gpu_linear, gather_field_gpu_cubic
     from .utilities.cuda_sorting import write_sorting_buffer, \
         get_cell_idx_per_particle, sort_particles_per_cell, \
         prefill_prefix_sum, incl_prefix_sum
@@ -436,8 +430,8 @@ class Particles(object) :
 
         target_species: a `Particles` object, or a dictionary of `Particles`
             Stores the electron macroparticles that are created in
-            the ionization process. If a single `Particles` object is passed, 
-            then electrons from all ionization levels are stored into this 
+            the ionization process. If a single `Particles` object is passed,
+            then electrons from all ionization levels are stored into this
             object. If a dictionary is passed, then its keys should be integers
             (corresponding to the ionizable levels of `element`, starting
             at `level_start`), and its values should be `Particles` objects.
@@ -668,61 +662,35 @@ class Particles(object) :
             dim_grid_1d, dim_block_1d = cuda_tpb_bpg_1d( self.Ntot, TPB=64 )
             # Call the CUDA Kernel for the gathering of E and B Fields
             if self.particle_shape == 'linear':
-                if Nm == 2:
-                    # Optimized version for 2 modes
-                    gather_field_gpu_linear[dim_grid_1d, dim_block_1d](
-                         self.x, self.y, self.z,
-                         grid[0].invdz, grid[0].zmin, grid[0].Nz,
-                         grid[0].invdr, grid[0].rmin, grid[0].Nr,
-                         grid[0].Er, grid[0].Et, grid[0].Ez,
-                         grid[1].Er, grid[1].Et, grid[1].Ez,
-                         grid[0].Br, grid[0].Bt, grid[0].Bz,
-                         grid[1].Br, grid[1].Bt, grid[1].Bz,
-                         self.Ex, self.Ey, self.Ez,
-                         self.Bx, self.By, self.Bz)
-                else:
-                    # Generic version for arbitrary number of modes
-                    erase_eb_cuda[dim_grid_1d, dim_block_1d](
-                                    self.Ex, self.Ey, self.Ez,
-                                    self.Bx, self.By, self.Bz, self.Ntot )
-                    for m in range(Nm):
-                        gather_field_gpu_linear_one_mode[
-                            dim_grid_1d, dim_block_1d](
-                            self.x, self.y, self.z,
-                            grid[m].invdz, grid[m].zmin, grid[m].Nz,
-                            grid[m].invdr, grid[m].rmin, grid[m].Nr,
-                            grid[m].Er, grid[m].Et, grid[m].Ez,
-                            grid[m].Br, grid[m].Bt, grid[m].Bz, m,
-                            self.Ex, self.Ey, self.Ez,
-                            self.Bx, self.By, self.Bz)
+                # Generic version for arbitrary number of modes
+                erase_eb_cuda[dim_grid_1d, dim_block_1d](
+                                self.Ex, self.Ey, self.Ez,
+                                self.Bx, self.By, self.Bz, self.Ntot )
+                for m in range(Nm):
+                    gather_field_gpu_linear[
+                        dim_grid_1d, dim_block_1d](
+                        self.x, self.y, self.z,
+                        grid[m].invdz, grid[m].zmin, grid[m].Nz,
+                        grid[m].invdr, grid[m].rmin, grid[m].Nr,
+                        grid[m].Er, grid[m].Et, grid[m].Ez,
+                        grid[m].Br, grid[m].Bt, grid[m].Bz, m,
+                        self.Ex, self.Ey, self.Ez,
+                        self.Bx, self.By, self.Bz)
             elif self.particle_shape == 'cubic':
-                if Nm == 2:
-                    # Optimized version for 2 modes
-                    gather_field_gpu_cubic[dim_grid_1d, dim_block_1d](
-                         self.x, self.y, self.z,
-                         grid[0].invdz, grid[0].zmin, grid[0].Nz,
-                         grid[0].invdr, grid[0].rmin, grid[0].Nr,
-                         grid[0].Er, grid[0].Et, grid[0].Ez,
-                         grid[1].Er, grid[1].Et, grid[1].Ez,
-                         grid[0].Br, grid[0].Bt, grid[0].Bz,
-                         grid[1].Br, grid[1].Bt, grid[1].Bz,
-                         self.Ex, self.Ey, self.Ez,
-                         self.Bx, self.By, self.Bz)
-                else:
-                    # Generic version for arbitrary number of modes
-                    erase_eb_cuda[dim_grid_1d, dim_block_1d](
-                                    self.Ex, self.Ey, self.Ez,
-                                    self.Bx, self.By, self.Bz, self.Ntot )
-                    for m in range(Nm):
-                        gather_field_gpu_cubic_one_mode[
-                            dim_grid_1d, dim_block_1d](
-                            self.x, self.y, self.z,
-                            grid[m].invdz, grid[m].zmin, grid[m].Nz,
-                            grid[m].invdr, grid[m].rmin, grid[m].Nr,
-                            grid[m].Er, grid[m].Et, grid[m].Ez,
-                            grid[m].Br, grid[m].Bt, grid[m].Bz, m,
-                            self.Ex, self.Ey, self.Ez,
-                            self.Bx, self.By, self.Bz)
+                # Generic version for arbitrary number of modes
+                erase_eb_cuda[dim_grid_1d, dim_block_1d](
+                                self.Ex, self.Ey, self.Ez,
+                                self.Bx, self.By, self.Bz, self.Ntot )
+                for m in range(Nm):
+                    gather_field_gpu_cubic[
+                        dim_grid_1d, dim_block_1d](
+                        self.x, self.y, self.z,
+                        grid[m].invdz, grid[m].zmin, grid[m].Nz,
+                        grid[m].invdr, grid[m].rmin, grid[m].Nr,
+                        grid[m].Er, grid[m].Et, grid[m].Ez,
+                        grid[m].Br, grid[m].Bt, grid[m].Bz, m,
+                        self.Ex, self.Ey, self.Ez,
+                        self.Bx, self.By, self.Bz)
             else:
                 raise ValueError("`particle_shape` should be either \
                                   'linear' or 'cubic' \
@@ -730,63 +698,36 @@ class Particles(object) :
         # CPU version
         else:
             if self.particle_shape == 'linear':
-                if Nm == 2:
-                    # Optimized version for 2 modes
+                # Generic version for arbitrary number of modes
+                erase_eb_numba( self.Ex, self.Ey, self.Ez,
+                                self.Bx, self.By, self.Bz, self.Ntot )
+                for m in range(Nm):
                     gather_field_numba_linear(
                         self.x, self.y, self.z,
-                        grid[0].invdz, grid[0].zmin, grid[0].Nz,
-                        grid[0].invdr, grid[0].rmin, grid[0].Nr,
-                        grid[0].Er, grid[0].Et, grid[0].Ez,
-                        grid[1].Er, grid[1].Et, grid[1].Ez,
-                        grid[0].Br, grid[0].Bt, grid[0].Bz,
-                        grid[1].Br, grid[1].Bt, grid[1].Bz,
+                        grid[m].invdz, grid[m].zmin, grid[m].Nz,
+                        grid[m].invdr, grid[m].rmin, grid[m].Nr,
+                        grid[m].Er, grid[m].Et, grid[m].Ez,
+                        grid[m].Br, grid[m].Bt, grid[m].Bz, m,
                         self.Ex, self.Ey, self.Ez,
-                        self.Bx, self.By, self.Bz)
-                else:
-                    # Generic version for arbitrary number of modes
-                    erase_eb_numba( self.Ex, self.Ey, self.Ez,
-                                    self.Bx, self.By, self.Bz, self.Ntot )
-                    for m in range(Nm):
-                        gather_field_numba_linear_one_mode(
-                            self.x, self.y, self.z,
-                            grid[m].invdz, grid[m].zmin, grid[m].Nz,
-                            grid[m].invdr, grid[m].rmin, grid[m].Nr,
-                            grid[m].Er, grid[m].Et, grid[m].Ez,
-                            grid[m].Br, grid[m].Bt, grid[m].Bz, m,
-                            self.Ex, self.Ey, self.Ez,
-                            self.Bx, self.By, self.Bz
-                        )
+                        self.Bx, self.By, self.Bz
+                    )
             elif self.particle_shape == 'cubic':
                 # Divide particles into chunks (each chunk is handled by a
                 # different thread) and return the indices that bound chunks
                 ptcl_chunk_indices = get_chunk_indices(self.Ntot, nthreads)
-                if Nm == 2:
-                    # Optimized version for 2 modes
+                # Generic version for arbitrary number of modes
+                erase_eb_numba( self.Ex, self.Ey, self.Ez,
+                                self.Bx, self.By, self.Bz, self.Ntot )
+                for m in range(Nm):
                     gather_field_numba_cubic(
                         self.x, self.y, self.z,
-                        grid[0].invdz, grid[0].zmin, grid[0].Nz,
-                        grid[0].invdr, grid[0].rmin, grid[0].Nr,
-                        grid[0].Er, grid[0].Et, grid[0].Ez,
-                        grid[1].Er, grid[1].Et, grid[1].Ez,
-                        grid[0].Br, grid[0].Bt, grid[0].Bz,
-                        grid[1].Br, grid[1].Bt, grid[1].Bz,
+                        grid[m].invdz, grid[m].zmin, grid[m].Nz,
+                        grid[m].invdr, grid[m].rmin, grid[m].Nr,
+                        grid[m].Er, grid[m].Et, grid[m].Ez,
+                        grid[m].Br, grid[m].Bt, grid[m].Bz, m,
                         self.Ex, self.Ey, self.Ez,
                         self.Bx, self.By, self.Bz,
                         nthreads, ptcl_chunk_indices )
-                else:
-                    # Generic version for arbitrary number of modes
-                    erase_eb_numba( self.Ex, self.Ey, self.Ez,
-                                    self.Bx, self.By, self.Bz, self.Ntot )
-                    for m in range(Nm):
-                        gather_field_numba_cubic_one_mode(
-                            self.x, self.y, self.z,
-                            grid[m].invdz, grid[m].zmin, grid[m].Nz,
-                            grid[m].invdr, grid[m].rmin, grid[m].Nr,
-                            grid[m].Er, grid[m].Et, grid[m].Ez,
-                            grid[m].Br, grid[m].Bt, grid[m].Bz, m,
-                            self.Ex, self.Ey, self.Ez,
-                            self.Bx, self.By, self.Bz,
-                            nthreads, ptcl_chunk_indices )
             else:
                 raise ValueError("`particle_shape` should be either \
                                   'linear' or 'cubic' \
@@ -845,89 +786,46 @@ class Particles(object) :
             # Rho
             if fieldtype == 'rho':
                 if self.particle_shape == 'linear':
-                    if Nm == 2:
+                    for m in range(Nm):
                         deposit_rho_gpu_linear[
                             dim_grid_2d_flat, dim_block_2d_flat](
                             self.x, self.y, self.z, weight, self.q,
-                            grid[0].invdz, grid[0].zmin, grid[0].Nz,
-                            grid[0].invdr, grid[0].rmin, grid[0].Nr,
-                            grid[0].rho, grid[1].rho,
+                            grid[m].invdz, grid[m].zmin, grid[m].Nz,
+                            grid[m].invdr, grid[m].rmin, grid[m].Nr,
+                            grid[m].rho, m,
                             self.cell_idx, self.prefix_sum)
-                    else:
-                        for m in range(Nm):
-                            deposit_rho_gpu_linear_one_mode[
-                                dim_grid_2d_flat, dim_block_2d_flat](
-                                self.x, self.y, self.z, weight, self.q,
-                                grid[m].invdz, grid[m].zmin, grid[m].Nz,
-                                grid[m].invdr, grid[m].rmin, grid[m].Nr,
-                                grid[m].rho, m,
-                                self.cell_idx, self.prefix_sum)
                 elif self.particle_shape == 'cubic':
-                    if Nm == 2:
+                    for m in range(Nm):
                         deposit_rho_gpu_cubic[
                             dim_grid_2d_flat, dim_block_2d_flat](
                             self.x, self.y, self.z, weight, self.q,
-                            grid[0].invdz, grid[0].zmin, grid[0].Nz,
-                            grid[0].invdr, grid[0].rmin, grid[0].Nr,
-                            grid[0].rho, grid[1].rho,
+                            grid[m].invdz, grid[m].zmin, grid[m].Nz,
+                            grid[m].invdr, grid[m].rmin, grid[m].Nr,
+                            grid[m].rho, m,
                             self.cell_idx, self.prefix_sum)
-                    else:
-                        for m in range(Nm):
-                            deposit_rho_gpu_cubic_one_mode[
-                                dim_grid_2d_flat, dim_block_2d_flat](
-                                self.x, self.y, self.z, weight, self.q,
-                                grid[m].invdz, grid[m].zmin, grid[m].Nz,
-                                grid[m].invdr, grid[m].rmin, grid[m].Nr,
-                                grid[m].rho, m,
-                                self.cell_idx, self.prefix_sum)
             # J
             elif fieldtype == 'J':
                 # Deposit J in each of four directions
                 if self.particle_shape == 'linear':
-                    if Nm == 2:
+                    for m in range(Nm):
                         deposit_J_gpu_linear[
                             dim_grid_2d_flat, dim_block_2d_flat](
                             self.x, self.y, self.z, weight, self.q,
                             self.ux, self.uy, self.uz, self.inv_gamma,
-                            grid[0].invdz, grid[0].zmin, grid[0].Nz,
-                            grid[0].invdr, grid[0].rmin, grid[0].Nr,
-                            grid[0].Jr, grid[1].Jr,
-                            grid[0].Jt, grid[1].Jt,
-                            grid[0].Jz, grid[1].Jz,
+                            grid[m].invdz, grid[m].zmin, grid[m].Nz,
+                            grid[m].invdr, grid[m].rmin, grid[m].Nr,
+                            grid[m].Jr, grid[m].Jt, grid[m].Jz, m,
                             self.cell_idx, self.prefix_sum)
-                    else:
-                        for m in range(Nm):
-                            deposit_J_gpu_linear_one_mode[
-                                dim_grid_2d_flat, dim_block_2d_flat](
-                                self.x, self.y, self.z, weight, self.q,
-                                self.ux, self.uy, self.uz, self.inv_gamma,
-                                grid[m].invdz, grid[m].zmin, grid[m].Nz,
-                                grid[m].invdr, grid[m].rmin, grid[m].Nr,
-                                grid[m].Jr, grid[m].Jt, grid[m].Jz, m,
-                                self.cell_idx, self.prefix_sum)
                 elif self.particle_shape == 'cubic':
-                    if Nm == 2:
+                    for m in range(Nm):
                         deposit_J_gpu_cubic[
                             dim_grid_2d_flat, dim_block_2d_flat](
                             self.x, self.y, self.z, weight, self.q,
                             self.ux, self.uy, self.uz, self.inv_gamma,
-                            grid[0].invdz, grid[0].zmin, grid[0].Nz,
-                            grid[0].invdr, grid[0].rmin, grid[0].Nr,
-                            grid[0].Jr, grid[1].Jr,
-                            grid[0].Jt, grid[1].Jt,
-                            grid[0].Jz, grid[1].Jz,
+                            grid[m].invdz, grid[m].zmin, grid[m].Nz,
+                            grid[m].invdr, grid[m].rmin, grid[m].Nr,
+                            grid[m].Jr, grid[m].Jt, grid[m].Jz, m,
                             self.cell_idx, self.prefix_sum)
-                    else:
-                        for m in range(Nm):
-                            deposit_J_gpu_cubic_one_mode[
-                                dim_grid_2d_flat, dim_block_2d_flat](
-                                self.x, self.y, self.z, weight, self.q,
-                                self.ux, self.uy, self.uz, self.inv_gamma,
-                                grid[m].invdz, grid[m].zmin, grid[m].Nz,
-                                grid[m].invdr, grid[m].rmin, grid[m].Nr,
-                                grid[m].Jr, grid[m].Jt, grid[m].Jz, m,
-                                self.cell_idx, self.prefix_sum)
-
         # CPU version
         else:
             # Divide particles in chunks (each chunk is handled by a different

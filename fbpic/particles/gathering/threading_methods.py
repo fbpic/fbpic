@@ -4,7 +4,7 @@
 """
 This file is part of the Fourier-Bessel Particle-In-Cell code (FB-PIC)
 It defines the field gathering methods linear and cubic order shapes
-on the CPU with threading.
+on the CPU with threading, for one azimuthal mode at a time
 """
 import numba
 from numba import int64
@@ -18,6 +18,27 @@ from .inline_functions import \
 add_linear_gather_for_mode = numba.njit( add_linear_gather_for_mode )
 add_cubic_gather_for_mode = numba.njit( add_cubic_gather_for_mode )
 
+
+@njit_parallel
+def erase_eb_numba( Ex, Ey, Ez, Bx, By, Bz, Ntot ):
+    """
+    Reset the arrays of fields (i.e. set them to 0)
+
+    Parameters
+    ----------
+    Ex, Ey, Ez, Bx, By, Bz: 1d arrays of floats
+        (One element per macroparticle)
+        Represents the fields on the macroparticles
+    """
+    for i in prange(Ntot):
+        Ex[i] = 0
+        Ey[i] = 0
+        Ez[i] = 0
+        Bx[i] = 0
+        By[i] = 0
+        Bz[i] = 0
+    return  Ex, Ey, Ez, Bx, By, Bz
+
 # -----------------------
 # Field gathering linear
 # -----------------------
@@ -26,10 +47,8 @@ add_cubic_gather_for_mode = numba.njit( add_cubic_gather_for_mode )
 def gather_field_numba_linear(x, y, z,
                     invdz, zmin, Nz,
                     invdr, rmin, Nr,
-                    Er_m0, Et_m0, Ez_m0,
-                    Er_m1, Et_m1, Ez_m1,
-                    Br_m0, Bt_m0, Bz_m0,
-                    Br_m1, Bt_m1, Bz_m1,
+                    Er_m, Et_m, Ez_m,
+                    Br_m, Bt_m, Bz_m, m,
                     Ex, Ey, Ez,
                     Bx, By, Bz ):
     """
@@ -37,8 +56,7 @@ def gather_field_numba_linear(x, y, z,
     Iterates over the particles, calculates the weighted amount
     of fields acting on each particle based on its shape (linear).
     Fields are gathered in cylindrical coordinates and then
-    transformed to cartesian coordinates.
-    Supports only mode 0 and 1.
+    transformed to cartesian coordinates.s
 
     Parameters
     ----------
@@ -55,17 +73,14 @@ def gather_field_numba_linear(x, y, z,
     Nz, Nr : int
         Number of gridpoints along the considered direction
 
-    Er_m0, Et_m0, Ez_m0 : 2darray of complexs
-        The electric fields on the interpolation grid for the mode 0
+    Er_m, Et_m, Ez_m : 2darray of complexs
+        The electric fields on the interpolation grid for the mode m
 
-    Er_m1, Et_m1, Ez_m1 : 2darray of complexs
-        The electric fields on the interpolation grid for the mode 1
+    Br_m, Bt_m, Bz_m : 2darray of complexs
+        The magnetic fields on the interpolation grid for the mode m
 
-    Br_m0, Bt_m0, Bz_m0 : 2darray of complexs
-        The magnetic fields on the interpolation grid for the mode 0
-
-    Br_m1, Bt_m1, Bz_m1 : 2darray of complexs
-        The magnetic fields on the interpolation grid for the mode 1
+    m: int
+        Index of the azimuthal mode
 
     Ex, Ey, Ez : 1darray of floats
         The electric fields acting on the particles
@@ -93,8 +108,7 @@ def gather_field_numba_linear(x, y, z,
         else :
             cos = 1.
             sin = 0.
-        exptheta_m0 = 1.
-        exptheta_m1 = cos - 1.j*sin
+        exptheta_m = (cos - 1.j*sin)**m
 
         # Get linear weights for the deposition
         # -------------------------------------
@@ -151,21 +165,16 @@ def gather_field_numba_linear(x, y, z,
         Fr = 0.
         Ft = 0.
         Fz = 0.
-        # Add contribution from mode 0
-        Fr, Ft, Fz = add_linear_gather_for_mode( 0,
-            Fr, Ft, Fz, exptheta_m0, Er_m0, Et_m0, Ez_m0,
-            iz_lower, iz_upper, ir_lower, ir_upper,
-            S_ll, S_lu, S_lg, S_ul, S_uu, S_ug )
-        # Add contribution from mode 1
-        Fr, Ft, Fz = add_linear_gather_for_mode( 1,
-            Fr, Ft, Fz, exptheta_m1, Er_m1, Et_m1, Ez_m1,
+        # Add contribution from mode m
+        Fr, Ft, Fz = add_linear_gather_for_mode( m,
+            Fr, Ft, Fz, exptheta_m, Er_m, Et_m, Ez_m,
             iz_lower, iz_upper, ir_lower, ir_upper,
             S_ll, S_lu, S_lg, S_ul, S_uu, S_ug )
         # Convert to Cartesian coordinates
         # and write to particle field arrays
-        Ex[i] = cos*Fr - sin*Ft
-        Ey[i] = sin*Fr + cos*Ft
-        Ez[i] = Fz
+        Ex[i] += cos*Fr - sin*Ft
+        Ey[i] += sin*Fr + cos*Ft
+        Ez[i] += Fz
 
         # B-Field
         # -------
@@ -174,21 +183,16 @@ def gather_field_numba_linear(x, y, z,
         Fr = 0.
         Ft = 0.
         Fz = 0.
-        # Add contribution from mode 0
-        Fr, Ft, Fz = add_linear_gather_for_mode( 0,
-            Fr, Ft, Fz, exptheta_m0, Br_m0, Bt_m0, Bz_m0,
-            iz_lower, iz_upper, ir_lower, ir_upper,
-            S_ll, S_lu, S_lg, S_ul, S_uu, S_ug )
-        # Add contribution from mode 1
-        Fr, Ft, Fz = add_linear_gather_for_mode( 1,
-            Fr, Ft, Fz, exptheta_m1, Br_m1, Bt_m1, Bz_m1,
+        # Add contribution from mode m
+        Fr, Ft, Fz = add_linear_gather_for_mode( m,
+            Fr, Ft, Fz, exptheta_m, Br_m, Bt_m, Bz_m,
             iz_lower, iz_upper, ir_lower, ir_upper,
             S_ll, S_lu, S_lg, S_ul, S_uu, S_ug )
         # Convert to Cartesian coordinates
         # and write to particle field arrays
-        Bx[i] = cos*Fr - sin*Ft
-        By[i] = sin*Fr + cos*Ft
-        Bz[i] = Fz
+        Bx[i] += cos*Fr - sin*Ft
+        By[i] += sin*Fr + cos*Ft
+        Bz[i] += Fz
 
     return Ex, Ey, Ez, Bx, By, Bz
 
@@ -200,10 +204,8 @@ def gather_field_numba_linear(x, y, z,
 def gather_field_numba_cubic(x, y, z,
                     invdz, zmin, Nz,
                     invdr, rmin, Nr,
-                    Er_m0, Et_m0, Ez_m0,
-                    Er_m1, Et_m1, Ez_m1,
-                    Br_m0, Bt_m0, Bz_m0,
-                    Br_m1, Bt_m1, Bz_m1,
+                    Er_m, Et_m, Ez_m,
+                    Br_m, Bt_m, Bz_m, m,
                     Ex, Ey, Ez,
                     Bx, By, Bz,
                     nthreads, ptcl_chunk_indices):
@@ -230,17 +232,14 @@ def gather_field_numba_cubic(x, y, z,
     Nz, Nr : int
         Number of gridpoints along the considered direction
 
-    Er_m0, Et_m0, Ez_m0 : 2darray of complexs
-        The electric fields on the interpolation grid for the mode 0
+    Er_m, Et_m, Ez_m : 2darray of complexs
+        The electric fields on the interpolation grid for the mode m
 
-    Er_m1, Et_m1, Ez_m1 : 2darray of complexs
-        The electric fields on the interpolation grid for the mode 1
+    Br_m, Bt_m, Bz_m : 2darray of complexs
+        The magnetic fields on the interpolation grid for the mode m
 
-    Br_m0, Bt_m0, Bz_m0 : 2darray of complexs
-        The magnetic fields on the interpolation grid for the mode 0
-
-    Br_m1, Bt_m1, Bz_m1 : 2darray of complexs
-        The magnetic fields on the interpolation grid for the mode 1
+    m: int
+        Index of the azimuthal mode
 
     Ex, Ey, Ez : 1darray of floats
         The electric fields acting on the particles
@@ -285,8 +284,7 @@ def gather_field_numba_cubic(x, y, z,
             else:
                 cos = 1.
                 sin = 0.
-            exptheta_m0 = 1.
-            exptheta_m1 = cos - 1.j*sin
+            exptheta_m = (cos - 1.j*sin)**m
 
             # Get weights for the deposition
             # --------------------------------------------
@@ -313,19 +311,15 @@ def gather_field_numba_cubic(x, y, z,
             Fr = 0.
             Ft = 0.
             Fz = 0.
-            # Add contribution from mode 0
-            Fr, Ft, Fz = add_cubic_gather_for_mode( 0,
-                Fr, Ft, Fz, exptheta_m0, Er_m0, Et_m0, Ez_m0,
-                ir_lowest, iz_lowest, Sr, Sz, Nr, Nz )
-            # Add contribution from mode 1
-            Fr, Ft, Fz = add_cubic_gather_for_mode( 1,
-                Fr, Ft, Fz, exptheta_m1, Er_m1, Et_m1, Ez_m1,
+            # Add contribution from mode m
+            Fr, Ft, Fz = add_cubic_gather_for_mode( m,
+                Fr, Ft, Fz, exptheta_m, Er_m, Et_m, Ez_m,
                 ir_lowest, iz_lowest, Sr, Sz, Nr, Nz )
             # Convert to Cartesian coordinates
             # and write to particle field arrays
-            Ex[i] = cos*Fr - sin*Ft
-            Ey[i] = sin*Fr + cos*Ft
-            Ez[i] = Fz
+            Ex[i] += cos*Fr - sin*Ft
+            Ey[i] += sin*Fr + cos*Ft
+            Ez[i] += Fz
 
             # B-Field
             # -------
@@ -334,18 +328,14 @@ def gather_field_numba_cubic(x, y, z,
             Fr = 0.
             Ft = 0.
             Fz = 0.
-            # Add contribution from mode 0
-            Fr, Ft, Fz =  add_cubic_gather_for_mode( 0,
-                Fr, Ft, Fz, exptheta_m0, Br_m0, Bt_m0, Bz_m0,
-                ir_lowest, iz_lowest, Sr, Sz, Nr, Nz )
-            # Add contribution from mode 1
-            Fr, Ft, Fz =  add_cubic_gather_for_mode( 1,
-                Fr, Ft, Fz, exptheta_m1, Br_m1, Bt_m1, Bz_m1,
+            # Add contribution from mode m
+            Fr, Ft, Fz = add_cubic_gather_for_mode( m,
+                Fr, Ft, Fz, exptheta_m, Br_m, Bt_m, Bz_m,
                 ir_lowest, iz_lowest, Sr, Sz, Nr, Nz )
             # Convert to Cartesian coordinates
             # and write to particle field arrays
-            Bx[i] = cos*Fr - sin*Ft
-            By[i] = sin*Fr + cos*Ft
-            Bz[i] = Fz
+            Bx[i] += cos*Fr - sin*Ft
+            By[i] += sin*Fr + cos*Ft
+            Bz[i] += Fz
 
     return Ex, Ey, Ez, Bx, By, Bz

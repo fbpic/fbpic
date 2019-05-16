@@ -4,12 +4,13 @@
 """
 This file is part of the Fourier-Bessel Particle-In-Cell code (FB-PIC)
 It defines the deposition methods for rho and J for linear and cubic
-order shapes on the GPU using CUDA.
+order shapes on the GPU using CUDA, for one azimuthal mode only
 """
 from numba import cuda
 import math
 from scipy.constants import c
 import numpy as np
+
 
 # -------------------------------
 # Particle shape Factor functions
@@ -85,7 +86,7 @@ def r_shape_cubic(cell_position, index):
 def deposit_rho_gpu_linear(x, y, z, w, q,
                            invdz, zmin, Nz,
                            invdr, rmin, Nr,
-                           rho_m0, rho_m1,
+                           rho_m, m,
                            cell_idx, prefix_sum):
     """
     Deposition of the charge density rho using numba on the GPU.
@@ -112,9 +113,12 @@ def deposit_rho_gpu_linear(x, y, z, w, q,
         Charge of the species
         (For ionizable atoms: this is always the elementary charge e)
 
-    rho_m0, rho_m1 : 2darrays of complexs
+    rho_m: 2darray of complexs
         The charge density on the interpolation grid for
-        mode 0 and 1. (is modified by this function)
+        mode m. (is modified by this function)
+
+    m: int
+        The index of the azimuthal mode
 
     invdz, invdr : float (in meters^-1)
         Inverse of the grid step along the considered direction
@@ -154,14 +158,10 @@ def deposit_rho_gpu_linear(x, y, z, w, q,
             frequency_per_cell = np.int32(incl_offset)
 
         # Declare local field arrays
-        R_m0_00 = 0.
-        R_m0_01 = 0.
-        R_m0_10 = 0.
-        R_m0_11 = 0.
-        R_m1_00 = 0. + 0.j
-        R_m1_01 = 0. + 0.j
-        R_m1_10 = 0. + 0.j
-        R_m1_11 = 0. + 0.j
+        R_m_00 = 0. + 0.j
+        R_m_01 = 0. + 0.j
+        R_m_10 = 0. + 0.j
+        R_m_11 = 0. + 0.j
 
         for j in range(frequency_per_cell):
             # Get the particle index before the sorting
@@ -189,8 +189,10 @@ def deposit_rho_gpu_linear(x, y, z, w, q,
             else:
                 cos = 1.
                 sin = 0.
-            exptheta_m0 = 1.
-            exptheta_m1 = cos + 1.j*sin
+            # Calculate azimuthal factor
+            exptheta_m = 1. + 0.j
+            for _ in range(m):
+                exptheta_m *= (cos + 1.j*sin)
 
             # Positions of the particles, in the cell unit
             r_cell = invdr*(rj - rmin) - 0.5
@@ -198,19 +200,11 @@ def deposit_rho_gpu_linear(x, y, z, w, q,
 
             # Calculate rho
             # --------------------------------------------
-            # Mode 0
-            R_m0_scal = wj * exptheta_m0
-            # Mode 1
-            R_m1_scal = wj * exptheta_m1
-
-            R_m0_00 += r_shape_linear(r_cell, 0)*z_shape_linear(z_cell, 0) * R_m0_scal
-            R_m0_01 += r_shape_linear(r_cell, 0)*z_shape_linear(z_cell, 1) * R_m0_scal
-            R_m1_00 += r_shape_linear(r_cell, 0)*z_shape_linear(z_cell, 0) * R_m1_scal
-            R_m1_01 += r_shape_linear(r_cell, 0)*z_shape_linear(z_cell, 1) * R_m1_scal
-            R_m0_10 += r_shape_linear(r_cell, 1)*z_shape_linear(z_cell, 0) * R_m0_scal
-            R_m0_11 += r_shape_linear(r_cell, 1)*z_shape_linear(z_cell, 1) * R_m0_scal
-            R_m1_10 += r_shape_linear(r_cell, 1)*z_shape_linear(z_cell, 0) * R_m1_scal
-            R_m1_11 += r_shape_linear(r_cell, 1)*z_shape_linear(z_cell, 1) * R_m1_scal
+            R_m_scal = wj * exptheta_m
+            R_m_00 += r_shape_linear(r_cell, 0)*z_shape_linear(z_cell, 0) * R_m_scal
+            R_m_01 += r_shape_linear(r_cell, 0)*z_shape_linear(z_cell, 1) * R_m_scal
+            R_m_10 += r_shape_linear(r_cell, 1)*z_shape_linear(z_cell, 0) * R_m_scal
+            R_m_11 += r_shape_linear(r_cell, 1)*z_shape_linear(z_cell, 1) * R_m_scal
 
         # Calculate longitudinal indices at which to add charge
         iz0 = iz_upper - 1
@@ -226,20 +220,16 @@ def deposit_rho_gpu_linear(x, y, z, w, q,
 
         # Atomically add the registers to global memory
         if frequency_per_cell > 0:
-            # Mode 0
-            cuda.atomic.add(rho_m0.real, (iz0, ir0), R_m0_00.real)
-            cuda.atomic.add(rho_m0.real, (iz0, ir1), R_m0_10.real)
-            cuda.atomic.add(rho_m0.real, (iz1, ir0), R_m0_01.real)
-            cuda.atomic.add(rho_m0.real, (iz1, ir1), R_m0_11.real)
-            # Mode 1
-            cuda.atomic.add(rho_m1.real, (iz0, ir0), R_m1_00.real)
-            cuda.atomic.add(rho_m1.imag, (iz0, ir0), R_m1_00.imag)
-            cuda.atomic.add(rho_m1.real, (iz0, ir1), R_m1_10.real)
-            cuda.atomic.add(rho_m1.imag, (iz0, ir1), R_m1_10.imag)
-            cuda.atomic.add(rho_m1.real, (iz1, ir0), R_m1_01.real)
-            cuda.atomic.add(rho_m1.imag, (iz1, ir0), R_m1_01.imag)
-            cuda.atomic.add(rho_m1.real, (iz1, ir1), R_m1_11.real)
-            cuda.atomic.add(rho_m1.imag, (iz1, ir1), R_m1_11.imag)
+            cuda.atomic.add(rho_m.real, (iz0, ir0), R_m_00.real)
+            cuda.atomic.add(rho_m.real, (iz0, ir1), R_m_10.real)
+            cuda.atomic.add(rho_m.real, (iz1, ir0), R_m_01.real)
+            cuda.atomic.add(rho_m.real, (iz1, ir1), R_m_11.real)
+            if m > 0:
+                # For azimuthal modes beyond m=0: add imaginary part
+                cuda.atomic.add(rho_m.imag, (iz0, ir0), R_m_00.imag)
+                cuda.atomic.add(rho_m.imag, (iz0, ir1), R_m_10.imag)
+                cuda.atomic.add(rho_m.imag, (iz1, ir0), R_m_01.imag)
+                cuda.atomic.add(rho_m.imag, (iz1, ir1), R_m_11.imag)
 
 
 # -------------------------------
@@ -251,9 +241,7 @@ def deposit_J_gpu_linear(x, y, z, w, q,
                          ux, uy, uz, inv_gamma,
                          invdz, zmin, Nz,
                          invdr, rmin, Nr,
-                         j_r_m0, j_r_m1,
-                         j_t_m0, j_t_m1,
-                         j_z_m0, j_z_m1,
+                         j_r_m, j_t_m, j_z_m, m,
                          cell_idx, prefix_sum):
     """
     Deposition of the current J using numba on the GPU.
@@ -286,10 +274,13 @@ def deposit_J_gpu_linear(x, y, z, w, q,
     inv_gamma : 1darray of floats
         The inverse of the relativistic gamma factor
 
-    j_r_m0, j_r_m1, j_t_m0, j_t_m1, j_z_m0, j_z_m1,: 2darrays of complexs
+    j_r_m, j_t_m, j_z_m,: 2darrays of complexs
         The current component in each direction (r, t, z)
-        on the interpolation grid for mode 0 and 1.
+        on the interpolation grid for mode m.
         (is modified by this function)
+
+    m: int
+        The index of the azimuthal mode considered
 
     invdz, invdr : float (in meters^-1)
         Inverse of the grid step along the considered direction
@@ -331,35 +322,18 @@ def deposit_J_gpu_linear(x, y, z, w, q,
         # Declare the local field value for
         # all possible deposition directions,
         # depending on the shape order and per mode for r,t and z.
-
-        J_r_m0_00 = 0.
-        J_r_m1_00 = 0. + 0.j
-        J_t_m0_00 = 0.
-        J_t_m1_00 = 0. + 0.j
-        J_z_m0_00 = 0.
-        J_z_m1_00 = 0. + 0.j
-
-        J_r_m0_01 = 0.
-        J_r_m1_01 = 0. + 0.j
-        J_t_m0_01 = 0.
-        J_t_m1_01 = 0. + 0.j
-        J_z_m0_01 = 0.
-        J_z_m1_01 = 0. + 0.j
-
-        J_r_m0_10 = 0.
-        J_r_m1_10 = 0. + 0.j
-        J_t_m0_10 = 0.
-        J_t_m1_10 = 0. + 0.j
-        J_z_m0_10 = 0.
-        J_z_m1_10 = 0. + 0.j
-
-        J_r_m0_11 = 0.
-        J_r_m1_11 = 0. + 0.j
-        J_t_m0_11 = 0.
-        J_t_m1_11 = 0. + 0.j
-        J_z_m0_11 = 0.
-        J_z_m1_11 = 0. + 0.j
-
+        J_r_m_00 = 0. + 0.j
+        J_t_m_00 = 0. + 0.j
+        J_z_m_00 = 0. + 0.j
+        J_r_m_01 = 0. + 0.j
+        J_t_m_01 = 0. + 0.j
+        J_z_m_01 = 0. + 0.j
+        J_r_m_10 = 0. + 0.j
+        J_t_m_10 = 0. + 0.j
+        J_z_m_10 = 0. + 0.j
+        J_r_m_11 = 0. + 0.j
+        J_t_m_11 = 0. + 0.j
+        J_z_m_11 = 0. + 0.j
 
         # Loop over the number of particles per cell
         for j in range(frequency_per_cell):
@@ -394,8 +368,10 @@ def deposit_J_gpu_linear(x, y, z, w, q,
             else:
                 cos = 1.
                 sin = 0.
-            exptheta_m0 = 1.
-            exptheta_m1 = cos + 1.j*sin
+            # Calculate azimuthal factor
+            exptheta_m = 1. + 0.j
+            for _ in range(m):
+                exptheta_m *= (cos + 1.j*sin)
 
             # Get weights for the deposition
             # --------------------------------------------
@@ -405,40 +381,23 @@ def deposit_J_gpu_linear(x, y, z, w, q,
 
             # Calculate the currents
             # ----------------------
-            # Mode 0
-            J_r_m0_scal = wj * c * inv_gammaj*(cos*uxj + sin*uyj) * exptheta_m0
-            J_t_m0_scal = wj * c * inv_gammaj*(cos*uyj - sin*uxj) * exptheta_m0
-            J_z_m0_scal = wj * c * inv_gammaj*uzj * exptheta_m0
-            # Mode 1
-            J_r_m1_scal = wj * c * inv_gammaj*(cos*uxj + sin*uyj) * exptheta_m1
-            J_t_m1_scal = wj * c * inv_gammaj*(cos*uyj - sin*uxj) * exptheta_m1
-            J_z_m1_scal = wj * c * inv_gammaj*uzj * exptheta_m1
+            J_r_m_scal = wj * c * inv_gammaj*(cos*uxj + sin*uyj) * exptheta_m
+            J_t_m_scal = wj * c * inv_gammaj*(cos*uyj - sin*uxj) * exptheta_m
+            J_z_m_scal = wj * c * inv_gammaj*uzj * exptheta_m
 
-            J_r_m0_00 += r_shape_linear(r_cell, 0)*z_shape_linear(z_cell, 0) * J_r_m0_scal
-            J_t_m0_00 += r_shape_linear(r_cell, 0)*z_shape_linear(z_cell, 0) * J_t_m0_scal
-            J_z_m0_00 += r_shape_linear(r_cell, 0)*z_shape_linear(z_cell, 0) * J_z_m0_scal
-            J_r_m0_01 += r_shape_linear(r_cell, 0)*z_shape_linear(z_cell, 1) * J_r_m0_scal
-            J_t_m0_01 += r_shape_linear(r_cell, 0)*z_shape_linear(z_cell, 1) * J_t_m0_scal
-            J_z_m0_01 += r_shape_linear(r_cell, 0)*z_shape_linear(z_cell, 1) * J_z_m0_scal
-            J_r_m1_00 += r_shape_linear(r_cell, 0)*z_shape_linear(z_cell, 0) * J_r_m1_scal
-            J_t_m1_00 += r_shape_linear(r_cell, 0)*z_shape_linear(z_cell, 0) * J_t_m1_scal
-            J_z_m1_00 += r_shape_linear(r_cell, 0)*z_shape_linear(z_cell, 0) * J_z_m1_scal
-            J_r_m1_01 += r_shape_linear(r_cell, 0)*z_shape_linear(z_cell, 1) * J_r_m1_scal
-            J_t_m1_01 += r_shape_linear(r_cell, 0)*z_shape_linear(z_cell, 1) * J_t_m1_scal
-            J_z_m1_01 += r_shape_linear(r_cell, 0)*z_shape_linear(z_cell, 1) * J_z_m1_scal
+            J_r_m_00 += r_shape_linear(r_cell, 0)*z_shape_linear(z_cell, 0) * J_r_m_scal
+            J_t_m_00 += r_shape_linear(r_cell, 0)*z_shape_linear(z_cell, 0) * J_t_m_scal
+            J_z_m_00 += r_shape_linear(r_cell, 0)*z_shape_linear(z_cell, 0) * J_z_m_scal
+            J_r_m_01 += r_shape_linear(r_cell, 0)*z_shape_linear(z_cell, 1) * J_r_m_scal
+            J_t_m_01 += r_shape_linear(r_cell, 0)*z_shape_linear(z_cell, 1) * J_t_m_scal
+            J_z_m_01 += r_shape_linear(r_cell, 0)*z_shape_linear(z_cell, 1) * J_z_m_scal
 
-            J_r_m0_10 += r_shape_linear(r_cell, 1)*z_shape_linear(z_cell, 0) * J_r_m0_scal
-            J_t_m0_10 += r_shape_linear(r_cell, 1)*z_shape_linear(z_cell, 0) * J_t_m0_scal
-            J_z_m0_10 += r_shape_linear(r_cell, 1)*z_shape_linear(z_cell, 0) * J_z_m0_scal
-            J_r_m0_11 += r_shape_linear(r_cell, 1)*z_shape_linear(z_cell, 1) * J_r_m0_scal
-            J_t_m0_11 += r_shape_linear(r_cell, 1)*z_shape_linear(z_cell, 1) * J_t_m0_scal
-            J_z_m0_11 += r_shape_linear(r_cell, 1)*z_shape_linear(z_cell, 1) * J_z_m0_scal
-            J_r_m1_10 += r_shape_linear(r_cell, 1)*z_shape_linear(z_cell, 0) * J_r_m1_scal
-            J_t_m1_10 += r_shape_linear(r_cell, 1)*z_shape_linear(z_cell, 0) * J_t_m1_scal
-            J_z_m1_10 += r_shape_linear(r_cell, 1)*z_shape_linear(z_cell, 0) * J_z_m1_scal
-            J_r_m1_11 += r_shape_linear(r_cell, 1)*z_shape_linear(z_cell, 1) * J_r_m1_scal
-            J_t_m1_11 += r_shape_linear(r_cell, 1)*z_shape_linear(z_cell, 1) * J_t_m1_scal
-            J_z_m1_11 += r_shape_linear(r_cell, 1)*z_shape_linear(z_cell, 1) * J_z_m1_scal
+            J_r_m_10 += r_shape_linear(r_cell, 1)*z_shape_linear(z_cell, 0) * J_r_m_scal
+            J_t_m_10 += r_shape_linear(r_cell, 1)*z_shape_linear(z_cell, 0) * J_t_m_scal
+            J_z_m_10 += r_shape_linear(r_cell, 1)*z_shape_linear(z_cell, 0) * J_z_m_scal
+            J_r_m_11 += r_shape_linear(r_cell, 1)*z_shape_linear(z_cell, 1) * J_r_m_scal
+            J_t_m_11 += r_shape_linear(r_cell, 1)*z_shape_linear(z_cell, 1) * J_t_m_scal
+            J_z_m_11 += r_shape_linear(r_cell, 1)*z_shape_linear(z_cell, 1) * J_z_m_scal
 
         # Calculate longitudinal indices at which to add charge
         iz0 = iz_upper - 1
@@ -454,48 +413,36 @@ def deposit_J_gpu_linear(x, y, z, w, q,
 
         # Atomically add the registers to global memory
         if frequency_per_cell > 0:
-            # jr: Mode 0
-            cuda.atomic.add(j_r_m0.real, (iz0, ir0), J_r_m0_00.real)
-            cuda.atomic.add(j_r_m0.real, (iz0, ir1), J_r_m0_10.real)
-            cuda.atomic.add(j_r_m0.real, (iz1, ir0), J_r_m0_01.real)
-            cuda.atomic.add(j_r_m0.real, (iz1, ir1), J_r_m0_11.real)
-            # jr: Mode 1
-            cuda.atomic.add(j_r_m1.real, (iz0, ir0), J_r_m1_00.real)
-            cuda.atomic.add(j_r_m1.imag, (iz0, ir0), J_r_m1_00.imag)
-            cuda.atomic.add(j_r_m1.real, (iz0, ir1), J_r_m1_10.real)
-            cuda.atomic.add(j_r_m1.imag, (iz0, ir1), J_r_m1_10.imag)
-            cuda.atomic.add(j_r_m1.real, (iz1, ir0), J_r_m1_01.real)
-            cuda.atomic.add(j_r_m1.imag, (iz1, ir0), J_r_m1_01.imag)
-            cuda.atomic.add(j_r_m1.real, (iz1, ir1), J_r_m1_11.real)
-            cuda.atomic.add(j_r_m1.imag, (iz1, ir1), J_r_m1_11.imag)
-            # jt: Mode 0
-            cuda.atomic.add(j_t_m0.real, (iz0, ir0), J_t_m0_00.real)
-            cuda.atomic.add(j_t_m0.real, (iz0, ir1), J_t_m0_10.real)
-            cuda.atomic.add(j_t_m0.real, (iz1, ir0), J_t_m0_01.real)
-            cuda.atomic.add(j_t_m0.real, (iz1, ir1), J_t_m0_11.real)
-            # jt: Mode 1
-            cuda.atomic.add(j_t_m1.real, (iz0, ir0), J_t_m1_00.real)
-            cuda.atomic.add(j_t_m1.imag, (iz0, ir0), J_t_m1_00.imag)
-            cuda.atomic.add(j_t_m1.real, (iz0, ir1), J_t_m1_10.real)
-            cuda.atomic.add(j_t_m1.imag, (iz0, ir1), J_t_m1_10.imag)
-            cuda.atomic.add(j_t_m1.real, (iz1, ir0), J_t_m1_01.real)
-            cuda.atomic.add(j_t_m1.imag, (iz1, ir0), J_t_m1_01.imag)
-            cuda.atomic.add(j_t_m1.real, (iz1, ir1), J_t_m1_11.real)
-            cuda.atomic.add(j_t_m1.imag, (iz1, ir1), J_t_m1_11.imag)
-            # jz: Mode 0
-            cuda.atomic.add(j_z_m0.real, (iz0, ir0), J_z_m0_00.real)
-            cuda.atomic.add(j_z_m0.real, (iz0, ir1), J_z_m0_10.real)
-            cuda.atomic.add(j_z_m0.real, (iz1, ir0), J_z_m0_01.real)
-            cuda.atomic.add(j_z_m0.real, (iz1, ir1), J_z_m0_11.real)
-            # jz: Mode 1
-            cuda.atomic.add(j_z_m1.real, (iz0, ir0), J_z_m1_00.real)
-            cuda.atomic.add(j_z_m1.imag, (iz0, ir0), J_z_m1_00.imag)
-            cuda.atomic.add(j_z_m1.real, (iz0, ir1), J_z_m1_10.real)
-            cuda.atomic.add(j_z_m1.imag, (iz0, ir1), J_z_m1_10.imag)
-            cuda.atomic.add(j_z_m1.real, (iz1, ir0), J_z_m1_01.real)
-            cuda.atomic.add(j_z_m1.imag, (iz1, ir0), J_z_m1_01.imag)
-            cuda.atomic.add(j_z_m1.real, (iz1, ir1), J_z_m1_11.real)
-            cuda.atomic.add(j_z_m1.imag, (iz1, ir1), J_z_m1_11.imag)
+            # jr
+            cuda.atomic.add(j_r_m.real, (iz0, ir0), J_r_m_00.real)
+            cuda.atomic.add(j_r_m.real, (iz0, ir1), J_r_m_10.real)
+            cuda.atomic.add(j_r_m.real, (iz1, ir0), J_r_m_01.real)
+            cuda.atomic.add(j_r_m.real, (iz1, ir1), J_r_m_11.real)
+            if m > 0:
+                cuda.atomic.add(j_r_m.imag, (iz0, ir0), J_r_m_00.imag)
+                cuda.atomic.add(j_r_m.imag, (iz0, ir1), J_r_m_10.imag)
+                cuda.atomic.add(j_r_m.imag, (iz1, ir0), J_r_m_01.imag)
+                cuda.atomic.add(j_r_m.imag, (iz1, ir1), J_r_m_11.imag)
+            # jt
+            cuda.atomic.add(j_t_m.real, (iz0, ir0), J_t_m_00.real)
+            cuda.atomic.add(j_t_m.real, (iz0, ir1), J_t_m_10.real)
+            cuda.atomic.add(j_t_m.real, (iz1, ir0), J_t_m_01.real)
+            cuda.atomic.add(j_t_m.real, (iz1, ir1), J_t_m_11.real)
+            if m > 0:
+                cuda.atomic.add(j_t_m.imag, (iz0, ir0), J_t_m_00.imag)
+                cuda.atomic.add(j_t_m.imag, (iz0, ir1), J_t_m_10.imag)
+                cuda.atomic.add(j_t_m.imag, (iz1, ir0), J_t_m_01.imag)
+                cuda.atomic.add(j_t_m.imag, (iz1, ir1), J_t_m_11.imag)
+            # jz
+            cuda.atomic.add(j_z_m.real, (iz0, ir0), J_z_m_00.real)
+            cuda.atomic.add(j_z_m.real, (iz0, ir1), J_z_m_10.real)
+            cuda.atomic.add(j_z_m.real, (iz1, ir0), J_z_m_01.real)
+            cuda.atomic.add(j_z_m.real, (iz1, ir1), J_z_m_11.real)
+            if m > 0:
+                cuda.atomic.add(j_z_m.imag, (iz0, ir0), J_z_m_00.imag)
+                cuda.atomic.add(j_z_m.imag, (iz0, ir1), J_z_m_10.imag)
+                cuda.atomic.add(j_z_m.imag, (iz1, ir0), J_z_m_01.imag)
+                cuda.atomic.add(j_z_m.imag, (iz1, ir1), J_z_m_11.imag)
 
 # -------------------------------
 # Field deposition - cubic - rho
@@ -505,7 +452,7 @@ def deposit_J_gpu_linear(x, y, z, w, q,
 def deposit_rho_gpu_cubic(x, y, z, w, q,
                           invdz, zmin, Nz,
                           invdr, rmin, Nr,
-                          rho_m0, rho_m1,
+                          rho_m, m,
                           cell_idx, prefix_sum):
     """
     Deposition of the charge density rho using numba on the GPU.
@@ -531,9 +478,12 @@ def deposit_rho_gpu_cubic(x, y, z, w, q,
         Charge of the species
         (For ionizable atoms: this is always the elementary charge e)
 
-    rho_m0, rho_m1 : 2darrays of complexs
+    rho_m : 2darray of complexs
         The charge density on the interpolation grid for
-        mode 0 and 1. (is modified by this function)
+        mode m. (is modified by this function)
+
+    m: int
+        Index of the azimuthal mode considered
 
     invdz, invdr : float (in meters^-1)
         Inverse of the grid step along the considered direction
@@ -573,53 +523,22 @@ def deposit_rho_gpu_cubic(x, y, z, w, q,
             frequency_per_cell = np.int32(incl_offset)
 
         # Declare local field arrays
-        R_m0_00 = 0.
-        R_m1_00 = 0. + 0.j
-
-        R_m0_01 = 0.
-        R_m1_01 = 0. + 0.j
-
-        R_m0_02 = 0.
-        R_m1_02 = 0. + 0.j
-
-        R_m0_03 = 0.
-        R_m1_03 = 0. + 0.j
-
-        R_m0_10 = 0.
-        R_m1_10 = 0. + 0.j
-
-        R_m0_11 = 0.
-        R_m1_11 = 0. + 0.j
-
-        R_m0_12 = 0.
-        R_m1_12 = 0. + 0.j
-
-        R_m0_13 = 0.
-        R_m1_13 = 0. + 0.j
-
-        R_m0_20 = 0.
-        R_m1_20 = 0. + 0.j
-
-        R_m0_21 = 0.
-        R_m1_21 = 0. + 0.j
-
-        R_m0_22 = 0.
-        R_m1_22 = 0. + 0.j
-
-        R_m0_23 = 0.
-        R_m1_23 = 0. + 0.j
-
-        R_m0_30 = 0.
-        R_m1_30 = 0. + 0.j
-
-        R_m0_31 = 0.
-        R_m1_31 = 0. + 0.j
-
-        R_m0_32 = 0.
-        R_m1_32 = 0. + 0.j
-
-        R_m0_33 = 0.
-        R_m1_33 = 0. + 0.j
+        R_m_00 = 0. + 0.j
+        R_m_01 = 0. + 0.j
+        R_m_02 = 0. + 0.j
+        R_m_03 = 0. + 0.j
+        R_m_10 = 0. + 0.j
+        R_m_11 = 0. + 0.j
+        R_m_12 = 0. + 0.j
+        R_m_13 = 0. + 0.j
+        R_m_20 = 0. + 0.j
+        R_m_21 = 0. + 0.j
+        R_m_22 = 0. + 0.j
+        R_m_23 = 0. + 0.j
+        R_m_30 = 0. + 0.j
+        R_m_31 = 0. + 0.j
+        R_m_32 = 0. + 0.j
+        R_m_33 = 0. + 0.j
 
         for j in range(frequency_per_cell):
             # Get the particle index before the sorting
@@ -647,8 +566,10 @@ def deposit_rho_gpu_cubic(x, y, z, w, q,
             else:
                 cos = 1.
                 sin = 0.
-            exptheta_m0 = 1.
-            exptheta_m1 = cos + 1.j*sin
+            # Calculate azimuthal factor
+            exptheta_m = 1. + 0.j
+            for _ in range(m):
+                exptheta_m *= (cos + 1.j*sin)
 
             # Positions of the particles, in the cell unit
             r_cell = invdr*(rj - rmin) - 0.5
@@ -656,46 +577,27 @@ def deposit_rho_gpu_cubic(x, y, z, w, q,
 
             # Calculate rho
             # -------------
-            # Mode 0
-            R_m0_scal = wj * exptheta_m0
-            # Mode 1
-            R_m1_scal = wj * exptheta_m1
+            R_m_scal = wj * exptheta_m
 
-            R_m0_00 += r_shape_cubic(r_cell, 0)*z_shape_cubic(z_cell, 0)*R_m0_scal
-            R_m1_00 += r_shape_cubic(r_cell, 0)*z_shape_cubic(z_cell, 0)*R_m1_scal
-            R_m0_01 += r_shape_cubic(r_cell, 0)*z_shape_cubic(z_cell, 1)*R_m0_scal
-            R_m1_01 += r_shape_cubic(r_cell, 0)*z_shape_cubic(z_cell, 1)*R_m1_scal
-            R_m0_02 += r_shape_cubic(r_cell, 0)*z_shape_cubic(z_cell, 2)*R_m0_scal
-            R_m1_02 += r_shape_cubic(r_cell, 0)*z_shape_cubic(z_cell, 2)*R_m1_scal
-            R_m0_03 += r_shape_cubic(r_cell, 0)*z_shape_cubic(z_cell, 3)*R_m0_scal
-            R_m1_03 += r_shape_cubic(r_cell, 0)*z_shape_cubic(z_cell, 3)*R_m1_scal
+            R_m_00 += r_shape_cubic(r_cell, 0)*z_shape_cubic(z_cell, 0)*R_m_scal
+            R_m_01 += r_shape_cubic(r_cell, 0)*z_shape_cubic(z_cell, 1)*R_m_scal
+            R_m_02 += r_shape_cubic(r_cell, 0)*z_shape_cubic(z_cell, 2)*R_m_scal
+            R_m_03 += r_shape_cubic(r_cell, 0)*z_shape_cubic(z_cell, 3)*R_m_scal
 
-            R_m0_10 += r_shape_cubic(r_cell, 1)*z_shape_cubic(z_cell, 0)*R_m0_scal
-            R_m1_10 += r_shape_cubic(r_cell, 1)*z_shape_cubic(z_cell, 0)*R_m1_scal
-            R_m0_11 += r_shape_cubic(r_cell, 1)*z_shape_cubic(z_cell, 1)*R_m0_scal
-            R_m1_11 += r_shape_cubic(r_cell, 1)*z_shape_cubic(z_cell, 1)*R_m1_scal
-            R_m0_12 += r_shape_cubic(r_cell, 1)*z_shape_cubic(z_cell, 2)*R_m0_scal
-            R_m1_12 += r_shape_cubic(r_cell, 1)*z_shape_cubic(z_cell, 2)*R_m1_scal
-            R_m0_13 += r_shape_cubic(r_cell, 1)*z_shape_cubic(z_cell, 3)*R_m0_scal
-            R_m1_13 += r_shape_cubic(r_cell, 1)*z_shape_cubic(z_cell, 3)*R_m1_scal
+            R_m_10 += r_shape_cubic(r_cell, 1)*z_shape_cubic(z_cell, 0)*R_m_scal
+            R_m_11 += r_shape_cubic(r_cell, 1)*z_shape_cubic(z_cell, 1)*R_m_scal
+            R_m_12 += r_shape_cubic(r_cell, 1)*z_shape_cubic(z_cell, 2)*R_m_scal
+            R_m_13 += r_shape_cubic(r_cell, 1)*z_shape_cubic(z_cell, 3)*R_m_scal
 
-            R_m0_20 += r_shape_cubic(r_cell, 2)*z_shape_cubic(z_cell, 0)*R_m0_scal
-            R_m1_20 += r_shape_cubic(r_cell, 2)*z_shape_cubic(z_cell, 0)*R_m1_scal
-            R_m0_21 += r_shape_cubic(r_cell, 2)*z_shape_cubic(z_cell, 1)*R_m0_scal
-            R_m1_21 += r_shape_cubic(r_cell, 2)*z_shape_cubic(z_cell, 1)*R_m1_scal
-            R_m0_22 += r_shape_cubic(r_cell, 2)*z_shape_cubic(z_cell, 2)*R_m0_scal
-            R_m1_22 += r_shape_cubic(r_cell, 2)*z_shape_cubic(z_cell, 2)*R_m1_scal
-            R_m0_23 += r_shape_cubic(r_cell, 2)*z_shape_cubic(z_cell, 3)*R_m0_scal
-            R_m1_23 += r_shape_cubic(r_cell, 2)*z_shape_cubic(z_cell, 3)*R_m1_scal
+            R_m_20 += r_shape_cubic(r_cell, 2)*z_shape_cubic(z_cell, 0)*R_m_scal
+            R_m_21 += r_shape_cubic(r_cell, 2)*z_shape_cubic(z_cell, 1)*R_m_scal
+            R_m_22 += r_shape_cubic(r_cell, 2)*z_shape_cubic(z_cell, 2)*R_m_scal
+            R_m_23 += r_shape_cubic(r_cell, 2)*z_shape_cubic(z_cell, 3)*R_m_scal
 
-            R_m0_30 += r_shape_cubic(r_cell, 3)*z_shape_cubic(z_cell, 0)*R_m0_scal
-            R_m1_30 += r_shape_cubic(r_cell, 3)*z_shape_cubic(z_cell, 0)*R_m1_scal
-            R_m0_31 += r_shape_cubic(r_cell, 3)*z_shape_cubic(z_cell, 1)*R_m0_scal
-            R_m1_31 += r_shape_cubic(r_cell, 3)*z_shape_cubic(z_cell, 1)*R_m1_scal
-            R_m0_32 += r_shape_cubic(r_cell, 3)*z_shape_cubic(z_cell, 2)*R_m0_scal
-            R_m1_32 += r_shape_cubic(r_cell, 3)*z_shape_cubic(z_cell, 2)*R_m1_scal
-            R_m0_33 += r_shape_cubic(r_cell, 3)*z_shape_cubic(z_cell, 3)*R_m0_scal
-            R_m1_33 += r_shape_cubic(r_cell, 3)*z_shape_cubic(z_cell, 3)*R_m1_scal
+            R_m_30 += r_shape_cubic(r_cell, 3)*z_shape_cubic(z_cell, 0)*R_m_scal
+            R_m_31 += r_shape_cubic(r_cell, 3)*z_shape_cubic(z_cell, 1)*R_m_scal
+            R_m_32 += r_shape_cubic(r_cell, 3)*z_shape_cubic(z_cell, 2)*R_m_scal
+            R_m_33 += r_shape_cubic(r_cell, 3)*z_shape_cubic(z_cell, 3)*R_m_scal
 
         # Calculate longitudinal indices at which to add charge
         iz0 = iz_upper - 2
@@ -722,56 +624,40 @@ def deposit_rho_gpu_cubic(x, y, z, w, q,
 
         # Atomically add the registers to global memory
         if frequency_per_cell > 0:
-            # Mode 0
-            cuda.atomic.add(rho_m0.real, (iz0, ir0), R_m0_00.real)
-            cuda.atomic.add(rho_m0.real, (iz0, ir1), R_m0_10.real)
-            cuda.atomic.add(rho_m0.real, (iz0, ir2), R_m0_20.real)
-            cuda.atomic.add(rho_m0.real, (iz0, ir3), R_m0_30.real)
-            cuda.atomic.add(rho_m0.real, (iz1, ir0), R_m0_01.real)
-            cuda.atomic.add(rho_m0.real, (iz1, ir1), R_m0_11.real)
-            cuda.atomic.add(rho_m0.real, (iz1, ir2), R_m0_21.real)
-            cuda.atomic.add(rho_m0.real, (iz1, ir3), R_m0_31.real)
-            cuda.atomic.add(rho_m0.real, (iz2, ir0), R_m0_02.real)
-            cuda.atomic.add(rho_m0.real, (iz2, ir1), R_m0_12.real)
-            cuda.atomic.add(rho_m0.real, (iz2, ir2), R_m0_22.real)
-            cuda.atomic.add(rho_m0.real, (iz2, ir3), R_m0_32.real)
-            cuda.atomic.add(rho_m0.real, (iz3, ir0), R_m0_03.real)
-            cuda.atomic.add(rho_m0.real, (iz3, ir1), R_m0_13.real)
-            cuda.atomic.add(rho_m0.real, (iz3, ir2), R_m0_23.real)
-            cuda.atomic.add(rho_m0.real, (iz3, ir3), R_m0_33.real)
-            # Mode 1
-            cuda.atomic.add(rho_m1.real, (iz0, ir0), R_m1_00.real)
-            cuda.atomic.add(rho_m1.imag, (iz0, ir0), R_m1_00.imag)
-            cuda.atomic.add(rho_m1.real, (iz0, ir1), R_m1_10.real)
-            cuda.atomic.add(rho_m1.imag, (iz0, ir1), R_m1_10.imag)
-            cuda.atomic.add(rho_m1.real, (iz0, ir2), R_m1_20.real)
-            cuda.atomic.add(rho_m1.imag, (iz0, ir2), R_m1_20.imag)
-            cuda.atomic.add(rho_m1.real, (iz0, ir3), R_m1_30.real)
-            cuda.atomic.add(rho_m1.imag, (iz0, ir3), R_m1_30.imag)
-            cuda.atomic.add(rho_m1.real, (iz1, ir0), R_m1_01.real)
-            cuda.atomic.add(rho_m1.imag, (iz1, ir0), R_m1_01.imag)
-            cuda.atomic.add(rho_m1.real, (iz1, ir1), R_m1_11.real)
-            cuda.atomic.add(rho_m1.imag, (iz1, ir1), R_m1_11.imag)
-            cuda.atomic.add(rho_m1.real, (iz1, ir2), R_m1_21.real)
-            cuda.atomic.add(rho_m1.imag, (iz1, ir2), R_m1_21.imag)
-            cuda.atomic.add(rho_m1.real, (iz1, ir3), R_m1_31.real)
-            cuda.atomic.add(rho_m1.imag, (iz1, ir3), R_m1_31.imag)
-            cuda.atomic.add(rho_m1.real, (iz2, ir0), R_m1_02.real)
-            cuda.atomic.add(rho_m1.imag, (iz2, ir0), R_m1_02.imag)
-            cuda.atomic.add(rho_m1.real, (iz2, ir1), R_m1_12.real)
-            cuda.atomic.add(rho_m1.imag, (iz2, ir1), R_m1_12.imag)
-            cuda.atomic.add(rho_m1.real, (iz2, ir2), R_m1_22.real)
-            cuda.atomic.add(rho_m1.imag, (iz2, ir2), R_m1_22.imag)
-            cuda.atomic.add(rho_m1.real, (iz2, ir3), R_m1_32.real)
-            cuda.atomic.add(rho_m1.imag, (iz2, ir3), R_m1_32.imag)
-            cuda.atomic.add(rho_m1.real, (iz3, ir0), R_m1_03.real)
-            cuda.atomic.add(rho_m1.imag, (iz3, ir0), R_m1_03.imag)
-            cuda.atomic.add(rho_m1.real, (iz3, ir1), R_m1_13.real)
-            cuda.atomic.add(rho_m1.imag, (iz3, ir1), R_m1_13.imag)
-            cuda.atomic.add(rho_m1.real, (iz3, ir2), R_m1_23.real)
-            cuda.atomic.add(rho_m1.imag, (iz3, ir2), R_m1_23.imag)
-            cuda.atomic.add(rho_m1.real, (iz3, ir3), R_m1_33.real)
-            cuda.atomic.add(rho_m1.imag, (iz3, ir3), R_m1_33.imag)
+            cuda.atomic.add(rho_m.real, (iz0, ir0), R_m_00.real)
+            cuda.atomic.add(rho_m.real, (iz0, ir1), R_m_10.real)
+            cuda.atomic.add(rho_m.real, (iz0, ir2), R_m_20.real)
+            cuda.atomic.add(rho_m.real, (iz0, ir3), R_m_30.real)
+            cuda.atomic.add(rho_m.real, (iz1, ir0), R_m_01.real)
+            cuda.atomic.add(rho_m.real, (iz1, ir1), R_m_11.real)
+            cuda.atomic.add(rho_m.real, (iz1, ir2), R_m_21.real)
+            cuda.atomic.add(rho_m.real, (iz1, ir3), R_m_31.real)
+            cuda.atomic.add(rho_m.real, (iz2, ir0), R_m_02.real)
+            cuda.atomic.add(rho_m.real, (iz2, ir1), R_m_12.real)
+            cuda.atomic.add(rho_m.real, (iz2, ir2), R_m_22.real)
+            cuda.atomic.add(rho_m.real, (iz2, ir3), R_m_32.real)
+            cuda.atomic.add(rho_m.real, (iz3, ir0), R_m_03.real)
+            cuda.atomic.add(rho_m.real, (iz3, ir1), R_m_13.real)
+            cuda.atomic.add(rho_m.real, (iz3, ir2), R_m_23.real)
+            cuda.atomic.add(rho_m.real, (iz3, ir3), R_m_33.real)
+            if m > 0:
+                cuda.atomic.add(rho_m.imag, (iz0, ir0), R_m_00.imag)
+                cuda.atomic.add(rho_m.imag, (iz0, ir1), R_m_10.imag)
+                cuda.atomic.add(rho_m.imag, (iz0, ir2), R_m_20.imag)
+                cuda.atomic.add(rho_m.imag, (iz0, ir3), R_m_30.imag)
+                cuda.atomic.add(rho_m.imag, (iz1, ir0), R_m_01.imag)
+                cuda.atomic.add(rho_m.imag, (iz1, ir1), R_m_11.imag)
+                cuda.atomic.add(rho_m.imag, (iz1, ir2), R_m_21.imag)
+                cuda.atomic.add(rho_m.imag, (iz1, ir3), R_m_31.imag)
+                cuda.atomic.add(rho_m.imag, (iz2, ir0), R_m_02.imag)
+                cuda.atomic.add(rho_m.imag, (iz2, ir1), R_m_12.imag)
+                cuda.atomic.add(rho_m.imag, (iz2, ir2), R_m_22.imag)
+                cuda.atomic.add(rho_m.imag, (iz2, ir3), R_m_32.imag)
+                cuda.atomic.add(rho_m.imag, (iz3, ir0), R_m_03.imag)
+                cuda.atomic.add(rho_m.imag, (iz3, ir1), R_m_13.imag)
+                cuda.atomic.add(rho_m.imag, (iz3, ir2), R_m_23.imag)
+                cuda.atomic.add(rho_m.imag, (iz3, ir3), R_m_33.imag)
+
 
 # -------------------------------
 # Field deposition - cubic - J
@@ -782,9 +668,7 @@ def deposit_J_gpu_cubic(x, y, z, w, q,
                         ux, uy, uz, inv_gamma,
                         invdz, zmin, Nz,
                         invdr, rmin, Nr,
-                        j_r_m0, j_r_m1,
-                        j_t_m0, j_t_m1,
-                        j_z_m0, j_z_m1,
+                        j_r_m, j_t_m, j_z_m, m,
                         cell_idx, prefix_sum):
     """
     Deposition of the current J using numba on the GPU.
@@ -816,10 +700,13 @@ def deposit_J_gpu_cubic(x, y, z, w, q,
     inv_gamma : 1darray of floats
         The inverse of the relativistic gamma factor
 
-    j_r_m0, j_r_m1, j_t_m0, j_t_m1, j_z_m0, j_z_m1,: 2darrays of complexs
+    j_r_m, j_t_m, j_z_m,: 2darray of complexs
         The current component in each direction (r, t, z)
         on the interpolation grid for mode 0 and 1.
         (is modified by this function)
+
+    m: int
+        Index of the azimuthal mode considered
 
     invdz, invdr : float (in meters^-1)
         Inverse of the grid step along the considered direction
@@ -861,117 +748,69 @@ def deposit_J_gpu_cubic(x, y, z, w, q,
         # Declare the local field value for
         # all possible deposition directions,
         # depending on the shape order and per mode for r,t and z.
-        J_r_m0_00 = 0.
-        J_t_m0_00 = 0.
-        J_z_m0_00 = 0.
-        J_r_m1_00 = 0. + 0.j
-        J_t_m1_00 = 0. + 0.j
-        J_z_m1_00 = 0. + 0.j
+        J_r_m_00 = 0. + 0.j
+        J_t_m_00 = 0. + 0.j
+        J_z_m_00 = 0. + 0.j
 
-        J_r_m0_01 = 0.
-        J_t_m0_01 = 0.
-        J_z_m0_01 = 0.
-        J_r_m1_01 = 0. + 0.j
-        J_t_m1_01 = 0. + 0.j
-        J_z_m1_01 = 0. + 0.j
+        J_r_m_01 = 0. + 0.j
+        J_t_m_01 = 0. + 0.j
+        J_z_m_01 = 0. + 0.j
 
-        J_r_m0_02 = 0.
-        J_t_m0_02 = 0.
-        J_z_m0_02 = 0.
-        J_r_m1_02 = 0. + 0.j
-        J_t_m1_02 = 0. + 0.j
-        J_z_m1_02 = 0. + 0.j
+        J_r_m_02 = 0. + 0.j
+        J_t_m_02 = 0. + 0.j
+        J_z_m_02 = 0. + 0.j
 
-        J_r_m0_03 = 0.
-        J_t_m0_03 = 0.
-        J_z_m0_03 = 0.
-        J_r_m1_03 = 0. + 0.j
-        J_t_m1_03 = 0. + 0.j
-        J_z_m1_03 = 0. + 0.j
+        J_r_m_03 = 0. + 0.j
+        J_t_m_03 = 0. + 0.j
+        J_z_m_03 = 0. + 0.j
 
-        J_r_m0_10 = 0.
-        J_t_m0_10 = 0.
-        J_z_m0_10 = 0.
-        J_r_m1_10 = 0. + 0.j
-        J_t_m1_10 = 0. + 0.j
-        J_z_m1_10 = 0. + 0.j
+        J_r_m_10 = 0. + 0.j
+        J_t_m_10 = 0. + 0.j
+        J_z_m_10 = 0. + 0.j
 
-        J_r_m0_11 = 0.
-        J_t_m0_11 = 0.
-        J_z_m0_11 = 0.
-        J_r_m1_11 = 0. + 0.j
-        J_t_m1_11 = 0. + 0.j
-        J_z_m1_11 = 0. + 0.j
+        J_r_m_11 = 0. + 0.j
+        J_t_m_11 = 0. + 0.j
+        J_z_m_11 = 0. + 0.j
 
-        J_r_m0_12 = 0.
-        J_t_m0_12 = 0.
-        J_z_m0_12 = 0.
-        J_r_m1_12 = 0. + 0.j
-        J_t_m1_12 = 0. + 0.j
-        J_z_m1_12 = 0. + 0.j
+        J_r_m_12 = 0. + 0.j
+        J_t_m_12 = 0. + 0.j
+        J_z_m_12 = 0. + 0.j
 
-        J_r_m0_13 = 0.
-        J_t_m0_13 = 0.
-        J_z_m0_13 = 0.
-        J_r_m1_13 = 0. + 0.j
-        J_t_m1_13 = 0. + 0.j
-        J_z_m1_13 = 0. + 0.j
+        J_r_m_13 = 0. + 0.j
+        J_t_m_13 = 0. + 0.j
+        J_z_m_13 = 0. + 0.j
 
-        J_r_m0_20 = 0.
-        J_t_m0_20 = 0.
-        J_z_m0_20 = 0.
-        J_r_m1_20 = 0. + 0.j
-        J_t_m1_20 = 0. + 0.j
-        J_z_m1_20 = 0. + 0.j
+        J_r_m_20 = 0. + 0.j
+        J_t_m_20 = 0. + 0.j
+        J_z_m_20 = 0. + 0.j
 
-        J_r_m0_21 = 0.
-        J_t_m0_21 = 0.
-        J_z_m0_21 = 0.
-        J_r_m1_21 = 0. + 0.j
-        J_t_m1_21 = 0. + 0.j
-        J_z_m1_21 = 0. + 0.j
+        J_r_m_21 = 0. + 0.j
+        J_t_m_21 = 0. + 0.j
+        J_z_m_21 = 0. + 0.j
 
-        J_r_m0_22 = 0.
-        J_t_m0_22 = 0.
-        J_z_m0_22 = 0.
-        J_r_m1_22 = 0. + 0.j
-        J_t_m1_22 = 0. + 0.j
-        J_z_m1_22 = 0. + 0.j
+        J_r_m_22 = 0. + 0.j
+        J_t_m_22 = 0. + 0.j
+        J_z_m_22 = 0. + 0.j
 
-        J_r_m0_23 = 0.
-        J_t_m0_23 = 0.
-        J_z_m0_23 = 0.
-        J_r_m1_23 = 0. + 0.j
-        J_t_m1_23 = 0. + 0.j
-        J_z_m1_23 = 0. + 0.j
+        J_r_m_23 = 0. + 0.j
+        J_t_m_23 = 0. + 0.j
+        J_z_m_23 = 0. + 0.j
 
-        J_r_m0_30 = 0.
-        J_t_m0_30 = 0.
-        J_z_m0_30 = 0.
-        J_r_m1_30 = 0. + 0.j
-        J_t_m1_30 = 0. + 0.j
-        J_z_m1_30 = 0. + 0.j
+        J_r_m_30 = 0. + 0.j
+        J_t_m_30 = 0. + 0.j
+        J_z_m_30 = 0. + 0.j
 
-        J_r_m0_31 = 0.
-        J_t_m0_31 = 0.
-        J_z_m0_31 = 0.
-        J_r_m1_31 = 0. + 0.j
-        J_t_m1_31 = 0. + 0.j
-        J_z_m1_31 = 0. + 0.j
+        J_r_m_31 = 0. + 0.j
+        J_t_m_31 = 0. + 0.j
+        J_z_m_31 = 0. + 0.j
 
-        J_r_m0_32 = 0.
-        J_t_m0_32 = 0.
-        J_z_m0_32 = 0.
-        J_r_m1_32 = 0. + 0.j
-        J_t_m1_32 = 0. + 0.j
-        J_z_m1_32 = 0. + 0.j
+        J_r_m_32 = 0. + 0.j
+        J_t_m_32 = 0. + 0.j
+        J_z_m_32 = 0. + 0.j
 
-        J_r_m0_33 = 0.
-        J_t_m0_33 = 0.
-        J_z_m0_33 = 0.
-        J_r_m1_33 = 0. + 0.j
-        J_t_m1_33 = 0. + 0.j
-        J_z_m1_33 = 0. + 0.j
+        J_r_m_33 = 0. + 0.j
+        J_t_m_33 = 0. + 0.j
+        J_z_m_33 = 0. + 0.j
 
         # Loop over the number of particles per cell
         for j in range(frequency_per_cell):
@@ -1006,8 +845,10 @@ def deposit_J_gpu_cubic(x, y, z, w, q,
             else:
                 cos = 1.
                 sin = 0.
-            exptheta_m0 = 1.
-            exptheta_m1 = cos + 1.j*sin
+            # Calculate azimuthal factor
+            exptheta_m = 1. + 0.j
+            for _ in range(m):
+                exptheta_m *= (cos + 1.j*sin)
 
             # Get weights for the deposition
             # --------------------------------------------
@@ -1018,121 +859,70 @@ def deposit_J_gpu_cubic(x, y, z, w, q,
             # Calculate the currents
             # --------------------------------------------
             # Mode 0
-            J_r_m0_scal = wj * c * inv_gammaj*(cos*uxj + sin*uyj) * exptheta_m0
-            J_t_m0_scal = wj * c * inv_gammaj*(cos*uyj - sin*uxj) * exptheta_m0
-            J_z_m0_scal = wj * c * inv_gammaj*uzj * exptheta_m0
             # Mode 1
-            J_r_m1_scal = wj * c * inv_gammaj*(cos*uxj + sin*uyj) * exptheta_m1
-            J_t_m1_scal = wj * c * inv_gammaj*(cos*uyj - sin*uxj) * exptheta_m1
-            J_z_m1_scal = wj * c * inv_gammaj*uzj * exptheta_m1
+            J_r_m_scal = wj * c * inv_gammaj*(cos*uxj + sin*uyj) * exptheta_m
+            J_t_m_scal = wj * c * inv_gammaj*(cos*uyj - sin*uxj) * exptheta_m
+            J_z_m_scal = wj * c * inv_gammaj*uzj * exptheta_m
 
-            J_r_m0_00 += r_shape_cubic(r_cell, 0)*z_shape_cubic(z_cell, 0)*J_r_m0_scal
-            J_r_m1_00 += r_shape_cubic(r_cell, 0)*z_shape_cubic(z_cell, 0)*J_r_m1_scal
-            J_r_m0_01 += r_shape_cubic(r_cell, 0)*z_shape_cubic(z_cell, 1)*J_r_m0_scal
-            J_r_m1_01 += r_shape_cubic(r_cell, 0)*z_shape_cubic(z_cell, 1)*J_r_m1_scal
-            J_r_m0_02 += r_shape_cubic(r_cell, 0)*z_shape_cubic(z_cell, 2)*J_r_m0_scal
-            J_r_m1_02 += r_shape_cubic(r_cell, 0)*z_shape_cubic(z_cell, 2)*J_r_m1_scal
-            J_r_m0_03 += r_shape_cubic(r_cell, 0)*z_shape_cubic(z_cell, 3)*J_r_m0_scal
-            J_r_m1_03 += r_shape_cubic(r_cell, 0)*z_shape_cubic(z_cell, 3)*J_r_m1_scal
+            J_r_m_00 += r_shape_cubic(r_cell, 0)*z_shape_cubic(z_cell, 0)*J_r_m_scal
+            J_r_m_01 += r_shape_cubic(r_cell, 0)*z_shape_cubic(z_cell, 1)*J_r_m_scal
+            J_r_m_02 += r_shape_cubic(r_cell, 0)*z_shape_cubic(z_cell, 2)*J_r_m_scal
+            J_r_m_03 += r_shape_cubic(r_cell, 0)*z_shape_cubic(z_cell, 3)*J_r_m_scal
 
-            J_r_m0_10 += r_shape_cubic(r_cell, 1)*z_shape_cubic(z_cell, 0)*J_r_m0_scal
-            J_r_m1_10 += r_shape_cubic(r_cell, 1)*z_shape_cubic(z_cell, 0)*J_r_m1_scal
-            J_r_m0_11 += r_shape_cubic(r_cell, 1)*z_shape_cubic(z_cell, 1)*J_r_m0_scal
-            J_r_m1_11 += r_shape_cubic(r_cell, 1)*z_shape_cubic(z_cell, 1)*J_r_m1_scal
-            J_r_m0_12 += r_shape_cubic(r_cell, 1)*z_shape_cubic(z_cell, 2)*J_r_m0_scal
-            J_r_m1_12 += r_shape_cubic(r_cell, 1)*z_shape_cubic(z_cell, 2)*J_r_m1_scal
-            J_r_m0_13 += r_shape_cubic(r_cell, 1)*z_shape_cubic(z_cell, 3)*J_r_m0_scal
-            J_r_m1_13 += r_shape_cubic(r_cell, 1)*z_shape_cubic(z_cell, 3)*J_r_m1_scal
+            J_r_m_10 += r_shape_cubic(r_cell, 1)*z_shape_cubic(z_cell, 0)*J_r_m_scal
+            J_r_m_11 += r_shape_cubic(r_cell, 1)*z_shape_cubic(z_cell, 1)*J_r_m_scal
+            J_r_m_12 += r_shape_cubic(r_cell, 1)*z_shape_cubic(z_cell, 2)*J_r_m_scal
+            J_r_m_13 += r_shape_cubic(r_cell, 1)*z_shape_cubic(z_cell, 3)*J_r_m_scal
 
-            J_r_m0_20 += r_shape_cubic(r_cell, 2)*z_shape_cubic(z_cell, 0)*J_r_m0_scal
-            J_r_m1_20 += r_shape_cubic(r_cell, 2)*z_shape_cubic(z_cell, 0)*J_r_m1_scal
-            J_r_m0_21 += r_shape_cubic(r_cell, 2)*z_shape_cubic(z_cell, 1)*J_r_m0_scal
-            J_r_m1_21 += r_shape_cubic(r_cell, 2)*z_shape_cubic(z_cell, 1)*J_r_m1_scal
-            J_r_m0_22 += r_shape_cubic(r_cell, 2)*z_shape_cubic(z_cell, 2)*J_r_m0_scal
-            J_r_m1_22 += r_shape_cubic(r_cell, 2)*z_shape_cubic(z_cell, 2)*J_r_m1_scal
-            J_r_m0_23 += r_shape_cubic(r_cell, 2)*z_shape_cubic(z_cell, 3)*J_r_m0_scal
-            J_r_m1_23 += r_shape_cubic(r_cell, 2)*z_shape_cubic(z_cell, 3)*J_r_m1_scal
+            J_r_m_20 += r_shape_cubic(r_cell, 2)*z_shape_cubic(z_cell, 0)*J_r_m_scal
+            J_r_m_21 += r_shape_cubic(r_cell, 2)*z_shape_cubic(z_cell, 1)*J_r_m_scal
+            J_r_m_22 += r_shape_cubic(r_cell, 2)*z_shape_cubic(z_cell, 2)*J_r_m_scal
+            J_r_m_23 += r_shape_cubic(r_cell, 2)*z_shape_cubic(z_cell, 3)*J_r_m_scal
 
-            J_r_m0_30 += r_shape_cubic(r_cell, 3)*z_shape_cubic(z_cell, 0)*J_r_m0_scal
-            J_r_m1_30 += r_shape_cubic(r_cell, 3)*z_shape_cubic(z_cell, 0)*J_r_m1_scal
-            J_r_m0_31 += r_shape_cubic(r_cell, 3)*z_shape_cubic(z_cell, 1)*J_r_m0_scal
-            J_r_m1_31 += r_shape_cubic(r_cell, 3)*z_shape_cubic(z_cell, 1)*J_r_m1_scal
-            J_r_m0_32 += r_shape_cubic(r_cell, 3)*z_shape_cubic(z_cell, 2)*J_r_m0_scal
-            J_r_m1_32 += r_shape_cubic(r_cell, 3)*z_shape_cubic(z_cell, 2)*J_r_m1_scal
-            J_r_m0_33 += r_shape_cubic(r_cell, 3)*z_shape_cubic(z_cell, 3)*J_r_m0_scal
-            J_r_m1_33 += r_shape_cubic(r_cell, 3)*z_shape_cubic(z_cell, 3)*J_r_m1_scal
+            J_r_m_30 += r_shape_cubic(r_cell, 3)*z_shape_cubic(z_cell, 0)*J_r_m_scal
+            J_r_m_31 += r_shape_cubic(r_cell, 3)*z_shape_cubic(z_cell, 1)*J_r_m_scal
+            J_r_m_32 += r_shape_cubic(r_cell, 3)*z_shape_cubic(z_cell, 2)*J_r_m_scal
+            J_r_m_33 += r_shape_cubic(r_cell, 3)*z_shape_cubic(z_cell, 3)*J_r_m_scal
 
-            J_t_m0_00 += r_shape_cubic(r_cell, 0)*z_shape_cubic(z_cell, 0)*J_t_m0_scal
-            J_t_m1_00 += r_shape_cubic(r_cell, 0)*z_shape_cubic(z_cell, 0)*J_t_m1_scal
-            J_t_m0_01 += r_shape_cubic(r_cell, 0)*z_shape_cubic(z_cell, 1)*J_t_m0_scal
-            J_t_m1_01 += r_shape_cubic(r_cell, 0)*z_shape_cubic(z_cell, 1)*J_t_m1_scal
-            J_t_m0_02 += r_shape_cubic(r_cell, 0)*z_shape_cubic(z_cell, 2)*J_t_m0_scal
-            J_t_m1_02 += r_shape_cubic(r_cell, 0)*z_shape_cubic(z_cell, 2)*J_t_m1_scal
-            J_t_m0_03 += r_shape_cubic(r_cell, 0)*z_shape_cubic(z_cell, 3)*J_t_m0_scal
-            J_t_m1_03 += r_shape_cubic(r_cell, 0)*z_shape_cubic(z_cell, 3)*J_t_m1_scal
+            J_t_m_00 += r_shape_cubic(r_cell, 0)*z_shape_cubic(z_cell, 0)*J_t_m_scal
+            J_t_m_01 += r_shape_cubic(r_cell, 0)*z_shape_cubic(z_cell, 1)*J_t_m_scal
+            J_t_m_02 += r_shape_cubic(r_cell, 0)*z_shape_cubic(z_cell, 2)*J_t_m_scal
+            J_t_m_03 += r_shape_cubic(r_cell, 0)*z_shape_cubic(z_cell, 3)*J_t_m_scal
 
-            J_t_m0_10 += r_shape_cubic(r_cell, 1)*z_shape_cubic(z_cell, 0)*J_t_m0_scal
-            J_t_m1_10 += r_shape_cubic(r_cell, 1)*z_shape_cubic(z_cell, 0)*J_t_m1_scal
-            J_t_m0_11 += r_shape_cubic(r_cell, 1)*z_shape_cubic(z_cell, 1)*J_t_m0_scal
-            J_t_m1_11 += r_shape_cubic(r_cell, 1)*z_shape_cubic(z_cell, 1)*J_t_m1_scal
-            J_t_m0_12 += r_shape_cubic(r_cell, 1)*z_shape_cubic(z_cell, 2)*J_t_m0_scal
-            J_t_m1_12 += r_shape_cubic(r_cell, 1)*z_shape_cubic(z_cell, 2)*J_t_m1_scal
-            J_t_m0_13 += r_shape_cubic(r_cell, 1)*z_shape_cubic(z_cell, 3)*J_t_m0_scal
-            J_t_m1_13 += r_shape_cubic(r_cell, 1)*z_shape_cubic(z_cell, 3)*J_t_m1_scal
+            J_t_m_10 += r_shape_cubic(r_cell, 1)*z_shape_cubic(z_cell, 0)*J_t_m_scal
+            J_t_m_11 += r_shape_cubic(r_cell, 1)*z_shape_cubic(z_cell, 1)*J_t_m_scal
+            J_t_m_12 += r_shape_cubic(r_cell, 1)*z_shape_cubic(z_cell, 2)*J_t_m_scal
+            J_t_m_13 += r_shape_cubic(r_cell, 1)*z_shape_cubic(z_cell, 3)*J_t_m_scal
 
-            J_t_m0_20 += r_shape_cubic(r_cell, 2)*z_shape_cubic(z_cell, 0)*J_t_m0_scal
-            J_t_m1_20 += r_shape_cubic(r_cell, 2)*z_shape_cubic(z_cell, 0)*J_t_m1_scal
-            J_t_m0_21 += r_shape_cubic(r_cell, 2)*z_shape_cubic(z_cell, 1)*J_t_m0_scal
-            J_t_m1_21 += r_shape_cubic(r_cell, 2)*z_shape_cubic(z_cell, 1)*J_t_m1_scal
-            J_t_m0_22 += r_shape_cubic(r_cell, 2)*z_shape_cubic(z_cell, 2)*J_t_m0_scal
-            J_t_m1_22 += r_shape_cubic(r_cell, 2)*z_shape_cubic(z_cell, 2)*J_t_m1_scal
-            J_t_m0_23 += r_shape_cubic(r_cell, 2)*z_shape_cubic(z_cell, 3)*J_t_m0_scal
-            J_t_m1_23 += r_shape_cubic(r_cell, 2)*z_shape_cubic(z_cell, 3)*J_t_m1_scal
+            J_t_m_20 += r_shape_cubic(r_cell, 2)*z_shape_cubic(z_cell, 0)*J_t_m_scal
+            J_t_m_21 += r_shape_cubic(r_cell, 2)*z_shape_cubic(z_cell, 1)*J_t_m_scal
+            J_t_m_22 += r_shape_cubic(r_cell, 2)*z_shape_cubic(z_cell, 2)*J_t_m_scal
+            J_t_m_23 += r_shape_cubic(r_cell, 2)*z_shape_cubic(z_cell, 3)*J_t_m_scal
 
-            J_t_m0_30 += r_shape_cubic(r_cell, 3)*z_shape_cubic(z_cell, 0)*J_t_m0_scal
-            J_t_m1_30 += r_shape_cubic(r_cell, 3)*z_shape_cubic(z_cell, 0)*J_t_m1_scal
-            J_t_m0_31 += r_shape_cubic(r_cell, 3)*z_shape_cubic(z_cell, 1)*J_t_m0_scal
-            J_t_m1_31 += r_shape_cubic(r_cell, 3)*z_shape_cubic(z_cell, 1)*J_t_m1_scal
-            J_t_m0_32 += r_shape_cubic(r_cell, 3)*z_shape_cubic(z_cell, 2)*J_t_m0_scal
-            J_t_m1_32 += r_shape_cubic(r_cell, 3)*z_shape_cubic(z_cell, 2)*J_t_m1_scal
-            J_t_m0_33 += r_shape_cubic(r_cell, 3)*z_shape_cubic(z_cell, 3)*J_t_m0_scal
-            J_t_m1_33 += r_shape_cubic(r_cell, 3)*z_shape_cubic(z_cell, 3)*J_t_m1_scal
+            J_t_m_30 += r_shape_cubic(r_cell, 3)*z_shape_cubic(z_cell, 0)*J_t_m_scal
+            J_t_m_31 += r_shape_cubic(r_cell, 3)*z_shape_cubic(z_cell, 1)*J_t_m_scal
+            J_t_m_32 += r_shape_cubic(r_cell, 3)*z_shape_cubic(z_cell, 2)*J_t_m_scal
+            J_t_m_33 += r_shape_cubic(r_cell, 3)*z_shape_cubic(z_cell, 3)*J_t_m_scal
 
-            J_z_m0_00 += r_shape_cubic(r_cell, 0)*z_shape_cubic(z_cell, 0)*J_z_m0_scal
-            J_z_m1_00 += r_shape_cubic(r_cell, 0)*z_shape_cubic(z_cell, 0)*J_z_m1_scal
-            J_z_m0_01 += r_shape_cubic(r_cell, 0)*z_shape_cubic(z_cell, 1)*J_z_m0_scal
-            J_z_m1_01 += r_shape_cubic(r_cell, 0)*z_shape_cubic(z_cell, 1)*J_z_m1_scal
-            J_z_m0_02 += r_shape_cubic(r_cell, 0)*z_shape_cubic(z_cell, 2)*J_z_m0_scal
-            J_z_m1_02 += r_shape_cubic(r_cell, 0)*z_shape_cubic(z_cell, 2)*J_z_m1_scal
-            J_z_m0_03 += r_shape_cubic(r_cell, 0)*z_shape_cubic(z_cell, 3)*J_z_m0_scal
-            J_z_m1_03 += r_shape_cubic(r_cell, 0)*z_shape_cubic(z_cell, 3)*J_z_m1_scal
+            J_z_m_00 += r_shape_cubic(r_cell, 0)*z_shape_cubic(z_cell, 0)*J_z_m_scal
+            J_z_m_01 += r_shape_cubic(r_cell, 0)*z_shape_cubic(z_cell, 1)*J_z_m_scal
+            J_z_m_02 += r_shape_cubic(r_cell, 0)*z_shape_cubic(z_cell, 2)*J_z_m_scal
+            J_z_m_03 += r_shape_cubic(r_cell, 0)*z_shape_cubic(z_cell, 3)*J_z_m_scal
 
-            J_z_m0_10 += r_shape_cubic(r_cell, 1)*z_shape_cubic(z_cell, 0)*J_z_m0_scal
-            J_z_m1_10 += r_shape_cubic(r_cell, 1)*z_shape_cubic(z_cell, 0)*J_z_m1_scal
-            J_z_m0_11 += r_shape_cubic(r_cell, 1)*z_shape_cubic(z_cell, 1)*J_z_m0_scal
-            J_z_m1_11 += r_shape_cubic(r_cell, 1)*z_shape_cubic(z_cell, 1)*J_z_m1_scal
-            J_z_m0_12 += r_shape_cubic(r_cell, 1)*z_shape_cubic(z_cell, 2)*J_z_m0_scal
-            J_z_m1_12 += r_shape_cubic(r_cell, 1)*z_shape_cubic(z_cell, 2)*J_z_m1_scal
-            J_z_m0_13 += r_shape_cubic(r_cell, 1)*z_shape_cubic(z_cell, 3)*J_z_m0_scal
-            J_z_m1_13 += r_shape_cubic(r_cell, 1)*z_shape_cubic(z_cell, 3)*J_z_m1_scal
+            J_z_m_10 += r_shape_cubic(r_cell, 1)*z_shape_cubic(z_cell, 0)*J_z_m_scal
+            J_z_m_11 += r_shape_cubic(r_cell, 1)*z_shape_cubic(z_cell, 1)*J_z_m_scal
+            J_z_m_12 += r_shape_cubic(r_cell, 1)*z_shape_cubic(z_cell, 2)*J_z_m_scal
+            J_z_m_13 += r_shape_cubic(r_cell, 1)*z_shape_cubic(z_cell, 3)*J_z_m_scal
 
-            J_z_m0_20 += r_shape_cubic(r_cell, 2)*z_shape_cubic(z_cell, 0)*J_z_m0_scal
-            J_z_m1_20 += r_shape_cubic(r_cell, 2)*z_shape_cubic(z_cell, 0)*J_z_m1_scal
-            J_z_m0_21 += r_shape_cubic(r_cell, 2)*z_shape_cubic(z_cell, 1)*J_z_m0_scal
-            J_z_m1_21 += r_shape_cubic(r_cell, 2)*z_shape_cubic(z_cell, 1)*J_z_m1_scal
-            J_z_m0_22 += r_shape_cubic(r_cell, 2)*z_shape_cubic(z_cell, 2)*J_z_m0_scal
-            J_z_m1_22 += r_shape_cubic(r_cell, 2)*z_shape_cubic(z_cell, 2)*J_z_m1_scal
-            J_z_m0_23 += r_shape_cubic(r_cell, 2)*z_shape_cubic(z_cell, 3)*J_z_m0_scal
-            J_z_m1_23 += r_shape_cubic(r_cell, 2)*z_shape_cubic(z_cell, 3)*J_z_m1_scal
+            J_z_m_20 += r_shape_cubic(r_cell, 2)*z_shape_cubic(z_cell, 0)*J_z_m_scal
+            J_z_m_21 += r_shape_cubic(r_cell, 2)*z_shape_cubic(z_cell, 1)*J_z_m_scal
+            J_z_m_22 += r_shape_cubic(r_cell, 2)*z_shape_cubic(z_cell, 2)*J_z_m_scal
+            J_z_m_23 += r_shape_cubic(r_cell, 2)*z_shape_cubic(z_cell, 3)*J_z_m_scal
 
-            J_z_m0_30 += r_shape_cubic(r_cell, 3)*z_shape_cubic(z_cell, 0)*J_z_m0_scal
-            J_z_m1_30 += r_shape_cubic(r_cell, 3)*z_shape_cubic(z_cell, 0)*J_z_m1_scal
-            J_z_m0_31 += r_shape_cubic(r_cell, 3)*z_shape_cubic(z_cell, 1)*J_z_m0_scal
-            J_z_m1_31 += r_shape_cubic(r_cell, 3)*z_shape_cubic(z_cell, 1)*J_z_m1_scal
-            J_z_m0_32 += r_shape_cubic(r_cell, 3)*z_shape_cubic(z_cell, 2)*J_z_m0_scal
-            J_z_m1_32 += r_shape_cubic(r_cell, 3)*z_shape_cubic(z_cell, 2)*J_z_m1_scal
-            J_z_m0_33 += r_shape_cubic(r_cell, 3)*z_shape_cubic(z_cell, 3)*J_z_m0_scal
-            J_z_m1_33 += r_shape_cubic(r_cell, 3)*z_shape_cubic(z_cell, 3)*J_z_m1_scal
+            J_z_m_30 += r_shape_cubic(r_cell, 3)*z_shape_cubic(z_cell, 0)*J_z_m_scal
+            J_z_m_31 += r_shape_cubic(r_cell, 3)*z_shape_cubic(z_cell, 1)*J_z_m_scal
+            J_z_m_32 += r_shape_cubic(r_cell, 3)*z_shape_cubic(z_cell, 2)*J_z_m_scal
+            J_z_m_33 += r_shape_cubic(r_cell, 3)*z_shape_cubic(z_cell, 3)*J_z_m_scal
 
         # Calculate longitudinal indices at which to add charge
         iz0 = iz_upper - 2
@@ -1159,153 +949,105 @@ def deposit_J_gpu_cubic(x, y, z, w, q,
 
         # Atomically add the registers to global memory
         if frequency_per_cell > 0:
-            # jr: Mode 0
-            cuda.atomic.add(j_r_m0.real, (iz0, ir0), J_r_m0_00.real)
-            cuda.atomic.add(j_r_m0.real, (iz0, ir1), J_r_m0_10.real)
-            cuda.atomic.add(j_r_m0.real, (iz0, ir2), J_r_m0_20.real)
-            cuda.atomic.add(j_r_m0.real, (iz0, ir3), J_r_m0_30.real)
-            cuda.atomic.add(j_r_m0.real, (iz1, ir0), J_r_m0_01.real)
-            cuda.atomic.add(j_r_m0.real, (iz1, ir1), J_r_m0_11.real)
-            cuda.atomic.add(j_r_m0.real, (iz1, ir2), J_r_m0_21.real)
-            cuda.atomic.add(j_r_m0.real, (iz1, ir3), J_r_m0_31.real)
-            cuda.atomic.add(j_r_m0.real, (iz2, ir0), J_r_m0_02.real)
-            cuda.atomic.add(j_r_m0.real, (iz2, ir1), J_r_m0_12.real)
-            cuda.atomic.add(j_r_m0.real, (iz2, ir2), J_r_m0_22.real)
-            cuda.atomic.add(j_r_m0.real, (iz2, ir3), J_r_m0_32.real)
-            cuda.atomic.add(j_r_m0.real, (iz3, ir0), J_r_m0_03.real)
-            cuda.atomic.add(j_r_m0.real, (iz3, ir1), J_r_m0_13.real)
-            cuda.atomic.add(j_r_m0.real, (iz3, ir2), J_r_m0_23.real)
-            cuda.atomic.add(j_r_m0.real, (iz3, ir3), J_r_m0_33.real)
-            # jr: Mode 1
-            cuda.atomic.add(j_r_m1.real, (iz0, ir0), J_r_m1_00.real)
-            cuda.atomic.add(j_r_m1.imag, (iz0, ir0), J_r_m1_00.imag)
-            cuda.atomic.add(j_r_m1.real, (iz0, ir1), J_r_m1_10.real)
-            cuda.atomic.add(j_r_m1.imag, (iz0, ir1), J_r_m1_10.imag)
-            cuda.atomic.add(j_r_m1.real, (iz0, ir2), J_r_m1_20.real)
-            cuda.atomic.add(j_r_m1.imag, (iz0, ir2), J_r_m1_20.imag)
-            cuda.atomic.add(j_r_m1.real, (iz0, ir3), J_r_m1_30.real)
-            cuda.atomic.add(j_r_m1.imag, (iz0, ir3), J_r_m1_30.imag)
-            cuda.atomic.add(j_r_m1.real, (iz1, ir0), J_r_m1_01.real)
-            cuda.atomic.add(j_r_m1.imag, (iz1, ir0), J_r_m1_01.imag)
-            cuda.atomic.add(j_r_m1.real, (iz1, ir1), J_r_m1_11.real)
-            cuda.atomic.add(j_r_m1.imag, (iz1, ir1), J_r_m1_11.imag)
-            cuda.atomic.add(j_r_m1.real, (iz1, ir2), J_r_m1_21.real)
-            cuda.atomic.add(j_r_m1.imag, (iz1, ir2), J_r_m1_21.imag)
-            cuda.atomic.add(j_r_m1.real, (iz1, ir3), J_r_m1_31.real)
-            cuda.atomic.add(j_r_m1.imag, (iz1, ir3), J_r_m1_31.imag)
-            cuda.atomic.add(j_r_m1.real, (iz2, ir0), J_r_m1_02.real)
-            cuda.atomic.add(j_r_m1.imag, (iz2, ir0), J_r_m1_02.imag)
-            cuda.atomic.add(j_r_m1.real, (iz2, ir1), J_r_m1_12.real)
-            cuda.atomic.add(j_r_m1.imag, (iz2, ir1), J_r_m1_12.imag)
-            cuda.atomic.add(j_r_m1.real, (iz2, ir2), J_r_m1_22.real)
-            cuda.atomic.add(j_r_m1.imag, (iz2, ir2), J_r_m1_22.imag)
-            cuda.atomic.add(j_r_m1.real, (iz2, ir3), J_r_m1_32.real)
-            cuda.atomic.add(j_r_m1.imag, (iz2, ir3), J_r_m1_32.imag)
-            cuda.atomic.add(j_r_m1.real, (iz3, ir0), J_r_m1_03.real)
-            cuda.atomic.add(j_r_m1.imag, (iz3, ir0), J_r_m1_03.imag)
-            cuda.atomic.add(j_r_m1.real, (iz3, ir1), J_r_m1_13.real)
-            cuda.atomic.add(j_r_m1.imag, (iz3, ir1), J_r_m1_13.imag)
-            cuda.atomic.add(j_r_m1.real, (iz3, ir2), J_r_m1_23.real)
-            cuda.atomic.add(j_r_m1.imag, (iz3, ir2), J_r_m1_23.imag)
-            cuda.atomic.add(j_r_m1.real, (iz3, ir3), J_r_m1_33.real)
-            cuda.atomic.add(j_r_m1.imag, (iz3, ir3), J_r_m1_33.imag)
-            # jt: Mode 0
-            cuda.atomic.add(j_t_m0.real, (iz0, ir0), J_t_m0_00.real)
-            cuda.atomic.add(j_t_m0.real, (iz0, ir1), J_t_m0_10.real)
-            cuda.atomic.add(j_t_m0.real, (iz0, ir2), J_t_m0_20.real)
-            cuda.atomic.add(j_t_m0.real, (iz0, ir3), J_t_m0_30.real)
-            cuda.atomic.add(j_t_m0.real, (iz1, ir0), J_t_m0_01.real)
-            cuda.atomic.add(j_t_m0.real, (iz1, ir1), J_t_m0_11.real)
-            cuda.atomic.add(j_t_m0.real, (iz1, ir2), J_t_m0_21.real)
-            cuda.atomic.add(j_t_m0.real, (iz1, ir3), J_t_m0_31.real)
-            cuda.atomic.add(j_t_m0.real, (iz2, ir0), J_t_m0_02.real)
-            cuda.atomic.add(j_t_m0.real, (iz2, ir1), J_t_m0_12.real)
-            cuda.atomic.add(j_t_m0.real, (iz2, ir2), J_t_m0_22.real)
-            cuda.atomic.add(j_t_m0.real, (iz2, ir3), J_t_m0_32.real)
-            cuda.atomic.add(j_t_m0.real, (iz3, ir0), J_t_m0_03.real)
-            cuda.atomic.add(j_t_m0.real, (iz3, ir1), J_t_m0_13.real)
-            cuda.atomic.add(j_t_m0.real, (iz3, ir2), J_t_m0_23.real)
-            cuda.atomic.add(j_t_m0.real, (iz3, ir3), J_t_m0_33.real)
-            # jt: Mode 1
-            cuda.atomic.add(j_t_m1.real, (iz0, ir0), J_t_m1_00.real)
-            cuda.atomic.add(j_t_m1.imag, (iz0, ir0), J_t_m1_00.imag)
-            cuda.atomic.add(j_t_m1.real, (iz0, ir1), J_t_m1_10.real)
-            cuda.atomic.add(j_t_m1.imag, (iz0, ir1), J_t_m1_10.imag)
-            cuda.atomic.add(j_t_m1.real, (iz0, ir2), J_t_m1_20.real)
-            cuda.atomic.add(j_t_m1.imag, (iz0, ir2), J_t_m1_20.imag)
-            cuda.atomic.add(j_t_m1.real, (iz0, ir3), J_t_m1_30.real)
-            cuda.atomic.add(j_t_m1.imag, (iz0, ir3), J_t_m1_30.imag)
-            cuda.atomic.add(j_t_m1.real, (iz1, ir0), J_t_m1_01.real)
-            cuda.atomic.add(j_t_m1.imag, (iz1, ir0), J_t_m1_01.imag)
-            cuda.atomic.add(j_t_m1.real, (iz1, ir1), J_t_m1_11.real)
-            cuda.atomic.add(j_t_m1.imag, (iz1, ir1), J_t_m1_11.imag)
-            cuda.atomic.add(j_t_m1.real, (iz1, ir2), J_t_m1_21.real)
-            cuda.atomic.add(j_t_m1.imag, (iz1, ir2), J_t_m1_21.imag)
-            cuda.atomic.add(j_t_m1.real, (iz1, ir3), J_t_m1_31.real)
-            cuda.atomic.add(j_t_m1.imag, (iz1, ir3), J_t_m1_31.imag)
-            cuda.atomic.add(j_t_m1.real, (iz2, ir0), J_t_m1_02.real)
-            cuda.atomic.add(j_t_m1.imag, (iz2, ir0), J_t_m1_02.imag)
-            cuda.atomic.add(j_t_m1.real, (iz2, ir1), J_t_m1_12.real)
-            cuda.atomic.add(j_t_m1.imag, (iz2, ir1), J_t_m1_12.imag)
-            cuda.atomic.add(j_t_m1.real, (iz2, ir2), J_t_m1_22.real)
-            cuda.atomic.add(j_t_m1.imag, (iz2, ir2), J_t_m1_22.imag)
-            cuda.atomic.add(j_t_m1.real, (iz2, ir3), J_t_m1_32.real)
-            cuda.atomic.add(j_t_m1.imag, (iz2, ir3), J_t_m1_32.imag)
-            cuda.atomic.add(j_t_m1.real, (iz3, ir0), J_t_m1_03.real)
-            cuda.atomic.add(j_t_m1.imag, (iz3, ir0), J_t_m1_03.imag)
-            cuda.atomic.add(j_t_m1.real, (iz3, ir1), J_t_m1_13.real)
-            cuda.atomic.add(j_t_m1.imag, (iz3, ir1), J_t_m1_13.imag)
-            cuda.atomic.add(j_t_m1.real, (iz3, ir2), J_t_m1_23.real)
-            cuda.atomic.add(j_t_m1.imag, (iz3, ir2), J_t_m1_23.imag)
-            cuda.atomic.add(j_t_m1.real, (iz3, ir3), J_t_m1_33.real)
-            cuda.atomic.add(j_t_m1.imag, (iz3, ir3), J_t_m1_33.imag)
-            # jz: Mode 0
-            cuda.atomic.add(j_z_m0.real, (iz0, ir0), J_z_m0_00.real)
-            cuda.atomic.add(j_z_m0.real, (iz0, ir1), J_z_m0_10.real)
-            cuda.atomic.add(j_z_m0.real, (iz0, ir2), J_z_m0_20.real)
-            cuda.atomic.add(j_z_m0.real, (iz0, ir3), J_z_m0_30.real)
-            cuda.atomic.add(j_z_m0.real, (iz1, ir0), J_z_m0_01.real)
-            cuda.atomic.add(j_z_m0.real, (iz1, ir1), J_z_m0_11.real)
-            cuda.atomic.add(j_z_m0.real, (iz1, ir2), J_z_m0_21.real)
-            cuda.atomic.add(j_z_m0.real, (iz1, ir3), J_z_m0_31.real)
-            cuda.atomic.add(j_z_m0.real, (iz2, ir0), J_z_m0_02.real)
-            cuda.atomic.add(j_z_m0.real, (iz2, ir1), J_z_m0_12.real)
-            cuda.atomic.add(j_z_m0.real, (iz2, ir2), J_z_m0_22.real)
-            cuda.atomic.add(j_z_m0.real, (iz2, ir3), J_z_m0_32.real)
-            cuda.atomic.add(j_z_m0.real, (iz3, ir0), J_z_m0_03.real)
-            cuda.atomic.add(j_z_m0.real, (iz3, ir1), J_z_m0_13.real)
-            cuda.atomic.add(j_z_m0.real, (iz3, ir2), J_z_m0_23.real)
-            cuda.atomic.add(j_z_m0.real, (iz3, ir3), J_z_m0_33.real)
-            # jz: Mode 1
-            cuda.atomic.add(j_z_m1.real, (iz0, ir0), J_z_m1_00.real)
-            cuda.atomic.add(j_z_m1.imag, (iz0, ir0), J_z_m1_00.imag)
-            cuda.atomic.add(j_z_m1.real, (iz0, ir1), J_z_m1_10.real)
-            cuda.atomic.add(j_z_m1.imag, (iz0, ir1), J_z_m1_10.imag)
-            cuda.atomic.add(j_z_m1.real, (iz0, ir2), J_z_m1_20.real)
-            cuda.atomic.add(j_z_m1.imag, (iz0, ir2), J_z_m1_20.imag)
-            cuda.atomic.add(j_z_m1.real, (iz0, ir3), J_z_m1_30.real)
-            cuda.atomic.add(j_z_m1.imag, (iz0, ir3), J_z_m1_30.imag)
-            cuda.atomic.add(j_z_m1.real, (iz1, ir0), J_z_m1_01.real)
-            cuda.atomic.add(j_z_m1.imag, (iz1, ir0), J_z_m1_01.imag)
-            cuda.atomic.add(j_z_m1.real, (iz1, ir1), J_z_m1_11.real)
-            cuda.atomic.add(j_z_m1.imag, (iz1, ir1), J_z_m1_11.imag)
-            cuda.atomic.add(j_z_m1.real, (iz1, ir2), J_z_m1_21.real)
-            cuda.atomic.add(j_z_m1.imag, (iz1, ir2), J_z_m1_21.imag)
-            cuda.atomic.add(j_z_m1.real, (iz1, ir3), J_z_m1_31.real)
-            cuda.atomic.add(j_z_m1.imag, (iz1, ir3), J_z_m1_31.imag)
-            cuda.atomic.add(j_z_m1.real, (iz2, ir0), J_z_m1_02.real)
-            cuda.atomic.add(j_z_m1.imag, (iz2, ir0), J_z_m1_02.imag)
-            cuda.atomic.add(j_z_m1.real, (iz2, ir1), J_z_m1_12.real)
-            cuda.atomic.add(j_z_m1.imag, (iz2, ir1), J_z_m1_12.imag)
-            cuda.atomic.add(j_z_m1.real, (iz2, ir2), J_z_m1_22.real)
-            cuda.atomic.add(j_z_m1.imag, (iz2, ir2), J_z_m1_22.imag)
-            cuda.atomic.add(j_z_m1.real, (iz2, ir3), J_z_m1_32.real)
-            cuda.atomic.add(j_z_m1.imag, (iz2, ir3), J_z_m1_32.imag)
-            cuda.atomic.add(j_z_m1.real, (iz3, ir0), J_z_m1_03.real)
-            cuda.atomic.add(j_z_m1.imag, (iz3, ir0), J_z_m1_03.imag)
-            cuda.atomic.add(j_z_m1.real, (iz3, ir1), J_z_m1_13.real)
-            cuda.atomic.add(j_z_m1.imag, (iz3, ir1), J_z_m1_13.imag)
-            cuda.atomic.add(j_z_m1.real, (iz3, ir2), J_z_m1_23.real)
-            cuda.atomic.add(j_z_m1.imag, (iz3, ir2), J_z_m1_23.imag)
-            cuda.atomic.add(j_z_m1.real, (iz3, ir3), J_z_m1_33.real)
-            cuda.atomic.add(j_z_m1.imag, (iz3, ir3), J_z_m1_33.imag)
+            # jr
+            cuda.atomic.add(j_r_m.real, (iz0, ir0), J_r_m_00.real)
+            cuda.atomic.add(j_r_m.real, (iz0, ir1), J_r_m_10.real)
+            cuda.atomic.add(j_r_m.real, (iz0, ir2), J_r_m_20.real)
+            cuda.atomic.add(j_r_m.real, (iz0, ir3), J_r_m_30.real)
+            cuda.atomic.add(j_r_m.real, (iz1, ir0), J_r_m_01.real)
+            cuda.atomic.add(j_r_m.real, (iz1, ir1), J_r_m_11.real)
+            cuda.atomic.add(j_r_m.real, (iz1, ir2), J_r_m_21.real)
+            cuda.atomic.add(j_r_m.real, (iz1, ir3), J_r_m_31.real)
+            cuda.atomic.add(j_r_m.real, (iz2, ir0), J_r_m_02.real)
+            cuda.atomic.add(j_r_m.real, (iz2, ir1), J_r_m_12.real)
+            cuda.atomic.add(j_r_m.real, (iz2, ir2), J_r_m_22.real)
+            cuda.atomic.add(j_r_m.real, (iz2, ir3), J_r_m_32.real)
+            cuda.atomic.add(j_r_m.real, (iz3, ir0), J_r_m_03.real)
+            cuda.atomic.add(j_r_m.real, (iz3, ir1), J_r_m_13.real)
+            cuda.atomic.add(j_r_m.real, (iz3, ir2), J_r_m_23.real)
+            cuda.atomic.add(j_r_m.real, (iz3, ir3), J_r_m_33.real)
+            if m > 0:
+                cuda.atomic.add(j_r_m.imag, (iz0, ir0), J_r_m_00.imag)
+                cuda.atomic.add(j_r_m.imag, (iz0, ir1), J_r_m_10.imag)
+                cuda.atomic.add(j_r_m.imag, (iz0, ir2), J_r_m_20.imag)
+                cuda.atomic.add(j_r_m.imag, (iz0, ir3), J_r_m_30.imag)
+                cuda.atomic.add(j_r_m.imag, (iz1, ir0), J_r_m_01.imag)
+                cuda.atomic.add(j_r_m.imag, (iz1, ir1), J_r_m_11.imag)
+                cuda.atomic.add(j_r_m.imag, (iz1, ir2), J_r_m_21.imag)
+                cuda.atomic.add(j_r_m.imag, (iz1, ir3), J_r_m_31.imag)
+                cuda.atomic.add(j_r_m.imag, (iz2, ir0), J_r_m_02.imag)
+                cuda.atomic.add(j_r_m.imag, (iz2, ir1), J_r_m_12.imag)
+                cuda.atomic.add(j_r_m.imag, (iz2, ir2), J_r_m_22.imag)
+                cuda.atomic.add(j_r_m.imag, (iz2, ir3), J_r_m_32.imag)
+                cuda.atomic.add(j_r_m.imag, (iz3, ir0), J_r_m_03.imag)
+                cuda.atomic.add(j_r_m.imag, (iz3, ir1), J_r_m_13.imag)
+                cuda.atomic.add(j_r_m.imag, (iz3, ir2), J_r_m_23.imag)
+                cuda.atomic.add(j_r_m.imag, (iz3, ir3), J_r_m_33.imag)
+            # jt
+            cuda.atomic.add(j_t_m.real, (iz0, ir0), J_t_m_00.real)
+            cuda.atomic.add(j_t_m.real, (iz0, ir1), J_t_m_10.real)
+            cuda.atomic.add(j_t_m.real, (iz0, ir2), J_t_m_20.real)
+            cuda.atomic.add(j_t_m.real, (iz0, ir3), J_t_m_30.real)
+            cuda.atomic.add(j_t_m.real, (iz1, ir0), J_t_m_01.real)
+            cuda.atomic.add(j_t_m.real, (iz1, ir1), J_t_m_11.real)
+            cuda.atomic.add(j_t_m.real, (iz1, ir2), J_t_m_21.real)
+            cuda.atomic.add(j_t_m.real, (iz1, ir3), J_t_m_31.real)
+            cuda.atomic.add(j_t_m.real, (iz2, ir0), J_t_m_02.real)
+            cuda.atomic.add(j_t_m.real, (iz2, ir1), J_t_m_12.real)
+            cuda.atomic.add(j_t_m.real, (iz2, ir2), J_t_m_22.real)
+            cuda.atomic.add(j_t_m.real, (iz2, ir3), J_t_m_32.real)
+            cuda.atomic.add(j_t_m.real, (iz3, ir0), J_t_m_03.real)
+            cuda.atomic.add(j_t_m.real, (iz3, ir1), J_t_m_13.real)
+            cuda.atomic.add(j_t_m.real, (iz3, ir2), J_t_m_23.real)
+            cuda.atomic.add(j_t_m.real, (iz3, ir3), J_t_m_33.real)
+            if m > 0:
+                cuda.atomic.add(j_t_m.imag, (iz0, ir0), J_t_m_00.imag)
+                cuda.atomic.add(j_t_m.imag, (iz0, ir1), J_t_m_10.imag)
+                cuda.atomic.add(j_t_m.imag, (iz0, ir2), J_t_m_20.imag)
+                cuda.atomic.add(j_t_m.imag, (iz0, ir3), J_t_m_30.imag)
+                cuda.atomic.add(j_t_m.imag, (iz1, ir0), J_t_m_01.imag)
+                cuda.atomic.add(j_t_m.imag, (iz1, ir1), J_t_m_11.imag)
+                cuda.atomic.add(j_t_m.imag, (iz1, ir2), J_t_m_21.imag)
+                cuda.atomic.add(j_t_m.imag, (iz1, ir3), J_t_m_31.imag)
+                cuda.atomic.add(j_t_m.imag, (iz2, ir0), J_t_m_02.imag)
+                cuda.atomic.add(j_t_m.imag, (iz2, ir1), J_t_m_12.imag)
+                cuda.atomic.add(j_t_m.imag, (iz2, ir2), J_t_m_22.imag)
+                cuda.atomic.add(j_t_m.imag, (iz2, ir3), J_t_m_32.imag)
+                cuda.atomic.add(j_t_m.imag, (iz3, ir0), J_t_m_03.imag)
+                cuda.atomic.add(j_t_m.imag, (iz3, ir1), J_t_m_13.imag)
+                cuda.atomic.add(j_t_m.imag, (iz3, ir2), J_t_m_23.imag)
+                cuda.atomic.add(j_t_m.imag, (iz3, ir3), J_t_m_33.imag)
+            # jz
+            cuda.atomic.add(j_z_m.real, (iz0, ir0), J_z_m_00.real)
+            cuda.atomic.add(j_z_m.real, (iz0, ir1), J_z_m_10.real)
+            cuda.atomic.add(j_z_m.real, (iz0, ir2), J_z_m_20.real)
+            cuda.atomic.add(j_z_m.real, (iz0, ir3), J_z_m_30.real)
+            cuda.atomic.add(j_z_m.real, (iz1, ir0), J_z_m_01.real)
+            cuda.atomic.add(j_z_m.real, (iz1, ir1), J_z_m_11.real)
+            cuda.atomic.add(j_z_m.real, (iz1, ir2), J_z_m_21.real)
+            cuda.atomic.add(j_z_m.real, (iz1, ir3), J_z_m_31.real)
+            cuda.atomic.add(j_z_m.real, (iz2, ir0), J_z_m_02.real)
+            cuda.atomic.add(j_z_m.real, (iz2, ir1), J_z_m_12.real)
+            cuda.atomic.add(j_z_m.real, (iz2, ir2), J_z_m_22.real)
+            cuda.atomic.add(j_z_m.real, (iz2, ir3), J_z_m_32.real)
+            cuda.atomic.add(j_z_m.real, (iz3, ir0), J_z_m_03.real)
+            cuda.atomic.add(j_z_m.real, (iz3, ir1), J_z_m_13.real)
+            cuda.atomic.add(j_z_m.real, (iz3, ir2), J_z_m_23.real)
+            cuda.atomic.add(j_z_m.real, (iz3, ir3), J_z_m_33.real)
+            if m > 0:
+                cuda.atomic.add(j_z_m.imag, (iz0, ir0), J_z_m_00.imag)
+                cuda.atomic.add(j_z_m.imag, (iz0, ir1), J_z_m_10.imag)
+                cuda.atomic.add(j_z_m.imag, (iz0, ir2), J_z_m_20.imag)
+                cuda.atomic.add(j_z_m.imag, (iz0, ir3), J_z_m_30.imag)
+                cuda.atomic.add(j_z_m.imag, (iz1, ir0), J_z_m_01.imag)
+                cuda.atomic.add(j_z_m.imag, (iz1, ir1), J_z_m_11.imag)
+                cuda.atomic.add(j_z_m.imag, (iz1, ir2), J_z_m_21.imag)
+                cuda.atomic.add(j_z_m.imag, (iz1, ir3), J_z_m_31.imag)
+                cuda.atomic.add(j_z_m.imag, (iz2, ir0), J_z_m_02.imag)
+                cuda.atomic.add(j_z_m.imag, (iz2, ir1), J_z_m_12.imag)
+                cuda.atomic.add(j_z_m.imag, (iz2, ir2), J_z_m_22.imag)
+                cuda.atomic.add(j_z_m.imag, (iz2, ir3), J_z_m_32.imag)
+                cuda.atomic.add(j_z_m.imag, (iz3, ir0), J_z_m_03.imag)
+                cuda.atomic.add(j_z_m.imag, (iz3, ir1), J_z_m_13.imag)
+                cuda.atomic.add(j_z_m.imag, (iz3, ir2), J_z_m_23.imag)
+                cuda.atomic.add(j_z_m.imag, (iz3, ir3), J_z_m_33.imag)
