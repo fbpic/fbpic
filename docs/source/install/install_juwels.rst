@@ -57,7 +57,7 @@ Then install the dependencies of FBPIC:
 ::
 
    conda install numba==0.42 scipy h5py mkl
-   conda install cudatoolkit=9.0 pyculib
+   conda install cudatoolkit=8.0 pyculib
 
 It is advised that the following packages are **NOT** installed
 directly with Anaconda: ``mpich`` and ``mpi4py``
