@@ -47,16 +47,30 @@ Python script: either ``lwfa_script.py`` or
 
    ::
 
-	export MKL_NUM_THREADS=8
-	export NUMBA_NUM_THREADS=8
-	python fbpic_script.py
+    export MKL_NUM_THREADS=8
+    export NUMBA_NUM_THREADS=8
+    python fbpic_script.py
 
-   - To disable multi-threading altogether (except for the FFT and DHT):
+   - To disable multi-threading altogether:
 
    ::
 
-	export FBPIC_DISABLE_THREADING=1
-	python fbpic_script.py
+    export FBPIC_DISABLE_THREADING=1
+    export MKL_NUM_THREADS=1
+    export NUMBA_NUM_THREADS=1
+    python fbpic_script.py
+
+   It can also happen that an alternative threading backend is selected by Numba
+   during installation. It is therefore sometimes required to set
+   ``OMP_NUM_THREADS`` in addition to (or instead of) ``MKL_NUM_THREADS``.
+
+   When running in a Jupyter notebook, environment variables can be set by
+   executing the following command at the beginning of the notebook:
+
+   ::
+
+    import os
+    os.environ['MKL_NUM_THREADS']='1'
 
 .. note::
 
