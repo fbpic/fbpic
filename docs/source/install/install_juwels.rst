@@ -15,32 +15,11 @@ Installation and usage of FBPIC requires the following steps:
 Loading the cluster modules
 ---------------------------
 
-On the JUWELS cluster to run on CPU and GPU with MPI, the standard MPI
-implementation can be loaded. To get potentially higher performance with
-GPUDIRECT, follow the alternative steps below.
-
 To load the standard modules the ``.bashrc`` should contain the following:
 
 ::
 
-    module load CUDA
-    module load GCC
-    module load ParaStationMPI
-
-
-If you want to use a fast CUDA-aware MPI library, a different module
-needs to be loaded. The ``.bashrc`` should contain the following:
-
-::
-
-    module load CUDA
-    module load GCC
-    module load MVAPICH2
-
-Warning: This MPI library will currently only work on GPU nodes!!
-(Please also note that GPUDIRECT is currently not available on the cluster,
-but should become available at some point - the unavailability is only a
-software issue)
+    module load intel-para/2019a
 
 Installation of Anaconda
 ------------------------------------------------
@@ -63,12 +42,11 @@ It is advised that the following packages are **NOT** installed
 directly with Anaconda: ``mpich`` and ``mpi4py``
 
 You can install mpi4py directly with pip and it will be built against the MPI
-library that is loaded on the cluster via the modules (so either the standard
-ParaStationMPI or MVAPICH2 for GPUs).
+library that is loaded on the cluster via the modules.
 
 ::
 
-   pip install mpi4py
+   pip install mpi4py --no-cache-dir
 
 You can check if the correct MPI is linked by opening a ``python`` shell
 and checking:
@@ -77,13 +55,6 @@ and checking:
 
     from mpi4py import MPI
     MPI.Get_library_version()
-
-Please note that this might not work on the login node if mpi4py is built
-against MVAPICH2. You need to allocate a GPU node (see below) and then open
-an interactive python shell on the GPU node via ``srun --pty python``. Then
-you can import the mpi4py MPI module as shown above and check that the library
-version is correct.
-
 
 Note that sometimes it is also required that you add the Anaconda folders to
 your ``PATH`` and ``PYTHONPATH`` environment variables after the
