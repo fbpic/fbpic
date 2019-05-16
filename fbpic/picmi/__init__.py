@@ -5,18 +5,17 @@
 This file is part of the Fourier-Bessel Particle-In-Cell code (FB-PIC)
 It defines the picmi interface
 """
+# Define general variables that each PICMI code should define
+codename = 'fbpic'
+
 # Check that the `picmistandard` package has been installed
 try:
-    import picmistandard
+    from picmistandard.base import register_codename
+    register_codename(codename)
 except ImportError:
     raise ImportError(
         "In order to use FBPIC with PICMI, you should install the \n"
         "`picmistandard` package, e.g. with: `pip install picmistandard`")
-
-# Define general variables that each PICMI code should define
-codename = 'fbpic'
-from picmistandard.base import register_codename
-register_codename(codename)
 
 # Import picmi objects
 # - For general setup
@@ -41,3 +40,9 @@ from picmistandard import PICMI_ParticleDiagnostic as ParticleDiagnostic
 
 # Import the PICMI Simulation object redefined in FBPIC
 from .simulation import Simulation
+
+__all__ = [ 'codename', 'Simulation', 'CylindricalGrid', 'BinomialSmoother',
+    'ElectromagneticSolver', 'Species', 'MultiSpecies', 'LaserAntenna',
+    'GaussianLaser', 'GriddedLayout', 'PseudoRandomLayout',
+    'GaussianBunchDistribution', 'AnalyticDistribution',
+    'FieldDiagnostic', 'ParticleDiagnostic' ]
