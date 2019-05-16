@@ -417,9 +417,9 @@ class LaserAntenna( object ):
                 # (The sign -1 with which the guards are added is not
                 # trivial to derive but avoids artifacts on the axis)
                 deposit_field_numba( Jr*exptheta, self.Jr_buffer[m,:],
-                                     iz, ir, Sz, Sr, (-1)**m )
+                                     iz, ir, Sz, Sr, -(-1)**m )
                 deposit_field_numba( Jt*exptheta, self.Jt_buffer[m,:],
-                                     iz, ir, Sz, Sr, (-1)**m )
+                                     iz, ir, Sz, Sr, -(-1)**m )
                 deposit_field_numba( Jz*exptheta, self.Jz_buffer[m,:],
                                      iz, ir, Sz, Sr, (-1)**m )
 
