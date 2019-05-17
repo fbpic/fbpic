@@ -15,14 +15,8 @@ except Exception:
     cuda_installed = False
 
 if cuda_installed:
-    # Impose restrictions on numba version (necessary for pyculib)
-    numba_minor_version = int(numba.__version__.split('.')[1])
-    # Numba version 0.43 an error with pyculib
-    if numba_minor_version > 42:
-        raise RuntimeError(
-            'FBPIC is incompatible with Numba version 0.43 and higher.\n'
-            'Please install Numba version 0.42 instead:\n'
-            '  conda install numba==0.42')
+    # Import cupy
+    import cupy
 
 # -----------------------------------------------------
 # CUDA grid utilities
