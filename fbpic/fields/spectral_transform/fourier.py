@@ -11,8 +11,7 @@ import numba
 # Check if CUDA is available, then import CUDA functions
 from fbpic.utils.cuda import cuda_installed
 if cuda_installed:
-    from pyculib import fft as cufft, blas as cublas
-    from fbpic.utils.cuda import cuda, cuda_tpb_bpg_2d
+    from fbpic.utils.cuda import cuda, cupy, cuda_tpb_bpg_2d
     from .cuda_methods import cuda_copy_2d_to_1d, cuda_copy_1d_to_2d
 # Check if the MKL FFT is available
 try:
@@ -62,23 +61,14 @@ class FFT(object):
 
         # Initialize the object for calculation on the GPU
         if self.use_cuda:
-            # Initialize the dimension of the grid and blocks
-            self.dim_grid, self.dim_block = cuda_tpb_bpg_2d( Nz, Nr)
-
-            # Initialize 1d buffer for cufft
-            self.buffer1d_in = cuda.device_array(
-                (Nz*Nr,), dtype=np.complex128)
-            self.buffer1d_out = cuda.device_array(
-                (Nz*Nr,), dtype=np.complex128)
+            # Initialize the FFT plan with dummy array
+            spect_buffer = cuda.device_array( (Nz, Nr), dtype=np.complex128 )
             # Initialize the cuda libraries object
-            self.fft = cufft.FFTPlan( shape=(Nz,), itype=np.complex128,
-                                      otype=np.complex128, batch=Nr )
-            self.blas = cublas.Blas()   # For normalization of the iFFT
+            self.fft = cupyx.scipy.fftpack.get_fft_plan( spect_buffer, axes=0 )
             self.inv_Nz = 1./Nz         # For normalization of the iFFT
 
         # Initialize the object for calculation on the CPU
         else:
-
             # For MKL FFT
             if self.use_mkl:
                 # Initialize the MKL plan with dummy array
@@ -114,12 +104,7 @@ class FFT(object):
         """
         if self.use_cuda :
             # Perform the FFT on the GPU
-            # (The cuFFT API requires 1D arrays)
-            cuda_copy_2d_to_1d[self.dim_grid, self.dim_block](
-                array_in, self.buffer1d_in )
-            self.fft.forward( self.buffer1d_in, out=self.buffer1d_out )
-            cuda_copy_1d_to_2d[self.dim_grid, self.dim_block](
-                self.buffer1d_out, array_out )
+            array_out = cupyx.scipy.fftpack.fft( array_in, plan=self.fft )
         elif self.use_mkl:
             # Perform the FFT on the CPU using MKL
             self.mklfft.transform( array_in, array_out )
@@ -143,13 +128,7 @@ class FFT(object):
         """
         if self.use_cuda :
             # Perform the inverse FFT on the GPU
-            # (The cuFFT API requires 1D arrays)
-            cuda_copy_2d_to_1d[self.dim_grid, self.dim_block](
-                array_in, self.buffer1d_in )
-            self.fft.inverse( self.buffer1d_in, out=self.buffer1d_out )
-            self.blas.scal( self.inv_Nz, self.buffer1d_out ) # Normalization
-            cuda_copy_1d_to_2d[self.dim_grid, self.dim_block](
-                self.buffer1d_out, array_out )
+            array_out = cupyx.scipy.fftpack.ifft( array_in, plan=self.fft )
         elif self.use_mkl:
             # Perform the inverse FFT on the CPU using MKL
             self.mklfft.inverse_transform( array_in, array_out )
