@@ -120,9 +120,8 @@ class DHT(object):
 
         # Copy the matrices to the GPU if needed
         if self.use_cuda:
-            # Conversion to Fortran order is needed for the cuBlas API
-            self.d_M = cuda.to_device( self.M, dtype=np.float64 )
-            self.d_invM = cuda.to_device( self.invM, dtype=np.float64 )
+            self.d_M = cuda.to_device( self.M )
+            self.d_invM = cuda.to_device( self.invM )
 
         # Initialize buffer arrays to store the complex Nz x Nr grid
         # as a real 2Nz x Nr grid, before performing the matrix product
@@ -135,7 +134,6 @@ class DHT(object):
             self.array_out = zero_array.copy()
         else:
             # Initialize real buffer arrays on the GPU
-            # The cuBlas API requires that these arrays be in Fortran order
             zero_array = np.zeros((2*Nz, Nr), dtype=np.float64)
             self.d_in = cuda.to_device( zero_array )
             self.d_out = cuda.to_device( zero_array )
