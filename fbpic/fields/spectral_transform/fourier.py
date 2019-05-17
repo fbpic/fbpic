@@ -64,7 +64,7 @@ class FFT(object):
             # Initialize the FFT plan with dummy array
             spect_buffer = cuda.device_array( (Nz, Nr), dtype=np.complex128 )
             # Initialize the cuda libraries object
-            self.fft = cupyx.scipy.fftpack.get_fft_plan( spect_buffer, axes=0 )
+            self.fft = cufft.get_fft_plan( spect_buffer, axes=0 )
             self.inv_Nz = 1./Nz         # For normalization of the iFFT
 
         # Initialize the object for calculation on the CPU
@@ -104,7 +104,7 @@ class FFT(object):
         """
         if self.use_cuda :
             # Perform the FFT on the GPU
-            array_out = cupyx.scipy.fftpack.fft( array_in, plan=self.fft )
+            array_out = cufft.fft( array_in, plan=self.fft )
         elif self.use_mkl:
             # Perform the FFT on the CPU using MKL
             self.mklfft.transform( array_in, array_out )
@@ -128,7 +128,7 @@ class FFT(object):
         """
         if self.use_cuda :
             # Perform the inverse FFT on the GPU
-            array_out = cupyx.scipy.fftpack.ifft( array_in, plan=self.fft )
+            array_out = cufft.ifft( array_in, plan=self.fft )
         elif self.use_mkl:
             # Perform the inverse FFT on the CPU using MKL
             self.mklfft.inverse_transform( array_in, array_out )

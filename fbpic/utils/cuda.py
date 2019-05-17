@@ -17,6 +17,7 @@ except Exception:
 if cuda_installed:
     # Import cupy
     import cupy
+    from cupyx.scipy import fftpack as cufft
 
 # -----------------------------------------------------
 # CUDA grid utilities
