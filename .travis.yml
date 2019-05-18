@@ -28,6 +28,7 @@ before_script:
   - python -m pyflakes .
   - pip install openPMD-viewer
 script:
+  - export FBPIC_DISABLE_THREADING=1
   - "python setup.py test"
 
 after_success:
