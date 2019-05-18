@@ -53,7 +53,7 @@ scales = [1.0, 0.5, 0.25, 0.1, 0.05, 0.025, 0.01]
 
 def test_charge_cylinder(show=False):
     "Function that is run by py.test, when doing `python setup.py test`"
-    for shape in ['linear']:
+    for shape in ['linear', 'cubic']:
         charge_cylinder( shape, show )
 
 def charge_cylinder(shape, show=False):
