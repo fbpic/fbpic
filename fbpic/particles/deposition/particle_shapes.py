@@ -14,8 +14,7 @@ import math
 # Linear shapes
 # longitudinal (z)
 def Sz_linear(cell_position, index):
-    iz = int(math.ceil(cell_position)) - 1
-    s = iz+1.-cell_position
+    s = math.ceil(cell_position) - cell_position
     if index == 1:
         s = 1.-s
     return s
@@ -23,12 +22,18 @@ def Sz_linear(cell_position, index):
 # with Ruyten-correction (beta_n term) to account for the non-homogeneous
 # radial cell volume (as defined in interpolation grid object)
 def Sr_linear(cell_position, index, flip, beta_n):
+    # Get radial cell index
     ir = int(math.ceil(cell_position)) - 1
-    s = (ir+1.-cell_position)*(1.+beta_n*(cell_position-ir))
-    if index == 0 and ir < 0:
-        s *= flip
-    elif index == 1:
+    # u: position of the particle with respect to its left neighbor gridpoint
+    # (u is between 0 and 1)
+    u = cell_position - ir
+    s = (1.-u) + beta_n*(1.-u)*u
+    if index == 1:
         s = 1.-s
+    # Check if the cell to which the particle deposits is below the axis
+    if index + ir < 0:
+        # In this case, flip the sign of the particle contribution
+        s *= flip
     return s
 
 # Cubic shapes
@@ -46,24 +51,25 @@ def Sz_cubic(cell_position, index):
         s = (-1./6.)*(((iz+3)-cell_position)-2)**3
     return s
 # transversal (r)
-def Sr_cubic(cell_position, index, flip):
-    flip_factor = 1.
+def Sr_cubic(cell_position, index, flip, beta_n):
+    # Get radial cell index
     ir = int(math.ceil(cell_position)) - 2
+    # u: position of the particle with respect to its left neighbor gridpoint
+    # (u is between 0 and 1)
+    u = cell_position - ir + 1
     s = 0.
     if index == 0:
-        if ir < 0:
-            flip_factor = flip
         s = flip_factor*(-1./6.)*((cell_position-ir)-2)**3
     elif index == 1:
-        if ir+1 < 0:
-            flip_factor = flip
         s = flip_factor*(1./6.)*(3*((cell_position-(ir+1))**3)-6*((cell_position-(ir+1))**2)+4)
+        s += beta_n*(1.-u)*u  # Add Ruyten correction
     elif index == 2:
-        if ir+2 < 0:
-            flip_factor = flip
         s = flip_factor*(1./6.)*(3*(((ir+2)-cell_position)**3)-6*(((ir+2)-cell_position)**2)+4)
+        s -= beta_n*(1.-u)*u  # Add Ruyten correction
     elif index == 3:
-        if ir+3 < 0:
-            flip_factor = flip
         s = flip_factor*(-1./6.)*(((ir+3)-cell_position)-2)**3
+    # Check if the cell to which the particle deposits is below the axis
+    if index + ir < 0:
+        # In this case, flip the sign of the particle contribution
+        s *= flip
     return s
