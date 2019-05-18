@@ -853,7 +853,7 @@ class Particles(object) :
                             grid[0].invdr, grid[0].rmin, grid[0].Nr,
                             grid[0].rho, grid[1].rho,
                             self.cell_idx, self.prefix_sum,
-                            grid[0].beta_n)
+                            grid[0].ruyten_linear_coef)
                     else:
                         for m in range(Nm):
                             deposit_rho_gpu_linear_one_mode[
@@ -863,7 +863,7 @@ class Particles(object) :
                                 grid[m].invdr, grid[m].rmin, grid[m].Nr,
                                 grid[m].rho, m,
                                 self.cell_idx, self.prefix_sum,
-                                grid[m].beta_n)
+                                grid[m].ruyten_linear_coef)
                 elif self.particle_shape == 'cubic':
                     if Nm == 2:
                         deposit_rho_gpu_cubic[
@@ -899,7 +899,7 @@ class Particles(object) :
                             grid[0].Jt, grid[1].Jt,
                             grid[0].Jz, grid[1].Jz,
                             self.cell_idx, self.prefix_sum,
-                            grid[0].beta_n)
+                            grid[0].ruyten_linear_coef)
                     else:
                         for m in range(Nm):
                             deposit_J_gpu_linear_one_mode[
@@ -910,7 +910,7 @@ class Particles(object) :
                                 grid[m].invdr, grid[m].rmin, grid[m].Nr,
                                 grid[m].Jr, grid[m].Jt, grid[m].Jz, m,
                                 self.cell_idx, self.prefix_sum,
-                                grid[m].beta_n)
+                                grid[m].ruyten_linear_coef)
                 elif self.particle_shape == 'cubic':
                     if Nm == 2:
                         deposit_J_gpu_cubic[
@@ -953,7 +953,7 @@ class Particles(object) :
                         grid[0].invdr, grid[0].rmin, grid[0].Nr,
                         fld.rho_global, fld.Nm,
                         nthreads, ptcl_chunk_indices,
-                        grid[0].beta_n )
+                        grid[0].ruyten_linear_coef )
                 elif self.particle_shape == 'cubic':
                     deposit_rho_numba_cubic(
                         self.x, self.y, self.z, weight, self.q,
@@ -973,7 +973,7 @@ class Particles(object) :
                         grid[0].invdr, grid[0].rmin, grid[0].Nr,
                         fld.Jr_global, fld.Jt_global, fld.Jz_global, fld.Nm,
                         nthreads, ptcl_chunk_indices,
-                        grid[0].beta_n )
+                        grid[0].ruyten_linear_coef )
                 elif self.particle_shape == 'cubic':
                     deposit_J_numba_cubic(
                         self.x, self.y, self.z, weight, self.q,

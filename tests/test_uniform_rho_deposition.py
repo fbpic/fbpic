@@ -22,7 +22,7 @@ import numpy as np
 
 # Parameters
 # ----------
-show = False     # Whether to show the results to the user, or to
+show = True     # Whether to show the results to the user, or to
                 # automatically determine if they are correct.
 
 # Dimensions of the box

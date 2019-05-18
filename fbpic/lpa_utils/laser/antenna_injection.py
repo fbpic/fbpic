@@ -299,7 +299,8 @@ class LaserAntenna( object ):
         # Indices and weights in z:
         # same for both the negative and positive virtual particles
         iz, Sz = weights(self.baseline_z, grid[0].invdz, grid[0].zmin, grid[0].Nz,
-                         direction='z', shape_order=1, beta_n=grid[0].beta_n)
+                         direction='z', shape_order=1,
+                         beta_n=grid[0].ruyten_linear_coef)
         # Find the z index where the small-size buffers should be added
         # to the large-size arrays rho, Jr, Jt, Jz
         iz_min = iz.min()
@@ -373,7 +374,8 @@ class LaserAntenna( object ):
 
         # Indices and weights in r
         ir, Sr = weights(r, grid[0].invdr, grid[0].rmin, grid[0].Nr,
-                         direction='r', shape_order=1, beta_n=grid[0].beta_n)
+                         direction='r', shape_order=1,
+                         beta_n=grid[0].ruyten_linear_coef)
 
         if fieldtype == 'rho' :
             # ---------------------------------------
