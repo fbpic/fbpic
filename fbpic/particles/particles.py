@@ -872,7 +872,8 @@ class Particles(object) :
                             grid[0].invdz, grid[0].zmin, grid[0].Nz,
                             grid[0].invdr, grid[0].rmin, grid[0].Nr,
                             grid[0].rho, grid[1].rho,
-                            self.cell_idx, self.prefix_sum)
+                            self.cell_idx, self.prefix_sum,
+                            grid[0].beta_n)
                     else:
                         for m in range(Nm):
                             deposit_rho_gpu_cubic_one_mode[
@@ -881,7 +882,8 @@ class Particles(object) :
                                 grid[m].invdz, grid[m].zmin, grid[m].Nz,
                                 grid[m].invdr, grid[m].rmin, grid[m].Nr,
                                 grid[m].rho, m,
-                                self.cell_idx, self.prefix_sum)
+                                self.cell_idx, self.prefix_sum,
+                                grid[m].beta_n)
             # J
             elif fieldtype == 'J':
                 # Deposit J in each of four directions
@@ -920,7 +922,8 @@ class Particles(object) :
                             grid[0].Jr, grid[1].Jr,
                             grid[0].Jt, grid[1].Jt,
                             grid[0].Jz, grid[1].Jz,
-                            self.cell_idx, self.prefix_sum)
+                            self.cell_idx, self.prefix_sum,
+                            grid[0].beta_n)
                     else:
                         for m in range(Nm):
                             deposit_J_gpu_cubic_one_mode[
@@ -930,7 +933,8 @@ class Particles(object) :
                                 grid[m].invdz, grid[m].zmin, grid[m].Nz,
                                 grid[m].invdr, grid[m].rmin, grid[m].Nr,
                                 grid[m].Jr, grid[m].Jt, grid[m].Jz, m,
-                                self.cell_idx, self.prefix_sum)
+                                self.cell_idx, self.prefix_sum,
+                                grid[m].beta_n)
 
         # CPU version
         else:
@@ -956,7 +960,8 @@ class Particles(object) :
                         grid[0].invdz, grid[0].zmin, grid[0].Nz,
                         grid[0].invdr, grid[0].rmin, grid[0].Nr,
                         fld.rho_global, fld.Nm,
-                        nthreads, ptcl_chunk_indices )
+                        nthreads, ptcl_chunk_indices,
+                        grid[0].beta_n )
 
             elif fieldtype == 'J':
                 # Deposit J using CPU threading
@@ -976,7 +981,8 @@ class Particles(object) :
                         grid[0].invdz, grid[0].zmin, grid[0].Nz,
                         grid[0].invdr, grid[0].rmin, grid[0].Nr,
                         fld.Jr_global, fld.Jt_global, fld.Jz_global, fld.Nm,
-                        nthreads, ptcl_chunk_indices )
+                        nthreads, ptcl_chunk_indices,
+                        grid[0].beta_n )
 
 
     def sort_particles(self, fld):

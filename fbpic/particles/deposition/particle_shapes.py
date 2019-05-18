@@ -59,15 +59,15 @@ def Sr_cubic(cell_position, index, flip, beta_n):
     u = cell_position - ir + 1
     s = 0.
     if index == 0:
-        s = flip_factor*(-1./6.)*((cell_position-ir)-2)**3
+        s = (-1./6.)*((cell_position-ir)-2)**3
     elif index == 1:
-        s = flip_factor*(1./6.)*(3*((cell_position-(ir+1))**3)-6*((cell_position-(ir+1))**2)+4)
+        s = (1./6.)*(3*((cell_position-(ir+1))**3)-6*((cell_position-(ir+1))**2)+4)
         s += beta_n*(1.-u)*u  # Add Ruyten correction
     elif index == 2:
-        s = flip_factor*(1./6.)*(3*(((ir+2)-cell_position)**3)-6*(((ir+2)-cell_position)**2)+4)
+        s = (1./6.)*(3*(((ir+2)-cell_position)**3)-6*(((ir+2)-cell_position)**2)+4)
         s -= beta_n*(1.-u)*u  # Add Ruyten correction
     elif index == 3:
-        s = flip_factor*(-1./6.)*(((ir+3)-cell_position)-2)**3
+        s = (-1./6.)*(((ir+3)-cell_position)-2)**3
     # Check if the cell to which the particle deposits is below the axis
     if index + ir < 0:
         # In this case, flip the sign of the particle contribution
