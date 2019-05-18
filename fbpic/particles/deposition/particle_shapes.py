@@ -56,16 +56,16 @@ def Sr_cubic(cell_position, index, flip, beta_n):
     ir = int(math.ceil(cell_position)) - 2
     # u: position of the particle with respect to its left neighbor gridpoint
     # (u is between 0 and 1)
-    u = cell_position - ir + 1
+    u = cell_position - ir - 1
     s = 0.
     if index == 0:
         s = (-1./6.)*((cell_position-ir)-2)**3
     elif index == 1:
         s = (1./6.)*(3*((cell_position-(ir+1))**3)-6*((cell_position-(ir+1))**2)+4)
-        s += beta_n*(1.-u)*u  # Add Ruyten correction
+        s += beta_n*((ir+2)-cell_position)*(cell_position-(ir+1))  # Add Ruyten correction
     elif index == 2:
         s = (1./6.)*(3*(((ir+2)-cell_position)**3)-6*(((ir+2)-cell_position)**2)+4)
-        s -= beta_n*(1.-u)*u  # Add Ruyten correction
+        s -= beta_n*((ir+2)-cell_position)*(cell_position-(ir+1))  # Add Ruyten correction
     elif index == 3:
         s = (-1./6.)*(((ir+3)-cell_position)-2)**3
     # Check if the cell to which the particle deposits is below the axis

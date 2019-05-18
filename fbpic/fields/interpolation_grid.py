@@ -68,17 +68,22 @@ class InterpolationGrid(object) :
         self.zmax = zmax
 
         # Cell volume (assuming Hankel-transform corrected volumes)
-        p_vals = np.arange(Nr)
+        nr_vals = np.arange(Nr)
         alphas = jn_zeros(0,Nr)
         d = DHT( 0, 0, Nr, Nz, rmax, use_cuda=False )
-        vol = [( d.M[p,:]*2./(alphas*j1(alphas)) ).sum() for p in p_vals]
-        vol = dz*np.array(vol)
+        vol = dz*np.array([( d.M[nr,:]*2./(alphas*j1(alphas)) ).sum()
+                            for nr in nr_vals ])
+        # Deactivate modified volume
+        vol = np.pi*self.dr**2*self.dz*( (nr_vals+1)**2 - nr_vals**2 )
         # Inverse of cell volume
         self.invvol = 1./vol
 
-        # Ruyten-corrected particle shape factor coefficients (linear)
-        i_n = np.cumsum(vol)/(2*np.pi*self.dr**2*self.dz)-0.5*(p_vals+0.5)**2
-        self.beta_n = 6./(p_vals+1)*( i_n -0.5*(p_vals+5./6))
+        # Ruyten-corrected particle shape factor coefficients
+        norm_vol = vol/(2*np.pi*self.dr**2*self.dz)
+        i_n = np.cumsum(norm_vol)-0.5*(nr_vals+0.5)**2
+        self.beta_n = 6./(nr_vals+1)*( np.cumsum(norm_vol) - 0.5*(nr_vals+1.)**2 - 1./24 )
+        self.ruyten_cubic_coef = 6./(nr_vals+1)*( np.cumsum(norm_vol) - 0.5*(nr_vals+1.)**2 - 1./8 )
+        self.ruyten_cubic_coef[0] = 6.*( norm_vol[0] - 0.5 - 239./(15*2**7) ) # Correct first value
 
         # Allocate the fields arrays
         self.Er = np.zeros( (Nz, Nr), dtype='complex' )
