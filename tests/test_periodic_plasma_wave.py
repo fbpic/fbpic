@@ -173,9 +173,9 @@ def test_periodic_plasma_wave_linear_shape( show=False ):
     "Function that is run by py.test, when doing `python setup.py test"
     simulate_periodic_plasma_wave( 'linear', show=show )
 
-#def test_periodic_plasma_wave_cubic_shape( show=False ):
-#    "Function that is run by py.test, when doing `python setup.py test"
-#    simulate_periodic_plasma_wave( 'cubic', show=show )
+def test_periodic_plasma_wave_cubic_shape( show=False ):
+    "Function that is run by py.test, when doing `python setup.py test"
+    simulate_periodic_plasma_wave( 'cubic', show=show )
 
 def simulate_periodic_plasma_wave( particle_shape, show=False ):
     "Simulate a periodic plasma wave and check its fields"
@@ -459,4 +459,4 @@ if __name__ == '__main__' :
 
     # Run the simulation and show the results to the user
     test_periodic_plasma_wave_linear_shape(show=show)
-    #test_periodic_plasma_wave_cubic_shape(show=show)
+    test_periodic_plasma_wave_cubic_shape(show=show)
