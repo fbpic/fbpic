@@ -138,9 +138,9 @@ class Simulation( PICMI_Simulation ):
                 def dens_func(z, r):
                     n = numexpr.evaluate(s.initial_distribution.density_expression)
                     return n
-                p_nz = layout.n_macroparticle_per_cell['z']
-                p_nr = layout.n_macroparticle_per_cell['r']
-                p_nt = layout.n_macroparticle_per_cell['theta']
+                p_nr = layout.n_macroparticle_per_cell[0]
+                p_nt = layout.n_macroparticle_per_cell[1]
+                p_nz = layout.n_macroparticle_per_cell[2]
                 fbpic_species = self.fbpic_sim.add_new_species( q=q, m=m, n=1.,
                     dens_func=dens_func, p_nz=p_nz, p_nr=p_nr, p_nt=p_nt,
                     continuous_injection=s.initial_distribution.fill_in )
