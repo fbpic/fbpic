@@ -115,63 +115,85 @@ class Simulation( PICMI_Simulation ):
             species_instances_list = species.species_instances_list
         else:
             raise ValueError('Unknown type: %s' %type(species))
-        # Loop over species
+
+        # Loop over species and create FBPIC species
         for s in species_instances_list:
 
             # Get their charge and mass
             if s.particle_type is not None:
-                q = particle_charge[s.particle_type]
-                m = particle_mass[s.particle_type]
-            else:
-                q = s.charge
-                m = s.mass
-            # If `charge_state` is set, redefine the charge
+                s.charge = particle_charge[s.particle_type]
+                s.mass = particle_mass[s.particle_type]
+            # If `charge_state` is set, redefine the charge and mass
             if s.charge_state is not None:
-                q = s.charge_state*e
-                m -= s.charge_state*m_e
+                s.charge = s.charge_state*e
+                s.mass -= s.charge_state*m_e
 
-            # Add the species to the simulation
-
-            # - For the case of a plasma defined in a gridded layout
-            if (type(s.initial_distribution)==PICMI_AnalyticDistribution) and \
-                (type(layout) == PICMI_GriddedLayout):
-                import numexpr
-                def dens_func(z, r):
-                    n = numexpr.evaluate(s.initial_distribution.density_expression)
-                    return n
-                p_nr = layout.n_macroparticle_per_cell[0]
-                p_nt = layout.n_macroparticle_per_cell[1]
-                p_nz = layout.n_macroparticle_per_cell[2]
-                fbpic_species = self.fbpic_sim.add_new_species( q=q, m=m, n=1.,
-                    dens_func=dens_func, p_nz=p_nz, p_nr=p_nr, p_nt=p_nt,
-                    continuous_injection=s.initial_distribution.fill_in )
-
-            # - For the case of a Gaussian beam
-            elif (type(s.initial_distribution)==PICMI_GaussianBunchDistribution) and \
-                (type(layout) == PICMI_PseudoRandomLayout):
-                assert q == -e
-                assert initialize_self_field
-                dist = s.initial_distribution
-                Q = dist.n_physical_particles * e
-                sig_r = dist.rms_bunch_size[0]
-                sig_z = dist.rms_bunch_size[-1]
-                gamma0_beta0 = dist.centroid_velocity[-1]
-                gamma0 = np.sqrt( 1 + gamma0_beta0**2 )
-                n_emit = sig_r * dist.rms_velocity[0]
-                sig_gamma = dist.rms_velocity[-1]/c
-                zf = dist.centroid_position[-1]
-                add_elec_bunch_gaussian( self.fbpic_sim,
-                    gamma0=gamma0, sig_gamma=sig_gamma,
-                    sig_r=sig_r, sig_z=sig_z, n_emit=n_emit, Q=Q,
-                    N=layout.n_macroparticles, zf=zf )
-                fbpic_species = self.fbpic_sim.ptcl[-1]
-
-            else:
-                raise ValueError('Unknown combination of layout and distribution')
+            # Add the species to the FBPIC simulation
+            fbpic_species = self._create_new_fbpic_species(s,
+                                        layout, initialize_self_field)
 
             # Register a pointer to the FBPIC species in the PICMI species itself
             # (Useful for particle diagnostics later on)
             s.fbpic_species = fbpic_species
+
+        # Loop over species and handle ionization
+        for s in species_instances_list:
+            for interaction in s.interactions:
+                assert interaction[0] == 'ionization'
+                assert interaction[1] == 'ADK'
+                picmi_target = interaction[2]
+                if not hasattr( picmi_target, 'fbpic_species' ):
+                    raise RunTimeError('For ionization with PICMI+FBPIC:\n'
+                        'You need to add the target species to the simulation,'
+                        ' before the other species.')
+                fbpic_target = picmi_target.fbpic_species
+                fbpic_source = s.fbpic_species
+                fbpic_source.make_ionizable( element=s.particle_type,
+                                             level_start=s.charge_state,
+                                             target_species=fbpic_target )
+
+
+    def _create_new_fbpic_species(self, s, layout, initialize_self_field):
+
+        # - For the case of a plasma defined in a gridded layout
+        if (type(s.initial_distribution)==PICMI_AnalyticDistribution) and \
+            (type(layout) == PICMI_GriddedLayout):
+            import numexpr
+            def dens_func(z, r):
+                n = numexpr.evaluate(s.initial_distribution.density_expression)
+                return n
+            p_nr = layout.n_macroparticle_per_cell[0]
+            p_nt = layout.n_macroparticle_per_cell[1]
+            p_nz = layout.n_macroparticle_per_cell[2]
+            fbpic_species = self.fbpic_sim.add_new_species(
+                q=s.charge, m=s.mass, n=1.,
+                dens_func=dens_func, p_nz=p_nz, p_nr=p_nr, p_nt=p_nt,
+                continuous_injection=s.initial_distribution.fill_in )
+
+        # - For the case of a Gaussian beam
+        elif (type(s.initial_distribution)==PICMI_GaussianBunchDistribution) and \
+            (type(layout) == PICMI_PseudoRandomLayout):
+            assert s.charge == -e and s.mass == m_e
+            assert initialize_self_field
+            dist = s.initial_distribution
+            Q = dist.n_physical_particles * e
+            sig_r = dist.rms_bunch_size[0]
+            sig_z = dist.rms_bunch_size[-1]
+            gamma0_beta0 = dist.centroid_velocity[-1]
+            gamma0 = np.sqrt( 1 + gamma0_beta0**2 )
+            n_emit = sig_r * dist.rms_velocity[0]
+            sig_gamma = dist.rms_velocity[-1]/c
+            zf = dist.centroid_position[-1]
+            add_elec_bunch_gaussian( self.fbpic_sim,
+                gamma0=gamma0, sig_gamma=sig_gamma,
+                sig_r=sig_r, sig_z=sig_z, n_emit=n_emit, Q=Q,
+                N=layout.n_macroparticles, zf=zf )
+            fbpic_species = self.fbpic_sim.ptcl[-1]
+
+        else:
+            raise ValueError('Unknown combination of layout and distribution')
+
+        return fbpic_species
 
 
     # Redefine the method `add_diagnostic` of the parent class
