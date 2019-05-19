@@ -7,7 +7,7 @@ This file is part of the Fourier-Bessel Particle-In-Cell code (FB-PIC)
 It defines the picmi Simulation interface
 """
 import numpy as np
-from scipy.constants import c, e
+from scipy.constants import c, e, m_e
 from .particle_charge_and_mass import particle_charge, particle_mass
 
 # Import relevant fbpic object
@@ -128,6 +128,7 @@ class Simulation( PICMI_Simulation ):
             # If `charge_state` is set, redefine the charge
             if s.charge_state is not None:
                 q = s.charge_state*e
+                m -= s.charge_state*m_e
 
             # Add the species to the simulation
 
