@@ -11,8 +11,10 @@ import numba
 # Check if CUDA is available, then import CUDA functions
 from fbpic.utils.cuda import cuda_installed
 if cuda_installed:
-    from fbpic.utils.cuda import cuda, cupy, cufft, cuda_tpb_bpg_2d
+    from fbpic.utils.cuda import cuda, cupy, cuda_tpb_bpg_2d
+    from cupy.cuda import cufft
     from .cuda_methods import cuda_copy_2d_to_1d, cuda_copy_1d_to_2d
+
 # Check if the MKL FFT is available
 try:
     from .mkl_fft import MKLFFT
@@ -61,9 +63,8 @@ class FFT(object):
 
         # Initialize the object for calculation on the GPU
         if self.use_cuda:
-            # Initialize the CUDA FFT plan with dummy array
-            spect_buffer = cuda.device_array( (Nz, Nr), dtype=np.complex128 )
-            self.fft = cufft.get_fft_plan( cupy.asarray(spect_buffer), axes=0 )
+            # Initialize the CUDA FFT plan object
+            self.fft = cufft.Plan1d(Nz, cufft.CUFFT_Z2Z, Nr)
             self.inv_Nz = 1./Nz         # For normalization of the iFFT
 
         # Initialize the object for calculation on the CPU
@@ -110,12 +111,18 @@ class FFT(object):
             # Transform to cupy arrays
             d_in = cupy.asarray(array_in)
             d_out = cupy.asarray(array_out)
-            # Perform the FFT on the GPU
-            d_out[:,:] = cufft.fft( d_in, axis=0, plan=self.fft )
+            # reshape to 1D arrays for cuFFT
+            d_in_r = d_in.reshape(d_in.size, order='F')
+            d_out_r = d_out.reshape(d_out.size, order='F')
+            # Perform forward FFT
+            self.fft.fft(d_in_r, d_out_r, cufft.CUFFT_FORWARD)
+            # Reshape and write to intial array
+            d_out[:,:] = d_out_r.reshape(
+                d_in.shape[0], d_in.shape[1], order='F')
             # Copy cupy GPU array to host (if array_out 
             # was a numpy array on CPU initially)
             if isinstance(array_out, np.ndarray):
-                array_out[:,:] = d_out.get()
+                array_out[:,:] =  d_out.get()
         elif self.use_mkl:
             # Perform the FFT on the CPU using MKL
             self.mklfft.transform( array_in, array_out )
@@ -146,12 +153,19 @@ class FFT(object):
             # Transform to cupy arrays
             d_in = cupy.asarray(array_in)
             d_out = cupy.asarray(array_out)
-            # Perform the FFT on the GPU
-            d_out[:,:] = cufft.ifft( d_in, axis=0, plan=self.fft )
+            # reshape to 1D arrays for cuFFT
+            d_in_r = d_in.reshape(d_in.size, order='F')
+            d_out_r = d_out.reshape(d_out.size, order='F')
+            # Perform forward FFT
+            self.fft.fft(d_in_r, d_out_r, cufft.CUFFT_INVERSE)
+            # Reshape and write back to intial arrays
+            # Reshape and write to intial array
+            d_out[:,:] = d_out_r.reshape(
+                d_in.shape[0], d_in.shape[1], order='F') * self.inv_Nz
             # Copy cupy GPU array to host (if array_out 
             # was a numpy array on CPU initially)
             if isinstance(array_out, np.ndarray):
-                array_out[:,:] = d_out.get()
+                array_out[:,:] =  d_out.get()
         elif self.use_mkl:
             # Perform the inverse FFT on the CPU using MKL
             self.mklfft.inverse_transform( array_in, array_out )
