@@ -12,10 +12,11 @@ try:
     cuda_installed = cuda.is_available()
 except Exception:
     cuda_installed = False
-
+    
 if cuda_installed:
     # Import cupy
     import cupy
+    cupy_installed = cupy.is_available()
 
 # -----------------------------------------------------
 # CUDA grid utilities

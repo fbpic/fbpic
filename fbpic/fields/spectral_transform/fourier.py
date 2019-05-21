@@ -11,9 +11,8 @@ import numba
 # Check if CUDA is available, then import CUDA functions
 from fbpic.utils.cuda import cuda_installed
 if cuda_installed:
-    from fbpic.utils.cuda import cuda, cupy, cuda_tpb_bpg_2d
+    from fbpic.utils.cuda import cuda, cupy
     from cupy.cuda import cufft
-    from .cuda_methods import cuda_copy_2d_to_1d, cuda_copy_1d_to_2d
 
 # Check if the MKL FFT is available
 try:
