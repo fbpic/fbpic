@@ -11,7 +11,7 @@ import numba
 # Check if CUDA is available, then import CUDA functions
 from fbpic.utils.cuda import cuda_installed
 if cuda_installed:
-    from fbpic.utils.cuda import cuda, cufft, cuda_tpb_bpg_2d
+    from fbpic.utils.cuda import cuda, cupy, cufft, cuda_tpb_bpg_2d
     from .cuda_methods import cuda_copy_2d_to_1d, cuda_copy_1d_to_2d
 # Check if the MKL FFT is available
 try:
@@ -61,10 +61,9 @@ class FFT(object):
 
         # Initialize the object for calculation on the GPU
         if self.use_cuda:
-            # Initialize the FFT plan with dummy array
+            # Initialize the CUDA FFT plan with dummy array
             spect_buffer = cuda.device_array( (Nz, Nr), dtype=np.complex128 )
-            # Initialize the cuda libraries object
-            self.fft = cufft.get_fft_plan( spect_buffer, axes=0 )
+            self.fft = cufft.get_fft_plan( cupy.asarray(spect_buffer), axes=0 )
             self.inv_Nz = 1./Nz         # For normalization of the iFFT
 
         # Initialize the object for calculation on the CPU
@@ -103,8 +102,20 @@ class FFT(object):
             two buffers that are returned by `get_buffers`
         """
         if self.use_cuda :
+            # Synchronize automatically managed
+            # Numba CUDA stream (if array_in was
+            # a numpy array on CPU initially)
+            if isinstance(array_in, np.ndarray):
+                cuda.synchronize()
+            # Transform to cupy arrays
+            d_in = cupy.asarray(array_in)
+            d_out = cupy.asarray(array_out)
             # Perform the FFT on the GPU
-            array_out = cufft.fft( array_in, plan=self.fft )
+            d_out[:,:] = cufft.fft( d_in, axis=0, plan=self.fft )
+            # Copy cupy GPU array to host (if array_out 
+            # was a numpy array on CPU initially)
+            if isinstance(array_out, np.ndarray):
+                array_out[:,:] = d_out.get()
         elif self.use_mkl:
             # Perform the FFT on the CPU using MKL
             self.mklfft.transform( array_in, array_out )
@@ -127,8 +138,20 @@ class FFT(object):
             two buffers that are returned by `get_buffers`
         """
         if self.use_cuda :
-            # Perform the inverse FFT on the GPU
-            array_out = cufft.ifft( array_in, plan=self.fft )
+            # Synchronize automatically managed
+            # Numba CUDA stream (if array_in was
+            # a numpy array on CPU initially)
+            if isinstance(array_in, np.ndarray):
+                cuda.synchronize()
+            # Transform to cupy arrays
+            d_in = cupy.asarray(array_in)
+            d_out = cupy.asarray(array_out)
+            # Perform the FFT on the GPU
+            d_out[:,:] = cufft.ifft( d_in, axis=0, plan=self.fft )
+            # Copy cupy GPU array to host (if array_out 
+            # was a numpy array on CPU initially)
+            if isinstance(array_out, np.ndarray):
+                array_out[:,:] = d_out.get()
         elif self.use_mkl:
             # Perform the inverse FFT on the CPU using MKL
             self.mklfft.inverse_transform( array_in, array_out )
