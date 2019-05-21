@@ -5,7 +5,6 @@
 This file is part of the Fourier-Bessel Particle-In-Cell code (FB-PIC)
 It defines a set of generic functions that operate on a GPU.
 """
-import numba
 from numba import cuda
 
 # Check if CUDA is available and set variable accordingly
@@ -17,7 +16,6 @@ except Exception:
 if cuda_installed:
     # Import cupy
     import cupy
-    from cupyx.scipy import fftpack as cufft
 
 # -----------------------------------------------------
 # CUDA grid utilities
