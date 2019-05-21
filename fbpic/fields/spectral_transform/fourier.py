@@ -64,7 +64,15 @@ class FFT(object):
         # Initialize the object for calculation on the GPU
         if self.use_cuda:
             # Initialize the CUDA FFT plan object
-            self.fft = cufft.Plan1d(Nz, cufft.CUFFT_Z2Z, Nr)
+            self.fft = cufft.PlanNd(shape=(Nz,),
+                                    istride=Nr,
+                                    ostride=Nr,
+                                    inembed=(Nz,),
+                                    onembed=(Nz,),
+                                    idist=1,
+                                    odist=1,
+                                    fft_type=cufft.CUFFT_Z2Z,
+                                    batch=Nr)
             self.inv_Nz = 1./Nz         # For normalization of the iFFT
 
         # Initialize the object for calculation on the CPU
@@ -111,14 +119,8 @@ class FFT(object):
             # Transform to cupy arrays
             d_in = cupy.asarray(array_in)
             d_out = cupy.asarray(array_out)
-            # reshape to 1D arrays for cuFFT
-            d_in_r = d_in.reshape(d_in.size, order='F')
-            d_out_r = d_out.reshape(d_out.size, order='F')
             # Perform forward FFT
-            self.fft.fft(d_in_r, d_out_r, cufft.CUFFT_FORWARD)
-            # Reshape and write to intial array
-            d_out[:,:] = d_out_r.reshape(
-                d_in.shape[0], d_in.shape[1], order='F')
+            self.fft.fft(d_in, d_out, cufft.CUFFT_FORWARD)
             # Copy cupy GPU array to host (if array_out 
             # was a numpy array on CPU initially)
             if isinstance(array_out, np.ndarray):
@@ -153,15 +155,10 @@ class FFT(object):
             # Transform to cupy arrays
             d_in = cupy.asarray(array_in)
             d_out = cupy.asarray(array_out)
-            # reshape to 1D arrays for cuFFT
-            d_in_r = d_in.reshape(d_in.size, order='F')
-            d_out_r = d_out.reshape(d_out.size, order='F')
             # Perform forward FFT
-            self.fft.fft(d_in_r, d_out_r, cufft.CUFFT_INVERSE)
-            # Reshape and write back to intial arrays
-            # Reshape and write to intial array
-            d_out[:,:] = d_out_r.reshape(
-                d_in.shape[0], d_in.shape[1], order='F') * self.inv_Nz
+            self.fft.fft(d_in, d_out, cufft.CUFFT_INVERSE)
+            # Normalize inverse FFT
+            d_out *= self.inv_Nz 
             # Copy cupy GPU array to host (if array_out 
             # was a numpy array on CPU initially)
             if isinstance(array_out, np.ndarray):
