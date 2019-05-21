@@ -41,7 +41,7 @@ from ..cuda_numba_utils import allocate_empty, reallocate_and_copy_old, \
 from fbpic.utils.cuda import cuda_installed
 from fbpic.utils.printing import catch_gpu_memory_error
 if cuda_installed:
-    from pyculib.rand import PRNG
+    import cupy
     from fbpic.utils.cuda import cuda_tpb_bpg_1d
     from .cuda_methods import ionize_ions_cuda, copy_ionized_electrons_cuda
 
@@ -207,9 +207,6 @@ class Ionizer(object):
             * ( 2*(Uion/UH)**(3./2)*Ea )**(2*n_eff - 1)
         self.adk_exp_prefactor = -2./3 * ( Uion/UH )**(3./2) * Ea
 
-        # Prepare random number generator
-        if self.use_cuda:
-            self.prng = PRNG()
 
     @catch_gpu_memory_error
     def handle_ionization( self, ion ):
@@ -242,8 +239,7 @@ class Ionizer(object):
                                     dtype=np.int64 )
         # Draw random numbers
         if self.use_cuda:
-            random_draw = allocate_empty( ion.Ntot, use_cuda, dtype=np.float32)
-            self.prng.uniform( random_draw )
+            random_draw = cupy.random.rand( ion.Ntot, dtype=cupy.float32 )
         else:
             random_draw = np.random.rand( ion.Ntot )
 
