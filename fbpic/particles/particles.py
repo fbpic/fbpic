@@ -209,7 +209,7 @@ class Particles(object) :
             self.grid_shape = grid_shape
             # Allocate arrays for the particles sorting when using CUDA
             self.cell_idx = np.empty( Ntot, dtype=np.int32)
-            self.sorted_idx = np.empty( Ntot, dtype=np.uint32)
+            self.sorted_idx = np.empty( Ntot, dtype=np.intp)
             self.sorting_buffer = np.empty( Ntot, dtype=np.float64 )
             Nz, Nr = grid_shape
             self.prefix_sum = np.empty( Nz*(Nr+1), dtype=np.int32 )
