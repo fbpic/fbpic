@@ -17,6 +17,7 @@ from fbpic.utils.cuda import cuda_installed
 from .numba_methods import numba_copy_2dC_to_2dR, numba_copy_2dR_to_2dC
 if cuda_installed:
     from fbpic.utils.cuda import cuda, cuda_tpb_bpg_2d, cupy
+    from cupy.cuda import device, cublas
     from .cuda_methods import cuda_copy_2dC_to_2dR, cuda_copy_2dR_to_2dC
 
 
@@ -120,8 +121,10 @@ class DHT(object):
 
         # Copy the matrices to the GPU if needed
         if self.use_cuda:
-            self.d_M = cuda.to_device( self.M )
-            self.d_invM = cuda.to_device( self.invM )
+            self.d_M = cuda.to_device( 
+                np.asfortranarray( self.M, dtype=np.float64 ) )
+            self.d_invM = cuda.to_device(
+                np.asfortranarray( self.invM, dtype=np.float64 ) )
 
         # Initialize buffer arrays to store the complex Nz x Nr grid
         # as a real 2Nz x Nr grid, before performing the matrix product
@@ -129,14 +132,19 @@ class DHT(object):
         # product of complexs, and the real-complex conversion is negligible.)
         if not self.use_cuda:
             # Initialize real buffer arrays on the CPU
-            zero_array = np.zeros((2*Nz, Nr), dtype=np.float64 )
+            zero_array = np.zeros((2*Nz, Nr), dtype=np.float64)
             self.array_in = zero_array.copy()
             self.array_out = zero_array.copy()
         else:
             # Initialize real buffer arrays on the GPU
-            zero_array = np.zeros((2*Nz, Nr), dtype=np.float64)
+            zero_array = np.zeros((2*Nz, Nr), dtype=np.float64, order='F')
             self.d_in = cuda.to_device( zero_array )
             self.d_out = cuda.to_device( zero_array )
+            # Initialize cuBLAS
+            self.blas = device.get_cublas_handle()
+            # register cuBLAS gemm kernel parameters
+            m, n = self.d_in.shape; k = n
+            self.mnk = [m, n, k]
             # Initialize the threads per block and block per grid
             self.dim_grid, self.dim_block = cuda_tpb_bpg_2d(Nz, Nr)
 
@@ -181,8 +189,13 @@ class DHT(object):
             # Convert C-order, complex array `F` to F-order, real `d_in`
             cuda_copy_2dC_to_2dR[self.dim_grid, self.dim_block]( F, self.d_in )
             # Perform real matrix product (faster than complex matrix product)
-            cupy.dot( cupy.asarray(self.d_in), cupy.asarray(self.d_M),
-                      out=cupy.asarray(self.d_out) )
+            #cupy.dot( cupy.asarray(self.d_in), cupy.asarray(self.d_M),
+            #          out=cupy.asarray(self.d_out) )
+            # Call cuBLAS gemm kernel
+            cublas.dgemm(self.blas, 0, 0, self.mnk[0], self.mnk[1], self.mnk[2], 
+                         1, cupy.asarray(self.d_in).data.ptr, self.mnk[0], 
+                            cupy.asarray(self.d_M).data.ptr, self.mnk[1], 
+                         0, cupy.asarray(self.d_out).data.ptr, self.mnk[0])
             # Convert F-order, real `d_out` to the C-order, complex `G`
             cuda_copy_2dR_to_2dC[self.dim_grid, self.dim_block]( self.d_out, G )
         else:
@@ -210,8 +223,13 @@ class DHT(object):
             # Convert C-order, complex array `G` to F-order, real `d_in`
             cuda_copy_2dC_to_2dR[self.dim_grid, self.dim_block](G, self.d_in )
             # Perform real matrix product (faster than complex matrix product)
-            cupy.dot( cupy.asarray(self.d_in), cupy.asarray(self.d_invM),
-                      out=cupy.asarray(self.d_out))
+            #cupy.dot( cupy.asarray(self.d_in), cupy.asarray(self.d_invM),
+            #          out=cupy.asarray(self.d_out))
+            # Call cuBLAS gemm kernel
+            cublas.dgemm(self.blas, 0, 0, self.mnk[0], self.mnk[1], self.mnk[2], 
+                         1, cupy.asarray(self.d_in).data.ptr, self.mnk[0], 
+                            cupy.asarray(self.d_invM).data.ptr, self.mnk[1], 
+                         0, cupy.asarray(self.d_out).data.ptr, self.mnk[0])
             # Convert the F-order d_out array to the C-order F array
             cuda_copy_2dR_to_2dC[self.dim_grid, self.dim_block]( self.d_out, F )
         else:
