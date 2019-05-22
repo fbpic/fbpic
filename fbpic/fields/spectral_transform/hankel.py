@@ -188,9 +188,6 @@ class DHT(object):
         if self.use_cuda:
             # Convert C-order, complex array `F` to F-order, real `d_in`
             cuda_copy_2dC_to_2dR[self.dim_grid, self.dim_block]( F, self.d_in )
-            # Perform real matrix product (faster than complex matrix product)
-            #cupy.dot( cupy.asarray(self.d_in), cupy.asarray(self.d_M),
-            #          out=cupy.asarray(self.d_out) )
             # Call cuBLAS gemm kernel
             cublas.dgemm(self.blas, 0, 0, self.mnk[0], self.mnk[1], self.mnk[2], 
                          1, cupy.asarray(self.d_in).data.ptr, self.mnk[0], 
@@ -222,9 +219,6 @@ class DHT(object):
         if self.use_cuda:
             # Convert C-order, complex array `G` to F-order, real `d_in`
             cuda_copy_2dC_to_2dR[self.dim_grid, self.dim_block](G, self.d_in )
-            # Perform real matrix product (faster than complex matrix product)
-            #cupy.dot( cupy.asarray(self.d_in), cupy.asarray(self.d_invM),
-            #          out=cupy.asarray(self.d_out))
             # Call cuBLAS gemm kernel
             cublas.dgemm(self.blas, 0, 0, self.mnk[0], self.mnk[1], self.mnk[2], 
                          1, cupy.asarray(self.d_in).data.ptr, self.mnk[0], 
