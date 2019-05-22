@@ -18,8 +18,7 @@ from .numba_methods import numba_copy_2dC_to_2dR, numba_copy_2dR_to_2dC
 if cuda_installed:
     from fbpic.utils.cuda import cuda, cuda_tpb_bpg_2d, cupy
     from cupy.cuda import device, cublas
-    from .cuda_methods import cuda_copy_2dC_to_2dR, cuda_copy_2dR_to_2dC, cupy_copy_2dC_to_2dR, cupy_copy_2dR_to_2dC
-
+    from .cuda_methods import cuda_copy_2dC_to_2dR, cuda_copy_2dR_to_2dC
 
 class DHT(object):
     """
@@ -221,7 +220,7 @@ class DHT(object):
                             cupy.asarray(self.d_in).data.ptr, self.Nr, 
                          0, cupy.asarray(self.d_out).data.ptr, self.Nr)
             # Convert the F-order d_out array to the C-order F array
-            cuda_copy_2dR_to_2dC[self.dim_grid, self.dim_block]( self.d_out, F )  
+            cuda_copy_2dR_to_2dC[self.dim_grid, self.dim_block]( self.d_out, F )
         else:
             # Convert complex array `G` to real array `array_in`
             numba_copy_2dC_to_2dR( G, self.array_in )
