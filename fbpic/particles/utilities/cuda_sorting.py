@@ -105,6 +105,7 @@ def sort_particles_per_cell(cell_idx, sorted_idx):
         d_cell_idx = cupy.asarray(cell_idx)
         d_sorted_idx = cupy.asarray(sorted_idx)
         d_sorted_idx[:] = cupy.argsort(d_cell_idx)
+        d_cell_idx[:] = cupy.sort(d_cell_idx)
 #        thrust.argsort( d_cell_idx.dtype,
 #                        d_sorted_idx.data.ptr,
 #                        d_cell_idx.data.ptr,
