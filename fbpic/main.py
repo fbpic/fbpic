@@ -160,8 +160,7 @@ class Simulation(object):
         current_correction: string, optional
             The method used in order to ensure that the continuity equation
             is satisfied. Either `curl-free` or `cross-deposition`.
-            `curl-free` is faster but less local (should not be used with MPI).
-            For the moment, `cross-deposition` is still experimental.
+            `curl-free` is faster but less local.
 
         gamma_boost : float, optional
             When initializing the laser in a boosted frame, set the

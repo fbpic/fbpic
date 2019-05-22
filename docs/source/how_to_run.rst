@@ -47,8 +47,10 @@ processes (e.g. 4) by running
 
 .. warning::
 
-    Running distributed simulation via MPI requires using a finite order
-    (e.g. ``n_order=32``) for the field solver. Please carefully read the
+    Note that, depending on the size of the simulation, running with
+    multiple MPI processes is not necessarily faster. In addition,
+    MPI simulations require using a finite order (e.g. ``n_order=32``)
+    for the field solver. Please read the
     documentation on the :doc:`parallelisation of FBPIC
     <overview/parallelisation>` before using this feature.
 
