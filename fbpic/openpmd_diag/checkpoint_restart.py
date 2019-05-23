@@ -326,6 +326,10 @@ def load_species( species, name, ts, iteration, comm ):
     # Sorting arrays
     if species.use_cuda:
         species.cell_idx = np.empty( Ntot, dtype=np.int32)
-        species.sorted_idx = np.arange( Ntot, dtype=np.uint32)
-        species.sorting_buffer = np.arange( Ntot, dtype=np.float64)
+        species.sorted_idx = np.empty( Ntot, dtype=np.uint32)
+        species.sorting_buffer = np.empty( Ntot, dtype=np.float64)
+        if hasattr( species, 'int_sorting_buffer'):
+            species.int_sorting_buffer = np.empty( Ntot, dtype=np.uint64 )
         species.sorted = False
+
+        
