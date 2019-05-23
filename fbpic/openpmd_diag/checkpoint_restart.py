@@ -14,6 +14,11 @@ from .field_diag import FieldDiagnostic
 from .particle_diag import ParticleDiagnostic
 from fbpic.utils.mpi import comm
 
+# Check if CUDA is available, then import CUDA
+from fbpic.utils.cuda import cuda_installed
+if cuda_installed:
+        from fbpic.utils.cuda import cuda
+
 def set_periodic_checkpoint( sim, period, checkpoint_dir='./checkpoints' ):
     """
     Set up periodic checkpoints of the simulation
@@ -325,8 +330,11 @@ def load_species( species, name, ts, iteration, comm ):
     species.By = np.zeros( Ntot )
     # Sorting arrays
     if species.use_cuda:
-        species.cell_idx = np.empty( Ntot, dtype=np.int32)
-        species.sorted_idx = np.empty( Ntot, dtype=np.uint32)
+        # cell_idx and sorted_idx always stay on GPU
+        species.cell_idx = cuda.device_array( Ntot, dtype=np.int32)
+        species.sorted_idx = cuda.device_array( Ntot, dtype=np.uint32)
+        # sorting buffers are initialized on CPU
+        # (because they are swapped with other particle arrays during sorting) 
         species.sorting_buffer = np.empty( Ntot, dtype=np.float64)
         if hasattr( species, 'int_sorting_buffer'):
             species.int_sorting_buffer = np.empty( Ntot, dtype=np.uint64 )
