@@ -222,6 +222,10 @@ class Ionizer(object):
         ion: an fbpic.Particles object
             The ionizable species, from which new electrons are created.
         """
+        # Skip this function if there are no ions
+        if ion.Ntot == 0:
+            return
+        
         # Process particles in batches (of typically 10, 20 particles)
         N_batch = int( ion.Ntot / self.batch_size ) + 1
         # Short-cuts
