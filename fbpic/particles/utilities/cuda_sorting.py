@@ -104,12 +104,15 @@ def sort_particles_per_cell(cell_idx, sorted_idx):
             raise ValueError("Unexpected CPU array")
         d_cell_idx = cupy.asarray(cell_idx)
         d_sorted_idx = cupy.asarray(sorted_idx)
-        d_sorted_idx[:] = cupy.argsort(d_cell_idx)
+        # Find the indices that sort `cell_idx`
+        # and store them in `d_sorted_idx`
+        thrust.argsort( dtype=d_cell_idx.dtype,
+                        idx_start=d_sorted_idx.data.ptr,
+                        data_start=d_cell_idx.data.ptr,
+                        keys_start=0,
+                        shape=cell_idx.shape )
+        # Get the sorted array `cell_idx`
         d_cell_idx[:] = cupy.sort(d_cell_idx)
-#        thrust.argsort( d_cell_idx.dtype,
-#                        d_sorted_idx.data.ptr,
-#                        d_cell_idx.data.ptr,
-#                        0, cell_idx.shape )
 
 @cuda.jit
 def incl_prefix_sum(cell_idx, prefix_sum):
