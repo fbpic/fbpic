@@ -120,7 +120,7 @@ following text (and replace the bracketed text by the proper values).
     #SBATCH --constraint <gpuConstraint>
     #SBATCH --time <requestedTime>
     #SBATCH --ntasks <requestedRanks>
-    #SBATCH --ntasks-per-node <gpuPerNode>
+    #SBATCH --gres=gpu:<gpuPerNode> --cpus-per-task=8
 
     mpirun -np <requestedRanks> python fbpic_script.py
 
