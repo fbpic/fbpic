@@ -9,10 +9,12 @@ and is used in spectral_transformer.py
 import numpy as np
 import numba
 # Check if CUDA is available, then import CUDA functions
-from fbpic.utils.cuda import cuda_installed
+from fbpic.utils.cuda import cuda_installed, cupy_installed
 if cuda_installed:
-    from fbpic.utils.cuda import cuda, cupy, cuda_tpb_bpg_2d
+    from fbpic.utils.cuda import cuda, cuda_tpb_bpg_2d
     from .cuda_methods import cuda_copy_2d_to_1d, cuda_copy_1d_to_2d
+if cupy_installed:
+    import cupy
     from cupy.cuda import cufft
 
 # Check if the MKL FFT is available
