@@ -29,16 +29,18 @@ Python. If Anaconda is not your default Python distribution, download and instal
    install``.
 
 
--  **Optional:** In order to be able to run the code on a GPU:
+-  **Optional:** In order to be able to run the code on a GPU,
+   install the additional package `cudatoolkit` and `cupy` --
+   e.g. using CUDA version 9.0:
 
    ::
 
-       conda install cudatoolkit=8.0 pyculib
 
-   If your GPU driver supports a newer version of CUDA than 8.0, you can
-   modify the above number accordingly. See
-   `this page <https://docs.anaconda.com/anaconda/user-guide/tasks/gpu-packages/#software-requirements>`__
-   for more information.
+       conda install cudatoolkit=9.0
+       pip install cupy-cuda90
+
+   (In the above command, you should choose a CUDA version that is compatible
+   with your GPU driver ; see `this table <https://docs.nvidia.com/cuda/cuda-toolkit-release-notes/index.html#major-components__table-cuda-toolkit-driver-versions>`__ for more info.)
 
 -  **Optional:** In order to run on a CPU which is **not** an Intel model, you need to install `pyfftw`, in order to replace the MKL FFT:
 
@@ -48,7 +50,7 @@ Python. If Anaconda is not your default Python distribution, download and instal
 
 
 Potential issues
---------------------------------
+----------------
 
 On Mac OSX, the package ``mpi4py`` can sometimes cause
 issues. If you observe that the code crashes with an

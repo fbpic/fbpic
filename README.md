@@ -76,10 +76,12 @@ pip install fbpic
 ```
 
 - **Optional:** in order to run on GPU, install the additional package
-`pyculib`:
+`cudatoolkit` and `cupy` -- e.g. using CUDA version 9.0.
 ```
-conda install cudatoolkit=8.0 pyculib
+conda install cudatoolkit=9.0
+pip install cupy-cuda90
 ```
+(In the above command, you should choose a CUDA version that is compatible with your GPU driver ; see [this table](https://docs.nvidia.com/cuda/cuda-toolkit-release-notes/index.html#major-components__table-cuda-toolkit-driver-versions) for more info.)
 
 - **Optional:** in order to run on a CPU which is **not** an Intel model, you
 need to install `pyfftw`, in order to replace the MKL FFT:

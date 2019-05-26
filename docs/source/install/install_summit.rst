@@ -19,7 +19,7 @@ First load the relevant modules:
 
     module purge
     module load gcc/4.8.5
-    module load spectrum-mpi/10.2.0.10-20181214
+    module load spectrum-mpi/10.3.0.0-20190419
     module load fftw/3.3.8
     module load python/3.7.0-anaconda3-5.3.0
 
@@ -37,27 +37,21 @@ Installation of FBPIC and its dependencies
 
     ::
 
-        conda install -c conda-forge numba scipy h5py cython cudatoolkit=8.0
+        conda install -c conda-forge numba scipy h5py cython cudatoolkit=9.0
+
+- Install ``cupy`` (This step can take a few minutes.)
+
+    ::
+
+        module load cuda/9.1.85
+        pip install cupy
+        module unload cuda
 
 - Install ``pyfftw``
 
     ::
 
         pip install pyfftw
-
-- Install ``pyculib``
-
-    ::
-
-        git clone https://github.com/dzhoshkun/pyculib_sorting.git
-        cd pyculib_sorting
-        git submodule update --init
-        module load cuda
-        python build_sorting_libs.py
-        module unload cuda
-        cp lib/*.so ~/.conda/envs/fbpic/lib/
-        pip install pyculib
-        cd ..
 
 -  Install ``fbpic``
 
@@ -98,7 +92,7 @@ Then ``cd`` to the directory where you prepared your input script and type
 
     module purge
     module load gcc/4.8.5
-    module load spectrum-mpi/10.2.0.10-20181214
+    module load spectrum-mpi/10.3.0.0-20190419
     module load fftw/3.3.8
     module load python/3.7.0-anaconda3-5.3.0
     module load py-mpi4py/3.0.0-py3
@@ -126,7 +120,7 @@ following text (and replace the bracketed text by the proper values).
     module purge
     module load gcc/4.8.5
     module load cuda/9.1.85
-    module load spectrum-mpi/10.2.0.10-20181214
+    module load spectrum-mpi/10.3.0.0-20190419
     module load fftw/3.3.8
     module load python/3.7.0-anaconda3-5.3.0
     module load py-mpi4py/3.0.0-py3
