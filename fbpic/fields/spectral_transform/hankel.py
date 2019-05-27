@@ -13,13 +13,15 @@ import numpy as np
 from scipy.special import jn, jn_zeros
 
 # Check if CUDA is available, then import CUDA functions
-from fbpic.utils.cuda import cuda_installed
+from fbpic.utils.cuda import cuda_installed, cupy_installed
 from .numba_methods import numba_copy_2dC_to_2dR, numba_copy_2dR_to_2dC
 if cuda_installed:
-    from pyculib import blas as cublas
     from fbpic.utils.cuda import cuda, cuda_tpb_bpg_2d
     from .cuda_methods import cuda_copy_2dC_to_2dR, cuda_copy_2dR_to_2dC
-
+if cupy_installed:
+    import cupy
+    from cupy.cuda import device, cublas
+    
 
 class DHT(object):
     """
@@ -68,6 +70,7 @@ class DHT(object):
         self.m = m
         self.Nr = Nr
         self.rmax = rmax
+        self.Nz = Nz
 
         # Calculate the zeros of the Bessel function
         if m !=0:
@@ -121,11 +124,8 @@ class DHT(object):
 
         # Copy the matrices to the GPU if needed
         if self.use_cuda:
-            # Conversion to Fortran order is needed for the cuBlas API
-            self.d_M = cuda.to_device(
-                np.asfortranarray( self.M, dtype=np.float64 ) )
-            self.d_invM = cuda.to_device(
-                np.asfortranarray( self.invM, dtype=np.float64 ) )
+            self.d_M = cuda.to_device( self.M )
+            self.d_invM = cuda.to_device( self.invM )
 
         # Initialize buffer arrays to store the complex Nz x Nr grid
         # as a real 2Nz x Nr grid, before performing the matrix product
@@ -133,19 +133,18 @@ class DHT(object):
         # product of complexs, and the real-complex conversion is negligible.)
         if not self.use_cuda:
             # Initialize real buffer arrays on the CPU
-            zero_array = np.zeros((2*Nz, Nr), dtype=np.float64 )
+            zero_array = np.zeros((2*Nz, Nr), dtype=np.float64)
             self.array_in = zero_array.copy()
             self.array_out = zero_array.copy()
         else:
             # Initialize real buffer arrays on the GPU
-            # The cuBlas API requires that these arrays be in Fortran order
-            zero_array = np.zeros((2*Nz, Nr), dtype=np.float64, order='F')
+            zero_array = np.zeros((2*Nz, Nr), dtype=np.float64)
             self.d_in = cuda.to_device( zero_array )
             self.d_out = cuda.to_device( zero_array )
-            # Initialize a cuda stream (required by cublas)
-            self.blas = cublas.Blas()
+            # Initialize cuBLAS
+            self.blas = device.get_cublas_handle()
             # Initialize the threads per block and block per grid
-            self.dim_grid, self.dim_block = cuda_tpb_bpg_2d(Nz, Nr)
+            self.dim_grid, self.dim_block = cuda_tpb_bpg_2d(Nz, Nr, 1, 32)
 
 
     def get_r(self):
@@ -187,9 +186,11 @@ class DHT(object):
         if self.use_cuda:
             # Convert C-order, complex array `F` to F-order, real `d_in`
             cuda_copy_2dC_to_2dR[self.dim_grid, self.dim_block]( F, self.d_in )
-            # Perform real matrix product (faster than complex matrix product)
-            self.blas.gemm( 'N', 'N', self.d_in.shape[0], self.d_in.shape[1],
-                self.d_in.shape[1], 1.0, self.d_in, self.d_M, 0., self.d_out)
+            # Call cuBLAS gemm kernel
+            cublas.dgemm(self.blas, 0, 0, self.Nr, 2*self.Nz, self.Nr, 
+                         1, cupy.asarray(self.d_M).data.ptr, self.Nr, 
+                            cupy.asarray(self.d_in).data.ptr, self.Nr, 
+                         0, cupy.asarray(self.d_out).data.ptr, self.Nr)
             # Convert F-order, real `d_out` to the C-order, complex `G`
             cuda_copy_2dR_to_2dC[self.dim_grid, self.dim_block]( self.d_out, G )
         else:
@@ -216,9 +217,11 @@ class DHT(object):
         if self.use_cuda:
             # Convert C-order, complex array `G` to F-order, real `d_in`
             cuda_copy_2dC_to_2dR[self.dim_grid, self.dim_block](G, self.d_in )
-            # Perform real matrix product (faster than complex matrix product)
-            self.blas.gemm( 'N', 'N', self.d_in.shape[0], self.d_in.shape[1],
-               self.d_in.shape[1], 1.0, self.d_in, self.d_invM, 0., self.d_out)
+            # Call cuBLAS gemm kernel
+            cublas.dgemm(self.blas, 0, 0, self.Nr, 2*self.Nz, self.Nr, 
+                         1, cupy.asarray(self.d_invM).data.ptr, self.Nr, 
+                            cupy.asarray(self.d_in).data.ptr, self.Nr, 
+                         0, cupy.asarray(self.d_out).data.ptr, self.Nr)
             # Convert the F-order d_out array to the C-order F array
             cuda_copy_2dR_to_2dC[self.dim_grid, self.dim_block]( self.d_out, F )
         else:

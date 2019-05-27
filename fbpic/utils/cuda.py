@@ -12,6 +12,12 @@ try:
     cuda_installed = cuda.is_available()
 except Exception:
     cuda_installed = False
+try:
+    import cupy
+    cupy_installed = cupy.is_available()
+    assert int(cupy.__version__[0]) >= 6 # Require cupy version 6
+except Exception:
+    cupy_installed = False
 
 # -----------------------------------------------------
 # CUDA grid utilities
