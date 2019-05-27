@@ -102,8 +102,15 @@ class ParticleChargeDensityDiagnostic(FieldDiagnostic):
             # affect the spectral space, and therefore it does not affect
             # the simulation
             species_object = self.species[species_name]
-            sim.deposit( 'rho', species_list=[species_object],
-                        update_spectral=False, exchange=True )
+            # Deposit and overwrite rho_next in spectral space as it will be
+            # correctly updated anyways later in this iteration by the PIC loop
+            sim.deposit( 'rho_next', species_list=[species_object],
+                        update_spectral=True, exchange=False )
+            # Bring filtered particle density back to the intermediate grid
+            self.fld.spect2interp('rho_next')
+            # Exchange (add) the particle density between domains
+            if (sim.comm is not None) and (sim.comm.size > 1):
+                sim.comm.exchange_fields(sim.fld.interp, 'rho', 'add')
 
             # If needed: Receive data from the GPU
             if self.fld.use_cuda :

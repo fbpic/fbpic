@@ -15,7 +15,7 @@ The distinctive feature of FBPIC, compared to *most* other PIC codes, is to use
 a **spectral cylindrical representation.** This makes the code both **fast**
 and **accurate**, for situations with **close-to-cylindrical
 symmetry**. For a brief overview of the
-algorithm, its advantages and limitations, see the section :doc:`overview`.
+algorithm, its advantages and limitations, see the section :doc:`overview/overview`.
 
 In addition, FBPIC implements several **useful features for laser-plasma acceleration**, including:
 
@@ -29,18 +29,11 @@ In addition, FBPIC implements several **useful features for laser-plasma acceler
 FBPIC can run on **multi-core CPU** (with multi-threading) or **GPU**. For large
 simulations, running the code on GPU can be much faster than on CPU.
 
-.. note::
-
-   Running simulations with **multiple** CPU nodes or **multiple** GPUs
-   (using **MPI**) is currently functional, but not yet officially supported.
-   Use this feature with caution for now.
-
-
 Contents of the documentation
--------------------------------------
+-----------------------------
 
 If you are new to FBPIC, we **strongly recommend** that you read the
-section :doc:`overview` first, so as to have a basic understanding of
+section :doc:`overview/overview` first, so as to have a basic understanding of
 what the code does.
 
 You can then see the section :doc:`install/installation` and
@@ -51,11 +44,11 @@ that are accessible through FBPIC.
 .. toctree::
    :maxdepth: 1
 
-   overview
+   overview/overview
    install/installation
    how_to_run
-   api_reference/api_reference.rst
-   advanced/advanced.rst
+   api_reference/api_reference
+   advanced/advanced
 
 Contributing to FBPIC
 ---------------------
