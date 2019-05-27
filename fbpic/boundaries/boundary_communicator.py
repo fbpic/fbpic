@@ -186,8 +186,10 @@ class BoundaryCommunicator(object):
                 # Raise error if user tries to use parallel MPI computation
                 # with an infinite order stencil. This would give wrong results
                 if self.size != 1:
-                    raise ValueError('Non-local, infinite order stencil \
-                        selected, while performing parallel computation.')
+                    raise ValueError(
+                    'When running FBPIC with MPI decomposition, you need to \n'
+                    'set the argument `n_order` of the `Simulation` object \n'
+                    'to a positive value (e.g. n_order=32).')
             else:
                 # Automatic calculation of the guard region size,
                 # depending on the stencil order (n_order)

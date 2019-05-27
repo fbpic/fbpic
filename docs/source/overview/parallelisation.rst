@@ -1,122 +1,132 @@
-Parallelisation of FBPIC
-==================================
+parallelization of FBPIC
+========================
 
-This section will give an introduction to the computational two-level
-parallelisation of FBPIC. It will explain how FBPIC is parallelised on
-many-core hardware, such as a multi-core CPU and GPU, as well as how the
-simulation can be split across different devices or compute nodes using the
-MPI protocol. Applying the latter parallelisation requires using a variant of
-FBPIC's spectral field solver, which is explained in the last section.
-
-Two-level parallelisation
+Two-level parallelization
 -------------------------
 
 PIC simulations are computationally demanding in terms of arithmetic
-operations and memory consumption and are therefore typically parallelised
-across many compute units that perform the calculations in parallel.
+operations and memory consumption. Therefore, simulations are typically
+**parallelised** across many compute units that share the computational work.
 
-A common strategy is to spatially decompose the simulation box into multiple
-domains corresponding to small parts of the global grid, which are computed in
-parallel, while only exchanging the information at the domain boundaries
-to ensure globally consistent results. A complementary strategy is to directly
-parallelise the PIC methods itself, which is more efficient but requires a
-larger amount of information exchange.
+A common parallelization strategy is to spatially decompose the simulation
+box into **multiple sub-domains** (i.e. multiple chunks of space):
+
+  - Each sub-domain can be treated by a **separate** computing device
+    (e.g. a separate multi-core CPU or GPU). These devices exchange
+    a minimal amount of information, at the boundary of the sub-domains,
+    using the **MPI** protocol (*inter-device parallelization*).
+
+  - **Within** each sub-domain, the multiple cores of a **single** computing
+    device can work together on the same sub-domain, using their
+    **shared memory** (*intra-device parallelization*).
 
 .. image:: ../images/two_level_parallelisation.png
 
-The above image shows how FBPIC combines both of these strategies in a
-two-level approach depending on the distribution of memory and speed of
-communication in modern HPC (High Performance Computing) environments.
+The above image illustrates how these two levels of parallelism are mapped
+onto a modern HPC (High Performance Computing) architecture. Within one
+sub-domain, the multiple cores of a single computing device exchange
+large amounts of information via the (fast) shared memory (RAM for CPU, or
+device memory for GPU). Between sub-domains, the computing devices exchange
+a smaller amount of information via the (relatively slower) local area network.
 
-Intra-device parallelisation
+Intra-device parallelization
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-On a first level, a single compute node can consist of one or more multi-core
-CPUs or GPUs with each having many computational cores accessing the
-same memory. In this **shared memory layout**, the algorithmic PIC methods are
-executed on a single such device by many threads in parallel.
+A single computing device can consist of a multi-core CPU or a GPU. Within
+such a device, many computational cores can access the same memory.
+In this **shared memory layout**, the algorithmic PIC methods are executed
+on a single such device by many threads in parallel.
 
-Highest efficiency is reached for parallel operations that do not need to
-access the same memory locations, such as when updating the individual
-particle positions. However, many of the other PIC methods - for example the
-spectral transformations - require global communication between threads. In
-those cases, the performance is limited by how fast information can be
-exchanged across the shared memory.
-
-FBPIC supports both, running on GPUs and CPUs. GPUs are well suited for the
-parallel execution of the PIC algorithm, as they can execute thousands of
-threads simultaneously, all of which access fast shared memory. In contrast,
-only a few parallel threads run efficiently on a CPU, however, each of
-them reaches a much higher performance than a single GPU thread.
+FBPIC can run either on **CPUs** or on **NVIDIA GPUs**. GPUs are well suited
+for the parallel execution of the PIC algorithm, as they can execute thousands
+of threads simultaneously. In contrast, only a few parallel threads run
+efficiently on a CPU - but each of them has a much higher performance
+than a single GPU thread. For typical simulation sizes and modern hardware,
+FBPIC is generally much faster on GPU than on CPU.
 
 .. note::
 
-    FBPIC simulations are most accurate and efficient when using only the
-    intra-device parallelisation, executing on a single GPU or multi-core CPU.
-    The parallel features of FBPIC are only implemented for Intel CPUs and
-    Nvidia GPUs (CUDA), using the Numba package. Running on a GPU will
-    give the best overall performance. When running on a CPU, highest
-    performance is typically achieved using only a single socket with the number
-    of threads matching the number of physical cores per socket. In the latter
-    case, the user is responsible for setting the correct number of threads
+    When running **on a CPU**, the best performance is typically achieved by
+    using only a **single CPU socket**, with the number of threads matching
+    the number of physical cores per socket. In this case, the user is
+    responsible for setting the correct number of threads
     (see :doc:`../how_to_run`).
 
-Inter-device parallelisation
+.. important::
+
+    FBPIC simulations are most efficient when using **only the intra-device
+    parallelization**, i.e. executing on a **single** GPU or
+    a **single** multi-core CPU.
+
+    This is because using **inter-device parallelization** instead comes
+    with overheads (see next section). In general, using multiple GPUs/CPUs
+    (with inter-device parallelization) is only advantageous if:
+
+    - The simulation is so large that each PIC iteration takes **more than
+      a hundred milliseconds**. (In this case, the inter-device overheads
+      become negligible.)
+
+    - The simulation is so large that it **does not fit** in the memory
+      of a single computing device.
+
+    Note also that you can still use multiple GPUs/CPUs **without**
+    inter-device parallelization, by running **independent** simulations
+    in parallel: see :doc:`../advanced/parameter_scans`.
+
+Inter-device parallelization
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-Due to the reduced quasi-3D geometry of FBPIC, the parallelised code typically
-executes efficiently on a single device, such as a modern GPU. However, some
-cases require scaling to multiple devices or nodes, for instance if the
-simulation is larger than the size of the shared memory available or when the
-runtime should be reduced further. However, expanding the parallel PIC methods
-of the intra-device parallelisation across multiple devices or nodes in a
-**distributed memory layout** is inefficient due to the overhead of slower
-communication.
+As mentioned above, if the simulation is large enough, it can be advantageous
+to use **multiple computing devices** with **inter-device parallelization**.
+In this case, the simulation box is split into smaller chunks (sub-domains).
+Each computing device handles a separate sub-domain, and they exchange
+information on the fields and particles at the boundaries.
 
 .. image:: ../images/domain_decomposition.png
 
-Instead, the simulation box is spatially decomposed into smaller chunks that
-are computed in parallel, while exchanging the information of the fields and
-particles at the boundaries. As shown in the image above, a guard region is
-used as a boundary layer to ensure that fields and particles propagate
-correctly from one domain to the other:
+As shown in the image below, a guard region is used as a boundary layer to
+ensure that fields and particles propagate correctly from one domain to the other:
 
-  - After each iteration, the electromagnetic fields of a local domain are
-    copied to the neighbouring guard region to replace incorrect fields
-    at the boundary region.
+
+  - After each iteration, the updated electromagnetic fields of a local
+    domain are copied to the neighboring guard region.
 
   - Similarly, the charge and current density are added between overlapping
     domains as if particles would reside in both domains simultaneously.
 
-  - Particles are transferred to the neighbouring domain in regular time
+  - Particles are transferred to the neighboring domain in regular time
     intervals if they left the local domain.
 
-Although being quite efficient, the parallelisation strategy outlined above
-comes at a cost. It requires locality of the simulated physics with information
-propagating not farther than the guard region of a domain. This is ensured by
-using a tuneable spectral field solver for which the required guard region size
-is inversely proportional to its accuracy. Learn more about this in the section
-:ref:`finite_order_solver` below.
-
+Note that FBPIC implements spatial domain decomposition **only in the
+longitudinal direction** (i.e. the `z` axis).
 
 .. note::
 
-    FBPIC implements spatial domain decomposition only in the longitudinal
-    direction (along the Fourier transformed axis). Communication between
-    domains occurs via MPI (Message Passing Interface), using the mpi4py
-    package. See the section :doc:`../how_to_run` to learn how to start a
-    distributed simulation using MPI.
+    Communication between domains occurs via MPI (Message Passing Interface),
+    using the ``mpi4py`` package.
+
+    - When running on GPUs, FBPIC should use **one MPI process per GPU**.
+    - When running on CPUs, FBPIC should use **one MPI process per CPU socket**
+      (and one thread per physical core in each socket, as mentioned above).
+
+    See the section :doc:`../how_to_run` to learn how to launch a simulation
+    with MPI. You can also pass ``verbose_level=2`` to the :any:`Simulation`
+    object to check which CPU/GPU are used by FBPIC.
 
 .. warning::
 
     For standard simulation sizes, efficient scaling of the inter-node
-    parallelisation is typically limited to a few (~4-16) domains. Using too
+    parallelization is typically limited to a few (~4-16) domains. Using too
     many domains will result in poor performance, as the size of a single domain
     becomes too small and/or the overhead of communication too large. Please
     also note that the performance achieved in practice can highly depend on
-    the quality of the compute environment used.
+    the HPC architecture used.
 
-.. _finite_order_solver:
+Note that the inter-device parallelization strategy also comes with a trade-off.
+It requires **locality** of the simulated physics, with information
+propagating not farther than the guard region of a domain. This is ensured by
+using a **tunable finite-order spectral solver** for which the required
+**guard region size** is inversely proportional to the **accuracy of the solver**.
 
 Finite-order spectral solver
 ----------------------------
@@ -125,17 +135,20 @@ As described in :ref:`this section <spectral_solver>`, the field solver of
 FBPIC integrates the Maxwell equations in the frequency domain as opposed
 to *standard* field solvers that use finite-differences
 to approximate the field evolution. These FDTD (Finite-Difference Time Domain)
-solvers are sometimes classified by their *order of accuracy*, which is
-characterised by the reach of the finite-difference stencil used in the
-calculations. Following this notation, the spectral solver of FBPIC is of
+solvers are sometimes classified by their **order of accuracy**. In an
+FDTD solver, the order of accuracy determines the extent of the
+finite-difference stencil used in the Maxwell solver.
+
+Following this notation, the *default* spectral solver of FBPIC is of
 **infinite order** with its stencil extending across the entire simulation
 grid. However, the accuracy of the spectral solver can be artificially reduced
-to a **finite order**, virtually limiting its reach to a finite range of cells.
+to a **finite order**, virtually limiting the extent of the stencil to a
+finite range of cells.
 
-Applying the finite-order modification to FBPIC's spectral solver adds the
-needed locality to spatially decompose the simulation grid. The required size
-of the overlapping guard region between the individual smaller domains is then
-governed by the order (accuracy) of the solver.
+Applying the finite-order modification to FBPIC's spectral solver brings the
+locality which is required to spatially decompose the simulation grid.
+The required size of the overlapping guard region between the individual
+smaller domains is then governed by the order (accuracy) of the solver.
 
 .. note::
 
@@ -145,9 +158,9 @@ governed by the order (accuracy) of the solver.
     leads to a **spurious numerical dispersion** of the electromagnetic waves,
     potentially causing a deterioration of the beam quality due to **Numerical
     Cherenkov Radiation** (NCR). For common simulation cases of plasma
-    acceleration, we recommend using ``n_order=32`` to get accurate results. You can
-    learn more about the finite order spectral solver and how to identify NCR
-    in a simulation in `this article
+    acceleration, we recommend using ``n_order=32`` to get accurate results.
+    You can learn more about the finite order spectral solver and how to
+    identify NCR in a simulation in `this article
     <https://aip.scitation.org/doi/abs/10.1063/1.4978569>`_.
 
 .. warning::
@@ -158,4 +171,4 @@ governed by the order (accuracy) of the solver.
     in practice, this will typically have no negative influence on the
     simulation results. As an alternative, an effectively local current
     correction (``cross-deposition``) can be selected - having the slight
-    disadvantage of not strictly preserving a linear laser polarisation.
+    disadvantage of not strictly preserving a linear laser polarization.

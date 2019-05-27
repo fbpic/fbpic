@@ -29,15 +29,8 @@ In addition, FBPIC implements several **useful features for laser-plasma acceler
 FBPIC can run on **multi-core CPU** (with multi-threading) or **GPU**. For large
 simulations, running the code on GPU can be much faster than on CPU.
 
-.. note::
-
-   Running simulations with **multiple** CPU nodes or **multiple** GPUs
-   (using **MPI**) is currently functional, but not yet officially supported.
-   Use this feature with caution for now.
-
-
 Contents of the documentation
--------------------------------------
+-----------------------------
 
 If you are new to FBPIC, we **strongly recommend** that you read the
 section :doc:`overview/overview` first, so as to have a basic understanding of
