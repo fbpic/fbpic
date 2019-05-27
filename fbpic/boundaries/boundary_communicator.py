@@ -299,9 +299,10 @@ class BoundaryCommunicator(object):
 
         # Check if the local domain size is large enough
         if Nz_enlarged < 4*self.n_guard:
-            raise ValueError( 'Number of local cells in z is smaller \
-                               than 4 times n_guard. Use fewer domains or \
-                               a smaller number of guard cells.')
+            raise ValueError( 'The boundary guard region is larger than the \
+                               physical domain size. Use fewer MPI processes \
+                               or a smaller order of the field solver \
+                               (reduces the guard region size).')
 
         # Return the new boundaries to the simulation object
         return( zmin_local_enlarged, zmax_local_enlarged, Nz_enlarged )
