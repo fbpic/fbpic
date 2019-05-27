@@ -1,4 +1,4 @@
-parallelization of FBPIC
+Parallelization of FBPIC
 ========================
 
 Two-level parallelization
@@ -6,7 +6,7 @@ Two-level parallelization
 
 PIC simulations are computationally demanding in terms of arithmetic
 operations and memory consumption. Therefore, simulations are typically
-**parallelised** across many compute units that share the computational work.
+**parallelized** across many compute units that share the computational work.
 
 A common parallelization strategy is to spatially decompose the simulation
 box into **multiple sub-domains** (i.e. multiple chunks of space):
@@ -20,7 +20,7 @@ box into **multiple sub-domains** (i.e. multiple chunks of space):
     device can work together on the same sub-domain, using their
     **shared memory** (*intra-device parallelization*).
 
-.. image:: ../images/two_level_parallelisation.png
+.. image:: ../images/two_level_parallelization.png
 
 The above image illustrates how these two levels of parallelism are mapped
 onto a modern HPC (High Performance Computing) architecture. Within one
