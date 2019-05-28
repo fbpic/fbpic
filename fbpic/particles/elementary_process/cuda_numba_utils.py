@@ -103,7 +103,7 @@ def reallocate_and_copy_old( species, use_cuda, old_Ntot, new_Ntot ):
     # Allocate the auxiliary arrays for GPU
     if use_cuda:
         species.cell_idx = cuda.device_array((new_Ntot,), dtype=np.int32)
-        species.sorted_idx = cuda.device_array((new_Ntot,), dtype=np.uint32)
+        species.sorted_idx = cuda.device_array((new_Ntot,), dtype=np.intp)
         species.sorting_buffer = cuda.device_array((new_Ntot,), dtype=np.float64)
         if species.n_integer_quantities > 0:
             species.int_sorting_buffer = \

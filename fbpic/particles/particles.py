@@ -211,7 +211,7 @@ class Particles(object) :
             # Most required arrays always stay on GPU
             Nz, Nr = grid_shape
             self.cell_idx = cuda.device_array( Ntot, dtype=np.int32)
-            self.sorted_idx = cuda.device_array( Ntot, dtype=np.uint32)
+            self.sorted_idx = cuda.device_array( Ntot, dtype=np.intp)
             self.prefix_sum = cuda.device_array( Nz*(Nr+1), dtype=np.int32 )
             # sorting buffers are initialized on CPU like other particle arrays
             # (because they are swapped with these arrays during sorting)

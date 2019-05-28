@@ -5,7 +5,6 @@
 This file is part of the Fourier-Bessel Particle-In-Cell code (FB-PIC)
 It defines a set of generic functions that operate on a GPU.
 """
-import numba
 from numba import cuda
 
 # Check if CUDA is available and set variable accordingly
@@ -13,16 +12,12 @@ try:
     cuda_installed = cuda.is_available()
 except Exception:
     cuda_installed = False
-
-if cuda_installed:
-    # Impose restrictions on numba version (necessary for pyculib)
-    numba_minor_version = int(numba.__version__.split('.')[1])
-    # Numba version 0.43 an error with pyculib
-    if numba_minor_version > 42:
-        raise RuntimeError(
-            'FBPIC is incompatible with Numba version 0.43 and higher.\n'
-            'Please install Numba version 0.42 instead:\n'
-            '  conda install numba==0.42')
+try:
+    import cupy
+    cupy_installed = cupy.is_available()
+    assert int(cupy.__version__[0]) >= 6 # Require cupy version 6
+except Exception:
+    cupy_installed = False
 
 # -----------------------------------------------------
 # CUDA grid utilities
