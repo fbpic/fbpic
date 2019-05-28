@@ -31,11 +31,24 @@ try:
 except Exception:
     cupy_installed = False
 
+# Check for CUDA threads per block environment variables
+if 'FBPIC_1D_TPB' in os.environ:
+    FBPIC_1D_TPB = int(os.environ['FBPIC_1D_TPB'])
+else:
+    FBPIC_1D_TPB = None
+if 'FBPIC_2D_TPBX' in os.environ:
+    FBPIC_2D_TPBX = int(os.environ['FBPIC_2D_TPBX'])
+else:
+    FBPIC_2D_TPBX = None
+if 'FBPIC_2D_TPBY' in os.environ:
+    FBPIC_2D_TPBY = int(os.environ['FBPIC_2D_TPBY'])
+else:
+    FBPIC_2D_TPBY = None
+
 # -----------------------------------------------------
 # CUDA grid utilities
 # -----------------------------------------------------
 
-@numba.jit
 def cuda_tpb_bpg_1d(x, TPB = 256):
     """
     Get the needed blocks per grid for a 1D CUDA grid.
@@ -57,13 +70,12 @@ def cuda_tpb_bpg_1d(x, TPB = 256):
         Threads per block. Can also be set via
         FBPIC_1D_TPB environment variable.
     """
+    # Get environment TBP if set
+    TPB = FBPIC_1D_TPB if FBPIC_1D_TPB else TPB
     # Calculates the needed blocks per grid
-    if 'FBPIC_1D_TPB' in os.environ:
-        TPB = int(os.environ['FBPIC_1D_TPB'])
     BPG = int(x/TPB + 1)
     return BPG, TPB
 
-@numba.jit
 def cuda_tpb_bpg_2d(x, y, TPBx = 1, TPBy = 128):
     """
     Get the needed blocks per grid for a 2D CUDA grid.
@@ -85,11 +97,10 @@ def cuda_tpb_bpg_2d(x, y, TPBx = 1, TPBy = 128):
         Threads per block in x and y. Can also be set via
         FBPIC_2D_TPBX and FBPIC_2D_TPBY environment variable.
     """
+    # Get environment TBP if set
+    TPBx = FBPIC_2D_TPBX if FBPIC_2D_TPBX else TPBx
+    TPBy = FBPIC_2D_TPBY if FBPIC_2D_TPBY else TPBy
     # Calculates the needed blocks per grid
-    if 'FBPIC_2D_TPBX' in os.environ:
-        TPBx = int(os.environ['FBPIC_2D_TPBX'])
-    if 'FBPIC_2D_TPBY' in os.environ:
-        TPBy = int(os.environ['FBPIC_2D_TPBY'])
     BPGx = int(x/TPBx + 1)
     BPGy = int(y/TPBy + 1)
     return (BPGx, BPGy), (TPBx, TPBy)
