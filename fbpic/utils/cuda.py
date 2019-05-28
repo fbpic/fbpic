@@ -63,7 +63,7 @@ def cuda_tpb_bpg_1d(x, TPB = 256):
     return BPG, TPB
 
 @numba.jit
-def cuda_tpb_bpg_2d(x, y, TPBx = 1, TPBy = 32):
+def cuda_tpb_bpg_2d(x, y, TPBx = 1, TPBy = 128):
     """
     Get the needed blocks per grid for a 2D CUDA grid.
 
