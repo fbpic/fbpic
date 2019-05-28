@@ -5,6 +5,7 @@
 This file is part of the Fourier-Bessel Particle-In-Cell code (FB-PIC)
 It defines a set of generic functions that operate on a GPU.
 """
+import os
 import numba
 from numba import cuda
 
@@ -54,9 +55,12 @@ def cuda_tpb_bpg_1d(x, TPB = 256):
         Number of blocks per grid
 
     TPB : int
-        Threads per block
+        Threads per block. Can also be set via
+        FBPIC_1D_TPB environment variable.
     """
     # Calculates the needed blocks per grid
+    if 'FBPIC_1D_TPB' in os.environ:
+        TPB = int(os.environ['FBPIC_1D_TPB'])
     BPG = int(x/TPB + 1)
     return BPG, TPB
 
@@ -79,9 +83,14 @@ def cuda_tpb_bpg_2d(x, y, TPBx = 1, TPBy = 32):
         Number of blocks per grid in x and y
 
     (TPBx, TPBy) : tuple of ints
-        Threads per block in x and y
+        Threads per block in x and y. Can also be set via
+        FBPIC_2D_TPBX and FBPIC_2D_TPBY environment variable.
     """
     # Calculates the needed blocks per grid
+    if 'FBPIC_2D_TPBX' in os.environ:
+        TPBx = int(os.environ['FBPIC_2D_TPBX'])
+    if 'FBPIC_2D_TPBY' in os.environ:
+        TPBy = int(os.environ['FBPIC_2D_TPBY'])
     BPGx = int(x/TPBx + 1)
     BPGy = int(y/TPBy + 1)
     return (BPGx, BPGy), (TPBx, TPBy)
