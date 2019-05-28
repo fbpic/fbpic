@@ -191,7 +191,7 @@ class SpectralGrid(object) :
 
         if self.use_cuda :
             # Obtain the cuda grid
-            dim_grid, dim_block = cuda_tpb_bpg_2d( self.Nz, self.Nr)
+            dim_grid, dim_block = cuda_tpb_bpg_2d( self.Nz, self.Nr, 1, 16 )
             # Correct the currents on the GPU
             if ps.V is None:
                 # With standard PSATD algorithm
@@ -311,7 +311,7 @@ class SpectralGrid(object) :
 
         if self.use_cuda :
             # Obtain the cuda grid
-            dim_grid, dim_block = cuda_tpb_bpg_2d( self.Nz, self.Nr)
+            dim_grid, dim_block = cuda_tpb_bpg_2d( self.Nz, self.Nr, 1, 16)
             # Push the fields on the GPU
             if ps.V is None:
                 # With the standard PSATD algorithm

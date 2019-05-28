@@ -17,7 +17,7 @@ from fbpic.utils.cuda import cuda_installed
 from .numba_methods import numba_copy_2dC_to_2dR, numba_copy_2dR_to_2dC
 if cuda_installed:
     from pyculib import blas as cublas
-    from fbpic.utils.cuda import cuda, cuda_tpb_bpg_2d
+    from fbpic.utils.cuda import cuda, cuda_tpb_bpg_2d, cuda_gpu_model
     from .cuda_methods import cuda_copy_2dC_to_2dR, cuda_copy_2dR_to_2dC
 
 
@@ -144,8 +144,10 @@ class DHT(object):
             self.d_out = cuda.to_device( zero_array )
             # Initialize a cuda stream (required by cublas)
             self.blas = cublas.Blas()
+            # Define CUDA threads per block for copy 2d real/complex kernels
+            copy_tpb = (8,32) if cuda_gpu_model == "V100" else (2,16)
             # Initialize the threads per block and block per grid
-            self.dim_grid, self.dim_block = cuda_tpb_bpg_2d(Nz, Nr)
+            self.dim_grid, self.dim_block = cuda_tpb_bpg_2d(Nz, Nr, *copy_tpb)
 
 
     def get_r(self):

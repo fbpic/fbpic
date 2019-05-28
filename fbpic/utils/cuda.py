@@ -23,11 +23,19 @@ if cuda_installed:
             'FBPIC is incompatible with Numba version 0.43 and higher.\n'
             'Please install Numba version 0.42 instead:\n'
             '  conda install numba==0.42')
+    # Infer if GPU is P100 or V100 or other
+    if "P100" in str(cuda.gpus[0]._device.name):
+        cuda_gpu_model = "P100"
+    elif "V100" in str(cuda.gpus[0]._device.name):
+        cuda_gpu_model = "V100"
+    else:
+        cuda_gpu_model = "other"
 
 # -----------------------------------------------------
 # CUDA grid utilities
 # -----------------------------------------------------
 
+@numba.jit
 def cuda_tpb_bpg_1d(x, TPB = 256):
     """
     Get the needed blocks per grid for a 1D CUDA grid.
@@ -52,7 +60,8 @@ def cuda_tpb_bpg_1d(x, TPB = 256):
     BPG = int(x/TPB + 1)
     return BPG, TPB
 
-def cuda_tpb_bpg_2d(x, y, TPBx = 8, TPBy = 8):
+@numba.jit
+def cuda_tpb_bpg_2d(x, y, TPBx = 1, TPBy = 32):
     """
     Get the needed blocks per grid for a 2D CUDA grid.
 

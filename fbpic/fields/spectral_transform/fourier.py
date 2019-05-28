@@ -12,7 +12,7 @@ import numba
 from fbpic.utils.cuda import cuda_installed
 if cuda_installed:
     from pyculib import fft as cufft, blas as cublas
-    from fbpic.utils.cuda import cuda, cuda_tpb_bpg_2d
+    from fbpic.utils.cuda import cuda, cuda_tpb_bpg_2d, cuda_gpu_model
     from .cuda_methods import cuda_copy_2d_to_1d, cuda_copy_1d_to_2d
 # Check if the MKL FFT is available
 try:
@@ -62,9 +62,10 @@ class FFT(object):
 
         # Initialize the object for calculation on the GPU
         if self.use_cuda:
+            # Define CUDA threads per block for copy 1d/2d kernels
+            copy_tpb = (8,32) if cuda_gpu_model == "V100" else (2,16)
             # Initialize the dimension of the grid and blocks
-            self.dim_grid, self.dim_block = cuda_tpb_bpg_2d( Nz, Nr)
-
+            self.dim_grid, self.dim_block = cuda_tpb_bpg_2d(Nz, Nr, *copy_tpb)
             # Initialize 1d buffer for cufft
             self.buffer1d_in = cuda.device_array(
                 (Nz*Nr,), dtype=np.complex128)
