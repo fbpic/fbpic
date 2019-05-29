@@ -13,9 +13,10 @@ from fbpic.particles.elementary_process.cuda_numba_utils import \
 from fbpic.particles.injection import BallisticBeforePlane
 import warnings
 
-def add_particle_bunch( sim, gamma0, q, m, n, p_zmin, p_zmax, p_rmin, p_rmax,
-                p_nr=2, p_nz=2, p_nt=4, dens_func=None, boost=None,
-                direction='forward', z_injection_plane=None ) :
+
+def add_particle_bunch(sim, q, m, gamma0, n, p_zmin, p_zmax, p_rmin, p_rmax,
+                       p_nr=2, p_nz=2, p_nt=4, dens_func=None, boost=None,
+                       direction='forward', z_injection_plane=None):
     """
     Introduce a simple relativistic electron bunch in the simulation,
     along with its space charge field.
@@ -27,14 +28,14 @@ def add_particle_bunch( sim, gamma0, q, m, n, p_zmin, p_zmax, p_rmin, p_rmax,
     sim : a Simulation object
         The structure that contains the simulation.
 
-    gamma0 : float
-        The Lorentz factor of the electrons
-
     q : float (in Coulomb)
         Charge of the particle species
 
     m : float (in kg)
         Mass of the particle species
+
+    gamma0 : float
+        The Lorentz factor of the electrons
 
     n : float (in particles per m^3)
         Density of the bunch
@@ -86,7 +87,7 @@ def add_particle_bunch( sim, gamma0, q, m, n, p_zmin, p_zmax, p_rmin, p_rmax,
     if direction == 'backward':
         uz_m *= -1.
     # Create the electron species
-    relat_elec = sim.add_new_species( q=q, m=m, n=n,
+    ptcl_bunch = sim.add_new_species( q=q, m=m, n=n,
                             p_nz=p_nz, p_nr=p_nr, p_nt=p_nt,
                             p_zmin=p_zmin, p_zmax=p_zmax,
                             p_rmin=p_rmin, p_rmax=p_rmax,
@@ -95,16 +96,18 @@ def add_particle_bunch( sim, gamma0, q, m, n, p_zmin, p_zmax, p_rmin, p_rmax,
 
     # Initialize the injection plane for the particles
     if z_injection_plane is not None:
-        assert relat_elec.injector is None #Don't overwrite a previous injector
-        relat_elec.injector = BallisticBeforePlane( z_injection_plane, boost )
+        assert ptcl_bunch.injector is None #Don't overwrite a previous injector
+        ptcl_bunch.injector = BallisticBeforePlane( z_injection_plane, boost )
 
     # Get the corresponding space-charge fields
-    get_space_charge_fields( sim, relat_elec, direction=direction )
+    get_space_charge_fields( sim, ptcl_bunch, direction=direction )
+    return ptcl_bunch
 
 
-def add_particle_bunch_gaussian( sim, sig_r, sig_z, n_emit, gamma0,
-                        sig_gamma, Q, N, q, m, tf=0., zf=0., boost=None,
-                        save_beam=None, z_injection_plane=None ):
+def add_particle_bunch_gaussian(sim, q, m, sig_r, sig_z, n_emit, gamma0,
+                                sig_gamma, n_physical_particles,
+                                n_macroparticles, tf=0., zf=0., boost=None,
+                                save_beam=None, z_injection_plane=None):
     """
     Introduce a relativistic Gaussian electron bunch in the simulation,
     along with its space charge field.
@@ -118,6 +121,12 @@ def add_particle_bunch_gaussian( sim, sig_r, sig_z, n_emit, gamma0,
     ----------
     sim : a Simulation object
         The structure that contains the simulation.
+
+    q : float (in Coulomb)
+        Charge of the particle species
+
+    m : float (in kg)
+        Mass of the particle species
 
     sig_r : float (in meters)
         The transverse RMS bunch size.
@@ -134,19 +143,12 @@ def add_particle_bunch_gaussian( sim, sig_r, sig_z, n_emit, gamma0,
     sig_gamma : float
         The absolute energy spread of the bunch.
 
-    Q : float (in Coulomb)
-        The total charge of the bunch (in absolute value)
-        (if a negative number is given, its absolute value will
-        automatically be taken)
+    n_physical_particles : float
+        The number of physical particles (e.g. electrons) the bunch should
+        consist of.
 
-    N : int
-        The number of particles the bunch should consist of.
-
-    q : float (in Coulomb)
-        Charge of the particle species
-
-    m : float (in kg)
-        Mass of the particle species
+    n_macroparticles : int
+        The number of macroparticles the bunch should consist of.
 
     zf: float (in meters), optional
         Position of the focus.
@@ -169,10 +171,10 @@ def add_particle_bunch_gaussian( sim, sig_r, sig_z, n_emit, gamma0,
     """
     # Generate Gaussian gamma distribution of the beam
     if sig_gamma > 0.:
-        gamma = np.random.normal(gamma0, sig_gamma, N)
+        gamma = np.random.normal(gamma0, sig_gamma, n_macroparticles)
     else:
         # Zero energy spread beam
-        gamma = np.full(N, gamma0)
+        gamma = np.full(n_macroparticles, gamma0)
         if sig_gamma < 0.:
             warnings.warn(
                 "Negative energy spread sig_gamma detected."
@@ -180,15 +182,15 @@ def add_particle_bunch_gaussian( sim, sig_r, sig_z, n_emit, gamma0,
     # Get inverse gamma
     inv_gamma = 1. / gamma
     # Get Gaussian particle distribution in x,y,z
-    x = sig_r * np.random.normal(0., 1., N)
-    y = sig_r * np.random.normal(0., 1., N)
-    z = zf + sig_z * np.random.normal(0., 1., N)  # with offset in z
+    x = sig_r * np.random.normal(0., 1., n_macroparticles)
+    y = sig_r * np.random.normal(0., 1., n_macroparticles)
+    z = zf + sig_z * np.random.normal(0., 1., n_macroparticles)
 
     # Define sigma of ux and uy based on normalized emittance
     sig_ur = (n_emit / sig_r)
     # Get Gaussian distribution of transverse normalized momenta ux, uy
-    ux = sig_ur * np.random.normal(0., 1., N)
-    uy = sig_ur * np.random.normal(0., 1., N)
+    ux = sig_ur * np.random.normal(0., 1., n_macroparticles)
+    uy = sig_ur * np.random.normal(0., 1., n_macroparticles)
 
     # Finally we calculate the uz of each particle
     # from the gamma and the transverse momenta ux, uy
@@ -197,13 +199,14 @@ def add_particle_bunch_gaussian( sim, sig_r, sig_z, n_emit, gamma0,
     # Check for unphysical particles with uz**2 < 0
     mask = uz_sqr >= 0
     N_new = np.count_nonzero(mask)
-    if N_new < N:
+    if N_new < n_macroparticles:
         warnings.warn(
               "Particles with uz**2<0 detected."
               " %d Particles will be removed from the beam. \n"
               "This will truncate the distribution of the beam"
               " at gamma ~= 1. \n"
-              "However, the charge will be kept constant. \n" % (N - N_new))
+              "However, the charge will be kept constant. \n"%(n_macroparticles
+                                                               - N_new))
         # Remove unphysical particles with uz**2 < 0
         x = x[mask]
         y = y[mask]
@@ -216,7 +219,7 @@ def add_particle_bunch_gaussian( sim, sig_r, sig_z, n_emit, gamma0,
     uz = np.sqrt(uz_sqr)
     # Get weight of each particle
 
-    w = abs(Q) / (N_new * abs(q)) * np.ones_like(x)
+    w = n_physical_particles / N_new * np.ones_like(x)
     # Propagate distribution to an out-of-focus position tf.
     # (without taking space charge effects into account)
     if tf != 0.:
@@ -230,12 +233,15 @@ def add_particle_bunch_gaussian( sim, sig_r, sig_z, n_emit, gamma0,
             inv_gamma=inv_gamma, w=w)
 
     # Add the electrons to the simulation
-    add_particle_bunch_from_arrays( sim, x, y, z, ux, uy, uz, w, q, m,
-                boost=boost, z_injection_plane=z_injection_plane )
+    ptcl_bunch = add_particle_bunch_from_arrays(sim, q, m, x, y, z, ux, uy, uz,
+                                           w, boost=boost,
+                                           z_injection_plane=z_injection_plane)
+    return ptcl_bunch
 
 
-def add_particle_bunch_file( sim, filename, Q, q, m, z_off=0., boost=None,
-                        direction='forward', z_injection_plane=None ):
+def add_particle_bunch_file(sim, q, m, filename, n_physical_particles,
+                            z_off=0., boost=None, direction='forward',
+                            z_injection_plane=None):
     """
     Introduce a relativistic electron bunch in the simulation,
     along with its space charge field, loading particles from text file.
@@ -245,21 +251,20 @@ def add_particle_bunch_file( sim, filename, Q, q, m, z_off=0., boost=None,
     sim : a Simulation object
         The structure that contains the simulation.
 
-    filename : string
-        the file containing the particle phase space in seven columns
-        all float, no header
-        x [m]  y [m]  z [m]  ux [unitless]  uy [unitless]  uz [unitless]
-
-    Q : float (in Coulomb)
-        The total charge of the bunch (in absolute value)
-        (if a negative number is given, its absolute value will
-        automatically be taken)
-
     q : float (in Coulomb)
         Charge of the particle species
 
     m : float (in kg)
         Mass of the particle species
+
+    filename : string
+        the file containing the particle phase space in seven columns
+        all float, no header
+        x [m]  y [m]  z [m]  ux [unitless]  uy [unitless]  uz [unitless]
+
+    n_physical_particles : float
+        The number of physical particles (e.g. electrons) the bunch should
+        consist of.
 
     z_off: float (in meters)
         Shift the particle positions in z by z_off
@@ -290,12 +295,14 @@ def add_particle_bunch_file( sim, filename, Q, q, m, z_off=0., boost=None,
     uz = particle_data[:,5]
     # Calculate weights (charge of macroparticle)
     # assuming equally weighted particles as used in particle tracking codes
-    N_part = len(x)
-    w = np.abs(Q)/(N_part*abs(q)) * np.ones_like( x )
+    n_macroparticles = len(x)
+    w = n_physical_particles / n_macroparticles * np.ones_like(x)
 
     # Add the electrons to the simulation
-    add_particle_bunch_from_arrays( sim, x, y, z, ux, uy, uz, w, q, m,
-        boost=boost, direction=direction, z_injection_plane=z_injection_plane )
+    ptcl_bunch = add_particle_bunch_from_arrays(sim, q, m, x, y, z, ux, uy, uz,
+                                   w,boost=boost, direction=direction,
+                                   z_injection_plane=z_injection_plane)
+    return ptcl_bunch
 
 
 def add_particle_bunch_openPMD( sim, q, m, ts_path, z_off=0., species=None,
@@ -373,12 +380,15 @@ def add_particle_bunch_openPMD( sim, q, m, ts_path, z_off=0., species=None,
     z = z - np.average(z, weights=w) + z_off
 
     # Add the electrons to the simulation, and calculate the space charge
-    add_particle_bunch_from_arrays( sim, x, y, z, ux, uy, uz, w, q, m,
-                            boost=boost, z_injection_plane=z_injection_plane )
+    ptcl_bunch = add_particle_bunch_from_arrays(sim, q, m, x, y, z, ux, uy, uz,
+                                        w, boost=boost,
+                                        z_injection_plane=z_injection_plane)
+    return ptcl_bunch
 
 
-def add_particle_bunch_from_arrays( sim, x, y, z, ux, uy, uz, w, q, m,
-                    boost=None, direction='forward', z_injection_plane=None ):
+def add_particle_bunch_from_arrays(sim, q, m, x, y, z, ux, uy, uz, w,
+                                   boost=None, direction='forward',
+                                   z_injection_plane=None):
     """
     Introduce a relativistic electron bunch in the simulation,
     along with its space charge field, loading particles from numpy arrays.
@@ -387,6 +397,12 @@ def add_particle_bunch_from_arrays( sim, x, y, z, ux, uy, uz, w, q, m,
     ----------
     sim : a Simulation object
         The structure that contains the simulation.
+
+    q : float
+        Charge of the particle species
+
+    m : float
+        Mass of the particle species
 
     x, y, z: 1d arrays of length (N_macroparticles,)
         The positions of the particles in x, y, z in meters
@@ -397,12 +413,6 @@ def add_particle_bunch_from_arrays( sim, x, y, z, ux, uy, uz, w, q, m,
     w: 1d array of length (N_macroparticles,)
         The weight of the particles, i.e. the number of physical particles
         that each macroparticle corresponds to.
-
-    q : float
-        Charge of the particle species
-
-    m : float
-        Mass of the particle species
 
     boost : a BoostConverter object, optional
         A BoostConverter object defining the Lorentz boost of
@@ -438,29 +448,30 @@ def add_particle_bunch_from_arrays( sim, x, y, z, ux, uy, uz, w, q, m,
     inv_gamma = inv_gamma[selected]
 
     # Create electron species with no macroparticles
-    relat_elec = sim.add_new_species( q=q, m=m )
+    ptcl_bunch = sim.add_new_species( q=q, m=m )
 
     # Reallocate empty arrays with the right number of electrons
     Ntot = len(x)
-    reallocate_and_copy_old( relat_elec, relat_elec.use_cuda, 0, Ntot )
+    reallocate_and_copy_old( ptcl_bunch, ptcl_bunch.use_cuda, 0, Ntot )
 
     # Fill the empty particle arrays with the right values
-    relat_elec.x[:] = x[:]
-    relat_elec.y[:] = y[:]
-    relat_elec.z[:] = z[:]
-    relat_elec.ux[:] = ux[:]
-    relat_elec.uy[:] = uy[:]
-    relat_elec.uz[:] = uz[:]
-    relat_elec.inv_gamma[:] = inv_gamma[:]
-    relat_elec.w[:] = w[:]
+    ptcl_bunch.x[:] = x[:]
+    ptcl_bunch.y[:] = y[:]
+    ptcl_bunch.z[:] = z[:]
+    ptcl_bunch.ux[:] = ux[:]
+    ptcl_bunch.uy[:] = uy[:]
+    ptcl_bunch.uz[:] = uz[:]
+    ptcl_bunch.inv_gamma[:] = inv_gamma[:]
+    ptcl_bunch.w[:] = w[:]
 
     # Initialize the injection plane for the particles
     if z_injection_plane is not None:
-        assert relat_elec.injector is None #Don't overwrite a previous injector
-        relat_elec.injector = BallisticBeforePlane( z_injection_plane, boost )
+        assert ptcl_bunch.injector is None #Don't overwrite a previous injector
+        ptcl_bunch.injector = BallisticBeforePlane( z_injection_plane, boost )
 
     # Get the corresponding space-charge fields
-    get_space_charge_fields(sim, relat_elec, direction=direction)
+    get_space_charge_fields(sim, ptcl_bunch, direction=direction)
+    return ptcl_bunch
 
 
 def add_elec_bunch( sim, gamma0, n_e, p_zmin, p_zmax, p_rmin, p_rmax,
@@ -525,11 +536,11 @@ def add_elec_bunch( sim, gamma0, n_e, p_zmin, p_zmax, p_rmin, p_rmax,
         boosted-frame simulations.
         `z_injection_plane` is always given in the lab frame.
     """
-    add_particle_bunch( sim, gamma0, -e, m_e, n_e,
-                p_zmin, p_zmax, p_rmin, p_rmax,
-                p_nr=p_nr, p_nz=p_nz, p_nt=p_nz, dens_func=dens_func,
-                boost=boost, direction=direction,
-                z_injection_plane=z_injection_plane )
+    elec_bunch = add_particle_bunch(sim, -e, m_e, gamma0, n_e, p_zmin, p_zmax,
+                       p_rmin, p_rmax, p_nr=p_nr, p_nz=p_nz, p_nt=p_nz,
+                       dens_func=dens_func, boost=boost, direction=direction,
+                       z_injection_plane=z_injection_plane)
+    return elec_bunch
 
 
 def add_elec_bunch_gaussian( sim, sig_r, sig_z, n_emit, gamma0,
@@ -592,10 +603,13 @@ def add_elec_bunch_gaussian( sim, sig_r, sig_z, n_emit, gamma0,
         `z_injection_plane` is always given in the lab frame.
     """
     # Generate Gaussian gamma distribution of the beam
-    add_particle_bunch_gaussian( sim, sig_r, sig_z, n_emit, gamma0,
-                        sig_gamma, Q, N, -e, m_e, tf=tf, zf=zf, boost=boost,
-                        save_beam=save_beam,
-                        z_injection_plane=z_injection_plane )
+    n_physical_particles = Q/e
+    elec_bunch = add_particle_bunch_gaussian(sim, -e, m_e, sig_r, sig_z,
+                                n_emit, gamma0, sig_gamma,
+                                n_physical_particles, N, tf=tf,
+                                zf=zf, boost=boost, save_beam=save_beam,
+                                z_injection_plane=z_injection_plane)
+    return elec_bunch
 
 
 def add_elec_bunch_file( sim, filename, Q_tot, z_off=0., boost=None,
@@ -614,7 +628,7 @@ def add_elec_bunch_file( sim, filename, Q_tot, z_off=0., boost=None,
         all float, no header
         x [m]  y [m]  z [m]  ux [unitless]  uy [unitless]  uz [unitless]
 
-    Q : float (in Coulomb)
+    Q_tot : float (in Coulomb)
         The total charge of the bunch (in absolute value)
         (if a negative number is given, its absolute value will
         automatically be taken)
@@ -636,9 +650,12 @@ def add_elec_bunch_file( sim, filename, Q_tot, z_off=0., boost=None,
         boosted-frame simulations.
         `z_injection_plane` is always given in the lab frame.
     """
-    add_particle_bunch_file(sim, filename, Q_tot, -e, m_e, z_off=z_off,
+    n_physical_particles = Q_tot / e
+    elec_bunch = add_particle_bunch_file(sim, -e, m_e, filename,
+                            n_physical_particles, z_off=z_off,
                             boost=boost, direction=direction,
                             z_injection_plane=z_injection_plane)
+    return elec_bunch
 
 
 def add_elec_bunch_openPMD( sim, ts_path, z_off=0., species=None, select=None,
@@ -688,10 +705,11 @@ def add_elec_bunch_openPMD( sim, ts_path, z_off=0., species=None, select=None,
         boosted-frame simulations.
         `z_injection_plane` is always given in the lab frame.
     """
-    add_particle_bunch_openPMD(sim, -e, m_e, ts_path, z_off=z_off,
+    elec_bunch = add_particle_bunch_openPMD(sim, -e, m_e, ts_path, z_off=z_off,
                                species=species, select=select,
                                iteration=iteration, boost=boost,
                                z_injection_plane=z_injection_plane)
+    return elec_bunch
 
 
 def add_elec_bunch_from_arrays( sim, x, y, z, ux, uy, uz, w,
@@ -729,9 +747,11 @@ def add_elec_bunch_from_arrays( sim, x, y, z, ux, uy, uz, w,
         boosted-frame simulations.
         `z_injection_plane` is always given in the lab frame.
     """
-    add_particle_bunch_from_arrays( sim, x, y, z, ux, uy, uz, w, -e, m_e,
-                    boost=boost, direction=direction,
-                    z_injection_plane=z_injection_plane )
+    elec_bunch = add_particle_bunch_from_arrays(sim, -e, m_e, x, y, z,
+                                   ux, uy, uz, w, boost=boost,
+                                   direction=direction,
+                                   z_injection_plane=z_injection_plane)
+    return elec_bunch
 
 
 def get_space_charge_fields( sim, ptcl, direction='forward' ):
