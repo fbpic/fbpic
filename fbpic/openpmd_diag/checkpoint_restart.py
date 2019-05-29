@@ -41,7 +41,7 @@ def set_periodic_checkpoint( sim, period, checkpoint_dir='./checkpoints' ):
 
     checkpoint_dir: string, optional
         The path to the directory in which the checkpoints are stored
-        (When running a simulation with several MPI ranks, use the 
+        (When running a simulation with several MPI ranks, use the
         same path for all ranks.)
     """
     # Only processor 0 creates a directory where checkpoints will be stored
@@ -104,7 +104,7 @@ def restart_from_checkpoint( sim, iteration=None,
 
     checkpoint_dir: string, optional
         The path to the directory that contains the checkpoints to be loaded.
-        (When running a simulation with several MPI ranks, use the 
+        (When running a simulation with several MPI ranks, use the
         same path for all ranks.)
     """
     # Import openPMD-viewer
@@ -332,12 +332,10 @@ def load_species( species, name, ts, iteration, comm ):
     if species.use_cuda:
         # cell_idx and sorted_idx always stay on GPU
         species.cell_idx = cuda.device_array( Ntot, dtype=np.int32)
-        species.sorted_idx = cuda.device_array( Ntot, dtype=np.uint32)
+        species.sorted_idx = cuda.device_array( Ntot, dtype=np.intp)
         # sorting buffers are initialized on CPU
-        # (because they are swapped with other particle arrays during sorting) 
+        # (because they are swapped with other particle arrays during sorting)
         species.sorting_buffer = np.empty( Ntot, dtype=np.float64)
         if hasattr( species, 'int_sorting_buffer'):
             species.int_sorting_buffer = np.empty( Ntot, dtype=np.uint64 )
         species.sorted = False
-
-        

@@ -6,7 +6,10 @@ This file is part of the Fourier-Bessel Particle-In-Cell code (FB-PIC)
 It defines the particle sorting methods on the GPU using CUDA.
 """
 from numba import cuda
-from pyculib import sorting
+from fbpic.utils.cuda import cupy_installed
+if cupy_installed:
+    import cupy
+    from cupy.cuda import thrust
 import math
 import numpy as np
 
@@ -99,8 +102,18 @@ def sort_particles_per_cell(cell_idx, sorted_idx):
     """
     Ntot = cell_idx.shape[0]
     if Ntot > 0:
-        sorter = sorting.RadixSort(Ntot, dtype = np.int32)
-        sorter.sort(cell_idx, vals = sorted_idx)
+        if type(cell_idx) == np.ndarray or  type(sorted_idx) == np.ndarray:
+            raise ValueError("Unexpected CPU array")
+        d_cell_idx = cupy.asarray(cell_idx)
+        d_sorted_idx = cupy.asarray(sorted_idx)
+        # `thrust.argsort` will simultaneously:
+        # - find the indices `sorted_idx` that sort the initial array cell_idx
+        # - sort `cell_idx` in place
+        thrust.argsort( dtype=d_cell_idx.dtype,
+                        idx_start=d_sorted_idx.data.ptr,
+                        data_start=d_cell_idx.data.ptr,
+                        keys_start=0,
+                        shape=d_cell_idx.shape )
 
 @cuda.jit
 def incl_prefix_sum(cell_idx, prefix_sum):
