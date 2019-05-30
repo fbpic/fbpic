@@ -222,10 +222,14 @@ class Particles(object) :
             self.prefix_sum_shift = 0
             # Register boolean that records if the particles are sorted or not
             self.sorted = False
-            # Define CUDA threads per block for deposition and gathering kernels
-            deposit_tpb = 16 if cuda_gpu_model == "V100" else 8
-            self.deposit_tpb = 32 if particle_shape == "cubic" else deposit_tpb
-            self.gather_tpb = 256 if particle_shape == "cubic" else 128
+            # Define optimal number of CUDA threads per block for deposition
+            # and gathering kernels (determined empirically)
+            if particle_shape == "cubic":
+                self.deposit_tpb = 32
+                self.gather_tpb = 256
+            else:
+                self.deposit_tpb = 16 if cuda_gpu_model == "V100" else 8
+                self.gather_tpb = 128
 
 
     def send_particles_to_gpu( self ):

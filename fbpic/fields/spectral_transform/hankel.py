@@ -21,7 +21,7 @@ if cuda_installed:
 if cupy_installed:
     import cupy
     from cupy.cuda import device, cublas
-    
+
 
 class DHT(object):
     """
@@ -143,7 +143,8 @@ class DHT(object):
             self.d_out = cuda.to_device( zero_array )
             # Initialize cuBLAS
             self.blas = device.get_cublas_handle()
-            # Define CUDA threads per block for copy 2d real/complex kernels
+            # Set optimal number of CUDA threads per block
+            # for copy 2d real/complex (determined empirically)
             copy_tpb = (8,32) if cuda_gpu_model == "V100" else (2,16)
             # Initialize the threads per block and block per grid
             self.dim_grid, self.dim_block = cuda_tpb_bpg_2d(Nz, Nr, *copy_tpb)
@@ -189,9 +190,9 @@ class DHT(object):
             # Convert C-order, complex array `F` to F-order, real `d_in`
             cuda_copy_2dC_to_2dR[self.dim_grid, self.dim_block]( F, self.d_in )
             # Call cuBLAS gemm kernel
-            cublas.dgemm(self.blas, 0, 0, self.Nr, 2*self.Nz, self.Nr, 
-                         1, cupy.asarray(self.d_M).data.ptr, self.Nr, 
-                            cupy.asarray(self.d_in).data.ptr, self.Nr, 
+            cublas.dgemm(self.blas, 0, 0, self.Nr, 2*self.Nz, self.Nr,
+                         1, cupy.asarray(self.d_M).data.ptr, self.Nr,
+                            cupy.asarray(self.d_in).data.ptr, self.Nr,
                          0, cupy.asarray(self.d_out).data.ptr, self.Nr)
             # Convert F-order, real `d_out` to the C-order, complex `G`
             cuda_copy_2dR_to_2dC[self.dim_grid, self.dim_block]( self.d_out, G )
@@ -220,9 +221,9 @@ class DHT(object):
             # Convert C-order, complex array `G` to F-order, real `d_in`
             cuda_copy_2dC_to_2dR[self.dim_grid, self.dim_block](G, self.d_in )
             # Call cuBLAS gemm kernel
-            cublas.dgemm(self.blas, 0, 0, self.Nr, 2*self.Nz, self.Nr, 
-                         1, cupy.asarray(self.d_invM).data.ptr, self.Nr, 
-                            cupy.asarray(self.d_in).data.ptr, self.Nr, 
+            cublas.dgemm(self.blas, 0, 0, self.Nr, 2*self.Nz, self.Nr,
+                         1, cupy.asarray(self.d_invM).data.ptr, self.Nr,
+                            cupy.asarray(self.d_in).data.ptr, self.Nr,
                          0, cupy.asarray(self.d_out).data.ptr, self.Nr)
             # Convert the F-order d_out array to the C-order F array
             cuda_copy_2dR_to_2dC[self.dim_grid, self.dim_block]( self.d_out, F )

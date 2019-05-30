@@ -65,7 +65,8 @@ class FFT(object):
 
         # Initialize the object for calculation on the GPU
         if self.use_cuda:
-            # Define CUDA threads per block for copy 1d/2d kernels
+            # Set optimal number of CUDA threads per block
+            # for copy 1d/2d kernels (determined empirically)
             copy_tpb = (8,32) if cuda_gpu_model == "V100" else (2,16)
             # Initialize the dimension of the grid and blocks
             self.dim_grid, self.dim_block = cuda_tpb_bpg_2d(Nz, Nr, *copy_tpb)
@@ -118,8 +119,8 @@ class FFT(object):
             cuda_copy_2d_to_1d[self.dim_grid, self.dim_block](
                 array_in, self.buffer1d_in)
             # Perform forward FFT
-            self.fft.fft(cupy.asarray(self.buffer1d_in), 
-                         cupy.asarray(self.buffer1d_out), 
+            self.fft.fft(cupy.asarray(self.buffer1d_in),
+                         cupy.asarray(self.buffer1d_out),
                          cufft.CUFFT_FORWARD)
             # Copy 1D arrays back to 2D array
             cuda_copy_1d_to_2d[self.dim_grid, self.dim_block](
@@ -150,8 +151,8 @@ class FFT(object):
             cuda_copy_2d_to_1d[self.dim_grid, self.dim_block](
                 array_in, self.buffer1d_in)
             # Perform forward FFT
-            self.fft.fft(cupy.asarray(self.buffer1d_in), 
-                         cupy.asarray(self.buffer1d_out), 
+            self.fft.fft(cupy.asarray(self.buffer1d_in),
+                         cupy.asarray(self.buffer1d_out),
                          cufft.CUFFT_INVERSE)
             # Normalize inverse FFT
             cupy.multiply(cupy.asarray(self.buffer1d_out), self.inv_Nz, out=cupy.asarray(self.buffer1d_out))

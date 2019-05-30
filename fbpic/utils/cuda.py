@@ -5,7 +5,6 @@
 This file is part of the Fourier-Bessel Particle-In-Cell code (FB-PIC)
 It defines a set of generic functions that operate on a GPU.
 """
-import os
 from numba import cuda
 
 # Check if CUDA is available and set variable accordingly
@@ -30,20 +29,6 @@ try:
 except Exception:
     cupy_installed = False
 
-# Check for CUDA threads per block environment variables
-if 'FBPIC_1D_TPB' in os.environ:
-    FBPIC_1D_TPB = int(os.environ['FBPIC_1D_TPB'])
-else:
-    FBPIC_1D_TPB = None
-if 'FBPIC_2D_TPBX' in os.environ:
-    FBPIC_2D_TPBX = int(os.environ['FBPIC_2D_TPBX'])
-else:
-    FBPIC_2D_TPBX = None
-if 'FBPIC_2D_TPBY' in os.environ:
-    FBPIC_2D_TPBY = int(os.environ['FBPIC_2D_TPBY'])
-else:
-    FBPIC_2D_TPBY = None
-
 # -----------------------------------------------------
 # CUDA grid utilities
 # -----------------------------------------------------
@@ -66,11 +51,8 @@ def cuda_tpb_bpg_1d(x, TPB = 256):
         Number of blocks per grid
 
     TPB : int
-        Threads per block. Can also be set via
-        FBPIC_1D_TPB environment variable.
+        Threads per block.
     """
-    # Get environment TBP if set
-    TPB = FBPIC_1D_TPB if FBPIC_1D_TPB else TPB
     # Calculates the needed blocks per grid
     BPG = int(x/TPB + 1)
     return BPG, TPB
@@ -93,12 +75,8 @@ def cuda_tpb_bpg_2d(x, y, TPBx = 1, TPBy = 128):
         Number of blocks per grid in x and y
 
     (TPBx, TPBy) : tuple of ints
-        Threads per block in x and y. Can also be set via
-        FBPIC_2D_TPBX and FBPIC_2D_TPBY environment variable.
+        Threads per block in x and y.
     """
-    # Get environment TBP if set
-    TPBx = FBPIC_2D_TPBX if FBPIC_2D_TPBX else TPBx
-    TPBy = FBPIC_2D_TPBY if FBPIC_2D_TPBY else TPBy
     # Calculates the needed blocks per grid
     BPGx = int(x/TPBx + 1)
     BPGy = int(y/TPBy + 1)
