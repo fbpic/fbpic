@@ -31,7 +31,7 @@ from fbpic.utils.threading import nthreads, get_chunk_indices
 from fbpic.utils.cuda import cuda_installed
 if cuda_installed:
     # Load the CUDA methods
-    from fbpic.utils.cuda import cuda, cuda_tpb_bpg_1d
+    from fbpic.utils.cuda import cuda, cuda_tpb_bpg_1d, cuda_gpu_model
     from .push.cuda_methods import push_p_gpu, push_p_ioniz_gpu, \
                                 push_p_after_plane_gpu, push_x_gpu
     from .deposition.cuda_methods import deposit_rho_gpu_linear, \
@@ -222,6 +222,14 @@ class Particles(object) :
             self.prefix_sum_shift = 0
             # Register boolean that records if the particles are sorted or not
             self.sorted = False
+            # Define optimal number of CUDA threads per block for deposition
+            # and gathering kernels (determined empirically)
+            if particle_shape == "cubic":
+                self.deposit_tpb = 32
+                self.gather_tpb = 256
+            else:
+                self.deposit_tpb = 16 if cuda_gpu_model == "V100" else 8
+                self.gather_tpb = 128
 
 
     def send_particles_to_gpu( self ):
@@ -663,7 +671,8 @@ class Particles(object) :
         # GPU (CUDA) version
         if self.use_cuda:
             # Get the threads per block and the blocks per grid
-            dim_grid_1d, dim_block_1d = cuda_tpb_bpg_1d( self.Ntot, TPB=64 )
+            dim_grid_1d, dim_block_1d = \
+                cuda_tpb_bpg_1d( self.Ntot, TPB=self.gather_tpb )
             # Call the CUDA Kernel for the gathering of E and B Fields
             if self.particle_shape == 'linear':
                 if Nm == 2:
@@ -836,7 +845,7 @@ class Particles(object) :
         if self.use_cuda:
             # Get the threads per block and the blocks per grid
             dim_grid_2d_flat, dim_block_2d_flat = \
-                cuda_tpb_bpg_1d( self.prefix_sum.shape[0], TPB=64 )
+                cuda_tpb_bpg_1d(self.prefix_sum.shape[0], TPB=self.deposit_tpb)
 
             # Call the CUDA Kernel for the deposition of rho or J
             Nm = len( grid )

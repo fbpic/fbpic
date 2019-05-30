@@ -60,7 +60,7 @@ class SpectralTransformer(object) :
             self.use_cuda = False
         if self.use_cuda:
             # Initialize the dimension of the grid and blocks
-            self.dim_grid, self.dim_block = cuda_tpb_bpg_2d( Nz, Nr)
+            self.dim_grid, self.dim_block = cuda_tpb_bpg_2d( Nz, Nr, 1, 32 )
 
         # Initialize the DHT (local implementation, see hankel.py)
         self.dht0 = DHT(  m, m, Nr, Nz, rmax, use_cuda=self.use_cuda )
