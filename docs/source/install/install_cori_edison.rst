@@ -35,7 +35,7 @@ In order to install FBPIC, follow the steps below:
 
    ::
 
-       pip install --upgrade numba==0.42 llvmlite tbb --user
+       pip install --upgrade numba llvmlite tbb --user
 
 -  Install FBPIC
 

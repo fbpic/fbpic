@@ -34,19 +34,21 @@ below:
 Installation of FBPIC and its dependencies
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
--  Install the dependencies of ``fbpic`` (except ``mpi4py``)
+-  Install the dependencies of ``fbpic`` (except ``mpi4py`` and ``cupy``)
 
    ::
 
-      conda install -c conda-forge numba==0.42 scipy h5py mkl cudatoolkit=8.0 pyculib
+      conda install -c conda-forge numba scipy h5py mkl cudatoolkit=9.2
 
--  Install ``mpi4py``
+
+-  Install ``mpi4py`` and ``cupy``
 
    ::
 
       module purge
       module load gnutools
       module load gnu openmpi_ib
+      pip install cupy-cuda92
       env MPICC=/opt/openmpi/gnu/ib/bin/mpicc pip install mpi4py --user
 
 

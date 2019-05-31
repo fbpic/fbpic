@@ -59,14 +59,15 @@ Installation of FBPIC and its dependencies
 
    ::
 
-       conda install -c conda-forge numba==0.42 scipy h5py mkl mpi4py
-       conda install -c conda-forge cudatoolkit=8 pyculib
+       conda install -c conda-forge numba scipy h5py mkl mpi4py cudatoolkit=10.0
+       pip install cupy-cuda100
+
 
 -  Install ``fbpic``
 
    ::
 
-	pip install fbpic
+       pip install fbpic
 
 Running simulations
 -------------------
@@ -88,7 +89,7 @@ In order to request a node with a GPU:
 
 ::
 
-    salloc --time=00:30:00 --nodes=1 --partition es1  --constraint=es1_1080ti --qos=es_normal
+    salloc --time=00:30:00 --nodes=1 --partition es1  --constraint=es1_1080ti --qos=es_normal --gres=gpu:4 --cpus-per-task=8
 
 Once the job has started, type
 
