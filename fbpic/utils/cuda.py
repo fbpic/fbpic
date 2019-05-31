@@ -16,7 +16,7 @@ try:
     import cupy
     cupy_installed = cupy.is_available()
     assert int(cupy.__version__[0]) >= 6 # Require cupy version 6
-except Exception:
+except (ImportError, AssertionError):
     cupy_installed = False
 
 # -----------------------------------------------------
