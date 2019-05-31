@@ -13,18 +13,23 @@ class FieldDiagnostic(OpenPMDDiagnostic):
     Class that defines the field diagnostics to be performed.
     """
 
-    def __init__(self, period, fldobject, comm=None,
+    def __init__(self, period=None, fldobject=None, comm=None,
                  fieldtypes=["rho", "E", "B", "J"], write_dir=None,
-                 iteration_min=0, iteration_max=np.inf ) :
+                 iteration_min=0, iteration_max=np.inf, dt_period=None ) :
         """
         Initialize the field diagnostic.
 
         Parameters
         ----------
-        period : int
+        period : int, optional
             The period of the diagnostics, in number of timesteps.
             (i.e. the diagnostics are written whenever the number
-            of iterations is divisible by `period`)
+            of iterations is divisible by `period`). Specify either this or
+            `dt_period`.
+
+        dt_period : float (in seconds), optional
+            The period of the diagnostics, in physical time of the simulation.
+            Specify either this or `period`
 
         fldobject : a Fields object
             Points to the data that has to be written at each output
@@ -49,16 +54,22 @@ class FieldDiagnostic(OpenPMDDiagnostic):
             The iterations between which data should be written
             (`iteration_min` is inclusive, `iteration_max` is exclusive)
         """
+        # Check input
+        if fldobject is None:
+            raise ValueError(
+            "You need to pass the argument `fldobject` to `FieldDiagnostic`.")
+
         # General setup
         OpenPMDDiagnostic.__init__(self, period, comm, write_dir,
-                                    iteration_min, iteration_max )
+                            iteration_min, iteration_max,
+                            dt_period=dt_period, dt_sim=fldobject.dt )
 
         # Register the arguments
         self.fld = fldobject
         self.fieldtypes = fieldtypes
         self.coords = ['r', 't', 'z']
 
-    def write_hdf5( self, iteration ) :
+    def write_hdf5( self, iteration ):
         """
         Write an HDF5 file that complies with the OpenPMD standard
 

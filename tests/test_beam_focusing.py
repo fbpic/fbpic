@@ -24,7 +24,7 @@ import shutil
 from fbpic.main import Simulation
 from fbpic.lpa_utils.bunch import add_elec_bunch_gaussian
 from fbpic.lpa_utils.boosted_frame import BoostConverter
-from fbpic.openpmd_diag import BoostedParticleDiagnostic
+from fbpic.openpmd_diag import BackTransformedParticleDiagnostic
 from opmd_viewer import OpenPMDTimeSeries
 
 # ----------
@@ -114,7 +114,7 @@ def simulate_beam_focusing( z_injection_plane, write_dir ):
     sim = Simulation( Nz, zmax, Nr, rmax, Nm, dt, zmin=zmin,
         gamma_boost=gamma_boost, boundaries='open',
         use_cuda=use_cuda, v_comoving=v_comoving )
-    # Note: no macroparticles get created because we do not pass 
+    # Note: no macroparticles get created because we do not pass
     # the density and number of particle per cell
 
     # Remove the plasma particles
@@ -130,7 +130,7 @@ def simulate_beam_focusing( z_injection_plane, write_dir ):
 
     # Add a field diagnostic
     sim.diags = [
-        BoostedParticleDiagnostic( zmin, zmax, c, dt_snapshot_lab,
+        BackTransformedParticleDiagnostic( zmin, zmax, c, dt_snapshot_lab,
             Ntot_snapshot_lab, gamma_boost, period=100, fldobject=sim.fld,
             species={'bunch':sim.ptcl[0]}, comm=sim.comm, write_dir=write_dir)
         ]

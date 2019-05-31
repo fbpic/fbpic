@@ -13,7 +13,7 @@ from fbpic.utils.mpi import MPI
 # Check if threading is available
 from .utils.threading import threading_enabled
 # Check if CUDA is available, then import CUDA functions
-from .utils.cuda import cuda_installed
+from .utils.cuda import cuda_installed, cupy_installed
 if cuda_installed:
     from .utils.cuda import send_data_to_gpu, \
                 receive_data_from_gpu, mpi_select_gpus
@@ -160,11 +160,10 @@ class Simulation(object):
         current_correction: string, optional
             The method used in order to ensure that the continuity equation
             is satisfied. Either `curl-free` or `cross-deposition`.
-            `curl-free` is faster but less local (should not be used with MPI).
-            For the moment, `cross-deposition` is still experimental.
+            `curl-free` is faster but less local.
 
         gamma_boost : float, optional
-            When initializing the laser in a boosted frame, set the
+            When running the simulation in a boosted frame, set the
             value of `gamma_boost` to the corresponding Lorentz factor.
             All the other quantities (zmin, zmax, n_e, etc.) are to be given
             in the lab frame.
@@ -204,6 +203,11 @@ class Simulation(object):
                 'Cuda not available for the simulation.\n'
                 'Performing the simulation on CPU.' )
             self.use_cuda = False
+        if (self.use_cuda==True) and (cupy_installed==False):
+            raise RuntimeError(
+                'In order to run on GPUs, FBPIC version 0.13 and later \n'
+                'require the `cupy` package (version 6).\n'
+                'See the FBPIC documentation in order to install cupy.')
         # CPU multi-threading
         self.use_threading = threading_enabled
         if self.use_threading:
@@ -389,18 +393,6 @@ class Simulation(object):
             if i_step == 0:
                 self.deposit('J', exchange=True)
 
-            # Diagnostics
-            # -----------
-
-            # Run the diagnostics
-            # (E, B, rho, x are defined at time n; J, p at time n-1/2)
-            for diag in self.diags:
-                # Check if the diagnostic should be written at this iteration
-                # and write it, if it is the case.
-                # (If needed: bring rho/J from spectral space, where they
-                # were smoothed/corrected, and copy the data from the GPU.)
-                diag.write( self.iteration )
-
             # Main PIC iteration
             # ------------------
 
@@ -410,6 +402,15 @@ class Simulation(object):
             # Apply the external fields at t = n dt
             for ext_field in self.external_fields:
                 ext_field.apply_expression( self.ptcl, self.time )
+
+            # Run the diagnostics
+            # (after gathering ; allows output of gathered fields on particles)
+            # (E, B, rho, x are defined at time n ; J, p at time n-1/2)
+            for diag in self.diags:
+                # Check if the diagnostic should be written at this iteration
+                # (If needed: bring rho/J from spectral space, where they
+                # were smoothed/corrected, and copy the data from the GPU.)
+                diag.write( self.iteration )
 
             # Push the particles' positions and velocities to t = (n+1/2) dt
             if move_momenta:

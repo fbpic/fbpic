@@ -91,8 +91,7 @@ def run_sim( script_name, n_MPI, checked_fields, test_checkpoint_dir=False ):
         script = f.read()
 
     # Change default N_step, diag_period and checkpoint_period
-    script = replace_string( script,
-        'N_step = int(T_interact/sim.dt)', 'N_step = 200')
+    script = replace_string( script, 'N_step = .*', 'N_step = 200')
     script = replace_string( script,
         'diag_period = 50', 'diag_period = 10')
     script = replace_string( script,
@@ -108,9 +107,9 @@ def run_sim( script_name, n_MPI, checked_fields, test_checkpoint_dir=False ):
         # Try to change the name of the checkpoint directory
         checkpoint_dir = './test_chkpt'
         script = replace_string( script,
-            'set_periodic_checkpoint( sim, checkpoint_period )',
+            'set_periodic_checkpoint\( sim, checkpoint_period \)',
             'set_periodic_checkpoint( sim, checkpoint_period, checkpoint_dir="%s" )'%checkpoint_dir)
-        script = replace_string( script, 'restart_from_checkpoint( sim )',
+        script = replace_string( script, 'restart_from_checkpoint\( sim \)',
          'restart_from_checkpoint( sim, checkpoint_dir="%s" )'%checkpoint_dir)
     else:
         checkpoint_dir = './checkpoints'
@@ -120,7 +119,7 @@ def run_sim( script_name, n_MPI, checked_fields, test_checkpoint_dir=False ):
     # Modify the script to perform N_step, enforce the random seed
     # (should be the same when restarting, for exact comparison),
     # and perform again N_step.
-    script = replace_string( script, 'sim.step( N_step )',
+    script = replace_string( script, 'sim.step\( N_step \)',
            'sim.step( N_step ); np.random.seed(0); sim.step( N_step )' )
     with open(script_filename, 'w') as f:
         f.write(script)
@@ -152,7 +151,7 @@ def run_sim( script_name, n_MPI, checked_fields, test_checkpoint_dir=False ):
                                 'use_restart = True')
     # Redo only the last N_step
     script = replace_string( script,
-           'sim.step( N_step ); np.random.seed(0); sim.step( N_step )',
+           'sim.step\( N_step \); np.random.seed\(0\); sim.step\( N_step \)',
            'np.random.seed(0); sim.step( N_step )',)
     with open(script_filename, 'w') as f:
         f.write(script)
@@ -205,8 +204,7 @@ def test_boosted_frame_sim_twoproc():
         script = f.read()
 
     # Change default N_step
-    script = replace_string( script,
-        'N_step = int(T_interact/sim.dt)', 'N_step = 101')
+    script = replace_string( script, 'N_step = .*', 'N_step = 101')
 
     # Modify the script so as to enable finite order
     script = replace_string( script, 'n_order = -1', 'n_order = 16')
@@ -253,8 +251,7 @@ def test_parametric_sim_twoproc():
         script = f.read()
 
     # Change default N_step, diag_period and checkpoint_period
-    script = replace_string( script,
-        'N_step = int(T_interact/sim.dt)', 'N_step = 200')
+    script = replace_string( script, 'N_step = .*', 'N_step = 200')
     script = replace_string( script,
         'diag_period = 50', 'diag_period = 10')
     script = replace_string( script,
@@ -301,12 +298,13 @@ def test_parametric_sim_twoproc():
 def replace_string( text, old_string, new_string ):
     """
     Check that `old_string` is in `text`, and replace it by `new_string`
+    (`old_string` and `new_string` use regex syntax)
     """
     # Check that the target line is present
-    if text.find(old_string) == -1:
+    if re.findall(old_string, text) == []:
         raise RuntimeError('Did not find expected string: %s' %old_string)
     # Return the modified text
-    return text.replace( old_string, new_string )
+    return re.sub( old_string, new_string, text )
 
 def get_string( regex, text ):
     """
@@ -344,8 +342,9 @@ def compare_simulations( ts1, ts2, checked_fields ):
 
 
 if __name__ == '__main__':
+    test_boosted_frame_sim_twoproc()
     test_lpa_sim_twoproc_restart()
     test_ionization_script_twoproc()
     test_lpa_sim_singleproc_restart()
     test_parametric_sim_twoproc()
-    test_boosted_frame_sim_twoproc()
+

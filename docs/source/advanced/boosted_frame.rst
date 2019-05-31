@@ -90,7 +90,7 @@ or read a `more detailed description of the speedup
     current :math:`\boldsymbol{j}` that they produce is negligeable compared to
     that of the electrons. For this reason (and because the PIC algorithm
     essentially only uses the current :math:`\boldsymbol{j}` in order to update the
-    fields: see :doc:`../overview`), the ions are often omitted from the simulation,
+    fields: see :doc:`../overview/pic_algorithm`), the ions are often omitted from the simulation,
     in order to save computational time. (And in fact, the argument
     ``initialize_ions`` in the :any:`Simulation` object is set to
     ``False`` by default.)
@@ -137,8 +137,9 @@ the results in the lab frame, since this is usually easier to interpret.
 FBPIC implements **on-the-fly conversion** of the results,
 and can thus output the fields and macroparticles directly
 in the lab frame. See the documentation of the classes
-:class:`fbpic.openpmd_diag.BoostedFieldDiagnostic` and
-:class:`fbpic.openpmd_diag.BoostedParticleDiagnostic` in order to use this feature.
+:class:`fbpic.openpmd_diag.BackTransformedFieldDiagnostic` and
+:class:`fbpic.openpmd_diag.BackTransformedParticleDiagnostic` in order
+to use this feature.
 
 .. warning::
 

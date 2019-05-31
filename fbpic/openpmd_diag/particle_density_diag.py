@@ -13,23 +13,29 @@ class ParticleChargeDensityDiagnostic(FieldDiagnostic):
     Class that defines a diagnostic for particle density
     """
 
-    def __init__(self, period, sim, species={"electrons":None},
-                write_dir=None, iteration_min=0, iteration_max=np.inf ) :
+    def __init__(self, period=None, sim=None, species={},
+                write_dir=None, iteration_min=0, iteration_max=np.inf,
+                dt_period=None ):
         """
         Writes the charge density of the specified species in the
         openPMD file (one dataset per species)
 
         Parameters
         ----------
-        period: int
+        period : int, optional
             The period of the diagnostics, in number of timesteps.
             (i.e. the diagnostics are written whenever the number
-            of iterations is divisible by `period`)
+            of iterations is divisible by `period`). Specify either this or
+            `dt_period`.
 
-        sim: an fbpic `Simulation` object
+        dt_period : float (in seconds), optional
+            The period of the diagnostics, in physical time of the simulation.
+            Specify either this or `period`
+
+        sim: an fbpic :any:`Simulation` object
             Contains the information of the simulation
 
-        species: a dictionary of Particle objects
+        species: a dictionary of :any:`Particles` objects
             Similar to the corresponding object for `ParticleDiagnostic`
             Specifies the density of which species should be written
 
@@ -42,6 +48,12 @@ class ParticleChargeDensityDiagnostic(FieldDiagnostic):
             The iterations between which data should be written
             (`iteration_min` is inclusive, `iteration_max` is exclusive)
         """
+        # Check the arguments
+        if sim is None:
+            raise ValueError("You need to pass the argument `sim`.")
+        if len(species) == 0:
+            raise ValueError("You need to pass a valid `species` dictionary.")
+
         # Build the list of fieldtypes
         fieldtypes = []
         for species_name in species.keys():
@@ -50,7 +62,8 @@ class ParticleChargeDensityDiagnostic(FieldDiagnostic):
         # General setup
         FieldDiagnostic.__init__(self, period, fldobject=sim.fld,
                     comm=sim.comm, fieldtypes=fieldtypes, write_dir=write_dir,
-                    iteration_min=iteration_min, iteration_max=iteration_max )
+                    iteration_min=iteration_min, iteration_max=iteration_max,
+                    dt_period=dt_period )
 
         # Register the arguments
         self.sim = sim
@@ -89,8 +102,15 @@ class ParticleChargeDensityDiagnostic(FieldDiagnostic):
             # affect the spectral space, and therefore it does not affect
             # the simulation
             species_object = self.species[species_name]
-            sim.deposit( 'rho', species_list=[species_object],
-                        update_spectral=False, exchange=True )
+            # Deposit and overwrite rho_next in spectral space as it will be
+            # correctly updated anyways later in this iteration by the PIC loop
+            sim.deposit( 'rho_next', species_list=[species_object],
+                        update_spectral=True, exchange=False )
+            # Bring filtered particle density back to the intermediate grid
+            self.fld.spect2interp('rho_next')
+            # Exchange (add) the particle density between domains
+            if (sim.comm is not None) and (sim.comm.size > 1):
+                sim.comm.exchange_fields(sim.fld.interp, 'rho', 'add')
 
             # If needed: Receive data from the GPU
             if self.fld.use_cuda :

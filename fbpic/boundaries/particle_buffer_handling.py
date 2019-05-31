@@ -228,11 +228,6 @@ def remove_particles_gpu(species, fld, n_guard, left_proc, right_proc):
     else:
         i_min = 0
     i_max = prefix_sum.getitem( iz_max*(Nr+1) - 1 )
-    # Because of the way in which the prefix_sum is calculated, if the
-    # cell that was requested for i_max is beyond the last non-empty cell,
-    # i_max will be zero, but should in fact be species.Ntot
-    if i_max == 0:
-        i_max = species.Ntot
 
     # Total number of particles in each particle group
     N_send_l = i_min
@@ -363,7 +358,7 @@ def add_buffers_to_particles( species, float_recv_left, float_recv_right,
         species.Bz = cuda.device_array( shape, dtype=np.float64 )
         # Reallocate empty auxiliary sorting arrays on the GPU
         species.cell_idx = cuda.device_array( shape, dtype=np.int32 )
-        species.sorted_idx = cuda.device_array( shape, dtype=np.int32 )
+        species.sorted_idx = cuda.device_array( shape, dtype=np.intp )
         species.sorting_buffer = cuda.device_array( shape, dtype=np.float64 )
         if species.n_integer_quantities > 0:
             species.int_sorting_buffer = \

@@ -21,7 +21,7 @@ from fbpic.utils.cuda import cuda_installed
 if cuda_installed:
     from .cuda_methods import extract_slice_from_gpu
 
-class BoostedParticleDiagnostic(ParticleDiagnostic):
+class BackTransformedParticleDiagnostic(ParticleDiagnostic):
     """
     Class that writes the particles *in the lab frame*,
     from a simulation in the boosted frame
@@ -48,8 +48,15 @@ class BoostedParticleDiagnostic(ParticleDiagnostic):
         within a virtual moving window defined by zmin_lab, zmax_lab, v_lab.
 
         The parameters defined below are specific to the back-transformed
-        diagnostics. See the documentation of `FieldDiagnostic` for
+        diagnostics. See the documentation of `ParticleDiagnostic` for
         the other parameters.
+
+        .. warning::
+
+            The output of the gathered fields on the particles
+            (``particle_data=["E", "B"]``) and of the Lorentz factor
+            (``particle_data=["gamma"]``) is not currently supported
+            for ``BackTransformedParticleDiagnostic``.
 
         Parameters
         ----------
@@ -909,3 +916,7 @@ class ParticleCatcher:
             slice_data_dict[quantity] = slice_data_dict[quantity][select_array]
 
         return slice_data_dict
+
+
+# Alias, for backward compatibility
+BoostedParticleDiagnostic = BackTransformedParticleDiagnostic

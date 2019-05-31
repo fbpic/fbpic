@@ -6,7 +6,10 @@ Installation on Lawrencium (LBNL)
 is a local cluster at the `Lawrence Berkeley National Lab <http://www.lbl.gov/>`__
 (LBNL).
 
-It has a few nodes with GPUs (Tesla K20 and K80, as well as GeForce GTX 1080 Ti).
+It has 24 nodes with GPUs:
+
+    - 12 nodes with four GTX 1080Ti GPUs each
+    - 12 nodes with two V100 GPUs each
 
 Connecting to Lawrencium
 ------------------------
@@ -56,10 +59,8 @@ Installation of FBPIC and its dependencies
 
    ::
 
-       conda install numba scipy h5py mkl
-       conda install -c conda-forge mpi4py
-       conda install cudatoolkit=8 pyculib
-
+       conda install -c conda-forge numba==0.42 scipy h5py mkl mpi4py
+       conda install -c conda-forge cudatoolkit=8 pyculib
 
 -  Install ``fbpic``
 
@@ -87,7 +88,7 @@ In order to request a node with a GPU:
 
 ::
 
-    salloc --time=00:30:00 --nodes=1 --partition lr_manycore  --constraint=lr_kepler --qos=lr_normal
+    salloc --time=00:30:00 --nodes=1 --partition es1  --constraint=es1_1080ti --qos=es_normal
 
 Once the job has started, type
 
@@ -114,19 +115,19 @@ following text (and replace the bracketed text by the proper values).
 
     #!/bin/bash
     #SBATCH -J my_job
-    #SBATCH --partition=lr_manycore
+    #SBATCH --partition es1
+    #SBATCH --qos es_normal
     #SBATCH --constraint <gpuConstraint>
     #SBATCH --time <requestedTime>
-    #SBATCH --nodes 1
-    #SBATCH --qos lr_normal
+    #SBATCH --ntasks <requestedRanks>
+    #SBATCH --gres=gpu:<gpuPerNode> --cpus-per-task=8
 
-    python <fbpic_script.py>
+    mpirun -np <requestedRanks> python fbpic_script.py
 
-where ```<gpuConstraint>`` should be either:
+where ``<gpuConstraint>`` and ``<gpuPerNode>`` should be:
 
-    - ``lr_k20`` for a node with a single K20 GPU
-    - ``lr_k80`` for a node with four K80 GPUs
-    - ``lr_pascal`` for a node with four GTX 1080Ti GPUs
+    - For the nodes with four GTX 1080Ti GPUs, ``gpuConstraint=es1_1080ti`` and ``gpuPerNode=4``
+    - For the nodes with two V100 GPUs, ``gpuConstraint=es1_v100`` and ``gpuPerNode=2``
 
 for more information on the available nodes, see
 `this page <https://sites.google.com/a/lbl.gov/high-performance-computing-services-group/lbnl-supercluster/lawrencium>`__.
@@ -141,7 +142,7 @@ In order to see the queue:
 
 ::
 
-    squeue -p lr_manycore
+    squeue -p es1
 
 Visualizing the results through Jupyter
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -152,17 +153,3 @@ Lawrencium provides access to the cluster via Jupyter, at `https://lrc-jupyter.l
 	!pip install openPMD-viewer --user
 
 in order to install `openPMD-viewer <https://github.com/openPMD/openPMD-viewer>`__.
-
-
-Transfering data to your local computer
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-In order to transfer your data to your local machine, you need to
-connect to the transfer node. From a Lawrencium login node, type:
-
-::
-
-    ssh lrc-xfer.scs00
-
-You can then use for instance ``rsync`` to transfer data to your local
-computer.

@@ -14,7 +14,7 @@ This page explains how to install FBPIC on different plateforms:
    install_local
    install_summit
    install_titan
-   install_jureca
+   install_juwels
    install_lawrencium
    install_comet
    install_cori_edison
