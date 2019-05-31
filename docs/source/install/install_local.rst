@@ -30,17 +30,21 @@ Python. If Anaconda is not your default Python distribution, download and instal
 
 
 -  **Optional:** In order to be able to run the code on a GPU,
-   install the additional package `cudatoolkit` and `cupy` --
-   e.g. using CUDA version 9.0:
+   install the additional package ``cudatoolkit`` and ``cupy`` --
+   e.g. using CUDA version 10.0:
 
    ::
 
 
-       conda install cudatoolkit=9.0
-       pip install cupy-cuda90
+       conda install cudatoolkit=10.0
+       pip install cupy-cuda100
 
-   (In the above command, you should choose a CUDA version that is compatible
-   with your GPU driver ; see `this table <https://docs.nvidia.com/cuda/cuda-toolkit-release-notes/index.html#major-components__table-cuda-toolkit-driver-versions>`__ for more info.)
+   .. warning::
+
+       In the above command, you should choose a CUDA version that is **compatible
+       with your GPU driver**. You can see the version of your GPU driver by typing
+       the command ``nvidia-smi``. You can then find the compatible CUDA
+       versions using `this table <https://docs.nvidia.com/cuda/cuda-toolkit-release-notes/index.html#major-components__table-cuda-toolkit-driver-versions>`__.
 
 -  **Optional:** In order to run on a CPU which is **not** an Intel model, you need to install `pyfftw`, in order to replace the MKL FFT:
 

@@ -76,10 +76,10 @@ pip install fbpic
 ```
 
 - **Optional:** in order to run on GPU, install the additional package
-`cudatoolkit` and `cupy` -- e.g. using CUDA version 9.0.
+`cudatoolkit` and `cupy` -- e.g. using CUDA version 10.0.
 ```
-conda install cudatoolkit=9.0
-pip install cupy-cuda90
+conda install cudatoolkit=10.0
+pip install cupy-cuda100
 ```
 (In the above command, you should choose a CUDA version that is compatible with your GPU driver ; see [this table](https://docs.nvidia.com/cuda/cuda-toolkit-release-notes/index.html#major-components__table-cuda-toolkit-driver-versions) for more info.)
 
@@ -118,8 +118,8 @@ FBPIC was originally developed by Remi Lehe at [Berkeley Lab](http://www.lbl.gov
 and Manuel Kirchen at
 [CFEL, Hamburg University](http://lux.cfel.de/). The code also
 benefitted from the contributions of Soeren Jalas (CFEL), Kevin Peters (CFEL),
-Irene Dornmair (CFEL), Igor Andriyash (Weizmann Institute), Omri Seemann 
-(Weizmann Institute), Daniel Seipt (University of Michigan) and Samuel Yoffe 
+Irene Dornmair (CFEL), Igor Andriyash (Weizmann Institute), Omri Seemann
+(Weizmann Institute), Daniel Seipt (University of Michigan) and Samuel Yoffe
 (University of Strathclyde).
 
 FBPIC's algorithms are documented in following scientific publications:

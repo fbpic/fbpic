@@ -59,8 +59,8 @@ Installation of FBPIC and its dependencies
 
    ::
 
-       conda install -c conda-forge numba scipy h5py mkl mpi4py cudatoolkit=9.0
-       pip install cupy-cuda90
+       conda install -c conda-forge numba scipy h5py mkl mpi4py cudatoolkit=10.0
+       pip install cupy-cuda100
 
 
 -  Install ``fbpic``
