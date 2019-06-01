@@ -10,6 +10,7 @@ from fbpic.utils.cuda import cupy_installed
 if cupy_installed:
     import cupy
     from cupy.cuda import thrust
+    cupy_mempool = cupy.get_default_memory_pool()
 import math
 import numpy as np
 
@@ -114,6 +115,11 @@ def sort_particles_per_cell(cell_idx, sorted_idx):
                         data_start=d_cell_idx.data.ptr,
                         keys_start=0,
                         shape=d_cell_idx.shape )
+        # As part of `thrust.argsort`, `cupy` will allocate temporarily
+        # arrays in its memory pool. For performance reasons, this
+        # memory is not automatically released, after `argsort`
+        # Here we force `cupy` to release the memory.
+        cupy_mempool.free_all_blocks()
 
 @cuda.jit
 def incl_prefix_sum(cell_idx, prefix_sum):
