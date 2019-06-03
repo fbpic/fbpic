@@ -18,7 +18,7 @@ def add_particle_bunch(sim, q, m, gamma0, n, p_zmin, p_zmax, p_rmin, p_rmax,
                        p_nr=2, p_nz=2, p_nt=4, dens_func=None, boost=None,
                        direction='forward', z_injection_plane=None):
     """
-    Introduce a simple relativistic electron bunch in the simulation,
+    Introduce a simple relativistic particle bunch in the simulation,
     along with its space charge field.
 
     Uniform particle distribution with weights according to density function.
@@ -35,7 +35,7 @@ def add_particle_bunch(sim, q, m, gamma0, n, p_zmin, p_zmax, p_rmin, p_rmax,
         Mass of the particle species
 
     gamma0 : float
-        The Lorentz factor of the electrons
+        The Lorentz factor of the particles
 
     n : float (in particles per m^3)
         Density of the bunch
@@ -65,7 +65,7 @@ def add_particle_bunch(sim, q, m, gamma0, n, p_zmin, p_zmax, p_rmin, p_rmax,
         A function of the form :
         `def dens_func( z, r ) ...`
         where `z` and `r` are 1d arrays, and which returns
-        a 1d array containing the density *relative to n_e*
+        a 1d array containing the density *relative to n*
         (i.e. a number between 0 and 1) at the given positions.
 
     boost : a BoostConverter object, optional
@@ -109,7 +109,7 @@ def add_particle_bunch_gaussian(sim, q, m, sig_r, sig_z, n_emit, gamma0,
                                 n_macroparticles, tf=0., zf=0., boost=None,
                                 save_beam=None, z_injection_plane=None):
     """
-    Introduce a relativistic Gaussian electron bunch in the simulation,
+    Introduce a relativistic Gaussian particle bunch in the simulation,
     along with its space charge field.
 
     The bunch is initialized with a normalized emittance `n_emit`,
@@ -243,7 +243,7 @@ def add_particle_bunch_file(sim, q, m, filename, n_physical_particles,
                             z_off=0., boost=None, direction='forward',
                             z_injection_plane=None):
     """
-    Introduce a relativistic electron bunch in the simulation,
+    Introduce a relativistic particle bunch in the simulation,
     along with its space charge field, loading particles from text file.
 
     Parameters
@@ -309,7 +309,7 @@ def add_particle_bunch_openPMD( sim, q, m, ts_path, z_off=0., species=None,
                                 select=None, iteration=None, boost=None,
                                 z_injection_plane=None ):
     """
-    Introduce a relativistic electron bunch in the simulation,
+    Introduce a relativistic particle bunch in the simulation,
     along with its space charge field, loading particles from an openPMD
     timeseries.
 
@@ -390,7 +390,7 @@ def add_particle_bunch_from_arrays(sim, q, m, x, y, z, ux, uy, uz, w,
                                    boost=None, direction='forward',
                                    z_injection_plane=None):
     """
-    Introduce a relativistic electron bunch in the simulation,
+    Introduce a relativistic particle bunch in the simulation,
     along with its space charge field, loading particles from numpy arrays.
 
     Parameters
