@@ -31,7 +31,7 @@ from fbpic.utils.threading import nthreads, get_chunk_indices
 from fbpic.utils.cuda import cuda_installed
 if cuda_installed:
     # Load the CUDA methods
-    from fbpic.utils.cuda import cuda, cuda_tpb_bpg_1d
+    from fbpic.utils.cuda import cuda, cuda_tpb_bpg_1d, cuda_gpu_model
     from .push.cuda_methods import push_p_gpu, push_p_ioniz_gpu, \
                                 push_p_after_plane_gpu, push_x_gpu
     from .deposition.cuda_methods import deposit_rho_gpu_linear, \
@@ -208,16 +208,28 @@ class Particles(object) :
             # Register grid shape
             self.grid_shape = grid_shape
             # Allocate arrays for the particles sorting when using CUDA
-            self.cell_idx = np.empty( Ntot, dtype=np.int32)
-            self.sorted_idx = np.empty( Ntot, dtype=np.uint32)
-            self.sorting_buffer = np.empty( Ntot, dtype=np.float64 )
+            # Most required arrays always stay on GPU
             Nz, Nr = grid_shape
-            self.prefix_sum = np.empty( Nz*(Nr+1), dtype=np.int32 )
+            self.cell_idx = cuda.device_array( Ntot, dtype=np.int32)
+            self.sorted_idx = cuda.device_array( Ntot, dtype=np.intp)
+            self.prefix_sum = cuda.device_array( Nz*(Nr+1), dtype=np.int32 )
+            # sorting buffers are initialized on CPU like other particle arrays
+            # (because they are swapped with these arrays during sorting)
+            self.sorting_buffer = np.empty( Ntot, dtype=np.float64)
+
             # Register integer thta records shift in the indices,
             # induced by the moving window
             self.prefix_sum_shift = 0
             # Register boolean that records if the particles are sorted or not
             self.sorted = False
+            # Define optimal number of CUDA threads per block for deposition
+            # and gathering kernels (determined empirically)
+            if particle_shape == "cubic":
+                self.deposit_tpb = 32
+                self.gather_tpb = 256
+            else:
+                self.deposit_tpb = 16 if cuda_gpu_model == "V100" else 8
+                self.gather_tpb = 128
 
 
     def send_particles_to_gpu( self ):
@@ -246,10 +258,7 @@ class Particles(object) :
             self.By = cuda.to_device(self.By)
             self.Bz = cuda.to_device(self.Bz)
 
-            # Copy arrays on the GPU for the sorting
-            self.cell_idx = cuda.to_device(self.cell_idx)
-            self.sorted_idx = cuda.to_device(self.sorted_idx)
-            self.prefix_sum = cuda.to_device(self.prefix_sum)
+            # Copy sorting buffers on the GPU
             self.sorting_buffer = cuda.to_device(self.sorting_buffer)
             if self.n_integer_quantities > 0:
                 self.int_sorting_buffer = cuda.to_device(self.int_sorting_buffer)
@@ -289,9 +298,6 @@ class Particles(object) :
 
             # Copy arrays on the CPU
             # that represent the sorting arrays
-            self.cell_idx = self.cell_idx.copy_to_host()
-            self.sorted_idx = self.sorted_idx.copy_to_host()
-            self.prefix_sum = self.prefix_sum.copy_to_host()
             self.sorting_buffer = self.sorting_buffer.copy_to_host()
             if self.n_integer_quantities > 0:
                 self.int_sorting_buffer = self.int_sorting_buffer.copy_to_host()
@@ -665,7 +671,8 @@ class Particles(object) :
         # GPU (CUDA) version
         if self.use_cuda:
             # Get the threads per block and the blocks per grid
-            dim_grid_1d, dim_block_1d = cuda_tpb_bpg_1d( self.Ntot, TPB=64 )
+            dim_grid_1d, dim_block_1d = \
+                cuda_tpb_bpg_1d( self.Ntot, TPB=self.gather_tpb )
             # Call the CUDA Kernel for the gathering of E and B Fields
             if self.particle_shape == 'linear':
                 if Nm == 2:
@@ -838,7 +845,7 @@ class Particles(object) :
         if self.use_cuda:
             # Get the threads per block and the blocks per grid
             dim_grid_2d_flat, dim_block_2d_flat = \
-                cuda_tpb_bpg_1d( self.prefix_sum.shape[0], TPB=64 )
+                cuda_tpb_bpg_1d(self.prefix_sum.shape[0], TPB=self.deposit_tpb)
 
             # Call the CUDA Kernel for the deposition of rho or J
             Nm = len( grid )

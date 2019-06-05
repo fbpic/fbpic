@@ -9,11 +9,14 @@ and is used in spectral_transformer.py
 import numpy as np
 import numba
 # Check if CUDA is available, then import CUDA functions
-from fbpic.utils.cuda import cuda_installed
+from fbpic.utils.cuda import cuda_installed, cupy_installed
 if cuda_installed:
-    from pyculib import fft as cufft, blas as cublas
-    from fbpic.utils.cuda import cuda, cuda_tpb_bpg_2d
+    from fbpic.utils.cuda import cuda, cuda_tpb_bpg_2d, cuda_gpu_model
     from .cuda_methods import cuda_copy_2d_to_1d, cuda_copy_1d_to_2d
+if cupy_installed:
+    import cupy
+    from cupy.cuda import cufft
+
 # Check if the MKL FFT is available
 try:
     from .mkl_fft import MKLFFT
@@ -62,23 +65,22 @@ class FFT(object):
 
         # Initialize the object for calculation on the GPU
         if self.use_cuda:
+            # Set optimal number of CUDA threads per block
+            # for copy 1d/2d kernels (determined empirically)
+            copy_tpb = (8,32) if cuda_gpu_model == "V100" else (2,16)
             # Initialize the dimension of the grid and blocks
-            self.dim_grid, self.dim_block = cuda_tpb_bpg_2d( Nz, Nr)
-
+            self.dim_grid, self.dim_block = cuda_tpb_bpg_2d(Nz, Nr, *copy_tpb)
             # Initialize 1d buffer for cufft
             self.buffer1d_in = cuda.device_array(
                 (Nz*Nr,), dtype=np.complex128)
             self.buffer1d_out = cuda.device_array(
                 (Nz*Nr,), dtype=np.complex128)
-            # Initialize the cuda libraries object
-            self.fft = cufft.FFTPlan( shape=(Nz,), itype=np.complex128,
-                                      otype=np.complex128, batch=Nr )
-            self.blas = cublas.Blas()   # For normalization of the iFFT
+            # Initialize the CUDA FFT plan object
+            self.fft = cufft.Plan1d(Nz, cufft.CUFFT_Z2Z, Nr)
             self.inv_Nz = 1./Nz         # For normalization of the iFFT
 
         # Initialize the object for calculation on the CPU
         else:
-
             # For MKL FFT
             if self.use_mkl:
                 # Initialize the MKL plan with dummy array
@@ -113,13 +115,16 @@ class FFT(object):
             two buffers that are returned by `get_buffers`
         """
         if self.use_cuda :
-            # Perform the FFT on the GPU
-            # (The cuFFT API requires 1D arrays)
+            # Copy 2D arrays to 1D array for optimized 1D batch FFT
             cuda_copy_2d_to_1d[self.dim_grid, self.dim_block](
-                array_in, self.buffer1d_in )
-            self.fft.forward( self.buffer1d_in, out=self.buffer1d_out )
+                array_in, self.buffer1d_in)
+            # Perform forward FFT
+            self.fft.fft(cupy.asarray(self.buffer1d_in),
+                         cupy.asarray(self.buffer1d_out),
+                         cufft.CUFFT_FORWARD)
+            # Copy 1D arrays back to 2D array
             cuda_copy_1d_to_2d[self.dim_grid, self.dim_block](
-                self.buffer1d_out, array_out )
+                self.buffer1d_out, array_out)
         elif self.use_mkl:
             # Perform the FFT on the CPU using MKL
             self.mklfft.transform( array_in, array_out )
@@ -142,14 +147,18 @@ class FFT(object):
             two buffers that are returned by `get_buffers`
         """
         if self.use_cuda :
-            # Perform the inverse FFT on the GPU
-            # (The cuFFT API requires 1D arrays)
+            # Copy 2D arrays to 1D array for optimized 1D batch FFT
             cuda_copy_2d_to_1d[self.dim_grid, self.dim_block](
-                array_in, self.buffer1d_in )
-            self.fft.inverse( self.buffer1d_in, out=self.buffer1d_out )
-            self.blas.scal( self.inv_Nz, self.buffer1d_out ) # Normalization
+                array_in, self.buffer1d_in)
+            # Perform forward FFT
+            self.fft.fft(cupy.asarray(self.buffer1d_in),
+                         cupy.asarray(self.buffer1d_out),
+                         cufft.CUFFT_INVERSE)
+            # Normalize inverse FFT
+            cupy.multiply(cupy.asarray(self.buffer1d_out), self.inv_Nz, out=cupy.asarray(self.buffer1d_out))
+            # Copy 1D arrays back to 2D array
             cuda_copy_1d_to_2d[self.dim_grid, self.dim_block](
-                self.buffer1d_out, array_out )
+                self.buffer1d_out, array_out)
         elif self.use_mkl:
             # Perform the inverse FFT on the CPU using MKL
             self.mklfft.inverse_transform( array_in, array_out )

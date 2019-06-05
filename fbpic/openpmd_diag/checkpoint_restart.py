@@ -14,6 +14,11 @@ from .field_diag import FieldDiagnostic
 from .particle_diag import ParticleDiagnostic
 from fbpic.utils.mpi import comm
 
+# Check if CUDA is available, then import CUDA
+from fbpic.utils.cuda import cuda_installed
+if cuda_installed:
+        from fbpic.utils.cuda import cuda
+
 def set_periodic_checkpoint( sim, period, checkpoint_dir='./checkpoints' ):
     """
     Set up periodic checkpoints of the simulation
@@ -36,7 +41,7 @@ def set_periodic_checkpoint( sim, period, checkpoint_dir='./checkpoints' ):
 
     checkpoint_dir: string, optional
         The path to the directory in which the checkpoints are stored
-        (When running a simulation with several MPI ranks, use the 
+        (When running a simulation with several MPI ranks, use the
         same path for all ranks.)
     """
     # Only processor 0 creates a directory where checkpoints will be stored
@@ -99,7 +104,7 @@ def restart_from_checkpoint( sim, iteration=None,
 
     checkpoint_dir: string, optional
         The path to the directory that contains the checkpoints to be loaded.
-        (When running a simulation with several MPI ranks, use the 
+        (When running a simulation with several MPI ranks, use the
         same path for all ranks.)
     """
     # Import openPMD-viewer
@@ -325,7 +330,12 @@ def load_species( species, name, ts, iteration, comm ):
     species.By = np.zeros( Ntot )
     # Sorting arrays
     if species.use_cuda:
-        species.cell_idx = np.empty( Ntot, dtype=np.int32)
-        species.sorted_idx = np.arange( Ntot, dtype=np.uint32)
-        species.sorting_buffer = np.arange( Ntot, dtype=np.float64)
+        # cell_idx and sorted_idx always stay on GPU
+        species.cell_idx = cuda.device_array( Ntot, dtype=np.int32)
+        species.sorted_idx = cuda.device_array( Ntot, dtype=np.intp)
+        # sorting buffers are initialized on CPU
+        # (because they are swapped with other particle arrays during sorting)
+        species.sorting_buffer = np.empty( Ntot, dtype=np.float64)
+        if hasattr( species, 'int_sorting_buffer'):
+            species.int_sorting_buffer = np.empty( Ntot, dtype=np.uint64 )
         species.sorted = False
