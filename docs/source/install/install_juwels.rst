@@ -81,9 +81,7 @@ Running simulations
 In the following, it is explained how to allocate and use
 **interactive** jobs on JUWELS. For the usage of normal jobs, one can
 use the similar commands in a job script. More information can be found
-here:
-
-``https://www.fz-juelich.de/ias/jsc/EN/Expertise/Supercomputers/JUWELS/UserInfo/UserInfo_node.html``
+`here <https://www.fz-juelich.de/ias/jsc/EN/Expertise/Supercomputers/JUWELS/UserInfo/UserInfo_node.html>`__.
 
 **Allocation of ressources**
 

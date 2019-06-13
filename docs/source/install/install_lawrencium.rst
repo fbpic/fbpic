@@ -89,7 +89,7 @@ In order to request a node with a GPU:
 
 ::
 
-    salloc --time=00:30:00 --nodes=1 --partition es1  --constraint=es1_1080ti --qos=es_normal --gres=gpu:4 --cpus-per-task=8
+    salloc --time=00:30:00 --nodes=1 --partition es1  --constraint=es1_1080ti --qos=es_normal --gres=gpu:4 --cpus-per-task=2
 
 Once the job has started, type
 
@@ -121,14 +121,14 @@ following text (and replace the bracketed text by the proper values).
     #SBATCH --constraint <gpuConstraint>
     #SBATCH --time <requestedTime>
     #SBATCH --ntasks <requestedRanks>
-    #SBATCH --gres=gpu:<gpuPerNode> --cpus-per-task=8
+    #SBATCH --gres=gpu:<gpuPerNode> --cpus-per-task=<cpuPerTask>
 
     mpirun -np <requestedRanks> python fbpic_script.py
 
 where ``<gpuConstraint>`` and ``<gpuPerNode>`` should be:
 
-    - For the nodes with four GTX 1080Ti GPUs, ``gpuConstraint=es1_1080ti`` and ``gpuPerNode=4``
-    - For the nodes with two V100 GPUs, ``gpuConstraint=es1_v100`` and ``gpuPerNode=2``
+    - For the nodes with four GTX 1080Ti GPUs, ``gpuConstraint=es1_1080ti``, ``gpuPerNode=4`` and ``cpuPerTask=2``
+    - For the nodes with two V100 GPUs, ``gpuConstraint=es1_v100``, ``gpuPerNode=2`` and ``cpuPerTask=4``
 
 for more information on the available nodes, see
 `this page <https://sites.google.com/a/lbl.gov/high-performance-computing-services-group/lbnl-supercluster/lawrencium>`__.
