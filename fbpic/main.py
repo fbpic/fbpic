@@ -126,7 +126,7 @@ class Simulation(object):
             with a speed v_comoving
 
         use_cuda: bool, optional
-            Wether to use CUDA (GPU) acceleration
+            Whether to use CUDA (GPU) acceleration
 
         n_guard: int, optional
             Number of guard cells to use at the left and right of
