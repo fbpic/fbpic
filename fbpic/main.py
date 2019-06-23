@@ -57,6 +57,7 @@ class Simulation(object):
         """
         Initializes a simulation.
 
+        # TODO update the documentation
         By default the simulation contains:
 
             - an electron species
@@ -251,17 +252,18 @@ class Simulation(object):
         self.grid_shape = self.fld.interp[0].Ez.shape
         self.particle_shape = particle_shape
         self.ptcl = []
-        # - Initialize the electrons
-        self.add_new_species( q=-e, m=m_e, n=n_e, dens_func=dens_func,
-                              p_nz=p_nz, p_nr=p_nr, p_nt=p_nt,
-                              p_zmin=p_zmin, p_zmax=p_zmax,
-                              p_rmin=p_rmin, p_rmax=p_rmax )
-        # - Initialize the ions
-        if initialize_ions:
-            self.add_new_species( q=e, m=m_p, n=n_e, dens_func=dens_func,
-                              p_nz=p_nz, p_nr=p_nr, p_nt=p_nt,
-                              p_zmin=p_zmin, p_zmax=p_zmax,
-                              p_rmin=p_rmin, p_rmax=p_rmax )
+        if n_e is not None:
+            # - Initialize the electrons
+            self.add_new_species( q=-e, m=m_e, n=n_e, dens_func=dens_func,
+                                  p_nz=p_nz, p_nr=p_nr, p_nt=p_nt,
+                                  p_zmin=p_zmin, p_zmax=p_zmax,
+                                  p_rmin=p_rmin, p_rmax=p_rmax )
+            # - Initialize the ions
+            if initialize_ions:
+                self.add_new_species( q=e, m=m_p, n=n_e, dens_func=dens_func,
+                                  p_nz=p_nz, p_nr=p_nr, p_nt=p_nt,
+                                  p_zmin=p_zmin, p_zmax=p_zmax,
+                                  p_rmin=p_rmin, p_rmax=p_rmax )
 
         # Register the time and the iteration
         self.time = 0.
