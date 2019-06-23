@@ -57,20 +57,22 @@ class Simulation(object):
         """
         Initializes a simulation.
 
-        # TODO update the documentation
-        By default the simulation contains:
-
-            - an electron species
-            - (if ``initialize_ions`` is True) an ion species (Hydrogen 1+)
-
-        These species are stored in the attribute ``ptcl`` of ``Simulation``
-        (which is a Python list, containing the different species).
+        By default, this will not create any particle species. You can
+        then add particles species to the simulation by using e.g. the method
+        ``add_new_species`` of the simulation object.
 
         .. note::
 
-            For the arguments `p_rmin`, `p_rmax`, `p_nz`, `p_nr`, `p_nt`,
-            `n_e`, and `dens_func`, see the docstring of the method
-            `add_new_species` (where `n_e` has been re-labeled as `n`).
+            As a short-cut, you can also directly create particle
+            species when initializing the ``Simulation`` object,
+            by passing the aguments `n_e`, `p_rmin`, `p_rmax`, `p_nz`,
+            `p_nr`, `p_nt`, and `dens_func`. This will create:
+
+                - an electron species
+                - (if ``initialize_ions`` is True) an ion species (Hydrogen 1+)
+
+            See the docstring of the method ``add_new_species`` for the
+            above-mentioned arguments (where `n_e` has been re-labeled as `n`).
 
         Parameters
         ----------
