@@ -126,7 +126,7 @@ class Simulation(object):
             with a speed v_comoving
 
         use_cuda: bool, optional
-            Wether to use CUDA (GPU) acceleration
+            Whether to use CUDA (GPU) acceleration
 
         n_guard: int, optional
             Number of guard cells to use at the left and right of
@@ -198,12 +198,12 @@ class Simulation(object):
         """
         # Check whether to use CUDA
         self.use_cuda = use_cuda
-        if (self.use_cuda==True) and (cuda_installed==False):
+        if self.use_cuda and not cuda_installed:
             warnings.warn(
                 'Cuda not available for the simulation.\n'
                 'Performing the simulation on CPU.' )
             self.use_cuda = False
-        if (self.use_cuda==True) and (cupy_installed==False):
+        if self.use_cuda and not cupy_installed:
             raise RuntimeError(
                 'In order to run on GPUs, FBPIC version 0.13 and later \n'
                 'require the `cupy` package (version 6).\n'

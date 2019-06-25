@@ -12,11 +12,21 @@ try:
     cuda_installed = cuda.is_available()
 except Exception:
     cuda_installed = False
+
+if cuda_installed:
+    # Infer if GPU is P100 or V100 or other
+    if "P100" in str(cuda.gpus[0]._device.name):
+        cuda_gpu_model = "P100"
+    elif "V100" in str(cuda.gpus[0]._device.name):
+        cuda_gpu_model = "V100"
+    else:
+        cuda_gpu_model = "other"
+
 try:
     import cupy
     cupy_installed = cupy.is_available()
     assert int(cupy.__version__[0]) >= 6 # Require cupy version 6
-except Exception:
+except (ImportError, AssertionError):
     cupy_installed = False
 
 # -----------------------------------------------------
@@ -41,13 +51,13 @@ def cuda_tpb_bpg_1d(x, TPB = 256):
         Number of blocks per grid
 
     TPB : int
-        Threads per block
+        Threads per block.
     """
     # Calculates the needed blocks per grid
     BPG = int(x/TPB + 1)
     return BPG, TPB
 
-def cuda_tpb_bpg_2d(x, y, TPBx = 8, TPBy = 8):
+def cuda_tpb_bpg_2d(x, y, TPBx = 1, TPBy = 128):
     """
     Get the needed blocks per grid for a 2D CUDA grid.
 
@@ -65,7 +75,7 @@ def cuda_tpb_bpg_2d(x, y, TPBx = 8, TPBy = 8):
         Number of blocks per grid in x and y
 
     (TPBx, TPBy) : tuple of ints
-        Threads per block in x and y
+        Threads per block in x and y.
     """
     # Calculates the needed blocks per grid
     BPGx = int(x/TPBx + 1)
