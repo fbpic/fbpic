@@ -21,7 +21,7 @@ In a terminal, type:
 # Imports
 # -------
 import numpy as np
-from scipy.constants import c
+from scipy.constants import c, e, m_e
 # Import the relevant structures in FBPIC
 from fbpic.main import Simulation
 from fbpic.lpa_utils.laser import add_laser
