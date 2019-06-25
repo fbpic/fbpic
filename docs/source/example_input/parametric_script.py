@@ -61,7 +61,6 @@ dt = (zmax-zmin)/Nz/c   # Timestep (seconds)
 # The particles
 p_zmin = 25.e-6  # Position of the beginning of the plasma (meters)
 p_zmax = 500.e-6 # Position of the end of the plasma (meters)
-p_rmin = 0.      # Minimal radial position of the plasma (meters)
 p_rmax = 18.e-6  # Maximal radial position of the plasma (meters)
 n_e = 4.e18*1.e6 # Density (electrons.meters^-3)
 p_nz = 2         # Number of particles per cell along z
@@ -121,10 +120,15 @@ if __name__ == '__main__':
     # Initialize the simulation object
     # Parametric scan: use the flag `use_all_mpi_ranks=False` to
     # have each MPI rank run an independent simulation
-    sim = Simulation( Nz, zmax, Nr, rmax, Nm, dt,
-        p_zmin, p_zmax, p_rmin, p_rmax, p_nz, p_nr, p_nt, n_e,
-        dens_func=dens_func, zmin=zmin, boundaries='open', n_order=n_order,
-        use_cuda=use_cuda, use_all_mpi_ranks=False )
+    sim = Simulation( Nz, zmax, Nr, rmax, Nm, dt, zmin=zmin,
+        boundaries='open', n_order=n_order, use_cuda=use_cuda,
+        use_all_mpi_ranks=False )
+
+    # Create the plasma electrons
+    elec = sim.add_new_species( q=-e, m=m_e,
+                n=n_e, dens_func=dens_func,
+                p_zmin=p_zmin, p_zmax=p_zmax, p_rmax=p_rmax,
+                p_nz=p_nz, p_nr=p_nr, p_nt=p_nt )
 
     # Load initial fields
     # Add a laser to the fields of the simulation
@@ -143,7 +147,7 @@ if __name__ == '__main__':
     write_dir = 'diags_a0_%.2f' %a0
     sim.diags = [ FieldDiagnostic( diag_period, sim.fld,
                     comm=sim.comm, write_dir=write_dir ),
-                ParticleDiagnostic( diag_period, {"electrons" : sim.ptcl[0]},
+                ParticleDiagnostic( diag_period, {"electrons" : elec},
                     select={"uz" : [1., None ]},
                     comm=sim.comm, write_dir=write_dir ) ]
 
