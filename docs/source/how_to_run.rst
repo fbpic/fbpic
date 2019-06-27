@@ -37,26 +37,85 @@ where ``fbpic_script.py`` should be replaced by the name of your
 Python script: either ``lwfa_script.py`` or
 ``boosted_frame_script.py`` for the above examples.
 
+If an MPI implementation is available within the compute environment and
+the ``mpi4py`` package is installed, the computation can be scaled to multiple
+processes (e.g. 4) by running
+
+::
+
+  mpirun -n 4 python fbpic_script.py
+
+.. warning::
+
+    Note that, depending on the size of the simulation, running with
+    multiple MPI processes is not necessarily faster. In addition,
+    MPI simulations require using a finite order (e.g. ``n_order=32``)
+    for the field solver. Please read the
+    documentation on the :doc:`parallelisation of FBPIC
+    <overview/parallelisation>` before using this feature.
+
 .. note::
 
    When running on CPU, **multi-threading** is enabled by default, and the
-   default number of threads is the number of cores on your system. You
-   can modify this with environment variables:
+   default number of threads is the number of (virtual) cores on your system.
+   You can modify this with environment variables:
 
    - To modify the number of threads (e.g. set it to 8 threads):
 
    ::
 
-	export MKL_NUM_THREADS=8
-	export NUMBA_NUM_THREADS=8
-	python fbpic_script.py
+    export MKL_NUM_THREADS=8
+    export NUMBA_NUM_THREADS=8
+    python fbpic_script.py
 
-   - To disable multi-threading altogether (except for the FFT and DHT):
+   - To disable multi-threading altogether:
 
    ::
 
-	export FBPIC_DISABLE_THREADING=1
-	python fbpic_script.py
+    export FBPIC_DISABLE_THREADING=1
+    export MKL_NUM_THREADS=1
+    export NUMBA_NUM_THREADS=1
+    python fbpic_script.py
+
+   It can also happen that an alternative threading backend is selected by Numba
+   during installation. It is therefore sometimes required to set
+   ``OMP_NUM_THREADS`` in addition to (or instead of) ``MKL_NUM_THREADS``.
+
+   When running in a Jupyter notebook, environment variables can be set by
+   executing the following command at the beginning of the notebook:
+
+   ::
+
+    import os
+    os.environ['MKL_NUM_THREADS']='1'
+
+.. note::
+
+  On systems with more than one CPU socket per node, multi-threading
+  can become inefficient if the threads are distributed across sockets.
+  It can be advantageous to use one MPI process per socket and to limit the
+  number of threads to the number of physical cores of each socket. In addition,
+  it can be necessary to explicitly bind all threads of an MPI process to the
+  same socket.
+
+  On a machine with 2 sockets and 12 physical cores per socket, the following
+  commands spawn 2 MPI processes each with 12 threads bound to a single socket:
+
+  - Using the SLURM workload manager:
+
+    ::
+
+      export MKL_NUM_THREADS=12
+      export NUMBA_NUM_THREADS=12
+      srun -n 2 --cpu_bind=socket python fbpic_script.py
+
+  - Using the ``mpirun`` executable:
+
+    ::
+
+      export MKL_NUM_THREADS=12
+      export NUMBA_NUM_THREADS=12
+      mpirun -n 2 --bind-to socket python fbpic_script.py
 
 .. note::
 

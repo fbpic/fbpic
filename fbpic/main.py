@@ -13,7 +13,7 @@ from fbpic.utils.mpi import MPI
 # Check if threading is available
 from .utils.threading import threading_enabled
 # Check if CUDA is available, then import CUDA functions
-from .utils.cuda import cuda_installed
+from .utils.cuda import cuda_installed, cupy_installed
 if cuda_installed:
     from .utils.cuda import send_data_to_gpu, \
                 receive_data_from_gpu, mpi_select_gpus
@@ -57,19 +57,22 @@ class Simulation(object):
         """
         Initializes a simulation.
 
-        By default the simulation contains:
-
-            - an electron species
-            - (if ``initialize_ions`` is True) an ion species (Hydrogen 1+)
-
-        These species are stored in the attribute ``ptcl`` of ``Simulation``
-        (which is a Python list, containing the different species).
+        By default, this will not create any particle species. You can
+        then add particles species to the simulation by using e.g. the method
+        ``add_new_species`` of the simulation object.
 
         .. note::
 
-            For the arguments `p_rmin`, `p_rmax`, `p_nz`, `p_nr`, `p_nt`,
-            `n_e`, and `dens_func`, see the docstring of the method
-            `add_new_species` (where `n_e` has been re-labeled as `n`).
+            As a short-cut, you can also directly create particle
+            species when initializing the ``Simulation`` object,
+            by passing the aguments `n_e`, `p_rmin`, `p_rmax`, `p_nz`,
+            `p_nr`, `p_nt`, and `dens_func`. This will create:
+
+                - an electron species
+                - (if ``initialize_ions`` is True) an ion species (Hydrogen 1+)
+
+            See the docstring of the method ``add_new_species`` for the
+            above-mentioned arguments (where `n_e` has been re-labeled as `n`).
 
         Parameters
         ----------
@@ -126,7 +129,7 @@ class Simulation(object):
             with a speed v_comoving
 
         use_cuda: bool, optional
-            Wether to use CUDA (GPU) acceleration
+            Whether to use CUDA (GPU) acceleration
 
         n_guard: int, optional
             Number of guard cells to use at the left and right of
@@ -160,8 +163,7 @@ class Simulation(object):
         current_correction: string, optional
             The method used in order to ensure that the continuity equation
             is satisfied. Either `curl-free` or `cross-deposition`.
-            `curl-free` is faster but less local (should not be used with MPI).
-            For the moment, `cross-deposition` is still experimental.
+            `curl-free` is faster but less local.
 
         gamma_boost : float, optional
             When running the simulation in a boosted frame, set the
@@ -199,11 +201,16 @@ class Simulation(object):
         """
         # Check whether to use CUDA
         self.use_cuda = use_cuda
-        if (self.use_cuda==True) and (cuda_installed==False):
+        if self.use_cuda and not cuda_installed:
             warnings.warn(
                 'Cuda not available for the simulation.\n'
                 'Performing the simulation on CPU.' )
             self.use_cuda = False
+        if self.use_cuda and not cupy_installed:
+            raise RuntimeError(
+                'In order to run on GPUs, FBPIC version 0.13 and later \n'
+                'require the `cupy` package (version 6).\n'
+                'See the FBPIC documentation in order to install cupy.')
         # CPU multi-threading
         self.use_threading = threading_enabled
         if self.use_threading:
@@ -247,17 +254,18 @@ class Simulation(object):
         self.grid_shape = self.fld.interp[0].Ez.shape
         self.particle_shape = particle_shape
         self.ptcl = []
-        # - Initialize the electrons
-        self.add_new_species( q=-e, m=m_e, n=n_e, dens_func=dens_func,
-                              p_nz=p_nz, p_nr=p_nr, p_nt=p_nt,
-                              p_zmin=p_zmin, p_zmax=p_zmax,
-                              p_rmin=p_rmin, p_rmax=p_rmax )
-        # - Initialize the ions
-        if initialize_ions:
-            self.add_new_species( q=e, m=m_p, n=n_e, dens_func=dens_func,
-                              p_nz=p_nz, p_nr=p_nr, p_nt=p_nt,
-                              p_zmin=p_zmin, p_zmax=p_zmax,
-                              p_rmin=p_rmin, p_rmax=p_rmax )
+        if n_e is not None:
+            # - Initialize the electrons
+            self.add_new_species( q=-e, m=m_e, n=n_e, dens_func=dens_func,
+                                  p_nz=p_nz, p_nr=p_nr, p_nt=p_nt,
+                                  p_zmin=p_zmin, p_zmax=p_zmax,
+                                  p_rmin=p_rmin, p_rmax=p_rmax )
+            # - Initialize the ions
+            if initialize_ions:
+                self.add_new_species( q=e, m=m_p, n=n_e, dens_func=dens_func,
+                                  p_nz=p_nz, p_nr=p_nr, p_nt=p_nt,
+                                  p_zmin=p_zmin, p_zmax=p_zmax,
+                                  p_rmin=p_rmin, p_rmax=p_rmax )
 
         # Register the time and the iteration
         self.time = 0.
