@@ -14,7 +14,7 @@ from .particle_charge_and_mass import particle_charge, particle_mass
 from fbpic.main import Simulation as FBPICSimulation
 from fbpic.fields.smoothing import BinomialSmoother
 from fbpic.lpa_utils.laser import add_laser_pulse, GaussianLaser
-from fbpic.lpa_utils.bunch import add_elec_bunch_gaussian
+from fbpic.lpa_utils.bunch import add_particle_bunch_gaussian
 from fbpic.openpmd_diag import FieldDiagnostic, ParticleDiagnostic
 
 # Import picmi base class
@@ -67,8 +67,7 @@ class Simulation( PICMI_Simulation ):
             Nr=int(grid.nr), rmax=grid.rmax, Nm=grid.n_azimuthal_modes,
             dt=dt, use_cuda=True, boundaries=grid.bc_zmax,
             smoother=smoother, n_order=32 )
-        # Remove default electron species
-        self.fbpic_sim.ptcl = []
+
         # Set the moving window
         if grid.moving_window_velocity is not None:
             self.fbpic_sim.set_moving_window(grid.moving_window_velocity[-1])
@@ -143,7 +142,7 @@ class Simulation( PICMI_Simulation ):
                 assert interaction[1] == 'ADK'
                 picmi_target = interaction[2]
                 if not hasattr( picmi_target, 'fbpic_species' ):
-                    raise RunTimeError('For ionization with PICMI+FBPIC:\n'
+                    raise RuntimeError('For ionization with PICMI+FBPIC:\n'
                         'You need to add the target species to the simulation,'
                         ' before the other species.')
                 fbpic_target = picmi_target.fbpic_species
@@ -184,12 +183,10 @@ class Simulation( PICMI_Simulation ):
             n_emit = sig_r * dist.rms_velocity[0]
             sig_gamma = dist.rms_velocity[-1]/c
             zf = dist.centroid_position[-1]
-            add_elec_bunch_gaussian( self.fbpic_sim,
-                gamma0=gamma0, sig_gamma=sig_gamma,
-                sig_r=sig_r, sig_z=sig_z, n_emit=n_emit, Q=Q,
-                N=layout.n_macroparticles, zf=zf )
-            fbpic_species = self.fbpic_sim.ptcl[-1]
-
+            fbpic_species = add_particle_bunch_gaussian( self.fbpic_sim,
+                                gamma0=gamma0, sig_gamma=sig_gamma,
+                                sig_r=sig_r, sig_z=sig_z, n_emit=n_emit, Q=Q,
+                                N=layout.n_macroparticles, zf=zf )
         else:
             raise ValueError('Unknown combination of layout and distribution')
 
