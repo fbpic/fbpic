@@ -170,23 +170,33 @@ class Simulation( PICMI_Simulation ):
                 continuous_injection=s.initial_distribution.fill_in )
 
         # - For the case of a Gaussian beam
-        elif (type(s.initial_distribution)==PICMI_GaussianBunchDistribution) and \
-            (type(layout) == PICMI_PseudoRandomLayout):
-            assert s.charge == -e and s.mass == m_e
+        elif (type(s.initial_distribution)==PICMI_GaussianBunchDistribution) \
+             and (type(layout) == PICMI_PseudoRandomLayout):
             assert initialize_self_field
             dist = s.initial_distribution
-            Q = dist.n_physical_particles * e
+            gamma0_beta0 = dist.centroid_velocity[-1]/c
+            gamma0 = ( 1 + gamma0_beta0**2 )**.5
             sig_r = dist.rms_bunch_size[0]
             sig_z = dist.rms_bunch_size[-1]
-            gamma0_beta0 = dist.centroid_velocity[-1]
-            gamma0 = np.sqrt( 1 + gamma0_beta0**2 )
-            n_emit = sig_r * dist.rms_velocity[0]
             sig_gamma = dist.rms_velocity[-1]/c
-            zf = dist.centroid_position[-1]
+            sig_vr = dist.rms_velocity[0] / gamma0
+            if sig_vr != 0:
+                tf = - sig_r**2/sig_vr**2 * dist.velocity_divergence[0]
+            else:
+                tf = 0.
+            zf = dist.centroid_position[-1] + \
+                 dist.centroid_velocity[-1]/gamma0 * tf
+            print('Gamma', gamma0, sig_gamma)
+            # Calculate size at focus and emittance
+            sig_r0 = (sig_r**2 - (sig_vr*tf)**2)**0.5
+            n_emit = gamma0 * sig_r0 * sig_vr/c
             fbpic_species = add_particle_bunch_gaussian( self.fbpic_sim,
+                                q=s.charge, m=s.mass,
                                 gamma0=gamma0, sig_gamma=sig_gamma,
-                                sig_r=sig_r, sig_z=sig_z, n_emit=n_emit, Q=Q,
-                                N=layout.n_macroparticles, zf=zf )
+                                sig_r=sig_r0, sig_z=sig_z, n_emit=n_emit,
+                                n_physical_particles=dist.n_physical_particles,
+                                n_macroparticles=layout.n_macroparticles,
+                                zf=zf, tf=tf )
         else:
             raise ValueError('Unknown combination of layout and distribution')
 
