@@ -47,6 +47,7 @@ def test_picmi_script():
         script = f.read()
     script = replace_string( script, 'from plasmacode import picmi',
                              'from fbpic import picmi')
+    script = replace_string( script, 'step\(1000\)', 'step(10)')
     with open(script_filename, 'w') as f:
         f.write(script)
 

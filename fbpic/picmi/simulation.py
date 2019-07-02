@@ -66,7 +66,7 @@ class Simulation( PICMI_Simulation ):
             Nz=int(grid.nz), zmin=grid.zmin, zmax=grid.zmax,
             Nr=int(grid.nr), rmax=grid.rmax, Nm=grid.n_azimuthal_modes,
             dt=dt, use_cuda=True, boundaries=grid.bc_zmax,
-            smoother=smoother )
+            smoother=smoother, n_order=32 )
         # Remove default electron species
         self.fbpic_sim.ptcl = []
         # Set the moving window
