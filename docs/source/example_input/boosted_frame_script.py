@@ -18,11 +18,11 @@ where fbpic_object is any of the objects or function of FBPIC.
 # Imports
 # -------
 import numpy as np
-from scipy.constants import c
+from scipy.constants import c, e, m_e
 # Import the relevant structures in FBPIC
 from fbpic.main import Simulation
 from fbpic.lpa_utils.laser import add_laser
-from fbpic.lpa_utils.bunch import add_elec_bunch
+from fbpic.lpa_utils.bunch import add_particle_bunch
 from fbpic.lpa_utils.boosted_frame import BoostConverter
 from fbpic.openpmd_diag import FieldDiagnostic, ParticleDiagnostic, \
         BackTransformedFieldDiagnostic, BackTransformedParticleDiagnostic
@@ -175,7 +175,7 @@ if __name__ == '__main__':
         boundaries='open', use_cuda=use_cuda )
 
     # Add an electron bunch
-    add_elec_bunch( sim, bunch_gamma, bunch_n, bunch_zmin,
+    add_particle_bunch( sim, -e, m_e, bunch_gamma, bunch_n, bunch_zmin,
                 bunch_zmax, 0, bunch_rmax, boost=boost )
     if track_bunch:
         sim.ptcl[2].track( sim.comm )

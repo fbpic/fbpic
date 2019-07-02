@@ -59,7 +59,6 @@ def cuda_copy_2dR_to_2dC( array_in, array_out ) :
     if (iz < Nz) and (ir < Nr) :
         array_out[iz, ir] = array_in[iz, ir] + 1.j*array_in[iz+Nz, ir]
 
-
 @cuda.jit
 def cuda_copy_2d_to_1d( array_2d, array_1d ) :
     """

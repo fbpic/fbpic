@@ -358,7 +358,7 @@ def add_buffers_to_particles( species, float_recv_left, float_recv_right,
         species.Bz = cuda.device_array( shape, dtype=np.float64 )
         # Reallocate empty auxiliary sorting arrays on the GPU
         species.cell_idx = cuda.device_array( shape, dtype=np.int32 )
-        species.sorted_idx = cuda.device_array( shape, dtype=np.int32 )
+        species.sorted_idx = cuda.device_array( shape, dtype=np.intp )
         species.sorting_buffer = cuda.device_array( shape, dtype=np.float64 )
         if species.n_integer_quantities > 0:
             species.int_sorting_buffer = \

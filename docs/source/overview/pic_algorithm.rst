@@ -1,5 +1,5 @@
-Overview of the code
-====================
+FBPIC algorithm & features
+==========================
 
 Introduction to the PIC cycle
 --------------------------------
@@ -18,7 +18,7 @@ time steps**. At each timestep:
   - The charge and current of the macroparticles are deposited onto the grid.
   - The fields E and B are pushed in time.
 
-.. image:: images/pic_loop.png
+.. image:: ../images/pic_loop.png
 
 The distinctive features of FBPIC
 -------------------------------------
@@ -33,14 +33,14 @@ close-to-cylindrical symmetry, it is more efficient to use a
 **cylindrical grid** for the fields. This is represented below, with
 macroparticles in blue and the grid for the fields in red.
 
-.. image:: images/3d_vs_cylindrical.png
+.. image:: ../images/3d_vs_cylindrical.png
 
 The above image is only a schematic view. In fact, instead of using a **3D
 Cartesian grid**, FBPIC (and other PIC codes such as `Calder Circ
 <http://www.sciencedirect.com/science/article/pii/S0021999108005950>`_)
 use **a set of 2D radial grids**, as represented below. Each 2D radial grid represents **an azimuthal mode** (labeled by an integer :math:`m`):
 
-.. image:: images/cylindrical_grid.png
+.. image:: ../images/cylindrical_grid.png
 
 - The grid for :math:`m=0` represents the fields that are **independent of**
   :math:`\theta`. (In idealized laser-wakefield acceleration, this is
@@ -102,6 +102,8 @@ fields from each grid.
    The diagnostics of an FBPIC simulation output the macroparticles
    along with their weights (denoted as `w`) ; be sure to take them into account in
    your post-analysis.
+
+.. _spectral_solver:
 
 Analytical integration in spectral space
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~

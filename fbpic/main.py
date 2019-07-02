@@ -13,7 +13,7 @@ from fbpic.utils.mpi import MPI
 # Check if threading is available
 from .utils.threading import threading_enabled
 # Check if CUDA is available, then import CUDA functions
-from .utils.cuda import cuda_installed
+from .utils.cuda import cuda_installed, cupy_installed
 if cuda_installed:
     from .utils.cuda import send_data_to_gpu, \
                 receive_data_from_gpu, mpi_select_gpus
@@ -160,8 +160,7 @@ class Simulation(object):
         current_correction: string, optional
             The method used in order to ensure that the continuity equation
             is satisfied. Either `curl-free` or `cross-deposition`.
-            `curl-free` is faster but less local (should not be used with MPI).
-            For the moment, `cross-deposition` is still experimental.
+            `curl-free` is faster but less local.
 
         gamma_boost : float, optional
             When running the simulation in a boosted frame, set the
@@ -204,6 +203,11 @@ class Simulation(object):
                 'Cuda not available for the simulation.\n'
                 'Performing the simulation on CPU.' )
             self.use_cuda = False
+        if (self.use_cuda==True) and (cupy_installed==False):
+            raise RuntimeError(
+                'In order to run on GPUs, FBPIC version 0.13 and later \n'
+                'require the `cupy` package (version 6).\n'
+                'See the FBPIC documentation in order to install cupy.')
         # CPU multi-threading
         self.use_threading = threading_enabled
         if self.use_threading:

@@ -38,13 +38,14 @@ from ..cuda_numba_utils import allocate_empty, reallocate_and_copy_old, \
                                 perform_cumsum_2d, generate_new_ids
 
 # Check if CUDA is available, then import CUDA functions
-from fbpic.utils.cuda import cuda_installed
+from fbpic.utils.cuda import cuda_installed, cupy_installed
 from fbpic.utils.printing import catch_gpu_memory_error
 if cuda_installed:
-    from pyculib.rand import PRNG
     from fbpic.utils.cuda import cuda_tpb_bpg_1d
     from .cuda_methods import ionize_ions_cuda, copy_ionized_electrons_cuda
-
+if cupy_installed:
+    import cupy    
+    
 class Ionizer(object):
     """
     Class that contains the data associated with ionization (on the ions side)
@@ -207,9 +208,6 @@ class Ionizer(object):
             * ( 2*(Uion/UH)**(3./2)*Ea )**(2*n_eff - 1)
         self.adk_exp_prefactor = -2./3 * ( Uion/UH )**(3./2) * Ea
 
-        # Prepare random number generator
-        if self.use_cuda:
-            self.prng = PRNG()
 
     @catch_gpu_memory_error
     def handle_ionization( self, ion ):
@@ -225,6 +223,10 @@ class Ionizer(object):
         ion: an fbpic.Particles object
             The ionizable species, from which new electrons are created.
         """
+        # Skip this function if there are no ions
+        if ion.Ntot == 0:
+            return
+        
         # Process particles in batches (of typically 10, 20 particles)
         N_batch = int( ion.Ntot / self.batch_size ) + 1
         # Short-cuts
@@ -242,8 +244,7 @@ class Ionizer(object):
                                     dtype=np.int64 )
         # Draw random numbers
         if self.use_cuda:
-            random_draw = allocate_empty( ion.Ntot, use_cuda, dtype=np.float32)
-            self.prng.uniform( random_draw )
+            random_draw = cupy.random.rand( ion.Ntot, dtype=cupy.float32 )
         else:
             random_draw = np.random.rand( ion.Ntot )
 
