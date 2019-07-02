@@ -18,7 +18,7 @@ $ python setup.py test
 import os
 import re
 import shutil
-import urllib.request
+import wget
 
 def test_picmi_script():
     """
@@ -40,7 +40,7 @@ def test_picmi_script():
 
     # Download the picmi script
     url = 'https://raw.githubusercontent.com/picmi-standard/picmi/master/Examples/laser_acceleration/laser_acceleration_PICMI.py'
-    urllib.request.urlretrieve(url, script_filename)
+    wget.download(url, script_filename)
 
     # Read the script and modify it to use fbpic
     with open(script_filename) as f:
