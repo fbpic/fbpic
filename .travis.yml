@@ -30,6 +30,10 @@ before_script:
 script:
   - "python setup.py test"
 
+  # Run also the picmi test
+  - pip install wget picmistandard numexpr periodictable
+  - cd tests/unautomated ; python test_picmi.py
+
 after_success:
   # Automatically upload the documentation when updating the master branch
   - ./deploy.sh
