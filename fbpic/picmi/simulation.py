@@ -186,7 +186,6 @@ class Simulation( PICMI_Simulation ):
                 tf = 0.
             zf = dist.centroid_position[-1] + \
                  dist.centroid_velocity[-1]/gamma0 * tf
-            print('Gamma', gamma0, sig_gamma)
             # Calculate size at focus and emittance
             sig_r0 = (sig_r**2 - (sig_vr*tf)**2)**0.5
             n_emit = gamma0 * sig_r0 * sig_vr/c
