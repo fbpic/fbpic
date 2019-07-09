@@ -27,7 +27,7 @@ def test_picmi_script():
     n_MPI = 1
     temporary_dir = os.path.abspath('./tmp_test_dir')
     script_name = 'fbpic_script.py'
-    
+
     # Create a temporary directory for the simulation
     # and copy the example script into this directory
     if os.path.exists( temporary_dir ):
@@ -45,9 +45,9 @@ def test_picmi_script():
     # Read the script and modify it to use fbpic
     with open(script_filename) as f:
         script = f.read()
-    script = replace_string( script, 'from plasmacode import picmi',
+    script = replace_string( script, 'from .* import picmi',
                              'from fbpic import picmi')
-    script = replace_string( script, 'step\(1000\)', 'step(10)')
+    script = replace_string( script, 'step\(.*\)', 'step(10)')
     with open(script_filename, 'w') as f:
         f.write(script)
 

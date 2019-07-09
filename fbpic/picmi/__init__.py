@@ -18,6 +18,8 @@ except ImportError:
         "`picmistandard` package, e.g. with: `pip install picmistandard`")
 
 # Import picmi objects
+# - Constants
+from . import constants
 # - For general setup
 from picmistandard import PICMI_CylindricalGrid as CylindricalGrid
 from picmistandard import PICMI_BinomialSmoother as BinomialSmoother
@@ -45,4 +47,4 @@ __all__ = [ 'codename', 'Simulation', 'CylindricalGrid', 'BinomialSmoother',
     'ElectromagneticSolver', 'Species', 'MultiSpecies', 'LaserAntenna',
     'GaussianLaser', 'GriddedLayout', 'PseudoRandomLayout',
     'GaussianBunchDistribution', 'AnalyticDistribution',
-    'FieldDiagnostic', 'ParticleDiagnostic' ]
+    'FieldDiagnostic', 'ParticleDiagnostic', 'constants' ]
