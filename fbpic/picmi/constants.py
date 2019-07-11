@@ -6,9 +6,7 @@ This file is part of the Fourier-Bessel Particle-In-Cell code (FB-PIC)
 It defines the constants of the PICMI standard.
 """
 from scipy import constants
-import math
 
-pi = math.pi
 c = constants.c
 ep0 = constants.epsilon_0
 mu0 = constants.mu_0
