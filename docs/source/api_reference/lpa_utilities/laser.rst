@@ -44,6 +44,19 @@ Generic function for arbitrary laser profile
 
 .. autofunction:: fbpic.lpa_utils.laser.add_laser_pulse
 
+.. note::
+    Even though the user does not directly input the laser *energy* into ``FBPIC``,
+    but rather its *amplitude* :math:`a_0`, making the connection between :math:`a_0`
+    and a certain energy can be important for modelling experiments.
+    *Real-life* laser pulses have complicated intensity profiles,
+    with significant wings that extend to high radius.
+    These wings are the reason why only a fraction of the energy is inside the focal spot.
+    For Gaussian pulses, the wings are very weak at high radius.
+    Depending on how one defines the focal spot, almost all the energy is inside the spot.
+    On the other hand, if one uses a :class:`FlattenedGaussianLaser <fbpic.lpa_utils.laser.FlattenedGaussianLaser>`
+    (closer to a real-life laser), the intensity profile at focus will have significant wings,
+    and the energy in the central spot will be only a fraction of the total energy.
+
 Laser profiles
 ---------------
 
