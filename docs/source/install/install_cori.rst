@@ -90,7 +90,7 @@ and replace the bracketed text by the proper values.
     export NUMBA_NUM_THREADS=16
     export MKL_NUM_THREADS=16
 
-    srun -n <n_mpi> -c 32 --cpu_bind=cores python <fbpic_script.py>
+    srun -n <n_mpi> -c 32 --cpu-bind=cores python <fbpic_script.py>
 
 Then run:
 
