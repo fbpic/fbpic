@@ -89,9 +89,11 @@ class Simulation( PICMI_Simulation ):
             phi2_chirp = laser.phi2
             if phi2_chirp is None:
                 phi2_chirp = 0
+            polarization_angle = np.arctan2(laser.polarization_direction[0],
+                                            laser.polarization_direction[1])
             laser_profile = GaussianLaser( a0=laser.a0, waist=laser.waist,
                 z0=laser.centroid_position[-1], zf=laser.focal_position[-1],
-                tau=laser.duration, theta_pol=laser.polarization_angle,
+                tau=laser.duration, theta_pol=polarization_angle,
                 phi2_chirp=phi2_chirp )
         else:
             raise ValueError('Unknown laser profile: %s' %type(injection_method))
@@ -158,8 +160,12 @@ class Simulation( PICMI_Simulation ):
         if (type(s.initial_distribution)==PICMI_AnalyticDistribution) and \
             (type(layout) == PICMI_GriddedLayout):
             import numexpr
+            density_expression = s.initial_distribution.density_expression
+            if s.density_scale is not None:
+                density_expression = "%f*(%s)" \
+                     %(s.density_scale, density_expression)
             def dens_func(z, r):
-                n = numexpr.evaluate(s.initial_distribution.density_expression)
+                n = numexpr.evaluate(density_expression)
                 return n
             p_nr = layout.n_macroparticle_per_cell[0]
             p_nt = layout.n_macroparticle_per_cell[1]
@@ -189,11 +195,15 @@ class Simulation( PICMI_Simulation ):
             # Calculate size at focus and emittance
             sig_r0 = (sig_r**2 - (sig_vr*tf)**2)**0.5
             n_emit = gamma0 * sig_r0 * sig_vr/c
+            # Get the number of physical particles
+            n_physical_particles = dist.n_physical_particles
+            if s.density_scale is not None:
+                n_physical_particles *= s.density_scale
             fbpic_species = add_particle_bunch_gaussian( self.fbpic_sim,
                                 q=s.charge, m=s.mass,
                                 gamma0=gamma0, sig_gamma=sig_gamma,
                                 sig_r=sig_r0, sig_z=sig_z, n_emit=n_emit,
-                                n_physical_particles=dist.n_physical_particles,
+                                n_physical_particles=n_physical_particles,
                                 n_macroparticles=layout.n_macroparticles,
                                 zf=zf, tf=tf )
         else:
