@@ -173,6 +173,8 @@ class Simulation( PICMI_Simulation ):
             fbpic_species = self.fbpic_sim.add_new_species(
                 q=s.charge, m=s.mass, n=1.,
                 dens_func=dens_func, p_nz=p_nz, p_nr=p_nr, p_nt=p_nt,
+                p_zmin=s.initial_distribution.lower_bound[-1],
+                p_zmax=s.initial_distribution.upper_bound[-1],
                 continuous_injection=s.initial_distribution.fill_in )
 
         # - For the case of a Gaussian beam
