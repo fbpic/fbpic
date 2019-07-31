@@ -89,8 +89,8 @@ class Simulation( PICMI_Simulation ):
             phi2_chirp = laser.phi2
             if phi2_chirp is None:
                 phi2_chirp = 0
-            polarization_angle = np.arctan2(laser.polarization_direction[0],
-                                            laser.polarization_direction[1])
+            polarization_angle = np.arctan2(laser.polarization_direction[1],
+                                            laser.polarization_direction[0])
             laser_profile = GaussianLaser( a0=laser.a0, waist=laser.waist,
                 z0=laser.centroid_position[-1], zf=laser.focal_position[-1],
                 tau=laser.duration, theta_pol=polarization_angle,
