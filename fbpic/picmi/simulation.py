@@ -159,6 +159,7 @@ class Simulation( PICMI_Simulation ):
         # - For the case of a plasma defined in a gridded layout
         if (type(s.initial_distribution)==PICMI_AnalyticDistribution) and \
             (type(layout) == PICMI_GriddedLayout):
+            assert initialize_self_field == False
             import numexpr
             density_expression = s.initial_distribution.density_expression
             if s.density_scale is not None:
@@ -180,7 +181,6 @@ class Simulation( PICMI_Simulation ):
         # - For the case of a Gaussian beam
         elif (type(s.initial_distribution)==PICMI_GaussianBunchDistribution) \
              and (type(layout) == PICMI_PseudoRandomLayout):
-            assert initialize_self_field
             dist = s.initial_distribution
             gamma0_beta0 = dist.centroid_velocity[-1]/c
             gamma0 = ( 1 + gamma0_beta0**2 )**.5
