@@ -207,7 +207,8 @@ class Simulation( PICMI_Simulation ):
                                 sig_r=sig_r0, sig_z=sig_z, n_emit=n_emit,
                                 n_physical_particles=n_physical_particles,
                                 n_macroparticles=layout.n_macroparticles,
-                                zf=zf, tf=tf )
+                                zf=zf, tf=tf,
+                                initialize_self_field=initialize_self_field )
         else:
             raise ValueError('Unknown combination of layout and distribution')
 
