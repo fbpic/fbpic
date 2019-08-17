@@ -18,7 +18,6 @@ $ python setup.py test
 import os
 import re
 import shutil
-import wget
 
 def test_picmi_script():
     """
@@ -26,7 +25,7 @@ def test_picmi_script():
     """
     n_MPI = 1
     temporary_dir = os.path.abspath('./tmp_test_dir')
-    script_name = 'fbpic_script.py'
+    script_name = '../fbpic_script.py'
 
     # Create a temporary directory for the simulation
     # and copy the example script into this directory
@@ -37,10 +36,6 @@ def test_picmi_script():
 
     # Shortcut for the script file, which is repeatedly changed
     script_filename = os.path.join( temporary_dir, script_name )
-
-    # Download the picmi script
-    url = 'https://raw.githubusercontent.com/picmi-standard/picmi/master/Examples/laser_acceleration/laser_acceleration_PICMI.py'
-    wget.download(url, script_filename)
 
     # Read the script and modify it to use fbpic
     with open(script_filename) as f:
