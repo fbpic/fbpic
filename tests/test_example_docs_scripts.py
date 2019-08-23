@@ -23,8 +23,8 @@ import os
 import re
 import shutil
 import numpy as np
-from opmd_viewer import OpenPMDTimeSeries
-from opmd_viewer.addons import LpaDiagnostics
+from openpmd_viewer import OpenPMDTimeSeries
+from openpmd_viewer.addons import LpaDiagnostics
 
 def test_lpa_sim_singleproc_restart():
     "Test the example input script with one proc in `docs/source/example_input`"
@@ -347,4 +347,3 @@ if __name__ == '__main__':
     test_ionization_script_twoproc()
     test_lpa_sim_singleproc_restart()
     test_parametric_sim_twoproc()
-

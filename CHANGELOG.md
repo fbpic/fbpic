@@ -1,6 +1,16 @@
 # Change Log / Release Log for fbpic
 
-## 0.13
+## 0.13.1
+
+This is a minor release. It introduces:
+
+- A minor API change: When creating a `Simulation` object with no particles,
+the user does not need to do `sim.ptcl = []` anymore: [#376](https://github.com/fbpic/fbpic/pull/376)
+- FBPIC is now compatible with the upcoming version 1.0 of `openPMD-viewer`: [#387](https://github.com/fbpic/fbpic/pull/387)
+- A bug-fix for the ballistic injection in the lab-frame: [#384](https://github.com/fbpic/fbpic/pull/384)
+- Limited, rudimentary support for PICMI: [#350](https://github.com/fbpic/fbpic/pull/350) [#383](https://github.com/fbpic/fbpic/pull/383) [#384](https://github.com/fbpic/fbpic/pull/384) [#384](https://github.com/fbpic/fbpic/pull/384)
+
+## 0.13.0
 
 This release introduces an important change on GPU: FBPIC now uses the `cupy` package instead of the `pyculib` package (since `pyculib` is no longer supported); see [#356](https://github.com/fbpic/fbpic/pull/356) [#363](https://github.com/fbpic/fbpic/pull/363) [#367](https://github.com/fbpic/fbpic/pull/367). As a result, it is now possible to use FBPIC with Numba 0.43 (or higher).
 
