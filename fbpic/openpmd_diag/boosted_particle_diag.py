@@ -675,8 +675,8 @@ class ParticleCatcher:
             # Calculate cell area to get particles from
             # - Get z indices of the slices in which to get the particles
             # (mirrors the index calculation in `get_cell_idx_per_particle`)
-            iz_curr = math.ceil((current_z_boost-zmin-0.5*dz)/dz)
-            iz_prev = math.ceil((previous_z_boost-zmin-0.5*dz + dt*c)/dz) + 1
+            iz_curr = int(math.ceil((current_z_boost-zmin-0.5*dz)/dz))
+            iz_prev = int(math.ceil((previous_z_boost-zmin-0.5*dz + dt*c)/dz)) + 1
             # - Get the prefix sum values that correspond to these indices
             #   (Take into account potential shift due to the moving window)
             z_cell_curr = iz_curr + pref_sum_shift
