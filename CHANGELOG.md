@@ -1,5 +1,10 @@
 # Change Log / Release Log for fbpic
 
+## 0.13.2
+
+This is a big-fix release ; it fixes a minor bug with Python 2, for the
+back-transformed particle diagnostic (see [#389](https://github.com/fbpic/fbpic/pull/389)).
+
 ## 0.13.1
 
 This is a minor release. It introduces:
