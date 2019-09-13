@@ -28,29 +28,24 @@ Once your OTP token is configured, you can connect by using
 Installation of FBPIC
 ---------------------
 
-Installation of Anaconda
-~~~~~~~~~~~~~~~~~~~~~~~~
+Setting up Anaconda
+~~~~~~~~~~~~~~~~~~~
 
-In order to download and install Anaconda and FBPIC, follow the steps
-below:
+- Add the following lines in your ``~/.bashrc``
 
--  Download Miniconda:
+    ::
 
-   ::
+        module load python
+        . /global/software/sl-7.x86_64/modules/langs/python/3.6/etc/profile.d/conda.sh
 
-       wget https://repo.continuum.io/miniconda/Miniconda3-latest-Linux-x86_64.sh
+  Then log off and log in again in order for these changes to be active.
 
--  Execute the Miniconda installation script, and use ``/global/scratch/<yourUsername>`` as an install directory, for faster disk access.
+- Create a new conda environment and activate it.
 
-   ::
+    ::
 
-       bash Miniconda3-latest-Linux-x86_64.sh -p /global/scratch/<yourUsername>/miniconda3
-
-   where the bracketed text should be replaced by your username. Then type
-
-  ::
-
-       source .bashrc
+        conda create -n fbpic python=3
+        conda activate fbpic
 
 Installation of FBPIC and its dependencies
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -59,9 +54,8 @@ Installation of FBPIC and its dependencies
 
    ::
 
-       conda install -c conda-forge numba scipy h5py mkl mpi4py cudatoolkit=10.0
+       conda install -c conda-forge numba scipy h5py mkl cudatoolkit=10.0 mpi4py=*=*mpich*
        pip install cupy-cuda100
-
 
 -  Install ``fbpic``
 
@@ -102,6 +96,7 @@ the directory where you prepared your input script and type
 
 ::
 
+    conda activate fbpic
     python <fbpic_script.py>
 
 Batch job
@@ -122,6 +117,10 @@ following text (and replace the bracketed text by the proper values).
     #SBATCH --time <requestedTime>
     #SBATCH --ntasks <requestedRanks>
     #SBATCH --gres=gpu:<gpuPerNode> --cpus-per-task=<cpuPerTask>
+
+    module load python
+    . /global/software/sl-7.x86_64/modules/langs/python/3.6/etc/profile.d/conda.sh
+    conda activate fbpic
 
     mpirun -np <requestedRanks> python fbpic_script.py
 
