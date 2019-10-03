@@ -1,5 +1,53 @@
 # Change Log / Release Log for fbpic
 
+## 0.13.2
+
+This is a big-fix release ; it fixes a minor bug with Python 2, for the
+back-transformed particle diagnostic (see [#389](https://github.com/fbpic/fbpic/pull/389)).
+
+## 0.13.1
+
+This is a minor release. It introduces:
+
+- A minor API change: When creating a `Simulation` object with no particles,
+the user does not need to do `sim.ptcl = []` anymore: [#376](https://github.com/fbpic/fbpic/pull/376)
+- FBPIC is now compatible with the upcoming version 1.0 of `openPMD-viewer`: [#387](https://github.com/fbpic/fbpic/pull/387)
+- A bug-fix for the ballistic injection in the lab-frame: [#384](https://github.com/fbpic/fbpic/pull/384)
+- Limited, rudimentary support for PICMI: [#350](https://github.com/fbpic/fbpic/pull/350) [#383](https://github.com/fbpic/fbpic/pull/383) [#384](https://github.com/fbpic/fbpic/pull/384) [#384](https://github.com/fbpic/fbpic/pull/384)
+
+## 0.13.0
+
+This release introduces an important change on GPU: FBPIC now uses the `cupy` package instead of the `pyculib` package (since `pyculib` is no longer supported); see [#356](https://github.com/fbpic/fbpic/pull/356) [#363](https://github.com/fbpic/fbpic/pull/363) [#367](https://github.com/fbpic/fbpic/pull/367). As a result, it is now possible to use FBPIC with Numba 0.43 (or higher).
+
+It also introduces official support for MPI-decomposed simulation ;
+see [#348](https://github.com/fbpic/fbpic/pull/348)
+
+In addition, this release adds various improvements to FBPIC:
+
+**New features:**
+
+- FBPIC can now initialize beams with arbitrary charge [#364](https://github.com/fbpic/fbpic/pull/364)
+- The external fields can be automatically transformed to the boosted frame
+[#342](https://github.com/fbpic/fbpic/pull/342)
+- The `ParticleChargeDiagnostic` is now smoothed, in the same way as the regular charge density diagnostic [#349](https://github.com/fbpic/fbpic/pull/349)
+
+**Optimizations:**    
+
+- The number of threads per block were optimized for modern GPUs [#365](https://github.com/fbpic/fbpic/pull/365)
+- Certain arrays are now kept on GPU, and never copied to CPU [#361](https://github.com/fbpic/fbpic/pull/361)
+
+**Bug-fix:**
+
+- There was a bug when restarting a simulation involving ionization on GPU [#360](https://github.com/fbpic/fbpic/pull/360)
+
+## 0.12
+
+This release introduces a few minor changes:
+
+- It is now necessary to use Numba 0.42 (or lower), due to limitations in `pyculib`.
+- The `BoostedFrameDiagnostics` are now renamed as `BackTransformedDiagnostics`; see [#339](https://github.com/fbpic/fbpic/pull/339)
+- The user can now pass a physical time (instead of a number of iterations) to the `ParticleDiagnostic` and `FieldDiagnostic`; see [336](https://github.com/fbpic/fbpic/pull/336)
+
 ## 0.11
 
 This release makes several improvements to FBPIC:

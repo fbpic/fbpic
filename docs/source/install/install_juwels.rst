@@ -35,8 +35,9 @@ Then install the dependencies of FBPIC:
 
 ::
 
-   conda install numba==0.42 scipy h5py mkl
-   conda install cudatoolkit=8.0 pyculib
+    conda install numba scipy h5py mkl
+    conda install cudatoolkit=10.0
+    pip install cupy-cuda100
 
 It is advised that the following packages are **NOT** installed
 directly with Anaconda: ``mpich`` and ``mpi4py``
@@ -80,9 +81,7 @@ Running simulations
 In the following, it is explained how to allocate and use
 **interactive** jobs on JUWELS. For the usage of normal jobs, one can
 use the similar commands in a job script. More information can be found
-here:
-
-``https://www.fz-juelich.de/ias/jsc/EN/Expertise/Supercomputers/JUWELS/UserInfo/UserInfo_node.html``
+`here <https://www.fz-juelich.de/ias/jsc/EN/Expertise/Supercomputers/JUWELS/UserInfo/UserInfo_node.html>`__.
 
 **Allocation of ressources**
 
