@@ -691,9 +691,10 @@ class Simulation(object):
         .. note::
 
             For the arguments below, it is recommended to have at least
-            ``p_nt = 4*Nm``, i.e. the required number of macroparticles
-            along `theta` (in order for the simulation to be properly resolved)
-            increases with the number of azimuthal modes used.
+            ``p_nt = 4*Nm`` (except in the case ``Nm=1``, for which
+            ``p_nt=1`` is sufficient). In other words, the required number of
+            macroparticles along `theta` (in order for the simulation to be
+            properly resolved) increases with the number of azimuthal modes used.
 
         Parameters
         ----------
