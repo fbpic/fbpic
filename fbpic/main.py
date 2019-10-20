@@ -11,7 +11,7 @@ This file steers and controls the simulation.
 # as it sets the cuda context)
 from fbpic.utils.mpi import MPI
 # Check if threading is available
-from .utils.threading import threading_enabled
+from .utils.threading import threading_enabled, numba_minor_version
 # Check if CUDA is available, then import CUDA functions
 from .utils.cuda import cuda_installed, cupy_installed
 if cuda_installed:
@@ -211,6 +211,11 @@ class Simulation(object):
                 'In order to run on GPUs, FBPIC version 0.13 and later \n'
                 'require the `cupy` package (version 6).\n'
                 'See the FBPIC documentation in order to install cupy.')
+        if self.use_cuda and numba_minor_version > 45:
+            raise RuntimeError(
+                'In order to run on GPU, please install numba version 0.45:\n'
+                '  conda install numba=0.45, or:\n'
+                '  pip install numba==0.45')
         # CPU multi-threading
         self.use_threading = threading_enabled
         if self.use_threading:
