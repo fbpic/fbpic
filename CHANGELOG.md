@@ -1,8 +1,13 @@
 # Change Log / Release Log for fbpic
 
+## 0.13.3
+
+This is a bug-fix release ; it prevents an incompatibility between cupy and the latest version of numba (numba 0.46).
+In addition, a new diagnostic was added, in order to save the input script.
+
 ## 0.13.2
 
-This is a big-fix release ; it fixes a minor bug with Python 2, for the
+This is a bug-fix release ; it fixes a minor bug with Python 2, for the
 back-transformed particle diagnostic (see [#389](https://github.com/fbpic/fbpic/pull/389)).
 
 ## 0.13.1
