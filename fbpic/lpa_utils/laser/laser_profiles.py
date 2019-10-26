@@ -711,3 +711,65 @@ class FlattenedGaussianLaser( LaserProfile ):
         See the docstring of LaserProfile.E_field
         """
         return self.summed_profile.E_field( x, y, z, t )
+
+
+class FewCycleLaser( LaserProfile ):
+    """Class that calculates an ultra-short, tightly focussed laser"""
+
+    def __init__( self, a0, waist, tau_fwhm, z0, zf=None, theta_pol=0.,
+                    lambda0=0.8e-6, cep_phase=0., propagation_direction=1 ):
+        """
+        TODO:
+        - Explain why Gaussian laser is not well adapted: static field +
+          does not focus to a tight spot (esp. due to curve-front curvature)
+        - Give reference for this profile
+        - Say that this tends to a Gaussian laser in the limit of large waist, long duration
+        - Implementation is largely inspired by N. Zaim's implementation in Warp
+        """
+        # Initialize propagation direction
+        LaserProfile.__init__(self, propagation_direction)
+
+        # Set a number of parameters for the laser
+        k0 = 2*np.pi/lambda0
+        E0 = a0*m_e*c**2*k0/e
+        zr = 0.5*k0*waist**2
+
+        # If no focal plane position is given, use z0
+        if zf is None:
+            zf = z0
+
+        # Store the parameters
+        self.k0 = k0
+        self.zr = zr
+        self.zf = zf
+        self.z0 = z0
+        self.E0x = E0 * np.cos(theta_pol)
+        self.E0y = E0 * np.sin(theta_pol)
+        self.w0 = waist
+        self.cep_phase = cep_phase
+
+        # Find the Poisson parameter s, by solving the non-linear equation
+        from scipy.optimize import fsolve
+        w_tau = c*k0*tau_fwhm
+        sol = fsolve(lambda s: s*(2*(4**(1/(s+1))-1))**.5 - w_tau, 1.)
+        self.s_Poisson = sol[0]
+
+    def E_field( self, x, y, z, t ):
+        """
+        See the docstring of LaserProfile.E_field
+        """
+        prop_dir = self.propag_direction
+        inv_q = 1./( prop_dir * (z - self.zf) + 1.j*self.zr )
+        # Calculate the argument inside the power function
+        argument = 1. + 1.j*self.k0/self.s_Poisson*(
+            prop_dir*(z - self.z0) - c*t + 0.5*(x**2 + y**2)*inv_q )
+
+        # Get the transverse profile
+        profile = np.exp(1.j*self.cep_phase) * 1.j*self.zr*inv_q * \
+                    argument**(-self.s_Poisson-1)
+
+        # Get the projection along x and y, with the correct polarization
+        Ex = self.E0x * profile
+        Ey = self.E0y * profile
+
+        return( Ex.real, Ey.real )
