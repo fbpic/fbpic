@@ -410,7 +410,7 @@ class LaguerreGaussLaser( LaserProfile ):
             - self.inv_ctau2 * ( prop_dir*(z - self.z0) - c*t \
                 # The term below corresponds to the curvature of the
                 # envelope ; see Phys. Rev. E 59, 1082 (1999), appendix B.2
-                - alpha*(1-alpha**2)*(x**2+y**2) \
+                + alpha*(x**2+y**2) \
                 /(self.k0*self.w0**2*(1+alpha**2)**2) )**2 \
             - 1.j*(2*self.p + self.m)*psi # Additional Gouy phase
 
