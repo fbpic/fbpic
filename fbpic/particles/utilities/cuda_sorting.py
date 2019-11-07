@@ -185,26 +185,3 @@ def prefill_prefix_sum(cell_idx, prefix_sum, Ntot):
         else:
             # If this species has no particles, fill all cells with 0
             prefix_sum[i] = 0
-
-@cuda.jit
-def write_sorting_buffer(sorted_idx, val, buf):
-    """
-    Writes the values of a particle array to a buffer,
-    while rearranging them to match the sorted cell index array.
-
-    Parameters
-    ----------
-    sorted_idx : 1darray of integers
-        Represents the original index of the
-        particle before the sorting
-
-    val : 1d array of floats
-        A particle data array
-
-    buf : 1d array of floats
-        A buffer array to temporarily store the
-        sorted particle data array
-    """
-    i = cuda.grid(1)
-    if i < val.shape[0]:
-        buf[i] = val[sorted_idx[i]]

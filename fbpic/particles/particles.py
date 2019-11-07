@@ -45,7 +45,7 @@ if cuda_installed:
         gather_field_gpu_cubic
     from .gathering.cuda_methods_one_mode import erase_eb_cuda, \
         gather_field_gpu_linear_one_mode, gather_field_gpu_cubic_one_mode
-    from .utilities.cuda_sorting import write_sorting_buffer, \
+    from .utilities.cuda_sorting import \
         get_cell_idx_per_particle, sort_particles_per_cell, \
         prefill_prefix_sum, incl_prefix_sum
 
@@ -502,8 +502,6 @@ class Particles(object) :
         arrays. A particle buffer is used to temporarily store
         the rearranged data.
         """
-        # Get the threads per block and the blocks per grid
-        dim_grid_1d, dim_block_1d = cuda_tpb_bpg_1d( self.Ntot )
         # Iterate over (float) particle attributes
         attr_list = [ (self,'x'), (self,'y'), (self,'z'), \
                         (self,'ux'), (self,'uy'), (self,'uz'), \
@@ -517,8 +515,8 @@ class Particles(object) :
             # Get particle GPU array
             particle_array = getattr( attr[0], attr[1] )
             # Write particle data to particle buffer array while rearranging
-            write_sorting_buffer[dim_grid_1d, dim_block_1d](
-                self.sorted_idx, particle_array, self.sorting_buffer)
+            cupy.take( particle_array, self.sorted_idx,
+                       out=self.sorting_buffer )
             # Assign the particle buffer to
             # the initial particle data array
             setattr( attr[0], attr[1], self.sorting_buffer)
@@ -534,8 +532,8 @@ class Particles(object) :
             # Get particle GPU array
             particle_array = getattr( attr[0], attr[1] )
             # Write particle data to particle buffer array while rearranging
-            write_sorting_buffer[dim_grid_1d, dim_block_1d](
-                self.sorted_idx, particle_array, self.int_sorting_buffer)
+            cupy.take( particle_array, self.sorted_idx,
+                       out=self.int_sorting_buffer )
             # Assign the particle buffer to
             # the initial particle data array
             setattr( attr[0], attr[1], self.int_sorting_buffer)
