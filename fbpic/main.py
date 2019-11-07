@@ -13,7 +13,8 @@ from fbpic.utils.mpi import MPI
 # Check if threading is available
 from .utils.threading import threading_enabled, numba_minor_version
 # Check if CUDA is available, then import CUDA functions
-from .utils.cuda import cuda_installed, cupy_installed, cupy_major_version
+from .utils.cuda import cuda_installed, MoveSimToGpuIfNeeded, \
+    cupy_installed, cupy_major_version
 if cuda_installed:
     from .utils.cuda import send_data_to_gpu, \
                 receive_data_from_gpu, mpi_select_gpus
@@ -578,61 +579,65 @@ class Simulation(object):
             The species which that should deposit their charge/current.
             If this is None, all species (and antennas) deposit.
         """
-        # Shortcut
-        fld = self.fld
-        # If no species_list is provided, all species and antennas deposit
-        if species_list is None:
-            species_list = self.ptcl
-            antennas_list = self.laser_antennas
-        else:
-            # Otherwise only the specified species deposit
-            antennas_list = []
+        # If the simulation data is initially on CPU, move it to GPU
+        # for this function, and then move it back to CPU at the end
+        with MoveSimToGpuIfNeeded(self):
 
-        # Deposit charge or currents on the interpolation grid
+            # Shortcut
+            fld = self.fld
+            # If no species_list is provided, all species and antennas deposit
+            if species_list is None:
+                species_list = self.ptcl
+                antennas_list = self.laser_antennas
+            else:
+                # Otherwise only the specified species deposit
+                antennas_list = []
 
-        # Charge
-        if fieldtype.startswith('rho'):  # e.g. rho_next, rho_prev, etc.
-            fld.erase('rho')
-            # Deposit the particle charge
-            for species in species_list:
-                species.deposit( fld, 'rho' )
-            # Deposit the charge of the virtual particles in the antenna
-            for antenna in antennas_list:
-                antenna.deposit( fld, 'rho' )
-            # Sum contribution from each CPU threads (skipped on GPU)
-            fld.sum_reduce_deposition_array('rho')
-            # Divide by cell volume
-            fld.divide_by_volume('rho')
-            # Exchange guard cells if requested by the user
-            if exchange and self.comm.size > 1:
-                self.comm.exchange_fields(fld.interp, 'rho', 'add')
+            # Deposit charge or currents on the interpolation grid
 
-        # Currents
-        elif fieldtype == 'J':
-            fld.erase('J')
-            # Deposit the particle current
-            for species in species_list:
-                species.deposit( fld, 'J' )
-            # Deposit the current of the virtual particles in the antenna
-            for antenna in antennas_list:
-                antenna.deposit( fld, 'J' )
-            # Sum contribution from each CPU threads (skipped on GPU)
-            fld.sum_reduce_deposition_array('J')
-            # Divide by cell volume
-            fld.divide_by_volume('J')
-            # Exchange guard cells if requested by the user
-            if exchange and self.comm.size > 1:
-                self.comm.exchange_fields(fld.interp, 'J', 'add')
-        else:
-            raise ValueError('Unknown fieldtype: %s' %fieldtype)
+            # Charge
+            if fieldtype.startswith('rho'):  # e.g. rho_next, rho_prev, etc.
+                fld.erase('rho')
+                # Deposit the particle charge
+                for species in species_list:
+                    species.deposit( fld, 'rho' )
+                # Deposit the charge of the virtual particles in the antenna
+                for antenna in antennas_list:
+                    antenna.deposit( fld, 'rho' )
+                # Sum contribution from each CPU threads (skipped on GPU)
+                fld.sum_reduce_deposition_array('rho')
+                # Divide by cell volume
+                fld.divide_by_volume('rho')
+                # Exchange guard cells if requested by the user
+                if exchange and self.comm.size > 1:
+                    self.comm.exchange_fields(fld.interp, 'rho', 'add')
 
-        # Get the charge or currents on the spectral grid
-        if update_spectral:
-            fld.interp2spect( fieldtype )
-            if self.filter_currents:
-                fld.filter_spect( fieldtype )
-            # Set the flag to indicate whether these fields have been exchanged
-            fld.exchanged_source[ fieldtype ] = exchange
+            # Currents
+            elif fieldtype == 'J':
+                fld.erase('J')
+                # Deposit the particle current
+                for species in species_list:
+                    species.deposit( fld, 'J' )
+                # Deposit the current of the virtual particles in the antenna
+                for antenna in antennas_list:
+                    antenna.deposit( fld, 'J' )
+                # Sum contribution from each CPU threads (skipped on GPU)
+                fld.sum_reduce_deposition_array('J')
+                # Divide by cell volume
+                fld.divide_by_volume('J')
+                # Exchange guard cells if requested by the user
+                if exchange and self.comm.size > 1:
+                    self.comm.exchange_fields(fld.interp, 'J', 'add')
+            else:
+                raise ValueError('Unknown fieldtype: %s' %fieldtype)
+
+            # Get the charge or currents on the spectral grid
+            if update_spectral:
+                fld.interp2spect( fieldtype )
+                if self.filter_currents:
+                    fld.filter_spect( fieldtype )
+                # Set the flag to indicate whether fields have been exchanged
+                fld.exchanged_source[ fieldtype ] = exchange
 
     def cross_deposit( self, move_positions ):
         """

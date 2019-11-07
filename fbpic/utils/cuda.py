@@ -125,6 +125,52 @@ def receive_data_from_gpu(simulation):
     # Receive fields from the GPU (if CUDA is used)
     simulation.fld.receive_fields_from_gpu()
 
+class MoveSimToGpuIfNeeded(object):
+    """
+    Context manager that temporarily moves the simulation data to the GPU,
+    if the data is originally on the CPU when entering the context manager
+    """
+
+    def __init__(self, simulation):
+        """
+        Initialize the context manager
+
+        Parameters:
+        -----------
+        simulation: object
+            A simulation object that contains the particle
+            (ptcl) and field object (fld)
+        """
+        # Check whether the data is initially on the CPU or GPU
+        self.fields_were_on_gpu = simulation.fld.data_is_on_gpu
+        self.species_were_on_gpu = [ species.data_is_on_gpu \
+                                     for species in simulation.ptcl ]
+        # Keep a reference to the simulation
+        self.sim = simulation
+
+    def __enter__(self):
+        """
+        Move the data to the GPU (if it was originally on the CPU)
+        """
+        if self.sim.use_cuda:
+            if not self.fields_were_on_gpu:
+                self.sim.fld.send_fields_to_gpu()
+            for i, species in enumerate(self.sim.ptcl):
+                if not self.species_were_on_gpu[i]:
+                    species.send_particles_to_gpu()
+
+    def __exit__(self, type, value, traceback):
+        """
+        Move the data back to the CPU (if it was originally on the CPU)
+        """
+        if self.sim.use_cuda:
+            if not self.fields_were_on_gpu:
+                self.sim.fld.receive_fields_from_gpu()
+            for i, species in enumerate(self.sim.ptcl):
+                if not self.species_were_on_gpu[i]:
+                    species.receive_particles_from_gpu()
+
+
 # -----------------------------------------------------
 # CUDA mpi management
 # -----------------------------------------------------

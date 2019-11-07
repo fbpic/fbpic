@@ -146,6 +146,7 @@ class Particles(object) :
                 'Cuda not available for the particles.\n'
                 'Performing the particle operations on the CPU.')
             self.use_cuda = False
+        self.data_is_on_gpu = False # Data is initialized on the CPU
 
         # Generate evenly-spaced particles
         Ntot, x, y, z, ux, uy, uz, inv_gamma, w = generate_evenly_spaced(
@@ -277,6 +278,9 @@ class Particles(object) :
             if self.ionizer is not None:
                 self.ionizer.send_to_gpu()
 
+            # Modify flag accordingly
+            self.data_is_on_gpu = True
+
     def receive_particles_from_gpu( self ):
         """
         Receive the particles from the GPU.
@@ -315,6 +319,9 @@ class Particles(object) :
             # Copy the ionization data
             if self.ionizer is not None:
                 self.ionizer.receive_from_gpu()
+
+            # Modify flag accordingly
+            self.data_is_on_gpu = False
 
     def generate_continuously_injected_particles( self, time ):
         """
