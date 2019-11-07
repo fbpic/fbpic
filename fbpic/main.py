@@ -223,21 +223,18 @@ class Simulation(object):
                     'In order to run on GPUs, FBPIC version 0.13 and later \n'
                     'require the `cupy` package.\n'
                     'See the FBPIC documentation in order to install cupy.')
-            elif (cupy_major_version >= 7 and numba_minor_version < 46):
+            elif cupy_major_version < 7:
                 raise RuntimeError(
-                    'You are using cupy version %d.\nFor compatibility, '
-                    'you need to install numba 0.46 or later.\n'
-                    '(Your current version is numba 0.%d.)\n'
-                    'e.g. with `conda uninstall numba; conda install numba`.'
-                    %(cupy_major_version,numba_minor_version))
-            elif (cupy_major_version < 7 and numba_minor_version >= 46):
+                    'In order to run on GPUs, FBPIC version 0.15 and later \n'
+                    'require `cupy` version 7 (or later).\n(The `cupy` version'
+                    ' on your current system is %d.)\n Please install the '
+                    'latest version of `cupy`.' %cupy_major_version)
+            elif numba_minor_version < 46:
                 raise RuntimeError(
-                    'You are using numba version 0.%d.\nFor compatibility, '
-                    'you need to install cupy 7 or later.\n'
-                    '(Your current version is cupy %d.)\n'
-                    'e.g. with `pip install --upgrade cupy-cudaXXX`\n'
-                    'where `XXX` should be replaced by your cuda version.'
-                    %(numba_minor_version,cupy_major_version))
+                    'In order to run on GPUs, FBPIC version 0.15 and later \n'
+                    'require `numba` version 0.46 (or later).\n(The `numba` '
+                    'version on your current system is 0.%d.)\n Please install'
+                    ' the latest version of `numba`.' %numba_minor_version)
         # CPU multi-threading
         self.use_threading = threading_enabled
         if self.use_threading:
