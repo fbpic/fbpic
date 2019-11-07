@@ -59,58 +59,6 @@ def cuda_copy_2dR_to_2dC( array_in, array_out ) :
     if (iz < Nz) and (ir < Nr) :
         array_out[iz, ir] = array_in[iz, ir] + 1.j*array_in[iz+Nz, ir]
 
-@cuda.jit
-def cuda_copy_2d_to_1d( array_2d, array_1d ) :
-    """
-    Copy array_2d to array_1d, so that the first axis of array_2d
-    is contiguous in array_1d
-
-    This is typically done before using the cuFFT API,
-    which requires 1d arrays to do FFT in only one dimension.
-
-    Parameters :
-    ------------
-    array_2d : 2darray of complexs
-        Array of shape (Nz, Nr)
-
-    array_1d : 1d array of complexs
-        Array of shape (Nz*Nr,)
-    """
-
-    # Set up cuda grid
-    iz, ir = cuda.grid(2)
-
-    # Copy from array_2d to array_1d
-    if (iz < array_2d.shape[0]) and (ir < array_2d.shape[1]) :
-        i = iz + array_2d.shape[0]*ir
-        array_1d[i] = array_2d[iz, ir]
-
-@cuda.jit
-def cuda_copy_1d_to_2d( array_1d, array_2d ) :
-    """
-    Copy array_1d to array_2d, so that the first axis of array_2d
-    is contiguous in array_1d
-
-    This is typically done after using the cuFFT API,
-    since the the output of cuFFT is a 1d array
-
-    Parameters :
-    ------------
-    array_2d : 2darray of complexs
-        Array of shape (Nz, Nr)
-
-    array_1d : 1d array of complexs
-        Array of shape (Nz*Nr,)
-    """
-
-    # Set up cuda grid
-    iz, ir = cuda.grid(2)
-
-    # Copy from array_1d to array_2d
-    if (iz < array_2d.shape[0]) and (ir < array_2d.shape[1]) :
-        i = iz + array_2d.shape[0]*ir
-        array_2d[iz, ir] = array_1d[i]
-
 # ----------------------------------------------------
 # Functions that combine components in spectral space
 # ----------------------------------------------------
