@@ -148,9 +148,9 @@ class BoundaryCommunicator(object):
         self.Nm = Nm
         self._Nz_global_domain = Nz
         self._zmin_global_domain = zmin
-        # Get the distance dz between the cells
-        # (longitudinal spacing of the grid)
+        # Get the distance dz and dr between the cells
         self.dz = (zmax - zmin)/self._Nz_global_domain
+        self.dr = rmax/self.Nr
 
         # Check that the boundaries are valid
         if not boundaries in ['periodic', 'open']:
@@ -322,6 +322,34 @@ class BoundaryCommunicator(object):
 
         # Return the new boundaries to the simulation object
         return( zmin_local_enlarged, zmax_local_enlarged, Nz_enlarged )
+
+    def get_Nr( self, with_damp ):
+        """
+        Return the number of cells in r (`Nr`)
+
+        Parameters:
+        -----------
+        with_damp: bool
+            Whether to include the damp cells in the considered grid.
+        """
+        if with_damp:
+            return self.Nr + self.nr_damp
+        else:
+            return self.Nr
+
+    def get_rmax( self, with_damp ):
+        """
+        Return the outer radius of the simulation
+
+        Parameters:
+        -----------
+        with_damp: bool
+            Whether to include the damp cells in the considered grid.
+        """
+        if with_damp:
+            return (self.Nr + self.nr_damp)*self.dr
+        else:
+            return self.Nr*self.dr
 
     def get_Nz_and_iz( self, local, with_damp, with_guard, rank=None ):
         """

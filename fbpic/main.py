@@ -251,6 +251,8 @@ class Simulation(object):
             n_guard, n_damp, nr_damp, None, exchange_period, use_all_mpi_ranks )
         # Modify domain region
         zmin, zmax, Nz = self.comm.divide_into_domain()
+        Nr = self.comm.get_Nr( with_damp=True )
+        rmax = self.comm.get_rmax( with_damp=True )
         # Initialize the field structure
         self.fld = Fields( Nz, zmax, Nr, rmax, Nm, dt,
                     n_order=n_order, zmin=zmin,
