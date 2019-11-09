@@ -45,7 +45,7 @@ class BoundaryCommunicator(object):
     # -----------------------
 
     def __init__( self, Nz, zmin, zmax, Nr, rmax, Nm, dt, v_comoving,
-            use_galilean, boundaries, n_order, n_guard=None, nz_damp=64,
+            use_galilean, boundaries, r_boundary, n_order, n_guard, n_damp,
             n_inject=None, exchange_period=None, use_all_mpi_ranks=True):
         """
         Initializes a communicator object.
@@ -101,13 +101,18 @@ class BoundaryCommunicator(object):
             in the case of open boundaries with an infinite order stencil,
             n_guard defaults to 64, if not set otherwise.
 
-        nz_damp : int, optional
-            Number of damping guard cells at the left and right of a
-            simulation box if a moving window is attached. The guard
-            region at these areas (left / right of moving window) is
-            extended by nz_damp in order to smoothly
-            damp the fields such that they do not wrap around.
-            (Defaults to 64)
+        n_damp : tuple or int, optional
+            The number of damping cells in the longitudinal (z) and radial (r)
+            direction.
+            If `n_damp` is a tuple of integers, then the first
+            integer corresponds to the z direction, and the second to the r
+            direction. If `n_damp` is an integer, the same number of damping
+            cells is used in z and r.
+            For the longitudinal (z) direction: the damping cells are used
+            if `boundaries` is `"open"`, and they added at the left and right
+            edge of the simulation domain.
+            For the radial (r) direction: the damping cells are used if
+            `r_boundary` is `"open"`, and are added at `rmax`.
 
         n_inject: int, optional
             Number of injection cells (at the left and right) of a simulation
@@ -144,6 +149,12 @@ class BoundaryCommunicator(object):
         # (longitudinal spacing of the grid)
         self.dz = (zmax - zmin)/self._Nz_global_domain
 
+        # Check that the boundaries are valid
+        if not boundaries in ['periodic', 'open']:
+            raise ValueError('Unrecognized `boundaries`: %s' %boundaries)
+        if not r_boundary in ['reflective', 'open']:
+            raise ValueError('Unrecognized `r_boundary`: %s' %r_boundary)
+
         # MPI Setup
         self.use_all_mpi_ranks = use_all_mpi_ranks
         if self.use_all_mpi_ranks and mpi_installed:
@@ -171,8 +182,6 @@ class BoundaryCommunicator(object):
                 self.left_proc = None
             if self.rank == self.size-1:
                 self.right_proc = None
-        else:
-            raise ValueError('Unrecognized boundaries: %s' %self.boundaries)
 
         # Initialize number of guard cells
         # Automatically calculate required guard cells
@@ -209,7 +218,15 @@ class BoundaryCommunicator(object):
             self.n_guard = 0
 
         # Register damping cells
-        self.nz_damp = nz_damp
+        if type(n_damp) is int:
+            self.nz_damp = n_damp
+            self.nr_damp = n_damp
+        elif type(n_damp) is tuple:
+            self.nz_damp = n_damp[0]
+            self.nr_damp = n_damp[1]
+        else:
+            raise ValueError('Unrecognized type for `n_damp`')
+
         # For periodic boundaries, no need for damping cells
         if boundaries=='periodic':
             self.nz_damp = 0
@@ -222,6 +239,9 @@ class BoundaryCommunicator(object):
             else:
                 # User-defined injection cells. Choose carefully.
                 self.n_inject = n_inject
+        # For reflective radial boundary, no need for damping cell
+        if r_boundary=='reflective':
+            self.nr_damp = 0
 
         # Initialize the period of the particle exchange and moving window
         if exchange_period is None:
