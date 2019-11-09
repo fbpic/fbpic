@@ -31,7 +31,7 @@ class BoundaryCommunicator(object):
 
     - At each timestep, to exchange the fields between MPI domains
       in the guard cells (n_guard) and damp the E and B fields in the damping
-      guard cells (n_damp)
+      guard cells (nz_damp)
 
     - Every iteration, to move the grid in case of a moving window
 
@@ -45,7 +45,7 @@ class BoundaryCommunicator(object):
     # -----------------------
 
     def __init__( self, Nz, zmin, zmax, Nr, rmax, Nm, dt, v_comoving,
-            use_galilean, boundaries, n_order, n_guard=None, n_damp=64,
+            use_galilean, boundaries, n_order, n_guard=None, nz_damp=64,
             n_inject=None, exchange_period=None, use_all_mpi_ranks=True):
         """
         Initializes a communicator object.
@@ -101,11 +101,11 @@ class BoundaryCommunicator(object):
             in the case of open boundaries with an infinite order stencil,
             n_guard defaults to 64, if not set otherwise.
 
-        n_damp : int, optional
+        nz_damp : int, optional
             Number of damping guard cells at the left and right of a
             simulation box if a moving window is attached. The guard
             region at these areas (left / right of moving window) is
-            extended by n_damp in order to smoothly
+            extended by nz_damp in order to smoothly
             damp the fields such that they do not wrap around.
             (Defaults to 64)
 
@@ -209,10 +209,10 @@ class BoundaryCommunicator(object):
             self.n_guard = 0
 
         # Register damping cells
-        self.n_damp = n_damp
+        self.nz_damp = nz_damp
         # For periodic boundaries, no need for damping cells
         if boundaries=='periodic':
-            self.n_damp = 0
+            self.nz_damp = 0
             self.n_inject = 0
         else:
             # Register additional injection cells that are part of the
@@ -260,17 +260,17 @@ class BoundaryCommunicator(object):
 
         # Create damping arrays for the damping cells at the left
         # and right of the box in the case of "open" boundaries.
-        if (self.n_damp+self.n_inject) > 0:
+        if (self.nz_damp+self.n_inject) > 0:
             if self.left_proc is None:
                 # Create the damping arrays for left proc
                 self.left_damp = self.generate_damp_array(
-                    self.n_guard, self.n_damp, self.n_inject )
+                    self.n_guard, self.nz_damp, self.n_inject )
                 if cuda_installed:
                     self.d_left_damp = cuda.to_device( self.left_damp )
             if self.right_proc is None:
                 # Create the damping arrays for right proc
                 self.right_damp = self.generate_damp_array(
-                    self.n_guard, self.n_damp, self.n_inject )
+                    self.n_guard, self.nz_damp, self.n_inject )
                 if cuda_installed:
                     self.d_right_damp = cuda.to_device( self.right_damp )
 
@@ -358,10 +358,10 @@ class BoundaryCommunicator(object):
             # Add damp cells if requested (only for first and last sub-domain)
             if with_damp:
                 if rank == 0:
-                    Nz += self.n_damp+self.n_inject
-                    iz -= self.n_damp+self.n_inject
+                    Nz += self.nz_damp+self.n_inject
+                    iz -= self.nz_damp+self.n_inject
                 if rank == self.size-1:
-                    Nz += self.n_damp+self.n_inject
+                    Nz += self.nz_damp+self.n_inject
             # Add guard cells if requested
             if with_guard:
                 Nz += 2*self.n_guard
@@ -374,8 +374,8 @@ class BoundaryCommunicator(object):
             iz = 0
             # Add damp cells if requested
             if with_damp:
-                Nz += 2*(self.n_damp+self.n_inject)
-                iz -= self.n_damp+self.n_inject
+                Nz += 2*(self.nz_damp+self.n_inject)
+                iz -= self.nz_damp+self.n_inject
             # Add guard cells if requested
             if with_guard:
                 Nz += 2*self.n_guard
@@ -742,10 +742,10 @@ class BoundaryCommunicator(object):
         interp: list of InterpolationGrid objects (one per azimuthal mode)
             Objects that contain the fields to be damped.
         """
-        # Do not damp the fields for 0 n_damp cells (periodic)
-        if self.n_damp != 0:
+        # Do not damp the fields for 0 nz_damp cells (periodic)
+        if self.nz_damp != 0:
             # Total size of the damping and guard region
-            nd = self.n_guard + self.n_damp + self.n_inject
+            nd = self.n_guard + self.nz_damp + self.n_inject
 
             if self.left_proc is None:
                 # Damp the fields on the CPU or the GPU
@@ -791,7 +791,7 @@ class BoundaryCommunicator(object):
                         interp[m].Bt[-nd:,:]*=self.right_damp[::-1,np.newaxis]
                         interp[m].Bz[-nd:,:]*=self.right_damp[::-1,np.newaxis]
 
-    def generate_damp_array( self, n_guard, n_damp, n_inject ):
+    def generate_damp_array( self, n_guard, nz_damp, n_inject ):
         """
         Create a 1d damping array of length n_guard.
 
@@ -800,7 +800,7 @@ class BoundaryCommunicator(object):
         n_guard: int
             Number of guard cells along z
 
-        n_damp: int
+        nz_damp: int
             Number of damping cells along z
 
         n_inject: int
@@ -808,23 +808,23 @@ class BoundaryCommunicator(object):
 
         Returns
         -------
-        A 1darray of doubles, of length n_guard + n_damp + n_inject,
+        A 1darray of doubles, of length n_guard + nz_damp + n_inject,
         which represents the damping.
         """
         # Array of cell indices
-        i_cell = np.arange( n_guard+n_damp+n_inject )
+        i_cell = np.arange( n_guard+nz_damp+n_inject )
 
         # Perform narrow damping, with the first n_guard of the cells at 0.
         # Additionally, the first n_inject cells of the damping area are set
         # to 0. This area is part of the injection area and there should be no
         # field seen by the injected particles.
-        # Damping: 1/2*(n_damp) cells with a sinusoidal**2 rise, and finally
-        # 1/2*(n_damp) cells at 1 (the damping array is defined such that it
+        # Damping: 1/2*(nz_damp) cells with a sinusoidal**2 rise, and finally
+        # 1/2*(nz_damp) cells at 1 (the damping array is defined such that it
         # can directly be multiplied with the fields at the left boundary of
         # the box - and needs to be inverted (damping_array[::-1]) before being
         # applied to the right boundary of the box.)
-        damping_array = np.where( i_cell<n_guard+n_inject+n_damp/2.,
-            np.sin((i_cell-(n_guard+n_inject))*np.pi/(2*n_damp/2.))**2, 1. )
+        damping_array = np.where( i_cell<n_guard+n_inject+nz_damp/2.,
+            np.sin((i_cell-(n_guard+n_inject))*np.pi/(2*nz_damp/2.))**2, 1. )
         damping_array = np.where( i_cell<n_guard+n_inject, 0., damping_array )
 
         return( damping_array )

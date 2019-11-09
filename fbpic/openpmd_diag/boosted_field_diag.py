@@ -573,7 +573,7 @@ class SliceHandler:
         if comm is not None:
             iz += comm.n_guard
             if comm.left_proc is None:
-                iz += comm.n_damp+comm.n_inject
+                iz += comm.nz_damp+comm.n_inject
 
         # Extract the slice directly on the CPU
         # Fill the pre-allocated CPU array slice_array

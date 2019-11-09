@@ -359,7 +359,7 @@ def cuda_damp_EB_left( Er, Et, Ez, Br, Bt, Bz, damp_array, nd ):
         The first axis corresponds to z and the second to r
 
     damp_array : 1darray of floats
-        An array of length n_guard+n_damp+n_inject,
+        An array of length n_guard+nz_damp+n_inject,
         which contains the damping factors.
 
     nd: int
@@ -398,7 +398,7 @@ def cuda_damp_EB_right( Er, Et, Ez, Br, Bt, Bz, damp_array, nd ):
         The first axis corresponds to z and the second to r
 
     damp_array : 1darray of floats
-        An array of length n_guard+n_damp+n_inject,
+        An array of length n_guard+nz_damp+n_inject,
         which contains the damping factors.
 
     nd: int
