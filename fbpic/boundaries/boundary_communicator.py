@@ -144,13 +144,13 @@ class BoundaryCommunicator(object):
               This can be useful when running parameter scans.
         """
         # Initialize global number of cells and modes
-        self.Nr = Nr
         self.Nm = Nm
+        self._Nr = Nr
         self._Nz_global_domain = Nz
         self._zmin_global_domain = zmin
         # Get the distance dz and dr between the cells
         self.dz = (zmax - zmin)/self._Nz_global_domain
-        self.dr = rmax/self.Nr
+        self.dr = rmax/self._Nr
 
         # Check that the boundaries are valid
         if not boundaries in ['periodic', 'open']:
@@ -271,7 +271,8 @@ class BoundaryCommunicator(object):
 
         # Initialize a buffer handler object, for MPI communications
         if self.size > 1:
-            self.mpi_buffers = BufferHandler( self.n_guard, Nr, Nm,
+            Nr_with_damp = self.get_Nr( with_damp=True )
+            self.mpi_buffers = BufferHandler( self.n_guard, Nr_with_damp, Nm,
                                       self.left_proc, self.right_proc )
 
         # Create damping arrays for the damping cells at the left
@@ -333,9 +334,9 @@ class BoundaryCommunicator(object):
             Whether to include the damp cells in the considered grid.
         """
         if with_damp:
-            return self.Nr + self.nr_damp
+            return self._Nr + self.nr_damp
         else:
-            return self.Nr
+            return self._Nr
 
     def get_rmax( self, with_damp ):
         """
@@ -347,9 +348,9 @@ class BoundaryCommunicator(object):
             Whether to include the damp cells in the considered grid.
         """
         if with_damp:
-            return (self.Nr + self.nr_damp)*self.dr
+            return (self._Nr + self.nr_damp)*self.dr
         else:
-            return self.Nr*self.dr
+            return self._Nr*self.dr
 
     def get_Nz_and_iz( self, local, with_damp, with_guard, rank=None ):
         """
@@ -945,10 +946,11 @@ class BoundaryCommunicator(object):
         """
         Nz_global, iz_start_global = self.get_Nz_and_iz(
                     local=False, with_damp=with_damp, with_guard=False)
+        Nr = self.get_Nr( with_damp=with_damp )
         if self.rank == root:
             # Root process creates empty numpy array of the shape
             # (Nz, Nr), that is used to gather the data
-            gathered_array = np.zeros((Nz_global, self.Nr), dtype=array.dtype)
+            gathered_array = np.zeros((Nz_global, Nr), dtype=array.dtype)
         else:
             # Other processes do not need to initialize a new array
             gathered_array = None
@@ -959,16 +961,16 @@ class BoundaryCommunicator(object):
         _, iz_start_local_array = self.get_Nz_and_iz(
             local=True, with_damp=True, with_guard=True, rank=self.rank )
         iz_in_array = iz_start_local_domain - iz_start_local_array
-        local_array = array[ iz_in_array:iz_in_array+Nz_local, : ]
+        local_array = array[ iz_in_array:iz_in_array+Nz_local, :Nr ]
 
         # Then send the arrays
         if self.size > 1:
             # First get the size and MPI type of the 2D arrays in each procs
             Nz_iz_list = [ self.get_Nz_and_iz( local=True, with_damp=with_damp,
                          with_guard=False, rank=k ) for k in range(self.size) ]
-            N_procs = tuple( self.Nr*x[0] for x in Nz_iz_list )
+            N_procs = tuple( Nr*x[0] for x in Nz_iz_list )
             istart_procs = tuple(
-                self.Nr*(x[1] - iz_start_global) for x in Nz_iz_list )
+                Nr*(x[1] - iz_start_global) for x in Nz_iz_list )
             mpi_type = mpi_type_dict[ str(array.dtype) ]
             sendbuf = [ local_array, N_procs[self.rank] ]
             recvbuf = [ gathered_array, N_procs, istart_procs, mpi_type ]
@@ -1008,22 +1010,24 @@ class BoundaryCommunicator(object):
         # Get the global starting index, and the size of `array`
         Nz_global, iz_start_global = self.get_Nz_and_iz(
             local=False, with_damp=with_damp, with_guard=False )
+        Nr = self.get_Nr( with_damp=with_damp )
         if array is not None:
             assert array.shape[0] == Nz_global
+            assert array.shape[1] == Nr
 
         # Create empty array having the shape of the local domain
         Nz_local, iz_start_local = self.get_Nz_and_iz(
             local=True, with_damp=with_damp, with_guard=False, rank=self.rank )
-        scattered_array = np.zeros((Nz_local, self.Nr), dtype=np.complex)
+        scattered_array = np.zeros((Nz_local, Nr), dtype=np.complex)
 
         # Then send the arrays
         if self.size > 1:
             # First get the size and MPI type of the 2D arrays in each procs
             Nz_iz_list = [ self.get_Nz_and_iz( local=True, with_damp=with_damp,
                          with_guard=False, rank=k ) for k in range(self.size) ]
-            N_procs = tuple( self.Nr*x[0] for x in Nz_iz_list )
+            N_procs = tuple( Nr*x[0] for x in Nz_iz_list )
             istart_procs = tuple(
-                self.Nr*(x[1] - iz_start_global) for x in Nz_iz_list )
+                Nr*(x[1] - iz_start_global) for x in Nz_iz_list )
             mpi_type = mpi_type_dict[ str(scattered_array.dtype) ]
             recvbuf = [ scattered_array, N_procs[self.rank] ]
             sendbuf = [ array, N_procs, istart_procs, mpi_type ]

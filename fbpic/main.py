@@ -812,6 +812,9 @@ class Simulation(object):
                                         with_damp=False, with_guard=False )
             p_zmin = max( zmin_local_domain, p_zmin )
             p_zmax = min( zmax_local_domain, p_zmax )
+            # Avoid that particles get initialized in the radial PML cells
+            rmax = self.comm.get_rmax( with_damp=False )
+            p_rmax = min( rmax, p_rmax )
 
             # Modify again the input particle bounds, so that
             # they fall exactly on the grid, and infer the number of particles
