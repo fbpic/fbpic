@@ -45,8 +45,9 @@ class BoundaryCommunicator(object):
     # -----------------------
 
     def __init__( self, Nz, zmin, zmax, Nr, rmax, Nm, dt, v_comoving,
-            use_galilean, boundaries, r_boundary, n_order, n_guard, n_damp,
-            n_inject=None, exchange_period=None, use_all_mpi_ranks=True):
+            use_galilean, boundaries, r_boundary, n_order, n_guard,
+            n_damp, nr_damp, n_inject=None, exchange_period=None,
+            use_all_mpi_ranks=True):
         """
         Initializes a communicator object.
 
@@ -79,10 +80,15 @@ class BoundaryCommunicator(object):
             When use_galilean is true, the whole grid moves
             with a speed v_comoving
 
-        boundaries: str
-            Indicates how to exchange the fields at the left and right
-            boundaries of the global simulation box.
-            (Either 'periodic' or 'open')
+        boundaries: string, optional
+            The boundary condition in the longitudinal (z) direction.
+            Either "periodic" or "open" (for field-absorbing boundary)
+        r_boundary: string, optional
+            The boundary condition at the upper radial boundary (at rmax).
+            Either "reflective" or "open" (for field-absorbing boundary)
+            When "open" is selected, this adds Perfectly-Matched-Layers
+            in the radial direction ; note that the computation is
+            significantly more costly in this case.
 
         n_order: int
            The order of the stencil for the z derivatives.
@@ -101,18 +107,15 @@ class BoundaryCommunicator(object):
             in the case of open boundaries with an infinite order stencil,
             n_guard defaults to 64, if not set otherwise.
 
-        n_damp : tuple or int, optional
-            The number of damping cells in the longitudinal (z) and radial (r)
-            direction.
-            If `n_damp` is a tuple of integers, then the first
-            integer corresponds to the z direction, and the second to the r
-            direction. If `n_damp` is an integer, the same number of damping
-            cells is used in z and r.
-            For the longitudinal (z) direction: the damping cells are used
-            if `boundaries` is `"open"`, and they added at the left and right
-            edge of the simulation domain.
-            For the radial (r) direction: the damping cells are used if
-            `r_boundary` is `"open"`, and are added at `rmax`.
+        n_damp: int, optional
+            The number of damping cells in the longitudinal (z) direction.
+            The damping cells are used only if `boundaries` is `"open"`,
+            and they are added at the left and right edge of the simulation
+            domain.
+        nr_damp: int, optional
+            The number of damping cells in the radial (r) direction.
+            The damping cells are used only if `r_boundary` is `"open"`,
+            and are added at upper radial boundary (at `rmax`).
 
         n_inject: int, optional
             Number of injection cells (at the left and right) of a simulation
@@ -218,15 +221,8 @@ class BoundaryCommunicator(object):
             self.n_guard = 0
 
         # Register damping cells
-        if type(n_damp) is int:
-            self.nz_damp = n_damp
-            self.nr_damp = n_damp
-        elif type(n_damp) is tuple:
-            self.nz_damp = n_damp[0]
-            self.nr_damp = n_damp[1]
-        else:
-            raise ValueError('Unrecognized type for `n_damp`')
-
+        self.nz_damp = n_damp
+        self.nr_damp = nr_damp
         # For periodic boundaries, no need for damping cells
         if boundaries=='periodic':
             self.nz_damp = 0

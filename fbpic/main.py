@@ -49,11 +49,11 @@ class Simulation(object):
                  n_order=-1, dens_func=None, filter_currents=True,
                  v_comoving=None, use_galilean=True,
                  initialize_ions=False, use_cuda=False,
-                 n_guard=None, n_damp=(64,32), exchange_period=None,
+                 n_guard=None, n_damp=64, exchange_period=None,
                  current_correction='curl-free', boundaries='periodic',
                  gamma_boost=None, use_all_mpi_ranks=True,
                  particle_shape='linear', verbose_level=1,
-                 smoother=None, r_boundary='reflective' ):
+                 smoother=None, r_boundary='reflective', nr_damp=32 ):
         """
         Initializes a simulation.
 
@@ -139,18 +139,16 @@ class Simulation(object):
             automatically (approx 2*n_order). If no MPI is used and
             in the case of open boundaries with an infinite order stencil,
             n_guard defaults to 64, if not set otherwise.
-        n_damp : tuple or int, optional
-            The number of damping cells in the longitudinal (z) and radial (r)
-            direction.
-            If `n_damp` is a tuple of integers, then the first
-            integer corresponds to the z direction, and the second to the r
-            direction. If `n_damp` is an integer, the same number of damping
-            cells is used in z and r.
-            For the longitudinal (z) direction: the damping cells are used
-            if `boundaries` is `"open"`, and they added at the left and right
-            edge of the simulation domain.
-            For the radial (r) direction: the damping cells are used if
-            `r_boundary` is `"open"`, and are added at `rmax`.
+        n_damp: int, optional
+            The number of damping cells in the longitudinal (z) direction.
+            The damping cells are used only if `boundaries` is `"open"`,
+            and they are added at the left and right edge of the simulation
+            domain.
+        nr_damp: int, optional
+            The number of damping cells in the radial (r) direction.
+            The damping cells are used only if `r_boundary` is `"open"`,
+            and are added at upper radial boundary (at `rmax`).
+
         exchange_period: int, optional
             Number of iterations before which the particles are exchanged.
             If set to None, the maximum exchange period is calculated
@@ -162,7 +160,7 @@ class Simulation(object):
         boundaries: string, optional
             The boundary condition in the longitudinal (z) direction.
             Either "periodic" or "open" (for field-absorbing boundary)
-       r_boundary: string, optional
+        r_boundary: string, optional
             The boundary condition at the upper radial boundary (at rmax).
             Either "reflective" or "open" (for field-absorbing boundary)
             When "open" is selected, this adds Perfectly-Matched-Layers
@@ -249,8 +247,8 @@ class Simulation(object):
 
         # Initialize the boundary communicator
         self.comm = BoundaryCommunicator( Nz, zmin, zmax, Nr, rmax, Nm, dt,
-            self.v_comoving, self.use_galilean, boundaries, n_order,
-            n_guard, n_damp, None, exchange_period, use_all_mpi_ranks )
+            self.v_comoving, self.use_galilean, boundaries, r_boundary, n_order,
+            n_guard, n_damp, nr_damp, None, exchange_period, use_all_mpi_ranks )
         # Modify domain region
         zmin, zmax, Nz = self.comm.divide_into_domain()
         # Initialize the field structure
