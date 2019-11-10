@@ -151,16 +151,18 @@ def gather_field_numba_linear(x, y, z,
         Fr = 0.
         Ft = 0.
         Fz = 0.
-        # Add contribution from mode 0
-        Fr, Ft, Fz = add_linear_gather_for_mode( 0,
-            Fr, Ft, Fz, exptheta_m0, Er_m0, Et_m0, Ez_m0,
-            iz_lower, iz_upper, ir_lower, ir_upper,
-            S_ll, S_lu, S_lg, S_ul, S_uu, S_ug )
-        # Add contribution from mode 1
-        Fr, Ft, Fz = add_linear_gather_for_mode( 1,
-            Fr, Ft, Fz, exptheta_m1, Er_m1, Et_m1, Ez_m1,
-            iz_lower, iz_upper, ir_lower, ir_upper,
-            S_ll, S_lu, S_lg, S_ul, S_uu, S_ug )
+        # Only perform gathering for particles that are inside the box radially
+        if r_cell+0.5 < Nr:
+            # Add contribution from mode 0
+            Fr, Ft, Fz = add_linear_gather_for_mode( 0,
+                Fr, Ft, Fz, exptheta_m0, Er_m0, Et_m0, Ez_m0,
+                iz_lower, iz_upper, ir_lower, ir_upper,
+                S_ll, S_lu, S_lg, S_ul, S_uu, S_ug )
+            # Add contribution from mode 1
+            Fr, Ft, Fz = add_linear_gather_for_mode( 1,
+                Fr, Ft, Fz, exptheta_m1, Er_m1, Et_m1, Ez_m1,
+                iz_lower, iz_upper, ir_lower, ir_upper,
+                S_ll, S_lu, S_lg, S_ul, S_uu, S_ug )
         # Convert to Cartesian coordinates
         # and write to particle field arrays
         Ex[i] = cos*Fr - sin*Ft
@@ -174,16 +176,18 @@ def gather_field_numba_linear(x, y, z,
         Fr = 0.
         Ft = 0.
         Fz = 0.
-        # Add contribution from mode 0
-        Fr, Ft, Fz = add_linear_gather_for_mode( 0,
-            Fr, Ft, Fz, exptheta_m0, Br_m0, Bt_m0, Bz_m0,
-            iz_lower, iz_upper, ir_lower, ir_upper,
-            S_ll, S_lu, S_lg, S_ul, S_uu, S_ug )
-        # Add contribution from mode 1
-        Fr, Ft, Fz = add_linear_gather_for_mode( 1,
-            Fr, Ft, Fz, exptheta_m1, Br_m1, Bt_m1, Bz_m1,
-            iz_lower, iz_upper, ir_lower, ir_upper,
-            S_ll, S_lu, S_lg, S_ul, S_uu, S_ug )
+        # Only perform gathering for particles that are inside the box radially
+        if r_cell+0.5 < Nr:
+            # Add contribution from mode 0
+            Fr, Ft, Fz = add_linear_gather_for_mode( 0,
+                Fr, Ft, Fz, exptheta_m0, Br_m0, Bt_m0, Bz_m0,
+                iz_lower, iz_upper, ir_lower, ir_upper,
+                S_ll, S_lu, S_lg, S_ul, S_uu, S_ug )
+            # Add contribution from mode 1
+            Fr, Ft, Fz = add_linear_gather_for_mode( 1,
+                Fr, Ft, Fz, exptheta_m1, Br_m1, Bt_m1, Bz_m1,
+                iz_lower, iz_upper, ir_lower, ir_upper,
+                S_ll, S_lu, S_lg, S_ul, S_uu, S_ug )
         # Convert to Cartesian coordinates
         # and write to particle field arrays
         Bx[i] = cos*Fr - sin*Ft
@@ -313,14 +317,16 @@ def gather_field_numba_cubic(x, y, z,
             Fr = 0.
             Ft = 0.
             Fz = 0.
-            # Add contribution from mode 0
-            Fr, Ft, Fz = add_cubic_gather_for_mode( 0,
-                Fr, Ft, Fz, exptheta_m0, Er_m0, Et_m0, Ez_m0,
-                ir_lowest, iz_lowest, Sr, Sz, Nr, Nz )
-            # Add contribution from mode 1
-            Fr, Ft, Fz = add_cubic_gather_for_mode( 1,
-                Fr, Ft, Fz, exptheta_m1, Er_m1, Et_m1, Ez_m1,
-                ir_lowest, iz_lowest, Sr, Sz, Nr, Nz )
+            # Only perform gathering for particles that are inside the box radially
+            if r_cell+0.5 < Nr:
+                # Add contribution from mode 0
+                Fr, Ft, Fz = add_cubic_gather_for_mode( 0,
+                    Fr, Ft, Fz, exptheta_m0, Er_m0, Et_m0, Ez_m0,
+                    ir_lowest, iz_lowest, Sr, Sz, Nr, Nz )
+                # Add contribution from mode 1
+                Fr, Ft, Fz = add_cubic_gather_for_mode( 1,
+                    Fr, Ft, Fz, exptheta_m1, Er_m1, Et_m1, Ez_m1,
+                    ir_lowest, iz_lowest, Sr, Sz, Nr, Nz )
             # Convert to Cartesian coordinates
             # and write to particle field arrays
             Ex[i] = cos*Fr - sin*Ft
@@ -334,14 +340,16 @@ def gather_field_numba_cubic(x, y, z,
             Fr = 0.
             Ft = 0.
             Fz = 0.
-            # Add contribution from mode 0
-            Fr, Ft, Fz =  add_cubic_gather_for_mode( 0,
-                Fr, Ft, Fz, exptheta_m0, Br_m0, Bt_m0, Bz_m0,
-                ir_lowest, iz_lowest, Sr, Sz, Nr, Nz )
-            # Add contribution from mode 1
-            Fr, Ft, Fz =  add_cubic_gather_for_mode( 1,
-                Fr, Ft, Fz, exptheta_m1, Br_m1, Bt_m1, Bz_m1,
-                ir_lowest, iz_lowest, Sr, Sz, Nr, Nz )
+            # Only perform gathering for particles that are inside the box radially
+            if r_cell+0.5 < Nr:
+                # Add contribution from mode 0
+                Fr, Ft, Fz =  add_cubic_gather_for_mode( 0,
+                    Fr, Ft, Fz, exptheta_m0, Br_m0, Bt_m0, Bz_m0,
+                    ir_lowest, iz_lowest, Sr, Sz, Nr, Nz )
+                # Add contribution from mode 1
+                Fr, Ft, Fz =  add_cubic_gather_for_mode( 1,
+                    Fr, Ft, Fz, exptheta_m1, Br_m1, Bt_m1, Bz_m1,
+                    ir_lowest, iz_lowest, Sr, Sz, Nr, Nz )
             # Convert to Cartesian coordinates
             # and write to particle field arrays
             Bx[i] = cos*Fr - sin*Ft

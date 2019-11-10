@@ -120,84 +120,88 @@ def gather_field_gpu_linear_one_mode(x, y, z,
         # Positions of the particles, in the cell unit
         r_cell =  invdr*(rj - rmin) - 0.5
         z_cell =  invdz*(zj - zmin) - 0.5
-        # Original index of the uppper and lower cell
-        ir_lower = int(math.floor( r_cell ))
-        ir_upper = ir_lower + 1
-        iz_lower = int(math.floor( z_cell ))
-        iz_upper = iz_lower + 1
-        # Linear weight
-        Sr_lower = ir_upper - r_cell
-        Sr_upper = r_cell - ir_lower
-        Sz_lower = iz_upper - z_cell
-        Sz_upper = z_cell - iz_lower
-        # Set guard weights to zero
-        Sr_guard = 0.
 
-        # Treat the boundary conditions
-        # --------------------------------------------
-        # guard cells in lower r
-        if ir_lower < 0:
-            Sr_guard = Sr_lower
-            Sr_lower = 0.
-            ir_lower = 0
-        # absorbing in upper r
-        if ir_lower > Nr-1:
-            ir_lower = Nr-1
-        if ir_upper > Nr-1:
-            ir_upper = Nr-1
-        # periodic boundaries in z
-        # lower z boundaries
-        if iz_lower < 0:
-            iz_lower += Nz
-        if iz_upper < 0:
-            iz_upper += Nz
-        # upper z boundaries
-        if iz_lower > Nz-1:
-            iz_lower -= Nz
-        if iz_upper > Nz-1:
-            iz_upper -= Nz
+        # Only perform gathering for particles that are inside the box radially
+        if r_cell+0.5 < Nr:
 
-        # Precalculate Shapes
-        S_ll = Sz_lower*Sr_lower
-        S_lu = Sz_lower*Sr_upper
-        S_ul = Sz_upper*Sr_lower
-        S_uu = Sz_upper*Sr_upper
-        S_lg = Sz_lower*Sr_guard
-        S_ug = Sz_upper*Sr_guard
+            # Original index of the uppper and lower cell
+            ir_lower = int(math.floor( r_cell ))
+            ir_upper = ir_lower + 1
+            iz_lower = int(math.floor( z_cell ))
+            iz_upper = iz_lower + 1
+            # Linear weight
+            Sr_lower = ir_upper - r_cell
+            Sr_upper = r_cell - ir_lower
+            Sz_lower = iz_upper - z_cell
+            Sz_upper = z_cell - iz_lower
+            # Set guard weights to zero
+            Sr_guard = 0.
 
-        # E-Field
-        # -------
-        Fr = 0.
-        Ft = 0.
-        Fz = 0.
-        # Add contribution from mode m
-        Fr, Ft, Fz = add_linear_gather_for_mode( m,
-            Fr, Ft, Fz, exptheta_m, Er_m, Et_m, Ez_m,
-            iz_lower, iz_upper, ir_lower, ir_upper,
-            S_ll, S_lu, S_lg, S_ul, S_uu, S_ug )
-        # Convert to Cartesian coordinates
-        # and write to particle field arrays
-        Ex[i] += cos*Fr - sin*Ft
-        Ey[i] += sin*Fr + cos*Ft
-        Ez[i] += Fz
+            # Treat the boundary conditions
+            # --------------------------------------------
+            # guard cells in lower r
+            if ir_lower < 0:
+                Sr_guard = Sr_lower
+                Sr_lower = 0.
+                ir_lower = 0
+            # absorbing in upper r
+            if ir_lower > Nr-1:
+                ir_lower = Nr-1
+            if ir_upper > Nr-1:
+                ir_upper = Nr-1
+            # periodic boundaries in z
+            # lower z boundaries
+            if iz_lower < 0:
+                iz_lower += Nz
+            if iz_upper < 0:
+                iz_upper += Nz
+            # upper z boundaries
+            if iz_lower > Nz-1:
+                iz_lower -= Nz
+            if iz_upper > Nz-1:
+                iz_upper -= Nz
 
-        # B-Field
-        # -------
-        # Clear the placeholders for the
-        # gathered field for each coordinate
-        Fr = 0.
-        Ft = 0.
-        Fz = 0.
-        # Add contribution from mode m
-        Fr, Ft, Fz = add_linear_gather_for_mode( m,
-            Fr, Ft, Fz, exptheta_m, Br_m, Bt_m, Bz_m,
-            iz_lower, iz_upper, ir_lower, ir_upper,
-            S_ll, S_lu, S_lg, S_ul, S_uu, S_ug )
-        # Convert to Cartesian coordinates
-        # and write to particle field arrays
-        Bx[i] += cos*Fr - sin*Ft
-        By[i] += sin*Fr + cos*Ft
-        Bz[i] += Fz
+            # Precalculate Shapes
+            S_ll = Sz_lower*Sr_lower
+            S_lu = Sz_lower*Sr_upper
+            S_ul = Sz_upper*Sr_lower
+            S_uu = Sz_upper*Sr_upper
+            S_lg = Sz_lower*Sr_guard
+            S_ug = Sz_upper*Sr_guard
+
+            # E-Field
+            # -------
+            Fr = 0.
+            Ft = 0.
+            Fz = 0.
+            # Add contribution from mode m
+            Fr, Ft, Fz = add_linear_gather_for_mode( m,
+                Fr, Ft, Fz, exptheta_m, Er_m, Et_m, Ez_m,
+                iz_lower, iz_upper, ir_lower, ir_upper,
+                S_ll, S_lu, S_lg, S_ul, S_uu, S_ug )
+            # Convert to Cartesian coordinates
+            # and write to particle field arrays
+            Ex[i] += cos*Fr - sin*Ft
+            Ey[i] += sin*Fr + cos*Ft
+            Ez[i] += Fz
+
+            # B-Field
+            # -------
+            # Clear the placeholders for the
+            # gathered field for each coordinate
+            Fr = 0.
+            Ft = 0.
+            Fz = 0.
+            # Add contribution from mode m
+            Fr, Ft, Fz = add_linear_gather_for_mode( m,
+                Fr, Ft, Fz, exptheta_m, Br_m, Bt_m, Bz_m,
+                iz_lower, iz_upper, ir_lower, ir_upper,
+                S_ll, S_lu, S_lg, S_ul, S_uu, S_ug )
+            # Convert to Cartesian coordinates
+            # and write to particle field arrays
+            Bx[i] += cos*Fr - sin*Ft
+            By[i] += sin*Fr + cos*Ft
+            Bz[i] += Fz
 
 # -----------------------
 # Field gathering cubic
@@ -284,50 +288,53 @@ def gather_field_gpu_cubic_one_mode(x, y, z,
         r_cell = invdr*(rj - rmin) - 0.5
         z_cell = invdz*(zj - zmin) - 0.5
 
-        # Calculate the shape factors
-        Sr = cuda.local.array((4,), dtype=float64)
-        ir_lowest = int64(math.floor(r_cell)) - 1
-        r_local = r_cell-ir_lowest
-        Sr[0] = -1./6. * (r_local-2.)**3
-        Sr[1] = 1./6. * (3.*(r_local-1.)**3 - 6.*(r_local-1.)**2 + 4.)
-        Sr[2] = 1./6. * (3.*(2.-r_local)**3 - 6.*(2.-r_local)**2 + 4.)
-        Sr[3] = -1./6. * (1.-r_local)**3
-        Sz = cuda.local.array((4,), dtype=float64)
-        iz_lowest = int64(math.floor(z_cell)) - 1
-        z_local = z_cell-iz_lowest
-        Sz[0] = -1./6. * (z_local-2.)**3
-        Sz[1] = 1./6. * (3.*(z_local-1.)**3 - 6.*(z_local-1.)**2 + 4.)
-        Sz[2] = 1./6. * (3.*(2.-z_local)**3 - 6.*(2.-z_local)**2 + 4.)
-        Sz[3] = -1./6. * (1.-z_local)**3
+        # Only perform gathering for particles that are inside the box radially
+        if r_cell+0.5 < Nr:
 
-        # E-Field
-        # -------
-        Fr = 0.
-        Ft = 0.
-        Fz = 0.
-        # Add contribution from mode m
-        Fr, Ft, Fz = add_cubic_gather_for_mode( m,
-            Fr, Ft, Fz, exptheta_m, Er_m, Et_m, Ez_m,
-            ir_lowest, iz_lowest, Sr, Sz, Nr, Nz )
-        # Convert to Cartesian coordinates
-        # and write to particle field arrays
-        Ex[i] += cos*Fr - sin*Ft
-        Ey[i] += sin*Fr + cos*Ft
-        Ez[i] += Fz
+            # Calculate the shape factors
+            Sr = cuda.local.array((4,), dtype=float64)
+            ir_lowest = int64(math.floor(r_cell)) - 1
+            r_local = r_cell-ir_lowest
+            Sr[0] = -1./6. * (r_local-2.)**3
+            Sr[1] = 1./6. * (3.*(r_local-1.)**3 - 6.*(r_local-1.)**2 + 4.)
+            Sr[2] = 1./6. * (3.*(2.-r_local)**3 - 6.*(2.-r_local)**2 + 4.)
+            Sr[3] = -1./6. * (1.-r_local)**3
+            Sz = cuda.local.array((4,), dtype=float64)
+            iz_lowest = int64(math.floor(z_cell)) - 1
+            z_local = z_cell-iz_lowest
+            Sz[0] = -1./6. * (z_local-2.)**3
+            Sz[1] = 1./6. * (3.*(z_local-1.)**3 - 6.*(z_local-1.)**2 + 4.)
+            Sz[2] = 1./6. * (3.*(2.-z_local)**3 - 6.*(2.-z_local)**2 + 4.)
+            Sz[3] = -1./6. * (1.-z_local)**3
 
-        # B-Field
-        # -------
-        # Clear the placeholders for the
-        # gathered field for each coordinate
-        Fr = 0.
-        Ft = 0.
-        Fz = 0.
-        # Add contribution from mode m
-        Fr, Ft, Fz =  add_cubic_gather_for_mode( m,
-            Fr, Ft, Fz, exptheta_m, Br_m, Bt_m, Bz_m,
-            ir_lowest, iz_lowest, Sr, Sz, Nr, Nz )
-        # Convert to Cartesian coordinates
-        # and write to particle field arrays
-        Bx[i] += cos*Fr - sin*Ft
-        By[i] += sin*Fr + cos*Ft
-        Bz[i] += Fz
+            # E-Field
+            # -------
+            Fr = 0.
+            Ft = 0.
+            Fz = 0.
+            # Add contribution from mode m
+            Fr, Ft, Fz = add_cubic_gather_for_mode( m,
+                Fr, Ft, Fz, exptheta_m, Er_m, Et_m, Ez_m,
+                ir_lowest, iz_lowest, Sr, Sz, Nr, Nz )
+            # Convert to Cartesian coordinates
+            # and write to particle field arrays
+            Ex[i] += cos*Fr - sin*Ft
+            Ey[i] += sin*Fr + cos*Ft
+            Ez[i] += Fz
+
+            # B-Field
+            # -------
+            # Clear the placeholders for the
+            # gathered field for each coordinate
+            Fr = 0.
+            Ft = 0.
+            Fz = 0.
+            # Add contribution from mode m
+            Fr, Ft, Fz =  add_cubic_gather_for_mode( m,
+                Fr, Ft, Fz, exptheta_m, Br_m, Bt_m, Bz_m,
+                ir_lowest, iz_lowest, Sr, Sz, Nr, Nz )
+            # Convert to Cartesian coordinates
+            # and write to particle field arrays
+            Bx[i] += cos*Fr - sin*Ft
+            By[i] += sin*Fr + cos*Ft
+            Bz[i] += Fz

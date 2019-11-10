@@ -11,7 +11,7 @@ This file steers and controls the simulation.
 # as it sets the cuda context)
 from fbpic.utils.mpi import MPI
 # Check if threading is available
-from .utils.threading import threading_enabled
+from .utils.threading import threading_enabled, numba_minor_version
 # Check if CUDA is available, then import CUDA functions
 from .utils.cuda import cuda_installed, cupy_installed
 if cuda_installed:
@@ -48,12 +48,12 @@ class Simulation(object):
                  p_nz=None, p_nr=None, p_nt=None, n_e=None, zmin=0.,
                  n_order=-1, dens_func=None, filter_currents=True,
                  v_comoving=None, use_galilean=True,
-                 initialize_ions=False, use_cuda=False, n_pml=0,
+                 initialize_ions=False, use_cuda=False,
                  n_guard=None, n_damp=64, exchange_period=None,
                  current_correction='curl-free', boundaries='periodic',
                  gamma_boost=None, use_all_mpi_ranks=True,
                  particle_shape='linear', verbose_level=1,
-                 smoother=None ):
+                 smoother=None, r_boundary='open', nr_damp=32 ):
         """
         Initializes a simulation.
 
@@ -139,14 +139,16 @@ class Simulation(object):
             automatically (approx 2*n_order). If no MPI is used and
             in the case of open boundaries with an infinite order stencil,
             n_guard defaults to 64, if not set otherwise.
-        n_damp : int, optional
-            Number of damping guard cells at the left and right of a
-            simulation box if a moving window is attached. The guard
-            region at these areas (left / right of moving window) is
-            extended by n_damp in order to smoothly damp the fields such
-            that they do not wrap around. Additionally, this region is
-            extended by an injection area of size n_guard/2 automatically.
-            (Defaults to 64)
+        n_damp: int, optional
+            The number of damping cells in the longitudinal (z) direction.
+            The damping cells are used only if `boundaries` is `"open"`,
+            and they are added at the left and right edge of the simulation
+            domain.
+        nr_damp: int, optional
+            The number of damping cells in the radial (r) direction.
+            The damping cells are used only if `r_boundary` is `"open"`,
+            and are added at upper radial boundary (at `rmax`).
+
         exchange_period: int, optional
             Number of iterations before which the particles are exchanged.
             If set to None, the maximum exchange period is calculated
@@ -156,9 +158,14 @@ class Simulation(object):
             to small values can substantially affect the performance)
 
         boundaries: string, optional
-            Indicates how to exchange the fields at the left and right
-            boundaries of the global simulation box.
-            (Either 'periodic' or 'open')
+            The boundary condition in the longitudinal (z) direction.
+            Either "periodic" or "open" (for field-absorbing boundary)
+        r_boundary: string, optional
+            The boundary condition at the upper radial boundary (at rmax).
+            Either "reflective" or "open" (for field-absorbing boundary)
+            When "open" is selected, this adds Perfectly-Matched-Layers
+            in the radial direction ; note that the computation is
+            significantly more costly in this case.
 
         current_correction: string, optional
             The method used in order to ensure that the continuity equation
@@ -211,6 +218,11 @@ class Simulation(object):
                 'In order to run on GPUs, FBPIC version 0.13 and later \n'
                 'require the `cupy` package (version 6).\n'
                 'See the FBPIC documentation in order to install cupy.')
+        if self.use_cuda and numba_minor_version > 45:
+            raise RuntimeError(
+                'In order to run on GPU, please install numba version 0.45:\n'
+                '  conda install numba=0.45, or:\n'
+                '  pip install numba==0.45')
         # CPU multi-threading
         self.use_threading = threading_enabled
         if self.use_threading:
@@ -225,7 +237,7 @@ class Simulation(object):
             self.use_galilean = False
 
         # Check whether the pml should be used
-        use_pml = (n_pml > 0)
+        use_pml = (r_boundary == "open")
 
         # When running the simulation in a boosted frame, convert the arguments
         if gamma_boost is not None:
@@ -239,11 +251,13 @@ class Simulation(object):
         # Initialize the boundary communicator
         cdt_over_dr = c*dt / (rmax/Nr)
         self.comm = BoundaryCommunicator( Nz, zmin, zmax, Nr, rmax, Nm, dt,
-            self.v_comoving, self.use_galilean, boundaries, n_order,
-            n_pml, cdt_over_dr,
-            n_guard, n_damp, None, exchange_period, use_all_mpi_ranks )
+            self.v_comoving, self.use_galilean, boundaries, r_boundary, n_order,
+            n_guard, n_damp, nr_damp, cdt_over_dr, None, exchange_period,
+            use_all_mpi_ranks )
         # Modify domain region
         zmin, zmax, Nz = self.comm.divide_into_domain()
+        Nr = self.comm.get_Nr( with_damp=True )
+        rmax = self.comm.get_rmax( with_damp=True )
         # Initialize the field structure
         self.fld = Fields( Nz, zmax, Nr, rmax, Nm, dt,
                     n_order=n_order, use_pml=use_pml, zmin=zmin,
@@ -692,9 +706,10 @@ class Simulation(object):
         .. note::
 
             For the arguments below, it is recommended to have at least
-            ``p_nt = 4*Nm``, i.e. the required number of macroparticles
-            along `theta` (in order for the simulation to be properly resolved)
-            increases with the number of azimuthal modes used.
+            ``p_nt = 4*Nm`` (except in the case ``Nm=1``, for which
+            ``p_nt=1`` is sufficient). In other words, the required number of
+            macroparticles along `theta` (in order for the simulation to be
+            properly resolved) increases with the number of azimuthal modes used.
 
         Parameters
         ----------
@@ -798,6 +813,9 @@ class Simulation(object):
                                         with_damp=False, with_guard=False )
             p_zmin = max( zmin_local_domain, p_zmin )
             p_zmax = min( zmax_local_domain, p_zmax )
+            # Avoid that particles get initialized in the radial PML cells
+            rmax = self.comm.get_rmax( with_damp=False )
+            p_rmax = min( rmax, p_rmax )
 
             # Modify again the input particle bounds, so that
             # they fall exactly on the grid, and infer the number of particles
