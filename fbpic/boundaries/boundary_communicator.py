@@ -901,9 +901,10 @@ class BoundaryCommunicator(object):
                 local=False, with_guard=False, with_damp=False )
             zmin_global, zmax_global = self.get_zmin_zmax(
                 local=False, with_guard=False, with_damp=False )
+            Nr = self.get_Nr( with_damp=False )
             # Initialize new InterpolationGrid object that
             # is used to gather the global grid data
-            gathered_grid = InterpolationGrid( Nz_global, grid.Nr, grid.m,
+            gathered_grid = InterpolationGrid( Nz_global, Nr, grid.m,
                                     zmin_global, zmax_global, grid.rmax )
         else:
             # Other processes do not need to initialize new InterpolationGrid
