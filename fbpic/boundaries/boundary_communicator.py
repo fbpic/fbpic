@@ -923,10 +923,11 @@ class BoundaryCommunicator(object):
             zmin_global, zmax_global = self.get_zmin_zmax(
                 local=False, with_guard=False, with_damp=False )
             Nr = self.get_Nr( with_damp=False )
+            rmax = self.get_rmax( with_damp=False )
             # Initialize new InterpolationGrid object that
             # is used to gather the global grid data
             gathered_grid = InterpolationGrid( Nz_global, Nr, grid.m,
-                                    zmin_global, zmax_global, grid.rmax )
+                                    zmin_global, zmax_global, rmax )
         else:
             # Other processes do not need to initialize new InterpolationGrid
             gathered_grid = None
@@ -983,7 +984,10 @@ class BoundaryCommunicator(object):
         _, iz_start_local_array = self.get_Nz_and_iz(
             local=True, with_damp=True, with_guard=True, rank=self.rank )
         iz_in_array = iz_start_local_domain - iz_start_local_array
-        local_array = array[ iz_in_array:iz_in_array+Nz_local, :Nr ]
+        local_array = np.ascontiguousarray(
+                        array[ iz_in_array:iz_in_array+Nz_local, :Nr ] )
+        # Note: local_array needs to be contiguous since is is passed
+        # directly to MPI's `Gatherv`
 
         # Then send the arrays
         if self.size > 1:
