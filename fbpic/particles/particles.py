@@ -200,6 +200,11 @@ class Particles(object) :
         # Register particle shape
         self.particle_shape = particle_shape
 
+        # Register boolean that records whether field array should
+        # be rearranged whenever sorting particles
+        # (gets modified during the main PIC loop, on GPU)
+        self.keep_fields_sorted = False
+
         # Allocate arrays and register variables when using CUDA
         if self.use_cuda:
             if grid_shape is None:
@@ -501,6 +506,9 @@ class Particles(object) :
         attr_list = [ (self,'x'), (self,'y'), (self,'z'), \
                         (self,'ux'), (self,'uy'), (self,'uz'), \
                         (self, 'w'), (self,'inv_gamma') ]
+        if self.keep_fields_sorted:
+            attr_list += [ (self, 'Ex'), (self, 'Ey'), (self, 'Ez'), \
+                            (self, 'Bx'), (self, 'By'), (self, 'Bz') ]
         if self.ionizer is not None:
             attr_list += [ (self.ionizer,'w_times_level') ]
         for attr in attr_list:
