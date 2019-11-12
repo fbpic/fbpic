@@ -88,12 +88,13 @@ class ParticleChargeDensityDiagnostic(FieldDiagnostic):
                 local=False, with_damp=False, with_guard=False )
         Nz, _ = self.comm.get_Nz_and_iz(
                 local=False, with_damp=False, with_guard=False )
+        Nr = self.comm.get_Nr(with_damp=False)
 
         # Create the file with these attributes
         filename = "data%08d.h5" %iteration
         fullpath = os.path.join( self.write_dir, "hdf5", filename )
         self.create_file_empty_meshes(
-            fullpath, iteration, time, Nz, zmin, dz, dt )
+            fullpath, iteration, time, Nr, Nz, zmin, dz, dt )
 
         # Loop over the requested species
         for species_name in self.species.keys():
