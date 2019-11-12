@@ -53,7 +53,7 @@ class Simulation(object):
                  current_correction='curl-free', boundaries='periodic',
                  gamma_boost=None, use_all_mpi_ranks=True,
                  particle_shape='linear', verbose_level=1,
-                 smoother=None, r_boundary='open', nr_damp=32 ):
+                 smoother=None, r_boundary='reflective', nr_damp=32 ):
         """
         Initializes a simulation.
 
