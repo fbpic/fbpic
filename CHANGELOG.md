@@ -1,5 +1,24 @@
 # Change Log / Release Log for fbpic
 
+## 0.14.0
+
+This release fixes two important issues in FBPIC:
+
+- There was a bug on GPU, related to particle sorting (see
+[#402](https://github.com/fbpic/fbpic/pull/402) for more details). This bug
+mostly affected simulations with ionization, and typically results in additional
+ionization occurring in arbitrary locations in the simulation box
+(See [#396](https://github.com/fbpic/fbpic/issues/396)). In addition, this
+bug could have also affected simulations without ionization, and would result
+in an incorrect particle push, for a fraction of the particles. It is now fixed.
+
+- Particles that exit the simulation box radially used to still feel the
+fields from the last cell of the box. This could cause these particles to
+be pushed back into the box (see [#369](https://github.com/fbpic/fbpic/issues/369)).
+This is now fixed: with the new version of the code, particles that exit the box
+radially do not feel any force from the grid anymore, and move in a straight line
+(see [#398](https://github.com/fbpic/fbpic/pull/398)).
+
 ## 0.13.3
 
 This is a bug-fix release ; it prevents an incompatibility between cupy and the latest version of numba (numba 0.46).
