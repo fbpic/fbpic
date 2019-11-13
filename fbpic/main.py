@@ -400,6 +400,10 @@ class Simulation(object):
             # Main PIC iteration
             # ------------------
 
+            # Keep field arrays sorted throughout gathering+push
+            for species in ptcl:
+                species.keep_fields_sorted = True
+
             # Gather the fields from the grid at t = n dt
             for species in ptcl:
                 species.gather( fld.interp )
@@ -431,18 +435,22 @@ class Simulation(object):
             if self.use_galilean:
                 self.shift_galilean_boundaries( 0.5*dt )
 
+            # Handle elementary processes at t = (n + 1/2)dt
+            # i.e. when the particles' velocity and position are synchronized
+            # (e.g. ionization, Compton scattering, ...)
+            for species in ptcl:
+                species.handle_elementary_processes( self.time + 0.5*dt )
+
+            # Fields are not used beyond this point ; no need to keep sorted
+            for species in ptcl:
+                species.keep_fields_sorted = False
+
             # Get the current at t = (n+1/2) dt
             # (Guard cell exchange done either now or after current correction)
             self.deposit('J', exchange=(correct_currents is False))
             # Perform cross-deposition if needed
             if correct_currents and fld.current_correction=='cross-deposition':
                 self.cross_deposit( move_positions )
-
-            # Handle elementary processes at t = (n + 1/2)dt
-            # i.e. when the particles' velocity and position are synchronized
-            # (e.g. ionization, Compton scattering, ...)
-            for species in ptcl:
-                species.handle_elementary_processes( self.time + 0.5*dt )
 
             # Push the particles' positions to t = (n+1) dt
             if move_positions:
