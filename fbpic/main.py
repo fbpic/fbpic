@@ -236,6 +236,9 @@ class Simulation(object):
         if v_comoving is None:
             self.use_galilean = False
 
+        # Check whether the pml should be used
+        self.use_pml = (r_boundary == "open")
+
         # When running the simulation in a boosted frame, convert the arguments
         if gamma_boost is not None:
             self.boost = BoostConverter( gamma_boost )
@@ -257,6 +260,7 @@ class Simulation(object):
         self.fld = Fields( Nz, zmax, Nr, rmax, Nm, dt,
                     n_order=n_order, zmin=zmin,
                     v_comoving=v_comoving,
+                    use_pml=self.use_pml,
                     use_galilean=use_galilean,
                     current_correction=current_correction,
                     use_cuda=self.use_cuda,
