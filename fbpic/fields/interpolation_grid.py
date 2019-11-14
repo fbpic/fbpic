@@ -25,7 +25,8 @@ class InterpolationGrid(object) :
       2darrays containing the fields.
     """
 
-    def __init__(self, Nz, Nr, m, zmin, zmax, rmax, use_cuda=False ) :
+    def __init__(self, Nz, Nr, m, zmin, zmax, rmax,
+                    use_pml=False, use_cuda=False ):
         """
         Allocates the matrices corresponding to the spatial grid
 
@@ -44,6 +45,9 @@ class InterpolationGrid(object) :
         rmax : float
             The position of the edge of the box along r
 
+        use_pml: bool, optional
+            Whether to allocate and use Perfectly-Matched-Layers split fields
+
         use_cuda : bool, optional
             Wether to use the GPU or not
         """
@@ -51,6 +55,7 @@ class InterpolationGrid(object) :
         self.Nz = Nz
         self.Nr = Nr
         self.m = m
+        self.use_pml = use_pml
 
         # Register a few grid properties
         dr = rmax/Nr
@@ -81,6 +86,12 @@ class InterpolationGrid(object) :
         self.Jt = np.zeros( (Nz, Nr), dtype='complex' )
         self.Jz = np.zeros( (Nz, Nr), dtype='complex' )
         self.rho = np.zeros( (Nz, Nr), dtype='complex' )
+        # Allocate the PML fields if needed
+        if self.use_pml:
+            self.Er_pml = np.zeros( (Nz, Nr), dtype='complex' )
+            self.Et_pml = np.zeros( (Nz, Nr), dtype='complex' )
+            self.Br_pml = np.zeros( (Nz, Nr), dtype='complex' )
+            self.Bt_pml = np.zeros( (Nz, Nr), dtype='complex' )
 
         # Check whether the GPU should be used
         self.use_cuda = use_cuda
@@ -116,6 +127,11 @@ class InterpolationGrid(object) :
         self.Jt = cuda.to_device( self.Jt )
         self.Jz = cuda.to_device( self.Jz )
         self.rho = cuda.to_device( self.rho )
+        if self.use_pml:
+            self.Er_pml = cuda.to_device( self.Er_pml )
+            self.Et_pml = cuda.to_device( self.Et_pml )
+            self.Br_pml = cuda.to_device( self.Br_pml )
+            self.Bt_pml = cuda.to_device( self.Bt_pml )
 
     def receive_fields_from_gpu( self ):
         """
@@ -134,6 +150,11 @@ class InterpolationGrid(object) :
         self.Jt = self.Jt.copy_to_host()
         self.Jz = self.Jz.copy_to_host()
         self.rho = self.rho.copy_to_host()
+        if self.use_pml:
+            self.Er_pml = self.Er_pml.copy_to_host()
+            self.Et_pml = self.Et_pml.copy_to_host()
+            self.Br_pml = self.Br_pml.copy_to_host()
+            self.Bt_pml = self.Bt_pml.copy_to_host()
 
     def erase( self, fieldtype ):
         """
