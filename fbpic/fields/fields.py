@@ -84,6 +84,9 @@ class Fields(object) :
             - Using a PSATD scheme that takes this hypothesis into account
             - Solving the PSATD scheme in a Galilean frame
 
+        use_pml: bool, optional
+            Whether to allocate and use Perfectly-Matched-Layers split fields
+
         use_galilean: bool, optional
             Determines which one of the two above schemes is used
             When use_galilean is true, the whole grid moves
@@ -175,7 +178,7 @@ class Fields(object) :
             # Create the object
             self.spect.append( SpectralGrid( kz_modified, kr, m,
                 kz_true, self.interp[m].dz, self.interp[m].dr,
-                current_correction,smoother, use_pml=use_pml,
+                current_correction, smoother, use_pml=use_pml,
                 use_cuda=self.use_cuda ) )
             self.psatd.append( PsatdCoeffs( self.spect[m].kz,
                                 self.spect[m].kr, m, dt, Nz, Nr,
@@ -304,7 +307,7 @@ class Fields(object) :
         ---------
         fieldtype :
             A string which represents the kind of field to transform
-            (either 'E', 'B', 'J', 'rho_next', 'rho_prev')
+            (either 'E', 'B', 'E_pml', 'B_pml', 'J', 'rho_next', 'rho_prev')
         """
         # Use the appropriate transformation depending on the fieldtype.
         if fieldtype == 'E' :
@@ -323,13 +326,13 @@ class Fields(object) :
                 self.trans[m].interp2spect_vect(
                     self.interp[m].Br, self.interp[m].Bt,
                     self.spect[m].Bp, self.spect[m].Bm )
-        elif fieldtype == 'E_pml' and self.interp[0].use_pml:
+        elif fieldtype == 'E_pml':
             # Transform each azimuthal grid individually
             for m in range(self.Nm):
                 self.trans[m].interp2spect_vect(
                     self.interp[m].Er_pml, self.interp[m].Et_pml,
                     self.spect[m].Ep_pml, self.spect[m].Em_pml )
-        elif fieldtype == 'B_pml' and self.interp[0].use_pml:
+        elif fieldtype == 'B_pml':
             # Transform each azimuthal grid individually
             for m in range(self.Nm):
                 self.trans[m].interp2spect_vect(
@@ -361,7 +364,7 @@ class Fields(object) :
         ---------
         fieldtype :
             A string which represents the kind of field to transform
-            (either 'E', 'B', 'J', 'rho_next', 'rho_prev')
+            (either 'E', 'B', 'E_pml', 'B_pml', 'J', 'rho_next', 'rho_prev')
         """
         # Use the appropriate transformation depending on the fieldtype.
         if fieldtype == 'E' :
@@ -380,13 +383,13 @@ class Fields(object) :
                 self.trans[m].spect2interp_vect(
                     self.spect[m].Bp, self.spect[m].Bm,
                     self.interp[m].Br, self.interp[m].Bt )
-        elif fieldtype == 'E_pml' and self.interp[0].use_pml:
+        elif fieldtype == 'E_pml':
             # Transform each azimuthal grid individually
             for m in range(self.Nm) :
                 self.trans[m].spect2interp_vect(
                     self.spect[m].Ep_pml,  self.spect[m].Em_pml,
                     self.interp[m].Er_pml, self.interp[m].Et_pml )
-        elif fieldtype == 'B_pml' and self.interp[0].use_pml:
+        elif fieldtype == 'B_pml':
             # Transform each azimuthal grid individually
             for m in range(self.Nm) :
                 self.trans[m].spect2interp_vect(

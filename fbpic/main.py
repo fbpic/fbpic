@@ -237,7 +237,7 @@ class Simulation(object):
             self.use_galilean = False
 
         # Check whether the pml should be used
-        use_pml = (r_boundary == "open")
+        self.use_pml = (r_boundary == "open")
 
         # When running the simulation in a boosted frame, convert the arguments
         if gamma_boost is not None:
@@ -260,8 +260,9 @@ class Simulation(object):
         rmax = self.comm.get_rmax( with_damp=True )
         # Initialize the field structure
         self.fld = Fields( Nz, zmax, Nr, rmax, Nm, dt,
-                    n_order=n_order, use_pml=use_pml, zmin=zmin,
+                    n_order=n_order, zmin=zmin,
                     v_comoving=v_comoving,
+                    use_pml=self.use_pml,
                     use_galilean=use_galilean,
                     current_correction=current_correction,
                     use_cuda=self.use_cuda,

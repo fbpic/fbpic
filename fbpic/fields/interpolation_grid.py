@@ -26,7 +26,7 @@ class InterpolationGrid(object) :
     """
 
     def __init__(self, Nz, Nr, m, zmin, zmax, rmax,
-                    use_pml=False, use_cuda=False ) :
+                    use_pml=False, use_cuda=False ):
         """
         Allocates the matrices corresponding to the spatial grid
 
@@ -46,7 +46,7 @@ class InterpolationGrid(object) :
             The position of the edge of the box along r
 
         use_pml: bool, optional
-            Whether to use the Perfectly Matched Layers
+            Whether to allocate and use Perfectly-Matched-Layers split fields
 
         use_cuda : bool, optional
             Wether to use the GPU or not
@@ -133,7 +133,6 @@ class InterpolationGrid(object) :
             self.Br_pml = cuda.to_device( self.Br_pml )
             self.Bt_pml = cuda.to_device( self.Bt_pml )
 
-
     def receive_fields_from_gpu( self ):
         """
         Receive the fields from the GPU.
@@ -156,7 +155,6 @@ class InterpolationGrid(object) :
             self.Et_pml = self.Et_pml.copy_to_host()
             self.Br_pml = self.Br_pml.copy_to_host()
             self.Bt_pml = self.Bt_pml.copy_to_host()
-
 
     def erase( self, fieldtype ):
         """

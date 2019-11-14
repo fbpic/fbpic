@@ -63,7 +63,7 @@ class SpectralGrid(object) :
             is satisfied. Either `curl-free` or `cross-deposition`.
 
         use_pml: bool, optional
-            Whether to use the Perfectly Matched Layers
+            Whether to allocate and use Perfectly-Matched-Layers split fields
 
         smoother: an instance of BinomialSmoother
             Determines how the charge and currents are smoothed.
