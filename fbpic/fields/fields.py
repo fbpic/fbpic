@@ -315,11 +315,6 @@ class Fields(object) :
                 self.trans[m].interp2spect_vect(
                     self.interp[m].Er, self.interp[m].Et,
                     self.spect[m].Ep, self.spect[m].Em )
-                # Transform the PML fields if needed
-                if self.interp[m].use_pml:
-                    self.trans[m].interp2spect_vect(
-                        self.interp[m].Er_pml, self.interp[m].Et_pml,
-                        self.spect[m].Ep_pml, self.spect[m].Em_pml )
         elif fieldtype == 'B' :
             # Transform each azimuthal grid individually
             for m in range(self.Nm) :
@@ -328,11 +323,18 @@ class Fields(object) :
                 self.trans[m].interp2spect_vect(
                     self.interp[m].Br, self.interp[m].Bt,
                     self.spect[m].Bp, self.spect[m].Bm )
-                # Transform the PML fields if needed
-                if self.interp[m].use_pml:
-                    self.trans[m].interp2spect_vect(
-                        self.interp[m].Br_pml, self.interp[m].Bt_pml,
-                        self.spect[m].Bp_pml, self.spect[m].Bm_pml )
+        elif fieldtype == 'E_pml' and self.interp[0].use_pml:
+            # Transform each azimuthal grid individually
+            for m in range(self.Nm):
+                self.trans[m].interp2spect_vect(
+                    self.interp[m].Er_pml, self.interp[m].Et_pml,
+                    self.spect[m].Ep_pml, self.spect[m].Em_pml )
+        elif fieldtype == 'B_pml' and self.interp[0].use_pml:
+            # Transform each azimuthal grid individually
+            for m in range(self.Nm):
+                self.trans[m].interp2spect_vect(
+                    self.interp[m].Br_pml, self.interp[m].Bt_pml,
+                    self.spect[m].Bp_pml, self.spect[m].Bm_pml )
         elif fieldtype == 'J' :
             # Transform each azimuthal grid individually
             for m in range(self.Nm) :
@@ -370,11 +372,6 @@ class Fields(object) :
                 self.trans[m].spect2interp_vect(
                     self.spect[m].Ep,  self.spect[m].Em,
                     self.interp[m].Er, self.interp[m].Et )
-                # Transform the PML fields if needed
-                if self.interp[m].use_pml:
-                    self.trans[m].spect2interp_vect(
-                        self.spect[m].Ep_pml,  self.spect[m].Em_pml,
-                        self.interp[m].Er_pml, self.interp[m].Et_pml )
         elif fieldtype == 'B' :
             # Transform each azimuthal grid individually
             for m in range(self.Nm) :
@@ -383,11 +380,18 @@ class Fields(object) :
                 self.trans[m].spect2interp_vect(
                     self.spect[m].Bp, self.spect[m].Bm,
                     self.interp[m].Br, self.interp[m].Bt )
-               # Transform the PML fields if needed
-                if self.interp[m].use_pml:
-                    self.trans[m].spect2interp_vect(
-                        self.spect[m].Bp_pml,  self.spect[m].Bm_pml,
-                        self.interp[m].Br_pml, self.interp[m].Bt_pml )
+        elif fieldtype == 'E_pml' and self.interp[0].use_pml:
+            # Transform each azimuthal grid individually
+            for m in range(self.Nm) :
+                self.trans[m].spect2interp_vect(
+                    self.spect[m].Ep_pml,  self.spect[m].Em_pml,
+                    self.interp[m].Er_pml, self.interp[m].Et_pml )
+        elif fieldtype == 'B_pml' and self.interp[0].use_pml:
+            # Transform each azimuthal grid individually
+            for m in range(self.Nm) :
+                self.trans[m].spect2interp_vect(
+                    self.spect[m].Bp_pml,  self.spect[m].Bm_pml,
+                    self.interp[m].Br_pml, self.interp[m].Bt_pml )
         elif fieldtype == 'J' :
             # Transform each azimuthal grid individually
             for m in range(self.Nm) :
