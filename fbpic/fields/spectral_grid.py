@@ -8,7 +8,7 @@ It defines the SpectralGrid class.
 import numpy as np
 from scipy.constants import epsilon_0
 from .numba_methods import numba_push_eb_standard, \
-    numba_push_eb_comoving, numba_push_eb_pml, \
+    numba_push_eb_comoving, numba_push_eb_pml_standard, \
     numba_correct_currents_curlfree_standard, \
     numba_correct_currents_crossdeposition_standard, \
     numba_correct_currents_curlfree_comoving, \
@@ -24,7 +24,7 @@ if cuda_installed:
     cuda_correct_currents_curlfree_comoving, \
     cuda_correct_currents_crossdeposition_comoving, \
     cuda_filter_scalar, cuda_filter_vector, \
-    cuda_push_eb_standard, cuda_push_eb_comoving, cuda_push_eb_pml, \
+    cuda_push_eb_standard, cuda_push_eb_comoving, cuda_push_eb_pml_standard, \
     cuda_push_rho
 
 
@@ -338,19 +338,15 @@ class SpectralGrid(object) :
             # Push the fields on the GPU
             if ps.V is None:
                 # With the standard PSATD algorithm
-                if not self.use_pml:
-                    # With the standard PSATD algorithm
-                    cuda_push_eb_standard[dim_grid, dim_block](
-                        self.Ep, self.Em, self.Ez, self.Bp, self.Bm, self.Bz,
-                        self.Jp, self.Jm, self.Jz, self.rho_prev, self.rho_next,
-                        ps.d_rho_prev_coef, ps.d_rho_next_coef, ps.d_j_coef,
-                        ps.d_C, ps.d_S_w, self.d_kr, self.d_kz, ps.dt,
-                        use_true_rho, self.Nz, self.Nr )
-                # With the PML
-                else:
-                    cuda_push_eb_pml[dim_grid, dim_block](
+                if self.use_pml:
+                    # Push the PML split component
+                    cuda_push_eb_pml_standard[dim_grid, dim_block](
+                        self.Ep_pml, self.Em_pml, self.Bp_pml, self.Bp_pml,
+                        self.Ez, self.Bz, ps.C, ps.S_w,
+                        self.kr, self.kz, self.Nz, self.Nr )
+                # Push the regular fields
+                cuda_push_eb_standard[dim_grid, dim_block](
                     self.Ep, self.Em, self.Ez, self.Bp, self.Bm, self.Bz,
-                    self.Ep_pml, self.Em_pml, self.Bp_pml, self.Bp_pml,
                     self.Jp, self.Jm, self.Jz, self.rho_prev, self.rho_next,
                     ps.d_rho_prev_coef, ps.d_rho_next_coef, ps.d_j_coef,
                     ps.d_C, ps.d_S_w, self.d_kr, self.d_kz, ps.dt,
@@ -368,21 +364,20 @@ class SpectralGrid(object) :
             # Push the fields on the CPU
             if ps.V is None:
                 # With the standard PSATD algorithm
-                if not self.use_pml:
-                    numba_push_eb_standard(
-                        self.Ep, self.Em, self.Ez, self.Bp, self.Bm, self.Bz,
-                        self.Jp, self.Jm, self.Jz, self.rho_prev, self.rho_next,
-                        ps.rho_prev_coef, ps.rho_next_coef, ps.j_coef,
-                        ps.C, ps.S_w, self.kr, self.kz, ps.dt,
-                        use_true_rho, self.Nz, self.Nr )
-                else:
-                    numba_push_eb_pml(
-                        self.Ep, self.Em, self.Ez, self.Bp, self.Bm, self.Bz,
+                if self.use_pml:
+                    # Push the PML split component
+                    numba_push_eb_pml_standard(
                         self.Ep_pml, self.Em_pml, self.Bp_pml, self.Bp_pml,
-                        self.Jp, self.Jm, self.Jz, self.rho_prev, self.rho_next,
-                        ps.rho_prev_coef, ps.rho_next_coef, ps.j_coef,
-                        ps.C, ps.S_w, self.kr, self.kz, ps.dt,
-                        use_true_rho, self.Nz, self.Nr )
+                        self.Ez, self.Bz, ps.C, ps.S_w,
+                        self.kr, self.kz, self.Nz, self.Nr )
+                # Push the regular fields
+                numba_push_eb_standard(
+                    self.Ep, self.Em, self.Ez, self.Bp, self.Bm, self.Bz,
+                    self.Jp, self.Jm, self.Jz, self.rho_prev, self.rho_next,
+                    ps.rho_prev_coef, ps.rho_next_coef, ps.j_coef,
+                    ps.C, ps.S_w, self.kr, self.kz, ps.dt,
+                    use_true_rho, self.Nz, self.Nr )
+
             else:
                 # With the Galilean/comoving algorithm
                 numba_push_eb_comoving(

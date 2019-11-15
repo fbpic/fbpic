@@ -301,14 +301,10 @@ def cuda_push_eb_standard( Ep, Em, Ez, Bp, Bm, Bz, Jp, Jm, Jz,
 
 
 @cuda.jit
-def cuda_push_eb_pml( Ep, Em, Ez, Bp, Bm, Bz,
-                       Ep_pml, Em_pml, Bp_pml, Bm_pml,
-                       Jp, Jm, Jz, rho_prev, rho_next,
-                       rho_prev_coef, rho_next_coef, j_coef,
-                       C, S_w, kr, kz, dt,
-                       use_true_rho, Nz, Nr) :
+def cuda_push_eb_pml_standard( Ep_pml, Em_pml, Bp_pml, Bm_pml,
+                        Ez, Bz, C, S_w, kr, kz, Nz, Nr):
     """
-    Push the fields over one timestep, using the standard psatd algorithm
+    Push the PML split fields over one timestep, using the standard psatd algorithm
 
     See the documentation of SpectralGrid.push_eb_with
     """
@@ -318,39 +314,6 @@ def cuda_push_eb_pml( Ep, Em, Ez, Bp, Bm, Bz,
     # Push the fields
     if (iz < Nz) and (ir < Nr) :
 
-        # Save the electric fields, since it is needed for the B push
-        Ep_old = Ep[iz, ir]
-        Em_old = Em[iz, ir]
-        Ez_old = Ez[iz, ir]
-
-        # Calculate useful auxiliary arrays
-        if use_true_rho:
-            # Evaluation using the rho projected on the grid
-            rho_diff = rho_next_coef[iz, ir] * rho_next[iz, ir] \
-                    - rho_prev_coef[iz, ir] * rho_prev[iz, ir]
-        else:
-            # Evaluation using div(E) and div(J)
-            divE = kr[iz, ir]*( Ep[iz, ir] - Em[iz, ir] ) \
-                + 1.j*kz[iz, ir]*Ez[iz, ir]
-            divJ = kr[iz, ir]*( Jp[iz, ir] - Jm[iz, ir] ) \
-                + 1.j*kz[iz, ir]*Jz[iz, ir]
-
-            rho_diff = (rho_next_coef[iz, ir] - rho_prev_coef[iz, ir]) \
-              * epsilon_0 * divE - rho_next_coef[iz, ir] * dt * divJ
-
-        # Push the E field
-        Ep[iz, ir] = C[iz, ir]*Ep[iz, ir] + 0.5*kr[iz, ir]*rho_diff \
-            + c2*S_w[iz, ir]*( -1.j*0.5*kr[iz, ir]*Bz[iz, ir] \
-            + kz[iz, ir]*Bp[iz, ir] - mu_0*Jp[iz, ir] )
-
-        Em[iz, ir] = C[iz, ir]*Em[iz, ir] - 0.5*kr[iz, ir]*rho_diff \
-            + c2*S_w[iz, ir]*( -1.j*0.5*kr[iz, ir]*Bz[iz, ir] \
-            - kz[iz, ir]*Bm[iz, ir] - mu_0*Jm[iz, ir] )
-
-        Ez[iz, ir] = C[iz, ir]*Ez[iz, ir] - 1.j*kz[iz, ir]*rho_diff \
-            + c2*S_w[iz, ir]*( 1.j*kr[iz, ir]*Bp[iz, ir] \
-            + 1.j*kr[iz, ir]*Bm[iz, ir] - mu_0*Jz[iz, ir] )
-
         # Push the PML E field
         Ep_pml[iz, ir] = C[iz, ir]*Ep_pml[iz, ir] \
             + c2*S_w[iz, ir]*( -1.j*0.5*kr[iz, ir]*Bz[iz, ir] )
@@ -358,31 +321,12 @@ def cuda_push_eb_pml( Ep, Em, Ez, Bp, Bm, Bz,
         Em_pml[iz, ir] = C[iz, ir]*Em_pml[iz, ir] \
             + c2*S_w[iz, ir]*( -1.j*0.5*kr[iz, ir]*Bz[iz, ir] )
 
-        # Push the B field
-        Bp[iz, ir] = C[iz, ir]*Bp[iz, ir] \
-            - S_w[iz, ir]*( -1.j*0.5*kr[iz, ir]*Ez_old \
-                        + kz[iz, ir]*Ep_old ) \
-            + j_coef[iz, ir]*( -1.j*0.5*kr[iz, ir]*Jz[iz, ir] \
-                        + kz[iz, ir]*Jp[iz, ir] )
-
-        Bm[iz, ir] = C[iz, ir]*Bm[iz, ir] \
-            - S_w[iz, ir]*( -1.j*0.5*kr[iz, ir]*Ez_old \
-                        - kz[iz, ir]*Em_old ) \
-            + j_coef[iz, ir]*( -1.j*0.5*kr[iz, ir]*Jz[iz, ir] \
-                        - kz[iz, ir]*Jm[iz, ir] )
-
-        Bz[iz, ir] = C[iz, ir]*Bz[iz, ir] \
-            - S_w[iz, ir]*( 1.j*kr[iz, ir]*Ep_old \
-                        + 1.j*kr[iz, ir]*Em_old ) \
-            + j_coef[iz, ir]*( 1.j*kr[iz, ir]*Jp[iz, ir] \
-                        + 1.j*kr[iz, ir]*Jm[iz, ir] )
-
         # Push the PML B field
         Bp_pml[iz, ir] = C[iz, ir]*Bp_pml[iz, ir] \
-            - S_w[iz, ir]*( -1.j*0.5*kr[iz, ir]*Ez_old )
+            - S_w[iz, ir]*( -1.j*0.5*kr[iz, ir]*Ez[iz, ir] )
 
         Bm_pml[iz, ir] = C[iz, ir]*Bm_pml[iz, ir] \
-            - S_w[iz, ir]*( -1.j*0.5*kr[iz, ir]*Ez_old )
+            - S_w[iz, ir]*( -1.j*0.5*kr[iz, ir]*Ez[iz, ir] )
 
 
 @cuda.jit
