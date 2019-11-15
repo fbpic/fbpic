@@ -372,8 +372,9 @@ class Simulation(object):
         self.comm.damp_EB_open_boundary( fld.interp )
         fld.interp2spect('E')
         fld.interp2spect('B')
-        fld.interp2spect('E_pml')
-        fld.interp2spect('B_pml')
+        if self.use_pml:
+            fld.interp2spect('E_pml')
+            fld.interp2spect('B_pml')
 
         # Beginning of the N iterations
         # -----------------------------
