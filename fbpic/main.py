@@ -499,25 +499,43 @@ class Simulation(object):
 
             # Get the MPI-exchanged and damped E and B field in both
             # spectral space and interpolation space
-            fld.spect2interp('E')
-            fld.spect2interp('B')
+
+            # - Get fields in interpolation space (or partial interpolation space)
+            #   to prepare for damp/exchange
             if self.use_pml:
+                # Exchange/damp operation in z and r ; do full transform
+                fld.spect2interp('E')
+                fld.spect2interp('B')
                 fld.spect2interp('E_pml')
                 fld.spect2interp('B_pml')
+            else:
+                # Exchange/damp operation is purely along z; spectral fields
+                # are updated by doing an iFFT/FFT instead of a full transform
+                fld.spect2partial_interp('E')
+                fld.spect2partial_interp('B')
+
+            # - Exchange guard cells and damp fields
             self.comm.exchange_fields(fld.interp, 'E', 'replace')
             self.comm.exchange_fields(fld.interp, 'B', 'replace')
-            self.comm.damp_EB_open_boundary( fld.interp )
+            self.comm.damp_EB_open_boundary( fld.interp ) # Damp along z
             if self.use_pml:
-                self.comm.damp_pml_EB( fld.interp )
-            fld.interp2spect('E')
-            fld.interp2spect('B')
+                self.comm.damp_pml_EB( fld.interp ) # Damp in radial PML
+
+            # - Update spectral space (and interpolation space if needed)
             if self.use_pml:
+                # Exchange/damp operation in z and r ; do full transform back
+                fld.interp2spect('E')
+                fld.interp2spect('B')
                 fld.interp2spect('E_pml')
                 fld.interp2spect('B_pml')
-
-            # Get the corresponding fields in interpolation space
-            fld.spect2interp('E')
-            fld.spect2interp('B')
+            else:
+                # Exchange/damp operation is purely along z; spectral fields
+                # are updated by doing an iFFT/FFT instead of a full transform
+                fld.partial_interp2spect('E')
+                fld.partial_interp2spect('B')
+                # Get the corresponding fields in interpolation space
+                fld.spect2interp('E')
+                fld.spect2interp('B')
 
             # Increment the global time and iteration
             self.time += dt
