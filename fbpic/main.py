@@ -500,16 +500,19 @@ class Simulation(object):
             # spectral space and interpolation space
             fld.spect2interp('E')
             fld.spect2interp('B')
-            fld.spect2interp('E_pml')
-            fld.spect2interp('B_pml')
+            if self.use_pml:
+                fld.spect2interp('E_pml')
+                fld.spect2interp('B_pml')
             self.comm.exchange_fields(fld.interp, 'E', 'replace')
             self.comm.exchange_fields(fld.interp, 'B', 'replace')
             self.comm.damp_EB_open_boundary( fld.interp )
-            self.comm.damp_pml_EB( fld.interp )
+            if self.use_pml:
+                self.comm.damp_pml_EB( fld.interp )
             fld.interp2spect('E')
             fld.interp2spect('B')
-            fld.interp2spect('E_pml')
-            fld.interp2spect('B_pml')
+            if self.use_pml:
+                fld.interp2spect('E_pml')
+                fld.interp2spect('B_pml')
 
             # Get the corresponding fields in interpolation space
             fld.spect2interp('E')
