@@ -670,6 +670,9 @@ class Simulation(object):
          - Damp fields in damping cells (in z, and in r if PML are used)
          - Update the fields in interpolation space
         """
+        # Shortcut
+        fld = self.fld
+
         # - Get fields in interpolation space (or partial interpolation space)
         #   to prepare for damp/exchange
         if self.use_pml:
