@@ -215,20 +215,14 @@ class GaussianLaser( LaserProfile ):
 
         # Diffraction and stretch_factor
         prop_dir = self.propag_direction
-        alpha = prop_dir * (z - self.zf) * self.inv_zr
-        diffract_factor = 1. + 1j * alpha
+        diffract_factor = 1. + 1j * prop_dir*(z - self.zf) * self.inv_zr
         stretch_factor = 1 - 2j * self.phi2_chirp * c**2 * self.inv_ctau2
         # Calculate the argument of the complex exponential
         exp_argument = - 1j*self.cep_phase \
             + 1j*self.k0*( prop_dir*(z - self.z0) - c*t ) \
             - (x**2 + y**2) / (self.w0**2 * diffract_factor) \
-            - 1./stretch_factor*self.inv_ctau2 * (
-                    prop_dir*(z - self.z0) - c*t \
-                    # The last term below corresponds to the curvature of the
-                    # envelope ; see Phys. Rev. E 59, 1082 (1999), appendix B.2
-                    - alpha*(1-alpha**2)*(x**2+y**2) \
-                    /(self.k0*self.w0**2*(1+alpha**2)**2) )**2
-
+            - 1./stretch_factor*self.inv_ctau2 * \
+                                    ( prop_dir*(z - self.z0) - c*t )**2
         # Get the transverse profile
         profile = np.exp(exp_argument) /(diffract_factor * stretch_factor**0.5)
 
@@ -395,8 +389,7 @@ class LaguerreGaussLaser( LaserProfile ):
         """
         # Diffraction factor, waist and Gouy phase
         prop_dir = self.propag_direction
-        alpha = prop_dir * (z - self.zf) * self.inv_zr
-        diffract_factor = 1. + 1j * alpha
+        diffract_factor = 1. + 1j * prop_dir * (z - self.zf) * self.inv_zr
         w = self.w0 * abs( diffract_factor )
         psi = np.angle( diffract_factor )
         # Calculate the scaled radius and azimuthal angle
@@ -407,13 +400,8 @@ class LaguerreGaussLaser( LaserProfile ):
         exp_argument = - 1j*self.cep_phase \
             + 1j*self.k0*( prop_dir*(z - self.z0) - c*t ) \
             - (x**2 + y**2) / (self.w0**2 * diffract_factor) \
-            - self.inv_ctau2 * ( prop_dir*(z - self.z0) - c*t \
-                # The term below corresponds to the curvature of the
-                # envelope ; see Phys. Rev. E 59, 1082 (1999), appendix B.2
-                + alpha*(x**2+y**2) \
-                /(self.k0*self.w0**2*(1+alpha**2)**2) )**2 \
-            - 1.j*(2*self.p + self.m)*psi # Additional Gouy phase
-
+            - self.inv_ctau2 * ( prop_dir*(z - self.z0) - c*t )**2 \
+            - 1.j*(2*self.p + self.m)*psi # *Additional* Gouy phase
         # Get the transverse profile
         profile = np.exp(exp_argument) / diffract_factor \
             * scaled_radius**self.m * self.laguerre_pm(scaled_radius_squared) \
@@ -561,8 +549,7 @@ class DonutLikeLaguerreGaussLaser( LaserProfile ):
         """
         # Diffraction factor, waist and Gouy phase
         prop_dir = self.propag_direction
-        alpha = prop_dir * (z - self.zf) * self.inv_zr
-        diffract_factor = 1. + 1j * alpha
+        diffract_factor = 1. + 1j * prop_dir * ( z - self.zf ) * self.inv_zr
         w = self.w0 * abs( diffract_factor )
         psi = np.angle( diffract_factor )
         # Calculate the scaled radius and azimuthal angle
@@ -573,13 +560,8 @@ class DonutLikeLaguerreGaussLaser( LaserProfile ):
         exp_argument = 1j*self.k0*( prop_dir*(z - self.z0) - c*t ) \
             - 1j*self.cep_phase - 1.j*self.m*theta \
             - (x**2 + y**2) / (self.w0**2 * diffract_factor) \
-            - self.inv_ctau2 * ( prop_dir*(z - self.z0) - c*t \
-                # The last term below corresponds to the curvature of the
-                # envelope ; see Phys. Rev. E 59, 1082 (1999), appendix B.2
-                - alpha*(1-alpha**2)*(x**2+y**2) \
-                /(self.k0*self.w0**2*(1+alpha**2)**2) )**2 \
-            + 1.j*(2*self.p + abs(self.m))*psi # Additional Gouy phase
-
+            - self.inv_ctau2 * ( prop_dir*(z - self.z0) - c*t )**2 \
+            + 1.j*(2*self.p + abs(self.m))*psi # *Additional* Gouy phase
         # Get the transverse profile
         profile = np.exp(exp_argument) / diffract_factor \
             * scaled_radius**abs(self.m) \
