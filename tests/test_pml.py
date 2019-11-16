@@ -4,7 +4,8 @@
 """
 This test file is part of FB-PIC (Fourier-Bessel Particle-In-Cell).
 
-TODO: documentation
+It tests the Perfectly-Matched-Layers, by initializing a laser with
+a small waist and letting it diffract into the radial PML.
 
 Usage :
 -------

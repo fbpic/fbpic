@@ -25,7 +25,12 @@ class PMLDamper(object):
 
         Parameters
         ----------
-        # TODO
+        n_pml: int
+            Number of PML cells in the radial direction
+
+        cdt_over_dr: float
+            Ratio of timestep to radial cell size
+            (needed for calculation of damping coefficients)
         """
         # Register the number of PML cells
         self.n_pml = n_pml
@@ -81,7 +86,11 @@ def generate_pml_damp_array( n_pml, cdt_over_dr ):
 
     Parameters
     ----------
-    # TODO
+    n_pml: int
+        Number of PML cells in the radial direction
+
+    cdt_over_dr: float
+        Ratio of timestep to radial cell size
 
     Returns
     -------
@@ -91,7 +100,6 @@ def generate_pml_damp_array( n_pml, cdt_over_dr ):
     x_pml = np.arange( n_pml ) * 1./n_pml
 
     # Calculate the damping coefficients: the damping depends on dt and dr
-    # TODO: add more explanations
     damping_array = np.exp( -4. * cdt_over_dr * x_pml**2 )
 
     return( damping_array )
