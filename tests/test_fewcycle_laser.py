@@ -64,9 +64,6 @@ def compare_fields( grid, t, profile, show ):
     show: bool
         Whether to show the fields with matplotlib
     """
-    # matplotlib only needs to be imported if this function is called
-    import matplotlib.pyplot as plt
-
     # Select the field to plot
     Er = 2*getattr( grid, 'Er' ).real
     # Factor 2 comes from definition of field in FBPIC
@@ -75,6 +72,8 @@ def compare_fields( grid, t, profile, show ):
     Er_th, _ = profile.E_field( r, 0, z + c*t, t )
 
     if show:
+        import matplotlib.pyplot as plt
+
         # Show the field also below the axis for a more realistic picture
         extent = 1.e6*np.array([grid.zmin, grid.zmax, -grid.rmax, grid.rmax])
 
