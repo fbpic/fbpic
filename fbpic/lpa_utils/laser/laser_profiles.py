@@ -728,11 +728,11 @@ class FewCycleLaser( LaserProfile ):
 
         .. math::
 
-            \omega_0 \\tau_{WFHM} = s\\sqrt{2(4^{1/(s+1)}-1)}
+            \omega_0 \\tau_{FWHM} = s\\sqrt{2(4^{1/(s+1)}-1)}
 
         .. note::
 
-            In the case of :math:`\omega_0 \\tau_{WFHM} \gg 1` (i.e. many
+            In the case of :math:`\omega_0 \\tau_{FWHM} \gg 1` (i.e. many
             laser cycles within the envelope), the above expression approaches
             that of a standard Gaussian laser pulse, and thus the :any:`FewCycleLaser`
             profile becomes equivalent to the :any:`GaussianLaser` profile
