@@ -19,7 +19,8 @@ from .particle_buffer_handling import remove_outside_particles, \
 from fbpic.utils.cuda import cuda_installed
 if cuda_installed:
     from fbpic.utils.cuda import cuda, cuda_tpb_bpg_2d
-    from .cuda_methods import cuda_damp_EB_left, cuda_damp_EB_right
+    from .cuda_methods import cuda_damp_EB_left, cuda_damp_EB_right, \
+                                cuda_damp_EB_left_pml, cuda_damp_EB_right_pml
 
 class BoundaryCommunicator(object):
     """
@@ -803,16 +804,27 @@ class BoundaryCommunicator(object):
                             interp[m].Er, interp[m].Et, interp[m].Ez,
                             interp[m].Br, interp[m].Bt, interp[m].Bz,
                             self.d_left_damp, nd)
+                        if interp[m].use_pml:
+                            cuda_damp_EB_left_pml[dim_grid, dim_block](
+                                interp[m].Er_pml, interp[m].Et_pml,
+                                interp[m].Br_pml, interp[m].Bt_pml,
+                                self.d_left_damp, nd)
                 else:
                     # Damp the fields on the CPU
+                    damp_arr = self.left_damp
                     for m in range(len(interp)):
                         # Damp the fields in left guard cells
-                        interp[m].Er[:nd,:]*=self.left_damp[:,np.newaxis]
-                        interp[m].Et[:nd,:]*=self.left_damp[:,np.newaxis]
-                        interp[m].Ez[:nd,:]*=self.left_damp[:,np.newaxis]
-                        interp[m].Br[:nd,:]*=self.left_damp[:,np.newaxis]
-                        interp[m].Bt[:nd,:]*=self.left_damp[:,np.newaxis]
-                        interp[m].Bz[:nd,:]*=self.left_damp[:,np.newaxis]
+                        interp[m].Er[:nd,:]*=damp_arr[:,np.newaxis]
+                        interp[m].Et[:nd,:]*=damp_arr[:,np.newaxis]
+                        interp[m].Ez[:nd,:]*=damp_arr[:,np.newaxis]
+                        interp[m].Br[:nd,:]*=damp_arr[:,np.newaxis]
+                        interp[m].Bt[:nd,:]*=damp_arr[:,np.newaxis]
+                        interp[m].Bz[:nd,:]*=damp_arr[:,np.newaxis]
+                        if interp[m].use_pml:
+                            interp[m].Er_pml[:nd,:]*=damp_arr[:,np.newaxis]
+                            interp[m].Et_pml[:nd,:]*=damp_arr[:,np.newaxis]
+                            interp[m].Br_pml[:nd,:]*=damp_arr[:,np.newaxis]
+                            interp[m].Bt_pml[:nd,:]*=damp_arr[:,np.newaxis]
 
             if self.right_proc is None:
                 # Damp the fields on the CPU or the GPU
@@ -825,16 +837,27 @@ class BoundaryCommunicator(object):
                             interp[m].Er, interp[m].Et, interp[m].Ez,
                             interp[m].Br, interp[m].Bt, interp[m].Bz,
                             self.d_right_damp, nd)
+                        if interp[m].use_pml:
+                            cuda_damp_EB_right_pml[dim_grid, dim_block](
+                                interp[m].Er_pml, interp[m].Et_pml,
+                                interp[m].Br_pml, interp[m].Bt_pml,
+                                self.d_left_damp, nd)
                 else:
                     # Damp the fields on the CPU
+                    damp_arr = self.right_damp
                     for m in range(len(interp)):
                         # Damp the fields in left guard cells
-                        interp[m].Er[-nd:,:]*=self.right_damp[::-1,np.newaxis]
-                        interp[m].Et[-nd:,:]*=self.right_damp[::-1,np.newaxis]
-                        interp[m].Ez[-nd:,:]*=self.right_damp[::-1,np.newaxis]
-                        interp[m].Br[-nd:,:]*=self.right_damp[::-1,np.newaxis]
-                        interp[m].Bt[-nd:,:]*=self.right_damp[::-1,np.newaxis]
-                        interp[m].Bz[-nd:,:]*=self.right_damp[::-1,np.newaxis]
+                        interp[m].Er[-nd:,:]*=damp_arr[::-1,np.newaxis]
+                        interp[m].Et[-nd:,:]*=damp_arr[::-1,np.newaxis]
+                        interp[m].Ez[-nd:,:]*=damp_arr[::-1,np.newaxis]
+                        interp[m].Br[-nd:,:]*=damp_arr[::-1,np.newaxis]
+                        interp[m].Bt[-nd:,:]*=damp_arr[::-1,np.newaxis]
+                        interp[m].Bz[-nd:,:]*=damp_arr[::-1,np.newaxis]
+                        if interp[m].use_pml:
+                            interp[m].Er_pml[-nd:,:]*=damp_arr[::-1,np.newaxis]
+                            interp[m].Et_pml[-nd:,:]*=damp_arr[::-1,np.newaxis]
+                            interp[m].Br_pml[-nd:,:]*=damp_arr[::-1,np.newaxis]
+                            interp[m].Bt_pml[-nd:,:]*=damp_arr[::-1,np.newaxis]
 
     def generate_damp_array( self, n_guard, nz_damp, n_inject ):
         """
