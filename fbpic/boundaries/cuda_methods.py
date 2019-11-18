@@ -386,6 +386,43 @@ def cuda_damp_EB_left( Er, Et, Ez, Br, Bt, Bz, damp_array, nd ):
             Bz[iz, ir] *= damp_factor_left
 
 @cuda.jit
+def cuda_damp_EB_pml_left( Er_pml, Et_pml, Br_pml, Bt_pml, damp_array, nd ):
+    """
+    Multiply the E and B fields in the left guard cells
+    by damp_array.
+
+    Parameters :
+    ------------
+    Er_pml, Et_pml, Br_pml, Bt_pml: 2darrays of complexs
+        Contain the fields to be damped
+        The first axis corresponds to z and the second to r
+
+    damp_array : 1darray of floats
+        An array of length n_guard+nz_damp+n_inject,
+        which contains the damping factors.
+
+    nd: int
+        Number of damping and guard cells
+    """
+    # Obtain Cuda grid
+    iz, ir = cuda.grid(2)
+
+    # Obtain the size of the array along z and r
+    Nz, Nr = Er.shape
+
+    # Modify the fields
+    if ir < Nr :
+        # Apply the damping arrays
+        if iz < nd:
+            damp_factor_left = damp_array[iz]
+
+            # At the left end
+            Er_pml[iz, ir] *= damp_factor_left
+            Et_pml[iz, ir] *= damp_factor_left
+            Br_pml[iz, ir] *= damp_factor_left
+            Bt_pml[iz, ir] *= damp_factor_left
+
+@cuda.jit
 def cuda_damp_EB_right( Er, Et, Ez, Br, Bt, Bz, damp_array, nd ):
     """
     Multiply the E and B fields in the right guard cells
@@ -424,3 +461,42 @@ def cuda_damp_EB_right( Er, Et, Ez, Br, Bt, Bz, damp_array, nd ):
             Br[iz_right, ir] *= damp_factor_right
             Bt[iz_right, ir] *= damp_factor_right
             Bz[iz_right, ir] *= damp_factor_right
+
+
+@cuda.jit
+def cuda_damp_EB_pml_right( Er_pml, Et_pml, Br_pml, Bt_pml, damp_array, nd ):
+    """
+    Multiply the E and B fields in the right guard cells
+    by damp_array.
+
+    Parameters :
+    ------------
+    Er_pml, Et_pml, Br_pml, Bt_pml: 2darrays of complexs
+        Contain the fields to be damped
+        The first axis corresponds to z and the second to r
+
+    damp_array : 1darray of floats
+        An array of length n_guard+nz_damp+n_inject,
+        which contains the damping factors.
+
+    nd: int
+        Number of damping and guard cells
+    """
+    # Obtain Cuda grid
+    iz, ir = cuda.grid(2)
+
+    # Obtain the size of the array along z and r
+    Nz, Nr = Er.shape
+
+    # Modify the fields
+    if ir < Nr :
+        # Apply the damping arrays
+        if iz < nd:
+            damp_factor_right = damp_array[iz]
+
+            # At the right end
+            iz_right = Nz - iz - 1
+            Er_pml[iz_right, ir] *= damp_factor_right
+            Et_pml[iz_right, ir] *= damp_factor_right
+            Br_pml[iz_right, ir] *= damp_factor_right
+            Bt_pml[iz_right, ir] *= damp_factor_right
