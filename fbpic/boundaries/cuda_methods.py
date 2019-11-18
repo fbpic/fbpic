@@ -408,7 +408,7 @@ def cuda_damp_EB_pml_left( Er_pml, Et_pml, Br_pml, Bt_pml, damp_array, nd ):
     iz, ir = cuda.grid(2)
 
     # Obtain the size of the array along z and r
-    Nz, Nr = Er.shape
+    Nz, Nr = Er_pml.shape
 
     # Modify the fields
     if ir < Nr :
@@ -486,7 +486,7 @@ def cuda_damp_EB_pml_right( Er_pml, Et_pml, Br_pml, Bt_pml, damp_array, nd ):
     iz, ir = cuda.grid(2)
 
     # Obtain the size of the array along z and r
-    Nz, Nr = Er.shape
+    Nz, Nr = Er_pml.shape
 
     # Modify the fields
     if ir < Nr :

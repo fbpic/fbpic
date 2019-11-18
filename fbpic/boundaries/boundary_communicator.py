@@ -804,7 +804,7 @@ class BoundaryCommunicator(object):
                             interp[m].Er, interp[m].Et, interp[m].Ez,
                             interp[m].Br, interp[m].Bt, interp[m].Bz,
                             self.d_left_damp, nd)
-                        if self.use_pml:
+                        if interp[m].use_pml:
                             cuda_damp_EB_left_pml[dim_grid, dim_block](
                                 interp[m].Er_pml, interp[m].Et_pml,
                                 interp[m].Br_pml, interp[m].Bt_pml,
@@ -820,7 +820,7 @@ class BoundaryCommunicator(object):
                         interp[m].Br[:nd,:]*=damp_arr[:,np.newaxis]
                         interp[m].Bt[:nd,:]*=damp_arr[:,np.newaxis]
                         interp[m].Bz[:nd,:]*=damp_arr[:,np.newaxis]
-                        if self.use_pml:
+                        if interp[m].use_pml:
                             interp[m].Er_pml[:nd,:]*=damp_arr[:,np.newaxis]
                             interp[m].Et_pml[:nd,:]*=damp_arr[:,np.newaxis]
                             interp[m].Br_pml[:nd,:]*=damp_arr[:,np.newaxis]
@@ -837,7 +837,7 @@ class BoundaryCommunicator(object):
                             interp[m].Er, interp[m].Et, interp[m].Ez,
                             interp[m].Br, interp[m].Bt, interp[m].Bz,
                             self.d_right_damp, nd)
-                        if self.use_pml:
+                        if interp[m].use_pml:
                             cuda_damp_EB_right_pml[dim_grid, dim_block](
                                 interp[m].Er_pml, interp[m].Et_pml,
                                 interp[m].Br_pml, interp[m].Bt_pml,
@@ -853,7 +853,7 @@ class BoundaryCommunicator(object):
                         interp[m].Br[-nd:,:]*=damp_arr[::-1,np.newaxis]
                         interp[m].Bt[-nd:,:]*=damp_arr[::-1,np.newaxis]
                         interp[m].Bz[-nd:,:]*=damp_arr[::-1,np.newaxis]
-                        if self.use_pml:
+                        if interp[m].use_pml:
                             interp[m].Er_pml[-nd:,:]*=damp_arr[::-1,np.newaxis]
                             interp[m].Et_pml[-nd:,:]*=damp_arr[::-1,np.newaxis]
                             interp[m].Br_pml[-nd:,:]*=damp_arr[::-1,np.newaxis]
