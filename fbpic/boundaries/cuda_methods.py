@@ -268,9 +268,9 @@ def replace_pml_from_gpu_buffer( vec_buffer_l, vec_buffer_r,
         Arrays of shape (Nz, Nr), which contain the different component
         of the vector field (r, t, z), in the mode m
 
-    grid_r, grid_t, grid_z: ndarrays of complexs (device arrays)
-        Arrays of shape (Nz, Nr), which contain the different component
-        of the vector field (r, t, z), in the mode m
+    pml_r, pml_t: ndarrays of complexs (device arrays)
+        Arrays of shape (Nz, Nr), which contain the PML component
+        of the vector field in the mode m
 
     m: int
         The index of the azimuthal mode involved
@@ -314,7 +314,7 @@ def replace_pml_from_gpu_buffer( vec_buffer_l, vec_buffer_r,
                 grid_t[ iz_right, ir ] = vec_buffer_r[5*m+1, iz, ir]
                 grid_z[ iz_right, ir ] = vec_buffer_r[5*m+2, iz, ir]
                 pml_r[ iz_right, ir ] = vec_buffer_r[5*m+3, iz, ir]
-                pml_t[ iz_right, ir ] = vec_buffer_r[5*m+4, iz, ir]                
+                pml_t[ iz_right, ir ] = vec_buffer_r[5*m+4, iz, ir]
 
 @cuda.jit
 def replace_scal_from_gpu_buffer( scal_buffer_l, scal_buffer_r, grid, m,
