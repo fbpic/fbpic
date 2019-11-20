@@ -239,6 +239,9 @@ class BoundaryCommunicator(object):
         # For reflective radial boundary, no need for damping cell
         if r_boundary=='reflective':
             self.nr_damp = 0
+            self.use_pml = False
+        else:
+            self.use_pml = True
 
         # Initialize the period of the particle exchange and moving window
         if exchange_period is None:
@@ -274,7 +277,7 @@ class BoundaryCommunicator(object):
         if self.size > 1:
             Nr_with_damp = self.get_Nr( with_damp=True )
             self.mpi_buffers = BufferHandler( self.n_guard, Nr_with_damp, Nm,
-                                      self.left_proc, self.right_proc )
+                               self.left_proc, self.right_proc, self.use_pml )
 
         # Create damping arrays for the damping cells at the left
         # and right of the box in the case of "open" boundaries.
@@ -516,9 +519,9 @@ class BoundaryCommunicator(object):
         self.moving_win.move_grids(fld, ptcl, self, time)
 
 
-    def exchange_fields( self, interp, fieldtype, method ):
+    def exchange_fields( self, interp, fldtype, method ):
         """
-        Send and receive the proper fields, depending on fieldtype
+        Send and receive the proper fields, depending on `fldtype`
         Copy/add them consistently to the local grid.
 
         Depending on whether the field data is initially on the CPU
@@ -555,7 +558,7 @@ class BoundaryCommunicator(object):
             A list of InterpolationGrid objects
             (one element per azimuthal mode)
 
-        fieldtype: str
+        fldtype: str
             An identifier for the field to send
             (Either 'E', 'B', 'J' or 'rho')
 
@@ -569,24 +572,31 @@ class BoundaryCommunicator(object):
 
         # Build the string `exchange_type`:
         # This is either 'E:replace', 'B:replace', 'J:add', or 'rho:add'
-        exchange_type = ':'.join([ fieldtype, method ])
+        exchange_type = ':'.join([ fldtype, method ])
 
         # Shortcut
         Nm = self.Nm
         use_cuda = interp[0].use_cuda
 
         # Fill the sending buffers with data from the interpolation grid
-        if fieldtype in ('E', 'B', 'J'):
+        if fldtype in ('E', 'B', 'J'):
             # Vector field
-            grid_r = [ getattr(interp[m], fieldtype+'r') for m in range(Nm) ]
-            grid_t = [ getattr(interp[m], fieldtype+'t') for m in range(Nm) ]
-            grid_z = [ getattr(interp[m], fieldtype+'z') for m in range(Nm) ]
-            self.mpi_buffers.handle_vec_buffer(
-                    grid_r, grid_t, grid_z, method, exchange_type, use_cuda,
+            grid_r = [ getattr(interp[m], fldtype+'r') for m in range(Nm) ]
+            grid_t = [ getattr(interp[m], fldtype+'t') for m in range(Nm) ]
+            grid_z = [ getattr(interp[m], fldtype+'z') for m in range(Nm) ]
+            # Handle PML fields
+            if fldtype in ('E', 'B') and self.use_pml:
+                pml_r = [getattr(interp[m], fldtype+'r_pml') for m in range(Nm)]
+                pml_t = [getattr(interp[m], fldtype+'t_pml') for m in range(Nm)]
+            else:
+                pml_r = None
+                pml_t = None
+            self.mpi_buffers.handle_vec_buffer( grid_r, grid_t, grid_z,
+                    pml_r, pml_t, method, exchange_type, use_cuda,
                     before_sending=True, gpudirect=gpudirect_enabled )
         else:
             # Scalar field
-            grid = [ getattr(interp[m], fieldtype) for m in range(Nm) ]
+            grid = [ getattr(interp[m], fldtype) for m in range(Nm) ]
             self.mpi_buffers.handle_scal_buffer(
                     grid, method, exchange_type, use_cuda,
                     before_sending=True, gpudirect=gpudirect_enabled )
@@ -618,10 +628,11 @@ class BoundaryCommunicator(object):
         self.exchange_domains( send_l, send_r, recv_l, recv_r )
 
         # Copy/Add the received buffers to the interpolation grid
-        if fieldtype in ('E', 'B', 'J'):
+        if fldtype in ('E', 'B', 'J'):
             # Vector field
             self.mpi_buffers.handle_vec_buffer(
-                    grid_r, grid_t, grid_z, method, exchange_type, use_cuda,
+                    grid_r, grid_t, grid_z, pml_r, pml_t,
+                    method, exchange_type, use_cuda,
                     after_receiving=True, gpudirect=gpudirect_enabled )
         else:
             # Scalar field
