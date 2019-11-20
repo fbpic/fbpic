@@ -69,6 +69,75 @@ def copy_vec_to_gpu_buffer( vec_buffer_l, vec_buffer_r,
 
 
 @cuda.jit
+def copy_pml_to_gpu_buffer( vec_buffer_l, vec_buffer_r,
+                            grid_r, grid_t, grid_z, pml_r, pml_t, m,
+                            copy_left, copy_right, nz_start, nz_end ):
+    """
+    Copy the ng inner domain cells of grid_r, grid_t, grid_z, pml_r, pml_t
+    to the GPU buffer vec_buffer_l and vec_buffer_r.
+
+    Parameters
+    ----------
+    vec_buffer_l, vec_buffer_r: ndarrays of complexs (device arrays)
+        Arrays of shape (5*Nm, nz_end-nz_start, Nr), which serve as buffer
+        for transmission to CPU, and then sending via MPI. They hold the
+        values of a vector field in either the ng inner cells of the domain
+        or the ng outer + ng inner cells of the domain, to the left and right.
+
+    grid_r, grid_t, grid_z: ndarrays of complexs (device arrays)
+        Arrays of shape (Nz, Nr), which contain the different component
+        of the vector field (r, t, z), in the mode m
+
+    pml_r, pml_t: ndarrays of complexs (device arrays)
+        Arrays of shape (Nz, Nr), which contain the PML component
+        of the vector field in the mode m
+
+    m: int
+        The index of the azimuthal mode involved
+
+    copy_left, copy_right: bool
+        Whether to copy the buffers to the left and right of the local domain
+        (Buffers are not copied at the left end and right end of the
+        global simulation box.)
+
+    nz_start: int
+        The start index in z, of the cell region which is copied to the
+        buffers. The start is defined as an offset from the most outer cell
+        on either the left or the right side of the enlarged domain.
+
+    nz_end: int
+        The end index in z, of the cell region which is copied to the
+        buffers. The end is defined as an offset from the most outer cell
+        on either the left or the right side of the enlarged domain.
+    """
+    # Dimension of the arrays
+    Nz, Nr = grid_r.shape
+
+    # Obtain Cuda grid
+    iz, ir = cuda.grid(2)
+
+    # Copy the inner regions of the domain to the buffer
+    if ir < Nr:
+        if iz < (nz_end - nz_start):
+            # At the left end
+            if copy_left:
+                iz_left = nz_start + iz
+                vec_buffer_l[5*m+0, iz, ir] = grid_r[ iz_left, ir ]
+                vec_buffer_l[5*m+1, iz, ir] = grid_t[ iz_left, ir ]
+                vec_buffer_l[5*m+2, iz, ir] = grid_z[ iz_left, ir ]
+                vec_buffer_l[5*m+3, iz, ir] = pml_r[ iz_left, ir ]
+                vec_buffer_l[5*m+4, iz, ir] = pml_t[ iz_left, ir ]
+            # At the right end
+            if copy_right:
+                iz_right = Nz - nz_end + iz
+                vec_buffer_r[5*m+0, iz, ir] = grid_r[ iz_right, ir ]
+                vec_buffer_r[5*m+1, iz, ir] = grid_t[ iz_right, ir ]
+                vec_buffer_r[5*m+2, iz, ir] = grid_z[ iz_right, ir ]
+                vec_buffer_r[5*m+3, iz, ir] = pml_r[ iz_right, ir ]
+                vec_buffer_r[5*m+4, iz, ir] = pml_t[ iz_right, ir ]
+
+
+@cuda.jit
 def copy_scal_to_gpu_buffer( scal_buffer_l, scal_buffer_r, grid, m,
                              copy_left, copy_right, nz_start, nz_end ):
     """
@@ -180,6 +249,72 @@ def replace_vec_from_gpu_buffer( vec_buffer_l, vec_buffer_r,
                 grid_r[ iz_right, ir ] = vec_buffer_r[3*m+0, iz, ir]
                 grid_t[ iz_right, ir ] = vec_buffer_r[3*m+1, iz, ir]
                 grid_z[ iz_right, ir ] = vec_buffer_r[3*m+2, iz, ir]
+
+@cuda.jit
+def replace_pml_from_gpu_buffer( vec_buffer_l, vec_buffer_r,
+                                 grid_r, grid_t, grid_z, pml_r, pml_t, m,
+                                 copy_left, copy_right, nz_start, nz_end ):
+    """
+    Replace a region (guard region) of grid_0_r, ..., grid_1_z
+    by the GPU buffer vec_buffer_l and vec_buffer_r.
+
+    Parameters
+    ----------
+    vec_buffer_l, vec_buffer_r: ndarrays of complexs (device arrays)
+        Arrays of shape (5*Nm, nz_end-nz_start, Nr), which are the buffers
+        sent via MPI and received by the CPU.
+
+    grid_r, grid_t, grid_z: ndarrays of complexs (device arrays)
+        Arrays of shape (Nz, Nr), which contain the different component
+        of the vector field (r, t, z), in the mode m
+
+    pml_r, pml_t: ndarrays of complexs (device arrays)
+        Arrays of shape (Nz, Nr), which contain the PML component
+        of the vector field in the mode m
+
+    m: int
+        The index of the azimuthal mode involved
+
+    copy_left, copy_right: bool
+        Whether to copy the buffers to the left and right of the local domain
+        (Buffers are not copied at the left end and right end of the
+        global simulation box.)
+
+    nz_start: int
+        The start index in z, of the cell region which is copied to the
+        buffers. The start is defined as an offset from the most outer cell
+        on either the left or the right side of the enlarged domain.
+
+    nz_end: int
+        The end index in z, of the cell region which is copied to the
+        buffers. The end is defined as an offset from the most outer cell
+        on either the left or the right side of the enlarged domain.
+    """
+    # Dimension of the arrays
+    Nz, Nr = grid_r.shape
+
+    # Obtain Cuda grid
+    iz, ir = cuda.grid(2)
+
+    # Copy the inner regions of the domain to the buffer
+    if ir < Nr:
+        if iz < (nz_end - nz_start):
+            # At the left end
+            if copy_left:
+                iz_left = iz
+                grid_r[ iz_left, ir ] = vec_buffer_l[5*m+0, iz, ir]
+                grid_t[ iz_left, ir ] = vec_buffer_l[5*m+1, iz, ir]
+                grid_z[ iz_left, ir ] = vec_buffer_l[5*m+2, iz, ir]
+                pml_r[ iz_left, ir ] = vec_buffer_l[5*m+3, iz, ir]
+                pml_t[ iz_left, ir ] = vec_buffer_l[5*m+4, iz, ir]
+            # At the right end
+            if copy_right:
+                iz_right = Nz - (nz_end - nz_start) + iz
+                grid_r[ iz_right, ir ] = vec_buffer_r[5*m+0, iz, ir]
+                grid_t[ iz_right, ir ] = vec_buffer_r[5*m+1, iz, ir]
+                grid_z[ iz_right, ir ] = vec_buffer_r[5*m+2, iz, ir]
+                pml_r[ iz_right, ir ] = vec_buffer_r[5*m+3, iz, ir]
+                pml_t[ iz_right, ir ] = vec_buffer_r[5*m+4, iz, ir]
 
 @cuda.jit
 def replace_scal_from_gpu_buffer( scal_buffer_l, scal_buffer_r, grid, m,
