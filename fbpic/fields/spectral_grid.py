@@ -342,7 +342,7 @@ class SpectralGrid(object) :
                 if self.use_pml:
                     # Push the PML split component
                     cuda_push_eb_pml_standard[dim_grid, dim_block](
-                        self.Ep_pml, self.Em_pml, self.Bp_pml, self.Bp_pml,
+                        self.Ep_pml, self.Em_pml, self.Bp_pml, self.Bm_pml,
                         self.Ez, self.Bz, ps.C, ps.S_w,
                         self.kr, self.kz, self.Nz, self.Nr )
                 # Push the regular fields
@@ -357,7 +357,7 @@ class SpectralGrid(object) :
                 if self.use_pml:
                     # Push the PML split component
                     cuda_push_eb_pml_comoving[dim_grid, dim_block](
-                        self.Ep_pml, self.Em_pml, self.Bp_pml, self.Bp_pml,
+                        self.Ep_pml, self.Em_pml, self.Bp_pml, self.Bm_pml,
                         self.Ez, self.Bz, ps.C, ps.S_w, ps.d_T_eb,
                         self.kr, self.kz, self.Nz, self.Nr )
                 # Push the regular fields
@@ -375,7 +375,7 @@ class SpectralGrid(object) :
                 if self.use_pml:
                     # Push the PML split component
                     numba_push_eb_pml_standard(
-                        self.Ep_pml, self.Em_pml, self.Bp_pml, self.Bp_pml,
+                        self.Ep_pml, self.Em_pml, self.Bp_pml, self.Bm_pml,
                         self.Ez, self.Bz, ps.C, ps.S_w,
                         self.kr, self.kz, self.Nz, self.Nr )
                 # Push the regular fields
@@ -391,7 +391,7 @@ class SpectralGrid(object) :
                 if self.use_pml:
                     # Push the PML split component
                     numba_push_eb_pml_comoving(
-                        self.Ep_pml, self.Em_pml, self.Bp_pml, self.Bp_pml,
+                        self.Ep_pml, self.Em_pml, self.Bp_pml, self.Bm_pml,
                         self.Ez, self.Bz, ps.C, ps.S_w, ps.T_eb,
                         self.kr, self.kz, self.Nz, self.Nr )
                 # Push the regular fields

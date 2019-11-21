@@ -70,7 +70,25 @@ def test_laser_periodic(show=False):
     for m in [1]:
         propagate_pulse( Nz, Nr, m+1, zmin, zmax, Lr, L_prop, zf, dt,
                         N_diag, w0, ctau, k0, E0, m, N_show, n_order,
-                        rtol, boundaries='periodic', v_window=0, show=show )
+                        rtol, boundaries='periodic', show=show )
+
+    print('')
+
+
+def test_laser_galilean(show=False):
+    """
+    Function that is run by py.test, when doing `python setup.py test`
+    Test the propagation of a laser with a galilean change of frame
+    """
+    # Choose the regular timestep (required by the PML)
+    dt = (zmax-zmin)*1./c/Nz
+
+    print('')
+    for m in [1]:
+        propagate_pulse( Nz, Nr, m+1, zmin, zmax, Lr, L_prop, zf, dt,
+                      N_diag, w0, ctau, k0, E0, m, N_show, n_order,
+                      rtol, boundaries='open',
+                      use_galilean=True, v_comoving=0.999*c, show=show )
 
     print('')
 
@@ -448,4 +466,5 @@ def show_fields( sim, fieldtype, m ):
 if __name__ == '__main__' :
 
     # Run the testing function
+    test_laser_galilean(show=show)
     test_laser_periodic(show=show)
