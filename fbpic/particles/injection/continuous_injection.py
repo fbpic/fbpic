@@ -8,6 +8,14 @@ It defines a class for continuous particle injection with a moving window.
 import warnings
 import numpy as np
 from scipy.constants import c
+import sys, inspect
+
+# convenience method retrieve arguments number of a function
+if sys.version_info[0] < 3:
+    get_args_len = lambda fu: len(inspect.getargspec(fu)[0])
+else:
+    get_args_len = lambda fu: len(inspect.signature(fu).parameters)
+
 
 class ContinuousInjector( object ):
     """
@@ -38,6 +46,14 @@ class ContinuousInjector( object ):
         self.uy_th = uy_th
         self.uz_th = uz_th
 
+        # Define and register dimensions number for density profile
+        if self.dens_func is not None:
+            self.dens_func_dim = get_args_len(self.dens_func)
+            if self.dens_func_dim not in (2, 3):
+                raise ValueError(
+                "Density function can have 2 or 3 arguments, " + \
+                "but got {:d} instead".format(self.dens_func_dim) )
+
         # Register spacing between evenly-spaced particles in z
         if Npz != 0:
             self.dz_particles = (zmax - zmin)/Npz
@@ -54,7 +70,6 @@ class ContinuousInjector( object ):
         self.nz_inject = None
         self.z_inject = None
         self.z_end_plasma = None
-
 
     def initialize_injection_positions( self, comm, v_moving_window,
                                         species_z, dt ):
@@ -154,7 +169,6 @@ class ContinuousInjector( object ):
         # and z_end_plasma, and afterwards nz_inject is set to 0.)
         self.z_end_plasma += nz_new * self.dz_particles
 
-
     def generate_particles( self, time ):
         """
         Generate new particles at the right end of the plasma
@@ -168,8 +182,12 @@ class ContinuousInjector( object ):
         # Create a temporary density function that takes into
         # account the fact that the plasma has moved
         if self.dens_func is not None:
-            def dens_func( z, r ):
-                return( self.dens_func( z-self.v_end_plasma*time, r ) )
+            if self.dens_func_dim==2:
+                def dens_func( z, r ):
+                    return( self.dens_func( z-self.v_end_plasma*time, r ) )
+            elif self.dens_func_dim==3:
+                def dens_func( z, r, th ):
+                    return( self.dens_func(z-self.v_end_plasma*time, r, th ) )
         else:
             dens_func = None
 
@@ -224,6 +242,7 @@ def generate_evenly_spaced( Npz, zmin, zmax, Npr, rmin, rmax,
         unalign_angles( thetap, Npz, Npr, method='random' )
         # Flatten them (This performs a memory copy)
         r = rp.flatten()
+        th = thetap.flatten()
         x = r * np.cos( thetap.flatten() )
         y = r * np.sin( thetap.flatten() )
         z = zp.flatten()
@@ -232,7 +251,11 @@ def generate_evenly_spaced( Npz, zmin, zmax, Npr, rmin, rmax,
         w = n * r * dtheta*dr*dz
         # Modulate it by the density profile
         if dens_func is not None :
-            w *= dens_func( z, r )
+            dens_func_dim = get_args_len(dens_func)
+            if dens_func_dim==2:
+                w *= dens_func( z, r )
+            elif dens_func_dim==3:
+                w *= dens_func( z, r, th )
 
         # Select the particles that have a non-zero weight
         selected = (w > 0)
