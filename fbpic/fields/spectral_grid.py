@@ -7,8 +7,8 @@ It defines the SpectralGrid class.
 """
 import numpy as np
 from scipy.constants import epsilon_0
-from .numba_methods import numba_push_eb_standard, \
-    numba_push_eb_comoving, numba_push_eb_pml_standard, \
+from .numba_methods import numba_push_eb_standard, numba_push_eb_comoving, \
+    numba_push_eb_pml_standard, numba_push_eb_pml_comoving, \
     numba_correct_currents_curlfree_standard, \
     numba_correct_currents_crossdeposition_standard, \
     numba_correct_currents_curlfree_comoving, \
@@ -24,7 +24,8 @@ if cuda_installed:
     cuda_correct_currents_curlfree_comoving, \
     cuda_correct_currents_crossdeposition_comoving, \
     cuda_filter_scalar, cuda_filter_vector, \
-    cuda_push_eb_standard, cuda_push_eb_comoving, cuda_push_eb_pml_standard, \
+    cuda_push_eb_standard, cuda_push_eb_comoving, \
+    cuda_push_eb_pml_standard, cuda_push_eb_pml_comoving, \
     cuda_push_rho
 
 
@@ -353,6 +354,13 @@ class SpectralGrid(object) :
                     use_true_rho, self.Nz, self.Nr )
             else:
                 # With the Galilean/comoving algorithm
+                if self.use_pml:
+                    # Push the PML split component
+                    cuda_push_eb_pml_comoving[dim_grid, dim_block](
+                        self.Ep_pml, self.Em_pml, self.Bp_pml, self.Bp_pml,
+                        self.Ez, self.Bz, ps.C, ps.S_w, ps.d_T_eb,
+                        self.kr, self.kz, self.Nz, self.Nr )
+                # Push the regular fields
                 cuda_push_eb_comoving[dim_grid, dim_block](
                     self.Ep, self.Em, self.Ez, self.Bp, self.Bm, self.Bz,
                     self.Jp, self.Jm, self.Jz, self.rho_prev, self.rho_next,
@@ -380,6 +388,13 @@ class SpectralGrid(object) :
 
             else:
                 # With the Galilean/comoving algorithm
+                if self.use_pml:
+                    # Push the PML split component
+                    numba_push_eb_pml_comoving(
+                        self.Ep_pml, self.Em_pml, self.Bp_pml, self.Bp_pml,
+                        self.Ez, self.Bz, ps.C, ps.S_w, ps.T_eb,
+                        self.kr, self.kz, self.Nz, self.Nr )
+                # Push the regular fields
                 numba_push_eb_comoving(
                     self.Ep, self.Em, self.Ez, self.Bp, self.Bm, self.Bz,
                     self.Jp, self.Jm, self.Jz, self.rho_prev, self.rho_next,
