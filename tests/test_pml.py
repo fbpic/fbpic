@@ -183,21 +183,22 @@ def compare_fields( sim, profile, field, m, rtol, show, boundaries ):
         E_sim *= 2
 
     # Calculate the theoretical profile
-    z, r = np.meshgrid( grid.z, grid.r, indexing='ij' )
-    # Calculate shift of the grid, in the case of periodic box
-    if boundaries=='periodic':
-        Lz = grid.zmax - grid.zmin
-        shift = np.floor( (c*t + 0.5*Lz)/Lz ) * Lz
-        print( shift )
-    else:
-        shift = 0
-    Er_th, Et_th = profile.E_field( r, 0, z + shift, t )
+    # - Select the right component
     if field == 'Er':
-        E_th = Er_th
+        i_field = 0
     elif field == 'Et':
-        E_th = Et_th
+        i_field = 1
     else:
         raise ValueError("Unknown field: %s" %field)
+    # - Calculate profile
+    z, r = np.meshgrid( grid.z, grid.r, indexing='ij' )
+    if boundaries=='periodic':
+        Lz = grid.zmax - grid.zmin
+        n_shift = np.floor( c*t/Lz )
+        E_th = profile.E_field( r, 0, z + (n_shift+1)*Lz, t )[i_field] \
+             + profile.E_field( r, 0, z + n_shift*Lz, t )[i_field]
+    else:
+        E_th = profile.E_field( r, 0, z, t )[i_field]
 
     # Calculate the difference:
     E_diff = E_sim - E_th
