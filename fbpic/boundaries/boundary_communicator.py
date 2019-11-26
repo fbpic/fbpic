@@ -119,6 +119,10 @@ class BoundaryCommunicator(object):
             The damping cells are used only if `r_boundary` is `"open"`,
             and are added at upper radial boundary (at `rmax`).
 
+        cdt_over_dr: float
+            Ratio of timestep to radial cell size
+            (needed for calculation of damping coefficients)
+
         n_inject: int, optional
             Number of injection cells (at the left and right) of a simulation
             box, for a simulation with open boundaries. The damping region
@@ -859,7 +863,7 @@ class BoundaryCommunicator(object):
                             cuda_damp_EB_right_pml[dim_grid, dim_block](
                                 interp[m].Er_pml, interp[m].Et_pml,
                                 interp[m].Br_pml, interp[m].Bt_pml,
-                                self.d_left_damp, nd)
+                                self.d_right_damp, nd)
                 else:
                     # Damp the fields on the CPU
                     damp_arr = self.right_damp
