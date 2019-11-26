@@ -107,12 +107,21 @@ def restart_from_checkpoint( sim, iteration=None,
         (When running a simulation with several MPI ranks, use the
         same path for all ranks.)
     """
-    # Import openPMD-viewer
+    # Try to import openPMD-viewer, version 1
     try:
-        from opmd_viewer import OpenPMDTimeSeries
+        from openpmd_viewer import OpenPMDTimeSeries
+        openpmd_viewer_version = 1
     except ImportError:
+        # If not available, try to import openPMD-viewer, version 0
+        try:
+            from opmd_viewer import OpenPMDTimeSeries
+            openpmd_viewer_version = 0
+        except ImportError:
+            openpmd_viewer_version = None
+    # Otherwise, raise an error
+    if openpmd_viewer_version is None:
         raise ImportError(
-        'The package `opmd_viewer` is required to restart from checkpoints.'
+        'The package openPMD-viewer is required to restart from checkpoints.'
         '\nPlease install it from https://github.com/openPMD/openPMD-viewer')
 
     # Verify that the restart is valid (only for the first processor)
@@ -146,7 +155,8 @@ def restart_from_checkpoint( sim, iteration=None,
     if len(avail_species) == len(sim.ptcl):
         for i in range(len(sim.ptcl)):
             name = 'species %d' %i
-            load_species( sim.ptcl[i], name, ts, iteration, sim.comm )
+            load_species( sim.ptcl[i], name, ts, iteration,
+                            sim.comm, openpmd_viewer_version )
     else:
         raise RuntimeError( \
 """Species numbers in checkpoint and simulation should be same, but
@@ -259,7 +269,7 @@ def load_fields( grid, fieldtype, coord, ts, iteration ):
     length_new = grid.zmax - grid.zmin
     assert np.allclose( length_old, length_new )
 
-def load_species( species, name, ts, iteration, comm ):
+def load_species( species, name, ts, iteration, comm, openpmd_viewer_version ):
     """
     Read the species data from the checkpoint `ts`
     and load it into the Species object `species`
@@ -280,11 +290,20 @@ def load_species( species, name, ts, iteration, comm ):
 
     comm: an fbpic.BoundaryCommunicator object
         Contains information about the number of procs
+
+    openpmd_viewer_version: int
+        Version of openPMD-viewer that was imported
+        (needed in order to properly read the particle positions)
     """
     # Get the particles' positions (convert to meters)
     x, y, z = ts.get_particle(
                 ['x', 'y', 'z'], iteration=iteration, species=name )
-    species.x, species.y, species.z = 1.e-6*x, 1.e-6*y, 1.e-6*z
+    if openpmd_viewer_version == 0:
+        # Version 0: Convert from microns to meters
+        species.x, species.y, species.z = 1.e-6*x, 1.e-6*y, 1.e-6*z
+    else:
+        # Version 1: Positions are directly given in meters
+        species.x, species.y, species.z = x, y, z
     # Get the particles' momenta
     species.ux, species.uy, species.uz = ts.get_particle(
         ['ux', 'uy', 'uz' ], iteration=iteration, species=name )

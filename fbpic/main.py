@@ -11,7 +11,7 @@ This file steers and controls the simulation.
 # as it sets the cuda context)
 from fbpic.utils.mpi import MPI
 # Check if threading is available
-from .utils.threading import threading_enabled
+from .utils.threading import threading_enabled, numba_minor_version
 # Check if CUDA is available, then import CUDA functions
 from .utils.cuda import cuda_installed, cupy_installed
 if cuda_installed:
@@ -57,19 +57,22 @@ class Simulation(object):
         """
         Initializes a simulation.
 
-        By default the simulation contains:
-
-            - an electron species
-            - (if ``initialize_ions`` is True) an ion species (Hydrogen 1+)
-
-        These species are stored in the attribute ``ptcl`` of ``Simulation``
-        (which is a Python list, containing the different species).
+        By default, this will not create any particle species. You can
+        then add particles species to the simulation by using e.g. the method
+        ``add_new_species`` of the simulation object.
 
         .. note::
 
-            For the arguments `p_rmin`, `p_rmax`, `p_nz`, `p_nr`, `p_nt`,
-            `n_e`, and `dens_func`, see the docstring of the method
-            `add_new_species` (where `n_e` has been re-labeled as `n`).
+            As a short-cut, you can also directly create particle
+            species when initializing the ``Simulation`` object,
+            by passing the aguments `n_e`, `p_rmin`, `p_rmax`, `p_nz`,
+            `p_nr`, `p_nt`, and `dens_func`. This will create:
+
+                - an electron species
+                - (if ``initialize_ions`` is True) an ion species (Hydrogen 1+)
+
+            See the docstring of the method ``add_new_species`` for the
+            above-mentioned arguments (where `n_e` has been re-labeled as `n`).
 
         Parameters
         ----------
@@ -208,6 +211,11 @@ class Simulation(object):
                 'In order to run on GPUs, FBPIC version 0.13 and later \n'
                 'require the `cupy` package (version 6).\n'
                 'See the FBPIC documentation in order to install cupy.')
+        if self.use_cuda and numba_minor_version > 45:
+            raise RuntimeError(
+                'In order to run on GPU, please install numba version 0.45:\n'
+                '  conda install numba=0.45, or:\n'
+                '  pip install numba==0.45')
         # CPU multi-threading
         self.use_threading = threading_enabled
         if self.use_threading:
@@ -251,17 +259,18 @@ class Simulation(object):
         self.grid_shape = self.fld.interp[0].Ez.shape
         self.particle_shape = particle_shape
         self.ptcl = []
-        # - Initialize the electrons
-        self.add_new_species( q=-e, m=m_e, n=n_e, dens_func=dens_func,
-                              p_nz=p_nz, p_nr=p_nr, p_nt=p_nt,
-                              p_zmin=p_zmin, p_zmax=p_zmax,
-                              p_rmin=p_rmin, p_rmax=p_rmax )
-        # - Initialize the ions
-        if initialize_ions:
-            self.add_new_species( q=e, m=m_p, n=n_e, dens_func=dens_func,
-                              p_nz=p_nz, p_nr=p_nr, p_nt=p_nt,
-                              p_zmin=p_zmin, p_zmax=p_zmax,
-                              p_rmin=p_rmin, p_rmax=p_rmax )
+        if n_e is not None:
+            # - Initialize the electrons
+            self.add_new_species( q=-e, m=m_e, n=n_e, dens_func=dens_func,
+                                  p_nz=p_nz, p_nr=p_nr, p_nt=p_nt,
+                                  p_zmin=p_zmin, p_zmax=p_zmax,
+                                  p_rmin=p_rmin, p_rmax=p_rmax )
+            # - Initialize the ions
+            if initialize_ions:
+                self.add_new_species( q=e, m=m_p, n=n_e, dens_func=dens_func,
+                                  p_nz=p_nz, p_nr=p_nr, p_nt=p_nt,
+                                  p_zmin=p_zmin, p_zmax=p_zmax,
+                                  p_rmin=p_rmin, p_rmax=p_rmax )
 
         # Register the time and the iteration
         self.time = 0.
@@ -391,6 +400,10 @@ class Simulation(object):
             # Main PIC iteration
             # ------------------
 
+            # Keep field arrays sorted throughout gathering+push
+            for species in ptcl:
+                species.keep_fields_sorted = True
+
             # Gather the fields from the grid at t = n dt
             for species in ptcl:
                 species.gather( fld.interp )
@@ -422,18 +435,22 @@ class Simulation(object):
             if self.use_galilean:
                 self.shift_galilean_boundaries( 0.5*dt )
 
+            # Handle elementary processes at t = (n + 1/2)dt
+            # i.e. when the particles' velocity and position are synchronized
+            # (e.g. ionization, Compton scattering, ...)
+            for species in ptcl:
+                species.handle_elementary_processes( self.time + 0.5*dt )
+
+            # Fields are not used beyond this point ; no need to keep sorted
+            for species in ptcl:
+                species.keep_fields_sorted = False
+
             # Get the current at t = (n+1/2) dt
             # (Guard cell exchange done either now or after current correction)
             self.deposit('J', exchange=(correct_currents is False))
             # Perform cross-deposition if needed
             if correct_currents and fld.current_correction=='cross-deposition':
                 self.cross_deposit( move_positions )
-
-            # Handle elementary processes at t = (n + 1/2)dt
-            # i.e. when the particles' velocity and position are synchronized
-            # (e.g. ionization, Compton scattering, ...)
-            for species in ptcl:
-                species.handle_elementary_processes( self.time + 0.5*dt )
 
             # Push the particles' positions to t = (n+1) dt
             if move_positions:
@@ -687,9 +704,10 @@ class Simulation(object):
         .. note::
 
             For the arguments below, it is recommended to have at least
-            ``p_nt = 4*Nm``, i.e. the required number of macroparticles
-            along `theta` (in order for the simulation to be properly resolved)
-            increases with the number of azimuthal modes used.
+            ``p_nt = 4*Nm`` (except in the case ``Nm=1``, for which
+            ``p_nt=1`` is sufficient). In other words, the required number of
+            macroparticles along `theta` (in order for the simulation to be
+            properly resolved) increases with the number of azimuthal modes used.
 
         Parameters
         ----------
