@@ -693,3 +693,137 @@ class FlattenedGaussianLaser( LaserProfile ):
         See the docstring of LaserProfile.E_field
         """
         return self.summed_profile.E_field( x, y, z, t )
+
+
+class FewCycleLaser( LaserProfile ):
+    """Class that calculates an ultra-short, tightly focussed laser"""
+
+    def __init__( self, a0, waist, tau_fwhm, z0, zf=None, theta_pol=0.,
+                    lambda0=0.8e-6, cep_phase=0., propagation_direction=1 ):
+        """
+        When a laser pulse is so short that it contains **only a few laser cycles**,
+        the standard Gaussian profile :any:`GaussianLaser` is not well-adapted.
+        This is because :any:`GaussianLaser` neglects the fact that different
+        frequencies focus in different ways. In particular, when initializing
+        a :any:`GaussianLaser` (with a short duration :math:`\\tau`) out of
+        focus, the profile at focus will not be the expected one.
+
+        Instead, the :any:`FewCycleLaser` profile overcomes this limitation.
+        The electric field for this profile is given by (see
+        `Caron & Potvilege, Journal of Modern Optics 46, 1881 (1999)
+        <https://www.tandfonline.com/doi/abs/10.1080/09500349908231378>`__):
+
+        .. math::
+
+            E(\\boldsymbol{x},t) = Re\\left[ a_0\\times E_0\,
+            e^{i\phi_{cep}} \\frac{i Z_R}{q(z)}
+            \\left( 1 + \\frac{ik_0}{s}\\left(z-z_0-ct+
+            \\frac{r^2}{2q(z)}\\right)\\right)^{-(s+1)} \\right]
+
+        where :math:`k_0 = 2\pi/\\lambda_0` is the wavevector,
+        :math:`E_0 = m_e c^2 k_0 / q_e` is the field amplitude for :math:`a_0=1`,
+        :math:`Z_R = k_0 w_0^2/2` is the Rayleigh length,
+        :math:`q(z) = z-z_f + iZ_R`, and where :math:`s`
+        controls the duration of the pulse and is given by:
+
+        .. math::
+
+            \omega_0 \\tau_{FWHM} = s\\sqrt{2(4^{1/(s+1)}-1)}
+
+        .. note::
+
+            In the case of :math:`\omega_0 \\tau_{FWHM} \gg 1` (i.e. many
+            laser cycles within the envelope), the above expression approaches
+            that of a standard Gaussian laser pulse, and thus the :any:`FewCycleLaser`
+            profile becomes equivalent to the :any:`GaussianLaser` profile
+            (with :math:`\\tau_{FWHM} = \\sqrt{2\\log(2)}\\tau`).
+
+        Parameters
+        ----------
+
+        a0: float (dimensionless)
+            The peak normalized vector potential at the focal plane, defined
+            as :math:`a_0` in the above formula.
+
+        waist: float (in meter)
+            Laser waist at the focal plane, defined as :math:`w_0` in the
+            above formula.
+
+        tau_FWHM: float (in second)
+            The full-width half-maximum duration of the **envelope intensity** (in
+            the lab frame), defined as :math:`\\tau_{FWHM}` in the above formula.
+
+        z0: float (in meter)
+            The initial position of the centroid of the laser
+            (in the lab frame), defined as :math:`z_0` in the above formula.
+
+        zf: float (in meter), optional
+            The position of the focal plane (in the lab frame).
+            If ``zf`` is not provided, the code assumes that ``zf=z0``, i.e.
+            that the laser pulse is at the focal plane initially.
+
+        theta_pol: float (in radian), optional
+           The angle of polarization with respect to the x axis.
+
+        lambda0: float (in meter), optional
+            The wavelength of the laser (in the lab frame), defined as
+            :math:`\\lambda_0` in the above formula.
+            Default: 0.8 microns (Ti:Sapph laser).
+
+        cep_phase: float (in radian), optional
+            The Carrier Enveloppe Phase (CEP), defined as :math:`\phi_{cep}`
+            in the above formula (i.e. the phase of the laser
+            oscillation, at the position where the laser enveloppe is maximum)
+
+        propagation_direction: int, optional
+            Indicates in which direction the laser propagates.
+            This should be either 1 (laser propagates towards positive z)
+            or -1 (laser propagates towards negative z).
+        """
+        # Initialize propagation direction
+        LaserProfile.__init__(self, propagation_direction)
+
+        # Set a number of parameters for the laser
+        k0 = 2*np.pi/lambda0
+        E0 = a0*m_e*c**2*k0/e
+        zr = 0.5*k0*waist**2
+
+        # If no focal plane position is given, use z0
+        if zf is None:
+            zf = z0
+
+        # Store the parameters
+        self.k0 = k0
+        self.zr = zr
+        self.zf = zf
+        self.z0 = z0
+        self.E0x = E0 * np.cos(theta_pol)
+        self.E0y = E0 * np.sin(theta_pol)
+        self.w0 = waist
+        self.cep_phase = cep_phase
+
+        # Find the Poisson parameter s, by solving the non-linear equation
+        from scipy.optimize import fsolve
+        w_tau = c*k0*tau_fwhm
+        sol = fsolve(lambda s: s*(2*(4**(1/(s+1))-1))**.5 - w_tau, 1.)
+        self.s = sol[0]
+
+    def E_field( self, x, y, z, t ):
+        """
+        See the docstring of LaserProfile.E_field
+        """
+        prop_dir = self.propag_direction
+        inv_q = 1./( prop_dir * (z - self.zf) + 1.j*self.zr )
+        # Calculate the argument inside the power function
+        argument = 1. + 1.j*self.k0/self.s*(
+            prop_dir*(z - self.z0) - c*t + 0.5*(x**2 + y**2)*inv_q )
+
+        # Get the transverse profile
+        profile = np.exp(1.j*self.cep_phase) * 1.j*self.zr*inv_q * \
+                    argument**(-self.s-1)
+
+        # Get the projection along x and y, with the correct polarization
+        Ex = self.E0x * profile
+        Ey = self.E0y * profile
+
+        return( Ex.real, Ey.real )

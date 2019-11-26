@@ -58,6 +58,7 @@ own custom laser profiles.
     laser_profiles/laguerre
     laser_profiles/donut_laguerre
     laser_profiles/flattened
+    laser_profiles/few_cycle
 
 Combining (summing) laser profiles
 **********************************

@@ -1,15 +1,12 @@
-Installation on Cori and Edison (NERSC)
-=======================================
+Installation on Cori (NERSC)
+============================
 
 `Cori
-<http://www.nersc.gov/users/computational-systems/cori/>`__ and
-`Edison <http://www.nersc.gov/users/computational-systems/edison/>`__
-are two high-performance clusters at `NERSC
+<http://www.nersc.gov/users/computational-systems/cori/>`__ is
+a high-performance cluster at `NERSC
 <http://www.nersc.gov/>`__.
 
-Each node of Edison contains an Ivy Bridge processor (24-core Xeon processor).
-
-On the other hand, Cori has two types of nodes:
+Cori has two types of nodes:
 
 - Haswell (32-core Xeon processor)
 - KNL (68-core Xeon-Phi processor)
@@ -58,7 +55,6 @@ Interactive jobs
 ~~~~~~~~~~~~~~~~
 
 In order to request a Haswell node on Cori, use the following command.
-(For Edison, simply remove the ``-C haswell`` option.)
 
 ::
 
@@ -79,8 +75,6 @@ Create a new file named ``submission_file`` in the same directory as
 your input script (typically this directory is a subdirectory of
 ``$SCRATCH``). Within this new file, copy the following text,
 and replace the bracketed text by the proper values.
-(The line ``#SBATCH -C haswell`` is specific to Cori. When running on
-Edison, simply remove this line.)
 
 ::
 
@@ -93,33 +87,17 @@ Edison, simply remove this line.)
 
     module load python/2.7-anaconda
     export NUMBA_THREADING_LAYER=tbb
-    export NUMBA_NUM_THREADS=<n_threads>
-    export MKL_NUM_THREADS=<n_threads>
+    export NUMBA_NUM_THREADS=16
+    export MKL_NUM_THREADS=16
 
-    srun -n <n_mpi> -c <n_logical_cores_per_mpi> --cpu_bind=cores python <fbpic_script.py>
+    srun -n <n_mpi> -c 32 --cpu-bind=cores python <fbpic_script.py>
 
 Then run:
 
     ::
 
         sbatch submission_file
-
-.. note::
-
-    In order to have a favorable scaling, it is recommended to use 2 MPI ranks
-    per node (i.e. ``<n_mpi> = 2 * <n_nodes>``), and to use the following values:
-
-    - For Cori:
-
-        ``<n_threads> = 16``
-
-        ``<n_logical_cores_per_mpi> = 32``
-
-    - For Edison:
-
-        ``<n_threads> = 12``
-
-        ``<n_logical_cores_per_mpi> = 24``
+ 
 
 Visualizing the results through Jupyter
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~

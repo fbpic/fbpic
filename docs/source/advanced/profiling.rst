@@ -44,50 +44,78 @@ and then open the file ``cpu.prof`` with `snakeviz <https://jiffyclub.github.io/
 Profiling the code executed on GPU
 ----------------------------------
 
+Two profiling tools exists for GPU:
+
+    - `nvprof <http://docs.nvidia.com/cuda/profiler-users-guide/index.html#nvprof-overview>`__
+    - `Nsight Systems <https://docs.nvidia.com/nsight-systems/>`__ (which can be installed from `this page <https://developer.nvidia.com/gameworksdownload#?dn=nsight-systems-2019-5>`__)
+
+Instructions here are given for both tools.
+
 Getting the results in a simple text file
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-Run the code with
-`nvprof <http://docs.nvidia.com/cuda/profiler-users-guide/index.html#nvprof-overview>`__ :
+- For **nvprof**: First run the code with ``nvprof``
 
-::
+    ::
 
-    nvprof --log-file gpu.log python fbpic_script.py
+        nvprof --log-file gpu.log python fbpic_script.py
 
-in order to profile the device-side (i.e. GPU-side) code alone, or
+    and then open the file ``gpu.log`` with a standard text editor.
 
-::
+- For **Nsight Systems**: Run the code with ``nsys profile``
 
-    nvprof --log-file gpu.log python -m cProfile -s time fbpic_script.py > cpu.log
+    ::
 
-in order to simultaneously profile the device-side (i.e. GPU-side)
-and host-side (i.e. CPU-side) code.
-Then open the files ``gpu.log`` and/or ``cpu.log`` with a text editor.
+        nsys profile --stats=true python fbpic_script.py
+
+    The profiling information is printed directly in the Terminal output.
+
+.. note::
+
+    In order to simultaneously profile the device-side (i.e. GPU-side)
+    and host-side (i.e. CPU-side) code, you can use:
+
+    ::
+
+        nvprof --log-file gpu.log python -m cProfile -s time fbpic_script.py > cpu.log
 
 Using a visual profiler
 ~~~~~~~~~~~~~~~~~~~~~~~
 
-Run the code with
-`nvprof <http://docs.nvidia.com/cuda/profiler-users-guide/index.html#nvprof-overview>`__,
-using binary output:
+- For **nvprof**: First run the code with ``nvprof``
 
-::
+    ::
 
-    nvprof -o gpu.prof python fbpic_script.py
+        nvprof -o gpu.prof python fbpic_script.py
 
-and then launch
-`nvvp <http://docs.nvidia.com/cuda/profiler-users-guide/index.html#visual>`__:
+    and then launch
+    `nvvp <http://docs.nvidia.com/cuda/profiler-users-guide/index.html#visual>`__
 
-::
+    ::
 
-    nvvp
+        nvvp
 
-And click ``File > Open``, in order to select the file ``gpu.prof``.
+    And click ``File > Open``, in order to select the file ``gpu.prof``.
+
+- For **Nsight System**: First run the code with ``nsys profile``
+
+    ::
+
+        nsys profile python fbpic_script.py
+
+    and then launch ``nsight-sys``:
+
+    ::
+
+        nsight-sys
+
+    Click ``File > Open``, navigate to the folder in which you ran the simulation,
+    and open the file that ends in ``.qdrep``.
 
 .. note::
 
-    You do not need to run **snakeviz** or **nvvp** on the same machine on
-    which the simulation was run. (In particular, **nvvp** does not need to
+    You do not need to run **snakeviz** or **nvvp**/**nsight-sys** on the same machine on
+    which the simulation was run. (In particular, **nvvp**/**nsight-sys** does not need to
     have access to a GPU.) This means for example that, if your simulation
     was run on a remote cluster, you can simply transfer the
     files **cpu.prof** and/or **gpu.prof** to your local computer, and run
@@ -98,8 +126,8 @@ And click ``File > Open``, in order to select the file ``gpu.prof``.
 
 .. note::
 
-    When profiling the code with **nvprof**, the profiling data can quickly
-    become very large. Therefore we recommend to profile the code only
+    When profiling the code with **nvprof** or **nsys**, the profiling data can
+    quickly become very large. Therefore we recommend to profile the code only
     on a small number of PIC iterations (<1000).
 
 Profiling MPI simulations

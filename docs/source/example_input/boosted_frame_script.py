@@ -18,7 +18,7 @@ where fbpic_object is any of the objects or function of FBPIC.
 # Imports
 # -------
 import numpy as np
-from scipy.constants import c, e, m_e
+from scipy.constants import c, e, m_e, m_p
 # Import the relevant structures in FBPIC
 from fbpic.main import Simulation
 from fbpic.lpa_utils.laser import add_laser
@@ -77,7 +77,6 @@ ramp_down = .5e-3
 # The particles of the plasma
 p_zmin = 0.e-6   # Position of the beginning of the plasma (meters)
 p_zmax = ramp_up + plateau + ramp_down
-p_rmin = 0.      # Minimal radial position of the plasma (meters)
 p_rmax = 100.e-6 # Maximal radial position of the plasma (meters)
 n_e = 3.e24      # The density in the labframe (electrons.meters^-3)
 p_nz = 2         # Number of particles per cell along z
@@ -168,17 +167,25 @@ track_bunch = False
 if __name__ == '__main__':
 
     # Initialize the simulation object
-    sim = Simulation( Nz, zmax, Nr, rmax, Nm, dt,
-        p_zmin, p_zmax, p_rmin, p_rmax, p_nz, p_nr, p_nt, n_e,
-        dens_func=dens_func, zmin=zmin, initialize_ions=True,
-        v_comoving=v_comoving, gamma_boost=boost.gamma0, n_order=n_order,
-        boundaries='open', use_cuda=use_cuda )
+    sim = Simulation( Nz, zmax, Nr, rmax, Nm, dt, zmin=zmin,
+        v_comoving=v_comoving, gamma_boost=boost.gamma0,
+        n_order=n_order, boundaries='open', use_cuda=use_cuda )
 
-    # Add an electron bunch
-    add_particle_bunch( sim, -e, m_e, bunch_gamma, bunch_n, bunch_zmin,
-                bunch_zmax, 0, bunch_rmax, boost=boost )
+    # Add the plasma electron and plasma ions
+    plasma_elec = sim.add_new_species( q=-e, m=m_e,
+                    n=n_e, dens_func=dens_func,
+                    p_zmin=p_zmin, p_zmax=p_zmax, p_rmax=p_rmax,
+                    p_nz=p_nz, p_nr=p_nr, p_nt=p_nt )
+    plasma_ions = sim.add_new_species( q=e, m=m_p,
+                    n=n_e, dens_func=dens_func,
+                    p_zmin=p_zmin, p_zmax=p_zmax, p_rmax=p_rmax,
+                    p_nz=p_nz, p_nr=p_nr, p_nt=p_nt )
+
+    # Add a relativistic electron bunch
+    bunch = add_particle_bunch( sim, -e, m_e, bunch_gamma,
+        bunch_n, bunch_zmin, bunch_zmax, 0, bunch_rmax, boost=boost )
     if track_bunch:
-        sim.ptcl[2].track( sim.comm )
+        bunch.track( sim.comm )
 
     # Add a laser to the fields of the simulation
     add_laser( sim, a0, w0, ctau, z0, lambda0=lambda0,
@@ -195,7 +202,7 @@ if __name__ == '__main__':
                   FieldDiagnostic( dt_period=dt_boosted_diag_period,
                                    fldobject=sim.fld, comm=sim.comm ),
                   ParticleDiagnostic( dt_period=dt_boosted_diag_period,
-                        species={"electrons":sim.ptcl[0], "bunch":sim.ptcl[2]},
+                        species={"electrons":plasma_elec, "bunch":bunch},
                         comm=sim.comm),
                   # Diagnostics in the lab frame (back-transformed)
                   BackTransformedFieldDiagnostic( zmin, zmax, v_window,
@@ -205,7 +212,7 @@ if __name__ == '__main__':
                   BackTransformedParticleDiagnostic( zmin, zmax, v_window,
                     dt_lab_diag_period, N_lab_diag, boost.gamma0,
                     write_period, sim.fld, select={'uz':[0.,None]},
-                    species={'electrons':sim.ptcl[2]}, comm=sim.comm )
+                    species={'bunch':bunch}, comm=sim.comm )
                 ]
 
     # Number of iterations to perform
