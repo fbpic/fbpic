@@ -264,7 +264,7 @@ the plasma wake phase velocity, i.e. :math:`\gamma_{wake} \approx 42`.
 
 This simple example highlights two important aspects of choosing the right
 :math:`\gamma_b` in practice. First, it can be seen that the speedup does
-only follow the simple scaling law :math:`(1+\beta_b^2)\gamma_b^2`
+only follow the simple scaling law :math:`(1+\beta_b)^2\gamma_b^2`
 for :math:`\gamma_b \ll \gamma_{wake}`, and second, that the optimum speedup
 occurs at a :math:`\gamma_b < \gamma_{wake}` before the simulation
 slows down again.
