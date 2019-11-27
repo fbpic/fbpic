@@ -13,6 +13,7 @@ from fbpic.fields.fields import InterpolationGrid
 from fbpic.fields.utility_methods import get_stencil_reach
 from fbpic.particles.particles import Particles
 from .field_buffer_handling import BufferHandler
+from .pml_damping import PMLDamper
 from .particle_buffer_handling import remove_outside_particles, \
      add_buffers_to_particles, shift_particles_periodic_subdomain
 # Check if CUDA is available, then import CUDA functions
@@ -47,7 +48,7 @@ class BoundaryCommunicator(object):
 
     def __init__( self, Nz, zmin, zmax, Nr, rmax, Nm, dt, v_comoving,
             use_galilean, boundaries, r_boundary, n_order, n_guard,
-            n_damp, nr_damp, n_inject=None, exchange_period=None,
+            n_damp, nr_damp, cdt_over_dr, n_inject=None, exchange_period=None,
             use_all_mpi_ranks=True):
         """
         Initializes a communicator object.
@@ -117,6 +118,10 @@ class BoundaryCommunicator(object):
             The number of damping cells in the radial (r) direction.
             The damping cells are used only if `r_boundary` is `"open"`,
             and are added at upper radial boundary (at `rmax`).
+
+        cdt_over_dr: float
+            Ratio of timestep to radial cell size
+            (needed for calculation of damping coefficients)
 
         n_inject: int, optional
             Number of injection cells (at the left and right) of a simulation
@@ -294,6 +299,12 @@ class BoundaryCommunicator(object):
                     self.n_guard, self.nz_damp, self.n_inject )
                 if cuda_installed:
                     self.d_right_damp = cuda.to_device( self.right_damp )
+
+        # Create damping object for the PML
+        self.use_pml = (r_boundary == "open")
+        if self.use_pml:
+            self.pml_damper = PMLDamper( nr_damp, cdt_over_dr )
+
 
     def divide_into_domain( self ):
         """
@@ -792,7 +803,7 @@ class BoundaryCommunicator(object):
     def damp_EB_open_boundary( self, interp ):
         """
         Damp the fields E and B in the damp cells, at the right and left
-        of the *global* simulation box.
+        of the *global* simulation box, as well as in the PML.
 
         Parameter:
         -----------
@@ -852,7 +863,7 @@ class BoundaryCommunicator(object):
                             cuda_damp_EB_right_pml[dim_grid, dim_block](
                                 interp[m].Er_pml, interp[m].Et_pml,
                                 interp[m].Br_pml, interp[m].Bt_pml,
-                                self.d_left_damp, nd)
+                                self.d_right_damp, nd)
                 else:
                     # Damp the fields on the CPU
                     damp_arr = self.right_damp
@@ -907,6 +918,20 @@ class BoundaryCommunicator(object):
         damping_array = np.where( i_cell<n_guard+n_inject, 0., damping_array )
 
         return( damping_array )
+
+    def damp_pml_EB( self, interp ):
+        """
+        Damp the fields in the PML (if the pml are enabled)
+
+        Parameter:
+        -----------
+        interp: list
+            A list of InterpolationGrid objects (one per azimuthal mode)
+        """
+        # Damp the fields in the PML if enabled
+        if self.use_pml:
+            self.pml_damper.damp_pml_EB( interp )
+
 
     # Gathering routines
     # ------------------

@@ -521,7 +521,7 @@ def cuda_damp_EB_left( Er, Et, Ez, Br, Bt, Bz, damp_array, nd ):
             Bz[iz, ir] *= damp_factor_left
 
 @cuda.jit
-def cuda_damp_EB_pml_left( Er_pml, Et_pml, Br_pml, Bt_pml, damp_array, nd ):
+def cuda_damp_EB_left_pml( Er_pml, Et_pml, Br_pml, Bt_pml, damp_array, nd ):
     """
     Multiply the E and B fields in the left guard cells
     by damp_array.
@@ -599,7 +599,7 @@ def cuda_damp_EB_right( Er, Et, Ez, Br, Bt, Bz, damp_array, nd ):
 
 
 @cuda.jit
-def cuda_damp_EB_pml_right( Er_pml, Et_pml, Br_pml, Bt_pml, damp_array, nd ):
+def cuda_damp_EB_right_pml( Er_pml, Et_pml, Br_pml, Bt_pml, damp_array, nd ):
     """
     Multiply the E and B fields in the right guard cells
     by damp_array.

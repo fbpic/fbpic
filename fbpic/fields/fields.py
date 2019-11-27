@@ -311,8 +311,8 @@ class Fields(object) :
         """
         # Use the appropriate transformation depending on the fieldtype.
         if fieldtype == 'E' :
-            for m in range(self.Nm) :
             # Transform each azimuthal grid individually
+            for m in range(self.Nm) :
                 self.trans[m].interp2spect_scal(
                     self.interp[m].Ez, self.spect[m].Ez )
                 self.trans[m].interp2spect_vect(

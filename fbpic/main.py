@@ -249,9 +249,11 @@ class Simulation(object):
         self.dt = dt
 
         # Initialize the boundary communicator
+        cdt_over_dr = c*dt / (rmax/Nr)
         self.comm = BoundaryCommunicator( Nz, zmin, zmax, Nr, rmax, Nm, dt,
             self.v_comoving, self.use_galilean, boundaries, r_boundary, n_order,
-            n_guard, n_damp, nr_damp, None, exchange_period, use_all_mpi_ranks )
+            n_guard, n_damp, nr_damp, cdt_over_dr, None, exchange_period,
+            use_all_mpi_ranks )
         # Modify domain region
         zmin, zmax, Nz = self.comm.divide_into_domain()
         Nr = self.comm.get_Nr( with_damp=True )
@@ -370,6 +372,9 @@ class Simulation(object):
         self.comm.damp_EB_open_boundary( fld.interp )
         fld.interp2spect('E')
         fld.interp2spect('B')
+        if self.use_pml:
+            fld.interp2spect('E_pml')
+            fld.interp2spect('B_pml')
 
         # Beginning of the N iterations
         # -----------------------------
@@ -492,20 +497,12 @@ class Simulation(object):
                 # the interpolation grids
                 self.comm.move_grids(fld, ptcl, dt, self.time)
 
-            # Get the MPI-exchanged and damped E and B field in both
-            # spectral space and interpolation space
-            # (Since exchange/damp operation is purely along z, spectral fields
-            # are updated by doing an iFFT/FFT instead of a full transform)
-            fld.spect2partial_interp('E')
-            fld.spect2partial_interp('B')
-            self.comm.exchange_fields(fld.interp, 'E', 'replace')
-            self.comm.exchange_fields(fld.interp, 'B', 'replace')
-            self.comm.damp_EB_open_boundary( fld.interp )
-            fld.partial_interp2spect('E')
-            fld.partial_interp2spect('B')
-            # Get the corresponding fields in interpolation space
-            fld.spect2interp('E')
-            fld.spect2interp('B')
+            # Handle boundaries for the E and B fields:
+            # - MPI exchanges for guard cells
+            # - Damp fields in damping cells
+            # - Update the fields in interpolation space
+            #  (needed for the field gathering at the next iteration)
+            self.exchange_and_damp_EB()
 
             # Increment the global time and iteration
             self.time += dt
@@ -664,6 +661,55 @@ class Simulation(object):
         # Shift the boundaries of the grid for the Galilean frame
         if self.use_galilean:
             self.shift_galilean_boundaries( -0.5*dt )
+
+
+    def exchange_and_damp_EB(self):
+        """
+        Handle boundaries for the E and B fields:
+         - MPI exchanges for guard cells
+         - Damp fields in damping cells (in z, and in r if PML are used)
+         - Update the fields in interpolation space
+        """
+        # Shortcut
+        fld = self.fld
+
+        # - Get fields in interpolation space (or partial interpolation space)
+        #   to prepare for damp/exchange
+        if self.use_pml:
+            # Exchange/damp operation in z and r ; do full transform
+            fld.spect2interp('E')
+            fld.spect2interp('B')
+            fld.spect2interp('E_pml')
+            fld.spect2interp('B_pml')
+        else:
+            # Exchange/damp operation is purely along z; spectral fields
+            # are updated by doing an iFFT/FFT instead of a full transform
+            fld.spect2partial_interp('E')
+            fld.spect2partial_interp('B')
+
+        # - Exchange guard cells and damp fields
+        self.comm.exchange_fields(fld.interp, 'E', 'replace')
+        self.comm.exchange_fields(fld.interp, 'B', 'replace')
+        self.comm.damp_EB_open_boundary( fld.interp ) # Damp along z
+        if self.use_pml:
+            self.comm.damp_pml_EB( fld.interp ) # Damp in radial PML
+
+        # - Update spectral space (and interpolation space if needed)
+        if self.use_pml:
+            # Exchange/damp operation in z and r ; do full transform back
+            fld.interp2spect('E')
+            fld.interp2spect('B')
+            fld.interp2spect('E_pml')
+            fld.interp2spect('B_pml')
+        else:
+            # Exchange/damp operation is purely along z; spectral fields
+            # are updated by doing an iFFT/FFT instead of a full transform
+            fld.partial_interp2spect('E')
+            fld.partial_interp2spect('B')
+            # Get the corresponding fields in interpolation space
+            fld.spect2interp('E')
+            fld.spect2interp('B')
+
 
     def shift_galilean_boundaries(self, dt):
         """
