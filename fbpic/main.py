@@ -48,12 +48,14 @@ class Simulation(object):
                  p_nz=None, p_nr=None, p_nt=None, n_e=None, zmin=0.,
                  n_order=-1, dens_func=None, filter_currents=True,
                  v_comoving=None, use_galilean=True,
-                 initialize_ions=False, use_cuda=False,
-                 n_guard=None, n_damp=64, exchange_period=None,
-                 current_correction='curl-free', boundaries='periodic',
+                 initialize_ions=False, use_cuda=False, n_guard=None,
+                 n_damp={'z':64, 'r':32},
+                 exchange_period=None,
+                 current_correction='curl-free',
+                 boundaries={'z':'periodic', 'r':'reflective'},
                  gamma_boost=None, use_all_mpi_ranks=True,
                  particle_shape='linear', verbose_level=1,
-                 smoother=None, r_boundary='reflective', nr_damp=32 ):
+                 smoother=None ):
         """
         Initializes a simulation.
 
@@ -139,7 +141,9 @@ class Simulation(object):
             automatically (approx 2*n_order). If no MPI is used and
             in the case of open boundaries with an infinite order stencil,
             n_guard defaults to 64, if not set otherwise.
-        n_damp: int, optional
+        n_damp: dict, optional
+            A dictionary with 'z' and 'r' as keys and integers as values.
+            The integers represent the number 
             The number of damping cells in the longitudinal (z) direction.
             The damping cells are used only if `boundaries` is `"open"`,
             and they are added at the left and right edge of the simulation
@@ -160,6 +164,7 @@ class Simulation(object):
         boundaries: string, optional
             The boundary condition in the longitudinal (z) direction.
             Either "periodic" or "open" (for field-absorbing boundary)
+
         r_boundary: string, optional
             The boundary condition at the upper radial boundary (at rmax).
             Either "reflective" or "open" (for field-absorbing boundary)
@@ -236,7 +241,13 @@ class Simulation(object):
         if v_comoving is None:
             self.use_galilean = False
 
-        # Check whether the pml should be used
+        # Handle boundaries
+        if type(boundaries) is str:
+            warnings.warn('TODO')
+            # Convert to dictionary
+            boundaries = {'z':boundaries, 'r':reflective}
+
+
         self.use_pml = (r_boundary == "open")
 
         # When running the simulation in a boosted frame, convert the arguments
