@@ -243,7 +243,7 @@ class Simulation(object):
         if type(boundaries) is str:
             warnings.warn('TODO')
             # Convert to dictionary
-            boundaries = {'z':boundaries, 'r':reflective}
+            boundaries = {'z':boundaries, 'r':'reflective'}
         self.use_pml = (boundaries['r'] == "open")
 
         # When running the simulation in a boosted frame, convert the arguments
@@ -258,8 +258,8 @@ class Simulation(object):
         # Initialize the boundary communicator
         cdt_over_dr = c*dt / (rmax/Nr)
         self.comm = BoundaryCommunicator( Nz, zmin, zmax, Nr, rmax, Nm, dt,
-            self.v_comoving, self.use_galilean, boundaries, r_boundary, n_order,
-            n_guard, n_damp, nr_damp, cdt_over_dr, None, exchange_period,
+            self.v_comoving, self.use_galilean, boundaries, n_order,
+            n_guard, n_damp, cdt_over_dr, None, exchange_period,
             use_all_mpi_ranks )
         # Modify domain region
         zmin, zmax, Nz = self.comm.divide_into_domain()
