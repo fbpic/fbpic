@@ -142,16 +142,14 @@ class Simulation(object):
             in the case of open boundaries with an infinite order stencil,
             n_guard defaults to 64, if not set otherwise.
         n_damp: dict, optional
-            A dictionary with 'z' and 'r' as keys and integers as values.
-            The integers represent the number 
-            The number of damping cells in the longitudinal (z) direction.
-            The damping cells are used only if `boundaries` is `"open"`,
-            and they are added at the left and right edge of the simulation
-            domain.
-        nr_damp: int, optional
-            The number of damping cells in the radial (r) direction.
-            The damping cells are used only if `r_boundary` is `"open"`,
-            and are added at upper radial boundary (at `rmax`).
+            A dictionary with 'z' and 'r' as keys, and integers as values.
+            The integers represent the number of damping cells in the
+            longitudinal (z) and transverse (r) directions, respectively.
+            The damping cells in z are only used if `boundaries['z']` is
+            `'open'`, and are added at the left and right edge of the
+            simulation domain. The damping cells in r are used only if
+            `boundaries['r']` is `'open'`, and are added at upper
+            radial boundary (at `rmax`).
 
         exchange_period: int, optional
             Number of iterations before which the particles are exchanged.
@@ -161,16 +159,16 @@ class Simulation(object):
             (n_guard/2 - particle_shape order) cells. (Setting exchange_period
             to small values can substantially affect the performance)
 
-        boundaries: string, optional
-            The boundary condition in the longitudinal (z) direction.
-            Either "periodic" or "open" (for field-absorbing boundary)
-
-        r_boundary: string, optional
-            The boundary condition at the upper radial boundary (at rmax).
-            Either "reflective" or "open" (for field-absorbing boundary)
-            When "open" is selected, this adds Perfectly-Matched-Layers
-            in the radial direction ; note that the computation is
-            significantly more costly in this case.
+        boundaries: dict, optional
+            A dictionary with 'z' and 'r' as keys, and strings as values.
+            This specifies the field boundary in the longitudinal (z) and
+            transverse (r) direction respectively:
+              - `boundaries['z']` can be either `'periodic'` or `'open'`
+                (for field-absorbing boundary).
+              - `boundaries['r']` can be either `'reflective'` or `'open'`
+                (for field-absorbing boundary). For `'open'`, this adds
+                Perfectly-Matched-Layers in the radial direction ; note that
+                the computation is significantly more costly in this case.
 
         current_correction: string, optional
             The method used in order to ensure that the continuity equation
@@ -246,9 +244,7 @@ class Simulation(object):
             warnings.warn('TODO')
             # Convert to dictionary
             boundaries = {'z':boundaries, 'r':reflective}
-
-
-        self.use_pml = (r_boundary == "open")
+        self.use_pml = (boundaries['r'] == "open")
 
         # When running the simulation in a boosted frame, convert the arguments
         if gamma_boost is not None:
