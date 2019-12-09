@@ -232,7 +232,7 @@ class BoundaryCommunicator(object):
         self.nz_damp = n_damp['z']
         self.nr_damp = n_damp['r']
         # For periodic boundaries, no need for damping cells
-        if boundaries['r']=='periodic':
+        if boundaries['z']=='periodic':
             self.nz_damp = 0
             self.n_inject = 0
         else:
