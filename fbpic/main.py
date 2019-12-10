@@ -13,7 +13,7 @@ from fbpic.utils.mpi import MPI
 # Check if threading is available
 from .utils.threading import threading_enabled, numba_minor_version
 # Check if CUDA is available, then import CUDA functions
-from .utils.cuda import cuda_installed, cupy_installed
+from .utils.cuda import cuda_installed, cupy_installed, cupy_major_version
 if cuda_installed:
     from .utils.cuda import send_data_to_gpu, \
                 receive_data_from_gpu, mpi_select_gpus
@@ -206,16 +206,28 @@ class Simulation(object):
                 'Cuda not available for the simulation.\n'
                 'Performing the simulation on CPU.' )
             self.use_cuda = False
-        if self.use_cuda and not cupy_installed:
-            raise RuntimeError(
-                'In order to run on GPUs, FBPIC version 0.13 and later \n'
-                'require the `cupy` package (version 6).\n'
-                'See the FBPIC documentation in order to install cupy.')
-        if self.use_cuda and numba_minor_version > 45:
-            raise RuntimeError(
-                'In order to run on GPU, please install numba version 0.45:\n'
-                '  conda install numba=0.45, or:\n'
-                '  pip install numba==0.45')
+        # Check that cupy and numba have the right version
+        if self.use_cuda:
+            if not cupy_installed:
+                raise RuntimeError(
+                    'In order to run on GPUs, FBPIC version 0.13 and later \n'
+                    'require the `cupy` package.\n'
+                    'See the FBPIC documentation in order to install cupy.')
+            elif (cupy_major_version >= 7 and numba_minor_version < 46):
+                raise RuntimeError(
+                    'You are using cupy version %d.\nFor compatibility, '
+                    'you need to install numba 0.46 or later.\n'
+                    '(Your current version is numba 0.%d.)\n'
+                    'e.g. with `conda uninstall numba; conda install numba`.'
+                    %(cupy_major_version,numba_minor_version))
+            elif (cupy_major_version < 7 and numba_minor_version >= 46):
+                raise RuntimeError(
+                    'You are using numba version 0.%d.\nFor compatibility, '
+                    'you need to install cupy 7 or later.\n'
+                    '(Your current version is cupy %d.)\n'
+                    'e.g. with `pip install --upgrade cupy-cudaXXX`\n'
+                    'where `XXX` should be replaced by your cuda version.'
+                    %(numba_minor_version,cupy_major_version))
         # CPU multi-threading
         self.use_threading = threading_enabled
         if self.use_threading:

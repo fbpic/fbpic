@@ -25,9 +25,10 @@ if cuda_installed:
 try:
     import cupy
     cupy_installed = cupy.is_available()
-    assert int(cupy.__version__[0]) >= 6 # Require cupy version 6
+    cupy_major_version = int(cupy.__version__[0])
 except (ImportError, AssertionError):
     cupy_installed = False
+    cupy_major_version = None
 
 # -----------------------------------------------------
 # CUDA grid utilities
