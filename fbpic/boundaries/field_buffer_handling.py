@@ -247,8 +247,8 @@ class BufferHandler(object):
                             # Copy regular components + PML components
                             replace_pml_from_gpu_buffer \
                                 [ dim_grid_2d, dim_block_2d ](
-                                self.d_send_l[exchange_type],
-                                self.d_send_r[exchange_type],
+                                self.d_recv_l[exchange_type],
+                                self.d_recv_r[exchange_type],
                                 grid_r[m], grid_t[m], grid_z[m],
                                 pml_r[m], pml_t[m], m,
                                 copy_left, copy_right, nz_start, nz_end )
