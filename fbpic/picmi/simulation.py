@@ -209,6 +209,11 @@ class Simulation( PICMI_Simulation ):
                                 n_macroparticles=layout.n_macroparticles,
                                 zf=zf, tf=tf,
                                 initialize_self_field=initialize_self_field )
+
+        # - For the case of an empty species
+        elif (s.initial_distribution is None) and (layout is None):
+            fbpic_species = self.fbpic_sim.add_new_species(q=s.charge, m=s.mass)
+
         else:
             raise ValueError('Unknown combination of layout and distribution')
 
