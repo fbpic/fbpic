@@ -48,12 +48,14 @@ class Simulation(object):
                  p_nz=None, p_nr=None, p_nt=None, n_e=None, zmin=0.,
                  n_order=-1, dens_func=None, filter_currents=True,
                  v_comoving=None, use_galilean=True,
-                 initialize_ions=False, use_cuda=False,
-                 n_guard=None, n_damp=64, exchange_period=None,
-                 current_correction='curl-free', boundaries='periodic',
+                 initialize_ions=False, use_cuda=False, n_guard=None,
+                 n_damp={'z':64, 'r':32},
+                 exchange_period=None,
+                 current_correction='curl-free',
+                 boundaries={'z':'periodic', 'r':'reflective'},
                  gamma_boost=None, use_all_mpi_ranks=True,
                  particle_shape='linear', verbose_level=1,
-                 smoother=None, r_boundary='reflective', nr_damp=32 ):
+                 smoother=None ):
         """
         Initializes a simulation.
 
@@ -139,15 +141,15 @@ class Simulation(object):
             automatically (approx 2*n_order). If no MPI is used and
             in the case of open boundaries with an infinite order stencil,
             n_guard defaults to 64, if not set otherwise.
-        n_damp: int, optional
-            The number of damping cells in the longitudinal (z) direction.
-            The damping cells are used only if `boundaries` is `"open"`,
-            and they are added at the left and right edge of the simulation
-            domain.
-        nr_damp: int, optional
-            The number of damping cells in the radial (r) direction.
-            The damping cells are used only if `r_boundary` is `"open"`,
-            and are added at upper radial boundary (at `rmax`).
+        n_damp: dict, optional
+            A dictionary with 'z' and 'r' as keys, and integers as values.
+            The integers represent the number of damping cells in the
+            longitudinal (z) and transverse (r) directions, respectively.
+            The damping cells in z are only used if `boundaries['z']` is
+            `'open'`, and are added at the left and right edge of the
+            simulation domain. The damping cells in r are used only if
+            `boundaries['r']` is `'open'`, and are added at upper
+            radial boundary (at `rmax`).
 
         exchange_period: int, optional
             Number of iterations before which the particles are exchanged.
@@ -157,15 +159,16 @@ class Simulation(object):
             (n_guard/2 - particle_shape order) cells. (Setting exchange_period
             to small values can substantially affect the performance)
 
-        boundaries: string, optional
-            The boundary condition in the longitudinal (z) direction.
-            Either "periodic" or "open" (for field-absorbing boundary)
-        r_boundary: string, optional
-            The boundary condition at the upper radial boundary (at rmax).
-            Either "reflective" or "open" (for field-absorbing boundary)
-            When "open" is selected, this adds Perfectly-Matched-Layers
-            in the radial direction ; note that the computation is
-            significantly more costly in this case.
+        boundaries: dict, optional
+            A dictionary with 'z' and 'r' as keys, and strings as values.
+            This specifies the field boundary in the longitudinal (z) and
+            transverse (r) direction respectively:
+              - `boundaries['z']` can be either `'periodic'` or `'open'`
+                (for field-absorbing boundary).
+              - `boundaries['r']` can be either `'reflective'` or `'open'`
+                (for field-absorbing boundary). For `'open'`, this adds
+                Perfectly-Matched-Layers in the radial direction ; note that
+                the computation is significantly more costly in this case.
 
         current_correction: string, optional
             The method used in order to ensure that the continuity equation
@@ -236,9 +239,6 @@ class Simulation(object):
         if v_comoving is None:
             self.use_galilean = False
 
-        # Check whether the pml should be used
-        self.use_pml = (r_boundary == "open")
-
         # When running the simulation in a boosted frame, convert the arguments
         if gamma_boost is not None:
             self.boost = BoostConverter( gamma_boost )
@@ -251,9 +251,10 @@ class Simulation(object):
         # Initialize the boundary communicator
         cdt_over_dr = c*dt / (rmax/Nr)
         self.comm = BoundaryCommunicator( Nz, zmin, zmax, Nr, rmax, Nm, dt,
-            self.v_comoving, self.use_galilean, boundaries, r_boundary, n_order,
-            n_guard, n_damp, nr_damp, cdt_over_dr, None, exchange_period,
+            self.v_comoving, self.use_galilean, boundaries, n_order,
+            n_guard, n_damp, cdt_over_dr, None, exchange_period,
             use_all_mpi_ranks )
+        self.use_pml = self.comm.use_pml
         # Modify domain region
         zmin, zmax, Nz = self.comm.divide_into_domain()
         Nr = self.comm.get_Nr( with_damp=True )

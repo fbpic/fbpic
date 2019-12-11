@@ -218,8 +218,8 @@ def print_simulation_setup( sim, verbose_level=1 ):
             else:
                 message += '\nPSATD stencil order: %d' %sim.fld.n_order
             message += '\nParticle shape: %s' %sim.particle_shape
-            message += '\nLongitudinal boundaries: %s' %sim.comm.boundaries
-            message += '\nTransverse boundaries: reflective'
+            message += '\nLongitudinal boundaries: %s' %sim.comm.boundaries['z']
+            message += '\nTransverse boundaries: %s' %sim.comm.boundaries['r']
             message += '\nGuard region size: %d ' %sim.comm.n_guard+'cells'
             message += '\nDamping region size: %d ' %sim.comm.nz_damp+'cells'
             message += '\nInjection region size: %d ' %sim.comm.n_inject+'cells'

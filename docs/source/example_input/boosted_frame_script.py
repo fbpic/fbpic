@@ -169,7 +169,9 @@ if __name__ == '__main__':
     # Initialize the simulation object
     sim = Simulation( Nz, zmax, Nr, rmax, Nm, dt, zmin=zmin,
         v_comoving=v_comoving, gamma_boost=boost.gamma0,
-        n_order=n_order, boundaries='open', use_cuda=use_cuda )
+        n_order=n_order, use_cuda=use_cuda,
+        boundaries={'z':'open', 'r':'reflective'})
+        # 'r': 'open' can also be used, but is more computationally expensive
 
     # Add the plasma electron and plasma ions
     plasma_elec = sim.add_new_species( q=-e, m=m_e,

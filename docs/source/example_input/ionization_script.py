@@ -110,7 +110,9 @@ if __name__ == '__main__':
 
     # Initialize the simulation object
     sim = Simulation( Nz, zmax, Nr, rmax, Nm, dt, zmin=zmin,
-        boundaries='open', n_order=n_order, use_cuda=use_cuda )
+         n_order=n_order, use_cuda=use_cuda,
+         boundaries={'z':'open', 'r':'reflective'})
+         # 'r': 'open' can also be used, but is more computationally expensive
 
     # Add the Helium ions (pre-ionized up to level 1),
     # the Nitrogen ions (pre-ionized up to level 5)

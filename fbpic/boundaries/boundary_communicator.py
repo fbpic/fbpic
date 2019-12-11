@@ -5,6 +5,7 @@
 This file is part of the Fourier-Bessel Particle-In-Cell code (FB-PIC)
 It defines the structure necessary to implement the boundary exchanges.
 """
+import warnings
 import numpy as np
 from scipy.constants import c
 from fbpic.utils.mpi import MPI, comm, mpi_type_dict, \
@@ -47,8 +48,8 @@ class BoundaryCommunicator(object):
     # -----------------------
 
     def __init__( self, Nz, zmin, zmax, Nr, rmax, Nm, dt, v_comoving,
-            use_galilean, boundaries, r_boundary, n_order, n_guard,
-            n_damp, nr_damp, cdt_over_dr, n_inject=None, exchange_period=None,
+            use_galilean, boundaries, n_order, n_guard, n_damp,
+            cdt_over_dr, n_inject=None, exchange_period=None,
             use_all_mpi_ranks=True):
         """
         Initializes a communicator object.
@@ -82,15 +83,15 @@ class BoundaryCommunicator(object):
             When use_galilean is true, the whole grid moves
             with a speed v_comoving
 
-        boundaries: string, optional
-            The boundary condition in the longitudinal (z) direction.
-            Either "periodic" or "open" (for field-absorbing boundary)
-        r_boundary: string, optional
-            The boundary condition at the upper radial boundary (at rmax).
-            Either "reflective" or "open" (for field-absorbing boundary)
-            When "open" is selected, this adds Perfectly-Matched-Layers
-            in the radial direction ; note that the computation is
-            significantly more costly in this case.
+        boundaries: dict, optional
+            A dictionary with 'z' and 'r' as keys, and strings as values.
+            This specifies the field boundary in the longitudinal (z) and
+            transverse (r) direction respectively:
+              - `boundaries['z']` can be either `'periodic'` or `'open'`
+                (for field-absorbing boundary).
+              - `boundaries['r']` can be either `'reflective'` or `'open'`
+                (for field-absorbing boundary). For `'open'`, this adds
+                Perfectly-Matched-Layers in the radial direction.
 
         n_order: int
            The order of the stencil for the z derivatives.
@@ -109,15 +110,15 @@ class BoundaryCommunicator(object):
             in the case of open boundaries with an infinite order stencil,
             n_guard defaults to 64, if not set otherwise.
 
-        n_damp: int, optional
-            The number of damping cells in the longitudinal (z) direction.
-            The damping cells are used only if `boundaries` is `"open"`,
-            and they are added at the left and right edge of the simulation
-            domain.
-        nr_damp: int, optional
-            The number of damping cells in the radial (r) direction.
-            The damping cells are used only if `r_boundary` is `"open"`,
-            and are added at upper radial boundary (at `rmax`).
+        n_damp: dict, optional
+            A dictionary with 'z' and 'r' as keys, and integers as values.
+            The integers represent the number of damping cells in the
+            longitudinal (z) and transverse (r) directions, respectively.
+            The damping cells in z are only used if `boundaries['z']` is
+            `'open'`, and are added at the left and right edge of the
+            simulation domain. The damping cells in r are used only if
+            `boundaries['r']` is `'open'`, and are added at upper
+            radial boundary (at `rmax`).
 
         cdt_over_dr: float
             Ratio of timestep to radial cell size
@@ -159,10 +160,37 @@ class BoundaryCommunicator(object):
         self.dr = rmax/self._Nr
 
         # Check that the boundaries are valid
-        if not boundaries in ['periodic', 'open']:
-            raise ValueError('Unrecognized `boundaries`: %s' %boundaries)
-        if not r_boundary in ['reflective', 'open']:
-            raise ValueError('Unrecognized `r_boundary`: %s' %r_boundary)
+        # - Check type
+        if type(boundaries) is str:
+            # Convert to dictionary
+            warnings.warn(
+                "In FBPIC version 0.15 and later, a *dictionary* is expected\n"
+                "for the argument `boundaries` of the `Simulation` class,\n"
+                "but instead a *string* was detected (`boundaries='%s'`).\n"
+                "Thus, the `boundaries` argument was automatically converted\n"
+                "to `boundaries={'z':'%s', 'r':'reflective'}`.\n"
+                "Please pass a dictionary for `boundaries`, in the future."
+                %(boundaries, boundaries) )
+            boundaries = {'z':boundaries, 'r':'reflective'}
+        elif type(boundaries) is dict:
+            if (not 'z' in boundaries) or (not 'r' in boundaries):
+                raise ValueError(
+                    "The argument `boundaries` should be a dictionary,\n"
+                    "whose keys are 'z' and 'r'.\n"
+                    "(See the docstring of the `Simulation` class.)")
+        else:
+            raise ValueError(
+                'The argument `boundaries` should be a dictionary.\n'
+                '(See the docstring of the `Simulation` class.)')
+        # - Check keys
+        if not boundaries['z'] in ['periodic', 'open']:
+            raise ValueError(
+                "Unrecognized `boundaries['z']`: '%s'\n"
+                "(Valid values are 'periodic' and 'open')." %boundaries['z'])
+        if not boundaries['r'] in ['reflective', 'open']:
+            raise ValueError(
+                "Unrecognized `boundaries['r']`: '%s'\n"
+                "(Valid values are 'reflective' and 'open')." %boundaries['r'])
 
         # MPI Setup
         self.use_all_mpi_ranks = use_all_mpi_ranks
@@ -179,13 +207,13 @@ class BoundaryCommunicator(object):
         self.right_proc = self.rank+1
         # Correct these initial values by taking into account boundaries
         self.boundaries = boundaries
-        if self.boundaries == 'periodic':
+        if self.boundaries['z'] == 'periodic':
             # Periodic boundary conditions for the domains
             if self.rank == 0:
                 self.left_proc = (self.size-1)
             if self.rank == self.size-1:
                 self.right_proc = 0
-        elif self.boundaries == 'open':
+        elif self.boundaries['z'] == 'open':
             # None means that the boundary is open
             if self.rank == 0:
                 self.left_proc = None
@@ -223,14 +251,14 @@ class BoundaryCommunicator(object):
             # Otherwise: Set user defined guard region size
             self.n_guard = n_guard
         # For single proc and periodic boundaries, no need for guard cells
-        if boundaries=='periodic' and self.size==1:
+        if boundaries['z']=='periodic' and self.size==1:
             self.n_guard = 0
 
         # Register damping cells
-        self.nz_damp = n_damp
-        self.nr_damp = nr_damp
+        self.nz_damp = n_damp['z']
+        self.nr_damp = n_damp['r']
         # For periodic boundaries, no need for damping cells
-        if boundaries=='periodic':
+        if boundaries['z']=='periodic':
             self.nz_damp = 0
             self.n_inject = 0
         else:
@@ -242,7 +270,7 @@ class BoundaryCommunicator(object):
                 # User-defined injection cells. Choose carefully.
                 self.n_inject = n_inject
         # For reflective radial boundary, no need for damping cell
-        if r_boundary=='reflective':
+        if boundaries['r']=='reflective':
             self.nr_damp = 0
             self.use_pml = False
         else:
@@ -262,7 +290,7 @@ class BoundaryCommunicator(object):
             self.exchange_period = int(((self.n_guard/2)-3)/cells_per_step)
             # Set exchange_period to 1 in the case of single-proc
             # and periodic boundary conditions.
-            if self.size == 1 and boundaries == 'periodic':
+            if self.size == 1 and boundaries['z'] == 'periodic':
                 self.exchange_period = 1
             # Check that calculated exchange_period is acceptable for given
             # simulation parameters (check that guard region is large enough).
@@ -301,9 +329,9 @@ class BoundaryCommunicator(object):
                     self.d_right_damp = cuda.to_device( self.right_damp )
 
         # Create damping object for the PML
-        self.use_pml = (r_boundary == "open")
+        self.use_pml = (boundaries['r'] == "open")
         if self.use_pml:
-            self.pml_damper = PMLDamper( nr_damp, cdt_over_dr )
+            self.pml_damper = PMLDamper( self.nr_damp, cdt_over_dr )
 
 
     def divide_into_domain( self ):

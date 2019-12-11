@@ -102,10 +102,10 @@ def propagate_pulse( boundaries, v_window=0, use_galilean=False,
        the agreement with the theory.
     """
     # Initialize the simulation object
-    sim = Simulation( Nz, zmax, Nr, Lr, Nm, dt, r_boundary='open',
+    sim = Simulation( Nz, zmax, Nr, Lr, Nm, dt,
                       n_order=n_order, zmin=zmin, use_cuda=use_cuda,
-                      boundaries=boundaries, v_comoving=v_comoving,
-                      use_galilean=use_galilean )
+                      boundaries={'z':boundaries, 'r':'open'},
+                      v_comoving=v_comoving, use_galilean=use_galilean )
 
     # Set the moving window object
     if v_window !=0:
