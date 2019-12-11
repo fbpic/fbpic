@@ -169,6 +169,11 @@ class MovingWindow(object):
             shift_spect_array_gpu[tpb, bpg]( grid.Bp, shift, n_move )
             shift_spect_array_gpu[tpb, bpg]( grid.Bm, shift, n_move )
             shift_spect_array_gpu[tpb, bpg]( grid.Bz, shift, n_move )
+            if grid.use_pml:
+                shift_spect_array_gpu[tpb, bpg]( grid.Ep_pml, shift, n_move )
+                shift_spect_array_gpu[tpb, bpg]( grid.Em_pml, shift, n_move )
+                shift_spect_array_gpu[tpb, bpg]( grid.Bp_pml, shift, n_move )
+                shift_spect_array_gpu[tpb, bpg]( grid.Bm_pml, shift, n_move )
             if shift_rho:
                 shift_spect_array_gpu[tpb, bpg]( grid.rho_prev, shift, n_move )
             if shift_currents:
@@ -184,6 +189,11 @@ class MovingWindow(object):
             shift_spect_array_cpu( grid.Bp, shift, n_move )
             shift_spect_array_cpu( grid.Bm, shift, n_move )
             shift_spect_array_cpu( grid.Bz, shift, n_move )
+            if grid.use_pml:
+                shift_spect_array_cpu( grid.Ep_pml, shift, n_move )
+                shift_spect_array_cpu( grid.Em_pml, shift, n_move )
+                shift_spect_array_cpu( grid.Bp_pml, shift, n_move )
+                shift_spect_array_cpu( grid.Bm_pml, shift, n_move )
             if shift_rho:
                 shift_spect_array_cpu( grid.rho_prev, shift, n_move )
             if shift_currents:

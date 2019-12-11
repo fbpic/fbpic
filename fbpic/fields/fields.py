@@ -48,7 +48,7 @@ class Fields(object) :
         Contains the coefficients to solve the Maxwell equations
     """
     def __init__( self, Nz, zmax, Nr, rmax, Nm, dt, zmin=0.,
-                  n_order=-1, v_comoving=None, use_galilean=True,
+                  n_order=-1, v_comoving=None, use_pml=False, use_galilean=True,
                   current_correction='cross-deposition', use_cuda=False,
                   smoother=None, create_threading_buffers=False ):
         """
@@ -83,6 +83,9 @@ class Fields(object) :
             This can be done in two ways: either by
             - Using a PSATD scheme that takes this hypothesis into account
             - Solving the PSATD scheme in a Galilean frame
+
+        use_pml: bool, optional
+            Whether to allocate and use Perfectly-Matched-Layers split fields
 
         use_galilean: bool, optional
             Determines which one of the two above schemes is used
@@ -154,7 +157,8 @@ class Fields(object) :
         for m in range(Nm) :
             # Create the object
             self.interp.append( InterpolationGrid(
-                Nz, Nr, m, zmin, zmax, rmax, use_cuda=self.use_cuda ) )
+                Nz, Nr, m, zmin, zmax, rmax,
+                use_pml=use_pml, use_cuda=self.use_cuda ) )
 
         # Get the kz and (finite-order) modified kz arrays
         # (According to FFT conventions, the kz array starts with
@@ -174,7 +178,8 @@ class Fields(object) :
             # Create the object
             self.spect.append( SpectralGrid( kz_modified, kr, m,
                 kz_true, self.interp[m].dz, self.interp[m].dr,
-                current_correction, smoother, use_cuda=self.use_cuda ) )
+                current_correction, smoother, use_pml=use_pml,
+                use_cuda=self.use_cuda ) )
             self.psatd.append( PsatdCoeffs( self.spect[m].kz,
                                 self.spect[m].kr, m, dt, Nz, Nr,
                                 V=self.v_comoving,
@@ -302,12 +307,12 @@ class Fields(object) :
         ---------
         fieldtype :
             A string which represents the kind of field to transform
-            (either 'E', 'B', 'J', 'rho_next', 'rho_prev')
+            (either 'E', 'B', 'E_pml', 'B_pml', 'J', 'rho_next', 'rho_prev')
         """
         # Use the appropriate transformation depending on the fieldtype.
         if fieldtype == 'E' :
-            for m in range(self.Nm) :
             # Transform each azimuthal grid individually
+            for m in range(self.Nm) :
                 self.trans[m].interp2spect_scal(
                     self.interp[m].Ez, self.spect[m].Ez )
                 self.trans[m].interp2spect_vect(
@@ -321,6 +326,18 @@ class Fields(object) :
                 self.trans[m].interp2spect_vect(
                     self.interp[m].Br, self.interp[m].Bt,
                     self.spect[m].Bp, self.spect[m].Bm )
+        elif fieldtype == 'E_pml':
+            # Transform each azimuthal grid individually
+            for m in range(self.Nm):
+                self.trans[m].interp2spect_vect(
+                    self.interp[m].Er_pml, self.interp[m].Et_pml,
+                    self.spect[m].Ep_pml, self.spect[m].Em_pml )
+        elif fieldtype == 'B_pml':
+            # Transform each azimuthal grid individually
+            for m in range(self.Nm):
+                self.trans[m].interp2spect_vect(
+                    self.interp[m].Br_pml, self.interp[m].Bt_pml,
+                    self.spect[m].Bp_pml, self.spect[m].Bm_pml )
         elif fieldtype == 'J' :
             # Transform each azimuthal grid individually
             for m in range(self.Nm) :
@@ -347,7 +364,7 @@ class Fields(object) :
         ---------
         fieldtype :
             A string which represents the kind of field to transform
-            (either 'E', 'B', 'J', 'rho_next', 'rho_prev')
+            (either 'E', 'B', 'E_pml', 'B_pml', 'J', 'rho_next', 'rho_prev')
         """
         # Use the appropriate transformation depending on the fieldtype.
         if fieldtype == 'E' :
@@ -366,6 +383,18 @@ class Fields(object) :
                 self.trans[m].spect2interp_vect(
                     self.spect[m].Bp, self.spect[m].Bm,
                     self.interp[m].Br, self.interp[m].Bt )
+        elif fieldtype == 'E_pml':
+            # Transform each azimuthal grid individually
+            for m in range(self.Nm) :
+                self.trans[m].spect2interp_vect(
+                    self.spect[m].Ep_pml,  self.spect[m].Em_pml,
+                    self.interp[m].Er_pml, self.interp[m].Et_pml )
+        elif fieldtype == 'B_pml':
+            # Transform each azimuthal grid individually
+            for m in range(self.Nm) :
+                self.trans[m].spect2interp_vect(
+                    self.spect[m].Bp_pml,  self.spect[m].Bm_pml,
+                    self.interp[m].Br_pml, self.interp[m].Bt_pml )
         elif fieldtype == 'J' :
             # Transform each azimuthal grid individually
             for m in range(self.Nm) :

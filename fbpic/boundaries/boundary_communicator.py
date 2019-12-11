@@ -5,6 +5,7 @@
 This file is part of the Fourier-Bessel Particle-In-Cell code (FB-PIC)
 It defines the structure necessary to implement the boundary exchanges.
 """
+import warnings
 import numpy as np
 from scipy.constants import c
 from fbpic.utils.mpi import MPI, comm, mpi_type_dict, \
@@ -13,13 +14,15 @@ from fbpic.fields.fields import InterpolationGrid
 from fbpic.fields.utility_methods import get_stencil_reach
 from fbpic.particles.particles import Particles
 from .field_buffer_handling import BufferHandler
+from .pml_damping import PMLDamper
 from .particle_buffer_handling import remove_outside_particles, \
      add_buffers_to_particles, shift_particles_periodic_subdomain
 # Check if CUDA is available, then import CUDA functions
 from fbpic.utils.cuda import cuda_installed
 if cuda_installed:
     from fbpic.utils.cuda import cuda, cuda_tpb_bpg_2d
-    from .cuda_methods import cuda_damp_EB_left, cuda_damp_EB_right
+    from .cuda_methods import cuda_damp_EB_left, cuda_damp_EB_right, \
+                                cuda_damp_EB_left_pml, cuda_damp_EB_right_pml
 
 class BoundaryCommunicator(object):
     """
@@ -31,7 +34,7 @@ class BoundaryCommunicator(object):
 
     - At each timestep, to exchange the fields between MPI domains
       in the guard cells (n_guard) and damp the E and B fields in the damping
-      guard cells (n_damp)
+      guard cells (nz_damp)
 
     - Every iteration, to move the grid in case of a moving window
 
@@ -45,8 +48,9 @@ class BoundaryCommunicator(object):
     # -----------------------
 
     def __init__( self, Nz, zmin, zmax, Nr, rmax, Nm, dt, v_comoving,
-            use_galilean, boundaries, n_order, n_guard=None, n_damp=64,
-            n_inject=None, exchange_period=None, use_all_mpi_ranks=True):
+            use_galilean, boundaries, n_order, n_guard, n_damp,
+            cdt_over_dr, n_inject=None, exchange_period=None,
+            use_all_mpi_ranks=True):
         """
         Initializes a communicator object.
 
@@ -79,10 +83,15 @@ class BoundaryCommunicator(object):
             When use_galilean is true, the whole grid moves
             with a speed v_comoving
 
-        boundaries: str
-            Indicates how to exchange the fields at the left and right
-            boundaries of the global simulation box.
-            (Either 'periodic' or 'open')
+        boundaries: dict, optional
+            A dictionary with 'z' and 'r' as keys, and strings as values.
+            This specifies the field boundary in the longitudinal (z) and
+            transverse (r) direction respectively:
+              - `boundaries['z']` can be either `'periodic'` or `'open'`
+                (for field-absorbing boundary).
+              - `boundaries['r']` can be either `'reflective'` or `'open'`
+                (for field-absorbing boundary). For `'open'`, this adds
+                Perfectly-Matched-Layers in the radial direction.
 
         n_order: int
            The order of the stencil for the z derivatives.
@@ -101,13 +110,19 @@ class BoundaryCommunicator(object):
             in the case of open boundaries with an infinite order stencil,
             n_guard defaults to 64, if not set otherwise.
 
-        n_damp : int, optional
-            Number of damping guard cells at the left and right of a
-            simulation box if a moving window is attached. The guard
-            region at these areas (left / right of moving window) is
-            extended by n_damp in order to smoothly
-            damp the fields such that they do not wrap around.
-            (Defaults to 64)
+        n_damp: dict, optional
+            A dictionary with 'z' and 'r' as keys, and integers as values.
+            The integers represent the number of damping cells in the
+            longitudinal (z) and transverse (r) directions, respectively.
+            The damping cells in z are only used if `boundaries['z']` is
+            `'open'`, and are added at the left and right edge of the
+            simulation domain. The damping cells in r are used only if
+            `boundaries['r']` is `'open'`, and are added at upper
+            radial boundary (at `rmax`).
+
+        cdt_over_dr: float
+            Ratio of timestep to radial cell size
+            (needed for calculation of damping coefficients)
 
         n_inject: int, optional
             Number of injection cells (at the left and right) of a simulation
@@ -136,13 +151,46 @@ class BoundaryCommunicator(object):
               This can be useful when running parameter scans.
         """
         # Initialize global number of cells and modes
-        self.Nr = Nr
         self.Nm = Nm
+        self._Nr = Nr
         self._Nz_global_domain = Nz
         self._zmin_global_domain = zmin
-        # Get the distance dz between the cells
-        # (longitudinal spacing of the grid)
+        # Get the distance dz and dr between the cells
         self.dz = (zmax - zmin)/self._Nz_global_domain
+        self.dr = rmax/self._Nr
+
+        # Check that the boundaries are valid
+        # - Check type
+        if type(boundaries) is str:
+            # Convert to dictionary
+            warnings.warn(
+                "In FBPIC version 0.15 and later, a *dictionary* is expected\n"
+                "for the argument `boundaries` of the `Simulation` class,\n"
+                "but instead a *string* was detected (`boundaries='%s'`).\n"
+                "Thus, the `boundaries` argument was automatically converted\n"
+                "to `boundaries={'z':'%s', 'r':'reflective'}`.\n"
+                "Please pass a dictionary for `boundaries`, in the future."
+                %(boundaries, boundaries) )
+            boundaries = {'z':boundaries, 'r':'reflective'}
+        elif type(boundaries) is dict:
+            if (not 'z' in boundaries) or (not 'r' in boundaries):
+                raise ValueError(
+                    "The argument `boundaries` should be a dictionary,\n"
+                    "whose keys are 'z' and 'r'.\n"
+                    "(See the docstring of the `Simulation` class.)")
+        else:
+            raise ValueError(
+                'The argument `boundaries` should be a dictionary.\n'
+                '(See the docstring of the `Simulation` class.)')
+        # - Check keys
+        if not boundaries['z'] in ['periodic', 'open']:
+            raise ValueError(
+                "Unrecognized `boundaries['z']`: '%s'\n"
+                "(Valid values are 'periodic' and 'open')." %boundaries['z'])
+        if not boundaries['r'] in ['reflective', 'open']:
+            raise ValueError(
+                "Unrecognized `boundaries['r']`: '%s'\n"
+                "(Valid values are 'reflective' and 'open')." %boundaries['r'])
 
         # MPI Setup
         self.use_all_mpi_ranks = use_all_mpi_ranks
@@ -159,20 +207,18 @@ class BoundaryCommunicator(object):
         self.right_proc = self.rank+1
         # Correct these initial values by taking into account boundaries
         self.boundaries = boundaries
-        if self.boundaries == 'periodic':
+        if self.boundaries['z'] == 'periodic':
             # Periodic boundary conditions for the domains
             if self.rank == 0:
                 self.left_proc = (self.size-1)
             if self.rank == self.size-1:
                 self.right_proc = 0
-        elif self.boundaries == 'open':
+        elif self.boundaries['z'] == 'open':
             # None means that the boundary is open
             if self.rank == 0:
                 self.left_proc = None
             if self.rank == self.size-1:
                 self.right_proc = None
-        else:
-            raise ValueError('Unrecognized boundaries: %s' %self.boundaries)
 
         # Initialize number of guard cells
         # Automatically calculate required guard cells
@@ -205,14 +251,15 @@ class BoundaryCommunicator(object):
             # Otherwise: Set user defined guard region size
             self.n_guard = n_guard
         # For single proc and periodic boundaries, no need for guard cells
-        if boundaries=='periodic' and self.size==1:
+        if boundaries['z']=='periodic' and self.size==1:
             self.n_guard = 0
 
         # Register damping cells
-        self.n_damp = n_damp
+        self.nz_damp = n_damp['z']
+        self.nr_damp = n_damp['r']
         # For periodic boundaries, no need for damping cells
-        if boundaries=='periodic':
-            self.n_damp = 0
+        if boundaries['z']=='periodic':
+            self.nz_damp = 0
             self.n_inject = 0
         else:
             # Register additional injection cells that are part of the
@@ -222,6 +269,12 @@ class BoundaryCommunicator(object):
             else:
                 # User-defined injection cells. Choose carefully.
                 self.n_inject = n_inject
+        # For reflective radial boundary, no need for damping cell
+        if boundaries['r']=='reflective':
+            self.nr_damp = 0
+            self.use_pml = False
+        else:
+            self.use_pml = True
 
         # Initialize the period of the particle exchange and moving window
         if exchange_period is None:
@@ -237,7 +290,7 @@ class BoundaryCommunicator(object):
             self.exchange_period = int(((self.n_guard/2)-3)/cells_per_step)
             # Set exchange_period to 1 in the case of single-proc
             # and periodic boundary conditions.
-            if self.size == 1 and boundaries == 'periodic':
+            if self.size == 1 and boundaries['z'] == 'periodic':
                 self.exchange_period = 1
             # Check that calculated exchange_period is acceptable for given
             # simulation parameters (check that guard region is large enough).
@@ -255,24 +308,31 @@ class BoundaryCommunicator(object):
 
         # Initialize a buffer handler object, for MPI communications
         if self.size > 1:
-            self.mpi_buffers = BufferHandler( self.n_guard, Nr, Nm,
-                                      self.left_proc, self.right_proc )
+            Nr_with_damp = self.get_Nr( with_damp=True )
+            self.mpi_buffers = BufferHandler( self.n_guard, Nr_with_damp, Nm,
+                               self.left_proc, self.right_proc, self.use_pml )
 
         # Create damping arrays for the damping cells at the left
         # and right of the box in the case of "open" boundaries.
-        if (self.n_damp+self.n_inject) > 0:
+        if (self.nz_damp+self.n_inject) > 0:
             if self.left_proc is None:
                 # Create the damping arrays for left proc
                 self.left_damp = self.generate_damp_array(
-                    self.n_guard, self.n_damp, self.n_inject )
+                    self.n_guard, self.nz_damp, self.n_inject )
                 if cuda_installed:
                     self.d_left_damp = cuda.to_device( self.left_damp )
             if self.right_proc is None:
                 # Create the damping arrays for right proc
                 self.right_damp = self.generate_damp_array(
-                    self.n_guard, self.n_damp, self.n_inject )
+                    self.n_guard, self.nz_damp, self.n_inject )
                 if cuda_installed:
                     self.d_right_damp = cuda.to_device( self.right_damp )
+
+        # Create damping object for the PML
+        self.use_pml = (boundaries['r'] == "open")
+        if self.use_pml:
+            self.pml_damper = PMLDamper( self.nr_damp, cdt_over_dr )
+
 
     def divide_into_domain( self ):
         """
@@ -306,6 +366,34 @@ class BoundaryCommunicator(object):
 
         # Return the new boundaries to the simulation object
         return( zmin_local_enlarged, zmax_local_enlarged, Nz_enlarged )
+
+    def get_Nr( self, with_damp ):
+        """
+        Return the number of cells in r (`Nr`)
+
+        Parameters:
+        -----------
+        with_damp: bool
+            Whether to include the damp cells in the considered grid.
+        """
+        if with_damp:
+            return self._Nr + self.nr_damp
+        else:
+            return self._Nr
+
+    def get_rmax( self, with_damp ):
+        """
+        Return the outer radius of the simulation
+
+        Parameters:
+        -----------
+        with_damp: bool
+            Whether to include the damp cells in the considered grid.
+        """
+        if with_damp:
+            return (self._Nr + self.nr_damp)*self.dr
+        else:
+            return self._Nr*self.dr
 
     def get_Nz_and_iz( self, local, with_damp, with_guard, rank=None ):
         """
@@ -358,10 +446,10 @@ class BoundaryCommunicator(object):
             # Add damp cells if requested (only for first and last sub-domain)
             if with_damp:
                 if rank == 0:
-                    Nz += self.n_damp+self.n_inject
-                    iz -= self.n_damp+self.n_inject
+                    Nz += self.nz_damp+self.n_inject
+                    iz -= self.nz_damp+self.n_inject
                 if rank == self.size-1:
-                    Nz += self.n_damp+self.n_inject
+                    Nz += self.nz_damp+self.n_inject
             # Add guard cells if requested
             if with_guard:
                 Nz += 2*self.n_guard
@@ -374,8 +462,8 @@ class BoundaryCommunicator(object):
             iz = 0
             # Add damp cells if requested
             if with_damp:
-                Nz += 2*(self.n_damp+self.n_inject)
-                iz -= self.n_damp+self.n_inject
+                Nz += 2*(self.nz_damp+self.n_inject)
+                iz -= self.nz_damp+self.n_inject
             # Add guard cells if requested
             if with_guard:
                 Nz += 2*self.n_guard
@@ -464,9 +552,9 @@ class BoundaryCommunicator(object):
         self.moving_win.move_grids(fld, ptcl, self, time)
 
 
-    def exchange_fields( self, interp, fieldtype, method ):
+    def exchange_fields( self, interp, fldtype, method ):
         """
-        Send and receive the proper fields, depending on fieldtype
+        Send and receive the proper fields, depending on `fldtype`
         Copy/add them consistently to the local grid.
 
         Depending on whether the field data is initially on the CPU
@@ -503,7 +591,7 @@ class BoundaryCommunicator(object):
             A list of InterpolationGrid objects
             (one element per azimuthal mode)
 
-        fieldtype: str
+        fldtype: str
             An identifier for the field to send
             (Either 'E', 'B', 'J' or 'rho')
 
@@ -517,24 +605,31 @@ class BoundaryCommunicator(object):
 
         # Build the string `exchange_type`:
         # This is either 'E:replace', 'B:replace', 'J:add', or 'rho:add'
-        exchange_type = ':'.join([ fieldtype, method ])
+        exchange_type = ':'.join([ fldtype, method ])
 
         # Shortcut
         Nm = self.Nm
         use_cuda = interp[0].use_cuda
 
         # Fill the sending buffers with data from the interpolation grid
-        if fieldtype in ('E', 'B', 'J'):
+        if fldtype in ('E', 'B', 'J'):
             # Vector field
-            grid_r = [ getattr(interp[m], fieldtype+'r') for m in range(Nm) ]
-            grid_t = [ getattr(interp[m], fieldtype+'t') for m in range(Nm) ]
-            grid_z = [ getattr(interp[m], fieldtype+'z') for m in range(Nm) ]
-            self.mpi_buffers.handle_vec_buffer(
-                    grid_r, grid_t, grid_z, method, exchange_type, use_cuda,
+            grid_r = [ getattr(interp[m], fldtype+'r') for m in range(Nm) ]
+            grid_t = [ getattr(interp[m], fldtype+'t') for m in range(Nm) ]
+            grid_z = [ getattr(interp[m], fldtype+'z') for m in range(Nm) ]
+            # Handle PML fields
+            if fldtype in ('E', 'B') and self.use_pml:
+                pml_r = [getattr(interp[m], fldtype+'r_pml') for m in range(Nm)]
+                pml_t = [getattr(interp[m], fldtype+'t_pml') for m in range(Nm)]
+            else:
+                pml_r = None
+                pml_t = None
+            self.mpi_buffers.handle_vec_buffer( grid_r, grid_t, grid_z,
+                    pml_r, pml_t, method, exchange_type, use_cuda,
                     before_sending=True, gpudirect=gpudirect_enabled )
         else:
             # Scalar field
-            grid = [ getattr(interp[m], fieldtype) for m in range(Nm) ]
+            grid = [ getattr(interp[m], fldtype) for m in range(Nm) ]
             self.mpi_buffers.handle_scal_buffer(
                     grid, method, exchange_type, use_cuda,
                     before_sending=True, gpudirect=gpudirect_enabled )
@@ -566,10 +661,11 @@ class BoundaryCommunicator(object):
         self.exchange_domains( send_l, send_r, recv_l, recv_r )
 
         # Copy/Add the received buffers to the interpolation grid
-        if fieldtype in ('E', 'B', 'J'):
+        if fldtype in ('E', 'B', 'J'):
             # Vector field
             self.mpi_buffers.handle_vec_buffer(
-                    grid_r, grid_t, grid_z, method, exchange_type, use_cuda,
+                    grid_r, grid_t, grid_z, pml_r, pml_t,
+                    method, exchange_type, use_cuda,
                     after_receiving=True, gpudirect=gpudirect_enabled )
         else:
             # Scalar field
@@ -735,17 +831,17 @@ class BoundaryCommunicator(object):
     def damp_EB_open_boundary( self, interp ):
         """
         Damp the fields E and B in the damp cells, at the right and left
-        of the *global* simulation box.
+        of the *global* simulation box, as well as in the PML.
 
         Parameter:
         -----------
         interp: list of InterpolationGrid objects (one per azimuthal mode)
             Objects that contain the fields to be damped.
         """
-        # Do not damp the fields for 0 n_damp cells (periodic)
-        if self.n_damp != 0:
+        # Do not damp the fields for 0 nz_damp cells (periodic)
+        if self.nz_damp != 0:
             # Total size of the damping and guard region
-            nd = self.n_guard + self.n_damp + self.n_inject
+            nd = self.n_guard + self.nz_damp + self.n_inject
 
             if self.left_proc is None:
                 # Damp the fields on the CPU or the GPU
@@ -758,16 +854,27 @@ class BoundaryCommunicator(object):
                             interp[m].Er, interp[m].Et, interp[m].Ez,
                             interp[m].Br, interp[m].Bt, interp[m].Bz,
                             self.d_left_damp, nd)
+                        if interp[m].use_pml:
+                            cuda_damp_EB_left_pml[dim_grid, dim_block](
+                                interp[m].Er_pml, interp[m].Et_pml,
+                                interp[m].Br_pml, interp[m].Bt_pml,
+                                self.d_left_damp, nd)
                 else:
                     # Damp the fields on the CPU
+                    damp_arr = self.left_damp
                     for m in range(len(interp)):
                         # Damp the fields in left guard cells
-                        interp[m].Er[:nd,:]*=self.left_damp[:,np.newaxis]
-                        interp[m].Et[:nd,:]*=self.left_damp[:,np.newaxis]
-                        interp[m].Ez[:nd,:]*=self.left_damp[:,np.newaxis]
-                        interp[m].Br[:nd,:]*=self.left_damp[:,np.newaxis]
-                        interp[m].Bt[:nd,:]*=self.left_damp[:,np.newaxis]
-                        interp[m].Bz[:nd,:]*=self.left_damp[:,np.newaxis]
+                        interp[m].Er[:nd,:]*=damp_arr[:,np.newaxis]
+                        interp[m].Et[:nd,:]*=damp_arr[:,np.newaxis]
+                        interp[m].Ez[:nd,:]*=damp_arr[:,np.newaxis]
+                        interp[m].Br[:nd,:]*=damp_arr[:,np.newaxis]
+                        interp[m].Bt[:nd,:]*=damp_arr[:,np.newaxis]
+                        interp[m].Bz[:nd,:]*=damp_arr[:,np.newaxis]
+                        if interp[m].use_pml:
+                            interp[m].Er_pml[:nd,:]*=damp_arr[:,np.newaxis]
+                            interp[m].Et_pml[:nd,:]*=damp_arr[:,np.newaxis]
+                            interp[m].Br_pml[:nd,:]*=damp_arr[:,np.newaxis]
+                            interp[m].Bt_pml[:nd,:]*=damp_arr[:,np.newaxis]
 
             if self.right_proc is None:
                 # Damp the fields on the CPU or the GPU
@@ -780,18 +887,29 @@ class BoundaryCommunicator(object):
                             interp[m].Er, interp[m].Et, interp[m].Ez,
                             interp[m].Br, interp[m].Bt, interp[m].Bz,
                             self.d_right_damp, nd)
+                        if interp[m].use_pml:
+                            cuda_damp_EB_right_pml[dim_grid, dim_block](
+                                interp[m].Er_pml, interp[m].Et_pml,
+                                interp[m].Br_pml, interp[m].Bt_pml,
+                                self.d_right_damp, nd)
                 else:
                     # Damp the fields on the CPU
+                    damp_arr = self.right_damp
                     for m in range(len(interp)):
                         # Damp the fields in left guard cells
-                        interp[m].Er[-nd:,:]*=self.right_damp[::-1,np.newaxis]
-                        interp[m].Et[-nd:,:]*=self.right_damp[::-1,np.newaxis]
-                        interp[m].Ez[-nd:,:]*=self.right_damp[::-1,np.newaxis]
-                        interp[m].Br[-nd:,:]*=self.right_damp[::-1,np.newaxis]
-                        interp[m].Bt[-nd:,:]*=self.right_damp[::-1,np.newaxis]
-                        interp[m].Bz[-nd:,:]*=self.right_damp[::-1,np.newaxis]
+                        interp[m].Er[-nd:,:]*=damp_arr[::-1,np.newaxis]
+                        interp[m].Et[-nd:,:]*=damp_arr[::-1,np.newaxis]
+                        interp[m].Ez[-nd:,:]*=damp_arr[::-1,np.newaxis]
+                        interp[m].Br[-nd:,:]*=damp_arr[::-1,np.newaxis]
+                        interp[m].Bt[-nd:,:]*=damp_arr[::-1,np.newaxis]
+                        interp[m].Bz[-nd:,:]*=damp_arr[::-1,np.newaxis]
+                        if interp[m].use_pml:
+                            interp[m].Er_pml[-nd:,:]*=damp_arr[::-1,np.newaxis]
+                            interp[m].Et_pml[-nd:,:]*=damp_arr[::-1,np.newaxis]
+                            interp[m].Br_pml[-nd:,:]*=damp_arr[::-1,np.newaxis]
+                            interp[m].Bt_pml[-nd:,:]*=damp_arr[::-1,np.newaxis]
 
-    def generate_damp_array( self, n_guard, n_damp, n_inject ):
+    def generate_damp_array( self, n_guard, nz_damp, n_inject ):
         """
         Create a 1d damping array of length n_guard.
 
@@ -800,7 +918,7 @@ class BoundaryCommunicator(object):
         n_guard: int
             Number of guard cells along z
 
-        n_damp: int
+        nz_damp: int
             Number of damping cells along z
 
         n_inject: int
@@ -808,26 +926,40 @@ class BoundaryCommunicator(object):
 
         Returns
         -------
-        A 1darray of doubles, of length n_guard + n_damp + n_inject,
+        A 1darray of doubles, of length n_guard + nz_damp + n_inject,
         which represents the damping.
         """
         # Array of cell indices
-        i_cell = np.arange( n_guard+n_damp+n_inject )
+        i_cell = np.arange( n_guard+nz_damp+n_inject )
 
         # Perform narrow damping, with the first n_guard of the cells at 0.
         # Additionally, the first n_inject cells of the damping area are set
         # to 0. This area is part of the injection area and there should be no
         # field seen by the injected particles.
-        # Damping: 1/2*(n_damp) cells with a sinusoidal**2 rise, and finally
-        # 1/2*(n_damp) cells at 1 (the damping array is defined such that it
+        # Damping: 1/2*(nz_damp) cells with a sinusoidal**2 rise, and finally
+        # 1/2*(nz_damp) cells at 1 (the damping array is defined such that it
         # can directly be multiplied with the fields at the left boundary of
         # the box - and needs to be inverted (damping_array[::-1]) before being
         # applied to the right boundary of the box.)
-        damping_array = np.where( i_cell<n_guard+n_inject+n_damp/2.,
-            np.sin((i_cell-(n_guard+n_inject))*np.pi/(2*n_damp/2.))**2, 1. )
+        damping_array = np.where( i_cell<n_guard+n_inject+nz_damp/2.,
+            np.sin((i_cell-(n_guard+n_inject))*np.pi/(2*nz_damp/2.))**2, 1. )
         damping_array = np.where( i_cell<n_guard+n_inject, 0., damping_array )
 
         return( damping_array )
+
+    def damp_pml_EB( self, interp ):
+        """
+        Damp the fields in the PML (if the pml are enabled)
+
+        Parameter:
+        -----------
+        interp: list
+            A list of InterpolationGrid objects (one per azimuthal mode)
+        """
+        # Damp the fields in the PML if enabled
+        if self.use_pml:
+            self.pml_damper.damp_pml_EB( interp )
+
 
     # Gathering routines
     # ------------------
@@ -856,10 +988,12 @@ class BoundaryCommunicator(object):
                 local=False, with_guard=False, with_damp=False )
             zmin_global, zmax_global = self.get_zmin_zmax(
                 local=False, with_guard=False, with_damp=False )
+            Nr = self.get_Nr( with_damp=False )
+            rmax = self.get_rmax( with_damp=False )
             # Initialize new InterpolationGrid object that
             # is used to gather the global grid data
-            gathered_grid = InterpolationGrid( Nz_global, grid.Nr, grid.m,
-                                    zmin_global, zmax_global, grid.rmax )
+            gathered_grid = InterpolationGrid( Nz_global, Nr, grid.m,
+                                    zmin_global, zmax_global, rmax )
         else:
             # Other processes do not need to initialize new InterpolationGrid
             gathered_grid = None
@@ -901,10 +1035,11 @@ class BoundaryCommunicator(object):
         """
         Nz_global, iz_start_global = self.get_Nz_and_iz(
                     local=False, with_damp=with_damp, with_guard=False)
+        Nr = self.get_Nr( with_damp=with_damp )
         if self.rank == root:
             # Root process creates empty numpy array of the shape
             # (Nz, Nr), that is used to gather the data
-            gathered_array = np.zeros((Nz_global, self.Nr), dtype=array.dtype)
+            gathered_array = np.zeros((Nz_global, Nr), dtype=array.dtype)
         else:
             # Other processes do not need to initialize a new array
             gathered_array = None
@@ -915,16 +1050,19 @@ class BoundaryCommunicator(object):
         _, iz_start_local_array = self.get_Nz_and_iz(
             local=True, with_damp=True, with_guard=True, rank=self.rank )
         iz_in_array = iz_start_local_domain - iz_start_local_array
-        local_array = array[ iz_in_array:iz_in_array+Nz_local, : ]
+        local_array = np.ascontiguousarray(
+                        array[ iz_in_array:iz_in_array+Nz_local, :Nr ] )
+        # Note: local_array needs to be contiguous since is is passed
+        # directly to MPI's `Gatherv`
 
         # Then send the arrays
         if self.size > 1:
             # First get the size and MPI type of the 2D arrays in each procs
             Nz_iz_list = [ self.get_Nz_and_iz( local=True, with_damp=with_damp,
                          with_guard=False, rank=k ) for k in range(self.size) ]
-            N_procs = tuple( self.Nr*x[0] for x in Nz_iz_list )
+            N_procs = tuple( Nr*x[0] for x in Nz_iz_list )
             istart_procs = tuple(
-                self.Nr*(x[1] - iz_start_global) for x in Nz_iz_list )
+                Nr*(x[1] - iz_start_global) for x in Nz_iz_list )
             mpi_type = mpi_type_dict[ str(array.dtype) ]
             sendbuf = [ local_array, N_procs[self.rank] ]
             recvbuf = [ gathered_array, N_procs, istart_procs, mpi_type ]
@@ -964,22 +1102,24 @@ class BoundaryCommunicator(object):
         # Get the global starting index, and the size of `array`
         Nz_global, iz_start_global = self.get_Nz_and_iz(
             local=False, with_damp=with_damp, with_guard=False )
+        Nr = self.get_Nr( with_damp=with_damp )
         if array is not None:
             assert array.shape[0] == Nz_global
+            assert array.shape[1] == Nr
 
         # Create empty array having the shape of the local domain
         Nz_local, iz_start_local = self.get_Nz_and_iz(
             local=True, with_damp=with_damp, with_guard=False, rank=self.rank )
-        scattered_array = np.zeros((Nz_local, self.Nr), dtype=np.complex)
+        scattered_array = np.zeros((Nz_local, Nr), dtype=np.complex)
 
         # Then send the arrays
         if self.size > 1:
             # First get the size and MPI type of the 2D arrays in each procs
             Nz_iz_list = [ self.get_Nz_and_iz( local=True, with_damp=with_damp,
                          with_guard=False, rank=k ) for k in range(self.size) ]
-            N_procs = tuple( self.Nr*x[0] for x in Nz_iz_list )
+            N_procs = tuple( Nr*x[0] for x in Nz_iz_list )
             istart_procs = tuple(
-                self.Nr*(x[1] - iz_start_global) for x in Nz_iz_list )
+                Nr*(x[1] - iz_start_global) for x in Nz_iz_list )
             mpi_type = mpi_type_dict[ str(scattered_array.dtype) ]
             recvbuf = [ scattered_array, N_procs[self.rank] ]
             sendbuf = [ array, N_procs, istart_procs, mpi_type ]

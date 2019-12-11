@@ -48,9 +48,11 @@ class Simulation(object):
                  p_nz=None, p_nr=None, p_nt=None, n_e=None, zmin=0.,
                  n_order=-1, dens_func=None, filter_currents=True,
                  v_comoving=None, use_galilean=True,
-                 initialize_ions=False, use_cuda=False,
-                 n_guard=None, n_damp=64, exchange_period=None,
-                 current_correction='curl-free', boundaries='periodic',
+                 initialize_ions=False, use_cuda=False, n_guard=None,
+                 n_damp={'z':64, 'r':32},
+                 exchange_period=None,
+                 current_correction='curl-free',
+                 boundaries={'z':'periodic', 'r':'reflective'},
                  gamma_boost=None, use_all_mpi_ranks=True,
                  particle_shape='linear', verbose_level=1,
                  smoother=None ):
@@ -139,14 +141,16 @@ class Simulation(object):
             automatically (approx 2*n_order). If no MPI is used and
             in the case of open boundaries with an infinite order stencil,
             n_guard defaults to 64, if not set otherwise.
-        n_damp : int, optional
-            Number of damping guard cells at the left and right of a
-            simulation box if a moving window is attached. The guard
-            region at these areas (left / right of moving window) is
-            extended by n_damp in order to smoothly damp the fields such
-            that they do not wrap around. Additionally, this region is
-            extended by an injection area of size n_guard/2 automatically.
-            (Defaults to 64)
+        n_damp: dict, optional
+            A dictionary with 'z' and 'r' as keys, and integers as values.
+            The integers represent the number of damping cells in the
+            longitudinal (z) and transverse (r) directions, respectively.
+            The damping cells in z are only used if `boundaries['z']` is
+            `'open'`, and are added at the left and right edge of the
+            simulation domain. The damping cells in r are used only if
+            `boundaries['r']` is `'open'`, and are added at upper
+            radial boundary (at `rmax`).
+
         exchange_period: int, optional
             Number of iterations before which the particles are exchanged.
             If set to None, the maximum exchange period is calculated
@@ -155,10 +159,16 @@ class Simulation(object):
             (n_guard/2 - particle_shape order) cells. (Setting exchange_period
             to small values can substantially affect the performance)
 
-        boundaries: string, optional
-            Indicates how to exchange the fields at the left and right
-            boundaries of the global simulation box.
-            (Either 'periodic' or 'open')
+        boundaries: dict, optional
+            A dictionary with 'z' and 'r' as keys, and strings as values.
+            This specifies the field boundary in the longitudinal (z) and
+            transverse (r) direction respectively:
+              - `boundaries['z']` can be either `'periodic'` or `'open'`
+                (for field-absorbing boundary).
+              - `boundaries['r']` can be either `'reflective'` or `'open'`
+                (for field-absorbing boundary). For `'open'`, this adds
+                Perfectly-Matched-Layers in the radial direction ; note that
+                the computation is significantly more costly in this case.
 
         current_correction: string, optional
             The method used in order to ensure that the continuity equation
@@ -251,15 +261,21 @@ class Simulation(object):
         self.dt = dt
 
         # Initialize the boundary communicator
+        cdt_over_dr = c*dt / (rmax/Nr)
         self.comm = BoundaryCommunicator( Nz, zmin, zmax, Nr, rmax, Nm, dt,
             self.v_comoving, self.use_galilean, boundaries, n_order,
-            n_guard, n_damp, None, exchange_period, use_all_mpi_ranks )
+            n_guard, n_damp, cdt_over_dr, None, exchange_period,
+            use_all_mpi_ranks )
+        self.use_pml = self.comm.use_pml
         # Modify domain region
         zmin, zmax, Nz = self.comm.divide_into_domain()
+        Nr = self.comm.get_Nr( with_damp=True )
+        rmax = self.comm.get_rmax( with_damp=True )
         # Initialize the field structure
         self.fld = Fields( Nz, zmax, Nr, rmax, Nm, dt,
                     n_order=n_order, zmin=zmin,
                     v_comoving=v_comoving,
+                    use_pml=self.use_pml,
                     use_galilean=use_galilean,
                     current_correction=current_correction,
                     use_cuda=self.use_cuda,
@@ -369,6 +385,9 @@ class Simulation(object):
         self.comm.damp_EB_open_boundary( fld.interp )
         fld.interp2spect('E')
         fld.interp2spect('B')
+        if self.use_pml:
+            fld.interp2spect('E_pml')
+            fld.interp2spect('B_pml')
 
         # Beginning of the N iterations
         # -----------------------------
@@ -499,20 +518,12 @@ class Simulation(object):
                 # the interpolation grids
                 self.comm.move_grids(fld, ptcl, dt, self.time)
 
-            # Get the MPI-exchanged and damped E and B field in both
-            # spectral space and interpolation space
-            # (Since exchange/damp operation is purely along z, spectral fields
-            # are updated by doing an iFFT/FFT instead of a full transform)
-            fld.spect2partial_interp('E')
-            fld.spect2partial_interp('B')
-            self.comm.exchange_fields(fld.interp, 'E', 'replace')
-            self.comm.exchange_fields(fld.interp, 'B', 'replace')
-            self.comm.damp_EB_open_boundary( fld.interp )
-            fld.partial_interp2spect('E')
-            fld.partial_interp2spect('B')
-            # Get the corresponding fields in interpolation space
-            fld.spect2interp('E')
-            fld.spect2interp('B')
+            # Handle boundaries for the E and B fields:
+            # - MPI exchanges for guard cells
+            # - Damp fields in damping cells
+            # - Update the fields in interpolation space
+            #  (needed for the field gathering at the next iteration)
+            self.exchange_and_damp_EB()
 
             # Increment the global time and iteration
             self.time += dt
@@ -672,6 +683,55 @@ class Simulation(object):
         if self.use_galilean:
             self.shift_galilean_boundaries( -0.5*dt )
 
+
+    def exchange_and_damp_EB(self):
+        """
+        Handle boundaries for the E and B fields:
+         - MPI exchanges for guard cells
+         - Damp fields in damping cells (in z, and in r if PML are used)
+         - Update the fields in interpolation space
+        """
+        # Shortcut
+        fld = self.fld
+
+        # - Get fields in interpolation space (or partial interpolation space)
+        #   to prepare for damp/exchange
+        if self.use_pml:
+            # Exchange/damp operation in z and r ; do full transform
+            fld.spect2interp('E')
+            fld.spect2interp('B')
+            fld.spect2interp('E_pml')
+            fld.spect2interp('B_pml')
+        else:
+            # Exchange/damp operation is purely along z; spectral fields
+            # are updated by doing an iFFT/FFT instead of a full transform
+            fld.spect2partial_interp('E')
+            fld.spect2partial_interp('B')
+
+        # - Exchange guard cells and damp fields
+        self.comm.exchange_fields(fld.interp, 'E', 'replace')
+        self.comm.exchange_fields(fld.interp, 'B', 'replace')
+        self.comm.damp_EB_open_boundary( fld.interp ) # Damp along z
+        if self.use_pml:
+            self.comm.damp_pml_EB( fld.interp ) # Damp in radial PML
+
+        # - Update spectral space (and interpolation space if needed)
+        if self.use_pml:
+            # Exchange/damp operation in z and r ; do full transform back
+            fld.interp2spect('E')
+            fld.interp2spect('B')
+            fld.interp2spect('E_pml')
+            fld.interp2spect('B_pml')
+        else:
+            # Exchange/damp operation is purely along z; spectral fields
+            # are updated by doing an iFFT/FFT instead of a full transform
+            fld.partial_interp2spect('E')
+            fld.partial_interp2spect('B')
+            # Get the corresponding fields in interpolation space
+            fld.spect2interp('E')
+            fld.spect2interp('B')
+
+
     def shift_galilean_boundaries(self, dt):
         """
         Shift the interpolation grids by v_comoving * dt.
@@ -823,6 +883,9 @@ class Simulation(object):
                                         with_damp=False, with_guard=False )
             p_zmin = max( zmin_local_domain, p_zmin )
             p_zmax = min( zmax_local_domain, p_zmax )
+            # Avoid that particles get initialized in the radial PML cells
+            rmax = self.comm.get_rmax( with_damp=False )
+            p_rmax = min( rmax, p_rmax )
 
             # Modify again the input particle bounds, so that
             # they fall exactly on the grid, and infer the number of particles

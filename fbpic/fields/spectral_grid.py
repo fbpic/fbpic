@@ -8,6 +8,7 @@ It defines the SpectralGrid class.
 import numpy as np
 from scipy.constants import epsilon_0
 from .numba_methods import numba_push_eb_standard, numba_push_eb_comoving, \
+    numba_push_eb_pml_standard, numba_push_eb_pml_comoving, \
     numba_correct_currents_curlfree_standard, \
     numba_correct_currents_crossdeposition_standard, \
     numba_correct_currents_curlfree_comoving, \
@@ -23,7 +24,9 @@ if cuda_installed:
     cuda_correct_currents_curlfree_comoving, \
     cuda_correct_currents_crossdeposition_comoving, \
     cuda_filter_scalar, cuda_filter_vector, \
-    cuda_push_eb_standard, cuda_push_eb_comoving, cuda_push_rho
+    cuda_push_eb_standard, cuda_push_eb_comoving, \
+    cuda_push_eb_pml_standard, cuda_push_eb_pml_comoving, \
+    cuda_push_rho
 
 
 class SpectralGrid(object) :
@@ -32,7 +35,7 @@ class SpectralGrid(object) :
     """
 
     def __init__(self, kz_modified, kr, m, kz_true, dz, dr,
-                        current_correction, smoother, use_cuda=False ) :
+                current_correction, smoother, use_pml=False, use_cuda=False ) :
         """
         Allocates the matrices corresponding to the spectral grid
 
@@ -60,6 +63,9 @@ class SpectralGrid(object) :
             The method used in order to ensure that the continuity equation
             is satisfied. Either `curl-free` or `cross-deposition`.
 
+        use_pml: bool, optional
+            Whether to allocate and use Perfectly-Matched-Layers split fields
+
         smoother: an instance of BinomialSmoother
             Determines how the charge and currents are smoothed.
             (Default: one-pass binomial filter and no compensator.)
@@ -73,6 +79,7 @@ class SpectralGrid(object) :
         self.Nr = Nr
         self.Nz = Nz
         self.m = m
+        self.use_pml = use_pml
 
         # Allocate the fields arrays
         self.Ep = np.zeros( (Nz, Nr), dtype='complex' )
@@ -89,6 +96,13 @@ class SpectralGrid(object) :
         if current_correction == 'cross-deposition':
             self.rho_next_z = np.zeros( (Nz, Nr), dtype='complex' )
             self.rho_next_xy = np.zeros( (Nz, Nr), dtype='complex' )
+
+        # Allocate the PML fields if needed
+        if self.use_pml:
+            self.Ep_pml = np.zeros( (Nz, Nr), dtype='complex' )
+            self.Em_pml = np.zeros( (Nz, Nr), dtype='complex' )
+            self.Bp_pml = np.zeros( (Nz, Nr), dtype='complex' )
+            self.Bm_pml = np.zeros( (Nz, Nr), dtype='complex' )
 
         # Auxiliary arrays
         # - for the field solve
@@ -140,6 +154,11 @@ class SpectralGrid(object) :
         self.Jz = cuda.to_device( self.Jz )
         self.rho_prev = cuda.to_device( self.rho_prev )
         self.rho_next = cuda.to_device( self.rho_next )
+        if self.use_pml:
+            self.Ep_pml = cuda.to_device( self.Ep_pml )
+            self.Em_pml = cuda.to_device( self.Em_pml )
+            self.Bp_pml = cuda.to_device( self.Bp_pml )
+            self.Bm_pml = cuda.to_device( self.Bm_pml )
         # Only when using the cross-deposition
         if hasattr( self, 'rho_next_z' ):
             self.rho_next_z = cuda.to_device( self.rho_next_z )
@@ -162,6 +181,11 @@ class SpectralGrid(object) :
         self.Jp = self.Jp.copy_to_host()
         self.Jm = self.Jm.copy_to_host()
         self.Jz = self.Jz.copy_to_host()
+        if self.use_pml:
+            self.Ep_pml = self.Ep_pml.copy_to_host()
+            self.Em_pml = self.Em_pml.copy_to_host()
+            self.Bp_pml = self.Bp_pml.copy_to_host()
+            self.Bm_pml = self.Bm_pml.copy_to_host()
         self.rho_prev = self.rho_prev.copy_to_host()
         self.rho_next = self.rho_next.copy_to_host()
         # Only when using the cross-deposition
@@ -315,6 +339,13 @@ class SpectralGrid(object) :
             # Push the fields on the GPU
             if ps.V is None:
                 # With the standard PSATD algorithm
+                if self.use_pml:
+                    # Push the PML split component
+                    cuda_push_eb_pml_standard[dim_grid, dim_block](
+                        self.Ep_pml, self.Em_pml, self.Bp_pml, self.Bm_pml,
+                        self.Ez, self.Bz, ps.C, ps.S_w,
+                        self.kr, self.kz, self.Nz, self.Nr )
+                # Push the regular fields
                 cuda_push_eb_standard[dim_grid, dim_block](
                     self.Ep, self.Em, self.Ez, self.Bp, self.Bm, self.Bz,
                     self.Jp, self.Jm, self.Jz, self.rho_prev, self.rho_next,
@@ -323,6 +354,13 @@ class SpectralGrid(object) :
                     use_true_rho, self.Nz, self.Nr )
             else:
                 # With the Galilean/comoving algorithm
+                if self.use_pml:
+                    # Push the PML split component
+                    cuda_push_eb_pml_comoving[dim_grid, dim_block](
+                        self.Ep_pml, self.Em_pml, self.Bp_pml, self.Bm_pml,
+                        self.Ez, self.Bz, ps.C, ps.S_w, ps.d_T_eb,
+                        self.kr, self.kz, self.Nz, self.Nr )
+                # Push the regular fields
                 cuda_push_eb_comoving[dim_grid, dim_block](
                     self.Ep, self.Em, self.Ez, self.Bp, self.Bm, self.Bz,
                     self.Jp, self.Jm, self.Jz, self.rho_prev, self.rho_next,
@@ -334,14 +372,29 @@ class SpectralGrid(object) :
             # Push the fields on the CPU
             if ps.V is None:
                 # With the standard PSATD algorithm
+                if self.use_pml:
+                    # Push the PML split component
+                    numba_push_eb_pml_standard(
+                        self.Ep_pml, self.Em_pml, self.Bp_pml, self.Bm_pml,
+                        self.Ez, self.Bz, ps.C, ps.S_w,
+                        self.kr, self.kz, self.Nz, self.Nr )
+                # Push the regular fields
                 numba_push_eb_standard(
                     self.Ep, self.Em, self.Ez, self.Bp, self.Bm, self.Bz,
                     self.Jp, self.Jm, self.Jz, self.rho_prev, self.rho_next,
                     ps.rho_prev_coef, ps.rho_next_coef, ps.j_coef,
                     ps.C, ps.S_w, self.kr, self.kz, ps.dt,
                     use_true_rho, self.Nz, self.Nr )
+
             else:
                 # With the Galilean/comoving algorithm
+                if self.use_pml:
+                    # Push the PML split component
+                    numba_push_eb_pml_comoving(
+                        self.Ep_pml, self.Em_pml, self.Bp_pml, self.Bm_pml,
+                        self.Ez, self.Bz, ps.C, ps.S_w, ps.T_eb,
+                        self.kr, self.kz, self.Nz, self.Nr )
+                # Push the regular fields
                 numba_push_eb_comoving(
                     self.Ep, self.Em, self.Ez, self.Bp, self.Bm, self.Bz,
                     self.Jp, self.Jm, self.Jz, self.rho_prev, self.rho_next,
