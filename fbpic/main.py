@@ -241,8 +241,15 @@ class Simulation(object):
 
         # Handle boundaries
         if type(boundaries) is str:
-            warnings.warn('TODO')
             # Convert to dictionary
+            warnings.warn(
+                "In FBPIC version 0.15 and later, a *dictionary* is expected\n"
+                "for the argument `boundaries` of the `Simulation` class,\n"
+                "but instead a *string* was detected (`boundaries='%s'`).\n"
+                "Thus, the `boundaries` argument was automatically converted\n"
+                "to `boundaries={'z':'%s', 'r':'reflective'}`.\n"
+                "Please pass a dictionary for `boundaries`, in the future."
+                %(boundaries, boundaries) )
             boundaries = {'z':boundaries, 'r':'reflective'}
         self.use_pml = (boundaries['r'] == "open")
 
