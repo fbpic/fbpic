@@ -239,20 +239,6 @@ class Simulation(object):
         if v_comoving is None:
             self.use_galilean = False
 
-        # Handle boundaries
-        if type(boundaries) is str:
-            # Convert to dictionary
-            warnings.warn(
-                "In FBPIC version 0.15 and later, a *dictionary* is expected\n"
-                "for the argument `boundaries` of the `Simulation` class,\n"
-                "but instead a *string* was detected (`boundaries='%s'`).\n"
-                "Thus, the `boundaries` argument was automatically converted\n"
-                "to `boundaries={'z':'%s', 'r':'reflective'}`.\n"
-                "Please pass a dictionary for `boundaries`, in the future."
-                %(boundaries, boundaries) )
-            boundaries = {'z':boundaries, 'r':'reflective'}
-        self.use_pml = (boundaries['r'] == "open")
-
         # When running the simulation in a boosted frame, convert the arguments
         if gamma_boost is not None:
             self.boost = BoostConverter( gamma_boost )
@@ -268,6 +254,7 @@ class Simulation(object):
             self.v_comoving, self.use_galilean, boundaries, n_order,
             n_guard, n_damp, cdt_over_dr, None, exchange_period,
             use_all_mpi_ranks )
+        self.use_pml = self.comm.use_pml
         # Modify domain region
         zmin, zmax, Nz = self.comm.divide_into_domain()
         Nr = self.comm.get_Nr( with_damp=True )

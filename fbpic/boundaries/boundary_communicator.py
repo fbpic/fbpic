@@ -5,6 +5,7 @@
 This file is part of the Fourier-Bessel Particle-In-Cell code (FB-PIC)
 It defines the structure necessary to implement the boundary exchanges.
 """
+import warnings
 import numpy as np
 from scipy.constants import c
 from fbpic.utils.mpi import MPI, comm, mpi_type_dict, \
@@ -159,12 +160,37 @@ class BoundaryCommunicator(object):
         self.dr = rmax/self._Nr
 
         # Check that the boundaries are valid
+        # - Check type
+        if type(boundaries) is str:
+            # Convert to dictionary
+            warnings.warn(
+                "In FBPIC version 0.15 and later, a *dictionary* is expected\n"
+                "for the argument `boundaries` of the `Simulation` class,\n"
+                "but instead a *string* was detected (`boundaries='%s'`).\n"
+                "Thus, the `boundaries` argument was automatically converted\n"
+                "to `boundaries={'z':'%s', 'r':'reflective'}`.\n"
+                "Please pass a dictionary for `boundaries`, in the future."
+                %(boundaries, boundaries) )
+            boundaries = {'z':boundaries, 'r':'reflective'}
+        elif type(boundaries) is dict:
+            if (not 'z' in boundaries) or (not 'r' in boundaries):
+                raise ValueError(
+                    "The argument `boundaries` should be a dictionary,\n"
+                    "whose keys are 'z' and 'r'.\n"
+                    "(See the docstring of the `Simulation` class.)")
+        else:
+            raise ValueError(
+                'The argument `boundaries` should be a dictionary.\n'
+                '(See the docstring of the `Simulation` class.)')
+        # - Check keys
         if not boundaries['z'] in ['periodic', 'open']:
             raise ValueError(
-                    "Unrecognized `boundaries['z']`: %s" %boundaries['z'])
+                "Unrecognized `boundaries['z']`: '%s'\n"
+                "(Valid values are 'periodic' and 'open')." %boundaries['z'])
         if not boundaries['r'] in ['reflective', 'open']:
             raise ValueError(
-                    "Unrecognized `boundaries['r']`: %s" %boundaries['r'])
+                "Unrecognized `boundaries['r']`: '%s'\n"
+                "(Valid values are 'reflective' and 'open')." %boundaries['r'])
 
         # MPI Setup
         self.use_all_mpi_ranks = use_all_mpi_ranks
