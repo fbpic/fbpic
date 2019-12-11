@@ -46,7 +46,7 @@ def set_periodic_checkpoint( sim, period, checkpoint_dir='./checkpoints' ):
     """
     # Check that the PML are not used
     if sim.use_pml:
-        raise RunTimeError(
+        raise RuntimeError(
             "In the current version of FBPIC, checkpoints do not work\n"
             "when the radial boundary is open (`boundaries['r']='open'`).\n"
             "This will be fixed in later versions.")
