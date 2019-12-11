@@ -44,6 +44,13 @@ def set_periodic_checkpoint( sim, period, checkpoint_dir='./checkpoints' ):
         (When running a simulation with several MPI ranks, use the
         same path for all ranks.)
     """
+    # Check that the PML are not used
+    if sim.use_pml:
+        raise RunTimeError(
+            "In the current version of FBPIC, checkpoints do not work\n"
+            "when the radial boundary is open (`boundaries['r']='open'`).\n"
+            "This will be fixed in later versions.")
+
     # Only processor 0 creates a directory where checkpoints will be stored
     # Make sure that all processors wait until this directory is created
     # (Use the global MPI communicator instead of the `BoundaryCommunicator`
