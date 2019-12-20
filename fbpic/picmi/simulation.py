@@ -69,8 +69,8 @@ class Simulation( PICMI_Simulation ):
             boundaries={'z':grid.bc_zmax, 'r':grid.bc_rmax} )
 
         # Set the moving window
-        if grid.moving_window_velocity is not None:
-            self.fbpic_sim.set_moving_window(grid.moving_window_velocity[-1])
+        if grid.moving_window_zvelocity is not None:
+            self.fbpic_sim.set_moving_window(grid.moving_window_zvelocity)
 
 
     # Redefine the method `add_laser` from the PICMI Simulation class
