@@ -134,15 +134,18 @@ class FieldDiagnostic(OpenPMDDiagnostic):
         # Loop over the different quantities that should be written
         for fieldtype in self.fieldtypes:
             # Scalar field
-            if fieldtype == "rho" :
+            if fieldtype == "rho":
                 self.write_dataset( field_grp, "rho", "rho" )
             # Vector field
-            elif fieldtype in ["E", "B", "J"] :
+            elif fieldtype in ["E", "B", "J"]:
                 for coord in self.coords:
                     quantity = "%s%s" %(fieldtype, coord)
                     path = "%s/%s" %(fieldtype, coord)
                     self.write_dataset( field_grp, path, quantity )
-            else :
+            # PML field (save as scalar field)
+            elif fieldtype.endswith("_pml"):
+                self.write_dataset( field_grp, fieldtype, fieldtype )
+            else:
                 raise ValueError("Invalid string in fieldtypes: %s" %fieldtype)
 
         # Close the file (only the first proc does this)
@@ -274,7 +277,8 @@ class FieldDiagnostic(OpenPMDDiagnostic):
                 # Scalar field
                 # e.g. 'rho', but also 'rho_electron' in the case of
                 # the sub-class ParticleDensityDiagnostic
-                if fieldtype.startswith("rho"):
+                # or PML component (saved as scalar field as well)
+                if fieldtype.startswith("rho") or fieldtype.endswith("_pml"):
                     # Setup the dataset
                     dset = field_grp.require_dataset(
                         fieldtype, data_shape, dtype='f8')
