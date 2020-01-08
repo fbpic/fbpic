@@ -1,5 +1,23 @@
 # Change Log / Release Log for fbpic
 
+## 0.15.0
+
+This release adds the possibility to add Perfectly-Matched Layers in the
+radial dimension (see [#417](https://github.com/fbpic/fbpic/pull/417)).
+As part of this change, the user is now expected to pass a dictionary
+for the argument `boundaries` of the `Simulation` object (instead of a
+single string) ; for instance: `boundaries={'z':'open', 'r':'reflective'}`.
+The PML in the radial direction are activated by passing `'r':'open'`.
+
+In addition, several others changes have been included in this release:
+
+- It is now possible to use FBPIC with numba 0.46 and cupy 7
+(see [#414](https://github.com/fbpic/fbpic/pull/414)).
+- The default phase of the `FlattenedGaussianLaser` has been updated.
+(see [411](https://github.com/fbpic/fbpic/pull/411))
+- A new laser profile has been added: `FewCycleLaser` which is well-adapted
+for tightly-focused, short laser pulses (see [403](https://github.com/fbpic/fbpic/pull/403)).
+
 ## 0.14.0
 
 This release fixes two important issues in FBPIC:
