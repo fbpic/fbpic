@@ -9,7 +9,9 @@ It defines a number of methods that are useful for elementary processes
 import numpy as np
 from fbpic.utils.threading import njit_parallel, prange
 # Check if CUDA is available, then import CUDA functions
-from fbpic.utils.cuda import cuda_installed
+from fbpic.utils.cuda import cupy_installed, cuda_installed
+if cupy_installed:
+    import cupy
 if cuda_installed:
     from fbpic.utils.cuda import cuda, cuda_tpb_bpg_1d
 
@@ -22,7 +24,7 @@ def allocate_empty( shape, use_cuda, dtype ):
         # Convert single scalar to tuple
         shape = (shape,)
     if use_cuda:
-        return( cuda.device_array( shape, dtype=dtype ) )
+        return( cupy.empty( shape, dtype=dtype ) )
     else:
         return( np.empty( shape, dtype=dtype ) )
 
@@ -102,12 +104,12 @@ def reallocate_and_copy_old( species, use_cuda, old_Ntot, new_Ntot ):
 
     # Allocate the auxiliary arrays for GPU
     if use_cuda:
-        species.cell_idx = cuda.device_array((new_Ntot,), dtype=np.int32)
-        species.sorted_idx = cuda.device_array((new_Ntot,), dtype=np.intp)
-        species.sorting_buffer = cuda.device_array((new_Ntot,), dtype=np.float64)
+        species.cell_idx = cupy.empty((new_Ntot,), dtype=np.int32)
+        species.sorted_idx = cupy.empty((new_Ntot,), dtype=np.intp)
+        species.sorting_buffer = cupy.empty((new_Ntot,), dtype=np.float64)
         if species.n_integer_quantities > 0:
             species.int_sorting_buffer = \
-                cuda.device_array( (new_Ntot,), dtype=np.uint64 )
+                cupy.empty( (new_Ntot,), dtype=np.uint64 )
 
     # Modify the total number of particles
     species.Ntot = new_Ntot

@@ -6,9 +6,10 @@ This file is part of the Fourier-Bessel Particle-In-Cell code (FB-PIC)
 It defines the InterpolationGrid class.
 """
 import numpy as np
-from numba import cuda
 # Check if CUDA is available, then import CUDA functions
-from fbpic.utils.cuda import cuda_installed
+from fbpic.utils.cuda import cupy_installed, cuda_installed
+if cupy_installed:
+    import cupy
 if cuda_installed:
     from fbpic.utils.cuda import cuda_tpb_bpg_2d
     from .cuda_methods import \
@@ -98,7 +99,7 @@ class InterpolationGrid(object) :
 
         # Replace the invvol array by an array on the GPU, when using cuda
         if self.use_cuda :
-            self.d_invvol = cuda.to_device( self.invvol )
+            self.d_invvol = cupy.asarray( self.invvol )
 
     @property
     def z(self):
@@ -117,21 +118,21 @@ class InterpolationGrid(object) :
         After this function is called, the array attributes
         point to GPU arrays.
         """
-        self.Er = cuda.to_device( self.Er )
-        self.Et = cuda.to_device( self.Et )
-        self.Ez = cuda.to_device( self.Ez )
-        self.Br = cuda.to_device( self.Br )
-        self.Bt = cuda.to_device( self.Bt )
-        self.Bz = cuda.to_device( self.Bz )
-        self.Jr = cuda.to_device( self.Jr )
-        self.Jt = cuda.to_device( self.Jt )
-        self.Jz = cuda.to_device( self.Jz )
-        self.rho = cuda.to_device( self.rho )
+        self.Er = cupy.asarray( self.Er )
+        self.Et = cupy.asarray( self.Et )
+        self.Ez = cupy.asarray( self.Ez )
+        self.Br = cupy.asarray( self.Br )
+        self.Bt = cupy.asarray( self.Bt )
+        self.Bz = cupy.asarray( self.Bz )
+        self.Jr = cupy.asarray( self.Jr )
+        self.Jt = cupy.asarray( self.Jt )
+        self.Jz = cupy.asarray( self.Jz )
+        self.rho = cupy.asarray( self.rho )
         if self.use_pml:
-            self.Er_pml = cuda.to_device( self.Er_pml )
-            self.Et_pml = cuda.to_device( self.Et_pml )
-            self.Br_pml = cuda.to_device( self.Br_pml )
-            self.Bt_pml = cuda.to_device( self.Bt_pml )
+            self.Er_pml = cupy.asarray( self.Er_pml )
+            self.Et_pml = cupy.asarray( self.Et_pml )
+            self.Br_pml = cupy.asarray( self.Br_pml )
+            self.Bt_pml = cupy.asarray( self.Bt_pml )
 
     def receive_fields_from_gpu( self ):
         """
@@ -140,21 +141,21 @@ class InterpolationGrid(object) :
         After this function is called, the array attributes
         are accessible by the CPU again.
         """
-        self.Er = self.Er.copy_to_host()
-        self.Et = self.Et.copy_to_host()
-        self.Ez = self.Ez.copy_to_host()
-        self.Br = self.Br.copy_to_host()
-        self.Bt = self.Bt.copy_to_host()
-        self.Bz = self.Bz.copy_to_host()
-        self.Jr = self.Jr.copy_to_host()
-        self.Jt = self.Jt.copy_to_host()
-        self.Jz = self.Jz.copy_to_host()
-        self.rho = self.rho.copy_to_host()
+        self.Er = self.Er.get()
+        self.Et = self.Et.get()
+        self.Ez = self.Ez.get()
+        self.Br = self.Br.get()
+        self.Bt = self.Bt.get()
+        self.Bz = self.Bz.get()
+        self.Jr = self.Jr.get()
+        self.Jt = self.Jt.get()
+        self.Jz = self.Jz.get()
+        self.rho = self.rho.get()
         if self.use_pml:
-            self.Er_pml = self.Er_pml.copy_to_host()
-            self.Et_pml = self.Et_pml.copy_to_host()
-            self.Br_pml = self.Br_pml.copy_to_host()
-            self.Bt_pml = self.Bt_pml.copy_to_host()
+            self.Er_pml = self.Er_pml.get()
+            self.Et_pml = self.Et_pml.get()
+            self.Br_pml = self.Br_pml.get()
+            self.Bt_pml = self.Bt_pml.get()
 
     def erase( self, fieldtype ):
         """

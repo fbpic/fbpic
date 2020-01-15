@@ -6,15 +6,16 @@ This file is part of the Fourier-Bessel Particle-In-Cell code (FBPIC)
 It defines the class that preforms calculation of Compton scattering.
 """
 import numpy as np
-from numba import cuda
 from scipy.constants import c, h
 from .numba_methods import get_photon_density_gaussian_numba, \
     determine_scatterings_numba, scatter_photons_electrons_numba
 from ..cuda_numba_utils import allocate_empty, reallocate_and_copy_old, \
                                 perform_cumsum, generate_new_ids
 # Check if CUDA is available, then import CUDA functions
-from fbpic.utils.cuda import cuda_installed
+from fbpic.utils.cuda import cupy_installed, cuda_installed
 from fbpic.utils.printing import catch_gpu_memory_error
+if cupy_installed:
+    import cupy
 if cuda_installed:
     from fbpic.utils.cuda import cuda_tpb_bpg_1d
     from numba.cuda.random import create_xoroshiro128p_states
@@ -201,7 +202,7 @@ class ComptonScatterer(object):
         # Count the total number of new photons (operation always performed
         # on the CPU, as this is typically difficult on the GPU)
         if use_cuda:
-            nscatter_per_batch = nscatter_per_batch.copy_to_host()
+            nscatter_per_batch = nscatter_per_batch.get()
         cumul_nscatter_per_batch = perform_cumsum( nscatter_per_batch )
         # If no new particle was created, skip the rest of this function
         if cumul_nscatter_per_batch[-1] == 0:
@@ -218,7 +219,7 @@ class ComptonScatterer(object):
         # Create the new photons from ionization (with a random
         # scattering angle) and add recoil momentum to the electrons
         if use_cuda:
-            cumul_nscatter_per_batch = cuda.to_device(cumul_nscatter_per_batch)
+            cumul_nscatter_per_batch = cupy.asarray(cumul_nscatter_per_batch)
             scatter_photons_electrons_cuda[ batch_grid_1d, batch_block_1d ](
                 N_batch, self.batch_size, old_Ntot, elec.Ntot,
                 cumul_nscatter_per_batch, nscatter_per_elec, random_states,

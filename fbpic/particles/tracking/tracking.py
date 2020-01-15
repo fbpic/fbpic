@@ -8,7 +8,9 @@ It defines the structure and methods associated with particle tracking.
 import numpy as np
 from numba import cuda
 # Check if CUDA is available, then import CUDA functions
-from fbpic.utils.cuda import cuda_installed
+from fbpic.utils.cuda import cupy_installed, cuda_installed
+if cupy_installed:
+    import cupy
 if cuda_installed:
     from fbpic.utils.cuda import cuda_tpb_bpg_1d
 
@@ -54,13 +56,13 @@ class ParticleTracker(object):
         """
         Transfer the tracking data from the CPU to the GPU
         """
-        self.id = cuda.to_device( self.id )
+        self.id = cupy.asarray( self.id )
 
     def receive_from_gpu(self):
         """
         Transfer the tracking data from the GPU to the CPU
         """
-        self.id = self.id.copy_to_host()
+        self.id = self.id.get()
 
     def generate_new_ids( self, N ):
         """

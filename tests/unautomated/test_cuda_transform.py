@@ -13,6 +13,9 @@ $ python tests/test_cuda_transform.py
 import numpy as np
 from fbpic.fields.spectral_transform import SpectralTransformer
 from numba import cuda
+from fbpic.utils.cuda import cupy_installed
+if cupy_installed:
+    from fbpic.utils.cuda import cupy
 import time
 
 if __name__ == '__main__' :
@@ -26,18 +29,18 @@ if __name__ == '__main__' :
     # Initialize the random test_field
     interp_field_r = np.random.rand(Nz, Nr) + 1.j*np.random.rand(Nz, Nr)
     interp_field_t = np.random.rand(Nz, Nr) + 1.j*np.random.rand(Nz, Nr)
-    d_interp_field_r = cuda.to_device( interp_field_r )
-    d_interp_field_t = cuda.to_device( interp_field_t )
+    d_interp_field_r = cupy.asarray( interp_field_r )
+    d_interp_field_t = cupy.asarray( interp_field_t )
     # Initialize the field in spectral space
     spect_field_p = np.empty_like( interp_field_r )
     spect_field_m = np.empty_like( interp_field_t )
-    d_spect_field_p = cuda.to_device( spect_field_p )
-    d_spect_field_m = cuda.to_device( spect_field_m )
+    d_spect_field_p = cupy.asarray( spect_field_p )
+    d_spect_field_m = cupy.asarray( spect_field_m )
     # Initialize the field after back and forth transformation
     back_field_r = np.empty_like( interp_field_r )
     back_field_t = np.empty_like( interp_field_t )
-    d_back_field_r = cuda.to_device( back_field_r )
-    d_back_field_t = cuda.to_device( back_field_t )
+    d_back_field_r = cupy.asarray( back_field_r )
+    d_back_field_t = cupy.asarray( back_field_t )
 
     # ----------------
     # Scalar transform
@@ -71,8 +74,8 @@ if __name__ == '__main__' :
     print( '\n Time taken on the GPU : %.3f ms\n' %(tmin*1e3) )
     
     # Check accuracy
-    check_spect_field_p = d_spect_field_p.copy_to_host()
-    check_back_field_r = d_back_field_r.copy_to_host()
+    check_spect_field_p = d_spect_field_p.get()
+    check_back_field_r = d_back_field_r.get()
     print( 'Max error on forward transform : %e' \
       % abs(spect_field_p - check_spect_field_p).max() )
     print( 'Max error on backward transform : %e\n' \
@@ -116,10 +119,10 @@ if __name__ == '__main__' :
     print( '\n Time taken on the GPU : %.3f ms\n' %(tmin*1e3) )
     
     # Check accuracy
-    check_spect_field_p = d_spect_field_p.copy_to_host()
-    check_spect_field_m = d_spect_field_m.copy_to_host()
-    check_back_field_r = d_back_field_r.copy_to_host()
-    check_back_field_t = d_back_field_t.copy_to_host()
+    check_spect_field_p = d_spect_field_p.get()
+    check_spect_field_m = d_spect_field_m.get()
+    check_back_field_r = d_back_field_r.get()
+    check_back_field_t = d_back_field_t.get()
     print( 'Max error on forward transform : %e' \
       % ( abs(spect_field_p - check_spect_field_p).max() \
       + abs(spect_field_m - check_spect_field_m).max() ) )
