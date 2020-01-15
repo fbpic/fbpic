@@ -163,22 +163,24 @@ learn more, see the tutorial notebook on the  `Github repository
 ----------------------------------
 
 The python package `PyVista <https://github.com/pyvista/pyvista>`_ can
-be used to easily produce a 3D visualization of output data. Install PyVista:
+be used to easily produce a 3D visualization of output data. Install PyVista
+and openPMD-viewer:
 
 ::
 
   pip install pyvista
+  conda install -c rlehe openpmd_viewer
 
 For a simple static visualization, you can use the following code
 as an example:
 
 .. code-block:: python
 
-  from opmd_viewer.addons.pic.lpa_diagnostics import LpaDiagnostics
+  from opmd_viewer import OpenPMDTimeSeries
   import pyvista
 
   # Open the simulation outputs using openPMD viewer
-  ts = LpaDiagnostics('./sim_outputs/diags/hdf5')
+  ts = OpenPMDTimeSeries('./sim_outputs/diags/hdf5')
 
   # Create the PyVista plotter
   plotter = pyvista.Plotter()
@@ -208,4 +210,4 @@ as an example:
 
 3D visualization of the simple LWFA example:
 
-.. image:: ../images/3d_visualization_example.png
+.. image:: ./images/3d_visualization_example.png
