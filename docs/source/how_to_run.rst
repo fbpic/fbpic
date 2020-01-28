@@ -157,3 +157,6 @@ and follow the instructions in the notebook that pops up. (NB: the
 notebook only shows some of the capabilities of the openPMD-viewer. To
 learn more, see the tutorial notebook on the  `Github repository
 <https://github.com/openPMD/openPMD-viewer>`_ of openPMD-viewer).
+
+If you want to render your simulation results in 3D, see the section
+:doc:`advanced/3d_visualization`.
