@@ -656,7 +656,7 @@ class Particles(object) :
                 self.inv_gamma, self.Ntot,
                 dt, x_push, y_push, z_push )
 
-    def gather( self, grid ) :
+    def gather( self, grid, comm ) :
         """
         Gather the fields onto the macroparticles
 
@@ -668,6 +668,10 @@ class Particles(object) :
         grid : a list of InterpolationGrid objects
              (one InterpolationGrid object per azimuthal mode)
              Contains the field values on the interpolation grid
+
+        comm: an fbpic.BoundaryCommunicator object
+            Contains information about the number of processors
+            and the local and global box dimensions.
         """
         # Skip gathering for neutral particles (e.g. photons)
         if self.q == 0:
@@ -675,6 +679,9 @@ class Particles(object) :
 
         # Number of modes
         Nm = len(grid)
+
+        # Restrict field gathering to physical domain
+        rmax_gather = comm.get_rmax( with_damp=False )
 
         # GPU (CUDA) version
         if self.use_cuda:
@@ -687,6 +694,7 @@ class Particles(object) :
                     # Optimized version for 2 modes
                     gather_field_gpu_linear[dim_grid_1d, dim_block_1d](
                          self.x, self.y, self.z,
+                         rmax_gather,
                          grid[0].invdz, grid[0].zmin, grid[0].Nz,
                          grid[0].invdr, grid[0].rmin, grid[0].Nr,
                          grid[0].Er, grid[0].Et, grid[0].Ez,
@@ -704,6 +712,7 @@ class Particles(object) :
                         gather_field_gpu_linear_one_mode[
                             dim_grid_1d, dim_block_1d](
                             self.x, self.y, self.z,
+                            rmax_gather,
                             grid[m].invdz, grid[m].zmin, grid[m].Nz,
                             grid[m].invdr, grid[m].rmin, grid[m].Nr,
                             grid[m].Er, grid[m].Et, grid[m].Ez,
@@ -715,6 +724,7 @@ class Particles(object) :
                     # Optimized version for 2 modes
                     gather_field_gpu_cubic[dim_grid_1d, dim_block_1d](
                          self.x, self.y, self.z,
+                         rmax_gather,
                          grid[0].invdz, grid[0].zmin, grid[0].Nz,
                          grid[0].invdr, grid[0].rmin, grid[0].Nr,
                          grid[0].Er, grid[0].Et, grid[0].Ez,
@@ -732,6 +742,7 @@ class Particles(object) :
                         gather_field_gpu_cubic_one_mode[
                             dim_grid_1d, dim_block_1d](
                             self.x, self.y, self.z,
+                            rmax_gather,
                             grid[m].invdz, grid[m].zmin, grid[m].Nz,
                             grid[m].invdr, grid[m].rmin, grid[m].Nr,
                             grid[m].Er, grid[m].Et, grid[m].Ez,
@@ -749,6 +760,7 @@ class Particles(object) :
                     # Optimized version for 2 modes
                     gather_field_numba_linear(
                         self.x, self.y, self.z,
+                        rmax_gather,
                         grid[0].invdz, grid[0].zmin, grid[0].Nz,
                         grid[0].invdr, grid[0].rmin, grid[0].Nr,
                         grid[0].Er, grid[0].Et, grid[0].Ez,
@@ -764,6 +776,7 @@ class Particles(object) :
                     for m in range(Nm):
                         gather_field_numba_linear_one_mode(
                             self.x, self.y, self.z,
+                            rmax_gather,
                             grid[m].invdz, grid[m].zmin, grid[m].Nz,
                             grid[m].invdr, grid[m].rmin, grid[m].Nr,
                             grid[m].Er, grid[m].Et, grid[m].Ez,
@@ -779,6 +792,7 @@ class Particles(object) :
                     # Optimized version for 2 modes
                     gather_field_numba_cubic(
                         self.x, self.y, self.z,
+                        rmax_gather,
                         grid[0].invdz, grid[0].zmin, grid[0].Nz,
                         grid[0].invdr, grid[0].rmin, grid[0].Nr,
                         grid[0].Er, grid[0].Et, grid[0].Ez,
@@ -795,6 +809,7 @@ class Particles(object) :
                     for m in range(Nm):
                         gather_field_numba_cubic_one_mode(
                             self.x, self.y, self.z,
+                            rmax_gather,
                             grid[m].invdz, grid[m].zmin, grid[m].Nz,
                             grid[m].invdr, grid[m].rmin, grid[m].Nr,
                             grid[m].Er, grid[m].Et, grid[m].Ez,

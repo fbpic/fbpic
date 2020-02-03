@@ -43,6 +43,7 @@ def erase_eb_cuda( Ex, Ey, Ez, Bx, By, Bz, Ntot ):
 
 @cuda.jit
 def gather_field_gpu_linear_one_mode(x, y, z,
+                    rmax_gather,
                     invdz, zmin, Nz,
                     invdr, rmin, Nr,
                     Er_m, Et_m, Ez_m,
@@ -61,6 +62,9 @@ def gather_field_gpu_linear_one_mode(x, y, z,
     ----------
     x, y, z : 1darray of floats (in meters)
         The position of the particles
+
+    rmax_gather: float (in meters)
+        The radius above which particle do not gather anymore
 
     invdz, invdr : float (in meters^-1)
         Inverse of the grid step along the considered direction
@@ -121,8 +125,8 @@ def gather_field_gpu_linear_one_mode(x, y, z,
         r_cell =  invdr*(rj - rmin) - 0.5
         z_cell =  invdz*(zj - zmin) - 0.5
 
-        # Only perform gathering for particles that are inside the box radially
-        if r_cell+0.5 < Nr:
+        # Only perform gathering for particles that are below rmax_gather
+        if rj < rmax_gather:
 
             # Original index of the uppper and lower cell
             ir_lower = int(math.floor( r_cell ))
@@ -209,6 +213,7 @@ def gather_field_gpu_linear_one_mode(x, y, z,
 
 @cuda.jit
 def gather_field_gpu_cubic_one_mode(x, y, z,
+                    rmax_gather,
                     invdz, zmin, Nz,
                     invdr, rmin, Nr,
                     Er_m, Et_m, Ez_m,
@@ -227,6 +232,9 @@ def gather_field_gpu_cubic_one_mode(x, y, z,
     ----------
     x, y, z : 1darray of floats (in meters)
         The position of the particles
+
+    rmax_gather: float (in meters)
+        The radius above which particle do not gather anymore
 
     invdz, invdr : float (in meters^-1)
         Inverse of the grid step along the considered direction
@@ -288,8 +296,8 @@ def gather_field_gpu_cubic_one_mode(x, y, z,
         r_cell = invdr*(rj - rmin) - 0.5
         z_cell = invdz*(zj - zmin) - 0.5
 
-        # Only perform gathering for particles that are inside the box radially
-        if r_cell+0.5 < Nr:
+        # Only perform gathering for particles that are below rmax_gather
+        if rj < rmax_gather:
 
             # Calculate the shape factors
             Sr = cuda.local.array((4,), dtype=float64)
