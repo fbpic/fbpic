@@ -240,7 +240,7 @@ def load_fields( grid, fieldtype, coord, ts, iteration ):
     Nr = grid.Nr
     m = grid.m
 
-    # Extract the field from the restart file using opmd_viewer
+    # Extract the field from the restart file using openpmd_viewer
     if m==0:
         field_data, info = ts.get_field( fieldtype, coord,
                                          m=m, iteration=iteration )

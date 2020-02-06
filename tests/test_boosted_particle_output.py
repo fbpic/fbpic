@@ -21,7 +21,7 @@ from fbpic.lpa_utils.boosted_frame import BoostConverter
 from fbpic.lpa_utils.bunch import add_elec_bunch_gaussian
 from fbpic.openpmd_diag import BackTransformedParticleDiagnostic
 # Import openPMD-viewer for checking output files
-from opmd_viewer import OpenPMDTimeSeries
+from openpmd_viewer import OpenPMDTimeSeries
 
 # ----------
 # Parameters

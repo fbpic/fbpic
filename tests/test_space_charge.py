@@ -17,7 +17,7 @@ $ python setup.py test
 import os
 import shutil
 import numpy as np
-from opmd_viewer import OpenPMDTimeSeries
+from openpmd_viewer import OpenPMDTimeSeries
 from scipy.constants import epsilon_0, c
 
 # Parameters of the simulated bunch
@@ -30,7 +30,7 @@ zf = -20.e-6
 temporary_dir = './tests/tmp_test_dir'
 origin_dir = './tests/unautomated'
 
-def run_sim_serial_and_parallel( script_file, data_file=None, 
+def run_sim_serial_and_parallel( script_file, data_file=None,
                                  check_gaussian=False ):
     """Copy the script `script_file` from the `unautomated directory`
     and run the simulation both in serial and paralllel.
@@ -121,7 +121,7 @@ def test_bunch_from_file():
                                 'test_space_charge_file_data.txt')
 
 def test_bunch_gaussian():
-    run_sim_serial_and_parallel( 'test_space_charge_gaussian.py', 
+    run_sim_serial_and_parallel( 'test_space_charge_gaussian.py',
                                  check_gaussian=True )
 
 if __name__ == '__main__':
