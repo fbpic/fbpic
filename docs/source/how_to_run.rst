@@ -145,7 +145,13 @@ install the openPMD-viewer by typing
 
 ::
 
-   conda install -c rlehe openpmd_viewer
+   pip install openpmd-viewer
+
+or
+
+::
+
+   conda install -c conda-forge openpmd-viewer
 
 And then type
 
