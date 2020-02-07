@@ -403,10 +403,11 @@ def add_particle_bunch_openPMD( sim, q, m, ts_path, z_off=0., species=None,
                                 ['x', 'y', 'z', 'ux', 'uy', 'uz', 'w'],
                                 iteration=iteration, species=species,
                                 select=select)
-    # Convert the positions from microns to meters
-    x *= 1.e-6
-    y *= 1.e-6
-    z *= 1.e-6
+    if openpmd_viewer_version == 0:
+        # Convert the positions from microns to meters
+        x *= 1.e-6
+        y *= 1.e-6
+        z *= 1.e-6
     # Shift the center of the phasespace to z_off
     z = z - np.average(z, weights=w) + z_off
 
