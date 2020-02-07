@@ -8,14 +8,14 @@ and openPMD-viewer:
 ::
 
   pip install pyvista
-  conda install -c rlehe openpmd_viewer
+  pip install openpmd-viewer
 
 For a simple static visualization, you can use the following code
 as an example:
 
 .. code-block:: python
 
-  from opmd_viewer import OpenPMDTimeSeries
+  from openpmd_viewer import OpenPMDTimeSeries
   import pyvista
 
   # Open the simulation outputs using openPMD viewer

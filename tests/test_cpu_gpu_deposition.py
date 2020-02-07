@@ -23,7 +23,7 @@ from fbpic.main import Simulation
 from fbpic.lpa_utils.bunch import add_elec_bunch_gaussian
 from fbpic.openpmd_diag import FieldDiagnostic
 from fbpic.utils.cuda import cuda_installed
-from opmd_viewer import OpenPMDTimeSeries
+from openpmd_viewer import OpenPMDTimeSeries
 
 # Parameters
 # ----------

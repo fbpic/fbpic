@@ -32,7 +32,7 @@ from fbpic.lpa_utils.boosted_frame import BoostConverter
 from fbpic.openpmd_diag import ParticleDiagnostic, \
     BackTransformedParticleDiagnostic
 # Import openPMD-viewer for checking output files
-from opmd_viewer import OpenPMDTimeSeries
+from openpmd_viewer import OpenPMDTimeSeries
 
 # ----------
 # Parameters

@@ -29,7 +29,7 @@ $ py.test -q tests/test_example_docs_scripts.py
 import os, re
 import shutil
 import numpy as np
-from opmd_viewer import OpenPMDTimeSeries
+from openpmd_viewer import OpenPMDTimeSeries
 from scipy.constants import c
 from fbpic.lpa_utils.laser import GaussianLaser, LaguerreGaussLaser
 

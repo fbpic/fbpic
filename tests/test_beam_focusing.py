@@ -25,7 +25,7 @@ from fbpic.main import Simulation
 from fbpic.lpa_utils.bunch import add_elec_bunch_gaussian
 from fbpic.lpa_utils.boosted_frame import BoostConverter
 from fbpic.openpmd_diag import BackTransformedParticleDiagnostic
-from opmd_viewer import OpenPMDTimeSeries
+from openpmd_viewer import OpenPMDTimeSeries
 
 # ----------
 # Parameters
@@ -146,7 +146,7 @@ def get_rms_radius(ts):
     for iteration in ts.iterations:
         x, w = ts.get_particle( ['x', 'w'], iteration=iteration )
         r.append( np.sqrt( np.average( x**2, weights=w ) ) )
-    return( 1.e-6*np.array(r) )
+    return( np.array(r) )
 
 if __name__ == '__main__':
     test_beam_focusing( show=True )
