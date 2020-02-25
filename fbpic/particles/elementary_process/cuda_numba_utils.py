@@ -39,7 +39,7 @@ def perform_cumsum( input_array ):
     np.cumsum( input_array, out=cumulative_array[1:] )
     return( cumulative_array )
 
-def perform_cumsum_2d( input_array ):
+def perform_cumsum_2d( input_array, use_cuda ):
     """
     Return an array containing the cumulative sum of the 2darray `input_array`,
     where the cumsum is taken along the last axis.
@@ -49,8 +49,12 @@ def perform_cumsum_2d( input_array ):
     total sum of `input_array`)
     """
     new_shape = (input_array.shape[0], input_array.shape[1]+1)
-    cumulative_array = np.zeros( new_shape, dtype=np.int64 )
-    np.cumsum( input_array, out=cumulative_array[:,1:], axis=-1 )
+    if use_cuda:
+        cumulative_array = cupy.zeros( new_shape, dtype=cupy.int64 )
+        cupy.cumsum( input_array, out=cumulative_array[:,1:], axis=-1 )
+    else:
+        cumulative_array = np.zeros( new_shape, dtype=np.int64 )
+        np.cumsum( input_array, out=cumulative_array[:,1:], axis=-1 )
     return( cumulative_array )
 
 def reallocate_and_copy_old( species, use_cuda, old_Ntot, new_Ntot ):
