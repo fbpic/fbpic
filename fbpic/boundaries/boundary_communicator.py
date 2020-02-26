@@ -18,7 +18,9 @@ from .pml_damping import PMLDamper
 from .particle_buffer_handling import remove_outside_particles, \
      add_buffers_to_particles, shift_particles_periodic_subdomain
 # Check if CUDA is available, then import CUDA functions
-from fbpic.utils.cuda import cuda_installed
+from fbpic.utils.cuda import cupy_installed, cuda_installed
+if cupy_installed:
+    import cupy
 if cuda_installed:
     from fbpic.utils.cuda import cuda, cuda_tpb_bpg_2d
     from .cuda_methods import cuda_damp_EB_left, cuda_damp_EB_right, \
@@ -320,13 +322,13 @@ class BoundaryCommunicator(object):
                 self.left_damp = self.generate_damp_array(
                     self.n_guard, self.nz_damp, self.n_inject )
                 if cuda_installed:
-                    self.d_left_damp = cuda.to_device( self.left_damp )
+                    self.d_left_damp = cupy.asarray( self.left_damp )
             if self.right_proc is None:
                 # Create the damping arrays for right proc
                 self.right_damp = self.generate_damp_array(
                     self.n_guard, self.nz_damp, self.n_inject )
                 if cuda_installed:
-                    self.d_right_damp = cuda.to_device( self.right_damp )
+                    self.d_right_damp = cupy.asarray( self.right_damp )
 
         # Create damping object for the PML
         self.use_pml = (boundaries['r'] == "open")

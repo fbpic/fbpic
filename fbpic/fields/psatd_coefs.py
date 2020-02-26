@@ -7,7 +7,9 @@ It defines the PsatdCoeffs class.
 """
 import numpy as np
 from scipy.constants import c, mu_0, epsilon_0
-from numba import cuda
+from fbpic.utils.cuda import cupy_installed
+if cupy_installed:
+    from fbpic.utils.cuda import cupy
 
 
 class PsatdCoeffs(object) :
@@ -162,14 +164,14 @@ class PsatdCoeffs(object) :
 
         # Replace these array by arrays on the GPU, when using cuda
         if use_cuda:
-            self.d_C = cuda.to_device(self.C)
-            self.d_S_w = cuda.to_device(self.S_w)
-            self.d_j_coef = cuda.to_device(self.j_coef)
-            self.d_rho_prev_coef = cuda.to_device(self.rho_prev_coef)
-            self.d_rho_next_coef = cuda.to_device(self.rho_next_coef)
+            self.d_C = cupy.asarray(self.C)
+            self.d_S_w = cupy.asarray(self.S_w)
+            self.d_j_coef = cupy.asarray(self.j_coef)
+            self.d_rho_prev_coef = cupy.asarray(self.rho_prev_coef)
+            self.d_rho_next_coef = cupy.asarray(self.rho_next_coef)
             if self.V is not None:
                 # Variables which are specific to the Galilean/comoving scheme
-                self.d_T_eb = cuda.to_device(self.T_eb)
-                self.d_T_cc = cuda.to_device(self.T_cc)
-                self.d_T_rho = cuda.to_device(self.T_rho)
-                self.d_j_corr_coef = cuda.to_device(self.j_corr_coef)
+                self.d_T_eb = cupy.asarray(self.T_eb)
+                self.d_T_cc = cupy.asarray(self.T_cc)
+                self.d_T_rho = cupy.asarray(self.T_rho)
+                self.d_j_corr_coef = cupy.asarray(self.j_corr_coef)

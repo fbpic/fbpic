@@ -17,7 +17,9 @@ from scipy.constants import c
 from .field_diag import FieldDiagnostic
 
 # Check if CUDA is available, then import CUDA functions
-from fbpic.utils.cuda import cuda_installed
+from fbpic.utils.cuda import cupy_installed, cuda_installed
+if cupy_installed:
+    import cupy
 if cuda_installed:
     from fbpic.utils.cuda import cuda, cuda_tpb_bpg_1d
 
@@ -420,7 +422,7 @@ class LabSnapshot:
         if fld.use_cuda is False:
             self.slice_array = np.empty( data_shape )
         else:
-            self.slice_array = cuda.device_array( data_shape )
+            self.slice_array = cupy.empty( data_shape )
 
     def update_current_output_positions( self, t_boost, inv_gamma, inv_beta ):
         """
@@ -471,7 +473,7 @@ class LabSnapshot:
             self.buffered_slices.append( self.slice_array.copy() )
         # or copy from the GPU
         else:
-            self.buffered_slices.append( self.slice_array.copy_to_host() )
+            self.buffered_slices.append( self.slice_array.get() )
 
     def compact_slices(self):
         """
@@ -752,10 +754,10 @@ if cuda_installed:
         Sz: float
             Interpolation shape factor used at iz
 
-        slice_arr: cuda.device_array
+        slice_arr: cupy.empty
             Array of floats of shape (10, 2*Nm-1, Nr)
 
-        Er, Et, etc...: cuda.device_array
+        Er, Et, etc...: cupy.empty
             Array of complexs of shape (Nz, Nr), for the azimuthal mode m
 
         m: int
