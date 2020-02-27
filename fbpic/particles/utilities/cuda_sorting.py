@@ -6,7 +6,7 @@ This file is part of the Fourier-Bessel Particle-In-Cell code (FB-PIC)
 It defines the particle sorting methods on the GPU using CUDA.
 """
 from numba import cuda
-from fbpic.utils.cuda import cupy_installed
+from fbpic.utils.cuda import cupy_installed, compile_cupy
 if cupy_installed:
     from cupy.cuda import thrust
 import math
@@ -16,7 +16,7 @@ import numpy as np
 # Sorting utilities - get_cell_idx / sort / prefix_sum
 # -----------------------------------------------------
 
-@cuda.jit
+@compile_cupy
 def get_cell_idx_per_particle(cell_idx, sorted_idx,
                               x, y, z,
                               invdz, zmin, Nz,
@@ -118,7 +118,7 @@ def sort_particles_per_cell(cell_idx, sorted_idx):
         # memory is not automatically released, after `argsort`
         # Here we force `cupy` to release the memory.
 
-@cuda.jit
+@compile_cupy
 def incl_prefix_sum(cell_idx, prefix_sum):
     """
     Perform an inclusive parallel prefix sum on the sorted
@@ -151,7 +151,7 @@ def incl_prefix_sum(cell_idx, prefix_sum):
             ci += 1
 
 
-@cuda.jit
+@compile_cupy
 def prefill_prefix_sum(cell_idx, prefix_sum, Ntot):
     """
     Prefill the prefix sum array so that:
@@ -186,7 +186,7 @@ def prefill_prefix_sum(cell_idx, prefix_sum, Ntot):
             # If this species has no particles, fill all cells with 0
             prefix_sum[i] = 0
 
-@cuda.jit
+@compile_cupy
 def write_sorting_buffer(sorted_idx, val, buf):
     """
     Writes the values of a particle array to a buffer,

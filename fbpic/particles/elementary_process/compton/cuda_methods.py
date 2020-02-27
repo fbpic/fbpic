@@ -7,6 +7,7 @@ It defines cuda methods that are used in Compton scattering (on GPU).
 """
 import math
 from numba import cuda
+from fbpic.utils.cuda import compile_cupy
 from numba.cuda.random import xoroshiro128p_uniform_float64
 # Import the inline functions
 from .inline_functions import lorentz_transform, get_scattering_probability, \
@@ -18,7 +19,7 @@ get_scattering_probability = cuda.jit( get_scattering_probability,
 get_photon_density_gaussian = cuda.jit( get_photon_density_gaussian,
                                             device=True, inline=True )
 
-@cuda.jit
+@compile_cupy
 def get_photon_density_gaussian_cuda( photon_n, elec_Ntot,
     elec_x, elec_y, elec_z, ct, photon_n_lab_max, inv_laser_waist2,
     inv_laser_ctau2, laser_initial_z0, gamma_boost, beta_boost ):

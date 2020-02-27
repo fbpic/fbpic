@@ -6,7 +6,7 @@ This files contains cuda methods that are used in the boosted-frame
 diagnostics
 """
 import numpy as np
-from fbpic.utils.cuda import cupy, cuda, cuda_tpb_bpg_1d
+from fbpic.utils.cuda import cupy, cuda, cuda_tpb_bpg_1d, compile_cupy
 
 def extract_slice_from_gpu( pref_sum_curr, N_area, species ):
     """
@@ -64,7 +64,7 @@ def extract_slice_from_gpu( pref_sum_curr, N_area, species ):
     # Return the data as dictionary
     return( particle_data )
 
-@cuda.jit()
+@compile_cupy
 def extract_particles_from_gpu( part_idx_start, x, y, z, ux, uy, uz, w,
                                 inv_gamma, selected ):
     """
@@ -102,7 +102,7 @@ def extract_particles_from_gpu( part_idx_start, x, y, z, ux, uy, uz, w,
         selected[6, i] = w[ptcl_idx]
         selected[7, i] = inv_gamma[ptcl_idx]
 
-@cuda.jit()
+@compile_cupy
 def extract_array_from_gpu( part_idx_start, array, selected ):
     """
     Extract a selection of particles from the GPU and

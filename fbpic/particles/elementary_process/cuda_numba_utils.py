@@ -13,7 +13,7 @@ from fbpic.utils.cuda import cupy_installed, cuda_installed
 if cupy_installed:
     import cupy
 if cuda_installed:
-    from fbpic.utils.cuda import cuda, cuda_tpb_bpg_1d
+    from fbpic.utils.cuda import cuda, cuda_tpb_bpg_1d, compile_cupy
 
 def allocate_empty( shape, use_cuda, dtype ):
     """
@@ -140,7 +140,7 @@ def copy_particle_data_numba( Ntot, old_array, new_array ):
     return( new_array )
 
 if cuda_installed:
-    @cuda.jit()
+    @compile_cupy
     def copy_particle_data_cuda( Ntot, old_array, new_array ):
         """
         Copy the `Ntot` elements of `old_array` into `new_array`, on GPU

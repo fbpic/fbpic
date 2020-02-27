@@ -7,12 +7,13 @@ It defines the particle push methods on the GPU using CUDA.
 """
 from scipy.constants import c, e
 from numba import cuda
+from fbpic.utils.cuda import compile_cupy
 # Import inline function
 from .inline_functions import push_p_vay
 # Compile the inline function for GPU
 push_p_vay = cuda.jit( push_p_vay, device=True, inline=True )
 
-@cuda.jit
+@compile_cupy
 def push_x_gpu( x, y, z, ux, uy, uz, inv_gamma, dt,
                 x_push, y_push, z_push ) :
     """
@@ -50,7 +51,7 @@ def push_x_gpu( x, y, z, ux, uy, uz, inv_gamma, dt,
         y[i] += cdt*y_push*inv_g*uy[i]
         z[i] += cdt*z_push*inv_g*uz[i]
 
-@cuda.jit
+@compile_cupy
 def push_p_gpu( ux, uy, uz, inv_gamma,
                 Ex, Ey, Ez, Bx, By, Bz,
                 q, m, Ntot, dt ) :
@@ -98,7 +99,7 @@ def push_p_gpu( ux, uy, uz, inv_gamma,
             Ex[ip], Ey[ip], Ez[ip], Bx[ip], By[ip], Bz[ip], econst, bconst)
 
 
-@cuda.jit
+@compile_cupy
 def push_p_after_plane_gpu( z, z_plane, ux, uy, uz, inv_gamma,
                 Ex, Ey, Ez, Bx, By, Bz, q, m, Ntot, dt ) :
     """
@@ -130,7 +131,7 @@ def push_p_after_plane_gpu( z, z_plane, ux, uy, uz, inv_gamma,
             Ex[ip], Ey[ip], Ez[ip], Bx[ip], By[ip], Bz[ip], econst, bconst)
 
 
-@cuda.jit
+@compile_cupy
 def push_p_ioniz_gpu( ux, uy, uz, inv_gamma,
                 Ex, Ey, Ez, Bx, By, Bz,
                 m, Ntot, dt, ionization_level ) :

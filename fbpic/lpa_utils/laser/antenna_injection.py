@@ -491,7 +491,7 @@ class LaserAntenna( object ):
 
 if cuda_installed:
 
-    @cuda.jit()
+    @compile_cupy
     def add_rho_to_gpu_array( iz_min, rho_buffer, rho, m ):
         """
         Add the small-size array rho_buffer into the full-size array rho
@@ -520,7 +520,7 @@ if cuda_installed:
             rho[iz_min, ir] += rho_buffer[m, 0, ir]
             rho[iz_min+1, ir] += rho_buffer[m, 1, ir]
 
-    @cuda.jit()
+    @compile_cupy
     def add_J_to_gpu_array( iz_min, Jr_buffer, Jt_buffer,
                             Jz_buffer, Jr, Jt, Jz, m ):
         """
