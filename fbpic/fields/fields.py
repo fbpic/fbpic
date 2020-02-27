@@ -136,6 +136,7 @@ class Fields(object) :
                 'Cuda not available for the fields.\n'
                 'Performing the field operations on the CPU.' )
             self.use_cuda = False
+        self.data_is_on_gpu = False # Data is initialized on CPU
 
         # Register the current correction type
         if current_correction in ['curl-free', 'cross-deposition']:
@@ -219,6 +220,7 @@ class Fields(object) :
             for m in range(self.Nm) :
                 self.interp[m].send_fields_to_gpu()
                 self.spect[m].send_fields_to_gpu()
+            self.data_is_on_gpu = True
 
     def receive_fields_from_gpu( self ):
         """
@@ -231,6 +233,7 @@ class Fields(object) :
             for m in range(self.Nm) :
                 self.interp[m].receive_fields_from_gpu()
                 self.spect[m].receive_fields_from_gpu()
+            self.data_is_on_gpu = False
 
     def push(self, use_true_rho=False, check_exchanges=False):
         """
