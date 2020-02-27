@@ -18,6 +18,7 @@ $ python tests/test_uniform_rho_deposition.py
 """
 from scipy.constants import c, e
 from fbpic.main import Simulation
+from fbpic.utils.cuda import GpuMemoryManager
 import numpy as np
 
 # Parameters
@@ -56,11 +57,13 @@ def uniform_electron_plasma(shape, show=False):
         initialize_ions=False, particle_shape=shape )
 
     # Deposit the charge
-    sim.fld.erase('rho')
-    for species in sim.ptcl :
-        species.deposit( sim.fld, 'rho')
-    sim.fld.sum_reduce_deposition_array('rho')
-    sim.fld.divide_by_volume('rho')
+    # (Move the simulation to GPU if needed, for this step)
+    with GpuMemoryManager(sim):
+        sim.fld.erase('rho')
+        for species in sim.ptcl :
+            species.deposit( sim.fld, 'rho')
+        sim.fld.sum_reduce_deposition_array('rho')
+        sim.fld.divide_by_volume('rho')
 
     # Check that the density has the correct value
     if show is False:

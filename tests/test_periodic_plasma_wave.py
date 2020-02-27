@@ -121,6 +121,7 @@ import numpy as np
 from scipy.constants import c, e, m_e, epsilon_0
 # Import the relevant structures in FBPIC
 from fbpic.main import Simulation
+from fbpic.utils.cuda import GpuMemoryManager
 from fbpic.fields import Fields
 
 # Parameters
@@ -188,8 +189,10 @@ def simulate_periodic_plasma_wave( particle_shape, show=False ):
 
     # Save the initial density in spectral space, and consider it
     # to be the density of the (uninitialized) ions
-    sim.deposit('rho_prev', exchange=True)
-    sim.fld.spect2interp('rho_prev')
+    # (Move the simulation to GPU if needed, for this step)
+    with GpuMemoryManager(sim):
+        sim.deposit('rho_prev', exchange=True)
+        sim.fld.spect2interp('rho_prev')
     rho_ions = [ ]
     for m in range(len(sim.fld.interp)):
         rho_ions.append( -sim.fld.interp[m].rho.copy() )
