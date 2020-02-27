@@ -274,6 +274,17 @@ if cupy_installed:
                 which can then be called with the kernel arguments.
             """
 
+            blocks_per_grid = bt[0]
+            threads_per_block = bt[1]
+
+            # Cast the thread and block size to tuples if neccessary
+            # since Cupy does not accept them as simple numbers
+            if not isinstance(blocks_per_grid, tuple):
+                blocks_per_grid = (blocks_per_grid, )
+            
+            if not isinstance(threads_per_block, tuple):
+                threads_per_block = (threads_per_block, )
+
             def call_kernel(*args):
                 """
                 Wrapper function for the actual kernel call. Checks if a
@@ -342,7 +353,8 @@ if cupy_installed:
                 # - Blocks per grid (tuple)
                 # - Threads per blocks (tuple)
                 # - The prepared list of kernel arguments
-                self.kernel_dict[hash](bt[0], bt[1], kernel_args)
+                self.kernel_dict[hash](blocks_per_grid, threads_per_block,
+                    kernel_args)
 
             # __getitem__ returns the created wrapper method.
             return call_kernel
