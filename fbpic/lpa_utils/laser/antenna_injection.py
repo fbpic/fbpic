@@ -17,7 +17,7 @@ from fbpic.utils.cuda import cupy_installed, cuda_installed
 if cupy_installed:
     import cupy
 if cuda_installed:
-    from fbpic.utils.cuda import cuda, cuda_tpb_bpg_1d
+    from fbpic.utils.cuda import cuda, cuda_tpb_bpg_1d, compile_cupy
 
 class LaserAntenna( object ):
     """
