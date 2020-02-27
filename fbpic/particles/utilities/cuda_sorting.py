@@ -8,9 +8,7 @@ It defines the particle sorting methods on the GPU using CUDA.
 from numba import cuda
 from fbpic.utils.cuda import cupy_installed
 if cupy_installed:
-    import cupy
     from cupy.cuda import thrust
-    cupy_mempool = cupy.get_default_memory_pool()
 import math
 import numpy as np
 
@@ -105,8 +103,8 @@ def sort_particles_per_cell(cell_idx, sorted_idx):
     if Ntot > 0:
         if type(cell_idx) == np.ndarray or  type(sorted_idx) == np.ndarray:
             raise ValueError("Unexpected CPU array")
-        d_cell_idx = cupy.asarray(cell_idx)
-        d_sorted_idx = cupy.asarray(sorted_idx)
+        d_cell_idx = cell_idx
+        d_sorted_idx = sorted_idx
         # `thrust.argsort` will simultaneously:
         # - find the indices `sorted_idx` that sort the initial array cell_idx
         # - sort `cell_idx` in place
@@ -119,7 +117,6 @@ def sort_particles_per_cell(cell_idx, sorted_idx):
         # arrays in its memory pool. For performance reasons, this
         # memory is not automatically released, after `argsort`
         # Here we force `cupy` to release the memory.
-        cupy_mempool.free_all_blocks()
 
 @cuda.jit
 def incl_prefix_sum(cell_idx, prefix_sum):
