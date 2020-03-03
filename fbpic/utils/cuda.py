@@ -340,8 +340,9 @@ if cupy_installed:
                         # number of arguments per array depends on the number
                         # of array dimensions.
                         kernel_args.extend(
-                            [0, 0, a.size, a.dtype.itemsize, a,
-                                *a.shape, *a.strides])
+                            [0, 0, a.size, a.dtype.itemsize, a])
+                        kernel_args.extend(a.shape)
+                        kernel_args.extend(a.strides)
                     else:
 
                         # For scalar arguments, simply append the
