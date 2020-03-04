@@ -10,7 +10,7 @@ from fbpic.utils.cuda import cupy_installed, cuda_installed
 if cupy_installed:
     import cupy
 if cuda_installed:
-    from fbpic.utils.cuda import cuda_tpb_bpg_2d, cuda
+    from fbpic.utils.cuda import cuda_tpb_bpg_2d, cuda, compile_cupy
 
 class PMLDamper(object):
     """
@@ -108,7 +108,7 @@ def generate_pml_damp_array( n_pml, cdt_over_dr ):
 
 
 if cuda_installed:
-    @cuda.jit
+    @compile_cupy
     def cuda_damp_pml_EB( Et, Et_pml, Ez, Bt, Bt_pml, Bz,
                       damp_array, n_pml ) :
         """
