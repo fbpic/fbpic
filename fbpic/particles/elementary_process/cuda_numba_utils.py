@@ -47,6 +47,8 @@ def perform_cumsum_2d( input_array, use_cuda ):
     (The returned array has one more element than `input_array` along the
     last axis; its first element is 0 and its last element is the
     total sum of `input_array`)
+
+    If needed, the calculation is performed on the GPU.
     """
     new_shape = (input_array.shape[0], input_array.shape[1]+1)
     if use_cuda:

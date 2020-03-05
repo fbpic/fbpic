@@ -267,10 +267,7 @@ class Ionizer(object):
                 ion.ux, ion.uy, ion.uz, ion.Ex, ion.Ey, ion.Ez,
                 ion.Bx, ion.By, ion.Bz, ion.w, self.w_times_level )
 
-        # Count the total number of new electrons (operation always performed
-        # on the CPU, as this is typically difficult on the GPU)
-        #if use_cuda:
-        #    n_ionized = n_ionized.get()
+        # Count the total number of new electrons 
         cumulative_n_ionized = perform_cumsum_2d( n_ionized, use_cuda )
         # If no new particle was created, skip the rest of this function
         if use_cuda:
@@ -279,10 +276,6 @@ class Ionizer(object):
         else:
             if np.all( cumulative_n_ionized[:,-1] == 0 ):
                 return
-        # Copy the cumulated number of electrons back on GPU
-        # (Keep a copy on the CPU)
-        #if use_cuda:
-        #    d_cumulative_n_ionized = cupy.asarray( cumulative_n_ionized )
 
         # Loop over the electron species associated to each level
         # (when store_electrons_per_level is False, there is a single species)
@@ -292,6 +285,7 @@ class Ionizer(object):
         assert len(self.target_species) == n_levels
         for i_level, elec in enumerate(self.target_species):
             old_Ntot = elec.Ntot
+            # Cast to int transfers the data from the GPU if needed
             new_Ntot = old_Ntot + int( cumulative_n_ionized[i_level,-1] )
             reallocate_and_copy_old( elec, use_cuda, old_Ntot, new_Ntot )
             # Create the new electrons from ionization (one thread per batch)
