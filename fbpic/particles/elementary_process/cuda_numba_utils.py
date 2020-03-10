@@ -28,15 +28,19 @@ def allocate_empty( shape, use_cuda, dtype ):
     else:
         return( np.empty( shape, dtype=dtype ) )
 
-def perform_cumsum( input_array ):
+def perform_cumsum( input_array, use_cuda ):
     """
     Return an array containing the cumulative sum of the 1darray `input_array`
 
     (The returned array has one more element than `input_array`; its first
     element is 0 and its last element is the total sum of `input_array`)
     """
-    cumulative_array = np.zeros( len(input_array)+1, dtype=np.int64 )
-    np.cumsum( input_array, out=cumulative_array[1:] )
+    if use_cuda:
+        cumulative_array = cupy.zeros( len(input_array)+1, dtype=cupy.int64 )
+        cupy.cumsum( input_array, out=cumulative_array[1:] )
+    else:
+        cumulative_array = np.zeros( len(input_array)+1, dtype=np.int64 )
+        np.cumsum( input_array, out=cumulative_array[1:] )
     return( cumulative_array )
 
 def perform_cumsum_2d( input_array, use_cuda ):
