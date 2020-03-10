@@ -14,8 +14,6 @@ from ..cuda_numba_utils import allocate_empty, reallocate_and_copy_old, \
 # Check if CUDA is available, then import CUDA functions
 from fbpic.utils.cuda import cupy_installed, cuda_installed
 from fbpic.utils.printing import catch_gpu_memory_error
-if cupy_installed:
-    import cupy
 if cuda_installed:
     from fbpic.utils.cuda import cuda_tpb_bpg_1d
     from numba.cuda.random import create_xoroshiro128p_states
