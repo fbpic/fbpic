@@ -18,6 +18,8 @@ if cuda_installed:
     from .utils.cuda import send_data_to_gpu, \
                 receive_data_from_gpu, mpi_select_gpus
     mpi_select_gpus( MPI )
+    if cupy_installed:
+        import cupy
 
 # Import the rest of the requirements
 import sys
@@ -425,6 +427,11 @@ class Simulation(object):
                 # (Since particles have been removed / added to the simulation;
                 # otherwise rho_prev is obtained from the previous iteration.)
                 self.deposit('rho_prev', exchange=(use_true_rho is True))
+
+                # For simulations on GPU, clear the memory pool used by cupy.
+                if self.use_cuda:
+                    mempool = cupy.get_default_memory_pool()
+                    mempool.free_all_blocks()
 
             # For the field diagnostics of the first step: deposit J
             # (Note however that this is not the *corrected* current)
