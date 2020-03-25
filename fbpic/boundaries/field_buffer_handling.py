@@ -7,7 +7,9 @@ It defines the structure necessary to handle mpi buffers for the fields
 """
 import numpy as np
 # Check if CUDA is available, then import CUDA functions
-from fbpic.utils.cuda import cuda_installed
+from fbpic.utils.cuda import cupy_installed, cuda_installed
+if cupy_installed:
+    import cupy
 if cuda_installed:
     from fbpic.utils.cuda import cuda, cuda_tpb_bpg_2d
     from .cuda_methods import \
@@ -100,13 +102,13 @@ class BufferHandler(object):
 
         # Allocate buffers on the GPU, for the different exchange types
         if cuda_installed:
-            self.d_send_l = { key: cuda.to_device(value) for key, value in \
+            self.d_send_l = { key: cupy.asarray(value) for key, value in \
                                 self.send_l.items() }
-            self.d_send_r = { key: cuda.to_device(value) for key, value in \
+            self.d_send_r = { key: cupy.asarray(value) for key, value in \
                                 self.send_r.items() }
-            self.d_recv_l = { key: cuda.to_device(value) for key, value in \
+            self.d_recv_l = { key: cupy.asarray(value) for key, value in \
                                 self.recv_l.items() }
-            self.d_recv_r = { key: cuda.to_device(value) for key, value in \
+            self.d_recv_r = { key: cupy.asarray(value) for key, value in \
                                 self.recv_r.items() }
 
 
@@ -216,21 +218,21 @@ class BufferHandler(object):
                 # copy the GPU buffers to the sending CPU buffers
                 if not gpudirect:
                     if copy_left:
-                        self.d_send_l[exchange_type].copy_to_host(
-                            self.send_l[exchange_type] )
+                        self.d_send_l[exchange_type].get(
+                            out=self.send_l[exchange_type] )
                     if copy_right:
-                        self.d_send_r[exchange_type].copy_to_host(
-                            self.send_r[exchange_type] )
+                        self.d_send_r[exchange_type].get(
+                            out=self.send_r[exchange_type] )
 
             elif after_receiving:
                 # If GPUDirect with CUDA-aware MPI is not used,
                 # copy the CPU receiving buffers to the GPU buffers
                 if not gpudirect:
                     if copy_left:
-                        self.d_recv_l[exchange_type].copy_to_device(
+                        self.d_recv_l[exchange_type].set(
                             self.recv_l[exchange_type] )
                     if copy_right:
-                        self.d_recv_r[exchange_type].copy_to_device(
+                        self.d_recv_r[exchange_type].set(
                             self.recv_r[exchange_type] )
                 if method == 'replace':
                     # Replace the guard cells of the domain with the buffers
@@ -432,21 +434,21 @@ class BufferHandler(object):
                 # copy the GPU buffers to the sending CPU buffers
                 if not gpudirect:
                     if copy_left:
-                        self.d_send_l[exchange_type].copy_to_host(
-                            self.send_l[exchange_type] )
+                        self.d_send_l[exchange_type].get(
+                            out=self.send_l[exchange_type] )
                     if copy_right:
-                        self.d_send_r[exchange_type].copy_to_host(
-                            self.send_r[exchange_type] )
+                        self.d_send_r[exchange_type].get(
+                            out=self.send_r[exchange_type] )
 
             elif after_receiving:
                 # If GPUDirect with CUDA-aware MPI is not used,
                 # copy the CPU receiving buffers to the GPU buffers
                 if not gpudirect:
                     if copy_left:
-                        self.d_recv_l[exchange_type].copy_to_device(
+                        self.d_recv_l[exchange_type].set(
                             self.recv_l[exchange_type] )
                     if copy_right:
-                        self.d_recv_r[exchange_type].copy_to_device(
+                        self.d_recv_r[exchange_type].set(
                             self.recv_r[exchange_type] )
                 if method == 'replace':
                     # Replace the guard cells of the domain with the buffers

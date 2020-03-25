@@ -6,7 +6,6 @@ This file is part of the Fourier-Bessel Particle-In-Cell code (FBPIC)
 It defines the class that preforms calculation of Compton scattering.
 """
 import numpy as np
-from numba import cuda
 from scipy.constants import c, h
 from .numba_methods import get_photon_density_gaussian_numba, \
     determine_scatterings_numba, scatter_photons_electrons_numba
@@ -198,13 +197,11 @@ class ComptonScatterer(object):
                 self.ratio_w_electron_photon, photon_n, self.photon_p,
                 self.photon_beta_x, self.photon_beta_y, self.photon_beta_z )
 
-        # Count the total number of new photons (operation always performed
-        # on the CPU, as this is typically difficult on the GPU)
-        if use_cuda:
-            nscatter_per_batch = nscatter_per_batch.copy_to_host()
-        cumul_nscatter_per_batch = perform_cumsum( nscatter_per_batch )
+        # Count the total number of new photons 
+        cumul_nscatter_per_batch = perform_cumsum( nscatter_per_batch, use_cuda )
+        N_created = int( cumul_nscatter_per_batch[-1] )
         # If no new particle was created, skip the rest of this function
-        if cumul_nscatter_per_batch[-1] == 0:
+        if N_created == 0:
             return
 
         # Reallocate photons species (on CPU or GPU depending on `use_cuda`),
@@ -212,13 +209,12 @@ class ComptonScatterer(object):
         # and copy the old photons to the new arrays
         photons = self.target_species
         old_Ntot = photons.Ntot
-        new_Ntot = old_Ntot + cumul_nscatter_per_batch[-1]
+        new_Ntot = old_Ntot + N_created
         reallocate_and_copy_old( photons, use_cuda, old_Ntot, new_Ntot )
 
         # Create the new photons from ionization (with a random
         # scattering angle) and add recoil momentum to the electrons
         if use_cuda:
-            cumul_nscatter_per_batch = cuda.to_device(cumul_nscatter_per_batch)
             scatter_photons_electrons_cuda[ batch_grid_1d, batch_block_1d ](
                 N_batch, self.batch_size, old_Ntot, elec.Ntot,
                 cumul_nscatter_per_batch, nscatter_per_elec, random_states,

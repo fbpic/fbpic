@@ -11,6 +11,7 @@ from fbpic.fields import Fields
 from fbpic.particles.elementary_process.cuda_numba_utils import \
     reallocate_and_copy_old
 from fbpic.particles.injection import BallisticBeforePlane
+from fbpic.utils.cuda import GpuMemoryManager
 import warnings
 
 
@@ -835,10 +836,12 @@ def get_space_charge_fields( sim, ptcl, direction='forward' ):
         gamma = w_gamma_sum/w_sum
 
     # Project the charge and currents onto the local subdomain
-    sim.deposit( 'rho', exchange=True, species_list=[ptcl],
-                    update_spectral=False )
-    sim.deposit( 'J', exchange=True, species_list=[ptcl],
-                    update_spectral=False )
+    # (Move data to GPU if needed, for this step)
+    with GpuMemoryManager(sim):
+        sim.deposit( 'rho', exchange=True, species_list=[ptcl],
+                        update_spectral=False )
+        sim.deposit( 'J', exchange=True, species_list=[ptcl],
+                        update_spectral=False )
 
     # Create a global field object across all subdomains, and copy the sources
     # (Space-charge calculation is a global operation)

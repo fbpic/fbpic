@@ -11,7 +11,7 @@ import numba
 # Check if CUDA is available, then import CUDA functions
 from fbpic.utils.cuda import cuda_installed, cupy_installed
 if cuda_installed:
-    from fbpic.utils.cuda import cuda, cuda_tpb_bpg_2d, cuda_gpu_model
+    from fbpic.utils.cuda import cuda_tpb_bpg_2d, cuda_gpu_model
     from .cuda_methods import cuda_copy_2d_to_1d, cuda_copy_1d_to_2d
 if cupy_installed:
     import cupy
@@ -71,9 +71,9 @@ class FFT(object):
             # Initialize the dimension of the grid and blocks
             self.dim_grid, self.dim_block = cuda_tpb_bpg_2d(Nz, Nr, *copy_tpb)
             # Initialize 1d buffer for cufft
-            self.buffer1d_in = cuda.device_array(
+            self.buffer1d_in = cupy.empty(
                 (Nz*Nr,), dtype=np.complex128)
-            self.buffer1d_out = cuda.device_array(
+            self.buffer1d_out = cupy.empty(
                 (Nz*Nr,), dtype=np.complex128)
             # Initialize the CUDA FFT plan object
             self.fft = cufft.Plan1d(Nz, cufft.CUFFT_Z2Z, Nr)
@@ -119,8 +119,8 @@ class FFT(object):
             cuda_copy_2d_to_1d[self.dim_grid, self.dim_block](
                 array_in, self.buffer1d_in)
             # Perform forward FFT
-            self.fft.fft(cupy.asarray(self.buffer1d_in),
-                         cupy.asarray(self.buffer1d_out),
+            self.fft.fft(self.buffer1d_in,
+                         self.buffer1d_out,
                          cufft.CUFFT_FORWARD)
             # Copy 1D arrays back to 2D array
             cuda_copy_1d_to_2d[self.dim_grid, self.dim_block](
@@ -151,11 +151,11 @@ class FFT(object):
             cuda_copy_2d_to_1d[self.dim_grid, self.dim_block](
                 array_in, self.buffer1d_in)
             # Perform forward FFT
-            self.fft.fft(cupy.asarray(self.buffer1d_in),
-                         cupy.asarray(self.buffer1d_out),
+            self.fft.fft(self.buffer1d_in,
+                         self.buffer1d_out,
                          cufft.CUFFT_INVERSE)
             # Normalize inverse FFT
-            cupy.multiply(cupy.asarray(self.buffer1d_out), self.inv_Nz, out=cupy.asarray(self.buffer1d_out))
+            cupy.multiply(self.buffer1d_out, self.inv_Nz, out=self.buffer1d_out)
             # Copy 1D arrays back to 2D array
             cuda_copy_1d_to_2d[self.dim_grid, self.dim_block](
                 self.buffer1d_out, array_out)

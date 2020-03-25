@@ -8,6 +8,7 @@ It defines cuda methods that are used in particle ionization.
 Apart from synthactic details, this file is very close to numba_methods.py
 """
 from numba import cuda
+from fbpic.utils.cuda import compile_cupy
 from scipy.constants import c
 # Import inline functions
 from .inline_functions import get_ionization_probability, \
@@ -20,7 +21,7 @@ get_E_amplitude = cuda.jit( get_E_amplitude,
 copy_ionized_electrons_batch = cuda.jit( copy_ionized_electrons_batch,
                                             device=True, inline=True )
 
-@cuda.jit()
+@compile_cupy
 def ionize_ions_cuda( N_batch, batch_size, Ntot,
     level_start, level_max, n_levels,
     n_ionized, ionized_from, ionization_level, random_draw,
@@ -83,7 +84,7 @@ def ionize_ions_cuda( N_batch, batch_size, Ntot,
             else:
                 ionized_from[ip] = -1
 
-@cuda.jit()
+@compile_cupy
 def copy_ionized_electrons_cuda(
     N_batch, batch_size, elec_old_Ntot, ion_Ntot,
     cumulative_n_ionized, ionized_from,

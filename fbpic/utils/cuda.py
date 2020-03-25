@@ -125,6 +125,52 @@ def receive_data_from_gpu(simulation):
     # Receive fields from the GPU (if CUDA is used)
     simulation.fld.receive_fields_from_gpu()
 
+class GpuMemoryManager(object):
+    """
+    Context manager that temporarily moves the simulation data to the GPU,
+    if the data is originally on the CPU when entering the context manager
+    """
+
+    def __init__(self, simulation):
+        """
+        Initialize the context manager
+
+        Parameters:
+        -----------
+        simulation: object
+            A simulation object that contains the particle
+            (ptcl) and field object (fld)
+        """
+        # Check whether the data is initially on the CPU or GPU
+        self.fields_were_on_gpu = simulation.fld.data_is_on_gpu
+        self.species_were_on_gpu = [ species.data_is_on_gpu \
+                                     for species in simulation.ptcl ]
+        # Keep a reference to the simulation
+        self.sim = simulation
+
+    def __enter__(self):
+        """
+        Move the data to the GPU (if it was originally on the CPU)
+        """
+        if self.sim.use_cuda:
+            if not self.fields_were_on_gpu:
+                self.sim.fld.send_fields_to_gpu()
+            for i, species in enumerate(self.sim.ptcl):
+                if not self.species_were_on_gpu[i]:
+                    species.send_particles_to_gpu()
+
+    def __exit__(self, type, value, traceback):
+        """
+        Move the data back to the CPU (if it was originally on the CPU)
+        """
+        if self.sim.use_cuda:
+            if not self.fields_were_on_gpu:
+                self.sim.fld.receive_fields_from_gpu()
+            for i, species in enumerate(self.sim.ptcl):
+                if not self.species_were_on_gpu[i]:
+                    species.receive_particles_from_gpu()
+
+
 # -----------------------------------------------------
 # CUDA mpi management
 # -----------------------------------------------------
@@ -143,3 +189,182 @@ def mpi_select_gpus(mpi):
         if rank%n_gpus == i_gpu:
             cuda.select_device(i_gpu)
         mpi.COMM_WORLD.barrier()
+
+
+# -----------------------------------------------------
+# CUDA kernel decorator
+# -----------------------------------------------------
+
+if cupy_installed:
+
+    def get_args_hash(args):
+        """
+        Computes a hash from the argument types of a kernel call.
+        This takes into account the data types as well as (for arrays) the
+        number of dimensions.
+
+        Parameters:
+        -----------
+        args: A list of arguments (scalars or Cupy arrays).
+
+        Returns:
+        --------
+        hash: Hash value as an int.
+        """
+        types = []
+
+        # Loop over the arguments
+        for a in args:
+            # For array arguments: save the data type and the number of
+            # dimensions
+            if isinstance(a, cupy.ndarray):
+                types.append(a.dtype)
+                types.append(a.ndim)
+
+            # For scalar arguments: save only the data type
+            else:
+                types.append(type(a))
+
+        # Use the built-in Python hash function to compute the hash
+        return hash(tuple(types))
+
+    class compile_cupy(object):
+        """
+        This class defines a custom function decorator which compiles python
+        functions into GPU CUDA kernels. This decorator is meant to be used
+        in the same way as `numba.cuda.jit` but has lower kernel launch
+        overheads.
+
+        In practice, this is achieved by using `numba.cuda.jit` to compile the
+        kernels into PTX code, and by launching the PTX code through the `cupy`
+        framework (which has lower launch overhead than the `numba.cuda`
+        framework).
+
+        Similarly to `numba.cuda.jit`, this class decorates functions that
+        are defined with arbitrary argument types. The actual types of the
+        arguments is only known when the function is called, at which point
+        the corresponding CUDA kernel is compiled (Just-In-Time compilation).
+        This decorator stores previously-compiled kernels, so as to avoid
+        re-compiling if the function is called several times with the same
+        argument types.
+        """
+
+        def __init__(self, func):
+            """
+            Constructor of the decorator class.
+
+            Parameters:
+            -----------
+            func: The python function the decorator is applied to, which will
+                be compiled into a CUDA kernel.
+            """
+
+            self.python_func = func
+            self.kernel_dict = {} # Stores compiled kernels to avoid re-compilation
+
+        def __getitem__(self, bt):
+            """
+            Called when the kernel is called with square brackets, e.g.
+            ```
+            kernel[blocks_per_grid, threads_per_block]( *args )
+            ```
+            This is used to mimic the Numba launch syntax.
+
+            Parameters:
+            -----------
+            bt: A 2-tuple (blocks_per_grid, threads_per_block) giving the
+                thread and block size on the GPU.
+                Both blocks_per_grid and threads_per_block should themselves
+                be tuples, even in the 1D case.
+
+            Returns:
+            --------
+            call_kernel: A wrapper function which represents the kernel
+                specialized to the specified thread and block size, and
+                which can then be called with the kernel arguments.
+            """
+            blocks_per_grid = bt[0]
+            threads_per_block = bt[1]
+
+            # Cast the thread and block size to tuples if neccessary
+            # since Cupy does not accept them as simple numbers
+            if not isinstance(blocks_per_grid, tuple):
+                blocks_per_grid = (blocks_per_grid, )
+
+            if not isinstance(threads_per_block, tuple):
+                threads_per_block = (threads_per_block, )
+
+            # Define function that will be returned by the decorator
+            def call_kernel(*args):
+                """
+                Wrapper function for the actual kernel call. Checks if a
+                kernel for the specified argument types is already compiled,
+                and compiles one if needed. Then calls the kernel.
+
+                Parameters:
+                -----------
+                args: List of the kernel arguments.
+                    They should all be either scalar values (float, int,
+                    complex, bool) or Cupy arrays.
+                """
+                # Calculate a hash from the argument types to check whether a
+                # compatible kernel is already compiled.
+                hash = get_args_hash(args)
+
+                if hash not in self.kernel_dict:
+
+                    # Compile a Numba kernel for the specified arguments
+                    # using cuda.jit
+                    numba_kernel = cuda.jit()(self.python_func) \
+                        .specialize(*args)
+
+                    # Create a Cupy kernel module and load the PTX code of the
+                    # numba kernel
+                    module = cupy.cuda.function.Module()
+                    module.load(bytes(numba_kernel.ptx, 'UTF-8'))
+
+                    # Cache the resulting Cupy kernel in a dictionary using
+                    # the hash
+                    self.kernel_dict[hash] = module.get_function(
+                        numba_kernel.entry_name)
+
+                # Prepare the arguments for the Cupy kernel.
+                # Because of the way Numba JIT compilation works, the
+                # resulting kernels expect multiple arguments for each array.
+                kernel_args = []
+
+                # Loop over the given arguments
+                for a in args:
+
+                    # Check whether the argument is an array and requires
+                    # multiple kernel arguments.
+                    if isinstance(a, cupy.ndarray):
+                        # Append all required arguments to the list, in order:
+                        # - Two zeroes (corresponding to null pointers in C)
+                        # - The total size of the array
+                        # - The size in bytes of the array datatype
+                        # - The array itself
+                        # - The shape of the array, as single integers
+                        # - The strides of the array, as single integers
+                        # Note that due to the latter two entries, the actual
+                        # number of arguments per array depends on the number
+                        # of array dimensions.
+                        kernel_args.extend(
+                            [0, 0, a.size, a.dtype.itemsize, a])
+                        kernel_args.extend(a.shape)
+                        kernel_args.extend(a.strides)
+                    else:
+                        # For scalar arguments, simply append the
+                        # argument itself.
+                        kernel_args.append(a)
+
+                # Call the actual kernel from the cache.
+                # The arguments of the call are:
+                # - Blocks per grid (tuple)
+                # - Threads per blocks (tuple)
+                # - The prepared list of kernel arguments
+                self.kernel_dict[hash](blocks_per_grid, threads_per_block,
+                    kernel_args)
+
+            # __getitem__ returns the created wrapper method.
+            return call_kernel

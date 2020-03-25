@@ -18,8 +18,11 @@ if cuda_installed:
     from .utils.cuda import send_data_to_gpu, \
                 receive_data_from_gpu, mpi_select_gpus
     mpi_select_gpus( MPI )
+    if cupy_installed:
+        import cupy
 
 # Import the rest of the requirements
+import sys
 import warnings
 import numba
 import numpy as np
@@ -216,28 +219,30 @@ class Simulation(object):
                 'Cuda not available for the simulation.\n'
                 'Performing the simulation on CPU.' )
             self.use_cuda = False
-        # Check that cupy and numba have the right version
+        # Check that cupy, numba and Python have the right version
         if self.use_cuda:
             if not cupy_installed:
                 raise RuntimeError(
                     'In order to run on GPUs, FBPIC version 0.13 and later \n'
                     'require the `cupy` package.\n'
                     'See the FBPIC documentation in order to install cupy.')
-            elif (cupy_major_version >= 7 and numba_minor_version < 46):
+            elif cupy_major_version < 7:
                 raise RuntimeError(
-                    'You are using cupy version %d.\nFor compatibility, '
-                    'you need to install numba 0.46 or later.\n'
-                    '(Your current version is numba 0.%d.)\n'
-                    'e.g. with `conda uninstall numba; conda install numba`.'
-                    %(cupy_major_version,numba_minor_version))
-            elif (cupy_major_version < 7 and numba_minor_version >= 46):
+                    'In order to run on GPUs, FBPIC version 0.16 and later \n'
+                    'requires `cupy` version 7 (or later).\n(The `cupy` version'
+                    ' on your current system is %d.)\nPlease install the '
+                    'latest version of `cupy`.' %cupy_major_version)
+            elif numba_minor_version < 46:
                 raise RuntimeError(
-                    'You are using numba version 0.%d.\nFor compatibility, '
-                    'you need to install cupy 7 or later.\n'
-                    '(Your current version is cupy %d.)\n'
-                    'e.g. with `pip install --upgrade cupy-cudaXXX`\n'
-                    'where `XXX` should be replaced by your cuda version.'
-                    %(numba_minor_version,cupy_major_version))
+                    'In order to run on GPUs, FBPIC version 0.16 and later \n'
+                    'requires `numba` version 0.46 (or later).\n(The `numba` '
+                    'version on your current system is 0.%d.)\nPlease install'
+                    ' the latest version of `numba`.' %numba_minor_version)
+            elif sys.version_info.major < 3:
+                raise RuntimeError(
+                    'In order to run on GPUs, FBPIC version 0.16 and later \n'
+                    'requires Python 3.\n(The Python version on your current '
+                    'system is Python 2.)\nPlease install Python 3.')
         # CPU multi-threading
         self.use_threading = threading_enabled
         if self.use_threading:
@@ -422,6 +427,11 @@ class Simulation(object):
                 # (Since particles have been removed / added to the simulation;
                 # otherwise rho_prev is obtained from the previous iteration.)
                 self.deposit('rho_prev', exchange=(use_true_rho is True))
+
+                # For simulations on GPU, clear the memory pool used by cupy.
+                if self.use_cuda:
+                    mempool = cupy.get_default_memory_pool()
+                    mempool.free_all_blocks()
 
             # For the field diagnostics of the first step: deposit J
             # (Note however that this is not the *corrected* current)

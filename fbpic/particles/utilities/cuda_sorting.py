@@ -6,11 +6,9 @@ This file is part of the Fourier-Bessel Particle-In-Cell code (FB-PIC)
 It defines the particle sorting methods on the GPU using CUDA.
 """
 from numba import cuda
-from fbpic.utils.cuda import cupy_installed
+from fbpic.utils.cuda import cupy_installed, compile_cupy
 if cupy_installed:
-    import cupy
     from cupy.cuda import thrust
-    cupy_mempool = cupy.get_default_memory_pool()
 import math
 import numpy as np
 
@@ -18,7 +16,7 @@ import numpy as np
 # Sorting utilities - get_cell_idx / sort / prefix_sum
 # -----------------------------------------------------
 
-@cuda.jit
+@compile_cupy
 def get_cell_idx_per_particle(cell_idx, sorted_idx,
                               x, y, z,
                               invdz, zmin, Nz,
@@ -105,8 +103,8 @@ def sort_particles_per_cell(cell_idx, sorted_idx):
     if Ntot > 0:
         if type(cell_idx) == np.ndarray or  type(sorted_idx) == np.ndarray:
             raise ValueError("Unexpected CPU array")
-        d_cell_idx = cupy.asarray(cell_idx)
-        d_sorted_idx = cupy.asarray(sorted_idx)
+        d_cell_idx = cell_idx
+        d_sorted_idx = sorted_idx
         # `thrust.argsort` will simultaneously:
         # - find the indices `sorted_idx` that sort the initial array cell_idx
         # - sort `cell_idx` in place
@@ -119,9 +117,8 @@ def sort_particles_per_cell(cell_idx, sorted_idx):
         # arrays in its memory pool. For performance reasons, this
         # memory is not automatically released, after `argsort`
         # Here we force `cupy` to release the memory.
-        cupy_mempool.free_all_blocks()
 
-@cuda.jit
+@compile_cupy
 def incl_prefix_sum(cell_idx, prefix_sum):
     """
     Perform an inclusive parallel prefix sum on the sorted
@@ -154,7 +151,7 @@ def incl_prefix_sum(cell_idx, prefix_sum):
             ci += 1
 
 
-@cuda.jit
+@compile_cupy
 def prefill_prefix_sum(cell_idx, prefix_sum, Ntot):
     """
     Prefill the prefix sum array so that:
@@ -189,7 +186,7 @@ def prefill_prefix_sum(cell_idx, prefix_sum, Ntot):
             # If this species has no particles, fill all cells with 0
             prefix_sum[i] = 0
 
-@cuda.jit
+@compile_cupy
 def write_sorting_buffer(sorted_idx, val, buf):
     """
     Writes the values of a particle array to a buffer,
