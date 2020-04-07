@@ -47,5 +47,5 @@ from .simulation import Simulation
 __all__ = [ 'codename', 'Simulation', 'CylindricalGrid', 'BinomialSmoother',
     'ElectromagneticSolver', 'Species', 'MultiSpecies', 'LaserAntenna',
     'GaussianLaser', 'GriddedLayout', 'PseudoRandomLayout',
-    'GaussianBunchDistribution', 'AnalyticDistribution',
+    'GaussianBunchDistribution', 'AnalyticDistribution', 'UniformDistribution',
     'FieldDiagnostic', 'ParticleDiagnostic', 'constants' ]
