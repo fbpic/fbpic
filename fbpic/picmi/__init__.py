@@ -36,6 +36,7 @@ from picmistandard import PICMI_GriddedLayout as GriddedLayout
 from picmistandard import PICMI_PseudoRandomLayout as PseudoRandomLayout
 from picmistandard import PICMI_GaussianBunchDistribution as GaussianBunchDistribution
 from picmistandard import PICMI_AnalyticDistribution as AnalyticDistribution
+from picmistandard import PICMI_UniformDistribution as UniformDistribution
 # - For diagnostics
 from picmistandard import PICMI_FieldDiagnostic as FieldDiagnostic
 from picmistandard import PICMI_ParticleDiagnostic as ParticleDiagnostic
@@ -46,5 +47,5 @@ from .simulation import Simulation
 __all__ = [ 'codename', 'Simulation', 'CylindricalGrid', 'BinomialSmoother',
     'ElectromagneticSolver', 'Species', 'MultiSpecies', 'LaserAntenna',
     'GaussianLaser', 'GriddedLayout', 'PseudoRandomLayout',
-    'GaussianBunchDistribution', 'AnalyticDistribution',
+    'GaussianBunchDistribution', 'AnalyticDistribution', 'UniformDistribution',
     'FieldDiagnostic', 'ParticleDiagnostic', 'constants' ]

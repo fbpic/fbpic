@@ -19,7 +19,7 @@ from fbpic.openpmd_diag import FieldDiagnostic, ParticleDiagnostic
 
 # Import picmi base class
 from picmistandard import PICMI_Simulation, PICMI_CylindricalGrid
-from picmistandard import PICMI_AnalyticDistribution, PICMI_GriddedLayout
+from picmistandard import PICMI_AnalyticDistribution, PICMI_UniformDistribution, PICMI_GriddedLayout
 from picmistandard import PICMI_PseudoRandomLayout, PICMI_GaussianBunchDistribution
 from picmistandard import PICMI_LaserAntenna, PICMI_GaussianLaser
 from picmistandard import PICMI_Species, PICMI_MultiSpecies
@@ -157,22 +157,30 @@ class Simulation( PICMI_Simulation ):
     def _create_new_fbpic_species(self, s, layout, initialize_self_field):
 
         # - For the case of a plasma defined in a gridded layout
-        if (type(s.initial_distribution)==PICMI_AnalyticDistribution) and \
-            (type(layout) == PICMI_GriddedLayout):
+        if type(layout) == PICMI_GriddedLayout:
             assert initialize_self_field == False
-            import numexpr
-            density_expression = s.initial_distribution.density_expression
-            if s.density_scale is not None:
-                density_expression = "%f*(%s)" \
-                     %(s.density_scale, density_expression)
-            def dens_func(z, r):
-                n = numexpr.evaluate(density_expression)
-                return n
+            # - Uniform distribution
+            if type(s.initial_distribution)==PICMI_UniformDistribution:
+                n0 = s.initial_distribution.density
+                dens_func = None
+            # - Analytic distribution
+            elif type(s.initial_distribution)==PICMI_AnalyticDistribution:
+                import numexpr
+                density_expression = s.initial_distribution.density_expression
+                if s.density_scale is not None:
+                    n0 = s.density_scale
+                else:
+                    n0 = 1.
+                def dens_func(z, r):
+                    n = numexpr.evaluate(density_expression)
+                    return n
+            else:
+                raise ValueError('Unknown combination of layout and distribution')
             p_nr = layout.n_macroparticle_per_cell[0]
             p_nt = layout.n_macroparticle_per_cell[1]
             p_nz = layout.n_macroparticle_per_cell[2]
             fbpic_species = self.fbpic_sim.add_new_species(
-                q=s.charge, m=s.mass, n=1.,
+                q=s.charge, m=s.mass, n=n0,
                 dens_func=dens_func, p_nz=p_nz, p_nr=p_nr, p_nt=p_nt,
                 p_zmin=s.initial_distribution.lower_bound[-1],
                 p_zmax=s.initial_distribution.upper_bound[-1],
@@ -266,5 +274,7 @@ class Simulation( PICMI_Simulation ):
 
 
     # Redefine the method `step` of the parent class
-    def step(self, nsteps):
+    def step(self, nsteps=None):
+        if nsteps is None:
+            nsteps = self.max_steps
         self.fbpic_sim.step( nsteps )
