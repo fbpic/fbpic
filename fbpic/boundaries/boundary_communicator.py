@@ -8,7 +8,7 @@ It defines the structure necessary to implement the boundary exchanges.
 import warnings
 import numpy as np
 from scipy.constants import c
-from fbpic.utils.mpi import MPI, comm, mpi_type_dict, \
+from fbpic.utils.mpi import comm, mpi_type_dict, \
     mpi_installed, gpudirect_enabled
 from fbpic.fields.fields import InterpolationGrid
 from fbpic.fields.utility_methods import get_stencil_reach
