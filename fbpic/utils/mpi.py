@@ -9,6 +9,7 @@ is not installed
 import os
 try:
     # Try to import MPI objects
+    import mpi4py
     from mpi4py import MPI
     from mpi4py.MPI import COMM_WORLD as comm
     # Dictionary of correspondance between numpy types and mpi types
@@ -30,6 +31,14 @@ try:
             gpudirect_enabled = False
     else:
         gpudirect_enabled = False
+
+    if gpudirect_enabled:
+        mpi4py_version_number = mpi4py.__version__.split('.')
+        mpi4py_major_version = int(mpi4py_version_number[0])
+        mpi4py_minor_version = int(mpi4py_version_number[1])
+        if (mpi4py_major_version < 3) or (mpi4py_minor_version < 1):
+            raise RuntimeError(
+                "In order to use GPU Direct, you need to install mpi4py>=3.1.")
 
 except ImportError:
     # If MPI is not installed, define dummy replacements
