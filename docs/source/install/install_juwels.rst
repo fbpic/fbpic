@@ -19,7 +19,8 @@ To load the standard modules the ``.bashrc`` should contain the following:
 
 ::
 
-    module load intel-para/2019a
+    module load GCC/8.3.0
+    module load MVAPICH2/2.3.3-GDR
 
 Installation of Anaconda
 ------------------------------------------------
@@ -47,7 +48,13 @@ library that is loaded on the cluster via the modules.
 
 ::
 
-   pip install mpi4py --no-cache-dir
+    pip install mpi4py --no-cache-dir
+
+If you want to use GPUdirect, you instead need the development version:
+
+::
+
+    pip install git+https://bitbucket.org/mpi4py/mpi4py.git --no-cache-dir
 
 You can check if the correct MPI is linked by opening a ``python`` shell
 and checking:
@@ -109,3 +116,12 @@ tasks (e.g. 8 GPUs). ``--pty`` activates continuous console output and
 established with ``ssh -Y username@juwels.fz-juelich.de``.
 
 ``srun --ntasks=8 --forward-x --pty python run_file.py``
+
+**Using GPUdirect**
+
+To take advantage of direct communication between MPI and the GPUs, run:
+
+``export FBPIC_ENABLE_GPUDIRECT=1``
+
+Note that this will only work with the correct MPI implementation (i.e. the
+cluster modules above) and requires the development version of ``mpi4py``.

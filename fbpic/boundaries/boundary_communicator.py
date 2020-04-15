@@ -8,7 +8,7 @@ It defines the structure necessary to implement the boundary exchanges.
 import warnings
 import numpy as np
 from scipy.constants import c
-from fbpic.utils.mpi import MPI, comm, mpi_type_dict, \
+from fbpic.utils.mpi import comm, mpi_type_dict, \
     mpi_installed, gpudirect_enabled
 from fbpic.fields.fields import InterpolationGrid
 from fbpic.fields.utility_methods import get_stencil_reach
@@ -644,14 +644,10 @@ class BoundaryCommunicator(object):
         # Prepare MPI call by pointing to the correct sending/receiving buffers
         if gpudirect_enabled:
             # Create create pointers to GPU array, for cuda-aware MPI
-            send_l = get_gpu_mpi_buffer(
-                        self.mpi_buffers.d_send_l[exchange_type] )
-            send_r = get_gpu_mpi_buffer(
-                        self.mpi_buffers.d_send_r[exchange_type] )
-            recv_l = get_gpu_mpi_buffer(
-                        self.mpi_buffers.d_recv_l[exchange_type] )
-            recv_r = get_gpu_mpi_buffer(
-                        self.mpi_buffers.d_recv_r[exchange_type] )
+            send_l = self.mpi_buffers.d_send_l[exchange_type] 
+            send_r = self.mpi_buffers.d_send_r[exchange_type]
+            recv_l = self.mpi_buffers.d_recv_l[exchange_type] 
+            recv_r = self.mpi_buffers.d_recv_r[exchange_type] 
         else:
             # Use arrays that are on the CPU
             send_l = self.mpi_buffers.send_l[ exchange_type ]
@@ -1226,23 +1222,3 @@ class BoundaryCommunicator(object):
         if self.rank == root:
             return(gathered_array)
 
-
-def get_gpu_mpi_buffer(gpu_array):
-    """
-    Prepare a GPU array to be send via GPUDirect with CUDA-aware MPI by
-    creating an MPI buffer object with mpi4py.
-
-    Parameters:
-    ------------
-    gpu_array: a numba GPU device array
-        The GPU array for which an MPI buffer is created
-
-    Returns:
-    --------
-    mpi_buffer: an MPI buffer object
-        A buffer that can be send via GPUDirect with CUDA-aware MPI
-    """
-    gpu_mpi_buffer = MPI.memory.fromaddress(
-        gpu_array.device_ctypes_pointer.value,
-        gpu_array.alloc_size )
-    return gpu_mpi_buffer
