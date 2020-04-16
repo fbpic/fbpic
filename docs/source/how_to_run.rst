@@ -145,7 +145,13 @@ install the openPMD-viewer by typing
 
 ::
 
-   conda install -c rlehe openpmd_viewer
+   pip install openpmd-viewer
+
+or
+
+::
+
+   conda install -c conda-forge openpmd-viewer
 
 And then type
 
@@ -157,3 +163,6 @@ and follow the instructions in the notebook that pops up. (NB: the
 notebook only shows some of the capabilities of the openPMD-viewer. To
 learn more, see the tutorial notebook on the  `Github repository
 <https://github.com/openPMD/openPMD-viewer>`_ of openPMD-viewer).
+
+If you want to render your simulation results in 3D, see the section
+:doc:`advanced/3d_visualization`.

@@ -9,9 +9,11 @@ It defines a number of methods that are useful for elementary processes
 import numpy as np
 from fbpic.utils.threading import njit_parallel, prange
 # Check if CUDA is available, then import CUDA functions
-from fbpic.utils.cuda import cuda_installed
+from fbpic.utils.cuda import cupy_installed, cuda_installed
+if cupy_installed:
+    import cupy
 if cuda_installed:
-    from fbpic.utils.cuda import cuda, cuda_tpb_bpg_1d
+    from fbpic.utils.cuda import cuda, cuda_tpb_bpg_1d, compile_cupy
 
 def allocate_empty( shape, use_cuda, dtype ):
     """
@@ -22,22 +24,26 @@ def allocate_empty( shape, use_cuda, dtype ):
         # Convert single scalar to tuple
         shape = (shape,)
     if use_cuda:
-        return( cuda.device_array( shape, dtype=dtype ) )
+        return( cupy.empty( shape, dtype=dtype ) )
     else:
         return( np.empty( shape, dtype=dtype ) )
 
-def perform_cumsum( input_array ):
+def perform_cumsum( input_array, use_cuda ):
     """
     Return an array containing the cumulative sum of the 1darray `input_array`
 
     (The returned array has one more element than `input_array`; its first
     element is 0 and its last element is the total sum of `input_array`)
     """
-    cumulative_array = np.zeros( len(input_array)+1, dtype=np.int64 )
-    np.cumsum( input_array, out=cumulative_array[1:] )
+    if use_cuda:
+        cumulative_array = cupy.zeros( len(input_array)+1, dtype=cupy.int64 )
+        cupy.cumsum( input_array, out=cumulative_array[1:] )
+    else:
+        cumulative_array = np.zeros( len(input_array)+1, dtype=np.int64 )
+        np.cumsum( input_array, out=cumulative_array[1:] )
     return( cumulative_array )
 
-def perform_cumsum_2d( input_array ):
+def perform_cumsum_2d( input_array, use_cuda ):
     """
     Return an array containing the cumulative sum of the 2darray `input_array`,
     where the cumsum is taken along the last axis.
@@ -45,10 +51,16 @@ def perform_cumsum_2d( input_array ):
     (The returned array has one more element than `input_array` along the
     last axis; its first element is 0 and its last element is the
     total sum of `input_array`)
+
+    If needed, the calculation is performed on the GPU.
     """
     new_shape = (input_array.shape[0], input_array.shape[1]+1)
-    cumulative_array = np.zeros( new_shape, dtype=np.int64 )
-    np.cumsum( input_array, out=cumulative_array[:,1:], axis=-1 )
+    if use_cuda:
+        cumulative_array = cupy.zeros( new_shape, dtype=cupy.int64 )
+        cupy.cumsum( input_array, out=cumulative_array[:,1:], axis=-1 )
+    else:
+        cumulative_array = np.zeros( new_shape, dtype=np.int64 )
+        np.cumsum( input_array, out=cumulative_array[:,1:], axis=-1 )
     return( cumulative_array )
 
 def reallocate_and_copy_old( species, use_cuda, old_Ntot, new_Ntot ):
@@ -102,12 +114,12 @@ def reallocate_and_copy_old( species, use_cuda, old_Ntot, new_Ntot ):
 
     # Allocate the auxiliary arrays for GPU
     if use_cuda:
-        species.cell_idx = cuda.device_array((new_Ntot,), dtype=np.int32)
-        species.sorted_idx = cuda.device_array((new_Ntot,), dtype=np.intp)
-        species.sorting_buffer = cuda.device_array((new_Ntot,), dtype=np.float64)
+        species.cell_idx = cupy.empty((new_Ntot,), dtype=np.int32)
+        species.sorted_idx = cupy.empty((new_Ntot,), dtype=np.intp)
+        species.sorting_buffer = cupy.empty((new_Ntot,), dtype=np.float64)
         if species.n_integer_quantities > 0:
             species.int_sorting_buffer = \
-                cuda.device_array( (new_Ntot,), dtype=np.uint64 )
+                cupy.empty( (new_Ntot,), dtype=np.uint64 )
 
     # Modify the total number of particles
     species.Ntot = new_Ntot
@@ -138,7 +150,7 @@ def copy_particle_data_numba( Ntot, old_array, new_array ):
     return( new_array )
 
 if cuda_installed:
-    @cuda.jit()
+    @compile_cupy
     def copy_particle_data_cuda( Ntot, old_array, new_array ):
         """
         Copy the `Ntot` elements of `old_array` into `new_array`, on GPU

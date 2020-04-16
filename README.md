@@ -1,7 +1,7 @@
 # Fourier-Bessel Particle-In-Cell code (FBPIC)
 
-[![Build Status master](https://img.shields.io/travis/fbpic/fbpic/master.svg?label=master)](https://travis-ci.org/fbpic/fbpic/branches)
-[![Build Status dev](https://img.shields.io/travis/fbpic/fbpic/dev.svg?label=dev)](https://travis-ci.org/fbpic/fbpic/branches)
+[![Build Status master](https://img.shields.io/travis/fbpic/fbpic/master.svg?label=master)](https://travis-ci.com/fbpic/fbpic/branches)
+[![Build Status dev](https://img.shields.io/travis/fbpic/fbpic/dev.svg?label=dev)](https://travis-ci.com/fbpic/fbpic/branches)
 [![pypi version](https://img.shields.io/pypi/v/fbpic.svg)](https://pypi.python.org/pypi/fbpic)
 [![License](https://img.shields.io/pypi/l/fbpic.svg)](LICENSE.txt)
 [![DOI](https://zenodo.org/badge/69215997.svg)](https://zenodo.org/badge/latestdoi/69215997)
@@ -118,9 +118,9 @@ FBPIC was originally developed by Remi Lehe at [Berkeley Lab](http://www.lbl.gov
 and Manuel Kirchen at
 [CFEL, Hamburg University](http://lux.cfel.de/). The code also
 benefitted from the contributions of Soeren Jalas (CFEL), Kevin Peters (CFEL),
-Irene Dornmair (CFEL), Igor Andriyash (Weizmann Institute), Omri Seemann
-(Weizmann Institute), Daniel Seipt (University of Michigan) and Samuel Yoffe
-(University of Strathclyde).
+Irene Dornmair (CFEL), Laurids Jeppe (CFEL), Igor Andriyash (Weizmann Institute),
+Omri Seemann (Weizmann Institute), Daniel Seipt (University of Michigan)
+and Samuel Yoffe (University of Strathclyde).
 
 FBPIC's algorithms are documented in following scientific publications:
 

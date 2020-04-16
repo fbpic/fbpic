@@ -104,19 +104,23 @@ class FieldDiagnostic(OpenPMDDiagnostic):
         dz = self.fld.interp[0].dz
         if self.comm is None:
             # No communicator: dump all the present subdomain
+            # (including damp cells and guard cells)
             zmin = self.fld.interp[0].zmin
             Nz = self.fld.interp[0].Nz
+            Nr = self.fld.interp[0].Nr
         else:
+            # Communicator present: only dump physical cells
             zmin, _ = self.comm.get_zmin_zmax(
                     local=False, with_damp=False, with_guard=False )
             Nz, _ = self.comm.get_Nz_and_iz(
                     local=False, with_damp=False, with_guard=False )
+            Nr = self.comm.get_Nr( with_damp=False )
 
         # Create the file with these attributes
         filename = "data%08d.h5" %iteration
         fullpath = os.path.join( self.write_dir, "hdf5", filename )
         self.create_file_empty_meshes(
-            fullpath, iteration, time, Nz, zmin, dz, dt )
+            fullpath, iteration, time, Nr, Nz, zmin, dz, dt )
 
         # Open the file again, and get the field path
         f = self.open_file( fullpath )
@@ -130,15 +134,18 @@ class FieldDiagnostic(OpenPMDDiagnostic):
         # Loop over the different quantities that should be written
         for fieldtype in self.fieldtypes:
             # Scalar field
-            if fieldtype == "rho" :
+            if fieldtype == "rho":
                 self.write_dataset( field_grp, "rho", "rho" )
             # Vector field
-            elif fieldtype in ["E", "B", "J"] :
+            elif fieldtype in ["E", "B", "J"]:
                 for coord in self.coords:
                     quantity = "%s%s" %(fieldtype, coord)
                     path = "%s/%s" %(fieldtype, coord)
                     self.write_dataset( field_grp, path, quantity )
-            else :
+            # PML field (save as scalar field)
+            elif fieldtype.endswith("_pml"):
+                self.write_dataset( field_grp, fieldtype, fieldtype )
+            else:
                 raise ValueError("Invalid string in fieldtypes: %s" %fieldtype)
 
         # Close the file (only the first proc does this)
@@ -217,7 +224,7 @@ class FieldDiagnostic(OpenPMDDiagnostic):
     # ---------------------
 
     def create_file_empty_meshes( self, fullpath, iteration,
-                                   time, Nz, zmin, dz, dt ):
+                                   time, Nr, Nz, zmin, dz, dt ):
         """
         Create an openPMD file with empty meshes and setup all its attributes
 
@@ -232,8 +239,8 @@ class FieldDiagnostic(OpenPMDDiagnostic):
         time: float (seconds)
             The physical time at this iteration
 
-        Nz: int
-            The number of gridpoints along z in this diagnostics
+        Nr, Nz: int
+            The number of gridpoints along r and z in this diagnostics
 
         zmin: float (meters)
             The position of the left end of the box
@@ -246,7 +253,7 @@ class FieldDiagnostic(OpenPMDDiagnostic):
         """
         # Determine the shape of the datasets that will be written
         # First write real part mode 0, then imaginary part of higher modes
-        data_shape = ( 2*self.fld.Nm - 1, self.fld.Nr, Nz )
+        data_shape = ( 2*self.fld.Nm - 1, Nr, Nz )
 
         # Create the file
         f = self.open_file( fullpath )
@@ -270,7 +277,8 @@ class FieldDiagnostic(OpenPMDDiagnostic):
                 # Scalar field
                 # e.g. 'rho', but also 'rho_electron' in the case of
                 # the sub-class ParticleDensityDiagnostic
-                if fieldtype.startswith("rho"):
+                # or PML component (saved as scalar field as well)
+                if fieldtype.startswith("rho") or fieldtype.endswith("_pml"):
                     # Setup the dataset
                     dset = field_grp.require_dataset(
                         fieldtype, data_shape, dtype='f8')

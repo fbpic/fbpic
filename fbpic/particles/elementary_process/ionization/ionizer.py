@@ -29,7 +29,6 @@ handled in batches of 10 particles, so that only the cumulative sum of the
 number of particles in each batch need to be performed.
 """
 import numpy as np
-from numba import cuda
 from scipy.constants import c, e, m_e, physical_constants
 from scipy.special import gamma
 from .read_atomic_data import get_ionization_energies
@@ -268,18 +267,15 @@ class Ionizer(object):
                 ion.ux, ion.uy, ion.uz, ion.Ex, ion.Ey, ion.Ez,
                 ion.Bx, ion.By, ion.Bz, ion.w, self.w_times_level )
 
-        # Count the total number of new electrons (operation always performed
-        # on the CPU, as this is typically difficult on the GPU)
-        if use_cuda:
-            n_ionized = n_ionized.copy_to_host()
-        cumulative_n_ionized = perform_cumsum_2d( n_ionized )
+        # Count the total number of new electrons 
+        cumulative_n_ionized = perform_cumsum_2d( n_ionized, use_cuda )
         # If no new particle was created, skip the rest of this function
-        if np.all( cumulative_n_ionized[:,-1] == 0 ):
-            return
-        # Copy the cumulated number of electrons back on GPU
-        # (Keep a copy on the CPU)
         if use_cuda:
-            d_cumulative_n_ionized = cuda.to_device( cumulative_n_ionized )
+            if cupy.all( cumulative_n_ionized[:,-1] == 0 ):
+                return
+        else:
+            if np.all( cumulative_n_ionized[:,-1] == 0 ):
+                return
 
         # Loop over the electron species associated to each level
         # (when store_electrons_per_level is False, there is a single species)
@@ -289,13 +285,14 @@ class Ionizer(object):
         assert len(self.target_species) == n_levels
         for i_level, elec in enumerate(self.target_species):
             old_Ntot = elec.Ntot
-            new_Ntot = old_Ntot + cumulative_n_ionized[i_level,-1]
+            # Cast to int transfers the data from the GPU if needed
+            new_Ntot = old_Ntot + int( cumulative_n_ionized[i_level,-1] )
             reallocate_and_copy_old( elec, use_cuda, old_Ntot, new_Ntot )
             # Create the new electrons from ionization (one thread per batch)
             if use_cuda:
                 copy_ionized_electrons_cuda[ batch_grid_1d, batch_block_1d ](
                     N_batch, self.batch_size, old_Ntot, ion.Ntot,
-                    d_cumulative_n_ionized, ionized_from,
+                    cumulative_n_ionized, ionized_from,
                     i_level, self.store_electrons_per_level,
                     elec.x, elec.y, elec.z, elec.inv_gamma,
                     elec.ux, elec.uy, elec.uz, elec.w,
@@ -328,13 +325,13 @@ class Ionizer(object):
         """
         if self.use_cuda:
             # Arrays with one element per macroparticles
-            self.ionization_level = cuda.to_device( self.ionization_level )
-            self.w_times_level = cuda.to_device( self.w_times_level )
+            self.ionization_level = cupy.asarray( self.ionization_level )
+            self.w_times_level = cupy.asarray( self.w_times_level )
             # Small-size arrays with ADK parameters
             # (One element per ionization level)
-            self.adk_power = cuda.to_device( self.adk_power )
-            self.adk_prefactor = cuda.to_device( self.adk_prefactor )
-            self.adk_exp_prefactor = cuda.to_device( self.adk_exp_prefactor )
+            self.adk_power = cupy.asarray( self.adk_power )
+            self.adk_prefactor = cupy.asarray( self.adk_prefactor )
+            self.adk_exp_prefactor = cupy.asarray( self.adk_exp_prefactor )
 
     def receive_from_gpu( self ):
         """
@@ -342,10 +339,10 @@ class Ionizer(object):
         """
         if self.use_cuda:
             # Arrays with one element per macroparticles
-            self.ionization_level = self.ionization_level.copy_to_host()
-            self.w_times_level = self.w_times_level.copy_to_host()
+            self.ionization_level = self.ionization_level.get()
+            self.w_times_level = self.w_times_level.get()
             # Small-size arrays with ADK parameters
             # (One element per ionization level)
-            self.adk_power = self.adk_power.copy_to_host()
-            self.adk_prefactor = self.adk_prefactor.copy_to_host()
-            self.adk_exp_prefactor = self.adk_exp_prefactor.copy_to_host()
+            self.adk_power = self.adk_power.get()
+            self.adk_prefactor = self.adk_prefactor.get()
+            self.adk_exp_prefactor = self.adk_exp_prefactor.get()

@@ -8,10 +8,12 @@ It defines the structure necessary to handle mpi buffers for the particles
 import numpy as np
 import numba
 # Check if CUDA is available, then import CUDA functions
-from fbpic.utils.cuda import cuda_installed
+from fbpic.utils.cuda import cupy_installed, cuda_installed
 from fbpic.utils.printing import catch_gpu_memory_error
+if cupy_installed:
+    import cupy
 if cuda_installed:
-    from fbpic.utils.cuda import cuda, cuda_tpb_bpg_1d
+    from fbpic.utils.cuda import cuda, cuda_tpb_bpg_1d, compile_cupy
 
 def remove_outside_particles(species, fld, n_guard, left_proc, right_proc):
     """
@@ -224,10 +226,10 @@ def remove_particles_gpu(species, fld, n_guard, left_proc, right_proc):
     # Reminder: prefix_sum[i] is the cumulative sum of the number of particles
     # in cells 0 to i (where cell i is included)
     if iz_min*(Nr+1) - 1 >= 0:
-        i_min = prefix_sum.getitem( iz_min*(Nr+1) - 1 )
+        i_min = int(prefix_sum[ iz_min*(Nr+1) - 1 ])
     else:
         i_min = 0
-    i_max = prefix_sum.getitem( iz_max*(Nr+1) - 1 )
+    i_max = int(prefix_sum[ iz_max*(Nr+1) - 1 ])
 
     # Total number of particles in each particle group
     N_send_l = i_min
@@ -263,9 +265,9 @@ def remove_particles_gpu(species, fld, n_guard, left_proc, right_proc):
     for i_attr in range(n_float):
         # Initialize 3 buffer arrays on the GPU (need to be initialized
         # inside the loop, as `copy_to_host` invalidates these arrays)
-        left_buffer = cuda.device_array((N_send_l,), dtype=np.float64)
-        right_buffer = cuda.device_array((N_send_r,), dtype=np.float64)
-        stay_buffer = cuda.device_array((new_Ntot,), dtype=np.float64)
+        left_buffer = cupy.empty((N_send_l,), dtype=np.float64)
+        right_buffer = cupy.empty((N_send_r,), dtype=np.float64)
+        stay_buffer = cupy.empty((new_Ntot,), dtype=np.float64)
         # Check that the buffers are still on GPU
         # (safeguard against automatic memory management)
         assert type(left_buffer) != np.ndarray
@@ -279,9 +281,9 @@ def remove_particles_gpu(species, fld, n_guard, left_proc, right_proc):
         # and fill the sending buffers (if needed for MPI)
         setattr( attr_list[i_attr][0], attr_list[i_attr][1], stay_buffer)
         if left_proc is not None:
-            left_buffer.copy_to_host( float_send_left[i_attr] )
+            left_buffer.get( out=float_send_left[i_attr] )
         if right_proc is not None:
-            right_buffer.copy_to_host( float_send_right[i_attr] )
+            right_buffer.get( out=float_send_right[i_attr] )
 
     # Integer quantities:
     if n_int > 0:
@@ -293,9 +295,9 @@ def remove_particles_gpu(species, fld, n_guard, left_proc, right_proc):
     for i_attr in range(n_int):
         # Initialize 3 buffer arrays on the GPU (need to be initialized
         # inside the loop, as `copy_to_host` invalidates these arrays)
-        left_buffer = cuda.device_array((N_send_l,), dtype=np.uint64)
-        right_buffer = cuda.device_array((N_send_r,), dtype=np.uint64)
-        stay_buffer = cuda.device_array((new_Ntot,), dtype=np.uint64)
+        left_buffer = cupy.empty((N_send_l,), dtype=np.uint64)
+        right_buffer = cupy.empty((N_send_r,), dtype=np.uint64)
+        stay_buffer = cupy.empty((new_Ntot,), dtype=np.uint64)
         # Split the particle array into the 3 buffers on the GPU
         particle_array = getattr( attr_list[i_attr][0], attr_list[i_attr][1] )
         split_particles_to_buffers[dim_grid_1d, dim_block_1d]( particle_array,
@@ -304,9 +306,9 @@ def remove_particles_gpu(species, fld, n_guard, left_proc, right_proc):
         # and fill the sending buffers (if needed for MPI)
         setattr( attr_list[i_attr][0], attr_list[i_attr][1], stay_buffer)
         if left_proc is not None:
-            left_buffer.copy_to_host( uint_send_left[i_attr] )
+            left_buffer.get( out=uint_send_left[i_attr] )
         if right_proc is not None:
-            right_buffer.copy_to_host( uint_send_right[i_attr] )
+            right_buffer.get( out=uint_send_right[i_attr] )
 
     # Change the new total number of particles
     species.Ntot = new_Ntot
@@ -349,20 +351,20 @@ def add_buffers_to_particles( species, float_recv_left, float_recv_right,
     if species.use_cuda:
         shape = (species.Ntot,)
         # Reallocate empty field-on-particle arrays on the GPU
-        species.Ex = cuda.device_array( shape, dtype=np.float64 )
-        species.Ex = cuda.device_array( shape, dtype=np.float64 )
-        species.Ey = cuda.device_array( shape, dtype=np.float64 )
-        species.Ez = cuda.device_array( shape, dtype=np.float64 )
-        species.Bx = cuda.device_array( shape, dtype=np.float64 )
-        species.By = cuda.device_array( shape, dtype=np.float64 )
-        species.Bz = cuda.device_array( shape, dtype=np.float64 )
+        species.Ex = cupy.empty( shape, dtype=np.float64 )
+        species.Ex = cupy.empty( shape, dtype=np.float64 )
+        species.Ey = cupy.empty( shape, dtype=np.float64 )
+        species.Ez = cupy.empty( shape, dtype=np.float64 )
+        species.Bx = cupy.empty( shape, dtype=np.float64 )
+        species.By = cupy.empty( shape, dtype=np.float64 )
+        species.Bz = cupy.empty( shape, dtype=np.float64 )
         # Reallocate empty auxiliary sorting arrays on the GPU
-        species.cell_idx = cuda.device_array( shape, dtype=np.int32 )
-        species.sorted_idx = cuda.device_array( shape, dtype=np.intp )
-        species.sorting_buffer = cuda.device_array( shape, dtype=np.float64 )
+        species.cell_idx = cupy.empty( shape, dtype=np.int32 )
+        species.sorted_idx = cupy.empty( shape, dtype=np.intp )
+        species.sorting_buffer = cupy.empty( shape, dtype=np.float64 )
         if species.n_integer_quantities > 0:
             species.int_sorting_buffer = \
-                cuda.device_array( shape, dtype=np.uint64 )
+                cupy.empty( shape, dtype=np.uint64 )
     else:
         # Reallocate empty field-on-particle arrays on the CPU
         species.Ex = np.empty(species.Ntot, dtype=np.float64)
@@ -459,10 +461,10 @@ def add_buffers_gpu( species, float_recv_left, float_recv_right,
     # Loop through the float quantities
     for i_attr in range( len(attr_list) ):
         # Copy the proper buffers to the GPU
-        left_buffer = cuda.to_device( float_recv_left[i_attr] )
-        right_buffer = cuda.to_device( float_recv_right[i_attr] )
+        left_buffer = cupy.asarray( float_recv_left[i_attr] )
+        right_buffer = cupy.asarray( float_recv_right[i_attr] )
         # Initialize the new particle array
-        particle_array = cuda.device_array( (new_Ntot,), dtype=np.float64)
+        particle_array = cupy.empty( (new_Ntot,), dtype=np.float64)
         # Merge the arrays on the GPU
         stay_buffer = getattr( attr_list[i_attr][0], attr_list[i_attr][1])
         if n_left != 0:
@@ -487,10 +489,10 @@ def add_buffers_gpu( species, float_recv_left, float_recv_right,
     # Loop through the integer quantities
     for i_attr in range( len(attr_list) ):
         # Copy the proper buffers to the GPU
-        left_buffer = cuda.to_device( uint_recv_left[i_attr] )
-        right_buffer = cuda.to_device( uint_recv_right[i_attr] )
+        left_buffer = cupy.asarray( uint_recv_left[i_attr] )
+        right_buffer = cupy.asarray( uint_recv_right[i_attr] )
         # Initialize the new particle array
-        particle_array = cuda.device_array( (new_Ntot,), dtype=np.uint64)
+        particle_array = cupy.empty( (new_Ntot,), dtype=np.uint64)
         # Merge the arrays on the GPU
         stay_buffer = getattr( attr_list[i_attr][0], attr_list[i_attr][1])
         if n_left != 0:
@@ -558,7 +560,7 @@ def shift_particles_periodic_numba( z, zmin, zmax ):
 # -------------
 if cuda_installed:
 
-    @cuda.jit
+    @compile_cupy
     def split_particles_to_buffers( particle_array, left_buffer,
                     stay_buffer, right_buffer, i_min, i_max ):
         """
@@ -605,7 +607,7 @@ if cuda_installed:
             if (n_right != 0):
                 right_buffer[i-i_max] = particle_array[i]
 
-    @cuda.jit
+    @compile_cupy
     def copy_particles( N_elements, source_array, source_start,
                                     target_array, target_start ):
         """
@@ -632,7 +634,7 @@ if cuda_installed:
             target_array[i+target_start] = source_array[i+source_start]
 
 
-    @cuda.jit
+    @compile_cupy
     def shift_particles_periodic_cuda( z, zmin, zmax ):
         """
         Shift the particle positions by an integer number of box length,

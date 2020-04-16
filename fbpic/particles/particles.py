@@ -28,10 +28,12 @@ from .deposition.threading_methods import \
 # Check if threading is enabled
 from fbpic.utils.threading import nthreads, get_chunk_indices
 # Check if CUDA is available, then import CUDA functions
-from fbpic.utils.cuda import cuda_installed
+from fbpic.utils.cuda import cupy_installed, cuda_installed
+if cupy_installed:
+    import cupy
 if cuda_installed:
     # Load the CUDA methods
-    from fbpic.utils.cuda import cuda, cuda_tpb_bpg_1d, cuda_gpu_model
+    from fbpic.utils.cuda import cuda_tpb_bpg_1d, cuda_gpu_model
     from .push.cuda_methods import push_p_gpu, push_p_ioniz_gpu, \
                                 push_p_after_plane_gpu, push_x_gpu
     from .deposition.cuda_methods import deposit_rho_gpu_linear, \
@@ -144,6 +146,7 @@ class Particles(object) :
                 'Cuda not available for the particles.\n'
                 'Performing the particle operations on the CPU.')
             self.use_cuda = False
+        self.data_is_on_gpu = False # Data is initialized on the CPU
 
         # Generate evenly-spaced particles
         Ntot, x, y, z, ux, uy, uz, inv_gamma, w = generate_evenly_spaced(
@@ -200,6 +203,11 @@ class Particles(object) :
         # Register particle shape
         self.particle_shape = particle_shape
 
+        # Register boolean that records whether field array should
+        # be rearranged whenever sorting particles
+        # (gets modified during the main PIC loop, on GPU)
+        self.keep_fields_sorted = False
+
         # Allocate arrays and register variables when using CUDA
         if self.use_cuda:
             if grid_shape is None:
@@ -210,9 +218,9 @@ class Particles(object) :
             # Allocate arrays for the particles sorting when using CUDA
             # Most required arrays always stay on GPU
             Nz, Nr = grid_shape
-            self.cell_idx = cuda.device_array( Ntot, dtype=np.int32)
-            self.sorted_idx = cuda.device_array( Ntot, dtype=np.intp)
-            self.prefix_sum = cuda.device_array( Nz*(Nr+1), dtype=np.int32 )
+            self.cell_idx = cupy.empty( Ntot, dtype=np.int32)
+            self.sorted_idx = cupy.empty( Ntot, dtype=np.intp)
+            self.prefix_sum = cupy.empty( Nz*(Nr+1), dtype=np.int32 )
             # sorting buffers are initialized on CPU like other particle arrays
             # (because they are swapped with these arrays during sorting)
             self.sorting_buffer = np.empty( Ntot, dtype=np.float64)
@@ -240,28 +248,28 @@ class Particles(object) :
         if self.use_cuda:
             # Send positions, velocities, inverse gamma and weights
             # to the GPU (CUDA)
-            self.x = cuda.to_device(self.x)
-            self.y = cuda.to_device(self.y)
-            self.z = cuda.to_device(self.z)
-            self.ux = cuda.to_device(self.ux)
-            self.uy = cuda.to_device(self.uy)
-            self.uz = cuda.to_device(self.uz)
-            self.inv_gamma = cuda.to_device(self.inv_gamma)
-            self.w = cuda.to_device(self.w)
+            self.x = cupy.asarray(self.x)
+            self.y = cupy.asarray(self.y)
+            self.z = cupy.asarray(self.z)
+            self.ux = cupy.asarray(self.ux)
+            self.uy = cupy.asarray(self.uy)
+            self.uz = cupy.asarray(self.uz)
+            self.inv_gamma = cupy.asarray(self.inv_gamma)
+            self.w = cupy.asarray(self.w)
 
             # Copy arrays on the GPU for the field
             # gathering and the particle push
-            self.Ex = cuda.to_device(self.Ex)
-            self.Ey = cuda.to_device(self.Ey)
-            self.Ez = cuda.to_device(self.Ez)
-            self.Bx = cuda.to_device(self.Bx)
-            self.By = cuda.to_device(self.By)
-            self.Bz = cuda.to_device(self.Bz)
+            self.Ex = cupy.asarray(self.Ex)
+            self.Ey = cupy.asarray(self.Ey)
+            self.Ez = cupy.asarray(self.Ez)
+            self.Bx = cupy.asarray(self.Bx)
+            self.By = cupy.asarray(self.By)
+            self.Bz = cupy.asarray(self.Bz)
 
             # Copy sorting buffers on the GPU
-            self.sorting_buffer = cuda.to_device(self.sorting_buffer)
+            self.sorting_buffer = cupy.asarray(self.sorting_buffer)
             if self.n_integer_quantities > 0:
-                self.int_sorting_buffer = cuda.to_device(self.int_sorting_buffer)
+                self.int_sorting_buffer = cupy.asarray(self.int_sorting_buffer)
 
             # Copy particle tracker data
             if self.tracker is not None:
@@ -269,6 +277,9 @@ class Particles(object) :
             # Copy the ionization data
             if self.ionizer is not None:
                 self.ionizer.send_to_gpu()
+
+            # Modify flag accordingly
+            self.data_is_on_gpu = True
 
     def receive_particles_from_gpu( self ):
         """
@@ -278,29 +289,29 @@ class Particles(object) :
         if self.use_cuda:
             # Copy the positions, velocities, inverse gamma and weights
             # to the GPU (CUDA)
-            self.x = self.x.copy_to_host()
-            self.y = self.y.copy_to_host()
-            self.z = self.z.copy_to_host()
-            self.ux = self.ux.copy_to_host()
-            self.uy = self.uy.copy_to_host()
-            self.uz = self.uz.copy_to_host()
-            self.inv_gamma = self.inv_gamma.copy_to_host()
-            self.w = self.w.copy_to_host()
+            self.x = self.x.get()
+            self.y = self.y.get()
+            self.z = self.z.get()
+            self.ux = self.ux.get()
+            self.uy = self.uy.get()
+            self.uz = self.uz.get()
+            self.inv_gamma = self.inv_gamma.get()
+            self.w = self.w.get()
 
             # Copy arrays on the CPU for the field
             # gathering and the particle push
-            self.Ex = self.Ex.copy_to_host()
-            self.Ey = self.Ey.copy_to_host()
-            self.Ez = self.Ez.copy_to_host()
-            self.Bx = self.Bx.copy_to_host()
-            self.By = self.By.copy_to_host()
-            self.Bz = self.Bz.copy_to_host()
+            self.Ex = self.Ex.get()
+            self.Ey = self.Ey.get()
+            self.Ez = self.Ez.get()
+            self.Bx = self.Bx.get()
+            self.By = self.By.get()
+            self.Bz = self.Bz.get()
 
             # Copy arrays on the CPU
             # that represent the sorting arrays
-            self.sorting_buffer = self.sorting_buffer.copy_to_host()
+            self.sorting_buffer = self.sorting_buffer.get()
             if self.n_integer_quantities > 0:
-                self.int_sorting_buffer = self.int_sorting_buffer.copy_to_host()
+                self.int_sorting_buffer = self.int_sorting_buffer.get()
 
             # Copy particle tracker data
             if self.tracker is not None:
@@ -308,6 +319,9 @@ class Particles(object) :
             # Copy the ionization data
             if self.ionizer is not None:
                 self.ionizer.receive_from_gpu()
+
+            # Modify flag accordingly
+            self.data_is_on_gpu = False
 
     def generate_continuously_injected_particles( self, time ):
         """
@@ -501,6 +515,9 @@ class Particles(object) :
         attr_list = [ (self,'x'), (self,'y'), (self,'z'), \
                         (self,'ux'), (self,'uy'), (self,'uz'), \
                         (self, 'w'), (self,'inv_gamma') ]
+        if self.keep_fields_sorted:
+            attr_list += [ (self, 'Ex'), (self, 'Ey'), (self, 'Ez'), \
+                            (self, 'Bx'), (self, 'By'), (self, 'Bz') ]
         if self.ionizer is not None:
             attr_list += [ (self.ionizer,'w_times_level') ]
         for attr in attr_list:
@@ -648,7 +665,7 @@ class Particles(object) :
                 self.inv_gamma, self.Ntot,
                 dt, x_push, y_push, z_push )
 
-    def gather( self, grid ) :
+    def gather( self, grid, comm ) :
         """
         Gather the fields onto the macroparticles
 
@@ -660,6 +677,10 @@ class Particles(object) :
         grid : a list of InterpolationGrid objects
              (one InterpolationGrid object per azimuthal mode)
              Contains the field values on the interpolation grid
+
+        comm: an fbpic.BoundaryCommunicator object
+            Contains information about the number of processors
+            and the local and global box dimensions.
         """
         # Skip gathering for neutral particles (e.g. photons)
         if self.q == 0:
@@ -667,6 +688,9 @@ class Particles(object) :
 
         # Number of modes
         Nm = len(grid)
+
+        # Restrict field gathering to physical domain
+        rmax_gather = comm.get_rmax( with_damp=False )
 
         # GPU (CUDA) version
         if self.use_cuda:
@@ -679,6 +703,7 @@ class Particles(object) :
                     # Optimized version for 2 modes
                     gather_field_gpu_linear[dim_grid_1d, dim_block_1d](
                          self.x, self.y, self.z,
+                         rmax_gather,
                          grid[0].invdz, grid[0].zmin, grid[0].Nz,
                          grid[0].invdr, grid[0].rmin, grid[0].Nr,
                          grid[0].Er, grid[0].Et, grid[0].Ez,
@@ -696,6 +721,7 @@ class Particles(object) :
                         gather_field_gpu_linear_one_mode[
                             dim_grid_1d, dim_block_1d](
                             self.x, self.y, self.z,
+                            rmax_gather,
                             grid[m].invdz, grid[m].zmin, grid[m].Nz,
                             grid[m].invdr, grid[m].rmin, grid[m].Nr,
                             grid[m].Er, grid[m].Et, grid[m].Ez,
@@ -707,6 +733,7 @@ class Particles(object) :
                     # Optimized version for 2 modes
                     gather_field_gpu_cubic[dim_grid_1d, dim_block_1d](
                          self.x, self.y, self.z,
+                         rmax_gather,
                          grid[0].invdz, grid[0].zmin, grid[0].Nz,
                          grid[0].invdr, grid[0].rmin, grid[0].Nr,
                          grid[0].Er, grid[0].Et, grid[0].Ez,
@@ -724,6 +751,7 @@ class Particles(object) :
                         gather_field_gpu_cubic_one_mode[
                             dim_grid_1d, dim_block_1d](
                             self.x, self.y, self.z,
+                            rmax_gather,
                             grid[m].invdz, grid[m].zmin, grid[m].Nz,
                             grid[m].invdr, grid[m].rmin, grid[m].Nr,
                             grid[m].Er, grid[m].Et, grid[m].Ez,
@@ -741,6 +769,7 @@ class Particles(object) :
                     # Optimized version for 2 modes
                     gather_field_numba_linear(
                         self.x, self.y, self.z,
+                        rmax_gather,
                         grid[0].invdz, grid[0].zmin, grid[0].Nz,
                         grid[0].invdr, grid[0].rmin, grid[0].Nr,
                         grid[0].Er, grid[0].Et, grid[0].Ez,
@@ -756,6 +785,7 @@ class Particles(object) :
                     for m in range(Nm):
                         gather_field_numba_linear_one_mode(
                             self.x, self.y, self.z,
+                            rmax_gather,
                             grid[m].invdz, grid[m].zmin, grid[m].Nz,
                             grid[m].invdr, grid[m].rmin, grid[m].Nr,
                             grid[m].Er, grid[m].Et, grid[m].Ez,
@@ -771,6 +801,7 @@ class Particles(object) :
                     # Optimized version for 2 modes
                     gather_field_numba_cubic(
                         self.x, self.y, self.z,
+                        rmax_gather,
                         grid[0].invdz, grid[0].zmin, grid[0].Nz,
                         grid[0].invdr, grid[0].rmin, grid[0].Nr,
                         grid[0].Er, grid[0].Et, grid[0].Ez,
@@ -787,6 +818,7 @@ class Particles(object) :
                     for m in range(Nm):
                         gather_field_numba_cubic_one_mode(
                             self.x, self.y, self.z,
+                            rmax_gather,
                             grid[m].invdz, grid[m].zmin, grid[m].Nz,
                             grid[m].invdr, grid[m].rmin, grid[m].Nr,
                             grid[m].Er, grid[m].Et, grid[m].Ez,

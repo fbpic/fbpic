@@ -8,9 +8,10 @@ It defines the InterpolationGrid class.
 import numpy as np
 from fbpic.fields.spectral_transform.hankel import DHT
 from scipy.special import j1, jn_zeros
-from numba import cuda
 # Check if CUDA is available, then import CUDA functions
-from fbpic.utils.cuda import cuda_installed
+from fbpic.utils.cuda import cupy_installed, cuda_installed
+if cupy_installed:
+    import cupy
 if cuda_installed:
     from fbpic.utils.cuda import cuda_tpb_bpg_2d
     from .cuda_methods import \
@@ -27,7 +28,8 @@ class InterpolationGrid(object) :
       2darrays containing the fields.
     """
 
-    def __init__(self, Nz, Nr, m, zmin, zmax, rmax, use_cuda=False ) :
+    def __init__(self, Nz, Nr, m, zmin, zmax, rmax,
+                    use_pml=False, use_cuda=False ):
         """
         Allocates the matrices corresponding to the spatial grid
 
@@ -46,6 +48,9 @@ class InterpolationGrid(object) :
         rmax : float
             The position of the edge of the box along r
 
+        use_pml: bool, optional
+            Whether to allocate and use Perfectly-Matched-Layers split fields
+
         use_cuda : bool, optional
             Wether to use the GPU or not
         """
@@ -53,6 +58,7 @@ class InterpolationGrid(object) :
         self.Nz = Nz
         self.Nr = Nr
         self.m = m
+        self.use_pml = use_pml
 
         # Register a few grid properties
         dr = rmax/Nr
@@ -96,13 +102,19 @@ class InterpolationGrid(object) :
         self.Jt = np.zeros( (Nz, Nr), dtype='complex' )
         self.Jz = np.zeros( (Nz, Nr), dtype='complex' )
         self.rho = np.zeros( (Nz, Nr), dtype='complex' )
+        # Allocate the PML fields if needed
+        if self.use_pml:
+            self.Er_pml = np.zeros( (Nz, Nr), dtype='complex' )
+            self.Et_pml = np.zeros( (Nz, Nr), dtype='complex' )
+            self.Br_pml = np.zeros( (Nz, Nr), dtype='complex' )
+            self.Bt_pml = np.zeros( (Nz, Nr), dtype='complex' )
 
         # Check whether the GPU should be used
         self.use_cuda = use_cuda
 
         # Replace the invvol array by an array on the GPU, when using cuda
         if self.use_cuda :
-            self.d_invvol = cuda.to_device( self.invvol )
+            self.d_invvol = cupy.asarray( self.invvol )
 
     @property
     def z(self):
@@ -121,16 +133,21 @@ class InterpolationGrid(object) :
         After this function is called, the array attributes
         point to GPU arrays.
         """
-        self.Er = cuda.to_device( self.Er )
-        self.Et = cuda.to_device( self.Et )
-        self.Ez = cuda.to_device( self.Ez )
-        self.Br = cuda.to_device( self.Br )
-        self.Bt = cuda.to_device( self.Bt )
-        self.Bz = cuda.to_device( self.Bz )
-        self.Jr = cuda.to_device( self.Jr )
-        self.Jt = cuda.to_device( self.Jt )
-        self.Jz = cuda.to_device( self.Jz )
-        self.rho = cuda.to_device( self.rho )
+        self.Er = cupy.asarray( self.Er )
+        self.Et = cupy.asarray( self.Et )
+        self.Ez = cupy.asarray( self.Ez )
+        self.Br = cupy.asarray( self.Br )
+        self.Bt = cupy.asarray( self.Bt )
+        self.Bz = cupy.asarray( self.Bz )
+        self.Jr = cupy.asarray( self.Jr )
+        self.Jt = cupy.asarray( self.Jt )
+        self.Jz = cupy.asarray( self.Jz )
+        self.rho = cupy.asarray( self.rho )
+        if self.use_pml:
+            self.Er_pml = cupy.asarray( self.Er_pml )
+            self.Et_pml = cupy.asarray( self.Et_pml )
+            self.Br_pml = cupy.asarray( self.Br_pml )
+            self.Bt_pml = cupy.asarray( self.Bt_pml )
 
     def receive_fields_from_gpu( self ):
         """
@@ -139,16 +156,21 @@ class InterpolationGrid(object) :
         After this function is called, the array attributes
         are accessible by the CPU again.
         """
-        self.Er = self.Er.copy_to_host()
-        self.Et = self.Et.copy_to_host()
-        self.Ez = self.Ez.copy_to_host()
-        self.Br = self.Br.copy_to_host()
-        self.Bt = self.Bt.copy_to_host()
-        self.Bz = self.Bz.copy_to_host()
-        self.Jr = self.Jr.copy_to_host()
-        self.Jt = self.Jt.copy_to_host()
-        self.Jz = self.Jz.copy_to_host()
-        self.rho = self.rho.copy_to_host()
+        self.Er = self.Er.get()
+        self.Et = self.Et.get()
+        self.Ez = self.Ez.get()
+        self.Br = self.Br.get()
+        self.Bt = self.Bt.get()
+        self.Bz = self.Bz.get()
+        self.Jr = self.Jr.get()
+        self.Jt = self.Jt.get()
+        self.Jz = self.Jz.get()
+        self.rho = self.rho.get()
+        if self.use_pml:
+            self.Er_pml = self.Er_pml.get()
+            self.Et_pml = self.Et_pml.get()
+            self.Br_pml = self.Br_pml.get()
+            self.Bt_pml = self.Bt_pml.get()
 
     def erase( self, fieldtype ):
         """

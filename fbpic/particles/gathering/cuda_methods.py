@@ -7,6 +7,7 @@ It defines the field gathering methods linear and cubic order shapes
 on the GPU using CUDA.
 """
 from numba import cuda, float64, int64
+from fbpic.utils.cuda import compile_cupy
 import math
 # Import inline functions
 from .inline_functions import \
@@ -21,8 +22,9 @@ add_cubic_gather_for_mode = cuda.jit( add_cubic_gather_for_mode,
 # Field gathering linear
 # -----------------------
 
-@cuda.jit
+@compile_cupy
 def gather_field_gpu_linear(x, y, z,
+                    rmax_gather,
                     invdz, zmin, Nz,
                     invdr, rmin, Nr,
                     Er_m0, Et_m0, Ez_m0,
@@ -43,6 +45,9 @@ def gather_field_gpu_linear(x, y, z,
     ----------
     x, y, z : 1darray of floats (in meters)
         The position of the particles
+
+    rmax_gather: float (in meters)
+        The radius above which particle do not gather anymore
 
     invdz, invdr : float (in meters^-1)
         Inverse of the grid step along the considered direction
@@ -153,16 +158,18 @@ def gather_field_gpu_linear(x, y, z,
         Fr = 0.
         Ft = 0.
         Fz = 0.
-        # Add contribution from mode 0
-        Fr, Ft, Fz = add_linear_gather_for_mode( 0,
-            Fr, Ft, Fz, exptheta_m0, Er_m0, Et_m0, Ez_m0,
-            iz_lower, iz_upper, ir_lower, ir_upper,
-            S_ll, S_lu, S_lg, S_ul, S_uu, S_ug )
-        # Add contribution from mode 1
-        Fr, Ft, Fz = add_linear_gather_for_mode( 1,
-            Fr, Ft, Fz, exptheta_m1, Er_m1, Et_m1, Ez_m1,
-            iz_lower, iz_upper, ir_lower, ir_upper,
-            S_ll, S_lu, S_lg, S_ul, S_uu, S_ug )
+        # Only perform gathering for particles that are below rmax_gather
+        if rj < rmax_gather:
+            # Add contribution from mode 0
+            Fr, Ft, Fz = add_linear_gather_for_mode( 0,
+                Fr, Ft, Fz, exptheta_m0, Er_m0, Et_m0, Ez_m0,
+                iz_lower, iz_upper, ir_lower, ir_upper,
+                S_ll, S_lu, S_lg, S_ul, S_uu, S_ug )
+            # Add contribution from mode 1
+            Fr, Ft, Fz = add_linear_gather_for_mode( 1,
+                Fr, Ft, Fz, exptheta_m1, Er_m1, Et_m1, Ez_m1,
+                iz_lower, iz_upper, ir_lower, ir_upper,
+                S_ll, S_lu, S_lg, S_ul, S_uu, S_ug )
         # Convert to Cartesian coordinates
         # and write to particle field arrays
         Ex[i] = cos*Fr - sin*Ft
@@ -176,16 +183,18 @@ def gather_field_gpu_linear(x, y, z,
         Fr = 0.
         Ft = 0.
         Fz = 0.
-        # Add contribution from mode 0
-        Fr, Ft, Fz = add_linear_gather_for_mode( 0,
-            Fr, Ft, Fz, exptheta_m0, Br_m0, Bt_m0, Bz_m0,
-            iz_lower, iz_upper, ir_lower, ir_upper,
-            S_ll, S_lu, S_lg, S_ul, S_uu, S_ug )
-        # Add contribution from mode 1
-        Fr, Ft, Fz = add_linear_gather_for_mode( 1,
-            Fr, Ft, Fz, exptheta_m1, Br_m1, Bt_m1, Bz_m1,
-            iz_lower, iz_upper, ir_lower, ir_upper,
-            S_ll, S_lu, S_lg, S_ul, S_uu, S_ug )
+        # Only perform gathering for particles that are below rmax_gather
+        if rj < rmax_gather:
+            # Add contribution from mode 0
+            Fr, Ft, Fz = add_linear_gather_for_mode( 0,
+                Fr, Ft, Fz, exptheta_m0, Br_m0, Bt_m0, Bz_m0,
+                iz_lower, iz_upper, ir_lower, ir_upper,
+                S_ll, S_lu, S_lg, S_ul, S_uu, S_ug )
+            # Add contribution from mode 1
+            Fr, Ft, Fz = add_linear_gather_for_mode( 1,
+                Fr, Ft, Fz, exptheta_m1, Br_m1, Bt_m1, Bz_m1,
+                iz_lower, iz_upper, ir_lower, ir_upper,
+                S_ll, S_lu, S_lg, S_ul, S_uu, S_ug )
         # Convert to Cartesian coordinates
         # and write to particle field arrays
         Bx[i] = cos*Fr - sin*Ft
@@ -196,8 +205,9 @@ def gather_field_gpu_linear(x, y, z,
 # Field gathering cubic
 # -----------------------
 
-@cuda.jit
+@compile_cupy
 def gather_field_gpu_cubic(x, y, z,
+                    rmax_gather,
                     invdz, zmin, Nz,
                     invdr, rmin, Nr,
                     Er_m0, Et_m0, Ez_m0,
@@ -218,6 +228,9 @@ def gather_field_gpu_cubic(x, y, z,
     ----------
     x, y, z : 1darray of floats (in meters)
         The position of the particles
+
+    rmax_gather: float (in meters)
+        The radius above which particle do not gather anymore
 
     invdz, invdr : float (in meters^-1)
         Inverse of the grid step along the considered direction
@@ -301,14 +314,16 @@ def gather_field_gpu_cubic(x, y, z,
         Fr = 0.
         Ft = 0.
         Fz = 0.
-        # Add contribution from mode 0
-        Fr, Ft, Fz = add_cubic_gather_for_mode( 0,
-            Fr, Ft, Fz, exptheta_m0, Er_m0, Et_m0, Ez_m0,
-            ir_lowest, iz_lowest, Sr, Sz, Nr, Nz )
-        # Add contribution from mode 1
-        Fr, Ft, Fz = add_cubic_gather_for_mode( 1,
-            Fr, Ft, Fz, exptheta_m1, Er_m1, Et_m1, Ez_m1,
-            ir_lowest, iz_lowest, Sr, Sz, Nr, Nz )
+        # Only perform gathering for particles that are below rmax_gather
+        if rj < rmax_gather:
+            # Add contribution from mode 0
+            Fr, Ft, Fz = add_cubic_gather_for_mode( 0,
+                Fr, Ft, Fz, exptheta_m0, Er_m0, Et_m0, Ez_m0,
+                ir_lowest, iz_lowest, Sr, Sz, Nr, Nz )
+            # Add contribution from mode 1
+            Fr, Ft, Fz = add_cubic_gather_for_mode( 1,
+                Fr, Ft, Fz, exptheta_m1, Er_m1, Et_m1, Ez_m1,
+                ir_lowest, iz_lowest, Sr, Sz, Nr, Nz )
         # Convert to Cartesian coordinates
         # and write to particle field arrays
         Ex[i] = cos*Fr - sin*Ft
@@ -322,14 +337,16 @@ def gather_field_gpu_cubic(x, y, z,
         Fr = 0.
         Ft = 0.
         Fz = 0.
-        # Add contribution from mode 0
-        Fr, Ft, Fz =  add_cubic_gather_for_mode( 0,
-            Fr, Ft, Fz, exptheta_m0, Br_m0, Bt_m0, Bz_m0,
-            ir_lowest, iz_lowest, Sr, Sz, Nr, Nz )
-        # Add contribution from mode 1
-        Fr, Ft, Fz =  add_cubic_gather_for_mode( 1,
-            Fr, Ft, Fz, exptheta_m1, Br_m1, Bt_m1, Bz_m1,
-            ir_lowest, iz_lowest, Sr, Sz, Nr, Nz )
+        # Only perform gathering for particles that are below rmax_gather
+        if rj < rmax_gather:
+            # Add contribution from mode 0
+            Fr, Ft, Fz =  add_cubic_gather_for_mode( 0,
+                Fr, Ft, Fz, exptheta_m0, Br_m0, Bt_m0, Bz_m0,
+                ir_lowest, iz_lowest, Sr, Sz, Nr, Nz )
+            # Add contribution from mode 1
+            Fr, Ft, Fz =  add_cubic_gather_for_mode( 1,
+                Fr, Ft, Fz, exptheta_m1, Br_m1, Bt_m1, Bz_m1,
+                ir_lowest, iz_lowest, Sr, Sz, Nr, Nz )
         # Convert to Cartesian coordinates
         # and write to particle field arrays
         Bx[i] = cos*Fr - sin*Ft

@@ -32,7 +32,7 @@ from fbpic.lpa_utils.boosted_frame import BoostConverter
 from fbpic.openpmd_diag import ParticleDiagnostic, \
     BackTransformedParticleDiagnostic
 # Import openPMD-viewer for checking output files
-from opmd_viewer import OpenPMDTimeSeries
+from openpmd_viewer import OpenPMDTimeSeries
 
 # ----------
 # Parameters
@@ -119,9 +119,9 @@ def run_simulation( gamma_boost, use_separate_electron_species ):
     # Initialize the simulation object, with the neutralizing electrons
     # No particles are created because we do not pass the density
     sim = Simulation( Nz, zmax, Nr, rmax, Nm, dt, zmin=zmin,
-        initialize_ions=False, v_comoving=v_plasma,
-        use_galilean=False, boundaries='open', use_cuda=use_cuda )
-    sim.ptcl = []
+        v_comoving=v_plasma, use_galilean=False,
+        boundaries='open', use_cuda=use_cuda )
+
     # Add the charge-neutralizing electrons
     elec = sim.add_new_species( q=-e, m=m_e, n=level_start*n_atoms,
                         p_nz=p_nz, p_nr=p_nr, p_nt=p_nt,

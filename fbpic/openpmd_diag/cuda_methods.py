@@ -6,7 +6,7 @@ This files contains cuda methods that are used in the boosted-frame
 diagnostics
 """
 import numpy as np
-from fbpic.utils.cuda import cuda, cuda_tpb_bpg_1d
+from fbpic.utils.cuda import cupy, cuda, cuda_tpb_bpg_1d, compile_cupy
 
 def extract_slice_from_gpu( pref_sum_curr, N_area, species ):
     """
@@ -32,39 +32,39 @@ def extract_slice_from_gpu( pref_sum_curr, N_area, species ):
     # Call kernel that extracts particles from GPU
     dim_grid_1d, dim_block_1d = cuda_tpb_bpg_1d(N_area)
     # - General particle quantities
-    part_data = cuda.device_array( (8, N_area), dtype=np.float64 )
+    part_data = cupy.empty( (8, N_area), dtype=np.float64 )
     extract_particles_from_gpu[dim_grid_1d, dim_block_1d]( pref_sum_curr,
          species.x, species.y, species.z, species.ux, species.uy, species.uz,
          species.w, species.inv_gamma, part_data )
     # - Optional particle arrays
     if species.tracker is not None:
-        selected_particle_id = cuda.device_array( (N_area,), dtype=np.uint64 )
+        selected_particle_id = cupy.empty( (N_area,), dtype=np.uint64 )
         extract_array_from_gpu[dim_grid_1d, dim_block_1d](
             pref_sum_curr, species.tracker.id, selected_particle_id )
     if species.ionizer is not None:
-        selected_particle_charge = cuda.device_array( (N_area,), dtype=np.uint64 )
+        selected_particle_charge = cupy.empty( (N_area,), dtype=np.uint64 )
         extract_array_from_gpu[dim_grid_1d, dim_block_1d]( pref_sum_curr,
           species.ionizer.ionization_level, selected_particle_charge )
-        selected_particle_weight = cuda.device_array( (N_area,), dtype=np.float64 )
+        selected_particle_weight = cupy.empty( (N_area,), dtype=np.float64 )
         extract_array_from_gpu[dim_grid_1d, dim_block_1d]( pref_sum_curr,
           species.ionizer.w_times_level, selected_particle_weight )
 
     # Copy GPU arrays to the host
-    part_data = part_data.copy_to_host()
+    part_data = part_data.get()
     particle_data = { 'x':part_data[0], 'y':part_data[1], 'z':part_data[2],
         'ux':part_data[3], 'uy':part_data[4], 'uz':part_data[5],
         'w':part_data[6], 'inv_gamma':part_data[7] }
     if species.tracker is not None:
-        particle_data['id'] = selected_particle_id.copy_to_host()
+        particle_data['id'] = selected_particle_id.get()
     if species.ionizer is not None:
-        particle_data['charge'] = selected_particle_charge.copy_to_host()
+        particle_data['charge'] = selected_particle_charge.get()
         # Replace particle weight
-        particle_data['w'] = selected_particle_weight.copy_to_host()
+        particle_data['w'] = selected_particle_weight.get()
 
     # Return the data as dictionary
     return( particle_data )
 
-@cuda.jit()
+@compile_cupy
 def extract_particles_from_gpu( part_idx_start, x, y, z, ux, uy, uz, w,
                                 inv_gamma, selected ):
     """
@@ -102,7 +102,7 @@ def extract_particles_from_gpu( part_idx_start, x, y, z, ux, uy, uz, w,
         selected[6, i] = w[ptcl_idx]
         selected[7, i] = inv_gamma[ptcl_idx]
 
-@cuda.jit()
+@compile_cupy
 def extract_array_from_gpu( part_idx_start, array, selected ):
     """
     Extract a selection of particles from the GPU and

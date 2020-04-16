@@ -7,7 +7,9 @@ It defines the structure necessary to handle mpi buffers for the fields
 """
 import numpy as np
 # Check if CUDA is available, then import CUDA functions
-from fbpic.utils.cuda import cuda_installed
+from fbpic.utils.cuda import cupy_installed, cuda_installed
+if cupy_installed:
+    import cupy
 if cuda_installed:
     from fbpic.utils.cuda import cuda, cuda_tpb_bpg_2d
     from .cuda_methods import \
@@ -16,7 +18,9 @@ if cuda_installed:
         add_vec_from_gpu_buffer, \
         copy_scal_to_gpu_buffer, \
         replace_scal_from_gpu_buffer, \
-        add_scal_from_gpu_buffer
+        add_scal_from_gpu_buffer, \
+        copy_pml_to_gpu_buffer, \
+        replace_pml_from_gpu_buffer
 
 class BufferHandler(object):
     """
@@ -24,7 +28,7 @@ class BufferHandler(object):
     between MPI domains.
     """
 
-    def __init__( self, n_guard, Nr, Nm, left_proc, right_proc ):
+    def __init__( self, n_guard, Nr, Nm, left_proc, right_proc, use_pml ):
         """
         Initialize the guard cell buffers for the fields.
         These buffers are used in order to group the MPI exchanges.
@@ -43,6 +47,9 @@ class BufferHandler(object):
         left_proc, right_proc: int or None
            Rank of the proc to the right and to the left
            (None for open boundary)
+
+        use_pml: bool
+           Whether to use PML fields
         """
         # Register parameters
         self.Nr = Nr
@@ -52,6 +59,12 @@ class BufferHandler(object):
         self.right_proc = right_proc
         # Shortcut
         ng = self.n_guard
+
+        # Get number of field components for E and B
+        if use_pml:
+            n_fld = 5 # e.g. Er, Et, Ez, Er_pml, Et_pml
+        else:
+            n_fld = 3 # e.g. Er, Et, Ez
 
         # Allocate buffer arrays that are send via MPI to exchange
         # the fields between domains (either replacing or adding fields)
@@ -67,39 +80,40 @@ class BufferHandler(object):
             alloc_cpu = np.empty
         # Allocate buffers of different size, for the different exchange types
         self.send_l = {
-            'E:replace': alloc_cpu( (3*Nm,   ng, Nr), dtype=np.complex128),
-            'B:replace': alloc_cpu( (3*Nm,   ng, Nr), dtype=np.complex128),
-            'J:add'    : alloc_cpu( (3*Nm, 2*ng, Nr), dtype=np.complex128),
-            'rho:add'  : alloc_cpu( (  Nm, 2*ng, Nr), dtype=np.complex128) }
+            'E:replace': alloc_cpu( (n_fld*Nm,   ng, Nr), dtype=np.complex128),
+            'B:replace': alloc_cpu( (n_fld*Nm,   ng, Nr), dtype=np.complex128),
+            'J:add'    : alloc_cpu( (    3*Nm, 2*ng, Nr), dtype=np.complex128),
+            'rho:add'  : alloc_cpu( (      Nm, 2*ng, Nr), dtype=np.complex128)}
         self.send_r = {
-            'E:replace': alloc_cpu( (3*Nm,   ng, Nr), dtype=np.complex128),
-            'B:replace': alloc_cpu( (3*Nm,   ng, Nr), dtype=np.complex128),
-            'J:add'    : alloc_cpu( (3*Nm, 2*ng, Nr), dtype=np.complex128),
-            'rho:add'  : alloc_cpu( (  Nm, 2*ng, Nr), dtype=np.complex128) }
+            'E:replace': alloc_cpu( (n_fld*Nm,   ng, Nr), dtype=np.complex128),
+            'B:replace': alloc_cpu( (n_fld*Nm,   ng, Nr), dtype=np.complex128),
+            'J:add'    : alloc_cpu( (    3*Nm, 2*ng, Nr), dtype=np.complex128),
+            'rho:add'  : alloc_cpu( (      Nm, 2*ng, Nr), dtype=np.complex128)}
         self.recv_l = {
-            'E:replace': alloc_cpu( (3*Nm,   ng, Nr), dtype=np.complex128),
-            'B:replace': alloc_cpu( (3*Nm,   ng, Nr), dtype=np.complex128),
-            'J:add'    : alloc_cpu( (3*Nm, 2*ng, Nr), dtype=np.complex128),
-            'rho:add'  : alloc_cpu( (  Nm, 2*ng, Nr), dtype=np.complex128) }
+            'E:replace': alloc_cpu( (n_fld*Nm,   ng, Nr), dtype=np.complex128),
+            'B:replace': alloc_cpu( (n_fld*Nm,   ng, Nr), dtype=np.complex128),
+            'J:add'    : alloc_cpu( (    3*Nm, 2*ng, Nr), dtype=np.complex128),
+            'rho:add'  : alloc_cpu( (      Nm, 2*ng, Nr), dtype=np.complex128)}
         self.recv_r = {
-            'E:replace': alloc_cpu( (3*Nm,   ng, Nr), dtype=np.complex128),
-            'B:replace': alloc_cpu( (3*Nm,   ng, Nr), dtype=np.complex128),
-            'J:add'    : alloc_cpu( (3*Nm, 2*ng, Nr), dtype=np.complex128),
-            'rho:add'  : alloc_cpu( (  Nm, 2*ng, Nr), dtype=np.complex128) }
+            'E:replace': alloc_cpu( (n_fld*Nm,   ng, Nr), dtype=np.complex128),
+            'B:replace': alloc_cpu( (n_fld*Nm,   ng, Nr), dtype=np.complex128),
+            'J:add'    : alloc_cpu( (    3*Nm, 2*ng, Nr), dtype=np.complex128),
+            'rho:add'  : alloc_cpu( (      Nm, 2*ng, Nr), dtype=np.complex128)}
 
         # Allocate buffers on the GPU, for the different exchange types
         if cuda_installed:
-            self.d_send_l = { key: cuda.to_device(value) for key, value in \
+            self.d_send_l = { key: cupy.asarray(value) for key, value in \
                                 self.send_l.items() }
-            self.d_send_r = { key: cuda.to_device(value) for key, value in \
+            self.d_send_r = { key: cupy.asarray(value) for key, value in \
                                 self.send_r.items() }
-            self.d_recv_l = { key: cuda.to_device(value) for key, value in \
+            self.d_recv_l = { key: cupy.asarray(value) for key, value in \
                                 self.recv_l.items() }
-            self.d_recv_r = { key: cuda.to_device(value) for key, value in \
+            self.d_recv_r = { key: cupy.asarray(value) for key, value in \
                                 self.recv_r.items() }
 
 
-    def handle_vec_buffer(self, grid_r, grid_t, grid_z, method, exchange_type,
+    def handle_vec_buffer(self, grid_r, grid_t, grid_z,
+                            pml_r, pml_t, method, exchange_type,
                             use_cuda, before_sending=False,
                             after_receiving=False, gpudirect=False ):
         """
@@ -130,6 +144,10 @@ class BufferHandler(object):
         grid_r, grid_t, grid_z: lists of 2darrays
             (One element per azimuthal mode)
             The 2d arrays represent the fields on the interpolation grid
+
+        pml_r, pml_t: lists of 2darrays, or None
+            The 2d arrays that represent the PML components (if present)
+            on the interpolation grid
 
         method: str
             Can either be 'replace' or 'add' depending on the type
@@ -181,39 +199,61 @@ class BufferHandler(object):
             if before_sending:
                 # Copy the inner regions of the domain to the buffers
                 for m in range(self.Nm):
-                    copy_vec_to_gpu_buffer[ dim_grid_2d, dim_block_2d ](
+                    if pml_r is None:
+                        # Copy only the regular components
+                        copy_vec_to_gpu_buffer[ dim_grid_2d, dim_block_2d ](
                             self.d_send_l[exchange_type],
                             self.d_send_r[exchange_type],
                             grid_r[m], grid_t[m], grid_z[m], m,
+                            copy_left, copy_right, nz_start, nz_end )
+                    else:
+                        # Copy regular components + PML components
+                        copy_pml_to_gpu_buffer[ dim_grid_2d, dim_block_2d ](
+                            self.d_send_l[exchange_type],
+                            self.d_send_r[exchange_type],
+                            grid_r[m], grid_t[m], grid_z[m],
+                            pml_r[m], pml_t[m], m,
                             copy_left, copy_right, nz_start, nz_end )
                 # If GPUDirect with CUDA-aware MPI is not used,
                 # copy the GPU buffers to the sending CPU buffers
                 if not gpudirect:
                     if copy_left:
-                        self.d_send_l[exchange_type].copy_to_host(
-                            self.send_l[exchange_type] )
+                        self.d_send_l[exchange_type].get(
+                            out=self.send_l[exchange_type] )
                     if copy_right:
-                        self.d_send_r[exchange_type].copy_to_host(
-                            self.send_r[exchange_type] )
+                        self.d_send_r[exchange_type].get(
+                            out=self.send_r[exchange_type] )
 
             elif after_receiving:
                 # If GPUDirect with CUDA-aware MPI is not used,
                 # copy the CPU receiving buffers to the GPU buffers
                 if not gpudirect:
                     if copy_left:
-                        self.d_recv_l[exchange_type].copy_to_device(
+                        self.d_recv_l[exchange_type].set(
                             self.recv_l[exchange_type] )
                     if copy_right:
-                        self.d_recv_r[exchange_type].copy_to_device(
+                        self.d_recv_r[exchange_type].set(
                             self.recv_r[exchange_type] )
                 if method == 'replace':
                     # Replace the guard cells of the domain with the buffers
                     for m in range(self.Nm):
-                        replace_vec_from_gpu_buffer[dim_grid_2d, dim_block_2d](
-                            self.d_recv_l[exchange_type],
-                            self.d_recv_r[exchange_type],
-                            grid_r[m], grid_t[m], grid_z[m], m,
-                            copy_left, copy_right, nz_start, nz_end )
+                        if pml_r is None:
+                            # Copy only the regular components
+                            replace_vec_from_gpu_buffer \
+                                [dim_grid_2d, dim_block_2d](
+                                self.d_recv_l[exchange_type],
+                                self.d_recv_r[exchange_type],
+                                grid_r[m], grid_t[m], grid_z[m], m,
+                                copy_left, copy_right, nz_start, nz_end )
+                        else:
+                            # Copy regular components + PML components
+                            replace_pml_from_gpu_buffer \
+                                [ dim_grid_2d, dim_block_2d ](
+                                self.d_recv_l[exchange_type],
+                                self.d_recv_r[exchange_type],
+                                grid_r[m], grid_t[m], grid_z[m],
+                                pml_r[m], pml_t[m], m,
+                                copy_left, copy_right, nz_start, nz_end )
                 elif method == 'add':
                     # Add the buffers to the domain
                     for m in range(self.Nm):
@@ -233,14 +273,32 @@ class BufferHandler(object):
                 # Copy the inner regions of the domain to the buffers
                 if copy_left:
                     for m in range(self.Nm):
-                        send_l[3*m+0,:,:]=grid_r[m][nz_start:nz_end,:]
-                        send_l[3*m+1,:,:]=grid_t[m][nz_start:nz_end,:]
-                        send_l[3*m+2,:,:]=grid_z[m][nz_start:nz_end,:]
+                        if pml_r is None:
+                            # Copy only the regular components
+                            send_l[3*m+0,:,:]=grid_r[m][nz_start:nz_end,:]
+                            send_l[3*m+1,:,:]=grid_t[m][nz_start:nz_end,:]
+                            send_l[3*m+2,:,:]=grid_z[m][nz_start:nz_end,:]
+                        else:
+                            # Copy regular components + PML components
+                            send_l[5*m+0,:,:]=grid_r[m][nz_start:nz_end,:]
+                            send_l[5*m+1,:,:]=grid_t[m][nz_start:nz_end,:]
+                            send_l[5*m+2,:,:]=grid_z[m][nz_start:nz_end,:]
+                            send_l[5*m+3,:,:]=pml_r[m][nz_start:nz_end,:]
+                            send_l[5*m+4,:,:]=pml_t[m][nz_start:nz_end,:]
                 if copy_right:
                     for m in range(self.Nm):
-                        send_r[3*m+0,:,:]=grid_r[m][Nz-nz_end:Nz-nz_start,:]
-                        send_r[3*m+1,:,:]=grid_t[m][Nz-nz_end:Nz-nz_start,:]
-                        send_r[3*m+2,:,:]=grid_z[m][Nz-nz_end:Nz-nz_start,:]
+                        if pml_r is None:
+                            # Copy only the regular components
+                            send_r[3*m+0,:,:]=grid_r[m][Nz-nz_end:Nz-nz_start,:]
+                            send_r[3*m+1,:,:]=grid_t[m][Nz-nz_end:Nz-nz_start,:]
+                            send_r[3*m+2,:,:]=grid_z[m][Nz-nz_end:Nz-nz_start,:]
+                        else:
+                            # Copy regular components + PML components
+                            send_r[5*m+0,:,:]=grid_r[m][Nz-nz_end:Nz-nz_start,:]
+                            send_r[5*m+1,:,:]=grid_t[m][Nz-nz_end:Nz-nz_start,:]
+                            send_r[5*m+2,:,:]=grid_z[m][Nz-nz_end:Nz-nz_start,:]
+                            send_r[5*m+3,:,:]=pml_r[m][Nz-nz_end:Nz-nz_start,:]
+                            send_r[5*m+4,:,:]=pml_t[m][Nz-nz_end:Nz-nz_start,:]
 
             elif after_receiving:
 
@@ -249,15 +307,34 @@ class BufferHandler(object):
                 if method == 'replace':
                     # Replace the guard cells of the domain with the buffers
                     if copy_left:
-                        for m in range(self.Nm):
-                            grid_r[m][:nz_end-nz_start,:]=recv_l[3*m+0,:,:]
-                            grid_t[m][:nz_end-nz_start,:]=recv_l[3*m+1,:,:]
-                            grid_z[m][:nz_end-nz_start,:]=recv_l[3*m+2,:,:]
+                        if pml_r is None:
+                            # Copy only the regular components
+                            for m in range(self.Nm):
+                                grid_r[m][:nz_end-nz_start,:]=recv_l[3*m+0,:,:]
+                                grid_t[m][:nz_end-nz_start,:]=recv_l[3*m+1,:,:]
+                                grid_z[m][:nz_end-nz_start,:]=recv_l[3*m+2,:,:]
+                        else:
+                            # Copy regular components + PML components
+                            for m in range(self.Nm):
+                                grid_r[m][:nz_end-nz_start,:]=recv_l[5*m+0,:,:]
+                                grid_t[m][:nz_end-nz_start,:]=recv_l[5*m+1,:,:]
+                                grid_z[m][:nz_end-nz_start,:]=recv_l[5*m+2,:,:]
+                                pml_r[m][:nz_end-nz_start,:]=recv_l[5*m+3,:,:]
+                                pml_t[m][:nz_end-nz_start,:]=recv_l[5*m+4,:,:]
                     if copy_right:
                         for m in range(self.Nm):
-                            grid_r[m][-(nz_end-nz_start):,:]=recv_r[3*m+0,:,:]
-                            grid_t[m][-(nz_end-nz_start):,:]=recv_r[3*m+1,:,:]
-                            grid_z[m][-(nz_end-nz_start):,:]=recv_r[3*m+2,:,:]
+                            if pml_r is None:
+                                # Copy only the regular components
+                                grid_r[m][-(nz_end-nz_start):,:]=recv_r[3*m+0,:,:]
+                                grid_t[m][-(nz_end-nz_start):,:]=recv_r[3*m+1,:,:]
+                                grid_z[m][-(nz_end-nz_start):,:]=recv_r[3*m+2,:,:]
+                            else:
+                                # Copy regular components + PML components
+                                grid_r[m][-(nz_end-nz_start):,:]=recv_r[5*m+0,:,:]
+                                grid_t[m][-(nz_end-nz_start):,:]=recv_r[5*m+1,:,:]
+                                grid_z[m][-(nz_end-nz_start):,:]=recv_r[5*m+2,:,:]
+                                pml_r[m][-(nz_end-nz_start):,:]=recv_r[5*m+3,:,:]
+                                pml_t[m][-(nz_end-nz_start):,:]=recv_r[5*m+4,:,:]
                 elif method == 'add':
                     # Add buffers to the domain
                     if copy_left:
@@ -357,21 +434,21 @@ class BufferHandler(object):
                 # copy the GPU buffers to the sending CPU buffers
                 if not gpudirect:
                     if copy_left:
-                        self.d_send_l[exchange_type].copy_to_host(
-                            self.send_l[exchange_type] )
+                        self.d_send_l[exchange_type].get(
+                            out=self.send_l[exchange_type] )
                     if copy_right:
-                        self.d_send_r[exchange_type].copy_to_host(
-                            self.send_r[exchange_type] )
+                        self.d_send_r[exchange_type].get(
+                            out=self.send_r[exchange_type] )
 
             elif after_receiving:
                 # If GPUDirect with CUDA-aware MPI is not used,
                 # copy the CPU receiving buffers to the GPU buffers
                 if not gpudirect:
                     if copy_left:
-                        self.d_recv_l[exchange_type].copy_to_device(
+                        self.d_recv_l[exchange_type].set(
                             self.recv_l[exchange_type] )
                     if copy_right:
-                        self.d_recv_r[exchange_type].copy_to_device(
+                        self.d_recv_r[exchange_type].set(
                             self.recv_r[exchange_type] )
                 if method == 'replace':
                     # Replace the guard cells of the domain with the buffers

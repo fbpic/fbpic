@@ -675,8 +675,8 @@ class ParticleCatcher:
             # Calculate cell area to get particles from
             # - Get z indices of the slices in which to get the particles
             # (mirrors the index calculation in `get_cell_idx_per_particle`)
-            iz_curr = math.ceil((current_z_boost-zmin-0.5*dz)/dz)
-            iz_prev = math.ceil((previous_z_boost-zmin-0.5*dz + dt*c)/dz) + 1
+            iz_curr = int(math.ceil((current_z_boost-zmin-0.5*dz)/dz))
+            iz_prev = int(math.ceil((previous_z_boost-zmin-0.5*dz + dt*c)/dz)) + 1
             # - Get the prefix sum values that correspond to these indices
             #   (Take into account potential shift due to the moving window)
             z_cell_curr = iz_curr + pref_sum_shift
@@ -685,14 +685,14 @@ class ParticleCatcher:
             elif z_cell_curr > Nz:
                 pref_sum_curr = species.Ntot
             else:
-                pref_sum_curr = pref_sum.getitem( z_cell_curr*(Nr+1) - 1 )
+                pref_sum_curr = int(pref_sum[ z_cell_curr*(Nr+1) - 1 ])
             z_cell_prev = iz_prev + pref_sum_shift
             if z_cell_prev <= 0:
                 pref_sum_prev = 0
             elif z_cell_prev > Nz:
                 pref_sum_prev = species.Ntot
             else:
-                pref_sum_prev = pref_sum.getitem( z_cell_prev*(Nr+1) - 1 )
+                pref_sum_prev = int(pref_sum[ z_cell_prev*(Nr+1) - 1 ])
             # Calculate number of particles in this area (N_area)
             N_area = pref_sum_prev - pref_sum_curr
             # Check if there are particles to extract

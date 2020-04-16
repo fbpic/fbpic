@@ -1,6 +1,83 @@
 # Change Log / Release Log for fbpic
 
-## 0.13
+## 0.16.0
+
+This release uses `cupy` much more extensively in FBPIC, when running on GPU.
+As a result, kernel launch overheads are drastically reduced, and small-size
+or mid-size simulations will see a significant speed-up. Another consequence
+is that FBPIC now requires Python 3 in order to run on GPU.
+
+See [#437](https://github.com/fbpic/fbpic/pull/437) for more details.
+
+## 0.15.1
+
+This is a minor release, that makes improvements to the PML and to the documentation.
+
+- The PML should now be slightly faster on GPU (due to the suppression of
+unnecessary host-device communications: see [#423](https://github.com/fbpic/fbpic/pull/423))
+- The particles do not gather the fields in the PML anymore: see [#424](https://github.com/fbpic/fbpic/pull/424).
+- The documentation has a new section on 3D rendering: see [#426](https://github.com/fbpic/fbpic/pull/426).
+- The documentation and code of FBPIC is now compatible with `openPMD-viewer 1.0.0`: see [#428](https://github.com/fbpic/fbpic/pull/428)
+and [#427](https://github.com/fbpic/fbpic/pull/427).
+
+## 0.15.0
+
+This release adds the possibility to add Perfectly-Matched Layers in the
+radial dimension (see [#417](https://github.com/fbpic/fbpic/pull/417)).
+As part of this change, the user is now expected to pass a dictionary
+for the argument `boundaries` of the `Simulation` object (instead of a
+single string) ; for instance: `boundaries={'z':'open', 'r':'reflective'}`.
+The PML in the radial direction are activated by passing `'r':'open'`.
+
+In addition, several others changes have been included in this release:
+
+- It is now possible to use FBPIC with numba 0.46 and cupy 7
+(see [#414](https://github.com/fbpic/fbpic/pull/414)).
+- The default phase of the `FlattenedGaussianLaser` has been updated.
+(see [411](https://github.com/fbpic/fbpic/pull/411))
+- A new laser profile has been added: `FewCycleLaser` which is well-adapted
+for tightly-focused, short laser pulses (see [403](https://github.com/fbpic/fbpic/pull/403)).
+
+## 0.14.0
+
+This release fixes two important issues in FBPIC:
+
+- There was a bug on GPU, related to particle sorting (see
+[#402](https://github.com/fbpic/fbpic/pull/402) for more details). This bug
+mostly affected simulations with ionization, and typically results in additional
+ionization occurring in arbitrary locations in the simulation box
+(See [#396](https://github.com/fbpic/fbpic/issues/396)). In addition, this
+bug could have also affected simulations without ionization, and would result
+in an incorrect particle push, for a fraction of the particles. It is now fixed.
+
+- Particles that exit the simulation box radially used to still feel the
+fields from the last cell of the box. This could cause these particles to
+be pushed back into the box (see [#369](https://github.com/fbpic/fbpic/issues/369)).
+This is now fixed: with the new version of the code, particles that exit the box
+radially do not feel any force from the grid anymore, and move in a straight line
+(see [#398](https://github.com/fbpic/fbpic/pull/398)).
+
+## 0.13.3
+
+This is a bug-fix release ; it prevents an incompatibility between cupy and the latest version of numba (numba 0.46).
+In addition, a new diagnostic was added, in order to save the input script.
+
+## 0.13.2
+
+This is a bug-fix release ; it fixes a minor bug with Python 2, for the
+back-transformed particle diagnostic (see [#389](https://github.com/fbpic/fbpic/pull/389)).
+
+## 0.13.1
+
+This is a minor release. It introduces:
+
+- A minor API change: When creating a `Simulation` object with no particles,
+the user does not need to do `sim.ptcl = []` anymore: [#376](https://github.com/fbpic/fbpic/pull/376)
+- FBPIC is now compatible with the upcoming version 1.0 of `openPMD-viewer`: [#387](https://github.com/fbpic/fbpic/pull/387)
+- A bug-fix for the ballistic injection in the lab-frame: [#384](https://github.com/fbpic/fbpic/pull/384)
+- Limited, rudimentary support for PICMI: [#350](https://github.com/fbpic/fbpic/pull/350) [#383](https://github.com/fbpic/fbpic/pull/383) [#384](https://github.com/fbpic/fbpic/pull/384) [#384](https://github.com/fbpic/fbpic/pull/384)
+
+## 0.13.0
 
 This release introduces an important change on GPU: FBPIC now uses the `cupy` package instead of the `pyculib` package (since `pyculib` is no longer supported); see [#356](https://github.com/fbpic/fbpic/pull/356) [#363](https://github.com/fbpic/fbpic/pull/363) [#367](https://github.com/fbpic/fbpic/pull/367). As a result, it is now possible to use FBPIC with Numba 0.43 (or higher).
 

@@ -17,9 +17,11 @@ from scipy.constants import c
 from .field_diag import FieldDiagnostic
 
 # Check if CUDA is available, then import CUDA functions
-from fbpic.utils.cuda import cuda_installed
+from fbpic.utils.cuda import cupy_installed, cuda_installed
+if cupy_installed:
+    import cupy
 if cuda_installed:
-    from fbpic.utils.cuda import cuda, cuda_tpb_bpg_1d
+    from fbpic.utils.cuda import cuda, cuda_tpb_bpg_1d, compile_cupy
 
 class BackTransformedFieldDiagnostic(FieldDiagnostic):
     """
@@ -93,6 +95,12 @@ class BackTransformedFieldDiagnostic(FieldDiagnostic):
         dz_lab = c*self.fld.dt * self.inv_beta_boost*self.inv_gamma_boost
         Nz = int( (zmax_lab - zmin_lab)/dz_lab ) + 1
         self.inv_dz_lab = 1./dz_lab
+        # Get number of radial cells in the output
+        # (if possible, remove damp cells)
+        if self.comm is None:
+            Nr = self.fld.interp[0].Nr
+        else:
+            Nr = self.comm.get_Nr(with_damp=False)
 
         # Create the list of LabSnapshot objects
         self.snapshots = []
@@ -101,15 +109,15 @@ class BackTransformedFieldDiagnostic(FieldDiagnostic):
             snapshot = LabSnapshot( t_lab,
                                     zmin_lab + v_lab*t_lab,
                                     zmax_lab + v_lab*t_lab,
-                                    self.write_dir, i, self.fld )
+                                    self.write_dir, i, self.fld, Nr )
             self.snapshots.append( snapshot )
             # Initialize a corresponding empty file
             self.create_file_empty_meshes( snapshot.filename, i,
-                snapshot.t_lab, Nz, snapshot.zmin_lab, dz_lab, self.fld.dt )
+                snapshot.t_lab, Nr, Nz, snapshot.zmin_lab, dz_lab, self.fld.dt)
 
         # Create a slice handler, which will do all the extraction, Lorentz
         # transformation, etc for each slice to be registered in a LabSnapshot
-        self.slice_handler = SliceHandler( self.gamma_boost, self.beta_boost )
+        self.slice_handler = SliceHandler(self.gamma_boost, self.beta_boost, Nr)
 
     def write( self, iteration ):
         """
@@ -363,7 +371,7 @@ class LabSnapshot:
     in the lab frame (i.e. one given *time* in the lab frame)
     """
     def __init__(self, t_lab, zmin_lab, zmax_lab,
-                    write_dir, i, fld):
+                    write_dir, i, fld, Nr_output):
         """
         Initialize a LabSnapshot
 
@@ -385,6 +393,10 @@ class LabSnapshot:
         fld: a Fields object
            This is passed only in order to determine how to initialize
            the slice_array buffer (either on the CPU or GPU)
+
+        Nr_output: int
+            Number of cells in the r direction, in the final output
+            (This typically excludes the radial damping cells)
         """
         # Deduce the name of the filename where this snapshot writes
         self.filename = os.path.join( write_dir, 'hdf5/data%08d.h5' %i)
@@ -406,11 +418,11 @@ class LabSnapshot:
 
         # Allocate a buffer for only one slice (avoids having to
         # reallocate arrays when running on the GPU)
-        data_shape = (10, 2*fld.Nm-1, fld.Nr)
+        data_shape = (10, 2*fld.Nm-1, Nr_output)
         if fld.use_cuda is False:
             self.slice_array = np.empty( data_shape )
         else:
-            self.slice_array = cuda.device_array( data_shape )
+            self.slice_array = cupy.empty( data_shape )
 
     def update_current_output_positions( self, t_boost, inv_gamma, inv_beta ):
         """
@@ -461,7 +473,7 @@ class LabSnapshot:
             self.buffered_slices.append( self.slice_array.copy() )
         # or copy from the GPU
         else:
-            self.buffered_slices.append( self.slice_array.copy_to_host() )
+            self.buffered_slices.append( self.slice_array.get() )
 
     def compact_slices(self):
         """
@@ -471,7 +483,7 @@ class LabSnapshot:
 
         Returns
         -------
-        field_array: an array of reals of shape (10, 2*Nm-1, Nr, nslices)
+        field_array: an array of reals of shape (10, 2*Nm-1, Nr_output, nslices)
         In the above nslices is the number of buffered slices
 
         iz_min, iz_max: integers
@@ -514,7 +526,7 @@ class SliceHandler:
     """
     Class that extracts, Lorentz-transforms and writes slices of the fields
     """
-    def __init__( self, gamma_boost, beta_boost ):
+    def __init__( self, gamma_boost, beta_boost, Nr_output ):
         """
         Initialize the SliceHandler object
 
@@ -522,10 +534,15 @@ class SliceHandler:
         ----------
         gamma_boost, beta_boost: floats
             The Lorentz factor of the boost and the corresponding beta
+
+        Nr_output: int
+            Number of cells in the r direction, in the final output
+            (This typically excludes the radial damping cells)
         """
         # Store the arguments
         self.gamma_boost = gamma_boost
         self.beta_boost = beta_boost
+        self.Nr_output = Nr_output
 
         # Create a dictionary that contains the correspondance
         # between the field names and array index
@@ -560,7 +577,7 @@ class SliceHandler:
             The first index of this array corresponds to the field type
             (10 different field types), and the correspondance
             between the field type and integer index is given field_to_index
-            The shape of this arrays is (10, 2*Nm-1, Nr)
+            The shape of this arrays is (10, 2*Nm-1, Nr_output)
         """
         # Find the index of the slice in the boosted frame
         # and the corresponding interpolation shape factor
@@ -573,7 +590,7 @@ class SliceHandler:
         if comm is not None:
             iz += comm.n_guard
             if comm.left_proc is None:
-                iz += comm.n_damp+comm.n_inject
+                iz += comm.nz_damp+comm.n_inject
 
         # Extract the slice directly on the CPU
         # Fill the pre-allocated CPU array slice_array
@@ -586,14 +603,13 @@ class SliceHandler:
         # Fill the pre-allocated GPU array slice_array
         else:
             # Prepare kernel call
-            interp = fld.interp
-            Nr = fld.Nr
-            dim_grid_1d, dim_block_1d = cuda_tpb_bpg_1d( Nr )
+            dim_grid_1d, dim_block_1d = cuda_tpb_bpg_1d( self.Nr_output )
 
             # Extract the slices
+            interp = fld.interp
             for m in range(fld.Nm):
                 extract_slice_cuda[ dim_grid_1d, dim_block_1d ](
-                    Nr, iz, Sz, slice_array,
+                    self.Nr_output, iz, Sz, slice_array,
                     interp[m].Er, interp[m].Et, interp[m].Ez,
                     interp[m].Br, interp[m].Bt, interp[m].Bz,
                     interp[m].Jr, interp[m].Jt, interp[m].Jz, interp[m].rho, m)
@@ -614,7 +630,7 @@ class SliceHandler:
             Interpolation shape factor used at iz
 
         slice_array: np.ndarray
-            Array of shape (10, 2*Nm-1, Nr )
+            Array of shape (10, 2*Nm-1, Nr_output )
         """
         # Shortcut for the correspondance between field and integer index
         f2i = self.field_to_index
@@ -649,17 +665,20 @@ class SliceHandler:
         In particular, the array of fields is of shape ( 2*Nm-1, Nr)
         (real and imaginary part are separated for each mode)
         """
+        # Shortcut
+        Nr = self.Nr_output
+
         # Allocate the array to be returned
-        data_shape = ( 2*fld.Nm-1, fld.Nr )
+        data_shape = (2*fld.Nm-1, Nr)
         output_array = np.empty( data_shape )
 
         # Get the mode 0 : only the real part is non-zero
-        output_array[0,:] = getattr(fld.interp[0], quantity)[iz_slice,:].real
+        output_array[0,:] = getattr(fld.interp[0], quantity)[iz_slice,:Nr].real
         # Get the higher modes
         # There is a factor 2 here so as to comply with the convention in
         # Lifschitz et al., which is also the convention adopted in FBPIC
         for m in range(1,fld.Nm):
-            higher_mode_slice = 2*getattr(fld.interp[m], quantity)[iz_slice,:]
+            higher_mode_slice = 2*getattr(fld.interp[m], quantity)[iz_slice,:Nr]
             output_array[2*m-1, :] = higher_mode_slice.real
             output_array[2*m, :] = higher_mode_slice.imag
 
@@ -683,7 +702,7 @@ class SliceHandler:
         ---------
         fields: array of floats
             An array that packs together the slices of the different fields.
-            The shape of this arrays is (10, 2*Nm-1, Nr, nslices)
+            The shape of this arrays is (10, 2*Nm-1, Nr_output, nslices)
             where nslices is the number of slices that have been buffered
         """
         # Some shortcuts
@@ -717,7 +736,7 @@ class SliceHandler:
 
 if cuda_installed:
 
-    @cuda.jit
+    @compile_cupy
     def extract_slice_cuda( Nr, iz, Sz, slice_arr,
         Er, Et, Ez, Br, Bt, Bz, Jr, Jt, Jz, rho, m ):
         """
@@ -735,10 +754,10 @@ if cuda_installed:
         Sz: float
             Interpolation shape factor used at iz
 
-        slice_arr: cuda.device_array
+        slice_arr: cupy.empty
             Array of floats of shape (10, 2*Nm-1, Nr)
 
-        Er, Et, etc...: cuda.device_array
+        Er, Et, etc...: cupy.empty
             Array of complexs of shape (Nz, Nr), for the azimuthal mode m
 
         m: int

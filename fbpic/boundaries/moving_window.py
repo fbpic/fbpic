@@ -9,7 +9,7 @@ from fbpic.utils.threading import njit_parallel, prange
 # Check if CUDA is available, then import CUDA functions
 from fbpic.utils.cuda import cuda_installed
 if cuda_installed:
-    from fbpic.utils.cuda import cuda, cuda_tpb_bpg_2d
+    from fbpic.utils.cuda import cuda, cuda_tpb_bpg_2d, compile_cupy
 
 class MovingWindow(object):
     """
@@ -169,6 +169,11 @@ class MovingWindow(object):
             shift_spect_array_gpu[tpb, bpg]( grid.Bp, shift, n_move )
             shift_spect_array_gpu[tpb, bpg]( grid.Bm, shift, n_move )
             shift_spect_array_gpu[tpb, bpg]( grid.Bz, shift, n_move )
+            if grid.use_pml:
+                shift_spect_array_gpu[tpb, bpg]( grid.Ep_pml, shift, n_move )
+                shift_spect_array_gpu[tpb, bpg]( grid.Em_pml, shift, n_move )
+                shift_spect_array_gpu[tpb, bpg]( grid.Bp_pml, shift, n_move )
+                shift_spect_array_gpu[tpb, bpg]( grid.Bm_pml, shift, n_move )
             if shift_rho:
                 shift_spect_array_gpu[tpb, bpg]( grid.rho_prev, shift, n_move )
             if shift_currents:
@@ -184,6 +189,11 @@ class MovingWindow(object):
             shift_spect_array_cpu( grid.Bp, shift, n_move )
             shift_spect_array_cpu( grid.Bm, shift, n_move )
             shift_spect_array_cpu( grid.Bz, shift, n_move )
+            if grid.use_pml:
+                shift_spect_array_cpu( grid.Ep_pml, shift, n_move )
+                shift_spect_array_cpu( grid.Em_pml, shift, n_move )
+                shift_spect_array_cpu( grid.Bp_pml, shift, n_move )
+                shift_spect_array_cpu( grid.Bm_pml, shift, n_move )
             if shift_rho:
                 shift_spect_array_cpu( grid.rho_prev, shift, n_move )
             if shift_currents:
@@ -230,7 +240,7 @@ def shift_spect_array_cpu( field_array, shift_factor, n_move ):
 
 if cuda_installed:
 
-    @cuda.jit
+    @compile_cupy
     def shift_spect_array_gpu( field_array, shift_factor, n_move ):
         """
         Shift the field 'field_array' by n_move cells on the GPU.

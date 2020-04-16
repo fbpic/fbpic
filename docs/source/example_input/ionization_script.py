@@ -109,14 +109,10 @@ T_interact = ( L_interact + (zmax-zmin) ) / v_window
 if __name__ == '__main__':
 
     # Initialize the simulation object
-    sim = Simulation( Nz, zmax, Nr, rmax, Nm, dt,
-        zmin=zmin, boundaries='open', initialize_ions=False,
-        n_order=n_order, use_cuda=use_cuda )
-    # By default the simulation initializes an electron species (sim.ptcl[0])
-    # Because we did not pass the arguments `n`, `p_nz`, `p_nr`, `p_nz`,
-    # this electron species does not contain any macroparticles.
-    # It is okay to just remove it from the list of species.
-    sim.ptcl = []
+    sim = Simulation( Nz, zmax, Nr, rmax, Nm, dt, zmin=zmin,
+         n_order=n_order, use_cuda=use_cuda,
+         boundaries={'z':'open', 'r':'reflective'})
+         # 'r': 'open' can also be used, but is more computationally expensive
 
     # Add the Helium ions (pre-ionized up to level 1),
     # the Nitrogen ions (pre-ionized up to level 5)

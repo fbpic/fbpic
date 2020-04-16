@@ -11,12 +11,14 @@ from fbpic.fields import Fields
 from fbpic.particles.elementary_process.cuda_numba_utils import \
     reallocate_and_copy_old
 from fbpic.particles.injection import BallisticBeforePlane
+from fbpic.utils.cuda import GpuMemoryManager
 import warnings
 
 
 def add_particle_bunch(sim, q, m, gamma0, n, p_zmin, p_zmax, p_rmin, p_rmax,
                        p_nr=2, p_nz=2, p_nt=4, dens_func=None, boost=None,
-                       direction='forward', z_injection_plane=None):
+                       direction='forward', z_injection_plane=None,
+                       initialize_self_field=True):
     """
     Introduce a simple relativistic particle bunch in the simulation,
     along with its space charge field.
@@ -81,6 +83,10 @@ def add_particle_bunch(sim, q, m, gamma0, n, p_zmin, p_zmax, p_rmin, p_rmax,
         motion for z<z_injection_plane. This is sometimes useful in
         boosted-frame simulations.
         `z_injection_plane` is always given in the lab frame.
+
+    initialize_self_field: bool, optional
+       Whether to calculate the initial space charge fields of the bunch
+       and add these fields to the fields on the grid (Default: True)
     """
     # Calculate the electron momentum
     uz_m = ( gamma0**2 - 1. )**0.5
@@ -100,14 +106,16 @@ def add_particle_bunch(sim, q, m, gamma0, n, p_zmin, p_zmax, p_rmin, p_rmax,
         ptcl_bunch.injector = BallisticBeforePlane( z_injection_plane, boost )
 
     # Get the corresponding space-charge fields
-    get_space_charge_fields( sim, ptcl_bunch, direction=direction )
+    if initialize_self_field:
+        get_space_charge_fields( sim, ptcl_bunch, direction=direction )
     return ptcl_bunch
 
 
 def add_particle_bunch_gaussian(sim, q, m, sig_r, sig_z, n_emit, gamma0,
                                 sig_gamma, n_physical_particles,
                                 n_macroparticles, tf=0., zf=0., boost=None,
-                                save_beam=None, z_injection_plane=None):
+                                save_beam=None, z_injection_plane=None,
+                                initialize_self_field=True):
     """
     Introduce a relativistic Gaussian particle bunch in the simulation,
     along with its space charge field.
@@ -168,6 +176,10 @@ def add_particle_bunch_gaussian(sim, q, m, sig_r, sig_z, n_emit, gamma0,
         motion for z<z_injection_plane. This is sometimes useful in
         boosted-frame simulations.
         `z_injection_plane` is always given in the lab frame.
+
+    initialize_self_field: bool, optional
+       Whether to calculate the initial space charge fields of the bunch
+       and add these fields to the fields on the grid (Default: True)
     """
     # Generate Gaussian gamma distribution of the beam
     if sig_gamma > 0.:
@@ -234,14 +246,15 @@ def add_particle_bunch_gaussian(sim, q, m, sig_r, sig_z, n_emit, gamma0,
 
     # Add the electrons to the simulation
     ptcl_bunch = add_particle_bunch_from_arrays(sim, q, m, x, y, z, ux, uy, uz,
-                                           w, boost=boost,
-                                           z_injection_plane=z_injection_plane)
+                    w, boost=boost, z_injection_plane=z_injection_plane,
+                    initialize_self_field=initialize_self_field)
     return ptcl_bunch
 
 
 def add_particle_bunch_file(sim, q, m, filename, n_physical_particles,
                             z_off=0., boost=None, direction='forward',
-                            z_injection_plane=None):
+                            z_injection_plane=None,
+                            initialize_self_field=True):
     """
     Introduce a relativistic particle bunch in the simulation,
     along with its space charge field, loading particles from text file.
@@ -282,6 +295,10 @@ def add_particle_bunch_file(sim, q, m, filename, n_physical_particles,
         motion for z<z_injection_plane. This is sometimes useful in
         boosted-frame simulations.
         `z_injection_plane` is always given in the lab frame.
+
+    initialize_self_field: bool, optional
+       Whether to calculate the initial space charge fields of the bunch
+       and add these fields to the fields on the grid (Default: True)
     """
     # Load particle data to numpy array
     particle_data = np.loadtxt(filename)
@@ -300,14 +317,16 @@ def add_particle_bunch_file(sim, q, m, filename, n_physical_particles,
 
     # Add the electrons to the simulation
     ptcl_bunch = add_particle_bunch_from_arrays(sim, q, m, x, y, z, ux, uy, uz,
-                                   w,boost=boost, direction=direction,
-                                   z_injection_plane=z_injection_plane)
+                           w, boost=boost, direction=direction,
+                           z_injection_plane=z_injection_plane,
+                           initialize_self_field=initialize_self_field)
     return ptcl_bunch
 
 
 def add_particle_bunch_openPMD( sim, q, m, ts_path, z_off=0., species=None,
                                 select=None, iteration=None, boost=None,
-                                z_injection_plane=None ):
+                                z_injection_plane=None,
+                                initialize_self_field=True ):
     """
     Introduce a relativistic particle bunch in the simulation,
     along with its space charge field, loading particles from an openPMD
@@ -358,13 +377,26 @@ def add_particle_bunch_openPMD( sim, q, m, ts_path, z_off=0., species=None,
         motion for z<z_injection_plane. This is sometimes useful in
         boosted-frame simulations.
         `z_injection_plane` is always given in the lab frame.
+
+    initialize_self_field: bool, optional
+       Whether to calculate the initial space charge fields of the bunch
+       and add these fields to the fields on the grid (Default: True)
     """
-    # Import openPMD viewer
+    # Try to import openPMD-viewer, version 1
     try:
-        from opmd_viewer import OpenPMDTimeSeries
+        from openpmd_viewer import OpenPMDTimeSeries
+        openpmd_viewer_version = 1
     except ImportError:
+        # If not available, try to import openPMD-viewer, version 0
+        try:
+            from opmd_viewer import OpenPMDTimeSeries
+            openpmd_viewer_version = 0
+        except ImportError:
+            openpmd_viewer_version = None
+    # Otherwise, raise an error
+    if openpmd_viewer_version is None:
         raise ImportError(
-        'The package `opmd_viewer` is required to restart from checkpoints.'
+        'The package openPMD-viewer is required to load a particle bunch from on openPMD file.'
         '\nPlease install it from https://github.com/openPMD/openPMD-viewer')
     ts = OpenPMDTimeSeries(ts_path)
     # Extract phasespace and particle weights
@@ -372,23 +404,26 @@ def add_particle_bunch_openPMD( sim, q, m, ts_path, z_off=0., species=None,
                                 ['x', 'y', 'z', 'ux', 'uy', 'uz', 'w'],
                                 iteration=iteration, species=species,
                                 select=select)
-    # Convert the positions from microns to meters
-    x *= 1.e-6
-    y *= 1.e-6
-    z *= 1.e-6
+    if openpmd_viewer_version == 0:
+        # Convert the positions from microns to meters
+        x *= 1.e-6
+        y *= 1.e-6
+        z *= 1.e-6
     # Shift the center of the phasespace to z_off
     z = z - np.average(z, weights=w) + z_off
 
     # Add the electrons to the simulation, and calculate the space charge
     ptcl_bunch = add_particle_bunch_from_arrays(sim, q, m, x, y, z, ux, uy, uz,
-                                        w, boost=boost,
-                                        z_injection_plane=z_injection_plane)
+                            w, boost=boost,
+                            z_injection_plane=z_injection_plane,
+                            initialize_self_field=initialize_self_field)
     return ptcl_bunch
 
 
 def add_particle_bunch_from_arrays(sim, q, m, x, y, z, ux, uy, uz, w,
                                    boost=None, direction='forward',
-                                   z_injection_plane=None):
+                                   z_injection_plane=None,
+                                   initialize_self_field=True):
     """
     Introduce a relativistic particle bunch in the simulation,
     along with its space charge field, loading particles from numpy arrays.
@@ -427,6 +462,10 @@ def add_particle_bunch_from_arrays(sim, q, m, x, y, z, ux, uy, uz, w,
         motion for z<z_injection_plane. This is sometimes useful in
         boosted-frame simulations.
         `z_injection_plane` is always given in the lab frame.
+
+    initialize_self_field: bool, optional
+       Whether to calculate the initial space charge fields of the bunch
+       and add these fields to the fields on the grid (Default: True)
     """
     inv_gamma = 1./np.sqrt( 1. + ux**2 + uy**2 + uz**2 )
     # Convert the particles to the boosted-frame
@@ -470,7 +509,8 @@ def add_particle_bunch_from_arrays(sim, q, m, x, y, z, ux, uy, uz, w,
         ptcl_bunch.injector = BallisticBeforePlane( z_injection_plane, boost )
 
     # Get the corresponding space-charge fields
-    get_space_charge_fields(sim, ptcl_bunch, direction=direction)
+    if initialize_self_field:
+        get_space_charge_fields(sim, ptcl_bunch, direction=direction)
     return ptcl_bunch
 
 
@@ -796,10 +836,12 @@ def get_space_charge_fields( sim, ptcl, direction='forward' ):
         gamma = w_gamma_sum/w_sum
 
     # Project the charge and currents onto the local subdomain
-    sim.deposit( 'rho', exchange=True, species_list=[ptcl],
-                    update_spectral=False )
-    sim.deposit( 'J', exchange=True, species_list=[ptcl],
-                    update_spectral=False )
+    # (Move data to GPU if needed, for this step)
+    with GpuMemoryManager(sim):
+        sim.deposit( 'rho', exchange=True, species_list=[ptcl],
+                        update_spectral=False )
+        sim.deposit( 'J', exchange=True, species_list=[ptcl],
+                        update_spectral=False )
 
     # Create a global field object across all subdomains, and copy the sources
     # (Space-charge calculation is a global operation)

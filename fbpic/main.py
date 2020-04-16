@@ -11,15 +11,18 @@ This file steers and controls the simulation.
 # as it sets the cuda context)
 from fbpic.utils.mpi import MPI
 # Check if threading is available
-from .utils.threading import threading_enabled
+from .utils.threading import threading_enabled, numba_minor_version
 # Check if CUDA is available, then import CUDA functions
-from .utils.cuda import cuda_installed, cupy_installed
+from .utils.cuda import cuda_installed, cupy_installed, cupy_major_version
 if cuda_installed:
     from .utils.cuda import send_data_to_gpu, \
                 receive_data_from_gpu, mpi_select_gpus
     mpi_select_gpus( MPI )
+    if cupy_installed:
+        import cupy
 
 # Import the rest of the requirements
+import sys
 import warnings
 import numba
 import numpy as np
@@ -48,28 +51,33 @@ class Simulation(object):
                  p_nz=None, p_nr=None, p_nt=None, n_e=None, zmin=0.,
                  n_order=-1, dens_func=None, filter_currents=True,
                  v_comoving=None, use_galilean=True,
-                 initialize_ions=False, use_cuda=False,
-                 n_guard=None, n_damp=64, exchange_period=None,
-                 current_correction='curl-free', boundaries='periodic',
+                 initialize_ions=False, use_cuda=False, n_guard=None,
+                 n_damp={'z':64, 'r':32},
+                 exchange_period=None,
+                 current_correction='curl-free',
+                 boundaries={'z':'periodic', 'r':'reflective'},
                  gamma_boost=None, use_all_mpi_ranks=True,
                  particle_shape='linear', verbose_level=1,
                  smoother=None ):
         """
         Initializes a simulation.
 
-        By default the simulation contains:
-
-            - an electron species
-            - (if ``initialize_ions`` is True) an ion species (Hydrogen 1+)
-
-        These species are stored in the attribute ``ptcl`` of ``Simulation``
-        (which is a Python list, containing the different species).
+        By default, this will not create any particle species. You can
+        then add particles species to the simulation by using e.g. the method
+        ``add_new_species`` of the simulation object.
 
         .. note::
 
-            For the arguments `p_rmin`, `p_rmax`, `p_nz`, `p_nr`, `p_nt`,
-            `n_e`, and `dens_func`, see the docstring of the method
-            `add_new_species` (where `n_e` has been re-labeled as `n`).
+            As a short-cut, you can also directly create particle
+            species when initializing the ``Simulation`` object,
+            by passing the aguments `n_e`, `p_rmin`, `p_rmax`, `p_nz`,
+            `p_nr`, `p_nt`, and `dens_func`. This will create:
+
+                - an electron species
+                - (if ``initialize_ions`` is True) an ion species (Hydrogen 1+)
+
+            See the docstring of the method ``add_new_species`` for the
+            above-mentioned arguments (where `n_e` has been re-labeled as `n`).
 
         Parameters
         ----------
@@ -126,7 +134,7 @@ class Simulation(object):
             with a speed v_comoving
 
         use_cuda: bool, optional
-            Wether to use CUDA (GPU) acceleration
+            Whether to use CUDA (GPU) acceleration
 
         n_guard: int, optional
             Number of guard cells to use at the left and right of
@@ -136,14 +144,16 @@ class Simulation(object):
             automatically (approx 2*n_order). If no MPI is used and
             in the case of open boundaries with an infinite order stencil,
             n_guard defaults to 64, if not set otherwise.
-        n_damp : int, optional
-            Number of damping guard cells at the left and right of a
-            simulation box if a moving window is attached. The guard
-            region at these areas (left / right of moving window) is
-            extended by n_damp in order to smoothly damp the fields such
-            that they do not wrap around. Additionally, this region is
-            extended by an injection area of size n_guard/2 automatically.
-            (Defaults to 64)
+        n_damp: dict, optional
+            A dictionary with 'z' and 'r' as keys, and integers as values.
+            The integers represent the number of damping cells in the
+            longitudinal (z) and transverse (r) directions, respectively.
+            The damping cells in z are only used if `boundaries['z']` is
+            `'open'`, and are added at the left and right edge of the
+            simulation domain. The damping cells in r are used only if
+            `boundaries['r']` is `'open'`, and are added at upper
+            radial boundary (at `rmax`).
+
         exchange_period: int, optional
             Number of iterations before which the particles are exchanged.
             If set to None, the maximum exchange period is calculated
@@ -152,10 +162,16 @@ class Simulation(object):
             (n_guard/2 - particle_shape order) cells. (Setting exchange_period
             to small values can substantially affect the performance)
 
-        boundaries: string, optional
-            Indicates how to exchange the fields at the left and right
-            boundaries of the global simulation box.
-            (Either 'periodic' or 'open')
+        boundaries: dict, optional
+            A dictionary with 'z' and 'r' as keys, and strings as values.
+            This specifies the field boundary in the longitudinal (z) and
+            transverse (r) direction respectively:
+              - `boundaries['z']` can be either `'periodic'` or `'open'`
+                (for field-absorbing boundary).
+              - `boundaries['r']` can be either `'reflective'` or `'open'`
+                (for field-absorbing boundary). For `'open'`, this adds
+                Perfectly-Matched-Layers in the radial direction ; note that
+                the computation is significantly more costly in this case.
 
         current_correction: string, optional
             The method used in order to ensure that the continuity equation
@@ -198,16 +214,35 @@ class Simulation(object):
         """
         # Check whether to use CUDA
         self.use_cuda = use_cuda
-        if (self.use_cuda==True) and (cuda_installed==False):
+        if self.use_cuda and not cuda_installed:
             warnings.warn(
                 'Cuda not available for the simulation.\n'
                 'Performing the simulation on CPU.' )
             self.use_cuda = False
-        if (self.use_cuda==True) and (cupy_installed==False):
-            raise RuntimeError(
-                'In order to run on GPUs, FBPIC version 0.13 and later \n'
-                'require the `cupy` package (version 6).\n'
-                'See the FBPIC documentation in order to install cupy.')
+        # Check that cupy, numba and Python have the right version
+        if self.use_cuda:
+            if not cupy_installed:
+                raise RuntimeError(
+                    'In order to run on GPUs, FBPIC version 0.13 and later \n'
+                    'require the `cupy` package.\n'
+                    'See the FBPIC documentation in order to install cupy.')
+            elif cupy_major_version < 7:
+                raise RuntimeError(
+                    'In order to run on GPUs, FBPIC version 0.16 and later \n'
+                    'requires `cupy` version 7 (or later).\n(The `cupy` version'
+                    ' on your current system is %d.)\nPlease install the '
+                    'latest version of `cupy`.' %cupy_major_version)
+            elif numba_minor_version < 46:
+                raise RuntimeError(
+                    'In order to run on GPUs, FBPIC version 0.16 and later \n'
+                    'requires `numba` version 0.46 (or later).\n(The `numba` '
+                    'version on your current system is 0.%d.)\nPlease install'
+                    ' the latest version of `numba`.' %numba_minor_version)
+            elif sys.version_info.major < 3:
+                raise RuntimeError(
+                    'In order to run on GPUs, FBPIC version 0.16 and later \n'
+                    'requires Python 3.\n(The Python version on your current '
+                    'system is Python 2.)\nPlease install Python 3.')
         # CPU multi-threading
         self.use_threading = threading_enabled
         if self.use_threading:
@@ -231,15 +266,21 @@ class Simulation(object):
         self.dt = dt
 
         # Initialize the boundary communicator
+        cdt_over_dr = c*dt / (rmax/Nr)
         self.comm = BoundaryCommunicator( Nz, zmin, zmax, Nr, rmax, Nm, dt,
             self.v_comoving, self.use_galilean, boundaries, n_order,
-            n_guard, n_damp, None, exchange_period, use_all_mpi_ranks )
+            n_guard, n_damp, cdt_over_dr, None, exchange_period,
+            use_all_mpi_ranks )
+        self.use_pml = self.comm.use_pml
         # Modify domain region
         zmin, zmax, Nz = self.comm.divide_into_domain()
+        Nr = self.comm.get_Nr( with_damp=True )
+        rmax = self.comm.get_rmax( with_damp=True )
         # Initialize the field structure
         self.fld = Fields( Nz, zmax, Nr, rmax, Nm, dt,
                     n_order=n_order, zmin=zmin,
                     v_comoving=v_comoving,
+                    use_pml=self.use_pml,
                     use_galilean=use_galilean,
                     current_correction=current_correction,
                     use_cuda=self.use_cuda,
@@ -251,17 +292,18 @@ class Simulation(object):
         self.grid_shape = self.fld.interp[0].Ez.shape
         self.particle_shape = particle_shape
         self.ptcl = []
-        # - Initialize the electrons
-        self.add_new_species( q=-e, m=m_e, n=n_e, dens_func=dens_func,
-                              p_nz=p_nz, p_nr=p_nr, p_nt=p_nt,
-                              p_zmin=p_zmin, p_zmax=p_zmax,
-                              p_rmin=p_rmin, p_rmax=p_rmax )
-        # - Initialize the ions
-        if initialize_ions:
-            self.add_new_species( q=e, m=m_p, n=n_e, dens_func=dens_func,
-                              p_nz=p_nz, p_nr=p_nr, p_nt=p_nt,
-                              p_zmin=p_zmin, p_zmax=p_zmax,
-                              p_rmin=p_rmin, p_rmax=p_rmax )
+        if n_e is not None:
+            # - Initialize the electrons
+            self.add_new_species( q=-e, m=m_e, n=n_e, dens_func=dens_func,
+                                  p_nz=p_nz, p_nr=p_nr, p_nt=p_nt,
+                                  p_zmin=p_zmin, p_zmax=p_zmax,
+                                  p_rmin=p_rmin, p_rmax=p_rmax )
+            # - Initialize the ions
+            if initialize_ions:
+                self.add_new_species( q=e, m=m_p, n=n_e, dens_func=dens_func,
+                                  p_nz=p_nz, p_nr=p_nr, p_nt=p_nt,
+                                  p_zmin=p_zmin, p_zmax=p_zmax,
+                                  p_rmin=p_rmin, p_rmax=p_rmax )
 
         # Register the time and the iteration
         self.time = 0.
@@ -348,6 +390,9 @@ class Simulation(object):
         self.comm.damp_EB_open_boundary( fld.interp )
         fld.interp2spect('E')
         fld.interp2spect('B')
+        if self.use_pml:
+            fld.interp2spect('E_pml')
+            fld.interp2spect('B_pml')
 
         # Beginning of the N iterations
         # -----------------------------
@@ -383,6 +428,11 @@ class Simulation(object):
                 # otherwise rho_prev is obtained from the previous iteration.)
                 self.deposit('rho_prev', exchange=(use_true_rho is True))
 
+                # For simulations on GPU, clear the memory pool used by cupy.
+                if self.use_cuda:
+                    mempool = cupy.get_default_memory_pool()
+                    mempool.free_all_blocks()
+
             # For the field diagnostics of the first step: deposit J
             # (Note however that this is not the *corrected* current)
             if i_step == 0:
@@ -391,9 +441,13 @@ class Simulation(object):
             # Main PIC iteration
             # ------------------
 
+            # Keep field arrays sorted throughout gathering+push
+            for species in ptcl:
+                species.keep_fields_sorted = True
+
             # Gather the fields from the grid at t = n dt
             for species in ptcl:
-                species.gather( fld.interp )
+                species.gather( fld.interp, self.comm )
             # Apply the external fields at t = n dt
             for ext_field in self.external_fields:
                 ext_field.apply_expression( self.ptcl, self.time )
@@ -422,18 +476,22 @@ class Simulation(object):
             if self.use_galilean:
                 self.shift_galilean_boundaries( 0.5*dt )
 
+            # Handle elementary processes at t = (n + 1/2)dt
+            # i.e. when the particles' velocity and position are synchronized
+            # (e.g. ionization, Compton scattering, ...)
+            for species in ptcl:
+                species.handle_elementary_processes( self.time + 0.5*dt )
+
+            # Fields are not used beyond this point ; no need to keep sorted
+            for species in ptcl:
+                species.keep_fields_sorted = False
+
             # Get the current at t = (n+1/2) dt
             # (Guard cell exchange done either now or after current correction)
             self.deposit('J', exchange=(correct_currents is False))
             # Perform cross-deposition if needed
             if correct_currents and fld.current_correction=='cross-deposition':
                 self.cross_deposit( move_positions )
-
-            # Handle elementary processes at t = (n + 1/2)dt
-            # i.e. when the particles' velocity and position are synchronized
-            # (e.g. ionization, Compton scattering, ...)
-            for species in ptcl:
-                species.handle_elementary_processes( self.time + 0.5*dt )
 
             # Push the particles' positions to t = (n+1) dt
             if move_positions:
@@ -470,20 +528,12 @@ class Simulation(object):
                 # the interpolation grids
                 self.comm.move_grids(fld, ptcl, dt, self.time)
 
-            # Get the MPI-exchanged and damped E and B field in both
-            # spectral space and interpolation space
-            # (Since exchange/damp operation is purely along z, spectral fields
-            # are updated by doing an iFFT/FFT instead of a full transform)
-            fld.spect2partial_interp('E')
-            fld.spect2partial_interp('B')
-            self.comm.exchange_fields(fld.interp, 'E', 'replace')
-            self.comm.exchange_fields(fld.interp, 'B', 'replace')
-            self.comm.damp_EB_open_boundary( fld.interp )
-            fld.partial_interp2spect('E')
-            fld.partial_interp2spect('B')
-            # Get the corresponding fields in interpolation space
-            fld.spect2interp('E')
-            fld.spect2interp('B')
+            # Handle boundaries for the E and B fields:
+            # - MPI exchanges for guard cells
+            # - Damp fields in damping cells
+            # - Update the fields in interpolation space
+            #  (needed for the field gathering at the next iteration)
+            self.exchange_and_damp_EB()
 
             # Increment the global time and iteration
             self.time += dt
@@ -643,6 +693,55 @@ class Simulation(object):
         if self.use_galilean:
             self.shift_galilean_boundaries( -0.5*dt )
 
+
+    def exchange_and_damp_EB(self):
+        """
+        Handle boundaries for the E and B fields:
+         - MPI exchanges for guard cells
+         - Damp fields in damping cells (in z, and in r if PML are used)
+         - Update the fields in interpolation space
+        """
+        # Shortcut
+        fld = self.fld
+
+        # - Get fields in interpolation space (or partial interpolation space)
+        #   to prepare for damp/exchange
+        if self.use_pml:
+            # Exchange/damp operation in z and r ; do full transform
+            fld.spect2interp('E')
+            fld.spect2interp('B')
+            fld.spect2interp('E_pml')
+            fld.spect2interp('B_pml')
+        else:
+            # Exchange/damp operation is purely along z; spectral fields
+            # are updated by doing an iFFT/FFT instead of a full transform
+            fld.spect2partial_interp('E')
+            fld.spect2partial_interp('B')
+
+        # - Exchange guard cells and damp fields
+        self.comm.exchange_fields(fld.interp, 'E', 'replace')
+        self.comm.exchange_fields(fld.interp, 'B', 'replace')
+        self.comm.damp_EB_open_boundary( fld.interp ) # Damp along z
+        if self.use_pml:
+            self.comm.damp_pml_EB( fld.interp ) # Damp in radial PML
+
+        # - Update spectral space (and interpolation space if needed)
+        if self.use_pml:
+            # Exchange/damp operation in z and r ; do full transform back
+            fld.interp2spect('E')
+            fld.interp2spect('B')
+            fld.interp2spect('E_pml')
+            fld.interp2spect('B_pml')
+        else:
+            # Exchange/damp operation is purely along z; spectral fields
+            # are updated by doing an iFFT/FFT instead of a full transform
+            fld.partial_interp2spect('E')
+            fld.partial_interp2spect('B')
+            # Get the corresponding fields in interpolation space
+            fld.spect2interp('E')
+            fld.spect2interp('B')
+
+
     def shift_galilean_boundaries(self, dt):
         """
         Shift the interpolation grids by v_comoving * dt.
@@ -687,9 +786,10 @@ class Simulation(object):
         .. note::
 
             For the arguments below, it is recommended to have at least
-            ``p_nt = 4*Nm``, i.e. the required number of macroparticles
-            along `theta` (in order for the simulation to be properly resolved)
-            increases with the number of azimuthal modes used.
+            ``p_nt = 4*Nm`` (except in the case ``Nm=1``, for which
+            ``p_nt=1`` is sufficient). In other words, the required number of
+            macroparticles along `theta` (in order for the simulation to be
+            properly resolved) increases with the number of azimuthal modes used.
 
         Parameters
         ----------
@@ -793,6 +893,9 @@ class Simulation(object):
                                         with_damp=False, with_guard=False )
             p_zmin = max( zmin_local_domain, p_zmin )
             p_zmax = min( zmax_local_domain, p_zmax )
+            # Avoid that particles get initialized in the radial PML cells
+            rmax = self.comm.get_rmax( with_damp=False )
+            p_rmax = min( rmax, p_rmax )
 
             # Modify again the input particle bounds, so that
             # they fall exactly on the grid, and infer the number of particles

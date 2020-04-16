@@ -124,7 +124,7 @@ def scatter_photons_electrons_numba(
     created for each thread.
     """
     #  Loop over batches of particles
-    for i_batch in range( N_batch ):
+    for i_batch in prange( N_batch ):
 
         # Photon index: this is incremented each time
         # a scattered photon is identified

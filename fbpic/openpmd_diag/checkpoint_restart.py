@@ -15,9 +15,9 @@ from .particle_diag import ParticleDiagnostic
 from fbpic.utils.mpi import comm
 
 # Check if CUDA is available, then import CUDA
-from fbpic.utils.cuda import cuda_installed
-if cuda_installed:
-        from fbpic.utils.cuda import cuda
+from fbpic.utils.cuda import cupy_installed
+if cupy_installed:
+    import cupy
 
 def set_periodic_checkpoint( sim, period, checkpoint_dir='./checkpoints' ):
     """
@@ -57,8 +57,12 @@ def set_periodic_checkpoint( sim, period, checkpoint_dir='./checkpoints' ):
     write_dir = os.path.join(checkpoint_dir, 'proc%d/' %comm.rank)
 
     # Register a periodic FieldDiagnostic in the diagnostics of the simulation
+    # This saves only the E and B field (and their PML components, if used)
+    fieldtypes = ["E", "B"]
+    if sim.use_pml:
+        fieldtypes += ["Er_pml", "Et_pml", "Br_pml", "Bt_pml"]
     sim.checkpoints.append( FieldDiagnostic( period, sim.fld,
-                        fieldtypes=["E", "B"], write_dir=write_dir ) )
+                        fieldtypes=fieldtypes, write_dir=write_dir ) )
 
     # Register a periodic ParticleDiagnostic, which contains all
     # the particles which are present in the simulation
@@ -107,12 +111,21 @@ def restart_from_checkpoint( sim, iteration=None,
         (When running a simulation with several MPI ranks, use the
         same path for all ranks.)
     """
-    # Import openPMD-viewer
+    # Try to import openPMD-viewer, version 1
     try:
-        from opmd_viewer import OpenPMDTimeSeries
+        from openpmd_viewer import OpenPMDTimeSeries
+        openpmd_viewer_version = 1
     except ImportError:
+        # If not available, try to import openPMD-viewer, version 0
+        try:
+            from opmd_viewer import OpenPMDTimeSeries
+            openpmd_viewer_version = 0
+        except ImportError:
+            openpmd_viewer_version = None
+    # Otherwise, raise an error
+    if openpmd_viewer_version is None:
         raise ImportError(
-        'The package `opmd_viewer` is required to restart from checkpoints.'
+        'The package openPMD-viewer is required to restart from checkpoints.'
         '\nPlease install it from https://github.com/openPMD/openPMD-viewer')
 
     # Verify that the restart is valid (only for the first processor)
@@ -146,7 +159,8 @@ def restart_from_checkpoint( sim, iteration=None,
     if len(avail_species) == len(sim.ptcl):
         for i in range(len(sim.ptcl)):
             name = 'species %d' %i
-            load_species( sim.ptcl[i], name, ts, iteration, sim.comm )
+            load_species( sim.ptcl[i], name, ts, iteration,
+                            sim.comm, openpmd_viewer_version )
     else:
         raise RuntimeError( \
 """Species numbers in checkpoint and simulation should be same, but
@@ -164,6 +178,11 @@ simulation or sim.ptcl = [] to remove them""".format(len(avail_species),
             for coord in ['r', 't', 'z']:
                 load_fields( sim.fld.interp[m], fieldtype,
                              coord, ts, iteration )
+        # Load the PML components if needed
+        if sim.use_pml:
+            for fieldtype in ['Er_pml', 'Et_pml', 'Br_pml', 'Bt_pml']:
+                load_fields(sim.fld.interp[m], fieldtype, None, ts, iteration)
+
     # Record position after restart (`zmin` is modified by `load_fields`)
     # and shift the global domain position in the BoundaryCommunicator
     zmin_new = sim.fld.interp[0].zmin
@@ -206,9 +225,10 @@ def load_fields( grid, fieldtype, coord, ts, iteration ):
        The object into which data should be loaded
 
     fieldtype: string
-       Either 'E', 'B', 'J' or 'rho'. Indicates which field to load.
+       Either 'E', 'B', 'J', 'rho', or 'Er_pml', 'Et_pml', etc.
+       Indicates which field to load.
 
-    coord: string
+    coord: string or None
        Either 'r', 't' or 'z'. Indicates which field to load.
 
     ts: an OpenPMDTimeSeries object
@@ -220,7 +240,7 @@ def load_fields( grid, fieldtype, coord, ts, iteration ):
     Nr = grid.Nr
     m = grid.m
 
-    # Extract the field from the restart file using opmd_viewer
+    # Extract the field from the restart file using openpmd_viewer
     if m==0:
         field_data, info = ts.get_field( fieldtype, coord,
                                          m=m, iteration=iteration )
@@ -259,7 +279,7 @@ def load_fields( grid, fieldtype, coord, ts, iteration ):
     length_new = grid.zmax - grid.zmin
     assert np.allclose( length_old, length_new )
 
-def load_species( species, name, ts, iteration, comm ):
+def load_species( species, name, ts, iteration, comm, openpmd_viewer_version ):
     """
     Read the species data from the checkpoint `ts`
     and load it into the Species object `species`
@@ -280,11 +300,20 @@ def load_species( species, name, ts, iteration, comm ):
 
     comm: an fbpic.BoundaryCommunicator object
         Contains information about the number of procs
+
+    openpmd_viewer_version: int
+        Version of openPMD-viewer that was imported
+        (needed in order to properly read the particle positions)
     """
     # Get the particles' positions (convert to meters)
     x, y, z = ts.get_particle(
                 ['x', 'y', 'z'], iteration=iteration, species=name )
-    species.x, species.y, species.z = 1.e-6*x, 1.e-6*y, 1.e-6*z
+    if openpmd_viewer_version == 0:
+        # Version 0: Convert from microns to meters
+        species.x, species.y, species.z = 1.e-6*x, 1.e-6*y, 1.e-6*z
+    else:
+        # Version 1: Positions are directly given in meters
+        species.x, species.y, species.z = x, y, z
     # Get the particles' momenta
     species.ux, species.uy, species.uz = ts.get_particle(
         ['ux', 'uy', 'uz' ], iteration=iteration, species=name )
@@ -331,8 +360,8 @@ def load_species( species, name, ts, iteration, comm ):
     # Sorting arrays
     if species.use_cuda:
         # cell_idx and sorted_idx always stay on GPU
-        species.cell_idx = cuda.device_array( Ntot, dtype=np.int32)
-        species.sorted_idx = cuda.device_array( Ntot, dtype=np.intp)
+        species.cell_idx = cupy.empty( Ntot, dtype=np.int32)
+        species.sorted_idx = cupy.empty( Ntot, dtype=np.intp)
         # sorting buffers are initialized on CPU
         # (because they are swapped with other particle arrays during sorting)
         species.sorting_buffer = np.empty( Ntot, dtype=np.float64)

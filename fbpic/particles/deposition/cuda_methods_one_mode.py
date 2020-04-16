@@ -7,6 +7,7 @@ It defines the deposition methods for rho and J for linear and cubic
 order shapes on the GPU using CUDA, for one azimuthal mode only
 """
 from numba import cuda
+from fbpic.utils.cuda import compile_cupy
 import math
 from scipy.constants import c
 import numpy as np
@@ -23,7 +24,7 @@ Sr_cubic = cuda.jit(Sr_cubic, device=True, inline=True)
 # Field deposition - linear - rho
 # -------------------------------
 
-@cuda.jit
+@compile_cupy
 def deposit_rho_gpu_linear_one_mode(x, y, z, w, q,
                            invdz, zmin, Nz,
                            invdr, rmin, Nr,
@@ -188,7 +189,7 @@ def deposit_rho_gpu_linear_one_mode(x, y, z, w, q,
 # Field deposition - linear - J
 # -------------------------------
 
-@cuda.jit
+@compile_cupy
 def deposit_J_gpu_linear_one_mode(x, y, z, w, q,
                          ux, uy, uz, inv_gamma,
                          invdz, zmin, Nz,
@@ -411,7 +412,7 @@ def deposit_J_gpu_linear_one_mode(x, y, z, w, q,
 # Field deposition - cubic - rho
 # -------------------------------
 
-@cuda.jit
+@compile_cupy
 def deposit_rho_gpu_cubic_one_mode(x, y, z, w, q,
                           invdz, zmin, Nz,
                           invdr, rmin, Nr,
@@ -637,7 +638,7 @@ def deposit_rho_gpu_cubic_one_mode(x, y, z, w, q,
 # Field deposition - cubic - J
 # -------------------------------
 
-@cuda.jit
+@compile_cupy
 def deposit_J_gpu_cubic_one_mode(x, y, z, w, q,
                         ux, uy, uz, inv_gamma,
                         invdz, zmin, Nz,
