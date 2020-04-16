@@ -203,7 +203,7 @@ def check_fields( interp1_complex, z, r, info_in_real_part, z0, gamma_b,
 
     # Check that the a0 agrees within 5% of the predicted value
     assert abs( abs(a0_fit) - a0 )/a0 < 0.05
-    
+
     # Calculate predicted fields
     r2d, z2d = np.meshgrid(r, z)
     # Factor 0.5 due to the definition of the interpolation grid
