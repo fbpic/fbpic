@@ -119,9 +119,9 @@ def neutral_plasma_shifted(shape, show=False):
         Nrmax = int( Nr * p_rmax * 1./rmax  )
         # Check that the density is correct in mode 0, below this index
         assert np.allclose( 0,
-            sim.fld.interp[0].rho[:,:Nrmax-2], atol=n*e*1.e-4 )
+            sim.fld.interp[0].rho[:,:Nrmax-2], atol=n*e*1.e-3 )
         assert np.allclose( 0,
-            sim.fld.interp[1].rho[:,:Nrmax-2], atol=n*e*1.e-4 )
+            sim.fld.interp[1].rho[:,:Nrmax-2], atol=n*e*1.e-3 )
         # Check that the density is correct in mode 0, above this index
         assert np.allclose( 0,
             sim.fld.interp[0].rho[:,Nrmax+2:], 1.e-10 )
