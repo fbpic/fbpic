@@ -13,7 +13,7 @@ import math
 
 # Linear shapes
 def Sz_linear(cell_position, index):
-    iz = int(math.ceil(cell_position)) - 1
+    iz = math.floor(cell_position)
     s = 0.
     if index == 0:
         s = iz+1.-cell_position
@@ -23,7 +23,7 @@ def Sz_linear(cell_position, index):
 
 def Sr_linear(cell_position, index):
     flip_factor = 1.
-    ir = int(math.ceil(cell_position)) - 1
+    ir = math.floor(cell_position)
     s = 0.
     if index == 0:
         if ir < 0:
@@ -35,7 +35,7 @@ def Sr_linear(cell_position, index):
 
 # Cubic shapes
 def Sz_cubic(cell_position, index):
-    iz = int(math.ceil(cell_position)) - 2
+    iz = math.floor(cell_position) - 1.
     s = 0.
     if index == 0:
         s = (-1./6.)*((cell_position-iz)-2)**3
@@ -49,7 +49,7 @@ def Sz_cubic(cell_position, index):
 
 def Sr_cubic(cell_position, index):
     flip_factor = 1.
-    ir = int(math.ceil(cell_position)) - 2
+    ir = math.floor(cell_position) - 1.
     s = 0.
     if index == 0:
         if ir < 0:
