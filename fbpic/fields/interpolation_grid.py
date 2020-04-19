@@ -115,8 +115,8 @@ class InterpolationGrid(object) :
         # Replace the invvol array by an array on the GPU, when using cuda
         if self.use_cuda :
             self.d_invvol = cupy.asarray( self.invvol )
-            self.ruyten_linear_coef = cupy.asarray( self.ruyten_linear_coef )
-            self.ruyten_cubic_coef = cupy.asarray( self.ruyten_cubic_coef )
+            self.d_ruyten_linear_coef = cupy.asarray( self.ruyten_linear_coef )
+            self.d_ruyten_cubic_coef = cupy.asarray( self.ruyten_cubic_coef )
             
     @property
     def z(self):

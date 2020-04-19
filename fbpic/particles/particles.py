@@ -892,7 +892,7 @@ class Particles(object) :
                             grid[0].invdr, grid[0].rmin, grid[0].Nr,
                             grid[0].rho, grid[1].rho,
                             self.cell_idx, self.prefix_sum,
-                            grid[0].ruyten_linear_coef)
+                            grid[0].d_ruyten_linear_coef)
                     else:
                         for m in range(Nm):
                             deposit_rho_gpu_linear_one_mode[
@@ -902,7 +902,7 @@ class Particles(object) :
                                 grid[m].invdr, grid[m].rmin, grid[m].Nr,
                                 grid[m].rho, m,
                                 self.cell_idx, self.prefix_sum,
-                                grid[m].ruyten_linear_coef)
+                                grid[m].d_ruyten_linear_coef)
                 elif self.particle_shape == 'cubic':
                     if Nm == 2:
                         deposit_rho_gpu_cubic[
@@ -912,7 +912,7 @@ class Particles(object) :
                             grid[0].invdr, grid[0].rmin, grid[0].Nr,
                             grid[0].rho, grid[1].rho,
                             self.cell_idx, self.prefix_sum,
-                            grid[0].ruyten_cubic_coef)
+                            grid[0].d_ruyten_cubic_coef)
                     else:
                         for m in range(Nm):
                             deposit_rho_gpu_cubic_one_mode[
@@ -922,7 +922,7 @@ class Particles(object) :
                                 grid[m].invdr, grid[m].rmin, grid[m].Nr,
                                 grid[m].rho, m,
                                 self.cell_idx, self.prefix_sum,
-                                grid[m].ruyten_cubic_coef)
+                                grid[m].d_ruyten_cubic_coef)
             # J
             elif fieldtype == 'J':
                 # Deposit J in each of four directions
@@ -938,7 +938,7 @@ class Particles(object) :
                             grid[0].Jt, grid[1].Jt,
                             grid[0].Jz, grid[1].Jz,
                             self.cell_idx, self.prefix_sum,
-                            grid[0].ruyten_linear_coef)
+                            grid[0].d_ruyten_linear_coef)
                     else:
                         for m in range(Nm):
                             deposit_J_gpu_linear_one_mode[
@@ -949,7 +949,7 @@ class Particles(object) :
                                 grid[m].invdr, grid[m].rmin, grid[m].Nr,
                                 grid[m].Jr, grid[m].Jt, grid[m].Jz, m,
                                 self.cell_idx, self.prefix_sum,
-                                grid[m].ruyten_linear_coef)
+                                grid[m].d_ruyten_linear_coef)
                 elif self.particle_shape == 'cubic':
                     if Nm == 2:
                         deposit_J_gpu_cubic[
@@ -962,7 +962,7 @@ class Particles(object) :
                             grid[0].Jt, grid[1].Jt,
                             grid[0].Jz, grid[1].Jz,
                             self.cell_idx, self.prefix_sum,
-                            grid[0].ruyten_cubic_coef)
+                            grid[0].d_ruyten_cubic_coef)
                     else:
                         for m in range(Nm):
                             deposit_J_gpu_cubic_one_mode[
@@ -973,7 +973,7 @@ class Particles(object) :
                                 grid[m].invdr, grid[m].rmin, grid[m].Nr,
                                 grid[m].Jr, grid[m].Jt, grid[m].Jz, m,
                                 self.cell_idx, self.prefix_sum,
-                                grid[m].ruyten_cubic_coef)
+                                grid[m].d_ruyten_cubic_coef)
 
         # CPU version
         else:
