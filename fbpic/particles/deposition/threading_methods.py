@@ -11,72 +11,14 @@ import numba
 from fbpic.utils.threading import njit_parallel, prange
 import math
 from scipy.constants import c
+from fbpic.particles.deposition.particle_shapes import Sz_linear, \
+    Sr_linear, Sz_cubic, Sr_cubic
 
-# -------------------------------
-# Particle shape Factor functions
-# -------------------------------
-
-# Linear shapes
-@numba.njit
-def Sz_linear(cell_position, index):
-    iz = np.floor(cell_position)
-    s = 0.
-    if index == 0:
-        s = iz+1.-cell_position
-    elif index == 1:
-        s = cell_position - iz
-    return s
-
-@numba.njit
-def Sr_linear(cell_position, index):
-    flip_factor = 1.
-    ir = np.floor(cell_position)
-    s = 0.
-    if index == 0:
-        if ir < 0:
-            flip_factor = -1.
-        s = flip_factor*(ir+1.-cell_position)
-    elif index == 1:
-        s = flip_factor*(cell_position - ir)
-    return s
-
-# Cubic shapes
-@numba.njit
-def Sz_cubic(cell_position, index):
-    iz = np.floor(cell_position) - 1.
-    s = 0.
-    if index == 0:
-        s = (-1./6.)*((cell_position-iz)-2)**3
-    elif index == 1:
-        s = (1./6.)*(3*((cell_position-(iz+1))**3)-6*((cell_position-(iz+1))**2)+4)
-    elif index == 2:
-        s = (1./6.)*(3*(((iz+2)-cell_position)**3)-6*(((iz+2)-cell_position)**2)+4)
-    elif index == 3:
-        s = (-1./6.)*(((iz+3)-cell_position)-2)**3
-    return s
-
-@numba.njit
-def Sr_cubic(cell_position, index):
-    flip_factor = 1.
-    ir = np.floor(cell_position) - 1.
-    s = 0.
-    if index == 0:
-        if ir < 0:
-            flip_factor = -1.
-        s = flip_factor*(-1./6.)*((cell_position-ir)-2)**3
-    elif index == 1:
-        if ir+1 < 0:
-            flip_factor = -1.
-        s = flip_factor*(1./6.)*(3*((cell_position-(ir+1))**3)-6*((cell_position-(ir+1))**2)+4)
-    elif index == 2:
-        if ir+2 < 0:
-            flip_factor = -1.
-        s = flip_factor*(1./6.)*(3*(((ir+2)-cell_position)**3)-6*(((ir+2)-cell_position)**2)+4)
-    elif index == 3:
-        if ir+3 < 0:
-            flip_factor = -1.
-        s = flip_factor*(-1./6.)*(((ir+3)-cell_position)-2)**3
-    return s
+# JIT-compilation of particle shapes
+Sz_linear = numba.njit(Sz_linear)
+Sr_linear = numba.njit(Sr_linear)
+Sz_cubic = numba.njit(Sz_cubic)
+Sr_cubic = numba.njit(Sr_cubic)
 
 # -------------------------------
 # Field deposition - linear - rho
