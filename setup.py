@@ -1,3 +1,5 @@
+#!/bin/env python
+
 # Copyright 2016, FBPIC contributors
 # Authors: Remi Lehe, Manuel Kirchen, Kevin Peters, Soeren Jalas
 # License: 3-Clause-BSD-LBNL
