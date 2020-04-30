@@ -35,8 +35,7 @@ Setting up Anaconda
 
     ::
 
-        module load python
-        . /global/software/sl-7.x86_64/modules/langs/python/3.6/etc/profile.d/conda.sh
+        module load python/3.6
 
   Then log off and log in again in order for these changes to be active.
 
@@ -44,8 +43,8 @@ Setting up Anaconda
 
     ::
 
-        conda create -n fbpic python=3
-        conda activate fbpic
+        conda create -p $SCRATCH/fbpic_env python=3.6
+        source activate $SCRATCH/fbpic_env
 
 Installation of FBPIC and its dependencies
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -96,7 +95,7 @@ the directory where you prepared your input script and type
 
 ::
 
-    conda activate fbpic
+    source activate $SCRATCH/fbpic_env
     python <fbpic_script.py>
 
 Batch job
@@ -118,9 +117,8 @@ following text (and replace the bracketed text by the proper values).
     #SBATCH --ntasks <requestedRanks>
     #SBATCH --gres=gpu:<gpuPerNode> --cpus-per-task=<cpuPerTask>
 
-    module load python
-    . /global/software/sl-7.x86_64/modules/langs/python/3.6/etc/profile.d/conda.sh
-    conda activate fbpic
+    module load python/3.6
+    source activate $SCRATCH/fbpic_env
 
     mpirun -np <requestedRanks> python fbpic_script.py
 
