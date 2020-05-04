@@ -42,13 +42,14 @@ if threading_enabled:
 # Set the function njit_parallel and prange to the correct object
 if not threading_enabled:
     # Use regular serial compilation function
-    # Uses `cache=True` to avoid re-compilation (not available with threading)
+    # Uses `cache=True` to avoid re-compilation
     njit_parallel = njit( cache=True )
     prange = range
     nthreads = 1
 else:
-    # Use the parallel compilation function
-    njit_parallel = njit( parallel=True )
+    # Use the parallel compilation function (Use caching if available)
+    cache = (numba_minor_version >= 45)
+    njit_parallel = njit( parallel=True, cache=cache )
     prange = numba_prange
     nthreads = numba.config.NUMBA_NUM_THREADS
 
