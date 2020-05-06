@@ -124,16 +124,18 @@ def deposit_rho_numba_linear(x, y, z, w, q,
             # (`min` function avoids out-of-bounds access at high r)
             ir_cell = min( int(math.ceil(r_cell))+1, Nr+2 )
             iz_cell = int(math.ceil( z_cell )) + 1
-
-            # Ruyten-corrected shape factor coefficient
-            ir = min( int(math.ceil(r_cell))-1, Nr-1 )
-            if ir < 0:
-                bn = 0
-            else:
-                bn = beta_n[ir]
+          
+            ir = min( int(math.ceil(r_cell))-1, Nr-1 )           
 
             # Add contribution of this particle to the global array
             for m in range(Nm):
+
+                # Ruyten-corrected shape factor coefficient
+                if ir < 0 or m > 0:
+                    bn = 0
+                else:
+                    bn = beta_n[ir]
+
                 rho_global[i_thread,m,iz_cell+0,ir_cell+0] += Sz_linear(z_cell, 0)*Sr_linear(r_cell, 0, (-1)**m, bn) * rho_scal[m]
                 rho_global[i_thread,m,iz_cell+0,ir_cell+1] += Sz_linear(z_cell, 0)*Sr_linear(r_cell, 1, (-1)**m, bn) * rho_scal[m]
                 rho_global[i_thread,m,iz_cell+1,ir_cell+0] += Sz_linear(z_cell, 1)*Sr_linear(r_cell, 0, (-1)**m, bn) * rho_scal[m]
@@ -265,15 +267,17 @@ def deposit_J_numba_linear(x, y, z, w, q,
             ir_cell = min( int(math.ceil(r_cell))+1, Nr+2 )
             iz_cell = int(math.ceil( z_cell )) + 1
 
-            # Ruyten-corrected shape factor coefficient
             ir = min( int(math.ceil(r_cell))-1, Nr-1 )
-            if ir < 0:
-                bn = 0
-            else:
-                bn = beta_n[ir]
 
             # Add contribution of this particle to the global array
             for m in range(Nm):
+                                
+                # Ruyten-corrected shape factor coefficient
+                if ir < 0 or m > 0:
+                    bn = 0
+                else:
+                    bn = beta_n[ir]
+
                 j_r_global[i_thread,m,iz_cell+0,ir_cell+0] += Sz_linear(z_cell, 0)*Sr_linear(r_cell, 0, -(-1)**m, bn) * jr_scal[m]
                 j_r_global[i_thread,m,iz_cell+0,ir_cell+1] += Sz_linear(z_cell, 0)*Sr_linear(r_cell, 1, -(-1)**m, bn) * jr_scal[m]
                 j_r_global[i_thread,m,iz_cell+1,ir_cell+0] += Sz_linear(z_cell, 1)*Sr_linear(r_cell, 0, -(-1)**m, bn) * jr_scal[m]
@@ -398,15 +402,17 @@ def deposit_rho_numba_cubic(x, y, z, w, q,
             ir_cell = min( int(math.ceil(r_cell)), Nr )
             iz_cell = int(math.ceil( z_cell ))
 
-            # Ruyten-corrected shape factor coefficient
             ir = min( int(math.ceil(r_cell))-1, Nr-1 )
-            if ir < 0:
-                bn = 0
-            else:
-                bn = beta_n[ir]
 
             # Add contribution of this particle to the global array
             for m in range(Nm):
+
+                # Ruyten-corrected shape factor coefficient
+                if ir < 0 or m > 0:
+                    bn = 0
+                else:
+                    bn = beta_n[ir]
+
                 rho_global[i_thread,m,iz_cell+0,ir_cell+0] += Sz_cubic(z_cell, 0)*Sr_cubic(r_cell, 0, (-1)**m, bn)*rho_scal[m]
                 rho_global[i_thread,m,iz_cell+0,ir_cell+1] += Sz_cubic(z_cell, 0)*Sr_cubic(r_cell, 1, (-1)**m, bn)*rho_scal[m]
                 rho_global[i_thread,m,iz_cell+0,ir_cell+2] += Sz_cubic(z_cell, 0)*Sr_cubic(r_cell, 2, (-1)**m, bn)*rho_scal[m]
@@ -554,15 +560,17 @@ def deposit_J_numba_cubic(x, y, z, w, q,
             ir_cell = min( int(math.ceil(r_cell)), Nr )
             iz_cell = int(math.ceil( z_cell ))
 
-            # Ruyten-corrected shape factor coefficient
             ir = min( int(math.ceil(r_cell))-1, Nr-1 )
-            if ir < 0:
-                bn = 0
-            else:
-                bn = beta_n[ir]
 
             # Add contribution of this particle to the global array
             for m in range(Nm):
+
+                # Ruyten-corrected shape factor coefficient
+                if ir < 0 or m > 0:
+                    bn = 0
+                else:
+                    bn = beta_n[ir]
+
                 j_r_global[i_thread,m,iz_cell+0,ir_cell+0] += Sz_cubic(z_cell, 0)*Sr_cubic(r_cell, 0, -(-1)**m, bn)*jr_scal[m]
                 j_r_global[i_thread,m,iz_cell+0,ir_cell+1] += Sz_cubic(z_cell, 0)*Sr_cubic(r_cell, 1, -(-1)**m, bn)*jr_scal[m]
                 j_r_global[i_thread,m,iz_cell+0,ir_cell+2] += Sz_cubic(z_cell, 0)*Sr_cubic(r_cell, 2, -(-1)**m, bn)*jr_scal[m]
