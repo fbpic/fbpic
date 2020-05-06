@@ -372,12 +372,7 @@ class LaserAntenna( object ):
         # Avoid division by 0.
         invr = 1./np.where( r!=0., r, 1. )
         cos = np.where( r!=0., x*invr, 1. )
-        sin = np.where( r!=0., y*invr, 0. )
-
-        # Indices and weights in r
-        ir, Sr = weights(r, grid[0].invdr, grid[0].rmin, grid[0].Nr,
-                         direction='r', shape_order=1,
-                         beta_n=grid[0].ruyten_linear_coef)
+        sin = np.where( r!=0., y*invr, 0. ) 
 
         if fieldtype == 'rho' :
             # ---------------------------------------
@@ -393,6 +388,12 @@ class LaserAntenna( object ):
                     exptheta[:].imag = sin
                 elif m>1 :
                     exptheta[:] = exptheta*( cos + 1.j*sin )
+
+                # Indices and weights in r
+                ir, Sr = weights(r, grid[m].invdr, grid[m].rmin, grid[m].Nr,
+                         direction='r', shape_order=1,
+                         beta_n=grid[m].ruyten_linear_coef)
+
                 # Deposit the fields into small-size buffer arrays
                 # (The sign -1 with which the guards are added is not
                 # trivial to derive but avoids artifacts on the axis)
@@ -417,6 +418,12 @@ class LaserAntenna( object ):
                     exptheta[:].imag = sin
                 elif m>1 :
                     exptheta[:] = exptheta*( cos + 1.j*sin )
+                    
+                # Indices and weights in r
+                ir, Sr = weights(r, grid[m].invdr, grid[m].rmin, grid[m].Nr,
+                         direction='r', shape_order=1,
+                         beta_n=grid[m].ruyten_linear_coef)
+                         
                 # Deposit the fields into small-size buffer arrays
                 # (The sign -1 with which the guards are added is not
                 # trivial to derive but avoids artifacts on the axis)
