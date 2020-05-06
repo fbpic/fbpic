@@ -29,7 +29,9 @@ class InterpolationGrid(object) :
     """
 
     def __init__(self, Nz, Nr, m, zmin, zmax, rmax,
-                    use_pml=False, use_cuda=False ):
+                    use_pml=False, use_cuda=False,
+                    use_ruyten_shapes=True,
+                    use_modified_volume=True ):
         """
         Allocates the matrices corresponding to the spatial grid
 
@@ -73,23 +75,37 @@ class InterpolationGrid(object) :
         self.zmin = zmin
         self.zmax = zmax
 
-        # Cell volume (assuming Hankel-transform corrected volumes)
-        nr_vals = np.arange(Nr)
-        alphas = jn_zeros(0,Nr)
-        d = DHT( 0, 0, Nr, Nz, rmax, use_cuda=False )
-        vol = dz*np.array([( d.M[nr,:]*2./(alphas*j1(alphas)) ).sum()
-                            for nr in nr_vals ])
+        # Use mofified volume only in mode 0
+        if use_modified_volume and m == 0:
+            # Modified cell volume (assuming Hankel-transform corrected volumes)
+            alphas = jn_zeros(0,Nr)
+            d = DHT( 0, 0, Nr, Nz, rmax, use_cuda=False )
+            vol = dz*np.array([( d.M[nr,:]*2./(alphas*j1(alphas)) ).sum()
+                                for nr in nr_vals ])
+
+        else:
+            # Standard cell volumes
+            r = (0.5 + np.arange(Nr))*dr
+            vol = np.pi*dz*( (r+0.5*dr)**2 - (r-0.5*dr)**2 )
+
         # Inverse of cell volume
         self.invvol = 1./vol
 
-        # Ruyten-corrected particle shape factor coefficients
-        norm_vol = vol/(2*np.pi*self.dr**2*self.dz)
-        self.ruyten_linear_coef = 6./(nr_vals+1)*( \
-                            np.cumsum(norm_vol) - 0.5*(nr_vals+1.)**2 - 1./24 )
-        self.ruyten_cubic_coef = 6./(nr_vals+1)*( \
-                            np.cumsum(norm_vol) - 0.5*(nr_vals+1.)**2 - 1./8 )
-        # Correct first value for cubic coeff
-        self.ruyten_cubic_coef[0] = 6.*( norm_vol[0] - 0.5 - 239./(15*2**7) )
+        # Use Ruyten shapes only in mode 0
+        if use_ruyten_shapes and m == 0:
+            # Ruyten-corrected particle shape factor coefficients
+            norm_vol = vol/(2*np.pi*self.dr**2*self.dz)
+            self.ruyten_linear_coef = 6./(nr_vals+1)*( \
+                                np.cumsum(norm_vol) - 0.5*(nr_vals+1.)**2 - 1./24 )
+            self.ruyten_cubic_coef = 6./(nr_vals+1)*( \
+                                np.cumsum(norm_vol) - 0.5*(nr_vals+1.)**2 - 1./8 )
+            # Correct first value for cubic coeff
+            self.ruyten_cubic_coef[0] = 6.*( norm_vol[0] - 0.5 - 239./(15*2**7) )
+
+        else:
+            # For standard shapes, the Ruyten coefficients are set to zero
+            self.ruyten_linear_coef = np.zeros(Nr)
+            self.ruyten_cubic_coef = np.zeros(Nr)
 
         # Allocate the fields arrays
         self.Er = np.zeros( (Nz, Nr), dtype='complex' )
