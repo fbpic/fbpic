@@ -58,7 +58,8 @@ class Simulation(object):
                  boundaries={'z':'periodic', 'r':'reflective'},
                  gamma_boost=None, use_all_mpi_ranks=True,
                  particle_shape='linear', verbose_level=1,
-                 smoother=None ):
+                 smoother=None, use_ruyten_shapes=True,
+                 use_modified_volume=True ):
         """
         Initializes a simulation.
 
@@ -286,7 +287,9 @@ class Simulation(object):
                     use_cuda=self.use_cuda,
                     smoother=smoother,
                     # Only create threading buffers when running on CPU
-                    create_threading_buffers=(self.use_cuda is False) )
+                    create_threading_buffers=(self.use_cuda is False),
+                    use_ruyten_shapes=use_ruyten_shapes,
+                    use_modified_volume=use_modified_volume )
 
         # Initialize the electrons and the ions
         self.grid_shape = self.fld.interp[0].Ez.shape
