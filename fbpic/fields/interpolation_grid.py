@@ -75,6 +75,8 @@ class InterpolationGrid(object) :
         self.zmin = zmin
         self.zmax = zmax
 
+        nr_vals = np.arange(Nr)
+        
         # Use mofified volume only in mode 0
         if use_modified_volume and m == 0:
             # Modified cell volume (assuming Hankel-transform corrected volumes)
