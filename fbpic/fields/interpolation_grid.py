@@ -94,7 +94,7 @@ class InterpolationGrid(object) :
         self.invvol = 1./vol
 
         # Use Ruyten shapes only in mode 0
-        if use_ruyten_shapes and m == 0:
+        if use_ruyten_shapes:
             # Ruyten-corrected particle shape factor coefficients
             norm_vol = vol/(2*np.pi*self.dr**2*self.dz)
             self.ruyten_linear_coef = 6./(nr_vals+1)*( \
