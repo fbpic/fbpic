@@ -985,6 +985,11 @@ class Particles(object) :
             # thread) and register the indices that bound each chunks
             ptcl_chunk_indices = get_chunk_indices(self.Ntot, nthreads)
 
+            if fld.Nm > 1:
+                ruyten_m = 1
+            else: 
+                ruyten_m = 0
+
             # Multithreading functions for the deposition of rho or J
             # All modes at once.
             if fieldtype == 'rho':
@@ -996,7 +1001,8 @@ class Particles(object) :
                         grid[0].invdr, grid[0].rmin, grid[0].Nr,
                         fld.rho_global, fld.Nm,
                         nthreads, ptcl_chunk_indices,
-                        grid[0].ruyten_linear_coef )
+                        grid[0].ruyten_linear_coef,
+                        grid[ruyten_m].ruyten_linear_coef )
                 elif self.particle_shape == 'cubic':
                     deposit_rho_numba_cubic(
                         self.x, self.y, self.z, weight, self.q,
@@ -1004,7 +1010,8 @@ class Particles(object) :
                         grid[0].invdr, grid[0].rmin, grid[0].Nr,
                         fld.rho_global, fld.Nm,
                         nthreads, ptcl_chunk_indices,
-                        grid[0].ruyten_cubic_coef )
+                        grid[0].ruyten_cubic_coef,
+                        grid[ruyten_m].ruyten_cubic_coef )
 
             elif fieldtype == 'J':
                 # Deposit J using CPU threading
@@ -1016,7 +1023,8 @@ class Particles(object) :
                         grid[0].invdr, grid[0].rmin, grid[0].Nr,
                         fld.Jr_global, fld.Jt_global, fld.Jz_global, fld.Nm,
                         nthreads, ptcl_chunk_indices,
-                        grid[0].ruyten_linear_coef )
+                        grid[0].ruyten_linear_coef,
+                        grid[ruyten_m].ruyten_linear_coef )
                 elif self.particle_shape == 'cubic':
                     deposit_J_numba_cubic(
                         self.x, self.y, self.z, weight, self.q,
@@ -1025,7 +1033,8 @@ class Particles(object) :
                         grid[0].invdr, grid[0].rmin, grid[0].Nr,
                         fld.Jr_global, fld.Jt_global, fld.Jz_global, fld.Nm,
                         nthreads, ptcl_chunk_indices,
-                        grid[0].ruyten_cubic_coef )
+                        grid[0].ruyten_cubic_coef,
+                        grid[ruyten_m].ruyten_cubic_coef )
 
 
     def sort_particles(self, fld):

@@ -30,7 +30,7 @@ def deposit_rho_numba_linear(x, y, z, w, q,
                            invdr, rmin, Nr,
                            rho_global, Nm,
                            nthreads, ptcl_chunk_indices,
-                           beta_n):
+                           beta_n_m_0, beta_n_m_higher):
     """
     Deposition of the charge density rho using numba prange on the CPU.
     Iterates over the threads in parallel, while each thread iterates
@@ -131,10 +131,12 @@ def deposit_rho_numba_linear(x, y, z, w, q,
             for m in range(Nm):
 
                 # Ruyten-corrected shape factor coefficient
-                if ir < 0 or m > 0:
+                if ir < 0:
                     bn = 0
+                elif m == 0:
+                    bn = beta_n_m_0[ir]
                 else:
-                    bn = beta_n[ir]
+                    bn = beta_n_m_higher[ir]
 
                 rho_global[i_thread,m,iz_cell+0,ir_cell+0] += Sz_linear(z_cell, 0)*Sr_linear(r_cell, 0, (-1)**m, bn) * rho_scal[m]
                 rho_global[i_thread,m,iz_cell+0,ir_cell+1] += Sz_linear(z_cell, 0)*Sr_linear(r_cell, 1, (-1)**m, bn) * rho_scal[m]
@@ -154,7 +156,7 @@ def deposit_J_numba_linear(x, y, z, w, q,
                          invdr, rmin, Nr,
                          j_r_global, j_t_global, j_z_global, Nm,
                          nthreads, ptcl_chunk_indices,
-                         beta_n):
+                         beta_n_m_0, beta_n_m_higher):
     """
     Deposition of the current density J using numba prange on the CPU.
     Iterates over the threads in parallel, while each thread iterates
@@ -273,10 +275,12 @@ def deposit_J_numba_linear(x, y, z, w, q,
             for m in range(Nm):
                                 
                 # Ruyten-corrected shape factor coefficient
-                if ir < 0 or m > 0:
+                if ir < 0:
                     bn = 0
+                elif m == 0:
+                    bn = beta_n_m_0[ir]
                 else:
-                    bn = beta_n[ir]
+                    bn = beta_n_m_higher[ir]
 
                 j_r_global[i_thread,m,iz_cell+0,ir_cell+0] += Sz_linear(z_cell, 0)*Sr_linear(r_cell, 0, -(-1)**m, bn) * jr_scal[m]
                 j_r_global[i_thread,m,iz_cell+0,ir_cell+1] += Sz_linear(z_cell, 0)*Sr_linear(r_cell, 1, -(-1)**m, bn) * jr_scal[m]
@@ -307,7 +311,7 @@ def deposit_rho_numba_cubic(x, y, z, w, q,
                           invdr, rmin, Nr,
                           rho_global, Nm,
                           nthreads, ptcl_chunk_indices,
-                          beta_n):
+                          beta_n_m_0, beta_n_m_higher):
     """
     Deposition of the charge density rho using numba prange on the CPU.
     Iterates over the threads in parallel, while each thread iterates
@@ -408,10 +412,12 @@ def deposit_rho_numba_cubic(x, y, z, w, q,
             for m in range(Nm):
 
                 # Ruyten-corrected shape factor coefficient
-                if ir < 0 or m > 0:
+                if ir < 0:
                     bn = 0
+                elif m == 0:
+                    bn = beta_n_m_0[ir]
                 else:
-                    bn = beta_n[ir]
+                    bn = beta_n_m_higher[ir]
 
                 rho_global[i_thread,m,iz_cell+0,ir_cell+0] += Sz_cubic(z_cell, 0)*Sr_cubic(r_cell, 0, (-1)**m, bn)*rho_scal[m]
                 rho_global[i_thread,m,iz_cell+0,ir_cell+1] += Sz_cubic(z_cell, 0)*Sr_cubic(r_cell, 1, (-1)**m, bn)*rho_scal[m]
@@ -446,7 +452,7 @@ def deposit_J_numba_cubic(x, y, z, w, q,
                         invdr, rmin, Nr,
                         j_r_global, j_t_global, j_z_global, Nm,
                         nthreads, ptcl_chunk_indices,
-                        beta_n ):
+                        beta_n_m_0, beta_n_m_higher ):
     """
     Deposition of the current density J using numba prange on the CPU.
     Iterates over the threads in parallel, while each thread iterates
@@ -566,10 +572,12 @@ def deposit_J_numba_cubic(x, y, z, w, q,
             for m in range(Nm):
 
                 # Ruyten-corrected shape factor coefficient
-                if ir < 0 or m > 0:
+                if ir < 0:
                     bn = 0
+                elif m == 0:
+                    bn = beta_n_m_0[ir]
                 else:
-                    bn = beta_n[ir]
+                    bn = beta_n_m_higher[ir]
 
                 j_r_global[i_thread,m,iz_cell+0,ir_cell+0] += Sz_cubic(z_cell, 0)*Sr_cubic(r_cell, 0, -(-1)**m, bn)*jr_scal[m]
                 j_r_global[i_thread,m,iz_cell+0,ir_cell+1] += Sz_cubic(z_cell, 0)*Sr_cubic(r_cell, 1, -(-1)**m, bn)*jr_scal[m]
