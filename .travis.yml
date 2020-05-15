@@ -2,7 +2,6 @@
 # The validity of this file can be checked here: http://lint.travis-ci.org/
 
 sudo: false
-dist: precise
 language: python
 python:
     - "2.7"
