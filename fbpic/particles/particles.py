@@ -985,6 +985,10 @@ class Particles(object) :
             # thread) and register the indices that bound each chunks
             ptcl_chunk_indices = get_chunk_indices(self.Ntot, nthreads)
 
+            # The set of Ruyten shape coefficients to use for higher modes. 
+            # For Nm > 1, the set from mode 1 is used, since all higher modes have the
+            # same coefficients. For Nm == 1, the coefficients from mode 0 are 
+            # passed twice to satisfy the argument types for Numba JIT.
             if fld.Nm > 1:
                 ruyten_m = 1
             else: 

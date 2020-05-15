@@ -81,8 +81,12 @@ def deposit_rho_numba_linear(x, y, z, w, q,
         The indices (of the particle array) between which each thread
         should loop. (i.e. divisions of particle array between threads)
 
-    beta_n : 1darray of floats
-        Ruyten-corrected particle shape factor coefficients
+    beta_n_m_0 : 1darray of floats
+        Ruyten-corrected particle shape factor coefficients for mode 0.
+        
+    beta_n_m_higher : 1darray of floats
+        Ruyten-corrected particle shape factor coefficients for higher modes.
+        Ignored when Nm == 1.
     """
     # Deposit the field per cell in parallel (for threads < number of cells)
     for i_thread in prange( nthreads ):
@@ -213,8 +217,12 @@ def deposit_J_numba_linear(x, y, z, w, q,
         The indices (of the particle array) between which each thread
         should loop. (i.e. divisions of particle array between threads)
 
-    beta_n : 1darray of floats
-        Ruyten-corrected particle shape factor coefficients
+    beta_n_m_0 : 1darray of floats
+        Ruyten-corrected particle shape factor coefficients for mode 0.
+        
+    beta_n_m_higher : 1darray of floats
+        Ruyten-corrected particle shape factor coefficients for higher modes.
+        Ignored when Nm == 1.
     """
     # Deposit the field per cell in parallel (for threads < number of cells)
     for i_thread in prange( nthreads ):
@@ -362,8 +370,12 @@ def deposit_rho_numba_cubic(x, y, z, w, q,
         The indices (of the particle array) between which each thread
         should loop. (i.e. divisions of particle array between threads)
 
-    beta_n : 1darray of floats
-        Ruyten-corrected particle shape factor coefficients
+    beta_n_m_0 : 1darray of floats
+        Ruyten-corrected particle shape factor coefficients for mode 0.
+        
+    beta_n_m_higher : 1darray of floats
+        Ruyten-corrected particle shape factor coefficients for higher modes.
+        Ignored when Nm == 1.
     """
     # Deposit the field per cell in parallel (for threads < number of cells)
     for i_thread in prange( nthreads ):
@@ -510,8 +522,12 @@ def deposit_J_numba_cubic(x, y, z, w, q,
         The indices (of the particle array) between which each thread
         should loop. (i.e. divisions of particle array between threads)
 
-    beta_n : 1darray of floats
-        Ruyten-corrected particle shape factor coefficients
+    beta_n_m_0 : 1darray of floats
+        Ruyten-corrected particle shape factor coefficients for mode 0.
+        
+    beta_n_m_higher : 1darray of floats
+        Ruyten-corrected particle shape factor coefficients for higher modes.
+        Ignored when Nm == 1.
     """
     # Deposit the field per cell in parallel (for threads < number of cells)
     for i_thread in prange( nthreads ):

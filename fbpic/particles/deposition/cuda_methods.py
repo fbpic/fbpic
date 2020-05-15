@@ -77,8 +77,8 @@ def deposit_rho_gpu_linear(x, y, z, w, q,
         Represents the cumulative sum of
         the particles per cell
 
-    beta_n : 1darray of floats
-        Ruyten-corrected particle shape factor coefficients
+    beta_n_m0, beta_n_m1 : 1darrays of floats
+        Ruyten-corrected particle shape factor coefficients for mode 0 and 1
     """
     # Get the 1D CUDA grid
     i = cuda.grid(1)
@@ -143,7 +143,7 @@ def deposit_rho_gpu_linear(x, y, z, w, q,
             r_cell = invdr*(rj - rmin) - 0.5
             z_cell = invdz*(zj - zmin) - 0.5
 
-            # Ruyten-corrected shape factor coefficient
+            # Ruyten-corrected shape factor coefficients for both modes
             ir = min( int(math.ceil(r_cell))-1, Nr-1 )
             if ir < 0:
                 bn_m0 = 0
@@ -264,9 +264,9 @@ def deposit_J_gpu_linear(x, y, z, w, q,
     prefix_sum : 1darray of integers
         Represents the cumulative sum of
         the particles per cell
-
-    beta_n : 1darray of floats
-        Ruyten-corrected particle shape factor coefficients
+    
+    beta_n_m0, beta_n_m1 : 1darrays of floats
+        Ruyten-corrected particle shape factor coefficients for mode 0 and 1
     """
     # Get the 1D CUDA grid
     i = cuda.grid(1)
@@ -363,7 +363,7 @@ def deposit_J_gpu_linear(x, y, z, w, q,
             r_cell = invdr*(rj - rmin) - 0.5
             z_cell = invdz*(zj - zmin) - 0.5
 
-            # Ruyten-corrected shape factor coefficient
+            # Ruyten-corrected shape factor coefficients for both modes
             ir = min( int(math.ceil(r_cell))-1, Nr-1 )
             if ir < 0:
                 bn_m0 = 0
@@ -522,8 +522,8 @@ def deposit_rho_gpu_cubic(x, y, z, w, q,
         Represents the cumulative sum of
         the particles per cell
 
-    beta_n : 1darray of floats
-        Ruyten-corrected particle shape factor coefficients
+    beta_n_m0, beta_n_m1 : 1darrays of floats
+        Ruyten-corrected particle shape factor coefficients for mode 0 and 1
     """
     # Get the 1D CUDA grid
     i = cuda.grid(1)
@@ -627,7 +627,7 @@ def deposit_rho_gpu_cubic(x, y, z, w, q,
             r_cell = invdr*(rj - rmin) - 0.5
             z_cell = invdz*(zj - zmin) - 0.5
 
-            # Ruyten-corrected shape factor coefficient
+            # Ruyten-corrected shape factor coefficients for both modes
             ir = min( int(math.ceil(r_cell))-1, Nr-1 )
             if ir < 0:
                 bn_m0 = 0
@@ -821,8 +821,8 @@ def deposit_J_gpu_cubic(x, y, z, w, q,
         Represents the cumulative sum of
         the particles per cell
 
-    beta_n : 1darray of floats
-        Ruyten-corrected particle shape factor coefficients
+    beta_n_m0, beta_n_m1 : 1darrays of floats
+        Ruyten-corrected particle shape factor coefficients for mode 0 and 1
     """
     # Get the 1D CUDA grid
     i = cuda.grid(1)
@@ -1001,7 +1001,7 @@ def deposit_J_gpu_cubic(x, y, z, w, q,
             r_cell = invdr*(rj - rmin) - 0.5
             z_cell = invdz*(zj - zmin) - 0.5
 
-            # Ruyten-corrected shape factor coefficient
+            # Ruyten-corrected shape factor coefficients for both modes
             ir = min( int(math.ceil(r_cell))-1, Nr-1 )
             if ir < 0:
                 bn_m0 = 0

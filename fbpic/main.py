@@ -212,6 +212,15 @@ class Simulation(object):
         smoother: an instance of :any:`BinomialSmoother`, optional
             Determines how the charge and currents are smoothed.
             (Default: one-pass binomial filter and no compensator.)
+
+        use_ruyten_shapes: bool, optional
+            Whether to use Ruyten shape factors for the particle deposition. This
+            prevents deposition errors on the axis and ensures uniform particle
+            density.
+
+        use_modified_volume: bool, optional
+            Whether to correct the cell volume in mode 0 such that all charge
+            is deposited correctly even directly on the axis.
         """
         # Check whether to use CUDA
         self.use_cuda = use_cuda

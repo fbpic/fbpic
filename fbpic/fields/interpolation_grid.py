@@ -55,6 +55,12 @@ class InterpolationGrid(object) :
 
         use_cuda : bool, optional
             Wether to use the GPU or not
+           
+        use_ruyten_shapes: bool, optional
+            Whether to use Ruyten shape factors
+
+        use_modified_volume: bool, optional
+            Whether to use the modified cell volume
         """
         # Register the size of the arrays
         self.Nz = Nz
@@ -93,7 +99,6 @@ class InterpolationGrid(object) :
         # Inverse of cell volume
         self.invvol = 1./vol
 
-        # Use Ruyten shapes only in mode 0
         if use_ruyten_shapes:
             # Ruyten-corrected particle shape factor coefficients
             norm_vol = vol/(2*np.pi*self.dr**2*self.dz)
@@ -130,7 +135,8 @@ class InterpolationGrid(object) :
         # Check whether the GPU should be used
         self.use_cuda = use_cuda
 
-        # Replace the invvol array by an array on the GPU, when using cuda
+        # Replace the invvol array as well as the Ruyten coefficients by an array
+        # on the GPU, when using cuda
         if self.use_cuda :
             self.d_invvol = cupy.asarray( self.invvol )
             self.d_ruyten_linear_coef = cupy.asarray( self.ruyten_linear_coef )
