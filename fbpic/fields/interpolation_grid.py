@@ -83,7 +83,9 @@ class InterpolationGrid(object) :
 
         nr_vals = np.arange(Nr)
         
-        # Use mofified volume only in mode 0
+        # If enabled, modify the cell volume in mode 0 to ensure that all charge 
+        # is correctly represented in spectral space. This is done by modifying
+        # the cell radius.
         if use_modified_volume and m == 0:
             # Modified cell volume (assuming Hankel-transform corrected volumes)
             alphas = jn_zeros(0,Nr)
@@ -99,8 +101,13 @@ class InterpolationGrid(object) :
         # Inverse of cell volume
         self.invvol = 1./vol
 
+        # If enabled, use Ruyten-corrected shape factors 
+        # (Ruyten JCP 105 (1993) https://doi.org/10.1006/jcph.1993.1070).
+        # This prevents deposition errors close to the axis that are inherent
+        # to using a cylindrical grid and thereby ensures a uniform particle
+        # density in the limit of using many particles in r.
         if use_ruyten_shapes:
-            # Ruyten-corrected particle shape factor coefficients
+            # The Ruyten shape factor coefficients are precalculated and stored
             norm_vol = vol/(2*np.pi*self.dr**2*self.dz)
             self.ruyten_linear_coef = 6./(nr_vals+1)*( \
                                 np.cumsum(norm_vol) - 0.5*(nr_vals+1.)**2 - 1./24 )
@@ -110,7 +117,7 @@ class InterpolationGrid(object) :
             self.ruyten_cubic_coef[0] = 6.*( norm_vol[0] - 0.5 - 239./(15*2**7) )
 
         else:
-            # For standard shapes, the Ruyten coefficients are set to zero
+            # For standard shapes, the Ruyten coefficients are simply set to zero
             self.ruyten_linear_coef = np.zeros(Nr)
             self.ruyten_cubic_coef = np.zeros(Nr)
 
