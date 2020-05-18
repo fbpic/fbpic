@@ -126,7 +126,7 @@ from fbpic.fields import Fields
 
 # Parameters
 # ----------
-show = False      # Whether to show the comparison between simulation
+show = True      # Whether to show the comparison between simulation
                  # and theory to the user, or to automatically determine
                  # whether they agree.
 
