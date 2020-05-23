@@ -372,7 +372,7 @@ class LaserAntenna( object ):
         # Avoid division by 0.
         invr = 1./np.where( r!=0., r, 1. )
         cos = np.where( r!=0., x*invr, 1. )
-        sin = np.where( r!=0., y*invr, 0. ) 
+        sin = np.where( r!=0., y*invr, 0. )
 
         if fieldtype == 'rho' :
             # ---------------------------------------
@@ -395,8 +395,6 @@ class LaserAntenna( object ):
                          beta_n=grid[m].ruyten_linear_coef)
 
                 # Deposit the fields into small-size buffer arrays
-                # (The sign -1 with which the guards are added is not
-                # trivial to derive but avoids artifacts on the axis)
                 deposit_field_numba( w*exptheta, self.rho_buffer[m,:],
                     iz, ir, Sz, Sr, (-1)**m )
 
@@ -418,12 +416,12 @@ class LaserAntenna( object ):
                     exptheta[:].imag = sin
                 elif m>1 :
                     exptheta[:] = exptheta*( cos + 1.j*sin )
-                    
+
                 # Indices and weights in r
                 ir, Sr = weights(r, grid[m].invdr, grid[m].rmin, grid[m].Nr,
                          direction='r', shape_order=1,
                          beta_n=grid[m].ruyten_linear_coef)
-                         
+
                 # Deposit the fields into small-size buffer arrays
                 deposit_field_numba( Jr*exptheta, self.Jr_buffer[m,:],
                                      iz, ir, Sz, Sr, -(-1)**m )

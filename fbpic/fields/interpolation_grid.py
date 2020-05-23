@@ -55,12 +55,12 @@ class InterpolationGrid(object) :
 
         use_cuda : bool, optional
             Wether to use the GPU or not
-           
+
         use_ruyten_shapes: bool, optional
             Whether to use Ruyten shape factors
 
         use_modified_volume: bool, optional
-            Whether to use the modified cell volume
+            Whether to use the modified cell volume (only used for m=0)
         """
         # Register the size of the arrays
         self.Nz = Nz
@@ -82,8 +82,8 @@ class InterpolationGrid(object) :
         self.zmax = zmax
 
         nr_vals = np.arange(Nr)
-        
-        # If enabled, modify the cell volume in mode 0 to ensure that all charge 
+
+        # If enabled, modify the cell volume in mode 0 to ensure that all charge
         # is correctly represented in spectral space. This is done by modifying
         # the cell radius.
         if use_modified_volume and m == 0:
@@ -92,7 +92,6 @@ class InterpolationGrid(object) :
             d = DHT( 0, 0, Nr, Nz, rmax, use_cuda=False )
             vol = dz*np.array([( d.M[nr,:]*2./(alphas*j1(alphas)) ).sum()
                                 for nr in nr_vals ])
-
         else:
             # Standard cell volumes
             r = (0.5 + np.arange(Nr))*dr
@@ -101,11 +100,11 @@ class InterpolationGrid(object) :
         # Inverse of cell volume
         self.invvol = 1./vol
 
-        # If enabled, use Ruyten-corrected shape factors 
+        # If enabled, use Ruyten-corrected shape factors
         # (Ruyten JCP 105 (1993) https://doi.org/10.1006/jcph.1993.1070).
-        # This prevents deposition errors close to the axis that are inherent
-        # to using a cylindrical grid and thereby ensures a uniform particle
-        # density in the limit of using many particles in r.
+        # This ensures that a uniform distribution of macroparticles
+        # results in a uniform deposited charge density on the grid,
+        # in the limit of many macroparticles in r.
         if use_ruyten_shapes:
             # The Ruyten shape factor coefficients are precalculated and stored
             norm_vol = vol/(2*np.pi*self.dr**2*self.dz)
@@ -115,7 +114,6 @@ class InterpolationGrid(object) :
                                 np.cumsum(norm_vol) - 0.5*(nr_vals+1.)**2 - 1./8 )
             # Correct first value for cubic coeff
             self.ruyten_cubic_coef[0] = 6.*( norm_vol[0] - 0.5 - 239./(15*2**7) )
-
         else:
             # For standard shapes, the Ruyten coefficients are simply set to zero
             self.ruyten_linear_coef = np.zeros(Nr)
@@ -148,7 +146,7 @@ class InterpolationGrid(object) :
             self.d_invvol = cupy.asarray( self.invvol )
             self.d_ruyten_linear_coef = cupy.asarray( self.ruyten_linear_coef )
             self.d_ruyten_cubic_coef = cupy.asarray( self.ruyten_cubic_coef )
-            
+
     @property
     def z(self):
         """Returns the 1d array of z, when the user queries self.z"""

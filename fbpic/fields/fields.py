@@ -114,12 +114,12 @@ class Fields(object) :
             Whether to create the buffers used in order to perform
             charge/current deposition with threading on CPU
             (buffers are duplicated with the number of threads)
-               
+
         use_ruyten_shapes: bool, optional
             Whether to use Ruyten shape factors
 
         use_modified_volume: bool, optional
-            Whether to use the modified cell volume
+            Whether to use the modified cell volume (only used for m=0)
         """
         # Register the arguments inside the object
         self.Nz = Nz

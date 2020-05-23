@@ -214,17 +214,16 @@ class Simulation(object):
             (Default: one-pass binomial filter and no compensator.)
 
         use_ruyten_shapes: bool, optional
-            Whether to use Ruyten-corrected shape factors for the particle 
-            deposition. This prevents deposition errors close to the axis that
-            are inherent to using a cylindrical grid and thereby ensures a
-            uniform particle density in the limit of using many particles in r.
+            Whether to use Ruyten shape factors for the particle deposition.
             (Ruyten JCP 105 (1993) https://doi.org/10.1006/jcph.1993.1070)
+            This ensures that a uniform distribution of macroparticles
+            leads to a uniform charge density deposited on the grid,
+            even close to the axis (in the limit of many particles in r).
 
         use_modified_volume: bool, optional
-            Wether to correct the cell volume (by adjusting the cell radius) in
-            mode 0 to ensure that all charge deposited on the grid is correctly
-            represented in spectral space when using the Ruyten-corrected shape
-            factors. (Should be used in conjuction with use_ruyten_shapes.)
+            Whether to use a slightly-modified, effective cell volume, that
+            ensures that the charge deposited near the axis is correctly
+            taken into account by the spectral cylindrical Maxwell solver.
         """
         # Check whether to use CUDA
         self.use_cuda = use_cuda
