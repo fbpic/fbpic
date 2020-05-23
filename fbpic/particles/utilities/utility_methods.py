@@ -81,18 +81,8 @@ def weights(x, invdx, offset, Nx, direction, shape_order, beta_n):
             ir = np.minimum(np.maximum(i[0,:], 0), Nx-1)
             S[0,:] = (i[1,:] - x_cell) * (1.+beta_n[ir]*( x_cell - i[0,:] ))
             S[1,:] = 1 - S[0,:]
-    elif shape_order == 3:
-        i[0,:] = np.floor(x_cell).astype('int') - 1
-        i[1,:] = i[0,:] + 1
-        i[2,:] = i[0,:] + 2
-        i[3,:] = i[0,:] + 3
-        # Cubic Weights
-        S[0,:] = -1./6. * ((x_cell-i[0])-2)**3
-        S[1,:] = 1./6. * (3*((x_cell-i[1])**3) - 6*((x_cell-i[1])**2)+4)
-        S[2,:] = 1./6. * (3*((i[2]-x_cell)**3) - 6*((i[2]-x_cell)**2)+4)
-        S[3,:] = -1./6. * ((i[3]-x_cell)-2)**3
     else:
-        raise ValueError("shapes other than linear and cubic are not supported yet.")
+        raise ValueError("shapes other than linear are not supported.")
 
     # Periodic boundary conditions in z
     if direction == 'z':
