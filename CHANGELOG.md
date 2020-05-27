@@ -1,5 +1,15 @@
 # Change Log / Release Log for fbpic
 
+## 0.16.1
+
+This is minor release of FBPIC, with essentially two improvements:
+- It fixes a bug with GPUDirect MPI communications that was introduced in
+version 0.16.1, when switching to a more extensive use of `cupy`.
+(see [#440](https://github.com/fbpic/fbpic/pull/440))
+- The compilation for multi-threaded CPU runs is now cached between different
+simulations, thereby making to the first step of a simulation much faster.
+(see [#445](https://github.com/fbpic/fbpic/pull/445))
+
 ## 0.16.0
 
 This release uses `cupy` much more extensively in FBPIC, when running on GPU.
