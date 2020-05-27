@@ -406,7 +406,7 @@ def check_E_field( E_simulation, rgrid, zgrid, epsilons,
     if show is False:
         # Automatically check that the fields agree,
         # to an absolute tolerance
-        atol = 1e6
+        atol = 1.1e6
         rtol = 2e-2
         assert np.allclose( E_analytical, E_simulation, atol=atol, rtol=rtol )
         print('The field %s agrees with the theory to %e,\n' %(field, atol) + \

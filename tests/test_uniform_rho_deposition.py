@@ -33,8 +33,8 @@ Nr = 50
 rmax= 20.e-6
 Nm = 2
 # Particles
-p_nr = 3
-p_nz = 2
+p_nr = 8
+p_nz = 1
 p_nt = 4
 p_rmax = 10.e-6
 n = 9.e24
@@ -71,7 +71,7 @@ def uniform_electron_plasma(shape, show=False):
         Nrmax = int( Nr * p_rmax * 1./rmax  )
         # Check that the density is correct in mode 0, below this index
         assert np.allclose( -n*e,
-            sim.fld.interp[0].rho[:,:Nrmax-2], 1.e-10 )
+            sim.fld.interp[0].rho[:,:Nrmax-2], 2.e-3 )
         # Check that the density is correct in mode 0, above this index
         assert np.allclose( 0,
             sim.fld.interp[0].rho[:,Nrmax+2:], 1.e-10 )
@@ -82,11 +82,11 @@ def uniform_electron_plasma(shape, show=False):
     # Show the results
     else:
         import matplotlib.pyplot as plt
-        plt.title('Shifted plasma, mode 0')
+        plt.title('Uniform electron plasma, mode 0')
         plt.imshow( sim.fld.interp[0].rho.real, aspect='auto' )
         plt.colorbar()
         plt.show()
-        plt.title('Shifted plasma, mode 1')
+        plt.title('Uniform electron plasma, mode 1')
         plt.imshow( sim.fld.interp[1].rho.real, aspect='auto' )
         plt.colorbar()
         plt.show()
@@ -132,11 +132,11 @@ def neutral_plasma_shifted(shape, show=False):
     # Show the results
     else:
         import matplotlib.pyplot as plt
-        plt.title('Shifted plasma, mode 0')
+        plt.title('Shifted neutral plasma, mode 0')
         plt.imshow( sim.fld.interp[0].rho.real, aspect='auto' )
         plt.colorbar()
         plt.show()
-        plt.title('Shifted plasma, mode 1')
+        plt.title('Shifted neutral plasma, mode 1')
         plt.imshow( sim.fld.interp[1].rho.real, aspect='auto' )
         plt.colorbar()
         plt.show()

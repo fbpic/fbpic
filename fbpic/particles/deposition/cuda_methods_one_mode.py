@@ -29,7 +29,8 @@ def deposit_rho_gpu_linear_one_mode(x, y, z, w, q,
                            invdz, zmin, Nz,
                            invdr, rmin, Nr,
                            rho_m, m,
-                           cell_idx, prefix_sum):
+                           cell_idx, prefix_sum,
+                           beta_n):
     """
     Deposition of the charge density rho using numba on the GPU.
     Iterates over the cells and over the particles per cell.
@@ -78,6 +79,9 @@ def deposit_rho_gpu_linear_one_mode(x, y, z, w, q,
     prefix_sum : 1darray of integers
         Represents the cumulative sum of
         the particles per cell
+
+    beta_n : 1darray of floats
+        Ruyten-corrected particle shape factor coefficients
     """
     # Get the 1D CUDA grid
     i = cuda.grid(1)
@@ -104,6 +108,9 @@ def deposit_rho_gpu_linear_one_mode(x, y, z, w, q,
         R_m_01 = 0. + 0.j
         R_m_10 = 0. + 0.j
         R_m_11 = 0. + 0.j
+
+        # Sign for the shape factors
+        f = (-1)**m
 
         for j in range(frequency_per_cell):
             # Get the particle index before the sorting
@@ -140,13 +147,20 @@ def deposit_rho_gpu_linear_one_mode(x, y, z, w, q,
             r_cell = invdr*(rj - rmin) - 0.5
             z_cell = invdz*(zj - zmin) - 0.5
 
+            # Ruyten-corrected shape factor coefficient
+            ir = min( int(math.ceil(r_cell))-1, Nr-1 )
+            if ir < 0:
+                bn = 0.
+            else:
+                bn = beta_n[ir]
+
             # Calculate rho
             # --------------------------------------------
             R_m_scal = wj * exptheta_m
-            R_m_00 += Sr_linear(r_cell, 0)*Sz_linear(z_cell, 0) * R_m_scal
-            R_m_01 += Sr_linear(r_cell, 0)*Sz_linear(z_cell, 1) * R_m_scal
-            R_m_10 += Sr_linear(r_cell, 1)*Sz_linear(z_cell, 0) * R_m_scal
-            R_m_11 += Sr_linear(r_cell, 1)*Sz_linear(z_cell, 1) * R_m_scal
+            R_m_00 += Sr_linear(r_cell, 0, f, bn)*Sz_linear(z_cell, 0) * R_m_scal
+            R_m_01 += Sr_linear(r_cell, 0, f, bn)*Sz_linear(z_cell, 1) * R_m_scal
+            R_m_10 += Sr_linear(r_cell, 1, f, bn)*Sz_linear(z_cell, 0) * R_m_scal
+            R_m_11 += Sr_linear(r_cell, 1, f, bn)*Sz_linear(z_cell, 1) * R_m_scal
 
         # Calculate longitudinal indices at which to add charge
         iz0 = iz_upper - 1
@@ -184,7 +198,8 @@ def deposit_J_gpu_linear_one_mode(x, y, z, w, q,
                          invdz, zmin, Nz,
                          invdr, rmin, Nr,
                          j_r_m, j_t_m, j_z_m, m,
-                         cell_idx, prefix_sum):
+                         cell_idx, prefix_sum,
+                         beta_n):
     """
     Deposition of the current J using numba on the GPU.
     Iterates over the cells and over the particles per cell.
@@ -240,6 +255,9 @@ def deposit_J_gpu_linear_one_mode(x, y, z, w, q,
     prefix_sum : 1darray of integers
         Represents the cumulative sum of
         the particles per cell
+
+    beta_n : 1darray of floats
+        Ruyten-corrected particle shape factor coefficients
     """
     # Get the 1D CUDA grid
     i = cuda.grid(1)
@@ -276,6 +294,9 @@ def deposit_J_gpu_linear_one_mode(x, y, z, w, q,
         J_r_m_11 = 0. + 0.j
         J_t_m_11 = 0. + 0.j
         J_z_m_11 = 0. + 0.j
+
+        # Sign for the shape factors
+        f = (-1)**m
 
         # Loop over the number of particles per cell
         for j in range(frequency_per_cell):
@@ -321,25 +342,32 @@ def deposit_J_gpu_linear_one_mode(x, y, z, w, q,
             r_cell = invdr*(rj - rmin) - 0.5
             z_cell = invdz*(zj - zmin) - 0.5
 
+            # Ruyten-corrected shape factor coefficient
+            ir = min( int(math.ceil(r_cell))-1, Nr-1 )
+            if ir < 0:
+                bn = 0.
+            else:
+                bn = beta_n[ir]
+
             # Calculate the currents
             # ----------------------
             J_r_m_scal = wj * c * inv_gammaj*(cos*uxj + sin*uyj) * exptheta_m
             J_t_m_scal = wj * c * inv_gammaj*(cos*uyj - sin*uxj) * exptheta_m
             J_z_m_scal = wj * c * inv_gammaj*uzj * exptheta_m
 
-            J_r_m_00 += Sr_linear(r_cell, 0)*Sz_linear(z_cell, 0) * J_r_m_scal
-            J_t_m_00 += Sr_linear(r_cell, 0)*Sz_linear(z_cell, 0) * J_t_m_scal
-            J_z_m_00 += Sr_linear(r_cell, 0)*Sz_linear(z_cell, 0) * J_z_m_scal
-            J_r_m_01 += Sr_linear(r_cell, 0)*Sz_linear(z_cell, 1) * J_r_m_scal
-            J_t_m_01 += Sr_linear(r_cell, 0)*Sz_linear(z_cell, 1) * J_t_m_scal
-            J_z_m_01 += Sr_linear(r_cell, 0)*Sz_linear(z_cell, 1) * J_z_m_scal
+            J_r_m_00 += Sr_linear(r_cell, 0, -f, bn)*Sz_linear(z_cell, 0) * J_r_m_scal
+            J_t_m_00 += Sr_linear(r_cell, 0, -f, bn)*Sz_linear(z_cell, 0) * J_t_m_scal
+            J_z_m_00 += Sr_linear(r_cell, 0, f, bn)*Sz_linear(z_cell, 0) * J_z_m_scal
+            J_r_m_01 += Sr_linear(r_cell, 0, -f, bn)*Sz_linear(z_cell, 1) * J_r_m_scal
+            J_t_m_01 += Sr_linear(r_cell, 0, -f, bn)*Sz_linear(z_cell, 1) * J_t_m_scal
+            J_z_m_01 += Sr_linear(r_cell, 0, f, bn)*Sz_linear(z_cell, 1) * J_z_m_scal
 
-            J_r_m_10 += Sr_linear(r_cell, 1)*Sz_linear(z_cell, 0) * J_r_m_scal
-            J_t_m_10 += Sr_linear(r_cell, 1)*Sz_linear(z_cell, 0) * J_t_m_scal
-            J_z_m_10 += Sr_linear(r_cell, 1)*Sz_linear(z_cell, 0) * J_z_m_scal
-            J_r_m_11 += Sr_linear(r_cell, 1)*Sz_linear(z_cell, 1) * J_r_m_scal
-            J_t_m_11 += Sr_linear(r_cell, 1)*Sz_linear(z_cell, 1) * J_t_m_scal
-            J_z_m_11 += Sr_linear(r_cell, 1)*Sz_linear(z_cell, 1) * J_z_m_scal
+            J_r_m_10 += Sr_linear(r_cell, 1, -f, bn)*Sz_linear(z_cell, 0) * J_r_m_scal
+            J_t_m_10 += Sr_linear(r_cell, 1, -f, bn)*Sz_linear(z_cell, 0) * J_t_m_scal
+            J_z_m_10 += Sr_linear(r_cell, 1, f, bn)*Sz_linear(z_cell, 0) * J_z_m_scal
+            J_r_m_11 += Sr_linear(r_cell, 1, -f, bn)*Sz_linear(z_cell, 1) * J_r_m_scal
+            J_t_m_11 += Sr_linear(r_cell, 1, -f, bn)*Sz_linear(z_cell, 1) * J_t_m_scal
+            J_z_m_11 += Sr_linear(r_cell, 1, f, bn)*Sz_linear(z_cell, 1) * J_z_m_scal
 
         # Calculate longitudinal indices at which to add charge
         iz0 = iz_upper - 1
@@ -395,7 +423,8 @@ def deposit_rho_gpu_cubic_one_mode(x, y, z, w, q,
                           invdz, zmin, Nz,
                           invdr, rmin, Nr,
                           rho_m, m,
-                          cell_idx, prefix_sum):
+                          cell_idx, prefix_sum,
+                          beta_n):
     """
     Deposition of the charge density rho using numba on the GPU.
     Iterates over the cells and over the particles per cell.
@@ -443,6 +472,9 @@ def deposit_rho_gpu_cubic_one_mode(x, y, z, w, q,
     prefix_sum : 1darray of integers
         Represents the cumulative sum of
         the particles per cell
+
+    beta_n : 1darray of floats
+        Ruyten-corrected particle shape factor coefficients
     """
     # Get the 1D CUDA grid
     i = cuda.grid(1)
@@ -482,6 +514,9 @@ def deposit_rho_gpu_cubic_one_mode(x, y, z, w, q,
         R_m_32 = 0. + 0.j
         R_m_33 = 0. + 0.j
 
+        # Sign for the shape factors
+        f = (-1)**m
+
         for j in range(frequency_per_cell):
             # Get the particle index before the sorting
             # --------------------------------------------
@@ -517,29 +552,36 @@ def deposit_rho_gpu_cubic_one_mode(x, y, z, w, q,
             r_cell = invdr*(rj - rmin) - 0.5
             z_cell = invdz*(zj - zmin) - 0.5
 
+            # Ruyten-corrected shape factor coefficient
+            ir = min( int(math.ceil(r_cell))-1, Nr-1 )
+            if ir < 0:
+                bn = 0.
+            else:
+                bn = beta_n[ir]
+
             # Calculate rho
             # -------------
             R_m_scal = wj * exptheta_m
 
-            R_m_00 += Sr_cubic(r_cell, 0)*Sz_cubic(z_cell, 0)*R_m_scal
-            R_m_01 += Sr_cubic(r_cell, 0)*Sz_cubic(z_cell, 1)*R_m_scal
-            R_m_02 += Sr_cubic(r_cell, 0)*Sz_cubic(z_cell, 2)*R_m_scal
-            R_m_03 += Sr_cubic(r_cell, 0)*Sz_cubic(z_cell, 3)*R_m_scal
+            R_m_00 += Sr_cubic(r_cell, 0, f, bn)*Sz_cubic(z_cell, 0)*R_m_scal
+            R_m_01 += Sr_cubic(r_cell, 0, f, bn)*Sz_cubic(z_cell, 1)*R_m_scal
+            R_m_02 += Sr_cubic(r_cell, 0, f, bn)*Sz_cubic(z_cell, 2)*R_m_scal
+            R_m_03 += Sr_cubic(r_cell, 0, f, bn)*Sz_cubic(z_cell, 3)*R_m_scal
 
-            R_m_10 += Sr_cubic(r_cell, 1)*Sz_cubic(z_cell, 0)*R_m_scal
-            R_m_11 += Sr_cubic(r_cell, 1)*Sz_cubic(z_cell, 1)*R_m_scal
-            R_m_12 += Sr_cubic(r_cell, 1)*Sz_cubic(z_cell, 2)*R_m_scal
-            R_m_13 += Sr_cubic(r_cell, 1)*Sz_cubic(z_cell, 3)*R_m_scal
+            R_m_10 += Sr_cubic(r_cell, 1, f, bn)*Sz_cubic(z_cell, 0)*R_m_scal
+            R_m_11 += Sr_cubic(r_cell, 1, f, bn)*Sz_cubic(z_cell, 1)*R_m_scal
+            R_m_12 += Sr_cubic(r_cell, 1, f, bn)*Sz_cubic(z_cell, 2)*R_m_scal
+            R_m_13 += Sr_cubic(r_cell, 1, f, bn)*Sz_cubic(z_cell, 3)*R_m_scal
 
-            R_m_20 += Sr_cubic(r_cell, 2)*Sz_cubic(z_cell, 0)*R_m_scal
-            R_m_21 += Sr_cubic(r_cell, 2)*Sz_cubic(z_cell, 1)*R_m_scal
-            R_m_22 += Sr_cubic(r_cell, 2)*Sz_cubic(z_cell, 2)*R_m_scal
-            R_m_23 += Sr_cubic(r_cell, 2)*Sz_cubic(z_cell, 3)*R_m_scal
+            R_m_20 += Sr_cubic(r_cell, 2, f, bn)*Sz_cubic(z_cell, 0)*R_m_scal
+            R_m_21 += Sr_cubic(r_cell, 2, f, bn)*Sz_cubic(z_cell, 1)*R_m_scal
+            R_m_22 += Sr_cubic(r_cell, 2, f, bn)*Sz_cubic(z_cell, 2)*R_m_scal
+            R_m_23 += Sr_cubic(r_cell, 2, f, bn)*Sz_cubic(z_cell, 3)*R_m_scal
 
-            R_m_30 += Sr_cubic(r_cell, 3)*Sz_cubic(z_cell, 0)*R_m_scal
-            R_m_31 += Sr_cubic(r_cell, 3)*Sz_cubic(z_cell, 1)*R_m_scal
-            R_m_32 += Sr_cubic(r_cell, 3)*Sz_cubic(z_cell, 2)*R_m_scal
-            R_m_33 += Sr_cubic(r_cell, 3)*Sz_cubic(z_cell, 3)*R_m_scal
+            R_m_30 += Sr_cubic(r_cell, 3, f, bn)*Sz_cubic(z_cell, 0)*R_m_scal
+            R_m_31 += Sr_cubic(r_cell, 3, f, bn)*Sz_cubic(z_cell, 1)*R_m_scal
+            R_m_32 += Sr_cubic(r_cell, 3, f, bn)*Sz_cubic(z_cell, 2)*R_m_scal
+            R_m_33 += Sr_cubic(r_cell, 3, f, bn)*Sz_cubic(z_cell, 3)*R_m_scal
 
         # Calculate longitudinal indices at which to add charge
         iz0 = iz_upper - 2
@@ -611,7 +653,8 @@ def deposit_J_gpu_cubic_one_mode(x, y, z, w, q,
                         invdz, zmin, Nz,
                         invdr, rmin, Nr,
                         j_r_m, j_t_m, j_z_m, m,
-                        cell_idx, prefix_sum):
+                        cell_idx, prefix_sum,
+                        beta_n):
     """
     Deposition of the current J using numba on the GPU.
     Iterates over the cells and over the particles per cell.
@@ -666,6 +709,9 @@ def deposit_J_gpu_cubic_one_mode(x, y, z, w, q,
     prefix_sum : 1darray of integers
         Represents the cumulative sum of
         the particles per cell
+
+    beta_n : 1darray of floats
+        Ruyten-corrected particle shape factor coefficients
     """
     # Get the 1D CUDA grid
     i = cuda.grid(1)
@@ -754,6 +800,9 @@ def deposit_J_gpu_cubic_one_mode(x, y, z, w, q,
         J_t_m_33 = 0. + 0.j
         J_z_m_33 = 0. + 0.j
 
+        # Sign for the shape factors
+        f = (-1)**m
+
         # Loop over the number of particles per cell
         for j in range(frequency_per_cell):
             # Get the particle index
@@ -798,6 +847,13 @@ def deposit_J_gpu_cubic_one_mode(x, y, z, w, q,
             r_cell = invdr*(rj - rmin) - 0.5
             z_cell = invdz*(zj - zmin) - 0.5
 
+            # Ruyten-corrected shape factor coefficient
+            ir = min( int(math.ceil(r_cell))-1, Nr-1 )
+            if ir < 0:
+                bn = 0.
+            else:
+                bn = beta_n[ir]
+
             # Calculate the currents
             # --------------------------------------------
             # Mode 0
@@ -806,65 +862,65 @@ def deposit_J_gpu_cubic_one_mode(x, y, z, w, q,
             J_t_m_scal = wj * c * inv_gammaj*(cos*uyj - sin*uxj) * exptheta_m
             J_z_m_scal = wj * c * inv_gammaj*uzj * exptheta_m
 
-            J_r_m_00 += Sr_cubic(r_cell, 0)*Sz_cubic(z_cell, 0)*J_r_m_scal
-            J_r_m_01 += Sr_cubic(r_cell, 0)*Sz_cubic(z_cell, 1)*J_r_m_scal
-            J_r_m_02 += Sr_cubic(r_cell, 0)*Sz_cubic(z_cell, 2)*J_r_m_scal
-            J_r_m_03 += Sr_cubic(r_cell, 0)*Sz_cubic(z_cell, 3)*J_r_m_scal
+            J_r_m_00 += Sr_cubic(r_cell, 0, -f, bn)*Sz_cubic(z_cell, 0)*J_r_m_scal
+            J_r_m_01 += Sr_cubic(r_cell, 0, -f, bn)*Sz_cubic(z_cell, 1)*J_r_m_scal
+            J_r_m_02 += Sr_cubic(r_cell, 0, -f, bn)*Sz_cubic(z_cell, 2)*J_r_m_scal
+            J_r_m_03 += Sr_cubic(r_cell, 0, -f, bn)*Sz_cubic(z_cell, 3)*J_r_m_scal
 
-            J_r_m_10 += Sr_cubic(r_cell, 1)*Sz_cubic(z_cell, 0)*J_r_m_scal
-            J_r_m_11 += Sr_cubic(r_cell, 1)*Sz_cubic(z_cell, 1)*J_r_m_scal
-            J_r_m_12 += Sr_cubic(r_cell, 1)*Sz_cubic(z_cell, 2)*J_r_m_scal
-            J_r_m_13 += Sr_cubic(r_cell, 1)*Sz_cubic(z_cell, 3)*J_r_m_scal
+            J_r_m_10 += Sr_cubic(r_cell, 1, -f, bn)*Sz_cubic(z_cell, 0)*J_r_m_scal
+            J_r_m_11 += Sr_cubic(r_cell, 1, -f, bn)*Sz_cubic(z_cell, 1)*J_r_m_scal
+            J_r_m_12 += Sr_cubic(r_cell, 1, -f, bn)*Sz_cubic(z_cell, 2)*J_r_m_scal
+            J_r_m_13 += Sr_cubic(r_cell, 1, -f, bn)*Sz_cubic(z_cell, 3)*J_r_m_scal
 
-            J_r_m_20 += Sr_cubic(r_cell, 2)*Sz_cubic(z_cell, 0)*J_r_m_scal
-            J_r_m_21 += Sr_cubic(r_cell, 2)*Sz_cubic(z_cell, 1)*J_r_m_scal
-            J_r_m_22 += Sr_cubic(r_cell, 2)*Sz_cubic(z_cell, 2)*J_r_m_scal
-            J_r_m_23 += Sr_cubic(r_cell, 2)*Sz_cubic(z_cell, 3)*J_r_m_scal
+            J_r_m_20 += Sr_cubic(r_cell, 2, -f, bn)*Sz_cubic(z_cell, 0)*J_r_m_scal
+            J_r_m_21 += Sr_cubic(r_cell, 2, -f, bn)*Sz_cubic(z_cell, 1)*J_r_m_scal
+            J_r_m_22 += Sr_cubic(r_cell, 2, -f, bn)*Sz_cubic(z_cell, 2)*J_r_m_scal
+            J_r_m_23 += Sr_cubic(r_cell, 2, -f, bn)*Sz_cubic(z_cell, 3)*J_r_m_scal
 
-            J_r_m_30 += Sr_cubic(r_cell, 3)*Sz_cubic(z_cell, 0)*J_r_m_scal
-            J_r_m_31 += Sr_cubic(r_cell, 3)*Sz_cubic(z_cell, 1)*J_r_m_scal
-            J_r_m_32 += Sr_cubic(r_cell, 3)*Sz_cubic(z_cell, 2)*J_r_m_scal
-            J_r_m_33 += Sr_cubic(r_cell, 3)*Sz_cubic(z_cell, 3)*J_r_m_scal
+            J_r_m_30 += Sr_cubic(r_cell, 3, -f, bn)*Sz_cubic(z_cell, 0)*J_r_m_scal
+            J_r_m_31 += Sr_cubic(r_cell, 3, -f, bn)*Sz_cubic(z_cell, 1)*J_r_m_scal
+            J_r_m_32 += Sr_cubic(r_cell, 3, -f, bn)*Sz_cubic(z_cell, 2)*J_r_m_scal
+            J_r_m_33 += Sr_cubic(r_cell, 3, -f, bn)*Sz_cubic(z_cell, 3)*J_r_m_scal
 
-            J_t_m_00 += Sr_cubic(r_cell, 0)*Sz_cubic(z_cell, 0)*J_t_m_scal
-            J_t_m_01 += Sr_cubic(r_cell, 0)*Sz_cubic(z_cell, 1)*J_t_m_scal
-            J_t_m_02 += Sr_cubic(r_cell, 0)*Sz_cubic(z_cell, 2)*J_t_m_scal
-            J_t_m_03 += Sr_cubic(r_cell, 0)*Sz_cubic(z_cell, 3)*J_t_m_scal
+            J_t_m_00 += Sr_cubic(r_cell, 0, -f, bn)*Sz_cubic(z_cell, 0)*J_t_m_scal
+            J_t_m_01 += Sr_cubic(r_cell, 0, -f, bn)*Sz_cubic(z_cell, 1)*J_t_m_scal
+            J_t_m_02 += Sr_cubic(r_cell, 0, -f, bn)*Sz_cubic(z_cell, 2)*J_t_m_scal
+            J_t_m_03 += Sr_cubic(r_cell, 0, -f, bn)*Sz_cubic(z_cell, 3)*J_t_m_scal
 
-            J_t_m_10 += Sr_cubic(r_cell, 1)*Sz_cubic(z_cell, 0)*J_t_m_scal
-            J_t_m_11 += Sr_cubic(r_cell, 1)*Sz_cubic(z_cell, 1)*J_t_m_scal
-            J_t_m_12 += Sr_cubic(r_cell, 1)*Sz_cubic(z_cell, 2)*J_t_m_scal
-            J_t_m_13 += Sr_cubic(r_cell, 1)*Sz_cubic(z_cell, 3)*J_t_m_scal
+            J_t_m_10 += Sr_cubic(r_cell, 1, -f, bn)*Sz_cubic(z_cell, 0)*J_t_m_scal
+            J_t_m_11 += Sr_cubic(r_cell, 1, -f, bn)*Sz_cubic(z_cell, 1)*J_t_m_scal
+            J_t_m_12 += Sr_cubic(r_cell, 1, -f, bn)*Sz_cubic(z_cell, 2)*J_t_m_scal
+            J_t_m_13 += Sr_cubic(r_cell, 1, -f, bn)*Sz_cubic(z_cell, 3)*J_t_m_scal
 
-            J_t_m_20 += Sr_cubic(r_cell, 2)*Sz_cubic(z_cell, 0)*J_t_m_scal
-            J_t_m_21 += Sr_cubic(r_cell, 2)*Sz_cubic(z_cell, 1)*J_t_m_scal
-            J_t_m_22 += Sr_cubic(r_cell, 2)*Sz_cubic(z_cell, 2)*J_t_m_scal
-            J_t_m_23 += Sr_cubic(r_cell, 2)*Sz_cubic(z_cell, 3)*J_t_m_scal
+            J_t_m_20 += Sr_cubic(r_cell, 2, -f, bn)*Sz_cubic(z_cell, 0)*J_t_m_scal
+            J_t_m_21 += Sr_cubic(r_cell, 2, -f, bn)*Sz_cubic(z_cell, 1)*J_t_m_scal
+            J_t_m_22 += Sr_cubic(r_cell, 2, -f, bn)*Sz_cubic(z_cell, 2)*J_t_m_scal
+            J_t_m_23 += Sr_cubic(r_cell, 2, -f, bn)*Sz_cubic(z_cell, 3)*J_t_m_scal
 
-            J_t_m_30 += Sr_cubic(r_cell, 3)*Sz_cubic(z_cell, 0)*J_t_m_scal
-            J_t_m_31 += Sr_cubic(r_cell, 3)*Sz_cubic(z_cell, 1)*J_t_m_scal
-            J_t_m_32 += Sr_cubic(r_cell, 3)*Sz_cubic(z_cell, 2)*J_t_m_scal
-            J_t_m_33 += Sr_cubic(r_cell, 3)*Sz_cubic(z_cell, 3)*J_t_m_scal
+            J_t_m_30 += Sr_cubic(r_cell, 3, -f, bn)*Sz_cubic(z_cell, 0)*J_t_m_scal
+            J_t_m_31 += Sr_cubic(r_cell, 3, -f, bn)*Sz_cubic(z_cell, 1)*J_t_m_scal
+            J_t_m_32 += Sr_cubic(r_cell, 3, -f, bn)*Sz_cubic(z_cell, 2)*J_t_m_scal
+            J_t_m_33 += Sr_cubic(r_cell, 3, -f, bn)*Sz_cubic(z_cell, 3)*J_t_m_scal
 
-            J_z_m_00 += Sr_cubic(r_cell, 0)*Sz_cubic(z_cell, 0)*J_z_m_scal
-            J_z_m_01 += Sr_cubic(r_cell, 0)*Sz_cubic(z_cell, 1)*J_z_m_scal
-            J_z_m_02 += Sr_cubic(r_cell, 0)*Sz_cubic(z_cell, 2)*J_z_m_scal
-            J_z_m_03 += Sr_cubic(r_cell, 0)*Sz_cubic(z_cell, 3)*J_z_m_scal
+            J_z_m_00 += Sr_cubic(r_cell, 0, f, bn)*Sz_cubic(z_cell, 0)*J_z_m_scal
+            J_z_m_01 += Sr_cubic(r_cell, 0, f, bn)*Sz_cubic(z_cell, 1)*J_z_m_scal
+            J_z_m_02 += Sr_cubic(r_cell, 0, f, bn)*Sz_cubic(z_cell, 2)*J_z_m_scal
+            J_z_m_03 += Sr_cubic(r_cell, 0, f, bn)*Sz_cubic(z_cell, 3)*J_z_m_scal
 
-            J_z_m_10 += Sr_cubic(r_cell, 1)*Sz_cubic(z_cell, 0)*J_z_m_scal
-            J_z_m_11 += Sr_cubic(r_cell, 1)*Sz_cubic(z_cell, 1)*J_z_m_scal
-            J_z_m_12 += Sr_cubic(r_cell, 1)*Sz_cubic(z_cell, 2)*J_z_m_scal
-            J_z_m_13 += Sr_cubic(r_cell, 1)*Sz_cubic(z_cell, 3)*J_z_m_scal
+            J_z_m_10 += Sr_cubic(r_cell, 1, f, bn)*Sz_cubic(z_cell, 0)*J_z_m_scal
+            J_z_m_11 += Sr_cubic(r_cell, 1, f, bn)*Sz_cubic(z_cell, 1)*J_z_m_scal
+            J_z_m_12 += Sr_cubic(r_cell, 1, f, bn)*Sz_cubic(z_cell, 2)*J_z_m_scal
+            J_z_m_13 += Sr_cubic(r_cell, 1, f, bn)*Sz_cubic(z_cell, 3)*J_z_m_scal
 
-            J_z_m_20 += Sr_cubic(r_cell, 2)*Sz_cubic(z_cell, 0)*J_z_m_scal
-            J_z_m_21 += Sr_cubic(r_cell, 2)*Sz_cubic(z_cell, 1)*J_z_m_scal
-            J_z_m_22 += Sr_cubic(r_cell, 2)*Sz_cubic(z_cell, 2)*J_z_m_scal
-            J_z_m_23 += Sr_cubic(r_cell, 2)*Sz_cubic(z_cell, 3)*J_z_m_scal
+            J_z_m_20 += Sr_cubic(r_cell, 2, f, bn)*Sz_cubic(z_cell, 0)*J_z_m_scal
+            J_z_m_21 += Sr_cubic(r_cell, 2, f, bn)*Sz_cubic(z_cell, 1)*J_z_m_scal
+            J_z_m_22 += Sr_cubic(r_cell, 2, f, bn)*Sz_cubic(z_cell, 2)*J_z_m_scal
+            J_z_m_23 += Sr_cubic(r_cell, 2, f, bn)*Sz_cubic(z_cell, 3)*J_z_m_scal
 
-            J_z_m_30 += Sr_cubic(r_cell, 3)*Sz_cubic(z_cell, 0)*J_z_m_scal
-            J_z_m_31 += Sr_cubic(r_cell, 3)*Sz_cubic(z_cell, 1)*J_z_m_scal
-            J_z_m_32 += Sr_cubic(r_cell, 3)*Sz_cubic(z_cell, 2)*J_z_m_scal
-            J_z_m_33 += Sr_cubic(r_cell, 3)*Sz_cubic(z_cell, 3)*J_z_m_scal
+            J_z_m_30 += Sr_cubic(r_cell, 3, f, bn)*Sz_cubic(z_cell, 0)*J_z_m_scal
+            J_z_m_31 += Sr_cubic(r_cell, 3, f, bn)*Sz_cubic(z_cell, 1)*J_z_m_scal
+            J_z_m_32 += Sr_cubic(r_cell, 3, f, bn)*Sz_cubic(z_cell, 2)*J_z_m_scal
+            J_z_m_33 += Sr_cubic(r_cell, 3, f, bn)*Sz_cubic(z_cell, 3)*J_z_m_scal
 
         # Calculate longitudinal indices at which to add charge
         iz0 = iz_upper - 2
