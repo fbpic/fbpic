@@ -118,6 +118,11 @@ class InterpolationGrid(object) :
             # For standard shapes, the Ruyten coefficients are simply set to zero
             self.ruyten_linear_coef = np.zeros(Nr)
             self.ruyten_cubic_coef = np.zeros(Nr)
+        # TODO: Add comments
+        self.ruyten_linear_coef = np.concatenate(
+                                    (np.array([0.]), self.ruyten_linear_coef) )
+        self.ruyten_cubic_coef = np.concatenate(
+                                    (np.array([0.]), self.ruyten_cubic_coef) )
 
         # Allocate the fields arrays
         self.Er = np.zeros( (Nz, Nr), dtype='complex' )

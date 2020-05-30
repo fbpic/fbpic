@@ -83,7 +83,7 @@ def deposit_rho_numba_linear(x, y, z, w, q,
 
     beta_n_m_0 : 1darray of floats
         Ruyten-corrected particle shape factor coefficients for mode 0.
-        
+
     beta_n_m_higher : 1darray of floats
         Ruyten-corrected particle shape factor coefficients for higher modes.
         Ignored when Nm == 1.
@@ -128,16 +128,14 @@ def deposit_rho_numba_linear(x, y, z, w, q,
             # (`min` function avoids out-of-bounds access at high r)
             ir_cell = min( int(math.ceil(r_cell))+1, Nr+2 )
             iz_cell = int(math.ceil( z_cell )) + 1
-          
-            ir = min( int(math.ceil(r_cell))-1, Nr-1 )           
+
+            ir = min( int(math.ceil(r_cell)), Nr )
 
             # Add contribution of this particle to the global array
             for m in range(Nm):
 
                 # Ruyten-corrected shape factor coefficient
-                if ir < 0:
-                    bn = 0
-                elif m == 0:
+                if m == 0:
                     bn = beta_n_m_0[ir]
                 else:
                     bn = beta_n_m_higher[ir]
@@ -219,7 +217,7 @@ def deposit_J_numba_linear(x, y, z, w, q,
 
     beta_n_m_0 : 1darray of floats
         Ruyten-corrected particle shape factor coefficients for mode 0.
-        
+
     beta_n_m_higher : 1darray of floats
         Ruyten-corrected particle shape factor coefficients for higher modes.
         Ignored when Nm == 1.
@@ -277,15 +275,13 @@ def deposit_J_numba_linear(x, y, z, w, q,
             ir_cell = min( int(math.ceil(r_cell))+1, Nr+2 )
             iz_cell = int(math.ceil( z_cell )) + 1
 
-            ir = min( int(math.ceil(r_cell))-1, Nr-1 )
+            ir = min( int(math.ceil(r_cell)), Nr )
 
             # Add contribution of this particle to the global array
             for m in range(Nm):
-                                
+
                 # Ruyten-corrected shape factor coefficient
-                if ir < 0:
-                    bn = 0
-                elif m == 0:
+                if m == 0:
                     bn = beta_n_m_0[ir]
                 else:
                     bn = beta_n_m_higher[ir]
@@ -372,7 +368,7 @@ def deposit_rho_numba_cubic(x, y, z, w, q,
 
     beta_n_m_0 : 1darray of floats
         Ruyten-corrected particle shape factor coefficients for mode 0.
-        
+
     beta_n_m_higher : 1darray of floats
         Ruyten-corrected particle shape factor coefficients for higher modes.
         Ignored when Nm == 1.
@@ -418,15 +414,13 @@ def deposit_rho_numba_cubic(x, y, z, w, q,
             ir_cell = min( int(math.ceil(r_cell)), Nr )
             iz_cell = int(math.ceil( z_cell ))
 
-            ir = min( int(math.ceil(r_cell))-1, Nr-1 )
+            ir = min( int(math.ceil(r_cell)), Nr )
 
             # Add contribution of this particle to the global array
             for m in range(Nm):
 
                 # Ruyten-corrected shape factor coefficient
-                if ir < 0:
-                    bn = 0
-                elif m == 0:
+                if m == 0:
                     bn = beta_n_m_0[ir]
                 else:
                     bn = beta_n_m_higher[ir]
@@ -524,7 +518,7 @@ def deposit_J_numba_cubic(x, y, z, w, q,
 
     beta_n_m_0 : 1darray of floats
         Ruyten-corrected particle shape factor coefficients for mode 0.
-        
+
     beta_n_m_higher : 1darray of floats
         Ruyten-corrected particle shape factor coefficients for higher modes.
         Ignored when Nm == 1.
@@ -582,15 +576,13 @@ def deposit_J_numba_cubic(x, y, z, w, q,
             ir_cell = min( int(math.ceil(r_cell)), Nr )
             iz_cell = int(math.ceil( z_cell ))
 
-            ir = min( int(math.ceil(r_cell))-1, Nr-1 )
+            ir = min( int(math.ceil(r_cell)), Nr )
 
             # Add contribution of this particle to the global array
             for m in range(Nm):
 
                 # Ruyten-corrected shape factor coefficient
-                if ir < 0:
-                    bn = 0
-                elif m == 0:
+                if m == 0:
                     bn = beta_n_m_0[ir]
                 else:
                     bn = beta_n_m_higher[ir]

@@ -144,13 +144,9 @@ def deposit_rho_gpu_linear(x, y, z, w, q,
             z_cell = invdz*(zj - zmin) - 0.5
 
             # Ruyten-corrected shape factor coefficients for both modes
-            ir = min( int(math.ceil(r_cell))-1, Nr-1 )
-            if ir < 0:
-                bn_m0 = 0
-                bn_m1 = 0
-            else:
-                bn_m0 = beta_n_m0[ir]
-                bn_m1 = beta_n_m1[ir]
+            ir = min( int(math.ceil(r_cell)), Nr )
+            bn_m0 = beta_n_m0[ir]
+            bn_m1 = beta_n_m1[ir]
 
             # Calculate rho
             # --------------------------------------------
@@ -264,7 +260,7 @@ def deposit_J_gpu_linear(x, y, z, w, q,
     prefix_sum : 1darray of integers
         Represents the cumulative sum of
         the particles per cell
-    
+
     beta_n_m0, beta_n_m1 : 1darrays of floats
         Ruyten-corrected particle shape factor coefficients for mode 0 and 1
     """
@@ -364,13 +360,9 @@ def deposit_J_gpu_linear(x, y, z, w, q,
             z_cell = invdz*(zj - zmin) - 0.5
 
             # Ruyten-corrected shape factor coefficients for both modes
-            ir = min( int(math.ceil(r_cell))-1, Nr-1 )
-            if ir < 0:
-                bn_m0 = 0
-                bn_m1 = 0
-            else:
-                bn_m0 = beta_n_m0[ir]
-                bn_m1 = beta_n_m1[ir]
+            ir = min( int(math.ceil(r_cell)), Nr )
+            bn_m0 = beta_n_m0[ir]
+            bn_m1 = beta_n_m1[ir]
 
             # Calculate the currents
             # ----------------------
@@ -628,13 +620,9 @@ def deposit_rho_gpu_cubic(x, y, z, w, q,
             z_cell = invdz*(zj - zmin) - 0.5
 
             # Ruyten-corrected shape factor coefficients for both modes
-            ir = min( int(math.ceil(r_cell))-1, Nr-1 )
-            if ir < 0:
-                bn_m0 = 0
-                bn_m1 = 0
-            else:
-                bn_m0 = beta_n_m0[ir]
-                bn_m1 = beta_n_m1[ir]
+            ir = min( int(math.ceil(r_cell)), Nr )
+            bn_m0 = beta_n_m0[ir]
+            bn_m1 = beta_n_m1[ir]
 
             # Calculate rho
             # -------------
@@ -1002,13 +990,9 @@ def deposit_J_gpu_cubic(x, y, z, w, q,
             z_cell = invdz*(zj - zmin) - 0.5
 
             # Ruyten-corrected shape factor coefficients for both modes
-            ir = min( int(math.ceil(r_cell))-1, Nr-1 )
-            if ir < 0:
-                bn_m0 = 0
-                bn_m1 = 0
-            else:
-                bn_m0 = beta_n_m0[ir]
-                bn_m1 = beta_n_m1[ir]
+            ir = min( int(math.ceil(r_cell)), Nr )
+            bn_m0 = beta_n_m0[ir]
+            bn_m1 = beta_n_m1[ir]
 
             # Calculate the currents
             # --------------------------------------------
