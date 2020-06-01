@@ -203,23 +203,16 @@ class PsatdCoeffs(object) :
 
         # Calculate all necessary coefficients for propagation of A field
         w_laser = c * k0
+        w1 = w_laser + c*kz
         w_tot = np.sqrt( (w_laser + c * kz)**2 + c**2 * kr**2)
         if self.use_galilean and self.V is not None:
-            w1 = w_laser + self.V*kz
+            v_gal = self.V
         else:
-            w1 = w_laser
-        self.C_w_tot_env = np.cos(w_tot*dt)
-        self.A_coef = np.exp(1j * w1 * dt)
-        self.w_laser = w_laser
-        self.chi_coef = -dt**2 * np.sinc((w_tot - w1)*0.5*dt / np.pi)\
-                                    * np.sinc((w_tot + w1)*0.5*dt / np.pi)
+            v_gal = 0
+        self.a_prev_coef = np.exp(1.j*kz*(v_gal - c)*dt) * \
+            (1. + 1.j*w1*dt + 0.5*(w_tot**2-w1**2)*dt**2)
+        self.a_inv_coef = 1./np.conjugate( self.a_prev_coef )
         # Replace these array by arrays on the GPU, when using cuda
         if self.use_cuda:
-            self.d_C_w_tot_env = cuda.to_device(self.C_w_tot_env)
-            self.d_chi_coef = cuda.to_device(self.chi_coef)
-            if self.use_galilean and self.V is not None:
-                # In this case A_coef is an array
-                self.d_A_coef = cuda.to_device(self.A_coef)
-            else:
-                # Otherwise A_coef is a simple scalar
-                assert type(self.A_coef) is np.complex128
+            self.d_a_prev_coef = cuda.to_device(self.a_prev_coef)
+            self.d_a_inv_coef = cuda.to_device(self.a_inv_coef)

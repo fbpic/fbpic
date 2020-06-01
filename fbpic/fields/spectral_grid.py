@@ -8,12 +8,11 @@ It defines the SpectralGrid class.
 import numpy as np
 from scipy.constants import epsilon_0
 from .numba_methods import numba_push_eb_standard, numba_push_eb_comoving, \
-    numba_push_envelope_standard, \
     numba_correct_currents_curlfree_standard, \
     numba_correct_currents_crossdeposition_standard, \
     numba_correct_currents_curlfree_comoving, \
     numba_correct_currents_crossdeposition_comoving, \
-    numba_compute_grad_a, numba_push_envelope_galilean, \
+    numba_compute_grad_a, numba_push_envelope, \
     numba_filter_scalar, numba_filter_vector
 
 # Check if CUDA is available, then import CUDA functions
@@ -27,8 +26,7 @@ if cuda_installed:
     cuda_correct_currents_crossdeposition_comoving, \
     cuda_filter_scalar, cuda_filter_vector, \
     cuda_push_eb_standard, cuda_push_eb_comoving, cuda_push_rho, \
-    cuda_push_envelope_standard, cuda_compute_grad_a, \
-    cuda_push_envelope_galilean
+    cuda_compute_grad_a, cuda_push_envelope
 
 
 class SpectralGrid(object) :
@@ -504,31 +502,14 @@ class EnvelopeSpectralGrid(SpectralGrid):
             # Obtain the cuda grid
             dim_grid, dim_block = cuda_tpb_bpg_2d( self.Nz, self.Nr)
             # Push the fields on the GPU
-            if ps.V is None or ps.V == 0:
-                cuda_push_envelope_standard[dim_grid, dim_block](
+            cuda_push_envelope[dim_grid, dim_block](
                                         self.a, self.a_old, self.chi_a,
-                                        ps.d_C_w_tot_env, ps.A_coef,
-                                        ps.d_chi_coef,
-                                        self.Nz, self.Nr )
-                # Note: in this case A_coef is a simple scalar
-            else:
-                assert ps.use_galilean
-                cuda_push_envelope_galilean[dim_grid, dim_block](
-                                        self.a, self.a_old, self.chi_a,
-                                        ps.d_C_w_tot_env, ps.d_A_coef,
-                                        ps.d_chi_coef,
-                                        self.Nz, self.Nr )
-
+                                        ps.d_a_prev_coef, ps.d_a_inv_coef,
+                                        ps.dt**2, self.Nz, self.Nr )
         else:
-            if ps.V is None or ps.V == 0:
-                numba_push_envelope_standard(self.a, self.a_old, self.chi_a,
-                                    ps.C_w_tot_env, ps.A_coef, ps.chi_coef,
-                                    self.Nz, self.Nr)
-            else:
-                assert ps.use_galilean
-                numba_push_envelope_galilean(self.a, self.a_old, self.chi_a,
-                                    ps.C_w_tot_env, ps.A_coef, ps.chi_coef,
-                                    self.Nz, self.Nr)
+            numba_push_envelope(self.a, self.a_old, self.chi_a,
+                                    ps.a_prev_coef, ps.a_inv_coef,
+                                    ps.dt**2, self.Nz, self.Nr)
 
     def compute_grad_a(self):
         """

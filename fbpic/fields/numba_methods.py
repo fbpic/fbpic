@@ -193,43 +193,20 @@ def numba_push_eb_standard( Ep, Em, Ez, Bp, Bm, Bz, Jp, Jm, Jz,
     return
 
 @njit_parallel
-def numba_push_envelope_standard(a, a_old, chi_a, C_w_tot_env,
-                            A_coef, chi_coef, Nz, Nr):
+def numba_push_envelope(a, a_old, chi_a, a_prev_coef,
+                        a_inv_coef, dt2, Nz, Nr):
     """
     Push the envelope over one timestep, using the envelope model equations
 
     See the documentation of EnvelopeSpectralGrid.push_envelope_with
     """
-
     for iz in prange(Nz):
         for ir in range(Nr):
             # Store the field that will be a_old
             a_temp = a[iz, ir]
             # Push the envelope
-            a[iz, ir] = A_coef * ( - A_coef * a_old[iz,ir] \
-                    + 2 * C_w_tot_env[iz, ir] * a[iz, ir] \
-                    + chi_coef[iz, ir] * chi_a[iz, ir] )
-            a_old[iz, ir] = a_temp
-
-    return
-
-@njit_parallel
-def numba_push_envelope_galilean(a, a_old, chi_a, C_w_tot_env,
-                            A_coef, chi_coef, Nz, Nr):
-    """
-    Push the envelope over one timestep, using the envelope model equations
-
-    See the documentation of EnvelopeSpectralGrid.push_envelope_with
-    """
-
-    for iz in prange(Nz):
-        for ir in range(Nr):
-            # Store the field that will be a_old
-            a_temp = a[iz, ir]
-            # Push the envelope
-            a[iz, ir] = A_coef[iz, ir] * ( - A_coef[iz, ir] * a_old[iz,ir] \
-                    + 2 * C_w_tot_env[iz, ir] * a[iz, ir] \
-                    + chi_coef[iz, ir] * chi_a[iz, ir] )
+            a[iz, ir] = a_inv_coef[iz, ir] * ( 2.*a[iz, ir] \
+                - a_prev_coef[iz, ir]*a_old[iz,ir] - dt2*chi_a[iz, ir] )
             a_old[iz, ir] = a_temp
 
     return
