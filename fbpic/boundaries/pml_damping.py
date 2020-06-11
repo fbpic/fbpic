@@ -6,7 +6,7 @@ This file is part of the Fourier-Bessel Particle-In-Cell code (FB-PIC)
 It defines the structure that damps the fields in the guard cells.
 """
 import numpy as np
-from fbpic.utils.cuda import cupy_installed, cuda_installed
+from fbpic.utils.cuda import cuda_installed
 if cuda_installed:
     import cupy
     from fbpic.utils.cuda import cuda_tpb_bpg_2d, cuda, compile_cupy

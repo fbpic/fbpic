@@ -7,8 +7,8 @@ It defines the PsatdCoeffs class.
 """
 import numpy as np
 from scipy.constants import c, mu_0, epsilon_0
-from fbpic.utils.cuda import cupy_installed
-if cupy_installed:
+from fbpic.utils.cuda import cuda_installed
+if cuda_installed:
     from fbpic.utils.cuda import cupy
 
 

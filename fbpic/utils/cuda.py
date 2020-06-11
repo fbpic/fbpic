@@ -30,7 +30,7 @@ except (ImportError, AssertionError):
     cupy_installed = False
     cupy_major_version = None
 
-cuda_installed = (numba_cuda_installed)
+cuda_installed = (numba_cuda_installed and cupy_installed)
     
 # -----------------------------------------------------
 # CUDA grid utilities

@@ -12,7 +12,7 @@ from .numba_methods import get_photon_density_gaussian_numba, \
 from ..cuda_numba_utils import allocate_empty, reallocate_and_copy_old, \
                                 perform_cumsum, generate_new_ids
 # Check if CUDA is available, then import CUDA functions
-from fbpic.utils.cuda import cuda_installed, cupy_installed
+from fbpic.utils.cuda import cuda_installed
 from fbpic.utils.printing import catch_gpu_memory_error
 if cuda_installed:
     from fbpic.utils.cuda import cuda_tpb_bpg_1d

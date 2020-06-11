@@ -13,7 +13,7 @@ from fbpic.particles.utilities.utility_methods import weights
 from fbpic.particles.deposition.numba_methods import deposit_field_numba
 
 # Check if CUDA is available, then import CUDA functions
-from fbpic.utils.cuda import cupy_installed, cuda_installed
+from fbpic.utils.cuda import cuda_installed
 if cuda_installed:
     import cupy
     from fbpic.utils.cuda import cuda, cuda_tpb_bpg_1d, compile_cupy
