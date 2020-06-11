@@ -7,7 +7,7 @@ It defines the structure that damps the fields in the guard cells.
 """
 import numpy as np
 from fbpic.utils.cuda import cupy_installed, cuda_installed
-if cuda_installed and cupy_installed:
+if cuda_installed:
     import cupy
     from fbpic.utils.cuda import cuda_tpb_bpg_2d, cuda, compile_cupy
 
@@ -106,7 +106,7 @@ def generate_pml_damp_array( n_pml, cdt_over_dr ):
     return( damping_array )
 
 
-if cuda_installed and cupy_installed:
+if cuda_installed:
     @compile_cupy
     def cuda_damp_pml_EB( Et, Et_pml, Ez, Bt, Bt_pml, Bz,
                       damp_array, n_pml ) :

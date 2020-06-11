@@ -31,7 +31,7 @@ from fbpic.utils.threading import nthreads, get_chunk_indices
 from fbpic.utils.cuda import cupy_installed, cuda_installed
 if cupy_installed:
     import cupy
-if cuda_installed and cupy_installed:
+if cuda_installed:
     # Load the CUDA methods
     from fbpic.utils.cuda import cuda_tpb_bpg_1d, cuda_gpu_model
     from .push.cuda_methods import push_p_gpu, push_p_ioniz_gpu, \

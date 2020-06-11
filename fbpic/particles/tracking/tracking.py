@@ -13,7 +13,7 @@ if cupy_installed:
     import cupy
 if cuda_installed:
     from fbpic.utils.cuda import cuda_tpb_bpg_1d
-if cuda_installed and cupy_installed:
+if cuda_installed:
     from fbpic.utils.cuda import compile_cupy
     
 class ParticleTracker(object):
@@ -134,7 +134,7 @@ class ParticleTracker(object):
         n = int( (global_id_max - comm.rank)/self.id_step ) + 1
         self.next_attibuted_id = comm.rank + n*self.id_step
 
-if cuda_installed and cupy_installed:
+if cuda_installed:
 
     @compile_cupy
     def generate_ids_gpu( id_array, i_start, i_end,

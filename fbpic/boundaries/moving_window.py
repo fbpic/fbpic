@@ -8,7 +8,7 @@ It defines the structure necessary to implement the moving window.
 from fbpic.utils.threading import njit_parallel, prange
 # Check if CUDA is available, then import CUDA functions
 from fbpic.utils.cuda import cuda_installed, cupy_installed
-if cuda_installed and cupy_installed:
+if cuda_installed:
     from fbpic.utils.cuda import cuda, cuda_tpb_bpg_2d, compile_cupy
 
 class MovingWindow(object):
@@ -238,7 +238,7 @@ def shift_spect_array_cpu( field_array, shift_factor, n_move ):
         for ir in range( Nr ):
             field_array[iz, ir] *= power_shift
 
-if cuda_installed and cupy_installed:
+if cuda_installed:
 
     @compile_cupy
     def shift_spect_array_gpu( field_array, shift_factor, n_move ):

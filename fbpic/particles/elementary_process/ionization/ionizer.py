@@ -43,7 +43,7 @@ if cuda_installed:
     from fbpic.utils.cuda import cuda_tpb_bpg_1d
 if cupy_installed:
     import cupy    
-if cuda_installed and cupy_installed:
+if cuda_installed:
     from .cuda_methods import ionize_ions_cuda, copy_ionized_electrons_cuda
     
 class Ionizer(object):

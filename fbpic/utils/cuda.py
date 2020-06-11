@@ -30,7 +30,7 @@ except (ImportError, AssertionError):
     cupy_installed = False
     cupy_major_version = None
 
-cuda_installed = (numba_cuda_installed and cupy_installed)
+cuda_installed = (numba_cuda_installed)
     
 # -----------------------------------------------------
 # CUDA grid utilities
@@ -197,7 +197,7 @@ def mpi_select_gpus(mpi):
 # CUDA kernel decorator
 # -----------------------------------------------------
 
-if cupy_installed and cuda_installed:
+if cuda_installed:
 
     def get_args_hash(args):
         """

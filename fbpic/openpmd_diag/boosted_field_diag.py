@@ -18,7 +18,7 @@ from .field_diag import FieldDiagnostic
 
 # Check if CUDA is available, then import CUDA functions
 from fbpic.utils.cuda import cupy_installed, cuda_installed
-if cuda_installed and cupy_installed:
+if cuda_installed:
     import cupy
     from fbpic.utils.cuda import cuda, cuda_tpb_bpg_1d, compile_cupy
 
@@ -733,7 +733,7 @@ class SliceHandler:
         fields[ f2i['rho'], ... ] = rho_lab
         fields[ f2i['Jz'], ... ] = Jz_lab
 
-if cuda_installed and cupy_installed:
+if cuda_installed:
 
     @compile_cupy
     def extract_slice_cuda( Nr, iz, Sz, slice_arr,

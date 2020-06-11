@@ -17,7 +17,7 @@ from fbpic.utils.printing import catch_gpu_memory_error
 if cuda_installed:
     from fbpic.utils.cuda import cuda_tpb_bpg_1d
     from numba.cuda.random import create_xoroshiro128p_states
-if cuda_installed and cupy_installed:
+if cuda_installed:
     from .cuda_methods import get_photon_density_gaussian_cuda, \
         determine_scatterings_cuda, scatter_photons_electrons_cuda
 

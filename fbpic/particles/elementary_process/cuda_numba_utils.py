@@ -14,7 +14,7 @@ if cupy_installed:
     import cupy
 if cuda_installed:
     from fbpic.utils.cuda import cuda, cuda_tpb_bpg_1d
-if cuda_installed and cupy_installed:
+if cuda_installed:
     from fbpic.utils.cuda import compile_cupy
     
 def allocate_empty( shape, use_cuda, dtype ):
@@ -151,7 +151,7 @@ def copy_particle_data_numba( Ntot, old_array, new_array ):
         new_array[ip] = old_array[ip]
     return( new_array )
 
-if cuda_installed and cupy_installed:
+if cuda_installed:
     @compile_cupy
     def copy_particle_data_cuda( Ntot, old_array, new_array ):
         """
