@@ -13,7 +13,8 @@ from fbpic.utils.mpi import MPI
 # Check if threading is available
 from .utils.threading import threading_enabled, numba_minor_version
 # Check if CUDA is available, then import CUDA functions
-from .utils.cuda import cuda_installed, cupy_installed, cupy_major_version
+from .utils.cuda import cuda_installed, numba_cuda_installed, \
+    cupy_installed, cupy_major_version
 if cuda_installed:
     from .utils.cuda import send_data_to_gpu, \
                 receive_data_from_gpu, mpi_select_gpus

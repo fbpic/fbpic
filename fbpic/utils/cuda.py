@@ -9,11 +9,11 @@ from numba import cuda
 
 # Check if CUDA is available and set variable accordingly
 try:
-    cuda_installed = cuda.is_available()
+    numba_cuda_installed = cuda.is_available()
 except Exception:
-    cuda_installed = False
+    numba_cuda_installed = False
 
-if cuda_installed:
+if numba_cuda_installed:
     # Infer if GPU is P100 or V100 or other
     if "P100" in str(cuda.gpus[0]._device.name):
         cuda_gpu_model = "P100"
@@ -30,6 +30,8 @@ except (ImportError, AssertionError):
     cupy_installed = False
     cupy_major_version = None
 
+cuda_installed = (numba_cuda_installed and cupy_installed)
+    
 # -----------------------------------------------------
 # CUDA grid utilities
 # -----------------------------------------------------
