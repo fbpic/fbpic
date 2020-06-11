@@ -17,8 +17,8 @@ from scipy.constants import c, e
 from .particle_diag import ParticleDiagnostic
 
 # Check if CUDA is available, then import CUDA functions
-from fbpic.utils.cuda import cuda_installed
-if cuda_installed:
+from fbpic.utils.cuda import cuda_installed, cupy_installed
+if cuda_installed and cupy_installed:
     from .cuda_methods import extract_slice_from_gpu
 
 class BackTransformedParticleDiagnostic(ParticleDiagnostic):

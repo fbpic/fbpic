@@ -10,9 +10,8 @@ import numba
 # Check if CUDA is available, then import CUDA functions
 from fbpic.utils.cuda import cupy_installed, cuda_installed
 from fbpic.utils.printing import catch_gpu_memory_error
-if cupy_installed:
+if cuda_installed and cupy_installed:
     import cupy
-if cuda_installed:
     from fbpic.utils.cuda import cuda, cuda_tpb_bpg_1d, compile_cupy
 
 def remove_outside_particles(species, fld, n_guard, left_proc, right_proc):
@@ -558,7 +557,7 @@ def shift_particles_periodic_numba( z, zmin, zmax ):
 
 # Cuda routines
 # -------------
-if cuda_installed:
+if cuda_installed and cupy_installed:
 
     @compile_cupy
     def split_particles_to_buffers( particle_array, left_buffer,

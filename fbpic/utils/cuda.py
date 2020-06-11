@@ -195,7 +195,7 @@ def mpi_select_gpus(mpi):
 # CUDA kernel decorator
 # -----------------------------------------------------
 
-if cupy_installed:
+if cupy_installed and cuda_installed:
 
     def get_args_hash(args):
         """

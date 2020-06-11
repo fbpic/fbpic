@@ -8,9 +8,8 @@ It defines the structure necessary to handle mpi buffers for the fields
 import numpy as np
 # Check if CUDA is available, then import CUDA functions
 from fbpic.utils.cuda import cupy_installed, cuda_installed
-if cupy_installed:
+if cupy_installed and cuda_installed:
     import cupy
-if cuda_installed:
     from fbpic.utils.cuda import cuda, cuda_tpb_bpg_2d
     from .cuda_methods import \
         copy_vec_to_gpu_buffer, \

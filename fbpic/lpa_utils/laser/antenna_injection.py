@@ -14,9 +14,8 @@ from fbpic.particles.deposition.numba_methods import deposit_field_numba
 
 # Check if CUDA is available, then import CUDA functions
 from fbpic.utils.cuda import cupy_installed, cuda_installed
-if cupy_installed:
+if cuda_installed and cupy_installed:
     import cupy
-if cuda_installed:
     from fbpic.utils.cuda import cuda, cuda_tpb_bpg_1d, compile_cupy
 
 class LaserAntenna( object ):
@@ -494,7 +493,7 @@ class LaserAntenna( object ):
                     self.d_Jr_buffer, self.d_Jt_buffer, self.d_Jz_buffer,
                     grid[m].Jr, grid[m].Jt, grid[m].Jz, m )
 
-if cuda_installed:
+if cuda_installed and cupy_installed:
 
     @compile_cupy
     def add_rho_to_gpu_array( iz_min, rho_buffer, rho, m ):

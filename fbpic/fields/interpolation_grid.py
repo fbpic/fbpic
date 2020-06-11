@@ -10,9 +10,8 @@ from fbpic.fields.spectral_transform.hankel import DHT
 from scipy.special import j1, jn_zeros
 # Check if CUDA is available, then import CUDA functions
 from fbpic.utils.cuda import cupy_installed, cuda_installed
-if cupy_installed:
+if cuda_installed and cupy_installed:
     import cupy
-if cuda_installed:
     from fbpic.utils.cuda import cuda_tpb_bpg_2d
     from .cuda_methods import \
         cuda_erase_scalar, cuda_erase_vector, \

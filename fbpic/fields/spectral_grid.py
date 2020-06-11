@@ -16,9 +16,8 @@ from .numba_methods import numba_push_eb_standard, numba_push_eb_comoving, \
     numba_filter_scalar, numba_filter_vector
 # Check if CUDA is available, then import CUDA functions
 from fbpic.utils.cuda import cupy_installed, cuda_installed
-if cupy_installed:
+if cupy_installed and cuda_installed:
     import cupy
-if cuda_installed:
     from fbpic.utils.cuda import cuda_tpb_bpg_2d
     from .cuda_methods import \
     cuda_correct_currents_curlfree_standard, \
