@@ -39,17 +39,25 @@ if threading_enabled:
             'Please ensure that numba 0.34 or >=0.36 is installed.\n'
             '(e.g. by typing `conda update numba` in a terminal)')
 
+# Check if the environment variable FBPIC_DISABLE_CACHING is set to 1
+# and in that case, disable threading
+caching = True
+if 'FBPIC_DISABLE_CACHING' in os.environ:
+    if int(os.environ['FBPIC_DISABLE_CACHING']) == 1:
+        caching = False
+
 # Set the function njit_parallel and prange to the correct object
 if not threading_enabled:
     # Use regular serial compilation function
     # Uses `cache=True` to avoid re-compilation
-    njit_parallel = njit( cache=True )
+    njit_parallel = njit( cache=caching )
     prange = range
     nthreads = 1
 else:
     # Use the parallel compilation function (Use caching if available)
-    cache = (numba_minor_version >= 45)
-    njit_parallel = njit( parallel=True, cache=cache )
+    if numba_minor_version < 45:
+        caching = False
+    njit_parallel = njit( parallel=True, cache=caching )
     prange = numba_prange
     nthreads = numba.config.NUMBA_NUM_THREADS
 
