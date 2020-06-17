@@ -118,6 +118,25 @@ class InterpolationGrid(object) :
             # For standard shapes, the Ruyten coefficients are simply set to zero
             self.ruyten_linear_coef = np.zeros(Nr)
             self.ruyten_cubic_coef = np.zeros(Nr)
+        # Add one element (whose value is 0) at the beginning of the coefficient
+        # arrays. This element corresponds to the coefficient used by particles
+        # located in the first half of the first cell, radially.
+        # Note that, the Ruyten correction generally only affects the 2 nearest
+        # gridpoints - even with cubic shape - and that this correction has
+        # equal value but opposite sign at those 2 points.
+        # For the particles located in the first half of the first cell,
+        # only the first grid point is affected, and thus the Ruyten
+        # corrections (with equal value but opposite sign) is either summed
+        # or substracted at this point.
+        # When summed (e.g. for rho in mode m=0), the correction cancels out
+        # and so the actual value of the coefficient does not matter.
+        # When subtracted (e.g. for rho in mode m=1), setting the coefficient
+        # to 0 ensure that the correction does not modify the deposition of
+        # particles close to the axis.
+        self.ruyten_linear_coef = np.concatenate(
+                                    (np.array([0.]), self.ruyten_linear_coef) )
+        self.ruyten_cubic_coef = np.concatenate(
+                                    (np.array([0.]), self.ruyten_cubic_coef) )
 
         # Allocate the fields arrays
         self.Er = np.zeros( (Nz, Nr), dtype='complex' )

@@ -148,11 +148,8 @@ def deposit_rho_gpu_linear_one_mode(x, y, z, w, q,
             z_cell = invdz*(zj - zmin) - 0.5
 
             # Ruyten-corrected shape factor coefficient
-            ir = min( int(math.ceil(r_cell))-1, Nr-1 )
-            if ir < 0:
-                bn = 0.
-            else:
-                bn = beta_n[ir]
+            ir = min( int(math.ceil(r_cell)), Nr )
+            bn = beta_n[ir]
 
             # Calculate rho
             # --------------------------------------------
@@ -343,11 +340,8 @@ def deposit_J_gpu_linear_one_mode(x, y, z, w, q,
             z_cell = invdz*(zj - zmin) - 0.5
 
             # Ruyten-corrected shape factor coefficient
-            ir = min( int(math.ceil(r_cell))-1, Nr-1 )
-            if ir < 0:
-                bn = 0.
-            else:
-                bn = beta_n[ir]
+            ir = min( int(math.ceil(r_cell)), Nr )
+            bn = beta_n[ir]
 
             # Calculate the currents
             # ----------------------
@@ -553,11 +547,8 @@ def deposit_rho_gpu_cubic_one_mode(x, y, z, w, q,
             z_cell = invdz*(zj - zmin) - 0.5
 
             # Ruyten-corrected shape factor coefficient
-            ir = min( int(math.ceil(r_cell))-1, Nr-1 )
-            if ir < 0:
-                bn = 0.
-            else:
-                bn = beta_n[ir]
+            ir = min( int(math.ceil(r_cell)), Nr )
+            bn = beta_n[ir]
 
             # Calculate rho
             # -------------
@@ -848,11 +839,8 @@ def deposit_J_gpu_cubic_one_mode(x, y, z, w, q,
             z_cell = invdz*(zj - zmin) - 0.5
 
             # Ruyten-corrected shape factor coefficient
-            ir = min( int(math.ceil(r_cell))-1, Nr-1 )
-            if ir < 0:
-                bn = 0.
-            else:
-                bn = beta_n[ir]
+            ir = min( int(math.ceil(r_cell)), Nr )
+            bn = beta_n[ir]
 
             # Calculate the currents
             # --------------------------------------------

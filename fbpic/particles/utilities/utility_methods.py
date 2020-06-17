@@ -78,8 +78,8 @@ def weights(x, invdx, offset, Nx, direction, shape_order, beta_n):
             S[1,:] = 1 - S[0,:]
         # Linear weight r
         elif direction == 'r':
-            ir = np.minimum(np.maximum(i[0,:], 0), Nx-1)
-            S[0,:] = (i[1,:] - x_cell) * (1.+beta_n[ir]*( x_cell - i[0,:] ))
+            ir = np.minimum(np.maximum(i[0,:], -1), Nx-1)
+            S[0,:] = (i[1,:] - x_cell) * (1.+beta_n[ir+1]*( x_cell - i[0,:] ))
             S[1,:] = 1 - S[0,:]
     else:
         raise ValueError("shapes other than linear are not supported.")
