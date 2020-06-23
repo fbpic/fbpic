@@ -1,4 +1,4 @@
-.. fbpic documentation master file, created by
+.. fbpic documentation main file, created by
    sphinx-quickstart on Sun Sep 11 12:04:39 2016.
    You can adapt this file completely to your liking, but it should at least
    contain the root `toctree` directive.
@@ -57,7 +57,7 @@ FBPIC is open-source, and the source code is hosted `here <http://github.com/fbp
 Github.
 
 We welcome contributions to the code! If you wish to contribute,
-please read `this page <https://github.com/fbpic/fbpic/blob/master/CONTRIBUTING.md>`_ .
+please read `this page <https://github.com/fbpic/fbpic/blob/main/CONTRIBUTING.md>`_ .
 
 Research & Attribution
 ----------------------

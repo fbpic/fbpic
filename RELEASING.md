@@ -33,11 +33,11 @@ username: <yourPypiUsername>
   corresponds to the new release, and that the corresponding changes have been
   documented in `CHANGELOG.md`.
 
-- If everything works fine, then merge the `dev` version into `master`
+- If everything works fine, then merge the `dev` version into `main`
 and upload it to Github:
 
 ```
-git checkout master
+git checkout main
 git merge dev
 git push
 ```

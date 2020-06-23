@@ -6,7 +6,7 @@
 
 In order to contribute, please fork the [main repository](https://github.com/fbpic/fbpic):
 
-- Click 'Fork' on the page of the main repository, in order to create a personal copy of this repository on your Github account. 
+- Click 'Fork' on the page of the main repository, in order to create a personal copy of this repository on your Github account.
 
 - Clone this copy to your local machine:
 ```
@@ -46,7 +46,7 @@ git pull git@github.com:fbpic/fbpic.git dev
 ```
 
 - Test and check your code:
-  - Use [pyflakes](https://pypi.python.org/pypi/pyflakes) and 
+  - Use [pyflakes](https://pypi.python.org/pypi/pyflakes) and
 [pep8](https://pypi.python.org/pypi/pep8) to detect any potential bug.
   ```
   cd fbpic/
@@ -76,12 +76,12 @@ git push -u origin <NewBranchName>
 - Document the functions and classes that you write, by using a
   [docstring](https://www.python.org/dev/peps/pep-0257/). List the
   parameters in and describe what the functions return, according to
-  [Numpy style](https://github.com/numpy/numpy/blob/master/doc/HOWTO_DOCUMENT.rst.txt),  as in this example:
- 
+  [Numpy style](https://github.com/numpy/numpy/blob/main/doc/HOWTO_DOCUMENT.rst.txt),  as in this example:
+
 ```python
 def print_simulation_setup( comm, use_cuda ):
     """
-    Print message about the number of proc and 
+    Print message about the number of proc and
     whether it is using GPU or CPU.
 
     Parameters

@@ -3,8 +3,8 @@
 # Github repository
 # See https://gist.github.com/domenic/ec8b0fc8ab45f39403dd
 
-# Only push when updating master (i.e. new releases)
-if [ "$TRAVIS_PULL_REQUEST" != "false" -o "$TRAVIS_BRANCH" != "master" ]; then
+# Only push when updating main (i.e. new releases)
+if [ "$TRAVIS_PULL_REQUEST" != "false" -o "$TRAVIS_BRANCH" != "main" ]; then
     echo "Skipping deploy; just doing a build."
     exit 0
 fi
@@ -38,4 +38,3 @@ git config user.email "rlehe@normalesup.org"
 git commit -m "Deploy to GitHub Pages: ${SHA}" || true
 # Push to the repo
 git push
-

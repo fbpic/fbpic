@@ -1,6 +1,6 @@
 # Fourier-Bessel Particle-In-Cell code (FBPIC)
 
-[![Build Status master](https://img.shields.io/travis/fbpic/fbpic/master.svg?label=master)](https://travis-ci.com/fbpic/fbpic/branches)
+[![Build Status main](https://img.shields.io/travis/fbpic/fbpic/main.svg?label=main)](https://travis-ci.com/fbpic/fbpic/branches)
 [![Build Status dev](https://img.shields.io/travis/fbpic/fbpic/dev.svg?label=dev)](https://travis-ci.com/fbpic/fbpic/branches)
 [![pypi version](https://img.shields.io/pypi/v/fbpic.svg)](https://pypi.python.org/pypi/fbpic)
 [![License](https://img.shields.io/pypi/l/fbpic.svg)](LICENSE.txt)
@@ -110,7 +110,7 @@ The code outputs HDF5 files, that comply with the
 
 ## Contributing
 
-We welcome contributions to the code! Please read [this page](https://github.com/fbpic/fbpic/blob/master/CONTRIBUTING.md) for guidelines on how to contribute.
+We welcome contributions to the code! Please read [this page](https://github.com/fbpic/fbpic/blob/main/CONTRIBUTING.md) for guidelines on how to contribute.
 
 ## Research & Attribution
 
