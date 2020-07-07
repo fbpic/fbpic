@@ -66,7 +66,8 @@ class Simulation( PICMI_Simulation ):
             Nz=int(grid.nz), zmin=grid.zmin, zmax=grid.zmax,
             Nr=int(grid.nr), rmax=grid.rmax, Nm=grid.n_azimuthal_modes,
             dt=dt, use_cuda=True, smoother=smoother, n_order=32,
-            boundaries={'z':grid.bc_zmax, 'r':grid.bc_rmax} )
+            boundaries={'z':grid.bc_zmax, 'r':grid.bc_rmax},
+            gamma_boost=self.gamma_boost )
 
         # Set the moving window
         if grid.moving_window_zvelocity is not None:
@@ -100,7 +101,8 @@ class Simulation( PICMI_Simulation ):
 
         # Inject the laser
         add_laser_pulse( self.fbpic_sim, laser_profile, method='antenna',
-            z0_antenna=injection_method.position[-1] )
+            z0_antenna=injection_method.position[-1],
+            gamma_boost=self.gamma_boost )
 
 
     # Redefine the method `add_species` from the PICMI Simulation class
@@ -215,7 +217,7 @@ class Simulation( PICMI_Simulation ):
                                 sig_r=sig_r0, sig_z=sig_z, n_emit=n_emit,
                                 n_physical_particles=n_physical_particles,
                                 n_macroparticles=layout.n_macroparticles,
-                                zf=zf, tf=tf,
+                                zf=zf, tf=tf, boost=self.fbpic_sim.boost,
                                 initialize_self_field=initialize_self_field )
 
         # - For the case of an empty species
