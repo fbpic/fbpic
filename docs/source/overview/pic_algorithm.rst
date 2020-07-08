@@ -81,16 +81,12 @@ fields from each grid.
 
 .. note::
 
-   Due to details of the algorithm, the charge deposition in the
-   very first radial cell can be problematic **if** all the particles
-   of this cell are **on the axis** instead of being **roughly uniformly distributed**
-   over this cell.
-
-   Thus, always make sure that the radial resolution of your simulation is
-   sufficient for the structures that are near the axis
-   (e.g. electron beam) to be at least resolved by a few radial cells,
-   so that the macroparticles are roughly uniformly distributed within
-   the first cell.
+   Due to the details of the algorithm, the charge density deposited on the
+   grid, for a **uniform** plasma, may appear to be **slightly non-uniform**
+   close to the axis. This non-uniformity decreases when increasing the number
+   of particles per cell in the radial direction (``p_nr`` in the function
+   :any:`add_new_species`). For more details, see
+   `this paper <https://www.sciencedirect.com/science/article/pii/S0021999183710703>`_.
 
 .. note::
 
