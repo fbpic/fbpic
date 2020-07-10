@@ -13,7 +13,8 @@ from fbpic.utils.mpi import MPI
 # Check if threading is available
 from .utils.threading import threading_enabled, numba_minor_version
 # Check if CUDA is available, then import CUDA functions
-from .utils.cuda import cuda_installed, cupy_installed, cupy_major_version
+from .utils.cuda import cuda_installed, \
+    cupy_installed, cupy_major_version, numba_cuda_installed
 if cuda_installed:
     from .utils.cuda import send_data_to_gpu, \
                 receive_data_from_gpu, mpi_select_gpus
@@ -228,18 +229,19 @@ class Simulation(object):
         # Check whether to use CUDA
         self.use_cuda = use_cuda
         if self.use_cuda and not cuda_installed:
-            warnings.warn(
-                'Cuda not available for the simulation.\n'
-                'Performing the simulation on CPU.' )
+            warning_message = 'GPU not available for the simulation.\n'
+            if not numba_cuda_installed:
+                warning_message += \
+                '(This is because the `numba` package was not able to find a GPU.)\n'
+            elif not cupy_installed:
+                warning_message += \
+                '(This is because the `cupy` package is not installed.)\n'
+            warning_message += 'Performing the simulation on CPU.'
+            warnings.warn( warning_message )
             self.use_cuda = False
         # Check that cupy, numba and Python have the right version
         if self.use_cuda:
-            if not cupy_installed:
-                raise RuntimeError(
-                    'In order to run on GPUs, FBPIC version 0.13 and later \n'
-                    'require the `cupy` package.\n'
-                    'See the FBPIC documentation in order to install cupy.')
-            elif cupy_major_version < 7:
+            if cupy_major_version < 7:
                 raise RuntimeError(
                     'In order to run on GPUs, FBPIC version 0.16 and later \n'
                     'requires `cupy` version 7 (or later).\n(The `cupy` version'

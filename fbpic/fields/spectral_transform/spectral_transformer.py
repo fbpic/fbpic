@@ -12,10 +12,9 @@ from .fourier import FFT
 
 from .numba_methods import numba_rt_to_pm, numba_pm_to_rt
 # Check if CUDA is available, then import CUDA functions
-from fbpic.utils.cuda import cupy_installed, cuda_installed
-if cupy_installed:
-    import cupy
+from fbpic.utils.cuda import cuda_installed
 if cuda_installed:
+    import cupy
     from fbpic.utils.cuda import cuda_tpb_bpg_2d
     from .cuda_methods import cuda_rt_to_pm, cuda_pm_to_rt
 

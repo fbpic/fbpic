@@ -15,8 +15,8 @@ from .particle_diag import ParticleDiagnostic
 from fbpic.utils.mpi import comm
 
 # Check if CUDA is available, then import CUDA
-from fbpic.utils.cuda import cupy_installed
-if cupy_installed:
+from fbpic.utils.cuda import cuda_installed
+if cuda_installed:
     import cupy
 
 def set_periodic_checkpoint( sim, period, checkpoint_dir='./checkpoints' ):
