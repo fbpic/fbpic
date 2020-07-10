@@ -161,7 +161,6 @@ class LaserAntenna( object ):
         # Register whether the antenna deposits on the local domain
         # (gets updated by `update_current_rank`)
         self.deposit_on_this_rank = False
-        self.active_update_v = False
 
         # Initialize small-size buffers where the particles charge and currents
         # will be deposited before being added to the regular, large-size array
