@@ -40,6 +40,8 @@ from picmistandard import PICMI_UniformDistribution as UniformDistribution
 # - For diagnostics
 from picmistandard import PICMI_FieldDiagnostic as FieldDiagnostic
 from picmistandard import PICMI_ParticleDiagnostic as ParticleDiagnostic
+from picmistandard import PICMI_LabFrameFieldDiagnostic as LabFrameFieldDiagnostic
+from picmistandard import PICMI_LabFrameParticleDiagnostic as LabFrameParticleDiagnostic
 
 # Import the PICMI Simulation object redefined in FBPIC
 from .simulation import Simulation

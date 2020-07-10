@@ -69,7 +69,7 @@ class Simulation( PICMI_Simulation ):
             Nr=int(grid.nr), rmax=grid.rmax, Nm=grid.n_azimuthal_modes,
             dt=dt, use_cuda=True, smoother=smoother, n_order=32,
             boundaries={'z':grid.bc_zmax, 'r':grid.bc_rmax},
-            v_comoving=galilean_velocity[-1],
+            v_comoving=self.solver.galilean_velocity[-1],
             gamma_boost=self.gamma_boost )
 
         # Set the moving window
