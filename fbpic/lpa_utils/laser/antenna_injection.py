@@ -206,7 +206,7 @@ class LaserAntenna( object ):
             self.deposit_on_this_rank = False
 
         zmin_global, zmax_global = comm.get_zmin_zmax(
-            local=False, with_damp=False, with_guard=False, rank=comm.rank )
+            local=False, with_damp=True, with_guard=True )
         if (z_antenna >= zmin_global) and (z_antenna < zmax_global):
             self.active_update_v = True
         else:
