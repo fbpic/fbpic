@@ -161,6 +161,7 @@ class LaserAntenna( object ):
         # Register whether the antenna deposits on the local domain
         # (gets updated by `update_current_rank`)
         self.deposit_on_this_rank = False
+        self.active_update_v = False
 
         # Initialize small-size buffers where the particles charge and currents
         # will be deposited before being added to the regular, large-size array
@@ -204,6 +205,12 @@ class LaserAntenna( object ):
         else:
             self.deposit_on_this_rank = False
 
+        zmin_global, zmax_global = comm.get_zmin_zmax(
+            local=False, with_damp=False, with_guard=False, rank=comm.rank )
+        if (z_antenna >= zmin_global) and (z_antenna < zmax_global):
+            self.active_update_v = True
+        else:
+            self.active_update_v = False
 
     def push_x( self, dt, x_push=1., y_push=1., z_push=1. ):
         """
@@ -241,11 +248,10 @@ class LaserAntenna( object ):
             The time at which to calculate the velocities
         """
         # Interrupt this function if the antenna is not currently
-        # active on the global domain
-        zmin_global, zmax_global = comm.get_zmin_zmax(
-            local=False, with_damp=True, with_guard=True )
-        if (z_antenna < zmin_global) or (z_antenna > zmax_global):
+        # active on the global domain (as determined by `update_current_rank`)
+        if not self.active_update_v:
             return
+
         # When running in a boosted frame, convert the position and time at
         # which to find the laser amplitude.
         if self.boost is not None:
