@@ -50,4 +50,5 @@ __all__ = [ 'codename', 'Simulation', 'CylindricalGrid', 'BinomialSmoother',
     'ElectromagneticSolver', 'Species', 'MultiSpecies', 'LaserAntenna',
     'GaussianLaser', 'GriddedLayout', 'PseudoRandomLayout',
     'GaussianBunchDistribution', 'AnalyticDistribution', 'UniformDistribution',
-    'FieldDiagnostic', 'ParticleDiagnostic', 'constants' ]
+    'FieldDiagnostic', 'ParticleDiagnostic', 'constants',
+    'LabFrameParticleDiagnostic', 'LabFrameFieldDiagnostic' ]
