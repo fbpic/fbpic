@@ -241,10 +241,11 @@ class LaserAntenna( object ):
             The time at which to calculate the velocities
         """
         # Interrupt this function if the antenna is not currently
-        # active on the global domain (as determined by `update_current_rank`)
-        if not self.active_update_v:
+        # active on the global domain
+        zmin_global, zmax_global = comm.get_zmin_zmax(
+            local=False, with_damp=True, with_guard=True )
+        if (z_antenna < zmin_global) or (z_antenna > zmax_global):
             return
-
         # When running in a boosted frame, convert the position and time at
         # which to find the laser amplitude.
         if self.boost is not None:
