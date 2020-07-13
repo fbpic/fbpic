@@ -261,8 +261,8 @@ class Simulation( PICMI_Simulation ):
                     iteration_max=iteration_max)
         elif type(diagnostic) == PICMI_LabFrameFieldDiagnostic:
             diag = BackTransformedFieldDiagnostic(
-                    zmin=diagnostic.grid.zmin,
-                    zmax=diagnostic.grid.zmax,
+                    zmin_lab=diagnostic.grid.zmin,
+                    zmax_lab=diagnostic.grid.zmax,
                     v_lab=c,
                     dt_snapshots_lab=diagnostic.dt_snapshots,
                     Ntot_snapshots_lab=diagnostic.num_snapshots,
@@ -293,8 +293,8 @@ class Simulation( PICMI_Simulation ):
                     iteration_max=iteration_max)
             else:
                 diag = BackTransformedParticleDiagnostic(
-                    zmin=diagnostic.grid.zmin,
-                    zmax=diagnostic.grid.zmax,
+                    zmin_lab=diagnostic.grid.zmin,
+                    zmax_lab=diagnostic.grid.zmax,
                     v_lab=c,
                     dt_snapshots_lab=diagnostic.dt_snapshots,
                     Ntot_snapshots_lab=diagnostic.num_snapshots,
