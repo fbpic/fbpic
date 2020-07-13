@@ -63,12 +63,19 @@ class Simulation( PICMI_Simulation ):
                 n_passes=self.solver.source_smoother.n_pass,
                 compensator=self.solver.source_smoother.compensation )
 
+        # Convert verbose level:
+        verbose_level = self.verbose
+        if verbose_level is None:
+            verbose_level = 1
+            
         # Initialize and store the FBPIC simulation object
         self.fbpic_sim = FBPICSimulation(
             Nz=int(grid.nz), zmin=grid.zmin, zmax=grid.zmax,
             Nr=int(grid.nr), rmax=grid.rmax, Nm=grid.n_azimuthal_modes,
             dt=dt, use_cuda=True, smoother=smoother, n_order=32,
             boundaries={'z':grid.bc_zmax, 'r':grid.bc_rmax},
+            verbose_level=verbose_level,
+            particle_shape=self.particle_shape,
             v_comoving=self.solver.galilean_velocity[-1],
             gamma_boost=self.gamma_boost )
 
@@ -189,6 +196,7 @@ class Simulation( PICMI_Simulation ):
                 dens_func=dens_func, p_nz=p_nz, p_nr=p_nr, p_nt=p_nt,
                 p_zmin=s.initial_distribution.lower_bound[-1],
                 p_zmax=s.initial_distribution.upper_bound[-1],
+                p_rmax=s.initial_distribution.upper_bound[0],
                 continuous_injection=s.initial_distribution.fill_in )
 
         # - For the case of a Gaussian beam
