@@ -238,15 +238,17 @@ class Simulation( PICMI_Simulation ):
         # Call method of parent class
         PICMI_Simulation.add_diagnostic( self, diagnostic )
 
-        # Handle diagnostic
-        if diagnostic.step_min is None:
-            iteration_min = 0
-        else:
-            iteration_min = diagnostic.step_min
-        if diagnostic.step_max is None:
-            iteration_max = np.inf
-        else:
-            iteration_max = diagnostic.step_max
+        # Handle iteration_min/max in regular diagnostic
+        if type(diagnostic) in [PICMI_FieldDiagnostic, PICMI_ParticleDiagnostic]:
+            if diagnostic.step_min is None:
+                iteration_min = 0
+            else:
+                iteration_min = diagnostic.step_min
+            if diagnostic.step_max is None:
+                iteration_max = np.inf
+            else:
+                iteration_max = diagnostic.step_max
+
         # Register field diagnostic
         if type(diagnostic) == PICMI_FieldDiagnostic:
             diag = FieldDiagnostic(
