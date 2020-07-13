@@ -36,7 +36,7 @@ Then install the dependencies of FBPIC:
 
 ::
 
-    conda install numba==0.49 scipy h5py mkl
+    conda install numba scipy h5py mkl
     conda install cudatoolkit=10.0
     pip install cupy-cuda100
 

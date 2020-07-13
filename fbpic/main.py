@@ -253,11 +253,6 @@ class Simulation(object):
                     'requires `numba` version 0.46 (or later).\n(The `numba` '
                     'version on your current system is 0.%d.)\nPlease install'
                     ' the latest version of `numba`.' %numba_minor_version)
-            elif numba_minor_version == 50:
-                raise RuntimeError(
-                    'Numba version 0.50 does not work on GPU with FBPIC. \n'
-                    'Please install version 0.49 instead: \n'
-                    'conda install numba==0.49')
             elif sys.version_info.major < 3:
                 raise RuntimeError(
                     'In order to run on GPUs, FBPIC version 0.16 and later \n'

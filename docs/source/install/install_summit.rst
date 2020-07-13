@@ -37,7 +37,7 @@ Installation of FBPIC and its dependencies
 
     ::
 
-        conda install -c conda-forge numba==0.49 scipy h5py cython cudatoolkit=9.0
+        conda install -c conda-forge numba scipy h5py cython cudatoolkit=9.0
 
 - Install ``cupy`` (This step can take a few minutes.)
 
