@@ -1,5 +1,10 @@
 # Change Log / Release Log for fbpic
 
+## 0.17.1
+
+This minor release removes restrictions on the use of recent versions of
+numba, when running on GPU.
+
 ## 0.17.0
 
 This release introduces a major change to the treatment of particles close to
