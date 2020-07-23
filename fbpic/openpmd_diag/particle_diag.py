@@ -503,7 +503,7 @@ class ParticleDiagnostic(OpenPMDDiagnostic) :
         if quantity in ['ux', 'uy', 'uz']:
             if species.m>0:
                 scale_factor = species.m * constants.c
-                quantity_one_proc *= scale_factor
+                quantity_one_proc = quantity_one_proc*scale_factor
         if self.comm is not None:
             quantity_all_proc = self.comm.gather_ptcl_array(
                 quantity_one_proc, n_rank, Ntot )
