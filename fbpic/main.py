@@ -748,7 +748,7 @@ class Simulation(object):
 
         # - Set fields to 0 at the position of the plasma mirrors
         for plasma_mirror in self.plasma_mirrors:
-            plasma_mirror.set_fields_to_zero( fld.interp, self.comm )
+            plasma_mirror.set_fields_to_zero( fld.interp, self.comm, self.time )
 
         # - Update spectral space (and interpolation space if needed)
         if self.use_pml:
