@@ -6,6 +6,7 @@ This file is part of the Fourier-Bessel Particle-In-Cell code (FB-PIC)
 It defines the plasma mirror class, which set the fields to 0 in a
 thin slice orthogonal to z
 """
+from scipy.constants import c
 
 class PlasmaMirror(object):
 
@@ -17,6 +18,7 @@ class PlasmaMirror(object):
         """
         self.z_lab = z_lab
         self.gamma_boost = gamma_boost
+        self.beta_boost = (1. - 1./gamma_boost**2)**.5
         self.n_cells = n_cells
 
         pass
@@ -30,6 +32,8 @@ class PlasmaMirror(object):
         # Lorentz transform
         if self.gamma_boost is None:
             z_boost = self.z_lab
+        else:
+            z_boost = 1./self.gamma_boost - self.beta_boost * c * t_boost
 
         # Calculate indices in z between which the field should be set to 0
         zmin, zmax = comm.get_zmin_zmax( local=True,
