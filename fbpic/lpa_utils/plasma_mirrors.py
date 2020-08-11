@@ -7,7 +7,7 @@ It defines the plasma mirror class, which set the fields to 0 in a
 thin slice orthogonal to z
 """
 
-def PlasmaMirror(object):
+class PlasmaMirror(object):
 
     def __init__( self, z_lab, n_cells=2, gamma_boost=None ):
         """
