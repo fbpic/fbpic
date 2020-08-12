@@ -18,7 +18,6 @@ class PlasmaMirror(object):
         """
         self.z_lab = z_lab
         self.gamma_boost = gamma_boost
-        self.beta_boost = (1. - 1./gamma_boost**2)**.5
         self.n_cells = n_cells
 
         pass
@@ -33,15 +32,16 @@ class PlasmaMirror(object):
         if self.gamma_boost is None:
             z_boost = self.z_lab
         else:
-            z_boost = 1./self.gamma_boost - self.beta_boost * c * t_boost
+            beta_boost = (1. - 1./self.gamma_boost**2)**.5
+            z_boost = 1./self.gamma_boost*self.z_lab - beta_boost * c * t_boost
 
         # Calculate indices in z between which the field should be set to 0
         zmin, zmax = comm.get_zmin_zmax( local=True,
                         with_guard=True, with_damp=True, rank=comm.rank )
         if (z_boost < zmin) or (z_boost >= zmax):
             return
-        imin = int( (z_boost-zmin)/interp[0].dz )
-        imax = min( imin+self.n_cells, interp[0].Nz )
+        imax = int( (z_boost-zmin)/interp[0].dz )
+        imin = max( imax-self.n_cells, 0 )
 
         # Set fields (E, B) to 0 on CPU or GPU
         for grid in interp:
