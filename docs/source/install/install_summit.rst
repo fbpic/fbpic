@@ -19,7 +19,7 @@ First load the relevant modules:
 
     module purge
     module load gcc/4.8.5
-    module load spectrum-mpi/10.3.0.0-20190419
+    module load spectrum-mpi/10.3.1.2-20200121
     module load fftw/3.3.8
     module load python/3.7.0-anaconda3-5.3.0
 
@@ -37,7 +37,7 @@ Installation of FBPIC and its dependencies
 
     ::
 
-        conda install -c conda-forge numba scipy h5py cython cudatoolkit=9.0
+        conda install -c conda-forge numba=0.49 scipy h5py cython cudatoolkit=9.0
 
 - Install ``cupy`` (This step can take a few minutes.)
 
@@ -52,6 +52,12 @@ Installation of FBPIC and its dependencies
     ::
 
         pip install pyfftw
+
+- Install ``mpi4py``
+
+    ::
+
+        env MPICC=$(which mpicc) pip install mpi4py
 
 -  Install ``fbpic``
 
@@ -93,15 +99,16 @@ Then ``cd`` to the directory where you prepared your input script and type
     module purge
     module load gcc/4.8.5
     module load cuda/9.1.85
-    module load spectrum-mpi/10.3.0.0-20190419
+    module load spectrum-mpi/10.3.1.2-20200121
     module load fftw/3.3.8
     module load python/3.7.0-anaconda3-5.3.0
-    module load py-mpi4py/3.0.0-py3
     source activate fbpic
     export CUPY_CACHE_DIR=$MEMBERWORK/<project_id>/.cupy/kernel_cache
 
     export NUMBA_NUM_THREADS=7
     export OMP_NUM_THREADS=7
+    export FBPIC_DISABLE_CACHING=1
+
     jsrun -n 1 -a 1 -c 1 -g 1 python <fbpic_script.py>
 
 where ``<project_id>`` should be replaced by your project account number.
@@ -124,16 +131,16 @@ following text (and replace the bracketed text by the proper values).
     module purge
     module load gcc/4.8.5
     module load cuda/9.1.85
-    module load spectrum-mpi/10.3.0.0-20190419
+    module load spectrum-mpi/10.3.1.2-20200121
     module load fftw/3.3.8
     module load python/3.7.0-anaconda3-5.3.0
-    module load py-mpi4py/3.0.0-py3
     source activate fbpic
     export CUPY_CACHE_DIR=$MEMBERWORK/<project_id>/.cupy/kernel_cache
 
     export NUMBA_NUM_THREADS=7
     export OMP_NUM_THREADS=7
-    export FBPIC_ENABLE_GPUDIRECT=1
+    export FBPIC_ENABLE_GPUDIRECT=0
+    export FBPIC_DISABLE_CACHING=1
 
     jsrun -n <requestedNode> -a 6 -c 42 -g 6 --smpiargs="-gpu" python fbpic_script.py > cpu.log
 
@@ -148,8 +155,8 @@ Then run:
 
 .. note::
 
-    Note that, in the above script,
-    ``export FBPIC_ENABLE_GPUDIRECT=1`` and ``--smpiargs="-gpu"``
-    are only needed if you wish to use the **cuda-aware** MPI.
+    Note that, in the above script, ``--smpiargs="-gpu"`
+    is in fact only needed when ``export FBPIC_ENABLE_GPUDIRECT=1``,
+    i.e. when attempting to use the **cuda-aware** MPI.
 
 Use ``bjobs`` to monitor the job.
