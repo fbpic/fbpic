@@ -53,7 +53,8 @@ Installation of FBPIC and its dependencies
 
    ::
 
-       conda install -c conda-forge numba scipy h5py mkl cudatoolkit=10.0 mpi4py=*=*mpich*
+       conda install numba scipy h5py mkl cudatoolkit=10.0
+       conda install -c conda-forge mpi4py=*=*mpich*
        pip install cupy-cuda100
 
 -  Install ``fbpic``
@@ -124,7 +125,7 @@ following text (and replace the bracketed text by the proper values).
 
 where ``<gpuConstraint>`` and ``<gpuPerNode>`` should be:
 
-    - For the nodes with four GTX 1080Ti GPUs, ``gpuConstraint=es1_1080ti``, ``gpuPerNode=4`` and ``cpuPerTask=2``
+    - For the nodes with four GTX 1080Ti GPUs, ``gpuConstraint=es1_1080ti``, ``gpuPerNode=4`` and ``cpuPerTask=8``
     - For the nodes with two V100 GPUs, ``gpuConstraint=es1_v100``, ``gpuPerNode=2`` and ``cpuPerTask=4``
 
 for more information on the available nodes, see
