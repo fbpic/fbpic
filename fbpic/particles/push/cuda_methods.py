@@ -52,6 +52,48 @@ def push_x_gpu( x, y, z, ux, uy, uz, inv_gamma, dt,
         z[i] += cdt*z_push*inv_g*uz[i]
 
 @compile_cupy
+def push_x_after_plane_gpu( x, y, z, ux, uy, uz, inv_gamma, dt,
+                x_push, y_push, z_push, z_plane ) :
+    """
+    Advance the particles' positions over `dt` using the momenta ux, uy, uz,
+    multiplied by the scalar coefficients x_push, y_push, z_push.
+
+    Parameters
+    ----------
+    x, y, z : 1darray of floats (in meters)
+        The position of the particles
+        (is modified by this function)
+
+    ux, uy, uz : 1darray of floats (in meters * second^-1)
+        The velocity of the particles
+
+    inv_gamma : 1darray of floats
+        The inverse of the relativistic gamma factor
+
+    dt : float (seconds)
+        The timestep by which the position is advanced
+
+    x_push, y_push, z_push: float, dimensionless
+        Multiplying coefficient for the momenta in x, y and z
+        e.g. if x_push=1., the particles are pushed forward in x
+             if x_push=-1., the particles are pushed backward in x
+
+    z_plane: float
+        Position beyond which the particles should be
+    """
+    # Timestep multiplied by c
+    cdt = c*dt
+
+    i = cuda.grid(1)
+    if i < x.shape[0]:
+        # Particle push
+        inv_g = inv_gamma[i]
+        z[i] += cdt*z_push*inv_g*uz[i]
+        if z[ip] > z_plane:
+            x[i] += cdt*x_push*inv_g*ux[i]
+            y[i] += cdt*y_push*inv_g*uy[i]
+
+@compile_cupy
 def push_p_gpu( ux, uy, uz, inv_gamma,
                 Ex, Ey, Ez, Bx, By, Bz,
                 q, m, Ntot, dt ) :

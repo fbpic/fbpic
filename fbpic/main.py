@@ -486,7 +486,7 @@ class Simulation(object):
                     species.push_p( self.time + 0.5*self.dt )
             if move_positions:
                 for species in ptcl:
-                    species.push_x( 0.5*dt )
+                    species.push_x( 0.5*dt, self.time )
             # Get positions/velocities for antenna particles at t = (n+1/2) dt
             for antenna in self.laser_antennas:
                 antenna.update_v( self.time + 0.5*dt )
@@ -515,7 +515,7 @@ class Simulation(object):
             # Push the particles' positions to t = (n+1) dt
             if move_positions:
                 for species in ptcl:
-                    species.push_x( 0.5*dt )
+                    species.push_x( 0.5*dt, self.time )
             # Get positions for antenna particles at t = (n+1) dt
             for antenna in self.laser_antennas:
                 antenna.push_x( 0.5*dt )
@@ -682,7 +682,7 @@ class Simulation(object):
         # Push the particles: z[n+1/2], x[n+1/2] => z[n], x[n+1]
         if move_positions:
             for species in self.ptcl:
-                species.push_x( 0.5*dt, x_push= 1., y_push= 1., z_push= -1. )
+                species.push_x( 0.5*dt, self.time, x_push= 1., y_push= 1., z_push= -1. )
         for antenna in self.laser_antennas:
             antenna.push_x( 0.5*dt, x_push= 1., y_push= 1., z_push= -1. )
         # Shift the boundaries of the grid for the Galilean frame
@@ -694,7 +694,7 @@ class Simulation(object):
         # Push the particles: z[n], x[n+1] => z[n+1], x[n]
         if move_positions:
             for species in self.ptcl:
-                species.push_x(dt, x_push= -1., y_push= -1., z_push= 1.)
+                species.push_x(dt, self.time, x_push= -1., y_push= -1., z_push= 1.)
         for antenna in self.laser_antennas:
             antenna.push_x(dt, x_push= -1., y_push= -1., z_push= 1.)
         # Shift the boundaries of the grid for the Galilean frame
@@ -706,7 +706,7 @@ class Simulation(object):
         # Push the particles: z[n+1], x[n] => z[n+1/2], x[n+1/2]
         if move_positions:
             for species in self.ptcl:
-                species.push_x(0.5*dt, x_push= 1., y_push= 1., z_push= -1.)
+                species.push_x(0.5*dt, self.time, x_push= 1., y_push= 1., z_push= -1.)
         for antenna in self.laser_antennas:
             antenna.push_x(0.5*dt, x_push= 1., y_push= 1., z_push= -1.)
         # Shift the boundaries of the grid for the Galilean frame
