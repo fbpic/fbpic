@@ -6,6 +6,7 @@ This file is part of the Fourier-Bessel Particle-In-Cell code (FB-PIC)
 It defines a set of generic functions that operate on a GPU.
 """
 from numba import cuda
+import numpy as np
 
 # Check if CUDA is available and set variable accordingly
 try:
@@ -225,7 +226,7 @@ if cuda_installed:
 
             # For scalar arguments: save only the data type
             else:
-                types.append(type(a))
+                types.append(np.dtype(type(a)))
 
         # Use the built-in Python hash function to compute the hash
         return hash(tuple(types))
@@ -263,6 +264,34 @@ if cuda_installed:
 
             self.python_func = func
             self.kernel_dict = {} # Stores compiled kernels to avoid re-compilation
+
+            # Flag to save whether the kernel has been explicitly specialized
+            self.is_specialized = False 
+
+        def specialize(self, signature):
+            """
+            Specialize a kernel for an explicit function signature. The kernel
+            is then compiled immediately.
+
+            Parameters:
+            -----------
+            signature: The signature of the kernel, in numba format.
+            """
+
+            # Compile a Numba kernel for the given signature
+            # using cuda.jit
+            numba_kernel = cuda.jit(signature)(self.python_func)
+
+            # Create a Cupy kernel module and load the PTX code of the
+            # numba kernel
+            module = cupy.cuda.function.Module()
+            module.load(bytes(numba_kernel.ptx, 'UTF-8'))
+
+            # Save the resulting Cupy kernel
+            self.specialized_kernel = module.get_function( numba_kernel.entry_name)
+            self.is_specialized = True
+
+            return self
 
         def __getitem__(self, bt):
             """
@@ -309,26 +338,35 @@ if cuda_installed:
                     They should all be either scalar values (float, int,
                     complex, bool) or Cupy arrays.
                 """
-                # Calculate a hash from the argument types to check whether a
-                # compatible kernel is already compiled.
-                hash = get_args_hash(args)
 
-                if hash not in self.kernel_dict:
+                # For explicitly specialized, do not worry about the argument types
+                if self.is_specialized:
+                    kernel = self.specialized_kernel
 
-                    # Compile a Numba kernel for the specified arguments
-                    # using cuda.jit
-                    numba_kernel = cuda.jit()(self.python_func) \
-                        .specialize(*args)
+                else:
+                    # Calculate a hash from the argument types to check whether a
+                    # compatible kernel is already compiled.
+                    hash = get_args_hash(args)
 
-                    # Create a Cupy kernel module and load the PTX code of the
-                    # numba kernel
-                    module = cupy.cuda.function.Module()
-                    module.load(bytes(numba_kernel.ptx, 'UTF-8'))
+                    if hash not in self.kernel_dict:
 
-                    # Cache the resulting Cupy kernel in a dictionary using
-                    # the hash
-                    self.kernel_dict[hash] = module.get_function(
-                        numba_kernel.entry_name)
+                        # Compile a Numba kernel for the specified arguments
+                        # using cuda.jit
+                        numba_kernel = cuda.jit()(self.python_func) \
+                            .specialize(*args)
+
+                        # Create a Cupy kernel module and load the PTX code of the
+                        # numba kernel
+                        module = cupy.cuda.function.Module()
+                        module.load(bytes(numba_kernel.ptx, 'UTF-8'))
+
+                        # Cache the resulting Cupy kernel in a dictionary using
+                        # the hash
+                        self.kernel_dict[hash] = module.get_function(
+                            numba_kernel.entry_name)
+
+                    # Get the correct kernel from the cache
+                    kernel = self.kernel_dict[hash]
 
                 # Prepare the arguments for the Cupy kernel.
                 # Because of the way Numba JIT compilation works, the
@@ -360,13 +398,12 @@ if cuda_installed:
                         # argument itself.
                         kernel_args.append(a)
 
-                # Call the actual kernel from the cache.
+                # Call the actual kernel.
                 # The arguments of the call are:
                 # - Blocks per grid (tuple)
                 # - Threads per blocks (tuple)
                 # - The prepared list of kernel arguments
-                self.kernel_dict[hash](blocks_per_grid, threads_per_block,
-                    kernel_args)
+                kernel (blocks_per_grid, threads_per_block, kernel_args)
 
             # __getitem__ returns the created wrapper method.
             return call_kernel
