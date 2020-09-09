@@ -14,7 +14,7 @@ from .particle_charge_and_mass import particle_charge, particle_mass
 from fbpic.main import Simulation as FBPICSimulation
 from fbpic.fields.smoothing import BinomialSmoother
 from fbpic.lpa_utils.laser import add_laser_pulse, GaussianLaser
-from fbpic.lpa_utils.bunch import add_particle_bunch_gaussian
+from fbpic.lpa_utils.bunch import add_particle_bunch_gaussian, add_particle_bunch
 from fbpic.openpmd_diag import FieldDiagnostic, ParticleDiagnostic, \
     BackTransformedFieldDiagnostic, BackTransformedParticleDiagnostic
 
@@ -67,7 +67,7 @@ class Simulation( PICMI_Simulation ):
         verbose_level = self.verbose
         if verbose_level is None:
             verbose_level = 1
-            
+
         # Initialize and store the FBPIC simulation object
         self.fbpic_sim = FBPICSimulation(
             Nz=int(grid.nz), zmin=grid.zmin, zmax=grid.zmax,
@@ -168,9 +168,8 @@ class Simulation( PICMI_Simulation ):
 
     def _create_new_fbpic_species(self, s, layout, initialize_self_field):
 
-        # - For the case of a plasma defined in a gridded layout
+        # - For the case of a plasma/beam defined in a gridded layout
         if type(layout) == PICMI_GriddedLayout:
-            assert initialize_self_field == False
             # - Uniform distribution
             if type(s.initial_distribution)==PICMI_UniformDistribution:
                 n0 = s.initial_distribution.density
@@ -191,13 +190,28 @@ class Simulation( PICMI_Simulation ):
             p_nr = layout.n_macroparticle_per_cell[0]
             p_nt = layout.n_macroparticle_per_cell[1]
             p_nz = layout.n_macroparticle_per_cell[2]
-            fbpic_species = self.fbpic_sim.add_new_species(
-                q=s.charge, m=s.mass, n=n0,
-                dens_func=dens_func, p_nz=p_nz, p_nr=p_nr, p_nt=p_nt,
-                p_zmin=s.initial_distribution.lower_bound[-1],
-                p_zmax=s.initial_distribution.upper_bound[-1],
-                p_rmax=s.initial_distribution.upper_bound[0],
-                continuous_injection=s.initial_distribution.fill_in )
+
+            if initialize_self_field:
+                assert s.initial_distribution.fill_in == False
+                gamma0_beta0 = s.initial_distribution.directed_velocity[-1]/c
+                gamma0 = ( 1 + gamma0_beta0**2 )**.5
+                fbpic_species = add_particle_bunch( self.fbpic_sim,
+                    q=s.charge, m=s.mass, gamma0=gamma0, n=n0,
+                    dens_func=dens_func, p_nz=p_nz, p_nr=p_nr, p_nt=p_nt,
+                    p_zmin=s.initial_distribution.lower_bound[-1],
+                    p_zmax=s.initial_distribution.upper_bound[-1],
+                    p_rmin=0,
+                    p_rmax=s.initial_distribution.upper_bound[0],
+                    boost=self.fbpic_sim.boost,
+                    initialize_self_field=initialize_self_field )
+            else:
+                fbpic_species = self.fbpic_sim.add_new_species(
+                    q=s.charge, m=s.mass, n=n0,
+                    dens_func=dens_func, p_nz=p_nz, p_nr=p_nr, p_nt=p_nt,
+                    p_zmin=s.initial_distribution.lower_bound[-1],
+                    p_zmax=s.initial_distribution.upper_bound[-1],
+                    p_rmax=s.initial_distribution.upper_bound[0],
+                    continuous_injection=s.initial_distribution.fill_in )
 
         # - For the case of a Gaussian beam
         elif (type(s.initial_distribution)==PICMI_GaussianBunchDistribution) \
