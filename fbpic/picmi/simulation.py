@@ -182,8 +182,10 @@ class Simulation( PICMI_Simulation ):
                     n0 = s.density_scale
                 else:
                     n0 = 1.
-                def dens_func(z, r):
-                    n = numexpr.evaluate(density_expression)
+                def dens_func(x, y, z):
+                    d = locals()
+                    d.update( s.initial_distribution.user_defined_kw )
+                    n = numexpr.evaluate( density_expression, local_dict=d )
                     return n
             else:
                 raise ValueError('Unknown combination of layout and distribution')
