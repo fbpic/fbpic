@@ -8,6 +8,7 @@ It defines a class for continuous particle injection with a moving window.
 import warnings
 import numpy as np
 from scipy.constants import c
+import sys, inspect
 
 class ContinuousInjector( object ):
     """
@@ -168,8 +169,13 @@ class ContinuousInjector( object ):
         # Create a temporary density function that takes into
         # account the fact that the plasma has moved
         if self.dens_func is not None:
-            def dens_func( z, r ):
-                return( self.dens_func( z-self.v_end_plasma*time, r ) )
+            args = _check_dens_func_arguments( self.dens_func )
+            if args == ['z', 'r']:
+                def dens_func(z, r):
+                    return self.dens_func( z - self.v_end_plasma*time, r )
+            elif args == ['x', 'y', 'z']:
+                def dens_func(x, y, z):
+                    return self.dens_func( x, y, z - self.v_end_plasma*time )
         else:
             dens_func = None
 
@@ -232,7 +238,11 @@ def generate_evenly_spaced( Npz, zmin, zmax, Npr, rmin, rmax,
         w = n * r * dtheta*dr*dz
         # Modulate it by the density profile
         if dens_func is not None :
-            w *= dens_func( z, r )
+            args = _check_dens_func_arguments( dens_func )
+            if args == ['x', 'y', 'z']:
+                w *= dens_func( x=x, y=y, z=z )
+            elif args == ['z', 'r']:
+                w *= dens_func( z=z, r=r )
 
         # Select the particles that have a non-zero weight
         selected = (w > 0)
@@ -308,3 +318,28 @@ def unalign_angles( thetap, Npz, Npr, method='irrational' ) :
     # np.newaxis ensures that the angles that are at the same positions
     # in r and z have the same shift
     thetap[:,:,:] = thetap[:,:,:] + angle_shift[:,:, np.newaxis]
+
+
+def _check_dens_func_arguments(dens_func):
+    """
+    Check that the dens_func has been properly defined (i.e. that
+    it is a function of x,y,z, or of z,r)
+
+    Return the list of arguments
+    """
+    # Call proper API, depending on whether Python 2 or Python 3 is used
+    if sys.version_info[0] < 3:
+        arg_list = inspect.getargspec(dens_func).args
+    else:
+        arg_list = inspect.getfullargspec(dens_func).args
+    # Take into account the fact that the user may be passing a class,
+    # with a __call__ method
+    if arg_list[0] == 'self':
+        arg_list.pop(0)
+    # Check that the arguments correspond to supported functions
+    if not (arg_list==['x', 'y', 'z'] or arg_list==['z', 'r']):
+        raise ValueError(
+            "The argument `dens_func` needs to be a function of z, r\n"
+            "or a function of x, y, z.")
+
+    return arg_list
