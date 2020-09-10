@@ -18,7 +18,8 @@ import warnings
 def add_particle_bunch(sim, q, m, gamma0, n, p_zmin, p_zmax, p_rmin, p_rmax,
                        p_nr=2, p_nz=2, p_nt=4, dens_func=None, boost=None,
                        direction='forward', z_injection_plane=None,
-                       initialize_self_field=True):
+                       initialize_self_field=True,
+                       boost_positions_in_dens_func=False ):
     """
     Introduce a simple relativistic particle bunch in the simulation,
     along with its space charge field.
@@ -70,6 +71,12 @@ def add_particle_bunch(sim, q, m, gamma0, n, p_zmin, p_zmax, p_rmin, p_rmax,
         a 1d array containing the density *relative to n*
         (i.e. a number between 0 and 1) at the given positions.
 
+       For boosted-frame simulation: if you set
+       ``boost_positions_in_dens_func`` to ``True``, then ``dens_func``
+       can be expressed as a function of ``z`` taken **in the lab frame**.
+       Otherwise, it has to be expressed as a function of ``z`` taken
+       in the boosted frame.
+
     boost : a BoostConverter object, optional
         A BoostConverter object defining the Lorentz boost of
         the simulation.
@@ -87,6 +94,10 @@ def add_particle_bunch(sim, q, m, gamma0, n, p_zmin, p_zmax, p_rmin, p_rmax,
     initialize_self_field: bool, optional
        Whether to calculate the initial space charge fields of the bunch
        and add these fields to the fields on the grid (Default: True)
+
+    boost_positions_in_dens_func: bool, optional
+       For boosted-frame simulations: whether to automatically take into
+       account the Lorentz transformation of the positions, in `dens_func`
     """
     # Calculate the electron momentum
     uz_m = ( gamma0**2 - 1. )**0.5
@@ -94,11 +105,12 @@ def add_particle_bunch(sim, q, m, gamma0, n, p_zmin, p_zmax, p_rmin, p_rmax,
         uz_m *= -1.
     # Create the electron species
     ptcl_bunch = sim.add_new_species( q=q, m=m, n=n,
-                            p_nz=p_nz, p_nr=p_nr, p_nt=p_nt,
-                            p_zmin=p_zmin, p_zmax=p_zmax,
-                            p_rmin=p_rmin, p_rmax=p_rmax,
-                            continuous_injection=False,
-                            dens_func=dens_func, uz_m=uz_m )
+            p_nz=p_nz, p_nr=p_nr, p_nt=p_nt,
+            p_zmin=p_zmin, p_zmax=p_zmax,
+            p_rmin=p_rmin, p_rmax=p_rmax,
+            continuous_injection=False,
+            dens_func=dens_func, uz_m=uz_m,
+            boost_positions_in_dens_func=boost_positions_in_dens_func )
 
     # Initialize the injection plane for the particles
     if z_injection_plane is not None:

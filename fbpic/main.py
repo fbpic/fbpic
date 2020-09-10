@@ -29,6 +29,7 @@ import numpy as np
 from scipy.constants import m_e, m_p, e, c
 from .utils.printing import ProgressBar, print_simulation_setup
 from .particles import Particles
+from .particles.injection.continuous_injection import _check_dens_func_arguments
 from .lpa_utils.boosted_frame import BoostConverter
 from .fields import Fields
 from .boundaries import BoundaryCommunicator, MovingWindow
@@ -783,7 +784,8 @@ class Simulation(object):
                             p_rmin=0, p_rmax=np.inf,
                             uz_m=0., ux_m=0., uy_m=0.,
                             uz_th=0., ux_th=0., uy_th=0.,
-                            continuous_injection=True ):
+                            continuous_injection=True,
+                            boost_positions_in_dens_func=False ):
         """
         Create a new species (i.e. an instance of `Particles`) with
         charge `q` and mass `m`. Add it to the simulation (i.e. to the list
@@ -826,6 +828,12 @@ class Simulation(object):
            a 1d array containing the density *relative to n*
            (i.e. a number between 0 and 1) at the given positions
 
+           For boosted-frame simulation: if you set
+           ``boost_positions_in_dens_func`` to ``True``, then ``dens_func``
+           can be expressed as a function of ``z`` taken **in the lab frame**.
+           Otherwise, it has to be expressed as a function of ``z`` taken
+           in the boosted frame.
+
         p_nz: int, optional
             The number of macroparticles per cell along the z direction
         p_nr: int, optional
@@ -858,10 +866,18 @@ class Simulation(object):
            Whether to continuously inject the particles,
            in the case of a moving window
 
+        boost_positions_in_dens_func: bool, optional
+           For boosted-frame simulations: whether to automatically take into
+           account the Lorentz transformation of the positions, in `dens_func`
+
         Returns
         -------
         new_species: an instance of the `Particles` class
         """
+        # Define a temporary density function
+        # (will be modified below, in the case `boost_positions_in_dens_func`)
+        new_dens_func = dens_func
+
         # Check if any macroparticle need to be injected
         if n is not None:
             # Check that all required arguments are passed
@@ -875,11 +891,11 @@ class Simulation(object):
             # Automatically convert input quantities to the boosted frame
             if self.boost is not None:
                 gamma_m = np.sqrt(1. + uz_m**2 + ux_m**2 + uy_m**2)
-                beta_m = uz_m/gamma_m
+                beta_m_lab = uz_m/gamma_m
                 # Transform positions and density
                 p_zmin, p_zmax = self.boost.copropag_length(
-                    [ p_zmin, p_zmax ], beta_object=beta_m )
-                n, = self.boost.copropag_density([ n ], beta_object=beta_m )
+                    [ p_zmin, p_zmax ], beta_object=beta_m_lab )
+                n, = self.boost.copropag_density([ n ], beta_object=beta_m_lab )
                 # Transform longitudinal thermal velocity
                 # The formulas below are approximate, and are obtained
                 # by perturbation of the Lorentz transform for uz
@@ -897,9 +913,24 @@ class Simulation(object):
                         "boosted-frame simulations, and may not be accurate "
                         "enough for uz_th > 0.1 * uz_m")
                     uz_th = self.boost.gamma0 * \
-                            (1. - self.boost.beta0*beta_m) * uz_th
+                            (1. - self.boost.beta0*beta_m_lab) * uz_th
                 # Finally transform the longitudinal momentum
                 uz_m = self.boost.gamma0*( uz_m - self.boost.beta0*gamma_m )
+
+                # Create a temporary density function
+                # that takes into account the Lorentz boost of the positions
+                # (The motion of the plasma is further taken into account
+                # in continuous_injection.py.)
+                if boost_positions_in_dens_func and (dens_func is not None):
+
+                    coef = self.boost.gamma0*(1 - beta_m_lab*self.boost.beta0)
+                    args = _check_dens_func_arguments( dens_func )
+                    if args == ['z', 'r']:
+                        def new_dens_func( z, r ):
+                            return dens_func( coef*z, r )
+                    elif args == ['x', 'y', 'z']:
+                        def new_dens_func( x, y, z ):
+                            return dens_func( x, y, coef*z )
 
             # Modify input particle bounds, in order to only initialize the
             # particles in the local sub-domain
@@ -938,7 +969,7 @@ class Simulation(object):
             dz_particles = 0.
 
         # Create the new species
-        new_species = Particles( q=q, m=m, n=n, dens_func=dens_func,
+        new_species = Particles( q=q, m=m, n=n, dens_func=new_dens_func,
                         Npz=Npz, zmin=p_zmin, zmax=p_zmax,
                         Npr=Npr, rmin=p_rmin, rmax=p_rmax,
                         Nptheta=p_nt, dt=self.dt,
