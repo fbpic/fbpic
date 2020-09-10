@@ -61,11 +61,17 @@ class Simulation( PICMI_Simulation ):
                 n_passes=self.solver.source_smoother.n_pass,
                 compensator=self.solver.source_smoother.compensation )
 
+        # Order of the stencil for z derivatives in the Maxwell solver
+        if self.solver.stencil_order is None:
+            n_order = -1
+        else:
+            n_order = self.solver.stencil_order[-1]
+
         # Initialize and store the FBPIC simulation object
         self.fbpic_sim = FBPICSimulation(
             Nz=int(grid.nz), zmin=grid.zmin, zmax=grid.zmax,
             Nr=int(grid.nr), rmax=grid.rmax, Nm=grid.n_azimuthal_modes,
-            dt=dt, use_cuda=True, smoother=smoother, n_order=32,
+            dt=dt, use_cuda=True, smoother=smoother, n_order=n_order,
             boundaries={'z':grid.bc_zmax, 'r':grid.bc_rmax} )
 
         # Set the moving window
