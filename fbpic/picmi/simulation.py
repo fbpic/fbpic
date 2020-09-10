@@ -205,7 +205,8 @@ class Simulation( PICMI_Simulation ):
                     p_rmin=0,
                     p_rmax=s.initial_distribution.upper_bound[0],
                     boost=self.fbpic_sim.boost,
-                    initialize_self_field=initialize_self_field )
+                    initialize_self_field=initialize_self_field,
+                    boost_positions_in_dens_func=True )
             else:
                 fbpic_species = self.fbpic_sim.add_new_species(
                     q=s.charge, m=s.mass, n=n0,
@@ -213,7 +214,8 @@ class Simulation( PICMI_Simulation ):
                     p_zmin=s.initial_distribution.lower_bound[-1],
                     p_zmax=s.initial_distribution.upper_bound[-1],
                     p_rmax=s.initial_distribution.upper_bound[0],
-                    continuous_injection=s.initial_distribution.fill_in )
+                    continuous_injection=s.initial_distribution.fill_in,
+                    boost_positions_in_dens_func=True )
 
         # - For the case of a Gaussian beam
         elif (type(s.initial_distribution)==PICMI_GaussianBunchDistribution) \
