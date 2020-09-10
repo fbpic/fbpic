@@ -110,7 +110,9 @@ class Particles(object) :
         dens_func : callable, optional
            A function of the form :
            def dens_func( z, r ) ...
-           where z and r are 1d arrays, and which returns
+           or
+           def dens_func( x, y, z ) ...
+           where x, y, z and r are 1d arrays, and which returns
            a 1d array containing the density *relative to n*
            (i.e. a number between 0 and 1) at the given positions
 
@@ -985,13 +987,13 @@ class Particles(object) :
             # thread) and register the indices that bound each chunks
             ptcl_chunk_indices = get_chunk_indices(self.Ntot, nthreads)
 
-            # The set of Ruyten shape coefficients to use for higher modes. 
+            # The set of Ruyten shape coefficients to use for higher modes.
             # For Nm > 1, the set from mode 1 is used, since all higher modes have the
-            # same coefficients. For Nm == 1, the coefficients from mode 0 are 
+            # same coefficients. For Nm == 1, the coefficients from mode 0 are
             # passed twice to satisfy the argument types for Numba JIT.
             if fld.Nm > 1:
                 ruyten_m = 1
-            else: 
+            else:
                 ruyten_m = 0
 
             # Multithreading functions for the deposition of rho or J
