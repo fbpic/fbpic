@@ -89,7 +89,7 @@ def push_x_after_plane_gpu( x, y, z, ux, uy, uz, inv_gamma, dt,
         # Particle push
         inv_g = inv_gamma[i]
         z[i] += cdt*z_push*inv_g*uz[i]
-        if z[ip] > z_plane:
+        if z[i] > z_plane:
             x[i] += cdt*x_push*inv_g*ux[i]
             y[i] += cdt*y_push*inv_g*uy[i]
 
