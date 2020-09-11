@@ -32,25 +32,6 @@ def push_x_numba( x, y, z, ux, uy, uz, inv_gamma, Ntot, dt,
     return x, y, z
 
 @njit_parallel
-def push_x_after_plane_numba( x, y, z, ux, uy, uz, inv_gamma, Ntot, dt,
-                push_x, push_y, push_z, z_plane ):
-    """
-    Advance the particles' positions over `dt` using the momenta ux, uy, uz,
-    multiplied by the scalar coefficients x_push, y_push, z_push.
-    """
-    # Half timestep, multiplied by c
-    chdt = c*dt
-
-    # Particle push (in parallel if threading is installed)
-    for ip in prange(Ntot) :
-        z[ip] += chdt * inv_gamma[ip] * push_z * uz[ip]
-        if z[ip] > z_plane:
-            x[ip] += chdt * inv_gamma[ip] * push_x * ux[ip]
-            y[ip] += chdt * inv_gamma[ip] * push_y * uy[ip]
-
-    return x, y, z
-
-@njit_parallel
 def push_p_numba( ux, uy, uz, inv_gamma,
                 Ex, Ey, Ez, Bx, By, Bz, q, m, Ntot, dt ) :
     """

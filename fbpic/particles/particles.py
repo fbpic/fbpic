@@ -16,7 +16,7 @@ from .injection import BallisticBeforePlane, ContinuousInjector, \
 
 # Load the numba methods
 from .push.numba_methods import push_p_numba, push_p_ioniz_numba, \
-        push_p_after_plane_numba, push_x_after_plane_numba, push_x_numba
+                                push_p_after_plane_numba, push_x_numba
 from .gathering.threading_methods import gather_field_numba_linear, \
         gather_field_numba_cubic
 from .gathering.threading_methods_one_mode import erase_eb_numba, \
@@ -31,10 +31,10 @@ from fbpic.utils.threading import nthreads, get_chunk_indices
 from fbpic.utils.cuda import cuda_installed
 if cuda_installed:
     # Load the CUDA methods
-    import cupy
+    import cupy    
     from fbpic.utils.cuda import cuda_tpb_bpg_1d, cuda_gpu_model
     from .push.cuda_methods import push_p_gpu, push_p_ioniz_gpu, \
-        push_p_after_plane_gpu, push_x_after_plane_gpu, push_x_gpu
+                                push_p_after_plane_gpu, push_x_gpu
     from .deposition.cuda_methods import deposit_rho_gpu_linear, \
         deposit_J_gpu_linear, deposit_rho_gpu_cubic, deposit_J_gpu_cubic
     from .deposition.cuda_methods_one_mode import \
@@ -630,7 +630,7 @@ class Particles(object) :
                     self.q, self.m, self.Ntot, self.dt )
 
 
-    def push_x( self, dt, t, x_push=1., y_push=1., z_push=1. ) :
+    def push_x( self, dt, x_push=1., y_push=1., z_push=1. ) :
         """
         Advance the particles' positions over `dt` using the current
         momenta (ux, uy, uz).
@@ -651,32 +651,18 @@ class Particles(object) :
             # Get the threads per block and the blocks per grid
             dim_grid_1d, dim_block_1d = cuda_tpb_bpg_1d( self.Ntot )
             # Call the CUDA Kernel for push in x
-            if isinstance( self.injector, BallisticBeforePlane ):
-                z_plane = self.injector.get_current_plane_position( t )
-                push_x_after_plane_gpu[dim_grid_1d, dim_block_1d](
-                    self.x, self.y, self.z,
-                    self.ux, self.uy, self.uz,
-                    self.inv_gamma, dt, x_push, y_push, z_push, z_plane )
-            else:
-                push_x_gpu[dim_grid_1d, dim_block_1d](
-                    self.x, self.y, self.z,
-                    self.ux, self.uy, self.uz,
-                    self.inv_gamma, dt, x_push, y_push, z_push )
+            push_x_gpu[dim_grid_1d, dim_block_1d](
+                self.x, self.y, self.z,
+                self.ux, self.uy, self.uz,
+                self.inv_gamma, dt, x_push, y_push, z_push )
             # The particle array is unsorted after the push in x
             self.sorted = False
         # CPU version
         else:
-            if isinstance( self.injector, BallisticBeforePlane ):
-                z_plane = self.injector.get_current_plane_position( t )
-                push_x_after_plane_numba( self.x, self.y, self.z,
-                    self.ux, self.uy, self.uz,
-                    self.inv_gamma, self.Ntot,
-                    dt, x_push, y_push, z_push, z_plane )
-            else:
-                push_x_numba( self.x, self.y, self.z,
-                    self.ux, self.uy, self.uz,
-                    self.inv_gamma, self.Ntot,
-                    dt, x_push, y_push, z_push )
+            push_x_numba( self.x, self.y, self.z,
+                self.ux, self.uy, self.uz,
+                self.inv_gamma, self.Ntot,
+                dt, x_push, y_push, z_push )
 
     def gather( self, grid, comm ) :
         """
@@ -998,13 +984,13 @@ class Particles(object) :
             # thread) and register the indices that bound each chunks
             ptcl_chunk_indices = get_chunk_indices(self.Ntot, nthreads)
 
-            # The set of Ruyten shape coefficients to use for higher modes.
+            # The set of Ruyten shape coefficients to use for higher modes. 
             # For Nm > 1, the set from mode 1 is used, since all higher modes have the
-            # same coefficients. For Nm == 1, the coefficients from mode 0 are
+            # same coefficients. For Nm == 1, the coefficients from mode 0 are 
             # passed twice to satisfy the argument types for Numba JIT.
             if fld.Nm > 1:
                 ruyten_m = 1
-            else:
+            else: 
                 ruyten_m = 0
 
             # Multithreading functions for the deposition of rho or J
