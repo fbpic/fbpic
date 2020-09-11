@@ -137,6 +137,7 @@ if __name__ == '__main__':
     sim.diags = [ FieldDiagnostic( diag_period, sim.fld, comm=sim.comm ),
                   ParticleDiagnostic( diag_period, {"electrons" : elec},
                     select={"uz" : [1., None ]}, comm=sim.comm ) ]
+
     # Add checkpoints
     if save_checkpoints:
         set_periodic_checkpoint( sim, checkpoint_period )
