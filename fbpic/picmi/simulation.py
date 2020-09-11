@@ -74,13 +74,19 @@ class Simulation( PICMI_Simulation ):
         else:
             n_order = self.solver.stencil_order[-1]
 
+        # Number of guard cells
+        if grid.guard_cells is None:
+            n_guard = None
+        else:
+            n_guard = grid.guard_cells[-1]
+
         # Initialize and store the FBPIC simulation object
         self.fbpic_sim = FBPICSimulation(
             Nz=int(grid.nz), zmin=grid.zmin, zmax=grid.zmax,
             Nr=int(grid.nr), rmax=grid.rmax, Nm=grid.n_azimuthal_modes,
             dt=dt, use_cuda=True, smoother=smoother, n_order=n_order,
             boundaries={'z':grid.bc_zmax, 'r':grid.bc_rmax},
-            verbose_level=verbose_level,
+            n_guard=n_guard, verbose_level=verbose_level,
             particle_shape=self.particle_shape,
             v_comoving=self.solver.galilean_velocity[-1],
             gamma_boost=self.gamma_boost )
