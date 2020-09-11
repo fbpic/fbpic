@@ -269,8 +269,8 @@ class BoostConverter( object ):
         # Correct for shift in t_boost, which comes from transformation
         # into boosted frame. Particles are moved with transformed
         # velocities to a boosted time t'=0.
-        new_x = x #- t_boost * vx_boost
-        new_y = y #- t_boost * vy_boost
+        new_x = x - t_boost * vx_boost
+        new_y = y - t_boost * vy_boost
         new_z = z_boost - t_boost * vz_boost
 
         # Get final quantities

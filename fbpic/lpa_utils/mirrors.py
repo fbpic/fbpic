@@ -3,18 +3,31 @@
 # License: 3-Clause-BSD-LBNL
 """
 This file is part of the Fourier-Bessel Particle-In-Cell code (FB-PIC)
-It defines the plasma mirror class, which set the fields to 0 in a
+It defines the mirror class, which set the fields to 0 in a
 thin slice orthogonal to z
 """
 from scipy.constants import c
 
-class PlasmaMirror(object):
+class Mirror(object):
 
     def __init__( self, z_lab, n_cells=2, gamma_boost=None ):
         """
-        TODO
+        Initialize a mirror.
 
-        z_lab: position of the plasma mirror in the lab frame
+        The mirror reflects the fields in the z direction, by setting the
+        fields to 0 in a thin slice orthogonal to z, at each timestep.s
+
+        Parameters
+        ----------
+        z_lab: float
+            Position of the mirror in the lab frame
+
+        n_cells: int
+            Thickness of the mirror, i.e. number of cells that are
+            set to 0 (to the right side of `z_lab`)
+
+        gamma_boost: float
+            For boosted-frame simulation: Lorentz factor of the boost
         """
         self.z_lab = z_lab
         self.gamma_boost = gamma_boost
@@ -26,7 +39,14 @@ class PlasmaMirror(object):
         """
         Set the fields to 0 in a slice orthogonal to z
 
-        t_boosts: time in the boosted-frame
+        Parameters:
+        -----------
+        interp: a list of InterpolationGrid objects
+            Contains the values of the fields in interpolation space
+        comm: a BoundaryCommunicator object
+            Contains information on the position of the mesh
+        t_boost: float
+            Time in the boosted frame
         """
         # Lorentz transform
         if self.gamma_boost is None:

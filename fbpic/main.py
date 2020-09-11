@@ -336,8 +336,8 @@ class Simulation(object):
         self.checkpoints = []
         # Initialize an empty list of laser antennas
         self.laser_antennas = []
-        # Initialize an empty list of plasma mirrors
-        self.plasma_mirrors = []
+        # Initialize an empty list of mirrors
+        self.mirrors = []
 
         # Print simulation setup
         print_simulation_setup( self, verbose_level=verbose_level )
@@ -486,7 +486,7 @@ class Simulation(object):
                     species.push_p( self.time + 0.5*self.dt )
             if move_positions:
                 for species in ptcl:
-                    species.push_x( 0.5*dt, self.time )
+                    species.push_x( 0.5*dt )
             # Get positions/velocities for antenna particles at t = (n+1/2) dt
             for antenna in self.laser_antennas:
                 antenna.update_v( self.time + 0.5*dt )
@@ -515,7 +515,7 @@ class Simulation(object):
             # Push the particles' positions to t = (n+1) dt
             if move_positions:
                 for species in ptcl:
-                    species.push_x( 0.5*dt, self.time )
+                    species.push_x( 0.5*dt )
             # Get positions for antenna particles at t = (n+1) dt
             for antenna in self.laser_antennas:
                 antenna.push_x( 0.5*dt )
@@ -550,7 +550,7 @@ class Simulation(object):
             # Handle boundaries for the E and B fields:
             # - MPI exchanges for guard cells
             # - Damp fields in damping cells
-            # - Set fields to 0 at the position of the plasma mirrors
+            # - Set fields to 0 at the position of the mirrors
             # - Update the fields in interpolation space
             #  (needed for the field gathering at the next iteration)
             self.exchange_and_damp_EB()
@@ -682,7 +682,7 @@ class Simulation(object):
         # Push the particles: z[n+1/2], x[n+1/2] => z[n], x[n+1]
         if move_positions:
             for species in self.ptcl:
-                species.push_x( 0.5*dt, self.time, x_push= 1., y_push= 1., z_push= -1. )
+                species.push_x( 0.5*dt, x_push= 1., y_push= 1., z_push= -1. )
         for antenna in self.laser_antennas:
             antenna.push_x( 0.5*dt, x_push= 1., y_push= 1., z_push= -1. )
         # Shift the boundaries of the grid for the Galilean frame
@@ -694,7 +694,7 @@ class Simulation(object):
         # Push the particles: z[n], x[n+1] => z[n+1], x[n]
         if move_positions:
             for species in self.ptcl:
-                species.push_x(dt, self.time, x_push= -1., y_push= -1., z_push= 1.)
+                species.push_x(dt, x_push= -1., y_push= -1., z_push= 1.)
         for antenna in self.laser_antennas:
             antenna.push_x(dt, x_push= -1., y_push= -1., z_push= 1.)
         # Shift the boundaries of the grid for the Galilean frame
@@ -706,7 +706,7 @@ class Simulation(object):
         # Push the particles: z[n+1], x[n] => z[n+1/2], x[n+1/2]
         if move_positions:
             for species in self.ptcl:
-                species.push_x(0.5*dt, self.time, x_push= 1., y_push= 1., z_push= -1.)
+                species.push_x(0.5*dt, x_push= 1., y_push= 1., z_push= -1.)
         for antenna in self.laser_antennas:
             antenna.push_x(0.5*dt, x_push= 1., y_push= 1., z_push= -1.)
         # Shift the boundaries of the grid for the Galilean frame
@@ -719,7 +719,7 @@ class Simulation(object):
         Handle boundaries for the E and B fields:
          - MPI exchanges for guard cells
          - Damp fields in damping cells (in z, and in r if PML are used)
-         - Set fields to 0 at the position of the plasma mirrors
+         - Set fields to 0 at the position of the mirrors
          - Update the fields in interpolation space
         """
         # Shortcut
@@ -746,9 +746,9 @@ class Simulation(object):
         if self.use_pml:
             self.comm.damp_pml_EB( fld.interp ) # Damp in radial PML
 
-        # - Set fields to 0 at the position of the plasma mirrors
-        for plasma_mirror in self.plasma_mirrors:
-            plasma_mirror.set_fields_to_zero( fld.interp, self.comm, self.time )
+        # - Set fields to 0 at the position of the mirrors
+        for mirror in self.mirrors:
+            mirror.set_fields_to_zero( fld.interp, self.comm, self.time )
 
         # - Update spectral space (and interpolation space if needed)
         if self.use_pml:

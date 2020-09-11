@@ -24,7 +24,6 @@ from fbpic.main import Simulation
 from fbpic.lpa_utils.laser import add_laser
 from fbpic.lpa_utils.bunch import add_particle_bunch
 from fbpic.lpa_utils.boosted_frame import BoostConverter
-from fbpic.lpa_utils.plasma_mirrors import PlasmaMirror
 from fbpic.openpmd_diag import FieldDiagnostic, ParticleDiagnostic, \
         BackTransformedFieldDiagnostic, BackTransformedParticleDiagnostic
 # ----------
@@ -198,8 +197,6 @@ if __name__ == '__main__':
     v_window_boosted, = boost.velocity( [ v_window ] )
     # Configure the moving window
     sim.set_moving_window( v=v_window_boosted )
-
-    sim.plasma_mirrors = [ PlasmaMirror(z_lab=zmax, gamma_boost=gamma_boost) ]
 
     # Add a field diagnostic
     sim.diags = [

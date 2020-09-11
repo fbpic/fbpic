@@ -22,7 +22,6 @@ from scipy.constants import c, e, m_e
 # Import the relevant structures in FBPIC
 from fbpic.main import Simulation
 from fbpic.lpa_utils.laser import add_laser
-from fbpic.lpa_utils.plasma_mirrors import PlasmaMirror
 from fbpic.openpmd_diag import FieldDiagnostic, ParticleDiagnostic, \
      set_periodic_checkpoint, restart_from_checkpoint
 
@@ -138,11 +137,6 @@ if __name__ == '__main__':
     sim.diags = [ FieldDiagnostic( diag_period, sim.fld, comm=sim.comm ),
                   ParticleDiagnostic( diag_period, {"electrons" : elec},
                     select={"uz" : [1., None ]}, comm=sim.comm ) ]
-
-    # Set position of plasma mirrors
-    sim.plasma_mirrors = [
-        PlasmaMirror( z_lab=zmax )
-    ]
 
     # Add checkpoints
     if save_checkpoints:

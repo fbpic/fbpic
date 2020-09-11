@@ -235,8 +235,8 @@ def add_particle_bunch_gaussian(sim, q, m, sig_r, sig_z, n_emit, gamma0,
     # Propagate distribution to an out-of-focus position tf.
     # (without taking space charge effects into account)
     if tf != 0.:
-        #x = x - ux * inv_gamma * c * tf
-        #y = y - uy * inv_gamma * c * tf
+        x = x - ux * inv_gamma * c * tf
+        y = y - uy * inv_gamma * c * tf
         z = z - uz * inv_gamma * c * tf
 
     # Save beam distribution to an .npz file
