@@ -15,6 +15,8 @@ from fbpic.main import Simulation as FBPICSimulation
 from fbpic.fields.smoothing import BinomialSmoother
 from fbpic.lpa_utils.laser import add_laser_pulse, GaussianLaser
 from fbpic.lpa_utils.bunch import add_particle_bunch_gaussian, add_particle_bunch
+from fbpic.lpa_utils.mirrors import Mirror
+from fbpic.lpa_utils.external_fields import ExternalField
 from fbpic.openpmd_diag import FieldDiagnostic, ParticleDiagnostic, \
     BackTransformedFieldDiagnostic, BackTransformedParticleDiagnostic
 
@@ -24,6 +26,7 @@ from picmistandard import PICMI_AnalyticDistribution, PICMI_UniformDistribution,
 from picmistandard import PICMI_PseudoRandomLayout, PICMI_GaussianBunchDistribution
 from picmistandard import PICMI_LaserAntenna, PICMI_GaussianLaser
 from picmistandard import PICMI_Species, PICMI_MultiSpecies
+from picmistandard import PICMI_AnalyticAppliedField, PICMI_ConstantAppliedField, PICMI_Mirror
 from picmistandard import PICMI_FieldDiagnostic, PICMI_ParticleDiagnostic, \
     PICMI_LabFrameFieldDiagnostic, PICMI_LabFrameParticleDiagnostic
 
@@ -346,6 +349,54 @@ class Simulation( PICMI_Simulation ):
 
         # Add it to the FBPIC simulation
         self.fbpic_sim.diags.append( diag )
+
+    # Redefine the method `add_diagnostic` of the parent class
+    def add_applied_field(self, applied_field):
+        # Call method of parent class
+        PICMI_Simulation.add_applied_field( self, applied_field )
+
+        if type(applied_field) == PICMI_Mirror:
+            assert applied_field.z_front_location is not None
+            mirror = Mirror( z_lab=applied_field.z_front_location,
+                             n_cells=applied_field.number_of_cells,
+                             gamma_boost=self.fbpic_sim.boost.gamma0 )
+            self.fbpic_sim.mirrors.append( mirror )
+
+        elif type(applied_field) == PICMI_ConstantAppliedField:
+            # TODO: Handle bounds
+            for field_name in ['Ex', 'Ey', 'Ez', 'Bx', 'By', 'Bz']:
+                field_value = getattr( applied_field, field_name )
+                if field_value is None:
+                    continue
+                def field_func( F, x, y, z, t, amplitude, length_scale ):
+                    return( F + amplitude * field_value )
+                # Pass it to FBPIC
+                self.fbpic_sim.external_fields.append(
+                    ExternalField( field_func, field_name, 1., 0.)
+                )
+
+        elif type(applied_field) == PICMI_AnalyticAppliedField:
+            # TODO: Handle bounds
+            for field_name in ['Ex', 'Ey', 'Ez', 'Bx', 'By', 'Bz']:
+                # Extract expression and execute it inside a function definition
+                expression = getattr( applied_field, field_name+'_expression' )
+                if expression is None:
+                    continue
+                define_function_code = """
+                def field_func( F, x, y, z, t, amplitude, length_scale ):
+                    return( F + amplitude * %s )
+                """ %expression
+                # Take into account user-defined variables
+                d = locals()
+                d.update( applied_field.user_defined_kw )
+                exec( define_function_code, locals=d )
+                # Pass it to FBPIC
+                self.fbpic_sim.external_fields.append(
+                    ExternalField( field_func, field_name, 1., 0.)
+                )
+
+        else:
+            raise ValueError("Unrecognized `applied_field` type.")
 
 
     # Redefine the method `step` of the parent class
