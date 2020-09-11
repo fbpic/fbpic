@@ -18,16 +18,15 @@ First load the relevant modules:
 ::
 
     module purge
-    module load gcc/4.8.5
-    module load spectrum-mpi/10.3.0.0-20190419
-    module load fftw/3.3.8
+    module load gcc
+    module load fftw
     module load python/3.7.0-anaconda3-5.3.0
 
 Then create a new `conda` environment
 
 ::
 
-    conda create -n fbpic python=3
+    conda create -n fbpic --clone base
     source activate fbpic
 
 Installation of FBPIC and its dependencies
@@ -37,15 +36,7 @@ Installation of FBPIC and its dependencies
 
     ::
 
-        conda install -c conda-forge numba scipy h5py cython cudatoolkit=9.0
-
-- Install ``cupy`` (This step can take a few minutes.)
-
-    ::
-
-        module load cuda/9.1.85
-        pip install cupy
-        module unload cuda
+        conda install cython numba=0.49 cudatoolkit=9.0
 
 - Install ``pyfftw``
 
@@ -91,17 +82,17 @@ Then ``cd`` to the directory where you prepared your input script and type
 ::
 
     module purge
-    module load gcc/4.8.5
+    module load gcc
     module load cuda/9.1.85
-    module load spectrum-mpi/10.3.0.0-20190419
-    module load fftw/3.3.8
+    module load fftw
     module load python/3.7.0-anaconda3-5.3.0
-    module load py-mpi4py/3.0.0-py3
     source activate fbpic
-    export CUPY_CACHE_DIR=$MEMBERWORK/<project_id>/.cupy/kernel_cache
 
-    export NUMBA_NUM_THREADS=7
-    export OMP_NUM_THREADS=7
+    export CUPY_CACHE_DIR=$MEMBERWORK/<project_id>/.cupy/kernel_cache
+    export FBPIC_DISABLE_CACHING=1
+    export NUMBA_NUM_THREADS=1
+    export OMP_NUM_THREADS=1
+
     jsrun -n 1 -a 1 -c 1 -g 1 python <fbpic_script.py>
 
 where ``<project_id>`` should be replaced by your project account number.
@@ -122,20 +113,19 @@ following text (and replace the bracketed text by the proper values).
     #BSUB -P <accountNumber>
 
     module purge
-    module load gcc/4.8.5
+    module load gcc
     module load cuda/9.1.85
-    module load spectrum-mpi/10.3.0.0-20190419
-    module load fftw/3.3.8
+    module load fftw
     module load python/3.7.0-anaconda3-5.3.0
-    module load py-mpi4py/3.0.0-py3
     source activate fbpic
+
     export CUPY_CACHE_DIR=$MEMBERWORK/<project_id>/.cupy/kernel_cache
+    export FBPIC_ENABLE_GPUDIRECT=0
+    export FBPIC_DISABLE_CACHING=1
+    export NUMBA_NUM_THREADS=1
+    export OMP_NUM_THREADS=1
 
-    export NUMBA_NUM_THREADS=7
-    export OMP_NUM_THREADS=7
-    export FBPIC_ENABLE_GPUDIRECT=1
-
-    jsrun -n <requestedNode> -a 6 -c 42 -g 6 --smpiargs="-gpu" python fbpic_script.py > cpu.log
+    jsrun -n <requestedNode> -a 6 -c 6 -g 6 --smpiargs="-gpu" python fbpic_script.py > cpu.log
 
 where ``<project_id>`` should be replaced by your project account number.
 
@@ -148,8 +138,8 @@ Then run:
 
 .. note::
 
-    Note that, in the above script,
-    ``export FBPIC_ENABLE_GPUDIRECT=1`` and ``--smpiargs="-gpu"``
-    are only needed if you wish to use the **cuda-aware** MPI.
+    Note that, in the above script, ``--smpiargs="-gpu"`
+    is in fact only needed when ``export FBPIC_ENABLE_GPUDIRECT=1``,
+    i.e. when attempting to use the **cuda-aware** MPI.
 
 Use ``bjobs`` to monitor the job.

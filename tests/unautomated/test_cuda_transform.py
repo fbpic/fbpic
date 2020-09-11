@@ -12,9 +12,9 @@ $ python tests/test_cuda_transform.py
 """
 import numpy as np
 from fbpic.fields.spectral_transform import SpectralTransformer
-from numba import cuda
-from fbpic.utils.cuda import cupy_installed
-if cupy_installed:
+from fbpic.utils.cuda import cuda_installed
+if cuda_installed:
+    from numba import cuda
     from fbpic.utils.cuda import cupy
 import time
 

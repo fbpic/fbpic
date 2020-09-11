@@ -1,12 +1,15 @@
 # Copyright 2016, FBPIC contributors
 # Authors: Remi Lehe, Manuel Kirchen
 # License: 3-Clause-BSD-LBNL
-from numba import vectorize, float64, njit
+from numba import vectorize, float64, void, njit
 from scipy.constants import c
 inv_c = 1./c
 import numpy as np
 # Check if CUDA is available, then import CUDA functions
 from fbpic.utils.cuda import cuda_installed
+if cuda_installed:
+    from fbpic.utils.cuda import compile_cupy, cuda_tpb_bpg_1d
+    from numba import cuda
 
 class ExternalField( object ):
 
@@ -130,8 +133,21 @@ class ExternalField( object ):
         cpu_compiler = vectorize( signature, target='cpu', nopython=True )
         self.cpu_func = cpu_compiler( func )
         if cuda_installed:
-            gpu_compiler = vectorize( signature, target='cuda' )
-            self.gpu_func = gpu_compiler( func )
+            # First create a device inline function
+            inline_func = cuda.jit( func, inline=True, device=True )
+            # Then create a CUDA kernel and compile it the usual way
+            def external_field_kernel( F, x, y, z, t, amplitude, length_scale ):
+                i = cuda.grid(1)
+    
+                if i < F.shape[0]:
+                    F[i] = inline_func( F[i], x[i], y[i], z[i], t, amplitude, length_scale )
+
+            # To ensure that the kernel is compiled immediately and prevent scoping issues,
+            # it is specialized using an explicit signature
+            gpu_signature = void( float64[:], float64[:], float64[:],
+                               float64[:], float64, float64, float64 )
+
+            self.gpu_func = compile_cupy( external_field_kernel ).specialize( gpu_signature )
 
         # Convert the field back to the boosted frame
         if (gamma_boost is not None) and (gamma_boost != 1.):
@@ -191,6 +207,9 @@ class ExternalField( object ):
                         self.cpu_func( field, species.x, species.y, species.z,
                               t, amplitude, self.length_scale, out=field )
                     else:
-                        # Call the GPU function
-                        self.gpu_func( field, species.x, species.y, species.z,
-                              t, amplitude, self.length_scale, out=field )
+                        # Get the threads per block and the blocks per grid
+                        dim_grid_1d, dim_block_1d = cuda_tpb_bpg_1d( species.Ntot )
+                        # Call the GPU kernel
+                        self.gpu_func[dim_grid_1d, dim_block_1d](
+                            field, species.x, species.y, species.z,
+                            t, amplitude, self.length_scale )

@@ -9,12 +9,11 @@ It defines a number of methods that are useful for elementary processes
 import numpy as np
 from fbpic.utils.threading import njit_parallel, prange
 # Check if CUDA is available, then import CUDA functions
-from fbpic.utils.cuda import cupy_installed, cuda_installed
-if cupy_installed:
-    import cupy
+from fbpic.utils.cuda import cuda_installed
 if cuda_installed:
+    import cupy
     from fbpic.utils.cuda import cuda, cuda_tpb_bpg_1d, compile_cupy
-
+    
 def allocate_empty( shape, use_cuda, dtype ):
     """
     Allocate and return an empty array, of size `N` and type `dtype`,

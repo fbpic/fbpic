@@ -28,11 +28,10 @@ from .deposition.threading_methods import \
 # Check if threading is enabled
 from fbpic.utils.threading import nthreads, get_chunk_indices
 # Check if CUDA is available, then import CUDA functions
-from fbpic.utils.cuda import cupy_installed, cuda_installed
-if cupy_installed:
-    import cupy
+from fbpic.utils.cuda import cuda_installed
 if cuda_installed:
     # Load the CUDA methods
+    import cupy    
     from fbpic.utils.cuda import cuda_tpb_bpg_1d, cuda_gpu_model
     from .push.cuda_methods import push_p_gpu, push_p_ioniz_gpu, \
                                 push_p_after_plane_gpu, push_x_gpu

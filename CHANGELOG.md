@@ -1,5 +1,34 @@
 # Change Log / Release Log for fbpic
 
+## 0.17.1
+
+This minor release removes restrictions on the use of recent versions of
+numba, when running on GPU.
+
+## 0.17.0
+
+This release introduces a major change to the treatment of particles close to
+the axis (see [#347](https://github.com/fbpic/fbpic/pull/347)).
+As a result, the code is much more robust when a large amount of
+particles simultaneously cross the axis, and concentrate in the very first
+cell, in the radial direction.
+
+In particular, this avoids problems in PWFA simulations when particles of the
+driver can periodically pinch on the axis. In addition, the details of the
+fields at the very tip of the bubble (where sheath electrons cross the axis)
+are more realistic. As a result of the new treatment of particles, users may
+notice that the charge density deposited on the grid, for a uniform
+distribution of particles, appears to have a slight non-uniformity near the
+axis. This is a known and expected effect, and can be reduced by increasing
+the number of macro-particles in the radial direction (p_nr).
+
+In addition to the above major change, a set of minor changes were introduced:
+- JIT functions are now cached when running on CPU, which reduces the
+  compilation time ([#451](https://github.com/fbpic/fbpic/pull/451) and
+  [#445](https://github.com/fbpic/fbpic/pull/445))
+- The new release fixes a bug that prevented the code to run on CPU, when
+a GPU is available ([#454](https://github.com/fbpic/fbpic/pull/454)).
+
 ## 0.16.1
 
 This is minor release of FBPIC, with essentially two improvements:

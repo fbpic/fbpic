@@ -37,13 +37,12 @@ from ..cuda_numba_utils import allocate_empty, reallocate_and_copy_old, \
                                 perform_cumsum_2d, generate_new_ids
 
 # Check if CUDA is available, then import CUDA functions
-from fbpic.utils.cuda import cuda_installed, cupy_installed
+from fbpic.utils.cuda import cuda_installed
 from fbpic.utils.printing import catch_gpu_memory_error
 if cuda_installed:
+    import cupy
     from fbpic.utils.cuda import cuda_tpb_bpg_1d
     from .cuda_methods import ionize_ions_cuda, copy_ionized_electrons_cuda
-if cupy_installed:
-    import cupy    
     
 class Ionizer(object):
     """

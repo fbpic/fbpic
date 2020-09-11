@@ -18,10 +18,9 @@ from .pml_damping import PMLDamper
 from .particle_buffer_handling import remove_outside_particles, \
      add_buffers_to_particles, shift_particles_periodic_subdomain
 # Check if CUDA is available, then import CUDA functions
-from fbpic.utils.cuda import cupy_installed, cuda_installed
-if cupy_installed:
-    import cupy
+from fbpic.utils.cuda import cuda_installed
 if cuda_installed:
+    import cupy
     from fbpic.utils.cuda import cuda, cuda_tpb_bpg_2d
     from .cuda_methods import cuda_damp_EB_left, cuda_damp_EB_right, \
                                 cuda_damp_EB_left_pml, cuda_damp_EB_right_pml

@@ -6,8 +6,9 @@ This file is part of the Fourier-Bessel Particle-In-Cell code (FB-PIC)
 It defines the particle sorting methods on the GPU using CUDA.
 """
 from numba import cuda
-from fbpic.utils.cuda import cupy_installed, compile_cupy
-if cupy_installed:
+from fbpic.utils.cuda import cuda_installed
+if cuda_installed:
+    from fbpic.utils.cuda import compile_cupy
     from cupy.cuda import thrust
 import math
 import numpy as np

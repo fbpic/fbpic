@@ -8,11 +8,10 @@ It defines the structure necessary to handle mpi buffers for the particles
 import numpy as np
 import numba
 # Check if CUDA is available, then import CUDA functions
-from fbpic.utils.cuda import cupy_installed, cuda_installed
+from fbpic.utils.cuda import cuda_installed
 from fbpic.utils.printing import catch_gpu_memory_error
-if cupy_installed:
-    import cupy
 if cuda_installed:
+    import cupy
     from fbpic.utils.cuda import cuda, cuda_tpb_bpg_1d, compile_cupy
 
 def remove_outside_particles(species, fld, n_guard, left_proc, right_proc):
