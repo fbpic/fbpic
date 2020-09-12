@@ -7,6 +7,7 @@ This file is part of the Fourier-Bessel Particle-In-Cell code (FB-PIC)
 It defines the picmi Simulation interface
 """
 import numpy as np
+import warnings
 from scipy.constants import c, e, m_e
 from .particle_charge_and_mass import particle_charge, particle_mass
 
@@ -44,6 +45,12 @@ class Simulation( PICMI_Simulation ):
         # Check rmin and boundary conditions
         assert grid.rmin == 0.
         assert grid.bc_zmin == grid.bc_zmax
+        if grid.bc_zmin == 'reflective':
+            warnings.warn(
+            "FBPIC does not support reflective boundary condition in z.\n"
+            "The z boundary condition was automatically converted to 'open'.")
+            grid.bc_zmin = 'open'
+            grid.bc_zmax = 'open'
         assert grid.bc_zmax in ['periodic', 'open']
         assert grid.bc_rmax in ['reflective', 'open']
 
@@ -62,9 +69,17 @@ class Simulation( PICMI_Simulation ):
         if self.solver.source_smoother is None:
             smoother = BinomialSmoother()
         else:
-            smoother = BinomialSmoother(
-                n_passes=self.solver.source_smoother.n_pass,
-                compensator=self.solver.source_smoother.compensation )
+            if self.solver.source_smoother.n_pass is None:
+                n_passes = 1
+            else:
+                n_passes = {'r': self.solver.source_smoother.n_pass[0],
+                            'z': self.solver.source_smoother.n_pass[1]}
+            if self.solver.source_smoother.compensation is None:
+                compensator = False
+            else:
+                compensator = all(self.solver.source_smoother.compensation)
+            smoother = BinomialSmoother( n_passes=n_passes,
+                                         compensator=compensator )
 
         # Convert verbose level:
         verbose_level = self.verbose
