@@ -17,9 +17,10 @@ from fbpic.utils.threading import nthreads, get_chunk_indices
 from fbpic.utils.cuda import cuda_installed
 if cuda_installed:
     import cupy
-    from fbpic.utils.cuda import cuda_tpb_bpg_1d 
+    from fbpic.utils.cuda import cuda_tpb_bpg_1d, compile_cupy
     from fbpic.particles.deposition.cuda_methods_unsorted import \
         deposit_rho_gpu_unsorted, deposit_J_gpu_unsorted
+    from numba import cuda, float64, void
 
 class LaserAntenna( object ):
     """
@@ -176,16 +177,16 @@ class LaserAntenna( object ):
         # Copy all required arrays to GPU if needed
         if use_cuda:
 
-            self.baseline_x = cupy.asarray( self.baseline_x )
-            self.baseline_y = cupy.asarray( self.baseline_y )
-            self.baseline_z = cupy.asarray( self.baseline_z )
+            self.d_baseline_x = cupy.asarray( self.baseline_x )
+            self.d_baseline_y = cupy.asarray( self.baseline_y )
+            self.d_baseline_z = cupy.asarray( self.baseline_z )
 
             self.excursion_x = cupy.asarray( self.excursion_x )
             self.excursion_y = cupy.asarray( self.excursion_y )
 
             self.vx = cupy.asarray( self.vx )
             self.vy = cupy.asarray( self.vy )
-            self.vz = cupy.asarray( self.vz )
+            self.d_vz = cupy.asarray( self.vz )
 
             self.w = cupy.asarray( self.w )
 
@@ -248,6 +249,9 @@ class LaserAntenna( object ):
         # Move the position of the antenna (element-wise array operation)
         self.baseline_z += (dt * z_push) * self.vz
 
+        if self.use_cuda:
+            self.d_baseline_z += (dt * z_push) * self.d_vz
+
     def update_v( self, t ):
         """
         Update the particle velocities so that it corresponds to time t
@@ -261,20 +265,30 @@ class LaserAntenna( object ):
         t: float (seconds)
             The time at which to calculate the velocities
         """
+        
         # Interrupt this function if the antenna is not currently
         # active on the global domain (as determined by `update_current_rank`)
         if not self.active_update_v:
             return
+
+        if self.use_cuda and self.laser_profile.gpu_capable:
+            x = self.d_baseline_x
+            y = self.d_baseline_y
+            z = self.d_baseline_z
+        else:
+            x = self.baseline_x
+            y = self.baseline_y
+            z = self.baseline_z
 
         # When running in a boosted frame, convert the position and time at
         # which to find the laser amplitude.
         if self.boost is not None:
             boost = self.boost
             inv_c = 1./c
-            zlab = boost.gamma0*(  self.baseline_z + (c*boost.beta0)*t )
-            tlab = boost.gamma0*( t + (inv_c*boost.beta0)* self.baseline_z )
+            zlab = boost.gamma0*(  z + (c*boost.beta0)*t )
+            tlab = boost.gamma0*( t + (inv_c*boost.beta0)* z )
         else:
-            zlab = self.baseline_z
+            zlab = z
             tlab = t
 
         # Calculate the electric field to be emitted (in the lab-frame)
@@ -282,13 +296,18 @@ class LaserAntenna( object ):
         # Note that we neglect the (small) excursion of the particles when
         # calculating the electric field on the particles.
         Ex, Ey = self.laser_profile.E_field(
-            self.baseline_x, self.baseline_y, zlab, tlab )
+            x, y, zlab, tlab )
 
         # Calculate the corresponding velocity. This takes into account
         # lab-frame to boosted-frame conversion, through a modification
         # of the mobility coefficient: see the __init__ function
-        self.vx = self.mobility_coef * Ex
-        self.vy = self.mobility_coef * Ey
+        if self.use_cuda and not( self.laser_profile.gpu_capable ):
+            self.vx.set( self.mobility_coef * Ex )
+            self.vy.set( self.mobility_coef * Ey )
+        else:
+            self.vx = self.mobility_coef * Ex 
+            self.vy = self.mobility_coef * Ey 
+            
 
     def deposit( self, fld, fieldtype ):
         """
@@ -329,8 +348,8 @@ class LaserAntenna( object ):
 
     def deposit_virtual_particles_gpu( self, q, fieldtype, grid ):
         # Position of the particles
-        x = self.baseline_x + q*self.excursion_x
-        y = self.baseline_y + q*self.excursion_y
+        x = self.d_baseline_x + q*self.excursion_x
+        y = self.d_baseline_y + q*self.excursion_y
 
         if fieldtype == 'rho' :
             # ---------------------------------------
@@ -341,7 +360,7 @@ class LaserAntenna( object ):
                 dim_grid_1d, dim_block_1d = cuda_tpb_bpg_1d( self.Ntot )
                 deposit_rho_gpu_unsorted[
                     dim_grid_1d, dim_block_1d](
-                    x, y, self.baseline_z, self.w, q,
+                    x, y, self.d_baseline_z, self.w, q,
                     grid[m].invdz, grid[m].zmin, grid[m].Nz,
                     grid[m].invdr, grid[m].rmin, grid[m].Nr,
                     grid[m].rho, m, grid[m].d_ruyten_linear_coef)
@@ -358,8 +377,8 @@ class LaserAntenna( object ):
                 dim_grid_1d, dim_block_1d = cuda_tpb_bpg_1d( self.Ntot )
                 deposit_J_gpu_unsorted[
                     dim_grid_1d, dim_block_1d](
-                    x, y, self.baseline_z, self.w, q,
-                    vx, vy, self.vz,
+                    x, y, self.d_baseline_z, self.w, q,
+                    vx, vy, self.d_vz,
                     grid[m].invdz, grid[m].zmin, grid[m].Nz,
                     grid[m].invdr, grid[m].rmin, grid[m].Nr,
                     grid[m].Jr, grid[m].Jt, grid[m].Jz,

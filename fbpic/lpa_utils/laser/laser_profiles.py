@@ -22,7 +22,7 @@ class LaserProfile( object ):
     Profiles that inherit from this base class can be summed,
     using the overloaded + operator.
     """
-    def __init__( self, propagation_direction ):
+    def __init__( self, propagation_direction, gpu_capable=False ):
         """
         Initialize the propagation direction of the laser.
         (Each subclass should call this method at initialization.)
@@ -36,6 +36,7 @@ class LaserProfile( object ):
         """
         assert propagation_direction in [-1, 1]
         self.propag_direction = float(propagation_direction)
+        self.gpu_capable = gpu_capable
 
     def E_field( self, x, y, z, t ):
         """
@@ -176,7 +177,7 @@ class GaussianLaser( LaserProfile ):
             or -1 (laser propagates towards negative z).
         """
         # Initialize propagation direction
-        LaserProfile.__init__(self, propagation_direction)
+        LaserProfile.__init__(self, propagation_direction, gpu_capable=True)
 
         # Set a number of parameters for the laser
         k0 = 2*np.pi/lambda0
@@ -781,7 +782,7 @@ class FewCycleLaser( LaserProfile ):
             or -1 (laser propagates towards negative z).
         """
         # Initialize propagation direction
-        LaserProfile.__init__(self, propagation_direction)
+        LaserProfile.__init__(self, propagation_direction, gpu_capable=True)
 
         # Set a number of parameters for the laser
         k0 = 2*np.pi/lambda0
