@@ -17,10 +17,9 @@ from fbpic.utils.threading import nthreads, get_chunk_indices
 from fbpic.utils.cuda import cuda_installed
 if cuda_installed:
     import cupy
-    from fbpic.utils.cuda import cuda_tpb_bpg_1d, compile_cupy
+    from fbpic.utils.cuda import cuda_tpb_bpg_1d
     from fbpic.particles.deposition.cuda_methods_unsorted import \
         deposit_rho_gpu_unsorted, deposit_J_gpu_unsorted
-    from numba import cuda, float64, void
 
 class LaserAntenna( object ):
     """
