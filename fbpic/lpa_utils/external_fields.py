@@ -1,7 +1,7 @@
 # Copyright 2016, FBPIC contributors
 # Authors: Remi Lehe, Manuel Kirchen
 # License: 3-Clause-BSD-LBNL
-from numba import vectorize, float64, njit
+from numba import vectorize, float64, void, njit
 from scipy.constants import c
 inv_c = 1./c
 import numpy as np
@@ -142,7 +142,12 @@ class ExternalField( object ):
                 if i < F.shape[0]:
                     F[i] = inline_func( F[i], x[i], y[i], z[i], t, amplitude, length_scale )
 
-            self.gpu_func = compile_cupy( external_field_kernel )
+            # To ensure that the kernel is compiled immediately and prevent scoping issues,
+            # it is specialized using an explicit signature
+            gpu_signature = void( float64[:], float64[:], float64[:],
+                               float64[:], float64, float64, float64 )
+
+            self.gpu_func = compile_cupy( external_field_kernel ).specialize( gpu_signature )
 
         # Convert the field back to the boosted frame
         if (gamma_boost is not None) and (gamma_boost != 1.):
