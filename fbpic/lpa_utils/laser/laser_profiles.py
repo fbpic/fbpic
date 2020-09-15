@@ -33,6 +33,10 @@ class LaserProfile( object ):
             Indicates in which direction the laser propagates.
             This should be either 1 (laser propagates towards positive z)
             or -1 (laser propagates towards negative z).
+        gpu_capable: boolean
+            Indicates whether this laser profile works with cupy arrays on 
+            GPU. This is usually the case if it only uses standard arithmetic
+            and numpy operations. Default: False.
         """
         assert propagation_direction in [-1, 1]
         self.propag_direction = float(propagation_direction)
@@ -176,7 +180,7 @@ class GaussianLaser( LaserProfile ):
             This should be either 1 (laser propagates towards positive z)
             or -1 (laser propagates towards negative z).
         """
-        # Initialize propagation direction
+        # Initialize propagation direction and mark the profile as GPU capable
         LaserProfile.__init__(self, propagation_direction, gpu_capable=True)
 
         # Set a number of parameters for the laser
@@ -781,7 +785,7 @@ class FewCycleLaser( LaserProfile ):
             This should be either 1 (laser propagates towards positive z)
             or -1 (laser propagates towards negative z).
         """
-        # Initialize propagation direction
+        # Initialize propagation direction and mark as GPU capable
         LaserProfile.__init__(self, propagation_direction, gpu_capable=True)
 
         # Set a number of parameters for the laser

@@ -174,6 +174,8 @@ class LaserAntenna( object ):
         self.active_update_v = False
     
         # Copy all required arrays to GPU if needed
+        # Some of the arrays are kept as copies on CPU in the case that
+        # the laser profile is not GPU capable
         if use_cuda:
 
             self.d_baseline_x = cupy.asarray( self.baseline_x )
@@ -248,6 +250,7 @@ class LaserAntenna( object ):
         # Move the position of the antenna (element-wise array operation)
         self.baseline_z += (dt * z_push) * self.vz
 
+        # If possible, the antenna position is updated on both GPU and CPU
         if self.use_cuda:
             self.d_baseline_z += (dt * z_push) * self.d_vz
 
@@ -270,6 +273,7 @@ class LaserAntenna( object ):
         if not self.active_update_v:
             return
 
+        # If the laser profile supports it, do the whole calculation on GPU
         if self.use_cuda and self.laser_profile.gpu_capable:
             x = self.d_baseline_x
             y = self.d_baseline_y
@@ -300,6 +304,8 @@ class LaserAntenna( object ):
         # Calculate the corresponding velocity. This takes into account
         # lab-frame to boosted-frame conversion, through a modification
         # of the mobility coefficient: see the __init__ function
+
+        # Copy the velocities to GPU if the laser profile doesnt support GPU
         if self.use_cuda and not( self.laser_profile.gpu_capable ):
             self.vx.set( self.mobility_coef * Ex )
             self.vy.set( self.mobility_coef * Ey )
