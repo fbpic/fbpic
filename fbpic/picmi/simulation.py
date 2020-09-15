@@ -397,17 +397,17 @@ class Simulation( PICMI_Simulation ):
                 expression = getattr( applied_field, field_name+'_expression' )
                 if expression is None:
                     continue
-                define_function_code = """
-                def field_func( F, x, y, z, t, amplitude, length_scale ):
-                    return( F + amplitude * %s )
-                """ %expression
+                define_function_code = \
+                """def fieldfunc( F, x, y, z, t, amplitude, length_scale ):\n    return( F + amplitude * %s )""" %expression
                 # Take into account user-defined variables
-                d = locals()
-                d.update( applied_field.user_defined_kw )
-                exec( define_function_code, locals=d )
+                for k in applied_field.user_defined_kw:
+                    define_function_code = \
+                        "%s = %s\n" %(k,applied_field.user_defined_kw[k]) \
+                        + define_function_code
+                exec( define_function_code, globals() )
                 # Pass it to FBPIC
                 self.fbpic_sim.external_fields.append(
-                    ExternalField( field_func, field_name, 1., 0.)
+                    ExternalField( fieldfunc, field_name, 1., 0.)
                 )
 
         else:
