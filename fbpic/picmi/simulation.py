@@ -150,6 +150,29 @@ class Simulation( PICMI_Simulation ):
         # Call method of parent class
         PICMI_Simulation.add_species( self, species, layout,
                                       initialize_self_field )
+        # Call generic method internally
+        self._add_species_generic( species, layout,
+            injection_plane_position=None, injection_plane_normal_vector=None,
+            initialize_self_field=initialize_self_field )
+
+
+    def add_species_through_plane( self, species, layout,
+            injection_plane_position, injection_plane_normal_vector,
+            initialize_self_field=False ):
+        # Call method of parent class
+        PICMI_Simulation.add_species( self, species, layout, initialize_self_field )
+        #PICMI_Simulation.add_species_through_plane( self, species, layout,
+        #    injection_plane_position, injection_plane_normal_vector,
+        #    initialize_self_field=initialize_self_field )
+        # Call generic method internally
+        self._add_species_generic( species, layout,
+            injection_plane_position=injection_plane_position,
+            injection_plane_normal_vector=injection_plane_normal_vector,
+            initialize_self_field=initialize_self_field )
+
+
+    def _add_species_generic( self, species, layout, injection_plane_position,
+        injection_plane_normal_vector, initialize_self_field ):
 
         # Extract list of species
         if type(species) == PICMI_Species:
@@ -173,7 +196,8 @@ class Simulation( PICMI_Simulation ):
 
             # Add the species to the FBPIC simulation
             fbpic_species = self._create_new_fbpic_species(s,
-                                        layout, initialize_self_field)
+                 layout, injection_plane_position,
+                 injection_plane_normal_vector, initialize_self_field)
 
             # Register a pointer to the FBPIC species in the PICMI species itself
             # (Useful for particle diagnostics later on)
@@ -196,7 +220,8 @@ class Simulation( PICMI_Simulation ):
                                              target_species=fbpic_target )
 
 
-    def _create_new_fbpic_species(self, s, layout, initialize_self_field):
+    def _create_new_fbpic_species(self, s, layout, injection_plane_position,
+        injection_plane_normal_vector, initialize_self_field):
 
         # - For the case of a plasma/beam defined in a gridded layout
         if type(layout) == PICMI_GriddedLayout:
@@ -223,8 +248,13 @@ class Simulation( PICMI_Simulation ):
             p_nt = layout.n_macroparticle_per_cell[1]
             p_nz = layout.n_macroparticle_per_cell[2]
 
-            if initialize_self_field:
+            if initialize_self_field or (injection_plane_position is not None):
                 assert s.initial_distribution.fill_in == False
+
+                if injection_plane_position is None:
+                    z_injection_plane = None
+                else:
+                    z_injection_plane = injection_plane_position[-1]
                 gamma0_beta0 = s.initial_distribution.directed_velocity[-1]/c
                 gamma0 = ( 1 + gamma0_beta0**2 )**.5
                 fbpic_species = add_particle_bunch( self.fbpic_sim,
@@ -235,6 +265,7 @@ class Simulation( PICMI_Simulation ):
                     p_rmin=0,
                     p_rmax=s.initial_distribution.upper_bound[0],
                     boost=self.fbpic_sim.boost,
+                    z_injection_plane=z_injection_plane,
                     initialize_self_field=initialize_self_field,
                     boost_positions_in_dens_func=True )
             else:
