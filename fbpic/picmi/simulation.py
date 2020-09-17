@@ -160,10 +160,9 @@ class Simulation( PICMI_Simulation ):
             injection_plane_position, injection_plane_normal_vector,
             initialize_self_field=False ):
         # Call method of parent class
-        PICMI_Simulation.add_species( self, species, layout, initialize_self_field )
-        #PICMI_Simulation.add_species_through_plane( self, species, layout,
-        #    injection_plane_position, injection_plane_normal_vector,
-        #    initialize_self_field=initialize_self_field )
+        PICMI_Simulation.add_species_through_plane( self, species, layout,
+            injection_plane_position, injection_plane_normal_vector,
+            initialize_self_field=initialize_self_field )
         # Call generic method internally
         self._add_species_generic( species, layout,
             injection_plane_position=injection_plane_position,
