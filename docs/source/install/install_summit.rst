@@ -89,7 +89,6 @@ Then ``cd`` to the directory where you prepared your input script and type
     source activate fbpic
 
     export CUPY_CACHE_DIR=$MEMBERWORK/<project_id>/.cupy/kernel_cache
-    export FBPIC_DISABLE_CACHING=1
     export NUMBA_NUM_THREADS=1
     export OMP_NUM_THREADS=1
 
@@ -121,7 +120,6 @@ following text (and replace the bracketed text by the proper values).
 
     export CUPY_CACHE_DIR=$MEMBERWORK/<project_id>/.cupy/kernel_cache
     export FBPIC_ENABLE_GPUDIRECT=0
-    export FBPIC_DISABLE_CACHING=1
     export NUMBA_NUM_THREADS=1
     export OMP_NUM_THREADS=1
 
