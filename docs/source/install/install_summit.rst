@@ -109,7 +109,7 @@ following text (and replace the bracketed text by the proper values).
     #!/bin/bash
     #BSUB -J my_job
     #BSUB -W <requestedTime>
-    #BSUB -nnodes <requestedNode>
+    #BSUB -nnodes <requestedNodes>
     #BSUB -P <accountNumber>
 
     module purge
@@ -125,9 +125,11 @@ following text (and replace the bracketed text by the proper values).
     export NUMBA_NUM_THREADS=1
     export OMP_NUM_THREADS=1
 
-    jsrun -n <requestedNode> -a 6 -c 6 -g 6 --smpiargs="-gpu" python fbpic_script.py > cpu.log
+    jsrun -n <requestedMPIRanks> -a 1 -c 1 -g 1 --smpiargs="-gpu" python fbpic_script.py > cpu.log
 
-where ``<project_id>`` should be replaced by your project account number.
+where ``<project_id>`` should be replaced by your project account number, and
+``<requestedNodes`` and ``<requestedMPIRanks>`` should be replaced by the
+number of nodes and MPI ranks (use 6 MPI ranks per Summit node).
 
 Then run:
 

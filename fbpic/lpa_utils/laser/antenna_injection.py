@@ -171,7 +171,6 @@ class LaserAntenna( object ):
         # Register whether the antenna deposits on the local domain
         # (gets updated by `update_current_rank`)
         self.deposit_on_this_rank = False
-        self.active_update_v = False
     
         # Copy all required arrays to GPU if needed
         # Some of the arrays are kept as copies on CPU in the case that
@@ -221,13 +220,6 @@ class LaserAntenna( object ):
         else:
             self.deposit_on_this_rank = False
 
-        zmin_global, zmax_global = comm.get_zmin_zmax(
-            local=False, with_damp=True, with_guard=True )
-        if (z_antenna >= zmin_global) and (z_antenna < zmax_global):
-            self.active_update_v = True
-        else:
-            self.active_update_v = False
-
     def push_x( self, dt, x_push=1., y_push=1., z_push=1. ):
         """
         Push the position of the virtual particles in the antenna
@@ -267,12 +259,6 @@ class LaserAntenna( object ):
         t: float (seconds)
             The time at which to calculate the velocities
         """
-        
-        # Interrupt this function if the antenna is not currently
-        # active on the global domain (as determined by `update_current_rank`)
-        if not self.active_update_v:
-            return
-
         # If the laser profile supports it, do the whole calculation on GPU
         if self.use_cuda and self.laser_profile.gpu_capable:
             x = self.d_baseline_x
