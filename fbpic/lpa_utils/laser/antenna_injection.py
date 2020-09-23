@@ -9,14 +9,17 @@ emit a laser during a simulation.
 import numpy as np
 from scipy.constants import e, c, epsilon_0, physical_constants
 r_e = physical_constants['classical electron radius'][0]
-from fbpic.particles.utilities.utility_methods import weights
-from fbpic.particles.deposition.numba_methods import deposit_field_numba
+from fbpic.particles.deposition.threading_methods import \
+        deposit_rho_numba_linear, deposit_J_numba_linear
+from fbpic.utils.threading import nthreads, get_chunk_indices
 
 # Check if CUDA is available, then import CUDA functions
 from fbpic.utils.cuda import cuda_installed
 if cuda_installed:
     import cupy
-    from fbpic.utils.cuda import cuda, cuda_tpb_bpg_1d, compile_cupy
+    from fbpic.utils.cuda import cuda_tpb_bpg_1d
+    from fbpic.particles.deposition.cuda_methods_unsorted import \
+        deposit_rho_gpu_unsorted, deposit_J_gpu_unsorted
 
 class LaserAntenna( object ):
     """
@@ -41,16 +44,17 @@ class LaserAntenna( object ):
     (Therefore, only the excursion of the positive particles is stored; the
     excursion of the negative is infered e.g. before depositing their current)
 
-    Since the number of macroparticles is small, both updating their motion
-    and depositing their charge/current is always done on the CPU.
-    For GPU performance, the charge/current are deposited in a small-size array
-    (corresponding to a thin slice in z) which is then transfered to the GPU
-    and added into the full-size array of charge/current.
-    Note that the antenna always uses linear shape factors (even when the
-    rest of the simulation uses cubic shape factors.)
+    Not all laser profiles are available on the GPU, so the update of the
+    virtual particle velocity is performed on either CPU or GPU depending on
+    whether the laser profile is GPU enabled. The deposition of charge and
+    current is then always performed on GPU in the usual way as long as
+    CUDA is available. For this, the velocities are copied to the GPU if needed.
+    Note that the antenna always uses linear shape factors (even when the rest of
+    the simulation uses cubic shape factors.)
     """
     def __init__( self, laser_profile, z0_antenna, v_antenna,
-                    dr_grid, Nr_grid, Nm, boost, npr=2, epsilon=0.01 ):
+                    dr_grid, Nr_grid, Nm, boost, npr=2, epsilon=0.01,
+                    use_cuda=False ):
         """
         Initialize a LaserAntenna object (see class docstring for more info)
 
@@ -90,10 +94,15 @@ class LaserAntenna( object ):
 
         boost: a BoostConverter object or None
            Contains the information about the boost to be applied
+
+        use_cuda: bool
+            Whether to use CUDA for the antenna
         """
         # Register the properties of the laser injection
         self.laser_profile = laser_profile
         self.boost = boost
+
+        self.use_cuda = use_cuda
 
         # For now, boost and non-zero velocity are incompatible
         if (v_antenna != 0) and (boost is not None):
@@ -148,6 +157,8 @@ class LaserAntenna( object ):
         self.vx = np.zeros( Ntot )
         self.vy = np.zeros( Ntot )
         self.vz = np.zeros( Ntot )
+        # Inverse gamma; used only for the CPU deposition kernels
+        self.inv_gamma = np.ones( Ntot )
         # If the simulation is performed in a boosted frame,
         # boost these quantities
         if boost is not None:
@@ -160,19 +171,25 @@ class LaserAntenna( object ):
         # Register whether the antenna deposits on the local domain
         # (gets updated by `update_current_rank`)
         self.deposit_on_this_rank = False
+    
+        # Copy all required arrays to GPU if needed
+        # Some of the arrays are kept as copies on CPU in the case that
+        # the laser profile is not GPU capable
+        if use_cuda:
 
-        # Initialize small-size buffers where the particles charge and currents
-        # will be deposited before being added to the regular, large-size array
-        # (esp. useful when running on GPU, for memory transfer)
-        self.rho_buffer = np.empty( (Nm, 2, Nr_grid), dtype='complex' )
-        self.Jr_buffer = np.empty( (Nm, 2, Nr_grid), dtype='complex' )
-        self.Jt_buffer = np.empty( (Nm, 2, Nr_grid), dtype='complex' )
-        self.Jz_buffer = np.empty( (Nm, 2, Nr_grid), dtype='complex' )
-        if cuda_installed:
-            self.d_rho_buffer = cupy.asarray( self.rho_buffer )
-            self.d_Jr_buffer = cupy.asarray( self.Jr_buffer )
-            self.d_Jt_buffer = cupy.asarray( self.Jt_buffer )
-            self.d_Jz_buffer = cupy.asarray( self.Jz_buffer )
+            self.d_baseline_x = cupy.asarray( self.baseline_x )
+            self.d_baseline_y = cupy.asarray( self.baseline_y )
+            self.d_baseline_z = cupy.asarray( self.baseline_z )
+
+            self.excursion_x = cupy.asarray( self.excursion_x )
+            self.excursion_y = cupy.asarray( self.excursion_y )
+
+            self.vx = cupy.asarray( self.vx )
+            self.vy = cupy.asarray( self.vy )
+            self.d_vz = cupy.asarray( self.vz )
+
+            self.w = cupy.asarray( self.w )
+
 
     def update_current_rank(self, comm):
         """
@@ -225,6 +242,10 @@ class LaserAntenna( object ):
         # Move the position of the antenna (element-wise array operation)
         self.baseline_z += (dt * z_push) * self.vz
 
+        # If possible, the antenna position is updated on both GPU and CPU
+        if self.use_cuda:
+            self.d_baseline_z += (dt * z_push) * self.d_vz
+
     def update_v( self, t ):
         """
         Update the particle velocities so that it corresponds to time t
@@ -238,15 +259,25 @@ class LaserAntenna( object ):
         t: float (seconds)
             The time at which to calculate the velocities
         """
+        # If the laser profile supports it, do the whole calculation on GPU
+        if self.use_cuda and self.laser_profile.gpu_capable:
+            x = self.d_baseline_x
+            y = self.d_baseline_y
+            z = self.d_baseline_z
+        else:
+            x = self.baseline_x
+            y = self.baseline_y
+            z = self.baseline_z
+
         # When running in a boosted frame, convert the position and time at
         # which to find the laser amplitude.
         if self.boost is not None:
             boost = self.boost
             inv_c = 1./c
-            zlab = boost.gamma0*(  self.baseline_z + (c*boost.beta0)*t )
-            tlab = boost.gamma0*( t + (inv_c*boost.beta0)* self.baseline_z )
+            zlab = boost.gamma0*(  z + (c*boost.beta0)*t )
+            tlab = boost.gamma0*( t + (inv_c*boost.beta0)* z )
         else:
-            zlab = self.baseline_z
+            zlab = z
             tlab = t
 
         # Calculate the electric field to be emitted (in the lab-frame)
@@ -254,13 +285,20 @@ class LaserAntenna( object ):
         # Note that we neglect the (small) excursion of the particles when
         # calculating the electric field on the particles.
         Ex, Ey = self.laser_profile.E_field(
-            self.baseline_x, self.baseline_y, zlab, tlab )
+            x, y, zlab, tlab )
 
         # Calculate the corresponding velocity. This takes into account
         # lab-frame to boosted-frame conversion, through a modification
         # of the mobility coefficient: see the __init__ function
-        self.vx = self.mobility_coef * Ex
-        self.vy = self.mobility_coef * Ey
+
+        # Copy the velocities to GPU if the laser profile doesnt support GPU
+        if self.use_cuda and not( self.laser_profile.gpu_capable ):
+            self.vx.set( self.mobility_coef * Ex )
+            self.vy.set( self.mobility_coef * Ey )
+        else:
+            self.vx = self.mobility_coef * Ex 
+            self.vy = self.mobility_coef * Ey 
+            
 
     def deposit( self, fld, fieldtype ):
         """
@@ -289,272 +327,105 @@ class LaserAntenna( object ):
         # Shortcut for the list of InterpolationGrid objects
         grid = fld.interp
 
-        # Set the buffers to zero
-        if fieldtype == 'rho':
-            self.rho_buffer[:,:,:] = 0.
-        elif fieldtype == 'J':
-            self.Jr_buffer[:,:,:] = 0.
-            self.Jt_buffer[:,:,:] = 0.
-            self.Jz_buffer[:,:,:] = 0.
-
-        # Indices and weights in z:
-        # same for both the negative and positive virtual particles
-        iz, Sz = weights(self.baseline_z, grid[0].invdz, grid[0].zmin, grid[0].Nz,
-                         direction='z', shape_order=1,
-                         beta_n=grid[0].ruyten_linear_coef)
-        # Find the z index where the small-size buffers should be added
-        # to the large-size arrays rho, Jr, Jt, Jz
-        iz_min = iz.min()
-        iz_max = iz.max()
-        # Since linear shape are used, and since the virtual particles all
-        # have the same z position, iz_max is necessarily equal to iz_min+1
-        # This is a sanity check, to avoid out-of-bound access later on.
-        assert iz_max == iz_min+1
-        # Substract from the array of indices in order to find the particle
-        # index within the small-size buffers
-        iz = iz - iz_min
-
         # Deposit the charge/current of positive and negative
-        # virtual particles successively, into the small-size buffers
+        # virtual particles successively
         for q in [-1, 1]:
-            self.deposit_virtual_particles( q, fieldtype, grid, iz, Sz )
 
-        # Copy the small-size buffers into the large-size arrays
-        # (When running on the GPU, this involves copying the
-        # small-size buffers from CPU to GPU)
-        if fieldtype == 'rho':
-            self.copy_rho_buffer( iz_min, grid )
-        elif fieldtype == 'J':
-            self.copy_J_buffer( iz_min, grid )
+            if self.use_cuda:
+                self.deposit_virtual_particles_gpu( q, fieldtype, grid )
+            else:
+                self.deposit_virtual_particles_cpu( q, fieldtype, grid, fld )
+            
 
-    def deposit_virtual_particles( self, q, fieldtype, grid, iz, Sz ):
-        """
-        Deposit the charge/current of the positive (q=+1) or negative
-        (q=-1) virtual macroparticles
-
-        Parameters
-        ----------
-        q: float (either +1 or -1)
-            Indicates whether to deposit the charge/current
-            of the positive or negative virtual macroparticles
-
-        fieldtype: string (either 'rho' or 'J')
-            Indicates whether to deposit the charge or current
-
-        grid: a list of InterpolationGrid object
-            The grids on which to the deposit the charge/current
-
-        iz, ir : 2darray of ints
-            Arrays of shape (shape_order+1, Ntot)
-            where Ntot is the number of macroparticles.
-            Contains the index of the cells that each virtual macroparticle
-            will deposit to.
-            (In the case of the laser antenna, these arrays are constant
-            in principle; but they are kept as arrays for compatibility
-            with the deposit_field_numba function.)
-
-        Sz, Sr: 2darray of ints
-            Arrays of shape (shape_order+1, Ntot)
-            where Ntot is the number of macroparticles
-            Contains the weight for respective cells from iz and ir,
-            for each macroparticle.
-        """
+    def deposit_virtual_particles_gpu( self, q, fieldtype, grid ):
         # Position of the particles
-        x = self.baseline_x + q*self.excursion_x
-        y = self.baseline_y + q*self.excursion_y
-        vx = q*self.vx
-        vy = q*self.vy
-        w = q*self.w
-
-        # Preliminary arrays for the cylindrical conversion
-        r = np.sqrt( x**2 + y**2 )
-        # Avoid division by 0.
-        invr = 1./np.where( r!=0., r, 1. )
-        cos = np.where( r!=0., x*invr, 1. )
-        sin = np.where( r!=0., y*invr, 0. )
+        x = self.d_baseline_x + q*self.excursion_x
+        y = self.d_baseline_y + q*self.excursion_y
 
         if fieldtype == 'rho' :
             # ---------------------------------------
             # Deposit the charge density mode by mode
             # ---------------------------------------
-            # Prepare auxiliary matrix
-            exptheta = np.ones( self.Ntot, dtype='complex')
-            # exptheta takes the value exp(im theta) throughout the loop
             for m in range( len(grid) ) :
-                # Increment exptheta (notice the + : forward transform)
-                if m==1 :
-                    exptheta[:].real = cos
-                    exptheta[:].imag = sin
-                elif m>1 :
-                    exptheta[:] = exptheta*( cos + 1.j*sin )
-
-                # Indices and weights in r
-                ir, Sr = weights(r, grid[m].invdr, grid[m].rmin, grid[m].Nr,
-                         direction='r', shape_order=1,
-                         beta_n=grid[m].ruyten_linear_coef)
-
-                # Deposit the fields into small-size buffer arrays
-                deposit_field_numba( w*exptheta, self.rho_buffer[m,:],
-                    iz, ir, Sz, Sr, (-1)**m )
+       
+                dim_grid_1d, dim_block_1d = cuda_tpb_bpg_1d( self.Ntot )
+                deposit_rho_gpu_unsorted[
+                    dim_grid_1d, dim_block_1d](
+                    x, y, self.d_baseline_z, self.w, q,
+                    grid[m].invdz, grid[m].zmin, grid[m].Nz,
+                    grid[m].invdr, grid[m].rmin, grid[m].Nr,
+                    grid[m].rho, m, grid[m].d_ruyten_linear_coef)
 
         elif fieldtype == 'J' :
-            # ----------------------------------------
+            # Particle velocities
+            vx = q*self.vx
+            vy = q*self.vy
+            # ---------------------------------------
             # Deposit the current density mode by mode
-            # ----------------------------------------
-            # Calculate the currents
-            Jr = w * ( cos*vx + sin*vy )
-            Jt = w * ( cos*vy - sin*vx )
-            Jz = w * self.vz
-            # Prepare auxiliary matrix
-            exptheta = np.ones( self.Ntot, dtype='complex')
-            # exptheta takes the value exp(im theta) throughout the loop
+            # ---------------------------------------
             for m in range( len(grid) ) :
-                # Increment exptheta (notice the + : forward transform)
-                if m==1 :
-                    exptheta[:].real = cos
-                    exptheta[:].imag = sin
-                elif m>1 :
-                    exptheta[:] = exptheta*( cos + 1.j*sin )
+        
+                dim_grid_1d, dim_block_1d = cuda_tpb_bpg_1d( self.Ntot )
+                deposit_J_gpu_unsorted[
+                    dim_grid_1d, dim_block_1d](
+                    x, y, self.d_baseline_z, self.w, q,
+                    vx, vy, self.d_vz,
+                    grid[m].invdz, grid[m].zmin, grid[m].Nz,
+                    grid[m].invdr, grid[m].rmin, grid[m].Nr,
+                    grid[m].Jr, grid[m].Jt, grid[m].Jz,
+                    m, grid[m].d_ruyten_linear_coef)
 
-                # Indices and weights in r
-                ir, Sr = weights(r, grid[m].invdr, grid[m].rmin, grid[m].Nr,
-                         direction='r', shape_order=1,
-                         beta_n=grid[m].ruyten_linear_coef)
+    def deposit_virtual_particles_cpu( self, q, fieldtype, grid, fld ):
+        x = self.baseline_x + q*self.excursion_x
+        y = self.baseline_y + q*self.excursion_y
 
-                # Deposit the fields into small-size buffer arrays
-                deposit_field_numba( Jr*exptheta, self.Jr_buffer[m,:],
-                                     iz, ir, Sz, Sr, -(-1)**m )
-                deposit_field_numba( Jt*exptheta, self.Jt_buffer[m,:],
-                                     iz, ir, Sz, Sr, -(-1)**m )
-                deposit_field_numba( Jz*exptheta, self.Jz_buffer[m,:],
-                                     iz, ir, Sz, Sr, (-1)**m )
+        # Divide particles in chunks (each chunk is handled by a different
+        # thread) and register the indices that bound each chunks
+        ptcl_chunk_indices = get_chunk_indices(self.Ntot, nthreads)
 
-    def copy_rho_buffer( self, iz_min, grid ):
-        """
-        Add the small-size array rho_buffer into the full-size array rho
+        # The set of Ruyten shape coefficients to use for higher modes. 
+        # For Nm > 1, the set from mode 1 is used, since all higher modes have the
+        # same coefficients. For Nm == 1, the coefficients from mode 0 are 
+        # passed twice to satisfy the argument types for Numba JIT.
+        if fld.Nm > 1:
+            ruyten_m = 1
+        else: 
+            ruyten_m = 0
 
-        Parameters
-        ----------
-        iz_min: int
-            The z index in the full-size array, that corresponds to index 0
-            in the small-size array (i.e. position at which to add the
-            small-size array into the full-size one)
+        if fieldtype == 'rho' :
+            # ---------------------------------------
+            # Deposit the charge density all modes at once
+            # ---------------------------------------
+            deposit_rho_numba_linear(
+                x, y, self.baseline_z, self.w, q,
+                grid[0].invdz, grid[0].zmin, grid[0].Nz,
+                grid[0].invdr, grid[0].rmin, grid[0].Nr,
+                fld.rho_global, fld.Nm,
+                nthreads, ptcl_chunk_indices,
+                grid[0].ruyten_linear_coef,
+                grid[ruyten_m].ruyten_linear_coef )
 
-        grid: a list of InterpolationGrid objects
-            Contains the full-size array rho
-        """
-        Nm = len(grid)
-        if type(grid[0].rho) is np.ndarray:
-            # The large-size array rho is on the CPU
-            for m in range( Nm ):
-                grid[m].rho[ iz_min:iz_min+2 ] += self.rho_buffer[m]
-        else:
-            # The large-size array rho is on the GPU
-            # Copy the small-size buffer to the GPU
-            self.d_rho_buffer.set( self.rho_buffer)
-            # On the GPU: add the small-size buffers to the large-size array
-            dim_grid_1d, dim_block_1d = cuda_tpb_bpg_1d( grid[0].Nr, TPB=64 )
-            for m in range( Nm ):
-                add_rho_to_gpu_array[dim_grid_1d, dim_block_1d]( iz_min,
-                            self.d_rho_buffer, grid[m].rho, m )
 
-    def copy_J_buffer( self, iz_min, grid ):
-        """
-        Add the small-size arrays Jr_buffer, Jt_buffer, Jz_buffer into
-        the full-size arrays Jr, Jt, Jz
+        elif fieldtype == 'J' :
+            # Calculate the relativistic momenta from the velocities.
+            # The gamma is set to 1 both here and in the deposition kernel. 
+            # This is alright since the deposition only depends on the products
+            # ux*inv_gamma, uy*inv_gamma and uz*inv_gamma, which correspond to
+            # vx/c, vy/c and vz/c, respectively. So as long as the products are
+            # correct, passing inv_gamma = 1 is no issue.
+            ux = q*self.vx / c
+            uy = q*self.vy / c
+            uz = self.vz / c
 
-        Parameters
-        ----------
-        iz_min: int
-            The z index in the full-size array, that corresponds to index 0
-            in the small-size array (i.e. position at which to add the
-            small-size array into the full-size one)
-
-        grid: a list of InterpolationGrid objects
-            Contains the full-size array Jr, Jt, Jz
-        """
-        Nm = len(grid)
-        if type(grid[0].Jr) is np.ndarray:
-            # The large-size arrays for J are on the CPU
-            for m in range( Nm ):
-                grid[m].Jr[ iz_min:iz_min+2 ] += self.Jr_buffer[m]
-                grid[m].Jt[ iz_min:iz_min+2 ] += self.Jt_buffer[m]
-                grid[m].Jz[ iz_min:iz_min+2 ] += self.Jz_buffer[m]
-        else:
-            # The large-size arrays for J are on the GPU
-            # Copy the small-size buffers to the GPU
-            self.d_Jr_buffer.set( self.Jr_buffer)
-            self.d_Jt_buffer.set( self.Jt_buffer)
-            self.d_Jz_buffer.set( self.Jz_buffer)
-            # On the GPU: add the small-size buffers to the large-size array
-            dim_grid_1d, dim_block_1d = cuda_tpb_bpg_1d( grid[0].Nr, TPB=64 )
-            for m in range( Nm ):
-                add_J_to_gpu_array[dim_grid_1d, dim_block_1d]( iz_min,
-                    self.d_Jr_buffer, self.d_Jt_buffer, self.d_Jz_buffer,
-                    grid[m].Jr, grid[m].Jt, grid[m].Jz, m )
-
-if cuda_installed:
-
-    @compile_cupy
-    def add_rho_to_gpu_array( iz_min, rho_buffer, rho, m ):
-        """
-        Add the small-size array rho_buffer into the full-size array rho
-        on the GPU
-
-        Parameters
-        ----------
-        iz_min: int
-            The index of the lowest cell in z that surrounds the antenna
-
-        rho_buffer: 3darray of complexs
-            Array of shape (Nm, 2, Nr) that stores the values of rho
-            in the 2 cells that surround the antenna (for each mode).
-
-        rho: 2darray of complexs
-            Array of shape (Nz, Nr) that contains rho in the mode m
-
-        m: int
-           The index of the azimuthal mode involved
-        """
-        # Use one thread per radial cell
-        ir = cuda.grid(1)
-
-        # Add the values
-        if ir < rho.shape[1]:
-            rho[iz_min, ir] += rho_buffer[m, 0, ir]
-            rho[iz_min+1, ir] += rho_buffer[m, 1, ir]
-
-    @compile_cupy
-    def add_J_to_gpu_array( iz_min, Jr_buffer, Jt_buffer,
-                            Jz_buffer, Jr, Jt, Jz, m ):
-        """
-        Add the small-size arrays Jr_buffer, Jt_buffer, Jz_buffer into
-        the full-size arrays Jr, Jt, Jz on the GPU
-
-        Parameters:
-        -----------
-        iz_min: int
-
-        Jr_buffer, Jt_buffer, Jz_buffer: 3darrays of complexs
-            Arrays of shape (Nm, 2, Nr) that store the values of rho
-            in the 2 cells that surround the antenna (for each mode).
-
-        Jr, Jt, Jz: 2darrays of complexs
-            Arrays of shape (Nz, Nr) that contain rho in the mode m
-
-        m: int
-           The index of the azimuthal mode involved
-        """
-        # Use one thread per radial cell
-        ir = cuda.grid(1)
-
-        # Add the values
-        if ir < Jr.shape[1]:
-            Jr[iz_min, ir] += Jr_buffer[m, 0, ir]
-            Jr[iz_min+1, ir] += Jr_buffer[m, 1, ir]
-
-            Jt[iz_min, ir] += Jt_buffer[m, 0, ir]
-            Jt[iz_min+1, ir] += Jt_buffer[m, 1, ir]
-
-            Jz[iz_min, ir] += Jz_buffer[m, 0, ir]
-            Jz[iz_min+1, ir] += Jz_buffer[m, 1, ir]
+            # ---------------------------------------
+            # Deposit the current density all modes at once
+            # ---------------------------------------
+            deposit_J_numba_linear(
+                x, y, self.baseline_z, self.w, q,
+                ux, uy, uz, self.inv_gamma,
+                grid[0].invdz, grid[0].zmin, grid[0].Nz,
+                grid[0].invdr, grid[0].rmin, grid[0].Nr,
+                fld.Jr_global, fld.Jt_global, fld.Jz_global, fld.Nm,
+                nthreads, ptcl_chunk_indices,
+                grid[0].ruyten_linear_coef,
+                grid[ruyten_m].ruyten_linear_coef )

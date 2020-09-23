@@ -22,7 +22,7 @@ class LaserProfile( object ):
     Profiles that inherit from this base class can be summed,
     using the overloaded + operator.
     """
-    def __init__( self, propagation_direction ):
+    def __init__( self, propagation_direction, gpu_capable=False ):
         """
         Initialize the propagation direction of the laser.
         (Each subclass should call this method at initialization.)
@@ -33,9 +33,14 @@ class LaserProfile( object ):
             Indicates in which direction the laser propagates.
             This should be either 1 (laser propagates towards positive z)
             or -1 (laser propagates towards negative z).
+        gpu_capable: boolean
+            Indicates whether this laser profile works with cupy arrays on 
+            GPU. This is usually the case if it only uses standard arithmetic
+            and numpy operations. Default: False.
         """
         assert propagation_direction in [-1, 1]
         self.propag_direction = float(propagation_direction)
+        self.gpu_capable = gpu_capable
 
     def E_field( self, x, y, z, t ):
         """
@@ -175,8 +180,8 @@ class GaussianLaser( LaserProfile ):
             This should be either 1 (laser propagates towards positive z)
             or -1 (laser propagates towards negative z).
         """
-        # Initialize propagation direction
-        LaserProfile.__init__(self, propagation_direction)
+        # Initialize propagation direction and mark the profile as GPU capable
+        LaserProfile.__init__(self, propagation_direction, gpu_capable=True)
 
         # Set a number of parameters for the laser
         k0 = 2*np.pi/lambda0
@@ -780,8 +785,8 @@ class FewCycleLaser( LaserProfile ):
             This should be either 1 (laser propagates towards positive z)
             or -1 (laser propagates towards negative z).
         """
-        # Initialize propagation direction
-        LaserProfile.__init__(self, propagation_direction)
+        # Initialize propagation direction and mark as GPU capable
+        LaserProfile.__init__(self, propagation_direction, gpu_capable=True)
 
         # Set a number of parameters for the laser
         k0 = 2*np.pi/lambda0
