@@ -44,13 +44,13 @@ class LaserAntenna( object ):
     (Therefore, only the excursion of the positive particles is stored; the
     excursion of the negative is infered e.g. before depositing their current)
 
-    Since the number of macroparticles is small, both updating their motion
-    and depositing their charge/current is always done on the CPU.
-    For GPU performance, the charge/current are deposited in a small-size array
-    (corresponding to a thin slice in z) which is then transfered to the GPU
-    and added into the full-size array of charge/current.
-    Note that the antenna always uses linear shape factors (even when the
-    rest of the simulation uses cubic shape factors.)
+    Not all laser profiles are available on the GPU, so the update of the
+    virtual particle velocity is performed on either CPU or GPU depending on
+    whether the laser profile is GPU enabled. The deposition of charge and
+    current is then always performed on GPU in the usual way as long as
+    CUDA is available. For this, the velocities are copied to the GPU if needed.
+    Note that the antenna always uses linear shape factors (even when the rest of
+    the simulation uses cubic shape factors.)
     """
     def __init__( self, laser_profile, z0_antenna, v_antenna,
                     dr_grid, Nr_grid, Nm, boost, npr=2, epsilon=0.01,
@@ -407,8 +407,12 @@ class LaserAntenna( object ):
 
 
         elif fieldtype == 'J' :
-            # Calculate the relativistic momenta from the velocities
-            # The gamma is set to 1 both here and in the deposition kernel
+            # Calculate the relativistic momenta from the velocities.
+            # The gamma is set to 1 both here and in the deposition kernel. 
+            # This is alright since the deposition only depends on the products
+            # ux*inv_gamma, uy*inv_gamma and uz*inv_gamma, which correspond to
+            # vx/c, vy/c and vz/c, respectively. So as long as the products are
+            # correct, passing inv_gamma = 1 is no issue.
             ux = q*self.vx / c
             uy = q*self.vy / c
             uz = self.vz / c
