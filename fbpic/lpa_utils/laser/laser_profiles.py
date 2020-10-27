@@ -674,8 +674,10 @@ class FlattenedGaussianLaser( LaserProfile ):
         self.w_foc = w0*(self.N+1)**.5
         
         k0 = 2* np.pi / lambda0
+        # Rayleigh length
         zr = 0.5 * k0 * self.w_foc**2
         
+        # Peak field
         E0 = a0 * m_e * c**2 * k0 / e
         
         self.E0x = E0 * np.cos(theta_pol)
@@ -691,6 +693,7 @@ class FlattenedGaussianLaser( LaserProfile ):
         self.cep_phase = cep_phase
         self.inv_ctau2 = 1./(c*tau)**2
         
+        # Calculate the coefficients for the Laguerre-Gaussian modes
         self.cn = np.empty(self.N+1)
         for n in range(self.N+1):
             m_values = np.arange(n, self.N+1)
@@ -702,12 +705,16 @@ class FlattenedGaussianLaser( LaserProfile ):
         See the docstring of LaserProfile.E_field
         """
         prop_dir = self.propag_direction
+
+        #Diffraction factor, waist and Gouy phase
         diffract_factor = 1. + 1j * prop_dir * (z - self.zf) * self.inv_zr
         w = self.w_foc * np.abs( diffract_factor )
         psi = np.angle( diffract_factor )
         
+        # Argument for the Laguerre polynomials
         scaled_radius_squared = 2*( x**2 + y**2 ) / w**2
         
+        # n-independant part of the exponential argument
         exp_argument = - 1j*self.cep_phase \
             + 1j*self.k0*( prop_dir*(z - self.z0) - c*t ) \
             - (x**2 + y**2) / (self.w_foc**2 * diffract_factor) \
@@ -715,10 +722,10 @@ class FlattenedGaussianLaser( LaserProfile ):
         
         flat_sum = np.zeros_like( x, dtype=np.complex128 )
         
+        # Sum recursively over the Laguerre polynomials
         for n in range(0, self.N+1):
             
-            # Calculation of the Laguerre polynomial
-            
+            # Recursive calculation of the Laguerre polynomial
             if n==0:
                 L = 1.
             elif n==1:
@@ -729,6 +736,7 @@ class FlattenedGaussianLaser( LaserProfile ):
                 L1 = L
                 L = (((2*n -1) - scaled_radius_squared) * L1 - (n - 1) * L2) / n
             
+            # Add to the sum, including the term for the additional Gouy phase
             flat_sum += self.cn[n] * np.exp( exp_argument - (2j* n) * psi ) * L
             
         profile = flat_sum / diffract_factor
