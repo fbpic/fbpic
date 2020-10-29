@@ -383,8 +383,9 @@ class BackTransformedParticleDiagnostic(ParticleDiagnostic):
                             species_grp[particle_var], particle_var )
 
                     else :
-                        raise ValueError("Invalid string in %s of species"
-                                             %(particle_var))
+                        raise ValueError(
+                            "Invalid quantity for particle output: %s"
+                            %(quantity) )
 
                 # Setup the hdf5 groups for "position" and "momentum"
                 if self.rank == 0:
