@@ -1,5 +1,17 @@
 # Change Log / Release Log for fbpic
 
+## 0.19.0
+
+This release makes the computation of the laser profiles faster, in particular
+in the case when the laser is emitted with the antenna and the profile
+thus needs to be computed at every time step.
+
+- When using the laser antenna, the laser profile can now be computed on
+GPU, if the profile has the flag `gpu_capable=True`.
+(see [#473](https://github.com/fbpic/fbpic/pull/473))
+- The flattened Gaussian laser was refactored and is now much faster to
+compute. (see [#486](https://github.com/fbpic/fbpic/pull/486))
+
 ## 0.18.0
 
 This release allows FBPIC to run on GPU with the latest version
