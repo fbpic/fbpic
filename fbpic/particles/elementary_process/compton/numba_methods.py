@@ -174,91 +174,91 @@ def scatter_photons_electrons_numba(
                     cos_phi = 1.
                     sin_phi = 0.
 
-            # Loop through the number of scatterings for this electron
-            for i_scat in range(nscatter_per_elec[i_elec]):
+                # Loop through the number of scatterings for this electron
+                for i_scat in range(nscatter_per_elec[i_elec]):
 
-                # Draw scattering angle in the rest frame, from the
-                # Klein-Nishina cross-section (See Ozmutl, E. N.
-                # "Sampling of Angular Distribution in Compton Scattering"
-                # Appl. Radiat. Isot. 43, 6, pp. 713-715 (1992))
-                k = photon_rest_p * INV_MC
-                c0 = 2.*(2.*k**2 + 2.*k + 1.)/(2.*k + 1.)**3
-                b = (2. + c0)/(2. - c0)
-                a = 2.*b - 1.
-                # Use rejection method to draw x
-                reject = True
-                while reject:
-                    # - Draw x with an approximate probability distribution
-                    r1 = random.random()
-                    x = b - (b + 1.)*(0.5*c0)**r1
-                    # - Calculate approximate probability distribution h
-                    h = a/(b-x)
-                    # - Calculate expected (exact) probability distribution f
-                    factor = 1 + k*(1-x)
-                    f = ( (1+x**2)*factor + k**2*(1-x)**2 )/factor**3
-                    # - Keep x according to rejection rule
-                    r2 = random.random()
-                    if r2 < f/h:
-                        reject = False
+                    # Draw scattering angle in the rest frame, from the
+                    # Klein-Nishina cross-section (See Ozmutl, E. N.
+                    # "Sampling of Angular Distribution in Compton Scattering"
+                    # Appl. Radiat. Isot. 43, 6, pp. 713-715 (1992))
+                    k = photon_rest_p * INV_MC
+                    c0 = 2.*(2.*k**2 + 2.*k + 1.)/(2.*k + 1.)**3
+                    b = (2. + c0)/(2. - c0)
+                    a = 2.*b - 1.
+                    # Use rejection method to draw x
+                    reject = True
+                    while reject:
+                        # - Draw x with an approximate probability distribution
+                        r1 = random.random()
+                        x = b - (b + 1.)*(0.5*c0)**r1
+                        # - Calculate approximate probability distribution h
+                        h = a/(b-x)
+                        # - Calculate expected (exact) probability distribution f
+                        factor = 1 + k*(1-x)
+                        f = ( (1+x**2)*factor + k**2*(1-x)**2 )/factor**3
+                        # - Keep x according to rejection rule
+                        r2 = random.random()
+                        if r2 < f/h:
+                            reject = False
 
-                # Get scattered momentum in the rest frame
-                new_photon_rest_p = photon_rest_p/( 1 + k*(1-x) )
-                # - First in a system of axes aligned with the incoming photon
-                cos_theta_s = x
-                sin_theta_s = math.sqrt( 1 - x**2 )
-                phi_s = 2*math.pi*random.random()
-                cos_phi_s = math.cos( phi_s )
-                sin_phi_s = math.sin( phi_s )
-                new_photon_rest_pX = new_photon_rest_p * sin_theta_s*cos_phi_s
-                new_photon_rest_pY = new_photon_rest_p * sin_theta_s*sin_phi_s
-                new_photon_rest_pZ = new_photon_rest_p * cos_theta_s
-                # - Then rotate it to the original system of axes
-                new_photon_rest_px = sin_theta * cos_phi * new_photon_rest_pZ \
-                                   + cos_theta * cos_phi * new_photon_rest_pX \
-                                               - sin_phi * new_photon_rest_pY
-                new_photon_rest_py = sin_theta * sin_phi * new_photon_rest_pZ \
-                                   + cos_theta * sin_phi * new_photon_rest_pX \
-                                               + cos_phi * new_photon_rest_pY
-                new_photon_rest_pz = cos_theta * new_photon_rest_pZ \
-                                   - sin_theta * new_photon_rest_pX
+                    # Get scattered momentum in the rest frame
+                    new_photon_rest_p = photon_rest_p/( 1 + k*(1-x) )
+                    # - First in a system of axes aligned with the incoming photon
+                    cos_theta_s = x
+                    sin_theta_s = math.sqrt( 1 - x**2 )
+                    phi_s = 2*math.pi*random.random()
+                    cos_phi_s = math.cos( phi_s )
+                    sin_phi_s = math.sin( phi_s )
+                    new_photon_rest_pX = new_photon_rest_p * sin_theta_s*cos_phi_s
+                    new_photon_rest_pY = new_photon_rest_p * sin_theta_s*sin_phi_s
+                    new_photon_rest_pZ = new_photon_rest_p * cos_theta_s
+                    # - Then rotate it to the original system of axes
+                    new_photon_rest_px = sin_theta * cos_phi * new_photon_rest_pZ \
+                                       + cos_theta * cos_phi * new_photon_rest_pX \
+                                                   - sin_phi * new_photon_rest_pY
+                    new_photon_rest_py = sin_theta * sin_phi * new_photon_rest_pZ \
+                                       + cos_theta * sin_phi * new_photon_rest_pX \
+                                                   + cos_phi * new_photon_rest_pY
+                    new_photon_rest_pz = cos_theta * new_photon_rest_pZ \
+                                       - sin_theta * new_photon_rest_pX
 
-                # Transform momentum of photon back to the simulation frame
-                # (i.e. Lorentz transform with opposite direction)
-                new_photon_p, new_photon_px, new_photon_py, new_photon_pz = \
-                    lorentz_transform(
-                        new_photon_rest_p, new_photon_rest_px,
-                        new_photon_rest_py, new_photon_rest_pz,
-                        elec_gamma, elec_beta, -elec_nx, -elec_ny, -elec_nz)
+                    # Transform momentum of photon back to the simulation frame
+                    # (i.e. Lorentz transform with opposite direction)
+                    new_photon_p, new_photon_px, new_photon_py, new_photon_pz = \
+                        lorentz_transform(
+                            new_photon_rest_p, new_photon_rest_px,
+                            new_photon_rest_py, new_photon_rest_pz,
+                            elec_gamma, elec_beta, -elec_nx, -elec_ny, -elec_nz)
 
-                # Create the new photon by copying the electron position
-                photon_x[i_photon] = elec_x[i_elec]
-                photon_y[i_photon] = elec_y[i_elec]
-                photon_z[i_photon] = elec_z[i_elec]
-                photon_w[i_photon] = elec_w[i_elec] * inv_ratio_w_elec_photon
-                # The photon's ux, uy, uz corresponds to the actual px, py, pz
-                photon_ux[i_photon] = new_photon_px
-                photon_uy[i_photon] = new_photon_py
-                photon_uz[i_photon] = new_photon_pz
-                # The photon's inv_gamma corresponds to 1./p (consistent
-                # with the code for the particle pusher and for the
-                # openPMD back-transformed diagnostics)
-                photon_inv_gamma[i_photon] = 1./new_photon_p
+                    # Create the new photon by copying the electron position
+                    photon_x[i_photon] = elec_x[i_elec]
+                    photon_y[i_photon] = elec_y[i_elec]
+                    photon_z[i_photon] = elec_z[i_elec]
+                    photon_w[i_photon] = elec_w[i_elec] * inv_ratio_w_elec_photon
+                    # The photon's ux, uy, uz corresponds to the actual px, py, pz
+                    photon_ux[i_photon] = new_photon_px
+                    photon_uy[i_photon] = new_photon_py
+                    photon_uz[i_photon] = new_photon_pz
+                    # The photon's inv_gamma corresponds to 1./p (consistent
+                    # with the code for the particle pusher and for the
+                    # openPMD back-transformed diagnostics)
+                    photon_inv_gamma[i_photon] = 1./new_photon_p
 
-                # Update the photon index
-                i_photon += 1
+                    # Update the photon index
+                    i_photon += 1
 
-            # Add recoil to electrons
-            # Note: In order to reproduce the right distribution of electron
-            # momentum, the electrons should recoil with the momentum
-            # of *one single* photon, with a probability p (calculated by
-            # get_scattering_probability). Here we reuse the momentum of
-            # the last photon generated above. This requires that at least one
-            # photon be created for this electron, which occurs with a
-            # probability p*ratio_w_elec_photon. Thus, given that at least one
-            # photon has been created, we should add recoil to the corresponding
-            # electron only with a probability inv_ratio_w_elec_photon.
-            if nscatter_per_elec[i_elec] > 0:
-                if random.random() < inv_ratio_w_elec_photon:
-                    elec_ux[i_elec] += INV_MC * (photon_px - new_photon_px)
-                    elec_uy[i_elec] += INV_MC * (photon_py - new_photon_py)
-                    elec_uz[i_elec] += INV_MC * (photon_pz - new_photon_pz)
+                # Add recoil to electrons
+                # Note: In order to reproduce the right distribution of electron
+                # momentum, the electrons should recoil with the momentum
+                # of *one single* photon, with a probability p (calculated by
+                # get_scattering_probability). Here we reuse the momentum of
+                # the last photon generated above. This requires that at least one
+                # photon be created for this electron, which occurs with a
+                # probability p*ratio_w_elec_photon. Thus, given that at least one
+                # photon has been created, we should add recoil to the corresponding
+                # electron only with a probability inv_ratio_w_elec_photon.
+                if nscatter_per_elec[i_elec] > 0:
+                    if random.random() < inv_ratio_w_elec_photon:
+                        elec_ux[i_elec] += INV_MC * (photon_px - new_photon_px)
+                        elec_uy[i_elec] += INV_MC * (photon_py - new_photon_py)
+                        elec_uz[i_elec] += INV_MC * (photon_pz - new_photon_pz)
