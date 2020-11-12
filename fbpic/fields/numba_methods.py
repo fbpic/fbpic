@@ -93,11 +93,7 @@ def numba_correct_currents_crossdeposition_standard( rho_prev, rho_next,
     """
     # Loop over the 2D grid
     for iz in prange(Nz):
-        # Loop through the radial points
-        # (Note: a while loop is used here, because numba 0.34 does
-        # not support nested prange and range loops)
-        ir = 0
-        while ir < Nr:
+        for ir in range(Nr):
 
             # Calculate the intermediate variable Dz and Dxy
             # (Such that Dz + Dxy is the error in the continuity equation)
@@ -116,9 +112,6 @@ def numba_correct_currents_crossdeposition_standard( rho_prev, rho_next,
             if kz[iz, ir] != 0:
                 inv_kz = 1./kz[iz, ir]
                 Jz[iz, ir] += 1.j * Dz * inv_kz
-
-            # Increment ir
-            ir += 1
 
     return
 
@@ -256,11 +249,7 @@ def numba_correct_currents_crossdeposition_comoving(
     """
     # Loop over the 2D grid
     for iz in prange(Nz):
-        # Loop through the radial points
-        # (Note: a while loop is used here, because numba 0.34 does
-        # not support nested prange and range loops)
-        ir = 0
-        while ir < Nr:
+        for ir in range(Nr):
 
             # Calculate the intermediate variable Dz and Dxy
             # (Such that Dz + Dxy is the error in the continuity equation)
@@ -282,9 +271,6 @@ def numba_correct_currents_crossdeposition_comoving(
             if kz[iz, ir] != 0:
                 inv_kz = 1./kz[iz, ir]
                 Jz[iz, ir] += 1.j * Dz * inv_kz
-
-            # Increment ir
-            ir += 1
 
     return
 
