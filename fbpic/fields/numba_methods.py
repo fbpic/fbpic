@@ -119,7 +119,7 @@ def numba_correct_currents_crossdeposition_standard( rho_prev, rho_next,
 
             # Increment ir
             ir += 1
-
+        ir += 0
     return
 
 @njit_parallel
@@ -285,6 +285,7 @@ def numba_correct_currents_crossdeposition_comoving(
 
             # Increment ir
             ir += 1
+        ir += 0
 
     return
 

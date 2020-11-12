@@ -84,6 +84,7 @@ def ionize_ions_numba( N_batch, batch_size, Ntot,
 
             # Increment ip
             ip = ip + 1
+        ip += 0
 
     return( n_ionized, ionized_from, ionization_level, w_times_level )
 
