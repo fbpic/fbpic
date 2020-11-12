@@ -5,7 +5,7 @@ sudo: false
 language: python
 python:
     - "2.7"
-    - "3.6"
+    - "3.8"
 
 before_install:
   # Setup miniconda
@@ -19,8 +19,7 @@ before_install:
 
 # Install packages
 install:
-  - conda install --yes "numba<0.49" scipy h5py mkl
-  - conda install --yes -c conda-forge mpi4py mpich
+  - conda install --yes -c conda-forge mpi4py mpich scipy h5py mkl
   - pip install pyflakes pytest==4.6
   - python setup.py install
 before_script:
