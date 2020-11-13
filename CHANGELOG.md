@@ -1,5 +1,10 @@
 # Change Log / Release Log for fbpic
 
+## 0.19.1
+
+This release incorporates a small fix that allows the code to compile with
+Python 3.8. (see [#488](https://github.com/fbpic/fbpic/issues/488))
+
 ## 0.19.0
 
 This release makes the computation of the laser profiles faster, in particular
