@@ -98,6 +98,11 @@ class Simulation( PICMI_Simulation ):
         else:
             n_guard = grid.guard_cells[-1]
 
+        if self.solver.galilean_velocity is None:
+            v_comoving = None
+        else:
+            v_comoving = self.solver.galilean_velocity[-1]
+
         # Initialize and store the FBPIC simulation object
         self.fbpic_sim = FBPICSimulation(
             Nz=int(grid.nz), zmin=grid.zmin, zmax=grid.zmax,
@@ -106,7 +111,7 @@ class Simulation( PICMI_Simulation ):
             boundaries={'z':grid.bc_zmax, 'r':grid.bc_rmax},
             n_guard=n_guard, verbose_level=verbose_level,
             particle_shape=self.particle_shape,
-            v_comoving=self.solver.galilean_velocity[-1],
+            v_comoving=v_comoving,
             gamma_boost=self.gamma_boost )
 
         # Set the moving window
