@@ -6,6 +6,7 @@ It imports the objects that allow to produce output in openPMD format.
 from .field_diag import FieldDiagnostic
 from .particle_diag import ParticleDiagnostic
 from .particle_density_diag import ParticleChargeDensityDiagnostic
+from .phasespace_diag import PhaseSpaceDiagnostic
 from .boosted_field_diag import BoostedFieldDiagnostic, \
                                 BackTransformedFieldDiagnostic
 from .boosted_particle_diag import BoostedParticleDiagnostic, \
@@ -18,4 +19,5 @@ __all__ = ['FieldDiagnostic', 'ParticleDiagnostic',
 	'BoostedFieldDiagnostic', 'BoostedParticleDiagnostic',
     'BackTransformedFieldDiagnostic', 'BackTransformedParticleDiagnostic',
     'ParticleChargeDensityDiagnostic', 'InputScriptDiagnostic',
+    'PhaseSpaceDiagnostic',
     'set_periodic_checkpoint', 'restart_from_checkpoint']
