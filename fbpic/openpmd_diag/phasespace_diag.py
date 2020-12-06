@@ -1,5 +1,5 @@
-# Copyright 2016, FBPIC contributors
-# Authors: Remi Lehe, Manuel Kirchen
+# Copyright 2020, FBPIC contributors
+# Authors: Thomas Wilson, Remi Lehe, Manuel Kirchen
 # License: 3-Clause-BSD-LBNL
 
 """
@@ -10,15 +10,15 @@ import h5py
 import numpy as np
 from scipy import constants
 from .generic_diag import OpenPMDDiagnostic
-from .data_dict import macro_weighted_dict, weighting_power_dict
-
+from .data_dict import macro_weighted_dict, weighting_power_dict, unit_dimension_dict
+    
 class PhaseSpaceDiagnostic(OpenPMDDiagnostic) :
     """
     Class that defines a phase space diagnostic to be performed.
     """
 
     def __init__(self, period=None, species={}, comm=None,
-        name=None, phase_space=[], bins=[], edges=None, 
+        name=None, phase_space=[], bins=[], edges=None, custom_quantities=[],
         move_with_window=True, deposit='w', select=None, write_dir=None, 
         iteration_min=0, iteration_max=np.inf, dt_period=None ) :
         """
@@ -42,8 +42,7 @@ class PhaseSpaceDiagnostic(OpenPMDDiagnostic) :
             (e.g. {"electrons": elec })
 
         comm : an fbpic BoundaryCommunicator object or None
-            If this is not None, the data is gathered by the communicator, and
-            guard cells are removed.
+            If this is not None, the data is gathered by the communicator.
             Otherwise, each rank writes its own data, including guard cells.
             (Make sure to use different write_dir in this case.)
         
@@ -53,10 +52,21 @@ class PhaseSpaceDiagnostic(OpenPMDDiagnostic) :
             and quantity deposited
             
         phase_space : a list of strings
-            Specify the phase space over which to bin particles, of the form
-            ['uz']        (bin along the z momentum)
-            ['z','gamma'] (bin along z position and the particle gamma)
-            
+            Specify the phase space over which to bin particles.
+            Allowed quantities are any combination of the basic particle
+            quantities:
+                position: 'x', 'y', 'z'
+                momentum: 'uz', 'uy', 'uz'
+                fields: 'Ex', 'Ey', 'Ez', 'Bx', 'By', 'Bz', 
+                Lorentz factor: 'gamma'
+                weighting: 'w'
+            as well as any custom quantities defined in custom_quantities.
+        
+        custom_quantities : a list of CustomQuantity instances, optional
+            Definitions for any custom quantities to be used in the diagnostic.
+            These can be calculated using any of the basic particle 
+            quantities (listed above).
+        
         bins: a list of ints
             A list of ints specifying the number of bins in each dimension.
 
@@ -106,8 +116,6 @@ class PhaseSpaceDiagnostic(OpenPMDDiagnostic) :
             if len(edges) != len(phase_space):
                 raise ValueError("Any edge limits specified must match the phase space dimensionality")  
 
-                
-                
         # Build an ordered list of species. (This is needed since the order
         # of the keys is not well defined, so each MPI rank could go through
         # the species in a different order, if species_dict.keys() is used.)
@@ -130,33 +138,23 @@ class PhaseSpaceDiagnostic(OpenPMDDiagnostic) :
         self.edges = edges
         self.deposit = deposit
         self.move_with_window = move_with_window
+        self.custom_quantities = custom_quantities
         
         # Register the dimensionality of the diagnostic
         self.Ndims = len(phase_space)
         
         # For each species, get the particle arrays to be written
-        self.constant_quantities_dict = {}
         self.array_quantities_dict = {}
 
         for species_name in self.species_names_list:
             species = self.species_dict[species_name]
             # Get the list of the required particle quantities
             self.array_quantities_dict[species_name] = phase_space
-
-            #self.array_quantities_dict[species_name].append(phase_space)
-
-            # Get the list of quantities that are constant
-            self.constant_quantities_dict[species_name] = ["mass"]
-            # For ionizable particles, the charge must be treated as an array
-            if species.ionizer is not None:
-                self.array_quantities_dict[species_name] += ["charge"]
-            else:
-                self.constant_quantities_dict[species_name] += ["charge"]
                 
 
-    def setup_openpmd_species_group( self, grp, species, constant_quantities ):
+    def setup_openpmd_species_group( self, grp, species ):
         """
-        Set the attributes that are specific to the particle group
+        Set the attributes that are specific to the phase spaces group
 
         Parameter
         ---------
@@ -174,32 +172,6 @@ class PhaseSpaceDiagnostic(OpenPMDDiagnostic) :
         grp.attrs["particleSmoothing"] = np.string_("none")
         grp.attrs["particlePush"] = np.string_("Vay")
         grp.attrs["particleInterpolation"] = np.string_("uniform")
-
-        # Setup constant datasets (e.g. charge, mass)
-        for quantity in constant_quantities:
-            grp.require_group( quantity )
-            self.setup_openpmd_species_record( grp[quantity], quantity )
-            self.setup_openpmd_species_component( grp[quantity], quantity )
-            grp[quantity].attrs["shape"] = np.array([1], dtype=np.uint64)
-        # Set the corresponding values
-        grp["mass"].attrs["value"] = species.m
-        if "charge" in constant_quantities:
-            grp["charge"].attrs["value"] = species.q
-
-        # Set the position records (required in openPMD)
-        quantity = "positionOffset"
-        grp.require_group(quantity)
-        self.setup_openpmd_species_record( grp[quantity], quantity )
-        for quantity in [ "positionOffset/x", "positionOffset/y",
-                            "positionOffset/z"] :
-            grp.require_group(quantity)
-            self.setup_openpmd_species_component( grp[quantity], quantity )
-            grp[quantity].attrs["shape"] = np.array([1], dtype=np.uint64)
-
-        # Set the corresponding values
-        grp["positionOffset/x"].attrs["value"] = 0.
-        grp["positionOffset/y"].attrs["value"] = 0.
-        grp["positionOffset/z"].attrs["value"] = 0.
 
     def setup_openpmd_species_record( self, grp, quantity ) :
         """
@@ -272,12 +244,11 @@ class PhaseSpaceDiagnostic(OpenPMDDiagnostic) :
 
             # Setup the species group (only first proc)
             if self.rank==0:
-                species_path = "/data/%d/phase spaces/%s" %(
+                species_path = "/data/%d/phase_spaces/%s" %(
                     iteration, species_name)
                 # Create and setup the h5py.Group species_grp
                 species_grp = f.require_group( species_path )
-                self.setup_openpmd_species_group( species_grp, species,
-                                self.constant_quantities_dict[species_name])
+                self.setup_openpmd_species_group( species_grp, species )
             else:
                 species_grp = None
 
@@ -388,8 +359,73 @@ class PhaseSpaceDiagnostic(OpenPMDDiagnostic) :
                         select_array )
 
         return( select_array )
+    
+    def parse_quantity_dimensions( self, quantity ):
+        """
+        Parse a given quantity name and retrieve the relevant dimensional units
+        
+        Parameters
+        ----------
+        quantity : string
+            The quantity to be parsed
+        """
+        # Check custom quantities first
 
+        for custom_quantity in self.custom_quantities:
+            if quantity == custom_quantity.name:
+                return( custom_quantity.dimensions )
+        # If no matches, check the common quantities
+        if quantity in ('x','y','z'):
+            dimensions = unit_dimension_dict['position']
+        elif quantity in ('ux','uy','uz'):
+            dimensions = unit_dimension_dict['momentum']
+        elif quantity == 'gamma':
+            dimensions = unit_dimension_dict['gamma']
+        elif quantity == 'w':
+            dimensions = unit_dimension_dict['weighting']
+        elif quantity in ('Ex','Ey','Ez'):
+            dimensions = unit_dimension_dict['E']
+        elif quantity in ('Bx','By','Bz'):
+            dimensions = unit_dimension_dict['B']   
+            
+        return( dimensions )
+        
+    def setup_openpmd_mesh_record( self, dset, dx, xmin ) :
+        """
+        Sets the attributes that are specific to a mesh record
 
+        Parameter
+        ---------
+        dset : an h5py.Dataset or h5py.Group object
+            
+        dx: list of floats
+            The resolution of this diagnostic in each dimension
+
+        xmin: list of floats
+            The position of the left edge of the bins in each dimension
+        """
+
+        # Axis parameters
+        dset.attrs['gridSpacing'] = dx
+        dset.attrs["gridGlobalOffset"] = xmin
+        dset.attrs['axisLabels'] = self.phase_space
+        # Axis dimensions
+        gridUnitDimension = np.array([])
+        for axis in self.phase_space:
+            gridUnitDimension = np.append( gridUnitDimension, self.parse_quantity_dimensions(axis))
+ 
+        dset.attrs['gridUnitDimension'] = gridUnitDimension
+        dset.attrs["gridUnitSI"] = self.Ndims * [1.]
+
+        # Deposited quantity parameters
+        dset.attrs['depositedQuantityUnit'] = self.deposit
+        dset.attrs['depositedQuantityUnitSI'] = 1.0
+        dset.attrs['depositedQuantityUnitDimension'] = self.parse_quantity_dimensions(self.deposit)        
+
+        # Generic attributes
+        dset.attrs["dataOrder"] = np.string_("C") 
+        dset.attrs["fieldSmoothing"] = np.string_("none")
+        
     def write_dataset( self, species_grp, species, path,
                        n_rank, Ntot, select_array ) :
         """
@@ -436,8 +472,9 @@ class PhaseSpaceDiagnostic(OpenPMDDiagnostic) :
     
         # contruct the sample to be binned
         for i in range(self.Ndims):
-            sample[:,i] = self.get_dataset( species, self.phase_space[i], 
-                                           select_array, n_rank, Ntot ) 
+
+            sample[:,i] = self.get_particle_quantity(species, self.phase_space[i], 
+                                               select_array, n_rank, Ntot)
             
         # Set up a temporary list for the bin edges
         bin_edges = []     
@@ -467,26 +504,64 @@ class PhaseSpaceDiagnostic(OpenPMDDiagnostic) :
         
         # deposit a specified quantity alongside the weights
         if self.deposit != 'w':
-            deposit = self.get_dataset( species, self.deposit, select_array, 
-                                        n_rank, Ntot )            
-            weights *= deposit
-            # set the deposition metadata
-            dset.attrs['deposit'] = self.deposit 
-        else:
-            dset.attrs['deposit'] = 'weight'        
-  
-        # generate the histogram
-        hist, edges = np.histogramdd(sample, bins=self.bins, 
-                                        density=False, weights=weights,
-                                        range=bin_edges)
+            deposit = self.get_particle_quantity(species, self.deposit, 
+                                               select_array, n_rank, Ntot)    
+            weights *= deposit    
         
-        # Fill out the dataset and metadata for the axes
-        if self.rank==0:
+        # Generate the histogram, Fill out the dataset and metadata for the axes
+        if self.rank==0:  
+            hist, edges = np.histogramdd(sample, bins=self.bins, 
+                                            density=False, weights=weights,
+                                            range=bin_edges)
             dset[:] = hist
-            for i in range(self.Ndims):
-                dset.attrs['axis%i'%(i+1)] = [edges[i][0], edges[i][-1]]
-                dset.attrs['axis%iName'%(i+1)] = '%s'%self.phase_space[i]
+            
+            dx = []
+            xmin = []
+            for axis in edges:
+                dx.append(axis[1]-axis[0])
+                xmin.append(axis[0])
+                
+            self.setup_openpmd_mesh_record( dset, dx, xmin )
 
+    def get_particle_quantity( self, species, quantity, select_array, n_rank, Ntot):
+        """
+        Retrieve a specified particle quantity
+
+        Parameters
+        ----------
+        species : a Particles object
+        	The species object to get the particle data from
+            
+        quantity : string
+            The quantity to retrieve
+
+        select_array : 1darray of bool
+            An array of the same shape as that particle array
+            containing True for the particles that satify all
+            the rules of self.select
+
+        n_rank: list of ints
+        	A list containing the number of particles to send on each proc
+
+        Ntot : int
+            Length of the final array (selected + gathered from all proc)
+        """
+        # Check the custom quantities first
+        for custom_quantity in self.custom_quantities:
+            if quantity == custom_quantity.name:
+                
+                # Create an empty list of  arguments
+                args = []
+                # Append the particle arrays to the list
+                for arg in custom_quantity.arguments:
+                    args.append(self.get_dataset( species, arg, 
+                                           select_array, n_rank, Ntot ))
+                # Pass the list to the function
+                return( custom_quantity.function(args) )
+        # If none are found, fall back
+        return( self.get_dataset( species, quantity,
+                                          select_array, n_rank, Ntot ) )
+ 
 
     def get_dataset( self, species, quantity, select_array, n_rank, Ntot ) :
         """

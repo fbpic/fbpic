@@ -14,10 +14,11 @@ from .boosted_particle_diag import BoostedParticleDiagnostic, \
 from .inputscript_diag import InputScriptDiagnostic
 from .checkpoint_restart import set_periodic_checkpoint, \
      restart_from_checkpoint
+from .custom_quantity import CustomQuantity
 
 __all__ = ['FieldDiagnostic', 'ParticleDiagnostic',
 	'BoostedFieldDiagnostic', 'BoostedParticleDiagnostic',
     'BackTransformedFieldDiagnostic', 'BackTransformedParticleDiagnostic',
     'ParticleChargeDensityDiagnostic', 'InputScriptDiagnostic',
-    'PhaseSpaceDiagnostic',
+    'PhaseSpaceDiagnostic', 'custom_quantity'
     'set_periodic_checkpoint', 'restart_from_checkpoint']
