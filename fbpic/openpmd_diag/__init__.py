@@ -20,5 +20,5 @@ __all__ = ['FieldDiagnostic', 'ParticleDiagnostic',
 	'BoostedFieldDiagnostic', 'BoostedParticleDiagnostic',
     'BackTransformedFieldDiagnostic', 'BackTransformedParticleDiagnostic',
     'ParticleChargeDensityDiagnostic', 'InputScriptDiagnostic',
-    'PhaseSpaceDiagnostic', 'CustomQuantity'
+    'PhaseSpaceDiagnostic', 'CustomQuantity',
     'set_periodic_checkpoint', 'restart_from_checkpoint']
