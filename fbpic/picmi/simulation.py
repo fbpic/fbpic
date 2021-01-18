@@ -19,6 +19,7 @@ from fbpic.lpa_utils.bunch import add_particle_bunch_gaussian, add_particle_bunc
 from fbpic.lpa_utils.mirrors import Mirror
 from fbpic.lpa_utils.external_fields import ExternalField
 from fbpic.openpmd_diag import FieldDiagnostic, ParticleDiagnostic, \
+    ParticleChargeDensityDiagnostic, \
     BackTransformedFieldDiagnostic, BackTransformedParticleDiagnostic
 
 # Import picmi base class
@@ -342,14 +343,46 @@ class Simulation( PICMI_Simulation ):
 
         # Register field diagnostic
         if type(diagnostic) == PICMI_FieldDiagnostic:
+            data_list = set()  # Use set to avoid redundancy
+            rho_density_list = []
+            for data in diagnostic.data_list:
+                if data in ['Ex', 'Ey', 'Ez']:
+                    data_list.add('E')
+                elif data in ['Bx', 'By', 'Bz']:
+                    data_list.add('B')
+                elif data in ['Jx', 'Jy', 'Jz']:
+                    data_list.add('J')
+                elif data == 'rho':
+                    data_list.add('rho')
+                elif data.startswith('rho_'):
+                    # particle density diagnostics, rho_speciesname
+                    rho_density_list.append(data)
+                
             diag = FieldDiagnostic(
                     period=diagnostic.period,
                     fldobject=self.fbpic_sim.fld,
                     comm=self.fbpic_sim.comm,
-                    fieldtypes=diagnostic.data_list,
+                    fieldtypes=list(data_list),
                     write_dir=diagnostic.write_dir,
                     iteration_min=iteration_min,
                     iteration_max=iteration_max)
+
+            if rho_density_list:
+                species_dict = {}
+                for data in rho_density_list:
+                    sname = data[4:]
+                    for s in self.species:
+                        if s.name == sname:
+                            species_dict[s.name] = s.fbpic_species
+                pdd_diag = ParticleChargeDensityDiagnostic(
+                            period=diagnostic.period,
+                            sim=self.fbpic_sim,
+                            species=species_dict,
+                            write_dir=diagnostic.write_dir,
+                            iteration_min=iteration_min,
+                            iteration_max=iteration_max)
+                self.fbpic_sim.diags.append( pdd_diag )
+
         elif type(diagnostic) == PICMI_LabFrameFieldDiagnostic:
             diag = BackTransformedFieldDiagnostic(
                     zmin_lab=diagnostic.grid.zmin,
