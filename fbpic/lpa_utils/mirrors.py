@@ -30,7 +30,7 @@ class Mirror(object):
         gamma_boost: float
             For boosted-frame simulation: Lorentz factor of the boost
 
-        m: positive int or list of ints
+        m: int or list of ints
             Specify the field modes to set to zero
             By default, takes all modes to zero
         """
@@ -38,10 +38,16 @@ class Mirror(object):
         self.z_start = z_start
         self.z_end = z_end
         self.gamma_boost = gamma_boost
-        self.m = m
-        
-        pass
-    
+
+        if m == 'all':
+            self.modes = None
+        elif isinstance(m, int):
+            self.modes = [m]
+        elif isinstance(m, list):
+            self.modes = m
+        else:
+            raise TypeError('m should be an int or a list of ints.')
+
     def set_fields_to_zero( self, interp, comm, t_boost):
         """
         Set the fields to 0 in a slice orthogonal to z
@@ -70,18 +76,16 @@ class Mirror(object):
             return
 
         imax = int( (z_start_boost - zmin) / interp[0].dz)
-        n_cells = z_end_boost - z_start_boost
+        n_cells = int( (z_end_boost - z_start_boost) / interp[0].dz)
         imin = max( imax - n_cells, 0)
 
         # Set fields (E, B) to 0 on CPU or GPU
         for i, grid in enumerate(interp):
 
-            if isinstance(self.m, list):
-                if i not in self.m:
+            if self.modes is not None:
+                if i not in self.modes:
                     continue
-            elif i != self.m:
-                continue
-
+            
             fieldlist = ['Er', 'Et', 'Ez', 'Br', 'Bt', 'Bz']
             if grid.use_pml:
                 fieldlist = fieldlist + ['Er_pml', 'Et_pml', 'Br_pml', 'Bt_pml']
