@@ -34,10 +34,18 @@ jobs:
       run: |
         conda install --yes "numba<0.49" scipy h5py mkl pytest pyflakes python=${{ matrix.python-version }};
         conda install --yes -c conda-forge mpi4py;
-        pip install openPMD-viewer
+        pip install openPMD-viewer;
+        python setup.py install
     - shell: bash -l {0}
       name: pyflakes
       run: python -m pyflakes .
     - shell: bash -l {0}
-      name: Test
+      name: FBPIC physics tests
       run: python setup.py test
+    - shell: bash -l {0}
+      name: PICMI test
+      run: |
+        pip install wget picmistandard numexpr periodictable;
+        cd tests/unautomated;
+        curl https://raw.githubusercontent.com/picmi-standard/picmi/master/Examples/laser_acceleration/laser_acceleration_PICMI.py -o fbpic_script.py;
+        python test_picmi.py
