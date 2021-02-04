@@ -5,6 +5,8 @@
 This file is part of the Fourier-Bessel Particle-In-Cell code (FB-PIC)
 It defines a set of generic functions that operate on a GPU.
 """
+import numba
+numba_minor_version = int(numba.__version__.split('.')[1])
 from numba import cuda
 import numpy as np
 
@@ -32,7 +34,7 @@ except (ImportError, AssertionError):
     cupy_major_version = None
 
 cuda_installed = (numba_cuda_installed and cupy_installed)
-    
+
 # -----------------------------------------------------
 # CUDA grid utilities
 # -----------------------------------------------------
@@ -266,7 +268,7 @@ if cuda_installed:
             self.kernel_dict = {} # Stores compiled kernels to avoid re-compilation
 
             # Flag to save whether the kernel has been explicitly specialized
-            self.is_specialized = False 
+            self.is_specialized = False
 
         def specialize(self, signature):
             """
@@ -288,7 +290,11 @@ if cuda_installed:
             module.load(bytes(numba_kernel.ptx, 'UTF-8'))
 
             # Save the resulting Cupy kernel
-            self.specialized_kernel = module.get_function( numba_kernel.entry_name)
+            if numba_minor_version > 50:
+                kernel_name = numba_kernel.definition.entry_name
+            else:
+                kernel_name = numba_kernel.entry_name
+            self.specialized_kernel = module.get_function( kernel_name )
             self.is_specialized = True
 
             return self
@@ -362,8 +368,11 @@ if cuda_installed:
 
                         # Cache the resulting Cupy kernel in a dictionary using
                         # the hash
-                        self.kernel_dict[hash] = module.get_function(
-                            numba_kernel.entry_name)
+                        if numba_minor_version > 50:
+                            kernel_name = numba_kernel.definition.entry_name
+                        else:
+                            kernel_name = numba_kernel.entry_name
+                        self.kernel_dict[hash] = module.get_function( kernel_name )
 
                     # Get the correct kernel from the cache
                     kernel = self.kernel_dict[hash]

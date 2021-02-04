@@ -118,7 +118,7 @@ FBPIC was originally developed by Remi Lehe at [Berkeley Lab](http://www.lbl.gov
 and Manuel Kirchen at
 [CFEL, Hamburg University](http://lux.cfel.de/). The code also
 benefitted from the contributions of Soeren Jalas (CFEL), Kevin Peters (CFEL),
-Irene Dornmair (CFEL), Laurids Jeppe (CFEL), Igor Andriyash (Weizmann Institute),
+Irene Dornmair (CFEL), Laurids Jeppe (CFEL), Igor Andriyash (Laboratoire d’Optique Appliquée),
 Omri Seemann (Weizmann Institute), Daniel Seipt (University of Michigan)
 and Samuel Yoffe (University of Strathclyde).
 
@@ -127,6 +127,7 @@ FBPIC's algorithms are documented in following scientific publications:
 * General description of FBPIC and it's algorithm (original paper): [R. Lehe et al., CPC, 2016](http://www.sciencedirect.com/science/article/pii/S0010465516300224) ([arXiv](https://arxiv.org/abs/1507.04790))
 * Boosted-frame technique with Galilean algorithm: [M. Kirchen et al., PoP, 2016](https://aip.scitation.org/doi/10.1063/1.4964770) ([arXiv](https://arxiv.org/abs/1608.00215)) and [Lehe et al., PRE, 2016](https://journals.aps.org/pre/abstract/10.1103/PhysRevE.94.053305) ([arXiv](https://arxiv.org/abs/1608.00227))
 * Parallel finite-order solver for multi-CPU/GPU simulations: [S. Jalas et al., PoP, 2017](https://aip.scitation.org/doi/abs/10.1063/1.4978569) ([arXiv](https://arxiv.org/abs/1611.05712))
+* Parallel finite-order boosted-frame simulations for multi-CPU/GPU simulations: [M. Kirchen et al., PRE, 2020](https://journals.aps.org/pre/abstract/10.1103/PhysRevE.102.013202)
 
 If you use FBPIC for your research project: that's great! We are
 very pleased that the code is useful to you!

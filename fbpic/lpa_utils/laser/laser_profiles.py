@@ -22,7 +22,7 @@ class LaserProfile( object ):
     Profiles that inherit from this base class can be summed,
     using the overloaded + operator.
     """
-    def __init__( self, propagation_direction ):
+    def __init__( self, propagation_direction, gpu_capable=False ):
         """
         Initialize the propagation direction of the laser.
         (Each subclass should call this method at initialization.)
@@ -33,9 +33,14 @@ class LaserProfile( object ):
             Indicates in which direction the laser propagates.
             This should be either 1 (laser propagates towards positive z)
             or -1 (laser propagates towards negative z).
+        gpu_capable: boolean
+            Indicates whether this laser profile works with cupy arrays on
+            GPU. This is usually the case if it only uses standard arithmetic
+            and numpy operations. Default: False.
         """
         assert propagation_direction in [-1, 1]
         self.propag_direction = float(propagation_direction)
+        self.gpu_capable = gpu_capable
 
     def E_field( self, x, y, z, t ):
         """
@@ -175,8 +180,8 @@ class GaussianLaser( LaserProfile ):
             This should be either 1 (laser propagates towards positive z)
             or -1 (laser propagates towards negative z).
         """
-        # Initialize propagation direction
-        LaserProfile.__init__(self, propagation_direction)
+        # Initialize propagation direction and mark the profile as GPU capable
+        LaserProfile.__init__(self, propagation_direction, gpu_capable=True)
 
         # Set a number of parameters for the laser
         k0 = 2*np.pi/lambda0
@@ -664,35 +669,83 @@ class FlattenedGaussianLaser( LaserProfile ):
         LaserProfile.__init__(self, propagation_direction)
 
         # Ensure that N is an integer
-        N = int(round(N))
+        self.N = int(round(N))
         # Calculate effective waist of the Laguerre-Gauss modes, at focus
-        w_foc = w0*(N+1)**.5
+        self.w_foc = w0*(self.N+1)**.5
 
-        # Sum the Laguerre-Gauss modes that constitute this pulse
-        # See equation 2 and 3 in Santarsiero et al.
-        for n in range(N+1):
-            cep_phase_n = cep_phase + 2*n*np.pi/2
-            m_values = np.arange(n, N+1)
-            cn = (-1)**n * np.sum((1./2)**m_values * binom(m_values,n)) / (N+1)
-            profile = LaguerreGaussLaser( p=n, m=0, a0=cn*a0,
-                            cep_phase=cep_phase_n, waist=w_foc,
-                            tau=tau, z0=z0, zf=zf, theta_pol=theta_pol,
-                            lambda0=lambda0, theta0=0.,
-                            propagation_direction=propagation_direction )
-            if n==0:
-                summed_profile = profile
-            else:
-                summed_profile += profile
+        k0 = 2* np.pi / lambda0
+        # Rayleigh length
+        zr = 0.5 * k0 * self.w_foc**2
 
-        # Register the summed_profile
-        self.summed_profile = summed_profile
+        # Peak field
+        E0 = a0 * m_e * c**2 * k0 / e
+
+        self.E0x = E0 * np.cos(theta_pol)
+        self.E0y = E0 * np.sin(theta_pol)
+
+        if zf is None:
+            zf = z0
+
+        self.k0 = k0
+        self.inv_zr = 1./zr
+        self.zf = zf
+        self.z0 = z0
+        self.cep_phase = cep_phase
+        self.inv_ctau2 = 1./(c*tau)**2
+
+        # Calculate the coefficients for the Laguerre-Gaussian modes
+        self.cn = np.empty(self.N+1)
+        for n in range(self.N+1):
+            m_values = np.arange(n, self.N+1)
+            self.cn[n] = np.sum((1./2)**m_values * binom(m_values,n)) / (self.N+1)
 
 
     def E_field( self, x, y, z, t ):
         """
         See the docstring of LaserProfile.E_field
         """
-        return self.summed_profile.E_field( x, y, z, t )
+        # Diffraction factor, waist and Gouy phase
+        prop_dir = self.propag_direction
+        diffract_factor = 1. + 1j * prop_dir * (z - self.zf) * self.inv_zr
+        w = self.w_foc * np.abs( diffract_factor )
+        psi = np.angle( diffract_factor )
+
+        # Argument for the Laguerre polynomials
+        scaled_radius_squared = 2*( x**2 + y**2 ) / w**2
+
+        # Sum recursively over the Laguerre polynomials
+        laguerre_sum = np.zeros_like( x, dtype=np.complex128 )
+        for n in range(0, self.N+1):
+
+            # Recursive calculation of the Laguerre polynomial
+            # - `L` represents $L_n$
+            # - `L1` represents $L_{n-1}$
+            # - `L2` represents $L_{n-2}$
+            if n==0:
+                L = 1.
+            elif n==1:
+                L1 = L
+                L = 1. - scaled_radius_squared
+            else:
+                L2 = L1
+                L1 = L
+                L = (((2*n -1) - scaled_radius_squared) * L1 - (n - 1) * L2) / n
+
+            # Add to the sum, including the term for the additional Gouy phase
+            laguerre_sum += self.cn[n] * np.exp( - (2j* n) * psi ) * L
+
+        # Final profile: multiply by n-independent propagation factors
+        exp_argument = - 1j*self.cep_phase \
+            + 1j*self.k0*( prop_dir*(z - self.z0) - c*t ) \
+            - (x**2 + y**2) / (self.w_foc**2 * diffract_factor) \
+            - self.inv_ctau2 * ( prop_dir*(z - self.z0) - c*t )**2
+        profile = laguerre_sum * np.exp( exp_argument ) / diffract_factor
+
+        # Get the projection along x and y, with the correct polarization
+        Ex = self.E0x * profile
+        Ey = self.E0y * profile
+
+        return( Ex.real, Ey.real )
 
 
 class FewCycleLaser( LaserProfile ):
@@ -780,8 +833,8 @@ class FewCycleLaser( LaserProfile ):
             This should be either 1 (laser propagates towards positive z)
             or -1 (laser propagates towards negative z).
         """
-        # Initialize propagation direction
-        LaserProfile.__init__(self, propagation_direction)
+        # Initialize propagation direction and mark as GPU capable
+        LaserProfile.__init__(self, propagation_direction, gpu_capable=True)
 
         # Set a number of parameters for the laser
         k0 = 2*np.pi/lambda0

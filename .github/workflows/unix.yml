@@ -1,0 +1,51 @@
+name: Unix
+
+on: [push, pull_request]
+
+jobs:
+  test:
+    strategy:
+      matrix:
+        python-version: [2.7, 3.6]
+        os: [ubuntu-20.04]
+    runs-on: ${{ matrix.os }}
+
+    steps:
+    - uses: actions/checkout@v2
+    - name: Cache conda
+      uses: actions/cache@v2
+      # Increase this value to reset cache
+      env: {CACHE_NUMBER: 0}
+      with:
+        path: ~/conda_pkgs_dir
+        key: ${{ runner.os }}-conda-${{ env.CACHE_NUMBER }}-${{ matrix.python-version }}
+
+    - uses: conda-incubator/setup-miniconda@v2
+      name: Setup conda
+      with:
+        auto-update-conda: true
+        activate-environment: testing
+        auto-activate-base: false
+        channels: conda-forge,defaults
+        channel-priority: true
+
+    - shell: bash -l {0}
+      name: Install dependencies
+      run: |
+        conda install --yes "numba<0.49" scipy h5py mkl pytest pyflakes python=${{ matrix.python-version }};
+        conda install --yes -c conda-forge mpi4py;
+        pip install openPMD-viewer;
+        python setup.py install
+    - shell: bash -l {0}
+      name: pyflakes
+      run: python -m pyflakes .
+    - shell: bash -l {0}
+      name: FBPIC physics tests
+      run: python setup.py test
+    - shell: bash -l {0}
+      name: PICMI test
+      run: |
+        pip install wget picmistandard numexpr periodictable;
+        cd tests/unautomated;
+        curl https://raw.githubusercontent.com/picmi-standard/picmi/master/Examples/laser_acceleration/laser_acceleration_PICMI.py -o fbpic_script.py;
+        python test_picmi.py

@@ -47,11 +47,8 @@ def ionize_ions_numba( N_batch, batch_size, Ntot,
             n_ionized[i_level, i_batch] = 0
 
         # Loop through the batch
-        # (Note: a while loop is used here, because numba 0.34 does
-        # not support nested prange and range loops)
         N_max = min( (i_batch+1)*batch_size, Ntot )
-        ip = i_batch*batch_size
-        while ip < N_max:
+        for ip in range(i_batch*batch_size, N_max):
 
             # Skip the ionization routine, if the maximal ionization level
             # has already been reached for this macroparticle
@@ -81,9 +78,6 @@ def ionize_ions_numba( N_batch, batch_size, Ntot,
                     w_times_level[ip] = w[ip] * ionization_level[ip]
                 else:
                     ionized_from[ip] = -1
-
-            # Increment ip
-            ip = ip + 1
 
     return( n_ionized, ionized_from, ionization_level, w_times_level )
 

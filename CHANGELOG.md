@@ -1,5 +1,30 @@
 # Change Log / Release Log for fbpic
 
+## 0.19.1
+
+This release incorporates a small fix that allows the code to compile with
+Python 3.8. (see [#488](https://github.com/fbpic/fbpic/issues/488))
+
+## 0.19.0
+
+This release makes the computation of the laser profiles faster, in particular
+in the case when the laser is emitted with the antenna and the profile
+thus needs to be computed at every time step.
+
+- When using the laser antenna, the laser profile can now be computed on
+GPU, if the profile has the flag `gpu_capable=True`.
+(see [#473](https://github.com/fbpic/fbpic/pull/473))
+- The flattened Gaussian laser was refactored and is now much faster to
+compute. (see [#486](https://github.com/fbpic/fbpic/pull/486))
+
+## 0.18.0
+
+This release allows FBPIC to run on GPU with the latest version
+of `numba`, by resolving a minor compatibility issue
+(see [#482](https://github.com/fbpic/fbpic/pull/482)).
+
+It also makes the `ExternalField` faster on GPU (see [#470](https://github.com/fbpic/fbpic/pull/470)).
+
 ## 0.17.1
 
 This minor release removes restrictions on the use of recent versions of
