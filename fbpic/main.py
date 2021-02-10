@@ -740,6 +740,10 @@ class Simulation(object):
             # are updated by doing an iFFT/FFT instead of a full transform
             fld.spect2partial_interp('E')
             fld.spect2partial_interp('B')
+        # If needed, get the averaged fields in interpolation space
+        if self.use_averaged_fields:
+            fld.spect2interp('E_avg')
+            fld.spect2interp('B_avg')
 
         # - Exchange guard cells and damp fields
         self.comm.exchange_fields(fld.interp, 'E', 'replace')

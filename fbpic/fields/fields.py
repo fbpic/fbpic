@@ -383,7 +383,8 @@ class Fields(object) :
         ---------
         fieldtype :
             A string which represents the kind of field to transform
-            (either 'E', 'B', 'E_pml', 'B_pml', 'J', 'rho_next', 'rho_prev')
+            (either 'E', 'B', 'E_pml', 'B_pml', 'E_avg', 'B_avg',
+            'J', 'rho_next', 'rho_prev')
         """
         # Use the appropriate transformation depending on the fieldtype.
         if fieldtype == 'E' :
@@ -402,6 +403,22 @@ class Fields(object) :
                 self.trans[m].spect2interp_vect(
                     self.spect[m].Bp, self.spect[m].Bm,
                     self.interp[m].Br, self.interp[m].Bt )
+        elif fieldtype == 'E_avg' :
+            # Transform each azimuthal grid individually
+            for m in range(self.Nm) :
+                self.trans[m].spect2interp_scal(
+                    self.spect[m].Ez_avg, self.interp[m].Ez_avg )
+                self.trans[m].spect2interp_vect(
+                    self.spect[m].Ep_avg,  self.spect[m].Em_avg,
+                    self.interp[m].Er_avg, self.interp[m].Et_avg )
+        elif fieldtype == 'B_avg' :
+            # Transform each azimuthal grid individually
+            for m in range(self.Nm) :
+                self.trans[m].spect2interp_scal(
+                    self.spect[m].Bz_avg, self.interp[m].Bz_avg )
+                self.trans[m].spect2interp_vect(
+                    self.spect[m].Bp_avg, self.spect[m].Bm_avg,
+                    self.interp[m].Br_avg, self.interp[m].Bt_avg )
         elif fieldtype == 'E_pml':
             # Transform each azimuthal grid individually
             for m in range(self.Nm) :
