@@ -49,6 +49,7 @@ class Fields(object) :
     """
     def __init__( self, Nz, zmax, Nr, rmax, Nm, dt, zmin=0.,
                   n_order=-1, v_comoving=None, use_pml=False, use_galilean=True,
+                  use_averaged_fields=False,
                   current_correction='cross-deposition', use_cuda=False,
                   smoother=None, create_threading_buffers=False,
                   use_ruyten_shapes=True, use_modified_volume=True ):
@@ -92,6 +93,10 @@ class Fields(object) :
             Determines which one of the two above schemes is used
             When use_galilean is true, the whole grid moves
             with a speed v_comoving
+
+        use_averaged_fields: bool, optional
+            Whether to use fields that are averaged over one timestep in time,
+            when pushing the particles
 
         n_order : int, optional
            The order of the stencil for the z derivatives
@@ -167,6 +172,7 @@ class Fields(object) :
             self.interp.append( InterpolationGrid(
                 Nz, Nr, m, zmin, zmax, rmax,
                 use_pml=use_pml, use_cuda=self.use_cuda,
+                use_averaged_fields=use_averaged_fields,
                 use_ruyten_shapes=use_ruyten_shapes,
                 use_modified_volume=use_modified_volume ) )
 
@@ -189,6 +195,7 @@ class Fields(object) :
             self.spect.append( SpectralGrid( kz_modified, kr, m,
                 kz_true, self.interp[m].dz, self.interp[m].dr,
                 current_correction, smoother, use_pml=use_pml,
+                use_averaged_fields=use_averaged_fields,
                 use_cuda=self.use_cuda ) )
             self.psatd.append( PsatdCoeffs( self.spect[m].kz,
                                 self.spect[m].kr, m, dt, Nz, Nr,

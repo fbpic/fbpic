@@ -60,7 +60,7 @@ class Simulation(object):
                  gamma_boost=None, use_all_mpi_ranks=True,
                  particle_shape='linear', verbose_level=1,
                  smoother=None, use_ruyten_shapes=True,
-                 use_modified_volume=True ):
+                 use_modified_volume=True, use_averaged_fields=False ):
         """
         Initializes a simulation.
 
@@ -225,6 +225,10 @@ class Simulation(object):
             Whether to use a slightly-modified, effective cell volume, that
             ensures that the charge deposited near the axis is correctly
             taken into account by the spectral cylindrical Maxwell solver.
+
+        use_averaged_fields: bool, optional
+            Whether to use fields that are averaged over one timestep in time,
+            when pushing the particles
         """
         # Check whether to use CUDA
         self.use_cuda = use_cuda
@@ -268,6 +272,7 @@ class Simulation(object):
         # Register the comoving parameters
         self.v_comoving = v_comoving
         self.use_galilean = use_galilean
+        self.use_averaged_fields = use_averaged_fields
         if v_comoving is None:
             self.use_galilean = False
 
@@ -296,6 +301,7 @@ class Simulation(object):
                     n_order=n_order, zmin=zmin,
                     v_comoving=v_comoving,
                     use_pml=self.use_pml,
+                    use_averaged_fields=self.use_averaged_fields,
                     use_galilean=use_galilean,
                     current_correction=current_correction,
                     use_cuda=self.use_cuda,

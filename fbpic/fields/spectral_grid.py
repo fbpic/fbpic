@@ -36,7 +36,8 @@ class SpectralGrid(object) :
     """
 
     def __init__(self, kz_modified, kr, m, kz_true, dz, dr,
-                current_correction, smoother, use_pml=False, use_cuda=False ) :
+                current_correction, smoother, use_pml=False,
+                use_averaged_fields=False, use_cuda=False ) :
         """
         Allocates the matrices corresponding to the spectral grid
 
@@ -64,12 +65,16 @@ class SpectralGrid(object) :
             The method used in order to ensure that the continuity equation
             is satisfied. Either `curl-free` or `cross-deposition`.
 
-        use_pml: bool, optional
-            Whether to allocate and use Perfectly-Matched-Layers split fields
-
         smoother: an instance of BinomialSmoother
             Determines how the charge and currents are smoothed.
             (Default: one-pass binomial filter and no compensator.)
+
+        use_pml: bool, optional
+            Whether to allocate and use Perfectly-Matched-Layers split fields
+
+        use_averaged_fields: bool, optional
+            Whether to use fields that are averaged over one timestep in time,
+            when pushing the particles
 
         use_cuda : bool, optional
             Wether to use the GPU or not
@@ -81,6 +86,7 @@ class SpectralGrid(object) :
         self.Nz = Nz
         self.m = m
         self.use_pml = use_pml
+        self.use_averaged_fields = use_averaged_fields
 
         # Allocate the fields arrays
         self.Ep = np.zeros( (Nz, Nr), dtype='complex' )
@@ -104,6 +110,13 @@ class SpectralGrid(object) :
             self.Em_pml = np.zeros( (Nz, Nr), dtype='complex' )
             self.Bp_pml = np.zeros( (Nz, Nr), dtype='complex' )
             self.Bm_pml = np.zeros( (Nz, Nr), dtype='complex' )
+        if self.use_averaged_fields:
+            self.Ep_avg = np.zeros( (Nz, Nr), dtype='complex' )
+            self.Em_avg = np.zeros( (Nz, Nr), dtype='complex' )
+            self.Ez_avg = np.zeros( (Nz, Nr), dtype='complex' )
+            self.Bp_avg = np.zeros( (Nz, Nr), dtype='complex' )
+            self.Bm_avg = np.zeros( (Nz, Nr), dtype='complex' )
+            self.Bz_avg = np.zeros( (Nz, Nr), dtype='complex' )
 
         # Auxiliary arrays
         # - for the field solve
@@ -160,6 +173,13 @@ class SpectralGrid(object) :
             self.Em_pml = cupy.asarray( self.Em_pml )
             self.Bp_pml = cupy.asarray( self.Bp_pml )
             self.Bm_pml = cupy.asarray( self.Bm_pml )
+        if self.use_averaged_fields:
+            self.Ep_avg = cupy.asarray( self.Ep_avg )
+            self.Em_avg = cupy.asarray( self.Em_avg )
+            self.Ez_avg = cupy.asarray( self.Ez_avg )
+            self.Bp_avg = cupy.asarray( self.Bp_avg )
+            self.Bm_avg = cupy.asarray( self.Bm_avg )
+            self.Bz_avg = cupy.asarray( self.Bz_avg )
         # Only when using the cross-deposition
         if hasattr( self, 'rho_next_z' ):
             self.rho_next_z = cupy.asarray( self.rho_next_z )
@@ -187,6 +207,13 @@ class SpectralGrid(object) :
             self.Em_pml = self.Em_pml.get()
             self.Bp_pml = self.Bp_pml.get()
             self.Bm_pml = self.Bm_pml.get()
+        if self.use_averaged_fields:
+            self.Ep_avg = self.Ep_avg.get()
+            self.Em_avg = self.Em_avg.get()
+            self.Ez_avg = self.Ez_avg.get()
+            self.Bp_avg = self.Bp_avg.get()
+            self.Bm_avg = self.Bm_avg.get()
+            self.Bz_avg = self.Bz_avg.get()
         self.rho_prev = self.rho_prev.get()
         self.rho_next = self.rho_next.get()
         # Only when using the cross-deposition

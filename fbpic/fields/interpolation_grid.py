@@ -29,6 +29,7 @@ class InterpolationGrid(object) :
 
     def __init__(self, Nz, Nr, m, zmin, zmax, rmax,
                     use_pml=False, use_cuda=False,
+                    use_averaged_fields=False,
                     use_ruyten_shapes=True,
                     use_modified_volume=True ):
         """
@@ -55,6 +56,10 @@ class InterpolationGrid(object) :
         use_cuda : bool, optional
             Wether to use the GPU or not
 
+        use_averaged_fields: bool, optional
+            Whether to use fields that are averaged over one timestep in time,
+            when pushing the particles
+
         use_ruyten_shapes: bool, optional
             Whether to use Ruyten shape factors
 
@@ -66,6 +71,7 @@ class InterpolationGrid(object) :
         self.Nr = Nr
         self.m = m
         self.use_pml = use_pml
+        self.use_averaged_fields = use_averaged_fields
 
         # Register a few grid properties
         dr = rmax/Nr
@@ -154,6 +160,14 @@ class InterpolationGrid(object) :
             self.Et_pml = np.zeros( (Nz, Nr), dtype='complex' )
             self.Br_pml = np.zeros( (Nz, Nr), dtype='complex' )
             self.Bt_pml = np.zeros( (Nz, Nr), dtype='complex' )
+        # Allocate the averaged fields if needed
+        if self.use_averaged_fields:
+            self.Er_avg = np.zeros( (Nz, Nr), dtype='complex' )
+            self.Et_avg = np.zeros( (Nz, Nr), dtype='complex' )
+            self.Ez_avg = np.zeros( (Nz, Nr), dtype='complex' )
+            self.Br_avg = np.zeros( (Nz, Nr), dtype='complex' )
+            self.Bt_avg = np.zeros( (Nz, Nr), dtype='complex' )
+            self.Bz_avg = np.zeros( (Nz, Nr), dtype='complex' )
 
         # Check whether the GPU should be used
         self.use_cuda = use_cuda
@@ -197,6 +211,15 @@ class InterpolationGrid(object) :
             self.Et_pml = cupy.asarray( self.Et_pml )
             self.Br_pml = cupy.asarray( self.Br_pml )
             self.Bt_pml = cupy.asarray( self.Bt_pml )
+        if self.use_averaged_fields:
+            self.Er_avg = cupy.asarray( self.Er_avg )
+            self.Et_avg = cupy.asarray( self.Et_avg )
+            self.Ez_avg = cupy.asarray( self.Ez_avg )
+            self.Br_avg = cupy.asarray( self.Br_avg )
+            self.Bt_avg = cupy.asarray( self.Bt_avg )
+            self.Bz_avg = cupy.asarray( self.Bz_avg )
+
+
 
     def receive_fields_from_gpu( self ):
         """
@@ -220,6 +243,14 @@ class InterpolationGrid(object) :
             self.Et_pml = self.Et_pml.get()
             self.Br_pml = self.Br_pml.get()
             self.Bt_pml = self.Bt_pml.get()
+        if self.use_averaged_fields:
+            self.Er_avg = self.Er_avg.get()
+            self.Et_avg = self.Et_avg.get()
+            self.Ez_avg = self.Ez_avg.get()
+            self.Br_avg = self.Br_avg.get()
+            self.Bt_avg = self.Bt_avg.get()
+            self.Bz_avg = self.Bz_avg.get()
+
 
     def erase( self, fieldtype ):
         """
