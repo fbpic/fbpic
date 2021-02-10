@@ -382,6 +382,23 @@ def numba_push_eb_pml_comoving( Ep_pml, Em_pml, Bp_pml, Bm_pml,
     return
 
 
+@numba.njit
+def numba_update_averaged_eb( Ep, Em, Ez, Bp, Bm, Bz,
+    Ep_avg, Em_avg, Ez_avg, Bp_avg, Bm_avg, Bz_avg, Nz, Nr ):
+    """
+    Update the averaged E and B fields
+    """
+    # Loop over the 2D grid
+    for iz in prange(Nz):
+        for ir in range(Nr):
+            Ep_avg[iz, ir] = Ep[iz, ir]
+            Em_avg[iz, ir] = Em[iz, ir]
+            Ez_avg[iz, ir] = Ez[iz, ir]
+            Bp_avg[iz, ir] = Bp[iz, ir]
+            Bm_avg[iz, ir] = Bm[iz, ir]
+            Bz_avg[iz, ir] = Bz[iz, ir]
+
+
 # -----------------------------------------------------------------------
 # Parallel reduction of the global arrays for threads into a single array
 # -----------------------------------------------------------------------

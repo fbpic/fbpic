@@ -13,7 +13,7 @@ from .numba_methods import numba_push_eb_standard, numba_push_eb_comoving, \
     numba_correct_currents_crossdeposition_standard, \
     numba_correct_currents_curlfree_comoving, \
     numba_correct_currents_crossdeposition_comoving, \
-    numba_filter_scalar, numba_filter_vector
+    numba_filter_scalar, numba_filter_vector, numba_update_averaged_eb
 # Check if CUDA is available, then import CUDA functions
 from fbpic.utils.cuda import cuda_installed
 if cuda_installed:
@@ -27,7 +27,7 @@ if cuda_installed:
     cuda_filter_scalar, cuda_filter_vector, \
     cuda_push_eb_standard, cuda_push_eb_comoving, \
     cuda_push_eb_pml_standard, cuda_push_eb_pml_comoving, \
-    cuda_push_rho
+    cuda_push_rho, cuda_update_averaged_eb
 
 
 class SpectralGrid(object) :
@@ -396,6 +396,13 @@ class SpectralGrid(object) :
                     ps.d_C, ps.d_S_w, ps.d_T_eb, ps.d_T_cc, ps.d_T_rho,
                     self.d_kr, self.d_kz, ps.dt, ps.V,
                     use_true_rho, self.Nz, self.Nr )
+                # Update the averaged fields
+                if self.use_averaged_fields:
+                    cuda_update_averaged_eb[dim_grid, dim_block](
+                        self.Ep, self.Em, self.Ez,
+                        self.Bp, self.Bm, self.Bz,
+                        self.Ep_avg, self.Em_avg, self.Ez_avg,
+                        self.Bp_avg, self.Bm_avg, self.Bz_avg )
         else :
             # Push the fields on the CPU
             if ps.V is None:
@@ -430,6 +437,15 @@ class SpectralGrid(object) :
                     ps.C, ps.S_w, ps.T_eb, ps.T_cc, ps.T_rho,
                     self.kr, self.kz, ps.dt, ps.V,
                     use_true_rho, self.Nz, self.Nr )
+                # Update the averaged fields
+                if self.use_averaged_fields:
+                    numba_update_averaged_eb(
+                        self.Ep, self.Em, self.Ez,
+                        self.Bp, self.Bm, self.Bz,
+                        self.Ep_avg, self.Em_avg, self.Ez_avg,
+                        self.Bp_avg, self.Bm_avg, self.Bz_avg,
+                        self.Nz, self.Nr )
+
 
     def push_rho(self) :
         """
