@@ -31,7 +31,7 @@ from fbpic.utils.threading import nthreads, get_chunk_indices
 from fbpic.utils.cuda import cuda_installed
 if cuda_installed:
     # Load the CUDA methods
-    import cupy    
+    import cupy
     from fbpic.utils.cuda import cuda_tpb_bpg_1d, cuda_gpu_model
     from .push.cuda_methods import push_p_gpu, push_p_ioniz_gpu, \
                                 push_p_after_plane_gpu, push_x_gpu
@@ -664,7 +664,7 @@ class Particles(object) :
                 self.inv_gamma, self.Ntot,
                 dt, x_push, y_push, z_push )
 
-    def gather( self, grid, comm ) :
+    def gather( self, grid, comm, use_averaged_fields ) :
         """
         Gather the fields onto the macroparticles
 
@@ -680,6 +680,10 @@ class Particles(object) :
         comm: an fbpic.BoundaryCommunicator object
             Contains information about the number of processors
             and the local and global box dimensions.
+
+        use_averaged_fields:
+            Whether to use the fields averaged over one timestep,
+            when pushing the particles
         """
         # Skip gathering for neutral particles (e.g. photons)
         if self.q == 0:
@@ -690,6 +694,21 @@ class Particles(object) :
 
         # Restrict field gathering to physical domain
         rmax_gather = comm.get_rmax( with_damp=False )
+
+        if use_averaged_fields:
+            Er = [ grid[m].Er_avg for m in range(Nm) ]
+            Et = [ grid[m].Et_avg for m in range(Nm) ]
+            Ez = [ grid[m].Ez_avg for m in range(Nm) ]
+            Br = [ grid[m].Br_avg for m in range(Nm) ]
+            Bt = [ grid[m].Bt_avg for m in range(Nm) ]
+            Bz = [ grid[m].Bz_avg for m in range(Nm) ]
+        else:
+            Er = [ grid[m].Er for m in range(Nm) ]
+            Et = [ grid[m].Et for m in range(Nm) ]
+            Ez = [ grid[m].Ez for m in range(Nm) ]
+            Br = [ grid[m].Br for m in range(Nm) ]
+            Bt = [ grid[m].Bt for m in range(Nm) ]
+            Bz = [ grid[m].Bz for m in range(Nm) ]
 
         # GPU (CUDA) version
         if self.use_cuda:
@@ -705,10 +724,10 @@ class Particles(object) :
                          rmax_gather,
                          grid[0].invdz, grid[0].zmin, grid[0].Nz,
                          grid[0].invdr, grid[0].rmin, grid[0].Nr,
-                         grid[0].Er, grid[0].Et, grid[0].Ez,
-                         grid[1].Er, grid[1].Et, grid[1].Ez,
-                         grid[0].Br, grid[0].Bt, grid[0].Bz,
-                         grid[1].Br, grid[1].Bt, grid[1].Bz,
+                         Er[0], Et[0], Ez[0],
+                         Er[1], Et[1], Ez[1],
+                         Br[0], Bt[0], Bz[0],
+                         Br[1], Bt[1], Bz[1],
                          self.Ex, self.Ey, self.Ez,
                          self.Bx, self.By, self.Bz)
                 else:
@@ -723,8 +742,8 @@ class Particles(object) :
                             rmax_gather,
                             grid[m].invdz, grid[m].zmin, grid[m].Nz,
                             grid[m].invdr, grid[m].rmin, grid[m].Nr,
-                            grid[m].Er, grid[m].Et, grid[m].Ez,
-                            grid[m].Br, grid[m].Bt, grid[m].Bz, m,
+                            Er[m], Et[m], Ez[m],
+                            Br[m], Bt[m], Bz[m], m,
                             self.Ex, self.Ey, self.Ez,
                             self.Bx, self.By, self.Bz)
             elif self.particle_shape == 'cubic':
@@ -735,10 +754,10 @@ class Particles(object) :
                          rmax_gather,
                          grid[0].invdz, grid[0].zmin, grid[0].Nz,
                          grid[0].invdr, grid[0].rmin, grid[0].Nr,
-                         grid[0].Er, grid[0].Et, grid[0].Ez,
-                         grid[1].Er, grid[1].Et, grid[1].Ez,
-                         grid[0].Br, grid[0].Bt, grid[0].Bz,
-                         grid[1].Br, grid[1].Bt, grid[1].Bz,
+                         Er[0], Et[0], Ez[0],
+                         Er[1], Et[1], Ez[1],
+                         Br[0], Bt[0], Bz[0],
+                         Br[1], Bt[1], Bz[1],
                          self.Ex, self.Ey, self.Ez,
                          self.Bx, self.By, self.Bz)
                 else:
@@ -753,8 +772,8 @@ class Particles(object) :
                             rmax_gather,
                             grid[m].invdz, grid[m].zmin, grid[m].Nz,
                             grid[m].invdr, grid[m].rmin, grid[m].Nr,
-                            grid[m].Er, grid[m].Et, grid[m].Ez,
-                            grid[m].Br, grid[m].Bt, grid[m].Bz, m,
+                            Er[m], Et[m], Ez[m],
+                            Br[m], Bt[m], Bz[m], m,
                             self.Ex, self.Ey, self.Ez,
                             self.Bx, self.By, self.Bz)
             else:
@@ -771,10 +790,10 @@ class Particles(object) :
                         rmax_gather,
                         grid[0].invdz, grid[0].zmin, grid[0].Nz,
                         grid[0].invdr, grid[0].rmin, grid[0].Nr,
-                        grid[0].Er, grid[0].Et, grid[0].Ez,
-                        grid[1].Er, grid[1].Et, grid[1].Ez,
-                        grid[0].Br, grid[0].Bt, grid[0].Bz,
-                        grid[1].Br, grid[1].Bt, grid[1].Bz,
+                        Er[0], Et[0], Ez[0],
+                        Er[1], Et[1], Ez[1],
+                        Br[0], Bt[0], Bz[0],
+                        Br[1], Bt[1], Bz[1],
                         self.Ex, self.Ey, self.Ez,
                         self.Bx, self.By, self.Bz)
                 else:
@@ -787,8 +806,8 @@ class Particles(object) :
                             rmax_gather,
                             grid[m].invdz, grid[m].zmin, grid[m].Nz,
                             grid[m].invdr, grid[m].rmin, grid[m].Nr,
-                            grid[m].Er, grid[m].Et, grid[m].Ez,
-                            grid[m].Br, grid[m].Bt, grid[m].Bz, m,
+                            Er[m], Et[m], Ez[m],
+                            Br[m], Bt[m], Bz[m], m,
                             self.Ex, self.Ey, self.Ez,
                             self.Bx, self.By, self.Bz
                         )
@@ -803,10 +822,10 @@ class Particles(object) :
                         rmax_gather,
                         grid[0].invdz, grid[0].zmin, grid[0].Nz,
                         grid[0].invdr, grid[0].rmin, grid[0].Nr,
-                        grid[0].Er, grid[0].Et, grid[0].Ez,
-                        grid[1].Er, grid[1].Et, grid[1].Ez,
-                        grid[0].Br, grid[0].Bt, grid[0].Bz,
-                        grid[1].Br, grid[1].Bt, grid[1].Bz,
+                        Er[0], Et[0], Ez[0],
+                        Er[1], Et[1], Ez[1],
+                        Br[0], Bt[0], Bz[0],
+                        Br[1], Bt[1], Bz[1],
                         self.Ex, self.Ey, self.Ez,
                         self.Bx, self.By, self.Bz,
                         nthreads, ptcl_chunk_indices )
@@ -820,8 +839,8 @@ class Particles(object) :
                             rmax_gather,
                             grid[m].invdz, grid[m].zmin, grid[m].Nz,
                             grid[m].invdr, grid[m].rmin, grid[m].Nr,
-                            grid[m].Er, grid[m].Et, grid[m].Ez,
-                            grid[m].Br, grid[m].Bt, grid[m].Bz, m,
+                            Er[m], Et[m], Ez[m],
+                            Br[m], Bt[m], Bz[m], m,
                             self.Ex, self.Ey, self.Ez,
                             self.Bx, self.By, self.Bz,
                             nthreads, ptcl_chunk_indices )
@@ -984,13 +1003,13 @@ class Particles(object) :
             # thread) and register the indices that bound each chunks
             ptcl_chunk_indices = get_chunk_indices(self.Ntot, nthreads)
 
-            # The set of Ruyten shape coefficients to use for higher modes. 
+            # The set of Ruyten shape coefficients to use for higher modes.
             # For Nm > 1, the set from mode 1 is used, since all higher modes have the
-            # same coefficients. For Nm == 1, the coefficients from mode 0 are 
+            # same coefficients. For Nm == 1, the coefficients from mode 0 are
             # passed twice to satisfy the argument types for Numba JIT.
             if fld.Nm > 1:
                 ruyten_m = 1
-            else: 
+            else:
                 ruyten_m = 0
 
             # Multithreading functions for the deposition of rho or J

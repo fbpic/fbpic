@@ -470,7 +470,7 @@ class Simulation(object):
 
             # Gather the fields from the grid at t = n dt
             for species in ptcl:
-                species.gather( fld.interp, self.comm )
+                species.gather(fld.interp, self.comm, self.use_averaged_fields)
             # Apply the external fields at t = n dt
             for ext_field in self.external_fields:
                 ext_field.apply_expression( self.ptcl, self.time )
