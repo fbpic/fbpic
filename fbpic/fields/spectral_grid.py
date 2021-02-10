@@ -444,6 +444,8 @@ class SpectralGrid(object) :
                         self.Bp, self.Bm, self.Bz,
                         self.Ep_avg, self.Em_avg, self.Ez_avg,
                         self.Bp_avg, self.Bm_avg, self.Bz_avg,
+                        ps.phi0, ps.phi1_inv_w,
+                        self.kr, self.kz,
                         self.Nz, self.Nr )
 
 

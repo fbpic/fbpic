@@ -201,6 +201,7 @@ class Fields(object) :
                                 self.spect[m].kr, m, dt, Nz, Nr,
                                 V=self.v_comoving,
                                 use_galilean=self.use_galilean,
+                                use_averaged_fields=use_averaged_fields,
                                 use_cuda=self.use_cuda ) )
 
         # Record flags that indicates whether, for the sources *in

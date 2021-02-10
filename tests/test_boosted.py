@@ -40,8 +40,8 @@ show = True
 
 # The simulation box
 Nz = 40         # Number of gridpoints along z
-zmax = 7.86     # Length of the box along z (meters)
-zmin = -7.86
+zmax = 5*7.86     # Length of the box along z (meters)
+zmin = -5*7.86
 Nr = 20          # Number of gridpoints along r
 rmax = 7.86      # Length of the box along r (meters)
 Nm = 2           # Number of modes used
@@ -83,7 +83,7 @@ def test_cherenkov_instability( show=False ):
     # Dictionary to record the final value of E
     slope_Erms = {}
 
-    for scheme in [ 'standard', 'galilean', 'pseudo-galilean']:
+    for scheme in [ 'standard', 'galilean', 'averaged-galilean']:
 
         # Choose the correct parameters for the scheme
         if scheme == 'standard':
@@ -91,16 +91,21 @@ def test_cherenkov_instability( show=False ):
             use_galilean = False
         else:
             v_comoving = 0.9999*c
-            if scheme == 'galilean':
+            if scheme in ['galilean', 'averaged-galilean']:
                 use_galilean = True
             else:
                 use_galilean = False
+        if scheme == 'averaged-galilean':
+            use_averaged_fields = True
+        else:
+            use_averaged_fields = False
 
         # Initialize the simulation object
-        sim = Simulation( Nz, zmax, Nr, rmax, Nm, dt,
+        sim = Simulation( Nz, zmax, Nr, rmax, Nm, 5*dt,
             p_zmin, p_zmax, p_rmin, p_rmax, p_nz, p_nr, p_nt, n_e,
             zmin=zmin, initialize_ions=True,
             v_comoving=v_comoving, use_galilean=use_galilean,
+            use_averaged_fields=use_averaged_fields,
             boundaries='periodic', use_cuda=use_cuda )
 
         # Give a relativistic velocity to the particle, with some noise
@@ -141,7 +146,7 @@ def test_cherenkov_instability( show=False ):
         # Check that, in the standard case, the electric field is
         # growing much faster, due to the Cherenkov instability
         assert slope_Erms['standard'] > 3.5*slope_Erms['galilean']
-        assert slope_Erms['standard'] > 3.5*slope_Erms['pseudo-galilean']
+        assert slope_Erms['standard'] > 3.5*slope_Erms['averaged-galilean']
 
 if __name__ == '__main__':
 

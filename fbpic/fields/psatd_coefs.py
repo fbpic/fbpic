@@ -18,7 +18,8 @@ class PsatdCoeffs(object) :
     """
 
     def __init__( self, kz, kr, m, dt, Nz, Nr, V=None,
-                  use_galilean=False, use_cuda=False ) :
+                  use_galilean=False, use_averaged_fields=False,
+                  use_cuda=False ) :
         """
         Allocates the coefficients matrices for the psatd scheme.
 
@@ -48,6 +49,10 @@ class PsatdCoeffs(object) :
             Determines which one of the two above schemes is used
             When use_galilean is true, the whole grid moves
             with a speed v_comoving
+
+        use_averaged_fields: bool, optional
+            Whether to use fields that are averaged over one timestep in time,
+            when pushing the particles
 
         use_cuda : bool, optional
             Wether to use the GPU or not
@@ -135,6 +140,18 @@ class PsatdCoeffs(object) :
                             inv_dt )
             else:
                 self.j_corr_coef = inv_dt*np.ones_like(kz)
+
+            # Calculate coefficients for the averaged algorithm:
+            if use_averaged_fields:
+                phi0 = np.where( (w==0) & (kz==0), 1.,
+                            0.5*( np.sin(0.5*(kz*V+w)*dt)/(0.5*(kz*V+w)*dt) \
+                                + np.sin(0.5*(kz*V-w)*dt)/(0.5*(kz*V-w)*dt) ) )
+                phi1 = np.where( (w==0) & (kz==0), 0.,
+                            0.5*( np.sin(0.5*(kz*V+w)*dt)/(0.5*(kz*V+w)*dt) \
+                                - np.sin(0.5*(kz*V-w)*dt)/(0.5*(kz*V-w)*dt) ) )
+                self.phi0 = phi0
+                self.phi1_inv_w = phi1*inv_w
+                assert not np.any( np.isnan(self.phi0) )
 
         # Construct j_coef array (for use in the Maxwell equations)
         if V is None or V == 0:

@@ -354,6 +354,64 @@ def numba_push_eb_comoving( Ep, Em, Ez, Bp, Bm, Bz, Jp, Jm, Jz,
 
     return
 
+
+@numba.njit
+def numba_update_averaged_eb( Ep, Em, Ez, Bp, Bm, Bz,
+    Ep_avg, Em_avg, Ez_avg, Bp_avg, Bm_avg, Bz_avg,
+    phi0, phi1_inv_w, kr, kz, Nz, Nr ):
+    """
+    Update the averaged E and B fields
+    """
+    # Loop over the 2D grid
+    for iz in prange(Nz):
+        for ir in range(Nr):
+
+            # Push the E field
+            Ep_avg[iz, ir] = phi0[iz, ir]*Ep[iz, ir] \
+                 + c2*phi1_inv_w[iz, ir]*(-1.j*kz[iz, ir]*Bp[iz, ir] - 0.5*kr[iz, ir]*Bz[iz, ir] )
+#                + 0.5*kr[iz, ir]*rho_diff \
+#                + j_coef[iz, ir]*1.j*kz[iz, ir]*V*Jp[iz, ir] \
+#                + c2*T_eb[iz, ir]*S_w[iz, ir]*( -1.j*0.5*kr[iz, ir]*Bz[iz, ir] \
+#                + kz[iz, ir]*Bp[iz, ir] - mu_0*T_cc[iz, ir]*Jp[iz, ir] )
+
+            Em_avg[iz, ir] = phi0[iz, ir]*Em[iz, ir] \
+                 + c2*phi1_inv_w[iz, ir]*( 1.j*kz[iz, ir]*Bm[iz, ir] - 0.5*kr[iz, ir]*Bz[iz, ir] )
+#                - 0.5*kr[iz, ir]*rho_diff \
+#                + j_coef[iz, ir]*1.j*kz[iz, ir]*V*Jm[iz, ir] \
+#                + c2*T_eb[iz, ir]*S_w[iz, ir]*( -1.j*0.5*kr[iz, ir]*Bz[iz, ir] \
+#                - kz[iz, ir]*Bm[iz, ir] - mu_0*T_cc[iz, ir]*Jm[iz, ir] )
+
+            Ez_avg[iz, ir] = phi0[iz, ir]*Ez[iz, ir] \
+                 + c2*phi1_inv_w[iz, ir]*( kr[iz, ir]*Bp[iz, ir] + kr[iz, ir]*Bm[iz, ir] )
+#                - 1.j*kz[iz, ir]*rho_diff \
+#                + j_coef[iz, ir]*1.j*kz[iz, ir]*V*Jz[iz, ir] \
+#                + c2*T_eb[iz, ir]*S_w[iz, ir]*( 1.j*kr[iz, ir]*Bp[iz, ir] \
+#                + 1.j*kr[iz, ir]*Bm[iz, ir] - mu_0*T_cc[iz, ir]*Jz[iz, ir] )
+
+            # Push the B field
+            Bp_avg[iz, ir] = phi0[iz, ir]*Bp[iz, ir] \
+                 - phi1_inv_w[iz, ir]*(-1.j*kz[iz, ir]*Ep[iz, ir] - 0.5*kr[iz, ir]*Ez[iz, ir] )
+#                - T_eb[iz, ir]*S_w[iz, ir]*( -1.j*0.5*kr[iz, ir]*Ez_old \
+#                            + kz[iz, ir]*Ep_old ) \
+#                + j_coef[iz, ir]*( -1.j*0.5*kr[iz, ir]*Jz[iz, ir] \
+#                            + kz[iz, ir]*Jp[iz, ir] )
+
+            Bm_avg[iz, ir] = phi0[iz, ir]*Bm[iz, ir] \
+                 - phi1_inv_w[iz, ir]*( 1.j*kz[iz, ir]*Em[iz, ir] - 0.5*kr[iz, ir]*Ez[iz, ir] )
+#                - T_eb[iz, ir]*S_w[iz, ir]*( -1.j*0.5*kr[iz, ir]*Ez_old \
+#                            - kz[iz, ir]*Em_old ) \
+#                + j_coef[iz, ir]*( -1.j*0.5*kr[iz, ir]*Jz[iz, ir] \
+#                            - kz[iz, ir]*Jm[iz, ir] )
+
+            Bz_avg[iz, ir] = phi0[iz, ir]*Bz[iz, ir] \
+                 - phi1_inv_w[iz, ir]*( kr[iz, ir]*Ep[iz, ir] + kr[iz, ir]*Em[iz, ir] )
+#
+#                - T_eb[iz, ir]*S_w[iz, ir]*( 1.j*kr[iz, ir]*Ep_old \
+#                            + 1.j*kr[iz, ir]*Em_old ) \
+#                + j_coef[iz, ir]*( 1.j*kr[iz, ir]*Jp[iz, ir] \
+ #                           + 1.j*kr[iz, ir]*Jm[iz, ir] )
+
+
 @njit_parallel
 def numba_push_eb_pml_comoving( Ep_pml, Em_pml, Bp_pml, Bm_pml,
                         Ez, Bz, C, S_w, T_eb, kr, kz, Nz, Nr):
@@ -380,23 +438,6 @@ def numba_push_eb_pml_comoving( Ep_pml, Em_pml, Bp_pml, Bm_pml,
                 - T_eb[iz, ir]*S_w[iz, ir]*( -1.j*0.5*kr[iz, ir]*Ez[iz, ir] )
 
     return
-
-
-@numba.njit
-def numba_update_averaged_eb( Ep, Em, Ez, Bp, Bm, Bz,
-    Ep_avg, Em_avg, Ez_avg, Bp_avg, Bm_avg, Bz_avg, Nz, Nr ):
-    """
-    Update the averaged E and B fields
-    """
-    # Loop over the 2D grid
-    for iz in prange(Nz):
-        for ir in range(Nr):
-            Ep_avg[iz, ir] = Ep[iz, ir]
-            Em_avg[iz, ir] = Em[iz, ir]
-            Ez_avg[iz, ir] = Ez[iz, ir]
-            Bp_avg[iz, ir] = Bp[iz, ir]
-            Bm_avg[iz, ir] = Bm[iz, ir]
-            Bz_avg[iz, ir] = Bz[iz, ir]
 
 
 # -----------------------------------------------------------------------
