@@ -403,6 +403,7 @@ class SpectralGrid(object) :
                         self.Bp, self.Bm, self.Bz,
                         self.Ep_avg, self.Em_avg, self.Ez_avg,
                         self.Bp_avg, self.Bm_avg, self.Bz_avg )
+
         else :
             # Push the fields on the CPU
             if ps.V is None:
@@ -444,7 +445,10 @@ class SpectralGrid(object) :
                         self.Bp, self.Bm, self.Bz,
                         self.Ep_avg, self.Em_avg, self.Ez_avg,
                         self.Bp_avg, self.Bm_avg, self.Bz_avg,
-                        ps.phi0, ps.phi1_inv_w,
+                        self.Jp, self.Jm, self.Jz,
+                        self.rho_prev, self.rho_next,
+                        ps.phi0, ps.phi1_inv_w, ps.phi2_inv_w2, ps.j_coef_avg,
+                        ps.rho_next_coef_avg, ps.rho_prev_coef_avg,
                         self.kr, self.kz,
                         self.Nz, self.Nr )
 

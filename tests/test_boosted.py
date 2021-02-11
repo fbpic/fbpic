@@ -40,8 +40,9 @@ show = True
 
 # The simulation box
 Nz = 40         # Number of gridpoints along z
-zmax = 5*7.86     # Length of the box along z (meters)
-zmin = -5*7.86
+stretch_factor = 3
+zmax = stretch_factor*7.86   # Length of the box along z (meters)
+zmin = -stretch_factor*7.86
 Nr = 20          # Number of gridpoints along r
 rmax = 7.86      # Length of the box along r (meters)
 Nm = 2           # Number of modes used
@@ -101,7 +102,7 @@ def test_cherenkov_instability( show=False ):
             use_averaged_fields = False
 
         # Initialize the simulation object
-        sim = Simulation( Nz, zmax, Nr, rmax, Nm, 5*dt,
+        sim = Simulation( Nz, zmax, Nr, rmax, Nm, dt,
             p_zmin, p_zmax, p_rmin, p_rmax, p_nz, p_nr, p_nt, n_e,
             zmin=zmin, initialize_ions=True,
             v_comoving=v_comoving, use_galilean=use_galilean,
