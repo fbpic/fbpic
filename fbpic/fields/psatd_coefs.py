@@ -160,10 +160,16 @@ class PsatdCoeffs(object) :
                 # Register coefficients and deal with pathological cases
                 self.phi0 = np.where( w==0, 1., phi0 )
                 self.phi1_inv_w = np.where( w==0, 0., phi1*inv_w )
-                self.phi2_inv_w2 = 0*np.where( w==0, 0., 1./epsilon_0*phi2*inv_w**2 )
-                self.j_coef_avg = 0*self.phi2_inv_w2 #1./epsilon_0*(phi1 - nu*phi2)*inv_w
-                self.rho_prev_coef_avg = 0*self.phi2_inv_w2 #c**2/epsilon_0*(phi3*T2 - phi2)/(1-T2)*inv_w**2
-                self.rho_next_coef_avg = 0*self.phi2_inv_w2 #c**2/epsilon_0*T2*(phi3 - phi2)/(1-T2)*inv_w**2
+                self.phi2_inv_w2 = np.where( w==0, 0., 1./epsilon_0*phi2*inv_w**2 )
+                self.j_coef_avg = np.where( w==0, 0., 1./epsilon_0*(phi1 + nu*phi2)*inv_w )
+                one_minus_T2 = np.where( kz==0, 1., (1-T2))
+                rho_next_coef_avg = np.where( kz==0,
+                      c**2/epsilon_0*inv_w**2*(1-np.sin(0.5*w*dt)*inv_w/(0.5*dt)),
+                      c**2/epsilon_0*inv_w**2*(phi2 - phi3*T2)/one_minus_T2 )
+                rho_prev_coef_avg = np.where( kz==0, 0,
+                      c**2/epsilon_0*inv_w**2*T2*(phi2 - phi3)/one_minus_T2 )
+                self.rho_next_coef_avg = np.where(w==0, 0., rho_next_coef_avg)
+                self.rho_prev_coef_avg = np.where(w==0, 0., rho_prev_coef_avg)
 
 
         # Construct j_coef array (for use in the Maxwell equations)

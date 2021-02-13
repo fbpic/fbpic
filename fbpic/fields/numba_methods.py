@@ -370,42 +370,42 @@ def numba_update_averaged_eb( Ep, Em, Ez, Bp, Bm, Bz,
 
             # Push the E field
             Ep_avg[iz, ir] = phi0[iz, ir]*Ep[iz, ir] \
-                 + c2*phi1_inv_w[iz, ir]*(-1.j*kz[iz, ir]*Bp[iz, ir] \
-                                         - 0.5*kr[iz, ir]*Bz[iz, ir] ) \
+                 -1.j*c2*phi1_inv_w[iz, ir]*( kz[iz, ir]*Bp[iz, ir] \
+                                       - 0.5j*kr[iz, ir]*Bz[iz, ir] ) \
                  + 1.j*j_coef_avg[iz, ir]*Jp[iz, ir] \
-                 - 0.5*kr[iz,ir]*rho_next_coef_avg[iz, ir]*rho_next[iz, ir] \
-                 + 0.5*kr[iz,ir]*rho_prev_coef_avg[iz, ir]*rho_prev[iz, ir]
-
-            Em_avg[iz, ir] = phi0[iz, ir]*Em[iz, ir] \
-                 + c2*phi1_inv_w[iz, ir]*( 1.j*kz[iz, ir]*Bm[iz, ir] \
-                                         - 0.5*kr[iz, ir]*Bz[iz, ir] ) \
-                 + 1.j*j_coef_avg[iz, ir]*Jm[iz, ir] \
                  + 0.5*kr[iz,ir]*rho_next_coef_avg[iz, ir]*rho_next[iz, ir] \
                  - 0.5*kr[iz,ir]*rho_prev_coef_avg[iz, ir]*rho_prev[iz, ir]
 
+            Em_avg[iz, ir] = phi0[iz, ir]*Em[iz, ir] \
+                 -1.j*c2*phi1_inv_w[iz, ir]*(-kz[iz, ir]*Bm[iz, ir] \
+                                       - 0.5j*kr[iz, ir]*Bz[iz, ir] ) \
+                 + 1.j*j_coef_avg[iz, ir]*Jm[iz, ir] \
+                 - 0.5*kr[iz,ir]*rho_next_coef_avg[iz, ir]*rho_next[iz, ir] \
+                 + 0.5*kr[iz,ir]*rho_prev_coef_avg[iz, ir]*rho_prev[iz, ir]
+
             Ez_avg[iz, ir] = phi0[iz, ir]*Ez[iz, ir] \
-                 + c2*phi1_inv_w[iz, ir]*( kr[iz, ir]*Bp[iz, ir] \
-                                         + kr[iz, ir]*Bm[iz, ir] ) \
+                 -1.j*c2*phi1_inv_w[iz, ir]*( 1.j*kr[iz, ir]*Bp[iz, ir] \
+                                            + 1.j*kr[iz, ir]*Bm[iz, ir] ) \
                  + 1.j*j_coef_avg[iz, ir]*Jz[iz, ir] \
-                 + 1.j*kz[iz,ir]*rho_next_coef_avg[iz, ir]*rho_next[iz, ir] \
-                 - 1.j*kz[iz,ir]*rho_prev_coef_avg[iz, ir]*rho_prev[iz, ir]
+                 - 1.j*kz[iz,ir]*rho_next_coef_avg[iz, ir]*rho_next[iz, ir] \
+                 + 1.j*kz[iz,ir]*rho_prev_coef_avg[iz, ir]*rho_prev[iz, ir]
 
             # Push the B field
             Bp_avg[iz, ir] = phi0[iz, ir]*Bp[iz, ir] \
-                 - phi1_inv_w[iz, ir]*(-1.j*kz[iz, ir]*Ep[iz, ir] \
-                                      - 0.5*kr[iz, ir]*Ez[iz, ir] ) \
+                 + 1.j*phi1_inv_w[iz, ir]*( kz[iz, ir]*Ep[iz, ir] \
+                                     - 0.5j*kr[iz, ir]*Ez[iz, ir] ) \
                  + phi2_inv_w2[iz, ir]*( kz[iz, ir]*Jp[iz, ir] \
-                                      -1.j*0.5*kr[iz, ir]*Jz[iz, ir] )
+                                  - 0.5j*kr[iz, ir]*Jz[iz, ir] )
 
             Bm_avg[iz, ir] = phi0[iz, ir]*Bm[iz, ir] \
-                 - phi1_inv_w[iz, ir]*( 1.j*kz[iz, ir]*Em[iz, ir] \
-                                      - 0.5*kr[iz, ir]*Ez[iz, ir] ) \
+                 + 1.j*phi1_inv_w[iz, ir]*(-kz[iz, ir]*Em[iz, ir] \
+                                     - 0.5j*kr[iz, ir]*Ez[iz, ir] ) \
                  + phi2_inv_w2[iz, ir]*(-kz[iz, ir]*Jm[iz, ir] \
-                                      -1.j*0.5*kr[iz, ir]*Jz[iz, ir] )
+                                  - 0.5j*kr[iz, ir]*Jz[iz, ir] )
 
             Bz_avg[iz, ir] = phi0[iz, ir]*Bz[iz, ir] \
-                 - phi1_inv_w[iz, ir]*( kr[iz, ir]*Ep[iz, ir] \
-                                      + kr[iz, ir]*Em[iz, ir] ) \
+                 + 1.j*phi1_inv_w[iz, ir]*( 1.j*kr[iz, ir]*Ep[iz, ir] \
+                                          + 1.j*kr[iz, ir]*Em[iz, ir] ) \
                  + phi2_inv_w2[iz, ir]*( 1.j*kr[iz, ir]*Jp[iz, ir] \
                                        + 1.j*kr[iz, ir]*Jm[iz, ir] )
 
