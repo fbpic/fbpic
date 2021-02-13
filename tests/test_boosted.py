@@ -40,10 +40,10 @@ show = True
 
 # The simulation box
 Nz = 40         # Number of gridpoints along z
-stretch_factor = 3
-zmax = stretch_factor*7.86   # Length of the box along z (meters)
-zmin = -stretch_factor*7.86
-Nr = 20          # Number of gridpoints along r
+res_factor = 5
+zmax = 7.86   # Length of the box along z (meters)
+zmin = -7.86
+Nr = 20*res_factor          # Number of gridpoints along r
 rmax = 7.86      # Length of the box along r (meters)
 Nm = 2           # Number of modes used
 # The simulation timestep
@@ -91,7 +91,7 @@ def test_cherenkov_instability( show=False ):
             v_comoving = 0.
             use_galilean = False
         else:
-            v_comoving = 0.9999*c
+            v_comoving = 0.9*0.9999*c
             if scheme in ['galilean', 'averaged-galilean']:
                 use_galilean = True
             else:
