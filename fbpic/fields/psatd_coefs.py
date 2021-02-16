@@ -211,3 +211,10 @@ class PsatdCoeffs(object) :
                 self.d_T_cc = cupy.asarray(self.T_cc)
                 self.d_T_rho = cupy.asarray(self.T_rho)
                 self.d_j_corr_coef = cupy.asarray(self.j_corr_coef)
+            if use_averaged_fields:
+                self.d_phi0 = cupy.asarray(self.phi0)
+                self.d_phi1_inv_w = cupy.asarray(self.phi1_inv_w)
+                self.d_phi2_inv_w2 = cupy.asarray(self.phi2_inv_w2)
+                self.d_j_coef_avg = cupy.asarray(self.j_coef_avg)
+                self.d_rho_next_coef_avg = cupy.asarray(self.rho_next_coef_avg)
+                self.d_rho_prev_coef_avg = cupy.asarray(self.rho_prev_coef_avg)

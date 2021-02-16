@@ -412,6 +412,63 @@ def cuda_push_eb_comoving( Ep, Em, Ez, Bp, Bm, Bz, Jp, Jm, Jz,
 
 
 @compile_cupy
+def cuda_update_averaged_eb( Ep, Em, Ez, Bp, Bm, Bz,
+    Ep_avg, Em_avg, Ez_avg, Bp_avg, Bm_avg, Bz_avg,
+    Jp, Jm, Jz, rho_prev, rho_next,
+    phi0, phi1_inv_w, phi2_inv_w2, j_coef_avg,
+    rho_next_coef_avg, rho_prev_coef_avg, kr, kz, Nz, Nr ):
+    """
+    Update the averaged E and B fields
+    """
+    # Cuda 2D grid
+    iz, ir = cuda.grid(2)
+
+    # Push the fields
+    if (iz < Nz) and (ir < Nr) :
+
+        # Push the E field
+        Ep_avg[iz, ir] = phi0[iz, ir]*Ep[iz, ir] \
+             -1.j*c2*phi1_inv_w[iz, ir]*( kz[iz, ir]*Bp[iz, ir] \
+                                   - 0.5j*kr[iz, ir]*Bz[iz, ir] ) \
+             + 1.j*j_coef_avg[iz, ir]*Jp[iz, ir] \
+             + 0.5*kr[iz,ir]*rho_next_coef_avg[iz, ir]*rho_next[iz, ir] \
+             - 0.5*kr[iz,ir]*rho_prev_coef_avg[iz, ir]*rho_prev[iz, ir]
+
+        Em_avg[iz, ir] = phi0[iz, ir]*Em[iz, ir] \
+             -1.j*c2*phi1_inv_w[iz, ir]*(-kz[iz, ir]*Bm[iz, ir] \
+                                   - 0.5j*kr[iz, ir]*Bz[iz, ir] ) \
+             + 1.j*j_coef_avg[iz, ir]*Jm[iz, ir] \
+             - 0.5*kr[iz,ir]*rho_next_coef_avg[iz, ir]*rho_next[iz, ir] \
+             + 0.5*kr[iz,ir]*rho_prev_coef_avg[iz, ir]*rho_prev[iz, ir]
+
+        Ez_avg[iz, ir] = phi0[iz, ir]*Ez[iz, ir] \
+             -1.j*c2*phi1_inv_w[iz, ir]*( 1.j*kr[iz, ir]*Bp[iz, ir] \
+                                        + 1.j*kr[iz, ir]*Bm[iz, ir] ) \
+             + 1.j*j_coef_avg[iz, ir]*Jz[iz, ir] \
+             - 1.j*kz[iz,ir]*rho_next_coef_avg[iz, ir]*rho_next[iz, ir] \
+             + 1.j*kz[iz,ir]*rho_prev_coef_avg[iz, ir]*rho_prev[iz, ir]
+
+        # Push the B field
+        Bp_avg[iz, ir] = phi0[iz, ir]*Bp[iz, ir] \
+             + 1.j*phi1_inv_w[iz, ir]*( kz[iz, ir]*Ep[iz, ir] \
+                                 - 0.5j*kr[iz, ir]*Ez[iz, ir] ) \
+             + phi2_inv_w2[iz, ir]*( kz[iz, ir]*Jp[iz, ir] \
+                              - 0.5j*kr[iz, ir]*Jz[iz, ir] )
+
+        Bm_avg[iz, ir] = phi0[iz, ir]*Bm[iz, ir] \
+             + 1.j*phi1_inv_w[iz, ir]*(-kz[iz, ir]*Em[iz, ir] \
+                                 - 0.5j*kr[iz, ir]*Ez[iz, ir] ) \
+             + phi2_inv_w2[iz, ir]*(-kz[iz, ir]*Jm[iz, ir] \
+                              - 0.5j*kr[iz, ir]*Jz[iz, ir] )
+
+        Bz_avg[iz, ir] = phi0[iz, ir]*Bz[iz, ir] \
+             + 1.j*phi1_inv_w[iz, ir]*( 1.j*kr[iz, ir]*Ep[iz, ir] \
+                                      + 1.j*kr[iz, ir]*Em[iz, ir] ) \
+             + phi2_inv_w2[iz, ir]*( 1.j*kr[iz, ir]*Jp[iz, ir] \
+                                   + 1.j*kr[iz, ir]*Jm[iz, ir] )
+
+
+@compile_cupy
 def cuda_push_eb_pml_comoving( Ep_pml, Em_pml, Bp_pml, Bm_pml,
                         Ez, Bz, C, S_w, T_eb, kr, kz, Nz, Nr):
     """

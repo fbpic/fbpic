@@ -402,7 +402,13 @@ class SpectralGrid(object) :
                         self.Ep, self.Em, self.Ez,
                         self.Bp, self.Bm, self.Bz,
                         self.Ep_avg, self.Em_avg, self.Ez_avg,
-                        self.Bp_avg, self.Bm_avg, self.Bz_avg )
+                        self.Bp_avg, self.Bm_avg, self.Bz_avg,
+                        self.Jp, self.Jm, self.Jz,
+                        self.rho_prev, self.rho_next,
+                        ps.d_phi0, ps.d_phi1_inv_w, ps.d_phi2_inv_w2,
+                        ps.d_j_coef_avg, ps.d_rho_next_coef_avg,
+                        ps.d_rho_prev_coef_avg, self.d_kr, self.d_kz,
+                        self.Nz, self.Nr )
 
         else :
             # Push the fields on the CPU
