@@ -264,6 +264,9 @@ def get_gpu_message():
             rank, gpu_name, gpu.id, node)
     else:
         message = "\nFBPIC selected a %s GPU with id %s" %( gpu_name, gpu.id )
+        if mpi_installed:
+            node = MPI.Get_processor_name()            
+            message += " on node %s" %node
     return(message)
 
 def get_cpu_message():
