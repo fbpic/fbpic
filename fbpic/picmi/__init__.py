@@ -10,16 +10,25 @@ codename = 'fbpic'
 
 # Check that the `picmistandard` package has been installed
 try:
-    from picmistandard.base import register_codename
+    from picmistandard.base import register_codename, register_constants
     register_codename(codename)
 except ImportError:
     raise ImportError(
         "In order to use FBPIC with PICMI, you should install the \n"
         "`picmistandard` package, e.g. with: `pip install picmistandard`")
 
+from scipy import constants
+class constants:
+    # Put the constants in their own namespace
+    c = constants.c
+    ep0 = constants.epsilon_0
+    mu0 = constants.mu_0
+    q_e = constants.e
+    m_e = constants.m_e
+    m_p = constants.m_p
+register_constants(constants)
+
 # Import picmi objects
-# - Constants
-from . import constants
 # - For general setup
 from picmistandard import PICMI_CylindricalGrid as CylindricalGrid
 from picmistandard import PICMI_BinomialSmoother as BinomialSmoother
