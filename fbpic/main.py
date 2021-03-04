@@ -336,6 +336,8 @@ class Simulation(object):
         self.checkpoints = []
         # Initialize an empty list of laser antennas
         self.laser_antennas = []
+        # Initialize an empty list of mirrors
+        self.mirrors = []
 
         # Print simulation setup
         print_simulation_setup( self, verbose_level=verbose_level )
@@ -548,6 +550,7 @@ class Simulation(object):
             # Handle boundaries for the E and B fields:
             # - MPI exchanges for guard cells
             # - Damp fields in damping cells
+            # - Set fields to 0 at the position of the mirrors
             # - Update the fields in interpolation space
             #  (needed for the field gathering at the next iteration)
             self.exchange_and_damp_EB()
@@ -716,6 +719,7 @@ class Simulation(object):
         Handle boundaries for the E and B fields:
          - MPI exchanges for guard cells
          - Damp fields in damping cells (in z, and in r if PML are used)
+         - Set fields to 0 at the position of the mirrors
          - Update the fields in interpolation space
         """
         # Shortcut
@@ -741,6 +745,10 @@ class Simulation(object):
         self.comm.damp_EB_open_boundary( fld.interp ) # Damp along z
         if self.use_pml:
             self.comm.damp_pml_EB( fld.interp ) # Damp in radial PML
+
+        # - Set fields to 0 at the position of the mirrors
+        for mirror in self.mirrors:
+            mirror.set_fields_to_zero( fld.interp, self.comm, self.time )
 
         # - Update spectral space (and interpolation space if needed)
         if self.use_pml:
