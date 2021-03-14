@@ -7,8 +7,10 @@ It defines a set of generic functions for printing simulation information.
 """
 import sys, time
 from fbpic import __version__
-from fbpic.utils.cuda import cuda, cuda_installed
 from fbpic.utils.mpi import MPI, mpi_installed, gpudirect_enabled
+from fbpic.utils.cuda import cuda, cuda_installed
+if cuda_installed:
+    from cupy.cuda.memory import OutOfMemoryError
 # Check if terminal is correctly set to UTF-8 and set progress character
 if sys.stdout.encoding == 'UTF-8':
     progress_char = u'\u2588'
@@ -316,7 +318,7 @@ def catch_gpu_memory_error( f ):
     def g(*args, **kwargs):
         try:
             return f(*args, **kwargs)
-        except cuda.cudadrv.driver.CudaAPIError as e:
+        except OutOfMemoryError as e:
             handle_cuda_memory_error( e, f.__name__ )
     # Decorator: return the new function
     return(g)
