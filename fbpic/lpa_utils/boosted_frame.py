@@ -251,33 +251,26 @@ class BoostConverter( object ):
         # Transform particle times and longitudinal positions
         # to the boosted frame. Assumes a lab time t = 0.
         t_boost = -uz_boost*z/c
+
+        # Positions in the boosted frame at time t_boost
+        x_boost = x
+        y_boost = y
         z_boost = self.gamma0*z
 
-        # Get particle Lab velocities
-        vx = ux*inv_gamma*c
-        vy = uy*inv_gamma*c
-        vz = uz*inv_gamma*c
+        # Transform the velocities
+        # Note that the transverse velocities are not affected
+        gamma_lab = np.sqrt(1. + (ux*ux + uy*uy + uz*uz))
+        new_ux = ux.copy()
+        new_uy = uy.copy()
+        new_uz = self.gamma0*uz - uz_boost*gamma_lab
+        gamma_boost = np.sqrt(1. + (new_ux**2 + new_uy**2 + new_uz**2))
 
-        # Calculate boost factor for velocities
-        boost_fact = 1./(1.-self.beta0*vz/c)
+        # Advance the particles to time = 0 in the boosted frame
+        new_x = x_boost - t_boost*new_ux*c/gamma_boost
+        new_y = y_boost - t_boost*new_uy*c/gamma_boost
+        new_z = z_boost - t_boost*new_uz*c/gamma_boost
 
-        # Transform velocities to boosted frame
-        vx_boost = vx*boost_fact/self.gamma0
-        vy_boost = vy*boost_fact/self.gamma0
-        vz_boost = (vz-self.beta0*c)*boost_fact
-
-        # Correct for shift in t_boost, which comes from transformation
-        # into boosted frame. Particles are moved with transformed
-        # velocities to a boosted time t'=0.
-        new_x = x - t_boost * vx_boost
-        new_y = y - t_boost * vy_boost
-        new_z = z_boost - t_boost * vz_boost
-
-        # Get final quantities
-        new_inv_gamma = np.sqrt(1.-(vx_boost**2+vy_boost**2+vz_boost**2)/c**2)
-        new_ux = vx_boost / (new_inv_gamma * c)
-        new_uy = vy_boost / (new_inv_gamma * c)
-        new_uz = vz_boost / (new_inv_gamma * c)
+        new_inv_gamma = 1./gamma_boost
 
         return( new_x, new_y, new_z, new_ux, new_uy, new_uz, new_inv_gamma )
 
