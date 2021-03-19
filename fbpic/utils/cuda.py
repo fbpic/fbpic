@@ -183,13 +183,17 @@ class GpuMemoryManager(object):
 def mpi_select_gpus(mpi):
     """
     Selects the correct GPU used by the current MPI process
+    using the local MPI rank
 
     Parameters :
     ------------
     mpi: an mpi4py.MPI object
     """
+    color = int.from_bytes(mpi.Get_processor_name().encode(), 'little') % 100000000
+    local = mpi.COMM_WORLD.Split(color=color)
+
     n_gpus = len(cuda.gpus)
-    rank = mpi.COMM_WORLD.rank
+    rank = local.rank
     for i_gpu in range(n_gpus):
         if rank%n_gpus == i_gpu:
             cuda.select_device(i_gpu)
