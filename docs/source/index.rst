@@ -67,8 +67,8 @@ and Manuel Kirchen at
 `CFEL, Hamburg University <http://lux.cfel.de/>`_. The code also
 benefitted from the contributions of Soeren Jalas (CFEL), Kevin Peters (CFEL),
 Irene Dornmair (CFEL), Laurids Jeppe (CFEL), Igor Andriyash (Laboratoire d’Optique Appliquée),
-Omri Seemann (Weizmann Institute), Daniel Seipt (University of Michigan)
-and Samuel Yoffe (University of Strathclyde).
+Omri Seemann (Weizmann Institute), Daniel Seipt (University of Michigan),
+Samuel Yoffe (University of Strathclyde) and David Grote (LLNL and LBNL).
 
 FBPIC's algorithms are documented in following scientific publications:
 
