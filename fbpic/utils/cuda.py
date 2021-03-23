@@ -7,7 +7,8 @@ It defines a set of generic functions that operate on a GPU.
 """
 import warnings
 import numba
-numba_minor_version = int(numba.__version__.split('.')[1])
+numba_version = (int(numba.__version__.split('.')[0]),
+                 int(numba.__version__.split('.')[1]))
 from numba import cuda
 import numpy as np
 
@@ -29,10 +30,11 @@ if numba_cuda_installed:
 try:
     import cupy
     cupy_installed = cupy.is_available()
-    cupy_major_version = int(cupy.__version__[0])
+    cupy_version = (int(cupy.__version__.split('.')[0]),
+                    int(cupy.__version__.split('.')[1]))
 except (ImportError, AssertionError):
     cupy_installed = False
-    cupy_major_version = None
+    cupy_version = None
 
 cuda_installed = (numba_cuda_installed and cupy_installed)
 
@@ -326,7 +328,7 @@ if cuda_installed:
             module.load(bytes(numba_kernel.ptx, 'UTF-8'))
 
             # Save the resulting Cupy kernel
-            if numba_minor_version > 50:
+            if numba_version[1] > 50:
                 kernel_name = numba_kernel.definition.entry_name
             else:
                 kernel_name = numba_kernel.entry_name
@@ -404,7 +406,7 @@ if cuda_installed:
 
                         # Cache the resulting Cupy kernel in a dictionary using
                         # the hash
-                        if numba_minor_version > 50:
+                        if numba_version[1] > 50:
                             kernel_name = numba_kernel.definition.entry_name
                         else:
                             kernel_name = numba_kernel.entry_name
