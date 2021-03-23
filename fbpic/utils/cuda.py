@@ -208,13 +208,13 @@ def check_consecutive_ranks_on_same_nodes(mpi):
                     break
         # Print a corresponding warning
         if not standard_decomp:
-            warnings.warn("""
-            It seems that the distribution of MPI ranks on compute nodes is such\n
-            that consecutive MPI ranks are not located on the same node.\n
-            (See the FBPIC output with `verbose_level = 2` for more details.)\n
-            This type of MPI distribution can degrade the performance of FBPIC.\n
-            Please check the options of your MPI launcher (e.g. `mpirun`, `srun`)\n
-            in order to use a different MPI distribution.""")
+            warnings.warn(
+            "It seems that the distribution of MPI ranks on compute nodes is such\n"
+            "that consecutive MPI ranks are not located on the same node.\n"
+            "(See the FBPIC output with `verbose_level = 2` for more details.)\n"
+            "This type of MPI distribution can degrade the performance of FBPIC.\n"
+            "Please check the options of your MPI launcher (e.g. `mpirun`, `srun`)\n"
+            "in order to use a different MPI distribution.")
     standard_decomp = mpi.COMM_WORLD.bcast( standard_decomp, root=0 )
     return standard_decomp
 
