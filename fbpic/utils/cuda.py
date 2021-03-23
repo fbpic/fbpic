@@ -17,11 +17,13 @@ except Exception:
     numba_cuda_installed = False
 
 if numba_cuda_installed:
-    # Infer if GPU is P100 or V100 or other
+    # Infer if GPU is P100, V100, A100 or other
     if "P100" in str(cuda.gpus[0]._device.name):
         cuda_gpu_model = "P100"
     elif "V100" in str(cuda.gpus[0]._device.name):
         cuda_gpu_model = "V100"
+    elif "A100" in str(cuda.gpus[0]._device.name):
+        cuda_gpu_model = "V100" # force to V100
     else:
         cuda_gpu_model = "other"
 
