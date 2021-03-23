@@ -5,6 +5,7 @@
 This file is part of the Fourier-Bessel Particle-In-Cell code (FB-PIC)
 It defines a set of generic functions that operate on a GPU.
 """
+import warnings
 import numba
 numba_minor_version = int(numba.__version__.split('.')[1])
 from numba import cuda
@@ -179,21 +180,67 @@ class GpuMemoryManager(object):
 # -----------------------------------------------------
 # CUDA mpi management
 # -----------------------------------------------------
+def check_consecutive_ranks_on_same_nodes(mpi):
+    """
+    Check that consecutive MPI ranks are on the same nodes, and
+    return a corresponding boolean. Print a warning message if
+    it is not the case, this this can affect performance.
+    """
+    # Skip this function if there is only one MPI rank
+    if mpi.COMM_WORLD.size == 1:
+        return True
+
+    # Check that the decomposition is standard, raise a warning otherwise
+    nodes = mpi.COMM_WORLD.gather( mpi.Get_processor_name(), root=0 )
+    standard_decomp = None
+    if mpi.COMM_WORLD.rank == 0:
+        # Check that consecutive MPI ranks are on the same node
+        standard_decomp = True
+        unique_nodes = [ nodes[0] ]  # Initialize list of unique nodes
+        for i in range(1, len(nodes)):
+            if nodes[i] != nodes[i-1]: # Consecutive ranks not on the same node
+                if nodes[i] not in unique_nodes:
+                    unique_nodes.append( nodes[i] )
+                else:
+                    # This node was seen before ; this means that several
+                    # MPI ranks selected it, but that they are not consecutive.
+                    standard_decomp = False
+                    break
+        # Print a corresponding warning
+        if not standard_decomp:
+            warnings.warn("""
+            It seems that the distribution of MPI ranks on compute nodes is such\n
+            that consecutive MPI ranks are not located on the same node.\n
+            (See the FBPIC output with `verbose_level = 2` for more details.)\n
+            This type of MPI distribution can degrade the performance of FBPIC.\n
+            Please check the options of your MPI launcher (e.g. `mpirun`, `srun`)\n
+            in order to use a different MPI distribution.""")
+    standard_decomp = mpi.COMM_WORLD.scatter( standard_decomp, root=0 )
+    return standard_decomp
+
 
 def mpi_select_gpus(mpi):
     """
     Selects the correct GPU used by the current MPI process
-    using the local MPI rank
+    using the MPI rank
 
     Parameters :
     ------------
     mpi: an mpi4py.MPI object
     """
-    color = int.from_bytes(mpi.Get_processor_name().encode(), 'little') % 100000000
-    local = mpi.COMM_WORLD.Split(color=color)
+    std_decomp = check_consecutive_ranks_on_same_nodes(mpi)
+    if not std_decomp:
+        # Convert node name to integer, and create a local communicator
+        # for MPI ranks that are on the same node
+        node_name = mpi.Get_processor_name()
+        color = int.from_bytes( node_name.encode(), 'little') % 100000000
+        comm = mpi.COMM_WORLD.Split(color=color)
+    else:
+        comm = mpi.COMM_WORLD
 
+    # Attribute a GPU to each rank
     n_gpus = len(cuda.gpus)
-    rank = local.rank
+    rank = comm.rank
     for i_gpu in range(n_gpus):
         if rank%n_gpus == i_gpu:
             cuda.select_device(i_gpu)
