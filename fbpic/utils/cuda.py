@@ -5,6 +5,7 @@
 This file is part of the Fourier-Bessel Particle-In-Cell code (FB-PIC)
 It defines a set of generic functions that operate on a GPU.
 """
+import warnings
 import numba
 numba_minor_version = int(numba.__version__.split('.')[1])
 from numba import cuda
