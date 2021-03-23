@@ -179,6 +179,28 @@ class GpuMemoryManager(object):
 # -----------------------------------------------------
 # CUDA mpi management
 # -----------------------------------------------------
+def get_uuid(gpu_id):
+    """
+    Returns the UUID of a GPU device.
+
+    Parameters:
+    -----------
+    gpu_id: Local device id of the GPU (int)
+
+    Returns:
+    --------
+    uuid: Unique identifier (UUID) of the GPU (str)
+
+    """
+    # Get UUID using cupy
+    uuid = cupy.cuda.runtime.getDeviceProperties(gpu_id)['uuid']
+    # conversion strategy from numba PR #6700
+    b = '%02x'
+    b2 = b * 2
+    b4 = b * 4
+    b6 = b * 6
+    fmt = f'GPU-{b4}-{b2}-{b2}-{b2}-{b6}'
+    return fmt % tuple(bytes(uuid))
 
 def mpi_select_gpus(mpi):
     """
@@ -193,7 +215,20 @@ def mpi_select_gpus(mpi):
     for i_gpu in range(n_gpus):
         if rank%n_gpus == i_gpu:
             cuda.select_device(i_gpu)
+            uuid = get_uuid(i_gpu)
         mpi.COMM_WORLD.barrier()
+
+    # Gather unique GPU identifiers
+    uuids = mpi.COMM_WORLD.gather(uuid)
+
+    # Check that no GPU was selected more than once
+    if rank == 0:
+        if len(uuids) > len(set(uuids)):
+            warnings.warn("""
+            GPUs have been oversubscribed by MPI ranks. This means that the
+            same GPU was selected by more than one parallel process, which
+            will result in poor performance. (See the FBPIC output with
+            `verbose_level = 2` for more details.)""")
 
 
 # -----------------------------------------------------

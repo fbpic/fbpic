@@ -8,7 +8,7 @@ It defines a set of generic functions for printing simulation information.
 import sys, time
 from fbpic import __version__
 from fbpic.utils.mpi import MPI, mpi_installed, gpudirect_enabled
-from fbpic.utils.cuda import cuda, cuda_installed
+from fbpic.utils.cuda import cuda, cuda_installed, get_uuid
 if cuda_installed:
     from cupy.cuda.memory import OutOfMemoryError
 # Check if terminal is correctly set to UTF-8 and set progress character
@@ -262,12 +262,13 @@ def get_gpu_message():
     if MPI.COMM_WORLD.size > 1:
         rank = MPI.COMM_WORLD.rank
         node = MPI.Get_processor_name()
-        message = "\nMPI rank %d selected a %s GPU with id %s on node %s" %(
-            rank, gpu_name, gpu.id, node)
+        message = "\nMPI rank %d selected a %s GPU with id %s (UUID: %s) \
+            on node %s" %(rank, gpu_name, gpu.id, get_uuid(gpu.id), node)
     else:
-        message = "\nFBPIC selected a %s GPU with id %s" %( gpu_name, gpu.id )
+        message = "\nFBPIC selected a %s GPU with id %s (UUID: %s)" %(
+            gpu_name, gpu.id, get_uuid(gpu.id) )
         if mpi_installed:
-            node = MPI.Get_processor_name()            
+            node = MPI.Get_processor_name()
             message += " on node %s" %node
     return(message)
 
