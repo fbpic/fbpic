@@ -215,7 +215,7 @@ def check_consecutive_ranks_on_same_nodes(mpi):
             This type of MPI distribution can degrade the performance of FBPIC.\n
             Please check the options of your MPI launcher (e.g. `mpirun`, `srun`)\n
             in order to use a different MPI distribution.""")
-    standard_decomp = mpi.COMM_WORLD.scatter( standard_decomp, root=0 )
+    standard_decomp = mpi.COMM_WORLD.bcast( standard_decomp, root=0 )
     return standard_decomp
 
 
