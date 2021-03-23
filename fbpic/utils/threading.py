@@ -10,7 +10,7 @@ import warnings
 import numpy as np
 from numba import njit
 import numba
-numba_minor_version = int(numba.__version__.split('.')[1])
+numba_version = int(numba.__version__.split('.')[1])
 
 # By default threading is enabled, except on Windows (not supported by Numba)
 threading_enabled = True
