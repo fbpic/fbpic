@@ -280,11 +280,11 @@ def mpi_select_gpus(mpi):
     # Check that no GPU was selected more than once
     if rank == 0:
         if len(uuids) > len(set(uuids)):
-            warnings.warn("""
-            GPUs have been oversubscribed by MPI ranks. This means that the
-            same GPU was selected by more than one parallel process, which
-            will result in poor performance. (See the FBPIC output with
-            `verbose_level = 2` for more details.)""")
+            warnings.warn(
+            "GPUs have been oversubscribed by MPI ranks.\n"
+            "This means that the same GPU was selected by more than one "
+            "parallel process,\nwhich will result in poor performance.\n"
+            "(See the FBPIC output with `verbose_level = 2` for more details.)")
 
 
 # -----------------------------------------------------
