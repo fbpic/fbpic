@@ -262,14 +262,17 @@ def get_gpu_message():
     if MPI.COMM_WORLD.size > 1:
         rank = MPI.COMM_WORLD.rank
         node = MPI.Get_processor_name()
-        message = "\nMPI rank %d selected a %s GPU with id %s (UUID: %s) \
-            on node %s" %(rank, gpu_name, gpu.id, get_uuid(gpu.id), node)
+        message = "\nMPI rank %d selected a %s GPU with id %s on node %s" %(
+            rank, gpu_name, gpu.id, node)
     else:
-        message = "\nFBPIC selected a %s GPU with id %s (UUID: %s)" %(
-            gpu_name, gpu.id, get_uuid(gpu.id) )
+        message = "\nFBPIC selected a %s GPU with id %s" %( gpu_name, gpu.id )
         if mpi_installed:
             node = MPI.Get_processor_name()
             message += " on node %s" %node
+    # Print the GPU UUID, if available
+    uuid = get_uuid(gpu.id)
+    if uuid is not None:
+        message += "\n(GPU UUID: %s)"
     return(message)
 
 def get_cpu_message():

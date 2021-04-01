@@ -241,10 +241,10 @@ class Simulation(object):
             self.use_cuda = False
         # Check that cupy, numba and Python have the right version
         if self.use_cuda:
-            if cupy_version < (8,1):
+            if cupy_version < (7,0):
                 raise RuntimeError(
                     'In order to run on GPUs, FBPIC version 0.20 and later \n'
-                    'requires `cupy` version 8.1 (or later).\n(The `cupy` '
+                    'requires `cupy` version 7.0 (or later).\n(The `cupy` '
                     'version on your current system is %d.%d.)\nPlease '
                     'install the latest version of `cupy`.' %cupy_version)
             elif numba_version < (0,46):

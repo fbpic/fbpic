@@ -185,7 +185,7 @@ class GpuMemoryManager(object):
 
 def get_uuid(gpu_id):
     """
-    Returns the UUID of a GPU device.
+    Returns the UUID of a GPU device (or None if it cannot determine it)
 
     Parameters:
     -----------
@@ -194,8 +194,11 @@ def get_uuid(gpu_id):
     Returns:
     --------
     uuid: Unique identifier (UUID) of the GPU (str)
-
     """
+    # For cupy version below 8.1, we cannot determine the uuid
+    if cupy_version < (8,1):
+        return None
+
     # Get UUID using cupy
     uuid = cupy.cuda.runtime.getDeviceProperties(gpu_id)['uuid']
     # conversion strategy from numba PR #6700
@@ -279,7 +282,7 @@ def mpi_select_gpus(mpi):
 
     # Check that no GPU was selected more than once
     if rank == 0:
-        if len(uuids) > len(set(uuids)):
+        if not (None in uuids) and (len(uuids) > len(set(uuids))):
             warnings.warn(
             "GPUs have been oversubscribed by MPI ranks.\n"
             "This means that the same GPU was selected by more than one "
