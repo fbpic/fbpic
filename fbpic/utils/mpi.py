@@ -59,6 +59,9 @@ except ImportError:
         def barrier(self):
             pass
 
+        def gather(self, x):
+            return [x]
+
     class DummyMPI(object):
         """Dummy replacement for mpi4py.MPI when mpi4py is not installed."""
 
