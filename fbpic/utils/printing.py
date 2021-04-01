@@ -272,7 +272,7 @@ def get_gpu_message():
     # Print the GPU UUID, if available
     uuid = get_uuid(gpu.id)
     if uuid is not None:
-        message += "\n(GPU UUID: %s)"
+        message += "\n(GPU UUID: %s)" % uuid
     return(message)
 
 def get_cpu_message():
