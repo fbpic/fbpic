@@ -203,6 +203,12 @@ def get_uuid(gpu_id):
 
     # Get UUID using cupy
     uuid = cupy.cuda.runtime.getDeviceProperties(gpu_id)['uuid']
+
+    # Check the UUID length to prevent crashes
+    if len(uuid) != 16:
+        warnings.warn(f"Failed to detect UUID of GPU {gpu_id} (invalid UUID length: {len(uuid)})")
+        return None
+    
     # conversion strategy from numba PR #6700
     b = '%02x'
     b2 = b * 2
