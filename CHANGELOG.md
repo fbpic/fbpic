@@ -1,5 +1,10 @@
 # Change Log / Release Log for fbpic
 
+## 0.20.1
+
+This is a bug-fix release. It fixes errors that in detecting the GPU UUID on
+some plateforms (see [#529](https://github.com/fbpic/fbpic/pull/529)).
+
 ## 0.20.0
 
 This release introduces several improvements and bug fixes.
