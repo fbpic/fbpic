@@ -31,7 +31,7 @@ from fbpic.utils.threading import nthreads, get_chunk_indices
 from fbpic.utils.cuda import cuda_installed
 if cuda_installed:
     # Load the CUDA methods
-    import cupy    
+    import cupy
     from fbpic.utils.cuda import cuda_tpb_bpg_1d, cuda_gpu_model
     from .push.cuda_methods import push_p_gpu, push_p_ioniz_gpu, \
                                 push_p_after_plane_gpu, push_x_gpu
@@ -107,12 +107,10 @@ class Particles(object) :
            Normalized thermal momenta in each direction
 
         dens_func : callable, optional
-           A function of the form :
-           def dens_func( z, r ) ...
-           or
-           def dens_func( x, y, z ) ...
-           where x, y, z and r are 1d arrays, and which returns
-           a 1d array containing the density *relative to n*
+           A function of the form `dens_func( z, r )`
+           where `z` and `r` are 1d arrays, or `dens( x, y, z)`
+           where `x`, `y` and `z` are 1d arrays, and which returns
+           a 1d array containing the density *relative to `n`*
            (i.e. a number between 0 and 1) at the given positions
 
         continuous_injection : bool, optional

@@ -830,10 +830,10 @@ class Simulation(object):
            If `n` is not None, evenly-spaced macroparticles will be generated.
 
         dens_func : callable, optional
-           A function of the form :
-           def dens_func( z, r ) ...
-           where z and r are 1d arrays, and which returns
-           a 1d array containing the density *relative to n*
+           A function of the form `dens_func( z, r )`
+           where `z` and `r` are 1d arrays, or `dens( x, y, z)`
+           where `x`, `y` and `z` are 1d arrays, and which returns
+           a 1d array containing the density *relative to `n`*
            (i.e. a number between 0 and 1) at the given positions
 
         p_nz: int, optional
