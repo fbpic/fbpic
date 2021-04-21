@@ -36,6 +36,9 @@ setup(
     tests_require=['more-itertools<6.0.0', 'pytest', 'openpmd_viewer'],
     cmdclass={'test': PyTest},
     install_requires=install_requires,
+    extras_require = {
+        'picmi':  ["picmistandard", "numexpr", "periodictable"],
+    },
     include_package_data=True,
     platforms='any',
     url='http://github.com/fbpic/fbpic',

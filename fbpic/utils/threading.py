@@ -10,7 +10,8 @@ import warnings
 import numpy as np
 from numba import njit
 import numba
-numba_minor_version = int(numba.__version__.split('.')[1])
+numba_version = (int(numba.__version__.split('.')[0]),
+                 int(numba.__version__.split('.')[1]))
 
 # By default threading is enabled, except on Windows (not supported by Numba)
 threading_enabled = True
@@ -30,7 +31,7 @@ if threading_enabled:
         from numba import prange as numba_prange
         # Check that numba is version 0.34 or higher than 0.36
         # (other versions fail)
-        assert ( numba_minor_version==34 or numba_minor_version >= 36 )
+        assert ( numba_version[1]==34 or numba_version[1] >= 36 )
     except (ImportError, AssertionError):
         threading_enabled = False
         warnings.warn(
@@ -55,7 +56,7 @@ if not threading_enabled:
     nthreads = 1
 else:
     # Use the parallel compilation function (Use caching if available)
-    if numba_minor_version < 45:
+    if numba_version[1] < 45:
         caching = False
     njit_parallel = njit( parallel=True, cache=caching )
     prange = numba_prange

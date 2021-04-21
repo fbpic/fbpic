@@ -11,10 +11,10 @@ This file steers and controls the simulation.
 # as it sets the cuda context)
 from fbpic.utils.mpi import MPI
 # Check if threading is available
-from .utils.threading import threading_enabled, numba_minor_version
+from .utils.threading import threading_enabled, numba_version
 # Check if CUDA is available, then import CUDA functions
 from .utils.cuda import cuda_installed, \
-    cupy_installed, cupy_major_version, numba_cuda_installed
+    cupy_installed, cupy_version, numba_cuda_installed
 if cuda_installed:
     from .utils.cuda import send_data_to_gpu, \
                 receive_data_from_gpu, mpi_select_gpus
@@ -241,18 +241,18 @@ class Simulation(object):
             self.use_cuda = False
         # Check that cupy, numba and Python have the right version
         if self.use_cuda:
-            if cupy_major_version < 7:
+            if cupy_version < (7,0):
                 raise RuntimeError(
-                    'In order to run on GPUs, FBPIC version 0.16 and later \n'
-                    'requires `cupy` version 7 (or later).\n(The `cupy` version'
-                    ' on your current system is %d.)\nPlease install the '
-                    'latest version of `cupy`.' %cupy_major_version)
-            elif numba_minor_version < 46:
+                    'In order to run on GPUs, FBPIC version 0.20 and later \n'
+                    'requires `cupy` version 7.0 (or later).\n(The `cupy` '
+                    'version on your current system is %d.%d.)\nPlease '
+                    'install the latest version of `cupy`.' %cupy_version)
+            elif numba_version < (0,46):
                 raise RuntimeError(
                     'In order to run on GPUs, FBPIC version 0.16 and later \n'
                     'requires `numba` version 0.46 (or later).\n(The `numba` '
-                    'version on your current system is 0.%d.)\nPlease install'
-                    ' the latest version of `numba`.' %numba_minor_version)
+                    'version on your current system is %d.%d.)\nPlease install'
+                    ' the latest version of `numba`.' %numba_version)
             elif sys.version_info.major < 3:
                 raise RuntimeError(
                     'In order to run on GPUs, FBPIC version 0.16 and later \n'
@@ -336,6 +336,8 @@ class Simulation(object):
         self.checkpoints = []
         # Initialize an empty list of laser antennas
         self.laser_antennas = []
+        # Initialize an empty list of mirrors
+        self.mirrors = []
 
         # Print simulation setup
         print_simulation_setup( self, verbose_level=verbose_level )
@@ -548,6 +550,7 @@ class Simulation(object):
             # Handle boundaries for the E and B fields:
             # - MPI exchanges for guard cells
             # - Damp fields in damping cells
+            # - Set fields to 0 at the position of the mirrors
             # - Update the fields in interpolation space
             #  (needed for the field gathering at the next iteration)
             self.exchange_and_damp_EB()
@@ -716,6 +719,7 @@ class Simulation(object):
         Handle boundaries for the E and B fields:
          - MPI exchanges for guard cells
          - Damp fields in damping cells (in z, and in r if PML are used)
+         - Set fields to 0 at the position of the mirrors
          - Update the fields in interpolation space
         """
         # Shortcut
@@ -741,6 +745,10 @@ class Simulation(object):
         self.comm.damp_EB_open_boundary( fld.interp ) # Damp along z
         if self.use_pml:
             self.comm.damp_pml_EB( fld.interp ) # Damp in radial PML
+
+        # - Set fields to 0 at the position of the mirrors
+        for mirror in self.mirrors:
+            mirror.set_fields_to_zero( fld.interp, self.comm, self.time )
 
         # - Update spectral space (and interpolation space if needed)
         if self.use_pml:

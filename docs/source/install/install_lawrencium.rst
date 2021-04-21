@@ -83,7 +83,7 @@ In order to request a node with a GPU:
 
 ::
 
-    salloc --time=00:30:00 --nodes=1 --partition es1  --constraint=es1_1080ti --qos=es_normal --gres=gpu:4 --cpus-per-task=2
+    salloc --time=00:30:00 --nodes=1 --partition es1  --constraint=es1_1080ti --qos=es_normal --gres=gpu:4 --cpus-per-task=8
 
 Once the job has started, type
 
