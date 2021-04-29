@@ -13,7 +13,7 @@ import numpy as np
 from scipy.special import jn, jn_zeros
 
 # Check if CUDA is available, then import CUDA functions
-from fbpic.utils.cuda import cuda_installed
+from fbpic.utils.cuda import cuda_installed, cupy_version
 from .numba_methods import numba_copy_2dC_to_2dR, numba_copy_2dR_to_2dC
 if cuda_installed:
     from fbpic.utils.cuda import cuda_tpb_bpg_2d, cuda_gpu_model
@@ -140,6 +140,12 @@ class DHT(object):
             zero_array = np.zeros((2*Nz, Nr), dtype=np.float64)
             self.d_in = cupy.asarray( zero_array )
             self.d_out = cupy.asarray( zero_array )
+            # Initialize additional scalars passed to cuBLAS dgemm()
+            self.alpha = 1
+            self.beta = 0
+            if cupy_version >= (9,0):
+                self.alpha = cupy.array(alpha, dtype=d_in.dtype).data.ptr
+                self.beta = cupy.array(beta, dtype=d_in.dtype).data.ptr
             # Initialize cuBLAS
             self.blas = device.get_cublas_handle()
             # Set optimal number of CUDA threads per block
@@ -190,9 +196,9 @@ class DHT(object):
             cuda_copy_2dC_to_2dR[self.dim_grid, self.dim_block]( F, self.d_in )
             # Call cuBLAS gemm kernel
             cublas.dgemm(self.blas, 0, 0, self.Nr, 2*self.Nz, self.Nr,
-                         1, self.d_M.data.ptr, self.Nr,
-                            self.d_in.data.ptr, self.Nr,
-                         0, self.d_out.data.ptr, self.Nr)
+                         self.alpha, self.d_M.data.ptr, self.Nr,
+                         self.d_in.data.ptr, self.Nr,
+                         self.beta, self.d_out.data.ptr, self.Nr)
             # Convert F-order, real `d_out` to the C-order, complex `G`
             cuda_copy_2dR_to_2dC[self.dim_grid, self.dim_block]( self.d_out, G )
         else:
@@ -221,9 +227,9 @@ class DHT(object):
             cuda_copy_2dC_to_2dR[self.dim_grid, self.dim_block](G, self.d_in )
             # Call cuBLAS gemm kernel
             cublas.dgemm(self.blas, 0, 0, self.Nr, 2*self.Nz, self.Nr,
-                         1, self.d_invM.data.ptr, self.Nr,
-                            self.d_in.data.ptr, self.Nr,
-                         0, self.d_out.data.ptr, self.Nr)
+                         self.alpha, self.d_invM.data.ptr, self.Nr,
+                         self.d_in.data.ptr, self.Nr,
+                         self.beta, self.d_out.data.ptr, self.Nr)
             # Convert the F-order d_out array to the C-order F array
             cuda_copy_2dR_to_2dC[self.dim_grid, self.dim_block]( self.d_out, F )
         else:
