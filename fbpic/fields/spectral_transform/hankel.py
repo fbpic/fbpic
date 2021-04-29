@@ -144,8 +144,10 @@ class DHT(object):
             self.alpha = 1
             self.beta = 0
             if cupy_version >= (9,0):
-                self.alpha = cupy.array(alpha, dtype=d_in.dtype).data.ptr
-                self.beta = cupy.array(beta, dtype=d_in.dtype).data.ptr
+                self.alpha_ary = cupy.array(self.alpha, dtype=self.d_in.dtype)
+                self.alpha = self.alpha_ary.data.ptr
+                self.beta_ary = cupy.array(self.beta, dtype=self.d_in.dtype)
+                self.beta = self.beta_ary.data.ptr
             # Initialize cuBLAS
             self.blas = device.get_cublas_handle()
             # Set optimal number of CUDA threads per block
