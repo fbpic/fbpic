@@ -1,5 +1,11 @@
 # Change Log / Release Log for fbpic
 
+## 0.20.2
+
+This is a bug-fix release. It allows FBPIC to run with the latest
+`cupy` version (`cupy 9.0.0`) on GPU
+(see [#532](https://github.com/fbpic/fbpic/pull/532)).
+
 ## 0.20.1
 
 This is a bug-fix release. It fixes errors that in detecting the GPU UUID on
