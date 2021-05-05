@@ -5,8 +5,8 @@ Installing FBPIC
 ------------------
 
 The installation requires the
-`Anaconda <https://www.continuum.io/why-anaconda>`__ distribution of
-Python. If Anaconda is not your default Python distribution, download and install it from `here <https://www.continuum.io/downloads>`__.
+`Anaconda <https://docs.anaconda.com/anaconda/>`__ distribution of
+Python. If Anaconda is not your default Python distribution, download and install it from `here <https://docs.anaconda.com/anaconda/install/>`__.
 
 **Installation steps**:
 

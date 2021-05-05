@@ -65,10 +65,10 @@ def add_particle_bunch(sim, q, m, gamma0, n, p_zmin, p_zmax, p_rmin, p_rmax,
         Number of macroparticles along the theta direction
 
     dens_func : callable, optional
-        A function of the form :
-        `def dens_func( z, r ) ...`
-        where `z` and `r` are 1d arrays, and which returns
-        a 1d array containing the density *relative to n*
+        A function of the form `dens_func( z, r )`
+        where `z` and `r` are 1d arrays, or `dens( x, y, z)`
+        where `x`, `y` and `z` are 1d arrays, and which returns
+        a 1d array containing the density *relative to `n`*
         (i.e. a number between 0 and 1) at the given positions.
 
        For boosted-frame simulation: if you set

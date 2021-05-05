@@ -11,10 +11,10 @@ This file steers and controls the simulation.
 # as it sets the cuda context)
 from fbpic.utils.mpi import MPI
 # Check if threading is available
-from .utils.threading import threading_enabled, numba_minor_version
+from .utils.threading import threading_enabled, numba_version
 # Check if CUDA is available, then import CUDA functions
 from .utils.cuda import cuda_installed, \
-    cupy_installed, cupy_major_version, numba_cuda_installed
+    cupy_installed, cupy_version, numba_cuda_installed
 if cuda_installed:
     from .utils.cuda import send_data_to_gpu, \
                 receive_data_from_gpu, mpi_select_gpus
@@ -242,18 +242,18 @@ class Simulation(object):
             self.use_cuda = False
         # Check that cupy, numba and Python have the right version
         if self.use_cuda:
-            if cupy_major_version < 7:
+            if cupy_version < (7,0):
                 raise RuntimeError(
-                    'In order to run on GPUs, FBPIC version 0.16 and later \n'
-                    'requires `cupy` version 7 (or later).\n(The `cupy` version'
-                    ' on your current system is %d.)\nPlease install the '
-                    'latest version of `cupy`.' %cupy_major_version)
-            elif numba_minor_version < 46:
+                    'In order to run on GPUs, FBPIC version 0.20 and later \n'
+                    'requires `cupy` version 7.0 (or later).\n(The `cupy` '
+                    'version on your current system is %d.%d.)\nPlease '
+                    'install the latest version of `cupy`.' %cupy_version)
+            elif numba_version < (0,46):
                 raise RuntimeError(
                     'In order to run on GPUs, FBPIC version 0.16 and later \n'
                     'requires `numba` version 0.46 (or later).\n(The `numba` '
-                    'version on your current system is 0.%d.)\nPlease install'
-                    ' the latest version of `numba`.' %numba_minor_version)
+                    'version on your current system is %d.%d.)\nPlease install'
+                    ' the latest version of `numba`.' %numba_version)
             elif sys.version_info.major < 3:
                 raise RuntimeError(
                     'In order to run on GPUs, FBPIC version 0.16 and later \n'
@@ -832,10 +832,10 @@ class Simulation(object):
            If `n` is not None, evenly-spaced macroparticles will be generated.
 
         dens_func : callable, optional
-           A function of the form :
-           def dens_func( z, r ) ...
-           where z and r are 1d arrays, and which returns
-           a 1d array containing the density *relative to n*
+           A function of the form `dens_func( z, r )`
+           where `z` and `r` are 1d arrays, or `dens( x, y, z)`
+           where `x`, `y` and `z` are 1d arrays, and which returns
+           a 1d array containing the density *relative to `n`*
            (i.e. a number between 0 and 1) at the given positions
 
            For boosted-frame simulation: if you set

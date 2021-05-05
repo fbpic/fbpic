@@ -1,5 +1,5 @@
 # Copyright 2020, FBPIC contributors
-# Authors: Remi Lehe, Manuel Kirchen
+# Authors: Remi Lehe, Manuel Kirchen, Alberto de la Ossa
 # License: 3-Clause-BSD-LBNL
 """
 This file is part of the Fourier-Bessel Particle-In-Cell code (FB-PIC)
@@ -8,34 +8,47 @@ thin slice orthogonal to z
 """
 from scipy.constants import c
 
+
 class Mirror(object):
 
-    def __init__( self, z_lab, n_cells=2, gamma_boost=None ):
+    def __init__( self, z_start, z_end, gamma_boost=None, m='all'):
         """
         Initialize a mirror.
 
         The mirror reflects the fields in the z direction, by setting the
-        fields to 0 in a thin slice orthogonal to z, at each timestep.s
+        specified field modes to 0 in a thin slice orthogonal to z, at each timestep.s
+        By default, all modes are zeroed.
 
         Parameters
         ----------
-        z_lab: float
-            Position of the mirror in the lab frame
+        z_start: float
+            Start position of the mirror in the lab frame
 
-        n_cells: int
-            Thickness of the mirror, i.e. number of cells that are
-            set to 0 (to the right side of `z_lab`)
+        z_end: float
+            End position of the mirror in the lab frame
 
         gamma_boost: float
             For boosted-frame simulation: Lorentz factor of the boost
+
+        m: int or list of ints
+            Specify the field modes to set to zero
+            By default, takes all modes to zero
         """
-        self.z_lab = z_lab
+        
+        self.z_start = z_start
+        self.z_end = z_end
         self.gamma_boost = gamma_boost
-        self.n_cells = n_cells
 
-        pass
+        if m == 'all':
+            self.modes = None
+        elif isinstance(m, int):
+            self.modes = [m]
+        elif isinstance(m, list):
+            self.modes = m
+        else:
+            raise TypeError('m should be an int or a list of ints.')
 
-    def set_fields_to_zero( self, interp, comm, t_boost ):
+    def set_fields_to_zero( self, interp, comm, t_boost):
         """
         Set the fields to 0 in a slice orthogonal to z
 
@@ -50,21 +63,32 @@ class Mirror(object):
         """
         # Lorentz transform
         if self.gamma_boost is None:
-            z_boost = self.z_lab
+            z_start_boost, z_end_boost = self.z_start, self.z_end
         else:
-            beta_boost = (1. - 1./self.gamma_boost**2)**.5
-            z_boost = 1./self.gamma_boost*self.z_lab - beta_boost * c * t_boost
+            beta_boost = (1. - 1. / self.gamma_boost**2)**.5
+            z_start_boost = 1. / self.gamma_boost * self.z_start - beta_boost * c * t_boost
+            z_end_boost = 1. / self.gamma_boost * self.z_end - beta_boost * c * t_boost
 
         # Calculate indices in z between which the field should be set to 0
         zmin, zmax = comm.get_zmin_zmax( local=True,
-                        with_guard=True, with_damp=True, rank=comm.rank )
-        if (z_boost < zmin) or (z_boost >= zmax):
+                        with_guard=True, with_damp=True, rank=comm.rank)
+        if (z_start_boost < zmin) or (z_start_boost >= zmax):
             return
-        imax = int( (z_boost-zmin)/interp[0].dz )
-        imin = max( imax-self.n_cells, 0 )
+
+        imax = int( (z_start_boost - zmin) / interp[0].dz)
+        n_cells = int( (z_end_boost - z_start_boost) / interp[0].dz)
+        imin = max( imax - n_cells, 0)
 
         # Set fields (E, B) to 0 on CPU or GPU
-        for grid in interp:
-            for field in ['Er', 'Et', 'Ez', 'Br', 'Bt', 'Bz']:
-                arr = getattr( grid, field )
-                arr[ imin:imax, : ] = 0.  # Uses numpy/cupy syntax
+        for i, grid in enumerate(interp):
+
+            if self.modes is not None:
+                if i not in self.modes:
+                    continue
+            
+            fieldlist = ['Er', 'Et', 'Ez', 'Br', 'Bt', 'Bz']
+            if grid.use_pml:
+                fieldlist = fieldlist + ['Er_pml', 'Et_pml', 'Br_pml', 'Bt_pml']
+            for field in fieldlist:
+                arr = getattr( grid, field)
+                arr[ imin:imax, :] = 0.  # Uses numpy/cupy syntax

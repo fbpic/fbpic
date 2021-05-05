@@ -25,7 +25,7 @@ To load the standard modules the ``.bashrc`` should contain the following:
 Installation of Anaconda
 ------------------------------------------------
 
-In order to download and install `Anaconda <https://www.continuum.io/downloads>`__, type:
+In order to download and install `Anaconda <https://docs.anaconda.com/anaconda/>`__, type:
 
 ::
 

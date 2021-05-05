@@ -5,8 +5,10 @@
 This file is part of the Fourier-Bessel Particle-In-Cell code (FB-PIC)
 It defines a set of generic functions that operate on a GPU.
 """
+import warnings
 import numba
-numba_minor_version = int(numba.__version__.split('.')[1])
+numba_version = (int(numba.__version__.split('.')[0]),
+                 int(numba.__version__.split('.')[1]))
 from numba import cuda
 import numpy as np
 
@@ -17,21 +19,24 @@ except Exception:
     numba_cuda_installed = False
 
 if numba_cuda_installed:
-    # Infer if GPU is P100 or V100 or other
+    # Infer if GPU is P100, V100, A100 or other
     if "P100" in str(cuda.gpus[0]._device.name):
         cuda_gpu_model = "P100"
     elif "V100" in str(cuda.gpus[0]._device.name):
         cuda_gpu_model = "V100"
+    elif "A100" in str(cuda.gpus[0]._device.name):
+        cuda_gpu_model = "V100" # force to V100
     else:
         cuda_gpu_model = "other"
 
 try:
     import cupy
     cupy_installed = cupy.is_available()
-    cupy_major_version = int(cupy.__version__[0])
+    cupy_version = (int(cupy.__version__.split('.')[0]),
+                    int(cupy.__version__.split('.')[1]))
 except (ImportError, AssertionError):
     cupy_installed = False
-    cupy_major_version = None
+    cupy_version = None
 
 cuda_installed = (numba_cuda_installed and cupy_installed)
 
@@ -180,20 +185,117 @@ class GpuMemoryManager(object):
 # CUDA mpi management
 # -----------------------------------------------------
 
+def get_uuid(gpu_id):
+    """
+    Returns the UUID of a GPU device (or None if it cannot determine it)
+
+    Parameters:
+    -----------
+    gpu_id: Local device id of the GPU (int)
+
+    Returns:
+    --------
+    uuid: Unique identifier (UUID) of the GPU (str)
+    """
+    # For cupy version below 8.1, we cannot determine the uuid
+    if cupy_version < (8,1):
+        return None
+
+    # Get UUID using cupy
+    uuid = cupy.cuda.runtime.getDeviceProperties(gpu_id)['uuid']
+
+    # Check the UUID length to prevent crashes
+    if len(uuid) != 16:
+        warnings.warn(f"Failed to detect UUID of GPU {gpu_id} (invalid UUID length: {len(uuid)})")
+        return None
+    
+    # conversion strategy from numba PR #6700
+    b = '%02x'
+    b2 = b * 2
+    b4 = b * 4
+    b6 = b * 6
+    fmt = f'GPU-{b4}-{b2}-{b2}-{b2}-{b6}'
+    return fmt % tuple(bytes(uuid))
+
+
+def check_consecutive_ranks_on_same_nodes(mpi):
+    """
+    Check that consecutive MPI ranks are on the same nodes, and
+    return a corresponding boolean. Print a warning message if
+    it is not the case, this this can affect performance.
+    """
+    # Skip this function if there is only one MPI rank
+    if mpi.COMM_WORLD.size == 1:
+        return True
+
+    # Check that the decomposition is standard, raise a warning otherwise
+    nodes = mpi.COMM_WORLD.gather( mpi.Get_processor_name(), root=0 )
+    standard_decomp = None
+    if mpi.COMM_WORLD.rank == 0:
+        # Check that consecutive MPI ranks are on the same node
+        standard_decomp = True
+        unique_nodes = [ nodes[0] ]  # Initialize list of unique nodes
+        for i in range(1, len(nodes)):
+            if nodes[i] != nodes[i-1]: # Consecutive ranks not on the same node
+                if nodes[i] not in unique_nodes:
+                    unique_nodes.append( nodes[i] )
+                else:
+                    # This node was seen before ; this means that several
+                    # MPI ranks selected it, but that they are not consecutive.
+                    standard_decomp = False
+                    break
+        # Print a corresponding warning
+        if not standard_decomp:
+            warnings.warn(
+            "It seems that the distribution of MPI ranks on compute nodes is such\n"
+            "that consecutive MPI ranks are not located on the same node.\n"
+            "(See the FBPIC output with `verbose_level = 2` for more details.)\n"
+            "This type of MPI distribution can degrade the performance of FBPIC.\n"
+            "Please check the options of your MPI launcher (e.g. `mpirun`, `srun`)\n"
+            "in order to use a different MPI distribution.")
+    standard_decomp = mpi.COMM_WORLD.bcast( standard_decomp, root=0 )
+    return standard_decomp
+
+
 def mpi_select_gpus(mpi):
     """
     Selects the correct GPU used by the current MPI process
+    using the MPI rank
 
     Parameters :
     ------------
     mpi: an mpi4py.MPI object
     """
+    std_decomp = check_consecutive_ranks_on_same_nodes(mpi)
+    if not std_decomp:
+        # Convert node name to integer, and create a local communicator
+        # for MPI ranks that are on the same node
+        node_name = mpi.Get_processor_name()
+        color = int.from_bytes( node_name.encode(), 'little') % 100000000
+        comm = mpi.COMM_WORLD.Split(color=color)
+    else:
+        comm = mpi.COMM_WORLD
+
+    # Attribute a GPU to each rank
     n_gpus = len(cuda.gpus)
-    rank = mpi.COMM_WORLD.rank
+    rank = comm.rank
     for i_gpu in range(n_gpus):
         if rank%n_gpus == i_gpu:
             cuda.select_device(i_gpu)
+            uuid = get_uuid(i_gpu)
         mpi.COMM_WORLD.barrier()
+
+    # Gather unique GPU identifiers
+    uuids = mpi.COMM_WORLD.gather(uuid)
+
+    # Check that no GPU was selected more than once
+    if rank == 0:
+        if not (None in uuids) and (len(uuids) > len(set(uuids))):
+            warnings.warn(
+            "GPUs have been oversubscribed by MPI ranks.\n"
+            "This means that the same GPU was selected by more than one "
+            "parallel process,\nwhich will result in poor performance.\n"
+            "(See the FBPIC output with `verbose_level = 2` for more details.)")
 
 
 # -----------------------------------------------------
@@ -290,7 +392,7 @@ if cuda_installed:
             module.load(bytes(numba_kernel.ptx, 'UTF-8'))
 
             # Save the resulting Cupy kernel
-            if numba_minor_version > 50:
+            if numba_version[1] > 50:
                 kernel_name = numba_kernel.definition.entry_name
             else:
                 kernel_name = numba_kernel.entry_name
@@ -368,7 +470,7 @@ if cuda_installed:
 
                         # Cache the resulting Cupy kernel in a dictionary using
                         # the hash
-                        if numba_minor_version > 50:
+                        if numba_version[1] > 50:
                             kernel_name = numba_kernel.definition.entry_name
                         else:
                             kernel_name = numba_kernel.entry_name
