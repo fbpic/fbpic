@@ -21,9 +21,15 @@ import numpy as np
 
 # Load the MKL Library for the current plateform
 if sys.platform in ['linux', 'linux2']:
-    mkl = ctypes.CDLL('libmkl_rt.so')
+    try:
+        mkl = ctypes.CDLL('libmkl_rt.so')
+    except OSError:
+        mkl = ctypes.CDLL('libmkl_rt.so.1')
 elif sys.platform == 'darwin':
-    mkl = ctypes.CDLL('libmkl_rt.1.dylib')
+    try:
+        mkl = ctypes.CDLL('libmkl_rt.dylib')
+    except OSError:
+        mkl = ctypes.CDLL('libmkl_rt.1.dylib')
 elif sys.platform == 'win32':
     mkl = ctypes.CDLL('mkl_rt.dll')
 else:
