@@ -182,9 +182,14 @@ class ContinuousInjector( object ):
 
         # Create new particle cells
         # Determine the positions between which new particles will be created
+        Npz = self.nz_inject
         zmax = self.z_end_plasma
         zmin = self.z_end_plasma - self.nz_inject*self.dz_particles
-        Npz = 0 if (self.p_extent and (zmax < self.p_extent[0] or zmin > self.p_extent[1])) else self.nz_inject
+
+        if self.p_extent is not None:
+            if (zmax < self.p_extent[0] or zmin > self.p_extent[1]):
+                Npz = 0
+
         # Create the particles
         Ntot, x, y, z, ux, uy, uz, inv_gamma, w = generate_evenly_spaced(
                 Npz, zmin, zmax, self.Npr, self.rmin, self.rmax,
