@@ -911,6 +911,9 @@ class Simulation(object):
                 # Finally transform the longitudinal momentum
                 uz_m = self.boost.gamma0*( uz_m - self.boost.beta0*gamma_m )
 
+            # Store p_zmin and p_zmax to pass to Particles
+            p_extent = (p_zmin, p_zmax)
+
             # Modify input particle bounds, in order to only initialize the
             # particles in the local sub-domain
             zmin_local_domain, zmax_local_domain = self.comm.get_zmin_zmax(
@@ -957,7 +960,7 @@ class Simulation(object):
                         ux_m=ux_m, uy_m=uy_m, uz_m=uz_m,
                         ux_th=ux_th, uy_th=uy_th, uz_th=uz_th,
                         continuous_injection=continuous_injection,
-                        dz_particles=dz_particles )
+                        dz_particles=dz_particles, p_extent=p_extent )
 
         # Add it to the list of species and return it to the user
         self.ptcl.append( new_species )
