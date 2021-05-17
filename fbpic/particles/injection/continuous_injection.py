@@ -182,9 +182,11 @@ class ContinuousInjector( object ):
 
         # Create new particle cells
         # Determine the positions between which new particles will be created
-        Npz = self.nz_inject
         zmax = self.z_end_plasma
         zmin = self.z_end_plasma - self.nz_inject*self.dz_particles
+        Npz = 0 if (p_extent is not None and len(p_extent)>1
+                    and (zmax < self.p_extent[0] or zmin > self.p_extent[1]))
+                else self.nz_inject
 
         if self.p_extent is not None:
             if (zmax < self.p_extent[0] or zmin > self.p_extent[1]):

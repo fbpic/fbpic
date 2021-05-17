@@ -872,6 +872,9 @@ class Simulation(object):
         -------
         new_species: an instance of the `Particles` class
         """
+        # Store p_zmin and p_zmax to pass to Particles
+        p_extent = (p_zmin, p_zmax)
+
         # Check if any macroparticle need to be injected
         if n is not None:
             # Check that all required arguments are passed
@@ -910,9 +913,6 @@ class Simulation(object):
                             (1. - self.boost.beta0*beta_m) * uz_th
                 # Finally transform the longitudinal momentum
                 uz_m = self.boost.gamma0*( uz_m - self.boost.beta0*gamma_m )
-
-            # Store p_zmin and p_zmax to pass to Particles
-            p_extent = (p_zmin, p_zmax)
 
             # Modify input particle bounds, in order to only initialize the
             # particles in the local sub-domain
