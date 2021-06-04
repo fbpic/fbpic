@@ -389,10 +389,17 @@ if cuda_installed:
             # Create a Cupy kernel module and load the PTX code of the
             # numba kernel
             module = cupy.cuda.function.Module()
-            module.load(bytes(numba_kernel.ptx, 'UTF-8'))
+            if numba_version[1] >= 53:
+                ptx = next(iter(numba_kernel.overloads.values())).ptx
+                module.load(bytes(ptx, 'UTF-8'))
+            else:
+                module.load(bytes(numba_kernel.ptx, 'UTF-8'))
 
             # Save the resulting Cupy kernel
-            if numba_version[1] > 50:
+            if numba_version[1] >= 53:
+                definition = next(iter(numba_kernel.overloads.values()))
+                kernel_name = definition.entry_name
+            elif numba_version[1] > 50:
                 kernel_name = numba_kernel.definition.entry_name
             else:
                 kernel_name = numba_kernel.entry_name
@@ -466,11 +473,18 @@ if cuda_installed:
                         # Create a Cupy kernel module and load the PTX code of the
                         # numba kernel
                         module = cupy.cuda.function.Module()
-                        module.load(bytes(numba_kernel.ptx, 'UTF-8'))
+                        if numba_version[1] >= 53:
+                            ptx = next(iter(numba_kernel.overloads.values())).ptx
+                            module.load(bytes(ptx, 'UTF-8'))
+                        else:
+                            module.load(bytes(numba_kernel.ptx, 'UTF-8'))
 
                         # Cache the resulting Cupy kernel in a dictionary using
                         # the hash
-                        if numba_version[1] > 50:
+                        if numba_version[1] >= 53:
+                            definition = next(iter(numba_kernel.overloads.values()))
+                            kernel_name = definition.entry_name
+                        elif numba_version[1] > 50:
                             kernel_name = numba_kernel.definition.entry_name
                         else:
                             kernel_name = numba_kernel.entry_name
