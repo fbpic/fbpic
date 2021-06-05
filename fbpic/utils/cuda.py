@@ -372,6 +372,36 @@ if cuda_installed:
             # Flag to save whether the kernel has been explicitly specialized
             self.is_specialized = False
 
+        def make_cupy_kernel(self, numba_kernel):
+            """
+            Helper function to convert an already compiled numba kernel into
+            a cupy kernel.
+
+            Parameters:
+            -----------
+            numba_kernel: a numba kernel object.
+            """
+
+            # Create a Cupy kernel module and load the PTX code of the
+            # numba kernel
+            module = cupy.cuda.function.Module()
+            if numba_version[1] >= 53:
+                ptx = next(iter(numba_kernel.overloads.values())).ptx
+                module.load(bytes(ptx, 'UTF-8'))
+            else:
+                module.load(bytes(numba_kernel.ptx, 'UTF-8'))
+
+            # Extract the cupy kernel
+            if numba_version[1] >= 53:
+                definition = next(iter(numba_kernel.overloads.values()))
+                kernel_name = definition.entry_name
+            elif numba_version[1] > 50:
+                kernel_name = numba_kernel.definition.entry_name
+            else:
+                kernel_name = numba_kernel.entry_name
+
+            return module.get_function( kernel_name )
+
         def specialize(self, signature):
             """
             Specialize a kernel for an explicit function signature. The kernel
@@ -386,17 +416,8 @@ if cuda_installed:
             # using cuda.jit
             numba_kernel = cuda.jit(signature)(self.python_func)
 
-            # Create a Cupy kernel module and load the PTX code of the
-            # numba kernel
-            module = cupy.cuda.function.Module()
-            module.load(bytes(numba_kernel.ptx, 'UTF-8'))
-
-            # Save the resulting Cupy kernel
-            if numba_version[1] > 50:
-                kernel_name = numba_kernel.definition.entry_name
-            else:
-                kernel_name = numba_kernel.entry_name
-            self.specialized_kernel = module.get_function( kernel_name )
+            # Convert the kernel into a cupy kernel
+            self.specialized_kernel = self.make_cupy_kernel( numba_kernel )
             self.is_specialized = True
 
             return self
@@ -463,18 +484,9 @@ if cuda_installed:
                         numba_kernel = cuda.jit()(self.python_func) \
                             .specialize(*args)
 
-                        # Create a Cupy kernel module and load the PTX code of the
-                        # numba kernel
-                        module = cupy.cuda.function.Module()
-                        module.load(bytes(numba_kernel.ptx, 'UTF-8'))
-
-                        # Cache the resulting Cupy kernel in a dictionary using
-                        # the hash
-                        if numba_version[1] > 50:
-                            kernel_name = numba_kernel.definition.entry_name
-                        else:
-                            kernel_name = numba_kernel.entry_name
-                        self.kernel_dict[hash] = module.get_function( kernel_name )
+                        # Convert the kernel into a cupy kernel and cache it in
+                        # a dictionary using the hash
+                        self.kernel_dict[hash] = self.make_cupy_kernel( numba_kernel )
 
                     # Get the correct kernel from the cache
                     kernel = self.kernel_dict[hash]
