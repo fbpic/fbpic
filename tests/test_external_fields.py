@@ -75,7 +75,7 @@ def run_external_laser_field_simulation(show, gamma_boost=None):
     # Initialize the simulation
     sim = Simulation( Nz, zmax, Nr, rmax, Nm, dt,
         initialize_ions=False, zmin=zmin,
-        use_cuda=use_cuda, boundaries='periodic',
+        use_cuda=use_cuda, boundaries={'z':'periodic', 'r':'reflective'},
         gamma_boost=gamma_boost )
     # Add electrons
     sim.ptcl = []

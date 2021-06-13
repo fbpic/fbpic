@@ -111,7 +111,7 @@ def test_laser_periodic(show=False):
 
     # Initialize the simulation object
     sim = Simulation( Nz, zmax, Nr, rmax, Nm, dt,
-                      zmin=zmin, boundaries='periodic' )
+                      zmin=zmin, boundaries={'z':'periodic', 'r':'reflective'} )
 
     # Initialize the laser fields
     profile = FewCycleLaser(a0=a0, waist=w0, tau_fwhm=tau_fwhm, z0=0, zf=zfoc)
