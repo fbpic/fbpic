@@ -61,7 +61,7 @@ def charge_cylinder(shape, show=False):
     # Initialize the simulation object
     sim = Simulation( Nz, zmax, Nr, rmax, Nm, (zmax-zmin)/Nz/c,
         p_zmin, p_zmax, p_rmin, p_rmax, p_nz, p_nr, p_nt, n_e,
-        zmin=zmin, boundaries='periodic', verbose_level=0,
+        zmin=zmin, boundaries={'z':'periodic', 'r':'reflective'}, verbose_level=0,
         smoother=BinomialSmoother(1, False), particle_shape=shape)
     # store results in dict
     res = {}

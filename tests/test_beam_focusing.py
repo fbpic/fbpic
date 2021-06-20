@@ -112,7 +112,7 @@ def simulate_beam_focusing( z_injection_plane, write_dir ):
     """
     # Initialize the simulation object
     sim = Simulation( Nz, zmax, Nr, rmax, Nm, dt, zmin=zmin,
-        gamma_boost=gamma_boost, boundaries='open',
+        gamma_boost=gamma_boost, boundaries={'z':'open', 'r':'reflective'},
         use_cuda=use_cuda, v_comoving=v_comoving )
     # Note: no macroparticles get created because we do not pass
     # the density and number of particle per cell
