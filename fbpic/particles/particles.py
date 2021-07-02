@@ -830,7 +830,7 @@ class Particles(object) :
                                   'linear' or 'cubic' \
                                    but is `%s`" % self.particle_shape)
 
-    def deposit( self, fld, fieldtype ) :
+    def deposit( self, fld, fieldtype, account_ion_charge=True ) :
         """
         Deposit the particles charge or current onto the grid
 
@@ -846,6 +846,10 @@ class Particles(object) :
         fieldtype : string
              Indicates which field to deposit
              Either 'J' or 'rho'
+
+        account_ion_charge : bool
+            Choose if to take into account the actual charge state of ions
+            or to consider ions having Z=1.
         """
         # Skip deposition for neutral particles (e.g. photons)
         if self.q == 0:
@@ -867,7 +871,7 @@ class Particles(object) :
         # For ionizable atoms: set the effective weight to the weight
         # times the ionization level (on GPU, this needs to be done *after*
         # sorting, otherwise `weight` is not equal to the corresponding array)
-        if self.ionizer is not None:
+        if self.ionizer is not None and account_ion_charge:
             weight = self.ionizer.w_times_level
         else:
             weight = self.w

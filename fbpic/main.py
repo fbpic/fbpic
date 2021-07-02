@@ -585,7 +585,8 @@ class Simulation(object):
 
 
     def deposit( self, fieldtype, exchange=False,
-                update_spectral=True, species_list=None ):
+                update_spectral=True, species_list=None,
+                account_ion_charge=True ):
         """
         Deposit the charge or the currents to the interpolation grid
         and then to the spectral grid.
@@ -610,6 +611,10 @@ class Simulation(object):
         species_list: list of `Particles` objects, or None
             The species which that should deposit their charge/current.
             If this is None, all species (and antennas) deposit.
+
+        account_ion_charge : bool
+            Choose if to take into account the actual charge state of ions
+            or to consider ions having Z=1.
         """
         # Shortcut
         fld = self.fld
@@ -628,7 +633,7 @@ class Simulation(object):
             fld.erase('rho')
             # Deposit the particle charge
             for species in species_list:
-                species.deposit( fld, 'rho' )
+                species.deposit( fld, 'rho', account_ion_charge=account_ion_charge )
             # Deposit the charge of the virtual particles in the antenna
             for antenna in antennas_list:
                 antenna.deposit( fld, 'rho' )
@@ -645,7 +650,7 @@ class Simulation(object):
             fld.erase('J')
             # Deposit the particle current
             for species in species_list:
-                species.deposit( fld, 'J' )
+                species.deposit( fld, 'J', account_ion_charge=account_ion_charge )
             # Deposit the current of the virtual particles in the antenna
             for antenna in antennas_list:
                 antenna.deposit( fld, 'J' )

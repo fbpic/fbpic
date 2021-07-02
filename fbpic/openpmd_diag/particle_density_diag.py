@@ -15,7 +15,7 @@ class ParticleChargeDensityDiagnostic(FieldDiagnostic):
 
     def __init__(self, period=None, sim=None, species={},
                 write_dir=None, iteration_min=0, iteration_max=np.inf,
-                dt_period=None ):
+                dt_period=None, account_ion_charge=True ):
         """
         Writes the charge density of the specified species in the
         openPMD file (one dataset per species)
@@ -47,6 +47,10 @@ class ParticleChargeDensityDiagnostic(FieldDiagnostic):
         iteration_min, iteration_max: ints
             The iterations between which data should be written
             (`iteration_min` is inclusive, `iteration_max` is exclusive)
+
+        account_ion_charge : bool
+            Choose if to take into account the actual charge state of ions
+            or to consider ions having Z=1.
         """
         # Check the arguments
         if sim is None:
@@ -68,6 +72,7 @@ class ParticleChargeDensityDiagnostic(FieldDiagnostic):
         # Register the arguments
         self.sim = sim
         self.species = species
+        self.account_ion_charge = account_ion_charge
 
     def write_hdf5( self, iteration ) :
         """
@@ -106,7 +111,8 @@ class ParticleChargeDensityDiagnostic(FieldDiagnostic):
             # Deposit and overwrite rho_next in spectral space as it will be
             # correctly updated anyways later in this iteration by the PIC loop
             sim.deposit( 'rho_next', species_list=[species_object],
-                        update_spectral=True, exchange=False )
+                        update_spectral=True, exchange=False,
+                        account_ion_charge=self.account_ion_charge )
             # Bring filtered particle density back to the intermediate grid
             self.fld.spect2interp('rho_next')
             # Exchange (add) the particle density between domains
