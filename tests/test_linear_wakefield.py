@@ -79,7 +79,7 @@ def test_linear_wakefield( Nm=1, show=False ):
     # Initialize the simulation object
     sim = Simulation( Nz, zmax, Nr, rmax, Nm, dt,
                       p_zmin, p_zmax, p_rmin, p_rmax, p_nz, p_nr, p_nt, n_e,
-                      use_cuda=use_cuda, boundaries='open' )
+                      use_cuda=use_cuda, boundaries={'z':'open', 'r':'reflective'} )
 
     # Create the relevant laser profile
     if Nm == 1:

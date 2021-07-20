@@ -1,5 +1,18 @@
 # Change Log / Release Log for fbpic
 
+## 0.20.3
+
+This is a bug-fix release. It improves FBPIC's compatibility with recent
+versions of some of the software dependencies (namely `numba` and `mkl`).
+
+- The latest version of `numba` (`numba 0.53.`) raised numerous warnings
+when running previous versions of FBPIC on GPU. These warnings do not appear
+anymore with this new release. (See [#538](https://github.com/fbpic/fbpic/pull/538))
+
+- FBPIC can use the MKL distribution from `conda`, but was unable to use
+the MKL distribution from `pip`. This is now fixed.
+(See [#537](https://github.com/fbpic/fbpic/pull/537))
+
 ## 0.20.2
 
 This is a bug-fix release. It allows FBPIC to run with the latest

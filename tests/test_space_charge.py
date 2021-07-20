@@ -10,8 +10,8 @@ routines produce identical results for both serial and parallel simulations.
 Usage:
 This file is meant to be run from the top directory of fbpic,
 by any of the following commands
-$ python tests/test_example_docs_scripts.py
-$ py.test -q tests/test_example_docs_scripts.py
+$ python tests/test_space_charge.py
+$ py.test -q tests/test_space_charge.py
 $ python setup.py test
 """
 import os

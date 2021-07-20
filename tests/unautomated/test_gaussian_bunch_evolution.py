@@ -45,7 +45,7 @@ else:
 # Initialize the simulation object
 sim = Simulation( Nz, zmax, Nr, rmax, Nm, dt,
     -1.e-6, 0., -1.e-6, 0., 1, 1, 1, 1.e18,
-    zmin=zmin, n_order=n_order, boundaries='open',
+    zmin=zmin, n_order=n_order, boundaries={'z':'open', 'r':'reflective'},
     gamma_boost=gamma_boost )
 
 # Configure the moving window

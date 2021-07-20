@@ -44,7 +44,7 @@ dt = (zmax-zmin)/Nz/c   # Timestep (seconds)
 # Initialize the simulation object
 sim = Simulation( Nz, zmax, Nr, rmax, Nm, dt,
     0, 0, 0, 0, 2, 2, 4, 0., zmin=zmin,
-    n_order=n_order, boundaries='open' )
+    n_order=n_order, boundaries={'z':'open', 'r':'reflective'} )
 # Configure the moving window
 sim.set_moving_window( v=c )
 # Suppress the particles that were intialized by default and add the bunch
