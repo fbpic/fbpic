@@ -5,9 +5,9 @@ It imports functions which are useful when initializing a laser pulse
 from .laser import add_laser, add_laser_pulse
 from .laser_profiles import GaussianLaser, LaguerreGaussLaser, \
               DonutLikeLaguerreGaussLaser, FlattenedGaussianLaser, \
-              FewCycleLaser
+              FewCycleLaser,CustomSpectrumLaserPulse
 
 __all__ = ['add_laser', 'add_laser_pulse',
             'GaussianLaser', 'LaguerreGaussLaser',
             'DonutLikeLaguerreGaussLaser', 'FlattenedGaussianLaser',
-            'FewCycleLaser']
+            'FewCycleLaser','CustomSpectrumLaserPulse']
