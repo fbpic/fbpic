@@ -880,3 +880,223 @@ class FewCycleLaser( LaserProfile ):
         Ey = self.E0y * profile
 
         return( Ex.real, Ey.real )
+
+
+class CustomSpectrumLaserPulse( LaserProfile ):
+    """Class that calculates an ultra-short, tightly focussed laser"""
+
+    def __init__( self, energy, waist, spectrumFilePath, theta_pol=0.,
+                    cep_phase=0., propagation_direction=1 ):
+        """
+        A customisation of the FewCycleLaser module to allow for the use of a custom
+        spectum
+
+        Parameters
+        ----------
+        energy: float (in joules)
+            The total energy in the laser pulse
+        waist: float (in meter)
+            Laser waist at the focal plane 1/e^2 intensity radius
+        spectrumFile: filePath
+            A tab seperated text file containing three columns
+            The first is wavelength in meters
+            The second is spectral intensity (in normalised)
+            The third is spectral phase (in radians)
+        zf: float (in meter)
+            The position of the focal plane (in the lab frame).
+        theta_pol: float (in radian), optional
+           The angle of polarization with respect to the x axis.
+        cep_phase: float (in radian), optional
+            The Carrier Enveloppe Phase (CEP), defined as :math:`\phi_{cep}`
+            in the above formula (i.e. the phase of the laser
+            oscillation, at the position where the laser enveloppe is maximum)
+        propagation_direction: int, optional
+            Indicates in which direction the laser propagates.
+            This should be either 1 (laser propagates towards positive z)
+            or -1 (laser propagates towards negative z).
+        """
+        # Initialize propagation direction
+        LaserProfile.__init__(self, propagation_direction)
+        from scipy.interpolate import interp1d
+
+        timeArr, E_t, lambda0 = self.create1DPulseFromSpec(spectrumFilePath,energy,waist)
+
+        # Store the parameters
+        self.k0 = 2*np.pi/lambda0
+        self.z0 = 0.0
+        self.zf = 0.0
+        self.w0 = waist
+        self.cep_phase = cep_phase
+        self.timeArr = timeArr
+        self.E_t = E_t
+        self.theta_pol = theta_pol
+
+ 
+
+    def E_field( self, x, y, z, t ):
+        """
+        See the docstring of LaserProfile.E_field
+        """
+
+        # Initialise the pulse on the grid in the temporal domain
+        prop_dir = 1# self.propag_direction
+        z_ax = z[:, 0, 0]
+        # Interpolate the pulse onto this axis. NOTE ONE IS SPATIAL
+        # we need to make sure the focal position is correct to
+        fpulse = interp1d(c*self.timeArr-self.zf,self.E_t,fill_value=0,bounds_error=False)
+        timeProfile = fpulse(z_ax)  
+
+        # Add propagation term
+        #timeProfile = timeProfile * np.exp( 1j*self.k0*( prop_dir*(z_ax - self.z0) - c*t ))
+        # Add CEP 
+        timeProfile = timeProfile*np.exp(-1.j*self.cep_phase)
+
+        # And apply it to the full z-grid
+        long_profile = np.zeros(z.shape, dtype=np.complex64)
+        for i in range(len(timeProfile)):
+            long_profile[i, :, :] = timeProfile[i]
+
+        # Calculate the normalised transverse profile
+        trans_profile = np.exp( - (x**2 + y**2) / (self.w0**2))
+        
+        # Get the projection along x and y, with the correct polarization
+        Ex = long_profile * trans_profile * np.cos(self.theta_pol)
+        Ey = long_profile * trans_profile * np.sin(self.theta_pol)
+
+        return( Ex.real, Ey.real )
+
+
+    def create1DPulseFromSpec(self,spectrumFilePath,energy,waist):
+    
+        """ Taking a spectrum file containing tab seperated columns with wavelength (m) spectral Intensity (norm)
+        and spectral phase (rad), as well as some other bits of info, we want to calculate the temporal
+        profile of the laser pulse
+        """
+        
+        # First read in the file
+        # Read in the Spectrum File
+        f = open(spectrumFilePath)
+        wavelength = []
+        intensity = []
+        phase = []
+        for line in f.readlines():
+            vals = line.split('\t')
+            wavelength.append(float(vals[0]))
+            intensity.append(float(vals[1]))
+            phase.append(float(vals[2]))
+            
+        wavelength = np.asarray(wavelength)
+        intensity = np.asarray(intensity)
+        phase = np.asarray(phase)
+
+        # central wavelength
+        lambda0 = np.trapz(wavelength*intensity,wavelength)/np.trapz(intensity,wavelength)
+        print(lambda0)
+        k0 = 2*np.pi/lambda0
+        omega0 = 2*np.pi*c/lambda0
+        
+        # Computation Parameters        
+        # TEMPORAL RESOLUTION
+        lambdaRes         = 0.05e-9       # Use a .2 nm resolution in wavelength.
+        dt                = 0.05e-15    # Use a 0.2 fs resolution in time
+        freqRes           = 2*np.pi*c/lambdaRes
+        timeWindow        = lambda0 * lambda0 / c / lambdaRes
+        wavelengthRange   = lambda0 * lambda0 / c / dt
+        Nt                = np.round(timeWindow/dt).astype(int) 
+        Nlambda           = np.round(wavelengthRange/lambdaRes).astype(int)
+
+        # Create a blank time array
+        timeArr = np.linspace(-timeWindow/2,(timeWindow/2-dt),Nt)
+        E_t_env = np.zeros(timeArr.shape)
+        phi_t = np.zeros(timeArr.shape)
+        
+        # Convert to blank spectral space
+        Et = E_t_env*np.exp(1j*phi_t)
+        freqArr, E_omega = FFT(timeArr, Et)
+        
+        # Now add in the measured spectrum      
+        # Lets interpolate onto the correct axes
+        
+        fInten = interp1d(2*np.pi*c/wavelength,intensity,fill_value=0,bounds_error=False)
+        fPhase = interp1d(2*np.pi*c/wavelength,phase,fill_value=0,bounds_error=False)
+        
+        # Get the correct energy scaling
+        tempT, tmpEt = IFFT(freqArr, np.sqrt(fInten(freqArr)))
+        Emeas = (np.pi*waist**2)/2 * np.trapz(c*epsilon_0/2 * np.abs(tmpEt)**2,tempT)
+        scaleFactor = energy/Emeas
+
+        # Get spectral phase and amplitude
+        I_omega = scaleFactor * fInten(freqArr)
+        phi_omega = fPhase(freqArr)
+        E_omega = np.sqrt(I_omega)*np.exp(1j*phi_omega)
+        
+        timeArr, E_t_env = IFFT(freqArr, E_omega)
+        
+        return timeArr, E_t_env, lambda0
+
+    def FFT(t, f):
+        """ Function to calculate the discrete approximation to the continuous fourier transform 
+        according to:
+        $$
+        F(\omega) = \int^{\infty}_{-\infty} f(t) e^{xs-i \omega t} dt
+        $$
+        
+        In this convetion, the inverse fourier transform is given by:
+        $$
+        f(t) = \frac{1}{2\pi} \int^{\infty}_{-\infty} F(\omega) e^{i \omega t} d\omega
+        $$
+        
+        
+        t is the independant variable
+        f is the function evaluated at t. eg. f(t)
+        """
+        
+        # Here we apply the correct order of ifftshift, fftshift and fft.
+        # To get the correct magnitude and phase, we need to apply them in the following way
+        # X = fftshift(fft(ifftshift(x)))  # correct magnitude and phase for forward transform
+        # x = fftshift(ifft(ifftshift(X)))  # correct magnitude and phase for inverse transform
+        #
+        # Here we scale by dt, the discrete spacing in time
+        dt = t[1]-t[0]
+        F = np.fft.fftshift(np.fft.fft(np.fft.ifftshift(f)))*dt
+        
+        # Calculate Frequency Axis. The 2pi is because we're returning the axis like omega rather than f
+        T = t[-1] - t[0]
+        sampleFreq = len(t)/T
+        omega = 2*np.pi*np.linspace(-sampleFreq/2, (sampleFreq/2-sampleFreq/len(t)) , len(t))
+        
+        return (omega,F)
+
+    def IFFT(omega, F):
+        """ Function to calculate the discrete approximation to the continuous inverse fourier transform 
+        according to:
+        $$
+        F(\omega) = \int^{\infty}_{-\infty} f(t) e^{-i \omega t} dt
+        $$
+        
+        In this convetion, the inverse fourier transform is given by:
+        $$
+        f(t) = \frac{1}{2\pi} \int^{\infty}_{-\infty} F(\omega) e^{i \omega t} d\omega
+        $$
+        
+        
+        omega is the independant variable
+        F is the function evaluated at omega. eg. F(omega)
+        """
+        
+        # Here we apply the correct order of ifftshift, fftshift and fft.
+        # To get the correct magnitude and phase, we need to apply them in the following way
+        # X = fftshift(fft(ifftshift(x)))  # correct magnitude and phase for forward transform
+        # x = fftshift(ifft(ifftshift(X)))  # correct magnitude and phase for inverse transform
+        #
+        
+        # Calculate Time Axis. The 2pi is because we're returning the axis like omega rather than f
+        sampleFreq = len(omega)*abs(omega[3]-omega[2])/(2*np.pi)
+        dt = 1/sampleFreq
+        t = np.linspace(-dt*len(omega)/2 , dt*len(omega)/2 - dt, len(omega))
+        
+        # Here we scale by 1/dt, the inverse of the discrete spacing in time
+        f = np.fft.fftshift(np.fft.ifft(np.fft.ifftshift(F)))/dt
+        
+        
+        return (t,f)
