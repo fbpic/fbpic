@@ -139,14 +139,14 @@ class ParaxialApproximationLaser( LaserProfile ):
         # Inherit and check parameter consistency of the individual profiles
         self.propag_direction = longitudinal_profile.propag_direction
         assert self.propag_direction == transverse_profile.propag_direction
-        lambda0 = self.longitudinal_profile.lambda0
-        assert lambda0 == self.transverse_profile.lambda0
+        k0 = self.longitudinal_profile.k0
+        assert k0 == self.transverse_profile.k0
         # Inherit GPU capability
         self.gpu_capable = self.longitudinal_profile.gpu_capable and \
                            self.transverse_profile.gpu_capable
 
         # Calculate and store a number of parameters for the laser
-        self.k0 = 2 * np.pi / lambda0
+        self.k0 = k0
         self.E0 = a0 * m_e * c ** 2 * self.k0 / e
         self.cos_pol = np.cos(theta_pol)
         self.sin_pol = np.sin(theta_pol)
