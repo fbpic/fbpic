@@ -100,6 +100,72 @@ class SummedLaserProfile( LaserProfile ):
         Ex2, Ey2 = self.profile2.E_field( x, y, z, t )
         return( Ex1+Ex2, Ey1+Ey2 )
 
+class ParaxialApproximationLaser( LaserProfile ):
+    """Class that defines a laser pulse by combining a longitudinal
+    and transverse profile under the paraxial approxiation."""
+    def __init__(self, longitudinal_profile, transverse_profile,
+                 a0, theta_pol=0.):
+        """
+        Construct a laser profile E(x,y,z,t) by combining a complex
+        longitudinal E(z,t) and transverse E(x,y,z) profile, which is valid
+        under the paraxial approximation.
+
+        Parameters
+        ----------
+        longitudinal_profile: an instance of :any:`LaserLongitudinalProfile`
+            Defines the longitudinal profile E(z,t) of the laser pulse.
+
+        transverse_profile: an instance of :any:`LaserTransverseProfile`
+            Defines the transverse profile E(z,t) of the laser pulse.
+
+        a0: float (dimensionless)
+            The amplitude of the pulse. The definition depends on the
+            specific longitudinal and transverse profile used. For most laser
+            profiles, a0 is defined such that the total energy of the pulse is
+            the same as that of a transform-limited Gaussian pulse with a
+            peak normalized vector potential a0 at the focal plane.
+
+        theta_pol: float (in radian), optional
+           The angle of polarization with respect to the x axis.
+        """
+        # Initialize arbitrary propagation direction and GPU capability
+        # (will be overwritten below)
+        LaserProfile.__init__(self, 1)
+
+        # Initialize a longitudinal profile
+        self.longitudinal_profile = longitudinal_profile
+        # Initialize a transverse profile
+        self.transverse_profile = transverse_profile
+        # Inherit and check parameter consistency of the individual profiles
+        self.propag_direction = longitudinal_profile.propag_direction
+        assert self.propag_direction == transverse_profile.propag_direction
+        k0 = self.longitudinal_profile.k0
+        assert k0 == self.transverse_profile.k0
+        # Inherit GPU capability
+        self.gpu_capable = self.longitudinal_profile.gpu_capable and \
+                           self.transverse_profile.gpu_capable
+
+        # Calculate and store a number of parameters for the laser
+        self.k0 = k0
+        self.E0 = a0 * m_e * c ** 2 * self.k0 / e
+        self.cos_pol = np.cos(theta_pol)
+        self.sin_pol = np.sin(theta_pol)
+
+    def E_field( self, x, y, z, t ):
+        """
+        See the docstring of LaserProfile.E_field
+        """
+        # The laser profile is constructed by combining a complex
+        # longitudinal and transverse profile, which is valid under the
+        # paraxial approximation.
+        profile = self.longitudinal_profile.evaluate(z, t) * \
+                  self.transverse_profile.evaluate(x, y, z)
+        # Get the projection along x and y, with the correct polarization
+        Ex = self.E0*self.cos_pol*profile
+        Ey = self.E0*self.sin_pol*profile
+
+        return( Ex.real, Ey.real )
+
 # Particular classes for each laser profile
 # -----------------------------------------
 
