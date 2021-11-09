@@ -69,6 +69,22 @@ class LaserLongitudinalProfile(object):
         # (This should be replaced by any class that inherits from this one.)
         return np.zeros_like(z, dtype='complex')
 
+    def squared_profile_integral(self):
+        """
+        Return the integral of the square of the absolute value of
+        of the (complex) laser profile along the `z` axis:
+
+        .. math::
+
+            \\int_{-\\infty}^\\infty \,dz|f(z)|^2
+
+        Returns:
+        --------
+        integral: float
+        """
+        # The base class only defines a dummy implementation
+        # (This should be replaced by any class that inherits from this one.)
+        return 0
 
 # Particular classes for each longitudinal laser profile
 # ------------------------------------------------------
@@ -161,3 +177,9 @@ class GaussianChirpedLongitudinalProfile(LaserLongitudinalProfile):
         profile = np.exp(exp_argument) / stretch_factor ** 0.5
 
         return profile
+
+    def squared_profile_integral(self):
+        """
+        See the docstring of LaserLongitudinalProfile.squared_profile_integral
+        """
+        return (0.5 * np.pi * self.inv_ctau2)**.5
