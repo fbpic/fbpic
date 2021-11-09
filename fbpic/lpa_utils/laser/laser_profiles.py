@@ -152,7 +152,7 @@ class ParaxialApproximationLaser( LaserProfile ):
         # (Note that for a transform-limited Gaussian laser pulse, E0
         # corresponds to the peak electric field at the focus. For any other
         # profile, however, the actual peak electric field can be different.)
-        self.E0 = np.sqrt( 2*E_laser / (epsilon_0 * long_int * trans_int ) )
+        E0 = np.sqrt( 2*E_laser / (epsilon_0 * long_int * trans_int ) )
         self.E0x = E0 * np.cos(theta_pol)
         self.E0y = E0 * np.sin(theta_pol)
 
