@@ -65,7 +65,6 @@ class LaserTransverseProfile(object):
         """
         # The base class only defines dummy fields
         # (This should be replaced by any class that inherits from this one.)
-        #TODO: Raise exception
         return np.zeros_like(x, dtype='complex')
 
     def squared_profile_integral(self):
@@ -75,7 +74,7 @@ class LaserTransverseProfile(object):
 
         .. math::
 
-            \\int_0^{2\\pi} d\\theta \\int_0^\\infty dr|f(r, \\theta)|^2
+            \\int_0^{2\\pi} d\\theta \\int_0^\\infty r \,dr|f(r, \\theta)|^2
 
         Returns:
         --------
@@ -83,7 +82,6 @@ class LaserTransverseProfile(object):
         """
         # The base class only defines a dummy implementation
         # (This should be replaced by any class that inherits from this one.)
-        #TODO: Raise exception
         return 0
 
 
@@ -564,4 +562,4 @@ class FlattenedGaussianTransverseProfile( LaserTransverseProfile ):
         """
         See the docstring of LaserTransverseProfile.squared_profile_integral
         """
-        return 0.5 * np.pi * self.w_foc**2 * sum( self.cn**2 ) 
+        return 0.5 * np.pi * self.w_foc**2 * sum( self.cn**2 )
