@@ -559,3 +559,9 @@ class FlattenedGaussianTransverseProfile( LaserTransverseProfile ):
         profile = laguerre_sum * np.exp( exp_argument ) / diffract_factor
 
         return profile
+
+    def squared_profile_integral(self):
+        """
+        See the docstring of LaserTransverseProfile.squared_profile_integral
+        """
+        return 0.5 * np.pi * (self.N + 1) * self.w0**2 * sum( self.cn**2 ) 
