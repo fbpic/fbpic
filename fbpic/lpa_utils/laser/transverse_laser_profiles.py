@@ -65,7 +65,26 @@ class LaserTransverseProfile(object):
         """
         # The base class only defines dummy fields
         # (This should be replaced by any class that inherits from this one.)
+        #TODO: Raise exception
         return np.zeros_like(x, dtype='complex')
+
+    def squared_profile_integral(self):
+        """
+        Return the integral of the square of the absolute value of
+        of the (complex) laser profile in the transverse plane:
+
+        .. math::
+
+            \\int_0^{2\\pi} d\\theta \\int_0^\\infty dr|f(r, \\theta)|^2
+
+        Returns:
+        --------
+        integral: float
+        """
+        # The base class only defines a dummy implementation
+        # (This should be replaced by any class that inherits from this one.)
+        #TODO: Raise exception
+        return 0
 
 
 # Particular classes for each transverse laser profile
@@ -141,6 +160,13 @@ class GaussianTransverseProfile(LaserTransverseProfile):
         profile = np.exp(exp_argument) / diffract_factor
 
         return profile
+
+    def squared_profile_integral(self):
+        """
+        See the docstring of LaserTransverseProfile.squared_profile_integral
+        """
+        return 0.5 * np.pi * self.w0**2
+
 
 class LaguerreGaussTransverseProfile( LaserTransverseProfile ):
     """Class that calculates a Laguerre-Gauss transverse laser profile."""
@@ -279,6 +305,12 @@ class LaguerreGaussTransverseProfile( LaserTransverseProfile ):
 
         return profile
 
+    def squared_profile_integral(self):
+        """
+        See the docstring of LaserTransverseProfile.squared_profile_integral
+        """
+        return 0.5 * np.pi * self.w0**2
+
 class DonutLikeLaguerreGaussTransverseProfile( LaserTransverseProfile ):
     """Define the complex transverse profile of a donut-like Laguerre-Gauss
     laser."""
@@ -394,6 +426,12 @@ class DonutLikeLaguerreGaussTransverseProfile( LaserTransverseProfile ):
         profile *= self.scaled_amplitude
 
         return profile
+
+    def squared_profile_integral(self):
+        """
+        See the docstring of LaserTransverseProfile.squared_profile_integral
+        """
+        return 0.5 * np.pi * self.w0**2
 
 class FlattenedGaussianTransverseProfile( LaserTransverseProfile ):
     """Define the complex transverse profile of a focused flattened Gaussian
