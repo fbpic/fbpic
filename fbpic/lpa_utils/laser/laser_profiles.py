@@ -6,7 +6,7 @@ This file is part of the Fourier-Bessel Particle-In-Cell code (FB-PIC)
 It defines a set of common laser profiles.
 """
 import numpy as np
-from scipy.constants import c, m_e, e
+from scipy.constants import c, m_e, e, epsilon_0
 from .longitudinal_laser_profiles import GaussianChirpedLongitudinalProfile
 from .transverse_laser_profiles import GaussianTransverseProfile, \
     LaguerreGaussTransverseProfile, DonutLikeLaguerreGaussTransverseProfile, \
@@ -104,11 +104,12 @@ class ParaxialApproximationLaser( LaserProfile ):
     """Class that defines a laser pulse by combining a longitudinal
     and transverse profile under the paraxial approxiation."""
     def __init__(self, longitudinal_profile, transverse_profile,
-                 a0, theta_pol=0.):
+                 E_laser, theta_pol=0.):
         """
         Construct a laser profile E(x,y,z,t) by combining a complex
         longitudinal E(z,t) and transverse E(x,y,z) profile, which is valid
-        under the paraxial approximation.
+        under the paraxial approximation. The combined profile is normalized
+        to a given pulse energy.
 
         Parameters
         ----------
@@ -118,12 +119,10 @@ class ParaxialApproximationLaser( LaserProfile ):
         transverse_profile: an instance of :any:`LaserTransverseProfile`
             Defines the transverse profile E(z,t) of the laser pulse.
 
-        a0: float (dimensionless)
-            The amplitude of the pulse. The definition depends on the
-            specific longitudinal and transverse profile used. For most laser
-            profiles, a0 is defined such that the total energy of the pulse is
-            the same as that of a transform-limited Gaussian pulse with a
-            peak normalized vector potential a0 at the focal plane.
+        E_laser: float (J)
+            The total energy of the pulse in Joule. The peak intensity
+            of the laser pulse depends on this energy and the specific
+            longitudinal and transverse profile used.
 
         theta_pol: float (in radian), optional
            The angle of polarization with respect to the x axis.
@@ -147,9 +146,15 @@ class ParaxialApproximationLaser( LaserProfile ):
 
         # Calculate and store a number of parameters for the laser
         self.k0 = k0
-        self.E0 = a0 * m_e * c ** 2 * self.k0 / e
-        self.cos_pol = np.cos(theta_pol)
-        self.sin_pol = np.sin(theta_pol)
+        long_int = self.longitudinal_profile.squared_profile_integral
+        trans_int = self.transverse_profile.squared_profile_integral
+        # Define a normalized peak electric field E0
+        # (Note that for a transform-limited Gaussian laser pulse, E0
+        # corresponds to the peak electric field at the focus. For any other
+        # profile, however, the actual peak electric field can be different.)
+        self.E0 = np.sqrt( 2*E_laser / (epsilon_0 * long_int * trans_int ) )
+        self.E0x = E0 * np.cos(theta_pol)
+        self.E0y = E0 * np.sin(theta_pol)
 
     def E_field( self, x, y, z, t ):
         """
@@ -161,8 +166,8 @@ class ParaxialApproximationLaser( LaserProfile ):
         profile = self.longitudinal_profile.evaluate(z, t) * \
                   self.transverse_profile.evaluate(x, y, z)
         # Get the projection along x and y, with the correct polarization
-        Ex = self.E0*self.cos_pol*profile
-        Ey = self.E0*self.sin_pol*profile
+        Ex = self.E0x * profile
+        Ey = self.E0y * profile
 
         return( Ex.real, Ey.real )
 
