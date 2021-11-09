@@ -564,4 +564,4 @@ class FlattenedGaussianTransverseProfile( LaserTransverseProfile ):
         """
         See the docstring of LaserTransverseProfile.squared_profile_integral
         """
-        return 0.5 * np.pi * (self.N + 1) * self.w0**2 * sum( self.cn**2 ) 
+        return 0.5 * np.pi * self.w_foc**2 * sum( self.cn**2 ) 
