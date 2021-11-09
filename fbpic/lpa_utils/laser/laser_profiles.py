@@ -252,10 +252,10 @@ class GaussianLaser( LaserProfile ):
         LaserProfile.__init__(self, propagation_direction)
 
         # Calculate and store a number of parameters for the laser
-        self.k0 = 2 * np.pi / lambda0
-        self.E0 = a0 * m_e * c ** 2 * self.k0 / e
-        self.cos_pol = np.cos(theta_pol)
-        self.sin_pol = np.sin(theta_pol)
+        k0 = 2 * np.pi / lambda0
+        E0 = a0 * m_e * c ** 2 * k0 / e
+        self.E0x = E0 * np.cos(theta_pol)
+        self.E0y = E0 * np.sin(theta_pol)
         # If no focal plane position is given, use z0
         if zf is None:
             zf = z0
@@ -281,8 +281,8 @@ class GaussianLaser( LaserProfile ):
         profile = self.longitudinal_profile.evaluate(z, t) * \
                   self.transverse_profile.evaluate(x, y, z)
         # Get the projection along x and y, with the correct polarization
-        Ex = self.E0*self.cos_pol*profile
-        Ey = self.E0*self.sin_pol*profile
+        Ex = self.E0x * profile
+        Ey = self.E0y * profile
 
         return( Ex.real, Ey.real )
 
@@ -404,10 +404,10 @@ class LaguerreGaussLaser( LaserProfile ):
         LaserProfile.__init__(self, propagation_direction)
 
         # Set and store a number of parameters for the laser
-        self.k0 = 2 * np.pi / lambda0
-        self.E0 = a0 * m_e * c ** 2 * self.k0 / e
-        self.cos_pol = np.cos(theta_pol)
-        self.sin_pol = np.sin(theta_pol)
+        k0 = 2 * np.pi / lambda0
+        E0 = a0 * m_e * c ** 2 * k0 / e
+        self.E0x = E0 * np.cos(theta_pol)
+        self.E0y = E0 * np.sin(theta_pol)
         # If no focal plane position is given, use z0
         if zf is None:
             zf = z0
@@ -433,8 +433,8 @@ class LaguerreGaussLaser( LaserProfile ):
         profile = self.longitudinal_profile.evaluate(z, t) * \
                   self.transverse_profile.evaluate(x, y, z)
         # Get the projection along x and y, with the correct polarization
-        Ex = self.E0 * self.cos_pol * profile
-        Ey = self.E0 * self.sin_pol * profile
+        Ex = self.E0x * profile
+        Ey = self.E0y * profile
 
         return (Ex.real, Ey.real)
 
@@ -543,10 +543,10 @@ class DonutLikeLaguerreGaussLaser( LaserProfile ):
         LaserProfile.__init__(self, propagation_direction)
 
         # Set and store a number of parameters for the laser
-        self.k0 = 2 * np.pi / lambda0
-        self.E0 = a0 * m_e * c ** 2 * self.k0 / e
-        self.cos_pol = np.cos(theta_pol)
-        self.sin_pol = np.sin(theta_pol)
+        k0 = 2 * np.pi / lambda0
+        E0 = a0 * m_e * c ** 2 * k0 / e
+        self.E0x = E0 * np.cos(theta_pol)
+        self.E0y = E0 * np.sin(theta_pol)
         # If no focal plane position is given, use z0
         if zf is None:
             zf = z0
@@ -572,8 +572,8 @@ class DonutLikeLaguerreGaussLaser( LaserProfile ):
         profile = self.longitudinal_profile.evaluate(z, t) * \
                   self.transverse_profile.evaluate(x, y, z)
         # Get the projection along x and y, with the correct polarization
-        Ex = self.E0 * self.cos_pol * profile
-        Ey = self.E0 * self.sin_pol * profile
+        Ex = self.E0x * profile
+        Ey = self.E0y * profile
 
         return (Ex.real, Ey.real)
 
@@ -668,10 +668,10 @@ class FlattenedGaussianLaser( LaserProfile ):
         LaserProfile.__init__(self, propagation_direction)
 
         # Set and store a number of parameters for the laser
-        self.k0 = 2 * np.pi / lambda0
-        self.E0 = a0 * m_e * c ** 2 * self.k0 / e
-        self.cos_pol = np.cos(theta_pol)
-        self.sin_pol = np.sin(theta_pol)
+        k0 = 2 * np.pi / lambda0
+        E0 = a0 * m_e * c ** 2 * k0 / e
+        self.E0x = E0 * np.cos(theta_pol)
+        self.E0y = E0 * np.sin(theta_pol)
         # If no focal plane position is given, use z0
         if zf is None:
             zf = z0
@@ -697,8 +697,8 @@ class FlattenedGaussianLaser( LaserProfile ):
         profile = self.longitudinal_profile.evaluate(z, t) * \
                   self.transverse_profile.evaluate(x, y, z)
         # Get the projection along x and y, with the correct polarization
-        Ex = self.E0 * self.cos_pol * profile
-        Ey = self.E0 * self.sin_pol * profile
+        Ex = self.E0x * profile
+        Ey = self.E0y * profile
 
         return (Ex.real, Ey.real)
 

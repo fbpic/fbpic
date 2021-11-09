@@ -46,6 +46,11 @@ class LaserLongitudinalProfile(object):
         """
         Return the complex longitudinal laser profile.
 
+        This profile should be valid for any z and t. Under the paraxial
+        approximation, this is true if this function is a simple translation
+        at c*t along the z axis. The other propagation effects, namely the
+        diffraction effects, are taken into account by the transverse profile.
+
         Parameters
         -----------
         z: ndarray (meters)
@@ -64,6 +69,22 @@ class LaserLongitudinalProfile(object):
         # (This should be replaced by any class that inherits from this one.)
         return np.zeros_like(z, dtype='complex')
 
+    def squared_profile_integral(self):
+        """
+        Return the integral of the square of the absolute value of
+        of the (complex) laser profile along the `z` axis:
+
+        .. math::
+
+            \\int_{-\\infty}^\\infty \,dz|f(z)|^2
+
+        Returns:
+        --------
+        integral: float
+        """
+        # The base class only defines a dummy implementation
+        # (This should be replaced by any class that inherits from this one.)
+        return 0
 
 # Particular classes for each longitudinal laser profile
 # ------------------------------------------------------
@@ -142,7 +163,7 @@ class GaussianChirpedLongitudinalProfile(LaserLongitudinalProfile):
         """
         # The formula for the longitudinal laser profile (in complex numbers)
         # is obtained by defining the Fourier transform of the laser at focus
-        # E(\omega) = exp( -(\omega-\omega_0)^2(\tau^2/4 + \phi^(2)/2) )
+        # E(\omega) = exp( -(\omega-\omega_0)^2(\tau^2/4 + i \phi^(2)/2) )
         # and then by taking the inverse Fourier transform in t.
         prop_dir = self.propag_direction
         # Stretch factor due to chirp
@@ -156,3 +177,9 @@ class GaussianChirpedLongitudinalProfile(LaserLongitudinalProfile):
         profile = np.exp(exp_argument) / stretch_factor ** 0.5
 
         return profile
+
+    def squared_profile_integral(self):
+        """
+        See the docstring of LaserLongitudinalProfile.squared_profile_integral
+        """
+        return (0.5 * np.pi * self.inv_ctau2)**.5
