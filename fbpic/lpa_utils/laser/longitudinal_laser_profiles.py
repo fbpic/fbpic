@@ -46,6 +46,11 @@ class LaserLongitudinalProfile(object):
         """
         Return the complex longitudinal laser profile.
 
+        This profile should be valid for any z and t. Under the paraxial
+        approximation, this is true if this function is a simple translation
+        at c*t along the z axis. The other propagation effects, namely the
+        diffraction effects, are taken into account by the transverse profile.
+
         Parameters
         -----------
         z: ndarray (meters)
@@ -142,7 +147,7 @@ class GaussianChirpedLongitudinalProfile(LaserLongitudinalProfile):
         """
         # The formula for the longitudinal laser profile (in complex numbers)
         # is obtained by defining the Fourier transform of the laser at focus
-        # E(\omega) = exp( -(\omega-\omega_0)^2(\tau^2/4 + \phi^(2)/2) )
+        # E(\omega) = exp( -(\omega-\omega_0)^2(\tau^2/4 + i \phi^(2)/2) )
         # and then by taking the inverse Fourier transform in t.
         prop_dir = self.propag_direction
         # Stretch factor due to chirp

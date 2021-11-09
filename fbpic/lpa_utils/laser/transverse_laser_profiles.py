@@ -46,6 +46,12 @@ class LaserTransverseProfile(object):
         """
         Return the complex longitudinal laser profile.
 
+        This profile should be valid for any propagation distance z.
+        In particular, it should include diffraction effects (e.g. change in
+        effective waist, and effective amplitude, Gouy phase, etc. for a
+        Gaussian pulse). It should not include the longitudinal laser envelope,
+        since this is instead included in the longitudinal profile.
+
         Parameters
         -----------
         x, y, z: ndarrays (meters)
