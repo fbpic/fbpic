@@ -146,8 +146,8 @@ class ParaxialApproximationLaser( LaserProfile ):
 
         # Calculate and store a number of parameters for the laser
         self.k0 = k0
-        long_int = self.longitudinal_profile.squared_profile_integral
-        trans_int = self.transverse_profile.squared_profile_integral
+        long_int = self.longitudinal_profile.squared_profile_integral()
+        trans_int = self.transverse_profile.squared_profile_integral()
         # Define a normalized peak electric field E0
         # (Note that for a transform-limited Gaussian laser pulse, E0
         # corresponds to the peak electric field at the focus. For any other
