@@ -182,4 +182,4 @@ class GaussianChirpedLongitudinalProfile(LaserLongitudinalProfile):
         """
         See the docstring of LaserLongitudinalProfile.squared_profile_integral
         """
-        return (0.5 * np.pi * self.inv_ctau2)**.5
+        return (0.5 * np.pi * 1./self.inv_ctau2)**.5

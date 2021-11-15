@@ -6,7 +6,7 @@ This file is part of the Fourier-Bessel Particle-In-Cell code (FB-PIC)
 It defines a set of common laser profiles.
 """
 import numpy as np
-from scipy.constants import c, m_e, e
+from scipy.constants import c, m_e, e, epsilon_0
 from .longitudinal_laser_profiles import GaussianChirpedLongitudinalProfile
 from .transverse_laser_profiles import GaussianTransverseProfile, \
     LaguerreGaussTransverseProfile, DonutLikeLaguerreGaussTransverseProfile, \
@@ -99,6 +99,77 @@ class SummedLaserProfile( LaserProfile ):
         Ex1, Ey1 = self.profile1.E_field( x, y, z, t )
         Ex2, Ey2 = self.profile2.E_field( x, y, z, t )
         return( Ex1+Ex2, Ey1+Ey2 )
+
+class ParaxialApproximationLaser( LaserProfile ):
+    """Class that defines a laser pulse by combining a longitudinal
+    and transverse profile under the paraxial approxiation."""
+    def __init__(self, longitudinal_profile, transverse_profile,
+                 E_laser, theta_pol=0.):
+        """
+        Construct a laser profile E(x,y,z,t) by combining a complex
+        longitudinal E(z,t) and transverse E(x,y,z) profile, which is valid
+        under the paraxial approximation. The combined profile is normalized
+        to a given pulse energy.
+
+        Parameters
+        ----------
+        longitudinal_profile: an instance of :any:`LaserLongitudinalProfile`
+            Defines the longitudinal profile E(z,t) of the laser pulse.
+
+        transverse_profile: an instance of :any:`LaserTransverseProfile`
+            Defines the transverse profile E(z,t) of the laser pulse.
+
+        E_laser: float (J)
+            The total energy of the pulse in Joule. The peak intensity
+            of the laser pulse depends on this energy and the specific
+            longitudinal and transverse profile used.
+
+        theta_pol: float (in radian), optional
+           The angle of polarization with respect to the x axis.
+        """
+        # Initialize arbitrary propagation direction and GPU capability
+        # (will be overwritten below)
+        LaserProfile.__init__(self, 1)
+
+        # Initialize a longitudinal profile
+        self.longitudinal_profile = longitudinal_profile
+        # Initialize a transverse profile
+        self.transverse_profile = transverse_profile
+        # Inherit and check parameter consistency of the individual profiles
+        self.propag_direction = longitudinal_profile.propag_direction
+        assert self.propag_direction == transverse_profile.propag_direction
+        k0 = self.longitudinal_profile.k0
+        assert k0 == self.transverse_profile.k0
+        # Inherit GPU capability
+        self.gpu_capable = self.longitudinal_profile.gpu_capable and \
+                           self.transverse_profile.gpu_capable
+
+        # Calculate and store a number of parameters for the laser
+        self.k0 = k0
+        long_int = self.longitudinal_profile.squared_profile_integral()
+        trans_int = self.transverse_profile.squared_profile_integral()
+        # Define a normalized peak electric field E0
+        # (Note that for a transform-limited Gaussian laser pulse, E0
+        # corresponds to the peak electric field at the focus. For any other
+        # profile, however, the actual peak electric field can be different.)
+        E0 = np.sqrt( 2*E_laser / (epsilon_0 * long_int * trans_int ) )
+        self.E0x = E0 * np.cos(theta_pol)
+        self.E0y = E0 * np.sin(theta_pol)
+
+    def E_field( self, x, y, z, t ):
+        """
+        See the docstring of LaserProfile.E_field
+        """
+        # The laser profile is constructed by combining a complex
+        # longitudinal and transverse profile, which is valid under the
+        # paraxial approximation.
+        profile = self.longitudinal_profile.evaluate(z, t) * \
+                  self.transverse_profile.evaluate(x, y, z)
+        # Get the projection along x and y, with the correct polarization
+        Ex = self.E0x * profile
+        Ey = self.E0y * profile
+
+        return( Ex.real, Ey.real )
 
 # Particular classes for each laser profile
 # -----------------------------------------
