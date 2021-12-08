@@ -1,5 +1,14 @@
 # Change Log / Release Log for fbpic
 
+## 0.20.4
+
+This is a bug-fix release. It fixes an issue when using GPU Direct with
+`mpi4py` version 4 and above (See [#565](https://github.com/fbpic/fbpic/pull/565)).
+
+In addition, the internal implementation of the laser profiles has been
+refactored. (See [#560](https://github.com/fbpic/fbpic/pull/560),
+[#561](https://github.com/fbpic/fbpic/pull/561), [#562](https://github.com/fbpic/fbpic/pull/562)). However, the user interface is unchanged.
+
 ## 0.20.3
 
 This is a bug-fix release. It improves FBPIC's compatibility with recent
