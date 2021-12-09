@@ -7,6 +7,7 @@ It defines a set of common longitudinal laser profiles.
 """
 import numpy as np
 from scipy.constants import c
+from scipy.interpolate import interp1d
 
 # Generic classes
 # ---------------
@@ -183,3 +184,165 @@ class GaussianChirpedLongitudinalProfile(LaserLongitudinalProfile):
         See the docstring of LaserLongitudinalProfile.squared_profile_integral
         """
         return (0.5 * np.pi * 1./self.inv_ctau2)**.5
+
+
+class CustomSpectrumLongitudinalProfile(LaserLongitudinalProfile):
+    """Class that calculates a longitudinal profile with a user defined
+    spectral amplitude and phase."""
+
+    def __init__(self, tau, z0, spectrum_file, propagation_direction=1):
+        """
+        Define the complex longitudinal profile of the laser pulse,
+        from the spectrum provided in `spectrum_file`.
+
+        More specifically, the temporal characteristics of the pulse are
+        calculated numerically via the spectral phase and amplitude which
+        are provided to the class as a path to a csv file containing the data.
+
+        Parameters:
+        -----------
+        z0: float (in meter)
+            The initial position of the centroid of the laser
+            (in the lab frame), defined as :math:`z_0` in the above formula.
+
+        spectrum_file: file path
+            The path to a csv file containing 3 columns (no headers).
+            The three columns should represent wavelength (in m), spectral
+            amplitude (arb. units) and spectral phase (in radians).
+            Use a "\t" tab as the deliminator in the file.
+
+        propagation_direction: int, optional
+            Indicates in which direction the laser propagates.
+            This should be either 1 (laser propagates towards positive z)
+            or -1 (laser propagates towards negative z).
+        """
+        # Initialize propagation direction
+        # TODO: Implement for GPU
+        LaserLongitudinalProfile.__init__(self,propagation_direction,
+                                          gpu_capable=False)
+        # Import the laser temporal profile as defined by the user
+        self.spectrum_file = spectrum_file
+        t_user, Et_user, lambda0 = self._create1DPulseFromSpec()
+        self.t_user = t_user
+        self.Et_user = Et_user
+        self.z0 = z0
+        self.lambda0 = lambda0
+
+    def get_mean_wavelength(self):
+        """
+        Extract the mean wavelength.
+        """
+        return self.lambda0
+
+    def squared_profile_integral(self):
+        """
+        See the docstring of LaserLongitudinalProfile.squared_profile_integral
+        """
+        # TODO
+        pass
+
+    def evaluate(self, z, t):
+        """
+        See the docstring of LaserLongitudinalProfile.evaluate
+        """
+        # Spatial grid
+        # TODO: Ensure that this works also for the laser antenna.
+        z_ax = z[:, 0, 0]
+
+        # Interpolate the temporal profile of the pulse onto this axis.
+        # we center the pulse temporally around the pulse starting point
+        fpulse = interp1d(c*self.t_user-self.z0,self.Et_user,fill_value=0,bounds_error=False)
+        timeProfile = fpulse(z_ax)
+
+        # And apply it to the full z-grid
+        profile = np.zeros(z.shape, dtype=np.complex64)
+        for i in range(len(timeProfile)):
+            profile[i, :, :] = timeProfile[i]
+
+        return profile
+
+    def _create1DPulseFromSpec(self):
+        """ Taking a spectrum file containing tab seperated columns with wavelength (m) spectral Intensity (arb)
+        and spectral phase (rad) we calculate the normalized temporal profile of the laser pulse
+        """
+        # Read in the Spectrum File and put the data in arrays
+        f = open(self.spectrum_file)
+        wavelength = []
+        intensity = []
+        phase = []
+        for line in f.readlines():
+            vals = line.split('\t')
+            wavelength.append(float(vals[0]))
+            intensity.append(float(vals[1]))
+            phase.append(float(vals[2]))
+
+        wavelength = np.asarray(wavelength)
+        intensity = np.asarray(intensity)
+        phase = np.asarray(phase)
+
+        # central wavelength
+        lambda0 = np.trapz(wavelength*intensity,wavelength)/np.trapz(intensity,wavelength)
+
+        # Computation Parameters
+        lambda_resolution = lambda0/1000           # spectral resolution defined by wavelength
+        dt                = lambda0/c/1000         # temporal resolution defined as fraction of an optical cycle
+        time_window       = lambda0 * lambda0 / c / lambda_resolution
+        Nt                = np.round(time_window/dt).astype(int)
+
+        # Define the time array and its corresponding frequency array after a FT
+        time_arr          = np.linspace(-time_window/2,(time_window/2-dt),Nt)
+        freq_arr, _        = self._FFT(time_arr, np.zeros_like(time_arr))
+
+        # Interpolate the user defined spectral amplitude and phase onto the new frequency
+        # array.
+        spectral_inten_fn = interp1d(2*np.pi*c/wavelength,intensity,fill_value=0,bounds_error=False)
+        spectral_phase_fn = interp1d(2*np.pi*c/wavelength,phase,fill_value=0,bounds_error=False)
+
+        # Calculate the normalised temporal profile of the electric field from user defined spectrum
+        _, Et = self._IFFT(freq_arr, np.sqrt(spectral_inten_fn(freq_arr))*np.exp(1j*spectral_phase_fn(freq_arr)))
+        Et = Et/np.max(np.real(Et))
+
+        return time_arr, Et, lambda0
+
+    def _FFT(self,t, f):
+        """ Function to calculate the discrete approximation to the continuous fourier transform
+        according to:
+        $$
+        F(\omega) = \int^{\infty}_{-\infty} f(t) e^{xs-i \omega t} dt
+        $$
+
+        In this convetion, the inverse fourier transform is given by:
+        $$
+        f(t) = \frac{1}{2\pi} \int^{\infty}_{-\infty} F(\omega) e^{i \omega t} d\omega
+        $$
+
+        t is the independant variable
+        f is the function evaluated at t. eg. f(t)
+        """
+        dt = t[1]-t[0]
+        F = np.fft.fftshift(np.fft.fft(np.fft.ifftshift(f)))*dt
+        T = t[-1] - t[0]
+        sampleFreq = len(t)/T
+        omega = 2*np.pi*np.linspace(-sampleFreq/2, (sampleFreq/2-sampleFreq/len(t)) , len(t))
+        return (omega,F)
+
+    def _IFFT(self,omega, F):
+        """ Function to calculate the discrete approximation to the continuous inverse fourier transform
+        according to:
+        $$
+        F(\omega) = \int^{\infty}_{-\infty} f(t) e^{-i \omega t} dt
+        $$
+
+        In this convetion, the inverse fourier transform is given by:
+        $$
+        f(t) = \frac{1}{2\pi} \int^{\infty}_{-\infty} F(\omega) e^{i \omega t} d\omega
+        $$
+
+        omega is the independant variable
+        F is the function evaluated at omega. eg. F(omega)
+        """
+        sampleFreq = len(omega)*abs(omega[3]-omega[2])/(2*np.pi)
+        dt = 1/sampleFreq
+        t = np.linspace(-dt*len(omega)/2 , dt*len(omega)/2 - dt, len(omega))
+        f = np.fft.fftshift(np.fft.ifft(np.fft.ifftshift(F)))/dt
+        return (t,f)

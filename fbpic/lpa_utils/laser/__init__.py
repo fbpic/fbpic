@@ -6,7 +6,7 @@ from .laser import add_laser, add_laser_pulse
 from .laser_profiles import GaussianLaser, LaguerreGaussLaser, \
               DonutLikeLaguerreGaussLaser, FlattenedGaussianLaser, \
               FewCycleLaser, ParaxialApproximationLaser
-from .longitudinal_laser_profiles import GaussianChirpedLongitudinalProfile,
+from .longitudinal_laser_profiles import GaussianChirpedLongitudinalProfile, \
     CustomSpectrumLongitudinalProfile
 from .transverse_laser_profiles import GaussianTransverseProfile, \
     LaguerreGaussTransverseProfile, DonutLikeLaguerreGaussTransverseProfile, \
