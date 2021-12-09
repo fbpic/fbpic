@@ -6,9 +6,11 @@ This file is part of the Fourier-Bessel Particle-In-Cell code (FB-PIC)
 It defines a set of common laser profiles.
 """
 import numpy as np
-from scipy.constants import c, m_e, e
-from scipy.special import factorial, genlaguerre, binom
-from scipy.interpolate import interp1d
+from scipy.constants import c, m_e, e, epsilon_0
+from .longitudinal_laser_profiles import GaussianChirpedLongitudinalProfile
+from .transverse_laser_profiles import GaussianTransverseProfile, \
+    LaguerreGaussTransverseProfile, DonutLikeLaguerreGaussTransverseProfile, \
+    FlattenedGaussianTransverseProfile
 
 # Generic classes
 # ---------------
@@ -98,6 +100,76 @@ class SummedLaserProfile( LaserProfile ):
         Ex2, Ey2 = self.profile2.E_field( x, y, z, t )
         return( Ex1+Ex2, Ey1+Ey2 )
 
+class ParaxialApproximationLaser( LaserProfile ):
+    """Class that defines a laser pulse by combining a longitudinal
+    and transverse profile under the paraxial approxiation."""
+    def __init__(self, longitudinal_profile, transverse_profile,
+                 E_laser, theta_pol=0.):
+        """
+        Construct a laser profile E(x,y,z,t) by combining a complex
+        longitudinal E(z,t) and transverse E(x,y,z) profile, which is valid
+        under the paraxial approximation. The combined profile is normalized
+        to a given pulse energy.
+
+        Parameters
+        ----------
+        longitudinal_profile: an instance of :any:`LaserLongitudinalProfile`
+            Defines the longitudinal profile E(z,t) of the laser pulse.
+
+        transverse_profile: an instance of :any:`LaserTransverseProfile`
+            Defines the transverse profile E(z,t) of the laser pulse.
+
+        E_laser: float (J)
+            The total energy of the pulse in Joule. The peak intensity
+            of the laser pulse depends on this energy and the specific
+            longitudinal and transverse profile used.
+
+        theta_pol: float (in radian), optional
+           The angle of polarization with respect to the x axis.
+        """
+        # Initialize arbitrary propagation direction and GPU capability
+        # (will be overwritten below)
+        LaserProfile.__init__(self, 1)
+
+        # Initialize a longitudinal profile
+        self.longitudinal_profile = longitudinal_profile
+        # Initialize a transverse profile
+        self.transverse_profile = transverse_profile
+        # Inherit and check parameter consistency of the individual profiles
+        self.propag_direction = longitudinal_profile.propag_direction
+        assert self.propag_direction == transverse_profile.propag_direction
+        k0 = self.longitudinal_profile.k0
+        assert k0 == self.transverse_profile.k0
+        # Inherit GPU capability
+        self.gpu_capable = self.longitudinal_profile.gpu_capable and \
+                           self.transverse_profile.gpu_capable
+
+        # Calculate and store a number of parameters for the laser
+        self.k0 = k0
+        long_int = self.longitudinal_profile.squared_profile_integral()
+        trans_int = self.transverse_profile.squared_profile_integral()
+        # Define a normalized peak electric field E0
+        # (Note that for a transform-limited Gaussian laser pulse, E0
+        # corresponds to the peak electric field at the focus. For any other
+        # profile, however, the actual peak electric field can be different.)
+        E0 = np.sqrt( 2*E_laser / (epsilon_0 * long_int * trans_int ) )
+        self.E0x = E0 * np.cos(theta_pol)
+        self.E0y = E0 * np.sin(theta_pol)
+
+    def E_field( self, x, y, z, t ):
+        """
+        See the docstring of LaserProfile.E_field
+        """
+        # The laser profile is constructed by combining a complex
+        # longitudinal and transverse profile, which is valid under the
+        # paraxial approximation.
+        profile = self.longitudinal_profile.evaluate(z, t) * \
+                  self.transverse_profile.evaluate(x, y, z)
+        # Get the projection along x and y, with the correct polarization
+        Ex = self.E0x * profile
+        Ey = self.E0y * profile
+
+        return( Ex.real, Ey.real )
 
 # Particular classes for each laser profile
 # -----------------------------------------
@@ -181,63 +253,43 @@ class GaussianLaser( LaserProfile ):
             This should be either 1 (laser propagates towards positive z)
             or -1 (laser propagates towards negative z).
         """
-        # Initialize propagation direction and mark the profile as GPU capable
-        LaserProfile.__init__(self, propagation_direction, gpu_capable=True)
+        # Initialize propagation direction
+        LaserProfile.__init__(self, propagation_direction)
 
-        # Set a number of parameters for the laser
-        k0 = 2*np.pi/lambda0
-        E0 = a0*m_e*c**2*k0/e
-        zr = 0.5*k0*waist**2
-
+        # Calculate and store a number of parameters for the laser
+        k0 = 2 * np.pi / lambda0
+        E0 = a0 * m_e * c ** 2 * k0 / e
+        self.E0x = E0 * np.cos(theta_pol)
+        self.E0y = E0 * np.sin(theta_pol)
         # If no focal plane position is given, use z0
         if zf is None:
             zf = z0
-
-        # Store the parameters
-        self.k0 = k0
-        self.inv_zr = 1./zr
-        self.zf = zf
-        self.z0 = z0
-        self.E0x = E0 * np.cos(theta_pol)
-        self.E0y = E0 * np.sin(theta_pol)
-        self.w0 = waist
-        self.cep_phase = cep_phase
-        self.phi2_chirp = phi2_chirp
-        self.inv_ctau2 = 1./(c*tau)**2
+        # Initialize a Gaussian longitudinal profile
+        self.longitudinal_profile = GaussianChirpedLongitudinalProfile(
+            tau=tau, z0=z0, lambda0=lambda0, cep_phase=cep_phase,
+            phi2_chirp=phi2_chirp, propagation_direction=self.propag_direction)
+        # Initialize a Gaussian transverse profile
+        self.transverse_profile = GaussianTransverseProfile(
+            waist=waist, zf=zf, lambda0=lambda0,
+            propagation_direction=self.propag_direction)
+        # Inherit GPU capability of the individual profiles
+        self.gpu_capable = self.longitudinal_profile.gpu_capable and \
+                           self.transverse_profile.gpu_capable
 
     def E_field( self, x, y, z, t ):
         """
         See the docstring of LaserProfile.E_field
         """
-        # Note: this formula is expressed with complex numbers for compactness
-        # and simplicity, but only the real part is used in the end
-        # (see final return statement)
-        # The formula for the laser (in complex numbers) is obtained by
-        # multiplying the Fourier transform of the laser at focus
-        # E(k_x,k_y,\omega) = exp( -(\omega-\omega_0)^2(\tau^2/4 + \phi^(2)/2)
-        # - (k_x^2 + k_y^2)w_0^2/4 ) by the paraxial propagator
-        # e^(-i(\omega/c - (k_x^2 +k_y^2)/2k0)(z-z_foc))
-        # and then by taking the inverse Fourier transform in x, y, and t
-
-        # Diffraction and stretch_factor
-        prop_dir = self.propag_direction
-        diffract_factor = 1. + 1j * prop_dir*(z - self.zf) * self.inv_zr
-        stretch_factor = 1 - 2j * self.phi2_chirp * c**2 * self.inv_ctau2
-        # Calculate the argument of the complex exponential
-        exp_argument = - 1j*self.cep_phase \
-            + 1j*self.k0*( prop_dir*(z - self.z0) - c*t ) \
-            - (x**2 + y**2) / (self.w0**2 * diffract_factor) \
-            - 1./stretch_factor*self.inv_ctau2 * \
-                                    ( prop_dir*(z - self.z0) - c*t )**2
-        # Get the transverse profile
-        profile = np.exp(exp_argument) /(diffract_factor * stretch_factor**0.5)
-
+        # The laser profile is constructed by combining a complex
+        # longitudinal and transverse profile, which is valid under the
+        # paraxial approximation.
+        profile = self.longitudinal_profile.evaluate(z, t) * \
+                  self.transverse_profile.evaluate(x, y, z)
         # Get the projection along x and y, with the correct polarization
         Ex = self.E0x * profile
         Ey = self.E0y * profile
 
         return( Ex.real, Ey.real )
-
 
 class LaguerreGaussLaser( LaserProfile ):
     """Class that calculates a Laguerre-Gauss pulse."""
@@ -356,69 +408,40 @@ class LaguerreGaussLaser( LaserProfile ):
         # Initialize propagation direction
         LaserProfile.__init__(self, propagation_direction)
 
-        # Set a number of parameters for the laser
-        k0 = 2*np.pi/lambda0
-        zr = 0.5*k0*waist**2
-        # Scaling factor, so that the pulse energy is independent of p and m.
-        if m ==0:
-            scaled_amplitude = 1.
-        else:
-            scaled_amplitude = np.sqrt( factorial(p)/factorial(m+p) )
-        if m != 0:
-            scaled_amplitude *= 2**.5
-        E0 = scaled_amplitude * a0 * m_e*c**2 * k0/e
-
+        # Set and store a number of parameters for the laser
+        k0 = 2 * np.pi / lambda0
+        E0 = a0 * m_e * c ** 2 * k0 / e
+        self.E0x = E0 * np.cos(theta_pol)
+        self.E0y = E0 * np.sin(theta_pol)
         # If no focal plane position is given, use z0
         if zf is None:
             zf = z0
+        # Initialize a Gaussian longitudinal profile with zero chirp
+        self.longitudinal_profile = GaussianChirpedLongitudinalProfile(
+            tau=tau, z0=z0, lambda0=lambda0, cep_phase=cep_phase,
+            phi2_chirp=0., propagation_direction=self.propag_direction)
+        # Initialize a Laguerre-Gauss transverse profile
+        self.transverse_profile = LaguerreGaussTransverseProfile(
+            p=p, m=m, waist=waist, zf=zf, lambda0=lambda0, theta0=theta0,
+            propagation_direction=self.propag_direction)
+        # Inherit GPU capability of the individual profiles
+        self.gpu_capable = self.longitudinal_profile.gpu_capable and \
+                           self.transverse_profile.gpu_capable
 
-        # Store the parameters
-        if m < 0 or type(m) is not int:
-            raise ValueError("m should be an integer positive number.")
-        self.p = p
-        self.m = m
-        self.laguerre_pm = genlaguerre(self.p, self.m) # Laguerre polynomial
-        self.theta0 = theta0
-        self.k0 = k0
-        self.inv_zr = 1./zr
-        self.zf = zf
-        self.z0 = z0
-        self.E0x = E0 * np.cos(theta_pol)
-        self.E0y = E0 * np.sin(theta_pol)
-        self.w0 = waist
-        self.cep_phase = cep_phase
-        self.inv_ctau2 = 1./(c*tau)**2
-
-    def E_field( self, x, y, z, t ):
+    def E_field(self, x, y, z, t):
         """
         See the docstring of LaserProfile.E_field
         """
-        # Diffraction factor, waist and Gouy phase
-        prop_dir = self.propag_direction
-        diffract_factor = 1. + 1j * prop_dir * (z - self.zf) * self.inv_zr
-        w = self.w0 * abs( diffract_factor )
-        psi = np.angle( diffract_factor )
-        # Calculate the scaled radius and azimuthal angle
-        scaled_radius_squared = 2*( x**2 + y**2 ) / w**2
-        scaled_radius = np.sqrt( scaled_radius_squared )
-        theta = np.angle( x + 1.j*y )
-        # Calculate the argument of the complex exponential
-        exp_argument = - 1j*self.cep_phase \
-            + 1j*self.k0*( prop_dir*(z - self.z0) - c*t ) \
-            - (x**2 + y**2) / (self.w0**2 * diffract_factor) \
-            - self.inv_ctau2 * ( prop_dir*(z - self.z0) - c*t )**2 \
-            - 1.j*(2*self.p + self.m)*psi # *Additional* Gouy phase
-        # Get the transverse profile
-        profile = np.exp(exp_argument) / diffract_factor \
-            * scaled_radius**self.m * self.laguerre_pm(scaled_radius_squared) \
-            * np.cos( self.m*(theta-self.theta0) )
-
+        # The laser profile is constructed by combining a complex
+        # longitudinal and transverse profile, which is valid under the
+        # paraxial approximation.
+        profile = self.longitudinal_profile.evaluate(z, t) * \
+                  self.transverse_profile.evaluate(x, y, z)
         # Get the projection along x and y, with the correct polarization
         Ex = self.E0x * profile
         Ey = self.E0y * profile
 
-        return( Ex.real, Ey.real )
-
+        return (Ex.real, Ey.real)
 
 class DonutLikeLaguerreGaussLaser( LaserProfile ):
     """Class that calculates a donut-like Laguerre-Gauss pulse."""
@@ -524,61 +547,40 @@ class DonutLikeLaguerreGaussLaser( LaserProfile ):
         # Initialize propagation direction
         LaserProfile.__init__(self, propagation_direction)
 
-        # Set a number of parameters for the laser
-        k0 = 2*np.pi/lambda0
-        zr = 0.5*k0*waist**2
-        # Scaling factor, so that the pulse energy is independent of p and m.
-        scaled_amplitude = np.sqrt( factorial(p)/factorial(abs(m)+p) )
-        E0 = scaled_amplitude * a0 * m_e*c**2 * k0/e
-
+        # Set and store a number of parameters for the laser
+        k0 = 2 * np.pi / lambda0
+        E0 = a0 * m_e * c ** 2 * k0 / e
+        self.E0x = E0 * np.cos(theta_pol)
+        self.E0y = E0 * np.sin(theta_pol)
         # If no focal plane position is given, use z0
         if zf is None:
             zf = z0
+        # Initialize a Gaussian longitudinal profile with zero chirp
+        self.longitudinal_profile = GaussianChirpedLongitudinalProfile(
+            tau=tau, z0=z0, lambda0=lambda0, cep_phase=cep_phase,
+            phi2_chirp=0., propagation_direction=self.propag_direction)
+        # Initialize a donut-like Laguerre-Gauss transverse profile
+        self.transverse_profile = DonutLikeLaguerreGaussTransverseProfile(
+            p=p, m=m, waist=waist, zf=zf, lambda0=lambda0,
+            propagation_direction=self.propag_direction)
+        # Inherit GPU capability of the individual profiles
+        self.gpu_capable = self.longitudinal_profile.gpu_capable and \
+                           self.transverse_profile.gpu_capable
 
-        # Store the parameters
-        self.p = p
-        self.m = m
-        self.laguerre_pm = genlaguerre(self.p, abs(m)) # Laguerre polynomial
-        self.k0 = k0
-        self.inv_zr = 1./zr
-        self.zf = zf
-        self.z0 = z0
-        self.E0x = E0 * np.cos(theta_pol)
-        self.E0y = E0 * np.sin(theta_pol)
-        self.w0 = waist
-        self.cep_phase = cep_phase
-        self.inv_ctau2 = 1./(c*tau)**2
-
-    def E_field( self, x, y, z, t ):
+    def E_field(self, x, y, z, t):
         """
         See the docstring of LaserProfile.E_field
         """
-        # Diffraction factor, waist and Gouy phase
-        prop_dir = self.propag_direction
-        diffract_factor = 1. + 1j * prop_dir * ( z - self.zf ) * self.inv_zr
-        w = self.w0 * abs( diffract_factor )
-        psi = np.angle( diffract_factor )
-        # Calculate the scaled radius and azimuthal angle
-        scaled_radius_squared = 2*( x**2 + y**2 ) / w**2
-        scaled_radius = np.sqrt( scaled_radius_squared )
-        theta = np.angle( x + 1.j*y )
-        # Calculate the argument of the complex exponential
-        exp_argument = 1j*self.k0*( prop_dir*(z - self.z0) - c*t ) \
-            - 1j*self.cep_phase - 1.j*self.m*theta \
-            - (x**2 + y**2) / (self.w0**2 * diffract_factor) \
-            - self.inv_ctau2 * ( prop_dir*(z - self.z0) - c*t )**2 \
-            + 1.j*(2*self.p + abs(self.m))*psi # *Additional* Gouy phase
-        # Get the transverse profile
-        profile = np.exp(exp_argument) / diffract_factor \
-            * scaled_radius**abs(self.m) \
-            * self.laguerre_pm(scaled_radius_squared)
-
+        # The laser profile is constructed by combining a complex
+        # longitudinal and transverse profile, which is valid under the
+        # paraxial approximation.
+        profile = self.longitudinal_profile.evaluate(z, t) * \
+                  self.transverse_profile.evaluate(x, y, z)
         # Get the projection along x and y, with the correct polarization
         Ex = self.E0x * profile
         Ey = self.E0y * profile
 
-        return( Ex.real, Ey.real )
-
+        return (Ex.real, Ey.real)
 
 class FlattenedGaussianLaser( LaserProfile ):
     """Class that calculates a focused flattened Gaussian"""
@@ -626,6 +628,7 @@ class FlattenedGaussianLaser( LaserProfile ):
 
         Parameters
         ----------
+
         a0: float (dimensionless)
             The peak normalized vector potential at the focal plane.
 
@@ -669,84 +672,40 @@ class FlattenedGaussianLaser( LaserProfile ):
         # Initialize propagation direction
         LaserProfile.__init__(self, propagation_direction)
 
-        # Ensure that N is an integer
-        self.N = int(round(N))
-        # Calculate effective waist of the Laguerre-Gauss modes, at focus
-        self.w_foc = w0*(self.N+1)**.5
-
-        k0 = 2* np.pi / lambda0
-        # Rayleigh length
-        zr = 0.5 * k0 * self.w_foc**2
-
-        # Peak field
-        E0 = a0 * m_e * c**2 * k0 / e
-
+        # Set and store a number of parameters for the laser
+        k0 = 2 * np.pi / lambda0
+        E0 = a0 * m_e * c ** 2 * k0 / e
         self.E0x = E0 * np.cos(theta_pol)
         self.E0y = E0 * np.sin(theta_pol)
-
+        # If no focal plane position is given, use z0
         if zf is None:
             zf = z0
+        # Initialize a Gaussian longitudinal profile with zero chirp
+        self.longitudinal_profile = GaussianChirpedLongitudinalProfile(
+            tau=tau, z0=z0, lambda0=lambda0, cep_phase=cep_phase,
+            phi2_chirp=0., propagation_direction=self.propag_direction)
+        # Initialize a flattened Gaussian transverse profile
+        self.transverse_profile = FlattenedGaussianTransverseProfile(
+            w0=w0, N=N, zf=zf, lambda0=lambda0,
+            propagation_direction=self.propag_direction)
+        # Inherit GPU capability of the individual profiles
+        self.gpu_capable = self.longitudinal_profile.gpu_capable and \
+                           self.transverse_profile.gpu_capable
 
-        self.k0 = k0
-        self.inv_zr = 1./zr
-        self.zf = zf
-        self.z0 = z0
-        self.cep_phase = cep_phase
-        self.inv_ctau2 = 1./(c*tau)**2
-
-        # Calculate the coefficients for the Laguerre-Gaussian modes
-        self.cn = np.empty(self.N+1)
-        for n in range(self.N+1):
-            m_values = np.arange(n, self.N+1)
-            self.cn[n] = np.sum((1./2)**m_values * binom(m_values,n)) / (self.N+1)
-
-
-    def E_field( self, x, y, z, t ):
+    def E_field(self, x, y, z, t):
         """
         See the docstring of LaserProfile.E_field
         """
-        # Diffraction factor, waist and Gouy phase
-        prop_dir = self.propag_direction
-        diffract_factor = 1. + 1j * prop_dir * (z - self.zf) * self.inv_zr
-        w = self.w_foc * np.abs( diffract_factor )
-        psi = np.angle( diffract_factor )
-
-        # Argument for the Laguerre polynomials
-        scaled_radius_squared = 2*( x**2 + y**2 ) / w**2
-
-        # Sum recursively over the Laguerre polynomials
-        laguerre_sum = np.zeros_like( x, dtype=np.complex128 )
-        for n in range(0, self.N+1):
-
-            # Recursive calculation of the Laguerre polynomial
-            # - `L` represents $L_n$
-            # - `L1` represents $L_{n-1}$
-            # - `L2` represents $L_{n-2}$
-            if n==0:
-                L = 1.
-            elif n==1:
-                L1 = L
-                L = 1. - scaled_radius_squared
-            else:
-                L2 = L1
-                L1 = L
-                L = (((2*n -1) - scaled_radius_squared) * L1 - (n - 1) * L2) / n
-
-            # Add to the sum, including the term for the additional Gouy phase
-            laguerre_sum += self.cn[n] * np.exp( - (2j* n) * psi ) * L
-
-        # Final profile: multiply by n-independent propagation factors
-        exp_argument = - 1j*self.cep_phase \
-            + 1j*self.k0*( prop_dir*(z - self.z0) - c*t ) \
-            - (x**2 + y**2) / (self.w_foc**2 * diffract_factor) \
-            - self.inv_ctau2 * ( prop_dir*(z - self.z0) - c*t )**2
-        profile = laguerre_sum * np.exp( exp_argument ) / diffract_factor
-
+        # The laser profile is constructed by combining a complex
+        # longitudinal and transverse profile, which is valid under the
+        # paraxial approximation.
+        profile = self.longitudinal_profile.evaluate(z, t) * \
+                  self.transverse_profile.evaluate(x, y, z)
         # Get the projection along x and y, with the correct polarization
         Ex = self.E0x * profile
         Ey = self.E0y * profile
 
-        return( Ex.real, Ey.real )
+        return (Ex.real, Ey.real)
 
 
 class FewCycleLaser( LaserProfile ):
@@ -841,11 +800,9 @@ class FewCycleLaser( LaserProfile ):
         k0 = 2*np.pi/lambda0
         E0 = a0*m_e*c**2*k0/e
         zr = 0.5*k0*waist**2
-
         # If no focal plane position is given, use z0
         if zf is None:
             zf = z0
-
         # Store the parameters
         self.k0 = k0
         self.zr = zr
@@ -855,7 +812,6 @@ class FewCycleLaser( LaserProfile ):
         self.E0y = E0 * np.sin(theta_pol)
         self.w0 = waist
         self.cep_phase = cep_phase
-
         # Find the Poisson parameter s, by solving the non-linear equation
         from scipy.optimize import fsolve
         w_tau = c*k0*tau_fwhm
@@ -871,11 +827,9 @@ class FewCycleLaser( LaserProfile ):
         # Calculate the argument inside the power function
         argument = 1. + 1.j*self.k0/self.s*(
             prop_dir*(z - self.z0) - c*t + 0.5*(x**2 + y**2)*inv_q )
-
         # Get the transverse profile
         profile = np.exp(1.j*self.cep_phase) * 1.j*self.zr*inv_q * \
                     argument**(-self.s-1)
-
         # Get the projection along x and y, with the correct polarization
         Ex = self.E0x * profile
         Ey = self.E0y * profile
@@ -884,13 +838,13 @@ class FewCycleLaser( LaserProfile ):
 
 
 class CustomSpectrumLaserPulse( LaserProfile ):
-    """Class that calculates a Gaussian laser pulse with a user defined 
+    """Class that calculates a Gaussian laser pulse with a user defined
     spectral amplitude and phase."""
 
-    def __init__( self, a0, waist, z0, spectrum_file, zf=None, 
+    def __init__( self, a0, waist, z0, spectrum_file, zf=None,
                     theta_pol=0., propagation_direction=1 ):
         """
-        Define a linearly-polarized Gaussian laser profile with a 
+        Define a linearly-polarized Gaussian laser profile with a
         user-provided temporal profile (defined via spectral phase and amplitude).
 
         The spatial profile of the electric field **near the focal plane**
@@ -910,9 +864,9 @@ class CustomSpectrumLaserPulse( LaserProfile ):
             formula for simplicity, but are of course taken into account by
             the code, when initializing the laser pulse away from the focal plane.
 
-        The temporal characteristics of the pulse are calculated numerically via the 
-        spectral phase and amplitude which are provided to the class as a path to 
-        a csv file containing the data. 
+        The temporal characteristics of the pulse are calculated numerically via the
+        spectral phase and amplitude which are provided to the class as a path to
+        a csv file containing the data.
 
         Parameters
         ----------
@@ -928,10 +882,10 @@ class CustomSpectrumLaserPulse( LaserProfile ):
         z0: float (in meter)
             The initial position of the centroid of the laser
             (in the lab frame), defined as :math:`z_0` in the above formula.
-        
-        spectrum_file: file path 
+
+        spectrum_file: file path
             The path to a csv file containing 3 columns (no headers). The three columns
-            should represent wavelength (in m), spectral amplitude (arb. units) 
+            should represent wavelength (in m), spectral amplitude (arb. units)
             and spectral phase (in radians). Use a "\t" tab as the deliminator in the file.
 
         zf: float (in meter), optional
@@ -989,10 +943,10 @@ class CustomSpectrumLaserPulse( LaserProfile ):
         # Spatial grid
         z_ax = z[:, 0, 0]
 
-        # Interpolate the temporal profile of the pulse onto this axis. 
+        # Interpolate the temporal profile of the pulse onto this axis.
         # we center the pulse temporally around the pulse starting point
         fpulse = interp1d(c*self.t_user-self.z0,self.Et_user,fill_value=0,bounds_error=False)
-        timeProfile = fpulse(z_ax)  
+        timeProfile = fpulse(z_ax)
 
         # And apply it to the full z-grid
         long_profile = np.zeros(z.shape, dtype=np.complex64)
@@ -1004,13 +958,13 @@ class CustomSpectrumLaserPulse( LaserProfile ):
 
         # Get the projection along x and y, with the correct polarization
         Ex = self.E0x * long_profile * trans_profile
-        Ey = self.E0y * long_profile * trans_profile 
+        Ey = self.E0y * long_profile * trans_profile
 
         return( Ex.real, Ey.real )
 
 
     def create1DPulseFromSpec(self):
-        
+
         """ Taking a spectrum file containing tab seperated columns with wavelength (m) spectral Intensity (arb)
         and spectral phase (rad) we calculate the normalized temporal profile of the laser pulse
         """
@@ -1034,12 +988,12 @@ class CustomSpectrumLaserPulse( LaserProfile ):
         lambda0 = np.trapz(wavelength*intensity,wavelength)/np.trapz(intensity,wavelength)
         omega0 = 2*np.pi*c/lambda0
 
-        # Computation Parameters        
+        # Computation Parameters
         lambda_resolution = lambda0/1000           # spectral resolution defined by wavelength
         dt                = lambda0/c/1000         # temporal resolution defined as fraction of an optical cycle
         time_window       = lambda0 * lambda0 / c / lambda_resolution
         wavelength_range  = lambda0 * lambda0 / c / dt
-        Nt                = np.round(time_window/dt).astype(int) 
+        Nt                = np.round(time_window/dt).astype(int)
         Nlambda           = np.round(wavelength_range/lambda_resolution).astype(int)
 
         # Define the time array and its corresponding frequency array after a FT
@@ -1056,9 +1010,9 @@ class CustomSpectrumLaserPulse( LaserProfile ):
         Et = Et/np.max(np.real(Et))
 
         return time_arr, Et, lambda0
-        
+
     def FFT(self,t, f):
-        """ Function to calculate the discrete approximation to the continuous fourier transform 
+        """ Function to calculate the discrete approximation to the continuous fourier transform
         according to:
         $$
         F(\omega) = \int^{\infty}_{-\infty} f(t) e^{xs-i \omega t} dt
@@ -1081,7 +1035,7 @@ class CustomSpectrumLaserPulse( LaserProfile ):
         return (omega,F)
 
     def IFFT(self,omega, F):
-        """ Function to calculate the discrete approximation to the continuous inverse fourier transform 
+        """ Function to calculate the discrete approximation to the continuous inverse fourier transform
         according to:
         $$
         F(\omega) = \int^{\infty}_{-\infty} f(t) e^{-i \omega t} dt
