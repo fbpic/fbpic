@@ -250,11 +250,15 @@ class Simulation( PICMI_Simulation ):
             iteration_max = diagnostic.step_max
         # Register field diagnostic
         if type(diagnostic) == PICMI_FieldDiagnostic:
+            if diagnostic.data_list is None:
+                data_list = ['rho', 'E', 'B', 'J']
+            else:
+                data_list = diagnostic.data_list
             diag = FieldDiagnostic(
                     period=diagnostic.period,
                     fldobject=self.fbpic_sim.fld,
                     comm=self.fbpic_sim.comm,
-                    fieldtypes=diagnostic.data_list,
+                    fieldtypes=data_list,
                     write_dir=diagnostic.write_dir,
                     iteration_min=iteration_min,
                     iteration_max=iteration_max)
@@ -266,11 +270,15 @@ class Simulation( PICMI_Simulation ):
                     raise ValueError('When using a species in a diagnostic, '
                                       'its name must be set.')
                 species_dict[s.name] = s.fbpic_species
+            if diagnostic.data_list is None:
+                data_list = ['position', 'momentum', 'weighting']
+            else:
+                data_list = diagnostic.data_list
             diag = ParticleDiagnostic(
                     period=diagnostic.period,
                     species=species_dict,
                     comm=self.fbpic_sim.comm,
-                    particle_data=diagnostic.data_list,
+                    particle_data=data_list,
                     write_dir=diagnostic.write_dir,
                     iteration_min=iteration_min,
                     iteration_max=iteration_max)
