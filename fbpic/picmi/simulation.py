@@ -250,7 +250,7 @@ class Simulation( PICMI_Simulation ):
             iteration_max = diagnostic.step_max
         # Register field diagnostic
         if type(diagnostic) == PICMI_FieldDiagnostic:
-            if diagnostic.data_list isi None:
+            if diagnostic.data_list is None:
                 data_list = ['rho', 'E', 'B', 'J']
             else:
                 data_list = diagnostic.data_list
