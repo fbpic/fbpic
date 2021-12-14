@@ -105,7 +105,8 @@ def test_laser_periodic(case='gaussian'):
     add_laser_pulse( sim, profile )
 
     import matplotlib.pyplot as plt
-    plt.plot( sim.fld.interp[1].Er.real[:,0] )
+    z = np.linspace(zmin, zmax, len(sim.fld.interp[1].Er.real[:,0]) )
+    plt.plot( z, sim.fld.interp[1].Er.real[:,0] )
     plt.show()
 
     # Propagate the pulse

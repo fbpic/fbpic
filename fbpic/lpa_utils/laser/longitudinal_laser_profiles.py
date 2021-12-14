@@ -269,20 +269,11 @@ class CustomSpectrumLongitudinalProfile(LaserLongitudinalProfile):
         """ Taking a spectrum file containing tab seperated columns with wavelength (m) spectral Intensity (arb)
         and spectral phase (rad) we calculate the normalized temporal profile of the laser pulse
         """
-        # Read in the Spectrum File and put the data in arrays
-        f = open(self.spectrum_file)
-        wavelength = []
-        intensity = []
-        phase = []
-        for line in f.readlines():
-            vals = line.split('\t')
-            wavelength.append(float(vals[0]))
-            intensity.append(float(vals[1]))
-            phase.append(float(vals[2]))
-
-        wavelength = np.asarray(wavelength)
-        intensity = np.asarray(intensity)
-        phase = np.asarray(phase)
+        # Load the spectrum from the text file
+        spectrum_data = np.loadtxt( self.spectrum_file, delimiter='\t' )
+        wavelength = spectrum_data[:,0]
+        intensity = spectrum_data[:,1]
+        phase = spectrum_data[:,2]
 
         # central wavelength
         lambda0 = np.trapz(wavelength*intensity,wavelength)/np.trapz(intensity,wavelength)
