@@ -190,7 +190,7 @@ class CustomSpectrumLongitudinalProfile(LaserLongitudinalProfile):
     """Class that calculates a longitudinal profile with a user defined
     spectral amplitude and phase."""
 
-    def __init__(self, tau, z0, spectrum_file, propagation_direction=1):
+    def __init__(self, z0, spectrum_file, propagation_direction=1):
         """
         Define the complex longitudinal profile of the laser pulse,
         from the spectrum provided in `spectrum_file`.
@@ -198,6 +198,8 @@ class CustomSpectrumLongitudinalProfile(LaserLongitudinalProfile):
         More specifically, the temporal characteristics of the pulse are
         calculated numerically via the spectral phase and amplitude which
         are provided to the class as a path to a csv file containing the data.
+
+        TODO: Add formula
 
         Parameters:
         -----------
@@ -210,6 +212,7 @@ class CustomSpectrumLongitudinalProfile(LaserLongitudinalProfile):
             The three columns should represent wavelength (in m), spectral
             amplitude (arb. units) and spectral phase (in radians).
             Use a "\t" tab as the deliminator in the file.
+            TODO: Discuss linear slope (equivalent to a delay)
 
         propagation_direction: int, optional
             Indicates in which direction the laser propagates.
@@ -227,6 +230,7 @@ class CustomSpectrumLongitudinalProfile(LaserLongitudinalProfile):
         self.Et_user = Et_user
         self.z0 = z0
         self.lambda0 = lambda0
+        self.k0 = 2*np.pi/lambda0
 
     def get_mean_wavelength(self):
         """
@@ -239,7 +243,7 @@ class CustomSpectrumLongitudinalProfile(LaserLongitudinalProfile):
         See the docstring of LaserLongitudinalProfile.squared_profile_integral
         """
         # TODO
-        pass
+        return 1
 
     def evaluate(self, z, t):
         """

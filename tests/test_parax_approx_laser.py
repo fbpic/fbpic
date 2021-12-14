@@ -25,7 +25,8 @@ from scipy.constants import c, epsilon_0, m_e, e
 from fbpic.main import Simulation
 from fbpic.lpa_utils.laser import add_laser_pulse, ParaxialApproximationLaser,\
     GaussianChirpedLongitudinalProfile, GaussianTransverseProfile, \
-    FlattenedGaussianTransverseProfile, DonutLikeLaguerreGaussTransverseProfile
+    FlattenedGaussianTransverseProfile, DonutLikeLaguerreGaussTransverseProfile,\
+    CustomSpectrumLongitudinalProfile
 
 # Parameters
 # ----------
@@ -76,7 +77,13 @@ def test_laser_periodic(case='gaussian'):
                       boundaries={'z':'periodic', 'r':'reflective'} )
 
     # Define the profile
-    if case == 'gaussian':
+    if case == 'custom':
+        long_prof = CustomSpectrumLongitudinalProfile(
+            z0=0., spectrum_file='./laser_spectrum.csv')
+        lambda0 = long_prof.get_mean_wavelength()
+        trans_prof = GaussianTransverseProfile(
+            waist=w0, zf=zfoc, lambda0=lambda0)
+    elif case == 'gaussian':
         long_prof = GaussianChirpedLongitudinalProfile(
             tau=ctau/c, z0=0., phi2_chirp=0.)
         trans_prof = GaussianTransverseProfile(waist=w0, zf=zfoc)
@@ -97,16 +104,21 @@ def test_laser_periodic(case='gaussian'):
     # Initialize the laser fields
     add_laser_pulse( sim, profile )
 
+    import matplotlib.pyplot as plt
+    plt.plot( sim.fld.interp[1].Er.real[:,0] )
+    plt.show()
+
     # Propagate the pulse
     sim.step(1)
 
     # Get pulse energy and peak electric field
-    if case == 'gaussian' or case == 'flattened_chirped':
-        # mode 1
-        Er = sim.fld.interp[1].Er.real.T.copy()
-    elif case == 'donut_chirped':
+    if case == 'donut_chirped':
         # mode 2 & scale Er by a factor of 2 for correct pulse energy
         Er = sim.fld.interp[2].Er.real.T.copy()*2
+    else:
+        # mode 1
+        Er = sim.fld.interp[1].Er.real.T.copy()
+
     r = sim.fld.interp[1].r
     dr = sim.fld.interp[1].dr
     dz = sim.fld.interp[1].dz
@@ -122,7 +134,7 @@ def test_laser_periodic(case='gaussian'):
         assert np.allclose( a0_sim, 2.22, atol=3*rtol*2.22 )
 
 if __name__ == '__main__' :
-    cases = ['gaussian', 'flattened_chirped', 'donut_chirped']
+    cases = ['custom', 'gaussian', 'flattened_chirped', 'donut_chirped']
     for case in cases:
         # Run the testing function
         test_laser_periodic(case)
