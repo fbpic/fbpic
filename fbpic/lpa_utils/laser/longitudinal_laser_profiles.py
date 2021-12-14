@@ -243,7 +243,7 @@ class CustomSpectrumLongitudinalProfile(LaserLongitudinalProfile):
         See the docstring of LaserLongitudinalProfile.squared_profile_integral
         """
         # TODO
-        return 1
+        return np.trapz( abs(self.Et_user)**2, c*self.t_user )
 
     def evaluate(self, z, t):
         """
@@ -276,7 +276,8 @@ class CustomSpectrumLongitudinalProfile(LaserLongitudinalProfile):
         phase = spectrum_data[:,2]
 
         # central wavelength
-        lambda0 = np.trapz(wavelength*intensity,wavelength)/np.trapz(intensity,wavelength)
+        lambda0 = np.trapz(wavelength*intensity,wavelength) * \
+                        1./np.trapz(intensity,wavelength)
 
         # Computation Parameters
         lambda_resolution = lambda0/1000           # spectral resolution defined by wavelength
