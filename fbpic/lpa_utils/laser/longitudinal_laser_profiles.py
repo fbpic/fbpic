@@ -272,7 +272,7 @@ class CustomSpectrumLongitudinalProfile(LaserLongitudinalProfile):
                         1./np.trapz(intensity,wavelength)
 
         # Computation Parameters
-        lambda_resolution = lambda0/1000           # spectral resolution defined by wavelength
+        lambda_resolution = lambda0/1000 # spectral resolution defined by wavelength
         dt                = lambda0/c/1000         # temporal resolution defined as fraction of an optical cycle
         time_window       = lambda0 * lambda0 / c / lambda_resolution
         Nt                = np.round(time_window/dt).astype(int)
