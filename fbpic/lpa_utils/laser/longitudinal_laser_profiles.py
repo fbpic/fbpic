@@ -254,15 +254,17 @@ class CustomSpectrumLongitudinalProfile(LaserLongitudinalProfile):
         # Calculate the normalised temporal profile of the electric field from user defined spectrum
         spectral_Efield = np.sqrt( spectral_inten_fn(omega_arr) ) * \
                             np.exp( 1j*spectral_phase_fn(omega_arr) )
-        temporal_Efield = np.fft.fftshift(np.fft.ifft(spectral_Efield))
+        temporal_Efield = np.fft.fftshift(np.fft.fft(spectral_Efield))
 
         temporal_Efield = temporal_Efield/abs(temporal_Efield).max()
 
-        # Import the laser temporal profile as defined by the user
-        self.spectrum_file = spectrum_file
-        self.t_user = time_arr
-        self.Et_user = temporal_Efield
-        self.z0 = z0
+        # Note: this part could be potentially ported to GPU with cupy.interp
+        self.interp_Efield_function = interp1d( z0 - c*time_arr,
+                           temporal_Efield, fill_value=0, bounds_error=False )
+
+        # Compute integral of squared field
+        self.squared_field_integral = np.trapz( abs(temporal_Efield)**2,
+                                                c*time_arr )
 
     def get_mean_wavelength(self):
         """
@@ -274,7 +276,7 @@ class CustomSpectrumLongitudinalProfile(LaserLongitudinalProfile):
         """
         See the docstring of LaserLongitudinalProfile.squared_profile_integral
         """
-        return np.trapz( abs(self.Et_user)**2, c*self.t_user )
+        return self.squared_field_integral
 
     def evaluate(self, z, t):
         """
@@ -282,10 +284,6 @@ class CustomSpectrumLongitudinalProfile(LaserLongitudinalProfile):
         """
         # Interpolate the temporal profile of the pulse.
         # We center the pulse temporally around the pulse starting point
-        # TODO: Should this be ct - z or z - ct ?
-        # Note: this part could be potentially ported to GPU with cupy.interp
-        interp_function = interp1d( c*self.t_user-self.z0, self.Et_user,
-                           fill_value=0, bounds_error=False )
-        profile = interp_function( z )
+        profile = self.interp_Efield_function( z - c*t )
 
         return profile
