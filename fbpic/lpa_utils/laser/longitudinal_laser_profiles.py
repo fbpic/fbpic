@@ -256,16 +256,17 @@ class CustomSpectrumLongitudinalProfile(LaserLongitudinalProfile):
                                       fill_value=0, bounds_error=False)
 
         # Computation Parameters
-        lambda_resolution = self.lambda0/1000 # spectral resolution defined by wavelength
-        dt = lambda_resolution/c # temporal resolution defined as fraction of an optical cycle
+        lambda_resolution = self.lambda0/1000 # spectral resolution
+        dt = lambda_resolution/c
         time_window = self.lambda0 * self.lambda0 / c / lambda_resolution
         Nt = np.round(time_window/dt).astype(int)
 
-        # Define the time array and its corresponding frequency array after a FT
+        # Define the time array and its corresponding frequency array
         time_arr = -0.5*time_window + dt*np.arange(Nt)
         omega_arr = 2*np.pi * np.fft.fftfreq( Nt, dt )
 
-        # Calculate the normalised temporal profile of the electric field from user defined spectrum
+        # Calculate the normalised temporal profile of the electric
+        # field from user defined spectrum
         spectral_Efield = np.sqrt( spectral_inten_fn(omega_arr) ) * \
                             np.exp( 1j*spectral_phase_fn(omega_arr) )
         temporal_Efield = np.fft.fftshift(np.fft.fft(spectral_Efield))
@@ -273,7 +274,8 @@ class CustomSpectrumLongitudinalProfile(LaserLongitudinalProfile):
         temporal_Efield = temporal_Efield/abs(temporal_Efield).max()
 
         # Note: this part could be potentially ported to GPU with cupy.interp
-        self.interp_Efield_function = interp1d( z0 - c*time_arr,
+        self.interp_Efield_function = interp1d(
+                           self.propag_direction*z0 - c*time_arr,
                            temporal_Efield, fill_value=0, bounds_error=False )
 
         # Compute integral of squared field
@@ -298,6 +300,6 @@ class CustomSpectrumLongitudinalProfile(LaserLongitudinalProfile):
         """
         # Interpolate the temporal profile of the pulse.
         # We center the pulse temporally around the pulse starting point
-        profile = self.interp_Efield_function( z - c*t )
+        profile = self.interp_Efield_function( self.propag_direction*z - c*t )
 
         return profile
