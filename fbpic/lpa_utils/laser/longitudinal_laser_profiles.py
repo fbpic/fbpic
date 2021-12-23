@@ -196,10 +196,17 @@ class CustomSpectrumLongitudinalProfile(LaserLongitudinalProfile):
         from the spectrum provided in `spectrum_file`.
 
         More specifically, the temporal characteristics of the pulse are
-        calculated numerically via the spectral phase and amplitude which
+        calculated numerically via the spectral intensity and phase which
         are provided to the class as a path to a csv file containing the data.
 
-        TODO: Add formula
+        More specifically, the electric field computed according to:
+        .. math::
+
+            E(z,t) \propto \int_{-\infty}^{\infty}\!\! dk \;k\sqrt{I(2\pi/k)}
+                \,e^{i\phi(2\pi/k)}\,e^{i k (z-z0 -ct)}
+
+        where :math:`I` and :math:`\phi` are the spectral intensity provided
+        in the csv file (as a function of the wavelength :math:`\lambda=2\pi/k`).
 
         Parameters:
         -----------
@@ -210,9 +217,12 @@ class CustomSpectrumLongitudinalProfile(LaserLongitudinalProfile):
         spectrum_file: file path
             The path to a csv file containing 3 columns (no headers).
             The three columns should represent wavelength (in m), spectral
-            amplitude (arb. units) and spectral phase (in radians).
-            Use a "\t" tab as the deliminator in the file.
-            TODO: Discuss linear slope (equivalent to a delay)
+            amplitude (in the same dimension as J.m ; the exact unit/scaling
+            coefficient does not matter, since the overall amplitude will
+            be rescaled anyway by FBPIC when this class is used) and
+            spectral phase (in radians). Use a "\t" tab as the deliminator
+            in the file. The spectral phase can be omitted, in which case it
+            will be assumed to be 0.
 
         propagation_direction: int, optional
             Indicates in which direction the laser propagates.
@@ -227,7 +237,10 @@ class CustomSpectrumLongitudinalProfile(LaserLongitudinalProfile):
         spectrum_data = np.loadtxt( spectrum_file, delimiter='\t' )
         wavelength = spectrum_data[:,0]
         intensity = spectrum_data[:,1]
-        phase = spectrum_data[:,2]
+        if spectrum_data.shape[1] < 3:
+            phase = np.zeros_like(wavelength)
+        else:
+            phase = spectrum_data[:,2]
 
         # Compute central wavelength from the text file data
         self.lambda0 = np.trapz(wavelength*intensity,wavelength) * \
