@@ -236,7 +236,8 @@ class CustomSpectrumLongitudinalProfile(LaserLongitudinalProfile):
 
         # Create functions that interpolate the spectral phase and intensity
         # from the text file data
-        spectral_inten_fn = interp1d( 2*np.pi*c/wavelength, intensity,
+        spectral_inten_fn = interp1d( 2*np.pi*c/wavelength,
+                                      intensity*wavelength**2,
                                       fill_value=0,bounds_error=False)
         spectral_phase_fn = interp1d( 2*np.pi*c/wavelength, phase,
                                       fill_value=0, bounds_error=False)
