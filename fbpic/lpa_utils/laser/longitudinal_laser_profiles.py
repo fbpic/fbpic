@@ -273,13 +273,13 @@ class CustomSpectrumLongitudinalProfile(LaserLongitudinalProfile):
 
         # Computation Parameters
         lambda_resolution = lambda0/1000 # spectral resolution defined by wavelength
-        dt                = lambda0/c/1000         # temporal resolution defined as fraction of an optical cycle
-        time_window       = lambda0 * lambda0 / c / lambda_resolution
-        Nt                = np.round(time_window/dt).astype(int)
+        dt = lambda_resolution/c # temporal resolution defined as fraction of an optical cycle
+        time_window = lambda0 * lambda0 / c / lambda_resolution
+        Nt = np.round(time_window/dt).astype(int)
 
         # Define the time array and its corresponding frequency array after a FT
-        time_arr          = np.linspace(-time_window/2,(time_window/2-dt),Nt)
-        freq_arr, _        = self._FFT(time_arr, np.zeros_like(time_arr))
+        time_arr = -0.5*time_window + dt*np.arange(Nt)
+        freq_arr = 2*np.pi*( -0.5/dt + 1./time_window*np.arange(Nt) )
 
         # Interpolate the user defined spectral amplitude and phase onto the new frequency
         # array.
@@ -287,50 +287,9 @@ class CustomSpectrumLongitudinalProfile(LaserLongitudinalProfile):
         spectral_phase_fn = interp1d(2*np.pi*c/wavelength,phase,fill_value=0,bounds_error=False)
 
         # Calculate the normalised temporal profile of the electric field from user defined spectrum
-        _, Et = self._IFFT(freq_arr, np.sqrt(spectral_inten_fn(freq_arr))*np.exp(1j*spectral_phase_fn(freq_arr)))
-        Et = Et/np.max(np.real(Et))
+        spectral_Efield = np.sqrt(spectral_inten_fn(freq_arr))*np.exp(1j*spectral_phase_fn(freq_arr))
+        temporal_Efield = np.fft.fftshift(np.fft.ifft(np.fft.ifftshift(spectral_Efield)))
 
-        return time_arr, Et, lambda0
+        temporal_Efield = temporal_Efield/abs(temporal_Efield).max()
 
-    def _FFT(self,t, f):
-        """ Function to calculate the discrete approximation to the continuous fourier transform
-        according to:
-        $$
-        F(\omega) = \int^{\infty}_{-\infty} f(t) e^{xs-i \omega t} dt
-        $$
-
-        In this convetion, the inverse fourier transform is given by:
-        $$
-        f(t) = \frac{1}{2\pi} \int^{\infty}_{-\infty} F(\omega) e^{i \omega t} d\omega
-        $$
-
-        t is the independant variable
-        f is the function evaluated at t. eg. f(t)
-        """
-        dt = t[1]-t[0]
-        F = np.fft.fftshift(np.fft.fft(np.fft.ifftshift(f)))*dt
-        T = t[-1] - t[0]
-        sampleFreq = len(t)/T
-        omega = 2*np.pi*np.linspace(-sampleFreq/2, (sampleFreq/2-sampleFreq/len(t)) , len(t))
-        return (omega,F)
-
-    def _IFFT(self,omega, F):
-        """ Function to calculate the discrete approximation to the continuous inverse fourier transform
-        according to:
-        $$
-        F(\omega) = \int^{\infty}_{-\infty} f(t) e^{-i \omega t} dt
-        $$
-
-        In this convetion, the inverse fourier transform is given by:
-        $$
-        f(t) = \frac{1}{2\pi} \int^{\infty}_{-\infty} F(\omega) e^{i \omega t} d\omega
-        $$
-
-        omega is the independant variable
-        F is the function evaluated at omega. eg. F(omega)
-        """
-        sampleFreq = len(omega)*abs(omega[3]-omega[2])/(2*np.pi)
-        dt = 1/sampleFreq
-        t = np.linspace(-dt*len(omega)/2 , dt*len(omega)/2 - dt, len(omega))
-        f = np.fft.fftshift(np.fft.ifft(np.fft.ifftshift(F)))/dt
-        return (t,f)
+        return time_arr, temporal_Efield, lambda0

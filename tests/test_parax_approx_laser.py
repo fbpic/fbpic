@@ -160,7 +160,7 @@ def test_laser_periodic(case='gaussian'):
         assert np.allclose( a0_sim, 2.22, atol=3*rtol*2.22 )
 
 if __name__ == '__main__' :
-    cases = ['gaussian', 'custom', 'flattened_chirped', 'donut_chirped']
+    cases = ['custom', 'gaussian', 'flattened_chirped', 'donut_chirped']
     for case in cases:
         # Run the testing function
         test_laser_periodic(case)
