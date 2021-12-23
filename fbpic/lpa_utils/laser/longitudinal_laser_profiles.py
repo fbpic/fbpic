@@ -202,11 +202,16 @@ class CustomSpectrumLongitudinalProfile(LaserLongitudinalProfile):
         More specifically, the electric field computed according to:
         .. math::
 
-            E(z,t) \propto \int_{-\infty}^{\infty}\!\! dk \;k\sqrt{I(2\pi/k)}
+            E(z,t) \propto \int_{-\infty}^{\infty}\!\! dk \;k
+                \sqrt{\\frac{dI}{d\lambda}(2\pi/k)}
                 \,e^{i\phi(2\pi/k)}\,e^{i k (z-z0 -ct)}
 
-        where :math:`I` and :math:`\phi` are the spectral intensity provided
-        in the csv file (as a function of the wavelength :math:`\lambda=2\pi/k`).
+        where :math:`\\frac{dI}{d\lambda}` and :math:`\phi` are the
+        spectral intensity provided in the csv file (as a function of the
+        wavelength :math:`\lambda=2\pi/k`). (The fact that the integrand
+        is multiplied by :math:`k` in the above formula is because
+        the csv file provides :math:`\\frac{dI}{d\lambda}`, not
+        :math:`\\frac{dI}{dk}`.)
 
         Parameters:
         -----------
