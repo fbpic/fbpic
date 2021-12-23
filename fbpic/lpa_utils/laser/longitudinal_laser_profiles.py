@@ -222,14 +222,47 @@ class CustomSpectrumLongitudinalProfile(LaserLongitudinalProfile):
         # Initialize propagation direction
         LaserLongitudinalProfile.__init__(self,propagation_direction,
                                           gpu_capable=False)
+
+        # Load the spectrum from the text file
+        spectrum_data = np.loadtxt( spectrum_file, delimiter='\t' )
+        wavelength = spectrum_data[:,0]
+        intensity = spectrum_data[:,1]
+        phase = spectrum_data[:,2]
+
+        # Compute central wavelength from the text file data
+        self.lambda0 = np.trapz(wavelength*intensity,wavelength) * \
+                        1./np.trapz(intensity,wavelength)
+        self.k0 = 2*np.pi/self.lambda0
+
+        # Create functions that interpolate the spectral phase and intensity
+        # from the text file data
+        spectral_inten_fn = interp1d( 2*np.pi*c/wavelength, intensity,
+                                      fill_value=0,bounds_error=False)
+        spectral_phase_fn = interp1d( 2*np.pi*c/wavelength, phase,
+                                      fill_value=0, bounds_error=False)
+
+        # Computation Parameters
+        lambda_resolution = self.lambda0/1000 # spectral resolution defined by wavelength
+        dt = lambda_resolution/c # temporal resolution defined as fraction of an optical cycle
+        time_window = self.lambda0 * self.lambda0 / c / lambda_resolution
+        Nt = np.round(time_window/dt).astype(int)
+
+        # Define the time array and its corresponding frequency array after a FT
+        time_arr = -0.5*time_window + dt*np.arange(Nt)
+        omega_arr = 2*np.pi * np.fft.fftfreq( Nt, dt )
+
+        # Calculate the normalised temporal profile of the electric field from user defined spectrum
+        spectral_Efield = np.sqrt( spectral_inten_fn(omega_arr) ) * \
+                            np.exp( 1j*spectral_phase_fn(omega_arr) )
+        temporal_Efield = np.fft.fftshift(np.fft.ifft(spectral_Efield))
+
+        temporal_Efield = temporal_Efield/abs(temporal_Efield).max()
+
         # Import the laser temporal profile as defined by the user
         self.spectrum_file = spectrum_file
-        t_user, Et_user, lambda0 = self._create1DPulseFromSpec()
-        self.t_user = t_user
-        self.Et_user = Et_user
+        self.t_user = time_arr
+        self.Et_user = temporal_Efield
         self.z0 = z0
-        self.lambda0 = lambda0
-        self.k0 = 2*np.pi/lambda0
 
     def get_mean_wavelength(self):
         """
@@ -256,40 +289,3 @@ class CustomSpectrumLongitudinalProfile(LaserLongitudinalProfile):
         profile = interp_function( z )
 
         return profile
-
-    def _create1DPulseFromSpec(self):
-        """ Taking a spectrum file containing tab seperated columns with wavelength (m) spectral Intensity (arb)
-        and spectral phase (rad) we calculate the normalized temporal profile of the laser pulse
-        """
-        # Load the spectrum from the text file
-        spectrum_data = np.loadtxt( self.spectrum_file, delimiter='\t' )
-        wavelength = spectrum_data[:,0]
-        intensity = spectrum_data[:,1]
-        phase = spectrum_data[:,2]
-
-        # central wavelength
-        lambda0 = np.trapz(wavelength*intensity,wavelength) * \
-                        1./np.trapz(intensity,wavelength)
-
-        # Computation Parameters
-        lambda_resolution = lambda0/1000 # spectral resolution defined by wavelength
-        dt = lambda_resolution/c # temporal resolution defined as fraction of an optical cycle
-        time_window = lambda0 * lambda0 / c / lambda_resolution
-        Nt = np.round(time_window/dt).astype(int)
-
-        # Define the time array and its corresponding frequency array after a FT
-        time_arr = -0.5*time_window + dt*np.arange(Nt)
-        freq_arr = 2*np.pi*( -0.5/dt + 1./time_window*np.arange(Nt) )
-
-        # Interpolate the user defined spectral amplitude and phase onto the new frequency
-        # array.
-        spectral_inten_fn = interp1d(2*np.pi*c/wavelength,intensity,fill_value=0,bounds_error=False)
-        spectral_phase_fn = interp1d(2*np.pi*c/wavelength,phase,fill_value=0,bounds_error=False)
-
-        # Calculate the normalised temporal profile of the electric field from user defined spectrum
-        spectral_Efield = np.sqrt(spectral_inten_fn(freq_arr))*np.exp(1j*spectral_phase_fn(freq_arr))
-        temporal_Efield = np.fft.fftshift(np.fft.ifft(np.fft.ifftshift(spectral_Efield)))
-
-        temporal_Efield = temporal_Efield/abs(temporal_Efield).max()
-
-        return time_arr, temporal_Efield, lambda0
