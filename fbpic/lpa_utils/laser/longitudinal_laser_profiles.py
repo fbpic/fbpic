@@ -220,7 +220,6 @@ class CustomSpectrumLongitudinalProfile(LaserLongitudinalProfile):
             or -1 (laser propagates towards negative z).
         """
         # Initialize propagation direction
-        # TODO: Implement for GPU
         LaserLongitudinalProfile.__init__(self,propagation_direction,
                                           gpu_capable=False)
         # Import the laser temporal profile as defined by the user
@@ -242,26 +241,19 @@ class CustomSpectrumLongitudinalProfile(LaserLongitudinalProfile):
         """
         See the docstring of LaserLongitudinalProfile.squared_profile_integral
         """
-        # TODO
         return np.trapz( abs(self.Et_user)**2, c*self.t_user )
 
     def evaluate(self, z, t):
         """
         See the docstring of LaserLongitudinalProfile.evaluate
         """
-        # Spatial grid
-        # TODO: Ensure that this works also for the laser antenna.
-        z_ax = z[:, 0, 0]
-
-        # Interpolate the temporal profile of the pulse onto this axis.
-        # we center the pulse temporally around the pulse starting point
-        fpulse = interp1d(c*self.t_user-self.z0,self.Et_user,fill_value=0,bounds_error=False)
-        timeProfile = fpulse(z_ax)
-
-        # And apply it to the full z-grid
-        profile = np.zeros(z.shape, dtype=np.complex64)
-        for i in range(len(timeProfile)):
-            profile[i, :, :] = timeProfile[i]
+        # Interpolate the temporal profile of the pulse.
+        # We center the pulse temporally around the pulse starting point
+        # TODO: Should this be ct - z or z - ct ?
+        # Note: this part could be potentially ported to GPU with cupy.interp
+        interp_function = interp1d( c*self.t_user-self.z0, self.Et_user,
+                           fill_value=0, bounds_error=False )
+        profile = interp_function( z )
 
         return profile
 
