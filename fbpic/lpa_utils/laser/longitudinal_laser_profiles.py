@@ -203,15 +203,15 @@ class CustomSpectrumLongitudinalProfile(LaserLongitudinalProfile):
         .. math::
 
             E(z,t) \propto \int_{-\infty}^{\infty}\!\! dk \;k
-                \sqrt{\\frac{dI}{d\lambda}(2\pi/k)}
+                \sqrt{I(2\pi/k)}
                 \,e^{i\phi(2\pi/k)}\,e^{i k (z-z0 -ct)}
 
-        where :math:`\\frac{dI}{d\lambda}` and :math:`\phi` are the
+        where :math:`I` and :math:`\phi` are the
         spectral intensity provided in the csv file (as a function of the
         wavelength :math:`\lambda=2\pi/k`). (The fact that the integrand
         is multiplied by :math:`k` in the above formula is because
-        the csv file provides :math:`\\frac{dI}{d\lambda}`, not
-        :math:`\\frac{dI}{dk}`.)
+        the csv file provides the intensity distribution over wavelengths 
+        :math:`\lambda`, instead of over wavevectors :math:`k`.)
 
         Parameters:
         -----------
@@ -222,7 +222,7 @@ class CustomSpectrumLongitudinalProfile(LaserLongitudinalProfile):
         spectrum_file: file path
             The path to a csv file containing 3 columns (no headers).
             The three columns should represent wavelength (in m), spectral
-            amplitude (in the same dimension as J.m ; the exact unit/scaling
+            intensity (in the same dimension as J/m ; the exact unit/scaling
             coefficient does not matter, since the overall amplitude will
             be rescaled anyway by FBPIC when this class is used) and
             spectral phase (in radians). Use a "\t" tab as the deliminator
