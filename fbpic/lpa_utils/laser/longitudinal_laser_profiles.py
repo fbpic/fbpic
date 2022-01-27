@@ -7,6 +7,7 @@ It defines a set of common longitudinal laser profiles.
 """
 import numpy as np
 from scipy.constants import c
+from scipy.interpolate import interp1d
 
 # Generic classes
 # ---------------
@@ -183,3 +184,127 @@ class GaussianChirpedLongitudinalProfile(LaserLongitudinalProfile):
         See the docstring of LaserLongitudinalProfile.squared_profile_integral
         """
         return (0.5 * np.pi * 1./self.inv_ctau2)**.5
+
+
+class CustomSpectrumLongitudinalProfile(LaserLongitudinalProfile):
+    """Class that calculates a longitudinal profile with a user defined
+    spectral amplitude and phase."""
+
+    def __init__(self, z0, spectrum_file, propagation_direction=1):
+        """
+        Define the complex longitudinal profile of the laser pulse,
+        from the spectrum provided in `spectrum_file`.
+
+        More specifically, the temporal characteristics of the pulse are
+        calculated numerically via the spectral intensity and phase which
+        are provided to the class as a path to a csv file containing the data.
+
+        More specifically, the electric field computed according to:
+        .. math::
+
+            E(z,t) \propto \int_{-\infty}^{\infty}\!\! dk \;k
+                \sqrt{I(2\pi/k)}
+                \,e^{i\phi(2\pi/k)}\,e^{i k (z-z0 -ct)}
+
+        where :math:`I` and :math:`\phi` are the
+        spectral intensity provided in the csv file (as a function of the
+        wavelength :math:`\lambda=2\pi/k`). (The fact that the integrand
+        is multiplied by :math:`k` in the above formula is because
+        the csv file provides the intensity distribution over wavelengths 
+        :math:`\lambda`, instead of over wavevectors :math:`k`.)
+
+        Parameters:
+        -----------
+        z0: float (in meter)
+            The initial position of the centroid of the laser
+            (in the lab frame), defined as :math:`z_0` in the above formula.
+
+        spectrum_file: file path
+            The path to a csv file containing 3 columns (no headers).
+            The three columns should represent wavelength (in m), spectral
+            intensity (in the same dimension as J/m ; the exact unit/scaling
+            coefficient does not matter, since the overall amplitude will
+            be rescaled anyway by FBPIC when this class is used) and
+            spectral phase (in radians). Use a "\t" tab as the deliminator
+            in the file. The spectral phase can be omitted, in which case it
+            will be assumed to be 0.
+
+        propagation_direction: int, optional
+            Indicates in which direction the laser propagates.
+            This should be either 1 (laser propagates towards positive z)
+            or -1 (laser propagates towards negative z).
+        """
+        # Initialize propagation direction
+        LaserLongitudinalProfile.__init__(self,propagation_direction,
+                                          gpu_capable=False)
+
+        # Load the spectrum from the text file
+        spectrum_data = np.loadtxt( spectrum_file, delimiter='\t' )
+        wavelength = spectrum_data[:,0]
+        intensity = spectrum_data[:,1]
+        if spectrum_data.shape[1] < 3:
+            phase = np.zeros_like(wavelength)
+        else:
+            phase = spectrum_data[:,2]
+
+        # Compute central wavelength from the text file data
+        self.lambda0 = np.trapz(wavelength*intensity,wavelength) * \
+                        1./np.trapz(intensity,wavelength)
+        self.k0 = 2*np.pi/self.lambda0
+
+        # Create functions that interpolate the spectral phase and intensity
+        # from the text file data
+        spectral_inten_fn = interp1d( 2*np.pi*c/wavelength,
+                                      intensity*wavelength**2,
+                                      fill_value=0,bounds_error=False)
+        spectral_phase_fn = interp1d( 2*np.pi*c/wavelength, phase,
+                                      fill_value=0, bounds_error=False)
+
+        # Computation Parameters
+        lambda_resolution = self.lambda0/1000 # spectral resolution
+        dt = lambda_resolution/c
+        time_window = self.lambda0 * self.lambda0 / c / lambda_resolution
+        Nt = np.round(time_window/dt).astype(int)
+
+        # Define the time array and its corresponding frequency array
+        time_arr = -0.5*time_window + dt*np.arange(Nt)
+        omega_arr = 2*np.pi * np.fft.fftfreq( Nt, dt )
+
+        # Calculate the normalised temporal profile of the electric
+        # field from user defined spectrum
+        spectral_Efield = np.sqrt( spectral_inten_fn(omega_arr) ) * \
+                            np.exp( 1j*spectral_phase_fn(omega_arr) )
+        temporal_Efield = np.fft.fftshift(np.fft.fft(spectral_Efield))
+
+        temporal_Efield = temporal_Efield/abs(temporal_Efield).max()
+
+        # Note: this part could be potentially ported to GPU with cupy.interp
+        self.interp_Efield_function = interp1d(
+                           self.propag_direction*z0 - c*time_arr,
+                           temporal_Efield, fill_value=0, bounds_error=False )
+
+        # Compute integral of squared field
+        self.squared_field_integral = np.trapz( abs(temporal_Efield)**2,
+                                                c*time_arr )
+
+    def get_mean_wavelength(self):
+        """
+        Extract the mean wavelength.
+        """
+        return self.lambda0
+
+    def squared_profile_integral(self):
+        """
+        See the docstring of LaserLongitudinalProfile.squared_profile_integral
+        """
+        return self.squared_field_integral
+
+    def evaluate(self, z, t):
+        """
+        See the docstring of LaserLongitudinalProfile.evaluate
+        """
+        # Interpolate the temporal profile of the pulse.
+        # We center the pulse temporally around the pulse starting point
+        profile = self.interp_Efield_function( self.propag_direction*z - c*t )
+
+        return profile
