@@ -14,8 +14,7 @@ Python. If Anaconda is not your default Python distribution, download and instal
 
   ::
 
-     conda install numba scipy h5py mkl
-     conda install -c conda-forge mpi4py
+     conda install -c conda-forge numba scipy h5py mkl mpi4py
 
 -  Install ``fbpic``
 
@@ -31,20 +30,20 @@ Python. If Anaconda is not your default Python distribution, download and instal
 
 -  **Optional:** In order to be able to run the code on a GPU,
    install the additional package ``cudatoolkit`` and ``cupy`` --
-   e.g. using CUDA version 10.0:
+   e.g. using CUDA version 11.5:
 
    ::
 
 
-       conda install cudatoolkit=10.0
-       pip install cupy-cuda100
+       conda install -c conda-forge cudatoolkit=11.5
+       pip install cupy-cuda115
 
    .. warning::
 
        In the above command, you should choose a CUDA version that is **compatible
        with your GPU driver**. You can see the version of your GPU driver by typing
        the command ``nvidia-smi``. You can then find the compatible CUDA
-       versions using `this table <https://docs.nvidia.com/deploy/cuda-compatibility/index.html#binary-compatibility__table-toolkit-driver>`__.
+       versions using `this table <https://docs.nvidia.com/deploy/cuda-compatibility/index.html#use-the-right-compat-package>`__.
 
 -  **Optional:** In order to run on a CPU which is **not** an Intel model, you need to install `pyfftw`, in order to replace the MKL FFT:
 
