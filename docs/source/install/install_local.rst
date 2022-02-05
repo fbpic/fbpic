@@ -10,7 +10,7 @@ Python. If Anaconda is not your default Python distribution, download and instal
 
 **Installation steps**:
 
-- Install the dependencies of FBPIC. This can be done in two lines:
+- Install the dependencies of FBPIC:
 
   ::
 
