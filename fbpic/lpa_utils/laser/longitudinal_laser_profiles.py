@@ -234,15 +234,15 @@ class CustomSpectrumLongitudinalProfile(LaserLongitudinalProfile):
             will be assumed to be 0.
 
         phi2_chirp: float (in second^2), optional
-            The amount of temporal chirp, at focus (in the lab frame).
+            The amount of additional temporal chirp, at focus (in the lab frame).
 
         phi3_chirp: float (in second^3), optional
-            The amount of third order dispersion, at focus (in the lab frame).
+            The amount of additional third order dispersion, at focus (in the lab frame).
             This parameter leads to an asymmetrical temporal shape of the laser
             pulse.
 
         phi4_chirp: float (in second^4), optional
-            Fourth order dispersion at focus (in the lab frame).
+            Additional fourth order dispersion at focus (in the lab frame).
 
         subtract_linear_phase: bool, optional
             If True, a linear slope in the spectral phase read
@@ -272,7 +272,7 @@ class CustomSpectrumLongitudinalProfile(LaserLongitudinalProfile):
         if subtract_linear_phase:
             # Fit a 4 order polynomial and subtract the linear term
             poly_coeffs = np.polyfit(omega_axis, spectral_phase, 4)
-            spectral_phase -= omega_axis * poly_coeffs[-1]
+            spectral_phase -= omega_axis * poly_coeffs[-2]
 
         # Compute central wavelength from the text file data
         self.lambda0 = np.trapz(wavelength*intensity, wavelength) * \
