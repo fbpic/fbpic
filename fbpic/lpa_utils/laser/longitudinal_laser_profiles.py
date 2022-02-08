@@ -234,15 +234,24 @@ class CustomSpectrumLongitudinalProfile(LaserLongitudinalProfile):
             will be assumed to be 0.
 
         phi2_chirp: float (in second^2), optional
-            The amount of additional temporal chirp, at focus (in the lab frame).
+            The amount of additional temporal chirp, at focus (in the
+            lab frame). This spectral phase is added to that read from
+            spectrum_file. A positive :math:`\phi^{(2)}` corresponds to
+            a positive chirp, i.e. red part of the spectrum in the
+            front of the pulse and blue part of the spectrum in the back.
 
         phi3_chirp: float (in second^3), optional
-            The amount of additional third order dispersion, at focus (in the lab frame).
-            This parameter leads to an asymmetrical temporal shape of the laser
-            pulse.
+            The amount of additional third order dispersion,
+            at focus (in the lab frame). This spectral phase is added to
+            that read from spectrum_file. This parameter leads to an
+            asymmetrical temporal shape of the laser pulse envelope.
+            A positive :math:`\phi^{(3)}` leads to a slow rise
+            of the pulse envelope and fast fall, along with appearance
+            of post-pulses for higher values of :math:`\phi^{(3)}`.
 
         phi4_chirp: float (in second^4), optional
             Additional fourth order dispersion at focus (in the lab frame).
+            This spectral phase is added to that read from spectrum_file.
 
         subtract_linear_phase: bool, optional
             If True, a linear slope in the spectral phase read
