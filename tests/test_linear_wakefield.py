@@ -322,7 +322,7 @@ N_step = 1500
 
 # The particles
 p_zmin = 39.e-6  # Position of the beginning of the plasma (meters)
-p_zmax = 41.e-6  # Position of the end of the plasma (meters)
+p_zmax = np.inf  # Position of the end of the plasma (meters)
 p_rmin = 0.      # Minimal radial position of the plasma (meters)
 p_rmax = 55.e-6  # Maximal radial position of the plasma (meters)
 n_e = 8.e24      # Density (electrons.meters^-3)

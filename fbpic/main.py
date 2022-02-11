@@ -872,6 +872,9 @@ class Simulation(object):
         -------
         new_species: an instance of the `Particles` class
         """
+        # Store p_zmin and p_zmax to pass to Particles
+        p_extent = (p_zmin, p_zmax)
+
         # Check if any macroparticle need to be injected
         if n is not None:
             # Check that all required arguments are passed
@@ -957,7 +960,7 @@ class Simulation(object):
                         ux_m=ux_m, uy_m=uy_m, uz_m=uz_m,
                         ux_th=ux_th, uy_th=uy_th, uz_th=uz_th,
                         continuous_injection=continuous_injection,
-                        dz_particles=dz_particles )
+                        dz_particles=dz_particles, p_extent=p_extent )
 
         # Add it to the list of species and return it to the user
         self.ptcl.append( new_species )

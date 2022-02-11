@@ -17,7 +17,7 @@ class ContinuousInjector( object ):
     """
 
     def __init__(self, Npz, zmin, zmax, dz_particles, Npr, rmin, rmax,
-                Nptheta, n, dens_func, ux_m, uy_m, uz_m, ux_th, uy_th, uz_th ):
+                Nptheta, n, dens_func, ux_m, uy_m, uz_m, ux_th, uy_th, uz_th, p_extent=None ):
         """
         Initialize continuous injection
 
@@ -29,6 +29,7 @@ class ContinuousInjector( object ):
         self.Npr = Npr
         self.rmin = rmin
         self.rmax = rmax
+        self.p_extent = p_extent
         self.Nptheta = Nptheta
         self.n = n
         self.dens_func = dens_func
@@ -181,9 +182,12 @@ class ContinuousInjector( object ):
 
         # Create new particle cells
         # Determine the positions between which new particles will be created
-        Npz = self.nz_inject
         zmax = self.z_end_plasma
         zmin = self.z_end_plasma - self.nz_inject*self.dz_particles
+        Npz = 0 if (self.p_extent is not None and len(self.p_extent)>1 \
+                    and (zmax < self.p_extent[0] or zmin > self.p_extent[1])) \
+                else self.nz_inject
+
         # Create the particles
         Ntot, x, y, z, ux, uy, uz, inv_gamma, w = generate_evenly_spaced(
                 Npz, zmin, zmax, self.Npr, self.rmin, self.rmax,
