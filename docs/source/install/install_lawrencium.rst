@@ -145,7 +145,7 @@ In order to see the queue:
 
 Visualizing the results through Jupyter
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-Lawrencium provides access to the cluster via Jupyter, at `https://lrc-jupyter.lbl.gov <https://lrc-jupyter.lbl.gov>`__. Once you logged in and opened a Jupyter notebook, you can type in a cell:
+Lawrencium provides access to the cluster via Jupyter `here <https://lrc-ondemand.lbl.gov/pun/sys/dashboard/batch_connect/sys/lrc_jupyter/session_contexts/new>`__. Once you logged in and opened a Jupyter notebook, you can type in a cell:
 
 ::
 

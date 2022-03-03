@@ -8,7 +8,7 @@ it for a few steps
 
 Usage :
 from the top-level directory of FBPIC run
-$ python tests/test_space_charge.py
+$ python tests/unautomated/test_space_charge.py
 """
 import matplotlib.pyplot as plt
 from scipy.constants import c
@@ -43,7 +43,7 @@ p_nt = 4         # Number of particles per cell along theta
 # Initialize the simulation object
 sim = Simulation( Nz, zmax, Nr, rmax, Nm, dt,
     p_zmin, p_zmax, p_rmin, p_rmax, p_nz, p_nr, p_nt, n_e,
-    n_order=n_order, boundaries='open' )
+    n_order=n_order, boundaries={'z':'open', 'r':'reflective'} )
 
 # Configure the moving window
 sim.set_moving_window(v=c)
@@ -55,20 +55,20 @@ add_elec_bunch( sim, gamma0, n_e, p_zmin, p_zmax, p_rmin, p_rmax )
 
 # Show the initial fields
 plt.figure(0)
-sim.fld.interp[0].show('Ez')
+plt.imshow(sim.fld.interp[0].Ez.real)
 plt.figure(1)
-sim.fld.interp[0].show('Er')
+plt.imshow(sim.fld.interp[0].Er.real)
 plt.show()
 print( 'Done' )
 
 # Carry out the simulation
-for k in range(N_step/N_show) :
+for k in range(round(N_step/N_show)) :
     sim.step(N_show)
 
     plt.figure(0)
     plt.clf()
-    sim.fld.interp[0].show('Ez')
+    plt.imshow(sim.fld.interp[0].Ez.real)
     plt.figure(1)
     plt.clf()
-    sim.fld.interp[0].show('Er')
+    plt.imshow(sim.fld.interp[0].Er.real)
     plt.show()

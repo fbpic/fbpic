@@ -116,8 +116,8 @@ class Simulation( PICMI_Simulation ):
             gamma_boost=self.gamma_boost )
 
         # Set the moving window
-        if grid.moving_window_zvelocity is not None:
-            self.fbpic_sim.set_moving_window(grid.moving_window_zvelocity)
+        if grid.moving_window_velocity is not None:
+            self.fbpic_sim.set_moving_window(grid.moving_window_velocity[-1])
 
 
     # Redefine the method `add_laser` from the PICMI Simulation class
@@ -342,31 +342,39 @@ class Simulation( PICMI_Simulation ):
                 iteration_max = diagnostic.step_max
 
         # Register field diagnostic
+        if type(diagnostic) in [PICMI_FieldDiagnostic, PICMI_LabFrameFieldDiagnostic]:
+            if diagnostic.data_list is None:
+                data_list = ['rho', 'E', 'B', 'J']
+            else:
+                data_list = set()  # Use set to avoid redundancy
+                for data in diagnostic.data_list:
+                    if data in ['Ex', 'Ey', 'Ez']:
+                        data_list.add('E')
+                    elif data in ['Bx', 'By', 'Bz']:
+                        data_list.add('B')
+                    elif data in ['Jx', 'Jy', 'Jz']:
+                        data_list.add('J')
+                    elif data == 'rho':
+                        data_list.add('rho')
+                data_list = list(data_list)
+
         if type(diagnostic) == PICMI_FieldDiagnostic:
-            data_list = set()  # Use set to avoid redundancy
-            rho_density_list = []
-            for data in diagnostic.data_list:
-                if data in ['Ex', 'Ey', 'Ez']:
-                    data_list.add('E')
-                elif data in ['Bx', 'By', 'Bz']:
-                    data_list.add('B')
-                elif data in ['Jx', 'Jy', 'Jz']:
-                    data_list.add('J')
-                elif data == 'rho':
-                    data_list.add('rho')
-                elif data.startswith('rho_'):
-                    # particle density diagnostics, rho_speciesname
-                    rho_density_list.append(data)
-                
+
             diag = FieldDiagnostic(
                     period=diagnostic.period,
                     fldobject=self.fbpic_sim.fld,
                     comm=self.fbpic_sim.comm,
-                    fieldtypes=list(data_list),
+                    fieldtypes=data_list,
                     write_dir=diagnostic.write_dir,
                     iteration_min=iteration_min,
                     iteration_max=iteration_max)
 
+            # Register particle density diagnostic
+            rho_density_list = []
+            for data in diagnostic.data_list:
+                if data.startswith('rho_'):
+                    # particle density diagnostics, rho_speciesname
+                    rho_density_list.append(data)
             if rho_density_list:
                 species_dict = {}
                 for data in rho_density_list:
@@ -405,13 +413,16 @@ class Simulation( PICMI_Simulation ):
                     raise ValueError('When using a species in a diagnostic, '
                                       'its name must be set.')
                 species_dict[s.name] = s.fbpic_species
-
+            if diagnostic.data_list is None:
+                data_list = ['position', 'momentum', 'weighting']
+            else:
+                data_list = diagnostic.data_list
             if type(diagnostic) == PICMI_ParticleDiagnostic:
                 diag = ParticleDiagnostic(
                     period=diagnostic.period,
                     species=species_dict,
                     comm=self.fbpic_sim.comm,
-                    particle_data=diagnostic.data_list,
+                    particle_data=data_list,
                     write_dir=diagnostic.write_dir,
                     iteration_min=iteration_min,
                     iteration_max=iteration_max)
@@ -427,7 +438,7 @@ class Simulation( PICMI_Simulation ):
                     fldobject=self.fbpic_sim.fld,
                     species=species_dict,
                     comm=self.fbpic_sim.comm,
-                    particle_data=diagnostic.data_list,
+                    particle_data=data_list,
                     write_dir=diagnostic.write_dir)
 
         # Add it to the FBPIC simulation
@@ -465,6 +476,7 @@ class Simulation( PICMI_Simulation ):
                 expression = getattr( applied_field, field_name+'_expression' )
                 if expression is None:
                     continue
+                fieldfunc = None
                 define_function_code = \
                 """def fieldfunc( F, x, y, z, t, amplitude, length_scale ):\n    return( F + amplitude * %s )""" %expression
                 # Take into account user-defined variables

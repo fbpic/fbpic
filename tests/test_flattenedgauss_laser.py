@@ -76,7 +76,7 @@ def test_laser_periodic(show=False):
 
     # Initialize the simulation object
     sim = Simulation( Nz, zmax, Nr, rmax, Nm, dt,
-                n_order=n_order, zmin=zmin, boundaries='periodic' )
+                n_order=n_order, zmin=zmin, boundaries={'z':'periodic', 'r':'reflective'} )
 
     # Initialize the laser fields
     profile = FlattenedGaussianLaser(a0=a0, w0=w0, N=N, 

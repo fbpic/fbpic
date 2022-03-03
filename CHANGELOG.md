@@ -1,5 +1,27 @@
 # Change Log / Release Log for fbpic
 
+## 0.20.4
+
+This is a bug-fix release. It fixes an issue when using GPU Direct with
+`mpi4py` version 4 and above (See [#565](https://github.com/fbpic/fbpic/pull/565)).
+
+In addition, the internal implementation of the laser profiles has been
+refactored. (See [#560](https://github.com/fbpic/fbpic/pull/560),
+[#561](https://github.com/fbpic/fbpic/pull/561), [#562](https://github.com/fbpic/fbpic/pull/562)). However, the user interface is unchanged.
+
+## 0.20.3
+
+This is a bug-fix release. It improves FBPIC's compatibility with recent
+versions of some of the software dependencies (namely `numba` and `mkl`).
+
+- The latest version of `numba` (`numba 0.53.`) raised numerous warnings
+when running previous versions of FBPIC on GPU. These warnings do not appear
+anymore with this new release. (See [#538](https://github.com/fbpic/fbpic/pull/538))
+
+- FBPIC can use the MKL distribution from `conda`, but was unable to use
+the MKL distribution from `pip`. This is now fixed.
+(See [#537](https://github.com/fbpic/fbpic/pull/537))
+
 ## 0.20.2
 
 This is a bug-fix release. It allows FBPIC to run with the latest

@@ -86,7 +86,7 @@ def run_simulation( gamma_boost, show ):
     # Initialize the simulation object
     zmax, zmin = boost.copropag_length( [zmax_lab, zmin_lab], beta_object=1. )
     sim = Simulation( Nz, zmax, Nr, rmax, Nm, dt,
-        dens_func=None, zmin=zmin, boundaries='periodic',
+        dens_func=None, zmin=zmin, boundaries={'z':'periodic', 'r':'reflective'},
         use_cuda=use_cuda )
     # Remove particles that were previously created
     sim.ptcl = []

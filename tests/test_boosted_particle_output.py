@@ -59,7 +59,7 @@ def test_boosted_output( gamma_boost=10. ):
         0, 0, # No electrons get created because we pass p_zmin=p_zmax=0
         0, rmax, 1, 1, 4,
         n_e=0, zmin=zmin_lab, initialize_ions=False, gamma_boost=gamma_boost,
-        v_comoving=-0.9999*c, boundaries='open', use_cuda=use_cuda )
+        v_comoving=-0.9999*c, boundaries={'z':'open', 'r':'reflective'}, use_cuda=use_cuda )
     sim.set_moving_window( v=c )
     # Remove the electron species
     sim.ptcl = []

@@ -98,7 +98,7 @@ def run_continuous_injection( gamma_boost, ramp, p_zmin, p_zmax,
     sim = Simulation( Nz, zmax, Nr, rmax, Nm, dt,
         p_zmin, p_zmax, 0, p_rmax, p_nz, p_nr, p_nt, 0.5*n,
         dens_func=dens_func, initialize_ions=False, zmin=zmin,
-        use_cuda=use_cuda, gamma_boost=gamma_boost, boundaries='open' )
+        use_cuda=use_cuda, gamma_boost=gamma_boost, boundaries={'z':'open', 'r':'reflective'} )
 
     # Add another species with a different number of particles per cell
     # and with a finite temperature

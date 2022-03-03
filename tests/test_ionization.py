@@ -120,7 +120,7 @@ def run_simulation( gamma_boost, use_separate_electron_species ):
     # No particles are created because we do not pass the density
     sim = Simulation( Nz, zmax, Nr, rmax, Nm, dt, zmin=zmin,
         v_comoving=v_plasma, use_galilean=False,
-        boundaries='open', use_cuda=use_cuda )
+        boundaries={'z':'open', 'r':'reflective'}, use_cuda=use_cuda )
 
     # Add the charge-neutralizing electrons
     elec = sim.add_new_species( q=-e, m=m_e, n=level_start*n_atoms,
