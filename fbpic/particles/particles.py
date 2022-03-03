@@ -108,7 +108,7 @@ class Particles(object) :
 
         dens_func : callable, optional
            A function of the form :
-           def dens_func( z, r ) ...
+           `def dens_func( z, r ) ...`
            or
            def dens_func( x, y, z ) ...
            where x, y, z and r are 1d arrays, and which returns
