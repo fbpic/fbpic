@@ -48,11 +48,11 @@ jobs:
         pip install wget picmistandard numexpr periodictable;
         cd tests/unautomated;
         curl https://raw.githubusercontent.com/picmi-standard/picmi/master/Examples/laser_acceleration/laser_acceleration_PICMI.py -o fbpic_script.py;
-        python test_picmi.py
+        python test_picmi.py;
+        rm fbpic_script.py
     - shell: bash -l {0}
       name: PICMI boosted test
       run: |
-        pip install wget picmistandard numexpr periodictable;
-        cd tests/unautomated;
         curl https://raw.githubusercontent.com/picmi-standard/picmi/master/Examples/laser_acceleration/lpa_boosted_frame_PICMI.py -o fbpic_script.py;
-        python test_picmi.py
+        python test_picmi.py;
+        rm fbpic_script.py
