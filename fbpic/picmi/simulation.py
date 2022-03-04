@@ -254,7 +254,7 @@ class Simulation( PICMI_Simulation ):
             p_nz = layout.n_macroparticle_per_cell[2]
 
             if initialize_self_field or (injection_plane_position is not None):
-                assert s.initial_distribution.fill_in == False
+                assert s.initial_distribution.fill_in != True
 
                 if injection_plane_position is None:
                     z_injection_plane = None
@@ -371,10 +371,11 @@ class Simulation( PICMI_Simulation ):
 
             # Register particle density diagnostic
             rho_density_list = []
-            for data in diagnostic.data_list:
-                if data.startswith('rho_'):
-                    # particle density diagnostics, rho_speciesname
-                    rho_density_list.append(data)
+            if diagnostic.data_list is not None:
+                for data in diagnostic.data_list:
+                    if data.startswith('rho_'):
+                        # particle density diagnostics, rho_speciesname
+                        rho_density_list.append(data)
             if rho_density_list:
                 species_dict = {}
                 for data in rho_density_list:
