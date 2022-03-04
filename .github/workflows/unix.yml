@@ -53,6 +53,8 @@ jobs:
     - shell: bash -l {0}
       name: PICMI boosted test
       run: |
-        curl https://raw.githubusercontent.com/picmi-standard/picmi/master/Examples/laser_acceleration/lpa_boosted_frame_PICMI.py -o fbpic_script.py;
+        cd tests/unautomated;
+        curl https://raw.githubusercontent.com/picmi-standard/picmi/master/Examples/laser_acceleration/lpa_boostedframe_PICMI.py -o fbpic_script.py;
+        cat fbpic_script.py;
         python test_picmi.py;
         rm fbpic_script.py
