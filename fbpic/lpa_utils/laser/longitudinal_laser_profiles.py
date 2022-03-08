@@ -8,6 +8,7 @@ It defines a set of common longitudinal laser profiles.
 import numpy as np
 from scipy.constants import c
 from scipy.interpolate import interp1d
+from scipy.special import factorial
 
 # Generic classes
 # ---------------
@@ -190,7 +191,10 @@ class CustomSpectrumLongitudinalProfile(LaserLongitudinalProfile):
     """Class that calculates a longitudinal profile with a user defined
     spectral amplitude and phase."""
 
-    def __init__(self, z0, spectrum_file, propagation_direction=1):
+    def __init__(self, z0, spectrum_file,
+                 phi2_chirp=0., phi3_chirp=0., phi4_chirp=0.,
+                 subtract_linear_phase=False,
+                 propagation_direction=1):
         """
         Define the complex longitudinal profile of the laser pulse,
         from the spectrum provided in `spectrum_file`.
@@ -229,40 +233,80 @@ class CustomSpectrumLongitudinalProfile(LaserLongitudinalProfile):
             in the file. The spectral phase can be omitted, in which case it
             will be assumed to be 0.
 
+        phi2_chirp: float (in second^2), optional
+            The amount of additional temporal chirp, at focus (in the
+            lab frame). This spectral phase is added to that read from
+            spectrum_file. A positive :math:`\phi^{(2)}` corresponds to
+            a positive chirp, i.e. red part of the spectrum in the
+            front of the pulse and blue part of the spectrum in the back.
+
+        phi3_chirp: float (in second^3), optional
+            The amount of additional third order dispersion,
+            at focus (in the lab frame). This spectral phase is added to
+            that read from spectrum_file. This parameter leads to an
+            asymmetrical temporal shape of the laser pulse envelope.
+            A positive :math:`\phi^{(3)}` leads to a slow rise
+            of the pulse envelope and fast fall, along with appearance
+            of post-pulses for higher values of :math:`\phi^{(3)}`.
+
+        phi4_chirp: float (in second^4), optional
+            Additional fourth order dispersion at focus (in the lab frame).
+            This spectral phase is added to that read from spectrum_file.
+
+        subtract_linear_phase: bool, optional
+            If True, a linear slope in the spectral phase read
+            from spectrum_file will be subtracted from it. A non-zero
+            linear slope leads to pulse being shifted in time.
+
         propagation_direction: int, optional
             Indicates in which direction the laser propagates.
             This should be either 1 (laser propagates towards positive z)
             or -1 (laser propagates towards negative z).
         """
         # Initialize propagation direction
-        LaserLongitudinalProfile.__init__(self,propagation_direction,
+        LaserLongitudinalProfile.__init__(self, propagation_direction,
                                           gpu_capable=False)
 
         # Load the spectrum from the text file
         spectrum_data = np.loadtxt( spectrum_file, delimiter='\t' )
-        wavelength = spectrum_data[:,0]
-        intensity = spectrum_data[:,1]
+        wavelength = spectrum_data[:, 0]
+        intensity = spectrum_data[:, 1]
         if spectrum_data.shape[1] < 3:
-            phase = np.zeros_like(wavelength)
+            spectral_phase = np.zeros_like(wavelength)
         else:
-            phase = spectrum_data[:,2]
+            spectral_phase = spectrum_data[:, 2]
+        omega_axis = 2 * np.pi * c / wavelength
+
+        # Subtract linear slope, if asked to
+        if subtract_linear_phase:
+            # Fit a 4 order polynomial and subtract the linear term
+            poly_coeffs = np.polyfit(omega_axis, spectral_phase, 4)
+            spectral_phase -= omega_axis * poly_coeffs[-2]
 
         # Compute central wavelength from the text file data
-        self.lambda0 = np.trapz(wavelength*intensity,wavelength) * \
-                        1./np.trapz(intensity,wavelength)
-        self.k0 = 2*np.pi/self.lambda0
+        self.lambda0 = np.trapz(wavelength*intensity, wavelength) * \
+                        1. / np.trapz(intensity, wavelength)
+        self.k0 = 2 * np.pi / self.lambda0
+
+        # Apply spectral phase expansion terms
+        spectral_phase += 1 / factorial(2) * phi2_chirp * \
+                          (omega_axis - self.k0 * c) ** 2
+        spectral_phase += 1 / factorial(3) * phi3_chirp * \
+                          (omega_axis - self.k0 * c) ** 3
+        spectral_phase += 1 / factorial(4) * phi4_chirp * \
+                          (omega_axis - self.k0 * c) ** 4
 
         # Create functions that interpolate the spectral phase and intensity
         # from the text file data
-        spectral_inten_fn = interp1d( 2*np.pi*c/wavelength,
+        spectral_inten_fn = interp1d( omega_axis,
                                       intensity*wavelength**2,
-                                      fill_value=0,bounds_error=False)
-        spectral_phase_fn = interp1d( 2*np.pi*c/wavelength, phase,
+                                      fill_value=0, bounds_error=False)
+        spectral_phase_fn = interp1d( omega_axis, spectral_phase,
                                       fill_value=0, bounds_error=False)
 
         # Computation Parameters
-        lambda_resolution = self.lambda0/1000 # spectral resolution
-        dt = lambda_resolution/c
+        lambda_resolution = self.lambda0 / 1000  # spectral resolution
+        dt = lambda_resolution / c
         time_window = self.lambda0 * self.lambda0 / c / lambda_resolution
         Nt = np.round(time_window/dt).astype(int)
 
