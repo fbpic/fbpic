@@ -30,13 +30,13 @@ Python. If Anaconda is not your default Python distribution, download and instal
 
 -  **Optional:** In order to be able to run the code on a GPU,
    install the additional package ``cudatoolkit`` and ``cupy`` --
-   e.g. using CUDA version 11.5:
+   e.g. using CUDA version 11.0:
 
    ::
 
 
-       conda install -c conda-forge cudatoolkit=11.5
-       pip install cupy-cuda115
+       conda install -c conda-forge cudatoolkit=11.0
+       pip install cupy-cuda110
 
    .. warning::
 
