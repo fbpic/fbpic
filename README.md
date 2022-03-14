@@ -74,6 +74,8 @@ conda install -c conda-forge mpi4py
 ```
 pip install fbpic
 ```
+(If you want to run FBPIC through the [PICMI](https://picmi-standard.github.io/)
+interface, you can instead use `pip install fbpic[picmi]`.)
 
 - **Optional:** in order to run on GPU, install the additional package
 `cudatoolkit` and `cupy` -- e.g. using CUDA version 10.0.
