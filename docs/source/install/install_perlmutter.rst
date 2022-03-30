@@ -18,7 +18,7 @@ Setting up Anaconda
 
     ::
 
-        module load PrgEnv-gnu cpe-cuda cuda python
+        module load PrgEnv-gnu cpe-cuda cudatookit python
 
 - Create a new conda environment and activate it.
 
@@ -34,8 +34,8 @@ Installation of FBPIC and its dependencies
 
    ::
 
-       conda install -c conda-forge python numba scipy h5py mkl cudatoolkit=11.3
-       pip install cupy-cuda113
+       conda install -c conda-forge python numba scipy h5py mkl cudatoolkit=11.5
+       pip install cupy-cuda115
        MPICC="cc -shared -target-accel=nvidia80" pip install --force --no-cache-dir --no-binary=mpi4py mpi4py
 
 -  Install ``fbpic``
@@ -60,6 +60,7 @@ Then ``cd`` to the directory where you prepared your input script and type
 
 ::
 
+    module load python cudatookit
     source activate fbpic
     python <fbpic_script.py>
 
@@ -82,7 +83,7 @@ following text (and replace the bracketed text by the proper values).
     #SBATCH --ntasks-per-node=4
     #SBATCH --gpus-per-task=1
 
-    module load python
+    module load python cudatookit
     source activate fbpic
 
     export MPICH_GPU_SUPPORT_ENABLED=1
