@@ -22,11 +22,20 @@ Python. If Anaconda is not your default Python distribution, download and instal
 
        pip install fbpic
 
-   Alternatively, instead of using ``pip``, you can also install FBPIC
-   from the souces, by cloning the `code from Github
-   <https://github.com/fbpic/fbpic>`_, and typing ``python setup.py
-   install``.
+   .. note::
 
+       If you want to run FBPIC through the
+       `PICMI interface <https://picmi-standard.github.io/>`__, you can instead
+       use
+
+       ::
+
+           pip install fbpic[picmi]
+
+   .. note::
+       Instead of using ``pip``, you can also install FBPIC from the souces,
+       by cloning the `code from Github <https://github.com/fbpic/fbpic>`_,
+       and typing ``python setup.py install``.
 
 -  **Optional:** In order to be able to run the code on a GPU,
    install the additional package ``cudatoolkit`` and ``cupy`` --
