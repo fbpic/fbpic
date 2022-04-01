@@ -1,5 +1,13 @@
 # Change Log / Release Log for fbpic
 
+## 0.21.0
+
+This release expands support for the PICMI interface, in particular for
+boosted-frame simulations. In addition, this release added the new optional
+argument `boost_positions_in_dens_func` to the function `add_new_species`.
+This allows the pass the density function directly in the lab frame.
+(See [463](https://github.com/fbpic/fbpic/pull/463))
+
 ## 0.20.4
 
 This is a bug-fix release. It fixes an issue when using GPU Direct with
