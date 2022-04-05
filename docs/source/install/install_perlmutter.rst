@@ -86,8 +86,8 @@ following text (and replace the bracketed text by the proper values).
     module load python cudatoolkit
     source activate fbpic
 
-    export MPICH_GPU_SUPPORT_ENABLED=1
-    export FBPIC_ENABLE_GPUDIRECT=1
+    export MPICH_GPU_SUPPORT_ENABLED=0
+    export FBPIC_ENABLE_GPUDIRECT=0
 
     srun -n <requestedRanks> python fbpic_script.py
 
