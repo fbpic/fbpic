@@ -18,7 +18,7 @@ Setting up Anaconda
 
     ::
 
-        module load PrgEnv-gnu cpe-cuda cudatookit python
+        module load PrgEnv-gnu cpe-cuda cudatoolkit python
 
 - Create a new conda environment and activate it.
 
@@ -60,7 +60,7 @@ Then ``cd`` to the directory where you prepared your input script and type
 
 ::
 
-    module load python cudatookit
+    module load python cudatoolkit
     source activate fbpic
     python <fbpic_script.py>
 
@@ -83,7 +83,7 @@ following text (and replace the bracketed text by the proper values).
     #SBATCH --ntasks-per-node=4
     #SBATCH --gpus-per-task=1
 
-    module load python cudatookit
+    module load python cudatoolkit
     source activate fbpic
 
     export MPICH_GPU_SUPPORT_ENABLED=1
