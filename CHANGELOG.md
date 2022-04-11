@@ -1,5 +1,75 @@
 # Change Log / Release Log for fbpic
 
+## 0.21.0
+
+This release expands support for the PICMI interface, in particular for
+boosted-frame simulations. In addition, this release added the new optional
+argument `boost_positions_in_dens_func` to the function `add_new_species`.
+This allows the pass the density function directly in the lab frame.
+(See [463](https://github.com/fbpic/fbpic/pull/463))
+
+## 0.20.4
+
+This is a bug-fix release. It fixes an issue when using GPU Direct with
+`mpi4py` version 4 and above (See [#565](https://github.com/fbpic/fbpic/pull/565)).
+
+In addition, the internal implementation of the laser profiles has been
+refactored. (See [#560](https://github.com/fbpic/fbpic/pull/560),
+[#561](https://github.com/fbpic/fbpic/pull/561), [#562](https://github.com/fbpic/fbpic/pull/562)). However, the user interface is unchanged.
+
+## 0.20.3
+
+This is a bug-fix release. It improves FBPIC's compatibility with recent
+versions of some of the software dependencies (namely `numba` and `mkl`).
+
+- The latest version of `numba` (`numba 0.53.`) raised numerous warnings
+when running previous versions of FBPIC on GPU. These warnings do not appear
+anymore with this new release. (See [#538](https://github.com/fbpic/fbpic/pull/538))
+
+- FBPIC can use the MKL distribution from `conda`, but was unable to use
+the MKL distribution from `pip`. This is now fixed.
+(See [#537](https://github.com/fbpic/fbpic/pull/537))
+
+## 0.20.2
+
+This is a bug-fix release. It allows FBPIC to run with the latest
+`cupy` version (`cupy 9.0.0`) on GPU
+(see [#532](https://github.com/fbpic/fbpic/pull/532)).
+
+## 0.20.1
+
+This is a bug-fix release. It fixes errors that in detecting the GPU UUID on
+some plateforms (see [#529](https://github.com/fbpic/fbpic/pull/529)).
+
+## 0.20.0
+
+This release introduces several improvements and bug fixes.
+
+Better handling of multiple GPUs on clusters:
+- The attribution of individual GPUs to the different MPI ranks is more robust,
+  and avoids oversubscribing certain GPUs while leaving others idle (see
+  [#523](https://github.com/fbpic/fbpic/issues/523)).
+  In addition, GPU oversubscription is now automatically detected, and
+  a corresponding error message is printed. (see [#524](https://github.com/fbpic/fbpic/issues/524))
+- Out-of-memory error are handled more properly, and will abort multi-GPU
+  simulations whenever they are encountered by one of the GPUs. (see
+  [#521](https://github.com/fbpic/fbpic/issues/521))
+- The hostname is now printed even for single-rank simulation. (see
+  [#495](https://github.com/fbpic/fbpic/issues/495))
+- Kernel launch parameters have been fine-tuned for A100 architecture. (see
+  [#525](https://github.com/fbpic/fbpic/issues/525))
+
+Bug fixes:
+- The external fields used to be applied to all species, instead of the
+  species specified by the user. This is now fixed. (see
+  [#498](https://github.com/fbpic/fbpic/issues/498))
+- The installation instructions were updated. (see
+  [#515](https://github.com/fbpic/fbpic/issues/515))
+
+New features:
+- Added a `Mirror` class to block the propagation of the laser e.g. in
+  multi-stage simuations. (see [#507](https://github.com/fbpic/fbpic/issues/507))
+
 ## 0.19.1
 
 This release incorporates a small fix that allows the code to compile with

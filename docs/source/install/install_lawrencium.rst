@@ -83,7 +83,7 @@ In order to request a node with a GPU:
 
 ::
 
-    salloc --time=00:30:00 --nodes=1 --partition es1  --constraint=es1_1080ti --qos=es_normal --gres=gpu:4 --cpus-per-task=2
+    salloc --time=00:30:00 --nodes=1 --partition es1  --constraint=es1_1080ti --qos=es_normal --gres=gpu:4 --cpus-per-task=8
 
 Once the job has started, type
 
@@ -145,7 +145,7 @@ In order to see the queue:
 
 Visualizing the results through Jupyter
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-Lawrencium provides access to the cluster via Jupyter, at `https://lrc-jupyter.lbl.gov <https://lrc-jupyter.lbl.gov>`__. Once you logged in and opened a Jupyter notebook, you can type in a cell:
+Lawrencium provides access to the cluster via Jupyter `here <https://lrc-ondemand.lbl.gov/pun/sys/dashboard/batch_connect/sys/lrc_jupyter/session_contexts/new>`__. Once you logged in and opened a Jupyter notebook, you can type in a cell:
 
 ::
 

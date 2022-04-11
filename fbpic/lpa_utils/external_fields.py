@@ -195,7 +195,7 @@ class ExternalField( object ):
                 # Only apply the field if there are macroparticles
                 # in this species
                 if species.Ntot <= 0:
-                    return
+                    continue
 
                 # Loop over the different fields involved
                 for (fieldtype, amplitude) in self.fieldtypes_and_amplitudes:

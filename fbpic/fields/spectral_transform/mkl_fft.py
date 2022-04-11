@@ -4,7 +4,6 @@ It allows the use of the MKL library for FFT.
 """
 # Note: this code is partially inspired by https://github.com/LCAV/mkl_fft
 # For this reason, the corresponding copyright is reproduced here:
-
 # Copyright (c) 2016 Ivan Dokmanic, Robin Scheibler
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to
@@ -22,9 +21,15 @@ import numpy as np
 
 # Load the MKL Library for the current plateform
 if sys.platform in ['linux', 'linux2']:
-    mkl = ctypes.CDLL('libmkl_rt.so')
+    try:
+        mkl = ctypes.CDLL('libmkl_rt.so')
+    except OSError:
+        mkl = ctypes.CDLL('libmkl_rt.so.1')
 elif sys.platform == 'darwin':
-    mkl = ctypes.CDLL('libmkl_rt.dylib')
+    try:
+        mkl = ctypes.CDLL('libmkl_rt.dylib')
+    except OSError:
+        mkl = ctypes.CDLL('libmkl_rt.1.dylib')
 elif sys.platform == 'win32':
     mkl = ctypes.CDLL('mkl_rt.dll')
 else:

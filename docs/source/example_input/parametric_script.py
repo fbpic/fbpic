@@ -121,7 +121,7 @@ if __name__ == '__main__':
     # Parametric scan: use the flag `use_all_mpi_ranks=False` to
     # have each MPI rank run an independent simulation
     sim = Simulation( Nz, zmax, Nr, rmax, Nm, dt, zmin=zmin,
-        boundaries='open', n_order=n_order, use_cuda=use_cuda,
+        boundaries={'z':'open', 'r':'reflective'}, n_order=n_order, use_cuda=use_cuda,
         use_all_mpi_ranks=False )
 
     # Create the plasma electrons

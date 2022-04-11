@@ -61,7 +61,10 @@ def test_boosted_with_preexisting_plasma(show=False):
     # The ramp is made longer so as to still resolve it in the boosted frame
     ramp = 2*gamma_boost*ramp0
     p_zmin = 0.e-6 # Chosen so there is some plasma inside the box at t=0
-    run_continuous_injection(gamma_boost, ramp, p_zmin, p_zmax, show)
+    run_continuous_injection(gamma_boost, ramp, p_zmin, p_zmax,
+                            show, cartesian=True)
+    # (tests the Cartesian functionality at the same time ;
+    # no direct connection with boosted-frame functionality)
 
 def test_labframe_without_preexisting_plasma(show=False):
     "Run test in lab frame without some plasma at t=0"
@@ -69,11 +72,11 @@ def test_labframe_without_preexisting_plasma(show=False):
     run_continuous_injection(None, ramp0, p_zmin, p_zmax, show)
 
 def run_continuous_injection( gamma_boost, ramp, p_zmin, p_zmax,
-                              show, N_check=2 ):
+                              show, N_check=2, cartesian=False ):
     # Chose the time step
     dt = (zmax-zmin)/Nz/c
 
-    def dens_func( z, r ):
+    def dens_func_cylindrical( z, r ):
         dens = np.ones_like( z )
         # Make the density smooth at rmax
         dens = np.where( r > rmax-smooth_r,
@@ -85,11 +88,17 @@ def run_continuous_injection( gamma_boost, ramp, p_zmin, p_zmax,
                          (z-p_zmin)/ramp*dens, dens )
         return( dens )
 
+    if cartesian:
+        def dens_func( x, y, z ):
+            return dens_func_cylindrical( z, (x**2 + y**2)**.5 )
+    else:
+        dens_func = dens_func_cylindrical
+
     # Initialize the different structures
     sim = Simulation( Nz, zmax, Nr, rmax, Nm, dt,
         p_zmin, p_zmax, 0, p_rmax, p_nz, p_nr, p_nt, 0.5*n,
         dens_func=dens_func, initialize_ions=False, zmin=zmin,
-        use_cuda=use_cuda, gamma_boost=gamma_boost, boundaries='open' )
+        use_cuda=use_cuda, gamma_boost=gamma_boost, boundaries={'z':'open', 'r':'reflective'} )
 
     # Add another species with a different number of particles per cell
     # and with a finite temperature
@@ -108,7 +117,7 @@ def run_continuous_injection( gamma_boost, ramp, p_zmin, p_zmax,
     N_step = int( Nz/N_check/2 )
     for i in range( N_check ):
         sim.step( N_step, move_momenta=False )
-        check_density( sim, gamma_boost, dens_func, show )
+        check_density( sim, gamma_boost, dens_func_cylindrical, show )
 
 def check_density( sim, gamma_boost, dens_func, show ):
 

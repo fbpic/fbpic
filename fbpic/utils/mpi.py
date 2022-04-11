@@ -36,9 +36,10 @@ try:
         mpi4py_version_number = mpi4py.__version__.split('.')
         mpi4py_major_version = int(mpi4py_version_number[0])
         mpi4py_minor_version = int(mpi4py_version_number[1])
-        if (mpi4py_major_version < 3) or (mpi4py_minor_version < 1):
-            raise RuntimeError(
-                "In order to use GPU Direct, you need to install mpi4py>=3.1.")
+        if mpi4py_major_version < 4:
+            if (mpi4py_major_version < 3) or (mpi4py_minor_version < 1):
+                raise RuntimeError(
+                    "In order to use GPU Direct, you need to install mpi4py>=3.1.")
 
 except ImportError:
     # If MPI is not installed, define dummy replacements
@@ -58,6 +59,9 @@ except ImportError:
 
         def barrier(self):
             pass
+
+        def gather(self, x):
+            return [x]
 
     class DummyMPI(object):
         """Dummy replacement for mpi4py.MPI when mpi4py is not installed."""

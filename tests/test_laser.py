@@ -86,7 +86,7 @@ def test_laser_periodic(show=False):
         print('Testing mode m=%d' %m)
         propagate_pulse( Nz, Nr, m+1, zmin, zmax, Lr, L_prop, zf, dt,
                           N_diag, w0, ctau, k0, E0, m, N_show, n_order,
-                          rtol, boundaries='periodic', v_window=0, show=show )
+                          rtol, boundaries={'z':'periodic', 'r':'reflective'}, v_window=0, show=show )
 
     print('')
 
@@ -105,7 +105,7 @@ def test_laser_moving_window(show=False):
         print('Testing mode m=%d' %m)
         propagate_pulse( Nz, Nr, m+1, zmin, zmax, Lr, L_prop, zf, dt,
                           N_diag, w0, ctau, k0, E0, m, N_show, n_order,
-                          rtol, boundaries='open', v_window=c, show=show )
+                          rtol, boundaries={'z':'open', 'r':'reflective'}, v_window=c, show=show )
 
     print('')
 
@@ -124,7 +124,7 @@ def test_laser_galilean(show=False):
         print('Testing mode m=%d' %m)
         propagate_pulse( Nz, Nr, m+1, zmin, zmax, Lr, L_prop, zf, dt,
                       N_diag, w0, ctau, k0, E0, m, N_show, n_order,
-                      rtol, boundaries='open',
+                      rtol, boundaries={'z':'open', 'r':'reflective'},
                       use_galilean=True, v_comoving=0.999*c, show=show )
 
     print('')
