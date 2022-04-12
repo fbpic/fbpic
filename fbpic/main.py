@@ -418,7 +418,7 @@ class Simulation(object):
         # -----------------------------
 
         # Loop over timesteps
-        for i_step in range(N):
+        for i_step in range(N+1):
 
             # Show a progression bar and calculate ETA
             if show_progress and self.comm.rank==0:
@@ -480,6 +480,10 @@ class Simulation(object):
                 # (If needed: bring rho/J from spectral space, where they
                 # were smoothed/corrected, and copy the data from the GPU.)
                 diag.write( self.iteration )
+
+            if i_step == N:
+                # Step "N+1" is started in order to get the final diagnostics written out
+                break
 
             # Push the particles' positions and velocities to t = (n+1/2) dt
             if move_momenta:
