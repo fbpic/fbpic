@@ -19,7 +19,7 @@ In order to let Python check the agreement between the curve without
 having to look at the plots
 $ py.test -q tests/test_flattenedgauss_laser.py
 or
-$ python setup.py test
+$ python -m pytest tests
 """
 import numpy as np
 from scipy.special import factorial
@@ -68,7 +68,7 @@ def flat_gauss(x, N):
 
 def test_laser_periodic(show=False):
     """
-    Function that is run by py.test, when doing `python setup.py test`
+    Function that is run by py.test, when doing `python -m pytest tests`
     Test the propagation of a laser in a periodic box.
     """
     # Propagate the pulse in a single step

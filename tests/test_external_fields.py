@@ -157,11 +157,11 @@ def laser_func( F, x, y, z, t, amplitude, length_scale ):
     return( F + amplitude*math.cos( 2*np.pi*(z-c*t)/length_scale ) )
 
 def test_external_fields_lab(show=False):
-    "Function that is run by py.test, when doing `python setup.py test`"
+    "Function that is run by py.test, when doing `python -m pytest tests`"
     run_external_laser_field_simulation( show, None )
 
 def test_external_fields_boost(show=False):
-    "Function that is run by py.test, when doing `python setup.py test`"
+    "Function that is run by py.test, when doing `python -m pytest tests`"
     run_external_laser_field_simulation( show, gamma_boost=10 )
 
 if __name__ == '__main__' :

@@ -46,7 +46,7 @@ frac_shift = 0.01
 # -------------
 
 def test_uniform_electron_plasma(show=False):
-    "Function that is run by py.test, when doing `python setup.py test`"
+    "Function that is run by py.test, when doing `python -m pytest tests`"
     for shape in ['linear', 'cubic']:
         uniform_electron_plasma( shape, show )
 
@@ -92,7 +92,7 @@ def uniform_electron_plasma(shape, show=False):
         plt.show()
 
 def test_neutral_plasma_shifted(show=False):
-    "Function that is run by py.test, when doing `python setup.py test`"
+    "Function that is run by py.test, when doing `python -m pytest tests`"
     for shape in ['linear', 'cubic']:
         neutral_plasma_shifted( shape, show )
 

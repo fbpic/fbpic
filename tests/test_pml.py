@@ -52,14 +52,14 @@ z0 = 0.
 
 def test_laser_periodic(show=False):
     """
-    Function that is run by py.test, when doing `python setup.py test`
+    Function that is run by py.test, when doing `python -m pytest tests`
     Test the propagation of a laser in a periodic box.
     """
     run_parallel( show=show, z_boundary='periodic', use_galilean=False )
 
 def test_laser_galilean(show=False):
     """
-    Function that is run by py.test, when doing `python setup.py test`
+    Function that is run by py.test, when doing `python -m pytest tests`
     Test the propagation of a laser with a galilean change of frame
     """
     run_parallel( show=show, z_boundary='open', use_galilean=True )

@@ -19,7 +19,7 @@ $ python tests/test_boosted.py
 In order to let Python check the agreement
 $ py.test -q tests/test_boosted.py
 or
-$ python setup.py test
+$ python -m pytest tests
 """
 
 # -------

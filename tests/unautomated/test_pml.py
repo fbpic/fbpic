@@ -21,7 +21,7 @@ In order to let Python check the agreement between the curve without
 having to look at the plots
 $ py.test -q tests/test_pml.py
 or
-$ python setup.py test
+$ python -m pytest tests
 """
 import numpy as np
 from scipy.constants import c

@@ -18,7 +18,7 @@ $ python tests/test_parax_approx_laser.py
 or
 $ py.test -q tests/test_parax_approx_laser.py
 or
-$ python setup.py test
+$ python -m pytest tests
 """
 import numpy as np
 from scipy.constants import c, epsilon_0, m_e, e
@@ -70,7 +70,7 @@ def retrieve_pulse_energy(Er, r, dr, dz):
 
 def test_laser_periodic(case='gaussian'):
     """
-    Function that is run by py.test, when doing `python setup.py test`
+    Function that is run by py.test, when doing `python -m pytest tests`
     Test the propagation of a laser in a periodic box.
     """
     # Propagate the pulse in a single step

@@ -32,7 +32,7 @@ In order to let Python check the agreement between the curve without
 having to look at the plots
 $ py.test -q tests/test_fields.py
 or
-$ python setup.py test
+$ python -m pytest tests
 """
 import numpy as np
 from scipy.constants import c, m_e, e
@@ -73,7 +73,7 @@ rtol = 1.e-4
 
 def test_laser_periodic(show=False):
     """
-    Function that is run by py.test, when doing `python setup.py test`
+    Function that is run by py.test, when doing `python -m pytest tests`
     Test the propagation of a laser in a periodic box.
     """
     # Choose a very long timestep to check the absence of Courant limit
@@ -92,7 +92,7 @@ def test_laser_periodic(show=False):
 
 def test_laser_moving_window(show=False):
     """
-    Function that is run by py.test, when doing `python setup.py test`
+    Function that is run by py.test, when doing `python -m pytest tests`
     Test the propagation of a laser in a moving window
     """
     # Choose the regular timestep (required by moving window)
@@ -111,7 +111,7 @@ def test_laser_moving_window(show=False):
 
 def test_laser_galilean(show=False):
     """
-    Function that is run by py.test, when doing `python setup.py test`
+    Function that is run by py.test, when doing `python -m pytest tests`
     Test the propagation of a laser with a galilean change of frame
     """
     # Choose the regular timestep (required by moving window)
