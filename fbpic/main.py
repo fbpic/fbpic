@@ -418,7 +418,7 @@ class Simulation(object):
         # -----------------------------
 
         # Loop over timesteps
-        for i_step in range(N+1):
+        for i_step in range(N):
 
             # Show a progression bar and calculate ETA
             if show_progress and self.comm.rank==0:
