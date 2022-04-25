@@ -481,10 +481,6 @@ class Simulation(object):
                 # were smoothed/corrected, and copy the data from the GPU.)
                 diag.write( self.iteration )
 
-            if i_step == N:
-                # Step "N+1" is started in order to get the final diagnostics written out
-                break
-
             # Push the particles' positions and velocities to t = (n+1/2) dt
             if move_momenta:
                 for species in ptcl:
