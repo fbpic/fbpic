@@ -73,7 +73,11 @@ class Simulation( PICMI_Simulation ):
         # Determine timestep
         if self.solver.cfl is not None:
             dz = (grid.upper_bound[1]-grid.lower_bound[1])/grid.number_of_cells[1]
-            dt = self.solver.cfl * dz / c
+            dr = (grid.upper_bound[0]-grid.lower_bound[0])/grid.number_of_cells[0]
+            if self.gamma_boost is not None:
+                beta = np.sqrt(1. - 1./self.gamma_boost**2)
+                dr = dr/((1+beta)*self.gamma_boost)
+            dt = self.solver.cfl * min(dz, dr) / c
         elif self.time_step_size is not None:
             dt = self.time_step_size
         else:
