@@ -378,7 +378,10 @@ class Simulation( PICMI_Simulation ):
                         data_list.add('J')
                     elif data == 'rho':
                         data_list.add('rho')
-                data_list = list(data_list)
+                # Use sorted to make sure that each MPI rank goes through
+                # fields in the same order, when dumping to disk (esp.
+                # since this operation requires an MPI gather)
+                data_list = sorted(list(data_list))
 
         if type(diagnostic) == PICMI_FieldDiagnostic:
 
