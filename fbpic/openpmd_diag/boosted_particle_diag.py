@@ -40,8 +40,9 @@ class BackTransformedParticleDiagnostic(ParticleDiagnostic):
     def __init__(self, zmin_lab, zmax_lab, v_lab, dt_snapshots_lab,
                  Ntot_snapshots_lab, gamma_boost, period, fldobject,
                  particle_data=["position", "momentum", "weighting"],
-                 select=None, write_dir=None, species={"electrons": None},
-                 comm = None):
+                 select=None, write_dir=None,
+                 species={"electrons": None}, comm=None,
+                 t_min_snapshots_lab=0., t_max_snapshots_lab=np.inf):
         """
         Initialize diagnostics that retrieve the data in the lab frame,
         as a series of snapshot (one file per snapshot),
@@ -83,6 +84,11 @@ class BackTransformedParticleDiagnostic(ParticleDiagnostic):
         fldobject : a Fields object,
             The Fields object of the simulation, that is needed to
             extract some information about the grid
+
+        t_min_snapshots_lab, t_max_snapshots_lab: floats (seconds)
+            The time *in the lab frame* between which snapshots are created
+            (`t_min_snapshots_lab` is inclusive,
+             `t_max_snapshots_lab` is exclusive).
         """
         # Do not leave write_dir as None, as this may conflict with
         # the default directory ('./diags') in which diagnostics in the
@@ -107,15 +113,16 @@ class BackTransformedParticleDiagnostic(ParticleDiagnostic):
         self.snapshots = []
         for i in range( Ntot_snapshots_lab ):
             t_lab = i*dt_snapshots_lab
-            snapshot = LabSnapshot( t_lab,
-                                    zmin_lab + v_lab*t_lab,
-                                    zmax_lab + v_lab*t_lab,
-                                    self.dt,
-                                    self.write_dir, i ,self.species_dict )
-            self.snapshots.append(snapshot)
-            # Initialize a corresponding empty file to store particles
-            self.create_file_empty_slice(
-                    snapshot.filename, i, snapshot.t_lab, self.dt)
+            if t_lab >= t_min_snapshots_lab and t_lab < t_max_snapshots_lab:
+                snapshot = LabSnapshot( t_lab,
+                                        zmin_lab + v_lab*t_lab,
+                                        zmax_lab + v_lab*t_lab,
+                                        self.dt,
+                                        self.write_dir, i ,self.species_dict )
+                self.snapshots.append(snapshot)
+                # Initialize a corresponding empty file to store particles
+                self.create_file_empty_slice(snapshot.filename, i,
+                                             snapshot.t_lab, self.dt)
 
         # Create the ParticleCatcher object
         # (This object will extract the particles (slices) that crossed the
