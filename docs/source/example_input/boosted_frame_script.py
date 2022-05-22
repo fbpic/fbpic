@@ -186,10 +186,6 @@ if __name__ == '__main__':
     if track_bunch:
         bunch.track( sim.comm )
 
-    # Add a laser to the fields of the simulation
-    add_laser( sim, a0, w0, ctau, z0, lambda0=lambda0,
-           zf=zfoc, gamma_boost=boost.gamma0 )
-
     # Create a Gaussian laser profile
     laser_profile = GaussianLaser(a0, w0, ctau, z0, lambda0=lambda0, zf=z_foc)
     # Add a laser to the fields of the simulation
