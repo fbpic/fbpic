@@ -187,7 +187,7 @@ if __name__ == '__main__':
         bunch.track( sim.comm )
 
     # Create a Gaussian laser profile
-    laser_profile = GaussianLaser(a0, w0, ctau, z0, lambda0=lambda0, zf=z_foc)
+    laser_profile = GaussianLaser(a0, w0, ctau, z0, lambda0=lambda0, zf=zfoc)
     # Add a laser to the fields of the simulation
     add_laser_pulse( sim, laser_profile, gamma_boost=boost.gamma0,
                      method='antenna', z0_antenna=0)
