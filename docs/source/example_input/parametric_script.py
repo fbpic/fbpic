@@ -70,7 +70,7 @@ p_nt = 4         # Number of particles per cell along theta
 
 # The laser
 w0 = 5.e-6       # Laser waist
-ctau = 5.e-6     # Laser duration
+ctau = 16.e-15     # Laser duration
 z0 = 15.e-6      # Laser centroid
 
 # Parametric scan: Give a list of a0 values to scan,
@@ -133,7 +133,7 @@ if __name__ == '__main__':
 
     # Load initial fields
     # Create a Gaussian laser profile
-    laser_profile = GaussianLaser(a0, w0, ctau, z0)
+    laser_profile = GaussianLaser(a0, w0, tau, z0)
     # Add the laser to the fields of the simulation
     add_laser_pulse( sim, laser_profile)
 
