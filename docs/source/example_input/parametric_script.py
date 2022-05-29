@@ -70,7 +70,7 @@ p_nt = 4         # Number of particles per cell along theta
 
 # The laser
 w0 = 5.e-6       # Laser waist
-ctau = 16.e-15     # Laser duration
+tau = 16.e-15     # Laser duration
 z0 = 15.e-6      # Laser centroid
 
 # Parametric scan: Give a list of a0 values to scan,
