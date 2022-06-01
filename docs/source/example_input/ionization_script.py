@@ -25,7 +25,8 @@ import numpy as np
 from scipy.constants import c, e, m_e, m_p
 # Import the relevant structures from fbpic
 from fbpic.main import Simulation
-from fbpic.lpa_utils.laser import add_laser
+from fbpic.lpa_utils.laser import add_laser_pulse
+from fbpic.lpa_utils.laser.laser_profiles import GaussianLaser
 from fbpic.openpmd_diag import FieldDiagnostic, \
     ParticleDiagnostic, ParticleChargeDensityDiagnostic, \
     set_periodic_checkpoint, restart_from_checkpoint
@@ -70,7 +71,7 @@ p_nt = 4         # Number of particles per cell along theta
 # The laser
 a0 = 4.          # Laser amplitude
 w0 = 5.e-6       # Laser waist
-ctau = 5.e-6     # Laser duration
+tau = 16.e-15     # Laser duration
 z0 = -5.e-6      # Laser centroid
 z_foc = 20.e-6   # Focal position
 
@@ -136,8 +137,10 @@ if __name__ == '__main__':
     elec_from_N = sim.add_new_species( q=-e, m=m_e )
     atoms_N.make_ionizable( 'N', target_species=elec_from_N, level_start=5 )
 
-    # Add a laser to the fields of the simulation
-    add_laser( sim, a0, w0, ctau, z0, zf=z_foc )
+    # Create a Gaussian laser profile
+    laser_profile = GaussianLaser(a0, w0, tau, z0, zf=z_foc)
+    # Add the laser to the fields of the simulation
+    add_laser_pulse( sim, laser_profile)
 
     if use_restart is False:
         # Track electrons if required (species 0 correspond to the electrons)
