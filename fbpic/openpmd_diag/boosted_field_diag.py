@@ -29,8 +29,8 @@ class BackTransformedFieldDiagnostic(FieldDiagnostic):
     """
     def __init__(self, zmin_lab, zmax_lab, v_lab, dt_snapshots_lab,
                  Ntot_snapshots_lab, gamma_boost, period, fldobject,
-                 comm=None, fieldtypes=["E", "B"],
-                 write_dir=None ) :
+                 comm=None, fieldtypes=["E", "B"], write_dir=None,
+                 t_min_snapshots_lab=0., t_max_snapshots_lab=np.inf):
         """
         Initialize diagnostics that retrieve the data in the lab frame,
         as a series of snapshot (one file per snapshot),
@@ -72,6 +72,11 @@ class BackTransformedFieldDiagnostic(FieldDiagnostic):
             but has to be aware that there may errors in the backward transform.
             Moreover, writing rho/J slows down the simulation, as these fields
             are then brought from spectral to real space, at each iteration.
+
+        t_min_snapshots_lab, t_max_snapshots_lab: floats (seconds)
+            The time *in the lab frame* between which snapshots are created
+            (`t_min_snapshots_lab` is inclusive,
+             `t_max_snapshots_lab` is exclusive).
         """
         # Do not leave write_dir as None, as this may conflict with
         # the default directory ('./diags') in which diagnostics in the
@@ -105,14 +110,17 @@ class BackTransformedFieldDiagnostic(FieldDiagnostic):
         self.snapshots = []
         for i in range( Ntot_snapshots_lab ):
             t_lab = i * dt_snapshots_lab
-            snapshot = LabSnapshot( t_lab,
-                                    zmin_lab + v_lab*t_lab,
-                                    zmax_lab + v_lab*t_lab,
-                                    self.write_dir, i, self.fld, Nr )
-            self.snapshots.append( snapshot )
-            # Initialize a corresponding empty file
-            self.create_file_empty_meshes( snapshot.filename, i,
-                snapshot.t_lab, Nr, Nz, snapshot.zmin_lab, dz_lab, self.fld.dt)
+            if t_lab >= t_min_snapshots_lab and t_lab < t_max_snapshots_lab:
+                snapshot = LabSnapshot( t_lab,
+                                        zmin_lab + v_lab*t_lab,
+                                        zmax_lab + v_lab*t_lab,
+                                        self.write_dir, i, self.fld, Nr )
+                self.snapshots.append( snapshot )
+                # Initialize a corresponding empty file
+                self.create_file_empty_meshes( snapshot.filename, i,
+                                               snapshot.t_lab, Nr, Nz,
+                                               snapshot.zmin_lab, dz_lab,
+                                               self.fld.dt)
 
         # Create a slice handler, which will do all the extraction, Lorentz
         # transformation, etc for each slice to be registered in a LabSnapshot
