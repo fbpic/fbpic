@@ -274,9 +274,10 @@ class Simulation(object):
 
         # Set random seed, if requested by the user
         if random_seed is not None:
-            np.random.seed( random_seed )
+            # Use different seed for each MPI rank
+            np.random.seed( random_seed + MPI.COMM_WORLD.rank )
             if self.use_cuda:
-                cupy.random.seed( random_seed )
+                cupy.random.seed( random_seed + MPI.COMM_WORLD.rank )
 
         # Register the comoving parameters
         self.v_comoving = v_comoving
