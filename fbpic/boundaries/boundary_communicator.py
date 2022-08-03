@@ -51,7 +51,7 @@ class BoundaryCommunicator(object):
     def __init__( self, Nz, zmin, zmax, Nr, rmax, Nm, dt, v_comoving,
             use_galilean, boundaries, n_order, n_guard, n_damp,
             cdt_over_dr, n_inject=None, exchange_period=None,
-            use_all_mpi_ranks=True):
+            injection={'p':None, 't':np.inf}, use_all_mpi_ranks=True):
         """
         Initializes a communicator object.
 
@@ -142,6 +142,13 @@ class BoundaryCommunicator(object):
             particles should never be able to travel more than
             (n_guard/2 - particle_shape order) cells. (Setting exchange_period
             to small values can substantially affect the performance)
+
+        injection: dict, optional
+            A dictionary with 'p' and 't' as keys with int and float as values,
+            respectively. This specifies the injection period (multiple of 
+            exchange period) and the duration of injection. When set this
+            will inject particles with user-defined density function and duration
+            in a moving window with v=0.
 
         use_all_mpi_ranks: bool, optional
             - if `use_all_mpi_ranks` is True (default):
@@ -302,6 +309,12 @@ class BoundaryCommunicator(object):
         else:
             # User-defined exchange_period. Choose carefully.
             self.exchange_period = exchange_period
+
+        self.injection = injection
+        if injection['p'] is not None:
+            # inject particles at user-defined interval (multiple 
+            # of exchange_period) with moving window v=0
+            self.injection['p'] = injection['p'] * self.exchange_period
 
         # Initialize the moving window to None (See the method
         # set_moving_window in main.py to initialize a proper moving window)
@@ -707,7 +720,7 @@ class BoundaryCommunicator(object):
             req_sr.Wait()
 
 
-    def exchange_particles(self, species, fld, time ):
+    def exchange_particles( self, species, fld, time, iteration ):
         """
         Look for particles that are located outside of the physical boundaries
         and:
@@ -745,9 +758,9 @@ class BoundaryCommunicator(object):
         # Otherwise, remove particles that are outside of the local physical
         # subdomain and send them to neighboring processors
         else:
-            self.exchange_particles_aperiodic_subdomain( species, fld, time )
+            self.exchange_particles_aperiodic_subdomain( species, fld, time, iteration )
 
-    def exchange_particles_aperiodic_subdomain(self, species, fld, time ):
+    def exchange_particles_aperiodic_subdomain(self, species, fld, time, iteration ):
         """
         Look for particles that are located outside of the physical boundaries
         of the local subdomain and exchange them with the corresponding
@@ -807,7 +820,10 @@ class BoundaryCommunicator(object):
             and (self.rank == self.size-1) \
             and species.continuous_injection:
             float_recv_right, uint_recv_right = \
-                species.generate_continuously_injected_particles( time )
+                species.generate_continuously_injected_particles( time,
+                                                                 self.moving_win.v,
+                                                                 iteration,
+                                                                 self.injection )
 
         # Periodic boundary conditions for exchanging particles
         # Particles received at the right (resp. left) end of the simulation

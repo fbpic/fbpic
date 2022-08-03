@@ -26,9 +26,12 @@ class ContinuousInjector( object ):
         See the docstring of the `Particles` object
         """
         # Register properties of the injected plasma
+        self.Npz = Npz
         self.Npr = Npr
         self.rmin = rmin
         self.rmax = rmax
+        self.zmin = zmin
+        self.zmax = zmax
         self.Nptheta = Nptheta
         self.n = n
         self.dens_func = dens_func
@@ -155,8 +158,7 @@ class ContinuousInjector( object ):
         # and z_end_plasma, and afterwards nz_inject is set to 0.)
         self.z_end_plasma += nz_new * self.dz_particles
 
-
-    def generate_particles( self, time ):
+    def generate_particles( self, time, v_moving_window, iteration, injection ):
         """
         Generate new particles at the right end of the plasma
         (i.e. between z_end_plasma - nz_inject*dz and z_end_plasma)
@@ -165,25 +167,54 @@ class ContinuousInjector( object ):
         ----------
         time: float (in second)
             The current physical time of the simulation
+        v_moving_window: float (in m/s)
+            The speed of the moving window
+        iteration: int
+            current iteration of the simulation
+        injection: dict
+            Dictionerary with 'p' and 't' as keys with int and float as values.
+            ['p': period, 't': duration]
         """
+        # Note: User-defined injection period and duration 
+        # only works with v_moving_window = 0.
+
         # Create a temporary density function that takes into
         # account the fact that the plasma has moved
         if self.dens_func is not None:
             args = _check_dens_func_arguments( self.dens_func )
             if args == ['z', 'r']:
-                def dens_func(z, r):
-                    return self.dens_func( z - self.v_end_plasma*time, r )
+                if v_moving_window == 0:
+                    def dens_func(z, r):
+                        return self.dens_func( z, r )
+                else:
+                    def dens_func(z, r):
+                        return self.dens_func( z - self.v_end_plasma*time, r )
             elif args == ['x', 'y', 'z']:
-                def dens_func(x, y, z):
-                    return self.dens_func( x, y, z - self.v_end_plasma*time )
+                if v_moving_window == 0:
+                    def dens_func(x, y, z):
+                        return self.dens_func( x, y, z )
+                else:
+                    def dens_func(x, y, z):
+                        return self.dens_func( x, y, z - self.v_end_plasma*time )
         else:
             dens_func = None
 
         # Create new particle cells
         # Determine the positions between which new particles will be created
-        Npz = self.nz_inject
-        zmax = self.z_end_plasma
-        zmin = self.z_end_plasma - self.nz_inject*self.dz_particles
+        if v_moving_window == 0 \
+            and injection['p'] is not None:
+            zmax = self.zmax
+            zmin = self.zmin
+            if iteration % injection['p'] == 0 \
+                and time <= injection['t']:
+                Npz = self.Npz
+            else:
+                Npz = 0
+        else:
+            Npz = self.nz_inject
+            zmax = self.z_end_plasma
+            zmin = self.z_end_plasma - self.nz_inject*self.dz_particles
+
         # Create the particles
         Ntot, x, y, z, ux, uy, uz, inv_gamma, w = generate_evenly_spaced(
                 Npz, zmin, zmax, self.Npr, self.rmin, self.rmax,

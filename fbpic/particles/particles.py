@@ -324,7 +324,7 @@ class Particles(object) :
             # Modify flag accordingly
             self.data_is_on_gpu = False
 
-    def generate_continuously_injected_particles( self, time ):
+    def generate_continuously_injected_particles( self, time, v_moving_window, duration, injection ):
         """
         Generate particles at the right end of the simulation boundary.
         (Typically, in the presence of a moving window.)
@@ -337,7 +337,7 @@ class Particles(object) :
 
         # Have the continuous injector generate the new particles
         Ntot, x, y, z, ux, uy, uz, inv_gamma, w = \
-                            self.injector.generate_particles( time )
+                            self.injector.generate_particles( time, v_moving_window , duration, injection )
 
         # Convert them to a particle buffer
         # - Float buffer
@@ -430,7 +430,6 @@ class Particles(object) :
             self, target_species, laser_energy, laser_wavelength,
             laser_waist, laser_ctau, laser_initial_z0,
             ratio_w_electron_photon, boost )
-
 
     def make_ionizable(self, element, target_species,
                        level_start=0, level_max=None):

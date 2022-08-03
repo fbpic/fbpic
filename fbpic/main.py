@@ -56,6 +56,7 @@ class Simulation(object):
                  initialize_ions=False, use_cuda=False, n_guard=None,
                  n_damp={'z':64, 'r':32},
                  exchange_period=None,
+                 injection={'p':None, 't':np.inf},
                  current_correction='curl-free',
                  boundaries={'z':'periodic', 'r':'reflective'},
                  gamma_boost=None, use_all_mpi_ranks=True,
@@ -164,6 +165,13 @@ class Simulation(object):
             particles should never be able to travel more than
             (n_guard/2 - particle_shape order) cells. (Setting exchange_period
             to small values can substantially affect the performance)
+
+        injection: dict, optional
+            A dictionary with 'p' and 't' as keys with int and float as values,
+            respectively. This specifies the injection period (multiple of 
+            exchange period) and the duration of injection. When set this
+            will inject particles with user-defined density function and duration
+            in a moving window with v=0.
 
         boundaries: dict, optional
             A dictionary with 'z' and 'r' as keys, and strings as values.
@@ -286,7 +294,7 @@ class Simulation(object):
         self.comm = BoundaryCommunicator( Nz, zmin, zmax, Nr, rmax, Nm, dt,
             self.v_comoving, self.use_galilean, boundaries, n_order,
             n_guard, n_damp, cdt_over_dr, None, exchange_period,
-            use_all_mpi_ranks )
+            injection, use_all_mpi_ranks )
         self.use_pml = self.comm.use_pml
         # Modify domain region
         zmin, zmax, Nz = self.comm.divide_into_domain()
@@ -439,7 +447,9 @@ class Simulation(object):
                 # (In the case of single-proc periodic simulations, particles
                 # are shifted by one box length, so they remain inside the box)
                 for species in self.ptcl:
-                    self.comm.exchange_particles(species, fld, self.time)
+                    self.comm.exchange_particles(species, fld, 
+                                                self.time, 
+                                                self.iteration)
                 for antenna in self.laser_antennas:
                     antenna.update_current_rank(self.comm)
 
