@@ -19,7 +19,6 @@ $ python tests/test_continuous_injection.py
 from scipy.constants import c, e, m_e
 from fbpic.main import Simulation
 import numpy as np
-import math as m
 
 # Parameters
 # ----------
@@ -40,7 +39,7 @@ dz = (zmax-zmin)/Nz
 p_nr = 1
 p_nz = 1
 p_nt = 1
-n = 1e-12
+n = 1e19
 
 # Injection scheme
 exchange_period = 1             # Exhange period
@@ -89,7 +88,7 @@ def run_continuous_injection( show, N_check=2, cartesian=False ):
         # 'r': 'open' can also be used, but is more computationally expensive
 
     # Create the plasma electrons
-    u_th = 0
+    u_th = 0.00001
     sim.add_new_species( q=-e, m=m_e, n=n,
         dens_func=dens_func, ux_th=u_th, uy_th=u_th, uz_th=u_th,
         p_nz=p_nz, p_nr=p_nr, p_nt=p_nt,
@@ -101,27 +100,24 @@ def run_continuous_injection( show, N_check=2, cartesian=False ):
 
     sim.set_moving_window(v=0) 
     
-    # Check that the density is correct after different timesteps
+    # Check that the number of particles are correct
+    # after different timesteps
     N_step = int( Nz/N_check/2 )
     for i in range( N_check ):
         sim.step( N_step, move_momenta=False )
-        check_particle_number( sim, Ntot_init, i )
+        check_particle_number( sim, Ntot_init, (i+1) * N_step + 1 )
 
 def check_particle_number( sim, Ntot_init, iteration ):
-
     Ntot = 0
     for species in sim.ptcl:
         Ntot += len(species.x)
 
     Ntot_expected = Ntot_init
     if iteration >= injection_period:
-        if iteration % injection_period == 0:
-            k = iteration
-        else:
-           k = iteration - 1
+        k = int( iteration / injection_period )
         Ntot_expected = k * Ntot_init
 
-    assert(Ntot_expected, Ntot)
+    assert Ntot_expected==Ntot
 
 if __name__ == '__main__' :
     test_inject_plasma(show)

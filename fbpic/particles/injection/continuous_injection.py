@@ -162,6 +162,7 @@ class ContinuousInjector( object ):
         """
         Generate new particles at the right end of the plasma
         (i.e. between z_end_plasma - nz_inject*dz and z_end_plasma)
+        If v_moving_window=0, inject plasma according to dens_func(z,r)
 
         Parameters
         ----------
@@ -206,7 +207,8 @@ class ContinuousInjector( object ):
             zmax = self.zmax
             zmin = self.zmin
             if iteration % injection['p'] == 0 \
-                and time <= injection['t']:
+                and time <= injection['t'] \
+                and iteration > 0:
                 Npz = self.Npz
             else:
                 Npz = 0
