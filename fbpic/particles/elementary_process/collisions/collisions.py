@@ -51,7 +51,7 @@ class MCCollisions(object):
         self.coulomb_log = coulomb_log
         
         # Particle pairs are processed in batches of size `batch_size`
-        self.batch_size = 16
+        self.batch_size = 10
 
         self.use_cuda = use_cuda
 
@@ -205,8 +205,10 @@ class MCCollisions(object):
             random_states = create_xoroshiro128p_states( N_batch, seed )
 
             bpg, tpg = cuda_tpb_bpg_1d( N_batch )
-            perform_collisions_cuda[ bpg, tpg ]( prefix_sum1, prefix_sum2,
-                        cell_idx, npart1, npart2, npairs_tot,
+            perform_collisions_cuda[ bpg, tpg ]( N_batch, 
+                        self.batch_size, npairs_tot,
+                        prefix_sum1, prefix_sum2,
+                        cell_idx, npart1, npart2,
                         n1, n2, n12, m1, m2,
                         q1, q2, w1, w2,
                         ux1, uy1, uz1,
@@ -214,6 +216,7 @@ class MCCollisions(object):
                         dt, self.coulomb_log,
                         temperature1, temperature2,
                         random_states )
+
 
             if cupy.any(cupy.isnan(ux1)) == True or \
                 cupy.any(cupy.isnan(uy1)) == True or \

@@ -146,8 +146,9 @@ def get_cell_idx_per_pair(N_batch, cell_idx, npair, prefix_sum_pair):
 
 
 @cuda.jit
-def perform_collisions_cuda(prefix_sum1, prefix_sum2,
-                            cell_idx, npart1, npart2, npairs_tot,
+def perform_collisions_cuda(N_batch, batch_size, npairs_tot,
+                        	prefix_sum1, prefix_sum2,
+                            cell_idx, npart1, npart2,
                             n1, n2, n12, m1, m2,
                             q1, q2, w1, w2,
                             ux1, uy1, uz1,
@@ -155,167 +156,170 @@ def perform_collisions_cuda(prefix_sum1, prefix_sum2,
                             dt, coulomb_log,
                             T1, T2,
                             random_states):
-    """
-    Perform collisions between all pairs in each cell
-    """
-    # Loop over cells
-    i = cuda.grid(1)
-    # Loop over shuffled pairs and perform collision
-    if i < npairs_tot:
-        cell = cell_idx[i]
+	"""
+	Perform collisions between all pairs in each cell
+	"""
+	# Loop over cells
+	i = cuda.grid(1)
+	# Loop over batch of particle pairs and perform collision
+	if i < N_batch:
+		# Loop through the batch
+		N_max = min( (i+1)*batch_size, npairs_tot )
+		for ip in range( i*batch_size, N_max ):
+			cell = cell_idx[ip]
 
-		# Note: currently this code does not perform a non-repetitive
-		# shuffle of the particle pairs. This means that certain particles
-		# will be randomly chosen multiple times for collisions. This can be
-		# improved by performing the shuffling separately (prior) to ensure
-		# that no particles are repeated. 
-        if cell > 0:
-            si1 = int(round(xoroshiro128p_uniform_float64(random_states, i)
-                            * (npart1[cell] - 1)) + prefix_sum1[cell-1])
-            si2 = int(round(xoroshiro128p_uniform_float64(random_states, i)
-                            * (npart2[cell] - 1)) + prefix_sum2[cell-1])
-        else:
-            si1 = int(round(xoroshiro128p_uniform_float64(
-                random_states, i) * (npart1[cell] - 1)))
-            si2 = int(round(xoroshiro128p_uniform_float64(
-                random_states, i) * (npart2[cell] - 1)))
+			# Note: currently this code does not perform a non-repetitive
+			# shuffle of the particle pairs. This means that certain particles
+			# will be randomly chosen multiple times for collisions. This can be
+			# improved by performing the shuffling separately (prior) to ensure
+			# that no particles are repeated. 
+			if cell > 0:
+				si1 = int(round(xoroshiro128p_uniform_float64(random_states, i)
+								* (npart1[cell] - 1)) + prefix_sum1[cell-1])
+				si2 = int(round(xoroshiro128p_uniform_float64(random_states, i)
+								* (npart2[cell] - 1)) + prefix_sum2[cell-1])
+			else:
+				si1 = int(round(xoroshiro128p_uniform_float64(
+					random_states, i) * (npart1[cell] - 1)))
+				si2 = int(round(xoroshiro128p_uniform_float64(
+					random_states, i) * (npart2[cell] - 1)))
 
-        # Effective time interval for the collisions
-        corr_dt = dt * n12[cell] / n1[cell]
+			# Effective time interval for the collisions
+			corr_dt = dt * n12[cell] / n1[cell]
 
-        # Calculate Lorentz factor
-        gamma1 = 1. / m.sqrt(1. - (ux1[si1]**2
-                                   + uy1[si1]**2 + uz1[si1]**2) / c**2)
-        gamma2 = 1. / m.sqrt(1. - (ux2[si2]**2
-                                   + uy2[si2]**2 + uz2[si2]**2) / c**2)
+			# Calculate Lorentz factor
+			gamma1 = 1. / m.sqrt(1. - (ux1[si1]**2
+									+ uy1[si1]**2 + uz1[si1]**2) / c**2)
+			gamma2 = 1. / m.sqrt(1. - (ux2[si2]**2
+									+ uy2[si2]**2 + uz2[si2]**2) / c**2)
 
-        gamma_a12 = m1 * gamma1 + m2 * gamma2
-        invgamma_a12 = 1. / gamma_a12
-        gamma12 = m1 * gamma1 * m2 * gamma2
-        invgamma12 = 1. / gamma12
+			gamma_a12 = m1 * gamma1 + m2 * gamma2
+			invgamma_a12 = 1. / gamma_a12
+			gamma12 = m1 * gamma1 * m2 * gamma2
+			invgamma12 = 1. / gamma12
 
-        # Center of mass (COM) velocity
-        COM_vx = (m1 * ux1[si1] + m2 * ux2[si2]) * invgamma_a12
-        COM_vy = (m1 * uy1[si1] + m2 * uy2[si2]) * invgamma_a12
-        COM_vz = (m1 * uz1[si1] + m2 * uz2[si2]) * invgamma_a12
+			# Center of mass (COM) velocity
+			COM_vx = (m1 * ux1[si1] + m2 * ux2[si2]) * invgamma_a12
+			COM_vy = (m1 * uy1[si1] + m2 * uy2[si2]) * invgamma_a12
+			COM_vz = (m1 * uz1[si1] + m2 * uz2[si2]) * invgamma_a12
 
-        vCdotu1 = (COM_vx * ux1[si1]
-                   + COM_vy * uy1[si1]
-                   + COM_vz * uz1[si1])
-        vCdotu2 = (COM_vx * ux2[si2]
-                   + COM_vy * uy2[si2]
-                   + COM_vz * uz2[si2])
+			vCdotu1 = (COM_vx * ux1[si1]
+					+ COM_vy * uy1[si1]
+					+ COM_vz * uz1[si1])
+			vCdotu2 = (COM_vx * ux2[si2]
+					+ COM_vy * uy2[si2]
+					+ COM_vz * uz2[si2])
 
-        vC2 = COM_vx**2 + COM_vy**2 + COM_vz**2
-        gammaC = 1. / m.sqrt(1. - vC2 / c**2)
+			vC2 = COM_vx**2 + COM_vy**2 + COM_vz**2
+			gammaC = 1. / m.sqrt(1. - vC2 / c**2)
 
-        # momenta in COM
-        px_COM = m1 * ux1[si1] + ((gammaC - 1.) * vCdotu1 / vC2
-                                  - gammaC) * m1 * gamma1 * COM_vx
-        py_COM = m1 * uy1[si1] + ((gammaC - 1.) * vCdotu1 / vC2
-                                  - gammaC) * m1 * gamma1 * COM_vy
-        pz_COM = m1 * uz1[si1] + ((gammaC - 1.) * vCdotu1 / vC2
-                                  - gammaC) * m1 * gamma1 * COM_vz
+			# momenta in COM
+			px_COM = m1 * ux1[si1] + ((gammaC - 1.) * vCdotu1 / vC2
+									- gammaC) * m1 * gamma1 * COM_vx
+			py_COM = m1 * uy1[si1] + ((gammaC - 1.) * vCdotu1 / vC2
+									- gammaC) * m1 * gamma1 * COM_vy
+			pz_COM = m1 * uz1[si1] + ((gammaC - 1.) * vCdotu1 / vC2
+									- gammaC) * m1 * gamma1 * COM_vz
 
-        p_COM = m.sqrt(px_COM**2 + py_COM**2 + pz_COM**2)
-        invp_COM = 1. / p_COM
-        invp_COM2 = 1. / p_COM**2
+			p_COM = m.sqrt(px_COM**2 + py_COM**2 + pz_COM**2)
+			invp_COM = 1. / p_COM
+			invp_COM2 = 1. / p_COM**2
 
-        # Lorentz transforms
-        gamma1_COM = (1 - vCdotu1 / c**2) * gammaC * gamma1
-        gamma2_COM = (1 - vCdotu2 / c**2) * gammaC * gamma2
+			# Lorentz transforms
+			gamma1_COM = (1 - vCdotu1 / c**2) * gammaC * gamma1
+			gamma2_COM = (1 - vCdotu2 / c**2) * gammaC * gamma2
 
-        # Calculate coulomb log if not user-defined
-        qq = q1 * q2
-        qq2 = qq**2
-        if coulomb_log <= 0.:
-            b0 = (qq / (4 * m.pi * epsilon_0 * c**2)) * gammaC * invgamma_a12 * \
-                (m1 * gamma1_COM * m2 * gamma2_COM * invp_COM2 * c**2 + 1.)**2
-            bmin = max(0.5 * h * invp_COM, b0)
-            Debye2 = k * T1[cell] / (4. * m.pi * n1[cell] * q1 * q1) + \
-                k * T2[cell] / (4. * m.pi * n2[cell] * q2 * q2)
-            coulomb_log = 0.5 * m.log(1. + Debye2 / bmin**2)
-            if coulomb_log < 2.:
-                coulomb_log = 2.
+			# Calculate coulomb log if not user-defined
+			qq = q1 * q2
+			qq2 = qq**2
+			if coulomb_log <= 0.:
+				b0 = (qq / (4 * m.pi * epsilon_0 * c**2)) * gammaC * invgamma_a12 * \
+					(m1 * gamma1_COM * m2 * gamma2_COM * invp_COM2 * c**2 + 1.)**2
+				bmin = max(0.5 * h * invp_COM, b0)
+				Debye2 = k * T1[cell] / (4. * m.pi * n1[cell] * q1 * q1) + \
+					k * T2[cell] / (4. * m.pi * n2[cell] * q2 * q2)
+				coulomb_log = 0.5 * m.log(1. + Debye2 / bmin**2)
+				if coulomb_log < 2.:
+					coulomb_log = 2.
 
-        term1 = n1[cell] * n2[cell] / n12[cell]
-        term2 = corr_dt * coulomb_log * qq2 * \
-            invgamma12 / (4. * m.pi * epsilon_0**2 * c**4)
-        term3 = gammaC * p_COM * invgamma_a12 * \
-            (m1 * gamma1_COM * m2 * gamma2_COM * invp_COM2 * c**2 + 1.)**2
+			term1 = n1[cell] * n2[cell] / n12[cell]
+			term2 = corr_dt * coulomb_log * qq2 * \
+				invgamma12 / (4. * m.pi * epsilon_0**2 * c**4)
+			term3 = gammaC * p_COM * invgamma_a12 * \
+				(m1 * gamma1_COM * m2 * gamma2_COM * invp_COM2 * c**2 + 1.)**2
 
-        # Calculate the collision parameter s12
-        s12 = term1 * term2 * term3
+			# Calculate the collision parameter s12
+			s12 = term1 * term2 * term3
 
-        # Low temperature correction
-        v_rel = m.sqrt((ux1[si1] - ux2[si2])**2
-                       + (uy1[si1] - uy2[si2])**2
-                       + (uz1[si1] - uz2[si2])**2)
-        s_prime = (4.*m.pi/3)**(1/3) * term1 * corr_dt * \
-            ((m1 + m2) / max(m1 * n1[cell]**(2/3), m2 * n2[cell]**(2/3))) * \
-            v_rel
+			# Low temperature correction
+			v_rel = m.sqrt((ux1[si1] - ux2[si2])**2
+						+ (uy1[si1] - uy2[si2])**2
+						+ (uz1[si1] - uz2[si2])**2)
+			s_prime = (4.*m.pi/3)**(1/3) * term1 * corr_dt * \
+				((m1 + m2) / max(m1 * n1[cell]**(2/3), m2 * n2[cell]**(2/3))) * \
+				v_rel
 
-        s = min(s12, s_prime)
+			s = min(s12, s_prime)
 
-        # Random azimuthal angle
-        phi = xoroshiro128p_uniform_float64(random_states, i) * 2.0 * m.pi
+			# Random azimuthal angle
+			phi = xoroshiro128p_uniform_float64(random_states, i) * 2.0 * m.pi
 
-        # Calculate the deflection angle
-        U = xoroshiro128p_uniform_float64(
-            random_states, i)    # random float [0,1]
-        if s12 < 4:
-            a = 0.37 * s - 0.005 * s**2 - 0.0064 * s**3
-            sin2X2 = a * U / m.sqrt(1 - U + a**2 * U)
-            cosX = 1. - 2. * sin2X2
-            sinX = 2. * m.sqrt(sin2X2 * (1.-sin2X2))
-        else:
-            cosX = 2. * U - 1.
-            sinX = m.sqrt(1. - cosX * cosX)
-        sinXcosPhi = sinX * m.cos(phi)
-        sinXsinPhi = sinX * m.sin(phi)
+			# Calculate the deflection angle
+			U = xoroshiro128p_uniform_float64(
+				random_states, i)    # random float [0,1]
+			if s12 < 4:
+				a = 0.37 * s - 0.005 * s**2 - 0.0064 * s**3
+				sin2X2 = a * U / m.sqrt(1 - U + a**2 * U)
+				cosX = 1. - 2. * sin2X2
+				sinX = 2. * m.sqrt(sin2X2 * (1.-sin2X2))
+			else:
+				cosX = 2. * U - 1.
+				sinX = m.sqrt(1. - cosX * cosX)
+			sinXcosPhi = sinX * m.cos(phi)
+			sinXsinPhi = sinX * m.sin(phi)
 
-        p_perp_COM = m.sqrt(px_COM**2 + py_COM**2)
-        invp = 1. / p_perp_COM
+			p_perp_COM = m.sqrt(px_COM**2 + py_COM**2)
+			invp = 1. / p_perp_COM
 
-        # Resulting momentum in COM frame
-        if (p_perp_COM > 1.e-10 * p_COM):
-            pxf1_COM = (px_COM * pz_COM * invp * sinXcosPhi
-                        - py_COM * p_COM * invp * sinXsinPhi
-                        + px_COM * cosX)
-            pyf1_COM = (py_COM * pz_COM * invp * sinXcosPhi
-                        + px_COM * p_COM * invp * sinXsinPhi
-                        + py_COM * cosX)
-            pzf1_COM = (-p_perp_COM * sinXcosPhi
-                        + pz_COM * cosX)
-        else:
-            pxf1_COM = p_COM * sinXcosPhi
-            pyf1_COM = p_COM * sinXsinPhi
-            pzf1_COM = p_COM * cosX
+			# Resulting momentum in COM frame
+			if (p_perp_COM > 1.e-10 * p_COM):
+				pxf1_COM = (px_COM * pz_COM * invp * sinXcosPhi
+							- py_COM * p_COM * invp * sinXsinPhi
+							+ px_COM * cosX)
+				pyf1_COM = (py_COM * pz_COM * invp * sinXcosPhi
+							+ px_COM * p_COM * invp * sinXsinPhi
+							+ py_COM * cosX)
+				pzf1_COM = (-p_perp_COM * sinXcosPhi
+							+ pz_COM * cosX)
+			else:
+				pxf1_COM = p_COM * sinXcosPhi
+				pyf1_COM = p_COM * sinXsinPhi
+				pzf1_COM = p_COM * cosX
 
-        vC_pfCOM = (COM_vx * pxf1_COM
-                    + COM_vy * pyf1_COM
-                    + COM_vz * pzf1_COM)
+			vC_pfCOM = (COM_vx * pxf1_COM
+						+ COM_vy * pyf1_COM
+						+ COM_vz * pzf1_COM)
 
-        # Resulting momentum in lab frame
-        pxf1 = pxf1_COM + COM_vx * \
-            ((gammaC - 1.) * vC_pfCOM / vC2 + m1 * gamma1_COM * gammaC)
-        pyf1 = pyf1_COM + COM_vy * \
-            ((gammaC - 1.) * vC_pfCOM / vC2 + m1 * gamma1_COM * gammaC)
-        pzf1 = pzf1_COM + COM_vz * \
-            ((gammaC - 1.) * vC_pfCOM / vC2 + m1 * gamma1_COM * gammaC)
+			# Resulting momentum in lab frame
+			pxf1 = pxf1_COM + COM_vx * \
+				((gammaC - 1.) * vC_pfCOM / vC2 + m1 * gamma1_COM * gammaC)
+			pyf1 = pyf1_COM + COM_vy * \
+				((gammaC - 1.) * vC_pfCOM / vC2 + m1 * gamma1_COM * gammaC)
+			pzf1 = pzf1_COM + COM_vz * \
+				((gammaC - 1.) * vC_pfCOM / vC2 + m1 * gamma1_COM * gammaC)
 
-        U1 = xoroshiro128p_uniform_float64(
-            random_states, i)    # random float [0,1]
-        if U1 * w1[si1] < w2[si2]:
-            # Deflect particle 1
-            invm1 = 1. / m1
-            ux1[si1] = pxf1 * invm1
-            uy1[si1] = pyf1 * invm1
-            uz1[si1] = pzf1 * invm1
+			U1 = xoroshiro128p_uniform_float64(
+				random_states, i)    # random float [0,1]
+			if U1 * w1[si1] < w2[si2]:
+				# Deflect particle 1
+				invm1 = 1. / m1
+				ux1[si1] = pxf1 * invm1
+				uy1[si1] = pyf1 * invm1
+				uz1[si1] = pzf1 * invm1
 
-        if U1 * w2[si2] < w1[si1]:
-            # Deflect particle 2 (pf2 = -pf1)
-            invm2 = 1. / m2
-            ux2[si2] = -pxf1 * invm2
-            uy2[si2] = -pyf1 * invm2
-            uz2[si2] = -pzf1 * invm2
+			if U1 * w2[si2] < w1[si1]:
+				# Deflect particle 2 (pf2 = -pf1)
+				invm2 = 1. / m2
+				ux2[si2] = -pxf1 * invm2
+				uy2[si2] = -pyf1 * invm2
+				uz2[si2] = -pzf1 * invm2
