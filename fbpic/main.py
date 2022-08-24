@@ -339,6 +339,8 @@ class Simulation(object):
         self.laser_antennas = []
         # Initialize an empty list of mirrors
         self.mirrors = []
+        # Initialize an empty list of collisions
+        self.collisions = []
 
         # Print simulation setup
         print_simulation_setup( self, verbose_level=verbose_level )
@@ -438,6 +440,7 @@ class Simulation(object):
                 # continuous injection of new particles by the moving window.
                 # (In the case of single-proc periodic simulations, particles
                 # are shifted by one box length, so they remain inside the box)
+
                 for species in self.ptcl:
                     self.comm.exchange_particles(species, fld, self.time)
                 for antenna in self.laser_antennas:
@@ -501,6 +504,10 @@ class Simulation(object):
             # (e.g. ionization, Compton scattering, ...)
             for species in ptcl:
                 species.handle_elementary_processes( self.time + 0.5*dt )
+
+            # Handle collisions
+            for collision in self.collisions:
+                collision.handle_collisions( fld, 0.5*dt )
 
             # Fields are not used beyond this point ; no need to keep sorted
             for species in ptcl:
