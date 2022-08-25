@@ -180,18 +180,6 @@ class MCCollisions(object):
                                 prefix_sum2, m2,
                                 ux2, uy2, uz2 )
 
-            mean_T1 = (k / e) * cupy.sum( temperature1 ) / N_cells
-            mean_T2 = (k / e) * cupy.sum( temperature2 ) / N_cells
-            mean_n1 = cupy.sum( n1 ) / N_cells
-            mean_n2 = cupy.sum( n2 ) / N_cells
-            mean_n12 = cupy.sum( n12 ) / N_cells
-            
-            print("\n mean_T1 eV = ", mean_T1)
-            print("mean_T2 eV = ", mean_T2)
-            print("mean_n1 = ", mean_n1)
-            print("mean_n2 = ", mean_n2)
-            print("mean_n12 = ", mean_n12)
-
             # Total number of pairs
             npairs_tot = int( cupy.sum( npairs ) )
             print("\n Total number of pairs = ", npairs_tot)
@@ -203,6 +191,20 @@ class MCCollisions(object):
             cell_idx = cupy.empty(npairs_tot, dtype=np.int64)
             dim_grid_1d, dim_block_1d = cuda_tpb_bpg_1d( N_cells )
             get_cell_idx_per_pair[dim_grid_1d, dim_block_1d](N_cells, cell_idx, npairs, prefix_sum_pair)
+
+            # Diagnostics
+            N_cells_plasma = cell_idx[-1] - cell_idx[0]
+            mean_T1 = (k / e) * cupy.sum( temperature1 ) / N_cells_plasma
+            mean_T2 = (k / e) * cupy.sum( temperature2 ) / N_cells_plasma
+            mean_n1 = cupy.sum( n1 ) / N_cells_plasma
+            mean_n2 = cupy.sum( n2 ) / N_cells_plasma
+            mean_n12 = cupy.sum( n12 ) / N_cells_plasma
+            
+            print("\n <T1> = ", mean_T1, " eV")
+            print("<T2> = ", mean_T2, " eV")
+            print("<n1> = ", mean_n1)
+            print("<n2> = ", mean_n2)
+            print("<n12> = ", mean_n12)
 
             # The particles need to be shuffled, in each cell, in non-repeating order
             # so that particles are randomly paired once
