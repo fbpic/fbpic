@@ -86,9 +86,6 @@ class MCCollisions(object):
                 self.species2.sort_particles(fld = fld)
                 self.species2.sorted = True
 
-            assert self.species1.sorted == True
-            assert self.species2.sorted == True
-
             # Short-cut for use_cuda
             use_cuda = self.use_cuda
 
@@ -122,15 +119,6 @@ class MCCollisions(object):
             q1 = self.species1.q
             q2 = self.species2.q
 
-            assert cupy.any(cupy.isnan(ux1)) == False
-            assert cupy.any(cupy.isnan(uy1)) == False
-            assert cupy.any(cupy.isnan(uz1)) == False
-            assert cupy.any(cupy.isnan(ux2)) == False
-            assert cupy.any(cupy.isnan(uy2)) == False
-            assert cupy.any(cupy.isnan(uz2)) == False
-            assert cupy.any(cupy.isnan(w1)) == False
-            assert cupy.any(cupy.isnan(w2)) == False
-
             N_cells = int( prefix_sum1.shape[0] )
             npart1 = allocate_empty(N_cells, use_cuda, dtype=np.int32)
             npart2 = allocate_empty(N_cells, use_cuda, dtype=np.int32)
@@ -140,9 +128,6 @@ class MCCollisions(object):
             npart1[1:] = prefix_sum1[1:] - prefix_sum1[:-1]
             npart2[0] = prefix_sum2[0]
             npart2[1:] = prefix_sum2[1:] - prefix_sum2[:-1]
-
-            assert cupy.any(cupy.isnan(npart1)) == False
-            assert cupy.any(cupy.isnan(npart2)) == False
 
             assert cupy.sum( npart1 ) > 0
             assert cupy.sum( npart2 ) > 0
@@ -182,7 +167,7 @@ class MCCollisions(object):
 
             # Total number of pairs
             npairs_tot = int( cupy.sum( npairs ) )
-            print("\n Total number of pairs = ", npairs_tot)
+            #print("\n Total number of pairs = ", npairs_tot)
 
             # Cumulative prefix sum of pairs
             prefix_sum_pair = cupy.cumsum(npairs)
@@ -191,17 +176,21 @@ class MCCollisions(object):
             cell_idx = cupy.empty(npairs_tot, dtype=np.int64)
             dim_grid_1d, dim_block_1d = cuda_tpb_bpg_1d( N_cells )
             get_cell_idx_per_pair[dim_grid_1d, dim_block_1d](N_cells, cell_idx, npairs, prefix_sum_pair)
-
+            
             # Diagnostics
             N_cells_plasma = cell_idx[-1] - cell_idx[0]
-            mean_T1 = (k / e) * cupy.sum( temperature1 ) / N_cells_plasma
-            mean_T2 = (k / e) * cupy.sum( temperature2 ) / N_cells_plasma
+            mean_T1 = cupy.sum( temperature1 ) / N_cells_plasma
+            mean_T2 = cupy.sum( temperature2 ) / N_cells_plasma
             mean_n1 = cupy.sum( n1 ) / N_cells_plasma
             mean_n2 = cupy.sum( n2 ) / N_cells_plasma
             mean_n12 = cupy.sum( n12 ) / N_cells_plasma
-            
-            print("\n <T1> = ", mean_T1, " eV")
-            print("<T2> = ", mean_T2, " eV")
+
+            mean_Debye = m.sqrt( (epsilon_0 * k / e**2 ) / 
+                        ( mean_n1 / mean_T1 + mean_n1 / mean_T2) ) 
+
+            print("\n <Debye> = ", mean_Debye)
+            print("<T1> = ", (k / e) * mean_T1, " eV")
+            print("<T2> = ", (k / e) * mean_T2, " eV")
             print("<n1> = ", mean_n1)
             print("<n2> = ", mean_n2)
             print("<n12> = ", mean_n12)
@@ -229,19 +218,9 @@ class MCCollisions(object):
                         temperature1, temperature2,
                         random_states )
 
-
-            if cupy.any(cupy.isnan(ux1)) == True or \
-                cupy.any(cupy.isnan(uy1)) == True or \
-                cupy.any(cupy.isnan(uz1)) == True or \
-                cupy.any(cupy.isnan(ux2)) == True or \
-                cupy.any(cupy.isnan(uy2)) == True or \
-                cupy.any(cupy.isnan(uz2)) == True:
-                print("\n NaN solution.")
-                return
-            else:
-                setattr(self.species1.ux, 'ux', ux1)
-                setattr(self.species1.uy, 'uy', uy1)
-                setattr(self.species1.uz, 'uz', uz1)
-                setattr(self.species2.ux, 'ux', ux2)
-                setattr(self.species2.uy, 'uy', uy2)
-                setattr(self.species2.uz, 'uz', uz2)
+            setattr(self.species1.ux, 'ux', ux1)
+            setattr(self.species1.uy, 'uy', uy1)
+            setattr(self.species1.uz, 'uz', uz1)
+            setattr(self.species2.ux, 'ux', ux2)
+            setattr(self.species2.uy, 'uy', uy2)
+            setattr(self.species2.uz, 'uz', uz2)
