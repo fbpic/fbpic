@@ -7,7 +7,7 @@ It defines cuda methods that are used in Compton scattering (on GPU).
 """
 import math as m
 from numba import cuda
-from scipy.constants import c, k, h, epsilon_0, m_e
+from scipy.constants import c, k, h, epsilon_0, e
 from fbpic.utils.cuda import cuda_installed
 if cuda_installed:
     from fbpic.utils.cuda import compile_cupy
@@ -191,9 +191,11 @@ def perform_collisions_cuda(N_batch, batch_size, npairs_tot,
 			r2 = m.sqrt( x2[si2]**2 + y2[si2]**2 )
 
 			distance = m.sqrt( (r1 - r2)**2 + (z1[si1] - z2[si2])**2 )
+			
+			Debye2 = (epsilon_0 * k / e**2) / (n1[cell] / T1[cell] + n1[cell] / T2[cell])
 
-			# Choose to collide pairs that are close (half of the grid size)
-			if distance < 0.001:
+			# Choose to collide pairs that are within a Debye sphere
+			if distance < m.sqrt(Debye2):
 				# Effective time interval for the collisions
 				corr_dt = dt * n12[cell] / n1[cell]
 
@@ -260,8 +262,6 @@ def perform_collisions_cuda(N_batch, batch_size, npairs_tot,
 					b0 = coeff * qq * COM_gamma * inv_g12 * \
 						(m1 * gamma1_COM * m2 * gamma2_COM * invp_COM2 * c**2 + 1.)**2
 					bmin = max(0.5 * h * invp_COM, b0)
-					Debye2 = k * T1[cell] / (4. * m.pi * n1[cell] * q1 * q1) + \
-						k * T2[cell] / (4. * m.pi * n2[cell] * q2 * q2)
 					coulomb_log = 0.5 * m.log(1. + Debye2 / bmin**2)
 					if coulomb_log < 2.:
 						coulomb_log = 2.
