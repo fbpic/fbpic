@@ -9,7 +9,7 @@ import numpy as np
 import time
 import math as m
 import cupy
-from scipy.constants import c, k, epsilon_0
+from scipy.constants import c, k, epsilon_0, e
 
 # Check if CUDA is available, then import CUDA functions
 from fbpic.utils.cuda import cuda_installed, cupy_installed
@@ -99,6 +99,14 @@ class MCCollisions(object):
 
             d_invvol = fld.interp[0].d_invvol
 
+            x1 = getattr( self.species1, 'x')
+            y1 = getattr( self.species1, 'y')
+            z1 = getattr( self.species1, 'z')
+
+            x2 = getattr( self.species1, 'x')
+            y2 = getattr( self.species1, 'y')
+            z2 = getattr( self.species1, 'z')
+
             ux1 = getattr( self.species1, 'ux')
             uy1 = getattr( self.species1, 'uy')
             uz1 = getattr( self.species1, 'uz')
@@ -172,14 +180,14 @@ class MCCollisions(object):
                                 prefix_sum2, m2,
                                 ux2, uy2, uz2 )
 
-            mean_T1 = cupy.sum( temperature1 ) / N_cells
-            mean_T2 = cupy.sum( temperature2 ) / N_cells
+            mean_T1 = (k / e) * cupy.sum( temperature1 ) / N_cells
+            mean_T2 = (k / e) * cupy.sum( temperature2 ) / N_cells
             mean_n1 = cupy.sum( n1 ) / N_cells
             mean_n2 = cupy.sum( n2 ) / N_cells
             mean_n12 = cupy.sum( n12 ) / N_cells
-
-            print("\n mean_T1 = ", mean_T1)
-            print("mean_T2 = ", mean_T2)
+            
+            print("\n mean_T1 eV = ", mean_T1)
+            print("mean_T2 eV = ", mean_T2)
             print("mean_n1 = ", mean_n1)
             print("mean_n2 = ", mean_n2)
             print("mean_n12 = ", mean_n12)
@@ -213,6 +221,8 @@ class MCCollisions(object):
                         q1, q2, w1, w2,
                         ux1, uy1, uz1,
                         ux2, uy2, uz2,
+                        x1, y1, z1,
+                        x2, y2, z2,
                         dt, self.coulomb_log,
                         temperature1, temperature2,
                         random_states )
