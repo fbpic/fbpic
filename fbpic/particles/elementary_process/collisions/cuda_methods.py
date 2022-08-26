@@ -24,7 +24,7 @@ def pairs_per_cell_cuda(N_batch, array_in1, array_in2, array_out):
         if array_in1[i] == 0 or array_in2[i] == 0:
             array_out[i] = 0
         else:
-            if array_in1[i] > array_in2[i]:
+            if array_in1[i] < array_in2[i]:
                 array_out[i] = array_in1[i]
             else:
                 array_out[i] = array_in2[i]
@@ -114,7 +114,7 @@ def temperature_per_cell_cuda(N_batch, T, npart,
 
 
 @compile_cupy
-def get_cell_idx_per_pair(N_batch, cell_idx, npair, prefix_sum_pair):
+def get_cell_idx_per_pair_cuda(N_batch, cell_idx, npair, prefix_sum_pair):
     """
     Get the cell index of each pair.
     The cell index is 1d and calculated by:
@@ -144,11 +144,58 @@ def get_cell_idx_per_pair(N_batch, cell_idx, npair, prefix_sum_pair):
             cell_idx[s+k] = i
             k += 1
 
+@cuda.jit
+def get_shuffled_idx_per_particle_cuda(N_batch, shuffled_idx, npart,
+										npair, prefix_sum_pair, random_states):
+	"""
+	Get the shuffled index of each particle in the array of pairs.
+	The particles are shuffled with a linear congruential generator
+	that is cyclic and non-repeating.
+
+	Parameters
+	----------
+	shuffled_idx : 1darray of integers
+				The shuffled particle index of the particle
+
+	npart : 1darray of integers
+				The particle array
+	
+	npair : 1darray of integers
+				The particle pair array
+
+	prefix_sum_pair : 1darray of integers
+				Cumulative prefix sum of
+				the pair array	
+	
+	random_states : random states of the random generator
+	"""
+	i = cuda.grid(1)
+	if i < N_batch:
+		if i > 0:
+			s = int( prefix_sum_pair[i-1] )
+		else:
+			s = 0
+		p = int( npart[i] )
+
+		value = int(xoroshiro128p_uniform_float64(random_states, i) * p)
+
+		offset = int(xoroshiro128p_uniform_float64(random_states, i) * p) * 2 + 1
+		multiplier = 4*(p//4) + 1
+		modulus = int( 2**( m.ceil(m.log2(p)) ) )
+
+		k = 0
+		while k < int( npair[i] ):
+			if value < p:
+				shuffled_idx[s+k] = value
+				k += 1
+			# Calculate the next value in the sequence.
+			value = int( (value*multiplier + offset) % modulus )
+
 
 @cuda.jit
 def perform_collisions_cuda(N_batch, batch_size, npairs_tot,
                         	prefix_sum1, prefix_sum2,
-                            cell_idx, npart1, npart2,
+                            shuffled_idx1, shuffled_idx2, cell_idx,
                             n1, n2, n12, m1, m2,
                             q1, q2, w1, w2,
                             ux1, uy1, uz1,
@@ -170,21 +217,12 @@ def perform_collisions_cuda(N_batch, batch_size, npairs_tot,
 		for ip in range( i*batch_size, N_max ):
 			cell = cell_idx[ip]
 
-			# Note: currently this code does not perform a non-repetitive
-			# shuffle of the particle pairs. This means that certain particles
-			# will be randomly chosen multiple times for collisions. This can be
-			# improved by performing the shuffling separately (prior) to ensure
-			# that no particles are repeated. 
 			if cell > 0:
-				si1 = int(round(xoroshiro128p_uniform_float64(random_states, i)
-								* (npart1[cell] - 1)) + prefix_sum1[cell-1])
-				si2 = int(round(xoroshiro128p_uniform_float64(random_states, i)
-								* (npart2[cell] - 1)) + prefix_sum2[cell-1])
+				si1 = int( shuffled_idx1[ip] + prefix_sum1[cell-1] )
+				si2 = int( shuffled_idx2[ip] + prefix_sum2[cell-1] )
 			else:
-				si1 = int(round(xoroshiro128p_uniform_float64(
-					random_states, i) * (npart1[cell] - 1)))
-				si2 = int(round(xoroshiro128p_uniform_float64(
-					random_states, i) * (npart2[cell] - 1)))
+				si1 = int( shuffled_idx1[ip] )
+				si2 = int( shuffled_idx2[ip] )
 
 			r1 = m.sqrt( x1[si1]**2 + y1[si1]**2 )
 

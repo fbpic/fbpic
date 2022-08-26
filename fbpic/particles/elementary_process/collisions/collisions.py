@@ -6,7 +6,6 @@ This file is part of the Fourier-Bessel Particle-In-Cell code (FBPIC)
 It defines the class that performs calculation of Monte-Carlo collisions.
 """
 import numpy as np
-import time
 import math as m
 import cupy
 from scipy.constants import c, k, epsilon_0, e
@@ -22,7 +21,7 @@ if cupy_installed:
     from .cuda_methods import perform_collisions_cuda, \
         density_per_cell_cuda, n12_per_cell_cuda, \
         temperature_per_cell_cuda, pairs_per_cell_cuda, \
-        get_cell_idx_per_pair
+        get_cell_idx_per_pair_cuda, get_shuffled_idx_per_particle_cuda
 
 class MCCollisions(object):
     """
@@ -30,7 +29,9 @@ class MCCollisions(object):
     pair all particles in a cell and perform collisions
     """
     def __init__( self, species1, species2, use_cuda=False,
-                coulomb_log = 0. ):
+                coulomb_log = 0.,
+                start = 0,
+                collision_period = 0 ):
         """
         Initialize Monte-Carlo collisions
 
@@ -54,6 +55,9 @@ class MCCollisions(object):
         self.batch_size = 10
 
         self.use_cuda = use_cuda
+
+        self.start = start
+        self.collision_period = collision_period
 
     def handle_collisions( self, fld, dt ):
         """
@@ -79,6 +83,7 @@ class MCCollisions(object):
 
             dt : The simulation timestep
             """
+
             if self.species1.sorted == False:
                 self.species1.sort_particles(fld = fld)
                 self.species1.sorted = True
@@ -173,9 +178,31 @@ class MCCollisions(object):
             prefix_sum_pair = cupy.cumsum(npairs)
 
             # Cell index of pair
-            cell_idx = cupy.empty(npairs_tot, dtype=np.int64)
-            dim_grid_1d, dim_block_1d = cuda_tpb_bpg_1d( N_cells )
-            get_cell_idx_per_pair[dim_grid_1d, dim_block_1d](N_cells, cell_idx, npairs, prefix_sum_pair)
+            cell_idx = cupy.empty(npairs_tot, dtype=np.int32)
+            get_cell_idx_per_pair_cuda[ bpg, tpg ](N_cells, cell_idx, npairs, prefix_sum_pair)
+
+            #print("\nMax npairs in cell ", cupy.max(npairs))
+
+            # Shuffled index of particle 1
+            shuffled_idx1 = cupy.empty(npairs_tot, dtype=np.int32)
+            seed = np.random.randint( 256 )
+            random_states = create_xoroshiro128p_states( N_cells, seed )
+            get_shuffled_idx_per_particle_cuda[ bpg, tpg ](N_cells, shuffled_idx1, npart1,
+                                                            npairs, prefix_sum_pair, random_states)
+
+            # Shuffled index of particle 2
+            shuffled_idx2 = cupy.empty(npairs_tot, dtype=np.int32)
+            seed = np.random.randint( 256 )
+            random_states = create_xoroshiro128p_states( N_cells, seed )
+            get_shuffled_idx_per_particle_cuda[ bpg, tpg ](N_cells, shuffled_idx2, npart2,
+                                                            npairs, prefix_sum_pair, random_states)
+            """
+            print("\nMax shuffled particle1 in cell: ", cupy.max(shuffled_idx1))
+            print("\nMax shuffled particle2 in cell: ", cupy.max(shuffled_idx2))
+
+            print("\nMax particle1 in cell: ", cupy.max(npart1))
+            print("\nMax particle2 in cell: ", cupy.max(npart2))
+            """
             
             # Diagnostics
             N_cells_plasma = cell_idx[-1] - cell_idx[0]
@@ -207,7 +234,7 @@ class MCCollisions(object):
             perform_collisions_cuda[ bpg, tpg ]( N_batch, 
                         self.batch_size, npairs_tot,
                         prefix_sum1, prefix_sum2,
-                        cell_idx, npart1, npart2,
+                        shuffled_idx1, shuffled_idx2, cell_idx,
                         n1, n2, n12, m1, m2,
                         q1, q2, w1, w2,
                         ux1, uy1, uz1,

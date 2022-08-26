@@ -507,7 +507,9 @@ class Simulation(object):
 
             # Handle collisions
             for collision in self.collisions:
-                collision.handle_collisions( fld, 0.5*dt )
+                if self.iteration % collision.collision_period == 0 \
+                    and self.iteration > collision.start:
+                    collision.handle_collisions( fld, 0.5*dt )
 
             # Fields are not used beyond this point ; no need to keep sorted
             for species in ptcl:
