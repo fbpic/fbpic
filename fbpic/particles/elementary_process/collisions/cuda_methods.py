@@ -24,7 +24,7 @@ def pairs_per_cell_cuda(N_batch, array_in1, array_in2, array_out):
         if array_in1[i] == 0 or array_in2[i] == 0:
             array_out[i] = 0
         else:
-            if array_in1[i] < array_in2[i]:
+            if array_in1[i] > array_in2[i]:
                 array_out[i] = array_in1[i]
             else:
                 array_out[i] = array_in2[i]
@@ -172,26 +172,28 @@ def get_shuffled_idx_per_particle_cuda(N_batch, shuffled_idx, npart,
 	i = cuda.grid(1)
 	if i < N_batch:
 		if i > 0:
-			s = int( prefix_sum_pair[i-1] )
+			s = prefix_sum_pair[i-1]
 		else:
 			s = 0
-		p = int( npart[i] )
+		p = npart[i]
 
 		value = int(xoroshiro128p_uniform_float64(random_states, i) * p)
 
 		offset = int(xoroshiro128p_uniform_float64(random_states, i) * p) * 2 + 1
 		multiplier = 4*(p//4) + 1
-		modulus = int( 2**( m.ceil(m.log2(p)) ) )
+		modulus = int( 2**(m.ceil(m.log2(p))) )
 
 		k = 0
-		while k < int( npair[i] ):
-			if value < p:
-				shuffled_idx[s+k] = value
+		while k < npair[i]:
+			if k < p:
+				if value < p:
+					shuffled_idx[s+k] = value
+					k += 1
+				# Calculate the next value in the sequence.
+				value = (value*multiplier + offset) % modulus
+			else:
+				shuffled_idx[s+k] = shuffled_idx[s+k-p]
 				k += 1
-			# Calculate the next value in the sequence.
-			value = int( (value*multiplier + offset) % modulus )
-
-
 @cuda.jit
 def perform_collisions_cuda(N_batch, batch_size, npairs_tot,
                         	prefix_sum1, prefix_sum2,
@@ -233,95 +235,83 @@ def perform_collisions_cuda(N_batch, batch_size, npairs_tot,
 			Debye2 = (epsilon_0 * k / e**2) / (n1[cell] / T1[cell] + n1[cell] / T2[cell])
 
 			# Choose to collide pairs that are within a Debye sphere
-			if distance < m.sqrt(Debye2):
+			#if distance < m.sqrt(Debye2):
+			if distance < 1.e-4:	
+			#if distance < 0.1:
 				# Effective time interval for the collisions
 				corr_dt = dt * n12[cell] / n1[cell]
 
-				px1 = ux1[si1] * (m1 * c)
-				py1 = uy1[si1] * (m1 * c) 
-				pz1 = uz1[si1] * (m1 * c) 
-
-				px2 = ux2[si2] * (m2 * c)
-				py2 = uy2[si2] * (m2 * c) 
-				pz2 = uz2[si2] * (m2 * c)
-
-				inv_m1 = 1. / m1
-				vx1 = px1 * inv_m1
-				vy1 = py1 * inv_m1
-				vz1 = pz1 * inv_m1
-
-				inv_m2 = 1. / m2
-				vx2 = px2 * inv_m2
-				vy2 = py2 * inv_m2
-				vz2 = pz2 * inv_m2
-
 				# Calculate Lorentz factor
-				gamma1 = 1. / m.sqrt(1. - (vx1**2 + vy1**2 + vz1**2) / c**2)
-				gamma2 = 1. / m.sqrt(1. - (vx2**2 + vy2**2 + vz2**2) / c**2)
+				gamma1 = m.sqrt(1. + (ux1[si1]**2 + uy1[si1]**2 + uz1[si1]**2))
+				gamma2 = m.sqrt(1. + (ux2[si2]**2 + uy2[si2]**2 + uz2[si2]**2))
 
-				g12 = m1 * gamma1 + m2 * gamma2
+				m12 = m1 / m2
+
+				g12 = m12 * gamma1 + gamma2
 				inv_g12 = 1. / g12
 
-				gamma12 = m1 * gamma1 * m2 * gamma2
+				gamma12 = gamma1 * gamma2
 				invgamma12 = 1. / gamma12
 
 				# Center of mass (COM) velocity
-				COM_vx = (px1 + px2) * inv_g12
-				COM_vy = (py1 + py2) * inv_g12
-				COM_vz = (pz1 + pz2) * inv_g12
+				COM_vx = (m12 * ux1[si1] + ux2[si2]) * inv_g12
+				COM_vy = (m12 * uy1[si1] + uy2[si2]) * inv_g12
+				COM_vz = (m12 * uz1[si1] + uz2[si2]) * inv_g12
 
-				COM_v_v1 = (COM_vx * vx1 + COM_vy * vy1 + COM_vz * vz1)
-				COM_v_v2 = (COM_vx * vx2 + COM_vy * vy2 + COM_vz * vz2)
+				COM_v_u1 = (COM_vx * ux1[si1] + COM_vy * uy1[si1] + COM_vz * uz1[si1])
+				COM_v_u2 = (COM_vx * ux2[si2] + COM_vy * uy2[si2] + COM_vz * uz2[si2])
 
 				COM_v2 = COM_vx**2 + COM_vy**2 + COM_vz**2
-				COM_gamma = 1. / m.sqrt(1. - COM_v2 / c**2)
+				COM_gamma = 1. / m.sqrt(1. - COM_v2)
 
 				# momenta in COM
-				px_COM = px1 + ((COM_gamma - 1.) * COM_v_v1 / COM_v2
-										- COM_gamma) * m1 * gamma1 * COM_vx
-				py_COM = py1 + ((COM_gamma - 1.) * COM_v_v1 / COM_v2
-										- COM_gamma) * m1 * gamma1 * COM_vy
-				pz_COM = pz1 + ((COM_gamma - 1.) * COM_v_v1 / COM_v2
-										- COM_gamma) * m1 * gamma1 * COM_vz
+				px_COM = ux1[si1] + ((COM_gamma - 1.) * COM_v_u1 / COM_v2
+										- COM_gamma * gamma1 ) * COM_vx
+				py_COM = uy1[si1] + ((COM_gamma - 1.) * COM_v_u1 / COM_v2
+										- COM_gamma * gamma1) * COM_vy
+				pz_COM = uz1[si1] + ((COM_gamma - 1.) * COM_v_u1 / COM_v2
+										- COM_gamma * gamma1) * COM_vz
 
 				p_COM = m.sqrt(px_COM**2 + py_COM**2 + pz_COM**2)
 				invp_COM = 1. / p_COM
 				invp_COM2 = 1. / p_COM**2
 
 				# Lorentz transforms
-				gamma1_COM = (1 - COM_v_v1 / c**2) * COM_gamma * gamma1
-				gamma2_COM = (1 - COM_v_v2 / c**2) * COM_gamma * gamma2
+				gamma1_COM = (gamma1 - COM_v_u1) * COM_gamma
+				gamma2_COM = (gamma2 - COM_v_u2) * COM_gamma
 
 				# Calculate coulomb log if not user-defined
-				qq = q1 * q2
-				qq2 = qq**2
+				qqm = q1 * q2 / m1
+				qqm2 = qqm**2
 				if coulomb_log <= 0.:
 					coeff = 1. / (4 * m.pi * epsilon_0 * c**2)
-					b0 = coeff * qq * COM_gamma * inv_g12 * \
-						(m1 * gamma1_COM * m2 * gamma2_COM * invp_COM2 * c**2 + 1.)**2
+					b0 = abs(coeff * q1 * q2 * COM_gamma * inv_g12 * \
+						(m1 * gamma1_COM * m2 * gamma2_COM * invp_COM2 + 1.))
 					bmin = max(0.5 * h * invp_COM, b0)
 					coulomb_log = 0.5 * m.log(1. + Debye2 / bmin**2)
 					if coulomb_log < 2.:
 						coulomb_log = 2.
 
+				coeff1 = 1. / (4. * m.pi * epsilon_0**2 * c**3)
 				term1 = n1[cell] * n2[cell] / n12[cell]
-				term2 = corr_dt * coulomb_log * qq2 * \
-					invgamma12 / (4. * m.pi * epsilon_0**2 * c**4)
-				term3 = gamma2_COM * p_COM * inv_g12 * \
-					(m1 * gamma1_COM * m2 * gamma2_COM * invp_COM2 * c**2 + 1.)**2
+				term2 = coeff1 * qqm2 * invgamma12
+				term3 = COM_gamma * inv_g12 * p_COM
+				term4 = (gamma1_COM * gamma2_COM * invp_COM2  + m12)
 
 				# Calculate the collision parameter s12
-				s12 = term1 * term2 * term3
+				s12 = coulomb_log * term1 * term2 * term3 * term4 * term4
 
 				# Low temperature correction
-				v_rel = m.sqrt((vx1 - vx2)**2
-							+ (vy1 - vy2)**2
-							+ (vz1 - vz2)**2)
-				s_prime = (4.*m.pi/3)**(1/3) * term1 * corr_dt * \
+				v_rel = m.sqrt((ux1[si1] - ux2[si2])**2
+							+ (uy1[si1] - uy2[si2])**2
+							+ (uz1[si1] - uz2[si2])**2)
+				s_prime = (4.*m.pi/3)**(1/3) * term1 * \
 					((m1 + m2) / max(m1 * n1[cell]**(2/3), m2 * n2[cell]**(2/3))) * \
 					v_rel
 
 				s = min(s12, s_prime)
+
+				s = s * corr_dt
 
 				# Random azimuthal angle
 				phi = xoroshiro128p_uniform_float64(random_states, i) * 2.0 * m.pi
@@ -333,7 +323,7 @@ def perform_collisions_cuda(N_batch, batch_size, npairs_tot,
 					a = 0.37 * s - 0.005 * s**2 - 0.0064 * s**3
 					sin2X2 = a * U / m.sqrt(1 - U + a**2 * U)
 					cosX = 1. - 2. * sin2X2
-					sinX = 2. * m.sqrt(sin2X2 * (1.-sin2X2))
+					sinX = 2. * m.sqrt(sin2X2 * (1. - sin2X2))
 				else:
 					cosX = 2. * U - 1.
 					sinX = m.sqrt(1. - cosX * cosX)
@@ -362,26 +352,25 @@ def perform_collisions_cuda(N_batch, batch_size, npairs_tot,
 							+ COM_vy * pyf1_COM
 							+ COM_vz * pzf1_COM)
 
-				# Resulting momentum in lab frame
-				pxf1 = pxf1_COM + COM_vx * \
-					((COM_gamma - 1.) * vC_pfCOM / COM_v2 + m1 * gamma1_COM * COM_gamma)
-				pyf1 = pyf1_COM + COM_vy * \
-					((COM_gamma - 1.) * vC_pfCOM / COM_v2 + m1 * gamma1_COM * COM_gamma)
-				pzf1 = pzf1_COM + COM_vz * \
-					((COM_gamma - 1.) * vC_pfCOM / COM_v2 + m1 * gamma1_COM * COM_gamma)
-
 				U1 = xoroshiro128p_uniform_float64(
 					random_states, i)    # random float [0,1]
 				if U1 * w1[si1] < w2[si2]:
 					# Deflect particle 1
-					inv_norm1 = 1. / (m1 * c)
-					ux1[si1] = pxf1 * inv_norm1
-					uy1[si1] = pyf1 * inv_norm1
-					uz1[si1] = pzf1 * inv_norm1
+					ux1[si1] = pxf1_COM + COM_vx * \
+								((COM_gamma - 1.) * vC_pfCOM / COM_v2 + gamma1_COM * COM_gamma)
+					uy1[si1] = pyf1_COM + COM_vy * \
+								((COM_gamma - 1.) * vC_pfCOM / COM_v2 + gamma1_COM * COM_gamma)
+					uz1[si1] = pzf1_COM + COM_vz * \
+								((COM_gamma - 1.) * vC_pfCOM / COM_v2 + gamma1_COM * COM_gamma)
 
 				if U1 * w2[si2] < w1[si1]:
 					# Deflect particle 2 (pf2 = -pf1)
-					inv_norm2 = 1. / (m2 * c)
-					ux2[si2] = -pxf1 * inv_norm2
-					uy2[si2] = -pyf1 * inv_norm2
-					uz2[si2] = -pzf1 * inv_norm2
+					ux2[si2] = -pxf1_COM * m12 + COM_vx * \
+								(-(COM_gamma - 1.) * m12 * vC_pfCOM / COM_v2 \
+								+ gamma2_COM * COM_gamma)
+					uy2[si2] = -pyf1_COM * m12 + COM_vy * \
+								(-(COM_gamma - 1.) * m12 * vC_pfCOM / COM_v2\
+								+ gamma2_COM * COM_gamma)
+					uz2[si2] = -pzf1_COM * m12 + COM_vz * \
+								(-(COM_gamma - 1.) * m12 * vC_pfCOM / COM_v2\
+								+ gamma2_COM * COM_gamma)
