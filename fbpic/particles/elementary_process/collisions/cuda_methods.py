@@ -49,6 +49,39 @@ def density_per_cell_cuda(N_batch, density, weights, npart,
         density[i] = sum * invvol
 
 
+
+
+@compile_cupy
+def alt_n12_per_cell_cuda(N_batch, n12, w1, w2,
+                    npairs, shuffled_idx1, shuffled_idx2,
+					prefix_sum_pair, prefix_sum1, prefix_sum2):
+	"""
+	Calculate n12 of species per cell
+	n12 is the sum of minimum species weights
+	"""
+	# Loop over cells
+	i = cuda.grid(1)
+	# Loop over batch of particle pairs and perform collision
+	if i < N_batch:
+		# Loop through the batch
+		if i > 0:
+			i_min1 = int( prefix_sum1[i-1] )
+			i_min2 = int( prefix_sum2[i-1] )
+			p_min = int( prefix_sum_pair[i-1] )
+		else:
+			i_min1 = 0
+			i_min2 = 0
+			p_min = 0
+		sum = 0.
+		for j in range(int(npairs[i])):
+			si1 = shuffled_idx1[p_min + j]
+			si2 = shuffled_idx2[p_min + j]
+			if w1[i_min1+si1] < w2[i_min2+si2]:
+				sum += w1[i_min1+si1]
+			else:
+				sum += w2[i_min2+si2]
+		n12[i] = sum
+
 @compile_cupy
 def n12_per_cell_cuda(N_batch, n12, w1, w2,
                       npart1, prefix_sum1, prefix_sum2):

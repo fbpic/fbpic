@@ -22,7 +22,8 @@ if cupy_installed:
     from .cuda_methods import perform_collisions_cuda, \
         density_per_cell_cuda, n12_per_cell_cuda, \
         temperature_per_cell_cuda, pairs_per_cell_cuda, \
-        get_cell_idx_per_pair_cuda, get_shuffled_idx_per_particle_cuda
+        get_cell_idx_per_pair_cuda, get_shuffled_idx_per_particle_cuda, \
+        alt_n12_per_cell_cuda
 
 class MCCollisions(object):
     """
@@ -371,11 +372,6 @@ class MCCollisions(object):
                                 npart2, prefix_sum2,
                                 d_invvol, Nz )
             
-            # Calculate sum of minimum weights in each cell
-            n12 = allocate_empty(N_cells, use_cuda, dtype=np.float64)
-            n12_per_cell_cuda[ bpg, tpg ]( N_cells, n12, w1, w2, npart1,
-                                            prefix_sum1, prefix_sum2 )
-
             # Calculate temperature in each cell
             temperature1 = allocate_empty(N_cells, use_cuda, dtype=np.float64)
             temperature_per_cell_cuda[ bpg, tpg ]( N_cells, temperature1, npart1,
@@ -413,6 +409,16 @@ class MCCollisions(object):
             random_states = create_xoroshiro128p_states( N_cells, seed )
             get_shuffled_idx_per_particle_cuda[ bpg, tpg ](N_cells, shuffled_idx2, npart2,
                                                             npairs, prefix_sum_pair, random_states)
+
+            # Calculate sum of minimum weights in each cell
+            n12 = allocate_empty(N_cells, use_cuda, dtype=np.float64)
+            #n12_per_cell_cuda[ bpg, tpg ]( N_cells, n12, w1, w2, npart1,
+            #                                prefix_sum1, prefix_sum2 )
+
+            alt_n12_per_cell_cuda[ bpg, tpg ]( N_cells, n12, w1, w2,
+                      npairs, shuffled_idx1, shuffled_idx2,
+					  prefix_sum_pair, prefix_sum1, prefix_sum2 )
+
             """
             print("\nMax shuffled particle1 in cell: ", cupy.max(shuffled_idx1))
             print("\nMax shuffled particle2 in cell: ", cupy.max(shuffled_idx2))
