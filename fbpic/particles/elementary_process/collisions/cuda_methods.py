@@ -238,8 +238,6 @@ def perform_collisions_cuda(N_batch, batch_size, npairs_tot,
 			#if distance < m.sqrt(Debye2):
 			if distance < 1.e-4:	
 			#if distance < 0.1:
-				# Effective time interval for the collisions
-				corr_dt = dt * n12[cell] / n1[cell]
 
 				# Calculate Lorentz factor
 				gamma1 = m.sqrt(1. + (ux1[si1]**2 + uy1[si1]**2 + uz1[si1]**2))
@@ -272,9 +270,10 @@ def perform_collisions_cuda(N_batch, batch_size, npairs_tot,
 				pz_COM = uz1[si1] + ((COM_gamma - 1.) * COM_v_u1 / COM_v2
 										- COM_gamma * gamma1) * COM_vz
 
-				p_COM = m.sqrt(px_COM**2 + py_COM**2 + pz_COM**2)
+				p2_COM = px_COM**2 + py_COM**2 + pz_COM**2
+				p_COM = m.sqrt(p2_COM)
 				invp_COM = 1. / p_COM
-				invp_COM2 = 1. / p_COM**2
+				invp_COM2 = 1. / p2_COM
 
 				# Lorentz transforms
 				gamma1_COM = (gamma1 - COM_v_u1) * COM_gamma
@@ -293,7 +292,7 @@ def perform_collisions_cuda(N_batch, batch_size, npairs_tot,
 						coulomb_log = 2.
 
 				coeff1 = 1. / (4. * m.pi * epsilon_0**2 * c**3)
-				term1 = n1[cell] * n2[cell] / n12[cell]
+				term1 = n1[cell] * n2[cell] * dt / n12[cell]
 				term2 = coeff1 * qqm2 * invgamma12
 				term3 = COM_gamma * inv_g12 * p_COM
 				term4 = (gamma1_COM * gamma2_COM * invp_COM2  + m12)
@@ -310,8 +309,6 @@ def perform_collisions_cuda(N_batch, batch_size, npairs_tot,
 					v_rel
 
 				s = min(s12, s_prime)
-
-				s = s * corr_dt
 
 				# Random azimuthal angle
 				phi = xoroshiro128p_uniform_float64(random_states, i) * 2.0 * m.pi
