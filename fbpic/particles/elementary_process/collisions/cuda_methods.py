@@ -233,14 +233,14 @@ def get_shuffled_idx_per_particle_cuda(N_batch, shuffled_idx, npart,
 def perform_collisions_cuda(N_batch, batch_size, npairs_tot,
                             prefix_sum1, prefix_sum2,
                             shuffled_idx1, shuffled_idx2, cell_idx,
-                            n1, n2, n12, m1, m2,
+                            n1, n2, T1, T2,
+                            n12, m1, m2,
                             q1, q2, w1, w2,
                             ux1, uy1, uz1,
                             ux2, uy2, uz2,
                             dt, coulomb_log,
-                            T1, T2,
-                            random_states,
-                            param_s,param_logL,param_Debye):
+                            random_states, debug,
+                            param_s, param_logL):
     """
     Perform collisions between all pairs in each cell
     """
@@ -289,12 +289,10 @@ def perform_collisions_cuda(N_batch, batch_size, npairs_tot,
             COM_gamma = 1. / m.sqrt(1. - COM_v2)
 
             # momenta in COM
-            ux_COM = ux1[si1] + ((COM_gamma - 1.) * COM_v_u1 / COM_v2
-                                 - COM_gamma * gamma1) * COM_vx
-            uy_COM = uy1[si1] + ((COM_gamma - 1.) * COM_v_u1 / COM_v2
-                                 - COM_gamma * gamma1) * COM_vy
-            uz_COM = uz1[si1] + ((COM_gamma - 1.) * COM_v_u1 / COM_v2
-                                 - COM_gamma * gamma1) * COM_vz
+            term0 = (COM_gamma - 1.) * COM_v_u1 / COM_v2 - COM_gamma * gamma1
+            ux_COM = ux1[si1] + COM_vx * term0
+            uy_COM = uy1[si1] + COM_vy * term0
+            uz_COM = uz1[si1] + COM_vz * term0
 
             u2_COM = ux_COM**2 + uy_COM**2 + uz_COM**2
             u_COM = m.sqrt(u2_COM)
@@ -309,8 +307,8 @@ def perform_collisions_cuda(N_batch, batch_size, npairs_tot,
             qqm2 = qqm**2
             if coulomb_log <= 0.:
                 coeff = 1. / (4. * m.pi * epsilon_0 * c**2)
-                b0 = m.fabs(coeff * qqm * COM_gamma * inv_g12 *
-                         (gamma1_COM * gamma2_COM * invu_COM2 + m12))
+                b0 = abs(coeff * qqm * COM_gamma * inv_g12 *
+                            (gamma1_COM * gamma2_COM * invu_COM2 + m12))
                 bmin = max(0.5 * h / (m1 * c * u_COM), b0)
                 Debye2 = (epsilon_0 * k / e**2) / \
                     (n1[cell] / T1[cell] + n2[cell] / T2[cell])
@@ -329,17 +327,17 @@ def perform_collisions_cuda(N_batch, batch_size, npairs_tot,
 
             # Low temperature correction
             v_rel = m.sqrt((ux1[si1] - ux2[si2])**2
-                           + (uy1[si1] - uy2[si2])**2
-                           + (uz1[si1] - uz2[si2])**2)
+                            + (uy1[si1] - uy2[si2])**2
+                            + (uz1[si1] - uz2[si2])**2)
             s_prime = (4.*m.pi/3)**(1/3) * term1 * \
                 ((m1 + m2) / max(m1 * n1[cell]**(2/3), m2 * n2[cell]**(2/3))) * \
                 v_rel
 
             s = min(s12, s_prime)
 
-            param_s[ip] = s
-            param_logL[ip] = coulomb_log
-            param_Debye[ip] = m.sqrt(Debye2)
+            if debug:
+                param_s[ip] = s
+                param_logL[ip] = coulomb_log
 
             # Random azimuthal angle
             phi = xoroshiro128p_uniform_float64(random_states, i) * 2.0 * m.pi
@@ -384,14 +382,14 @@ def perform_collisions_cuda(N_batch, batch_size, npairs_tot,
                 random_states, i)    # random float [0,1]
             if U1 * w1[si1] < w2[si2]:
                 # Deflect particle 1
-                term5 = (COM_gamma - 1.) * vC_ufCOM / COM_v2 + gamma1_COM * COM_gamma
-                ux1[si1] = uxf1_COM + COM_vx * term5
-                uy1[si1] = uyf1_COM + COM_vy * term5
-                uz1[si1] = uzf1_COM + COM_vz * term5
+                term0 = (COM_gamma - 1.) * vC_ufCOM / COM_v2 + gamma1_COM * COM_gamma
+                ux1[si1] = uxf1_COM + COM_vx * term0
+                uy1[si1] = uyf1_COM + COM_vy * term0
+                uz1[si1] = uzf1_COM + COM_vz * term0
 
             if U1 * w2[si2] < w1[si1]:
                 # Deflect particle 2 (pf2 = -pf1)
-                term5 = -(COM_gamma - 1.) * m12 * vC_ufCOM / COM_v2 + gamma2_COM * COM_gamma
-                ux2[si2] = -uxf1_COM * m12 + COM_vx * term5
-                uy2[si2] = -uyf1_COM * m12 + COM_vy * term5
-                uz2[si2] = -uzf1_COM * m12 + COM_vz * term5
+                term0 = -(COM_gamma - 1.) * m12 * vC_ufCOM / COM_v2 + gamma2_COM * COM_gamma
+                ux2[si2] = -uxf1_COM * m12 + COM_vx * term0
+                uy2[si2] = -uyf1_COM * m12 + COM_vy * term0
+                uz2[si2] = -uzf1_COM * m12 + COM_vz * term0

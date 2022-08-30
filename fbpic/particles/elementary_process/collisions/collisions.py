@@ -31,7 +31,7 @@ class MCCollisions(object):
     def __init__( self, species1, species2, use_cuda=False,
                 coulomb_log = 0.,
                 start = 0,
-                collision_period = 0,
+                period = 0,
                 debug = False ):
         """
         Initialize Monte-Carlo collisions
@@ -58,7 +58,7 @@ class MCCollisions(object):
         self.use_cuda = use_cuda
 
         self.start = start
-        self.collision_period = collision_period
+        self.period = period
         self.debug = debug
 
     def handle_collisions( self, fld, dt ):
@@ -138,37 +138,33 @@ class MCCollisions(object):
             bpg, tpg = cuda_tpb_bpg_1d( N_cells )
             pairs_per_cell_cuda[ bpg, tpg ](N_cells, npart1, npart2, npairs, intra)
 
-            # Calculate density of species 1 in each cell
-            n1 = allocate_empty(N_cells, use_cuda, dtype=np.float64)
-            density_per_cell_cuda[ bpg, tpg ](N_cells, n1, w1,
-                                npart1, prefix_sum1,
-                                d_invvol, Nz)
-
-            # Calculate temperature of species 1 in each cell
-            temperature1 = allocate_empty(N_cells, use_cuda, dtype=np.float64)
-            temperature_per_cell_cuda[ bpg, tpg ](N_cells, temperature1, npart1,
-                                prefix_sum1, m1,
-                                ux1, uy1, uz1)
-
-            if intra:
-                n2 = n1
-                temperature2 = temperature1
-            else:
-                # Calculate density of species 2 in each cell
-                n2 = allocate_empty(N_cells, use_cuda, dtype=np.float64)
-                density_per_cell_cuda[ bpg, tpg ](N_cells, n2, w2,
-                                    npart2, prefix_sum2,
+            if self.species1.calc == False:
+                # Calculate density of species 1 in each cell
+                density_per_cell_cuda[ bpg, tpg ](N_cells, self.species1.density, w1,
+                                    npart1, prefix_sum1,
                                     d_invvol, Nz)
-                
-                # Calculate temperature of species 2 in each cell
-                temperature2 = allocate_empty(N_cells, use_cuda, dtype=np.float64)
-                temperature_per_cell_cuda[ bpg, tpg ](N_cells, temperature2, npart2,
-                                    prefix_sum2, m2,
-                                    ux2, uy2, uz2)
+
+                # Calculate temperature of species 1 in each cell
+                temperature_per_cell_cuda[ bpg, tpg ](N_cells, self.species1.temperature, npart1,
+                                    prefix_sum1, m1,
+                                    ux1, uy1, uz1)
+                self.species1.calc = True
+
+            if not intra:
+                if self.species2.calc == False:
+                    # Calculate density of species 2 in each cell
+                    density_per_cell_cuda[ bpg, tpg ](N_cells, self.species2.density, w2,
+                                        npart2, prefix_sum2,
+                                        d_invvol, Nz)
+                    
+                    # Calculate temperature of species 2 in each cell
+                    temperature_per_cell_cuda[ bpg, tpg ](N_cells, self.species2.temperature, npart2,
+                                        prefix_sum2, m2,
+                                        ux2, uy2, uz2)
+                    self.species2.calc = True
 
             # Total number of pairs
             npairs_tot = int( cupy.sum( npairs ) )
-            #print("\n Total number of pairs = ", npairs_tot)
 
             # Cumulative prefix sum of pairs
             prefix_sum_pair = cupy.cumsum(npairs)
@@ -176,8 +172,6 @@ class MCCollisions(object):
             # Cell index of pair
             cell_idx = cupy.empty(npairs_tot, dtype=np.int32)
             get_cell_idx_per_pair_cuda[ bpg, tpg ](N_cells, cell_idx, npairs, prefix_sum_pair)
-
-            #print("\nMax npairs in cell ", cupy.max(npairs))
 
             # Shuffled index of particle 1
             shuffled_idx1 = cupy.empty(npairs_tot, dtype=np.int32)
@@ -200,10 +194,9 @@ class MCCollisions(object):
             n12_per_cell_cuda[ bpg, tpg ](N_cells, n12, w1, w2,
                       npairs, shuffled_idx1, shuffled_idx2,
 					  prefix_sum_pair, prefix_sum1, prefix_sum2)
-                
+            
             param_s = allocate_empty(npairs_tot, use_cuda, dtype=np.float64)
             param_logL = allocate_empty(npairs_tot, use_cuda, dtype=np.float64)
-            param_Debye = allocate_empty(npairs_tot, use_cuda, dtype=np.float64)
             
             # Process particle pairs in batches
             N_batch = int( npairs_tot  / self.batch_size ) + 1
@@ -214,22 +207,22 @@ class MCCollisions(object):
                         self.batch_size, npairs_tot,
                         prefix_sum1, prefix_sum2,
                         shuffled_idx1, shuffled_idx2, cell_idx,
-                        n1, n2, n12, m1, m2,
+                        self.species1.density, self.species2.density,
+                        self.species1.temperature, self.species2.temperature,
+                        n12, m1, m2,
                         q1, q2, w1, w2,
                         ux1, uy1, uz1,
                         ux2, uy2, uz2,
                         dt, self.coulomb_log,
-                        temperature1, temperature2,
-                        random_states,
-                        param_s,param_logL,param_Debye)
+                        random_states, self.debug,
+                        param_s, param_logL)
 
             if self.debug:
-                # Debug
                 N_cells_plasma = cell_idx[-1] - cell_idx[0]
-                mean_T1 = cupy.sum( temperature1 ) / N_cells_plasma
-                mean_T2 = cupy.sum( temperature2 ) / N_cells_plasma
-                max_T1 = cupy.max( temperature1 )
-                max_T2 = cupy.max( temperature2 )
+                mean_T1 = cupy.sum( self.species1.temperature ) / N_cells_plasma
+                mean_T2 = cupy.sum( self.species2.temperature ) / N_cells_plasma
+                max_T1 = cupy.max( self.species1.temperature )
+                max_T2 = cupy.max( self.species2.temperature )
 
                 print("\n<T1> = ", (k / e) * mean_T1, " eV")
                 print("<T2> = ", (k / e) * mean_T2, " eV")
@@ -243,10 +236,6 @@ class MCCollisions(object):
                 print("<logL> = ", cupy.sum( param_logL ) / npairs_tot)
                 print("min(logL) = ", cupy.min( param_logL ))
                 print("max(logL) = ", cupy.max( param_logL ))
-
-                print("<Debye> = ", cupy.sum( param_Debye ) / npairs_tot)
-                print("min(Debye) = ", cupy.min( param_Debye ))
-                print("max(Debye) = ", cupy.max( param_Debye ))
 
             setattr(self.species1.ux, 'ux', ux1)
             setattr(self.species1.uy, 'uy', uy1)
