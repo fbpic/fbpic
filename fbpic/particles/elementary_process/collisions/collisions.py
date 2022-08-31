@@ -215,7 +215,7 @@ class MCCollisions(object):
                         ux1, uy1, uz1,
                         ux2, uy2, uz2,
                         dt, self.coulomb_log,
-                        random_states, self.debug,
+                        random_states, self.period, self.debug,
                         param_s, param_logL)
 
             if self.debug:
@@ -224,10 +224,15 @@ class MCCollisions(object):
                 mean_T2 = cupy.sum( self.species2.temperature ) / N_cells_plasma
                 max_T1 = cupy.max( self.species1.temperature )
                 max_T2 = cupy.max( self.species2.temperature )
+                min_T1 = cupy.min( self.species1.temperature )
+                min_T2 = cupy.min( self.species2.temperature )
 
                 print("\n<T1> = ", (k / e) * mean_T1, " eV")
-                print("<T2> = ", (k / e) * mean_T2, " eV")
+                print("min(T1) = ", (k / e) * min_T1, " eV")
                 print("max(T1) = ", (k / e) * max_T1, " eV")
+
+                print("<T2> = ", (k / e) * mean_T2, " eV")
+                print("min(T2) = ", (k / e) * min_T2, " eV")
                 print("max(T2) = ", (k / e) * max_T2, " eV")
 
                 print("<s> = ", cupy.sum( param_s ) / npairs_tot)

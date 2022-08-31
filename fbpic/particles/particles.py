@@ -249,8 +249,8 @@ class Particles(object) :
             self.sorted = False
 
             # Allocate arrays for cell quantities, e.g. density and temperature
-            self.density = cupy.empty( Nz*Nr, dtype=np.float64)
-            self.temperature = cupy.empty( Nz*Nr, dtype=np.float64)
+            self.density = cupy.empty( Nz*(Nr+1), dtype=np.float64)
+            self.temperature = cupy.empty( Nz*(Nr+1), dtype=np.float64)
             # Register boolean that records if the cell quantities have
             # been previously calculated
             self.calc = False

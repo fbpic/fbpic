@@ -468,7 +468,7 @@ class Simulation(object):
             for collision in self.collisions:
                 if self.iteration % collision.period == 0 \
                     and self.iteration >= collision.start:
-                    collision.handle_collisions( fld, 0.5*dt )
+                    collision.handle_collisions( fld, dt )
             # Cell quantities need to be recalculated
             for species in ptcl:
                 species.calc = False

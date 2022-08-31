@@ -125,7 +125,11 @@ def temperature_per_cell_cuda(N_batch, T, npart,
             vy_mean *= invNp
             vz_mean *= invNp
             u_mean2 = vx_mean**2 + vy_mean**2 + vz_mean**2
-            T[i] = m.fabs((mass / (3. * k)) * (v2 - u_mean2))
+            udiff = (v2 - u_mean2)
+            if udiff < 0.:
+                T[i] = 0.
+            else:
+                T[i] = (mass / (3. * k)) * udiff
 
 
 @compile_cupy
@@ -241,7 +245,7 @@ def perform_collisions_cuda(N_batch, batch_size, npairs_tot,
                             ux1, uy1, uz1,
                             ux2, uy2, uz2,
                             dt, coulomb_log,
-                            random_states, debug,
+                            random_states, period, debug,
                             param_s, param_logL):
     """
     Perform collisions between all pairs in each cell
@@ -307,39 +311,43 @@ def perform_collisions_cuda(N_batch, batch_size, npairs_tot,
             # Calculate coulomb log if not user-defined
             qqm = q1 * q2 / m1
             qqm2 = qqm**2
-            if coulomb_log <= 0.:
+            logL = coulomb_log
+            if logL <= 0.:
                 coeff = 1. / (4. * m.pi * epsilon_0 * c**2)
                 b0 = abs(coeff * qqm * COM_gamma * inv_g12 *
                             (gamma1_COM * gamma2_COM * invu_COM2 + m12))
                 bmin = max(0.5 * h / (m1 * c * u_COM), b0)
-                Debye2 = (epsilon_0 * k / e**2) / \
-                    (n1[cell] / T1[cell] + n2[cell] / T2[cell])
-                coulomb_log = 0.5 * m.log(1. + Debye2 / bmin**2)
-                if coulomb_log < 2.:
-                    coulomb_log = 2.
+                if T1[cell] == 0 or T1[cell] == 0:
+                    logL = 0.
+                else:
+                    Debye2 = (epsilon_0 * k / e**2) / \
+                        (n1[cell] / T1[cell] + n2[cell] / T2[cell])
+                    logL = 0.5 * m.log(1. + Debye2 / bmin**2)
+                    if logL < 2.:
+                        logL = 2.
 
             coeff1 = 1. / (4. * m.pi * epsilon_0**2 * c**3)
-            term1 = n1[cell] * n2[cell] * dt / n12[cell]
+            term1 = n1[cell] * n2[cell] * period * dt / n12[cell]
             term2 = coeff1 * qqm2 / (gamma1 * gamma2)
             term3 = COM_gamma * inv_g12 * u_COM
             term4 = (gamma1_COM * gamma2_COM * invu_COM2 + m12)
 
             # Calculate the collision parameter s12
-            s12 = coulomb_log * term1 * term2 * term3 * term4 * term4
+            s12 = logL * term1 * term2 * term3 * term4 * term4
 
             # Low temperature correction
-            v_rel = m.sqrt((ux1[si1] - ux2[si2])**2
-                            + (uy1[si1] - uy2[si2])**2
-                            + (uz1[si1] - uz2[si2])**2)
+            v_rel = abs(g12 * u_COM * c / ( COM_gamma * gamma1_COM * gamma2_COM ))
             s_prime = (4.*m.pi/3)**(1/3) * term1 * \
                 ((m1 + m2) / max(m1 * n1[cell]**(2/3), m2 * n2[cell]**(2/3))) * \
                 v_rel
-
-            s = min(s12, s_prime)
+            if s12 < 0 or s_prime < 0:
+                s = 0.
+            else:
+                s = min(s12, s_prime)
 
             if debug:
                 param_s[ip] = s
-                param_logL[ip] = coulomb_log
+                param_logL[ip] = logL
 
             # Random azimuthal angle
             phi = xoroshiro128p_uniform_float64(random_states, i) * 2.0 * m.pi
