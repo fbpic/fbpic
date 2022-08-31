@@ -24,9 +24,6 @@ from .gathering.threading_methods_one_mode import erase_eb_numba, \
 from .deposition.threading_methods import \
         deposit_rho_numba_linear, deposit_rho_numba_cubic, \
         deposit_J_numba_linear, deposit_J_numba_cubic
-from .boundaries.numba_methods import reflect_particles_left_numba, \
-    reflect_particles_right_numba, stop_particles_left_numba, \
-    stop_particles_right_numba \
 
 # Check if threading is enabled
 from fbpic.utils.threading import nthreads, get_chunk_indices
@@ -50,9 +47,6 @@ if cuda_installed:
     from .utilities.cuda_sorting import write_sorting_buffer, \
         get_cell_idx_per_particle, sort_particles_per_cell, \
         prefill_prefix_sum, incl_prefix_sum
-    from .boundaries.cuda_methods import reflect_particles_left, \
-        reflect_particles_right, stop_particles_left, \
-        stop_particles_right
 
 class Particles(object) :
     """
@@ -531,51 +525,6 @@ class Particles(object) :
         # Compton scattering
         if self.compton_scatterer is not None:
             self.compton_scatterer.handle_scattering( self, t )
-
-
-    def handle_particle_boundaries( self ):
-        """
-        Handle particle boundary conditions
-        """
-        if self.particle_boundaries['zmin'] == 'reflective' \
-            or self.particle_boundaries['zmin'] == 'stop':
-            if self.use_cuda:
-                dim_grid_1d, dim_block_1d = cuda_tpb_bpg_1d( self.Ntot )
-                if self.particle_boundaries['zmin'] == 'reflective':
-                    reflect_particles_left[dim_grid_1d, dim_block_1d](
-                        self.zmin, self.z, self.uz)
-                
-                if self.particle_boundaries['zmin'] == 'stop':
-                    stop_particles_left[dim_grid_1d, dim_block_1d](
-                        self.zmin, self.z, self.ux, self.uy, self.uz)
-            else:
-                if self.particle_boundaries['zmin'] == 'reflective':
-                    reflect_particles_left_numba(self.zmin, self.z, 
-                        self.uz, self.Ntot)
-                
-                if self.particle_boundaries['zmin'] == 'stop':
-                    stop_particles_left_numba(self.zmin, self.z, 
-                        self.ux, self.uy, self.uz, self.Ntot)
-
-        if self.particle_boundaries['zmax'] == 'reflective' \
-            or self.particle_boundaries['zmax'] == 'stop':
-            if self.use_cuda:
-                dim_grid_1d, dim_block_1d = cuda_tpb_bpg_1d( self.Ntot )
-                if self.particle_boundaries['zmax'] == 'reflective':
-                    reflect_particles_right[dim_grid_1d, dim_block_1d](
-                        self.zmax, self.z, self.uz)
-                
-                if self.particle_boundaries['zmax'] == 'stop':
-                    stop_particles_right[dim_grid_1d, dim_block_1d](
-                        self.zmax, self.z, self.ux, self.uy, self.uz)
-            else:
-                if self.particle_boundaries['zmax'] == 'reflective':
-                    reflect_particles_right_numba(self.zmax, self.z,
-                        self.uz, self.Ntot)
-                
-                if self.particle_boundaries['zmax'] == 'stop':
-                    stop_particles_right_numba(self.zmax, self.z,
-                        self.ux, self.uy, self.uz, self.Ntot)
 
 
     def rearrange_particle_arrays( self ):

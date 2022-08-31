@@ -193,7 +193,8 @@ class MCCollisions(object):
             n12 = allocate_empty(N_cells, use_cuda, dtype=np.float64)
             n12_per_cell_cuda[ bpg, tpg ](N_cells, n12, w1, w2,
                       npairs, shuffled_idx1, shuffled_idx2,
-					  prefix_sum_pair, prefix_sum1, prefix_sum2)
+					  prefix_sum_pair, prefix_sum1, prefix_sum2,
+                      d_invvol, Nz)
             
             param_s = allocate_empty(npairs_tot, use_cuda, dtype=np.float64)
             param_logL = allocate_empty(npairs_tot, use_cuda, dtype=np.float64)

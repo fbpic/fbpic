@@ -59,7 +59,8 @@ def density_per_cell_cuda(N_batch, density, weights, npart,
 @compile_cupy
 def n12_per_cell_cuda(N_batch, n12, w1, w2,
                       npairs, shuffled_idx1, shuffled_idx2,
-                      prefix_sum_pair, prefix_sum1, prefix_sum2):
+                      prefix_sum_pair, prefix_sum1, prefix_sum2,
+                      d_invvol, Nz):
     """
     Calculate n12 of species per cell
     n12 is the sum of minimum species weights
@@ -85,7 +86,8 @@ def n12_per_cell_cuda(N_batch, n12, w1, w2,
                 sum += w1[i_min1+si1]
             else:
                 sum += w2[i_min2+si2]
-        n12[i] = sum
+        invvol = d_invvol[int(i / Nz)]
+        n12[i] = sum * invvol
 
 
 @compile_cupy
