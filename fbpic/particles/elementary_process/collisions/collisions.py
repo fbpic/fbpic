@@ -96,40 +96,22 @@ class MCCollisions(object):
             # Short-cut for use_cuda
             use_cuda = self.use_cuda
 
-            prefix_sum1 = self.species1.prefix_sum
-            prefix_sum2 = self.species2.prefix_sum
-
             Nz = fld.Nz
 
             d_invvol = fld.interp[0].d_invvol
 
-            ux1 = getattr( self.species1, 'ux')
-            uy1 = getattr( self.species1, 'uy')
-            uz1 = getattr( self.species1, 'uz')
-            w1 = getattr( self.species1, 'w')
-
-            ux2 = getattr( self.species2, 'ux')
-            uy2 = getattr( self.species2, 'uy')
-            uz2 = getattr( self.species2, 'uz')
-            w2 = getattr( self.species2, 'w')
-
-            m1 = self.species1.m
-            m2 = self.species2.m
-            q1 = self.species1.q
-            q2 = self.species2.q
-
-            N_cells = int( prefix_sum1.shape[0] )
+            N_cells = int( self.species1.prefix_sum.shape[0] )
             npart1 = allocate_empty(N_cells, use_cuda, dtype=np.int32)
             npart2 = allocate_empty(N_cells, use_cuda, dtype=np.int32)
 
             # Calculate number of particles in cell
-            npart1[0] = prefix_sum1[0]
-            npart1[1:] = prefix_sum1[1:] - prefix_sum1[:-1]
-            npart2[0] = prefix_sum2[0]
-            npart2[1:] = prefix_sum2[1:] - prefix_sum2[:-1]
+            npart1[0] = self.species1.prefix_sum[0]
+            npart1[1:] = self.species1.prefix_sum[1:] - self.species1.prefix_sum[:-1]
+            npart2[0] = self.species2.prefix_sum[0]
+            npart2[1:] = self.species2.prefix_sum[1:] - self.species2.prefix_sum[:-1]
 
-            assert cupy.sum( npart1 ) > 0
-            assert cupy.sum( npart2 ) > 0
+            assert self.species1.Ntot > 0
+            assert self.species2.Ntot > 0
             
             intra = True if self.species1 == self.species2 else False
 
@@ -140,27 +122,27 @@ class MCCollisions(object):
 
             if self.species1.calc == False:
                 # Calculate density of species 1 in each cell
-                density_per_cell_cuda[ bpg, tpg ](N_cells, self.species1.density, w1,
-                                    npart1, prefix_sum1,
+                density_per_cell_cuda[ bpg, tpg ](N_cells, self.species1.density, self.species1.w,
+                                    npart1, self.species1.prefix_sum,
                                     d_invvol, Nz)
 
                 # Calculate temperature of species 1 in each cell
                 temperature_per_cell_cuda[ bpg, tpg ](N_cells, self.species1.temperature, npart1,
-                                    prefix_sum1, m1,
-                                    ux1, uy1, uz1)
+                                    self.species1.prefix_sum, self.species1.m,
+                                    self.species1.ux, self.species1.uy, self.species1.uz)
                 self.species1.calc = True
 
             if not intra:
                 if self.species2.calc == False:
                     # Calculate density of species 2 in each cell
-                    density_per_cell_cuda[ bpg, tpg ](N_cells, self.species2.density, w2,
-                                        npart2, prefix_sum2,
+                    density_per_cell_cuda[ bpg, tpg ](N_cells, self.species2.density, self.species2.w,
+                                        npart2, self.species2.prefix_sum,
                                         d_invvol, Nz)
                     
                     # Calculate temperature of species 2 in each cell
                     temperature_per_cell_cuda[ bpg, tpg ](N_cells, self.species2.temperature, npart2,
-                                        prefix_sum2, m2,
-                                        ux2, uy2, uz2)
+                                        self.species2.prefix_sum, self.species2.m,
+                                        self.species2.ux, self.species2.uy, self.species2.uz)
                     self.species2.calc = True
 
             # Total number of pairs
@@ -191,9 +173,9 @@ class MCCollisions(object):
 
             # Calculate sum of minimum weights in each cell
             n12 = allocate_empty(N_cells, use_cuda, dtype=np.float64)
-            n12_per_cell_cuda[ bpg, tpg ](N_cells, n12, w1, w2,
+            n12_per_cell_cuda[ bpg, tpg ](N_cells, n12, self.species1.w, self.species2.w,
                       npairs, shuffled_idx1, shuffled_idx2,
-					  prefix_sum_pair, prefix_sum1, prefix_sum2,
+					  prefix_sum_pair, self.species1.prefix_sum, self.species2.prefix_sum,
                       d_invvol, Nz)
             
             param_s = allocate_empty(npairs_tot, use_cuda, dtype=np.float64)
@@ -206,14 +188,15 @@ class MCCollisions(object):
             bpg, tpg = cuda_tpb_bpg_1d( N_batch )
             perform_collisions_cuda[ bpg, tpg ](N_batch, 
                         self.batch_size, npairs_tot,
-                        prefix_sum1, prefix_sum2,
+                        self.species1.prefix_sum, self.species2.prefix_sum,
                         shuffled_idx1, shuffled_idx2, cell_idx,
                         self.species1.density, self.species2.density,
                         self.species1.temperature, self.species2.temperature,
-                        n12, m1, m2,
-                        q1, q2, w1, w2,
-                        ux1, uy1, uz1,
-                        ux2, uy2, uz2,
+                        n12, self.species1.m, self.species2.m,
+                        self.species1.q, self.species2.q, 
+                        self.species1.w, self.species2.w,
+                        self.species1.ux, self.species1.uy, self.species1.uz,
+                        self.species2.ux, self.species2.uy, self.species2.uz,
                         dt, self.coulomb_log,
                         random_states, self.period, self.debug,
                         param_s, param_logL)
@@ -242,10 +225,3 @@ class MCCollisions(object):
                 print("<logL> = ", cupy.sum( param_logL ) / npairs_tot)
                 print("min(logL) = ", cupy.min( param_logL ))
                 print("max(logL) = ", cupy.max( param_logL ))
-
-            setattr(self.species1.ux, 'ux', ux1)
-            setattr(self.species1.uy, 'uy', uy1)
-            setattr(self.species1.uz, 'uz', uz1)
-            setattr(self.species2.ux, 'ux', ux2)
-            setattr(self.species2.uy, 'uy', uy2)
-            setattr(self.species2.uz, 'uz', uz2)
