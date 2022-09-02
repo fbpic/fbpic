@@ -93,16 +93,18 @@ class MCCollisions(object):
                 self.species2.sort_particles(fld = fld)
                 self.species2.sorted = True
 
-            # Short-cut for use_cuda
-            use_cuda = self.use_cuda
-
             Nz = fld.Nz
+            Nr = fld.Nr
 
             d_invvol = fld.interp[0].d_invvol
 
             N_cells = int( self.species1.prefix_sum.shape[0] )
-            npart1 = allocate_empty(N_cells, use_cuda, dtype=np.int32)
-            npart2 = allocate_empty(N_cells, use_cuda, dtype=np.int32)
+            npart1 = cupy.zeros(N_cells, dtype=np.int32)
+            npart2 = cupy.zeros(N_cells, dtype=np.int32)
+
+            #print("\nrefix_sum1 = ", self.species1.prefix_sum)
+
+            #print("\nprefix_sum2 = ", self.species2.prefix_sum)
 
             # Calculate number of particles in cell
             npart1[0] = self.species1.prefix_sum[0]
@@ -115,10 +117,16 @@ class MCCollisions(object):
             
             intra = True if self.species1 == self.species2 else False
 
+            #print("\npart1 = ", npart1)
+
+            #print("\npart2 = ", npart2)
+
             # Calculate number of pairs in cell
-            npairs = allocate_empty(N_cells, use_cuda, dtype=np.int32)
+            npairs = cupy.zeros(N_cells, dtype=np.int32)
             bpg, tpg = cuda_tpb_bpg_1d( N_cells )
             pairs_per_cell_cuda[ bpg, tpg ](N_cells, npart1, npart2, npairs, intra)
+
+            #print("\nnpairs = ", npairs)
 
             if self.species1.calc == False:
                 # Calculate density of species 1 in each cell
@@ -147,16 +155,19 @@ class MCCollisions(object):
 
             # Total number of pairs
             npairs_tot = int( cupy.sum( npairs ) )
+            #print("npairs_tot:", npairs_tot)
 
             # Cumulative prefix sum of pairs
             prefix_sum_pair = cupy.cumsum(npairs)
 
             # Cell index of pair
-            cell_idx = cupy.empty(npairs_tot, dtype=np.int32)
+            cell_idx = cupy.zeros(npairs_tot, dtype=np.int32)
             get_cell_idx_per_pair_cuda[ bpg, tpg ](N_cells, cell_idx, npairs, prefix_sum_pair)
 
+            #print(cell_idx)
+            
             # Shuffled index of particle 1
-            shuffled_idx1 = cupy.empty(npairs_tot, dtype=np.int32)
+            shuffled_idx1 = cupy.zeros(npairs_tot, dtype=np.int32)
             seed = np.random.randint( 256 )
             random_states = create_xoroshiro128p_states( N_cells, seed )
             get_shuffled_idx_per_particle_cuda[ bpg, tpg ](N_cells, shuffled_idx1, npart1,
@@ -164,22 +175,25 @@ class MCCollisions(object):
                                                             random_states, intra, 1)
 
             # Shuffled index of particle 2
-            shuffled_idx2 = cupy.empty(npairs_tot, dtype=np.int32)
+            shuffled_idx2 = cupy.zeros(npairs_tot, dtype=np.int32)
             seed = np.random.randint( 256 )
             random_states = create_xoroshiro128p_states( N_cells, seed )
             get_shuffled_idx_per_particle_cuda[ bpg, tpg ](N_cells, shuffled_idx2, npart2,
                                                             npairs, prefix_sum_pair,
                                                             random_states, intra, 2)
 
+            #print("shuffled idx2 = ", shuffled_idx2)
+            
             # Calculate sum of minimum weights in each cell
-            n12 = allocate_empty(N_cells, use_cuda, dtype=np.float64)
+            n12 = cupy.zeros(N_cells, dtype=np.float64)
             n12_per_cell_cuda[ bpg, tpg ](N_cells, n12, self.species1.w, self.species2.w,
                       npairs, shuffled_idx1, shuffled_idx2,
 					  prefix_sum_pair, self.species1.prefix_sum, self.species2.prefix_sum,
                       d_invvol, Nz)
             
-            param_s = allocate_empty(npairs_tot, use_cuda, dtype=np.float64)
-            param_logL = allocate_empty(npairs_tot, use_cuda, dtype=np.float64)
+            
+            param_s = cupy.zeros(npairs_tot, dtype=np.float64)
+            param_logL = cupy.zeros(npairs_tot, dtype=np.float64)
             
             # Process particle pairs in batches
             N_batch = int( npairs_tot  / self.batch_size ) + 1
@@ -201,10 +215,19 @@ class MCCollisions(object):
                         random_states, self.period, self.debug,
                         param_s, param_logL)
 
+            cupy.cuda.runtime.deviceSynchronize()
+
+            print("first s:", param_s[0])
+            print("last s:", param_s[-1])
+
+            print("first logL:", param_logL[0])
+            print("last logL:", param_logL[-1])
+            
             if self.debug:
-                N_cells_plasma = cell_idx[-1] - cell_idx[0]
-                mean_T1 = cupy.sum( self.species1.temperature ) / N_cells_plasma
-                mean_T2 = cupy.sum( self.species2.temperature ) / N_cells_plasma
+                Ncp_1 = np.count_nonzero(self.species1.temperature)
+                Ncp_2 = np.count_nonzero(self.species2.temperature)
+                mean_T1 = cupy.sum( self.species1.temperature ) / Ncp_1
+                mean_T2 = cupy.sum( self.species2.temperature ) / Ncp_2
                 max_T1 = cupy.max( self.species1.temperature )
                 max_T2 = cupy.max( self.species2.temperature )
                 min_T1 = cupy.min( self.species1.temperature )
@@ -225,3 +248,4 @@ class MCCollisions(object):
                 print("<logL> = ", cupy.sum( param_logL ) / npairs_tot)
                 print("min(logL) = ", cupy.min( param_logL ))
                 print("max(logL) = ", cupy.max( param_logL ))
+

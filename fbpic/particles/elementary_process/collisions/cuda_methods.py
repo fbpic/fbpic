@@ -47,10 +47,10 @@ def density_per_cell_cuda(N_batch, density, weights, npart,
     if i < N_batch:
         sum = 0.
         if i > 0:
-            i_min = int(prefix_sum[i-1])
+            i_min = prefix_sum[i-1]
         else:
             i_min = 0
-        for j in range(int(npart[i])):
+        for j in range(npart[i]):
             sum += weights[i_min + j]
         invvol = d_invvol[int(i / Nz)]
         density[i] = sum * invvol
@@ -71,15 +71,15 @@ def n12_per_cell_cuda(N_batch, n12, w1, w2,
     if i < N_batch:
         # Loop through the batch
         if i > 0:
-            i_min1 = int(prefix_sum1[i-1])
-            i_min2 = int(prefix_sum2[i-1])
-            p_min = int(prefix_sum_pair[i-1])
+            i_min1 = prefix_sum1[i-1]
+            i_min2 = prefix_sum2[i-1]
+            p_min = prefix_sum_pair[i-1]
         else:
             i_min1 = 0
             i_min2 = 0
             p_min = 0
         sum = 0.
-        for j in range(int(npairs[i])):
+        for j in range(npairs[i]):
             si1 = shuffled_idx1[p_min + j]
             si2 = shuffled_idx2[p_min + j]
             if w1[i_min1+si1] < w2[i_min2+si2]:
@@ -103,7 +103,7 @@ def temperature_per_cell_cuda(N_batch, T, npart,
             T[i] = 0.
         else:
             if i > 0:
-                i_min = int(prefix_sum[i-1])
+                i_min = prefix_sum[i-1]
             else:
                 i_min = 0
 
@@ -111,7 +111,7 @@ def temperature_per_cell_cuda(N_batch, T, npart,
             vy_mean = 0.
             vz_mean = 0.
             v2 = 0.
-            for j in range(int(npart[i])):
+            for j in range(npart[i]):
                 vx_mean += ux[i_min + j] * c
                 vy_mean += uy[i_min + j] * c
                 vz_mean += uz[i_min + j] * c
@@ -169,70 +169,71 @@ def get_shuffled_idx_per_particle_cuda(N_batch, shuffled_idx, npart,
                             			npair, prefix_sum_pair,
 										random_states, intra,
 										species):
-	"""
-	Get the shuffled index of each particle in the array of pairs.
-	The particles are shuffled with a linear congruential generator
-	that is cyclic and non-repeating.
+    """
+    Get the shuffled index of each particle in the array of pairs.
+    The particles are shuffled with a linear congruential generator
+    that is cyclic and non-repeating.
 
-	Parameters
-	----------
-	shuffled_idx : 1darray of integers
-			The shuffled particle index of the particle
+    Parameters
+    ----------
+    shuffled_idx : 1darray of integers
+            The shuffled particle index of the particle
 
-	npart : 1darray of integers
-			The particle array
+    npart : 1darray of integers
+            The particle array
 
-	npair : 1darray of integers
-			The particle pair array
+    npair : 1darray of integers
+            The particle pair array
 
-	prefix_sum_pair : 1darray of integers
-			Cumulative prefix sum of
-			the pair array	
+    prefix_sum_pair : 1darray of integers
+            Cumulative prefix sum of
+            the pair array	
 
-	random_states : random states of the random generator
+    random_states : random states of the random generator
 
-	intra : boolean
-			True: like-particle collisions
-			False: unlike-particle collisions
+    intra : boolean
+            True: like-particle collisions
+            False: unlike-particle collisions
 
-	species : int
-			species number: 1 or 2
-	"""
-	i = cuda.grid(1)
-	if i < N_batch:
-		if i > 0:
-			s = prefix_sum_pair[i-1]
-		else:
-			s = 0
-		
-		start = 0
-		stop = npart[i]
-		if intra and species == 1:
-			stop = npair[i]
-		if intra and species == 2:
-			start = npair[i]
+    species : int
+            species number: 1 or 2
+    """
+    i = cuda.grid(1)
+    if i < N_batch:
+        if i > 0:
+            s = prefix_sum_pair[i-1]
+        else:
+            s = 0
+        
+        start = 0
+        stop = npart[i]
+        if intra and species == 1:
+            stop = npair[i]
+        if intra and species == 2:
+            start = npair[i]
 
-		p = (stop - start)
-
-		value = int(xoroshiro128p_uniform_float64(random_states, i) * p)
-
-		offset = int(xoroshiro128p_uniform_float64(
-			random_states, i) * p) * 2 + 1
-		multiplier = 4*(p//4) + 1
-		modulus = int(2**(m.ceil(m.log2(p))))
-
-		k = 0
-		while k < npair[i]:
-			if k < p:
-				if value < p:
-					shuffled_idx[s+k] = value + start
-					k += 1
-				# Calculate the next value in the sequence.
-				value = (value*multiplier + offset) % modulus
-			else:
-				shuffled_idx[s+k] = shuffled_idx[s+k-p]
-				k += 1
-					
+        p = stop - start
+        
+        value = int(xoroshiro128p_uniform_float64(random_states, i) * p)
+        
+        offset = int(xoroshiro128p_uniform_float64(
+            random_states, i) * p) * 2 + 1
+        multiplier = 4*(p//4) + 1
+        log2p = m.log2(p)
+        power = m.ceil(log2p)
+        modulus = 2**power
+        
+        k = 0
+        while k < npair[i]:
+            if k < p:
+                if value < p:
+                    shuffled_idx[s+k] = value + start
+                    k += 1
+                # Calculate the next value in the sequence.
+                value = (value*multiplier + offset) % modulus
+            else:
+                shuffled_idx[s+k] = shuffled_idx[s+k-p]
+                k += 1		
 
 
 @cuda.jit
@@ -318,7 +319,7 @@ def perform_collisions_cuda(N_batch, batch_size, npairs_tot,
                             (gamma1_COM * gamma2_COM * invu_COM2 + m12))
                 bmin = max(0.5 * h / (m1 * c * u_COM), b0)
                 if T1[cell] == 0 or T1[cell] == 0:
-                    logL = 0.
+                    logL = 2.
                 else:
                     Debye2 = (epsilon_0 * k / e**2) / \
                         (n1[cell] / T1[cell] + n2[cell] / T2[cell])
@@ -336,14 +337,12 @@ def perform_collisions_cuda(N_batch, batch_size, npairs_tot,
             s12 = logL * term1 * term2 * term3 * term4 * term4
 
             # Low temperature correction
-            v_rel = abs(g12 * u_COM * c / ( COM_gamma * gamma1_COM * gamma2_COM ))
+            v_rel = g12 * u_COM * c / ( COM_gamma * gamma1_COM * gamma2_COM )
             s_prime = (4.*m.pi/3)**(1/3) * term1 * \
                 ((m1 + m2) / max(m1 * n1[cell]**(2/3), m2 * n2[cell]**(2/3))) * \
                 v_rel
-            if s12 < 0 or s_prime < 0:
-                s = 0.
-            else:
-                s = min(s12, s_prime)
+
+            s = min(s12, s_prime)
 
             if debug:
                 param_s[ip] = s
@@ -355,7 +354,7 @@ def perform_collisions_cuda(N_batch, batch_size, npairs_tot,
             # Calculate the deflection angle
             U = xoroshiro128p_uniform_float64(
                 random_states, i)    # random float [0,1]
-            if s12 < 4:
+            if s < 4:
                 a = 0.37 * s - 0.005 * s**2 - 0.0064 * s**3
                 sin2X2 = a * U / m.sqrt(1 - U + a**2 * U)
                 cosX = 1. - 2. * sin2X2
@@ -388,16 +387,17 @@ def perform_collisions_cuda(N_batch, batch_size, npairs_tot,
                         + COM_vy * uyf1_COM
                         + COM_vz * uzf1_COM)
 
-            U1 = xoroshiro128p_uniform_float64(
-                random_states, i)    # random float [0,1]
-            if U1 * w1[si1] < w2[si2]:
+            U1 = xoroshiro128p_uniform_float64(random_states, i)    # random float [0,1]
+            if w2[si2] > U1 * max(w1[si1], w2[si2]):
                 # Deflect particle 1
                 term0 = (COM_gamma - 1.) * vC_ufCOM / COM_v2 + gamma1_COM * COM_gamma
                 ux1[si1] = uxf1_COM + COM_vx * term0
                 uy1[si1] = uyf1_COM + COM_vy * term0
                 uz1[si1] = uzf1_COM + COM_vz * term0
 
-            if U1 * w2[si2] < w1[si1]:
+            
+            U2 = xoroshiro128p_uniform_float64(random_states, i)    # random float [0,1]
+            if w1[si2] > U2 * max(w1[si1], w2[si2]):
                 # Deflect particle 2 (pf2 = -pf1)
                 term0 = -(COM_gamma - 1.) * m12 * vC_ufCOM / COM_v2 + gamma2_COM * COM_gamma
                 ux2[si2] = -uxf1_COM * m12 + COM_vx * term0
