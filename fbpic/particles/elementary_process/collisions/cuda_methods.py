@@ -287,27 +287,27 @@ def perform_collisions_cuda(N_batch, batch_size, npairs_tot,
             COM_vy = (m12 * uy1[si1] + uy2[si2]) * inv_g12
             COM_vz = (m12 * uz1[si1] + uz2[si2]) * inv_g12
 
-            COM_v_u1 = (COM_vx * ux1[si1] + COM_vy *
+            COM_v_u1g1 = (COM_vx * ux1[si1] + COM_vy *
                         uy1[si1] + COM_vz * uz1[si1])
-            COM_v_u2 = (COM_vx * ux2[si2] + COM_vy *
+            COM_v_u2g2 = (COM_vx * ux2[si2] + COM_vy *
                         uy2[si2] + COM_vz * uz2[si2])
 
             COM_v2 = COM_vx**2 + COM_vy**2 + COM_vz**2
             COM_gamma = 1. / m.sqrt(1. - COM_v2)
 
             # momenta in COM
-            term0 = (COM_gamma - 1.) * COM_v_u1 / COM_v2 - COM_gamma * gamma1
+            term0 = (COM_gamma - 1.) * COM_v_u1g1 / COM_v2 - COM_gamma * gamma1
             ux_COM = ux1[si1] + COM_vx * term0
             uy_COM = uy1[si1] + COM_vy * term0
             uz_COM = uz1[si1] + COM_vz * term0
 
-            u2_COM = ux_COM**2 + uy_COM**2 + uz_COM**2
-            u_COM = m.sqrt(u2_COM)
-            invu_COM2 = 1. / u2_COM
+            u_COM2 = ux_COM**2 + uy_COM**2 + uz_COM**2
+            u_COM = m.sqrt(u_COM2)
+            invu_COM2 = 1. / u_COM2
 
             # Lorentz transforms
-            gamma1_COM = (gamma1 - COM_v_u1) * COM_gamma
-            gamma2_COM = (gamma2 - COM_v_u2) * COM_gamma
+            gamma1_COM = (gamma1 - COM_v_u1g1) * COM_gamma
+            gamma2_COM = (gamma2 - COM_v_u2g2) * COM_gamma
 
             # Calculate coulomb log if not user-defined
             qqm = q1 * q2 / m1
@@ -395,9 +395,7 @@ def perform_collisions_cuda(N_batch, batch_size, npairs_tot,
                 uy1[si1] = uyf1_COM + COM_vy * term0
                 uz1[si1] = uzf1_COM + COM_vz * term0
 
-            
-            U2 = xoroshiro128p_uniform_float64(random_states, i)    # random float [0,1]
-            if w1[si2] > U2 * max(w1[si1], w2[si2]):
+            if w1[si2] > U1 * max(w1[si1], w2[si2]):
                 # Deflect particle 2 (pf2 = -pf1)
                 term0 = -(COM_gamma - 1.) * m12 * vC_ufCOM / COM_v2 + gamma2_COM * COM_gamma
                 ux2[si2] = -uxf1_COM * m12 + COM_vx * term0

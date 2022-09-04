@@ -214,14 +214,6 @@ class MCCollisions(object):
                         dt, self.coulomb_log,
                         random_states, self.period, self.debug,
                         param_s, param_logL)
-
-            cupy.cuda.runtime.deviceSynchronize()
-
-            print("first s:", param_s[0])
-            print("last s:", param_s[-1])
-
-            print("first logL:", param_logL[0])
-            print("last logL:", param_logL[-1])
             
             if self.debug:
                 Ncp_1 = np.count_nonzero(self.species1.temperature)
