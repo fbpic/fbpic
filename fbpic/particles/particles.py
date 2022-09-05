@@ -248,13 +248,6 @@ class Particles(object) :
             # Register boolean that records if the particles are sorted or not
             self.sorted = False
 
-            # Allocate arrays for cell quantities, e.g. density and temperature
-            self.density = cupy.empty( Nz*(Nr+1), dtype=np.float64)
-            self.temperature = cupy.empty( Nz*(Nr+1), dtype=np.float64)
-            # Register boolean that records if the cell quantities have
-            # been previously calculated
-            self.calc = False
-
             # Define optimal number of CUDA threads per block for deposition
             # and gathering kernels (determined empirically)
             if particle_shape == "cubic":

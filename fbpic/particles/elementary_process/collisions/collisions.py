@@ -92,9 +92,16 @@ class MCCollisions(object):
             if self.species2.sorted == False:
                 self.species2.sort_particles(fld = fld)
                 self.species2.sorted = True
+            
+            ux1 = getattr( self.species1, 'ux')
+            uy1 = getattr( self.species1, 'uy')
+            uz1 = getattr( self.species1, 'uz')
+
+            ux2 = getattr( self.species2, 'ux')
+            uy2 = getattr( self.species2, 'uy')
+            uz2 = getattr( self.species2, 'uz')
 
             Nz = fld.Nz
-            Nr = fld.Nr
 
             d_invvol = fld.interp[0].d_invvol
 
@@ -128,31 +135,34 @@ class MCCollisions(object):
 
             #print("\nnpairs = ", npairs)
 
-            if self.species1.calc == False:
-                # Calculate density of species 1 in each cell
-                density_per_cell_cuda[ bpg, tpg ](N_cells, self.species1.density, self.species1.w,
-                                    npart1, self.species1.prefix_sum,
+            density1 = cupy.empty( N_cells, dtype=np.float64)
+            # Calculate density of species 1 in each cell
+            density_per_cell_cuda[ bpg, tpg ](N_cells, density1, self.species1.w,
+                                npart1, self.species1.prefix_sum,
+                                d_invvol, Nz)
+
+            temperature1 = cupy.empty( N_cells, dtype=np.float64)
+            # Calculate temperature of species 1 in each cell
+            temperature_per_cell_cuda[ bpg, tpg ](N_cells, temperature1, npart1,
+                                self.species1.prefix_sum, self.species1.m,
+                                ux1, uy1, uz1)
+
+            if intra:
+                density2 = density1
+                temperature2 = temperature1
+            else:
+                density2 = cupy.empty( N_cells, dtype=np.float64)
+                # Calculate density of species 2 in each cell
+                density_per_cell_cuda[ bpg, tpg ](N_cells, density2, self.species2.w,
+                                    npart2, self.species2.prefix_sum,
                                     d_invvol, Nz)
 
-                # Calculate temperature of species 1 in each cell
-                temperature_per_cell_cuda[ bpg, tpg ](N_cells, self.species1.temperature, npart1,
-                                    self.species1.prefix_sum, self.species1.m,
-                                    self.species1.ux, self.species1.uy, self.species1.uz)
-                self.species1.calc = True
-
-            if not intra:
-                if self.species2.calc == False:
-                    # Calculate density of species 2 in each cell
-                    density_per_cell_cuda[ bpg, tpg ](N_cells, self.species2.density, self.species2.w,
-                                        npart2, self.species2.prefix_sum,
-                                        d_invvol, Nz)
-                    
-                    # Calculate temperature of species 2 in each cell
-                    temperature_per_cell_cuda[ bpg, tpg ](N_cells, self.species2.temperature, npart2,
-                                        self.species2.prefix_sum, self.species2.m,
-                                        self.species2.ux, self.species2.uy, self.species2.uz)
-                    self.species2.calc = True
-
+                temperature2 = cupy.empty( N_cells, dtype=np.float64)
+                # Calculate temperature of species 2 in each cell
+                temperature_per_cell_cuda[ bpg, tpg ](N_cells, temperature2, npart2,
+                                    self.species2.prefix_sum, self.species2.m,
+                                    ux2, uy2, uz2)
+                
             # Total number of pairs
             npairs_tot = int( cupy.sum( npairs ) )
             #print("npairs_tot:", npairs_tot)
@@ -204,26 +214,37 @@ class MCCollisions(object):
                         self.batch_size, npairs_tot,
                         self.species1.prefix_sum, self.species2.prefix_sum,
                         shuffled_idx1, shuffled_idx2, cell_idx,
-                        self.species1.density, self.species2.density,
-                        self.species1.temperature, self.species2.temperature,
+                        density1, density2,
+                        temperature1, temperature2,
                         n12, self.species1.m, self.species2.m,
                         self.species1.q, self.species2.q, 
                         self.species1.w, self.species2.w,
-                        self.species1.ux, self.species1.uy, self.species1.uz,
-                        self.species2.ux, self.species2.uy, self.species2.uz,
+                        ux1, uy1, uz1,
+                        ux2, uy2, uz2,
                         dt, self.coulomb_log,
                         random_states, self.period, self.debug,
                         param_s, param_logL)
+            """
+            cupy.cuda.runtime.deviceSynchronize()
+
+            print("first s:", param_s[0])
+            print("last s:", param_s[-1])
+
+            print("first logL:", param_logL[0])
+            print("last logL:", param_logL[-1])
+            """
             
             if self.debug:
-                Ncp_1 = np.count_nonzero(self.species1.temperature)
-                Ncp_2 = np.count_nonzero(self.species2.temperature)
-                mean_T1 = cupy.sum( self.species1.temperature ) / Ncp_1
-                mean_T2 = cupy.sum( self.species2.temperature ) / Ncp_2
-                max_T1 = cupy.max( self.species1.temperature )
-                max_T2 = cupy.max( self.species2.temperature )
-                min_T1 = cupy.min( self.species1.temperature )
-                min_T2 = cupy.min( self.species2.temperature )
+                Ncp_1 = np.count_nonzero(temperature1)
+                mean_T1 = cupy.sum( temperature1 ) / Ncp_1
+                max_T1 = cupy.max( temperature1 )
+                min_T1 = cupy.min( temperature1 )
+
+                Ncp_2 = np.count_nonzero(temperature2)
+                mean_T2 = cupy.sum( temperature2 ) / Ncp_2
+                max_T2 = cupy.max( temperature2 )
+                min_T2 = cupy.min( temperature2 )
+                
 
                 print("\n<T1> = ", (k / e) * mean_T1, " eV")
                 print("min(T1) = ", (k / e) * min_T1, " eV")
@@ -241,3 +262,10 @@ class MCCollisions(object):
                 print("min(logL) = ", cupy.min( param_logL ))
                 print("max(logL) = ", cupy.max( param_logL ))
 
+            setattr(self.species1, 'ux', ux1)
+            setattr(self.species1, 'uy', uy1)
+            setattr(self.species1, 'uz', uz1)
+
+            setattr(self.species2, 'ux', ux2)
+            setattr(self.species2, 'uy', uy2)
+            setattr(self.species2, 'uz', uz2)

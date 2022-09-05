@@ -388,14 +388,16 @@ def perform_collisions_cuda(N_batch, batch_size, npairs_tot,
                         + COM_vz * uzf1_COM)
 
             U1 = xoroshiro128p_uniform_float64(random_states, i)    # random float [0,1]
-            if w2[si2] > U1 * max(w1[si1], w2[si2]):
+            maxW = max(w1[si1], w2[si2])
+            if w2[si2] > U1 * maxW:
                 # Deflect particle 1
                 term0 = (COM_gamma - 1.) * vC_ufCOM / COM_v2 + gamma1_COM * COM_gamma
                 ux1[si1] = uxf1_COM + COM_vx * term0
                 uy1[si1] = uyf1_COM + COM_vy * term0
                 uz1[si1] = uzf1_COM + COM_vz * term0
 
-            if w1[si2] > U1 * max(w1[si1], w2[si2]):
+            U2 = xoroshiro128p_uniform_float64(random_states, i)    # random float [0,1]
+            if w1[si1] > U2 * maxW:
                 # Deflect particle 2 (pf2 = -pf1)
                 term0 = -(COM_gamma - 1.) * m12 * vC_ufCOM / COM_v2 + gamma2_COM * COM_gamma
                 ux2[si2] = -uxf1_COM * m12 + COM_vx * term0

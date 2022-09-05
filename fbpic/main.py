@@ -469,9 +469,6 @@ class Simulation(object):
                 if self.iteration % collision.period == 0 \
                     and self.iteration >= collision.start:
                     collision.handle_collisions( fld, dt )
-            # Cell quantities need to be recalculated
-            for species in ptcl:
-                species.calc = False
 
             # Keep field arrays sorted throughout gathering+push
             for species in ptcl:
