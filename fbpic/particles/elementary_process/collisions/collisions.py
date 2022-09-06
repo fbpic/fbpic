@@ -13,15 +13,14 @@ from scipy.constants import c, k, epsilon_0, e
 # Check if CUDA is available, then import CUDA functions
 from fbpic.utils.cuda import cupy_installed
 from fbpic.utils.printing import catch_gpu_memory_error
-from ..cuda_numba_utils import allocate_empty
 
 if cupy_installed:
     from fbpic.utils.cuda import cuda_tpb_bpg_1d
     from numba.cuda.random import create_xoroshiro128p_states
     from .cuda_methods import perform_collisions_cuda, \
-        density_per_cell_cuda, n12_per_cell_cuda, \
-        temperature_per_cell_cuda, pairs_per_cell_cuda, \
-        get_cell_idx_per_pair_cuda, get_shuffled_idx_per_particle_cuda
+        density_per_cell_cuda, temperature_per_cell_cuda, pairs_per_cell_cuda, \
+        get_cell_idx_per_pair_cuda, get_shuffled_idx_per_particle_cuda, \
+        dt_correction_cuda
 
 class MCCollisions(object):
     """
@@ -43,7 +42,7 @@ class MCCollisions(object):
         species2 : an fbpic Particles object
 
         use_cuda : bool
-        Whether the simulation is set up to use CUDA
+            Whether the simulation is set up to use CUDA
 
         coulomb_log: float, optional
         """
@@ -124,16 +123,10 @@ class MCCollisions(object):
             
             intra = True if self.species1 == self.species2 else False
 
-            #print("\npart1 = ", npart1)
-
-            #print("\npart2 = ", npart2)
-
             # Calculate number of pairs in cell
             npairs = cupy.zeros(N_cells, dtype=np.int32)
             bpg, tpg = cuda_tpb_bpg_1d( N_cells )
             pairs_per_cell_cuda[ bpg, tpg ](N_cells, npart1, npart2, npairs, intra)
-
-            #print("\nnpairs = ", npairs)
 
             density1 = cupy.empty( N_cells, dtype=np.float64)
             # Calculate density of species 1 in each cell
@@ -150,7 +143,13 @@ class MCCollisions(object):
             if intra:
                 density2 = density1
                 temperature2 = temperature1
+                Nd = cupy.where(npart1 > npart2,
+                                npart1 - npairs,
+                                npart2 - npairs)
             else:
+                Nd = cupy.where(npart1 > npart2,
+                                npart2,
+                                npart1)
                 density2 = cupy.empty( N_cells, dtype=np.float64)
                 # Calculate density of species 2 in each cell
                 density_per_cell_cuda[ bpg, tpg ](N_cells, density2, self.species2.w,
@@ -165,7 +164,6 @@ class MCCollisions(object):
                 
             # Total number of pairs
             npairs_tot = int( cupy.sum( npairs ) )
-            #print("npairs_tot:", npairs_tot)
 
             # Cumulative prefix sum of pairs
             prefix_sum_pair = cupy.cumsum(npairs)
@@ -173,8 +171,6 @@ class MCCollisions(object):
             # Cell index of pair
             cell_idx = cupy.zeros(npairs_tot, dtype=np.int32)
             get_cell_idx_per_pair_cuda[ bpg, tpg ](N_cells, cell_idx, npairs, prefix_sum_pair)
-
-            #print(cell_idx)
             
             # Shuffled index of particle 1
             shuffled_idx1 = cupy.zeros(npairs_tot, dtype=np.int32)
@@ -192,15 +188,11 @@ class MCCollisions(object):
                                                             npairs, prefix_sum_pair,
                                                             random_states, intra, 2)
 
-            #print("shuffled idx2 = ", shuffled_idx2)
-            
-            # Calculate sum of minimum weights in each cell
-            n12 = cupy.zeros(N_cells, dtype=np.float64)
-            n12_per_cell_cuda[ bpg, tpg ](N_cells, n12, self.species1.w, self.species2.w,
-                      npairs, shuffled_idx1, shuffled_idx2,
-					  prefix_sum_pair, self.species1.prefix_sum, self.species2.prefix_sum,
-                      d_invvol, Nz)
-            
+            dt_corr = cupy.zeros(npairs_tot, dtype=np.float64)
+            dt_correction_cuda[ bpg, tpg ](N_cells, npairs, self.species1.w, self.species2.w, 
+                        prefix_sum_pair, shuffled_idx1, shuffled_idx2,
+                        self.species1.prefix_sum, self.species2.prefix_sum, d_invvol,
+                        Nz, Nd, intra, self.period, dt, dt_corr)
             
             param_s = cupy.zeros(npairs_tot, dtype=np.float64)
             param_logL = cupy.zeros(npairs_tot, dtype=np.float64)
@@ -210,29 +202,19 @@ class MCCollisions(object):
             seed = np.random.randint( 256 )
             random_states = create_xoroshiro128p_states( N_batch, seed )
             bpg, tpg = cuda_tpb_bpg_1d( N_batch )
-            perform_collisions_cuda[ bpg, tpg ](N_batch, 
-                        self.batch_size, npairs_tot,
-                        self.species1.prefix_sum, self.species2.prefix_sum,
+            perform_collisions_cuda[ bpg, tpg ](N_batch, self.batch_size, npairs_tot,
+                        self.species1.prefix_sum, self.species2.prefix_sum, dt_corr,
                         shuffled_idx1, shuffled_idx2, cell_idx,
                         density1, density2,
                         temperature1, temperature2,
-                        n12, self.species1.m, self.species2.m,
+                        self.species1.m, self.species2.m,
                         self.species1.q, self.species2.q, 
                         self.species1.w, self.species2.w,
                         ux1, uy1, uz1,
                         ux2, uy2, uz2,
-                        dt, self.coulomb_log,
-                        random_states, self.period, self.debug,
+                        self.coulomb_log,
+                        random_states, self.debug,
                         param_s, param_logL)
-            """
-            cupy.cuda.runtime.deviceSynchronize()
-
-            print("first s:", param_s[0])
-            print("last s:", param_s[-1])
-
-            print("first logL:", param_logL[0])
-            print("last logL:", param_logL[-1])
-            """
             
             if self.debug:
                 Ncp_1 = np.count_nonzero(temperature1)
