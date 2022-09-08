@@ -97,42 +97,11 @@ def temperature_per_cell_cuda(N_batch, T, npart,
             else:
                 T[i] = (mass / (3. * k)) * udiff
 
-
-@compile_cupy
-def get_cell_idx_per_pair_cuda(N_batch, cell_idx, npair, prefix_sum_pair):
-    """
-    Get the cell index of each pair.
-    The cell index is 1d and calculated by:
-    prefix sum of pairs
-
-    Parameters
-    ----------
-    cell_idx : 1darray of integers
-        The cell index of the pair
-
-    npair : 1darray of integers
-        The particle pair array
-
-    prefix_sum_pair : 1darray of integers
-        Cumulative prefix sum of the particle pair array		
-    """
-    i = cuda.grid(1)
-    if i < N_batch:
-        if i > 0:
-            s = prefix_sum_pair[i-1]
-        else:
-            s = 0
-        p = npair[i]
-        k = 0
-        while k < p:
-            cell_idx[s+k] = i
-            k += 1
-
 @compile_cupy
 def dt_correction_cuda(N_batch, npairs, w1, w2, prefix_sum_pair,
                         shuffled_idx1, shuffled_idx2,
                         prefix_sum1, prefix_sum2, d_invvol,
-                        Nz, Nd, intra, period, dt, dt_correction):
+                        Nz, Nd, intra, period, dt, dt_corr):
     """
     Correct scattering frequency with particle splitting
     for species 1 and species 2
@@ -175,7 +144,7 @@ def dt_correction_cuda(N_batch, npairs, w1, w2, prefix_sum_pair,
         Simulation time step
 
     Output:
-        dt_correction : corrected time step
+        dt_corr : corrected time step
     """
     i = cuda.grid(1)
     if i < N_batch:
@@ -186,22 +155,20 @@ def dt_correction_cuda(N_batch, npairs, w1, w2, prefix_sum_pair,
                 si2 = int(shuffled_idx2[s+k] + prefix_sum2[i-1])
             else:
                 s = 0
-                si1 = int(shuffled_idx1[s+k])
-                si2 = int(shuffled_idx2[s+k])
+                si1 = int(shuffled_idx1[k])
+                si2 = int(shuffled_idx2[k])
 
-            ncorr = 2*npairs[i]-1 if intra else npairs[i]
+            Np = 2*npairs[i]-1 if intra else npairs[i]
             invol = d_invvol[int(i / Nz)]
-
-            dt_corr = period * dt * ncorr * invol
 
             f1 = m.floor((npairs[i] - 1) / Nd[i])
             f2 = m.floor((npairs[i] - 1) / Nd[i] + 1)
 
-            dt_correction[s+k] = max(w1[si1], w2[si2]) * dt_corr
+            dt_corr[s+k] = Np * max(w1[si1], w2[si2]) * invol * period * dt
             if ( k % Nd[i] <= (npairs[i] - 1) % Nd[i] ):
-                dt_correction[s+k] /= f2
+                dt_corr[s+k] /= f2
             else:
-                dt_correction[s+k] /= f1
+                dt_corr[s+k] /= f1
 
 
 @cuda.jit
@@ -276,9 +243,9 @@ def get_shuffled_idx_per_particle_cuda(N_batch, shuffled_idx, npart,
 
 
 @cuda.jit
-def perform_collisions_cuda(N_batch, batch_size, npairs_tot,
+def perform_collisions_cuda(N_batch, npairs, prefix_sum_pair,
                             prefix_sum1, prefix_sum2, dt_corr,
-                            shuffled_idx1, shuffled_idx2, cell_idx,
+                            shuffled_idx1, shuffled_idx2,
                             n1, n2, T1, T2,
                             m1, m2,
                             q1, q2, w1, w2,
@@ -293,9 +260,8 @@ def perform_collisions_cuda(N_batch, batch_size, npairs_tot,
     i = cuda.grid(1)
     # Loop over batch of particle pairs and perform collision
     if i < N_batch:
-        # Loop through the batch
-        N_max = min((i+1)*batch_size, npairs_tot)
-        for ip in range(i*batch_size, N_max):
+        # Loop over pairs
+        for ip in range(npairs[i]):
             # The particles are randomly paired in each cell
             # with a linear congruential generator which
             # shuffles the particles in a non-repeating manner.
@@ -303,10 +269,10 @@ def perform_collisions_cuda(N_batch, batch_size, npairs_tot,
             # be reduced in certain cases with a 'nearest neighbor'
             # (NN) pairing and/or low-pass filter. NN can be 
             # achieved with a finer grid in the particle sorting.
-            cell = cell_idx[ip]
-            if cell > 0:
-                si1 = int(shuffled_idx1[ip] + prefix_sum1[cell-1])
-                si2 = int(shuffled_idx2[ip] + prefix_sum2[cell-1])
+            if i > 0:
+                idx = prefix_sum_pair[i-1]
+                si1 = int(shuffled_idx1[idx+ip] + prefix_sum1[i-1])
+                si2 = int(shuffled_idx2[idx+ip] + prefix_sum2[i-1])
             else:
                 si1 = int(shuffled_idx1[ip])
                 si2 = int(shuffled_idx2[ip])
@@ -356,11 +322,11 @@ def perform_collisions_cuda(N_batch, batch_size, npairs_tot,
                 b0 = abs(coeff * qqm * COM_gamma * inv_g12 *
                             (gamma1_COM * gamma2_COM * invu_COM2 + m12))
                 bmin = max(0.5 * h / (m1 * c * u_COM), b0)
-                if T1[cell] == 0 or T1[cell] == 0:
+                if T1[i] == 0 or T1[i] == 0:
                     logL = 2.
                 else:
                     Debye2 = (epsilon_0 * k / e**2) / \
-                        (n1[cell] / T1[cell] + n2[cell] / T2[cell])
+                        (n1[i] / T1[i] + n2[i] / T2[i])
                     logL = 0.5 * m.log(1. + Debye2 / bmin**2)
                     if logL < 2.:
                         logL = 2.
@@ -376,14 +342,14 @@ def perform_collisions_cuda(N_batch, batch_size, npairs_tot,
             # Low temperature correction
             v_rel = g12 * u_COM * c / ( COM_gamma * gamma1_COM * gamma2_COM )
             s_prime = (4.*m.pi/3)**(1/3) * \
-                ((m1 + m2) / max(m1 * n1[cell]**(2/3), m2 * n2[cell]**(2/3))) * \
+                ((m1 + m2) / max(m1 * n1[i]**(2/3), m2 * n2[i]**(2/3))) * \
                 v_rel
 
-            s = dt_corr[ip] * min(s12, s_prime)
+            s = dt_corr[idx+ip] * min(s12, s_prime)
 
             if debug:
-                param_s[ip] = s
-                param_logL[ip] = logL
+                param_s[idx+ip] = s
+                param_logL[idx+ip] = logL
 
             # Random azimuthal angle
             phi = xoroshiro128p_uniform_float64(random_states, i) * 2.0 * m.pi

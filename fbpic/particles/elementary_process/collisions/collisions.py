@@ -8,7 +8,7 @@ It defines the class that performs calculation of Monte-Carlo collisions.
 import numpy as np
 import math as m
 import cupy
-from scipy.constants import c, k, epsilon_0, e
+from scipy.constants import k, e
 
 # Check if CUDA is available, then import CUDA functions
 from fbpic.utils.cuda import cupy_installed
@@ -19,8 +19,7 @@ if cupy_installed:
     from numba.cuda.random import create_xoroshiro128p_states
     from .cuda_methods import perform_collisions_cuda, \
         density_per_cell_cuda, temperature_per_cell_cuda, pairs_per_cell_cuda, \
-        get_cell_idx_per_pair_cuda, get_shuffled_idx_per_particle_cuda, \
-        dt_correction_cuda
+        get_shuffled_idx_per_particle_cuda, dt_correction_cuda
 
 class MCCollisions(object):
     """
@@ -108,10 +107,6 @@ class MCCollisions(object):
             npart1 = cupy.zeros(N_cells, dtype=np.int32)
             npart2 = cupy.zeros(N_cells, dtype=np.int32)
 
-            #print("\nrefix_sum1 = ", self.species1.prefix_sum)
-
-            #print("\nprefix_sum2 = ", self.species2.prefix_sum)
-
             # Calculate number of particles in cell
             npart1[0] = self.species1.prefix_sum[0]
             npart1[1:] = self.species1.prefix_sum[1:] - self.species1.prefix_sum[:-1]
@@ -143,6 +138,8 @@ class MCCollisions(object):
             if intra:
                 density2 = density1
                 temperature2 = temperature1
+
+                # Number of non-repeating duplicates
                 Nd = cupy.where(npart1 > npart2,
                                 npart1 - npairs,
                                 npart2 - npairs)
@@ -150,6 +147,7 @@ class MCCollisions(object):
                 Nd = cupy.where(npart1 > npart2,
                                 npart2,
                                 npart1)
+
                 density2 = cupy.empty( N_cells, dtype=np.float64)
                 # Calculate density of species 2 in each cell
                 density_per_cell_cuda[ bpg, tpg ](N_cells, density2, self.species2.w,
@@ -167,10 +165,6 @@ class MCCollisions(object):
 
             # Cumulative prefix sum of pairs
             prefix_sum_pair = cupy.cumsum(npairs)
-
-            # Cell index of pair
-            cell_idx = cupy.zeros(npairs_tot, dtype=np.int32)
-            get_cell_idx_per_pair_cuda[ bpg, tpg ](N_cells, cell_idx, npairs, prefix_sum_pair)
             
             # Shuffled index of particle 1
             shuffled_idx1 = cupy.zeros(npairs_tot, dtype=np.int32)
@@ -198,13 +192,11 @@ class MCCollisions(object):
             param_logL = cupy.zeros(npairs_tot, dtype=np.float64)
             
             # Process particle pairs in batches
-            N_batch = int( npairs_tot  / self.batch_size ) + 1
             seed = np.random.randint( 256 )
-            random_states = create_xoroshiro128p_states( N_batch, seed )
-            bpg, tpg = cuda_tpb_bpg_1d( N_batch )
-            perform_collisions_cuda[ bpg, tpg ](N_batch, self.batch_size, npairs_tot,
+            random_states = create_xoroshiro128p_states( N_cells, seed )
+            perform_collisions_cuda[ bpg, tpg ](N_cells, npairs, prefix_sum_pair,
                         self.species1.prefix_sum, self.species2.prefix_sum, dt_corr,
-                        shuffled_idx1, shuffled_idx2, cell_idx,
+                        shuffled_idx1, shuffled_idx2,
                         density1, density2,
                         temperature1, temperature2,
                         self.species1.m, self.species2.m,
@@ -226,7 +218,6 @@ class MCCollisions(object):
                 mean_T2 = cupy.sum( temperature2 ) / Ncp_2
                 max_T2 = cupy.max( temperature2 )
                 min_T2 = cupy.min( temperature2 )
-                
 
                 print("\n<T1> = ", (k / e) * mean_T1, " eV")
                 print("min(T1) = ", (k / e) * min_T1, " eV")
