@@ -36,7 +36,7 @@ def run_simulation():
     Nr = 50           # Number of gridpoints along z
     Nz = 100          # Number of gridpoints along r
     
-    Nm = 1            # Number of modes used
+    Nm = 2            # Number of modes used
 
     # Plasma properties
     n_i = 1e28
@@ -51,7 +51,7 @@ def run_simulation():
 
     p_nz = 20         # Number of particles per cell along z
     p_nr = 20         # Number of particles per cell along r
-    p_nt = 1          # Number of particles per cell along theta
+    p_nt = 4          # Number of particles per cell along theta
 
     # Collision parameters
     coulomb_log = 5.

@@ -6,7 +6,6 @@ This file is part of the Fourier-Bessel Particle-In-Cell code (FBPIC)
 It defines the class that performs calculation of Monte-Carlo collisions.
 """
 import numpy as np
-import math as m
 import cupy
 from scipy.constants import k, e
 
@@ -19,7 +18,7 @@ if cupy_installed:
     from numba.cuda.random import create_xoroshiro128p_states
     from .cuda_methods import perform_collisions_cuda, \
         density_per_cell_cuda, temperature_per_cell_cuda, pairs_per_cell_cuda, \
-        get_shuffled_idx_per_particle_cuda, dt_correction_cuda
+        get_shuffled_idx_per_particle_cuda
 
 class MCCollisions(object):
     """
@@ -181,12 +180,6 @@ class MCCollisions(object):
             get_shuffled_idx_per_particle_cuda[ bpg, tpg ](N_cells, shuffled_idx2, npart2,
                                                             npairs, prefix_sum_pair,
                                                             random_states, intra, 2)
-
-            dt_corr = cupy.zeros(npairs_tot, dtype=np.float64)
-            dt_correction_cuda[ bpg, tpg ](N_cells, npairs, self.species1.w, self.species2.w, 
-                        prefix_sum_pair, shuffled_idx1, shuffled_idx2,
-                        self.species1.prefix_sum, self.species2.prefix_sum, d_invvol,
-                        Nz, Nd, intra, self.period, dt, dt_corr)
             
             param_s = cupy.zeros(npairs_tot, dtype=np.float64)
             param_logL = cupy.zeros(npairs_tot, dtype=np.float64)
@@ -195,17 +188,18 @@ class MCCollisions(object):
             seed = np.random.randint( 256 )
             random_states = create_xoroshiro128p_states( N_cells, seed )
             perform_collisions_cuda[ bpg, tpg ](N_cells, npairs, prefix_sum_pair,
-                        self.species1.prefix_sum, self.species2.prefix_sum, dt_corr,
+                        self.species1.prefix_sum, self.species2.prefix_sum,
                         shuffled_idx1, shuffled_idx2,
                         density1, density2,
                         temperature1, temperature2,
                         self.species1.m, self.species2.m,
-                        self.species1.q, self.species2.q, 
+                        self.species1.q, self.species2.q,
                         self.species1.w, self.species2.w,
                         ux1, uy1, uz1,
                         ux2, uy2, uz2,
                         self.coulomb_log,
                         random_states, self.debug,
+                        self.period, intra, d_invvol, Nz, Nd, dt,
                         param_s, param_logL)
             
             if self.debug:

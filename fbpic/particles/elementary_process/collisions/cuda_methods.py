@@ -97,79 +97,6 @@ def temperature_per_cell_cuda(N_batch, T, npart,
             else:
                 T[i] = (mass / (3. * k)) * udiff
 
-@compile_cupy
-def dt_correction_cuda(N_batch, npairs, w1, w2, prefix_sum_pair,
-                        shuffled_idx1, shuffled_idx2,
-                        prefix_sum1, prefix_sum2, d_invvol,
-                        Nz, Nd, intra, period, dt, dt_corr):
-    """
-    Correct scattering frequency with particle splitting
-    for species 1 and species 2
-
-    Parameters
-    ----------
-    npair : 1darray of integers
-        The particle pair array
-
-    w: 1darray of floats
-        The particle weights
-
-    prefix_sum_pair : 1darray of integers
-        Cumulative prefix sum of the pair array	
-    
-    shuffled_idx : 1darray of integers
-        The shuffled particle index of the particle
-
-    prefix_sum : 1darray of integers
-        Cumulative prefix sum of particles
-
-    d_invvol : 1darray of floats
-        Inverse cell volume
-
-    Nz : integer
-        Number of cells in z-direction
-
-    Nd : 1darray of integers
-        Number of non-repeating duplicates
-
-    intra : boolean
-        True: like-particle collisions
-        False: unlike-particle collisions
-
-    period : integer
-        Collision period (number of simulation 
-        iterations)
-    
-    dt : float
-        Simulation time step
-
-    Output:
-        dt_corr : corrected time step
-    """
-    i = cuda.grid(1)
-    if i < N_batch:
-        for k in range( int(npairs[i]) ):
-            if i > 0:
-                s = prefix_sum_pair[i-1]
-                si1 = int(shuffled_idx1[s+k] + prefix_sum1[i-1])
-                si2 = int(shuffled_idx2[s+k] + prefix_sum2[i-1])
-            else:
-                s = 0
-                si1 = int(shuffled_idx1[k])
-                si2 = int(shuffled_idx2[k])
-
-            Np = 2*npairs[i]-1 if intra else npairs[i]
-            invol = d_invvol[int(i / Nz)]
-
-            f1 = m.floor((npairs[i] - 1) / Nd[i])
-            f2 = m.floor((npairs[i] - 1) / Nd[i] + 1)
-
-            dt_corr[s+k] = Np * max(w1[si1], w2[si2]) * invol * period * dt
-            if ( k % Nd[i] <= (npairs[i] - 1) % Nd[i] ):
-                dt_corr[s+k] /= f2
-            else:
-                dt_corr[s+k] /= f1
-
 
 @cuda.jit
 def get_shuffled_idx_per_particle_cuda(N_batch, shuffled_idx, npart,
@@ -229,22 +156,22 @@ def get_shuffled_idx_per_particle_cuda(N_batch, shuffled_idx, npart,
         power = m.ceil(log2p)
         modulus = 2**power
         
-        k = 0
-        while k < npair[i]:
-            if k < p:
+        j = 0
+        while j < npair[i]:
+            if j < p:
                 if value < p:
-                    shuffled_idx[s+k] = value + start
-                    k += 1
+                    shuffled_idx[s+j] = value + start
+                    j += 1
                 # Calculate the next value in the sequence.
                 value = (value*multiplier + offset) % modulus
             else:
-                shuffled_idx[s+k] = shuffled_idx[s+k-p]
-                k += 1		
+                shuffled_idx[s+j] = shuffled_idx[s+j-p]
+                j += 1		
 
 
 @cuda.jit
 def perform_collisions_cuda(N_batch, npairs, prefix_sum_pair,
-                            prefix_sum1, prefix_sum2, dt_corr,
+                            prefix_sum1, prefix_sum2,
                             shuffled_idx1, shuffled_idx2,
                             n1, n2, T1, T2,
                             m1, m2,
@@ -252,6 +179,7 @@ def perform_collisions_cuda(N_batch, npairs, prefix_sum_pair,
                             ux1, uy1, uz1,
                             ux2, uy2, uz2, 
                             coulomb_log, random_states, debug,
+                            period, intra, d_invvol, Nz, Nd, dt,
                             param_s, param_logL):
     """
     Perform collisions between all pairs in each cell
@@ -277,6 +205,19 @@ def perform_collisions_cuda(N_batch, npairs, prefix_sum_pair,
                 si1 = int(shuffled_idx1[ip])
                 si2 = int(shuffled_idx2[ip])
 
+            Np = 2*npairs[i]-1 if intra else npairs[i]
+            invol = d_invvol[int(i / Nz)]
+
+            dt_corr = Np * max(w1[si1], w2[si2]) * invol * period * dt
+            if ( ip % Nd[i] <= (npairs[i] - 1) % Nd[i] ):
+                split = m.floor((npairs[i] - 1) / Nd[i] + 1)
+            else:
+                split = m.floor((npairs[i] - 1) / Nd[i])
+
+            w1p = w1[si1] / split
+            w2p = w2[si2] / split
+            dt_corr /= split
+            
             # Calculate Lorentz factor
             gamma1 = m.sqrt(1. + (ux1[si1]**2 + uy1[si1]**2 + uz1[si1]**2))
             gamma2 = m.sqrt(1. + (ux2[si2]**2 + uy2[si2]**2 + uz2[si2]**2))
@@ -317,8 +258,8 @@ def perform_collisions_cuda(N_batch, npairs, prefix_sum_pair,
             qqm = q1 * q2 / m1
             qqm2 = qqm**2
             logL = coulomb_log
+            coeff = 1. / (4. * m.pi * epsilon_0 * c**2)
             if logL <= 0.:
-                coeff = 1. / (4. * m.pi * epsilon_0 * c**2)
                 b0 = abs(coeff * qqm * COM_gamma * inv_g12 *
                             (gamma1_COM * gamma2_COM * invu_COM2 + m12))
                 bmin = max(0.5 * h / (m1 * c * u_COM), b0)
@@ -331,8 +272,8 @@ def perform_collisions_cuda(N_batch, npairs, prefix_sum_pair,
                     if logL < 2.:
                         logL = 2.
 
-            coeff1 = 1. / (4. * m.pi * epsilon_0**2 * c**3)
-            term2 = coeff1 * qqm2 / (gamma1 * gamma2)
+            coeff /= (epsilon_0 * c)
+            term2 = coeff * qqm2 / (gamma1 * gamma2)
             term3 = COM_gamma * inv_g12 * u_COM
             term4 = (gamma1_COM * gamma2_COM * invu_COM2 + m12)
 
@@ -345,14 +286,15 @@ def perform_collisions_cuda(N_batch, npairs, prefix_sum_pair,
                 ((m1 + m2) / max(m1 * n1[i]**(2/3), m2 * n2[i]**(2/3))) * \
                 v_rel
 
-            s = dt_corr[idx+ip] * min(s12, s_prime)
+            s = dt_corr * min(s12, s_prime)
 
             if debug:
                 param_s[idx+ip] = s
                 param_logL[idx+ip] = logL
 
             # Random azimuthal angle
-            phi = xoroshiro128p_uniform_float64(random_states, i) * 2.0 * m.pi
+            phi = xoroshiro128p_uniform_float64(
+                random_states, i) * 2.0 * m.pi
 
             # Calculate the deflection angle
             U = xoroshiro128p_uniform_float64(
@@ -391,14 +333,15 @@ def perform_collisions_cuda(N_batch, npairs, prefix_sum_pair,
                         + COM_vz * uzf1_COM)
 
             U1 = xoroshiro128p_uniform_float64(random_states, i)    # random float [0,1]
-            if ( U1 * w1[si1] < w2[si2] ):
+            if w1p > U1 * max(w1p, w2p):
                 # Deflect particle 1
                 term0 = (COM_gamma - 1.) * vC_ufCOM / COM_v2 + gamma1_COM * COM_gamma
                 ux1[si1] = uxf1_COM + COM_vx * term0
                 uy1[si1] = uyf1_COM + COM_vy * term0
                 uz1[si1] = uzf1_COM + COM_vz * term0
-
-            if ( U1 * w2[si2] < w1[si1] ):
+            
+            U2 = xoroshiro128p_uniform_float64(random_states, i)    # random float [0,1]
+            if w2p > U2 * max(w1p, w2p):
                 # Deflect particle 2 (pf2 = -pf1)
                 term0 = -(COM_gamma - 1.) * m12 * vC_ufCOM / COM_v2 + gamma2_COM * COM_gamma
                 ux2[si2] = -uxf1_COM * m12 + COM_vx * term0
