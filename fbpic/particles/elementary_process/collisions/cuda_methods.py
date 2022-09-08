@@ -179,8 +179,7 @@ def dt_correction_cuda(N_batch, npairs, w1, w2, prefix_sum_pair,
     """
     i = cuda.grid(1)
     if i < N_batch:
-        k = 0
-        while k < npairs[i]:
+        for k in range( int(npairs[i]) ):
             if i > 0:
                 s = prefix_sum_pair[i-1]
                 si1 = int(shuffled_idx1[s+k] + prefix_sum1[i-1])
@@ -194,15 +193,15 @@ def dt_correction_cuda(N_batch, npairs, w1, w2, prefix_sum_pair,
             invol = d_invvol[int(i / Nz)]
 
             dt_corr = period * dt * ncorr * invol
-            wc1 = 1. / ( ( npairs[i] - 1 ) / Nd[i] )
-            wc2 = 1. / ( ( npairs[i] - 1 ) / Nd[i] + 1. )
+
+            f1 = m.floor((npairs[i] - 1) / Nd[i])
+            f2 = m.floor((npairs[i] - 1) / Nd[i] + 1)
 
             dt_correction[s+k] = max(w1[si1], w2[si2]) * dt_corr
-            if ( k % Nd[i] <= (npairs[i]-1) % Nd[i] ):
-                dt_correction[s+k] *= wc2
+            if ( k % Nd[i] <= (npairs[i] - 1) % Nd[i] ):
+                dt_correction[s+k] /= f2
             else:
-                dt_correction[s+k] *= wc1
-            k += 1
+                dt_correction[s+k] /= f1
 
 
 @cuda.jit
@@ -426,14 +425,14 @@ def perform_collisions_cuda(N_batch, batch_size, npairs_tot,
                         + COM_vz * uzf1_COM)
 
             U1 = xoroshiro128p_uniform_float64(random_states, i)    # random float [0,1]
-            if U1 * w1[si1] < w2[si2]:
+            if ( U1 * w1[si1] < w2[si2] ):
                 # Deflect particle 1
                 term0 = (COM_gamma - 1.) * vC_ufCOM / COM_v2 + gamma1_COM * COM_gamma
                 ux1[si1] = uxf1_COM + COM_vx * term0
                 uy1[si1] = uyf1_COM + COM_vy * term0
                 uz1[si1] = uzf1_COM + COM_vz * term0
 
-            if U1 * w2[si2] < w1[si1]:
+            if ( U1 * w2[si2] < w1[si1] ):
                 # Deflect particle 2 (pf2 = -pf1)
                 term0 = -(COM_gamma - 1.) * m12 * vC_ufCOM / COM_v2 + gamma2_COM * COM_gamma
                 ux2[si2] = -uxf1_COM * m12 + COM_vx * term0
