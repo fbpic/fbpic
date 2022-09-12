@@ -36,6 +36,23 @@ def pairs_per_cell_cuda(N_batch, array_in1, array_in2, array_out, intra):
 				else:
 					array_out[i] = array_in2[i]
 
+@compile_cupy
+def theta_coord_particle_cuda(Ntot, x, y, theta):
+    """
+    Calculate the number of pairs per cell
+    """
+    i = cuda.grid(1)
+    if i < Ntot:
+        if x[i] == 0.:
+            if y[i] > 0.:
+                theta[i] = m.pi / 2.
+            elif y[i] == 0.:
+                theta[i] = 0.
+            elif y[i] < 0.:
+                theta[i] = 3. * m.pi / 2
+        else:
+            theta[i] = m.atan(y[i] / x[i])
+
 
 @compile_cupy
 def density_per_cell_cuda(N_batch, density, weights, npart,
@@ -59,7 +76,7 @@ def density_per_cell_cuda(N_batch, density, weights, npart,
 @compile_cupy
 def temperature_per_cell_cuda(N_batch, T, npart,
                               prefix_sum, mass,
-                              ux, uy, uz):
+                              ux, uy, uz, inv_gamma):
     """
     Calculate temperature of species in cell
     """
@@ -73,29 +90,29 @@ def temperature_per_cell_cuda(N_batch, T, npart,
             else:
                 i_min = 0
 
-            vx_mean = 0.
-            vy_mean = 0.
-            vz_mean = 0.
+            vx_m = 0.
+            vy_m = 0.
+            vz_m = 0.
             v2 = 0.
             for j in range(npart[i]):
-                vx_mean += ux[i_min + j] * c
-                vy_mean += uy[i_min + j] * c
-                vz_mean += uz[i_min + j] * c
+                vx_m += ux[i_min + j] * c * inv_gamma[i_min + j]
+                vy_m += uy[i_min + j] * c * inv_gamma[i_min + j]
+                vz_m += uz[i_min + j] * c * inv_gamma[i_min + j]
 
-                v2 += (ux[i_min + j]**2 + uy[i_min + j]
-                       ** 2 + uz[i_min + j]**2) * c**2
+                v2 += (ux[i_min + j]**2 + uy[i_min + j]** 2 \
+                    + uz[i_min + j]**2) * c**2 * inv_gamma[i_min + j]**2
 
             invNp = (1. / npart[i])
             v2 *= invNp
-            vx_mean *= invNp
-            vy_mean *= invNp
-            vz_mean *= invNp
-            u_mean2 = vx_mean**2 + vy_mean**2 + vz_mean**2
-            udiff = (v2 - u_mean2)
-            if udiff < 0.:
+            vx_m *= invNp
+            vy_m *= invNp
+            vz_m *= invNp
+            v2_m = vx_m**2 + vy_m**2 + vz_m**2
+            vdiff = (v2 - v2_m)
+            if vdiff < 0.:
                 T[i] = 0.
             else:
-                T[i] = (mass / (3. * k)) * udiff
+                T[i] = (mass / (3. * k)) * vdiff
 
 
 @cuda.jit
@@ -174,6 +191,7 @@ def perform_collisions_cuda(N_batch, npairs, prefix_sum_pair,
                             prefix_sum1, prefix_sum2,
                             shuffled_idx1, shuffled_idx2,
                             n1, n2, T1, T2,
+                            theta1, theta2,
                             m1, m2,
                             q1, q2, w1, w2,
                             ux1, uy1, uz1,
@@ -186,16 +204,16 @@ def perform_collisions_cuda(N_batch, npairs, prefix_sum_pair,
     """
     # Loop over cells
     i = cuda.grid(1)
-    # Loop over batch of particle pairs and perform collision
     if i < N_batch:
         # Loop over pairs
         for ip in range(npairs[i]):
             # The particles are randomly paired in each cell
             # with a linear congruential generator which
             # shuffles the particles in a non-repeating manner.
-            # Note: plasma heating due to collisions can
-            # be reduced in certain cases with a 'nearest neighbor'
-            # (NN) pairing and/or low-pass filter. NN can be 
+            # Note: numerical heating due to collisions can
+            # be reduced with a low-pass filter. When particles have
+            # the same charge to mass ratio the heating can be reduced
+            # with a 'nearest neighbor' (NN) pairing . NN can be 
             # achieved with a finer grid in the particle sorting.
             if i > 0:
                 idx = prefix_sum_pair[i-1]
@@ -204,6 +222,12 @@ def perform_collisions_cuda(N_batch, npairs, prefix_sum_pair,
             else:
                 si1 = int(shuffled_idx1[ip])
                 si2 = int(shuffled_idx2[ip])
+
+            # Temporarily rotate one macroparticle
+            theta = theta2[si2] - theta1[si1]
+            ux1_temp = ux1[si1]
+            ux1[si1] = ux1_temp * m.cos(theta) - uy1[si1] * m.sin(theta)
+            uy1[si1] = ux1_temp * m.sin(theta) + uy1[si1] * m.cos(theta)
 
             Np = 2*npairs[i]-1 if intra else npairs[i]
             invol = d_invvol[int(i / Nz)]
@@ -214,8 +238,6 @@ def perform_collisions_cuda(N_batch, npairs, prefix_sum_pair,
             else:
                 split = m.floor((npairs[i] - 1) / Nd[i])
 
-            w1p = w1[si1] / split
-            w2p = w2[si2] / split
             dt_corr /= split
             
             # Calculate Lorentz factor
@@ -232,16 +254,16 @@ def perform_collisions_cuda(N_batch, npairs, prefix_sum_pair,
             COM_vy = (m12 * uy1[si1] + uy2[si2]) * inv_g12
             COM_vz = (m12 * uz1[si1] + uz2[si2]) * inv_g12
 
-            COM_v_u1g1 = (COM_vx * ux1[si1] + COM_vy *
+            COM_v_u1 = (COM_vx * ux1[si1] + COM_vy *
                         uy1[si1] + COM_vz * uz1[si1])
-            COM_v_u2g2 = (COM_vx * ux2[si2] + COM_vy *
+            COM_v_u2 = (COM_vx * ux2[si2] + COM_vy *
                         uy2[si2] + COM_vz * uz2[si2])
 
             COM_v2 = COM_vx**2 + COM_vy**2 + COM_vz**2
             COM_gamma = 1. / m.sqrt(1. - COM_v2)
 
             # momenta in COM
-            term0 = (COM_gamma - 1.) * COM_v_u1g1 / COM_v2 - COM_gamma * gamma1
+            term0 = (COM_gamma - 1.) * COM_v_u1 / COM_v2 - COM_gamma * gamma1
             ux_COM = ux1[si1] + COM_vx * term0
             uy_COM = uy1[si1] + COM_vy * term0
             uz_COM = uz1[si1] + COM_vz * term0
@@ -251,8 +273,8 @@ def perform_collisions_cuda(N_batch, npairs, prefix_sum_pair,
             invu_COM2 = 1. / u_COM2
 
             # Lorentz transforms
-            gamma1_COM = (gamma1 - COM_v_u1g1) * COM_gamma
-            gamma2_COM = (gamma2 - COM_v_u2g2) * COM_gamma
+            gamma1_COM = (gamma1 - COM_v_u1) * COM_gamma
+            gamma2_COM = (gamma2 - COM_v_u2) * COM_gamma
 
             # Calculate coulomb log if not user-defined
             qqm = q1 * q2 / m1
@@ -263,7 +285,7 @@ def perform_collisions_cuda(N_batch, npairs, prefix_sum_pair,
                 b0 = abs(coeff * qqm * COM_gamma * inv_g12 *
                             (gamma1_COM * gamma2_COM * invu_COM2 + m12))
                 bmin = max(0.5 * h / (m1 * c * u_COM), b0)
-                if T1[i] == 0 or T1[i] == 0:
+                if T1[i] == 0 or T2[i] == 0:
                     logL = 2.
                 else:
                     Debye2 = (epsilon_0 * k / e**2) / \
@@ -282,7 +304,7 @@ def perform_collisions_cuda(N_batch, npairs, prefix_sum_pair,
 
             # Low temperature correction
             v_rel = g12 * u_COM * c / ( COM_gamma * gamma1_COM * gamma2_COM )
-            s_prime = (4.*m.pi/3)**(1/3) * \
+            s_prime = (4. * m.pi / 3.)**(1/3) * \
                 ((m1 + m2) / max(m1 * n1[i]**(2/3), m2 * n2[i]**(2/3))) * \
                 v_rel
 
@@ -333,17 +355,20 @@ def perform_collisions_cuda(N_batch, npairs, prefix_sum_pair,
                         + COM_vz * uzf1_COM)
 
             U1 = xoroshiro128p_uniform_float64(random_states, i)    # random float [0,1]
-            if w1p > U1 * max(w1p, w2p):
+            if U1 * w1[si1] < w2[si2]:
                 # Deflect particle 1
                 term0 = (COM_gamma - 1.) * vC_ufCOM / COM_v2 + gamma1_COM * COM_gamma
                 ux1[si1] = uxf1_COM + COM_vx * term0
                 uy1[si1] = uyf1_COM + COM_vy * term0
                 uz1[si1] = uzf1_COM + COM_vz * term0
-            
-            U2 = xoroshiro128p_uniform_float64(random_states, i)    # random float [0,1]
-            if w2p > U2 * max(w1p, w2p):
+
+            if U1 * w2[si2] < w1[si1]:
                 # Deflect particle 2 (pf2 = -pf1)
                 term0 = -(COM_gamma - 1.) * m12 * vC_ufCOM / COM_v2 + gamma2_COM * COM_gamma
                 ux2[si2] = -uxf1_COM * m12 + COM_vx * term0
                 uy2[si2] = -uyf1_COM * m12 + COM_vy * term0
                 uz2[si2] = -uzf1_COM * m12 + COM_vz * term0
+
+            ux1_temp = ux1[si1]
+            ux1[si1] = ux1_temp * m.cos(-theta) - uy1[si1] * m.sin(-theta)
+            uy1[si1] = ux1_temp * m.sin(-theta) + uy1[si1] * m.cos(-theta)

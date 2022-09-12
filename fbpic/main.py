@@ -551,6 +551,7 @@ class Simulation(object):
             fld.push( use_true_rho, check_exchanges=(self.comm.size > 1) )
             if correct_divE:
                 fld.correct_divE()
+
             # Move the grids if needed
             if self.comm.moving_win is not None:
                 # Shift the fields is spectral space and update positions of

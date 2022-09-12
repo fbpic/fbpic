@@ -18,7 +18,7 @@ if cupy_installed:
     from numba.cuda.random import create_xoroshiro128p_states
     from .cuda_methods import perform_collisions_cuda, \
         density_per_cell_cuda, temperature_per_cell_cuda, pairs_per_cell_cuda, \
-        get_shuffled_idx_per_particle_cuda
+        get_shuffled_idx_per_particle_cuda, theta_coord_particle_cuda
 
 class MCCollisions(object):
     """
@@ -89,7 +89,7 @@ class MCCollisions(object):
             if self.species2.sorted == False:
                 self.species2.sort_particles(fld = fld)
                 self.species2.sorted = True
-            
+
             ux1 = getattr( self.species1, 'ux')
             uy1 = getattr( self.species1, 'uy')
             uz1 = getattr( self.species1, 'uz')
@@ -132,11 +132,18 @@ class MCCollisions(object):
             # Calculate temperature of species 1 in each cell
             temperature_per_cell_cuda[ bpg, tpg ](N_cells, temperature1, npart1,
                                 self.species1.prefix_sum, self.species1.m,
-                                ux1, uy1, uz1)
+                                ux1, uy1, uz1, self.species1.inv_gamma)
+
+            
+            theta1 = cupy.zeros(self.species1.Ntot, dtype=np.float64)
+            bpgs, tpgs = cuda_tpb_bpg_1d( self.species1.Ntot )
+            theta_coord_particle_cuda[bpgs, tpgs](self.species1.Ntot, self.species1.x,
+                                            self.species1.y, theta1)
 
             if intra:
                 density2 = density1
                 temperature2 = temperature1
+                theta2 = theta1
 
                 # Number of non-repeating duplicates
                 Nd = cupy.where(npart1 > npart2,
@@ -157,7 +164,12 @@ class MCCollisions(object):
                 # Calculate temperature of species 2 in each cell
                 temperature_per_cell_cuda[ bpg, tpg ](N_cells, temperature2, npart2,
                                     self.species2.prefix_sum, self.species2.m,
-                                    ux2, uy2, uz2)
+                                    ux2, uy2, uz2, self.species2.inv_gamma)
+                
+                theta2 = cupy.zeros(self.species2.Ntot, dtype=np.float64)
+                bpgs, tpgs = cuda_tpb_bpg_1d( self.species2.Ntot )
+                theta_coord_particle_cuda[bpgs, tpgs](self.species2.Ntot, self.species2.x,
+                                                self.species2.y, theta2)
                 
             # Total number of pairs
             npairs_tot = int( cupy.sum( npairs ) )
@@ -192,6 +204,7 @@ class MCCollisions(object):
                         shuffled_idx1, shuffled_idx2,
                         density1, density2,
                         temperature1, temperature2,
+                        theta1, theta2,
                         self.species1.m, self.species2.m,
                         self.species1.q, self.species2.q,
                         self.species1.w, self.species2.w,

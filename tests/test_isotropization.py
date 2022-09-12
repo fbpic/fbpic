@@ -2,7 +2,7 @@
 # Authors: Kristoffer Lindvall
 # License: 3-Clause-BSD-LBNL
 """
-Thermalization test
+Isotropization test
 """
 
 # -------
@@ -42,28 +42,25 @@ def run_simulation():
         Nm = 2            # Number of modes used
 
         # Plasma properties
-        n_i = 1e28
         n_e = 1e28
-        Te  = 102
-        Ti  = 92
+        Te_par   = 17.
+        Te_perp  = 15.2
+        
+        uth_e_par = math.sqrt(e * Te_par / (m_e * c**2))
+        uth_e_perp = math.sqrt(e * Te_perp / (m_e * c**2))
 
-        m_i = 10*m_e
-
-        uth_i = math.sqrt(e * Ti / (m_i * c**2))  # Normalized thermal momenta
-        uth_e = math.sqrt(e * Te / (m_e * c**2))
-
-        p_nz = 30         # Number of particles per cell along z
-        p_nr = 30         # Number of particles per cell along r
+        p_nz = 20         # Number of particles per cell along z
+        p_nr = 20         # Number of particles per cell along r
         p_nt = 4          # Number of particles per cell along theta
 
         # Collision parameters
-        coulomb_log = 5.0
+        coulomb_log = 2.0
         collision_period = 1
         start_collision = 1
 
         # Simulation time
-        Time = 70.e-15
-        dt = 0.7e-15
+        Time = 1.4e-15
+        dt = 0.1e-16
         #dt = (zmax / Nz) / c
 
         # Number of timesteps
@@ -81,35 +78,20 @@ def run_simulation():
 
         # Add the charge-neutralizing electrons
         elec = sim.add_new_species( q=-e, m=m_e, n=n_e,
-                            ux_th=uth_e, uy_th=uth_e, uz_th=uth_e,
-                            p_nz=p_nz, p_nr=p_nr, p_nt=p_nt,
-                            continuous_injection=False )
-        # Add the N atoms
-        ions = sim.add_new_species( q=+e, m=m_i, n=n_i,
-                            ux_th=uth_i, uy_th=uth_i, uz_th=uth_i,
+                            ux_th=uth_e_perp, uy_th=uth_e_perp, uz_th=uth_e_par,
                             p_nz=p_nz, p_nr=p_nr, p_nt=p_nt,
                             continuous_injection=False )
 
         sim.collisions = [
-            MCCollisions(elec, ions, use_cuda,
+            MCCollisions(elec, elec, use_cuda,
                     coulomb_log = coulomb_log,
                     start = start_collision,
                     period = collision_period,
                     debug = False),
-            MCCollisions(elec, elec, use_cuda,
-                    coulomb_log = 1000.,
-                    start = start_collision,
-                    period = collision_period,
-                    debug = False),
-            MCCollisions(ions, ions, use_cuda,
-                    coulomb_log = 1000.,
-                    start = start_collision,
-                    period = collision_period,
-                    debug = False)
         ]
 
         # Add a particle diagnostic
-        sim.diags = [ ParticleDiagnostic( diag_period, {"elec":elec, "ions":ions},
+        sim.diags = [ ParticleDiagnostic( diag_period, {"elec":elec},
             write_dir='tests/diags', comm=sim.comm) ]
 
         # Run the simulation
@@ -119,88 +101,110 @@ def run_simulation():
         # Check consistency in the regular openPMD diagnostics
         ts = OpenPMDTimeSeries('./tests/diags/hdf5/')
 
-        Tmi = np.zeros(len(ts.iterations))
-        Tme = np.zeros(len(ts.iterations))
+        Tme_par = np.zeros(len(ts.iterations))
+        Tme_perp = np.zeros(len(ts.iterations))
         l = 0
 
         for i in ts.iterations:
-            ux_i = ts.get_particle(['ux'], species='ions', iteration=i)
             ux_e = ts.get_particle(['ux'], species='elec', iteration=i)
-
-            uy_i = ts.get_particle(['uy'], species='ions', iteration=i)
             uy_e = ts.get_particle(['uy'], species='elec', iteration=i)
-
-            uz_i = ts.get_particle(['uz'], species='ions', iteration=i)
             uz_e = ts.get_particle(['uz'], species='elec', iteration=i)
 
-
-            Tmi[l] = calculate_temperature(m_i, ux_i[0], uy_i[0], uz_i[0])
-            Tme[l] = calculate_temperature(m_e, ux_e[0], uy_e[0], uz_e[0])
+            Tme_par[l] = calculate_par_temperature(m_e, uz_e[0])
+            Tme_perp[l] = calculate_perp_temperature(m_e, ux_e[0], uy_e[0])
             l+=1
-        
-        plt.plot(ts.iterations * dt * 1e15, Tmi * (k/e), '-C0o')
-        plt.plot(ts.iterations * dt * 1e15, Tme * (k/e), '-C1o')
+
+        plt.plot(ts.iterations * dt * 1e15, Tme_par * (k/e), '-C0o')
+        plt.plot(ts.iterations * dt * 1e15, Tme_perp * (k/e), '-C1o')
 
         # Remove openPMD files
         shutil.rmtree('./tests/diags/')
-
+    
     # NRL relaxation	
-    T_e = Te
-    T_i = Ti
+    T_e_par  = Tme_par[0] * (k/e)
+    T_e_perp = Tme_perp[0] * (k/e)
     t_points = 3000
-    Te_theory = np.zeros(t_points)
-    Ti_theory = np.zeros(t_points)
+    Te_par_theory = np.zeros(t_points)
+    Te_perp_theory = np.zeros(t_points)
     Time_plot = ts.iterations[-1] * dt
     dtp = Time_plot / t_points
     t_array = np.linspace(0, Time_plot, t_points, endpoint=True)
-    coeff = 1.8e-19 
-    Zi = 1
-    Ze = -1
-    n_i_cgs = n_i / 1000
+
+    n_e_cgs = n_e / 1000
     m_e_cgs = 9.1094e-28
-    m_i_cgs = 10*m_e_cgs
+    k_cgs = 1.6e-12
+    coeff = 2. * math.sqrt(math.pi) * e**2 * e**2 / math.sqrt(m_e_cgs)
     
     for i in range(t_points):
-        Te_theory[i] = T_e
-        Ti_theory[i] = T_i
-        nu0 = coeff * Zi**2 * Ze**2 * n_i_cgs * coulomb_log * \
-            np.sqrt(m_e_cgs * m_i_cgs) / ((m_e_cgs*T_i + m_i_cgs*T_e)**(3/2)) / 1000
-        T_e += nu0 * (T_i - T_e) * dtp
-        T_i += nu0 * (T_e - T_i) * dtp
+        Te_par_theory[i] = T_e_par
+        Te_perp_theory[i] = T_e_perp
+        A = T_e_perp/T_e_par - 1.
+        if A > 0:
+            term = np.arctanh(A**0.5)/A**0.5
+        else:
+            term = np.arctanh((-A)**0.5)/(-A)**0.5
+        nu0 = coeff * n_e_cgs * coulomb_log / (k_cgs * T_e_par)**1.5 * A**-2 *(
+            -3. + (A+3.) * term ) * 1e20
 
-    plt.plot(t_array * 1e15, Ti_theory, 'k')
-    plt.plot(t_array * 1e15, Te_theory, 'k')
-    plt.legend(["i+", "e-"])
+        print(nu0)
+
+        T_e_par  -= 2. * nu0 * (T_e_par - T_e_perp) * dtp * 1e15
+        T_e_perp +=      nu0 * (T_e_par - T_e_perp) * dtp * 1e15
+    
+    plt.plot(t_array * 1e15, Te_par_theory, 'k')
+    plt.plot(t_array * 1e15, Te_perp_theory, 'k')
+    plt.legend(["Te_trans", "Te_perp"])
     plt.xlabel( 't [fs]' )
     plt.ylabel( 'T [eV]' )
     plt.grid()
-    plt.title( 'Temperature of i+, e-, and NRL formula (black lines)' )
+    plt.title( 'Temperature of e-, and NRL formula (black lines)' )
     plt.show()
 
-def calculate_temperature( mass, ux, uy, uz ):
+def calculate_perp_temperature( mass, ux, uy ):
     Np = int(len(ux))
+    inv_gamma = np.array(Np)
 
-    vx_m = np.sum(ux)*c
-    vy_m = np.sum(uy)*c
-    vz_m = np.sum(uz)*c
+    inv_gamma = 1. / np.sqrt(1. + ux**2 + uy**2)
 
-    v2 = np.sum(ux**2 + uy**2 + uz**2)*c**2
+    vx_m = np.sum(ux * inv_gamma) * c 
+    vy_m = np.sum(uy * inv_gamma) * c
+
+    v2 = np.sum((ux**2 + uy**2) * inv_gamma**2)*c**2 
 
     invNp = (1. / Np)
     v2 *= invNp
     vx_m *= invNp
     vy_m *= invNp
+    v2_m = vx_m**2 + vy_m**2 
+    vdiff = (v2 - v2_m)
+    if vdiff < 0.:
+        return 0.
+    else:
+        return (mass / (3. * k)) * vdiff / 2.0
+
+def calculate_par_temperature( mass, uz ):
+    Np = int(len(uz))
+    gamma = np.array(Np)
+
+    gamma = np.sqrt(1. + uz**2)
+
+    vz_m = np.sum(uz/gamma)*c
+
+    v2 = np.sum(uz**2/gamma**2)*c**2
+
+    invNp = (1. / Np)
+    v2 *= invNp
     vz_m *= invNp
-    v2_m = vx_m**2 + vy_m**2 + vz_m**2
+    v2_m = vz_m**2
     vdiff = (v2 - v2_m)
     if vdiff < 0.:
         return 0.
     else:
         return (mass / (3. * k)) * vdiff
 
-def test_collision_thermalization():
+def test_collision_isotropization():
     run_simulation()
 
 # Run the tests
 if __name__ == '__main__':
-    test_collision_thermalization()
+    test_collision_isotropization()
