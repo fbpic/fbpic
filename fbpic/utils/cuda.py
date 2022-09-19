@@ -385,9 +385,12 @@ if cuda_installed:
             # Create a Cupy kernel module and load the PTX code of the
             # numba kernel
             module = cupy.cuda.function.Module()
-            if numba_version[1] >= 53:
+            if numba_version[1] >= 56:
                 kernel = next(iter(numba_kernel.overloads.values()))
                 ptx = kernel._codelibrary.get_asm_str()
+                module.load(bytes(ptx, 'UTF-8'))
+            elif numba_version[1] >= 53:
+                ptx = next(iter(numba_kernel.overloads.values())).ptx
                 module.load(bytes(ptx, 'UTF-8'))
             else:
                 module.load(bytes(numba_kernel.ptx, 'UTF-8'))
