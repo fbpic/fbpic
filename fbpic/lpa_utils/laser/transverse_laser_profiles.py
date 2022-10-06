@@ -415,7 +415,7 @@ class DonutLikeLaguerreGaussTransverseProfile( LaserTransverseProfile ):
         # Calculate the argument of the complex exponential
         exp_argument = - 1.j*self.m*theta \
             - (x**2 + y**2) / (self.w0**2 * diffract_factor) \
-            + 1.j*(2*self.p + abs(self.m))*psi # *Additional* Gouy phase
+            - 1.j*(2*self.p + abs(self.m))*psi # *Additional* Gouy phase
         # Get the transverse profile
         profile = np.exp(exp_argument) / diffract_factor \
             * scaled_radius**abs(self.m) \
