@@ -67,7 +67,8 @@ class Particles(object) :
                     ux_th=0., uy_th=0., uz_th=0.,
                     dens_func=None, continuous_injection=True,
                     grid_shape=None, particle_shape='linear',
-                    use_cuda=False, dz_particles=None ):
+                    use_cuda=False, dz_particles=None,
+                    particle_boundaries={'zmin':'open', 'zmax':'open'}):
         """
         Initialize a uniform set of particles
 
@@ -100,10 +101,10 @@ class Particles(object) :
         dt : float (in seconds)
            The timestep for the particle pusher
 
-        ux_m, uy_m, uz_m: floats (dimensionless), optional
+        ux_m, uy_m, uz_m : floats (dimensionless), optional
            Normalized mean momenta of the injected particles in each direction
 
-        ux_th, uy_th, uz_th: floats (dimensionless), optional
+        ux_th, uy_th, uz_th : floats (dimensionless), optional
            Normalized thermal momenta in each direction
 
         dens_func : callable, optional
@@ -119,13 +120,13 @@ class Particles(object) :
            Whether to continuously inject the particles,
            in the case of a moving window
 
-        grid_shape: tuple, optional
+        grid_shape : tuple, optional
             Needed when running on the GPU
             The shape of the local grid (including guard cells), i.e.
             a tuple of the form (Nz, Nr). This is needed in order
             to initialize the sorting of the particles per cell.
 
-        particle_shape: str, optional
+        particle_shape : str, optional
             Set the particle shape for the charge/current deposition.
             Possible values are 'linear' and 'cubic' for first and third
             order particle shape factors.
@@ -133,12 +134,22 @@ class Particles(object) :
         use_cuda : bool, optional
             Wether to use the GPU or not.
 
-        dz_particles: float (in meter), optional
+        dz_particles : float (in meter), optional
             The spacing between particles in `z` (for continuous injection)
             In most cases, the spacing between particles can be inferred
             from the arguments `zmin`, `zmax` and `Npz`. However, when
             there are no particles in the initial box (`Npz = 0`),
             `dz_particles` needs to be explicitly passed.
+
+        particle_boundaries : dict, optional
+            A dictionary with 'zmin' and 'zmax' as keys, and strings as values.
+            This specifies the particle boundary in the longitudinal (z) direction.
+            Boundaries can be either `'open'`, `'reflective'`, or `'stop'`.
+              - `'open'` particles that leave the domain will be removed.
+              - `'reflective'` particles reflect at the domain boundary.
+              - `'stop'` particle momenta are set to 0.
+            If the EM-boundaries are periodic then the particles will be
+            perodic as well.
         """
         # Define whether or not to use the GPU
         self.use_cuda = use_cuda
@@ -148,6 +159,10 @@ class Particles(object) :
                 'Performing the particle operations on the CPU.')
             self.use_cuda = False
         self.data_is_on_gpu = False # Data is initialized on the CPU
+
+        self.zmin = zmin
+        self.zmax = zmax
+        self.particle_boundaries = particle_boundaries
 
         # Generate evenly-spaced particles
         Ntot, x, y, z, ux, uy, uz, inv_gamma, w = generate_evenly_spaced(
@@ -197,6 +212,7 @@ class Particles(object) :
         # (see method make_ionizable and activate_compton)
         self.ionizer = None
         self.compton_scatterer = None
+        self.collisions = None
         # Total number of quantities (necessary in MPI communications)
         self.n_integer_quantities = 0
         self.n_float_quantities = 8 # x, y, z, ux, uy, uz, inv_gamma, w
@@ -226,11 +242,12 @@ class Particles(object) :
             # (because they are swapped with these arrays during sorting)
             self.sorting_buffer = np.empty( Ntot, dtype=np.float64)
 
-            # Register integer thta records shift in the indices,
+            # Register integer that records shift in the indices,
             # induced by the moving window
             self.prefix_sum_shift = 0
             # Register boolean that records if the particles are sorted or not
             self.sorted = False
+
             # Define optimal number of CUDA threads per block for deposition
             # and gathering kernels (determined empirically)
             if particle_shape == "cubic":
@@ -550,6 +567,7 @@ class Particles(object) :
             # Assign the old particle data array to the particle buffer
             self.int_sorting_buffer = particle_array
 
+
     def push_p( self, t ) :
         """
         Advance the particles' momenta over one timestep, using the Vay pusher
@@ -665,6 +683,7 @@ class Particles(object) :
                 self.ux, self.uy, self.uz,
                 self.inv_gamma, self.Ntot,
                 dt, x_push, y_push, z_push )
+
 
     def gather( self, grid, comm ) :
         """
@@ -831,6 +850,7 @@ class Particles(object) :
                 raise ValueError("`particle_shape` should be either \
                                   'linear' or 'cubic' \
                                    but is `%s`" % self.particle_shape)
+
 
     def deposit( self, fld, fieldtype ) :
         """
@@ -1045,7 +1065,7 @@ class Particles(object) :
     def sort_particles(self, fld):
         """
         Sort the particles by performing the following steps:
-        1. Get fied cell index
+        1. Get field cell index
         2. Sort field cell index
         3. Parallel prefix sum
         4. Rearrange particle arrays

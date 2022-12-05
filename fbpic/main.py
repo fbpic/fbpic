@@ -339,6 +339,8 @@ class Simulation(object):
         self.laser_antennas = []
         # Initialize an empty list of mirrors
         self.mirrors = []
+        # Initialize an empty list of collisions
+        self.collisions = []
 
         # Print simulation setup
         print_simulation_setup( self, verbose_level=verbose_level )
@@ -438,6 +440,7 @@ class Simulation(object):
                 # continuous injection of new particles by the moving window.
                 # (In the case of single-proc periodic simulations, particles
                 # are shifted by one box length, so they remain inside the box)
+
                 for species in self.ptcl:
                     self.comm.exchange_particles(species, fld, self.time)
                 for antenna in self.laser_antennas:
@@ -460,6 +463,12 @@ class Simulation(object):
 
             # Main PIC iteration
             # ------------------
+
+            # Handle collisions
+            for collision in self.collisions:
+                if self.iteration % collision.period == 0 \
+                    and self.iteration >= collision.start:
+                    collision.handle_collisions( fld, dt )
 
             # Keep field arrays sorted throughout gathering+push
             for species in ptcl:
@@ -542,6 +551,7 @@ class Simulation(object):
             fld.push( use_true_rho, check_exchanges=(self.comm.size > 1) )
             if correct_divE:
                 fld.correct_divE()
+
             # Move the grids if needed
             if self.comm.moving_win is not None:
                 # Shift the fields is spectral space and update positions of
