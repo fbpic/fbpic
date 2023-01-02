@@ -614,9 +614,10 @@ class Simulation(object):
         """
         # Shortcut
         fld = self.fld
-        # If no species_list is provided, all species and antennas deposit
+        # If no species_list is provided, all non-zero-current species
+        # and antennas deposit
         if species_list is None:
-            species_list = self.ptcl
+            species_list = [species for species in self.ptcl if not species.is_tracer]
             antennas_list = self.laser_antennas
         else:
             # Otherwise only the specified species deposit
@@ -795,7 +796,8 @@ class Simulation(object):
                             uz_m=0., ux_m=0., uy_m=0.,
                             uz_th=0., ux_th=0., uy_th=0.,
                             continuous_injection=True,
-                            boost_positions_in_dens_func=False ):
+                            boost_positions_in_dens_func=False,
+                            is_tracer=False):
         """
         Create a new species (i.e. an instance of `Particles`) with
         charge `q` and mass `m`. Add it to the simulation (i.e. to the list
@@ -879,6 +881,12 @@ class Simulation(object):
         boost_positions_in_dens_func: bool, optional
            For boosted-frame simulations: whether to automatically take into
            account the Lorentz transformation of the positions, in `dens_func`
+
+        is_tracer: bool, optional
+            Setting this flag to True will allow this particle
+            to move as a normal particle with given mass and charge,
+            but will generate no current. This allows them to be passive
+            tracers inside the plasma.
 
         Returns
         -------
@@ -988,7 +996,7 @@ class Simulation(object):
                         ux_m=ux_m, uy_m=uy_m, uz_m=uz_m,
                         ux_th=ux_th, uy_th=uy_th, uz_th=uz_th,
                         continuous_injection=continuous_injection,
-                        dz_particles=dz_particles )
+                        dz_particles=dz_particles, is_tracer=is_tracer )
 
         # Add it to the list of species and return it to the user
         self.ptcl.append( new_species )
