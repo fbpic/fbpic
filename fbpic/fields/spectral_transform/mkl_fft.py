@@ -31,7 +31,10 @@ elif sys.platform == 'darwin':
     except OSError:
         mkl = ctypes.CDLL('libmkl_rt.1.dylib')
 elif sys.platform == 'win32':
-    mkl = ctypes.CDLL('mkl_rt.dll')
+    try:
+        mkl = ctypes.CDLL('mkl_rt.dll')
+    except OSError:
+        mkl = ctypes.CDLL('mkl_rt.1.dll')
 else:
     raise ValueError('Unrecognized plateform: %s' %sys.platform)
 

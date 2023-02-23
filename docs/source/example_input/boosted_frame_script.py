@@ -21,7 +21,8 @@ import numpy as np
 from scipy.constants import c, e, m_e, m_p
 # Import the relevant structures in FBPIC
 from fbpic.main import Simulation
-from fbpic.lpa_utils.laser import add_laser
+from fbpic.lpa_utils.laser import add_laser_pulse
+from fbpic.lpa_utils.laser.laser_profiles import GaussianLaser
 from fbpic.lpa_utils.bunch import add_particle_bunch
 from fbpic.lpa_utils.boosted_frame import BoostConverter
 from fbpic.openpmd_diag import FieldDiagnostic, ParticleDiagnostic, \
@@ -63,7 +64,7 @@ dt = min( rmax/(2*boost.gamma0*Nr)/c, (zmax-zmin)/Nz/c )  # Timestep (seconds)
 # The laser (conversion to boosted frame is done inside 'add_laser')
 a0 = 2.          # Laser amplitude
 w0 = 50.e-6      # Laser waist
-ctau = 5.e-6     # Laser duration
+tau = 16.e-15     # Laser duration
 z0 = -10.e-6     # Laser centroid
 zfoc = 0.e-6     # Focal position
 lambda0 = 0.8e-6 # Laser wavelength
@@ -185,9 +186,11 @@ if __name__ == '__main__':
     if track_bunch:
         bunch.track( sim.comm )
 
+    # Create a Gaussian laser profile
+    laser_profile = GaussianLaser(a0, w0, tau, z0, lambda0=lambda0, zf=zfoc)
     # Add a laser to the fields of the simulation
-    add_laser( sim, a0, w0, ctau, z0, lambda0=lambda0,
-           zf=zfoc, gamma_boost=boost.gamma0 )
+    add_laser_pulse( sim, laser_profile, gamma_boost=boost.gamma0,
+                     method='antenna', z0_antenna=0)
 
     # Convert parameter to boosted frame
     v_window_boosted, = boost.velocity( [ v_window ] )

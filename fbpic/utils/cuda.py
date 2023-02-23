@@ -8,7 +8,8 @@ It defines a set of generic functions that operate on a GPU.
 import warnings
 import numba
 numba_version = (int(numba.__version__.split('.')[0]),
-                 int(numba.__version__.split('.')[1]))
+                 int(numba.__version__.split('.')[1]),
+                 int(numba.__version__.split('.')[2]))
 from numba import cuda
 import numpy as np
 
@@ -385,7 +386,15 @@ if cuda_installed:
             # Create a Cupy kernel module and load the PTX code of the
             # numba kernel
             module = cupy.cuda.function.Module()
-            if numba_version[1] >= 53:
+            if numba_version[1] >= 56:
+                if numba_version[2] == 0:
+                    raise RuntimeError(
+                        'FBPIC is incompatible with numba 0.56.0.\n'
+                        'Please install either a later or an earlier version.')
+                kernel = next(iter(numba_kernel.overloads.values()))
+                ptx = kernel._codelibrary.get_asm_str()
+                module.load(bytes(ptx, 'UTF-8'))
+            elif numba_version[1] >= 53:
                 ptx = next(iter(numba_kernel.overloads.values())).ptx
                 module.load(bytes(ptx, 'UTF-8'))
             else:

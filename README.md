@@ -7,7 +7,7 @@
 [![DOI](https://zenodo.org/badge/69215997.svg)](https://zenodo.org/badge/latestdoi/69215997)
 
 Online documentation: [http://fbpic.github.io](http://fbpic.github.io)<br/>
-Support: [Join slack](https://slack-fbpic.herokuapp.com)
+Support: [Join slack](https://join.slack.com/t/fbpic/shared_invite/zt-1kxqk65ph-YJ417NexkjkNhX7ya94CQA)
 
 ## Overview
 

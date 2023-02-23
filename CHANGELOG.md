@@ -1,11 +1,20 @@
 # Change Log / Release Log for fbpic
 
+## 0.22.0
+
+This release fixes compatibility issues with newer versions of the
+FBPIC dependencies.
+- FBPIC is now compatible with numba 0.56 on GPU. (See [606](https://github.com/fbpic/fbpic/pull/606))
+- FBPIC is compatible with the latest versions of the MKL package. (See [617](https://github.com/fbpic/fbpic/pull/617))
+
+In addition, the sign of the Gouy phase was correct for the `DonutLikeLaguerreGaussProfile` (See [607](https://github.com/fbpic/fbpic/pull/607))
+
 ## 0.21.0
 
 This release expands support for the PICMI interface, in particular for
 boosted-frame simulations. In addition, this release added the new optional
 argument `boost_positions_in_dens_func` to the function `add_new_species`.
-This allows the pass the density function directly in the lab frame.
+This allows the user to pass the density function directly in the lab frame.
 (See [463](https://github.com/fbpic/fbpic/pull/463))
 
 ## 0.20.4
