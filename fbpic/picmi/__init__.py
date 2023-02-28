@@ -67,4 +67,5 @@ __all__ = [ 'codename', 'Simulation', 'CylindricalGrid', 'BinomialSmoother',
     'GaussianBunchDistribution', 'AnalyticDistribution', 'UniformDistribution',
     'FieldDiagnostic', 'ParticleDiagnostic', 'constants',
     'LabFrameParticleDiagnostic', 'LabFrameFieldDiagnostic',
-    'Mirror', 'AnalyticAppliedField', 'ConstantAppliedField' ]
+    'Mirror', 'AnalyticAppliedField', 'ConstantAppliedField',
+    'FieldIonization' ]

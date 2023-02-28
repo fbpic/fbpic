@@ -28,6 +28,7 @@ from picmistandard import PICMI_AnalyticDistribution, PICMI_UniformDistribution,
 from picmistandard import PICMI_PseudoRandomLayout, PICMI_GaussianBunchDistribution
 from picmistandard import PICMI_LaserAntenna, PICMI_GaussianLaser
 from picmistandard import PICMI_Species, PICMI_MultiSpecies
+from picmistandard import PICMI_FieldIonization
 from picmistandard import PICMI_AnalyticAppliedField, PICMI_ConstantAppliedField, PICMI_Mirror
 from picmistandard import PICMI_FieldDiagnostic, PICMI_ParticleDiagnostic, \
     PICMI_LabFrameFieldDiagnostic, PICMI_LabFrameParticleDiagnostic
@@ -230,7 +231,7 @@ class Simulation( PICMI_Simulation ):
 
         # Loop over interactions
         for interaction in self.interactions:
-            assert type(interaction) is FieldIonization
+            assert type(interaction) is PICMI_FieldIonization
             assert interaction.model == 'ADK'
             picmi_target = interaction.product_species
             picmi_source = interaction.ionized_species
