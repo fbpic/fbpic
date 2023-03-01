@@ -55,6 +55,8 @@ from picmistandard import PICMI_LabFrameParticleDiagnostic as LabFrameParticleDi
 from picmistandard import PICMI_Mirror as Mirror
 from picmistandard import PICMI_AnalyticAppliedField as AnalyticAppliedField
 from picmistandard import PICMI_ConstantAppliedField as ConstantAppliedField
+# - For ionization
+from picmistandard import PICMI_FieldIonization as FieldIonization
 
 # Import the PICMI Simulation object redefined in FBPIC
 from .simulation import Simulation
@@ -65,4 +67,5 @@ __all__ = [ 'codename', 'Simulation', 'CylindricalGrid', 'BinomialSmoother',
     'GaussianBunchDistribution', 'AnalyticDistribution', 'UniformDistribution',
     'FieldDiagnostic', 'ParticleDiagnostic', 'constants',
     'LabFrameParticleDiagnostic', 'LabFrameFieldDiagnostic',
-    'Mirror', 'AnalyticAppliedField', 'ConstantAppliedField' ]
+    'Mirror', 'AnalyticAppliedField', 'ConstantAppliedField',
+    'FieldIonization' ]
