@@ -28,6 +28,7 @@ from picmistandard import PICMI_AnalyticDistribution, PICMI_UniformDistribution,
 from picmistandard import PICMI_PseudoRandomLayout, PICMI_GaussianBunchDistribution
 from picmistandard import PICMI_LaserAntenna, PICMI_GaussianLaser
 from picmistandard import PICMI_Species, PICMI_MultiSpecies
+from picmistandard import PICMI_FieldIonization
 from picmistandard import PICMI_AnalyticAppliedField, PICMI_ConstantAppliedField, PICMI_Mirror
 from picmistandard import PICMI_FieldDiagnostic, PICMI_ParticleDiagnostic, \
     PICMI_LabFrameFieldDiagnostic, PICMI_LabFrameParticleDiagnostic
@@ -228,21 +229,21 @@ class Simulation( PICMI_Simulation ):
             # (Useful for particle diagnostics later on)
             s.fbpic_species = fbpic_species
 
-        # Loop over species and handle ionization
-        for s in species_instances_list:
-            for interaction in s.interactions:
-                assert interaction[0] == 'ionization'
-                assert interaction[1] == 'ADK'
-                picmi_target = interaction[2]
-                if not hasattr( picmi_target, 'fbpic_species' ):
-                    raise RuntimeError('For ionization with PICMI+FBPIC:\n'
-                        'You need to add the target species to the simulation,'
-                        ' before the other species.')
-                fbpic_target = picmi_target.fbpic_species
-                fbpic_source = s.fbpic_species
-                fbpic_source.make_ionizable( element=s.particle_type,
-                                             level_start=s.charge_state,
-                                             target_species=fbpic_target )
+        # Loop over interactions
+        for interaction in self.interactions:
+            assert type(interaction) is PICMI_FieldIonization
+            assert interaction.model == 'ADK'
+            picmi_target = interaction.product_species
+            picmi_source = interaction.ionized_species
+            if not hasattr( picmi_target, 'fbpic_species' ):
+                raise RuntimeError('For ionization with PICMI+FBPIC:\n'
+                    'You need to add the target species to the simulation,'
+                    ' before the other species.')
+            fbpic_target = picmi_target.fbpic_species
+            fbpic_source = picmi_source.fbpic_species
+            fbpic_source.make_ionizable( element=picmi_source.particle_type,
+                                         level_start=picmi_source.charge_state,
+                                         target_species=fbpic_target )
 
 
     def _create_new_fbpic_species(self, s, layout, injection_plane_position,
