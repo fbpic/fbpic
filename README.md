@@ -1,7 +1,5 @@
 # Fourier-Bessel Particle-In-Cell code (FBPIC)
 
-[![Build Status main](https://img.shields.io/travis/fbpic/fbpic/main.svg?label=main)](https://travis-ci.com/fbpic/fbpic/branches)
-[![Build Status dev](https://img.shields.io/travis/fbpic/fbpic/dev.svg?label=dev)](https://travis-ci.com/fbpic/fbpic/branches)
 [![pypi version](https://img.shields.io/pypi/v/fbpic.svg)](https://pypi.python.org/pypi/fbpic)
 [![License](https://img.shields.io/pypi/l/fbpic.svg)](LICENSE.txt)
 [![DOI](https://zenodo.org/badge/69215997.svg)](https://zenodo.org/badge/latestdoi/69215997)
