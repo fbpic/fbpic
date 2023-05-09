@@ -387,7 +387,7 @@ if cuda_installed:
             # numba kernel
             module = cupy.cuda.function.Module()
             if numba_version[1] >= 56:
-                if numba_version[2] == 0:
+                if (numba_version[1] == 56) and (numba_version[2] == 0):
                     raise RuntimeError(
                         'FBPIC is incompatible with numba 0.56.0.\n'
                         'Please install either a later or an earlier version.')
