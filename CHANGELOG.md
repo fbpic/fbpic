@@ -1,5 +1,11 @@
 # Change Log / Release Log for fbpic
 
+## 0.23.0
+
+- FBPIC can now be used with numba 0.57 on GPU (See [640](https://github.com/fbpic/fbpic/pull/640))
+- FBPIC now supports tracer particles (See [630](https://github.com/fbpic/fbpic/pull/630))
+- FBPIC is now compatible with PICMI's new ionization interface (See [631](https://github.com/fbpic/fbpic/pull/631))
+
 ## 0.22.0
 
 This release fixes compatibility issues with newer versions of the
