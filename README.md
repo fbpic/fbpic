@@ -11,7 +11,7 @@ Support: [Join slack](https://join.slack.com/t/fbpic/shared_invite/zt-1kxqk65ph-
 
 FBPIC is a
 [Particle-In-Cell (PIC) code](https://en.wikipedia.org/wiki/Particle-in-cell)
-for relativistic plasma physics.  
+for relativistic plasma physics.
 
 It is especially well-suited for physical simulations of
 **laser-wakefield acceleration** and **plasma-wakefield acceleration**, with close-to-cylindrical symmetry.
@@ -23,7 +23,7 @@ a **spectral decomposition in
 cylindrical geometry** (Fourier-Bessel
 decomposition) for the fields. This combines the advantages of **spectral 3D** PIC codes (high accuracy and stability) and
 those of **finite-difference cylindrical** PIC codes
-(orders-of-magnitude speedup when compared to 3D simulations).  
+(orders-of-magnitude speedup when compared to 3D simulations).
 For more details on the algorithm, its advantages and limitations, see
 the [documentation](http://fbpic.github.io).
 
@@ -110,7 +110,7 @@ The code outputs HDF5 files, that comply with the
 
 ## Contributing
 
-We welcome contributions to the code! Please read [this page](https://github.com/fbpic/fbpic/blob/main/CONTRIBUTING.md) for guidelines on how to contribute.
+We welcome contributions to the code! Please read [this page](https://github.com/fbpic/fbpic/blob/dev/CONTRIBUTING.md) for guidelines on how to contribute.
 
 ## Research & Attribution
 
