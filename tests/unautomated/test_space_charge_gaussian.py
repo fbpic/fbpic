@@ -50,7 +50,7 @@ sim.set_moving_window( v=c )
 # Suppress the particles that were intialized by default and add the bunch
 sim.ptcl = [ ]
 add_elec_bunch_gaussian( sim, sig_r, sig_z, n_emit, gamma0, sig_gamma,
-                         Q, N, tf, zf )
+                         Q, N, tf, zf, symmetrize=True )
 # Set the diagnostics
 sim.diags = [ FieldDiagnostic(10, sim.fld, comm=sim.comm) ]
 # Perform one simulation step (essentially in order to write the diags)
