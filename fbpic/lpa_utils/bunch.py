@@ -617,7 +617,8 @@ def add_elec_bunch( sim, gamma0, n_e, p_zmin, p_zmax, p_rmin, p_rmax,
 
 def add_elec_bunch_gaussian( sim, sig_r, sig_z, n_emit, gamma0,
                         sig_gamma, Q, N, tf=0., zf=0., boost=None,
-                        save_beam=None, z_injection_plane=None ):
+                        save_beam=None, z_injection_plane=None,
+                        symmetrize=False ):
     """
     Introduce a relativistic Gaussian electron bunch in the simulation,
     along with its space charge field.
@@ -673,6 +674,12 @@ def add_elec_bunch_gaussian( sim, sig_r, sig_z, n_emit, gamma0,
         motion for z<z_injection_plane. This is sometimes useful in
         boosted-frame simulations.
         `z_injection_plane` is always given in the lab frame.
+
+    symmetrize: bool, optional
+       Whether to symmetrize the beam with 4-fold rotational symmetry.
+       (Meaning that, for every macroparticle, 3 other macroparticles
+       that are rotated by +pi/2, +pi, -pi/2 in the transverse plane)
+       This ensures that the beam has exactly 0 initial offset in x and y
     """
     # Generate Gaussian gamma distribution of the beam
     n_physical_particles = Q/e
@@ -680,7 +687,8 @@ def add_elec_bunch_gaussian( sim, sig_r, sig_z, n_emit, gamma0,
                                 n_emit, gamma0, sig_gamma,
                                 n_physical_particles, N, tf=tf,
                                 zf=zf, boost=boost, save_beam=save_beam,
-                                z_injection_plane=z_injection_plane)
+                                z_injection_plane=z_injection_plane,
+                                symmetrize=symmetrize)
     return elec_bunch
 
 
