@@ -12,7 +12,7 @@ from scipy.constants import c
 import numpy as np
 # Import the relevant structures in FBPIC
 from fbpic.main import Simulation
-from fbpic.openpmd_diag import FieldDiagnostic
+from fbpic.openpmd_diag import FieldDiagnostic, ParticleDiagnostic
 from fbpic.lpa_utils.bunch import add_elec_bunch_gaussian
 
 # Set the seed since the gaussian is drawn randomly
@@ -49,9 +49,10 @@ sim = Simulation( Nz, zmax, Nr, rmax, Nm, dt,
 sim.set_moving_window( v=c )
 # Suppress the particles that were intialized by default and add the bunch
 sim.ptcl = [ ]
-add_elec_bunch_gaussian( sim, sig_r, sig_z, n_emit, gamma0, sig_gamma,
+elec = add_elec_bunch_gaussian( sim, sig_r, sig_z, n_emit, gamma0, sig_gamma,
                          Q, N, tf, zf, symmetrize=True )
 # Set the diagnostics
-sim.diags = [ FieldDiagnostic(10, sim.fld, comm=sim.comm) ]
+sim.diags = [ FieldDiagnostic(10, sim.fld, comm=sim.comm),
+            ParticleDiagnostic(10, species={'elec':elec}, comm=sim.comm) ]
 # Perform one simulation step (essentially in order to write the diags)
 sim.step(1)

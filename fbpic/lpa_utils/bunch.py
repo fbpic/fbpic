@@ -265,6 +265,7 @@ def add_particle_bunch_gaussian(sim, q, m, sig_r, sig_z, n_emit, gamma0,
 
     # Add 4-fold copies of the beam by rotating particles by pi/2, pi and -pi/2
     if symmetrize:
+        w *= 0.25
         x, y, z, ux, uy, uz, w = map( np.concatenate, zip(
                                     [ x, y, z, ux, uy, uz, w],
                                     [-y, x, z,-uy, ux, uz, w],
