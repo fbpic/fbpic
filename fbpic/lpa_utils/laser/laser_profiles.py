@@ -835,3 +835,42 @@ class FewCycleLaser( LaserProfile ):
         Ey = self.E0y * profile
 
         return( Ex.real, Ey.real )
+
+class FromLasyFileLaser( LaserProfile ):
+    """Class that emits a laser from a lasy file"""
+
+    def __init__( self, filename, theta_pol=0., propagation_direction=1 ):
+        """
+        TODO
+
+        Parameters
+        ----------
+        filename: string
+            The `lasy` file from which to emit the laser
+
+        theta_pol: float (in radian), optional
+           The angle of polarization with respect to the x axis.
+
+        propagation_direction: int, optional
+            Indicates in which direction the laser propagates.
+            This should be either 1 (laser propagates towards positive z)
+            or -1 (laser propagates towards negative z).
+        """
+        # Initialize propagation direction and mark as GPU capable
+        LaserProfile.__init__(self, propagation_direction, gpu_capable=False)
+
+        # Open and read the lasy file
+        # - Extract wavelength
+        # - Extract array of data
+
+        self.cos_theta = np.cos(theta_pol)
+        self.sin_theta = np.sin(theta_pol)
+
+    def E_field( self, x, y, z, t ):
+        """
+        See the docstring of LaserProfile.E_field
+        """
+        # Perform interpolation
+        prop_dir = self.propag_direction
+
+        return( Ex.real, Ey.real )

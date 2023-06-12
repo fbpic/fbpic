@@ -34,7 +34,7 @@ jobs:
       run: |
         conda install --yes "numba<0.49" scipy h5py mkl python=${{ matrix.python-version }};
         conda install --yes -c conda-forge mpich mpi4py;
-        pip install openPMD-viewer pytest pyflakes;
+        pip install openPMD-viewer pytest pyflakes lasy;
         python setup.py install
     - shell: bash -l {0}
       name: pyflakes
