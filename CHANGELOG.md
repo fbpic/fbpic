@@ -1,5 +1,9 @@
 # Change Log / Release Log for fbpic
 
+## 0.24.0
+
+This version adds the option to symmetrize a Gaussian beam, so as to avoid random fluctuations in the mean transverse position of the beam. (See [642](https://github.com/fbpic/fbpic/pull/640))
+
 ## 0.23.0
 
 - FBPIC can now be used with numba 0.57 on GPU (See [640](https://github.com/fbpic/fbpic/pull/640))
@@ -242,7 +246,7 @@ In addition, this release adds various improvements to FBPIC:
 [#342](https://github.com/fbpic/fbpic/pull/342)
 - The `ParticleChargeDiagnostic` is now smoothed, in the same way as the regular charge density diagnostic [#349](https://github.com/fbpic/fbpic/pull/349)
 
-**Optimizations:**    
+**Optimizations:**
 
 - The number of threads per block were optimized for modern GPUs [#365](https://github.com/fbpic/fbpic/pull/365)
 - Certain arrays are now kept on GPU, and never copied to CPU [#361](https://github.com/fbpic/fbpic/pull/361)
