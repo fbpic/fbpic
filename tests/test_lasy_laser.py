@@ -156,7 +156,7 @@ if __name__ == "__main__":
     sim.ptcl = []
 
     # Add the laser
-    laser_profile = FromLasyFileLaser( 'laguerrelaserRZ.h5' )
+    laser_profile = FromLasyFileLaser( 'laguerrelaserRZ_00000.h5' )
     add_laser_pulse(sim, laser_profile, method='antenna', z0_antenna=zmax)
 
     # Calculate the number of steps between each output

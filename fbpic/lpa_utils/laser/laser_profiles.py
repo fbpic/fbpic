@@ -7,6 +7,8 @@ It defines a set of common laser profiles.
 """
 import numpy as np
 from scipy.constants import c, m_e, e, epsilon_0
+import h5py
+import numba
 from .longitudinal_laser_profiles import GaussianChirpedLongitudinalProfile
 from .transverse_laser_profiles import GaussianTransverseProfile, \
     LaguerreGaussTransverseProfile, DonutLikeLaguerreGaussTransverseProfile, \
@@ -860,8 +862,28 @@ class FromLasyFileLaser( LaserProfile ):
         LaserProfile.__init__(self, propagation_direction, gpu_capable=False)
 
         # Open and read the lasy file
-        # - Extract wavelength
-        # - Extract array of data
+        f = h5py.File( filename, mode="r" )
+        dset = f['/data/0/meshes/laserEnvelope']
+        env_data = np.array(dset)
+        dt_data, dr_data = dset.attrs['gridSpacing']*dset.attrs['gridUnitSI']
+        inv_dt_data = 1./dt_data
+        inv_dr_data = 1./dr_data
+        # TODO: Extract wavelength from file
+        self.omega = 2*np.pi*c/0.8e-6
+
+        @numba.vectorize
+        def interp_function(x, y, t):
+            r_interp = (x**2 + y**2)**.5*inv_dr_data
+            ir = int(r_interp)
+            t_interp = t*inv_dt_data
+            it = int(t_interp)
+            env = (ir+1-r_interp)*(it+1-t_interp)*env_data[0, it, ir] \
+                + (r_interp-ir)*(it+1-t_interp)*env_data[0, it, ir+1] \
+                + (ir+1-r_interp)*(t_interp-it)*env_data[0, it+1, ir] \
+                + (r_interp-ir)*(t_interp-it)*env_data[0, it+1, ir+1]
+            return env
+
+        self.interp_function = interp_function
 
         self.cos_theta = np.cos(theta_pol)
         self.sin_theta = np.sin(theta_pol)
@@ -870,7 +892,8 @@ class FromLasyFileLaser( LaserProfile ):
         """
         See the docstring of LaserProfile.E_field
         """
-        # Perform interpolation
-        prop_dir = self.propag_direction
+        # Perform interpolation from data
+        env = self.interp_function(x, y, t)
+        E = (env * np.exp(-1.j*self.omega*t)).real
 
-        return( Ex.real, Ey.real )
+        return( E * self.cos_theta, E * self.sin_theta )
