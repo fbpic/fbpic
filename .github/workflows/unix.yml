@@ -6,7 +6,7 @@ jobs:
   test:
     strategy:
       matrix:
-        python-version: [3.7]
+        python-version: [3.6]
         os: [ubuntu-20.04]
     runs-on: ${{ matrix.os }}
 
@@ -34,7 +34,8 @@ jobs:
       run: |
         conda install --yes "numba<0.49" scipy h5py mkl python=${{ matrix.python-version }};
         conda install --yes -c conda-forge mpich mpi4py;
-        pip install openPMD-viewer pytest pyflakes lasy;
+        pip install openPMD-viewer pytest pyflakes;
+        pip install git+https://github.com/LASY-org/lasy;
         python setup.py install
     - shell: bash -l {0}
       name: pyflakes
