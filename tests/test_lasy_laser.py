@@ -134,7 +134,7 @@ if __name__ == "__main__":
     )
     dim = "rt"
     lo = (0e-6, -20e-15)
-    hi = (+50e-6, +20e-15)
+    hi = (+25e-6, +20e-15)
     npoints = (100,100)
     laser = Laser(dim, lo, hi, npoints, profile, n_azimuthal_modes=2)
     laser.write_to_file("laguerrelaserRZ")
