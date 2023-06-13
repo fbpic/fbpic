@@ -868,6 +868,7 @@ class FromLasyFileLaser( LaserProfile ):
         dt_data, dr_data = dset.attrs['gridSpacing']*dset.attrs['gridUnitSI']
         inv_dt_data = 1./dt_data
         inv_dr_data = 1./dr_data
+        n_modes = int(env_data.shape[0]/2)
         # TODO: Extract wavelength from file
         self.omega = 2*np.pi*c/0.8e-6
 
@@ -877,10 +878,24 @@ class FromLasyFileLaser( LaserProfile ):
             ir = int(r_interp)
             t_interp = t*inv_dt_data
             it = int(t_interp)
-            env = (ir+1-r_interp)*(it+1-t_interp)*env_data[0, it, ir] \
-                + (r_interp-ir)*(it+1-t_interp)*env_data[0, it, ir+1] \
-                + (ir+1-r_interp)*(t_interp-it)*env_data[0, it+1, ir] \
-                + (r_interp-ir)*(t_interp-it)*env_data[0, it+1, ir+1]
+            env = (ir+1-r_interp)*(it+1-t_interp) * env_data[0, it, ir] \
+                + (r_interp-ir)  *(it+1-t_interp) * env_data[0, it, ir+1] \
+                + (ir+1-r_interp)*(t_interp-it)   * env_data[0, it+1, ir] \
+                + (r_interp-ir)  *(t_interp-it)   * env_data[0, it+1, ir+1]
+            for m in range(1,n_modes):
+                env_cos = (ir+1-r_interp)*(it+1-t_interp) * env_data[2*m-1, it, ir] \
+                        + (r_interp-ir)  *(it+1-t_interp) * env_data[2*m-1, it, ir+1] \
+                        + (ir+1-r_interp)*(t_interp-it)   * env_data[2*m-1, it+1, ir] \
+                        + (r_interp-ir)  *(t_interp-it)   * env_data[2*m-1, it+1, ir+1]
+                env_sin = (ir+1-r_interp)*(it+1-t_interp) * env_data[2*m, it, ir] \
+                        + (r_interp-ir)  *(it+1-t_interp) * env_data[2*m, it, ir+1] \
+                        + (ir+1-r_interp)*(t_interp-it)   * env_data[2*m, it+1, ir] \
+                        + (r_interp-ir)  *(t_interp-it)   * env_data[2*m, it+1, ir+1]
+                exp_theta = ((x+1.j*y)/(x**2 + y**2)**.5)**m
+                cos = exp_theta.real
+                sin = exp_theta.imag
+                env += env_cos*cos + env_sin*sin
+
             return env
 
         self.interp_function = interp_function
