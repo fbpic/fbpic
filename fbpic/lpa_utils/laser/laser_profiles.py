@@ -870,8 +870,7 @@ class FromLasyFileLaser( LaserProfile ):
         inv_dr_data = 1./dr_data
         _, nt, nr = env_data.shape
         n_modes = int(env_data.shape[0]/2) + 1
-        # TODO: Extract wavelength from file
-        self.omega = 2*np.pi*c/0.8e-6
+        self.omega = dset.attrs['angularFrequency']
 
         @numba.vectorize
         def interp_function(x, y, t):

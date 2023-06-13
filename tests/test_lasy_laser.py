@@ -8,11 +8,9 @@
 # - Run an FBPIC simulation, until time T when the pulse is fully injected
 # - Compute the theory for laser envelope at time T
 # - Compare theory and simulation in RZ, for both envelope and central frequency
-import matplotlib
-matplotlib.use('Agg')
-import matplotlib.pyplot as plt
 import numpy as np
 from scipy.constants import c, epsilon_0
+from scipy.signal import hilbert
 from scipy.special import genlaguerre
 from openpmd_viewer.addons import LpaDiagnostics
 from fbpic.main import Simulation
@@ -21,6 +19,9 @@ from fbpic.lpa_utils.laser import add_laser_pulse, FromLasyFileLaser
 
 # Maximum acceptable error for this test
 relative_error_threshold = 0.065
+
+# Whether to plot the results
+plot = True
 
 #Parameters of the Laguerre Gaussian beam
 wavelength = 1.e-6
@@ -51,72 +52,59 @@ def laguerre_env(T, X, Y, Z, p, m):
 def compare_simulation_with_theory():
 
     ts = LpaDiagnostics('./diags/hdf5')
-    """
-    # Define 3D meshes
-    x = np.linspace(
-        ds.domain_left_edge[0],
-        ds.domain_right_edge[0],
-        ds.domain_dimensions[0]).v
-    y = np.linspace(
-        ds.domain_left_edge[1],
-        ds.domain_right_edge[1],
-        ds.domain_dimensions[1]).v
-    z = np.linspace(
-        ds.domain_left_edge[ds.dimensionality-1],
-        ds.domain_right_edge[ds.dimensionality-1],
-        ds.domain_dimensions[ds.dimensionality-1]).v
-    X, Y, Z = np.meshgrid(x, y, z, sparse=False, indexing='ij')
+    F_laser, info = ts.get_field( 'E', 'x', iteration=ts.iterations[-1])
+    t = ts.current_t
+    X, Z = np.meshgrid(info.r, info.z, sparse=False, indexing='ij')
+    Y = np.zeros_like(X)
 
     # Compute the theory for envelope
-    env_theory = laguerre_env(+t_c-ds.current_time.to_value(), X,Y,Z,p=0,m=1)+laguerre_env(-t_c+ds.current_time.to_value(), X,Y,Z,p=0,m=1)
+    env_theory = abs( laguerre_env(+t_c-t, X,Y,Z,p=0,m=1) + laguerre_env(-t_c+t, X,Y,Z,p=0,m=1) )
 
     # Read laser field in PIC simulation, and compute envelope
-    all_data_level_0 = ds.covering_grid(level=0,left_edge=ds.domain_left_edge, dims=ds.domain_dimensions)
-    F_laser = all_data_level_0['boxlib', 'Et'].v.squeeze()
     env = abs(hilbert(F_laser))
-    extent = [ds.domain_left_edge[ds.dimensionality-1], ds.domain_right_edge[ds.dimensionality-1],
-          ds.domain_left_edge[0], ds.domain_right_edge[0] ]
-
-    env_theory_slice= env_theory[:,env_theory.shape[1]//2, :]
 
     # Plot results
-    plt.figure(figsize=(8,6))
-    plt.subplot(221)
-    plt.title('PIC field')
-    plt.imshow(F_laser, extent=extent)
-    plt.colorbar()
-    plt.subplot(222)
-    plt.title('PIC envelope')
-    plt.imshow(env, extent=extent)
-    plt.colorbar()
-    plt.subplot(223)
-    plt.title('Theory envelope')
-    plt.imshow(env_theory_slice, extent=extent)
-    plt.colorbar()
-    plt.subplot(224)
-    plt.title('Difference')
-    plt.imshow(env-env_theory_slice, extent=extent)
-    plt.colorbar()
-    plt.tight_layout()
-    plt.savefig(compname, bbox_inches='tight')
+    if plot:
+        import matplotlib
+        matplotlib.use('Agg')
+        import matplotlib.pyplot as plt
+        extent = info.imshow_extent
+        plt.figure(figsize=(8,6))
+        plt.subplot(221)
+        plt.title('PIC field')
+        plt.imshow(F_laser, extent=extent, aspect='auto')
+        plt.colorbar()
+        plt.subplot(222)
+        plt.title('PIC envelope')
+        plt.imshow(env, extent=extent, aspect='auto')
+        plt.colorbar()
+        plt.subplot(223)
+        plt.title('Theory envelope')
+        plt.imshow(env_theory, extent=extent, aspect='auto')
+        plt.colorbar()
+        plt.subplot(224)
+        plt.title('Difference')
+        plt.imshow(env-env_theory, extent=extent, aspect='auto')
+        plt.colorbar()
+        plt.tight_layout()
+        plt.savefig('comparison.png', bbox_inches='tight')
 
-    relative_error_env = np.sum(np.abs(env-env_theory_slice)) / np.sum(np.abs(env))
+    relative_error_env = np.sum(np.abs(env-env_theory)) / np.sum(np.abs(env))
     print("Relative error envelope: ", relative_error_env)
     assert(relative_error_env < relative_error_threshold)
 
     fft_F_laser = np.fft.fftn(F_laser)
 
-    freq_x = np.fft.fftfreq(F_laser.shape[0],dt)
-    freq_z = np.fft.fftfreq(F_laser.shape[1],dt)
+    k_x = np.fft.fftfreq(F_laser.shape[0],info.dr)
+    k_z = np.fft.fftfreq(F_laser.shape[1],info.dz)
 
     pos_max = np.unravel_index(np.abs(fft_F_laser).argmax(), fft_F_laser.shape)
 
-    freq = np.sqrt((freq_x[pos_max[0]])**2 + (freq_z[pos_max[1]])**2)
+    freq = c * np.sqrt((k_x[pos_max[0]])**2 + (k_z[pos_max[1]])**2)
     exp_freq = c/wavelength
     relative_error_freq = np.abs(freq-exp_freq)/exp_freq
     print("Relative error frequency: ", relative_error_freq)
     assert(relative_error_freq < relative_error_threshold)
-    """
 
 if __name__ == "__main__":
 
@@ -161,10 +149,12 @@ if __name__ == "__main__":
 
     # Calculate the number of steps between each output
     N_step = int( T/dt )
-
     # Add diagnostic
     sim.diags = [
         FieldDiagnostic( int(N_step//10), sim.fld, comm=sim.comm )
     ]
+    # Run the simulation
+   # sim.step( N_step )
 
-    sim.step( N_step )
+    # Perform test
+    compare_simulation_with_theory()
