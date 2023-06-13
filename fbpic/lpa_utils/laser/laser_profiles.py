@@ -868,7 +868,7 @@ class FromLasyFileLaser( LaserProfile ):
         dt_data, dr_data = dset.attrs['gridSpacing']*dset.attrs['gridUnitSI']
         inv_dt_data = 1./dt_data
         inv_dr_data = 1./dr_data
-        n_modes = int(env_data.shape[0]/2)
+        n_modes = int(env_data.shape[0]/2) + 1
         # TODO: Extract wavelength from file
         self.omega = 2*np.pi*c/0.8e-6
 
@@ -878,6 +878,7 @@ class FromLasyFileLaser( LaserProfile ):
             ir = int(r_interp)
             t_interp = t*inv_dt_data
             it = int(t_interp)
+            # TODO: handle bounds
             env = (ir+1-r_interp)*(it+1-t_interp) * env_data[0, it, ir] \
                 + (r_interp-ir)  *(it+1-t_interp) * env_data[0, it, ir+1] \
                 + (ir+1-r_interp)*(t_interp-it)   * env_data[0, it+1, ir] \
@@ -907,8 +908,9 @@ class FromLasyFileLaser( LaserProfile ):
         """
         See the docstring of LaserProfile.E_field
         """
-        # Perform interpolation from data
+        # Perform interpolation from envelope data
         env = self.interp_function(x, y, t)
+        # Add laser oscillations
         E = (env * np.exp(-1.j*self.omega*t)).real
 
         return( E * self.cos_theta, E * self.sin_theta )

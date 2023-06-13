@@ -134,7 +134,7 @@ if __name__ == "__main__":
     )
     dim = "rt"
     lo = (0e-6, -20e-15)
-    hi = (+25e-6, +20e-15)
+    hi = (+50e-6, +20e-15)
     npoints = (100,100)
     laser = Laser(dim, lo, hi, npoints, profile, n_azimuthal_modes=2)
     laser.write_to_file("laguerrelaserRZ")
@@ -145,11 +145,11 @@ if __name__ == "__main__":
     Nr = 32
     zmax = 10e-6
     zmin = -10e-6
-    rmax = 25.e-6
+    rmax = 50.e-6
     Nm = 3
     dt = (zmax-zmin)/Nz/c
     T = 40.e-15
-    sim = Simulation( Nz, zmax, Nr, rmax, Nm, dt, use_cuda=True,
+    sim = Simulation( Nz, zmax, Nr, rmax, Nm, dt, use_cuda=True, zmin=zmin,
                      boundaries={'z':'open', 'r':'reflective'})
 
     # Remove the particles
@@ -157,14 +157,14 @@ if __name__ == "__main__":
 
     # Add the laser
     laser_profile = FromLasyFileLaser( 'laguerrelaserRZ_00000.h5' )
-    add_laser_pulse(sim, laser_profile, method='antenna', z0_antenna=zmax)
+    add_laser_pulse(sim, laser_profile, method='antenna', z0_antenna=0)
 
     # Calculate the number of steps between each output
     N_step = int( T/dt )
 
     # Add diagnostic
     sim.diags = [
-        FieldDiagnostic( N_step, sim.fld, comm=sim.comm )
+        FieldDiagnostic( int(N_step//10), sim.fld, comm=sim.comm )
     ]
 
     sim.step( N_step )
