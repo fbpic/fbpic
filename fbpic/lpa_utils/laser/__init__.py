@@ -21,4 +21,5 @@ __all__ = ['add_laser', 'add_laser_pulse',
             'GaussianTransverseProfile',
             'LaguerreGaussTransverseProfile',
             'DonutLikeLaguerreGaussTransverseProfile',
-            'FlattenedGaussianTransverseProfile']
+            'FlattenedGaussianTransverseProfile',
+            'FromLasyFileLaser']
