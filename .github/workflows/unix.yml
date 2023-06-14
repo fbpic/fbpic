@@ -29,35 +29,38 @@ jobs:
         channels: conda-forge,defaults
         channel-priority: true
 
-    - shell: bash -l {0}
+    - shell: bash -eo pipefail -l {0}
       name: Install dependencies
       run: |
-        conda install --yes -c conda-forge numba scipy h5py mkl mpich mpi4py matplotlib python=${{ matrix.python-version }};
-        pip install openPMD-viewer pytest pyflakes;
-        python setup.py install
-    - shell: bash -l {0}
+        conda install --yes -c conda-forge numba scipy h5py mkl mpich mpi4py matplotlib python=${{ matrix.python-version }}
+        pip install openPMD-viewer pytest pyflakes
+        python -m pip install .
+
+    - shell: bash -eo pipefail -l {0}
       name: pyflakes
       run: python -m pyflakes .
-    - shell: bash -l {0}
+
+    - shell: bash -eo pipefail -l {0}
       name: FBPIC physics tests
       run: |
-        export NUMBA_THREADING_LAYER=omp;
-        export MKL_NUM_THREADS=2;
-        export NUMBA_NUM_THREADS=2;
+        export NUMBA_THREADING_LAYER=omp
+        export MKL_NUM_THREADS=2
+        export NUMBA_NUM_THREADS=2
         python -m pytest tests --ignore=tests/unautomated
-    - shell: bash -l {0}
+    - shell: bash -eo pipefail -l {0}
       name: PICMI test
       run: |
-        pip install wget picmistandard numexpr periodictable;
-        cd tests/unautomated;
-        curl https://raw.githubusercontent.com/picmi-standard/picmi/master/Examples/laser_acceleration/laser_acceleration_PICMI.py -o fbpic_script.py;
-        python test_picmi.py;
+        pip install wget picmistandard numexpr periodictable
+        cd tests/unautomated
+        curl https://raw.githubusercontent.com/picmi-standard/picmi/master/Examples/laser_acceleration/laser_acceleration_PICMI.py -o fbpic_script.py
+        python test_picmi.py
         rm fbpic_script.py
-    - shell: bash -l {0}
+
+    - shell: bash -eo pipefail -l {0}
       name: PICMI boosted test
       run: |
-        cd tests/unautomated;
-        curl https://raw.githubusercontent.com/picmi-standard/picmi/master/Examples/laser_acceleration/lpa_boostedframe_PICMI.py -o fbpic_script.py;
-        cat fbpic_script.py;
-        python test_picmi.py;
+        cd tests/unautomated
+        curl https://raw.githubusercontent.com/picmi-standard/picmi/master/Examples/laser_acceleration/lpa_boostedframe_PICMI.py -o fbpic_script.py
+        cat fbpic_script.py
+        python test_picmi.py
         rm fbpic_script.py
