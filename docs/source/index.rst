@@ -57,7 +57,7 @@ FBPIC is open-source, and the source code is hosted `here <http://github.com/fbp
 Github.
 
 We welcome contributions to the code! If you wish to contribute,
-please read `this page <https://github.com/fbpic/fbpic/blob/main/CONTRIBUTING.md>`_ .
+please read `this page <https://github.com/fbpic/fbpic/blob/dev/CONTRIBUTING.md>`_ .
 
 Research & Attribution
 ----------------------

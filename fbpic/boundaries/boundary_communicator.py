@@ -643,10 +643,10 @@ class BoundaryCommunicator(object):
         # Prepare MPI call by pointing to the correct sending/receiving buffers
         if gpudirect_enabled:
             # Create create pointers to GPU array, for cuda-aware MPI
-            send_l = self.mpi_buffers.d_send_l[exchange_type] 
+            send_l = self.mpi_buffers.d_send_l[exchange_type]
             send_r = self.mpi_buffers.d_send_r[exchange_type]
-            recv_l = self.mpi_buffers.d_recv_l[exchange_type] 
-            recv_r = self.mpi_buffers.d_recv_r[exchange_type] 
+            recv_l = self.mpi_buffers.d_recv_l[exchange_type]
+            recv_r = self.mpi_buffers.d_recv_r[exchange_type]
         else:
             # Use arrays that are on the CPU
             send_l = self.mpi_buffers.send_l[ exchange_type ]
@@ -1107,7 +1107,7 @@ class BoundaryCommunicator(object):
         # Create empty array having the shape of the local domain
         Nz_local, iz_start_local = self.get_Nz_and_iz(
             local=True, with_damp=with_damp, with_guard=False, rank=self.rank )
-        scattered_array = np.zeros((Nz_local, Nr), dtype=np.complex)
+        scattered_array = np.zeros((Nz_local, Nr), dtype=np.complex128)
 
         # Then send the arrays
         if self.size > 1:
@@ -1220,4 +1220,3 @@ class BoundaryCommunicator(object):
         # Return the gathered_array only on process root
         if self.rank == root:
             return(gathered_array)
-

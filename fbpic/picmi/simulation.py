@@ -28,6 +28,7 @@ from picmistandard import PICMI_AnalyticDistribution, PICMI_UniformDistribution,
 from picmistandard import PICMI_PseudoRandomLayout, PICMI_GaussianBunchDistribution
 from picmistandard import PICMI_LaserAntenna, PICMI_GaussianLaser
 from picmistandard import PICMI_Species, PICMI_MultiSpecies
+from picmistandard import PICMI_FieldIonization
 from picmistandard import PICMI_AnalyticAppliedField, PICMI_ConstantAppliedField, PICMI_Mirror
 from picmistandard import PICMI_FieldDiagnostic, PICMI_ParticleDiagnostic, \
     PICMI_LabFrameFieldDiagnostic, PICMI_LabFrameParticleDiagnostic
@@ -38,27 +39,46 @@ class Simulation( PICMI_Simulation ):
     # Redefine the `init` method, as required by the picmi `_ClassWithInit`
     def init(self, kw):
 
+        self.sim_kw = {}
+        for argname in ['use_ruyten_shapes', 'use_modified_volume']:
+            if f'fbpic_{argname}' in kw:
+                self.sim_kw[argname] = kw.pop(f'fbpic_{argname}')
+
+        self.step_kw = {}
+        for argname in ['correct_currents',
+                        'correct_divE',
+                        'use_true_rho',
+                        'move_positions',
+                        'move_momenta',
+                        'show_progress']:
+            if f'fbpic_{argname}' in kw:
+                self.step_kw[argname] = kw.pop(f'fbpic_{argname}')
+
         # Get the grid
         grid = self.solver.grid
         if not type(grid) == PICMI_CylindricalGrid:
             raise ValueError('When using fbpic with PICMI, '
                 'the grid needs to be a CylindricalGrid object.')
         # Check rmin and boundary conditions
-        assert grid.rmin == 0.
-        assert grid.bc_zmin == grid.bc_zmax
-        if grid.bc_zmin == 'reflective':
+        assert grid.lower_bound[0] == 0.
+        assert grid.lower_boundary_conditions[1] == grid.upper_boundary_conditions[1]
+        if grid.lower_boundary_conditions[1] == 'reflective':
             warnings.warn(
             "FBPIC does not support reflective boundary condition in z.\n"
             "The z boundary condition was automatically converted to 'open'.")
-            grid.bc_zmin = 'open'
-            grid.bc_zmax = 'open'
-        assert grid.bc_zmax in ['periodic', 'open']
-        assert grid.bc_rmax in ['reflective', 'open']
+            grid.lower_boundary_conditions[1] = 'open'
+            grid.upper_boundary_conditions[1] = 'open'
+        assert grid.upper_boundary_conditions[1] in ['periodic', 'open']
+        assert grid.upper_boundary_conditions[0] in ['reflective', 'open']
 
         # Determine timestep
         if self.solver.cfl is not None:
-            dz = (grid.zmax-grid.zmin)/grid.nz
-            dt = self.solver.cfl * dz / c
+            dz = (grid.upper_bound[1]-grid.lower_bound[1])/grid.number_of_cells[1]
+            dr = (grid.upper_bound[0]-grid.lower_bound[0])/grid.number_of_cells[0]
+            if self.gamma_boost is not None:
+                beta = np.sqrt(1. - 1./self.gamma_boost**2)
+                dr = dr/((1+beta)*self.gamma_boost)
+            dt = self.solver.cfl * min(dz, dr) / c
         elif self.time_step_size is not None:
             dt = self.time_step_size
         else:
@@ -106,14 +126,15 @@ class Simulation( PICMI_Simulation ):
 
         # Initialize and store the FBPIC simulation object
         self.fbpic_sim = FBPICSimulation(
-            Nz=int(grid.nz), zmin=grid.zmin, zmax=grid.zmax,
-            Nr=int(grid.nr), rmax=grid.rmax, Nm=grid.n_azimuthal_modes,
+            Nz=int(grid.number_of_cells[1]), zmin=grid.lower_bound[1], zmax=grid.upper_bound[1],
+            Nr=int(grid.number_of_cells[0]), rmax=grid.upper_bound[0], Nm=grid.n_azimuthal_modes,
             dt=dt, use_cuda=True, smoother=smoother, n_order=n_order,
-            boundaries={'z':grid.bc_zmax, 'r':grid.bc_rmax},
+            boundaries={'z':grid.upper_boundary_conditions[1], 'r':grid.upper_boundary_conditions[0]},
             n_guard=n_guard, verbose_level=verbose_level,
             particle_shape=self.particle_shape,
             v_comoving=v_comoving,
-            gamma_boost=self.gamma_boost )
+            gamma_boost=self.gamma_boost,
+            **self.sim_kw)
 
         # Set the moving window
         if grid.moving_window_velocity is not None:
@@ -208,21 +229,21 @@ class Simulation( PICMI_Simulation ):
             # (Useful for particle diagnostics later on)
             s.fbpic_species = fbpic_species
 
-        # Loop over species and handle ionization
-        for s in species_instances_list:
-            for interaction in s.interactions:
-                assert interaction[0] == 'ionization'
-                assert interaction[1] == 'ADK'
-                picmi_target = interaction[2]
-                if not hasattr( picmi_target, 'fbpic_species' ):
-                    raise RuntimeError('For ionization with PICMI+FBPIC:\n'
-                        'You need to add the target species to the simulation,'
-                        ' before the other species.')
-                fbpic_target = picmi_target.fbpic_species
-                fbpic_source = s.fbpic_species
-                fbpic_source.make_ionizable( element=s.particle_type,
-                                             level_start=s.charge_state,
-                                             target_species=fbpic_target )
+        # Loop over interactions
+        for interaction in self.interactions:
+            assert type(interaction) is PICMI_FieldIonization
+            assert interaction.model == 'ADK'
+            picmi_target = interaction.product_species
+            picmi_source = interaction.ionized_species
+            if not hasattr( picmi_target, 'fbpic_species' ):
+                raise RuntimeError('For ionization with PICMI+FBPIC:\n'
+                    'You need to add the target species to the simulation,'
+                    ' before the other species.')
+            fbpic_target = picmi_target.fbpic_species
+            fbpic_source = picmi_source.fbpic_species
+            fbpic_source.make_ionizable( element=picmi_source.particle_type,
+                                         level_start=picmi_source.charge_state,
+                                         target_species=fbpic_target )
 
 
     def _create_new_fbpic_species(self, s, layout, injection_plane_position,
@@ -262,24 +283,26 @@ class Simulation( PICMI_Simulation ):
                     z_injection_plane = injection_plane_position[-1]
                 gamma0_beta0 = s.initial_distribution.directed_velocity[-1]/c
                 gamma0 = ( 1 + gamma0_beta0**2 )**.5
+                dist = s.initial_distribution
                 fbpic_species = add_particle_bunch( self.fbpic_sim,
                     q=s.charge, m=s.mass, gamma0=gamma0, n=n0,
                     dens_func=dens_func, p_nz=p_nz, p_nr=p_nr, p_nt=p_nt,
-                    p_zmin=s.initial_distribution.lower_bound[-1],
-                    p_zmax=s.initial_distribution.upper_bound[-1],
+                    p_zmin=dist.lower_bound[-1] if dist.lower_bound[-1] is not None else -np.inf,
+                    p_zmax=dist.upper_bound[-1] if dist.upper_bound[-1] is not None else +np.inf,
                     p_rmin=0,
-                    p_rmax=s.initial_distribution.upper_bound[0],
+                    p_rmax=dist.upper_bound[0] if dist.upper_bound[0] is not None else +np.inf,
                     boost=self.fbpic_sim.boost,
                     z_injection_plane=z_injection_plane,
                     initialize_self_field=initialize_self_field,
                     boost_positions_in_dens_func=True )
             else:
+                dist = s.initial_distribution
                 fbpic_species = self.fbpic_sim.add_new_species(
                     q=s.charge, m=s.mass, n=n0,
                     dens_func=dens_func, p_nz=p_nz, p_nr=p_nr, p_nt=p_nt,
-                    p_zmin=s.initial_distribution.lower_bound[-1],
-                    p_zmax=s.initial_distribution.upper_bound[-1],
-                    p_rmax=s.initial_distribution.upper_bound[0],
+                    p_zmin=dist.lower_bound[-1] if dist.lower_bound[-1] is not None else -np.inf,
+                    p_zmax=dist.upper_bound[-1] if dist.upper_bound[-1] is not None else +np.inf,
+                    p_rmax=dist.upper_bound[0] if dist.upper_bound[0] is not None else +np.inf,
                     continuous_injection=s.initial_distribution.fill_in,
                     boost_positions_in_dens_func=True )
 
@@ -348,15 +371,18 @@ class Simulation( PICMI_Simulation ):
             else:
                 data_list = set()  # Use set to avoid redundancy
                 for data in diagnostic.data_list:
-                    if data in ['Ex', 'Ey', 'Ez']:
+                    if data in ['Ex', 'Ey', 'Ez', 'E']:
                         data_list.add('E')
-                    elif data in ['Bx', 'By', 'Bz']:
+                    elif data in ['Bx', 'By', 'Bz', 'B']:
                         data_list.add('B')
-                    elif data in ['Jx', 'Jy', 'Jz']:
+                    elif data in ['Jx', 'Jy', 'Jz', 'J']:
                         data_list.add('J')
                     elif data == 'rho':
                         data_list.add('rho')
-                data_list = list(data_list)
+                # Use sorted to make sure that each MPI rank goes through
+                # fields in the same order, when dumping to disk (esp.
+                # since this operation requires an MPI gather)
+                data_list = sorted(list(data_list))
 
         if type(diagnostic) == PICMI_FieldDiagnostic:
 
@@ -394,8 +420,8 @@ class Simulation( PICMI_Simulation ):
 
         elif type(diagnostic) == PICMI_LabFrameFieldDiagnostic:
             diag = BackTransformedFieldDiagnostic(
-                    zmin_lab=diagnostic.grid.zmin,
-                    zmax_lab=diagnostic.grid.zmax,
+                    zmin_lab=diagnostic.grid.lower_bound[1],
+                    zmax_lab=diagnostic.grid.upper_bound[1],
                     v_lab=c,
                     dt_snapshots_lab=diagnostic.dt_snapshots,
                     Ntot_snapshots_lab=diagnostic.num_snapshots,
@@ -429,8 +455,8 @@ class Simulation( PICMI_Simulation ):
                     iteration_max=iteration_max)
             else:
                 diag = BackTransformedParticleDiagnostic(
-                    zmin_lab=diagnostic.grid.zmin,
-                    zmax_lab=diagnostic.grid.zmax,
+                    zmin_lab=diagnostic.grid.lower_bound[1],
+                    zmax_lab=diagnostic.grid.upper_bound[1],
                     v_lab=c,
                     dt_snapshots_lab=diagnostic.dt_snapshots,
                     Ntot_snapshots_lab=diagnostic.num_snapshots,
@@ -499,4 +525,4 @@ class Simulation( PICMI_Simulation ):
     def step(self, nsteps=None):
         if nsteps is None:
             nsteps = self.max_steps
-        self.fbpic_sim.step( nsteps )
+        self.fbpic_sim.step( nsteps , **self.step_kw)

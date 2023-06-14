@@ -34,7 +34,7 @@ as an example:
   grid.dimensions = rho.shape
   grid.origin = [meta.xmin * 1e6, meta.ymin * 1e6, meta.zmin * 1e6]
   grid.spacing = [meta.dx * 1e6, meta.dy * 1e6, meta.dz * 1e6]
-  grid.point_arrays['values'] = -rho.flatten(order='F')
+  grid.point_data['values'] = -rho.flatten(order='F')
 
   # Add the grid to the plotter
   # Use a cutoff for rho via the clim argument since otherwise it shows only a small density spike

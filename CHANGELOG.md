@@ -1,11 +1,30 @@
 # Change Log / Release Log for fbpic
 
+## 0.24.0
+
+This version adds the option to symmetrize a Gaussian beam, so as to avoid random fluctuations in the mean transverse position of the beam. (See [642](https://github.com/fbpic/fbpic/pull/640))
+
+## 0.23.0
+
+- FBPIC can now be used with numba 0.57 on GPU (See [640](https://github.com/fbpic/fbpic/pull/640))
+- FBPIC now supports tracer particles (See [630](https://github.com/fbpic/fbpic/pull/630))
+- FBPIC is now compatible with PICMI's new ionization interface (See [631](https://github.com/fbpic/fbpic/pull/631))
+
+## 0.22.0
+
+This release fixes compatibility issues with newer versions of the
+FBPIC dependencies.
+- FBPIC is now compatible with numba 0.56 on GPU. (See [606](https://github.com/fbpic/fbpic/pull/606))
+- FBPIC is compatible with the latest versions of the MKL package. (See [617](https://github.com/fbpic/fbpic/pull/617))
+
+In addition, the sign of the Gouy phase was correct for the `DonutLikeLaguerreGaussProfile` (See [607](https://github.com/fbpic/fbpic/pull/607))
+
 ## 0.21.0
 
 This release expands support for the PICMI interface, in particular for
 boosted-frame simulations. In addition, this release added the new optional
 argument `boost_positions_in_dens_func` to the function `add_new_species`.
-This allows the pass the density function directly in the lab frame.
+This allows the user to pass the density function directly in the lab frame.
 (See [463](https://github.com/fbpic/fbpic/pull/463))
 
 ## 0.20.4
@@ -227,7 +246,7 @@ In addition, this release adds various improvements to FBPIC:
 [#342](https://github.com/fbpic/fbpic/pull/342)
 - The `ParticleChargeDiagnostic` is now smoothed, in the same way as the regular charge density diagnostic [#349](https://github.com/fbpic/fbpic/pull/349)
 
-**Optimizations:**    
+**Optimizations:**
 
 - The number of threads per block were optimized for modern GPUs [#365](https://github.com/fbpic/fbpic/pull/365)
 - Certain arrays are now kept on GPU, and never copied to CPU [#361](https://github.com/fbpic/fbpic/pull/361)
