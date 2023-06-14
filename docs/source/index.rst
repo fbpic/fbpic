@@ -57,7 +57,7 @@ FBPIC is open-source, and the source code is hosted `here <http://github.com/fbp
 Github.
 
 We welcome contributions to the code! If you wish to contribute,
-please read `this page <https://github.com/fbpic/fbpic/blob/main/CONTRIBUTING.md>`_ .
+please read `this page <https://github.com/fbpic/fbpic/blob/dev/CONTRIBUTING.md>`_ .
 
 Research & Attribution
 ----------------------
@@ -66,9 +66,9 @@ FBPIC was originally developed by Remi Lehe at `Berkeley Lab <http://www.lbl.gov
 and Manuel Kirchen at
 `CFEL, Hamburg University <http://lux.cfel.de/>`_. The code also
 benefitted from the contributions of Soeren Jalas (CFEL), Kevin Peters (CFEL),
-Irene Dornmair (CFEL), Laurids Jeppe (CFEL), Igor Andriyash (Laboratoire d’Optique Appliquée),
-Omri Seemann (Weizmann Institute), Daniel Seipt (University of Michigan)
-and Samuel Yoffe (University of Strathclyde).
+Irene Dornmair (CFEL), Laurids Jeppe (CFEL), Igor Andriyash (Laboratoire d'Optique Appliquee),
+Omri Seemann (Weizmann Institute), Daniel Seipt (University of Michigan),
+Samuel Yoffe (University of Strathclyde) and David Grote (LLNL and LBNL).
 
 FBPIC's algorithms are documented in following scientific publications:
 

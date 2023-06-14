@@ -31,7 +31,7 @@ from fbpic.utils.threading import nthreads, get_chunk_indices
 from fbpic.utils.cuda import cuda_installed
 if cuda_installed:
     # Load the CUDA methods
-    import cupy    
+    import cupy
     from fbpic.utils.cuda import cuda_tpb_bpg_1d, cuda_gpu_model
     from .push.cuda_methods import push_p_gpu, push_p_ioniz_gpu, \
                                 push_p_after_plane_gpu, push_x_gpu
@@ -47,6 +47,7 @@ if cuda_installed:
     from .utilities.cuda_sorting import write_sorting_buffer, \
         get_cell_idx_per_particle, sort_particles_per_cell, \
         prefill_prefix_sum, incl_prefix_sum
+
 
 class Particles(object) :
     """
@@ -67,7 +68,8 @@ class Particles(object) :
                     ux_th=0., uy_th=0., uz_th=0.,
                     dens_func=None, continuous_injection=True,
                     grid_shape=None, particle_shape='linear',
-                    use_cuda=False, dz_particles=None ):
+                    use_cuda=False, dz_particles=None,
+                    is_tracer=False ):
         """
         Initialize a uniform set of particles
 
@@ -108,8 +110,10 @@ class Particles(object) :
 
         dens_func : callable, optional
            A function of the form :
-           def dens_func( z, r ) ...
-           where z and r are 1d arrays, and which returns
+           `def dens_func( z, r ) ...`
+           or
+           def dens_func( x, y, z ) ...
+           where x, y, z and r are 1d arrays, and which returns
            a 1d array containing the density *relative to n*
            (i.e. a number between 0 and 1) at the given positions
 
@@ -129,7 +133,7 @@ class Particles(object) :
             order particle shape factors.
 
         use_cuda : bool, optional
-            Wether to use the GPU or not.
+            Whether to use the GPU or not.
 
         dz_particles: float (in meter), optional
             The spacing between particles in `z` (for continuous injection)
@@ -137,6 +141,12 @@ class Particles(object) :
             from the arguments `zmin`, `zmax` and `Npz`. However, when
             there are no particles in the initial box (`Npz = 0`),
             `dz_particles` needs to be explicitly passed.
+
+        is_tracer: bool, optional
+            Setting this flag to True will allow this particle
+            to move as a normal particle with given mass and charge,
+            but will generate no current. This allows them to be passive
+            tracers inside the plasma.
         """
         # Define whether or not to use the GPU
         self.use_cuda = use_cuda
@@ -158,6 +168,7 @@ class Particles(object) :
         self.q = q
         self.m = m
         self.dt = dt
+        self.is_tracer = is_tracer
 
         # Register the particle arrarys
         self.x = x
@@ -237,7 +248,6 @@ class Particles(object) :
             else:
                 self.deposit_tpb = 16 if cuda_gpu_model == "V100" else 8
                 self.gather_tpb = 128
-
 
     def send_particles_to_gpu( self ):
         """
@@ -363,7 +373,6 @@ class Particles(object) :
 
         return( float_buffer, uint_buffer )
 
-
     def track( self, comm ):
         """
         Activate particle tracking for the current species
@@ -429,7 +438,6 @@ class Particles(object) :
             laser_waist, laser_ctau, laser_initial_z0,
             ratio_w_electron_photon, boost )
 
-
     def make_ionizable(self, element, target_species,
                        level_start=0, level_max=None):
         """
@@ -487,7 +495,6 @@ class Particles(object) :
         if hasattr( self, 'int_sorting_buffer' ) is False and self.use_cuda:
             self.int_sorting_buffer = np.empty( self.Ntot, dtype=np.uint64 )
 
-
     def handle_elementary_processes( self, t ):
         """
         Handle elementary processes for this species (e.g. ionization,
@@ -499,7 +506,6 @@ class Particles(object) :
         # Compton scattering
         if self.compton_scatterer is not None:
             self.compton_scatterer.handle_scattering( self, t )
-
 
     def rearrange_particle_arrays( self ):
         """
@@ -847,7 +853,7 @@ class Particles(object) :
              Indicates which field to deposit
              Either 'J' or 'rho'
         """
-        # Skip deposition for neutral particles (e.g. photons)
+        # Skip deposition for neutral or zero-current particles (e.g. photons)
         if self.q == 0:
             return
 
@@ -984,13 +990,13 @@ class Particles(object) :
             # thread) and register the indices that bound each chunks
             ptcl_chunk_indices = get_chunk_indices(self.Ntot, nthreads)
 
-            # The set of Ruyten shape coefficients to use for higher modes. 
+            # The set of Ruyten shape coefficients to use for higher modes.
             # For Nm > 1, the set from mode 1 is used, since all higher modes have the
-            # same coefficients. For Nm == 1, the coefficients from mode 0 are 
+            # same coefficients. For Nm == 1, the coefficients from mode 0 are
             # passed twice to satisfy the argument types for Numba JIT.
             if fld.Nm > 1:
                 ruyten_m = 1
-            else: 
+            else:
                 ruyten_m = 0
 
             # Multithreading functions for the deposition of rho or J

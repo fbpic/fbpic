@@ -1,19 +1,17 @@
 # Fourier-Bessel Particle-In-Cell code (FBPIC)
 
-[![Build Status main](https://img.shields.io/travis/fbpic/fbpic/main.svg?label=main)](https://travis-ci.com/fbpic/fbpic/branches)
-[![Build Status dev](https://img.shields.io/travis/fbpic/fbpic/dev.svg?label=dev)](https://travis-ci.com/fbpic/fbpic/branches)
 [![pypi version](https://img.shields.io/pypi/v/fbpic.svg)](https://pypi.python.org/pypi/fbpic)
 [![License](https://img.shields.io/pypi/l/fbpic.svg)](LICENSE.txt)
 [![DOI](https://zenodo.org/badge/69215997.svg)](https://zenodo.org/badge/latestdoi/69215997)
 
 Online documentation: [http://fbpic.github.io](http://fbpic.github.io)<br/>
-Support: [Join slack](https://slack-fbpic.herokuapp.com)
+Support: [Join slack](https://join.slack.com/t/fbpic/shared_invite/zt-1kxqk65ph-YJ417NexkjkNhX7ya94CQA)
 
 ## Overview
 
 FBPIC is a
 [Particle-In-Cell (PIC) code](https://en.wikipedia.org/wiki/Particle-in-cell)
-for relativistic plasma physics.  
+for relativistic plasma physics.
 
 It is especially well-suited for physical simulations of
 **laser-wakefield acceleration** and **plasma-wakefield acceleration**, with close-to-cylindrical symmetry.
@@ -25,7 +23,7 @@ a **spectral decomposition in
 cylindrical geometry** (Fourier-Bessel
 decomposition) for the fields. This combines the advantages of **spectral 3D** PIC codes (high accuracy and stability) and
 those of **finite-difference cylindrical** PIC codes
-(orders-of-magnitude speedup when compared to 3D simulations).  
+(orders-of-magnitude speedup when compared to 3D simulations).
 For more details on the algorithm, its advantages and limitations, see
 the [documentation](http://fbpic.github.io).
 
@@ -74,6 +72,8 @@ conda install -c conda-forge mpi4py
 ```
 pip install fbpic
 ```
+(If you want to run FBPIC through the [PICMI](https://picmi-standard.github.io/)
+interface, you can instead use `pip install fbpic[picmi]`.)
 
 - **Optional:** in order to run on GPU, install the additional package
 `cudatoolkit` and `cupy` -- e.g. using CUDA version 10.0.
@@ -110,7 +110,7 @@ The code outputs HDF5 files, that comply with the
 
 ## Contributing
 
-We welcome contributions to the code! Please read [this page](https://github.com/fbpic/fbpic/blob/main/CONTRIBUTING.md) for guidelines on how to contribute.
+We welcome contributions to the code! Please read [this page](https://github.com/fbpic/fbpic/blob/dev/CONTRIBUTING.md) for guidelines on how to contribute.
 
 ## Research & Attribution
 
@@ -118,9 +118,9 @@ FBPIC was originally developed by Remi Lehe at [Berkeley Lab](http://www.lbl.gov
 and Manuel Kirchen at
 [CFEL, Hamburg University](http://lux.cfel.de/). The code also
 benefitted from the contributions of Soeren Jalas (CFEL), Kevin Peters (CFEL),
-Irene Dornmair (CFEL), Laurids Jeppe (CFEL), Igor Andriyash (Laboratoire d’Optique Appliquée),
-Omri Seemann (Weizmann Institute), Daniel Seipt (University of Michigan)
-and Samuel Yoffe (University of Strathclyde).
+Irene Dornmair (CFEL), Laurids Jeppe (CFEL), Igor Andriyash (Laboratoire d'Optique Appliquee),
+Omri Seemann (Weizmann Institute), Daniel Seipt (University of Michigan),
+Samuel Yoffe (University of Strathclyde) and David Grote (LLNL and LBNL).
 
 FBPIC's algorithms are documented in following scientific publications:
 

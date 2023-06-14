@@ -101,7 +101,7 @@ def test_cherenkov_instability( show=False ):
             p_zmin, p_zmax, p_rmin, p_rmax, p_nz, p_nr, p_nt, n_e,
             zmin=zmin, initialize_ions=True,
             v_comoving=v_comoving, use_galilean=use_galilean,
-            boundaries='periodic', use_cuda=use_cuda )
+            boundaries={'z':'periodic', 'r':'reflective'}, use_cuda=use_cuda )
 
         # Give a relativistic velocity to the particle, with some noise
         sim.ptcl[0].uz[:] = uz_m

@@ -5,17 +5,16 @@ Installing FBPIC
 ------------------
 
 The installation requires the
-`Anaconda <https://www.continuum.io/why-anaconda>`__ distribution of
-Python. If Anaconda is not your default Python distribution, download and install it from `here <https://www.continuum.io/downloads>`__.
+`Anaconda <https://docs.anaconda.com/anaconda/>`__ distribution of
+Python. If Anaconda is not your default Python distribution, download and install it from `here <https://docs.anaconda.com/anaconda/install/>`__.
 
 **Installation steps**:
 
-- Install the dependencies of FBPIC. This can be done in two lines:
+- Install the dependencies of FBPIC:
 
   ::
 
-     conda install numba scipy h5py mkl
-     conda install -c conda-forge mpi4py
+     conda install -c conda-forge numba scipy h5py mkl mpi4py
 
 -  Install ``fbpic``
 
@@ -23,28 +22,38 @@ Python. If Anaconda is not your default Python distribution, download and instal
 
        pip install fbpic
 
-   Alternatively, instead of using ``pip``, you can also install FBPIC
-   from the souces, by cloning the `code from Github
-   <https://github.com/fbpic/fbpic>`_, and typing ``python setup.py
-   install``.
+   .. note::
 
+       If you want to run FBPIC through the
+       `PICMI interface <https://picmi-standard.github.io/>`__, you can instead
+       use
+
+       ::
+
+           pip install fbpic[picmi]
+
+   .. note::
+       Instead of using a release, you can also install FBPIC from the sources,
+       by cloning the `code from Github <https://github.com/fbpic/fbpic>`_,
+       and executing ``python3 -m pip install .`` from the main directory.
+       A shortcut for this is: ``python3 -m pip install git+https://github.com/fbpic/fbpic.git``.
 
 -  **Optional:** In order to be able to run the code on a GPU,
    install the additional package ``cudatoolkit`` and ``cupy`` --
-   e.g. using CUDA version 10.0:
+   e.g. using CUDA version 11.0:
 
    ::
 
 
-       conda install cudatoolkit=10.0
-       pip install cupy-cuda100
+       conda install -c conda-forge cudatoolkit=11.0
+       pip install cupy-cuda110
 
    .. warning::
 
        In the above command, you should choose a CUDA version that is **compatible
        with your GPU driver**. You can see the version of your GPU driver by typing
        the command ``nvidia-smi``. You can then find the compatible CUDA
-       versions using `this table <https://docs.nvidia.com/deploy/cuda-compatibility/index.html#binary-compatibility__table-toolkit-driver>`__.
+       versions using `this table <https://docs.nvidia.com/deploy/cuda-compatibility/index.html#use-the-right-compat-package>`__.
 
 -  **Optional:** In order to run on a CPU which is **not** an Intel model, you need to install `pyfftw`, in order to replace the MKL FFT:
 

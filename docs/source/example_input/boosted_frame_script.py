@@ -21,7 +21,8 @@ import numpy as np
 from scipy.constants import c, e, m_e, m_p
 # Import the relevant structures in FBPIC
 from fbpic.main import Simulation
-from fbpic.lpa_utils.laser import add_laser
+from fbpic.lpa_utils.laser import add_laser_pulse
+from fbpic.lpa_utils.laser.laser_profiles import GaussianLaser
 from fbpic.lpa_utils.bunch import add_particle_bunch
 from fbpic.lpa_utils.boosted_frame import BoostConverter
 from fbpic.openpmd_diag import FieldDiagnostic, ParticleDiagnostic, \
@@ -63,7 +64,7 @@ dt = min( rmax/(2*boost.gamma0*Nr)/c, (zmax-zmin)/Nz/c )  # Timestep (seconds)
 # The laser (conversion to boosted frame is done inside 'add_laser')
 a0 = 2.          # Laser amplitude
 w0 = 50.e-6      # Laser waist
-ctau = 5.e-6     # Laser duration
+tau = 16.e-15     # Laser duration
 z0 = -10.e-6     # Laser centroid
 zfoc = 0.e-6     # Focal position
 lambda0 = 0.8e-6 # Laser wavelength
@@ -84,10 +85,6 @@ p_nr = 2         # Number of particles per cell along r
 p_nt = 6         # Number of particles per cell along theta
 
 # Density profile
-# Convert parameters to boosted frame
-# (NB: the density is converted inside the Simulation object)
-ramp_up_b, plateau_b, ramp_down_b = \
-    boost.static_length( [ ramp_up, plateau, ramp_down ] )
 # Relative change divided by w_matched^2 that allows guiding
 rel_delta_n_over_w2 = 1./( np.pi * 2.81e-15 * w_matched**4 * n_e )
 # Define the density function
@@ -109,15 +106,15 @@ def dens_func( z, r ):
     """
     # Allocate relative density
     n = np.ones_like(z)
-    # Make ramp up (note: use boosted-frame values of the ramp length)
-    inv_ramp_up_b = 1./ramp_up_b
-    n = np.where( z<ramp_up_b, z*inv_ramp_up_b, n )
+    # Make ramp up
+    inv_ramp_up = 1./ramp_up
+    n = np.where( z<ramp_up, z*inv_ramp_up, n )
     # Make ramp down
-    inv_ramp_down_b = 1./ramp_down_b
-    n = np.where( (z >= ramp_up_b+plateau_b) & \
-                  (z < ramp_up_b+plateau_b+ramp_down_b),
-              - (z - (ramp_up_b+plateau_b+ramp_down_b) )*inv_ramp_down_b, n )
-    n = np.where( z >= ramp_up_b+plateau_b+ramp_down_b, 0, n)
+    inv_ramp_down = 1./ramp_down
+    n = np.where( (z >= ramp_up+plateau) & \
+                  (z < ramp_up+plateau+ramp_down),
+              - (z - (ramp_up+plateau+ramp_down) )*inv_ramp_down, n )
+    n = np.where( z >= ramp_up+plateau+ramp_down, 0, n)
     # Add transverse guiding parabolic profile
     n = n * ( 1. + rel_delta_n_over_w2 * r**2 )
     return(n)
@@ -174,12 +171,12 @@ if __name__ == '__main__':
         # 'r': 'open' can also be used, but is more computationally expensive
 
     # Add the plasma electron and plasma ions
-    plasma_elec = sim.add_new_species( q=-e, m=m_e,
-                    n=n_e, dens_func=dens_func,
+    plasma_elec = sim.add_new_species( q=-e, m=m_e, n=n_e,
+                    dens_func=dens_func, boost_positions_in_dens_func=True,
                     p_zmin=p_zmin, p_zmax=p_zmax, p_rmax=p_rmax,
                     p_nz=p_nz, p_nr=p_nr, p_nt=p_nt )
-    plasma_ions = sim.add_new_species( q=e, m=m_p,
-                    n=n_e, dens_func=dens_func,
+    plasma_ions = sim.add_new_species( q=e, m=m_p, n=n_e,
+                    dens_func=dens_func, boost_positions_in_dens_func=True,
                     p_zmin=p_zmin, p_zmax=p_zmax, p_rmax=p_rmax,
                     p_nz=p_nz, p_nr=p_nr, p_nt=p_nt )
 
@@ -189,9 +186,11 @@ if __name__ == '__main__':
     if track_bunch:
         bunch.track( sim.comm )
 
+    # Create a Gaussian laser profile
+    laser_profile = GaussianLaser(a0, w0, tau, z0, lambda0=lambda0, zf=zfoc)
     # Add a laser to the fields of the simulation
-    add_laser( sim, a0, w0, ctau, z0, lambda0=lambda0,
-           zf=zfoc, gamma_boost=boost.gamma0 )
+    add_laser_pulse( sim, laser_profile, gamma_boost=boost.gamma0,
+                     method='antenna', z0_antenna=0)
 
     # Convert parameter to boosted frame
     v_window_boosted, = boost.velocity( [ v_window ] )

@@ -107,7 +107,7 @@ def run_and_check_laser_antenna(gamma_b, show, write_files,
     # Initialize the simulation object
     sim = Simulation( Nz, zmax, Nr, rmax, Nm, dt, p_zmin=0, p_zmax=0,
                     p_rmin=0, p_rmax=0, p_nz=2, p_nr=2, p_nt=2, n_e=0.,
-                    zmin=zmin, use_cuda=use_cuda, boundaries='open',
+                    zmin=zmin, use_cuda=use_cuda, boundaries={'z':'open', 'r':'reflective'},
                     gamma_boost=gamma_b)
 
     # Remove the particles

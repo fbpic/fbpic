@@ -17,7 +17,7 @@ class InputScriptDiagnostic(OpenPMDDiagnostic):
     """
     Class that allows saving input decks to dumps.
     """
-    def __init__(self, period, comm=None, param_dict=None,
+    def __init__(self, period=None, comm=None, param_dict=None,
                  write_dir=None, iteration_min=0,
                  iteration_max=np.inf, dt_period=None, dt_sim=None ):
         """

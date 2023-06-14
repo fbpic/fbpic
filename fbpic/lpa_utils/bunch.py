@@ -18,7 +18,8 @@ import warnings
 def add_particle_bunch(sim, q, m, gamma0, n, p_zmin, p_zmax, p_rmin, p_rmax,
                        p_nr=2, p_nz=2, p_nt=4, dens_func=None, boost=None,
                        direction='forward', z_injection_plane=None,
-                       initialize_self_field=True):
+                       initialize_self_field=True,
+                       boost_positions_in_dens_func=False ):
     """
     Introduce a simple relativistic particle bunch in the simulation,
     along with its space charge field.
@@ -64,11 +65,17 @@ def add_particle_bunch(sim, q, m, gamma0, n, p_zmin, p_zmax, p_rmin, p_rmax,
         Number of macroparticles along the theta direction
 
     dens_func : callable, optional
-        A function of the form :
-        `def dens_func( z, r ) ...`
-        where `z` and `r` are 1d arrays, and which returns
-        a 1d array containing the density *relative to n*
+        A function of the form `dens_func( z, r )`
+        where `z` and `r` are 1d arrays, or `dens( x, y, z)`
+        where `x`, `y` and `z` are 1d arrays, and which returns
+        a 1d array containing the density *relative to `n`*
         (i.e. a number between 0 and 1) at the given positions.
+
+       For boosted-frame simulation: if you set
+       ``boost_positions_in_dens_func`` to ``True``, then ``dens_func``
+       can be expressed as a function of ``z`` taken **in the lab frame**.
+       Otherwise, it has to be expressed as a function of ``z`` taken
+       in the boosted frame.
 
     boost : a BoostConverter object, optional
         A BoostConverter object defining the Lorentz boost of
@@ -87,6 +94,10 @@ def add_particle_bunch(sim, q, m, gamma0, n, p_zmin, p_zmax, p_rmin, p_rmax,
     initialize_self_field: bool, optional
        Whether to calculate the initial space charge fields of the bunch
        and add these fields to the fields on the grid (Default: True)
+
+    boost_positions_in_dens_func: bool, optional
+       For boosted-frame simulations: whether to automatically take into
+       account the Lorentz transformation of the positions, in `dens_func`
     """
     # Calculate the electron momentum
     uz_m = ( gamma0**2 - 1. )**0.5
@@ -94,11 +105,12 @@ def add_particle_bunch(sim, q, m, gamma0, n, p_zmin, p_zmax, p_rmin, p_rmax,
         uz_m *= -1.
     # Create the electron species
     ptcl_bunch = sim.add_new_species( q=q, m=m, n=n,
-                            p_nz=p_nz, p_nr=p_nr, p_nt=p_nt,
-                            p_zmin=p_zmin, p_zmax=p_zmax,
-                            p_rmin=p_rmin, p_rmax=p_rmax,
-                            continuous_injection=False,
-                            dens_func=dens_func, uz_m=uz_m )
+            p_nz=p_nz, p_nr=p_nr, p_nt=p_nt,
+            p_zmin=p_zmin, p_zmax=p_zmax,
+            p_rmin=p_rmin, p_rmax=p_rmax,
+            continuous_injection=False,
+            dens_func=dens_func, uz_m=uz_m,
+            boost_positions_in_dens_func=boost_positions_in_dens_func )
 
     # Initialize the injection plane for the particles
     if z_injection_plane is not None:
@@ -115,7 +127,8 @@ def add_particle_bunch_gaussian(sim, q, m, sig_r, sig_z, n_emit, gamma0,
                                 sig_gamma, n_physical_particles,
                                 n_macroparticles, tf=0., zf=0., boost=None,
                                 save_beam=None, z_injection_plane=None,
-                                initialize_self_field=True):
+                                initialize_self_field=True,
+                                symmetrize=False):
     """
     Introduce a relativistic Gaussian particle bunch in the simulation,
     along with its space charge field.
@@ -180,7 +193,18 @@ def add_particle_bunch_gaussian(sim, q, m, sig_r, sig_z, n_emit, gamma0,
     initialize_self_field: bool, optional
        Whether to calculate the initial space charge fields of the bunch
        and add these fields to the fields on the grid (Default: True)
+
+    symmetrize: bool, optional
+       Whether to symmetrize the beam with 4-fold rotational symmetry.
+       (Meaning that, for every macroparticle, 3 other macroparticles
+       that are rotated by +pi/2, +pi, -pi/2 in the transverse plane)
+       This ensures that the beam has exactly 0 initial offset in x and y
     """
+    if symmetrize:
+        assert n_macroparticles%4 == 0, \
+            "When using symmetrize, `n_macroparticles` must be a multiple of 4."
+        n_macroparticles = n_macroparticles//4
+
     # Generate Gaussian gamma distribution of the beam
     if sig_gamma > 0.:
         gamma = np.random.normal(gamma0, sig_gamma, n_macroparticles)
@@ -238,6 +262,15 @@ def add_particle_bunch_gaussian(sim, q, m, sig_r, sig_z, n_emit, gamma0,
         x = x - ux * inv_gamma * c * tf
         y = y - uy * inv_gamma * c * tf
         z = z - uz * inv_gamma * c * tf
+
+    # Add 4-fold copies of the beam by rotating particles by pi/2, pi and -pi/2
+    if symmetrize:
+        w *= 0.25
+        x, y, z, ux, uy, uz, w = map( np.concatenate, zip(
+                                    [ x, y, z, ux, uy, uz, w],
+                                    [-y, x, z,-uy, ux, uz, w],
+                                    [-x,-y, z,-ux,-uy, uz, w],
+                                    [ y,-x, z, uy,-ux, uz, w] ) )
 
     # Save beam distribution to an .npz file
     if save_beam is not None:
@@ -585,7 +618,8 @@ def add_elec_bunch( sim, gamma0, n_e, p_zmin, p_zmax, p_rmin, p_rmax,
 
 def add_elec_bunch_gaussian( sim, sig_r, sig_z, n_emit, gamma0,
                         sig_gamma, Q, N, tf=0., zf=0., boost=None,
-                        save_beam=None, z_injection_plane=None ):
+                        save_beam=None, z_injection_plane=None,
+                        symmetrize=False ):
     """
     Introduce a relativistic Gaussian electron bunch in the simulation,
     along with its space charge field.
@@ -641,6 +675,12 @@ def add_elec_bunch_gaussian( sim, sig_r, sig_z, n_emit, gamma0,
         motion for z<z_injection_plane. This is sometimes useful in
         boosted-frame simulations.
         `z_injection_plane` is always given in the lab frame.
+
+    symmetrize: bool, optional
+       Whether to symmetrize the beam with 4-fold rotational symmetry.
+       (Meaning that, for every macroparticle, 3 other macroparticles
+       that are rotated by +pi/2, +pi, -pi/2 in the transverse plane)
+       This ensures that the beam has exactly 0 initial offset in x and y
     """
     # Generate Gaussian gamma distribution of the beam
     n_physical_particles = Q/e
@@ -648,7 +688,8 @@ def add_elec_bunch_gaussian( sim, sig_r, sig_z, n_emit, gamma0,
                                 n_emit, gamma0, sig_gamma,
                                 n_physical_particles, N, tf=tf,
                                 zf=zf, boost=boost, save_beam=save_beam,
-                                z_injection_plane=z_injection_plane)
+                                z_injection_plane=z_injection_plane,
+                                symmetrize=symmetrize)
     return elec_bunch
 
 

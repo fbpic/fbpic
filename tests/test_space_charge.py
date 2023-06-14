@@ -10,8 +10,8 @@ routines produce identical results for both serial and parallel simulations.
 Usage:
 This file is meant to be run from the top directory of fbpic,
 by any of the following commands
-$ python tests/test_example_docs_scripts.py
-$ py.test -q tests/test_example_docs_scripts.py
+$ python tests/test_space_charge.py
+$ py.test -q tests/test_space_charge.py
 $ python setup.py test
 """
 import os
@@ -115,6 +115,12 @@ def check_theory_gaussian():
     # Check that the fields agree
     assert np.allclose( Ex, Eth, atol=0.1*Eth.max() )
     assert np.allclose( By, Bth, atol=0.1*Bth.max() )
+
+    # In addition, test that the mean of the transverse position
+    # is close to 0 (thanks to the symmetrize option)
+    transverse_quantities = ts.get_particle(['x', 'y', 'ux', 'uy'], iteration=0)
+    for q in transverse_quantities:
+        assert q.mean() < 1.e-10*q.std()
 
 def test_bunch_from_file():
     run_sim_serial_and_parallel( 'test_space_charge_file.py',

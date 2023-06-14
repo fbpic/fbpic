@@ -11,10 +11,10 @@ This file steers and controls the simulation.
 # as it sets the cuda context)
 from fbpic.utils.mpi import MPI
 # Check if threading is available
-from .utils.threading import threading_enabled, numba_minor_version
+from .utils.threading import threading_enabled, numba_version
 # Check if CUDA is available, then import CUDA functions
 from .utils.cuda import cuda_installed, \
-    cupy_installed, cupy_major_version, numba_cuda_installed
+    cupy_installed, cupy_version, numba_cuda_installed
 if cuda_installed:
     from .utils.cuda import send_data_to_gpu, \
                 receive_data_from_gpu, mpi_select_gpus
@@ -30,6 +30,7 @@ import numpy as np
 from scipy.constants import m_e, m_p, e, c
 from .utils.printing import ProgressBar, print_simulation_setup
 from .particles import Particles
+from .particles.injection.continuous_injection import _check_dens_func_arguments
 from .lpa_utils.boosted_frame import BoostConverter
 from .fields import Fields
 from .boundaries import BoundaryCommunicator, MovingWindow
@@ -241,18 +242,18 @@ class Simulation(object):
             self.use_cuda = False
         # Check that cupy, numba and Python have the right version
         if self.use_cuda:
-            if cupy_major_version < 7:
+            if cupy_version < (7,0):
                 raise RuntimeError(
-                    'In order to run on GPUs, FBPIC version 0.16 and later \n'
-                    'requires `cupy` version 7 (or later).\n(The `cupy` version'
-                    ' on your current system is %d.)\nPlease install the '
-                    'latest version of `cupy`.' %cupy_major_version)
-            elif numba_minor_version < 46:
+                    'In order to run on GPUs, FBPIC version 0.20 and later \n'
+                    'requires `cupy` version 7.0 (or later).\n(The `cupy` '
+                    'version on your current system is %d.%d.)\nPlease '
+                    'install the latest version of `cupy`.' %cupy_version)
+            elif numba_version < (0,46):
                 raise RuntimeError(
                     'In order to run on GPUs, FBPIC version 0.16 and later \n'
                     'requires `numba` version 0.46 (or later).\n(The `numba` '
-                    'version on your current system is 0.%d.)\nPlease install'
-                    ' the latest version of `numba`.' %numba_minor_version)
+                    'version on your current system is %d.%d.)\nPlease install'
+                    ' the latest version of `numba`.' %numba_version)
             elif sys.version_info.major < 3:
                 raise RuntimeError(
                     'In order to run on GPUs, FBPIC version 0.16 and later \n'
@@ -336,6 +337,8 @@ class Simulation(object):
         self.checkpoints = []
         # Initialize an empty list of laser antennas
         self.laser_antennas = []
+        # Initialize an empty list of mirrors
+        self.mirrors = []
 
         # Print simulation setup
         print_simulation_setup( self, verbose_level=verbose_level )
@@ -548,6 +551,7 @@ class Simulation(object):
             # Handle boundaries for the E and B fields:
             # - MPI exchanges for guard cells
             # - Damp fields in damping cells
+            # - Set fields to 0 at the position of the mirrors
             # - Update the fields in interpolation space
             #  (needed for the field gathering at the next iteration)
             self.exchange_and_damp_EB()
@@ -610,9 +614,10 @@ class Simulation(object):
         """
         # Shortcut
         fld = self.fld
-        # If no species_list is provided, all species and antennas deposit
+        # If no species_list is provided, all non-zero-current species
+        # and antennas deposit
         if species_list is None:
-            species_list = self.ptcl
+            species_list = [species for species in self.ptcl if not species.is_tracer]
             antennas_list = self.laser_antennas
         else:
             # Otherwise only the specified species deposit
@@ -716,6 +721,7 @@ class Simulation(object):
         Handle boundaries for the E and B fields:
          - MPI exchanges for guard cells
          - Damp fields in damping cells (in z, and in r if PML are used)
+         - Set fields to 0 at the position of the mirrors
          - Update the fields in interpolation space
         """
         # Shortcut
@@ -741,6 +747,10 @@ class Simulation(object):
         self.comm.damp_EB_open_boundary( fld.interp ) # Damp along z
         if self.use_pml:
             self.comm.damp_pml_EB( fld.interp ) # Damp in radial PML
+
+        # - Set fields to 0 at the position of the mirrors
+        for mirror in self.mirrors:
+            mirror.set_fields_to_zero( fld.interp, self.comm, self.time )
 
         # - Update spectral space (and interpolation space if needed)
         if self.use_pml:
@@ -785,7 +795,9 @@ class Simulation(object):
                             p_rmin=0, p_rmax=np.inf,
                             uz_m=0., ux_m=0., uy_m=0.,
                             uz_th=0., ux_th=0., uy_th=0.,
-                            continuous_injection=True ):
+                            continuous_injection=True,
+                            boost_positions_in_dens_func=False,
+                            is_tracer=False):
         """
         Create a new species (i.e. an instance of `Particles`) with
         charge `q` and mass `m`. Add it to the simulation (i.e. to the list
@@ -822,11 +834,17 @@ class Simulation(object):
            If `n` is not None, evenly-spaced macroparticles will be generated.
 
         dens_func : callable, optional
-           A function of the form :
-           def dens_func( z, r ) ...
-           where z and r are 1d arrays, and which returns
-           a 1d array containing the density *relative to n*
+           A function of the form `dens_func( z, r )`
+           where `z` and `r` are 1d arrays, or `dens( x, y, z)`
+           where `x`, `y` and `z` are 1d arrays, and which returns
+           a 1d array containing the density *relative to `n`*
            (i.e. a number between 0 and 1) at the given positions
+
+           For boosted-frame simulation: if you set
+           ``boost_positions_in_dens_func`` to ``True``, then ``dens_func``
+           can be expressed as a function of ``z`` taken **in the lab frame**.
+           Otherwise, it has to be expressed as a function of ``z`` taken
+           in the boosted frame.
 
         p_nz: int, optional
             The number of macroparticles per cell along the z direction
@@ -860,10 +878,24 @@ class Simulation(object):
            Whether to continuously inject the particles,
            in the case of a moving window
 
+        boost_positions_in_dens_func: bool, optional
+           For boosted-frame simulations: whether to automatically take into
+           account the Lorentz transformation of the positions, in `dens_func`
+
+        is_tracer: bool, optional
+            Setting this flag to True will allow this particle
+            to move as a normal particle with given mass and charge,
+            but will generate no current. This allows them to be passive
+            tracers inside the plasma.
+
         Returns
         -------
         new_species: an instance of the `Particles` class
         """
+        # Define a temporary density function
+        # (will be modified below, in the case `boost_positions_in_dens_func`)
+        new_dens_func = dens_func
+
         # Check if any macroparticle need to be injected
         if n is not None:
             # Check that all required arguments are passed
@@ -877,11 +909,11 @@ class Simulation(object):
             # Automatically convert input quantities to the boosted frame
             if self.boost is not None:
                 gamma_m = np.sqrt(1. + uz_m**2 + ux_m**2 + uy_m**2)
-                beta_m = uz_m/gamma_m
+                beta_m_lab = uz_m/gamma_m
                 # Transform positions and density
                 p_zmin, p_zmax = self.boost.copropag_length(
-                    [ p_zmin, p_zmax ], beta_object=beta_m )
-                n, = self.boost.copropag_density([ n ], beta_object=beta_m )
+                    [ p_zmin, p_zmax ], beta_object=beta_m_lab )
+                n, = self.boost.copropag_density([ n ], beta_object=beta_m_lab )
                 # Transform longitudinal thermal velocity
                 # The formulas below are approximate, and are obtained
                 # by perturbation of the Lorentz transform for uz
@@ -899,9 +931,24 @@ class Simulation(object):
                         "boosted-frame simulations, and may not be accurate "
                         "enough for uz_th > 0.1 * uz_m")
                     uz_th = self.boost.gamma0 * \
-                            (1. - self.boost.beta0*beta_m) * uz_th
+                            (1. - self.boost.beta0*beta_m_lab) * uz_th
                 # Finally transform the longitudinal momentum
                 uz_m = self.boost.gamma0*( uz_m - self.boost.beta0*gamma_m )
+
+                # Create a temporary density function
+                # that takes into account the Lorentz boost of the positions
+                # (The motion of the plasma is further taken into account
+                # in continuous_injection.py.)
+                if boost_positions_in_dens_func and (dens_func is not None):
+
+                    coef = self.boost.gamma0*(1 - beta_m_lab*self.boost.beta0)
+                    args = _check_dens_func_arguments( dens_func )
+                    if args == ['z', 'r']:
+                        def new_dens_func( z, r ):
+                            return dens_func( coef*z, r )
+                    elif args == ['x', 'y', 'z']:
+                        def new_dens_func( x, y, z ):
+                            return dens_func( x, y, coef*z )
 
             # Modify input particle bounds, in order to only initialize the
             # particles in the local sub-domain
@@ -940,7 +987,7 @@ class Simulation(object):
             dz_particles = 0.
 
         # Create the new species
-        new_species = Particles( q=q, m=m, n=n, dens_func=dens_func,
+        new_species = Particles( q=q, m=m, n=n, dens_func=new_dens_func,
                         Npz=Npz, zmin=p_zmin, zmax=p_zmax,
                         Npr=Npr, rmin=p_rmin, rmax=p_rmax,
                         Nptheta=p_nt, dt=self.dt,
@@ -949,7 +996,7 @@ class Simulation(object):
                         ux_m=ux_m, uy_m=uy_m, uz_m=uz_m,
                         ux_th=ux_th, uy_th=uy_th, uz_th=uz_th,
                         continuous_injection=continuous_injection,
-                        dz_particles=dz_particles )
+                        dz_particles=dz_particles, is_tracer=is_tracer )
 
         # Add it to the list of species and return it to the user
         self.ptcl.append( new_species )
