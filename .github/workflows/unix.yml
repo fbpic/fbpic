@@ -40,7 +40,10 @@ jobs:
       run: python -m pyflakes .
     - shell: bash -l {0}
       name: FBPIC physics tests
-      run: export FBPIC_DISABLE_THREADING=1; python -m pytest tests --ignore=tests/unautomated --durations=10
+      run: |
+        export MKL_NUM_THREADS=1;
+        export NUMBA_NUM_THREADS=1;
+        python -m pytest tests --ignore=tests/unautomated --durations=10
     - shell: bash -l {0}
       name: PICMI test
       run: |
