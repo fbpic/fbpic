@@ -15,14 +15,6 @@ with open('./README.md') as f:
 with open('requirements.txt') as f:
     install_requires = [ line.strip('\n') for line in f.readlines() ]
 
-# Define a custom class to run the py.test with `python setup.py test`
-class PyTest(TestCommand):
-
-    def run_tests(self):
-        import pytest
-        errcode = pytest.main(['--ignore=tests/unautomated', '--durations=10'])
-        sys.exit(errcode)
-
 setup(
     name='fbpic',
     version=fbpic.__version__,
@@ -33,8 +25,6 @@ setup(
     maintainer_email='remi.lehe@normalesup.org',
     license='BSD-3-Clause-LBNL',
     packages=find_packages('.'),
-    tests_require=['more-itertools<6.0.0', 'pytest', 'openpmd_viewer'],
-    cmdclass={'test': PyTest},
     install_requires=install_requires,
     extras_require = {
         'picmi':  ["picmistandard", "numexpr", "periodictable"],
