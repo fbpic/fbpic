@@ -41,8 +41,8 @@ jobs:
     - shell: bash -l {0}
       name: FBPIC physics tests
       run: |
-        export MKL_NUM_THREADS=1;
-        export NUMBA_NUM_THREADS=1;
+        export MKL_NUM_THREADS=2;
+        export NUMBA_NUM_THREADS=2;
         python -m pytest tests --ignore=tests/unautomated --durations=10
     - shell: bash -l {0}
       name: PICMI test
