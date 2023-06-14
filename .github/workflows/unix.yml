@@ -41,7 +41,7 @@ jobs:
       run: python -m pyflakes .
     - shell: bash -l {0}
       name: FBPIC physics tests
-      run: python setup.py test
+      run: python -m pytest tests
     - shell: bash -l {0}
       name: PICMI test
       run: |

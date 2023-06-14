@@ -16,7 +16,7 @@ This file is meant to be run from the top directory of fbpic,
 by any of the following commands
 $ python tests/test_example_docs_scripts.py
 $ py.test -q tests/test_example_docs_scripts.py
-$ python setup.py test
+$ python -m pytest tests
 """
 import time
 import os

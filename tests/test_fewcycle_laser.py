@@ -17,7 +17,7 @@ $ python tests/test_fewcycle_laser.py
 In order to let Python check the agreement automatically
 $ py.test -q tests/test_fewcycle_laser.py
 or
-$ python setup.py test
+$ python -m pytest tests
 """
 import numpy as np
 from scipy.constants import c
@@ -103,7 +103,7 @@ def compare_fields( grid, t, profile, show ):
 
 def test_laser_periodic(show=False):
     """
-    Function that is run by py.test, when doing `python setup.py test`
+    Function that is run by py.test, when doing `python -m pytest tests`
     Test the propagation of a laser in a periodic box.
     """
     # Propagate the pulse in a single step

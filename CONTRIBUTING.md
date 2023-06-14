@@ -43,15 +43,13 @@ git pull git@github.com:fbpic/fbpic.git dev
   cd fbpic/
   pyflakes .
   ```
-  - Make sure that the tests pass (please install `openPMD-viewer` first)
+  - Make sure that the tests pass
   ```
-  python setup.py install
-  pip install matplotlib openPMD-viewer
-  python setup.py test
+  python -m pip install --install-option test .[test]
   ```
   (Be patient: the tests can take approx. 5 min.)
 
-- Push the changes to your personal copy on Github
+- Push the changes to your personal copy on GitHub
 ```
 git push -u origin <NewBranchName>
 ```
