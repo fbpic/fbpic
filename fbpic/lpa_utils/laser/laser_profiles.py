@@ -874,30 +874,39 @@ class FromLasyFileLaser( LaserProfile ):
 
         @numba.vectorize
         def interp_function(x, y, t):
-            r_interp = (x**2 + y**2)**.5*inv_dr_data
-            ir = int(r_interp)
-            t_interp = t*inv_dt_data
-            it = int(t_interp)
+            ir_interp = (x**2 + y**2)**.5 * inv_dr_data
+            ir = int(np.floor(ir_interp))
+
+            it_interp = t * inv_dt_data
+            it = int(np.floor(it_interp))
+
             if (it < 0) or (it+1 > nt) or (ir < 0) or (ir+1 > nr):
                 env = 0. + 1.j*0.
             else:
-                env = (ir+1-r_interp)*(it+1-t_interp) * env_data[0, it, ir] \
-                    + (r_interp-ir)  *(it+1-t_interp) * env_data[0, it, ir+1] \
-                    + (ir+1-r_interp)*(t_interp-it)   * env_data[0, it+1, ir] \
-                    + (r_interp-ir)  *(t_interp-it)   * env_data[0, it+1, ir+1]
-                for m in range(1,n_modes):
-                    env_cos = (ir+1-r_interp)*(it+1-t_interp) * env_data[2*m-1, it, ir] \
-                            + (r_interp-ir)  *(it+1-t_interp) * env_data[2*m-1, it, ir+1] \
-                            + (ir+1-r_interp)*(t_interp-it)   * env_data[2*m-1, it+1, ir] \
-                            + (r_interp-ir)  *(t_interp-it)   * env_data[2*m-1, it+1, ir+1]
-                    env_sin = (ir+1-r_interp)*(it+1-t_interp) * env_data[2*m, it, ir] \
-                            + (r_interp-ir)  *(it+1-t_interp) * env_data[2*m, it, ir+1] \
-                            + (ir+1-r_interp)*(t_interp-it)   * env_data[2*m, it+1, ir] \
-                            + (r_interp-ir)  *(t_interp-it)   * env_data[2*m, it+1, ir+1]
-                    exp_theta = ((x+1.j*y)/(x**2 + y**2)**.5)**m
+                S0t = it_interp - it
+                S1t = it + 1 - it_interp
+                S0r = ir_interp - ir
+                S1r = ir + 1 - ir_interp
+
+                env = S1r * S1t * env_data[0, it, ir] \
+                    + S0r * S1t * env_data[0, it, ir+1] \
+                    + S1r * S0t * env_data[0, it+1, ir] \
+                    + S0r * S0t * env_data[0, it+1, ir+1]
+
+                for m in range(1, n_modes):
+                    env_cos = S1r * S1t * env_data[2*m-1, it, ir] \
+                            + S0r * S1t * env_data[2*m-1, it, ir+1] \
+                            + S1r * S0t * env_data[2*m-1, it+1, ir] \
+                            + S0r * S0t * env_data[2*m-1, it+1, ir+1]
+                    env_sin = S1r * S1t * env_data[2*m, it, ir] \
+                            + S0r * S1t * env_data[2*m, it, ir+1] \
+                            + S1r * S0t * env_data[2*m, it+1, ir] \
+                            + S0r * S0t * env_data[2*m, it+1, ir+1]
+
+                    exp_theta = ( (x + 1.j*y) / (x**2 + y**2)**.5 )**m
                     cos = exp_theta.real
                     sin = exp_theta.imag
-                    env += env_cos*cos + env_sin*sin
+                    env += env_cos * cos + env_sin * sin
 
             return env
 

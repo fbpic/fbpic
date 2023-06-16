@@ -27,7 +27,7 @@ plot = True
 wavelength = 1.e-6
 w0 = 12.e-6
 tau = 10.e-15
-t_c = 20.e-15
+t_c = 3 * tau
 laser_energy = 1.0
 E_max = np.sqrt( 2*(2/np.pi)**(3/2)*laser_energy / (epsilon_0*w0**2*c*tau) )
 
@@ -51,7 +51,7 @@ def laguerre_env(T, X, Y, Z, p, m):
 
 def compare_simulation_with_theory():
 
-    ts = LpaDiagnostics('./diags/hdf5')
+    ts = LpaDiagnostics('./diags/hdf5/')
     F_laser, info = ts.get_field( 'E', 'x', iteration=ts.iterations[-1])
     t = ts.current_t
     X, Z = np.meshgrid(info.r, info.z, sparse=False, indexing='ij')
@@ -121,22 +121,23 @@ if __name__ == "__main__":
         LaguerreGaussianTransverseProfile(w0, p=0, m=1),
     )
     dim = "rt"
-    lo = (0e-6, -20e-15)
-    hi = (+25e-6, +20e-15)
+    lo = (0e-6, -3*tau)
+    hi = (3*w0, 3*tau)
     npoints = (100,100)
-    laser = Laser(dim, lo, hi, npoints, profile, n_azimuthal_modes=2)
+    laser = Laser(dim, lo, hi, npoints, profile, n_azimuthal_modes=1)
+    laser.propagate(-3 * c * tau)
     laser.write_to_file("laguerrelaserRZ")
 
     # Create an FBPIC simulation that reads this lasy file
     # Initialize the simulation object
     Nz = 1024
-    Nr = 32
-    zmax = 10e-6
-    zmin = -10e-6
-    rmax = 50.e-6
+    Nr = 100
+    zmax = 6 * c * tau
+    zmin = 0.
+    rmax = 3 * w0
     Nm = 3
     dt = (zmax-zmin)/Nz/c
-    T = 40.e-15
+
     sim = Simulation( Nz, zmax, Nr, rmax, Nm, dt, use_cuda=True, zmin=zmin,
                      boundaries={'z':'open', 'r':'reflective'})
 
@@ -145,16 +146,15 @@ if __name__ == "__main__":
 
     # Add the laser
     laser_profile = FromLasyFileLaser( 'laguerrelaserRZ_00000.h5' )
-    add_laser_pulse(sim, laser_profile, method='antenna', z0_antenna=0)
+    add_laser_pulse(sim, laser_profile, method='antenna',
+                    z0_antenna=zmin + 0.01 * c * dt)
 
-    # Calculate the number of steps between each output
-    N_step = int( T/dt )
     # Add diagnostic
     sim.diags = [
-        FieldDiagnostic( int(N_step//10), sim.fld, comm=sim.comm )
+        FieldDiagnostic( Nz, sim.fld, comm=sim.comm )
     ]
     # Run the simulation
-   # sim.step( N_step )
+    sim.step( Nz + 1 )
 
     # Perform test
     compare_simulation_with_theory()
