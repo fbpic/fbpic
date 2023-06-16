@@ -841,7 +841,8 @@ class FewCycleLaser( LaserProfile ):
 class FromLasyFileLaser( LaserProfile ):
     """Class that emits a laser from a lasy file"""
 
-    def __init__( self, filename, theta_pol=0., propagation_direction=1 ):
+    def __init__( self, filename, t_start=0.,
+                  theta_pol=0., propagation_direction=1 ):
         """
         TODO
 
@@ -860,6 +861,7 @@ class FromLasyFileLaser( LaserProfile ):
         """
         # Initialize propagation direction and mark as GPU capable
         LaserProfile.__init__(self, propagation_direction, gpu_capable=False)
+        self.t_start = t_start
 
         # Open and read the lasy file
         f = h5py.File( filename, mode="r" )
@@ -871,6 +873,7 @@ class FromLasyFileLaser( LaserProfile ):
         _, nt, nr = env_data.shape
         n_modes = int(env_data.shape[0]/2) + 1
         self.omega = dset.attrs['angularFrequency']
+        self.t_min_lasy = dset.attrs['gridGlobalOffset'][0]
 
         @numba.vectorize
         def interp_function(x, y, t):
@@ -920,8 +923,10 @@ class FromLasyFileLaser( LaserProfile ):
         See the docstring of LaserProfile.E_field
         """
         # Perform interpolation from envelope data
-        env = self.interp_function(x, y, t)
+        env = self.interp_function(x, y, (t-self.t_start) )
         # Add laser oscillations
-        E = (env * np.exp(-1.j*self.omega*t)).real
+        E = (env * np.exp(
+            -1.j*self.omega * (t - self.t_start + self.t_min_lasy)
+        )).real
 
         return( E * self.cos_theta, E * self.sin_theta )
