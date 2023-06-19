@@ -873,7 +873,6 @@ class FromLasyFileLaser( LaserProfile ):
         _, nt, nr = env_data.shape
         n_modes = int(env_data.shape[0]/2) + 1
         self.omega = dset.attrs['angularFrequency']
-        self.t_min_lasy = dset.attrs['gridGlobalOffset'][0]
 
         @numba.vectorize
         def interp_function(x, y, t):
@@ -926,7 +925,7 @@ class FromLasyFileLaser( LaserProfile ):
         env = self.interp_function(x, y, (t-self.t_start) )
         # Add laser oscillations
         E = (env * np.exp(
-            -1.j*self.omega * (t - self.t_start + self.t_min_lasy)
+            -1.j*self.omega * (t - self.t_start)
         )).real
 
         return( E * self.cos_theta, E * self.sin_theta )
