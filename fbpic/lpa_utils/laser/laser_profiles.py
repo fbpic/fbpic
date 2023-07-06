@@ -883,7 +883,7 @@ class FromLasyFileLaser( LaserProfile ):
             it_interp = t * inv_dt_data
             it = int(np.floor(it_interp))
 
-            if (it < 0) or (it+1 > nt) or (ir < 0) or (ir+1 > nr):
+            if (it < 0) or (it+1 > nt-1) or (ir < 0) or (ir+1 > nr-1):
                 env = 0. + 1.j*0.
             else:
                 S0t = it_interp - it
