@@ -15,15 +15,6 @@ git clone git@github.com:<YourUserLogin>/fbpic.git
 
 ### Implementing a new feature and adding it to the main repository
 
-- Switch to the development branch
-```
-git checkout dev
-```
-and install it
-```
-python setup.py install
-```
-
 - Start a new branch from the development branch, in order to
 implement a new feature. (Choose a branch name that is representative of the
 feature that you are implementing, e.g. `add-quadratic-deposition` or
