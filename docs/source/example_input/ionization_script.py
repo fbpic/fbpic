@@ -25,6 +25,7 @@ import numpy as np
 from scipy.constants import c, e, m_e, m_p
 # Import the relevant structures from fbpic
 from fbpic.main import Simulation
+from fbpic.utils.random_seed import set_random_seed
 from fbpic.lpa_utils.laser import add_laser_pulse
 from fbpic.lpa_utils.laser.laser_profiles import GaussianLaser
 from fbpic.openpmd_diag import FieldDiagnostic, \
@@ -108,6 +109,9 @@ T_interact = ( L_interact + (zmax-zmin) ) / v_window
 # ---------------------------
 
 if __name__ == '__main__':
+
+    # Set the random seed
+    set_random_seed(0)
 
     # Initialize the simulation object
     sim = Simulation( Nz, zmax, Nr, rmax, Nm, dt, zmin=zmin,

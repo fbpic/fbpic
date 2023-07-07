@@ -61,7 +61,7 @@ class Simulation(object):
                  gamma_boost=None, use_all_mpi_ranks=True,
                  particle_shape='linear', verbose_level=1,
                  smoother=None, use_ruyten_shapes=True,
-                 use_modified_volume=True, random_seed=None ):
+                 use_modified_volume=True ):
         """
         Initializes a simulation.
 
@@ -226,12 +226,6 @@ class Simulation(object):
             Whether to use a slightly-modified, effective cell volume, that
             ensures that the charge deposited near the axis is correctly
             taken into account by the spectral cylindrical Maxwell solver.
-
-        random_seed: int, optional
-            The seed of the random number generator.
-            Passing a seed helps ensure that repeatedly running the
-            same simulation gives the same result (despite the Monte Carlo
-            parts of the code, e.g. ionization, gaussian beam generation, etc.)
         """
         # Check whether to use CUDA
         self.use_cuda = use_cuda
@@ -271,13 +265,6 @@ class Simulation(object):
             self.cpu_threads = numba.config.NUMBA_NUM_THREADS
         else:
             self.cpu_threads = 1
-
-        # Set random seed, if requested by the user
-        if random_seed is not None:
-            # Use different seed for each MPI rank
-            np.random.seed( random_seed + MPI.COMM_WORLD.rank )
-            if self.use_cuda:
-                cupy.random.seed( random_seed + MPI.COMM_WORLD.rank )
 
         # Register the comoving parameters
         self.v_comoving = v_comoving
