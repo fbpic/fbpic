@@ -6,8 +6,11 @@ This file is part of the Fourier-Bessel Particle-In-Cell code (FB-PIC)
 It provides a function to fix the random seed in FBPIC runs.
 """
 import numpy as np
-from .cuda import cupy_installed
 from .mpi import MPI
+from .cuda import cupy_installed
+if cupy_installed:
+    import cupy
+
 
 def set_random_seed( random_seed ):
     """
