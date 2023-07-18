@@ -26,7 +26,7 @@ class Radiator(object):
     Class that contains the data associated with betatron radiation.
     """
     def __init__(self, radiating_species, omega_axis,
-                 theta_axis, phi_axis, gamma_cutoff=10.0):
+                 theta_x_axis, theta_y_axis, gamma_cutoff):
         """
         Initialize an Ionizer instance
 
@@ -40,24 +40,25 @@ class Radiator(object):
             (omega_min, omega_max, N_omega), where omega_min and
             omega_max are floats in (1/s) and N_omega in integer
 
-        theta_axis: tuple
-            Parameters for the elevation angle axis provided as
-            (theta_min, theta_max, N_theta), where theta_min and
-            theta_max are floats in (rad) and N_theta in integer
+        theta_x_axis: tuple
+            Parameters for the x-elevation angle axis provided as
+            (theta_x_min, theta_x_max, N_x_theta), where theta_x_min
+            and theta_x_max are floats in (rad) and N_x_theta is an integer
 
-        phi_axis: tuple
-            Parameters for the azimuthal angle axis provided as
-            (phi_min, phi_max, N_phi), where phi_min and
-            phi_max are floats in (rad) and N_phi in integer
+        theta_y_axis: tuple
+            Parameters for the y-elevation angle axis provided as
+            (theta_y_min, theta_y_max, N_y_theta), where theta_y_min
+            and theta_y_max are floats in (rad) and N_y_theta is an integer
 
         gamma_cutoff: float
             Minimal gamma factor of particles for which radiation
             is calculated
         """
         # Register a few parameters
-        self.beta_omega_min, self.beta_omega_max, self.beta_N_omega = omega_axis
-        self.beta_theta_min, self.beta_theta_max, self.beta_N_theta = omega_theta
-        self.beta_phi_min, self.beta_phi_max, self.beta_N_phi = omega_phi
+        self.eon = radiating_species
+        omega_min, omega_max, self.N_omega = omega_axis
+        self.theta_x_min, self.theta_x_max, N_x_theta = theta_x_axis
+        self.theta_y_min, self.theta_y_max, N_y_theta = theta_y_axis
         self.gamma_cutoff = gamma_cutoff
         self.Larmore_factor = 2 * e_cgs**2 / 3 / с_cgs * 1e-7 * radiating_species.dt
 
@@ -67,20 +68,17 @@ class Radiator(object):
 
         # Initialize radiation-relevant meta-data
         self.initialize_S_function()
-        self.beta_omega = np.linspace(
-            self.beta_omega_min, self.beta_omega_max, self.beta_N_omega
-        )
-        self.beta_theta = np.linspace(
-            self.beta_omega_theta, self.beta_omega_theta, self.beta_N_theta
-        )
-        self.beta_frequency = np.linspace(
-            self.beta_phi_min, self.beta_phi_max, self.beta_N_phi
+        self.omega_ax = np.linspace(omega_min, omega_max, self.N_omega)
+
+        self.d_theta_x = (self.theta_x_max - self.theta_x_min) / N_x_theta
+        self.d_theta_y = (self.theta_y_max - self.theta_y_min) / N_y_theta
+
+        # self.spect_loc = np.zeros(N_omega, dtype=np.double)
+        self.radiation_data = np.zeros(
+            (N_y_theta, N_x_theta, self.N_omega), dtype=np.double
         )
 
-        self.radiation_data = np.zeros(
-            (self.beta_N_phi, self.beta_N_theta, self.beta_N_omega),
-            dtype=np.double
-        )
+        self.send_to_gpu()
 
     def initialize_S_function( self, x_max=32, nSamples=65536 ):
         """
@@ -90,25 +88,19 @@ class Radiator(object):
         k_53 = lambda x : kv(5./3, x)
         S0 = lambda x : 9 * 3**0.5 / 8 / np.pi * x \
                         * quad(k_53, x, np.inf)[0]
-        S0 = np.vectorize(S0)
-        x_ax = np.r_[0 : x_max : nSamples*1j]
-        dx_ax = x_ax[1] - x_ax[0]
-
-        self.S_func_data = S0(x_ax)
+        S0 =  np.vectorize(S0)
+        x_ax = np.linspace(0, x_max, nSamples)
         self.S_func_dx = x_ax[1] - x_ax[0]
-        self.S_func_x_max = x_max
+        self.S_func_data = S0(x_ax)
 
     @catch_gpu_memory_error
-    def handle_radiation( self, eon ):
+    def handle_radiation( self ):
         """
         Handle radiation, either on CPU or GPU
-
-        Parameters:
-        -----------
-        eon: an fbpic.Particles object
-            The radiating species
         """
-        # Skip this function if there are no ions
+        eon = self.eon
+
+        # Skip this function if there are no electrons
         if eon.Ntot == 0:
             return
 
@@ -117,15 +109,22 @@ class Radiator(object):
         # Short-cuts
         use_cuda = self.use_cuda
 
+        spect_loc = allocate_empty( (self.N_omega, N_batch), use_cuda,
+                                    dtype=np.double )
+
         # Determine the ions that are ionized, and count them in each batch
         # (one thread per batch on GPU; parallel loop over batches on CPU)
         if use_cuda:
             batch_grid_1d, batch_block_1d = cuda_tpb_bpg_1d( N_batch )
             gather_betatron_cuda[ batch_grid_1d, batch_block_1d ](
-                N_batch, self.batch_size, eon.Ntot,
+                N_batch, self.batch_size,  eon.Ntot,
                 eon.ux, eon.uy, eon.uz, eon.Ex, eon.Ey, eon.Ez,
-                eon.Bx, eon.By, eon.Bz, eon.w, self.Larmore_factor,
-                self.gamma_cutoff, self.radiation_data )
+                eon.Bx, eon.By, eon.Bz, eon.w,
+                self.Larmore_factor, self.gamma_cutoff,
+                self.omega_ax, self.S_func_dx, self.S_func_data,
+                self.theta_x_min, self.theta_x_max, self.d_theta_x,
+                self.theta_y_min, self.theta_y_max, self.d_theta_y,
+                spect_loc, self.radiation_data)
         else:
             gather_betatron_numba(
                 N_batch, self.batch_size, eon.Ntot,
@@ -138,8 +137,9 @@ class Radiator(object):
         """
         if self.use_cuda:
             # Arrays with one element per macroparticles
-            self.radiation_data = cupy.asarray( self.radiation_data)
-            self.S_func_data = cupy.asarray( self.S_func_data)
+            self.radiation_data = cupy.asarray( self.radiation_data )
+            self.omega_ax = cupy.asarray(self.S_func_data )
+            self.S_func_data = cupy.asarray( self.S_func_data )
 
     def receive_from_gpu( self ):
         """
