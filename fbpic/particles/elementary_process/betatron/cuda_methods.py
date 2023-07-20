@@ -43,11 +43,11 @@ def gather_betatron_cuda(
                 ux[ip], uy[ip], uz[ip]
             )
 
-            if (gamma_p < gamma_cutoff) \
-              or (theta_x > theta_x_max) \
-              or (theta_y > theta_y_max) \
-              or (theta_x < theta_x_min) \
-              or (theta_y < theta_y_min):
+            if (gamma_p <= gamma_cutoff) \
+              or (theta_x >= theta_x_max) \
+              or (theta_y >= theta_y_max) \
+              or (theta_x <= theta_x_min) \
+              or (theta_y <= theta_y_min):
                 continue
 
             spect_loc = spect_batch[ip]
@@ -60,13 +60,15 @@ def gather_betatron_cuda(
             th_ix, s0_x, s1_x = get_linear_coefficients(theta_x, theta_x_min, d_th_x)
             th_iy, s0_y, s1_y = get_linear_coefficients(theta_y, theta_y_min, d_th_y)
 
+            omega_loc = omega_ax * omega_c**-1
+
             spect_loc = vector_interpolate(
-                omega_ax / omega_c, spect_loc, SR_dxi, SR_xi_data
+                omega_loc, spect_loc, SR_dxi, SR_xi_data
             )
             spect_loc *= Energy_Larmor
 
-            radiation_data[:, i_x, i_y] += spect_loc * s0_x * s0_y
-            radiation_data[:, i_x+1, i_y] += spect_loc * s1_x * s0_y
+            radiation_data[:, th_ix, th_iy] += spect_loc * s0_x * s0_y
+            radiation_data[:, th_ix+1, th_iy] += spect_loc * s1_x * s0_y
 
-            radiation_data[:, i_x, i_y+1] += spect_loc * s0_x * s1_y
-            radiation_data[:, i_x+1, i_y+1] += spect_loc * s1_x * s1_y
+            radiation_data[:, th_ix, th_iy+1] += spect_loc * s0_x * s1_y
+            radiation_data[:, th_ix+1, th_iy+1] += spect_loc * s1_x * s1_y

@@ -10,8 +10,8 @@ e_cgs = 4.8032047e-10
 с_cgs = c * 1e2
 
 def get_angles_and_gamma( ux, uy, uz ):
-    theta_x = math.arctan2( ux, uz )
-    theta_y = math.arctan2( uy, uz )
+    theta_x = math.atan2( ux, uz )
+    theta_y = math.atan2( uy, uz )
 
     gamma = math.sqrt( 1 + ux**2 + uy**2 + uz**2 )
 
