@@ -58,11 +58,36 @@ def get_linear_coefficients(x0, xmin, dx):
         s0 = 0.0
         s1 = 0.0
     else:
-        ix = math.floor( s_ix )
+        ix = int( math.floor( s_ix ) )
         s1 = s_ix - ix
         s0 = 1. - s1
 
     return ix, s0, s1
+
+def get_spectum(omega_c, Energy_Larmor,
+                omega_ax, SR_dxi, SR_xi_data,
+                spect_loc):
+
+    N_omega = omega_ax.size
+    N_omega_src = SR_xi_data.size
+
+    for i_omega in range(N_omega):
+
+        xi_loc = omega_ax[i_omega] / omega_c
+
+        s_ix_src = xi_loc / SR_dxi
+        ix_src = int( math.floor( s_ix_src ) )
+
+        if (ix_src >= N_omega_src-1):
+            spect_loc[i_omega] = 0.0
+        else:
+            s1 = s_ix_src - ix_src
+            s0 = 1.0 - s1
+            spect_loc[i_omega] = SR_xi_data[ix_src] * s0 + SR_xi_data[ix_src+1] * s1
+            spect_loc[i_omega] *= Energy_Larmor
+
+    return( spect_loc )
+
 
 def vector_interpolate( x_proj, data_proj, dx_src, data_src ):
 

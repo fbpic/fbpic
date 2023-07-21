@@ -8,22 +8,24 @@ It defines cuda methods that are used in particle ionization.
 Apart from synthactic details, this file is very close to numba_methods.py
 """
 from numba import cuda
+
 from fbpic.utils.cuda import compile_cupy
 from scipy.constants import c
+import math
 # Import inline functions
 from .inline_functions import get_angles_and_gamma, get_particle_radiation, \
-    get_linear_coefficients, vector_interpolate
-
+    get_linear_coefficients, get_spectum
 
 # Compile the inline functions for GPU
 get_angles_and_gamma = cuda.jit( get_angles_and_gamma, device=True, inline=True)
 get_particle_radiation = cuda.jit( get_particle_radiation, device=True, inline=True )
 get_linear_coefficients = cuda.jit( get_linear_coefficients, device=True, inline=True )
-vector_interpolate = cuda.jit( vector_interpolate, device=True, inline=True )
+get_spectum = cuda.jit( get_spectum, device=True, inline=True )
 
 @compile_cupy
 def gather_betatron_cuda(
-    N_batch, batch_size, Ntot, ux, uy, uz, Ex, Ey, Ez,
+    N_batch, batch_size, Ntot,
+    ux, uy, uz, Ex, Ey, Ez,
     Bx, By, Bz, w, Larmore_factor, gamma_cutoff,
     omega_ax, SR_dxi, SR_xi_data,
     theta_x_min, theta_x_max, d_th_x,
@@ -50,25 +52,55 @@ def gather_betatron_cuda(
               or (theta_y <= theta_y_min):
                 continue
 
-            spect_loc = spect_batch[ip]
+            spect_loc = spect_batch[ip-i_batch*batch_size]
+
             omega_c, Energy_Larmor = get_particle_radiation(
                 ux[ip], uy[ip], uz[ip], w[ip],
                 Ex[ip], Ey[ip], Ez[ip], c*Bx[ip],
                 c*By[ip], c*Bz[ip], gamma_p, Larmore_factor
             )
 
-            th_ix, s0_x, s1_x = get_linear_coefficients(theta_x, theta_x_min, d_th_x)
-            th_iy, s0_y, s1_y = get_linear_coefficients(theta_y, theta_y_min, d_th_y)
-
-            omega_loc = omega_ax * omega_c**-1
-
-            spect_loc = vector_interpolate(
-                omega_loc, spect_loc, SR_dxi, SR_xi_data
+            th_ix, s0_x, s1_x = get_linear_coefficients(
+                theta_x, theta_x_min, d_th_x
             )
-            spect_loc *= Energy_Larmor
+            th_iy, s0_y, s1_y = get_linear_coefficients(
+                theta_y, theta_y_min, d_th_y
+            )
 
-            radiation_data[:, th_ix, th_iy] += spect_loc * s0_x * s0_y
-            radiation_data[:, th_ix+1, th_iy] += spect_loc * s1_x * s0_y
+            spect_loc = get_spectum(
+                omega_c, Energy_Larmor, omega_ax,
+                SR_dxi, SR_xi_data, spect_loc
+            )
 
-            radiation_data[:, th_ix, th_iy+1] += spect_loc * s0_x * s1_y
-            radiation_data[:, th_ix+1, th_iy+1] += spect_loc * s1_x * s1_y
+            N_omega = spect_loc.size
+
+            for i_omega in range(N_omega):
+                cuda.atomic.add(
+                    radiation_data, (th_ix, th_iy, i_omega),
+                    spect_loc[i_omega] * s0_x * s0_y
+                )
+
+            for i_omega in range(N_omega):
+                cuda.atomic.add(
+                    radiation_data, (th_ix+1, th_iy, i_omega),
+                    spect_loc[i_omega] * s1_x * s0_y
+                )
+
+            for i_omega in range(N_omega):
+                cuda.atomic.add(
+                    radiation_data, (th_ix, th_iy+1, i_omega),
+                    spect_loc[i_omega] * s0_x * s1_y
+                )
+
+            for i_omega in range(N_omega):
+                cuda.atomic.add(
+                    radiation_data, (th_ix+1, th_iy+1, i_omega),
+                    spect_loc[i_omega] * s1_x * s1_y
+                )
+
+
+                #radiation_data[:, th_ix, th_iy] += spect_loc * s0_x * s0_y
+                #radiation_data[:, th_ix+1, th_iy] += spect_loc * s1_x * s0_y
+                #radiation_data[:, th_ix, th_iy+1] += spect_loc * s0_x * s1_y
+                #radiation_data[:, th_ix+1, th_iy+1] += spect_loc * s1_x * s1_y
+

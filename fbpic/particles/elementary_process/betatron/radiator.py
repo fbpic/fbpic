@@ -112,7 +112,7 @@ class Radiator(object):
         # Process particles in batches (of typically 10, 20 particles)
         N_batch = int( eon.Ntot / self.batch_size ) + 1
 
-        spect_loc = allocate_empty( (self.N_omega, N_batch), self.use_cuda,
+        spect_loc = allocate_empty( (self.batch_size, self.N_omega), self.use_cuda,
                                     dtype=np.double )
 
         # Determine the ions that are ionized, and count them in each batch
