@@ -841,26 +841,29 @@ class FewCycleLaser( LaserProfile ):
 class FromLasyFileLaser( LaserProfile ):
     """Class that emits a laser from a lasy file"""
 
-    def __init__( self, filename, t_start=0.,
-                  theta_pol=0., propagation_direction=1 ):
+    def __init__(self, filename, t_start=0.):
         """
-        TODO
+        Define a laser whose profile is determined by a
+        `lasy <https://lasydoc.readthedocs.io/en/latest/>`_ file.
 
         Parameters
         ----------
         filename: string
-            The `lasy` file from which to emit the laser
+            The path to the ``lasy`` file.
 
-        theta_pol: float (in radian), optional
-           The angle of polarization with respect to the x axis.
+        t_start: float (in seconds), optional
+            Physical time (in the simulation), at which the laser will start being
+            emitted. This can be used in order to introduce a time delay that was
+            not originally present in the ``lasy`` file.
 
-        propagation_direction: int, optional
-            Indicates in which direction the laser propagates.
-            This should be either 1 (laser propagates towards positive z)
-            or -1 (laser propagates towards negative z).
+
+        .. warning::
+
+            This laser profile can only be emitted with the ``antenna`` method
+            (not with the ``direct`` method).
         """
         # Initialize propagation direction and mark as GPU capable
-        LaserProfile.__init__(self, propagation_direction, gpu_capable=False)
+        LaserProfile.__init__(self, propagation_direction=1, gpu_capable=False)
         self.t_start = t_start
 
         # Open and read the lasy file
@@ -873,6 +876,7 @@ class FromLasyFileLaser( LaserProfile ):
         _, nt, nr = env_data.shape
         n_modes = int(env_data.shape[0]/2) + 1
         self.omega = dset.attrs['angularFrequency']
+        self.pol = dset.attrs['polarization']
         self.t_min_lasy = dset.attrs['gridGlobalOffset'][0]
 
         @numba.vectorize
@@ -915,8 +919,6 @@ class FromLasyFileLaser( LaserProfile ):
 
         self.interp_function = interp_function
 
-        self.cos_theta = np.cos(theta_pol)
-        self.sin_theta = np.sin(theta_pol)
 
     def E_field( self, x, y, z, t ):
         """
@@ -927,6 +929,6 @@ class FromLasyFileLaser( LaserProfile ):
         # Add laser oscillations
         E = (env * np.exp(
             -1.j*self.omega * (t - self.t_start + self.t_min_lasy)
-        )).real
+        ))
 
-        return( E * self.cos_theta, E * self.sin_theta )
+        return( (E * self.pol[0]).real, (E * self.pol[1]).real )
