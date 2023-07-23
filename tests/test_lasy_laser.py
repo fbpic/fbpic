@@ -113,6 +113,9 @@ if __name__ == "__main__":
     from lasy.profiles.longitudinal import GaussianLongitudinalProfile
     from lasy.profiles.transverse import LaguerreGaussianTransverseProfile
 
+    # Move into directory `tests`
+    os.chdir('./tests')
+
     # Create a Laguerre Gaussian laser in RZ geometry using lasy
     pol = (1, 0)
     profile = CombinedLongitudinalTransverseProfile(
@@ -158,3 +161,8 @@ if __name__ == "__main__":
 
     # Perform test
     compare_simulation_with_theory()
+
+    # Remove openPMD and lasy files
+    shutil.rmtree('./lab_diags/')
+    shutil.rmtree('./laguerrelaserRZ.h5')
+    os.chdir('../')
