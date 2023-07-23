@@ -7,7 +7,7 @@ It defines a set of utilities for laser initialization
 """
 from scipy.constants import c
 from fbpic.lpa_utils.boosted_frame import BoostConverter
-from .laser_profiles import GaussianLaser
+from .laser_profiles import GaussianLaser, FromLasyFileLaser
 from .direct_injection import add_laser_direct
 from .antenna_injection import LaserAntenna
 
@@ -75,6 +75,13 @@ def add_laser_pulse( sim, laser_profile, gamma_boost=None,
 
     # Handle the introduction method of the laser
     if method == 'direct':
+        # Check that this is not a profile from lasy
+        if isinstance( laser_profile, FromLasyFileLaser ):
+            raise RuntimeError(
+                "A laser profile from a `lasy` file cannot "
+                "be emitted with the `direct` method.\n"
+                "When using the function `add_laser_pulse`, "
+                "please pass `method='antenna'` instead.")
         # Directly add the laser to the interpolation object
         add_laser_direct( sim, laser_profile, boost )
 
