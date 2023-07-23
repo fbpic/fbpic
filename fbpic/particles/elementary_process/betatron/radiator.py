@@ -11,8 +11,8 @@ from scipy.special import kv
 from scipy.integrate import quad
 from scipy.interpolate import interp1d
 
-e_cgs = 4.8032047e-10
-с_cgs = c * 1e2
+# e_cgs = 4.8032047e-10
+# с_cgs = c * 1e2
 
 #from .numba_methods import ionize_ions_numba, copy_ionized_electrons_numba
 
@@ -65,7 +65,8 @@ class Radiator(object):
         self.theta_x_min, self.theta_x_max, N_x_theta = theta_x_axis
         self.theta_y_min, self.theta_y_max, N_y_theta = theta_y_axis
         self.gamma_cutoff = gamma_cutoff
-        self.Larmore_factor = 2 * e_cgs**2 / 3 / с_cgs * 1e-7 * self.eon.dt
+        self.Larmore_factor = e**2 / 6 / pi / epsilon_0 / c * self.eon.dt
+        #2 * e_cgs**2 / 3 / с_cgs * 1e-7 * self.eon.dt
 
         self.use_cuda = self.eon.use_cuda
         # Process radiating particles into batches
@@ -79,12 +80,12 @@ class Radiator(object):
         self.d_theta_y = (self.theta_y_max - self.theta_y_min) / N_y_theta
 
         self.radiation_data = np.zeros(
-            (N_y_theta, N_x_theta, self.N_omega), dtype=np.double
+            (N_x_theta, N_y_theta, self.N_omega), dtype=np.double
         )
 
         self.send_to_gpu()
 
-    def initialize_S_function( self, x_max=32, nSamples=1024 ):
+    def initialize_S_function( self, x_max=20, nSamples=4096 ):
         """
         Initialize spectral shape function
         """
@@ -112,7 +113,7 @@ class Radiator(object):
         # Process particles in batches (of typically 10, 20 particles)
         N_batch = int( eon.Ntot / self.batch_size ) + 1
 
-        spect_loc = allocate_empty( (self.batch_size, self.N_omega), self.use_cuda,
+        spect_loc = allocate_empty( (N_batch, self.N_omega), self.use_cuda,
                                     dtype=np.double )
 
         # Determine the ions that are ionized, and count them in each batch

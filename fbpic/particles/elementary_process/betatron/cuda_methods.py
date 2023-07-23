@@ -22,6 +22,8 @@ get_particle_radiation = cuda.jit( get_particle_radiation, device=True, inline=T
 get_linear_coefficients = cuda.jit( get_linear_coefficients, device=True, inline=True )
 get_spectum = cuda.jit( get_spectum, device=True, inline=True )
 
+#@cuda.jit(device=True, inline=True )
+
 @compile_cupy
 def gather_betatron_cuda(
     N_batch, batch_size, Ntot,
@@ -32,13 +34,19 @@ def gather_betatron_cuda(
     theta_y_min, theta_y_max, d_th_y,
     spect_batch, radiation_data):
     """
+    doc
     """
     # Loop over batches of particles
     i_batch = cuda.grid(1)
     if i_batch < N_batch:
         # Loop through the batch
-        N_max = min( (i_batch+1)*batch_size, Ntot )
+        spect_loc = spect_batch[i_batch]
 
+        N_omega = spect_loc.size
+        N_theta_x = (theta_x_max - theta_x_min) / d_th_x
+        N_theta_y = (theta_y_max - theta_y_min) / d_th_y
+
+        N_max = min( (i_batch+1)*batch_size, Ntot )
         for ip in range( i_batch*batch_size, N_max ):
 
             theta_x, theta_y, gamma_p = get_angles_and_gamma(
@@ -52,14 +60,6 @@ def gather_betatron_cuda(
               or (theta_y <= theta_y_min):
                 continue
 
-            spect_loc = spect_batch[ip-i_batch*batch_size]
-
-            omega_c, Energy_Larmor = get_particle_radiation(
-                ux[ip], uy[ip], uz[ip], w[ip],
-                Ex[ip], Ey[ip], Ez[ip], c*Bx[ip],
-                c*By[ip], c*Bz[ip], gamma_p, Larmore_factor
-            )
-
             th_ix, s0_x, s1_x = get_linear_coefficients(
                 theta_x, theta_x_min, d_th_x
             )
@@ -67,40 +67,42 @@ def gather_betatron_cuda(
                 theta_y, theta_y_min, d_th_y
             )
 
+            assert (th_ix<N_theta_x-1) and (th_iy<N_theta_y-1)
+
+            omega_c, Energy_Larmor = get_particle_radiation(
+                ux[ip], uy[ip], uz[ip], w[ip],
+                Ex[ip], Ey[ip], Ez[ip], c*Bx[ip],
+                c*By[ip], c*Bz[ip], gamma_p, Larmore_factor
+            )
+
             spect_loc = get_spectum(
                 omega_c, Energy_Larmor, omega_ax,
                 SR_dxi, SR_xi_data, spect_loc
             )
 
-            N_omega = spect_loc.size
-
             for i_omega in range(N_omega):
+                spect_loc_omega = spect_loc[i_omega]
+
+                spect_proj_00 = spect_loc_omega * s0_x * s0_y
                 cuda.atomic.add(
                     radiation_data, (th_ix, th_iy, i_omega),
-                    spect_loc[i_omega] * s0_x * s0_y
+                    spect_proj_00
                 )
 
-            for i_omega in range(N_omega):
+                spect_proj_10 = spect_loc_omega * s1_x * s0_y
                 cuda.atomic.add(
                     radiation_data, (th_ix+1, th_iy, i_omega),
-                    spect_loc[i_omega] * s1_x * s0_y
+                    spect_proj_10
                 )
 
-            for i_omega in range(N_omega):
+                spect_proj_01 = spect_loc_omega * s0_x * s1_y
                 cuda.atomic.add(
                     radiation_data, (th_ix, th_iy+1, i_omega),
-                    spect_loc[i_omega] * s0_x * s1_y
+                    spect_proj_01
                 )
 
-            for i_omega in range(N_omega):
+                spect_proj_11 = spect_loc_omega * s1_x * s1_y
                 cuda.atomic.add(
                     radiation_data, (th_ix+1, th_iy+1, i_omega),
-                    spect_loc[i_omega] * s1_x * s1_y
+                    spect_proj_11
                 )
-
-
-                #radiation_data[:, th_ix, th_iy] += spect_loc * s0_x * s0_y
-                #radiation_data[:, th_ix+1, th_iy] += spect_loc * s1_x * s0_y
-                #radiation_data[:, th_ix, th_iy+1] += spect_loc * s0_x * s1_y
-                #radiation_data[:, th_ix+1, th_iy+1] += spect_loc * s1_x * s1_y
-
