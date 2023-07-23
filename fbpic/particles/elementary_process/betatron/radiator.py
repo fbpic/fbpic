@@ -6,7 +6,7 @@ This file is part of the Fourier-Bessel Particle-In-Cell code (FB-PIC)
 """
 
 import numpy as np
-from scipy.constants import c, e, m_e, physical_constants
+from scipy.constants import c, e, m_e, physical_constants, epsilon_0
 from scipy.special import kv
 from scipy.integrate import quad
 from scipy.interpolate import interp1d
@@ -17,6 +17,8 @@ from scipy.interpolate import interp1d
 #from .numba_methods import ionize_ions_numba, copy_ionized_electrons_numba
 
 from ..cuda_numba_utils import allocate_empty
+
+from .numba_methods import gather_betatron_numba
 
 # Check if CUDA is available, then import CUDA functions
 from fbpic.utils.cuda import cuda_installed
@@ -31,7 +33,8 @@ class Radiator(object):
     Class that contains the data associated with betatron radiation.
     """
     def __init__(self, radiating_species, omega_axis,
-                 theta_x_axis, theta_y_axis, gamma_cutoff):
+                 theta_x_axis, theta_y_axis, gamma_cutoff,
+                 x_max, nSamples):
         """
         Initialize an Ionizer instance
 
@@ -65,7 +68,7 @@ class Radiator(object):
         self.theta_x_min, self.theta_x_max, N_x_theta = theta_x_axis
         self.theta_y_min, self.theta_y_max, N_y_theta = theta_y_axis
         self.gamma_cutoff = gamma_cutoff
-        self.Larmore_factor = e**2 / 6 / pi / epsilon_0 / c * self.eon.dt
+        self.Larmore_factor = e**2 / 6 / np.pi / epsilon_0 / c * self.eon.dt
         #2 * e_cgs**2 / 3 / с_cgs * 1e-7 * self.eon.dt
 
         self.use_cuda = self.eon.use_cuda
@@ -73,7 +76,7 @@ class Radiator(object):
         self.batch_size = 10
 
         # Initialize radiation-relevant meta-data
-        self.initialize_S_function()
+        self.initialize_S_function( x_max=x_max, nSamples=nSamples )
         self.omega_ax = np.linspace(omega_min, omega_max, self.N_omega)
 
         self.d_theta_x = (self.theta_x_max - self.theta_x_min) / N_x_theta
@@ -85,7 +88,7 @@ class Radiator(object):
 
         self.send_to_gpu()
 
-    def initialize_S_function( self, x_max=20, nSamples=4096 ):
+    def initialize_S_function( self, x_max, nSamples ):
         """
         Initialize spectral shape function
         """
@@ -131,9 +134,14 @@ class Radiator(object):
                 spect_loc, self.radiation_data)
         else:
             gather_betatron_numba(
-                N_batch, self.batch_size, eon.Ntot,
+                eon.Ntot,
                 eon.ux, eon.uy, eon.uz, eon.Ex, eon.Ey, eon.Ez,
-                eon.Bx, eon.By, eon.Bz, eon.w, self.radiation_data )
+                eon.Bx, eon.By, eon.Bz, eon.w,
+                self.Larmore_factor, self.gamma_cutoff,
+                self.omega_ax, self.S_func_dx, self.S_func_data,
+                self.theta_x_min, self.theta_x_max, self.d_theta_x,
+                self.theta_y_min, self.theta_y_max, self.d_theta_y,
+                spect_loc, self.radiation_data)
 
     def send_to_gpu( self ):
         """

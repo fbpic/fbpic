@@ -14,13 +14,12 @@ from scipy.constants import c
 import math
 # Import inline functions
 from .inline_functions import get_angles_and_gamma, get_particle_radiation, \
-    get_linear_coefficients, get_spectum
+    get_linear_coefficients
 
 # Compile the inline functions for GPU
 get_angles_and_gamma = cuda.jit( get_angles_and_gamma, device=True, inline=True)
 get_particle_radiation = cuda.jit( get_particle_radiation, device=True, inline=True )
 get_linear_coefficients = cuda.jit( get_linear_coefficients, device=True, inline=True )
-get_spectum = cuda.jit( get_spectum, device=True, inline=True )
 
 #@cuda.jit(device=True, inline=True )
 
@@ -54,8 +53,8 @@ def gather_betatron_cuda(
             )
 
             if (gamma_p <= gamma_cutoff) \
-              or (theta_x >= theta_x_max) \
-              or (theta_y >= theta_y_max) \
+              or (theta_x >= theta_x_max-d_th_x) \
+              or (theta_y >= theta_y_max-d_th_y) \
               or (theta_x <= theta_x_min) \
               or (theta_y <= theta_y_min):
                 continue
@@ -67,18 +66,14 @@ def gather_betatron_cuda(
                 theta_y, theta_y_min, d_th_y
             )
 
-            assert (th_ix<N_theta_x-1) and (th_iy<N_theta_y-1)
-
-            omega_c, Energy_Larmor = get_particle_radiation(
-                ux[ip], uy[ip], uz[ip], w[ip],
-                Ex[ip], Ey[ip], Ez[ip], c*Bx[ip],
-                c*By[ip], c*Bz[ip], gamma_p, Larmore_factor
-            )
-
-            spect_loc = get_spectum(
-                omega_c, Energy_Larmor, omega_ax,
-                SR_dxi, SR_xi_data, spect_loc
-            )
+            spect_loc = get_particle_radiation(
+                    ux[ip], uy[ip], uz[ip], w[ip],
+                    Ex[ip], Ey[ip], Ez[ip],
+                    c*Bx[ip], c*By[ip], c*Bz[ip],
+                    gamma_p, Larmore_factor,
+                    SR_dxi, SR_xi_data,
+                    omega_ax, spect_loc
+                    )
 
             for i_omega in range(N_omega):
                 spect_loc_omega = spect_loc[i_omega]
@@ -89,17 +84,26 @@ def gather_betatron_cuda(
                     spect_proj_00
                 )
 
+            for i_omega in range(N_omega):
+                spect_loc_omega = spect_loc[i_omega]
+
                 spect_proj_10 = spect_loc_omega * s1_x * s0_y
                 cuda.atomic.add(
                     radiation_data, (th_ix+1, th_iy, i_omega),
                     spect_proj_10
                 )
 
+            for i_omega in range(N_omega):
+                spect_loc_omega = spect_loc[i_omega]
+
                 spect_proj_01 = spect_loc_omega * s0_x * s1_y
                 cuda.atomic.add(
                     radiation_data, (th_ix, th_iy+1, i_omega),
                     spect_proj_01
                 )
+
+            for i_omega in range(N_omega):
+                spect_loc_omega = spect_loc[i_omega]
 
                 spect_proj_11 = spect_loc_omega * s1_x * s1_y
                 cuda.atomic.add(

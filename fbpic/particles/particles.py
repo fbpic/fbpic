@@ -441,12 +441,13 @@ class Particles(object) :
             ratio_w_electron_photon, boost )
 
     def activate_betatron( self, omega_axis, theta_x_axis, theta_y_axis,
-                           gamma_cutoff=10.0, boost=None ):
+                           gamma_cutoff=10.0, x_max=20, nSamples=2048,
+                           boost=None ):
         """
         Activate synchrotron radiation
         """
         self.radiator = Radiator( self, omega_axis,
-                 theta_x_axis, theta_y_axis, gamma_cutoff)
+                 theta_x_axis, theta_y_axis, gamma_cutoff,  x_max, nSamples)
 
     def make_ionizable(self, element, target_species,
                        level_start=0, level_max=None):
