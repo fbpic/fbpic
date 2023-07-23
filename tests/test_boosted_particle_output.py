@@ -14,11 +14,11 @@ they are all retrieved by the boosted-frame diagnostics.
 # -------
 import os, shutil
 import numpy as np
-from scipy.constants import c
+from scipy.constants import c, e, m_e
 # Import the relevant structures in FBPIC
 from fbpic.main import Simulation
 from fbpic.lpa_utils.boosted_frame import BoostConverter
-from fbpic.lpa_utils.bunch import add_elec_bunch_gaussian
+from fbpic.lpa_utils.bunch import add_particle_bunch_gaussian
 from fbpic.openpmd_diag import BackTransformedParticleDiagnostic
 # Import openPMD-viewer for checking output files
 from openpmd_viewer import OpenPMDTimeSeries
@@ -69,9 +69,11 @@ def test_boosted_output( gamma_boost=10. ):
     # throughout the simulation. As a consequence, the motion of the beam
     # is a mere translation.
     N_particles = 3000
-    add_elec_bunch_gaussian( sim, sig_r=1.e-6, sig_z=1.e-6, n_emit=0.,
-        gamma0=100, sig_gamma=0., Q=0., N=N_particles,
-        zf=0.5*(zmax_lab+zmin_lab), boost=BoostConverter(gamma_boost) )
+    add_particle_bunch_gaussian( sim, q=-e, m=m_e, sig_r=1.e-6, sig_z=1.e-6,
+        n_emit=0., gamma0=100, sig_gamma=0.,
+        n_physical_particles=0., n_macroparticles=N_particles,
+        zf=0.5*(zmax_lab+zmin_lab), boost=BoostConverter(gamma_boost),
+        initialize_self_field=False )
     sim.ptcl[0].track( sim.comm )
 
     # openPMD diagnostics
