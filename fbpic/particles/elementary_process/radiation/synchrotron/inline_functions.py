@@ -60,8 +60,12 @@ def get_particle_radiation(
     dt_beta_z = (dt_uz - beta_z * dt_gamma) * gamma_p_inv
 
     # calculate Larmore energy
-    Energy_norm = w * gamma_p**2 \
-        * ( dt_ux**2 + dt_uy**2 + dt_uy**2 - dt_gamma**2 )
+    Energy_norm = w * gamma_p**6 * (
+         dt_beta_x**2 + dt_beta_y**2 + dt_beta_z**2 - \
+         ( beta_y * dt_beta_z - beta_z * dt_beta_y )**2 - \
+         ( beta_z * dt_beta_x - beta_x * dt_beta_z )**2 - \
+         ( beta_x * dt_beta_y - beta_y * dt_beta_x )**2
+        )
 
     # calculate emitted radiation momentum
     Momentum_Larmor = Larmore_factor_momentum * Energy_norm
@@ -82,7 +86,7 @@ def get_particle_radiation(
     # (still returning photon momentum, just in case)
     if (omega_c < 4 * d_omega):
         spect_loc[:] = 0.0
-        return( spect_loc, ux_ph, uy_ph, uz_ph )
+        return( spect_loc )
 
     omega_c_inv = 1. / omega_c
 
@@ -103,4 +107,4 @@ def get_particle_radiation(
             S_xi_loc = SR_xi_data[ix_src_int] * s0 + SR_xi_data[ix_src_int+1] * s1
             spect_loc[i_omega] = Density_Larmore * S_xi_loc
 
-    return( spect_loc,  ux_ph, uy_ph, uz_ph )
+    return( spect_loc )

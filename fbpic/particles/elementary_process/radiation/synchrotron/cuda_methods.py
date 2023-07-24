@@ -76,7 +76,7 @@ def gather_synchrotron_cuda(
                 theta_y, theta_y_min, d_th_y
             )
 
-            spect_loc, ux_ph, uy_ph, uz_ph = get_particle_radiation(
+            spect_loc = get_particle_radiation(
                     ux[ip], uy[ip], uz[ip], w[ip],
                     Ex[ip], Ey[ip], Ez[ip],
                     c*Bx[ip], c*By[ip], c*Bz[ip],
