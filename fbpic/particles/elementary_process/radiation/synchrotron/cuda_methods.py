@@ -9,6 +9,7 @@ Apart from synthactic details, this file is very close to numba_methods.py
 """
 from numba import cuda
 
+from numba.cuda.random import xoroshiro128p_normal_float64
 from fbpic.utils.cuda import compile_cupy
 from scipy.constants import c
 import math
@@ -23,7 +24,8 @@ get_linear_coefficients = cuda.jit( get_linear_coefficients, device=True, inline
 
 #@cuda.jit(device=True, inline=True )
 
-@compile_cupy
+# @compile_cupy
+@cuda.jit
 def gather_synchrotron_cuda(
     N_batch, batch_size, Ntot,
     ux, uy, uz, Ex, Ey, Ez,
@@ -31,7 +33,7 @@ def gather_synchrotron_cuda(
     omega_ax, SR_dxi, SR_xi_data,
     theta_x_min, theta_x_max, d_th_x,
     theta_y_min, theta_y_max, d_th_y,
-    spect_batch, radiation_data):
+    spect_batch, rng_states_batch, radiation_data):
     """
     doc
     """
@@ -48,6 +50,14 @@ def gather_synchrotron_cuda(
             theta_x, theta_y, gamma_p = get_angles_and_gamma(
                 ux[ip], uy[ip], uz[ip]
             )
+
+            theta_diffusion = 2**-1.5 / gamma_p
+
+            theta_x += theta_diffusion * xoroshiro128p_normal_float64(
+                rng_states_batch, i_batch)
+
+            theta_y += theta_diffusion * xoroshiro128p_normal_float64(
+                rng_states_batch, i_batch)
 
             if (gamma_p <= gamma_cutoff) \
               or (theta_x >= theta_x_max) \

@@ -34,6 +34,7 @@ def get_particle_radiation(
     ):
 
     d_omega = omega_ax[1] - omega_ax[0]
+    N_omega_src = SR_xi_data.size
 
     # get normalized velocity beta
     bx = ux / gamma_p
@@ -63,19 +64,16 @@ def get_particle_radiation(
     omega_c = 1.5 * gamma_p**3 * c * math.sqrt(
         v_abs**2 * dt_v_abs**2 - v_dot_dt_v**2 ) / v_abs**3
 
-    if (omega_c < d_omega):
+    if (omega_c < 4 * d_omega):
         spect_loc[:] = 0.0
         return( spect_loc )
 
     omega_c_inv = 1. / omega_c
+    d_xi_loc =  d_omega * omega_c_inv
 
-    N_omega_src = SR_xi_data.size
-
-    S_xi_integral = 0.0
-    d_xi_loc =  d_omega / omega_c
     for i_omega in range(omega_ax.size):
 
-        xi_loc = omega_ax[i_omega] / omega_c
+        xi_loc = omega_ax[i_omega] * omega_c_inv
 
         s_ix_src = xi_loc / SR_dxi
         ix_src = math.floor( s_ix_src )
@@ -87,12 +85,6 @@ def get_particle_radiation(
             s0 = 1.0 - s1
             ix_src_int = int(ix_src)
             S_xi_loc = SR_xi_data[ix_src_int] * s0 + SR_xi_data[ix_src_int+1] * s1
-
             spect_loc[i_omega] = Energy_Larmor * omega_c_inv * S_xi_loc
-            S_xi_integral += S_xi_loc * d_xi_loc
-
-    if S_xi_integral > 0:
-        for i_omega in range(omega_ax.size):
-            spect_loc[i_omega] /= S_xi_integral
 
     return( spect_loc )

@@ -15,6 +15,12 @@ from ...cuda_numba_utils import allocate_empty
 
 from .numba_methods import gather_synchrotron_numba
 
+import warnings
+from numba.core.errors import NumbaPerformanceWarning
+from scipy.integrate import IntegrationWarning
+warnings.simplefilter('ignore', category=NumbaPerformanceWarning)
+warnings.simplefilter('ignore', category=IntegrationWarning)
+
 # Check if CUDA is available, then import CUDA functions
 from fbpic.utils.cuda import cuda_installed
 from fbpic.utils.printing import catch_gpu_memory_error
@@ -22,6 +28,7 @@ if cuda_installed:
     import cupy
     from fbpic.utils.cuda import cuda_tpb_bpg_1d
     from .cuda_methods import gather_synchrotron_cuda
+    from numba.cuda.random import create_xoroshiro128p_states
 
 class SynchrotronRadiator(object):
     """
@@ -115,8 +122,10 @@ class SynchrotronRadiator(object):
         if self.use_cuda:
             # Process particles in batches (of typically 10, 20 particles)
             N_batch = int( eon.Ntot / self.batch_size ) + 1
-            spect_loc = allocate_empty( (N_batch, self.N_omega), self.use_cuda,
-                                        dtype=np.double )
+            spect_batch = allocate_empty( (N_batch, self.N_omega), self.use_cuda,
+                                          dtype=np.double )
+            seed = np.random.randint( 256 )
+            rng_states_batch = create_xoroshiro128p_states(N_batch, seed)
 
             batch_grid_1d, batch_block_1d = cuda_tpb_bpg_1d( N_batch )
             gather_synchrotron_cuda[ batch_grid_1d, batch_block_1d ](
@@ -127,7 +136,7 @@ class SynchrotronRadiator(object):
                 self.omega_ax, self.S_func_dx, self.S_func_data,
                 self.theta_x_min, self.theta_x_max, self.d_theta_x,
                 self.theta_y_min, self.theta_y_max, self.d_theta_y,
-                spect_loc, self.radiation_data)
+                spect_batch, rng_states_batch, self.radiation_data)
         else:
             spect_loc = allocate_empty( (self.N_omega,), self.use_cuda,
                                         dtype=np.double )
