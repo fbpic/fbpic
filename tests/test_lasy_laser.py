@@ -8,6 +8,7 @@
 # - Run an FBPIC simulation, until time T when the pulse is fully injected
 # - Compute the theory for laser envelope at time T
 # - Compare theory and simulation in RZ, for both envelope and central frequency
+import os, shutil
 import numpy as np
 from scipy.constants import c, epsilon_0
 from scipy.signal import hilbert
@@ -163,6 +164,6 @@ if __name__ == "__main__":
     compare_simulation_with_theory()
 
     # Remove openPMD and lasy files
-    shutil.rmtree('./lab_diags/')
+    shutil.rmtree('./diags/')
     shutil.rmtree('./laguerrelaserRZ.h5')
     os.chdir('../')
