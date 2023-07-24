@@ -17,16 +17,10 @@ def get_angles_and_gamma( ux, uy, uz ):
 def get_linear_coefficients(x0, xmin, dx):
 
     s_ix = ( x0 - xmin ) / dx
-
-    if s_ix < 0:
-        ix = 0
-        s0 = 0.0
-        s1 = 0.0
-    else:
-        ix = math.floor( s_ix )
-        s1 = s_ix - ix
-        s0 = 1. - s1
-        ix = int(ix)
+    ix = math.floor( s_ix )
+    s1 = s_ix - ix
+    s0 = 1. - s1
+    ix = int(ix)
 
     return ix, s0, s1
 
@@ -38,6 +32,8 @@ def get_particle_radiation(
     SR_dxi, SR_xi_data,
     omega_ax, spect_loc
     ):
+
+    d_omega = omega_ax[1] - omega_ax[0]
 
     # get normalized velocity beta
     bx = ux / gamma_p
@@ -67,10 +63,16 @@ def get_particle_radiation(
     omega_c = 1.5 * gamma_p**3 * c * math.sqrt(
         v_abs**2 * dt_v_abs**2 - v_dot_dt_v**2 ) / v_abs**3
 
+    if (omega_c < d_omega):
+        spect_loc[:] = 0.0
+        return( spect_loc )
+
     omega_c_inv = 1. / omega_c
 
     N_omega_src = SR_xi_data.size
 
+    S_xi_integral = 0.0
+    d_xi_loc =  d_omega / omega_c
     for i_omega in range(omega_ax.size):
 
         xi_loc = omega_ax[i_omega] / omega_c
@@ -84,7 +86,12 @@ def get_particle_radiation(
             s1 = s_ix_src - ix_src
             s0 = 1.0 - s1
             ix_src_int = int(ix_src)
-            spect_loc[i_omega] = Energy_Larmor * omega_c_inv * \
-                (SR_xi_data[ix_src_int] * s0 + SR_xi_data[ix_src_int+1] * s1)
+            S_xi_loc = SR_xi_data[ix_src_int] * s0 + SR_xi_data[ix_src_int+1] * s1
+
+            spect_loc[i_omega] = Energy_Larmor * omega_c_inv * S_xi_loc
+            S_xi_integral += S_xi_loc * d_xi_loc
+
+    if S_xi_integral > 0:
+        spect_loc /= S_xi_integral
 
     return( spect_loc )

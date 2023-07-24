@@ -31,29 +31,25 @@ def gather_betatron_numba(
     omega_ax, SR_dxi, SR_xi_data,
     theta_x_min, theta_x_max, d_th_x,
     theta_y_min, theta_y_max, d_th_y,
-    spect_batch, radiation_data):
+    spect_loc, radiation_data):
     """
     doc
     """
-    spect_loc = spect_batch[0]
-
     N_omega = spect_loc.size
-    N_theta_x = (theta_x_max - theta_x_min) / d_th_x
-    N_theta_y = (theta_y_max - theta_y_min) / d_th_y
 
     for ip in range( N_tot ):
 
         theta_x, theta_y, gamma_p = get_angles_and_gamma(
             ux[ip], uy[ip], uz[ip]
         )
-        gamma_p_inv = 1. / gamma_p
 
-        theta_x += random.gauss(0, gamma_p_inv)
-        theta_y += random.gauss(0, gamma_p_inv)
+        theta_diffusion = 2**-1.5 / gamma_p
+        theta_x += random.gauss(0, theta_diffusion)
+        theta_y += random.gauss(0, theta_diffusion)
 
-        if (gamma_p <= gamma_cutoff) \
-          or (theta_x >= theta_x_max-d_th_x) \
-          or (theta_y >= theta_y_max-d_th_y) \
+        if  (gamma_p <= gamma_cutoff) \
+          or (theta_x >= theta_x_max) \
+          or (theta_y >= theta_y_max) \
           or (theta_x <= theta_x_min) \
           or (theta_y <= theta_y_min):
             continue
@@ -78,4 +74,3 @@ def gather_betatron_numba(
         radiation_data[th_ix, th_iy+1, :] += spect_loc * s0_x * s1_y
         radiation_data[th_ix+1, th_iy, :] += spect_loc * s1_x * s0_y
         radiation_data[th_ix+1, th_iy+1, :] += spect_loc * s1_x * s1_y
-

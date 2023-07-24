@@ -6,15 +6,10 @@ This file is part of the Fourier-Bessel Particle-In-Cell code (FB-PIC)
 """
 
 import numpy as np
-from scipy.constants import c, e, m_e, physical_constants, epsilon_0
+from scipy.constants import c, e, m_e, physical_constants, epsilon_0, hbar
 from scipy.special import kv
 from scipy.integrate import quad
 from scipy.interpolate import interp1d
-
-# e_cgs = 4.8032047e-10
-# с_cgs = c * 1e2
-
-#from .numba_methods import ionize_ions_numba, copy_ionized_electrons_numba
 
 from ..cuda_numba_utils import allocate_empty
 
@@ -63,30 +58,32 @@ class Radiator(object):
             is calculated
         """
         # Register a few parameters
+        self.use_cuda = radiating_species.use_cuda
         self.eon = radiating_species
         omega_min, omega_max, self.N_omega = omega_axis
         self.theta_x_min, self.theta_x_max, N_x_theta = theta_x_axis
         self.theta_y_min, self.theta_y_max, N_y_theta = theta_y_axis
         self.gamma_cutoff = gamma_cutoff
-        self.Larmore_factor = e**2 / 6 / np.pi / epsilon_0 / c * self.eon.dt
-        #2 * e_cgs**2 / 3 / с_cgs * 1e-7 * self.eon.dt
 
-        self.use_cuda = self.eon.use_cuda
-        # Process radiating particles into batches
-        self.batch_size = 10
+        self.d_theta_x = (self.theta_x_max - self.theta_x_min) / (N_x_theta-1)
+        self.d_theta_y = (self.theta_y_max - self.theta_y_min) / (N_y_theta-1)
+
+        self.Larmore_factor = e**2 * self.eon.dt \
+            / ( 6 * np.pi * epsilon_0 * c * hbar * \
+                self.d_theta_x * self.d_theta_y)
 
         # Initialize radiation-relevant meta-data
         self.initialize_S_function( x_max=x_max, nSamples=nSamples )
         self.omega_ax = np.linspace(omega_min, omega_max, self.N_omega)
-
-        self.d_theta_x = (self.theta_x_max - self.theta_x_min) / N_x_theta
-        self.d_theta_y = (self.theta_y_max - self.theta_y_min) / N_y_theta
 
         self.radiation_data = np.zeros(
             (N_x_theta, N_y_theta, self.N_omega), dtype=np.double
         )
 
         self.send_to_gpu()
+
+        # Process radiating particles into batches
+        self.batch_size = 10
 
     def initialize_S_function( self, x_max, nSamples ):
         """
@@ -113,15 +110,14 @@ class Radiator(object):
         if eon.Ntot == 0:
             return
 
-        # Process particles in batches (of typically 10, 20 particles)
-        N_batch = int( eon.Ntot / self.batch_size ) + 1
-
-        spect_loc = allocate_empty( (N_batch, self.N_omega), self.use_cuda,
-                                    dtype=np.double )
-
         # Determine the ions that are ionized, and count them in each batch
         # (one thread per batch on GPU; parallel loop over batches on CPU)
         if self.use_cuda:
+            # Process particles in batches (of typically 10, 20 particles)
+            N_batch = int( eon.Ntot / self.batch_size ) + 1
+            spect_loc = allocate_empty( (N_batch, self.N_omega), self.use_cuda,
+                                        dtype=np.double )
+
             batch_grid_1d, batch_block_1d = cuda_tpb_bpg_1d( N_batch )
             gather_betatron_cuda[ batch_grid_1d, batch_block_1d ](
                 N_batch, self.batch_size,  eon.Ntot,
@@ -133,6 +129,8 @@ class Radiator(object):
                 self.theta_y_min, self.theta_y_max, self.d_theta_y,
                 spect_loc, self.radiation_data)
         else:
+            spect_loc = allocate_empty( (self.N_omega,), self.use_cuda,
+                                        dtype=np.double )
             gather_betatron_numba(
                 eon.Ntot,
                 eon.ux, eon.uy, eon.uz, eon.Ex, eon.Ey, eon.Ez,
@@ -159,4 +157,3 @@ class Radiator(object):
         """
         if self.use_cuda:
             self.radiation_data = self.radiation_data.get()
-
