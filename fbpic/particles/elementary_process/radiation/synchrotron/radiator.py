@@ -11,9 +11,9 @@ from scipy.special import kv
 from scipy.integrate import quad
 from scipy.interpolate import interp1d
 
-from ..cuda_numba_utils import allocate_empty
+from ...cuda_numba_utils import allocate_empty
 
-from .numba_methods import gather_betatron_numba
+from .numba_methods import gather_synchrotron_numba
 
 # Check if CUDA is available, then import CUDA functions
 from fbpic.utils.cuda import cuda_installed
@@ -21,9 +21,9 @@ from fbpic.utils.printing import catch_gpu_memory_error
 if cuda_installed:
     import cupy
     from fbpic.utils.cuda import cuda_tpb_bpg_1d
-    from .cuda_methods import gather_betatron_cuda
+    from .cuda_methods import gather_synchrotron_cuda
 
-class Radiator(object):
+class SynchrotronRadiator(object):
     """
     Class that contains the data associated with betatron radiation.
     """
@@ -119,7 +119,7 @@ class Radiator(object):
                                         dtype=np.double )
 
             batch_grid_1d, batch_block_1d = cuda_tpb_bpg_1d( N_batch )
-            gather_betatron_cuda[ batch_grid_1d, batch_block_1d ](
+            gather_synchrotron_cuda[ batch_grid_1d, batch_block_1d ](
                 N_batch, self.batch_size,  eon.Ntot,
                 eon.ux, eon.uy, eon.uz, eon.Ex, eon.Ey, eon.Ez,
                 eon.Bx, eon.By, eon.Bz, eon.w,
@@ -131,7 +131,7 @@ class Radiator(object):
         else:
             spect_loc = allocate_empty( (self.N_omega,), self.use_cuda,
                                         dtype=np.double )
-            gather_betatron_numba(
+            gather_synchrotron_numba(
                 eon.Ntot,
                 eon.ux, eon.uy, eon.uz, eon.Ex, eon.Ey, eon.Ez,
                 eon.Bx, eon.By, eon.Bz, eon.w,
@@ -148,7 +148,7 @@ class Radiator(object):
         if self.use_cuda:
             # Arrays with one element per macroparticles
             self.radiation_data = cupy.asarray( self.radiation_data )
-            self.omega_ax = cupy.asarray(self.S_func_data )
+            self.omega_ax = cupy.asarray( self.omega_ax )
             self.S_func_data = cupy.asarray( self.S_func_data )
 
     def receive_from_gpu( self ):
@@ -157,3 +157,4 @@ class Radiator(object):
         """
         if self.use_cuda:
             self.radiation_data = self.radiation_data.get()
+            self.omega_ax = self.omega_ax.get()

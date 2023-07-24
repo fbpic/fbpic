@@ -24,7 +24,7 @@ get_linear_coefficients = cuda.jit( get_linear_coefficients, device=True, inline
 #@cuda.jit(device=True, inline=True )
 
 @compile_cupy
-def gather_betatron_cuda(
+def gather_synchrotron_cuda(
     N_batch, batch_size, Ntot,
     ux, uy, uz, Ex, Ey, Ez,
     Bx, By, Bz, w, Larmore_factor, gamma_cutoff,
@@ -40,10 +40,7 @@ def gather_betatron_cuda(
     if i_batch < N_batch:
         # Loop through the batch
         spect_loc = spect_batch[i_batch]
-
         N_omega = spect_loc.size
-        N_theta_x = (theta_x_max - theta_x_min) / d_th_x
-        N_theta_y = (theta_y_max - theta_y_min) / d_th_y
 
         N_max = min( (i_batch+1)*batch_size, Ntot )
         for ip in range( i_batch*batch_size, N_max ):
@@ -53,8 +50,8 @@ def gather_betatron_cuda(
             )
 
             if (gamma_p <= gamma_cutoff) \
-              or (theta_x >= theta_x_max-d_th_x) \
-              or (theta_y >= theta_y_max-d_th_y) \
+              or (theta_x >= theta_x_max) \
+              or (theta_y >= theta_y_max) \
               or (theta_x <= theta_x_min) \
               or (theta_y <= theta_y_min):
                 continue

@@ -92,6 +92,7 @@ def get_particle_radiation(
             S_xi_integral += S_xi_loc * d_xi_loc
 
     if S_xi_integral > 0:
-        spect_loc /= S_xi_integral
+        for i_omega in range(omega_ax.size):
+            spect_loc[i_omega] /= S_xi_integral
 
     return( spect_loc )

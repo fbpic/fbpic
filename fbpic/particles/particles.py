@@ -10,7 +10,7 @@ import numpy as np
 from scipy.constants import e
 from .tracking import ParticleTracker
 from .elementary_process.ionization import Ionizer
-from .elementary_process.betatron import Radiator
+from .elementary_process.radiation.synchrotron.radiator import SynchrotronRadiator
 from .elementary_process.compton import ComptonScatterer
 from .injection import BallisticBeforePlane, ContinuousInjector, \
                         generate_evenly_spaced
@@ -206,7 +206,7 @@ class Particles(object) :
         # By default, the species experiences no elementary processes
         # (see method make_ionizable and activate_compton)
         self.ionizer = None
-        self.radiator = None
+        self.synchrotron_radiator = None
         self.compton_scatterer = None
         # Total number of quantities (necessary in MPI communications)
         self.n_integer_quantities = 0
@@ -440,13 +440,13 @@ class Particles(object) :
             laser_waist, laser_ctau, laser_initial_z0,
             ratio_w_electron_photon, boost )
 
-    def activate_betatron( self, omega_axis, theta_x_axis, theta_y_axis,
+    def activate_synchrotron( self, omega_axis, theta_x_axis, theta_y_axis,
                            gamma_cutoff=10.0, x_max=20, nSamples=2048,
                            boost=None ):
         """
         Activate synchrotron radiation
         """
-        self.radiator = Radiator( self, omega_axis,
+        self.synchrotron_radiator = SynchrotronRadiator( self, omega_axis,
                  theta_x_axis, theta_y_axis, gamma_cutoff,  x_max, nSamples)
 
     def make_ionizable(self, element, target_species,
@@ -515,8 +515,8 @@ class Particles(object) :
         if self.ionizer is not None:
             self.ionizer.handle_ionization( self )
         # Synchrotron radiation
-        if self.radiator is not None:
-            self.radiator.handle_radiation()
+        if self.synchrotron_radiator is not None:
+            self.synchrotron_radiator.handle_radiation()
         # Compton scattering
         if self.compton_scatterer is not None:
             self.compton_scatterer.handle_scattering( self, t )

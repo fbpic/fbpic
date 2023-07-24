@@ -24,7 +24,7 @@ get_linear_coefficients = numba.njit( get_linear_coefficients )
 
 
 @numba.njit
-def gather_betatron_numba(
+def gather_synchrotron_numba(
     N_tot,
     ux, uy, uz, Ex, Ey, Ez,
     Bx, By, Bz, w, Larmore_factor, gamma_cutoff,
