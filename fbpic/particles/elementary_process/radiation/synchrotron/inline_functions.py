@@ -29,7 +29,9 @@ def get_particle_radiation(
     ux, uy, uz, w,
     Ex, Ey, Ez,
     cBx, cBy, cBz,
-    gamma_p, Larmore_factor,
+    gamma_p,
+    Larmore_factor_density,
+    Larmore_factor_momentum,
     SR_dxi, SR_xi_data,
     omega_ax, spect_loc
     ):
@@ -58,8 +60,15 @@ def get_particle_radiation(
     dt_beta_z = (dt_uz - beta_z * dt_gamma) * gamma_p_inv
 
     # calculate Larmore energy
-    Energy_Larmor = Larmore_factor * w * gamma_p**2 \
+    Energy_norm = w * gamma_p**2 \
         * ( dt_ux**2 + dt_uy**2 + dt_uy**2 - dt_gamma**2 )
+
+    # calculate emitted radiation momentum
+    Momentum_Larmor = Larmore_factor_momentum * Energy_norm
+    u_abs_inv = 1. / math.sqrt(ux * ux + uy * uy + uz * uz )
+    ux_ph = Momentum_Larmor * ux * u_abs_inv
+    uy_ph = Momentum_Larmor * uy * u_abs_inv
+    uz_ph = Momentum_Larmor * uz * u_abs_inv
 
     # calculate critical frequency
     dt_beta_abs2 = dt_beta_x**2 + dt_beta_y**2 + dt_beta_z**2
@@ -70,11 +79,14 @@ def get_particle_radiation(
         math.sqrt( dt_beta_abs2 - beta_dot_dt_beta**2 * beta_abs2_inv )
 
     # discard too low critical frequencies as not resolved
+    # (still returning photon momentum, just in case)
     if (omega_c < 4 * d_omega):
         spect_loc[:] = 0.0
-        return( spect_loc )
+        return( spect_loc, ux_ph, uy_ph, uz_ph )
 
     omega_c_inv = 1. / omega_c
+
+    Density_Larmore = Larmore_factor_density * Energy_norm  * omega_c_inv
 
     # Loop over the frequencies to project spectrum
     for i_omega in range(omega_ax.size):
@@ -89,6 +101,6 @@ def get_particle_radiation(
             s0 = 1.0 - s1
             ix_src_int = int(ix_src)
             S_xi_loc = SR_xi_data[ix_src_int] * s0 + SR_xi_data[ix_src_int+1] * s1
-            spect_loc[i_omega] = Energy_Larmor * omega_c_inv * S_xi_loc
+            spect_loc[i_omega] = Density_Larmore * S_xi_loc
 
-    return( spect_loc )
+    return( spect_loc,  ux_ph, uy_ph, uz_ph )

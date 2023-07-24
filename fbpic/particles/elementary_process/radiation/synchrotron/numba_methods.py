@@ -27,7 +27,10 @@ get_linear_coefficients = numba.njit( get_linear_coefficients )
 def gather_synchrotron_numba(
     N_tot,
     ux, uy, uz, Ex, Ey, Ez,
-    Bx, By, Bz, w, Larmore_factor, gamma_cutoff,
+    Bx, By, Bz, w,
+    Larmore_factor_density,
+    Larmore_factor_momentum,
+    gamma_cutoff,
     omega_ax, SR_dxi, SR_xi_data,
     theta_x_min, theta_x_max, d_th_x,
     theta_y_min, theta_y_max, d_th_y,
@@ -61,11 +64,13 @@ def gather_synchrotron_numba(
             theta_y, theta_y_min, d_th_y
         )
 
-        spect_loc = get_particle_radiation(
+        spect_loc, ux_ph, uy_ph, uz_ph = get_particle_radiation(
                 ux[ip], uy[ip], uz[ip], w[ip],
                 Ex[ip], Ey[ip], Ez[ip],
                 c*Bx[ip], c*By[ip], c*Bz[ip],
-                gamma_p, Larmore_factor,
+                gamma_p,
+                Larmore_factor_density,
+                Larmore_factor_momentum,
                 SR_dxi, SR_xi_data,
                 omega_ax, spect_loc
         )

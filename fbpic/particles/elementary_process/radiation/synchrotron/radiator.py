@@ -75,9 +75,12 @@ class SynchrotronRadiator(object):
         self.d_theta_x = (self.theta_x_max - self.theta_x_min) / (N_x_theta-1)
         self.d_theta_y = (self.theta_y_max - self.theta_y_min) / (N_y_theta-1)
 
-        self.Larmore_factor = e**2 * self.eon.dt \
+        self.Larmore_factor_density = e**2 * self.eon.dt \
             / ( 6 * np.pi * epsilon_0 * c * hbar * \
-                self.d_theta_x * self.d_theta_y)
+                self.d_theta_x * self.d_theta_y )
+
+        self.Larmore_factor_momentum = e**2 * self.eon.dt \
+            / ( 6 * np.pi * epsilon_0 * c**2 )
 
         # Initialize radiation-relevant meta-data
         self.initialize_S_function( x_max=x_max, nSamples=nSamples )
@@ -132,7 +135,9 @@ class SynchrotronRadiator(object):
                 N_batch, self.batch_size,  eon.Ntot,
                 eon.ux, eon.uy, eon.uz, eon.Ex, eon.Ey, eon.Ez,
                 eon.Bx, eon.By, eon.Bz, eon.w,
-                self.Larmore_factor, self.gamma_cutoff,
+                self.Larmore_factor_density,
+                self.Larmore_factor_momentum,
+                self.gamma_cutoff,
                 self.omega_ax, self.S_func_dx, self.S_func_data,
                 self.theta_x_min, self.theta_x_max, self.d_theta_x,
                 self.theta_y_min, self.theta_y_max, self.d_theta_y,
@@ -144,7 +149,9 @@ class SynchrotronRadiator(object):
                 eon.Ntot,
                 eon.ux, eon.uy, eon.uz, eon.Ex, eon.Ey, eon.Ez,
                 eon.Bx, eon.By, eon.Bz, eon.w,
-                self.Larmore_factor, self.gamma_cutoff,
+                self.Larmore_factor_density,
+                self.Larmore_factor_momentum,
+                self.gamma_cutoff,
                 self.omega_ax, self.S_func_dx, self.S_func_data,
                 self.theta_x_min, self.theta_x_max, self.d_theta_x,
                 self.theta_y_min, self.theta_y_max, self.d_theta_y,
