@@ -6,6 +6,8 @@ used in the ionization code.
 import math
 from scipy.constants import c, e, m_e
 
+e_mc = e / ( m_e * c)
+
 def get_angles_and_gamma( ux, uy, uz ):
     theta_x = math.atan2( ux, uz )
     theta_y = math.atan2( uy, uz )
@@ -36,33 +38,32 @@ def get_particle_radiation(
     d_omega = omega_ax[1] - omega_ax[0]
     N_omega_src = SR_xi_data.size
 
-    # get normalized velocity beta
-    bx = ux / gamma_p
-    by = uy / gamma_p
-    bz = uz / gamma_p
+    gamma_p_inv = 1. / gamma_p
 
     # get normalized velocity beta
-    E_dot_beta = Ex * bx + Ey * by + Ez * bz
+    beta_x = ux * gamma_p_inv
+    beta_y = uy * gamma_p_inv
+    beta_z = uz * gamma_p_inv
 
-    accel_factor = - e / ( m_e * c * gamma_p )
+    dt_ux = - e_mc * ( Ex + beta_y * cBz - beta_z * cBy )
+    dt_uy = - e_mc * ( Ey + beta_z * cBx - beta_x * cBz )
+    dt_uz = - e_mc * ( Ez + beta_x * cBy - beta_y * cBx )
 
-    dt_bx = accel_factor * ( Ex - bx * E_dot_beta + by * cBz - bz * cBy )
-    dt_by = accel_factor * ( Ey - by * E_dot_beta + bz * cBx - bx * cBz )
-    dt_bz = accel_factor * ( Ez - bz * E_dot_beta + bx * cBy - by * cBx )
+    dt_gamma = - e_mc * (Ex * beta_x + Ey * beta_y + Ez * beta_z)
 
-    Energy_Larmor = Larmore_factor * w * gamma_p**6 * (
-         dt_bx**2 + dt_by**2 + dt_bz**2 - \
-         ( by * dt_bz - bz * dt_by )**2 - \
-         ( bz * dt_bx - bx * dt_bz )**2 - \
-         ( bx * dt_by - by * dt_bx )**2
-        )
+    dt_beta_x = (dt_ux - beta_x * dt_gamma) * gamma_p_inv
+    dt_beta_y = (dt_uy - beta_y * dt_gamma) * gamma_p_inv
+    dt_beta_z = (dt_uz - beta_z * dt_gamma) * gamma_p_inv
 
-    v_abs = c * math.sqrt(bx * bx + by * by + bz * bz)
-    dt_v_abs = c * math.sqrt(dt_bx * dt_bx + dt_by * dt_by + dt_bz * dt_bz)
-    v_dot_dt_v = c**2 * (bx * dt_bx + by * dt_by + bz * dt_bz)
+    Energy_Larmor = Larmore_factor * w * gamma_p**2 \
+        * ( dt_ux**2 + dt_uy**2 + dt_uy**2 - dt_gamma**2 )
 
-    omega_c = 1.5 * gamma_p**3 * c * math.sqrt(
-        v_abs**2 * dt_v_abs**2 - v_dot_dt_v**2 ) / v_abs**3
+    dt_beta_abs2 = dt_beta_x**2 + dt_beta_y**2 + dt_beta_z**2
+    beta_abs2_inv = 1. / ( beta_x**2 + beta_y**2 + beta_z**2 )
+    beta_dot_dt_beta = beta_x * dt_beta_x + beta_y * dt_beta_y + beta_z * dt_beta_z
+
+    omega_c = 1.5 * gamma_p**3 * beta_abs2_inv  * \
+        math.sqrt( dt_beta_abs2 - beta_dot_dt_beta**2 * beta_abs2_inv )
 
     if (omega_c < 4 * d_omega):
         spect_loc[:] = 0.0
