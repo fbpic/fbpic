@@ -17,7 +17,6 @@ def get_angles_and_gamma( ux, uy, uz ):
     return( theta_x, theta_y, gamma )
 
 def get_linear_coefficients(x0, xmin, dx):
-
     s_ix = ( x0 - xmin ) / dx
     ix = math.floor( s_ix )
     s1 = s_ix - ix
@@ -40,24 +39,29 @@ def get_particle_radiation(
 
     gamma_p_inv = 1. / gamma_p
 
-    # get normalized velocity beta
+    # get normalized velocity
     beta_x = ux * gamma_p_inv
     beta_y = uy * gamma_p_inv
     beta_z = uz * gamma_p_inv
 
+    # get momentum time derivative
     dt_ux = - e_mc * ( Ex + beta_y * cBz - beta_z * cBy )
     dt_uy = - e_mc * ( Ey + beta_z * cBx - beta_x * cBz )
     dt_uz = - e_mc * ( Ez + beta_x * cBy - beta_y * cBx )
 
+    # get Lorentz factor derivative
     dt_gamma = - e_mc * (Ex * beta_x + Ey * beta_y + Ez * beta_z)
 
+    # get acceleration
     dt_beta_x = (dt_ux - beta_x * dt_gamma) * gamma_p_inv
     dt_beta_y = (dt_uy - beta_y * dt_gamma) * gamma_p_inv
     dt_beta_z = (dt_uz - beta_z * dt_gamma) * gamma_p_inv
 
+    # calculate Larmore energy
     Energy_Larmor = Larmore_factor * w * gamma_p**2 \
         * ( dt_ux**2 + dt_uy**2 + dt_uy**2 - dt_gamma**2 )
 
+    # calculate critical frequency
     dt_beta_abs2 = dt_beta_x**2 + dt_beta_y**2 + dt_beta_z**2
     beta_abs2_inv = 1. / ( beta_x**2 + beta_y**2 + beta_z**2 )
     beta_dot_dt_beta = beta_x * dt_beta_x + beta_y * dt_beta_y + beta_z * dt_beta_z
@@ -65,21 +69,20 @@ def get_particle_radiation(
     omega_c = 1.5 * gamma_p**3 * beta_abs2_inv  * \
         math.sqrt( dt_beta_abs2 - beta_dot_dt_beta**2 * beta_abs2_inv )
 
+    # discard too low critical frequencies as not resolved
     if (omega_c < 4 * d_omega):
         spect_loc[:] = 0.0
         return( spect_loc )
 
     omega_c_inv = 1. / omega_c
-    d_xi_loc =  d_omega * omega_c_inv
 
+    # Loop over the frequencies to project spectrum
     for i_omega in range(omega_ax.size):
-
         xi_loc = omega_ax[i_omega] * omega_c_inv
-
         s_ix_src = xi_loc / SR_dxi
         ix_src = math.floor( s_ix_src )
 
-        if ( ix_src >= N_omega_src-1 ):
+        if ( ix_src >= N_omega_src - 1 ):
             spect_loc[i_omega] = 0.0
         else:
             s1 = s_ix_src - ix_src
