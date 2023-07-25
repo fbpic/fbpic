@@ -12,7 +12,6 @@ import numba
 import random
 
 from scipy.constants import c
-import math
 # Import inline functions
 from .inline_functions import get_angles_and_gamma, get_particle_radiation, \
     get_linear_coefficients
@@ -38,8 +37,6 @@ def gather_synchrotron_numba(
     """
     doc
     """
-    N_omega = spect_loc.size
-
     for ip in range( N_tot ):
 
         theta_x, theta_y, gamma_p = get_angles_and_gamma(

@@ -6,10 +6,9 @@ This file is part of the Fourier-Bessel Particle-In-Cell code (FB-PIC)
 """
 
 import numpy as np
-from scipy.constants import c, e, m_e, physical_constants, epsilon_0, hbar
+from scipy.constants import c, e, epsilon_0, hbar
 from scipy.special import kv
 from scipy.integrate import quad
-from scipy.interpolate import interp1d
 
 from ...cuda_numba_utils import allocate_empty
 

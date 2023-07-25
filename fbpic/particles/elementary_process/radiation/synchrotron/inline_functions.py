@@ -68,11 +68,11 @@ def get_particle_radiation(
         )
 
     # calculate emitted radiation momentum
-    Momentum_Larmor = Larmore_factor_momentum * Energy_norm
-    u_abs_inv = 1. / math.sqrt(ux * ux + uy * uy + uz * uz )
-    ux_ph = Momentum_Larmor * ux * u_abs_inv
-    uy_ph = Momentum_Larmor * uy * u_abs_inv
-    uz_ph = Momentum_Larmor * uz * u_abs_inv
+    # Momentum_Larmor = Larmore_factor_momentum * Energy_norm
+    # u_abs_inv = 1. / math.sqrt(ux * ux + uy * uy + uz * uz )
+    # ux_ph = Momentum_Larmor * ux * u_abs_inv
+    # uy_ph = Momentum_Larmor * uy * u_abs_inv
+    # uz_ph = Momentum_Larmor * uz * u_abs_inv
 
     # calculate critical frequency
     dt_beta_abs2 = dt_beta_x**2 + dt_beta_y**2 + dt_beta_z**2

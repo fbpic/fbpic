@@ -10,9 +10,7 @@ Apart from synthactic details, this file is very close to numba_methods.py
 from numba import cuda
 
 from numba.cuda.random import xoroshiro128p_normal_float64
-from fbpic.utils.cuda import compile_cupy
 from scipy.constants import c
-import math
 # Import inline functions
 from .inline_functions import get_angles_and_gamma, get_particle_radiation, \
     get_linear_coefficients
