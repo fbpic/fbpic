@@ -51,13 +51,13 @@ class SynchrotronRadiator(object):
 
         theta_x_axis: tuple
             Parameters for the x-elevation angle axis provided as
-            (theta_x_min, theta_x_max, N_x_theta), where theta_x_min
-            and theta_x_max are floats in (rad) and N_x_theta is an integer
+            (theta_x_min, theta_x_max, self.N_theta_x), where theta_x_min
+            and theta_x_max are floats in (rad) and self.N_theta_x is an integer
 
         theta_y_axis: tuple
             Parameters for the y-elevation angle axis provided as
-            (theta_y_min, theta_y_max, N_y_theta), where theta_y_min
-            and theta_y_max are floats in (rad) and N_y_theta is an integer
+            (theta_y_min, theta_y_max, self.N_theta_y), where theta_y_min
+            and theta_y_max are floats in (rad) and self.N_theta_y is an integer
 
         gamma_cutoff: float
             Minimal gamma factor of particles for which radiation
@@ -66,27 +66,42 @@ class SynchrotronRadiator(object):
         # Register a few parameters
         self.use_cuda = radiating_species.use_cuda
         self.eon = radiating_species
-        omega_min, omega_max, self.N_omega = omega_axis
-        self.theta_x_min, self.theta_x_max, N_x_theta = theta_x_axis
-        self.theta_y_min, self.theta_y_max, N_y_theta = theta_y_axis
+        self.dt = radiating_species.dt
+
+        self.omega_min = omega_axis[0]
+        self.omega_max = omega_axis[1]
+        self.N_omega   = omega_axis[2]
+
+        self.omega_ax = np.linspace(
+            self.omega_min, self.omega_max, self.N_omega
+        )
+        self.d_omega = self.omega_ax[1] - self.omega_ax[0]
+
+        self.theta_x_min = theta_x_axis[0]
+        self.theta_x_max = theta_x_axis[1]
+        self.N_theta_x   = theta_x_axis[2]
+
+        self.theta_y_min = theta_y_axis[0]
+        self.theta_y_max = theta_y_axis[1]
+        self.N_theta_y   = theta_y_axis[2]
+
         self.gamma_cutoff = gamma_cutoff
 
-        self.d_theta_x = (self.theta_x_max - self.theta_x_min) / (N_x_theta-1)
-        self.d_theta_y = (self.theta_y_max - self.theta_y_min) / (N_y_theta-1)
+        self.d_theta_x = (self.theta_x_max - self.theta_x_min) / (self.N_theta_x-1)
+        self.d_theta_y = (self.theta_y_max - self.theta_y_min) / (self.N_theta_y-1)
 
-        self.Larmore_factor_density = e**2 * self.eon.dt \
+        self.Larmore_factor_density = e**2 * self.dt \
             / ( 6 * np.pi * epsilon_0 * c * hbar * \
                 self.d_theta_x * self.d_theta_y )
 
-        self.Larmore_factor_momentum = e**2 * self.eon.dt \
+        self.Larmore_factor_momentum = e**2 * self.dt \
             / ( 6 * np.pi * epsilon_0 * c**2 )
 
         # Initialize radiation-relevant meta-data
         self.initialize_S_function( x_max=x_max, nSamples=nSamples )
-        self.omega_ax = np.linspace(omega_min, omega_max, self.N_omega)
 
         self.radiation_data = np.zeros(
-            (N_x_theta, N_y_theta, self.N_omega), dtype=np.double
+            (self.N_theta_x, self.N_theta_y, self.N_omega), dtype=np.double
         )
 
         self.send_to_gpu()
@@ -173,3 +188,4 @@ class SynchrotronRadiator(object):
         if self.use_cuda:
             self.radiation_data = self.radiation_data.get()
             self.omega_ax = self.omega_ax.get()
+            self.S_func_data = self.S_func_data.get()

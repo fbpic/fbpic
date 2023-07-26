@@ -26,7 +26,8 @@ unit_dimension_dict = {
     "positionOffset" : np.array([1., 0., 0., 0., 0., 0., 0.]),
     "momentum" : np.array([1., 1.,-1., 0., 0., 0., 0.]),
     "id" : np.array([0., 0., 0., 0., 0., 0., 0.]),
-    "gamma" : np.array([0., 0., 0., 0., 0., 0., 0.]) }
+    "gamma" : np.array([0., 0., 0., 0., 0., 0., 0.]),
+    "radiation" : np.array([0., 0., 0., 0., 0., 0., 0.]) }
 
 # Typical weighting of different particle properties
 macro_weighted_dict = {

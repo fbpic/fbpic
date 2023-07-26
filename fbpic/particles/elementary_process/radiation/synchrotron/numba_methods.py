@@ -9,6 +9,7 @@ Apart from synthactic details, this file is very close to numba_methods.py
 """
 
 import numba
+from numba import prange
 import random
 
 from scipy.constants import c
@@ -22,7 +23,7 @@ get_particle_radiation = numba.njit( get_particle_radiation)
 get_linear_coefficients = numba.njit( get_linear_coefficients )
 
 
-@numba.njit
+@numba.njit(cache=True)
 def gather_synchrotron_numba(
     N_tot,
     ux, uy, uz, Ex, Ey, Ez,
@@ -37,7 +38,7 @@ def gather_synchrotron_numba(
     """
     doc
     """
-    for ip in range( N_tot ):
+    for ip in prange( N_tot ):
 
         theta_x, theta_y, gamma_p = get_angles_and_gamma(
             ux[ip], uy[ip], uz[ip]
