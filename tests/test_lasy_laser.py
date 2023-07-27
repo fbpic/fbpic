@@ -18,6 +18,11 @@ from fbpic.main import Simulation
 from fbpic.openpmd_diag import FieldDiagnostic
 from fbpic.lpa_utils.laser import add_laser_pulse, FromLasyFileLaser
 
+from lasy.laser import Laser
+from lasy.profiles import CombinedLongitudinalTransverseProfile
+from lasy.profiles.longitudinal import GaussianLongitudinalProfile
+from lasy.profiles.transverse import LaguerreGaussianTransverseProfile
+
 # Maximum acceptable error for this test
 relative_error_threshold = 0.065
 
@@ -107,15 +112,58 @@ def compare_simulation_with_theory():
     print("Relative error frequency: ", relative_error_freq)
     assert(relative_error_freq < relative_error_threshold)
 
-if __name__ == "__main__":
 
-    from lasy.laser import Laser
-    from lasy.profiles import CombinedLongitudinalTransverseProfile
-    from lasy.profiles.longitudinal import GaussianLongitudinalProfile
-    from lasy.profiles.transverse import LaguerreGaussianTransverseProfile
+def run_and_check_laser_emission(gamma_b):
+    """
+    Run a simulation that emits a laser from a lasy file, either in the lab frame
+    (gamma_b = 1.) or in the boosted frame (gamma_b > 1.)
 
+    Parameter
+    ---------
+    gamma_b: float or None
+        The Lorentz factor of the boosted frame
+    """
     # Move into directory `tests`
     os.chdir('./tests')
+
+    # Create an FBPIC simulation that reads this lasy file
+    # Initialize the simulation object
+    Nz = 1024
+    Nr = 100
+    zmax = 0
+    zmin = -6 * c * tau
+    rmax = 3 * w0
+    Nm = 3
+    dt = (zmax-zmin)/Nz/c
+
+    sim = Simulation( Nz, zmax, Nr, rmax, Nm, dt, use_cuda=True, zmin=zmin,
+                     boundaries={'z':'open', 'r':'reflective'}, gamma_boost=gamma_b)
+
+    # Remove the particles
+    sim.ptcl = []
+
+    # Add a moving window
+    sim.set_moving_window(v=c)
+
+    # Add the laser
+    laser_profile = FromLasyFileLaser( 'laguerrelaserRZ_00000.h5' )
+    add_laser_pulse(sim, laser_profile, method='antenna', z0_antenna=0)
+
+    # Add diagnostic
+    sim.diags = [
+        FieldDiagnostic( Nz, sim.fld, comm=sim.comm )
+    ]
+    # Run the simulation
+    sim.step( Nz + 1 )
+
+    # Perform test
+    compare_simulation_with_theory()
+
+    # Remove openPMD and lasy files
+    shutil.rmtree('./diags/')
+    os.chdir('../')
+
+if __name__ == "__main__":
 
     # Create a Laguerre Gaussian laser in RZ geometry using lasy
     pol = (1, 0)
@@ -132,38 +180,7 @@ if __name__ == "__main__":
     laser.propagate(-3 * c * tau)
     laser.write_to_file("laguerrelaserRZ")
 
-    # Create an FBPIC simulation that reads this lasy file
-    # Initialize the simulation object
-    Nz = 1024
-    Nr = 100
-    zmax = 6 * c * tau
-    zmin = 0.
-    rmax = 3 * w0
-    Nm = 3
-    dt = (zmax-zmin)/Nz/c
+    # Emit the laser in the lab-frame
+    run_and_check_laser_emission( gamma_b=None )
 
-    sim = Simulation( Nz, zmax, Nr, rmax, Nm, dt, use_cuda=True, zmin=zmin,
-                     boundaries={'z':'open', 'r':'reflective'})
-
-    # Remove the particles
-    sim.ptcl = []
-
-    # Add the laser
-    laser_profile = FromLasyFileLaser( 'laguerrelaserRZ_00000.h5' )
-    add_laser_pulse(sim, laser_profile, method='antenna',
-                    z0_antenna=zmin + 0.01 * c * dt)
-
-    # Add diagnostic
-    sim.diags = [
-        FieldDiagnostic( Nz, sim.fld, comm=sim.comm )
-    ]
-    # Run the simulation
-    sim.step( Nz + 1 )
-
-    # Perform test
-    compare_simulation_with_theory()
-
-    # Remove openPMD and lasy files
-    shutil.rmtree('./diags/')
-    shutil.rmtree('./laguerrelaserRZ.h5')
-    os.chdir('../')
+    shutil.rmtree('./tests/laguerrelaserRZ_00000.h5')
