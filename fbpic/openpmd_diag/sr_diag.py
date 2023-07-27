@@ -1,24 +1,24 @@
 # Copyright 2016, FBPIC contributors
-# Authors: Remi Lehe, Manuel Kirchen
+# Authors: Remi Lehe, Manuel Kirchen, Igor Andriyash
 # License: 3-Clause-BSD-LBNL
 """
-This file defines the class FieldDiagnostic.
+This file defines the class SRDiagnostic.
 """
 import os
 import numpy as np
+from scipy.constants import e, hbar
 from .generic_diag import OpenPMDDiagnostic
 from fbpic.utils.mpi import comm as comm_simple
 
 class SRDiagnostic(OpenPMDDiagnostic):
     """
-    Class that defines the field diagnostics to be performed.
+    Class that defines the synchrotron radiation diagnostics to be performed.
     """
 
-    def __init__(self, period=None, sr_object=None, comm=None,
-                 write_dir=None,
-                 iteration_min=0, iteration_max=np.inf, dt_period=None ) :
+    def __init__(self, period=None, dt_period=None, sr_object=None, comm=None,
+                 write_dir=None,iteration_min=0, iteration_max=np.inf ):
         """
-        Initialize the field diagnostic.
+        Initialize the synchrotron radiation diagnostic.
 
         Parameters
         ----------
@@ -32,7 +32,7 @@ class SRDiagnostic(OpenPMDDiagnostic):
             The period of the diagnostics, in physical time of the simulation.
             Specify either this or `period`
 
-        sr_object : a Fields object
+        sr_object : a Synchrotron Radiation object
             Points to the data that has to be written at each output
 
         comm : an fbpic BoundaryCommunicator object or None
@@ -53,7 +53,7 @@ class SRDiagnostic(OpenPMDDiagnostic):
         # Check input
         if sr_object is None:
             raise ValueError(
-            "You need to pass the argument `sr_object` to `FieldDiagnostic`.")
+            "You need to pass the argument `sr_object` to `SRDiagnostic`.")
 
         # General setup
         OpenPMDDiagnostic.__init__(self, period, comm, write_dir,
@@ -97,8 +97,7 @@ class SRDiagnostic(OpenPMDDiagnostic):
         else:
             field_grp = None
 
-        # Loop over the different quantities that should be written
-        self.write_dataset( field_grp, "radiation", "radiation" )
+        self.write_dataset( field_grp, "radiation" )
 
         # Close the file (only the first proc does this)
         if f is not None:
@@ -110,7 +109,7 @@ class SRDiagnostic(OpenPMDDiagnostic):
 
     # Writing methods
     # ---------------
-    def write_dataset( self, field_grp, path, quantity ) :
+    def write_dataset( self, field_grp, path) :
         """
         Write a given dataset
 
@@ -121,21 +120,18 @@ class SRDiagnostic(OpenPMDDiagnostic):
 
         path : string
             The relative path where to write the dataset, in field_grp
-
-        quantity : string
-            Describes which field is being written.
-            (Either rho, Er, Et, Ez, Br, Bz, Bt, Jr, Jt or Jz)
         """
         # Extract the correct dataset
+        data_array = self.get_dataset()
         if field_grp is not None:
             dset = field_grp[path]
-            dset[:] = self.get_dataset()
+            dset[:] =  data_array
         else:
             dset = None
 
     def get_dataset( self ):
         """
-        Gathers it on the first proc, in MPI mode
+        Copy and dathers radation data on the first proc, in MPI mode
         """
         # Get the data on each individual proc
         data_one_proc = self.fld.radiation_data.copy()
@@ -149,6 +145,9 @@ class SRDiagnostic(OpenPMDDiagnostic):
         return( data_all_proc )
 
     def mpi_reduce_radiation(self, data):
+        """
+        MPI operation to gather the radiation data
+        """
         sendbuf = data
         if self.rank == 0:
             recvbuf = np.empty_like(data)
@@ -246,11 +245,14 @@ class SRDiagnostic(OpenPMDDiagnostic):
         dset.attrs['geometry'] = np.string_("cartesian")
         dset.attrs['axisLabels'] = np.array([ b'x', b'y', b'z' ])
 
+        omega_keV = hbar / e * 1e-3
         dset.attrs['gridSpacing'] = np.array([
-                self.fld.d_theta_x, self.fld.d_theta_y, self.fld.d_omega ])
+                self.fld.d_theta_x, self.fld.d_theta_y,
+                self.fld.d_omega * omega_keV ])
 
         dset.attrs["gridGlobalOffset"] = np.array([
-            self.fld.theta_x_min, self.fld.theta_x_min, self.fld.omega_min ])
+            self.fld.theta_x_min, self.fld.theta_x_min,
+            self.fld.omega_min * omega_keV ])
 
         # Generic attributes
         dset.attrs["dataOrder"] = np.string_("C")
