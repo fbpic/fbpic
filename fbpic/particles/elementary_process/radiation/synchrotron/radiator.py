@@ -85,7 +85,7 @@ class SynchrotronRadiator(object):
         self.theta_y_max = theta_y_axis[1]
         self.N_theta_y   = theta_y_axis[2]
 
-        self.gamma_cutoff = gamma_cutoff
+        self.gamma_cutoff_inv = 1. / gamma_cutoff
 
         self.d_theta_x = (self.theta_x_max - self.theta_x_min) / (self.N_theta_x-1)
         self.d_theta_y = (self.theta_y_max - self.theta_y_min) / (self.N_theta_y-1)
@@ -148,10 +148,10 @@ class SynchrotronRadiator(object):
             gather_synchrotron_cuda[ batch_grid_1d, batch_block_1d ](
                 N_batch, self.batch_size,  eon.Ntot,
                 eon.ux, eon.uy, eon.uz, eon.Ex, eon.Ey, eon.Ez,
-                eon.Bx, eon.By, eon.Bz, eon.w,
+                eon.Bx, eon.By, eon.Bz, eon.w, eon.inv_gamma,
                 self.Larmore_factor_density,
                 self.Larmore_factor_momentum,
-                self.gamma_cutoff,
+                self.gamma_cutoff_inv,
                 self.omega_ax, self.S_func_dx, self.S_func_data,
                 self.theta_x_min, self.theta_x_max, self.d_theta_x,
                 self.theta_y_min, self.theta_y_max, self.d_theta_y,
@@ -162,10 +162,10 @@ class SynchrotronRadiator(object):
             gather_synchrotron_numba(
                 eon.Ntot,
                 eon.ux, eon.uy, eon.uz, eon.Ex, eon.Ey, eon.Ez,
-                eon.Bx, eon.By, eon.Bz, eon.w,
+                eon.Bx, eon.By, eon.Bz, eon.w, eon.inv_gamma,
                 self.Larmore_factor_density,
                 self.Larmore_factor_momentum,
-                self.gamma_cutoff,
+                self.gamma_cutoff_inv,
                 self.omega_ax, self.S_func_dx, self.S_func_data,
                 self.theta_x_min, self.theta_x_max, self.d_theta_x,
                 self.theta_y_min, self.theta_y_max, self.d_theta_y,

@@ -14,11 +14,11 @@ import random
 
 from scipy.constants import c
 # Import inline functions
-from .inline_functions import get_angles_and_gamma, get_particle_radiation, \
+from .inline_functions import get_angles, get_particle_radiation, \
     get_linear_coefficients
 
 # Compile the inline functions for GPU
-get_angles_and_gamma = numba.njit( get_angles_and_gamma)
+get_angles = numba.njit( get_angles)
 get_particle_radiation = numba.njit( get_particle_radiation)
 get_linear_coefficients = numba.njit( get_linear_coefficients )
 
@@ -27,10 +27,10 @@ get_linear_coefficients = numba.njit( get_linear_coefficients )
 def gather_synchrotron_numba(
     N_tot,
     ux, uy, uz, Ex, Ey, Ez,
-    Bx, By, Bz, w,
+    Bx, By, Bz, w, gamma_inv,
     Larmore_factor_density,
     Larmore_factor_momentum,
-    gamma_cutoff,
+    gamma_cutoff_inv,
     omega_ax, SR_dxi, SR_xi_data,
     theta_x_min, theta_x_max, d_th_x,
     theta_y_min, theta_y_max, d_th_y,
@@ -40,16 +40,18 @@ def gather_synchrotron_numba(
     """
     for ip in prange( N_tot ):
 
-        theta_x, theta_y, gamma_p = get_angles_and_gamma(
+        if  (gamma_inv[ip] >= gamma_cutoff_inv):
+            continue
+
+        theta_x, theta_y = get_angles(
             ux[ip], uy[ip], uz[ip]
         )
 
-        theta_diffusion = 2**-1.5 / gamma_p
+        theta_diffusion = 2**-1.5 * gamma_inv[ip]
         theta_x += random.gauss(0, theta_diffusion)
         theta_y += random.gauss(0, theta_diffusion)
 
-        if  (gamma_p <= gamma_cutoff) \
-          or (theta_x >= theta_x_max) \
+        if   (theta_x >= theta_x_max) \
           or (theta_y >= theta_y_max) \
           or (theta_x <= theta_x_min) \
           or (theta_y <= theta_y_min):
@@ -66,7 +68,7 @@ def gather_synchrotron_numba(
                 ux[ip], uy[ip], uz[ip], w[ip],
                 Ex[ip], Ey[ip], Ez[ip],
                 c*Bx[ip], c*By[ip], c*Bz[ip],
-                gamma_p,
+                gamma_inv[ip],
                 Larmore_factor_density,
                 Larmore_factor_momentum,
                 SR_dxi, SR_xi_data,

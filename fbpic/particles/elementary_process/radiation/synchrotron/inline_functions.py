@@ -8,13 +8,11 @@ from scipy.constants import c, e, m_e
 
 e_mc = e / ( m_e * c)
 
-def get_angles_and_gamma( ux, uy, uz ):
+def get_angles( ux, uy, uz ):
     theta_x = math.atan2( ux, uz )
     theta_y = math.atan2( uy, uz )
 
-    gamma = math.sqrt( 1 + ux**2 + uy**2 + uz**2 )
-
-    return( theta_x, theta_y, gamma )
+    return( theta_x, theta_y )
 
 def get_linear_coefficients(x0, xmin, dx):
     s_ix = ( x0 - xmin ) / dx
@@ -29,7 +27,7 @@ def get_particle_radiation(
     ux, uy, uz, w,
     Ex, Ey, Ez,
     cBx, cBy, cBz,
-    gamma_p,
+    gamma_inv,
     Larmore_factor_density,
     Larmore_factor_momentum,
     SR_dxi, SR_xi_data,
@@ -38,13 +36,12 @@ def get_particle_radiation(
 
     d_omega = omega_ax[1] - omega_ax[0]
     N_omega_src = SR_xi_data.size
-
-    gamma_p_inv = 1. / gamma_p
+    gamma = 1. / gamma_inv
 
     # get normalized velocity
-    beta_x = ux * gamma_p_inv
-    beta_y = uy * gamma_p_inv
-    beta_z = uz * gamma_p_inv
+    beta_x = ux * gamma_inv
+    beta_y = uy * gamma_inv
+    beta_z = uz * gamma_inv
 
     # get momentum time derivative
     dt_ux = - e_mc * ( Ex + beta_y * cBz - beta_z * cBy )
@@ -55,12 +52,12 @@ def get_particle_radiation(
     dt_gamma = - e_mc * (Ex * beta_x + Ey * beta_y + Ez * beta_z)
 
     # get acceleration
-    dt_beta_x = (dt_ux - beta_x * dt_gamma) * gamma_p_inv
-    dt_beta_y = (dt_uy - beta_y * dt_gamma) * gamma_p_inv
-    dt_beta_z = (dt_uz - beta_z * dt_gamma) * gamma_p_inv
+    dt_beta_x = (dt_ux - beta_x * dt_gamma) * gamma_inv
+    dt_beta_y = (dt_uy - beta_y * dt_gamma) * gamma_inv
+    dt_beta_z = (dt_uz - beta_z * dt_gamma) * gamma_inv
 
     # calculate Larmore energy
-    Energy_norm = w * gamma_p**6 * (
+    Energy_norm = w * gamma**6 * (
          dt_beta_x**2 + dt_beta_y**2 + dt_beta_z**2 - \
          ( beta_y * dt_beta_z - beta_z * dt_beta_y )**2 - \
          ( beta_z * dt_beta_x - beta_x * dt_beta_z )**2 - \
@@ -79,7 +76,7 @@ def get_particle_radiation(
     beta_abs2_inv = 1. / ( beta_x**2 + beta_y**2 + beta_z**2 )
     beta_dot_dt_beta = beta_x * dt_beta_x + beta_y * dt_beta_y + beta_z * dt_beta_z
 
-    omega_c = 1.5 * gamma_p**3 * beta_abs2_inv  * \
+    omega_c = 1.5 * gamma**3 * beta_abs2_inv  * \
         math.sqrt( dt_beta_abs2 - beta_dot_dt_beta**2 * beta_abs2_inv )
 
     # discard too low critical frequencies as not resolved
