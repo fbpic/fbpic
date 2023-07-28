@@ -5,15 +5,21 @@
 This file is for the Fourier-Bessel Particle-In-Cell code (FB-PIC)
 It carries out the spin-push for all particles on GPU using CUDA.
 """
+import cupy
 from scipy.constants import c, e
 from numba import cuda
 from fbpic.utils.cuda import compile_cupy
 # Import inline function
 from .inline_functions import push_s_BMT, copy_ionized_electron_spin_batch
 from .cuda_numba_utils import random_point_sphere_gpu
+
 # Compile the inline function for GPU
 push_s_BMT = cuda.jit( push_s_BMT, device=True, inline=True )
-
+copy_ionized_electron_spin_batch = \
+    cuda.jit(copy_ionized_electron_spin_batch, device=True, 
+             inline=True)
+random_point_sphere_gpu = cuda.jit(random_point_sphere_gpu, 
+                                   device=True, inline=True)
 
 @compile_cupy
 def push_s_gpu(sx, sy, sz, ux_prev, uy_prev, uz_prev, ux, uy, uz,
@@ -84,7 +90,14 @@ def copy_ionized_electron_spin_cuda(
     ie sampled from sphere point picking.
     """
     # First make a set of random spins to be copied, if needed
-    rand_sx, rand_sy, rand_sz = random_point_sphere_gpu(elec_new_Ntot)
+    rand_sx = cupy.empty((elec_new_Ntot,), dtype=cupy.float64)
+    rand_sy = cupy.empty((elec_new_Ntot,), dtype=cupy.float64)
+    rand_sz = cupy.empty((elec_new_Ntot,), dtype=cupy.float64)
+    ip = cuda.grid(1)
+    for ip in range(elec_new_Ntot):
+        rand_sx[ip], rand_sy[ip], rand_sz[ip] = random_point_sphere_gpu(1)
+
+    # And now create the spins
     i_batch = cuda.grid(1)
     if i_batch < N_batch:
         copy_ionized_electron_spin_batch(

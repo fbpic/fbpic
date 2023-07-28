@@ -41,7 +41,7 @@ is solved in the closed interval [-pi/2, pi/2].
 
 """
 import sys
-sys.path.insert(0, '/Users/kpoder/python/dev_fbpic')
+sys.path.insert(0, '/home/kpoder/devfbpic')
 import math
 import numpy as np
 
@@ -183,7 +183,7 @@ def run_external_laser_field_simulation(show):
         sy[i] = elec2.spin_tracker.sy[j]
         sz[i] = elec2.spin_tracker.sz[j]
         # Take a simulation step
-        sim.step(1)
+        sim.step(1, show_progress=False)
 
     # (3) COMPUTE THE ANALYTIC SOLUTIONS
 

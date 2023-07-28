@@ -16,6 +16,7 @@ polarisation.
 # -------
 import sys
 sys.path.insert(0, '/Users/kpoder/python/dev_fbpic')
+sys.path.insert(0, '/home/kpoder/devfbpic')
 import numpy as np
 from scipy.constants import c, e, m_e, m_p, epsilon_0, pi
 from scipy.constants import physical_constants
@@ -170,7 +171,7 @@ def run_ionization_test_sim(show):
         elec_sum = 0
         step += 1
         # step and collect the data
-        sim.step(1)
+        sim.step(1, show_progress=False)
         print(f'Step  Level  Ntot  N(sz==1)')
         for level, elec in elec_dict.items():
             elec_sum += elec.Ntot
