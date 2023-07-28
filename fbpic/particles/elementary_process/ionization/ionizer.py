@@ -35,6 +35,7 @@ from .read_atomic_data import get_ionization_energies
 from .numba_methods import ionize_ions_numba, copy_ionized_electrons_numba
 from ..cuda_numba_utils import allocate_empty, reallocate_and_copy_old, \
                                 perform_cumsum_2d, generate_new_ids
+from ...spin.numba_methods import copy_ionized_electron_spin_numba
 
 # Check if CUDA is available, then import CUDA functions
 from fbpic.utils.cuda import cuda_installed
@@ -43,7 +44,9 @@ if cuda_installed:
     import cupy
     from fbpic.utils.cuda import cuda_tpb_bpg_1d
     from .cuda_methods import ionize_ions_cuda, copy_ionized_electrons_cuda
-    
+    from ...spin.cuda_methods import copy_ionized_electron_spin_cuda
+
+
 class Ionizer(object):
     """
     Class that contains the data associated with ionization (on the ions side)
@@ -51,6 +54,11 @@ class Ionizer(object):
 
     The implemented ionization model is the ADK model. The implementation
     is fully relativistic (i.e. it works in the boosted-frame as well).
+
+    This class also handles spin tracking. In case of an ion getting
+    ionized, the first electron will have the same spin as the ion, whereas
+    all subseqeuntly ionized electrons will have a random spin direction
+    (generated via sphere point picking).
 
     Main attributes
     ---------------
@@ -152,7 +160,11 @@ class Ionizer(object):
         for species in self.target_species:
             assert species.q == -e
             assert species.m == m_e
-
+            # Another sanity check: if spin tracking is enabled for
+            # the parent ion, make sure it is activated for electrons, too
+            if species.spin_tracker is None:
+                species.activate_spin_tracking(
+                    anom=physical_constants['electron mag. mom. anomaly'][0])
 
     def initialize_ADK_parameters( self, element, dt ):
         """
@@ -205,7 +217,6 @@ class Ionizer(object):
         self.adk_prefactor = dt * wa * C2 * ( Uion/(2*UH) ) \
             * ( 2*(Uion/UH)**(3./2)*Ea )**(2*n_eff - 1)
         self.adk_exp_prefactor = -2./3 * ( Uion/UH )**(3./2) * Ea
-
 
     @catch_gpu_memory_error
     def handle_ionization( self, ion ):
@@ -316,6 +327,27 @@ class Ionizer(object):
             # If the electrons are tracked, generate new ids
             # (on GPU or GPU depending on `use_cuda`)
             generate_new_ids( elec, old_Ntot, new_Ntot )
+
+            # If spin tracking is enabled, generate also new spins
+            # (on GPU or GPU depending on `use_cuda`)
+            if ion.spin_tracker is not None:
+                if use_cuda:
+                    copy_ionized_electron_spin_cuda[ batch_grid_1d,
+                                                     batch_block_1d ](
+                        N_batch, self.batch_size, old_Ntot, new_Ntot,
+                        ion.Ntot, self.store_electrons_per_level,
+                        cumulative_n_ionized, i_level, ionized_from,
+                        elec.spin_tracker.sx, elec.spin_tracker.sy,
+                        elec.spin_tracker.sz, ion.spin_tracker.sx,
+                        ion.spin_tracker.sy, ion.spin_tracker.sz)
+                else:
+                    copy_ionized_electron_spin_numba(
+                        N_batch, self.batch_size, old_Ntot, new_Ntot,
+                        ion.Ntot, self.store_electrons_per_level,
+                        cumulative_n_ionized, i_level, ionized_from,
+                        elec.spin_tracker.sx, elec.spin_tracker.sy,
+                        elec.spin_tracker.sz, ion.spin_tracker.sx,
+                        ion.spin_tracker.sy, ion.spin_tracker.sz)
 
 
     def send_to_gpu( self ):

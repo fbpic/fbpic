@@ -11,6 +11,7 @@ from scipy.constants import e
 from .tracking import ParticleTracker
 from .elementary_process.ionization import Ionizer
 from .elementary_process.compton import ComptonScatterer
+from .spin import SpinTracker
 from .injection import BallisticBeforePlane, ContinuousInjector, \
                         generate_evenly_spaced
 
@@ -202,13 +203,16 @@ class Particles(object) :
 
         # By default, there is no particle tracking (see method track)
         self.tracker = None
+        # By default, there is no particle spin tracking
+        # (see method activate_spin_tracking)
+        self.spin_tracker = None
         # By default, the species experiences no elementary processes
         # (see method make_ionizable and activate_compton)
         self.ionizer = None
         self.compton_scatterer = None
         # Total number of quantities (necessary in MPI communications)
         self.n_integer_quantities = 0
-        self.n_float_quantities = 8 # x, y, z, ux, uy, uz, inv_gamma, w
+        self.n_float_quantities = 8  # x, y, z, ux, uy, uz, inv_gamma, w
 
         # Register particle shape
         self.particle_shape = particle_shape
@@ -286,6 +290,9 @@ class Particles(object) :
             # Copy the ionization data
             if self.ionizer is not None:
                 self.ionizer.send_to_gpu()
+            # Copy the spin tracking data
+            if self.spin_tracker is not None:
+                self.spin_tracker.send_to_gpu()
 
             # Modify flag accordingly
             self.data_is_on_gpu = True
@@ -328,6 +335,9 @@ class Particles(object) :
             # Copy the ionization data
             if self.ionizer is not None:
                 self.ionizer.receive_from_gpu()
+            # Copy the spin tracking data
+            if self.spin_tracker is not None:
+                self.spin_tracker.receive_from_gpu()
 
             # Modify flag accordingly
             self.data_is_on_gpu = False
@@ -370,6 +380,12 @@ class Particles(object) :
         if self.ionizer is not None:
             # All new particles start at the default ionization level
             uint_buffer[i_int,:] = self.ionizer.level_start
+        if self.spin_tracker is not None:
+            # Generate new spins for _injected_ particles
+            sx, sy, sz = self.spin_tracker.generate_new_spins(Ntot)
+            float_buffer[9, :] = sx
+            float_buffer[10, :] = sy
+            float_buffer[11, :] = sz
 
         return( float_buffer, uint_buffer )
 
@@ -495,6 +511,35 @@ class Particles(object) :
         if hasattr( self, 'int_sorting_buffer' ) is False and self.use_cuda:
             self.int_sorting_buffer = np.empty( self.Ntot, dtype=np.uint64 )
 
+    def activate_spin_tracking(self, sx_m=0., sy_m=0., sz_m=0.,
+                               anom=0.):
+        """
+        Activate spin tracking for this particle. This will
+        enable calculating the evolution of particle spin
+        vector throughout the simulation.
+
+        Parameters
+        ----------
+        sx_m: float
+            The species-averaged average projection onto
+            the x axis
+
+        sy_m: float
+            The species-averaged average projection onto
+            the y axis
+
+        sz_m: float
+            The species-averaged average projection onto
+            the z axis
+
+        anom: float
+            The anomalous magnetic moment of the particle.
+        """
+        self.spin_tracker = SpinTracker(self, sx_m, sy_m, sz_m, anom)
+
+        # Update the number of float and int arrays
+        self.n_float_quantities += 3  # sx, sy, sz
+
     def handle_elementary_processes( self, t ):
         """
         Handle elementary processes for this species (e.g. ionization,
@@ -525,6 +570,10 @@ class Particles(object) :
                             (self, 'Bx'), (self, 'By'), (self, 'Bz') ]
         if self.ionizer is not None:
             attr_list += [ (self.ionizer,'w_times_level') ]
+        if self.spin_tracker is not None:
+            attr_list += [(self.spin_tracker, 'sx'), \
+                          (self.spin_tracker, 'sy'), \
+                          (self.spin_tracker, 'sz')]
         for attr in attr_list:
             # Get particle GPU array
             particle_array = getattr( attr[0], attr[1] )
@@ -579,6 +628,9 @@ class Particles(object) :
             if self.ionizer is not None:
                 raise NotImplementedError('Ballistic injection before a plane '
                     'is not implemented for ionizable particles.')
+            if self.spin_tracker is not None:
+                raise NotImplementedError('Ballistic injection before a plane '
+                    'is not implemented for particles with spin tracking.')
         else:
             z_plane = None
 
