@@ -15,7 +15,7 @@ from scipy.signal import hilbert
 from scipy.special import genlaguerre
 from openpmd_viewer.addons import LpaDiagnostics
 from fbpic.main import Simulation
-from fbpic.openpmd_diag import FieldDiagnostic
+from fbpic.openpmd_diag import FieldDiagnostic, BackTransformedFieldDiagnostic
 from fbpic.lpa_utils.laser import add_laser_pulse, FromLasyFileLaser
 
 from lasy.laser import Laser
@@ -55,9 +55,9 @@ def laguerre_env(T, X, Y, Z, p, m):
         )
     return E_max * np.real(envelope)
 
-def compare_simulation_with_theory():
+def compare_simulation_with_theory(data_dir):
 
-    ts = LpaDiagnostics('./diags/hdf5/')
+    ts = LpaDiagnostics(os.path.join(data_dir, 'hdf5/'))
     F_laser, info = ts.get_field( 'E', 'x', iteration=ts.iterations[-1])
     t = ts.current_t
     X, Z = np.meshgrid(info.r, info.z, sparse=False, indexing='ij')
@@ -113,15 +113,18 @@ def compare_simulation_with_theory():
     assert(relative_error_freq < relative_error_threshold)
 
 
-def run_and_check_laser_emission(gamma_b):
+def run_and_check_laser_emission(gamma_b, data_dir):
     """
     Run a simulation that emits a laser from a lasy file, either in the lab frame
-    (gamma_b = 1.) or in the boosted frame (gamma_b > 1.)
+    (gamma_b = None) or in the boosted frame (gamma_b > 1.)
 
     Parameter
     ---------
     gamma_b: float or None
         The Lorentz factor of the boosted frame
+
+    data_dir: string
+        Directory in which the simulation writes data
     """
     # Move into directory `tests`
     os.chdir('./tests')
@@ -147,20 +150,30 @@ def run_and_check_laser_emission(gamma_b):
 
     # Add the laser
     laser_profile = FromLasyFileLaser( 'laguerrelaserRZ_00000.h5' )
-    add_laser_pulse(sim, laser_profile, method='antenna', z0_antenna=0)
+    add_laser_pulse(sim, laser_profile, method='antenna',
+                    z0_antenna=0, gamma_boost=gamma_b)
 
     # Add diagnostic
-    sim.diags = [
-        FieldDiagnostic( Nz, sim.fld, comm=sim.comm )
-    ]
+    if gamma_b is None:
+        sim.diags = [
+            FieldDiagnostic( Nz, sim.fld, comm=sim.comm )
+        ]
+    else:
+        sim.diags = [
+            BackTransformedFieldDiagnostic( zmin_lab=zmin, zmax_lab=zmax,
+                dt_snapshots_lab=5.8593750e-14, v_lab=c,
+                Ntot_snapshots_lab=2, gamma_boost=gamma_b,
+                period=100, fldobject=sim.fld, comm=sim.comm)
+        ]
+
     # Run the simulation
     sim.step( Nz + 1 )
 
     # Perform test
-    compare_simulation_with_theory()
+    compare_simulation_with_theory(data_dir)
 
     # Remove openPMD and lasy files
-    shutil.rmtree('./diags/')
+    shutil.rmtree(data_dir)
     os.chdir('../')
 
 if __name__ == "__main__":
@@ -178,9 +191,12 @@ if __name__ == "__main__":
     npoints = (100,100)
     laser = Laser(dim, lo, hi, npoints, profile, n_azimuthal_modes=1)
     laser.propagate(-3 * c * tau)
-    laser.write_to_file("laguerrelaserRZ")
+    laser.write_to_file("./tests/laguerrelaserRZ")
 
-    # Emit the laser in the lab-frame
-    run_and_check_laser_emission( gamma_b=None )
+    # Emit the laser in the boosted frame
+    run_and_check_laser_emission( gamma_b=5, data_dir='./lab_diags' )
 
-    shutil.rmtree('./tests/laguerrelaserRZ_00000.h5')
+    # Emit the laser in the lab frame
+    run_and_check_laser_emission( gamma_b=None, data_dir='./diags' )
+
+    os.remove('./tests/laguerrelaserRZ_00000.h5')
