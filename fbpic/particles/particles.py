@@ -383,9 +383,9 @@ class Particles(object) :
         if self.spin_tracker is not None:
             # Generate new spins for _injected_ particles
             sx, sy, sz = self.spin_tracker.generate_new_spins(Ntot)
-            float_buffer[9, :] = sx
-            float_buffer[10, :] = sy
-            float_buffer[11, :] = sz
+            float_buffer[-3, :] = sx
+            float_buffer[-2, :] = sy
+            float_buffer[-1, :] = sz
 
         return( float_buffer, uint_buffer )
 
