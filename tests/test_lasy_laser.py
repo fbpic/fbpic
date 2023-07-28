@@ -129,6 +129,21 @@ def run_and_check_laser_emission(gamma_b, data_dir):
     # Move into directory `tests`
     os.chdir('./tests')
 
+    # Create a Laguerre Gaussian laser in RZ geometry using lasy
+    pol = (1, 0)
+    profile = CombinedLongitudinalTransverseProfile(
+        wavelength, pol, laser_energy,
+        GaussianLongitudinalProfile(wavelength, tau, t_peak=0),
+        LaguerreGaussianTransverseProfile(w0, p=0, m=1),
+    )
+    dim = "rt"
+    lo = (0e-6, -3*tau)
+    hi = (3*w0, 3*tau)
+    npoints = (100,100)
+    laser = Laser(dim, lo, hi, npoints, profile, n_azimuthal_modes=1)
+    laser.propagate(-3 * c * tau)
+    laser.write_to_file("laguerrelaserRZ")
+
     # Create an FBPIC simulation that reads this lasy file
     # Initialize the simulation object
     Nz = 1024
@@ -174,29 +189,20 @@ def run_and_check_laser_emission(gamma_b, data_dir):
 
     # Remove openPMD and lasy files
     shutil.rmtree(data_dir)
+    os.remove('laguerrelaserRZ_00000.h5')
     os.chdir('../')
+
+def test_laser_emission_labframe():
+    run_and_check_laser_emission( gamma_b=None, data_dir='./diags' )
+
+def test_laser_emission_boostedframe():
+    run_and_check_laser_emission( gamma_b=5, data_dir='./lab_diags' )
+
 
 if __name__ == "__main__":
 
-    # Create a Laguerre Gaussian laser in RZ geometry using lasy
-    pol = (1, 0)
-    profile = CombinedLongitudinalTransverseProfile(
-        wavelength, pol, laser_energy,
-        GaussianLongitudinalProfile(wavelength, tau, t_peak=0),
-        LaguerreGaussianTransverseProfile(w0, p=0, m=1),
-    )
-    dim = "rt"
-    lo = (0e-6, -3*tau)
-    hi = (3*w0, 3*tau)
-    npoints = (100,100)
-    laser = Laser(dim, lo, hi, npoints, profile, n_azimuthal_modes=1)
-    laser.propagate(-3 * c * tau)
-    laser.write_to_file("./tests/laguerrelaserRZ")
-
     # Emit the laser in the boosted frame
-    run_and_check_laser_emission( gamma_b=5, data_dir='./lab_diags' )
+    test_laser_emission_boostedframe()
 
     # Emit the laser in the lab frame
-    run_and_check_laser_emission( gamma_b=None, data_dir='./diags' )
-
-    os.remove('./tests/laguerrelaserRZ_00000.h5')
+    test_laser_emission_labframe()
