@@ -16,6 +16,9 @@ from .cuda_numba_utils import random_point_sphere_cpu
 
 
 push_s_BMT = numba.njit(push_s_BMT)
+copy_ionized_electron_spin_batch = \
+    numba.njit(copy_ionized_electron_spin_batch)
+random_point_sphere_cpu = numba.njit(random_point_sphere_cpu)
 
 
 @njit_parallel
@@ -88,9 +91,8 @@ def push_s_ioniz_numba(sx, sy, sz, ux_prev, uy_prev, uz_prev, ux, uy, uz,
 @njit_parallel
 def copy_ionized_electron_spin_numba(
         N_batch, batch_size, elec_old_Ntot, elec_new_Ntot, ion_Ntot,
-        store_electrons_per_level,
-        cumulative_n_ionized, i_level, ionized_from, elec_sx, elec_sy, elec_sz,
-        ion_sx, ion_sy, ion_sz):
+        store_electrons_per_level, cumulative_n_ionized, i_level,
+        ionized_from, elec_sx, elec_sy, elec_sz, ion_sx, ion_sy, ion_sz):
     """
     Generate spins for newly generated electrons.
     For the first ionized electron, the spin is copied
@@ -104,8 +106,8 @@ def copy_ionized_electron_spin_numba(
     for i_batch in prange( N_batch ):
         copy_ionized_electron_spin_batch(
             i_batch, batch_size, elec_old_Ntot, ion_Ntot,
-            store_electrons_per_level,
             cumulative_n_ionized, i_level, ionized_from,
+            store_electrons_per_level,
             elec_sx, elec_sy, elec_sz,
             ion_sx, ion_sy, ion_sz,
             rand_sx, rand_sy, rand_sz)

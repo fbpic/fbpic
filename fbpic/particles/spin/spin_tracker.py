@@ -24,7 +24,7 @@ class SpinTracker(object):
     """
 
     def __init__(self, species, dt, sx_m=0., sy_m=0., sz_m=0.,
-                       anom=0.):
+                       anom=0., spin_distr='fixed'):
         """
         Initialize the SpinTracker class.
 
@@ -40,17 +40,20 @@ class SpinTracker(object):
         ----------
         species: fbpic.Particles object
 
+        dt: float
+            Simulation timestep, in s
+
         sx_m: float
             The species-averaged average projection onto
-            the x axis
+            the x-axis
 
         sy_m: float
             The species-averaged average projection onto
-            the y axis
+            the y-axis
 
         sz_m: float
             The species-averaged average projection onto
-            the z axis
+            the z-axis
 
         anom: float
             The anomalous magnetic moment of the particle.
@@ -60,6 +63,7 @@ class SpinTracker(object):
         self.sz_m = sz_m
         self.anom = anom
         self.dt = dt
+        self.spin_distr = spin_distr
 
         # Store the species we perform spin tracking for
         self.ptcl = species
@@ -169,9 +173,9 @@ class SpinTracker(object):
         generates a set of spin components, where the ensemble
         averages satisfy the user's requirement in terms of averages.
         """
-        sx = np.zeros(Ntot) * self.sx_m
-        sy = np.zeros(Ntot)
-        sz = np.ones(Ntot)
+        sx = np.ones(Ntot) * self.sx_m
+        sy = np.ones(Ntot) * self.sy_m
+        sz = np.ones(Ntot) * self.sz_m
         return sx, sy, sz
 
     def send_to_gpu(self):

@@ -122,9 +122,9 @@ def remove_particles_cpu(species, fld, n_guard, left_proc, right_proc):
                 species.ionizer.ionization_level[selec_left]
             float_send_left[8,:] = species.ionizer.w_times_level[selec_left]
         if species.spin_tracker is not None:
-            float_send_left[9, :] = species.spin_tracker.sx[selec_left]
-            float_send_left[10, :] = species.spin_tracker.sy[selec_left]
-            float_send_left[11, :] = species.spin_tracker.sz[selec_left]
+            float_send_left[-3, :] = species.spin_tracker.sx[selec_left]
+            float_send_left[-2, :] = species.spin_tracker.sy[selec_left]
+            float_send_left[-1, :] = species.spin_tracker.sz[selec_left]
     else:
         # No need to allocate and copy data ; return an empty array
         float_send_left = np.empty((n_float, 0), dtype=np.float64)
@@ -152,9 +152,9 @@ def remove_particles_cpu(species, fld, n_guard, left_proc, right_proc):
                 species.ionizer.ionization_level[selec_right]
             float_send_right[8,:] = species.ionizer.w_times_level[selec_right]
         if species.spin_tracker is not None:
-            float_send_right[9, :] = species.spin_tracker.sx[selec_right]
-            float_send_right[10, :] = species.spin_tracker.sy[selec_right]
-            float_send_right[11, :] = species.spin_tracker.sz[selec_right]
+            float_send_right[-3, :] = species.spin_tracker.sx[selec_right]
+            float_send_right[-2, :] = species.spin_tracker.sy[selec_right]
+            float_send_right[-1, :] = species.spin_tracker.sz[selec_right]
     else:
         # No need to allocate and copy data ; return an empty array
         float_send_right = np.empty((n_float, 0), dtype = np.float64)
@@ -433,14 +433,14 @@ def add_buffers_cpu( species, float_recv_left, float_recv_right,
             species.ionizer.w_times_level, float_recv_right[8]))
     if species.spin_tracker is not None:
         species.spin_tracker.sx = \
-            np.hstack((float_recv_left[9], species.spin_tracker.sx,
-                      float_recv_right[9]))
+            np.hstack((float_recv_left[-3], species.spin_tracker.sx,
+                      float_recv_right[-3]))
         species.spin_tracker.sy = \
-            np.hstack((float_recv_left[10], species.spin_tracker.sy,
-                       float_recv_right[10]))
+            np.hstack((float_recv_left[-2], species.spin_tracker.sy,
+                       float_recv_right[-2]))
         species.spin_tracker.sz = \
-            np.hstack((float_recv_left[11], species.spin_tracker.sz,
-                       float_recv_right[11]))
+            np.hstack((float_recv_left[-1], species.spin_tracker.sz,
+                       float_recv_right[-1]))
 
     # Adapt the total number of particles
     species.Ntot = species.Ntot + float_recv_left.shape[1] \

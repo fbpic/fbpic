@@ -535,7 +535,9 @@ class Particles(object) :
         anom: float
             The anomalous magnetic moment of the particle.
         """
-        self.spin_tracker = SpinTracker(self, sx_m, sy_m, sz_m, anom)
+        self.spin_tracker = SpinTracker(species=self, dt=self.dt,
+                                        sx_m=sx_m, sy_m=sy_m,
+                                        sz_m=sz_m, anom=anom)
 
         # Update the number of float and int arrays
         self.n_float_quantities += 3  # sx, sy, sz
