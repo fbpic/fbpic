@@ -140,7 +140,7 @@ def run_and_check_laser_emission(gamma_b, data_dir):
     lo = (0e-6, -3*tau)
     hi = (3*w0, 3*tau)
     npoints = (100,100)
-    laser = Laser(dim, lo, hi, npoints, profile, n_azimuthal_modes=1)
+    laser = Laser(dim, lo, hi, npoints, profile, n_azimuthal_modes=2)
     laser.propagate(-3 * c * tau)
     laser.write_to_file("laguerrelaserRZ")
 
