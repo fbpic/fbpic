@@ -94,8 +94,8 @@ def copy_ionized_electron_spin_cuda(
     if i_batch < N_batch:
         copy_ionized_electron_spin_batch(
             i_batch, batch_size, elec_old_Ntot, ion_Ntot,
-            store_electrons_per_level,
             cumulative_n_ionized, i_level, ionized_from,
+            store_electrons_per_level,
             elec_sx, elec_sy, elec_sz,
             ion_sx, ion_sy, ion_sz,
             rand_sx, rand_sy, rand_sz)

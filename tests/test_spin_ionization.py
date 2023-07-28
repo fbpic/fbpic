@@ -177,7 +177,7 @@ def run_ionization_test_sim(show):
             elec_sum += elec.Ntot
             if level < 6:
                 print(f'{step:4d}  {level+1:5d}  {elec.Ntot:4d} ' +
-                      '{np.sum(elec.spin_tracker.sz==1.):8d}')
+                      f'{np.sum(elec.spin_tracker.sz==1.):8d}')
         print('*'*40)
 
 
