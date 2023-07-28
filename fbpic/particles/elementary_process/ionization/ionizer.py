@@ -332,14 +332,20 @@ class Ionizer(object):
             # (on GPU or GPU depending on `use_cuda`)
             if ion.spin_tracker is not None:
                 if use_cuda:
+                    # Generate a set of random spins here
+                    #rand_sx = allocate_empty(new_Ntot-old_Ntot, True, np.float64)
+                    #rand_sy = allocate_empty(new_Ntot - old_Ntot, True, np.float64)
+                    #rand_sz = allocate_empty(new_Ntot - old_Ntot, True, np.float64)
+                    rand_sx, rand_sy, rand_sz = ion.spin_tracker.generate_ionized_spins_gpu(new_Ntot-old_Ntot)
                     copy_ionized_electron_spin_cuda[ batch_grid_1d,
                                                      batch_block_1d ](
-                        N_batch, self.batch_size, old_Ntot, new_Ntot,
+                        N_batch, self.batch_size, old_Ntot,
                         ion.Ntot, self.store_electrons_per_level,
                         cumulative_n_ionized, i_level, ionized_from,
                         elec.spin_tracker.sx, elec.spin_tracker.sy,
                         elec.spin_tracker.sz, ion.spin_tracker.sx,
-                        ion.spin_tracker.sy, ion.spin_tracker.sz)
+                        ion.spin_tracker.sy, ion.spin_tracker.sz,
+                        rand_sx, rand_sy, rand_sz)
                 else:
                     copy_ionized_electron_spin_numba(
                         N_batch, self.batch_size, old_Ntot, new_Ntot,

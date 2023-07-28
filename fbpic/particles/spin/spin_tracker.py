@@ -10,7 +10,7 @@ import numpy as np
 # Check if CUDA is available, then import CUDA functions
 from fbpic.utils.cuda import cuda_installed
 from .numba_methods import push_s_numba, push_s_ioniz_numba
-
+from .cuda_numba_utils import random_point_sphere_gpu
 
 if cuda_installed:
     import cupy
@@ -177,6 +177,9 @@ class SpinTracker(object):
         sy = np.ones(Ntot) * self.sy_m
         sz = np.ones(Ntot) * self.sz_m
         return sx, sy, sz
+
+    def generate_ionized_spins_gpu(self, Ntot):
+        return random_point_sphere_gpu(Ntot)
 
     def send_to_gpu(self):
         """

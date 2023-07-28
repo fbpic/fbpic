@@ -78,10 +78,10 @@ def push_s_ioniz_gpu(sx, sy, sz, ux_prev, uy_prev, uz_prev, ux, uy, uz,
 
 @compile_cupy
 def copy_ionized_electron_spin_cuda(
-        N_batch, batch_size, elec_old_Ntot, elec_new_Ntot, ion_Ntot,
+        N_batch, batch_size, elec_old_Ntot, ion_Ntot,
         store_electrons_per_level,
         cumulative_n_ionized, i_level, ionized_from, elec_sx, elec_sy, elec_sz,
-        ion_sx, ion_sy, ion_sz):
+        ion_sx, ion_sy, ion_sz, rand_sx, rand_sy, rand_sz):
     """
     Generate spins for newly generated electrons.
     For the first ionized electron, the spin is copied
@@ -89,14 +89,6 @@ def copy_ionized_electron_spin_cuda(
     ionized electrons, the spin vector is randomly oriented,
     ie sampled from sphere point picking.
     """
-    # First make a set of random spins to be copied, if needed
-    rand_sx = cupy.empty((elec_new_Ntot,), dtype=cupy.float64)
-    rand_sy = cupy.empty((elec_new_Ntot,), dtype=cupy.float64)
-    rand_sz = cupy.empty((elec_new_Ntot,), dtype=cupy.float64)
-    ip = cuda.grid(1)
-    for ip in range(elec_new_Ntot):
-        rand_sx[ip], rand_sy[ip], rand_sz[ip] = random_point_sphere_gpu(1)
-
     # And now create the spins
     i_batch = cuda.grid(1)
     if i_batch < N_batch:
