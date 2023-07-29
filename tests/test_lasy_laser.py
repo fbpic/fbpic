@@ -147,7 +147,7 @@ def run_and_check_laser_emission(gamma_b, data_dir):
     # Create an FBPIC simulation that reads this lasy file
     # Initialize the simulation object
     Nz = 1024
-    Nr = 100
+    Nr = 32
     zmax = 0
     zmin = -6 * c * tau
     rmax = 3 * w0
@@ -176,7 +176,7 @@ def run_and_check_laser_emission(gamma_b, data_dir):
     else:
         sim.diags = [
             BackTransformedFieldDiagnostic( zmin_lab=zmin, zmax_lab=zmax,
-                dt_snapshots_lab=5.8593750e-14, v_lab=c,
+                dt_snapshots_lab=6.e-14, v_lab=c,
                 Ntot_snapshots_lab=2, gamma_boost=gamma_b,
                 period=100, fldobject=sim.fld, comm=sim.comm)
         ]
@@ -196,7 +196,7 @@ def test_laser_emission_labframe():
     run_and_check_laser_emission( gamma_b=None, data_dir='./diags' )
 
 def test_laser_emission_boostedframe():
-    run_and_check_laser_emission( gamma_b=5, data_dir='./lab_diags' )
+    run_and_check_laser_emission( gamma_b=10, data_dir='./lab_diags' )
 
 
 if __name__ == "__main__":
