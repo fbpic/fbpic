@@ -3,10 +3,8 @@
 # License: 3-Clause-BSD-LBNL
 """
 This file is for the Fourier-Bessel Particle-In-Cell code (FB-PIC)
-It carries out the spin-push for all particles on CPU using numba.
-
-This is identical to methods used in fbpic for momentum push, found in:
-\fbpic\particles\push\numba_methods.py
+It carries out the spin-push related methods for all particles
+on CPU.
 """
 import numba
 from fbpic.utils.threading import njit_parallel, prange

@@ -3,7 +3,8 @@
 # License: 3-Clause-BSD-LBNL
 """
 This file is for the Fourier-Bessel Particle-In-Cell code (FB-PIC)
-It carries out the spin-push for all particles on GPU using CUDA.
+It carries out the spin-push related methods for all particles
+on GPU using CUDA.
 """
 import cupy
 from scipy.constants import c, e

@@ -5,7 +5,7 @@
 This file is for use with the Fourier-Bessel Particle-In-Cell code (FB-PIC).
 
 It defines a function to push the 'classical' spin vector, according to the
-Bargmann-Michel-Telegdi equation.
+Bargmann-Michel-Telegdi equation and other spin-push related functions.
 """
 import math
 from scipy.constants import c

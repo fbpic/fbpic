@@ -10,7 +10,8 @@ import numpy as np
 # Check if CUDA is available, then import CUDA functions
 from fbpic.utils.cuda import cuda_installed
 from .numba_methods import push_s_numba, push_s_ioniz_numba
-from .cuda_numba_utils import random_point_sphere_gpu
+from .cuda_numba_utils import random_point_sphere_gpu, \
+    random_point_sphere_cpu
 
 if cuda_installed:
     import cupy
@@ -24,43 +25,86 @@ class SpinTracker(object):
     """
 
     def __init__(self, species, dt, sx_m=0., sy_m=0., sz_m=0.,
-                       anom=0., spin_distr='fixed'):
+                 anom=0., spin_distr='fixed'):
         """
         Initialize the SpinTracker class.
 
-        The length of each particles spin vector is 1, and this
+        The length of each particle's spin vector is 1, and this
         does not change during the push. During initialization,
-        the spin vectors will be randomly generated to have the
-        average values along all axis specified by the user.
+        the spin vectors will be all set to the same value or
+        randomly generated to have the average values along all
+        axis specified by the user (see spin_distr below).
 
-        Note it is therefore unphysical to specify averages that
-        sum to $s_x^2+s_y^2+s_z^2>1$.
+        .. math::
+            \\frac{d\\boldsymbol{s}}{dt} = (\\boldsymbol{\\Omega}_T +
+             \\boldsymbol{\\Omega}_a) \\boldsymbol{s}
+
+        where
+
+        .. math::
+            \\boldsymbol{\\Omega}_T = \\frac{q}{m}\\left(
+                 \\frac{\\boldsymbol{B}}{\\gamma} -
+                 \\frac{\\boldsymbol{B}}{1+\\gamma}
+                 \\times \\frac{\\boldsymbol{E}}{c} \\right)
+
+        and
+
+        .. math::
+            \\boldsymbol{\\Omega}_a = a_e \\frac{q}{m}\\left(
+                 \\boldsymbol{B} -
+                 \\frac{\\gamma}{1+\\gamma}\\boldsymbol{\\beta}
+                 (\\boldsymbol{\\beta}\\cdot\\boldsymbol{B}) -
+                 \\boldsymbol{\\beta} \\times \\frac{\\boldsymbol{E}}{c} \\right)
+
+        Here, :math:`a_e` is the anomalous magnetic moment of the particle,
+        :math:`\\gamma` is the Lorentz factor of the particle,
+        :math:`\\boldsymbol{\\beta}=\\boldsymbol{v}/c` is the normalised velocity
+
+        The implementation of the push algorithm is detailed in
+        https://arxiv.org/abs/2303.16966.
 
         Parameters
         ----------
-        species: fbpic.Particles object
+        species: an fbpic Particles object
+            The species with which the spin tracker is
+            associated with
 
-        dt: float
-            Simulation timestep, in s
+        dt: float (in second)
+            Simulation timestep
 
-        sx_m: float
+        sx_m: float (dimensionless), optional
             The species-averaged average projection onto
             the x-axis
 
-        sy_m: float
+        sy_m: float (dimensionless), optional
             The species-averaged average projection onto
             the y-axis
 
-        sz_m: float
+        sz_m: float (dimensionless), optional
             The species-averaged average projection onto
             the z-axis
 
-        anom: float
-            The anomalous magnetic moment of the particle.
+        anom: float, (dimensionless), optional
+            The anomalous magnetic moment of the particle,
+            given by :math:`a=(g-2)/2`, where :math:`g` is the
+            particle's g-factor.
+
+        spin_distr: str, optional
+            If 'fixed', all particles will have a fixed spin value
+            equal to s{x,y,z}_m.
+            If 'rand', the spin vectors will be random, but with an
+            ensemble average defined by one of the values of
+            s{x,y,z}_m. The first non-zero mean component will be
+            used, with order of preference being x,y,z, ie if sx_m!=0,
+            the generated spins will have an ensemble averages of
+            |sx|=sx_m, |sy|=0, |sz|=0, or if sz_m!=0, |sx|=0, |sy|=0
+            and |sz|=sz_m.
+
         """
         self.sx_m = sx_m
         self.sy_m = sy_m
         self.sz_m = sz_m
+        self.sm = np.sqrt(sx_m ** 2 + sy_m ** 2 + sz_m ** 2)
         self.anom = anom
         self.dt = dt
         self.spin_distr = spin_distr
@@ -173,9 +217,23 @@ class SpinTracker(object):
         generates a set of spin components, where the ensemble
         averages satisfy the user's requirement in terms of averages.
         """
-        sx = np.ones(Ntot) * self.sx_m
-        sy = np.ones(Ntot) * self.sy_m
-        sz = np.ones(Ntot) * self.sz_m
+        if self.spin_distr == 'fixed':
+            sx = np.ones(Ntot) * self.sx_m / self.sm
+            sy = np.ones(Ntot) * self.sy_m / self.sm
+            sz = np.ones(Ntot) * self.sz_m / self.sm
+        else:
+            # If the user passes a preferred spin avergae
+            if self.sx_m != 0.:
+                sx, sy, sz = make_random_spins(Ntot, self.sx_m)
+            elif self.sy_m != 0.:
+                sy, sx, sz = make_random_spins(Ntot, self.sy_m)
+            elif self.sz_m != 0.:
+                sz, sx, sy = make_random_spins(Ntot, self.sz_m)
+            else:
+                # If the user does not pass anything, all spins
+                # are randomly oriented
+                sx, sy, sz = random_point_sphere_cpu(Ntot)
+
         return sx, sy, sz
 
     def generate_ionized_spins_gpu(self, Ntot):
@@ -188,7 +246,6 @@ class SpinTracker(object):
         self.sx = cupy.asarray(self.sx)
         self.sy = cupy.asarray(self.sy)
         self.sz = cupy.asarray(self.sz)
-        # TODO: And the anomalous moment too???? or ux_prev?
 
     def receive_from_gpu(self):
         """
@@ -197,4 +254,23 @@ class SpinTracker(object):
         self.sx = self.sx.get()
         self.sy = self.sy.get()
         self.sz = self.sz.get()
-        # TODO: And the anomalous moment too???? or ux_prev?
+
+
+def make_random_spins(Ntot, s1_m):
+    """
+    Make a set of random spins. The component s1 will
+    have an average value of s1_m, with its distribution
+    width being up to 0.3. All spin components will be
+    clipped to abs(1).
+    """
+    s1_th = min((0.3, 1 - abs(s1_m)))
+    s1 = s1_m * np.ones(Ntot) + s1_th * np.random.normal(size=Ntot)
+    s1[s1 > 1] = 1.  # keep within 1!
+    s1[s1 < -1] = -1.
+    s2 = 0.5 * np.random.normal(size=Ntot)
+    s3 = 0.5 * np.random.normal(size=Ntot)
+
+    ratio = np.sqrt((1 - s1 ** 2) / (s2 ** 2 + s3 ** 2))
+    s2 *= ratio
+    s3 *= ratio
+    return s1, s2, s3

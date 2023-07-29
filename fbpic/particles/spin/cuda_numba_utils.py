@@ -4,7 +4,7 @@
 """
 This file is part of the Fourier-Bessel Particle-In-Cell code (FB-PIC)
 It defines a number of methods that are useful for spin processes
-on CPU and GPU
+on CPU and GPU.
 """
 import numpy as np
 from scipy.constants import pi
