@@ -490,7 +490,7 @@ class Simulation(object):
                     species.push_x( 0.5*dt )
             # Get positions/velocities for antenna particles at t = (n+1/2) dt
             for antenna in self.laser_antennas:
-                antenna.update_v( self.time + 0.5*dt )
+                antenna.update_v( self.time + 0.5*dt, dt )
                 antenna.push_x( 0.5*dt )
             # Shift the boundaries of the grid for the Galilean frame
             if self.use_galilean:
