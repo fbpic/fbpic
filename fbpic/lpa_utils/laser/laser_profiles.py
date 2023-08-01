@@ -856,7 +856,6 @@ class FromLasyFileLaser( LaserProfile ):
             emitted. This can be used in order to introduce a time delay that was
             not originally present in the ``lasy`` file.
 
-
         .. warning::
 
             This laser profile can only be emitted with the ``antenna`` method
@@ -869,15 +868,38 @@ class FromLasyFileLaser( LaserProfile ):
         # Open and read the lasy file
         f = h5py.File( filename, mode="r" )
         dset = f['/data/0/meshes/laserEnvelope']
+        self.omega = dset.attrs['angularFrequency']
+        self.pol = dset.attrs['polarization']
+        self.t_min_lasy = dset.attrs['gridGlobalOffset'][0]
+
+        # Define interpolation function depending on the geometry
+        if dset.attrs['geometry'].decode() == 'thetaMode':
+            self.define_thetaMode_interp_function(dset)
+        elif dset.attrs['geometry'].decode()  == 'cartesian':
+            self.define_cartesian_interp_function(dset)
+        else:
+            raise RuntimeError(
+                "Unknown geometry for lasy file %s: %s" \
+                %(filename, dset.attrs['geometry'])
+            )
+
+
+    def define_thetaMode_interp_function(self, dset):
+        """
+        Set the attribute `interp_function`, in the case case
+        where the lasy file has `thetaMode` geometry
+
+        Parameter:
+        ----------
+        dset: an h5py dataset object
+            The object that contains the lasy envelope data
+        """
         env_data = np.array(dset)
         dt_data, dr_data = dset.attrs['gridSpacing']*dset.attrs['gridUnitSI']
         inv_dt_data = 1./dt_data
         inv_dr_data = 1./dr_data
         _, nt, nr = env_data.shape
         n_modes = int(env_data.shape[0]/2) + 1
-        self.omega = dset.attrs['angularFrequency']
-        self.pol = dset.attrs['polarization']
-        self.t_min_lasy = dset.attrs['gridGlobalOffset'][0]
 
         @numba.vectorize
         def interp_function(x, y, t):
@@ -914,6 +936,61 @@ class FromLasyFileLaser( LaserProfile ):
                     cos = exp_theta.real
                     sin = exp_theta.imag
                     env += env_cos * cos + env_sin * sin
+
+            return env
+
+        self.interp_function = interp_function
+
+
+    def define_cartesian_interp_function(self, dset):
+        """
+        Set the attribute `interp_function`, in the case case
+        where the lasy file has Cartesian geometry
+
+        Parameter:
+        ----------
+        dset: an h5py dataset object
+            The object that contains the lasy envelope data
+        """
+        env_data = np.array(dset)
+        dt_data, dy_data, dx_data = dset.attrs['gridSpacing']*dset.attrs['gridUnitSI']
+        _, y_min_data, x_min_data = dset.attrs['gridGlobalOffset']
+        inv_dt_data = 1./dt_data
+        inv_dy_data = 1./dy_data
+        inv_dx_data = 1./dx_data
+        nt, ny, nx = env_data.shape
+
+        @numba.vectorize
+        def interp_function(x, y, t):
+            ix_interp = (x-x_min_data)* inv_dx_data
+            ix = int(np.floor(ix_interp))
+
+            iy_interp = (y-y_min_data)* inv_dy_data
+            iy = int(np.floor(iy_interp))
+
+            it_interp = t * inv_dt_data
+            it = int(np.floor(it_interp))
+
+            if (it < 0) or (it+1 > nt-1) or \
+                (iy < 0) or (iy+1 > ny-1) or \
+                (ix < 0) or (ix+1 > nx-1):
+                env = 0. + 1.j*0.
+            else:
+                S0t = it_interp - it
+                S1t = it + 1 - it_interp
+                S0y = iy_interp - iy
+                S1y = iy + 1 - iy_interp
+                S0x = ix_interp - ix
+                S1x = ix + 1 - ix_interp
+
+                env = S1x * S1y * S1t * env_data[it  , iy  , ix] \
+                    + S0x * S1y * S1t * env_data[it  , iy  , ix+1] \
+                    + S1x * S0y * S1t * env_data[it  , iy+1, ix] \
+                    + S0x * S0y * S1t * env_data[it  , iy+1, ix+1] \
+                    + S1x * S1y * S0t * env_data[it+1, iy  , ix] \
+                    + S0x * S1y * S0t * env_data[it+1, iy  , ix+1] \
+                    + S1x * S0y * S0t * env_data[it+1, iy+1, ix] \
+                    + S0x * S0y * S0t * env_data[it+1, iy+1, ix+1]
 
             return env
 
