@@ -113,7 +113,7 @@ def compare_simulation_with_theory(data_dir):
     assert(relative_error_freq < relative_error_threshold)
 
 
-def run_and_check_laser_emission(gamma_b, data_dir):
+def run_and_check_laser_emission(gamma_b, data_dir, lasy_geometry):
     """
     Run a simulation that emits a laser from a lasy file, either in the lab frame
     (gamma_b = None) or in the boosted frame (gamma_b > 1.)
@@ -125,6 +125,9 @@ def run_and_check_laser_emission(gamma_b, data_dir):
 
     data_dir: string
         Directory in which the simulation writes data
+
+    lasy_geometry: string
+        Either "rt" or "xyt"
     """
     # Move into directory `tests`
     os.chdir('./tests')
@@ -136,11 +139,16 @@ def run_and_check_laser_emission(gamma_b, data_dir):
         GaussianLongitudinalProfile(wavelength, tau, t_peak=0),
         LaguerreGaussianTransverseProfile(w0, p=0, m=1),
     )
-    dim = "rt"
-    lo = (0e-6, -3*tau)
-    hi = (3*w0, 3*tau)
-    npoints = (100,100)
-    laser = Laser(dim, lo, hi, npoints, profile, n_azimuthal_modes=2)
+    if lasy_geometry == "rt":
+        lo = (0e-6, -3*tau)
+        hi = (3*w0, 3*tau)
+        npoints = (100,100)
+        laser = Laser(lasy_geometry, lo, hi, npoints, profile, n_azimuthal_modes=2)
+    elif lasy_geometry == "xyt":
+        lo = (-3*w0, -3*w0, -3*tau)
+        hi = (3*w0, 3*w0, 3*tau)
+        npoints = (200,200,200)
+        laser = Laser(lasy_geometry, lo, hi, npoints, profile)
     laser.propagate(-3 * c * tau)
     laser.write_to_file("laguerrelaserRZ")
 
@@ -193,10 +201,12 @@ def run_and_check_laser_emission(gamma_b, data_dir):
     os.chdir('../')
 
 def test_laser_emission_labframe():
-    run_and_check_laser_emission( gamma_b=None, data_dir='./diags' )
+    run_and_check_laser_emission( gamma_b=None,
+        data_dir='./diags', lasy_geometry='rt' )
 
 def test_laser_emission_boostedframe():
-    run_and_check_laser_emission( gamma_b=10, data_dir='./lab_diags' )
+    run_and_check_laser_emission( gamma_b=10,
+        data_dir='./lab_diags', lasy_geometry='xyt' )
 
 
 if __name__ == "__main__":
