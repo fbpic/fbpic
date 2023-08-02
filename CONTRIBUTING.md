@@ -47,7 +47,7 @@ git pull git@github.com:fbpic/fbpic.git dev
   ```
   python setup.py install
   pip install matplotlib openPMD-viewer
-  python setup.py test
+  python -m pytest tests --ignore=tests/unautomated
   ```
   (Be patient: the tests can take approx. 5 min.)
 
