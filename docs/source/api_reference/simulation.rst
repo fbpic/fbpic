@@ -10,3 +10,5 @@ species, and its method :any:`set_moving_window` activates the moving window.
 
 .. autoclass:: fbpic.main.Simulation
    :members: step, add_new_species, set_moving_window
+
+.. autofunction:: fbpic.utils.random_seed.set_random_seed

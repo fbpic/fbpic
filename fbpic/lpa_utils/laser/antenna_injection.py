@@ -269,7 +269,7 @@ class LaserAntenna( object ):
         if self.use_cuda and self.laser_profile.gpu_capable:
             x = self.d_baseline_x + self.vx*0.5*dt
             y = self.d_baseline_y + self.vy*0.5*dt
-            z = self.d_baseline_z + self.vz*0.5*dt
+            z = self.d_baseline_z + self.d_vz*0.5*dt
         else:
             x = self.baseline_x + self.vx*0.5*dt
             y = self.baseline_y + self.vy*0.5*dt
