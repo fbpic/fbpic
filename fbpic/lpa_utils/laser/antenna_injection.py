@@ -266,10 +266,15 @@ class LaserAntenna( object ):
         # i.e. half a timestep before `t` (at which v is to be computed)
         # Therefore, to compute v at the position of the antenna at `t`,
         # we compute the compute the positions advanced by half a timestep
-        if self.use_cuda and self.laser_profile.gpu_capable:
+        if self.use_cuda:
             x = self.d_baseline_x + self.vx*0.5*dt
             y = self.d_baseline_y + self.vy*0.5*dt
             z = self.d_baseline_z + self.d_vz*0.5*dt
+            if not(self.laser_profile.gpu_capable):
+                # Copy arrays from GPU to CPU
+                x = x.get()
+                y = y.get()
+                z = z.get()
         else:
             x = self.baseline_x + self.vx*0.5*dt
             y = self.baseline_y + self.vy*0.5*dt
