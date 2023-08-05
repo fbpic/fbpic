@@ -21,8 +21,6 @@ $ mpirun -np 2 python tests/test_periodic_plasma_wave.py # Two-proc simulation
 In order to let Python check the agreement between the curve without
 having to look at the plots
 $ py.test -q tests/test_periodic_plasma_wave.py
-or
-$ python setup.py test
 
 Theory:
 -------
@@ -171,11 +169,11 @@ N_step = int( 2*np.pi/(wp*dt)*0.75 )
 # -------------
 
 def test_periodic_plasma_wave_linear_shape( show=False ):
-    "Function that is run by py.test, when doing `python setup.py test"
+    "Function that is run by py.test"
     simulate_periodic_plasma_wave( 'linear', show=show )
 
 def test_periodic_plasma_wave_cubic_shape( show=False ):
-    "Function that is run by py.test, when doing `python setup.py test"
+    "Function that is run by py.test"
     simulate_periodic_plasma_wave( 'cubic', show=show )
 
 def simulate_periodic_plasma_wave( particle_shape, show=False ):
