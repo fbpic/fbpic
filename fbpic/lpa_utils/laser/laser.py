@@ -92,6 +92,14 @@ def add_laser_pulse( sim, laser_profile, gamma_boost=None,
         dr = sim.fld.interp[0].dr
         Nr = sim.fld.interp[0].Nr
         Nm = sim.fld.Nm
+        # Check that the velocity is 0 for a profile from lasy
+        if isinstance( laser_profile, FromLasyFileLaser ) \
+            and (v_antenna != 0):
+                raise RuntimeError(
+                    "A laser profile from a `lasy` file cannot "
+                    "be emitted with a moving antenna.\n"
+                    "When using the function `add_laser_pulse`, "
+                    "please set `v_antenna` to 0.")
         sim.laser_antennas.append(
             LaserAntenna( laser_profile, z0_antenna, v_antenna,
                             dr, Nr, Nm, boost, use_cuda=sim.use_cuda ) )
