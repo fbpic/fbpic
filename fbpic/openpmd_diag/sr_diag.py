@@ -137,7 +137,7 @@ class SRDiagnostic(OpenPMDDiagnostic):
         data_one_proc = self.fld.radiation_data.copy()
 
         # Gather the data
-        if self.comm is not None:
+        if self.comm.size>1:
             data_all_proc = self.mpi_reduce_radiation( data_one_proc )
         else:
             data_all_proc = data_one_proc

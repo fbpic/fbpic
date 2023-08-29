@@ -1,5 +1,5 @@
-# Copyright 2016, FBPIC contributors
-# Authors: Remi Lehe, Manuel Kirchen
+# Copyright 2023, FBPIC contributors
+# Authors: Igor A Andriyash, Remi Lehe, Manuel Kirchen
 # License: 3-Clause-BSD-LBNL
 """
 This file is part of the Fourier-Bessel Particle-In-Cell code (FB-PIC)
@@ -9,14 +9,13 @@ import numpy as np
 from scipy.constants import c, e, epsilon_0, hbar
 from scipy.special import kv
 from scipy.integrate import quad
-
-from ...cuda_numba_utils import allocate_empty
-
-from .numba_methods import gather_synchrotron_numba
-
-import warnings
 from numba.core.errors import NumbaPerformanceWarning
 from scipy.integrate import IntegrationWarning
+import warnings
+
+from ...cuda_numba_utils import allocate_empty
+from .numba_methods import gather_synchrotron_numba
+
 warnings.simplefilter('ignore', category=NumbaPerformanceWarning)
 warnings.simplefilter('ignore', category=IntegrationWarning)
 
@@ -31,52 +30,61 @@ if cuda_installed:
 
 class SynchrotronRadiator(object):
     """
-    Class that contains the data associated with betatron radiation.
+    Class for the synchrotron radiation calculation.
     """
-    def __init__(self, radiating_species, omega_axis,
+    def __init__(self, radiating_species, photon_energy_axis,
                  theta_x_axis, theta_y_axis, gamma_cutoff,
                  x_max, nSamples):
         """
-        Initialize an Ionizer instance
+        Initialize a Radiator instance.
 
         Parameters
         ----------
         radiating_species: an fbpic.Particles object
-            This object is not modified or registered.
+            This object is not modified.
 
-        omega_axis: tuple
-            Parameters for the frequency axis provided as
-            (omega_min, omega_max, N_omega), where omega_min and
-            omega_max are floats in (1/s) and N_omega in integer
+        photon_energy_axis: tuple
+            Parameters for the photon energy axis provided as
+            (photon_energy_min, photon_energy_max, N_photon_energy), where
+            photon_energy_min and photon_energy_max are floats in Joules
+            and N_photon_energy is integer.
 
         theta_x_axis: tuple
             Parameters for the x-elevation angle axis provided as
-            (theta_x_min, theta_x_max, self.N_theta_x), where theta_x_min
-            and theta_x_max are floats in (rad) and self.N_theta_x is an integer
+            (theta_x_min, theta_x_max, N_theta_x), where theta_x_min
+            and theta_x_max are floats in (rad) and N_theta_x is integer.
 
         theta_y_axis: tuple
             Parameters for the y-elevation angle axis provided as
-            (theta_y_min, theta_y_max, self.N_theta_y), where theta_y_min
-            and theta_y_max are floats in (rad) and self.N_theta_y is an integer
+            (theta_y_min, theta_y_max, N_theta_y), where theta_y_min
+            and theta_y_max are floats in radians and N_theta_y is integer.
 
         gamma_cutoff: float
-            Minimal gamma factor of particles for which radiation
-            is calculated
+            Minimal particle gamma factor for which radiation is calculated.
+
+        x_max: float
+            Extent of the samplig used for the spectral profile function.
+
+        nSamples: integer
+            number of samplig points for the spectral profile function
         """
         # Register a few parameters
         self.use_cuda = radiating_species.use_cuda
         self.eon = radiating_species
         self.dt = radiating_species.dt
+        self.gamma_cutoff_inv = 1. / gamma_cutoff
 
-        self.omega_min = omega_axis[0]
-        self.omega_max = omega_axis[1]
-        self.N_omega   = omega_axis[2]
+        self.omega_min = photon_energy_axis[0] / hbar
+        self.omega_max = photon_energy_axis[1] / hbar
+        self.N_omega = photon_energy_axis[2]
 
+        # Create the photon frequency axis
         self.omega_ax = np.linspace(
             self.omega_min, self.omega_max, self.N_omega
         )
         self.d_omega = self.omega_ax[1] - self.omega_ax[0]
 
+        # Create the angular axes
         self.theta_x_min = theta_x_axis[0]
         self.theta_x_max = theta_x_axis[1]
         self.N_theta_x   = theta_x_axis[2]
@@ -85,10 +93,10 @@ class SynchrotronRadiator(object):
         self.theta_y_max = theta_y_axis[1]
         self.N_theta_y   = theta_y_axis[2]
 
-        self.gamma_cutoff_inv = 1. / gamma_cutoff
-
-        self.d_theta_x = (self.theta_x_max - self.theta_x_min) / (self.N_theta_x-1)
-        self.d_theta_y = (self.theta_y_max - self.theta_y_min) / (self.N_theta_y-1)
+        self.d_theta_x = (self.theta_x_max - self.theta_x_min) \
+            / (self.N_theta_x - 1)
+        self.d_theta_y = (self.theta_y_max - self.theta_y_min) \
+            / (self.N_theta_y - 1)
 
         self.Larmore_factor_density = e**2 * self.dt \
             / ( 6 * np.pi * epsilon_0 * c * hbar * \
@@ -97,13 +105,15 @@ class SynchrotronRadiator(object):
         self.Larmore_factor_momentum = e**2 * self.dt \
             / ( 6 * np.pi * epsilon_0 * c**2 )
 
-        # Initialize radiation-relevant meta-data
+        # Calculate sampling of the spectral profile function
         self.initialize_S_function( x_max=x_max, nSamples=nSamples )
 
+        # Initialize radiation data
         self.radiation_data = np.zeros(
             (self.N_theta_x, self.N_theta_y, self.N_omega), dtype=np.double
         )
 
+        # send the radiation-relevant data to GPU
         self.send_to_gpu()
 
         # Process radiating particles into batches
@@ -111,7 +121,15 @@ class SynchrotronRadiator(object):
 
     def initialize_S_function( self, x_max, nSamples ):
         """
-        Initialize spectral shape function
+        Initialize spectral profile function.
+
+        Parameters
+        ----------
+        x_max: float
+            Extent of the samplig used for the spectral profile function.
+
+        nSamples: integer
+            number of samplig points for the spectral profile function
         """
 
         k_53 = lambda x : kv(5./3, x)
@@ -134,16 +152,20 @@ class SynchrotronRadiator(object):
         if eon.Ntot == 0:
             return
 
-        # Determine the ions that are ionized, and count them in each batch
-        # (one thread per batch on GPU; parallel loop over batches on CPU)
         if self.use_cuda:
             # Process particles in batches (of typically 10, 20 particles)
             N_batch = int( eon.Ntot / self.batch_size ) + 1
+
+            # Allocate a container for spectral profiles for the
+            # particles in the batch
             spect_batch = allocate_empty( (N_batch, self.N_omega), self.use_cuda,
                                           dtype=np.double )
+
+            # initialize states for random number generator
             seed = np.random.randint( 256 )
             rng_states_batch = create_xoroshiro128p_states(N_batch, seed)
 
+            # run kernel for radiation calculation
             batch_grid_1d, batch_block_1d = cuda_tpb_bpg_1d( N_batch )
             gather_synchrotron_cuda[ batch_grid_1d, batch_block_1d ](
                 N_batch, self.batch_size,  eon.Ntot,
@@ -157,8 +179,11 @@ class SynchrotronRadiator(object):
                 self.theta_y_min, self.theta_y_max, self.d_theta_y,
                 spect_batch, rng_states_batch, self.radiation_data)
         else:
+            # Allocate array for the single particle spectral profile
             spect_loc = allocate_empty( (self.N_omega,), self.use_cuda,
                                         dtype=np.double )
+
+            # radiation calculation (parallel loop over particle)
             gather_synchrotron_numba(
                 eon.Ntot,
                 eon.ux, eon.uy, eon.uz, eon.Ex, eon.Ey, eon.Ez,
@@ -173,17 +198,16 @@ class SynchrotronRadiator(object):
 
     def send_to_gpu( self ):
         """
-        Copy the ionization data to the GPU.
+        Copy relevant data to the GPU.
         """
         if self.use_cuda:
-            # Arrays with one element per macroparticles
             self.radiation_data = cupy.asarray( self.radiation_data )
             self.omega_ax = cupy.asarray( self.omega_ax )
             self.S_func_data = cupy.asarray( self.S_func_data )
 
     def receive_from_gpu( self ):
         """
-        Receive the ionization data from the GPU.
+        Receive relevant data from the GPU.
         """
         if self.use_cuda:
             self.radiation_data = self.radiation_data.get()

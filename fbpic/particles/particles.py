@@ -10,7 +10,7 @@ import numpy as np
 from scipy.constants import e
 from .tracking import ParticleTracker
 from .elementary_process.ionization import Ionizer
-from .elementary_process.radiation.synchrotron.radiator import SynchrotronRadiator
+from .elementary_process.synchrotron import SynchrotronRadiator
 from .elementary_process.compton import ComptonScatterer
 from .injection import BallisticBeforePlane, ContinuousInjector, \
                         generate_evenly_spaced
