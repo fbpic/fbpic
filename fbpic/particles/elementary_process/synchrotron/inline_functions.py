@@ -11,7 +11,7 @@ e_mc = e / ( m_e * c)
 def get_angles( ux, uy, uz ):
     """
     Calculate angular projections of particle momentum vector on
-    (theta_x, theta_y) plane.
+    `(theta_x, theta_y)` plane.
 
     Parameters
     ----------
@@ -85,10 +85,10 @@ def get_particle_radiation(
         Reciprocal of particle Lorentz factor
     Larmore_factor_density: float
         Normalization factor for spectral-angular density,
-        e**2 * dt / (6 * np.pi * epsilon_0 * c * hbar * d_theta_x * d_theta_y)
+        `e**2 * dt / (6 * np.pi * epsilon_0 * c * hbar * d_theta_x * d_theta_y)`
     Larmore_factor_momentum: float
         Normalization factor for the photon momentum,
-        e**2 * dt / ( 6 * np.pi * epsilon_0 * c**2 )
+        `e**2 * dt / ( 6 * np.pi * epsilon_0 * c**2 )`
     omega_ax: 1D vector of floats
         frequencies on which spectrum is calculated
     spect_loc: 1D vector of floats

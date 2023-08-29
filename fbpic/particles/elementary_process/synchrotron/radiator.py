@@ -42,29 +42,23 @@ class SynchrotronRadiator(object):
         ----------
         radiating_species: an fbpic.Particles object
             This object is not modified.
-
         photon_energy_axis: tuple
             Parameters for the photon energy axis provided as
-            (photon_energy_min, photon_energy_max, N_photon_energy), where
-            photon_energy_min and photon_energy_max are floats in Joules
-            and N_photon_energy is integer.
-
+            `(photon_energy_min, photon_energy_max, N_photon_energy)`, where
+            `photon_energy_min` and `photon_energy_max` are floats in Joules
+            and `N_photon_energy` is integer.
         theta_x_axis: tuple
             Parameters for the x-elevation angle axis provided as
-            (theta_x_min, theta_x_max, N_theta_x), where theta_x_min
-            and theta_x_max are floats in (rad) and N_theta_x is integer.
-
+            `(theta_x_min, theta_x_max, N_theta_x)`, where `theta_x_min`
+            and `theta_x_max` are floats in (rad) and `N_theta_x` is integer.
         theta_y_axis: tuple
             Parameters for the y-elevation angle axis provided as
-            (theta_y_min, theta_y_max, N_theta_y), where theta_y_min
-            and theta_y_max are floats in radians and N_theta_y is integer.
-
+            `(theta_y_min, theta_y_max, N_theta_y)`, where `theta_y_min`
+            and `theta_y_max` are floats in radians and `N_theta_y` is integer.
         gamma_cutoff: float
             Minimal particle gamma factor for which radiation is calculated.
-
         x_max: float
             Extent of the samplig used for the spectral profile function.
-
         nSamples: integer
             number of samplig points for the spectral profile function
         """

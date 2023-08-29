@@ -1,12 +1,13 @@
-# Copyright 2016, FBPIC contributors
-# Authors: Remi Lehe, Manuel Kirchen
+# Copyright 2023, FBPIC contributors
+# Authors: Igor A Andriyash, Remi Lehe, Manuel Kirchen
 # License: 3-Clause-BSD-LBNL
 """
 This file is part of the Fourier-Bessel Particle-In-Cell code (FB-PIC)
-It defines cuda methods that are used in particle ionization.
+It defines cuda methods that are used in calcualtion of synchrotron radiation.
 
 Apart from synthactic details, this file is very close to numba_methods.py
 """
+
 from numba import cuda
 
 from numba.cuda.random import xoroshiro128p_normal_float64
@@ -36,7 +37,58 @@ def gather_synchrotron_cuda(
     theta_y_min, theta_y_max, d_th_y,
     spect_batch, rng_states_batch, radiation_data):
     """
-    doc
+    Calculate spectral-angular density of the energy emitted by
+    the particle and add it to the radiation data array.
+
+    Parameters
+    ----------
+    N_batch: integer
+        Total number of batches
+    batch_size: integer
+        Number of  particles in the current
+    Ntot: integer
+        Total number of particles
+    ux, uy, uz, w: floats
+        Components momentum and weight of the particle
+    Ex, Ey, Ez: float
+         Components of electric field on the particle (V/m)
+    cBx, cBy, cBz: float
+         Components of magnetic field on the particle multiplied by
+         the speed of light (V/m)
+    gamma_inv: float
+        Reciprocal of particle Lorentz factor
+    Larmore_factor_density: float
+        Normalization factor for spectral-angular density,
+        `e**2 * dt / (6 * np.pi * epsilon_0 * c * hbar * d_theta_x * d_theta_y)`
+    Larmore_factor_momentum: float
+        Normalization factor for the photon momentum,
+        `e**2 * dt / ( 6 * np.pi * epsilon_0 * c**2 )`
+    gamma_cutoff_inv: float
+        Reciprocal of the Lorentz factor below which particles are discarded
+    omega_ax: 1D vector of floats
+        frequencies on which spectrum is calculated
+    SR_dxi: float
+        Samplig step of the spectral profile function
+    SR_xi_data: 1D vector of floats
+        Samplig of the spectral profile function
+    theta_x_min: float
+        Lower limit of the `theta_x` angle axis
+    theta_x_max: float
+        Upper limit of the `theta_x` angle axis
+    d_th_x: float
+        Step of the `theta_x` angle axis
+    theta_y_min: float
+        Lower limit of the `theta_y` angle axis
+    theta_y_max: float
+        Upper limit of the `theta_y` angle axis
+    d_th_y: float
+        Step of the `theta_y` angle axis
+    spect_batch: 2D array of floats
+        Array for spectral profiles of particles in the batch
+    rng_states_batch: rng_states
+        States for random number generator
+    radiation_data: 3D array of floats
+        Global radiation data
     """
     # Loop over batches of particles
     i_batch = cuda.grid(1)
