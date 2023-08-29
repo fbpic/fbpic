@@ -1,4 +1,4 @@
-§"""
+"""
 This file is part of the Fourier-Bessel Particle-In-Cell code (FB-PIC)
 It defines inline functions that are compiled for both GPU and CPU, and
 used in the syncrotron radiation code.

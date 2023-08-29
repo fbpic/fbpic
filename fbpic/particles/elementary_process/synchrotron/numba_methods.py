@@ -82,7 +82,6 @@ def gather_synchrotron_numba(
     radiation_data: 3D array of floats
         Global radiation data
     """
-    """
     for ip in prange( N_tot ):
 
         if  (gamma_inv[ip] >= gamma_cutoff_inv):

@@ -473,8 +473,10 @@ class Particles(object) :
         nSamples: integer (optional)
             number of samplig points for the spectral profile function
         """
-        self.synchrotron_radiator = SynchrotronRadiator( self, omega_axis,
-                 theta_x_axis, theta_y_axis, gamma_cutoff,  x_max, nSamples)
+        self.synchrotron_radiator = SynchrotronRadiator(
+            self, photon_energy_axis, theta_x_axis, theta_y_axis,
+            gamma_cutoff,  x_max, nSamples
+        )
 
     def make_ionizable(self, element, target_species,
                        level_start=0, level_max=None):
