@@ -440,11 +440,38 @@ class Particles(object) :
             laser_waist, laser_ctau, laser_initial_z0,
             ratio_w_electron_photon, boost )
 
-    def activate_synchrotron( self, omega_axis, theta_x_axis, theta_y_axis,
-                           gamma_cutoff=10.0, x_max=20, nSamples=2048,
-                           boost=None ):
+    def activate_synchrotron( self, photon_energy_axis, theta_x_axis,
+                              theta_y_axis, gamma_cutoff=10.0, x_max=20,
+                              nSamples=2048, boost=None ):
         """
-        Activate synchrotron radiation
+        Activate synchrotron radiation.
+
+        Parameters
+        ----------
+        photon_energy_axis: tuple
+            Parameters for the photon energy axis provided as
+            `(photon_energy_min, photon_energy_max, N_photon_energy)`, where
+            `photon_energy_min` and `photon_energy_max` are floats in Joules
+            and `N_photon_energy` is integer.
+
+        theta_x_axis: tuple
+            Parameters for the x-elevation angle axis provided as
+            `(theta_x_min, theta_x_max, N_theta_x)`, where `theta_x_min`
+            and `theta_x_max` are floats in (rad) and `N_theta_x` is integer.
+
+        theta_y_axis: tuple
+            Parameters for the y-elevation angle axis provided as
+            `(theta_y_min, theta_y_max, N_theta_y)`, where `theta_y_min`
+            and `theta_y_max` are floats in radians and `N_theta_y` is integer.
+
+        gamma_cutoff: float (optional)
+            Minimal particle gamma factor for which radiation is calculated.
+
+        x_max: float (optional)
+            Extent of the samplig used for the spectral profile function.
+
+        nSamples: integer (optional)
+            number of samplig points for the spectral profile function
         """
         self.synchrotron_radiator = SynchrotronRadiator( self, omega_axis,
                  theta_x_axis, theta_y_axis, gamma_cutoff,  x_max, nSamples)
