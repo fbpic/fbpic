@@ -78,6 +78,14 @@ class SynchrotronRadiator(object):
         self.omega_max = photon_energy_axis[1] / hbar
         self.N_omega = photon_energy_axis[2]
 
+        self.theta_x_min = theta_x_axis[0]
+        self.theta_x_max = theta_x_axis[1]
+        self.N_theta_x = theta_x_axis[2]
+
+        self.theta_y_min = theta_y_axis[0]
+        self.theta_y_max = theta_y_axis[1]
+        self.N_theta_y = theta_y_axis[2]
+
         # Create the photon frequency axis
         self.omega_ax = np.linspace(
             self.omega_min, self.omega_max, self.N_omega
@@ -85,14 +93,6 @@ class SynchrotronRadiator(object):
         self.d_omega = self.omega_ax[1] - self.omega_ax[0]
 
         # Create the angular axes
-        self.theta_x_min = theta_x_axis[0]
-        self.theta_x_max = theta_x_axis[1]
-        self.N_theta_x   = theta_x_axis[2]
-
-        self.theta_y_min = theta_y_axis[0]
-        self.theta_y_max = theta_y_axis[1]
-        self.N_theta_y   = theta_y_axis[2]
-
         self.d_theta_x = (self.theta_x_max - self.theta_x_min) \
             / (self.N_theta_x - 1)
         self.d_theta_y = (self.theta_y_max - self.theta_y_min) \
@@ -110,7 +110,8 @@ class SynchrotronRadiator(object):
 
         # Initialize radiation data
         self.radiation_data = np.zeros(
-            (self.N_theta_x, self.N_theta_y, self.N_omega), dtype=np.double
+            (self.N_theta_x, self.N_theta_y, self.N_omega),
+            dtype=np.double
         )
 
         # send the radiation-relevant data to GPU
