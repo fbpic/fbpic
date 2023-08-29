@@ -13,7 +13,7 @@ from numba.core.errors import NumbaPerformanceWarning
 from scipy.integrate import IntegrationWarning
 import warnings
 
-from ...cuda_numba_utils import allocate_empty
+from ..cuda_numba_utils import allocate_empty
 from .numba_methods import gather_synchrotron_numba
 
 warnings.simplefilter('ignore', category=NumbaPerformanceWarning)
