@@ -6,7 +6,7 @@ This file defines the class SRDiagnostic.
 """
 import os
 import numpy as np
-from scipy.constants import e, hbar
+from scipy.constants import hbar
 from .generic_diag import OpenPMDDiagnostic
 from fbpic.utils.mpi import comm as comm_simple
 
@@ -245,15 +245,13 @@ class SRDiagnostic(OpenPMDDiagnostic):
         dset.attrs['geometry'] = np.string_("cartesian")
         dset.attrs['axisLabels'] = np.array([ b'x', b'y', b'z' ])
 
-        #omega_keV = hbar / e * 1e-3
-        omega_J = hbar
         dset.attrs['gridSpacing'] = np.array([
                 self.fld.d_theta_x, self.fld.d_theta_y,
-                self.fld.d_omega * omega_J ])
+                self.fld.d_omega * hbar ])
 
         dset.attrs["gridGlobalOffset"] = np.array([
             self.fld.theta_x_min, self.fld.theta_x_min,
-            self.fld.omega_min * omega_J ])
+            self.fld.omega_min * hbar ])
 
         # Generic attributes
         dset.attrs["dataOrder"] = np.string_("C")
