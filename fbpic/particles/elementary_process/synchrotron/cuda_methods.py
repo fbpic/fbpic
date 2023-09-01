@@ -9,9 +9,9 @@ Apart from synthactic details, this file is very close to numba_methods.py
 """
 
 from numba import cuda
-
 from numba.cuda.random import xoroshiro128p_normal_float64
 from scipy.constants import c
+
 # Import inline functions
 from .inline_functions import get_angles, get_particle_radiation, \
     get_linear_coefficients
@@ -21,9 +21,6 @@ get_angles = cuda.jit( get_angles, device=True, inline=True)
 get_particle_radiation = cuda.jit( get_particle_radiation, device=True, inline=True )
 get_linear_coefficients = cuda.jit( get_linear_coefficients, device=True, inline=True )
 
-#@cuda.jit(device=True, inline=True )
-
-# @compile_cupy
 @cuda.jit
 def gather_synchrotron_cuda(
     N_batch, batch_size, Ntot,

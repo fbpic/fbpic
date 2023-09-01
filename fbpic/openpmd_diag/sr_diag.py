@@ -1,5 +1,5 @@
-# Copyright 2016, FBPIC contributors
-# Authors: Remi Lehe, Manuel Kirchen, Igor Andriyash
+# Copyright 2023, FBPIC contributors
+# Authors: Igor A Andriyash, Remi Lehe, Manuel Kirchen
 # License: 3-Clause-BSD-LBNL
 """
 This file defines the class SRDiagnostic.
@@ -62,7 +62,6 @@ class SRDiagnostic(OpenPMDDiagnostic):
 
         # Register the arguments
         self.fld = sr_object
-        # self.dt = sr_object.dt
 
     def write_hdf5( self, iteration ):
         """
@@ -176,7 +175,8 @@ class SRDiagnostic(OpenPMDDiagnostic):
             The physical time at this iteration
         """
         # Determine the shape of the datasets that will be written
-        data_shape = ( self.fld.N_theta_x, self.fld.N_theta_y, self.fld.N_omega )
+        data_shape = ( self.fld.N_theta_x, self.fld.N_theta_y,
+                       self.fld.N_omega )
 
         # Create the file
         f = self.open_file( fullpath )
@@ -245,14 +245,15 @@ class SRDiagnostic(OpenPMDDiagnostic):
         dset.attrs['geometry'] = np.string_("cartesian")
         dset.attrs['axisLabels'] = np.array([ b'x', b'y', b'z' ])
 
-        omega_keV = hbar / e * 1e-3
+        #omega_keV = hbar / e * 1e-3
+        omega_J = hbar
         dset.attrs['gridSpacing'] = np.array([
                 self.fld.d_theta_x, self.fld.d_theta_y,
-                self.fld.d_omega * omega_keV ])
+                self.fld.d_omega * omega_J ])
 
         dset.attrs["gridGlobalOffset"] = np.array([
             self.fld.theta_x_min, self.fld.theta_x_min,
-            self.fld.omega_min * omega_keV ])
+            self.fld.omega_min * omega_J ])
 
         # Generic attributes
         dset.attrs["dataOrder"] = np.string_("C")
