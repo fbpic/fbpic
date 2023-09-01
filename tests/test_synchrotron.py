@@ -98,7 +98,7 @@ def run_simulation():
     sim.step( N_step + 1)
 
 def get_radiated_energy():
-    ts = OpenPMDTimeSeries(f'./diags/hdf5/')
+    ts = OpenPMDTimeSeries('./diags/hdf5/')
     radiation_fbpic, info = ts.get_field('radiation', t=ts.t[-1], slice_across=None)
     rad_energy = radiation_fbpic.sum() * info.dx * info.dy * info.dz
     return rad_energy
