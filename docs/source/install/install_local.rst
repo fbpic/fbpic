@@ -77,6 +77,13 @@ MPI-related error, try installing ``mpi4py`` using MacPorts and
    sudo port select --set mpi openmpi-gcc48-fortran
    pip install mpi4py
 
+If you are running on an Apple Silicon machine, `mkl` is not available via `conda`. You can use `brew` instead:
+
+::
+
+   brew install onednn
+
+
 Running simulations
 -------------------
 
