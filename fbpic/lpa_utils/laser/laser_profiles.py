@@ -845,21 +845,54 @@ class FromLasyFileLaser( LaserProfile ):
         """
         Define a laser whose profile is determined by a
         `lasy <https://lasydoc.readthedocs.io/en/latest/>`_ file.
+        
+        When the laser is initialized by this function, FBPIC forces the beginning of 
+        the time axis in the ``lasy`` file to be zero (irrespective of the metadata for 
+        ``tmin`` that is actually present in the ``lasy`` file). This convention was chosen
+        for convenience, because ``tmin`` in ``lasy`` could otherwise result in large delays
+        before emitting the laser, especially when using ``lasy``'s ``propagate`` feature.
 
         Parameters
         ----------
         filename: string
             The path to the ``lasy`` file.
 
-        t_start: float (in seconds), optional
+        t_start: float (in seconds), optional, default: 0
             Physical time (in the simulation), at which the laser will start being
             emitted. This can be used in order to introduce a time delay that was
-            not originally present in the ``lasy`` file.
+            not originally present in the ``lasy`` file. (As explained above, FBPIC ignores any 
+            initial time offset in the ``lasy``. This offset is replaced by `t_start` (or zero if unspecified).
 
         .. warning::
 
             This laser profile can only be emitted with the ``antenna`` method
             (not with the ``direct`` method).
+            
+    Example
+    ---------
+    .. code-block:: python
+        # Creating the lasy file
+        laser_profile = GaussianProfile(wavelength,polarization,
+                                   energy,spot_size,pulse_duration,t_peak=0)
+        dimensions     = 'rt'                              # Use cylindrical geometry
+        lo             = (0,-2.5*pulse_duration)           # Lower bounds of the simulation box
+        hi             = (5*spot_size,2.5*pulse_duration)  # Upper bounds of the simulation box
+        num_points     = (300,500)                         # Number of points in each dimension
+        laser = Laser(dimensions,lo,hi,num_points,laser_profile)
+        laser.propagate(-1e-3)  # Propagate backwards by 1 mm
+        laser.write_to_file('lasy_laser', 'h5')
+        # Note that, in the lasy file, tmin is now a large, negative number.
+        # (The peak of laser intensity still occurs 2.5*pulse_duration after tmin.)
+        # FBPIC ignores tmin when reading the file, and sets the start of 
+        # the lasy time axis to zero instead. So, by default, the peak of 
+        # the laser intensity would occur at `t= 2.5*pulse_duration` in FBPIC.
+        laser_profile = FromLasyFileLaser( 'lasy_laser_00000.h5', t_start=0.5*pulse_duration )
+        add_laser_pulse(sim, laser_profile, method='antenna', z0_antenna=0)
+        # Here, modify the `t_start`, which will result in the peak of intensity being 
+        # emitted at `(2.5+0.5)*pulse_duration` instead of `2.5*pulse_duration`.
+        # Since the `z0_antenna` was set to `0` here, this is as if the centroid 
+        # of the laser would have been initialized at `z = -3*c*pulse_duration` at `t=0`
+        # (with then ``direct`` method).
         """
         # Initialize propagation direction and mark as GPU capable
         LaserProfile.__init__(self, propagation_direction=1, gpu_capable=False)
