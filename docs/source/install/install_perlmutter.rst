@@ -25,7 +25,23 @@ Setting up Anaconda
     ::
 
         conda create -n fbpic
-        source activate fbpic
+        conda activate fbpic
+
+- Configure your conda to use the faster `libmamba` `dependency solver <https://www.anaconda.com/blog/a-faster-conda-for-a-growing-community>`__.
+
+   .. code-block:: bash
+
+      conda install -n fbpic conda
+      conda install -n fbpic conda-libmamba-solver
+      conda config --set solver libmamba
+
+- Deactivate that conda self-activates its ``base`` environment.
+  This `avoids interference with the system and other package managers <https://collegeville.github.io/CW20/WorkshopResources/WhitePapers/huebl-working-with-multiple-pkg-mgrs.pdf>`__.
+
+   .. code-block:: bash
+
+      conda config --set auto_activate_base false
+
 
 Installation of FBPIC and its dependencies
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -34,15 +50,14 @@ Installation of FBPIC and its dependencies
 
    ::
 
-       conda install -c conda-forge python numba scipy h5py mkl cudatoolkit=11.5
-       pip install cupy-cuda115
-       MPICC="cc -shared -target-accel=nvidia80" pip install --force --no-cache-dir --no-binary=mpi4py mpi4py
+       conda install -c conda-forge python numba scipy h5py mkl cudatoolkit=11.7 cupy
+       MPICC="cc -shared -target-accel=nvidia80" python3 -m pip install --force --no-cache-dir --no-binary=mpi4py mpi4py
 
 -  Install ``fbpic``
 
    ::
 
-       pip install fbpic
+       python3 -m pip install fbpic
 
 Running simulations
 -------------------
