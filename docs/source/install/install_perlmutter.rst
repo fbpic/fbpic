@@ -27,14 +27,6 @@ Setting up Anaconda
         conda create -n fbpic
         conda activate fbpic
 
-- Configure your conda to use the faster `libmamba` `dependency solver <https://www.anaconda.com/blog/a-faster-conda-for-a-growing-community>`__.
-
-   .. code-block:: bash
-
-      conda install -n fbpic conda
-      conda install -n fbpic conda-libmamba-solver
-      conda config --set solver libmamba
-
 - Deactivate that conda self-activates its ``base`` environment.
   This `avoids interference with the system and other package managers <https://collegeville.github.io/CW20/WorkshopResources/WhitePapers/huebl-working-with-multiple-pkg-mgrs.pdf>`__.
 
