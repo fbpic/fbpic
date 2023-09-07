@@ -1039,6 +1039,8 @@ class FromLasyFileLaser( LaserProfile ):
         # Add laser oscillations
         E = (env * np.exp(
             -1.j*self.omega * (t - self.t_start + self.t_min_lasy)
+            # t_min_lasy is used here in order to have the same CEP as the
+            # one that was meant when creating the lasy file
         ))
 
         return( (E * self.pol[0]).real, (E * self.pol[1]).real )
