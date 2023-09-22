@@ -22,8 +22,6 @@ $ python tests/test_laser_antenna.py
 In order to let Python check the agreement between the curve without
 having to look at the plots
 $ py.test -q tests/test_laser_antenna.py
-or
-$ python setup.py test
 """
 import numpy as np
 from scipy.optimize import curve_fit
@@ -63,14 +61,14 @@ gamma_boost = 10.
 
 def test_antenna_labframe(show=False, write_files=False):
     """
-    Function that is run by py.test, when doing `python setup.py test`
+    Function that is run by py.test
     Test the emission of a laser by an antenna, in the lab frame
     """
     run_and_check_laser_antenna(None, show, write_files, z0=z0_antenna-ctau)
 
 def test_antenna_labframe_moving( show=False, write_files=False ):
     """
-    Function that is run by py.test, when doing `python setup.py test`
+    Function that is run by py.test
     Test the emission of a laser by a moving antenna, in the lab frame
     """
     run_and_check_laser_antenna( None, show, write_files, z0=z0_antenna+ctau,
@@ -78,7 +76,7 @@ def test_antenna_labframe_moving( show=False, write_files=False ):
 
 def test_antenna_boostedframe(show=False, write_files=False):
     """
-    Function that is run by py.test, when doing `python setup.py test`
+    Function that is run by py.test
     Test the emission of a laser by an antenna, in the boosted frame
     """
     run_and_check_laser_antenna(gamma_boost, show, write_files,

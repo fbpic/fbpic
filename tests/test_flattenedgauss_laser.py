@@ -18,8 +18,6 @@ $ python tests/test_flattenedgauss_laser.py
 In order to let Python check the agreement between the curve without
 having to look at the plots
 $ py.test -q tests/test_flattenedgauss_laser.py
-or
-$ python setup.py test
 """
 import numpy as np
 from scipy.special import factorial
@@ -68,7 +66,7 @@ def flat_gauss(x, N):
 
 def test_laser_periodic(show=False):
     """
-    Function that is run by py.test, when doing `python setup.py test`
+    Function that is run by py.test
     Test the propagation of a laser in a periodic box.
     """
     # Propagate the pulse in a single step
@@ -79,7 +77,7 @@ def test_laser_periodic(show=False):
                 n_order=n_order, zmin=zmin, boundaries={'z':'periodic', 'r':'reflective'} )
 
     # Initialize the laser fields
-    profile = FlattenedGaussianLaser(a0=a0, w0=w0, N=N, 
+    profile = FlattenedGaussianLaser(a0=a0, w0=w0, N=N,
                                      tau=ctau/c, z0=0, zf=zfoc)
     add_laser_pulse( sim, profile )
 
