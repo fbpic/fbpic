@@ -7,7 +7,7 @@ It defines a set of utilities for laser initialization
 """
 from scipy.constants import c
 from fbpic.lpa_utils.boosted_frame import BoostConverter
-from .laser_profiles import GaussianLaser
+from .laser_profiles import GaussianLaser, FromLasyFileLaser
 from .direct_injection import add_laser_direct
 from .antenna_injection import LaserAntenna
 
@@ -75,6 +75,13 @@ def add_laser_pulse( sim, laser_profile, gamma_boost=None,
 
     # Handle the introduction method of the laser
     if method == 'direct':
+        # Check that this is not a profile from lasy
+        if isinstance( laser_profile, FromLasyFileLaser ):
+            raise RuntimeError(
+                "A laser profile from a `lasy` file cannot "
+                "be emitted with the `direct` method.\n"
+                "When using the function `add_laser_pulse`, "
+                "please pass `method='antenna'` instead.")
         # Directly add the laser to the interpolation object
         add_laser_direct( sim, laser_profile, boost )
 
@@ -85,6 +92,14 @@ def add_laser_pulse( sim, laser_profile, gamma_boost=None,
         dr = sim.fld.interp[0].dr
         Nr = sim.fld.interp[0].Nr
         Nm = sim.fld.Nm
+        # Check that the velocity is 0 for a profile from lasy
+        if isinstance( laser_profile, FromLasyFileLaser ) \
+            and (v_antenna != 0):
+                raise RuntimeError(
+                    "A laser profile from a `lasy` file cannot "
+                    "be emitted with a moving antenna.\n"
+                    "When using the function `add_laser_pulse`, "
+                    "please set `v_antenna` to 0.")
         sim.laser_antennas.append(
             LaserAntenna( laser_profile, z0_antenna, v_antenna,
                             dr, Nr, Nm, boost, use_cuda=sim.use_cuda ) )

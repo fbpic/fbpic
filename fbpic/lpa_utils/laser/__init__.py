@@ -5,7 +5,7 @@ It imports functions which are useful when initializing a laser pulse
 from .laser import add_laser, add_laser_pulse
 from .laser_profiles import GaussianLaser, LaguerreGaussLaser, \
               DonutLikeLaguerreGaussLaser, FlattenedGaussianLaser, \
-              FewCycleLaser, ParaxialApproximationLaser
+              FewCycleLaser, ParaxialApproximationLaser, FromLasyFileLaser
 from .longitudinal_laser_profiles import GaussianChirpedLongitudinalProfile, \
     CustomSpectrumLongitudinalProfile
 from .transverse_laser_profiles import GaussianTransverseProfile, \
@@ -21,4 +21,5 @@ __all__ = ['add_laser', 'add_laser_pulse',
             'GaussianTransverseProfile',
             'LaguerreGaussTransverseProfile',
             'DonutLikeLaguerreGaussTransverseProfile',
-            'FlattenedGaussianTransverseProfile']
+            'FlattenedGaussianTransverseProfile',
+            'FromLasyFileLaser']
