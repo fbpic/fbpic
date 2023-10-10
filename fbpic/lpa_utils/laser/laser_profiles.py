@@ -910,10 +910,10 @@ class FromLasyFileLaser( LaserProfile ):
                 valid_version = True
         if not valid_version:
             raise RuntimeError(
-                "The `lasy` version that was used to create the file %s " %filename
+                "The `lasy` version that was used to create the file %s "
                 "is obsolete and not supported by FBPIC. Please upgrade your lasy "
                 "version to at least 0.3.0 (e.g. with `pip install --upgrade lasy`) "
-                "and re-create the file %s." %filename)
+                "and re-create the file %s." %(filename, filename) )
 
         dset = f['/data/0/meshes/laserEnvelope']
         self.omega = dset.attrs['angularFrequency']
