@@ -7,6 +7,8 @@ It defines a set of common laser profiles.
 """
 import numpy as np
 from scipy.constants import c, m_e, e, epsilon_0
+import h5py
+import numba
 from .longitudinal_laser_profiles import GaussianChirpedLongitudinalProfile
 from .transverse_laser_profiles import GaussianTransverseProfile, \
     LaguerreGaussTransverseProfile, DonutLikeLaguerreGaussTransverseProfile, \
@@ -835,3 +837,228 @@ class FewCycleLaser( LaserProfile ):
         Ey = self.E0y * profile
 
         return( Ex.real, Ey.real )
+
+class FromLasyFileLaser( LaserProfile ):
+    """Class that emits a laser from a lasy file"""
+
+    def __init__(self, filename, t_start=0.):
+        """
+        Define a laser whose profile is determined by a
+        `lasy <https://lasydoc.readthedocs.io/en/latest/>`_ file.
+
+        When the laser is initialized by this function, FBPIC forces the beginning of
+        the time axis in the ``lasy`` file to be zero (irrespective of the metadata for
+        ``tmin`` that is actually present in the ``lasy`` file). This convention was chosen
+        for convenience, because ``tmin`` in ``lasy`` could otherwise result in large delays
+        before emitting the laser, especially when using ``lasy``'s ``propagate`` feature.
+
+        .. warning::
+
+            This laser profile can only be emitted with the ``antenna`` method
+            (not with the ``direct`` method).
+
+        Parameters
+        ----------
+
+        filename: string
+            The path to the ``lasy`` file.
+
+        t_start: float (in seconds), optional, default: 0
+            Physical time (in the simulation), at which the laser will start being
+            emitted. This can be used in order to introduce a time delay that was
+            not originally present in the ``lasy`` file. (As explained above, FBPIC ignores any
+            initial time offset in the ``lasy``. This offset is replaced by `t_start` (or zero if unspecified).
+
+        Example
+        -------
+
+        .. code-block:: python
+
+            # Creating the lasy file
+            laser_profile = GaussianProfile(wavelength,polarization,
+                                    energy,spot_size,pulse_duration,t_peak=0)
+            dimensions     = 'rt'                              # Use cylindrical geometry
+            lo             = (0,-2.5*pulse_duration)           # Lower bounds of the simulation box
+            hi             = (5*spot_size,2.5*pulse_duration)  # Upper bounds of the simulation box
+            num_points     = (300,500)                         # Number of points in each dimension
+            laser = Laser(dimensions,lo,hi,num_points,laser_profile)
+            laser.propagate(-1e-3)  # Propagate backwards by 1 mm
+            laser.write_to_file('lasy_laser', 'h5')
+            # Note that, in the lasy file, tmin is now a large, negative number.
+            # (The peak of laser intensity still occurs 2.5*pulse_duration after tmin.)
+            # FBPIC ignores tmin when reading the file, and sets the start of
+            # the lasy time axis to zero instead. So, by default, the peak of
+            # the laser intensity would occur at `t= 2.5*pulse_duration` in FBPIC.
+            laser_profile = FromLasyFileLaser( 'lasy_laser_00000.h5', t_start=0.5*pulse_duration )
+            add_laser_pulse(sim, laser_profile, method='antenna', z0_antenna=0)
+            # Here, modify the `t_start`, which will result in the peak of intensity being
+            # emitted at `(2.5+0.5)*pulse_duration` instead of `2.5*pulse_duration`.
+            # Since the `z0_antenna` was set to `0` here, this is as if the centroid
+            # of the laser would have been initialized at `z = -3*c*pulse_duration` at `t=0`
+            # (with then ``direct`` method).
+        """
+        # Initialize propagation direction and mark as GPU capable
+        LaserProfile.__init__(self, propagation_direction=1, gpu_capable=False)
+        self.t_start = t_start
+
+        # Open and read the lasy file
+        f = h5py.File( filename, mode="r" )
+
+        # Check lasy version
+        valid_version = False
+        if ('softwareVersion' in f.attrs):
+            version_string = f.attrs['softwareVersion'].decode()
+            version_list = tuple(int(number) for number in version_string.split('.'))
+            if version_list >= (0,3,0):
+                valid_version = True
+        if not valid_version:
+            raise RuntimeError(
+                "The `lasy` version that was used to create the file %s "
+                "is obsolete and not supported by FBPIC. Please upgrade your lasy "
+                "version to at least 0.3.0 (e.g. with `pip install --upgrade lasy`) "
+                "and re-create the file %s." %(filename, filename) )
+
+        dset = f['/data/0/meshes/laserEnvelope']
+        self.omega = dset.attrs['angularFrequency']
+        self.pol = dset.attrs['polarization']
+        self.t_min_lasy = dset.attrs['gridGlobalOffset'][0]
+
+        # Define interpolation function depending on the geometry
+        if dset.attrs['geometry'].decode() == 'thetaMode':
+            self.define_thetaMode_interp_function(dset)
+        elif dset.attrs['geometry'].decode()  == 'cartesian':
+            self.define_cartesian_interp_function(dset)
+        else:
+            raise RuntimeError(
+                "Unknown geometry for lasy file %s: %s" \
+                %(filename, dset.attrs['geometry'])
+            )
+
+
+    def define_thetaMode_interp_function(self, dset):
+        """
+        Set the attribute `interp_function`, in the case case
+        where the lasy file has `thetaMode` geometry
+
+        Parameter:
+        ----------
+        dset: an h5py dataset object
+            The object that contains the lasy envelope data
+        """
+        env_data = np.array(dset)
+        dt_data, dr_data = dset.attrs['gridSpacing']*dset.attrs['gridUnitSI']
+        inv_dt_data = 1./dt_data
+        inv_dr_data = 1./dr_data
+        _, nt, nr = env_data.shape
+        n_modes = int(env_data.shape[0]/2) + 1
+
+        @numba.vectorize
+        def interp_function(x, y, t):
+            ir_interp = (x**2 + y**2)**.5 * inv_dr_data
+            ir = int(np.floor(ir_interp))
+
+            it_interp = t * inv_dt_data
+            it = int(np.floor(it_interp))
+
+            if (it < 0) or (it+1 > nt-1) or (ir < 0) or (ir+1 > nr-1):
+                env = 0. + 1.j*0.
+            else:
+                S0t = it_interp - it
+                S1t = it + 1 - it_interp
+                S0r = ir_interp - ir
+                S1r = ir + 1 - ir_interp
+
+                env = S1r * S1t * env_data[0, it, ir] \
+                    + S0r * S1t * env_data[0, it, ir+1] \
+                    + S1r * S0t * env_data[0, it+1, ir] \
+                    + S0r * S0t * env_data[0, it+1, ir+1]
+
+                for m in range(1, n_modes):
+                    env_cos = S1r * S1t * env_data[2*m-1, it, ir] \
+                            + S0r * S1t * env_data[2*m-1, it, ir+1] \
+                            + S1r * S0t * env_data[2*m-1, it+1, ir] \
+                            + S0r * S0t * env_data[2*m-1, it+1, ir+1]
+                    env_sin = S1r * S1t * env_data[2*m, it, ir] \
+                            + S0r * S1t * env_data[2*m, it, ir+1] \
+                            + S1r * S0t * env_data[2*m, it+1, ir] \
+                            + S0r * S0t * env_data[2*m, it+1, ir+1]
+
+                    exp_theta = ( (x + 1.j*y) / (x**2 + y**2)**.5 )**m
+                    cos = exp_theta.real
+                    sin = exp_theta.imag
+                    env += env_cos * cos + env_sin * sin
+
+            return env
+
+        self.interp_function = interp_function
+
+
+    def define_cartesian_interp_function(self, dset):
+        """
+        Set the attribute `interp_function`, in the case case
+        where the lasy file has Cartesian geometry
+
+        Parameter:
+        ----------
+        dset: an h5py dataset object
+            The object that contains the lasy envelope data
+        """
+        env_data = np.array(dset)
+        dt_data, dy_data, dx_data = dset.attrs['gridSpacing']*dset.attrs['gridUnitSI']
+        _, y_min_data, x_min_data = dset.attrs['gridGlobalOffset']
+        inv_dt_data = 1./dt_data
+        inv_dy_data = 1./dy_data
+        inv_dx_data = 1./dx_data
+        nt, ny, nx = env_data.shape
+
+        @numba.vectorize
+        def interp_function(x, y, t):
+            ix_interp = (x-x_min_data)* inv_dx_data
+            ix = int(np.floor(ix_interp))
+
+            iy_interp = (y-y_min_data)* inv_dy_data
+            iy = int(np.floor(iy_interp))
+
+            it_interp = t * inv_dt_data
+            it = int(np.floor(it_interp))
+
+            if (it < 0) or (it+1 > nt-1) or \
+                (iy < 0) or (iy+1 > ny-1) or \
+                (ix < 0) or (ix+1 > nx-1):
+                env = 0. + 1.j*0.
+            else:
+                S0t = it_interp - it
+                S1t = it + 1 - it_interp
+                S0y = iy_interp - iy
+                S1y = iy + 1 - iy_interp
+                S0x = ix_interp - ix
+                S1x = ix + 1 - ix_interp
+
+                env = S1x * S1y * S1t * env_data[it  , iy  , ix] \
+                    + S0x * S1y * S1t * env_data[it  , iy  , ix+1] \
+                    + S1x * S0y * S1t * env_data[it  , iy+1, ix] \
+                    + S0x * S0y * S1t * env_data[it  , iy+1, ix+1] \
+                    + S1x * S1y * S0t * env_data[it+1, iy  , ix] \
+                    + S0x * S1y * S0t * env_data[it+1, iy  , ix+1] \
+                    + S1x * S0y * S0t * env_data[it+1, iy+1, ix] \
+                    + S0x * S0y * S0t * env_data[it+1, iy+1, ix+1]
+
+            return env
+
+        self.interp_function = interp_function
+
+
+    def E_field( self, x, y, z, t ):
+        """
+        See the docstring of LaserProfile.E_field
+        """
+        # Perform interpolation from envelope data
+        env = self.interp_function(x, y, (t-self.t_start) )
+        # Add laser oscillations
+        E = (env * np.exp(
+            -1.j*self.omega * (t - self.t_start + self.t_min_lasy)
+            # t_min_lasy is used here in order to have the same CEP as the
+            # one that was meant when creating the lasy file
+        ))
+
+        return( (E * self.pol[0]).real, (E * self.pol[1]).real )
