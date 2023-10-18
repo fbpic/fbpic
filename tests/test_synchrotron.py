@@ -7,7 +7,7 @@ from scipy.integrate import quad
 from fbpic.main import Simulation
 from fbpic.lpa_utils.bunch import add_particle_bunch_gaussian
 from fbpic.lpa_utils.external_fields import ExternalField
-from fbpic.openpmd_diag import SRDiagnostic, ParticleDiagnostic
+from fbpic.openpmd_diag import SRDiagnostic
 from openpmd_viewer import OpenPMDTimeSeries
 
 # Whether to use the GPU
