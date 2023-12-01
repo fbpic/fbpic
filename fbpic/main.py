@@ -503,7 +503,7 @@ class Simulation(object):
 
             # Get positions/velocities for antenna particles at t = (n+1/2) dt
             for antenna in self.laser_antennas:
-                antenna.update_v( self.time + 0.5*dt )
+                antenna.update_v( self.time + 0.5*dt, dt )
                 antenna.push_x( 0.5*dt )
             # Shift the boundaries of the grid for the Galilean frame
             if self.use_galilean:
@@ -957,11 +957,9 @@ class Simulation(object):
                     coef = self.boost.gamma0*(1 - beta_m_lab*self.boost.beta0)
                     args = _check_dens_func_arguments( dens_func )
                     if args == ['z', 'r']:
-                        def new_dens_func( z, r ):
-                            return dens_func( coef*z, r )
+                        new_dens_func = lambda z, r: dens_func( coef*z, r )
                     elif args == ['x', 'y', 'z']:
-                        def new_dens_func( x, y, z ):
-                            return dens_func( x, y, coef*z )
+                        new_dens_func = lambda x, y, z: dens_func( x, y, coef*z )
 
             # Modify input particle bounds, in order to only initialize the
             # particles in the local sub-domain
