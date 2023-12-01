@@ -171,7 +171,7 @@ class LaserAntenna( object ):
         # Register whether the antenna deposits on the local domain
         # (gets updated by `update_current_rank`)
         self.deposit_on_this_rank = False
-    
+
         # Copy all required arrays to GPU if needed
         # Some of the arrays are kept as copies on CPU in the case that
         # the laser profile is not GPU capable
@@ -246,7 +246,7 @@ class LaserAntenna( object ):
         if self.use_cuda:
             self.d_baseline_z += (dt * z_push) * self.d_vz
 
-    def update_v( self, t ):
+    def update_v( self, t, dt ):
         """
         Update the particle velocities so that it corresponds to time t
 
@@ -258,16 +258,27 @@ class LaserAntenna( object ):
         ---------
         t: float (seconds)
             The time at which to calculate the velocities
+
+        dt: float, seconds
+            The simulation timestep
         """
-        # If the laser profile supports it, do the whole calculation on GPU
-        if self.use_cuda and self.laser_profile.gpu_capable:
-            x = self.d_baseline_x
-            y = self.d_baseline_y
-            z = self.d_baseline_z
+        # The positions are typically stored at integer timestep,
+        # i.e. half a timestep before `t` (at which v is to be computed)
+        # Therefore, to compute v at the position of the antenna at `t`,
+        # we compute the compute the positions advanced by half a timestep
+        if self.use_cuda:
+            x = self.d_baseline_x + self.vx*0.5*dt
+            y = self.d_baseline_y + self.vy*0.5*dt
+            z = self.d_baseline_z + self.d_vz*0.5*dt
+            if not(self.laser_profile.gpu_capable):
+                # Copy arrays from GPU to CPU
+                x = x.get()
+                y = y.get()
+                z = z.get()
         else:
-            x = self.baseline_x
-            y = self.baseline_y
-            z = self.baseline_z
+            x = self.baseline_x + self.vx*0.5*dt
+            y = self.baseline_y + self.vy*0.5*dt
+            z = self.baseline_z + self.vz*0.5*dt
 
         # When running in a boosted frame, convert the position and time at
         # which to find the laser amplitude.
@@ -296,9 +307,9 @@ class LaserAntenna( object ):
             self.vx.set( self.mobility_coef * Ex )
             self.vy.set( self.mobility_coef * Ey )
         else:
-            self.vx = self.mobility_coef * Ex 
-            self.vy = self.mobility_coef * Ey 
-            
+            self.vx = self.mobility_coef * Ex
+            self.vy = self.mobility_coef * Ey
+
 
     def deposit( self, fld, fieldtype ):
         """
@@ -335,7 +346,7 @@ class LaserAntenna( object ):
                 self.deposit_virtual_particles_gpu( q, fieldtype, grid )
             else:
                 self.deposit_virtual_particles_cpu( q, fieldtype, grid, fld )
-            
+
 
     def deposit_virtual_particles_gpu( self, q, fieldtype, grid ):
         # Position of the particles
@@ -347,7 +358,7 @@ class LaserAntenna( object ):
             # Deposit the charge density mode by mode
             # ---------------------------------------
             for m in range( len(grid) ) :
-       
+
                 dim_grid_1d, dim_block_1d = cuda_tpb_bpg_1d( self.Ntot )
                 deposit_rho_gpu_unsorted[
                     dim_grid_1d, dim_block_1d](
@@ -364,7 +375,7 @@ class LaserAntenna( object ):
             # Deposit the current density mode by mode
             # ---------------------------------------
             for m in range( len(grid) ) :
-        
+
                 dim_grid_1d, dim_block_1d = cuda_tpb_bpg_1d( self.Ntot )
                 deposit_J_gpu_unsorted[
                     dim_grid_1d, dim_block_1d](
@@ -383,13 +394,13 @@ class LaserAntenna( object ):
         # thread) and register the indices that bound each chunks
         ptcl_chunk_indices = get_chunk_indices(self.Ntot, nthreads)
 
-        # The set of Ruyten shape coefficients to use for higher modes. 
+        # The set of Ruyten shape coefficients to use for higher modes.
         # For Nm > 1, the set from mode 1 is used, since all higher modes have the
-        # same coefficients. For Nm == 1, the coefficients from mode 0 are 
+        # same coefficients. For Nm == 1, the coefficients from mode 0 are
         # passed twice to satisfy the argument types for Numba JIT.
         if fld.Nm > 1:
             ruyten_m = 1
-        else: 
+        else:
             ruyten_m = 0
 
         if fieldtype == 'rho' :
@@ -408,7 +419,7 @@ class LaserAntenna( object ):
 
         elif fieldtype == 'J' :
             # Calculate the relativistic momenta from the velocities.
-            # The gamma is set to 1 both here and in the deposition kernel. 
+            # The gamma is set to 1 both here and in the deposition kernel.
             # This is alright since the deposition only depends on the products
             # ux*inv_gamma, uy*inv_gamma and uz*inv_gamma, which correspond to
             # vx/c, vy/c and vz/c, respectively. So as long as the products are
