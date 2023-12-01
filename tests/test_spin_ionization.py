@@ -10,6 +10,9 @@ behaviour is that the first ionized electron inherits its spin direction
 from the parent ion, whereas all subsequent electrons have random
 polarisation.
 
+Author: Michael J. Quin, Kristjan Poder
+Scientific supervision: Matteo Tamburini
+
 """
 # -------
 # Imports

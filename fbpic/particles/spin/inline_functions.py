@@ -1,5 +1,7 @@
 # Copyright 2023, FBPIC contributors
-# Authors: Kris Poder, Michael Quin, Matteo Tamburini
+# Author: Michael J. Quin
+# Scientific supervision: Matteo Tamburini
+# Code optimization: Kristjan Poder
 # License: 3-Clause-BSD-LBNL
 """
 This file is for use with the Fourier-Bessel Particle-In-Cell code (FB-PIC).

@@ -5,6 +5,9 @@ $ python spin_planewave_test.py
 
 Script is based on test_external_fields.py by Remi Lehe & Manuel Kirchen
 
+Author: Michael J. Quin, Kristjan Poder
+Scientific supervision: Matteo Tamburini
+
 -------------------------------------------------------------------------------
 
 This file tests the spin pusher for one electron initially at the origin,
