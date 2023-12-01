@@ -512,7 +512,7 @@ class Particles(object) :
             self.int_sorting_buffer = np.empty( self.Ntot, dtype=np.uint64 )
 
     def activate_spin_tracking(self, sx_m=0., sy_m=0., sz_m=0.,
-                               anom=0.):
+                               anom=0., spin_distr='fixed'):
         """
         Activate spin tracking for this particle. This will
         enable calculating the evolution of particle spin
@@ -534,10 +534,22 @@ class Particles(object) :
 
         anom: float
             The anomalous magnetic moment of the particle.
+
+        spin_distr: str, optional
+            If 'fixed', all particles will have a fixed spin value
+            equal to s{x,y,z}_m.
+            If 'rand', the spin vectors will be random, but with an
+            ensemble average defined by one of the values of
+            s{x,y,z}_m. The first non-zero mean component will be
+            used, with order of preference being x,y,z, ie if sx_m!=0,
+            the generated spins will have an ensemble averages of
+            |sx|=sx_m, |sy|=0, |sz|=0, or if sz_m!=0, |sx|=0, |sy|=0
+            and |sz|=sz_m.
         """
         self.spin_tracker = SpinTracker(species=self, dt=self.dt,
                                         sx_m=sx_m, sy_m=sy_m,
-                                        sz_m=sz_m, anom=anom)
+                                        sz_m=sz_m, anom=anom,
+                                        spin_distr='fixed')
 
         # Update the number of float and int arrays
         self.n_float_quantities += 3  # sx, sy, sz
