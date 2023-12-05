@@ -175,7 +175,7 @@ def run_ionization_test_sim(show):
         step += 1
         # step and collect the data
         sim.step(1, show_progress=False)
-        print(f'Step  Level  Ntot  N(sz==1)')
+        print('Step  Level  Ntot  N(sz==1)')
         for level, elec in elec_dict.items():
             elec_sum += elec.Ntot
             if level < 6:
