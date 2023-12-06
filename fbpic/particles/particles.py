@@ -511,7 +511,7 @@ class Particles(object) :
         if hasattr( self, 'int_sorting_buffer' ) is False and self.use_cuda:
             self.int_sorting_buffer = np.empty( self.Ntot, dtype=np.uint64 )
 
-    def activate_spin_tracking(self, sx_m=0., sy_m=0., sz_m=0.,
+    def activate_spin_tracking(self, sx_m=0., sy_m=0., sz_m=1.,
                                anom=0., spin_distr='fixed'):
         """
         Activate spin tracking for this particle. This will
@@ -549,7 +549,7 @@ class Particles(object) :
         self.spin_tracker = SpinTracker(species=self, dt=self.dt,
                                         sx_m=sx_m, sy_m=sy_m,
                                         sz_m=sz_m, anom=anom,
-                                        spin_distr='fixed')
+                                        spin_distr=spin_distr)
 
         # Update the number of float and int arrays
         self.n_float_quantities += 3  # sx, sy, sz

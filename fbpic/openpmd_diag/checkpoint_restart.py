@@ -361,8 +361,9 @@ def load_species( species, name, ts, iteration, comm, openpmd_viewer_version ):
     # As a safe-guard, check that the loaded data is in float64
     for attr in ['x', 'y', 'z', 'ux', 'uy', 'uz', 'w', 'inv_gamma' ]:
         assert getattr( species, attr ).dtype == np.float64
-    for attr in ['sx', 'sy', 'sz']:
-        assert getattr(species.spin_tracker, attr).dtype == np.float64
+    if species.spin_tracker is not None:
+        for attr in ['sx', 'sy', 'sz']:
+            assert getattr(species.spin_tracker, attr).dtype == np.float64
 
     # Field arrays
     species.Ez = np.zeros( Ntot )
