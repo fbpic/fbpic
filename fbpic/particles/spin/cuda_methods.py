@@ -8,8 +8,7 @@ This file is for the Fourier-Bessel Particle-In-Cell code (FB-PIC)
 It carries out the spin-push related methods for all particles
 on GPU using CUDA.
 """
-import cupy
-from scipy.constants import c, e
+from scipy.constants import e
 from numba import cuda
 from fbpic.utils.cuda import compile_cupy
 # Import inline function

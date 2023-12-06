@@ -21,7 +21,7 @@ import sys
 sys.path.insert(0, '/Users/kpoder/python/dev_fbpic')
 sys.path.insert(0, '/home/kpoder/devfbpic')
 import numpy as np
-from scipy.constants import c, e, m_e, m_p, epsilon_0, pi
+from scipy.constants import c, e, m_e, m_p
 from scipy.constants import physical_constants
 anom = physical_constants['electron mag. mom. anomaly'][0]
 from fbpic.main import Simulation
@@ -162,10 +162,6 @@ def run_ionization_test_sim(show):
     ax.set_zlabel('sz')
 
     elec_total = 5 * atoms_Cl.Ntot
-    #label = ['First ionised electron', 'Second ionised electron',
-    #         'Third ionised electron', 'Fourth ionised electron',
-    #         'Fifth ionised electron']
-    spin_data = np.zeros((elec_total, 6))
 
     # run until we have enough ionized electrons...
     elec_sum = 0
