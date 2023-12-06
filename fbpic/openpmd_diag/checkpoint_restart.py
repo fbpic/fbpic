@@ -349,10 +349,11 @@ def load_species( species, name, ts, iteration, comm, openpmd_viewer_version ):
 
     # If species has spin tracking enabled, load the data
     if species.spin_tracker is not None:
-        species.spin_tracker.sx, species.spin_tracker.sy, \
-            species.spin_tracker.sz = ts.get_particle(
-                ['spin/x', 'spin/y', 'spin/z'], iteration=iteration,
-                species=name)
+        if 'spin/x' in ts.avail_record_components[name]:
+            species.spin_tracker.sx, species.spin_tracker.sy, \
+                species.spin_tracker.sz = ts.get_particle(
+                    ['spin/x', 'spin/y', 'spin/z'], iteration=iteration,
+                    species=name)
 
     # Reset the injection positions (for continuous injection)
     if species.continuous_injection:
