@@ -906,15 +906,16 @@ class FromLasyFileLaser( LaserProfile ):
 
         # Check lasy version
         valid_version = False
-        if ('softwareVersion' in f.attrs):
+        if ('software' in f.attrs) and ('softwareVersion' in f.attrs):
+            software = f.attrs['software'].decode()
             version_string = f.attrs['softwareVersion'].decode()
             version_list = tuple(int(number) for number in version_string.split('.'))
-            if version_list >= (0,3,0):
+            if (software == "lasy") and (version_list >= (0,3,0)):
                 valid_version = True
         if not valid_version:
             raise RuntimeError(
                 "The `lasy` version that was used to create the file %s "
-                "is obsolete and not supported by FBPIC. Please upgrade your lasy "
+                "is obsolete and not supported by FBPIC.\nPlease upgrade your lasy "
                 "version to at least 0.3.0 (e.g. with `pip install --upgrade lasy`) "
                 "and re-create the file %s." %(filename, filename) )
 
