@@ -103,10 +103,15 @@ class ParticleChargeDensityDiagnostic(FieldDiagnostic):
             # affect the spectral space, and therefore it does not affect
             # the simulation
             species_object = self.species[species_name]
+            # Temporarily change the charge, so as to deposit density
+            q_save = species_object.q
+            species_object.q = 1
             # Deposit and overwrite rho_next in spectral space as it will be
             # correctly updated anyways later in this iteration by the PIC loop
             sim.deposit( 'rho_next', species_list=[species_object],
                         update_spectral=True, exchange=False )
+            # Change the charge back
+            species_object.q = q_save
             # Bring filtered particle density back to the intermediate grid
             self.fld.spect2interp('rho_next')
             # Exchange (add) the particle density between domains
