@@ -24,7 +24,6 @@ class SpinTracker(object):
     """
     Class that stores and tracks particle spin vector.
     """
-
     def __init__(self, species, dt, sx_m=0., sy_m=0., sz_m=1.,
                  anom=0., spin_distr='fixed'):
         """
