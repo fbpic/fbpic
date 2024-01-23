@@ -162,7 +162,7 @@ class Ionizer(object):
             assert species.m == m_e
             # Another sanity check: if spin tracking is enabled for
             # the parent ion, make sure it is activated for electrons, too
-            if species.spin_tracker is None:
+            if ionizable_species.spin_tracker is not None:
                 species.activate_spin_tracking(
                     anom=physical_constants['electron mag. mom. anomaly'][0])
 

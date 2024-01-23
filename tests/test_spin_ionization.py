@@ -181,9 +181,9 @@ def run_ionization_test_sim(show):
 
 
 def test_spin_ionization_lab(show=False):
-    """Function that is run by py.test, when doing `python setup.py test`"""
+    """Function that is run by pytest"""
     run_ionization_test_sim(show)
 
 
-if __name__ == '__main__' :
+if __name__ == '__main__':
     test_spin_ionization_lab(show=False)
