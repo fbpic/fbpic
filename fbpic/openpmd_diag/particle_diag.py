@@ -52,7 +52,9 @@ class ParticleDiagnostic(OpenPMDDiagnostic) :
             "E" and "B" writes the E and B fields at the particles' positions,
             respectively, but is turned off by default.
             "gamma" writes the particles' Lorentz factor.
-            By default, if a particle is tracked, its id is always written.
+            By default, if a particle is tracked, its id is always written;
+            Also, if a particle has spin tracking enabled, the spin components
+            are written to file.
 
         select : dict, optional
             Either None or a dictionary of rules
@@ -125,7 +127,9 @@ class ParticleDiagnostic(OpenPMDDiagnostic) :
                 self.array_quantities_dict[species_name] += ["charge"]
             else:
                 self.constant_quantities_dict[species_name] += ["charge"]
-
+            # If spin tracking is enabled, save the spin automatically
+            if species.spin_tracker is not None:
+                self.array_quantities_dict[species_name] += ['sx', 'sy', 'sz']
 
     def setup_openpmd_species_group( self, grp, species, constant_quantities ) :
         """
@@ -322,6 +326,11 @@ class ParticleDiagnostic(OpenPMDDiagnostic) :
                 self.write_dataset( species_grp, species, quantity_path,
                         quantity, n_rank, Ntot, select_array )
 
+            elif quantity in ["sx", "sy", "sz"]:
+                quantity_path = "spin/%s" % (quantity[-1])
+                self.write_dataset(species_grp, species, quantity_path,
+                                   quantity, n_rank, Ntot, select_array)
+
             elif quantity in ["Ex" , "Ey" , "Ez"]:
                 quantity_path = "E/%s" %(quantity[-1])
                 self.write_dataset( species_grp, species, quantity_path,
@@ -343,7 +352,7 @@ class ParticleDiagnostic(OpenPMDDiagnostic) :
                     self.setup_openpmd_species_record(
                         species_grp[quantity_path], quantity_path )
 
-            else :
+            else:
                 raise ValueError("Invalid string in %s of species"
                     				 %(quantity))
 
@@ -355,13 +364,15 @@ class ParticleDiagnostic(OpenPMDDiagnostic) :
             if "ux" in particle_data:
                 self.setup_openpmd_species_record(
                     species_grp["momentum"], "momentum" )
+            if "sx" in particle_data:
+                self.setup_openpmd_species_record(
+                    species_grp["spin"], "spin")
             if "Ex" in particle_data:
                 self.setup_openpmd_species_record(
                     species_grp["E"], "E" )
             if "Bx" in particle_data:
                 self.setup_openpmd_species_record(
                     species_grp["B"], "B" )
-
 
     def apply_selection( self, species ) :
         """
@@ -408,7 +419,6 @@ class ParticleDiagnostic(OpenPMDDiagnostic) :
 
         return( select_array )
 
-
     def write_dataset( self, species_grp, species, path, quantity,
                        n_rank, Ntot, select_array ) :
         """
@@ -420,7 +430,7 @@ class ParticleDiagnostic(OpenPMDDiagnostic) :
             The group where to write the species considered
 
         species : a warp Species object
-        	The species object to get the particle data from
+            The species object to get the particle data from
 
         path : string
             The relative path where to write the dataset,
@@ -434,7 +444,7 @@ class ParticleDiagnostic(OpenPMDDiagnostic) :
             A list containing the number of particles to send on each proc
 
         Ntot : int
-        	Contains the global number of particles
+            Contains the global number of particles
 
         select_array : 1darray of bool
             An array of the same shape as that particle array
@@ -459,7 +469,7 @@ class ParticleDiagnostic(OpenPMDDiagnostic) :
         # Fill the dataset with the quantity
         quantity_array = self.get_dataset( species, quantity, select_array,
                                            n_rank, Ntot )
-        if self.rank==0:
+        if self.rank == 0:
             dset[:] = quantity_array
 
     def get_dataset( self, species, quantity, select_array, n_rank, Ntot ) :
@@ -467,7 +477,7 @@ class ParticleDiagnostic(OpenPMDDiagnostic) :
         Extract the array that satisfies select_array
 
         species : a Particles object
-        	The species object to get the particle data from
+            The species object to get the particle data from
 
         quantity : string
             The quantity to be extracted (e.g. 'x', 'uz', 'w')
@@ -478,7 +488,7 @@ class ParticleDiagnostic(OpenPMDDiagnostic) :
             the rules of self.select
 
         n_rank: list of ints
-        	A list containing the number of particles to send on each proc
+            A list containing the number of particles to send on each proc
 
         Ntot : int
             Length of the final array (selected + gathered from all proc)
@@ -492,6 +502,8 @@ class ParticleDiagnostic(OpenPMDDiagnostic) :
             quantity_one_proc = species.w
         elif quantity == "gamma":
             quantity_one_proc = 1.0/getattr( species, "inv_gamma" )
+        elif quantity in ['sx', 'sy', 'sz']:
+            quantity_one_proc = getattr(species.spin_tracker, quantity)
         else:
             quantity_one_proc = getattr( species, quantity )
 

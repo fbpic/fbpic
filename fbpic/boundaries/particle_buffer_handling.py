@@ -121,6 +121,10 @@ def remove_particles_cpu(species, fld, n_guard, left_proc, right_proc):
             uint_send_left[i_attr,:] = \
                 species.ionizer.ionization_level[selec_left]
             float_send_left[8,:] = species.ionizer.w_times_level[selec_left]
+        if species.spin_tracker is not None:
+            float_send_left[-3, :] = species.spin_tracker.sx[selec_left]
+            float_send_left[-2, :] = species.spin_tracker.sy[selec_left]
+            float_send_left[-1, :] = species.spin_tracker.sz[selec_left]
     else:
         # No need to allocate and copy data ; return an empty array
         float_send_left = np.empty((n_float, 0), dtype=np.float64)
@@ -147,6 +151,10 @@ def remove_particles_cpu(species, fld, n_guard, left_proc, right_proc):
             uint_send_right[i_attr,:] = \
                 species.ionizer.ionization_level[selec_right]
             float_send_right[8,:] = species.ionizer.w_times_level[selec_right]
+        if species.spin_tracker is not None:
+            float_send_right[-3, :] = species.spin_tracker.sx[selec_right]
+            float_send_right[-2, :] = species.spin_tracker.sy[selec_right]
+            float_send_right[-1, :] = species.spin_tracker.sz[selec_right]
     else:
         # No need to allocate and copy data ; return an empty array
         float_send_right = np.empty((n_float, 0), dtype = np.float64)
@@ -170,6 +178,10 @@ def remove_particles_cpu(species, fld, n_guard, left_proc, right_proc):
             species.ionizer.w_times_level[selec_stay]
         species.ionizer.ionization_level = \
             species.ionizer.ionization_level[selec_stay]
+    if species.spin_tracker is not None:
+        species.spin_tracker.sx = species.spin_tracker.sx[selec_stay]
+        species.spin_tracker.sy = species.spin_tracker.sy[selec_stay]
+        species.spin_tracker.sz = species.spin_tracker.sz[selec_stay]
 
     # Return the sending buffers
     return(float_send_left, float_send_right, uint_send_left, uint_send_right)
@@ -260,6 +272,10 @@ def remove_particles_gpu(species, fld, n_guard, left_proc, right_proc):
                     (species,'inv_gamma'), (species,'w') ]
     if species.ionizer is not None:
         attr_list.append( (species.ionizer,'w_times_level') )
+    if species.spin_tracker is not None:
+        attr_list += [(species.spin_tracker, 'sx'),
+                      (species.spin_tracker, 'sy'),
+                      (species.spin_tracker, 'sz')]
     # Loop through the float attributes
     for i_attr in range(n_float):
         # Initialize 3 buffer arrays on the GPU (need to be initialized
@@ -415,6 +431,16 @@ def add_buffers_cpu( species, float_recv_left, float_recv_right,
             species.ionizer.ionization_level, uint_recv_right[i_attr]))
         species.ionizer.w_times_level = np.hstack( (float_recv_left[8],
             species.ionizer.w_times_level, float_recv_right[8]))
+    if species.spin_tracker is not None:
+        species.spin_tracker.sx = \
+            np.hstack((float_recv_left[-3], species.spin_tracker.sx,
+                      float_recv_right[-3]))
+        species.spin_tracker.sy = \
+            np.hstack((float_recv_left[-2], species.spin_tracker.sy,
+                       float_recv_right[-2]))
+        species.spin_tracker.sz = \
+            np.hstack((float_recv_left[-1], species.spin_tracker.sz,
+                       float_recv_right[-1]))
 
     # Adapt the total number of particles
     species.Ntot = species.Ntot + float_recv_left.shape[1] \
@@ -452,11 +478,15 @@ def add_buffers_gpu( species, float_recv_left, float_recv_right,
 
     # Iterate over particle attributes
     # Build list of float attributes to copy
-    attr_list = [ (species,'x'), (species,'y'), (species,'z'), \
-                  (species,'ux'), (species,'uy'), (species,'uz'), \
+    attr_list = [ (species,'x'), (species,'y'), (species,'z'),
+                  (species,'ux'), (species,'uy'), (species,'uz'),
                   (species,'inv_gamma'), (species,'w') ]
     if species.ionizer is not None:
         attr_list += [ (species.ionizer, 'w_times_level') ]
+    if species.spin_tracker is not None:
+        attr_list += [(species.spin_tracker, 'sx'),
+                      (species.spin_tracker, 'sy'),
+                      (species.spin_tracker, 'sz')]
     # Loop through the float quantities
     for i_attr in range( len(attr_list) ):
         # Copy the proper buffers to the GPU
