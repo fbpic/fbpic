@@ -43,8 +43,6 @@ a one loop radiative correction to the electron's magnetic moment, and arctan
 is solved in the closed interval [-pi/2, pi/2].
 
 """
-import sys
-sys.path.insert(0, '/home/kpoder/devfbpic')
 import math
 import numpy as np
 

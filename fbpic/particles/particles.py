@@ -512,11 +512,16 @@ class Particles(object) :
             self.int_sorting_buffer = np.empty( self.Ntot, dtype=np.uint64 )
 
     def activate_spin_tracking(self, sx_m=0., sy_m=0., sz_m=1.,
-                               anom=0., spin_distr='fixed'):
+                               anom=0.00115965218128, spin_distr='fixed'):
         """
         Activate spin tracking for this particle. This will
         enable calculating the evolution of particle spin
         vector throughout the simulation.
+
+        Note: spin tracking should be activated _before_ making
+        a species ionizable. Otherwise, spin tracking must be
+        manually activated for the target species of the
+        ionized electrons.
 
         Parameters
         ----------
@@ -534,6 +539,7 @@ class Particles(object) :
 
         anom: float
             The anomalous magnetic moment of the particle.
+            Default value is that of an electron.
 
         spin_distr: str, optional
             If 'fixed', all particles will have a fixed spin value
@@ -546,6 +552,12 @@ class Particles(object) :
             |sx|=sx_m, |sy|=0, |sz|=0, or if sz_m!=0, |sx|=0, |sy|=0
             and |sz|=sz_m.
         """
+        # Warn about ionizer!
+        if self.ionizer is not None:
+            warnings.warn('\nIonizer already activated! Please make sure '
+                          'spin tracking is manually activated for all '
+                          'target species\n')
+
         self.spin_tracker = SpinTracker(species=self, dt=self.dt,
                                         sx_m=sx_m, sy_m=sy_m,
                                         sz_m=sz_m, anom=anom,

@@ -48,12 +48,13 @@ class ParticleDiagnostic(OpenPMDDiagnostic) :
 
         particle_data : a list of strings, optional
             Possible values are:
-            ["position", "momentum", "weighting", "E" , "B", "gamma", "spin"]
+            ["position", "momentum", "weighting", "E" , "B", "gamma"]
             "E" and "B" writes the E and B fields at the particles' positions,
             respectively, but is turned off by default.
             "gamma" writes the particles' Lorentz factor.
-            "spin" writes the particles' spin vector components.
             By default, if a particle is tracked, its id is always written;
+            Also, if a particle has spin tracking enabled, the spin components
+            are written to file.
 
         select : dict, optional
             Either None or a dictionary of rules
@@ -108,9 +109,6 @@ class ParticleDiagnostic(OpenPMDDiagnostic) :
                     self.array_quantities_dict[species_name] += ['x','y','z']
                 elif quantity == "momentum":
                     self.array_quantities_dict[species_name] += ['ux','uy','uz']
-                elif quantity == "spin" and species.spin_tracker is not None:
-                    # Only allow spin to be added if the tracker exists
-                    self.array_quantities_dict[species_name] += ['sx', 'sy', 'sz']
                 elif quantity == "E":
                     self.array_quantities_dict[species_name] += ['Ex','Ey','Ez']
                 elif quantity == "B":
@@ -129,6 +127,9 @@ class ParticleDiagnostic(OpenPMDDiagnostic) :
                 self.array_quantities_dict[species_name] += ["charge"]
             else:
                 self.constant_quantities_dict[species_name] += ["charge"]
+            # If spin tracking is enabled, save the spin automatically
+            if species.spin_tracker is not None:
+                self.array_quantities_dict[species_name] += ['sx', 'sy', 'sz']
 
     def setup_openpmd_species_group( self, grp, species, constant_quantities ) :
         """
@@ -351,7 +352,7 @@ class ParticleDiagnostic(OpenPMDDiagnostic) :
                     self.setup_openpmd_species_record(
                         species_grp[quantity_path], quantity_path )
 
-            else :
+            else:
                 raise ValueError("Invalid string in %s of species"
                     				 %(quantity))
 

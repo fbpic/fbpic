@@ -28,6 +28,7 @@ the GPU. In order, to limit the amount of data to be transfered, particles are
 handled in batches of 10 particles, so that only the cumulative sum of the
 number of particles in each batch need to be performed.
 """
+import warnings
 import numpy as np
 from scipy.constants import c, e, m_e, physical_constants
 from scipy.special import gamma
@@ -331,6 +332,11 @@ class Ionizer(object):
             # If spin tracking is enabled, generate also new spins
             # (on GPU or GPU depending on `use_cuda`)
             if ion.spin_tracker is not None:
+                if elec.spin_tracker is None:
+                    warnings.warn('\nSpin tracking is enabled for ion, '
+                                  'but not for target species!\n')
+                    continue
+
                 if use_cuda:
                     # Generate a set of random spins here
                     #rand_sx = allocate_empty(new_Ntot-old_Ntot, True, np.float64)

@@ -14,37 +14,17 @@ Author: Michael J. Quin, Kristjan Poder
 Scientific supervision: Matteo Tamburini
 
 """
-# -------
-# Imports
-# -------
-import sys
-sys.path.insert(0, '/Users/kpoder/python/dev_fbpic')
-sys.path.insert(0, '/home/kpoder/devfbpic')
 import numpy as np
 from scipy.constants import c, e, m_e, m_p
 from scipy.constants import physical_constants
-anom = physical_constants['electron mag. mom. anomaly'][0]
 from fbpic.main import Simulation
 from fbpic.lpa_utils.laser import add_laser
 
+anom = physical_constants['electron mag. mom. anomaly'][0]
 
-# ----------
-# Parameters
-# ----------
 
-# Whether to use the GPU
 use_cuda = True
-
-# Order of the stencil for z derivatives in the Maxwell solver.
-# Use -1 for infinite order, i.e. for exact dispersion relation in
-# all direction (adviced for single-GPU/single-CPU simulation).
-# Use a positive number (and multiple of 2) for a finite-order stencil
-# (required for multi-GPU/multi-CPU with MPI). A large `n_order` leads
-# to more overhead in MPI communications, but also to a more accurate
-# dispersion relation for electromagnetic waves. (Typically,
-# `n_order = 32` is a good trade-off.)
-# See https://arxiv.org/abs/1611.05712 for more information.
-n_order = -1 #32
+n_order = -1
 
 # Driver laser parameters
 lam = 0.8e-6                 # Wavelength (metres)
@@ -81,43 +61,6 @@ def dens_func( z, r ) :
     # n = np.where( z<ramp_start+ramp_length, (z-ramp_start)/ramp_length, n )
     return n
 
-
-# NOTE!!! need to add the following code to the end of this function...
-# particles/injection/continous_injection.py -> def generate_evenly_spaced: ...
-# ... this forces fbpic to generate only one ion, so we can track the spin of
-# each successive ionised electron
-
-# # ---------- JUST ONE ION
-# # only create an ion, which should have spin zero (or less than 0.5)
-# if np.sqrt(sx_m ** 2 + sy_m ** 2 + sz_m ** 2) > 0.5:
-#     # No particles are initialized ; the arrays are still created
-#     Ntot = 0
-#     return (Ntot, np.empty(0), np.empty(0), np.empty(0), np.empty(0),
-#             np.empty(0), np.empty(0), np.empty(0), np.empty(0),
-#             np.empty(0), np.empty(0), np.empty(0))
-# else:
-#     Ntot = 1
-#     lam = 0.8e-6
-#     x = 0.1 * lam * np.ones(1)
-#     y = 0.1 * lam * np.ones(1)
-#     z = 0. * np.ones(1)
-#     r = np.sqrt(x ** 2 + y ** 2)
-#     w = n * r * dtheta * dr * dz
-#     ux = ux_m * np.ones(1)
-#     uy = uy_m * np.ones(1)
-#     uz = uz_m * np.ones(1)
-#     inv_gamma = 1. / np.sqrt(1 + ux ** 2 + uy ** 2 + uz ** 2)
-#     sx = sx_m * np.ones(1)
-#     sy = sy_m * np.ones(1)
-#     sz = sz_m * np.ones(1)
-#     # Return the particle arrays
-#     return (Ntot, x, y, z, ux, uy, uz, inv_gamma, w, sx, sy, sz)
-# # ---------- JUST ONE ION
-
-
-# ---------------------------
-# Carrying out the simulation
-# ---------------------------
 
 def run_ionization_test_sim(show):
     # Initialize the simulation object
