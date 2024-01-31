@@ -130,7 +130,7 @@ def check_angle():
     )
     theta_x_theory = 0.5 * K_u / gamma0
     err = np.abs(theta_x - theta_x_theory) / theta_x_theory
-    assert err<6e-3
+    assert err<7e-3
 
 def check_spectrum():
     ts = OpenPMDTimeSeries('./diags/hdf5/')

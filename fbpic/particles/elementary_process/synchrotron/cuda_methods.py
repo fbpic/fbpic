@@ -119,7 +119,7 @@ def gather_synchrotron_cuda(
             th_iy, s0_y, s1_y = get_linear_coefficients(
                 theta_y, theta_y_min, d_th_y )
 
-            spect_loc = get_particle_radiation(
+            spect_loc, ux_ph, uy_ph, uz_ph = get_particle_radiation(
                     ux[ip], uy[ip], uz[ip], w[ip],
                     Ex[ip], Ey[ip], Ez[ip],
                     c*Bx[ip], c*By[ip], c*Bz[ip],
@@ -128,6 +128,13 @@ def gather_synchrotron_cuda(
                     Larmore_factor_momentum,
                     SR_dxi, SR_xi_data,
                     omega_ax, spect_loc
+            )
+
+            ux[ip] -= ux_ph
+            uy[ip] -= uy_ph
+            uz[ip] -= uz_ph
+            gamma_inv[ip] = 1 / math.sqrt(
+                1.0 + ux[ip] * ux[ip] + uy[ip] * uy[ip] + uz[ip] * uz[ip]
             )
 
             for i_omega in range(N_omega):
