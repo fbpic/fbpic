@@ -149,7 +149,7 @@ def get_particle_radiation(
     # discard too low critical frequencies as not resolved
     if (omega_c < 4 * d_omega):
         spect_loc[:] = 0.0
-        return( spect_loc )
+        return( spect_loc, 0.0, 0.0, 0.0 )
 
     omega_c_inv = 1. / omega_c
 

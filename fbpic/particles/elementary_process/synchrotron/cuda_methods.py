@@ -11,6 +11,7 @@ Apart from synthactic details, this file is very close to numba_methods.py
 from numba import cuda
 from numba.cuda.random import xoroshiro128p_normal_float64
 from scipy.constants import c
+import math
 
 # Import inline functions
 from .inline_functions import get_angles, get_particle_radiation, \
