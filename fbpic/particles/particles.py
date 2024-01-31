@@ -441,7 +441,8 @@ class Particles(object) :
             ratio_w_electron_photon, boost )
 
     def activate_synchrotron( self, photon_energy_axis, theta_x_axis,
-                              theta_y_axis, gamma_cutoff=10.0, x_max=20,
+                              theta_y_axis, gamma_cutoff=10.0,
+                              radiation_reaction=False, x_max=20,
                               nSamples=2048, boost=None ):
         """
         Activate synchrotron radiation.
@@ -467,6 +468,9 @@ class Particles(object) :
         gamma_cutoff: float (optional)
             Minimal particle gamma factor for which radiation is calculated.
 
+        radiation_reaction: bool
+            Whether to consider radiation reaction on the electrons
+
         x_max: float (optional)
             Extent of the samplig used for the spectral profile function.
 
@@ -475,7 +479,7 @@ class Particles(object) :
         """
         self.synchrotron_radiator = SynchrotronRadiator(
             self, photon_energy_axis, theta_x_axis, theta_y_axis,
-            gamma_cutoff,  x_max, nSamples
+            gamma_cutoff, radiation_reaction, x_max, nSamples
         )
 
     def make_ionizable(self, element, target_species,

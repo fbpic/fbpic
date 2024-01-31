@@ -6,7 +6,7 @@ This file is part of the Fourier-Bessel Particle-In-Cell code (FB-PIC)
 """
 
 import numpy as np
-from scipy.constants import c, e, epsilon_0, hbar
+from scipy.constants import m_e, c, e, epsilon_0, hbar
 from scipy.special import kv
 from scipy.integrate import quad
 from numba.core.errors import NumbaPerformanceWarning
@@ -34,7 +34,7 @@ class SynchrotronRadiator(object):
     """
     def __init__(self, radiating_species, photon_energy_axis,
                  theta_x_axis, theta_y_axis, gamma_cutoff,
-                 x_max, nSamples):
+                 radiation_reaction, x_max, nSamples):
         """
         Initialize a Radiator instance.
 
@@ -42,23 +42,32 @@ class SynchrotronRadiator(object):
         ----------
         radiating_species: an fbpic.Particles object
             This object is not modified.
+
         photon_energy_axis: tuple
             Parameters for the photon energy axis provided as
             `(photon_energy_min, photon_energy_max, N_photon_energy)`, where
             `photon_energy_min` and `photon_energy_max` are floats in Joules
             and `N_photon_energy` is integer.
+
         theta_x_axis: tuple
             Parameters for the x-elevation angle axis provided as
             `(theta_x_min, theta_x_max, N_theta_x)`, where `theta_x_min`
             and `theta_x_max` are floats in (rad) and `N_theta_x` is integer.
+
         theta_y_axis: tuple
             Parameters for the y-elevation angle axis provided as
             `(theta_y_min, theta_y_max, N_theta_y)`, where `theta_y_min`
             and `theta_y_max` are floats in radians and `N_theta_y` is integer.
+
         gamma_cutoff: float
             Minimal particle gamma factor for which radiation is calculated.
+
+        radiation_reaction: bool
+            Whether to consider radiation reaction on the electrons
+
         x_max: float
             Extent of the samplig used for the spectral profile function.
+
         nSamples: integer
             number of samplig points for the spectral profile function
         """
@@ -67,6 +76,7 @@ class SynchrotronRadiator(object):
         self.eon = radiating_species
         self.dt = radiating_species.dt
         self.gamma_cutoff_inv = 1. / gamma_cutoff
+        self.radiation_reaction = radiation_reaction
 
         self.omega_min = photon_energy_axis[0] / hbar
         self.omega_max = photon_energy_axis[1] / hbar
@@ -97,7 +107,7 @@ class SynchrotronRadiator(object):
                 self.d_theta_x * self.d_theta_y )
 
         self.Larmore_factor_momentum = e**2 * self.dt \
-            / ( 6 * np.pi * epsilon_0 * c**2 )
+            / ( 6 * np.pi * epsilon_0 * m_e * c**3 )
 
         # Calculate sampling of the spectral profile function
         self.initialize_S_function( x_max=x_max, nSamples=nSamples )
@@ -168,7 +178,7 @@ class SynchrotronRadiator(object):
                 eon.Bx, eon.By, eon.Bz, eon.w, eon.inv_gamma,
                 self.Larmore_factor_density,
                 self.Larmore_factor_momentum,
-                self.gamma_cutoff_inv,
+                self.gamma_cutoff_inv, self.radiation_reaction,
                 self.omega_ax, self.S_func_dx, self.S_func_data,
                 self.theta_x_min, self.theta_x_max, self.d_theta_x,
                 self.theta_y_min, self.theta_y_max, self.d_theta_y,
@@ -185,7 +195,7 @@ class SynchrotronRadiator(object):
                 eon.Bx, eon.By, eon.Bz, eon.w, eon.inv_gamma,
                 self.Larmore_factor_density,
                 self.Larmore_factor_momentum,
-                self.gamma_cutoff_inv,
+                self.gamma_cutoff_inv, self.radiation_reaction,
                 self.omega_ax, self.S_func_dx, self.S_func_data,
                 self.theta_x_min, self.theta_x_max, self.d_theta_x,
                 self.theta_y_min, self.theta_y_max, self.d_theta_y,
