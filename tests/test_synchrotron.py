@@ -95,7 +95,11 @@ def run_simulation():
     # Configure the moving window
     sim.set_moving_window( v=v_window )
 
-    bunch.activate_synchrotron(photon_energy_axis, theta_x_axis, theta_y_axis)
+    bunch.activate_synchrotron(
+        photon_energy_axis,
+        theta_x_axis, theta_y_axis,
+        #radiation_reaction=True
+    )
     bunch.track(sim.comm)
 
     # Number of iterations to perform

@@ -38,8 +38,10 @@ def get_linear_coefficients(x, xmin, dx):
     ----------
     x: float
         Coordinate to be projected.
+
     xmin: float
          Grid origin
+
     dx: float
         Grid step
 
@@ -47,6 +49,7 @@ def get_linear_coefficients(x, xmin, dx):
     -------
     ix: integer
         Index of the cell that contains the point
+
     s0, s1: floats
         Weights projected to the left and right nodes of the cell
     """
@@ -76,21 +79,28 @@ def get_particle_radiation(
     ----------
     ux, uy, uz, w: floats
         Components momentum and weight of the particle
+
     Ex, Ey, Ez: float
          Components of electric field on the particle (V/m)
+
     cBx, cBy, cBz: float
          Components of magnetic field on the particle multiplied by
          the speed of light (V/m)
+
     gamma_inv: float
         Reciprocal of particle Lorentz factor
+
     Larmore_factor_density: float
         Normalization factor for spectral-angular density,
         `e**2 * dt / (6 * np.pi * epsilon_0 * c * hbar * d_theta_x * d_theta_y)`
+
     Larmore_factor_momentum: float
         Normalization factor for the photon momentum,
         `e**2 * dt / ( 6 * np.pi * epsilon_0 * c**2 )`
+
     omega_ax: 1D vector of floats
         frequencies on which spectrum is calculated
+
     spect_loc: 1D vector of floats
         calculated spectral density of the radiation
 
@@ -130,7 +140,7 @@ def get_particle_radiation(
         )
 
     # calculate emitted radiation momentum
-    Momentum_Larmor = Larmore_factor_momentum * Energy_norm
+    Momentum_Larmor = Larmore_factor_momentum * Energy_norm / w
     u_abs_inv = 1. / math.sqrt(ux * ux + uy * uy + uz * uz )
     # or
     # u_abs_inv = 1. / math.sqrt(1 + gamma*gamma )
