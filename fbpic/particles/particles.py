@@ -10,6 +10,7 @@ import numpy as np
 from scipy.constants import e
 from .tracking import ParticleTracker
 from .elementary_process.ionization import Ionizer
+from .elementary_process.synchrotron import SynchrotronRadiator
 from .elementary_process.compton import ComptonScatterer
 from .injection import BallisticBeforePlane, ContinuousInjector, \
                         generate_evenly_spaced
@@ -205,6 +206,7 @@ class Particles(object) :
         # By default, the species experiences no elementary processes
         # (see method make_ionizable and activate_compton)
         self.ionizer = None
+        self.synchrotron_radiator = None
         self.compton_scatterer = None
         # Total number of quantities (necessary in MPI communications)
         self.n_integer_quantities = 0
@@ -438,6 +440,48 @@ class Particles(object) :
             laser_waist, laser_ctau, laser_initial_z0,
             ratio_w_electron_photon, boost )
 
+    def activate_synchrotron( self, photon_energy_axis, theta_x_axis,
+                              theta_y_axis, gamma_cutoff=10.0,
+                              radiation_reaction=False, x_max=20,
+                              nSamples=2048, boost=None ):
+        """
+        Activate synchrotron radiation.
+
+        Parameters
+        ----------
+        photon_energy_axis: tuple
+            Parameters for the photon energy axis provided as
+            `(photon_energy_min, photon_energy_max, N_photon_energy)`, where
+            `photon_energy_min` and `photon_energy_max` are floats in Joules
+            and `N_photon_energy` is integer
+
+        theta_x_axis: tuple
+            Parameters for the x-elevation angle axis provided as
+            `(theta_x_min, theta_x_max, N_theta_x)`, where `theta_x_min`
+            and `theta_x_max` are floats in (rad) and `N_theta_x` is integer
+
+        theta_y_axis: tuple
+            Parameters for the y-elevation angle axis provided as
+            `(theta_y_min, theta_y_max, N_theta_y)`, where `theta_y_min`
+            and `theta_y_max` are floats in radians and `N_theta_y` is integer
+
+        gamma_cutoff: float (optional)
+            Minimal particle gamma factor for which radiation is calculated
+
+        radiation_reaction: bool
+            Whether to consider radiation reaction on the electrons
+
+        x_max: float (optional)
+            Extent of the sampling used for the spectral profile function
+
+        nSamples: integer (optional)
+            number of sampling points for the spectral profile function
+        """
+        self.synchrotron_radiator = SynchrotronRadiator(
+            self, photon_energy_axis, theta_x_axis, theta_y_axis,
+            gamma_cutoff, radiation_reaction, x_max, nSamples
+        )
+
     def make_ionizable(self, element, target_species,
                        level_start=0, level_max=None):
         """
@@ -503,6 +547,9 @@ class Particles(object) :
         # Ionization
         if self.ionizer is not None:
             self.ionizer.handle_ionization( self )
+        # Synchrotron radiation
+        if self.synchrotron_radiator is not None:
+            self.synchrotron_radiator.handle_radiation()
         # Compton scattering
         if self.compton_scatterer is not None:
             self.compton_scatterer.handle_scattering( self, t )

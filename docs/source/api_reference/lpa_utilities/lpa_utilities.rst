@@ -15,3 +15,4 @@ See the sections below for the corresponding documentation:
 	laser
 	beam
 	external_fields
+	betatron
