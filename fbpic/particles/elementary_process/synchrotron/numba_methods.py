@@ -74,10 +74,10 @@ def gather_synchrotron_numba(
         frequencies on which spectrum is calculated
 
     SR_dxi: float
-        Samplig step of the spectral profile function
+        Sampling step of the spectral profile function
 
     SR_xi_data: 1D vector of floats
-        Samplig of the spectral profile function
+        Sampling of the spectral profile function
 
     theta_x_min: float
         Lower limit of the `theta_x` angle axis

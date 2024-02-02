@@ -18,7 +18,7 @@ class SRDiagnostic(OpenPMDDiagnostic):
     def __init__(self, period=None, dt_period=None, sr_object=None, comm=None,
                  write_dir=None,iteration_min=0, iteration_max=np.inf ):
         """
-        Initialize the synchrotron radiation diagnostic.
+        Initialize the synchrotron radiation diagnostic
 
         Parameters
         ----------
@@ -26,7 +26,7 @@ class SRDiagnostic(OpenPMDDiagnostic):
             The period of the diagnostics, in number of timesteps.
             (i.e. the diagnostics are written whenever the number
             of iterations is divisible by `period`). Specify either this or
-            `dt_period`.
+            `dt_period`
 
         dt_period : float (in seconds), optional
             The period of the diagnostics, in physical time of the simulation.
@@ -38,13 +38,13 @@ class SRDiagnostic(OpenPMDDiagnostic):
         comm : an fbpic BoundaryCommunicator object or None
             If this is not None, the data is gathered on the first proc,
             and the guard cells are removed from the output.
-            Otherwise, each proc writes its own data, including guard cells.
-            (Make sure to use different write_dir in this case.)
+            Otherwise, each proc writes its own data, including guard cells
+            (Make sure to use different write_dir in this case)
 
         write_dir : string, optional
             The POSIX path to the directory where the results are
             to be written. If none is provided, this will be the path
-            of the current working directory.
+            of the current working directory
 
         iteration_min, iteration_max: ints
             The iterations between which data should be written

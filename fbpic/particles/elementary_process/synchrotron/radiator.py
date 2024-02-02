@@ -36,40 +36,40 @@ class SynchrotronRadiator(object):
                  theta_x_axis, theta_y_axis, gamma_cutoff,
                  radiation_reaction, x_max, nSamples):
         """
-        Initialize a Radiator instance.
+        Initialize a Radiator instance
 
         Parameters
         ----------
         radiating_species: an fbpic.Particles object
-            This object is not modified.
+            This object is not modified
 
         photon_energy_axis: tuple
             Parameters for the photon energy axis provided as
             `(photon_energy_min, photon_energy_max, N_photon_energy)`, where
             `photon_energy_min` and `photon_energy_max` are floats in Joules
-            and `N_photon_energy` is integer.
+            and `N_photon_energy` is integer
 
         theta_x_axis: tuple
             Parameters for the x-elevation angle axis provided as
             `(theta_x_min, theta_x_max, N_theta_x)`, where `theta_x_min`
-            and `theta_x_max` are floats in (rad) and `N_theta_x` is integer.
+            and `theta_x_max` are floats in (rad) and `N_theta_x` is integer
 
         theta_y_axis: tuple
             Parameters for the y-elevation angle axis provided as
             `(theta_y_min, theta_y_max, N_theta_y)`, where `theta_y_min`
-            and `theta_y_max` are floats in radians and `N_theta_y` is integer.
+            and `theta_y_max` are floats in radians and `N_theta_y` is integer
 
         gamma_cutoff: float
-            Minimal particle gamma factor for which radiation is calculated.
+            Minimal particle gamma factor for which radiation is calculated
 
         radiation_reaction: bool
             Whether to consider radiation reaction on the electrons
 
         x_max: float
-            Extent of the samplig used for the spectral profile function.
+            Extent of the sampling used for the spectral profile function
 
         nSamples: integer
-            number of samplig points for the spectral profile function
+            number of sampling points for the spectral profile function
         """
         # Register a few parameters
         self.use_cuda = radiating_species.use_cuda
@@ -126,15 +126,15 @@ class SynchrotronRadiator(object):
 
     def initialize_S_function( self, x_max, nSamples ):
         """
-        Initialize spectral profile function.
+        Initialize spectral profile function
 
         Parameters
         ----------
         x_max: float
-            Extent of the samplig used for the spectral profile function.
+            Extent of the sampling used for the spectral profile function
 
         nSamples: integer
-            number of samplig points for the spectral profile function
+            number of sampling points for the spectral profile function
         """
 
         k_53 = lambda x : kv(5./3, x)
@@ -203,7 +203,7 @@ class SynchrotronRadiator(object):
 
     def send_to_gpu( self ):
         """
-        Copy relevant data to the GPU.
+        Copy relevant data to the GPU
         """
         if self.use_cuda:
             self.radiation_data = cupy.asarray( self.radiation_data )
@@ -212,7 +212,7 @@ class SynchrotronRadiator(object):
 
     def receive_from_gpu( self ):
         """
-        Receive relevant data from the GPU.
+        Receive relevant data from the GPU
         """
         if self.use_cuda:
             self.radiation_data = self.radiation_data.get()
