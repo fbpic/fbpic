@@ -76,10 +76,9 @@ pip install fbpic
 interface, you can instead use `pip install fbpic[picmi]`.)
 
 - **Optional:** in order to run on GPU, install the additional package
-`cudatoolkit` and `cupy` -- e.g. using CUDA version 10.0.
+`cudatoolkit` and `cupy`.
 ```
-conda install cudatoolkit=10.0
-pip install cupy-cuda100
+conda install cudatoolkit cupy
 ```
 (In the above command, you should choose a CUDA version that is compatible with your GPU driver ; see [this table](https://docs.nvidia.com/cuda/cuda-toolkit-release-notes/index.html#major-components__table-cuda-toolkit-driver-versions) for more info.)
 
