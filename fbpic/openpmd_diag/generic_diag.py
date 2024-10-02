@@ -183,18 +183,18 @@ class OpenPMDDiagnostic(object) :
         # Set the attributes of the HDF5 file
 
         # General attributes
-        f.attrs["openPMD"] = np.string_("1.0.0")
+        f.attrs["openPMD"] = np.bytes_("1.0.0")
         f.attrs["openPMDextension"] = np.uint32(1)
-        f.attrs["software"] = np.string_("fbpic " + fbpic_version)
-        f.attrs["date"] = np.string_(
+        f.attrs["software"] = np.bytes_("fbpic " + fbpic_version)
+        f.attrs["date"] = np.bytes_(
             datetime.datetime.now(tzlocal()).strftime('%Y-%m-%d %H:%M:%S %z'))
-        f.attrs["meshesPath"] = np.string_("fields/")
-        f.attrs["particlesPath"] = np.string_("particles/")
-        f.attrs["iterationEncoding"] = np.string_("fileBased")
-        f.attrs["iterationFormat"] =  np.string_("data%T.h5")
+        f.attrs["meshesPath"] = np.bytes_("fields/")
+        f.attrs["particlesPath"] = np.bytes_("particles/")
+        f.attrs["iterationEncoding"] = np.bytes_("fileBased")
+        f.attrs["iterationFormat"] =  np.bytes_("data%T.h5")
 
         # Setup the basePath
-        f.attrs["basePath"] = np.string_("/data/%T/")
+        f.attrs["basePath"] = np.bytes_("/data/%T/")
         base_path = "/data/%d/" %iteration
         bp = f.require_group( base_path )
         bp.attrs["time"] = time

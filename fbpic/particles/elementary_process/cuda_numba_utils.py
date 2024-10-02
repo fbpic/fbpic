@@ -110,6 +110,17 @@ def reallocate_and_copy_old( species, use_cuda, old_Ntot, new_Ntot ):
         else:
             copy_particle_data_numba( old_Ntot, old_array, new_array )
         species.tracker.id = new_array
+    # And the spin too, if needed
+    if species.spin_tracker is not None:
+        for attr in ['sx', 'sy', 'sz']:
+            old_array = getattr(species.spin_tracker, attr)
+            new_array = allocate_empty(new_Ntot, data_on_gpu, dtype=np.float64)
+            if data_on_gpu:
+                copy_particle_data_cuda[ptcl_grid_1d, ptcl_block_1d](
+                    old_Ntot, old_array, new_array)
+            else:
+                copy_particle_data_numba(old_Ntot, old_array, new_array)
+            setattr(species.spin_tracker, attr, new_array)
 
     # Allocate the auxiliary arrays for GPU
     if use_cuda:

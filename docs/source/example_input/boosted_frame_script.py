@@ -171,6 +171,7 @@ if __name__ == '__main__':
         # 'r': 'open' can also be used, but is more computationally expensive
 
     # Add the plasma electron and plasma ions
+    # NB: In the boosted frame, ions move at relativistic speed and are thus needed for correct modeling.
     plasma_elec = sim.add_new_species( q=-e, m=m_e, n=n_e,
                     dens_func=dens_func, boost_positions_in_dens_func=True,
                     p_zmin=p_zmin, p_zmax=p_zmax, p_rmax=p_rmax,

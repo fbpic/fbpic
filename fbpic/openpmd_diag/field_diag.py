@@ -316,22 +316,22 @@ class FieldDiagnostic(OpenPMDDiagnostic):
         dset : an h5py.Group object that contains all the mesh quantities
         """
         # Field Solver
-        dset.attrs["fieldSolver"] = np.string_("PSATD")
+        dset.attrs["fieldSolver"] = np.bytes_("PSATD")
         # Field boundary
         dset.attrs["fieldBoundary"] = np.array([
-            np.string_("reflecting"), np.string_("reflecting"),
-            np.string_("reflecting"), np.string_("reflecting") ])
+            np.bytes_("reflecting"), np.bytes_("reflecting"),
+            np.bytes_("reflecting"), np.bytes_("reflecting") ])
         # Particle boundary
         dset.attrs["particleBoundary"] = np.array([
-            np.string_("absorbing"), np.string_("absorbing"),
-            np.string_("absorbing"), np.string_("absorbing") ])
+            np.bytes_("absorbing"), np.bytes_("absorbing"),
+            np.bytes_("absorbing"), np.bytes_("absorbing") ])
         # Current Smoothing
-        dset.attrs["currentSmoothing"] = np.string_("Binomial")
+        dset.attrs["currentSmoothing"] = np.bytes_("Binomial")
         dset.attrs["currentSmoothingParameters"] = \
-          np.string_("period=1;numPasses=1;compensator=false")
+          np.bytes_("period=1;numPasses=1;compensator=false")
         # Charge correction
-        dset.attrs["chargeCorrection"] = np.string_("spectral")
-        dset.attrs["chargeCorrectionParameters"] = np.string_("period=1")
+        dset.attrs["chargeCorrection"] = np.bytes_("spectral")
+        dset.attrs["chargeCorrectionParameters"] = np.bytes_("period=1")
 
     def setup_openpmd_mesh_record( self, dset, quantity, dz, zmin ) :
         """
@@ -354,9 +354,9 @@ class FieldDiagnostic(OpenPMDDiagnostic):
         self.setup_openpmd_record( dset, quantity )
 
         # Geometry parameters
-        dset.attrs['geometry'] = np.string_("thetaMode")
+        dset.attrs['geometry'] = np.bytes_("thetaMode")
         dset.attrs['geometryParameters'] = \
-            np.string_("m={:d};imag=+".format(self.fld.Nm))
+            np.bytes_("m={:d};imag=+".format(self.fld.Nm))
         dset.attrs['gridSpacing'] = np.array([
                 self.fld.interp[0].dr, dz ])
         dset.attrs["gridGlobalOffset"] = np.array([
@@ -364,9 +364,9 @@ class FieldDiagnostic(OpenPMDDiagnostic):
         dset.attrs['axisLabels'] = np.array([ b'r', b'z' ])
 
         # Generic attributes
-        dset.attrs["dataOrder"] = np.string_("C")
+        dset.attrs["dataOrder"] = np.bytes_("C")
         dset.attrs["gridUnitSI"] = 1.
-        dset.attrs["fieldSmoothing"] = np.string_("none")
+        dset.attrs["fieldSmoothing"] = np.bytes_("none")
 
     def setup_openpmd_mesh_component( self, dset, quantity ) :
         """

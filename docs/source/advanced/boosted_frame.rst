@@ -99,8 +99,9 @@ or read a `more detailed description of the speedup
     in this case the ions move with relativistic speed and do produce a
     non-negligible current :math:`\boldsymbol{j}`. Therefore, **in boosted-frame
     simulations, the ions are required**. Make sure to include them, either
-    by setting the flag ``initialize_ions=True`` in the :any:`Simulation`
-    object, or by adding them separately with :any:`add_new_species`.
+    by setting the flag ``initialize_ions=True`` and specifying the ion plasma density in the :any:`Simulation`
+    object, or by adding them separately with :any:`add_new_species`. We recommend the latter approach, using 
+    :any:`add_new_species` function.
 
 
 Converting input parameters from the lab frame to the boosted frame

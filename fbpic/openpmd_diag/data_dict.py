@@ -27,7 +27,8 @@ unit_dimension_dict = {
     "momentum" : np.array([1., 1.,-1., 0., 0., 0., 0.]),
     "id" : np.array([0., 0., 0., 0., 0., 0., 0.]),
     "gamma" : np.array([0., 0., 0., 0., 0., 0., 0.]),
-    "radiation" : np.array([0., 0., 0., 0., 0., 0., 0.]) }
+    "radiation" : np.array([0., 0., 0., 0., 0., 0., 0.]),
+    "spin" : np.array([2., 1., -1., 0., 0., 0., 0.]) }
 
 # Typical weighting of different particle properties
 macro_weighted_dict = {
@@ -40,7 +41,8 @@ macro_weighted_dict = {
     "E": np.uint32(0),
     "B": np.uint32(0),
     "gamma" : np.uint32(0),
-    "id" : np.uint32(0) }
+    "id" : np.uint32(0),
+    "spin" : np.uint32(0),}
 weighting_power_dict = {
     "charge": 1.,
     "mass": 1.,
@@ -51,4 +53,5 @@ weighting_power_dict = {
     "E": 0.,
     "B": 0.,
     "gamma": 0.,
-    "id": 0. }
+    "id": 0.,
+    "spin": 1.}

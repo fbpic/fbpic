@@ -37,14 +37,4 @@ username: <yourPypiUsername>
 
 ## Uploading the package to PyPI
 
-- Upload the package to [PyPI](https://pypi.python.org/pypi):
-
-```
-rm -rf dist
-python setup.py sdist bdist_wheel
-twine upload dist/* -r pypi
-```
-
-(NB: You can also first test this by uploading the package to
-[test PyPI](https://testpypi.python.org/pypi) ; to do so, simply
-replace `pypi` by `pypitest` in the above set of commands)
+The code will be automatically uploaded to PyPI upon creation of a new release on Github.

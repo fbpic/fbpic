@@ -105,13 +105,13 @@ class InputScriptDiagnostic(OpenPMDDiagnostic):
         f = self.open_file(fullpath)
         # Only the first proc does writing to file
         if f is not None:
-            f.attrs["inputScript"] = np.string_(self._input_script)
+            f.attrs["inputScript"] = np.bytes_(self._input_script)
 
             # Write the extra parameters, if required
             if self.param_dict is not None:
                 for key, val in self.param_dict.items():
                     if isinstance(val, str):
-                        f.attrs[key] = np.string_(val)
+                        f.attrs[key] = np.bytes_(val)
                     elif isinstance(val, (list, tuple)):
                         f.attrs[key] = np.array(val)
                     else: #if isinstance(val, (int, float)):

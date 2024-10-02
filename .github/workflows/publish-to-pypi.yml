@@ -1,0 +1,35 @@
+name: Publish package to PyPI
+
+on:
+  release:
+    types: [created]
+
+jobs:
+  build-n-publish:
+    name: Build and publish package to PyPI
+    runs-on: ubuntu-latest
+    permissions:
+      # IMPORTANT: this permission is mandatory for trusted publishing
+      id-token: write
+    steps:
+    - uses: actions/checkout@v3
+    - name: Set up Python 3.11
+      uses: actions/setup-python@v4
+      with:
+        python-version: 3.11
+    - name: Install pypa/build
+      run: >-
+        python3 -m
+        pip install
+        build
+        --user
+    - name: Build a binary wheel and a source tarball
+      run: >-
+        python3 -m
+        build
+        --sdist
+        --wheel
+        --outdir dist/
+        .
+    - name: Publish package distribution to PyPI
+      uses: pypa/gh-action-pypi-publish@release/v1

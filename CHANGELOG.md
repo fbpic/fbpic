@@ -1,5 +1,38 @@
 # Change Log / Release Log for fbpic
 
+## 0.26.0
+
+### What's Changed
+
+* Better check of the lasy version by @RemiLehe in https://github.com/fbpic/fbpic/pull/667
+* Simplify installation instructions by @RemiLehe in https://github.com/fbpic/fbpic/pull/683
+* Spin tracking by @pots007 in https://github.com/fbpic/fbpic/pull/672
+* Add script to automatically publish releases to PyPI by @RemiLehe in https://github.com/fbpic/fbpic/pull/675
+
+**Full Changelog**: https://github.com/fbpic/fbpic/compare/0.25.0...0.26.0
+
+## 0.25.0
+
+### What's Changed
+* Update format and dependencies of CI test by @RemiLehe in https://github.com/fbpic/fbpic/pull/646
+* Fix CI by @ax3l in https://github.com/fbpic/fbpic/pull/583
+* Add the option to fix the random seed by @RemiLehe in https://github.com/fbpic/fbpic/pull/599
+* Avoid warning and use new interface in `test_boosted_particle_output.py` by @RemiLehe in https://github.com/fbpic/fbpic/pull/654
+* Fix pyflakes error by @RemiLehe in https://github.com/fbpic/fbpic/pull/658
+* Remove obsolete "python setup.py test" command by @RemiLehe in https://github.com/fbpic/fbpic/pull/657
+* Correct positions in antenna emission by @RemiLehe in https://github.com/fbpic/fbpic/pull/656
+* Fix version of numexpr to avoid error message in CI by @RemiLehe in https://github.com/fbpic/fbpic/pull/661
+* Doc: Perlmutter CUDA 11.7 Update by @ax3l in https://github.com/fbpic/fbpic/pull/663
+* Support for lasy files by @RemiLehe in https://github.com/fbpic/fbpic/pull/645
+* Check the lasy version when reading lasy files by @RemiLehe in https://github.com/fbpic/fbpic/pull/665
+* add info on mkl issue with apple silicon by @PrometheusPi in https://github.com/fbpic/fbpic/pull/662
+
+### New Contributors
+* @ax3l made their first contribution in https://github.com/fbpic/fbpic/pull/583
+* @PrometheusPi made their first contribution in https://github.com/fbpic/fbpic/pull/662
+
+**Full Changelog**: https://github.com/fbpic/fbpic/compare/0.24.0...0.25.0
+
 ## 0.24.0
 
 This version adds the option to symmetrize a Gaussian beam, so as to avoid random fluctuations in the mean transverse position of the beam. (See [642](https://github.com/fbpic/fbpic/pull/640))

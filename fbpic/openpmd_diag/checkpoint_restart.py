@@ -7,7 +7,8 @@ This file is part of the Fourier-Bessel Particle-In-Cell code (FB-PIC)
 It defines functions that can save checkpoints,
 as well as reload a simulation from a set of checkpoints.
 """
-import os, re
+import os
+import re
 import numpy as np
 from scipy.constants import e
 from .field_diag import FieldDiagnostic
@@ -18,6 +19,7 @@ from fbpic.utils.mpi import comm
 from fbpic.utils.cuda import cuda_installed
 if cuda_installed:
     import cupy
+
 
 def set_periodic_checkpoint( sim, period, checkpoint_dir='./checkpoints' ):
     """
@@ -73,6 +75,7 @@ def set_periodic_checkpoint( sim, period, checkpoint_dir='./checkpoints' ):
     if len(particle_dict)>0:
         sim.checkpoints.append(
             ParticleDiagnostic( period, particle_dict, write_dir=write_dir ) )
+
 
 def restart_from_checkpoint( sim, iteration=None,
                             checkpoint_dir='./checkpoints' ):
@@ -188,6 +191,7 @@ simulation or sim.ptcl = [] to remove them""".format(len(avail_species),
     zmin_new = sim.fld.interp[0].zmin
     sim.comm.shift_global_domain_positions( zmin_new - zmin_old )
 
+
 def check_restart( sim, iteration, checkpoint_dir ):
     """Verify that the restart is valid."""
 
@@ -279,6 +283,7 @@ def load_fields( grid, fieldtype, coord, ts, iteration ):
     length_new = grid.zmax - grid.zmin
     assert np.allclose( length_old, length_new )
 
+
 def load_species( species, name, ts, iteration, comm, openpmd_viewer_version ):
     """
     Read the species data from the checkpoint `ts`
@@ -342,6 +347,14 @@ def load_species( species, name, ts, iteration, comm, openpmd_viewer_version ):
         species.ionizer.w_times_level = \
                     species.w * species.ionizer.ionization_level
 
+    # If species has spin tracking enabled, load the data
+    if species.spin_tracker is not None:
+        if 'spin/x' in ts.avail_record_components[name]:
+            species.spin_tracker.sx, species.spin_tracker.sy, \
+                species.spin_tracker.sz = ts.get_particle(
+                    ['spin/x', 'spin/y', 'spin/z'], iteration=iteration,
+                    species=name)
+
     # Reset the injection positions (for continuous injection)
     if species.continuous_injection:
         species.injector.reset_injection_positions()
@@ -349,6 +362,9 @@ def load_species( species, name, ts, iteration, comm, openpmd_viewer_version ):
     # As a safe-guard, check that the loaded data is in float64
     for attr in ['x', 'y', 'z', 'ux', 'uy', 'uz', 'w', 'inv_gamma' ]:
         assert getattr( species, attr ).dtype == np.float64
+    if species.spin_tracker is not None:
+        for attr in ['sx', 'sy', 'sz']:
+            assert getattr(species.spin_tracker, attr).dtype == np.float64
 
     # Field arrays
     species.Ez = np.zeros( Ntot )

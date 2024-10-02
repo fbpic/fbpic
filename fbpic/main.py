@@ -345,7 +345,8 @@ class Simulation(object):
 
     def step(self, N=1, correct_currents=True,
              correct_divE=False, use_true_rho=False,
-             move_positions=True, move_momenta=True, show_progress=True):
+             move_positions=True, move_momenta=True,
+             show_progress=True):
         """
         Perform N PIC cycles.
 
@@ -481,6 +482,11 @@ class Simulation(object):
                 # were smoothed/corrected, and copy the data from the GPU.)
                 diag.write( self.iteration )
 
+            # If spin tracking is enabled, store the previous momenta
+            for species in ptcl:
+                if species.spin_tracker is not None:
+                    species.spin_tracker.store_previous_momenta(species)
+
             # Push the particles' positions and velocities to t = (n+1/2) dt
             if move_momenta:
                 for species in ptcl:
@@ -488,6 +494,13 @@ class Simulation(object):
             if move_positions:
                 for species in ptcl:
                     species.push_x( 0.5*dt )
+
+            # Push the particles' spin to t = (n+1/2) dt
+            # averaging over velocities at t = (n-1/2) dt and t = (n+1/2) dt
+            for species in ptcl:
+                if species.spin_tracker is not None:
+                    species.spin_tracker.push_s(species)
+
             # Get positions/velocities for antenna particles at t = (n+1/2) dt
             for antenna in self.laser_antennas:
                 antenna.update_v( self.time + 0.5*dt, dt )
