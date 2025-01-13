@@ -836,7 +836,7 @@ def add_elec_bunch_from_arrays( sim, x, y, z, ux, uy, uz, w,
 
 def square_gaussian_beam_density(x, y, z, n_b0, sigma_x, sigma_y, L_b):
     """
-    Calculate the square beam density profile.
+    Calculate the square Gaussian beam density profile.
 
     Parameters
     ----------
@@ -866,10 +866,115 @@ def square_gaussian_beam_density(x, y, z, n_b0, sigma_x, sigma_y, L_b):
     # Gaussian transverse profile
     gaussian_profile = np.exp(-0.5 * ((x / sigma_x) ** 2 + (y / sigma_y) ** 2))
 
-
     # Apply the conditions
-    n_b = np.where(inside_x & inside_y & inside_z, n_b0, 0)*gaussian_profile
+    n_b = np.where(inside_x & inside_y & inside_z, n_b0, 0) * gaussian_profile
     return n_b
+
+def compute_transverse_emittance(x, px):
+    """
+    Compute the transverse emittance.
+
+    Parameters
+    ----------
+    x : numpy array
+        Positions of the particles in the transverse plane.
+    px : numpy array
+        Momentum of the particles in the transverse plane.
+
+    Returns
+    -------
+    epsilon_x : float
+        Transverse emittance (m·rad).
+    """
+    # Calculate the averages
+    x_mean = np.mean(x)
+    px_mean = np.mean(px)
+    x_px_mean = np.mean(x * px)
+
+    # Calculate the RMS values
+    x_rms = np.sqrt(np.mean((x - x_mean) ** 2))
+    px_rms = np.sqrt(np.mean((px - px_mean) ** 2))
+
+    # Transverse emittance formula
+    epsilon_x = np.sqrt(x_rms ** 2 * px_rms ** 2 - (x_px_mean - x_mean * px_mean) ** 2)
+    return epsilon_x
+
+def compute_normalized_emittance(epsilon_x, gamma, beta):
+    """
+    Compute the normalized transverse emittance.
+
+    Parameters
+    ----------
+    epsilon_x : float
+        Transverse emittance (m·rad).
+    gamma : float
+        Relativistic gamma factor.
+    beta : float
+        Relativistic beta factor (v/c).
+
+    Returns
+    -------
+    epsilon_x_n : float
+        Normalized transverse emittance (m·rad).
+    """
+    return gamma * beta * epsilon_x
+
+# Constants
+gamma_particles = 10  # Relativistic factor
+#beta_particles = np.sqrt(1 - 1 / gamma_particles**2)
+
+# Emittance Growth due to Scattering
+def scattering_emittance_growth(s, initial_emittance, scattering_rate, damping_rate):
+    """
+    Emittance growth due to scattering and damping.
+    
+    Parameters
+    ----------
+    s : numpy array
+        Longitudinal positions (m).
+    initial_emittance : float
+        Initial transverse emittance (m.rad).
+    scattering_rate : float
+        Scattering growth rate (1/m).
+    damping_rate : float
+        Damping rate (1/m).
+    
+    Returns
+    -------
+    emittance : numpy array
+        Emittance evolution over `s`.
+    """
+    growth_term = scattering_rate * s
+    damping_term = initial_emittance * np.exp(-damping_rate * s)
+    emittance = growth_term + damping_term
+    return emittance
+
+# Beam Envelope Evolution with Betatron Oscillations
+def beam_envelope_betatron(s, r0, dr0, omega_p, gamma):
+    """
+    Evolution of beam envelope with betatron oscillations.
+    
+    Parameters
+    ----------
+    s : numpy array
+        Longitudinal positions (m).
+    r0 : float
+        Initial beam radius (m).
+    dr0 : float
+        Initial beam divergence (m).
+    omega_p : float
+        Plasma frequency (rad/s).
+    gamma : float
+        Relativistic factor.
+    
+    Returns
+    -------
+    r : numpy array
+        Beam envelope at each position `s`.
+    """
+    betatron_freq = omega_p / np.sqrt(2 * gamma)
+    r = r0 * np.cos(betatron_freq * s) + (dr0 / betatron_freq) * np.sin(betatron_freq * s)
+    return r
 
 
 def get_space_charge_fields( sim, ptcl, direction='forward' ):
