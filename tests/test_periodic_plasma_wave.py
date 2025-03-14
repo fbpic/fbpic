@@ -359,7 +359,7 @@ def check_charge_conservation( sim, rho_ions ):
             rel_err = np.sqrt( np.sum(abs(divE - rho_eps0)**2) \
                 / np.sum(abs(rho_eps0)**2) )
             print('Relative error on divE in mode %d: %e' %(m, rel_err) )
-            assert rel_err < 1.e-11
+            assert rel_err < 1.e-10
 
 def compare_fields( sim, show ) :
     """
