@@ -422,7 +422,7 @@ def add_particle_bunch_openPMD( sim, q, m, ts_path, z_off=0., species=None,
     except ImportError:
         # If not available, try to import openPMD-viewer, version 0
         try:
-            from opmd_viewer import OpenPMDTimeSeries
+            from openpmd_viewer import OpenPMDTimeSeries
             openpmd_viewer_version = 0
         except ImportError:
             openpmd_viewer_version = None
