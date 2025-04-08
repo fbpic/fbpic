@@ -1,7 +1,7 @@
 # Copyright 2016, FBPIC contributors
 # Authors: Remi Lehe, Manuel Kirchen
 # License: 3-Clause-BSD-LBNL
-"""
+r"""
 This file is part of FBPIC (Fourier-Bessel Particle-In-Cell code).
 It defines the class that performs the Hankel transform.
 
