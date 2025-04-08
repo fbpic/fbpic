@@ -11,16 +11,16 @@ jobs:
     runs-on: ${{ matrix.os }}
 
     steps:
-    - uses: actions/checkout@v2
+    - uses: actions/checkout@v4
     - name: Cache conda
-      uses: actions/cache@v2
+      uses: actions/cache@v4
       # Increase this value to reset cache
       env: {CACHE_NUMBER: 0}
       with:
         path: ~/conda_pkgs_dir
         key: ${{ runner.os }}-conda-${{ env.CACHE_NUMBER }}-${{ matrix.python-version }}
 
-    - uses: conda-incubator/setup-miniconda@v2
+    - uses: conda-incubator/setup-miniconda@v4
       name: Setup conda
       with:
         auto-update-conda: true
