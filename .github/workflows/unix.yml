@@ -7,13 +7,13 @@ jobs:
     strategy:
       matrix:
         python-version: [3.11]
-        os: [ubuntu-20.04]
+        os: [ubuntu-22.04]
     runs-on: ${{ matrix.os }}
 
     steps:
-    - uses: actions/checkout@v2
+    - uses: actions/checkout@v4
     - name: Cache conda
-      uses: actions/cache@v2
+      uses: actions/cache@v3
       # Increase this value to reset cache
       env: {CACHE_NUMBER: 0}
       with:
@@ -50,7 +50,7 @@ jobs:
     - shell: bash -eo pipefail -l {0}
       name: PICMI test
       run: |
-        pip install wget picmistandard numexpr==2.8.4 periodictable
+        pip install wget picmistandard numexpr periodictable
         cd tests/unautomated
         curl https://raw.githubusercontent.com/picmi-standard/picmi/master/Examples/laser_acceleration/laser_acceleration_PICMI.py -o fbpic_script.py
         python test_picmi.py
