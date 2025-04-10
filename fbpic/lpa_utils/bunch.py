@@ -834,7 +834,7 @@ def add_elec_bunch_from_arrays( sim, x, y, z, ux, uy, uz, w,
                                    z_injection_plane=z_injection_plane)
     return elec_bunch
 
-def square_gaussian_beam_density(x, y, z, n_b0, sigma_x, sigma_y, L_b):
+def square_gaussian_beam_density(sim, x, y, z, n_b0, sigma_x, sigma_y, L_b):
     """
     Calculate the square Gaussian beam density profile.
 
@@ -870,7 +870,7 @@ def square_gaussian_beam_density(x, y, z, n_b0, sigma_x, sigma_y, L_b):
     n_b = np.where(inside_x & inside_y & inside_z, n_b0, 0) * gaussian_profile
     return n_b
 
-def compute_transverse_emittance(x, px):
+def compute_transverse_emittance(sim, x, p_x):
     """
     Compute the transverse emittance.
 
@@ -878,8 +878,8 @@ def compute_transverse_emittance(x, px):
     ----------
     x : numpy array
         Positions of the particles in the transverse plane.
-    px : numpy array
-        Momentum of the particles in the transverse plane.
+    p_x : numpy array
+        Momentum of the particles in the x-direction of the transverse plane.
 
     Returns
     -------
@@ -888,18 +888,47 @@ def compute_transverse_emittance(x, px):
     """
     # Calculate the averages
     x_mean = np.mean(x)
-    px_mean = np.mean(px)
-    x_px_mean = np.mean(x * px)
+    p_x_mean = np.mean(p_x)
+    x_p_x_mean = np.mean(x * p_x)
 
     # Calculate the RMS values
     x_rms = np.sqrt(np.mean((x - x_mean) ** 2))
-    px_rms = np.sqrt(np.mean((px - px_mean) ** 2))
+    p_x_rms = np.sqrt(np.mean((p_x - p_x_mean) ** 2))
 
     # Transverse emittance formula
-    epsilon_x = np.sqrt(x_rms ** 2 * px_rms ** 2 - (x_px_mean - x_mean * px_mean) ** 2)
+    epsilon_x = np.sqrt(x_rms ** 2 * p_x_rms ** 2 - (x_p_x_mean - x_mean * p_x_mean) ** 2)
     return epsilon_x
 
-def compute_normalized_emittance(epsilon_x, gamma, beta):
+def compute_transverse_emittance_y(sim, y, p_y):
+    """
+    Compute the transverse emittance in the y-direction.
+
+    Parameters
+    ----------
+    y : numpy array
+        Positions of the particles in the transverse plane.
+    p_y : numpy array
+        Momentum of the particles in the y-direction of the transverse plane.
+
+    Returns
+    -------
+    epsilon_y : float
+        Transverse emittance (m·rad).
+    """
+    # Calculate the averages
+    y_mean = np.mean(y)
+    p_y_mean = np.mean(p_y)
+    y_p_y_mean = np.mean(y * p_y)
+
+    # Calculate the RMS values
+    y_rms = np.sqrt(np.mean((y - y_mean) ** 2))
+    p_y_rms = np.sqrt(np.mean((p_y - p_y_mean) ** 2))
+
+    # Transverse emittance formula
+    epsilon_y = np.sqrt(y_rms ** 2 * p_y_rms ** 2 - (y_p_y_mean - y_mean * p_y_mean) ** 2)
+    return epsilon_y
+
+def compute_normalized_emittance(sim, epsilon_x, gamma, beta):
     """
     Compute the normalized transverse emittance.
 
@@ -924,7 +953,7 @@ gamma_particles = 10  # Relativistic factor
 #beta_particles = np.sqrt(1 - 1 / gamma_particles**2)
 
 # Emittance Growth due to Scattering
-def scattering_emittance_growth(s, initial_emittance, scattering_rate, damping_rate):
+def scattering_emittance_growth(sim, s, initial_emittance, scattering_rate, damping_rate):
     """
     Emittance growth due to scattering and damping.
     
@@ -950,7 +979,7 @@ def scattering_emittance_growth(s, initial_emittance, scattering_rate, damping_r
     return emittance
 
 # Beam Envelope Evolution with Betatron Oscillations
-def beam_envelope_betatron(s, r0, dr0, omega_p, gamma):
+def beam_envelope_betatron(sim, s, r0, dr0, omega_p, gamma):
     """
     Evolution of beam envelope with betatron oscillations.
     
