@@ -22,7 +22,7 @@ if cuda_installed:
         deposit_rho_gpu_unsorted, deposit_J_gpu_unsorted
 
 class LaserAntenna( object ):
-    """
+    r"""
     Class that implements the emission of a laser by an antenna
 
     The antenna produces a current on the grid (in a thin slice along z), which

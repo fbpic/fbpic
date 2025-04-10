@@ -9,7 +9,7 @@ import numpy as np
 from scipy.constants import c
 
 def get_modified_k(k, n_order, dz):
-    """
+    r"""
     Calculate the modified k that corresponds to a finite-order stencil
 
     The modified k are given by the formula

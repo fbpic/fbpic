@@ -68,7 +68,7 @@ class LaserTransverseProfile(object):
         return np.zeros_like(x, dtype='complex')
 
     def squared_profile_integral(self):
-        """
+        r"""
         Return the integral of the square of the absolute value of
         of the (complex) laser profile in the transverse plane:
 
@@ -92,7 +92,7 @@ class GaussianTransverseProfile(LaserTransverseProfile):
     """Class that calculates a Gaussian transverse laser profile."""
 
     def __init__(self, waist, zf=0., lambda0=0.8e-6, propagation_direction=1):
-        """
+        r"""
         Define the complex transverse profile of a Gaussian laser.
 
         **In the focal plane** (:math:`z=z_f`), the profile translates to a
@@ -171,7 +171,7 @@ class LaguerreGaussTransverseProfile( LaserTransverseProfile ):
 
     def __init__( self, p, m, waist, zf=0., lambda0=0.8e-6, theta0=0.,
                   propagation_direction=1 ):
-        """
+        r"""
         Define the complex transverse profile of a Laguerre-Gauss laser.
 
         Unlike the :any:`DonutLikeLaguerreGaussLaser` profile, this
@@ -315,7 +315,7 @@ class DonutLikeLaguerreGaussTransverseProfile( LaserTransverseProfile ):
 
     def __init__( self, p, m, waist, zf=0., lambda0=0.8e-6,
                   propagation_direction=1 ):
-        """
+        r"""
         Define the complex transverse profile of a donut-like Laguerre-Gauss
         laser.
 
@@ -437,7 +437,7 @@ class FlattenedGaussianTransverseProfile( LaserTransverseProfile ):
 
     def __init__( self, w0, N=6, zf=0., lambda0=0.8e-6,
                   propagation_direction=1 ):
-        """
+        r"""
         Define a complex transverse profile with a flattened Gaussian intensity
         distribution **far from focus** that transform into a distribution
         with rings **in the focal plane**. (See `Santarsiero et al., J.
