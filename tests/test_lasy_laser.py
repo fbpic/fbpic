@@ -135,9 +135,10 @@ def run_and_check_laser_emission(gamma_b, data_dir, lasy_geometry):
     # Create a Laguerre Gaussian laser in RZ geometry using lasy
     pol = (1, 0)
     profile = CombinedLongitudinalTransverseProfile(
-        wavelength, pol, laser_energy,
+        wavelength, pol,
         GaussianLongitudinalProfile(wavelength, tau, t_peak=0),
-        LaguerreGaussianTransverseProfile(w0, p=0, m=1),
+        LaguerreGaussianTransverseProfile(w0, p=0, m=1, wavelength=wavelength),
+        laser_energy,
     )
     if lasy_geometry == "rt":
         lo = (0e-6, -3*tau)
