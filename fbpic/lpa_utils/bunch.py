@@ -1006,7 +1006,7 @@ def beam_envelope_betatron(s, r0, dr0, omega_p, gamma):
     return r
 
 
-def add_bi_gaussian_beam_density(x, y, z, params):
+def bi_gaussian_beam_density(x, y, z, params):
     """
     Calculate the bi-Gaussian beam density profile.
 
@@ -1051,7 +1051,7 @@ def add_bi_gaussian_beam_density(x, y, z, params):
     # Total density
     return rho_d + rho_w
 
-def add_ellipsoidal_beam_density(x, y, z, Q_b, sigma_x, sigma_y, sigma_z):
+def ellipsoidal_beam_density(x, y, z, Q_b, sigma_x, sigma_y, sigma_z):
     """
     Calculate the Gaussian ellipsoidal beam charge density.
 
