@@ -692,7 +692,7 @@ class SliceHandler:
         return( output_array )
 
     def transform_fields_to_lab_frame( self, fields ):
-        """
+        r"""
         Modifies the array `fields` in place, to transform the field values
         from the boosted frame to the lab frame.
 

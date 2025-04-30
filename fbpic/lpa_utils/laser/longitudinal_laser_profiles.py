@@ -72,7 +72,7 @@ class LaserLongitudinalProfile(object):
         return np.zeros_like(z, dtype='complex')
 
     def squared_profile_integral(self):
-        """
+        r"""
         Return the integral of the square of the absolute value of
         of the (complex) laser profile along the `z` axis:
 
@@ -96,7 +96,7 @@ class GaussianChirpedLongitudinalProfile(LaserLongitudinalProfile):
 
     def __init__(self, tau, z0, lambda0=0.8e-6, cep_phase=0.,
                  phi2_chirp=0., propagation_direction=1):
-        """
+        r"""
         Define the complex longitudinal profile of a Gaussian laser pulse.
 
         At the focus and for zero chirp, this translates to a laser with an
@@ -195,7 +195,7 @@ class CustomSpectrumLongitudinalProfile(LaserLongitudinalProfile):
                  phi2_chirp=0., phi3_chirp=0., phi4_chirp=0.,
                  subtract_linear_phase=False,
                  propagation_direction=1):
-        """
+        r"""
         Define the complex longitudinal profile of the laser pulse,
         from the spectrum provided in `spectrum_file`.
 

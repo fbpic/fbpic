@@ -71,7 +71,7 @@ def read_ionization_energies( element ):
     # - the ionization level (represented as the second (\d+))
     # - the ionization energy (represented as (\d+\.*\d*))
     regex_command = \
-        '\n\s+(\d+)\s+\|\s+%s\s+\w+\s+\|\s+\+*(\d+)\s+\|\s+\(*\[*(\d+\.*\d*)' \
+        r'\n\s+(\d+)\s+\|\s+%s\s+\w+\s+\|\s+\+*(\d+)\s+\|\s+\(*\[*(\d+\.*\d*)' \
         %element
     list_of_tuples = re.findall( regex_command, text_data )
     # Return None if the requested element was not found

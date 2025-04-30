@@ -203,7 +203,7 @@ def check_restart( sim, iteration, checkpoint_dir ):
     # Infer the number of processors that were used for the checkpoint
     # and check that it is the same as the current number of processors
     nproc = 0
-    regex_matcher = re.compile('proc\d+')
+    regex_matcher = re.compile(r'proc\d+')
     for directory in os.listdir(checkpoint_dir):
         if regex_matcher.match(directory) is not None:
             nproc += 1
