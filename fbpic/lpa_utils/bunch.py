@@ -870,7 +870,7 @@ def square_gaussian_beam_density(sim, x, y, z, n_b0, sigma_x, sigma_y, L_b):
     n_b = np.where(inside_x & inside_y & inside_z, n_b0, 0) * gaussian_profile
     return n_b
 
-def compute_transverse_emittance(sim, x, p_x):
+def compute_transverse_emittance(x, p_x):
     """
     Compute the transverse emittance.
 
@@ -899,7 +899,7 @@ def compute_transverse_emittance(sim, x, p_x):
     epsilon_x = np.sqrt(x_rms ** 2 * p_x_rms ** 2 - (x_p_x_mean - x_mean * p_x_mean) ** 2)
     return epsilon_x
 
-def compute_transverse_emittance_y(sim, y, p_y):
+def compute_transverse_emittance_y(y, p_y):
     """
     Compute the transverse emittance in the y-direction.
 
@@ -928,7 +928,7 @@ def compute_transverse_emittance_y(sim, y, p_y):
     epsilon_y = np.sqrt(y_rms ** 2 * p_y_rms ** 2 - (y_p_y_mean - y_mean * p_y_mean) ** 2)
     return epsilon_y
 
-def compute_normalized_emittance(sim, epsilon_x, gamma, beta):
+def compute_normalized_emittance(epsilon_x, gamma, beta):
     """
     Compute the normalized transverse emittance.
 
@@ -953,7 +953,7 @@ gamma_particles = 10  # Relativistic factor
 #beta_particles = np.sqrt(1 - 1 / gamma_particles**2)
 
 # Emittance Growth due to Scattering
-def scattering_emittance_growth(sim, s, initial_emittance, scattering_rate, damping_rate):
+def scattering_emittance_growth(s, initial_emittance, scattering_rate, damping_rate):
     """
     Emittance growth due to scattering and damping.
     
@@ -979,7 +979,7 @@ def scattering_emittance_growth(sim, s, initial_emittance, scattering_rate, damp
     return emittance
 
 # Beam Envelope Evolution with Betatron Oscillations
-def beam_envelope_betatron(sim, s, r0, dr0, omega_p, gamma):
+def beam_envelope_betatron(s, r0, dr0, omega_p, gamma):
     """
     Evolution of beam envelope with betatron oscillations.
     
@@ -999,11 +999,86 @@ def beam_envelope_betatron(sim, s, r0, dr0, omega_p, gamma):
     Returns
     -------
     r : numpy array
-        Beam envelope at each position `s`.
+        Beam envelope at each position `s`
     """
     betatron_freq = omega_p / np.sqrt(2 * gamma)
     r = r0 * np.cos(betatron_freq * s) + (dr0 / betatron_freq) * np.sin(betatron_freq * s)
     return r
+
+
+def add_bi_gaussian_beam_density(x, y, z, params):
+    """
+    Calculate the bi-Gaussian beam density profile.
+
+    Parameters
+    ----------
+    x, y, z : numpy arrays
+        Coordinates of the simulation grid.
+    params : dict
+        Dictionary containing beam parameters:
+        - 'drive': { 'n0', 'sigma_x', 'sigma_y', 'sigma_z', 'center' }
+        - 'witness': { 'n0', 'sigma_x', 'sigma_y', 'sigma_z', 'center' }
+
+    Returns
+    -------
+    rho : numpy array
+        Total charge density at each grid point.
+    """
+    # Drive beam parameters
+    drive = params['drive']
+    n_d0, sigma_dx, sigma_dy, sigma_dz = drive['n0'], drive['sigma_x'], drive['sigma_y'], drive['sigma_z']
+    x_d, y_d, z_d = drive['center']
+    
+    # Witness beam parameters
+    witness = params['witness']
+    n_w0, sigma_wx, sigma_wy, sigma_wz = witness['n0'], witness['sigma_x'], witness['sigma_y'], witness['sigma_z']
+    x_w, y_w, z_w = witness['center']
+    
+    # Drive beam density
+    rho_d = (n_d0 / ((2 * np.pi)**1.5 * sigma_dx * sigma_dy * sigma_dz)) * np.exp(
+        - ((x - x_d)**2) / (2 * sigma_dx**2)
+        - ((y - y_d)**2) / (2 * sigma_dy**2)
+        - ((z - z_d)**2) / (2 * sigma_dz**2)
+    )
+    
+    # Witness beam density
+    rho_w = (n_w0 / ((2 * np.pi)**1.5 * sigma_wx * sigma_wy * sigma_wz)) * np.exp(
+        - ((x - x_w)**2) / (2 * sigma_wx**2)
+        - ((y - y_w)**2) / (2 * sigma_wy**2)
+        - ((z - z_w)**2) / (2 * sigma_wz**2)
+    )
+    
+    # Total density
+    return rho_d + rho_w
+
+def add_ellipsoidal_beam_density(x, y, z, Q_b, sigma_x, sigma_y, sigma_z):
+    """
+    Calculate the Gaussian ellipsoidal beam charge density.
+
+    Parameters
+    ----------
+    x, y, z : numpy arrays
+        Coordinates of the simulation grid.
+    Q_b : float
+        Total charge of the beam (Coulombs).
+    sigma_x, sigma_y, sigma_z : float
+        Beam widths in the x, y, and z directions.
+
+    Returns
+    -------
+    rho : numpy array
+        Charge density at each grid point.
+    """
+    # Normalization constant
+    norm_const = Q_b / ((2 * np.pi)**1.5 * sigma_x * sigma_y * sigma_z)
+    
+    # Gaussian charge density
+    rho = norm_const * np.exp(
+        - (x**2) / (2 * sigma_x**2)
+        - (y**2) / (2 * sigma_y**2)
+        - (z**2) / (2 * sigma_z**2)
+    )
+    return rho
 
 
 def get_space_charge_fields( sim, ptcl, direction='forward' ):
