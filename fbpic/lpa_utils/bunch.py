@@ -1053,33 +1053,33 @@ def bi_gaussian_beam_density(x, y, z, params):
 
 def ellipsoidal_beam_density(x, y, z, Q_b, sigma_x, sigma_y, sigma_z):
     """
-    Calculate the Gaussian ellipsoidal beam charge density.
+    Compute the density of an ellipsoidal beam.
 
-    Parameters
-    ----------
-    x, y, z : numpy arrays
-        Coordinates of the simulation grid.
+    Parameters:
+    x : numpy array
+        1D array of x coordinates.
+    y : numpy array
+        1D array of y coordinates.
+    z : numpy array
+        1D array of z coordinates.
     Q_b : float
-        Total charge of the beam (Coulombs).
-    sigma_x, sigma_y, sigma_z : float
-        Beam widths in the x, y, and z directions.
+        Total charge of the beam.
+    sigma_x : float
+        RMS size in x direction.
+    sigma_y : float
+        RMS size in y direction.
+    sigma_z : float
+        RMS size in z direction.
 
-    Returns
-    -------
-    rho : numpy array
-        Charge density at each grid point.
+    Returns:
+    density : numpy array
+        3D array of beam density.
     """
-    # Normalization constant
-    norm_const = Q_b / ((2 * np.pi)**1.5 * sigma_x * sigma_y * sigma_z)
-    
-    # Gaussian charge density
-    rho = norm_const * np.exp(
-        - (x**2) / (2 * sigma_x**2)
-        - (y**2) / (2 * sigma_y**2)
-        - (z**2) / (2 * sigma_z**2)
+    X, Y, Z = np.meshgrid(x, y, z, indexing='ij')
+    density = (Q_b / (4 * np.pi * sigma_x * sigma_y * sigma_z)) * np.exp(
+        -0.5 * ((X**2 / sigma_x**2) + (Y**2 / sigma_y**2) + (Z**2 / sigma_z**2))
     )
-    return rho
-
+    return density
 
 def get_space_charge_fields( sim, ptcl, direction='forward' ):
     """
