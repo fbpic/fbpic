@@ -115,7 +115,7 @@ def add_laser( sim, a0, w0, ctau, z0, zf=None, lambda0=0.8e-6,
                gamma_boost=None, method='direct',
                fw_propagating=True, update_spectral=True,
                z0_antenna=None, v_antenna=0. ):
-    """
+    r"""
     Introduce a linearly-polarized, Gaussian laser in the simulation.
 
     More precisely, the electric field **near the focal plane**
