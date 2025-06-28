@@ -10,11 +10,11 @@ Python. If Anaconda is not your default Python distribution, download and instal
 
 **Installation steps**:
 
-- Install the dependencies of FBPIC:
+-  Install the dependencies of FBPIC:
 
-  ::
+   ::
 
-     conda install -c conda-forge numba scipy pyfftw mkl mpi4py
+      conda install -c conda-forge numba scipy pyfftw mkl mpi4py
 
    .. note::
 
@@ -25,21 +25,21 @@ Python. If Anaconda is not your default Python distribution, download and instal
 
          conda install -c conda-forge mkl
 
--  Install ``fbpic``
+-  Install ``fbpic``:
 
    ::
 
-       pip install fbpic
+      pip install fbpic
 
    .. note::
 
-       If you want to run FBPIC through the
-       `PICMI interface <https://picmi-standard.github.io/>`__, you can instead
-       use
+      If you want to run FBPIC through the
+      `PICMI interface <https://picmi-standard.github.io/>`__, you can instead
+      use
 
-       ::
+      ::
 
-           pip install fbpic[picmi]
+         pip install fbpic[picmi]
 
    .. note::
        Instead of using a release, you can also install FBPIC from the sources,
