@@ -14,7 +14,7 @@ Python. If Anaconda is not your default Python distribution, download and instal
 
    ::
 
-      conda install -c conda-forge numba scipy pyfftw mkl mpi4py
+      conda install -c conda-forge numba scipy pyfftw mpi4py
 
    .. note::
 
