@@ -11,7 +11,7 @@ from fbpic.utils.cuda import compile_cupy
 # Import inline function
 from .inline_functions import push_p_vay
 # Compile the inline function for GPU
-push_p_vay = cuda.jit( push_p_vay, device=True, inline=True )
+push_p_vay = cuda.jit( push_p_vay, device=True, inline=False )
 
 @compile_cupy
 def push_x_gpu( x, y, z, ux, uy, uz, inv_gamma, dt,
