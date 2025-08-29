@@ -32,8 +32,11 @@ class SRDiagnostic(OpenPMDDiagnostic):
             The period of the diagnostics, in physical time of the simulation.
             Specify either this or `period`
 
-        sr_object : a Synchrotron Radiation object
-            Points to the data that has to be written at each output
+        species: a dictionary of :any:`Particles` objects
+            The object that is written (e.g. elec)
+            is assigned to the particle name of this species.
+            (e.g. {"electrons": elec }). All species must have synchrotron
+            radiation activated with the same specral-angular grids.
 
         comm : an fbpic BoundaryCommunicator object or None
             If this is not None, the data is gathered on the first proc,
@@ -53,25 +56,34 @@ class SRDiagnostic(OpenPMDDiagnostic):
         # Check input
         if len(species) == 0:
             raise ValueError(
-            "`SRDiagnostic` requires the list of the species with active `sr_object`.")
+            "`SRDiagnostic` requires the dictionary with the species.")
 
         # Register the arguments
         self.species = species
         self.species_names = list( species.keys() )
 
+        for species_name in self.species_names:
+            if species[ species_name ].synchrotron_radiator is None:
+                raise ValueError(
+                    f"{species_name} must have synchrotron radiation active")
+
         sr_object = species[ self.species_names[0] ].synchrotron_radiator
 
         self.use_cuda = sr_object.use_cuda
         self.dt_sim = sr_object.dt
-        self.mesh_shape = (sr_object.N_theta_x, sr_object.N_theta_y, sr_object.N_omega)
+        self.mesh_shape = (
+            sr_object.N_theta_x, sr_object.N_theta_y, sr_object.N_omega
+        )
 
         self.mesh_spacing = np.array([
-            sr_object.d_theta_x, sr_object.d_theta_y, sr_object.d_omega * hbar ])
+            sr_object.d_theta_x, sr_object.d_theta_y,
+            sr_object.d_omega * hbar ]
+        )
 
         self.mesh_origin = np.array([
             sr_object.theta_x_min, sr_object.theta_x_min,
-            sr_object.omega_min * hbar ])
-
+            sr_object.omega_min * hbar
+        ])
 
         # General setup
         OpenPMDDiagnostic.__init__(self, period, comm, write_dir,
@@ -92,7 +104,8 @@ class SRDiagnostic(OpenPMDDiagnostic):
         # If needed: Receive data from the GPU
         if self.use_cuda :
             for specie_name in self.species_names:
-                self.species[specie_name].synchrotron_radiator.receive_from_gpu()
+                self.species[specie_name].synchrotron_radiator\
+                    .receive_from_gpu()
 
         # Extract information needed for the openPMD attributes
         time = iteration * self.dt_sim
