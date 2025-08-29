@@ -23,4 +23,4 @@ the list ``Simulation.ptcl``.
    .. automethod:: track
    .. automethod:: make_ionizable
    .. automethod:: activate_spin_tracking
-
+   .. automethod:: activate_synchrotron

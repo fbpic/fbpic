@@ -49,7 +49,7 @@ class SRDiagnostic(OpenPMDDiagnostic):
             to be written. If none is provided, this will be the path
             of the current working directory
 
-        iteration_min, iteration_max: ints
+        iteration_min, iteration_max: ints, optional
             The iterations between which data should be written
             (`iteration_min` is inclusive, `iteration_max` is exclusive)
         """
