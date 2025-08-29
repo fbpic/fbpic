@@ -162,7 +162,7 @@ class SRDiagnostic(OpenPMDDiagnostic):
 
     def get_dataset( self, specie ):
         """
-        Copy and dathers radation data on the first proc, in MPI mode
+        Copy and gather radation data on the first proc, in MPI mode
         """
         # Get the data on each individual proc
         data_one_proc = specie.synchrotron_radiator.radiation_data.copy()
@@ -219,45 +219,16 @@ class SRDiagnostic(OpenPMDDiagnostic):
             # Setup the meshes group (contains all the fields)
             field_path = "/data/%d/fields/" %iteration
             field_grp = f.require_group(field_path)
-            self.setup_openpmd_meshes_group(field_grp)
 
             for specie_name in self.species_names:
                 dset = field_grp.require_dataset(
                     f"radiation_{specie_name}", self.mesh_shape, dtype='f8')
-
-                self.setup_openpmd_mesh_component( dset )
-                # Setup the record to which it belongs
-                self.setup_openpmd_mesh_record( dset, "radiation" )
+                # Setup the record and the component to which it belongs
+                self.setup_openpmd_mesh_component_record( dset, "radiation" )
             # Close the file
             f.close()
 
-    def setup_openpmd_meshes_group( self, dset ) :
-        """
-        Set the attributes that are specific to the mesh path
-
-        Parameter
-        ---------
-        dset : an h5py.Group object that contains all the mesh quantities
-        """
-        # Field Solver
-        dset.attrs["fieldSolver"] = np.bytes_("PSATD")
-        # Field boundary
-        dset.attrs["fieldBoundary"] = np.array([
-            np.bytes_("reflecting"), np.bytes_("reflecting"),
-            np.bytes_("reflecting"), np.bytes_("reflecting") ])
-        # Particle boundary
-        dset.attrs["particleBoundary"] = np.array([
-            np.bytes_("absorbing"), np.bytes_("absorbing"),
-            np.bytes_("absorbing"), np.bytes_("absorbing") ])
-        # Current Smoothing
-        dset.attrs["currentSmoothing"] = np.bytes_("Binomial")
-        dset.attrs["currentSmoothingParameters"] = \
-          np.bytes_("period=1;numPasses=1;compensator=false")
-        # Charge correction
-        dset.attrs["chargeCorrection"] = np.bytes_("spectral")
-        dset.attrs["chargeCorrectionParameters"] = np.bytes_("period=1")
-
-    def setup_openpmd_mesh_record( self, dset, quantity ) :
+    def setup_openpmd_mesh_component_record( self, dset, quantity ) :
         """
         Sets the attributes that are specific to a mesh record
 
@@ -282,17 +253,6 @@ class SRDiagnostic(OpenPMDDiagnostic):
         dset.attrs["gridUnitSI"] = 1.
         dset.attrs["fieldSmoothing"] = np.bytes_("none")
 
-    def setup_openpmd_mesh_component( self, dset ) :
-        """
-        Set up the attributes of a mesh component
-
-        Parameter
-        ---------
-        dset : an h5py.Dataset or h5py.Group object
-
-        quantity : string
-            The field that is being written
-        """
         # Generic setup of the component
         self.setup_openpmd_component( dset )
 
