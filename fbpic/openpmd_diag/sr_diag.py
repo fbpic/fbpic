@@ -15,7 +15,7 @@ class SRDiagnostic(OpenPMDDiagnostic):
     Class that defines the synchrotron radiation diagnostics to be performed.
     """
 
-    def __init__(self, period=None, dt_period=None, sr_object=None, comm=None,
+    def __init__(self, period=None, dt_period=None, species={}, comm=None,
                  write_dir=None,iteration_min=0, iteration_max=np.inf ):
         """
         Initialize the synchrotron radiation diagnostic
@@ -32,8 +32,11 @@ class SRDiagnostic(OpenPMDDiagnostic):
             The period of the diagnostics, in physical time of the simulation.
             Specify either this or `period`
 
-        sr_object : a Synchrotron Radiation object
-            Points to the data that has to be written at each output
+        species: a dictionary of :any:`Particles` objects
+            The object that is written (e.g. elec)
+            is assigned to the particle name of this species.
+            (e.g. {"electrons": elec }). All species must have synchrotron
+            radiation activated with the same specral-angular grids.
 
         comm : an fbpic BoundaryCommunicator object or None
             If this is not None, the data is gathered on the first proc,
@@ -46,22 +49,47 @@ class SRDiagnostic(OpenPMDDiagnostic):
             to be written. If none is provided, this will be the path
             of the current working directory
 
-        iteration_min, iteration_max: ints
+        iteration_min, iteration_max: ints, optional
             The iterations between which data should be written
             (`iteration_min` is inclusive, `iteration_max` is exclusive)
         """
         # Check input
-        if sr_object is None:
+        if len(species) == 0:
             raise ValueError(
-            "You need to pass the argument `sr_object` to `SRDiagnostic`.")
+            "`SRDiagnostic` requires the dictionary with the species.")
+
+        # Register the arguments
+        self.species = species
+        self.species_names = list( species.keys() )
+
+        for species_name in self.species_names:
+            if species[ species_name ].synchrotron_radiator is None:
+                raise ValueError(
+                    f"{species_name} must have synchrotron radiation active")
+
+        sr_object = species[ self.species_names[0] ].synchrotron_radiator
+
+        self.use_cuda = sr_object.use_cuda
+        self.dt_sim = sr_object.dt
+        self.mesh_shape = (
+            sr_object.N_theta_x, sr_object.N_theta_y, sr_object.N_omega
+        )
+
+        self.mesh_spacing = np.array([
+            sr_object.d_theta_x, sr_object.d_theta_y,
+            sr_object.d_omega * hbar ]
+        )
+
+        self.mesh_origin = np.array([
+            sr_object.theta_x_min, sr_object.theta_x_min,
+            sr_object.omega_min * hbar
+        ])
 
         # General setup
         OpenPMDDiagnostic.__init__(self, period, comm, write_dir,
                             iteration_min, iteration_max,
-                            dt_period=dt_period, dt_sim=sr_object.dt )
+                            dt_period=dt_period, dt_sim=self.dt_sim )
 
-        # Register the arguments
-        self.fld = sr_object
 
     def write_hdf5( self, iteration ):
         """
@@ -74,12 +102,13 @@ class SRDiagnostic(OpenPMDDiagnostic):
         """
 
         # If needed: Receive data from the GPU
-        if self.fld.use_cuda :
-            self.fld.receive_from_gpu()
+        if self.use_cuda :
+            for specie_name in self.species_names:
+                self.species[specie_name].synchrotron_radiator\
+                    .receive_from_gpu()
 
         # Extract information needed for the openPMD attributes
-        dt = self.fld.dt
-        time = iteration * dt
+        time = iteration * self.dt_sim
 
         # Create the file with these attributes
         filename = "data%08d.h5" %iteration
@@ -103,8 +132,9 @@ class SRDiagnostic(OpenPMDDiagnostic):
             f.close()
 
         # Send data to the GPU if needed
-        if self.fld.use_cuda :
-            self.fld.send_to_gpu()
+        if self.use_cuda :
+            for specie_name in self.species_names:
+                self.species[specie_name].synchrotron_radiator.send_to_gpu()
 
     # Writing methods
     # ---------------
@@ -120,20 +150,22 @@ class SRDiagnostic(OpenPMDDiagnostic):
         path : string
             The relative path where to write the dataset, in field_grp
         """
-        # Extract the correct dataset
-        data_array = self.get_dataset()
-        if field_grp is not None:
-            dset = field_grp[path]
-            dset[:] =  data_array
-        else:
-            dset = None
 
-    def get_dataset( self ):
+        for specie_name in self.species_names:
+            path_specie = path + '_' + specie_name
+            data_array = self.get_dataset( self.species[specie_name] )
+            if field_grp is not None:
+                dset = field_grp[path_specie]
+                dset[:] =  data_array
+            else:
+                dset = None
+
+    def get_dataset( self, specie ):
         """
-        Copy and dathers radation data on the first proc, in MPI mode
+        Copy and gather radation data on the first proc, in MPI mode
         """
         # Get the data on each individual proc
-        data_one_proc = self.fld.radiation_data.copy()
+        data_one_proc = specie.synchrotron_radiator.radiation_data.copy()
 
         # Gather the data
         if self.comm.size>1:
@@ -174,10 +206,6 @@ class SRDiagnostic(OpenPMDDiagnostic):
         time: float (seconds)
             The physical time at this iteration
         """
-        # Determine the shape of the datasets that will be written
-        data_shape = ( self.fld.N_theta_x, self.fld.N_theta_y,
-                       self.fld.N_omega )
-
         # Create the file
         f = self.open_file( fullpath )
 
@@ -186,48 +214,21 @@ class SRDiagnostic(OpenPMDDiagnostic):
         if f is not None:
 
             # Setup the attributes of the top level of the file
-            self.setup_openpmd_file( f, iteration, time, self.fld.dt )
+            self.setup_openpmd_file( f, iteration, time, self.dt_sim )
 
             # Setup the meshes group (contains all the fields)
             field_path = "/data/%d/fields/" %iteration
             field_grp = f.require_group(field_path)
-            self.setup_openpmd_meshes_group(field_grp)
 
-            dset = field_grp.require_dataset(
-                "radiation", data_shape, dtype='f8')
-            self.setup_openpmd_mesh_component( dset, "radiation" )
-            # Setup the record to which it belongs
-            self.setup_openpmd_mesh_record( dset, "radiation" )
+            for specie_name in self.species_names:
+                dset = field_grp.require_dataset(
+                    f"radiation_{specie_name}", self.mesh_shape, dtype='f8')
+                # Setup the record and the component to which it belongs
+                self.setup_openpmd_mesh_component_record( dset, "radiation" )
             # Close the file
             f.close()
 
-    def setup_openpmd_meshes_group( self, dset ) :
-        """
-        Set the attributes that are specific to the mesh path
-
-        Parameter
-        ---------
-        dset : an h5py.Group object that contains all the mesh quantities
-        """
-        # Field Solver
-        dset.attrs["fieldSolver"] = np.bytes_("PSATD")
-        # Field boundary
-        dset.attrs["fieldBoundary"] = np.array([
-            np.bytes_("reflecting"), np.bytes_("reflecting"),
-            np.bytes_("reflecting"), np.bytes_("reflecting") ])
-        # Particle boundary
-        dset.attrs["particleBoundary"] = np.array([
-            np.bytes_("absorbing"), np.bytes_("absorbing"),
-            np.bytes_("absorbing"), np.bytes_("absorbing") ])
-        # Current Smoothing
-        dset.attrs["currentSmoothing"] = np.bytes_("Binomial")
-        dset.attrs["currentSmoothingParameters"] = \
-          np.bytes_("period=1;numPasses=1;compensator=false")
-        # Charge correction
-        dset.attrs["chargeCorrection"] = np.bytes_("spectral")
-        dset.attrs["chargeCorrectionParameters"] = np.bytes_("period=1")
-
-    def setup_openpmd_mesh_record( self, dset, quantity ) :
+    def setup_openpmd_mesh_component_record( self, dset, quantity ) :
         """
         Sets the attributes that are specific to a mesh record
 
@@ -244,31 +245,14 @@ class SRDiagnostic(OpenPMDDiagnostic):
         # Geometry parameters
         dset.attrs['geometry'] = np.bytes_("cartesian")
         dset.attrs['axisLabels'] = np.array([ b'x', b'y', b'z' ])
-
-        dset.attrs['gridSpacing'] = np.array([
-                self.fld.d_theta_x, self.fld.d_theta_y,
-                self.fld.d_omega * hbar ])
-
-        dset.attrs["gridGlobalOffset"] = np.array([
-            self.fld.theta_x_min, self.fld.theta_x_min,
-            self.fld.omega_min * hbar ])
+        dset.attrs['gridSpacing'] = self.mesh_spacing
+        dset.attrs["gridGlobalOffset"] = self.mesh_origin
 
         # Generic attributes
         dset.attrs["dataOrder"] = np.bytes_("C")
         dset.attrs["gridUnitSI"] = 1.
         dset.attrs["fieldSmoothing"] = np.bytes_("none")
 
-    def setup_openpmd_mesh_component( self, dset, quantity ) :
-        """
-        Set up the attributes of a mesh component
-
-        Parameter
-        ---------
-        dset : an h5py.Dataset or h5py.Group object
-
-        quantity : string
-            The field that is being written
-        """
         # Generic setup of the component
         self.setup_openpmd_component( dset )
 

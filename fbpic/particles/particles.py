@@ -481,16 +481,16 @@ class Particles(object) :
             `(theta_y_min, theta_y_max, N_theta_y)`, where `theta_y_min`
             and `theta_y_max` are floats in radians and `N_theta_y` is integer
 
-        gamma_cutoff: float (optional)
+        gamma_cutoff: float, optional
             Minimal particle gamma factor for which radiation is calculated
 
         radiation_reaction: bool
             Whether to consider radiation reaction on the electrons
 
-        x_max: float (optional)
+        x_max: float, optional
             Extent of the sampling used for the spectral profile function
 
-        nSamples: integer (optional)
+        nSamples: integer, optional
             number of sampling points for the spectral profile function
         """
         self.synchrotron_radiator = SynchrotronRadiator(
