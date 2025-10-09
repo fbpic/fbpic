@@ -841,7 +841,7 @@ class FewCycleLaser( LaserProfile ):
 class FromLasyFileLaser( LaserProfile ):
     """Class that emits a laser from a lasy file"""
 
-    def __init__(self, filename, t_start=0.):
+    def __init__(self, filename, t_start=0., iteration=0):
         """
         Define a laser whose profile is determined by a
         `lasy <https://lasydoc.readthedocs.io/en/latest/>`_ file.
@@ -868,6 +868,9 @@ class FromLasyFileLaser( LaserProfile ):
             emitted. This can be used in order to introduce a time delay that was
             not originally present in the ``lasy`` file. (As explained above, FBPIC ignores any
             initial time offset in the ``lasy``. This offset is replaced by `t_start` (or zero if unspecified).
+
+        iteration: integer, optional, default: 0
+            Iteration number as specified in the  ``lasy`` file.
 
         Example
         -------
@@ -919,7 +922,7 @@ class FromLasyFileLaser( LaserProfile ):
                 "version to at least 0.3.0 (e.g. with `pip install --upgrade lasy`) "
                 "and re-create the file %s." %(filename, filename) )
 
-        dset = f['/data/0/meshes/laserEnvelope']
+        dset = f[f'/data/{iteration}/meshes/laserEnvelope']
         self.omega = dset.attrs['angularFrequency']
         self.pol = dset.attrs['polarization']
         self.t_min_lasy = dset.attrs['gridGlobalOffset'][0]
@@ -934,7 +937,6 @@ class FromLasyFileLaser( LaserProfile ):
                 "Unknown geometry for lasy file %s: %s" \
                 %(filename, dset.attrs['geometry'])
             )
-
 
     def define_thetaMode_interp_function(self, dset):
         """
@@ -993,7 +995,6 @@ class FromLasyFileLaser( LaserProfile ):
 
         self.interp_function = interp_function
 
-
     def define_cartesian_interp_function(self, dset):
         """
         Set the attribute `interp_function`, in the case case
@@ -1047,7 +1048,6 @@ class FromLasyFileLaser( LaserProfile ):
             return env
 
         self.interp_function = interp_function
-
 
     def E_field( self, x, y, z, t ):
         """
