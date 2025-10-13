@@ -10,7 +10,7 @@ from .boosted_field_diag import BoostedFieldDiagnostic, \
                                 BackTransformedFieldDiagnostic
 from .boosted_particle_diag import BoostedParticleDiagnostic, \
                                 BackTransformedParticleDiagnostic
-from .sr_diag import SRDiagnostic
+from .synchrotron_radiation_diag import SynchrotronRadiationDiagnostic
 from .inputscript_diag import InputScriptDiagnostic
 from .checkpoint_restart import set_periodic_checkpoint, \
      restart_from_checkpoint
@@ -19,4 +19,5 @@ __all__ = ['FieldDiagnostic', 'ParticleDiagnostic',
 	'BoostedFieldDiagnostic', 'BoostedParticleDiagnostic',
     'BackTransformedFieldDiagnostic', 'BackTransformedParticleDiagnostic',
     'ParticleChargeDensityDiagnostic', 'InputScriptDiagnostic',
-    'set_periodic_checkpoint', 'restart_from_checkpoint', 'SRDiagnostic']
+    'set_periodic_checkpoint', 'restart_from_checkpoint',
+    'SynchrotronRadiationDiagnostic']

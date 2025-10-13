@@ -62,4 +62,4 @@ The calculated radiation data in the dimensionless units
 (:math:`\partial^2 E_{rad} / \partial \hbar \omega_{ph} \partial \theta`) can be added as a 
 standard openPMD diagnostics:
 
-.. autoclass:: fbpic.openpmd_diag.SRDiagnostic
+.. autoclass:: fbpic.openpmd_diag.SynchrotronRadiationDiagnostic
