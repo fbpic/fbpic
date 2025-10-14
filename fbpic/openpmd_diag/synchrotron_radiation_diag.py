@@ -10,7 +10,7 @@ from scipy.constants import hbar
 from .generic_diag import OpenPMDDiagnostic
 from fbpic.utils.mpi import comm as comm_simple
 
-class SRDiagnostic(OpenPMDDiagnostic):
+class SynchrotronRadiationDiagnostic(OpenPMDDiagnostic):
     """
     Class that defines the synchrotron radiation diagnostics to be performed.
     """

@@ -7,7 +7,7 @@ from scipy.integrate import quad
 from fbpic.main import Simulation
 from fbpic.lpa_utils.bunch import add_particle_bunch_gaussian
 from fbpic.lpa_utils.external_fields import ExternalField
-from fbpic.openpmd_diag import SRDiagnostic
+from fbpic.openpmd_diag import SynchrotronRadiationDiagnostic
 from openpmd_viewer import OpenPMDTimeSeries
 
 # Whether to use the GPU
@@ -107,7 +107,7 @@ def run_simulation():
 
     # Add diagnostics
     sim.diags = [
-                  SRDiagnostic(period=N_step,
+                  SynchrotronRadiationDiagnostic(period=N_step,
                     species={'bunch': bunch},
                     comm=sim.comm)
                 ]
