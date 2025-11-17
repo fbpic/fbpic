@@ -15,10 +15,10 @@ from fbpic.particles.deposition.particle_shapes import Sz_linear, \
     Sr_linear, Sz_cubic, Sr_cubic
 
 # JIT-compilation of particle shapes
-Sz_linear = cuda.jit(Sz_linear, device=True, inline=True)
-Sr_linear = cuda.jit(Sr_linear, device=True, inline=True)
-Sz_cubic = cuda.jit(Sz_cubic, device=True, inline=True)
-Sr_cubic = cuda.jit(Sr_cubic, device=True, inline=True)
+Sz_linear = cuda.jit(Sz_linear, device=True, inline=False)
+Sr_linear = cuda.jit(Sr_linear, device=True, inline=False)
+Sz_cubic = cuda.jit(Sz_cubic, device=True, inline=False)
+Sr_cubic = cuda.jit(Sr_cubic, device=True, inline=False)
 
 # -------------------------------
 # Field deposition - linear - rho

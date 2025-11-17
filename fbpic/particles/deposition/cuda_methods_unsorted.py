@@ -12,8 +12,8 @@ from fbpic.particles.deposition.particle_shapes import Sz_linear, \
     Sr_linear
 
 # JIT-compilation of particle shapes
-Sz_linear = cuda.jit(Sz_linear, device=True, inline=True)
-Sr_linear = cuda.jit(Sr_linear, device=True, inline=True)
+Sz_linear = cuda.jit(Sz_linear, device=True, inline=False)
+Sr_linear = cuda.jit(Sr_linear, device=True, inline=False)
 
 @compile_cupy
 def deposit_rho_gpu_unsorted(x, y, z, w, q,

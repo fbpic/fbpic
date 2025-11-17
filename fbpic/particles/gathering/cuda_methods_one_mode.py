@@ -14,9 +14,9 @@ from .inline_functions import \
     add_linear_gather_for_mode, add_cubic_gather_for_mode
 # Compile the inline functions for GPU
 add_linear_gather_for_mode = cuda.jit( add_linear_gather_for_mode,
-                                        device=True, inline=True )
+                                        device=True, inline=False )
 add_cubic_gather_for_mode = cuda.jit( add_cubic_gather_for_mode,
-                                        device=True, inline=True )
+                                        device=True, inline=False )
 
 @compile_cupy
 def erase_eb_cuda( Ex, Ey, Ez, Bx, By, Bz, Ntot ):
