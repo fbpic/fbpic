@@ -123,11 +123,11 @@ def add_laser( sim, a0, w0, ctau, z0, zf=None, lambda0=0.8e-6,
 
     .. math::
 
-        E(\\boldsymbol{x},t) = a_0\\times E_0\,
-        \exp\left( -\\frac{r^2}{w_0^2} - \\frac{(z-z_0-ct)^2}{c^2\\tau^2} \\right)
+        E(\boldsymbol{x},t) = a_0\times E_0\,
+        \exp\left( -\frac{r^2}{w_0^2} - \frac{(z-z_0-ct)^2}{c^2\tau^2} \right)
         \cos[ k_0( z - z_0 - ct ) - \phi_{cep} ]
 
-    where :math:`k_0 = 2\pi/\\lambda_0` is the wavevector and where
+    where :math:`k_0 = 2\pi/\lambda_0` is the wavevector and where
     :math:`E_0 = m_e c^2 k_0 / q_e` is the field amplitude for :math:`a_0=1`.
 
     .. note::
@@ -156,7 +156,7 @@ def add_laser( sim, a0, w0, ctau, z0, zf=None, lambda0=0.8e-6,
 
     ctau: float (in meter)
         The duration of the laser (in the lab frame),
-        defined as :math:`c\\tau` in the above formula.
+        defined as :math:`c\tau` in the above formula.
 
     z0: float (in meter)
         The initial position of the centroid of the laser
@@ -172,7 +172,7 @@ def add_laser( sim, a0, w0, ctau, z0, zf=None, lambda0=0.8e-6,
 
     lambda0: float (in meter), optional
         The wavelength of the laser (in the lab frame), defined as
-        :math:`\\lambda_0` in the above formula.
+        :math:`\lambda_0` in the above formula.
 
     cep_phase: float (in radian), optional
         The Carrier Enveloppe Phase (CEP), defined as :math:`\phi_{cep}`

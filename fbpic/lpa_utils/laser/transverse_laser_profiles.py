@@ -74,7 +74,7 @@ class LaserTransverseProfile(object):
 
         .. math::
 
-            \\int_0^{2\\pi} d\\theta \\int_0^\\infty r \,dr|f(r, \\theta)|^2
+            \int_0^{2\pi} d\theta \int_0^\infty r \,dr|f(r, \theta)|^2
 
         Returns:
         --------
@@ -100,7 +100,7 @@ class GaussianTransverseProfile(LaserTransverseProfile):
 
         .. math::
 
-            E(x,y,z=z_f) \propto \exp\left( -\\frac{r^2}{w_0^2} \\right)
+            E(x,y,z=z_f) \propto \exp\left( -\frac{r^2}{w_0^2} \right)
 
         where :math:`w_0` is the laser waist and :math:`r = \sqrt{x^2 + y^2}`.
 
@@ -119,7 +119,7 @@ class GaussianTransverseProfile(LaserTransverseProfile):
 
         lambda0: float (in meter), optional
             The wavelength of the laser (in the lab frame), defined as
-            :math:`\\lambda_0` in the above formula.
+            :math:`\lambda_0` in the above formula.
             Default: 0.8 microns (Ti:Sapph laser).
 
         propagation_direction: int, optional
@@ -184,20 +184,20 @@ class LaguerreGaussTransverseProfile( LaserTransverseProfile ):
 
         .. math::
 
-            E(x,y,z=zf) \propto \, f(r, \\theta) \,
-            \exp\left( -\\frac{r^2}{w_0^2} )
+            E(x,y,z=zf) \propto \, f(r, \theta) \,
+            \exp\left( -\frac{r^2}{w_0^2} )
 
-            \mathrm{with} \qquad f(r, \\theta) =
-            \sqrt{\\frac{p!(2-\delta_{m,0})}{(m+p)!}}
-            \\left( \\frac{\sqrt{2}r}{w_0} \\right)^m
-            L^m_p\\left( \\frac{2 r^2}{w_0^2} \\right)
-            \cos[ m(\\theta - \\theta_0)]
+            \mathrm{with} \qquad f(r, \theta) =
+            \sqrt{\frac{p!(2-\delta_{m,0})}{(m+p)!}}
+            \left( \frac{\sqrt{2}r}{w_0} \right)^m
+            L^m_p\left( \frac{2 r^2}{w_0^2} \right)
+            \cos[ m(\theta - \theta_0)]
 
         where :math:`L^m_p` is a Laguerre polynomial and :math:`w_0` is the
         laser waist.
 
         Note that, for :math:`p=m=0`, the profile reduces to a Gaussian and the
-        peak field amplitude is unity. For :math:`m \\neq 0`, the peak
+        peak field amplitude is unity. For :math:`m \neq 0`, the peak
         amplitude is reduced, such that the energy of the pulse is independent
         of ``p`` and ``m``.
 
@@ -226,7 +226,7 @@ class LaguerreGaussTransverseProfile( LaserTransverseProfile ):
         m: int (positive)
             The azimuthal order of the pulse.
             (In the transverse plane, the field of the pulse varies as
-            :math:`\cos[m(\\theta-\\theta_0)]`.)
+            :math:`\cos[m(\theta-\theta_0)]`.)
 
         waist: float (in meter)
             Laser waist at the focal plane, defined as :math:`w_0` in the
@@ -238,14 +238,14 @@ class LaguerreGaussTransverseProfile( LaserTransverseProfile ):
 
         lambda0: float (in meter), optional
             The wavelength of the laser (in the lab frame), defined as
-            :math:`\\lambda_0` in the above formula.
+            :math:`\lambda_0` in the above formula.
             Default: 0.8 microns (Ti:Sapph laser).
 
         theta0: float (in radian), optional
             The azimuthal position of (one of) the maxima of intensity, in the
             transverse plane.
             (In the transverse plane, the field of the pulse varies as
-            :math:`\cos[m(\\theta-\\theta_0)]`.)
+            :math:`\cos[m(\theta-\theta_0)]`.)
 
         propagation_direction: int, optional
             Indicates in which direction the laser propagates.
@@ -321,8 +321,8 @@ class DonutLikeLaguerreGaussTransverseProfile( LaserTransverseProfile ):
 
         Unlike the :any:`LaguerreGaussLaser` profile, this
         profile has a phase which depends on the azimuthal angle
-        :math:`\\theta` (cork-screw pattern), and an intensity profile which
-        is independent on :math:`\\theta` (donut-like).
+        :math:`\theta` (cork-screw pattern), and an intensity profile which
+        is independent on :math:`\theta` (donut-like).
 
         **In the focal plane** (:math:`z=z_f`), the profile translates to a
         laser with a transverse electric field:
@@ -330,13 +330,13 @@ class DonutLikeLaguerreGaussTransverseProfile( LaserTransverseProfile ):
         .. math::
 
             E(x,y,z=zf) \propto \, \, f(r) \,
-            \exp\left( -\\frac{r^2}{w_0^2} \\right) \,
-            \exp\left( -i m\\theta \\right)
+            \exp\left( -\frac{r^2}{w_0^2} \right) \,
+            \exp\left( -i m\theta \right)
 
             \mathrm{with} \qquad f(r) =
-            \sqrt{\\frac{p!}{(|m|+p)!}}
-            \\left( \\frac{\sqrt{2}r}{w_0} \\right)^{|m|}
-            L^{|m|}_p\\left( \\frac{2 r^2}{w_0^2} \\right)
+            \sqrt{\frac{p!}{(|m|+p)!}}
+            \left( \frac{\sqrt{2}r}{w_0} \right)^{|m|}
+            L^{|m|}_p\left( \frac{2 r^2}{w_0^2} \right)
 
         where :math:`L^m_p` is a Laguerre polynomial and :math:`w_0` is the
         laser waist.
@@ -361,7 +361,7 @@ class DonutLikeLaguerreGaussTransverseProfile( LaserTransverseProfile ):
 
         m: int (positive or negative)
             The azimuthal order of the pulse. The laser phase in a given
-            transverse plane varies as :math:`m \\theta`.
+            transverse plane varies as :math:`m \theta`.
 
         waist: float (in meter)
             Laser waist at the focal plane, defined as :math:`w_0` in the
@@ -373,7 +373,7 @@ class DonutLikeLaguerreGaussTransverseProfile( LaserTransverseProfile ):
 
         lambda0: float (in meter), optional
             The wavelength of the laser (in the lab frame), defined as
-            :math:`\\lambda_0` in the above formula.
+            :math:`\lambda_0` in the above formula.
             Default: 0.8 microns (Ti:Sapph laser).
 
         propagation_direction: int, optional
@@ -453,29 +453,29 @@ class FlattenedGaussianTransverseProfile( LaserTransverseProfile ):
         .. math::
 
             E(x,y,z=zf) \propto
-            \exp\\left(-\\frac{r^2}{(N+1)w_0^2}\\right)
-            \sum_{n=0}^N c'_n L^0_n\\left(\\frac{2\,r^2}{(N+1)w_0^2}\\right)
+            \exp\left(-\frac{r^2}{(N+1)w_0^2}\right)
+            \sum_{n=0}^N c'_n L^0_n\left(\frac{2\,r^2}{(N+1)w_0^2}\right)
 
             \mathrm{with} Laguerre polynomials :math:`L^0_n` and
-            \qquad c'_n = \sum_{m=n}^{N}\\frac{1}{2^m}\\binom{m}{n}
+            \qquad c'_n = \sum_{m=n}^{N}\frac{1}{2^m}\binom{m}{n}
 
-        - For :math:`N=0`, this is a Gaussian profile: :math:`E\propto\exp\\left(-\\frac{r^2}{w_0^2}\\right)`.
+        - For :math:`N=0`, this is a Gaussian profile: :math:`E\propto\exp\left(-\frac{r^2}{w_0^2}\right)`.
 
-        - For :math:`N\\rightarrow\infty`, this is a Jinc profile: :math:`E\propto \\frac{J_1(r/w_0)}{r/w_0}`.
+        - For :math:`N\rightarrow\infty`, this is a Jinc profile: :math:`E\propto \frac{J_1(r/w_0)}{r/w_0}`.
 
         The equivalent expression **far from focus** is
 
         .. math::
 
             E(x,y,z=\infty) \propto
-            \exp\\left(-\\frac{(N+1)r^2}{w(z)^2}\\right)
-            \sum_{n=0}^N \\frac{1}{n!}\left(\\frac{(N+1)\,r^2}{w(z)^2}\\right)^n
+            \exp\left(-\frac{(N+1)r^2}{w(z)^2}\right)
+            \sum_{n=0}^N \frac{1}{n!}\left(\frac{(N+1)\,r^2}{w(z)^2}\right)^n
 
-            \mathrm{with} \qquad w(z) = \\frac{\lambda_0}{\pi w_0}|z-z_{foc}|
+            \mathrm{with} \qquad w(z) = \frac{\lambda_0}{\pi w_0}|z-z_{foc}|
 
-        - For :math:`N=0`, this is a Gaussian profile: :math:`E\propto\exp\\left(-\\frac{r^2}{w_(z)^2}\\right)`.
+        - For :math:`N=0`, this is a Gaussian profile: :math:`E\propto\exp\left(-\frac{r^2}{w_(z)^2}\right)`.
 
-        - For :math:`N\\rightarrow\infty`, this is a flat profile: :math:`E\propto \\Theta(w(z)-r)`.
+        - For :math:`N\rightarrow\infty`, this is a flat profile: :math:`E\propto \Theta(w(z)-r)`.
 
         Parameters
         ----------
