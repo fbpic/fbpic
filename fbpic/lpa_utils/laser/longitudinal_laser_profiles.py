@@ -78,7 +78,7 @@ class LaserLongitudinalProfile(object):
 
         .. math::
 
-            \\int_{-\\infty}^\\infty \,dz|f(z)|^2
+            \int_{-\infty}^\infty \,dz|f(z)|^2
 
         Returns:
         --------
@@ -104,10 +104,10 @@ class GaussianChirpedLongitudinalProfile(LaserLongitudinalProfile):
 
         .. math::
 
-            E(z,t) \propto \exp\left( \\frac{(z-z_0-ct)^2}{c^2\\tau^2} \\right)
+            E(z,t) \propto \exp\left( \frac{(z-z_0-ct)^2}{c^2\tau^2} \right)
             \cos[ k_0( z - z_0 - ct ) - \phi_{cep} ]
 
-        where :math:`k_0 = 2\pi/\\lambda_0` is the wavevector, :math:`\\tau`
+        where :math:`k_0 = 2\pi/\lambda_0` is the wavevector, :math:`\tau`
         is the laser duration, :math:`\phi_{cep}` is the CEP phase.
 
         Note that, for a transform-limited pulse, the peak field amplitude of
@@ -118,7 +118,7 @@ class GaussianChirpedLongitudinalProfile(LaserLongitudinalProfile):
         ----------
         tau: float (in second)
             The duration of the laser (in the lab frame),
-            defined as :math:`\\tau` in the above formula.
+            defined as :math:`\tau` in the above formula.
 
         z0: float (in meter)
             The initial position of the centroid of the laser
@@ -126,7 +126,7 @@ class GaussianChirpedLongitudinalProfile(LaserLongitudinalProfile):
 
         lambda0: float (in meter), optional
             The wavelength of the laser (in the lab frame), defined as
-            :math:`\\lambda_0` in the above formula.
+            :math:`\lambda_0` in the above formula.
             Default: 0.8 microns (Ti:Sapph laser).
 
         cep_phase: float (in radian), optional
@@ -214,7 +214,7 @@ class CustomSpectrumLongitudinalProfile(LaserLongitudinalProfile):
         spectral intensity provided in the csv file (as a function of the
         wavelength :math:`\lambda=2\pi/k`). (The fact that the integrand
         is multiplied by :math:`k` in the above formula is because
-        the csv file provides the intensity distribution over wavelengths 
+        the csv file provides the intensity distribution over wavelengths
         :math:`\lambda`, instead of over wavevectors :math:`k`.)
 
         Parameters:

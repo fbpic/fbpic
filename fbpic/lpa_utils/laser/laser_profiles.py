@@ -190,11 +190,11 @@ class GaussianLaser( LaserProfile ):
 
         .. math::
 
-            E(\\boldsymbol{x},t) = a_0\\times E_0\,
-            \exp\left( -\\frac{r^2}{w_0^2} - \\frac{(z-z_0-ct)^2}{c^2\\tau^2} \\right)
+            E(\boldsymbol{x},t) = a_0\times E_0\,
+            \exp\left( -\frac{r^2}{w_0^2} - \frac{(z-z_0-ct)^2}{c^2\tau^2} \right)
             \cos[ k_0( z - z_0 - ct ) - \phi_{cep} ]
 
-        where :math:`k_0 = 2\pi/\\lambda_0` is the wavevector and where
+        where :math:`k_0 = 2\pi/\lambda_0` is the wavevector and where
         :math:`E_0 = m_e c^2 k_0 / q_e` is the field amplitude for :math:`a_0=1`.
 
         .. note::
@@ -217,7 +217,7 @@ class GaussianLaser( LaserProfile ):
 
         tau: float (in second)
             The duration of the laser (in the lab frame),
-            defined as :math:`\\tau` in the above formula.
+            defined as :math:`\tau` in the above formula.
 
         z0: float (in meter)
             The initial position of the centroid of the laser
@@ -233,7 +233,7 @@ class GaussianLaser( LaserProfile ):
 
         lambda0: float (in meter), optional
             The wavelength of the laser (in the lab frame), defined as
-            :math:`\\lambda_0` in the above formula.
+            :math:`\lambda_0` in the above formula.
             Default: 0.8 microns (Ti:Sapph laser).
 
         cep_phase: float (in radian), optional
@@ -312,18 +312,18 @@ class LaguerreGaussLaser( LaserProfile ):
 
         .. math::
 
-            E(\\boldsymbol{x},t) = a_0\\times E_0 \, f(r, \\theta) \,
-            \exp\left( -\\frac{r^2}{w_0^2} - \\frac{(z-z_0-ct)^2}{c^2\\tau^2}
-            \\right) \cos[ k_0( z - z_0 - ct ) - \phi_{cep} ]
+            E(\boldsymbol{x},t) = a_0\times E_0 \, f(r, \theta) \,
+            \exp\left( -\frac{r^2}{w_0^2} - \frac{(z-z_0-ct)^2}{c^2\tau^2}
+            \right) \cos[ k_0( z - z_0 - ct ) - \phi_{cep} ]
 
-            \mathrm{with} \qquad f(r, \\theta) =
-            \sqrt{\\frac{p!(2-\delta_{m,0})}{(m+p)!}}
-            \\left( \\frac{\sqrt{2}r}{w_0} \\right)^m
-            L^m_p\\left( \\frac{2 r^2}{w_0^2} \\right)
-            \cos[ m(\\theta - \\theta_0)]
+            \mathrm{with} \qquad f(r, \theta) =
+            \sqrt{\frac{p!(2-\delta_{m,0})}{(m+p)!}}
+            \left( \frac{\sqrt{2}r}{w_0} \right)^m
+            L^m_p\left( \frac{2 r^2}{w_0^2} \right)
+            \cos[ m(\theta - \theta_0)]
 
         where :math:`L^m_p` is a Laguerre polynomial,
-        :math:`k_0 = 2\pi/\\lambda_0` is the wavevector and where
+        :math:`k_0 = 2\pi/\lambda_0` is the wavevector and where
         :math:`E_0 = m_e c^2 k_0 / q_e`.
 
         (For more info, see
@@ -358,12 +358,12 @@ class LaguerreGaussLaser( LaserProfile ):
         m: int (positive)
             The azimuthal order of the pulse.
             (In the transverse plane, the field of the pulse varies as
-            :math:`\cos[m(\\theta-\\theta_0)]`.)
+            :math:`\cos[m(\theta-\theta_0)]`.)
 
         a0: float (dimensionless)
             The amplitude of the pulse, defined so that the total
             energy of the pulse is the same as that of a Gaussian pulse
-            with the same :math:`a_0`, :math:`w_0` and :math:`\\tau`.
+            with the same :math:`a_0`, :math:`w_0` and :math:`\tau`.
             (i.e. The energy of the pulse is independent of ``p`` and ``m``.)
 
         waist: float (in meter)
@@ -372,7 +372,7 @@ class LaguerreGaussLaser( LaserProfile ):
 
         tau: float (in second)
             The duration of the laser (in the lab frame),
-            defined as :math:`\\tau` in the above formula.
+            defined as :math:`\tau` in the above formula.
 
         z0: float (in meter)
             The initial position of the centroid of the laser
@@ -388,7 +388,7 @@ class LaguerreGaussLaser( LaserProfile ):
 
         lambda0: float (in meter), optional
             The wavelength of the laser (in the lab frame), defined as
-            :math:`\\lambda_0` in the above formula.
+            :math:`\lambda_0` in the above formula.
             Default: 0.8 microns (Ti:Sapph laser).
 
         cep_phase: float (in radian), optional
@@ -400,7 +400,7 @@ class LaguerreGaussLaser( LaserProfile ):
             The azimuthal position of (one of) the maxima of intensity, in the
             transverse plane.
             (In the transverse plane, the field of the pulse varies as
-            :math:`\cos[m(\\theta-\\theta_0)]`.)
+            :math:`\cos[m(\theta-\theta_0)]`.)
 
         propagation_direction: int, optional
             Indicates in which direction the laser propagates.
@@ -455,25 +455,25 @@ class DonutLikeLaguerreGaussLaser( LaserProfile ):
 
         Unlike the :any:`LaguerreGaussLaser` profile, this
         profile has a phase which depends on the azimuthal angle
-        :math:`\\theta` (cork-screw pattern), and an intensity profile which
-        is independent on :math:`\\theta` (donut-like).
+        :math:`\theta` (cork-screw pattern), and an intensity profile which
+        is independent on :math:`\theta` (donut-like).
 
         More precisely, the electric field **near the focal plane**
         is given by:
 
         .. math::
 
-            E(\\boldsymbol{x},t) = a_0\\times E_0 \, f(r) \,
-            \exp\left( -\\frac{r^2}{w_0^2} - \\frac{(z-z_0-ct)^2}{c^2\\tau^2}
-            \\right) \cos[ k_0( z - z_0 - ct ) - m\\theta - \phi_{cep} ]
+            E(\boldsymbol{x},t) = a_0\times E_0 \, f(r) \,
+            \exp\left( -\frac{r^2}{w_0^2} - \frac{(z-z_0-ct)^2}{c^2\tau^2}
+            \right) \cos[ k_0( z - z_0 - ct ) - m\theta - \phi_{cep} ]
 
             \mathrm{with} \qquad f(r) =
-            \sqrt{\\frac{p!}{(|m|+p)!}}
-            \\left( \\frac{\sqrt{2}r}{w_0} \\right)^{|m|}
-            L^{|m|}_p\\left( \\frac{2 r^2}{w_0^2} \\right)
+            \sqrt{\frac{p!}{(|m|+p)!}}
+            \left( \frac{\sqrt{2}r}{w_0} \right)^{|m|}
+            L^{|m|}_p\left( \frac{2 r^2}{w_0^2} \right)
 
         where :math:`L^m_p` is a Laguerre polynomial,
-        :math:`k_0 = 2\pi/\\lambda_0` is the wavevector and where
+        :math:`k_0 = 2\pi/\lambda_0` is the wavevector and where
         :math:`E_0 = m_e c^2 k_0 / q_e`.
 
         (For more info, see
@@ -503,12 +503,12 @@ class DonutLikeLaguerreGaussLaser( LaserProfile ):
 
         m: int (positive or negative)
             The azimuthal order of the pulse. The laser phase in a given
-            transverse plane varies as :math:`m \\theta`.
+            transverse plane varies as :math:`m \theta`.
 
         a0: float (dimensionless)
             The amplitude of the pulse, defined so that the total
             energy of the pulse is the same as that of a Gaussian pulse
-            with the same :math:`a_0`, :math:`w_0` and :math:`\\tau`.
+            with the same :math:`a_0`, :math:`w_0` and :math:`\tau`.
             (i.e. The energy of the pulse is independent of ``p`` and ``m``.)
 
         waist: float (in meter)
@@ -517,7 +517,7 @@ class DonutLikeLaguerreGaussLaser( LaserProfile ):
 
         tau: float (in second)
             The duration of the laser (in the lab frame),
-            defined as :math:`\\tau` in the above formula.
+            defined as :math:`\tau` in the above formula.
 
         z0: float (in meter)
             The initial position of the centroid of the laser
@@ -533,7 +533,7 @@ class DonutLikeLaguerreGaussLaser( LaserProfile ):
 
         lambda0: float (in meter), optional
             The wavelength of the laser (in the lab frame), defined as
-            :math:`\\lambda_0` in the above formula.
+            :math:`\lambda_0` in the above formula.
             Default: 0.8 microns (Ti:Sapph laser).
 
         cep_phase: float (in radian), optional
@@ -604,29 +604,29 @@ class FlattenedGaussianLaser( LaserProfile ):
 
         .. math::
 
-            E(\\boldsymbol{x},t)\propto
-            \exp\\left(-\\frac{r^2}{(N+1)w_0^2}\\right)
-            \sum_{n=0}^N c'_n L^0_n\\left(\\frac{2\,r^2}{(N+1)w_0^2}\\right)
+            E(\boldsymbol{x},t)\propto
+            \exp\left(-\frac{r^2}{(N+1)w_0^2}\right)
+            \sum_{n=0}^N c'_n L^0_n\left(\frac{2\,r^2}{(N+1)w_0^2}\right)
 
-            \mathrm{with} \qquad c'_n = \sum_{m=n}^{N}\\frac{1}{2^m}\\binom{m}{n}
+            \mathrm{with} \qquad c'_n = \sum_{m=n}^{N}\frac{1}{2^m}\binom{m}{n}
 
-        - For :math:`N=0`, this is a Gaussian profile: :math:`E\propto\exp\\left(-\\frac{r^2}{w_0^2}\\right)`.
+        - For :math:`N=0`, this is a Gaussian profile: :math:`E\propto\exp\left(-\frac{r^2}{w_0^2}\right)`.
 
-        - For :math:`N\\rightarrow\infty`, this is a Jinc profile: :math:`E\propto \\frac{J_1(r/w_0)}{r/w_0}`.
+        - For :math:`N\rightarrow\infty`, this is a Jinc profile: :math:`E\propto \frac{J_1(r/w_0)}{r/w_0}`.
 
         The expression **far from focus** is
 
         .. math::
 
-            E(\\boldsymbol{x},t)\propto
-            \exp\\left(-\\frac{(N+1)r^2}{w(z)^2}\\right)
-            \sum_{n=0}^N \\frac{1}{n!}\left(\\frac{(N+1)\,r^2}{w(z)^2}\\right)^n
+            E(\boldsymbol{x},t)\propto
+            \exp\left(-\frac{(N+1)r^2}{w(z)^2}\right)
+            \sum_{n=0}^N \frac{1}{n!}\left(\frac{(N+1)\,r^2}{w(z)^2}\right)^n
 
-            \mathrm{with} \qquad w(z) = \\frac{\lambda_0}{\pi w_0}|z-z_{foc}|
+            \mathrm{with} \qquad w(z) = \frac{\lambda_0}{\pi w_0}|z-z_{foc}|
 
-        - For :math:`N=0`, this is a Gaussian profile: :math:`E\propto\exp\\left(-\\frac{r^2}{w_(z)^2}\\right)`.
+        - For :math:`N=0`, this is a Gaussian profile: :math:`E\propto\exp\left(-\frac{r^2}{w_(z)^2}\right)`.
 
-        - For :math:`N\\rightarrow\infty`, this is a flat profile: :math:`E\propto \\Theta(w(z)-r)`.
+        - For :math:`N\rightarrow\infty`, this is a flat profile: :math:`E\propto \Theta(w(z)-r)`.
 
         Parameters
         ----------
@@ -720,7 +720,7 @@ class FewCycleLaser( LaserProfile ):
         the standard Gaussian profile :any:`GaussianLaser` is not well-adapted.
         This is because :any:`GaussianLaser` neglects the fact that different
         frequencies focus in different ways. In particular, when initializing
-        a :any:`GaussianLaser` (with a short duration :math:`\\tau`) out of
+        a :any:`GaussianLaser` (with a short duration :math:`\tau`) out of
         focus, the profile at focus will not be the expected one.
 
         Instead, the :any:`FewCycleLaser` profile overcomes this limitation.
@@ -730,12 +730,12 @@ class FewCycleLaser( LaserProfile ):
 
         .. math::
 
-            E(\\boldsymbol{x},t) = Re\\left[ a_0\\times E_0\,
-            e^{i\phi_{cep}} \\frac{i Z_R}{q(z)}
-            \\left( 1 + \\frac{ik_0}{s}\\left(z-z_0-ct+
-            \\frac{r^2}{2q(z)}\\right)\\right)^{-(s+1)} \\right]
+            E(\boldsymbol{x},t) = Re\left[ a_0\times E_0\,
+            e^{i\phi_{cep}} \frac{i Z_R}{q(z)}
+            \left( 1 + \frac{ik_0}{s}\left(z-z_0-ct+
+            \frac{r^2}{2q(z)}\right)\right)^{-(s+1)} \right]
 
-        where :math:`k_0 = 2\pi/\\lambda_0` is the wavevector,
+        where :math:`k_0 = 2\pi/\lambda_0` is the wavevector,
         :math:`E_0 = m_e c^2 k_0 / q_e` is the field amplitude for :math:`a_0=1`,
         :math:`Z_R = k_0 w_0^2/2` is the Rayleigh length,
         :math:`q(z) = z-z_f + iZ_R`, and where :math:`s`
@@ -743,15 +743,15 @@ class FewCycleLaser( LaserProfile ):
 
         .. math::
 
-            \omega_0 \\tau_{FWHM} = s\\sqrt{2(4^{1/(s+1)}-1)}
+            \omega_0 \tau_{FWHM} = s\sqrt{2(4^{1/(s+1)}-1)}
 
         .. note::
 
-            In the case of :math:`\omega_0 \\tau_{FWHM} \gg 1` (i.e. many
+            In the case of :math:`\omega_0 \tau_{FWHM} \gg 1` (i.e. many
             laser cycles within the envelope), the above expression approaches
             that of a standard Gaussian laser pulse, and thus the :any:`FewCycleLaser`
             profile becomes equivalent to the :any:`GaussianLaser` profile
-            (with :math:`\\tau_{FWHM} = \\sqrt{2\\log(2)}\\tau`).
+            (with :math:`\tau_{FWHM} = \sqrt{2\log(2)}\tau`).
 
         Parameters
         ----------
@@ -766,7 +766,7 @@ class FewCycleLaser( LaserProfile ):
 
         tau_FWHM: float (in second)
             The full-width half-maximum duration of the **envelope intensity** (in
-            the lab frame), defined as :math:`\\tau_{FWHM}` in the above formula.
+            the lab frame), defined as :math:`\tau_{FWHM}` in the above formula.
 
         z0: float (in meter)
             The initial position of the centroid of the laser
@@ -782,7 +782,7 @@ class FewCycleLaser( LaserProfile ):
 
         lambda0: float (in meter), optional
             The wavelength of the laser (in the lab frame), defined as
-            :math:`\\lambda_0` in the above formula.
+            :math:`\lambda_0` in the above formula.
             Default: 0.8 microns (Ti:Sapph laser).
 
         cep_phase: float (in radian), optional

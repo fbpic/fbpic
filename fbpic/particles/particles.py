@@ -563,29 +563,29 @@ class Particles(object) :
         vector throughout the simulation.
 
         .. math::
-            \\frac{d\\boldsymbol{s}}{dt} = (\\boldsymbol{\\Omega}_T +
-             \\boldsymbol{\\Omega}_a) \\times \\boldsymbol{s}
+            \frac{d\boldsymbol{s}}{dt} = (\boldsymbol{\Omega}_T +
+             \boldsymbol{\Omega}_a) \times \boldsymbol{s}
 
         where
 
         .. math::
-            \\boldsymbol{\\Omega}_T = \\frac{q}{m}\\left(
-                 \\frac{\\boldsymbol{B}}{\\gamma} -
-                 \\frac{\\boldsymbol{B}}{1+\\gamma}
-                 \\times \\frac{\\boldsymbol{E}}{c} \\right)
+            \boldsymbol{\Omega}_T = \frac{q}{m}\left(
+                 \frac{\boldsymbol{B}}{\gamma} -
+                 \frac{\boldsymbol{B}}{1+\gamma}
+                 \times \frac{\boldsymbol{E}}{c} \right)
 
         and
 
         .. math::
-            \\boldsymbol{\\Omega}_a = a_e \\frac{q}{m}\\left(
-                 \\boldsymbol{B} -
-                 \\frac{\\gamma}{1+\\gamma}\\boldsymbol{\\beta}
-                 (\\boldsymbol{\\beta}\\cdot\\boldsymbol{B}) -
-                 \\boldsymbol{\\beta} \\times \\frac{\\boldsymbol{E}}{c} \\right)
+            \boldsymbol{\Omega}_a = a_e \frac{q}{m}\left(
+                 \boldsymbol{B} -
+                 \frac{\gamma}{1+\gamma}\boldsymbol{\beta}
+                 (\boldsymbol{\beta}\cdot\boldsymbol{B}) -
+                 \boldsymbol{\beta} \times \frac{\boldsymbol{E}}{c} \right)
 
         Here, :math:`a_e` is the anomalous magnetic moment of the particle,
-        :math:`\\gamma` is the Lorentz factor of the particle,
-        :math:`\\boldsymbol{\\beta}=\\boldsymbol{v}/c` is the normalised velocity
+        :math:`\gamma` is the Lorentz factor of the particle,
+        :math:`\boldsymbol{\beta}=\boldsymbol{v}/c` is the normalised velocity
 
         The implementation of the push algorithm is detailed in
         https://arxiv.org/abs/2303.16966.
