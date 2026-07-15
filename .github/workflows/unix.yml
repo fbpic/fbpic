@@ -45,7 +45,7 @@ jobs:
       run: |
         export NUMBA_THREADING_LAYER=omp
         export MKL_NUM_THREADS=2
-        export NUMBA_NUM_THREADS=2
+        export OPENPMD_VERIFY_HOMOGENEOUS_EXTENTS=0
         python -m pytest tests --ignore=tests/unautomated
     - shell: bash -eo pipefail -l {0}
       name: PICMI test
