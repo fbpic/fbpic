@@ -184,7 +184,7 @@ def scatter_photons_electrons_numba(
                 k = photon_rest_p * INV_MC
                 c0 = 2.*(2.*k**2 + 2.*k + 1.)/(2.*k + 1.)**3
                 b = (2. + c0)/(2. - c0)
-                a = 2.*b - 1.
+                a = 2.*(b - 1.)
                 # Use rejection method to draw x
                 reject = True
                 while reject:
