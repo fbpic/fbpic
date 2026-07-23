@@ -65,7 +65,7 @@ def run_sim(script_name, n_MPI=1):
     # Modify the script to perform N_step, enforce the random seed
     # (should be the same when restarting, for exact comparison),
     # and perform again N_step.
-    script = replace_string( script, 'sim.step\( N_step \)',
+    script = replace_string( script, r'sim.step\( N_step \)',
            'sim.step( N_step ); np.random.seed(0); sim.step( N_step )' )
 
     # Activate the spin tracking
@@ -73,8 +73,8 @@ def run_sim(script_name, n_MPI=1):
         script = replace_string(script, '# Load initial fields',
                       'elec.activate_spin_tracking(sz_m=1., anom=0.)')
     elif script_name == 'ionization_script.py':
-        script = re.sub('(\s*)(\S*) = sim.add_new_species\(([\s\S\n]*?)\)',
-               '\g<1>\g<2> = sim.add_new_species(\g<3>)\g<1>\g<2>.activate_spin_tracking(sz_m=1., anom=0.)',
+        script = re.sub(r'(\s*)(\S*) = sim.add_new_species\(([\s\S\n]*?)\)',
+               r'\g<1>\g<2> = sim.add_new_species(\g<3>)\g<1>\g<2>.activate_spin_tracking(sz_m=1., anom=0.)',
                script)
     else:
         raise ValueError('File %s unknown!' % script_name)
@@ -97,8 +97,8 @@ def run_sim(script_name, n_MPI=1):
     shutil.move( os.path.join( temporary_dir, 'diags'),
                  os.path.join( temporary_dir, 'original_diags') )
     # Keep only the checkpoints from the first N_step
-    N_step = int( get_string( 'N_step = (\d+)', script ) )
-    period = int( get_string( 'checkpoint_period = (\d+)', script ) )
+    N_step = int( get_string( r'N_step = (\d+)', script ) )
+    period = int( get_string( r'checkpoint_period = (\d+)', script ) )
     for i_MPI in range(n_MPI):
         for step in range( N_step + period, 2*N_step + period, period ):
             os.remove( os.path.join( temporary_dir,
@@ -109,7 +109,7 @@ def run_sim(script_name, n_MPI=1):
                                 'use_restart = True')
     # Redo only the last N_step
     script = replace_string( script,
-           'sim.step\( N_step \); np.random.seed\(0\); sim.step\( N_step \)',
+           r'sim.step\( N_step \); np.random.seed\(0\); sim.step\( N_step \)',
            'np.random.seed(0); sim.step( N_step )',)
     with open(script_filename, 'w') as f:
         f.write(script)

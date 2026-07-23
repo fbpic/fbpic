@@ -106,9 +106,9 @@ def run_sim( script_name, n_MPI, checked_fields, test_checkpoint_dir=False ):
         # Try to change the name of the checkpoint directory
         checkpoint_dir = './test_chkpt'
         script = replace_string( script,
-            'set_periodic_checkpoint\( sim, checkpoint_period \)',
+            r'set_periodic_checkpoint\( sim, checkpoint_period \)',
             'set_periodic_checkpoint( sim, checkpoint_period, checkpoint_dir="%s" )'%checkpoint_dir)
-        script = replace_string( script, 'restart_from_checkpoint\( sim \)',
+        script = replace_string( script, r'restart_from_checkpoint\( sim \)',
          'restart_from_checkpoint( sim, checkpoint_dir="%s" )'%checkpoint_dir)
     else:
         checkpoint_dir = './checkpoints'
@@ -118,7 +118,7 @@ def run_sim( script_name, n_MPI, checked_fields, test_checkpoint_dir=False ):
     # Modify the script to perform N_step, enforce the random seed
     # (should be the same when restarting, for exact comparison),
     # and perform again N_step.
-    script = replace_string( script, 'sim.step\( N_step \)',
+    script = replace_string( script, r'sim.step\( N_step \)',
            'sim.step( N_step ); np.random.seed(0); sim.step( N_step )' )
     with open(script_filename, 'w') as f:
         f.write(script)
@@ -138,8 +138,8 @@ def run_sim( script_name, n_MPI, checked_fields, test_checkpoint_dir=False ):
     shutil.move( os.path.join( temporary_dir, 'diags'),
                  os.path.join( temporary_dir, 'original_diags') )
     # Keep only the checkpoints from the first N_step
-    N_step = int( get_string( 'N_step = (\d+)', script ) )
-    period = int( get_string( 'checkpoint_period = (\d+)', script ) )
+    N_step = int( get_string( r'N_step = (\d+)', script ) )
+    period = int( get_string( r'checkpoint_period = (\d+)', script ) )
     for i_MPI in range(n_MPI):
         for step in range( N_step + period, 2*N_step + period, period ):
             os.remove( os.path.join( temporary_dir,
@@ -150,7 +150,7 @@ def run_sim( script_name, n_MPI, checked_fields, test_checkpoint_dir=False ):
                                 'use_restart = True')
     # Redo only the last N_step
     script = replace_string( script,
-           'sim.step\( N_step \); np.random.seed\(0\); sim.step\( N_step \)',
+           r'sim.step\( N_step \); np.random.seed\(0\); sim.step\( N_step \)',
            'np.random.seed(0); sim.step( N_step )',)
     with open(script_filename, 'w') as f:
         f.write(script)
