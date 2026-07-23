@@ -187,8 +187,8 @@ def run_simulation( gamma_boost, show ):
         grid = np.where( grid==0, np.nan, grid )
         plt.imshow( grid.T, origin='lower', extent=extent,
                     cmap='gist_earth', aspect='auto', vmax=1.8e-16 )
-        plt.title('Particles, $d^2N/d\omega \,d\Omega$')
-        plt.xlabel('Scaled energy ($\omega/4\gamma^2\omega_\ell$)')
+        plt.title(r'Particles, $d^2N/d\omega \,d\Omega$')
+        plt.xlabel(r'Scaled energy ($\omega/4\gamma^2\omega_\ell$)')
         plt.ylabel(r'$\gamma \theta$' )
         plt.colorbar()
         # Plot theory
