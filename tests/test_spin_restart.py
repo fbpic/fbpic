@@ -205,8 +205,8 @@ def compare_spin_vectors(ts1, ts2, checked_species):
                 # Get the same IDs
                 ids = s1[1] if len(s1[0]) < len(s2[0]) else s2[1]
 
-                s1_common = s1[0][np.in1d(s1[1], ids)]
-                s2_common = s2[0][np.in1d(s2[1], ids)]
+                s1_common = s1[0][np.isin(s1[1], ids)]
+                s2_common = s2[0][np.isin(s2[1], ids)]
                 assert np.allclose(s1_common, s2_common, atol=tolerance)
 
 

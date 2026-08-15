@@ -41,6 +41,12 @@ except (ImportError, AssertionError):
 
 cuda_installed = (numba_cuda_installed and cupy_installed)
 
+try:
+    import pynvml
+    pynvml_installed = True
+except ImportError:
+    pynvml_installed = False
+
 # -----------------------------------------------------
 # CUDA grid utilities
 # -----------------------------------------------------
@@ -218,6 +224,23 @@ def get_uuid(gpu_id):
     fmt = f'GPU-{b4}-{b2}-{b2}-{b2}-{b6}'
     return fmt % tuple(bytes(uuid))
 
+def get_uuid_alt(gpu_id):
+    """
+    Returns the UUID of a GPU device using `pynvml`.
+
+    Parameters:
+    -----------
+    gpu_id: Local device id of the GPU (int)
+
+    Returns:
+    --------
+    uuid: Unique identifier (UUID) of the GPU (str)
+    """
+    pynvml.nvmlInit()
+    handle = pynvml.nvmlDeviceGetHandleByIndex(gpu_id)
+    uuid = pynvml.nvmlDeviceGetUUID(handle)
+    pynvml.nvmlShutdown()
+    return uuid
 
 def check_consecutive_ranks_on_same_nodes(mpi):
     """
@@ -283,7 +306,10 @@ def mpi_select_gpus(mpi):
     for i_gpu in range(n_gpus):
         if rank%n_gpus == i_gpu:
             cuda.select_device(i_gpu)
-            uuid = get_uuid(i_gpu)
+            if pynvml_installed:
+                uuid = get_uuid_alt(i_gpu)
+            else:
+                uuid = get_uuid(i_gpu)
         mpi.COMM_WORLD.barrier()
 
     # Gather unique GPU identifiers

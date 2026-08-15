@@ -16,12 +16,12 @@ from .inline_functions import push_s_BMT, copy_ionized_electron_spin_batch
 from .cuda_numba_utils import random_point_sphere_gpu
 
 # Compile the inline function for GPU
-push_s_BMT = cuda.jit( push_s_BMT, device=True, inline=True )
+push_s_BMT = cuda.jit( push_s_BMT, device=True, inline=False )
 copy_ionized_electron_spin_batch = \
     cuda.jit(copy_ionized_electron_spin_batch, device=True, 
-             inline=True)
+             inline=False)
 random_point_sphere_gpu = cuda.jit(random_point_sphere_gpu, 
-                                   device=True, inline=True)
+                                   device=True, inline=False)
 
 @compile_cupy
 def push_s_gpu(sx, sy, sz, ux_prev, uy_prev, uz_prev, ux, uy, uz,

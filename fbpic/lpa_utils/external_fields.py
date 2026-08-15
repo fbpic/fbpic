@@ -134,7 +134,7 @@ class ExternalField( object ):
         self.cpu_func = cpu_compiler( func )
         if cuda_installed:
             # First create a device inline function
-            inline_func = cuda.jit( func, inline=True, device=True )
+            inline_func = cuda.jit( func, inline=False, device=True )
             # Then create a CUDA kernel and compile it the usual way
             def external_field_kernel( F, x, y, z, t, amplitude, length_scale ):
                 i = cuda.grid(1)
