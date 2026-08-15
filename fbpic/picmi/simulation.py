@@ -373,7 +373,7 @@ class Simulation( PICMI_Simulation ):
                 for data in diagnostic.data_list:
                     if data in ['Ex', 'Ey', 'Ez', 'E']:
                         data_list.add('E')
-                    elif data in ['Bx', 'By', 'Bz', 'B']:
+                    elif data in ['Bx', 'By', 'Bz', 'Bt' 'Wr' 'B']:
                         data_list.add('B')
                     elif data in ['Jx', 'Jy', 'Jz', 'J']:
                         data_list.add('J')
@@ -485,7 +485,7 @@ class Simulation( PICMI_Simulation ):
 
         elif type(applied_field) == PICMI_ConstantAppliedField:
             # TODO: Handle bounds
-            for field_name in ['Ex', 'Ey', 'Ez', 'Bx', 'By', 'Bz']:
+            for field_name in ['Ex', 'Ey', 'Ez', 'Bx', 'By', 'Bz', 'Bt', 'Wr']:
                 field_value = getattr( applied_field, field_name )
                 if field_value is None:
                     continue
@@ -498,7 +498,7 @@ class Simulation( PICMI_Simulation ):
 
         elif type(applied_field) == PICMI_AnalyticAppliedField:
             # TODO: Handle bounds
-            for field_name in ['Ex', 'Ey', 'Ez', 'Bx', 'By', 'Bz']:
+            for field_name in ['Ex', 'Ey', 'Ez', 'Bx', 'By', 'Bz', 'Bt', 'Wr']:
                 # Extract expression and execute it inside a function definition
                 expression = getattr( applied_field, field_name+'_expression' )
                 if expression is None:

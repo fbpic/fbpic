@@ -422,7 +422,7 @@ def add_particle_bunch_openPMD( sim, q, m, ts_path, z_off=0., species=None,
     except ImportError:
         # If not available, try to import openPMD-viewer, version 0
         try:
-            from opmd_viewer import OpenPMDTimeSeries
+            from openpmd_viewer import OpenPMDTimeSeries
             openpmd_viewer_version = 0
         except ImportError:
             openpmd_viewer_version = None
@@ -834,6 +834,252 @@ def add_elec_bunch_from_arrays( sim, x, y, z, ux, uy, uz, w,
                                    z_injection_plane=z_injection_plane)
     return elec_bunch
 
+def square_gaussian_beam_density(sim, x, y, z, n_b0, sigma_x, sigma_y, L_b):
+    """
+    Calculate the square Gaussian beam density profile.
+
+    Parameters
+    ----------
+    x, y, z : numpy arrays
+        Coordinates of the simulation grid.
+    n_b0 : float
+        Peak density of the beam (particles/m^3).
+    sigma_x, sigma_y : float
+        R.m.s. transverse sizes of the beam.
+    L_b : float
+        Length of the beam.
+
+    Returns
+    -------
+    n_b : numpy array
+        Beam density at each grid point.
+    """
+    # Beam extent
+    x_extent = 2 * sigma_x
+    y_extent = 2 * sigma_y
+
+    # Logical conditions for the beam region
+    inside_x = np.abs(x) <= x_extent
+    inside_y = np.abs(y) <= y_extent
+    inside_z = (z >= 0) & (z <= L_b)
+    
+    # Gaussian transverse profile
+    gaussian_profile = np.exp(-0.5 * ((x / sigma_x) ** 2 + (y / sigma_y) ** 2))
+
+    # Apply the conditions
+    n_b = np.where(inside_x & inside_y & inside_z, n_b0, 0) * gaussian_profile
+    return n_b
+
+def compute_transverse_emittance(x, p_x):
+    """
+    Compute the transverse emittance.
+
+    Parameters
+    ----------
+    x : numpy array
+        Positions of the particles in the transverse plane.
+    p_x : numpy array
+        Momentum of the particles in the x-direction of the transverse plane.
+
+    Returns
+    -------
+    epsilon_x : float
+        Transverse emittance (m·rad).
+    """
+    # Calculate the averages
+    x_mean = np.mean(x)
+    p_x_mean = np.mean(p_x)
+    x_p_x_mean = np.mean(x * p_x)
+
+    # Calculate the RMS values
+    x_rms = np.sqrt(np.mean((x - x_mean) ** 2))
+    p_x_rms = np.sqrt(np.mean((p_x - p_x_mean) ** 2))
+
+    # Transverse emittance formula
+    epsilon_x = np.sqrt(x_rms ** 2 * p_x_rms ** 2 - (x_p_x_mean - x_mean * p_x_mean) ** 2)
+    return epsilon_x
+
+def compute_transverse_emittance_y(y, p_y):
+    """
+    Compute the transverse emittance in the y-direction.
+
+    Parameters
+    ----------
+    y : numpy array
+        Positions of the particles in the transverse plane.
+    p_y : numpy array
+        Momentum of the particles in the y-direction of the transverse plane.
+
+    Returns
+    -------
+    epsilon_y : float
+        Transverse emittance (m·rad).
+    """
+    # Calculate the averages
+    y_mean = np.mean(y)
+    p_y_mean = np.mean(p_y)
+    y_p_y_mean = np.mean(y * p_y)
+
+    # Calculate the RMS values
+    y_rms = np.sqrt(np.mean((y - y_mean) ** 2))
+    p_y_rms = np.sqrt(np.mean((p_y - p_y_mean) ** 2))
+
+    # Transverse emittance formula
+    epsilon_y = np.sqrt(y_rms ** 2 * p_y_rms ** 2 - (y_p_y_mean - y_mean * p_y_mean) ** 2)
+    return epsilon_y
+
+def compute_normalized_emittance(epsilon_x, gamma, beta):
+    """
+    Compute the normalized transverse emittance.
+
+    Parameters
+    ----------
+    epsilon_x : float
+        Transverse emittance (m·rad).
+    gamma : float
+        Relativistic gamma factor.
+    beta : float
+        Relativistic beta factor (v/c).
+
+    Returns
+    -------
+    epsilon_x_n : float
+        Normalized transverse emittance (m·rad).
+    """
+    return gamma * beta * epsilon_x
+
+# Constants
+gamma_particles = 10  # Relativistic factor
+#beta_particles = np.sqrt(1 - 1 / gamma_particles**2)
+
+# Emittance Growth due to Scattering
+def scattering_emittance_growth(s, initial_emittance, scattering_rate, damping_rate):
+    """
+    Emittance growth due to scattering and damping.
+    
+    Parameters
+    ----------
+    s : numpy array
+        Longitudinal positions (m).
+    initial_emittance : float
+        Initial transverse emittance (m.rad).
+    scattering_rate : float
+        Scattering growth rate (1/m).
+    damping_rate : float
+        Damping rate (1/m).
+    
+    Returns
+    -------
+    emittance : numpy array
+        Emittance evolution over `s`.
+    """
+    growth_term = scattering_rate * s
+    damping_term = initial_emittance * np.exp(-damping_rate * s)
+    emittance = growth_term + damping_term
+    return emittance
+
+# Beam Envelope Evolution with Betatron Oscillations
+def beam_envelope_betatron(s, r0, dr0, omega_p, gamma):
+    """
+    Evolution of beam envelope with betatron oscillations.
+    
+    Parameters
+    ----------
+    s : numpy array
+        Longitudinal positions (m).
+    r0 : float
+        Initial beam radius (m).
+    dr0 : float
+        Initial beam divergence (m).
+    omega_p : float
+        Plasma frequency (rad/s).
+    gamma : float
+        Relativistic factor.
+    
+    Returns
+    -------
+    r : numpy array
+        Beam envelope at each position `s`
+    """
+    betatron_freq = omega_p / np.sqrt(2 * gamma)
+    r = r0 * np.cos(betatron_freq * s) + (dr0 / betatron_freq) * np.sin(betatron_freq * s)
+    return r
+
+
+def bi_gaussian_beam_density(x, y, z, params):
+    """
+    Calculate the bi-Gaussian beam density profile.
+
+    Parameters
+    ----------
+    x, y, z : numpy arrays
+        Coordinates of the simulation grid.
+    params : dict
+        Dictionary containing beam parameters:
+        - 'drive': { 'n0', 'sigma_x', 'sigma_y', 'sigma_z', 'center' }
+        - 'witness': { 'n0', 'sigma_x', 'sigma_y', 'sigma_z', 'center' }
+
+    Returns
+    -------
+    rho : numpy array
+        Total charge density at each grid point.
+    """
+    # Drive beam parameters
+    drive = params['drive']
+    n_d0, sigma_dx, sigma_dy, sigma_dz = drive['n0'], drive['sigma_x'], drive['sigma_y'], drive['sigma_z']
+    x_d, y_d, z_d = drive['center']
+    
+    # Witness beam parameters
+    witness = params['witness']
+    n_w0, sigma_wx, sigma_wy, sigma_wz = witness['n0'], witness['sigma_x'], witness['sigma_y'], witness['sigma_z']
+    x_w, y_w, z_w = witness['center']
+    
+    # Drive beam density
+    rho_d = (n_d0 / ((2 * np.pi)**1.5 * sigma_dx * sigma_dy * sigma_dz)) * np.exp(
+        - ((x - x_d)**2) / (2 * sigma_dx**2)
+        - ((y - y_d)**2) / (2 * sigma_dy**2)
+        - ((z - z_d)**2) / (2 * sigma_dz**2)
+    )
+    
+    # Witness beam density
+    rho_w = (n_w0 / ((2 * np.pi)**1.5 * sigma_wx * sigma_wy * sigma_wz)) * np.exp(
+        - ((x - x_w)**2) / (2 * sigma_wx**2)
+        - ((y - y_w)**2) / (2 * sigma_wy**2)
+        - ((z - z_w)**2) / (2 * sigma_wz**2)
+    )
+    
+    # Total density
+    return rho_d + rho_w
+
+def ellipsoidal_beam_density(x, y, z, Q_b, sigma_x, sigma_y, sigma_z):
+    """
+    Compute the density of an ellipsoidal beam.
+
+    Parameters:
+    x : numpy array
+        1D array of x coordinates.
+    y : numpy array
+        1D array of y coordinates.
+    z : numpy array
+        1D array of z coordinates.
+    Q_b : float
+        Total charge of the beam.
+    sigma_x : float
+        RMS size in x direction.
+    sigma_y : float
+        RMS size in y direction.
+    sigma_z : float
+        RMS size in z direction.
+
+    Returns:
+    density : numpy array
+        3D array of beam density.
+    """
+    X, Y, Z = np.meshgrid(x, y, z, indexing='ij')
+    density = (Q_b / (4 * np.pi * sigma_x * sigma_y * sigma_z)) * np.exp(
+        -0.5 * ((X**2 / sigma_x**2) + (Y**2 / sigma_y**2) + (Z**2 / sigma_z**2))
+    )
+    return density
 
 def get_space_charge_fields( sim, ptcl, direction='forward' ):
     """
