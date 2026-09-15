@@ -102,7 +102,8 @@ class ContinuousInjector( object ):
         if len( species_z ) > 0:
             # Add half of the spacing between particles (the
             # injection function itself will add a half-spacing again)
-            self.z_end_plasma = species_z.max() + 0.5*self.dz_particles
+            self.z_end_plasma = \
+                species_z.max().item() + 0.5*self.dz_particles
         else:
             # Default value for empty species
             _, zmax_global_physical_domain = comm.get_zmin_zmax( local=False,

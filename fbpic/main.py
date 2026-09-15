@@ -13,16 +13,14 @@ from fbpic.utils.mpi import MPI
 # Check if threading is available
 from .utils.threading import threading_enabled, numba_version
 # Check if CUDA is available, then import CUDA functions
-from .utils.cuda import cuda_installed, \
+from .utils.cuda import cuda_installed, GpuMemoryManager, \
     cupy_installed, cupy_version, numba_cuda_installed
 if cuda_installed:
-    from .utils.cuda import send_data_to_gpu, \
-                receive_data_from_gpu, mpi_select_gpus
+    from .utils.cuda import mpi_select_gpus
     mpi_select_gpus( MPI )
-    if cupy_installed:
-        import cupy
 
 # Import the rest of the requirements
+from functools import wraps
 import sys
 import warnings
 import numba
@@ -34,6 +32,62 @@ from .particles.injection.continuous_injection import _check_dens_func_arguments
 from .lpa_utils.boosted_frame import BoostConverter
 from .fields import Fields
 from .boundaries import BoundaryCommunicator, MovingWindow
+
+
+class _AsyncDiagnosticFlushError(RuntimeError):
+    """Preserve failures from more than one asynchronous diagnostic group."""
+
+    def __init__(self, errors):
+        self.errors = tuple(errors)
+        messages = "; ".join(str(error) for error in self.errors)
+        super().__init__(
+            "multiple asynchronous diagnostic groups failed to flush: "
+            + messages)
+
+
+def _preserve_gpu_residency(method):
+    """Run a CUDA simulation method without changing its entry residency."""
+    @wraps(method)
+    def wrapped(self, *args, **kwargs):
+        def call_and_flush():
+            method_error = None
+            method_traceback = None
+            try:
+                result = method(self, *args, **kwargs)
+            except BaseException as error:
+                method_error = error
+                method_traceback = error.__traceback__
+
+            flush_errors = []
+            for diagnostic in getattr(self, 'diags', ()):
+                if getattr(diagnostic, '_fbpic_async_diagnostic', False):
+                    try:
+                        diagnostic.flush()
+                    except BaseException as error:
+                        flush_errors.append(error)
+
+            if len(flush_errors) == 1:
+                flush_error = flush_errors[0]
+            elif flush_errors:
+                flush_error = _AsyncDiagnosticFlushError(flush_errors)
+            else:
+                flush_error = None
+
+            if method_error is not None:
+                if flush_error is not None:
+                    raise method_error.with_traceback(
+                        method_traceback) from flush_error
+                raise method_error.with_traceback(method_traceback)
+            if flush_error is not None:
+                raise flush_error
+            return result
+
+        if self.use_cuda:
+            with GpuMemoryManager(self):
+                return call_and_flush()
+        return call_and_flush()
+    return wrapped
+
 
 class Simulation(object):
     """
@@ -343,6 +397,37 @@ class Simulation(object):
         # Print simulation setup
         print_simulation_setup( self, verbose_level=verbose_level )
 
+    def gpu_resident(self):
+        """Keep simulation data on the GPU until the returned scope exits.
+
+        This is useful when advancing a CUDA simulation through several short
+        :meth:`step` calls. Fields and particles are uploaded on entry and
+        restored to their original residency on exit, including when an
+        exception is raised::
+
+            with sim.gpu_resident():
+                sim.step(5)
+                sim.step(5)
+
+        CPU-side field and particle arrays must not be read or modified inside
+        the scope. Diagnostics invoked by :meth:`step` remain supported.
+
+        Returns
+        -------
+        GpuMemoryManager
+            A context manager that restores the entry residency on exit.
+
+        Raises
+        ------
+        RuntimeError
+            If this simulation was not created with ``use_cuda=True``.
+        """
+        if not self.use_cuda:
+            raise RuntimeError(
+                "gpu_resident requires a simulation with use_cuda=True")
+        return GpuMemoryManager(self)
+
+    @_preserve_gpu_residency
     def step(self, N=1, correct_currents=True,
              correct_divE=False, use_true_rho=False,
              move_positions=True, move_momenta=True,
@@ -399,10 +484,6 @@ class Simulation(object):
         if show_progress and self.comm.rank==0:
             progress_bar = ProgressBar( N )
 
-        # Send simulation data to GPU (if CUDA is used)
-        if self.use_cuda:
-            send_data_to_gpu(self)
-
         # Get the E and B fields in spectral space initially
         # (In the rest of the loop, E and B will only be transformed
         # from spectal space to real space, but never the other way around)
@@ -448,11 +529,6 @@ class Simulation(object):
                 # (Since particles have been removed / added to the simulation;
                 # otherwise rho_prev is obtained from the previous iteration.)
                 self.deposit('rho_prev', exchange=(use_true_rho is True))
-
-                # For simulations on GPU, clear the memory pool used by cupy.
-                if self.use_cuda:
-                    mempool = cupy.get_default_memory_pool()
-                    mempool.free_all_blocks()
 
             # For the field diagnostics of the first step: deposit J
             # (Note however that this is not the *corrected* current)
@@ -588,10 +664,6 @@ class Simulation(object):
         fld.spect2interp('rho_prev')
         if (not fld.exchanged_source['rho_prev']) and (self.comm.size > 1):
             self.comm.exchange_fields(self.fld.interp, 'rho', 'add')
-
-        # Receive simulation data from GPU (if CUDA is used)
-        if self.use_cuda:
-            receive_data_from_gpu(self)
 
         # Print the measured time taken by the PIC cycle
         if show_progress and (self.comm.rank==0):

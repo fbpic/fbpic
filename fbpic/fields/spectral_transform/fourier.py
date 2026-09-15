@@ -11,10 +11,36 @@ import numba
 # Check if CUDA is available, then import CUDA functions
 from fbpic.utils.cuda import cuda_installed
 if cuda_installed:
-    from fbpic.utils.cuda import cuda_tpb_bpg_2d, cuda_gpu_model
+    from fbpic.utils.cuda import cuda_tpb_bpg_2d, get_cuda_launch_config
     from .cuda_methods import cuda_copy_2d_to_1d, cuda_copy_1d_to_2d
     import cupy
     from cupy.cuda import cufft
+
+
+class _CudaGraphCache(object):
+    """Warm, capture, and replay stable CUDA operation sequences by key."""
+
+    def __init__(self, capture_stream, replay_stream):
+        self.capture_stream = capture_stream
+        self.replay_stream = replay_stream
+        self.graphs = {}
+        self.warmed = set()
+
+    def run(self, key, operation):
+        graph = self.graphs.get(key)
+        if graph is not None:
+            graph.launch(self.replay_stream)
+            return
+        if key not in self.warmed:
+            self.warmed.add(key)
+            operation()
+            return
+        with self.capture_stream:
+            self.capture_stream.begin_capture()
+            operation()
+            graph = self.capture_stream.end_capture()
+            self.graphs[key] = graph
+            graph.launch(self.replay_stream)
 
 # Check if the MKL FFT is available
 try:
@@ -64,9 +90,10 @@ class FFT(object):
 
         # Initialize the object for calculation on the GPU
         if self.use_cuda:
-            # Set optimal number of CUDA threads per block
-            # for copy 1d/2d kernels (determined empirically)
-            copy_tpb = (8,32) if cuda_gpu_model == "V100" else (2,16)
+            # Set CUDA threads per block for copy 1d/2d kernels from the
+            # selected device policy.
+            launch_config = get_cuda_launch_config()
+            copy_tpb = launch_config.copy_tpb
             # Initialize the dimension of the grid and blocks
             self.dim_grid, self.dim_block = cuda_tpb_bpg_2d(Nz, Nr, *copy_tpb)
             # Initialize 1d buffer for cufft
@@ -77,6 +104,11 @@ class FFT(object):
             # Initialize the CUDA FFT plan object
             self.fft = cufft.Plan1d(Nz, cufft.CUFFT_Z2Z, Nr)
             self.inv_Nz = 1./Nz         # For normalization of the iFFT
+            self.fft_cuda_graphs = launch_config.fft_cuda_graphs
+            if self.fft_cuda_graphs:
+                self._cuda_graph_cache = _CudaGraphCache(
+                    cupy.cuda.Stream(non_blocking=False),
+                    cupy.cuda.Stream.null)
 
         # Initialize the object for calculation on the CPU
         else:
@@ -114,16 +146,24 @@ class FFT(object):
             two buffers that are returned by `get_buffers`
         """
         if self.use_cuda :
-            # Copy 2D arrays to 1D array for optimized 1D batch FFT
-            cuda_copy_2d_to_1d[self.dim_grid, self.dim_block](
-                array_in, self.buffer1d_in)
-            # Perform forward FFT
-            self.fft.fft(self.buffer1d_in,
-                         self.buffer1d_out,
-                         cufft.CUFFT_FORWARD)
-            # Copy 1D arrays back to 2D array
-            cuda_copy_1d_to_2d[self.dim_grid, self.dim_block](
-                self.buffer1d_out, array_out)
+            def operation():
+                # Copy 2D arrays to 1D array for optimized 1D batch FFT
+                cuda_copy_2d_to_1d[self.dim_grid, self.dim_block](
+                    array_in, self.buffer1d_in)
+                # Perform forward FFT
+                self.fft.fft(self.buffer1d_in,
+                             self.buffer1d_out,
+                             cufft.CUFFT_FORWARD)
+                # Copy 1D arrays back to 2D array
+                cuda_copy_1d_to_2d[self.dim_grid, self.dim_block](
+                    self.buffer1d_out, array_out)
+
+            if self.fft_cuda_graphs:
+                key = ("forward", int(array_in.data.ptr),
+                       int(array_out.data.ptr))
+                self._cuda_graph_cache.run(key, operation)
+            else:
+                operation()
         elif self.use_mkl:
             # Perform the FFT on the CPU using MKL
             self.mklfft.transform( array_in, array_out )
@@ -146,18 +186,27 @@ class FFT(object):
             two buffers that are returned by `get_buffers`
         """
         if self.use_cuda :
-            # Copy 2D arrays to 1D array for optimized 1D batch FFT
-            cuda_copy_2d_to_1d[self.dim_grid, self.dim_block](
-                array_in, self.buffer1d_in)
-            # Perform forward FFT
-            self.fft.fft(self.buffer1d_in,
-                         self.buffer1d_out,
-                         cufft.CUFFT_INVERSE)
-            # Normalize inverse FFT
-            cupy.multiply(self.buffer1d_out, self.inv_Nz, out=self.buffer1d_out)
-            # Copy 1D arrays back to 2D array
-            cuda_copy_1d_to_2d[self.dim_grid, self.dim_block](
-                self.buffer1d_out, array_out)
+            def operation():
+                # Copy 2D arrays to 1D array for optimized 1D batch FFT
+                cuda_copy_2d_to_1d[self.dim_grid, self.dim_block](
+                    array_in, self.buffer1d_in)
+                # Perform inverse FFT
+                self.fft.fft(self.buffer1d_in,
+                             self.buffer1d_out,
+                             cufft.CUFFT_INVERSE)
+                # Normalize inverse FFT
+                cupy.multiply(
+                    self.buffer1d_out, self.inv_Nz, out=self.buffer1d_out)
+                # Copy 1D arrays back to 2D array
+                cuda_copy_1d_to_2d[self.dim_grid, self.dim_block](
+                    self.buffer1d_out, array_out)
+
+            if self.fft_cuda_graphs:
+                key = ("inverse", int(array_in.data.ptr),
+                       int(array_out.data.ptr))
+                self._cuda_graph_cache.run(key, operation)
+            else:
+                operation()
         elif self.use_mkl:
             # Perform the inverse FFT on the CPU using MKL
             self.mklfft.inverse_transform( array_in, array_out )

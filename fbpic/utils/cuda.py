@@ -5,13 +5,22 @@
 This file is part of the Fourier-Bessel Particle-In-Cell code (FB-PIC)
 It defines a set of generic functions that operate on a GPU.
 """
+import hashlib
+from importlib import metadata
+import json
+import os
+from pathlib import Path
+import platform
+import tempfile
 import warnings
 import numba
+from numba import cuda
+import numpy as np
+from fbpic.utils.cuda_tuning import select_cuda_launch_config
+
 numba_version = (int(numba.__version__.split('.')[0]),
                  int(numba.__version__.split('.')[1]),
                  int(numba.__version__.split('.')[2]))
-from numba import cuda
-import numpy as np
 
 # Check if CUDA is available and set variable accordingly
 try:
@@ -19,16 +28,102 @@ try:
 except Exception:
     numba_cuda_installed = False
 
-if numba_cuda_installed:
-    # Infer if GPU is P100, V100, A100 or other
-    if "P100" in str(cuda.gpus[0]._device.name):
-        cuda_gpu_model = "P100"
-    elif "V100" in str(cuda.gpus[0]._device.name):
-        cuda_gpu_model = "V100"
-    elif "A100" in str(cuda.gpus[0]._device.name):
-        cuda_gpu_model = "V100" # force to V100
-    else:
-        cuda_gpu_model = "other"
+
+def legacy_cuda_gpu_model(device_or_name):
+    """Return the deprecated tuning label from the selected device name."""
+    name = getattr(device_or_name, "name", device_or_name)
+    if isinstance(name, bytes):
+        name = name.decode("utf-8", "replace")
+    name = str(name).upper()
+    if "P100" in name:
+        return "P100"
+    if "V100" in name or "A100" in name:
+        return "V100"
+    return "other"
+
+
+def get_cuda_launch_config(device=None, environ=None):
+    """Return the launch policy for the selected CUDA device."""
+    if device is None:
+        device = cuda.get_current_device()
+    max_threads_per_block = getattr(device, "MAX_THREADS_PER_BLOCK", None)
+    if max_threads_per_block is None:
+        max_threads_per_block = device.max_threads_per_block
+    warp_size = getattr(device, "WARP_SIZE", None)
+    if warp_size is None:
+        warp_size = device.warp_size
+    return select_cuda_launch_config(
+        device.compute_capability,
+        max_threads_per_block=max_threads_per_block,
+        warp_size=warp_size,
+        environ=environ,
+    )
+
+
+class _LazyCudaGpuModel(object):
+    """Resolve the deprecated compatibility label only when it is used."""
+
+    def _value(self):
+        return legacy_cuda_gpu_model(cuda.get_current_device())
+
+    def __eq__(self, other):
+        return self._value() == other
+
+    def __ne__(self, other):
+        return self._value() != other
+
+    def __str__(self):
+        return self._value()
+
+    def __repr__(self):
+        return repr(self._value())
+
+    def __format__(self, format_spec):
+        return format(self._value(), format_spec)
+
+    def __hash__(self):
+        return hash(self._value())
+
+    def __getattr__(self, name):
+        return getattr(self._value(), name)
+
+    def __add__(self, other):
+        return self._value() + other
+
+    def __radd__(self, other):
+        return other + self._value()
+
+    def __contains__(self, item):
+        return item in self._value()
+
+    def __len__(self):
+        return len(self._value())
+
+    def __iter__(self):
+        return iter(self._value())
+
+    def __getitem__(self, item):
+        return self._value()[item]
+
+    def __nonzero__(self):
+        return bool(self._value())
+
+    __bool__ = __nonzero__
+
+
+# Deprecated compatibility alias; internal tuning uses launch policies.  This
+# proxy must stay lazy because importing this module precedes MPI GPU
+# selection.
+cuda_gpu_model = _LazyCudaGpuModel()
+
+
+def refresh_cuda_gpu_model(device=None):
+    """Expose the selected device's deprecated label as an actual string."""
+    global cuda_gpu_model
+    if device is None:
+        device = cuda.get_current_device()
+    cuda_gpu_model = legacy_cuda_gpu_model(device)
+    return cuda_gpu_model
 
 try:
     import cupy
@@ -40,6 +135,181 @@ except (ImportError, AssertionError):
     cupy_version = None
 
 cuda_installed = (numba_cuda_installed and cupy_installed)
+
+_cuda_source_digest = None
+
+
+def _get_cuda_source_digest():
+    """Hash FBPIC Python sources that can contribute to generated PTX."""
+    global _cuda_source_digest
+    if _cuda_source_digest is None:
+        package_root = Path(__file__).resolve().parent.parent
+        digest = hashlib.sha256()
+        for source_path in sorted(package_root.rglob("*.py")):
+            digest.update(str(source_path.relative_to(package_root)).encode())
+            digest.update(source_path.read_bytes())
+        _cuda_source_digest = digest.hexdigest()
+    return _cuda_source_digest
+
+
+def _cuda_argument_descriptors(args):
+    """Return stable Numba-specialization descriptors for kernel arguments."""
+    descriptors = []
+    for arg in args:
+        if isinstance(arg, cupy.ndarray):
+            descriptors.append((
+                "array", arg.dtype.str, arg.ndim,
+                bool(arg.flags.c_contiguous),
+                bool(arg.flags.f_contiguous)))
+        else:
+            descriptors.append(("scalar", np.dtype(type(arg)).str))
+    return tuple(descriptors)
+
+
+def _installed_version(distribution):
+    """Return an installed package version without making caching mandatory."""
+    try:
+        return metadata.version(distribution)
+    except metadata.PackageNotFoundError:
+        return None
+
+
+def _nvvm_version():
+    """Return the CUDA compiler-library version when it is discoverable."""
+    try:
+        from numba.cuda.cudadrv import nvvm
+        return tuple(nvvm.get_version())
+    except Exception:
+        return None
+
+
+def _cuda_cache_path(func, args):
+    """Return the architecture- and signature-specific PTX cache path."""
+    if os.environ.get("FBPIC_DISABLE_CUDA_KERNEL_CACHE") == "1":
+        return None
+    try:
+        import scipy
+
+        cache_root = os.environ.get("FBPIC_CUDA_KERNEL_CACHE_DIR")
+        if cache_root is None:
+            cache_root = Path.home() / ".cache" / "fbpic" / "cuda-kernels"
+        else:
+            cache_root = Path(cache_root).expanduser()
+
+        device = cuda.get_current_device()
+        identity = {
+            "schema": 1,
+            "function": "%s.%s" % (func.__module__, func.__qualname__),
+            "arguments": _cuda_argument_descriptors(args),
+            "compute_capability": list(device.compute_capability),
+            "fbpic_source": _get_cuda_source_digest(),
+            "numba": numba.__version__,
+            "numba_cuda": _installed_version("numba-cuda"),
+            "llvmlite": _installed_version("llvmlite"),
+            "nvvm": _nvvm_version(),
+            "numpy": np.__version__,
+            "scipy": scipy.__version__,
+            "cupy": cupy.__version__,
+            "cuda_runtime": cupy.cuda.runtime.runtimeGetVersion(),
+            "python": platform.python_version(),
+        }
+        key = hashlib.sha256(json.dumps(
+            identity, sort_keys=True,
+            separators=(",", ":")).encode()).hexdigest()
+        return Path(cache_root) / (key + ".json")
+    except Exception:
+        return None
+
+
+def _load_cuda_kernel_cache(cache_path):
+    """Load a CuPy function from one atomic PTX cache record."""
+    if cache_path is None:
+        return None
+    try:
+        if not cache_path.is_file():
+            return None
+        record = json.loads(cache_path.read_text())
+        if record.get("schema") != 1:
+            return None
+        module = cupy.cuda.function.Module()
+        module.load(record["ptx"].encode("utf-8"))
+        return module.get_function(record["entry_name"])
+    except Exception:
+        return None
+
+
+def _store_cuda_kernel_cache(cache_path, ptx, entry_name):
+    """Atomically store generated PTX; cache failures never stop a run."""
+    if cache_path is None:
+        return
+    temporary_path = None
+    try:
+        cache_path.parent.mkdir(
+            mode=0o700, parents=True, exist_ok=True)
+        with tempfile.NamedTemporaryFile(
+                mode="w", dir=str(cache_path.parent), delete=False) as stream:
+            temporary_path = Path(stream.name)
+            json.dump({
+                "schema": 1,
+                "entry_name": entry_name,
+                "ptx": ptx,
+            }, stream, separators=(",", ":"))
+        os.replace(str(temporary_path), str(cache_path))
+    except OSError:
+        if temporary_path is not None:
+            try:
+                temporary_path.unlink()
+            except OSError:
+                pass
+
+
+def _store_compiled_cuda_kernel(cache_path, numba_kernel):
+    """Best-effort extraction and storage after a usable kernel exists."""
+    if cache_path is None:
+        return
+    try:
+        if numba_version[1] >= 56:
+            definition = next(iter(numba_kernel.overloads.values()))
+            ptx = definition._codelibrary.get_asm_str()
+            entry_name = definition.entry_name
+        elif numba_version[1] >= 53:
+            definition = next(iter(numba_kernel.overloads.values()))
+            ptx = definition.ptx
+            entry_name = definition.entry_name
+        else:
+            ptx = numba_kernel.ptx
+            entry_name = numba_kernel.entry_name
+        _store_cuda_kernel_cache(cache_path, ptx, entry_name)
+    except Exception:
+        pass
+
+
+def _compile_cupy_ptx(func, args):
+    """Try generating the usual PTX without binding an unused Numba binary.
+
+    The dispatcher normally binds its kernel before returning a specialization.
+    CuPy only needs the pre-link PTX, so constructing the same kernel
+    definition suffices. Numba's private interface is optional: callers retain
+    regular specialization if it changes or the module cannot be loaded.
+    """
+    if (numba_version < (0, 56, 1)
+            or os.environ.get("FBPIC_DISABLE_CUDA_PTX_ONLY") == "1"):
+        return None
+    try:
+        from numba.cuda.dispatcher import _Kernel, global_compiler_lock
+
+        dispatcher = cuda.jit()(func)
+        with global_compiler_lock:
+            argtypes = tuple(dispatcher.typeof_pyval(arg) for arg in args)
+            definition = _Kernel(func, argtypes, **dispatcher.targetoptions)
+            ptx = definition._codelibrary.get_asm_str()
+            entry_name = definition.entry_name
+        module = cupy.cuda.function.Module()
+        module.load(ptx.encode("utf-8"))
+        kernel = module.get_function(entry_name)
+        return kernel, ptx, entry_name
+    except Exception:
+        return None
 
 try:
     import pynvml
@@ -71,8 +341,14 @@ def cuda_tpb_bpg_1d(x, TPB = 256):
     TPB : int
         Threads per block.
     """
-    # Calculates the needed blocks per grid
-    BPG = int(x/TPB + 1)
+    if x < 0:
+        raise ValueError("The work size must be nonnegative.")
+    if TPB <= 0:
+        raise ValueError("The block size must be positive.")
+
+    # Calculates the needed blocks per grid. Keep one block for zero work,
+    # since CUDA rejects launches with a zero-sized grid dimension.
+    BPG = max(1, (x + TPB - 1) // TPB)
     return BPG, TPB
 
 def cuda_tpb_bpg_2d(x, y, TPBx = 1, TPBy = 128):
@@ -95,9 +371,15 @@ def cuda_tpb_bpg_2d(x, y, TPBx = 1, TPBy = 128):
     (TPBx, TPBy) : tuple of ints
         Threads per block in x and y.
     """
-    # Calculates the needed blocks per grid
-    BPGx = int(x/TPBx + 1)
-    BPGy = int(y/TPBy + 1)
+    if x < 0 or y < 0:
+        raise ValueError("The work sizes must be nonnegative.")
+    if TPBx <= 0 or TPBy <= 0:
+        raise ValueError("The block sizes must be positive.")
+
+    # Calculates the needed blocks per grid. Keep one block for zero work,
+    # since CUDA rejects launches with a zero-sized grid dimension.
+    BPGx = max(1, (x + TPBx - 1) // TPBx)
+    BPGy = max(1, (y + TPBy - 1) // TPBy)
     return (BPGx, BPGy), (TPBx, TPBy)
 
 # -----------------------------------------------------
@@ -144,8 +426,11 @@ def receive_data_from_gpu(simulation):
 
 class GpuMemoryManager(object):
     """
-    Context manager that temporarily moves the simulation data to the GPU,
-    if the data is originally on the CPU when entering the context manager
+    Temporarily move CPU-resident simulation data to the GPU.
+
+    On exit, this restores only the field and particle arrays that were on the
+    CPU when the manager was created. This allows managers to be nested without
+    an inner scope downloading data owned by an outer scope.
     """
 
     def __init__(self, simulation):
@@ -167,7 +452,7 @@ class GpuMemoryManager(object):
 
     def __enter__(self):
         """
-        Move the data to the GPU (if it was originally on the CPU)
+        Move data to the GPU if it was originally on the CPU.
         """
         if self.sim.use_cuda:
             if not self.fields_were_on_gpu:
@@ -175,6 +460,7 @@ class GpuMemoryManager(object):
             for i, species in enumerate(self.sim.ptcl):
                 if not self.species_were_on_gpu[i]:
                     species.send_particles_to_gpu()
+        return self
 
     def __exit__(self, type, value, traceback):
         """
@@ -312,6 +598,10 @@ def mpi_select_gpus(mpi):
                 uuid = get_uuid(i_gpu)
         mpi.COMM_WORLD.barrier()
 
+    # Device selection is complete. New imports should see the historical
+    # module-level string, while already-imported proxy references stay lazy.
+    refresh_cuda_gpu_model()
+
     # Gather unique GPU identifiers
     uuids = mpi.COMM_WORLD.gather(uuid)
 
@@ -345,22 +635,7 @@ if cuda_installed:
         --------
         hash: Hash value as an int.
         """
-        types = []
-
-        # Loop over the arguments
-        for a in args:
-            # For array arguments: save the data type and the number of
-            # dimensions
-            if isinstance(a, cupy.ndarray):
-                types.append(a.dtype)
-                types.append(a.ndim)
-
-            # For scalar arguments: save only the data type
-            else:
-                types.append(np.dtype(type(a)))
-
-        # Use the built-in Python hash function to compute the hash
-        return hash(tuple(types))
+        return hash(_cuda_argument_descriptors(args))
 
     class compile_cupy(object):
         """
@@ -514,14 +789,27 @@ if cuda_installed:
 
                     if hash not in self.kernel_dict:
 
-                        # Compile a Numba kernel for the specified arguments
-                        # using cuda.jit
-                        numba_kernel = cuda.jit()(self.python_func) \
-                            .specialize(*args)
+                        cache_path = _cuda_cache_path(
+                            self.python_func, args)
+                        kernel = _load_cuda_kernel_cache(cache_path)
+                        if kernel is None:
+                            compiled = _compile_cupy_ptx(
+                                self.python_func, args)
+                            if compiled is not None:
+                                kernel, ptx, entry_name = compiled
+                                _store_cuda_kernel_cache(
+                                    cache_path, ptx, entry_name)
+                            else:
+                                # Retain the regular dispatcher path for
+                                # unsupported Numba interfaces or kernels.
+                                numba_kernel = cuda.jit()(self.python_func) \
+                                    .specialize(*args)
+                                kernel = self.make_cupy_kernel(numba_kernel)
+                                _store_compiled_cuda_kernel(
+                                    cache_path, numba_kernel)
 
-                        # Convert the kernel into a cupy kernel and cache it in
-                        # a dictionary using the hash
-                        self.kernel_dict[hash] = self.make_cupy_kernel( numba_kernel )
+                        # Keep the loaded kernel alive for this process.
+                        self.kernel_dict[hash] = kernel
 
                     # Get the correct kernel from the cache
                     kernel = self.kernel_dict[hash]
