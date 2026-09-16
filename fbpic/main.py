@@ -18,6 +18,7 @@ from .utils.cuda import cuda_installed, GpuMemoryManager, \
 if cuda_installed:
     from .utils.cuda import mpi_select_gpus
     mpi_select_gpus( MPI )
+    import cupy
 
 # Import the rest of the requirements
 from functools import wraps
@@ -115,7 +116,7 @@ class Simulation(object):
                  gamma_boost=None, use_all_mpi_ranks=True,
                  particle_shape='linear', verbose_level=1,
                  smoother=None, use_ruyten_shapes=True,
-                 use_modified_volume=True ):
+                 use_modified_volume=True, retain_cuda_memory=False):
         """
         Initializes a simulation.
 
@@ -192,6 +193,13 @@ class Simulation(object):
 
         use_cuda: bool, optional
             Whether to use CUDA (GPU) acceleration
+
+        retain_cuda_memory: bool, optional
+            Whether to retain unused CuPy device allocations for reuse.
+            False (default) releases unused pool blocks after each particle
+            exchange, as in the original memory policy. True avoids this
+            cleanup but can reserve substantially more device memory.
+            This does not affect particle removal or MPI exchange.
 
         n_guard: int, optional
             Number of guard cells to use at the left and right of
@@ -283,6 +291,7 @@ class Simulation(object):
         """
         # Check whether to use CUDA
         self.use_cuda = use_cuda
+        self.retain_cuda_memory = retain_cuda_memory
         if self.use_cuda and not cuda_installed:
             warning_message = 'GPU not available for the simulation.\n'
             if not numba_cuda_installed:
@@ -529,6 +538,10 @@ class Simulation(object):
                 # (Since particles have been removed / added to the simulation;
                 # otherwise rho_prev is obtained from the previous iteration.)
                 self.deposit('rho_prev', exchange=(use_true_rho is True))
+
+                # Release unused allocations, not live particle/field data.
+                if self.use_cuda and not self.retain_cuda_memory:
+                    cupy.get_default_memory_pool().free_all_blocks()
 
             # For the field diagnostics of the first step: deposit J
             # (Note however that this is not the *corrected* current)

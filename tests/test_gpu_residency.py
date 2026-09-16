@@ -1,10 +1,15 @@
 """CPU-safe tests for simulation GPU-residency ownership."""
 
+from contextlib import nullcontext
+from types import SimpleNamespace
+
+import numpy as np
 import pytest
 
+import fbpic.main as main_module
 from fbpic.main import Simulation, _preserve_gpu_residency
 from fbpic.particles.injection.continuous_injection import ContinuousInjector
-from fbpic.utils.cuda import GpuMemoryManager
+from fbpic.utils.cuda import GpuMemoryManager, cuda_installed
 
 
 class RecordingData(object):
@@ -179,3 +184,71 @@ def test_continuous_injector_stores_device_reduction_as_python_scalar():
 
     assert injector.z_end_plasma == 2.5
     assert isinstance(injector.z_end_plasma, float)
+
+
+@pytest.mark.parametrize('use_cuda, options, release', [
+    (True, {}, True),
+    (True, {'retain_cuda_memory': False}, True),
+    (True, {'retain_cuda_memory': True}, False),
+    (False, {}, False),
+])
+def test_memory_cleanup_follows_particle_exchange(
+        monkeypatch, use_cuda, options, release):
+    # Run actual stepping with CPU arrays; mock only residency and the pool.
+    sim = Simulation(16, 16.e-6, 4, 4.e-6, 1, 1.e-16,
+                     exchange_period=3, use_all_mpi_ranks=False,
+                     verbose_level=0, **options)
+    sim.add_new_species(q=0., m=1., n=1., p_nz=1, p_nr=1, p_nt=4)
+    events = []
+    pool = SimpleNamespace(free_all_blocks=lambda: events.append(
+        ('release', sim.iteration)))
+    monkeypatch.setattr(main_module, 'cupy', SimpleNamespace(
+        get_default_memory_pool=lambda: pool), raising=False)
+    monkeypatch.setattr(main_module, 'GpuMemoryManager',
+                        lambda simulation: nullcontext())
+    exchange_particles = sim.comm.exchange_particles
+
+    def exchange(*args):
+        events.append(('exchange', sim.iteration))
+        return exchange_particles(*args)
+
+    monkeypatch.setattr(sim.comm, 'exchange_particles', exchange)
+    sim.use_cuda = use_cuda
+    for steps in (5, 2):
+        sim.step(steps, show_progress=False,
+                 move_positions=False, move_momenta=False)
+    expected = []
+    for iteration in (0, 3, 5, 6):
+        expected.append(('exchange', iteration))
+        if release:
+            expected.append(('release', iteration))
+    assert events == expected
+
+
+@pytest.mark.parametrize('retain_cuda_memory', [False, True])
+@pytest.mark.parametrize('use_cuda', [False, pytest.param(
+    True, marks=pytest.mark.skipif(
+        not cuda_installed, reason='requires CUDA and CuPy'))])
+def test_open_boundaries_remove_particles_with_either_memory_policy(
+        use_cuda, retain_cuda_memory):
+    sim = Simulation(
+        32, 16.e-6, 4, 4.e-6, 1, 1.e-16, n_order=4, n_guard=8,
+        n_damp={'z': 8, 'r': 0}, boundaries={'z': 'open', 'r': 'reflective'},
+        use_cuda=use_cuda, use_all_mpi_ranks=False, verbose_level=0,
+        retain_cuda_memory=retain_cuda_memory)
+    particles = sim.add_new_species(
+        q=0., m=1., n=1., p_nz=1, p_nr=1, p_nt=4,
+        continuous_injection=False)
+    particles.track(sim.comm)
+    initial_count = particles.Ntot
+    expected_ids = np.sort(particles.tracker.id[2:-3].copy())
+    grid = sim.fld.interp[0]
+    particles.z[:2] = grid.zmin + (sim.comm.n_guard - 2) * grid.dz
+    particles.z[-3:] = grid.zmax - (sim.comm.n_guard - 2) * grid.dz
+
+    sim.step(1, show_progress=False,
+             move_positions=False, move_momenta=False)
+
+    assert particles.Ntot == initial_count - 5
+    assert particles.z.size == particles.Ntot
+    np.testing.assert_array_equal(np.sort(particles.tracker.id), expected_ids)
