@@ -25,7 +25,9 @@ setup(
     packages=find_packages('.'),
     install_requires=install_requires,
     extras_require = {
-        'picmi':  ["picmistandard", "numexpr", "periodictable"],
+        # picmistandard > 0.34.0 introduces a breaking API refactoring
+        # (picmi-standard/picmi#133) which is not yet supported by FBPIC
+        'picmi':  ["picmistandard<=0.34.0", "numexpr", "periodictable"],
     },
     include_package_data=True,
     platforms='any',

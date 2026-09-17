@@ -50,9 +50,9 @@ jobs:
     - shell: bash -eo pipefail -l {0}
       name: PICMI test
       run: |
-        pip install wget picmistandard numexpr periodictable
+        pip install wget "picmistandard<=0.34.0" numexpr periodictable
         cd tests/unautomated
-        curl https://raw.githubusercontent.com/picmi-standard/picmi/master/Examples/laser_acceleration/laser_acceleration_PICMI.py -o fbpic_script.py
+        curl https://raw.githubusercontent.com/picmi-standard/picmi/0.34.0/Examples/laser_acceleration/laser_acceleration_PICMI.py -o fbpic_script.py
         python test_picmi.py
         rm fbpic_script.py
 
@@ -60,7 +60,7 @@ jobs:
       name: PICMI boosted test
       run: |
         cd tests/unautomated
-        curl https://raw.githubusercontent.com/picmi-standard/picmi/master/Examples/laser_acceleration/lpa_boostedframe_PICMI.py -o fbpic_script.py
+        curl https://raw.githubusercontent.com/picmi-standard/picmi/0.34.0/Examples/laser_acceleration/lpa_boostedframe_PICMI.py -o fbpic_script.py
         cat fbpic_script.py
         python test_picmi.py
         rm fbpic_script.py
