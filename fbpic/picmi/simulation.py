@@ -8,7 +8,9 @@ It defines the picmi Simulation interface
 """
 import numpy as np
 import warnings
+from typing import Any, ClassVar
 from scipy.constants import c, e, m_e
+from pydantic import Field, PrivateAttr
 from .particle_charge_and_mass import particle_charge, particle_mass
 
 # Import relevant fbpic object
@@ -33,43 +35,112 @@ from picmistandard import PICMI_AnalyticAppliedField, PICMI_ConstantAppliedField
 from picmistandard import PICMI_FieldDiagnostic, PICMI_ParticleDiagnostic, \
     PICMI_LabFrameFieldDiagnostic, PICMI_LabFrameParticleDiagnostic
 
+
+def species_instances( species ):
+    """
+    Return the list of the individual PICMI species of `species`
+    (a `MultiSpecies` object contains several species)
+    """
+    if isinstance( species, PICMI_MultiSpecies ):
+        return list( species.species_instances_list )
+    elif isinstance( species, PICMI_Species ):
+        return [ species ]
+    else:
+        raise ValueError('Unknown type: %s' %type(species))
+
+
+def constant_field_func( field_value ):
+    """
+    Return a function that adds the constant field `field_value`,
+    in the form that is expected by `ExternalField`
+
+    (The function is created in this separate scope, so that it uses
+    the value of its own field component, and not the one of the
+    component that was handled last.)
+    """
+    def field_func( F, x, y, z, t, amplitude, length_scale ):
+        return( F + amplitude * field_value )
+    return field_func
+
+
 # Define a new simulation object for picmi, that derives from PICMI_Simulation
 class Simulation( PICMI_Simulation ):
+    """
+    In addition, the arguments below are specific to FBPIC. When they are not
+    given, the corresponding default of FBPIC is used.
+    """
 
-    # Redefine the `init` method, as required by the picmi `_ClassWithInit`
-    def init(self, kw):
+    # --- Arguments that are passed to the FBPIC `Simulation` object
+    use_ruyten_shapes: bool | None = Field(
+        default=None, alias='fbpic_use_ruyten_shapes',
+        description="Whether to use Ruyten shape factors for the particle "
+                    "deposition, which ensure that a uniform distribution of "
+                    "macroparticles leads to a uniform charge density on the "
+                    "grid, even close to the axis")
+    use_modified_volume: bool | None = Field(
+        default=None, alias='fbpic_use_modified_volume',
+        description="Whether to use a slightly-modified, effective cell "
+                    "volume, which ensures that the charge deposited near the "
+                    "axis is correctly taken into account by the spectral "
+                    "cylindrical Maxwell solver")
 
-        self.sim_kw = {}
-        for argname in ['use_ruyten_shapes', 'use_modified_volume']:
-            if f'fbpic_{argname}' in kw:
-                self.sim_kw[argname] = kw.pop(f'fbpic_{argname}')
+    # --- Arguments that are passed to the `step` method of the FBPIC `Simulation`
+    correct_currents: bool | None = Field(
+        default=None, alias='fbpic_correct_currents',
+        description="Whether to correct the currents in spectral space")
+    correct_divE: bool | None = Field(
+        default=None, alias='fbpic_correct_divE',
+        description="Whether to correct the divergence of E in spectral space")
+    use_true_rho: bool | None = Field(
+        default=None, alias='fbpic_use_true_rho',
+        description="Whether to use the true rho deposited on the grid for "
+                    "the field push or not")
+    move_positions: bool | None = Field(
+        default=None, alias='fbpic_move_positions',
+        description="Whether to move or freeze the particles' positions")
+    move_momenta: bool | None = Field(
+        default=None, alias='fbpic_move_momenta',
+        description="Whether to move or freeze the particles' momenta")
+    show_progress: bool | None = Field(
+        default=None, alias='fbpic_show_progress',
+        description="Whether to show a progression bar")
 
-        self.step_kw = {}
-        for argname in ['correct_currents',
-                        'correct_divE',
-                        'use_true_rho',
-                        'move_positions',
-                        'move_momenta',
-                        'show_progress']:
-            if f'fbpic_{argname}' in kw:
-                self.step_kw[argname] = kw.pop(f'fbpic_{argname}')
+    # The FBPIC-specific arguments, by the object that they are passed to
+    _simulation_arguments: ClassVar[tuple[str, ...]] = (
+        'use_ruyten_shapes', 'use_modified_volume' )
+    _step_arguments: ClassVar[tuple[str, ...]] = (
+        'correct_currents', 'correct_divE', 'use_true_rho',
+        'move_positions', 'move_momenta', 'show_progress' )
+
+    # The FBPIC objects that correspond to the PICMI input. (These are private
+    # attributes, since they are not part of the PICMI input itself.)
+    _fbpic_sim: Any = PrivateAttr( default=None )
+    _fbpic_species: dict = PrivateAttr( default_factory=dict )
+    _configured_interactions: list = PrivateAttr( default_factory=list )
+
+    # Create the FBPIC simulation object, once the PICMI input is validated
+    # (`model_post_init` replaces the `init` method of the pre-pydantic PICMI)
+    def model_post_init( self, context ):
+        super().model_post_init( context )
 
         # Get the grid
-        grid = self.solver.grid
+        grid = None if self.solver is None else getattr(self.solver, 'grid', None)
         if not isinstance(grid, PICMI_CylindricalGrid):
             raise ValueError('When using fbpic with PICMI, '
                 'the grid needs to be a CylindricalGrid object.')
         # Check rmin and boundary conditions
         assert grid.lower_bound[0] == 0.
         assert grid.lower_boundary_conditions[1] == grid.upper_boundary_conditions[1]
+        # (The boundary conditions are not modified in the PICMI grid itself,
+        # so as to leave the input of the user unchanged.)
+        boundary_conditions = list( grid.upper_boundary_conditions )
         if grid.lower_boundary_conditions[1] == 'reflective':
             warnings.warn(
             "FBPIC does not support reflective boundary condition in z.\n"
             "The z boundary condition was automatically converted to 'open'.")
-            grid.lower_boundary_conditions[1] = 'open'
-            grid.upper_boundary_conditions[1] = 'open'
-        assert grid.upper_boundary_conditions[1] in ['periodic', 'open']
-        assert grid.upper_boundary_conditions[0] in ['reflective', 'open']
+            boundary_conditions[1] = 'open'
+        assert boundary_conditions[1] in ['periodic', 'open']
+        assert boundary_conditions[0] in ['reflective', 'open']
 
         # Determine timestep
         if self.solver.cfl is not None:
@@ -125,20 +196,35 @@ class Simulation( PICMI_Simulation ):
             v_comoving = self.solver.galilean_velocity[-1]
 
         # Initialize and store the FBPIC simulation object
-        self.fbpic_sim = FBPICSimulation(
+        self._fbpic_sim = FBPICSimulation(
             Nz=int(grid.number_of_cells[1]), zmin=grid.lower_bound[1], zmax=grid.upper_bound[1],
             Nr=int(grid.number_of_cells[0]), rmax=grid.upper_bound[0], Nm=grid.n_azimuthal_modes,
             dt=dt, use_cuda=True, smoother=smoother, n_order=n_order,
-            boundaries={'z':grid.upper_boundary_conditions[1], 'r':grid.upper_boundary_conditions[0]},
+            boundaries={'z':boundary_conditions[1], 'r':boundary_conditions[0]},
             n_guard=n_guard, verbose_level=verbose_level,
             particle_shape=self.particle_shape,
             v_comoving=v_comoving,
             gamma_boost=self.gamma_boost,
-            **self.sim_kw)
+            **self._fbpic_arguments(self._simulation_arguments))
 
         # Set the moving window
         if grid.moving_window_velocity is not None:
-            self.fbpic_sim.set_moving_window(grid.moving_window_velocity[-1])
+            self._fbpic_sim.set_moving_window(grid.moving_window_velocity[-1])
+
+
+    @property
+    def fbpic_sim( self ):
+        """The underlying FBPIC `Simulation` object"""
+        return self._fbpic_sim
+
+
+    def _fbpic_arguments( self, argnames ):
+        """
+        Return the FBPIC-specific arguments that the user set, among `argnames`
+        (the arguments that are not set keep their default value in FBPIC)
+        """
+        return { argname: getattr(self, argname) for argname in argnames
+                 if getattr(self, argname) is not None }
 
 
     # Redefine the method `add_laser` from the PICMI Simulation class
@@ -186,7 +272,7 @@ class Simulation( PICMI_Simulation ):
 
 
     # Redefine the method `add_species` from the PICMI Simulation class
-    def add_species( self, species, layout, initialize_self_field=False ):
+    def add_species( self, species, layout, initialize_self_field=None ):
         # Call method of parent class
         super().add_species( species, layout, initialize_self_field )
         # Call generic method internally
@@ -197,7 +283,7 @@ class Simulation( PICMI_Simulation ):
 
     def add_species_through_plane( self, species, layout,
             injection_plane_position, injection_plane_normal_vector,
-            initialize_self_field=False ):
+            initialize_self_field=None ):
         # Call method of parent class
         super().add_species_through_plane( species, layout,
             injection_plane_position, injection_plane_normal_vector,
@@ -212,54 +298,46 @@ class Simulation( PICMI_Simulation ):
     def _add_species_generic( self, species, layout, injection_plane_position,
         injection_plane_normal_vector, initialize_self_field ):
 
-        # Extract list of species
-        if isinstance(species, PICMI_Species):
-            species_instances_list = [species]
-        elif isinstance(species, PICMI_MultiSpecies):
-            species_instances_list = species.species_instances_list
-        else:
-            raise ValueError('Unknown type: %s' %type(species))
+        if isinstance(layout, list):
+            raise ValueError('FBPIC does not support more than one layout '
+                             'per species.')
 
         # Loop over species and create FBPIC species
-        for s in species_instances_list:
+        for s in species_instances( species ):
+
+            if isinstance(s.initial_distribution, list):
+                raise ValueError('FBPIC does not support more than one '
+                                 'initial distribution per species.')
 
             # Get their charge and mass
+            # (These are not set in the PICMI species itself, so as to leave
+            # the input of the user unchanged.)
+            charge = s.charge
+            mass = s.mass
             if s.particle_type is not None:
-                s.charge = particle_charge[s.particle_type]
-                s.mass = particle_mass[s.particle_type]
+                charge = particle_charge[s.particle_type]
+                mass = particle_mass[s.particle_type]
             # If `charge_state` is set, redefine the charge and mass
             if s.charge_state is not None:
-                s.charge = s.charge_state*e
-                s.mass -= s.charge_state*m_e
+                charge = s.charge_state*e
+                mass -= s.charge_state*m_e
 
             # Add the species to the FBPIC simulation
-            fbpic_species = self._create_new_fbpic_species(s,
+            fbpic_species = self._create_new_fbpic_species(s, charge, mass,
                  layout, injection_plane_position,
                  injection_plane_normal_vector, initialize_self_field)
 
-            # Register a pointer to the FBPIC species in the PICMI species itself
-            # (Useful for particle diagnostics later on)
-            s.fbpic_species = fbpic_species
+            # Register the FBPIC species that corresponds to the PICMI species
+            # (Useful for particle diagnostics and interactions later on)
+            self._fbpic_species[s] = fbpic_species
 
-        # Loop over interactions
-        for interaction in self.interactions:
-            assert isinstance(interaction, PICMI_FieldIonization)
-            assert interaction.model == 'ADK'
-            picmi_target = interaction.product_species
-            picmi_source = interaction.ionized_species
-            if not hasattr( picmi_target, 'fbpic_species' ):
-                raise RuntimeError('For ionization with PICMI+FBPIC:\n'
-                    'You need to add the target species to the simulation,'
-                    ' before the other species.')
-            fbpic_target = picmi_target.fbpic_species
-            fbpic_source = picmi_source.fbpic_species
-            fbpic_source.make_ionizable( element=picmi_source.particle_type,
-                                         level_start=picmi_source.charge_state,
-                                         target_species=fbpic_target )
+        # Set up the interactions that involve the species added above
+        self._setup_interactions()
 
 
-    def _create_new_fbpic_species(self, s, layout, injection_plane_position,
-        injection_plane_normal_vector, initialize_self_field):
+    def _create_new_fbpic_species(self, s, charge, mass, layout,
+        injection_plane_position, injection_plane_normal_vector,
+        initialize_self_field):
 
         # - For the case of a plasma/beam defined in a gridded layout
         if isinstance(layout, PICMI_GriddedLayout):
@@ -282,9 +360,9 @@ class Simulation( PICMI_Simulation ):
                     return n
             else:
                 raise ValueError('Unknown combination of layout and distribution')
-            p_nr = layout.n_macroparticle_per_cell[0]
-            p_nt = layout.n_macroparticle_per_cell[1]
-            p_nz = layout.n_macroparticle_per_cell[2]
+            p_nr = layout.n_macroparticles_per_cell[0]
+            p_nt = layout.n_macroparticles_per_cell[1]
+            p_nz = layout.n_macroparticles_per_cell[2]
 
             if initialize_self_field or (injection_plane_position is not None):
                 assert s.initial_distribution.fill_in != True
@@ -297,7 +375,7 @@ class Simulation( PICMI_Simulation ):
                 gamma0 = ( 1 + gamma0_beta0**2 )**.5
                 dist = s.initial_distribution
                 fbpic_species = add_particle_bunch( self.fbpic_sim,
-                    q=s.charge, m=s.mass, gamma0=gamma0, n=n0,
+                    q=charge, m=mass, gamma0=gamma0, n=n0,
                     dens_func=dens_func, p_nz=p_nz, p_nr=p_nr, p_nt=p_nt,
                     p_zmin=dist.lower_bound[-1] if dist.lower_bound[-1] is not None else -np.inf,
                     p_zmax=dist.upper_bound[-1] if dist.upper_bound[-1] is not None else +np.inf,
@@ -310,7 +388,7 @@ class Simulation( PICMI_Simulation ):
             else:
                 dist = s.initial_distribution
                 fbpic_species = self.fbpic_sim.add_new_species(
-                    q=s.charge, m=s.mass, n=n0,
+                    q=charge, m=mass, n=n0,
                     dens_func=dens_func, p_nz=p_nz, p_nr=p_nr, p_nt=p_nt,
                     p_zmin=dist.lower_bound[-1] if dist.lower_bound[-1] is not None else -np.inf,
                     p_zmax=dist.upper_bound[-1] if dist.upper_bound[-1] is not None else +np.inf,
@@ -321,6 +399,10 @@ class Simulation( PICMI_Simulation ):
         # - For the case of a Gaussian beam
         elif isinstance(s.initial_distribution, PICMI_GaussianBunchDistribution) \
              and isinstance(layout, PICMI_PseudoRandomLayout):
+            if layout.n_macroparticles is None:
+                raise ValueError('For a Gaussian bunch, FBPIC requires the '
+                    '`PseudoRandomLayout` to be defined with '
+                    '`n_macroparticles` (instead of `n_macroparticles_per_cell`).')
             dist = s.initial_distribution
             gamma0_beta0 = dist.centroid_velocity[-1]/c
             gamma0 = ( 1 + gamma0_beta0**2 )**.5
@@ -342,7 +424,7 @@ class Simulation( PICMI_Simulation ):
             if s.density_scale is not None:
                 n_physical_particles *= s.density_scale
             fbpic_species = add_particle_bunch_gaussian( self.fbpic_sim,
-                                q=s.charge, m=s.mass,
+                                q=charge, m=mass,
                                 gamma0=gamma0, sig_gamma=sig_gamma,
                                 sig_r=sig_r0, sig_z=sig_z, n_emit=n_emit,
                                 n_physical_particles=n_physical_particles,
@@ -352,12 +434,102 @@ class Simulation( PICMI_Simulation ):
 
         # - For the case of an empty species
         elif (s.initial_distribution is None) and (layout is None):
-            fbpic_species = self.fbpic_sim.add_new_species(q=s.charge, m=s.mass)
+            fbpic_species = self.fbpic_sim.add_new_species(q=charge, m=mass)
 
         else:
             raise ValueError('Unknown combination of layout and distribution')
 
         return fbpic_species
+
+
+    # Redefine the method `add_interaction` of the parent class
+    def add_interaction( self, interaction ):
+        # Call method of parent class
+        super().add_interaction( interaction )
+        # Set up the interaction, if its species were added already
+        self._setup_interactions()
+
+
+    def _pending_interactions( self ):
+        """
+        Return the interactions (of the simulation itself and of its species)
+        that have not been set up in the FBPIC simulation yet
+        """
+        interactions = list( self.interactions )
+        for species in self.species:
+            for s in species_instances( species ):
+                interactions += s.interactions
+        return [ interaction for interaction in interactions
+                 if interaction not in self._configured_interactions ]
+
+
+    def _setup_interactions( self ):
+        """
+        Set up the interactions for which all the species involved have been
+        added to the simulation already.
+
+        (Interactions can be added before or after the corresponding species,
+        and are therefore set up as soon as all their species are known.)
+        """
+        for interaction in self._pending_interactions():
+            if not isinstance( interaction, PICMI_FieldIonization ):
+                raise ValueError(
+                    'Unknown interaction: %s' %type(interaction))
+            if interaction.model != 'ADK':
+                raise ValueError("FBPIC only supports the 'ADK' model "
+                    "for field ionization.")
+            picmi_source = interaction.ionized_species
+            picmi_target = interaction.product_species
+            if (picmi_source not in self._fbpic_species) or \
+               (picmi_target not in self._fbpic_species):
+                # Wait until both species have been added to the simulation
+                continue
+            # PICMI defines `charge_state` as a float, while FBPIC expects an
+            # integer ionization level (a float would turn the array of
+            # ionization levels into an array of floats)
+            level_start = picmi_source.charge_state
+            if level_start is None:
+                level_start = 0
+            self._fbpic_species[picmi_source].make_ionizable(
+                element=picmi_source.particle_type,
+                level_start=int(level_start),
+                target_species=self._fbpic_species[picmi_target] )
+            self._configured_interactions.append( interaction )
+
+
+    def _get_fbpic_species( self, s ):
+        """
+        Return the FBPIC species that corresponds to the PICMI species `s`
+        """
+        try:
+            return self._fbpic_species[ s ]
+        except KeyError:
+            raise ValueError('The species %s needs to be added to the '
+                'simulation (with `add_species`), before it can be used.'
+                %(s.name or s.particle_type))
+
+
+    def _get_species_dict( self, diagnostic ):
+        """
+        Return the FBPIC species of `diagnostic`, in a dictionary
+        that is labeled by the name of the PICMI species
+        """
+        if diagnostic.species is None:
+            # When no species is specified, all species are written
+            picmi_species = self.species
+        elif isinstance( diagnostic.species, list ):
+            picmi_species = diagnostic.species
+        else:
+            picmi_species = [ diagnostic.species ]
+
+        species_dict = {}
+        for species in picmi_species:
+            for s in species_instances( species ):
+                if s.name is None:
+                    raise ValueError('When using a species in a diagnostic, '
+                                      'its name must be set.')
+                species_dict[s.name] = self._get_fbpic_species( s )
+        return species_dict
 
 
     # Redefine the method `add_diagnostic` of the parent class
@@ -419,9 +591,11 @@ class Simulation( PICMI_Simulation ):
                 species_dict = {}
                 for data in rho_density_list:
                     sname = data[4:]
-                    for s in self.species:
-                        if s.name == sname:
-                            species_dict[s.name] = s.fbpic_species
+                    for species in self.species:
+                        for s in species_instances( species ):
+                            if s.name == sname:
+                                species_dict[s.name] = \
+                                    self._get_fbpic_species( s )
                 pdd_diag = ParticleChargeDensityDiagnostic(
                             period=diagnostic.period,
                             sim=self.fbpic_sim,
@@ -447,12 +621,7 @@ class Simulation( PICMI_Simulation ):
         # Register particle diagnostic
         elif isinstance(diagnostic, (PICMI_ParticleDiagnostic,
                                      PICMI_LabFrameParticleDiagnostic)):
-            species_dict = {}
-            for s in diagnostic.species:
-                if s.name is None:
-                    raise ValueError('When using a species in a diagnostic, '
-                                      'its name must be set.')
-                species_dict[s.name] = s.fbpic_species
+            species_dict = self._get_species_dict( diagnostic )
             if diagnostic.data_list is None:
                 data_list = ['position', 'momentum', 'weighting']
             else:
@@ -480,6 +649,8 @@ class Simulation( PICMI_Simulation ):
                     comm=self.fbpic_sim.comm,
                     particle_data=data_list,
                     write_dir=diagnostic.write_dir)
+        else:
+            raise ValueError("Unrecognized `diagnostic` type.")
 
         # Add it to the FBPIC simulation
         self.fbpic_sim.diags.append( diag )
@@ -502,11 +673,10 @@ class Simulation( PICMI_Simulation ):
                 field_value = getattr( applied_field, field_name )
                 if field_value is None:
                     continue
-                def field_func( F, x, y, z, t, amplitude, length_scale ):
-                    return( F + amplitude * field_value )
                 # Pass it to FBPIC
                 self.fbpic_sim.external_fields.append(
-                    ExternalField( field_func, field_name, 1., 0.)
+                    ExternalField( constant_field_func(field_value),
+                                   field_name, 1., 0.)
                 )
 
         elif isinstance(applied_field, PICMI_AnalyticAppliedField):
@@ -538,4 +708,12 @@ class Simulation( PICMI_Simulation ):
     def step(self, nsteps=None):
         if nsteps is None:
             nsteps = self.max_steps
-        self.fbpic_sim.step( nsteps , **self.step_kw)
+        # Check that no interaction is left out, e.g. because one of its
+        # species was never added to the simulation
+        pending_interactions = self._pending_interactions()
+        if pending_interactions:
+            raise ValueError('The species of the following interactions were '
+                'not added to the simulation: %s'
+                %', '.join([type(interaction).__name__
+                            for interaction in pending_interactions]))
+        self.fbpic_sim.step( nsteps , **self._fbpic_arguments(self._step_arguments))
