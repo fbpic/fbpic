@@ -15,7 +15,7 @@ try:
 except ImportError:
     raise ImportError(
         "In order to use FBPIC with PICMI, you should install the \n"
-        "`picmistandard` package, e.g. with: `pip install picmistandard`")
+        "`picmistandard` package, e.g. with: `pip install \"picmistandard<=0.34.0\"`")
 
 from scipy import constants
 class constants:

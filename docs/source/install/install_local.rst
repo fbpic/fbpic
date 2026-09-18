@@ -41,6 +41,8 @@ Python. If Anaconda is not your default Python distribution, download and instal
 
          pip install fbpic[picmi]
 
+      FBPIC currently supports ``picmistandard`` up to version 0.34.0.
+
    .. note::
        Instead of using a release, you can also install FBPIC from the sources,
        by cloning the `code from Github <https://github.com/fbpic/fbpic>`_,
