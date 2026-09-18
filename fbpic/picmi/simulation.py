@@ -56,7 +56,7 @@ class Simulation( PICMI_Simulation ):
 
         # Get the grid
         grid = self.solver.grid
-        if not type(grid) == PICMI_CylindricalGrid:
+        if not isinstance(grid, PICMI_CylindricalGrid):
             raise ValueError('When using fbpic with PICMI, '
                 'the grid needs to be a CylindricalGrid object.')
         # Check rmin and boundary conditions
@@ -144,12 +144,12 @@ class Simulation( PICMI_Simulation ):
     # Redefine the method `add_laser` from the PICMI Simulation class
     def add_laser( self, laser, injection_method ):
         # Call method of parent class
-        PICMI_Simulation.add_laser( self, laser, injection_method )
+        super().add_laser( laser, injection_method )
 
         # Handle injection method
-        assert type(injection_method) == PICMI_LaserAntenna
+        assert isinstance(injection_method, PICMI_LaserAntenna)
         # Handle laser profile method
-        if type(laser) == PICMI_GaussianLaser:
+        if isinstance(laser, PICMI_GaussianLaser):
             assert laser.propagation_direction[0] == 0.
             assert laser.propagation_direction[1] == 0.
             assert (laser.zeta is None) or (laser.zeta == 0)
@@ -164,7 +164,7 @@ class Simulation( PICMI_Simulation ):
                 tau=laser.duration, theta_pol=polarization_angle,
                 phi2_chirp=phi2_chirp )
         else:
-            raise ValueError('Unknown laser profile: %s' %type(injection_method))
+            raise ValueError('Unknown laser profile: %s' %type(laser))
 
         # Inject the laser
         add_laser_pulse( self.fbpic_sim, laser_profile, method='antenna',
@@ -175,8 +175,7 @@ class Simulation( PICMI_Simulation ):
     # Redefine the method `add_species` from the PICMI Simulation class
     def add_species( self, species, layout, initialize_self_field=False ):
         # Call method of parent class
-        PICMI_Simulation.add_species( self, species, layout,
-                                      initialize_self_field )
+        super().add_species( species, layout, initialize_self_field )
         # Call generic method internally
         self._add_species_generic( species, layout,
             injection_plane_position=None, injection_plane_normal_vector=None,
@@ -187,7 +186,7 @@ class Simulation( PICMI_Simulation ):
             injection_plane_position, injection_plane_normal_vector,
             initialize_self_field=False ):
         # Call method of parent class
-        PICMI_Simulation.add_species_through_plane( self, species, layout,
+        super().add_species_through_plane( species, layout,
             injection_plane_position, injection_plane_normal_vector,
             initialize_self_field=initialize_self_field )
         # Call generic method internally
@@ -201,9 +200,9 @@ class Simulation( PICMI_Simulation ):
         injection_plane_normal_vector, initialize_self_field ):
 
         # Extract list of species
-        if type(species) == PICMI_Species:
+        if isinstance(species, PICMI_Species):
             species_instances_list = [species]
-        elif type(species) == PICMI_MultiSpecies:
+        elif isinstance(species, PICMI_MultiSpecies):
             species_instances_list = species.species_instances_list
         else:
             raise ValueError('Unknown type: %s' %type(species))
@@ -231,7 +230,7 @@ class Simulation( PICMI_Simulation ):
 
         # Loop over interactions
         for interaction in self.interactions:
-            assert type(interaction) is PICMI_FieldIonization
+            assert isinstance(interaction, PICMI_FieldIonization)
             assert interaction.model == 'ADK'
             picmi_target = interaction.product_species
             picmi_source = interaction.ionized_species
@@ -250,13 +249,13 @@ class Simulation( PICMI_Simulation ):
         injection_plane_normal_vector, initialize_self_field):
 
         # - For the case of a plasma/beam defined in a gridded layout
-        if type(layout) == PICMI_GriddedLayout:
+        if isinstance(layout, PICMI_GriddedLayout):
             # - Uniform distribution
-            if type(s.initial_distribution)==PICMI_UniformDistribution:
+            if isinstance(s.initial_distribution, PICMI_UniformDistribution):
                 n0 = s.initial_distribution.density
                 dens_func = None
             # - Analytic distribution
-            elif type(s.initial_distribution)==PICMI_AnalyticDistribution:
+            elif isinstance(s.initial_distribution, PICMI_AnalyticDistribution):
                 import numexpr
                 density_expression = s.initial_distribution.density_expression
                 if s.density_scale is not None:
@@ -307,8 +306,8 @@ class Simulation( PICMI_Simulation ):
                     boost_positions_in_dens_func=True )
 
         # - For the case of a Gaussian beam
-        elif (type(s.initial_distribution)==PICMI_GaussianBunchDistribution) \
-             and (type(layout) == PICMI_PseudoRandomLayout):
+        elif isinstance(s.initial_distribution, PICMI_GaussianBunchDistribution) \
+             and isinstance(layout, PICMI_PseudoRandomLayout):
             dist = s.initial_distribution
             gamma0_beta0 = dist.centroid_velocity[-1]/c
             gamma0 = ( 1 + gamma0_beta0**2 )**.5
@@ -351,10 +350,10 @@ class Simulation( PICMI_Simulation ):
     # Redefine the method `add_diagnostic` of the parent class
     def add_diagnostic(self, diagnostic):
         # Call method of parent class
-        PICMI_Simulation.add_diagnostic( self, diagnostic )
+        super().add_diagnostic( diagnostic )
 
         # Handle iteration_min/max in regular diagnostic
-        if type(diagnostic) in [PICMI_FieldDiagnostic, PICMI_ParticleDiagnostic]:
+        if isinstance(diagnostic, (PICMI_FieldDiagnostic, PICMI_ParticleDiagnostic)):
             if diagnostic.step_min is None:
                 iteration_min = 0
             else:
@@ -365,7 +364,8 @@ class Simulation( PICMI_Simulation ):
                 iteration_max = diagnostic.step_max
 
         # Register field diagnostic
-        if type(diagnostic) in [PICMI_FieldDiagnostic, PICMI_LabFrameFieldDiagnostic]:
+        if isinstance(diagnostic,
+                      (PICMI_FieldDiagnostic, PICMI_LabFrameFieldDiagnostic)):
             if diagnostic.data_list is None:
                 data_list = ['rho', 'E', 'B', 'J']
             else:
@@ -384,7 +384,7 @@ class Simulation( PICMI_Simulation ):
                 # since this operation requires an MPI gather)
                 data_list = sorted(list(data_list))
 
-        if type(diagnostic) == PICMI_FieldDiagnostic:
+        if isinstance(diagnostic, PICMI_FieldDiagnostic):
 
             diag = FieldDiagnostic(
                     period=diagnostic.period,
@@ -418,7 +418,7 @@ class Simulation( PICMI_Simulation ):
                             iteration_max=iteration_max)
                 self.fbpic_sim.diags.append( pdd_diag )
 
-        elif type(diagnostic) == PICMI_LabFrameFieldDiagnostic:
+        elif isinstance(diagnostic, PICMI_LabFrameFieldDiagnostic):
             diag = BackTransformedFieldDiagnostic(
                     zmin_lab=diagnostic.grid.lower_bound[1],
                     zmax_lab=diagnostic.grid.upper_bound[1],
@@ -432,8 +432,8 @@ class Simulation( PICMI_Simulation ):
                     fieldtypes=diagnostic.data_list,
                     write_dir=diagnostic.write_dir)
         # Register particle diagnostic
-        elif type(diagnostic) in [PICMI_ParticleDiagnostic,
-                                  PICMI_LabFrameParticleDiagnostic]:
+        elif isinstance(diagnostic, (PICMI_ParticleDiagnostic,
+                                     PICMI_LabFrameParticleDiagnostic)):
             species_dict = {}
             for s in diagnostic.species:
                 if s.name is None:
@@ -444,7 +444,7 @@ class Simulation( PICMI_Simulation ):
                 data_list = ['position', 'momentum', 'weighting']
             else:
                 data_list = diagnostic.data_list
-            if type(diagnostic) == PICMI_ParticleDiagnostic:
+            if isinstance(diagnostic, PICMI_ParticleDiagnostic):
                 diag = ParticleDiagnostic(
                     period=diagnostic.period,
                     species=species_dict,
@@ -471,19 +471,19 @@ class Simulation( PICMI_Simulation ):
         # Add it to the FBPIC simulation
         self.fbpic_sim.diags.append( diag )
 
-    # Redefine the method `add_diagnostic` of the parent class
+    # Redefine the method `add_applied_field` of the parent class
     def add_applied_field(self, applied_field):
         # Call method of parent class
-        PICMI_Simulation.add_applied_field( self, applied_field )
+        super().add_applied_field( applied_field )
 
-        if type(applied_field) == PICMI_Mirror:
+        if isinstance(applied_field, PICMI_Mirror):
             assert applied_field.z_front_location is not None
             mirror = Mirror( z_lab=applied_field.z_front_location,
                              n_cells=applied_field.number_of_cells,
                              gamma_boost=self.fbpic_sim.boost.gamma0 )
             self.fbpic_sim.mirrors.append( mirror )
 
-        elif type(applied_field) == PICMI_ConstantAppliedField:
+        elif isinstance(applied_field, PICMI_ConstantAppliedField):
             # TODO: Handle bounds
             for field_name in ['Ex', 'Ey', 'Ez', 'Bx', 'By', 'Bz']:
                 field_value = getattr( applied_field, field_name )
@@ -496,7 +496,7 @@ class Simulation( PICMI_Simulation ):
                     ExternalField( field_func, field_name, 1., 0.)
                 )
 
-        elif type(applied_field) == PICMI_AnalyticAppliedField:
+        elif isinstance(applied_field, PICMI_AnalyticAppliedField):
             # TODO: Handle bounds
             for field_name in ['Ex', 'Ey', 'Ez', 'Bx', 'By', 'Bz']:
                 # Extract expression and execute it inside a function definition
