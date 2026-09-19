@@ -152,17 +152,30 @@ class Simulation( PICMI_Simulation ):
         if isinstance(laser, PICMI_GaussianLaser):
             assert laser.propagation_direction[0] == 0.
             assert laser.propagation_direction[1] == 0.
+            # FBPIC lasers propagate either towards positive or negative z
+            if laser.propagation_direction[2] > 0:
+                propagation_direction = 1
+            elif laser.propagation_direction[2] < 0:
+                propagation_direction = -1
+            else:
+                raise ValueError('The `propagation_direction` of the laser '
+                                 'cannot be the null vector.')
             assert (laser.zeta is None) or (laser.zeta == 0)
             assert (laser.beta is None) or (laser.beta == 0)
             phi2_chirp = laser.phi2
             if phi2_chirp is None:
                 phi2_chirp = 0
+            cep_phase = laser.phi0
+            if cep_phase is None:
+                cep_phase = 0
             polarization_angle = np.arctan2(laser.polarization_direction[1],
                                             laser.polarization_direction[0])
             laser_profile = GaussianLaser( a0=laser.a0, waist=laser.waist,
                 z0=laser.centroid_position[-1], zf=laser.focal_position[-1],
                 tau=laser.duration, theta_pol=polarization_angle,
-                phi2_chirp=phi2_chirp )
+                lambda0=laser.wavelength, cep_phase=cep_phase,
+                phi2_chirp=phi2_chirp,
+                propagation_direction=propagation_direction )
         else:
             raise ValueError('Unknown laser profile: %s' %type(laser))
 
