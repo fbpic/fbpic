@@ -25,7 +25,7 @@ from fbpic.openpmd_diag import FieldDiagnostic, ParticleDiagnostic, \
     BackTransformedFieldDiagnostic, BackTransformedParticleDiagnostic
 
 # Import picmi base class
-from picmistandard import PICMI_Simulation, PICMI_CylindricalGrid
+from picmistandard import PICMI_Simulation, PICMI_CylindricalGrid, PICMI_ElectromagneticSolver
 from picmistandard import PICMI_AnalyticDistribution, PICMI_UniformDistribution, PICMI_GriddedLayout
 from picmistandard import PICMI_PseudoRandomLayout, PICMI_GaussianBunchDistribution
 from picmistandard import PICMI_LaserAntenna, PICMI_GaussianLaser
@@ -331,8 +331,13 @@ class Simulation( PICMI_Simulation ):
     def _get_grid( self ):
         """
         Return the grid of the simulation, which needs to be a CylindricalGrid
+        (of an ElectromagneticSolver)
         """
-        grid = None if self.solver is None else getattr(self.solver, 'grid', None)
+        if not isinstance(self.solver, PICMI_ElectromagneticSolver):
+            raise ValueError('When using fbpic with PICMI, the solver needs '
+                'to be an ElectromagneticSolver object, but it is: %s'
+                %type(self.solver))
+        grid = self.solver.grid
         if not isinstance(grid, PICMI_CylindricalGrid):
             raise ValueError('When using fbpic with PICMI, '
                 'the grid needs to be a CylindricalGrid object.')
@@ -637,6 +642,10 @@ class Simulation( PICMI_Simulation ):
                     return n
             else:
                 raise ValueError('Unknown combination of layout and distribution')
+            if len(layout.n_macroparticles_per_cell) != 3:
+                raise ValueError('FBPIC requires the `n_macroparticles_per_cell` '
+                    'of a `GriddedLayout` to have 3 entries (along r, theta and '
+                    'z), but it is %s.' %layout.n_macroparticles_per_cell)
             p_nr = layout.n_macroparticles_per_cell[0]
             p_nt = layout.n_macroparticles_per_cell[1]
             p_nz = layout.n_macroparticles_per_cell[2]
