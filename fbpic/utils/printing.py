@@ -320,7 +320,13 @@ def catch_gpu_memory_error( f ):
 
     If a memory error occurs, this decorator prints a corresponding message
     and aborts the simulation (using MPI abort if needed)
+
+    When CUDA is not installed, `f` is returned unchanged.
     """
+    # Without CUDA, there is no GPU memory error to catch
+    # (and `OutOfMemoryError` is not imported)
+    if not cuda_installed:
+        return( f )
     # Redefine the original function by calling it within a try/except
     def g(*args, **kwargs):
         try:
