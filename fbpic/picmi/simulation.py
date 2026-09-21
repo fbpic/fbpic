@@ -176,6 +176,28 @@ class Simulation( PICMI_Simulation ):
         return self._fbpic.sim
 
 
+    def get_fbpic_species( self, species ):
+        """
+        Return the FBPIC species (`Particles` object) of a PICMI species that
+        was added to the simulation, e.g. to use FBPIC features that are not
+        part of PICMI (such as `track`)
+
+        (Calling this creates the FBPIC objects of the PICMI input that was
+        given so far.)
+
+        Parameters
+        ----------
+        species: PICMI `Species` or `MultiSpecies`
+            For a `MultiSpecies`, the list of the FBPIC species of its
+            species is returned.
+        """
+        self._create_fbpic_objects()
+        if isinstance( species, PICMI_MultiSpecies ):
+            return [ self._get_fbpic_species( s )
+                     for s in species_instances( species ) ]
+        return self._get_fbpic_species( species )
+
+
     def _create_fbpic_objects( self ):
         """
         Create the FBPIC objects of the PICMI input that was not passed to
