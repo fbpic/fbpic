@@ -492,6 +492,17 @@ class Simulation( PICMI_Simulation ):
         # Call method of parent class
         super().add_applied_field( applied_field )
 
+        # FBPIC applies the fields everywhere
+        if isinstance(applied_field, (PICMI_ConstantAppliedField,
+                                      PICMI_AnalyticAppliedField)):
+            for bound in [applied_field.lower_bound, applied_field.upper_bound]:
+                if (bound is not None) and \
+                   any( value is not None for value in bound ):
+                    raise ValueError('FBPIC does not support the '
+                        '`lower_bound` and `upper_bound` of an applied field '
+                        '(it is applied everywhere), but they are %s and %s.'
+                        %(applied_field.lower_bound, applied_field.upper_bound))
+
         if isinstance(applied_field, PICMI_Mirror):
             assert applied_field.z_front_location is not None
             mirror = Mirror( z_lab=applied_field.z_front_location,
