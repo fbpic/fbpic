@@ -493,8 +493,8 @@ class Simulation( PICMI_Simulation ):
             assert applied_field.z_front_location is not None
             # The mirror extends from `z_front_location` towards positive z.
             # Its thickness is the maximum of `depth` and `number_of_cells`
-            # cells of the grid, or 2 cells if neither is set (default of the
-            # former FBPIC `Mirror`). `Mirror` takes lab-frame positions: in a
+            # cells of the grid, or 2 cells if neither is set.
+            # `Mirror` takes lab-frame positions: in a
             # boosted frame, the mirror (at rest in the lab frame) is contracted
             # by `gamma_boost`, so that `n` cells of the (boosted-frame) grid
             # correspond to a thickness `gamma_boost*n*dz` in the lab frame.
