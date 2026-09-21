@@ -49,6 +49,22 @@ def species_instances( species ):
         raise ValueError('Unknown type: %s' %type(species))
 
 
+def fbpic_particle_shape( particle_shape ):
+    """
+    Return the FBPIC name of the PICMI `particle_shape`, which is given by its
+    name or by the equivalent integer interpolation order (FBPIC supports
+    linear and cubic shapes, and uses linear shapes by default)
+    """
+    fbpic_shapes = { None: 'linear',
+                     'linear': 'linear', 1: 'linear',
+                     'cubic': 'cubic', 3: 'cubic' }
+    if isinstance( particle_shape, bool ) or \
+       ( particle_shape not in fbpic_shapes ):
+        raise ValueError("FBPIC only supports the particle shapes 'linear' "
+            "(or 1) and 'cubic' (or 3), but got %r." %(particle_shape,))
+    return fbpic_shapes[ particle_shape ]
+
+
 def constant_field_func( field_value ):
     """
     Return a function that adds the constant field `field_value`,
@@ -359,7 +375,7 @@ class Simulation( PICMI_Simulation ):
             dt=dt, use_cuda=True, smoother=smoother, n_order=n_order,
             boundaries={'z':boundary_conditions[1], 'r':boundary_conditions[0]},
             n_guard=n_guard, verbose_level=verbose_level,
-            particle_shape=self.particle_shape,
+            particle_shape=self._get_particle_shape(),
             v_comoving=v_comoving,
             gamma_boost=self.gamma_boost,
             **self._fbpic_arguments(self._simulation_arguments))
@@ -367,6 +383,35 @@ class Simulation( PICMI_Simulation ):
         # Set the moving window
         if grid.moving_window_velocity is not None:
             self._fbpic.sim.set_moving_window(grid.moving_window_velocity[-1])
+
+
+    def _species_particle_shape( self, s ):
+        """
+        Return the FBPIC particle shape of the PICMI species `s`
+        (a species without `particle_shape` uses the one of the Simulation)
+        """
+        if s.particle_shape is not None:
+            return fbpic_particle_shape( s.particle_shape )
+        return fbpic_particle_shape( self.particle_shape )
+
+
+    def _get_particle_shape( self ):
+        """
+        Return the particle shape of the FBPIC simulation: FBPIC uses the same
+        particle shape for all species, which is thus the one of the species
+        that were added (or else the one of the Simulation)
+        """
+        shapes = { self._species_particle_shape( s )
+                   for species in self.species
+                   for s in species_instances( species ) }
+        if len( shapes ) > 1:
+            raise ValueError('FBPIC uses the same particle shape for all '
+                'species, but the species have the particle shapes %s. (A '
+                'species without `particle_shape` uses the one of the '
+                'Simulation.)' %sorted(shapes))
+        if shapes:
+            return shapes.pop()
+        return fbpic_particle_shape( self.particle_shape )
 
 
     def _fbpic_arguments( self, argnames ):
@@ -449,6 +494,16 @@ class Simulation( PICMI_Simulation ):
                 raise ValueError('FBPIC does not support more than one '
                                  'initial distribution per species.')
 
+            # FBPIC uses the same particle shape for all species (this can
+            # only differ for a species that is added after running)
+            if self._species_particle_shape( s ) != \
+               self._fbpic.sim.particle_shape:
+                raise ValueError('FBPIC uses the same particle shape for all '
+                    'species (%r), but species %s has the particle shape %r. '
+                    '(A species without `particle_shape` uses the one of the '
+                    'Simulation.)' %(self._fbpic.sim.particle_shape,
+                    s.name or s.particle_type, self._species_particle_shape(s)))
+
             # Get their charge and mass
             # (These are not set in the PICMI species itself, so as to leave
             # the input of the user unchanged.)
@@ -475,6 +530,22 @@ class Simulation( PICMI_Simulation ):
     def _create_new_fbpic_species(self, s, charge, mass, layout,
         injection_plane_position, injection_plane_normal_vector,
         initialize_self_field):
+
+        # Injection plane: FBPIC only supports planes that are perpendicular
+        # to z. PICMI gives the position of the plane either as a point (whose
+        # z coordinate is used) or as a scalar (the z position of the plane).
+        if injection_plane_position is None:
+            z_injection_plane = None
+        else:
+            if (injection_plane_normal_vector is not None) and \
+               ((injection_plane_normal_vector[0] != 0) or
+                (injection_plane_normal_vector[1] != 0)):
+                raise ValueError('FBPIC only supports injection planes that '
+                    'are perpendicular to z, but the '
+                    '`injection_plane_normal_vector` is %s.'
+                    %injection_plane_normal_vector)
+            z_injection_plane = float(
+                np.atleast_1d( injection_plane_position )[-1] )
 
         # - For the case of a plasma/beam defined in a gridded layout
         if isinstance(layout, PICMI_GriddedLayout):
@@ -508,10 +579,6 @@ class Simulation( PICMI_Simulation ):
                         'self-field is initialized (species %s).'
                         %(s.name or s.particle_type))
 
-                if injection_plane_position is None:
-                    z_injection_plane = None
-                else:
-                    z_injection_plane = injection_plane_position[-1]
                 gamma0_beta0 = s.initial_distribution.directed_velocity[-1]/c
                 gamma0 = ( 1 + gamma0_beta0**2 )**.5
                 dist = s.initial_distribution
@@ -571,6 +638,7 @@ class Simulation( PICMI_Simulation ):
                                 n_physical_particles=n_physical_particles,
                                 n_macroparticles=layout.n_macroparticles,
                                 zf=zf, tf=tf, boost=self._fbpic.sim.boost,
+                                z_injection_plane=z_injection_plane,
                                 initialize_self_field=initialize_self_field )
 
         # - For the case of an empty species
