@@ -267,6 +267,8 @@ class Simulation( PICMI_Simulation ):
             # - Uniform distribution
             if isinstance(s.initial_distribution, PICMI_UniformDistribution):
                 n0 = s.initial_distribution.density
+                if s.density_scale is not None:
+                    n0 *= s.density_scale
                 dens_func = None
             # - Analytic distribution
             elif isinstance(s.initial_distribution, PICMI_AnalyticDistribution):
