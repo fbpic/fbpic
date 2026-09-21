@@ -6,6 +6,7 @@ This file is part of the Fourier-Bessel Particle-In-Cell code (FB-PIC)
 
 It defines the picmi Simulation interface
 """
+import math
 import numpy as np
 import warnings
 from scipy.constants import c, e, m_e
@@ -516,15 +517,16 @@ class Simulation( PICMI_Simulation ):
                 expression = getattr( applied_field, field_name+'_expression' )
                 if expression is None:
                     continue
-                fieldfunc = None
                 define_function_code = \
-                """def fieldfunc( F, x, y, z, t, amplitude, length_scale ):\n    return( F + amplitude * %s )""" %expression
-                # Take into account user-defined variables
-                for k in applied_field.user_defined_kw:
-                    define_function_code = \
-                        "%s = %s\n" %(k,applied_field.user_defined_kw[k]) \
-                        + define_function_code
-                exec( define_function_code, globals() )
+                """def fieldfunc( F, x, y, z, t, amplitude, length_scale ):\n    return( F + amplitude * ( %s ) )""" %expression
+                # Define the function in a dedicated namespace, which
+                # contains the functions and constants of the `math` module
+                # (e.g. sin, exp, pi) and the user-defined variables
+                namespace = { k: v for k, v in vars(math).items()
+                              if not k.startswith('_') }
+                namespace.update( applied_field.user_defined_kw )
+                exec( define_function_code, namespace )
+                fieldfunc = namespace['fieldfunc']
                 # Pass it to FBPIC
                 self.fbpic_sim.external_fields.append(
                     ExternalField( fieldfunc, field_name, 1., 0.)
