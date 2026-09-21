@@ -464,7 +464,11 @@ class Simulation( PICMI_Simulation ):
             raise ValueError('FBPIC uses the same particle shape for all '
                 'species, but the species have the particle shapes %s. (A '
                 'species without `particle_shape` uses the one of the '
-                'Simulation.)' %sorted(shapes))
+                'Simulation, which is %r.) To use the same shape for all '
+                'species, set it in the Simulation, e.g. with '
+                '`Simulation(particle_shape=%r)`, and not in the species.'
+                %(sorted(shapes), self.particle_shape,
+                  sorted(shapes, key=lambda shape: shape == 'linear')[0]))
         if shapes:
             return shapes.pop()
         return fbpic_particle_shape( self.particle_shape )
@@ -593,18 +597,22 @@ class Simulation( PICMI_Simulation ):
         initialize_self_field):
 
         # Injection plane: FBPIC only supports planes that are perpendicular
-        # to z. PICMI gives the position of the plane either as a point (whose
-        # z coordinate is used) or as a scalar (the z position of the plane).
+        # to z, through which the particles are injected towards positive z.
+        # PICMI gives the position of the plane either as a point (whose
+        # z coordinate is used) or as a scalar (the z position of the plane),
+        # and the normal vector with 2 (r, z) or 3 (x, y, z) components.
         if injection_plane_position is None:
             z_injection_plane = None
         else:
-            if (injection_plane_normal_vector is not None) and \
-               ((injection_plane_normal_vector[0] != 0) or
-                (injection_plane_normal_vector[1] != 0)):
+            normal = injection_plane_normal_vector
+            if (normal is not None) and ( (len(normal) == 0) or
+                any( component != 0 for component in normal[:-1] ) or
+                (normal[-1] <= 0) ):
                 raise ValueError('FBPIC only supports injection planes that '
-                    'are perpendicular to z, but the '
-                    '`injection_plane_normal_vector` is %s.'
-                    %injection_plane_normal_vector)
+                    'are perpendicular to z, with the particles injected '
+                    'towards positive z, i.e. an '
+                    '`injection_plane_normal_vector` along +z (e.g. '
+                    '[0, 0, 1]), but it is %s.' %normal)
             z_injection_plane = float(
                 np.atleast_1d( injection_plane_position )[-1] )
 
