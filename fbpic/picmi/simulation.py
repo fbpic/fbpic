@@ -445,7 +445,7 @@ class Simulation( PICMI_Simulation ):
                     period=100,
                     fldobject=self.fbpic_sim.fld,
                     comm=self.fbpic_sim.comm,
-                    fieldtypes=diagnostic.data_list,
+                    fieldtypes=data_list,
                     write_dir=diagnostic.write_dir)
         # Register particle diagnostic
         elif isinstance(diagnostic, (PICMI_ParticleDiagnostic,
