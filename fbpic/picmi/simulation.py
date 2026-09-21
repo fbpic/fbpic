@@ -509,7 +509,8 @@ class Simulation( PICMI_Simulation ):
                     return( F + amplitude * field_value )
                 # Pass it to FBPIC
                 self.fbpic_sim.external_fields.append(
-                    ExternalField( field_func, field_name, 1., 0.)
+                    ExternalField( field_func, field_name, 1., 0.,
+                                   gamma_boost=self.gamma_boost )
                 )
 
         elif isinstance(applied_field, PICMI_AnalyticAppliedField):
@@ -531,7 +532,8 @@ class Simulation( PICMI_Simulation ):
                 fieldfunc = namespace['fieldfunc']
                 # Pass it to FBPIC
                 self.fbpic_sim.external_fields.append(
-                    ExternalField( fieldfunc, field_name, 1., 0.)
+                    ExternalField( fieldfunc, field_name, 1., 0.,
+                                   gamma_boost=self.gamma_boost )
                 )
 
         else:
