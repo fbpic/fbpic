@@ -91,10 +91,13 @@ class FBPICObjects:
         self.species = {}
         # The PICMI interactions that were set up in FBPIC
         self.interactions = []
-        # The number of entries of each list of the PICMI simulation
-        # (e.g. `lasers`) that were passed to FBPIC
-        self.n_created = { 'species': 0, 'lasers': 0,
-                           'applied_fields': 0, 'diagnostics': 0 }
+        # The entries of each list of the PICMI simulation (e.g. `lasers`)
+        # that were passed to FBPIC, in order
+        self.created = { 'species': [], 'lasers': [],
+                         'applied_fields': [], 'diagnostics': [] }
+        # The PICMI input that defines the FBPIC simulation object itself,
+        # when it was created (see `Simulation._simulation_input`)
+        self.simulation_input = None
 
     # A copy of a PICMI simulation describes a new simulation, which does
     # not share (or copy) the FBPIC objects of the original simulation
@@ -112,10 +115,12 @@ class Simulation( PICMI_Simulation ):
     given, the corresponding default of FBPIC is used.
 
     The FBPIC objects (e.g. the FBPIC species) are created from the PICMI input
-    when the simulation is run with `step`, or when `fbpic_sim` is accessed.
-    The PICMI input can thus be given in any order, either when creating the
-    `Simulation` or with its `add_*` methods. Input that is added afterwards
-    is passed to FBPIC the next time that the simulation is run.
+    when the simulation is run with `step`, and (except for the diagnostics)
+    when `fbpic_sim` or `get_fbpic_species` is used. The PICMI input can thus
+    be given in any order, either when creating the `Simulation` or with its
+    `add_*` methods. Input that is added afterwards is passed to FBPIC the next
+    time that the simulation is run, while the input that was passed to FBPIC
+    already cannot be changed anymore.
     """
 
     # --- Arguments that are passed to the FBPIC `Simulation` object
@@ -159,6 +164,10 @@ class Simulation( PICMI_Simulation ):
     _step_arguments: ClassVar[tuple[str, ...]] = (
         'correct_currents', 'correct_divE', 'use_true_rho',
         'move_positions', 'move_momenta', 'show_progress' )
+    # The PICMI input that defines the FBPIC simulation object itself
+    _simulation_input_names: ClassVar[tuple[str, ...]] = (
+        'solver', 'time_step_size', 'verbose', 'particle_shape',
+        'gamma_boost' ) + _simulation_arguments
 
     # The FBPIC objects that correspond to the PICMI input. (This is a private
     # attribute, since it is not part of the PICMI input itself.)
@@ -186,9 +195,11 @@ class Simulation( PICMI_Simulation ):
         The underlying FBPIC `Simulation` object
 
         (Accessing it creates the FBPIC objects of the PICMI input that was
-        given so far.)
+        given so far, except for the diagnostics, which are created when the
+        simulation is run. With MPI, access it on all ranks, since creating
+        the FBPIC objects can require communication between the ranks.)
         """
-        self._create_fbpic_objects()
+        self._create_fbpic_objects( include_diagnostics=False )
         return self._fbpic.sim
 
 
@@ -199,7 +210,9 @@ class Simulation( PICMI_Simulation ):
         part of PICMI (such as `track`)
 
         (Calling this creates the FBPIC objects of the PICMI input that was
-        given so far.)
+        given so far, except for the diagnostics, which are created when the
+        simulation is run. With MPI, call it on all ranks, since creating
+        the FBPIC objects can require communication between the ranks.)
 
         Parameters
         ----------
@@ -207,14 +220,14 @@ class Simulation( PICMI_Simulation ):
             For a `MultiSpecies`, the list of the FBPIC species of its
             species is returned.
         """
-        self._create_fbpic_objects()
+        self._create_fbpic_objects( include_diagnostics=False )
         if isinstance( species, PICMI_MultiSpecies ):
             return [ self._get_fbpic_species( s )
                      for s in species_instances( species ) ]
         return self._get_fbpic_species( species )
 
 
-    def _create_fbpic_objects( self ):
+    def _create_fbpic_objects( self, include_diagnostics=True ):
         """
         Create the FBPIC objects of the PICMI input that was not passed to
         FBPIC yet (at first, the FBPIC simulation itself)
@@ -222,15 +235,26 @@ class Simulation( PICMI_Simulation ):
         The objects are created in an order that does not depend on the order
         in which the PICMI input was given: the species first, then their
         interactions, and the diagnostics last (e.g. since the FBPIC particle
-        diagnostics depend on whether a species is ionizable).
+        diagnostics depend on whether a species is ionizable or tracked).
         """
         if self._fbpic.sim is None:
             self._create_fbpic_simulation()
+            self._fbpic.simulation_input = self._simulation_input()
+        else:
+            changed = [ name for name, value in self._simulation_input().items()
+                        if value != self._fbpic.simulation_input[name] ]
+            if changed:
+                raise ValueError('The input %s of the Simulation cannot be '
+                    'changed once the FBPIC simulation is created (when the '
+                    'simulation is run, or when `fbpic_sim` or '
+                    '`get_fbpic_species` is used).'
+                    %', '.join([ '`%s`' %name for name in changed ]))
 
         # The entries with the same index in these lists belong together
         self._check_same_length( 'species', 'layouts', 'initialize_self_fields',
             'injection_plane_positions', 'injection_plane_normal_vectors' )
         self._check_same_length( 'lasers', 'laser_injection_methods' )
+        self._check_unique_species()
 
         self._create_new_entries( 'species',
             lambda i: self._add_species_generic( self.species[i],
@@ -244,8 +268,29 @@ class Simulation( PICMI_Simulation ):
                                              self.laser_injection_methods[i] ) )
         self._create_new_entries( 'applied_fields',
             lambda i: self._add_fbpic_applied_field( self.applied_fields[i] ) )
-        self._create_new_entries( 'diagnostics',
-            lambda i: self._add_fbpic_diagnostic( self.diagnostics[i] ) )
+        if include_diagnostics:
+            self._create_new_entries( 'diagnostics',
+                lambda i: self._add_fbpic_diagnostic( self.diagnostics[i] ) )
+
+
+    def _simulation_input( self ):
+        """
+        Return the PICMI input that defines the FBPIC simulation object itself
+        """
+        return self.model_dump( include=set(self._simulation_input_names) )
+
+
+    def _check_unique_species( self ):
+        """
+        Check that each PICMI species is added only once to the simulation
+        """
+        added = []
+        for species in self.species:
+            for s in species_instances( species ):
+                if any( s is other for other in added ):
+                    raise ValueError('The species %s is added more than once '
+                        'to the simulation.' %(s.name or s.particle_type))
+                added.append( s )
 
 
     def _check_same_length( self, *list_names ):
@@ -265,11 +310,22 @@ class Simulation( PICMI_Simulation ):
         """
         Call `create_entry(i)` for each index `i` of the PICMI list `list_name`
         (e.g. `lasers`) whose entry was not passed to FBPIC yet
+
+        The entries that were passed to FBPIC cannot be removed or replaced,
+        since their FBPIC objects exist already.
         """
-        n_created = self._fbpic.n_created
-        while n_created[list_name] < len( getattr(self, list_name) ):
-            create_entry( n_created[list_name] )
-            n_created[list_name] += 1
+        created = self._fbpic.created[list_name]
+        entries = getattr( self, list_name )
+        if ( len(entries) < len(created) ) or \
+           any( entry is not created_entry
+                for entry, created_entry in zip(entries, created) ):
+            raise ValueError('The entries of `%s` that were passed to FBPIC '
+                '(when the simulation was run, or when `fbpic_sim` or '
+                '`get_fbpic_species` was used) cannot be removed or replaced.'
+                %list_name)
+        for i in range( len(created), len(entries) ):
+            create_entry( i )
+            created.append( entries[i] )
 
 
     def _get_grid( self ):
@@ -489,6 +545,11 @@ class Simulation( PICMI_Simulation ):
 
         # Loop over species and create FBPIC species
         for s in species_instances( species ):
+
+            # Skip the species whose FBPIC species exists already (e.g. when
+            # the creation of a `MultiSpecies` is repeated after an error)
+            if s in self._fbpic.species:
+                continue
 
             if isinstance(s.initial_distribution, list):
                 raise ValueError('FBPIC does not support more than one '
@@ -759,6 +820,9 @@ class Simulation( PICMI_Simulation ):
         """
         Add a diagnostic to the FBPIC simulation (see `add_diagnostic`)
         """
+        # The FBPIC diagnostics of this PICMI diagnostic
+        new_diags = []
+
         # Handle iteration_min/max in regular diagnostic
         if isinstance(diagnostic, (PICMI_FieldDiagnostic, PICMI_ParticleDiagnostic)):
             if diagnostic.step_min is None:
@@ -825,7 +889,7 @@ class Simulation( PICMI_Simulation ):
                             write_dir=diagnostic.write_dir,
                             iteration_min=iteration_min,
                             iteration_max=iteration_max)
-                self._fbpic.sim.diags.append( pdd_diag )
+                new_diags.append( pdd_diag )
 
         elif isinstance(diagnostic, PICMI_LabFrameFieldDiagnostic):
             diag = BackTransformedFieldDiagnostic(
@@ -874,13 +938,18 @@ class Simulation( PICMI_Simulation ):
         else:
             raise ValueError("Unrecognized `diagnostic` type.")
 
-        # Add it to the FBPIC simulation
-        self._fbpic.sim.diags.append( diag )
+        # Add the diagnostics to the FBPIC simulation (at once, so that none
+        # of them is added if the creation of another one fails)
+        new_diags.append( diag )
+        self._fbpic.sim.diags.extend( new_diags )
 
     def _add_fbpic_applied_field( self, applied_field ):
         """
         Add an applied field to the FBPIC simulation (see `add_applied_field`)
         """
+        # The FBPIC external fields of this PICMI applied field
+        external_fields = []
+
         if isinstance(applied_field, PICMI_Mirror):
             if applied_field.z_front_location is None:
                 raise ValueError('FBPIC only supports mirrors that are '
@@ -897,7 +966,7 @@ class Simulation( PICMI_Simulation ):
                 if field_value is None:
                     continue
                 # Pass it to FBPIC
-                self._fbpic.sim.external_fields.append(
+                external_fields.append(
                     ExternalField( constant_field_func(field_value),
                                    field_name, 1., 0.)
                 )
@@ -919,12 +988,16 @@ class Simulation( PICMI_Simulation ):
                         + define_function_code
                 exec( define_function_code, globals() )
                 # Pass it to FBPIC
-                self._fbpic.sim.external_fields.append(
+                external_fields.append(
                     ExternalField( fieldfunc, field_name, 1., 0.)
                 )
 
         else:
             raise ValueError("Unrecognized `applied_field` type.")
+
+        # Add the external fields to the FBPIC simulation (at once, so that
+        # none of them is added if the creation of another one fails)
+        self._fbpic.sim.external_fields.extend( external_fields )
 
 
     # Redefine the method `step` of the parent class
