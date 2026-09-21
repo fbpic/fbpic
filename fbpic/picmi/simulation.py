@@ -120,7 +120,7 @@ class Simulation( PICMI_Simulation ):
     be given in any order, either when creating the `Simulation` or with its
     `add_*` methods. Input that is added afterwards is passed to FBPIC the next
     time that the simulation is run, while the input that was passed to FBPIC
-    already cannot be changed anymore.
+    cannot be changed.
     """
 
     # --- Arguments that are passed to the FBPIC `Simulation` object
@@ -174,7 +174,6 @@ class Simulation( PICMI_Simulation ):
     _fbpic: FBPICObjects = PrivateAttr( default_factory=FBPICObjects )
 
     # Check the PICMI input, once it is validated
-    # (`model_post_init` replaces the `init` method of the pre-pydantic PICMI)
     def model_post_init( self, context ):
         super().model_post_init( context )
         # The FBPIC objects are only created when they are needed
