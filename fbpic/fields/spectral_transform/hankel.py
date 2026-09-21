@@ -16,7 +16,7 @@ from scipy.special import jn, jn_zeros
 from fbpic.utils.cuda import cuda_installed, cupy_version
 from .numba_methods import numba_copy_2dC_to_2dR, numba_copy_2dR_to_2dC
 if cuda_installed:
-    from fbpic.utils.cuda import cuda_tpb_bpg_2d, cuda_gpu_model
+    from fbpic.utils.cuda import cuda_tpb_bpg_2d, get_cuda_launch_config
     from .cuda_methods import cuda_copy_2dC_to_2dR, cuda_copy_2dR_to_2dC
     import cupy
     from cupy.cuda import device, cublas
@@ -150,9 +150,9 @@ class DHT(object):
                 self.beta = self.beta_ary.ctypes.data
             # Initialize cuBLAS
             self.blas = device.get_cublas_handle()
-            # Set optimal number of CUDA threads per block
-            # for copy 2d real/complex (determined empirically)
-            copy_tpb = (8,32) if cuda_gpu_model == "V100" else (2,16)
+            # Set CUDA threads per block for copy 2d real/complex kernels
+            # from the selected device policy.
+            copy_tpb = get_cuda_launch_config().copy_tpb
             # Initialize the threads per block and block per grid
             self.dim_grid, self.dim_block = cuda_tpb_bpg_2d(Nz, Nr, *copy_tpb)
 
