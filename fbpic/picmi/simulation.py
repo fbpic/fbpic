@@ -721,8 +721,14 @@ class Simulation( PICMI_Simulation ):
         for species in self.species:
             for s in species_instances( species ):
                 interactions += s.interactions
-        return [ interaction for interaction in interactions
-                 if interaction not in self._fbpic.interactions ]
+        # An interaction can be listed several times (e.g. in the simulation
+        # and in a species), but is set up only once
+        pending = []
+        for interaction in interactions:
+            if (interaction not in self._fbpic.interactions) and \
+               (interaction not in pending):
+                pending.append( interaction )
+        return pending
 
 
     def _setup_interactions( self ):
