@@ -105,8 +105,8 @@ class ExternalField( object ):
         self.length_scale = length_scale
         self.species = species
         # Check that fieldtype is a correct field
-        if (fieldtype in ['Ex', 'Ey', 'Ez', 'Bx', 'By', 'Bz']) is False:
-            raise ValueError("`fieldtype` must be one of Ex, Ey, Ez, Bx, By, Bz")
+        if (fieldtype in ['Ex', 'Ey', 'Ez', 'Bx', 'By', 'Bz', 'Bt', 'Wr']) is False:
+            raise ValueError("`fieldtype` must be one of Ex, Ey, Ez, Bx, By, Bz, Bt, Wr")
 
         # Note: when `gamma_boost` is passed, the fields are evaluated in
         # the boosted frame, even though the user-provided function corresponds
