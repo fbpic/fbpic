@@ -10,10 +10,19 @@ import numba
 numba_version = (int(numba.__version__.split('.')[0]),
                  int(numba.__version__.split('.')[1]),
                  int(numba.__version__.split('.')[2]))
+
+# Check if CUDA is available and set variable accordingly
+
+try:
+    from numba import hip
+    numba_hip_installed = hip.is_available()
+    hip.pose_as_cuda()
+except Exception:
+    numba_hip_installed = False
+
 from numba import cuda
 import numpy as np
 
-# Check if CUDA is available and set variable accordingly
 try:
     numba_cuda_installed = cuda.is_available()
 except Exception:
@@ -46,6 +55,13 @@ try:
     pynvml_installed = True
 except ImportError:
     pynvml_installed = False
+
+print(f"{numba_hip_installed=}")
+print(f"{numba_cuda_installed=}")
+print(f"{cupy_installed=}")
+print(f"{cupy_version=}")
+print(f"{cuda_installed=}")
+print(f"{pynvml_installed=}")
 
 # -----------------------------------------------------
 # CUDA grid utilities
@@ -205,7 +221,7 @@ def get_uuid(gpu_id):
     uuid: Unique identifier (UUID) of the GPU (str)
     """
     # For cupy version below 8.1, we cannot determine the uuid
-    if cupy_version < (8,1):
+    if cupy_version < (8,1) or numba_hip_installed:
         return None
 
     # Get UUID using cupy
@@ -215,7 +231,7 @@ def get_uuid(gpu_id):
     if len(uuid) != 16:
         warnings.warn(f"Failed to detect UUID of GPU {gpu_id} (invalid UUID length: {len(uuid)})")
         return None
-    
+
     # conversion strategy from numba PR #6700
     b = '%02x'
     b2 = b * 2
@@ -489,6 +505,37 @@ if cuda_installed:
             if not isinstance(threads_per_block, tuple):
                 threads_per_block = (threads_per_block, )
 
+            def hip_wrap_args(args):
+                if numba_hip_installed:
+                    retargs = []
+                    for a in args:
+                        if isinstance(a, cupy.ndarray):
+
+                            desc = {
+                                'shape': a.shape,
+                                'typestr': a.dtype.str,
+                                'descr': a.dtype.descr,
+                            }
+
+                            ver = 2
+
+                            desc['version'] = ver
+                            if a._c_contiguous:
+                                desc['strides'] = None
+                            else:
+                                desc['strides'] = a.strides
+                            if a.size > 0:
+                                desc['data'] = (a.data.ptr, False)
+                            else:
+                                desc['data'] = (0, False)
+
+                            retargs.append(hip.from_cuda_array_interface(desc, owner=a, sync=False))
+                        else:
+                            retargs.append(a)
+                    return tuple(retargs)
+                else:
+                    return args
+
             # Define function that will be returned by the decorator
             def call_kernel(*args):
                 """
@@ -517,11 +564,14 @@ if cuda_installed:
                         # Compile a Numba kernel for the specified arguments
                         # using cuda.jit
                         numba_kernel = cuda.jit()(self.python_func) \
-                            .specialize(*args)
+                            .specialize(*hip_wrap_args(args))
 
                         # Convert the kernel into a cupy kernel and cache it in
                         # a dictionary using the hash
-                        self.kernel_dict[hash] = self.make_cupy_kernel( numba_kernel )
+                        if numba_hip_installed:
+                            self.kernel_dict[hash] = numba_kernel
+                        else:
+                            self.kernel_dict[hash] = self.make_cupy_kernel( numba_kernel )
 
                     # Get the correct kernel from the cache
                     kernel = self.kernel_dict[hash]
@@ -532,36 +582,57 @@ if cuda_installed:
                 kernel_args = []
 
                 # Loop over the given arguments
-                for a in args:
+                if numba_hip_installed:
+                    kernel_args = hip_wrap_args(args)
+                else:
+                    for a in args:
 
-                    # Check whether the argument is an array and requires
-                    # multiple kernel arguments.
-                    if isinstance(a, cupy.ndarray):
-                        # Append all required arguments to the list, in order:
-                        # - Two zeroes (corresponding to null pointers in C)
-                        # - The total size of the array
-                        # - The size in bytes of the array datatype
-                        # - The array itself
-                        # - The shape of the array, as single integers
-                        # - The strides of the array, as single integers
-                        # Note that due to the latter two entries, the actual
-                        # number of arguments per array depends on the number
-                        # of array dimensions.
-                        kernel_args.extend(
-                            [0, 0, a.size, a.dtype.itemsize, a])
-                        kernel_args.extend(a.shape)
-                        kernel_args.extend(a.strides)
-                    else:
-                        # For scalar arguments, simply append the
-                        # argument itself.
-                        kernel_args.append(a)
+                        # Check whether the argument is an array and requires
+                        # multiple kernel arguments.
+                        if isinstance(a, cupy.ndarray):
+                            # Append all required arguments to the list, in order:
+                            # - Two zeroes (corresponding to null pointers in C)
+                            # - The total size of the array
+                            # - The size in bytes of the array datatype
+                            # - The array itself
+                            # - The shape of the array, as single integers
+                            # - The strides of the array, as single integers
+                            # Note that due to the latter two entries, the actual
+                            # number of arguments per array depends on the number
+                            # of array dimensions.
+                            kernel_args.extend(
+                                [0, 0, a.size, a.dtype.itemsize, a])
+                            kernel_args.extend(a.shape)
+                            kernel_args.extend(a.strides)
+                        else:
+                            # For scalar arguments, simply append the
+                            # argument itself.
+                            kernel_args.append(a)
 
                 # Call the actual kernel.
                 # The arguments of the call are:
                 # - Blocks per grid (tuple)
                 # - Threads per blocks (tuple)
                 # - The prepared list of kernel arguments
-                kernel (blocks_per_grid, threads_per_block, kernel_args)
+                if numba_hip_installed:
+                    kernel[blocks_per_grid, threads_per_block](*kernel_args)
+                else:
+                    kernel (blocks_per_grid, threads_per_block, kernel_args)
 
             # __getitem__ returns the created wrapper method.
             return call_kernel
+
+    @cuda.jit
+    def gpu_atomic_add(arr, idx_tup, val):
+        if numba_hip_installed:
+            if len(idx_tup) == 1:
+                cuda.atomic.add(arr[idx_tup[0]:].ctypes, val)
+            elif len(idx_tup) == 2:
+                cuda.atomic.add(arr[idx_tup[0]:, idx_tup[1]:].ctypes, val)
+            else:
+                cuda.atomic.add(arr[idx_tup[0]:, idx_tup[1]:, idx_tup[2]:].ctypes, val)
+        else:
+            cuda.atomic.add(arr, idx_tup, val)
+
+else:
+    gpu_atomic_add = None

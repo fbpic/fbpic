@@ -26,7 +26,7 @@ if cuda_installed:
     import cupy
     from fbpic.utils.cuda import cuda_tpb_bpg_1d
     from .cuda_methods import gather_synchrotron_cuda
-    from numba.cuda.random import create_xoroshiro128p_states
+    # from numba.cuda.random import create_xoroshiro128p_states
 
 class SynchrotronRadiator(object):
     """
@@ -168,7 +168,7 @@ class SynchrotronRadiator(object):
 
             # initialize states for random number generator
             seed = np.random.randint( 256 )
-            rng_states_batch = create_xoroshiro128p_states(N_batch, seed)
+            rng_states_batch = 0 # create_xoroshiro128p_states(N_batch, seed)
 
             # run kernel for radiation calculation
             batch_grid_1d, batch_block_1d = cuda_tpb_bpg_1d( N_batch )

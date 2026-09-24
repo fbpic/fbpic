@@ -6,7 +6,7 @@ This file is part of the Fourier-Bessel Particle-In-Cell code (FB-PIC)
 """
 
 from numba import cuda
-from fbpic.utils.cuda import compile_cupy
+from fbpic.utils.cuda import compile_cupy, gpu_atomic_add
 import math
 from fbpic.particles.deposition.particle_shapes import Sz_linear, \
     Sr_linear
@@ -96,7 +96,7 @@ def deposit_rho_gpu_unsorted(x, y, z, w, q,
         # Positions of the particles, in the cell unit
         r_cell = invdr*(rj - rmin) - 0.5
         z_cell = invdz*(zj - zmin) - 0.5
-       
+
         # Cell indices of the upper cell bounds
         ir = min( int(math.ceil(r_cell)), Nr )
         iz = int(math.ceil(z_cell))
@@ -128,18 +128,18 @@ def deposit_rho_gpu_unsorted(x, y, z, w, q,
         R_m_01 = Sr_linear(r_cell, 0, f, bn)*Sz_linear(z_cell, 1) * R_m_scal
         R_m_10 = Sr_linear(r_cell, 1, f, bn)*Sz_linear(z_cell, 0) * R_m_scal
         R_m_11 = Sr_linear(r_cell, 1, f, bn)*Sz_linear(z_cell, 1) * R_m_scal
-  
+
         # Add the calculated fields to the global grid
-        cuda.atomic.add(rho_m.real, (iz0, ir0), R_m_00.real)
-        cuda.atomic.add(rho_m.real, (iz0, ir1), R_m_10.real)
-        cuda.atomic.add(rho_m.real, (iz1, ir0), R_m_01.real)
-        cuda.atomic.add(rho_m.real, (iz1, ir1), R_m_11.real)
+        gpu_atomic_add(rho_m.real, (iz0, ir0), R_m_00.real)
+        gpu_atomic_add(rho_m.real, (iz0, ir1), R_m_10.real)
+        gpu_atomic_add(rho_m.real, (iz1, ir0), R_m_01.real)
+        gpu_atomic_add(rho_m.real, (iz1, ir1), R_m_11.real)
         if m > 0:
             # For azimuthal modes beyond m=0: add imaginary part
-            cuda.atomic.add(rho_m.imag, (iz0, ir0), R_m_00.imag)
-            cuda.atomic.add(rho_m.imag, (iz0, ir1), R_m_10.imag)
-            cuda.atomic.add(rho_m.imag, (iz1, ir0), R_m_01.imag)
-            cuda.atomic.add(rho_m.imag, (iz1, ir1), R_m_11.imag)
+            gpu_atomic_add(rho_m.imag, (iz0, ir0), R_m_00.imag)
+            gpu_atomic_add(rho_m.imag, (iz0, ir1), R_m_10.imag)
+            gpu_atomic_add(rho_m.imag, (iz1, ir0), R_m_01.imag)
+            gpu_atomic_add(rho_m.imag, (iz1, ir1), R_m_11.imag)
 
 # -------------------------------
 # Field deposition - linear - J
@@ -237,7 +237,7 @@ def deposit_J_gpu_unsorted(x, y, z, w, q,
         # Positions of the particles, in the cell unit
         r_cell = invdr*(rj - rmin) - 0.5
         z_cell = invdz*(zj - zmin) - 0.5
-       
+
         # Cell indices of the upper cell bounds
         ir = min( int(math.ceil(r_cell)), Nr )
         iz = int(math.ceil(z_cell))
@@ -258,7 +258,7 @@ def deposit_J_gpu_unsorted(x, y, z, w, q,
         if ir0 < 0:
             # Deposition below the axis: fold index into physical region
             ir0 = -(1 + ir0)
-        
+
         # Ruyten-corrected shape factor coefficient
         bn = beta_n[ir]
 
@@ -284,32 +284,32 @@ def deposit_J_gpu_unsorted(x, y, z, w, q,
 
         # Atomically add the registers to global memory
         # jr
-        cuda.atomic.add(j_r_m.real, (iz0, ir0), J_r_m_00.real)
-        cuda.atomic.add(j_r_m.real, (iz0, ir1), J_r_m_10.real)
-        cuda.atomic.add(j_r_m.real, (iz1, ir0), J_r_m_01.real)
-        cuda.atomic.add(j_r_m.real, (iz1, ir1), J_r_m_11.real)
+        gpu_atomic_add(j_r_m.real, (iz0, ir0), J_r_m_00.real)
+        gpu_atomic_add(j_r_m.real, (iz0, ir1), J_r_m_10.real)
+        gpu_atomic_add(j_r_m.real, (iz1, ir0), J_r_m_01.real)
+        gpu_atomic_add(j_r_m.real, (iz1, ir1), J_r_m_11.real)
         if m > 0:
-            cuda.atomic.add(j_r_m.imag, (iz0, ir0), J_r_m_00.imag)
-            cuda.atomic.add(j_r_m.imag, (iz0, ir1), J_r_m_10.imag)
-            cuda.atomic.add(j_r_m.imag, (iz1, ir0), J_r_m_01.imag)
-            cuda.atomic.add(j_r_m.imag, (iz1, ir1), J_r_m_11.imag)
+            gpu_atomic_add(j_r_m.imag, (iz0, ir0), J_r_m_00.imag)
+            gpu_atomic_add(j_r_m.imag, (iz0, ir1), J_r_m_10.imag)
+            gpu_atomic_add(j_r_m.imag, (iz1, ir0), J_r_m_01.imag)
+            gpu_atomic_add(j_r_m.imag, (iz1, ir1), J_r_m_11.imag)
         # jt
-        cuda.atomic.add(j_t_m.real, (iz0, ir0), J_t_m_00.real)
-        cuda.atomic.add(j_t_m.real, (iz0, ir1), J_t_m_10.real)
-        cuda.atomic.add(j_t_m.real, (iz1, ir0), J_t_m_01.real)
-        cuda.atomic.add(j_t_m.real, (iz1, ir1), J_t_m_11.real)
+        gpu_atomic_add(j_t_m.real, (iz0, ir0), J_t_m_00.real)
+        gpu_atomic_add(j_t_m.real, (iz0, ir1), J_t_m_10.real)
+        gpu_atomic_add(j_t_m.real, (iz1, ir0), J_t_m_01.real)
+        gpu_atomic_add(j_t_m.real, (iz1, ir1), J_t_m_11.real)
         if m > 0:
-            cuda.atomic.add(j_t_m.imag, (iz0, ir0), J_t_m_00.imag)
-            cuda.atomic.add(j_t_m.imag, (iz0, ir1), J_t_m_10.imag)
-            cuda.atomic.add(j_t_m.imag, (iz1, ir0), J_t_m_01.imag)
-            cuda.atomic.add(j_t_m.imag, (iz1, ir1), J_t_m_11.imag)
+            gpu_atomic_add(j_t_m.imag, (iz0, ir0), J_t_m_00.imag)
+            gpu_atomic_add(j_t_m.imag, (iz0, ir1), J_t_m_10.imag)
+            gpu_atomic_add(j_t_m.imag, (iz1, ir0), J_t_m_01.imag)
+            gpu_atomic_add(j_t_m.imag, (iz1, ir1), J_t_m_11.imag)
         # jz
-        cuda.atomic.add(j_z_m.real, (iz0, ir0), J_z_m_00.real)
-        cuda.atomic.add(j_z_m.real, (iz0, ir1), J_z_m_10.real)
-        cuda.atomic.add(j_z_m.real, (iz1, ir0), J_z_m_01.real)
-        cuda.atomic.add(j_z_m.real, (iz1, ir1), J_z_m_11.real)
+        gpu_atomic_add(j_z_m.real, (iz0, ir0), J_z_m_00.real)
+        gpu_atomic_add(j_z_m.real, (iz0, ir1), J_z_m_10.real)
+        gpu_atomic_add(j_z_m.real, (iz1, ir0), J_z_m_01.real)
+        gpu_atomic_add(j_z_m.real, (iz1, ir1), J_z_m_11.real)
         if m > 0:
-            cuda.atomic.add(j_z_m.imag, (iz0, ir0), J_z_m_00.imag)
-            cuda.atomic.add(j_z_m.imag, (iz0, ir1), J_z_m_10.imag)
-            cuda.atomic.add(j_z_m.imag, (iz1, ir0), J_z_m_01.imag)
-            cuda.atomic.add(j_z_m.imag, (iz1, ir1), J_z_m_11.imag)
+            gpu_atomic_add(j_z_m.imag, (iz0, ir0), J_z_m_00.imag)
+            gpu_atomic_add(j_z_m.imag, (iz0, ir1), J_z_m_10.imag)
+            gpu_atomic_add(j_z_m.imag, (iz1, ir0), J_z_m_01.imag)
+            gpu_atomic_add(j_z_m.imag, (iz1, ir1), J_z_m_11.imag)
