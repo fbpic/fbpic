@@ -224,14 +224,17 @@ class Simulation( PICMI_Simulation ):
         # Loop over species and create FBPIC species
         for s in species_instances_list:
 
-            # Get their charge and mass
-            if s.particle_type is not None:
-                s.charge = particle_charge[s.particle_type]
+            # Get their charge and mass: when they are not given, they are
+            # determined by the particle type and the charge state
+            if (s.mass is None) and (s.particle_type is not None):
                 s.mass = particle_mass[s.particle_type]
-            # If `charge_state` is set, redefine the charge and mass
-            if s.charge_state is not None:
-                s.charge = s.charge_state*e
-                s.mass -= s.charge_state*m_e
+                if s.charge_state is not None:
+                    s.mass -= s.charge_state*m_e
+            if s.charge is None:
+                if s.charge_state is not None:
+                    s.charge = s.charge_state*e
+                elif s.particle_type is not None:
+                    s.charge = particle_charge[s.particle_type]
 
             # Add the species to the FBPIC simulation
             fbpic_species = self._create_new_fbpic_species(s,
