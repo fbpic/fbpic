@@ -6,6 +6,7 @@ This file is part of the Fourier-Bessel Particle-In-Cell code (FB-PIC)
 
 It defines the picmi Simulation interface
 """
+import math
 import numpy as np
 import warnings
 from scipy.constants import c, e, m_e
@@ -223,14 +224,17 @@ class Simulation( PICMI_Simulation ):
         # Loop over species and create FBPIC species
         for s in species_instances_list:
 
-            # Get their charge and mass
-            if s.particle_type is not None:
-                s.charge = particle_charge[s.particle_type]
+            # Get their charge and mass: when they are not given, they are
+            # determined by the particle type and the charge state
+            if (s.mass is None) and (s.particle_type is not None):
                 s.mass = particle_mass[s.particle_type]
-            # If `charge_state` is set, redefine the charge and mass
-            if s.charge_state is not None:
-                s.charge = s.charge_state*e
-                s.mass -= s.charge_state*m_e
+                if s.charge_state is not None:
+                    s.mass -= s.charge_state*m_e
+            if s.charge is None:
+                if s.charge_state is not None:
+                    s.charge = s.charge_state*e
+                elif s.particle_type is not None:
+                    s.charge = particle_charge[s.particle_type]
 
             # Add the species to the FBPIC simulation
             fbpic_species = self._create_new_fbpic_species(s,
@@ -266,6 +270,8 @@ class Simulation( PICMI_Simulation ):
             # - Uniform distribution
             if isinstance(s.initial_distribution, PICMI_UniformDistribution):
                 n0 = s.initial_distribution.density
+                if s.density_scale is not None:
+                    n0 *= s.density_scale
                 dens_func = None
             # - Analytic distribution
             elif isinstance(s.initial_distribution, PICMI_AnalyticDistribution):
@@ -442,7 +448,7 @@ class Simulation( PICMI_Simulation ):
                     period=100,
                     fldobject=self.fbpic_sim.fld,
                     comm=self.fbpic_sim.comm,
-                    fieldtypes=diagnostic.data_list,
+                    fieldtypes=data_list,
                     write_dir=diagnostic.write_dir)
         # Register particle diagnostic
         elif isinstance(diagnostic, (PICMI_ParticleDiagnostic,
@@ -489,11 +495,43 @@ class Simulation( PICMI_Simulation ):
         # Call method of parent class
         super().add_applied_field( applied_field )
 
+        # FBPIC applies the fields everywhere
+        if isinstance(applied_field, (PICMI_ConstantAppliedField,
+                                      PICMI_AnalyticAppliedField)):
+            for bound in [applied_field.lower_bound, applied_field.upper_bound]:
+                if (bound is not None) and \
+                   any( value is not None for value in bound ):
+                    raise ValueError('FBPIC does not support the '
+                        '`lower_bound` and `upper_bound` of an applied field '
+                        '(it is applied everywhere), but they are %s and %s.'
+                        %(applied_field.lower_bound, applied_field.upper_bound))
+
         if isinstance(applied_field, PICMI_Mirror):
             assert applied_field.z_front_location is not None
-            mirror = Mirror( z_lab=applied_field.z_front_location,
-                             n_cells=applied_field.number_of_cells,
-                             gamma_boost=self.fbpic_sim.boost.gamma0 )
+            # The mirror extends from `z_front_location` towards positive z.
+            # Its thickness is the maximum of `depth` and `number_of_cells`
+            # cells of the grid, or 2 cells if neither is set.
+            # `Mirror` takes lab-frame positions: in a
+            # boosted frame, the mirror (at rest in the lab frame) is contracted
+            # by `gamma_boost`, so that `n` cells of the (boosted-frame) grid
+            # correspond to a thickness `gamma_boost*n*dz` in the lab frame.
+            if self.gamma_boost is None:
+                gamma_boost = 1.
+            else:
+                gamma_boost = self.gamma_boost
+            dz = self.fbpic_sim.comm.dz
+            n_cells = applied_field.number_of_cells
+            depth = applied_field.depth
+            if (n_cells is None) and (depth is None):
+                n_cells = 2
+            thickness = 0.
+            if n_cells is not None:
+                thickness = gamma_boost * n_cells * dz
+            if depth is not None:
+                thickness = max( thickness, depth )
+            z_front = applied_field.z_front_location
+            mirror = Mirror( z_start=z_front, z_end=z_front + thickness,
+                             gamma_boost=self.gamma_boost )
             self.fbpic_sim.mirrors.append( mirror )
 
         elif isinstance(applied_field, PICMI_ConstantAppliedField):
@@ -506,7 +544,8 @@ class Simulation( PICMI_Simulation ):
                     return( F + amplitude * field_value )
                 # Pass it to FBPIC
                 self.fbpic_sim.external_fields.append(
-                    ExternalField( field_func, field_name, 1., 0.)
+                    ExternalField( field_func, field_name, 1., 0.,
+                                   gamma_boost=self.gamma_boost )
                 )
 
         elif isinstance(applied_field, PICMI_AnalyticAppliedField):
@@ -516,18 +555,20 @@ class Simulation( PICMI_Simulation ):
                 expression = getattr( applied_field, field_name+'_expression' )
                 if expression is None:
                     continue
-                fieldfunc = None
                 define_function_code = \
-                """def fieldfunc( F, x, y, z, t, amplitude, length_scale ):\n    return( F + amplitude * %s )""" %expression
-                # Take into account user-defined variables
-                for k in applied_field.user_defined_kw:
-                    define_function_code = \
-                        "%s = %s\n" %(k,applied_field.user_defined_kw[k]) \
-                        + define_function_code
-                exec( define_function_code, globals() )
+                """def fieldfunc( F, x, y, z, t, amplitude, length_scale ):\n    return( F + amplitude * ( %s ) )""" %expression
+                # Define the function in a dedicated namespace, which
+                # contains the functions and constants of the `math` module
+                # (e.g. sin, exp, pi) and the user-defined variables
+                namespace = { k: v for k, v in vars(math).items()
+                              if not k.startswith('_') }
+                namespace.update( applied_field.user_defined_kw )
+                exec( define_function_code, namespace )
+                fieldfunc = namespace['fieldfunc']
                 # Pass it to FBPIC
                 self.fbpic_sim.external_fields.append(
-                    ExternalField( fieldfunc, field_name, 1., 0.)
+                    ExternalField( fieldfunc, field_name, 1., 0.,
+                                   gamma_boost=self.gamma_boost )
                 )
 
         else:
