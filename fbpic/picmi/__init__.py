@@ -15,7 +15,30 @@ try:
 except ImportError:
     raise ImportError(
         "In order to use FBPIC with PICMI, you should install the \n"
-        "`picmistandard` package, e.g. with: `pip install \"picmistandard<=0.34.0\"`")
+        "`picmistandard` package, e.g. with: `pip install fbpic[picmi]`")
+
+def _check_picmistandard():
+    """
+    Check that the installed `picmistandard` is the PICMI standard that is
+    based on pydantic (version 0.35.0 or later), which FBPIC requires
+    """
+    import picmistandard
+    simulation_class = getattr( picmistandard, 'PICMI_Simulation', None )
+    try:
+        from pydantic import BaseModel
+    except ImportError:
+        is_pydantic = False
+    else:
+        is_pydantic = isinstance( simulation_class, type ) and \
+                      issubclass( simulation_class, BaseModel )
+    if not is_pydantic:
+        raise ImportError(
+            "FBPIC requires `picmistandard` 0.35.0 or later (the PICMI "
+            "standard based on pydantic),\nbut version %s is installed. "
+            "Please upgrade it, e.g. with: "
+            "`pip install --upgrade \"picmistandard>=0.35.0\"`"
+            %getattr( picmistandard, '__version__', 'unknown' ) )
+_check_picmistandard()
 
 from scipy import constants
 class constants:
