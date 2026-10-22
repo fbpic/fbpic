@@ -39,7 +39,7 @@ class SpectralTransformer(object) :
         converts a vector field from the interpolation to the spectral grid
     """
 
-    def __init__(self, Nz, Nr, m, rmax, use_cuda=False ) :
+    def __init__(self, Nz, Nr, m, rmax, use_cuda=False, hankel_rcond=None ) :
         """
         Initializes the dht and fft attributes, which contain auxiliary
         matrices allowing to transform the fields quickly
@@ -54,6 +54,9 @@ class SpectralTransformer(object) :
 
         rmax : float
             The size of the simulation box along r.
+
+        hankel_rcond : float or None, optional
+            Normalized Hankel cutoff; None keeps the original transforms.
         """
         # Check whether to use the GPU
         self.use_cuda = use_cuda
@@ -64,9 +67,11 @@ class SpectralTransformer(object) :
             self.dim_grid, self.dim_block = cuda_tpb_bpg_2d( Nz, Nr, 1, 32 )
 
         # Initialize the DHT (local implementation, see hankel.py)
-        self.dht0 = DHT(  m, m, Nr, Nz, rmax, use_cuda=self.use_cuda )
-        self.dhtp = DHT(m+1, m, Nr, Nz, rmax, use_cuda=self.use_cuda )
-        self.dhtm = DHT(m-1, m, Nr, Nz, rmax, use_cuda=self.use_cuda )
+        cutoffs = {} if hankel_rcond is None else dict(
+            rcond=hankel_rcond, rcond_mminus=hankel_rcond)
+        self.dht0 = DHT(  m, m, Nr, Nz, rmax, use_cuda=self.use_cuda, **cutoffs )
+        self.dhtp = DHT(m+1, m, Nr, Nz, rmax, use_cuda=self.use_cuda, **cutoffs )
+        self.dhtm = DHT(m-1, m, Nr, Nz, rmax, use_cuda=self.use_cuda, **cutoffs )
 
         # Initialize the FFT
         self.fft = FFT( Nr, Nz, use_cuda=self.use_cuda )
