@@ -57,7 +57,8 @@ def add_laser_direct( sim, laser_profile, boost ):
                     local=False, with_damp=True, with_guard=False )
     global_fld = Fields( global_Nz, global_zmax,
             sim.fld.Nr, sim.fld.rmax, sim.fld.Nm, sim.fld.dt,
-            zmin=global_zmin, n_order=sim.fld.n_order, use_cuda=False)
+            zmin=global_zmin, n_order=sim.fld.n_order, use_cuda=False,
+            hankel_rcond=sim.fld.hankel_rcond)
     # Gather the fields of the interpolation grid
     for m in range(sim.fld.Nm):
         for field in ['Er', 'Et']:

@@ -51,7 +51,8 @@ class Fields(object) :
                   n_order=-1, v_comoving=None, use_pml=False, use_galilean=True,
                   current_correction='cross-deposition', use_cuda=False,
                   smoother=None, create_threading_buffers=False,
-                  use_ruyten_shapes=True, use_modified_volume=True ):
+                  use_ruyten_shapes=True, use_modified_volume=True,
+                  hankel_rcond=None ):
         """
         Initialize the components of the Fields object
 
@@ -120,6 +121,10 @@ class Fields(object) :
 
         use_modified_volume: bool, optional
             Whether to use the modified cell volume (only used for m=0)
+
+        hankel_rcond: float or None, optional
+            Experimental normalized Hankel cutoff; None retains the original
+            transforms. See Simulation for the user-facing option.
         """
         # Register the arguments inside the object
         self.Nz = Nz
@@ -130,6 +135,7 @@ class Fields(object) :
         self.n_order = n_order
         self.v_comoving = v_comoving
         self.use_galilean = use_galilean
+        self.hankel_rcond = hankel_rcond
 
         # Set the default smoother
         if smoother is None:
@@ -157,7 +163,8 @@ class Fields(object) :
         self.trans = []
         for m in range(Nm) :
             self.trans.append( SpectralTransformer(
-                Nz, Nr, m, rmax, use_cuda=self.use_cuda ) )
+                Nz, Nr, m, rmax, use_cuda=self.use_cuda,
+                hankel_rcond=hankel_rcond ) )
 
         # Create the interpolation grid for each modes
         # (one grid per azimuthal mode)

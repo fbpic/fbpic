@@ -895,7 +895,8 @@ def get_space_charge_fields( sim, ptcl, direction='forward' ):
     global_fld = Fields( global_Nz, global_zmax,
             sim.fld.Nr, sim.fld.rmax, sim.fld.Nm, sim.fld.dt,
             n_order=sim.fld.n_order, smoother=sim.fld.smoother,
-            zmin=global_zmin, use_cuda=False)
+            zmin=global_zmin, use_cuda=False,
+            hankel_rcond=sim.fld.hankel_rcond)
     # Gather the sources on the interpolation grid of global_fld
     for m in range(sim.fld.Nm):
         for field in ['Jr', 'Jt', 'Jz', 'rho']:

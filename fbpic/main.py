@@ -61,7 +61,7 @@ class Simulation(object):
                  gamma_boost=None, use_all_mpi_ranks=True,
                  particle_shape='linear', verbose_level=1,
                  smoother=None, use_ruyten_shapes=True,
-                 use_modified_volume=True ):
+                 use_modified_volume=True, hankel_rcond=None ):
         """
         Initializes a simulation.
 
@@ -226,6 +226,11 @@ class Simulation(object):
             Whether to use a slightly-modified, effective cell volume, that
             ensures that the charge deposited near the axis is correctly
             taken into account by the spectral cylindrical Maxwell solver.
+
+        hankel_rcond: float or None, optional
+            Experimental normalized Hankel singular-value cutoff, in [0, 1).
+            None retains the original transforms. Larger values discard more
+            radial structure; validate accuracy with resolution/cutoff scans.
         """
         # Check whether to use CUDA
         self.use_cuda = use_cuda
@@ -304,7 +309,8 @@ class Simulation(object):
                     # Only create threading buffers when running on CPU
                     create_threading_buffers=(self.use_cuda is False),
                     use_ruyten_shapes=use_ruyten_shapes,
-                    use_modified_volume=use_modified_volume )
+                    use_modified_volume=use_modified_volume,
+                    hankel_rcond=hankel_rcond )
 
         # Initialize the electrons and the ions
         self.grid_shape = self.fld.interp[0].Ez.shape

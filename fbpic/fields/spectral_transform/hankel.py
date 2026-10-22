@@ -27,7 +27,8 @@ class DHT(object):
     Class that allows to perform the Discrete Hankel Transform.
     """
 
-    def __init__(self, p, m, Nr, Nz, rmax, use_cuda=False ):
+    def __init__(self, p, m, Nr, Nz, rmax, use_cuda=False,
+                 rcond=1.e-15, rcond_mminus=None ):
         """
         Calculate the r (position) and nu (frequency) grid
         on which the transform will operate.
@@ -51,7 +52,20 @@ class DHT(object):
 
         use_cuda: bool, optional
         Whether to use the GPU for the Hankel transform
+
+        rcond: float, optional
+        Experimental relative singular-value cutoff in cylindrical-volume
+        and Bessel-mode normalized coordinates. The default retains the
+        upstream pseudoinverse. Does not apply to m=0 or p=m-1.
+
+        rcond_mminus: float or None, optional
+        Experimental normalized cutoff for p=m-1, preserving its extra
+        kperp=0 mode. None keeps the unmodified inverse.
         """
+        for cutoff in (rcond, rcond_mminus):
+            if cutoff is not None and (not np.isfinite(cutoff) or not 0 <= cutoff < 1):
+                raise ValueError('Hankel cutoffs must be finite and in [0, 1)')
+
         # Register whether to use the GPU.
         # If yes, initialize the corresponding cuda object
         self.use_cuda = use_cuda
@@ -113,13 +127,41 @@ class DHT(object):
         else :
             self.invM[:, :] = num[:, :] / denom[:, np.newaxis]
 
-        # Calculate the matrix M by inverting invM
-        self.M = np.empty((Nr, Nr))
-        if m !=0 and p != m-1:
-            self.M[:, 1:] = np.linalg.pinv( self.invM[1:,:] )
-            self.M[:, 0] = 0.
-        else:
-            self.M = np.linalg.inv( self.invM )
+        # Defaults and resolved transforms retain the original arithmetic.
+        cutoff = rcond_mminus if p == m-1 else (rcond if rcond != 1.e-15 else None)
+        truncated = False
+        if m != 0 and cutoff is not None:
+            # Bessel modes have cylindrical norm squared 1/denom; normalize
+            # both coordinates so the cutoff does not reject physical low-k modes.
+            radial_scale = np.sqrt(2*np.pi*self.r*(rmax/Nr))
+            spectral_scale = np.sqrt(denom[1:])
+            other = self.invM[1:]*radial_scale[np.newaxis, :]
+            if p == m-1:
+                zero = self.invM[0]*radial_scale
+                zero_norm = np.linalg.norm(zero)
+                zero = zero/zero_norm
+                overlap = other @ zero
+                other = other - overlap[:, np.newaxis]*zero[np.newaxis, :]
+            normalized = spectral_scale[:, np.newaxis]*other
+            u, singular, vh = np.linalg.svd(normalized, full_matrices=False)
+            keep = singular > cutoff*singular[0]
+            truncated = not np.all(keep)
+            if truncated:
+                inverse = (vh[keep].T/singular[keep]) @ u[:, keep].T
+                self.M = np.empty((Nr, Nr))
+                self.M[:, 1:] = (radial_scale[:, np.newaxis]*inverse
+                                * spectral_scale[np.newaxis, :])
+                if p == m-1:
+                    self.M[:, 0] = (radial_scale*zero-self.M[:, 1:] @ overlap)/zero_norm
+                else:
+                    self.M[:, 0] = 0.
+        if not truncated:
+            self.M = np.empty((Nr, Nr))
+            if m != 0 and p != m-1:
+                self.M[:, 1:] = np.linalg.pinv(self.invM[1:, :], rcond=1.e-15)
+                self.M[:, 0] = 0.
+            else:
+                self.M = np.linalg.inv(self.invM)
 
         # Copy the matrices to the GPU if needed
         if self.use_cuda:
