@@ -271,6 +271,7 @@ def add_particle_bunch_gaussian(sim, q, m, sig_r, sig_z, n_emit, gamma0,
                                     [-y, x, z,-uy, ux, uz, w],
                                     [-x,-y, z,-ux,-uy, uz, w],
                                     [ y,-x, z, uy,-ux, uz, w] ) )
+        inv_gamma = np.tile(inv_gamma, 4)
 
     # Save beam distribution to an .npz file
     if save_beam is not None:
