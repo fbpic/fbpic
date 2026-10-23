@@ -1,7 +1,7 @@
 # Copyright 2016, FBPIC contributors
 # Authors: Remi Lehe, Manuel Kirchen
 # License: 3-Clause-BSD-LBNL
-"""
+r"""
 This file tests the whole PIC-Cycle by simulating a
 linear, laser-driven plasma wakefield and comparing
 it to the analytical solution.
@@ -63,12 +63,12 @@ def test_linear_wakefield( Nm=1, show=False ):
     Nm: int
         The number of azimuthal modes used in the simulation (Use 1, 2 or 3)
         This also determines the profile of the driving laser:
-        - Nm=1: azimuthally-polarized annular laser 
+        - Nm=1: azimuthally-polarized annular laser
           (laser in mode m=0, wakefield in mode m=0)
         - Nm=2: linearly-polarized Gaussian laser
           (laser in mode m=1, wakefield in mode m=0)
         - Nm=3: linearly-polarized Laguerre-Gauss laser
-          (laser in mode m=0 and m=2, wakefield in mode m=0 and m=2, 
+          (laser in mode m=0 and m=2, wakefield in mode m=0 and m=2,
 
     show: bool
         Whether to have pop-up windows show the comparison between

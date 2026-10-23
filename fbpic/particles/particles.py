@@ -557,7 +557,7 @@ class Particles(object) :
 
     def activate_spin_tracking(self, sx_m=0., sy_m=0., sz_m=1.,
                                anom=0.00115965218128, spin_distr='fixed'):
-        """
+        r"""
         Activate spin tracking for this particle. This will
         enable calculating the evolution of particle spin
         vector throughout the simulation.

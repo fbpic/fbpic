@@ -25,7 +25,7 @@ class SpinTracker(object):
     """
     def __init__(self, species, dt, sx_m=0., sy_m=0., sz_m=1.,
                  anom=0., spin_distr='fixed'):
-        """
+        r"""
         Initialize the SpinTracker class.
 
         The length of each particle's spin vector is 1, and this
