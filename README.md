@@ -74,7 +74,7 @@ it from [here](https://www.continuum.io/downloads).
     ```
     (If you want to run FBPIC through the [PICMI](https://picmi-standard.github.io/)
     interface, you can instead use `pip install fbpic[picmi]`.
-    FBPIC currently supports `picmistandard` up to version 0.34.0.)
+    FBPIC requires `picmistandard` 0.35.0 or later.)
 
 - **Optional:** in order to run on GPU, install the additional package
     `cupy` — e.g. using CUDA version 11.8. (The command below also automatically installs `cudatoolkit` which is also needed by FBPIC.)
