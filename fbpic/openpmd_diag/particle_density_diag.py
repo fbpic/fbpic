@@ -80,21 +80,7 @@ class ParticleChargeDensityDiagnostic(FieldDiagnostic):
         """
         sim = self.sim
 
-        # Extract information needed for the openPMD attributes
-        dt = self.fld.dt
-        time = iteration * dt
-        dz = self.fld.interp[0].dz
-        zmin, _ = self.comm.get_zmin_zmax(
-                local=False, with_damp=False, with_guard=False )
-        Nz, _ = self.comm.get_Nz_and_iz(
-                local=False, with_damp=False, with_guard=False )
-        Nr = self.comm.get_Nr(with_damp=False)
-
-        # Create the file with these attributes
-        filename = "data%08d.h5" %iteration
-        fullpath = os.path.join( self.write_dir, "hdf5", filename )
-        self.create_file_empty_meshes(
-            fullpath, iteration, time, Nr, Nz, zmin, dz, dt )
+        fullpath = self._create_density_file(iteration)
 
         # Loop over the requested species
         for species_name in self.species.keys():
@@ -117,23 +103,33 @@ class ParticleChargeDensityDiagnostic(FieldDiagnostic):
             if self.fld.use_cuda :
                 self.fld.receive_fields_from_gpu()
 
-            # Open the file again, and get the field path
-            f = self.open_file( fullpath )
-            # (f is None if this processor does not participate in writing data)
-            if f is not None:
-                field_path = "/data/%d/fields/" %iteration
-                field_grp = f[field_path]
-            else:
-                field_grp = None
-
-            # Loop over the different quantities that should be written
-            fieldtype = "rho_%s" %species_name
-            self.write_dataset( field_grp, fieldtype, "rho" )
-
-            # Close the file (only the first proc does this)
-            if f is not None:
-                f.close()
+            self._write_density_dataset(fullpath, iteration, species_name)
 
             # Send data to the GPU if needed
             if self.fld.use_cuda :
                 self.fld.send_fields_to_gpu()
+
+    def _create_density_file(self, iteration):
+        dt = self.fld.dt
+        time = iteration * dt
+        dz = self.fld.interp[0].dz
+        zmin, _ = self.comm.get_zmin_zmax(
+            local=False, with_damp=False, with_guard=False)
+        Nz, _ = self.comm.get_Nz_and_iz(
+            local=False, with_damp=False, with_guard=False)
+        Nr = self.comm.get_Nr(with_damp=False)
+        filename = "data%08d.h5" % iteration
+        fullpath = os.path.join(self.write_dir, "hdf5", filename)
+        self.create_file_empty_meshes(
+            fullpath, iteration, time, Nr, Nz, zmin, dz, dt)
+        return fullpath
+
+    def _write_density_dataset(self, fullpath, iteration, species_name):
+        handle = self.open_file(fullpath)
+        if handle is not None:
+            field_group = handle["/data/%d/fields/" % iteration]
+        else:
+            field_group = None
+        self.write_dataset(field_group, "rho_%s" % species_name, "rho")
+        if handle is not None:
+            handle.close()

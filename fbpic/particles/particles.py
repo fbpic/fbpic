@@ -5,6 +5,7 @@
 This file is part of the Fourier-Bessel Particle-In-Cell code (FB-PIC)
 It defines the structure and methods associated with the particles.
 """
+import os
 import warnings
 import numpy as np
 from scipy.constants import e
@@ -34,7 +35,7 @@ from fbpic.utils.cuda import cuda_installed
 if cuda_installed:
     # Load the CUDA methods
     import cupy
-    from fbpic.utils.cuda import cuda_tpb_bpg_1d, cuda_gpu_model
+    from fbpic.utils.cuda import cuda_tpb_bpg_1d, get_cuda_launch_config
     from .push.cuda_methods import push_p_gpu, push_p_ioniz_gpu, \
                                 push_p_after_plane_gpu, push_x_gpu
     from .deposition.cuda_methods import deposit_rho_gpu_linear, \
@@ -42,6 +43,8 @@ if cuda_installed:
     from .deposition.cuda_methods_one_mode import \
         deposit_rho_gpu_linear_one_mode, deposit_J_gpu_linear_one_mode, \
         deposit_rho_gpu_cubic_one_mode, deposit_J_gpu_cubic_one_mode
+    from .deposition.cuda_methods_unsorted import \
+        deposit_J_gpu_unsorted_momentum, deposit_rho_gpu_unsorted
     from .gathering.cuda_methods import gather_field_gpu_linear, \
         gather_field_gpu_cubic
     from .gathering.cuda_methods_one_mode import erase_eb_cuda, \
@@ -246,14 +249,17 @@ class Particles(object) :
             self.prefix_sum_shift = 0
             # Register boolean that records if the particles are sorted or not
             self.sorted = False
-            # Define optimal number of CUDA threads per block for deposition
-            # and gathering kernels (determined empirically)
+            # Define CUDA threads per block for deposition and gathering
+            # kernels from the selected device policy.
+            launch_config = get_cuda_launch_config()
             if particle_shape == "cubic":
-                self.deposit_tpb = 32
-                self.gather_tpb = 256
+                self.deposit_tpb = launch_config.deposit_tpb_cubic
+                self.gather_tpb = launch_config.gather_tpb_cubic
             else:
-                self.deposit_tpb = 16 if cuda_gpu_model == "V100" else 8
-                self.gather_tpb = 128
+                self.deposit_tpb = launch_config.deposit_tpb_linear
+                self.gather_tpb = launch_config.gather_tpb_linear
+            self.unsorted_j_tpb = launch_config.unsorted_j_tpb
+            self.unsorted_rho_tpb = launch_config.unsorted_rho_tpb
 
     def send_particles_to_gpu( self ):
         """
@@ -1009,10 +1015,16 @@ class Particles(object) :
         assert fieldtype in ['rho', 'J']
         assert self.particle_shape in ['linear', 'cubic']
 
+        use_unsorted_j = (
+            self.use_cuda and fieldtype == 'J'
+            and self.particle_shape == 'linear'
+            and os.environ.get('FBPIC_EXPERIMENT_UNSORTED_J') == '1')
+
         # When running on GPU: first sort the arrays of particles
         if self.use_cuda:
             # Sort the particles
-            if not self.sorted:
+            if not self.sorted and not (
+                    use_unsorted_j and self.ionizer is None):
                 self.sort_particles(fld=fld)
                 # The particles are now sorted and rearranged
                 self.sorted = True
@@ -1033,6 +1045,33 @@ class Particles(object) :
 
             # Call the CUDA Kernel for the deposition of rho or J
             Nm = len( grid )
+            if (fieldtype == 'rho' and self.particle_shape == 'linear'
+                    and self.prefix_sum_shift == 0
+                    and os.environ.get(
+                        'FBPIC_EXPERIMENT_UNSORTED_RHO') == '1'):
+                particle_grid, particle_block = cuda_tpb_bpg_1d(
+                    self.Ntot, TPB=self.unsorted_rho_tpb)
+                for m in range(Nm):
+                    deposit_rho_gpu_unsorted[particle_grid, particle_block](
+                        self.x, self.y, self.z, weight, self.q,
+                        grid[m].invdz, grid[m].zmin, grid[m].Nz,
+                        grid[m].invdr, grid[m].rmin, grid[m].Nr,
+                        grid[m].rho, m,
+                        grid[m].d_ruyten_linear_coef)
+                return
+            if use_unsorted_j:
+                particle_grid, particle_block = cuda_tpb_bpg_1d(
+                    self.Ntot, TPB=self.unsorted_j_tpb)
+                for m in range(Nm):
+                    deposit_J_gpu_unsorted_momentum[
+                        particle_grid, particle_block](
+                            self.x, self.y, self.z, weight, self.q,
+                            self.ux, self.uy, self.uz, self.inv_gamma,
+                            grid[m].invdz, grid[m].zmin, grid[m].Nz,
+                            grid[m].invdr, grid[m].rmin, grid[m].Nr,
+                            grid[m].Jr, grid[m].Jt, grid[m].Jz, m,
+                            grid[m].d_ruyten_linear_coef)
+                return
             # Rho
             if fieldtype == 'rho':
                 if self.particle_shape == 'linear':
