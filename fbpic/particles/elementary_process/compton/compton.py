@@ -16,7 +16,7 @@ from fbpic.utils.cuda import cuda_installed
 from fbpic.utils.printing import catch_gpu_memory_error
 if cuda_installed:
     from fbpic.utils.cuda import cuda_tpb_bpg_1d
-    from numba.cuda.random import create_xoroshiro128p_states
+    # from numba.cuda.random import create_xoroshiro128p_states
 if cuda_installed:
     from .cuda_methods import get_photon_density_gaussian_cuda, \
         determine_scatterings_cuda, scatter_photons_electrons_cuda
@@ -163,7 +163,7 @@ class ComptonScatterer(object):
         # Prepare random numbers
         if self.use_cuda:
             seed = np.random.randint( 256 )
-            random_states = create_xoroshiro128p_states( N_batch, seed )
+            random_states = 0 # create_xoroshiro128p_states( N_batch, seed )
 
 
         # For each electron, calculate the local density of photons
@@ -198,7 +198,7 @@ class ComptonScatterer(object):
                 self.ratio_w_electron_photon, photon_n, self.photon_p,
                 self.photon_beta_x, self.photon_beta_y, self.photon_beta_z )
 
-        # Count the total number of new photons 
+        # Count the total number of new photons
         cumul_nscatter_per_batch = perform_cumsum( nscatter_per_batch, use_cuda )
         N_created = int( cumul_nscatter_per_batch[-1] )
         # If no new particle was created, skip the rest of this function

@@ -9,7 +9,8 @@ Apart from synthactic details, this file is very close to numba_methods.py
 """
 
 from numba import cuda
-from numba.cuda.random import xoroshiro128p_normal_float64
+# from numba.cuda.random import xoroshiro128p_normal_float64
+from fbpic.utils.cuda import gpu_atomic_add
 from scipy.constants import c
 import math
 
@@ -128,10 +129,10 @@ def gather_synchrotron_cuda(
             theta_x, theta_y = get_angles( ux[ip], uy[ip], uz[ip] )
 
             theta_diffusion = 2**-1.5 * gamma_inv[ip]
-            theta_x += theta_diffusion * xoroshiro128p_normal_float64(
-                rng_states_batch, i_batch)
-            theta_y += theta_diffusion * xoroshiro128p_normal_float64(
-                rng_states_batch, i_batch)
+            theta_x += theta_diffusion * 0. # xoroshiro128p_normal_float64(
+            #     rng_states_batch, i_batch)
+            theta_y += theta_diffusion * 0. # xoroshiro128p_normal_float64(
+            #     rng_states_batch, i_batch)
 
             if   (theta_x >= theta_x_max) \
               or (theta_y >= theta_y_max) \
@@ -167,7 +168,7 @@ def gather_synchrotron_cuda(
                 spect_loc_omega = spect_loc[i_omega]
 
                 spect_proj_00 = spect_loc_omega * s0_x * s0_y
-                cuda.atomic.add(
+                gpu_atomic_add(
                     radiation_data, (th_ix, th_iy, i_omega),
                     spect_proj_00
                 )
@@ -176,7 +177,7 @@ def gather_synchrotron_cuda(
                 spect_loc_omega = spect_loc[i_omega]
 
                 spect_proj_10 = spect_loc_omega * s1_x * s0_y
-                cuda.atomic.add(
+                gpu_atomic_add(
                     radiation_data, (th_ix+1, th_iy, i_omega),
                     spect_proj_10
                 )
@@ -185,7 +186,7 @@ def gather_synchrotron_cuda(
                 spect_loc_omega = spect_loc[i_omega]
 
                 spect_proj_01 = spect_loc_omega * s0_x * s1_y
-                cuda.atomic.add(
+                gpu_atomic_add(
                     radiation_data, (th_ix, th_iy+1, i_omega),
                     spect_proj_01
                 )
@@ -194,7 +195,7 @@ def gather_synchrotron_cuda(
                 spect_loc_omega = spect_loc[i_omega]
 
                 spect_proj_11 = spect_loc_omega * s1_x * s1_y
-                cuda.atomic.add(
+                gpu_atomic_add(
                     radiation_data, (th_ix+1, th_iy+1, i_omega),
                     spect_proj_11
                 )

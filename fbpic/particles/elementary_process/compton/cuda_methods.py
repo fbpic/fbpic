@@ -8,7 +8,7 @@ It defines cuda methods that are used in Compton scattering (on GPU).
 import math
 from numba import cuda
 from fbpic.utils.cuda import compile_cupy
-from numba.cuda.random import xoroshiro128p_uniform_float64
+# from numba.cuda.random import xoroshiro128p_uniform_float64
 # Import the inline functions
 from .inline_functions import lorentz_transform, get_scattering_probability, \
     get_photon_density_gaussian, INV_MC
@@ -88,7 +88,7 @@ def determine_scatterings_cuda( N_batch, batch_size, elec_Ntot,
                 photon_p, photon_beta_x, photon_beta_y, photon_beta_z )
 
             # Determine the number of photons produced by this electron
-            r = xoroshiro128p_uniform_float64(random_states, i_batch)
+            r = 0.5 # xoroshiro128p_uniform_float64(random_states, i_batch)
             nscatter = int(p * ratio_w_electron_photon + r)
             # Note: if p is 0, the above formula will return nscatter=0
             # since r is in [0, 1). Similarly, if p is very small,
@@ -184,7 +184,7 @@ def scatter_photons_electrons_cuda(
                 reject = True
                 while reject:
                     # - Draw x with an approximate probability distribution
-                    r1 = xoroshiro128p_uniform_float64(random_states, i_batch)
+                    r1 = 0.5 # xoroshiro128p_uniform_float64(random_states, i_batch)
                     x = b - (b + 1.)*(0.5*c0)**r1
                     # - Calculate approximate probability distribution h
                     h = a/(b-x)
@@ -192,7 +192,7 @@ def scatter_photons_electrons_cuda(
                     factor = 1 + k*(1-x)
                     f = ( (1+x**2)*factor + k**2*(1-x)**2 )/factor**3
                     # - Keep x according to rejection rule
-                    r2 = xoroshiro128p_uniform_float64(random_states, i_batch)
+                    r2 = 0.5 # xoroshiro128p_uniform_float64(random_states, i_batch)
                     if r2 < f/h:
                         reject = False
 
@@ -201,7 +201,7 @@ def scatter_photons_electrons_cuda(
                 # - First in a system of axes aligned with the incoming photon
                 cos_theta_s = x
                 sin_theta_s = math.sqrt( 1 - x**2 )
-                r3 = xoroshiro128p_uniform_float64(random_states, i_batch)
+                r3 = 0.5 # xoroshiro128p_uniform_float64(random_states, i_batch)
                 phi_s = 2*math.pi*r3
                 cos_phi_s = math.cos( phi_s )
                 sin_phi_s = math.sin( phi_s )
@@ -254,7 +254,7 @@ def scatter_photons_electrons_cuda(
             # photon has been created, we should add recoil to the corresponding
             # electron only with a probability inv_ratio_w_elec_photon.
             if nscatter_per_elec[i_elec] > 0:
-                r = xoroshiro128p_uniform_float64(random_states, i_batch)
+                r = 0.5 # xoroshiro128p_uniform_float64(random_states, i_batch)
                 if r < inv_ratio_w_elec_photon:
                     elec_ux[i_elec] += INV_MC * (photon_px - new_photon_px)
                     elec_uy[i_elec] += INV_MC * (photon_py - new_photon_py)
