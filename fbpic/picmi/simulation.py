@@ -50,6 +50,22 @@ def species_instances( species ):
         raise ValueError('Unknown type: %s' %type(species))
 
 
+def fbpic_particle_shape( particle_shape ):
+    """
+    Return the FBPIC name of the PICMI `particle_shape`, which is given by its
+    name or by the equivalent integer interpolation order (FBPIC supports
+    linear and cubic shapes, and uses linear shapes by default)
+    """
+    fbpic_shapes = { None: 'linear',
+                     'linear': 'linear', 1: 'linear',
+                     'cubic': 'cubic', 3: 'cubic' }
+    if isinstance( particle_shape, bool ) or \
+       ( particle_shape not in fbpic_shapes ):
+        raise ValueError("FBPIC only supports the particle shapes 'linear' "
+            "(or 1) and 'cubic' (or 3), but got %r." %(particle_shape,))
+    return fbpic_shapes[ particle_shape ]
+
+
 class FBPICObjects:
     """
     The FBPIC objects that are created from the PICMI input of a `Simulation`
@@ -455,7 +471,7 @@ class Simulation( PICMI_Simulation ):
             dt=dt, use_cuda=True, smoother=smoother, n_order=n_order,
             boundaries={'z':boundary_conditions[1], 'r':boundary_conditions[0]},
             n_guard=n_guard, verbose_level=verbose_level,
-            particle_shape=self.particle_shape,
+            particle_shape=self._get_particle_shape(),
             v_comoving=v_comoving,
             gamma_boost=self.gamma_boost,
             **self._fbpic_arguments(self._simulation_arguments))
@@ -463,6 +479,39 @@ class Simulation( PICMI_Simulation ):
         # Set the moving window
         if grid.moving_window_velocity is not None:
             self._fbpic.sim.set_moving_window(grid.moving_window_velocity[-1])
+
+
+    def _species_particle_shape( self, s ):
+        """
+        Return the FBPIC particle shape of the PICMI species `s`
+        (a species without `particle_shape` uses the one of the Simulation)
+        """
+        if s.particle_shape is not None:
+            return fbpic_particle_shape( s.particle_shape )
+        return fbpic_particle_shape( self.particle_shape )
+
+
+    def _get_particle_shape( self ):
+        """
+        Return the particle shape of the FBPIC simulation: FBPIC uses the same
+        particle shape for all species, which is thus the one of the species
+        that were added (or else the one of the Simulation)
+        """
+        shapes = { self._species_particle_shape( s )
+                   for species in self.species
+                   for s in species_instances( species ) }
+        if len( shapes ) > 1:
+            raise ValueError('FBPIC uses the same particle shape for all '
+                'species, but the species have the particle shapes %s. (A '
+                'species without `particle_shape` uses the one of the '
+                'Simulation, which is %r.) To use the same shape for all '
+                'species, set it in the Simulation, e.g. with '
+                '`Simulation(particle_shape=%r)`, and not in the species.'
+                %(sorted(shapes), self.particle_shape,
+                  sorted(shapes, key=lambda shape: shape == 'linear')[0]))
+        if shapes:
+            return shapes.pop()
+        return fbpic_particle_shape( self.particle_shape )
 
 
     def _fbpic_arguments( self, argnames ):
@@ -549,6 +598,16 @@ class Simulation( PICMI_Simulation ):
             if isinstance(s.initial_distribution, list):
                 raise ValueError('FBPIC does not support more than one '
                                  'initial distribution per species.')
+
+            # FBPIC uses the same particle shape for all species (this can
+            # only differ for a species that is added after running)
+            if self._species_particle_shape( s ) != \
+               self._fbpic.sim.particle_shape:
+                raise ValueError('FBPIC uses the same particle shape for all '
+                    'species (%r), but species %s has the particle shape %r. '
+                    '(A species without `particle_shape` uses the one of the '
+                    'Simulation.)' %(self._fbpic.sim.particle_shape,
+                    s.name or s.particle_type, self._species_particle_shape(s)))
 
             # Get their charge and mass: when they are not given, they are
             # determined by the particle type and the charge state
