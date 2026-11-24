@@ -876,7 +876,14 @@ class Simulation( PICMI_Simulation ):
                 if s.name is None:
                     raise ValueError('When using a species in a diagnostic, '
                                       'its name must be set.')
-                species_dict[s.name] = self._get_fbpic_species( s )
+                fbpic_species = self._get_fbpic_species( s )
+                # The FBPIC diagnostic labels the species by their name
+                if (s.name in species_dict) and \
+                   (species_dict[s.name] is not fbpic_species):
+                    raise ValueError('The species of a particle diagnostic '
+                        'need different names, but several species are '
+                        'named %r.' %s.name)
+                species_dict[s.name] = fbpic_species
         return species_dict
 
 
@@ -946,6 +953,10 @@ class Simulation( PICMI_Simulation ):
                             if s.name == sname:
                                 species_dict[s.name] = \
                                     self._get_fbpic_species( s )
+                    if sname not in species_dict:
+                        raise ValueError('The field diagnostic requests %r, '
+                            'but no species named %r was added to the '
+                            'simulation.' %(data, sname))
                 pdd_diag = ParticleChargeDensityDiagnostic(
                             period=diagnostic.period,
                             sim=self._fbpic.sim,
@@ -1103,7 +1114,8 @@ class Simulation( PICMI_Simulation ):
     # Redefine the method `step` of the parent class
     def step(self, nsteps=None):
         if nsteps is None:
-            nsteps = self.max_steps
+            # Run `max_steps` steps, or else 1 step (the default of PICMI)
+            nsteps = self.max_steps if self.max_steps is not None else 1
         # (Running the FBPIC simulation creates the FBPIC objects of the PICMI
         # input that was given so far, see `FBPICSimulationFromPICMI`)
         self.fbpic_sim.step( nsteps, **self._fbpic_arguments(self._step_arguments) )
