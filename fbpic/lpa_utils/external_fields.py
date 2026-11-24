@@ -8,8 +8,7 @@ import numpy as np
 # Check if CUDA is available, then import CUDA functions
 from fbpic.utils.cuda import cuda_installed
 if cuda_installed:
-    from fbpic.utils.cuda import compile_cupy, cuda_tpb_bpg_1d
-    from numba import cuda
+    from fbpic.utils.cuda import cuda, compile_cupy, cuda_tpb_bpg_1d
 
 class ExternalField( object ):
 

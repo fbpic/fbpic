@@ -8,8 +8,8 @@ It defines cuda methods that are used in calcualtion of synchrotron radiation.
 Apart from synthactic details, this file is very close to numba_methods.py
 """
 
-from numba import cuda
-from numba.cuda.random import xoroshiro128p_normal_float64
+from fbpic.utils.cuda import cuda, compile_cupy
+from fbpic.utils.random_gpu import xoroshiro128p_normal_float64
 from scipy.constants import c
 import math
 
@@ -22,7 +22,7 @@ get_angles = cuda.jit( get_angles, device=True, inline=True)
 get_particle_radiation = cuda.jit( get_particle_radiation, device=True, inline=True )
 get_linear_coefficients = cuda.jit( get_linear_coefficients, device=True, inline=True )
 
-@cuda.jit
+@compile_cupy
 def gather_synchrotron_cuda(
     N_batch, batch_size, Ntot,
     ux, uy, uz, Ex, Ey, Ez,

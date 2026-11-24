@@ -5,8 +5,7 @@
 This file is part of the Fourier-Bessel Particle-In-Cell code (FB-PIC)
 """
 
-from numba import cuda
-from fbpic.utils.cuda import compile_cupy
+from fbpic.utils.cuda import cuda, compile_cupy
 import math
 from fbpic.particles.deposition.particle_shapes import Sz_linear, \
     Sr_linear

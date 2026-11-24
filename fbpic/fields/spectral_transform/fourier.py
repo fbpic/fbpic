@@ -11,10 +11,11 @@ import numba
 # Check if CUDA is available, then import CUDA functions
 from fbpic.utils.cuda import cuda_installed
 if cuda_installed:
-    from fbpic.utils.cuda import cuda_tpb_bpg_2d, cuda_gpu_model
+    from fbpic.utils.cuda import (
+        cuda_tpb_bpg_2d, get_copy_tpb_2d, cufft,
+    )
     from .cuda_methods import cuda_copy_2d_to_1d, cuda_copy_1d_to_2d
     import cupy
-    from cupy.cuda import cufft
 
 # Check if the MKL FFT is available
 try:
@@ -66,7 +67,7 @@ class FFT(object):
         if self.use_cuda:
             # Set optimal number of CUDA threads per block
             # for copy 1d/2d kernels (determined empirically)
-            copy_tpb = (8,32) if cuda_gpu_model == "V100" else (2,16)
+            copy_tpb = get_copy_tpb_2d()
             # Initialize the dimension of the grid and blocks
             self.dim_grid, self.dim_block = cuda_tpb_bpg_2d(Nz, Nr, *copy_tpb)
             # Initialize 1d buffer for cufft

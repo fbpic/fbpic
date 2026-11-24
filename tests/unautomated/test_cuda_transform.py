@@ -14,8 +14,7 @@ import numpy as np
 from fbpic.fields.spectral_transform import SpectralTransformer
 from fbpic.utils.cuda import cuda_installed
 if cuda_installed:
-    from numba import cuda
-    from fbpic.utils.cuda import cupy
+    from fbpic.utils.cuda import cuda, cupy
 import time
 
 if __name__ == '__main__' :

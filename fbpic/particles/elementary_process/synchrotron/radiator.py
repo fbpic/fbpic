@@ -26,7 +26,7 @@ if cuda_installed:
     import cupy
     from fbpic.utils.cuda import cuda_tpb_bpg_1d
     from .cuda_methods import gather_synchrotron_cuda
-    from numba.cuda.random import create_xoroshiro128p_states
+    from fbpic.utils.random_gpu import create_xoroshiro128p_states
 
 class SynchrotronRadiator(object):
     """

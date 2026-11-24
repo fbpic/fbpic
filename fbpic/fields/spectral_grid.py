@@ -18,7 +18,7 @@ from .numba_methods import numba_push_eb_standard, numba_push_eb_comoving, \
 from fbpic.utils.cuda import cuda_installed
 if cuda_installed:
     import cupy
-    from fbpic.utils.cuda import cuda_tpb_bpg_2d
+    from fbpic.utils.cuda import cuda_tpb_bpg_2d, get_spectral_tpb_2d
     from .cuda_methods import \
     cuda_correct_currents_curlfree_standard, \
     cuda_correct_currents_crossdeposition_standard, \
@@ -216,7 +216,8 @@ class SpectralGrid(object) :
 
         if self.use_cuda :
             # Obtain the cuda grid
-            dim_grid, dim_block = cuda_tpb_bpg_2d( self.Nz, self.Nr, 1, 16 )
+            dim_grid, dim_block = cuda_tpb_bpg_2d(
+                self.Nz, self.Nr, *get_spectral_tpb_2d() )
             # Correct the currents on the GPU
             if ps.V is None:
                 # With standard PSATD algorithm
@@ -336,7 +337,8 @@ class SpectralGrid(object) :
 
         if self.use_cuda :
             # Obtain the cuda grid
-            dim_grid, dim_block = cuda_tpb_bpg_2d( self.Nz, self.Nr, 1, 16)
+            dim_grid, dim_block = cuda_tpb_bpg_2d(
+                self.Nz, self.Nr, *get_spectral_tpb_2d() )
             # Push the fields on the GPU
             if ps.V is None:
                 # With the standard PSATD algorithm

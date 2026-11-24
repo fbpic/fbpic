@@ -5,8 +5,7 @@
 This file is part of the Fourier-Bessel Particle-In-Cell code (FB-PIC)
 It defines a set of generic functions that operate on a GPU.
 """
-from numba import cuda
-from fbpic.utils.cuda import compile_cupy
+from fbpic.utils.cuda import cuda, compile_cupy
 
 @compile_cupy
 def copy_vec_to_gpu_buffer( vec_buffer_l, vec_buffer_r,

@@ -34,7 +34,9 @@ from fbpic.utils.cuda import cuda_installed
 if cuda_installed:
     # Load the CUDA methods
     import cupy
-    from fbpic.utils.cuda import cuda_tpb_bpg_1d, cuda_gpu_model
+    from fbpic.utils.cuda import (
+        cuda_tpb_bpg_1d, get_deposit_tpb, get_gather_tpb,
+    )
     from .push.cuda_methods import push_p_gpu, push_p_ioniz_gpu, \
                                 push_p_after_plane_gpu, push_x_gpu
     from .deposition.cuda_methods import deposit_rho_gpu_linear, \
@@ -248,12 +250,8 @@ class Particles(object) :
             self.sorted = False
             # Define optimal number of CUDA threads per block for deposition
             # and gathering kernels (determined empirically)
-            if particle_shape == "cubic":
-                self.deposit_tpb = 32
-                self.gather_tpb = 256
-            else:
-                self.deposit_tpb = 16 if cuda_gpu_model == "V100" else 8
-                self.gather_tpb = 128
+            self.deposit_tpb = get_deposit_tpb(particle_shape)
+            self.gather_tpb = get_gather_tpb(particle_shape)
 
     def send_particles_to_gpu( self ):
         """
