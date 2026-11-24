@@ -26,7 +26,7 @@ from fbpic.openpmd_diag import FieldDiagnostic, ParticleDiagnostic, \
     BackTransformedFieldDiagnostic, BackTransformedParticleDiagnostic
 
 # Import picmi base class
-from picmistandard import PICMI_Simulation, PICMI_CylindricalGrid
+from picmistandard import PICMI_Simulation, PICMI_CylindricalGrid, PICMI_ElectromagneticSolver
 from picmistandard import PICMI_AnalyticDistribution, PICMI_UniformDistribution, PICMI_GriddedLayout
 from picmistandard import PICMI_PseudoRandomLayout, PICMI_GaussianBunchDistribution
 from picmistandard import PICMI_LaserAntenna, PICMI_GaussianLaser
@@ -350,8 +350,13 @@ class Simulation( PICMI_Simulation ):
     def _get_grid( self ):
         """
         Return the grid of the simulation, which needs to be a CylindricalGrid
+        (of an ElectromagneticSolver)
         """
-        grid = None if self.solver is None else getattr(self.solver, 'grid', None)
+        if not isinstance(self.solver, PICMI_ElectromagneticSolver):
+            raise ValueError('When using fbpic with PICMI, the solver needs '
+                'to be an ElectromagneticSolver object, but it is: %s'
+                %type(self.solver))
+        grid = self.solver.grid
         if not isinstance(grid, PICMI_CylindricalGrid):
             raise ValueError('When using fbpic with PICMI, '
                 'the grid needs to be a CylindricalGrid object.')
@@ -364,8 +369,15 @@ class Simulation( PICMI_Simulation ):
         """
         grid = self._get_grid()
         # Check rmin and boundary conditions
-        assert grid.lower_bound[0] == 0.
-        assert grid.lower_boundary_conditions[1] == grid.upper_boundary_conditions[1]
+        if grid.lower_bound[0] != 0.:
+            raise ValueError('FBPIC requires the lower radial bound of the '
+                'grid (`lower_bound[0]`) to be 0, but it is %s.'
+                %grid.lower_bound[0])
+        if grid.lower_boundary_conditions[1] != grid.upper_boundary_conditions[1]:
+            raise ValueError('FBPIC requires the same boundary condition at '
+                'both ends in z, but the lower and upper boundary conditions '
+                'of the grid are %r and %r.' %(grid.lower_boundary_conditions[1],
+                grid.upper_boundary_conditions[1]))
         # (The boundary conditions are not modified in the PICMI grid itself,
         # so as to leave the input of the user unchanged.)
         boundary_conditions = list( grid.upper_boundary_conditions )
@@ -374,8 +386,14 @@ class Simulation( PICMI_Simulation ):
             "FBPIC does not support reflective boundary condition in z.\n"
             "The z boundary condition was automatically converted to 'open'.")
             boundary_conditions[1] = 'open'
-        assert boundary_conditions[1] in ['periodic', 'open']
-        assert boundary_conditions[0] in ['reflective', 'open']
+        if boundary_conditions[1] not in ['periodic', 'open']:
+            raise ValueError('FBPIC only supports the boundary conditions '
+                "'periodic' and 'open' in z, but the grid has %r."
+                %boundary_conditions[1])
+        if boundary_conditions[0] not in ['reflective', 'open']:
+            raise ValueError('FBPIC only supports the upper radial boundary '
+                "conditions 'reflective' and 'open', but the grid has %r."
+                %boundary_conditions[0])
 
         # Determine timestep
         if self.solver.cfl is not None:
@@ -461,11 +479,17 @@ class Simulation( PICMI_Simulation ):
         Add a laser to the FBPIC simulation (see `add_laser`)
         """
         # Handle injection method
-        assert isinstance(injection_method, PICMI_LaserAntenna)
+        if not isinstance(injection_method, PICMI_LaserAntenna):
+            raise ValueError('FBPIC only supports a `LaserAntenna` as '
+                'injection method of a laser, but got: %s'
+                %type(injection_method))
         # Handle laser profile method
         if isinstance(laser, PICMI_GaussianLaser):
-            assert laser.propagation_direction[0] == 0.
-            assert laser.propagation_direction[1] == 0.
+            if (laser.propagation_direction[0] != 0.) or \
+               (laser.propagation_direction[1] != 0.):
+                raise ValueError('FBPIC only supports lasers that propagate '
+                    'along z, but the `propagation_direction` of the laser '
+                    'is %s.' %laser.propagation_direction)
             # FBPIC lasers propagate either towards positive or negative z
             if laser.propagation_direction[2] > 0:
                 propagation_direction = 1
@@ -474,8 +498,12 @@ class Simulation( PICMI_Simulation ):
             else:
                 raise ValueError('The `propagation_direction` of the laser '
                                  'cannot be the null vector.')
-            assert (laser.zeta is None) or (laser.zeta == 0)
-            assert (laser.beta is None) or (laser.beta == 0)
+            if laser.zeta not in [None, 0]:
+                raise ValueError('FBPIC does not support a spatial chirp '
+                    '(`zeta`) of the laser, but it is %s.' %laser.zeta)
+            if laser.beta not in [None, 0]:
+                raise ValueError('FBPIC does not support an angular dispersion '
+                    '(`beta`) of the laser, but it is %s.' %laser.beta)
             phi2_chirp = laser.phi2
             if phi2_chirp is None:
                 phi2_chirp = 0
@@ -575,12 +603,20 @@ class Simulation( PICMI_Simulation ):
                     return n
             else:
                 raise ValueError('Unknown combination of layout and distribution')
+            if len(layout.n_macroparticles_per_cell) != 3:
+                raise ValueError('FBPIC requires the `n_macroparticles_per_cell` '
+                    'of a `GriddedLayout` to have 3 entries (along r, theta and '
+                    'z), but it is %s.' %layout.n_macroparticles_per_cell)
             p_nr = layout.n_macroparticles_per_cell[0]
             p_nt = layout.n_macroparticles_per_cell[1]
             p_nz = layout.n_macroparticles_per_cell[2]
 
             if initialize_self_field or (injection_plane_position is not None):
-                assert s.initial_distribution.fill_in != True
+                if s.initial_distribution.fill_in:
+                    raise ValueError('FBPIC does not support `fill_in` for a '
+                        'species that is injected through a plane or whose '
+                        'self-field is initialized (species %s).'
+                        %(s.name or s.particle_type))
 
                 if injection_plane_position is None:
                     z_injection_plane = None
@@ -914,7 +950,9 @@ class Simulation( PICMI_Simulation ):
         external_fields = []
 
         if isinstance(applied_field, PICMI_Mirror):
-            assert applied_field.z_front_location is not None
+            if applied_field.z_front_location is None:
+                raise ValueError('FBPIC only supports mirrors that are '
+                    'perpendicular to z, i.e. with a `z_front_location`.')
             # The mirror extends from `z_front_location` towards positive z.
             # Its thickness is the maximum of `depth` and `number_of_cells`
             # cells of the grid, or 2 cells if neither is set.
