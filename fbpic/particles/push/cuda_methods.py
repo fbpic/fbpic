@@ -6,8 +6,7 @@ This file is part of the Fourier-Bessel Particle-In-Cell code (FB-PIC)
 It defines the particle push methods on the GPU using CUDA.
 """
 from scipy.constants import c, e
-from numba import cuda
-from fbpic.utils.cuda import compile_cupy
+from fbpic.utils.cuda import cuda, compile_cupy
 # Import inline function
 from .inline_functions import push_p_vay
 # Compile the inline function for GPU

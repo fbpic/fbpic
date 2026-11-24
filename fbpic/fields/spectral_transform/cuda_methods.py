@@ -6,8 +6,7 @@ This file is part of the Fourier-Bessel Particle-In-Cell code (FB-PIC)
 It defines a set of functions that are useful when converting the
 fields from interpolation grid to the spectral grid and vice-versa
 """
-from numba import cuda
-from fbpic.utils.cuda import compile_cupy
+from fbpic.utils.cuda import cuda, compile_cupy
 
 # ------------------
 # Copying functions

@@ -9,8 +9,7 @@ It carries out the spin-push related methods for all particles
 on GPU using CUDA.
 """
 from scipy.constants import e
-from numba import cuda
-from fbpic.utils.cuda import compile_cupy
+from fbpic.utils.cuda import cuda, compile_cupy
 # Import inline function
 from .inline_functions import push_s_BMT, copy_ionized_electron_spin_batch
 from .cuda_numba_utils import random_point_sphere_gpu

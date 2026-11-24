@@ -6,8 +6,7 @@ This file is part of the Fourier-Bessel Particle-In-Cell code (FB-PIC)
 It defines the deposition methods for rho and J for linear and cubic
 order shapes on the GPU using CUDA, for one azimuthal mode only
 """
-from numba import cuda
-from fbpic.utils.cuda import compile_cupy
+from fbpic.utils.cuda import cuda, compile_cupy
 import math
 from scipy.constants import c
 import numpy as np

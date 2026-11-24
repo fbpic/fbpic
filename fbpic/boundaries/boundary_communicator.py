@@ -18,7 +18,7 @@ from .pml_damping import PMLDamper
 from .particle_buffer_handling import remove_outside_particles, \
      add_buffers_to_particles, shift_particles_periodic_subdomain
 # Check if CUDA is available, then import CUDA functions
-from fbpic.utils.cuda import cuda_installed
+from fbpic.utils.cuda import cuda_installed, gpu_backend
 if cuda_installed:
     import cupy
     from fbpic.utils.cuda import cuda, cuda_tpb_bpg_2d
@@ -635,6 +635,11 @@ class BoundaryCommunicator(object):
                     grid, method, exchange_type, use_cuda,
                     before_sending=True, gpudirect=gpudirect_enabled )
         if gpudirect_enabled:
+            if gpu_backend == 'hip':
+                raise RuntimeError(
+                    "FBPIC_ENABLE_GPUDIRECT=1 (GPU-aware MPI) is not "
+                    "supported on the HIP backend."
+                )
             # Synchronize GPU execution (break asynchroneous kernel
             # execution to make sure that writing the buffer arrays
             # completed before sendind via MPI directly)

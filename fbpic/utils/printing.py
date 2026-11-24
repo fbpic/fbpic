@@ -8,9 +8,10 @@ It defines a set of generic functions for printing simulation information.
 import sys, time
 from fbpic import __version__
 from fbpic.utils.mpi import MPI, mpi_installed, gpudirect_enabled
-from fbpic.utils.cuda import cuda, cuda_installed, get_uuid, pynvml_installed, get_uuid_alt
-if cuda_installed:
-    from cupy.cuda.memory import OutOfMemoryError
+from fbpic.utils.cuda import (
+    cuda, cuda_installed, get_uuid, pynvml_installed, get_uuid_alt,
+    OutOfMemoryError,
+)
 # Check if terminal is correctly set to UTF-8 and set progress character
 if sys.stdout.encoding == 'UTF-8':
     progress_char = u'\u2588'

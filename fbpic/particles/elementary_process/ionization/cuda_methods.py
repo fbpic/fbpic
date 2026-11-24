@@ -7,8 +7,7 @@ It defines cuda methods that are used in particle ionization.
 
 Apart from synthactic details, this file is very close to numba_methods.py
 """
-from numba import cuda
-from fbpic.utils.cuda import compile_cupy
+from fbpic.utils.cuda import cuda, compile_cupy
 from scipy.constants import c
 # Import inline functions
 from .inline_functions import get_ionization_probability, \
