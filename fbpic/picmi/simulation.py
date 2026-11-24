@@ -639,6 +639,26 @@ class Simulation( PICMI_Simulation ):
         injection_plane_position, injection_plane_normal_vector,
         initialize_self_field):
 
+        # Injection plane: FBPIC only supports planes that are perpendicular
+        # to z, through which the particles are injected towards positive z.
+        # PICMI gives the position of the plane either as a point (whose
+        # z coordinate is used) or as a scalar (the z position of the plane),
+        # and the normal vector with 2 (r, z) or 3 (x, y, z) components.
+        if injection_plane_position is None:
+            z_injection_plane = None
+        else:
+            normal = injection_plane_normal_vector
+            if (normal is not None) and ( (len(normal) == 0) or
+                any( component != 0 for component in normal[:-1] ) or
+                (normal[-1] <= 0) ):
+                raise ValueError('FBPIC only supports injection planes that '
+                    'are perpendicular to z, with the particles injected '
+                    'towards positive z, i.e. an '
+                    '`injection_plane_normal_vector` along +z (e.g. '
+                    '[0, 0, 1]), but it is %s.' %normal)
+            z_injection_plane = float(
+                np.atleast_1d( injection_plane_position )[-1] )
+
         # - For the case of a plasma/beam defined in a gridded layout
         if isinstance(layout, PICMI_GriddedLayout):
             # - Uniform distribution
@@ -677,10 +697,6 @@ class Simulation( PICMI_Simulation ):
                         'self-field is initialized (species %s).'
                         %(s.name or s.particle_type))
 
-                if injection_plane_position is None:
-                    z_injection_plane = None
-                else:
-                    z_injection_plane = injection_plane_position[-1]
                 gamma0_beta0 = s.initial_distribution.directed_velocity[-1]/c
                 gamma0 = ( 1 + gamma0_beta0**2 )**.5
                 dist = s.initial_distribution
@@ -740,6 +756,7 @@ class Simulation( PICMI_Simulation ):
                                 n_physical_particles=n_physical_particles,
                                 n_macroparticles=layout.n_macroparticles,
                                 zf=zf, tf=tf, boost=self._fbpic.sim.boost,
+                                z_injection_plane=z_injection_plane,
                                 initialize_self_field=initialize_self_field )
 
         # - For the case of an empty species
